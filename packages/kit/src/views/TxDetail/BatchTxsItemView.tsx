@@ -1,10 +1,12 @@
 import { useCallback } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Container } from '@onekeyhq/components';
+import { Container, Text } from '@onekeyhq/components';
 
 import { useNetworkSimple } from '../../hooks';
+import { MAX_ACTIONS_DISPLAY_IN_CONFIRM } from '../Send/constants';
 
 import { TxInteractInfo } from './components/TxInteractInfo';
 import { TxActionsListView } from './TxActionsListView';
@@ -28,36 +30,69 @@ function BatchTxsItemView(props: ITxActionListViewProps) {
 
   const displayedActions = getDisplayedActions({ decodedTx });
 
-  const renderBatchTxsItem = useCallback(
-    () =>
-      displayedActions.map((action, index) => {
-        const metaInfo = getTxActionMeta({
-          action,
-          decodedTx,
-          intl,
-          historyTx: undefined,
-        });
-        metaInfo.meta.transferAmount = transferAmount;
+  const renderBatchTxsItem = useCallback(() => {
+    const batchTxs = [];
+    const actionCount = displayedActions.length;
+    for (
+      let i = 0,
+        len = BigNumber.min(
+          actionCount,
+          MAX_ACTIONS_DISPLAY_IN_CONFIRM,
+        ).toNumber();
+      i < len;
+      i += 1
+    ) {
+      const action = displayedActions[i];
+      const metaInfo = getTxActionMeta({
+        action,
+        decodedTx,
+        intl,
+        historyTx: undefined,
+      });
+      metaInfo.meta.transferAmount = transferAmount;
 
-        const { meta, components } = metaInfo;
-        const TxActionComponent = components[transformType];
+      const { meta, components } = metaInfo;
+      const TxActionComponent = components[transformType];
 
-        return (
-          <Container.Item
-            wrap={
-              <TxActionComponent
-                {...metaInfo.props}
-                meta={meta}
-                network={network}
-              />
-            }
-            hidePadding
-            key={index}
-          />
-        );
-      }),
-    [decodedTx, displayedActions, intl, network, transferAmount, transformType],
-  );
+      batchTxs.push(
+        <Container.Item
+          wrap={
+            <TxActionComponent
+              {...metaInfo.props}
+              meta={meta}
+              network={network}
+            />
+          }
+          hidePadding
+          key={i}
+        />,
+      );
+    }
+
+    if (actionCount > MAX_ACTIONS_DISPLAY_IN_CONFIRM) {
+      batchTxs.push(
+        <Text
+          typography="Body2Strong"
+          color="text-subdued"
+          paddingY={4}
+          textAlign="center"
+        >
+          {`and the other ${
+            actionCount - MAX_ACTIONS_DISPLAY_IN_CONFIRM
+          } actions`}
+        </Text>,
+      );
+    }
+
+    return batchTxs;
+  }, [
+    decodedTx,
+    displayedActions,
+    intl,
+    network,
+    transferAmount,
+    transformType,
+  ]);
 
   return (
     <>

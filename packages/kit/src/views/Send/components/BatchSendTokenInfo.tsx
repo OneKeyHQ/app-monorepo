@@ -45,7 +45,7 @@ function BatchSendTokenInfo(props: Props) {
 
   const transferInfos = payloadInfo?.transferInfos ?? [];
   const transferInfo = transferInfos[0];
-  const tokenIdOnNetwork = transferInfo.token ?? '';
+  const tokenIdOnNetwork = transferInfo.token;
 
   let amountBN = new BigNumber(0);
   const addresses = new Set();
@@ -54,13 +54,24 @@ function BatchSendTokenInfo(props: Props) {
     amountBN = amountBN.plus(transferInfos[i].amount);
     addresses.add(transferInfos[i].to.toLowerCase());
   }
-  const { token } = useSingleToken(networkId, tokenIdOnNetwork);
+
+  const { token } = useSingleToken(networkId, tokenIdOnNetwork ?? '');
+
   const nativeToken = useNativeToken(networkId);
-  const tokenBalance = useTokenBalance({ accountId, networkId, token });
+  const tokenBalance = useTokenBalance({
+    accountId,
+    networkId,
+    token: {
+      ...token,
+      sendAddress: transferInfo.sendAddress,
+    },
+    fallback: '0',
+  });
   const nativeTokenBalance = useTokenBalance({
     accountId,
     networkId,
     token: nativeToken,
+    fallback: '0',
   });
 
   return (

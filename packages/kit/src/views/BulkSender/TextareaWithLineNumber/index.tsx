@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef } from 'react';
 
 import { Box, Textarea } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { encodeReceiverWithLineNumber } from '../utils';
 
@@ -42,7 +43,7 @@ function TextareaWithLineNumber(props: Props) {
         h="240px"
         margin="1px"
         shadow="none"
-        fontFamily="monospace"
+        fontFamily={platformEnv.isNativeIOS ? 'Courier' : 'monospace'}
         onChangeText={(text) => setReceiverString(text)}
       />
       <Textarea

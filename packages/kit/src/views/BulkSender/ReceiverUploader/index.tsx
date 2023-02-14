@@ -2,17 +2,10 @@ import { useDropzone } from 'react-dropzone';
 import { useIntl } from 'react-intl';
 import { read, utils } from 'xlsx';
 
-import {
-  Center,
-  HStack,
-  Icon,
-  Pressable,
-  Text,
-  useThemeValue,
-} from '@onekeyhq/components';
+import { Box, Center, Icon, Text, useThemeValue } from '@onekeyhq/components';
 
+import { ReceiverExample } from '../ReceiverExample';
 import { TokenReceiverEnum } from '../types';
-import { downloadReceiverExample } from '../utils';
 
 import type { TokenReceiver } from '../types';
 
@@ -85,20 +78,9 @@ function ReceiverUploader(props: Props) {
           </Text>
         </Center>
       </div>
-      <HStack mt={4} space="10px">
-        <Text fontSize={14} color="text-subdued">
-          {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
-        </Text>
-        <Pressable onPress={downloadReceiverExample}>
-          <Text
-            fontSize={14}
-            color="text-subdued"
-            textDecorationLine="underline"
-          >
-            {intl.formatMessage({ id: 'action__download_example' })}
-          </Text>
-        </Pressable>
-      </HStack>
+      <Box mt={4}>
+        <ReceiverExample />
+      </Box>
     </>
   );
 }
