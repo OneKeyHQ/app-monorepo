@@ -1,8 +1,5 @@
-import { omit } from 'lodash';
-
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { getNextAccountId } from '@onekeyhq/engine/src/managers/derivation';
-import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import type { IAccount } from '@onekeyhq/engine/src/types';
 import {
   backgroundClass,

@@ -1,21 +1,11 @@
-import { keccak256 } from '@ethersproject/keccak256';
-import { ethers } from 'ethers';
+import { PublicKey } from '@solana/web3.js';
 
 import { slicePathTemplate } from '../../../src/managers/derivation';
-import { batchGetPublicKeys, uncompressPublicKey } from '../../../src/secret';
-import fixtures from '../fixtures/ethAddress';
+import { batchGetPublicKeys } from '../../../src/secret';
+import fixtures from '../fixtures/solAddress';
 import { mnemonicToCredential } from '../fixtures/utils';
 
 import type { IPrepareSoftwareAccountsParams } from '../../../src/vaults/types';
-
-function pubkeyToAddress(pub: string) {
-  const compressedPublicKey = Buffer.from(pub, 'hex');
-  const uncompressedPublicKey = uncompressPublicKey(
-    'secp256k1',
-    compressedPublicKey,
-  );
-  return `0x${keccak256(uncompressedPublicKey.slice(-64)).slice(-40)}`;
-}
 
 async function prepareAccount(
   params: IPrepareSoftwareAccountsParams,
@@ -26,7 +16,7 @@ async function prepareAccount(
 
   const { pathPrefix, pathSuffix } = slicePathTemplate(template);
   const pubkeyInfos = batchGetPublicKeys(
-    'secp256k1',
+    'ed25519',
     seed,
     password,
     pathPrefix,
@@ -34,26 +24,26 @@ async function prepareAccount(
   );
 
   if (pubkeyInfos.length !== indexes.length) {
-    throw new Error('Unable to get publick key.');
+    throw new Error('Unable to get public keys');
   }
 
   const result: string[] = [];
   const paths: string[] = [];
+
   for (const info of pubkeyInfos) {
     const {
       path,
       extendedKey: { key: pubkey },
     } = info;
-    const pub = pubkey.toString('hex');
-    const address = pubkeyToAddress(pub);
+    const address = new PublicKey(pubkey).toBase58();
     paths.push(path);
-    result.push(ethers.utils.getAddress(address));
+    result.push(address);
   }
 
   return result;
 }
 
-describe('Ethereum keypair', () => {
+describe('SOLANA keypair', () => {
   fixtures.forEach((f) => {
     it(f.description, async () => {
       const response = await prepareAccount(

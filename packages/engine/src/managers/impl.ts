@@ -1,6 +1,5 @@
 import { flatten } from 'lodash';
 
-import { formatMessage } from '@onekeyhq/components/src/Provider';
 import {
   COINTYPE_ADA,
   COINTYPE_ALGO,
