@@ -41,7 +41,7 @@ export type MarketCategory = {
 export type MarketTokenItem = {
   name?: string;
   symbol?: string;
-  // serialNumber?: number; // token 序号
+  serialNumber?: number; // token use market_cap_rank
   coingeckoId: CoingeckoId;
   image?: string;
   logoURI?: string;
