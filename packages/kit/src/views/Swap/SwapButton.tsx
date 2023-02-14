@@ -449,7 +449,7 @@ const ExchangeButton = () => {
                 accountId: sendingAccount.id,
                 networkId: targetNetworkId,
                 autoFallback: true,
-                encodedTx: { ...(encodedTx as IEncodedTxEvm) },
+                encodedTx: encodedTx as IEncodedTxEvm,
                 payload: {
                   type: 'InternalSwap',
                   swapInfo,
@@ -514,7 +514,7 @@ const ExchangeButton = () => {
               },
             });
           } else {
-            sendTx();
+            await sendTx();
           }
         } else {
           const password =
@@ -533,7 +533,7 @@ const ExchangeButton = () => {
                 accountId: sendingAccount.id,
                 networkId: targetNetworkId,
                 autoFallback: !!approveTx,
-                encodedTx: { ...(encodedTx as IEncodedTxEvm) },
+                encodedTx: encodedTx as IEncodedTxEvm,
                 payload: {
                   type: 'InternalSwap',
                   swapInfo,
@@ -576,7 +576,7 @@ const ExchangeButton = () => {
                         await backgroundApiProxy.serviceSwap.sendTransaction({
                           accountId: sendingAccount.id,
                           networkId: targetNetworkId,
-                          encodedTx: { ...(encodedTx as IEncodedTxEvm) },
+                          encodedTx: encodedTx as IEncodedTxEvm,
                           autoFallback: true,
                           payload: {
                             type: 'InternalSwap',
@@ -599,7 +599,7 @@ const ExchangeButton = () => {
                   networkId: targetNetworkId,
                   feeInfoEditable: true,
                   feeInfoUseFeeInTx: false,
-                  encodedTx: { ...(encodedTx as IEncodedTxEvm) },
+                  encodedTx: encodedTx as IEncodedTxEvm,
                   payloadInfo: {
                     type: 'InternalSwap',
                     swapInfo,
@@ -627,9 +627,6 @@ const ExchangeButton = () => {
         deviceUtils.showErrorToast(e, e?.data?.message || e.message);
       }
     };
-
-    console.log('approveTx', approveTx);
-    console.log('cancelApproveTx', cancelApproveTx);
 
     if (cancelApproveTx !== undefined) {
       const onCancelApprovalSubmit = async () => {
@@ -679,7 +676,7 @@ const ExchangeButton = () => {
                     networkId: targetNetworkId,
                     feeInfoEditable: true,
                     feeInfoUseFeeInTx: false,
-                    encodedTx: { ...(cancelApproveTx as IEncodedTxEvm) },
+                    encodedTx: cancelApproveTx as IEncodedTxEvm,
                     payloadInfo: {
                       type: 'InternalSwap',
                       swapInfo: { ...swapInfo, isApprove: true },
@@ -701,7 +698,7 @@ const ExchangeButton = () => {
         />
       ));
     } else {
-      main();
+      await main();
     }
     await wait(1000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
