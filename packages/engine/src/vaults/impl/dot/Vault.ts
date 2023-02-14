@@ -78,6 +78,7 @@ import { getTransactionType, getTransactionTypeFromTxInfo } from './utils';
 import type { ExtrinsicParam } from './substrate/query/subscan/type';
 import type { DotImplOptions, IEncodedTxDot } from './types';
 import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
+import type { ProviderInterface } from '@polkadot/rpc-provider/types';
 import type { Metadata } from '@polkadot/types';
 import type { BlockHash, RuntimeVersion } from '@polkadot/types/interfaces';
 import type { BaseTxInfo, TypeRegistry } from '@substrate/txwrapper-polkadot';
@@ -88,8 +89,6 @@ export const TYPE_PREFIX = {
   ethereum: new Uint8Array([2]),
   sr25519: new Uint8Array([1]),
 };
-
-const CACHE_MAX_AGE = 1000 * 60 * 30;
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -117,7 +116,6 @@ export default class Vault extends VaultBase {
     {
       promise: true,
       primitive: true,
-      maxAge: CACHE_MAX_AGE,
       max: 1,
       normalizer: () => `${this.networkId}`,
     },
@@ -131,7 +129,6 @@ export default class Vault extends VaultBase {
     {
       promise: true,
       primitive: true,
-      maxAge: CACHE_MAX_AGE,
       max: 1,
       normalizer: () => `${this.networkId}`,
     },
@@ -145,7 +142,6 @@ export default class Vault extends VaultBase {
     {
       promise: true,
       primitive: true,
-      maxAge: CACHE_MAX_AGE,
       max: 1,
       normalizer: () => `${this.networkId}`,
     },
@@ -192,7 +188,22 @@ export default class Vault extends VaultBase {
     },
     {
       promise: true,
-      maxAge: CACHE_MAX_AGE,
+      max: 1,
+      normalizer: () => `${this.networkId}`,
+    },
+  );
+
+  getMinDepositAmountCache = memoizee(
+    async (): Promise<BigNumber.Value> => {
+      const client = await this.getApiClient();
+      const codec = client.consts.balances.existentialDeposit;
+
+      const existentialDeposit = codec.toString();
+      return existentialDeposit;
+    },
+    {
+      promise: true,
+      primitive: true,
       max: 1,
       normalizer: () => `${this.networkId}`,
     },
@@ -200,7 +211,7 @@ export default class Vault extends VaultBase {
 
   // ======== END Chain Vault Methods ========
 
-  getNodeClient = async (rpcUrl: string) => {
+  getNodeProvider = (rpcUrl: string) => {
     const uri = new URL(rpcUrl);
     let provider;
     if (uri.protocol === 'wss:') {
@@ -208,29 +219,40 @@ export default class Vault extends VaultBase {
     } else {
       provider = new HttpProvider(rpcUrl);
     }
-    return ApiPromise.create({ provider });
+    return provider;
   };
 
-  getClientCache = memoizee(
-    async (rpcUrl: string) => this.getNodeClient(rpcUrl),
+  getNodeClient = async (rpcUrl: string) => {
+    const provider = this.getNodeProviderCache(rpcUrl);
+    return ApiPromise.create({ provider, initWasm: false });
+  };
+
+  getNodeProviderCache = memoizee(
+    (rpcUrl: string): ProviderInterface => this.getNodeProvider(rpcUrl),
     {
-      promise: true,
       primitive: true,
-      maxAge: 1000 * 60 * 15,
       max: 1,
-      normalizer: (args) => args[0],
-      dispose: (client) => {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-          client.disconnect();
-        } catch (e) {
-          // ignore
-        }
+      normalizer: ([rpcUrl]) => rpcUrl,
+      dispose: async (value: ProviderInterface) => {
+        await value.disconnect();
       },
     },
   );
 
-  override async getApiClient(): Promise<ApiPromise> {
+  getClientCache = memoizee(
+    async (rpcUrl: string): Promise<ApiPromise> => this.getNodeClient(rpcUrl),
+    {
+      promise: true,
+      primitive: true,
+      max: 1,
+      normalizer: ([rpcUrl]) => rpcUrl,
+      dispose: async (value: ApiPromise) => {
+        await value.disconnect();
+      },
+    },
+  );
+
+  async getApiClient(): Promise<ApiPromise> {
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
     return this.getClientCache(rpcURL);
   }
@@ -238,9 +260,7 @@ export default class Vault extends VaultBase {
   // API see https://polkadot.js.org/docs/substrate/runtime
   async getClient() {
     const vault = await this.getChainVault();
-    const client = vault.getApiClient();
-    await vault.getMetadataRpcCache();
-    return client;
+    return vault.getApiClient();
   }
 
   async getChainVault(): Promise<Vault> {
@@ -293,14 +313,55 @@ export default class Vault extends VaultBase {
   override async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
-    const client = await this.getNodeClient(url);
+    const uri = new URL(url);
+
+    if (uri.protocol === 'wss:') {
+      const ws = new WebSocket(url);
+      return new Promise((resolve, reject) => {
+        ws.onopen = () => {
+          const start = performance.now();
+          ws.send(
+            '{"id":1,"jsonrpc":"2.0","method":"chain_getHeader","params":[]}',
+          );
+
+          ws.onmessage = (event) => {
+            const data: {
+              id: number;
+              result: {
+                number: string;
+              };
+            } = JSON.parse(event.data);
+
+            if (data.id !== 1) return;
+
+            const responseTime = Math.floor(performance.now() - start);
+
+            if (ws.OPEN) ws.close();
+            resolve({
+              responseTime,
+              latestBlock: hexToNumber(data.result.number),
+            });
+          };
+
+          ws.onerror = (event) => {
+            if (ws.OPEN) ws.close();
+            reject(event);
+          };
+        };
+      });
+    }
+
+    const provider = this.getNodeProvider(url);
     const start = performance.now();
-    const version = await client.rpc.chain.getHeader();
+    const header: { number: string } = await provider.send(
+      'chain_getHeader',
+      [],
+    );
     const responseTime = Math.floor(performance.now() - start);
-    client.disconnect();
+
     return {
       responseTime,
-      latestBlock: version.number.toNumber(),
+      latestBlock: hexToNumber(header.number),
     };
   }
 
@@ -1130,6 +1191,15 @@ export default class Vault extends VaultBase {
     }
   }
 
+  override async getMinDepositAmount(): Promise<BigNumber.Value> {
+    return (await this.getChainVault()).getMinDepositAmountCache();
+  }
+
+  override async destroy() {
+    await this.getMetadataRpcCache.clear();
+    this.getNodeProviderCache.clear();
+  }
+
   // ======== Keyring Utils ========
 
   // see https://github.com/paritytech/txwrapper-core/blob/main/packages/txwrapper-examples/polkadot/src/polkadot.ts
@@ -1212,13 +1282,5 @@ export default class Vault extends VaultBase {
     });
 
     return tx;
-  }
-
-  override async getMinDepositAmount(): Promise<BigNumber.Value> {
-    const client = await this.getClient();
-    const codec = client.consts.balances.existentialDeposit;
-
-    const existentialDeposit = codec.toString();
-    return existentialDeposit;
   }
 }
