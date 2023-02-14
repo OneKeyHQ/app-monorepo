@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -21,6 +21,7 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
 import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isExternalAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -31,6 +32,7 @@ import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnbo
 import { useWallet } from '../../../hooks/useWallet';
 import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
+import { useSignOrSendOfExternalAccount } from '../../ExternalAccount/SendConfirm/useSignOrSendOfExternalAccount';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { BatchSendState } from '../enums';
 import { useBatchSendConfirmDecodedTxs } from '../utils/useBatchSendConfirmDecodedTxs';
@@ -88,6 +90,18 @@ function SendProgress({
   const payload = payloadInfo || route.params.payload;
 
   const interactInfo = useInteractWithInfo({ sourceInfo });
+  const isExternal = useMemo(
+    () => isExternalAccount({ accountId }),
+    [accountId],
+  );
+  const { externalAccountInfo, sendTxForExternalAccount } =
+    useSignOrSendOfExternalAccount({
+      encodedTx: undefined,
+      sourceInfo,
+      networkId,
+      accountId,
+      signOnly,
+    });
   const progressState = useRef(currentState);
   const { wallet } = useWallet({ walletId });
   const { network } = useNetwork({ networkId });
@@ -119,17 +133,25 @@ function SendProgress({
       await waitUntilInProgress();
       setCurrentProgress(i + 1);
       debugLogger.sendTx.info('Authentication sendTx:', route.params);
-      const signedTx =
-        await backgroundApiProxy.serviceBatchTransfer.signAndSendEncodedTx({
-          password,
-          networkId,
-          accountId,
-          encodedTx: encodedTxs[i],
-          signOnly,
-          pendingTxs: map(result, (tx) => ({
-            id: tx.txid,
-          })),
-        });
+
+      let signedTx = null;
+      const encodedTx = encodedTxs[i];
+
+      if (isExternal) {
+        signedTx = await sendTxForExternalAccount(encodedTx);
+      } else {
+        signedTx =
+          await backgroundApiProxy.serviceBatchTransfer.signAndSendEncodedTx({
+            password,
+            networkId,
+            accountId,
+            encodedTx,
+            signOnly,
+            pendingTxs: map(result, (tx) => ({
+              id: tx.txid,
+            })),
+          });
+      }
 
       result.push(signedTx as ISignedTxPro);
       if (signedTx) {
