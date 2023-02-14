@@ -134,6 +134,8 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                   ) : (
                     <Pressable
                       p={1}
+                      flexDirection="row"
+                      alignItems="center"
                       rounded="full"
                       _hover={{ bgColor: 'surface-hovered' }}
                       _pressed={{ bgColor: 'surface-pressed' }}
@@ -177,6 +179,9 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                             : 'icon-subdued'
                         }
                       />
+                      <Typography.Body2Strong ml={0.5}>
+                        {marketTokenItem.serialNumber ?? ''}
+                      </Typography.Body2Strong>
                     </Pressable>
                   )}
                 </HStack>
