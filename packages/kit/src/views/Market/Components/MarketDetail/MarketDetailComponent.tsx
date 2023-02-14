@@ -21,6 +21,7 @@ import type {
   MarketNews,
 } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { buildAddressDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
 import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
@@ -79,6 +80,7 @@ const ExplorerAction = ({
   );
   return (
     <Menu
+      offset={platformEnv.isNativeAndroid ? 25 : 0}
       width={width}
       trigger={(triggerProps) =>
         ExplorerComponent(index, explorer, triggerProps)
@@ -100,10 +102,7 @@ const ExplorerAction = ({
           }}
           icon="ArrowTopRightOnSquareMini"
         >
-          {intl.formatMessage(
-            { id: 'action__view_in_str' },
-            { 0: explorer.name },
-          )}
+          {intl.formatMessage({ id: 'action__view_in_browser' })}
         </Menu.CustomItem>
       ) : null}
     </Menu>
