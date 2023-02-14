@@ -29,7 +29,8 @@ export default class ServiceDerivationPath extends ServiceBase {
       );
     const network = await this.backgroundApi.engine.getNetwork(networkId);
 
-    const accountNameInfo = getAccountNameInfoByImpl(network.impl);
+    const vault = await this.backgroundApi.engine.getChainOnlyVault(networkId);
+    const accountNameInfo = await vault.getAccountNameInfoMap();
     const networkDerivations = Object.entries(walletDerivations)
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       .filter(([_, v]) =>

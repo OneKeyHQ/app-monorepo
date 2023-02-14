@@ -41,12 +41,7 @@ import {
 
 import { OneKeyInternalError } from '../errors';
 
-import {
-  getAccountNameInfoByImpl,
-  getAccountNameInfoByTemplate,
-  getImplByCoinType,
-  implToCoinTypes,
-} from './impl';
+import { getAccountNameInfoByTemplate, getImplByCoinType } from './impl';
 
 import type { DBAccountDerivation } from '../types/accountDerivation';
 import type { Wallet } from '../types/wallet';
