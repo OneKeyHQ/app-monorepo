@@ -180,7 +180,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                         }
                       />
                       <Typography.Body2Strong ml={0.5}>
-                        {marketTokenItem.serialNumber ?? ''}
+                        {marketTokenItem.serialNumber ?? '-'}
                       </Typography.Body2Strong>
                     </Pressable>
                   )}
