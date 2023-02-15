@@ -25,12 +25,14 @@ type InitialState = {
   passphraseOpened: string[]; // deviceId array, open passphrase device list
   lastCheckUpdateTime: Record<string, number>; // connectId -> time
   updateFirmwareStep: string;
+  verification?: Record<string, boolean>; // connectId -> verified
 };
 const initialState: InitialState = {
   connected: [],
   passphraseOpened: [],
   lastCheckUpdateTime: {},
   updateFirmwareStep: '',
+  verification: {},
 };
 export const hardwareSlice = createSlice({
   name: 'hardware',
@@ -78,6 +80,15 @@ export const hardwareSlice = createSlice({
     setUpdateFirmwareStep: (state, action: PayloadAction<string>) => {
       state.updateFirmwareStep = action.payload;
     },
+    setVerification: (
+      state,
+      action: PayloadAction<{ connectId: string; verified: boolean }>,
+    ) => {
+      state.verification = {
+        ...state.verification,
+        [action.payload.connectId]: action.payload.verified,
+      };
+    },
   },
 });
 
@@ -88,6 +99,7 @@ export const {
   closeHardwarePopup,
   updateDevicePassphraseOpenedState,
   setUpdateFirmwareStep,
+  setVerification,
 } = hardwareSlice.actions;
 
 export default hardwareSlice.reducer;

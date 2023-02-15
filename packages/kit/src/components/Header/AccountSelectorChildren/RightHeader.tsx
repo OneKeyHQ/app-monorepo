@@ -4,6 +4,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Box,
   Dialog,
   HStack,
@@ -11,6 +12,7 @@ import {
   Pressable,
   Select,
   Spinner,
+  Text,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -18,6 +20,7 @@ import type { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components
 import type {
   SelectGroupItem,
   SelectItem,
+  SelectProps,
 } from '@onekeyhq/components/src/Select';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes';
@@ -26,6 +29,7 @@ import { OnekeyHardwareModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Hardwa
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
@@ -95,6 +99,95 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
   </>
 );
 
+const CustomSelectItem: SelectProps<string>['renderItem'] = (
+  option,
+  isActive,
+  onChange,
+) => {
+  console.log('CustomSelectItem', option, isActive, onChange);
+  const isSmallScreen = useIsVerticalLayout();
+  const {
+    label,
+    description,
+    value,
+    tokenProps,
+    iconProps,
+    destructive,
+    color,
+    badge,
+    leading,
+    trailing,
+  } = option;
+
+  const optionText = (
+    <Box flex={1}>
+      <HStack alignItems="center">
+        <Text
+          color={destructive ? 'text-critical' : color ?? 'text-default'}
+          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+          isTruncated
+          mr={2}
+        >
+          {label}
+        </Text>
+        {!!badge && <Badge title={badge} size="sm" type="default" />}
+      </HStack>
+      {!!description && (
+        <Typography.Body2 color="text-subdued">
+          {description ?? '-'}
+        </Typography.Body2>
+      )}
+    </Box>
+  );
+
+  return (
+    <Pressable
+      key={value as unknown as string}
+      onPress={() => {
+        onChange?.(value, option);
+      }}
+    >
+      {({ isHovered, isPressed }) => (
+        <HStack
+          alignItems="center"
+          space={3}
+          px={{ base: '4', md: '2' }}
+          py={{ base: '3', md: '2' }}
+          borderRadius="xl"
+          bg={
+            // eslint-disable-next-line no-nested-ternary
+            isPressed
+              ? 'surface-pressed'
+              : // eslint-disable-next-line no-nested-ternary
+              isHovered
+              ? destructive
+                ? 'surface-critical-default'
+                : 'surface-hovered'
+              : undefined
+          }
+        >
+          {optionText}
+          {!!trailing && trailing}
+          {!!isActive && (
+            <Icon
+              name={isSmallScreen ? 'CheckOutline' : 'CheckMini'}
+              color="interactive-default"
+              size={isSmallScreen ? 24 : 20}
+            />
+          )}
+          {(!!tokenProps || !!iconProps || !!leading) && (
+            <Icon
+              color={destructive ? 'icon-critical' : 'icon-default'}
+              size={isSmallScreen ? 24 : 20}
+              {...iconProps}
+            />
+          )}
+        </HStack>
+      )}
+    </Pressable>
+  );
+};
+
 const HeaderTitle: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const intl = useIntl();
   let title = selectedWallet?.name ?? '';
@@ -134,8 +227,6 @@ const RightHeader: FC<RightHeaderProps> = ({
 
   const { showVerify } = useLocalAuthenticationModal();
   const [showBackupDialog, setShowBackupDialog] = useState(false);
-  const [showDeleteWalletDialog, setShowDeleteWalletDialog] = useState(false);
-  const [deleteWallet, setDeleteWallet] = useState<DeleteWalletProp>();
   const isLoading = useAppSelector((s) => s.accountSelector.isLoading);
 
   const hasAvailableUpdate = useMemo(
@@ -143,25 +234,45 @@ const RightHeader: FC<RightHeaderProps> = ({
     [deviceStatus?.hasUpgrade],
   );
 
+  const showDeleteWalletDialog = useCallback(
+    (walletProps: DeleteWalletProp) => {
+      showOverlay((onClose) => (
+        <ManagerWalletDeleteDialog
+          deleteWallet={walletProps}
+          closeOverlay={onClose}
+        />
+      ));
+    },
+    [],
+  );
+
   const onDeleteWallet = useCallback(() => {
     if (selectedWallet?.type === 'hw') {
-      setDeleteWallet({
-        walletId: selectedWallet?.id ?? '',
-        password: undefined,
-        hardware: true,
-      });
-      setTimeout(() => setShowDeleteWalletDialog(true), 500);
+      setTimeout(
+        () =>
+          showDeleteWalletDialog({
+            walletId: selectedWallet?.id ?? '',
+            password: undefined,
+            hardware: {
+              isPassphrase: false,
+            },
+          }),
+        500,
+      );
       return;
     }
 
     if (selectedWallet?.backuped === true) {
       showVerify(
         (pwd) => {
-          setDeleteWallet({
-            walletId: selectedWallet?.id ?? '',
-            password: pwd,
-          });
-          setTimeout(() => setShowDeleteWalletDialog(true), 500);
+          setTimeout(
+            () =>
+              showDeleteWalletDialog({
+                walletId: selectedWallet?.id ?? '',
+                password: pwd,
+              }),
+            500,
+          );
         },
         () => {},
         null,
@@ -174,6 +285,7 @@ const RightHeader: FC<RightHeaderProps> = ({
     selectedWallet?.backuped,
     selectedWallet?.id,
     selectedWallet?.type,
+    showDeleteWalletDialog,
     showVerify,
   ]);
 
@@ -355,6 +467,7 @@ const RightHeader: FC<RightHeaderProps> = ({
           dropdownProps={{
             width: 248,
           }}
+          renderItem={CustomSelectItem}
           renderTrigger={({ isHovered, visible, isPressed }) => (
             <CustomSelectTrigger
               isTriggerHovered={isHovered}
@@ -465,13 +578,6 @@ const RightHeader: FC<RightHeaderProps> = ({
         <HeaderTitle selectedWallet={selectedWallet} />
         <HStack justifyContent="flex-end">{optionsView}</HStack>
       </HStack>
-      <ManagerWalletDeleteDialog
-        visible={showDeleteWalletDialog}
-        deleteWallet={deleteWallet}
-        onDialogClose={() => {
-          setShowDeleteWalletDialog(false);
-        }}
-      />
       <Dialog
         visible={showBackupDialog}
         canceledOnTouchOutside={false}

@@ -16,19 +16,19 @@ import { wait } from '../../../utils/helper';
 export type DeleteWalletProp = {
   walletId: string;
   password: string | undefined;
-  hardware?: boolean;
+  hardware?: {
+    isPassphrase: boolean;
+  };
 };
 
 type ManagerWalletDeleteDialogProps = {
-  visible: boolean;
   deleteWallet: DeleteWalletProp | undefined;
-  onDialogClose: () => void;
+  closeOverlay: () => void;
 };
 
 const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
-  visible,
   deleteWallet,
-  onDialogClose,
+  closeOverlay,
 }) => {
   const intl = useIntl();
 
@@ -38,25 +38,30 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
   const { walletId, password, hardware } = deleteWallet ?? {};
   const [isLoading, setIsLoading] = useState(false);
   // If a hardware wallet is being deleted, no second confirmation is required.
-  const [confirmed, setConfirmed] = useState(hardware ?? false);
+  const [confirmed, setConfirmed] = useState(!!hardware ?? false);
 
   return (
     <Dialog
       hasFormInsideDialog
-      visible={visible}
+      visible
       canceledOnTouchOutside={false}
       onClose={() => {
         setConfirmed(false); // Forget confirmed status
-        onDialogClose?.();
+        closeOverlay?.();
       }}
       contentProps={{
         iconType: 'danger',
         title: intl.formatMessage({
-          id: 'action__delete_wallet',
+          id:
+            hardware && !hardware?.isPassphrase
+              ? 'action__delete_device'
+              : 'action__delete_wallet',
         }),
         content: intl.formatMessage({
           id: hardware
-            ? 'dialog__delete_hardware_wallet_desc'
+            ? hardware?.isPassphrase
+              ? 'dialog__delete_hardware_passphrase_wallet_desc'
+              : 'dialog__delete_hardware_wallet_desc'
             : 'dialog__delete_wallet_desc',
         }),
         input: hardware ? undefined : (
@@ -78,7 +83,11 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
         ),
       }}
       footerButtonProps={{
+        secondaryActionProps: {
+          size: 'xl',
+        },
         primaryActionProps: {
+          size: 'xl',
           type: 'destructive',
           children: intl.formatMessage({ id: 'action__remove' }),
           isLoading,

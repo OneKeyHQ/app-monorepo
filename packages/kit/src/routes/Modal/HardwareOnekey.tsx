@@ -18,7 +18,7 @@ export enum OnekeyHardwareModalRoutes {
   OnekeyHardwarePinCodeModal = 'OnekeyHardwarePinCodeModal',
   OnekeyHardwareConfirmModal = 'OnekeyHardwareConfirmModal',
   OnekeyHardwareDeviceNameModal = 'OnekeyHardwareDeviceNameModal',
-  OnekeyHardwareHomescreenModal = 'OnekeyHardwareHomescreenModal',
+  OnekeyHardwareHomeScreenModal = 'OnekeyHardwareHomeScreenModal',
 }
 
 export type OnekeyHardwareRoutesParams = {
@@ -43,7 +43,7 @@ export type OnekeyHardwareRoutesParams = {
     walletId: string;
     deviceName: string;
   };
-  [OnekeyHardwareModalRoutes.OnekeyHardwareHomescreenModal]: {
+  [OnekeyHardwareModalRoutes.OnekeyHardwareHomeScreenModal]: {
     walletId: string;
     deviceType: IOneKeyDeviceType;
   };
@@ -78,7 +78,7 @@ const modalRoutes = [
     component: OnekeyHardwareDeviceName,
   },
   {
-    name: OnekeyHardwareModalRoutes.OnekeyHardwareHomescreenModal,
+    name: OnekeyHardwareModalRoutes.OnekeyHardwareHomeScreenModal,
     component: OnekeyHardwareHomescreen,
   },
 ];

@@ -262,6 +262,12 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async unlockDevice(connectId: string, deviceId: string) {
+    // TODO: only unlock device when device is locked
+    return this.getPassphraseState(connectId);
+  }
+
+  @backgroundMethod()
   async getPassphraseState(connectId: string) {
     const hardwareSDK = await this.getSDKInstance();
     const response = await hardwareSDK?.getPassphraseState(connectId, {
