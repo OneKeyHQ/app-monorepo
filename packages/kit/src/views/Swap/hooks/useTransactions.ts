@@ -87,6 +87,6 @@ export function useTransactionsAccount(accountId: string, networkId?: string) {
           }
         });
     }
-  }, [walletAccounts, accountId]);
+  }, [walletAccounts, accountId, networkId]);
   return account;
 }
