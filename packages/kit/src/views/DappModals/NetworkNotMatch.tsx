@@ -16,7 +16,6 @@ import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClos
 import { getNetworkImplFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
-import Logo from '../../../assets/logo_round.png';
 import { useActiveWalletAccount, useNavigationActions } from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
