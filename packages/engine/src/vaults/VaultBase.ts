@@ -183,6 +183,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async isContractAddress(address: string): Promise<boolean> {
     return false;
   }
+
+  async canAutoCreateNextAccount(password: string): Promise<boolean> {
+    return Promise.resolve(true);
+  }
 }
 
 /*
