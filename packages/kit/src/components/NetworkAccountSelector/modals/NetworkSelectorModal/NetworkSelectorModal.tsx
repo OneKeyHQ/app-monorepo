@@ -29,7 +29,7 @@ function NetworkSelectorModal() {
   const { onPressChangeAccount } = useAccountSelectorChangeAccountOnPress();
   const navigation = useAppNavigation();
   const route = useRoute<RouteProps>();
-  const networkImpl = route.params?.networkImpl;
+  const networkImpl = route?.params?.networkImpl;
 
   const { accountSelectorInfo, shouldShowModal } =
     useAccountSelectorModalInfo();

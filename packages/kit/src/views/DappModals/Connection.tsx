@@ -186,7 +186,7 @@ function ConnectionContent({
         <Typography.Body1Strong ml="2">
           {intl.formatMessage({
             id: 'title__connect_to_website',
-          })}000
+          })}
         </Typography.Body1Strong>
       </HStack>
       <VStack pt="4" borderTopColor="divider" borderTopWidth="1px">

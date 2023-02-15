@@ -37,7 +37,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { IMPL_SOL, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import UrlUtils from '@onekeyhq/shared/src/utils/urlUtils';
+import urlUtils from '@onekeyhq/shared/src/utils/urlUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
@@ -360,7 +360,7 @@ class ServiceDapp extends ServiceBase {
       const sourceInfo: IDappSourceInfo = {
         id,
         origin: request.origin || '',
-        hostname: UrlUtils.getHostNameFromUrl({ url: request.origin || '' }),
+        hostname: urlUtils.getHostNameFromUrl({ url: request.origin || '' }),
         scope: request.scope as any, // ethereum
         data: request.data as any,
       };
