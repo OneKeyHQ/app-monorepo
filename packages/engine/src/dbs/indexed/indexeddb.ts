@@ -2445,7 +2445,8 @@ class IndexedDBApi implements DBAPI {
           }
 
           const id = `${walletId}-${impl}-${template}`;
-          const getExistRecordRequest = accountDerivationStore.get(id);
+          const getExistRecordRequest: IDBRequest<DBAccountDerivation> =
+            accountDerivationStore.get(id);
           getExistRecordRequest.onsuccess = (_event) => {
             const accountDerivation = getExistRecordRequest.result;
             if (accountDerivation) {
@@ -2504,7 +2505,8 @@ class IndexedDBApi implements DBAPI {
             ACCOUNT_DERIVATION_STORE_NAME,
           );
 
-          const request = accountDerivationStore.getAll();
+          const request: IDBRequest<DBAccountDerivation[]> =
+            accountDerivationStore.getAll();
           request.onsuccess = (_event) => {
             if (typeof request.result !== 'undefined') {
               const accountDerivations = request.result;
@@ -2545,14 +2547,17 @@ class IndexedDBApi implements DBAPI {
             ACCOUNT_DERIVATION_STORE_NAME,
           );
 
-          const request = accountDerivationStore.getAll();
+          const request: IDBRequest<DBAccountDerivation[]> =
+            accountDerivationStore.getAll();
           request.onsuccess = (_event) => {
             if (typeof request.result !== 'undefined') {
               const accountDerivations = request.result;
               accountDerivations.forEach((accountDerivation) => {
                 if (accountDerivation.walletId === walletId) {
                   accountDerivation.accounts =
-                    accountDerivation.accounts.filter((id) => id !== accountId);
+                    accountDerivation.accounts.filter(
+                      (id: string) => id !== accountId,
+                    );
                   accountDerivationStore.put(accountDerivation);
                 }
               });
@@ -2585,7 +2590,8 @@ class IndexedDBApi implements DBAPI {
             ACCOUNT_DERIVATION_STORE_NAME,
           );
 
-          const request = accountDerivationStore.getAll();
+          const request: IDBRequest<DBAccountDerivation[]> =
+            accountDerivationStore.getAll();
           request.onsuccess = (_event) => {
             if (typeof request.result !== 'undefined') {
               const accountDerivations = request.result;
