@@ -754,7 +754,7 @@ export default class Vault extends VaultBase {
         .encode(paramTypes, ParamValues)
         .slice(2)}`,
       value: isTransferToken ? '0x0' : toBigIntHex(totalAmountBN),
-      nonce: nextNonce,
+      nonce: String(nextNonce),
     };
   }
 
@@ -793,7 +793,7 @@ export default class Vault extends VaultBase {
       to: approveInfo.token,
       value: '0x0',
       data,
-      nonce: nextNonce,
+      nonce: String(nextNonce),
     };
   }
 

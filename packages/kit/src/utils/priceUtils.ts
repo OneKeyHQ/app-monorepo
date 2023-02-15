@@ -22,6 +22,7 @@ export function calculateGains({
   if (!basePrice || !price) {
     return {
       gain: 0,
+      gainNumber: 0,
       gainText: '0.00',
       percentageGain: '0.00%',
       isPositive: false,
@@ -54,6 +55,7 @@ export function calculateGains({
 
   return {
     gain,
+    gainNumber,
     gainText,
     gainTextColor,
     gainTextBg,

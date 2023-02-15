@@ -1,9 +1,10 @@
 import { useCallback } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { isEmpty, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { GroupingList, ListItem } from '@onekeyhq/components';
+import { GroupingList, ListItem, Text } from '@onekeyhq/components';
 import type {
   IDecodedTx,
   ISignedTxPro,
@@ -20,6 +21,7 @@ import { BatchTxsItemView } from '../../../TxDetail/BatchTxsItemView';
 import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModalBase';
 import { BatchSendTokenInfo } from '../../components/BatchSendTokenInfo';
 import { BatchTransactionFeeInfo } from '../../components/BatchTransactionFeeInfo';
+import { MAX_TRANSACTIONS_DISPLAY_IN_CONFIRM } from '../../constants';
 import { SendRoutes } from '../../types';
 import { useBatchSendConfirmDecodedTxs } from '../../utils/useBatchSendConfirmDecodedTxs';
 import { useBatchSendConfirmEncodedTxs } from '../../utils/useBatchSendConfirmEncodedTxs';
@@ -88,6 +90,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     sourceInfo,
   });
   const decodedTx = decodedTxs[0];
+  const transactionCount = decodedTxs.length;
 
   const {
     feeInfoError,
@@ -280,14 +283,29 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     children: null,
   };
 
-  const groupTransactionsData = decodedTxs.map((tx, index) => ({
-    headerProps: {
-      title: `${intl.formatMessage({ id: 'form__transaction' })} #${
-        index + 1
-      }`.toUpperCase(),
-    },
-    data: [tx],
-  }));
+  const getGroupTransactionsData = useCallback(() => {
+    const groupTransactionsData = [];
+    for (
+      let i = 0,
+        len = BigNumber.min(
+          transactionCount,
+          MAX_TRANSACTIONS_DISPLAY_IN_CONFIRM,
+        ).toNumber();
+      i < len;
+      i += 1
+    ) {
+      groupTransactionsData.push({
+        headerProps: {
+          title: `${intl.formatMessage({ id: 'form__transaction' })} #${
+            i + 1
+          }`.toUpperCase(),
+        },
+        data: [decodedTxs[i]],
+      });
+    }
+
+    return groupTransactionsData;
+  }, [decodedTxs, intl, transactionCount]);
 
   sharedProps.children = isSingleTransformMode ? (
     <BatchTxsItemView
@@ -296,23 +314,35 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       decodedTx={decodedTx}
     />
   ) : (
-    <GroupingList
-      headerProps={{
-        title: `${intl.formatMessage({ id: 'form__multiple_transactions' })} (${
-          encodedTxs.length
-        })`,
-      }}
-      sections={groupTransactionsData}
-      renderItem={({ item }: { item: IDecodedTx }) => (
-        <ListItem key={item.txid}>
-          <BatchTxsItemView
-            isSendConfirm
-            isSingleTransformMode={isSingleTransformMode}
-            decodedTx={item}
-          />
-        </ListItem>
+    <>
+      <GroupingList
+        headerProps={{
+          title: `${intl.formatMessage({
+            id: 'form__multiple_transactions',
+          })} (${encodedTxs.length})`,
+        }}
+        sections={getGroupTransactionsData()}
+        renderItem={({ item }: { item: IDecodedTx }) => (
+          <ListItem key={item.txid}>
+            <BatchTxsItemView
+              isSendConfirm
+              isSingleTransformMode={isSingleTransformMode}
+              decodedTx={item}
+            />
+          </ListItem>
+        )}
+      />
+      {transactionCount > MAX_TRANSACTIONS_DISPLAY_IN_CONFIRM && (
+        <Text
+          typography="Body1Strong"
+          color="text-subdued"
+          textAlign="center"
+          paddingY={4}
+        >{`and the other ${
+          transactionCount - MAX_TRANSACTIONS_DISPLAY_IN_CONFIRM
+        } transactions`}</Text>
       )}
-    />
+    </>
   );
 
   return <BatchSendConfirmModalBase {...sharedProps} />;
