@@ -20,7 +20,7 @@ import {
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isArray, isEmpty } from 'lodash';
+import { isArray, isEmpty, omit } from 'lodash';
 import memoizee from 'memoizee';
 
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
@@ -34,6 +34,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
+import { getAccountNameInfoByImpl } from '../../../managers/impl';
 import {
   createOutputActionFromNFTTransaction,
   getNFTTransactionHistory,
@@ -50,6 +51,7 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
 import type { DBSimpleAccount } from '../../../types/account';
+import type { AccountNameInfo } from '../../../types/network';
 import type { NFTTransaction } from '../../../types/nft';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
@@ -927,5 +929,17 @@ export default class Vault extends VaultBase {
     [, nativeTx.recentBlockhash] = await client.getFees();
 
     return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
+  }
+
+  override async getAccountNameInfoMap(
+    walletId: string,
+  ): Promise<Record<string, AccountNameInfo>> {
+    const isHwWallet = walletId.startsWith('hw');
+    const network = await this.getNetwork();
+    const accountNameInfo = getAccountNameInfoByImpl(network.impl);
+    if (isHwWallet || !walletId) {
+      return omit(accountNameInfo, 'ledgerLive');
+    }
+    return accountNameInfo;
   }
 }

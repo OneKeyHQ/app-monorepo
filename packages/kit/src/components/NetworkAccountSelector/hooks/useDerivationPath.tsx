@@ -7,7 +7,10 @@ import { useNetwork } from '../../../hooks';
 
 export type IDerivationOption = AccountNameInfo & { key: string };
 
-export function useDerivationPath(networkId: string | undefined) {
+export function useDerivationPath(
+  walletId: string | undefined,
+  networkId: string | undefined,
+) {
   const { network } = useNetwork({ networkId });
   const [derivationOptions, setDerivationOptions] = useState<
     IDerivationOption[]
@@ -15,11 +18,11 @@ export function useDerivationPath(networkId: string | undefined) {
 
   useEffect(() => {
     backgroundApiProxy.serviceDerivationPath
-      .getDerivationSelectOptions(networkId)
+      .getDerivationSelectOptions(walletId, networkId)
       .then((options) => {
         setDerivationOptions(options);
       });
-  }, [networkId]);
+  }, [walletId, networkId]);
 
   const isUTXOModel = useMemo(() => network?.settings.isUTXOModel, [network]);
 

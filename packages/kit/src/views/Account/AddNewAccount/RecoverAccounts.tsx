@@ -441,7 +441,7 @@ const RecoverAccounts: FC = () => {
     refreshActiveAccounts();
   }, [network, wallet, obj]);
 
-  const { derivationOptions } = useDerivationPath(network);
+  const { derivationOptions } = useDerivationPath(wallet?.id, network);
   const [selectedDerivationOption, setSelectedDerivationOption] =
     useState<IDerivationOption>();
   const template = useMemo(() => {

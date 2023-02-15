@@ -11,10 +11,13 @@ import ServiceBase from './ServiceBase';
 @backgroundClass()
 export default class ServiceDerivationPath extends ServiceBase {
   @backgroundMethod()
-  async getDerivationSelectOptions(networkId: string | undefined) {
+  async getDerivationSelectOptions(
+    walletId: string | undefined,
+    networkId: string | undefined,
+  ) {
     if (!networkId) return [];
     const vault = await this.backgroundApi.engine.getChainOnlyVault(networkId);
-    const accountNameInfo = await vault.getAccountNameInfoMap();
+    const accountNameInfo = await vault.getAccountNameInfoMap(walletId);
     return Object.entries(accountNameInfo).map(([k, v]) => ({ ...v, key: k }));
   }
 
@@ -27,7 +30,7 @@ export default class ServiceDerivationPath extends ServiceBase {
     const network = await this.backgroundApi.engine.getNetwork(networkId);
 
     const vault = await this.backgroundApi.engine.getChainOnlyVault(networkId);
-    const accountNameInfo = await vault.getAccountNameInfoMap();
+    const accountNameInfo = await vault.getAccountNameInfoMap(walletId);
     const networkDerivations = Object.entries(walletDerivations)
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       .filter(([_, v]) =>
@@ -36,7 +39,7 @@ export default class ServiceDerivationPath extends ServiceBase {
       .map(([k, v]) => ({ ...v, key: k }));
 
     const shouldQuickCreate =
-      networkDerivations.length <= 1 && network.settings.isUTXOModel;
+      networkDerivations.length <= 1 || network.settings.isUTXOModel;
     const quickCreateAccountInfo =
       networkDerivations.length > 0
         ? networkDerivations[0]

@@ -146,7 +146,10 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
   onSelect,
 }) => {
   const intl = useIntl();
-  const { derivationOptions, isUTXOModel } = useDerivationPath(networkId);
+  const { derivationOptions, isUTXOModel } = useDerivationPath(
+    walletId,
+    networkId,
+  );
   const [selectedOption, setSelectedOption] = useState('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [verifiedOptions, setVerifiedOptions] = useState<IVerifiedOption[]>([]);
