@@ -8,6 +8,7 @@ import {
   HStack,
   Icon,
   Modal,
+  Token,
   Typography,
   VStack,
 } from '@onekeyhq/components';
@@ -16,7 +17,7 @@ import { getNetworkImplFromDappScope } from '@onekeyhq/shared/src/background/bac
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import Logo from '../../../assets/logo_round.png';
-import { useNavigationActions } from '../../hooks';
+import { useActiveWalletAccount, useNavigationActions } from '../../hooks';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 import { EAccountSelectorMode } from '../../store/reducers/reducerAccountSelector';
@@ -28,6 +29,7 @@ const NetworkNotMatch = () => {
   const { id } = sourceInfo ?? ({} as IDappSourceInfo);
   const { openNetworkSelector } = useNavigationActions();
   const closeThisModal = useModalClose();
+  const { network } = useActiveWalletAccount();
 
   const dappApprove = useDappApproveAction({
     id,
@@ -85,12 +87,12 @@ const NetworkNotMatch = () => {
               bg="surface-subdued"
               position="relative"
             >
-              <Image
-                w="full"
-                h="full"
-                borderRadius="full"
-                zIndex={100}
-                source={Logo}
+              <Token
+                size="64px"
+                token={{
+                  logoURI: network?.logoURI,
+                  name: network?.shortName,
+                }}
               />
             </Box>
 
@@ -112,19 +114,14 @@ const NetworkNotMatch = () => {
           </HStack>
 
           <Typography.DisplayLarge mt={4} mb={2}>
-            {intl.formatMessage({ id: 'msg__mismatched_networks' })}
+            {intl.formatMessage({ id: 'title__network_mismatch' })}
           </Typography.DisplayLarge>
           <Typography.Body1 color="text-subdued">
             {sourceInfo?.hostname || ''}
           </Typography.Body1>
-          <Icon name="ArrowsUpDownOutline" />
-          <Typography.Body1 color="text-subdued">
-            {sourceInfo?.scope?.toUpperCase() || ''}
-          </Typography.Body1>
 
           <Typography.Body1 color="text-subdued" textAlign="center" my={4}>
-            The currently selected network and dApp do not match, Select a
-            network and account to connect.
+            {intl.formatMessage({ id: 'title__network_mismatch_desc' })}
           </Typography.Body1>
         </VStack>
       </Center>
