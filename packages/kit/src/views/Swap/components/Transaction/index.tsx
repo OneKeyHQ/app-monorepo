@@ -407,7 +407,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
 
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
-  const account = useTransactionsAccount(tx.accountId);
+  const account = useTransactionsAccount(tx.accountId, tx.tokens?.from.networkId);
   const network = useNetworkSimple(tx.networkId);
   const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
   const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
