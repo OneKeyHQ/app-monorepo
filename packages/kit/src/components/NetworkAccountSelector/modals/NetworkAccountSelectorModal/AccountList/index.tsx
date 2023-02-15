@@ -131,6 +131,7 @@ function DerivationSectionHeader({
       backgroundColor="background-default"
       defaultCollapsed={false}
       arrowPosition="right"
+      value={section.collapsed}
       trigger={
         <Text
           typography={{ sm: 'Subheading', md: 'Subheading' }}
