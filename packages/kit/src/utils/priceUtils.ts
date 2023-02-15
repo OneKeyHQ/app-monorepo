@@ -46,10 +46,10 @@ export function calculateGains({
 
   if (gainNumber < 0) {
     gainTextColor = 'text-critical';
-    gainTextBg = 'surface-critical-subdued';
+    gainTextBg = 'surface-critical-default';
   } else if (gainNumber > 0) {
     gainTextColor = 'text-success';
-    gainTextBg = 'surface-success-subdued';
+    gainTextBg = 'surface-success-default';
   }
 
   return {
