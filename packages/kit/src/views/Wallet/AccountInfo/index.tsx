@@ -86,7 +86,7 @@ const AccountAmountInfo: FC = () => {
   );
 
   const changedValueComp = useMemo(() => {
-    const { gain, percentageGain, gainTextColor } = calculateGains({
+    const { gainNumber, percentageGain, gainTextColor } = calculateGains({
       basePrice: accountAllValues.value24h.toNumber(),
       price: accountAllValues.value.toNumber(),
     });
@@ -99,8 +99,8 @@ const AccountAmountInfo: FC = () => {
           {percentageGain}
         </Typography.Body1Strong>
         <Typography.Body1Strong color="text-subdued">
-          <FormatCurrencyNumber onlyNumber value={gain} decimals={2} />
-          {intl.formatMessage({ id: 'content__today' })}
+          (<FormatCurrencyNumber value={Math.abs(gainNumber)} decimals={2} />)
+          {` ${intl.formatMessage({ id: 'content__today' })}`}
         </Typography.Body1Strong>
       </>
     );

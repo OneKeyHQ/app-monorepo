@@ -31,11 +31,10 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import { showAmountEditor } from './AmountEditor';
 import { showApprovalSelector } from './ApprovalSelector';
-// import { showDeflationaryTip } from './DeflationaryTip';
 import { useValidteReceiver } from './hooks';
+import { ReceiverExample } from './ReceiverExample';
 import { ReceiverInput } from './ReceiverInput';
 import { BulkSenderRoutes, BulkSenderTypeEnum } from './types';
-import { downloadReceiverExample } from './utils';
 
 import type { TokenReceiver } from './types';
 
@@ -69,11 +68,12 @@ function TokenOutbox(props: Props) {
 
   const isNative = type === BulkSenderTypeEnum.NativeToken;
   const initialToken = isNative ? nativeToken : tokens[0];
+  const currentToken = selectedToken || initialToken;
 
   const tokenBalnace = useTokenBalance({
     accountId,
     networkId,
-    token: selectedToken || initialToken,
+    token: currentToken,
     fallback: '0',
   });
   const formatedBalance = useMemo(
@@ -81,10 +81,10 @@ function TokenOutbox(props: Props) {
       intl.formatMessage(
         { id: 'content__balance_str' },
         {
-          0: tokenBalnace,
+          0: `${tokenBalnace} ${currentToken?.symbol ?? ''}`,
         },
       ),
-    [intl, tokenBalnace],
+    [currentToken?.symbol, intl, tokenBalnace],
   );
 
   const { isValid, isValidating, errors } = useValidteReceiver({
@@ -392,20 +392,9 @@ function TokenOutbox(props: Props) {
               {intl.formatMessage({ id: 'action__preview' })}
             </Button>
           </Box>
-          <HStack mt={4} space="10px">
-            <Text fontSize={14} color="text-subdued">
-              {intl.formatMessage({ id: 'content__support_csv_txt_or_excel' })}
-            </Text>
-            <Pressable onPress={downloadReceiverExample}>
-              <Text
-                fontSize={14}
-                color="text-subdued"
-                textDecorationLine="underline"
-              >
-                {intl.formatMessage({ id: 'action__download_example' })}
-              </Text>
-            </Pressable>
-          </HStack>
+          <Box mt={4}>
+            <ReceiverExample />
+          </Box>
         </Box>
       </Box>
     </Tabs.ScrollView>

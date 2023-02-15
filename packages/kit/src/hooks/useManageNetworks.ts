@@ -1,5 +1,4 @@
 import type { INetwork } from '@onekeyhq/engine/src/types';
-import { IMPL_ADA } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { makeSelector } from './redux';
@@ -9,7 +8,7 @@ export type IManageNetworks = {
   enabledNetworks: INetwork[];
 };
 
-const CHAINS_DISPLAYED_IN_DEV: string[] = [IMPL_ADA];
+const CHAINS_DISPLAYED_IN_DEV: string[] = [];
 const CHAINS_NOT_DISPLAYED_IN_EXT: string[] = [];
 const emptyArray = Object.freeze([]);
 
