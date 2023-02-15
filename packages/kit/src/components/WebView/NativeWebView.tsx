@@ -86,6 +86,7 @@ const NativeWebView = forwardRef(
     return (
       <WebView
         style={styles.container}
+        allowsBackForwardNavigationGestures
         fraudulentWebsiteWarningEnabled={false}
         onLoadProgress={onLoadProgress}
         ref={webviewRef}

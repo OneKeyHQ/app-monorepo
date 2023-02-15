@@ -36,6 +36,7 @@ const CustomItem: FC<CustomItemProps> = ({
       space={3}
     >
       <Text
+        flex={1}
         typography={platformEnv.isNative ? 'Body1' : 'Body2'}
         color={
           variant === 'desctructive'

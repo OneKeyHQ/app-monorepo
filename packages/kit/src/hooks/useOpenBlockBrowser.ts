@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { useIsVerticalLayout } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import { IMPL_FIL } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -9,7 +10,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrl } from '../utils/openUrl';
 
 import { useNetworks } from './redux';
-import { useIsVerticalLayout } from '@onekeyhq/components';
 
 function fixBlockExplorerUrl(network: Network | null | undefined, url: string) {
   if (

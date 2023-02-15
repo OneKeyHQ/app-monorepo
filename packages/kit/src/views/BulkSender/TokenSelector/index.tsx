@@ -40,7 +40,7 @@ const Header: FC<HeaderProps> = ({ keyword, onChange }) => {
       <Searchbar
         w="full"
         placeholder={intl.formatMessage({
-          id: 'content__search_token_or_contract_address',
+          id: 'form__search_tokens',
         })}
         mb="16px"
         value={keyword}
@@ -147,8 +147,8 @@ function TokenSelector() {
         ? listedTokens.filter(
             (token) =>
               token.symbol.toLowerCase().includes(searchQuery) ||
-              token.name.toLocaleLowerCase().includes(searchQuery) ||
-              token.tokenIdOnNetwork.includes(searchQuery),
+              token.name.toLowerCase().includes(searchQuery) ||
+              token.tokenIdOnNetwork.toLowerCase().includes(searchQuery),
           )
         : listedTokens;
     const renderFn: ListRenderItem<Token> = ({ item }) => (

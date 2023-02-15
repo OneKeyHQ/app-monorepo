@@ -52,6 +52,7 @@ const FloatingContainer: FC<
   const { top } = useSafeAreaInsets();
 
   const innerBeforeMaximize = useCallback(() => {
+    hideTabGrid();
     if (!showContent) setShowContent(true);
     beforeMaximize?.();
   }, [beforeMaximize, showContent]);

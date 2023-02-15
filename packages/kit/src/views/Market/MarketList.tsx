@@ -122,7 +122,7 @@ const MarketList: FC = () => {
     [favoriteTokens.length, recommendedTokens.length, selectedCategory],
   );
   return (
-    <Box flex={1}>
+    <Box flex={1} mt={3}>
       <ScrollView
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

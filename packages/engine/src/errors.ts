@@ -298,8 +298,11 @@ export class AccountAlreadyExists extends OneKeyError {
 export class PreviousAccountIsEmpty extends OneKeyError {
   override key = 'content__previous_str_account_is_empty';
 
-  constructor(accountTypeStr: string) {
+  constructor(accountTypeStr: string, key?: LocaleIds) {
     super('', { '0': accountTypeStr });
+    if (key) {
+      this.key = key;
+    }
   }
 }
 

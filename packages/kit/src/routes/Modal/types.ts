@@ -36,3 +36,4 @@ export type { NFTMarketRoutesParams } from './NFTMarket';
 export type { OverviewModalRoutesParams } from './Overview';
 export type { AnnualReportModalParams } from './AnnualReport';
 export type { CurrencySelectModalParams } from './CurrencySelect';
+export type { MarketRoutesParams } from './Market';
