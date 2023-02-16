@@ -10,6 +10,8 @@ import {
   useState,
 } from 'react';
 
+import { StyleSheet } from 'react-native';
+
 import {
   Box,
   Divider,
@@ -36,6 +38,12 @@ type ChainsSelectorValues = {
   selectedNetworkId: string;
   setSelectedNetworkId: (networkid: string) => void;
 };
+
+const styles = StyleSheet.create({
+  listContentContainer: {
+    paddingBottom: 50,
+  },
+});
 
 const SelectedNetworkContext = createContext<ChainsSelectorValues>({
   selectedNetworkId: '',
@@ -101,6 +109,7 @@ const ChainsSelector: FC<{ networkIds: string[] }> = ({ networkIds }) => {
     );
   return (
     <FlatList
+      contentContainerStyle={styles.listContentContainer}
       data={data}
       renderItem={renderItem}
       removeClippedSubviews
@@ -157,6 +166,7 @@ const DappsContainer: FC<DappsContainerProps> = ({ dapps }) => {
 
   return (
     <FlatList
+      contentContainerStyle={styles.listContentContainer}
       data={data}
       renderItem={renderItem}
       removeClippedSubviews
