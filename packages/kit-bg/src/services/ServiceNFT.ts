@@ -1,5 +1,3 @@
-import axios from 'axios';
-
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
@@ -33,8 +31,6 @@ function getNFTListKey(accountId: string, networkId: string) {
 
 @backgroundClass()
 class ServiceNFT extends ServiceBase {
-  private client = axios.create({ timeout: 60 * 1000 });
-
   get baseUrl() {
     return `${getFiatEndpoint()}/NFT`;
   }

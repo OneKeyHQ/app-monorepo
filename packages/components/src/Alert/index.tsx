@@ -2,20 +2,18 @@ import type { FC, ReactNode } from 'react';
 import { useState } from 'react';
 
 import { Box } from 'native-base';
+import { StyleSheet } from 'react-native';
 
 import { useThemeValue } from '@onekeyhq/components';
 
 import Icon from '../Icon';
-import IconButton from '../IconButton';
 import Pressable from '../Pressable';
 import Typography from '../Typography';
-import VStack from '../VStack';
 
 import type { ICON_NAMES } from '../Icon';
 import type { ThemeValues } from '../Provider/theme';
 
 type AlertType = 'info' | 'warn' | 'error' | 'success' | 'SeriousWarning';
-type ActionType = 'bottom' | 'right';
 
 export type AlertProps = {
   title: string | ReactNode;
@@ -24,7 +22,6 @@ export type AlertProps = {
   dismiss?: boolean;
   onDismiss?: () => void;
   action?: string;
-  actionType?: ActionType;
   onAction?: () => void;
   customIconName?: ICON_NAMES;
 };
@@ -34,13 +31,15 @@ type AlertTypeProps = {
   iconColor: keyof ThemeValues;
   bgColor: keyof ThemeValues;
   borderColor: keyof ThemeValues;
+  actionBorderColor: keyof ThemeValues;
 };
 
 const InfoAlertProps: AlertTypeProps = {
-  iconName: 'InformationCircleMini',
+  iconName: 'ExclamationCircleMini',
   iconColor: 'icon-default',
-  bgColor: 'surface-neutral-subdued',
+  bgColor: 'surface-subdued',
   borderColor: 'border-subdued',
+  actionBorderColor: 'border-default',
 };
 
 const WarnAlertProps: AlertTypeProps = {
@@ -48,6 +47,7 @@ const WarnAlertProps: AlertTypeProps = {
   iconColor: 'icon-warning',
   bgColor: 'surface-warning-subdued',
   borderColor: 'border-warning-subdued',
+  actionBorderColor: 'border-warning-default',
 };
 
 const ErrorAlertProps: AlertTypeProps = {
@@ -55,6 +55,7 @@ const ErrorAlertProps: AlertTypeProps = {
   iconColor: 'icon-critical',
   bgColor: 'surface-critical-subdued',
   borderColor: 'border-critical-subdued',
+  actionBorderColor: 'border-critical-default',
 };
 
 const SuccessAlertProps: AlertTypeProps = {
@@ -62,6 +63,7 @@ const SuccessAlertProps: AlertTypeProps = {
   iconColor: 'icon-success',
   bgColor: 'surface-success-subdued',
   borderColor: 'border-success-subdued',
+  actionBorderColor: 'border-success-default',
 };
 
 const SeriousWarningAlertProps: AlertTypeProps = {
@@ -69,6 +71,7 @@ const SeriousWarningAlertProps: AlertTypeProps = {
   iconColor: 'icon-critical',
   bgColor: 'surface-critical-subdued',
   borderColor: 'border-critical-subdued',
+  actionBorderColor: 'border-critical-default',
 };
 
 function alertPropWithType(alertType: AlertType) {
@@ -93,7 +96,6 @@ const Alert: FC<AlertProps> = ({
   onDismiss,
   dismiss = true,
   action,
-  actionType,
   onAction,
   customIconName,
 }) => {
@@ -103,78 +105,57 @@ const Alert: FC<AlertProps> = ({
   const [display, setDisplay] = useState(true);
 
   return display ? (
-    <Box position="relative">
-      <Box
-        position="relative"
-        display="flex"
-        flexDirection="row"
-        w="100%"
-        borderRadius="12"
-        borderWidth="1px"
-        borderColor={borderColor}
-        bgColor={bgColor}
-        pl="4"
-        pr={dismiss ? '2.5' : '4'}
-        pb="2.5"
-        pt="2.5"
-        alignItems="flex-start"
-      >
-        <Box flex="1">
-          <Box
-            flexDirection="row"
-            alignItems="center"
-            justifyContent="space-between"
-            minH="8"
-            w="full"
-          >
-            <Box flexDirection="row" flex={1}>
-              <Box>
-                <Icon
-                  size={20}
-                  name={customIconName ?? alertTypeProps.iconName}
-                  color={alertTypeProps.iconColor}
-                />
-              </Box>
-              <Typography.Body2Strong ml="3" flex={1}>
-                {title}
-              </Typography.Body2Strong>
-            </Box>
-          </Box>
-          {description || (action && actionType === 'bottom') ? (
-            <VStack pl="8" pt="1" mb="1" space="4">
-              {description ? (
-                <Typography.Body2>{description}</Typography.Body2>
-              ) : null}
-              {action && actionType === 'bottom' ? (
-                <Pressable onPress={onAction}>
-                  <Typography.Body2Underline>
-                    {action}
-                  </Typography.Body2Underline>
-                </Pressable>
-              ) : null}
-            </VStack>
-          ) : null}
+    <Box
+      flexDirection="row"
+      alignItems="center"
+      py="12px"
+      px="16px"
+      bgColor={bgColor}
+      borderRadius="12"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor={borderColor}
+    >
+      <Box flex={1} flexDirection="row">
+        <Box mr="8px">
+          <Icon
+            size={20}
+            name={customIconName ?? alertTypeProps.iconName}
+            color={alertTypeProps.iconColor}
+          />
         </Box>
-        <Box flexDirection="row" alignItems="center" h="8">
-          {actionType === 'right' && action ? (
-            <Pressable onPress={onAction}>
-              <Typography.Body2Underline>{action}</Typography.Body2Underline>
-            </Pressable>
+        <Box flex={1}>
+          {title ? (
+            <Typography.Body2Strong>{title}</Typography.Body2Strong>
           ) : null}
-          {dismiss ? (
-            <IconButton
-              size="sm"
-              type="plain"
-              name="XMarkOutline"
-              iconColor={alertTypeProps.iconColor}
-              onPress={() => {
-                onDismiss?.();
-                setDisplay(false);
-              }}
-            />
+          {description ? (
+            <Typography.Body2 mt="4px">{description}</Typography.Body2>
           ) : null}
         </Box>
       </Box>
+      {action ? (
+        <Pressable
+          onPress={onAction}
+          ml="8px"
+          py="6px"
+          px="12px"
+          rounded="12px"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor={alertTypeProps.actionBorderColor}
+        >
+          <Typography.Button2>{action}</Typography.Button2>
+        </Pressable>
+      ) : null}
+      {dismiss ? (
+        <Pressable
+          onPress={() => {
+            onDismiss?.();
+            setDisplay(false);
+          }}
+          ml="8px"
+        >
+          <Icon name="XMarkMini" color={alertTypeProps.iconColor} size={20} />
+        </Pressable>
+      ) : null}
     </Box>
   ) : null;
 };

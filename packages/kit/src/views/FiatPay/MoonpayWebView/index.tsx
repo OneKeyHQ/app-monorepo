@@ -30,7 +30,6 @@ export const MoonpayWebView: FC = () => {
   return (
     <Modal
       height="560px"
-      header="MoonPay"
       hideSecondaryAction
       primaryActionProps={{
         type: 'basic',

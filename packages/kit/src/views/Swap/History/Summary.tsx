@@ -26,7 +26,6 @@ const PendingTxs = () => {
           },
         )}
         dismiss={false}
-        actionType="right"
         alertType="info"
       />
     </Box>

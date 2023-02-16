@@ -224,7 +224,7 @@ function AssetsList({
         loading
           ? AssetsListSkeleton
           : // eslint-disable-next-line react/no-unstable-nested-components
-            () => <EmptyListOfAccount network={network} />
+            () => <EmptyListOfAccount network={network} accountId={accountId} />
       }
       ListFooterComponent={footer}
       keyExtractor={(_item: SimplifiedToken) =>

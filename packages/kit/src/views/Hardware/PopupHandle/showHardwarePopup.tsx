@@ -87,15 +87,17 @@ export default async function showHardwarePopup({
   const handleCancelPopup = () => {
     closeHardwarePopup();
 
-    try {
-      const connectId = payload?.deviceConnectId ?? '';
-      // Cancel the process
-      serviceHardware.cancel(connectId);
-      // Refresh the hardware screen
-      serviceHardware.getFeatures(connectId);
-    } catch (e) {
-      // TODO Collect the error
-    }
+    (async () => {
+      try {
+        const connectId = payload?.deviceConnectId ?? '';
+        // Cancel the process
+        await serviceHardware.cancel(connectId);
+        // Refresh the hardware screen
+        await serviceHardware.getFeatures(connectId);
+      } catch (e) {
+        // TODO Collect the error
+      }
+    })();
   };
 
   const { UI_RESPONSE } = await CoreSDKLoader();

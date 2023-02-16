@@ -477,7 +477,7 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTx> {
     const client = await this.getClient();
     const transferInfo = transferInfos[0];
-    const { from } = transferInfo;
+    const { from, to: firstReceiver, isNFT } = transferInfo;
 
     const feePayer = new PublicKey(from);
     const nativeTx = new Transaction();
@@ -486,7 +486,7 @@ export default class Vault extends VaultBase {
 
     for (let i = 0; i < transferInfos.length; i += 1) {
       const { token: tokenAddress, amount, to, sendAddress } = transferInfos[i];
-      const receiver = new PublicKey(to);
+      const receiver = new PublicKey(to || firstReceiver);
 
       const token = await this.engine.ensureTokenInDB(
         this.networkId,
