@@ -30,6 +30,7 @@ import {
   setEnableTestFiatEndpoint,
   setEnableZeroNotificationThreshold,
   setHideDiscoverContent,
+  setOnRamperTestMode,
   setOverviewDefiBuildByService,
   setPreReleaseUpdate,
   setUpdateDeviceBle,
@@ -98,6 +99,7 @@ export const DevSettingSection = () => {
     defiBuildService,
     hideDiscoverContent,
     enableExternalAccountAnnualReport,
+    onRamperTestMode,
   } = devMode || {};
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
@@ -349,7 +351,18 @@ export const DevSettingSection = () => {
             }}
           />
         </Container.Item>
-
+        <Container.Item
+          title="Enable OnRamper Test Mode"
+          titleColor="text-critical"
+        >
+          <Switch
+            labelType="false"
+            isChecked={onRamperTestMode}
+            onToggle={() => {
+              dispatch(setOnRamperTestMode(!onRamperTestMode));
+            }}
+          />
+        </Container.Item>
         <Container.Item
           title="Request intercept check"
           titleColor="text-critical"
