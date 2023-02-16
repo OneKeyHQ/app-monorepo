@@ -15,9 +15,12 @@ export default class ServiceDerivationPath extends ServiceBase {
     walletId: string | undefined,
     networkId: string | undefined,
   ) {
-    if (!networkId) return [];
-    const vault = await this.backgroundApi.engine.getChainOnlyVault(networkId);
-    const accountNameInfo = await vault.getAccountNameInfoMap(walletId);
+    if (!networkId || !walletId) return [];
+    const vault = await this.backgroundApi.engine.getWalletOnlyVault(
+      networkId,
+      walletId,
+    );
+    const accountNameInfo = await vault.getAccountNameInfoMap();
     return Object.entries(accountNameInfo).map(([k, v]) => ({ ...v, key: k }));
   }
 
@@ -27,10 +30,11 @@ export default class ServiceDerivationPath extends ServiceBase {
       await this.backgroundApi.engine.dbApi.getAccountDerivationByWalletId(
         walletId,
       );
-    const network = await this.backgroundApi.engine.getNetwork(networkId);
-
-    const vault = await this.backgroundApi.engine.getChainOnlyVault(networkId);
-    const accountNameInfo = await vault.getAccountNameInfoMap(walletId);
+    const vault = await this.backgroundApi.engine.getWalletOnlyVault(
+      networkId,
+      walletId,
+    );
+    const accountNameInfo = await vault.getAccountNameInfoMap();
     const networkDerivations = Object.entries(walletDerivations)
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       .filter(([_, v]) =>
@@ -39,7 +43,7 @@ export default class ServiceDerivationPath extends ServiceBase {
       .map(([k, v]) => ({ ...v, key: k }));
 
     const shouldQuickCreate =
-      networkDerivations.length <= 1 || network.settings.isUTXOModel;
+      networkDerivations.length <= 1 && !vault.settings.isUTXOModel;
     const quickCreateAccountInfo =
       networkDerivations.length > 0
         ? networkDerivations[0]

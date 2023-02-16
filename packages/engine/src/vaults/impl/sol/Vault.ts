@@ -931,13 +931,13 @@ export default class Vault extends VaultBase {
     return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
   }
 
-  override async getAccountNameInfoMap(
-    walletId: string,
-  ): Promise<Record<string, AccountNameInfo>> {
-    const isHwWallet = walletId.startsWith('hw');
+  override async getAccountNameInfoMap(): Promise<
+    Record<string, AccountNameInfo>
+  > {
+    const isHwWallet = this.walletId.startsWith('hw');
     const network = await this.getNetwork();
     const accountNameInfo = getAccountNameInfoByImpl(network.impl);
-    if (isHwWallet || !walletId) {
+    if (isHwWallet || !this.walletId) {
       return omit(accountNameInfo, 'ledgerLive');
     }
     return accountNameInfo;

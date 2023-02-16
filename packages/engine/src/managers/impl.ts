@@ -394,6 +394,7 @@ const defaultAccountNameInfo: Record<
       category: `1852'/${COINTYPE_ADA}'`,
       template: `m/1852'/${COINTYPE_ADA}'/x'/0/0`,
       coinType: COINTYPE_ADA,
+      label: 'Shelley',
     },
   },
   [IMPL_SUI]: {

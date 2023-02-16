@@ -190,9 +190,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     return false;
   }
 
-  async getAccountNameInfoMap(
-    walletId?: string,
-  ): Promise<Record<string, AccountNameInfo>> {
+  async getAccountNameInfoMap(): Promise<Record<string, AccountNameInfo>> {
     const network = await this.getNetwork();
     return getAccountNameInfoByImpl(network.impl);
   }
