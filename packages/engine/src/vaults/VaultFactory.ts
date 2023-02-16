@@ -77,6 +77,10 @@ export class VaultFactory {
       primitive: true,
       max: 1,
       maxAge: 1000 * 60 * 15,
+      dispose: async (vault: VaultBaseChainOnly) => {
+        // release resources
+        await vault.destroy();
+      },
     },
   );
 
