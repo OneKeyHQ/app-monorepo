@@ -182,7 +182,7 @@ export default class ServiceBootstrap extends ServiceBase {
 
   @backgroundMethod()
   async migrateAccountDerivationTable() {
-    console.log('Migrate ======>>>>>>');
+    debugLogger.common.info('start migrate account derivation process ===>');
     try {
       const { appSelector } = this.backgroundApi;
       const dbMigrationVersion = appSelector(
@@ -194,14 +194,11 @@ export default class ServiceBootstrap extends ServiceBase {
         semver.valid(dbMigrationVersion) &&
         semver.gte(dbMigrationVersion, ACCOUNT_DERIVATION_DB_MIGRATION_VERSION)
       ) {
-        const { dbApi } = this.backgroundApi.engine;
-        const wallets = await dbApi.getWallets();
-        console.log(wallets);
         debugLogger.common.info('Skip AccountDerivation DB migration');
         return;
       }
 
-      console.log('Will Migrate ======>>>>>>');
+      debugLogger.common.info('will migrate ===>');
       const { dbApi } = this.backgroundApi.engine;
       const wallets = await dbApi.getWallets();
       const hdOrHwWallets = wallets.filter(

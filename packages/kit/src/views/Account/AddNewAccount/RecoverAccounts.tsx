@@ -345,6 +345,7 @@ const DerivationPathForm: FC<{
 
   const onPress = useCallback(() => {
     showDerivationPathBottomSheetModal({
+      type: 'search',
       walletId,
       networkId,
       onSelect: (option) => onChange?.(option),

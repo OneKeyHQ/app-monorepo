@@ -26,6 +26,7 @@ import { useDerivationPath } from '../../hooks/useDerivationPath';
 import type { IDerivationOption } from '../../hooks/useDerivationPath';
 
 type IDerivationPathBottomSheetModalProps = {
+  type: 'create' | 'search';
   walletId: string;
   networkId: string | undefined;
   onSelect: (option: IDerivationOption) => void;
@@ -112,7 +113,6 @@ const DerivationOption: FC<{
           {option.desc && (
             <Text
               typography={{ sm: 'Body2Mono', md: 'Body2Mono' }}
-              fontFamily="mono"
               color={textColor}
             >
               {typeof option.desc === 'string'
@@ -125,7 +125,6 @@ const DerivationOption: FC<{
           )}
           <Text
             typography={{ sm: 'Body2Mono', md: 'Body2Mono' }}
-            fontFamily="mono"
             color={textColor}
           >
             {showTemplate && option.template.replace('x', '*')}
@@ -141,6 +140,7 @@ const DerivationOption: FC<{
 };
 
 const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
+  type,
   walletId,
   networkId,
   onSelect,
@@ -206,9 +206,10 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
     [onSelect],
   );
 
+  const isSearchAccount = type === 'search';
   return (
     <Box>
-      {!isUTXOModel && (
+      {isSearchAccount && (
         <Text typography={{ sm: 'Body2', md: 'Body2' }} mr="7px">
           {intl.formatMessage({
             id: 'content__if_you_dont_see_the_account_you_expect_try_switching_the_deriation_path',
@@ -216,7 +217,7 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
         </Text>
       )}
       {showValidOptions && (
-        <Box mt={isUTXOModel ? 0 : 4}>
+        <Box mt={isSearchAccount ? 4 : 0}>
           {validOptions.map((option) => (
             <DerivationOption
               key={option.key}
@@ -263,17 +264,22 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
 };
 
 const showDerivationPathBottomSheetModal = ({
+  type,
   walletId,
   networkId,
   onSelect,
 }: IDerivationPathBottomSheetModalProps) => {
   showOverlay((close) => (
     <BottomSheetModal
-      title={formatMessage({ id: 'title__derivation_path' })}
+      title={formatMessage({
+        id:
+          type === 'create' ? 'action__add_account' : 'title__derivation_path',
+      })}
       headerDescription={<DerivationPathHeader networkId={networkId} />}
       closeOverlay={close}
     >
       <DerivationPathContent
+        type={type}
         walletId={walletId}
         networkId={networkId}
         onSelect={(option) => {

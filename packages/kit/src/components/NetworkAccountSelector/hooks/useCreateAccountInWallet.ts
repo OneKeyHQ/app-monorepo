@@ -226,6 +226,7 @@ export function useCreateAccountInWallet({
     }
 
     showDerivationPathBottomSheetModal({
+      type: 'create',
       walletId,
       networkId: selectedNetworkId,
       onSelect: (options) => {
