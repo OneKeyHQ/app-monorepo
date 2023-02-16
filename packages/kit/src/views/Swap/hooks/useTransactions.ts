@@ -66,7 +66,7 @@ export function useWalletsSwapTransactions() {
   );
 }
 
-export function useTransactionsAccount(accountId: string) {
+export function useTransactionsAccount(accountId: string, networkId?: string) {
   const walletAccounts = useWalletsAccounts();
   const [account, setAccount] = useState<Account | undefined | null>(() =>
     walletAccounts.find((item) => item.accountId === accountId)
@@ -80,13 +80,13 @@ export function useTransactionsAccount(accountId: string) {
     );
     if (walletAccount) {
       backgroundApiProxy.engine
-        .getAccounts([walletAccount.accountId])
+        .getAccounts([walletAccount.accountId], networkId)
         .then(([item]) => {
           if (item) {
             setAccount(item);
           }
         });
     }
-  }, [walletAccounts, accountId]);
+  }, [walletAccounts, accountId, networkId]);
   return account;
 }

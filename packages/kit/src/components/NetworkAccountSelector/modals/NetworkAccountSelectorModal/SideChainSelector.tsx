@@ -58,10 +58,12 @@ function SideChainSelector({
   accountSelectorInfo,
   onPress,
   fullWidthMode,
+  networkImpl,
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
   onPress?: (payload: { networkId: string }) => void;
   fullWidthMode?: boolean;
+  networkImpl?: string;
 }) {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -73,7 +75,10 @@ function SideChainSelector({
 
   const data = useMemo(
     () =>
-      enabledNetworks.filter((d) => {
+      enabledNetworks.filter((d: INetwork) => {
+        if (networkImpl && d.impl !== networkImpl) {
+          return false;
+        }
         for (const v of Object.values(
           pick(d, 'name', 'shortName', 'id', 'symbol'),
         )) {
@@ -83,7 +88,7 @@ function SideChainSelector({
         }
         return false;
       }),
-    [enabledNetworks, search],
+    [networkImpl, enabledNetworks, search],
   );
 
   const emptyComponent = useCallback(
