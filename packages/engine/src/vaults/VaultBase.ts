@@ -190,6 +190,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     const network = await this.getNetwork();
     return getAccountNameInfoByImpl(network.impl);
   }
+
+  async canAutoCreateNextAccount(password: string): Promise<boolean> {
+    return Promise.resolve(true);
+  }
 }
 
 /*

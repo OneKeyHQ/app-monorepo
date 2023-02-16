@@ -546,13 +546,15 @@ class ServiceAccount extends ServiceBase {
   }) {
     const { engine, servicePassword } = this.backgroundApi;
     const password = await servicePassword.getPassword();
-    if (
-      password &&
-      networkId &&
-      wallet.id &&
-      (wallet.type === 'hd' || wallet.type === 'hw')
-    ) {
+    if (password && networkId && wallet.id && wallet.type === 'hd') {
       try {
+        const vault = await engine.getWalletOnlyVault(networkId, wallet.id);
+        const canAutoCreateAccount = await vault.canAutoCreateNextAccount(
+          password,
+        );
+        if (!canAutoCreateAccount) {
+          return;
+        }
         const accountsInWalletAndNetwork = await engine.getAccounts(
           wallet.accounts,
           networkId,
