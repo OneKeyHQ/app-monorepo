@@ -38,10 +38,17 @@ const AccountSelectorTrigger: FC<AccountSelectorTriggerProps> = ({
     () => ({
       label:
         account?.name || intl.formatMessage({ id: 'empty__no_account_title' }),
-      description: account?.address.slice(-4) || '',
+      description:
+        (account?.displayAddress ?? account?.address ?? '').slice(-4) || '',
       value: account?.id,
     }),
-    [account?.address, account?.id, account?.name, intl],
+    [
+      account?.displayAddress,
+      account?.address,
+      account?.id,
+      account?.name,
+      intl,
+    ],
   );
   const isVertical = useIsVerticalLayout();
 

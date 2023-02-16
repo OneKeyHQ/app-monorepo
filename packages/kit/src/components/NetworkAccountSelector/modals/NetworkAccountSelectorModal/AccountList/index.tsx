@@ -351,7 +351,7 @@ function AccountList({
             walletId={section?.wallet?.id}
             label={item.name}
             // TODO uppercase address
-            address={shortenAddress(item.address)}
+            address={shortenAddress(item.displayAddress ?? item.address)}
             // TODO wait Overview implements all accounts balance
             balance={undefined}
           />
