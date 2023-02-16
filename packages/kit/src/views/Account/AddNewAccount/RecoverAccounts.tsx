@@ -29,6 +29,7 @@ import type {
   Account,
   ImportableHDAccount,
 } from '@onekeyhq/engine/src/types/account';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import showDerivationPathBottomSheetModal from '@onekeyhq/kit/src/components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
@@ -45,6 +46,7 @@ import { usePrevious } from '../../../hooks';
 import { deviceUtils } from '../../../utils/hardware';
 
 import { showJumpPageDialog } from './JumpPage';
+import RecoverAccountListItemMenu from './RecoverAccountListItemMenu';
 import RecoverAccountMenu from './RecoverAccountMenu';
 import { FROM_INDEX_MAX } from './RecoverAccountsAdvanced';
 
@@ -63,7 +65,7 @@ type RouteProps = RouteProp<
   CreateAccountModalRoutes.RecoverAccountsList
 >;
 
-type RecoverAccountType = ImportableHDAccount;
+export type RecoverAccountType = ImportableHDAccount;
 type SelectStateType = {
   selected: boolean;
   isDisabled: boolean;
@@ -75,8 +77,8 @@ type CellProps = {
   decimal: number;
   symbol: string;
   showPathAndLink: boolean;
+  network: Network;
   onChange: (select: boolean) => void;
-  openBlockExplorer: (address: string) => void;
 } & ComponentProps<typeof Box>;
 
 const AccountCell: FC<CellProps> = ({
@@ -85,8 +87,8 @@ const AccountCell: FC<CellProps> = ({
   onChange,
   decimal,
   symbol,
+  network,
   showPathAndLink,
-  openBlockExplorer,
 }) => {
   const [isChecked, setChecked] = useState(state?.selected ?? false);
 
@@ -162,21 +164,19 @@ const AccountCell: FC<CellProps> = ({
           />
         </Box>
       </ListItem.Column>
-      {/* TODO: change to menu */}
-      {showPathAndLink && (
-        <ListItem.Column>
+      <ListItem.Column>
+        <RecoverAccountListItemMenu item={item} network={network}>
           <IconButton
+            alignItems="flex-end"
             type="plain"
-            name="ArrowTopRightOnSquareMini"
+            name="EllipsisVerticalMini"
+            color="icon-subdued"
             size="xs"
             hitSlop={12}
             circle
-            onPress={() => {
-              openBlockExplorer(item.displayAddress);
-            }}
           />
-        </ListItem.Column>
-      )}
+        </RecoverAccountListItemMenu>
+      </ListItem.Column>
     </ListItem>
   );
 };
@@ -190,7 +190,6 @@ type ListTableHeaderProps = {
 
 const ListTableHeader: FC<ListTableHeaderProps> = ({
   isAllSelected,
-  showPathAndLink,
   onChange,
 }) => {
   const intl = useIntl();
@@ -226,11 +225,10 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
         }}
         flex={1}
       />
-      {showPathAndLink && (
-        <ListItem.Column>
-          <Box w="28px" />
-        </ListItem.Column>
-      )}
+      <ListItem.Column>
+        {/* TODO: Maybe layout bug */}
+        <Box w="auto" />
+      </ListItem.Column>
     </ListItem>
   );
 };
@@ -666,6 +664,7 @@ const RecoverAccounts: FC = () => {
   const rowRenderer = useCallback(
     ({ item }: ListRenderItemInfo<RecoverAccountType>) => (
       <AccountCell
+        network={selectedNetWork}
         decimal={decimal}
         symbol={symbol}
         showPathAndLink={config.showPathAndLink}
@@ -675,7 +674,6 @@ const RecoverAccounts: FC = () => {
         onChange={(selected) => {
           checkBoxOnChange(selected, item);
         }}
-        openBlockExplorer={openAddressDetails}
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
