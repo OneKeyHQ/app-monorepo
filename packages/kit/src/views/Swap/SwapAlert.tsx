@@ -68,7 +68,6 @@ const RecipientBox = () => {
           { '0': network?.symbol ?? '' },
         )}
         alertType="info"
-        actionType="right"
         action={intl.formatMessage({ id: 'action__create' })}
         onAction={createAccount}
         dismiss={false}
@@ -102,7 +101,6 @@ const DepositLimitAlert = () => {
           title={limitsError.message}
           alertType="warn"
           dismiss={false}
-          actionType="right"
           onAction={onAction}
           action={intl.formatMessage({ id: 'action__fill_in' })}
         />
