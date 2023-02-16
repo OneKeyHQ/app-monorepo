@@ -33,7 +33,6 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import showDerivationPathBottomSheetModal from '@onekeyhq/kit/src/components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
-import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
@@ -226,7 +225,6 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
         flex={1}
       />
       <ListItem.Column>
-        {/* TODO: Maybe layout bug */}
         <Box w="auto" />
       </ListItem.Column>
     </ListItem>
@@ -390,7 +388,6 @@ const RecoverAccounts: FC = () => {
   const selectedNetWork = networks.filter((n) => n.id === network)[0];
   const decimal = selectedNetWork?.nativeDisplayDecimals;
   const symbol = selectedNetWork?.symbol;
-  const { openAddressDetails } = useOpenBlockBrowser(selectedNetWork);
 
   const [isAllSelected, setAllSelected] = useState(false);
   const [config, setConfig] = useState<

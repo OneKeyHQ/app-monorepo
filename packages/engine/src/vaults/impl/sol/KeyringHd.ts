@@ -20,8 +20,6 @@ import type {
   ISignCredentialOptions,
 } from '../../types';
 
-const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
-
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(password: string, addresses: Array<string>) {
     const dbAccount = await this.getDbAccount();

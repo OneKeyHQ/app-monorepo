@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import { CheckBox, Text } from '@onekeyhq/components';
+import { CheckBox } from '@onekeyhq/components';
 import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 import type {
   IBaseMenuOptions,

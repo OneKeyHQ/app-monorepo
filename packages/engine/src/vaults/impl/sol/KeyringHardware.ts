@@ -19,8 +19,6 @@ import type {
 } from '../../types';
 import type { PublicKey, Transaction } from '@solana/web3.js';
 
-const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
-
 export class KeyringHardware extends KeyringHardwareBase {
   override async signTransaction(
     unsignedTx: UnsignedTx,

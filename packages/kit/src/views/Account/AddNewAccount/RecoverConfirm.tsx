@@ -223,7 +223,7 @@ const RecoverConfirm: FC = () => {
               network={network}
               purpose={purpose}
               template={template}
-              config={config}
+              config={config as AdvancedValues}
               stopFlag={stopFlag}
               onDone={() => {
                 if (navigation?.canGoBack?.()) {
