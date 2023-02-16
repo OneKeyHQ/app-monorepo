@@ -20,7 +20,6 @@ export { CreateAccountModalRoutes };
 type RecoverAccountsAdvancedParams = {
   fromIndex: number;
   generateCount?: number;
-  showPathAndLink: boolean;
 };
 
 export type CreateAccountRoutesParams = {

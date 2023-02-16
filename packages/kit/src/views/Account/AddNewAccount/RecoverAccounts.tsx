@@ -45,6 +45,7 @@ import { usePrevious } from '../../../hooks';
 import { deviceUtils } from '../../../utils/hardware';
 
 import { showJumpPageDialog } from './JumpPage';
+import RecoverAccountMenu from './RecoverAccountMenu';
 import { FROM_INDEX_MAX } from './RecoverAccountsAdvanced';
 
 import type { IDerivationOption } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
@@ -241,7 +242,7 @@ type ListTableFooterProps = {
   prevButtonDisabled?: boolean;
   nextButtonDisabled?: boolean;
   onPagePress: () => void;
-  onAdvancedPress: () => void;
+  onBulkAddPress: () => void;
   onNextPagePress: () => void;
   onPrevPagePress: () => void;
 };
@@ -253,7 +254,7 @@ const ListTableFooter: FC<ListTableFooterProps> = ({
   prevButtonDisabled,
   nextButtonDisabled,
   onPagePress,
-  onAdvancedPress,
+  onBulkAddPress,
   onNextPagePress,
   onPrevPagePress,
 }) => {
@@ -272,12 +273,12 @@ const ListTableFooter: FC<ListTableFooterProps> = ({
         type="basic"
         leftIconName="AdjustmentsMini"
         alignItems="flex-start"
-        onPress={onAdvancedPress}
+        onPress={onBulkAddPress}
         overflow="hidden"
       >
         {minLimit && count
           ? `${minLimit} - ${maxLimit}`
-          : intl.formatMessage({ id: 'content__advanced' })}
+          : intl.formatMessage({ id: 'action__bulk_add' })}
       </Button>
       <HStack space={0} alignItems="flex-end">
         <Button
@@ -775,6 +776,22 @@ const RecoverAccounts: FC = () => {
       height="640px"
       header={intl.formatMessage({ id: 'action__manage_account' })}
       headerDescription={headerDescription}
+      rightContent={
+        <RecoverAccountMenu
+          showPath={config.showPathAndLink}
+          onChange={(isChecked) => {
+            const newConfig = { ...config, showPathAndLink: isChecked };
+            setConfig(newConfig);
+          }}
+        >
+          <IconButton
+            type="plain"
+            size="lg"
+            circle
+            name="EllipsisVerticalOutline"
+          />
+        </RecoverAccountMenu>
+      }
       primaryActionTranslationId="action__done"
       onPrimaryActionPress={() => {
         hardwareCancel();
@@ -907,18 +924,13 @@ const RecoverAccounts: FC = () => {
                 };
               });
             }}
-            onAdvancedPress={() => {
+            onBulkAddPress={() => {
               navigation.navigate(
                 CreateAccountModalRoutes.RecoverAccountsAdvanced,
                 {
                   fromIndex: config.fromIndex,
                   generateCount: config.generateCount,
-                  showPathAndLink: config.showPathAndLink,
-                  onApply: ({
-                    fromIndex,
-                    generateCount: count,
-                    showPathAndLink: showPath,
-                  }) => {
+                  onApply: ({ fromIndex, generateCount: count }) => {
                     const isForceRefresh =
                       config.fromIndex !== fromIndex ||
                       config.generateCount !== count;
@@ -930,7 +942,7 @@ const RecoverAccounts: FC = () => {
                         currentPage: isForceRefresh ? 0 : config.currentPage,
                         fromIndex,
                         generateCount: count,
-                        showPathAndLink: showPath,
+                        showPathAndLink: config.showPathAndLink,
                       };
 
                       if (isForceRefresh) {

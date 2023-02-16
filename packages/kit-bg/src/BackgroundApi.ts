@@ -362,6 +362,8 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceDerivationPath', { value });
+
+    return value;
   }
 
   get serviceFiatPay() {
