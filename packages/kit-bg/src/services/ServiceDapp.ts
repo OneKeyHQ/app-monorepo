@@ -37,6 +37,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { IMPL_SOL, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import urlUtils from '@onekeyhq/shared/src/utils/urlUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
@@ -355,12 +356,14 @@ class ServiceDapp extends ServiceBase {
         ];
       }
       const routeNames = [RootRoutes.Modal, ...modalScreens];
-      const sourceInfo = {
+
+      const sourceInfo: IDappSourceInfo = {
         id,
-        origin: request.origin,
-        scope: request.scope, // ethereum
-        data: request.data,
-      } as IDappSourceInfo;
+        origin: request.origin || '',
+        hostname: urlUtils.getHostNameFromUrl({ url: request.origin || '' }),
+        scope: request.scope as any, // ethereum
+        data: request.data as any,
+      };
       const routeParams = {
         // stringify required, nested object not working with Ext route linking
         query: JSON.stringify(

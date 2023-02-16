@@ -354,5 +354,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
 
     return value;
   }
+
+  get serviceFiatPay() {
+    const ServiceFiatPay =
+      require('./services/ServiceFiatPay') as typeof import('./services/ServiceFiatPay');
+    const value = new ServiceFiatPay.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceFiatPay', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

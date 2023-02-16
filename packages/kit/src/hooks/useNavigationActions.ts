@@ -43,12 +43,21 @@ export function useNavigationActions() {
     [dispatch, navigation],
   );
   const openNetworkSelector = useCallback(
-    ({ mode }: { mode?: EAccountSelectorMode }) => {
+    ({
+      mode,
+      networkImpl,
+    }: {
+      mode?: EAccountSelectorMode;
+      networkImpl?: string;
+    }) => {
       dispatch(updateAccountSelectorMode(mode || EAccountSelectorMode.Wallet));
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.ManageNetwork,
         params: {
           screen: ManageNetworkRoutes.NetworkSelector,
+          params: {
+            networkImpl,
+          },
         },
       });
     },

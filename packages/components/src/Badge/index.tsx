@@ -32,10 +32,10 @@ const smProps: BadgeTypeProps = {
   marginX: '6px',
 };
 
-function colorWithType(badgeType: BadgeType) {
+function bgColorWithType(badgeType: BadgeType) {
   switch (badgeType) {
     case 'default':
-      return 'surface-neutral-default';
+      return 'surface-neutral-subdued';
     case 'success':
       return 'surface-success-default';
     case 'info':
@@ -44,6 +44,21 @@ function colorWithType(badgeType: BadgeType) {
       return 'surface-warning-default';
     default:
       return 'surface-critical-default';
+  }
+}
+
+function textColorWithType(badgeType: BadgeType) {
+  switch (badgeType) {
+    case 'default':
+      return 'text-default';
+    case 'success':
+      return 'text-success';
+    case 'info':
+      return 'text-highlight';
+    case 'warning':
+      return 'text-warning';
+    default:
+      return 'text-critical';
   }
 }
 
@@ -60,10 +75,11 @@ const Badge: FC<BadgeProps> = ({
   title,
   type = 'default',
   size,
-  color = 'text-default',
+  color,
   ...rest
 }) => {
-  const bgColor: string = colorWithType(type);
+  const bgColor: string = bgColorWithType(type);
+  const textColor: string = textColorWithType(type);
   const badgeTypeProps = propsWithSize(size);
 
   return (
@@ -82,7 +98,7 @@ const Badge: FC<BadgeProps> = ({
         marginY="2px"
         fontSize={badgeTypeProps.fontSize}
         lineHeight={badgeTypeProps.lineHeight}
-        color={color}
+        color={color || textColor}
       >
         {title}
       </Typography.CaptionStrong>

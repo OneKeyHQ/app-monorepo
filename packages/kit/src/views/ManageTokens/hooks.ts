@@ -11,6 +11,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { setAccountTokensBalances } from '../../store/reducers/tokens';
 
 import type { Token } from '../../store/typings';
+import type { FiatPayModeType } from '../FiatPay/types';
 
 export const useSearchTokens = (
   terms: string,
@@ -147,4 +148,21 @@ export const useAddressSecurityInfo = (networkId: string, address: string) => {
     loading,
     data,
   };
+};
+
+export const useFiatPayTokens = (networkId: string, type: FiatPayModeType) => {
+  const [tokenList, updateTokenList] = useState<Token[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    backgroundApiProxy.serviceToken
+      .fetchFiatPayTokens({ networkId, type })
+      .then((list) => {
+        updateTokenList(list);
+      })
+      .finally(() => setLoading(false));
+  }, [networkId, type]);
+
+  return { tokenList, loading };
 };
