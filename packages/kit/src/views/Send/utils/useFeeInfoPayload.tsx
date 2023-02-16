@@ -3,8 +3,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIsFocused } from '@react-navigation/native';
+import BigNumber from 'bignumber.js';
 
 import { ToastManager } from '@onekeyhq/components';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IEncodedTx,
   IFeeInfo,
@@ -119,8 +121,9 @@ export function useFeeInfoPayload({
         prices: [],
         defaultPresetIndex: defaultFeePresetIndex ?? DEFAULT_PRESET_INDEX,
       };
-      let shouldFetch = !feeInfoSelected || feeInfoSelected?.type === 'preset';
-      if (fetchAnyway) {
+      let shouldFetch =
+        !useFeeInTx && (!feeInfoSelected || feeInfoSelected?.type === 'preset');
+      if (fetchAnyway && !useFeeInTx) {
         shouldFetch = true;
       }
       // TODO rename to FeeInfoMeta
@@ -149,6 +152,45 @@ export function useFeeInfoPayload({
           return null;
         }
       }
+
+      if (useFeeInTx) {
+        const { maxFeePerGas, maxPriorityFeePerGas, gas, gasLimit, gasPrice } =
+          encodedTx as IEncodedTxEvm;
+        const limit = gasLimit || gas;
+
+        if (maxFeePerGas && maxPriorityFeePerGas) {
+          const price = {
+            baseFee: new BigNumber(gasPrice ?? 0)
+              .shiftedBy(-(feeDecimals ?? 0))
+              .toFixed(),
+            maxFeePerGas: new BigNumber(maxFeePerGas)
+              .shiftedBy(-(feeDecimals ?? 0))
+              .toFixed(),
+            maxPriorityFeePerGas: new BigNumber(maxPriorityFeePerGas)
+              .shiftedBy(-(feeDecimals ?? 0))
+              .toFixed(),
+          };
+          info.eip1559 = true;
+          info.limit = limit;
+          info.prices = [price];
+          info.tx = {
+            eip1559: true,
+            limit,
+            price,
+          };
+        } else {
+          const price = new BigNumber(gasPrice ?? 0)
+            .shiftedBy(-(feeDecimals ?? 0))
+            .toFixed();
+          info.limit = limit;
+          info.prices = [price];
+          info.tx = {
+            limit,
+            price,
+          };
+        }
+      }
+
       if (defaultFeePresetIndex) {
         info.defaultPresetIndex = defaultFeePresetIndex;
       }
