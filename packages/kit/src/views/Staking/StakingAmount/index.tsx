@@ -25,6 +25,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import KeleLogoPNG from '../../../../assets/staking/kele_pool.png';
+import { AutoSizeText } from '../../../components/AutoSizeText';
 import {
   FormatBalanceToken,
   FormatCurrencyToken,
@@ -36,7 +37,6 @@ import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { useSingleToken, useTokenBalance } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { wait } from '../../../utils/helper';
-import { AutoSizeText } from '../../FiatPay/AmountInput/AutoSizeText';
 import { StakingRoutes } from '../typing';
 
 import type { StakingRoutesParams } from '../typing';
