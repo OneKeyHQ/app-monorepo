@@ -239,7 +239,7 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
           },
           onPrimaryActionPress: ({ onClose }: OnCloseCallback) => {
             onClose?.();
-            onRetry?.();
+            setTimeout(() => onRetry?.(), 500);
           },
           onSecondaryActionPress: () => onExit?.(),
         }}
