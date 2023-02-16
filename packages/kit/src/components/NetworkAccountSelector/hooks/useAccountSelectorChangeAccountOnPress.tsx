@@ -6,6 +6,7 @@ import {
   AppUIEventBusNames,
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigationActions } from '../../../hooks';
@@ -86,6 +87,8 @@ export function useAccountSelectorChangeAccountOnPress() {
           }
           await serviceAccountSelector.setSelectedWalletToActive();
           appUIEventBus.emit(AppUIEventBusNames.AccountChanged);
+        } catch (error) {
+          debugLogger.common.error('onPressChangeAccount ERROR: ', error);
         } finally {
           await wait(100);
           dispatch(updateIsRefreshDisabled(false));

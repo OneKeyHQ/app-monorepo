@@ -11,6 +11,7 @@ export type IOneKeyDeviceFeatures = Features;
 export type IDappSourceInfo = {
   id: string | number; // ServicePromise callback id to reject/resolve
   origin: string;
+  hostname: string;
   scope: IInjectedProviderNamesStrings;
   data: IJsonRpcRequest;
 };
