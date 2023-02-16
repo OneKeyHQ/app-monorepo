@@ -15,12 +15,17 @@ import type {
   PartialTokenInfo,
   TxInput,
 } from '@onekeyhq/engine/src/types/provider';
+import {
+  COINTYPE_BTC,
+  IMPL_BTC,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import {
   InsufficientBalance,
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
+import { getDefaultPurpose } from '../../../managers/derivation';
 import { TxStatus } from '../../../types/covalent';
 import {
   IDecodedTxActionType,
@@ -750,5 +755,26 @@ export default class Vault extends VaultBase {
 
   override getPrivateKeyByCredential(credential: string) {
     return bs58check.decode(credential);
+  }
+
+  override async canAutoCreateNextAccount(password: string): Promise<boolean> {
+    const wallet = await this.engine.getWallet(this.walletId);
+
+    if (wallet.type !== 'hd') return false;
+
+    const usedPurpose = getDefaultPurpose(IMPL_BTC);
+    const nextIndex =
+      wallet.nextAccountIds[`${usedPurpose}'/${COINTYPE_BTC}'`] || 0;
+
+    const accounts = await this.keyring.prepareAccounts({
+      type: 'SEARCH_ACCOUNTS',
+      password,
+      indexes: [nextIndex],
+      purpose: usedPurpose,
+    });
+    const accountUsed = await this.checkAccountExistence(
+      (accounts?.[0] as DBUTXOAccount).xpub,
+    );
+    return accountUsed;
   }
 }
