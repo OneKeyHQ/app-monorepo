@@ -1,6 +1,7 @@
 import type { ComponentProps, FC } from 'react';
 import { useCallback } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -158,9 +159,9 @@ const TokenInput: FC<TokenInputProps> = ({
       backgroundApiProxy.serviceSwap.userInput(type, value);
     } else {
       const reserved = reservedNetworkFee[token.networkId] ?? 0.1;
-      const v = Math.max(0, Number(value) - reserved);
-      if (v > 0) {
-        backgroundApiProxy.serviceSwap.userInput(type, String(v));
+      const v = BigNumber.max(0, new BigNumber(value).minus(reserved));
+      if (v.gt(0)) {
+        backgroundApiProxy.serviceSwap.userInput(type, v.toFixed());
       } else if (Number(value) > 0) {
         ToastManager.show({
           title: intl.formatMessage({
