@@ -332,7 +332,10 @@ export default class Vault extends VaultBase {
               };
             } = JSON.parse(event.data);
 
-            if (data.id !== 1) return;
+            if (data.id !== 1) {
+              if (ws.OPEN) ws.close();
+              return;
+            }
 
             const responseTime = Math.floor(performance.now() - start);
 
