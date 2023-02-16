@@ -27,11 +27,11 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatBalanceTokenOfAccount } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import { useSingleToken, useTokenBalance } from '../../../hooks/useTokens';
 import { wait } from '../../../utils/helper';
-import { AutoSizeText } from '../../FiatPay/AmountInput/AutoSizeText';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { SendRoutes } from '../types';
 import { usePreSendAmountInfo } from '../utils/usePreSendAmountInfo';

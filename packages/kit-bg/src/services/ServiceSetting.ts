@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/require-await  */
-import axios from 'axios';
+
 import semver from 'semver';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -35,8 +35,6 @@ type RemoteSetting = {
 
 @backgroundClass()
 export default class ServiceSetting extends ServiceBase {
-  client = axios.create({ timeout: 60 * 1000 });
-
   getFiatEndpoint() {
     return getFiatEndpoint();
   }

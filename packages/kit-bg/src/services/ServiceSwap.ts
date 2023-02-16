@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
-import axios from 'axios';
 
 import type { ISwftcCoin } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntitySwap';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -58,8 +57,6 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
-  request = axios.create({ timeout: 60 * 1000 });
-
   prevParams: FetchQuoteParams | undefined;
 
   @bindThis()
@@ -432,7 +429,7 @@ export default class ServiceSwap extends ServiceBase {
     const { dispatch } = this.backgroundApi;
     const endpoint = await this.getServerEndPoint();
     const url = `${endpoint}/swap/tokens`;
-    const res = await this.request.get(url);
+    const res = await this.client.get(url);
     const { data } = res;
     if (data && Array.isArray(data)) {
       const items = data.map((item) => ({

@@ -18,6 +18,8 @@ export type ServerToken = {
   checked: boolean;
   marketCap: number;
   isNative?: boolean;
+  onramperId?: string;
+  moonpayId?: string;
 };
 
 export type Token = HasName & {
@@ -39,6 +41,8 @@ export type Token = HasName & {
   addToIndex?: boolean;
   autoDetected?: boolean;
   sendAddress?: string;
+  onramperId?: string;
+  moonpayId?: string;
 };
 
 export type Tool = {
