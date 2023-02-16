@@ -112,4 +112,8 @@ export class VaultContext extends VaultContextBase {
   async getRpcUrl() {
     return (await this.getNetwork({ cached: false })).rpcURL;
   }
+
+  async destroy() {
+    // Do nothing
+  }
 }

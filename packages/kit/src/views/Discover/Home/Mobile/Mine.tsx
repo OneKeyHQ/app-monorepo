@@ -38,7 +38,7 @@ import type { ListRenderItem } from 'react-native';
 
 const styles = StyleSheet.create({
   listContentContainer: {
-    paddingBottom: 12,
+    paddingBottom: 62,
     paddingTop: 12,
   },
 });
