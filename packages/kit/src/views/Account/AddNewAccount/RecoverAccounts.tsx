@@ -343,21 +343,26 @@ const DerivationPathForm: FC<{
     setValue('derivationType', value ?? '');
   }, [value, setValue]);
 
+  const onPress = useCallback(() => {
+    showDerivationPathBottomSheetModal({
+      walletId,
+      networkId,
+      onSelect: (option) => onChange?.(option),
+    });
+  }, [walletId, networkId, onChange]);
+
   if (!derivationOptions || derivationOptions.length < 2) return null;
 
   return (
     <Form w="full" mb="26px">
-      <Pressable
-        onPress={() => {
-          showDerivationPathBottomSheetModal({
-            walletId,
-            networkId,
-            onSelect: (option) => onChange?.(option),
-          });
-        }}
-      >
+      <Pressable onPress={onPress}>
         <Form.Item name="derivationType" control={control}>
-          <Form.Input size="lg" rightIconName="ChevronDownMini" isReadOnly />
+          <Form.Input
+            size="lg"
+            rightIconName="ChevronDownMini"
+            isReadOnly
+            onPressRightIcon={onPress}
+          />
         </Form.Item>
       </Pressable>
     </Form>
