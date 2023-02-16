@@ -194,6 +194,8 @@ function parseNetworkId(networkId: string): {
   };
 }
 
+// getNetworkImplFromNetworkId
+// getImplFromNetworkId
 function getNetworkImpl(networkId: string) {
   const [impl] = networkId.split(SEPERATOR);
   return impl;
