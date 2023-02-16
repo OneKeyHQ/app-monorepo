@@ -972,7 +972,10 @@ class Engine {
     if (!coinType) {
       throw new OneKeyInternalError(`coinType of impl=${impl} not found.`);
     }
-    const nextIndex = getNextAccountId(wallet.nextAccountIds, template);
+    const nextIndex = getNextAccountId(
+      wallet.nextAccountIds,
+      accountNameInfo.template,
+    );
     const usedIndexes = indexes || [nextIndex];
     if (isAddInitFirstAccountOnly && nextIndex > 0) {
       throw new OneKeyInternalError(
