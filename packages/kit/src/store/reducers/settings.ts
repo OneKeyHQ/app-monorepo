@@ -72,6 +72,7 @@ export type SettingsState = {
     defiBuildService?: string;
     hideDiscoverContent?: boolean;
     enableExternalAccountAnnualReport?: boolean;
+    onRamperTestMode?: boolean;
   };
   pushNotification?: {
     registrationId?: string;
@@ -143,6 +144,7 @@ const initialState: SettingsState = {
     enableZeroNotificationThreshold: false,
     enablePerfCheck: false,
     defiBuildService: undefined,
+    onRamperTestMode: false,
   },
   pushNotification: defaultPushNotification,
   validationSetting: {
@@ -300,6 +302,12 @@ export const settingsSlice = createSlice({
     },
     setAnnualReportEntryEnabled(state, action: PayloadAction<boolean>) {
       state.annualReportEntryEnabled = action.payload;
+    },
+    setOnRamperTestMode(state, action: PayloadAction<boolean>) {
+      state.devMode = {
+        ...state.devMode,
+        onRamperTestMode: action.payload,
+      };
     },
     setEnableTestFiatEndpoint(state, action: PayloadAction<boolean>) {
       state.devMode = {
@@ -518,6 +526,7 @@ export const {
   setAnnualReportEntryEnabled,
   setEnableExternalAccountReport,
   setHideScamHistory,
+  setOnRamperTestMode,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

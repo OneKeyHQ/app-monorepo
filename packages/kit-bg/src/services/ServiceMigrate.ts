@@ -1,4 +1,3 @@
-import axios from 'axios';
 import fetch from 'cross-fetch';
 import RNUUID from 'react-native-uuid';
 
@@ -85,8 +84,6 @@ export function ServerUrl(serverUrl: string, path: string) {
 
 @backgroundClass()
 class ServiceMigrate extends ServiceBase {
-  private client = axios.create({ timeout: 60 * 1000 });
-
   private keypair?: { publicKey: string; privateKey: string };
 
   private randomNum = '';

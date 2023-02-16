@@ -14,10 +14,9 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
+import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../hooks';
-import { useMoonpaySell } from '../../hooks/redux';
 import { useTokenSupportStakedAssets } from '../../hooks/useTokens';
 import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../../routes/types';
@@ -218,16 +217,35 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
     }
   });
   const token = marketTokenItem?.tokens?.[0];
-  const { network } = useActiveWalletAccount();
+
   const stakedSupport = useTokenSupportStakedAssets(
     token?.networkId,
     token?.tokenIdOnNetwork,
   );
-  const { cryptoCurrency } = useMoonpaySell(network?.id, token);
+
+  const buyAction = useCallback(
+    async (t: TokenType) => {
+      const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
+        type: 'buy',
+        cryptoCode: t.onramperId,
+      });
+      if (signedUrl.length > 0) {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.FiatPay,
+          params: {
+            screen: FiatPayRoutes.MoonpayWebViewModal,
+            params: { url: signedUrl },
+          },
+        });
+      }
+    },
+    [navigation],
+  );
 
   if (isVertical) {
     return children ?? null;
   }
+
   return (
     <Box bg="background-default" w="full" h="full" p="4">
       <Box w="full" flexDirection="row" alignItems="center" py="5">
@@ -274,19 +292,10 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                   }}
                 />
               ) : null}
-              {cryptoCurrency ? (
+              {token?.onramperId ? (
                 <PurchaseButton
                   onPress={() => {
-                    navigation.navigate(RootRoutes.Modal, {
-                      screen: ModalRoutes.FiatPay,
-                      params: {
-                        screen: FiatPayRoutes.AmountInputModal,
-                        params: {
-                          token: cryptoCurrency,
-                          type: 'Buy',
-                        },
-                      },
-                    });
+                    buyAction(token);
                   }}
                 />
               ) : null}
