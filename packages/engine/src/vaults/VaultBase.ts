@@ -95,10 +95,6 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     throw new NotImplemented();
   }
 
-  async getApiClient(): Promise<any> {
-    throw new NotImplemented();
-  }
-
   async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
@@ -182,6 +178,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
   async isContractAddress(address: string): Promise<boolean> {
     return false;
+  }
+
+  async canAutoCreateNextAccount(password: string): Promise<boolean> {
+    return Promise.resolve(true);
   }
 }
 

@@ -458,24 +458,25 @@ export default class Vault extends VaultBase {
       path: dbAccount.path,
       coinType: dbAccount.coinType,
       tokens: [],
-      address: dbAccount.addresses?.[this.networkId] || '',
+      address: dbAccount.address || '',
     };
-
-    const existsPub = !!dbAccount.pub && !isEmpty(dbAccount.pub);
-
-    if (!existsPub) {
-      // Watch only account
-      return ret;
-    }
 
     if (
       ret.address.length === 0 &&
       isAccountCompatibleWithNetwork(dbAccount.id, this.networkId)
     ) {
-      const addressOnNetwork = await this.engine.providerManager.addressFromPub(
-        this.networkId,
-        dbAccount.pub,
-      );
+      const existsPub = !!dbAccount.pub && !isEmpty(dbAccount.pub);
+      let addressOnNetwork: string | undefined;
+      if (existsPub) {
+        addressOnNetwork = await this.engine.providerManager.addressFromPub(
+          this.networkId,
+          dbAccount.pub,
+        );
+      } else if (!isEmpty(dbAccount.address.trim())) {
+        addressOnNetwork = await this.addressFromBase(dbAccount);
+      }
+
+      if (!addressOnNetwork) return ret;
 
       ret.address = addressOnNetwork;
 

@@ -31,6 +31,10 @@ import ServiceBase from './ServiceBase';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
+NetInfo.configure({
+  reachabilityShouldRun: () => false,
+});
+
 @backgroundClass()
 class ServiceNetwork extends ServiceBase {
   rpcMeasureInterval: NodeJS.Timeout | null = null;
