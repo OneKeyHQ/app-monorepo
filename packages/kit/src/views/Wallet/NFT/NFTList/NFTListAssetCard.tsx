@@ -1,7 +1,8 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import type { ComponentProps, FC } from 'react';
 
 import {
+  Badge,
   Box,
   Pressable,
   Text,
@@ -15,6 +16,7 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
 import { useNFTSymbolPrice } from '../../../../hooks/useTokens';
+import { convertToMoneyFormat } from '../utils';
 
 import { useNFTListContent } from './NFTListContent';
 import NFTListImage from './NFTListImage';
@@ -47,6 +49,25 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
   const price = nftContent?.context.price ?? symbolPrice ?? 0;
   const value = price * (latestTradePrice ?? 0);
 
+  const AmountTag = useMemo(() => {
+    if (
+      asset?.amount &&
+      Number(asset?.amount) > 1 &&
+      asset.ercType === 'erc1155'
+    ) {
+      return (
+        <Badge
+          position="absolute"
+          right="8px"
+          bottom="8px"
+          title={`X ${convertToMoneyFormat(asset.amount)}`}
+          size="sm"
+          type="default"
+        />
+      );
+    }
+    return null;
+  }, [asset?.amount, asset.ercType]);
   return (
     <Box mb="16px" {...rest}>
       <Pressable
@@ -65,11 +86,15 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
           }
         }}
       >
-        <NFTListImage
-          asset={asset}
-          borderRadius="6px"
-          size={cardWidth - 2 * padding}
-        />
+        <Box>
+          <NFTListImage
+            asset={asset}
+            borderRadius="6px"
+            size={cardWidth - 2 * padding}
+          />
+          {AmountTag}
+        </Box>
+
         <Text
           typography="Body2"
           height="20px"

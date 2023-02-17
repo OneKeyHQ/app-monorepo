@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { BlurView } from 'expo-blur';
@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Badge,
   Box,
   Button,
   Center,
@@ -56,6 +57,7 @@ import { SendRoutes } from '../../../../routes';
 import { deviceUtils } from '../../../../utils/hardware';
 import CollectionLogo from '../../../NFTMarket/CollectionLogo';
 import { useCollectionDetail } from '../../../NFTMarket/Home/hook';
+import { convertToMoneyFormat } from '../utils';
 
 import CollectibleContent from './CollectibleContent';
 
@@ -280,6 +282,27 @@ const NFTDetailModal: FC = () => {
     });
   };
 
+  const AmountTag = useMemo(() => {
+    if (
+      outerAsset?.amount &&
+      isOwner &&
+      Number(outerAsset?.amount) > 1 &&
+      outerAsset.ercType === 'erc1155'
+    ) {
+      return (
+        <Badge
+          position="absolute"
+          right="8px"
+          bottom="8px"
+          title={`X ${convertToMoneyFormat(outerAsset.amount)}`}
+          size="sm"
+          type="default"
+        />
+      );
+    }
+    return null;
+  }, [outerAsset.amount, outerAsset.ercType, isOwner]);
+
   const shareProps: Props = {
     imageContent: (
       <>
@@ -304,10 +327,14 @@ const NFTDetailModal: FC = () => {
               }}
             >
               <CollectibleContent asset={asset} />
+              {AmountTag}
             </BlurView>
           </Box>
         ) : isSmallScreen ? (
-          <CollectibleContent asset={asset} />
+          <Box>
+            <CollectibleContent asset={asset} />
+            {AmountTag}
+          </Box>
         ) : (
           <Box
             alignSelf="stretch"
@@ -334,6 +361,7 @@ const NFTDetailModal: FC = () => {
               }}
             >
               <CollectibleContent asset={asset} />
+              {AmountTag}
             </BlurView>
           </Box>
         )}
