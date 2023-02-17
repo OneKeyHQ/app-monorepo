@@ -397,6 +397,7 @@ const ExchangeButton = () => {
         }),
       );
       backgroundApiProxy.serviceSwap.clearState();
+      backgroundApiProxy.serviceSwap.resetSwapSlippage();
       backgroundApiProxy.serviceToken.addAccountToken(
         inputAmount.token.networkId,
         sendingAccount.id,

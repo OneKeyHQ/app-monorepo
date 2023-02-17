@@ -1,11 +1,14 @@
 import { Divider } from '@onekeyhq/components';
 import { useAutoUpdate, useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import appUpdates from '../../../utils/updates/AppUpdates';
 
 import type { IBaseMenuOptions } from '../BaseMenu';
 import type { MessageDescriptor } from 'react-intl';
 
 const useUpdateItem: () => IBaseMenuOptions | null = () => {
-  const { state, progress } = useAutoUpdate();
+  const { state, progress, latest } = useAutoUpdate();
   const { autoDownload = true } = useSettings().updateSetting ?? {};
 
   let formText: null | MessageDescriptor['id'] = null;
@@ -37,6 +40,10 @@ const useUpdateItem: () => IBaseMenuOptions | null = () => {
       onPress: () => {
         if (state === 'ready') {
           window.desktopApi.installUpdate();
+        } else if (platformEnv.isMas) {
+          if (latest !== undefined && 'package' in latest) {
+            appUpdates.openAppUpdate(latest);
+          }
         } else {
           window.desktopApi.downloadUpdate();
         }
