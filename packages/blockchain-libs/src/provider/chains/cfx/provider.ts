@@ -8,10 +8,7 @@ import {
 import { defaultAbiCoder } from '@ethersproject/abi';
 import { hexZeroPad } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
-import OneKeyConnect from '@onekeyfe/js-sdk';
 import BigNumber from 'bignumber.js';
-import * as ethUtil from 'ethereumjs-util';
-// @ts-ignore: has no exported member 'PersonalMessage'
 
 import { BaseProvider } from '@onekeyhq/engine/src/client/BaseClient';
 import type {
@@ -209,138 +206,6 @@ class Provider extends BaseProvider {
       data: unsignedTx.payload?.data || '0x',
       chainId: parseInt(checkIsDefined(this.chainInfo.implOptions.chainId)),
     };
-  }
-
-  override async hardwareGetXpubs(
-    paths: string[],
-    showOnDevice: boolean,
-  ): Promise<{ path: string; xpub: string }[]> {
-    const resp = await this.wrapHardwareCall(() =>
-      OneKeyConnect.confluxGetPublicKey({
-        bundle: paths.map((path) => ({ path, showOnTrezor: showOnDevice })),
-      }),
-    );
-
-    return resp.map((i) => ({
-      path: i.serializedPath,
-      xpub: i.xpub,
-    }));
-  }
-
-  override async hardwareGetAddress(
-    path: string,
-    showOnDevice: boolean,
-    addressToVerify?: string,
-  ): Promise<string> {
-    const params = {
-      path,
-      showOnTrezor: showOnDevice,
-      chain_id: Number(checkIsDefined(this.chainInfo.implOptions.chainId)),
-    };
-
-    if (typeof addressToVerify === 'string') {
-      Object.assign(params, {
-        address: addressToVerify,
-      });
-    }
-    const { address } = await this.wrapHardwareCall(() =>
-      OneKeyConnect.confluxGetAddress(params as never),
-    );
-    return address;
-  }
-
-  override async hardwareSignTransaction(
-    unsignedTx: UnsignedTx,
-    signers: Record<string, string>,
-  ): Promise<SignedTx> {
-    const {
-      inputs: [{ address: fromAddress }],
-    } = unsignedTx;
-    const signer = signers[fromAddress];
-    check(signer, 'Signer not found');
-
-    const tx = this.buildCFXUnSignedTx(unsignedTx);
-    const { r, s, v } = await this.wrapHardwareCall(() =>
-      OneKeyConnect.confluxSignTransaction({
-        path: signer,
-        transaction: {
-          to: tx.to,
-          value: tx.value,
-          gasPrice: tx.gasPrice,
-          gasLimit: tx.gasLimit,
-          nonce: ethUtil.addHexPrefix(
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            ethUtil.padToEven(tx.nonce!.toString(16)),
-          ),
-          epochHeight: tx.epochHeight,
-          storageLimit: tx.storageLimit,
-          chainId: tx.chainId,
-          data: tx.data,
-        },
-      }),
-    );
-    const SignedTx = new Transaction({
-      ...tx,
-      r: ethUtil.addHexPrefix(r),
-      s: ethUtil.addHexPrefix(s),
-      v: Number(v),
-    });
-    const rawTx: string = SignedTx.serialize();
-    const txid = keccak256(rawTx);
-    return { txid, rawTx };
-  }
-
-  override async hardwareSignMessage(
-    message: TypedMessage,
-    signer: string,
-  ): Promise<string> {
-    const { type: messageType, message: strMessage } = message;
-
-    // eslint-disable-next-line default-case
-    switch (messageType) {
-      case MessageTypes.PERSONAL_SIGN: {
-        const { signature } = await this.wrapHardwareCall(() =>
-          OneKeyConnect.confluxSignMessage({
-            path: signer,
-            message: strMessage,
-          }),
-        );
-        return ethUtil.addHexPrefix(signature as string);
-      }
-      case MessageTypes.TYPE_DATA_V3:
-      case MessageTypes.TYPE_DATA_V4: {
-        const { signature } = await this.wrapHardwareCall(() =>
-          OneKeyConnect.ConfluxSignMessageCIP23({
-            path: signer,
-            data: JSON.parse(strMessage),
-          } as never),
-        );
-        return ethUtil.addHexPrefix(signature as string);
-      }
-    }
-
-    throw new Error(`Not supported`);
-  }
-
-  override async hardwareVerifyMessage(
-    address: string,
-    message: TypedMessage,
-    signature: string,
-  ): Promise<boolean> {
-    const { type: messageType, message: strMessage } = message;
-
-    if (messageType === MessageTypes.PERSONAL_SIGN) {
-      const { message: resp } = await this.wrapHardwareCall(() =>
-        OneKeyConnect.confluxVerifyMessage({
-          address,
-          message: strMessage,
-          signature,
-        }),
-      );
-      return resp === 'Message verified';
-    }
-
-    throw new Error('Not supported');
   }
 
   override async signMessage(
