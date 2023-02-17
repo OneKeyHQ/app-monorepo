@@ -40,6 +40,7 @@ export function useFeeInfoPayload({
   signOnly,
   forBatchSend,
   payload,
+  ignoreFetchFeeCalling,
 }: {
   encodedTx: IEncodedTx | null;
   useFeeInTx?: boolean;
@@ -50,6 +51,7 @@ export function useFeeInfoPayload({
   signOnly?: boolean;
   forBatchSend?: boolean;
   payload?: any;
+  ignoreFetchFeeCalling?: boolean;
 }) {
   const isFocused = useIsFocused();
   const { network } = useActiveSideAccount({ accountId, networkId });
@@ -122,8 +124,9 @@ export function useFeeInfoPayload({
         defaultPresetIndex: defaultFeePresetIndex ?? DEFAULT_PRESET_INDEX,
       };
       let shouldFetch =
-        !useFeeInTx && (!feeInfoSelected || feeInfoSelected?.type === 'preset');
-      if (fetchAnyway && !useFeeInTx) {
+        !ignoreFetchFeeCalling &&
+        (!feeInfoSelected || feeInfoSelected?.type === 'preset');
+      if (fetchAnyway && !ignoreFetchFeeCalling) {
         shouldFetch = true;
       }
       // TODO rename to FeeInfoMeta
@@ -267,6 +270,7 @@ export function useFeeInfoPayload({
       feeInfoSelectedInRouteParams,
       network,
       defaultFeePresetIndex,
+      ignoreFetchFeeCalling,
       fetchAnyway,
       useFeeInTx,
       forBatchSend,

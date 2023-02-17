@@ -1,5 +1,3 @@
-import { useCallback } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
@@ -10,10 +8,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { HomeRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { ReceiverEditor } from '../ReceiverEditor';
 import { ReceiverUploader } from '../ReceiverUploader';
 
@@ -33,18 +28,6 @@ function ReceiverInput(props: ReceiverInputParams) {
   } = props;
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
-  const handleToggleUploadMode = useCallback(() => {
-    if (platformEnv.isExtFirefoxUiPopup) {
-      backgroundApiProxy.serviceApp.openExtensionExpandTab({
-        routes: [RootRoutes.Root, HomeRoutes.BulkSender],
-      });
-      setTimeout(() => {
-        window.close();
-      }, 300);
-    } else {
-      setIsUploadMode(!isUploadMode);
-    }
-  }, [isUploadMode, setIsUploadMode]);
 
   return (
     <>
@@ -61,7 +44,7 @@ function ReceiverInput(props: ReceiverInputParams) {
             backgroundColor: 'transparent',
           }}
           color="text-subdued"
-          onPress={handleToggleUploadMode}
+          onPress={() => setIsUploadMode(!isUploadMode)}
         >
           {({ isHovered }) => (
             <HStack alignItems="center" space="5px">
