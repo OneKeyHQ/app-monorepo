@@ -9,6 +9,7 @@ import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 
 import { fetchChartData } from './chartService';
 import ChartWithLabel from './ChartWithLabel';
+import { useChartTimeLabel } from './hooks';
 import TimeControl, { TIMEOPTIONS, TIMEOPTIONS_VALUE } from './TimeControl';
 
 import type { MarketApiData, PriceApiProps } from './chartService';
@@ -25,11 +26,13 @@ const PriceChart: FC<PriceChartProps> = ({ contract, networkId, style }) => {
     networkId,
     contractAdress: contract,
   });
-  const { selectedFiatMoneySymbol } = useSettings();
-  // const tokenId = contract || 'main';
-  const isNoPriceData = price === undefined || price === null;
-  // const dayData = reduxCachedCharts[tokenId];
   const dataMap = useRef<MarketApiData[][]>([]);
+  const timeDefaultLabel = useChartTimeLabel(
+    selectedTimeIndex,
+    dataMap.current?.[selectedTimeIndex]?.[0]?.[0],
+  );
+  const { selectedFiatMoneySymbol } = useSettings();
+  const isNoPriceData = price === undefined || price === null;
   let points: string | undefined;
   const isVertical = useIsVerticalLayout();
   if (isVertical) {
@@ -73,6 +76,7 @@ const PriceChart: FC<PriceChartProps> = ({ contract, networkId, style }) => {
     <Box style={style}>
       <ChartWithLabel
         isFetching={isFetching}
+        timeDefaultLabel={timeDefaultLabel}
         data={isNoPriceData ? null : dataMap.current?.[selectedTimeIndex] || []}
       >
         <TimeControl
