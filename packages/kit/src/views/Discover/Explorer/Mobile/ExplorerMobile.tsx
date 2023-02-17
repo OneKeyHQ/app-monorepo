@@ -29,7 +29,7 @@ type NavigationProps = ModalScreenProps<DiscoverRoutesParams>;
 
 const ExplorerMobile: FC = () => {
   const { top } = useSafeAreaInsets();
-  const { incomingUrl, clearIncomingUrl } = useIncomingUrl();
+  const { handleIncomingUrl } = useIncomingUrl();
   const [showContent, setShowContent] = useState(false);
   const [showHome, setShowHome] = useState(true);
   const beforeMinimize = useCallback(() => setShowHome(true), []);
@@ -37,25 +37,18 @@ const ExplorerMobile: FC = () => {
 
   useEffect(() => {
     if (isFocusedInDiscoverTab) {
-      if (incomingUrl) {
-        gotoSite({ url: incomingUrl, isNewWindow: true, userTriggered: true });
-        clearIncomingUrl();
-      }
-      if (!showContent) {
+      if (showContent) {
+        handleIncomingUrl();
+      } else {
         setTimeout(() => {
           setShowContent(true);
+          handleIncomingUrl();
         }, 100);
       }
     } else {
       minimizeFloatingWindow({ before: beforeMinimize });
     }
-  }, [
-    beforeMinimize,
-    clearIncomingUrl,
-    incomingUrl,
-    isFocusedInDiscoverTab,
-    showContent,
-  ]);
+  }, [beforeMinimize, handleIncomingUrl, isFocusedInDiscoverTab, showContent]);
 
   const navigation = useNavigation<NavigationProps['navigation']>();
 

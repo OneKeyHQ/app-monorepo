@@ -17,6 +17,11 @@ export interface Ext {
   edge: string;
 }
 
+export interface Mas {
+  url: string;
+  version: number[];
+}
+
 export type Changelog = Record<LocaleSymbol, string>;
 
 export interface Desktop {
@@ -27,6 +32,7 @@ export interface Desktop {
   macARM: string;
   win: string;
   changelog: Changelog;
+  mas: Mas;
 }
 
 export interface AppReleases {
