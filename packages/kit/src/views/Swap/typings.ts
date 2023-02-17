@@ -26,6 +26,8 @@ export enum SwapRoutes {
   Welcome = 'Welcome',
   SelectRoutes = 'SelectRoutes',
   Send = 'Send',
+  Slippage = 'Slippage',
+  SlippageCheck = 'SlippageCheck',
 }
 
 export type SwapRoutesParams = {
@@ -67,6 +69,8 @@ export type SwapRoutesParams = {
   };
   [SwapRoutes.Welcome]: undefined;
   [SwapRoutes.SelectRoutes]: undefined;
+  [SwapRoutes.Slippage]: undefined;
+  [SwapRoutes.SlippageCheck]: ISlippageSetting;
   [SwapRoutes.Send]: {
     accountId: string;
     networkId: string;
@@ -265,6 +269,19 @@ export interface SwftcTransactionReceipt {
   transactionId?: string;
 }
 
+export type ISlippageMode = 'auto' | 'preset' | 'custom';
+
+export type ISlippageSetting = {
+  mode: ISlippageMode;
+  value?: string;
+  autoReset?: boolean;
+};
+
+export type TokenCoingeckoType = 'stable' | 'popular' | 'others';
+export type ISlippageAuto =
+  | { type: TokenCoingeckoType; value?: string }
+  | undefined;
+export type ISlippage = { mode?: ISlippageMode; value: string };
 export interface Quoter {
   type: QuoterType;
   prepare?: () => void;
