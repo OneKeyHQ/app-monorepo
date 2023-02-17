@@ -61,7 +61,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
     async (t: TokenDO) => {
       const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
         type: 'buy',
-        address: account?.id,
+        address: account?.address,
         cryptoCode: t.onramperId,
       });
       if (signedUrl) {
@@ -76,7 +76,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
         });
       }
     },
-    [account?.id, navigation],
+    [account?.address, navigation],
   );
 
   const sellAction = useCallback(

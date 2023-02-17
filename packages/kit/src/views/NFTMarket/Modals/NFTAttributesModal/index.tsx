@@ -164,6 +164,7 @@ const NFTAttributesModal: FC = () => {
   const [flatListData, updateListData] = useState<CollectionAttribute[]>([]);
 
   const [isDisabled, setIsDisabled] = useState(false);
+
   const [context, setContext] = useState<NFTAttributesContextValue>({
     clearFlag: 0,
     setIsDisabled,
@@ -237,7 +238,7 @@ const NFTAttributesModal: FC = () => {
         secondaryActionTranslationId="action__clear"
         onSecondaryActionPress={() => {
           clearAttributeStatus();
-          setIsDisabled(true);
+          setIsDisabled(routeAttributes.length === 0);
           setContext((ctx) => ({
             ...ctx,
             clearFlag: ctx.clearFlag + 1,
