@@ -1085,6 +1085,7 @@
   "form__ledger_legacy_desc": "Ledger ETH Wallet, MEW, MyCrypto",
   "form__lending": "Préstamo",
   "form__light": "Luz",
+  "form__limit": "Límite",
   "form__line_str": "Línea {0}",
   "form__manage": "Administrar",
   "form__manage_threshold": "Administrar umbral",

@@ -1085,6 +1085,7 @@
   "form__ledger_legacy_desc": "Ledger ETH Wallet, MEW, MyCrypto",
   "form__lending": "Meminjamkan",
   "form__light": "Lampu",
+  "form__limit": "Membatasi",
   "form__line_str": "Baris {0}",
   "form__manage": "Mengelola",
   "form__manage_threshold": "Kelola Ambang Batas",

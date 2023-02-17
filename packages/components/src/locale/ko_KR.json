@@ -1085,6 +1085,7 @@
   "form__ledger_legacy_desc": "Ledger ETH Wallet, MEW, MyCrypto",
   "form__lending": "대출",
   "form__light": "빛",
+  "form__limit": "한계",
   "form__line_str": "라인 {0}",
   "form__manage": "관리하다",
   "form__manage_threshold": "임계값 관리",

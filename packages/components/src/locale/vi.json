@@ -1085,6 +1085,7 @@
   "form__ledger_legacy_desc": "Ledger ETH Wallet, MEW, MyCrypto",
   "form__lending": "Cho vay",
   "form__light": "Nhẹ",
+  "form__limit": "Giới hạn",
   "form__line_str": "Dòng {0}",
   "form__manage": "Quản lý",
   "form__manage_threshold": "Quản lý ngưỡng",

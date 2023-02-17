@@ -1085,6 +1085,7 @@
   "form__ledger_legacy_desc": "Ledger ETH Wallet, MEW, MyCrypto",
   "form__lending": "Кредитование",
   "form__light": "Свет",
+  "form__limit": "Ограничение",
   "form__line_str": "Строка {0}",
   "form__manage": "Управлять",
   "form__manage_threshold": "Управление порогом",

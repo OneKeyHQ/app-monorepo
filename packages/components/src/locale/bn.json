@@ -1085,6 +1085,7 @@
   "form__ledger_legacy_desc": "Ledger ETH Wallet, MEW, MyCrypto",
   "form__lending": "ঋণদান",
   "form__light": "আলো",
+  "form__limit": "সীমা",
   "form__line_str": "লাইন {0}",
   "form__manage": "পরিচালনা করুন",
   "form__manage_threshold": "থ্রেশহোল্ড পরিচালনা করুন",

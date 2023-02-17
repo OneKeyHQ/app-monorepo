@@ -1085,6 +1085,7 @@
   "form__ledger_legacy_desc": "Ledger ETH Wallet, MEW, MyCrypto",
   "form__lending": "Prestito",
   "form__light": "Luce",
+  "form__limit": "Limite",
   "form__line_str": "Linea {0}",
   "form__manage": "Gestire",
   "form__manage_threshold": "Gestisci Soglia",

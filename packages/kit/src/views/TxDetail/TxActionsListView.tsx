@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Box, Divider, VStack } from '@onekeyhq/components';
@@ -7,12 +8,20 @@ import type { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNetworkSimple } from '../../hooks';
+import { MAX_ACTIONS_DISPLAY_IN_HISTORY_ITEM } from '../Send/constants';
 
 import { TxActionErrorBoundary } from './components/TxActionErrorBoundary';
+import { TxMoreInfo, TxMoreInfoT0 } from './TxAction/TxMoreInfo';
 import { getTxActionMeta } from './utils/getTxActionMeta';
 import { getDisplayedActions } from './utils/utilsTxDetail';
 
 import type { ITxActionListViewProps } from './types';
+
+const moreInfoComponent = {
+  T0: TxMoreInfoT0,
+  T1: TxMoreInfo,
+  T2: TxMoreInfo,
+};
 
 function useOriginHistoryTxOfCancelTx(cancelTx?: IHistoryTx) {
   const [originTx, setOriginTx] = useState<IHistoryTx | undefined>();
@@ -49,8 +58,18 @@ export function TxActionsListView(props: ITxActionListViewProps) {
     }
     const displayedActions = getDisplayedActions({ decodedTx: finalDecodedTx });
     const listItems: JSX.Element[] = [];
-    displayedActions.forEach((action, index) => {
-      // TODO async function
+
+    const actionCount = displayedActions.length;
+    for (
+      let i = 0,
+        len = BigNumber.min(
+          actionCount,
+          MAX_ACTIONS_DISPLAY_IN_HISTORY_ITEM,
+        ).toNumber();
+      i < len;
+      i += 1
+    ) {
+      const action = displayedActions[i];
       const metaInfo = getTxActionMeta({
         action,
         decodedTx: finalDecodedTx,
@@ -63,20 +82,35 @@ export function TxActionsListView(props: ITxActionListViewProps) {
       const TxActionComponent = components[transformType];
 
       listItems.push(
-        <TxActionErrorBoundary key={`error-boundary-${index}`}>
+        <TxActionErrorBoundary key={`error-boundary-${i}`}>
           <TxActionComponent
-            key={index}
+            key={i}
             {...metaInfo.props}
             meta={meta}
             network={network}
           />
         </TxActionErrorBoundary>,
       );
-      if (showDivider && index !== displayedActions.length - 1) {
+      if (showDivider && i !== displayedActions.length - 1) {
         // actions in same tx do not need divider anymore
         // listItems.push(<Divider key={`${index}-divider`} />);
       }
-    });
+    }
+
+    if (actionCount > MAX_ACTIONS_DISPLAY_IN_HISTORY_ITEM) {
+      const TxMoreInfoComponent = moreInfoComponent[transformType];
+      listItems.push(
+        <TxMoreInfoComponent
+          iconInfo={{ icon: { name: 'EllipsisVerticalMini' } }}
+          titleInfo={{
+            title: intl.formatMessage(
+              { id: 'form__and_str_other_actions' },
+              { count: actionCount - MAX_ACTIONS_DISPLAY_IN_HISTORY_ITEM },
+            ),
+          }}
+        />,
+      );
+    }
     return listItems;
   }, [
     decodedTx,

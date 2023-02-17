@@ -1085,6 +1085,7 @@
   "form__ledger_legacy_desc": "Ledger ETH Wallet, MEW, MyCrypto",
   "form__lending": "Зээл олгох",
   "form__light": "Гэрэл",
+  "form__limit": "Хязгаар",
   "form__line_str": "{0} мөр",
   "form__manage": "Удирдах",
   "form__manage_threshold": "Босгыг удирдах",
