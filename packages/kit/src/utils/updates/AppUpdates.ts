@@ -29,8 +29,7 @@ class AppUpdates {
   addedListener = false;
 
   checkUpdate(isManual = false) {
-    if (platformEnv.isMas) return;
-    if (platformEnv.isDesktop) {
+    if (platformEnv.isDesktop && !platformEnv.isMas) {
       this.checkDesktopUpdate(isManual);
       return;
     }
@@ -52,6 +51,10 @@ class AppUpdates {
     }
 
     let packageInfo: PackageInfo | undefined;
+
+    if (platformEnv.isMas) {
+      packageInfo = releasePackages?.desktop?.find((x) => x.os === 'mas');
+    }
 
     if (platformEnv.isNativeAndroid) {
       if (platformEnv.isNativeAndroidGooglePlay) {

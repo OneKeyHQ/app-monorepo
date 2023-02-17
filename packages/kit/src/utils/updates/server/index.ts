@@ -79,6 +79,15 @@ function handleReleaseInfo(
         forceVersion: '0.0.0',
       });
     }
+    if (releasesVersion.desktop.mas) {
+      desktopPackages.push({
+        os: 'mas',
+        channel: 'AppStore',
+        download: releasesVersion.desktop.mas.url,
+        version: releasesVersion.desktop.mas.version.join('.'),
+        forceVersion: '0.0.0',
+      });
+    }
   }
 
   if (releasesVersion?.ext) {
