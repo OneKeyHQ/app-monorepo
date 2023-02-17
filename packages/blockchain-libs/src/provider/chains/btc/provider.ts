@@ -1,6 +1,4 @@
-import OneKeyConnect from '@onekeyfe/js-sdk';
 // @ts-ignore
-import * as pathUtils from '@onekeyfe/js-sdk/lib/utils/pathUtils';
 import BigNumber from 'bignumber.js';
 import * as BitcoinJS from 'bitcoinjs-lib';
 import bitcoinMessage from 'bitcoinjs-message';
@@ -12,8 +10,6 @@ import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import type {
   AddressValidation,
   SignedTx,
-  TxInput,
-  TxOutput,
   TypedMessage,
   UTXO,
   UnsignedTx,
@@ -27,11 +23,6 @@ import { getNetwork } from './sdk/networks';
 import { PLACEHOLDER_VSIZE, estimateVsize, loadOPReturn } from './sdk/vsize';
 
 import type { Network } from './sdk/networks';
-import type {
-  RefTransaction,
-  TxInputType,
-  TxOutputType,
-} from '@onekeyfe/js-sdk';
 import type {
   NonWitnessUtxo,
   RedeemScript,
@@ -592,175 +583,6 @@ class Provider extends BaseProvider {
 
     return lookup;
   }
-
-  get hardwareCoinName(): string {
-    const name = this.chainInfo.implOptions?.hardwareCoinName;
-    check(
-      typeof name === 'string' && name,
-      `Please config hardwareCoinName for ${this.chainInfo.code}`,
-    );
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return name;
-  }
-
-  override hardwareGetXpubs = async (
-    paths: string[],
-    showOnDevice: boolean,
-  ): Promise<{ path: string; xpub: string }[]> => {
-    const resp = await this.wrapHardwareCall(() =>
-      OneKeyConnect.getPublicKey({
-        bundle: paths.map((path) => ({
-          path,
-          coin: this.hardwareCoinName,
-          showOnTrezor: showOnDevice,
-        })),
-      }),
-    );
-
-    return resp.map((i) => ({
-      path: i.serializedPath,
-      xpub: i.xpub,
-    }));
-  };
-
-  override hardwareGetAddress = async (
-    path: string,
-    showOnDevice: boolean,
-    addressToVerify?: string,
-  ): Promise<string> => {
-    const params = {
-      path,
-      coin: this.hardwareCoinName,
-      showOnTrezor: showOnDevice,
-    };
-
-    // eslint-disable-next-line no-unused-expressions,@typescript-eslint/no-unused-expressions
-    typeof addressToVerify === 'string' &&
-      Object.assign(params, { address: addressToVerify });
-
-    const { address } = await this.wrapHardwareCall(() =>
-      OneKeyConnect.getAddress(params),
-    );
-    return address;
-  };
-
-  override hardwareSignTransaction = async (
-    unsignedTx: UnsignedTx,
-    signers: Record<string, string>,
-  ): Promise<SignedTx> => {
-    const { inputs, outputs } = unsignedTx;
-    const prevTxids = Array.from(
-      new Set(inputs.map((i) => (i.utxo as UTXO).txid)),
-    );
-    const prevTxs = await this.collectTxs(prevTxids);
-
-    const { serializedTx } = await this.wrapHardwareCall(() =>
-      OneKeyConnect.signTransaction({
-        useEmptyPassphrase: true,
-        coin: this.hardwareCoinName,
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define
-        inputs: inputs.map((i) => buildHardwareInput(i, signers[i.address])),
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define
-        outputs: outputs.map((o) => buildHardwareOutput(o)),
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define
-        refTxs: Object.values(prevTxs).map((i) => buildPrevTx(i)),
-      }),
-    );
-
-    const tx = BitcoinJS.Transaction.fromHex(serializedTx);
-
-    return { txid: tx.getId(), rawTx: serializedTx };
-  };
-
-  override hardwareSignMessage = async (
-    { message }: TypedMessage,
-    signer: string,
-  ): Promise<string> => {
-    const { signature } = await this.wrapHardwareCall(() =>
-      OneKeyConnect.signMessage({
-        path: signer,
-        message,
-        coin: this.hardwareCoinName,
-      }),
-    );
-    return signature as string;
-  };
-
-  override hardwareVerifyMessage = async (
-    address: string,
-    { message }: TypedMessage,
-    signature: string,
-  ): Promise<boolean> => {
-    const { message: resp } = await this.wrapHardwareCall(() =>
-      OneKeyConnect.verifyMessage({
-        address,
-        signature,
-        message,
-        coin: this.hardwareCoinName,
-      }),
-    );
-
-    return resp === 'Message verified';
-  };
 }
-
-const buildPrevTx = (rawTx: string): RefTransaction => {
-  const tx = BitcoinJS.Transaction.fromHex(rawTx);
-
-  return {
-    hash: tx.getId(),
-    version: tx.version,
-    inputs: tx.ins.map((i) => ({
-      prev_hash: i.hash.reverse().toString('hex'),
-      prev_index: i.index,
-      script_sig: i.script.toString('hex'),
-      sequence: i.sequence,
-    })),
-    bin_outputs: tx.outs.map((o) => ({
-      amount: o.value,
-      script_pubkey: o.script.toString('hex'),
-    })),
-    lock_time: tx.locktime,
-  };
-};
-
-const buildHardwareInput = (input: TxInput, path: string): TxInputType => {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-  const addressN = pathUtils.getHDPath(path);
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-  const scriptType = pathUtils.getScriptType(addressN);
-  const utxo = input.utxo as UTXO;
-  check(utxo);
-
-  return {
-    prev_index: utxo.vout,
-    prev_hash: utxo.txid,
-    amount: utxo.value.integerValue().toString(),
-    address_n: addressN,
-    script_type: scriptType,
-  };
-};
-
-const buildHardwareOutput = (output: TxOutput): TxOutputType => {
-  const { isCharge, bip44Path } = output.payload || {};
-
-  if (isCharge && bip44Path) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    const addressN = pathUtils.getHDPath(bip44Path);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    const scriptType = pathUtils.getScriptType(addressN);
-    return {
-      script_type: scriptType,
-      address_n: addressN,
-      amount: output.value.integerValue().toString(),
-    };
-  }
-
-  return {
-    script_type: 'PAYTOADDRESS',
-    address: output.address,
-    amount: output.value.integerValue().toString(),
-  };
-};
 
 export { Provider };
