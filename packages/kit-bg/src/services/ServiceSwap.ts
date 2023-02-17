@@ -29,6 +29,9 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/swap';
 import {
   clearTransactions,
+  setCoingeckoIds,
+  setRecommendedSlippage,
+  setSlippage,
   setSwapChartMode,
   setSwapFeePresetIndex,
   updateTokenList,
@@ -145,7 +148,8 @@ export default class ServiceSwap extends ServiceBase {
     }
     const outputToken = appSelector((s) => s.swap.outputToken);
     if (!outputToken) {
-      this.setOutputToken(formatServerToken(USDC));
+      const token = formatServerToken(USDC);
+      this.setOutputToken({ ...token, coingeckoId: 'usd-coin' });
     }
   }
 
@@ -425,6 +429,53 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async initSwap() {
+    const { appSelector, dispatch } = this.backgroundApi;
+    const slippage = appSelector((s) => s.swapTransactions.slippage);
+    if (!slippage) {
+      dispatch(setSlippage({ mode: 'auto' }));
+    }
+  }
+
+  @backgroundMethod()
+  async getSwapConfig() {
+    const { dispatch } = this.backgroundApi;
+    const endpoint = await this.getServerEndPoint();
+    const url = `${endpoint}/swap/config`;
+    const res = await this.client.get(url);
+    const { data } = res;
+    const actions: any[] = [];
+    if (data) {
+      const { tokens, coingeckoIds, recommendedSlippage } = data;
+      if (tokens) {
+        if (tokens && Array.isArray(tokens)) {
+          const items = tokens.map((item) => ({
+            ...item,
+            tokens: item.tokens.map((o: any) => formatServerToken(o)),
+          }));
+          actions.push(updateTokenList(items));
+        }
+      }
+      if (coingeckoIds) {
+        const coingeckoIdsData: Record<string, string[]> = {};
+        if (coingeckoIds.popular && Array.isArray(coingeckoIds.popular)) {
+          coingeckoIdsData.popular = coingeckoIds.popular;
+        }
+        if (coingeckoIds.stable && Array.isArray(coingeckoIds.stable)) {
+          coingeckoIdsData.stable = coingeckoIds.stable;
+        }
+        actions.push(setCoingeckoIds(coingeckoIdsData));
+      }
+      if (recommendedSlippage) {
+        actions.push(setRecommendedSlippage(recommendedSlippage));
+      }
+    }
+    if (actions.length > 0) {
+      dispatch(...actions);
+    }
+  }
+
+  @backgroundMethod()
   async getSwapTokens() {
     const { dispatch } = this.backgroundApi;
     const endpoint = await this.getServerEndPoint();
@@ -576,6 +627,53 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getCurrentSwapSlippageStatus() {
+    const { appSelector } = this.backgroundApi;
+    const inputToken = appSelector((s) => s.swap.inputToken);
+    const outputToken = appSelector((s) => s.swap.outputToken);
+    const slippage = appSelector((s) => s.swapTransactions.slippage);
+    const recommendedSlippage = appSelector(
+      (s) => s.swapTransactions.recommendedSlippage,
+    );
+    const coingeckoIds = appSelector((s) => s.swapTransactions.coingeckoIds);
+
+    const defaultSlippage = '1';
+    const getSlippageByCoingeckoId = (coingeckoId?: string) => {
+      if (!coingeckoIds || !recommendedSlippage || !coingeckoId) {
+        return defaultSlippage;
+      }
+      const { popular, stable, others } = recommendedSlippage;
+      const { popular: popularCoingeckoIds, stable: stableCoingeckoIds } =
+        coingeckoIds;
+      if (stableCoingeckoIds && stableCoingeckoIds.includes(coingeckoId)) {
+        return stable || defaultSlippage;
+      }
+      if (popularCoingeckoIds && popularCoingeckoIds.includes(coingeckoId)) {
+        return popular || defaultSlippage;
+      }
+      return others || defaultSlippage;
+    };
+
+    const autoMode = !slippage || slippage.mode === 'auto';
+    let value = defaultSlippage;
+    if (autoMode) {
+      if (inputToken && outputToken) {
+        const inputSlippage = getSlippageByCoingeckoId(inputToken.coingeckoId);
+        const outputSlippage = getSlippageByCoingeckoId(
+          outputToken.coingeckoId,
+        );
+        value =
+          Number(inputSlippage) > Number(outputSlippage)
+            ? inputSlippage
+            : outputSlippage;
+      }
+    } else if (slippage.value) {
+      value = slippage.value;
+    }
+    return value || defaultSlippage;
+  }
+
+  @backgroundMethod()
   async fetchSwapTokenBalance(params: {
     networkId?: string;
     accountId?: string;
@@ -616,6 +714,15 @@ export default class ServiceSwap extends ServiceBase {
       activeNetworkId: networkId,
       tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
     });
+  }
+
+  @backgroundMethod()
+  resetSwapSlippage() {
+    const { appSelector, dispatch } = this.backgroundApi;
+    const slippage = appSelector((s) => s.swapTransactions.slippage);
+    if (slippage && slippage.autoReset) {
+      dispatch(setSlippage({ mode: 'auto' }));
+    }
   }
 
   @bindThis()
