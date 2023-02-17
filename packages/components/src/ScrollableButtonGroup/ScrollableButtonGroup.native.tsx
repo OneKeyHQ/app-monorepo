@@ -28,10 +28,10 @@ const ScrollableButtonGroup = forwardRef<
   const lastestTodoScrollIndex = useRef<number>();
   const scrollTo = useCallback(
     (index: number) => {
-      if (index === selectedIndex) return;
+      // if (index === selectedIndex) return;
       if (scrollRef.current) {
         const curentTarget = itemLayouts.current[index];
-        if (curentTarget) {
+        if (curentTarget && scrollLayoutWidth.current) {
           const scrollToX =
             curentTarget.x +
             curentTarget.width / 2 -
@@ -47,7 +47,7 @@ const ScrollableButtonGroup = forwardRef<
       lastestTodoScrollIndex.current = index;
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    [scrollRef, selectedIndex],
+    [scrollRef],
   );
 
   const itemCount = Children.count(children);
