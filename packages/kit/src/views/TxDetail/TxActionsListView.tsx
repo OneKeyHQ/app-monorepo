@@ -101,6 +101,7 @@ export function TxActionsListView(props: ITxActionListViewProps) {
       const TxMoreInfoComponent = moreInfoComponent[transformType];
       listItems.push(
         <TxMoreInfoComponent
+          decodedTx={finalDecodedTx}
           iconInfo={{ icon: { name: 'EllipsisVerticalMini' } }}
           titleInfo={{
             title: intl.formatMessage(
