@@ -16,6 +16,8 @@ import {
   OneKeyHardwareError,
   OneKeyInternalError,
 } from '../../../errors';
+import { slicePathTemplate } from '../../../managers/derivation';
+import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
@@ -83,8 +85,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<DBUTXOAccount[]> {
-    const { indexes, purpose, names } = params;
+    const { indexes, purpose, names, template } = params;
 
+    const impl = await this.getNetworkImpl();
     const vault = this.vault as unknown as BTCForkVault;
     const defaultPurpose = vault.getDefaultPurpose();
     const coinName = vault.getCoinName();
@@ -93,10 +96,11 @@ export class KeyringHardware extends KeyringHardwareBase {
     const usedPurpose = purpose || defaultPurpose;
     const ignoreFirst = indexes[0] !== 0;
     const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
-    const { addressEncoding, namePrefix } = getAccountDefaultByPurpose(
+    const { addressEncoding } = getAccountDefaultByPurpose(
       usedPurpose,
       coinName,
     );
+    const { prefix: namePrefix } = getAccountNameInfoByTemplate(impl, template);
     const provider = await (
       this.vault as unknown as BTCForkVault
     ).getProvider();
@@ -106,9 +110,10 @@ export class KeyringHardware extends KeyringHardwareBase {
       const { connectId, deviceId } = await this.getHardwareInfo();
       const passphraseState = await this.getWalletPassphraseState();
       await this.getHardwareSDKInstance();
+      const { pathPrefix } = slicePathTemplate(template);
       response = await HardwareSDK.btcGetPublicKey(connectId, deviceId, {
         bundle: usedIndexes.map((index) => ({
-          path: `m/${usedPurpose}'/${COIN_TYPE}'/${index}'`,
+          path: `${pathPrefix}/${index}'`,
           coin: coinName.toLowerCase(),
           showOnOneKey: false,
         })),
@@ -151,6 +156,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           xpub,
           address,
           addresses: { [firstAddressRelPath]: address },
+          template,
         });
       }
 

@@ -21,7 +21,7 @@ import type {
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import {
   COINTYPE_BTC,
-  SEPERATOR,
+  IMPL_BTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -81,7 +81,7 @@ export default class VaultBtcFork extends VaultBase {
   private provider?: Provider;
 
   getDefaultPurpose() {
-    return 49;
+    return getDefaultPurpose(IMPL_BTC);
   }
 
   getCoinName() {

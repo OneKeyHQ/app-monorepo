@@ -9,6 +9,8 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { OneKeyInternalError } from '../../../errors';
+import { slicePathTemplate } from '../../../managers/derivation';
+import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
@@ -75,9 +77,8 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
   ): Promise<DBUTXOAccount[]> {
-    const { password, indexes, purpose, names } = params;
-    console.log('BTC Fork prepareAccounts!');
-
+    const { password, indexes, purpose, names, template } = params;
+    const impl = await this.getNetworkImpl();
     const vault = this.vault as unknown as BTCForkVault;
     const defaultPurpose = vault.getDefaultPurpose();
     const coinName = vault.getCoinName();
@@ -86,10 +87,11 @@ export class KeyringHd extends KeyringHdBase {
     const usedPurpose = purpose || defaultPurpose;
     const ignoreFirst = indexes[0] !== 0;
     const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
-    const { addressEncoding, namePrefix } = getAccountDefaultByPurpose(
+    const { addressEncoding } = getAccountDefaultByPurpose(
       usedPurpose,
       coinName,
     );
+    const { prefix: namePrefix } = getAccountNameInfoByTemplate(impl, template);
     const { seed } = (await this.engine.dbApi.getCredential(
       this.walletId,
       password,
@@ -98,11 +100,12 @@ export class KeyringHd extends KeyringHdBase {
       this.vault as unknown as BTCForkVault
     ).getProvider();
     const { network } = provider;
+    const { pathPrefix } = slicePathTemplate(template);
     const pubkeyInfos = batchGetPublicKeys(
       'secp256k1',
       seed,
       password,
-      `m/${usedPurpose}'/${COIN_TYPE}'`,
+      pathPrefix,
       usedIndexes.map((index) => `${index.toString()}'`),
     );
     if (pubkeyInfos.length !== usedIndexes.length) {
@@ -148,6 +151,7 @@ export class KeyringHd extends KeyringHdBase {
           xpub,
           address,
           addresses: { [firstAddressRelPath]: address },
+          template,
         });
       }
 
