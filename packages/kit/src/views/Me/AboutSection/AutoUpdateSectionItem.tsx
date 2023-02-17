@@ -51,7 +51,7 @@ const AutoUpdateSectionItem: FC = () => {
   }, [dispatch, intl]);
 
   useEffect(() => {
-    if (platformEnv.isDesktop && state === 'available') {
+    if (platformEnv.isDesktop && !platformEnv.isMas && state === 'available') {
       const { version = '0.0.0' } = (latest ?? {}) as DesktopVersion;
       if (appUpdates.skipVersionCheck(version)) {
         setShowAvailableBadge(false);
@@ -119,7 +119,7 @@ const AutoUpdateSectionItem: FC = () => {
           borderBottomColor="divider"
           onPress={() => {
             if (state === 'available') {
-              if (platformEnv.isNative) {
+              if (platformEnv.isNative || platformEnv.isMas) {
                 // Narrowing type to VersionInfo
                 if (latest !== undefined && 'package' in latest) {
                   appUpdates.openAppUpdate(latest);
@@ -205,7 +205,7 @@ const AutoUpdateSectionItem: FC = () => {
   return (
     <>
       {Content}
-      {platformEnv.isDesktop && (
+      {platformEnv.isDesktop && !platformEnv.isMas && (
         <Pressable
           display="flex"
           flexDirection="row"

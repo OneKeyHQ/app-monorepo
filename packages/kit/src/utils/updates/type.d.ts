@@ -9,7 +9,8 @@ export type OS =
   | 'linux'
   | 'firefox'
   | 'chrome'
-  | 'edge';
+  | 'edge'
+  | 'mas';
 
 export type Channel =
   | 'AppStore'
