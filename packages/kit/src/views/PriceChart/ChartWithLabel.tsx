@@ -14,6 +14,7 @@ import type { MarketApiData, OnHoverFunction } from './chartService';
 
 type ChartWithLabelProps = {
   data: MarketApiData[] | null;
+  timeDefaultLabel: string;
   children: ReactNode;
   isFetching: boolean;
 };
@@ -21,11 +22,12 @@ type ChartWithLabelProps = {
 const ChartWithLabel: FC<ChartWithLabelProps> = ({
   data,
   isFetching,
+  timeDefaultLabel,
   children,
 }) => {
   const { formatDate } = useFormatDate();
   const [price, setPrice] = useState<string | number | undefined>();
-  const [time, setTime] = useState(formatDate(new Date()));
+  const [time, setTime] = useState('');
   const isVerticalLayout = useIsVerticalLayout();
   const basePrice = data?.length ? data[0][1] : 0;
   const latestPrice = data?.length ? data[data.length - 1][1] : 0;
@@ -50,7 +52,7 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
       } else if (typeof hoverData.time === 'string') {
         displayTime = formatDate(new Date(+hoverData.time));
       } else {
-        displayTime = formatDate(new Date());
+        displayTime = '';
       }
       setTime(displayTime);
       setPrice(hoverData.price);
@@ -58,7 +60,11 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
     [formatDate],
   );
   const priceLabel = (
-    <PriceLabel price={currentPrice} time={time} basePrice={basePrice} />
+    <PriceLabel
+      price={currentPrice}
+      time={time || timeDefaultLabel}
+      basePrice={basePrice}
+    />
   );
   const chartView = data ? (
     <ChartView
