@@ -75,10 +75,9 @@ const ScrollableButtonGroup = forwardRef<
     const lastestTodoScrollIndex = useRef<number>();
     const scrollTo = useCallback(
       (index: number) => {
-        if (index === selectedIndex) return;
         if (scrollRef.current) {
           const curentTarget = itemLayouts.current[index];
-          if (curentTarget) {
+          if (curentTarget && scrollLayoutWidth.current) {
             const scrollToX =
               curentTarget.x +
               curentTarget.width / 2 -
@@ -94,7 +93,7 @@ const ScrollableButtonGroup = forwardRef<
         lastestTodoScrollIndex.current = index;
         // eslint-disable-next-line react-hooks/exhaustive-deps
       },
-      [scrollRef, selectedIndex],
+      [scrollRef],
     );
 
     const itemCount = Children.count(children);
@@ -187,6 +186,9 @@ const ScrollableButtonGroup = forwardRef<
             },
           }) => {
             scrollLayoutWidth.current = width;
+            if (lastestTodoScrollIndex.current) {
+              scrollTo(lastestTodoScrollIndex.current);
+            }
           }}
           style={{
             flex: 1,
@@ -214,13 +216,13 @@ const ScrollableButtonGroup = forwardRef<
               }) => {
                 const layouts = itemLayouts.current;
                 layouts[index] = { x, width };
-                if (
-                  layouts.length === itemCount &&
-                  lastestTodoScrollIndex.current !== undefined
-                ) {
-                  // layouts all ready, scroll to the lastest todo index
-                  scrollTo(lastestTodoScrollIndex.current);
-                }
+                // if (
+                //   layouts.length === itemCount &&
+                //   lastestTodoScrollIndex.current !== undefined
+                // ) {
+                //   // layouts all ready, scroll to the lastest todo index
+                //   scrollTo(lastestTodoScrollIndex.current);
+                // }
               },
             }),
           )}
