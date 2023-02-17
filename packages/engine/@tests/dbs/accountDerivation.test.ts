@@ -72,7 +72,6 @@ describe('test AccountDerivation database API', () => {
     const accountDerivationMap = await dbApi.getAccountDerivationByWalletId(
       walletId,
     );
-    console.log(accountDerivationMap);
 
     expect(Object.keys(accountDerivationMap).length).toBe(2);
     expect(accountDerivationMap[ledgerLiveTemplate].template).toBe(
