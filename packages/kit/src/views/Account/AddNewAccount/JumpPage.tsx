@@ -46,7 +46,7 @@ const JumpPageDialog: FC<IJumpPageDialogProps> = ({
 
   return (
     <Dialog visible onClose={onClose}>
-      <VStack w="full" h="full" testID="JumpPageBox">
+      <VStack w="full" h="auto" testID="JumpPageBox">
         <Text typography={{ sm: 'DisplayMedium', md: 'DisplayMedium' }}>
           {intl.formatMessage({ id: 'title__jump_to_page' })}
         </Text>
@@ -64,7 +64,10 @@ const JumpPageDialog: FC<IJumpPageDialogProps> = ({
               validate: (value) => {
                 const pageNumber = parseInt(value);
                 if (pageNumber > maxPage) {
-                  return 'Exceed the maximum page number';
+                  return intl.formatMessage(
+                    { id: 'msg__page_number_cannot_be_larger_than_str' },
+                    { number: maxPage },
+                  );
                 }
               },
             }}

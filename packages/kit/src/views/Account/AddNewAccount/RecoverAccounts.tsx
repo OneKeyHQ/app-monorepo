@@ -286,8 +286,8 @@ const ListTableFooter: FC<ListTableFooterProps> = ({
           isDisabled={prevButtonDisabled}
         />
         <Button
-          w="39px"
-          h="38px"
+          w={platformEnv.isNativeAndroid ? 'auto' : '39px'}
+          h={platformEnv.isNativeAndroid ? '37px' : '38px'}
           type="basic"
           onPress={onPagePress}
           isDisabled={false}
