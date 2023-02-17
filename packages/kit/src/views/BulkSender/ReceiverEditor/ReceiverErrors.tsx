@@ -7,7 +7,7 @@ import { HStack, Icon, Text } from '@onekeyhq/components';
 
 import type { ReceiverError } from '../types';
 
-const MAX_ERROR_DISPLAY = 5;
+const MAX_ERROR_DISPLAY = 3;
 
 interface Props {
   errors: ReceiverError[];
@@ -51,12 +51,19 @@ function ReceiverErrors(props: Props) {
 
     if (errorCount > MAX_ERROR_DISPLAY) {
       result.push(
-        <Text
-          mt={2}
-          typography="Caption"
-          fontSize={12}
-          color="text-warning"
-        >{`and the other ${errorCount - MAX_ERROR_DISPLAY} errors`}</Text>,
+        <HStack space="10px" alignItems="center">
+          <Icon
+            name="InformationCircleOutline"
+            size={12}
+            color="icon-warning"
+          />
+          <Text typography="Caption" fontSize={12} color="text-warning">
+            {intl.formatMessage(
+              { id: 'msg__other_str_lines_errors' },
+              { count: errorCount - MAX_ERROR_DISPLAY },
+            )}
+          </Text>
+        </HStack>,
       );
     }
     return result;

@@ -105,7 +105,7 @@ export function TxActionsListView(props: ITxActionListViewProps) {
           iconInfo={{ icon: { name: 'EllipsisVerticalMini' } }}
           titleInfo={{
             title: intl.formatMessage(
-              { id: 'form__and_str_other_actions' },
+              { id: 'action__str_more_actions' },
               { count: actionCount - MAX_ACTIONS_DISPLAY_IN_HISTORY_ITEM },
             ),
           }}
