@@ -38,8 +38,8 @@ const JumpPageDialog: FC<IJumpPageDialogProps> = ({
 
   const onSubmit = useCallback(
     ({ pageNumber }: { pageNumber: string }) => {
-      onConfirm(parseInt(pageNumber));
       onClose?.();
+      setTimeout(() => onConfirm(parseInt(pageNumber)));
     },
     [onConfirm, onClose],
   );
