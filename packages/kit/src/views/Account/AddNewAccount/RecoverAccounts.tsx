@@ -14,6 +14,7 @@ import {
   Form,
   HStack,
   IconButton,
+  Input,
   List,
   ListItem,
   Modal,
@@ -286,8 +287,8 @@ const ListTableFooter: FC<ListTableFooterProps> = ({
           isDisabled={prevButtonDisabled}
         />
         <Button
-          w={platformEnv.isNativeAndroid ? 'auto' : '39px'}
-          h={platformEnv.isNativeAndroid ? '37px' : '38px'}
+          w={platformEnv.isNative ? 'auto' : '39px'}
+          h={platformEnv.isNative ? '37px' : '38px'}
           type="basic"
           onPress={onPagePress}
           isDisabled={false}
@@ -363,6 +364,7 @@ const DerivationPathForm: FC<{
             rightIconName="ChevronDownMini"
             isReadOnly
             onPressRightIcon={onPress}
+            onPressIn={platformEnv.isNativeIOS ? onPress : undefined}
           />
         </Form.Item>
       </Pressable>
@@ -443,6 +445,7 @@ const RecoverAccounts: FC = () => {
     refreshActiveAccounts();
   }, [network, wallet, obj]);
 
+  const isSwitchingDerivationPath = useRef(false);
   const { derivationOptions } = useDerivationPath(wallet?.id, network);
   const [selectedDerivationOption, setSelectedDerivationOption] =
     useState<IDerivationOption>();
@@ -475,10 +478,13 @@ const RecoverAccounts: FC = () => {
 
   useEffect(() => {
     if (!depDataInit) return;
-    if (isLoading) return;
+    if (isLoading && !isSwitchingDerivationPath.current) return;
 
+    console.log('search account =========>');
     isFetchingData.current = true;
-    setLoading(true);
+    if (!isSwitchingDerivationPath.current) {
+      setLoading(true);
+    }
     setPendRefreshData(false);
 
     const pageIndex = config.currentPage;
@@ -527,6 +533,7 @@ const RecoverAccounts: FC = () => {
     ) {
       updateCurrentPageData(currentPageArray);
       isFetchingData.current = false;
+      isSwitchingDerivationPath.current = false;
       setLoading(false);
       return;
     }
@@ -560,6 +567,7 @@ const RecoverAccounts: FC = () => {
         });
 
         isFetchingData.current = false;
+        isSwitchingDerivationPath.current = false;
         updateCurrentPageData(accounts);
         setLoadedAccounts(addedAccounts);
         setSelectState(addedSelectState);
@@ -584,6 +592,7 @@ const RecoverAccounts: FC = () => {
       })
       .catch((e) => {
         isFetchingData.current = false;
+        isSwitchingDerivationPath.current = false;
         setLoading(false);
         if (navigation.isFocused()) {
           setTimeout(() => {
@@ -849,6 +858,8 @@ const RecoverAccounts: FC = () => {
             derivationOptions={derivationOptions}
             selectedOption={selectedDerivationOption}
             onChange={(option) => {
+              setLoading(true);
+              isSwitchingDerivationPath.current = true;
               setSelectedDerivationOption(option);
             }}
           />

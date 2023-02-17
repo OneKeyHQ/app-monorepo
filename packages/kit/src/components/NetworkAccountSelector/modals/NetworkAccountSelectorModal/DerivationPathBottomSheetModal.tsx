@@ -283,8 +283,8 @@ const showDerivationPathBottomSheetModal = ({
         walletId={walletId}
         networkId={networkId}
         onSelect={(option) => {
-          onSelect?.(option);
           close?.();
+          setTimeout(() => onSelect?.(option));
         }}
       />
     </BottomSheetModal>
