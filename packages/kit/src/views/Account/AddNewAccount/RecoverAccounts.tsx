@@ -555,9 +555,13 @@ const RecoverAccounts: FC = () => {
         const addedAccounts = new Map(loadedAccounts);
         const addedSelectState = new Map<number, SelectStateType>(selectState);
         accounts.forEach((i) => {
-          const isDisabled = activeAccounts.current.some(
-            (a) => a.path === i.path,
-          );
+          const isDisabled = activeAccounts.current.some((a) => {
+            if (a.template) {
+              // fix ledger live first account path is same as bip44
+              return a.template === template && a.path === i.path;
+            }
+            return a.path === i.path;
+          });
           addedSelectState.set(i.index, {
             isDisabled,
             selected: isDisabled || !!isBatchMode,

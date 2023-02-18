@@ -96,6 +96,7 @@ const buildData = debounce(
           wallet,
           networkId: selectedNetworkId,
           data: accounts || [],
+          derivationInfo: accountNameInfo.default,
           collapsed: false,
         });
       }

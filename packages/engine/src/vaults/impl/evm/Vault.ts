@@ -1290,6 +1290,7 @@ export default class Vault extends VaultBase {
       tokens: [],
       address: dbAccount.address,
       displayAddress: ethers.utils.getAddress(dbAccount.address),
+      template: dbAccount.template,
     };
   }
 
