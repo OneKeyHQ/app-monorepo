@@ -63,6 +63,11 @@ const JumpPageDialog: FC<IJumpPageDialogProps> = ({
               },
               validate: (value) => {
                 const pageNumber = parseInt(value);
+                if (pageNumber <= 0) {
+                  return intl.formatMessage({
+                    id: 'msg__enter_a_number',
+                  });
+                }
                 if (pageNumber > maxPage) {
                   return intl.formatMessage(
                     { id: 'msg__page_number_cannot_be_larger_than_str' },
