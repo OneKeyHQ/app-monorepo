@@ -1,13 +1,18 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useAppSelector } from '../../../hooks';
+import { useAppSelector, useDebounce } from '../../../hooks';
 import { div, formatAmount, lte, minus, multiply } from '../utils';
 
 import { useTokenPrice } from './useSwapTokenUtils';
 
-import type { TransactionDetails } from '../typings';
+import type {
+  ISlippage,
+  ISlippageAuto,
+  TokenCoingeckoType,
+  TransactionDetails,
+} from '../typings';
 
 export function useSummaryTx() {
   const intl = useIntl();
@@ -49,4 +54,72 @@ export function usePriceImpact() {
     }
   }
   return undefined;
+}
+
+export function useSlippageLevels() {
+  const recommendedSlippage = useAppSelector(
+    (s) => s.swapTransactions.recommendedSlippage,
+  );
+  return useMemo(
+    () =>
+      ({
+        stable: recommendedSlippage?.stable ?? '0.1',
+        popular: recommendedSlippage?.popular ?? '0.5',
+        others: recommendedSlippage?.others ?? '1',
+      } as Record<TokenCoingeckoType, string>),
+    [recommendedSlippage],
+  );
+}
+
+export function useSwapSlippageAuto(): ISlippageAuto {
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const slippage = useAppSelector((s) => s.swapTransactions.slippage);
+  const coingeckoIds = useAppSelector((s) => s.swapTransactions.coingeckoIds);
+  const levels = useSlippageLevels();
+
+  const getSlippageByCoingeckoId = useCallback(
+    (coingeckoId?: string) => {
+      if (!coingeckoIds || !coingeckoId) {
+        return;
+      }
+      const { popular: popularCoingeckoIds, stable: stableCoingeckoIds } =
+        coingeckoIds;
+      if (stableCoingeckoIds && stableCoingeckoIds.includes(coingeckoId)) {
+        return { type: 'stable' as TokenCoingeckoType, value: levels.stable };
+      }
+      if (popularCoingeckoIds && popularCoingeckoIds.includes(coingeckoId)) {
+        return { type: 'popular' as TokenCoingeckoType, value: levels.popular };
+      }
+      return { type: 'others' as TokenCoingeckoType, value: levels.popular };
+    },
+    [coingeckoIds, levels],
+  );
+
+  return useMemo(() => {
+    const auto = !slippage || slippage.mode === 'auto';
+    if (auto) {
+      if (inputToken && outputToken) {
+        const inputSlippage = getSlippageByCoingeckoId(inputToken.coingeckoId);
+        const outputSlippage = getSlippageByCoingeckoId(
+          outputToken.coingeckoId,
+        );
+        return Number(inputSlippage?.value) > Number(outputSlippage?.value)
+          ? inputSlippage
+          : outputSlippage;
+      }
+    }
+  }, [slippage, inputToken, outputToken, getSlippageByCoingeckoId]);
+}
+
+export function useSwapSlippage(): ISlippage {
+  const slippage = useAppSelector((s) => s.swapTransactions.slippage);
+  const slippageAutoMode = useSwapSlippageAuto();
+  const value = useMemo<ISlippage>(() => {
+    if (slippageAutoMode) {
+      return { mode: 'auto', value: slippageAutoMode.value ?? '1' };
+    }
+    return { value: slippage?.value ?? '1' };
+  }, [slippageAutoMode, slippage]);
+  return useDebounce(value, 500);
 }

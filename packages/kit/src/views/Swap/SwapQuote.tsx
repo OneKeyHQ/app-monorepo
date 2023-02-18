@@ -25,7 +25,7 @@ import { ArrivalTime } from './components/ArrivalTime';
 import SwappingVia from './components/SwappingVia';
 import SwapTooltip from './components/SwapTooltip';
 import TransactionFee from './components/TransactionFee';
-import { usePriceImpact } from './hooks/useSwapUtils';
+import { usePriceImpact, useSwapSlippage } from './hooks/useSwapUtils';
 import { SwapRoutes } from './typings';
 import { getTokenAmountValue } from './utils';
 
@@ -298,9 +298,7 @@ const SwapMinimumReceived = () => {
     (s) => s.swap.quote?.estimatedBuyAmount || s.swap.quote?.buyAmount,
   );
   const outputToken = useAppSelector((s) => s.swap.outputToken);
-  const swapSlippagePercent = useAppSelector(
-    (s) => s.settings.swapSlippagePercent,
-  );
+  const { value: swapSlippagePercent } = useSwapSlippage();
   if (outputToken && buyAmount) {
     const bn = getTokenAmountValue(outputToken, buyAmount);
     const value = bn.minus(bn.multipliedBy(Number(swapSlippagePercent) / 100));
@@ -332,15 +330,13 @@ const SwapQuote = () => {
   const quoteLimited = useAppSelector((s) => s.swap.quoteLimited);
 
   const showMoreQuoteDetail = useAppSelector((s) => s.swap.showMoreQuoteDetail);
-  const swapSlippagePercent = useAppSelector(
-    (s) => s.settings.swapSlippagePercent,
-  );
+  const { mode, value: swapSlippagePercent } = useSwapSlippage();
 
-  const onSettting = useCallback(() => {
+  const onSlippageSetting = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
       params: {
-        screen: SwapRoutes.Settings,
+        screen: SwapRoutes.Slippage,
       },
     });
   }, [navigation]);
@@ -454,9 +450,12 @@ const SwapQuote = () => {
               justifyContent="flex-end"
               alignItems="center"
             >
-              <Pressable flexDirection="row" onPress={onSettting}>
+              <Pressable flexDirection="row" onPress={onSlippageSetting}>
                 <Typography.Body2 mr="1" color="text-subdued">
-                  Auto({swapSlippagePercent}%)
+                  {mode === 'auto'
+                    ? intl.formatMessage({ id: 'form__auto' })
+                    : null}
+                  ({swapSlippagePercent}%)
                 </Typography.Body2>
                 <Icon size={16} name="PencilAltOutline" />
               </Pressable>
