@@ -85,6 +85,7 @@ export type IVaultSettings = {
   supportDeflationary?: boolean;
   batchTokenTransferApprovalRequired?: boolean;
   maxActionsInTx?: number;
+  transactionIdPattern?: string;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
