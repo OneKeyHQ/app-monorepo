@@ -18,6 +18,7 @@ import { SwapError } from '../typings';
 import { formatAmount, greaterThanZeroOrUndefined } from '../utils';
 
 import { useTokenBalance } from './useSwapTokenUtils';
+import { useSwapSlippage } from './useSwapUtils';
 
 import type { Token } from '../../../store/typings';
 import type { FetchQuoteParams, FetchQuoteResponse } from '../typings';
@@ -64,9 +65,7 @@ export function useSwapState() {
 }
 
 export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
-  const swapSlippagePercent = useAppSelector(
-    (s) => s.settings.swapSlippagePercent,
-  );
+  const { value: swapSlippagePercent } = useSwapSlippage();
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const outputToken = useAppSelector((s) => s.swap.outputToken);
   const independentField = useAppSelector((s) => s.swap.independentField);
@@ -130,7 +129,11 @@ export const useSwapQuoteCallback = function (
       params,
     );
     if (!params) {
-      backgroundApiProxy.dispatch(setQuote(undefined), setResponses(undefined));
+      backgroundApiProxy.dispatch(
+        setQuote(undefined),
+        setResponses(undefined),
+        setLoading(false),
+      );
       return;
     }
     if (showLoading) {

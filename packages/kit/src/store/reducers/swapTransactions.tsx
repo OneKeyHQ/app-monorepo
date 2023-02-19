@@ -2,10 +2,13 @@ import { createSlice } from '@reduxjs/toolkit';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
-import type { TransactionDetails } from '../../views/Swap/typings';
+import type {
+  ISlippageSetting,
+  TransactionDetails,
+} from '../../views/Swap/typings';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
-type TokenListItem = {
+export type TokenListItem = {
   name: string;
   networkId: string;
   logoURI: string;
@@ -18,6 +21,13 @@ export type TransactionsState = {
   swapMaintain?: boolean;
   swapChartMode?: string;
   swapFeePresetIndex?: string;
+  slippage?: ISlippageSetting;
+  coingeckoIds?: { popular?: string[]; stable?: string[] };
+  recommendedSlippage?: {
+    popular?: string;
+    stable?: string;
+    others?: string;
+  };
 };
 
 const initialState: TransactionsState = {
@@ -116,6 +126,25 @@ export const swapTransactionsSlice = createSlice({
     setSwapFeePresetIndex(state, action: PayloadAction<string>) {
       state.swapFeePresetIndex = action.payload;
     },
+    setSlippage(state, action: PayloadAction<ISlippageSetting>) {
+      state.slippage = action.payload;
+    },
+    setCoingeckoIds(
+      state,
+      action: PayloadAction<{ popular?: string[]; stable?: string[] }>,
+    ) {
+      state.coingeckoIds = action.payload;
+    },
+    setRecommendedSlippage(
+      state,
+      action: PayloadAction<{
+        popular?: string;
+        stable?: string;
+        others: string;
+      }>,
+    ) {
+      state.recommendedSlippage = action.payload;
+    },
   },
 });
 
@@ -129,6 +158,9 @@ export const {
   setSwapMaintain,
   setSwapChartMode,
   setSwapFeePresetIndex,
+  setSlippage,
+  setCoingeckoIds,
+  setRecommendedSlippage,
 } = swapTransactionsSlice.actions;
 
 export default swapTransactionsSlice.reducer;

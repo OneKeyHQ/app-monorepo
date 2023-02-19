@@ -275,6 +275,7 @@ class ServiceApp extends ServiceBase {
       appSelector,
       serviceBootstrap,
       serviceSetting,
+      serviceSwap,
     } = this.backgroundApi;
 
     const enableTestFiatEndpoint =
@@ -298,6 +299,7 @@ class ServiceApp extends ServiceBase {
     const wallets = await serviceAccount.initWallets();
     const activeNetworkId = serviceNetwork.initCheckingNetwork(networks);
     const activeWalletId = serviceAccount.initCheckingWallet(wallets);
+    serviceSwap.initSwap();
 
     const accounts = await serviceAccount.reloadAccountsByWalletIdNetworkId(
       activeWalletId,
