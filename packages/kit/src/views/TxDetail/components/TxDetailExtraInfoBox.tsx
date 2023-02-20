@@ -55,6 +55,20 @@ function getFeeInNativeText(options: {
   return `${calculatedTotalFeeInNative} ${network.symbol}`;
 }
 
+function checkIsValidHistoryTxId({
+  txid,
+  txidPattern,
+}: {
+  txid: string | undefined;
+  txidPattern: string | undefined;
+}) {
+  if (!txid) return false;
+
+  if (!txidPattern) return true;
+
+  return new RegExp(txidPattern).test(txid);
+}
+
 // TODO rename ExtraInfoBox
 export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
   const { decodedTx, historyTx, feeInput } = props;
@@ -71,7 +85,12 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
       content: `${new BigNumber(decodedTx.nonce).toFixed()}`,
     });
   }
-  if (decodedTx.txid) {
+  if (
+    checkIsValidHistoryTxId({
+      txid: decodedTx.txid,
+      txidPattern: network?.settings.transactionIdPattern,
+    })
+  ) {
     details.push({
       title: (
         <Pressable

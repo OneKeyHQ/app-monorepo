@@ -7,6 +7,7 @@ import * as bip39 from 'bip39';
 import { cloneDeep, isEmpty, uniqBy } from 'lodash';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
+import RNRestart from 'react-native-restart';
 
 import {
   mnemonicFromEntropy,
@@ -16,6 +17,7 @@ import {
   decrypt,
   encrypt,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { appSelector } from '@onekeyhq/kit/src/store';
 import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import type { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
@@ -732,6 +734,15 @@ class Engine {
       return [];
     }
 
+    const checkActiveWallet = () => {
+      setTimeout(() => {
+        const activeWalletId = appSelector((s) => s.general.activeWalletId);
+        if (!activeWalletId && platformEnv.isNative) {
+          RNRestart.Restart();
+        }
+      }, 3000);
+    };
+
     const accounts = await this.dbApi.getAccounts(accountIds);
     const outputAccounts = await Promise.all(
       accounts
@@ -759,17 +770,17 @@ class Engine {
                       .validateAddress(a.address)
                       .then((address) => {
                         if (!address) {
-                          setTimeout(
-                            () => this.removeAccount(a.id, '', true),
-                            100,
-                          );
+                          setTimeout(() => {
+                            this.removeAccount(a.id, '', true);
+                            checkActiveWallet();
+                          }, 100);
                         }
                       })
                       .catch(() => {
-                        setTimeout(
-                          () => this.removeAccount(a.id, '', true),
-                          100,
-                        );
+                        setTimeout(() => {
+                          this.removeAccount(a.id, '', true);
+                          checkActiveWallet();
+                        }, 100);
                       });
                   }
                   throw error;
@@ -777,6 +788,7 @@ class Engine {
               ),
         ),
     );
+
     return outputAccounts.filter((a) => isAccountWithAddress(a));
   }
 
