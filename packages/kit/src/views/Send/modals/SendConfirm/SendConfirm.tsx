@@ -66,6 +66,7 @@ function SendConfirm({
     onModalClose,
     networkId,
     accountId,
+    ignoreFetchFeeCalling,
   } = sendConfirmParamsParsed;
   useReloadAccountBalance({ networkId, accountId });
 
@@ -114,6 +115,7 @@ function SendConfirm({
     pollingInterval: feeInfoEditable ? FEE_INFO_POLLING_INTERVAL : 0,
     signOnly: routeParams.signOnly,
     payload: payloadInfo || payload,
+    ignoreFetchFeeCalling,
   });
 
   useWalletConnectPrepareConnection({
