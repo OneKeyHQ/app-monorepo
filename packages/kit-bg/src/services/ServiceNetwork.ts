@@ -9,6 +9,7 @@ import type {
 } from '@onekeyhq/engine/src/types/network';
 import type { GeneralInitialState } from '@onekeyhq/kit/src/store/reducers/general';
 import { changeActiveNetwork } from '@onekeyhq/kit/src/store/reducers/general';
+import reducerAccountSelector from '@onekeyhq/kit/src/store/reducers/reducerAccountSelector';
 import { updateNetworks } from '@onekeyhq/kit/src/store/reducers/runtime';
 import type { IRpcStatus } from '@onekeyhq/kit/src/store/reducers/status';
 import {
@@ -30,6 +31,8 @@ import ServiceBase from './ServiceBase';
 
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+
+const accountSelectorActions = reducerAccountSelector.actions;
 
 NetInfo.configure({
   reachabilityShouldRun: () => false,
@@ -83,7 +86,10 @@ class ServiceNetwork extends ServiceBase {
       networkId,
       activeNetworkId ?? '',
     );
-    const changeActiveNetworkAction = changeActiveNetwork(networkId);
+    const changeActiveNetworkActions = [
+      changeActiveNetwork(networkId),
+      accountSelectorActions.updateSelectedNetworkId(networkId),
+    ];
     let shouldDispatch = true;
     this.notifyChainChanged();
 
@@ -106,7 +112,7 @@ class ServiceNetwork extends ServiceBase {
         await serviceAccount.changeActiveAccount({
           accountId: firstAccount?.id ?? null,
           walletId: activeWalletId,
-          extraActions: [changeActiveNetworkAction], // dispatch batch actions
+          extraActions: [...changeActiveNetworkActions], // dispatch batch actions
           // as reloadAccountsByWalletIdNetworkId() has been called before
           shouldReloadAccountsWhenWalletChanged: false,
         });
@@ -114,7 +120,7 @@ class ServiceNetwork extends ServiceBase {
       }
     }
     if (shouldDispatch) {
-      this.backgroundApi.dispatch(changeActiveNetworkAction);
+      this.backgroundApi.dispatch(...changeActiveNetworkActions);
     }
     return newNetwork;
   }

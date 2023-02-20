@@ -125,6 +125,7 @@ async function doSpeedUpOrCancelTx(props: {
     encodedTx: encodedTxEvm,
     feeInfoEditable: true,
     feeInfoUseFeeInTx: true,
+    ignoreFetchFeeCalling: true,
   };
   navigation.navigate(RootRoutes.Modal, {
     screen: ModalRoutes.Send,

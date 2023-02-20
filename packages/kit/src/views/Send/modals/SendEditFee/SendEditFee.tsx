@@ -133,8 +133,11 @@ function ScreenSendEditFee({ ...rest }) {
       accountId,
       encodedTx: encodedTxForFeeInfo,
       fetchAnyway: true,
+      ignoreFetchFeeCalling: oldSendConfirmParams?.ignoreFetchFeeCalling,
+      useFeeInTx: oldSendConfirmParams?.feeInfoUseFeeInTx,
       forBatchSend,
     });
+
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
 
   useEffect(() => {
