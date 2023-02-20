@@ -487,7 +487,7 @@ export default class Vault extends VaultBase {
       try {
         const [, recentBlockhash] = await client.getFees();
         return recentBlockhash;
-      } catch (error) {
+      } catch (error: any) {
         const rpcErrorData = error?.data as
           | {
               code: number;
