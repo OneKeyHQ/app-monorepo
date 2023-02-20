@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Fuse from 'fuse.js';
+import { Spinner } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
@@ -139,7 +140,7 @@ const TokenListCell: FC<ListCellProps> = ({
   const buyAction = useCallback(async () => {
     const signedUrl = await serviceFiatPay.getFiatPayUrl({
       type,
-      cryptoCode: token.onramperId,
+      cryptoCode: token.moonpayId,
       address,
     });
     if (signedUrl.length > 0) {
@@ -147,7 +148,7 @@ const TokenListCell: FC<ListCellProps> = ({
         url: signedUrl,
       });
     }
-  }, [address, navigation, serviceFiatPay, token.onramperId, type]);
+  }, [address, navigation, serviceFiatPay, token.moonpayId, type]);
   const sellAction = useCallback(async () => {
     const signedUrl = await serviceFiatPay.getFiatPayUrl({
       type,
@@ -197,9 +198,8 @@ export const SupportTokenList: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { networkId, accountId, type = 'buy' } = route.params;
-  const { tokenList } = useFiatPayTokens(networkId, type);
+  const { tokenList, loading } = useFiatPayTokens(networkId, type);
   const { account, network } = useActiveSideAccount({ networkId, accountId });
-
   const [searchResult, updateSearchResult] = useState<Token[]>([]);
   const [searchText, updateSearchText] = useState<string>('');
 
@@ -222,8 +222,15 @@ export const SupportTokenList: FC = () => {
     [account?.address, accountId, network, networkId, type],
   );
 
-  const ListEmptyComponent = useCallback(
-    () => (
+  const ListEmptyComponent = useCallback(() => {
+    if (loading) {
+      return (
+        <Box height="400px" justifyContent="center">
+          <Spinner size="lg" />
+        </Box>
+      );
+    }
+    return (
       <Box>
         <Empty
           title={intl.formatMessage({
@@ -238,9 +245,8 @@ export const SupportTokenList: FC = () => {
           icon="DatabaseMini"
         />
       </Box>
-    ),
-    [intl, type],
-  );
+    );
+  }, [intl, loading, type]);
 
   const separator = useCallback(() => <Box h="8px" />, []);
 

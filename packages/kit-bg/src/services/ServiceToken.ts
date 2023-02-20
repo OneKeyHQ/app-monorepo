@@ -592,12 +592,12 @@ export default class ServiceToken extends ServiceBase {
   }) {
     const { engine } = this.backgroundApi;
     const tokens = await engine.getTokens(networkId);
-    if (type === 'buy') {
-      return tokens.filter((t) => {
-        const { onramperId } = t;
-        return typeof onramperId === 'string' && onramperId.length > 0;
-      });
-    }
+    // if (type === 'buy') {
+    //   return tokens.filter((t) => {
+    //     const { onramperId } = t;
+    //     return typeof onramperId === 'string' && onramperId.length > 0;
+    //   });
+    // }
     return tokens.filter((t) => {
       const { moonpayId } = t;
       return typeof moonpayId === 'string' && moonpayId.length > 0;
