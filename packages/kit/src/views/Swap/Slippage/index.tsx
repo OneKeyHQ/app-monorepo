@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import type { FC } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -6,11 +7,11 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  Icon,
   Modal,
   NumberInput,
   Typography,
 } from '@onekeyhq/components';
-import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
@@ -21,6 +22,28 @@ import { useSlippageLevels, useSwapSlippageAuto } from '../hooks/useSwapUtils';
 import { SwapRoutes } from '../typings';
 
 import type { ISlippageSetting } from '../typings';
+
+type ErrorMessageProps = {
+  type: 'error' | 'warn';
+  message: string;
+};
+
+const ErrorMessage: FC<ErrorMessageProps> = ({ message, type }) => (
+  <Box display="flex" flexDirection="row" mt="2">
+    <Box mr="2">
+      <Icon
+        size={20}
+        name="ExclamationTriangleMini"
+        color={type === 'error' ? 'icon-critical' : 'icon-warning'}
+      />
+    </Box>
+    <Typography.Body2
+      color={type === 'error' ? 'text-critical' : 'text-warning'}
+    >
+      {message}
+    </Typography.Body2>
+  </Box>
+);
 
 const TypographyStrong = (text: string) => (
   <Typography.Body1>{text}</Typography.Body1>
@@ -113,23 +136,43 @@ const Slippage = () => {
     [slippageCurrent],
   );
 
-  const errorMsg = useMemo(() => {
+  const errorMsg = useMemo<ErrorMessageProps | undefined>(() => {
     if (slippageCurrent && slippageCurrent.mode === 'custom') {
-      if (slippageCurrent.value) {
-        const value = new BigNumber(slippageCurrent.value);
-        if (!slippageCurrent.value || value.gte(50) || value.eq(0)) {
-          return intl.formatMessage({
+      const slippageValue = slippageCurrent.value
+        ? slippageCurrent.value.trim()
+        : '';
+      if (!slippageValue) {
+        return {
+          type: 'error',
+          message: intl.formatMessage({
             id: 'msg__enter_a_valid_slippage_percentage',
-          });
-        }
-        if (value.lt(0.1)) {
-          return intl.formatMessage({ id: 'msg__your_transaction_may_fail' });
-        }
-        if (value.gte(5) && value.lt(50)) {
-          return intl.formatMessage({
+          }),
+        };
+      }
+      const value = new BigNumber(slippageValue);
+      if (value.gt(50) || value.eq(0)) {
+        return {
+          type: 'error',
+          message: intl.formatMessage({
+            id: 'msg__enter_a_value_50_to_save_the_slippage',
+          }),
+        };
+      }
+      if (value.lt(0.1)) {
+        return {
+          type: 'warn',
+          message: intl.formatMessage({
+            id: 'msg__your_transaction_may_fail',
+          }),
+        };
+      }
+      if (value.gte(5) && value.lte(50)) {
+        return {
+          type: 'warn',
+          message: intl.formatMessage({
             id: 'msg__your_transaction_may_be_frontrun',
-          });
-        }
+          }),
+        };
       }
     }
   }, [slippageCurrent, intl]);
@@ -197,7 +240,7 @@ const Slippage = () => {
           placeholder={intl.formatMessage({ id: 'content__custom' })}
           onChangeText={onCustomChange}
         />
-        {errorMsg ? <FormErrorMessage message={errorMsg} /> : null}
+        {errorMsg ? <ErrorMessage {...errorMsg} /> : null}
       </Box>
       {slippageCurrent.mode === 'auto' ? <SwapAutoModeSlippageTip /> : null}
       {slippageCurrent.mode === 'preset' &&
@@ -251,7 +294,13 @@ const Slippage = () => {
         </Typography.Body1>
       </Box>
       <Box mt="4">
-        <Button onPress={onSubmit} w="full" size="lg" type="primary">
+        <Button
+          isDisabled={!!(errorMsg?.type === 'error')}
+          onPress={onSubmit}
+          w="full"
+          size="lg"
+          type="primary"
+        >
           {intl.formatMessage({ id: 'action__save' })}
         </Button>
       </Box>
