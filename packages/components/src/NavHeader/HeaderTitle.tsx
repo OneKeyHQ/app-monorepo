@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
@@ -9,16 +10,20 @@ import { useNavigation } from '@onekeyhq/kit/src/hooks';
 import Box from '../Box';
 import Text from '../Text';
 
-interface TitleProps {
-  title: string;
+import type { MessageDescriptor } from 'react-intl';
+
+export interface HeaderTitleProps {
+  i18nTitle?: MessageDescriptor['id'];
+  title?: string;
   subtitle?: string;
 }
 
-const HeaderTitle: FC<TitleProps> = ({ title, subtitle }) => {
+const HeaderTitle: FC<HeaderTitleProps> = ({ title, subtitle, i18nTitle }) => {
   const navigation = useNavigation();
   const isVertical = useIsVerticalLayout();
   const notFirstPage =
     navigation.getState().routes.length > 0 ? 'Heading' : 'PageHeading';
+  const intl = useIntl();
 
   const SmallScreenTitle = useMemo(
     () => (
@@ -30,7 +35,7 @@ const HeaderTitle: FC<TitleProps> = ({ title, subtitle }) => {
         zIndex={-1}
       >
         <Text typography={notFirstPage ? 'Heading' : 'PageHeading'}>
-          {title}
+          {i18nTitle ? intl.formatMessage({ id: i18nTitle }) : title}
         </Text>
         {subtitle && (
           <Text typography="Caption" color="text-subdued">
@@ -39,7 +44,7 @@ const HeaderTitle: FC<TitleProps> = ({ title, subtitle }) => {
         )}
       </Box>
     ),
-    [notFirstPage, subtitle, title],
+    [i18nTitle, intl, notFirstPage, subtitle, title],
   );
 
   const LargeScreenTitle = useMemo(
