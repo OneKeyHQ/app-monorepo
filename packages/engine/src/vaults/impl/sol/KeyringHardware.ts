@@ -3,7 +3,10 @@
 
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
-import { COINTYPE_SOL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_SOL as COIN_TYPE,
+  INDEX_PLACEHOLDER,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { NotImplemented, OneKeyHardwareError } from '../../../errors';
@@ -64,7 +67,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: IPrepareHardwareAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
     const { indexes, names, template } = params;
-    const paths = indexes.map((index) => template.replace('x', `${index}`));
+    const paths = indexes.map((index) =>
+      template.replace(INDEX_PLACEHOLDER, `${index}`),
+    );
     const showOnOneKey = false;
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();

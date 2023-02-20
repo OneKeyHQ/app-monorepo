@@ -30,7 +30,10 @@ import {
   IMPORTED_ACCOUNT_MAX_NUM,
   WATCHING_ACCOUNT_MAX_NUM,
 } from '../../limits';
-import { getNextAccountIdsWithAccountDerivation } from '../../managers/derivation';
+import {
+  getAccountDerivationPrimaryKey,
+  getNextAccountIdsWithAccountDerivation,
+} from '../../managers/derivation';
 import { fromDBDeviceToDevice } from '../../managers/device';
 import { getImplByCoinType } from '../../managers/impl';
 import { walletIsImported } from '../../managers/wallet';
@@ -846,15 +849,19 @@ class RealmDB implements DBAPI {
             }
             const impl = getImplByCoinType(account.coinType);
             const template = account.template ?? '';
-            const id = `${walletId}-${impl}-${template}`;
+            const accountDerivationId = getAccountDerivationPrimaryKey({
+              walletId,
+              impl,
+              template,
+            });
             let accountDerivation =
               this.realm!.objectForPrimaryKey<AccountDerivationSchema>(
                 'AccountDerivation',
-                id,
+                accountDerivationId,
               );
             if (typeof accountDerivation === 'undefined') {
               this.realm!.create('AccountDerivation', {
-                id,
+                accountDerivationId,
                 walletId,
                 accounts: [account.id],
                 template,
@@ -862,7 +869,7 @@ class RealmDB implements DBAPI {
               accountDerivation =
                 this.realm!.objectForPrimaryKey<AccountDerivationSchema>(
                   'AccountDerivation',
-                  id,
+                  accountDerivationId,
                 );
             } else {
               accountDerivation.accounts.push(account.id);
@@ -2034,7 +2041,7 @@ class RealmDB implements DBAPI {
     impl,
     template,
   }: IAddAccountDerivationParams): Promise<void> {
-    const id = `${walletId}-${impl}-${template}`;
+    const id = getAccountDerivationPrimaryKey({ walletId, impl, template });
     const accountDerivation =
       this.realm!.objectForPrimaryKey<AccountDerivationSchema>(
         'AccountDerivation',
@@ -2049,7 +2056,7 @@ class RealmDB implements DBAPI {
           template,
         });
       });
-    } else {
+    } else if (!accountDerivation.accounts.includes(accountId)) {
       this.realm!.write(() => {
         accountDerivation.accounts = [
           ...new Set([...accountDerivation.accounts, accountId]),
@@ -2111,25 +2118,6 @@ class RealmDB implements DBAPI {
       result[accountDerivation.template] = accountDerivation.internalObj;
     });
     return Promise.resolve(result);
-  }
-
-  private getAccountDerivationRecord(
-    walletId: string,
-    impl: string,
-    template: string,
-  ): Promise<DBAccountDerivation> {
-    const id = `${walletId}-${impl}-${template}`;
-    const accountDerivation =
-      this.realm!.objectForPrimaryKey<AccountDerivationSchema>(
-        'AccountDerivation',
-        id,
-      );
-    if (typeof accountDerivation === 'undefined') {
-      return Promise.reject(
-        new OneKeyInternalError(`AccountDerivation ${id} not found.`),
-      );
-    }
-    return Promise.resolve(accountDerivation.internalObj);
   }
 
   private static addSingletonWalletEntry({

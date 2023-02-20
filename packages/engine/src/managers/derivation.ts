@@ -36,6 +36,7 @@ import {
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
+  INDEX_PLACEHOLDER,
   SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -133,7 +134,7 @@ function getDefaultPurpose(impl: string): number {
  * @returns string
  */
 function slicePathTemplate(template: string) {
-  const [prefix, suffix] = template.split('x');
+  const [prefix, suffix] = template.split(INDEX_PLACEHOLDER);
   return {
     pathPrefix: prefix.slice(0, -1),
     pathSuffix: `{index}${suffix}`,
@@ -149,16 +150,15 @@ function getNextAccountIdsWithAccountDerivation(
   const { template, accounts } = accountDerivation;
   let nextId = index;
   const impl = getImplByCoinType(coinType);
-  // NEAR、BTC、TBTC、DOGE、LTC、BCH、ADA
   const containPath = (accountIndex: number) => {
     let path: string;
     if ([IMPL_EVM, IMPL_SOL].includes(impl)) {
-      path = template.replace('x', accountIndex.toString());
+      path = template.replace(INDEX_PLACEHOLDER, accountIndex.toString());
     } else {
       path = getPath(purpose, coinType, accountIndex);
     }
     return accounts.find((account) => {
-      const accountIdPath = account.split('--')[1];
+      const accountIdPath = account.split(SEPERATOR)[1];
       return path === accountIdPath;
     });
   };
@@ -194,6 +194,18 @@ function getLastAccountId(wallet: Wallet, impl: string, template: string) {
   return null;
 }
 
+function getAccountDerivationPrimaryKey({
+  walletId,
+  impl,
+  template,
+}: {
+  walletId: string;
+  impl: string;
+  template: string;
+}) {
+  return `${walletId}-${impl}-${template}`;
+}
+
 export {
   getPath,
   getDefaultPurpose,
@@ -202,4 +214,5 @@ export {
   getNextAccountId,
   getNextAccountIdsWithAccountDerivation,
   getLastAccountId,
+  getAccountDerivationPrimaryKey,
 };

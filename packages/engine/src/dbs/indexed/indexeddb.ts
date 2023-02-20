@@ -27,7 +27,10 @@ import {
   IMPORTED_ACCOUNT_MAX_NUM,
   WATCHING_ACCOUNT_MAX_NUM,
 } from '../../limits';
-import { getNextAccountIdsWithAccountDerivation } from '../../managers/derivation';
+import {
+  getAccountDerivationPrimaryKey,
+  getNextAccountIdsWithAccountDerivation,
+} from '../../managers/derivation';
 import { fromDBDeviceToDevice } from '../../managers/device';
 import { getImplByCoinType } from '../../managers/impl';
 import { walletIsImported } from '../../managers/wallet';
@@ -2451,12 +2454,21 @@ class IndexedDBApi implements DBAPI {
             accountDerivationStore = derivationStore;
           }
 
-          const id = `${walletId}-${impl}-${template}`;
+          const accountDerivationId = getAccountDerivationPrimaryKey({
+            walletId,
+            impl,
+            template,
+          });
           const getExistRecordRequest: IDBRequest<DBAccountDerivation> =
-            accountDerivationStore.get(id);
+            accountDerivationStore.get(accountDerivationId);
           getExistRecordRequest.onsuccess = (_event) => {
             const accountDerivation = getExistRecordRequest.result;
             if (accountDerivation) {
+              // skip update record when accountId already exist
+              if (accountDerivation.accounts.includes(accountId)) {
+                resolve();
+                return;
+              }
               accountDerivation.accounts = [
                 ...new Set([...accountDerivation.accounts, accountId]),
               ];
@@ -2471,7 +2483,7 @@ class IndexedDBApi implements DBAPI {
             } else {
               // insert new accountDerivation record because is not exist record
               const requestInsert = accountDerivationStore.add({
-                id,
+                id: accountDerivationId,
                 walletId,
                 accounts: [accountId],
                 template,
@@ -2631,7 +2643,7 @@ class IndexedDBApi implements DBAPI {
     derivationStore: IDBObjectStore,
   ): Promise<DBAccountDerivation> {
     return new Promise((resolve, reject) => {
-      const id = `${walletId}-${impl}-${template}`;
+      const id = getAccountDerivationPrimaryKey({ walletId, impl, template });
       const getExistRecordRequest = derivationStore.get(id);
       getExistRecordRequest.onsuccess = (_event) => {
         if (getExistRecordRequest.result === 'undefined') {

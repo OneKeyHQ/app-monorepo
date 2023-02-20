@@ -40,6 +40,7 @@ import {
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
+  INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { NotImplemented } from '../errors';
@@ -157,7 +158,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'EVM',
       category: `44'/${COINTYPE_ETH}'`,
-      template: `m/44'/${COINTYPE_ETH}'/0'/0/x`,
+      template: `m/44'/${COINTYPE_ETH}'/0'/0/${INDEX_PLACEHOLDER}`,
       coinType: COINTYPE_ETH,
       label: { id: 'form__bip44_standard' },
       desc: { id: `form__bip44_standard_desc` },
@@ -166,14 +167,14 @@ const defaultAccountNameInfo: Record<
     etcNative: {
       prefix: 'ETC-Native',
       category: `44'/${COINTYPE_ETC}'`,
-      template: `m/44'/${COINTYPE_ETC}'/0'/0/x`,
+      template: `m/44'/${COINTYPE_ETC}'/0'/0/${INDEX_PLACEHOLDER}`,
       coinType: COINTYPE_ETC,
       label: { id: 'form__bip44_standard_cointype_61' },
     },
     ledgerLive: {
       prefix: 'Ledger Live',
       category: `44'/${COINTYPE_ETH}'`,
-      template: `m/44'/${COINTYPE_ETH}'/x'/0/0`,
+      template: `m/44'/${COINTYPE_ETH}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_ETH,
       label: 'Ledger Live',
     },
@@ -182,7 +183,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'SOL',
       category: `44'/${COINTYPE_SOL}'`,
-      template: `m/44'/${COINTYPE_SOL}'/x'/0'`,
+      template: `m/44'/${COINTYPE_SOL}'/${INDEX_PLACEHOLDER}'/0'`,
       coinType: COINTYPE_SOL,
       label: { id: 'form__bip44_standard' },
       desc: 'OneKey, Phantom, Sollet',
@@ -191,7 +192,7 @@ const defaultAccountNameInfo: Record<
     ledgerLive: {
       prefix: 'Ledger Live',
       category: `44'/${COINTYPE_SOL}'`,
-      template: `m/44'/${COINTYPE_SOL}'/x'`,
+      template: `m/44'/${COINTYPE_SOL}'/${INDEX_PLACEHOLDER}'`,
       coinType: COINTYPE_SOL,
       label: 'Ledger Live',
       desc: 'Ledger Live, Solflare',
@@ -201,7 +202,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'ALGO',
       category: `44'/${COINTYPE_ALGO}'`,
-      template: `m/44'/${COINTYPE_ALGO}'/0'/0'/x'`,
+      template: `m/44'/${COINTYPE_ALGO}'/0'/0'/${INDEX_PLACEHOLDER}'`,
       coinType: COINTYPE_ALGO,
     },
   },
@@ -209,7 +210,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'NEAR',
       category: `44'/${COINTYPE_NEAR}'`,
-      template: `m/44'/${COINTYPE_NEAR}'/x'`,
+      template: `m/44'/${COINTYPE_NEAR}'/${INDEX_PLACEHOLDER}'`,
       coinType: COINTYPE_NEAR,
     },
   },
@@ -217,7 +218,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'STC',
       category: `44'/${COINTYPE_STC}'`,
-      template: `m/44'/${COINTYPE_STC}'/0'/0'/x'`,
+      template: `m/44'/${COINTYPE_STC}'/0'/0'/${INDEX_PLACEHOLDER}'`,
       coinType: COINTYPE_STC,
     },
   },
@@ -225,7 +226,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'CFX',
       category: `44'/${COINTYPE_CFX}'`,
-      template: `m/44'/503'/0'/0/x`,
+      template: `m/44'/503'/0'/0/${INDEX_PLACEHOLDER}`,
       coinType: COINTYPE_CFX,
     },
   },
@@ -233,7 +234,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'BTC Nested SegWit',
       category: `49'/${COINTYPE_BTC}'`,
-      template: `m/49'/${COINTYPE_BTC}'/x'/0/0`,
+      template: `m/49'/${COINTYPE_BTC}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_BTC,
       label: 'Nested SegWit',
       desc: {
@@ -245,7 +246,7 @@ const defaultAccountNameInfo: Record<
     BIP84: {
       prefix: 'BTC Native SegWit',
       category: `84'/${COINTYPE_BTC}'`,
-      template: `m/84'/${COINTYPE_BTC}'/x'/0/0`,
+      template: `m/84'/${COINTYPE_BTC}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_BTC,
       label: 'Native SegWit',
       desc: {
@@ -257,7 +258,7 @@ const defaultAccountNameInfo: Record<
     BIP44: {
       prefix: 'BTC Legacy',
       category: `44'/${COINTYPE_BTC}'`,
-      template: `m/44'/${COINTYPE_BTC}'/x'/0/0`,
+      template: `m/44'/${COINTYPE_BTC}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_BTC,
       label: 'Legacy',
       desc: { id: 'form__bitcoin__legacy_desc', placeholder: { 0: '1' } },
@@ -269,7 +270,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'TBTC Nested SegWit',
       category: `49'/${COINTYPE_TBTC}'`,
-      template: `m/49'/${COINTYPE_TBTC}'/x'/0/0`,
+      template: `m/49'/${COINTYPE_TBTC}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_TBTC,
       label: 'Nested SegWit',
       desc: {
@@ -281,7 +282,7 @@ const defaultAccountNameInfo: Record<
     BIP44: {
       prefix: 'TBTC Legacy',
       category: `44'/${COINTYPE_TBTC}'`,
-      template: `m/44'/${COINTYPE_TBTC}'/x'/0/0`,
+      template: `m/44'/${COINTYPE_TBTC}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_TBTC,
       label: 'Legacy',
       desc: { id: 'form__bitcoin__legacy_desc', placeholder: { 0: 'm' } },
@@ -290,7 +291,7 @@ const defaultAccountNameInfo: Record<
     BIP84: {
       prefix: 'TBTC Native SegWit',
       category: `84'/${COINTYPE_TBTC}'`,
-      template: `m/84'/${COINTYPE_TBTC}'/x'/0/0`,
+      template: `m/84'/${COINTYPE_TBTC}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_TBTC,
       label: 'Native SegWit',
       desc: {
@@ -304,7 +305,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'TRON',
       category: `44'/${COINTYPE_TRON}'`,
-      template: `m/44'/${COINTYPE_TRON}'/0'/0/x`,
+      template: `m/44'/${COINTYPE_TRON}'/0'/0/${INDEX_PLACEHOLDER}`,
       coinType: COINTYPE_TRON,
     },
   },
@@ -312,7 +313,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'APT',
       category: `44'/${COINTYPE_APTOS}'`,
-      template: `m/44'/${COINTYPE_APTOS}'/x'/0'/0'`,
+      template: `m/44'/${COINTYPE_APTOS}'/${INDEX_PLACEHOLDER}'/0'/0'`,
       coinType: COINTYPE_APTOS,
     },
   },
@@ -320,7 +321,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'DOGE',
       category: `44'/${COINTYPE_DOGE}'`,
-      template: `m/44'/${COINTYPE_DOGE}'/x'/0/0`,
+      template: `m/44'/${COINTYPE_DOGE}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_DOGE,
       label: 'Legacy',
       subDesc: 'BIP44, P2PKH, Base58.',
@@ -330,7 +331,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'LTC Nested SegWit',
       category: `49'/${COINTYPE_LTC}'`,
-      template: `m/49'/${COINTYPE_LTC}'/x'/0/0`,
+      template: `m/49'/${COINTYPE_LTC}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_LTC,
       label: 'Nested SegWit',
       desc: {
@@ -342,7 +343,7 @@ const defaultAccountNameInfo: Record<
     BIP84: {
       prefix: 'LTC Native SegWit',
       category: `84'/${COINTYPE_LTC}'`,
-      template: `m/84'/${COINTYPE_LTC}'/x'/0/0`,
+      template: `m/84'/${COINTYPE_LTC}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_LTC,
       label: 'Native SegWit',
       desc: {
@@ -354,7 +355,7 @@ const defaultAccountNameInfo: Record<
     BIP44: {
       prefix: 'LTC Legacy',
       category: `44'/${COINTYPE_LTC}'`,
-      template: `m/44'/${COINTYPE_LTC}'/x'/0/0`,
+      template: `m/44'/${COINTYPE_LTC}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_LTC,
       label: 'Legacy',
       desc: { id: 'form__bitcoin__legacy_desc', placeholder: { 0: 'L' } },
@@ -366,7 +367,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'BCH',
       category: `44'/${COINTYPE_BCH}'`,
-      template: `m/44'/${COINTYPE_BCH}'/x'/0/0`,
+      template: `m/44'/${COINTYPE_BCH}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_BCH,
       label: 'Legacy',
       subDesc: 'BIP44, P2PKH, Base58.',
@@ -376,7 +377,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'RIPPLE',
       category: `44'/${COINTYPE_XRP}'`,
-      template: `m/44'/${COINTYPE_XRP}'/x'/0/0`,
+      template: `m/44'/${COINTYPE_XRP}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_XRP,
     },
   },
@@ -384,7 +385,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'COSMOS',
       category: `44'/${COINTYPE_COSMOS}'`,
-      template: `m/44'/${COINTYPE_COSMOS}'/x'/0/0`,
+      template: `m/44'/${COINTYPE_COSMOS}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_COSMOS,
     },
   },
@@ -392,17 +393,17 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'CARDANO',
       category: `1852'/${COINTYPE_ADA}'`,
-      template: `m/1852'/${COINTYPE_ADA}'/x'/0/0`,
+      template: `m/1852'/${COINTYPE_ADA}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_ADA,
       label: 'Shelley',
-      subDesc: `m/1852'/${COINTYPE_ADA}'/x'/0/0`,
+      subDesc: `m/1852'/${COINTYPE_ADA}'/${INDEX_PLACEHOLDER}'/0/0`,
     },
   },
   [IMPL_SUI]: {
     default: {
       prefix: 'SUI',
       category: `44'/${COINTYPE_SUI}'`,
-      template: `m/44'/${COINTYPE_SUI}'/x'/0'/0'`,
+      template: `m/44'/${COINTYPE_SUI}'/${INDEX_PLACEHOLDER}'/0'/0'`,
       coinType: COINTYPE_SUI,
     },
   },
@@ -410,7 +411,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'FIL',
       category: `44'/${COINTYPE_FIL}'`,
-      template: `m/44'/${COINTYPE_FIL}'/0'/0/x`,
+      template: `m/44'/${COINTYPE_FIL}'/0'/0/${INDEX_PLACEHOLDER}`,
       coinType: COINTYPE_FIL,
     },
   },
@@ -418,7 +419,7 @@ const defaultAccountNameInfo: Record<
     default: {
       prefix: 'DOT',
       category: `44'/${COINTYPE_DOT}'`,
-      template: `m/44'/${COINTYPE_DOT}'/x'/0'/0'`,
+      template: `m/44'/${COINTYPE_DOT}'/${INDEX_PLACEHOLDER}'/0'/0'`,
       coinType: COINTYPE_DOT,
     },
   },
@@ -465,6 +466,7 @@ function getDBAccountTemplate(account: DBAccount) {
   if (template) {
     return template;
   }
+  // The following three chains need to find the corresponding template according to the purpose of the account
   if ([IMPL_BTC, IMPL_TBTC, IMPL_LTC].includes(impl)) {
     for (const accountInfo of Object.values(getAccountNameInfoByImpl(impl))) {
       if (path.indexOf(accountInfo.category) > -1) {

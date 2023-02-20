@@ -3,6 +3,7 @@ import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { OnekeyNetwork } from '../config/networkIds';
 
 const SEPERATOR = '--';
+const INDEX_PLACEHOLDER = '$$INDEX$$';
 
 const IMPL_EVM = 'evm';
 const COINTYPE_ETH = '60';
@@ -135,6 +136,7 @@ function getSupportedImpls() {
 
 export {
   SEPERATOR,
+  INDEX_PLACEHOLDER,
   IMPL_EVM,
   COINTYPE_ETH,
   COINTYPE_ETC,

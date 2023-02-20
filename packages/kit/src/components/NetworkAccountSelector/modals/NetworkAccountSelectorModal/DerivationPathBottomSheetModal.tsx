@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
+import { INDEX_PLACEHOLDER } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../../hooks';
@@ -127,7 +128,7 @@ const DerivationOption: FC<{
             typography={{ sm: 'Body2Mono', md: 'Body2Mono' }}
             color={textColor}
           >
-            {showTemplate && option.template.replace('x', '*')}
+            {showTemplate && option.template.replace(INDEX_PLACEHOLDER, '*')}
             {showSubDesc && option.subDesc}
           </Text>
         </VStack>
