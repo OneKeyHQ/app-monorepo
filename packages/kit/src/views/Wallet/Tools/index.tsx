@@ -122,7 +122,6 @@ const ToolsPage: FC = () => {
     (s) => s.settings?.annualReportEntryEnabled ?? false,
   );
 
-  const enableDevMode = useAppSelector((s) => s.settings?.devMode?.enable);
   const tools = useTools(network?.id);
 
   const responsivePadding = useMemo(() => {
@@ -149,17 +148,14 @@ const ToolsPage: FC = () => {
 
     if (
       !network?.settings.supportBatchTransfer ||
-      (network.impl === IMPL_EVM &&
-        !batchTransferContractAddress[network.id]) ||
-      !enableDevMode
+      (network.impl === IMPL_EVM && !batchTransferContractAddress[network.id])
     ) {
       allItems = allItems.filter((n) => n.key !== 'bulkSender');
     }
 
     if (
-      (network?.impl === IMPL_EVM &&
-        !batchTransferContractAddress[network?.id]) ||
-      !enableDevMode
+      network?.impl === IMPL_EVM &&
+      !batchTransferContractAddress[network?.id]
     ) {
       allItems = allItems.filter((n) => n.key !== 'bulkSender');
     }
@@ -183,7 +179,6 @@ const ToolsPage: FC = () => {
     network?.settings.supportBatchTransfer,
     network?.id,
     annualReportEntryEnabled,
-    enableDevMode,
     tools,
   ]);
 
