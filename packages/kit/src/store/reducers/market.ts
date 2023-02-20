@@ -234,8 +234,9 @@ export const MarketSlicer = createSlice({
           if (!cacheCategory.coingeckoIds) {
             cacheCategory.coingeckoIds = fetchCoingeckoIds;
           } else if (
+            // fix local favorite id  go to void，so favorite category's ids need update
             // ban favorite category coingecko ids change
-            cacheCategory.categoryId !== MARKET_FAVORITES_CATEGORYID &&
+            // cacheCategory.categoryId !== MARKET_FAVORITES_CATEGORYID &&
             !equalStringArr(cacheCategory.coingeckoIds, fetchCoingeckoIds) &&
             state.listSort === null
           ) {

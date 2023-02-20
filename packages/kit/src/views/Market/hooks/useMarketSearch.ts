@@ -43,7 +43,7 @@ export const useMarketSearchSelectedCategory = () => {
 
   useEffect(() => {
     if (searchTabCategoryId) {
-      backgroundApiProxy.serviceMarket.fetchMarketList({
+      backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
         categoryId: searchTabCategoryId,
         sparkline: false,
       });
