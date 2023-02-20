@@ -473,13 +473,46 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromBatchTransfer(
     transferInfos: ITransferInfo[],
   ): Promise<IEncodedTx> {
+    let retryTime = 0;
+    let lastRpcErrorMessage = '';
+    const maxRetryTimes = 5;
     const client = await this.getClient();
     const transferInfo = transferInfos[0];
     const { from, to: firstReceiver, isNFT } = transferInfo;
 
     const feePayer = new PublicKey(from);
     const nativeTx = new Transaction();
-    [, nativeTx.recentBlockhash] = await client.getFees();
+
+    const doGetFee = async () => {
+      try {
+        const [, recentBlockhash] = await client.getFees();
+        return recentBlockhash;
+      } catch (error: any) {
+        const rpcErrorData = error?.data as
+          | {
+              code: number;
+              message: string;
+              data: any;
+            }
+          | undefined;
+        if (error && rpcErrorData) {
+          lastRpcErrorMessage = rpcErrorData.message;
+        }
+      }
+    };
+
+    do {
+      retryTime += 1;
+      if (retryTime > maxRetryTimes) {
+        throw new Error(
+          `Solana getFees retry times exceeded: ${lastRpcErrorMessage || ''}`,
+        );
+      }
+      const recentBlockhash = await doGetFee();
+      nativeTx.recentBlockhash = recentBlockhash;
+      await wait(1000);
+    } while (!nativeTx.recentBlockhash);
+
     nativeTx.feePayer = feePayer;
 
     for (let i = 0; i < transferInfos.length; i += 1) {
