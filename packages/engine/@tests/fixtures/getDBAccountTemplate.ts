@@ -3,6 +3,7 @@ import {
   IMPL_EVM,
   IMPL_LTC,
   IMPL_SOL,
+  INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { getAccountNameInfoByImpl } from '../../src/managers/impl';
@@ -38,7 +39,7 @@ export default [
       'pub':
         '02c101dafbceb365baaf9df2d7792f131ec79b1d768b540957112bbeeebb536813',
       'address': '0x41cd94f449903421d6b6707c24149bf8f1cbbbba',
-      'template': "m/44'/60'/0'/0/x",
+      'template': `m/44'/60'/0'/0/${INDEX_PLACEHOLDER}`,
     },
     response: evmAccountInfo.default.template,
   },

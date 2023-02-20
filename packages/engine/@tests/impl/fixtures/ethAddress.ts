@@ -1,6 +1,7 @@
 import {
   COINTYPE_ETH,
   IMPL_EVM,
+  INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { getAccountNameInfoByImpl } from '../../../src/managers/impl';
@@ -79,7 +80,7 @@ const fixtures: {
         password: '',
         indexes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
         coinType: COINTYPE_ETH,
-        template: `m/44'/${COINTYPE_ETH}'/0'/x`,
+        template: `m/44'/${COINTYPE_ETH}'/0'/${INDEX_PLACEHOLDER}`,
       },
       mnemonic,
     },
