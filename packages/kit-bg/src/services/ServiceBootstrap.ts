@@ -212,13 +212,13 @@ export default class ServiceBootstrap extends ServiceBase {
           if (!account.template) {
             const template = getDBAccountTemplate(account);
             const impl = getImplByCoinType(account.coinType);
-            await dbApi.addAccountDerivation(
-              wallet.id,
-              account.id,
+            await dbApi.addAccountDerivation({
+              walletId: wallet.id,
+              accountId: account.id,
               impl,
               template,
-            );
-            await dbApi.setAccountTemplate(account.id, template);
+            });
+            await dbApi.setAccountTemplate({ accountId: account.id, template });
             debugLogger.common.info(
               `insert account: ${account.id} to AccountDerivation table, template: ${template}`,
             );
@@ -235,7 +235,10 @@ export default class ServiceBootstrap extends ServiceBase {
           }
         }
 
-        await dbApi.updateWalletNextAccountIds(wallet.id, newNextAccountIds);
+        await dbApi.updateWalletNextAccountIds({
+          walletId: wallet.id,
+          nextAccountIds: newNextAccountIds,
+        });
         debugLogger.common.info(
           `update wallet nextAccountIds, wallet: ${
             wallet.id

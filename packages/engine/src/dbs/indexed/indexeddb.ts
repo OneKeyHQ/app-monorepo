@@ -49,7 +49,11 @@ import {
 } from '../base';
 
 import type { DBAccount, DBVariantAccount } from '../../types/account';
-import type { DBAccountDerivation } from '../../types/accountDerivation';
+import type {
+  DBAccountDerivation,
+  IAddAccountDerivationParams,
+  ISetAccountTemplateParams,
+} from '../../types/accountDerivation';
 import type { PrivateKeyCredential } from '../../types/credential';
 import type { DBDevice, Device, DevicePayload } from '../../types/device';
 import type {
@@ -60,7 +64,7 @@ import type {
 } from '../../types/history';
 import type { DBNetwork, UpdateNetworkParams } from '../../types/network';
 import type { Token } from '../../types/token';
-import type { Wallet } from '../../types/wallet';
+import type { ISetNextAccountIdsParams, Wallet } from '../../types/wallet';
 import type {
   CreateHDWalletParams,
   CreateHWWalletParams,
@@ -1284,10 +1288,10 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  updateWalletNextAccountIds(
-    walletId: string,
-    nextAccountIds: Record<string, number>,
-  ): Promise<Wallet> {
+  updateWalletNextAccountIds({
+    walletId,
+    nextAccountIds,
+  }: ISetNextAccountIdsParams): Promise<Wallet> {
     let ret: Wallet;
     return this.ready.then(
       (db) =>
@@ -1669,13 +1673,13 @@ class IndexedDBApi implements DBAPI {
                   return;
                 }
                 const impl = getImplByCoinType(account.coinType);
-                await this.addAccountDerivation(
-                  wallet.id,
-                  account.id,
+                await this.addAccountDerivation({
+                  walletId: wallet.id,
+                  accountId: account.id,
                   impl,
-                  account.template,
-                  accountDerivationStore,
-                );
+                  template: account.template,
+                  derivationStore: accountDerivationStore,
+                });
                 const template = account.template ?? '';
                 const accountDerivation = await this.getAccountDerivationRecord(
                   wallet.id,
@@ -2015,7 +2019,10 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  setAccountTemplate(accountId: string, template: string): Promise<DBAccount> {
+  setAccountTemplate({
+    accountId,
+    template,
+  }: ISetAccountTemplateParams): Promise<DBAccount> {
     let ret: DBAccount;
     return this.ready.then(
       (db) =>
@@ -2414,13 +2421,13 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  addAccountDerivation(
-    walletId: string,
-    accountId: string,
-    impl: string,
-    template: string,
-    derivationStore?: IDBObjectStore,
-  ): Promise<void> {
+  addAccountDerivation({
+    walletId,
+    accountId,
+    impl,
+    template,
+    derivationStore,
+  }: IAddAccountDerivationParams): Promise<void> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {
@@ -2482,7 +2489,11 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  removeAccountDerivationByWalletId(walletId: string): Promise<void> {
+  removeAccountDerivationByWalletId({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<void> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {
@@ -2521,10 +2532,13 @@ class IndexedDBApi implements DBAPI {
     );
   }
 
-  removeAccountDerivationByAccountId(
-    walletId: string,
-    accountId: string,
-  ): Promise<void> {
+  removeAccountDerivationByAccountId({
+    walletId,
+    accountId,
+  }: {
+    walletId: string;
+    accountId: string;
+  }): Promise<void> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {
@@ -2568,9 +2582,11 @@ class IndexedDBApi implements DBAPI {
   }
 
   // return Record<template, record>
-  getAccountDerivationByWalletId(
-    walletId: string,
-  ): Promise<Record<string, DBAccountDerivation>> {
+  getAccountDerivationByWalletId({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<Record<string, DBAccountDerivation>> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, reject) => {

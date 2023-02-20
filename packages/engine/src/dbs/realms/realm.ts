@@ -64,7 +64,11 @@ import {
 } from './schemas';
 
 import type { DBAccount } from '../../types/account';
-import type { DBAccountDerivation } from '../../types/accountDerivation';
+import type {
+  DBAccountDerivation,
+  IAddAccountDerivationParams,
+  ISetAccountTemplateParams,
+} from '../../types/accountDerivation';
 import type { PrivateKeyCredential } from '../../types/credential';
 import type { Device, DevicePayload } from '../../types/device';
 import type {
@@ -75,7 +79,7 @@ import type {
 } from '../../types/history';
 import type { DBNetwork } from '../../types/network';
 import type { Token } from '../../types/token';
-import type { Wallet } from '../../types/wallet';
+import type { ISetNextAccountIdsParams, Wallet } from '../../types/wallet';
 import type {
   CreateHDWalletParams,
   CreateHWWalletParams,
@@ -1351,10 +1355,10 @@ class RealmDB implements DBAPI {
     }
   }
 
-  updateWalletNextAccountIds(
-    walletId: string,
-    nextAccountIds: Record<string, number>,
-  ): Promise<Wallet> {
+  updateWalletNextAccountIds({
+    walletId,
+    nextAccountIds,
+  }: ISetNextAccountIdsParams): Promise<Wallet> {
     try {
       const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',
@@ -1708,7 +1712,10 @@ class RealmDB implements DBAPI {
     }
   }
 
-  setAccountTemplate(accountId: string, template: string): Promise<DBAccount> {
+  setAccountTemplate({
+    accountId,
+    template,
+  }: ISetAccountTemplateParams): Promise<DBAccount> {
     try {
       const account = this.realm!.objectForPrimaryKey<AccountSchema>(
         'Account',
@@ -2021,12 +2028,12 @@ class RealmDB implements DBAPI {
     return Promise.resolve();
   }
 
-  addAccountDerivation(
-    walletId: string,
-    accountId: string,
-    impl: string,
-    template: string,
-  ): Promise<void> {
+  addAccountDerivation({
+    walletId,
+    accountId,
+    impl,
+    template,
+  }: IAddAccountDerivationParams): Promise<void> {
     const id = `${walletId}-${impl}-${template}`;
     const accountDerivation =
       this.realm!.objectForPrimaryKey<AccountDerivationSchema>(
@@ -2052,7 +2059,11 @@ class RealmDB implements DBAPI {
     return Promise.resolve();
   }
 
-  removeAccountDerivationByWalletId(walletId: string): Promise<void> {
+  removeAccountDerivationByWalletId({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<void> {
     const accountDerivations = this.realm!.objects<AccountDerivationSchema>(
       'AccountDerivation',
     ).filtered('walletId == $0', walletId);
@@ -2062,10 +2073,13 @@ class RealmDB implements DBAPI {
     return Promise.resolve();
   }
 
-  removeAccountDerivationByAccountId(
-    walletId: string,
-    accountId: string,
-  ): Promise<void> {
+  removeAccountDerivationByAccountId({
+    walletId,
+    accountId,
+  }: {
+    walletId: string;
+    accountId: string;
+  }): Promise<void> {
     const accountDerivations = this.realm!.objects<AccountDerivationSchema>(
       'AccountDerivation',
     ).filtered('walletId == $0', walletId);
@@ -2084,9 +2098,11 @@ class RealmDB implements DBAPI {
   }
 
   // return Record<template, record>
-  getAccountDerivationByWalletId(
-    walletId: string,
-  ): Promise<Record<string, DBAccountDerivation>> {
+  getAccountDerivationByWalletId({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<Record<string, DBAccountDerivation>> {
     const accountDerivations = this.realm!.objects<AccountDerivationSchema>(
       'AccountDerivation',
     ).filtered('walletId == $0', walletId);

@@ -21,16 +21,16 @@ describe('test AccountDerivation database API', () => {
   });
 
   test('should insert a bip44 standard template record', async () => {
-    await dbApi.addAccountDerivation(
+    await dbApi.addAccountDerivation({
       walletId,
-      createAccountId(1),
-      IMPL_EVM,
-      bip44StandardTemplate,
-    );
+      accountId: createAccountId(1),
+      impl: IMPL_EVM,
+      template: bip44StandardTemplate,
+    });
 
-    const accountDerivationMap = await dbApi.getAccountDerivationByWalletId(
+    const accountDerivationMap = await dbApi.getAccountDerivationByWalletId({
       walletId,
-    );
+    });
 
     expect(Object.keys(accountDerivationMap).length).toBe(1);
     expect(accountDerivationMap[bip44StandardTemplate].template).toBe(
@@ -43,16 +43,16 @@ describe('test AccountDerivation database API', () => {
   });
 
   test('should insert another bip44 standard record', async () => {
-    await dbApi.addAccountDerivation(
+    await dbApi.addAccountDerivation({
       walletId,
-      createAccountId(2),
-      IMPL_EVM,
-      bip44StandardTemplate,
-    );
+      accountId: createAccountId(2),
+      impl: IMPL_EVM,
+      template: bip44StandardTemplate,
+    });
 
-    const accountDerivationMap = await dbApi.getAccountDerivationByWalletId(
+    const accountDerivationMap = await dbApi.getAccountDerivationByWalletId({
       walletId,
-    );
+    });
     expect(Object.keys(accountDerivationMap).length).toBe(1);
     expect(accountDerivationMap[bip44StandardTemplate].template).toBe(
       bip44StandardTemplate,
@@ -62,16 +62,16 @@ describe('test AccountDerivation database API', () => {
   });
 
   test('should insert a Ledger Live template record', async () => {
-    await dbApi.addAccountDerivation(
+    await dbApi.addAccountDerivation({
       walletId,
-      createAccountId(3),
-      IMPL_EVM,
-      ledgerLiveTemplate,
-    );
+      accountId: createAccountId(3),
+      impl: IMPL_EVM,
+      template: ledgerLiveTemplate,
+    });
 
-    const accountDerivationMap = await dbApi.getAccountDerivationByWalletId(
+    const accountDerivationMap = await dbApi.getAccountDerivationByWalletId({
       walletId,
-    );
+    });
 
     expect(Object.keys(accountDerivationMap).length).toBe(2);
     expect(accountDerivationMap[ledgerLiveTemplate].template).toBe(
@@ -83,21 +83,21 @@ describe('test AccountDerivation database API', () => {
   });
 
   test('should remove account1 accountDerivation by accountId', async () => {
-    await dbApi.removeAccountDerivationByAccountId(
+    await dbApi.removeAccountDerivationByAccountId({
       walletId,
-      createAccountId(1),
-    );
-    const accountDerivationMap = await dbApi.getAccountDerivationByWalletId(
+      accountId: createAccountId(1),
+    });
+    const accountDerivationMap = await dbApi.getAccountDerivationByWalletId({
       walletId,
-    );
+    });
     expect(accountDerivationMap[bip44StandardTemplate].accounts.length).toBe(1);
   });
 
   test('should remove accountDerivation record by walletId', async () => {
-    await dbApi.removeAccountDerivationByWalletId(walletId);
-    const accountDerivationMap = await dbApi.getAccountDerivationByWalletId(
+    await dbApi.removeAccountDerivationByWalletId({ walletId });
+    const accountDerivationMap = await dbApi.getAccountDerivationByWalletId({
       walletId,
-    );
+    });
     console.log(accountDerivationMap);
     expect(Object.keys(accountDerivationMap).length).toBe(0);
   });

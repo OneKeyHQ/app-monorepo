@@ -5,3 +5,16 @@ export type DBAccountDerivation = BaseObject & {
   accounts: string[];
   template: string;
 };
+
+export type ISetAccountTemplateParams = {
+  accountId: string;
+  template: string;
+};
+
+export type IAddAccountDerivationParams = {
+  walletId: string;
+  accountId: string;
+  impl: string;
+  template: string;
+  derivationStore?: IDBObjectStore;
+};
