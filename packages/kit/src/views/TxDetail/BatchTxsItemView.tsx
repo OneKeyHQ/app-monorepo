@@ -77,9 +77,10 @@ function BatchTxsItemView(props: ITxActionListViewProps) {
           paddingY={4}
           textAlign="center"
         >
-          {`and the other ${
-            actionCount - MAX_ACTIONS_DISPLAY_IN_CONFIRM
-          } actions`}
+          {intl.formatMessage(
+            { id: 'action__str_more_actions' },
+            { count: actionCount - MAX_ACTIONS_DISPLAY_IN_CONFIRM },
+          )}
         </Text>,
       );
     }

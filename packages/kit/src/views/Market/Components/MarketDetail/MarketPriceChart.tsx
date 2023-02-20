@@ -5,6 +5,7 @@ import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ChartWithLabel from '../../../PriceChart/ChartWithLabel';
+import { useChartTimeLabel } from '../../../PriceChart/hooks';
 import TimeControl, {
   TIMEOPTIONS,
   TIMEOPTIONS_VALUE,
@@ -12,7 +13,6 @@ import TimeControl, {
 import { useMarketTokenChart } from '../../hooks/useMarketToken';
 
 import type { StyleProp, ViewStyle } from 'react-native';
-import { useChartTimeLabel } from '../../../PriceChart/hooks';
 
 type MarketPriceChartProps = {
   coingeckoId: string;

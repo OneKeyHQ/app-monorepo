@@ -39,6 +39,8 @@ export function useSendConfirmRouteParamsParsed() {
   const isFromDapp = !!routeParams.sourceInfo;
   const feeInfoEditable: boolean = routeParams.feeInfoEditable ?? true;
   const feeInfoUseFeeInTx: boolean = routeParams.feeInfoUseFeeInTx ?? false;
+  const ignoreFetchFeeCalling: boolean =
+    routeParams.ignoreFetchFeeCalling ?? false;
   const isSpeedUpOrCancel: boolean =
     routeParams.resendActionInfo?.type === 'cancel' ||
     routeParams.resendActionInfo?.type === 'speedUp';
@@ -91,5 +93,6 @@ export function useSendConfirmRouteParamsParsed() {
     resendActionInfo,
     isInternalSwapTx,
     isTransferTypeTx: false,
+    ignoreFetchFeeCalling,
   };
 }
