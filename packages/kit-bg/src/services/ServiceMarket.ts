@@ -34,6 +34,7 @@ import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 import {
   backgroundClass,
   backgroundMethod,
+  bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 
@@ -103,6 +104,7 @@ export default class ServiceMarket extends ServiceBase {
     await this._fetchMarketListDebounced({ categoryId, ids, sparkline });
   }
 
+  @bindThis()
   async fetchMarketList({
     categoryId,
     ids,
