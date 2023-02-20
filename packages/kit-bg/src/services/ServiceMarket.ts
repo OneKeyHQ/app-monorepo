@@ -1,3 +1,5 @@
+import { debounce } from 'lodash';
+
 import type { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
@@ -32,6 +34,7 @@ import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 import {
   backgroundClass,
   backgroundMethod,
+  bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 
@@ -80,7 +83,28 @@ export default class ServiceMarket extends ServiceBase {
     this.backgroundApi.dispatch(updateSelectedCategory(category.categoryId));
   }
 
+  // fix desktop quickly click the Cancel Like button to trigger the change of the like favorites ids, resulting in a pull action.
+
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  _fetchMarketListDebounced = debounce(this.fetchMarketList, 1200, {
+    leading: false,
+    trailing: true,
+  });
+
   @backgroundMethod()
+  async fetchMarketListDebounced({
+    categoryId,
+    ids,
+    sparkline,
+  }: {
+    categoryId?: string;
+    ids?: string;
+    sparkline?: boolean;
+  }) {
+    await this._fetchMarketListDebounced({ categoryId, ids, sparkline });
+  }
+
+  @bindThis()
   async fetchMarketList({
     categoryId,
     ids,
@@ -247,7 +271,7 @@ export default class ServiceMarket extends ServiceBase {
     );
     // updata tokenItem for redux
     if (data.length > 0) {
-      this.fetchMarketList({
+      this.fetchMarketListDebounced({
         ids: data.join(','),
         sparkline: false,
       });
