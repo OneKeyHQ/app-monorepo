@@ -21,7 +21,7 @@ import { setAuthenticationType } from '@onekeyhq/kit/src/store/reducers/status';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { HtmlPreloadSplashLogoRemove } from '../../provider/AppLoading';
+import { useHtmlPreloadSplashLogoRemove } from '../../provider/AppLoading';
 import { createLazyComponent } from '../../utils/createLazyComponent';
 import { buildModalOpenAnimationOptions } from '../Modal/buildModalStackNavigatorOptions';
 import { UpdateFeatureModalRoutes } from '../Modal/UpdateFeature';
@@ -210,13 +210,12 @@ const RootStackNavigator = () => {
     }
   }, [dispatch]);
 
+  useHtmlPreloadSplashLogoRemove({ isDelay: true });
+
   return (
-    <>
-      <HtmlPreloadSplashLogoRemove isDelay />
-      <AppLock>
-        <App />
-      </AppLock>
-    </>
+    <AppLock>
+      <App />
+    </AppLock>
   );
 };
 

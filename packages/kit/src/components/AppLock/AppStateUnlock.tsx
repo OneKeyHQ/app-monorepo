@@ -23,7 +23,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { HtmlPreloadSplashLogoRemove } from '../../provider/AppLoading';
+import { useHtmlPreloadSplashLogoRemove } from '../../provider/AppLoading';
 import { wait } from '../../utils/helper';
 import { showSplashScreen } from '../../views/Overlay/showSplashScreen';
 
@@ -98,6 +98,8 @@ export const AppStateUnlock = () => {
   const [password, setPassword] = useState('');
   const [err, setError] = useState('');
 
+  useHtmlPreloadSplashLogoRemove();
+
   const onChangeText = useCallback((text: string) => {
     setPassword(text);
     setError('');
@@ -138,7 +140,6 @@ export const AppStateUnlock = () => {
   return (
     <KeyboardDismissView>
       <Center testID="AppStateUnlock" w="full" h="full" bg="background-default">
-        <HtmlPreloadSplashLogoRemove />
         <Box
           maxW="96"
           p="8"
