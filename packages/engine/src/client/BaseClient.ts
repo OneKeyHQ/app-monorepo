@@ -19,7 +19,6 @@ import {
   NotImplementedError,
 } from '@onekeyhq/shared/src/errors/common-errors';
 
-import type { Success, Unsuccessful } from '@onekeyfe/js-sdk';
 import type BigNumber from 'bignumber.js';
 
 abstract class BaseClient {
@@ -187,51 +186,6 @@ abstract class BaseProvider {
   }
 
   verifyMessage(
-    address: string,
-    message: TypedMessage,
-    signature: string,
-  ): Promise<boolean> {
-    return Promise.reject(NotImplementedError);
-  }
-
-  async wrapHardwareCall<T>(
-    callee: () => Promise<Unsuccessful | Success<T>>,
-  ): Promise<T> {
-    const resp = await callee();
-    if (!resp.success) {
-      throw new HardwareError(resp.payload);
-    }
-
-    return resp.payload;
-  }
-
-  hardwareGetXpubs(
-    paths: string[],
-    showOnDevice: boolean,
-  ): Promise<{ path: string; xpub: string }[]> {
-    return Promise.reject(NotImplementedError);
-  }
-
-  hardwareGetAddress(
-    path: string,
-    showOnDevice: boolean,
-    addressToVerify?: string,
-  ): Promise<string> {
-    return Promise.reject(NotImplementedError);
-  }
-
-  hardwareSignTransaction(
-    unsignedTx: UnsignedTx,
-    signers: Record<string, string>,
-  ): Promise<SignedTx> {
-    return Promise.reject(NotImplementedError);
-  }
-
-  hardwareSignMessage(message: TypedMessage, signer: string): Promise<string> {
-    return Promise.reject(NotImplementedError);
-  }
-
-  hardwareVerifyMessage(
     address: string,
     message: TypedMessage,
     signature: string,

@@ -68,7 +68,6 @@
     "@onekeyfe/hd-shared": "0.2.27",
     "@onekeyfe/hd-transport": "0.2.27",
     "@onekeyfe/hd-web-sdk": "0.2.27",
-    "@onekeyfe/js-sdk": "1.1.5",
     "@onekeyfe/network-list": "1.6.46",
     "@onekeyfe/onekey-cross-webview": "1.1.23",
     "@starcoin/starcoin": "2.1.5",
