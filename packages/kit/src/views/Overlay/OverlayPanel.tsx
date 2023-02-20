@@ -11,12 +11,10 @@ import {
   useSafeAreaInsets,
   useThemeValue,
 } from '@onekeyhq/components';
+import type { UseDropdownProps } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 import type { ModalProps } from '@onekeyhq/components/src/Modal';
-import type {
-  IDropdownPosition,
-  SelectProps,
-} from '@onekeyhq/components/src/Select';
+import type { SelectProps } from '@onekeyhq/components/src/Select';
 import { CloseBackDrop } from '@onekeyhq/components/src/Select';
 
 import type { IBoxProps } from 'native-base';
@@ -70,13 +68,13 @@ const DesktopDropdown: FC<{
   closeOverlay: () => void;
   triggerEle?: SelectProps['triggerEle'];
   dropdownStyle?: IBoxProps;
-  dropdownPosition?: IDropdownPosition;
+  useDropdownProps?: UseDropdownProps;
 }> = ({
   closeOverlay,
   children,
   triggerEle,
   dropdownStyle,
-  dropdownPosition,
+  useDropdownProps,
 }) => {
   const translateY = 2;
   const contentRef = useRef();
@@ -86,8 +84,9 @@ const DesktopDropdown: FC<{
       triggerEle,
       visible: true,
       translateY,
-      dropdownPosition: dropdownPosition ?? 'right',
+      dropdownPosition: 'right',
       autoAdjust: false,
+      ...useDropdownProps,
     });
   return (
     <Box position="absolute" w="full" h="full">
@@ -131,7 +130,7 @@ export const OverlayPanel: FC<{
   triggerEle?: SelectProps['triggerEle'];
   modalProps?: ModalProps;
   modalLizeProps?: ModalizeProps;
-  dropdownPosition?: IDropdownPosition;
+  useDropdownProps?: UseDropdownProps;
   dropdownStyle?: IBoxProps;
 }> = (props) => {
   const isVerticalLayout = useIsVerticalLayout();
