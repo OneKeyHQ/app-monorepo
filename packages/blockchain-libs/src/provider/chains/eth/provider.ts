@@ -9,7 +9,6 @@ import {
   getEncryptionPublicKey,
   decrypt as mmSigUtilDecrypt,
 } from '@metamask/eth-sig-util';
-import OneKeyConnect from '@onekeyfe/js-sdk';
 import BigNumber from 'bignumber.js';
 import * as ethUtil from 'ethereumjs-util';
 
@@ -28,8 +27,9 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { Geth } from './geth';
-import { MessageTypes, hashMessage } from './sdk/message';
+import { hashMessage } from './sdk/message';
 
+import type { MessageTypes } from './sdk/message';
 import type { UnsignedTransaction } from '@ethersproject/transactions';
 
 class Provider extends BaseProvider {
@@ -258,141 +258,6 @@ class Provider extends BaseProvider {
   async mmGetPublicKey(signer: Signer): Promise<string> {
     return getEncryptionPublicKey((await signer.getPrvkey()).toString('hex'));
   }
-
-  override hardwareGetXpubs = async (
-    paths: string[],
-    showOnDevice: boolean,
-  ): Promise<{ path: string; xpub: string }[]> => {
-    const resp = await this.wrapHardwareCall(() =>
-      OneKeyConnect.ethereumGetPublicKey({
-        bundle: paths.map((path) => ({ path, showOnTrezor: showOnDevice })),
-      }),
-    );
-
-    return resp.map((i) => ({
-      path: i.serializedPath,
-      xpub: i.xpub,
-    }));
-  };
-
-  override hardwareGetAddress = async (
-    path: string,
-    showOnDevice: boolean,
-    addressToVerify?: string,
-  ): Promise<string> => {
-    const params = {
-      path,
-      showOnTrezor: showOnDevice,
-    };
-
-    if (typeof addressToVerify === 'string') {
-      Object.assign(params, {
-        address: addressToVerify,
-      });
-    }
-    const { address } = await this.wrapHardwareCall(() =>
-      OneKeyConnect.ethereumGetAddress(params),
-    );
-    return address;
-  };
-
-  override hardwareSignTransaction = async (
-    unsignedTx: UnsignedTx,
-    signers: Record<string, string>,
-  ): Promise<SignedTx> => {
-    const {
-      inputs: [{ address: fromAddress }],
-    } = unsignedTx;
-    const signer = signers[fromAddress];
-    check(signer, 'Signer not found');
-
-    const tx = this.buildEtherUnSignedTx(unsignedTx);
-    const { r, s, v } = await this.wrapHardwareCall(() =>
-      OneKeyConnect.ethereumSignTransaction({
-        path: signer,
-        transaction: {
-          to: tx.to,
-          value: tx.value,
-          gasPrice: tx.gasPrice,
-          gasLimit: tx.gasLimit,
-          nonce: ethUtil.addHexPrefix(
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            ethUtil.padToEven(tx.nonce!.toString(16)),
-          ),
-          data: tx.data,
-          chainId: tx.chainId,
-        },
-      } as never),
-    );
-    const signature = splitSignature({
-      v: Number(v),
-      r,
-      s,
-    });
-
-    const rawTx: string = serialize(tx, signature);
-    const txid = keccak256(rawTx);
-    return { txid, rawTx };
-  };
-
-  override hardwareSignMessage = async (
-    message: TypedMessage,
-    signer: string,
-  ): Promise<string> => {
-    const { type: messageType, message: strMessage } = message;
-
-    // eslint-disable-next-line default-case
-    switch (messageType) {
-      case MessageTypes.ETH_SIGN:
-        throw new Error('eth_sign is not supported for hardware');
-      case MessageTypes.TYPE_DATA_V1:
-        throw new Error('signTypedData_v1 is not supported for hardware');
-      case MessageTypes.PERSONAL_SIGN: {
-        const { signature } = await this.wrapHardwareCall(() =>
-          OneKeyConnect.ethereumSignMessage({
-            path: signer,
-            message: strMessage,
-          }),
-        );
-        return ethUtil.addHexPrefix(signature as string);
-      }
-      case MessageTypes.TYPE_DATA_V3:
-      case MessageTypes.TYPE_DATA_V4: {
-        const { signature } = await this.wrapHardwareCall(() =>
-          // @ts-ignore
-          OneKeyConnect.ethereumSignMessageEIP712({
-            path: signer,
-            version: messageType === MessageTypes.TYPE_DATA_V3 ? 'V3' : 'V4',
-            data: JSON.parse(strMessage),
-          } as never),
-        );
-        return ethUtil.addHexPrefix(signature as string);
-      }
-    }
-
-    throw new Error(`Not supported`);
-  };
-
-  override hardwareVerifyMessage = async (
-    address: string,
-    message: TypedMessage,
-    signature: string,
-  ): Promise<boolean> => {
-    const { type: messageType, message: strMessage } = message;
-
-    if (messageType === MessageTypes.PERSONAL_SIGN) {
-      const { message: resp } = await this.wrapHardwareCall(() =>
-        OneKeyConnect.ethereumVerifyMessage({
-          address,
-          message: strMessage,
-          signature,
-        }),
-      );
-      return resp === 'Message verified';
-    }
-
-    throw new Error('Not supported');
-  };
 }
 
 export { Provider };
