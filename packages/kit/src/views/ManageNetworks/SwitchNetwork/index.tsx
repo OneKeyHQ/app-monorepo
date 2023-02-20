@@ -135,6 +135,7 @@ function SwitchNetworkModal() {
     async ({ close }) => {
       try {
         const { serviceNetwork } = backgroundApiProxy;
+        // change wallet network, update to change dapp network in future
         const newNetwork = await serviceNetwork.changeActiveNetwork(networkId);
         // TODO: change to i18n
         // ToastManager.show({ title: 'Switched' });

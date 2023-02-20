@@ -71,39 +71,39 @@ export type Collection = {
 export type NFTAsset = {
   tokenAddress?: string; // sol
   contractAddress?: string; // evm
+  contractName?: string;
   contractTokenId?: string;
   tokenId?: string; // evm
-  contractName?: string;
   ercType?: string;
   amount?: string;
   owner: string;
   tokenUri: string | null;
   contentType: string | null;
-  contentUri: string | null;
   imageUri: string | null;
+  contentUri: string | null;
   nftscanUri: string | null;
-  name?: string;
-  mintTimestamp?: number;
-  description?: string;
-  attributes?: Traits[];
   mintPrice?: number;
+  mintTimestamp?: number;
   latestTradePrice?: number;
   latestTradeSymbol?: string;
+  assetAttributes?: {
+    attribute_name: string;
+    attribute_value: string;
+    percentage: string;
+  }[];
+  name?: string;
+  description?: string;
+  attributes?: Traits[];
+  image: {
+    source: string;
+    thumbnail: string;
+  };
   collection: {
     contractName?: string;
     logoUrl?: string;
     floorPrice?: number;
     openseaVerified?: boolean;
   };
-  image: {
-    source: string;
-    thumbnail: string;
-  };
-  assetAttributes?: {
-    attribute_name: string;
-    attribute_value: string;
-    percentage: string;
-  }[];
 };
 
 export type NFTTransaction = {

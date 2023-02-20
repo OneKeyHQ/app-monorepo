@@ -5,6 +5,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
 import { debounce, get } from 'lodash';
+import memoizee from 'memoizee';
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
@@ -727,6 +728,8 @@ class ProviderApiEthereum extends ProviderApiBase {
   addEthereumChain = async (
     request: IJsBridgeMessagePayload,
     params: AddEthereumChainParameter,
+    address?: string,
+    ...others: any[]
   ) => {
     const networks = await this.backgroundApi.serviceNetwork.fetchNetworks();
     const networkId = `evm--${parseInt(params.chainId)}`;
@@ -744,9 +747,17 @@ class ProviderApiEthereum extends ProviderApiBase {
     // Metamask return null
     return convertToEthereumChainResult(result as any);
   };
-  addEthereumChainDebounced = debounce(this.addEthereumChain.bind(this), 800, {
-    leading: false,
-    trailing: true,
+  addEthereumChainMemo = memoizee(this.addEthereumChain.bind(this), {
+    max: 1,
+    maxAge: 800,
+    normalizer([request, params, address, ...others]: [
+      IJsBridgeMessagePayload,
+      AddEthereumChainParameter,
+      string,
+    ]): string {
+      const p = request?.data ?? [params, address, ...others];
+      return JSON.stringify(p);
+    },
   });
 
   switchEthereumChain = async (
@@ -776,14 +787,18 @@ class ProviderApiEthereum extends ProviderApiBase {
     // Metamask return null
     return convertToEthereumChainResult(result as any);
   };
-  switchEthereumChainDebounced = debounce(
-    this.switchEthereumChain.bind(this),
-    800,
-    {
-      leading: false,
-      trailing: true,
+
+  switchEthereumChainMemo = memoizee(this.switchEthereumChain.bind(this), {
+    max: 1,
+    maxAge: 800,
+    normalizer([request, params]: [
+      IJsBridgeMessagePayload,
+      SwitchEthereumChainParameter,
+    ]): string {
+      const p = request?.data ?? [params];
+      return JSON.stringify(p);
     },
-  );
+  });
 
   /**
    * Add new chain to wallet and switch to it, we also need a request modal UI
@@ -800,9 +815,27 @@ class ProviderApiEthereum extends ProviderApiBase {
   async wallet_addEthereumChain(
     request: IJsBridgeMessagePayload,
     params: AddEthereumChainParameter,
+    address?: string,
+    ...others: any[]
   ) {
     // some dapp will call methods many times, like https://beta.layer3.xyz/bounties/dca-into-mean
-    this.addEthereumChainDebounced(request, params);
+
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    if (this.addEthereumChainMemo._has(request, params, address, ...others)) {
+      /*
+       code:-32002
+       message:"Request of type 'wallet_addEthereumChain' already pending for origin https://beta.layer3.xyz. Please wait."
+      */
+      throw web3Errors.rpc.resourceUnavailable({
+        message: `Request of type 'wallet_addEthereumChain' already pending for origin ${
+          request?.origin || ''
+        }. Please wait.`,
+      });
+    }
+
+    // **** should await return
+    await this.addEthereumChainMemo(request, params, address, ...others);
 
     // Metamask return null
     return Promise.resolve(null);
@@ -817,8 +850,24 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: SwitchEthereumChainParameter,
   ) {
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    if (this.switchEthereumChainMemo._has(request, params)) {
+      /*
+       code:-32002
+       message:"Request of type 'wallet_switchEthereumChain' already pending for origin https://beta.layer3.xyz. Please wait."
+      */
+      throw web3Errors.rpc.resourceUnavailable({
+        message: `Request of type 'wallet_switchEthereumChain' already pending for origin ${
+          request?.origin || ''
+        }. Please wait.`,
+      });
+    }
+
     // some dapp will call methods many times, like https://beta.layer3.xyz/bounties/dca-into-mean
-    this.switchEthereumChainDebounced(request, params);
+    // some dapp should wait this method response, like https://app.uniswap.org/#/swap
+    // **** should await return
+    await this.switchEthereumChainMemo(request, params);
 
     // Metamask return null
     return Promise.resolve(null);

@@ -52,6 +52,8 @@ export function TxDetailView(props: ITxActionListViewProps) {
         }
         networkId={decodedTx?.networkId ?? ''}
       />
+      <TxDetailExtraInfoBox {...props} />
+      {isMultipleActions ? <Box h={6} /> : <Box h={8} />}
       <TxDetailContextProvider
         isMultipleActions={isMultipleActions}
         isHistoryDetail={isHistoryDetail}
@@ -60,8 +62,6 @@ export function TxDetailView(props: ITxActionListViewProps) {
       >
         <TxActionsListView {...props} transformType="T1" space={6} />
       </TxDetailContextProvider>
-      {isMultipleActions ? <Box h={6} /> : <Box h={8} />}
-      <TxDetailExtraInfoBox {...props} />
     </>
   );
 }
