@@ -91,7 +91,7 @@ export function useSwapSlippageAuto(): ISlippageAuto {
       if (popularCoingeckoIds && popularCoingeckoIds.includes(coingeckoId)) {
         return { type: 'popular' as TokenCoingeckoType, value: levels.popular };
       }
-      return { type: 'others' as TokenCoingeckoType, value: levels.popular };
+      return { type: 'others' as TokenCoingeckoType, value: levels.others };
     },
     [coingeckoIds, levels],
   );
