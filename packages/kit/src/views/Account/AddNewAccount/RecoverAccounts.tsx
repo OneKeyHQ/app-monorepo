@@ -122,6 +122,7 @@ const AccountCell: FC<CellProps> = ({
             typography="Body2"
             color="text-subdued"
             wordBreak="break-all"
+            maxW={platformEnv.isNativeAndroid ? '45px' : 'auto'}
           >
             {item.index + 1}
           </Text>

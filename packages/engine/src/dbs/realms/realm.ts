@@ -861,7 +861,7 @@ class RealmDB implements DBAPI {
               );
             if (typeof accountDerivation === 'undefined') {
               this.realm!.create('AccountDerivation', {
-                accountDerivationId,
+                id: accountDerivationId,
                 walletId,
                 accounts: [account.id],
                 template,
