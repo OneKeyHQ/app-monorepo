@@ -227,7 +227,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
     async (t: TokenType) => {
       const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
         type: 'buy',
-        cryptoCode: t.onramperId,
+        cryptoCode: t.moonpayId,
       });
       if (signedUrl.length > 0) {
         navigation.navigate(RootRoutes.Modal, {
@@ -292,7 +292,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                   }}
                 />
               ) : null}
-              {token?.onramperId ? (
+              {token?.moonpayId ? (
                 <PurchaseButton
                   onPress={() => {
                     buyAction(token);
