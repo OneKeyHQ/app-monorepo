@@ -129,7 +129,6 @@ export default class ServiceMarket extends ServiceBase {
     if (data.length === 0) {
       return;
     }
-
     dispatch(updateMarketTokens({ categoryId, marketTokens: data }));
     // check token base(tokens & logoURI)
     const marketTokens = appSelector((s) => s.market.marketTokens);
