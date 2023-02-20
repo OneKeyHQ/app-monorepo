@@ -27,9 +27,9 @@ export default class ServiceDerivationPath extends ServiceBase {
   @backgroundMethod()
   async getNetworkDerivations(walletId: string, networkId: string) {
     const walletDerivations =
-      await this.backgroundApi.engine.dbApi.getAccountDerivationByWalletId(
+      await this.backgroundApi.engine.dbApi.getAccountDerivationByWalletId({
         walletId,
-      );
+      });
     const vault = await this.backgroundApi.engine.getWalletOnlyVault(
       networkId,
       walletId,
