@@ -4,9 +4,9 @@ import semver from 'semver';
 
 import { getWalletTypeFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import {
-  convertCategoryToTemplate,
   getDBAccountTemplate,
   getImplByCoinType,
+  migrateNextAccountIds,
 } from '@onekeyhq/engine/src/managers/impl';
 import { setDbMigrationVersion } from '@onekeyhq/kit/src/store/reducers/settings';
 import { updateAutoSwitchDefaultRpcAtVersion } from '@onekeyhq/kit/src/store/reducers/status';
@@ -226,14 +226,7 @@ export default class ServiceBootstrap extends ServiceBase {
         }
 
         // update nextAccountIds field
-        const { nextAccountIds } = wallet;
-        const newNextAccountIds = { ...nextAccountIds };
-        for (const [category, value] of Object.entries(nextAccountIds)) {
-          const template = convertCategoryToTemplate(category);
-          if (template) {
-            newNextAccountIds[template] = value;
-          }
-        }
+        const newNextAccountIds = migrateNextAccountIds(wallet.nextAccountIds);
 
         await dbApi.updateWalletNextAccountIds({
           walletId: wallet.id,

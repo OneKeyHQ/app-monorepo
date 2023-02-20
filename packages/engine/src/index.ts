@@ -68,7 +68,9 @@ import {
 import { getTokenRiskyItems } from './managers/goplus';
 import {
   getAccountNameInfoByTemplate,
+  getDBAccountTemplate,
   getDefaultAccountNameInfoByImpl,
+  migrateNextAccountIds,
 } from './managers/impl';
 import {
   fromDBNetworkToNetwork,
@@ -2695,6 +2697,8 @@ class Engine {
           );
         }
 
+        // migrate nextAccountIds for old backup
+        const newNextAccountIds = migrateNextAccountIds(nextAccountIds);
         const wallet = await this.dbApi.createHDWallet({
           password: localPassword,
           rs: {
@@ -2704,7 +2708,7 @@ class Engine {
           backuped: true,
           name,
           avatar,
-          nextAccountIds,
+          nextAccountIds: newNextAccountIds,
         });
         const reIdPrefix = new RegExp(`^${id}`);
         for (const accountToAdd of accounts) {
@@ -2715,6 +2719,9 @@ class Engine {
             );
           } else {
             accountToAdd.id = accountToAdd.id.replace(reIdPrefix, wallet.id);
+            if (!accountToAdd.template) {
+              accountToAdd.template = getDBAccountTemplate(accountToAdd);
+            }
             await this.dbApi.addAccountToWallet(wallet.id, accountToAdd);
           }
         }

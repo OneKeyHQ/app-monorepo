@@ -495,6 +495,17 @@ function convertCategoryToTemplate(category: string) {
   }
 }
 
+function migrateNextAccountIds(nextAccountIds: Record<string, number>) {
+  const newNextAccountIds = { ...nextAccountIds };
+  for (const [category, value] of Object.entries(nextAccountIds)) {
+    const template = convertCategoryToTemplate(category);
+    if (template && !newNextAccountIds[template]) {
+      newNextAccountIds[template] = value;
+    }
+  }
+  return newNextAccountIds;
+}
+
 export {
   implToCoinTypes,
   implToAccountType,
@@ -509,4 +520,5 @@ export {
   getDBAccountTemplate,
   getImplByCoinType,
   convertCategoryToTemplate,
+  migrateNextAccountIds,
 };
