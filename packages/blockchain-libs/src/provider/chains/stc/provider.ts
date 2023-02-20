@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention,camelcase,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-shadow,@typescript-eslint/no-unsafe-return,@typescript-eslint/restrict-plus-operands,@typescript-eslint/require-await,@typescript-eslint/no-unused-vars */
 import { arrayify, hexlify } from '@ethersproject/bytes';
-import OneKeyConnect from '@onekeyfe/js-sdk';
 import {
   bcs,
   crypto_hash,
@@ -326,102 +325,6 @@ class Provider extends BaseProvider {
       console.error(e);
       return false;
     }
-  };
-
-  override hardwareGetXpubs = async (
-    paths: string[],
-    showOnDevice: boolean,
-  ): Promise<{ path: string; xpub: string }[]> => {
-    const resp = await this.wrapHardwareCall(() =>
-      OneKeyConnect.starcoinGetPublicKey({
-        bundle: paths.map((path) => ({ path, showOnDevice })),
-      }),
-    );
-
-    return resp.map((i) => ({
-      path: i.serializedPath,
-      xpub: i.publicKey,
-    }));
-  };
-
-  override hardwareGetAddress = async (
-    path: string,
-    showOnDevice: boolean,
-    addressToVerify?: string,
-  ): Promise<string> => {
-    const params = {
-      path,
-      showOnDevice,
-    };
-
-    if (typeof addressToVerify === 'string') {
-      Object.assign(params, {
-        address: addressToVerify,
-      });
-    }
-    const { address } = await this.wrapHardwareCall(() =>
-      OneKeyConnect.starcoinGetAddress(params),
-    );
-    return address;
-  };
-
-  override hardwareSignTransaction = async (
-    unsignedTx: UnsignedTx,
-    signers: Record<string, string>,
-  ): Promise<SignedTx> => {
-    const [rawTxn, rawUserTransactionBytes] = buildUnsignedRawTx(
-      unsignedTx,
-      this.chainInfo.implOptions.chainId,
-    );
-
-    const {
-      inputs: [{ address: fromAddr, publicKey: senderPublicKey }],
-    } = unsignedTx;
-    check(
-      typeof senderPublicKey !== 'undefined',
-      'senderPublicKey is required',
-    );
-
-    const { signature } = await this.wrapHardwareCall(() =>
-      OneKeyConnect.starcoinSignTransaction({
-        path: signers[fromAddr],
-        rawTx: Buffer.from(rawUserTransactionBytes).toString('hex'),
-      }),
-    );
-
-    return buildSignedTx(
-      senderPublicKey as string,
-      Buffer.from(signature as string, 'hex'),
-      rawTxn,
-    );
-  };
-
-  override hardwareSignMessage = async (
-    { message }: TypedMessage,
-    signer: string,
-  ): Promise<string> => {
-    const { signature } = await this.wrapHardwareCall(() =>
-      OneKeyConnect.starcoinSignMessage({
-        path: signer,
-        message,
-      }),
-    );
-    return ethUtil.addHexPrefix(signature as string);
-  };
-
-  override hardwareVerifyMessage = async (
-    publicKey: string, // require pubkey here!!
-    { message }: TypedMessage,
-    signature: string,
-  ): Promise<boolean> => {
-    const { message: resp } = await this.wrapHardwareCall(() =>
-      OneKeyConnect.starcoinVerifyMessage({
-        publicKey,
-        message,
-        signature,
-      }),
-    );
-    return resp === 'Message verified';
   };
 }
 
