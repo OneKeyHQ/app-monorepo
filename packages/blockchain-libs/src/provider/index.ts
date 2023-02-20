@@ -356,58 +356,6 @@ class ProviderController {
       provider.verifyMessage(address, message, signature),
     );
   }
-
-  hardwareGetXpubs(
-    chainCode: string,
-    paths: string[],
-    showOnDevice = true,
-  ): Promise<{ path: string; xpub: string }[]> {
-    return this.getProvider(chainCode).then((provider) =>
-      provider.hardwareGetXpubs(paths, showOnDevice),
-    );
-  }
-
-  hardwareGetAddress(
-    chainCode: string,
-    path: string,
-    showOnDevice = true,
-    addressToVerify?: string,
-  ): Promise<string> {
-    return this.getProvider(chainCode).then((provider) =>
-      provider.hardwareGetAddress(path, showOnDevice, addressToVerify),
-    );
-  }
-
-  hardwareSignTransaction(
-    chainCode: string,
-    unsignedTx: UnsignedTx,
-    signers: Record<string, string>,
-  ): Promise<SignedTx> {
-    return this.getProvider(chainCode).then((provider) =>
-      provider.hardwareSignTransaction(unsignedTx, signers),
-    );
-  }
-
-  hardwareSignMessage(
-    chainCode: string,
-    message: TypedMessage,
-    signer: string,
-  ): Promise<string> {
-    return this.getProvider(chainCode).then((provider) =>
-      provider.hardwareSignMessage(message, signer),
-    );
-  }
-
-  hardwareVerifyMessage(
-    chainCode: string,
-    address: string,
-    message: TypedMessage,
-    signature: string,
-  ): Promise<boolean> {
-    return this.getProvider(chainCode).then((provider) =>
-      provider.hardwareVerifyMessage(address, message, signature),
-    );
-  }
 }
 
 export { ProviderController };

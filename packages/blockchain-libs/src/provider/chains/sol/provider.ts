@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/naming-convention,camelcase,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-shadow,@typescript-eslint/no-unsafe-return,@typescript-eslint/restrict-plus-operands,@typescript-eslint/require-await,no-restricted-globals,no-continue,eqeqeq,@typescript-eslint/restrict-template-expressions,@typescript-eslint/no-unused-vars */
-import OneKeyConnect from '@onekeyfe/js-sdk';
 import * as splToken from '@solana/spl-token';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
@@ -230,75 +229,6 @@ class Provider extends BaseProvider {
       result.isValid = !isOnCurve;
     }
     return result;
-  }
-
-  override async hardwareGetXpubs(
-    paths: string[],
-    showOnDevice: boolean,
-  ): Promise<{ path: string; xpub: string }[]> {
-    const resp = await this.wrapHardwareCall(() =>
-      OneKeyConnect.solanaGetAddress({
-        bundle: paths.map((path) => ({ path, showOnDevice })),
-      }),
-    );
-    return resp.map((i) => ({
-      path: i.serializedPath,
-      xpub: new PublicKey(i.address as string).toBuffer().toString('hex'), // public key here, not xpub
-    }));
-  }
-
-  override async hardwareGetAddress(
-    path: string,
-    showOnDevice: boolean,
-    addressToVerify?: string,
-  ): Promise<string> {
-    const payload = {
-      path,
-      showOnDevice,
-    };
-
-    if (typeof addressToVerify === 'string') {
-      Object.assign(payload, { address: addressToVerify });
-    }
-
-    const { address } = await this.wrapHardwareCall(() =>
-      OneKeyConnect.solanaGetAddress(payload),
-    );
-    return address as string;
-  }
-
-  override async hardwareSignTransaction(
-    unsignedTx: UnsignedTx,
-    signers: Record<string, string>,
-  ): Promise<SignedTx> {
-    const {
-      inputs: [{ address: sender }],
-      outputs: [{ address: receiver, value: amount, tokenAddress }],
-    } = unsignedTx;
-
-    const transferTx = await this.buildTx(
-      sender,
-      receiver,
-      amount,
-      unsignedTx.payload,
-      tokenAddress,
-    );
-    transferTx.feePayer = new PublicKey(sender);
-    const signData = transferTx.serializeMessage();
-
-    const { signature } = await this.wrapHardwareCall(() =>
-      OneKeyConnect.solanaSignTransaction({
-        path: signers[sender],
-        rawTx: bs58.encode(signData),
-      }),
-    );
-    const signatureBuffer = bs58.decode(signature);
-    check(signatureBuffer.length === 64, 'signature has invalid length');
-    transferTx.addSignature(new PublicKey(sender), signatureBuffer);
-
-    const txid = signature;
-    const rawTx = transferTx.serialize().toString('base64');
-    return { txid, rawTx };
   }
 }
 

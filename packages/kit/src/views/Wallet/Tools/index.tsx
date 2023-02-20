@@ -203,7 +203,16 @@ const ToolsPage: FC = () => {
       } else if (key === 'pnl') {
         navigation.navigate(HomeRoutes.NFTPNLScreen);
       } else if (key === 'bulkSender') {
-        navigation.navigate(HomeRoutes.BulkSender);
+        if (platformEnv.isExtFirefoxUiPopup) {
+          backgroundApiProxy.serviceApp.openExtensionExpandTab({
+            routes: [RootRoutes.Root, HomeRoutes.BulkSender],
+          });
+          setTimeout(() => {
+            window.close();
+          }, 300);
+        } else {
+          navigation.navigate(HomeRoutes.BulkSender);
+        }
       } else {
         const item = tools?.find((t) => t.title === key);
         if (item) {

@@ -338,9 +338,12 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
           color="text-subdued"
           textAlign="center"
           paddingY={4}
-        >{`and the other ${
-          transactionCount - MAX_TRANSACTIONS_DISPLAY_IN_CONFIRM
-        } transactions`}</Text>
+        >
+          {intl.formatMessage(
+            { id: 'action__str_more_transations' },
+            { count: transactionCount - MAX_TRANSACTIONS_DISPLAY_IN_CONFIRM },
+          )}
+        </Text>
       )}
     </>
   );

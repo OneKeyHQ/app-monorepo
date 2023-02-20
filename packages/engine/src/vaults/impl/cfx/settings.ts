@@ -12,6 +12,7 @@ const settings: IVaultSettings = Object.freeze({
   watchingAccountEnabled: true,
 
   isUTXOModel: false,
+  transactionIdPattern: '^0x[0-9a-fA-F]{64}$',
 });
 
 export default settings;
