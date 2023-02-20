@@ -34,6 +34,7 @@ import TokenCell from './TokenCell';
 
 import type { SimplifiedToken } from '../../../store/reducers/tokens';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Token } from '@onekeyhq/engine/src/types/token';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
@@ -117,7 +118,7 @@ function AssetsList({
   );
 
   const onTokenCellPress = useCallback(
-    (item: SimplifiedToken) => {
+    (item: Token) => {
       if (onTokenPress) {
         onTokenPress({ token: item });
         return;
@@ -138,12 +139,11 @@ function AssetsList({
     [account?.id, networkId, navigation, onTokenPress],
   );
 
-  const renderListItem: FlatListProps<SimplifiedToken>['renderItem'] = ({
+  const renderListItem: FlatListProps<Token>['renderItem'] = ({
     item,
     index,
   }) => (
     <TokenCell
-      networkId={networkId}
       accountId={accountId}
       hidePriceInfo={hidePriceInfo}
       bg={flatStyle ? 'transparent' : 'surface-default'}
@@ -158,6 +158,7 @@ function AssetsList({
       borderColor={flatStyle ? 'transparent' : 'border-subdued'}
       onPress={onTokenCellPress}
       {...omit(item, 'source')}
+      networkId={networkId}
     />
   );
 

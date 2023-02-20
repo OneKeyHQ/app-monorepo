@@ -19,9 +19,7 @@ export type TokenPrices = Record<TokenId, string | PriceLoading | NoPriceData>;
 export type SimpleTokenPrices = Record<
   string,
   number | PriceLoading | NoPriceData
-> & {
-  updatedAt?: number;
-};
+>;
 
 type NetworkId = string;
 type AccountId = string;
@@ -63,6 +61,7 @@ type TokenBalancePayloadAction = {
 
 type TokenPrivePayloadAction = {
   prices: Record<string, SimpleTokenPrices>;
+  vsCurrency: string;
 };
 
 export const tokensSlice = createSlice({
@@ -70,14 +69,14 @@ export const tokensSlice = createSlice({
   initialState,
   reducers: {
     setTokenPriceMap(state, action: PayloadAction<TokenPrivePayloadAction>) {
-      const { prices } = action.payload;
+      const { prices, vsCurrency } = action.payload;
       if (!state.tokenPriceMap) state.tokenPriceMap = {};
       Object.keys(prices).forEach((key) => {
         const cachePrice = state.tokenPriceMap[key] || {};
         state.tokenPriceMap[key] = {
           ...cachePrice,
           ...prices[key],
-          updatedAt: Date.now(),
+          [`updatedAt--${vsCurrency}`]: Date.now(),
         };
       });
     },

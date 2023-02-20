@@ -1,4 +1,6 @@
 // import { Token as ServerToken, top50 } from '@onekey/token-50-token-list';
+import { uniqBy } from 'lodash';
+
 import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { formatServerToken, isValidTokenId } from '../../../managers/token';
@@ -122,6 +124,18 @@ export class SimpleDbEntityTokens extends SimpleDbEntityBase<ISimpleDbEntityToke
 
   async addToken(token: Token) {
     return this.localTokens.addTokenToUnknownAccount(token);
+  }
+
+  async insertTokens(networkId: string, tokens: Token[]) {
+    const savedTokens = await this.getRawData();
+    const data = {
+      ...(savedTokens || {}),
+      [networkId]: uniqBy(
+        [...(savedTokens?.[networkId] || []), ...tokens],
+        'address',
+      ),
+    };
+    return this.setRawData(data);
   }
 
   async removeTokenFromAccount(accountId: string, tokenId: string) {

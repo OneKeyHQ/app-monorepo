@@ -69,7 +69,7 @@ export default class ServicePrice extends ServiceBase {
     };
     const datas = await this.getCgkTokenPrice(params);
     if (Object.keys(datas).length > 0) {
-      dispatch(setTokenPriceMap({ prices: datas }));
+      dispatch(setTokenPriceMap({ prices: datas, vsCurrency }));
     }
     return datas;
   }
@@ -88,10 +88,11 @@ export default class ServicePrice extends ServiceBase {
     for (const tokenId of tokenIds) {
       const key = tokenId ? `${networkId}-${tokenId}` : networkId;
       const price = tokenPricesInCache?.[key];
+      const updatedAt = price?.[`updatedAt--${vsCurrency}`];
       if (
-        price?.updatedAt &&
+        updatedAt &&
         price[vsCurrency] &&
-        now - price.updatedAt <= PRICE_EXPIRED_TIME
+        now - updatedAt <= PRICE_EXPIRED_TIME
       ) {
         cachePrices[key] = price;
         cachedTokenIds.push(tokenId);
