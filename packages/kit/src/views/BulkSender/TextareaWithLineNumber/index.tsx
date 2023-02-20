@@ -43,7 +43,7 @@ function TextareaWithLineNumber(props: Props) {
         h="240px"
         margin="1px"
         shadow="none"
-        fontFamily={platformEnv.isNativeIOS ? 'Courier' : 'monospace'}
+        fontFamily={platformEnv.isNativeIOS ? 'Menlo' : 'monospace'}
         onChangeText={(text) => setReceiverString(text)}
       />
       <Textarea
