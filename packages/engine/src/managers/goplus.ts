@@ -6,6 +6,7 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { GoPlusSupportApis } from '../types/goplus';
+import { TokenRiskLevel } from '../types/token';
 
 import { fetchData } from './token';
 
@@ -163,13 +164,13 @@ export const tokenSecurityRiskItems: Record<
     ],
     warn: ['form__high_sell_tax', ['form__high_sell_tax_desc', { 0: '10%' }]],
   },
-  'is_mintable': {
-    warn: [
-      'form__token_can_be_issued_additionall',
-      'form__token_can_be_issued_additionall_desc',
-    ],
-    safe: ['form__no_additional_issuance', 'form__no_additional_issuance_desc'],
-  },
+  // 'is_mintable': {
+  //   warn: [
+  //     'form__token_can_be_issued_additionall',
+  //     'form__token_can_be_issued_additionall_desc',
+  //   ],
+  //   safe: ['form__no_additional_issuance', 'form__no_additional_issuance_desc'],
+  // },
 } as const;
 
 export type CheckParams = {
@@ -191,7 +192,7 @@ export const dangerItems: [keyof GoPlusTokenSecurity, CheckItemFunc][] = [
 
 export const warnItems: [keyof GoPlusTokenSecurity, CheckItemFunc][] = [
   ['is_proxy', (data) => data === '1'],
-  ['is_mintable', (data) => data === '1'],
+  // ['is_mintable', (data) => data === '1'],
   ['can_take_back_ownership', (data) => data === '1'],
   ['hidden_owner', (data) => data === '1'],
   ['external_call', (data) => data === '1'],
@@ -383,4 +384,17 @@ export const getGpChainId = (networkId: string) => {
   if (networkId === OnekeyNetwork.trx) {
     return 'tron';
   }
+};
+
+export const getRiskLevel = (info: GoPlusTokenSecurity) => {
+  if (isTrustToken(info)) {
+    return TokenRiskLevel.VERIFIED;
+  }
+  if (dangerItems.filter(([k, func]) => func(info?.[k])).length) {
+    return TokenRiskLevel.DANGER;
+  }
+  if (warnItems.filter(([k, func]) => func(info?.[k])).length) {
+    return TokenRiskLevel.WARN;
+  }
+  return TokenRiskLevel.UNKNOWN;
 };

@@ -66,7 +66,7 @@ import {
   derivationPathTemplates,
   getDefaultPurpose,
 } from './managers/derivation';
-import { getTokenRiskyItems } from './managers/goplus';
+import { fetchSecurityInfo, getRiskLevel } from './managers/goplus';
 import { implToCoinTypes } from './managers/impl';
 import {
   fromDBNetworkToNetwork,
@@ -88,6 +88,7 @@ import { AccountType } from './types/account';
 import { CredentialType } from './types/credential';
 import { GoPlusSupportApis } from './types/goplus';
 import { HistoryEntryStatus } from './types/history';
+import { TokenRiskLevel } from './types/token';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
@@ -114,6 +115,7 @@ import type {
 } from './types/account';
 import type { BackupObject, ImportableHDWallet } from './types/backup';
 import type { DevicePayload } from './types/device';
+import type { GoPlusTokenSecurity } from './types/goplus';
 import type {
   HistoryEntry,
   HistoryEntryMeta,
@@ -1241,7 +1243,6 @@ class Engine {
       let tokenInfo:
         | (Pick<Token, 'name' | 'symbol' | 'decimals'> & {
             logoURI?: string;
-            security?: boolean;
           })
         | undefined;
       const { impl, chainId } = parseNetworkId(networkId);
@@ -1263,20 +1264,19 @@ class Engine {
             message: e instanceof Error ? e.message : e,
           });
         }
+        if (tokenInfo) {
+          const info = await fetchSecurityInfo<GoPlusTokenSecurity>({
+            networkId,
+            address: tokenIdOnNetwork,
+            apiName: GoPlusSupportApis.token_security,
+          });
+          Object.assign(tokenInfo, {
+            riskLevel: info ? getRiskLevel(info) : TokenRiskLevel.UNKNOWN,
+          });
+        }
       }
       if (!tokenInfo) {
         throw new Error('findToken ERROR: token not found.');
-      }
-      const { hasSecurity } = await getTokenRiskyItems({
-        apiName: GoPlusSupportApis.token_security,
-        networkId,
-        address: tokenIdOnNetwork,
-      });
-      if (hasSecurity) {
-        tokenInfo = {
-          ...tokenInfo,
-          security: true,
-        };
       }
       return {
         id: tokenId,

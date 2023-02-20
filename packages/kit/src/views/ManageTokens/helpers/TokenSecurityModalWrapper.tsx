@@ -3,11 +3,12 @@ import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { generateNetworkIdByChainId } from '@onekeyhq/engine/src/managers/network';
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 export const notifyIfRiskToken = (token: Partial<Token>) => {
-  if (String(token?.security) !== 'true') {
+  if (!token.riskLevel || token.riskLevel <= TokenRiskLevel.VERIFIED) {
     return;
   }
   let networkId = token?.networkId;

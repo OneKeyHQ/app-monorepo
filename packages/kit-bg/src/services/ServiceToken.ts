@@ -10,7 +10,9 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import type { CheckParams } from '@onekeyhq/engine/src/managers/goplus';
 import {
   checkSite,
+  fetchSecurityInfo,
   getAddressRiskyItems,
+  getRiskLevel,
   getTokenRiskyItems,
 } from '@onekeyhq/engine/src/managers/goplus';
 import {
@@ -19,7 +21,10 @@ import {
   getBalanceKey,
 } from '@onekeyhq/engine/src/managers/token';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
+import type { GoPlusTokenSecurity } from '@onekeyhq/engine/src/types/goplus';
+import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import { setTools } from '@onekeyhq/kit/src/store/reducers/data';
 import type { TokenBalanceValue } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
@@ -291,11 +296,20 @@ export default class ServiceToken extends ServiceBase {
     if (isExists) {
       return;
     }
+    const info = await fetchSecurityInfo<GoPlusTokenSecurity>({
+      networkId,
+      address,
+      apiName: GoPlusSupportApis.token_security,
+    });
+    const riskLevel = info ? getRiskLevel(info) : TokenRiskLevel.UNKNOWN;
     const result = await engine.quickAddToken(
       accountId,
       networkId,
       address,
       logoURI,
+      {
+        riskLevel,
+      },
     );
     await this.fetchAccountTokens({
       activeAccountId: accountId,

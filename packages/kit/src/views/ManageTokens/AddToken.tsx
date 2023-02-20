@@ -19,6 +19,7 @@ import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
+import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { WatchAssetParameters } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
@@ -29,7 +30,6 @@ import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 import { wait } from '../../utils/helper';
 
-import { useTokenSecurityInfo } from './hooks';
 import { ManageTokenRoutes } from './types';
 
 import type { ManageTokenRoutesParams } from './types';
@@ -53,7 +53,6 @@ export type IViewTokenModalProps = ModalProps;
 const useRouteParams = () => {
   const routeProps = useRoute<RouteProps>();
   const { params } = routeProps;
-  const { network } = useActiveWalletAccount();
   let token: Partial<TokenType>;
   if ('query' in params) {
     const query: WatchAssetParameters = JSON.parse(params.query);
@@ -70,10 +69,6 @@ const useRouteParams = () => {
   } else {
     token = params;
   }
-  const { data } = useTokenSecurityInfo(
-    network?.id ?? '',
-    token.tokenIdOnNetwork ?? token?.address ?? '',
-  );
   if ('query' in params) {
     const query: WatchAssetParameters = JSON.parse(params.query);
     const { address, symbol, decimals, image, sendAddress } = query.options;
@@ -83,8 +78,7 @@ const useRouteParams = () => {
       symbol: symbol ?? '',
       decimal: decimals ?? 0,
       logoURI: image ?? '',
-      security: data?.hasSecurity,
-      verified: data?.hasSecurity === false,
+      riskLevel: token.riskLevel ?? TokenRiskLevel.UNKNOWN,
       sendAddress: sendAddress ?? undefined,
     };
   }

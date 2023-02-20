@@ -1,5 +1,5 @@
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
-import type { Token } from '@onekeyhq/engine/src/types/token';
+import type { Token, TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 
 export enum ManageTokenRoutes {
   Listing = 'ListTokensModal',
@@ -22,10 +22,9 @@ export type ManageTokenRoutesParams = {
         address: string;
         decimal: number;
         logoURI: string;
-        verified?: boolean;
-        security?: boolean;
         source?: string;
         sendAddress?: string;
+        riskLevel: TokenRiskLevel;
       }
     | { query: string };
   [ManageTokenRoutes.ActivateToken]: {
@@ -42,10 +41,9 @@ export type ManageTokenRoutesParams = {
     address: string;
     decimal: number;
     logoURI: string;
-    verified?: boolean;
     source?: string;
-    security?: boolean;
     sendAddress?: string;
+    riskLevel?: TokenRiskLevel;
   };
   [ManageTokenRoutes.VerifiedToken]: {
     token: Partial<Token>;
