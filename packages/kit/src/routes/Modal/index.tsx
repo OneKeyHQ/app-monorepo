@@ -17,6 +17,9 @@ const BackupWalletModal = createLazyComponent(() => import('./BackupWallet'));
 
 const CollectibleModal = createLazyComponent(() => import('./Collectibles'));
 const CreateAccountModal = createLazyComponent(() => import('./CreateAccount'));
+const RecoverAccountModal = createLazyComponent(
+  () => import('./RecoverAccount'),
+);
 const CreateWalletModalStack = createLazyComponent(
   () => import('./CreateWallet'),
 );
@@ -93,6 +96,10 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.CreateAccount,
     component: CreateAccountModal,
+  },
+  {
+    name: ModalRoutes.RecoverAccount,
+    component: RecoverAccountModal,
   },
   {
     name: ModalRoutes.Receive,

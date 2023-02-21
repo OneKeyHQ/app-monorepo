@@ -288,6 +288,11 @@ function AccountList({
     };
   }, [dataSource]);
 
+  const ListItemSeparatorComponent = useCallback(
+    (props) => <AccountListItemSeparator {...props} dataSource={dataSource} />,
+    [dataSource],
+  );
+
   // for performance: do NOT render UI if selector not open
   if (!isOpenDelay) {
     return null;
@@ -368,17 +373,13 @@ function AccountList({
             networkId={selectedNetworkId}
             walletId={section?.wallet?.id}
             label={item.name}
-            // TODO uppercase address
-            address={shortenAddress(item.displayAddress ?? item.address)}
+            address={shortenAddress(item.displayAddress || item.address)}
             // TODO wait Overview implements all accounts balance
             balance={undefined}
           />
         );
       }}
-      // eslint-disable-next-line react/no-unstable-nested-components
-      ItemSeparatorComponent={(props) => (
-        <AccountListItemSeparator {...props} dataSource={dataSource} />
-      )}
+      ItemSeparatorComponent={ListItemSeparatorComponent}
       renderSectionFooter={({
         section,
       }: {

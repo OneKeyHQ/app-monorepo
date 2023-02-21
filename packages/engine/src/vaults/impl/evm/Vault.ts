@@ -1812,7 +1812,7 @@ export default class Vault extends VaultBase {
   > {
     const network = await this.getNetwork();
     let accountNameInfo = getAccountNameInfoByImpl(network.impl);
-    if (network.id !== 'evm--61') {
+    if (network.id !== OnekeyNetwork.etc) {
       accountNameInfo = omit(accountNameInfo, 'etcNative');
     }
     return accountNameInfo;

@@ -131,14 +131,14 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       for (const [key, value] of Object.entries(
         selectedNetwork.accountNameInfo,
       )) {
+        let label = '';
+        if (typeof value.label === 'string') {
+          label = value.label;
+        } else if (typeof value.label === 'object') {
+          label = intl.formatMessage({ id: value.label?.id });
+        }
         ret.push({
-          label:
-            // eslint-disable-next-line no-nested-ternary
-            typeof value.label === 'string'
-              ? value.label
-              : typeof value.label === 'object'
-              ? intl.formatMessage({ id: value.label?.id })
-              : '',
+          label,
           value: key,
           description: value.addressPrefix
             ? intl.formatMessage(

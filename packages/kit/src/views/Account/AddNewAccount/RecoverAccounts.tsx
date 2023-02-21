@@ -36,12 +36,14 @@ import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { FormatBalance } from '../../../components/Format';
 import { useDerivationPath } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
 import { usePrevious } from '../../../hooks';
+import { RecoverAccountModalRoutes } from '../../../routes/routesEnum';
 import { deviceUtils } from '../../../utils/hardware';
 
 import { showJumpPageDialog } from './JumpPage';
@@ -466,11 +468,20 @@ const RecoverAccounts: FC = () => {
       (item) => item.key === 'default',
     );
     if (defaultOption) {
-      setSelectedDerivationOption(defaultOption);
       return parseInt(defaultOption.category.split("'/")[0]);
     }
     return 44;
   }, [selectedDerivationOption, derivationOptions]);
+
+  // set default derivation option
+  useEffect(() => {
+    const defaultOption = derivationOptions.find(
+      (item) => item.key === 'default',
+    );
+    if (defaultOption) {
+      setSelectedDerivationOption(defaultOption);
+    }
+  }, [derivationOptions]);
 
   useEffect(() => {
     currentPageRef.current = config.currentPage;
@@ -941,37 +952,36 @@ const RecoverAccounts: FC = () => {
               });
             }}
             onBulkAddPress={() => {
-              navigation.navigate(
-                CreateAccountModalRoutes.RecoverAccountsAdvanced,
-                {
-                  fromIndex: config.fromIndex,
-                  generateCount: config.generateCount,
-                  onApply: ({ fromIndex, generateCount: count }) => {
-                    const isForceRefresh =
-                      config.fromIndex !== fromIndex ||
-                      config.generateCount !== count;
-
-                    if (isForceRefresh) setPendRefreshData(true);
-
-                    setTimeout(() => {
-                      const newConfig = {
-                        currentPage: isForceRefresh ? 0 : config.currentPage,
-                        fromIndex,
-                        generateCount: count,
-                        showPathAndLink: config.showPathAndLink,
-                      };
-
-                      if (isForceRefresh) {
-                        setSelectState(new Map());
-                        setLoadedAccounts(new Map());
-                      }
-
-                      setRealGenerateCount(Number.MAX_VALUE);
-                      setConfig(newConfig);
-                    }, 100);
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.RecoverAccount,
+                params: {
+                  screen: RecoverAccountModalRoutes.RecoverAccountsAdvanced,
+                  params: {
+                    fromIndex: config.fromIndex,
+                    generateCount: config.generateCount,
+                    onApply: ({ fromIndex, generateCount: count }) => {
+                      const isForceRefresh =
+                        config.fromIndex !== fromIndex ||
+                        config.generateCount !== count;
+                      if (isForceRefresh) setPendRefreshData(true);
+                      setTimeout(() => {
+                        const newConfig = {
+                          currentPage: isForceRefresh ? 0 : config.currentPage,
+                          fromIndex,
+                          generateCount: count,
+                          showPathAndLink: config.showPathAndLink,
+                        };
+                        if (isForceRefresh) {
+                          setSelectState(new Map());
+                          setLoadedAccounts(new Map());
+                        }
+                        setRealGenerateCount(Number.MAX_VALUE);
+                        setConfig(newConfig);
+                      }, 100);
+                    },
                   },
                 },
-              );
+              });
             }}
           />
         </Box>

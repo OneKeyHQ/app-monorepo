@@ -169,11 +169,6 @@ const RecoverAccountsAdvanced: FC = () => {
       }}
       primaryActionTranslationId="action__apply"
       hideSecondaryAction
-      closeAction={() => {
-        if (navigation?.canGoBack?.()) {
-          navigation.goBack();
-        }
-      }}
     >
       <KeyboardDismissView>
         <Form>

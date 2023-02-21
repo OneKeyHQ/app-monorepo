@@ -8,7 +8,7 @@ import {
   getImplByCoinType,
   migrateNextAccountIds,
 } from '@onekeyhq/engine/src/managers/impl';
-import { setDbMigrationVersion } from '@onekeyhq/kit/src/store/reducers/settings';
+import { setAccountDerivationDbMigrationVersion } from '@onekeyhq/kit/src/store/reducers/settings';
 import { updateAutoSwitchDefaultRpcAtVersion } from '@onekeyhq/kit/src/store/reducers/status';
 import {
   backgroundClass,
@@ -186,7 +186,7 @@ export default class ServiceBootstrap extends ServiceBase {
     try {
       const { appSelector } = this.backgroundApi;
       const dbMigrationVersion = appSelector(
-        (s) => s.settings.dbMigrationVersion,
+        (s) => s.settings.accountDerivationDbMigrationVersion,
       );
       const appVersion = appSelector((s) => s.settings.version);
       if (
@@ -238,7 +238,9 @@ export default class ServiceBootstrap extends ServiceBase {
           }, nextAccountIds: ${JSON.stringify(newNextAccountIds)}`,
         );
       }
-      this.backgroundApi.dispatch(setDbMigrationVersion(appVersion));
+      this.backgroundApi.dispatch(
+        setAccountDerivationDbMigrationVersion(appVersion),
+      );
       console.log(wallets);
     } catch (e) {
       debugLogger.common.error('migrate error: ', e);
