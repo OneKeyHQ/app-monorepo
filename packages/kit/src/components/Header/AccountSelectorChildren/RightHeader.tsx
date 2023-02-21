@@ -4,7 +4,6 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Box,
   Dialog,
   HStack,
@@ -12,7 +11,6 @@ import {
   Pressable,
   Select,
   Spinner,
-  Text,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -20,7 +18,6 @@ import type { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components
 import type {
   SelectGroupItem,
   SelectItem,
-  SelectProps,
 } from '@onekeyhq/components/src/Select';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes';
@@ -98,95 +95,6 @@ const CustomSelectTrigger: FC<CustomSelectTriggerProps> = ({
     )}
   </>
 );
-
-const CustomSelectItem: SelectProps<string>['renderItem'] = (
-  option,
-  isActive,
-  onChange,
-) => {
-  console.log('CustomSelectItem', option, isActive, onChange);
-  const isSmallScreen = useIsVerticalLayout();
-  const {
-    label,
-    description,
-    value,
-    tokenProps,
-    iconProps,
-    destructive,
-    color,
-    badge,
-    leading,
-    trailing,
-  } = option;
-
-  const optionText = (
-    <Box flex={1}>
-      <HStack alignItems="center">
-        <Text
-          color={destructive ? 'text-critical' : color ?? 'text-default'}
-          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-          isTruncated
-          mr={2}
-        >
-          {label}
-        </Text>
-        {!!badge && <Badge title={badge} size="sm" type="default" />}
-      </HStack>
-      {!!description && (
-        <Typography.Body2 color="text-subdued">
-          {description ?? '-'}
-        </Typography.Body2>
-      )}
-    </Box>
-  );
-
-  return (
-    <Pressable
-      key={value as unknown as string}
-      onPress={() => {
-        onChange?.(value, option);
-      }}
-    >
-      {({ isHovered, isPressed }) => (
-        <HStack
-          alignItems="center"
-          space={3}
-          px={{ base: '4', md: '2' }}
-          py={{ base: '3', md: '2' }}
-          borderRadius="xl"
-          bg={
-            // eslint-disable-next-line no-nested-ternary
-            isPressed
-              ? 'surface-pressed'
-              : // eslint-disable-next-line no-nested-ternary
-              isHovered
-              ? destructive
-                ? 'surface-critical-default'
-                : 'surface-hovered'
-              : undefined
-          }
-        >
-          {optionText}
-          {!!trailing && trailing}
-          {!!isActive && (
-            <Icon
-              name={isSmallScreen ? 'CheckOutline' : 'CheckMini'}
-              color="interactive-default"
-              size={isSmallScreen ? 24 : 20}
-            />
-          )}
-          {(!!tokenProps || !!iconProps || !!leading) && (
-            <Icon
-              color={destructive ? 'icon-critical' : 'icon-default'}
-              size={isSmallScreen ? 24 : 20}
-              {...iconProps}
-            />
-          )}
-        </HStack>
-      )}
-    </Pressable>
-  );
-};
 
 const HeaderTitle: FC<RightHeaderProps> = ({ selectedWallet }) => {
   const intl = useIntl();
@@ -467,7 +375,6 @@ const RightHeader: FC<RightHeaderProps> = ({
           dropdownProps={{
             width: 248,
           }}
-          renderItem={CustomSelectItem}
           renderTrigger={({ isHovered, visible, isPressed }) => (
             <CustomSelectTrigger
               isTriggerHovered={isHovered}

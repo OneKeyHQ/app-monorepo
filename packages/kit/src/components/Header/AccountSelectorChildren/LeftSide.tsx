@@ -35,7 +35,7 @@ import type { AccountType, DeviceStatusType } from './index';
 
 const convertDeviceStatus = (status: DeviceStatusType | undefined) => {
   if (!status) return undefined;
-  if (status?.hasUpgrade) return 'warning';
+  if (status?.isConnected && status?.hasUpgrade) return 'upgrade';
   if (status?.isConnected) return 'connected';
   return undefined;
 };

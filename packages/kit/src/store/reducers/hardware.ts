@@ -26,6 +26,7 @@ type InitialState = {
   lastCheckUpdateTime: Record<string, number>; // connectId -> time
   updateFirmwareStep: string;
   verification?: Record<string, boolean>; // connectId -> verified
+  pendingRememberWalletConnectId?: string;
 };
 const initialState: InitialState = {
   connected: [],
@@ -33,6 +34,7 @@ const initialState: InitialState = {
   lastCheckUpdateTime: {},
   updateFirmwareStep: '',
   verification: {},
+  pendingRememberWalletConnectId: undefined,
 };
 export const hardwareSlice = createSlice({
   name: 'hardware',
@@ -89,6 +91,12 @@ export const hardwareSlice = createSlice({
         [action.payload.connectId]: action.payload.verified,
       };
     },
+    setPendingRememberWalletConnectId: (
+      state,
+      action: PayloadAction<string | undefined>,
+    ) => {
+      state.pendingRememberWalletConnectId = action.payload;
+    },
   },
 });
 
@@ -100,6 +108,7 @@ export const {
   updateDevicePassphraseOpenedState,
   setUpdateFirmwareStep,
   setVerification,
+  setPendingRememberWalletConnectId,
 } = hardwareSlice.actions;
 
 export default hardwareSlice.reducer;

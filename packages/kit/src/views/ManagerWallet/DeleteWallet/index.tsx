@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -40,6 +40,18 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
   // If a hardware wallet is being deleted, no second confirmation is required.
   const [confirmed, setConfirmed] = useState(!!hardware ?? false);
 
+  const titleContent = useMemo(() => {
+    if (hardware) {
+      if (hardware.isPassphrase) {
+        return intl.formatMessage({
+          id: 'dialog__delete_hardware_passphrase_wallet_desc',
+        });
+      }
+      return intl.formatMessage({ id: 'dialog__delete_hardware_wallet_desc' });
+    }
+    return intl.formatMessage({ id: 'dialog__delete_wallet_desc' });
+  }, [hardware, intl]);
+
   return (
     <Dialog
       hasFormInsideDialog
@@ -57,13 +69,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
               ? 'action__delete_device'
               : 'action__delete_wallet',
         }),
-        content: intl.formatMessage({
-          id: hardware
-            ? hardware?.isPassphrase
-              ? 'dialog__delete_hardware_passphrase_wallet_desc'
-              : 'dialog__delete_hardware_wallet_desc'
-            : 'dialog__delete_wallet_desc',
-        }),
+        content: titleContent,
         input: hardware ? undefined : (
           <CheckBox
             w="full"
@@ -116,7 +122,18 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
                 title: 'ManagerWalletDeleteDialog >> engine.getWallet DONE',
               });
 
-              await serviceAccount.removeWallet(walletId, password);
+              if (
+                hardware &&
+                !hardware?.isPassphrase &&
+                wallet.associatedDevice
+              ) {
+                await serviceAccount.removeWalletAndDevice(
+                  walletId,
+                  wallet.associatedDevice,
+                );
+              } else {
+                await serviceAccount.removeWallet(walletId, password);
+              }
 
               timelinePerfTrace.mark({
                 name: ETimelinePerfNames.removeWallet,

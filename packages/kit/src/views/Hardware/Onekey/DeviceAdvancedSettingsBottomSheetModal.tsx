@@ -169,10 +169,7 @@ function DeviceAdvancedSettingsBottomSheetModal({
           if (code !== HardwareErrorCode.PollingStop) throw error;
         }
 
-        const locked = deviceFeatures?.unlocked === true;
-        if (!locked) {
-          await serviceHardware.unlockDevice(connectId, device?.deviceId);
-        }
+        await serviceHardware.unlockDevice(connectId);
 
         if (!features) {
           features = await serviceHardware.getFeatures(connectId);

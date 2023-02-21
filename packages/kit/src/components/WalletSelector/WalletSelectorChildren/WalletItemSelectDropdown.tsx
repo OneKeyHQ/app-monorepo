@@ -26,33 +26,280 @@ import { OnekeyHardwareModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Hardwa
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import {
+  forgetPassphraseWallet,
+  rememberPassphraseWallet,
+} from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { getHomescreenKeys } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
 import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
 import showDeviceAdvancedSettings from '@onekeyhq/kit/src/views/Hardware/Onekey/DeviceAdvancedSettingsBottomSheetModal';
 import ManagerWalletDeleteDialog from '@onekeyhq/kit/src/views/ManagerWallet/DeleteWallet';
 import type { DeleteWalletProp } from '@onekeyhq/kit/src/views/ManagerWallet/DeleteWallet';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { WalletStatus, useHardwareWalletInfo } from '../WalletAvatar';
+import { useHardwareWalletInfo } from '../WalletAvatar';
+
+import type { RootNavContainerRef } from '../../../provider/NavigationProvider';
+import type { TypeHardwareWalletInfo } from '../WalletAvatar';
+
+function HardwarePassphraseMenuOptions({
+  wallet,
+  hwInfo,
+  onDeleteWallet,
+}: {
+  wallet: IWallet;
+  hwInfo: TypeHardwareWalletInfo | undefined;
+  onDeleteWallet: (params?: DeleteWalletProp['hardware']) => void;
+}) {
+  const intl = useIntl();
+  const { dispatch } = backgroundApiProxy;
+  const rememberPassphraseWallets = useAppSelector(
+    (s) => s.settings?.hardware?.rememberPassphraseWallets,
+  );
+  const isRememberPassphrase = useMemo(
+    () => rememberPassphraseWallets?.includes(wallet.id),
+    [rememberPassphraseWallets, wallet.id],
+  );
+
+  return (
+    <>
+      <Menu.CustomItem
+        onPress={() => {
+          if (isRememberPassphrase) {
+            dispatch(forgetPassphraseWallet(wallet?.id));
+          } else {
+            dispatch(rememberPassphraseWallet(wallet?.id));
+          }
+        }}
+        extraChildren={<CheckBox noMargin isChecked={isRememberPassphrase} />}
+      >
+        {intl.formatMessage({ id: 'content__passphrase_pin_wallet' })}
+      </Menu.CustomItem>
+      <Divider my="4px" />
+      <Menu.CustomItem
+        onPress={() => {
+          onDeleteWallet({
+            isPassphrase: hwInfo?.isPassphrase ?? false,
+          });
+        }}
+        variant="desctructive"
+        icon="TrashMini"
+      >
+        {intl.formatMessage({ id: 'action__delete_wallet' })}
+      </Menu.CustomItem>
+    </>
+  );
+}
+
+function HardwareMenuOptions({
+  navigation,
+  wallet,
+  devicesStatus,
+  onDeleteWallet,
+}: {
+  navigation: RootNavContainerRef;
+  wallet: IWallet;
+  devicesStatus: IHardwareDeviceStatusMap | undefined;
+  onDeleteWallet: (params?: DeleteWalletProp['hardware']) => void;
+}) {
+  const intl = useIntl();
+  const deviceVerification = useAppSelector((s) => s.hardware.verification);
+  const hwInfo = useHardwareWalletInfo({
+    devicesStatus,
+    wallet,
+  });
+  const { engine, serviceHardware } = backgroundApiProxy;
+
+  const [deviceConnectId, setDeviceConnectId] = useState('');
+  const [showHomeScreenSetting, setShowHomeScreenSetting] = useState(false);
+
+  const deviceVerifiedStatus = useMemo(
+    () => deviceVerification?.[deviceConnectId],
+    [deviceConnectId, deviceVerification],
+  );
+
+  const getModifyHomeScreenConfig = useCallback(
+    async (connectId?: string) => {
+      if (!connectId || !hwInfo.hwWalletType) return;
+      const hasHomeScreen = getHomescreenKeys(hwInfo.hwWalletType).length > 0;
+      if (hwInfo.hwWalletType === 'mini' || hwInfo.hwWalletType === 'classic') {
+        setShowHomeScreenSetting(hasHomeScreen);
+        return;
+      }
+      const res = await serviceHardware.getDeviceSupportFeatures(connectId);
+      setShowHomeScreenSetting(!!res.modifyHomescreen.support && hasHomeScreen);
+    },
+    [serviceHardware, hwInfo.hwWalletType],
+  );
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const device = await engine.getHWDeviceByWalletId(wallet.id);
+        setDeviceConnectId(device?.mac ?? '');
+        await getModifyHomeScreenConfig(device?.mac);
+      } catch (err: any) {
+        if (navigation?.canGoBack?.()) {
+          navigation.goBack();
+        }
+
+        deviceUtils.showErrorToast(err, 'action__connection_timeout');
+      }
+    })();
+  }, [
+    engine,
+    intl,
+    navigation,
+    serviceHardware,
+    getModifyHomeScreenConfig,
+    wallet.id,
+  ]);
+
+  if (hwInfo?.isPassphrase) {
+    return (
+      <HardwarePassphraseMenuOptions
+        wallet={wallet}
+        hwInfo={hwInfo}
+        onDeleteWallet={onDeleteWallet}
+      />
+    );
+  }
+
+  return (
+    <>
+      <Menu.CustomItem
+        onPress={() => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.OnekeyHardware,
+            params: {
+              screen: OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal,
+              params: {
+                walletId: wallet?.id ?? '',
+                deviceName: '',
+              },
+            },
+          });
+        }}
+        icon="PencilMini"
+      >
+        {intl.formatMessage({ id: 'action__edit' })}
+      </Menu.CustomItem>
+
+      {!!showHomeScreenSetting && (
+        <Menu.CustomItem
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.OnekeyHardware,
+              params: {
+                screen: OnekeyHardwareModalRoutes.OnekeyHardwareHomeScreenModal,
+                params: {
+                  walletId: wallet?.id ?? '',
+                  deviceType: hwInfo?.hwWalletType ?? 'classic',
+                },
+              },
+            });
+          }}
+          icon="PhotoMini"
+        >
+          {intl.formatMessage({ id: 'modal__homescreen' })}
+        </Menu.CustomItem>
+      )}
+      <Menu.CustomItem
+        onPress={() => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.OnekeyHardware,
+            params: {
+              screen: OnekeyHardwareModalRoutes.OnekeyHardwareVerifyModal,
+              params: {
+                walletId: wallet?.id ?? '',
+              },
+            },
+          });
+        }}
+        icon={!deviceVerifiedStatus ? 'MagnifyingGlassCircleMini' : undefined}
+        extraChildren={
+          !!deviceVerifiedStatus && (
+            <Icon name="CheckBadgeMini" color="interactive-default" size={20} />
+          )
+        }
+      >
+        {intl.formatMessage({ id: 'action__verify' })}
+      </Menu.CustomItem>
+      <Menu.CustomItem
+        onPress={() => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.OnekeyHardware,
+            params: {
+              screen: OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
+              params: {
+                walletId: wallet?.id ?? '',
+              },
+            },
+          });
+        }}
+        icon="InformationCircleMini"
+      >
+        {intl.formatMessage({ id: 'action__about_device' })}
+      </Menu.CustomItem>
+      <Menu.CustomItem
+        onPress={() => {
+          showDeviceAdvancedSettings({
+            walletId: wallet?.id ?? '',
+            deviceType: hwInfo?.hwWalletType,
+          });
+        }}
+        icon="AdjustmentsHorizontalMini"
+      >
+        {intl.formatMessage({ id: 'content__advanced' })}
+      </Menu.CustomItem>
+      {!!hwInfo?.hasUpgrade && <Divider my="4px" />}
+      {!!hwInfo?.hasUpgrade && (
+        <Menu.CustomItem
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.HardwareUpdate,
+              params: {
+                screen: HardwareUpdateModalRoutes.HardwareUpdateInfoModel,
+                params: {
+                  walletId: wallet?.id ?? '',
+                },
+              },
+            });
+          }}
+          variant="highlight"
+          icon="ArrowUpTrayMini"
+        >
+          {intl.formatMessage({ id: 'action__update_available' })}
+        </Menu.CustomItem>
+      )}
+      <Divider my="4px" />
+      <Menu.CustomItem
+        onPress={() => {
+          onDeleteWallet({
+            isPassphrase: hwInfo?.isPassphrase ?? false,
+          });
+        }}
+        variant="desctructive"
+        icon="TrashMini"
+      >
+        {intl.formatMessage({ id: 'action__delete_device' })}
+      </Menu.CustomItem>
+    </>
+  );
+}
 
 function WalletItemSelectDropdown({
   wallet,
-  deviceStatus,
+  devicesStatus,
 }: {
   wallet: IWallet;
-  deviceStatus: IHardwareDeviceStatusMap | undefined;
+  devicesStatus: IHardwareDeviceStatusMap | undefined;
 }) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { showVerify } = useLocalAuthenticationModal();
 
   const [showBackupDialog, setShowBackupDialog] = useState(false);
-  const [showHomeScreenSetting, setShowHomeScreenSetting] = useState(false);
-  const [deviceConnectId, setDeviceConnectId] = useState('');
-  const hwInfo = useHardwareWalletInfo({
-    deviceStatus,
-    wallet,
-  });
 
   const showDeleteWalletDialog = useCallback(
     (walletProps: DeleteWalletProp) => {
@@ -110,14 +357,8 @@ function WalletItemSelectDropdown({
     ],
   );
 
-  const intl = useIntl();
-  const { engine, serviceHardware } = backgroundApiProxy;
-  const deviceVerification = useAppSelector((s) => s.hardware.verification);
-
   const isHardwareWallet = wallet?.type === WALLET_TYPE_HW;
   const isSoftwareWallet = wallet?.type !== WALLET_TYPE_HW;
-
-  const hasAvailableUpdate = hwInfo?.hasUpgrade;
 
   const navigateToBackupModal = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -130,48 +371,6 @@ function WalletItemSelectDropdown({
       },
     });
   }, [navigation, wallet?.id]);
-
-  const getModifyHomeScreenConfig = useCallback(
-    async (connectId?: string) => {
-      if (!connectId || !hwInfo.hwWalletType) return;
-      const hasHomeScreen = getHomescreenKeys(hwInfo.hwWalletType).length > 0;
-      if (hwInfo.hwWalletType === 'mini' || hwInfo.hwWalletType === 'classic') {
-        setShowHomeScreenSetting(hasHomeScreen);
-        return;
-      }
-      const res = await serviceHardware.getDeviceSupportFeatures(connectId);
-      setShowHomeScreenSetting(!!res.modifyHomescreen.support && hasHomeScreen);
-    },
-    [serviceHardware, hwInfo.hwWalletType],
-  );
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const device = await engine.getHWDeviceByWalletId(wallet.id);
-        setDeviceConnectId(device?.mac ?? '');
-        await getModifyHomeScreenConfig(device?.mac);
-      } catch (err: any) {
-        if (navigation?.canGoBack?.()) {
-          navigation.goBack();
-        }
-
-        deviceUtils.showErrorToast(err, 'action__connection_timeout');
-      }
-    })();
-  }, [
-    engine,
-    intl,
-    navigation,
-    serviceHardware,
-    getModifyHomeScreenConfig,
-    wallet.id,
-  ]);
-
-  const deviceVerifiedStatus = useMemo(() => {
-    if (!isHardwareWallet) return undefined;
-    return deviceVerification?.[deviceConnectId];
-  }, [deviceConnectId, deviceVerification, isHardwareWallet]);
 
   const softwareMenuOptions = useMemo(() => {
     if (!isSoftwareWallet) return null;
@@ -220,174 +419,15 @@ function WalletItemSelectDropdown({
   const hardwareMenuOptions = useMemo(() => {
     if (!isHardwareWallet) return null;
 
-    if (hwInfo.isPassphrase) {
-      return (
-        <>
-          <Menu.CustomItem
-            onPress={() => {
-              showDeviceAdvancedSettings({
-                walletId: wallet?.id ?? '',
-                deviceType: hwInfo?.hwWalletType,
-              });
-            }}
-            extraChildren={<CheckBox />}
-          >
-            {intl.formatMessage({ id: 'content__passphrase_pin_wallet' })}
-          </Menu.CustomItem>
-          <Divider my="4px" />
-          <Menu.CustomItem
-            onPress={() => {
-              onDeleteWallet({
-                isPassphrase: hwInfo?.isPassphrase ?? false,
-              });
-            }}
-            variant="desctructive"
-            icon="TrashMini"
-          >
-            {intl.formatMessage({ id: 'action__delete_wallet' })}
-          </Menu.CustomItem>
-        </>
-      );
-    }
-
     return (
-      <>
-        <Menu.CustomItem
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.OnekeyHardware,
-              params: {
-                screen: OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal,
-                params: {
-                  walletId: wallet?.id ?? '',
-                  deviceName: '',
-                },
-              },
-            });
-          }}
-          icon="PencilMini"
-        >
-          {intl.formatMessage({ id: 'action__edit' })}
-        </Menu.CustomItem>
-
-        {!!showHomeScreenSetting && (
-          <Menu.CustomItem
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.OnekeyHardware,
-                params: {
-                  screen:
-                    OnekeyHardwareModalRoutes.OnekeyHardwareHomeScreenModal,
-                  params: {
-                    walletId: wallet?.id ?? '',
-                    deviceType: hwInfo?.hwWalletType ?? 'classic',
-                  },
-                },
-              });
-            }}
-            icon="PhotoMini"
-          >
-            {intl.formatMessage({ id: 'modal__homescreen' })}
-          </Menu.CustomItem>
-        )}
-        <Menu.CustomItem
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.OnekeyHardware,
-              params: {
-                screen: OnekeyHardwareModalRoutes.OnekeyHardwareVerifyModal,
-                params: {
-                  walletId: wallet?.id ?? '',
-                },
-              },
-            });
-          }}
-          icon={!deviceVerifiedStatus ? 'MagnifyingGlassCircleMini' : undefined}
-          extraChildren={
-            !!deviceVerifiedStatus && (
-              <Icon
-                name="CheckBadgeMini"
-                color="interactive-default"
-                size={20}
-              />
-            )
-          }
-        >
-          {intl.formatMessage({ id: 'action__verify' })}
-        </Menu.CustomItem>
-        <Menu.CustomItem
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.OnekeyHardware,
-              params: {
-                screen: OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
-                params: {
-                  walletId: wallet?.id ?? '',
-                },
-              },
-            });
-          }}
-          icon="InformationCircleMini"
-        >
-          {intl.formatMessage({ id: 'action__about_device' })}
-        </Menu.CustomItem>
-        <Menu.CustomItem
-          onPress={() => {
-            showDeviceAdvancedSettings({
-              walletId: wallet?.id ?? '',
-              deviceType: hwInfo?.hwWalletType,
-            });
-          }}
-          icon="AdjustmentsHorizontalMini"
-        >
-          {intl.formatMessage({ id: 'content__advanced' })}
-        </Menu.CustomItem>
-        {!!hwInfo?.hasUpgrade && <Divider my="4px" />}
-        {!!hwInfo?.hasUpgrade && (
-          <Menu.CustomItem
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.HardwareUpdate,
-                params: {
-                  screen: HardwareUpdateModalRoutes.HardwareUpdateInfoModel,
-                  params: {
-                    walletId: wallet?.id ?? '',
-                  },
-                },
-              });
-            }}
-            variant="highlight"
-            icon="ArrowUpTrayMini"
-          >
-            {intl.formatMessage({ id: 'action__update_available' })}
-          </Menu.CustomItem>
-        )}
-        <Divider my="4px" />
-        <Menu.CustomItem
-          onPress={() => {
-            onDeleteWallet({
-              isPassphrase: hwInfo?.isPassphrase ?? false,
-            });
-          }}
-          variant="desctructive"
-          icon="TrashMini"
-        >
-          {intl.formatMessage({ id: 'action__delete_device' })}
-        </Menu.CustomItem>
-      </>
+      <HardwareMenuOptions
+        navigation={navigation}
+        wallet={wallet}
+        devicesStatus={devicesStatus}
+        onDeleteWallet={onDeleteWallet}
+      />
     );
-  }, [
-    deviceVerifiedStatus,
-    hwInfo?.hasUpgrade,
-    hwInfo?.hwWalletType,
-    hwInfo.isPassphrase,
-    intl,
-    isHardwareWallet,
-    navigation,
-    onDeleteWallet,
-    showHomeScreenSetting,
-    wallet?.id,
-  ]);
+  }, [devicesStatus, isHardwareWallet, navigation, onDeleteWallet, wallet]);
 
   const menuView = useMemo(
     () => (
@@ -398,13 +438,6 @@ function WalletItemSelectDropdown({
           const { onPress } = triggerProps;
           return (
             <Box {...triggerProps}>
-              {hasAvailableUpdate ? (
-                <WalletStatus
-                  size={platformEnv.isNative ? 'lg' : 'sm'}
-                  status="warning"
-                />
-              ) : null}
-
               <IconButton
                 name="EllipsisVerticalMini"
                 circle
@@ -427,7 +460,7 @@ function WalletItemSelectDropdown({
         {hardwareMenuOptions}
       </Menu>
     ),
-    [softwareMenuOptions, hardwareMenuOptions, hasAvailableUpdate],
+    [softwareMenuOptions, hardwareMenuOptions],
   );
 
   // TODO use redux to save memory

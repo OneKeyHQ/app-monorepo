@@ -20,6 +20,7 @@ import {
   changeActiveExternalWalletName,
   setActiveIds,
 } from '@onekeyhq/kit/src/store/reducers/general';
+import { setPendingRememberWalletConnectId } from '@onekeyhq/kit/src/store/reducers/hardware';
 import {
   updateAccountDetail,
   updateAccounts,
@@ -27,6 +28,8 @@ import {
   updateWallets,
 } from '@onekeyhq/kit/src/store/reducers/runtime';
 import {
+  forgetPassphraseWallet,
+  rememberPassphraseWallet,
   setEnableAppLock,
   setRefreshTS,
 } from '@onekeyhq/kit/src/store/reducers/settings';
@@ -50,7 +53,10 @@ import {
   IMPL_DOT,
   IMPL_FIL,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { isHardwareWallet } from '@onekeyhq/shared/src/engine/engineUtils';
+import {
+  isHardwareWallet,
+  isPassphraseWallet,
+} from '@onekeyhq/shared/src/engine/engineUtils';
 import {
   AppEventBusNames,
   appEventBus,
@@ -153,12 +159,21 @@ class ServiceAccount extends ServiceBase {
     this.notifyAccountsChanged();
   }
 
+  getDisplayPassphraseWalletIdList() {
+    const { appSelector } = this.backgroundApi;
+    const runtime = appSelector((s) => s.runtime.displayPassphraseWalletIdList);
+    const remember = appSelector(
+      (s) => s.settings.hardware?.rememberPassphraseWallets,
+    );
+
+    return [...new Set([...(remember || []), ...(runtime || [])])];
+  }
+
   @backgroundMethod()
   async initWallets({ noDispatch } = { noDispatch: false }) {
-    const { engine, dispatch, appSelector } = this.backgroundApi;
-    const displayPassphraseWalletIdList = appSelector(
-      (s) => s.runtime.displayPassphraseWalletIdList,
-    );
+    const { engine, dispatch } = this.backgroundApi;
+    const displayPassphraseWalletIdList =
+      this.getDisplayPassphraseWalletIdList();
     const wallets = await engine.getWallets({
       displayPassphraseWalletIds: displayPassphraseWalletIdList,
     });
@@ -831,39 +846,28 @@ class ServiceAccount extends ServiceBase {
     this.backgroundApi.serviceAccount.notifyAccountsChanged();
   }
 
-  @backgroundMethod()
-  async createHWWallet({
+  async createHwSingleWallet({
+    existDeviceId,
+    networkId,
+    wallets,
     features,
     avatar,
     connectId,
-    onlyPassphrase,
+    passphraseState,
   }: {
+    existDeviceId: string | undefined;
+    networkId: string;
+    wallets: Wallet[];
     features: IOneKeyDeviceFeatures;
     avatar?: Avatar;
     connectId: string;
-    onlyPassphrase?: boolean;
+    passphraseState?: string;
   }) {
-    const { dispatch, engine, serviceAccount, serviceHardware, appSelector } =
-      this.backgroundApi;
-    const devices = await engine.getHWDevices();
-    const networkId = appSelector((s) => s.general.activeNetworkId) || '';
-    const wallets: Wallet[] = appSelector((s) => s.runtime.wallets);
+    const { engine, serviceAccount } = this.backgroundApi;
+
     let wallet = null;
     let account = null;
-
-    const existDeviceId = devices.find(
-      (device) =>
-        device.mac === connectId && device.deviceId === features.device_id,
-    )?.id;
     let walletExistButNoAccount = null;
-
-    const passphraseState = await serviceHardware.getPassphraseState(connectId);
-    if (!!onlyPassphrase && !passphraseState) {
-      throw new DeviceNotOpenedPassphrase({
-        connectId,
-        deviceId: features.device_id ?? undefined,
-      });
-    }
 
     if (existDeviceId) {
       walletExistButNoAccount = wallets.find((w) => {
@@ -936,23 +940,110 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
-    const walletId = wallet?.id;
-    const accountId = account?.id;
+    return {
+      wallet,
+      account,
+    };
+  }
+
+  @backgroundMethod()
+  async createHWWallet({
+    features,
+    avatar,
+    connectId,
+    onlyPassphrase,
+  }: {
+    features: IOneKeyDeviceFeatures;
+    avatar?: Avatar;
+    connectId: string;
+    onlyPassphrase?: boolean;
+  }) {
+    const { dispatch, engine, serviceAccount, serviceHardware, appSelector } =
+      this.backgroundApi;
+    const devices = await engine.getHWDevices();
+    const networkId = appSelector((s) => s.general.activeNetworkId) || '';
+    const wallets: Wallet[] = appSelector((s) => s.runtime.wallets);
+
+    const existDeviceId = devices.find(
+      (device) =>
+        device.mac === connectId && device.deviceId === features.device_id,
+    )?.id;
+
+    const passphraseState = await serviceHardware.getPassphraseState(connectId);
+    if (!!onlyPassphrase && !passphraseState) {
+      throw new DeviceNotOpenedPassphrase({
+        connectId,
+        deviceId: features.device_id ?? undefined,
+      });
+    }
+
+    let walletNormalExist = false;
+    if (existDeviceId) {
+      walletNormalExist = !!wallets.find((w) => {
+        const targetWallet =
+          w.associatedDevice === existDeviceId && !isPassphraseWallet(w);
+
+        if (targetWallet) return true;
+        return false;
+      });
+    }
+
+    let result: {
+      wallet: Wallet | null;
+      account: Account | null;
+    } | null = null;
+
+    if (!walletNormalExist) {
+      // await serviceHardware.getPassphraseState(connectId, true);
+      result = await this.createHwSingleWallet({
+        existDeviceId,
+        networkId,
+        wallets,
+        features,
+        avatar,
+        connectId,
+        passphraseState: undefined,
+      });
+    }
+
+    const actions = [];
+
+    if (passphraseState) {
+      result = await this.createHwSingleWallet({
+        existDeviceId,
+        networkId,
+        wallets,
+        features,
+        avatar,
+        connectId,
+        passphraseState,
+      });
+
+      const rememberWalletConnectId = appSelector(
+        (s) => s.hardware.pendingRememberWalletConnectId,
+      );
+      if (rememberWalletConnectId === connectId) {
+        actions.push(setPendingRememberWalletConnectId(undefined));
+        if (result?.wallet?.id)
+          actions.push(rememberPassphraseWallet(result?.wallet?.id));
+      }
+    }
 
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
-    const actions = [];
+
     if (!status.boardingCompleted) {
       actions.push(setBoardingCompleted());
     }
+
     dispatch(...actions, unlock(), release());
 
     await this.initWallets();
 
     serviceAccount.changeActiveAccount({
-      accountId: accountId ?? null,
-      walletId: walletId ?? null,
+      walletId: result?.wallet?.id ?? null,
+      accountId: result?.account?.id ?? null,
     });
-    return wallet;
+    return result?.wallet;
   }
 
   @backgroundMethod()
@@ -969,6 +1060,53 @@ class ServiceAccount extends ServiceBase {
       return accounts[0]?.id ?? null;
     }
     return previousAccountId;
+  }
+
+  @backgroundMethod()
+  async removeWalletAndDevice(walletId: string, deviceId: string) {
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.removeWallet,
+      title: 'ServiceAccount.removeWalletAndDevice >> start',
+    });
+
+    const { engine, appSelector } = this.backgroundApi;
+    const activeWalletId = appSelector((s) => s.general.activeWalletId);
+
+    const accounts = new Set<Account>();
+
+    const pendingDelete = await engine.getWalletByDeviceId(deviceId);
+    if (pendingDelete) {
+      pendingDelete.forEach(async (wallet, index) => {
+        const pendingDeleteAccount = await engine.getAccounts(wallet.accounts);
+        pendingDeleteAccount.forEach((account) => accounts.add(account));
+        await engine.removeWallet(wallet.id, '');
+        timelinePerfTrace.mark({
+          name: ETimelinePerfNames.removeWallet,
+          title: `ServiceAccount.removeWalletAndDevice >> engine.removeWallet  ${index}`,
+        });
+      });
+    }
+
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.removeWallet,
+      title:
+        'ServiceAccount.removeWalletAndDevice >> engine.removeWallet  DONE',
+    });
+
+    setTimeout(
+      () =>
+        this.postWalletRemoved({
+          accounts: [...accounts],
+          activeWalletId,
+          removedWalletId: [walletId],
+        }),
+      600,
+    );
+
+    timelinePerfTrace.mark({
+      name: ETimelinePerfNames.removeWallet,
+      title: 'ServiceAccount.removeWalletAndDevice >> end',
+    });
   }
 
   @backgroundMethod()
@@ -1000,7 +1138,7 @@ class ServiceAccount extends ServiceBase {
         this.postWalletRemoved({
           accounts,
           activeWalletId,
-          removedWalletId: walletId,
+          removedWalletId: [walletId],
         }),
       600,
     );
@@ -1018,7 +1156,7 @@ class ServiceAccount extends ServiceBase {
   }: {
     accounts: IAccount[];
     activeWalletId: string | undefined | null;
-    removedWalletId: string;
+    removedWalletId: string[];
   }) {
     const { serviceNotification, dispatch, serviceCloudBackup } =
       this.backgroundApi;
@@ -1028,7 +1166,7 @@ class ServiceAccount extends ServiceBase {
       title: 'ServiceAccount.postWalletRemoved >> start =================== ',
     });
 
-    if (activeWalletId && activeWalletId === removedWalletId) {
+    if (activeWalletId && removedWalletId.includes(activeWalletId)) {
       // autoChangeWallet if remove current wallet
       // **** multiple dispatch cause UI reload performance issue
       await this.autoChangeWallet();
@@ -1056,7 +1194,14 @@ class ServiceAccount extends ServiceBase {
         'ServiceAccount.postWalletRemoved >> removeAccountDynamicBatch DONE',
     });
 
-    if (!removedWalletId.startsWith('hw')) {
+    let deleteIncludeSoftware = false;
+    removedWalletId.forEach((walletId) => {
+      if (!walletId.startsWith('hw')) {
+        deleteIncludeSoftware = true;
+        return false;
+      }
+    });
+    if (deleteIncludeSoftware) {
       // **** multiple dispatch cause UI reload performance issue
       serviceCloudBackup.requestBackup();
     }
@@ -1066,7 +1211,7 @@ class ServiceAccount extends ServiceBase {
     });
 
     // **** multiple dispatch cause UI reload performance issue
-    dispatch(setRefreshTS());
+    dispatch(setRefreshTS(), forgetPassphraseWallet(removedWalletId));
 
     await wait(10);
     timelinePerfTrace.mark({
@@ -1175,10 +1320,9 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getAccountByAddress({ address }: { address: string }) {
-    const { engine, appSelector } = this.backgroundApi;
-    const displayPassphraseWalletIdList = appSelector(
-      (s) => s.runtime.displayPassphraseWalletIdList,
-    );
+    const { engine } = this.backgroundApi;
+    const displayPassphraseWalletIdList =
+      this.getDisplayPassphraseWalletIdList();
     const wallets = await engine.getWallets({
       displayPassphraseWalletIds: displayPassphraseWalletIdList,
     });

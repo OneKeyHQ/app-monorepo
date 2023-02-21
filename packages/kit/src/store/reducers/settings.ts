@@ -106,6 +106,9 @@ export type SettingsState = {
   };
   annualReportEntryEnabled?: boolean;
   accountDerivationDbMigrationVersion?: string;
+  hardware?: {
+    rememberPassphraseWallets?: string[];
+  };
 };
 
 export const defaultPushNotification = {
@@ -170,6 +173,9 @@ const initialState: SettingsState = {
   customNetworkRpcMap: {},
   annualReportEntryEnabled: false,
   accountDerivationDbMigrationVersion: '',
+  hardware: {
+    rememberPassphraseWallets: [], // walletId
+  },
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -495,6 +501,35 @@ export const settingsSlice = createSlice({
     ) {
       state.accountDerivationDbMigrationVersion = action.payload;
     },
+    rememberPassphraseWallet(state, action: PayloadAction<string>) {
+      const { payload } = action;
+      const rememberWallets = state.hardware?.rememberPassphraseWallets || [];
+      if (!rememberWallets.includes(payload)) {
+        rememberWallets.push(payload);
+      }
+
+      state.hardware = {
+        ...state.hardware,
+        rememberPassphraseWallets: rememberWallets,
+      };
+    },
+    forgetPassphraseWallet(state, action: PayloadAction<string | string[]>) {
+      const { payload } = action;
+      const rememberWallets = state.hardware?.rememberPassphraseWallets || [];
+      const pendingDelete = Array.isArray(payload) ? payload : [payload];
+
+      pendingDelete.forEach((walletId) => {
+        const index = rememberWallets.indexOf(walletId);
+        if (index > -1) {
+          rememberWallets.splice(index, 1);
+        }
+      });
+
+      state.hardware = {
+        ...state.hardware,
+        rememberPassphraseWallets: rememberWallets,
+      };
+    },
   },
 });
 
@@ -544,6 +579,8 @@ export const {
   setAccountDerivationDbMigrationVersion,
   setOnRamperTestMode,
   setShowWebEmbedWebviewAgent,
+  rememberPassphraseWallet,
+  forgetPassphraseWallet,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

@@ -15,7 +15,7 @@ import type { IWalletDataSection } from '../../hooks/useWalletSelectorSectionDat
 import type { IWalletDataBase } from './index';
 
 function ListItemWithHidden({
-  deviceStatus,
+  devicesStatus,
   item,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   section,
@@ -23,7 +23,7 @@ function ListItemWithHidden({
 }: {
   item: IWalletDataBase;
   section: IWalletDataSection;
-  deviceStatus: IHardwareDeviceStatusMap | undefined;
+  devicesStatus: IHardwareDeviceStatusMap | undefined;
   onLastItemRender?: () => void;
 }) {
   const intl = useIntl();
@@ -61,7 +61,7 @@ function ListItemWithHidden({
           />
           <ListItem
             onLastItemRender={onLastItemRender}
-            deviceStatus={deviceStatus}
+            devicesStatus={devicesStatus}
             {...item}
           />
           {item.hiddenWallets?.map((hiddenWallet, index) => (
@@ -70,7 +70,7 @@ function ListItemWithHidden({
               <ListItem
                 {...item}
                 key={index}
-                deviceStatus={deviceStatus}
+                devicesStatus={undefined}
                 wallet={hiddenWallet}
                 onLastItemRender={onLastItemRender}
               />
@@ -109,7 +109,7 @@ function ListItemWithHidden({
       ) : (
         <ListItem
           onLastItemRender={onLastItemRender}
-          deviceStatus={deviceStatus}
+          devicesStatus={devicesStatus}
           {...item}
         />
       )}

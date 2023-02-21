@@ -42,6 +42,7 @@ export type CheckBoxProps = {
    * 点击监听
    */
   onChange?: (isSelected: boolean) => void;
+  noMargin?: boolean;
 } & ComponentProps<typeof Box>;
 
 const defaultProps = {
@@ -62,6 +63,7 @@ const CheckBox: FC<CheckBoxProps> = ({
   isDisabled,
   onChange,
   children,
+  noMargin,
   ...props
 }) => {
   let titleColor = 'text-default';
@@ -84,7 +86,12 @@ const CheckBox: FC<CheckBoxProps> = ({
       flexDirection="row"
       alignItems="flex-start"
     >
-      <Box h="5" mr="3" justifyContent="flex-end" display="flex">
+      <Box
+        h="5"
+        mr={noMargin ? '0' : '3'}
+        justifyContent="flex-end"
+        display="flex"
+      >
         <BaseCheckBox
           value={value}
           name={name}
