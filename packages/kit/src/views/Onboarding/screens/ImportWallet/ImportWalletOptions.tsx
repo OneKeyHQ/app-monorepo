@@ -151,6 +151,58 @@ export const OptionRecoveryPhrase: FC<OptionProps> = ({
     </Box>
   </Option>
 );
+export const OptionPrivateKey: FC<OptionProps> = ({
+  title,
+  icon,
+  description,
+  onPress,
+}) => (
+  <Option
+    title={title}
+    description={description}
+    icon={icon || 'ClipboardDocumentListOutline'}
+    onPress={onPress}
+  >
+    <Box flexDirection="row" px="16px" h="64px" flexWrap="wrap" py="8px">
+      {['shy', 'owner', 'almost', 'explain', 'movie', 'subway'].map(
+        (phrase, index) => (
+          <Box flexDirection="row" w="1/3" py="4px" key={index}>
+            <Text typography="Caption" w="12px" color="text-subdued">
+              {index + 1}
+            </Text>
+            <Text typography="Caption">{phrase}</Text>
+          </Box>
+        ),
+      )}
+    </Box>
+  </Option>
+);
+export const OptionAdress: FC<OptionProps> = ({
+  title,
+  icon,
+  description,
+  onPress,
+}) => (
+  <Option
+    title={title}
+    description={description}
+    icon={icon || 'ClipboardDocumentListOutline'}
+    onPress={onPress}
+  >
+    <Box flexDirection="row" px="16px" h="64px" flexWrap="wrap" py="8px">
+      {['shy', 'owner', 'almost', 'explain', 'movie', 'subway'].map(
+        (phrase, index) => (
+          <Box flexDirection="row" w="1/3" py="4px" key={index}>
+            <Text typography="Caption" w="12px" color="text-subdued">
+              {index + 1}
+            </Text>
+            <Text typography="Caption">{phrase}</Text>
+          </Box>
+        ),
+      )}
+    </Box>
+  </Option>
+);
 
 export const OptionOneKeyLite: FC<OptionProps> = ({
   title,

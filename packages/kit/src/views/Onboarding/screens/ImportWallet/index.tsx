@@ -22,13 +22,16 @@ import { EOnboardingRoutes } from '../../routes/enums';
 import { MigrationEnable } from '../Migration/util';
 
 import {
+  OptionAdress,
   OptionKeyTag,
   OptionMigration,
   OptionOneKeyLite,
+  OptionPrivateKey,
   OptionRecoveryPhrase,
   OptioniCloud,
 } from './ImportWalletOptions';
 
+import type { IAddExistingWalletMode } from '../../../../routes';
 import type { IOnboardingRoutesParams } from '../../routes/types';
 import type { RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -72,9 +75,15 @@ const ImportWallet = () => {
     return status.hasPreviousBackups;
   });
 
-  const onPressRecoveryWallet = useCallback(() => {
-    navigation.navigate(EOnboardingRoutes.RecoveryWallet);
-  }, [navigation]);
+  const onPressRecoveryWallet = useCallback(
+    (mode: IAddExistingWalletMode) => {
+      navigation.navigate(EOnboardingRoutes.RecoveryWallet, {
+        mode,
+        disableAnimation,
+      });
+    },
+    [disableAnimation, navigation],
+  );
 
   const onPressMigration = useCallback(() => {
     navigation.navigate(EOnboardingRoutes.Migration, {
@@ -112,7 +121,25 @@ const ImportWallet = () => {
             title={intl.formatMessage({
               id: 'onboarding__import_wallet_with_recovery_phrase',
             })}
-            onPress={onPressRecoveryWallet}
+            onPress={() => {
+              onPressRecoveryWallet('mnemonic');
+            }}
+          />
+        </ItemWrapper>
+        <ItemWrapper>
+          <OptionPrivateKey
+            title="With PrivateKey"
+            onPress={() => {
+              onPressRecoveryWallet('imported');
+            }}
+          />
+        </ItemWrapper>
+        <ItemWrapper>
+          <OptionAdress
+            title="With Address"
+            onPress={() => {
+              onPressRecoveryWallet('watching');
+            }}
           />
         </ItemWrapper>
         {supportedNFC && (
