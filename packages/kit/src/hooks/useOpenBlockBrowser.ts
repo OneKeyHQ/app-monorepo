@@ -2,7 +2,6 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useIsVerticalLayout } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import { IMPL_FIL } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -64,10 +63,6 @@ export default function useOpenBlockBrowser(
 
   const networks = useNetworks();
 
-  const isVertical = useIsVerticalLayout();
-
-  const modalMode = !isVertical;
-
   const hasAvailable = useMemo(() => {
     if (!network) return false;
     const currentNetwork = networks.find((x) => x.id === network.id);
@@ -82,11 +77,11 @@ export default function useOpenBlockBrowser(
         url,
         title ?? intl.formatMessage({ id: 'transaction__transaction_details' }),
         {
-          modalMode,
+          modalMode: true,
         },
       );
     },
-    [intl, modalMode, network],
+    [intl, network],
   );
 
   const openAddressDetails = useCallback(
@@ -97,11 +92,11 @@ export default function useOpenBlockBrowser(
         url,
         title ?? intl.formatMessage({ id: 'transaction__transaction_details' }),
         {
-          modalMode,
+          modalMode: true,
         },
       );
     },
-    [intl, modalMode, network],
+    [intl, network],
   );
 
   const openBlockDetails = useCallback(
@@ -112,11 +107,11 @@ export default function useOpenBlockBrowser(
         url,
         title ?? intl.formatMessage({ id: 'transaction__transaction_details' }),
         {
-          modalMode,
+          modalMode: true,
         },
       );
     },
-    [intl, modalMode, network],
+    [intl, network],
   );
 
   return {
