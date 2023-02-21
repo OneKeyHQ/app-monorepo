@@ -142,6 +142,7 @@ export const showMarketCellMoreMenu = (
       triggerEle={triggerEle}
       closeOverlay={closeOverlay}
       modalProps={modalProps}
+      useDropdownProps={{ autoAdjust: true }}
     >
       <MarketCellMoreMenu closeOverlay={closeOverlay} token={token} />
     </OverlayPanel>

@@ -93,7 +93,7 @@ export default class ServiceRevoke extends ServiceBase {
     if (!provider) {
       return;
     }
-    return new multicall.MulticallProvider(provider, { verbose: true });
+    return new multicall.MulticallProvider(provider, { verbose: false });
   }
 
   @backgroundMethod()
@@ -439,7 +439,8 @@ export default class ServiceRevoke extends ServiceBase {
 
   @backgroundMethod()
   async fetchERC20TokenAllowences(networkId: string, address: string) {
-    const { engine } = this.backgroundApi;
+    const { servicePrice } = this.backgroundApi;
+    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
     const events = await this.getTransferEvents(networkId, address);
     const res = await this.getERC20TokenApprovals(networkId, address, events);
     const allowanceList = await Promise.all(
@@ -463,15 +464,16 @@ export default class ServiceRevoke extends ServiceBase {
     const addresses = result
       .map((r) => r.token.address?.toLowerCase())
       .filter((a) => !!a) as string[];
-    const priceAndCharts = await engine.getPricesAndCharts(
-      networkId,
-      addresses,
-      false,
+    const pricesMap = await servicePrice.getCgkTokenPrice({
+      platform: networkId,
+      contractAddresses: addresses,
+    });
+    const prices = Object.fromEntries(
+      Object.entries(pricesMap).map(([k, value]) => {
+        const v = value?.[vsCurrency];
+        return [k, v];
+      }),
     );
-    const prices: Record<string, string> = {};
-    for (const [id, price] of Object.entries(priceAndCharts[0])) {
-      prices[id] = price.toString();
-    }
     return {
       allowance: result,
       prices,

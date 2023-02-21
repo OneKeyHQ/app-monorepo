@@ -70,7 +70,7 @@ export const useMarketTokenItem = ({
   useEffect(() => {
     if (coingeckoId?.length) {
       if (!isList && !marketTokenItem) {
-        backgroundApiProxy.serviceMarket.fetchMarketList({
+        backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
           ids: coingeckoId,
           sparkline: !isVertical && !isMidLayout,
         });

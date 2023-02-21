@@ -18,6 +18,7 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import bg1 from '@onekeyhq/kit/assets/annual/1.jpg';
 import bgLoading from '@onekeyhq/kit/assets/annual/bg_loading.png';
 import bgStart from '@onekeyhq/kit/assets/annual/bg_start.png';
@@ -84,7 +85,9 @@ const AnnualLoading: FC = () => {
       activeNetworkId: networkId,
       activeAccountId: accountId,
     });
-    const accountTokens = res.filter((n) => !n.security);
+    const accountTokens = res.filter(
+      (n) => !n.riskLevel || n.riskLevel <= TokenRiskLevel.VERIFIED,
+    );
     const prices = await servicePrice.fetchSimpleTokenPrice({
       networkId,
       accountId,

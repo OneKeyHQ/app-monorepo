@@ -65,14 +65,14 @@ export const useMarketList = ({
       checkFavoritesFetch
     ) {
       if (!listSort) {
-        backgroundApiProxy.serviceMarket.fetchMarketList({
+        backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
           categoryId: selectedCategory.categoryId,
           ids: coingeckoIds,
           sparkline: !isVerticalLlayout && !isMidLayout,
         });
       }
       timer = setInterval(() => {
-        backgroundApiProxy.serviceMarket.fetchMarketList({
+        backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
           categoryId: selectedCategory.categoryId,
           ids: coingeckoIds,
           sparkline: !isVerticalLlayout && !isMidLayout,
@@ -98,7 +98,7 @@ export const useMarketList = ({
   const onRefreshingMarketList = useCallback(async () => {
     await backgroundApiProxy.serviceMarket.fetchMarketCategorys();
     if (selectedCategory) {
-      await backgroundApiProxy.serviceMarket.fetchMarketList({
+      await backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
         categoryId: selectedCategory.categoryId,
         ids: coingeckoIds,
         sparkline: !isVerticalLlayout && !isMidLayout,
