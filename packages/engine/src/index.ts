@@ -1258,20 +1258,20 @@ class Engine {
         const vault = await this.getChainOnlyVault(networkId);
         try {
           [tokenInfo] = await vault.fetchTokenInfos([tokenIdOnNetwork]);
+          if (tokenInfo) {
+            const info = await fetchSecurityInfo<GoPlusTokenSecurity>({
+              networkId,
+              address: tokenIdOnNetwork,
+              apiName: GoPlusSupportApis.token_security,
+            });
+            Object.assign(tokenInfo, {
+              riskLevel: info ? getRiskLevel(info) : TokenRiskLevel.UNKNOWN,
+            });
+          }
         } catch (e) {
           debugLogger.common.error(`fetchTokenInfos error`, {
             params: [tokenIdOnNetwork],
             message: e instanceof Error ? e.message : e,
-          });
-        }
-        if (tokenInfo) {
-          const info = await fetchSecurityInfo<GoPlusTokenSecurity>({
-            networkId,
-            address: tokenIdOnNetwork,
-            apiName: GoPlusSupportApis.token_security,
-          });
-          Object.assign(tokenInfo, {
-            riskLevel: info ? getRiskLevel(info) : TokenRiskLevel.UNKNOWN,
           });
         }
       }

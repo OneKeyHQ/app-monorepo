@@ -151,6 +151,9 @@ class Geth extends BaseClient {
       resp = await Promise.all(
         calls.slice(0, 11).map((c) => this.rpc.call<string>(c[0], c[1])),
       );
+      if (calls.length > 11) {
+        resp.push(...calls.slice(11).map(() => undefined));
+      }
     }
     return resp.map((i) => {
       let balance;
