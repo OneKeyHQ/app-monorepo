@@ -380,10 +380,9 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
       address: item.tokenIdOnNetwork,
       decimal: item.decimals,
       logoURI: item.logoURI,
-      verified: item.verified,
-      security: item?.security,
       source: item.source || '',
       sendAddress: item.sendAddress,
+      riskLevel: item.riskLevel,
     });
   }, [navigation, item, isOwned]);
 

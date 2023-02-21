@@ -143,13 +143,18 @@ class Geth extends BaseClient {
           ]
         : ['eth_getBalance', [i.address, Geth.__LAST_BLOCK__]],
     );
-
-    const resp: Array<string | undefined> = await this.rpc.batchCall(
-      calls,
-      undefined,
-      undefined,
-      true,
-    );
+    let resp: Array<string | undefined>;
+    try {
+      resp = await this.rpc.batchCall(calls, undefined, undefined, true);
+    } catch (error) {
+      // https://onekeyhq.atlassian.net/browse/OK-17217
+      resp = await Promise.all(
+        calls.slice(0, 11).map((c) => this.rpc.call<string>(c[0], c[1])),
+      );
+      if (calls.length > 11) {
+        resp.push(...calls.slice(11).map(() => undefined));
+      }
+    }
     return resp.map((i) => {
       let balance;
 

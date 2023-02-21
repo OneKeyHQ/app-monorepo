@@ -2,6 +2,13 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 
 import type { HasName } from './base';
 
+export enum TokenRiskLevel {
+  UNKNOWN = 0,
+  VERIFIED = 1,
+  WARN,
+  DANGER,
+}
+
 export type ServerToken = {
   name: string;
   symbol: string;
@@ -10,8 +17,6 @@ export type ServerToken = {
   logoURI: string;
   impl: string;
   status: 'LISTED' | 'DRAFT' | 'TRASH';
-  verified: boolean;
-  security: boolean;
   addToIndex: boolean;
   chainId: string;
   source: string[];
@@ -20,6 +25,7 @@ export type ServerToken = {
   isNative?: boolean;
   onramperId?: string;
   moonpayId?: string;
+  riskLevel?: TokenRiskLevel;
 };
 
 export type Token = HasName & {
@@ -36,13 +42,13 @@ export type Token = HasName & {
   coingeckoId?: string;
   swftId?: string;
   marketCap?: number;
-  verified?: boolean;
-  security?: boolean;
   addToIndex?: boolean;
   autoDetected?: boolean;
   sendAddress?: string;
   onramperId?: string;
   moonpayId?: string;
+
+  riskLevel?: TokenRiskLevel;
 };
 
 export type Tool = {

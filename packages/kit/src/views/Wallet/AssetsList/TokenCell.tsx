@@ -22,10 +22,10 @@ import {
   useSimpleTokenPriceInfo,
   useSimpleTokenPriceValue,
 } from '../../../hooks/useManegeTokenPrice';
-import { useSingleToken, useTokenBalance } from '../../../hooks/useTokens';
+import { useTokenBalance } from '../../../hooks/useTokens';
 import { calculateGains, getPreBaseValue } from '../../../utils/priceUtils';
 
-interface TokenCellProps {
+type TokenCellProps = TokenType & {
   borderTopRadius?: string | number;
   borderRadius?: string | number;
   borderTopWidth?: string | number;
@@ -39,10 +39,9 @@ interface TokenCellProps {
   tokenIdOnNetwork: string;
   sendAddress?: string;
   autoDetected?: boolean;
-}
+};
 const TokenCell: FC<TokenCellProps> = ({
   accountId,
-  networkId,
   hidePriceInfo,
   borderTopRadius,
   borderRadius,
@@ -51,17 +50,14 @@ const TokenCell: FC<TokenCellProps> = ({
   onPress,
   borderColor = 'border-subdued',
   bg = 'surface-default',
-  ...tokenItem
+  ...token
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const { token } = useSingleToken(networkId, tokenItem.tokenIdOnNetwork);
+  const { networkId } = token;
   const balance = useTokenBalance({
     accountId,
     networkId,
-    token: {
-      ...token,
-      ...tokenItem,
-    },
+    token,
     fallback: '0',
   });
   const { network } = useActiveSideAccount({ accountId, networkId });
@@ -116,10 +112,10 @@ const TokenCell: FC<TokenCellProps> = ({
     (t: TokenType) => {
       onPress?.({
         ...t,
-        sendAddress: tokenItem?.sendAddress,
+        sendAddress: token?.sendAddress,
       });
     },
-    [onPress, tokenItem?.sendAddress],
+    [onPress, token?.sendAddress],
   );
 
   if (!token) {
