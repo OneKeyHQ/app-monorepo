@@ -344,16 +344,29 @@ class ServiceHardware extends ServiceBase {
     const forcedUpdateRes = enable && updateDeviceRes;
     const version = settings.deviceUpdates?.[connectId][firmwareType]?.version;
 
-    return hardwareSDK
-      .firmwareUpdateV2(connectId, {
+    const checkBootRes = await hardwareSDK.checkBootloaderRelease(connectId);
+
+    try {
+      const response = await hardwareSDK.firmwareUpdateV2(connectId, {
         updateType: firmwareType,
         forcedUpdateRes,
         version,
         platform: platformEnv.symbol ?? 'web',
-      })
-      .finally(() => {
-        hardwareSDK.off('ui-firmware-tip', listener);
       });
+
+      // update bootloader
+      if (
+        response.success &&
+        checkBootRes.success &&
+        checkBootRes.payload?.shouldUpdate
+      ) {
+        return await hardwareSDK.deviceUpdateBootloader(connectId);
+      }
+
+      return response;
+    } finally {
+      hardwareSDK.off('ui-firmware-tip', listener);
+    }
   }
 
   /**
