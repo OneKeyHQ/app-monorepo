@@ -73,7 +73,9 @@ const TransactionDetailModal = createLazyComponent(
   () => import('./TransactionDetail'),
 );
 const UpdateFeatureModal = createLazyComponent(() => import('./UpdateFeature'));
-const WebviewModal = createLazyComponent(() => import('./WebView'));
+const WebviewModal = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/Webview'),
+);
 
 const AddressBookModal = createLazyComponent(() => import('./AddressBook'));
 const AnnualReportModal = createLazyComponent(() => import('./AnnualReport'));

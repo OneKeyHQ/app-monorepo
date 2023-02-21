@@ -36,7 +36,6 @@ import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import SwapHistory from '@onekeyhq/kit/src/views/Swap/History';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
-import Webview from '@onekeyhq/kit/src/views/Webview';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { toFocusedLazy } from '../../components/LazyRenderWhenFocus';
@@ -218,10 +217,6 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.VolumeHaptic,
         component: VolumeHaptic,
-      },
-      {
-        name: HomeRoutes.SettingsWebviewScreen,
-        component: Webview,
       },
       {
         name: HomeRoutes.CloudBackup,

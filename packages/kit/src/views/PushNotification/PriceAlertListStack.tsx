@@ -13,14 +13,6 @@ import { ListEmptyComponent } from './Empty';
 import { usePriceAlertlist } from './hooks';
 import PriceItem from './PriceItem';
 
-import type { HomeRoutes, HomeRoutesParams } from '../../routes/types';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.SettingsWebviewScreen
->;
-
 const Section = ({
   alerts,
   onRemove,
@@ -74,7 +66,7 @@ const Section = ({
 
 const NotificationPriceAlert = () => {
   const intl = useIntl();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation();
   const { alerts, loading, fetchPriceAlerts } = usePriceAlertlist();
 
   const data = useMemo(() => {
