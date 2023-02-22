@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
@@ -34,7 +35,6 @@ import TokenCell from './TokenCell';
 
 import type { SimplifiedToken } from '../../../store/reducers/tokens';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Token } from '@onekeyhq/engine/src/types/token';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
