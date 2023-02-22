@@ -1,5 +1,6 @@
 /* eslint-disable no-nested-ternary */
 import { get } from 'lodash';
+import semver from 'semver';
 
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import type { DevicePayload } from '@onekeyhq/engine/src/types/device';
@@ -18,6 +19,7 @@ import {
   InitIframeLoadFail,
   InitIframeTimeout,
 } from '@onekeyhq/kit/src/utils/hardware/errors';
+import { wait } from '@onekeyhq/kit/src/utils/helper';
 import type {
   BLEFirmwareInfo,
   SYSFirmwareInfo,
@@ -325,7 +327,11 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async autoUpdateFirmware(connectId: string, firmwareType: FirmwareType) {
+  async autoUpdateFirmware(
+    connectId: string,
+    firmwareType: FirmwareType,
+    deviceType: IDeviceType | undefined,
+  ) {
     const { dispatch } = this.backgroundApi;
     dispatch(setUpdateFirmwareStep(''));
 
@@ -344,8 +350,6 @@ class ServiceHardware extends ServiceBase {
     const forcedUpdateRes = enable && updateDeviceRes;
     const version = settings.deviceUpdates?.[connectId][firmwareType]?.version;
 
-    const checkBootRes = await hardwareSDK.checkBootloaderRelease(connectId);
-
     try {
       const response = await hardwareSDK.firmwareUpdateV2(connectId, {
         updateType: firmwareType,
@@ -355,18 +359,42 @@ class ServiceHardware extends ServiceBase {
       });
 
       // update bootloader
-      if (
-        response.success &&
-        checkBootRes.success &&
-        checkBootRes.payload?.shouldUpdate
-      ) {
-        return await hardwareSDK.deviceUpdateBootloader(connectId);
+      if (deviceType === 'touch' && response.success) {
+        const updateBootRes = await this.updateBootloader(connectId);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
+        if (!updateBootRes.success) return updateBootRes;
       }
 
       return response;
     } finally {
       hardwareSDK.off('ui-firmware-tip', listener);
     }
+  }
+
+  updateBootloader(connectId: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      let tryCount = 0;
+      const excute = async () => {
+        const hardwareSDK = await this.getSDKInstance();
+        const res = await hardwareSDK.deviceUpdateBootloader(connectId);
+        if (!res.success) {
+          if (
+            res.payload.error.indexOf('Request failed with status code') &&
+            tryCount < 3
+          ) {
+            await wait(5000);
+            tryCount += 1;
+            await excute();
+          } else {
+            reject(res);
+          }
+          return;
+        }
+
+        resolve(res);
+      };
+      excute();
+    });
   }
 
   /**
