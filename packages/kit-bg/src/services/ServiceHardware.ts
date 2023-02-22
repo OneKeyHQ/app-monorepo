@@ -363,7 +363,6 @@ class ServiceHardware extends ServiceBase {
       if (deviceType === 'touch' && response.success) {
         const updateBootRes = await this.updateBootloader(connectId);
         if (!updateBootRes.success) return updateBootRes;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
       }
 
       return response;
