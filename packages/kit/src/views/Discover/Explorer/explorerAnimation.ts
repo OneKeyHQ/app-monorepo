@@ -46,6 +46,7 @@ const getTabCellLayout = (tabId: string, callback: () => void) => {
   });
 };
 export const showTabGrid = () => {
+  pauseDappInteraction();
   const { currentTabId } = appSelector((s) => s.webTabs);
   if (platformEnv.isNative && tabViewShotRef.current) {
     captureRef(tabViewShotRef, {
@@ -70,6 +71,7 @@ export const hideTabGrid = (id?: string) => {
   const curId = id || appSelector((s) => s.webTabs.currentTabId);
   getTabCellLayout(curId, () => {
     showTabGridAnim.value = withTiming(MIN_OR_HIDE);
+    resumeDappInteraction();
   });
 };
 

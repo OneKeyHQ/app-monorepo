@@ -4,7 +4,11 @@ import { ToastManager } from '@onekeyhq/components';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { webviewRefs } from '../../views/Discover/Explorer/explorerUtils';
+import {
+  pauseDappInteraction,
+  resumeDappInteraction,
+  webviewRefs,
+} from '../../views/Discover/Explorer/explorerUtils';
 
 import type { PayloadAction } from '@reduxjs/toolkit';
 
@@ -145,10 +149,12 @@ export const webtabsSlice = createSlice({
     },
     setCurrentWebTab: (state, { payload }: PayloadAction<string>) => {
       if (state.currentTabId !== payload) {
+        pauseDappInteraction(state.currentTabId);
         for (const tab of state.tabs) {
           tab.isCurrent = tab.id === payload;
         }
         state.currentTabId = payload;
+        resumeDappInteraction(payload);
       }
     },
     setIncomingUrl: (state, { payload }: PayloadAction<string>) => {

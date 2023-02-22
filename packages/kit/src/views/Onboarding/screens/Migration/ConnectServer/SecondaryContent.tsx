@@ -44,7 +44,6 @@ import { EOnboardingRoutes } from '../../../routes/enums';
 import {
   OneKeyMigrateQRCodePrefix,
   addressWithoutHttp,
-  parseCloudData,
   parseDeviceInfo,
 } from '../util';
 
@@ -80,7 +79,7 @@ const QRCodeView: FC<{
         const { postData, requestId } = data;
         try {
           if (typeof postData === 'string') {
-            const json = parseCloudData(JSON.parse(postData)) as MigrateData;
+            const json = JSON.parse(postData) as MigrateData;
             if (
               typeof json?.public === 'string' &&
               typeof json?.private === 'string'
@@ -99,11 +98,11 @@ const QRCodeView: FC<{
                 respondData: {
                   success: false,
                   data: undefined,
-                  message: 'can not found public/private.',
+                  message: 'can not fount public/private.',
                   code: MigrateErrorCode.DecryptFail,
                 },
               });
-              throw new Error(`can not found public/private.`);
+              throw new Error(`can not fount public/private.`);
             }
           } else {
             serviceHTTP.serverRespond({

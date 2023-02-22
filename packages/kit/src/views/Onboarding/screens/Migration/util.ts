@@ -7,31 +7,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ONEKEY_APP_DEEP_LINK } from '../../../../components/WalletConnect/walletConnectConsts';
 
-function parseCloudData(cloudData: any) {
-  const {
-    public: publicOld,
-    private: privateOld,
-
-    publicData,
-    privateData,
-    ...rest
-  } = cloudData;
-  if (publicData && privateData) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return {
-      public: publicData,
-      private: privateData,
-      ...rest,
-    };
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return {
-    public: publicOld,
-    private: privateOld,
-    ...rest,
-  };
-}
-
 function shuffle(string: string) {
   const a = string.split('');
   const n = a.length;
@@ -133,5 +108,4 @@ export {
   randomString,
   shuffle,
   addressWithoutHttp,
-  parseCloudData,
 };

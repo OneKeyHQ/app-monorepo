@@ -30,14 +30,7 @@ import WalletAvatar from '../../components/WalletSelector/WalletAvatar';
 import { ListEmptyComponent } from './Empty';
 import { useEnabledAccountDynamicAccounts } from './hooks';
 
-import type { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import type { WalletData } from './hooks';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.SettingsWebviewScreen
->;
 
 const Item: FC<{
   account: Account;
@@ -212,7 +205,7 @@ const NotificationAccountDynamic = () => {
   const intl = useIntl();
   const { wallets, enabledAccounts, refresh, loading } =
     useEnabledAccountDynamicAccounts();
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation();
 
   const supportedWallets = useMemo(
     () =>

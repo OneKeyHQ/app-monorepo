@@ -16,7 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   HomeRoutesParams,
-  HomeRoutes.SettingsWebviewScreen
+  HomeRoutes.PushNotification
 >;
 
 export const PushSection = () => {
