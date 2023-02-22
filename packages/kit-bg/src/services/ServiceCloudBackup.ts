@@ -30,7 +30,6 @@ import {
   hasHardwareSupported,
   savePassword,
 } from '@onekeyhq/kit/src/utils/localAuthentication';
-import { parseCloudData } from '@onekeyhq/kit/src/views/Onboarding/screens/Migration/util';
 import {
   backgroundClass,
   backgroundMethod,
@@ -103,7 +102,7 @@ class ServiceCloudBackup extends ServiceBase {
       HDWallets: {},
     };
     const backupedContacts: BackupedContacts = {};
-    const { version } = this.backgroundApi.appSelector((s) => s.settings);
+
     const { contacts }: { contacts: Record<string, Contact> } =
       this.backgroundApi.appSelector((s) => s.contacts);
     Object.values(contacts).forEach((contact) => {
@@ -150,9 +149,7 @@ class ServiceCloudBackup extends ServiceBase {
     }
 
     return {
-      private: '{}',
-      public: '{}',
-      privateData: password
+      private: password
         ? encrypt(
             password,
             Buffer.from(
@@ -161,8 +158,7 @@ class ServiceCloudBackup extends ServiceBase {
             ),
           ).toString('base64')
         : '',
-      publicData: JSON.stringify(publicBackupData),
-      appVersion: version,
+      public: JSON.stringify(publicBackupData),
     };
   }
 
@@ -243,9 +239,8 @@ class ServiceCloudBackup extends ServiceBase {
       (tmpUUID) => tmpUUID !== currentUUID,
     )) {
       try {
-        const cloudData = parseCloudData(
-          JSON.parse(await this.getDataFromCloud(backupUUID)),
-        );
+        const cloudData = JSON.parse(await this.getDataFromCloud(backupUUID));
+
         const {
           backupTime,
           deviceInfo,
@@ -303,7 +298,7 @@ class ServiceCloudBackup extends ServiceBase {
 
     try {
       const localData = JSON.parse(
-        (await this.getDataForBackup('')).publicData,
+        (await this.getDataForBackup('')).public,
       ) as PublicBackupData;
 
       for (const [contactUUID, contact] of Object.entries(
@@ -369,14 +364,11 @@ class ServiceCloudBackup extends ServiceBase {
 
   @backgroundMethod()
   async getBackupDetails(backupUUID: string) {
-    const { public: publicBackupData, appVersion } = parseCloudData(
-      JSON.parse(await this.getDataFromCloud(backupUUID)),
+    const { public: publicBackupData } = JSON.parse(
+      await this.getDataFromCloud(backupUUID),
     );
     const remoteData = JSON.parse(publicBackupData) as PublicBackupData;
-    return {
-      backupDetails: await this.getBackupDetailsWithRemoteData(remoteData),
-      appVersion,
-    };
+    return this.getBackupDetailsWithRemoteData(remoteData);
   }
 
   @backgroundMethod()
@@ -483,8 +475,8 @@ class ServiceCloudBackup extends ServiceBase {
     localPassword: string;
     remotePassword?: string;
   }): Promise<RestoreResult> {
-    const { private: privateBackupData } = parseCloudData(
-      JSON.parse(await this.getDataFromCloud(backupUUID)),
+    const { private: privateBackupData } = JSON.parse(
+      await this.getDataFromCloud(backupUUID),
     );
     return this.restoreFromPrivateBackup({
       privateBackupData,

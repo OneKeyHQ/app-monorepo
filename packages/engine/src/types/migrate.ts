@@ -10,8 +10,6 @@ export type MigrateServiceResp<T> = {
 export type MigrateData = {
   private: string;
   public: string;
-
-  appVersion?: string; // undefined if old version
 };
 
 export type DeviceInfo = {
