@@ -38,7 +38,46 @@ class AppUpdates {
   }
 
   async checkAppUpdate(): Promise<VersionInfo | undefined> {
-    const packageInfo: PackageInfo | undefined = await this.getPackageInfo();
+    const { enable, preReleaseUpdate } =
+      store.getState().settings.devMode || {};
+
+    const preUpdateMode = enable && preReleaseUpdate;
+
+    let releasePackages: PackagesInfo | null;
+    if (preUpdateMode) {
+      releasePackages = await getPreReleaseInfo();
+    } else {
+      releasePackages = await getReleaseInfo();
+    }
+
+    let packageInfo: PackageInfo | undefined;
+
+    if (platformEnv.isMas) {
+      packageInfo = releasePackages?.desktop?.find((x) => x.os === 'mas');
+    }
+
+    if (platformEnv.isNativeAndroid) {
+      if (platformEnv.isNativeAndroidGooglePlay) {
+        packageInfo = releasePackages?.android?.find(
+          (x) => x.os === 'android' && x.channel === 'GooglePlay',
+        );
+      } else {
+        packageInfo = releasePackages?.android?.find(
+          (x) => x.os === 'android' && x.channel === 'Direct',
+        );
+      }
+    }
+
+    if (platformEnv.isNativeIOS) {
+      packageInfo = releasePackages?.ios?.find((x) => x.os === 'ios');
+    }
+
+    if (platformEnv.isDesktop) {
+      if (platformEnv.isDesktopLinux) {
+        packageInfo = releasePackages?.desktop?.find((x) => x.os === 'linux');
+      }
+    }
+
     if (packageInfo) {
       if (
         !packageInfo ||
@@ -58,61 +97,6 @@ class AppUpdates {
     }
 
     return undefined;
-  }
-
-  async getPackageInfo() {
-    const { enable, preReleaseUpdate } =
-      store.getState().settings.devMode || {};
-
-    const preUpdateMode = enable && preReleaseUpdate;
-
-    let releasePackages: PackagesInfo | null;
-    if (preUpdateMode) {
-      releasePackages = await getPreReleaseInfo();
-    } else {
-      releasePackages = await getReleaseInfo();
-    }
-
-    let packageInfo: PackageInfo | undefined;
-
-    if (platformEnv.isNativeAndroid) {
-      if (platformEnv.isNativeAndroidGooglePlay) {
-        packageInfo = releasePackages?.android?.find(
-          (x) => x.os === 'android' && x.channel === 'GooglePlay',
-        );
-      } else {
-        packageInfo = releasePackages?.android?.find(
-          (x) => x.os === 'android' && x.channel === 'Direct',
-        );
-      }
-    }
-
-    if (platformEnv.isNativeIOS) {
-      packageInfo = releasePackages?.ios?.find((x) => x.os === 'ios');
-    }
-
-    if (platformEnv.isDesktop) {
-      if (platformEnv.isMas) {
-        packageInfo = releasePackages?.desktop?.find((x) => x.os === 'mas');
-      }
-      if (platformEnv.isDesktopLinux) {
-        packageInfo = releasePackages?.desktop?.find((x) => x.os === 'linux');
-      }
-      if (platformEnv.isDesktopWin) {
-        packageInfo = releasePackages?.desktop?.find((x) => x.os === 'win');
-      }
-      if (platformEnv.isDesktopMac) {
-        packageInfo = releasePackages?.desktop?.find(
-          (x) => x.os === 'macos-x64',
-        );
-      }
-      if (platformEnv.isDesktopMacArm64) {
-        packageInfo = releasePackages?.desktop?.find(
-          (x) => x.os === 'macos-arm64',
-        );
-      }
-    }
-    return packageInfo;
   }
 
   checkDesktopUpdate(isManual = false) {
