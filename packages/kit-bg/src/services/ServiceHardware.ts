@@ -1,6 +1,5 @@
 /* eslint-disable no-nested-ternary */
 import { get } from 'lodash';
-import semver from 'semver';
 
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import type { DevicePayload } from '@onekeyhq/engine/src/types/device';
@@ -50,7 +49,9 @@ import type {
   IDeviceType,
   KnownDevice,
   ReleaseInfoEvent,
+  Success,
   UiResponseEvent,
+  Unsuccessful,
 } from '@onekeyfe/hd-core';
 
 type ConnectedEvent = { device: KnownDevice };
@@ -361,8 +362,8 @@ class ServiceHardware extends ServiceBase {
       // update bootloader
       if (deviceType === 'touch' && response.success) {
         const updateBootRes = await this.updateBootloader(connectId);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
         if (!updateBootRes.success) return updateBootRes;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
       }
 
       return response;
@@ -371,17 +372,17 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
-  updateBootloader(connectId: string): Promise<any> {
+  updateBootloader(
+    connectId: string,
+  ): Promise<Unsuccessful | Success<Success<boolean>>> {
+    const DISCONNECT_ERROR = 'Request failed with status code';
     return new Promise((resolve, reject) => {
       let tryCount = 0;
       const excute = async () => {
         const hardwareSDK = await this.getSDKInstance();
         const res = await hardwareSDK.deviceUpdateBootloader(connectId);
         if (!res.success) {
-          if (
-            res.payload.error.indexOf('Request failed with status code') &&
-            tryCount < 3
-          ) {
+          if (res.payload.error.indexOf(DISCONNECT_ERROR) && tryCount < 3) {
             await wait(5000);
             tryCount += 1;
             await excute();
@@ -391,7 +392,7 @@ class ServiceHardware extends ServiceBase {
           return;
         }
 
-        resolve(res);
+        resolve(res as unknown as Success<Success<boolean>>);
       };
       excute();
     });
