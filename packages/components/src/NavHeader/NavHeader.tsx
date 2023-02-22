@@ -13,6 +13,7 @@ import HeaderBackButton from './HeaderBackButton';
 import HeaderTitle from './HeaderTitle';
 
 import type { HeaderTitleProps } from './HeaderTitle';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 interface HeaderProps extends HeaderTitleProps {
   headerTitle?: () => ReactNode;
@@ -20,6 +21,7 @@ interface HeaderProps extends HeaderTitleProps {
   headerRight?: () => ReactNode;
   enableBackButton?: boolean;
   safeTop?: number;
+  style?: StyleProp<ViewStyle>;
 }
 
 const defaultMobileHeight = 56;
@@ -31,6 +33,7 @@ const NavHeader: FC<HeaderProps> = ({
   headerTitle,
   safeTop,
   enableBackButton = true,
+  style,
   ...headerTitleProps
 }) => {
   const insets = useSafeAreaInsets();
@@ -41,16 +44,19 @@ const NavHeader: FC<HeaderProps> = ({
   const titleComponent = headerTitle ? (
     headerTitle()
   ) : (
-    <HeaderTitle {...headerTitleProps} />
+    <HeaderTitle inCenter={enableBackButton} {...headerTitleProps} />
   );
 
   return (
     <View
       pointerEvents="box-none"
-      style={{
-        height,
-        marginTop: safeTop ?? insets.top,
-      }}
+      style={[
+        {
+          height,
+          marginTop: safeTop ?? insets.top,
+        },
+        style,
+      ]}
     >
       <View
         pointerEvents="box-none"
