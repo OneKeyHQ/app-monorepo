@@ -4,33 +4,26 @@ import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
 
 import { Button, Center, Icon, Typography } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import { WalletConnectUniversalLinkPath } from '../../routes/deepLink';
+import { openUrlExternal } from '../../utils/openUrl';
 
 export default function OnLanding() {
   const intl = useIntl();
-  const openLinkUrl = useCallback((url: string) => {
-    if (platformEnv.isNative) {
-      Linking.openURL(url);
-    } else {
-      window.open(url, '_blank');
-    }
-  }, []);
   const onAndroidDownload = useCallback(() => {
-    openLinkUrl(
+    openUrlExternal(
       'https://play.google.com/store/apps/details?id=so.onekey.app.wallet',
     );
-  }, [openLinkUrl]);
+  }, []);
   const oniOSDownload = useCallback(() => {
-    openLinkUrl(
+    openUrlExternal(
       'https://apps.apple.com/us/app/onekey-open-source-wallet/id1609559473',
     );
-  }, [openLinkUrl]);
+  }, []);
   const onDesktopDownload = useCallback(() => {
-    openLinkUrl('https://onekey.so/download');
-  }, [openLinkUrl]);
+    openUrlExternal('https://onekey.so/download');
+  }, []);
   const locationUrl = global?.location?.href || '';
   const autoLaunchAppUrl = useMemo(() => {
     if (!locationUrl) {
@@ -51,7 +44,7 @@ export default function OnLanding() {
   const onLaunchApp = useCallback(() => {
     if (autoLaunchAppUrl) {
       // **** openLink will be blocked by browser
-      // openLinkUrl(autoLaunchAppUrl);
+      // openUrlExternal(autoLaunchAppUrl);
       window.location.href = autoLaunchAppUrl;
     }
   }, [autoLaunchAppUrl]);

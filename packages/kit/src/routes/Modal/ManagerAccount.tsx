@@ -1,10 +1,9 @@
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import ManagerAccountModalView from '@onekeyhq/kit/src/views/ManagerAccount/AccountInfo';
 import ExportPrivateViewModal from '@onekeyhq/kit/src/views/ManagerAccount/ExportPrivate';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
+import createStackNavigator from './createStackNavigator';
 
 export enum ManagerAccountModalRoutes {
   ManagerAccountModal = 'ManagerAccountModal',

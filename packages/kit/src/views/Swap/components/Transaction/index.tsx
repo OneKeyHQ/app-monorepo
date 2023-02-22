@@ -2,7 +2,6 @@ import type { ComponentProps, FC } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
-import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
 
 import {
@@ -21,12 +20,12 @@ import {
 import Logo from '@onekeyhq/components/src/Icon/react/illus/Logo';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAddressName, useNetworkSimple } from '../../../../hooks';
 import useFormatDate from '../../../../hooks/useFormatDate';
 import { buildTransactionDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
+import { openUrlExternal } from '../../../../utils/openUrl';
 import { useTransactionsAccount } from '../../hooks/useTransactions';
 import { formatAmount } from '../../utils';
 import PendingTransaction from '../PendingTransaction';
@@ -259,14 +258,6 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
   const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
   const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
 
-  const onOpenTx = useCallback((url: string) => {
-    if (platformEnv.isNative) {
-      Linking.openURL(url);
-    } else {
-      window.open(url, '_blank');
-    }
-  }, []);
-
   const options = useMemo(
     () => [
       {
@@ -287,16 +278,13 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
     ],
     [tx, fromNetwork, toNetwork],
   );
-  const onPress = useCallback(
-    (_: any, item: any) => {
+  const onPress = useCallback((_: any, item: any) => {
+    // eslint-disable-next-line
+    if (item.url) {
       // eslint-disable-next-line
-      if (item.url) {
-        // eslint-disable-next-line
-        onOpenTx(item.url);
-      }
-    },
-    [onOpenTx],
-  );
+      openUrlExternal(item.url);
+    }
+  }, []);
 
   return (
     <>
@@ -363,17 +351,10 @@ type ViewInBrowserLinkProps = { tx: TransactionDetails };
 const ViewInBrowserLink: FC<ViewInBrowserLinkProps> = ({ tx }) => {
   const intl = useIntl();
   const network = useNetworkSimple(tx.networkId);
-  const openLinkUrl = useCallback((url: string) => {
-    if (platformEnv.isNative) {
-      Linking.openURL(url);
-    } else {
-      window.open(url, '_blank');
-    }
-  }, []);
   const onOpenTx = useCallback(() => {
     const url = buildTransactionDetailsUrl(network, tx.hash);
-    openLinkUrl(url);
-  }, [openLinkUrl, network, tx.hash]);
+    openUrlExternal(url);
+  }, [network, tx.hash]);
 
   return (
     <Pressable flexDirection="row" onPress={onOpenTx}>

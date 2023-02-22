@@ -1,12 +1,10 @@
 import type { FC } from 'react';
-import { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
 import {
-  Box,
   Center,
   Icon,
   Select,
@@ -14,29 +12,20 @@ import {
 } from '@onekeyhq/components';
 import type { SubmitRequestModalRoutesParams } from '@onekeyhq/kit/src/routes';
 import { SubmitRequestRoutes } from '@onekeyhq/kit/src/routes';
-import type {
-  HomeRoutesParams,
-  ModalScreenProps,
-} from '@onekeyhq/kit/src/routes/types';
-import {
-  HomeRoutes,
-  ModalRoutes,
-  RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useHelpLink } from '../../hooks/useHelpLink';
+import { openUrlByWebview } from '../../utils/openUrl';
 
 import { HistoryRequestRoutes } from './Request/types';
 
 import type { HistoryRequestModalRoutesParams } from './Request/types';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = ModalScreenProps<SubmitRequestModalRoutesParams> &
   ModalScreenProps<HistoryRequestModalRoutesParams>;
-
-type StackNavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 type Option = {
   label: string;
@@ -58,21 +47,6 @@ const HelpSelector: FC = () => {
   const userGuideUrl = useHelpLink({ path: 'categories/360000170236' });
   const supportUrl = useHelpLink({ path: '' });
   const walletManual = useHelpLink({ path: 'articles/360002123856' });
-  const stackNavigation = useNavigation<StackNavigationProps>();
-
-  const openUrl = useCallback(
-    (url: string, title?: string) => {
-      if (platformEnv.isNative) {
-        stackNavigation.navigate(HomeRoutes.SettingsWebviewScreen, {
-          url,
-          title,
-        });
-      } else {
-        window.open(url, '_blank');
-      }
-    },
-    [stackNavigation],
-  );
 
   const options: GroupOption[] = [
     {
@@ -174,16 +148,19 @@ const HelpSelector: FC = () => {
           }
           break;
         case 'guide':
-          openUrl(
+          openUrlByWebview(
             userGuideUrl,
             intl.formatMessage({ id: 'form__beginner_guide' }),
           );
           break;
         case 'support':
-          openUrl(supportUrl, intl.formatMessage({ id: 'form__help_support' }));
+          openUrlByWebview(
+            supportUrl,
+            intl.formatMessage({ id: 'form__help_support' }),
+          );
           break;
         case 'hardware_wallet':
-          openUrl(
+          openUrlByWebview(
             walletManual,
             intl.formatMessage({ id: 'form__hardware_wallet_manuals' }),
           );
@@ -197,19 +174,19 @@ const HelpSelector: FC = () => {
           });
           break;
         case 'website':
-          openUrl(
+          openUrlByWebview(
             'https://help.onekey.so/hc/',
             intl.formatMessage({ id: 'title__official_website' }),
           );
           break;
         case 'shop':
-          openUrl(
+          openUrlByWebview(
             'https://shop.onekey.so/',
             intl.formatMessage({ id: 'title__buy_onekey_hardware' }),
           );
           break;
         case 'download':
-          openUrl(
+          openUrlByWebview(
             'https://onekey.so/download',
             intl.formatMessage({ id: 'title__client_download' }),
           );
@@ -221,34 +198,32 @@ const HelpSelector: FC = () => {
   };
 
   return (
-    <Box>
-      <Select
-        title={
-          isSmallScreen ? intl.formatMessage({ id: 'title__help' }) : undefined
-        }
-        dropdownPosition="top-right"
-        dropdownProps={isSmallScreen ? {} : { minW: '240px', height: '320px' }}
-        positionTranslateY={-4}
-        headerShown={false}
-        options={options}
-        isTriggerPlain
-        footer={null}
-        activatable={false}
-        onChange={onChange}
-        renderTrigger={() => (
-          <Center
-            width="50px"
-            height="50px"
-            bg="action-secondary-default"
-            borderRadius="25px"
-            borderWidth="1px"
-            borderColor="border-default"
-          >
-            <Icon size={24} name="QuestionMarkCircleMini" />
-          </Center>
-        )}
-      />
-    </Box>
+    <Select
+      title={
+        isSmallScreen ? intl.formatMessage({ id: 'title__help' }) : undefined
+      }
+      dropdownPosition="top-right"
+      dropdownProps={isSmallScreen ? {} : { minW: '240px', height: '320px' }}
+      positionTranslateY={-4}
+      headerShown={false}
+      options={options}
+      isTriggerPlain
+      footer={null}
+      activatable={false}
+      onChange={onChange}
+      renderTrigger={() => (
+        <Center
+          width="50px"
+          height="50px"
+          bg="action-secondary-default"
+          borderRadius="25px"
+          borderWidth="1px"
+          borderColor="border-default"
+        >
+          <Icon size={24} name="QuestionMarkCircleMini" />
+        </Center>
+      )}
+    />
   );
 };
 
