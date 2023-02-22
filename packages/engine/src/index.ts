@@ -733,14 +733,14 @@ class Engine {
                       .then((address) => {
                         if (!address) {
                           setTimeout(() => {
-                            this.removeAccount(a.id, '', true);
+                            this.removeAccount(a.id, '', networkId, true);
                             checkActiveWallet();
                           }, 100);
                         }
                       })
                       .catch(() => {
                         setTimeout(() => {
-                          this.removeAccount(a.id, '', true);
+                          this.removeAccount(a.id, '', networkId, true);
                           checkActiveWallet();
                         }, 100);
                       });
@@ -1120,6 +1120,7 @@ class Engine {
   async removeAccount(
     accountId: string,
     password: string,
+    networkId: string,
     skipPasswordCheck?: boolean,
   ): Promise<void> {
     // Remove an account. Raise an error if account doesn't exist or password is wrong.
@@ -1130,7 +1131,7 @@ class Engine {
     ]);
     let rollbackNextAccountIds: Record<string, number> = {};
 
-    if (dbAccount.coinType === COINTYPE_BTC && dbAccount.path.length > 0) {
+    if (dbAccount.type === AccountType.UTXO && dbAccount.path.length > 0) {
       const components = dbAccount.path.split('/');
       const index = parseInt(components[3].slice(0, -1)); // remove the "'" suffix
       const template = dbAccount.template ?? '';
@@ -1138,7 +1139,7 @@ class Engine {
         // Removing the last account, may need to roll back next account id.
         rollbackNextAccountIds = { [template]: index };
         try {
-          const vault = await this.getChainOnlyVault('btc--0');
+          const vault = await this.getChainOnlyVault(networkId);
           const accountUsed = await vault.checkAccountExistence(
             (dbAccount as DBUTXOAccount).xpub,
           );

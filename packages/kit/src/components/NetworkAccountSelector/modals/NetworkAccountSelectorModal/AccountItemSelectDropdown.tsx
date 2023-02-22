@@ -126,6 +126,7 @@ function AccountItemSelectDropdown({
           goToRemoveAccount({
             wallet,
             accountId: account.id,
+            networkId: network?.id ?? '',
             callback: () =>
               refreshAccounts(wallet?.id ?? '', network?.id ?? ''),
           });

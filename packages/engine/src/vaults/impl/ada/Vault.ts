@@ -8,7 +8,10 @@ import memoizee from 'memoizee';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import { COINTYPE_ADA } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_ADA,
+  IMPL_ADA,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
@@ -18,7 +21,10 @@ import {
   OneKeyInternalError,
   PreviousAccountIsEmpty,
 } from '../../../errors';
-import { getLastAccountId } from '../../../managers/derivation';
+import {
+  getDefaultPurpose,
+  getLastAccountId,
+} from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import {
@@ -827,5 +833,29 @@ export default class Vault extends VaultBase {
       ...encodeTx,
       changeAddress,
     };
+  }
+
+  override async canAutoCreateNextAccount(password: string): Promise<boolean> {
+    const wallet = await this.engine.getWallet(this.walletId);
+    const accountInfos = await this.getAccountNameInfoMap();
+
+    if (wallet.type !== 'hd') return false;
+
+    const usedPurpose = getDefaultPurpose(IMPL_ADA);
+    const { template } = accountInfos.default;
+    const nextIndex = wallet.nextAccountIds[template] || 0;
+
+    const accounts = await this.keyring.prepareAccounts({
+      type: 'SEARCH_ACCOUNTS',
+      password,
+      indexes: [nextIndex],
+      purpose: usedPurpose,
+      coinType: COINTYPE_ADA,
+      template,
+    });
+    const accountUsed = await this.checkAccountExistence(
+      (accounts?.[0] as DBUTXOAccount).xpub,
+    );
+    return accountUsed;
   }
 }

@@ -33,6 +33,7 @@ import {
   PreviousAccountIsEmpty,
 } from '../../../errors';
 import {
+  getDefaultPurpose,
   getLastAccountId,
   getNextAccountId,
 } from '../../../managers/derivation';
@@ -724,5 +725,32 @@ export default class VaultBtcFork extends VaultBase {
 
   override getPrivateKeyByCredential(credential: string) {
     return bs58check.decode(credential);
+  }
+
+  override async canAutoCreateNextAccount(password: string): Promise<boolean> {
+    const [wallet, network] = await Promise.all([
+      this.engine.getWallet(this.walletId),
+      this.engine.getNetwork(this.networkId),
+    ]);
+    const accountInfos = await this.getAccountNameInfoMap();
+
+    if (wallet.type !== 'hd') return false;
+
+    const usedPurpose = getDefaultPurpose(network.impl);
+    const { template } = accountInfos.default;
+    const nextIndex = wallet.nextAccountIds[template] || 0;
+
+    const accounts = await this.keyring.prepareAccounts({
+      type: 'SEARCH_ACCOUNTS',
+      password,
+      indexes: [nextIndex],
+      purpose: usedPurpose,
+      coinType: COINTYPE_BTC,
+      template,
+    });
+    const accountUsed = await this.checkAccountExistence(
+      (accounts?.[0] as DBUTXOAccount).xpub,
+    );
+    return accountUsed;
   }
 }

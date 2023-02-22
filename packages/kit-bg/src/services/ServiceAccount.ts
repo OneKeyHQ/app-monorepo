@@ -1038,6 +1038,7 @@ class ServiceAccount extends ServiceBase {
     walletId: string,
     accountId: string,
     password: string | undefined,
+    networkId: string,
   ) {
     const {
       appSelector,
@@ -1056,7 +1057,7 @@ class ServiceAccount extends ServiceBase {
       });
     }
     const activeAccountId = appSelector((s) => s.general.activeAccountId);
-    await engine.removeAccount(accountId, password ?? '');
+    await engine.removeAccount(accountId, password ?? '', networkId);
     await simpleDb.walletConnect.removeAccount({ accountId });
     await engine.dbApi.removeAccountDerivationByAccountId({
       walletId,
