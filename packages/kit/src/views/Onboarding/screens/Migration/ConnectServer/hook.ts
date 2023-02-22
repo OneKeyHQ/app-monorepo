@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { isEmpty } from 'lodash';
 
+import type { MigrateData } from '@onekeyhq/engine/src/types/migrate';
 import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
@@ -40,12 +41,12 @@ export function useExportData() {
 
   const exportDataRequest: () => Promise<{
     status: ExportResult;
-    data?: { privateData: string; publicData: string };
+    data?: MigrateData;
   }> = useCallback(
     async () =>
       new Promise((resolve) => {
         serviceCloudBackup.getDataForBackup('').then((data) => {
-          if (isEmptyData(JSON.parse(data.publicData))) {
+          if (isEmptyData(JSON.parse(data.public))) {
             resolve({ status: ExportResult.EMPTY });
           } else {
             showVerify(

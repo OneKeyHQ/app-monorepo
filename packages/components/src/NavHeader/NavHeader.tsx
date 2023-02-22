@@ -12,9 +12,9 @@ import Box from '../Box';
 import HeaderBackButton from './HeaderBackButton';
 import HeaderTitle from './HeaderTitle';
 
-interface HeaderProps {
-  title?: string;
-  subtitle?: string;
+import type { HeaderTitleProps } from './HeaderTitle';
+
+interface HeaderProps extends HeaderTitleProps {
   headerTitle?: () => ReactNode;
   headerLeft?: () => ReactNode;
   headerRight?: () => ReactNode;
@@ -26,13 +26,12 @@ const defaultMobileHeight = 56;
 const defaultDesktopHeight = 64;
 
 const NavHeader: FC<HeaderProps> = ({
-  title,
-  subtitle,
   headerLeft,
   headerRight,
   headerTitle,
   safeTop,
   enableBackButton = true,
+  ...headerTitleProps
 }) => {
   const insets = useSafeAreaInsets();
   const isVertical = useIsVerticalLayout();
@@ -41,9 +40,9 @@ const NavHeader: FC<HeaderProps> = ({
 
   const titleComponent = headerTitle ? (
     headerTitle()
-  ) : title ? (
-    <HeaderTitle title={title} subtitle={subtitle} />
-  ) : null;
+  ) : (
+    <HeaderTitle {...headerTitleProps} />
+  );
 
   return (
     <View

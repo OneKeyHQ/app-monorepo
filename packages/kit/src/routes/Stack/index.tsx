@@ -89,9 +89,6 @@ const TransactionHistory = createLazyComponent(
 const UpdateAlert = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/Update/Alert'),
 );
-const Webview = createLazyComponent(
-  () => import('@onekeyhq/kit/src/views/Webview'),
-);
 
 const NFTMarketCollectionScreen = createLazyComponent(
   () => import('../../views/NFTMarket/CollectionDetail'),
@@ -151,10 +148,6 @@ export const stackScreenList = [
     name: HomeRoutes.ScreenTokenDetail,
     component: TokenDetail,
     alwaysShowBackButton: true,
-  },
-  {
-    name: HomeRoutes.SettingsWebviewScreen,
-    component: Webview,
   },
   {
     name: HomeRoutes.ScreenOnekeyLiteDetail,

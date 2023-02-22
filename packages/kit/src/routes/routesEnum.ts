@@ -72,7 +72,6 @@ export enum HomeRoutes {
   FullTokenListScreen = 'FullTokenListScreen',
   ScreenTokenDetail = 'TokenDetailScreen',
   DebugScreen = 'Debug',
-  SettingsWebviewScreen = 'SettingsWebviewScreen',
   ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
   ExploreScreen = 'ExploreScreen',
   DAppListScreen = 'DAppListScreen',

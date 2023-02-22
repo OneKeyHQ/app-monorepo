@@ -5,7 +5,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { getAppNavigation } from '../hooks/useAppNavigation';
-import { WebviewRoutesModalRoutes } from '../routes/Modal/WebView';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../routes/routesEnum';
 import { setIncomingUrl } from '../store/reducers/webTabs';
 
@@ -21,12 +20,9 @@ export const openUrlByWebview = (
   navigation.navigate(RootRoutes.Modal, {
     screen: ModalRoutes.Webview,
     params: {
-      screen: WebviewRoutesModalRoutes.WebviewModal,
-      params: {
-        url,
-        title,
-        modalMode: options?.modalMode,
-      },
+      url,
+      title,
+      modalMode: options?.modalMode ?? true,
     },
   });
 };
