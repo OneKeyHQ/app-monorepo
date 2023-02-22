@@ -12,6 +12,8 @@ const settings: IVaultSettings = Object.freeze({
   watchingAccountEnabled: false,
 
   isUTXOModel: false,
+
+  accountNameInfo: {},
 });
 
 export default settings;
