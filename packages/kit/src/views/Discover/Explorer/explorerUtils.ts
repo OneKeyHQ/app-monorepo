@@ -146,9 +146,9 @@ export function crossWebviewLoadUrl({
     (wrapperRef?.innerRef as WebView)?.loadUrl(url);
   }
 }
-const getCurrentWebviewRef = () =>
+const getCurrentWebviewRef = (id?: string) =>
   getWebviewWrapperRef({
-    tabId: appSelector((s) => s.webTabs.currentTabId),
+    tabId: id || appSelector((s) => s.webTabs.currentTabId),
   });
 
 const injectToPauseWebsocket = () => {
@@ -175,8 +175,8 @@ const injectToResumeWebsocket = () => {
   }
 };
 
-export function pauseDappInteraction() {
-  const ref = getCurrentWebviewRef();
+export function pauseDappInteraction(id?: string) {
+  const ref = getCurrentWebviewRef(id);
   if (ref) {
     // pause jsbridge interaction
     if (ref.jsBridge) {
@@ -203,8 +203,8 @@ export function pauseDappInteraction() {
   }
 }
 
-export function resumeDappInteraction() {
-  const ref = getCurrentWebviewRef();
+export function resumeDappInteraction(id?: string) {
+  const ref = getCurrentWebviewRef(id);
   if (ref) {
     // resume jsbridge interaction
     if (ref.jsBridge) {
