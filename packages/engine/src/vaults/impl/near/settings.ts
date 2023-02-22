@@ -1,3 +1,8 @@
+import {
+  COINTYPE_NEAR,
+  INDEX_PLACEHOLDER,
+} from '@onekeyhq/shared/src/engine/engineConsts';
+
 import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = Object.freeze({
@@ -12,6 +17,15 @@ const settings: IVaultSettings = Object.freeze({
   watchingAccountEnabled: true,
 
   isUTXOModel: false,
+
+  accountNameInfo: {
+    default: {
+      prefix: 'NEAR',
+      category: `44'/${COINTYPE_NEAR}'`,
+      template: `m/44'/${COINTYPE_NEAR}'/${INDEX_PLACEHOLDER}'`,
+      coinType: COINTYPE_NEAR,
+    },
+  },
 });
 
 export default settings;

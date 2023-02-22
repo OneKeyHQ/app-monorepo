@@ -4,7 +4,7 @@ import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import type { Engine } from '../index';
-import type { EIP1559Fee } from '../types/network';
+import type { AccountNameInfo, EIP1559Fee } from '../types/network';
 import type { NFTAsset } from '../types/nft';
 import type { Token } from '../types/token';
 import type {
@@ -42,6 +42,7 @@ export type IVaultSubNetworkSettings = {
   isIntegerGasPrice?: boolean;
 };
 export type IVaultSettings = {
+  accountNameInfo: Record<string, AccountNameInfo>;
   feeInfoEditable: boolean;
   privateKeyExportEnabled: boolean;
   tokenEnabled: boolean;

@@ -1,3 +1,8 @@
+import {
+  COINTYPE_COSMOS,
+  INDEX_PLACEHOLDER,
+} from '@onekeyhq/shared/src/engine/engineConsts';
+
 import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = Object.freeze({
@@ -15,6 +20,15 @@ const settings: IVaultSettings = Object.freeze({
   isUTXOModel: false,
 
   minTransferAmount: '0.0000001',
+
+  accountNameInfo: {
+    default: {
+      prefix: 'COSMOS',
+      category: `44'/${COINTYPE_COSMOS}'`,
+      template: `m/44'/${COINTYPE_COSMOS}'/${INDEX_PLACEHOLDER}'/0/0`,
+      coinType: COINTYPE_COSMOS,
+    },
+  },
 });
 
 export default settings;
