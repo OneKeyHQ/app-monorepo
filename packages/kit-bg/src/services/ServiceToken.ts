@@ -673,26 +673,4 @@ export default class ServiceToken extends ServiceBase {
 
     return vault.getMinDepositAmount();
   }
-
-  @backgroundMethod()
-  async fetchFiatPayTokens({
-    networkId,
-    type,
-  }: {
-    type: FiatPayModeType;
-    networkId: string;
-  }) {
-    const { engine } = this.backgroundApi;
-    const tokens = await engine.getTokens(networkId);
-    // if (type === 'buy') {
-    //   return tokens.filter((t) => {
-    //     const { onramperId } = t;
-    //     return typeof onramperId === 'string' && onramperId.length > 0;
-    //   });
-    // }
-    return tokens.filter((t) => {
-      const { moonpayId } = t;
-      return typeof moonpayId === 'string' && moonpayId.length > 0;
-    });
-  }
 }

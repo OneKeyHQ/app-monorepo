@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -54,51 +54,40 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
     balance: '0',
   };
 
-  const buyEnable = !!(token?.moonpayId && token?.moonpayId?.length > 0);
-  const sellEnable = !!(token?.moonpayId && token?.moonpayId?.length > 0);
-
-  const buyAction = useCallback(
-    async (t: TokenDO) => {
-      const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
+  const [buyUrl, updateBuyUrl] = useState('');
+  const [sellUrl, updateSellUrl] = useState('');
+  useEffect(() => {
+    backgroundApiProxy.serviceFiatPay
+      .getFiatPayUrl({
         type: 'buy',
         address: account?.address,
-        cryptoCode: t.moonpayId,
-      });
-      if (signedUrl) {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.FiatPay,
-          params: {
-            screen: FiatPayRoutes.MoonpayWebViewModal,
-            params: {
-              url: signedUrl,
-            },
-          },
-        });
-      }
-    },
-    [account?.address, navigation],
-  );
-
-  const sellAction = useCallback(
-    async (t: TokenDO) => {
-      const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
+        tokenAddress: token?.address,
+        networkId: token?.networkId,
+      })
+      .then((url) => updateBuyUrl(url));
+    backgroundApiProxy.serviceFiatPay
+      .getFiatPayUrl({
         type: 'sell',
-        address: account?.id,
-        cryptoCode: t.moonpayId,
-      });
-      if (signedUrl) {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.FiatPay,
+        address: account?.address,
+        tokenAddress: token?.address,
+        networkId: token?.networkId,
+      })
+      .then((url) => updateSellUrl(url));
+  }, [account?.address, token?.address, token?.networkId, updateBuyUrl]);
+
+  const goToWebView = useCallback(
+    (signedUrl: string) => {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.FiatPay,
+        params: {
+          screen: FiatPayRoutes.MoonpayWebViewModal,
           params: {
-            screen: FiatPayRoutes.MoonpayWebViewModal,
-            params: {
-              url: signedUrl,
-            },
+            url: signedUrl,
           },
-        });
-      }
+        },
+      });
     },
-    [account?.id, navigation],
+    [navigation],
   );
 
   const renderAccountAmountInfo = useMemo(
@@ -263,7 +252,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
         </Box>
         {isVertical ? null : (
           <>
-            {buyEnable && (
+            {buyUrl.length > 0 && (
               <Box flex={1} mx={3} minW="56px" alignItems="center">
                 <IconButton
                   circle
@@ -272,7 +261,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
                   type="basic"
                   isDisabled={wallet?.type === 'watching'}
                   onPress={() => {
-                    buyAction(token);
+                    goToWebView(buyUrl);
                   }}
                 />
                 <Typography.CaptionStrong
@@ -288,7 +277,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
                 </Typography.CaptionStrong>
               </Box>
             )}
-            {sellEnable && (
+            {sellUrl.length > 0 && (
               <Box flex={1} mx={3} minW="56px" alignItems="center">
                 <IconButton
                   circle
@@ -297,7 +286,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
                   type="basic"
                   isDisabled={wallet?.type === 'watching'}
                   onPress={() => {
-                    sellAction(token);
+                    goToWebView(sellUrl);
                   }}
                 />
                 <Typography.CaptionStrong
@@ -349,16 +338,15 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
       isVertical,
       wallet?.type,
       intl,
-      buyEnable,
-      sellEnable,
+      buyUrl,
+      sellUrl,
       priceReady,
       navigation,
       accountId,
       networkId,
       token,
       sendAddress,
-      buyAction,
-      sellAction,
+      goToWebView,
     ],
   );
 
