@@ -32,7 +32,7 @@ import { VaultContext } from './VaultContext';
 
 import type { Account, DBAccount } from '../types/account';
 import type { HistoryEntry, HistoryEntryStatus } from '../types/history';
-import type { AccountNameInfo } from '../types/network';
+import type { AccountNameInfo, Network } from '../types/network';
 import type { WalletType } from '../types/wallet';
 import type { ethers } from './impl/evm/sdk/ethers';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
@@ -193,6 +193,34 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
   async canAutoCreateNextAccount(password: string): Promise<boolean> {
     return Promise.resolve(true);
+  }
+
+  async filterAccounts({
+    accounts,
+    networkId,
+  }: {
+    accounts: DBAccount[];
+    networkId: string;
+  }): Promise<DBAccount[]> {
+    return Promise.resolve(accounts);
+  }
+
+  async shouldChangeAccountWhenNetworkChanged({
+    previousNetwork,
+    newNetwork,
+    activeAccountId,
+  }: {
+    previousNetwork: Network | undefined;
+    newNetwork: Network | undefined;
+    activeAccountId: string | null;
+  }): Promise<{
+    shouldReloadAccountList: boolean;
+    shouldChangeActiveAccount: boolean;
+  }> {
+    return Promise.resolve({
+      shouldReloadAccountList: false,
+      shouldChangeActiveAccount: false,
+    });
   }
 }
 

@@ -704,7 +704,11 @@ class Engine {
       }, 3000);
     };
 
-    const accounts = await this.dbApi.getAccounts(accountIds);
+    let accounts = await this.dbApi.getAccounts(accountIds);
+    if (networkId) {
+      const vault = await this.getChainOnlyVault(networkId);
+      accounts = await vault.filterAccounts({ accounts, networkId });
+    }
     const outputAccounts = await Promise.all(
       accounts
         .filter(

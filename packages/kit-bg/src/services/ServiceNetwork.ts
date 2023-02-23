@@ -68,7 +68,9 @@ class ServiceNetwork extends ServiceBase {
     networkId: NonNullable<GeneralInitialState['activeNetworkId']>,
   ) {
     const { appSelector, serviceAccount } = this.backgroundApi;
-    const { activeWalletId, activeNetworkId } = appSelector((s) => s.general);
+    const { activeWalletId, activeNetworkId, activeAccountId } = appSelector(
+      (s) => s.general,
+    );
     const networks: Network[] = appSelector((s) => s.runtime.networks);
     const previousNetwork = networks.find(
       (network) => network.id === activeNetworkId,
@@ -98,8 +100,14 @@ class ServiceNetwork extends ServiceBase {
     const chainIdChange = previousNetwork?.symbol !== newNetwork?.symbol;
     const forceRefreshAccount =
       chainIdChange && serviceAccount.shouldForceRefreshAccount(newNetwork?.id);
+    const { shouldChangeActiveAccount, shouldReloadAccountList } =
+      await serviceAccount.shouldChangeAccountWhenNetworkChanged({
+        previousNetwork,
+        newNetwork,
+        activeAccountId,
+      });
 
-    if (implChange || forceRefreshAccount) {
+    if (implChange || forceRefreshAccount || shouldChangeActiveAccount) {
       // 当切换了不同 impl 类型的链时更新 accounts 内容
       // 有一些特殊的链比如 Cosmos，如果 chainId 改变了，需要更新 accounts 内容
       const accounts = await serviceAccount.reloadAccountsByWalletIdNetworkId(
@@ -118,6 +126,12 @@ class ServiceNetwork extends ServiceBase {
         });
         shouldDispatch = false;
       }
+    }
+    if (shouldReloadAccountList) {
+      await serviceAccount.reloadAccountsByWalletIdNetworkId(
+        activeWalletId,
+        networkId,
+      );
     }
     if (shouldDispatch) {
       this.backgroundApi.dispatch(...changeActiveNetworkActions);
