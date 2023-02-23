@@ -8,6 +8,7 @@ import {
   COINTYPE_COSMOS,
   COINTYPE_DOGE,
   COINTYPE_DOT,
+  COINTYPE_ETC,
   COINTYPE_ETH,
   COINTYPE_FIL,
   COINTYPE_LTC,
@@ -77,6 +78,7 @@ const derivationPathTemplates: Record<string, string> = {
   // see https://aptos.dev/guides/building-your-own-wallet#supporting-1-mnemonic---n-account-wallets
   [COINTYPE_APTOS]: `m/44'/${COINTYPE_APTOS}'/${INCREMENT_LEVEL_TAG}'/0'/0'`,
   [COINTYPE_ETH]: `m/44'/${COINTYPE_ETH}'/0'/0/${INCREMENT_LEVEL_TAG}`,
+  [COINTYPE_ETC]: `m/44'/${COINTYPE_ETC}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_NEAR]: `m/44'/${COINTYPE_NEAR}'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_SOL]: `m/44'/${COINTYPE_SOL}'/${INCREMENT_LEVEL_TAG}'/0'`,
   [COINTYPE_STC]: `m/44'/${COINTYPE_STC}'/0'/0'/${INCREMENT_LEVEL_TAG}'`,

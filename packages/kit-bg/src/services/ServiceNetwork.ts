@@ -127,6 +127,7 @@ class ServiceNetwork extends ServiceBase {
         shouldDispatch = false;
       }
     }
+    // Refresh the list of accounts only, without switching activeAccount
     if (shouldReloadAccountList) {
       await serviceAccount.reloadAccountsByWalletIdNetworkId(
         activeWalletId,
