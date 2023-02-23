@@ -184,7 +184,7 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
       .finally(() => {
         setIsLoading(false);
       });
-  }, [derivationOptions, walletId, networkId]);
+  }, [derivationOptions, walletId, networkId, type]);
 
   const validOptions = useMemo(
     () => verifiedOptions.filter((o) => o.canCreateNextAccount),

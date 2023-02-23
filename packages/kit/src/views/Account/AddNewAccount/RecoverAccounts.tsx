@@ -25,7 +25,7 @@ import {
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { isBtcLikeImpl, isUTXOImpl } from '@onekeyhq/engine/src/managers/impl';
+import { isBtcLikeImpl } from '@onekeyhq/engine/src/managers/impl';
 import type {
   Account,
   ImportableHDAccount,

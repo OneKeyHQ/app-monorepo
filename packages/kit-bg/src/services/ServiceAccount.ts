@@ -48,7 +48,6 @@ import {
   IMPL_CFX,
   IMPL_COSMOS,
   IMPL_DOT,
-  IMPL_EVM,
   IMPL_FIL,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isHardwareWallet } from '@onekeyhq/shared/src/engine/engineUtils';
