@@ -18,6 +18,7 @@ import {
   InitIframeLoadFail,
   InitIframeTimeout,
 } from '@onekeyhq/kit/src/utils/hardware/errors';
+import { wait } from '@onekeyhq/kit/src/utils/helper';
 import type {
   BLEFirmwareInfo,
   SYSFirmwareInfo,
@@ -48,7 +49,9 @@ import type {
   IDeviceType,
   KnownDevice,
   ReleaseInfoEvent,
+  Success,
   UiResponseEvent,
+  Unsuccessful,
 } from '@onekeyfe/hd-core';
 
 type ConnectedEvent = { device: KnownDevice };
@@ -325,7 +328,11 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async autoUpdateFirmware(connectId: string, firmwareType: FirmwareType) {
+  async autoUpdateFirmware(
+    connectId: string,
+    firmwareType: FirmwareType,
+    deviceType: IDeviceType | undefined,
+  ) {
     const { dispatch } = this.backgroundApi;
     dispatch(setUpdateFirmwareStep(''));
 
@@ -344,16 +351,51 @@ class ServiceHardware extends ServiceBase {
     const forcedUpdateRes = enable && updateDeviceRes;
     const version = settings.deviceUpdates?.[connectId][firmwareType]?.version;
 
-    return hardwareSDK
-      .firmwareUpdateV2(connectId, {
+    try {
+      const response = await hardwareSDK.firmwareUpdateV2(connectId, {
         updateType: firmwareType,
         forcedUpdateRes,
         version,
         platform: platformEnv.symbol ?? 'web',
-      })
-      .finally(() => {
-        hardwareSDK.off('ui-firmware-tip', listener);
       });
+
+      // update bootloader
+      if (deviceType === 'touch' && response.success) {
+        const updateBootRes = await this.updateBootloader(connectId);
+        if (!updateBootRes.success) return updateBootRes;
+      }
+
+      return response;
+    } finally {
+      hardwareSDK.off('ui-firmware-tip', listener);
+    }
+  }
+
+  updateBootloader(
+    connectId: string,
+  ): Promise<Unsuccessful | Success<Success<boolean>>> {
+    const DISCONNECT_ERROR = 'Request failed with status code';
+    return new Promise((resolve, reject) => {
+      let tryCount = 0;
+      const excute = async () => {
+        const hardwareSDK = await this.getSDKInstance();
+        const res = await hardwareSDK.deviceUpdateBootloader(connectId);
+        if (!res.success) {
+          if (res.payload.error.indexOf(DISCONNECT_ERROR) && tryCount < 3) {
+            await wait(5000);
+            tryCount += 1;
+            await excute();
+          } else {
+            reject(res);
+          }
+          return;
+        }
+
+        // TODO: should fix type to Success<boolean>
+        resolve(res as unknown as Success<Success<boolean>>);
+      };
+      excute();
+    });
   }
 
   /**
