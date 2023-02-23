@@ -110,9 +110,6 @@ export default class ServiceDerivationPath extends ServiceBase {
         usedTemplate,
       );
       addedAccount = account?.[0];
-    } catch (e) {
-      console.log(e);
-      //
     } finally {
       serviceAccountSelector.preloadingCreateAccountDone({
         walletId,
