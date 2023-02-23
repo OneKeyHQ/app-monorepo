@@ -158,15 +158,19 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
   useEffect(() => {
     const promises = derivationOptions.map(async (option) => {
       let canCreateNextAccount = false;
-      try {
-        await backgroundApiProxy.validator.validateCanCreateNextAccount(
-          walletId,
-          networkId ?? '',
-          option.template,
-        );
+      if (type === 'create') {
+        try {
+          await backgroundApiProxy.validator.validateCanCreateNextAccount(
+            walletId,
+            networkId ?? '',
+            option.template,
+          );
+          canCreateNextAccount = true;
+        } catch (e) {
+          canCreateNextAccount = false;
+        }
+      } else {
         canCreateNextAccount = true;
-      } catch (e) {
-        canCreateNextAccount = false;
       }
 
       return { ...option, canCreateNextAccount };
