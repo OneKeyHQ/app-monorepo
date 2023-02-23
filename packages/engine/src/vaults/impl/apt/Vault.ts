@@ -21,7 +21,6 @@ import { openDapp } from '@onekeyhq/kit/src/utils/openUrl';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
-  InvalidAccount,
   InvalidAddress,
   InvalidTokenAddress,
   NotImplemented,
@@ -355,10 +354,11 @@ export default class Vault extends VaultBase {
     }
     let action: IDecodedTxAction | null = null;
     const actionType = getTransactionTypeByPayload({
-      type,
+      type: type ?? 'entry_function_payload',
       function_name: fun,
       type_arguments,
     });
+
     if (
       actionType === IDecodedTxActionType.NATIVE_TRANSFER ||
       actionType === IDecodedTxActionType.TOKEN_TRANSFER
@@ -904,6 +904,17 @@ export default class Vault extends VaultBase {
               tokenAddress: coinType,
 
               extraInfo: null,
+            },
+          };
+        } else if (actionType === IDecodedTxActionType.FUNCTION_CALL) {
+          action = {
+            type: IDecodedTxActionType.FUNCTION_CALL,
+            direction: IDecodedTxDirection.OTHER,
+            functionCall: {
+              target: from,
+              functionName: func ?? '',
+              args,
+              extraInfo: {},
             },
           };
         }
