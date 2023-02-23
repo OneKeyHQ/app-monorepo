@@ -249,6 +249,10 @@ function migrateNextAccountIds(nextAccountIds: Record<string, number>) {
   return newNextAccountIds;
 }
 
+function isBtcLikeImpl(impl: string): boolean {
+  return [IMPL_BTC, IMPL_TBTC, IMPL_LTC, IMPL_BCH, IMPL_DOGE].includes(impl);
+}
+
 export {
   implToCoinTypes,
   implToAccountType,
@@ -264,4 +268,5 @@ export {
   getImplByCoinType,
   convertCategoryToTemplate,
   migrateNextAccountIds,
+  isBtcLikeImpl,
 };

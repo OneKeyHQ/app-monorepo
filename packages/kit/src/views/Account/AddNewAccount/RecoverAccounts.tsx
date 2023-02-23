@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { isBtcLikeImpl, isUTXOImpl } from '@onekeyhq/engine/src/managers/impl';
 import type {
   Account,
   ImportableHDAccount,
@@ -103,6 +104,13 @@ const AccountCell: FC<CellProps> = ({
     onChange?.(!isChecked);
   }, [isChecked, state?.isDisabled, onChange]);
 
+  const displayPath = useMemo(() => {
+    if (isBtcLikeImpl(network.impl)) {
+      return `${item.path}/0/0`;
+    }
+    return item.path;
+  }, [network, item]);
+
   return (
     <ListItem onPress={onToggle} flex={1}>
       <ListItem.Column>
@@ -138,7 +146,7 @@ const AccountCell: FC<CellProps> = ({
         text={{
           label: shortenAddress(item.displayAddress),
           labelProps: { w: '120px' },
-          description: showPathAndLink ? item.path : undefined,
+          description: showPathAndLink ? displayPath : undefined,
           descriptionProps: { typography: 'Caption', w: '132px' },
           size: 'sm',
         }}
@@ -491,7 +499,6 @@ const RecoverAccounts: FC = () => {
     if (!depDataInit) return;
     if (isLoading && !isSwitchingDerivationPath.current) return;
 
-    console.log('search account =========>');
     isFetchingData.current = true;
     if (!isSwitchingDerivationPath.current) {
       setLoading(true);
