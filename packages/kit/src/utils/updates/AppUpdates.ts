@@ -112,6 +112,13 @@ class AppUpdates {
         );
       }
     }
+
+    if (platformEnv.isExtChrome) {
+      packageInfo = releasePackages?.extension?.find((x) => x.os === 'chrome');
+    }
+    if (platformEnv.isExtFirefox) {
+      packageInfo = releasePackages?.extension?.find((x) => x.os === 'firefox');
+    }
     return packageInfo;
   }
 
