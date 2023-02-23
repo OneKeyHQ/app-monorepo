@@ -11,6 +11,7 @@ import {
   Icon,
   KeyboardDismissView,
   List,
+  ListItem,
   Modal,
   Pressable,
   Searchbar,
@@ -182,6 +183,7 @@ export const SupportTokenList: FC = () => {
     () => (
       <KeyboardDismissView>
         <Empty
+          flex={1}
           title={intl.formatMessage({
             id:
               type === 'buy'
@@ -191,7 +193,7 @@ export const SupportTokenList: FC = () => {
           subTitle={intl.formatMessage({
             id: 'empty__no_purchasable_tokens_desc',
           })}
-          icon="DatabaseMini"
+          emoji="🥺"
         />
       </KeyboardDismissView>
     ),
@@ -226,7 +228,32 @@ export const SupportTokenList: FC = () => {
       />
       {loading ? (
         // TODO:Skeleton list
-        <Box />
+        <List
+          data={[1, 2, 3, 4, 5]}
+          renderItem={() => (
+            <ListItem>
+              <ListItem.Column>
+                <Skeleton shape="Avatar" />
+              </ListItem.Column>
+              <ListItem.Column
+                flex={1}
+                text={{
+                  label: <Skeleton shape="Body1" />,
+                }}
+              />
+              <ListItem.Column>
+                <Skeleton shape="Body1" />
+              </ListItem.Column>
+              <ListItem.Column
+                icon={{
+                  name: 'ChevronRightMini',
+                  size: 20,
+                  color: 'icon-disabled',
+                }}
+              />
+            </ListItem>
+          )}
+        />
       ) : (
         <List
           data={flatListData}
@@ -236,7 +263,6 @@ export const SupportTokenList: FC = () => {
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
           ListEmptyComponent={emptyComponent}
-          showDivider
         />
       )}
     </Modal>
