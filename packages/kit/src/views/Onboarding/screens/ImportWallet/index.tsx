@@ -16,6 +16,7 @@ import {
   ModalRoutes,
   RootRoutes,
 } from '../../../../routes/routesEnum';
+import { KeyTagRoutes } from '../../../KeyTag/Routes/enums';
 import Layout from '../../Layout';
 import { useOnboardingContext } from '../../OnboardingContext';
 import { EOnboardingRoutes } from '../../routes/enums';
@@ -32,7 +33,6 @@ import {
 import type { IOnboardingRoutesParams } from '../../routes/types';
 import type { RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { KeyTagRoutes } from '../../../KeyTag/Routes/enums';
 
 type RouteProps = RouteProp<
   IOnboardingRoutesParams,
