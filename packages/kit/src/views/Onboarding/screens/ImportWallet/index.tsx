@@ -32,6 +32,7 @@ import {
 import type { IOnboardingRoutesParams } from '../../routes/types';
 import type { RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
+import { KeyTagRoutes } from '../../../KeyTag/Routes/enums';
 
 type RouteProps = RouteProp<
   IOnboardingRoutesParams,
@@ -93,7 +94,9 @@ const ImportWallet = () => {
   }, [appNavigation, forceVisibleUnfocused]);
 
   const onPressKeyTag = useCallback(() => {
-    navigation.navigate(EOnboardingRoutes.KeyTag);
+    navigation.navigate(EOnboardingRoutes.KeyTag, {
+      screen: KeyTagRoutes.ImportKeytag,
+    });
   }, [navigation]);
 
   const onPressRestoreFromCloud = useCallback(() => {
