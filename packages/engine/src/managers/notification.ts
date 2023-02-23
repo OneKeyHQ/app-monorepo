@@ -31,6 +31,8 @@ export type NotificationExtra = {
   // for launchNotification
   _j_msgid?: string;
   aps?: { title: string; body: string };
+  // notification image for web
+  image?: string;
 };
 
 export type NotificationType = {

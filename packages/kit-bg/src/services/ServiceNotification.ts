@@ -420,9 +420,10 @@ export default class ServiceNotification extends ServiceBase {
           ...pick(params, 'title', 'content', 'extras'),
           notificationEventType: 'notificationArrived',
         });
+        const image = params.extras?.image;
         const n = new Notification(params.title, {
           body: params.content,
-          icon: platformEnv.isDesktopMac ? undefined : logo,
+          icon: image,
         });
         n.onclick = () => {
           this.handleNotificationCallback({
