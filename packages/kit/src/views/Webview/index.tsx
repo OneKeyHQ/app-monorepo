@@ -126,7 +126,7 @@ export const SettingsWebViews: FC = () => {
                 )}
               />
             )}
-            title={title}
+            titleString={title}
           />
         </Box>
       ),
