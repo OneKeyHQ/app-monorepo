@@ -5,14 +5,14 @@ import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
 const NavHeaderGallery = () => (
   <Box p="20px">
     <Box bg="surface-selected">
-      <NavHeader title="Title" safeTop={0} />
+      <NavHeader titleString="Title" safeTop={0} />
     </Box>
     <Box h="20px" />
     <Box bg="surface-selected">
       <NavHeader
         safeTop={0}
-        title="TitleWithOutBackButton"
-        subtitle="subtitle"
+        titleString="TitleWithoutBackButton"
+        subtitleString="subtitle"
         enableBackButton={false}
       />
     </Box>
@@ -20,8 +20,8 @@ const NavHeaderGallery = () => (
     <Box bg="surface-selected">
       <NavHeader
         safeTop={0}
-        title="Title"
-        subtitle="subtitle"
+        titleString="Title"
+        subtitleString="subtitle"
         headerRight={() => (
           <IconButton
             name="EllipsisVerticalOutline"

@@ -18,7 +18,6 @@ import { MigrateErrorCode } from '@onekeyhq/engine/src/types/migrate';
 import {
   deviceInfo,
   generatePassword,
-  parseCloudData,
   randomString,
   shuffle,
 } from '@onekeyhq/kit/src/views/Onboarding/screens/Migration/util';
@@ -417,7 +416,7 @@ class ServiceMigrate extends ServiceBase {
       );
       if (typeof decryptData === 'string') {
         try {
-          return parseCloudData(JSON.parse(decryptData)) as MigrateData;
+          return JSON.parse(decryptData) as MigrateData;
         } catch {
           debugLogger.migrate.error('parse decryptData error');
         }
@@ -521,7 +520,7 @@ class ServiceMigrate extends ServiceBase {
         } else {
           this.clearMigrateInfo();
           failResponse(
-            'Get client public key',
+            'Get client public pey',
             MigrateErrorCode.PublicKeyError,
           );
         }
