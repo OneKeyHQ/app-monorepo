@@ -15,6 +15,7 @@ export type IDistributionChannel =
   | 'native-ios-store'
   | 'native-android'
   | 'native-android-google'
+  | 'native-android-huawei'
   | 'native-ios-pad'
   | 'native-ios-pad-store';
 
@@ -69,6 +70,7 @@ export type IPlatformEnv = {
   isNativeIOSPadStore?: boolean;
   isNativeAndroid?: boolean;
   isNativeAndroidGooglePlay?: boolean;
+  isNativeAndroidHuawei?: boolean;
 
   symbol: IPlatform | undefined;
   distributionChannel: IDistributionChannel | undefined;
@@ -117,6 +119,8 @@ const isNativeIOSPadStore = isNativeIOSPad && isProduction;
 const isNativeAndroid = isNative && Platform.OS === 'android';
 const isNativeAndroidGooglePlay =
   isNativeAndroid && process.env.ANDROID_CHANNEL === 'google';
+const isNativeAndroidHuawei =
+  isNativeAndroid && process.env.ANDROID_CHANNEL === 'huawei';
 const isMas = isDesktop && window?.desktopApi?.isMas;
 
 // for platform building by file extension
@@ -142,6 +146,7 @@ const getDistributionChannel = (): IDistributionChannel | undefined => {
   if (isNativeIOSStore) return 'native-ios-store';
   if (isNativeIOS) return 'native-ios';
   if (isNativeAndroidGooglePlay) return 'native-android-google';
+  if (isNativeAndroidHuawei) return 'native-android-huawei';
   if (isNativeAndroid) return 'native-android';
 };
 
@@ -264,6 +269,7 @@ const platformEnv: IPlatformEnv = {
   isNativeIOSPadStore,
   isNativeAndroid,
   isNativeAndroidGooglePlay,
+  isNativeAndroidHuawei,
 
   symbol: getPlatformSymbol(),
   distributionChannel: getDistributionChannel(),
