@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 
-import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Platform } from 'react-native';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { Box, useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
+import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
 import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -17,14 +16,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorEffectsSingleton } from '../../components/NetworkAccountSelector/hooks/useAccountSelectorEffects';
 import { WalletSelectorEffectsSingleton } from '../../components/WalletSelector/hooks/useWalletSelectorEffects';
-import { useNavigationBack } from '../../hooks/useAppNavigation';
 import { createLazyComponent } from '../../utils/createLazyComponent';
 import { RouteKeytag } from '../../views/KeyTag/Routes/RouteKeytag';
 import { HomeRoutes } from '../types';
 
-import renderCustomSubStackHeader from './Header';
-
-import type { HomeRoutesParams } from '../types';
+import type { HomeRoutesParams, ScreensList } from '../types';
 
 const DAppList = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/Discover/DAppList'),
@@ -139,10 +135,11 @@ const BulkSender = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/BulkSender'),
 );
 
-export const stackScreenList = [
+export const stackScreenList: ScreensList<HomeRoutes> = [
   {
     name: HomeRoutes.FullTokenListScreen,
     component: FullTokenList,
+    title: 'asset__tokens',
   },
   {
     name: HomeRoutes.ScreenTokenDetail,
@@ -264,46 +261,41 @@ export const stackScreenList = [
 
 export const StackNavigator = createNativeStackNavigator<HomeRoutesParams>();
 
-const Dashboard = () => {
-  const goBack = useNavigationBack();
+const Dashboard = memo(() => {
   const isVerticalLayout = useIsVerticalLayout();
-  const [bgColor, textColor, borderBottomColor] = useThemeValue([
+  const [bgColor, borderBottomColor] = useThemeValue([
     'background-default',
-    'text-default',
     'border-subdued',
   ]);
-
-  const headerLeft = useCallback(
-    ({ tintColor }) => (
-      <NavigationHeaderBackButton
-        tintColor={tintColor}
-        onPress={goBack}
-        canGoBack
-      />
-    ),
-    [goBack],
-  );
 
   const stackScreens = useMemo(() => {
     if (!isVerticalLayout) {
       return null;
     }
 
-    return stackScreenList.map((stack) => (
+    return stackScreenList.map(({ name, component, ...stackOptions }) => (
       <StackNavigator.Screen
-        key={stack.name}
-        name={stack.name}
-        component={stack.component}
+        key={name}
+        name={name}
+        component={component}
         options={{
           animation: platformEnv.isNativeAndroid ? 'none' : 'default',
-          headerLeft:
-            platformEnv.isRuntimeBrowser && stack.alwaysShowBackButton
-              ? headerLeft
-              : undefined,
+          // eslint-disable-next-line react/no-unstable-nested-components
+          header: (props) => (
+            <NavHeader
+              style={{
+                backgroundColor: bgColor,
+                borderBottomWidth: 0,
+                shadowColor: borderBottomColor,
+              }}
+              {...props}
+              {...stackOptions}
+            />
+          ),
         }}
       />
     ));
-  }, [isVerticalLayout, headerLeft]);
+  }, [bgColor, borderBottomColor, isVerticalLayout]);
 
   return (
     <StackNavigator.Navigator>
@@ -332,32 +324,17 @@ const Dashboard = () => {
           }}
         />
       </StackNavigator.Group>
-      <StackNavigator.Group
-        screenOptions={{
-          headerBackTitle: '',
-          headerTitleAlign: 'center',
-          headerStyle: {
-            backgroundColor: bgColor,
-            // @ts-expect-error
-            borderBottomWidth: 0,
-            shadowColor: borderBottomColor,
-          },
-
-          header:
-            Platform.OS === 'ios' ? renderCustomSubStackHeader : undefined,
-          headerTintColor: textColor,
-        }}
-      >
-        {stackScreens}
-      </StackNavigator.Group>
+      <StackNavigator.Group>{stackScreens}</StackNavigator.Group>
     </StackNavigator.Navigator>
   );
-};
+});
+Dashboard.displayName = 'Dashboard';
 
 function MainScreen() {
   const { dispatch } = backgroundApiProxy;
 
-  const autoCheckUpdate = () => {
+  useEffect(() => {
+    appUpdates.addUpdaterListener();
     appUpdates
       .checkUpdate()
       ?.then((versionInfo) => {
@@ -365,16 +342,8 @@ function MainScreen() {
           dispatch(enable(), available(versionInfo));
         }
       })
-      .catch(() => {
-        // TODO sentry collect error
-      });
-  };
-
-  useEffect(() => {
-    appUpdates.addUpdaterListener();
-    autoCheckUpdate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      .catch();
+  }, [dispatch]);
 
   return (
     <RootSiblingParent>

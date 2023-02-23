@@ -36,7 +36,6 @@ const Header: FC<HeaderProps> = ({
   const PrimaryComponent = (
     <DesktopDragZoneBox>
       <NavHeader
-        enableBackButton={false}
         style={{ height: headerHeight }}
         headerLeft={headerLeft}
         headerRight={headerRight}

@@ -42,6 +42,7 @@ export const SettingsWebViews: FC = () => {
           borderBottomColor="divider"
         >
           <NavHeader
+            alwaysShowBackButton
             safeTop={modalMode ? 0 : undefined}
             headerRight={() => (
               <Select

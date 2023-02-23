@@ -5,7 +5,7 @@ import type { FC, ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useIsVerticalLayout } from '@onekeyhq/components';
+import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 
 import Box from '../Box';
 
@@ -13,13 +13,14 @@ import HeaderBackButton from './HeaderBackButton';
 import HeaderTitle from './HeaderTitle';
 
 import type { HeaderTitleProps } from './HeaderTitle';
+import type { NativeStackHeaderProps } from '@react-navigation/native-stack';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 interface HeaderProps extends HeaderTitleProps {
   headerTitle?: () => ReactNode;
   headerLeft?: () => ReactNode;
   headerRight?: () => ReactNode;
-  enableBackButton?: boolean;
+  alwaysShowBackButton?: boolean;
   safeTop?: number;
   style?: StyleProp<ViewStyle>;
 }
@@ -27,24 +28,39 @@ interface HeaderProps extends HeaderTitleProps {
 const defaultMobileHeight = 56;
 const defaultDesktopHeight = 64;
 
-const NavHeader: FC<HeaderProps> = ({
+const NavHeader: FC<HeaderProps & Partial<NativeStackHeaderProps>> = ({
   headerLeft,
   headerRight,
   headerTitle,
   safeTop,
-  enableBackButton = true,
+  alwaysShowBackButton,
   style,
+  navigation,
+  options = {},
+  route,
+  back,
   ...headerTitleProps
 }) => {
   const insets = useSafeAreaInsets();
   const isVertical = useIsVerticalLayout();
+  const bgColor = useThemeValue('background-default');
 
   const height = isVertical ? defaultMobileHeight : defaultDesktopHeight;
+  const hasLeft = Boolean(back || alwaysShowBackButton || headerLeft);
+  const { title, titleString, subtitle, subtitleString } =
+    options as unknown as HeaderTitleProps;
+  const mergedHeaderTitleProps = {
+    title,
+    titleString,
+    subtitle,
+    subtitleString,
+    ...headerTitleProps,
+  };
 
   const titleComponent = headerTitle ? (
     headerTitle()
   ) : (
-    <HeaderTitle inCenter={enableBackButton} {...headerTitleProps} />
+    <HeaderTitle inCenter={hasLeft} {...mergedHeaderTitleProps} />
   );
 
   return (
@@ -54,6 +70,7 @@ const NavHeader: FC<HeaderProps> = ({
         {
           height,
           marginTop: safeTop ?? insets.top,
+          backgroundColor: bgColor,
         },
         style,
       ]}
@@ -66,9 +83,9 @@ const NavHeader: FC<HeaderProps> = ({
           pointerEvents="box-none"
           style={[styles.left, { marginStart: insets.left }]}
         >
-          {enableBackButton && (
+          {(!!back || alwaysShowBackButton) && (
             <Box ml="-6px" mr="8px">
-              <HeaderBackButton />
+              <HeaderBackButton navigation={navigation} />
             </Box>
           )}
           {headerLeft?.()}
