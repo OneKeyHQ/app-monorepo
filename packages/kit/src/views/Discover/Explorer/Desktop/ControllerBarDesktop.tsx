@@ -46,7 +46,7 @@ const BrowserURLInput = forwardRef<TextInput, BrowserURLInputProps>(
         // @ts-expect-error
         ref={ref}
         value={value ?? innerValue}
-        leftIconName={customLeftIcon ?? 'SearchOutline'}
+        leftIconName={customLeftIcon ?? 'MagnifyingGlassMini'}
         // rightIconName={rightIconName}
         placeholder="Search..."
         autoCorrect={false}

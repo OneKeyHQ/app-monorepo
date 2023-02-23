@@ -3,22 +3,18 @@ import type { FC, ReactNode } from 'react';
 import { BlurView } from 'expo-blur';
 import { Platform } from 'react-native';
 
-import {
-  useIsVerticalLayout,
-  useSafeAreaInsets,
-  useTheme,
-  useThemeValue,
-  useUserDevice,
-} from '@onekeyhq/components';
+import { useIsVerticalLayout, useTheme } from '@onekeyhq/components';
 
-import Box from '../../Box';
 import DesktopDragZoneBox from '../../DesktopDragZoneBox';
-import HStack from '../../HStack';
+import NavHeader from '../../NavHeader/NavHeader';
+
+import type { MessageDescriptor } from 'react-intl';
 
 type HeaderProps = {
-  headerLeft: () => ReactNode;
+  headerLeft?: () => ReactNode;
   headerRight: () => ReactNode;
   showOnDesktop?: boolean;
+  title?: MessageDescriptor['id'];
 };
 
 const DEFAULT_HEADER_VERTICAL = 57;
@@ -28,57 +24,24 @@ const Header: FC<HeaderProps> = ({
   headerLeft,
   headerRight,
   showOnDesktop,
+  title,
 }) => {
-  const insets = useSafeAreaInsets();
-  const { size } = useUserDevice();
-  const isHorizontal = ['NORMAL', 'LARGE', 'XLARGE'].includes(size);
-
-  const headerHeight = isHorizontal
-    ? DEFAULT_HEADER_HORIZONTAL
-    : DEFAULT_HEADER_VERTICAL;
-
-  const headerLeftNode = headerLeft?.();
-  const { themeVariant } = useTheme();
-  const temporaryBg = useThemeValue('background-default');
   const isVerticalLayout = useIsVerticalLayout();
+
+  const headerHeight = isVerticalLayout
+    ? DEFAULT_HEADER_VERTICAL
+    : DEFAULT_HEADER_HORIZONTAL;
+  const { themeVariant } = useTheme();
 
   const PrimaryComponent = (
     <DesktopDragZoneBox>
-      <HStack
-        testID="AppLayoutGlobalNavigationHeader"
-        height={`${headerHeight + insets.top}px`}
-        pt={`${insets.top}px`}
-        alignItems="center"
-        justifyContent={isHorizontal ? 'flex-end' : 'space-between'}
-        px={{ base: 4, md: 8 }}
-        style={{ backgroundColor: temporaryBg }} // TODO remove this line after add ScrollUp event
-      >
-        {headerLeftNode ? (
-          <Box
-            flex={isHorizontal ? undefined : 1}
-            justifyContent="center"
-            h="full"
-            pl={{ md: 2 }}
-            pr={{ md: 4 }}
-            flexShrink={0}
-          >
-            {headerLeftNode}
-          </Box>
-        ) : null}
-
-        {/* {isHorizontal && (
-      <HStack alignItems="center" flex={1} pl={8}>
-        <Typography.Heading>Home</Typography.Heading>
-      </HStack>
-    )} */}
-        <HStack
-          flex={isHorizontal ? undefined : 1}
-          alignItems="center"
-          justifyContent="flex-end"
-        >
-          {headerRight()}
-        </HStack>
-      </HStack>
+      <NavHeader
+        enableBackButton={false}
+        style={{ height: headerHeight }}
+        headerLeft={headerLeft}
+        headerRight={headerRight}
+        title={title}
+      />
     </DesktopDragZoneBox>
   );
 

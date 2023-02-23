@@ -89,7 +89,9 @@ const App = () => {
 
   const modalScreenOptions = useMemo(
     () => ({
-      presentation: 'modal' as const,
+      presentation: platformEnv.isNative
+        ? ('modal' as const)
+        : ('transparentModal' as const),
       ...buildModalOpenAnimationOptions({ isVerticalLayout }),
     }),
     [isVerticalLayout],

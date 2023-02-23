@@ -8,7 +8,13 @@ import { useCheckUpdate } from '@onekeyhq/kit/src/hooks/useCheckUpdate';
 import HomeMoreMenu from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-export function LayoutHeaderDesktop() {
+import type { MessageDescriptor } from 'react-intl';
+
+export function LayoutHeaderDesktop({
+  title,
+}: {
+  title?: MessageDescriptor['id'];
+}) {
   const { showUpdateBadge } = useCheckUpdate();
 
   useEffect(() => {
@@ -54,7 +60,8 @@ export function LayoutHeaderDesktop() {
     <LayoutHeader
       showOnDesktop
       // headerLeft={() => <AccountSelector />}
-      headerLeft={() => null}
+      // headerLeft={() => null}
+      title={title}
       // headerRight={() => <ChainSelector />}
       // headerRight={() => <NetworkAccountSelectorTrigger />}
       headerRight={headerRight}
