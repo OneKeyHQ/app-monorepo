@@ -435,11 +435,8 @@ class ServiceHardware extends ServiceBase {
             resolve(res);
             return;
           }
-
-          // TODO: should fix type to Success<boolean>
-          resolve(res as unknown as Success<boolean>);
         }
-        excute();
+        resolve(res as unknown as Success<boolean>);
       };
 
       excute();
