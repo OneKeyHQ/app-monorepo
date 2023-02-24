@@ -16,7 +16,7 @@ import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../../hooks';
+import { useAppSelector, useNavigation } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { showOverlay } from '../../../utils/overlayUtils';
 import { DiscoverModalRoutes } from '../../Discover/type';
@@ -32,6 +32,7 @@ const DiscoverFavoriteMenu: FC<{
 }> = ({ closeOverlay, item }) => {
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
+  const bookmarks = useAppSelector((s) => s.discover.bookmarks);
 
   const navigation = useNavigation();
   const options: (
@@ -78,6 +79,29 @@ const DiscoverFavoriteMenu: FC<{
         icon: 'LinkOutline',
       },
       {
+        id: 'action__edit',
+        onPress: () => {
+          const url = item.dapp?.url ?? item.webSite?.url ?? '';
+          const bookmark = bookmarks?.find((o) => o.url === url);
+          if (!bookmark) {
+            ToastManager.show({
+              title: intl.formatMessage({ id: 'msg__engine__internal_error' }),
+            });
+            return;
+          }
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Discover,
+            params: {
+              screen: DiscoverModalRoutes.EditBookmark,
+              params: {
+                bookmark,
+              },
+            },
+          });
+        },
+        icon: 'PencilAltOutline',
+      },
+      {
         id: 'action__remove',
         onPress: () => {
           backgroundApiProxy.serviceDiscover.removeFavorite(item.id);
@@ -89,7 +113,7 @@ const DiscoverFavoriteMenu: FC<{
         isDanger: true,
       },
     ],
-    [item, intl, isVerticalLayout, navigation],
+    [item, intl, isVerticalLayout, navigation, bookmarks],
   );
   return (
     <Box bg="surface-subdued" flexDirection="column">

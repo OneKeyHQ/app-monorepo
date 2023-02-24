@@ -1,6 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 import type {
+  BookmarkItem,
   CatagoryType,
   DAppItemType,
   DiscoverHistory,
@@ -13,10 +14,11 @@ import type { PayloadAction } from '@reduxjs/toolkit';
 
 type InitialState = {
   dappHistory?: Record<string, HistoryItemData>;
-  dappFavorites?: string[];
-  userBrowserHistories?: UserBrowserHistory[];
 
+  userBrowserHistories?: UserBrowserHistory[];
+  bookmarks?: BookmarkItem[];
   // REMOVED
+  dappFavorites?: string[];
   dappItems?: DAppItemType[] | null;
   listedCategories?: { name: string; _id: string }[];
   listedTags?: { name: string; _id: string }[];
@@ -40,7 +42,6 @@ const initialState: InitialState = {
   history: {},
   firstRemindDAPP: true,
   dappHistory: {},
-  dappFavorites: [],
 };
 
 function getUrlHostName(urlStr: string | undefined): string | undefined {
@@ -196,55 +197,55 @@ export const discoverSlice = createSlice({
       state.dappHistory = {};
       state.userBrowserHistories = [];
     },
-    addFavorite(state, action: PayloadAction<string>) {
-      if (!state.dappFavorites) {
-        state.dappFavorites = [];
+    addBookmark(state, action: PayloadAction<BookmarkItem>) {
+      if (!state.bookmarks) {
+        state.bookmarks = [];
       }
-      if (state.dappFavorites.includes(action.payload)) {
+      const urls = state.bookmarks.map((item) => item.url);
+      if (urls.includes(action.payload.url)) {
         return;
       }
-      state.dappFavorites = [action.payload].concat(state.dappFavorites);
+      state.bookmarks = [action.payload].concat(state.bookmarks);
     },
-    removeFavorite(state, action: PayloadAction<string>) {
-      if (!state.dappFavorites) {
-        state.dappFavorites = [];
+    updateBookmark(state, action: PayloadAction<BookmarkItem>) {
+      if (!state.bookmarks) {
+        state.bookmarks = [];
       }
-      const i = state.dappFavorites.findIndex((o) => o === action.payload);
-      if (i >= 0) {
-        state.dappFavorites.splice(i, 1);
+      const bookmark = state.bookmarks.find(
+        (item) => (item.id = action.payload.id),
+      );
+      if (bookmark) {
+        const { url, title, icon } = action.payload;
+        if (url) {
+          bookmark.url = url;
+        }
+        if (title) {
+          bookmark.title = title;
+        }
+        if (icon) {
+          bookmark.icon = icon;
+        }
       }
     },
-    // setListedCategories(
-    //   state,
-    //   action: PayloadAction<{ name: string; _id: string }[]>,
-    // ) {
-    //   state.listedCategories = action.payload;
-    // },
-    // setListedTags(
-    //   state,
-    //   action: PayloadAction<{ name: string; _id: string }[]>,
-    // ) {
-    //   state.listedTags = action.payload;
-    // },
-    // setCategoryDapps(
-    //   state,
-    //   action: PayloadAction<
-    //     { label: string; id: string; items: DAppItemType[] }[]
-    //   >,
-    // ) {
-    //   state.categoryDapps = action.payload;
-    // },
-    // setTagDapps(
-    //   state,
-    //   action: PayloadAction<
-    //     { label: string; id: string; items: DAppItemType[] }[]
-    //   >,
-    // ) {
-    //   state.tagDapps = action.payload;
-    // },
-    // setEnableIOSDappSearch(state, action: PayloadAction<boolean>) {
-    //   state.enableIOSDappSearch = action.payload;
-    // },
+    resetBookmarks(state, action: PayloadAction<BookmarkItem[]>) {
+      state.bookmarks = action.payload;
+      state.dappFavorites = [];
+    },
+    removeBookmark(state, action: PayloadAction<BookmarkItem>) {
+      if (!state.bookmarks) {
+        state.bookmarks = [];
+      }
+      const { bookmarks } = state;
+      const index = bookmarks.findIndex(
+        (item) => item.url === action.payload.url,
+      );
+
+      if (index >= 0) {
+        bookmarks.splice(index, 1);
+      }
+
+      state.bookmarks = bookmarks;
+    },
     setShowBookmark(state, action: PayloadAction<boolean>) {
       state.showBookmark = action.payload;
     },
@@ -298,8 +299,8 @@ export const {
   updateWebSiteHistory,
   setDappHistory,
   removeDappHistory,
-  addFavorite,
-  removeFavorite,
+  // addFavorite,
+  // removeFavorite,
   removeWebSiteHistory,
   // setDappItems,
   // setListedCategories,
@@ -313,6 +314,10 @@ export const {
   setHomeData,
   setUserBrowserHistory,
   removeUserBrowserHistory,
+  addBookmark,
+  removeBookmark,
+  updateBookmark,
+  resetBookmarks,
 } = discoverSlice.actions;
 
 export default discoverSlice.reducer;
