@@ -77,7 +77,7 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.FullTokenListScreen,
         component: FullTokenList,
-        title: 'asset__tokens',
+        i18nTitle: 'asset__tokens',
       },
       {
         name: HomeRoutes.Revoke,
@@ -210,7 +210,7 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.AddressBook,
         component: AddressBook,
-        title: 'title__address_book',
+        i18nTitle: 'title__address_book',
       },
       {
         name: HomeRoutes.WalletSwitch,
@@ -276,7 +276,7 @@ export const getStackTabScreen = (tabName: TabRoutes) => {
       name: buildTabName(tab.name),
       component: tab.component,
       alwaysShowBackButton: false,
-      title: tab.translationId,
+      i18nTitle: tab.translationId,
     },
     ...(tab.children || []),
   ];
@@ -294,7 +294,7 @@ export const getStackTabScreen = (tabName: TabRoutes) => {
           );
           const customRenderHeader =
             index === 0 && tabsWithHeader.includes(name)
-              ? () => <LayoutHeaderDesktop title={stackOptions.title} />
+              ? () => <LayoutHeaderDesktop i18nTitle={stackOptions.i18nTitle} />
               : // @ts-ignore
                 (props) => (
                   <NavHeader

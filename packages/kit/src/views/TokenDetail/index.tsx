@@ -72,7 +72,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
 
   useEffect(() => {
     navigation.setOptions({
-      titleString: token?.name || activeAccount?.name || '',
+      title: token?.name || activeAccount?.name || '',
     });
   }, [navigation, token, accountId, networkId, activeAccount?.name]);
 

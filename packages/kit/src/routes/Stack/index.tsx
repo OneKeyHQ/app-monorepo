@@ -139,7 +139,7 @@ export const stackScreenList: ScreensList<HomeRoutes> = [
   {
     name: HomeRoutes.FullTokenListScreen,
     component: FullTokenList,
-    title: 'asset__tokens',
+    i18nTitle: 'asset__tokens',
   },
   {
     name: HomeRoutes.ScreenTokenDetail,
@@ -173,7 +173,7 @@ export const stackScreenList: ScreensList<HomeRoutes> = [
   {
     name: HomeRoutes.AddressBook,
     component: AddressBook,
-    title: 'title__address_book',
+    i18nTitle: 'title__address_book',
   },
   {
     name: HomeRoutes.SwapHistory,

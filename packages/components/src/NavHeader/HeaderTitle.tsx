@@ -12,28 +12,28 @@ import Text from '../Text';
 import type { MessageDescriptor } from 'react-intl';
 
 export interface HeaderTitleProps {
-  title?: MessageDescriptor['id'];
-  titleString?: string;
-  subtitle?: MessageDescriptor['id'];
-  subtitleString?: string;
+  i18nTitle?: MessageDescriptor['id'];
+  title?: string;
+  i18nSubtitle?: MessageDescriptor['id'];
+  subtitle?: string;
   inCenter?: boolean;
 }
 
 const HeaderTitle: FC<HeaderTitleProps> = ({
   title,
   subtitle,
-  titleString,
-  subtitleString,
+  i18nTitle,
+  i18nSubtitle,
   inCenter = true,
 }) => {
   const isVertical = useIsVerticalLayout();
   const intl = useIntl();
   const [titleEl, subtitleEl] = useMemo(
     () => [
-      title ? intl.formatMessage({ id: title }) : titleString,
-      subtitle ? intl.formatMessage({ id: subtitle }) : subtitleString,
+      i18nTitle ? intl.formatMessage({ id: i18nTitle }) : title,
+      i18nSubtitle ? intl.formatMessage({ id: i18nSubtitle }) : subtitle,
     ],
-    [title, intl, titleString, subtitle, subtitleString],
+    [i18nTitle, intl, title, i18nSubtitle, subtitle],
   );
 
   const SmallScreenTitle = useMemo(

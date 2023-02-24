@@ -44,7 +44,7 @@ const List = () => {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      titleString: 'Live Minting',
+      title: 'Live Minting',
       headerRight,
     });
   }, [headerRight, navigation]);

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 /* eslint-disable no-nested-ternary */
 import type { FC, ReactNode } from 'react';
+import { useMemo } from 'react';
 
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,21 +48,25 @@ const NavHeader: FC<HeaderProps & Partial<NativeStackHeaderProps>> = ({
 
   const height = isVertical ? defaultMobileHeight : defaultDesktopHeight;
   const hasLeft = Boolean(back || alwaysShowBackButton || headerLeft);
-  const { title, titleString, subtitle, subtitleString } =
-    options as unknown as HeaderTitleProps;
-  const mergedHeaderTitleProps = {
-    title,
-    titleString,
-    subtitle,
-    subtitleString,
-    ...headerTitleProps,
-  };
-
-  const titleComponent = headerTitle ? (
-    headerTitle()
-  ) : (
-    <HeaderTitle inCenter={hasLeft} {...mergedHeaderTitleProps} />
-  );
+  const titleComponent = useMemo(() => {
+    if (headerTitle) {
+      return headerTitle();
+    }
+    if (typeof options.headerTitle === 'function') {
+      // @ts-expect-error
+      return options.headerTitle();
+    }
+    const { title, i18nTitle, subtitle, i18nSubtitle } =
+      options as unknown as HeaderTitleProps;
+    const mergedHeaderTitleProps = {
+      title,
+      i18nTitle,
+      subtitle,
+      i18nSubtitle,
+      ...headerTitleProps,
+    };
+    return <HeaderTitle inCenter={hasLeft} {...mergedHeaderTitleProps} />;
+  }, [hasLeft, headerTitle, headerTitleProps, options]);
 
   return (
     <View
