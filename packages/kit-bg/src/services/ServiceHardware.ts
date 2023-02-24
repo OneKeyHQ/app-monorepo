@@ -1,4 +1,5 @@
 /* eslint-disable no-nested-ternary */
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { get } from 'lodash';
 
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
@@ -377,33 +378,70 @@ class ServiceHardware extends ServiceBase {
 
   updateBootloader(
     connectId: string,
-  ): Promise<Unsuccessful | Success<Success<boolean>>> {
-    const DISCONNECT_ERROR = 'Request failed with status code';
+  ): Promise<Unsuccessful | Success<boolean>> {
+    const ensureDeviceExist = () =>
+      new Promise((resolve) => {
+        let tryCount = 0;
+        deviceUtils.startDeviceScan(
+          (response) => {
+            tryCount += 1;
+            if (tryCount > 10) {
+              resolve(false);
+            }
+            if (!response.success) {
+              return;
+            }
+            if (
+              (response.payload ?? []).find((d) => d.connectId === connectId)
+            ) {
+              deviceUtils.stopScan();
+              resolve(true);
+            }
+          },
+          () => {},
+          1,
+          3000,
+          Number.MAX_VALUE,
+        );
+      });
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve) => {
-      // reboot device when update firmware success
-      await wait(18000);
+      const hardwareSDK = await this.getSDKInstance();
+      // restart count down
+      await wait(5000);
       let tryCount = 0;
+      //  polling device when restart success
+      const DISCONNECT_ERROR = 'Request failed with status code';
       const excute = async () => {
-        const hardwareSDK = await this.getSDKInstance();
+        const isFoundDevice = await ensureDeviceExist();
+        if (!isFoundDevice) {
+          resolve({
+            success: false,
+            payload: {
+              error: 'Device Not Found',
+              code: HardwareErrorCode.DeviceNotFound,
+            },
+          });
+        }
         const res = await hardwareSDK.deviceUpdateBootloader(connectId);
         if (!res.success) {
           if (
             res.payload.error.indexOf(DISCONNECT_ERROR) > -1 &&
             tryCount < 3
           ) {
-            await wait(5000);
             tryCount += 1;
             await excute();
           } else {
             resolve(res);
+            return;
           }
-          return;
-        }
 
-        // TODO: should fix type to Success<boolean>
-        resolve(res as unknown as Success<Success<boolean>>);
+          // TODO: should fix type to Success<boolean>
+          resolve(res as unknown as Success<boolean>);
+        }
+        excute();
       };
+
       excute();
     });
   }
