@@ -137,75 +137,21 @@ export function useDiscoverHistory(): MatchDAppItemType[] {
   return items;
 }
 
-export function useFavoritesDapps() {
-  const [dapps, setDapps] = useState<DAppItemType[]>([]);
-
-  const dappFavorites = useAppSelector((s) => s.discover.dappFavorites);
-
-  const origins = useMemo(() => {
-    if (!dappFavorites) {
-      return [];
-    }
-    return dappFavorites.map((item) => {
-      const url = new URL(item);
-      return url.origin;
-    });
-  }, [dappFavorites]);
-  useEffect(() => {
-    if (origins.length > 0) {
-      backgroundApiProxy.serviceDiscover
-        .searchDappsWithRegExp(origins)
-        .then(setDapps);
-    }
-  }, [origins]);
-  const dappsHostMap = useMemo(() => {
-    const hostMap: Record<string, DAppItemType> = {};
-    for (let i = 0; i < dapps.length; i += 1) {
-      const item = dapps[i];
-      if (item.url) {
-        const { host } = new URL(item.url);
-        if (host) {
-          hostMap[host] = item;
-        } else {
-          const shortHost = getShortHost(host);
-          if (shortHost) {
-            hostMap[shortHost] = item;
-          }
-        }
-      }
-    }
-    return hostMap;
-  }, [dapps]);
-  return { dappsHostMap, dapps };
-}
-
 export function useDiscoverFavorites(): MatchDAppItemType[] {
-  const webSiteHostMap = useHistoryHostMap();
-  const dappFavorites = useAppSelector((s) => s.discover.dappFavorites);
-  const { dappsHostMap } = useFavoritesDapps();
-
+  const bookmarks = useAppSelector((s) => s.discover.bookmarks);
   return useMemo(() => {
-    if (!dappFavorites) {
+    if (!bookmarks) {
       return [];
     }
-    const items: MatchDAppItemType[] = [];
-    for (const item of dappFavorites) {
-      const url = new URL(item);
-      const { host } = url;
-      if (host) {
-        const dapp = dappsHostMap[host] ?? dappsHostMap[getShortHost(host)];
-        if (dapp) {
-          items.push({ id: item, dapp });
-        } else {
-          const webSite = webSiteHostMap[host];
-          if (webSite) {
-            items.push({ id: item, webSite });
-          }
-        }
-      }
-    }
-    return items;
-  }, [dappFavorites, dappsHostMap, webSiteHostMap]);
+    return bookmarks.map((bookmark) => ({
+      id: bookmark.url,
+      webSite: {
+        title: bookmark.title,
+        favicon: bookmark.icon,
+        url: bookmark.url,
+      },
+    }));
+  }, [bookmarks]);
 }
 
 export function useTaggedDapps() {

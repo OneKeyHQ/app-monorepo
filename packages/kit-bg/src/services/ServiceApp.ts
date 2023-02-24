@@ -276,6 +276,7 @@ class ServiceApp extends ServiceBase {
       serviceBootstrap,
       serviceSetting,
       serviceSwap,
+      serviceDiscover,
     } = this.backgroundApi;
 
     const enableTestFiatEndpoint =
@@ -294,6 +295,7 @@ class ServiceApp extends ServiceBase {
     await this.initPassword();
     await this.initLocalAuthentication();
     await this.checkLockStatus();
+    serviceDiscover.init();
 
     const networks = await serviceNetwork.initNetworks();
     const wallets = await serviceAccount.initWallets();

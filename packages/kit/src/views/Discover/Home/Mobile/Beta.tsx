@@ -78,7 +78,6 @@ const ListHeaderFavorites = () => {
 
   return (
     <FlatList
-      bg="blue.100"
       horizontal
       data={favorites}
       renderItem={renderItem}
