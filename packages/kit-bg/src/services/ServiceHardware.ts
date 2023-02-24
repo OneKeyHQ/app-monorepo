@@ -360,7 +360,11 @@ class ServiceHardware extends ServiceBase {
       });
 
       // update bootloader
-      if (deviceType === 'touch' && response.success) {
+      if (
+        deviceType === 'touch' &&
+        response.success
+        // firmwareType === 'firmware'
+      ) {
         const updateBootRes = await this.updateBootloader(connectId);
         if (!updateBootRes.success) return updateBootRes;
       }
@@ -375,18 +379,24 @@ class ServiceHardware extends ServiceBase {
     connectId: string,
   ): Promise<Unsuccessful | Success<Success<boolean>>> {
     const DISCONNECT_ERROR = 'Request failed with status code';
-    return new Promise((resolve, reject) => {
+    // eslint-disable-next-line no-async-promise-executor
+    return new Promise(async (resolve) => {
+      // reboot device when update firmware success
+      await wait(8000);
       let tryCount = 0;
       const excute = async () => {
         const hardwareSDK = await this.getSDKInstance();
         const res = await hardwareSDK.deviceUpdateBootloader(connectId);
         if (!res.success) {
-          if (res.payload.error.indexOf(DISCONNECT_ERROR) && tryCount < 3) {
+          if (
+            res.payload.error.indexOf(DISCONNECT_ERROR) > -1 &&
+            tryCount < 3
+          ) {
             await wait(5000);
             tryCount += 1;
             await excute();
           } else {
-            reject(res);
+            resolve(res);
           }
           return;
         }
