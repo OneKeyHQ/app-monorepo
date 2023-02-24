@@ -3,16 +3,12 @@ import { fromSeed } from 'bip32';
 import { mnemonicToSeedSync } from 'bip39';
 import sha3 from 'js-sha3';
 
-import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
-import type { CurveName } from '@onekeyhq/engine/src/secret';
-import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
-import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_XMR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
-import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 
+import { getInstance } from './sdk/instance';
 import { calcBip32ExtendedKey } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
@@ -23,9 +19,12 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 
+import type { XMRModule } from './types';
+
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
 const HARDEN_PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
+const ACCOUNT_NAME_PREFIX = 'XMR';
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
@@ -33,11 +32,17 @@ export class KeyringHd extends KeyringHdBase {
     params: IPrepareSoftwareAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
     const { password, indexes, names } = params;
-
+    const network = await this.getNetwork();
     const { entropy } = (await this.engine.dbApi.getCredential(
       this.walletId,
       password,
     )) as ExportedSeedCredential;
+
+    const inst = await getInstance();
+
+    console.log(inst);
+
+    debugger;
 
     const mnemonic = mnemonicFromEntropy(entropy, password);
     const seed = mnemonicToSeedSync(mnemonic);
@@ -60,12 +65,60 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Unable to get raw private key.');
     }
 
-    const rawSecretSpendKey = sha3.keccak_256.update(rawPrivateKey).digest();
-    // const secretSpendKey = XMRModule.lib.sc_reduce32(rawSecretSpendKey);
-    // const secretViewKey = XMRModule.lib.hash_to_scalar(secretSpendKey);
-    // const publicSpendKey =
-    //   XMRModule.lib.secret_key_to_public_key(secretSpendKey);
-    // const publicViewKey = XMRModule.lib.secret_key_to_public_key(secretViewKey);
-    return [];
+    const rawSecretSpendKey = new Uint8Array(
+      sha3.keccak_256.update(rawPrivateKey).arrayBuffer(),
+    );
+    let secretSpendKey = xmrModule.lib.sc_reduce32(rawSecretSpendKey);
+    const secretViewKey = xmrModule.lib.hash_to_scalar(secretSpendKey);
+
+    let publicSpendKey = new Uint8Array();
+    let publicViewKey = new Uint8Array();
+
+    const ret = [];
+    for (const index of indexes) {
+      if (index === 0) {
+        publicSpendKey = xmrModule.lib.secret_key_to_public_key(secretSpendKey);
+        publicViewKey = xmrModule.lib.secret_key_to_public_key(secretViewKey);
+      } else {
+        const m = xmrModule.lib.get_subaddress_secret_key(
+          secretViewKey,
+          0,
+          index,
+        );
+        secretSpendKey = xmrModule.lib.sc_add(m, secretSpendKey);
+        publicSpendKey = xmrModule.lib.secret_key_to_public_key(secretSpendKey);
+        publicViewKey = xmrModule.lib.scalarmultKey(
+          publicSpendKey,
+          secretViewKey,
+        );
+      }
+
+      const path = `${HARDEN_PATH_PREFIX}/${index}`;
+
+      const address = xmrModule.lib.pub_keys_to_address(
+        network.isTestnet
+          ? xmrModule.lib.MONERO_TESTNET
+          : xmrModule.lib.MONERO_MAINNET,
+        index !== 0,
+        publicSpendKey,
+        publicViewKey,
+      );
+
+      const name =
+        (names || [])[index] || `${ACCOUNT_NAME_PREFIX} #${index + 1}`;
+      ret.push({
+        id: `${this.walletId}--${path}`,
+        name,
+        type: AccountType.VARIANT,
+        path,
+        coinType: COIN_TYPE,
+        pub: `${Buffer.from(publicSpendKey).toString('hex')},${Buffer.from(
+          publicViewKey,
+        ).toString('hex')}`,
+        address: '',
+        addresses: { [this.networkId]: address },
+      });
+    }
+    return ret;
   }
 }

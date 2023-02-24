@@ -5624,6 +5624,7 @@ __metadata:
     fake-indexeddb: ^3.1.7
     js-conflux-sdk: ^2.1.6
     monero-javascript: ^0.7.6
+    monerolib: ^1.1.4
     natsort: ^2.0.3
     near-api-js: ^0.44.2
     npm-run-all: ^4.1.5
@@ -11379,6 +11380,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"base58-monero@npm:0.0.5":
+  version: 0.0.5
+  resolution: "base58-monero@npm:0.0.5"
+  dependencies:
+    bn.js: ^4.12.0
+  checksum: 8f891102182a62981146f862c54be936e3c447d51c33a7eae2a01cfae115d29530782b02fdf2e8e201c452ebfcf6695705d69f33b097a411727c727377e82e47
+  languageName: node
+  linkType: hard
+
 "base64-arraybuffer-es6@npm:^0.7.0":
   version: 0.7.0
   resolution: "base64-arraybuffer-es6@npm:0.7.0"
@@ -11762,7 +11772,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bn.js@npm:^4, bn.js@npm:^4.0.0, bn.js@npm:^4.1.0, bn.js@npm:^4.11.0, bn.js@npm:^4.11.6, bn.js@npm:^4.11.8, bn.js@npm:^4.11.9, bn.js@npm:^4.4.0, bn.js@npm:^4.8.0":
+"bn.js@npm:^4, bn.js@npm:^4.0.0, bn.js@npm:^4.1.0, bn.js@npm:^4.11.0, bn.js@npm:^4.11.6, bn.js@npm:^4.11.8, bn.js@npm:^4.11.9, bn.js@npm:^4.12.0, bn.js@npm:^4.4.0, bn.js@npm:^4.8.0":
   version: 4.12.0
   resolution: "bn.js@npm:4.12.0"
   checksum: 39afb4f15f4ea537b55eaf1446c896af28ac948fdcf47171961475724d1bb65118cca49fa6e3d67706e4790955ec0e74de584e45c8f1ef89f46c812bee5b5a12
@@ -24124,6 +24134,20 @@ __metadata:
     tls: 0.0.1
     web-worker: ^1.0.0
   checksum: 3980a48e2f76e132d167271ef0e8947d2c6e2e4a36235e5952b6048acb5e8e90010392a73bebb230feef22116f7874f24f731f6751823954974829c4d98aa933
+  languageName: node
+  linkType: hard
+
+"monerolib@npm:^1.1.4":
+  version: 1.1.4
+  resolution: "monerolib@npm:1.1.4"
+  dependencies:
+    base58-monero: 0.0.5
+    bn.js: ^4.12.0
+    debug: ^4.3.1
+    elliptic: ^6.5.4
+    keccak: ^3.0.1
+    varint: ^6.0.0
+  checksum: 9ea5d0c57c2fe5285e71d1f54e076d37f0b196748a3932fde87f3a4bb7f67642d0bfefefada67d56e0288fb4f4d7d1080e450ee9ddf17669488b49a7a91f01f0
   languageName: node
   linkType: hard
 

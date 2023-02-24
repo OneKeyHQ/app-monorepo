@@ -61,6 +61,7 @@
     "fake-indexeddb": "^3.1.7",
     "js-conflux-sdk": "^2.1.6",
     "monero-javascript": "^0.7.6",
+    "monerolib": "^1.1.4",
     "natsort": "^2.0.3",
     "near-api-js": "^0.44.2",
     "ripple-keypairs": "^1.1.4",
