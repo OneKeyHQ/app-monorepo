@@ -50,11 +50,17 @@ const NavHeader: FC<HeaderProps & Partial<NativeStackHeaderProps>> = ({
   const hasLeft = Boolean(back || alwaysShowBackButton || headerLeft);
   const titleComponent = useMemo(() => {
     if (headerTitle) {
-      return headerTitle();
+      return <HeaderTitle inCenter={hasLeft}>{headerTitle()}</HeaderTitle>;
     }
     if (typeof options.headerTitle === 'function') {
-      // @ts-expect-error
-      return options.headerTitle();
+      return (
+        <HeaderTitle inCenter={hasLeft}>
+          {
+            // @ts-expect-error
+            options.headerTitle()
+          }
+        </HeaderTitle>
+      );
     }
     const { title, i18nTitle, subtitle, i18nSubtitle } =
       options as unknown as HeaderTitleProps;
@@ -93,14 +99,20 @@ const NavHeader: FC<HeaderProps & Partial<NativeStackHeaderProps>> = ({
               <HeaderBackButton navigation={navigation} />
             </Box>
           )}
-          {headerLeft?.()}
+          {headerLeft
+            ? headerLeft()
+            : // @ts-expect-error
+              options.headerLeft?.()}
         </View>
         {titleComponent}
         <View
           pointerEvents="box-none"
           style={[styles.right, styles.expand, { marginEnd: insets.right }]}
         >
-          {headerRight?.()}
+          {headerRight
+            ? headerRight()
+            : // @ts-expect-error
+              options.headerRight?.()}
         </View>
       </View>
     </View>

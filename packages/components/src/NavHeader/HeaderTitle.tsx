@@ -25,6 +25,7 @@ const HeaderTitle: FC<HeaderTitleProps> = ({
   i18nTitle,
   i18nSubtitle,
   inCenter = true,
+  children,
 }) => {
   const isVertical = useIsVerticalLayout();
   const intl = useIntl();
@@ -45,7 +46,12 @@ const HeaderTitle: FC<HeaderTitleProps> = ({
         style={StyleSheet.absoluteFill}
         zIndex={-1}
       >
-        <Text typography={inCenter ? 'Heading' : 'PageHeading'}>{titleEl}</Text>
+        {children}
+        {!!titleEl && (
+          <Text typography={inCenter ? 'Heading' : 'PageHeading'}>
+            {titleEl}
+          </Text>
+        )}
         {!!subtitleEl && (
           <Text typography="Caption" color="text-subdued">
             {subtitleEl}
@@ -53,13 +59,14 @@ const HeaderTitle: FC<HeaderTitleProps> = ({
         )}
       </Box>
     ),
-    [inCenter, subtitleEl, titleEl],
+    [children, inCenter, subtitleEl, titleEl],
   );
 
   const LargeScreenTitle = useMemo(
     () => (
       <Box flex={1} flexDirection="row" alignItems="baseline">
-        <Text typography="Heading">{titleEl}</Text>
+        {children}
+        {!!titleEl && <Text typography="Heading">{titleEl}</Text>}
         {!!subtitleEl && (
           <Text typography="Body2" ml="12px" color="text-subdued">
             {subtitleEl}
@@ -67,7 +74,7 @@ const HeaderTitle: FC<HeaderTitleProps> = ({
         )}
       </Box>
     ),
-    [subtitleEl, titleEl],
+    [children, subtitleEl, titleEl],
   );
 
   return isVertical ? SmallScreenTitle : LargeScreenTitle;
