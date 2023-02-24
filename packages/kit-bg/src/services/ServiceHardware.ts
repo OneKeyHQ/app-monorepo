@@ -382,7 +382,7 @@ class ServiceHardware extends ServiceBase {
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve) => {
       // reboot device when update firmware success
-      await wait(8000);
+      await wait(18000);
       let tryCount = 0;
       const excute = async () => {
         const hardwareSDK = await this.getSDKInstance();
