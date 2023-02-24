@@ -152,12 +152,37 @@ export type QuoteData = {
   estimatedBuyAmount?: string;
 };
 
+export type SwapRecord = {
+  txid: string;
+  from: {
+    tokenName: string;
+    tokenAddress: string;
+    networkName: string;
+    networkId: string;
+    amount: string;
+  };
+  to: {
+    tokenName: string;
+    tokenAddress: string;
+    networkName: string;
+    networkId: string;
+    amount: string;
+  };
+  params: BuildTransactionParams;
+  response: BuildTransactionResponse;
+};
+
 export interface BuildTransactionAdditionalParameters {
   socketUsedBridgeNames?: string[];
 }
 
 export interface TransactionAttachment {
   swftcOrderId?: string;
+  swftcPlatformAddr?: string;
+  swftcDepositCoinAmt?: string;
+  swftcDepositCoinCode?: string;
+  swftcReceiveCoinAmt?: string;
+  swftcReceiveCoinCode?: string;
   socketUsedBridgeNames?: string[];
 }
 

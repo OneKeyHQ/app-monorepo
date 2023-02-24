@@ -3,7 +3,7 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { QuoterType } from '../typings';
-import { getTokenAmountString, multiply, nativeTokenAddress } from '../utils';
+import { convertBuildParams, convertParams, multiply } from '../utils';
 
 import { SimpleQuoter } from './0x';
 import { JupiterQuoter } from './jupiter';
@@ -118,56 +118,6 @@ export class SwapQuoter {
     this.quoters.forEach((quoter) => {
       quoter.prepare?.();
     });
-  }
-
-  convertParams(params: FetchQuoteParams) {
-    if (!params.receivingAddress) {
-      return;
-    }
-    const toNetworkId = params.networkOut.id;
-    const fromNetworkId = params.networkIn.id;
-
-    const toTokenAddress = params.tokenOut.tokenIdOnNetwork
-      ? params.tokenOut.tokenIdOnNetwork
-      : nativeTokenAddress;
-    const fromTokenAddress = params.tokenIn.tokenIdOnNetwork
-      ? params.tokenIn.tokenIdOnNetwork
-      : nativeTokenAddress;
-
-    const toTokenDecimals = params.tokenOut.decimals;
-    const fromTokenDecimals = params.tokenIn.decimals;
-
-    const { slippagePercentage, receivingAddress } = params;
-    const userAddress = params.activeAccount.address;
-
-    let toTokenAmount: string | undefined;
-    let fromTokenAmount: string | undefined;
-
-    if (params.independentField === 'INPUT') {
-      fromTokenAmount = getTokenAmountString(params.tokenIn, params.typedValue);
-    } else {
-      toTokenAmount = getTokenAmountString(params.tokenOut, params.typedValue);
-    }
-
-    const urlParams: Record<string, string | number | boolean> = {
-      toNetworkId,
-      fromNetworkId,
-      toTokenAddress,
-      fromTokenAddress,
-      toTokenDecimals,
-      fromTokenDecimals,
-      slippagePercentage,
-      userAddress,
-      receivingAddress,
-    };
-
-    if (fromTokenAmount) {
-      urlParams.fromTokenAmount = fromTokenAmount;
-    }
-    if (toTokenAmount) {
-      urlParams.toTokenAmount = toTokenAmount;
-    }
-    return urlParams;
   }
 
   async convertOrderToTransaction(
@@ -286,9 +236,7 @@ export class SwapQuoter {
   async fetchQuote(
     params: FetchQuoteParams,
   ): Promise<FetchQuoteResponse | undefined> {
-    const urlParams = this.convertParams(params) as
-      | FetchQuoteHttpParams
-      | undefined;
+    const urlParams = convertParams(params) as FetchQuoteHttpParams | undefined;
 
     if (!urlParams) {
       return;
@@ -318,9 +266,7 @@ export class SwapQuoter {
   async fetchQuotes(
     params: FetchQuoteParams,
   ): Promise<FetchQuoteResponse[] | undefined> {
-    const urlParams = this.convertParams(params) as
-      | FetchQuoteHttpParams
-      | undefined;
+    const urlParams = convertParams(params) as FetchQuoteHttpParams | undefined;
 
     if (!urlParams) {
       return;
@@ -354,14 +300,11 @@ export class SwapQuoter {
     quoterType: QuoterType,
     params: BuildTransactionParams,
   ): Promise<BuildTransactionResponse | undefined> {
-    const urlParams = this.convertParams(params);
+    const urlParams = convertBuildParams(params);
 
     if (!urlParams) {
       return;
     }
-
-    urlParams.fromTokenAmount = params.sellAmount;
-    delete urlParams.toTokenAmount;
 
     urlParams.quoterType = quoterType;
     urlParams.disableValidate = Boolean(params.disableValidate);
@@ -389,7 +332,14 @@ export class SwapQuoter {
       return {
         data: transaction,
         result: data.result,
-        attachment: { swftcOrderId: data.order.orderId },
+        attachment: {
+          swftcOrderId: data.order.orderId,
+          swftcPlatformAddr: data.order.platformAddr,
+          swftcDepositCoinAmt: data.order.depositCoinAmt,
+          swftcDepositCoinCode: data.order.depositCoinCode,
+          swftcReceiveCoinAmt: data.order.receiveCoinAmt,
+          swftcReceiveCoinCode: data.order.receiveCoinCode,
+        },
       };
     }
     return undefined;
