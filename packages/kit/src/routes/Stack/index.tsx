@@ -173,6 +173,7 @@ export const stackScreenList: ScreensList<HomeRoutes> = [
   {
     name: HomeRoutes.AddressBook,
     component: AddressBook,
+    title: 'title__address_book',
   },
   {
     name: HomeRoutes.SwapHistory,

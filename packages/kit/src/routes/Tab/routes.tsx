@@ -210,6 +210,7 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.AddressBook,
         component: AddressBook,
+        title: 'title__address_book',
       },
       {
         name: HomeRoutes.WalletSwitch,
