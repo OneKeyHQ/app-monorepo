@@ -1,5 +1,6 @@
 import { IconButton, useIsVerticalLayout } from '@onekeyhq/components';
 import DAppList from '@onekeyhq/kit/src/views/Discover/DAppList';
+import { EditBookmark } from '@onekeyhq/kit/src/views/Discover/EditBookmark';
 import { SearchModalView } from '@onekeyhq/kit/src/views/Discover/Explorer/Search/SearchModalView';
 import { ShareView } from '@onekeyhq/kit/src/views/Discover/Share';
 
@@ -47,6 +48,10 @@ const modalRoutes = [
     name: DiscoverModalRoutes.MyDAppListModal,
     component: MyDAppList,
     options: withBackHeaderOptions,
+  },
+  {
+    name: DiscoverModalRoutes.EditBookmark,
+    component: EditBookmark,
   },
 ];
 
