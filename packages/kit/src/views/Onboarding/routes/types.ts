@@ -2,7 +2,9 @@ import type { MigrateData } from '@onekeyhq/engine/src/types/migrate';
 import type { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import type { KeyTagRoutes } from '../../KeyTag/Routes/enums';
 import type { EOnboardingRoutes } from './enums';
+import type { NavigatorScreenParams } from '@react-navigation/native';
 
 export type IOnboardingRecoveryPhraseParams = {
   password: string;
@@ -59,7 +61,9 @@ export type IOnboardingRoutesParams = {
     numOfWatchingAccounts: number;
     numOfContacts: number;
   };
-  [EOnboardingRoutes.KeyTag]: undefined;
+  [EOnboardingRoutes.KeyTag]:
+    | NavigatorScreenParams<{ [KeyTagRoutes.ImportKeytag]: undefined }>
+    | undefined;
   [EOnboardingRoutes.Migration]: {
     scanText?: string;
     disableAnimation?: boolean;
