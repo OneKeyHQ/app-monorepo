@@ -184,4 +184,4 @@ export const AUTO_SWITCH_DEFAULT_RPC_AT_VERSION = '3.21.0';
 
 export const PRICE_EXPIRED_TIME = getTimeDurationMs({ minute: 15 });
 
-export const ACCOUNT_DERIVATION_DB_MIGRATION_VERSION = '3.27.0';
+export const ACCOUNT_DERIVATION_DB_MIGRATION_VERSION = '4.0.0';

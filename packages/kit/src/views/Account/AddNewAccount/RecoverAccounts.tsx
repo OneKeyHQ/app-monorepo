@@ -880,8 +880,10 @@ const RecoverAccounts: FC = () => {
             derivationOptions={derivationOptions}
             selectedOption={selectedDerivationOption}
             onChange={(option) => {
-              setLoading(true);
-              isSwitchingDerivationPath.current = true;
+              if (option.template !== selectedDerivationOption.template) {
+                setLoading(true);
+                isSwitchingDerivationPath.current = true;
+              }
               setSelectedDerivationOption(option);
             }}
           />
