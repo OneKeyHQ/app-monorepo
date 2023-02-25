@@ -1,6 +1,6 @@
-const { createMetroConfiguration } = require('expo-yarn-workspaces');
+const { getDefaultConfig } = require('expo/metro-config');
 
-const config = createMetroConfiguration(__dirname);
+const config = getDefaultConfig(__dirname);
 
 // hot-reload file type
 // cjs is needed for superstruct: https://github.com/ianstormtaylor/superstruct/issues/404#issuecomment-800182972

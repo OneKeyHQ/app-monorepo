@@ -2570,7 +2570,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@expo/config-plugins@npm:~5.0.1, @expo/config-plugins@npm:~5.0.3":
+"@expo/config-plugins@npm:~5.0.3":
   version: 5.0.4
   resolution: "@expo/config-plugins@npm:5.0.4"
   dependencies:
@@ -2600,13 +2600,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@expo/config-types@npm:^46.0.1":
-  version: 46.0.2
-  resolution: "@expo/config-types@npm:46.0.2"
-  checksum: ea7b3c64e875dfe65209e5f099b3ef4ddc464f308aff50ba08c26c1dfc3d3c177203190b29b5d7dd334932d74f765690c44829d637d7a71a72078214c69a07ab
-  languageName: node
-  linkType: hard
-
 "@expo/config-types@npm:^47.0.0":
   version: 47.0.0
   resolution: "@expo/config-types@npm:47.0.0"
@@ -2630,25 +2623,6 @@ __metadata:
     slugify: ^1.3.4
     sucrase: ^3.20.0
   checksum: 5d29474a4985c43e55fa40f3131d7cb2e9d252745c5dc398f38a8dfc3622e1f273d78e578681f93bf2e304a7d0da12727c680af7ea1f931e6e5440f57d92dc22
-  languageName: node
-  linkType: hard
-
-"@expo/config@npm:7.0.1":
-  version: 7.0.1
-  resolution: "@expo/config@npm:7.0.1"
-  dependencies:
-    "@babel/code-frame": ~7.10.4
-    "@expo/config-plugins": ~5.0.1
-    "@expo/config-types": ^46.0.1
-    "@expo/json-file": 8.2.36
-    getenv: ^1.0.0
-    glob: 7.1.6
-    require-from-string: ^2.0.2
-    resolve-from: ^5.0.0
-    semver: 7.3.2
-    slugify: ^1.3.4
-    sucrase: ^3.20.0
-  checksum: 151bae8703af6cf0e41b3cbb8ab0ce3597be58d38242b7e831fa4b3622e7822ad2ff8549482c1cad1ffaf69dd4b2e972ca6dfc37020001d2b9ffc5d5587bbd70
   languageName: node
   linkType: hard
 
@@ -2794,38 +2768,6 @@ __metadata:
     resolve-from: ^5.0.0
     sucrase: ^3.20.0
   checksum: 719157b99b5c096d7a9e2fd23e547203cf8fdd6e93533fc75217a8ac248b4cfac24a970d1a53a878e9d3ab1f722b3a4ef2267cddcdad982f763302c6b6438103
-  languageName: node
-  linkType: hard
-
-"@expo/metro-config@npm:~0.4.0":
-  version: 0.4.0
-  resolution: "@expo/metro-config@npm:0.4.0"
-  dependencies:
-    "@expo/config": 7.0.1
-    "@expo/json-file": 8.2.36
-    chalk: ^4.1.0
-    debug: ^4.3.2
-    find-yarn-workspace-root: ~2.0.0
-    getenv: ^1.0.0
-    resolve-from: ^5.0.0
-    sucrase: ^3.20.0
-  checksum: 8f571dd36c9eafed15ff709183eaa18bd5b92c1f9a5f367e245913c862d1fd6084812351d34260ed293c967a83bc230774d6e148f1947c495a0fd5b815e75aba
-  languageName: node
-  linkType: hard
-
-"@expo/metro-config@npm:~0.5.0":
-  version: 0.5.1
-  resolution: "@expo/metro-config@npm:0.5.1"
-  dependencies:
-    "@expo/config": ~7.0.2
-    "@expo/json-file": 8.2.36
-    chalk: ^4.1.0
-    debug: ^4.3.2
-    find-yarn-workspace-root: ~2.0.0
-    getenv: ^1.0.0
-    resolve-from: ^5.0.0
-    sucrase: ^3.20.0
-  checksum: f13f7ca5ceba9599b66270b1bb3c028b4d88c4608d5a7150a34ed35f1ba12262ccddce0e1adb80cb1157e0a28a69f810751b2eb449b22db7959e259305e8c53f
   languageName: node
   linkType: hard
 
@@ -2982,44 +2924,6 @@ __metadata:
     webpack-dev-server: 3.11.0
     webpack-manifest-plugin: ~2.2.0
   checksum: 46c9d51d70ea35ecfc2c1a813d6bd9c6d3856621ccbc3fa82725b7d0e46a7078b81201520dfa6c8090ad7172739d581873c2ffaf9912a0df5b2497b52ac50824
-  languageName: node
-  linkType: hard
-
-"@expo/webpack-config@npm:~0.16.14":
-  version: 0.16.24
-  resolution: "@expo/webpack-config@npm:0.16.24"
-  dependencies:
-    "@babel/core": 7.9.0
-    "@expo/config": 6.0.24
-    babel-loader: 8.1.0
-    chalk: ^4.0.0
-    clean-webpack-plugin: ^3.0.0
-    copy-webpack-plugin: ~6.0.3
-    css-loader: ~3.6.0
-    expo-pwa: 0.0.119
-    file-loader: ~6.0.0
-    find-yarn-workspace-root: ~2.0.0
-    getenv: ^1.0.0
-    html-loader: ~1.1.0
-    html-webpack-plugin: ~4.3.0
-    image-size: ^1.0.0
-    is-wsl: ^2.0.0
-    loader-utils: ^2.0.0
-    mini-css-extract-plugin: ^0.5.0
-    node-html-parser: ^1.2.12
-    optimize-css-assets-webpack-plugin: ^5.0.3
-    pnp-webpack-plugin: ^1.5.0
-    postcss-safe-parser: ^4.0.2
-    react-dev-utils: ~11.0.1
-    schema-utils: ^3.1.1
-    semver: ~7.3.2
-    style-loader: ~1.2.1
-    terser-webpack-plugin: ^3.0.6
-    url-loader: ~4.1.0
-    webpack: 4.43.0
-    webpack-dev-server: 3.11.0
-    webpack-manifest-plugin: ~2.2.0
-  checksum: 32d5d55360a0eb94275cdccca618241afd3c5593f3e0c7af41f2622ea41e0f0d3a231d970d054b53c39934a2fc7b4d207e4f35d39b671d3439b86acd77db9712
   languageName: node
   linkType: hard
 
@@ -5381,7 +5285,6 @@ __metadata:
     eth-rpc-errors: ^4.0.3
     expo: ^45.0.5
     expo-device: ^4.3.0
-    expo-yarn-workspaces: ^2.0.3
     file-loader: ^6.2.0
     fs-extra: ^10.0.0
     globalthis: ^1.0.2
@@ -5459,7 +5362,6 @@ __metadata:
     expo-image-picker: ^13.1.1
     expo-media-library: ^14.1.0
     expo-splash-screen: ^0.15.1
-    expo-yarn-workspaces: 2.0.3
     https-browserify: ^1.0.0
     jcore-react-native: "https://github.com/OneKeyHQ/jcore-react-native.git"
     jpush-react-native: "https://github.com/OneKeyHQ/jpush-react-native.git"
@@ -5576,7 +5478,6 @@ __metadata:
     electron-updater: ^5.2.1
     esbuild: ^0.15.11
     expo: ^45.0.5
-    expo-yarn-workspaces: 2.0.3
     glob: ^7.2.0
     keytar: ^7.9.0
     node-fetch: ^2.6.7
@@ -5764,7 +5665,6 @@ __metadata:
     "@onekeyhq/components": "*"
     "@onekeyhq/kit": "*"
     expo: ^45.0.5
-    expo-yarn-workspaces: 2.0.3
     firebase: ^9.8.2
     react-native-web: 0.18.10
     react-router-dom: ^6.3.0
@@ -5778,7 +5678,6 @@ __metadata:
     "@onekeyhq/components": "*"
     "@onekeyhq/kit": "*"
     expo: ^45.0.5
-    expo-yarn-workspaces: ^2.0.3
     firebase: ^9.8.2
     moti: ^0.22.0
     react-native-web: 0.18.10
@@ -17211,21 +17110,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-pwa@npm:0.0.119":
-  version: 0.0.119
-  resolution: "expo-pwa@npm:0.0.119"
-  dependencies:
-    "@expo/config": 6.0.24
-    "@expo/image-utils": 0.3.20
-    chalk: ^4.0.0
-    commander: 2.20.0
-    update-check: 1.5.3
-  bin:
-    expo-pwa: build/cli.js
-  checksum: f0adaab6b198b19a586382a8c0f848d1cb67d7561de076a25e5437b33f04a1da3a1c562ed1973d2ade5fbbd45efe0083cc6afb7d6490a017067dc5495d1bd6f6
-  languageName: node
-  linkType: hard
-
 "expo-pwa@npm:0.0.124":
   version: 0.0.124
   resolution: "expo-pwa@npm:0.0.124"
@@ -17260,40 +17144,6 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: 5d78af82c8a171ae10f4acc4fad9880a0bd3f90d4ff23a40200f43a6bf8cf964a2bedfa6ed48260106ac123b13a446a5a312570bc2c7cbe8f052d5cd3b43bfdb
-  languageName: node
-  linkType: hard
-
-"expo-yarn-workspaces@npm:2.0.3":
-  version: 2.0.3
-  resolution: "expo-yarn-workspaces@npm:2.0.3"
-  dependencies:
-    "@expo/metro-config": ~0.4.0
-    "@expo/webpack-config": ~0.16.14
-    debug: ^4.3.2
-    find-yarn-workspace-root: ^2.0.0
-    glob: ^7.1.7
-    minimist: ^1.2.6
-    mkdirp: ^0.5.1
-  bin:
-    expo-yarn-workspaces: bin/expo-yarn-workspaces.js
-  checksum: 5d2a0cae70b91af7f7378f2c77072ae3d8d6903f70babd1cca72ab0120a6d41ce7be7744db51d10f0b4163ebbdc16313e69e98662d2d9e2fde4845373043f54a
-  languageName: node
-  linkType: hard
-
-"expo-yarn-workspaces@npm:^2.0.3":
-  version: 2.0.4
-  resolution: "expo-yarn-workspaces@npm:2.0.4"
-  dependencies:
-    "@expo/metro-config": ~0.5.0
-    "@expo/webpack-config": ~0.16.14
-    debug: ^4.3.2
-    find-yarn-workspace-root: ^2.0.0
-    glob: ^7.1.7
-    minimist: ^1.2.6
-    mkdirp: ^0.5.1
-  bin:
-    expo-yarn-workspaces: bin/expo-yarn-workspaces.js
-  checksum: 333e44c8f2eb1b112d4d560cf09e234a49d44bd79395de5472610c3b174935aff83d468ea9a42111e14c243078b00ff3075ebebcc26af7a7f912edb3bb322301
   languageName: node
   linkType: hard
 
@@ -18596,7 +18446,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"glob@npm:^7.0.0, glob@npm:^7.0.3, glob@npm:^7.0.5, glob@npm:^7.1.2, glob@npm:^7.1.3, glob@npm:^7.1.4, glob@npm:^7.1.6, glob@npm:^7.1.7, glob@npm:^7.2.0":
+"glob@npm:^7.0.0, glob@npm:^7.0.3, glob@npm:^7.0.5, glob@npm:^7.1.2, glob@npm:^7.1.3, glob@npm:^7.1.4, glob@npm:^7.1.6, glob@npm:^7.2.0":
   version: 7.2.3
   resolution: "glob@npm:7.2.3"
   dependencies:

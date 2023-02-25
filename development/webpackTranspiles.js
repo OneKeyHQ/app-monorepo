@@ -1,6 +1,19 @@
-const webModuleTranspile = ['moti', '@gorhom', '@mysten/sui.js', '@polkadot'];
+const webModuleTranspile = [
+  '@onekeyhq',
+  'moti',
+  '@gorhom',
+  '@mysten/sui.js',
+  '@polkadot',
+];
 
 const extModuleTranspile = [
+  '@onekeyhq/blockchain-libs',
+  '@onekeyhq/components',
+  '@onekeyhq/kit',
+  '@onekeyhq/kit-bg',
+  '@onekeyhq/shared',
+  '@onekeyhq/engine',
+  '@onekeyhq/app',
   'react-native-animated-splash-screen',
   'moti',
   'popmotion',

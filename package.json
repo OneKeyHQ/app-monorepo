@@ -129,7 +129,6 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eth-rpc-errors": "^4.0.3",
     "expo": "^45.0.5",
-    "expo-yarn-workspaces": "^2.0.3",
     "file-loader": "^6.2.0",
     "fs-extra": "^10.0.0",
     "globalthis": "^1.0.2",
