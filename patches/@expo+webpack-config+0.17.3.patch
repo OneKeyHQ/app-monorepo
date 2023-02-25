@@ -1,8 +1,8 @@
 diff --git a/node_modules/@expo/webpack-config/webpack/addons/withOptimizations.js b/node_modules/@expo/webpack-config/webpack/addons/withOptimizations.js
-index 136d9ad..a7eca48 100644
+index 5bbccda..4b45a28 100644
 --- a/node_modules/@expo/webpack-config/webpack/addons/withOptimizations.js
 +++ b/node_modules/@expo/webpack-config/webpack/addons/withOptimizations.js
-@@ -57,6 +57,7 @@ function withOptimizations(webpackConfig) {
+@@ -66,6 +66,7 @@ function withOptimizations(webpackConfig) {
                          // Pending futher investigation:
                          // https://github.com/terser-js/terser/issues/120
                          inline: 2,
