@@ -4,11 +4,19 @@ const webModuleTranspile = [
   '@mysten/sui.js',
   'superstruct',
   '@noble/curves',
+  '@onekeyhq',
   '@polkadot',
   '@solana/web3.js',
 ];
 
 const extModuleTranspile = [
+  '@onekeyhq/blockchain-libs',
+  '@onekeyhq/components',
+  '@onekeyhq/kit',
+  '@onekeyhq/kit-bg',
+  '@onekeyhq/shared',
+  '@onekeyhq/engine',
+  '@onekeyhq/app',
   'react-native-animated-splash-screen',
   'moti',
   'popmotion',

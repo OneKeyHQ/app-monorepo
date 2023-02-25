@@ -12,10 +12,8 @@
     "ios:device": "expo run:ios --device",
     "eject": "expo eject",
     "build:ios-js": "npx expo export --platform ios --public-url https://onekey.so",
-    "postinstall": "expo-yarn-workspaces postinstall",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "clean": "rimraf node_modules && rimraf .expo && rimraf __generated__",
-    "eas-build-post-install": "expo-yarn-workspaces postinstall",
     "eas-build-pre-install": "bash ./scripts/eas-build-pre-install.sh"
   },
   "dependencies": {
@@ -53,7 +51,6 @@
     "expo-image-picker": "^13.1.1",
     "expo-media-library": "^14.1.0",
     "expo-splash-screen": "^0.15.1",
-    "expo-yarn-workspaces": "2.0.3",
     "https-browserify": "^1.0.0",
     "jcore-react-native": "https://github.com/OneKeyHQ/jcore-react-native.git",
     "jpush-react-native": "https://github.com/OneKeyHQ/jpush-react-native.git",
