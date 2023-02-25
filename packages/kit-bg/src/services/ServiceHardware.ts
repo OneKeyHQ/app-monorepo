@@ -363,8 +363,8 @@ class ServiceHardware extends ServiceBase {
       // update bootloader
       if (
         deviceType === 'touch' &&
-        response.success
-        // firmwareType === 'firmware'
+        response.success &&
+        firmwareType === 'firmware'
       ) {
         const updateBootRes = await this.updateBootloader(connectId);
         if (!updateBootRes.success) return updateBootRes;
