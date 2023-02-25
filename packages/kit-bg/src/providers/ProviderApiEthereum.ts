@@ -764,15 +764,15 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: SwitchEthereumChainParameter,
   ) => {
-    // TODO debounced switch chain
     const networks = await this.backgroundApi.serviceNetwork.fetchNetworks();
     const networkId = `evm--${parseInt(params.chainId)}`;
     const included = networks.some((network) => network.id === networkId);
     if (!included) {
-      // throw new Error(
-      //   `Unrecognized chain ID ${params.chainId}. Try adding the chain using wallet_addEthereumChain first.`,
-      // );
-      return null;
+      // https://uniswap-v3.scroll.io/#/swap required Error response
+      throw web3Errors.provider.custom({
+        code: 4902, // error code should be 4902 here
+        message: `Unrecognized chain ID ${params.chainId}. Try adding the chain using wallet_addEthereumChain first.`,
+      });
     }
 
     const { network } = getActiveWalletAccount();
@@ -835,10 +835,10 @@ class ProviderApiEthereum extends ProviderApiBase {
     }
 
     // **** should await return
-    await this.addEthereumChainMemo(request, params, address, ...others);
+    const res = await this.addEthereumChainMemo(request, params, address, ...others);
 
     // Metamask return null
-    return Promise.resolve(null);
+    return Promise.resolve(res ?? null);
   }
 
   /**
@@ -867,10 +867,10 @@ class ProviderApiEthereum extends ProviderApiBase {
     // some dapp will call methods many times, like https://beta.layer3.xyz/bounties/dca-into-mean
     // some dapp should wait this method response, like https://app.uniswap.org/#/swap
     // **** should await return
-    await this.switchEthereumChainMemo(request, params);
+    const res = await this.switchEthereumChainMemo(request, params);
 
     // Metamask return null
-    return Promise.resolve(null);
+    return Promise.resolve(res ?? null);
   }
 
   // TODO metamask_unlockStateChanged

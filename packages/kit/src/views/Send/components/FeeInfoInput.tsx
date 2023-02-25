@@ -13,7 +13,6 @@ import {
   Text,
   Tooltip,
 } from '@onekeyhq/components';
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
@@ -546,9 +545,13 @@ function FeeInfoInputForConfirmLite({
       return null;
     }
 
+    // @ts-expect-error
+    const { className, key }: { className?: string; key?: string } =
+      feeInfoError;
+
     let message: string | null = null;
-    if (feeInfoError instanceof OneKeyError) {
-      if (feeInfoError.key !== 'onekey_error') {
+    if (className === 'OneKeyError') {
+      if (key !== 'onekey_error') {
         message = intl.formatMessage({
           // @ts-expect-error
           id: feeInfoError.key,

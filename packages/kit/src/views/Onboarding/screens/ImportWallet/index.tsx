@@ -16,6 +16,7 @@ import {
   ModalRoutes,
   RootRoutes,
 } from '../../../../routes/routesEnum';
+import { KeyTagRoutes } from '../../../KeyTag/Routes/enums';
 import Layout from '../../Layout';
 import { useOnboardingContext } from '../../OnboardingContext';
 import { EOnboardingRoutes } from '../../routes/enums';
@@ -93,7 +94,9 @@ const ImportWallet = () => {
   }, [appNavigation, forceVisibleUnfocused]);
 
   const onPressKeyTag = useCallback(() => {
-    navigation.navigate(EOnboardingRoutes.KeyTag);
+    navigation.navigate(EOnboardingRoutes.KeyTag, {
+      screen: KeyTagRoutes.ImportKeytag,
+    });
   }, [navigation]);
 
   const onPressRestoreFromCloud = useCallback(() => {

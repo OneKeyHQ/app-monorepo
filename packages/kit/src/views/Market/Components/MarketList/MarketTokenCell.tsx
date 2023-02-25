@@ -409,7 +409,7 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                   {marketTokenItem && marketTokenItem.sparkline ? (
                     <SparklineChart
                       data={marketTokenItem.sparkline}
-                      width={50}
+                      width={100}
                       height={40}
                       lineColor={
                         marketTokenItem.priceChangePercentage24H &&

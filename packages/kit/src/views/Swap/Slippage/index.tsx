@@ -150,7 +150,7 @@ const Slippage = () => {
         };
       }
       const value = new BigNumber(slippageValue);
-      if (value.gt(50) || value.eq(0)) {
+      if (value.gte(50) || value.eq(0)) {
         return {
           type: 'error',
           message: intl.formatMessage({
@@ -166,7 +166,7 @@ const Slippage = () => {
           }),
         };
       }
-      if (value.gte(5) && value.lte(50)) {
+      if (value.gte(5) && value.lt(50)) {
         return {
           type: 'warn',
           message: intl.formatMessage({
