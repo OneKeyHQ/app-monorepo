@@ -12,7 +12,10 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
-import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
+import {
+  getBalanceKey,
+  isValidCoingeckoId,
+} from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
@@ -315,34 +318,36 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
             )}
           </>
         )}
-        {priceReady && !isVertical && (
-          <Box flex={1} mx={3} minW="56px" alignItems="center">
-            <IconButton
-              circle
-              size={isVertical ? 'xl' : 'lg'}
-              name="BellOutline"
-              type="basic"
-              onPress={() => {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.ManageToken,
-                  params: {
-                    screen: ManageTokenRoutes.PriceAlertList,
+        {priceReady &&
+          !isVertical &&
+          isValidCoingeckoId(token?.coingeckoId) && (
+            <Box flex={1} mx={3} minW="56px" alignItems="center">
+              <IconButton
+                circle
+                size={isVertical ? 'xl' : 'lg'}
+                name="BellOutline"
+                type="basic"
+                onPress={() => {
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.ManageToken,
                     params: {
-                      token: token as TokenDO,
+                      screen: ManageTokenRoutes.PriceAlertList,
+                      params: {
+                        token: token as TokenDO,
+                      },
                     },
-                  },
-                });
-              }}
-            />
-            <Typography.CaptionStrong
-              textAlign="center"
-              mt="8px"
-              color="text-default"
-            >
-              {intl.formatMessage({ id: 'form__price_alert' })}
-            </Typography.CaptionStrong>
-          </Box>
-        )}
+                  });
+                }}
+              />
+              <Typography.CaptionStrong
+                textAlign="center"
+                mt="8px"
+                color="text-default"
+              >
+                {intl.formatMessage({ id: 'form__price_alert' })}
+              </Typography.CaptionStrong>
+            </Box>
+          )}
       </Box>
     ),
     [

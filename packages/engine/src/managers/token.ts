@@ -180,4 +180,7 @@ export const getBalanceKey = (token?: Partial<Token> | null) => {
   return tokenAddress;
 };
 
+export const isValidCoingeckoId = (id?: string) =>
+  id && !/^[0-9a-fA-F]{24}$/.test(id);
+
 export { getNetworkIdFromTokenId };
