@@ -130,70 +130,20 @@ export const getNFTSymbolPrice = async (networkId: string) => {
   return price;
 };
 
-function mergeLocalAsset({
-  transaction,
-  collectionMap,
-}: {
-  transaction: NFTTransaction;
-  collectionMap: Record<string, Collection>;
-}) {
-  const { asset: txAsset, collectionId } = transaction;
-  let localAsset;
-  let collectionName;
-  let logoUrl;
-  if (collectionId) {
-    const collection = collectionMap[collectionId];
-    if (collection) {
-      localAsset = collection.assets.find((item) => {
-        const { tokenAddress, tokenId } = item;
-        if (tokenAddress) {
-          return item.tokenAddress === transaction.tokenAddress;
-        }
-        return item.tokenId === tokenId;
-      });
-      collectionName = collection.contractName ?? '';
-      logoUrl = collection.logoUrl ?? '';
-    }
-  }
-  const asset = txAsset ?? localAsset;
-  if (asset) {
-    return {
-      ...transaction,
-      asset: { ...asset, collection: { collectionName, logoUrl } },
-    };
-  }
-  return transaction;
-}
-
+type TxMapType = Record<string, NFTTransaction[]>;
 export const getNFTTransactionHistory = async (
   accountId?: string,
   networkId?: string,
-): Promise<NFTTransaction[]> => {
+): Promise<TxMapType> => {
   if (networkId && accountId && isCollectibleSupportedChainId(networkId)) {
     const endpoint = getFiatEndpoint();
-    const apiUrl = `${endpoint}/NFT/transactions/account?address=${accountId}&chain=${networkId}`;
-    const data = await axios
-      .get<NFTServiceResp<NFTTransaction[]>>(apiUrl)
-      .then((resp) => resp.data)
-      .catch(() => ({ data: [] }));
-    const transactions = data.data;
-    const contractAddressList = transactions
-      .map((tx) => tx.collectionId)
-      .filter(Boolean);
-    const { serviceNFT } = backgroundApiProxy;
-    const collectionMap = await serviceNFT.batchLocalCollection({
-      networkId,
-      accountId,
-      contractAddressList,
-    });
-
-    const txList = transactions.map(
-      (transaction): NFTTransaction =>
-        mergeLocalAsset({ transaction, collectionMap }),
-    );
-    return txList;
+    const apiUrl = `${endpoint}/NFT/transactions/accountV2?address=${accountId}&chain=${networkId}`;
+    const { data: txMap } = await axios
+      .get<NFTServiceResp<TxMapType>>(apiUrl)
+      .then((resp) => resp.data);
+    return txMap;
   }
-  return [];
+  return {} as TxMapType;
 };
 
 export function buildEncodeDataWithABI(param: {
