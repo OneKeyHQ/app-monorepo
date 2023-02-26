@@ -110,8 +110,6 @@ export type NFTTransaction = {
   hash: string;
   from: string;
   to: string;
-  blockNumber?: string;
-  blockHash?: string;
   gasPrice?: string;
   gasFee?: number;
   timestamp?: number;
@@ -122,7 +120,6 @@ export type NFTTransaction = {
   send: string;
   receive: string;
   amount?: string;
-  tradeValue?: string;
   tradePrice?: string;
   tradeSymbol?: string;
   eventType?: string;

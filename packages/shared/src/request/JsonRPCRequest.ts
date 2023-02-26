@@ -11,6 +11,8 @@ import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 type JsonRpcParams = undefined | { [p: string]: any } | Array<any>;
 
+const disabledRpcBatchHosts = ['rpc-endurance.fusionist.io'];
+
 function normalizePayload(
   method: string,
   params: JsonRpcParams,
@@ -91,31 +93,46 @@ class JsonRPCRequest {
     timeout?: number,
     ignoreSoloError = true,
   ): Promise<T> {
-    const payload = calls.map(([method, params], index) =>
-      normalizePayload(method, params, index),
-    );
+    let jsonResponses: unknown[] = [];
 
-    const response = await fetch(this.url, {
-      headers: this.assembleHeaders(headers),
-      method: 'POST',
-      body: JSON.stringify(payload),
-      signal: timeoutSignal(timeout || this.timeout) as any,
-    });
-
-    if (!response.ok) {
-      throw new ResponseError(`Wrong response<${response.status}>`, response);
-    }
-
-    const jsonResponses: any = await response.json();
-    if (!Array.isArray(jsonResponses)) {
-      throw new ResponseError(
-        'Invalid JSON Batch RPC response, response should be an array',
-        response,
+    if (!disabledRpcBatchHosts.includes(new URL(this.url).hostname)) {
+      const payload = calls.map(([method, params], index) =>
+        normalizePayload(method, params, index),
       );
-    } else if (calls.length !== jsonResponses.length) {
-      throw new ResponseError(
-        `Invalid JSON Batch RPC response, batch with ${calls.length} calls, but got ${jsonResponses.length} responses`,
-        response,
+      const response = await fetch(this.url, {
+        headers: this.assembleHeaders(headers),
+        method: 'POST',
+        body: JSON.stringify(payload),
+        signal: timeoutSignal(timeout || this.timeout) as any,
+      });
+      if (!response.ok) {
+        throw new ResponseError(`Wrong response<${response.status}>`, response);
+      }
+      await response.json();
+
+      if (!Array.isArray(jsonResponses)) {
+        throw new ResponseError(
+          'Invalid JSON Batch RPC response, response should be an array',
+          response,
+        );
+      } else if (calls.length !== jsonResponses.length) {
+        throw new ResponseError(
+          `Invalid JSON Batch RPC response, batch with ${calls.length} calls, but got ${jsonResponses.length} responses`,
+          response,
+        );
+      }
+    } else {
+      jsonResponses = await Promise.all(
+        calls.map(async (c) => {
+          try {
+            const res = await this.call(c[0], c[1], headers, timeout);
+            return {
+              result: res,
+            };
+          } catch (error) {
+            // pass
+          }
+        }),
       );
     }
 
