@@ -357,7 +357,7 @@ const UpdatingModal: FC = () => {
     setProgressState('running');
     setProgress(0);
     serviceHardware
-      .autoUpdateFirmware(connectId, firmwareType)
+      .autoUpdateFirmware(connectId, firmwareType, deviceType)
       .then((res) => {
         if (res.success) {
           // clear the upgrade status

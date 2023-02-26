@@ -81,7 +81,7 @@ const SparkLineChart: FC<SparkLineChartProps> = ({
             xPoint += xSpath;
           });
           ctx.lineTo(xPoint + xSpath, lastY);
-          ctx.lineTo(xPoint, height);
+          ctx.lineTo(xPoint + xSpath, height);
           ctx.lineTo(0, height);
           ctx.stroke();
           ctx.closePath();
@@ -93,10 +93,7 @@ const SparkLineChart: FC<SparkLineChartProps> = ({
           grad.addColorStop(1, 'rgba(255,255,255,0)');
           ctx.fillStyle = grad;
           ctx.fill();
-
-          xPoint -= lineWidth;
-          // clear last 2 line
-          ctx.clearRect(xPoint, 0, xSpath, height);
+          // clear last line
           ctx.clearRect(0, height - lineWidth, width, lineWidth);
         }
       }

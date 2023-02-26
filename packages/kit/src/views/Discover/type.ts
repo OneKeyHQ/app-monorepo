@@ -37,6 +37,11 @@ export type DAppItemType = {
   // categories: { name: string; _id: string }[];
 };
 
+export type UrlInfo = {
+  title?: string;
+  icon?: string;
+};
+
 export type CatagoryType = {
   name: string;
   _id: string;
@@ -73,11 +78,19 @@ export type DAppListProps = {
   onItemSelect?: (item: DAppItemType) => void;
 };
 
+export type BookmarkItem = {
+  id: string;
+  url: string;
+  icon?: string;
+  title?: string;
+};
+
 export enum DiscoverModalRoutes {
   SearchHistoryModal = 'SearchHistoryModal',
   ShareModal = 'ShareModal',
   DAppListModal = 'DAppListModal',
   MyDAppListModal = 'MyDAppListModal',
+  EditBookmark = 'EditBookmark',
 }
 
 export type DiscoverRoutesParams = {
@@ -99,5 +112,8 @@ export type DiscoverRoutesParams = {
   [DiscoverModalRoutes.MyDAppListModal]: {
     defaultIndex?: number;
     onItemSelect?: (item: MatchDAppItemType) => void;
+  };
+  [DiscoverModalRoutes.EditBookmark]: {
+    bookmark: BookmarkItem;
   };
 };

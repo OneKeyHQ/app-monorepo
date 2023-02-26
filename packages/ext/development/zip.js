@@ -14,8 +14,11 @@ const version = process.env.VERSION;
 
 const browsers = ['chrome-extension', 'firefox-addon'];
 browsers.forEach((browser) => {
+  const browserFolder = `${buildFolder}/${browser.replace(/-.+$/, '')}`;
   const cmd = `
-  cd ${buildFolder}/${browser.replace(/-.+$/, '')}
+  mkdir -p ${browserFolder}
+  cd ${browserFolder}
+  touch .gitkeep
   zip -r ../_dist/OneKey-Wallet-${version}-${browser}.zip ./
 `;
   devUtils.execSync(cmd);

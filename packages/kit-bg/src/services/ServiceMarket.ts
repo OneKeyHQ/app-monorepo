@@ -125,6 +125,7 @@ export default class ServiceMarket extends ServiceBase {
         vs_currency: vsCurrency ?? 'usd',
         ids: coingeckoIds,
         sparkline,
+        sparklinePoints: sparkline ? 100 : undefined,
       },
       [],
     );

@@ -33,7 +33,6 @@ import {
   setAccountTokensBalances,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import type { FiatPayModeType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import {
   backgroundClass,
   backgroundMethod,

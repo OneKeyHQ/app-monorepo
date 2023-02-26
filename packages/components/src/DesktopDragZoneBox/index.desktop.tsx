@@ -7,48 +7,51 @@ import Box from '../Box';
 let lastTime: Date | undefined;
 let num = 0;
 
+const toggleMaxWindow = () => {
+  const nowTime = new Date();
+  if (
+    lastTime === undefined ||
+    Math.round(nowTime.getTime() - lastTime.getTime()) > 200
+  ) {
+    // reset
+    lastTime = nowTime;
+    num = 0;
+  } else {
+    num += 1;
+  }
+  if (num === 1) {
+    window.desktopApi.toggleMaximizeWindow();
+  }
+};
+
 const DesktopDragZoneBox: FC<ComponentPropsWithoutRef<typeof Pressable>> = ({
   children,
+  style,
   ...rest
-}) => {
-  const toggleMaxWindow = () => {
-    const nowTime = new Date();
-    if (
-      lastTime === undefined ||
-      Math.round(nowTime.getTime() - lastTime.getTime()) > 200
-    ) {
-      // reset
-      lastTime = nowTime;
-      num = 0;
-    } else {
-      num += 1;
-    }
-    if (num === 1) {
-      window.desktopApi.toggleMaximizeWindow();
-    }
-  };
-
-  const { style = {} } = rest;
-  return (
-    <Pressable
-      {...rest}
-      onPress={toggleMaxWindow}
-      style={{
+}) => (
+  <Pressable
+    {...rest}
+    onPress={toggleMaxWindow}
+    style={[
+      {
         // @ts-ignore
         WebkitAppRegion: 'drag',
         WebkitUserSelect: 'none',
         cursor: 'default',
+      },
+      // @ts-ignore
+      style,
+    ]}
+  >
+    {children}
+  </Pressable>
+);
 
-        ...(typeof style === 'object' ? style : {}),
-      }}
-    >
-      {children}
-    </Pressable>
-  );
-};
-
-export function DesktopDragZoneAbsoluteBar(props: ComponentProps<typeof Box>) {
-  const { w = '100%', h = 8, ...others } = props;
+export function DesktopDragZoneAbsoluteBar({
+  w = '100%',
+  h = 8,
+  ...others
+}: ComponentProps<typeof Box>) {
   // const highlightDragZone = platformEnv.isDev;
   const highlightDragZone = false;
 
