@@ -354,6 +354,7 @@ const TokenInput: FC<TokenInputProps> = ({
                   fontSize={24}
                   fontWeight="600"
                   bg="transparent"
+                  color="text-subdued"
                   _disabled={{ bg: 'transparent' }}
                   _hover={{ bg: 'transparent' }}
                   _focus={{ bg: 'transparent' }}
@@ -364,7 +365,7 @@ const TokenInput: FC<TokenInputProps> = ({
                   pr="2"
                   pb="12"
                   textAlign="right"
-                  isDisabled={isDisabled}
+                  isDisabled
                   rightCustomElement={null}
                   focusOutlineColor="transparent"
                 />

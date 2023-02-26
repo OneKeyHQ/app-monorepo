@@ -140,7 +140,7 @@ const SwapContent = () => {
         <Box
           px={4}
           py="5"
-          bg="surface-subdued"
+          bg="action-secondary-default"
           overflow="hidden"
           borderRadius={isSmall ? undefined : '12'}
         >
@@ -153,7 +153,6 @@ const SwapContent = () => {
             onChange={onChangeOutput}
             onPress={onSelectOutput}
             containerProps={{ pt: '0' }}
-            isDisabled={loading && independentField === 'INPUT'}
           />
         </Box>
         {isDisabled ? (
