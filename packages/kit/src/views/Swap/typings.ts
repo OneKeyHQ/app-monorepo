@@ -216,6 +216,7 @@ export type BuildTransactionResponse = {
       logoUrl?: string;
     }[];
   };
+  requestId?: string;
 };
 
 export type SwapQuoteTx = SendConfirmPayloadBase &

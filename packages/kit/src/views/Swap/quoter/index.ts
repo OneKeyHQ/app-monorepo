@@ -1,6 +1,8 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { QuoterType } from '../typings';
 import { convertBuildParams, convertParams, multiply } from '../utils';
@@ -22,6 +24,7 @@ import type {
   TransactionDetails,
   TransactionProgress,
 } from '../typings';
+import type { AxiosResponse } from 'axios';
 
 type TransactionOrder = {
   platformAddr: string;
@@ -296,12 +299,29 @@ export class SwapQuoter {
     return result.filter((o) => Boolean(o));
   }
 
+  parseRequestId(res: AxiosResponse<any, any>): string | undefined {
+    try {
+      const { headers } = res.config;
+      const data = headers?.['X-Request-By'];
+      if (typeof data === 'string') {
+        const meta = JSON.parse(data);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+        return meta['x-onekey-request-id'];
+      }
+    } catch (e: any) {
+      debugLogger.common.error(
+        'Failed to get request id with reason',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+        e.message,
+      );
+    }
+  }
+
   async buildTransaction(
     quoterType: QuoterType,
     params: BuildTransactionParams,
   ): Promise<BuildTransactionResponse | undefined> {
     const urlParams = convertBuildParams(params);
-
     if (!urlParams) {
       return;
     }
@@ -313,6 +333,8 @@ export class SwapQuoter {
     const url = `${serverEndPont}/swap/build_tx`;
 
     const res = await this.httpClient.post(url, urlParams);
+    const requestId = this.parseRequestId(res);
+
     const data = res.data as BuildTransactionHttpResponse;
 
     if (data?.transaction) {
@@ -320,9 +342,10 @@ export class SwapQuoter {
         return {
           data: { ...data.transaction, from: params.activeAccount.address },
           result: data.result,
+          requestId,
         };
       }
-      return { data: data.transaction, result: data.result };
+      return { data: data.transaction, result: data.result, requestId };
     }
     if (data.order && data.result?.instantRate) {
       const transaction = await this.convertOrderToTransaction(
@@ -340,6 +363,7 @@ export class SwapQuoter {
           swftcReceiveCoinAmt: data.order.receiveCoinAmt,
           swftcReceiveCoinCode: data.order.receiveCoinCode,
         },
+        requestId,
       };
     }
     return undefined;

@@ -735,12 +735,13 @@ export default class ServiceSwap extends ServiceBase {
     const url = `${endpoint}/swap/add_record`;
     const { params, response, txid, from, to } = record;
     const urlParams = convertBuildParams(params);
-    const { result, attachment } = response;
+    const { result, attachment, requestId } = response;
     return this.client.post(url, {
+      params: urlParams,
       txid,
       from,
       to,
-      params: urlParams,
+      requestId,
       result,
       attachment,
     });
