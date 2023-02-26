@@ -1,4 +1,4 @@
-import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core/dist/CrossEventEmitter';
+import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 
 import { isExtensionUi } from '../platformEnv';
 
