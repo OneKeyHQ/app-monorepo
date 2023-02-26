@@ -870,21 +870,10 @@ export default class Vault extends VaultBase {
       ]),
     );
 
-    const nftTxList = await getNFTTransactionHistory(
+    const nftMap = await getNFTTransactionHistory(
       dbAccount.address,
       this.networkId,
     );
-
-    const nftMap = new Map<string, NFTTransaction[]>();
-    nftTxList.forEach((tx) => {
-      const { hash } = tx;
-      let nftList = nftMap.get(hash);
-      if (!nftList) {
-        nftList = [];
-      }
-      nftList.push(tx);
-      nftMap.set(hash, nftList);
-    });
 
     const promises = onChainTxs.map(async (tx, index) => {
       const transferItem = transfers[index];
@@ -903,7 +892,7 @@ export default class Vault extends VaultBase {
         return Promise.resolve(null);
       }
 
-      const nftTxs = nftMap.get(txid);
+      const nftTxs = nftMap[txid];
 
       if (transferItem && transferItem.decimals === 0 && isEmpty(nftTxs)) {
         isFinal = false;
