@@ -677,7 +677,6 @@ export default class ServiceToken extends ServiceBase {
   @backgroundMethod()
   async fetchFiatPayTokens({
     networkId,
-    type,
   }: {
     type: FiatPayModeType;
     networkId: string;

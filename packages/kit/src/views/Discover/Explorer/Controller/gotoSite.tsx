@@ -35,7 +35,7 @@ export const gotoSite = ({
 }) => {
   const {
     webTabs: { tabs, currentTabId },
-    discover: { dappFavorites },
+    discover: { bookmarks },
   } = appSelector((s) => s);
   const curId = id || currentTabId;
   const tab = tabs.find((t) => t.id === curId);
@@ -70,7 +70,8 @@ export const gotoSite = ({
       );
     }
 
-    const isBookmarked = dappFavorites?.includes(url);
+    const urls = bookmarks?.map((item) => item.url);
+    const isBookmarked = urls?.includes(url);
 
     dispatch(
       isNewTab
