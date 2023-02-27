@@ -13,6 +13,7 @@ import {
 import useIsKeyboardShown from '@onekeyhq/components/src/Layout/BottomTabs/utils/useIsKeyboardShown';
 
 import type { IBoxProps } from 'native-base';
+import { useIntl } from 'react-intl';
 
 type AccessoryViewProps = {
   withKeybord?: boolean;
@@ -28,6 +29,7 @@ export const AccessoryView: FC<AccessoryViewProps> = ({
   boxProps,
 }) => {
   const isKeyboardshow = useIsKeyboardShown();
+  const intl = useIntl();
   const showAccessory = useMemo(
     () =>
       ((isKeyboardshow && withKeybord) || !withKeybord) &&
@@ -50,16 +52,15 @@ export const AccessoryView: FC<AccessoryViewProps> = ({
       {showInvalidTip ? (
         <Center flex={1} flexDirection="row">
           <Icon name="ExclamationTriangleMini" color="icon-warning" />
-          <Typography.Body2Strong>
-            Contains invalid words
-          </Typography.Body2Strong>
+          <Typography.Body2Strong>invalid word</Typography.Body2Strong>
         </Center>
       ) : (
         <Box flex={1}>
           <ScrollView flex={1} horizontal disableScrollViewPanResponder>
             <HStack ml={2} space={2} alignItems="center">
-              {accessoryData.map((value) => (
+              {accessoryData.map((value, index) => (
                 <Button
+                  key={`${value}-${index}`}
                   type="basic"
                   h="34px"
                   size="sm"

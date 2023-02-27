@@ -58,7 +58,10 @@ const RecoveryWallet = () => {
         disableAnimation={disableAnimation}
         title={intl.formatMessage({ id: 'onboarding__import_with_phrase' })}
         secondaryContent={
-          <SecondaryContent onPressDrawerTrigger={onPressDrawerTrigger} />
+          <SecondaryContent
+            mode={mode}
+            onPressDrawerTrigger={onPressDrawerTrigger}
+          />
         }
       >
         <OnboardingAddExistingWallet

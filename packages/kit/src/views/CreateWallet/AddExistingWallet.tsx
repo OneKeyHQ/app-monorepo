@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { InputAccessoryView } from 'react-native';
 
-import { InputAccessoryView, Platform } from 'react-native';
 import {
   Box,
   Button,
@@ -15,7 +15,6 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
-import type { TextAreaAction } from '@onekeyhq/components/src/Textarea';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -70,12 +69,16 @@ function useAddExistingWallet({
   onAddImportedAuth,
   onAddWatchingDone,
   inputMode,
+  onTextChange,
+  textValue,
 }: {
   onMultipleResults: (p: IAddImportedOrWatchingAccountModalParams) => void;
   onAddMnemonicAuth: (p: IAppWalletDoneModalParams) => void;
   onAddImportedAuth: (p: IAddImportedAccountDoneModalParams) => void;
   onAddWatchingDone: () => void;
   inputMode?: IAddExistingWalletMode;
+  onTextChange?: (text: string) => void;
+  textValue?: string;
 }) {
   const route = useRoute();
   const intl = useIntl();
@@ -272,6 +275,12 @@ function useAddExistingWallet({
     }
   }, [presetText, trigger]);
 
+  useEffect(() => {
+    if (textValue) {
+      setValue('text', textValue);
+    }
+  }, [setValue, textValue]);
+
   const onPaste = useCallback(async () => {
     const pastedText = await getClipboard();
     setValue('text', pastedText);
@@ -313,6 +322,7 @@ function useAddExistingWallet({
     inputCategory,
     placeholder,
     onPaste,
+    onTextChange,
     mode,
   };
 }
@@ -324,8 +334,6 @@ function AddExistingWalletView(
     showPasteButton?: boolean;
     onNameServiceChange?: ReturnType<typeof useNameServiceStatus>['onChange'];
     nameServiceAddress?: ReturnType<typeof useNameServiceStatus>['address'];
-    onChangeTextForMnemonic?: (text: string) => void;
-    valueTextForMnemonic?: string;
   },
 ) {
   const {
@@ -343,8 +351,7 @@ function AddExistingWalletView(
     showPasteButton,
     onNameServiceChange,
     nameServiceAddress,
-    onChangeTextForMnemonic,
-    valueTextForMnemonic,
+    onTextChange,
   } = props;
 
   const {
@@ -364,16 +371,10 @@ function AddExistingWalletView(
     ),
     [onNameServiceChange, onNameServiceStatusChange, mode],
   );
-
   const PasteBtn = useCallback(
-    (withIcon: boolean) => (
+    () => (
       <Center>
-        <Button
-          size="xl"
-          type="plain"
-          leftIconName={withIcon ? 'Square2StackMini' : undefined}
-          onPromise={onPaste}
-        >
+        <Button size="xl" type="plain" onPromise={onPaste}>
           {intl.formatMessage({ id: 'action__paste' })}
         </Button>
       </Center>
@@ -381,18 +382,16 @@ function AddExistingWalletView(
     [intl, onPaste],
   );
 
-  const textareaActions = useMemo(() => {
-    let resActions: TextAreaAction[] = [
-      { icon: 'ClipboardCopyMini', text: 'Paste', onPress: onPaste },
-    ];
-    if (mode === 'watching') {
-      resActions = [
-        ...resActions,
-        { icon: 'ViewfinderCircleMini', text: 'Scan', onPress: () => {} },
-      ];
+  const labelAddonArr = useMemo(() => {
+    let res: Array<'scan' | 'paste'> = [];
+    if (mode === 'watching' || mode === 'all') {
+      res = [...res, 'scan'];
     }
-    return resActions;
-  }, [mode, onPaste]);
+    if (showPasteButton) {
+      res = [...res, 'paste'];
+    }
+    return res;
+  }, [mode, showPasteButton]);
 
   return (
     <Box
@@ -403,10 +402,17 @@ function AddExistingWalletView(
       // h="full"
     >
       {mode === 'mnemonic' && !platformEnv.isNative ? (
-        <NineHouseLatticeInputForm />
+        <NineHouseLatticeInputForm
+          onSubmit={async (text) => {
+            await onSubmit(text);
+            await wait(600);
+          }}
+        />
       ) : (
         <Form>
           <Form.Item
+            isLabelAddonActions
+            labelAddon={labelAddonArr}
             control={control}
             name="text"
             rules={{
@@ -443,6 +449,12 @@ function AddExistingWalletView(
                   id: 'form__add_exsting_wallet_invalid',
                 });
               },
+              onChange: (e: { target?: { name: string; value?: string } }) => {
+                const text = e?.target?.value;
+                if (onTextChange && typeof text === 'string') {
+                  onTextChange(text);
+                }
+              },
             }}
             helpText={helpText}
           >
@@ -452,35 +464,24 @@ function AddExistingWalletView(
                 backgroundColor="action-secondary-default"
                 secureTextEntry
                 h="50px"
-                rightCustomElement={PasteBtn(false)}
+                rightCustomElement={PasteBtn()}
               />
             ) : (
-              <>
-                <Form.Textarea
-                  inputAccessoryViewID="1"
-                  value={valueTextForMnemonic}
-                  onChange={(text) => {
-                    if (onChangeTextForMnemonic && typeof text === 'string') {
-                      onChangeTextForMnemonic(text);
-                    }
-                  }}
-                  autoCorrect={false}
-                  actions={textareaActions}
-                  placeholder={placeholder}
-                  h={isVerticalLayout ? '88px' : '116px'}
-                  trimValue={!['all', 'mnemonic'].includes(mode)}
-                />
-                {platformEnv.isNativeIOS && (
-                  <InputAccessoryView nativeID="1">
-                    <Box />
-                  </InputAccessoryView>
-                )}
-              </>
+              <Form.Textarea
+                inputAccessoryViewID="1"
+                autoFocus
+                autoCorrect={false}
+                placeholder={placeholder}
+                h={isVerticalLayout ? '88px' : '116px'}
+                trimValue={!['all', 'mnemonic'].includes(mode)}
+              />
             )}
           </Form.Item>
-          {!(platformEnv.isExtension || platformEnv.isWeb) &&
-            showPasteButton &&
-            PasteBtn(true)}
+          {platformEnv.isNativeIOS && (
+            <InputAccessoryView nativeID="1">
+              <Box />
+            </InputAccessoryView>
+          )}
           {showSubmitButton ? (
             <Button
               isDisabled={submitDisabled || disableSubmitBtn}
@@ -586,14 +587,11 @@ function OnboardingAddExistingWallet({
     onAddWatchingDone,
     onAddImportedAuth,
     inputMode,
+    onTextChange: onChangeTextForMnemonic,
+    textValue: valueTextForMnemonic,
   });
   return (
-    <AddExistingWalletView
-      {...viewProps}
-      showSubmitButton
-      valueTextForMnemonic={valueTextForMnemonic}
-      onChangeTextForMnemonic={onChangeTextForMnemonic}
-    />
+    <AddExistingWalletView {...viewProps} showSubmitButton showPasteButton />
   );
 }
 

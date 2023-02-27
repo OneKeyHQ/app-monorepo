@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Box,
   Button,
   Form,
@@ -16,6 +17,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import BaseMenu from '../../../../Overlay/BaseMenu';
 
 import { AccessoryView } from './AccessoryView';
@@ -25,8 +27,13 @@ import type { IBaseMenuOptions } from '../../../../Overlay/BaseMenu';
 
 const defaultSupportWords = [12, 15, 18, 21, 24];
 
-export const NineHouseLatticeInputForm: FC = () => {
-  console.log('NineHouseLatticeInputForm');
+type NineHouseLatticeInputFormProps = {
+  onSubmit: ({ text }: { text: string }) => void;
+};
+
+export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
+  onSubmit,
+}) => {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const {
@@ -42,6 +49,8 @@ export const NineHouseLatticeInputForm: FC = () => {
     reValidateMode: 'onBlur',
   });
   const { screenWidth } = useUserDevice();
+  const [disableSubmit, setDisableSubmit] = useState(true);
+  const [mnemonicoValidateShow, setMnemonicoValidateShow] = useState(false);
   const [currentWordsCount, setCurrentWordsCount] = useState(12);
   const [focusInputName, setFocusInputName] = useState('1');
   const defaultSupportWordsOptions: IBaseMenuOptions = useMemo(
@@ -99,7 +108,7 @@ export const NineHouseLatticeInputForm: FC = () => {
         <Pressable flexDirection="row" alignItems="center" onPress={onClear}>
           <Icon color="icon-subdued" size={16} name="XCircleMini" />
           <Typography.Button2 color="text-subdued" ml={2}>
-            Clear
+            {intl.formatMessage({ id: 'action__clear_all' })}
           </Typography.Button2>
         </Pressable>
       </Box>
@@ -109,10 +118,24 @@ export const NineHouseLatticeInputForm: FC = () => {
             name={`${index}`}
             control={control}
             rules={{
-              validate: (t) => {
-                console.log('t---', t);
-                // todo
-                const values = getValues();
+              validate: async (t) => {
+                const valuesMap = getValues();
+                const values = Object.values(valuesMap);
+                if (values.every((v: string) => v.length > 0)) {
+                  try {
+                    await backgroundApiProxy.validator.validateMnemonic(
+                      values.join(' '),
+                    );
+                    setDisableSubmit(false);
+                    setMnemonicoValidateShow(false);
+                  } catch (e) {
+                    setDisableSubmit(true);
+                    setMnemonicoValidateShow(true);
+                  }
+                } else {
+                  setDisableSubmit(true);
+                  setMnemonicoValidateShow(false);
+                }
                 if (typeof t === 'string') {
                   return Boolean(validMenmonicWord(t));
                 }
@@ -120,7 +143,23 @@ export const NineHouseLatticeInputForm: FC = () => {
               onChange: (e: { target: { value: string; name: string } }) => {
                 const { value } = e.target;
                 if (typeof value === 'string') {
-                  onChangeText(value);
+                  if (value.split(' ').length > 2) {
+                    setTimeout(() => {
+                      const valueArray = value.split(' ');
+                      inputIndexArray.forEach((inputIndex) => {
+                        setValue(`${inputIndex}`, '');
+                      });
+                      valueArray.forEach((v, i) => {
+                        setValue(`${i + 1}`, v);
+                        trigger(`${i + 1}`);
+                      });
+                      if (valueArray.length < inputIndexArray.length) {
+                        setFocus(`${valueArray.length + 1}`);
+                      }
+                    }, 0);
+                  } else {
+                    onChangeText(value);
+                  }
                 }
               },
             }}
@@ -172,14 +211,23 @@ export const NineHouseLatticeInputForm: FC = () => {
           />
         </Box>
       ) : null}
-
+      {mnemonicoValidateShow && (
+        <Box h="44px" mt={2} mb={4} w="full">
+          <Alert
+            alertType="error"
+            dismiss={false}
+            title={intl.formatMessage({ id: 'msg__engine__invalid_mnemonic' })}
+          />
+        </Box>
+      )}
       <Button
-        isDisabled
+        isDisabled={disableSubmit}
         type="primary"
         mt={2}
         size={isVertical ? 'xl' : 'lg'}
         onPromise={handleSubmit((values) => {
-          console.log('sub--values', values);
+          const result = Object.values(values).join(' ');
+          onSubmit({ text: result });
         })}
       >
         {intl.formatMessage({ id: 'action__confirm' })}
