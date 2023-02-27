@@ -41,7 +41,7 @@ export const PriceAlertListModal: FC = () => {
   const [data, setData] = useState<PriceAlertItem[]>([]);
   const route = useRoute<RouteProps>();
   const { pushNotification } = useSettings();
-  const { token } = route.params;
+  const { token, price } = route.params;
   const navigation = useNavigation<NavigationProps>();
 
   const { serviceNotification, dispatch } = backgroundApiProxy;
@@ -79,10 +79,11 @@ export const PriceAlertListModal: FC = () => {
       );
     }
     navigation.navigate(ManageTokenRoutes.PriceAlertAdd, {
+      price,
       token,
       alerts: data,
     });
-  }, [pushNotification, dispatch, navigation, token, data]);
+  }, [pushNotification, dispatch, navigation, token, data, price]);
 
   useFocusEffect(
     useCallback(() => {
