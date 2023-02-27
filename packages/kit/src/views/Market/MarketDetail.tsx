@@ -124,54 +124,6 @@ const PurchaseButton = ({ onPress }: { onPress: () => void }) => (
   </Box>
 );
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const BellButton = ({ tokenItem }: { tokenItem: MarketTokenItem }) => {
-  // const priceSubscribeEnable = useMarketTokenPriceSubscribeStatus({
-  //   coingeckoId: tokenItem.coingeckoId,
-  // });
-  const [isFetchIng, setIsFetching] = useState(false);
-  const onPriceSubscribePress = useCallback(() => {
-    // let res: boolean;
-    setIsFetching(true);
-    // if (priceSubscribeEnable) {
-    //   res =
-    //     await backgroundApiProxy.serviceMarket.fetchMarketTokenCancelPriceSubscribe(
-    //       tokenItem.coingeckoId,
-    //     );
-    // } else {
-    //   res =
-    //     await backgroundApiProxy.serviceMarket.fetchMarketTokenAddPriceSubscribe(
-    //       tokenItem.coingeckoId,
-    //       tokenItem.symbol ?? 'unknow',
-    //     );
-    // }
-    setIsFetching(false);
-    // if (!res) return;
-    // ToastManager.show({
-    //   title: intl.formatMessage({
-    //     id: priceSubscribeEnable
-    //       ? 'msg__unsubscription_succeeded'
-    //       : 'msg__subscription_succeeded',
-    //   }),
-    // });
-  }, []);
-  return (
-    <Box>
-      <IconButton
-        ml={4}
-        isDisabled={!tokenItem.coingeckoId.length}
-        type="basic"
-        name="BellMini"
-        size="base"
-        circle
-        iconColor="icon-default" // get subscribe status
-        onPress={onPriceSubscribePress}
-        isLoading={isFetchIng}
-      />
-    </Box>
-  );
-};
-
 const HeaderTitle = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   const isVertical = useIsVerticalLayout();
   return (
@@ -296,9 +248,6 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                 />
               ) : null}
               <FavoritButton tokenItem={marketTokenItem} />
-              {/* {marketTokenItem ? (
-                <BellButton tokenItem={marketTokenItem} />
-              ) : null} */}
             </Box>
           </Box>
           {children}
