@@ -11,7 +11,7 @@ type PriceLabelProps = {
   price: number | null;
   basePrice: number;
   time: string;
-  onPriceSubscribe?: () => void;
+  onPriceSubscribe?: (price: number) => void;
 };
 
 const PriceLabel: FC<PriceLabelProps> = ({
@@ -65,7 +65,7 @@ const PriceLabel: FC<PriceLabelProps> = ({
         alignItems="center"
         onPress={() => {
           if (onPriceSubscribe) {
-            onPriceSubscribe();
+            onPriceSubscribe(price || 0);
           }
         }}
       >

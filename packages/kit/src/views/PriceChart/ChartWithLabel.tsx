@@ -17,7 +17,7 @@ type ChartWithLabelProps = {
   timeDefaultLabel: string;
   children: ReactNode;
   isFetching: boolean;
-  onPriceSubscribe?: () => void;
+  onPriceSubscribe?: (price: number) => void;
 };
 
 const ChartWithLabel: FC<ChartWithLabelProps> = ({

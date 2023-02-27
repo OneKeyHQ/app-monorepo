@@ -57,21 +57,25 @@ const MarketPriceChart: FC<MarketPriceChartProps> = ({
     chart?.[0]?.[0],
   );
   const tokenItem = useMarketTokenItem({ coingeckoId });
-  const onPriceSubscribe = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.ManageToken,
-      params: {
-        screen: ManageTokenRoutes.PriceAlertList,
+  const onPriceSubscribe = useCallback(
+    (price: number) => {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.ManageToken,
         params: {
-          token: {
-            coingeckoId,
-            symbol: tokenItem.symbol ?? coingeckoId,
-            logoURI: tokenItem.logoURI,
-          } as TokenDO,
+          screen: ManageTokenRoutes.PriceAlertList,
+          params: {
+            price,
+            token: {
+              coingeckoId,
+              symbol: tokenItem?.symbol ?? coingeckoId,
+              logoURI: tokenItem?.logoURI,
+            } as TokenDO,
+          },
         },
-      },
-    });
-  }, [coingeckoId, navigation, tokenItem.logoURI, tokenItem.symbol]);
+      });
+    },
+    [coingeckoId, navigation, tokenItem?.logoURI, tokenItem?.symbol],
+  );
   const refreshDataOnTimeChange = useCallback((newTimeValue: string) => {
     const newTimeIndex = TIMEOPTIONS.indexOf(newTimeValue);
     setSelectedTimeIndex(newTimeIndex);
