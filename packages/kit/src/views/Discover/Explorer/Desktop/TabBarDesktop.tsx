@@ -76,13 +76,13 @@ const Tab: FC<
   );
 };
 
-const AddTabButton: FC = () => (
+const AddTabButton = () => (
   <Button
     flex={1}
     borderRadius={0}
     type="plain"
     leftIconName="PlusMini"
-    onPress={addNewWebTab}
+    onPress={() => addNewWebTab()}
   />
 );
 

@@ -835,7 +835,12 @@ class ProviderApiEthereum extends ProviderApiBase {
     }
 
     // **** should await return
-    const res = await this.addEthereumChainMemo(request, params, address, ...others);
+    const res = await this.addEthereumChainMemo(
+      request,
+      params,
+      address,
+      ...others,
+    );
 
     // Metamask return null
     return Promise.resolve(res ?? null);

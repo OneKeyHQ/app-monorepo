@@ -13,14 +13,13 @@ import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useShortcuts } from '../hooks/useShortcuts';
 import '../routes/deepLink';
 import buildLinking from '../routes/linking';
 
 import RedirectProvider from './RedirectProvider';
 
 import type { NavigationContainerRef } from '@react-navigation/native';
-
-import { useShortcuts } from '../hooks/useShortcuts';
 
 export type RootNavContainerRef = NavigationContainerRef<RootRoutesParams>;
 export const navigationRef = createRef<RootNavContainerRef>();
