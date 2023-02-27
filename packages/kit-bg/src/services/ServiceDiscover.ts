@@ -111,7 +111,7 @@ class ServicDiscover extends ServiceBase {
 
   @backgroundMethod()
   async fetchUrlInfo(input: string) {
-    let { baseUrl } = this;
+    const { baseUrl } = this;
     const url = `${baseUrl}/url_info`;
     const res = await this.client.post(url, { url: input });
     const data = res.data as UrlInfo;
@@ -151,18 +151,18 @@ class ServicDiscover extends ServiceBase {
       id: uuid.v4(),
       url: item,
     })) as BookmarkItem[];
-    
+
     for (let i = 0; i < bookmarks.length; i += 1) {
       const bookmark = bookmarks[i];
 
       const info = await this.getUrlInfo(bookmark.url);
       if (info) {
         bookmark.title = info.title;
-        bookmark.icon = info.icon
+        bookmark.icon = info.icon;
       }
     }
 
-    dispatch(resetBookmarks(bookmarks))
+    dispatch(resetBookmarks(bookmarks));
   }
 
   @backgroundMethod()
@@ -175,13 +175,12 @@ class ServicDiscover extends ServiceBase {
   async getUrlInfo(url: string) {
     const dapps = await this.searchDappsWithRegExp([url]);
     if (dapps && dapps.length > 0) {
-      const item = dapps[0]
-      return { title: item.name, icon: item.logoURL }
-    } else {
-      const urlInfo = await this.fetchUrlInfo(url);
-      if (urlInfo) {
-        return { title: urlInfo.title, icon: urlInfo.icon }
-      }
+      const item = dapps[0];
+      return { title: item.name, icon: item.logoURL };
+    }
+    const urlInfo = await this.fetchUrlInfo(url);
+    if (urlInfo) {
+      return { title: urlInfo.title, icon: urlInfo.icon };
     }
   }
 

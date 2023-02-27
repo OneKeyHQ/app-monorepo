@@ -20,6 +20,8 @@ import RedirectProvider from './RedirectProvider';
 
 import type { NavigationContainerRef } from '@react-navigation/native';
 
+import { useShortcuts } from '../hooks/useShortcuts';
+
 export type RootNavContainerRef = NavigationContainerRef<RootRoutesParams>;
 export const navigationRef = createRef<RootNavContainerRef>();
 
@@ -95,6 +97,8 @@ const NavigationApp = () => {
   // https://reactnavigation.org/docs/devtools/#useflipper
   // only work during development and are disabled in production.
   useFlipper(navigationRef);
+
+  useShortcuts();
 
   return (
     <NavigationContainer

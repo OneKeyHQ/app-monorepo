@@ -1,6 +1,6 @@
-import platformEnv from '../../platformEnv';
-import uuid from 'react-native-uuid'
+import uuid from 'react-native-uuid';
 
+import platformEnv from '../../platformEnv';
 
 export enum RequestLibNames {
   axios = 'axios',
@@ -46,7 +46,7 @@ export abstract class RequestInterceptorBase {
           isExtFirefox: platformEnv.isExtFirefox,
           version: platformEnv.version,
           buildNumber: platformEnv.buildNumber,
-          'x-onekey-request-id': uuid.v4()
+          'x-onekey-request-id': uuid.v4(),
         }),
       );
     }

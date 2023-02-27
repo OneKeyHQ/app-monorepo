@@ -7,11 +7,10 @@ import ScrollableButtonGroup from '@onekeyhq/components/src/ScrollableButtonGrou
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../../hooks';
 import {
-  addWebTab,
   closeWebTab,
-  homeTab,
   setCurrentWebTab,
 } from '../../../../store/reducers/webTabs';
+import { addNewWebTab } from '../explorerUtils';
 
 import type { WebTab } from '../../../../store/reducers/webTabs';
 import type { LayoutChangeEvent } from 'react-native';
@@ -77,22 +76,13 @@ const Tab: FC<
   );
 };
 
-const addNewTab = () => {
-  const { dispatch } = backgroundApiProxy;
-  dispatch(
-    addWebTab({
-      ...homeTab,
-    }),
-  );
-};
-
 const AddTabButton: FC = () => (
   <Button
     flex={1}
     borderRadius={0}
     type="plain"
     leftIconName="PlusMini"
-    onPress={addNewTab}
+    onPress={addNewWebTab}
   />
 );
 

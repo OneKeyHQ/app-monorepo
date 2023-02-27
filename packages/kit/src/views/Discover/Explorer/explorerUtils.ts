@@ -3,8 +3,11 @@ import type { ReactNode } from 'react';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { appSelector } from '../../../store';
+import { addWebTab, homeTab } from '../../../store/reducers/webTabs';
 
+import type { WebTab } from '../../../store/reducers/webTabs';
 import type { DAppItemType, WebSiteHistory } from '../type';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
@@ -116,12 +119,8 @@ if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore
   global.$$webviewRefs = webviewRefs;
 }
-export function getWebviewWrapperRef({
-  tabId,
-}: {
-  tabId: string | null | undefined;
-}) {
-  // DO NOT useMemo() here, as webviewRefs may be updated
+export function getWebviewWrapperRef(id?: string) {
+  const tabId = id || appSelector((s) => s.webTabs.currentTabId);
   const ref = tabId ? webviewRefs[tabId] : null;
   return ref ?? null;
 }
@@ -133,9 +132,7 @@ export function crossWebviewLoadUrl({
   url: string;
   tabId?: string;
 }) {
-  const wrapperRef = getWebviewWrapperRef({
-    tabId,
-  });
+  const wrapperRef = getWebviewWrapperRef(tabId);
   debugLogger.webview.info('crossWebviewLoadUrl >>>>', url);
   if (platformEnv.isDesktop) {
     // @ts-ignore
@@ -146,10 +143,6 @@ export function crossWebviewLoadUrl({
     (wrapperRef?.innerRef as WebView)?.loadUrl(url);
   }
 }
-const getCurrentWebviewRef = (id?: string) =>
-  getWebviewWrapperRef({
-    tabId: id || appSelector((s) => s.webTabs.currentTabId),
-  });
 
 const injectToPauseWebsocket = () => {
   if (window.WebSocket) {
@@ -176,7 +169,7 @@ const injectToResumeWebsocket = () => {
 };
 
 export function pauseDappInteraction(id?: string) {
-  const ref = getCurrentWebviewRef(id);
+  const ref = getWebviewWrapperRef(id);
   if (ref) {
     // pause jsbridge interaction
     if (ref.jsBridge) {
@@ -204,7 +197,7 @@ export function pauseDappInteraction(id?: string) {
 }
 
 export function resumeDappInteraction(id?: string) {
-  const ref = getCurrentWebviewRef(id);
+  const ref = getWebviewWrapperRef(id);
   if (ref) {
     // resume jsbridge interaction
     if (ref.jsBridge) {
@@ -230,3 +223,13 @@ export function resumeDappInteraction(id?: string) {
     }
   }
 }
+
+export const addNewWebTab = (tabData?: Partial<WebTab>) => {
+  const { dispatch } = backgroundApiProxy;
+  dispatch(
+    addWebTab({
+      ...homeTab,
+      ...tabData,
+    }),
+  );
+};

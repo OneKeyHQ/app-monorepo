@@ -21,6 +21,7 @@ import logger from 'electron-log';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 
+import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess, { restartBridge } from './process/index';
 
@@ -282,6 +283,10 @@ function createMainWindow() {
   ipcMain.on('app/focus', () => {
     showMainWindow();
   });
+  ipcMain.on('app/quit', () => {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    quitOrMinimizeApp();
+  });
 
   ipcMain.on('app/openPrefs', (_event, prefType: PrefType) => {
     const platform = os.type();
@@ -349,10 +354,18 @@ function createMainWindow() {
 
   browserWindow.on('focus', () => {
     browserWindow.webContents.send('appState', 'active');
+    registerShortcuts((event) => {
+      browserWindow.webContents.send('shortcut', event);
+    });
+  });
+
+  browserWindow.on('blur', () => {
+    unregisterShortcuts();
   });
 
   browserWindow.on('hide', () => {
     browserWindow.webContents.send('appState', 'background');
+    unregisterShortcuts();
   });
 
   // Prevents clicking on links to open new Windows
