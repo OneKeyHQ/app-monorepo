@@ -22,7 +22,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../hooks/redux';
-import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 import { PreSendAmountPreview } from '../Send/modals/PreSendAmount';
 
@@ -48,27 +47,16 @@ export const PriceAlertAddModal: FC = () => {
 
   const [loading, setLoading] = useState(false);
   const route = useRoute<RouteProps>();
-  const { token, alerts } = route.params;
+  const { token, alerts, price } = route.params;
   const { height } = useWindowDimensions();
   const isSmallScreen = useIsVerticalLayout();
   const { pushNotification } = useSettings();
   const navigation = useNavigation<NavigationProps>();
-  // const map = useAppSelector((s) => s.fiatMoney.map);
   const { selectedFiatMoneySymbol } = useSettings();
-  // const fiat = map[selectedFiatMoneySymbol];
-  const originalPrice =
-    useSimpleTokenPriceValue({
-      networkId: token.networkId,
-      contractAdress: token.tokenIdOnNetwork,
-    }) ?? 0;
-  const price = new B(originalPrice).toNumber();
 
   const { serviceNotification } = backgroundApiProxy;
 
-  const maxDecimals = useMemo(
-    () => getSuggestedDecimals(+originalPrice),
-    [originalPrice],
-  );
+  const maxDecimals = useMemo(() => getSuggestedDecimals(+price), [price]);
 
   const formatPrice = useCallback(
     (

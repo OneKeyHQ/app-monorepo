@@ -2,7 +2,7 @@ import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Typography } from '@onekeyhq/components';
+import { Box, Icon, Pressable, Typography } from '@onekeyhq/components';
 
 import { FormatCurrencyNumber } from '../../components/Format';
 import { calculateGains } from '../../utils/priceUtils';
@@ -11,9 +11,15 @@ type PriceLabelProps = {
   price: number | null;
   basePrice: number;
   time: string;
+  onPriceSubscribe?: (price: number) => void;
 };
 
-const PriceLabel: FC<PriceLabelProps> = ({ price, basePrice, time }) => {
+const PriceLabel: FC<PriceLabelProps> = ({
+  price,
+  basePrice,
+  time,
+  onPriceSubscribe,
+}) => {
   const intl = useIntl();
   const priceLabel = intl.formatMessage({
     id: 'content__price_uppercase',
@@ -52,9 +58,22 @@ const PriceLabel: FC<PriceLabelProps> = ({ price, basePrice, time }) => {
       <Typography.Subheading color="text-subdued">
         {priceLabel}
       </Typography.Subheading>
-      <Typography.DisplayXLarge mt="4px" mb="4px">
-        <FormatCurrencyNumber value={price || 0} />
-      </Typography.DisplayXLarge>
+      <Pressable
+        my={2}
+        disabled={Boolean(!onPriceSubscribe)}
+        flexDirection="row"
+        alignItems="center"
+        onPress={() => {
+          if (onPriceSubscribe) {
+            onPriceSubscribe(price || 0);
+          }
+        }}
+      >
+        <Typography.DisplayXLarge mr={2}>
+          <FormatCurrencyNumber value={price || 0} />
+        </Typography.DisplayXLarge>
+        {onPriceSubscribe ? <Icon name="BellSolid" size={20} /> : null}
+      </Pressable>
       <Box flexDirection="row" alignItems="center">
         {displayInfo}
       </Box>
