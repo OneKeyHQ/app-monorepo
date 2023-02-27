@@ -3,13 +3,15 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Fuse from 'fuse.js';
-import { Spinner } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
   Empty,
   Icon,
+  KeyboardDismissView,
+  List,
+  ListItem,
   Modal,
   Pressable,
   Searchbar,
@@ -56,34 +58,6 @@ export function searchTokens(tokens: Token[], terms: string): Token[] {
 }
 
 type NavigationProps = ModalScreenProps<FiatPayModalRoutesParams>;
-type HeaderProps = {
-  onChange: (keyword: string) => void;
-};
-
-const Header: FC<HeaderProps> = ({ onChange }) => {
-  const intl = useIntl();
-  const [value, setValue] = useState('');
-  return (
-    <Box px="8px" mb="16px">
-      <Searchbar
-        w="full"
-        placeholder={intl.formatMessage({
-          id: 'form__search_tokens',
-          defaultMessage: 'Search Tokens',
-        })}
-        value={value}
-        onClear={() => {
-          onChange('');
-          setValue('');
-        }}
-        onChangeText={(text) => {
-          setValue(text);
-          onChange(text);
-        }}
-      />
-    </Box>
-  );
-};
 
 type ListCellProps = {
   token: Token;
@@ -107,14 +81,11 @@ const TokenListCell: FC<ListCellProps> = ({
     token,
     fallback: '0',
   });
-
   const tokenId = token?.tokenIdOnNetwork || 'main';
-
   const decimal =
     tokenId === 'main'
       ? network?.nativeDisplayDecimals
       : network?.tokenDisplayDecimals;
-
   const formatedBalance = useMemo(() => {
     if (typeof balance === 'undefined') {
       return <Skeleton shape="Body2" />;
@@ -137,30 +108,20 @@ const TokenListCell: FC<ListCellProps> = ({
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { serviceFiatPay } = backgroundApiProxy;
 
-  const buyAction = useCallback(async () => {
+  const goToWebView = useCallback(async () => {
     const signedUrl = await serviceFiatPay.getFiatPayUrl({
       type,
-      cryptoCode: token.moonpayId,
+      tokenAddress: token.address,
       address,
+      networkId,
     });
     if (signedUrl.length > 0) {
       navigation.navigate(FiatPayRoutes.MoonpayWebViewModal, {
         url: signedUrl,
       });
     }
-  }, [address, navigation, serviceFiatPay, token.moonpayId, type]);
-  const sellAction = useCallback(async () => {
-    const signedUrl = await serviceFiatPay.getFiatPayUrl({
-      type,
-      cryptoCode: token.moonpayId,
-      address,
-    });
-    if (signedUrl.length > 0) {
-      navigation.navigate(FiatPayRoutes.MoonpayWebViewModal, {
-        url: signedUrl,
-      });
-    }
-  }, [address, navigation, serviceFiatPay, token.moonpayId, type]);
+  }, [address, navigation, networkId, serviceFiatPay, token.address, type]);
+
   return (
     <Pressable
       flex={1}
@@ -171,11 +132,7 @@ const TokenListCell: FC<ListCellProps> = ({
       _hover={{ bgColor: 'surface-hovered' }}
       _pressed={{ bgColor: 'surface-pressed' }}
       onPress={() => {
-        if (type === 'buy') {
-          buyAction();
-        } else {
-          sellAction();
-        }
+        goToWebView();
       }}
     >
       <Box flex={1} flexDirection="row" alignItems="center">
@@ -222,17 +179,11 @@ export const SupportTokenList: FC = () => {
     [account?.address, accountId, network, networkId, type],
   );
 
-  const ListEmptyComponent = useCallback(() => {
-    if (loading) {
-      return (
-        <Box height="400px" justifyContent="center">
-          <Spinner size="lg" />
-        </Box>
-      );
-    }
-    return (
-      <Box>
+  const emptyComponent = useCallback(
+    () => (
+      <KeyboardDismissView>
         <Empty
+          flex={1}
           title={intl.formatMessage({
             id:
               type === 'buy'
@@ -242,45 +193,79 @@ export const SupportTokenList: FC = () => {
           subTitle={intl.formatMessage({
             id: 'empty__no_purchasable_tokens_desc',
           })}
-          icon="DatabaseMini"
+          emoji="🥺"
         />
-      </Box>
-    );
-  }, [intl, loading, type]);
-
-  const separator = useCallback(() => <Box h="8px" />, []);
+      </KeyboardDismissView>
+    ),
+    [intl, type],
+  );
 
   return (
     <Modal
-      maxHeight="560px"
-      height="560px"
       header={intl.formatMessage({
         id: type === 'buy' ? 'action__buy' : 'action__sell',
       })}
+      height="560px"
       hideSecondaryAction
       primaryActionProps={{
         type: 'basic',
       }}
       footer={null}
-      flatListProps={{
-        data: flatListData,
-        // @ts-ignore
-        renderItem,
-        showsVerticalScrollIndicator: false,
-        keyExtractor: (item) => (item as Token).address ?? '',
-        ItemSeparatorComponent: separator,
-        ListEmptyComponent,
-        ListHeaderComponent: (
-          <Header
-            onChange={(text) => {
-              updateSearchText(text);
-              updateSearchResult(() => searchTokens(tokenList, text));
-            }}
-          />
-        ),
-        mx: '-8px',
-      }}
-    />
+    >
+      <Searchbar
+        w="full"
+        value={searchText}
+        mb="4"
+        placeholder={intl.formatMessage({
+          id: 'form__search_tokens',
+          defaultMessage: 'Search Tokens',
+        })}
+        onChangeText={(text) => {
+          updateSearchText(text);
+          updateSearchResult(() => searchTokens(tokenList, text));
+        }}
+        onClear={() => updateSearchText('')}
+      />
+      {loading ? (
+        // TODO:Skeleton list
+        <List
+          data={[1, 2, 3, 4, 5]}
+          renderItem={() => (
+            <ListItem>
+              <ListItem.Column>
+                <Skeleton shape="Avatar" />
+              </ListItem.Column>
+              <ListItem.Column
+                flex={1}
+                text={{
+                  label: <Skeleton shape="Body1" />,
+                }}
+              />
+              <ListItem.Column>
+                <Skeleton shape="Body1" />
+              </ListItem.Column>
+              <ListItem.Column
+                icon={{
+                  name: 'ChevronRightMini',
+                  size: 20,
+                  color: 'icon-disabled',
+                }}
+              />
+            </ListItem>
+          )}
+        />
+      ) : (
+        <List
+          data={flatListData}
+          contentContainerStyle={{
+            flex: flatListData?.length ? undefined : 1,
+          }}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          ListEmptyComponent={emptyComponent}
+        />
+      )}
+    </Modal>
   );
 };
 
