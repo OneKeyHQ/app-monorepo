@@ -25,7 +25,6 @@ import {
 } from '@onekeyhq/engine/src/managers/notification';
 import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
-import logo from '@onekeyhq/kit/assets/logo.png';
 import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   HomeRoutes,
@@ -420,9 +419,10 @@ export default class ServiceNotification extends ServiceBase {
           ...pick(params, 'title', 'content', 'extras'),
           notificationEventType: 'notificationArrived',
         });
+        const image = params.extras?.image;
         const n = new Notification(params.title, {
           body: params.content,
-          icon: platformEnv.isDesktopMac ? undefined : logo,
+          icon: image,
         });
         n.onclick = () => {
           this.handleNotificationCallback({

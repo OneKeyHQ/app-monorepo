@@ -76,6 +76,10 @@ export const baseAddressFromXpub = (
 };
 
 export const validShelleyAddress = (address: string): boolean =>
+  // Shelley era addr1 and addr_test1
+  (address.startsWith('addr1') || address.startsWith('addr_test1')) &&
   isValidShelleyAddress(address);
 export const validBootstrapAddress = (address: string): boolean =>
+  // Byron era Ae2 and DdzFF
+  (address.startsWith('Ae2') || address.startsWith('DdzFF')) &&
   isValidBootstrapAddress(address);

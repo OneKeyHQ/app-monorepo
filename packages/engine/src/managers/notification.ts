@@ -5,7 +5,6 @@ import qs from 'qs';
 import type { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { appSelector } from '@onekeyhq/kit/src/store';
 import type { SettingsState } from '@onekeyhq/kit/src/store/reducers/settings';
-import type { Token } from '@onekeyhq/kit/src/store/typings';
 import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -31,6 +30,8 @@ export type NotificationExtra = {
   // for launchNotification
   _j_msgid?: string;
   aps?: { title: string; body: string };
+  // notification image for web
+  image?: string;
 };
 
 export type NotificationType = {
@@ -50,13 +51,12 @@ export enum PriceAlertOperator {
 
 export type PriceAlertItem = {
   price: string;
-  impl: string;
-  chainId: string;
-  address: string;
+  coingeckoId: string;
   currency: string;
   instanceId: string;
   operator: PriceAlertOperator;
   symbol: string;
+  logoURI?: string;
 };
 
 export type AddPriceAlertConfig = Omit<PriceAlertItem, 'instanceId'>;
@@ -151,7 +151,7 @@ export const syncPushNotificationConfig = debounce(sync, 10 * 1000, {
 
 export const addPriceAlertConfig = async (body: AddPriceAlertConfig) =>
   fetchData<Record<string, string>>(
-    '/notification/price-alert',
+    '/notification/market-price-alert',
     body,
     {},
     'post',
@@ -159,18 +159,16 @@ export const addPriceAlertConfig = async (body: AddPriceAlertConfig) =>
 
 export const removePriceAlertConfig = async (body: RemovePriceAlertConfig) =>
   fetchData<Record<string, string>>(
-    '/notification/price-alert',
+    '/notification/market-price-alert',
     body,
     {},
     'delete',
   );
 
-export const queryPriceAlertList = async (
-  query?: Pick<Token, 'impl' | 'chainId' | 'address'>,
-) =>
+export const queryPriceAlertList = async (coingeckoId?: string) =>
   fetchData<PriceAlertItem[]>(
-    '/notification/price-alert',
-    query || {},
+    '/notification/market-price-alert',
+    coingeckoId ? { coingeckoId } : {},
     [],
     'get',
   );
