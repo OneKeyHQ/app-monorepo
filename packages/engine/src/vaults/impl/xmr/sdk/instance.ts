@@ -10,4 +10,4 @@ const instPromise = (async () => {
   return inst;
 })();
 
-export const getInstance = async (): Promise<any> => await instPromise;
+export const getInstance = async (): Promise<any> => instPromise;
