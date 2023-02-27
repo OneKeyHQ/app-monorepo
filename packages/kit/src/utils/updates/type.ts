@@ -15,8 +15,10 @@ export type OS =
 export type Channel =
   | 'AppStore'
   | 'GooglePlay'
+  | 'HuaweiAppGallery'
   | 'ChromeWebStore'
   | 'MozillaAddOns'
+  | 'MsWindowsStore'
   | 'Direct';
 
 export interface PackageInfo {
@@ -24,7 +26,7 @@ export interface PackageInfo {
   channel: Channel;
   download: string;
   version: string;
-  forceVersion: string;
+  forceUpdateVersion?: string;
 }
 
 export interface PackagesInfo {
@@ -40,6 +42,7 @@ export interface ReleasesInfo {
 
 export interface VersionInfo {
   package: PackageInfo;
+  forceUpdate?: boolean;
 }
 
 export interface DesktopVersion {

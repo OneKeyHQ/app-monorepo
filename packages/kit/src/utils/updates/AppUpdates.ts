@@ -23,7 +23,7 @@ import { getDefaultLocale } from '../locale';
 
 import { getChangeLog, getPreReleaseInfo, getReleaseInfo } from './server';
 
-import type { PackageInfo, PackagesInfo, VersionInfo } from './type.d';
+import type { PackageInfo, PackagesInfo, VersionInfo } from './type';
 
 class AppUpdates {
   addedListener = false;
@@ -31,7 +31,6 @@ class AppUpdates {
   checkUpdate(isManual = false) {
     if (platformEnv.isDesktop && !platformEnv.isMas) {
       this.checkDesktopUpdate(isManual);
-      return;
     }
 
     return this.checkAppUpdate();
@@ -39,25 +38,27 @@ class AppUpdates {
 
   async checkAppUpdate(): Promise<VersionInfo | undefined> {
     const packageInfo: PackageInfo | undefined = await this.getPackageInfo();
+
     if (packageInfo) {
-      if (
-        !packageInfo ||
-        // localVersion >= releaseVersion
-        semver.gte(
-          store.getState().settings.version ?? '0.0.0',
-          packageInfo.version,
-        )
-      ) {
-        //  没有更新
-        return undefined;
+      if (!packageInfo) return undefined;
+
+      const currentVersion = store.getState().settings.version ?? '0.0.0';
+      const needUpdate = semver.gt(packageInfo.version, currentVersion);
+      const needForceUpdate = semver.gt(
+        packageInfo.forceUpdateVersion ?? '0.0.0',
+        currentVersion,
+      );
+
+      if (needUpdate || needForceUpdate) {
+        return {
+          package: packageInfo,
+          forceUpdate: needForceUpdate,
+        };
       }
 
-      return {
-        package: packageInfo,
-      };
+      //  没有更新
+      return undefined;
     }
-
-    return undefined;
   }
 
   async getPackageInfo() {
@@ -76,15 +77,15 @@ class AppUpdates {
     let packageInfo: PackageInfo | undefined;
 
     if (platformEnv.isNativeAndroid) {
-      if (platformEnv.isNativeAndroidGooglePlay) {
-        packageInfo = releasePackages?.android?.find(
-          (x) => x.os === 'android' && x.channel === 'GooglePlay',
-        );
-      } else {
-        packageInfo = releasePackages?.android?.find(
-          (x) => x.os === 'android' && x.channel === 'Direct',
-        );
+      let channel = 'Direct';
+      if (platformEnv.isNativeAndroidHuawei) {
+        channel = 'HuaweiAppGallery';
+      } else if (platformEnv.isNativeAndroidGooglePlay) {
+        channel = 'GooglePlay';
       }
+      packageInfo = releasePackages?.android?.find(
+        (x) => x.os === 'android' && x.channel === channel,
+      );
     }
 
     if (platformEnv.isNativeIOS) {
@@ -101,24 +102,40 @@ class AppUpdates {
       if (platformEnv.isDesktopWin) {
         packageInfo = releasePackages?.desktop?.find((x) => x.os === 'win');
       }
-      if (platformEnv.isDesktopMac) {
-        packageInfo = releasePackages?.desktop?.find(
-          (x) => x.os === 'macos-x64',
-        );
-      }
-      if (platformEnv.isDesktopMacArm64) {
-        packageInfo = releasePackages?.desktop?.find(
-          (x) => x.os === 'macos-arm64',
-        );
+      if (platformEnv.isMas) {
+        packageInfo = releasePackages?.desktop?.find((x) => x.os === 'mas');
+      } else {
+        if (platformEnv.isDesktopMac) {
+          packageInfo = releasePackages?.desktop?.find(
+            (x) => x.os === 'macos-x64',
+          );
+        }
+        if (platformEnv.isDesktopMacArm64) {
+          packageInfo = releasePackages?.desktop?.find(
+            (x) => x.os === 'macos-arm64',
+          );
+        }
       }
     }
 
-    if (platformEnv.isExtChrome) {
-      packageInfo = releasePackages?.extension?.find((x) => x.os === 'chrome');
+    if (platformEnv.isExtension) {
+      if (platformEnv.isExtFirefox) {
+        packageInfo = releasePackages?.extension?.find(
+          (x) => x.os === 'firefox',
+        );
+      }
+      if (platformEnv.isExtChrome) {
+        packageInfo = releasePackages?.extension?.find(
+          (x) => x.os === 'chrome',
+        );
+      }
+      // if (platformEnv.isExtEdge) {
+      //   packageInfo = releasePackages?.extension?.find(
+      //     (x) => x.os === 'edge',
+      //   );
+      // }
     }
-    if (platformEnv.isExtFirefox) {
-      packageInfo = releasePackages?.extension?.find((x) => x.os === 'firefox');
-    }
+
     return packageInfo;
   }
 
@@ -139,6 +156,7 @@ class AppUpdates {
         });
         break;
       case 'GooglePlay':
+      case 'HuaweiAppGallery':
         Linking.canOpenURL('market://').then((supported) => {
           if (supported) {
             Linking.openURL('market://details?id=so.onekey.app.wallet');
@@ -146,6 +164,16 @@ class AppUpdates {
             this._openUrl(versionInfo.package.download);
           }
         });
+        break;
+      case 'MsWindowsStore':
+        // check ms-windows-store protocol support
+        Linking.openURL('ms-windows-store://pdp/?productid=XPFMHZDDF91TNL')
+          .then((success) => {
+            if (!success) throw new Error('open ms-windows-store failed');
+          })
+          .catch(() => {
+            this._openUrl(versionInfo.package.download);
+          });
         break;
       default:
         this._openUrl(versionInfo.package.download);

@@ -71,13 +71,20 @@ function createMultipleEntryConfigs(createConfig, multipleEntryConfigs) {
   });
   return configs;
 }
-// firefox chrome
+// firefox chrome edge
 function getBuildTargetBrowser() {
   console.log('getBuildTargetBrowser: process.argv', process.argv);
-  const buildTargetBrowser =
-    process.argv[process.argv.length - 1] === '--firefox'
-      ? 'firefox'
-      : process.env.EXT_CHANNEL || 'chrome';
+  let buildTargetBrowser = process.env.EXT_CHANNEL || 'chrome';
+  const argv = process.argv[process.argv.length - 1];
+  if (argv === '--firefox') {
+    buildTargetBrowser = 'firefox';
+  }
+  if (argv === '--chrome') {
+    buildTargetBrowser = 'chrome';
+  }
+  // if (argv === '--edge') {
+  //   buildTargetBrowser = 'edge';
+  // }
   process.env.EXT_CHANNEL = buildTargetBrowser;
   return buildTargetBrowser;
 }
