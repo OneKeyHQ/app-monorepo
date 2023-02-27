@@ -167,12 +167,13 @@ class Provider extends BaseProvider {
     const isERC20Transfer = !!output.tokenAddress;
     const toAddress = isERC20Transfer ? output.tokenAddress : output.address;
     const value = isERC20Transfer ? '0x0' : toBigIntHex(output.value);
+    const nonce = checkIsDefined(unsignedTx.nonce);
 
     const baseTx = {
       to: toAddress || undefined, // undefined is for deploy contract calls.
       value,
       gasLimit: toBigIntHex(checkIsDefined(unsignedTx.feeLimit)),
-      nonce: checkIsDefined(unsignedTx.nonce),
+      nonce: `0x${nonce.toString(16)}`, // some RPC do not accept nonce as number
       data: unsignedTx.payload?.data || '0x',
       chainId: parseInt(checkIsDefined(this.chainInfo.implOptions.chainId)),
     };
@@ -195,6 +196,7 @@ class Provider extends BaseProvider {
       });
     }
 
+    // @ts-ignore
     return baseTx;
   }
 
