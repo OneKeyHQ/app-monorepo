@@ -108,7 +108,8 @@ class JsonRPCRequest {
       if (!response.ok) {
         throw new ResponseError(`Wrong response<${response.status}>`, response);
       }
-      await response.json();
+
+      jsonResponses = await response.json();
 
       if (!Array.isArray(jsonResponses)) {
         throw new ResponseError(

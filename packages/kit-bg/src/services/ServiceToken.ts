@@ -33,7 +33,6 @@ import {
   setAccountTokensBalances,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import type { FiatPayModeType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -672,26 +671,5 @@ export default class ServiceToken extends ServiceBase {
     });
 
     return vault.getMinDepositAmount();
-  }
-
-  @backgroundMethod()
-  async fetchFiatPayTokens({
-    networkId,
-  }: {
-    type: FiatPayModeType;
-    networkId: string;
-  }) {
-    const { engine } = this.backgroundApi;
-    const tokens = await engine.getTokens(networkId);
-    // if (type === 'buy') {
-    //   return tokens.filter((t) => {
-    //     const { onramperId } = t;
-    //     return typeof onramperId === 'string' && onramperId.length > 0;
-    //   });
-    // }
-    return tokens.filter((t) => {
-      const { moonpayId } = t;
-      return typeof moonpayId === 'string' && moonpayId.length > 0;
-    });
   }
 }
