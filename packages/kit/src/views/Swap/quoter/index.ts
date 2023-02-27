@@ -1,9 +1,11 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { QuoterType } from '../typings';
-import { getTokenAmountString, multiply, nativeTokenAddress } from '../utils';
+import { convertBuildParams, convertParams, multiply } from '../utils';
 
 import { SimpleQuoter } from './0x';
 import { JupiterQuoter } from './jupiter';
@@ -22,6 +24,7 @@ import type {
   TransactionDetails,
   TransactionProgress,
 } from '../typings';
+import type { AxiosResponse } from 'axios';
 
 type TransactionOrder = {
   platformAddr: string;
@@ -118,56 +121,6 @@ export class SwapQuoter {
     this.quoters.forEach((quoter) => {
       quoter.prepare?.();
     });
-  }
-
-  convertParams(params: FetchQuoteParams) {
-    if (!params.receivingAddress) {
-      return;
-    }
-    const toNetworkId = params.networkOut.id;
-    const fromNetworkId = params.networkIn.id;
-
-    const toTokenAddress = params.tokenOut.tokenIdOnNetwork
-      ? params.tokenOut.tokenIdOnNetwork
-      : nativeTokenAddress;
-    const fromTokenAddress = params.tokenIn.tokenIdOnNetwork
-      ? params.tokenIn.tokenIdOnNetwork
-      : nativeTokenAddress;
-
-    const toTokenDecimals = params.tokenOut.decimals;
-    const fromTokenDecimals = params.tokenIn.decimals;
-
-    const { slippagePercentage, receivingAddress } = params;
-    const userAddress = params.activeAccount.address;
-
-    let toTokenAmount: string | undefined;
-    let fromTokenAmount: string | undefined;
-
-    if (params.independentField === 'INPUT') {
-      fromTokenAmount = getTokenAmountString(params.tokenIn, params.typedValue);
-    } else {
-      toTokenAmount = getTokenAmountString(params.tokenOut, params.typedValue);
-    }
-
-    const urlParams: Record<string, string | number | boolean> = {
-      toNetworkId,
-      fromNetworkId,
-      toTokenAddress,
-      fromTokenAddress,
-      toTokenDecimals,
-      fromTokenDecimals,
-      slippagePercentage,
-      userAddress,
-      receivingAddress,
-    };
-
-    if (fromTokenAmount) {
-      urlParams.fromTokenAmount = fromTokenAmount;
-    }
-    if (toTokenAmount) {
-      urlParams.toTokenAmount = toTokenAmount;
-    }
-    return urlParams;
   }
 
   async convertOrderToTransaction(
@@ -286,9 +239,7 @@ export class SwapQuoter {
   async fetchQuote(
     params: FetchQuoteParams,
   ): Promise<FetchQuoteResponse | undefined> {
-    const urlParams = this.convertParams(params) as
-      | FetchQuoteHttpParams
-      | undefined;
+    const urlParams = convertParams(params) as FetchQuoteHttpParams | undefined;
 
     if (!urlParams) {
       return;
@@ -318,9 +269,7 @@ export class SwapQuoter {
   async fetchQuotes(
     params: FetchQuoteParams,
   ): Promise<FetchQuoteResponse[] | undefined> {
-    const urlParams = this.convertParams(params) as
-      | FetchQuoteHttpParams
-      | undefined;
+    const urlParams = convertParams(params) as FetchQuoteHttpParams | undefined;
 
     if (!urlParams) {
       return;
@@ -350,18 +299,32 @@ export class SwapQuoter {
     return result.filter((o) => Boolean(o));
   }
 
+  parseRequestId(res: AxiosResponse<any, any>): string | undefined {
+    try {
+      const { headers } = res.config;
+      const data = headers?.['X-Request-By'];
+      if (typeof data === 'string') {
+        const meta = JSON.parse(data);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+        return meta['x-onekey-request-id'];
+      }
+    } catch (e: any) {
+      debugLogger.common.error(
+        'Failed to get request id with reason',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+        e.message,
+      );
+    }
+  }
+
   async buildTransaction(
     quoterType: QuoterType,
     params: BuildTransactionParams,
   ): Promise<BuildTransactionResponse | undefined> {
-    const urlParams = this.convertParams(params);
-
+    const urlParams = convertBuildParams(params);
     if (!urlParams) {
       return;
     }
-
-    urlParams.fromTokenAmount = params.sellAmount;
-    delete urlParams.toTokenAmount;
 
     urlParams.quoterType = quoterType;
     urlParams.disableValidate = Boolean(params.disableValidate);
@@ -370,6 +333,8 @@ export class SwapQuoter {
     const url = `${serverEndPont}/swap/build_tx`;
 
     const res = await this.httpClient.post(url, urlParams);
+    const requestId = this.parseRequestId(res);
+
     const data = res.data as BuildTransactionHttpResponse;
 
     if (data?.transaction) {
@@ -377,9 +342,10 @@ export class SwapQuoter {
         return {
           data: { ...data.transaction, from: params.activeAccount.address },
           result: data.result,
+          requestId,
         };
       }
-      return { data: data.transaction, result: data.result };
+      return { data: data.transaction, result: data.result, requestId };
     }
     if (data.order && data.result?.instantRate) {
       const transaction = await this.convertOrderToTransaction(
@@ -389,7 +355,15 @@ export class SwapQuoter {
       return {
         data: transaction,
         result: data.result,
-        attachment: { swftcOrderId: data.order.orderId },
+        attachment: {
+          swftcOrderId: data.order.orderId,
+          swftcPlatformAddr: data.order.platformAddr,
+          swftcDepositCoinAmt: data.order.depositCoinAmt,
+          swftcDepositCoinCode: data.order.depositCoinCode,
+          swftcReceiveCoinAmt: data.order.receiveCoinAmt,
+          swftcReceiveCoinCode: data.order.receiveCoinCode,
+        },
+        requestId,
       };
     }
     return undefined;

@@ -43,8 +43,12 @@ import type {
   QuoteData,
   QuoteLimited,
   Recipient,
+  SwapRecord,
 } from '@onekeyhq/kit/src/views/Swap/typings';
-import { stringifyTokens } from '@onekeyhq/kit/src/views/Swap/utils';
+import {
+  convertBuildParams,
+  stringifyTokens,
+} from '@onekeyhq/kit/src/views/Swap/utils';
 import {
   backgroundClass,
   backgroundMethod,
@@ -723,6 +727,24 @@ export default class ServiceSwap extends ServiceBase {
     if (slippage && slippage.autoReset) {
       dispatch(setSlippage({ mode: 'auto' }));
     }
+  }
+
+  @backgroundMethod()
+  async addRecord(record: SwapRecord) {
+    const endpoint = await this.getServerEndPoint();
+    const url = `${endpoint}/swap/add_record`;
+    const { params, response, txid, from, to } = record;
+    const urlParams = convertBuildParams(params);
+    const { result, attachment, requestId } = response;
+    return this.client.post(url, {
+      params: urlParams,
+      txid,
+      from,
+      to,
+      requestId,
+      result,
+      attachment,
+    });
   }
 
   @bindThis()
