@@ -21,12 +21,12 @@ const TxDetailHashMoreMenu: FC<IMenu & Props> = (props) => {
   const options = useMemo(() => {
     const baseOptions: IBaseMenuOptions = [
       {
-        id: 'action__scan',
+        id: 'action_copy_hash',
         onPress: () => copyText(decodedTx.txid),
         icon: 'Square2StackOutline',
       },
       openBlockBrowser.hasAvailable && {
-        id: 'form__expand_view',
+        id: 'action__view_in_browser',
         onPress: () => openBlockBrowser.openTransactionDetails(decodedTx.txid),
         icon: 'ArrowTopRightOnSquareOutline',
       },
