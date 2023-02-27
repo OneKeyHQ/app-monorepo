@@ -3,7 +3,6 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
-import { pick } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, Modal, useTheme } from '@onekeyhq/components';
@@ -57,7 +56,7 @@ export const PriceAlertListModal: FC = () => {
         }
         setLoading(true);
         const res = await serviceNotification.queryPriceAlertList(
-          pick(token, 'impl', 'chainId', 'address'),
+          token.coingeckoId,
         );
         setData(res);
       } catch (error) {
@@ -110,7 +109,6 @@ export const PriceAlertListModal: FC = () => {
           <PriceItem
             alert={item}
             key={`${item.price}${item.currency}`}
-            token={token}
             divider={index !== data.length - 1}
             onRemove={() => fetchData(true)}
             {...token}

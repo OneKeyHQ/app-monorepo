@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 import B from 'bignumber.js';
-import { pick } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
@@ -18,7 +17,6 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { PriceAlertOperator } from '@onekeyhq/engine/src/managers/notification';
-import type { Token } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -142,12 +140,13 @@ export const PriceAlertAddModal: FC = () => {
     try {
       await serviceNotification.addPriceAlertConfig({
         symbol: token.symbol,
+        logoURI: token.logoURI,
         operator: new B(text).isGreaterThanOrEqualTo(price)
           ? PriceAlertOperator.greater
           : PriceAlertOperator.less,
         price: newPrice,
         currency: selectedFiatMoneySymbol,
-        ...pick(token as Required<Token>, 'impl', 'chainId', 'address'),
+        coingeckoId: token.coingeckoId ?? '',
       });
     } catch (error) {
       debugLogger.common.error(

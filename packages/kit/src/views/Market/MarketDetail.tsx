@@ -1,6 +1,6 @@
 /* eslint-disable react/no-unstable-nested-components */
 import type { FC, ReactElement } from 'react';
-import { useCallback, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -14,7 +14,6 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
-import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useTokenSupportStakedAssets } from '../../hooks/useTokens';
@@ -218,30 +217,21 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
   });
   const token = marketTokenItem?.tokens?.[0];
 
+  const [signedUrl, updateUrl] = useState('');
+  useEffect(() => {
+    backgroundApiProxy.serviceFiatPay
+      .getFiatPayUrl({
+        type: 'buy',
+        tokenAddress: token?.address,
+        networkId: token?.networkId,
+      })
+      .then((url) => updateUrl(url));
+  }, [token?.address, token?.networkId]);
+
   const stakedSupport = useTokenSupportStakedAssets(
     token?.networkId,
     token?.tokenIdOnNetwork,
   );
-
-  const buyAction = useCallback(
-    async (t: TokenType) => {
-      const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
-        type: 'buy',
-        cryptoCode: t.moonpayId,
-      });
-      if (signedUrl.length > 0) {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.FiatPay,
-          params: {
-            screen: FiatPayRoutes.MoonpayWebViewModal,
-            params: { url: signedUrl },
-          },
-        });
-      }
-    },
-    [navigation],
-  );
-
   if (isVertical) {
     return children ?? null;
   }
@@ -292,10 +282,16 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                   }}
                 />
               ) : null}
-              {token?.moonpayId ? (
+              {signedUrl.length > 0 ? (
                 <PurchaseButton
                   onPress={() => {
-                    buyAction(token);
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.FiatPay,
+                      params: {
+                        screen: FiatPayRoutes.MoonpayWebViewModal,
+                        params: { url: signedUrl },
+                      },
+                    });
                   }}
                 />
               ) : null}
