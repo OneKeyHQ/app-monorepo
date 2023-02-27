@@ -788,7 +788,6 @@ export async function parseCovalentTxToDecodedTx(
           }
           return false;
         })
-        .slice(0, 10)
         .map((event) =>
           createOutputActionFromCovalentLogEvent({
             event,

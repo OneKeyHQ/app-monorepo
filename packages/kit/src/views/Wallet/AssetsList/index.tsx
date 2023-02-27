@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
@@ -117,7 +118,7 @@ function AssetsList({
   );
 
   const onTokenCellPress = useCallback(
-    (item: SimplifiedToken) => {
+    (item: Token) => {
       if (onTokenPress) {
         onTokenPress({ token: item });
         return;
@@ -138,12 +139,11 @@ function AssetsList({
     [account?.id, networkId, navigation, onTokenPress],
   );
 
-  const renderListItem: FlatListProps<SimplifiedToken>['renderItem'] = ({
+  const renderListItem: FlatListProps<Token>['renderItem'] = ({
     item,
     index,
   }) => (
     <TokenCell
-      networkId={networkId}
       accountId={accountId}
       hidePriceInfo={hidePriceInfo}
       bg={flatStyle ? 'transparent' : 'surface-default'}
@@ -158,6 +158,7 @@ function AssetsList({
       borderColor={flatStyle ? 'transparent' : 'border-subdued'}
       onPress={onTokenCellPress}
       {...omit(item, 'source')}
+      networkId={networkId}
     />
   );
 

@@ -19,6 +19,7 @@ import type {
   ERC721TokenAllowance,
 } from '@onekeyhq/engine/src/managers/revoke';
 import { toFloat } from '@onekeyhq/engine/src/managers/revoke';
+import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -90,7 +91,7 @@ const RevokePage: FC = () => {
         ?.filter(
           ({ token }) =>
             filters.includeUnverifiedTokens ||
-            (token.verified && !token.security),
+            token.riskLevel === TokenRiskLevel.VERIFIED,
         )
         .filter(({ token, balance }) => {
           if (filters.includeZeroBalancesTokens) {

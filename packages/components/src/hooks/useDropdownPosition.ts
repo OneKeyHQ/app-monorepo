@@ -12,7 +12,7 @@ import { ModalRefStore } from '../Modal';
 import type { IDropdownPosition, IDropdownProps, SelectProps } from '../Select';
 import type { View } from 'react-native';
 
-interface UseDropdownProps {
+export interface UseDropdownProps {
   dropdownPosition?: IDropdownPosition;
   triggerEle?: SelectProps['triggerEle'];
   visible?: boolean;

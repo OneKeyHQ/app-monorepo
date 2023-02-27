@@ -1,12 +1,8 @@
 import type { FC } from 'react';
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import {
-  TransitionPresets,
-  createStackNavigator,
-} from '@react-navigation/stack';
+import { TransitionPresets } from '@react-navigation/stack';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
@@ -21,9 +17,10 @@ import { setAuthenticationType } from '@onekeyhq/kit/src/store/reducers/status';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { HtmlPreloadSplashLogoRemove } from '../../provider/AppLoading';
+import { useHtmlPreloadSplashLogoRemove } from '../../provider/AppLoading';
 import { createLazyComponent } from '../../utils/createLazyComponent';
 import { buildModalOpenAnimationOptions } from '../Modal/buildModalStackNavigatorOptions';
+import createStackNavigator from '../Modal/createStackNavigator';
 import { UpdateFeatureModalRoutes } from '../Modal/UpdateFeature';
 import { ModalRoutes, RootRoutes } from '../types';
 
@@ -42,7 +39,6 @@ const RouteOnboarding = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/Onboarding/routes/RouteOnboarding'),
 );
 
-const RootNativeStack = createNativeStackNavigator();
 const RootStack = createStackNavigator();
 
 const RootNavigatorContainer: FC = ({ children }) => {
@@ -52,32 +48,20 @@ const RootNavigatorContainer: FC = ({ children }) => {
   //   ? RootRoutes.Root
   //   : RootRoutes.Onboarding;
   const initialRouteName = RootRoutes.Root;
-  if (platformEnv.isNative) {
-    return (
-      <RootNativeStack.Navigator
-        initialRouteName={initialRouteName}
-        screenOptions={{
-          headerShown: false,
-          presentation: platformEnv.isNativeAndroid
-            ? 'transparentModal'
-            : 'modal',
-        }}
-      >
-        {children}
-      </RootNativeStack.Navigator>
-    );
-  }
+  const screenOptions = useMemo(
+    () => ({
+      headerShown: false,
+      ...(isVerticalLayout
+        ? TransitionPresets.ScaleFromCenterAndroid
+        : TransitionPresets.FadeFromBottomAndroid),
+    }),
+    [isVerticalLayout],
+  );
 
   return (
     <RootStack.Navigator
       initialRouteName={initialRouteName}
-      screenOptions={{
-        headerShown: false,
-        presentation: 'transparentModal',
-        ...(isVerticalLayout
-          ? TransitionPresets.ScaleFromCenterAndroid
-          : TransitionPresets.FadeFromBottomAndroid),
-      }}
+      screenOptions={screenOptions}
     >
       {children}
     </RootStack.Navigator>
@@ -102,6 +86,16 @@ const App = () => {
       KeyboardManager.setShouldPlayInputClicks(true);
     }
   }, [intl]);
+
+  const modalScreenOptions = useMemo(
+    () => ({
+      presentation: platformEnv.isNative
+        ? ('modal' as const)
+        : ('transparentModal' as const),
+      ...buildModalOpenAnimationOptions({ isVerticalLayout }),
+    }),
+    [isVerticalLayout],
+  );
 
   return (
     <RootNavigatorContainer>
@@ -132,9 +126,7 @@ const App = () => {
         component={OnLanding}
       />
       <RootStack.Screen
-        options={{
-          ...buildModalOpenAnimationOptions({ isVerticalLayout }),
-        }}
+        options={modalScreenOptions}
         name={RootRoutes.Modal}
         component={ModalStackNavigator}
       />
@@ -210,13 +202,12 @@ const RootStackNavigator = () => {
     }
   }, [dispatch]);
 
+  useHtmlPreloadSplashLogoRemove({ isDelay: true });
+
   return (
-    <>
-      <HtmlPreloadSplashLogoRemove isDelay />
-      <AppLock>
-        <App />
-      </AppLock>
-    </>
+    <AppLock>
+      <App />
+    </AppLock>
   );
 };
 

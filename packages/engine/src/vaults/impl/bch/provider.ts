@@ -7,7 +7,10 @@ import type { Psbt } from 'bitcoinjs-lib';
 
 export default class Provider extends BaseProvider {
   override decodeAddress(address: string): string {
-    if (!bchaddrjs.isValidAddress(address)) {
+    if (
+      !bchaddrjs.isValidAddress(address) ||
+      (bchaddrjs.isCashAddress(address) && !address.startsWith('bitcoincash:'))
+    ) {
       throw new Error(`Invalid address: ${address}`);
     }
     if (bchaddrjs.isCashAddress(address)) {

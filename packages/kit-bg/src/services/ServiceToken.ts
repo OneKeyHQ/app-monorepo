@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { debounce, isEmpty, uniq } from 'lodash';
+import { debounce, isEmpty, uniq, xor } from 'lodash';
 import memoizee from 'memoizee';
 
 import {
@@ -10,16 +10,22 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import type { CheckParams } from '@onekeyhq/engine/src/managers/goplus';
 import {
   checkSite,
+  fetchSecurityInfo,
   getAddressRiskyItems,
+  getRiskLevel,
   getTokenRiskyItems,
 } from '@onekeyhq/engine/src/managers/goplus';
 import {
   fetchTokenSource,
   fetchTools,
+  formatServerToken,
   getBalanceKey,
 } from '@onekeyhq/engine/src/managers/token';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
-import type { Token } from '@onekeyhq/engine/src/types/token';
+import type { GoPlusTokenSecurity } from '@onekeyhq/engine/src/types/goplus';
+import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
+import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
+import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
 import { setTools } from '@onekeyhq/kit/src/store/reducers/data';
 import type { TokenBalanceValue } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
@@ -27,12 +33,12 @@ import {
   setAccountTokensBalances,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import type { FiatPayModeType } from '@onekeyhq/kit/src/views/FiatPay/types';
 import {
   backgroundClass,
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   AppEventBusNames,
   appEventBus,
@@ -108,25 +114,20 @@ export default class ServiceToken extends ServiceBase {
     );
     const { selectedFiatMoneySymbol } = appSelector((s) => s.settings);
     const actions: any[] = [];
-    const [balances, autodetectedTokens = []] = await this.fetchTokenBalance({
+    const [, autodetectedTokens = []] = await this.fetchTokenBalance({
       activeAccountId,
       activeNetworkId,
       tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
     });
     const accountTokens = tokens.concat(autodetectedTokens);
     // check token prices
-    await servicePrice.fetchSimpleTokenPrice({
+    servicePrice.fetchSimpleTokenPrice({
       networkId: activeNetworkId,
       accountId: activeAccountId,
       tokenIds: accountTokens.map((t) => t.tokenIdOnNetwork),
       vsCurrency: selectedFiatMoneySymbol,
     });
     actions.push(
-      setAccountTokensBalances({
-        activeAccountId,
-        activeNetworkId,
-        tokensBalance: balances,
-      }),
       setAccountTokens({
         activeAccountId,
         activeNetworkId,
@@ -291,11 +292,20 @@ export default class ServiceToken extends ServiceBase {
     if (isExists) {
       return;
     }
+    const info = await fetchSecurityInfo<GoPlusTokenSecurity>({
+      networkId,
+      address,
+      apiName: GoPlusSupportApis.token_security,
+    });
+    const riskLevel = info ? getRiskLevel(info) : TokenRiskLevel.UNKNOWN;
     const result = await engine.quickAddToken(
       accountId,
       networkId,
       address,
       logoURI,
+      {
+        riskLevel,
+      },
     );
     await this.fetchAccountTokens({
       activeAccountId: accountId,
@@ -344,7 +354,13 @@ export default class ServiceToken extends ServiceBase {
     networkId: string,
     accountId: string,
     withMain = true,
-  ): Promise<[Record<string, TokenBalanceValue>, Token[] | undefined]> {
+  ): Promise<
+    [
+      Record<string, TokenBalanceValue>,
+      Token[] | undefined,
+      Record<string, Token>,
+    ]
+  > {
     const { engine } = this.backgroundApi;
 
     const vault = await engine.getVault({ networkId, accountId });
@@ -368,6 +384,10 @@ export default class ServiceToken extends ServiceBase {
       networkId,
     );
     const allAccountTokens: Token[] = [];
+    const tokens = await this.batchTokenDetail(
+      networkId,
+      balancesFromApi.map((b) => b.address),
+    );
     for (const {
       address,
       balance,
@@ -377,37 +397,104 @@ export default class ServiceToken extends ServiceBase {
       (b) =>
         (+b.balance > 0 || !b.address) && !removedTokens.includes(b.address),
     )) {
-      try {
-        let token = await engine.findToken({
-          networkId,
-          tokenIdOnNetwork: address,
-        });
-        if (!token) {
-          token = await engine.quickAddToken(accountId, networkId, address);
-        }
-        if (token) {
-          // only record new token balances
-          // other token balances still get from RPC for accuracy
-          Object.assign(ret, {
-            [getBalanceKey({
-              address,
-              sendAddress,
-            })]: {
-              balance,
-              blockHeight,
-            },
-          });
-          allAccountTokens.push({
-            ...token,
+      const token = tokens[address];
+      if (token) {
+        // only record new token balances
+        // other token balances still get from RPC for accuracy
+        Object.assign(ret, {
+          [getBalanceKey({
+            address,
             sendAddress,
-            autoDetected: !accountTokens.some((t) => t.address === address),
-          });
-        }
-      } catch (e) {
-        // pass
+          })]: {
+            balance,
+            blockHeight,
+          },
+        });
+        allAccountTokens.push({
+          ...token,
+          sendAddress,
+          autoDetected: !accountTokens.some((t) => t.address === address),
+        });
       }
     }
-    return [ret, allAccountTokens];
+    return [ret, allAccountTokens, tokens];
+  }
+
+  async batchTokenDetail(
+    networkId: string,
+    addresses: string[],
+    tokensMap: Record<string, Token> = {},
+  ) {
+    const addressMap: Record<string, 1> = addresses.reduce(
+      (memo, n) => ({
+        ...memo,
+        [n]: 1,
+      }),
+      {},
+    );
+    const localTokens: Token[] = (
+      await this.backgroundApi.engine.getTokens(
+        networkId,
+        undefined,
+        true,
+        true,
+      )
+    ).filter((t) => addressMap[t?.address ?? '']);
+
+    const serverAddress = xor(
+      addresses,
+      localTokens.map((t) => t.address ?? ''),
+    );
+
+    let serverTokens: Token[] = [];
+    if (serverAddress.length) {
+      serverTokens = (
+        await fetchData<ServerToken[]>(
+          `/token/detail/batch`,
+          {
+            networkId,
+            addresses: serverAddress,
+          },
+          [],
+          'POST',
+        )
+      ).map(formatServerToken);
+    }
+
+    const result: Record<string, Token> = [
+      ...serverTokens,
+      ...localTokens,
+    ].reduce(
+      (sum, n) => ({
+        ...sum,
+        [n.address ?? '']: n,
+      }),
+      {},
+    );
+
+    const restAddress = xor(
+      serverAddress,
+      serverTokens.map((t) => t.address),
+    );
+    const rpcTokens: Token[] = [];
+    for (const address of restAddress) {
+      const detail = await this.backgroundApi.engine.findToken({
+        networkId,
+        tokenIdOnNetwork: address ?? '',
+      });
+      if (detail) {
+        result[address ?? ''] = detail;
+        rpcTokens.push(detail);
+      }
+    }
+    await simpleDb.token.insertTokens(networkId, [
+      ...serverTokens,
+      ...rpcTokens,
+    ]);
+    return {
+      ...tokensMap,
+      ...result,
+    };
   }
 
   @backgroundMethod()
@@ -416,6 +503,7 @@ export default class ServiceToken extends ServiceBase {
     accountId: string,
     tokensToGet: string[],
     withMain = true,
+    tokensMap: Record<string, Token> = {},
   ): Promise<[Record<string, TokenBalanceValue>, Token[] | undefined]> {
     const { engine } = this.backgroundApi;
     const network = await engine.getNetwork(networkId);
@@ -440,14 +528,15 @@ export default class ServiceToken extends ServiceBase {
       });
     }
     const balanceList = balances.slice(withMain ? 1 : 0);
+    const tokens = await this.batchTokenDetail(
+      networkId,
+      tokensToGet,
+      tokensMap,
+    );
     for (let i = 0; i < balanceList.length; i += 1) {
       const balance = balanceList[i];
-
-      const tokenId1 = tokensToGet[i];
-      const token = await engine.findToken({
-        networkId,
-        tokenIdOnNetwork: tokenId1,
-      });
+      const tokenAddress = tokensToGet[i];
+      const token = tokens[tokenAddress];
       const decimals = token?.decimals;
       if (
         token &&
@@ -457,7 +546,7 @@ export default class ServiceToken extends ServiceBase {
         const bal = balance.div(new BigNumber(10).pow(decimals)).toFixed();
         Object.assign(ret, {
           [getBalanceKey({
-            address: tokenId1,
+            address: tokenAddress,
           })]: {
             balance: bal,
             blockHeight,
@@ -496,9 +585,10 @@ export default class ServiceToken extends ServiceBase {
     let serverBalances: Record<string, TokenBalanceValue> = {};
     let rpcBalances: Record<string, TokenBalanceValue> = {};
     let autodetectedTokens: Token[] = [];
+    let tokensMap: Record<string, Token> = {};
     if (balanceSupprtedNetwork.includes(networkId)) {
       try {
-        [serverBalances, autodetectedTokens = []] =
+        [serverBalances, autodetectedTokens = [], tokensMap] =
           await this.getAccountBalanceFromServerApi(
             networkId,
             accountId,
@@ -521,6 +611,7 @@ export default class ServiceToken extends ServiceBase {
         accountId,
         tokensToGet,
         withMain,
+        tokensMap,
       );
     } catch (e) {
       debugLogger.common.error(
@@ -580,27 +671,5 @@ export default class ServiceToken extends ServiceBase {
     });
 
     return vault.getMinDepositAmount();
-  }
-
-  @backgroundMethod()
-  async fetchFiatPayTokens({
-    networkId,
-    type,
-  }: {
-    type: FiatPayModeType;
-    networkId: string;
-  }) {
-    const { engine } = this.backgroundApi;
-    const tokens = await engine.getTokens(networkId);
-    if (type === 'buy') {
-      return tokens.filter((t) => {
-        const { onramperId } = t;
-        return typeof onramperId === 'string' && onramperId.length > 0;
-      });
-    }
-    return tokens.filter((t) => {
-      const { moonpayId } = t;
-      return typeof moonpayId === 'string' && moonpayId.length > 0;
-    });
   }
 }

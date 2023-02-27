@@ -6,6 +6,7 @@ import { useAsync } from 'react-async-hook';
 
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -122,7 +123,11 @@ export function useAccountTokens(
     if (hideSmallBalance && new B(t.usdValue).isLessThan(1)) {
       return false;
     }
-    if (hideRiskTokens && t.security) {
+    if (
+      hideRiskTokens &&
+      t.riskLevel &&
+      t.riskLevel > TokenRiskLevel.VERIFIED
+    ) {
       return false;
     }
     if (putMainTokenOnTop && (t.isNative || !t.address)) {

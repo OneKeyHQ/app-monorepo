@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -12,7 +12,10 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
-import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
+import {
+  getBalanceKey,
+  isValidCoingeckoId,
+} from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
@@ -29,6 +32,7 @@ import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokensBalance } from '../../../hooks';
+import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
 
@@ -49,56 +53,51 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
     useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
+  const price =
+    useSimpleTokenPriceValue({
+      networkId: token?.networkId,
+      contractAdress: token?.tokenIdOnNetwork,
+    }) ?? 0;
+
   const balances = useAccountTokensBalance(networkId, accountId);
   const { balance: amount } = balances[getBalanceKey(token)] ?? {
     balance: '0',
   };
 
-  const buyEnable = !!(token?.onramperId && token?.onramperId?.length > 0);
-  const sellEnable = !!(token?.moonpayId && token?.moonpayId?.length > 0);
-
-  const buyAction = useCallback(
-    async (t: TokenDO) => {
-      const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
+  const [buyUrl, updateBuyUrl] = useState('');
+  const [sellUrl, updateSellUrl] = useState('');
+  useEffect(() => {
+    backgroundApiProxy.serviceFiatPay
+      .getFiatPayUrl({
         type: 'buy',
         address: account?.address,
-        cryptoCode: t.onramperId,
-      });
-      if (signedUrl) {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.FiatPay,
-          params: {
-            screen: FiatPayRoutes.MoonpayWebViewModal,
-            params: {
-              url: signedUrl,
-            },
-          },
-        });
-      }
-    },
-    [account?.address, navigation],
-  );
-
-  const sellAction = useCallback(
-    async (t: TokenDO) => {
-      const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
+        tokenAddress: token?.address,
+        networkId: token?.networkId,
+      })
+      .then((url) => updateBuyUrl(url));
+    backgroundApiProxy.serviceFiatPay
+      .getFiatPayUrl({
         type: 'sell',
-        address: account?.id,
-        cryptoCode: t.onramperId,
-      });
-      if (signedUrl) {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.FiatPay,
+        address: account?.address,
+        tokenAddress: token?.address,
+        networkId: token?.networkId,
+      })
+      .then((url) => updateSellUrl(url));
+  }, [account?.address, token?.address, token?.networkId, updateBuyUrl]);
+
+  const goToWebView = useCallback(
+    (signedUrl: string) => {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.FiatPay,
+        params: {
+          screen: FiatPayRoutes.MoonpayWebViewModal,
           params: {
-            screen: FiatPayRoutes.MoonpayWebViewModal,
-            params: {
-              url: signedUrl,
-            },
+            url: signedUrl,
           },
-        });
-      }
+        },
+      });
     },
-    [account?.id, navigation],
+    [navigation],
   );
 
   const renderAccountAmountInfo = useMemo(
@@ -263,7 +262,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
         </Box>
         {isVertical ? null : (
           <>
-            {buyEnable && (
+            {buyUrl.length > 0 && (
               <Box flex={1} mx={3} minW="56px" alignItems="center">
                 <IconButton
                   circle
@@ -272,7 +271,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
                   type="basic"
                   isDisabled={wallet?.type === 'watching'}
                   onPress={() => {
-                    buyAction(token);
+                    goToWebView(buyUrl);
                   }}
                 />
                 <Typography.CaptionStrong
@@ -288,7 +287,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
                 </Typography.CaptionStrong>
               </Box>
             )}
-            {sellEnable && (
+            {sellUrl.length > 0 && (
               <Box flex={1} mx={3} minW="56px" alignItems="center">
                 <IconButton
                   circle
@@ -297,7 +296,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
                   type="basic"
                   isDisabled={wallet?.type === 'watching'}
                   onPress={() => {
-                    sellAction(token);
+                    goToWebView(sellUrl);
                   }}
                 />
                 <Typography.CaptionStrong
@@ -315,50 +314,53 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
             )}
           </>
         )}
-        {priceReady && !isVertical && (
-          <Box flex={1} mx={3} minW="56px" alignItems="center">
-            <IconButton
-              circle
-              size={isVertical ? 'xl' : 'lg'}
-              name="BellOutline"
-              type="basic"
-              onPress={() => {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.ManageToken,
-                  params: {
-                    screen: ManageTokenRoutes.PriceAlertList,
+        {priceReady &&
+          !isVertical &&
+          isValidCoingeckoId(token?.coingeckoId) && (
+            <Box flex={1} mx={3} minW="56px" alignItems="center">
+              <IconButton
+                circle
+                size={isVertical ? 'xl' : 'lg'}
+                name="BellOutline"
+                type="basic"
+                onPress={() => {
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.ManageToken,
                     params: {
-                      token: token as TokenDO,
+                      screen: ManageTokenRoutes.PriceAlertList,
+                      params: {
+                        price,
+                        token: token as TokenDO,
+                      },
                     },
-                  },
-                });
-              }}
-            />
-            <Typography.CaptionStrong
-              textAlign="center"
-              mt="8px"
-              color="text-default"
-            >
-              {intl.formatMessage({ id: 'form__price_alert' })}
-            </Typography.CaptionStrong>
-          </Box>
-        )}
+                  });
+                }}
+              />
+              <Typography.CaptionStrong
+                textAlign="center"
+                mt="8px"
+                color="text-default"
+              >
+                {intl.formatMessage({ id: 'form__price_alert' })}
+              </Typography.CaptionStrong>
+            </Box>
+          )}
       </Box>
     ),
     [
+      price,
       isVertical,
       wallet?.type,
       intl,
-      buyEnable,
-      sellEnable,
+      buyUrl,
+      sellUrl,
       priceReady,
       navigation,
       accountId,
       networkId,
       token,
       sendAddress,
-      buyAction,
-      sellAction,
+      goToWebView,
     ],
   );
 

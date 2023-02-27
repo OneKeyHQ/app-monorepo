@@ -1,6 +1,6 @@
 /* eslint-disable react/no-unstable-nested-components */
 import type { FC, ReactElement } from 'react';
-import { useCallback, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -14,7 +14,6 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
-import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useTokenSupportStakedAssets } from '../../hooks/useTokens';
@@ -125,54 +124,6 @@ const PurchaseButton = ({ onPress }: { onPress: () => void }) => (
   </Box>
 );
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const BellButton = ({ tokenItem }: { tokenItem: MarketTokenItem }) => {
-  // const priceSubscribeEnable = useMarketTokenPriceSubscribeStatus({
-  //   coingeckoId: tokenItem.coingeckoId,
-  // });
-  const [isFetchIng, setIsFetching] = useState(false);
-  const onPriceSubscribePress = useCallback(() => {
-    // let res: boolean;
-    setIsFetching(true);
-    // if (priceSubscribeEnable) {
-    //   res =
-    //     await backgroundApiProxy.serviceMarket.fetchMarketTokenCancelPriceSubscribe(
-    //       tokenItem.coingeckoId,
-    //     );
-    // } else {
-    //   res =
-    //     await backgroundApiProxy.serviceMarket.fetchMarketTokenAddPriceSubscribe(
-    //       tokenItem.coingeckoId,
-    //       tokenItem.symbol ?? 'unknow',
-    //     );
-    // }
-    setIsFetching(false);
-    // if (!res) return;
-    // ToastManager.show({
-    //   title: intl.formatMessage({
-    //     id: priceSubscribeEnable
-    //       ? 'msg__unsubscription_succeeded'
-    //       : 'msg__subscription_succeeded',
-    //   }),
-    // });
-  }, []);
-  return (
-    <Box>
-      <IconButton
-        ml={4}
-        isDisabled={!tokenItem.coingeckoId.length}
-        type="basic"
-        name="BellMini"
-        size="base"
-        circle
-        iconColor="icon-default" // get subscribe status
-        onPress={onPriceSubscribePress}
-        isLoading={isFetchIng}
-      />
-    </Box>
-  );
-};
-
 const HeaderTitle = ({ tokenItem }: { tokenItem?: MarketTokenItem }) => {
   const isVertical = useIsVerticalLayout();
   return (
@@ -218,30 +169,21 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
   });
   const token = marketTokenItem?.tokens?.[0];
 
+  const [signedUrl, updateUrl] = useState('');
+  useEffect(() => {
+    backgroundApiProxy.serviceFiatPay
+      .getFiatPayUrl({
+        type: 'buy',
+        tokenAddress: token?.address,
+        networkId: token?.networkId,
+      })
+      .then((url) => updateUrl(url));
+  }, [token?.address, token?.networkId]);
+
   const stakedSupport = useTokenSupportStakedAssets(
     token?.networkId,
     token?.tokenIdOnNetwork,
   );
-
-  const buyAction = useCallback(
-    async (t: TokenType) => {
-      const signedUrl = await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
-        type: 'buy',
-        cryptoCode: t.onramperId,
-      });
-      if (signedUrl.length > 0) {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.FiatPay,
-          params: {
-            screen: FiatPayRoutes.MoonpayWebViewModal,
-            params: { url: signedUrl },
-          },
-        });
-      }
-    },
-    [navigation],
-  );
-
   if (isVertical) {
     return children ?? null;
   }
@@ -292,17 +234,20 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                   }}
                 />
               ) : null}
-              {token?.onramperId ? (
+              {signedUrl.length > 0 ? (
                 <PurchaseButton
                   onPress={() => {
-                    buyAction(token);
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.FiatPay,
+                      params: {
+                        screen: FiatPayRoutes.MoonpayWebViewModal,
+                        params: { url: signedUrl },
+                      },
+                    });
                   }}
                 />
               ) : null}
               <FavoritButton tokenItem={marketTokenItem} />
-              {/* {marketTokenItem ? (
-                <BellButton tokenItem={marketTokenItem} />
-              ) : null} */}
             </Box>
           </Box>
           {children}

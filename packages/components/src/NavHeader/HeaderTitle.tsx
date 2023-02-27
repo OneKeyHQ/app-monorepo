@@ -1,59 +1,73 @@
 import type { FC } from 'react';
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import { useNavigation } from '@onekeyhq/kit/src/hooks';
 
 import Box from '../Box';
 import Text from '../Text';
 
-interface TitleProps {
-  title: string;
-  subtitle?: string;
+import type { MessageDescriptor } from 'react-intl';
+
+export interface HeaderTitleProps {
+  title?: MessageDescriptor['id'];
+  titleString?: string;
+  subtitle?: MessageDescriptor['id'];
+  subtitleString?: string;
+  inCenter?: boolean;
 }
 
-const HeaderTitle: FC<TitleProps> = ({ title, subtitle }) => {
-  const navigation = useNavigation();
+const HeaderTitle: FC<HeaderTitleProps> = ({
+  title,
+  subtitle,
+  titleString,
+  subtitleString,
+  inCenter = true,
+}) => {
   const isVertical = useIsVerticalLayout();
-  const notFirstPage =
-    navigation.getState().routes.length > 0 ? 'Heading' : 'PageHeading';
+  const intl = useIntl();
+  const [titleEl, subtitleEl] = useMemo(
+    () => [
+      title ? intl.formatMessage({ id: title }) : titleString,
+      subtitle ? intl.formatMessage({ id: subtitle }) : subtitleString,
+    ],
+    [title, intl, titleString, subtitle, subtitleString],
+  );
 
   const SmallScreenTitle = useMemo(
     () => (
       <Box
         flex={1}
         justifyContent="center"
-        alignItems={notFirstPage ? 'center' : 'flex-start'}
+        alignItems={inCenter ? 'center' : 'flex-start'}
         style={StyleSheet.absoluteFill}
         zIndex={-1}
       >
-        <Text typography={notFirstPage ? 'Heading' : 'PageHeading'}>
-          {title}
-        </Text>
-        {subtitle && (
+        <Text typography={inCenter ? 'Heading' : 'PageHeading'}>{titleEl}</Text>
+        {!!subtitleEl && (
           <Text typography="Caption" color="text-subdued">
-            {subtitle}
+            {subtitleEl}
           </Text>
         )}
       </Box>
     ),
-    [notFirstPage, subtitle, title],
+    [inCenter, subtitleEl, titleEl],
   );
 
   const LargeScreenTitle = useMemo(
     () => (
       <Box flex={1} flexDirection="row" alignItems="baseline">
-        <Text typography="Heading">{title}</Text>
-        {subtitle && (
+        <Text typography="Heading">{titleEl}</Text>
+        {!!subtitleEl && (
           <Text typography="Body2" ml="12px" color="text-subdued">
-            {subtitle}
+            {subtitleEl}
           </Text>
         )}
       </Box>
     ),
-    [subtitle, title],
+    [subtitleEl, titleEl],
   );
 
   return isVertical ? SmallScreenTitle : LargeScreenTitle;

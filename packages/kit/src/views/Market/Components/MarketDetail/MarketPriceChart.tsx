@@ -1,18 +1,31 @@
 import type { FC } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
+
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
+import { isValidCoingeckoId } from '@onekeyhq/engine/src/managers/token';
+import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ModalRoutes, RootRoutes } from '../../../../routes/types';
+import { ManageTokenRoutes } from '../../../ManageTokens/types';
 import ChartWithLabel from '../../../PriceChart/ChartWithLabel';
 import { useChartTimeLabel } from '../../../PriceChart/hooks';
 import TimeControl, {
   TIMEOPTIONS,
   TIMEOPTIONS_VALUE,
 } from '../../../PriceChart/TimeControl';
-import { useMarketTokenChart } from '../../hooks/useMarketToken';
+import {
+  useMarketTokenChart,
+  useMarketTokenItem,
+} from '../../hooks/useMarketToken';
 
+import type { ModalScreenProps } from '../../../../routes/types';
+import type { ManageTokenRoutesParams } from '../../../ManageTokens/types';
 import type { StyleProp, ViewStyle } from 'react-native';
+
+type NavigationProps = ModalScreenProps<ManageTokenRoutesParams>;
 
 type MarketPriceChartProps = {
   coingeckoId: string;
@@ -23,6 +36,7 @@ const MarketPriceChart: FC<MarketPriceChartProps> = ({
   coingeckoId,
   style,
 }) => {
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(0);
   let points: string | undefined;
   const isVertical = useIsVerticalLayout();
@@ -42,6 +56,26 @@ const MarketPriceChart: FC<MarketPriceChartProps> = ({
     selectedTimeIndex,
     chart?.[0]?.[0],
   );
+  const tokenItem = useMarketTokenItem({ coingeckoId });
+  const onPriceSubscribe = useCallback(
+    (price: number) => {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.ManageToken,
+        params: {
+          screen: ManageTokenRoutes.PriceAlertList,
+          params: {
+            price,
+            token: {
+              coingeckoId,
+              symbol: tokenItem?.symbol ?? coingeckoId,
+              logoURI: tokenItem?.logoURI,
+            } as TokenDO,
+          },
+        },
+      });
+    },
+    [coingeckoId, navigation, tokenItem?.logoURI, tokenItem?.symbol],
+  );
   const refreshDataOnTimeChange = useCallback((newTimeValue: string) => {
     const newTimeIndex = TIMEOPTIONS.indexOf(newTimeValue);
     setSelectedTimeIndex(newTimeIndex);
@@ -50,6 +84,9 @@ const MarketPriceChart: FC<MarketPriceChartProps> = ({
   return (
     <Box style={style}>
       <ChartWithLabel
+        onPriceSubscribe={
+          isValidCoingeckoId(coingeckoId) ? onPriceSubscribe : undefined
+        }
         timeDefaultLabel={timeDefaultLabel}
         isFetching={isFetching}
         data={chart || []}

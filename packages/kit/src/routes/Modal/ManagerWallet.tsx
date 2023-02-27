@@ -1,5 +1,3 @@
-import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import ManagerWalletLocalValidationView from '@onekeyhq/kit/src/views/ManagerWallet/LocalValidationModal';
 import ModifyWalletEmojiView from '@onekeyhq/kit/src/views/ManagerWallet/ModifyWallet/emoji';
@@ -7,6 +5,7 @@ import ModifyWalletNameView from '@onekeyhq/kit/src/views/ManagerWallet/ModifyWa
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
+import createStackNavigator from './createStackNavigator';
 
 import type { ValidationFields } from '../../components/Protected/types';
 

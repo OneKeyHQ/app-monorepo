@@ -11,8 +11,8 @@ import { Box, Icon, Select, ToastManager } from '@onekeyhq/components';
 import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type {
-  HomeRoutes,
-  HomeRoutesParams,
+  ModalRoutes,
+  ModalRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 
 import WebView from '../../components/WebView';
@@ -20,7 +20,7 @@ import { openUrlExternal } from '../../utils/openUrl';
 
 import type { RouteProp } from '@react-navigation/core';
 
-type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.SettingsWebviewScreen>;
+type RouteProps = RouteProp<ModalRoutesParams, ModalRoutes.Webview>;
 
 export const SettingsWebViews: FC = () => {
   const intl = useIntl();
@@ -126,7 +126,7 @@ export const SettingsWebViews: FC = () => {
                 )}
               />
             )}
-            title={title}
+            titleString={title}
           />
         </Box>
       ),

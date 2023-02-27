@@ -17,6 +17,7 @@ type ChartWithLabelProps = {
   timeDefaultLabel: string;
   children: ReactNode;
   isFetching: boolean;
+  onPriceSubscribe?: (price: number) => void;
 };
 
 const ChartWithLabel: FC<ChartWithLabelProps> = ({
@@ -24,6 +25,7 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
   isFetching,
   timeDefaultLabel,
   children,
+  onPriceSubscribe,
 }) => {
   const { formatDate } = useFormatDate();
   const [price, setPrice] = useState<string | number | undefined>();
@@ -61,6 +63,7 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
   );
   const priceLabel = (
     <PriceLabel
+      onPriceSubscribe={onPriceSubscribe}
       price={currentPrice}
       time={time || timeDefaultLabel}
       basePrice={basePrice}

@@ -12,27 +12,29 @@ import Box from '../Box';
 import HeaderBackButton from './HeaderBackButton';
 import HeaderTitle from './HeaderTitle';
 
-interface HeaderProps {
-  title?: string;
-  subtitle?: string;
+import type { HeaderTitleProps } from './HeaderTitle';
+import type { StyleProp, ViewStyle } from 'react-native';
+
+interface HeaderProps extends HeaderTitleProps {
   headerTitle?: () => ReactNode;
   headerLeft?: () => ReactNode;
   headerRight?: () => ReactNode;
   enableBackButton?: boolean;
   safeTop?: number;
+  style?: StyleProp<ViewStyle>;
 }
 
 const defaultMobileHeight = 56;
 const defaultDesktopHeight = 64;
 
 const NavHeader: FC<HeaderProps> = ({
-  title,
-  subtitle,
   headerLeft,
   headerRight,
   headerTitle,
   safeTop,
   enableBackButton = true,
+  style,
+  ...headerTitleProps
 }) => {
   const insets = useSafeAreaInsets();
   const isVertical = useIsVerticalLayout();
@@ -41,17 +43,20 @@ const NavHeader: FC<HeaderProps> = ({
 
   const titleComponent = headerTitle ? (
     headerTitle()
-  ) : title ? (
-    <HeaderTitle title={title} subtitle={subtitle} />
-  ) : null;
+  ) : (
+    <HeaderTitle inCenter={enableBackButton} {...headerTitleProps} />
+  );
 
   return (
     <View
       pointerEvents="box-none"
-      style={{
-        height,
-        marginTop: safeTop ?? insets.top,
-      }}
+      style={[
+        {
+          height,
+          marginTop: safeTop ?? insets.top,
+        },
+        style,
+      ]}
     >
       <View
         pointerEvents="box-none"

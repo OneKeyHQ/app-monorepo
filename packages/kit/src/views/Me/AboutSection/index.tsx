@@ -1,7 +1,5 @@
 import { useCallback } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
-import * as Linking from 'expo-linking';
 import { useIntl } from 'react-intl';
 
 import {
@@ -17,22 +15,16 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
-import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 import { setDevMode } from '@onekeyhq/kit/src/store/reducers/settings';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { openUrlByWebview, openUrlExternal } from '../../../utils/openUrl';
 
 import AppRateSectionItem from './AppRateSectionItem';
 import AutoUpdateSectionItem from './AutoUpdateSectionItem';
 
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
-
 export const AboutSection = () => {
   const intl = useIntl();
 
-  const navigation = useNavigation<NavigationProps>();
   const { dispatch } = backgroundApiProxy;
   const { themeVariant } = useTheme();
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
@@ -56,27 +48,6 @@ export const AboutSection = () => {
       dispatch(setDevMode(true));
     }
   };
-
-  const openWebViewUrl = useCallback(
-    (url: string, title?: string) => {
-      if (platformEnv.isNative) {
-        navigation.navigate(HomeRoutes.SettingsWebviewScreen, {
-          url,
-          title,
-        });
-      } else {
-        window.open(url, '_blank');
-      }
-    },
-    [navigation],
-  );
-  const openLinkUrl = useCallback((url: string) => {
-    if (platformEnv.isNative) {
-      Linking.openURL(url);
-    } else {
-      window.open(url, '_blank');
-    }
-  }, []);
 
   const handleCopyVersion = useCallback(
     (version) => {
@@ -146,7 +117,7 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
-            openWebViewUrl(
+            openUrlByWebview(
               userAgreementUrl,
               intl.formatMessage({
                 id: 'form__user_agreement',
@@ -177,7 +148,7 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
-            openWebViewUrl(
+            openUrlByWebview(
               privacyPolicyUrl,
               intl.formatMessage({
                 id: 'form__privacy_policy',
@@ -208,7 +179,7 @@ export const AboutSection = () => {
           borderBottomWidth="1"
           borderBottomColor="divider"
           onPress={() =>
-            openWebViewUrl(
+            openUrlByWebview(
               'https://www.onekey.so',
               intl.formatMessage({
                 id: 'form__website',
@@ -240,7 +211,7 @@ export const AboutSection = () => {
           px={{ base: 4, md: 6 }}
           borderBottomWidth="1"
           borderBottomColor="divider"
-          onPress={() => openLinkUrl('https://www.discord.gg/onekey')}
+          onPress={() => openUrlExternal('https://www.discord.gg/onekey')}
         >
           <Icon name="DiscordOutline" />
           <Text
@@ -262,7 +233,7 @@ export const AboutSection = () => {
           alignItems="center"
           py={4}
           px={{ base: 4, md: 6 }}
-          onPress={() => openLinkUrl('https://www.twitter.com/onekeyhq')}
+          onPress={() => openUrlExternal('https://www.twitter.com/onekeyhq')}
         >
           <Icon name="TwitterOutline" />
           <Text
