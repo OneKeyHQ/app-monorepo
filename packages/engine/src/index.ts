@@ -4,7 +4,7 @@
 
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
-import { cloneDeep, isEmpty, uniqBy } from 'lodash';
+import { cloneDeep, get, isEmpty, uniqBy } from 'lodash';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
 import RNRestart from 'react-native-restart';
@@ -1815,7 +1815,24 @@ class Engine {
     // throw new Error('test fetch fee info error');
     // TODO move to vault.fetchFeeInfo and _fetchFeeInfo
     // clone encodedTx to avoid side effects
-    return vault.fetchFeeInfo(cloneDeep(encodedTx), signOnly);
+    try {
+      return await vault.fetchFeeInfo(cloneDeep(encodedTx), signOnly);
+    } catch (error: any) {
+      // AxiosError error
+      const axiosError = get(error, 'code', undefined) === 429;
+      // JsonRpcError error
+      const jsonRpcError =
+        get(error, 'response.status', undefined) === 429 ||
+        get(error, 'message', undefined) === 'Wrong response<429>';
+
+      if (axiosError || jsonRpcError) {
+        throw new OneKeyInternalError(
+          'Wrong response<429>',
+          'msg__network_request_too_many',
+        );
+      }
+      throw error;
+    }
   }
 
   @backgroundMethod()
