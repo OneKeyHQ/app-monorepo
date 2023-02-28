@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,6 +9,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 
 import type { DiscoverModalRoutes, DiscoverRoutesParams } from '../type';
 import type { RouteProp } from '@react-navigation/native';
+import { useAppSelector } from '../../../hooks';
 
 type RouteProps = RouteProp<
   DiscoverRoutesParams,
@@ -19,7 +20,13 @@ export const EditBookmark = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
-  const { bookmark } = route.params;
+  const bookmarks = useAppSelector(s => s.discover.bookmarks)
+  
+  const bookmark = useMemo(() => {
+    const item = bookmarks?.find(item => item.id === route.params.bookmark.id)
+    return item ?? route.params.bookmark
+  }, [route.params.bookmark, bookmarks])
+
   const {
     control,
     handleSubmit,
