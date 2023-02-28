@@ -51,7 +51,10 @@ const SlippageCheck = () => {
         </Typography.Body1>
         <Box mt="5">
           <Button size="xl" onPress={onChange}>
-            {intl.formatMessage({ id: 'action__keep_this_setting' })}
+            {intl.formatMessage(
+              { id: 'action__keep_this_settings_str' },
+              { '0': `${route.params.value ?? ''}%` },
+            )}
           </Button>
           <Button mt="3" size="xl" type="primary" onPress={onResetNext}>
             {intl.formatMessage({
