@@ -5,11 +5,12 @@ const webModuleTranspile = [
   '@gorhom',
   '@mysten/sui.js',
   'superstruct',
-  '@noble/curves',
   '@polkadot',
+  '@noble/curves',
   '@solana/web3.js',
   '@kaspa/core-lib',
   '@zondax/izari-filecoin',
+  '@onekeyhq',
 ];
 
 const substrateModules = ['@substrate/txwrapper-core'];

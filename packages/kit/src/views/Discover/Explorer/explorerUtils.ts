@@ -145,7 +145,10 @@ export function crossWebviewLoadUrl({
   }
 }
 
+// https://github.com/facebook/hermes/issues/114#issuecomment-887106990
 const injectToPauseWebsocket = () => {
+  'show source';
+
   if (window.WebSocket) {
     // @ts-ignore
     if (!window.$$onekeyWebSocketSend) {
@@ -158,6 +161,8 @@ const injectToPauseWebsocket = () => {
 };
 
 const injectToResumeWebsocket = () => {
+  'show source';
+
   if (
     window.WebSocket &&
     // @ts-ignore

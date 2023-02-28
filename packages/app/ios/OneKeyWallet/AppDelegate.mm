@@ -27,7 +27,7 @@
   FlipperClient *client = [FlipperClient sharedClient];
   [client addPlugin:[FlipperPerformancePlugin new]];
 #endif
-  RCTAppSetupPrepareApp(application);
+  RCTAppSetupPrepareApp(application, true);
 
   [JPushManager shareInstance];
   
@@ -40,7 +40,7 @@
 #endif
   
   RCTBridge *bridge = [self.reactDelegate createBridgeWithDelegate:self launchOptions:launchOptions];
-  RCTRootView *rootView = RCTAppSetupDefaultRootView(bridge, @"main", launchOptions);
+  RCTRootView *rootView = RCTAppSetupDefaultRootView(bridge, @"main", launchOptions, true);
   rootView.loadingView = nil;
   id rootViewBackgroundColor = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"RCTRootViewBackgroundColor"];
   if (rootViewBackgroundColor != nil) {
@@ -66,7 +66,7 @@
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge {
  #ifdef DEBUG
-    return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"__generated__/AppEntry.js"];
+    return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index.js"];
  #else
     return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
  #endif

@@ -1,6 +1,7 @@
-/* eslint-disable no-plusplus */
-/* eslint-disable global-require, no-restricted-syntax, import/no-unresolved,  @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
-require('./intlShim');
+/* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
+import './intlPolyfill';
+import 'react-native-url-polyfill/auto';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const shimsLog = (str) => console.log(`Shims Injected: ${str}`);
 

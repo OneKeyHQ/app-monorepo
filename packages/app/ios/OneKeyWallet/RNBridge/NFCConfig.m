@@ -1,10 +1,10 @@
 #import "NFCConfig.h"
-#import "ReactNativeConfig.h"
+#import "RNCConfig.h"
 
 @implementation NFCConfig
 
 + (NSDictionary *)env {
-  return ReactNativeConfig.env;
+  return [RNCConfig env];
 }
 
 + (NSString *)envFor: (NSString *)key {

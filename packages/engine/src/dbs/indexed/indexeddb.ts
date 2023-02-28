@@ -256,7 +256,7 @@ class IndexedDBApi implements DBAPI {
   }) {
     const walletRequest = objectStore.get(walletId);
     walletRequest.onsuccess = (_gevent) => {
-      if (typeof walletRequest.result === 'undefined') {
+      if (!walletRequest.result) {
         objectStore.add({
           id: walletId,
           name: walletId,
@@ -269,7 +269,7 @@ class IndexedDBApi implements DBAPI {
     };
   }
 
-  getContext(): Promise<OneKeyContext | undefined> {
+  getContext(): Promise<OneKeyContext | null> {
     return this.ready.then(
       (db) =>
         new Promise((resolve, _reject) => {
@@ -399,7 +399,7 @@ class IndexedDBApi implements DBAPI {
           getMainContextRequest.onsuccess = (_event) => {
             const context = getMainContextRequest.result as OneKeyContext;
             const { backupUUID } = context;
-            if (typeof backupUUID !== 'undefined') {
+            if (backupUUID) {
               resolve(backupUUID);
             } else {
               context.backupUUID = RNUUID.v4() as string;
@@ -505,7 +505,7 @@ class IndexedDBApi implements DBAPI {
             .objectStore(NETWORK_STORE_NAME)
             .get(networkId);
           request.onsuccess = (_event) => {
-            if (typeof request.result !== 'undefined') {
+            if (request.result) {
               resolve(request.result);
             } else {
               reject(
@@ -570,7 +570,7 @@ class IndexedDBApi implements DBAPI {
               const getMainContextRequest = contextStore.get(MAIN_CONTEXT);
               getMainContextRequest.onsuccess = (_cevent) => {
                 const context = getMainContextRequest.result as OneKeyContext;
-                if (typeof context === 'undefined') {
+                if (!context) {
                   // shouldn't happen
                   console.error('Cannot get main context');
                   return;
@@ -612,7 +612,7 @@ class IndexedDBApi implements DBAPI {
             transaction.objectStore(NETWORK_STORE_NAME);
           const getRequest: IDBRequest = networkStore.get(networkId);
           getRequest.onsuccess = (_event) => {
-            if (typeof getRequest.result !== 'undefined') {
+            if (getRequest.result) {
               const dbObj: DBNetwork = getRequest.result as DBNetwork;
               Object.assign(dbObj, params);
               networkStore.put(dbObj);
@@ -668,7 +668,7 @@ class IndexedDBApi implements DBAPI {
             transaction.objectStore(TOKEN_STORE_NAME);
           const getRequest: IDBRequest = tokenStore.get(token.id);
           getRequest.onsuccess = (_event) => {
-            if (typeof getRequest.result === 'undefined') {
+            if (!getRequest.result) {
               // only add when undefined.
               tokenStore.add(token);
               ret = token;
@@ -689,7 +689,7 @@ class IndexedDBApi implements DBAPI {
             .objectStore(TOKEN_STORE_NAME)
             .get(tokenId);
           request.onsuccess = (_event) => {
-            if (typeof request.result !== 'undefined') {
+            if (request.result) {
               resolve(request.result);
             } else {
               resolve(undefined);
@@ -703,7 +703,7 @@ class IndexedDBApi implements DBAPI {
     return this.ready.then(
       (db) =>
         new Promise((resolve, _reject) => {
-          if (typeof accountId === 'undefined') {
+          if (!accountId) {
             const request: IDBRequest = db
               .transaction([TOKEN_STORE_NAME])
               .objectStore(TOKEN_STORE_NAME)
@@ -759,7 +759,7 @@ class IndexedDBApi implements DBAPI {
             reject(new OneKeyInternalError('Failed to add token to account.'));
           };
           transaction.oncomplete = (_tevent) => {
-            if (typeof token !== 'undefined') {
+            if (token) {
               resolve(token);
             } else {
               reject(
@@ -772,7 +772,7 @@ class IndexedDBApi implements DBAPI {
             .objectStore(TOKEN_STORE_NAME)
             .get(tokenId);
           getTokenRequest.onsuccess = (_gevent) => {
-            if (typeof getTokenRequest.result === 'undefined') {
+            if (!getTokenRequest.result) {
               return;
             }
             token = getTokenRequest.result as Token;
@@ -884,7 +884,7 @@ class IndexedDBApi implements DBAPI {
             getMainContextRequest.onsuccess = (_cevent) => {
               const context: OneKeyContext =
                 getMainContextRequest.result as OneKeyContext;
-              if (typeof context !== 'undefined') {
+              if (context) {
                 const pendingWallets = context.pendingWallets || [];
                 ret = (request.result as Array<Wallet>).filter(
                   (wallet) => !pendingWallets.includes(wallet.id),
@@ -905,7 +905,7 @@ class IndexedDBApi implements DBAPI {
             .objectStore(WALLET_STORE_NAME)
             .get(walletId);
           request.onsuccess = (_event) => {
-            if (typeof request.result !== 'undefined') {
+            if (request.result) {
               resolve(request.result);
             } else {
               resolve(undefined);
@@ -1100,7 +1100,7 @@ class IndexedDBApi implements DBAPI {
               const getNewDeviceRequest = deviceStore.get(deviceTableId);
               getNewDeviceRequest.onsuccess = () => {
                 const newDevice = getNewDeviceRequest.result as Device;
-                if (typeof newDevice === 'undefined') {
+                if (!newDevice) {
                   throw new OneKeyInternalError(
                     `Device ${deviceUUID} not found.`,
                   );
@@ -1178,7 +1178,7 @@ class IndexedDBApi implements DBAPI {
           const getWalletRequest = walletStore.get(walletId);
           getWalletRequest.onsuccess = (_wevent) => {
             const wallet = getWalletRequest.result as Wallet;
-            if (typeof wallet === 'undefined') {
+            if (!wallet) {
               reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
               return;
             }
@@ -1274,7 +1274,7 @@ class IndexedDBApi implements DBAPI {
           const getWalletRequest = walletStore.get(walletId);
           getWalletRequest.onsuccess = (_wevent) => {
             const wallet = getWalletRequest.result as Wallet;
-            if (typeof wallet === 'undefined') {
+            if (!wallet) {
               reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
               return;
             }
@@ -1289,10 +1289,10 @@ class IndexedDBApi implements DBAPI {
               );
               return;
             }
-            if (typeof name !== 'undefined') {
+            if (name) {
               wallet.name = name;
             }
-            if (typeof avatar !== 'undefined') {
+            if (avatar) {
               wallet.avatar = avatar;
             }
             ret = wallet;
@@ -1325,7 +1325,7 @@ class IndexedDBApi implements DBAPI {
           const getWalletRequest = walletStore.get(walletId);
           getWalletRequest.onsuccess = (_wevent) => {
             const wallet = getWalletRequest.result as Wallet;
-            if (typeof wallet === 'undefined') {
+            if (!wallet) {
               reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
               return;
             }
@@ -1373,7 +1373,7 @@ class IndexedDBApi implements DBAPI {
               .objectStore(CREDENTIAL_STORE_NAME)
               .get(credentialId);
             getCredentialRequest.onsuccess = (_creevent) => {
-              if (typeof getCredentialRequest.result === 'undefined') {
+              if (!getCredentialRequest.result) {
                 reject(
                   new OneKeyInternalError(
                     `Cannot find seed of wallet ${credentialId}.`,
@@ -1434,7 +1434,7 @@ class IndexedDBApi implements DBAPI {
           const getWalletRequest = walletStore.get(walletId);
           getWalletRequest.onsuccess = (_wevent) => {
             const wallet = getWalletRequest.result as Wallet;
-            if (typeof wallet === 'undefined') {
+            if (!wallet) {
               reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
               return;
             }
@@ -1492,7 +1492,7 @@ class IndexedDBApi implements DBAPI {
               .get(walletId);
             getWalletRequest.onsuccess = (_event) => {
               const wallet = getWalletRequest.result as Wallet;
-              if (typeof wallet === 'undefined') {
+              if (!wallet) {
                 reject(
                   new OneKeyInternalError(`Wallet ${walletId} not found.`),
                 );
@@ -1535,7 +1535,7 @@ class IndexedDBApi implements DBAPI {
             getMainContextRequest.onsuccess = (_cevent) => {
               const context: OneKeyContext =
                 getMainContextRequest.result as OneKeyContext;
-              if (typeof context !== 'undefined') {
+              if (context) {
                 const pendingWallets = context.pendingWallets || [];
                 if (pendingWallets.length > 0) {
                   context.pendingWallets = [];
@@ -1547,7 +1547,7 @@ class IndexedDBApi implements DBAPI {
                   const getWalletRequest = walletStore.get(walletId);
                   getWalletRequest.onsuccess = (_wevent) => {
                     const wallet = getWalletRequest.result as Wallet;
-                    if (typeof wallet !== 'undefined') {
+                    if (wallet) {
                       walletStore.delete(walletId);
                       transaction
                         .objectStore(CREDENTIAL_STORE_NAME)
@@ -1609,7 +1609,7 @@ class IndexedDBApi implements DBAPI {
             reject(new OneKeyInternalError('Failed to add account to wallet.'));
           };
           transaction.oncomplete = (_tevent) => {
-            if (typeof ret !== 'undefined') {
+            if (ret) {
               resolve(ret);
             } else {
               reject(
@@ -1625,7 +1625,7 @@ class IndexedDBApi implements DBAPI {
           );
           const getWalletRequest: IDBRequest = walletStore.get(walletId);
           getWalletRequest.onsuccess = async (_gevent) => {
-            if (getWalletRequest.result === 'undefined') {
+            if (!getWalletRequest.result) {
               reject(new OneKeyInternalError(`Wallet ${walletId} not found.`));
               return;
             }
@@ -1864,7 +1864,7 @@ class IndexedDBApi implements DBAPI {
             .objectStore(ACCOUNT_STORE_NAME)
             .get(accountId);
           request.onsuccess = (_event) => {
-            if (typeof request.result !== 'undefined') {
+            if (request.result) {
               resolve(request.result);
             } else {
               reject(
@@ -1949,10 +1949,7 @@ class IndexedDBApi implements DBAPI {
           const getWalletRequest = walletStore.get(walletId);
           getWalletRequest.onsuccess = (_wevent) => {
             const wallet = getWalletRequest.result as Wallet;
-            if (
-              typeof wallet === 'undefined' ||
-              !wallet.accounts.includes(accountId)
-            ) {
+            if (!wallet || !wallet.accounts.includes(accountId)) {
               reject(
                 new OneKeyInternalError(
                   'Failed to remove account, wallet or account not found.',
@@ -2019,7 +2016,7 @@ class IndexedDBApi implements DBAPI {
           const getAccountRequest = accountStore.get(accountId);
           getAccountRequest.onsuccess = (_aevent) => {
             const account = getAccountRequest.result as DBAccount;
-            if (typeof account === 'undefined') {
+            if (!account) {
               reject(
                 new OneKeyInternalError(`Account ${accountId} not found.`),
               );
@@ -2053,7 +2050,7 @@ class IndexedDBApi implements DBAPI {
           const getAccountRequest = accountStore.get(accountId);
           getAccountRequest.onsuccess = (_aevent) => {
             const account = getAccountRequest.result as DBAccount;
-            if (typeof account === 'undefined') {
+            if (!account) {
               reject(
                 new OneKeyInternalError(`Account ${accountId} not found.`),
               );
@@ -2081,7 +2078,7 @@ class IndexedDBApi implements DBAPI {
           const getAccountRequest = accountStore.get(accountId);
           getAccountRequest.onsuccess = (_aevent) => {
             const account = getAccountRequest.result as DBAccount;
-            if (typeof account === 'undefined') {
+            if (!account) {
               reject(
                 new OneKeyInternalError(`Account ${accountId} not found.`),
               );
@@ -2089,9 +2086,7 @@ class IndexedDBApi implements DBAPI {
             }
             switch (account.type) {
               case AccountType.VARIANT:
-                if (
-                  typeof (account as DBVariantAccount).addresses === 'undefined'
-                ) {
+                if (!(account as DBVariantAccount).addresses) {
                   (account as DBVariantAccount).addresses = {};
                 }
                 (account as DBVariantAccount).addresses[networkId] = address;
@@ -2126,7 +2121,7 @@ class IndexedDBApi implements DBAPI {
           getAccountRequest.onsuccess = (_aevent) => {
             const account = getAccountRequest.result as DBAccount;
             let utxoAccount: DBUTXOAccount;
-            if (typeof account === 'undefined') {
+            if (!account) {
               reject(
                 new OneKeyInternalError(`Account ${accountId} not found.`),
               );
@@ -2178,7 +2173,7 @@ class IndexedDBApi implements DBAPI {
           getAccountRequest.onsuccess = (_aevent) => {
             const account = getAccountRequest.result as DBAccount;
             let utxoAccount: DBUTXOAccount;
-            if (typeof account === 'undefined') {
+            if (!account) {
               reject(
                 new OneKeyInternalError(`Account ${accountId} not found.`),
               );
@@ -2274,7 +2269,7 @@ class IndexedDBApi implements DBAPI {
           Object.entries(statusMap).forEach(([entryId, status]) => {
             const getRequest = historyStore.get(entryId);
             getRequest.onsuccess = (_event) => {
-              if (typeof getRequest.result !== 'undefined') {
+              if (getRequest.result) {
                 historyStore.put(
                   Object.assign(getRequest.result, { status, updatedAt }),
                 );
@@ -2338,9 +2333,8 @@ class IndexedDBApi implements DBAPI {
               const entry = cursor.value as HistoryEntry;
               const contractInEntry = (entry as { contract: string }).contract;
               if (
-                typeof contract === 'undefined' ||
-                (typeof contractInEntry !== 'undefined' &&
-                  contract === contractInEntry)
+                !contract ||
+                (contractInEntry && contract === contractInEntry)
               ) {
                 ret.push(cursor.value as HistoryEntry);
               }
@@ -2371,7 +2365,7 @@ class IndexedDBApi implements DBAPI {
         /**
          * insert only for device
          */
-        if (typeof device === 'undefined') {
+        if (!device) {
           const addDeviceRequest = deviceStore.add({
             id,
             name,
@@ -2421,7 +2415,7 @@ class IndexedDBApi implements DBAPI {
             .objectStore(DEVICE_STORE_NAME)
             .get(deviceId);
           request.onsuccess = (_event) => {
-            if (typeof request.result !== 'undefined') {
+            if (request.result) {
               resolve(fromDBDeviceToDevice(request.result));
             } else {
               reject(new OneKeyInternalError(`Device ${deviceId} not found.`));
@@ -2441,7 +2435,7 @@ class IndexedDBApi implements DBAPI {
             .getAll();
 
           request.onsuccess = (_event) => {
-            if (typeof request.result !== 'undefined') {
+            if (request.result) {
               const ret = request.result as Array<DBDevice>;
               const device = ret.find((item) => item.deviceId === deviceId);
 
@@ -2476,7 +2470,7 @@ class IndexedDBApi implements DBAPI {
             walletStore.get(walletId);
           getWalletRequest.onsuccess = () => {
             const wallet = getWalletRequest.result;
-            if (typeof wallet === 'undefined') {
+            if (!wallet) {
               reject(new OneKeyInternalError('Wallet not found.'));
               return;
             }
@@ -2490,7 +2484,7 @@ class IndexedDBApi implements DBAPI {
             );
             getDeviceRequest.onsuccess = () => {
               const device = getDeviceRequest.result;
-              if (typeof device === 'undefined') {
+              if (!device) {
                 reject(new OneKeyInternalError('Device not found.'));
                 return;
               }
@@ -2517,7 +2511,7 @@ class IndexedDBApi implements DBAPI {
           const request = deviceStore.getAll();
 
           request.onsuccess = (_event) => {
-            if (typeof request.result !== 'undefined') {
+            if (request.result) {
               const devices = request.result as Array<DBDevice>;
               const device = devices.find((item) => item.deviceId === deviceId);
               if (device) {
@@ -2701,7 +2695,7 @@ class IndexedDBApi implements DBAPI {
           const request: IDBRequest<DBAccountDerivation[]> =
             accountDerivationStore.getAll();
           request.onsuccess = (_event) => {
-            if (typeof request.result !== 'undefined') {
+            if (request.result) {
               const accountDerivations = request.result;
               accountDerivations.forEach((accountDerivation) => {
                 if (accountDerivation.walletId === walletId) {
@@ -2746,7 +2740,7 @@ class IndexedDBApi implements DBAPI {
           const request: IDBRequest<DBAccountDerivation[]> =
             accountDerivationStore.getAll();
           request.onsuccess = (_event) => {
-            if (typeof request.result !== 'undefined') {
+            if (request.result) {
               const accountDerivations = request.result;
               accountDerivations.forEach((accountDerivation) => {
                 if (accountDerivation.walletId === walletId) {
@@ -2791,7 +2785,7 @@ class IndexedDBApi implements DBAPI {
           const request: IDBRequest<DBAccountDerivation[]> =
             accountDerivationStore.getAll();
           request.onsuccess = (_event) => {
-            if (typeof request.result !== 'undefined') {
+            if (request.result) {
               const accountDerivations = request.result;
               const result = accountDerivations
                 .filter((item) => item.walletId === walletId)
@@ -2816,7 +2810,7 @@ class IndexedDBApi implements DBAPI {
       const id = getAccountDerivationPrimaryKey({ walletId, impl, template });
       const getExistRecordRequest = derivationStore.get(id);
       getExistRecordRequest.onsuccess = (_event) => {
-        if (getExistRecordRequest.result === 'undefined') {
+        if (!getExistRecordRequest.result) {
           reject(new OneKeyInternalError(`AccountDerivation ${id} not found.`));
         }
         const accountDerivation = getExistRecordRequest.result;
@@ -2834,7 +2828,7 @@ class IndexedDBApi implements DBAPI {
             .objectStore(CUSTOM_FEE_STORE_NAME)
             .get(networkId);
           request.onsuccess = (_event) => {
-            if (typeof request.result !== 'undefined') {
+            if (request.result) {
               resolve(request.result);
             } else {
               resolve(undefined);

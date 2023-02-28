@@ -10,7 +10,7 @@
   "license": "SEE https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE.md",
   "private": true,
   "dependencies": {
-    "@react-native-async-storage/async-storage": "1.17.3",
+    "@react-native-async-storage/async-storage": "1.17.11",
     "@types/webextension-polyfill": "^0.8.2",
     "async-mutex": "^0.3.2",
     "flatted": "^3.2.7",
