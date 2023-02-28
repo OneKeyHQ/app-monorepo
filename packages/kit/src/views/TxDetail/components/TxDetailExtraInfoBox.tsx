@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Icon, Pressable } from '@onekeyhq/components';
+import { IconButton, Pressable } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { IDecodedTxExtraAlgo } from '@onekeyhq/engine/src/vaults/impl/algo/types';
 import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
@@ -16,12 +16,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useClipboard } from '../../../hooks/useClipboard';
 import { useNetwork } from '../../../hooks/useNetwork';
-import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { TxActionElementAddressNormal } from '../elements/TxActionElementAddress';
 import { TxActionElementDetailCellTitleText } from '../elements/TxActionElementDetailCell';
-import { TxActionElementPressable } from '../elements/TxActionElementPressable';
 
 import { TxDetailActionBox } from './TxDetailActionBox';
+import { TxDetailHashMoreMenu } from './TxDetailHashMoreMenu';
 
 import type { ITxActionElementDetail, ITxActionListViewProps } from '../types';
 
@@ -75,7 +74,6 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
   const { network } = useNetwork({ networkId: decodedTx.networkId });
   const details: ITxActionElementDetail[] = [];
   const intl = useIntl();
-  const openBlockBrowser = useOpenBlockBrowser(network);
   const { copyText } = useClipboard();
   const clickTimes = useRef(0);
 
@@ -85,6 +83,15 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
       content: `${new BigNumber(decodedTx.nonce).toFixed()}`,
     });
   }
+  details.push({
+    title: intl.formatMessage({ id: 'content__fee' }),
+    content:
+      feeInput ||
+      getFeeInNativeText({
+        network,
+        decodedTx,
+      }),
+  });
   if (
     checkIsValidHistoryTxId({
       txid: decodedTx.txid,
@@ -112,24 +119,22 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
           </TxActionElementDetailCellTitleText>
         </Pressable>
       ),
-      content: openBlockBrowser.hasAvailable ? (
-        <TxActionElementPressable
-          icon={<Icon name="ArrowTopRightOnSquareMini" size={20} />}
-          onPress={() => {
-            openBlockBrowser.openTransactionDetails(decodedTx.txid);
-          }}
-        >
-          <TxActionElementAddressNormal
-            address={decodedTx.txid}
-            isCopy={false}
-            isLabelShow={false}
-          />
-        </TxActionElementPressable>
-      ) : (
+      content: (
         <TxActionElementAddressNormal
           address={decodedTx.txid}
+          isCopy={false}
           isLabelShow={false}
         />
+      ),
+      extra: (
+        <TxDetailHashMoreMenu decodedTx={decodedTx}>
+          <IconButton
+            circle
+            type="plain"
+            iconSize={18}
+            name="EllipsisVerticalOutline"
+          />
+        </TxDetailHashMoreMenu>
       ),
     });
   }
@@ -143,15 +148,6 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
       content: (decodedTx.extraInfo as IDecodedTxExtraAlgo).note,
     });
   }
-  details.push({
-    title: intl.formatMessage({ id: 'content__fee' }),
-    content:
-      feeInput ||
-      getFeeInNativeText({
-        network,
-        decodedTx,
-      }),
-  });
 
   return <TxDetailActionBox details={details} />;
 }
