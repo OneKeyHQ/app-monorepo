@@ -29,6 +29,7 @@ import DAppIcon from '../DAppIcon';
 import { useDiscoverFavorites, useUserBrowserHistories } from '../hooks';
 
 import { MyDAppListContext } from './context';
+import { getUrlHost } from './utils';
 
 import type { ShowMenuProps } from '../../Overlay/Discover/type';
 import type { MatchDAppItemType } from '../Explorer/explorerUtils';
@@ -48,7 +49,7 @@ const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
   if (item.dapp) {
     description = t(item.dapp._subtitle) ?? item.dapp.subtitle;
   } else if (url) {
-    description = new URL(url).host;
+    description = getUrlHost(url);
   }
 
   return (
