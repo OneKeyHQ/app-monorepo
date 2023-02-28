@@ -58,6 +58,13 @@ export class CosmosNodeClient {
     return response.data.block.header;
   }
 
+  public async fetchBlockHeaderV1beta1(): Promise<BlockHeader> {
+    const response = await this.axios.get<{ block: { header: BlockHeader } }>(
+      `/cosmos/base/tendermint/v1beta1/blocks/latest`,
+    );
+    return response.data.block.header;
+  }
+
   public async getAccountInfo(address: string): Promise<AccountInfo | null> {
     const response = await this.axios.get<{ account: AccountInfo }>(
       `/cosmos/auth/v1beta1/accounts/${address}`,
@@ -71,11 +78,11 @@ export class CosmosNodeClient {
   }
 
   public async getAccountBalances(address: string): Promise<Coin[]> {
-    const response = await this.axios.get<{ result: Coin[] }>(
-      `/bank/balances/${address}`,
+    const response = await this.axios.get<{ balances: Coin[] }>(
+      `/cosmos/bank/v1beta1/balances/${address}`,
     );
 
-    return response.data.result ?? [];
+    return response.data.balances ?? [];
   }
 
   async getTransactionInfo(txid: string): Promise<TransactionResponseInfo> {

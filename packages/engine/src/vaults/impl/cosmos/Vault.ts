@@ -149,15 +149,13 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only methods
-
   override async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
     const client = this.getNodeClient(url);
-
     const start = performance.now();
-    const { height: blockNumber } = await client.fetchBlockHeader();
-    const latestBlock = parseInt(blockNumber);
+    const { height } = await client.fetchBlockHeader();
+    const latestBlock = parseInt(height);
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
   }
 
