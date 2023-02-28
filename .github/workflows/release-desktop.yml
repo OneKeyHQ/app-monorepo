@@ -125,7 +125,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
-        run: 'cd packages/desktop && yarn build'
+        run: 'cd packages/desktop && yarn build && && yarn build:winms'
 
       - name: Upload Artifacts Mac
         uses: actions/upload-artifact@v3

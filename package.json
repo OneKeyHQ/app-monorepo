@@ -39,6 +39,7 @@
     "build:networklist": "node development/build-networklist.js",
     "desktop": "yarn copy:inject && cross-env ENABLE_ANALYZER=1 yarn workspace @onekeyhq/desktop dev",
     "build:desktop": "yarn copy:inject && yarn workspace @onekeyhq/desktop build",
+    "build:desktop:winms": "yarn copy:inject && yarn workspace @onekeyhq/desktop build:winms",
     "build:icon": "yarn workspace @onekeyhq/components build:icons",
     "fetch:locale": "yarn workspace @onekeyhq/components fetch:locale",
     "test": "yarn test:snapshot && yarn test:unit ",

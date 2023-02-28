@@ -10,6 +10,7 @@ export type IDistributionChannel =
   | 'desktop-mac'
   | 'desktop-mac-arm64'
   | 'desktop-win'
+  | 'desktop-win-ms-store'
   | 'desktop-linux'
   | 'native-ios'
   | 'native-ios-store'
@@ -49,6 +50,7 @@ export type IPlatformEnv = {
 
   isDesktopLinux?: boolean;
   isDesktopWin?: boolean;
+  isDesktopWinMsStore?: boolean;
   /** macos arm64 & x86 */
   isDesktopMac?: boolean;
   /** macos arm64 only */
@@ -109,6 +111,8 @@ const isDesktopMac = isDesktop && window?.desktopApi?.platform === 'darwin';
 const isDesktopMacArm64 = isDesktopMac && window?.desktopApi?.arch === 'arm64';
 const isDesktopWin = isDesktop && window?.desktopApi?.platform === 'win32';
 const isDesktopLinux = isDesktop && window?.desktopApi?.platform === 'linux';
+const isDesktopWinMsStore =
+  isDesktopWin && process.env.DESK_CHANNEL === 'ms-store';
 
 const isNativeIOS = isNative && Platform.OS === 'ios';
 const isNativeIOSStore = isNativeIOS && isProduction;
@@ -136,6 +140,7 @@ const getDistributionChannel = (): IDistributionChannel | undefined => {
   if (isExtChrome) return 'ext-chrome';
   if (isExtFirefox) return 'ext-firefox';
 
+  if (isDesktopWinMsStore) return 'desktop-win-ms-store';
   if (isDesktopMacArm64) return 'desktop-mac-arm64';
   if (isDesktopMac) return 'desktop-mac';
   if (isDesktopWin) return 'desktop-win';
@@ -255,6 +260,7 @@ const platformEnv: IPlatformEnv = {
 
   isDesktopMac,
   isDesktopWin,
+  isDesktopWinMsStore,
   isDesktopMacArm64,
   isDesktopLinux,
   isMas,
