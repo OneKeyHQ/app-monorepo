@@ -32,6 +32,7 @@ import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokensBalance } from '../../../hooks';
+import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
 
@@ -51,6 +52,12 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
   const { wallet, network, networkId, accountId, account } =
     useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
+
+  const price =
+    useSimpleTokenPriceValue({
+      networkId: token?.networkId,
+      contractAdress: token?.tokenIdOnNetwork,
+    }) ?? 0;
 
   const balances = useAccountTokensBalance(networkId, accountId);
   const { balance: amount } = balances[getBalanceKey(token)] ?? {
@@ -322,6 +329,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
                     params: {
                       screen: ManageTokenRoutes.PriceAlertList,
                       params: {
+                        price,
                         token: token as TokenDO,
                       },
                     },
@@ -340,6 +348,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
       </Box>
     ),
     [
+      price,
       isVertical,
       wallet?.type,
       intl,

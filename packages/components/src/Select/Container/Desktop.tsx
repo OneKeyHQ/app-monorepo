@@ -8,7 +8,7 @@ import PresenceTransition from '../../PresenceTransition';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
 
-import { renderOptions } from './Option';
+import { RenderOptions } from './Option';
 
 import type { ChildProps } from '..';
 
@@ -106,13 +106,13 @@ function Desktop<T>({
           </Box>
         ) : null}
         <ScrollView p="1" flex="1">
-          {renderOptions<T>({
-            options,
-            activeOption,
-            renderItem,
-            onChange,
-            activatable,
-          })}
+          <RenderOptions
+            options={options}
+            activeOption={activeOption}
+            renderItem={renderItem}
+            onChange={onChange}
+            activatable={activatable}
+          />
         </ScrollView>
         {isValidElement(footer) || footer === null ? (
           footer

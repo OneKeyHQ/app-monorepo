@@ -52,12 +52,14 @@ export type ManageTokenRoutesParams = {
     | { address?: string; networkId?: string; sendAddress?: string }
     | undefined;
   [ManageTokenRoutes.PriceAlertList]: {
+    price: number;
     token: Token;
   };
   [ManageTokenRoutes.TokenRiskDetail]: {
     token: Partial<Token>;
   };
   [ManageTokenRoutes.PriceAlertAdd]: {
+    price: number;
     token: Token;
     alerts: PriceAlertItem[];
   };

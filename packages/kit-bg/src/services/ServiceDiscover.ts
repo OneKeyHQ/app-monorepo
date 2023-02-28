@@ -166,9 +166,19 @@ class ServicDiscover extends ServiceBase {
   }
 
   @backgroundMethod()
-  editFavorite(item: BookmarkItem) {
+  async editFavorite(item: BookmarkItem) {
     const { dispatch } = this.backgroundApi;
     dispatch(updateBookmark(item));
+    const url = item.url.trim();
+    if (url) {
+      try {
+        const urlInfo = await this.getUrlInfo(item.url);
+        const newItem = { ...item, icon: urlInfo?.icon };
+        dispatch(updateBookmark(newItem));
+      } catch {
+        console.error(`fetch ${item.url} url info failure`);
+      }
+    }
   }
 
   @backgroundMethod()
@@ -188,13 +198,15 @@ class ServicDiscover extends ServiceBase {
   async addFavorite(url: string) {
     const { dispatch, appSelector } = this.backgroundApi;
     const bookmarkId = uuid.v4() as string;
-    const base = addBookmark({ url, id: bookmarkId });
     const tabs = appSelector((s) => s.webTabs.tabs);
     const list = tabs.filter((tab) => tab.url === url);
+    const base = addBookmark({ url, id: bookmarkId });
+
     const actions = list.map((tab) =>
       setWebTabData({ ...tab, isBookmarked: true }),
     );
     dispatch(base, ...actions);
+
     const urlInfo = await this.getUrlInfo(url);
     if (urlInfo) {
       dispatch(

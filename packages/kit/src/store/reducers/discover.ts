@@ -212,7 +212,7 @@ export const discoverSlice = createSlice({
         state.bookmarks = [];
       }
       const bookmark = state.bookmarks.find(
-        (item) => (item.id = action.payload.id),
+        (item) => item.id === action.payload.id,
       );
       if (bookmark) {
         const { url, title, icon } = action.payload;

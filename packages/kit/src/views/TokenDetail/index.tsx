@@ -84,13 +84,14 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
           params: {
             screen: ManageTokenRoutes.PriceAlertList,
             params: {
+              price,
               token: token as Token,
             },
           },
         });
       }
     },
-    [token, navigation],
+    [token, navigation, price],
   );
 
   const headerRight = useCallback(

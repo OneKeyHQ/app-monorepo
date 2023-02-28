@@ -1,3 +1,4 @@
+import type { FC } from 'react';
 import { Fragment } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
@@ -127,59 +128,64 @@ function RenderSingleOption<T>({
     )
   );
 }
+type IRenderOptions<T = any> = Pick<
+  ChildProps<T>,
+  'activeOption' | 'onChange' | 'renderItem' | 'options' | 'activatable'
+>;
 
-export function renderOptions<T>({
+type IRenderOptionsFC<T = any> = FC<IRenderOptions<T>>;
+
+export const RenderOptions: IRenderOptionsFC = <T,>({
   options,
   activeOption,
   renderItem,
   onChange,
   activatable,
-}: Pick<
-  ChildProps<T>,
-  'activeOption' | 'onChange' | 'renderItem' | 'options' | 'activatable'
->) {
-  return options.map((option, index) => {
-    if (isGroup<T>(option)) {
-      const isLast = index === options.length - 1;
-      return (
-        <Fragment key={`${option.title}${index}`}>
-          {option.title.length > 0 ? (
-            // add Pressabel fix https://onekeyhq.atlassian.net/browse/OK-16171  Sliding events do not trigger problems
-            <Pressable>
-              <Typography.Subheading
-                px={{ base: '4', md: '2' }}
-                pt={2}
-                color="text-subdued"
-              >
-                {option.title}
-              </Typography.Subheading>
-            </Pressable>
-          ) : null}
-          {option.options.map((subOption) =>
-            RenderSingleOption<T>({
-              activeOption,
-              renderItem,
-              onChange,
-              option: subOption,
-              activatable,
-            }),
-          )}
-          {!isLast && (
-            <Box px={{ base: '4', md: '2' }} py={1}>
-              <Divider />
-            </Box>
-          )}
-        </Fragment>
-      );
-    }
+}: IRenderOptions<T>) => (
+  <>
+    {options.map((option, index) => {
+      if (isGroup<T>(option)) {
+        const isLast = index === options.length - 1;
+        return (
+          <Fragment key={`${option.title}${index}`}>
+            {option.title.length > 0 ? (
+              // add Pressabel fix https://onekeyhq.atlassian.net/browse/OK-16171  Sliding events do not trigger problems
+              <Pressable>
+                <Typography.Subheading
+                  px={{ base: '4', md: '2' }}
+                  pt={2}
+                  color="text-subdued"
+                >
+                  {option.title}
+                </Typography.Subheading>
+              </Pressable>
+            ) : null}
+            {option.options.map((subOption) =>
+              RenderSingleOption<T>({
+                activeOption,
+                renderItem,
+                onChange,
+                option: subOption,
+                activatable,
+              }),
+            )}
+            {!isLast && (
+              <Box px={{ base: '4', md: '2' }} py={1}>
+                <Divider />
+              </Box>
+            )}
+          </Fragment>
+        );
+      }
 
-    const singleOption = option;
-    return RenderSingleOption<T>({
-      activeOption,
-      renderItem,
-      onChange,
-      option: singleOption,
-      activatable,
-    });
-  });
-}
+      const singleOption = option;
+      return RenderSingleOption<T>({
+        activeOption,
+        renderItem,
+        onChange,
+        option: singleOption,
+        activatable,
+      });
+    })}
+  </>
+);

@@ -74,8 +74,9 @@ export const swapSlice = createSlice({
       const token = state.inputToken;
       state.inputToken = state.outputToken;
       state.outputToken = token;
-      state.independentField =
-        state.independentField === 'INPUT' ? 'OUTPUT' : 'INPUT';
+      state.independentField = 'INPUT';
+      // state.independentField =
+      //   state.independentField === 'INPUT' ? 'OUTPUT' : 'INPUT';
 
       const network = state.inputTokenNetwork;
       state.inputTokenNetwork = state.outputTokenNetwork;
