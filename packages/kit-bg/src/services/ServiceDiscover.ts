@@ -13,6 +13,7 @@ import {
   removeWebSiteHistory,
   resetBookmarks,
   setDappHistory,
+  setFavoritesMigrated,
   setHomeData,
   updateBookmark,
 } from '@onekeyhq/kit/src/store/reducers/discover';
@@ -28,6 +29,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
@@ -142,8 +144,9 @@ class ServicDiscover extends ServiceBase {
   async migrateFavorite() {
     const { dispatch, appSelector } = this.backgroundApi;
     const dappFavorites = appSelector((s) => s.discover.dappFavorites);
+    const favoritesMigrated = appSelector((s) => s.discover.favoritesMigrated);
 
-    if (!dappFavorites || dappFavorites.length === 0) {
+    if (favoritesMigrated || !dappFavorites || dappFavorites.length === 0) {
       return;
     }
 
@@ -162,7 +165,11 @@ class ServicDiscover extends ServiceBase {
       }
     }
 
-    dispatch(resetBookmarks(bookmarks));
+    debugLogger.common.info(
+      `migrate favorite to bookmarks ${JSON.stringify(bookmarks)}`,
+    );
+
+    dispatch(resetBookmarks(bookmarks), setFavoritesMigrated());
   }
 
   @backgroundMethod()
@@ -183,14 +190,21 @@ class ServicDiscover extends ServiceBase {
 
   @backgroundMethod()
   async getUrlInfo(url: string) {
-    const dapps = await this.searchDappsWithRegExp([url]);
-    if (dapps && dapps.length > 0) {
-      const item = dapps[0];
-      return { title: item.name, icon: item.logoURL };
-    }
-    const urlInfo = await this.fetchUrlInfo(url);
-    if (urlInfo) {
-      return { title: urlInfo.title, icon: urlInfo.icon };
+    try {
+      const dapps = await this.searchDappsWithRegExp([url]);
+      if (dapps && dapps.length > 0) {
+        const item = dapps[0];
+        return { title: item.name, icon: item.logoURL };
+      }
+      const urlInfo = await this.fetchUrlInfo(url);
+      if (urlInfo) {
+        return { title: urlInfo.title, icon: urlInfo.icon };
+      }
+    } catch (e: unknown) {
+      debugLogger.common.error(
+        `failed to fetch dapp url info with reason ${(e as Error).message}`,
+      );
+      return { title: '', icon: '' };
     }
   }
 
