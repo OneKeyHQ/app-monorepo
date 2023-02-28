@@ -145,12 +145,13 @@ class ServicDiscover extends ServiceBase {
     const { dispatch, appSelector } = this.backgroundApi;
     const dappFavorites = appSelector((s) => s.discover.dappFavorites);
     const favoritesMigrated = appSelector((s) => s.discover.favoritesMigrated);
+    const currentBookmarks = appSelector((s) => s.discover.bookmarks);
 
     if (favoritesMigrated || !dappFavorites || dappFavorites.length === 0) {
       return;
     }
 
-    const bookmarks = dappFavorites.map((item) => ({
+    let bookmarks = dappFavorites.map((item) => ({
       id: uuid.v4(),
       url: item,
     })) as BookmarkItem[];
@@ -163,6 +164,10 @@ class ServicDiscover extends ServiceBase {
         bookmark.title = info.title;
         bookmark.icon = info.icon;
       }
+    }
+
+    if (currentBookmarks) {
+      bookmarks = currentBookmarks.concat(bookmarks);
     }
 
     debugLogger.common.info(

@@ -84,7 +84,7 @@ const ListHeaderFavorites = () => {
           >
             <DAppIcon size={48} url={logoURL} borderRadius={12} mb="1.5" />
             <Typography.Caption w="12" numberOfLines={1} textAlign="center">
-              {name ?? 'Unknown'}
+              {name || 'Unknown'}
             </Typography.Caption>
           </Pressable>
         );
@@ -122,7 +122,7 @@ const ListHeaderHistories = () => {
           >
             <DAppIcon size={48} url={logoURL} borderRadius={12} mb="1.5" />
             <Typography.Caption w="12" numberOfLines={1} textAlign="center">
-              {name ?? 'Unknown'}
+              {name || 'Unknown'}
             </Typography.Caption>
           </Pressable>
         );
