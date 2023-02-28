@@ -1,4 +1,6 @@
-import { loadWasmInstance } from './load-browser';
+import { loadWasmInstance } from './load';
+
+import type { MoneroCoreInstance } from './moneroTypes';
 
 let inst = null;
 
@@ -10,4 +12,4 @@ const instPromise = (async () => {
   return inst;
 })();
 
-export const getInstance = async (): Promise<any> => instPromise;
+export const getInstance = async (): Promise<MoneroCoreInstance> => instPromise;

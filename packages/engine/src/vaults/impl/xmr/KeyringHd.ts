@@ -7,8 +7,11 @@ import { COINTYPE_XMR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineCon
 
 import { OneKeyInternalError } from '../../../errors';
 import { AccountType } from '../../../types/account';
+import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
 import { getInstance } from './sdk/instance';
+import { MoneroNetTypeEnum } from './sdk/moneroTypes';
+import { MoneroModule } from './sdk/monoreModule';
 import { calcBip32ExtendedKey } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
@@ -18,10 +21,6 @@ import type {
   ISignCredentialOptions,
   IUnsignedTxPro,
 } from '../../types';
-
-import type { XMRModule } from './types';
-
-import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
 const HARDEN_PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 const ACCOUNT_NAME_PREFIX = 'XMR';
@@ -38,11 +37,8 @@ export class KeyringHd extends KeyringHdBase {
       password,
     )) as ExportedSeedCredential;
 
-    const inst = await getInstance();
-
-    console.log(inst);
-
-    debugger;
+    const instance = await getInstance();
+    const xmrModule = new MoneroModule(instance);
 
     const mnemonic = mnemonicFromEntropy(entropy, password);
     const seed = mnemonicToSeedSync(mnemonic);
@@ -58,6 +54,10 @@ export class KeyringHd extends KeyringHdBase {
     });
 
     const extendedKey = calcBip32ExtendedKey(HARDEN_PATH_PREFIX, rootKey);
+
+    if (!extendedKey) {
+      throw new OneKeyInternalError('Unable to get extended key.');
+    }
     const key = extendedKey.derive(0);
     const rawPrivateKey = key.privateKey;
 
@@ -68,37 +68,37 @@ export class KeyringHd extends KeyringHdBase {
     const rawSecretSpendKey = new Uint8Array(
       sha3.keccak_256.update(rawPrivateKey).arrayBuffer(),
     );
-    let secretSpendKey = xmrModule.lib.sc_reduce32(rawSecretSpendKey);
-    const secretViewKey = xmrModule.lib.hash_to_scalar(secretSpendKey);
+    let secretSpendKey = xmrModule.scReduce32(rawSecretSpendKey);
+    const secretViewKey = xmrModule.hashToScalar(secretSpendKey);
 
-    let publicSpendKey = new Uint8Array();
-    let publicViewKey = new Uint8Array();
+    let publicSpendKey: Uint8Array | null;
+    let publicViewKey: Uint8Array | null;
 
     const ret = [];
     for (const index of indexes) {
       if (index === 0) {
-        publicSpendKey = xmrModule.lib.secret_key_to_public_key(secretSpendKey);
-        publicViewKey = xmrModule.lib.secret_key_to_public_key(secretViewKey);
+        publicSpendKey = xmrModule.secretKeyToPublicKey(secretSpendKey);
+        publicViewKey = xmrModule.secretKeyToPublicKey(secretViewKey);
       } else {
-        const m = xmrModule.lib.get_subaddress_secret_key(
-          secretViewKey,
-          0,
-          index,
-        );
-        secretSpendKey = xmrModule.lib.sc_add(m, secretSpendKey);
-        publicSpendKey = xmrModule.lib.secret_key_to_public_key(secretSpendKey);
-        publicViewKey = xmrModule.lib.scalarmultKey(
-          publicSpendKey,
+        const m = xmrModule.getSubaddressSecretKey(secretViewKey, 0, index);
+        secretSpendKey = xmrModule.scAdd(m, secretSpendKey);
+        publicSpendKey = xmrModule.secretKeyToPublicKey(secretSpendKey);
+        publicViewKey = xmrModule.scalarmultKey(
+          publicSpendKey || new Uint8Array(),
           secretViewKey,
         );
       }
 
+      if (!publicSpendKey || !publicViewKey) {
+        throw new OneKeyInternalError('Unable to get public spend/view key.');
+      }
+
       const path = `${HARDEN_PATH_PREFIX}/${index}`;
 
-      const address = xmrModule.lib.pub_keys_to_address(
+      const address = xmrModule.pubKeysToAddress(
         network.isTestnet
-          ? xmrModule.lib.MONERO_TESTNET
-          : xmrModule.lib.MONERO_MAINNET,
+          ? MoneroNetTypeEnum.TestNet
+          : MoneroNetTypeEnum.MainNet,
         index !== 0,
         publicSpendKey,
         publicViewKey,

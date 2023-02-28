@@ -11,6 +11,9 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { getInstance } from './sdk/instance';
+import { MoneroNetTypeEnum } from './sdk/moneroTypes';
+import { MoneroModule } from './sdk/monoreModule';
 import settings from './settings';
 
 import type {
@@ -18,10 +21,7 @@ import type {
   DBAccount,
   DBVariantAccount,
 } from '../../../types/account';
-import type { XMRModule } from './types';
 import type BigNumber from 'bignumber.js';
-
-import { getInstance } from './sdk/instance';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -33,6 +33,19 @@ export default class Vault extends VaultBase {
   };
 
   settings = settings;
+
+  private getXmrModule = memoizee(
+    async () => {
+      const instance = await getInstance();
+      console.log(instance);
+      return new MoneroModule(instance);
+    },
+    {
+      max: 1,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+      promise: true,
+    },
+  );
 
   private async getClient(): Promise<ClientXmr> {
     const rpcURL = await this.getRpcUrl();
@@ -87,16 +100,16 @@ export default class Vault extends VaultBase {
   }
 
   override async addressFromBase(account: DBVariantAccount) {
+    const xmrModule = await this.getXmrModule();
     const { isTestnet } = await this.getNetwork();
     const [publicSpendKey, publicViewKey] = account.pub.split(',');
     const index = Number(account.path.split('/').pop());
-    // return xmrModule.lib.pub_keys_to_address(
-    //   isTestnet ? xmrModule.lib.MONERO_TESTNET : xmrModule.lib.MONERO_MAINNET,
-    //   index !== 0,
-    //   Buffer.from(publicSpendKey, 'hex'),
-    //   Buffer.from(publicViewKey, 'hex'),
-    // );
-    return {};
+    return xmrModule.pubKeysToAddress(
+      isTestnet ? MoneroNetTypeEnum.TestNet : MoneroNetTypeEnum.MainNet,
+      index !== 0,
+      Buffer.from(publicSpendKey, 'hex'),
+      Buffer.from(publicViewKey, 'hex'),
+    );
   }
 
   override async getBalances(

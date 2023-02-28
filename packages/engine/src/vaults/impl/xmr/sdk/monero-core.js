@@ -413,7 +413,6 @@ var instantiate = (function () {
     }
     function createWasm() {
       var info = {
-        'a': asmLibraryArg,
         'env': wasmImports,
         'wasi_snapshot_preview1': wasmImports,
       };
@@ -526,6 +525,93 @@ var instantiate = (function () {
         return performance.now();
       };
     var _emscripten_get_now_is_monotonic = true;
+    function getCFunc(ident) {
+      var func = Module['_' + ident]; // closure exported function
+      assert(
+        func,
+        'Cannot call unknown function ' + ident + ', make sure it is exported',
+      );
+      return func;
+    }
+
+    function writeArrayToMemory(array, buffer) {
+      assert(
+        array.length >= 0,
+        'writeArrayToMemory array must have a length (should be an array or typed array)',
+      );
+      HEAP8.set(array, buffer);
+    }
+
+    /**
+     * @param {string|null=} returnType
+     * @param {Array=} argTypes
+     * @param {Arguments|Array=} args
+     * @param {Object=} opts
+     */
+    function ccall(ident, returnType, argTypes, args, opts) {
+      // For fast lookup of conversion functions
+      var toC = {
+        'string': (str) => {
+          var ret = 0;
+          if (str !== null && str !== undefined && str !== 0) {
+            // null string
+            // at most 4 bytes per UTF-8 code point, +1 for the trailing '\0'
+            var len = (str.length << 2) + 1;
+            ret = stackAlloc(len);
+            stringToUTF8(str, ret, len);
+          }
+          return ret;
+        },
+        'array': (arr) => {
+          var ret = stackAlloc(arr.length);
+          writeArrayToMemory(arr, ret);
+          return ret;
+        },
+      };
+
+      function convertReturnValue(ret) {
+        if (returnType === 'string') {
+          return UTF8ToString(ret);
+        }
+        if (returnType === 'boolean') return Boolean(ret);
+        return ret;
+      }
+
+      var func = getCFunc(ident);
+      var cArgs = [];
+      var stack = 0;
+      assert(returnType !== 'array', 'Return type should not be "array".');
+      if (args) {
+        for (var i = 0; i < args.length; i++) {
+          var converter = toC[argTypes[i]];
+          if (converter) {
+            if (stack === 0) stack = stackSave();
+            cArgs[i] = converter(args[i]);
+          } else {
+            cArgs[i] = args[i];
+          }
+        }
+      }
+      var ret = func.apply(null, cArgs);
+      function onDone(ret) {
+        if (stack !== 0) stackRestore(stack);
+        return convertReturnValue(ret);
+      }
+
+      ret = onDone(ret);
+      return ret;
+    }
+
+    /**
+     * @param {string=} returnType
+     * @param {Array=} argTypes
+     * @param {Object=} opts
+     */
+    function cwrap(ident, returnType, argTypes, opts) {
+      return function () {
+        return ccall(ident, returnType, argTypes, arguments, opts);
+      };
+    }
     function setErrNo(value) {
       HEAP32[___errno_location() >> 2] = value;
       return value;
@@ -625,18 +711,11 @@ var instantiate = (function () {
       HEAP32[pnum >> 2] = num;
       return 0;
     }
-    var asmLibraryArg = {
-      'f': _clock_gettime,
-      'c': _emscripten_memcpy_big,
-      'd': _emscripten_resize_heap,
-      'e': _fd_close,
-      'b': _fd_seek,
-      'a': _fd_write,
-    };
     var wasmImports = {
       '__assert_fail': ___assert_fail,
       'abort': _abort,
       'emscripten_memcpy_big': _emscripten_memcpy_big,
+      'emscripten_resize_heap': _emscripten_resize_heap,
       'fd_close': _fd_close,
       'fd_seek': _fd_seek,
       'fd_write': _fd_write,
@@ -665,6 +744,10 @@ var instantiate = (function () {
     var ___errno_location = createExportWrapper('__errno_location');
     /** @type {function(...*):?} */
     var _fflush = (Module['_fflush'] = createExportWrapper('fflush'));
+    /** @type {function(...*):?} */
+    var _malloc = (Module['_malloc'] = createExportWrapper('malloc'));
+    /** @type {function(...*):?} */
+    var _free = (Module['_free'] = createExportWrapper('free'));
     /** @type {function(...*):?} */
     var _emscripten_stack_init = function () {
       return (_emscripten_stack_init =
@@ -700,6 +783,9 @@ var instantiate = (function () {
       return (_emscripten_stack_get_current =
         Module['asm']['emscripten_stack_get_current']).apply(null, arguments);
     };
+
+    Module['ccall'] = ccall;
+    Module['cwrap'] = cwrap;
 
     /** @type {function(...*):?} */
     var dynCall_jiji = (Module['dynCall_jiji'] =

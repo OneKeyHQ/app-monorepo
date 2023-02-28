@@ -22,8 +22,9 @@ export function calcBip32ExtendedKey(
     const isPriv = !extendedKey.isNeutered();
     const invalidDerivationPath = hardened && !isPriv;
     if (invalidDerivationPath) {
-      extendedKey = null;
-    } else if (hardened) {
+      return null;
+    }
+    if (hardened) {
       extendedKey = extendedKey.deriveHardened(index);
     } else {
       extendedKey = extendedKey.derive(index);
