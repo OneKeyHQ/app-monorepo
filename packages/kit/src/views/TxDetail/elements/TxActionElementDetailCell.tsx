@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 
-import { Box, Text } from '@onekeyhq/components';
+import { Box, HStack, Text } from '@onekeyhq/components';
 
 import { fallbackTextComponent } from '../utils/utilsTxDetail';
 
@@ -19,7 +19,7 @@ export function TxActionElementDetailCellContentText(
 }
 
 export function TxActionElementDetailCell(props: ITxActionElementDetail) {
-  const { title, content } = props;
+  const { title, content, extra } = props;
   const titleView = fallbackTextComponent(
     title,
     TxActionElementDetailCellTitleText,
@@ -28,6 +28,20 @@ export function TxActionElementDetailCell(props: ITxActionElementDetail) {
     content,
     TxActionElementDetailCellContentText,
   );
+  if (extra) {
+    return (
+      <Box>
+        <HStack justifyContent="space-between" alignItems="center">
+          <Box>
+            {titleView}
+            {contentView}
+          </Box>
+          <Box>{extra}</Box>
+        </HStack>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       {titleView}
