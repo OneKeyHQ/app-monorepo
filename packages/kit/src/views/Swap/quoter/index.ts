@@ -311,7 +311,7 @@ export class SwapQuoter {
           requestId = meta['x-onekey-request-id'];
         }
       }
-      return requestId
+      return requestId;
     } catch (e: any) {
       debugLogger.common.error(
         'Failed to get request id with reason',

@@ -1,6 +1,6 @@
-import platformEnv from '../../platformEnv';
-import uuid from 'react-native-uuid'
+import uuid from 'react-native-uuid';
 
+import platformEnv from '../../platformEnv';
 
 export enum RequestLibNames {
   axios = 'axios',
@@ -50,7 +50,7 @@ export abstract class RequestInterceptorBase {
           'x-onekey-request-id': requestId,
         }),
       );
-      this.setHeader('x-onekey-request-id', requestId)
+      this.setHeader('x-onekey-request-id', requestId);
     }
     this.setDefaultTimeout(60 * 1000);
     this.setDefaultRetry(0);
