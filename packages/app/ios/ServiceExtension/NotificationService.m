@@ -20,7 +20,6 @@
 - (void)didReceiveNotificationRequest:(UNNotificationRequest *)request withContentHandler:(void (^)(UNNotificationContent * _Nonnull))contentHandler {
   self.contentHandler = contentHandler;
   self.bestAttemptContent = [request.content mutableCopy];
-  self.bestAttemptContent.title = [NSString stringWithFormat:@"[NotificationService] %@", self.bestAttemptContent.title];
 
   NSString * image = self.bestAttemptContent.userInfo[@"image"];
   //if exist

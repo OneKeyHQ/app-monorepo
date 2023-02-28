@@ -34,7 +34,6 @@ jobs:
           mkdir packages/app/ios/certs
           echo ${{ secrets.CREDENTIALS_JSON }} | base64 -d > packages/app/credentials.json
           echo ${{ secrets.DIST_CERT_P12 }} | base64 -d > packages/app/ios/certs/dist-cert.p12
-          echo ${{ secrets.DIST_SERVICE_EXTENSION_CERT_P12 }} | base64 -d > packages/app/ios/certs/serviceextension-dist.p12
           echo ${{ secrets.ADHOC_PROFILE }} | base64 -d > packages/app/ios/certs/profile.mobileprovision
           echo ${{ secrets.ADHOC_SERVICE_EXTENSION_PROFILE }} | base64 -d > packages/app/ios/certs/serviceextension-profile.mobileprovision
 
@@ -75,12 +74,20 @@ jobs:
         with:
           path: .env.version
 
-      - name: Modify info.plist
+      - name: Modify OneKeyWallet info.plist
         uses: OneKeyHQ/actions/build-plist-edit@main
         with:
           buildNumber: ${{ env.BUILD_NUMBER }}
           versionName: ${{ steps.dotenv.outputs.version }}
           projectName: OneKeyWallet
+          dir: ./packages/app
+
+      - name: Modify ServiceExtension info.plist
+        uses: OneKeyHQ/actions/build-plist-edit@main
+        with:
+          buildNumber: ${{ env.BUILD_NUMBER }}
+          versionName: ${{ steps.dotenv.outputs.version }}
+          projectName: ServiceExtension
           dir: ./packages/app
 
       - name: Write .env.version
