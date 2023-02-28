@@ -15,6 +15,12 @@ const settings: IVaultSettings = Object.freeze({
   isUTXOModel: false,
 
   minTransferAmount: '0.0000001',
+
+  subNetworkSettings: {
+    'cosmos--osmosis-1': {
+      minGasPrice: '0',
+    },
+  },
 });
 
 export default settings;

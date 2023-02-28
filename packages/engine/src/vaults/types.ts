@@ -40,6 +40,7 @@ import type { IEncodedTxXrp } from './impl/xrp/types';
 // Options ----------------------------------------------
 export type IVaultSubNetworkSettings = {
   isIntegerGasPrice?: boolean;
+  minGasPrice?: string;
 };
 export type IVaultSettings = {
   feeInfoEditable: boolean;
@@ -59,6 +60,7 @@ export type IVaultSettings = {
   activateTokenRequired?: boolean;
 
   minGasLimit?: number;
+  minGasPrice?: string;
 
   cannotSendToSelf?: boolean;
 
