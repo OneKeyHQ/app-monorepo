@@ -46,6 +46,7 @@ const disposeContextMenu = contextMenu({
 });
 
 const APP_NAME = 'OneKey Wallet';
+app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
 
 (global as any).resourcesPath = isDev
@@ -80,7 +81,25 @@ function showMainWindow() {
 }
 
 const template = [
-  { role: 'appMenu' },
+  // { role: 'appMenu' },
+  ...(isMac
+    ? [
+        {
+          label: app.name,
+          submenu: [
+            { role: 'about' },
+            { type: 'separator' },
+            { role: 'services' },
+            { type: 'separator' },
+            { role: 'hide' },
+            { role: 'hideOthers' },
+            { role: 'unhide' },
+            { type: 'separator' },
+            { role: 'quit' },
+          ],
+        },
+      ]
+    : []),
   { role: 'editMenu' },
   { role: 'viewMenu' },
   {

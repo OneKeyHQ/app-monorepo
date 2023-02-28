@@ -1,3 +1,5 @@
+import uuid from 'react-native-uuid';
+
 import platformEnv from '../../platformEnv';
 
 export enum RequestLibNames {
@@ -33,6 +35,7 @@ export abstract class RequestInterceptorBase {
 
   interceptRequest({ url }: { url: string }) {
     if (url && isOneKeyUrl({ url })) {
+      const requestId = uuid.v4() as string;
       this.setHeader(
         'X-Request-By',
         JSON.stringify({
@@ -44,10 +47,11 @@ export abstract class RequestInterceptorBase {
           isExtFirefox: platformEnv.isExtFirefox,
           version: platformEnv.version,
           buildNumber: platformEnv.buildNumber,
+          'x-onekey-request-id': requestId,
         }),
       );
+      this.setHeader('x-onekey-request-id', requestId);
     }
-
     this.setDefaultTimeout(60 * 1000);
     this.setDefaultRetry(0);
   }

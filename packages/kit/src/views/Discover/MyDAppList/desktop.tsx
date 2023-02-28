@@ -112,7 +112,12 @@ const RenderItem: FC<RenderItemProps> = ({ item, cardWidth, callback }) => {
         </Box>
         <Box>
           <Box flexDirection="row">
-            <DAppIcon size={48} url={logoURL} networkIds={networkIds} />
+            <DAppIcon
+              key={logoURL}
+              size={48}
+              url={logoURL}
+              networkIds={networkIds}
+            />
             <Box ml="3" flex="1">
               <Typography.Body2Strong flex={1} numberOfLines={1} mb="1">
                 {name}
@@ -136,6 +141,7 @@ const RenderItem: FC<RenderItemProps> = ({ item, cardWidth, callback }) => {
 
 const Favorites = () => {
   const data = useDiscoverFavorites();
+
   const { width } = useWindowDimensions();
   const screenWidth = width - 64 - 224;
   const minWidth = 250;

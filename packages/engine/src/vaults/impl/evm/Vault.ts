@@ -1658,18 +1658,7 @@ export default class Vault extends VaultBase {
       }
     }
 
-    const nftTxList = await getNFTTransactionHistory(address, this.networkId);
-
-    const nftMap = new Map<string, NFTTransaction[]>();
-    nftTxList.forEach((tx) => {
-      const { hash } = tx;
-      let nftList = nftMap.get(hash);
-      if (!nftList) {
-        nftList = [];
-      }
-      nftList.push(tx);
-      nftMap.set(hash, nftList);
-    });
+    const nftMap = await getNFTTransactionHistory(address, this.networkId);
 
     const historyTxList = await Promise.all(
       hashes.map(async (hash, index) => {
@@ -1728,7 +1717,7 @@ export default class Vault extends VaultBase {
         if (!decodedTx) {
           return null;
         }
-        const nftTxs = nftMap.get(hash);
+        const nftTxs = nftMap[hash];
         decodedTx = await this.mergeDecodedTx({
           decodedTx,
           encodedTx,

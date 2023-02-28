@@ -1,32 +1,35 @@
 /* eslint-disable @typescript-eslint/require-await */
 
+import uuid from 'react-native-uuid';
+
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import {
-  addFavorite,
+  addBookmark,
   cleanOldState,
   clearHistory,
+  removeBookmark,
   removeDappHistory,
-  removeFavorite,
   removeUserBrowserHistory,
   removeWebSiteHistory,
+  resetBookmarks,
   setDappHistory,
-  // setCategoryDapps,
-  // setDappItems,
-  // setListedCategories,
-  // setListedTags,
-  // setTagDapps,
+  setFavoritesMigrated,
   setHomeData,
+  updateBookmark,
 } from '@onekeyhq/kit/src/store/reducers/discover';
 import { setWebTabData } from '@onekeyhq/kit/src/store/reducers/webTabs';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import type {
+  BookmarkItem,
   DAppItemType,
   TagDappsType,
+  UrlInfo,
 } from '@onekeyhq/kit/src/views/Discover/type';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
@@ -36,8 +39,11 @@ class ServicDiscover extends ServiceBase {
 
   get baseUrl() {
     const url = getFiatEndpoint();
-    // const url = 'http://localhost:9000';
     return `${url}/discover`;
+  }
+
+  init() {
+    this.migrateFavorite();
   }
 
   async getList(url: string) {
@@ -106,6 +112,15 @@ class ServicDiscover extends ServiceBase {
   }
 
   @backgroundMethod()
+  async fetchUrlInfo(input: string) {
+    const { baseUrl } = this;
+    const url = `${baseUrl}/url_info`;
+    const res = await this.client.post(url, { url: input });
+    const data = res.data as UrlInfo;
+    return data;
+  }
+
+  @backgroundMethod()
   async getCompactList() {
     const url = `${this.baseUrl}/compact_list`;
     await this.getList(url);
@@ -126,27 +141,113 @@ class ServicDiscover extends ServiceBase {
   }
 
   @backgroundMethod()
+  async migrateFavorite() {
+    const { dispatch, appSelector } = this.backgroundApi;
+    const dappFavorites = appSelector((s) => s.discover.dappFavorites);
+    const favoritesMigrated = appSelector((s) => s.discover.favoritesMigrated);
+
+    if (favoritesMigrated || !dappFavorites || dappFavorites.length === 0) {
+      return;
+    }
+
+    const bookmarks = dappFavorites.map((item) => ({
+      id: uuid.v4(),
+      url: item,
+    })) as BookmarkItem[];
+
+    for (let i = 0; i < bookmarks.length; i += 1) {
+      const bookmark = bookmarks[i];
+
+      const info = await this.getUrlInfo(bookmark.url);
+      if (info) {
+        bookmark.title = info.title;
+        bookmark.icon = info.icon;
+      }
+    }
+
+    debugLogger.common.info(
+      `migrate favorite to bookmarks ${JSON.stringify(bookmarks)}`,
+    );
+
+    dispatch(resetBookmarks(bookmarks), setFavoritesMigrated());
+  }
+
+  @backgroundMethod()
+  async editFavorite(item: BookmarkItem) {
+    const { dispatch } = this.backgroundApi;
+    dispatch(updateBookmark(item));
+    const url = item.url.trim();
+    if (url) {
+      try {
+        const urlInfo = await this.getUrlInfo(item.url);
+        const newItem = { ...item, icon: urlInfo?.icon };
+        dispatch(updateBookmark(newItem));
+      } catch {
+        console.error(`fetch ${item.url} url info failure`);
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async getUrlInfo(url: string) {
+    try {
+      const dapps = await this.searchDappsWithRegExp([url]);
+      if (dapps && dapps.length > 0) {
+        const item = dapps[0];
+        return { title: item.name, icon: item.logoURL };
+      }
+      const urlInfo = await this.fetchUrlInfo(url);
+      if (urlInfo) {
+        return { title: urlInfo.title, icon: urlInfo.icon };
+      }
+    } catch (e: unknown) {
+      debugLogger.common.error(
+        `failed to fetch dapp url info with reason ${(e as Error).message}`,
+      );
+      return { title: '', icon: '' };
+    }
+  }
+
+  @backgroundMethod()
   async addFavorite(url: string) {
     const { dispatch, appSelector } = this.backgroundApi;
-    const base = addFavorite(url);
+    const bookmarkId = uuid.v4() as string;
     const tabs = appSelector((s) => s.webTabs.tabs);
     const list = tabs.filter((tab) => tab.url === url);
+    const base = addBookmark({ url, id: bookmarkId });
+
     const actions = list.map((tab) =>
       setWebTabData({ ...tab, isBookmarked: true }),
     );
     dispatch(base, ...actions);
+
+    const urlInfo = await this.getUrlInfo(url);
+    if (urlInfo) {
+      dispatch(
+        updateBookmark({
+          id: bookmarkId,
+          url,
+          title: urlInfo.title,
+          icon: urlInfo.icon,
+        }),
+      );
+    }
   }
 
   @backgroundMethod()
   async removeFavorite(url: string) {
     const { dispatch, appSelector } = this.backgroundApi;
-    const base = removeFavorite(url);
-    const tabs = appSelector((s) => s.webTabs.tabs);
-    const list = tabs.filter((tab) => tab.url === url);
-    const actions = list.map((tab) =>
-      setWebTabData({ ...tab, isBookmarked: false }),
-    );
-    dispatch(base, ...actions);
+    const bookmarks = appSelector((s) => s.discover.bookmarks);
+    const item = bookmarks?.find((o) => o.url === url);
+    if (item) {
+      const base = removeBookmark(item);
+      const tabs = appSelector((s) => s.webTabs.tabs);
+      const list = tabs.filter((tab) => tab.url === url);
+      const actions = list.map((tab) =>
+        setWebTabData({ ...tab, isBookmarked: false }),
+      );
+      dispatch(base, ...actions);
+    }
   }
 
   @backgroundMethod()
@@ -155,8 +256,9 @@ class ServicDiscover extends ServiceBase {
       return;
     }
     const { appSelector } = this.backgroundApi;
-    const dappFavorites = appSelector((s) => s.discover.dappFavorites);
-    if (!dappFavorites || !dappFavorites.includes(url)) {
+    const bookmarks = appSelector((s) => s.discover.bookmarks);
+    const urls = bookmarks?.map((item) => item.url);
+    if (!urls || !urls.includes(url)) {
       this.addFavorite(url);
     } else {
       this.removeFavorite(url);

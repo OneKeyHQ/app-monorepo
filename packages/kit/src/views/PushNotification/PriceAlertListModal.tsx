@@ -3,7 +3,6 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
-import { pick } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, Modal, useTheme } from '@onekeyhq/components';
@@ -42,7 +41,7 @@ export const PriceAlertListModal: FC = () => {
   const [data, setData] = useState<PriceAlertItem[]>([]);
   const route = useRoute<RouteProps>();
   const { pushNotification } = useSettings();
-  const { token } = route.params;
+  const { token, price } = route.params;
   const navigation = useNavigation<NavigationProps>();
 
   const { serviceNotification, dispatch } = backgroundApiProxy;
@@ -57,7 +56,7 @@ export const PriceAlertListModal: FC = () => {
         }
         setLoading(true);
         const res = await serviceNotification.queryPriceAlertList(
-          pick(token, 'impl', 'chainId', 'address'),
+          token.coingeckoId,
         );
         setData(res);
       } catch (error) {
@@ -80,10 +79,11 @@ export const PriceAlertListModal: FC = () => {
       );
     }
     navigation.navigate(ManageTokenRoutes.PriceAlertAdd, {
+      price,
       token,
       alerts: data,
     });
-  }, [pushNotification, dispatch, navigation, token, data]);
+  }, [pushNotification, dispatch, navigation, token, data, price]);
 
   useFocusEffect(
     useCallback(() => {
@@ -110,7 +110,6 @@ export const PriceAlertListModal: FC = () => {
           <PriceItem
             alert={item}
             key={`${item.price}${item.currency}`}
-            token={token}
             divider={index !== data.length - 1}
             onRemove={() => fetchData(true)}
             {...token}

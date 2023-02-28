@@ -51,9 +51,11 @@ import {
 } from './utils';
 
 import type {
+  BuildTransactionParams,
   BuildTransactionResponse,
   FetchQuoteParams,
   QuoteData,
+  TransactionToken,
 } from './typings';
 import type { TokenAmount } from './utils';
 
@@ -218,17 +220,18 @@ const ExchangeButton = () => {
     }
 
     let res: BuildTransactionResponse | undefined;
+    const buildParams: BuildTransactionParams = {
+      ...params,
+      activeAccount: sendingAccount,
+      receivingAddress: recipient?.address,
+      txData: quote.txData,
+      additionalParams: quote.additionalParams,
+      sellAmount: quote.sellAmount,
+      buyAmount: quote.buyAmount,
+      disableValidate: true,
+    };
     try {
-      res = await SwapQuoter.client.buildTransaction(quote.type, {
-        ...params,
-        activeAccount: sendingAccount,
-        receivingAddress: recipient?.address,
-        txData: quote.txData,
-        additionalParams: quote.additionalParams,
-        sellAmount: quote.sellAmount,
-        buyAmount: quote.buyAmount,
-        disableValidate: true,
-      });
+      res = await SwapQuoter.client.buildTransaction(quote.type, buildParams);
     } catch (e: any) {
       const title = e?.response?.data?.message || e.message;
       ToastManager.show({ title }, { type: 'error' });
@@ -351,6 +354,26 @@ const ExchangeButton = () => {
       if (res === undefined) {
         return;
       }
+      const from: TransactionToken = {
+        networkId: inputAmount.token.networkId,
+        token: inputAmount.token,
+        amount:
+          formatAmount(
+            new BigNumber(newQuote.sellAmount).shiftedBy(
+              -inputAmount.token.decimals,
+            ),
+          ) || inputAmount.typedValue,
+      };
+      const to: TransactionToken = {
+        networkId: outputAmount.token.networkId,
+        token: outputAmount.token,
+        amount:
+          formatAmount(
+            new BigNumber(newQuote.buyAmount).shiftedBy(
+              -outputAmount.token.decimals,
+            ),
+          ) || outputAmount.typedValue,
+      };
       backgroundApiProxy.dispatch(
         addTransaction({
           accountId: sendingAccount.id,
@@ -371,27 +394,9 @@ const ExchangeButton = () => {
             arrivalTime: quote.arrivalTime,
             percentageFee: quote.percentageFee,
             tokens: {
+              from,
+              to,
               rate: Number(res?.result?.instantRate ?? quote.instantRate),
-              from: {
-                networkId: inputAmount.token.networkId,
-                token: inputAmount.token,
-                amount:
-                  formatAmount(
-                    new BigNumber(newQuote.sellAmount).shiftedBy(
-                      -inputAmount.token.decimals,
-                    ),
-                  ) || inputAmount.typedValue,
-              },
-              to: {
-                networkId: outputAmount.token.networkId,
-                token: outputAmount.token,
-                amount:
-                  formatAmount(
-                    new BigNumber(newQuote.buyAmount).shiftedBy(
-                      -outputAmount.token.decimals,
-                    ),
-                  ) || outputAmount.typedValue,
-              },
             },
           },
         }),
@@ -413,6 +418,31 @@ const ExchangeButton = () => {
       if (res.result?.quoter === 'swftc' && res.attachment?.swftcOrderId) {
         SwapQuoter.client.swftModifyTxId(res.attachment?.swftcOrderId, hash);
       }
+      const fromNetworkName = networks.find(
+        (item) => item.id === from.networkId,
+      )?.shortName;
+      const toNetworkName = networks.find(
+        (item) => item.id === to.networkId,
+      )?.shortName;
+      backgroundApiProxy.serviceSwap.addRecord({
+        txid: hash,
+        from: {
+          networkId: from.networkId,
+          networkName: fromNetworkName ?? '',
+          tokenAddress: from.token.tokenIdOnNetwork,
+          tokenName: from.token.name,
+          amount: from.amount,
+        },
+        to: {
+          networkId: to.networkId,
+          networkName: toNetworkName ?? '',
+          tokenAddress: to.token.tokenIdOnNetwork,
+          tokenName: to.token.name,
+          amount: to.amount,
+        },
+        params: buildParams,
+        response: res,
+      });
       const show = await canShowAppReview();
       if (show) {
         await wait(2000);
