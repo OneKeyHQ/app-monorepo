@@ -88,6 +88,12 @@ export const EditBookmark = () => {
             name="url"
             label={intl.formatMessage({ id: 'form__url' })}
             rules={{
+              pattern: {
+                value: /https?:\/\//,
+                message: intl.formatMessage({
+                  id: 'form__blockchain_explorer_url_invalid',
+                }),
+              },
               required: {
                 value: true,
                 message: intl.formatMessage({
