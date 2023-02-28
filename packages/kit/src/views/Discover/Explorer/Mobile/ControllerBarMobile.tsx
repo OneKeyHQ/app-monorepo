@@ -95,7 +95,7 @@ export const ControllerBarMobile: FC = () => {
         flex={1}
         type="plain"
         disabled={reachedTabLimit}
-        onPress={addNewWebTab}
+        onPress={() => addNewWebTab()}
         iconSize={26}
         name="PlusCircleMini"
       />
@@ -184,7 +184,7 @@ export const ControllerBarMobile: FC = () => {
         flex={1}
         type="plain"
         disabled={reachedTabLimit}
-        onPress={addNewWebTab}
+        onPress={() => addNewWebTab()}
         iconSize={26}
         name="PlusCircleMini"
       />
