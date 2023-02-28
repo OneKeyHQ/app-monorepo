@@ -6,10 +6,10 @@ import { useIntl } from 'react-intl';
 import { Box, Form, Modal, ToastManager, useForm } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useAppSelector } from '../../../hooks';
 
 import type { DiscoverModalRoutes, DiscoverRoutesParams } from '../type';
 import type { RouteProp } from '@react-navigation/native';
-import { useAppSelector } from '../../../hooks';
 
 type RouteProps = RouteProp<
   DiscoverRoutesParams,
@@ -20,12 +20,12 @@ export const EditBookmark = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
-  const bookmarks = useAppSelector(s => s.discover.bookmarks)
-  
+  const bookmarks = useAppSelector((s) => s.discover.bookmarks);
+
   const bookmark = useMemo(() => {
-    const item = bookmarks?.find(item => item.id === route.params.bookmark.id)
-    return item ?? route.params.bookmark
-  }, [route.params.bookmark, bookmarks])
+    const item = bookmarks?.find((o) => o.id === route.params.bookmark.id);
+    return item ?? route.params.bookmark;
+  }, [route.params.bookmark, bookmarks]);
 
   const {
     control,
