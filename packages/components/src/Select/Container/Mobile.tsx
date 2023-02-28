@@ -10,7 +10,7 @@ import IconButton from '../../IconButton';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
 
-import { renderOptions } from './Option';
+import { RenderOptions } from './Option';
 
 import type { ChildProps } from '..';
 
@@ -84,13 +84,13 @@ function Mobile<T>({
           />
         </Box>
         <ScrollView _contentContainerStyle={{ padding: 2, paddingBottom: '4' }}>
-          {renderOptions<T>({
-            options,
-            activeOption,
-            renderItem,
-            onChange,
-            activatable,
-          })}
+          <RenderOptions
+            options={options}
+            activeOption={activeOption}
+            renderItem={renderItem}
+            onChange={onChange}
+            activatable={activatable}
+          />
         </ScrollView>
         {isValidElement(footer) || footer === null ? (
           footer

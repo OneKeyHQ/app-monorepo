@@ -63,7 +63,12 @@ const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
       justifyContent="space-between"
     >
       <Box flexDirection="row" flex={1} alignItems="center">
-        <DAppIcon size={48} url={logoURL} networkIds={networkIds} />
+        <DAppIcon
+          key={logoURL}
+          size={48}
+          url={logoURL}
+          networkIds={networkIds}
+        />
         <Box flexDirection="column" ml="12px" flex={1}>
           <Typography.Body2Strong>{name}</Typography.Body2Strong>
           <Typography.Caption color="text-subdued" mt="4px" numberOfLines={1}>
