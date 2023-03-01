@@ -166,22 +166,12 @@ export async function getReleaseInfo(): Promise<PackagesInfo | null> {
 }
 
 export async function getPreReleaseInfo(): Promise<PackagesInfo | null> {
-  return getReleaseInfo()
-    .then((packagesInfo) => {
-      // modify version to 99.99.99
-      packagesInfo?.ios?.forEach((packageInfo) => {
-        packageInfo.version = '99.99.99';
-      });
-      packagesInfo?.android?.forEach((packageInfo) => {
-        packageInfo.version = '99.99.99';
-      });
-      packagesInfo?.extension?.forEach((packageInfo) => {
-        packageInfo.version = '99.99.99';
-      });
-      packagesInfo?.desktop?.forEach((packageInfo) => {
-        packageInfo.version = '99.99.99';
-      });
-      return packagesInfo;
+  const key = Math.random().toString();
+  return axios
+    .get<AppReleases>(`http://192.168.5.130/pre-config.json?nocache=${key}`)
+    .then((releasesVersionResponse) => {
+      const releasesVersion = releasesVersionResponse.data;
+      return handleReleaseInfo(releasesVersion);
     })
     .catch(() => null);
 }

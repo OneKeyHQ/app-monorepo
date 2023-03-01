@@ -3,6 +3,7 @@ import RNRestart from 'react-native-restart';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { switchTestEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import { setLastCheckTimestamp } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import {
   passwordSet,
   release,
@@ -20,11 +21,16 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/status';
 import type { OpenUrlRouteInfo } from '@onekeyhq/kit/src/utils/extUtils';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
-import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
+import {
+  getTimeDurationMs,
+  getTimeStamp,
+  wait,
+} from '@onekeyhq/kit/src/utils/helper';
 import {
   getPassword,
   hasHardwareSupported,
 } from '@onekeyhq/kit/src/utils/localAuthentication';
+import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import {
   backgroundClass,
   backgroundMethod,
@@ -412,6 +418,28 @@ class ServiceApp extends ServiceBase {
     const { dispatch } = this.backgroundApi;
     dispatch(setHandOperatedLock(false), unlock(), release());
     appEventBus.emit(AppEventBusNames.Unlocked);
+  }
+
+  @backgroundMethod()
+  checkUpdateStatus() {
+    const { dispatch, store } = this.backgroundApi;
+    const { lastCheckTimestamp } = store.getState().autoUpdate;
+
+    let checkTimeDelay = 60 * 60 * 1000;
+    if (platformEnv.isExtension) {
+      checkTimeDelay = 3 * 60 * 60 * 1000;
+    }
+
+    // The first startup is not checked
+    if (!lastCheckTimestamp) {
+      dispatch(setLastCheckTimestamp(getTimeStamp()));
+      return;
+    }
+
+    if (getTimeStamp() - lastCheckTimestamp > checkTimeDelay) {
+      appUpdates.checkUpdate().then().catch();
+      dispatch(setLastCheckTimestamp(getTimeStamp()));
+    }
   }
 }
 
