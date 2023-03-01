@@ -51,6 +51,7 @@ export type IFetchAccountTokensParams = {
   accountId: string;
   networkId: string;
   forceReloadTokens?: boolean;
+  fromServerApi?: boolean;
 };
 
 @backgroundClass()
@@ -60,9 +61,17 @@ export default class ServiceToken extends ServiceBase {
   @bindThis()
   registerEvents() {
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    appEventBus.on(AppEventBusNames.NetworkChanged, this.refreshTokenBalance);
+    appEventBus.on(AppEventBusNames.NetworkChanged, () => {
+      this.refreshTokenBalance({
+        fromServerApi: true,
+      });
+    });
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    appEventBus.on(AppEventBusNames.CurrencyChanged, this.refreshTokenBalance);
+    appEventBus.on(AppEventBusNames.CurrencyChanged, () => {
+      this.refreshTokenBalance({
+        fromServerApi: true,
+      });
+    });
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -73,7 +82,9 @@ export default class ServiceToken extends ServiceBase {
       return;
     }
     this.interval = setInterval(() => {
-      this.refreshTokenBalance();
+      this.refreshTokenBalance({
+        fromServerApi: false,
+      });
     }, getTimeDurationMs({ seconds: 15 }));
   }
 
@@ -85,17 +96,18 @@ export default class ServiceToken extends ServiceBase {
     this.interval = null;
   }
 
-  @bindThis()
-  refreshTokenBalance() {
+  refreshTokenBalance = debounce((options?: { fromServerApi: boolean }) => {
     const { appSelector } = this.backgroundApi;
     const { activeAccountId, activeNetworkId } = appSelector((s) => s.general);
-    if (activeAccountId && activeNetworkId) {
-      this.fetchAccountTokens({
-        accountId: activeAccountId,
-        networkId: activeNetworkId,
-      });
+    if (!activeAccountId || !activeNetworkId) {
+      return;
     }
-  }
+    return this.fetchAccountTokens({
+      accountId: activeAccountId,
+      networkId: activeNetworkId,
+      fromServerApi: options?.fromServerApi ?? true,
+    });
+  }, 1000);
 
   @bindThis()
   @backgroundMethod()
@@ -103,8 +115,10 @@ export default class ServiceToken extends ServiceBase {
     accountId,
     networkId,
     forceReloadTokens,
+    fromServerApi = false,
   }: IFetchAccountTokensParams) {
     const { engine, dispatch, servicePrice, appSelector } = this.backgroundApi;
+
     const tokens = await engine.getTokens(
       networkId,
       accountId,
@@ -112,12 +126,15 @@ export default class ServiceToken extends ServiceBase {
       true,
       forceReloadTokens,
     );
+
     const { selectedFiatMoneySymbol } = appSelector((s) => s.settings);
     const actions: any[] = [];
-    const [, autodetectedTokens = []] = await this.fetchTokenBalance({
+    const [, autodetectedTokens = []] = await this.getAccountTokenBalance({
       accountId,
       networkId,
       tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
+      withMain: true,
+      fromServerApi,
     });
     const accountTokens = tokens.concat(autodetectedTokens);
     // check token prices
@@ -136,51 +153,6 @@ export default class ServiceToken extends ServiceBase {
     );
     dispatch(...actions);
     return accountTokens;
-  }
-
-  @backgroundMethod()
-  async fetchTokenBalance({
-    networkId,
-    accountId,
-    tokenIds,
-  }: {
-    networkId: string;
-    accountId: string;
-    tokenIds?: string[];
-  }): Promise<[Record<string, TokenBalanceValue>, Token[] | undefined]> {
-    const top50tokens = await this.backgroundApi.engine.getTopTokensOnNetwork(
-      networkId,
-      50,
-    );
-    const { appSelector, dispatch } = this.backgroundApi;
-    const { accountTokens } = appSelector((s) => s.tokens);
-    let tokenIdsOnNetwork: string[] = [];
-    if (tokenIds) {
-      tokenIdsOnNetwork = tokenIds;
-    } else {
-      const ids1 = top50tokens.map((t) => t.tokenIdOnNetwork) ?? [];
-      const ids2 = (accountTokens[networkId]?.[accountId] || []).map(
-        (t) => t.tokenIdOnNetwork,
-      );
-      tokenIdsOnNetwork = ids1.concat(ids2);
-    }
-    if (!accountId) {
-      return [{}, undefined];
-    }
-    const [tokensBalance, autodetectedTokens] = await this.getAccountBalance(
-      accountId,
-      networkId,
-      uniq(tokenIdsOnNetwork),
-      true,
-    );
-    dispatch(
-      setAccountTokensBalances({
-        accountId,
-        networkId,
-        tokensBalance,
-      }),
-    );
-    return [tokensBalance, autodetectedTokens];
   }
 
   async _batchFetchAccountBalances({
@@ -307,9 +279,8 @@ export default class ServiceToken extends ServiceBase {
         riskLevel,
       },
     );
-    await this.fetchAccountTokens({
-      accountId,
-      networkId,
+    this.refreshTokenBalance({
+      fromServerApi: false,
     });
     return result;
   }
@@ -362,9 +333,7 @@ export default class ServiceToken extends ServiceBase {
     ]
   > {
     const { engine } = this.backgroundApi;
-
     const vault = await engine.getVault({ networkId, accountId });
-
     const account = await engine.getAccount(accountId, networkId);
     const accountAddress = await vault.getFetchBalanceAddress(account);
 
@@ -464,13 +433,10 @@ export default class ServiceToken extends ServiceBase {
     const result: Record<string, Token> = [
       ...serverTokens,
       ...localTokens,
-    ].reduce(
-      (sum, n) => ({
-        ...sum,
-        [n.address ?? '']: n,
-      }),
-      {},
-    );
+    ].reduce((sum, n) => {
+      sum[n.address ?? ''] = n;
+      return sum;
+    }, {} as Record<string, Token>);
 
     const restAddress = xor(
       serverAddress,
@@ -501,20 +467,18 @@ export default class ServiceToken extends ServiceBase {
   async getAccountBalanceFromRpc(
     networkId: string,
     accountId: string,
-    tokensToGet: string[],
+    tokenIds: string[],
     withMain = true,
     tokensMap: Record<string, Token> = {},
   ): Promise<[Record<string, TokenBalanceValue>, Token[] | undefined]> {
-    const { engine } = this.backgroundApi;
+    const { engine, serviceNetwork } = this.backgroundApi;
     const network = await engine.getNetwork(networkId);
-    const client = await engine.getChainOnlyVault(networkId);
 
     const vault = await engine.getVault({ networkId, accountId });
-    const { latestBlock } = await client.getClientEndpointStatus(
-      await client.getRpcUrl(),
-    );
-    const blockHeight = String(latestBlock);
+    const status = await serviceNetwork.measureRpcStatus(networkId);
+    const blockHeight = String(status?.latestBlock ?? '0');
 
+    const tokensToGet = uniq(tokenIds);
     const ret: Record<string, TokenBalanceValue> = {};
     const balances = await vault.getAccountBalance(tokensToGet, withMain);
     if (withMain && typeof balances[0] !== 'undefined') {
@@ -558,35 +522,28 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountBalance(
-    accountId: string,
-    networkId: string,
-    tokenIds: string[],
-    withMain = true,
-  ): Promise<[Record<string, TokenBalanceValue>, Token[] | undefined]> {
-    const { engine } = this.backgroundApi;
-
-    const accountTokens = await engine.getTokens(
-      networkId,
+  async getAccountTokenBalance(params: {
+    accountId: string;
+    networkId: string;
+    tokenIds?: string[];
+    withMain?: boolean;
+    fromServerApi?: boolean;
+  }): Promise<[Record<string, TokenBalanceValue>, Token[] | undefined]> {
+    const { engine, dispatch, appSelector } = this.backgroundApi;
+    const {
       accountId,
-      withMain,
-      true,
-      false,
-    );
-    const tokensToGet = uniq([
-      ...tokenIds,
-      ...accountTokens.map((t) => t.tokenIdOnNetwork),
-    ]).filter((address) => {
-      if (withMain && address === '') {
-        return false;
-      }
-      return true;
-    });
+      networkId,
+      tokenIds,
+      withMain = true,
+      fromServerApi = false,
+    } = params;
+
+    const top50tokens = await engine.getTopTokensOnNetwork(networkId, 50);
     let serverBalances: Record<string, TokenBalanceValue> = {};
     let rpcBalances: Record<string, TokenBalanceValue> = {};
     let autodetectedTokens: Token[] = [];
     let tokensMap: Record<string, Token> = {};
-    if (balanceSupprtedNetwork.includes(networkId)) {
+    if (balanceSupprtedNetwork.includes(networkId) && fromServerApi) {
       try {
         [serverBalances, autodetectedTokens = [], tokensMap] =
           await this.getAccountBalanceFromServerApi(
@@ -606,6 +563,22 @@ export default class ServiceToken extends ServiceBase {
       }
     }
     try {
+      const accountTokensInRedux =
+        appSelector((s) => s.tokens.accountTokens)?.[networkId]?.[accountId] ??
+        [];
+      const tokensToGet = [
+        ...top50tokens,
+        ...autodetectedTokens,
+        ...accountTokensInRedux,
+      ]
+        .map((t) => t.tokenIdOnNetwork)
+        .filter((address) => {
+          if (withMain && address === '') {
+            return false;
+          }
+          return true;
+        })
+        .concat(tokenIds || []);
       [rpcBalances] = await this.getAccountBalanceFromRpc(
         networkId,
         accountId,
@@ -650,6 +623,13 @@ export default class ServiceToken extends ServiceBase {
       }
     }
 
+    dispatch(
+      setAccountTokensBalances({
+        accountId,
+        networkId,
+        tokensBalance: balances,
+      }),
+    );
     return [balances, autodetectedTokens];
   }
 

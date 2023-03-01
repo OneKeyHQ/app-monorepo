@@ -315,7 +315,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
       networkId,
     });
     if (hideSmallBalance) {
-      const [balances] = await serviceToken.fetchTokenBalance({
+      const [balances] = await serviceToken.getAccountTokenBalance({
         accountId,
         networkId,
         tokenIds: [item.tokenIdOnNetwork],

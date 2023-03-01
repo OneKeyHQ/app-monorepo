@@ -34,7 +34,7 @@ export type SimplifiedToken = {
 
 export type TokenInitialState = {
   tokenPriceMap: Record<PriceId, SimpleTokenPrices>;
-  accountTokens: Record<NetworkId, Record<TokenId, Token[]>>;
+  accountTokens: Record<NetworkId, Record<AccountId, Token[]>>;
   accountTokensBalance: Record<
     NetworkId,
     Record<AccountId, Record<TokenId, TokenBalanceValue>>

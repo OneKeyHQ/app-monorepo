@@ -81,7 +81,7 @@ export const useTokenBalance = (token?: Token, accountId?: string) => {
   const balances = useCachedBalances(token?.networkId, accountId);
   useEffect(() => {
     if (token && accountId) {
-      backgroundApiProxy.serviceToken.fetchTokenBalance({
+      backgroundApiProxy.serviceToken.getAccountTokenBalance({
         accountId,
         networkId: token.networkId,
         tokenIds: token.tokenIdOnNetwork ? [token.tokenIdOnNetwork] : [],
