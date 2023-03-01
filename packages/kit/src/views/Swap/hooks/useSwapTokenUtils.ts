@@ -82,8 +82,8 @@ export const useTokenBalance = (token?: Token, accountId?: string) => {
   useEffect(() => {
     if (token && accountId) {
       backgroundApiProxy.serviceToken.fetchTokenBalance({
-        activeAccountId: accountId,
-        activeNetworkId: token.networkId,
+        accountId,
+        networkId: token.networkId,
         tokenIds: token.tokenIdOnNetwork ? [token.tokenIdOnNetwork] : [],
       });
     }

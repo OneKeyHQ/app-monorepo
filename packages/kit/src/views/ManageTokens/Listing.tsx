@@ -311,13 +311,13 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
       return;
     }
     await serviceToken.fetchAccountTokens({
-      activeAccountId: accountId,
-      activeNetworkId: networkId,
+      accountId,
+      networkId,
     });
     if (hideSmallBalance) {
       const [balances] = await serviceToken.fetchTokenBalance({
-        activeAccountId: accountId,
-        activeNetworkId: networkId,
+        accountId,
+        networkId,
         tokenIds: [item.tokenIdOnNetwork],
       });
       const price = await servicePrice.getSimpleTokenPrice({
@@ -555,8 +555,8 @@ export const Listing: FC = () => {
                   );
                 }
                 await backgroundApiProxy.serviceToken.fetchAccountTokens({
-                  activeAccountId: accountId,
-                  activeNetworkId: networkId,
+                  accountId,
+                  networkId,
                 });
                 closeOverlay();
               },

@@ -82,8 +82,8 @@ const AnnualLoading: FC = () => {
     const accountId = account.id;
     const { servicePrice, serviceToken } = backgroundApiProxy;
     const res = await serviceToken.fetchAccountTokens({
-      activeNetworkId: networkId,
-      activeAccountId: accountId,
+      networkId,
+      accountId,
     });
     const accountTokens = res.filter(
       (n) => !n.riskLevel || n.riskLevel <= TokenRiskLevel.VERIFIED,

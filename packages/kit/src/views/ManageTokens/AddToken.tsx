@@ -148,8 +148,8 @@ function ViewTokenModal(props: IViewTokenModalProps) {
     async function fetchBalance() {
       if (activeAccount && activeNetwork) {
         await backgroundApiProxy.serviceToken.fetchTokenBalance({
-          activeAccountId: activeAccount.id,
-          activeNetworkId: activeNetwork.id,
+          accountId: activeAccount.id,
+          networkId: activeNetwork.id,
           tokenIds: [address],
         });
       }
