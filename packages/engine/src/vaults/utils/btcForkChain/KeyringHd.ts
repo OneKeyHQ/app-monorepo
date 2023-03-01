@@ -135,6 +135,7 @@ export class KeyringHd extends KeyringHdBase {
       const { [firstAddressRelPath]: address } = provider.xpubToAddresses(
         xpub,
         [firstAddressRelPath],
+        addressEncoding,
       );
       const prefix = [COINTYPE_DOGE, COINTYPE_BCH].includes(COIN_TYPE)
         ? coinName

@@ -78,7 +78,7 @@
     "@web3-react/url": "8.0.25-beta.0",
     "asmcrypto.js": "2.3.2",
     "axios": "^0.27.2",
-    "bitcoinjs-lib": "6.0.1",
+    "bitcoinjs-lib": "6.1.0",
     "bitcoinjs-message": "2.2.0",
     "expo-device": "^4.3.0",
     "jsrsasign": "^10.6.1",

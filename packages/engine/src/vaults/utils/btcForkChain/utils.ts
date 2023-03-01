@@ -30,6 +30,11 @@ export function getAccountDefaultByPurpose(
         namePrefix: `${coinName} Native SegWit`,
         addressEncoding: AddressEncodings.P2WPKH,
       };
+    case 86:
+      return {
+        namePrefix: `${coinName} Taproot`,
+        addressEncoding: AddressEncodings.P2TR,
+      };
     default:
       throw new NotImplemented(`Unsupported purpose ${purpose}.`);
   }

@@ -18,9 +18,11 @@ import { AddressEncodings } from '@onekeyhq/engine/src/vaults/utils/btcForkChain
 
 import { getBlockBook } from './blockbook';
 import { getNetwork } from './networks';
+import ecc from './nobleSecp256k1Wrapper';
 import { PLACEHOLDER_VSIZE, estimateVsize, loadOPReturn } from './vsize';
 
 import type { Network } from './networks';
+import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
 
 type GetAccountParams =
   | {
@@ -61,6 +63,8 @@ const validator = (
   msghash: Buffer,
   signature: Buffer,
 ): boolean => verify('secp256k1', pubkey, msghash, signature);
+
+BitcoinJS.initEccLib(ecc as unknown as TinySecp256k1Interface);
 
 class Provider {
   readonly chainInfo: ChainInfo;
@@ -191,6 +195,11 @@ class Provider {
         payment = BitcoinJS.payments.p2sh({
           redeem: BitcoinJS.payments.p2wpkh(payment),
           network: this.network,
+        });
+        break;
+      case AddressEncodings.P2TR:
+        payment = BitcoinJS.payments.p2tr({
+          internalPubkey: pubkey.slice(1, 33),
         });
         break;
 

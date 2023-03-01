@@ -4695,7 +4695,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/secp256k1@npm:1.7.1, @noble/secp256k1@npm:^1.6.3, @noble/secp256k1@npm:^1.7.0, @noble/secp256k1@npm:~1.7.0":
+"@noble/secp256k1@npm:1.7.1, @noble/secp256k1@npm:^1.6.3, @noble/secp256k1@npm:^1.7.0, @noble/secp256k1@npm:^1.7.1, @noble/secp256k1@npm:~1.7.0":
   version: 1.7.1
   resolution: "@noble/secp256k1@npm:1.7.1"
   checksum: d2301f1f7690368d8409a3152450458f27e54df47e3f917292de3de82c298770890c2de7c967d237eff9c95b70af485389a9695f73eb05a43e2bd562d18b18cb
@@ -5358,7 +5358,7 @@ __metadata:
     babel-plugin-import: ^1.13.5
     babel-plugin-inline-import: ^3.0.0
     babel-plugin-transform-inline-environment-variables: ^0.4.3
-    bitcoinjs-lib: 6.0.1
+    bitcoinjs-lib: 6.1.0
     bitcoinjs-message: 2.2.0
     console-feed: ^3.4.1
     copy-webpack-plugin: ^6.0.2
@@ -5599,6 +5599,7 @@ __metadata:
     "@metamask/eth-sig-util": ^4.0.1
     "@mysten/sui.js": 0.20.0
     "@noble/hashes": 1.1.2
+    "@noble/secp256k1": ^1.7.1
     "@onekeyfe/cardano-coin-selection": 1.0.0
     "@polkadot/extension-inject": 0.44.8
     "@solana/spl-token": ^0.3.0
@@ -5607,6 +5608,7 @@ __metadata:
     "@types/bchaddrjs": ^0.4.0
     "@types/bs58": ^4.0.1
     "@types/bs58check": ^2.1.0
+    "@types/create-hmac": ^1.1.0
     "@types/elliptic": ^6.4.14
     "@types/node": ^17.0.2
     algosdk: ^1.21.0
@@ -5623,6 +5625,7 @@ __metadata:
     cardano-crypto.js: ^6.1.1
     coinselect: ^3.1.12
     cosmjs-types: ^0.5.2
+    create-hmac: ^1.1.7
     crypto-browserify: ^3.12.0
     elliptic: ^6.5.4
     eth-sig-util: 3.0.1
@@ -8366,6 +8369,15 @@ __metadata:
   version: 2.1.2
   resolution: "@types/cookiejar@npm:2.1.2"
   checksum: f6e1903454007f86edd6c3520cbb4d553e1d4e17eaf1f77f6f75e3270f48cc828d74397a113a36942f5fe52f9fa71067bcfa738f53ad468fcca0bc52cb1cbd28
+  languageName: node
+  linkType: hard
+
+"@types/create-hmac@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "@types/create-hmac@npm:1.1.0"
+  dependencies:
+    "@types/node": "*"
+  checksum: 82a99d6202bf79d62ad8ad9974b6a047500dd7429b90ae4e83993023ab953ca03956d1fb248939fd6efc8caa1d1192f76cd19750c540440ca174733a342b45fd
   languageName: node
   linkType: hard
 
@@ -11520,6 +11532,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"bip174@npm:^2.1.0":
+  version: 2.1.0
+  resolution: "bip174@npm:2.1.0"
+  checksum: 951dae544ef555d66f65b299a69ddf295733eac90449e57d2219abcedfd2d96e762856ca6b5cef4cd925a4498341ea174e359e8a4c45d0bb6b445c13c8add786
+  languageName: node
+  linkType: hard
+
 "bip32@npm:^2.0.4, bip32@npm:^2.0.5, bip32@npm:^2.0.6":
   version: 2.0.6
   resolution: "bip32@npm:2.0.6"
@@ -11587,7 +11606,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bitcoinjs-lib@npm:6.0.1, bitcoinjs-lib@npm:^6.0.1":
+"bitcoinjs-lib@npm:6.1.0":
+  version: 6.1.0
+  resolution: "bitcoinjs-lib@npm:6.1.0"
+  dependencies:
+    bech32: ^2.0.0
+    bip174: ^2.1.0
+    bs58check: ^2.1.2
+    create-hash: ^1.1.0
+    ripemd160: ^2.0.2
+    typeforce: ^1.11.3
+    varuint-bitcoin: ^1.1.2
+    wif: ^2.0.1
+  checksum: 0b23d0d5bb7377ea4ac467c9f1f6c6517ed112cd1b1f5e66a1402c854a99eba5fe5df9415a3e0d1ada631b179770075dda63d3d77531d0abdbc2b1d44be0a890
+  languageName: node
+  linkType: hard
+
+"bitcoinjs-lib@npm:^6.0.1":
   version: 6.0.1
   resolution: "bitcoinjs-lib@npm:6.0.1"
   dependencies:
@@ -28712,7 +28747,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ripemd160@npm:^2.0.0, ripemd160@npm:^2.0.1":
+"ripemd160@npm:^2.0.0, ripemd160@npm:^2.0.1, ripemd160@npm:^2.0.2":
   version: 2.0.2
   resolution: "ripemd160@npm:2.0.2"
   dependencies:

@@ -21,6 +21,10 @@ const btc = {
       public: 0x04b24746,
       private: 0x04b2430c,
     },
+    [AddressEncodings.P2TR]: {
+      public: 0x0488b21e,
+      private: 0x0488ade4,
+    },
   },
 };
 
