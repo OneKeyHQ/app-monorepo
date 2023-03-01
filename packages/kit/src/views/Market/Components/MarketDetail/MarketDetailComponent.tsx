@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -125,16 +125,15 @@ const DataViewComponent: FC<DataViewComponentProps> = ({
   return (
     <Box {...gridBoxStyle}>
       <Box
-        flexDirection="row"
-        alignItems="center"
+        alignItems="flex-start"
         justifyContent="space-between"
-        mb="3"
+        mb={2}
         flex={1}
       >
         <Typography.Body2Strong color="text-subdued">
           {title}
         </Typography.Body2Strong>
-        <Box alignItems="flex-end" flex={1}>
+        <Box flex={1} alignItems="flex-start">
           {isFetching ? (
             <Skeleton shape="Body2" />
           ) : (
@@ -198,6 +197,22 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
   const intl = useIntl();
   const { selectedFiatMoneySymbol } = useSettings();
   const unit = useCurrencyUnit(selectedFiatMoneySymbol);
+  const { athTime, atlTime } = useMemo(() => {
+    const athDate = new Date(ath?.time ?? '');
+    const atlDate = new Date(atl?.time ?? '');
+    return {
+      athTime: ath
+        ? `${athDate.getFullYear()}-${
+            athDate.getMonth() + 1
+          }-${athDate.getDate()}`
+        : undefined,
+      atlTime: atl
+        ? `${atlDate.getFullYear()}-${
+            atlDate.getMonth() + 1
+          }-${atlDate.getDate()}`
+        : undefined,
+    };
+  }, [ath, atl]);
   return (
     <Box px={px}>
       <VStack space={6} mt={2}>
@@ -262,6 +277,7 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
                 unit,
                 formatMarketValueForInfo(atl?.value),
               )}
+              subValue={atlTime}
             />
             <DataViewComponent
               index={7}
@@ -271,6 +287,7 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
                 unit,
                 formatMarketValueForInfo(ath?.value),
               )}
+              subValue={athTime}
             />
           </Box>
         </Box>
