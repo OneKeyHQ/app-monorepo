@@ -7,6 +7,7 @@ export type IPlatform = 'native' | 'desktop' | 'ext' | 'web' | 'webEmbed';
 export type IDistributionChannel =
   | 'ext-chrome'
   | 'ext-firefox'
+  | 'ext-edge'
   | 'desktop-mac'
   | 'desktop-mac-arm64'
   | 'desktop-win'
@@ -106,6 +107,7 @@ const isNative = process.env.ONEKEY_PLATFORM === 'app';
 
 const isExtChrome = process.env.EXT_CHANNEL === 'chrome';
 const isExtFirefox = process.env.EXT_CHANNEL === 'firefox';
+const isExtEdge = process.env.EXT_CHANNEL === 'edge';
 
 const isDesktopMac = isDesktop && window?.desktopApi?.platform === 'darwin';
 const isDesktopMacArm64 = isDesktopMac && window?.desktopApi?.arch === 'arm64';
@@ -139,6 +141,7 @@ const getPlatformSymbol = (): IPlatform | undefined => {
 const getDistributionChannel = (): IDistributionChannel | undefined => {
   if (isExtChrome) return 'ext-chrome';
   if (isExtFirefox) return 'ext-firefox';
+  if (isExtEdge) return 'ext-edge';
 
   if (isDesktopWinMsStore) return 'desktop-win-ms-store';
   if (isDesktopMacArm64) return 'desktop-mac-arm64';

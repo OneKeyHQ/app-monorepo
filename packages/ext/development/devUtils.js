@@ -82,9 +82,9 @@ function getBuildTargetBrowser() {
   if (argv === '--chrome') {
     buildTargetBrowser = 'chrome';
   }
-  // if (argv === '--edge') {
-  //   buildTargetBrowser = 'edge';
-  // }
+  if (argv === '--edge') {
+    buildTargetBrowser = 'edge';
+  }
   process.env.EXT_CHANNEL = buildTargetBrowser;
   return buildTargetBrowser;
 }

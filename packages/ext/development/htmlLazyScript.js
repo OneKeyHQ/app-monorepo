@@ -92,5 +92,8 @@ function doTask() {
   doTaskInFolder({
     folder: path.resolve(__dirname, '../build/firefox'),
   });
+  doTaskInFolder({
+    folder: path.resolve(__dirname, '../build/edge'),
+  });
 }
 module.exports = doTask;

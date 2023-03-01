@@ -104,7 +104,7 @@ jobs:
         run: |
           echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > packages/desktop/sign.p12
 
-      - name: Publish and Sign Static Linux / Macos / Windows Installer
+      - name: Publish and Sign Static Windows Installer
         if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/onekey') }}
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -114,9 +114,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
-        run: 'cd packages/desktop && yarn publish:all'
+        run: 'cd packages/desktop && yarn publish:winms'
 
-      - name: Build and Sign Static Linux / Macos / Windows Installer
+      - name: Build and Sign Static Windows Installer
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
@@ -125,14 +125,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
-        run: 'cd packages/desktop && yarn build:all'
-
-      - name: Upload Artifacts Mac
-        uses: actions/upload-artifact@v3
-        with:
-          name: onekey-desktop-mac
-          path: |
-            ./packages/desktop/build-electron/*.dmg
+        run: 'cd packages/desktop && yarn build:winms'
 
       - name: Upload Artifacts Windows
         uses: actions/upload-artifact@v3
@@ -140,13 +133,6 @@ jobs:
           name: onekey-desktop-windows
           path: |
             ./packages/desktop/build-electron/*.exe
-
-      - name: Upload Artifacts Linux
-        uses: actions/upload-artifact@v3
-        with:
-          name: onekey-desktop-linux
-          path: |
-            ./packages/desktop/build-electron/*.AppImage
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v3
@@ -165,7 +151,7 @@ jobs:
         with:
           web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
           artifact-type: Desktop
-          artifact-name: OneKey-Desktop-RN
+          artifact-name: OneKey-Desktop-Win-Store
           artifact-bundle-id: 'so.onekey.wallet.desktop'
           artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
