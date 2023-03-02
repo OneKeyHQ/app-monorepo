@@ -1,9 +1,17 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { useAppSelector, useDebounce } from '../../../hooks';
-import { div, formatAmount, lte, minus, multiply } from '../utils';
+import {
+  div,
+  formatAmount,
+  // getTokenAmountValue,
+  lte,
+  minus,
+  multiply,
+} from '../utils';
 
 import { useTokenPrice } from './useSwapTokenUtils';
 
@@ -123,3 +131,38 @@ export function useSwapSlippage(): ISlippage {
   }, [slippageAutoMode, slippage]);
   return useDebounce(value, 500);
 }
+
+export const useSwapMinimumReceivedAmount = () => {
+  const quote = useAppSelector((s) => s.swap.quote);
+  const { value: swapSlippagePercent } = useSwapSlippage();
+  return useMemo(() => {
+    if (!quote) {
+      return;
+    }
+    const { minAmountOut, estimatedBuyAmount, buyAmount } = quote;
+    if (minAmountOut) {
+      return Number(minAmountOut);
+    }
+    const amount = estimatedBuyAmount || buyAmount;
+    if (amount) {
+      const bn = new BigNumber(amount);
+      if (!bn.isNaN()) {
+        return bn
+          .minus(bn.multipliedBy(Number(swapSlippagePercent) / 100))
+          .toFixed();
+      }
+    }
+  }, [quote, swapSlippagePercent]);
+};
+
+export const useSwapProtocalsFee = () => {
+  const protocolFees = useAppSelector((s) => s.swap.quote?.protocolFees);
+  if (protocolFees) {
+    const { amount, asset } = protocolFees;
+    const bn = new BigNumber(amount);
+    const decimals = new BigNumber(asset.decimals);
+    const base = new BigNumber(10);
+    const value = bn.dividedBy(base.exponentiatedBy(decimals)).toFixed();
+    return { value, symbol: asset.symbol };
+  }
+};
