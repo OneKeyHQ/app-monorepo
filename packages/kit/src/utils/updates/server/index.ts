@@ -69,11 +69,12 @@ function handleReleaseInfo(
       });
     }
     if (releasesVersion.desktop.snapStore) {
+      const { url, version } = releasesVersion.desktop.snapStore;
       desktopPackages.push({
         os: 'linux',
         channel: 'LinuxSnap',
-        download: releasesVersion.desktop.win,
-        version: releasesVersion.desktop.version.join('.'),
+        download: url,
+        version: version.join('.'),
         forceUpdateVersion,
       });
     }
@@ -106,20 +107,22 @@ function handleReleaseInfo(
       });
     }
     if (releasesVersion.desktop.msStore) {
+      const { url, version } = releasesVersion.desktop.msStore;
       desktopPackages.push({
         os: 'win',
         channel: 'MsWindowsStore',
-        download: releasesVersion.desktop.win,
-        version: releasesVersion.desktop.version.join('.'),
+        download: url,
+        version: version.join('.'),
         forceUpdateVersion,
       });
     }
     if (releasesVersion.desktop.mas) {
+      const { url, version } = releasesVersion.desktop.mas;
       desktopPackages.push({
         os: 'mas',
         channel: 'AppStore',
-        download: releasesVersion.desktop.mas.url,
-        version: releasesVersion.desktop.mas.version.join('.'),
+        download: url,
+        version: version.join('.'),
         forceUpdateVersion,
       });
     }
@@ -148,7 +151,7 @@ function handleReleaseInfo(
     if (releasesVersion.ext.edge) {
       extPackages.push({
         os: 'edge',
-        channel: 'Direct',
+        channel: 'EdgeWebStore',
         download: releasesVersion.ext.edge,
         version: '0.0.0',
         forceUpdateVersion,
@@ -178,7 +181,7 @@ export async function getReleaseInfo(): Promise<PackagesInfo | null> {
 export async function getPreReleaseInfo(): Promise<PackagesInfo | null> {
   const key = Math.random().toString();
   return axios
-    .get<AppReleases>(`http://data.onekey.so/pre-config.json?nocache=${key}`)
+    .get<AppReleases>(`https://data.onekey.so/pre-config.json?nocache=${key}`)
     .then((releasesVersionResponse) => {
       const releasesVersion = releasesVersionResponse.data;
       return handleReleaseInfo(releasesVersion);

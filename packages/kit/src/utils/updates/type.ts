@@ -17,6 +17,7 @@ export type Channel =
   | 'GooglePlay'
   | 'HuaweiAppGallery'
   | 'ChromeWebStore'
+  | 'EdgeWebStore'
   | 'MozillaAddOns'
   | 'MsWindowsStore'
   | 'LinuxSnap'

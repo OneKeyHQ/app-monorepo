@@ -95,6 +95,7 @@ export type IPlatformEnv = {
   isRuntimeChrome?: boolean;
 
   canGetClipboard?: boolean;
+  supportAutoUpdate?: boolean;
 };
 
 const isJest = JEST_WORKER_ID !== undefined || NODE_ENV === 'test';
@@ -247,6 +248,9 @@ export const isManifestV3: boolean =
 
 export const canGetClipboard: boolean = !isWeb && !isExtension;
 
+export const supportAutoUpdate: boolean =
+  isDesktop && !(isMas || isDesktopLinuxSnap);
+
 const platformEnv: IPlatformEnv = {
   version: process.env.VERSION,
   buildNumber: process.env.BUILD_NUMBER,
@@ -277,6 +281,7 @@ const platformEnv: IPlatformEnv = {
 
   isExtFirefox,
   isExtChrome,
+  isExtEdge,
 
   isNativeIOS,
   isNativeIOSStore,
@@ -305,6 +310,7 @@ const platformEnv: IPlatformEnv = {
   isRuntimeChrome,
 
   canGetClipboard,
+  supportAutoUpdate,
 };
 
 if (isDev) {

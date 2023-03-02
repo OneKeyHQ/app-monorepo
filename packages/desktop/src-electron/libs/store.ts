@@ -19,9 +19,6 @@ export const setUpdateSettings = (updateSettings: UpdateSettings): void => {
   store.set('updateSettings', updateSettings);
 };
 
-export const getChannel = (): string =>
-  store.get('channel', 'direct') as string;
-
 export const clear = () => {
   store.clear();
 };

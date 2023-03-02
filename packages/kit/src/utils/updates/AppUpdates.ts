@@ -29,11 +29,7 @@ class AppUpdates {
   addedListener = false;
 
   checkUpdate(isManual = false) {
-    if (
-      platformEnv.isDesktop &&
-      !platformEnv.isMas &&
-      !platformEnv.isDesktopLinuxSnap
-    ) {
+    if (platformEnv.isDesktop && platformEnv.supportAutoUpdate) {
       this.checkDesktopUpdate(isManual);
     }
 

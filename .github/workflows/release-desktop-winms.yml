@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  release-desktop:
+  release-desktop-winms:
     runs-on: macos-latest
     strategy:
       matrix:
