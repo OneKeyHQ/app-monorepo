@@ -6,6 +6,8 @@ import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import { COINTYPE_BTC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
+import { slicePathTemplate } from '../../../managers/derivation';
+import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
@@ -51,12 +53,13 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
   ): Promise<Array<DBUTXOAccount>> {
-    const { password, indexes, purpose, names } = params;
+    const impl = await this.getNetworkImpl();
+    const { password, indexes, purpose, names, template } = params;
     const usedPurpose = purpose || DEFAULT_PURPOSE;
     const ignoreFirst = indexes[0] !== 0;
     const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
-    const { namePrefix, addressEncoding } =
-      getAccountDefaultByPurpose(usedPurpose);
+    const { addressEncoding } = getAccountDefaultByPurpose(usedPurpose);
+    const { prefix: namePrefix } = getAccountNameInfoByTemplate(impl, template);
     const provider = (await this.engine.providerManager.getProvider(
       this.networkId,
     )) as Provider;
@@ -68,11 +71,12 @@ export class KeyringHd extends KeyringHdBase {
       this.walletId,
       password,
     )) as ExportedSeedCredential;
+    const { pathPrefix } = slicePathTemplate(template);
     const pubkeyInfos = batchGetPublicKeys(
       'secp256k1',
       seed,
       password,
-      `m/${usedPurpose}'/${COIN_TYPE}'`,
+      pathPrefix,
       usedIndexes.map((index) => `${index.toString()}'`),
     );
     if (pubkeyInfos.length !== usedIndexes.length) {
@@ -113,6 +117,7 @@ export class KeyringHd extends KeyringHdBase {
           xpub,
           address,
           addresses: { [firstAddressRelPath]: address },
+          template,
         });
       }
 

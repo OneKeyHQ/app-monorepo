@@ -161,6 +161,7 @@ const ManagerAccountModal: FC = () => {
                     goToRemoveAccount({
                       wallet,
                       accountId,
+                      networkId,
                       callback: () => {
                         refreshAccounts?.();
                         if (navigation?.canGoBack?.()) navigation.goBack();

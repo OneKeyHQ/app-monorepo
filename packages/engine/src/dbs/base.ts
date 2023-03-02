@@ -15,6 +15,11 @@ import {
 } from '../secret/encryptors/rsa';
 
 import type { DBAccount } from '../types/account';
+import type {
+  DBAccountDerivation,
+  IAddAccountDerivationParams,
+  ISetAccountTemplateParams,
+} from '../types/accountDerivation';
 import type { PrivateKeyCredential } from '../types/credential';
 import type { Device, DevicePayload } from '../types/device';
 import type {
@@ -25,7 +30,7 @@ import type {
 } from '../types/history';
 import type { DBNetwork, UpdateNetworkParams } from '../types/network';
 import type { Token } from '../types/token';
-import type { Wallet } from '../types/wallet';
+import type { ISetNextAccountIdsParams, Wallet } from '../types/wallet';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 type OneKeyContext = {
@@ -157,6 +162,10 @@ interface DBAPI {
     walletId: string,
     params: SetWalletNameAndAvatarParams,
   ): Promise<Wallet>;
+  updateWalletNextAccountIds({
+    walletId,
+    nextAccountIds,
+  }: ISetNextAccountIdsParams): Promise<Wallet>;
   getCredential(
     walletId: string,
     password: string,
@@ -185,6 +194,10 @@ interface DBAPI {
     skipPasswordCheck?: boolean,
   ): Promise<void>;
   setAccountName(accountId: string, name: string): Promise<DBAccount>;
+  setAccountTemplate({
+    accountId,
+    template,
+  }: ISetAccountTemplateParams): Promise<DBAccount>;
   updateAccountAddresses(
     accountId: string,
     networkId: string,
@@ -215,6 +228,29 @@ interface DBAPI {
   getDeviceByDeviceId(deviceId: string): Promise<Device>;
   updateWalletName(walletId: string, name: string): Promise<void>;
   updateDevicePayload(deviceId: string, payload: DevicePayload): Promise<void>;
+  addAccountDerivation({
+    walletId,
+    accountId,
+    impl,
+    template,
+  }: IAddAccountDerivationParams): Promise<void>;
+  removeAccountDerivationByWalletId({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<void>;
+  removeAccountDerivationByAccountId({
+    walletId,
+    accountId,
+  }: {
+    walletId: string;
+    accountId: string;
+  }): Promise<void>;
+  getAccountDerivationByWalletId({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<Record<string, DBAccountDerivation>>;
 }
 
 export type {

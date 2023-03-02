@@ -1,3 +1,8 @@
+import {
+  COINTYPE_TRON,
+  INDEX_PLACEHOLDER,
+} from '@onekeyhq/shared/src/engine/engineConsts';
+
 import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = Object.freeze({
@@ -14,6 +19,15 @@ const settings: IVaultSettings = Object.freeze({
   isUTXOModel: false,
 
   cannotSendToSelf: true,
+
+  accountNameInfo: {
+    default: {
+      prefix: 'TRON',
+      category: `44'/${COINTYPE_TRON}'`,
+      template: `m/44'/${COINTYPE_TRON}'/0'/0/${INDEX_PLACEHOLDER}`,
+      coinType: COINTYPE_TRON,
+    },
+  },
 });
 
 export default settings;

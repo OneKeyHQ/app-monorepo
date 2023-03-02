@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/engine/src/managers/network';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import type { Account, DBAccount } from '@onekeyhq/engine/src/types/account';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { getManageNetworks } from '@onekeyhq/kit/src/hooks/useManageNetworks';
@@ -413,6 +414,7 @@ class ServiceAccount extends ServiceBase {
     names?: string[],
     purpose?: number,
     skipRepeat = false,
+    template?: string,
   ) {
     const { engine } = this.backgroundApi;
     const accounts = await engine.addHdOrHwAccounts({
@@ -423,6 +425,7 @@ class ServiceAccount extends ServiceBase {
       names,
       purpose,
       skipRepeat,
+      template,
     });
 
     if (!accounts.length) return;
@@ -528,7 +531,8 @@ class ServiceAccount extends ServiceBase {
     const { engine } = this.backgroundApi;
     const dbAccount = await engine.dbApi.getAccountByAddress({
       address,
-      coinType,
+      // TODO: template filter multiple coinType network
+      coinType: Array.isArray(coinType) ? '' : coinType,
     });
     return dbAccount;
   }
@@ -943,6 +947,7 @@ class ServiceAccount extends ServiceBase {
     });
 
     await engine.removeWallet(walletId, password ?? '');
+    await engine.dbApi.removeAccountDerivationByWalletId({ walletId });
     timelinePerfTrace.mark({
       name: ETimelinePerfNames.removeWallet,
       title: 'ServiceAccount.removeWallet >> engine.removeWallet  DONE',
@@ -1034,6 +1039,7 @@ class ServiceAccount extends ServiceBase {
     walletId: string,
     accountId: string,
     password: string | undefined,
+    networkId: string,
   ) {
     const {
       appSelector,
@@ -1052,8 +1058,12 @@ class ServiceAccount extends ServiceBase {
       });
     }
     const activeAccountId = appSelector((s) => s.general.activeAccountId);
-    await engine.removeAccount(accountId, password ?? '');
+    await engine.removeAccount(accountId, password ?? '', networkId);
     await simpleDb.walletConnect.removeAccount({ accountId });
+    await engine.dbApi.removeAccountDerivationByAccountId({
+      walletId,
+      accountId,
+    });
 
     const actions = [];
     if (activeAccountId === accountId) {
@@ -1189,6 +1199,34 @@ class ServiceAccount extends ServiceBase {
     }
 
     dispatch(changeActiveExternalWalletName(activeExternalWalletName ?? ''));
+  }
+
+  @backgroundMethod()
+  async shouldChangeAccountWhenNetworkChanged({
+    previousNetwork,
+    newNetwork,
+    activeAccountId,
+  }: {
+    previousNetwork: Network | undefined;
+    newNetwork: Network | undefined;
+    activeAccountId: string | null;
+  }): Promise<{
+    shouldReloadAccountList: boolean;
+    shouldChangeActiveAccount: boolean;
+  }> {
+    if (!previousNetwork) {
+      return {
+        shouldReloadAccountList: false,
+        shouldChangeActiveAccount: false,
+      };
+    }
+    const { engine } = this.backgroundApi;
+    const vault = await engine.getChainOnlyVault(previousNetwork?.id);
+    return vault.shouldChangeAccountWhenNetworkChanged({
+      previousNetwork,
+      newNetwork,
+      activeAccountId,
+    });
   }
 }
 

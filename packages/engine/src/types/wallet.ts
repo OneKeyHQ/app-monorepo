@@ -28,6 +28,11 @@ type Wallet = HasName & {
   passphraseState?: string;
 };
 
+type ISetNextAccountIdsParams = {
+  walletId: string;
+  nextAccountIds: Record<string, number>;
+};
+
 export {
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
@@ -35,4 +40,4 @@ export {
   WALLET_TYPE_WATCHING,
   WALLET_TYPE_EXTERNAL,
 };
-export type { WalletType, Wallet };
+export type { WalletType, Wallet, ISetNextAccountIdsParams };

@@ -8,6 +8,7 @@ import {
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import semver from 'semver';
 
 import {
   Box,
@@ -26,11 +27,12 @@ import type {
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
-import { useData } from '../../../../../hooks/redux';
+import { useAppSelector, useData } from '../../../../../hooks/redux';
 import useImportBackupPasswordModal from '../../../../../hooks/useImportBackupPasswordModal';
 import useLocalAuthenticationModal from '../../../../../hooks/useLocalAuthenticationModal';
 import { useOnboardingDone } from '../../../../../hooks/useOnboardingRequired';
 import { GroupedBackupDetails } from '../../../../Me/SecuritySection/CloudBackup/BackupDetails';
+import { showUpgrateDialog } from '../../../../Me/SecuritySection/CloudBackup/UpgrateDialog';
 import { useOnboardingClose } from '../../../hooks';
 import Layout from '../../../Layout';
 
@@ -57,6 +59,7 @@ const PreviewImportData = () => {
   const { data } = route.params;
   const navigation = useNavigation<NavigationProps>();
   const { serviceCloudBackup } = backgroundApiProxy;
+  const version = useAppSelector((s) => s.settings.version);
   const isVerticalLayout = useIsVerticalLayout();
   const { isPasswordSet } = useData();
   const { showVerify } = useLocalAuthenticationModal();
@@ -100,9 +103,26 @@ const PreviewImportData = () => {
     navigation.goBack();
   }, [intl, navigation]);
 
+  const checkVersion = useCallback(() => {
+    // old version
+    if (data.appVersion === undefined) {
+      return true;
+    }
+    // data version >= local version
+    if (data.appVersion && semver.gt(data.appVersion, version)) {
+      return false;
+    }
+    return true;
+  }, [data.appVersion, version]);
+
   const importAction = useCallback(
     async () =>
       new Promise<boolean>((resolve) => {
+        if (checkVersion() === false) {
+          showUpgrateDialog();
+          resolve(false);
+          return;
+        }
         if (isPasswordSet) {
           showVerify(
             (localPassword) => {
@@ -173,6 +193,7 @@ const PreviewImportData = () => {
       }),
     [
       backupData.notOnDevice,
+      checkVersion,
       data.private,
       isPasswordSet,
       onImportDone,

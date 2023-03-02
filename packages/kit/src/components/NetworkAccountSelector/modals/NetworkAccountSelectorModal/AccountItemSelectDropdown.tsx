@@ -1,16 +1,13 @@
+import type { FC } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import {
-  DialogManager,
-  IconButton,
-  Select,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
-import type { SelectItem } from '@onekeyhq/components/src/Select';
+import { DialogManager, Divider, IconButton } from '@onekeyhq/components';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
-import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
+import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
+import type {
+  IBaseMenuOptions,
+  IMenu,
+} from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
@@ -21,12 +18,46 @@ import { refreshAccountSelector } from '../../../../store/reducers/refresher';
 import AccountModifyNameDialog from '../../../../views/ManagerAccount/ModifyAccount';
 import useRemoveAccountDialog from '../../../../views/ManagerAccount/RemoveAccount';
 
-enum EAccountSelectorItemSelectOptions {
-  rename = 'rename',
-  copy = 'copy',
-  detail = 'detail',
-  remove = 'remove',
-}
+const AccountItemMenu: FC<IMenu & { onChange: (value: string) => void }> = ({
+  onChange,
+  ...props
+}) => {
+  const onPress = useCallback(
+    (value: string) => {
+      onChange?.(value);
+    },
+    [onChange],
+  );
+  const options = useMemo<IBaseMenuOptions>(
+    () => [
+      {
+        id: 'action__copy_address',
+        onPress: () => onPress('copy'),
+        icon: 'Square2StackOutline',
+      },
+      {
+        id: 'action__rename',
+        onPress: () => onPress('rename'),
+        icon: 'TagOutline',
+      },
+      {
+        id: 'action__view_details',
+        onPress: () => onPress('detail'),
+        icon: 'DocumentTextOutline',
+      },
+      () => <Divider />,
+      {
+        id: 'action__remove_account',
+        onPress: () => onPress('remove'),
+        icon: 'TrashOutline',
+        variant: 'desctructive',
+      },
+    ],
+    [onPress],
+  );
+
+  return <BaseMenu options={options} {...props} />;
+};
 
 function AccountItemSelectDropdown({
   account,
@@ -37,11 +68,7 @@ function AccountItemSelectDropdown({
   wallet: IWallet;
   network: INetwork | null | undefined;
 }) {
-  const { type } = wallet;
-  const intl = useIntl();
-  const isVerticalLayout = useIsVerticalLayout();
   const navigation = useAppNavigation();
-  const isHardwareWallet = type === WALLET_TYPE_HW;
   const { dispatch } = backgroundApiProxy;
   const { goToRemoveAccount, RemoveAccountDialog } = useRemoveAccountDialog();
   const { copyAddress } = useCopyAddress({
@@ -59,59 +86,13 @@ function AccountItemSelectDropdown({
     [dispatch],
   );
 
-  const selectOptions = useMemo(() => {
-    const allOptions: Record<
-      EAccountSelectorItemSelectOptions,
-      SelectItem<EAccountSelectorItemSelectOptions>
-    > = {
-      [EAccountSelectorItemSelectOptions.rename]: {
-        label: intl.formatMessage({ id: 'action__rename' }),
-        value: EAccountSelectorItemSelectOptions.rename,
-        iconProps: {
-          name: isVerticalLayout ? 'TagOutline' : 'TagMini',
-        },
-      },
-      [EAccountSelectorItemSelectOptions.copy]: {
-        label: intl.formatMessage({ id: 'action__copy_address' }),
-        value: EAccountSelectorItemSelectOptions.copy,
-        iconProps: {
-          name: isVerticalLayout ? 'Square2StackOutline' : 'Square2StackMini',
-        },
-      },
-      [EAccountSelectorItemSelectOptions.detail]: {
-        label: intl.formatMessage({ id: 'action__view_details' }),
-        value: EAccountSelectorItemSelectOptions.detail,
-        iconProps: {
-          name: isVerticalLayout ? 'DocumentTextOutline' : 'DocumentTextMini',
-        },
-      },
-      [EAccountSelectorItemSelectOptions.remove]: {
-        label: intl.formatMessage({ id: 'action__remove_account' }),
-        value: EAccountSelectorItemSelectOptions.remove,
-        iconProps: {
-          name: isVerticalLayout ? 'TrashOutline' : 'TrashMini',
-        },
-        destructive: true,
-      },
-    };
-
-    if (isHardwareWallet) {
-      // return [allOptions.rename, allOptions.copy];
-    }
-    return [
-      allOptions.rename,
-      allOptions.copy,
-      allOptions.detail,
-      allOptions.remove,
-    ];
-  }, [intl, isHardwareWallet, isVerticalLayout]);
-
   const handleChange = useCallback(
     (value: string) => {
       switch (value) {
         case 'copy':
-          // TODO uppercase address copy
-          copyAddress(account.displayAddress ?? account.address);
+          setTimeout(() => {
+            copyAddress(account.displayAddress || account.address);
+          }, 150);
           break;
         case 'rename':
           DialogManager.show({
@@ -146,6 +127,7 @@ function AccountItemSelectDropdown({
           goToRemoveAccount({
             wallet,
             accountId: account.id,
+            networkId: network?.id ?? '',
             callback: () =>
               refreshAccounts(wallet?.id ?? '', network?.id ?? ''),
           });
@@ -170,36 +152,14 @@ function AccountItemSelectDropdown({
     <>
       {/* TODO move to parent */}
       {RemoveAccountDialog}
-      <Select
-        // setPositionOnlyMounted
-        // autoAdjustPosition={false}
-        dropdownPosition="right"
-        onChange={handleChange}
-        activatable={false}
-        options={selectOptions}
-        headerShown={false}
-        footer={null}
-        containerProps={{ width: 'auto' }}
-        dropdownProps={{
-          width: 248,
-        }}
-        renderTrigger={({ onPress }) => (
-          <IconButton
-            name="EllipsisVerticalMini"
-            type="plain"
-            circle
-            onPress={onPress}
-            hitSlop={8}
-            // TODO custom props
-            // isTriggerHovered={isHovered}
-            // isSelectVisible={visible}
-            // isTriggerPressed={isPressed}
-            // TODO hardware only
-            // isNotification={hasAvailableUpdate}
-            // notificationColor="icon-warning"
-          />
-        )}
-      />
+      <AccountItemMenu onChange={handleChange}>
+        <IconButton
+          name="EllipsisVerticalMini"
+          type="plain"
+          circle
+          hitSlop={8}
+        />
+      </AccountItemMenu>
     </>
   );
 }

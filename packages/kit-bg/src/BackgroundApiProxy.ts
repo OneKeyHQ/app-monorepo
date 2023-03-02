@@ -17,6 +17,7 @@ import type ServiceBootstrap from './services/ServiceBootstrap';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
+import type ServiceDerivationPath from './services/ServiceDerivationPath';
 import type ServiceDiscover from './services/ServiceDiscover';
 import type ServiceExternalAccount from './services/ServiceExternalAccount';
 import type ServiceFiatPay from './services/ServiceFiatPay';
@@ -158,6 +159,10 @@ class BackgroundApiProxy
   serviceMigrate = this._createProxyService('serviceMigrate') as ServiceMigrate;
 
   serviceHTTP = this._createProxyService('serviceHTTP') as ServiceHTTP;
+
+  serviceDerivationPath = this._createProxyService(
+    'serviceDerivationPath',
+  ) as ServiceDerivationPath;
 
   serviceFiatPay = this._createProxyService('serviceFiatPay') as ServiceFiatPay;
 

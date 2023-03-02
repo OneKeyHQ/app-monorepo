@@ -1,7 +1,11 @@
+import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
-import { COINTYPE_ETH as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
+import {
+  getAccountNameInfoByImpl,
+  getAccountNameInfoByTemplate,
+} from '../../../managers/impl';
 import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
@@ -9,8 +13,6 @@ import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBSimpleAccount } from '../../../types/account';
 import type { IPrepareSoftwareAccountsParams } from '../../types';
-
-const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(password: string, addresses: Array<string>) {
@@ -37,18 +39,20 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
-    const { password, indexes, names } = params;
+    const { password, indexes, names, coinType, template } = params;
     const { seed } = (await this.engine.dbApi.getCredential(
       this.walletId,
       password,
     )) as ExportedSeedCredential;
 
+    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
+
     const pubkeyInfos = batchGetPublicKeys(
       'secp256k1',
       seed,
       password,
-      PATH_PREFIX,
-      indexes.map((index) => index.toString()),
+      pathPrefix,
+      indexes.map((index) => pathSuffix.replace('{index}', index.toString())),
     );
 
     if (pubkeyInfos.length !== indexes.length) {
@@ -57,6 +61,8 @@ export class KeyringHd extends KeyringHdBase {
 
     const ret = [];
     let index = 0;
+    const impl = await this.getNetworkImpl();
+    const { prefix } = getAccountNameInfoByTemplate(impl, template);
     for (const info of pubkeyInfos) {
       const {
         path,
@@ -67,15 +73,21 @@ export class KeyringHd extends KeyringHdBase {
         this.networkId,
         pub,
       );
-      const name = (names || [])[index] || `EVM #${indexes[index] + 1}`;
+      const name = (names || [])[index] || `${prefix} #${indexes[index] + 1}`;
+      const isLedgerLiveTemplate =
+        getAccountNameInfoByImpl(impl).ledgerLive.template === template;
       ret.push({
-        id: `${this.walletId}--${path}`,
+        id: isLedgerLiveTemplate
+          ? // because the first account path of ledger live template is the same as the bip44 account path
+            `${this.walletId}--${path}--LedgerLive`
+          : `${this.walletId}--${path}`,
         name,
         type: AccountType.SIMPLE,
         path,
-        coinType: COIN_TYPE,
+        coinType,
         pub,
         address,
+        template,
       });
       index += 1;
     }

@@ -4,7 +4,7 @@ import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import type { Engine } from '../index';
-import type { EIP1559Fee } from '../types/network';
+import type { AccountNameInfo, EIP1559Fee } from '../types/network';
 import type { NFTAsset } from '../types/nft';
 import type { Token } from '../types/token';
 import type {
@@ -43,6 +43,7 @@ export type IVaultSubNetworkSettings = {
   minGasPrice?: string;
 };
 export type IVaultSettings = {
+  accountNameInfo: Record<string, AccountNameInfo>;
   feeInfoEditable: boolean;
   privateKeyExportEnabled: boolean;
   tokenEnabled: boolean;
@@ -288,12 +289,16 @@ export type IPrepareSoftwareAccountsParams = {
   indexes: Array<number>;
   purpose?: number;
   names?: Array<string>;
+  coinType: string;
+  template: string;
 };
 export type IPrepareHardwareAccountsParams = {
   type: 'SEARCH_ACCOUNTS' | 'ADD_ACCOUNTS';
   indexes: Array<number>;
   purpose?: number;
   names?: Array<string>;
+  coinType: string;
+  template: string;
 };
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams
