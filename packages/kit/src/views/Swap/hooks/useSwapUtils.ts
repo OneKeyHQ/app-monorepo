@@ -119,7 +119,7 @@ export function useSwapSlippage(): ISlippage {
     if (slippageAutoMode) {
       return { mode: 'auto', value: slippageAutoMode.value ?? '1' };
     }
-    return { value: slippage?.value ?? '1' };
+    return { mode: slippage?.mode, value: slippage?.value ?? '1' };
   }, [slippageAutoMode, slippage]);
   return useDebounce(value, 500);
 }
