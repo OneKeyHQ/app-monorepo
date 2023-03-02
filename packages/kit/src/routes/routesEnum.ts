@@ -9,6 +9,7 @@ Error: Couldn't find a 'component', 'getComponent' or 'children' prop for the sc
 /** Modal */
 export enum ModalRoutes {
   CreateAccount = 'CreateAccount',
+  RecoverAccount = 'RecoverAccount',
   CreateWallet = 'CreateWallet',
   BackupWallet = 'BackupWallet',
   ManagerWallet = 'ManagerWallet',
@@ -121,6 +122,10 @@ export enum CreateAccountModalRoutes {
   RecoverAccountsAdvanced = 'RecoverAccountsAdvanced',
   RecoverAccountsConfirm = 'RecoverAccountsConfirm',
   RecoverAccountsConfirmAuthentication = 'RecoverAccountsConfirmAuthentication',
+}
+
+export enum RecoverAccountModalRoutes {
+  RecoverAccountsAdvanced = 'RecoverAccountsAdvanced',
 }
 
 export enum ManageNetworkRoutes {

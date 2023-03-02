@@ -1,3 +1,8 @@
+import {
+  COINTYPE_SUI,
+  INDEX_PLACEHOLDER,
+} from '@onekeyhq/shared/src/engine/engineConsts';
+
 import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = Object.freeze({
@@ -16,6 +21,15 @@ const settings: IVaultSettings = Object.freeze({
 
   feeInfoEditable: true,
   minGasLimit: 50,
+
+  accountNameInfo: {
+    default: {
+      prefix: 'SUI',
+      category: `44'/${COINTYPE_SUI}'`,
+      template: `m/44'/${COINTYPE_SUI}'/${INDEX_PLACEHOLDER}'/0'/0'`,
+      coinType: COINTYPE_SUI,
+    },
+  },
 });
 
 export default settings;

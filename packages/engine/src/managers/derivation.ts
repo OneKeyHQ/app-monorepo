@@ -8,6 +8,7 @@ import {
   COINTYPE_COSMOS,
   COINTYPE_DOGE,
   COINTYPE_DOT,
+  COINTYPE_ETC,
   COINTYPE_ETH,
   COINTYPE_FIL,
   COINTYPE_LTC,
@@ -36,9 +37,16 @@ import {
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
+  INDEX_PLACEHOLDER,
+  SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../errors';
+
+import { getAccountNameInfoByTemplate, getImplByCoinType } from './impl';
+
+import type { DBAccountDerivation } from '../types/accountDerivation';
+import type { Wallet } from '../types/wallet';
 
 const purposeMap: Record<string, Array<number>> = {
   [IMPL_EVM]: [44],
@@ -70,6 +78,7 @@ const derivationPathTemplates: Record<string, string> = {
   // see https://aptos.dev/guides/building-your-own-wallet#supporting-1-mnemonic---n-account-wallets
   [COINTYPE_APTOS]: `m/44'/${COINTYPE_APTOS}'/${INCREMENT_LEVEL_TAG}'/0'/0'`,
   [COINTYPE_ETH]: `m/44'/${COINTYPE_ETH}'/0'/0/${INCREMENT_LEVEL_TAG}`,
+  [COINTYPE_ETC]: `m/44'/${COINTYPE_ETC}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_NEAR]: `m/44'/${COINTYPE_NEAR}'/${INCREMENT_LEVEL_TAG}'`,
   [COINTYPE_SOL]: `m/44'/${COINTYPE_SOL}'/${INCREMENT_LEVEL_TAG}'/0'`,
   [COINTYPE_STC]: `m/44'/${COINTYPE_STC}'/0'/0'/${INCREMENT_LEVEL_TAG}'`,
@@ -121,4 +130,91 @@ function getDefaultPurpose(impl: string): number {
   return (purposeMap[impl] || [44])[0];
 }
 
-export { getPath, getDefaultPurpose, derivationPathTemplates };
+/**
+ * m/44'/60'/x'/0/0 -> m/44'/60' for prefix, {index}/0/0 for suffix
+ * @param template derivation path template
+ * @returns string
+ */
+function slicePathTemplate(template: string) {
+  const [prefix, suffix] = template.split(INDEX_PLACEHOLDER);
+  return {
+    pathPrefix: prefix.slice(0, -1),
+    pathSuffix: `{index}${suffix}`,
+  };
+}
+
+function getNextAccountIdsWithAccountDerivation(
+  accountDerivation: DBAccountDerivation,
+  index: number,
+  purpose: string,
+  coinType: string,
+) {
+  const { template, accounts } = accountDerivation;
+  let nextId = index;
+  const impl = getImplByCoinType(coinType);
+  const containPath = (accountIndex: number) => {
+    let path: string;
+    if ([IMPL_EVM, IMPL_SOL].includes(impl)) {
+      path = template.replace(INDEX_PLACEHOLDER, accountIndex.toString());
+    } else {
+      path = getPath(purpose, coinType, accountIndex);
+    }
+    return accounts.find((account) => {
+      const accountIdPath = account.split(SEPERATOR)[1];
+      return path === accountIdPath;
+    });
+  };
+  while (containPath(nextId)) {
+    nextId += 1;
+  }
+
+  console.log('final nextId is : ', nextId);
+  return nextId;
+}
+
+function getNextAccountId(
+  nextAccountIds: Record<string, number> | undefined,
+  template?: string,
+) {
+  if (!nextAccountIds || !template) {
+    return 0;
+  }
+  return nextAccountIds?.[template] ?? 0;
+}
+
+// Get UTXO account last account id
+function getLastAccountId(wallet: Wallet, impl: string, template: string) {
+  const { category } = getAccountNameInfoByTemplate(impl, template);
+  const nextAccountId = getNextAccountId(wallet.nextAccountIds, template);
+  if (typeof nextAccountId !== 'undefined' && nextAccountId > 0) {
+    const lastAccountId = `${wallet.id}${SEPERATOR}m/${category}/${
+      nextAccountId - 1
+    }'`;
+    return lastAccountId;
+  }
+
+  return null;
+}
+
+function getAccountDerivationPrimaryKey({
+  walletId,
+  impl,
+  template,
+}: {
+  walletId: string;
+  impl: string;
+  template: string;
+}) {
+  return `${walletId}-${impl}-${template}`;
+}
+
+export {
+  getPath,
+  getDefaultPurpose,
+  derivationPathTemplates,
+  slicePathTemplate,
+  getNextAccountId,
+  getNextAccountIdsWithAccountDerivation,
+  getLastAccountId,
+  getAccountDerivationPrimaryKey,
+};

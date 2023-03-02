@@ -1,16 +1,18 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import type { Dispatch, FC, SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Collapse,
   Empty,
   SectionList,
+  Text,
   ToastManager,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -85,8 +87,83 @@ const EmptyAccountState: FC<EmptyAccountStateProps> = ({
   );
 };
 
-function AccountListItemSeparator() {
+function AccountListItemSeparator({
+  section,
+  dataSource,
+}: {
+  section: INetworkAccountSelectorAccountListSectionData;
+  dataSource: INetworkAccountSelectorAccountListSectionData[];
+}) {
+  const isCollapsed =
+    dataSource.find(
+      (i) => i.derivationInfo?.template === section.derivationInfo?.template,
+    )?.collapsed ?? false;
+  if (isCollapsed) {
+    return null;
+  }
   return <Box h={2} />;
+}
+
+function DerivationSectionHeader({
+  section,
+  setDataSource,
+}: {
+  section: INetworkAccountSelectorAccountListSectionData;
+  setDataSource: Dispatch<
+    SetStateAction<INetworkAccountSelectorAccountListSectionData[]>
+  >;
+}) {
+  const intl = useIntl();
+  const { derivationInfo } = section;
+  const title = useMemo(() => {
+    if (!derivationInfo) {
+      return null;
+    }
+    if (typeof derivationInfo.label === 'object' && derivationInfo.label?.id) {
+      return intl.formatMessage({ id: derivationInfo.label.id });
+    }
+    return derivationInfo.label;
+  }, [intl, derivationInfo]);
+  if (!section.data.length) return null;
+  return (
+    // @ts-expect-error
+    <Collapse
+      backgroundColor="background-default"
+      defaultCollapsed={false}
+      arrowPosition="right"
+      value={section.collapsed}
+      trigger={
+        <Text
+          typography={{ sm: 'Subheading', md: 'Subheading' }}
+          color="text-subdued"
+        >
+          {title}
+        </Text>
+      }
+      triggerWrapperProps={{
+        p: 0,
+        px: '7px',
+        borderRadius: 0,
+        mb: 2,
+      }}
+      onCollapseChange={(isCollapsed) => {
+        setDataSource((prev) => {
+          const newDataSource = [...prev];
+          const sectionIndex = newDataSource.findIndex(
+            (item) =>
+              item.derivationInfo?.template === derivationInfo?.template,
+          );
+          if (sectionIndex >= 0) {
+            newDataSource[sectionIndex] = {
+              ...newDataSource[sectionIndex],
+              collapsed: isCollapsed,
+            };
+          }
+          return newDataSource;
+        });
+      }}
+    />
+  );
 }
 
 function AccountList({
@@ -103,6 +180,14 @@ function AccountList({
   const data = useAccountSelectorSectionData({
     accountSelectorInfo,
   });
+  const [dataSource, setDataSource] = useState<
+    INetworkAccountSelectorAccountListSectionData[]
+  >([]);
+  useEffect(() => {
+    setDataSource(data);
+  }, [data]);
+
+  const hasMoreDerivationPath = useMemo(() => data.length > 1, [data]);
 
   useEffect(() => {
     if (data.length > 0) {
@@ -173,12 +258,39 @@ function AccountList({
           preloadingCreateAccount?.walletId === section?.wallet?.id &&
           preloadingCreateAccount?.networkId === section?.networkId,
       );
+      const template = section.derivationInfo?.template;
+      const isCollapsed = section.collapsed;
+      const sectionIndex = dataSource.findIndex(
+        (s) => s.derivationInfo?.template === template,
+      );
       return {
         isEmptySectionData,
         isPreloadingCreate,
+        template,
+        isCollapsed,
+        sectionIndex,
       };
     },
-    [preloadingCreateAccount?.networkId, preloadingCreateAccount?.walletId],
+    [
+      preloadingCreateAccount?.networkId,
+      preloadingCreateAccount?.walletId,
+      dataSource,
+    ],
+  );
+
+  const getDataSourceInfo = useCallback(() => {
+    const isEmptyDataSource = dataSource.every(
+      (section) => !section.data.length,
+    );
+
+    return {
+      isEmptyDataSource,
+    };
+  }, [dataSource]);
+
+  const ListItemSeparatorComponent = useCallback(
+    (props) => <AccountListItemSeparator {...props} dataSource={dataSource} />,
+    [dataSource],
   );
 
   // for performance: do NOT render UI if selector not open
@@ -196,7 +308,7 @@ function AccountList({
       //       itemIndex: itemIndex
       //     });
       stickySectionHeadersEnabled
-      sections={data}
+      sections={dataSource}
       keyExtractor={(item: IAccount) => item.id}
       renderSectionHeader={({
         section,
@@ -205,6 +317,14 @@ function AccountList({
         section: INetworkAccountSelectorAccountListSectionData;
       }) => {
         if (isListAccountsSingleWalletMode) {
+          if (hasMoreDerivationPath) {
+            return (
+              <DerivationSectionHeader
+                section={section}
+                setDataSource={setDataSource}
+              />
+            );
+          }
           return null;
         }
         const { isEmptySectionData, isPreloadingCreate } = getSectionMetaInfo({
@@ -228,13 +348,19 @@ function AccountList({
         // eslint-disable-next-line react/no-unused-prop-types
         section: INetworkAccountSelectorAccountListSectionData;
       }) => {
-        const { isPreloadingCreate } = getSectionMetaInfo({ section });
+        const { isPreloadingCreate, isCollapsed } = getSectionMetaInfo({
+          section,
+        });
         if (
           isPreloadingCreate &&
           preloadingCreateAccount &&
           preloadingCreateAccount?.accountId === item.id
         ) {
           // footer should render AccountSectionLoadingSkeleton, so here render null
+          return null;
+        }
+
+        if (isCollapsed) {
           return null;
         }
         return (
@@ -247,37 +373,40 @@ function AccountList({
             networkId={selectedNetworkId}
             walletId={section?.wallet?.id}
             label={item.name}
-            // TODO uppercase address
-            address={shortenAddress(item.address)}
+            address={shortenAddress(item.displayAddress || item.address)}
             // TODO wait Overview implements all accounts balance
             balance={undefined}
           />
         );
       }}
-      ItemSeparatorComponent={AccountListItemSeparator}
+      ItemSeparatorComponent={ListItemSeparatorComponent}
       renderSectionFooter={({
         section,
       }: {
         // eslint-disable-next-line react/no-unused-prop-types
         section: INetworkAccountSelectorAccountListSectionData;
       }) => {
-        const { isEmptySectionData, isPreloadingCreate } = getSectionMetaInfo({
-          section,
-        });
+        const { isEmptyDataSource } = getDataSourceInfo();
+        const { isEmptySectionData, isPreloadingCreate, sectionIndex } =
+          getSectionMetaInfo({
+            section,
+          });
         return (
           <>
             {isPreloadingCreate ? (
               <AccountSectionLoadingSkeleton isLoading />
             ) : null}
-
-            {isEmptySectionData && !isPreloadingCreate ? (
+            {/* only render EmptyState in first section footer */}
+            {isEmptyDataSource &&
+            isEmptySectionData &&
+            !isPreloadingCreate &&
+            sectionIndex === 0 ? (
               <EmptyAccountState
                 walletId={section.wallet.id}
                 networkId={section.networkId}
               />
             ) : null}
-
-            <Box h={6} />
+            {!isEmptySectionData && <Box h={8} />}
           </>
         );
       }}

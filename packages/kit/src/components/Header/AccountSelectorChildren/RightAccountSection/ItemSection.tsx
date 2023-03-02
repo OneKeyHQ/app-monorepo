@@ -110,6 +110,7 @@ const AccountSectionItem: FC<Props> = ({
           goToRemoveAccount({
             wallet: activeWallet,
             accountId: item.id,
+            networkId: activeNetwork?.id ?? '',
             callback: () =>
               refreshAccounts(activeWallet?.id ?? '', activeNetwork?.id ?? ''),
           });
