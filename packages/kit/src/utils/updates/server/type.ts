@@ -38,6 +38,7 @@ export interface Desktop {
   changelog: Changelog;
   mas: ChannelInfo;
   msStore: ChannelInfo;
+  snapStore: ChannelInfo;
 }
 
 export interface AppReleases {

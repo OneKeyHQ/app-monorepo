@@ -68,6 +68,16 @@ function handleReleaseInfo(
         forceUpdateVersion,
       });
     }
+    if (releasesVersion.desktop.snapStore) {
+      desktopPackages.push({
+        os: 'linux',
+        channel: 'LinuxSnap',
+        download: releasesVersion.desktop.win,
+        version: releasesVersion.desktop.version.join('.'),
+        forceUpdateVersion,
+      });
+    }
+
     if (releasesVersion.desktop.macX64) {
       desktopPackages.push({
         os: 'macos-x64',

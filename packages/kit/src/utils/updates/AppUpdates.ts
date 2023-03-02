@@ -29,7 +29,11 @@ class AppUpdates {
   addedListener = false;
 
   checkUpdate(isManual = false) {
-    if (platformEnv.isDesktop && !platformEnv.isMas) {
+    if (
+      platformEnv.isDesktop &&
+      !platformEnv.isMas &&
+      !platformEnv.isDesktopLinuxSnap
+    ) {
       this.checkDesktopUpdate(isManual);
     }
 
@@ -93,28 +97,32 @@ class AppUpdates {
     }
 
     if (platformEnv.isDesktop) {
-      if (platformEnv.isMas) {
-        packageInfo = releasePackages?.desktop?.find((x) => x.os === 'mas');
-      }
-      if (platformEnv.isDesktopLinux) {
+      if (platformEnv.isDesktopLinuxSnap) {
+        packageInfo = releasePackages?.desktop?.find(
+          (x) => x.os === 'linux' && x.channel === 'LinuxSnap',
+        );
+      } else if (platformEnv.isDesktopLinux) {
         packageInfo = releasePackages?.desktop?.find((x) => x.os === 'linux');
       }
-      if (platformEnv.isDesktopWin) {
+
+      if (platformEnv.isDesktopWinMsStore) {
+        packageInfo = releasePackages?.desktop?.find(
+          (x) => x.os === 'win' && x.channel === 'MsWindowsStore',
+        );
+      } else if (platformEnv.isDesktopWin) {
         packageInfo = releasePackages?.desktop?.find((x) => x.os === 'win');
       }
+
       if (platformEnv.isMas) {
         packageInfo = releasePackages?.desktop?.find((x) => x.os === 'mas');
-      } else {
-        if (platformEnv.isDesktopMac) {
-          packageInfo = releasePackages?.desktop?.find(
-            (x) => x.os === 'macos-x64',
-          );
-        }
-        if (platformEnv.isDesktopMacArm64) {
-          packageInfo = releasePackages?.desktop?.find(
-            (x) => x.os === 'macos-arm64',
-          );
-        }
+      } else if (platformEnv.isDesktopMacArm64) {
+        packageInfo = releasePackages?.desktop?.find(
+          (x) => x.os === 'macos-arm64',
+        );
+      } else if (platformEnv.isDesktopMac) {
+        packageInfo = releasePackages?.desktop?.find(
+          (x) => x.os === 'macos-x64',
+        );
       }
     }
 
@@ -129,11 +137,9 @@ class AppUpdates {
           (x) => x.os === 'chrome',
         );
       }
-      // if (platformEnv.isExtEdge) {
-      //   packageInfo = releasePackages?.extension?.find(
-      //     (x) => x.os === 'edge',
-      //   );
-      // }
+      if (platformEnv.isExtEdge) {
+        packageInfo = releasePackages?.extension?.find((x) => x.os === 'edge');
+      }
     }
 
     return packageInfo;

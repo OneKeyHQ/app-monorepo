@@ -13,6 +13,7 @@ export type IDistributionChannel =
   | 'desktop-win'
   | 'desktop-win-ms-store'
   | 'desktop-linux'
+  | 'desktop-linux-snap'
   | 'native-ios'
   | 'native-ios-store'
   | 'native-android'
@@ -50,6 +51,7 @@ export type IPlatformEnv = {
   isNative?: boolean;
 
   isDesktopLinux?: boolean;
+  isDesktopLinuxSnap?: boolean;
   isDesktopWin?: boolean;
   isDesktopWinMsStore?: boolean;
   /** macos arm64 & x86 */
@@ -61,6 +63,7 @@ export type IPlatformEnv = {
 
   isExtFirefox?: boolean;
   isExtChrome?: boolean;
+  isExtEdge?: boolean;
   isExtFirefoxUiPopup?: boolean;
 
   /** ios, both tablet & iPhone */
@@ -112,9 +115,11 @@ const isExtEdge = process.env.EXT_CHANNEL === 'edge';
 const isDesktopMac = isDesktop && window?.desktopApi?.platform === 'darwin';
 const isDesktopMacArm64 = isDesktopMac && window?.desktopApi?.arch === 'arm64';
 const isDesktopWin = isDesktop && window?.desktopApi?.platform === 'win32';
-const isDesktopLinux = isDesktop && window?.desktopApi?.platform === 'linux';
 const isDesktopWinMsStore =
   isDesktopWin && process.env.DESK_CHANNEL === 'ms-store';
+const isDesktopLinux = isDesktop && window?.desktopApi?.platform === 'linux';
+const isDesktopLinuxSnap =
+  isDesktopLinux && window?.desktopApi?.channel === 'snap';
 
 const isNativeIOS = isNative && Platform.OS === 'ios';
 const isNativeIOSStore = isNativeIOS && isProduction;
@@ -143,10 +148,11 @@ const getDistributionChannel = (): IDistributionChannel | undefined => {
   if (isExtFirefox) return 'ext-firefox';
   if (isExtEdge) return 'ext-edge';
 
-  if (isDesktopWinMsStore) return 'desktop-win-ms-store';
   if (isDesktopMacArm64) return 'desktop-mac-arm64';
   if (isDesktopMac) return 'desktop-mac';
+  if (isDesktopWinMsStore) return 'desktop-win-ms-store';
   if (isDesktopWin) return 'desktop-win';
+  if (isDesktopLinuxSnap) return 'desktop-linux-snap';
   if (isDesktopLinux) return 'desktop-linux';
 
   if (isNativeIOSPadStore) return 'native-ios-pad-store';
@@ -266,6 +272,7 @@ const platformEnv: IPlatformEnv = {
   isDesktopWinMsStore,
   isDesktopMacArm64,
   isDesktopLinux,
+  isDesktopLinuxSnap,
   isMas,
 
   isExtFirefox,

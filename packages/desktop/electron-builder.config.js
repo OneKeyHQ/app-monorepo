@@ -94,6 +94,9 @@ module.exports = {
     'verifyUpdateCodeSignature': false,
     'target': ['nsis'],
   },
+  'snap': {
+    'grade': 'stable',
+  },
   'linux': {
     'extraResources': [
       {
@@ -105,7 +108,7 @@ module.exports = {
     'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',
     'executableName': 'onekey-wallet',
     'category': 'Utility',
-    'target': ['AppImage'],
+    'target': ['AppImage', 'snap'],
   },
   'afterSign': 'scripts/notarize.js',
 };

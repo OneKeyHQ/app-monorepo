@@ -19,6 +19,7 @@ export type Channel =
   | 'ChromeWebStore'
   | 'MozillaAddOns'
   | 'MsWindowsStore'
+  | 'LinuxSnap'
   | 'Direct';
 
 export interface PackageInfo {
