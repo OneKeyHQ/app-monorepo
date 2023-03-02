@@ -339,6 +339,12 @@ class Provider {
           decoded.data.length === 20
         ) {
           encoding = AddressEncodings.P2WPKH;
+        } else if (
+          decoded.version === 0x01 &&
+          decoded.prefix === 'bc' &&
+          decoded.data.length === 32
+        ) {
+          encoding = AddressEncodings.P2TR;
         }
       } catch (_) {
         // ignore error
