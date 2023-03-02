@@ -426,14 +426,26 @@ class Validators {
     highValue?: string;
     minValue?: string;
   }): Promise<void> {
-    const valueBN = new BigNumber(value);
-    const minAmount = minValue || '0';
+    const vaultSettings = await this.engine.getVaultSettings(networkId);
+    const { minGasPrice } = vaultSettings.subNetworkSettings?.[networkId] || {};
+
+    let minAmount = minGasPrice || minValue || '0';
     if (
-      !valueBN ||
-      valueBN.isNaN() ||
-      valueBN.isLessThanOrEqualTo('0') ||
-      valueBN.isLessThan(minAmount)
+      minValue &&
+      minGasPrice &&
+      new BigNumber(minValue).isGreaterThan(minGasPrice)
     ) {
+      minAmount = minValue;
+    }
+
+    const valueBN = new BigNumber(value);
+    if (!minGasPrice && valueBN.isLessThanOrEqualTo(0)) {
+      throw new OneKeyValidatorError('form__gas_price_invalid_min_str', {
+        0: 0,
+      });
+    }
+
+    if (!valueBN || valueBN.isNaN() || valueBN.isLessThan(minAmount)) {
       throw new OneKeyValidatorError('form__gas_price_invalid_min_str', {
         0: minAmount,
       });

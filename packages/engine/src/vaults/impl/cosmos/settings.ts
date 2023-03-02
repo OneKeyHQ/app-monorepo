@@ -29,6 +29,12 @@ const settings: IVaultSettings = Object.freeze({
       coinType: COINTYPE_COSMOS,
     },
   },
+
+  subNetworkSettings: {
+    'cosmos--osmosis-1': {
+      minGasPrice: '0',
+    },
+  },
 });
 
 export default settings;

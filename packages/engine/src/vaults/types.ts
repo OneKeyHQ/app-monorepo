@@ -40,6 +40,7 @@ import type { IEncodedTxXrp } from './impl/xrp/types';
 // Options ----------------------------------------------
 export type IVaultSubNetworkSettings = {
   isIntegerGasPrice?: boolean;
+  minGasPrice?: string;
 };
 export type IVaultSettings = {
   accountNameInfo: Record<string, AccountNameInfo>;
@@ -60,6 +61,7 @@ export type IVaultSettings = {
   activateTokenRequired?: boolean;
 
   minGasLimit?: number;
+  minGasPrice?: string;
 
   cannotSendToSelf?: boolean;
 
