@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import { format as dateFormat } from 'date-fns';
+import { format as dateFormat, isValid as dateIsValid } from 'date-fns';
 import { useIntl } from 'react-intl';
 
 import {
@@ -202,8 +202,12 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
     const athDate = new Date(ath?.time ?? '');
     const atlDate = new Date(atl?.time ?? '');
     return {
-      athTime: ath ? dateFormat(athDate, 'yyyy-MM-dd') : undefined,
-      atlTime: atl ? dateFormat(atlDate, 'yyyy-MM-dd') : undefined,
+      athTime: dateIsValid(athDate)
+        ? dateFormat(athDate, 'yyyy-MM-dd')
+        : undefined,
+      atlTime: dateIsValid(atlDate)
+        ? dateFormat(atlDate, 'yyyy-MM-dd')
+        : undefined,
     };
   }, [ath, atl]);
   return (
