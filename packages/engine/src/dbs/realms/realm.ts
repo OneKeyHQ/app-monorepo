@@ -96,7 +96,7 @@ import type {
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -875,28 +875,14 @@ class RealmDB implements DBAPI {
               accountDerivation.accounts.push(account.id);
             }
 
-            console.log('accountDerivation: ', accountDerivation);
             let nextId = wallet.nextAccountIds![template] || 0;
-            console.log('nextId before: ', nextId);
             nextId = getNextAccountIdsWithAccountDerivation(
               accountDerivation?.internalObj ?? ({} as DBAccountDerivation),
               nextId,
               purpose,
               coinType,
             );
-            console.log('nextId after: ', nextId);
             wallet.nextAccountIds![template] = nextId;
-
-            // let nextId = wallet.nextAccountIds![category] || 0;
-            // while (
-            //   wallet.accounts!.filtered(
-            //     'id == $0',
-            //     `${walletId}--${getPath(purpose, coinType, nextId)}`,
-            //   )?.length > 0
-            // ) {
-            //   nextId += 1;
-            // }
-            // wallet.nextAccountIds![category] = nextId;
             break;
           }
           case WALLET_TYPE_IMPORTED: {
