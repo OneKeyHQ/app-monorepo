@@ -2,7 +2,6 @@ import { Buffer } from 'buffer';
 
 import fetch from 'cross-fetch';
 import timeoutSignal from 'timeout-signal';
-import { URL, URLSearchParams } from 'whatwg-url';
 
 import { ResponseError } from '@onekeyhq/shared/src/errors/request-errors';
 
