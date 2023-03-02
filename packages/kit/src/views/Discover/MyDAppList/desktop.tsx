@@ -30,6 +30,7 @@ import DAppIcon from '../DAppIcon';
 import { useDiscoverFavorites, useUserBrowserHistories } from '../hooks';
 
 import { MyDAppListContext } from './context';
+import { getUrlHost } from './utils';
 
 import type { ShowMenuProps } from '../../Overlay/Discover/type';
 import type { MatchDAppItemType } from '../Explorer/explorerUtils';
@@ -75,7 +76,7 @@ const RenderItem: FC<RenderItemProps> = ({ item, cardWidth, callback }) => {
   if (item.dapp) {
     description = t(item.dapp._subtitle) ?? item.dapp.subtitle;
   } else if (url) {
-    description = new URL(url).host;
+    description = getUrlHost(url);
   }
 
   return (
@@ -112,7 +113,12 @@ const RenderItem: FC<RenderItemProps> = ({ item, cardWidth, callback }) => {
         </Box>
         <Box>
           <Box flexDirection="row">
-            <DAppIcon size={48} url={logoURL} networkIds={networkIds} />
+            <DAppIcon
+              key={logoURL}
+              size={48}
+              url={logoURL}
+              networkIds={networkIds}
+            />
             <Box ml="3" flex="1">
               <Typography.Body2Strong flex={1} numberOfLines={1} mb="1">
                 {name}
@@ -136,6 +142,7 @@ const RenderItem: FC<RenderItemProps> = ({ item, cardWidth, callback }) => {
 
 const Favorites = () => {
   const data = useDiscoverFavorites();
+
   const { width } = useWindowDimensions();
   const screenWidth = width - 64 - 224;
   const minWidth = 250;

@@ -57,6 +57,7 @@ export type ITxActionAmountProps = ComponentProps<typeof Text> & {
 export type ITxActionElementDetail = {
   title: JSX.Element | string;
   content: JSX.Element | string;
+  extra?: JSX.Element | string;
 };
 
 export type ITxActionCardViewProps = {

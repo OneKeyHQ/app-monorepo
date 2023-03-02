@@ -302,12 +302,16 @@ export class SwapQuoter {
   parseRequestId(res: AxiosResponse<any, any>): string | undefined {
     try {
       const { headers } = res.config;
-      const data = headers?.['X-Request-By'];
-      if (typeof data === 'string') {
-        const meta = JSON.parse(data);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-        return meta['x-onekey-request-id'];
+      let requestId = headers?.['x-onekey-request-id'] as string | undefined;
+      if (!requestId) {
+        const data = headers?.['X-Request-By'];
+        if (typeof data === 'string') {
+          const meta = JSON.parse(data);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+          requestId = meta['x-onekey-request-id'];
+        }
       }
+      return requestId;
     } catch (e: any) {
       debugLogger.common.error(
         'Failed to get request id with reason',

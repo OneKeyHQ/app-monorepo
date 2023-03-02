@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Box, Form, Modal, ToastManager, useForm } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useAppSelector } from '../../../hooks';
 
 import type { DiscoverModalRoutes, DiscoverRoutesParams } from '../type';
 import type { RouteProp } from '@react-navigation/native';
@@ -19,7 +20,13 @@ export const EditBookmark = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
-  const { bookmark } = route.params;
+  const bookmarks = useAppSelector((s) => s.discover.bookmarks);
+
+  const bookmark = useMemo(() => {
+    const item = bookmarks?.find((o) => o.id === route.params.bookmark.id);
+    return item ?? route.params.bookmark;
+  }, [route.params.bookmark, bookmarks]);
+
   const {
     control,
     handleSubmit,
@@ -81,6 +88,12 @@ export const EditBookmark = () => {
             name="url"
             label={intl.formatMessage({ id: 'form__url' })}
             rules={{
+              pattern: {
+                value: /https?:\/\//,
+                message: intl.formatMessage({
+                  id: 'form__blockchain_explorer_url_invalid',
+                }),
+              },
               required: {
                 value: true,
                 message: intl.formatMessage({

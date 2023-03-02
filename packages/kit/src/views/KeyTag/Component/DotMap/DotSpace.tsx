@@ -31,7 +31,11 @@ const DotSpace: FC<DotSpaceProps> = ({
       disabled={disabled}
       onPress={() => {
         setOpenLight((pre) => !pre);
-        if (onClickSpace) onClickSpace(!openLight);
+        if (onClickSpace) {
+          setTimeout(() => {
+            onClickSpace(!openLight);
+          }, 0);
+        }
       }}
     >
       {({ isHovered, isPressed }) => (
