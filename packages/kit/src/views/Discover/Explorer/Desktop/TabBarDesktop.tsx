@@ -10,7 +10,7 @@ import {
   closeWebTab,
   setCurrentWebTab,
 } from '../../../../store/reducers/webTabs';
-import { addNewWebTab } from '../explorerUtils';
+import { addNewBlankWebTab } from '../explorerUtils';
 
 import type { WebTab } from '../../../../store/reducers/webTabs';
 import type { LayoutChangeEvent } from 'react-native';
@@ -82,7 +82,7 @@ const AddTabButton = () => (
     borderRadius={0}
     type="plain"
     leftIconName="PlusMini"
-    onPress={() => addNewWebTab()}
+    onPress={addNewBlankWebTab}
   />
 );
 

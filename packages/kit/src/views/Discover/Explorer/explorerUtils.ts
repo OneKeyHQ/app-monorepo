@@ -233,3 +233,5 @@ export const addNewWebTab = (tabData?: Partial<WebTab>) => {
     }),
   );
 };
+
+export const addNewBlankWebTab = () => addNewWebTab();

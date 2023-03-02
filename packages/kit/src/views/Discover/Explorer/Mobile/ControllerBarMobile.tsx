@@ -39,7 +39,7 @@ import {
   showTabGrid,
   showTabGridAnim,
 } from '../explorerAnimation';
-import { addNewWebTab } from '../explorerUtils';
+import { addNewBlankWebTab } from '../explorerUtils';
 import { showWebMoreMenu } from '../MoreMenu';
 
 export const ControllerBarMobile: FC = () => {
@@ -95,7 +95,7 @@ export const ControllerBarMobile: FC = () => {
         flex={1}
         type="plain"
         disabled={reachedTabLimit}
-        onPress={() => addNewWebTab()}
+        onPress={addNewBlankWebTab}
         iconSize={26}
         name="PlusCircleMini"
       />
@@ -184,7 +184,7 @@ export const ControllerBarMobile: FC = () => {
         flex={1}
         type="plain"
         disabled={reachedTabLimit}
-        onPress={() => addNewWebTab()}
+        onPress={addNewBlankWebTab}
         iconSize={26}
         name="PlusCircleMini"
       />
