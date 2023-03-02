@@ -2465,7 +2465,10 @@ class IndexedDBApi implements DBAPI {
             const accountDerivation = getExistRecordRequest.result;
             if (accountDerivation) {
               // skip update record when accountId already exist
-              if (accountDerivation.accounts.includes(accountId)) {
+              if (
+                Array.isArray(accountDerivation.accounts) &&
+                accountDerivation.accounts.includes(accountId)
+              ) {
                 resolve();
                 return;
               }

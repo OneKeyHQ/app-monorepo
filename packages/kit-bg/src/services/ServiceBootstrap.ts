@@ -206,6 +206,7 @@ export default class ServiceBootstrap extends ServiceBase {
       );
 
       for (const wallet of hdOrHwWallets) {
+        debugLogger.common.info(`migrate wallet: ${JSON.stringify(wallet)}`);
         // update accounts
         const accounts = await dbApi.getAccounts(wallet.accounts);
         for (const account of accounts) {
