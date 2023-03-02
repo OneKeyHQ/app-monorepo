@@ -1,3 +1,9 @@
+import {
+  COINTYPE_BTC,
+  INDEX_PLACEHOLDER,
+} from '@onekeyhq/shared/src/engine/engineConsts';
+
+import type { AccountNameInfo } from '../../../types/network';
 import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = Object.freeze({
@@ -14,6 +20,43 @@ const settings: IVaultSettings = Object.freeze({
   minTransferAmount: '0.00000546',
 
   isUTXOModel: true,
+
+  accountNameInfo: {
+    default: {
+      prefix: 'BTC Nested SegWit',
+      category: `49'/${COINTYPE_BTC}'`,
+      template: `m/49'/${COINTYPE_BTC}'/${INDEX_PLACEHOLDER}'/0/0`,
+      coinType: COINTYPE_BTC,
+      label: 'Nested SegWit',
+      desc: {
+        id: 'form__bitcoin__nested_segwit_desc',
+        placeholder: { 0: '3' },
+      },
+      subDesc: 'BIP49, P2SH-P2WPKH, Base58.',
+    },
+    BIP84: {
+      prefix: 'BTC Native SegWit',
+      category: `84'/${COINTYPE_BTC}'`,
+      template: `m/84'/${COINTYPE_BTC}'/${INDEX_PLACEHOLDER}'/0/0`,
+      coinType: COINTYPE_BTC,
+      label: 'Native SegWit',
+      desc: {
+        id: 'form__bitcoin__native_segwit_desc',
+        placeholder: { 0: 'bc1' },
+      },
+      subDesc: 'BIP84, P2WPKH, Bech32.',
+    },
+    BIP44: {
+      prefix: 'BTC Legacy',
+      category: `44'/${COINTYPE_BTC}'`,
+      template: `m/44'/${COINTYPE_BTC}'/${INDEX_PLACEHOLDER}'/0/0`,
+      coinType: COINTYPE_BTC,
+      label: 'Legacy',
+      desc: { id: 'form__bitcoin__legacy_desc', placeholder: { 0: '1' } },
+      subDesc: 'BIP44, P2PKH, Base58.',
+      notRecommended: true,
+    },
+  } as Record<string, AccountNameInfo>,
 });
 
 export default settings;

@@ -16,6 +16,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
+import { getNextAccountId } from '@onekeyhq/engine/src/managers/derivation';
 import type { IAccount } from '@onekeyhq/engine/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
@@ -111,6 +112,16 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       ),
     [networks, selectableNetworks, watchNetwork],
   );
+
+  const template = useMemo(() => {
+    if (selectedNetwork && watchAddressType) {
+      return (
+        selectedNetwork.accountNameInfo[watchAddressType].template ||
+        selectedNetwork.accountNameInfo.default.template
+      );
+    }
+    return '';
+  }, [selectedNetwork, watchAddressType]);
   const [purpose, setPurpose] = useState(44);
   const [cannotCreateAccountReason, setCannotCreateAccountReason] =
     useState('');
@@ -120,8 +131,14 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       for (const [key, value] of Object.entries(
         selectedNetwork.accountNameInfo,
       )) {
+        let label = '';
+        if (typeof value.label === 'string') {
+          label = value.label;
+        } else if (typeof value.label === 'object') {
+          label = intl.formatMessage({ id: value.label?.id });
+        }
         ret.push({
-          label: value.label || '',
+          label,
           value: key,
           description: value.addressPrefix
             ? intl.formatMessage(
@@ -142,7 +159,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
           selectedNetwork.accountNameInfo[watchAddressType] ||
           selectedNetwork.accountNameInfo.default;
         if (typeof prefix !== 'undefined') {
-          const id = wallet?.nextAccountIds?.[category] || 0;
+          const id: number = getNextAccountId(wallet?.nextAccountIds, template);
           setValue('name', `${prefix} #${id + 1}`);
           const usedPurpose = parseInt(category.split("'/")[0]);
           setPurpose(usedPurpose);
@@ -151,7 +168,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
             await backgroundApiProxy.validator.validateCanCreateNextAccount(
               selectedWalletId,
               selectedNetwork.id,
-              usedPurpose,
+              template,
             );
             setCannotCreateAccountReason('');
           } catch ({ key, info }) {
@@ -178,6 +195,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
     watchAddressType,
     setValue,
     setPurpose,
+    template,
   ]);
 
   const addressTypeHelpLink = useHelpLink({ path: 'articles/360002057776' });
@@ -205,6 +223,8 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
             undefined,
             [name],
             purpose,
+            false,
+            template,
           )
           .then((acc) => {
             addedAccount = acc?.[0];
@@ -226,7 +246,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       }, 10);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [getValues, selectedWalletId, purpose, dispatch, intl, networks],
+    [getValues, selectedWalletId, purpose, dispatch, intl, networks, template],
   );
 
   const onSubmit = handleSubmit(() => {
@@ -325,6 +345,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
                             network,
                             password,
                             purpose,
+                            template,
                           },
                         );
                       },

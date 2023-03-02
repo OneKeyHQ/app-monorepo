@@ -59,9 +59,17 @@ import type { VaultBase } from './VaultBase';
 import type { VaultHelperBase } from './VaultHelperBase';
 
 export function createVaultSettings(options: {
-  networkId: string;
+  networkId?: string;
+  impl?: string;
 }): IVaultSettings {
-  const impl = getNetworkImpl(options.networkId);
+  if (!options.impl && !options.networkId) {
+    throw new Error('networkId and impl require at least one parameter');
+  }
+  let { impl } = options;
+  if (options.networkId) {
+    impl = getNetworkImpl(options.networkId);
+  }
+
   if (impl === IMPL_EVM) {
     return require('./impl/evm/settings').default as IVaultSettings;
   }
@@ -120,7 +128,9 @@ export function createVaultSettings(options: {
     return require('./impl/dot/settings').default as IVaultSettings;
   }
   throw new OneKeyInternalError(
-    `VaultSettings not found for: networkId=${options.networkId}`,
+    `VaultSettings not found for: networkId=${options.networkId ?? ''}, impl=${
+      impl ?? ''
+    }`,
   );
 }
 

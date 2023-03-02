@@ -20,7 +20,6 @@ export { CreateAccountModalRoutes };
 type RecoverAccountsAdvancedParams = {
   fromIndex: number;
   generateCount?: number;
-  showPathAndLink: boolean;
 };
 
 export type CreateAccountRoutesParams = {
@@ -40,6 +39,7 @@ export type CreateAccountRoutesParams = {
     network: string;
     password: string;
     purpose: number;
+    template: string;
   };
   [CreateAccountModalRoutes.RecoverAccountsAdvanced]: RecoverAccountsAdvancedParams & {
     onApply: (options: RecoverAccountsAdvancedParams) => void;
@@ -52,6 +52,7 @@ export type CreateAccountRoutesParams = {
     walletId: string;
     network: string;
     purpose: number;
+    template: string;
     existingAccounts: Account[];
     config: RecoverAccountsAdvancedParams;
   };

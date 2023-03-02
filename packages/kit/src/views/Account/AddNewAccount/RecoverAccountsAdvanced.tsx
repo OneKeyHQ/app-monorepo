@@ -37,7 +37,6 @@ type NavigationProps = NativeStackNavigationProp<
 type FromValues = {
   fromIndex: string;
   generateCount?: string;
-  showPathAndLink: boolean;
 };
 
 export const FROM_INDEX_MAX = 2 ** 31;
@@ -48,7 +47,7 @@ const RecoverAccountsAdvanced: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
-  const { fromIndex, generateCount, showPathAndLink, onApply } = route.params;
+  const { fromIndex, generateCount, onApply } = route.params;
 
   const [configGenerateCount] = useState([10, 50, 100]);
 
@@ -63,7 +62,6 @@ const RecoverAccountsAdvanced: FC = () => {
     defaultValues: {
       fromIndex: `${fromIndex}`,
       generateCount: generateCount ? `${generateCount}` : undefined,
-      showPathAndLink,
     },
     mode: 'onChange',
   });
@@ -130,7 +128,6 @@ const RecoverAccountsAdvanced: FC = () => {
         generateCount: data.generateCount
           ? parseInt(`${data.generateCount}`)
           : undefined,
-        showPathAndLink: data.showPathAndLink,
       });
     },
     [intl, navigation, onApply, setError, validateFromIndexTooLarge],
@@ -278,16 +275,6 @@ const RecoverAccountsAdvanced: FC = () => {
               keyboardType="number-pad"
               size={isSmallScreen ? 'xl' : 'default'}
               rightCustomElement={generateCountButton}
-            />
-          </Form.Item>
-          <Form.Item name="showPathAndLink" control={control}>
-            <Form.Switch
-              isFullMode
-              labelType="before"
-              label={intl.formatMessage({
-                id: 'form__show_path_and_link',
-                defaultMessage: 'Show Path and Link',
-              })}
             />
           </Form.Item>
         </Form>

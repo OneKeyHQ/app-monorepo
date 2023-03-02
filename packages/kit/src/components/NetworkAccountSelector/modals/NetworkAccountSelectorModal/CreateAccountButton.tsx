@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { IconButton } from '@onekeyhq/components';
+import AccountSelectorWalletMenu from '@onekeyhq/kit/src/views/Overlay/Accounts/AccountSelectorWalletMenu';
 import { isExternalWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -18,11 +19,12 @@ export function CreateAccountButton({
   isLoading?: boolean;
 }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
-    networkId,
-    walletId,
-    isFromAccountSelector: true,
-  });
+  const { createAccount, isCreateAccountSupported, showCreateAccountMenu } =
+    useCreateAccountInWallet({
+      networkId,
+      walletId,
+      isFromAccountSelector: true,
+    });
   const isExternal = useMemo(() => {
     if (!walletId) {
       return false;
@@ -75,15 +77,28 @@ export function CreateAccountButton({
       {/* TODO move to parent */}
       {initWalletServiceRef.current}
 
-      <IconButton
-        testID="NetworkAccountSelectorModal-CreateAccountButton"
-        isLoading={buttonIsLoading}
-        onPress={buttonOnPress}
-        type="plain"
-        name={isCreateAccountSupported ? 'PlusMini' : 'BanMini'}
-        circle
-        hitSlop={8}
-      />
+      {showCreateAccountMenu ? (
+        <AccountSelectorWalletMenu networkId={networkId} walletId={walletId}>
+          <IconButton
+            testID="NetworkAccountSelectorModal-CreateAccountButton"
+            isLoading={buttonIsLoading}
+            type="plain"
+            name={isCreateAccountSupported ? 'PlusCircleOutline' : 'BanMini'}
+            circle
+            hitSlop={8}
+          />
+        </AccountSelectorWalletMenu>
+      ) : (
+        <IconButton
+          testID="NetworkAccountSelectorModal-CreateAccountButton"
+          isLoading={buttonIsLoading}
+          onPress={buttonOnPress}
+          type="plain"
+          name={isCreateAccountSupported ? 'PlusCircleOutline' : 'BanMini'}
+          circle
+          hitSlop={8}
+        />
+      )}
     </>
   );
 }

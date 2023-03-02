@@ -18,6 +18,8 @@ import {
   OneKeyHardwareError,
   OneKeyInternalError,
 } from '../../../errors';
+import { slicePathTemplate } from '../../../managers/derivation';
+import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
@@ -97,12 +99,13 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<Array<DBUTXOAccount>> {
-    const { indexes, purpose, names } = params;
+    const impl = await this.getNetworkImpl();
+    const { indexes, purpose, names, template } = params;
     const usedPurpose = purpose || DEFAULT_PURPOSE;
     const ignoreFirst = indexes[0] !== 0;
     const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
-    const { namePrefix, addressEncoding } =
-      getAccountDefaultByPurpose(usedPurpose);
+    const { addressEncoding } = getAccountDefaultByPurpose(usedPurpose);
+    const { prefix: namePrefix } = getAccountNameInfoByTemplate(impl, template);
     const provider = (await this.engine.providerManager.getProvider(
       this.networkId,
     )) as Provider;
@@ -112,9 +115,10 @@ export class KeyringHardware extends KeyringHardwareBase {
       const { connectId, deviceId } = await this.getHardwareInfo();
       const passphraseState = await this.getWalletPassphraseState();
       const HardwareSDK = await this.getHardwareSDKInstance();
+      const { pathPrefix } = slicePathTemplate(template);
       response = await HardwareSDK.btcGetPublicKey(connectId, deviceId, {
         bundle: usedIndexes.map((index) => ({
-          path: `m/${usedPurpose}'/${COIN_TYPE}'/${index}'`,
+          path: `${pathPrefix}/${index}'`,
           showOnOneKey: false,
         })),
         ...passphraseState,
@@ -153,6 +157,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           xpub,
           address,
           addresses: { [firstAddressRelPath]: address },
+          template,
         });
       }
 

@@ -19,7 +19,10 @@ import type {
   PartialTokenInfo,
   TxInput,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
-import { COINTYPE_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_BTC,
+  SEPERATOR,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
@@ -27,7 +30,14 @@ import {
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
+  PreviousAccountIsEmpty,
 } from '../../../errors';
+import {
+  getDefaultPurpose,
+  getLastAccountId,
+  getNextAccountId,
+} from '../../../managers/derivation';
+import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { EVMDecodedTxType } from '../../impl/evm/decoder/types';
 import {
   IDecodedTxActionType,
@@ -154,6 +164,31 @@ export default class VaultBtcFork extends VaultBase {
       // ignore
     }
     return Promise.resolve(ret);
+  }
+
+  override async validateCanCreateNextAccount(
+    walletId: string,
+    template: string,
+  ): Promise<boolean> {
+    const [wallet, network] = await Promise.all([
+      this.engine.getWallet(walletId),
+      this.engine.getNetwork(this.networkId),
+    ]);
+    const lastAccountId = getLastAccountId(wallet, network.impl, template);
+    if (!lastAccountId) return true;
+
+    const [lastAccount] = (await this.engine.dbApi.getAccounts([
+      lastAccountId,
+    ])) as DBUTXOAccount[];
+    if (typeof lastAccount !== 'undefined') {
+      const accountExisted = await this.checkAccountExistence(lastAccount.xpub);
+      if (!accountExisted) {
+        const { label } = getAccountNameInfoByTemplate(network.impl, template);
+        throw new PreviousAccountIsEmpty(label as string);
+      }
+    }
+
+    return true;
   }
 
   override async checkAccountExistence(
@@ -690,5 +725,32 @@ export default class VaultBtcFork extends VaultBase {
 
   override getPrivateKeyByCredential(credential: string) {
     return bs58check.decode(credential);
+  }
+
+  override async canAutoCreateNextAccount(password: string): Promise<boolean> {
+    const [wallet, network] = await Promise.all([
+      this.engine.getWallet(this.walletId),
+      this.engine.getNetwork(this.networkId),
+    ]);
+    const accountInfos = await this.getAccountNameInfoMap();
+
+    if (wallet.type !== 'hd') return false;
+
+    const usedPurpose = getDefaultPurpose(network.impl);
+    const { template } = accountInfos.default;
+    const nextIndex = wallet.nextAccountIds[template] || 0;
+
+    const accounts = await this.keyring.prepareAccounts({
+      type: 'SEARCH_ACCOUNTS',
+      password,
+      indexes: [nextIndex],
+      purpose: usedPurpose,
+      coinType: COINTYPE_BTC,
+      template,
+    });
+    const accountUsed = await this.checkAccountExistence(
+      (accounts?.[0] as DBUTXOAccount).xpub,
+    );
+    return accountUsed;
   }
 }
