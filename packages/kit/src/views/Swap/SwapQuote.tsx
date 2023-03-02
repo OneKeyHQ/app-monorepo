@@ -457,7 +457,7 @@ const SwapQuote = () => {
                     : null}
                   ({swapSlippagePercent}%)
                 </Typography.Body2>
-                <Icon size={16} name="PencilAltOutline" />
+                <Icon size={16} name="ChevronRightOutline" />
               </Pressable>
             </Box>
           </Box>
