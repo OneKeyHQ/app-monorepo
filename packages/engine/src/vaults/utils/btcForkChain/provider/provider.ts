@@ -16,6 +16,8 @@ import type {
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import { AddressEncodings } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
+import { isTaprootXpubSegwit } from '../utils';
+
 import { getBlockBook } from './blockbook';
 import { getNetwork } from './networks';
 import ecc from './nobleSecp256k1Wrapper';
@@ -247,11 +249,19 @@ class Provider {
     params: GetAccountParams,
     addressEncoding?: AddressEncodings,
   ) {
-    const decodedXpub = bs58check.decode(params.xpub);
-    check(this.isValidXpub(decodedXpub));
-    const versionBytes = parseInt(decodedXpub.slice(0, 4).toString('hex'), 16);
-    const encoding =
-      addressEncoding ?? this.versionBytesToEncodings.public[versionBytes][0];
+    let encoding = addressEncoding;
+    if (isTaprootXpubSegwit(params.xpub)) {
+      encoding = AddressEncodings.P2TR;
+    } else {
+      const decodedXpub = bs58check.decode(params.xpub);
+      check(this.isValidXpub(decodedXpub));
+      const versionBytes = parseInt(
+        decodedXpub.slice(0, 4).toString('hex'),
+        16,
+      );
+      encoding =
+        addressEncoding ?? this.versionBytesToEncodings.public[versionBytes][0];
+    }
     check(typeof encoding !== 'undefined');
 
     let usedXpub = params.xpub;
@@ -264,6 +274,9 @@ class Provider {
         break;
       case AddressEncodings.P2WPKH:
         usedXpub = `wpkh(${params.xpub})`;
+        break;
+      case AddressEncodings.P2TR:
+        usedXpub = params.xpub;
         break;
       default:
       // no-op

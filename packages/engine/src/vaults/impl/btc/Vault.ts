@@ -53,6 +53,10 @@ export default class Vault extends VaultBtcFork {
     return 150;
   }
 
+  override getAccountXpub(account: DBUTXOAccount): string {
+    return account.xpubSegwit || account.xpub;
+  }
+
   override async canAutoCreateNextAccount(password: string): Promise<boolean> {
     const wallet = await this.engine.getWallet(this.walletId);
     const accountInfos = await this.getAccountNameInfoMap();

@@ -108,6 +108,10 @@ export default class VaultBtcFork extends VaultBase {
     return 600;
   }
 
+  getAccountXpub(account: DBUTXOAccount) {
+    return account.xpub;
+  }
+
   async getProvider() {
     const rpcURL = await this.getRpcUrl();
     let currentProviderRpcUrl = '';
@@ -126,7 +130,7 @@ export default class VaultBtcFork extends VaultBase {
   }
 
   override getFetchBalanceAddress(account: DBUTXOAccount): Promise<string> {
-    return Promise.resolve(account.xpub);
+    return Promise.resolve(this.getAccountXpub(account));
   }
 
   override async validateAddress(address: string): Promise<string> {
@@ -181,7 +185,9 @@ export default class VaultBtcFork extends VaultBase {
       lastAccountId,
     ])) as DBUTXOAccount[];
     if (typeof lastAccount !== 'undefined') {
-      const accountExisted = await this.checkAccountExistence(lastAccount.xpub);
+      const accountExisted = await this.checkAccountExistence(
+        this.getAccountXpub(lastAccount),
+      );
       if (!accountExisted) {
         const { label } = getAccountNameInfoByTemplate(network.impl, template);
         throw new PreviousAccountIsEmpty(label as string);
@@ -216,7 +222,8 @@ export default class VaultBtcFork extends VaultBase {
     if (!withMain) {
       return ret;
     }
-    const { xpub } = (await this.getDbAccount()) as DBUTXOAccount;
+    const account = (await this.getDbAccount()) as DBUTXOAccount;
+    const xpub = this.getAccountXpub(account);
     if (!xpub) {
       return [new BigNumber('0'), ...ret];
     }
@@ -584,7 +591,7 @@ export default class VaultBtcFork extends VaultBase {
           (await provider.getHistory(
             {
               type: 'history',
-              xpub: dbAccount.xpub,
+              xpub: this.getAccountXpub(dbAccount),
             },
             impl,
             dbAccount.address,
@@ -667,7 +674,7 @@ export default class VaultBtcFork extends VaultBase {
       const provider = await this.getProvider();
       const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
       try {
-        return await provider.getUTXOs(dbAccount.xpub);
+        return await provider.getUTXOs(this.getAccountXpub(dbAccount));
       } catch (e) {
         console.error(e);
         throw new OneKeyInternalError('Failed to get UTXOs of the account.');
@@ -749,7 +756,7 @@ export default class VaultBtcFork extends VaultBase {
       template,
     });
     const accountUsed = await this.checkAccountExistence(
-      (accounts?.[0] as DBUTXOAccount).xpub,
+      this.getAccountXpub(accounts?.[0] as DBUTXOAccount),
     );
     return accountUsed;
   }
