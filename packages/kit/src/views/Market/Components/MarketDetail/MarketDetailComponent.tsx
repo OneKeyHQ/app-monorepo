@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useMemo } from 'react';
 
+import { format as dateFormat } from 'date-fns';
 import { useIntl } from 'react-intl';
 
 import {
@@ -201,16 +202,8 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
     const athDate = new Date(ath?.time ?? '');
     const atlDate = new Date(atl?.time ?? '');
     return {
-      athTime: ath
-        ? `${athDate.getFullYear()}-${
-            athDate.getMonth() + 1
-          }-${athDate.getDate()}`
-        : undefined,
-      atlTime: atl
-        ? `${atlDate.getFullYear()}-${
-            atlDate.getMonth() + 1
-          }-${atlDate.getDate()}`
-        : undefined,
+      athTime: ath ? dateFormat(athDate, 'yyyy-MM-dd') : undefined,
+      atlTime: atl ? dateFormat(atlDate, 'yyyy-MM-dd') : undefined,
     };
   }, [ath, atl]);
   return (
