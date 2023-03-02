@@ -218,16 +218,18 @@ const UpdatingModal: FC = () => {
         break;
       case 'ConfirmOnDevice':
         setMaxProgress(35);
-        dispatch(
-          setHardwarePopup({
-            uiRequest: UI_REQUEST.REQUEST_BUTTON,
-            payload: {
-              deviceType,
-              deviceId: '',
-              deviceConnectId: connectId,
-            },
-          }),
-        );
+        setTimeout(() => {
+          dispatch(
+            setHardwarePopup({
+              uiRequest: UI_REQUEST.REQUEST_BUTTON,
+              payload: {
+                deviceType,
+                deviceId: '',
+                deviceConnectId: connectId,
+              },
+            }),
+          );
+        }, 300);
         break;
       case 'FirmwareEraseSuccess':
         setMaxProgress(90);

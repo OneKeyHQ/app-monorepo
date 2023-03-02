@@ -54,6 +54,7 @@ const Mobile: FC<BottomSheetModalProps> = ({
       ref={modalizeRef}
       onClosed={closeOverlay}
       closeOnOverlayTap
+      keyboardAvoidingBehavior={platformEnv.isNativeIOS ? 'height' : 'padding'}
       adjustToContentHeight
       withHandle={false}
       modalStyle={{

@@ -17,6 +17,9 @@ type InitialState = {
 
   userBrowserHistories?: UserBrowserHistory[];
   bookmarks?: BookmarkItem[];
+
+  favoritesMigrated?: boolean;
+
   // REMOVED
   dappFavorites?: string[];
   dappItems?: DAppItemType[] | null;
@@ -212,7 +215,7 @@ export const discoverSlice = createSlice({
         state.bookmarks = [];
       }
       const bookmark = state.bookmarks.find(
-        (item) => (item.id = action.payload.id),
+        (item) => item.id === action.payload.id,
       );
       if (bookmark) {
         const { url, title, icon } = action.payload;
@@ -229,7 +232,7 @@ export const discoverSlice = createSlice({
     },
     resetBookmarks(state, action: PayloadAction<BookmarkItem[]>) {
       state.bookmarks = action.payload;
-      state.dappFavorites = [];
+      // state.dappFavorites = [];
     },
     removeBookmark(state, action: PayloadAction<BookmarkItem>) {
       if (!state.bookmarks) {
@@ -289,6 +292,9 @@ export const discoverSlice = createSlice({
         (o) => o.url !== action.payload.url,
       );
     },
+    setFavoritesMigrated(state) {
+      state.favoritesMigrated = true;
+    },
   },
 });
 
@@ -318,6 +324,7 @@ export const {
   removeBookmark,
   updateBookmark,
   resetBookmarks,
+  setFavoritesMigrated,
 } = discoverSlice.actions;
 
 export default discoverSlice.reducer;
