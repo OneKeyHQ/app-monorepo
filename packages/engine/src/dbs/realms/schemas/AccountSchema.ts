@@ -33,6 +33,8 @@ class AccountSchema extends Realm.Object {
 
   public assignee!: Realm.Results<WalletSchema>;
 
+  public template?: string;
+
   public static schema: Realm.ObjectSchema = {
     name: 'Account',
     primaryKey: 'id',
@@ -52,6 +54,7 @@ class AccountSchema extends Realm.Object {
         objectType: 'Wallet',
         property: 'accounts',
       },
+      template: 'string?',
     },
   };
 
@@ -63,6 +66,7 @@ class AccountSchema extends Realm.Object {
       path: this.path || '',
       coinType: this.coinType,
       address: this.address || '',
+      template: this.template || '',
     } as DBAccount;
     if (this.type === AccountType.SIMPLE) {
       (ret as DBSimpleAccount).pub = this.pub || '';

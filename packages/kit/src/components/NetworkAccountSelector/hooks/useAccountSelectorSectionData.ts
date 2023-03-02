@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { debounce } from 'lodash';
 
 import type { IAccount, IWallet } from '@onekeyhq/engine/src/types';
+import type { AccountNameInfo } from '@onekeyhq/engine/src/types/network';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -15,6 +16,8 @@ export type INetworkAccountSelectorAccountListSectionData = {
   wallet: IWallet;
   networkId: string;
   data: IAccount[];
+  derivationInfo?: AccountNameInfo | null;
+  collapsed: boolean;
 };
 
 // TODO $isLastItem in multiple wallet mode optimize
@@ -34,7 +37,7 @@ const buildData = debounce(
       SetStateAction<INetworkAccountSelectorAccountListSectionData[]>
     >;
   }) => {
-    const { engine } = backgroundApiProxy;
+    const { engine, serviceDerivationPath } = backgroundApiProxy;
     const groupData: INetworkAccountSelectorAccountListSectionData[] = [];
     debugLogger.accountSelector.info(
       'rebuild NetworkAccountSelector accountList data',
@@ -47,19 +50,65 @@ const buildData = debounce(
       if (!selectedNetworkId) {
         return;
       }
-      const accounts = await engine.getAccounts(
-        wallet.accounts,
-        selectedNetworkId,
-      );
-      if (accounts.length) {
-        // @ts-ignore
-        accounts[accounts.length - 1].$isLastItem = true;
+
+      const { networkDerivations, accountNameInfo } =
+        await serviceDerivationPath.getNetworkDerivations(
+          wallet.id,
+          selectedNetworkId,
+        );
+      if (networkDerivations.length > 1) {
+        // multiple derivation path mode
+        const sequenceNetworkDerivations: typeof networkDerivations = [];
+        Object.values(accountNameInfo).forEach((value) => {
+          const derivation = networkDerivations.find(
+            (d) => d.template === value.template,
+          );
+          if (derivation) {
+            sequenceNetworkDerivations.push(derivation);
+          }
+        });
+        const getAccountPromises = sequenceNetworkDerivations.map(
+          async (derivation, index) => {
+            const accounts = await engine.getAccounts(
+              derivation.accounts,
+              selectedNetworkId,
+            );
+            if (index === networkDerivations.length - 1 && accounts.length) {
+              // @ts-ignore
+              accounts[accounts.length - 1].$isLastItem = true;
+            }
+            const derivationInfo = Object.values(accountNameInfo).find(
+              (i) => i.template === derivation.template,
+            );
+            return {
+              wallet,
+              networkId: selectedNetworkId,
+              data: accounts || [],
+              derivationInfo,
+              collapsed: false,
+            };
+          },
+        );
+        const data = await Promise.all(getAccountPromises);
+        groupData.push(...data);
+      } else {
+        // single derivation path mode
+        const accounts = await engine.getAccounts(
+          wallet.accounts,
+          selectedNetworkId,
+        );
+        if (accounts.length) {
+          // @ts-ignore
+          accounts[accounts.length - 1].$isLastItem = true;
+        }
+        groupData.push({
+          wallet,
+          networkId: selectedNetworkId,
+          data: accounts || [],
+          derivationInfo: accountNameInfo.default,
+          collapsed: false,
+        });
       }
-      groupData.push({
-        wallet,
-        networkId: selectedNetworkId,
-        data: accounts || [],
-      });
     };
     if (isListAccountsSingleWalletMode) {
       if (selectedWallet) {

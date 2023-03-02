@@ -27,13 +27,14 @@ export default function useRemoveAccountDialog() {
   const [visible, setVisible] = useState(false);
   const [accountId, setAccountId] = useState('');
   const [walletId, setWalletId] = useState('');
+  const [networkId, setNetworkId] = useState('');
   const [password, setPassword] = useState<string | undefined>();
   const { showVerify } = useLocalAuthenticationModal();
   const onSubmit = useCallback(async () => {
     if (!accountId) return Promise.resolve();
     const removed = await serviceAccount.getAccount({ walletId, accountId });
     return serviceAccount
-      .removeAccount(walletId, accountId, password ?? '')
+      .removeAccount(walletId, accountId, password ?? '', networkId)
       .then(() => {
         ToastManager.show({
           title: intl.formatMessage({ id: 'msg__removed' }),
@@ -48,18 +49,20 @@ export default function useRemoveAccountDialog() {
         });
         console.log(e);
       });
-  }, [accountId, intl, password, serviceAccount, walletId]);
+  }, [accountId, intl, password, serviceAccount, walletId, networkId]);
 
   const show = (
     $walletId: string,
     $accountId: string,
     $password: string | undefined,
+    $networkId: string,
     call?: (() => void) | undefined,
   ) => {
     successCall.current = call;
     setAccountId($accountId);
     setPassword($password);
     setWalletId($walletId);
+    setNetworkId($networkId);
     setTimeout(() => setVisible(true), 250);
   };
 
@@ -67,6 +70,7 @@ export default function useRemoveAccountDialog() {
     (options: {
       wallet: IWallet | null | undefined;
       accountId: string;
+      networkId: string;
       callback?: (() => void) | undefined;
     }) => {
       const { wallet, callback } = options;
@@ -78,14 +82,26 @@ export default function useRemoveAccountDialog() {
       if (shouldVerifyPwd) {
         showVerify(
           (pwd) => {
-            show($$walletId, options.accountId, pwd, callback);
+            show(
+              $$walletId,
+              options.accountId,
+              pwd,
+              options.networkId,
+              callback,
+            );
           },
           () => {},
           null,
           ValidationFields.Account,
         );
       } else {
-        show($$walletId, options.accountId, undefined, callback);
+        show(
+          $$walletId,
+          options.accountId,
+          undefined,
+          options.networkId,
+          callback,
+        );
       }
     },
     [showVerify],

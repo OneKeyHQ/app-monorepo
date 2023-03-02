@@ -4,7 +4,7 @@
 
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
-import { cloneDeep, isEmpty, uniqBy } from 'lodash';
+import { cloneDeep, get, uniqBy } from 'lodash';
 import memoizee from 'memoizee';
 import natsort from 'natsort';
 import RNRestart from 'react-native-restart';
@@ -28,7 +28,6 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
-  COINTYPE_BTC,
   IMPL_EVM,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -65,9 +64,15 @@ import {
 import {
   derivationPathTemplates,
   getDefaultPurpose,
+  getNextAccountId,
 } from './managers/derivation';
 import { fetchSecurityInfo, getRiskLevel } from './managers/goplus';
-import { implToCoinTypes } from './managers/impl';
+import {
+  getAccountNameInfoByTemplate,
+  getDBAccountTemplate,
+  getDefaultAccountNameInfoByImpl,
+  migrateNextAccountIds,
+} from './managers/impl';
 import {
   fromDBNetworkToNetwork,
   getEVMNetworkToCreate,
@@ -681,52 +686,6 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getWalletAccountsGroupedByNetwork(
-    walletId: string,
-  ): Promise<Array<{ networkId: string; accounts: Array<Account> }>> {
-    const wallet = await this.getWallet(walletId);
-    const accounts = await this.getAccounts(wallet.accounts);
-    const networks = await this.listNetworks();
-
-    const networkToAccounts: Record<string, Array<Account>> = {};
-    const coinTypeToNetworks: Record<string, Array<string>> = {};
-    for (const network of networks) {
-      networkToAccounts[network.id] = [];
-      const coinType = implToCoinTypes[network.impl];
-      if (!coinType) {
-        throw new OneKeyInternalError(
-          `coinType of impl=${network.impl} not found.`,
-        );
-      }
-      if (coinType in coinTypeToNetworks) {
-        coinTypeToNetworks[coinType].push(network.id);
-      } else {
-        coinTypeToNetworks[coinType] = [network.id];
-      }
-    }
-
-    for (const account of accounts) {
-      for (const networkId of coinTypeToNetworks[account.coinType] || []) {
-        if (account.type !== AccountType.VARIANT) {
-          networkToAccounts[networkId].push(account);
-        } else {
-          const vault = await this.getVault({
-            networkId,
-            accountId: account.id,
-          });
-          const outputAccount = await vault.getOutputAccount();
-          if (!isEmpty(outputAccount.address))
-            networkToAccounts[networkId].push(outputAccount);
-        }
-      }
-    }
-    return networks.map(({ id: networkId }) => ({
-      networkId,
-      accounts: networkToAccounts[networkId],
-    }));
-  }
-
-  @backgroundMethod()
   async getAccounts(
     accountIds: Array<string>,
     networkId?: string,
@@ -745,7 +704,11 @@ class Engine {
       }, 3000);
     };
 
-    const accounts = await this.dbApi.getAccounts(accountIds);
+    let accounts = await this.dbApi.getAccounts(accountIds);
+    if (networkId) {
+      const vault = await this.getChainOnlyVault(networkId);
+      accounts = await vault.filterAccounts({ accounts, networkId });
+    }
     const outputAccounts = await Promise.all(
       accounts
         .filter(
@@ -773,14 +736,14 @@ class Engine {
                       .then((address) => {
                         if (!address) {
                           setTimeout(() => {
-                            this.removeAccount(a.id, '', true);
+                            this.removeAccount(a.id, '', networkId, true);
                             checkActiveWallet();
                           }, 100);
                         }
                       })
                       .catch(() => {
                         setTimeout(() => {
-                          this.removeAccount(a.id, '', true);
+                          this.removeAccount(a.id, '', networkId, true);
                           checkActiveWallet();
                         }, 100);
                       });
@@ -909,6 +872,7 @@ class Engine {
     start = 0,
     limit = 10,
     purpose?: number,
+    template?: string,
   ): Promise<Array<ImportableHDAccount>> {
     // Search importable HD accounts.
     const wallet = await this.dbApi.getWallet(walletId);
@@ -920,12 +884,18 @@ class Engine {
       .map((index) => start + index)
       .filter((i) => i < 2 ** 31);
 
+    const { impl } = await this.getNetwork(networkId);
+    const accountNameInfo = template
+      ? getAccountNameInfoByTemplate(impl, template)
+      : getDefaultAccountNameInfoByImpl(impl);
     const vault = await this.getWalletOnlyVault(networkId, walletId);
     const accounts = await vault.keyring.prepareAccounts({
       type: 'SEARCH_ACCOUNTS',
       password,
       indexes,
       purpose,
+      coinType: accountNameInfo.coinType,
+      template: accountNameInfo.template,
     });
 
     const addresses = await Promise.all(
@@ -976,6 +946,7 @@ class Engine {
     skipRepeat,
     callback,
     isAddInitFirstAccountOnly,
+    template,
   }: {
     password: string;
     walletId: string;
@@ -986,6 +957,7 @@ class Engine {
     skipRepeat?: boolean;
     callback?: (_account: Account) => Promise<boolean>;
     isAddInitFirstAccountOnly?: boolean;
+    template?: string;
   }): Promise<Array<Account>> {
     // eslint-disable-next-line no-param-reassign
     callback =
@@ -1011,12 +983,18 @@ class Engine {
 
     const { impl } = dbNetwork;
     const usedPurpose = purpose || getDefaultPurpose(impl);
-    const coinType = implToCoinTypes[impl];
+    const accountNameInfo =
+      template && template.length
+        ? getAccountNameInfoByTemplate(impl, template)
+        : getDefaultAccountNameInfoByImpl(impl);
+    const { coinType } = accountNameInfo;
     if (!coinType) {
       throw new OneKeyInternalError(`coinType of impl=${impl} not found.`);
     }
-    const nextIndex =
-      wallet.nextAccountIds[`${usedPurpose}'/${coinType}'`] || 0;
+    const nextIndex = getNextAccountId(
+      wallet.nextAccountIds,
+      accountNameInfo.template,
+    );
     const usedIndexes = indexes || [nextIndex];
     if (isAddInitFirstAccountOnly && nextIndex > 0) {
       throw new OneKeyInternalError(
@@ -1036,12 +1014,20 @@ class Engine {
       indexes: usedIndexes,
       purpose: usedPurpose,
       names,
+      coinType,
+      template: accountNameInfo.template,
     });
 
     const ret: Array<Account> = [];
     for (const dbAccount of accounts) {
       try {
-        const { id } = await this.dbApi.addAccountToWallet(walletId, dbAccount);
+        const finalDbAccount = dbAccount.template
+          ? dbAccount
+          : { ...dbAccount, template: accountNameInfo.template };
+        const { id } = await this.dbApi.addAccountToWallet(
+          walletId,
+          finalDbAccount,
+        );
 
         const account = await this.getAccount(id, networkId);
         ret.push(account);
@@ -1137,6 +1123,7 @@ class Engine {
   async removeAccount(
     accountId: string,
     password: string,
+    networkId: string,
     skipPasswordCheck?: boolean,
   ): Promise<void> {
     // Remove an account. Raise an error if account doesn't exist or password is wrong.
@@ -1147,15 +1134,15 @@ class Engine {
     ]);
     let rollbackNextAccountIds: Record<string, number> = {};
 
-    if (dbAccount.coinType === COINTYPE_BTC && dbAccount.path.length > 0) {
+    if (dbAccount.type === AccountType.UTXO && dbAccount.path.length > 0) {
       const components = dbAccount.path.split('/');
-      const nextAccountCategory = `${components[1]}/${components[2]}`;
       const index = parseInt(components[3].slice(0, -1)); // remove the "'" suffix
-      if (wallet.nextAccountIds[nextAccountCategory] === index + 1) {
+      const template = dbAccount.template ?? '';
+      if (getNextAccountId(wallet.nextAccountIds, template) === index + 1) {
         // Removing the last account, may need to roll back next account id.
-        rollbackNextAccountIds = { [nextAccountCategory]: index };
+        rollbackNextAccountIds = { [template]: index };
         try {
-          const vault = await this.getChainOnlyVault('btc--0');
+          const vault = await this.getChainOnlyVault(networkId);
           const accountUsed = await vault.checkAccountExistence(
             (dbAccount as DBUTXOAccount).xpub,
           );
@@ -1815,7 +1802,24 @@ class Engine {
     // throw new Error('test fetch fee info error');
     // TODO move to vault.fetchFeeInfo and _fetchFeeInfo
     // clone encodedTx to avoid side effects
-    return vault.fetchFeeInfo(cloneDeep(encodedTx), signOnly);
+    try {
+      return await vault.fetchFeeInfo(cloneDeep(encodedTx), signOnly);
+    } catch (error: any) {
+      // AxiosError error
+      const axiosError = get(error, 'code', undefined) === 429;
+      // JsonRpcError error
+      const jsonRpcError =
+        get(error, 'response.status', undefined) === 429 ||
+        get(error, 'message', undefined) === 'Wrong response<429>';
+
+      if (axiosError || jsonRpcError) {
+        throw new OneKeyInternalError(
+          'Wrong response<429>',
+          'msg__network_request_too_many',
+        );
+      }
+      throw error;
+    }
   }
 
   @backgroundMethod()
@@ -2726,6 +2730,8 @@ class Engine {
           );
         }
 
+        // migrate nextAccountIds for old backup
+        const newNextAccountIds = migrateNextAccountIds(nextAccountIds);
         const wallet = await this.dbApi.createHDWallet({
           password: localPassword,
           rs: {
@@ -2735,7 +2741,7 @@ class Engine {
           backuped: true,
           name,
           avatar,
-          nextAccountIds,
+          nextAccountIds: newNextAccountIds,
         });
         const reIdPrefix = new RegExp(`^${id}`);
         for (const accountToAdd of accounts) {
@@ -2746,6 +2752,9 @@ class Engine {
             );
           } else {
             accountToAdd.id = accountToAdd.id.replace(reIdPrefix, wallet.id);
+            if (!accountToAdd.template) {
+              accountToAdd.template = getDBAccountTemplate(accountToAdd);
+            }
             await this.dbApi.addAccountToWallet(wallet.id, accountToAdd);
           }
         }

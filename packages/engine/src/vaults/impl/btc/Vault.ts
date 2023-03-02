@@ -24,8 +24,13 @@ import {
   InsufficientBalance,
   NotImplemented,
   OneKeyInternalError,
+  PreviousAccountIsEmpty,
 } from '../../../errors';
-import { getDefaultPurpose } from '../../../managers/derivation';
+import {
+  getDefaultPurpose,
+  getLastAccountId,
+} from '../../../managers/derivation';
+import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { TxStatus } from '../../../types/covalent';
 import {
   IDecodedTxActionType,
@@ -713,6 +718,31 @@ export default class Vault extends VaultBase {
     throw new NotImplemented();
   }
 
+  override async validateCanCreateNextAccount(
+    walletId: string,
+    template: string,
+  ): Promise<boolean> {
+    const [wallet, network] = await Promise.all([
+      this.engine.getWallet(walletId),
+      this.engine.getNetwork(this.networkId),
+    ]);
+    const lastAccountId = getLastAccountId(wallet, network.impl, template);
+    if (!lastAccountId) return true;
+
+    const [lastAccount] = (await this.engine.dbApi.getAccounts([
+      lastAccountId,
+    ])) as DBUTXOAccount[];
+    if (typeof lastAccount !== 'undefined') {
+      const accountExisted = await this.checkAccountExistence(lastAccount.xpub);
+      if (!accountExisted) {
+        const { label } = getAccountNameInfoByTemplate(network.impl, template);
+        throw new PreviousAccountIsEmpty(label as string);
+      }
+    }
+
+    return true;
+  }
+
   override async checkAccountExistence(
     accountIdOnNetwork: string,
   ): Promise<boolean> {
@@ -759,18 +789,21 @@ export default class Vault extends VaultBase {
 
   override async canAutoCreateNextAccount(password: string): Promise<boolean> {
     const wallet = await this.engine.getWallet(this.walletId);
+    const accountInfos = await this.getAccountNameInfoMap();
 
     if (wallet.type !== 'hd') return false;
 
     const usedPurpose = getDefaultPurpose(IMPL_BTC);
-    const nextIndex =
-      wallet.nextAccountIds[`${usedPurpose}'/${COINTYPE_BTC}'`] || 0;
+    const { template } = accountInfos.default;
+    const nextIndex = wallet.nextAccountIds[template] || 0;
 
     const accounts = await this.keyring.prepareAccounts({
       type: 'SEARCH_ACCOUNTS',
       password,
       indexes: [nextIndex],
       purpose: usedPurpose,
+      coinType: COINTYPE_BTC,
+      template,
     });
     const accountUsed = await this.checkAccountExistence(
       (accounts?.[0] as DBUTXOAccount).xpub,

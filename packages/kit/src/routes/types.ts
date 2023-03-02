@@ -30,6 +30,7 @@ export { ModalRoutes, RootRoutes, HomeRoutes, TabRoutes };
 
 export type ModalRoutesParams = {
   [ModalRoutes.CreateAccount]: NavigatorScreenParams<SubModalRoutesParams.CreateAccountRoutesParams>;
+  [ModalRoutes.RecoverAccount]: NavigatorScreenParams<SubModalRoutesParams.RecoverAccountRoutesParams>;
   [ModalRoutes.CreateWallet]: NavigatorScreenParams<SubModalRoutesParams.CreateWalletRoutesParams>;
   [ModalRoutes.BackupWallet]: NavigatorScreenParams<SubModalRoutesParams.BackupWalletRoutesParams>;
   [ModalRoutes.ManagerWallet]: NavigatorScreenParams<SubModalRoutesParams.ManagerWalletRoutesParams>;

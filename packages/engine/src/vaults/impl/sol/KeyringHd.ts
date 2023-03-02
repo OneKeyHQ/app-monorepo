@@ -5,6 +5,8 @@ import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_SOL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
+import { slicePathTemplate } from '../../../managers/derivation';
+import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
@@ -17,8 +19,6 @@ import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
-
-const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(password: string, addresses: Array<string>) {
@@ -45,29 +45,32 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
-    const { password, indexes, names } = params;
+    const { password, indexes, names, template } = params;
     const { seed } = (await this.engine.dbApi.getCredential(
       this.walletId,
       password,
     )) as ExportedSeedCredential;
 
+    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
     const pubkeyInfos = batchGetPublicKeys(
       'ed25519',
       seed,
       password,
-      PATH_PREFIX,
-      indexes.map((index) => `${index}'/0'`),
+      pathPrefix,
+      indexes.map((index) => pathSuffix.replace('{index}', index.toString())),
     );
 
     if (pubkeyInfos.length !== indexes.length) {
       throw new OneKeyInternalError('Unable to get public keys');
     }
 
+    const impl = await this.getNetworkImpl();
+    const { prefix } = getAccountNameInfoByTemplate(impl, template);
     return pubkeyInfos.map(({ path, extendedKey: { key: pubkey } }, i) => {
       const address = new PublicKey(pubkey).toBase58();
       return {
         id: `${this.walletId}--${path}`,
-        name: (names || [])[i] || `SOL #${indexes[i] + 1}`,
+        name: (names || [])[i] || `${prefix} #${indexes[i] + 1}`,
         type: AccountType.SIMPLE,
         path,
         coinType: COIN_TYPE,

@@ -1,4 +1,5 @@
 export type { CreateAccountRoutesParams } from './CreateAccount';
+export type { RecoverAccountRoutesParams } from './RecoverAccount';
 export type { ReceiveTokenRoutesParams } from './ReceiveToken';
 export type { SubmitRequestModalRoutesParams } from './SubmitRequest';
 export type { HistoryRequestModalRoutesParams } from '../../views/Help/Request/types';
