@@ -114,12 +114,12 @@ export default class ServiceToken extends ServiceBase {
   async fetchAccountTokens({
     accountId,
     networkId,
-    forceReloadTokens,
-    fromServerApi = false,
+    forceReloadTokens = false,
+    fromServerApi = true,
   }: IFetchAccountTokensParams) {
     const { engine, dispatch, servicePrice, appSelector } = this.backgroundApi;
 
-    const tokens = await engine.getTokens(
+    const accountTokens = await engine.getTokens(
       networkId,
       accountId,
       true,
@@ -128,15 +128,16 @@ export default class ServiceToken extends ServiceBase {
     );
 
     const { selectedFiatMoneySymbol } = appSelector((s) => s.settings);
-    const actions: any[] = [];
     const [, autodetectedTokens = []] = await this.getAccountTokenBalance({
       accountId,
       networkId,
-      tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
+      tokenIds: accountTokens.map((token) => token.tokenIdOnNetwork),
       withMain: true,
       fromServerApi,
     });
-    const accountTokens = tokens.concat(autodetectedTokens);
+    if (fromServerApi && autodetectedTokens.length) {
+      accountTokens.push(...autodetectedTokens);
+    }
     // check token prices
     servicePrice.fetchSimpleTokenPrice({
       networkId,
@@ -144,14 +145,15 @@ export default class ServiceToken extends ServiceBase {
       tokenIds: accountTokens.map((t) => t.tokenIdOnNetwork),
       vsCurrency: selectedFiatMoneySymbol,
     });
-    actions.push(
-      setAccountTokens({
-        accountId,
-        networkId,
-        tokens: accountTokens,
-      }),
-    );
-    dispatch(...actions);
+    if (fromServerApi) {
+      dispatch(
+        setAccountTokens({
+          accountId,
+          networkId,
+          tokens: accountTokens,
+        }),
+      );
+    }
     return accountTokens;
   }
 
@@ -279,9 +281,7 @@ export default class ServiceToken extends ServiceBase {
         riskLevel,
       },
     );
-    this.refreshTokenBalance({
-      fromServerApi: false,
-    });
+    await this.refreshTokenBalance();
     return result;
   }
 
@@ -389,11 +389,7 @@ export default class ServiceToken extends ServiceBase {
     return [ret, allAccountTokens, tokens];
   }
 
-  async batchTokenDetail(
-    networkId: string,
-    addresses: string[],
-    tokensMap: Record<string, Token> = {},
-  ) {
+  async batchTokenDetail(networkId: string, addresses: string[]) {
     const addressMap: Record<string, 1> = addresses.reduce(
       (memo, n) => ({
         ...memo,
@@ -457,10 +453,7 @@ export default class ServiceToken extends ServiceBase {
       ...serverTokens,
       ...rpcTokens,
     ]);
-    return {
-      ...tokensMap,
-      ...result,
-    };
+    return result;
   }
 
   @backgroundMethod()
@@ -492,11 +485,8 @@ export default class ServiceToken extends ServiceBase {
       });
     }
     const balanceList = balances.slice(withMain ? 1 : 0);
-    const tokens = await this.batchTokenDetail(
-      networkId,
-      tokensToGet,
-      tokensMap,
-    );
+    const details = await this.batchTokenDetail(networkId, tokensToGet);
+    const tokens = Object.assign(details, tokensMap);
     for (let i = 0; i < balanceList.length; i += 1) {
       const balance = balanceList[i];
       const tokenAddress = tokensToGet[i];
@@ -538,7 +528,6 @@ export default class ServiceToken extends ServiceBase {
       fromServerApi = false,
     } = params;
 
-    const top50tokens = await engine.getTopTokensOnNetwork(networkId, 50);
     let serverBalances: Record<string, TokenBalanceValue> = {};
     let rpcBalances: Record<string, TokenBalanceValue> = {};
     let autodetectedTokens: Token[] = [];
@@ -563,6 +552,13 @@ export default class ServiceToken extends ServiceBase {
       }
     }
     try {
+      const top50tokens = await engine.getTopTokensOnNetwork(networkId, 50);
+      const accountTokensInDB = await engine.getTokens(
+        networkId,
+        accountId,
+        true,
+        true,
+      );
       const accountTokensInRedux =
         appSelector((s) => s.tokens.accountTokens)?.[networkId]?.[accountId] ??
         [];
@@ -570,6 +566,7 @@ export default class ServiceToken extends ServiceBase {
         ...top50tokens,
         ...autodetectedTokens,
         ...accountTokensInRedux,
+        ...accountTokensInDB,
       ]
         .map((t) => t.tokenIdOnNetwork)
         .filter((address) => {
