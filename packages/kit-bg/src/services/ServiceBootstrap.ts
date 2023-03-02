@@ -218,12 +218,19 @@ export default class ServiceBootstrap extends ServiceBase {
               impl,
               template,
             });
+            debugLogger.common.info(
+              `added account derivation: accountId: ${account.id}, template: ${template}`,
+            );
             await dbApi.setAccountTemplate({ accountId: account.id, template });
             debugLogger.common.info(
               `insert account: ${account.id} to AccountDerivation table, template: ${template}`,
             );
           }
         }
+
+        debugLogger.common.info(
+          `insert account finish, will update nextAccountId, walletId:  ${wallet.id}`,
+        );
 
         // update nextAccountIds field
         const newNextAccountIds = migrateNextAccountIds(wallet.nextAccountIds);
