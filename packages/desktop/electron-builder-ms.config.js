@@ -45,6 +45,7 @@ module.exports = {
   },
   'nsis': {
     'oneClick': false,
+    'installerSidebar': 'build/static/images/icons/installerSidebar.bmp',
   },
   'win': {
     'extraResources': [
