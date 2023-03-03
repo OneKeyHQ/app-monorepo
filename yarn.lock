@@ -5627,6 +5627,7 @@ __metadata:
     cosmjs-types: ^0.5.2
     create-hmac: ^1.1.7
     crypto-browserify: ^3.12.0
+    ecpair: 2.0.1
     elliptic: ^6.5.4
     eth-sig-util: 3.0.1
     fake-indexeddb: ^3.1.7
@@ -15287,6 +15288,17 @@ __metadata:
     jsbn: ~0.1.0
     safer-buffer: ^2.1.0
   checksum: 22fef4b6203e5f31d425f5b711eb389e4c6c2723402e389af394f8411b76a488fa414d309d866e2b577ce3e8462d344205545c88a8143cc21752a5172818888a
+  languageName: node
+  linkType: hard
+
+"ecpair@npm:2.0.1":
+  version: 2.0.1
+  resolution: "ecpair@npm:2.0.1"
+  dependencies:
+    randombytes: ^2.1.0
+    typeforce: ^1.18.0
+    wif: ^2.0.6
+  checksum: 4cd4a8e04d6af12b237f7bacf9ddab3791cb45c3fd46d3c0b26569f2eeeb916b6da9fe859ee65c103007bde5e80f302e3e21e3c7d5a6924f2ba72f7034d475b1
   languageName: node
   linkType: hard
 
@@ -31546,7 +31558,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typeforce@npm:^1.11.3, typeforce@npm:^1.11.5":
+"typeforce@npm:^1.11.3, typeforce@npm:^1.11.5, typeforce@npm:^1.18.0":
   version: 1.18.0
   resolution: "typeforce@npm:1.18.0"
   checksum: e3b21e27e76cb05f32285bef7c30a29760e79c622cfe4aa3c179ce49d1c7895b7154c8deedb9fe4599b1fd0428d35860d43e0776da1c04861168f3ad7ed99c70

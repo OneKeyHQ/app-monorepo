@@ -2,8 +2,10 @@ import * as necc from '@noble/secp256k1';
 import { crypto as bcrypto } from 'bitcoinjs-lib';
 import createHmac from 'create-hmac';
 
-necc.utils.sha256Sync = (...messages) =>
-  bcrypto.sha256(Buffer.concat(messages));
+necc.utils.sha256Sync = (...messages) => {
+  const bufs = messages.map((m) => (Buffer.isBuffer(m) ? m : Buffer.from(m)));
+  return bcrypto.sha256(Buffer.concat(bufs));
+};
 necc.utils.hmacSha256Sync = (key, ...messages) => {
   const hash = createHmac('sha256', Buffer.from(key));
   messages.forEach((m) => hash.update(m));

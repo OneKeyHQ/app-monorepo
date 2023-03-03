@@ -24,6 +24,7 @@ import ecc from './nobleSecp256k1Wrapper';
 import { PLACEHOLDER_VSIZE, estimateVsize, loadOPReturn } from './vsize';
 
 import type { Network } from './networks';
+import type { PsbtInput } from 'bitcoinjs-lib/node_modules/bip174/src/lib/interfaces';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
 
 type GetAccountParams =
@@ -355,7 +356,7 @@ class Provider {
           encoding = AddressEncodings.P2WPKH;
         } else if (
           decoded.version === 0x01 &&
-          decoded.prefix === 'bc' &&
+          decoded.prefix === this.network.bech32 &&
           decoded.data.length === 32
         ) {
           encoding = AddressEncodings.P2TR;
@@ -434,31 +435,41 @@ class Provider {
     return new BitcoinJS.Psbt({ network: this.network });
   }
 
+  async getBitcoinSigner(
+    signer: Signer,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    input: PsbtInput,
+  ): Promise<BitcoinJS.Signer> {
+    const publicKey = await signer.getPubkey(true);
+    return {
+      publicKey,
+      // @ts-expect-error
+      sign: async (hash: Buffer) => {
+        const [sig] = await signer.sign(hash);
+        return sig;
+      },
+    };
+  }
+
   async signTransaction(
     unsignedTx: UnsignedTx,
     signers: { [p: string]: Signer },
   ): Promise<SignedTx> {
-    const psdt = await this.packTransaction(unsignedTx, signers);
+    const psbt = await this.packTransaction(unsignedTx, signers);
 
     // eslint-disable-next-line no-plusplus
     for (let i = 0; i < unsignedTx.inputs.length; ++i) {
       const { address } = unsignedTx.inputs[i];
       const signer = signers[address];
-      const publicKey = await signer.getPubkey(true);
-
-      await psdt.signInputAsync(i, {
-        publicKey,
-        sign: async (hash: Buffer) => {
-          const [sig] = await signer.sign(hash);
-          return sig;
-        },
-      });
+      const psbtInput = psbt.data.inputs[0];
+      const bitcoinSigner = await this.getBitcoinSigner(signer, psbtInput);
+      await psbt.signInputAsync(i, bitcoinSigner);
     }
 
-    psdt.validateSignaturesOfAllInputs(validator);
-    psdt.finalizeAllInputs();
+    psbt.validateSignaturesOfAllInputs(validator);
+    psbt.finalizeAllInputs();
 
-    const tx = psdt.extractTransaction();
+    const tx = psbt.extractTransaction();
     return {
       txid: tx.getId(),
       rawTx: tx.toHex(),
@@ -521,7 +532,21 @@ class Provider {
             };
             mixin.redeemScript = payment.redeem?.output as Buffer;
           }
-
+          break;
+        case AddressEncodings.P2TR:
+          {
+            const payment = checkIsDefined(
+              this.pubkeyToPayment(
+                await signers[input.address].getPubkey(true),
+                encoding,
+              ),
+            );
+            mixin.witnessUtxo = {
+              script: payment.output as Buffer,
+              value: utxo.value.integerValue().toNumber(),
+            };
+            mixin.tapInternalKey = payment.internalPubkey;
+          }
           break;
         default:
           break;

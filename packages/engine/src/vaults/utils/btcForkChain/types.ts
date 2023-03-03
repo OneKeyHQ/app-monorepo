@@ -10,6 +10,7 @@ import type {
   RedeemScript,
   WitnessUtxo,
 } from 'bip174/src/lib/interfaces';
+import type { TapInternalKey } from 'bitcoinjs-lib/node_modules/bip174/src/lib/interfaces';
 
 export enum AddressEncodings {
   P2PKH = 'P2PKH', // Legacy BIP-44
@@ -101,6 +102,7 @@ export type TransactionMixin = {
   nonWitnessUtxo?: NonWitnessUtxo;
   witnessUtxo?: WitnessUtxo;
   redeemScript?: RedeemScript;
+  tapInternalKey?: TapInternalKey;
 };
 
 export interface Verifier {

@@ -10,11 +10,14 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import Provider from './provider';
 import settings from './settings';
 
 import type { DBUTXOAccount } from '../../../types/account';
 
 export default class Vault extends VaultBtcFork {
+  override providerClass = Provider;
+
   override keyringMap = {
     hd: KeyringHd,
     hw: KeyringHardware,
