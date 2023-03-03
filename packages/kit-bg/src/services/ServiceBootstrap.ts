@@ -230,7 +230,7 @@ export default class ServiceBootstrap extends ServiceBase {
         }
 
         debugLogger.common.info(
-          `insert account finish, will update nextAccountId, walletId:  ${wallet.id}`,
+          `migrate accounts finish, will update nextAccountId, walletId:  ${wallet.id}`,
         );
 
         // update nextAccountIds field
