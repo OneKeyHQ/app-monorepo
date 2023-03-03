@@ -942,7 +942,7 @@ class ServiceAccount extends ServiceBase {
 
     return {
       wallet,
-      account,
+      accountId: account.id,
     };
   }
 
@@ -977,9 +977,9 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
-    let walletNormalExist = false;
+    let walletNormalExist: Wallet | undefined;
     if (existDeviceId) {
-      walletNormalExist = !!wallets.find((w) => {
+      walletNormalExist = wallets.find((w) => {
         const targetWallet =
           w.associatedDevice === existDeviceId && !isPassphraseWallet(w);
 
@@ -990,7 +990,7 @@ class ServiceAccount extends ServiceBase {
 
     let result: {
       wallet: Wallet | null;
-      account: Account | null;
+      accountId: string | null;
     } | null = null;
 
     if (!walletNormalExist) {
@@ -1027,6 +1027,15 @@ class ServiceAccount extends ServiceBase {
         if (result?.wallet?.id)
           actions.push(rememberPassphraseWallet(result?.wallet?.id));
       }
+    } else if (!passphraseState && walletNormalExist) {
+      const [account] = await engine.getAccounts(
+        walletNormalExist.accounts,
+        networkId,
+      );
+      result = {
+        wallet: walletNormalExist,
+        accountId: account?.id ?? null,
+      };
     }
 
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);
@@ -1041,7 +1050,7 @@ class ServiceAccount extends ServiceBase {
 
     serviceAccount.changeActiveAccount({
       walletId: result?.wallet?.id ?? null,
-      accountId: result?.account?.id ?? null,
+      accountId: result?.accountId ?? null,
     });
     return result?.wallet;
   }
