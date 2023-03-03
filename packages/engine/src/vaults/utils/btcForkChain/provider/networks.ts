@@ -39,6 +39,10 @@ const tbtc = {
       public: 0x045f1cf6,
       private: 0x045f18bc,
     },
+    [AddressEncodings.P2TR]: {
+      public: 0x043587cf,
+      private: 0x04358394,
+    },
   },
 };
 

@@ -51,7 +51,8 @@ export function getBIP44Path(account: DBUTXOAccount, address: string) {
   return `${account.path}/${realPath}`;
 }
 
-export const isTaprootPath = (pathPrefix: string) => pathPrefix === `m/86'/0'`;
+export const isTaprootPath = (pathPrefix: string) =>
+  pathPrefix.startsWith(`m/86'/`);
 
 export function isTaprootXpubSegwit(xpubSegwit: string) {
   const reg = /tr\(\[(.*)\](.*)\/<0;1>\/\*\)/;

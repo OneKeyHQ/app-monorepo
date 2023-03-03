@@ -202,6 +202,7 @@ class Provider {
       case AddressEncodings.P2TR:
         payment = BitcoinJS.payments.p2tr({
           internalPubkey: pubkey.slice(1, 33),
+          network: this.network,
         });
         break;
 
