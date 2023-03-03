@@ -1,12 +1,12 @@
 import type { FC } from 'react';
-import { useCallback } from 'react';
 
-import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useThemeValue } from '@onekeyhq/components';
 import { LayoutHeaderDesktop } from '@onekeyhq/components/src/Layout/Header/LayoutHeaderDesktop';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { HeaderTitleProps } from '@onekeyhq/components/src/NavHeader/HeaderTitle';
+import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
 import AddressBook from '@onekeyhq/kit/src/views/AddressBook/Listing';
 import AnnualReport from '@onekeyhq/kit/src/views/AnnualReport/Report';
 import AnnualLoading from '@onekeyhq/kit/src/views/AnnualReport/Welcome';
@@ -36,7 +36,6 @@ import SwapScreen from '@onekeyhq/kit/src/views/Swap';
 import SwapHistory from '@onekeyhq/kit/src/views/Swap/History';
 import TokenDetail from '@onekeyhq/kit/src/views/TokenDetail';
 import HomeScreen from '@onekeyhq/kit/src/views/Wallet';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { toFocusedLazy } from '../../components/LazyRenderWhenFocus';
 import FullTokenList from '../../views/FullTokenList/FullTokenList';
@@ -44,19 +43,20 @@ import NFTMarketCollectionScreen from '../../views/NFTMarket/CollectionDetail';
 import NFTMarketLiveMintingList from '../../views/NFTMarket/LiveMintingList';
 import PNLDetailScreen from '../../views/NFTMarket/PNL/PNLDetail';
 import NFTMarketStatsList from '../../views/NFTMarket/StatsList';
-import renderCustomSubStackHeader from '../Stack/Header';
 import { HomeRoutes, TabRoutes } from '../types';
+
+import type { ScreensList } from '../types';
 
 export interface TabRouteConfig {
   name: TabRoutes;
   translationId: LocaleIds;
   component: FC;
   tabBarIcon: (props: { focused?: boolean }) => string;
-  children?: {
+  children?: ({
     name: HomeRoutes;
     component: FC<any>;
     alwaysShowBackButton?: boolean;
-  }[];
+  } & HeaderTitleProps)[];
 }
 
 export const tabRoutes: TabRouteConfig[] = [
@@ -77,6 +77,7 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.FullTokenListScreen,
         component: FullTokenList,
+        i18nTitle: 'asset__tokens',
       },
       {
         name: HomeRoutes.Revoke,
@@ -95,6 +96,7 @@ export const tabRoutes: TabRouteConfig[] = [
         name: HomeRoutes.NFTPNLScreen,
         component: PNLDetailScreen,
         alwaysShowBackButton: true,
+        i18nTitle: 'action__profit_and_loss',
       },
       {
         name: HomeRoutes.OverviewDefiListScreen,
@@ -165,6 +167,7 @@ export const tabRoutes: TabRouteConfig[] = [
         name: HomeRoutes.NFTPNLScreen,
         component: PNLDetailScreen,
         alwaysShowBackButton: true,
+        i18nTitle: 'action__profit_and_loss',
       },
     ],
   },
@@ -209,6 +212,7 @@ export const tabRoutes: TabRouteConfig[] = [
       {
         name: HomeRoutes.AddressBook,
         component: AddressBook,
+        i18nTitle: 'title__address_book',
       },
       {
         name: HomeRoutes.WalletSwitch,
@@ -266,77 +270,56 @@ function buildTabName(name: TabRoutes) {
   return `tab-${name}`;
 }
 
-export const getStackTabScreen = (tabName: TabRoutes, goBack: () => void) => {
+export const getStackTabScreen = (tabName: TabRoutes) => {
   const tab = tabRoutes.find((t) => t.name === tabName) as TabRouteConfig;
-  const screens = [
+  const screens: ScreensList<string> = [
     {
       // fix: Found screens with the same name nested inside one another
       name: buildTabName(tab.name),
       component: tab.component,
       alwaysShowBackButton: false,
+      i18nTitle: tab.translationId,
     },
     ...(tab.children || []),
   ];
 
   const StackNavigatorComponent = () => {
-    const [bgColor, textColor, borderBottomColor] = useThemeValue([
+    const [bgColor, borderBottomColor] = useThemeValue([
       'background-default',
-      'text-default',
       'border-subdued',
     ]);
-
-    const headerLeft = useCallback(
-      ({ tintColor }) => (
-        <NavigationHeaderBackButton
-          tintColor={tintColor}
-          onPress={goBack}
-          canGoBack
-        />
-      ),
-      [],
-    );
-    const renderHeader = useCallback(() => <LayoutHeaderDesktop />, []);
     return (
-      <Stack.Navigator
-        screenOptions={{
-          headerBackTitle: '',
-          headerTitleAlign: 'center',
-          headerStyle: {
-            backgroundColor: bgColor,
-            // @ts-expect-error
-            borderBottomWidth: 0,
-            shadowColor: borderBottomColor,
-          },
-          header: platformEnv.isNativeIOS
-            ? renderCustomSubStackHeader
-            : undefined,
-          headerTintColor: textColor,
-        }}
-      >
-        {screens.map((s, index) => {
+      <Stack.Navigator>
+        {screens.map(({ name, component, ...stackOptions }, index) => {
           const tabsWithHeader = [TabRoutes.Home, TabRoutes.Swap].map(
             buildTabName,
           );
           const customRenderHeader =
-            index === 0 && tabsWithHeader.includes(s.name)
-              ? renderHeader
-              : undefined;
+            index === 0 && tabsWithHeader.includes(name)
+              ? () => <LayoutHeaderDesktop i18nTitle={stackOptions.i18nTitle} />
+              : // @ts-ignore
+                (props) => (
+                  <NavHeader
+                    style={{
+                      backgroundColor: bgColor,
+                      borderBottomWidth: 0,
+                      shadowColor: borderBottomColor,
+                    }}
+                    {...props}
+                    {...stackOptions}
+                  />
+                );
           return (
             // show navigation header
-            <Stack.Group
-              key={s.name}
-              screenOptions={{
+            <Stack.Screen
+              key={name}
+              name={name}
+              component={component}
+              options={{
                 header: customRenderHeader,
-                headerLeft:
-                  s.alwaysShowBackButton && platformEnv.isRuntimeBrowser
-                    ? headerLeft
-                    : undefined,
-                // lazy: true,
                 headerShown: index > 0 || Boolean(customRenderHeader),
               }}
-            >
-              <Stack.Screen name={s.name} component={s.component} />
-            </Stack.Group>
+            />
           );
         })}
       </Stack.Navigator>
