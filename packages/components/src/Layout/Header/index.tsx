@@ -14,7 +14,7 @@ type HeaderProps = {
   headerLeft?: () => ReactNode;
   headerRight: () => ReactNode;
   showOnDesktop?: boolean;
-  title?: MessageDescriptor['id'];
+  i18nTitle?: MessageDescriptor['id'];
 };
 
 const DEFAULT_HEADER_VERTICAL = 57;
@@ -24,7 +24,7 @@ const Header: FC<HeaderProps> = ({
   headerLeft,
   headerRight,
   showOnDesktop,
-  title,
+  i18nTitle,
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
 
@@ -36,11 +36,10 @@ const Header: FC<HeaderProps> = ({
   const PrimaryComponent = (
     <DesktopDragZoneBox>
       <NavHeader
-        enableBackButton={false}
         style={{ height: headerHeight }}
         headerLeft={headerLeft}
         headerRight={headerRight}
-        title={title}
+        i18nTitle={i18nTitle}
       />
     </DesktopDragZoneBox>
   );
