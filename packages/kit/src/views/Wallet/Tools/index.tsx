@@ -182,6 +182,14 @@ const ToolsPage: FC = () => {
     tools,
   ]);
 
+  const params = useMemo(
+    () => ({
+      address: accountAddress,
+      networkId: network?.id,
+    }),
+    [accountAddress, network],
+  );
+
   const handlePress = useCallback(
     (key: string) => {
       if (key === 'annual') {
@@ -211,13 +219,18 @@ const ToolsPage: FC = () => {
       } else {
         const item = tools?.find((t) => t.title === key);
         if (item) {
-          openUrl(item?.link, item?.title, {
+          // inject params
+          const url = item?.link?.replace(
+            /\{([\w\d]+)\}/g,
+            (_, name: keyof typeof params) => params[name] ?? '',
+          );
+          openUrl(url, item?.title, {
             modalMode: true,
           });
         }
       }
     },
-    [tools, navigation, openAddressDetails, accountAddress, intl],
+    [tools, navigation, openAddressDetails, accountAddress, intl, params],
   );
 
   const fetchData = useCallback(() => {

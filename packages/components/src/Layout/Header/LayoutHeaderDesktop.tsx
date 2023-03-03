@@ -11,9 +11,9 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { MessageDescriptor } from 'react-intl';
 
 export function LayoutHeaderDesktop({
-  title,
+  i18nTitle,
 }: {
-  title?: MessageDescriptor['id'];
+  i18nTitle?: MessageDescriptor['id'];
 }) {
   const { showUpdateBadge } = useCheckUpdate();
 
@@ -61,7 +61,7 @@ export function LayoutHeaderDesktop({
       showOnDesktop
       // headerLeft={() => <AccountSelector />}
       // headerLeft={() => null}
-      title={title}
+      i18nTitle={i18nTitle}
       // headerRight={() => <ChainSelector />}
       // headerRight={() => <NetworkAccountSelectorTrigger />}
       headerRight={headerRight}

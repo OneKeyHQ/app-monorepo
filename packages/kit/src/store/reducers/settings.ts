@@ -104,6 +104,7 @@ export type SettingsState = {
     [networkId: string]: string[];
   };
   annualReportEntryEnabled?: boolean;
+  accountDerivationDbMigrationVersion?: string;
 };
 
 export const defaultPushNotification = {
@@ -167,6 +168,7 @@ const initialState: SettingsState = {
   disableSwapExactApproveAmount: false,
   customNetworkRpcMap: {},
   annualReportEntryEnabled: false,
+  accountDerivationDbMigrationVersion: '',
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -480,6 +482,12 @@ export const settingsSlice = createSlice({
       const cacheWalletSwitch = stateWalletSwitch[walletId] || {};
       cacheWalletSwitch.enable = enable;
     },
+    setAccountDerivationDbMigrationVersion(
+      state,
+      action: PayloadAction<string>,
+    ) {
+      state.accountDerivationDbMigrationVersion = action.payload;
+    },
   },
 });
 
@@ -526,6 +534,7 @@ export const {
   setAnnualReportEntryEnabled,
   setEnableExternalAccountReport,
   setHideScamHistory,
+  setAccountDerivationDbMigrationVersion,
   setOnRamperTestMode,
 } = settingsSlice.actions;
 

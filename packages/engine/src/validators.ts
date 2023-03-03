@@ -21,6 +21,7 @@ import {
 import * as errors from './errors';
 import { OneKeyValidatorError, OneKeyValidatorTip } from './errors';
 import * as limits from './limits';
+import { getNextAccountId } from './managers/derivation';
 import { implToCoinTypes } from './managers/impl';
 import { UserInputCategory } from './types/credential';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
@@ -425,14 +426,26 @@ class Validators {
     highValue?: string;
     minValue?: string;
   }): Promise<void> {
-    const valueBN = new BigNumber(value);
-    const minAmount = minValue || '0';
+    const vaultSettings = await this.engine.getVaultSettings(networkId);
+    const { minGasPrice } = vaultSettings.subNetworkSettings?.[networkId] || {};
+
+    let minAmount = minGasPrice || minValue || '0';
     if (
-      !valueBN ||
-      valueBN.isNaN() ||
-      valueBN.isLessThanOrEqualTo('0') ||
-      valueBN.isLessThan(minAmount)
+      minValue &&
+      minGasPrice &&
+      new BigNumber(minValue).isGreaterThan(minGasPrice)
     ) {
+      minAmount = minValue;
+    }
+
+    const valueBN = new BigNumber(value);
+    if (!minGasPrice && valueBN.isLessThanOrEqualTo(0)) {
+      throw new OneKeyValidatorError('form__gas_price_invalid_min_str', {
+        0: 0,
+      });
+    }
+
+    if (!valueBN || valueBN.isNaN() || valueBN.isLessThan(minAmount)) {
       throw new OneKeyValidatorError('form__gas_price_invalid_min_str', {
         0: minAmount,
       });
@@ -585,48 +598,10 @@ class Validators {
   async validateCanCreateNextAccount(
     walletId: string,
     networkId: string,
-    purpose: number,
+    template: string,
   ): Promise<void> {
-    const [wallet, network] = await Promise.all([
-      this.engine.getWallet(walletId),
-      this.engine.getNetwork(networkId),
-    ]);
-    if (
-      [IMPL_BTC, IMPL_TBTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH, IMPL_ADA].includes(
-        network.impl,
-      )
-    ) {
-      const coinType = implToCoinTypes[network.impl] ?? COINTYPE_BTC;
-      const accountPathPrefix = `${purpose}'/${coinType}'`;
-      const nextAccountId = wallet.nextAccountIds[accountPathPrefix];
-      if (typeof nextAccountId !== 'undefined' && nextAccountId > 0) {
-        const lastAccountId = `${walletId}${SEPERATOR}m/${accountPathPrefix}/${
-          nextAccountId - 1
-        }'`;
-        const [lastAccount] = await this.dbApi.getAccounts([lastAccountId]);
-        if (typeof lastAccount !== 'undefined') {
-          const vault = await this.engine.getChainOnlyVault(networkId);
-          const accountExisted = await vault.checkAccountExistence(
-            network.impl === IMPL_ADA
-              ? lastAccount.address
-              : (lastAccount as DBUTXOAccount).xpub,
-          );
-          if (!accountExisted) {
-            const accountTypeStr =
-              (
-                Object.values(network.accountNameInfo).find(
-                  ({ category }) => accountPathPrefix === category,
-                ) || {}
-              ).label || '';
-            const key =
-              network.impl === IMPL_ADA
-                ? 'msg__previous_account_is_empty'
-                : undefined;
-            throw new errors.PreviousAccountIsEmpty(accountTypeStr, key);
-          }
-        }
-      }
-    }
+    const vault = await this.engine.getChainOnlyVault(networkId);
+    await vault.validateCanCreateNextAccount(walletId, template);
     return Promise.resolve();
   }
 }

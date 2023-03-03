@@ -69,6 +69,11 @@ const RecoverSelectChainModal: FC = () => {
     return purpose;
   }
 
+  function getTemplate(network: Network) {
+    const { template } = network.accountNameInfo.default;
+    return template;
+  }
+
   const onSelectChain = useCallback(
     (network: Network) => {
       navigation.navigate(
@@ -77,11 +82,13 @@ const RecoverSelectChainModal: FC = () => {
           walletId: selectedWalletId,
           onDone: (password) => {
             const purpose = getPurpose(network);
+            const template = getTemplate(network);
             navigation.replace(CreateAccountModalRoutes.RecoverAccountsList, {
               purpose,
               walletId: selectedWalletId,
               network: network.id,
               password,
+              template,
             });
           },
         },

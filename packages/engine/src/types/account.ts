@@ -12,6 +12,7 @@ type DBBaseAccount = HasName & {
   type: AccountType;
   path: string;
   coinType: string;
+  template?: string;
 };
 
 type DBSimpleAccount = DBBaseAccount & {

@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { MotiView } from 'moti';
 import { HStack, Pressable } from 'native-base';
@@ -23,6 +23,7 @@ type CollapseProps = {
   arrowPosition?: 'left' | 'right';
   triggerWrapperProps?: ComponentProps<typeof Pressable>;
   triggerProps?: ComponentProps<typeof Box>;
+  value?: boolean;
 } & ComponentProps<typeof Box>;
 
 const Collapse = ({
@@ -34,9 +35,17 @@ const Collapse = ({
   onCollapseChange,
   defaultCollapsed = true,
   arrowPosition = 'left',
+  value = true,
   ...rest
 }: CollapseProps) => {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+  useEffect(() => {
+    if (value !== collapsed) {
+      setCollapsed(value);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   const toggleCollapsed = useCallback(() => {
     const status = !collapsed;

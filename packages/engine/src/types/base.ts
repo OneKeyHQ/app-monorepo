@@ -6,4 +6,4 @@ type HasName = BaseObject & {
   name: string;
 };
 
-export type { HasName };
+export type { BaseObject, HasName };

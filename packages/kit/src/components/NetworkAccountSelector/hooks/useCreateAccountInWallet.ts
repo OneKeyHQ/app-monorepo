@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,7 +16,11 @@ import {
   ModalRoutes,
   RootRoutes,
 } from '../../../routes/routesEnum';
+import { deviceUtils } from '../../../utils/hardware';
 import { useConnectAndCreateExternalAccount } from '../../../views/ExternalAccount/useConnectAndCreateExternalAccount';
+import showDerivationPathBottomSheetModal from '../modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
+
+import type { IDerivationOption } from './useDerivationPath';
 
 export const AllNetwork = 'all';
 export const NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY =
@@ -57,37 +61,44 @@ export function useCreateAccountInWallet({
     }
 
     let isCreateAccountSupported = false;
+    let showCreateAccountMenu = false;
     if (network?.id) {
       if (
         activeWallet?.type === 'external' &&
         vaultSettings?.externalAccountEnabled
       ) {
         isCreateAccountSupported = true;
+        showCreateAccountMenu = false;
       }
       if (
         activeWallet?.type === 'imported' &&
         vaultSettings?.importedAccountEnabled
       ) {
         isCreateAccountSupported = true;
+        showCreateAccountMenu = false;
       }
       if (
         activeWallet?.type === 'watching' &&
         vaultSettings?.watchingAccountEnabled
       ) {
         isCreateAccountSupported = true;
+        showCreateAccountMenu = false;
       }
       if (
         activeWallet?.type === 'hw' &&
         vaultSettings?.hardwareAccountEnabled
       ) {
         isCreateAccountSupported = true;
+        showCreateAccountMenu = true;
       }
       if (activeWallet?.type === 'hd') {
         isCreateAccountSupported = true;
+        showCreateAccountMenu = true;
       }
     } else {
       // AllNetwork
       isCreateAccountSupported = true;
+      showCreateAccountMenu = false;
     }
 
     return {
@@ -96,8 +107,38 @@ export function useCreateAccountInWallet({
       activeWallet,
       vaultSettings,
       isCreateAccountSupported,
+      showCreateAccountMenu,
     };
   }, [networkId, walletId]);
+
+  const selectedTemplateRef = useRef<IDerivationOption | null>();
+  const quickCreateAccount = useCallback(
+    async (password: string) => {
+      const { selectedNetworkId } = walletAndNetworkInfo ?? {};
+      if (!walletId || !selectedNetworkId) return;
+      const { serviceDerivationPath } = backgroundApiProxy;
+      const { quickCreateAccountInfo } =
+        await serviceDerivationPath.getNetworkDerivations(
+          walletId,
+          selectedNetworkId,
+        );
+      try {
+        await serviceDerivationPath.createNewAccount(
+          password,
+          walletId,
+          selectedNetworkId,
+          selectedTemplateRef.current
+            ? selectedTemplateRef.current.template
+            : quickCreateAccountInfo?.template ?? '',
+        );
+      } catch (e) {
+        deviceUtils.showErrorToast(e);
+      } finally {
+        navigation.getParent()?.goBack?.();
+      }
+    },
+    [walletAndNetworkInfo, walletId, navigation],
+  );
 
   const createAccount = useCallback(async () => {
     if (!walletId) {
@@ -110,6 +151,7 @@ export function useCreateAccountInWallet({
       selectedNetworkId,
       isCreateAccountSupported,
     } = walletAndNetworkInfo ?? {};
+    const { serviceDerivationPath } = backgroundApiProxy;
     const showNotSupportToast = () => {
       ToastManager.show({
         title: intl.formatMessage(
@@ -159,14 +201,46 @@ export function useCreateAccountInWallet({
     if (isFromAccountSelector) {
       // TODO add back button in route params
     }
-    return navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.CreateAccount,
-      params: {
-        screen: CreateAccountModalRoutes.CreateAccountForm,
+
+    if (!selectedNetworkId) {
+      return;
+    }
+
+    const { shouldQuickCreate } =
+      await serviceDerivationPath.getNetworkDerivations(
+        walletId,
+        selectedNetworkId,
+      );
+    if (shouldQuickCreate) {
+      selectedTemplateRef.current = null;
+      return navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.CreateAccount,
         params: {
-          walletId: activeWallet?.id || '',
-          selectedNetworkId,
+          screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+          params: {
+            walletId: activeWallet?.id || '',
+            onDone: quickCreateAccount,
+          },
         },
+      });
+    }
+
+    showDerivationPathBottomSheetModal({
+      type: 'create',
+      walletId,
+      networkId: selectedNetworkId,
+      onSelect: (options) => {
+        selectedTemplateRef.current = options;
+        return navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.CreateAccount,
+          params: {
+            screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+            params: {
+              walletId: activeWallet?.id || '',
+              onDone: quickCreateAccount,
+            },
+          },
+        });
       },
     });
   }, [
@@ -176,9 +250,11 @@ export function useCreateAccountInWallet({
     navigation,
     walletAndNetworkInfo,
     walletId,
+    quickCreateAccount,
   ]);
   return {
     createAccount,
     isCreateAccountSupported: walletAndNetworkInfo?.isCreateAccountSupported,
+    showCreateAccountMenu: walletAndNetworkInfo?.showCreateAccountMenu,
   };
 }

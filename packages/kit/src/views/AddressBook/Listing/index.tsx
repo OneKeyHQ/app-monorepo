@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -203,12 +203,6 @@ const Listing = () => {
       },
     });
   }, [navigation]);
-
-  useEffect(() => {
-    navigation.setOptions({
-      title: intl.formatMessage({ id: 'title__address_book' }),
-    });
-  }, [navigation, intl]);
 
   return data.length === 0 ? (
     <Center w="full" h="full" bg="background-default">

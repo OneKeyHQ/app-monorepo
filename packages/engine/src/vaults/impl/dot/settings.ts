@@ -1,3 +1,8 @@
+import {
+  COINTYPE_DOT,
+  INDEX_PLACEHOLDER,
+} from '@onekeyhq/shared/src/engine/engineConsts';
+
 import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = Object.freeze({
@@ -14,6 +19,15 @@ const settings: IVaultSettings = Object.freeze({
   isUTXOModel: false,
 
   existDeposit: true,
+
+  accountNameInfo: {
+    default: {
+      prefix: 'DOT',
+      category: `44'/${COINTYPE_DOT}'`,
+      template: `m/44'/${COINTYPE_DOT}'/${INDEX_PLACEHOLDER}'/0'/0'`,
+      coinType: COINTYPE_DOT,
+    },
+  },
 });
 
 export default settings;

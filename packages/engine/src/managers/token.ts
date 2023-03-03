@@ -158,7 +158,7 @@ export const fetchTokenDetail = async (
 
 export const fetchTools = async (): Promise<Tool[]> => {
   const res = await fetchData<{ data: Tool[] }>(
-    '/config/tools',
+    '/config/tools/v2',
     {},
     { data: [] },
   );
