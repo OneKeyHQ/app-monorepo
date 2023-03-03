@@ -12,28 +12,29 @@ import Text from '../Text';
 import type { MessageDescriptor } from 'react-intl';
 
 export interface HeaderTitleProps {
-  title?: MessageDescriptor['id'];
-  titleString?: string;
-  subtitle?: MessageDescriptor['id'];
-  subtitleString?: string;
+  i18nTitle?: MessageDescriptor['id'];
+  title?: string;
+  i18nSubtitle?: MessageDescriptor['id'];
+  subtitle?: string;
   inCenter?: boolean;
 }
 
 const HeaderTitle: FC<HeaderTitleProps> = ({
   title,
   subtitle,
-  titleString,
-  subtitleString,
+  i18nTitle,
+  i18nSubtitle,
   inCenter = true,
+  children,
 }) => {
   const isVertical = useIsVerticalLayout();
   const intl = useIntl();
   const [titleEl, subtitleEl] = useMemo(
     () => [
-      title ? intl.formatMessage({ id: title }) : titleString,
-      subtitle ? intl.formatMessage({ id: subtitle }) : subtitleString,
+      i18nTitle ? intl.formatMessage({ id: i18nTitle }) : title,
+      i18nSubtitle ? intl.formatMessage({ id: i18nSubtitle }) : subtitle,
     ],
-    [title, intl, titleString, subtitle, subtitleString],
+    [i18nTitle, intl, title, i18nSubtitle, subtitle],
   );
 
   const SmallScreenTitle = useMemo(
@@ -45,7 +46,12 @@ const HeaderTitle: FC<HeaderTitleProps> = ({
         style={StyleSheet.absoluteFill}
         zIndex={-1}
       >
-        <Text typography={inCenter ? 'Heading' : 'PageHeading'}>{titleEl}</Text>
+        {children}
+        {!!titleEl && (
+          <Text typography={inCenter ? 'Heading' : 'PageHeading'}>
+            {titleEl}
+          </Text>
+        )}
         {!!subtitleEl && (
           <Text typography="Caption" color="text-subdued">
             {subtitleEl}
@@ -53,13 +59,14 @@ const HeaderTitle: FC<HeaderTitleProps> = ({
         )}
       </Box>
     ),
-    [inCenter, subtitleEl, titleEl],
+    [children, inCenter, subtitleEl, titleEl],
   );
 
   const LargeScreenTitle = useMemo(
     () => (
       <Box flex={1} flexDirection="row" alignItems="baseline">
-        <Text typography="Heading">{titleEl}</Text>
+        {children}
+        {!!titleEl && <Text typography="Heading">{titleEl}</Text>}
         {!!subtitleEl && (
           <Text typography="Body2" ml="12px" color="text-subdued">
             {subtitleEl}
@@ -67,7 +74,7 @@ const HeaderTitle: FC<HeaderTitleProps> = ({
         )}
       </Box>
     ),
-    [subtitleEl, titleEl],
+    [children, subtitleEl, titleEl],
   );
 
   return isVertical ? SmallScreenTitle : LargeScreenTitle;

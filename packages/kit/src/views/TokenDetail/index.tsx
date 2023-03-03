@@ -71,7 +71,9 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   }, [activeAccount?.id, activeNetwork?.id, navigation]);
 
   useEffect(() => {
-    navigation.setOptions({ title: token?.name || activeAccount?.name || '' });
+    navigation.setOptions({
+      title: token?.name || activeAccount?.name || '',
+    });
   }, [navigation, token, accountId, networkId, activeAccount?.name]);
 
   const onHeaderRightPress = useCallback(

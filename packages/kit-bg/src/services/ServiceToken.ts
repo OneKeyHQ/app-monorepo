@@ -672,4 +672,5 @@ export default class ServiceToken extends ServiceBase {
 
     return vault.getMinDepositAmount();
   }
+
 }
