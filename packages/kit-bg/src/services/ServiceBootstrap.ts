@@ -249,7 +249,6 @@ export default class ServiceBootstrap extends ServiceBase {
       this.backgroundApi.dispatch(
         setAccountDerivationDbMigrationVersion(appVersion),
       );
-      console.log(wallets);
     } catch (e) {
       debugLogger.common.error('migrate error: ', e);
       throw e;

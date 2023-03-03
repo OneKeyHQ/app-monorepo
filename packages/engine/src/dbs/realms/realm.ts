@@ -1735,12 +1735,6 @@ class RealmDB implements DBAPI {
       }
       this.realm!.write(() => {
         account.template = template;
-        console.log(
-          'REALM ==>>> setAccountTemplate, accountId: ',
-          accountId,
-          ' ,template: ',
-          account.template,
-        );
       });
       return Promise.resolve(account.internalObj);
     } catch (error: any) {
@@ -2073,12 +2067,6 @@ class RealmDB implements DBAPI {
         accountDerivation.accounts = [
           ...new Set([...accountDerivation.accounts, accountId]),
         ];
-        console.log(
-          'REALM ====> insert finish, accountId: ',
-          accountId,
-          ' , template: ',
-          template,
-        );
       });
     }
     return Promise.resolve();
