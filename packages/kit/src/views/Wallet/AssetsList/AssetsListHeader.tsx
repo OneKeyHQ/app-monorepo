@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Box,
   Divider,
   Icon,
@@ -35,6 +34,7 @@ import {
 import { useActiveWalletAccount } from '../../../hooks/redux';
 import { useAccountTokenValues } from '../../../hooks/useTokens';
 import { showHomeBalanceSettings } from '../../Overlay/HomeBalanceSettings';
+import { OverviewBadge } from '../../Overview/components/OverviewBadge';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -179,9 +179,7 @@ const ListHeader: FC<{
             </Text>
           </Box>
         )}
-        {rate.isNaN() ? null : (
-          <Badge title={`${rate.toFixed(2)}%`} size="lg" ml="2" />
-        )}
+        {rate.isNaN() ? null : <OverviewBadge rate={rate} />}
         <Box ml="auto" flexDirection="row" alignItems="center">
           {tokenCountOrAddToken}
         </Box>
