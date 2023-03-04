@@ -1,4 +1,12 @@
+import { fromSeed } from 'bip32';
+import sha3 from 'js-sha3';
+
+import { COINTYPE_XMR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+
+import type { MoneroModule } from './sdk/moneroCore/monoreModule';
 import type { BIP32Interface } from 'bip32';
+
+const HARDEN_PATH_PREFIX = `m/44'/${COIN_TYPE as string}'/0'/0`;
 
 export function calcBip32ExtendedKey(
   path: string,
@@ -31,4 +39,66 @@ export function calcBip32ExtendedKey(
     }
   }
   return extendedKey;
+}
+
+export function getRawPrivateKeyFromSeed(seed: Buffer) {
+  const rootKey = fromSeed(seed, {
+    messagePrefix: 'x18XMR Signed Message:\n',
+    bip32: {
+      public: 0x0488b21e,
+      private: 0x0488ade4,
+    },
+    pubKeyHash: 0x7f,
+    scriptHash: 0xc4,
+    wif: 0x3f,
+  });
+
+  const extendedKey = calcBip32ExtendedKey(HARDEN_PATH_PREFIX, rootKey);
+
+  if (!extendedKey) {
+    return null;
+  }
+  const key = extendedKey.derive(0);
+  const rawPrivateKey = key.privateKey;
+
+  return rawPrivateKey;
+}
+
+export function getKeyPairFromRawPrivatekey({
+  xmrModule,
+  rawPrivateKey,
+  index = 0,
+}: {
+  xmrModule: MoneroModule;
+  rawPrivateKey: Buffer;
+  index?: number;
+}) {
+  const rawSecretSpendKey = new Uint8Array(
+    sha3.keccak_256.update(rawPrivateKey).arrayBuffer(),
+  );
+  let privateSpendKey = xmrModule.scReduce32(rawSecretSpendKey);
+  const privateViewKey = xmrModule.hashToScalar(privateSpendKey);
+
+  let publicSpendKey: Uint8Array | null;
+  let publicViewKey: Uint8Array | null;
+
+  if (index === 0) {
+    publicSpendKey = xmrModule.privateKeyToPublicKey(privateSpendKey);
+    publicViewKey = xmrModule.privateKeyToPublicKey(privateViewKey);
+  } else {
+    const m = xmrModule.getSubaddressPrivateKey(privateViewKey, index, 0);
+    privateSpendKey = xmrModule.scAdd(m, privateSpendKey);
+    publicSpendKey = xmrModule.privateKeyToPublicKey(privateSpendKey);
+    publicViewKey = xmrModule.scalarmultKey(
+      publicSpendKey || new Uint8Array(),
+      privateViewKey,
+    );
+  }
+
+  return {
+    privateSpendKey,
+    privateViewKey,
+    publicSpendKey,
+    publicViewKey,
+  };
 }

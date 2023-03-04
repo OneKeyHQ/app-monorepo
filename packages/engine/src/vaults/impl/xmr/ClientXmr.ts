@@ -2,17 +2,24 @@
 import BigNumber from 'bignumber.js';
 
 import { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
+import type { ChainInfo, CoinInfo } from '@onekeyhq/engine/src/types/chain';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
 import { TransactionStatus } from '../../../types/provider';
 
-import type { CoinInfo } from '../../../types/chain';
+import { MoneroAddressInfo } from './types';
+
+import LWSClient from '@mymonero/mymonero-lws-client';
+
+import type * as chain from '../../../types/chain';
 import type {
   AddressInfo,
   ClientInfo,
   FeePricePerUnit,
   PartialTokenInfo,
 } from '../../../types/provider';
+import axios from 'axios';
+import type { Axios } from 'axios';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum RPC_METHODS {
@@ -34,9 +41,15 @@ export enum PARAMS_ENCODINGS {
 export class ClientXmr extends BaseClient {
   readonly rpc: JsonRPCRequest;
 
-  constructor(url: string) {
+  readonly wallet: LWSClient;
+
+  constructor(rpcUrl: string, walletUrl: string) {
     super();
-    this.rpc = new JsonRPCRequest(url);
+    const instance = axios.create({
+      baseURL: walletUrl,
+    });
+    this.rpc = new JsonRPCRequest(rpcUrl);
+    this.wallet = new LWSClient({ url: walletUrl, httpClient: instance });
   }
 
   async broadcastTransaction(rawTx: string, options?: any): Promise<string> {
@@ -88,26 +101,29 @@ export class ClientXmr extends BaseClient {
   }
 
   async getBalances(
-    requests: Array<{ address: string; tokenAddress?: string }>,
+    requests: Array<{
+      address: string;
+      coin: Partial<CoinInfo>;
+      privateViewKey: string;
+    }>,
   ): Promise<(BigNumber | undefined)[]> {
-    const calls: Array<any> = requests.map((request) => [
-      RPC_METHODS.GET_BALANCE,
-      [request.address],
-    ]);
-    const resps: Array<{ [key: string]: any } | undefined> =
-      await this.rpc.batchCall(calls);
-    const result: Array<BigNumber | undefined> = [];
-    resps.forEach((resp, i) => {
-      if (typeof resp !== 'undefined') {
-        let balance = new BigNumber(0);
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        balance = new BigNumber(resp.value.lamports);
-        result.push(balance);
-      } else {
-        result.push(undefined);
-      }
-    });
-    return result;
+    try {
+      const resp = await Promise.all(
+        requests.map(async (request) =>
+          this.wallet.getAddressInfo(request.privateViewKey, request.address),
+        ),
+      );
+
+      return resp.map((addressInfo) => {
+        const totalSent = new BigNumber(addressInfo.total_sent ?? 0);
+        const totalReceived = new BigNumber(addressInfo.total_received ?? 0);
+        const balance = totalReceived.minus(totalSent);
+        return balance.isNegative() ? new BigNumber(0) : balance;
+      });
+    } catch (e) {
+      console.log(e);
+      return [];
+    }
   }
 
   async getAccountInfo(

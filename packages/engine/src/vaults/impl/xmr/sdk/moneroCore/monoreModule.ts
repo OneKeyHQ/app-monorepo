@@ -1,8 +1,12 @@
-import bs58 from 'bs58';
+/* eslint-disable no-bitwise */
 
-import { MoneroNetTypeEnum } from './moneroTypes';
+import { MoneroNetTypeEnum } from './moneroCoreTypes';
+import {
+  MONERO_WORDS_ENGLISH,
+  MONERO_WORDS_ENGLISH_PREFIX_LENGTH,
+} from './moneroWrods';
 
-import type { MoneroCoreInstance } from './moneroTypes';
+import type { MoneroCoreInstance } from './moneroCoreTypes';
 
 const fromHexString = (hexString: string) =>
   new Uint8Array(
@@ -10,6 +14,75 @@ const fromHexString = (hexString: string) =>
   );
 const toHexString = (bytes: Uint8Array) =>
   bytes.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
+
+const makeCRCTable = function () {
+  let c;
+  const crcTable = [];
+  for (let n = 0; n < 256; n += 1) {
+    c = n;
+    for (let k = 0; k < 8; k += 1) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    crcTable[n] = c;
+  }
+  return crcTable;
+};
+
+const crc32 = (str: string) => {
+  const crcTable = makeCRCTable();
+  let crc = 0 ^ -1;
+
+  for (let i = 0; i < str.length; i += 1) {
+    crc = (crc >>> 8) ^ crcTable[(crc ^ str.charCodeAt(i)) & 0xff];
+  }
+
+  return (crc ^ -1) >>> 0;
+};
+
+const base58Encode = function (data: Uint8Array) {
+  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const ALPHABET_MAP: { [index: string]: any } = {};
+  const BYTES_TO_LENGTHS = [0, 2, 3, 5, 6, 7, 9, 10, 11];
+  const BASE = ALPHABET.length;
+
+  // pre-compute lookup table
+  for (let z = 0; z < ALPHABET.length; z += 1) {
+    const x = ALPHABET.charAt(z);
+    if (ALPHABET_MAP[x] !== undefined) throw new TypeError(`${x} is ambiguous`);
+    ALPHABET_MAP[x] = z;
+  }
+
+  const encodePartial = (p: Uint8Array, pos: number) => {
+    let len = 8;
+    if (pos + len > p.length) len = p.length - pos;
+    const digits = [0];
+    for (let i = 0; i < len; i += 1) {
+      let carry = p[pos + i];
+      for (let j = 0; j < digits.length; j += 1) {
+        carry += digits[j] << 8;
+        digits[j] = carry % BASE;
+        carry = (carry / BASE) | 0;
+      }
+
+      while (carry > 0) {
+        digits.push(carry % BASE);
+        carry = (carry / BASE) | 0;
+      }
+    }
+
+    let res = '';
+    for (let k = digits.length; k < BYTES_TO_LENGTHS[len]; k += 1)
+      res += ALPHABET[0];
+    for (let q = digits.length - 1; q >= 0; q -= 1) res += ALPHABET[digits[q]];
+    return res;
+  };
+
+  let res = '';
+  for (let i = 0; i < data.length; i += 8) {
+    res += encodePartial(data, i);
+  }
+  return res;
+};
 
 class MoneroModule {
   core: MoneroCoreInstance;
@@ -29,7 +102,7 @@ class MoneroModule {
     return res;
   }
 
-  secretKeyToPublicKey(data: Uint8Array) {
+  privateKeyToPublicKey(data: Uint8Array) {
     const outLen = data.length * data.BYTES_PER_ELEMENT;
     const outPtr = this.core._malloc(outLen);
     const outHeap = new Uint8Array(this.core.HEAPU8.buffer, outPtr, outLen);
@@ -64,7 +137,7 @@ class MoneroModule {
     return this.scReduce32(this.cnFastHash(data));
   }
 
-  getSubaddressSecretKey(data: Uint8Array, major: number, minor: number) {
+  getSubaddressPrivateKey(data: Uint8Array, major: number, minor: number) {
     const outLen = 32;
     const outPtr = this.core._malloc(outLen);
     const outHeap = new Uint8Array(this.core.HEAPU8.buffer, outPtr, outLen);
@@ -127,12 +200,49 @@ class MoneroModule {
       prefix = '18';
       if (isSubaddress) prefix = '24';
     }
-    let resHex = `${prefix}${toHexString(publicSpendKey)}${toHexString(
-      publicViewKey,
-    )}`;
+
+    let resHex =
+      prefix + toHexString(publicSpendKey) + toHexString(publicViewKey);
+
     const checksum = this.cnFastHash(fromHexString(resHex));
     resHex += toHexString(checksum).substring(0, 8);
-    return bs58.encode(fromHexString(resHex));
+    return base58Encode(fromHexString(resHex));
+  }
+
+  privateSpendKeyToWords(privateSpendKey: Uint8Array) {
+    const seed = [];
+    let forChecksum = '';
+    for (let i = 0; i < 32; i += 4) {
+      let w0 = 0;
+      for (let j = 3; j >= 0; j -= 1) w0 = w0 * 256 + privateSpendKey[i + j];
+      const w1 = w0 % MONERO_WORDS_ENGLISH.length;
+      const w2 =
+        (((w0 / MONERO_WORDS_ENGLISH.length) | 0) + w1) %
+        MONERO_WORDS_ENGLISH.length;
+      const w3 =
+        (((((w0 / MONERO_WORDS_ENGLISH.length) | 0) /
+          MONERO_WORDS_ENGLISH.length) |
+          0) +
+          w2) %
+        MONERO_WORDS_ENGLISH.length;
+      seed.push(MONERO_WORDS_ENGLISH[w1]);
+      seed.push(MONERO_WORDS_ENGLISH[w2]);
+      seed.push(MONERO_WORDS_ENGLISH[w3]);
+      forChecksum += MONERO_WORDS_ENGLISH[w1].substring(
+        0,
+        MONERO_WORDS_ENGLISH_PREFIX_LENGTH,
+      );
+      forChecksum += MONERO_WORDS_ENGLISH[w2].substring(
+        0,
+        MONERO_WORDS_ENGLISH_PREFIX_LENGTH,
+      );
+      forChecksum += MONERO_WORDS_ENGLISH[w3].substring(
+        0,
+        MONERO_WORDS_ENGLISH_PREFIX_LENGTH,
+      );
+    }
+    seed.push(seed[crc32(forChecksum) % 24]);
+    return seed.join(' ');
   }
 }
 

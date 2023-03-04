@@ -1827,7 +1827,12 @@ class IndexedDBApi implements DBAPI {
 
             if (cursor) {
               const account = cursor.value as DBAccount | undefined;
-              let isFound = account && account?.address === address;
+              let isFound =
+                account &&
+                (account?.address === address ||
+                  Object.values(
+                    (account as DBVariantAccount)?.addresses,
+                  ).includes(address));
               if (coinType) {
                 isFound = isFound && account?.coinType === coinType;
               }

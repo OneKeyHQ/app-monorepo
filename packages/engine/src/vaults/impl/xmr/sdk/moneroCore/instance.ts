@@ -1,6 +1,6 @@
 import { loadWasmInstance } from './load';
 
-import type { MoneroCoreInstance } from './moneroTypes';
+import type { MoneroCoreInstance } from './moneroCoreTypes';
 
 let inst = null;
 

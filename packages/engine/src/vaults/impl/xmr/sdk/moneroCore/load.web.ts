@@ -3,7 +3,7 @@
 import instantiate from './monero-core';
 import wasmBinaryFileName from './monero-core.wasm.bin';
 
-import type { MoneroCoreInstance } from './moneroTypes';
+import type { MoneroCoreInstance } from './moneroCoreTypes';
 
 const locateFile = (file: string) => {
   if (file !== 'monero-core.wasm') {

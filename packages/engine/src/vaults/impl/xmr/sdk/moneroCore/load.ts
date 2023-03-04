@@ -1,6 +1,6 @@
 import instantiate from './monero-core';
 
-import type { MoneroCoreInstance } from './moneroTypes';
+import type { MoneroCoreInstance } from './moneroCoreTypes';
 
 export const loadWasmInstance = async (
   importObj: any,

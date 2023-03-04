@@ -1,8 +1,11 @@
+import { mnemonicFromEntropy } from '@onekeyfe/blockchain-libs/dist/secret';
+import { mnemonicToSeedSync } from 'bip39';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
+import { OneKeyInternalError } from '../../../errors';
 import { isAccountCompatibleWithNetwork } from '../../../managers/account';
 import { VaultBase } from '../../VaultBase';
 
@@ -11,17 +14,21 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { getInstance } from './sdk/instance';
-import { MoneroNetTypeEnum } from './sdk/moneroTypes';
-import { MoneroModule } from './sdk/monoreModule';
+import { getInstance } from './sdk/moneroCore/instance';
+import { MoneroNetTypeEnum } from './sdk/moneroCore/moneroCoreTypes';
+import { MoneroModule } from './sdk/moneroCore/monoreModule';
 import settings from './settings';
+import { getKeyPairFromRawPrivatekey, getRawPrivateKeyFromSeed } from './utils';
 
+import type { ExportedSeedCredential } from '../../../dbs/base';
 import type {
   Account,
   DBAccount,
   DBVariantAccount,
 } from '../../../types/account';
 import type BigNumber from 'bignumber.js';
+
+import axios from 'axios';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -37,7 +44,6 @@ export default class Vault extends VaultBase {
   private getXmrModule = memoizee(
     async () => {
       const instance = await getInstance();
-      console.log(instance);
       return new MoneroModule(instance);
     },
     {
@@ -49,16 +55,44 @@ export default class Vault extends VaultBase {
 
   private async getClient(): Promise<ClientXmr> {
     const rpcURL = await this.getRpcUrl();
-    return this.createClientFromURL(rpcURL);
+    const walletUrl = 'https://node.onekeytest.com/mymonero';
+    return this.createXmrClientFromURL(rpcURL, walletUrl);
   }
 
-  override createClientFromURL = memoizee(
-    (rpcURL: string) => new ClientXmr(`${rpcURL}/json_rpc`),
+  private createXmrClientFromURL = memoizee(
+    (rpcURL: string, walletUrl: string) => new ClientXmr(rpcURL, walletUrl),
     {
       max: 1,
+      primitive: true,
       maxAge: getTimeDurationMs({ minute: 3 }),
     },
   );
+
+  override async getExportedCredential(password: string): Promise<string> {
+    const dbAccount = await this.getDbAccount();
+    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+      const xmrModule = await this.getXmrModule();
+      const { entropy } = (await this.engine.dbApi.getCredential(
+        this.walletId,
+        password,
+      )) as ExportedSeedCredential;
+      const mnemonic = mnemonicFromEntropy(entropy, password);
+      const seed = mnemonicToSeedSync(mnemonic);
+      const rawPrivateKey = getRawPrivateKeyFromSeed(seed);
+      if (!rawPrivateKey) {
+        throw new OneKeyInternalError('Unable to get raw private key.');
+      }
+      const { privateSpendKey } = getKeyPairFromRawPrivatekey({
+        xmrModule,
+        rawPrivateKey,
+      });
+
+      return xmrModule.privateSpendKeyToWords(privateSpendKey);
+    }
+    throw new OneKeyInternalError(
+      'Only credential of HD or imported accounts can be exported',
+    );
+  }
 
   override async getOutputAccount(): Promise<Account> {
     const dbAccount = (await this.getDbAccount({
@@ -116,7 +150,22 @@ export default class Vault extends VaultBase {
     requests: Array<{ address: string; tokenAddress?: string }>,
   ): Promise<(BigNumber | undefined)[]> {
     const client = await this.getClient();
-    return client.getBalances(requests);
+
+    const requestsNew = await Promise.all(
+      requests.map(async (request) => {
+        const account = (await this.engine.dbApi.getAccountByAddress({
+          address: request.address,
+        })) as DBVariantAccount;
+
+        return {
+          address: request.address,
+          coin: {},
+          privateViewKey: account.privateViewKey as string,
+        };
+      }),
+    );
+
+    return client.getBalances(requestsNew);
   }
 
   override async getClientEndpointStatus(

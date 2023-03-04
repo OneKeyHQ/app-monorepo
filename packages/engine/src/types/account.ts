@@ -31,6 +31,7 @@ type DBVariantAccount = DBBaseAccount & {
   pub: string;
   address: string; // Base address
   addresses: Record<string, string>; // Network -> address
+  privateViewKey?: string; // Monero Only
 };
 
 type DBAccount = DBSimpleAccount | DBUTXOAccount | DBVariantAccount;
