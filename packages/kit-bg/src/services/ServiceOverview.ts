@@ -193,6 +193,31 @@ class ServiceOverview extends ServiceBase {
   }
 
   @backgroundMethod()
+  async refreshAccount({
+    accountId,
+    networkId,
+  }: {
+    accountId?: string;
+    networkId?: string;
+  }) {
+    const { engine, serviceToken } = this.backgroundApi;
+
+    if (!accountId || !networkId) {
+      return;
+    }
+
+    engine.clearPriceCache();
+    await serviceToken.fetchAccountTokens({
+      accountId,
+      networkId,
+      forceReloadTokens: true,
+      includeTop50TokensQuery: true,
+    });
+
+    await this.subscribe();
+  }
+
+  @backgroundMethod()
   async query<T>(
     scanType: IOverviewScanTaskType,
     body: {

@@ -7,7 +7,6 @@ import { Box, useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
@@ -65,11 +64,24 @@ const WalletTabs: FC = () => {
     backgroundApiProxy.dispatch(setHomeTabName(HomeTabOrder[0]));
   }, []);
 
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    backgroundApiProxy.serviceOverview
+      .refreshAccount({
+        accountId: account?.id,
+        networkId: network?.id,
+      })
+      .finally(() => {
+        setTimeout(() => setRefreshing(false), 10);
+      });
+  }, [account?.id, network?.id]);
+
   return (
     <>
       <Tabs.Container
         canOpenDrawer
         refreshing={refreshing}
+<<<<<<< HEAD
         onRefresh={async () => {
           setRefreshing(true);
           if (account?.id && network?.id) {
@@ -87,6 +99,9 @@ const WalletTabs: FC = () => {
           }
           setTimeout(() => setRefreshing(false), 10);
         }}
+=======
+        onRefresh={onRefresh}
+>>>>>>> 56d236957 (feat: add entry of active refresh, OK-17728)
         onIndexChange={(index) => {
           backgroundApiProxy.dispatch(setHomeTabName(HomeTabOrder[index]));
         }}
