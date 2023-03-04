@@ -41,7 +41,7 @@ export function calcBip32ExtendedKey(
   return extendedKey;
 }
 
-export function getRawPrivateKeyFromSeed(seed: Buffer) {
+export function getRawPrivateKeyFromSeed(seed: Buffer, pathPrefix: string) {
   const rootKey = fromSeed(seed, {
     messagePrefix: 'x18XMR Signed Message:\n',
     bip32: {
@@ -53,7 +53,7 @@ export function getRawPrivateKeyFromSeed(seed: Buffer) {
     wif: 0x3f,
   });
 
-  const extendedKey = calcBip32ExtendedKey(HARDEN_PATH_PREFIX, rootKey);
+  const extendedKey = calcBip32ExtendedKey(pathPrefix, rootKey);
 
   if (!extendedKey) {
     return null;

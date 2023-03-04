@@ -1831,7 +1831,7 @@ class IndexedDBApi implements DBAPI {
                 account &&
                 (account?.address === address ||
                   Object.values(
-                    (account as DBVariantAccount)?.addresses,
+                    (account as DBVariantAccount)?.addresses || {},
                   ).includes(address));
               if (coinType) {
                 isFound = isFound && account?.coinType === coinType;

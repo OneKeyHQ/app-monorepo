@@ -70,7 +70,9 @@ export default class Vault extends VaultBase {
 
   override async getExportedCredential(password: string): Promise<string> {
     const dbAccount = await this.getDbAccount();
-    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+    const { path, id } = dbAccount;
+    const pathArr = path.split('/');
+    if (id.startsWith('hd-') || id.startsWith('imported')) {
       const xmrModule = await this.getXmrModule();
       const { entropy } = (await this.engine.dbApi.getCredential(
         this.walletId,
@@ -78,7 +80,10 @@ export default class Vault extends VaultBase {
       )) as ExportedSeedCredential;
       const mnemonic = mnemonicFromEntropy(entropy, password);
       const seed = mnemonicToSeedSync(mnemonic);
-      const rawPrivateKey = getRawPrivateKeyFromSeed(seed);
+      const rawPrivateKey = getRawPrivateKeyFromSeed(
+        seed,
+        pathArr.slice(0, path.length - 1).join('/'),
+      );
       if (!rawPrivateKey) {
         throw new OneKeyInternalError('Unable to get raw private key.');
       }

@@ -7,6 +7,9 @@ import { OneKeyInternalError } from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
+import { slicePathTemplate } from '../../../managers/derivation';
+import { getAccountNameInfoByTemplate } from '../../../managers/impl';
+
 import { getInstance } from './sdk/moneroCore/instance';
 import { MoneroNetTypeEnum } from './sdk/moneroCore/moneroCoreTypes';
 import { MoneroModule } from './sdk/moneroCore/monoreModule';
@@ -28,7 +31,7 @@ export class KeyringHd extends KeyringHdBase {
   async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
-    const { password, indexes, names } = params;
+    const { password, indexes, names, template } = params;
     const network = await this.getNetwork();
     const { entropy } = (await this.engine.dbApi.getCredential(
       this.walletId,
@@ -40,13 +43,15 @@ export class KeyringHd extends KeyringHdBase {
 
     const mnemonic = mnemonicFromEntropy(entropy, password);
     const seed = mnemonicToSeedSync(mnemonic);
-
-    const rawPrivateKey = getRawPrivateKeyFromSeed(seed);
+    const { pathPrefix } = slicePathTemplate(template);
+    const rawPrivateKey = getRawPrivateKeyFromSeed(seed, pathPrefix);
     if (!rawPrivateKey) {
       throw new OneKeyInternalError('Unable to get raw private key.');
     }
 
     const ret = [];
+    const impl = await this.getNetworkImpl();
+    const { prefix } = getAccountNameInfoByTemplate(impl, template);
     for (const index of indexes) {
       const { publicSpendKey, publicViewKey, privateViewKey } =
         getKeyPairFromRawPrivatekey({
@@ -59,7 +64,7 @@ export class KeyringHd extends KeyringHdBase {
         throw new OneKeyInternalError('Unable to get public spend/view key.');
       }
 
-      const path = `${HARDEN_PATH_PREFIX}/${index}`;
+      const path = `${pathPrefix}/${index}`;
 
       const address = xmrModule.pubKeysToAddress(
         network.isTestnet
@@ -70,8 +75,7 @@ export class KeyringHd extends KeyringHdBase {
         publicViewKey,
       );
 
-      const name =
-        (names || [])[index] || `${ACCOUNT_NAME_PREFIX} #${index + 1}`;
+      const name = (names || [])[index] || `${prefix} #${index + 1}`;
       ret.push({
         id: `${this.walletId}--${path}`,
         name,
