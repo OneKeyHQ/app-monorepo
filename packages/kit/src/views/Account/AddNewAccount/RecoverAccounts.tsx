@@ -774,12 +774,18 @@ const RecoverAccounts: FC = () => {
   ]);
 
   const maxPage = useMemo(() => {
+    if (currentPageData.length < PAGE_SIZE) return config.currentPage + 1;
     if (config.fromIndex >= FROM_INDEX_MAX) return 1;
     if (config.generateCount) {
       return Math.ceil(config.generateCount / PAGE_SIZE);
     }
     return Math.ceil(FROM_INDEX_MAX / PAGE_SIZE);
-  }, [config.fromIndex, config.generateCount]);
+  }, [
+    config.fromIndex,
+    config.generateCount,
+    config.currentPage,
+    currentPageData.length,
+  ]);
 
   const isLoadingState = useMemo(
     () => pendRefreshData || isLoading || !depDataInit,
@@ -982,6 +988,7 @@ const RecoverAccounts: FC = () => {
                 params: {
                   screen: RecoverAccountModalRoutes.RecoverAccountsAdvanced,
                   params: {
+                    networkId: selectedNetWork?.id,
                     fromIndex: config.fromIndex,
                     generateCount: config.generateCount,
                     onApply: ({ fromIndex, generateCount: count }) => {
