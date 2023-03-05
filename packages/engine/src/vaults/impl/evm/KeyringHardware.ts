@@ -1,15 +1,18 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
-import {
-  COINTYPE_ETH as COIN_TYPE,
-  IMPL_EVM,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import * as engineUtils from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { OneKeyHardwareError } from '../../../errors';
 import * as OneKeyHardware from '../../../hardware';
+import { slicePathTemplate } from '../../../managers/derivation';
+import {
+  getAccountNameInfoByImpl,
+  getAccountNameInfoByTemplate,
+} from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
@@ -22,8 +25,6 @@ import type {
   ISignCredentialOptions,
 } from '../../types';
 import type { IUnsignedMessageEvm } from './Vault';
-
-const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 
 export class KeyringHardware extends KeyringHardwareBase {
   async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
@@ -74,7 +75,16 @@ export class KeyringHardware extends KeyringHardwareBase {
     const chainId = await this.getNetworkChainId();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
-    const { indexes, names, type } = params;
+    const { indexes, names, type, template, coinType } = params;
+
+    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
+
+    const accountNameInfos = await this.vault.getAccountNameInfoMap();
+    const isLedgerLive = template === accountNameInfos.ledgerLive.template;
+
+    const paths = indexes.map(
+      (index) => `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
+    );
 
     let addressInfos;
     if (type === 'SEARCH_ACCOUNTS') {
@@ -82,11 +92,24 @@ export class KeyringHardware extends KeyringHardwareBase {
       // and derive the addresses to reduce the number of calls to the device
       // therefore better performance.
       let response;
+      let publicKeyParams: any = {
+        path: pathPrefix,
+        showOnOneKey: false,
+        chainId: Number(chainId),
+      };
+      if (isLedgerLive) {
+        publicKeyParams = {
+          bundle: paths.map((path) => ({
+            path,
+            showOnOneKey: false,
+            chainId: Number(chainId),
+          })),
+          useBatch: true,
+        };
+      }
       try {
         response = await HardwareSDK.evmGetPublicKey(connectId, deviceId, {
-          path: PATH_PREFIX,
-          showOnOneKey: false,
-          chainId: Number(chainId),
+          ...publicKeyParams,
           ...passphraseState,
         });
       } catch (e: any) {
@@ -97,17 +120,37 @@ export class KeyringHardware extends KeyringHardwareBase {
       if (!response.success) {
         throw convertDeviceError(response.payload);
       }
-      const { xpub } = response.payload;
-      const node = ethers.utils.HDNode.fromExtendedKey(xpub);
-      addressInfos = indexes.map((index) => ({
-        path: `${PATH_PREFIX}/${index}`,
-        info: engineUtils.fixAddressCase({
-          address: node.derivePath(`${index}`).address,
-          impl: IMPL_EVM,
-        }),
-      }));
+
+      if (isLedgerLive) {
+        addressInfos = await Promise.all(
+          (
+            response.payload as unknown as {
+              path: string;
+              publicKey: string;
+            }[]
+          ).map(async (item) => ({
+            path: item.path,
+            info: engineUtils.fixAddressCase({
+              address: await this.engine.providerManager.addressFromPub(
+                this.networkId,
+                item.publicKey,
+              ),
+              impl: IMPL_EVM,
+            }),
+          })),
+        );
+      } else {
+        const { xpub } = response.payload;
+        const node = ethers.utils.HDNode.fromExtendedKey(xpub);
+        addressInfos = indexes.map((index) => ({
+          path: `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
+          info: engineUtils.fixAddressCase({
+            address: node.derivePath(`${index}`).address,
+            impl: IMPL_EVM,
+          }),
+        }));
+      }
     } else {
-      const paths = indexes.map((index) => `${PATH_PREFIX}/${index}`);
       addressInfos = await OneKeyHardware.getXpubs(
         HardwareSDK,
         IMPL_EVM,
@@ -123,20 +166,29 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const ret = [];
     let index = 0;
+    const impl = await this.getNetworkImpl();
+    const { prefix } = getAccountNameInfoByTemplate(impl, template);
+    const isLedgerLiveTemplate =
+      getAccountNameInfoByImpl(impl).ledgerLive.template === template;
     for (const info of addressInfos) {
       const { path, info: address } = info;
-      const name = (names || [])[index] || `EVM #${indexes[index] + 1}`;
+      const name = (names || [])[index] || `${prefix} #${indexes[index] + 1}`;
       ret.push({
-        id: `${this.walletId}--${path}`,
+        id: isLedgerLiveTemplate
+          ? // because the first account path of ledger live template is the same as the bip44 account path
+            `${this.walletId}--${path}--LedgerLive`
+          : `${this.walletId}--${path}`,
         name,
         type: AccountType.SIMPLE,
         path,
-        coinType: COIN_TYPE,
+        coinType,
         pub: '',
         address,
+        template,
       });
       index += 1;
     }
+
     return ret;
   }
 

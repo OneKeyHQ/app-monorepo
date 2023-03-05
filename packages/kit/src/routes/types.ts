@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
 /* eslint-disable @typescript-eslint/no-namespace */
 
+import type { ComponentType } from 'react';
+
+import type { HeaderTitleProps } from '@onekeyhq/components/src/NavHeader/HeaderTitle';
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -26,10 +29,17 @@ import type {
 import type { StackScreenProps } from '@react-navigation/stack';
 import type B from 'bignumber.js';
 
+export type ScreensList<T extends string> = ({
+  name: T;
+  component: ComponentType<any>;
+  alwaysShowBackButton?: boolean;
+} & HeaderTitleProps)[];
+
 export { ModalRoutes, RootRoutes, HomeRoutes, TabRoutes };
 
 export type ModalRoutesParams = {
   [ModalRoutes.CreateAccount]: NavigatorScreenParams<SubModalRoutesParams.CreateAccountRoutesParams>;
+  [ModalRoutes.RecoverAccount]: NavigatorScreenParams<SubModalRoutesParams.RecoverAccountRoutesParams>;
   [ModalRoutes.CreateWallet]: NavigatorScreenParams<SubModalRoutesParams.CreateWalletRoutesParams>;
   [ModalRoutes.BackupWallet]: NavigatorScreenParams<SubModalRoutesParams.BackupWalletRoutesParams>;
   [ModalRoutes.ManagerWallet]: NavigatorScreenParams<SubModalRoutesParams.ManagerWalletRoutesParams>;

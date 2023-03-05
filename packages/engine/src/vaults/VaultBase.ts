@@ -24,6 +24,7 @@ import {
   NotImplemented,
   PendingQueueTooLong,
 } from '../errors';
+import { getAccountNameInfoByImpl } from '../managers/impl';
 import { IMPL_MAPPINGS } from '../proxyUtils';
 
 import { IDecodedTxActionType, IDecodedTxDirection } from './types';
@@ -31,6 +32,7 @@ import { VaultContext } from './VaultContext';
 
 import type { Account, DBAccount } from '../types/account';
 import type { HistoryEntry, HistoryEntryStatus } from '../types/history';
+import type { AccountNameInfo, Network } from '../types/network';
 import type { WalletType } from '../types/wallet';
 import type { ethers } from './impl/evm/sdk/ethers';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
@@ -142,6 +144,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     return Promise.resolve(normalizedAddress);
   }
 
+  async validateCanCreateNextAccount(walletId: string, template: string) {
+    return Promise.resolve(true);
+  }
+
   async checkAccountExistence(accountIdOnNetwork: string): Promise<boolean> {
     return Promise.resolve(true);
   }
@@ -180,8 +186,41 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     return false;
   }
 
+  async getAccountNameInfoMap(): Promise<Record<string, AccountNameInfo>> {
+    const network = await this.getNetwork();
+    return getAccountNameInfoByImpl(network.impl);
+  }
+
   async canAutoCreateNextAccount(password: string): Promise<boolean> {
     return Promise.resolve(true);
+  }
+
+  async filterAccounts({
+    accounts,
+    networkId,
+  }: {
+    accounts: DBAccount[];
+    networkId: string;
+  }): Promise<DBAccount[]> {
+    return Promise.resolve(accounts);
+  }
+
+  async shouldChangeAccountWhenNetworkChanged({
+    previousNetwork,
+    newNetwork,
+    activeAccountId,
+  }: {
+    previousNetwork: Network | undefined;
+    newNetwork: Network | undefined;
+    activeAccountId: string | null;
+  }): Promise<{
+    shouldReloadAccountList: boolean;
+    shouldChangeActiveAccount: boolean;
+  }> {
+    return Promise.resolve({
+      shouldReloadAccountList: false,
+      shouldChangeActiveAccount: false,
+    });
   }
 }
 

@@ -3,9 +3,11 @@ import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { OnekeyNetwork } from '../config/networkIds';
 
 const SEPERATOR = '--';
+const INDEX_PLACEHOLDER = '$$INDEX$$';
 
 const IMPL_EVM = 'evm';
 const COINTYPE_ETH = '60';
+const COINTYPE_ETC = '61';
 
 const IMPL_SOL = 'sol';
 const COINTYPE_SOL = '501';
@@ -134,8 +136,10 @@ function getSupportedImpls() {
 
 export {
   SEPERATOR,
+  INDEX_PLACEHOLDER,
   IMPL_EVM,
   COINTYPE_ETH,
+  COINTYPE_ETC,
   IMPL_SOL,
   COINTYPE_SOL,
   IMPL_ALGO,
@@ -179,3 +183,5 @@ export {
 export const AUTO_SWITCH_DEFAULT_RPC_AT_VERSION = '3.21.0';
 
 export const PRICE_EXPIRED_TIME = getTimeDurationMs({ minute: 15 });
+
+export const ACCOUNT_DERIVATION_DB_MIGRATION_VERSION = '4.0.0';
