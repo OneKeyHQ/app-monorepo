@@ -15,12 +15,3 @@ export type IDappSourceInfo = {
   scope: IInjectedProviderNamesStrings;
   data: IJsonRpcRequest;
 };
-
-export enum ExplorerShortcutEvents {
-  NewTab = 'NewTab',
-  NewTabAndFocus = 'NewTabAndFocus',
-  JumpToNextTab = 'JumpToNextTab',
-  GobackHistory = 'GobackHistory',
-  GoForwardHistory = 'GoForwardHistory',
-  CloseTab = 'CloseTab',
-}

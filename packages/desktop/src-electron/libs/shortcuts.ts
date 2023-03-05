@@ -1,30 +1,9 @@
 import { app, globalShortcut } from 'electron';
 
-import { ExplorerShortcutEvents } from '@onekeyhq/shared/types';
+import type { ExplorerShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { getShortcutsMap } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
-const isMac = process.platform === 'darwin';
-
-const shortcutsMap = {
-  [ExplorerShortcutEvents.NewTab]: {
-    keys: 'CmdOrCtrl+N',
-  },
-  [ExplorerShortcutEvents.NewTabAndFocus]: {
-    keys: 'CmdOrCtrl+T',
-  },
-  [ExplorerShortcutEvents.JumpToNextTab]: {
-    keys: isMac ? 'Cmd+Alt+Right' : 'Ctrl+Tab',
-  },
-  [ExplorerShortcutEvents.GobackHistory]: {
-    keys: 'Alt+Left',
-  },
-  [ExplorerShortcutEvents.GoForwardHistory]: {
-    keys: 'Alt+Right',
-  },
-  [ExplorerShortcutEvents.CloseTab]: {
-    keys: 'CmdOrCtrl+W',
-  },
-};
-
+const shortcutsMap = getShortcutsMap(process.platform === 'darwin');
 export function registerShortcuts(
   callback: (event: ExplorerShortcutEvents) => void,
 ) {

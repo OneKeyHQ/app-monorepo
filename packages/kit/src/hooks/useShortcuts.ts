@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ExplorerShortcutEvents } from '@onekeyhq/shared/types';
+import { ExplorerShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { TabRoutes } from '../routes/routesEnum';
