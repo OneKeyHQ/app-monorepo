@@ -621,7 +621,7 @@ const RecoverAccounts: FC = () => {
 
         const addedAccounts = new Map(accounts.loadedAccounts);
         accountsWithBalance.forEach((i) => {
-          addedAccounts.set(i.index, i);
+          addedAccounts.set(i.index, { ...i, template });
         });
 
         updateCurrentPageData(accountsWithBalance);
