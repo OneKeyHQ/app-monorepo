@@ -28,14 +28,18 @@ import useFormatDate from '../../../../hooks/useFormatDate';
 import { buildTransactionDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
 import { openUrlExternal } from '../../../../utils/openUrl';
 import { useTransactionsAccount } from '../../hooks/useTransactions';
-import { formatAmount, normalizeProviderName } from '../../utils';
+import {
+  calculateProtocalsFee,
+  formatAmount,
+  normalizeProviderName,
+} from '../../utils';
 import PendingTransaction from '../PendingTransaction';
 import SwappingVia from '../SwappingVia';
 import TransactionFee from '../TransactionFee';
 import TransactionRate from '../TransactionRate';
 
 import { HashMoreMenu } from './HashMoreMenus';
-import { ReceiptMoreMenus } from './ReceiptMoreMenus';
+import { AccountMoreMenus, ReceiptMoreMenus } from './MoreMenus';
 
 import type {
   SwapRoutes,
@@ -179,6 +183,10 @@ const Header: FC<TransactionProps & { onPress?: () => void }> = ({
 const InputOutput: FC<TransactionProps> = ({ tx }) => {
   const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
   const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
+  const receivingAccount = useTransactionsAccount(
+    tx.accountId,
+    tx.tokens?.to.networkId,
+  );
   const account = useTransactionsAccount(
     tx.accountId,
     tx.tokens?.from.networkId,
@@ -204,20 +212,26 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
             </Typography.Body2>
           </Box>
         </Box>
-        <Box
-          bg="action-secondary-default"
-          borderWidth="1px"
-          p="1"
-          pr="2"
-          h="6"
-          borderRadius={12}
-          borderColor="border-default"
-          flexDirection="row"
-          alignItems="center"
-        >
-          <Image w="4" h="4" mr="1" src={fromNetwork?.logoURI} />
-          <Typography.Body2Strong>{account?.name}</Typography.Body2Strong>
-        </Box>
+        <AccountMoreMenus networkId={tx.networkId} accountId={tx.accountId}>
+          <Pressable>
+            <Box
+              bg="action-secondary-default"
+              borderWidth="1px"
+              p="1"
+              pr="2"
+              h="6"
+              borderRadius={12}
+              borderColor="border-default"
+              flexDirection="row"
+              alignItems="center"
+            >
+              <Image w="4" h="4" mr="1" src={fromNetwork?.logoURI} />
+              <Typography.Body2Strong selectable={false}>
+                {account?.name}
+              </Typography.Body2Strong>
+            </Box>
+          </Pressable>
+        </AccountMoreMenus>
       </Box>
       <Box
         h="8"
@@ -251,7 +265,11 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
             </Typography.Body2>
           </Box>
         </Box>
-        <ReceiptMoreMenus tx={tx}>
+        <ReceiptMoreMenus
+          address={tx.receivingAddress}
+          networkId={tx.tokens?.to.networkId}
+          accountId={tx.receivingAccountId}
+        >
           <Pressable>
             <Box
               bg="action-secondary-default"
@@ -265,8 +283,10 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
               alignItems="center"
             >
               <Image w="4" h="4" mr="1" src={toNetwork?.logoURI} />
-              <Typography.Body2Strong>
-                {receivingName || shortenAddress(tx.receivingAddress || '')}
+              <Typography.Body2Strong selectable={false}>
+                {receivingAccount?.name ||
+                  receivingName ||
+                  shortenAddress(tx.receivingAddress || '')}
               </Typography.Body2Strong>
             </Box>
           </Pressable>
@@ -575,6 +595,19 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               color="text-default"
             />
           </TransactionField>
+          {tx.protocalFees ? (
+            <TransactionField
+              label={intl.formatMessage({ id: 'form__bridge_fee' })}
+            >
+              <Typography.Body2Strong>
+                {`${
+                  calculateProtocalsFee(tx.protocalFees).value
+                } ${calculateProtocalsFee(
+                  tx.protocalFees,
+                ).symbol.toUpperCase()}`}
+              </Typography.Body2Strong>
+            </TransactionField>
+          ) : null}
           <TransactionField
             label={intl.formatMessage({ id: 'form__included_onekey_fee' })}
           >

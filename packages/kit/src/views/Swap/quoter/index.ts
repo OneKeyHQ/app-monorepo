@@ -13,6 +13,7 @@ import {
   convertBuildParams,
   convertParams,
   getTokenAmountValue,
+  isEvmNetworkId,
   multiply,
 } from '../utils';
 
@@ -523,8 +524,8 @@ export class SwapQuoter {
         const historyTx = await this.getHistoryTx(tx);
         const txid = historyTx?.decodedTx.txid || tx.hash;
         if (
-          from.networkId.startsWith(IMPL_EVM) &&
-          to.networkId.startsWith(IMPL_EVM) &&
+          isEvmNetworkId(from.networkId) &&
+          isEvmNetworkId(to.networkId) &&
           receivingAddress
         ) {
           if (txid && from.networkId === to.networkId) {

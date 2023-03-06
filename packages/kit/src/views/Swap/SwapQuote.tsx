@@ -28,11 +28,14 @@ import TransactionFee from './components/TransactionFee';
 import {
   usePriceImpact,
   useSwapMinimumReceivedAmount,
-  useSwapProtocalsFee,
   useSwapSlippage,
 } from './hooks/useSwapUtils';
 import { SwapRoutes } from './typings';
-import { getTokenAmountValue, normalizeProviderName } from './utils';
+import {
+  calculateProtocalsFee,
+  getTokenAmountValue,
+  normalizeProviderName,
+} from './utils';
 
 const SwapProviders = () => {
   const intl = useIntl();
@@ -321,8 +324,9 @@ const SwapPriceImpact = () => {
 
 const SwapProtocalsFees = () => {
   const intl = useIntl();
-  const protocalsFee = useSwapProtocalsFee();
-  if (protocalsFee) {
+  const protocolFees = useAppSelector((s) => s.swap.quote?.protocolFees);
+  if (protocolFees) {
+    const result = calculateProtocalsFee(protocolFees);
     return (
       <Box
         display="flex"
@@ -338,7 +342,7 @@ const SwapProtocalsFees = () => {
         </Box>
         <Box flex="1" flexDirection="row" justifyContent="flex-end">
           <Typography.Body2 color="text-subdued">
-            {`${protocalsFee.value} ${protocalsFee.symbol.toUpperCase()}`}
+            {`${result.value} ${result.symbol.toUpperCase()}`}
           </Typography.Body2>
         </Box>
       </Box>
