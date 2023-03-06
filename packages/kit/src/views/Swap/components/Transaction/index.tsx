@@ -300,32 +300,50 @@ type ViewInBrowserSelectorItem = {
   logoURI?: string;
   url?: string;
 };
+
+type Option = {
+  label: string;
+  logoURI: string;
+  value: string;
+  url: string;
+};
 type ViewInBrowserSelectorProps = { tx: TransactionDetails };
 const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
   const intl = useIntl();
   const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
   const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
 
-  const options = useMemo(
-    () => [
+  const options = useMemo(() => {
+    let base: Option[] = [
       {
         label: fromNetwork?.shortName ?? '',
-        logoURI: fromNetwork?.logoURI,
-        value: tx.hash,
+        logoURI: fromNetwork?.logoURI ?? '',
+        value: tx.hash ?? '',
         url: buildTransactionDetailsUrl(fromNetwork, tx.hash),
       },
       {
         label: toNetwork?.shortName ?? '',
-        logoURI: toNetwork?.logoURI,
-        value: tx.destinationTransactionHash,
+        logoURI: toNetwork?.logoURI ?? '',
+        value: tx.destinationTransactionHash ?? '',
         url: buildTransactionDetailsUrl(
           toNetwork,
           tx.destinationTransactionHash,
         ),
       },
-    ],
-    [tx, fromNetwork, toNetwork],
-  );
+    ];
+    if (tx.quoterType === 'socket') {
+      const socketOption: Option[] = [
+        {
+          label: 'Socketscan',
+          logoURI: 'https://common.onekey-asset.com/logo/SocketBridge.png',
+          value: 'Socketscan',
+          url: `https://socketscan.io/tx/${tx.hash}`,
+        },
+      ];
+      base = socketOption.concat(base);
+    }
+    return base;
+  }, [tx, fromNetwork, toNetwork]);
   const onPress = useCallback((_: any, item: any) => {
     // eslint-disable-next-line
     if (item.url) {
@@ -360,7 +378,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
               key={item.value}
               h="12"
               px="3"
-              onPress={() => onChange?.(undefined, item)}
+              onPress={() => onChange?.('', item)}
             >
               <Box flexDirection="row" alignItems="center">
                 <TokenIcon size="8" token={token} />
@@ -483,30 +501,22 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
             <TransactionField
               label={intl.formatMessage({ id: 'form__actual_received' })}
             >
-              <HashMoreMenu tx={tx}>
-                <Pressable mr="1">
-                  <Typography.Body2Strong>
-                    {`${formatAmount(tx.actualReceived, 6)} ${
-                      to?.token.symbol.toUpperCase() ?? ''
-                    }`}
-                  </Typography.Body2Strong>
-                </Pressable>
-              </HashMoreMenu>
+              <Typography.Body2Strong>
+                {`${formatAmount(tx.actualReceived, 6)} ${
+                  to?.token.symbol.toUpperCase() ?? ''
+                }`}
+              </Typography.Body2Strong>
             </TransactionField>
           ) : null}
           {tx.networkFee ? (
             <TransactionField
               label={intl.formatMessage({ id: 'form__network_fee' })}
             >
-              <HashMoreMenu tx={tx}>
-                <Pressable mr="1">
-                  <Typography.Body2Strong>
-                    {`${formatAmount(tx.networkFee, 6)} ${
-                      network.symbol.toUpperCase() ?? ''
-                    }`}
-                  </Typography.Body2Strong>
-                </Pressable>
-              </HashMoreMenu>
+              <Typography.Body2Strong>
+                {`${formatAmount(tx.networkFee, 6)} ${
+                  network.symbol.toUpperCase() ?? ''
+                }`}
+              </Typography.Body2Strong>
             </TransactionField>
           ) : null}
           <TransactionField label={intl.formatMessage({ id: 'content__hash' })}>

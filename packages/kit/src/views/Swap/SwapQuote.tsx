@@ -338,7 +338,7 @@ const SwapProtocalsFees = () => {
         </Box>
         <Box flex="1" flexDirection="row" justifyContent="flex-end">
           <Typography.Body2 color="text-subdued">
-            {`${protocalsFee.value}${protocalsFee.symbol.toUpperCase()}`}
+            {`${protocalsFee.value} ${protocalsFee.symbol.toUpperCase()}`}
           </Typography.Body2>
         </Box>
       </Box>

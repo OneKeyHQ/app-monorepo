@@ -48,7 +48,7 @@ export const ReceiptMoreMenus: FC<IMenu & Props> = ({ tx, ...rest }) => {
       },
       openBlockBrowser.hasAvailable && {
         id: 'action__view_in_browser',
-        onPress: () => openBlockBrowser.openAddressDetails(account?.address),
+        onPress: () => openBlockBrowser.openAddressDetails(receivingAddress),
         icon: 'ArrowTopRightOnSquareOutline',
       },
     ];
