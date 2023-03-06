@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "URL do Blockchain Explorer",
   "form__blockchain_explorer_url_invalid": "URL requer o prefixo http ou https.",
   "form__borrowed_uppercase": "EMPRESTADO",
+  "form__bridge_fee": "Taxa de Ponte",
   "form__btc_and_eth_movement": "Movimento BTC e ETH",
   "form__btc_and_eth_movement_desc": "Grandes flutuações de preços nos preços do BTC e ETH",
   "form__buy_int_max_purchase": "{0} Compra máxima",

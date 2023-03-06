@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "블록체인 익스플로러 URL",
   "form__blockchain_explorer_url_invalid": "URL에는 http 또는 https 접두사가 필요합니다.",
   "form__borrowed_uppercase": "차용",
+  "form__bridge_fee": "브릿지 수수료",
   "form__btc_and_eth_movement": "BTC 및 ETH 움직임",
   "form__btc_and_eth_movement_desc": "BTC 및 ETH 가격의 큰 가격 변동",
   "form__buy_int_max_purchase": "{0} 최대 구매",

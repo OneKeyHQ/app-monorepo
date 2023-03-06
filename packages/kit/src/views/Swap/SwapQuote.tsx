@@ -320,6 +320,7 @@ const SwapPriceImpact = () => {
 };
 
 const SwapProtocalsFees = () => {
+  const intl = useIntl();
   const protocalsFee = useSwapProtocalsFee();
   if (protocalsFee) {
     return (
@@ -332,7 +333,7 @@ const SwapProtocalsFees = () => {
       >
         <Box flexDirection="row" alignItems="center">
           <Typography.Body2 color="text-disabled" mr="2">
-            Protocal Fee
+            {intl.formatMessage({ id: 'form__bridge_fee' })}
           </Typography.Body2>
         </Box>
         <Box flex="1" flexDirection="row" justifyContent="flex-end">

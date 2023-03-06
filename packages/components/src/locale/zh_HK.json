@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "區塊鏈瀏覽器網址",
   "form__blockchain_explorer_url_invalid": "網址需要 http 或 https 前綴。",
   "form__borrowed_uppercase": "借貸",
+  "form__bridge_fee": "跨鏈橋費用",
   "form__btc_and_eth_movement": "BTC 和 ETH 走勢",
   "form__btc_and_eth_movement_desc": "BTC 和 ETH 的價格大幅波動",
   "form__buy_int_max_purchase": "{0}最大購買量",

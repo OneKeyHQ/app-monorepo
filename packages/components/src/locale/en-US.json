@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "Blockchain Explorer URL",
   "form__blockchain_explorer_url_invalid": "URL requires the http or https prefix.",
   "form__borrowed_uppercase": "BORROWED",
+  "form__bridge_fee": "Bridge Fee",
   "form__btc_and_eth_movement": "BTC and ETH Movement",
   "form__btc_and_eth_movement_desc": "Large price fluctuations in BTC and ETH prices",
   "form__buy_int_max_purchase": "{0} Maximum Purchase",

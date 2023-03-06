@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "URL مستكشف Blockchain",
   "form__blockchain_explorer_url_invalid": "يتطلب URL البادئة http أو https.",
   "form__borrowed_uppercase": "اقترضت، استعارت",
+  "form__bridge_fee": "رسوم الجسر",
   "form__btc_and_eth_movement": "حركة BTC و ETH",
   "form__btc_and_eth_movement_desc": "تقلبات كبيرة في الأسعار في أسعار البيتكوين والإيثريوم",
   "form__buy_int_max_purchase": "{0} الحد الأقصى للشراء",

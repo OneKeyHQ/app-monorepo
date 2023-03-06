@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "URL của Blockchain Explorer",
   "form__blockchain_explorer_url_invalid": "URL yêu cầu tiền tố http hoặc https.",
   "form__borrowed_uppercase": "MƯỢN",
+  "form__bridge_fee": "phí cầu đường",
   "form__btc_and_eth_movement": "Phong trào BTC và ETH",
   "form__btc_and_eth_movement_desc": "Biến động giá lớn về giá BTC và ETH",
   "form__buy_int_max_purchase": "{0} Mua tối đa",

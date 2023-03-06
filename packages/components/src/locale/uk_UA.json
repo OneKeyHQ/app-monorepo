@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "URL-адреса Blockchain Explorer",
   "form__blockchain_explorer_url_invalid": "Для URL потрібен префікс http або https.",
   "form__borrowed_uppercase": "ПОЗИЧЕНИЙ",
+  "form__bridge_fee": "Містовий збір",
   "form__btc_and_eth_movement": "Рух BTC і ETH",
   "form__btc_and_eth_movement_desc": "Великі коливання цін на BTC і ETH",
   "form__buy_int_max_purchase": "{0} Максимальна покупка",

@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "URL ng Blockchain Explorer",
   "form__blockchain_explorer_url_invalid": "Kinakailangan ng URL ang http o https prefix.",
   "form__borrowed_uppercase": "HIRAM",
+  "form__bridge_fee": "Bayad sa Tulay",
   "form__btc_and_eth_movement": "BTC at ETH Movement",
   "form__btc_and_eth_movement_desc": "Malaking pagbabago sa presyo sa mga presyo ng BTC at ETH",
   "form__buy_int_max_purchase": "{0} Pinakamataas na Pagbili",

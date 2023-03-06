@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "Blockchain Explorer URL",
   "form__blockchain_explorer_url_invalid": "URL ต้องใช้คำนำหน้า http หรือ https",
   "form__borrowed_uppercase": "ยืม",
+  "form__bridge_fee": "ค่าสะพาน",
   "form__btc_and_eth_movement": "การเคลื่อนไหวของ BTC และ ETH",
   "form__btc_and_eth_movement_desc": "ความผันผวนของราคาขนาดใหญ่ในราคา BTC และ ETH",
   "form__buy_int_max_purchase": "{0} การซื้อสูงสุด",
