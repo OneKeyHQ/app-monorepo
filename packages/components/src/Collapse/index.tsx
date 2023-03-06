@@ -35,13 +35,13 @@ const Collapse = ({
   onCollapseChange,
   defaultCollapsed = true,
   arrowPosition = 'left',
-  value = true,
+  value,
   ...rest
 }: CollapseProps) => {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   useEffect(() => {
-    if (value !== collapsed) {
+    if (typeof value === 'boolean' && value !== collapsed) {
       setCollapsed(value);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
