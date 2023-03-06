@@ -3,7 +3,11 @@ import BigNumber from 'bignumber.js';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
-import type { BuildTransactionParams, FetchQuoteParams } from './typings';
+import type {
+  BuildTransactionParams,
+  FetchQuoteParams,
+  ProtocolFees,
+} from './typings';
 
 export const nativeTokenAddress = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 export const feeRecipient = '0xc1e92BD5d1aa6e5f5F299D0490BefD9D8E5a887a';
@@ -257,4 +261,13 @@ export const normalizeProviderName = (text: string) => {
     return 'SWFT';
   }
   return text;
+};
+
+export const calculateProtocalsFee = (protocolFees: ProtocolFees) => {
+  const { amount, asset } = protocolFees;
+  const bn = new BigNumber(amount);
+  const decimals = new BigNumber(asset.decimals);
+  const base = new BigNumber(10);
+  const value = bn.dividedBy(base.exponentiatedBy(decimals)).toFixed();
+  return { value, symbol: asset.symbol };
 };

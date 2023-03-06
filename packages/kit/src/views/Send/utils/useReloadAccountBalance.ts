@@ -14,8 +14,8 @@ export function useReloadAccountBalance({
       return;
     }
     backgroundApiProxy.serviceToken.fetchAccountTokens({
-      activeAccountId: accountId,
-      activeNetworkId: networkId,
+      accountId,
+      networkId,
     });
   }, [accountId, networkId]);
 }

@@ -34,7 +34,7 @@ export type SimplifiedToken = {
 
 export type TokenInitialState = {
   tokenPriceMap: Record<PriceId, SimpleTokenPrices>;
-  accountTokens: Record<NetworkId, Record<TokenId, Token[]>>;
+  accountTokens: Record<NetworkId, Record<AccountId, Token[]>>;
   accountTokensBalance: Record<
     NetworkId,
     Record<AccountId, Record<TokenId, TokenBalanceValue>>
@@ -48,14 +48,14 @@ const initialState: TokenInitialState = {
 } as const;
 
 type TokenPayloadAction = {
-  activeAccountId?: string | null;
-  activeNetworkId?: string | null;
+  accountId?: string | null;
+  networkId?: string | null;
   tokens: Token[];
 };
 
 type TokenBalancePayloadAction = {
-  activeAccountId?: string | null;
-  activeNetworkId?: string | null;
+  accountId?: string | null;
+  networkId?: string | null;
   tokensBalance: Record<string, TokenBalanceValue>;
 };
 
@@ -81,14 +81,14 @@ export const tokensSlice = createSlice({
       });
     },
     setAccountTokens(state, action: PayloadAction<TokenPayloadAction>) {
-      const { activeAccountId, activeNetworkId, tokens } = action.payload;
-      if (!activeAccountId || !activeNetworkId) {
+      const { accountId, networkId, tokens } = action.payload;
+      if (!accountId || !networkId) {
         return;
       }
-      if (!state.accountTokens[activeNetworkId]) {
-        state.accountTokens[activeNetworkId] = {};
+      if (!state.accountTokens[networkId]) {
+        state.accountTokens[networkId] = {};
       }
-      state.accountTokens[activeNetworkId][activeAccountId] = uniqBy(
+      state.accountTokens[networkId][accountId] = uniqBy(
         tokens.filter((t, _i, arr) => {
           if (
             !t.sendAddress &&
@@ -107,22 +107,21 @@ export const tokensSlice = createSlice({
       state,
       action: PayloadAction<TokenBalancePayloadAction>,
     ) {
-      const { activeAccountId, activeNetworkId, tokensBalance } =
-        action.payload;
-      if (!activeAccountId || !activeNetworkId) {
+      const { accountId, networkId, tokensBalance } = action.payload;
+      if (!accountId || !networkId) {
         return;
       }
-      if (!state.accountTokensBalance[activeNetworkId]) {
-        state.accountTokensBalance[activeNetworkId] = {};
+      if (!state.accountTokensBalance[networkId]) {
+        state.accountTokensBalance[networkId] = {};
       }
       const oldTokensBalance =
-        state.accountTokensBalance[activeNetworkId][activeAccountId] || {};
+        state.accountTokensBalance[networkId][accountId] || {};
       // native token balance defaults to 0
       oldTokensBalance.main = oldTokensBalance.main ?? {
         balance: '0',
       };
 
-      state.accountTokensBalance[activeNetworkId][activeAccountId] = {
+      state.accountTokensBalance[networkId][accountId] = {
         ...oldTokensBalance,
         ...tokensBalance,
       };
