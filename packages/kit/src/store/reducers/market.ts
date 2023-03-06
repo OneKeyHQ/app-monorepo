@@ -184,7 +184,7 @@ const initialState: MarketInitialState = {
   charts: {},
   details: {},
   searchTokens: {},
-  marktTobTapName: MARKET_TAB_NAME,
+  marktTobTapName: SWAP_TAB_NAME,
 };
 
 function equalStringArr(arr1: string[], arr2: string[]) {
