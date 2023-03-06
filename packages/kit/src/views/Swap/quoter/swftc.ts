@@ -248,23 +248,6 @@ export class SwftcQuoter implements Quoter {
     return coins;
   }
 
-  private async getCoinCodeRecords(): Promise<Record<string, Coin>> {
-    if (
-      this.coinCodeRecords &&
-      Date.now() - this.coinCodeRecordsLastUpdate < 1000 * 60 * 60
-    ) {
-      return this.coinCodeRecords;
-    }
-    const coins = await this.getCoins();
-    const coinCodeRecords: Record<string, Coin> = {};
-    coins.forEach((coin) => {
-      coinCodeRecords[coin.coinCode] = coin;
-    });
-    this.coinCodeRecords = coinCodeRecords;
-    this.coinCodeRecordsLastUpdate = Date.now();
-    return coinCodeRecords;
-  }
-
   private async getNetworkAddrRecords(): Promise<
     Record<string, Record<string, Coin>>
   > {
@@ -497,6 +480,22 @@ export class SwftcQuoter implements Quoter {
       resMsg?: string;
     };
     return orderData;
+  }
+
+  async getTxOrderInfo(tx: TransactionDetails) {
+    const swftcOrderId = tx.attachment?.swftcOrderId ?? tx.thirdPartyOrderId;
+    if (swftcOrderId) {
+      const baseUrl = await this.getBaseUrl();
+      const url = `${baseUrl}/queryOrderState`;
+      const res = await axios.post(url, {
+        equipmentNo: tx.from,
+        sourceType: 'H5',
+        orderId: swftcOrderId,
+      });
+      // eslint-disable-next-line
+      const receipt = res.data.data as SwftcTransactionReceipt;
+      return receipt;
+    }
   }
 
   async queryTransactionProgress(

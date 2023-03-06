@@ -24,27 +24,29 @@ type TransactionFeeProps = {
   type?: QuoterType;
   percentageFee?: string;
   typography?: ComponentProps<typeof Text>['typography'];
+  color?: ComponentProps<typeof Text>['color'];
 };
 
 const TransactionFee: FC<TransactionFeeProps> = ({
   type,
   percentageFee,
   typography = 'Caption',
+  color = 'text-subdued',
 }) => {
   const intl = useIntl();
   return (
     <Box>
       {isNoCharge(type) || (percentageFee && Number(percentageFee) === 0) ? (
         <Box flexDirection="column" alignItems="flex-end">
-          <Text typography={typography} color="text-subdued" strikeThrough>
+          <Text typography={typography} color={color} strikeThrough>
             0.3%
           </Text>
-          <Text typography={typography} color="text-success">
+          <Text typography={typography} color={color}>
             {intl.formatMessage({ id: 'form__free_limited_time' })}
           </Text>
         </Box>
       ) : (
-        <Text typography={typography} color="text-subdued">
+        <Text typography={typography} color={color}>
           {!percentageFee ? ' 0.3%' : `${formatPercentageFee(percentageFee)}%`}
         </Text>
       )}
