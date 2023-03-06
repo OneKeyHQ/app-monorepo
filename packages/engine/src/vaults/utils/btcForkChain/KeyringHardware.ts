@@ -135,11 +135,12 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const ret = [];
     let index = 0;
-    for (const { path, xpub } of response.payload) {
+    for (const { path, xpub, xpubSegwit } of response.payload) {
       const firstAddressRelPath = '0/0';
       const { [firstAddressRelPath]: address } = provider.xpubToAddresses(
         xpub,
         [firstAddressRelPath],
+        addressEncoding,
       );
       const prefix = [COINTYPE_DOGE, COINTYPE_BCH].includes(COIN_TYPE)
         ? coinName
@@ -154,6 +155,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           path,
           coinType: COIN_TYPE,
           xpub,
+          xpubSegwit: xpubSegwit || xpub,
           address,
           addresses: { [firstAddressRelPath]: address },
           template,
@@ -166,7 +168,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       }
 
       const { txs } = (await provider.getAccount(
-        { type: 'simple', xpub },
+        { type: 'simple', xpub: xpubSegwit || xpub },
         addressEncoding,
       )) as { txs: number };
       if (txs > 0) {
