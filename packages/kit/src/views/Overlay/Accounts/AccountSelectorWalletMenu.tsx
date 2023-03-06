@@ -35,28 +35,30 @@ const AccountSelectorWalletMenu: FC<
   }, [walletId, createAccount]);
 
   const onPressManageAccount = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.CreateAccount,
-      params: {
-        screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+    setTimeout(() => {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.CreateAccount,
         params: {
-          walletId,
-          onDone: (password) => {
-            setTimeout(() => {
-              navigation.replace(
-                CreateAccountModalRoutes.RecoverAccountsList as any,
-                {
-                  walletId,
-                  network: networkId,
-                  password,
-                  purpose: '',
-                  template: '',
-                },
-              );
-            }, 20);
+          screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+          params: {
+            walletId,
+            onDone: (password) => {
+              setTimeout(() => {
+                navigation.replace(
+                  CreateAccountModalRoutes.RecoverAccountsList as any,
+                  {
+                    walletId,
+                    network: networkId,
+                    password,
+                    purpose: '',
+                    template: '',
+                  },
+                );
+              }, 20);
+            },
           },
         },
-      },
+      });
     });
   }, [navigation, walletId, networkId]);
 
