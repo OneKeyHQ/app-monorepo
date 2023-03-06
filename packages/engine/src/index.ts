@@ -805,6 +805,7 @@ class Engine {
     // TODO: need a method to get default network from coinType.
     const networkId = {
       '60': OnekeyNetwork.eth,
+      '61': OnekeyNetwork.etc,
       '503': OnekeyNetwork.cfx,
       '397': OnekeyNetwork.near,
       '0': OnekeyNetwork.btc,

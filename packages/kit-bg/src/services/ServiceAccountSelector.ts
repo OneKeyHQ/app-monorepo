@@ -160,7 +160,11 @@ export default class ServiceAccountSelector extends ServiceBase {
 
   @bindThis()
   @backgroundMethod()
-  async preloadingCreateAccount(info: { networkId: string; walletId: string }) {
+  async preloadingCreateAccount(info: {
+    networkId: string;
+    walletId: string;
+    template?: string;
+  }) {
     const { dispatch } = this.backgroundApi;
 
     const { networkId, walletId } = info;
@@ -177,11 +181,13 @@ export default class ServiceAccountSelector extends ServiceBase {
     networkId,
     walletId,
     accountId,
+    template,
     delay = 600,
   }: {
     networkId?: string;
     walletId?: string;
     accountId?: string;
+    template?: string;
     delay?: number;
   } = {}) {
     const { dispatch } = this.backgroundApi;
@@ -191,7 +197,12 @@ export default class ServiceAccountSelector extends ServiceBase {
 
     if (delay > 0) {
       dispatch(
-        updatePreloadingCreateAccount({ networkId, walletId, accountId }),
+        updatePreloadingCreateAccount({
+          networkId,
+          walletId,
+          accountId,
+          template,
+        }),
       );
     }
     await wait(delay);

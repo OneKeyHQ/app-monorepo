@@ -194,12 +194,14 @@ const AccountCell: FC<CellProps> = ({
 type ListTableHeaderProps = {
   symbol: string;
   isAllSelected: boolean;
+  isAllSelectedDisabled: boolean;
   showPathAndLink: boolean;
   onChange: (v: boolean) => void;
 } & ComponentProps<typeof Box>;
 
 const ListTableHeader: FC<ListTableHeaderProps> = ({
   isAllSelected,
+  isAllSelectedDisabled,
   onChange,
 }) => {
   const intl = useIntl();
@@ -213,7 +215,12 @@ const ListTableHeader: FC<ListTableHeaderProps> = ({
           justifyContent="flex-start"
           w="65px"
         >
-          <CheckBox w={6} isChecked={isAllSelected} onChange={onChange} />
+          <CheckBox
+            w={6}
+            isChecked={isAllSelectedDisabled || isAllSelected}
+            onChange={onChange}
+            isDisabled={isAllSelectedDisabled}
+          />
         </Box>
       </ListItem.Column>
       <ListItem.Column
@@ -408,6 +415,14 @@ const RecoverAccounts: FC = () => {
   const symbol = selectedNetWork?.symbol;
 
   const [isAllSelected, setAllSelected] = useState(false);
+  const isAllSelectedDisabled = useMemo(
+    () =>
+      currentPageData.every((item) => {
+        const state = selectState.get(item.index);
+        return state?.isDisabled;
+      }),
+    [currentPageData, selectState],
+  );
   const [config, setConfig] = useState<
     AdvancedValues & { currentPage: number }
   >({
@@ -585,7 +600,7 @@ const RecoverAccounts: FC = () => {
             isDisabled,
             selected: isDisabled || !!isBatchMode,
           });
-          addedAccounts.set(i.index, i);
+          addedAccounts.set(i.index, { ...i, template });
         });
 
         isFetchingData.current = false;
@@ -606,7 +621,7 @@ const RecoverAccounts: FC = () => {
 
         const addedAccounts = new Map(accounts.loadedAccounts);
         accountsWithBalance.forEach((i) => {
-          addedAccounts.set(i.index, i);
+          addedAccounts.set(i.index, { ...i, template });
         });
 
         updateCurrentPageData(accountsWithBalance);
@@ -759,12 +774,18 @@ const RecoverAccounts: FC = () => {
   ]);
 
   const maxPage = useMemo(() => {
+    if (currentPageData.length < PAGE_SIZE) return config.currentPage + 1;
     if (config.fromIndex >= FROM_INDEX_MAX) return 1;
     if (config.generateCount) {
       return Math.ceil(config.generateCount / PAGE_SIZE);
     }
     return Math.ceil(FROM_INDEX_MAX / PAGE_SIZE);
-  }, [config.fromIndex, config.generateCount]);
+  }, [
+    config.fromIndex,
+    config.generateCount,
+    config.currentPage,
+    currentPageData.length,
+  ]);
 
   const isLoadingState = useMemo(
     () => pendRefreshData || isLoading || !depDataInit,
@@ -839,7 +860,7 @@ const RecoverAccounts: FC = () => {
         });
 
         navigation.navigate(CreateAccountModalRoutes.RecoverAccountsConfirm, {
-          accounts: recoverAccounts,
+          accounts: recoverAccounts.filter((i) => i.template === template),
           walletId,
           network,
           purpose,
@@ -890,6 +911,7 @@ const RecoverAccounts: FC = () => {
           <ListTableHeader
             symbol={symbol}
             isAllSelected={isAllSelected}
+            isAllSelectedDisabled={isAllSelectedDisabled}
             showPathAndLink={config.showPathAndLink}
             onChange={(selectedAll) => {
               setAllSelected(selectedAll);
@@ -966,6 +988,7 @@ const RecoverAccounts: FC = () => {
                 params: {
                   screen: RecoverAccountModalRoutes.RecoverAccountsAdvanced,
                   params: {
+                    networkId: selectedNetWork?.id,
                     fromIndex: config.fromIndex,
                     generateCount: config.generateCount,
                     onApply: ({ fromIndex, generateCount: count }) => {
