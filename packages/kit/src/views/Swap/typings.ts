@@ -292,6 +292,7 @@ export interface TransactionDetails {
   percentageFee?: string;
   networkFee?: string;
   actualReceived?: string;
+  protocalFees?: ProtocolFees;
 }
 
 export type TransactionProgress =

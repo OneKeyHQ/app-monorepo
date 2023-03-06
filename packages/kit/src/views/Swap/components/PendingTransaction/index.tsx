@@ -75,8 +75,9 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
         );
       }
       if (status === 'sucesss') {
-        tx.destinationTransactionHash = destinationTransactionHash;
-        const actualReceived = await SwapQuoter.client.getActualReceived(tx);
+        const txObj = { ...tx };
+        txObj.destinationTransactionHash = destinationTransactionHash;
+        const actualReceived = await SwapQuoter.client.getActualReceived(txObj);
         backgroundApiProxy.dispatch(
           updateTransaction({
             accountId: tx.accountId,
