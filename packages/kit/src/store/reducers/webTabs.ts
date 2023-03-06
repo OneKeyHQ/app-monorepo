@@ -105,6 +105,9 @@ export const webtabsSlice = createSlice({
           const value = payload[key];
           // @ts-ignore
           if (value !== undefined && value !== tab[key]) {
+            if (key === 'title' && !value) {
+              return;
+            }
             // @ts-ignore
             tab[key] = value;
             if (key === 'url') {
