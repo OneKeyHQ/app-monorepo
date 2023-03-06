@@ -241,7 +241,7 @@ const AssetsListHeader: FC<{
   const isVertical = useIsVerticalLayout();
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation<NavigationProps>();
-  const { network, wallet, accountId, networkId } = useActiveWalletAccount();
+  const { network, wallet } = useActiveWalletAccount();
   const { tokenEnabled: networkTokenEnabled, activateTokenRequired } =
     network?.settings ?? { tokenEnabled: false, activateTokenRequired: false };
 
@@ -254,15 +254,10 @@ const AssetsListHeader: FC<{
 
   const refresh = useCallback(() => {
     setRefreshing(true);
-    backgroundApiProxy.serviceOverview
-      .refreshAccount({
-        accountId,
-        networkId,
-      })
-      .finally(() => {
-        setTimeout(() => setRefreshing(false), 10);
-      });
-  }, [accountId, networkId]);
+    backgroundApiProxy.serviceOverview.refreshCurrentAccount().finally(() => {
+      setTimeout(() => setRefreshing(false), 1000);
+    });
+  }, []);
 
   const refreshButton = useMemo(() => {
     if (isVertical) {

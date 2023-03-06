@@ -66,15 +66,10 @@ const WalletTabs: FC = () => {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    backgroundApiProxy.serviceOverview
-      .refreshAccount({
-        accountId: account?.id,
-        networkId: network?.id,
-      })
-      .finally(() => {
-        setTimeout(() => setRefreshing(false), 10);
-      });
-  }, [account?.id, network?.id]);
+    backgroundApiProxy.serviceOverview.refreshCurrentAccount().finally(() => {
+      setTimeout(() => setRefreshing(false), 10);
+    });
+  }, []);
 
   return (
     <>

@@ -192,29 +192,34 @@ class ServiceOverview extends ServiceBase {
     return pendingTasks;
   }
 
+  refreshAccountDebounced = debounce(
+    async () => {
+      const { engine, serviceToken, appSelector } = this.backgroundApi;
+
+      const { activeAccountId: accountId, activeNetworkId: networkId } =
+        appSelector((s) => s.general);
+
+      if (!accountId || !networkId) {
+        return;
+      }
+
+      engine.clearPriceCache();
+      await serviceToken.fetchAccountTokens({
+        accountId,
+        networkId,
+        forceReloadTokens: true,
+        includeTop50TokensQuery: true,
+      });
+
+      await this.subscribe();
+    },
+    getTimeDurationMs({ seconds: 5 }),
+    { leading: true, trailing: false },
+  );
+
   @backgroundMethod()
-  async refreshAccount({
-    accountId,
-    networkId,
-  }: {
-    accountId?: string;
-    networkId?: string;
-  }) {
-    const { engine, serviceToken } = this.backgroundApi;
-
-    if (!accountId || !networkId) {
-      return;
-    }
-
-    engine.clearPriceCache();
-    await serviceToken.fetchAccountTokens({
-      accountId,
-      networkId,
-      forceReloadTokens: true,
-      includeTop50TokensQuery: true,
-    });
-
-    await this.subscribe();
+  async refreshCurrentAccount() {
+    return this.refreshAccountDebounced();
   }
 
   @backgroundMethod()
