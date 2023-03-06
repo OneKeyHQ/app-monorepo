@@ -1,10 +1,11 @@
 import type { ComponentProps, FC } from 'react';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Box, Text, useIsVerticalLayout } from '@onekeyhq/components';
 
+import { useNavigation } from '../../../hooks';
 import CollectionLogo from '../CollectionLogo';
 import { PriceString } from '../PriceText';
 
@@ -16,6 +17,13 @@ const CollectionInfo: FC<ComponentProps<typeof Box>> = ({ ...props }) => {
   const name = collection?.contractName ?? collection?.name ?? '';
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    if (!isVerticalLayout) {
+      navigation.setOptions({ title: name });
+    }
+  }, [isVerticalLayout, name, navigation]);
 
   const statsIndex = useMemo(
     () => [

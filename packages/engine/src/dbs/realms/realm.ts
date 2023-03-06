@@ -2042,7 +2042,13 @@ class RealmDB implements DBAPI {
           template,
         });
       });
-    } else if (!accountDerivation.accounts.includes(accountId)) {
+      return Promise.resolve();
+    }
+    const shouldSkipInsert =
+      Array.isArray(accountDerivation.accounts) &&
+      accountDerivation.accounts.includes(accountId);
+
+    if (!shouldSkipInsert) {
       this.realm!.write(() => {
         accountDerivation.accounts = [
           ...new Set([...accountDerivation.accounts, accountId]),

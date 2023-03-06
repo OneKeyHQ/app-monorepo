@@ -206,6 +206,7 @@ export default class ServiceBootstrap extends ServiceBase {
       );
 
       for (const wallet of hdOrHwWallets) {
+        debugLogger.common.info(`migrate wallet: ${JSON.stringify(wallet)}`);
         // update accounts
         const accounts = await dbApi.getAccounts(wallet.accounts);
         for (const account of accounts) {
@@ -218,12 +219,19 @@ export default class ServiceBootstrap extends ServiceBase {
               impl,
               template,
             });
+            debugLogger.common.info(
+              `added account derivation: accountId: ${account.id}, template: ${template}`,
+            );
             await dbApi.setAccountTemplate({ accountId: account.id, template });
             debugLogger.common.info(
               `insert account: ${account.id} to AccountDerivation table, template: ${template}`,
             );
           }
         }
+
+        debugLogger.common.info(
+          `migrate accounts finish, will update nextAccountId, walletId:  ${wallet.id}`,
+        );
 
         // update nextAccountIds field
         const newNextAccountIds = migrateNextAccountIds(wallet.nextAccountIds);
@@ -241,7 +249,6 @@ export default class ServiceBootstrap extends ServiceBase {
       this.backgroundApi.dispatch(
         setAccountDerivationDbMigrationVersion(appVersion),
       );
-      console.log(wallets);
     } catch (e) {
       debugLogger.common.error('migrate error: ', e);
       throw e;

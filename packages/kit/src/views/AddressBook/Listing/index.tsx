@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -140,6 +140,7 @@ const ListingItem: FC<ListingItemValues> = ({
           p="4"
           flexDirection="row"
           alignItems="center"
+          bg="surface-default"
           borderLeftWidth={0.5}
           borderRightWidth={0.5}
           borderTopWidth={index === 0 ? '0.5' : undefined}
@@ -204,12 +205,6 @@ const Listing = () => {
     });
   }, [navigation]);
 
-  useEffect(() => {
-    navigation.setOptions({
-      title: intl.formatMessage({ id: 'title__address_book' }),
-    });
-  }, [navigation, intl]);
-
   return data.length === 0 ? (
     <Center w="full" h="full" bg="background-default">
       <Empty
@@ -223,7 +218,7 @@ const Listing = () => {
     </Center>
   ) : (
     <Layout onNew={onNew}>
-      <Box bg="surface-default" borderRadius={12}>
+      <Box height="full" pb="4">
         <FlatList
           data={data}
           renderItem={({ item, index }) => (

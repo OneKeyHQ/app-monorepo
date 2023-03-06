@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useCreateAccountInWallet } from '../../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
 import { useNavigation } from '../../../hooks';
@@ -34,28 +35,30 @@ const AccountSelectorWalletMenu: FC<
   }, [walletId, createAccount]);
 
   const onPressManageAccount = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.CreateAccount,
-      params: {
-        screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+    setTimeout(() => {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.CreateAccount,
         params: {
-          walletId,
-          onDone: (password) => {
-            setTimeout(() => {
-              navigation.replace(
-                CreateAccountModalRoutes.RecoverAccountsList as any,
-                {
-                  walletId,
-                  network: networkId,
-                  password,
-                  purpose: '',
-                  template: '',
-                },
-              );
-            }, 20);
+          screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+          params: {
+            walletId,
+            onDone: (password) => {
+              setTimeout(() => {
+                navigation.replace(
+                  CreateAccountModalRoutes.RecoverAccountsList as any,
+                  {
+                    walletId,
+                    network: networkId,
+                    password,
+                    purpose: '',
+                    template: '',
+                  },
+                );
+              }, 20);
+            },
           },
         },
-      },
+      });
     });
   }, [navigation, walletId, networkId]);
 
@@ -75,7 +78,13 @@ const AccountSelectorWalletMenu: FC<
     [onPressCreateAccount, onPressManageAccount],
   );
 
-  return <BaseMenu options={options} {...props} />;
+  return (
+    <BaseMenu
+      options={options}
+      {...props}
+      menuWidth={platformEnv.isNative ? 200 : 190}
+    />
+  );
 };
 
 export default AccountSelectorWalletMenu;
