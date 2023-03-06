@@ -251,3 +251,10 @@ export function convertBuildParams(params: BuildTransactionParams) {
   delete urlParams.toTokenAmount;
   return urlParams;
 }
+
+export const normalizeProviderName = (text: string) => {
+  if (text === 'swftc') {
+    return 'SWFT';
+  }
+  return text;
+};

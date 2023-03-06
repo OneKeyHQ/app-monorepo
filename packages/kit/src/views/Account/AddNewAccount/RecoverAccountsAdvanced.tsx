@@ -12,6 +12,7 @@ import {
   KeyboardDismissView,
   Modal,
   RadioButton,
+  Token,
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -19,6 +20,8 @@ import type {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '@onekeyhq/kit/src/routes';
+
+import { useNetwork } from '../../../hooks';
 
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -41,13 +44,33 @@ type FromValues = {
 
 export const FROM_INDEX_MAX = 2 ** 31;
 
+const ModalHeader: FC<{ networkId: string | undefined }> = ({ networkId }) => {
+  const { network } = useNetwork({ networkId });
+  return (
+    <Box>
+      <Token
+        size={4}
+        showInfo
+        showName
+        showTokenVerifiedIcon={false}
+        token={{ name: network?.name, logoURI: network?.logoURI }}
+        nameProps={{
+          typography: { sm: 'Caption', md: 'Caption' },
+          color: 'text-subdued',
+          ml: '-6px',
+        }}
+      />
+    </Box>
+  );
+};
+
 const RecoverAccountsAdvanced: FC = () => {
   const isSmallScreen = useIsVerticalLayout();
 
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
-  const { fromIndex, generateCount, onApply } = route.params;
+  const { fromIndex, generateCount, onApply, networkId } = route.params;
 
   const [configGenerateCount] = useState([10, 50, 100]);
 
@@ -161,8 +184,8 @@ const RecoverAccountsAdvanced: FC = () => {
 
   return (
     <Modal
-      header={intl.formatMessage({ id: 'content__advanced' })}
-      headerDescription={intl.formatMessage({ id: 'action__recover_accounts' })}
+      header={intl.formatMessage({ id: 'action__bulk_add' })}
+      headerDescription={<ModalHeader networkId={networkId} />}
       primaryActionProps={{
         onPromise: handleSubmit(onSubmit),
         isDisabled: !isValid,

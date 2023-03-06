@@ -135,6 +135,17 @@ export type Provider = {
   logoUrl?: string;
 };
 
+export type ProtocolFees = {
+  amount: string;
+  asset: {
+    symbol: string;
+    decimals: number;
+    name: string;
+    address: string;
+    chainId: number;
+  };
+};
+
 export type QuoteData = {
   type: QuoterType;
   instantRate: string;
@@ -150,6 +161,9 @@ export type QuoteData = {
   needApproved?: boolean;
   percentageFee?: string;
   estimatedBuyAmount?: string;
+  quoterlogo?: string;
+  minAmountOut?: string;
+  protocolFees?: ProtocolFees;
 };
 
 export type SwapRecord = {
@@ -223,6 +237,14 @@ export type SwapQuoteTx = SendConfirmPayloadBase &
   QuoteData &
   TransactionData & { to: string; value: string };
 
+export interface TransactionLog {
+  address: string;
+  blockHash: string;
+  blockNumber: string;
+  topics: string[];
+  data: string;
+}
+
 export interface SerializableTransactionReceipt {
   to: string;
   from: string;
@@ -232,6 +254,7 @@ export interface SerializableTransactionReceipt {
   transactionHash: string;
   blockNumber: number;
   status?: string;
+  logs?: TransactionLog[];
 }
 
 export type TransactionStatus = 'pending' | 'failed' | 'canceled' | 'sucesss';
@@ -252,11 +275,13 @@ export interface TransactionDetails {
   status: TransactionStatus;
   archive?: boolean;
   quoterType?: QuoterType;
+  quoterLogo?: string;
   approval?: { tokenAddress: string; spender: string; token: Token };
   tokens?: { from: TransactionToken; to: TransactionToken; rate: number };
   receipt?: SerializableTransactionReceipt;
   swftcReceipt?: SwftcTransactionReceipt;
   confirmedTime?: number;
+  receivingAccountId?: string;
   receivingAddress?: string;
   thirdPartyOrderId?: string;
   nonce?: number;
@@ -265,6 +290,8 @@ export interface TransactionDetails {
   arrivalTime?: number;
   destinationTransactionHash?: string;
   percentageFee?: string;
+  networkFee?: string;
+  actualReceived?: string;
 }
 
 export type TransactionProgress =
@@ -287,11 +314,14 @@ export type SwftcTradeState = 'wait_deposits' | 'complete' | 'exchange';
 export interface SwftcTransactionReceipt {
   orderId: string;
   depositCoinCode: string;
+  receiveCoinAmt: string;
+  depositCoinAmt: string;
   receiveCoinCode: string;
   platformAddr: string;
   detailState: SwftcTransactionState;
   tradeState: SwftcTradeState;
   instantRate: string;
+  refundDepositTxid: string;
   transactionId?: string;
 }
 

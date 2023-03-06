@@ -25,9 +25,14 @@ import { ArrivalTime } from './components/ArrivalTime';
 import SwappingVia from './components/SwappingVia';
 import SwapTooltip from './components/SwapTooltip';
 import TransactionFee from './components/TransactionFee';
-import { usePriceImpact, useSwapSlippage } from './hooks/useSwapUtils';
+import {
+  usePriceImpact,
+  useSwapMinimumReceivedAmount,
+  useSwapProtocalsFee,
+  useSwapSlippage,
+} from './hooks/useSwapUtils';
 import { SwapRoutes } from './typings';
-import { getTokenAmountValue } from './utils';
+import { getTokenAmountValue, normalizeProviderName } from './utils';
 
 const SwapProviders = () => {
   const intl = useIntl();
@@ -35,12 +40,6 @@ const SwapProviders = () => {
   if (!quote) {
     return null;
   }
-  const normalize = (text: string) => {
-    if (text === 'swftc') {
-      return 'SWFT';
-    }
-    return text;
-  };
   return (
     <Box mt="2">
       <Divider />
@@ -50,7 +49,7 @@ const SwapProviders = () => {
             {
               id: 'content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api',
             },
-            { '0': normalize(quote.type) },
+            { '0': normalizeProviderName(quote.type) },
           )}
         </Typography.Caption>
       </Box>
@@ -294,17 +293,14 @@ const SwapNetworkFeeInfo = () => {
 };
 
 const SwapMinimumReceived = () => {
-  const buyAmount = useAppSelector(
-    (s) => s.swap.quote?.estimatedBuyAmount || s.swap.quote?.buyAmount,
-  );
+  const value = useSwapMinimumReceivedAmount();
   const outputToken = useAppSelector((s) => s.swap.outputToken);
-  const { value: swapSlippagePercent } = useSwapSlippage();
-  if (outputToken && buyAmount) {
-    const bn = getTokenAmountValue(outputToken, buyAmount);
-    const value = bn.minus(bn.multipliedBy(Number(swapSlippagePercent) / 100));
+
+  if (outputToken && value) {
+    const amount = getTokenAmountValue(outputToken, String(value));
     return (
       <Typography.Body2 color="text-subdued">
-        {value.toFixed(4)} {outputToken.symbol.toUpperCase()}
+        {amount.toFixed(4)} {outputToken.symbol.toUpperCase()}
       </Typography.Body2>
     );
   }
@@ -321,6 +317,34 @@ const SwapPriceImpact = () => {
     );
   }
   return <Typography.Body2 color="text-subdued">&lt;0.01%</Typography.Body2>;
+};
+
+const SwapProtocalsFees = () => {
+  const intl = useIntl();
+  const protocalsFee = useSwapProtocalsFee();
+  if (protocalsFee) {
+    return (
+      <Box
+        display="flex"
+        flexDirection="row"
+        justifyContent="space-between"
+        alignItems="center"
+        h="9"
+      >
+        <Box flexDirection="row" alignItems="center">
+          <Typography.Body2 color="text-disabled" mr="2">
+            {intl.formatMessage({ id: 'form__bridge_fee' })}
+          </Typography.Body2>
+        </Box>
+        <Box flex="1" flexDirection="row" justifyContent="flex-end">
+          <Typography.Body2 color="text-subdued">
+            {`${protocalsFee.value}${protocalsFee.symbol.toUpperCase()}`}
+          </Typography.Body2>
+        </Box>
+      </Box>
+    );
+  }
+  return null;
 };
 
 const SwapQuote = () => {
@@ -457,7 +481,7 @@ const SwapQuote = () => {
                     : null}
                   ({swapSlippagePercent}%)
                 </Typography.Body2>
-                <Icon size={16} name="PencilAltOutline" />
+                <Icon size={16} name="ChevronRightOutline" />
               </Pressable>
             </Box>
           </Box>
@@ -481,6 +505,7 @@ const SwapQuote = () => {
               <SwapPriceImpact />
             </Box>
           </Box>
+          <SwapProtocalsFees />
           <Box
             display="flex"
             flexDirection="row"

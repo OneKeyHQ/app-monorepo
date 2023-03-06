@@ -60,6 +60,7 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
           }
         }
       }
+      const { destinationTransactionHash } = progressRes;
       if (progressRes.destinationTransactionHash) {
         backgroundApiProxy.dispatch(
           updateTransaction({
@@ -69,6 +70,20 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
             transaction: {
               destinationTransactionHash:
                 progressRes.destinationTransactionHash,
+            },
+          }),
+        );
+      }
+      if (status === 'sucesss') {
+        tx.destinationTransactionHash = destinationTransactionHash;
+        const actualReceived = await SwapQuoter.client.getActualReceived(tx);
+        backgroundApiProxy.dispatch(
+          updateTransaction({
+            accountId: tx.accountId,
+            networkId: tx.networkId,
+            hash: tx.hash,
+            transaction: {
+              actualReceived,
             },
           }),
         );
