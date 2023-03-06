@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -30,9 +30,20 @@ const JumpPageDialog: FC<IJumpPageDialogProps> = ({
   currentPage,
 }) => {
   const intl = useIntl();
-  const { control, handleSubmit } = useForm<{ pageNumber: string }>({
+  const { control, handleSubmit, watch } = useForm<{ pageNumber: string }>({
     defaultValues: { pageNumber: `${!currentPage ? '' : currentPage + 1}` },
   });
+
+  const watchPageNumber = watch('pageNumber', '');
+  const isDisabled = useMemo(() => {
+    if (!watchPageNumber) {
+      return true;
+    }
+    if (!Number.isSafeInteger(parseInt(watchPageNumber, 10))) {
+      return true;
+    }
+    return false;
+  }, [watchPageNumber]);
 
   const isSmallLayout = useIsVerticalLayout();
 
@@ -113,6 +124,7 @@ const JumpPageDialog: FC<IJumpPageDialogProps> = ({
             type="primary"
             flex={1}
             onPress={handleSubmit(onSubmit)}
+            isDisabled={isDisabled}
           >
             {intl.formatMessage({ id: 'action__confirm' })}
           </Button>
