@@ -252,13 +252,16 @@ function AccountList({
       section: INetworkAccountSelectorAccountListSectionData;
     }) => {
       const isEmptySectionData = !section?.data?.length;
+      const template = section.derivationInfo?.template;
       const isPreloadingCreate = Boolean(
         preloadingCreateAccount?.walletId &&
           preloadingCreateAccount?.networkId &&
           preloadingCreateAccount?.walletId === section?.wallet?.id &&
-          preloadingCreateAccount?.networkId === section?.networkId,
+          preloadingCreateAccount?.networkId === section?.networkId &&
+          (preloadingCreateAccount?.template && template
+            ? preloadingCreateAccount?.template === template
+            : true),
       );
-      const template = section.derivationInfo?.template;
       const isCollapsed = section.collapsed;
       const sectionIndex = dataSource.findIndex(
         (s) => s.derivationInfo?.template === template,
@@ -274,6 +277,7 @@ function AccountList({
     [
       preloadingCreateAccount?.networkId,
       preloadingCreateAccount?.walletId,
+      preloadingCreateAccount?.template,
       dataSource,
     ],
   );

@@ -212,6 +212,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
       serviceAccountSelector.preloadingCreateAccount({
         walletId: selectedWalletId,
         networkId: network,
+        template,
       });
       let addedAccount: IAccount | undefined;
       setTimeout(() => {
@@ -239,6 +240,7 @@ const CreateAccount: FC<CreateAccountProps> = ({ onClose }) => {
               walletId: selectedWalletId,
               networkId: network,
               accountId: addedAccount?.id,
+              template,
             });
             // setIsLoading(false);
             navigation.getParent()?.goBack?.();

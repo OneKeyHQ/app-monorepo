@@ -67,7 +67,11 @@ export const swapTransactionsSlice = createSlice({
         transaction: Partial<
           Pick<
             TransactionDetails,
-            'status' | 'confirmedTime' | 'destinationTransactionHash'
+            | 'status'
+            | 'confirmedTime'
+            | 'destinationTransactionHash'
+            | 'networkFee'
+            | 'actualReceived'
           >
         >;
       }>,
@@ -85,6 +89,12 @@ export const swapTransactionsSlice = createSlice({
         if (transaction.destinationTransactionHash) {
           tx.destinationTransactionHash =
             transaction.destinationTransactionHash;
+        }
+        if (transaction.networkFee) {
+          tx.networkFee = transaction.networkFee;
+        }
+        if (transaction.actualReceived) {
+          tx.actualReceived = transaction.actualReceived;
         }
       }
     },

@@ -22,6 +22,7 @@ type InitialState = {
     networkId?: string;
     walletId?: string;
     accountId?: string;
+    template?: string;
   };
 };
 

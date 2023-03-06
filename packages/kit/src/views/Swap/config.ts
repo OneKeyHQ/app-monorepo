@@ -63,4 +63,5 @@ export const reservedNetworkFee: Record<string, number> = {
   [OnekeyNetwork.optimism]: 0.0001,
   [OnekeyNetwork.xrp]: 11,
   [OnekeyNetwork.trx]: 5,
+  [OnekeyNetwork.bch]: 0.01,
 };

@@ -140,6 +140,7 @@ const ListingItem: FC<ListingItemValues> = ({
           p="4"
           flexDirection="row"
           alignItems="center"
+          bg="surface-default"
           borderLeftWidth={0.5}
           borderRightWidth={0.5}
           borderTopWidth={index === 0 ? '0.5' : undefined}
@@ -217,7 +218,7 @@ const Listing = () => {
     </Center>
   ) : (
     <Layout onNew={onNew}>
-      <Box bg="surface-default" borderRadius={12}>
+      <Box height="full" pb="4">
         <FlatList
           data={data}
           renderItem={({ item, index }) => (

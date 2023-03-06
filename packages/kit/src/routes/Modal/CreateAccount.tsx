@@ -20,6 +20,7 @@ export { CreateAccountModalRoutes };
 type RecoverAccountsAdvancedParams = {
   fromIndex: number;
   generateCount?: number;
+  networkId?: string;
 };
 
 export type CreateAccountRoutesParams = {

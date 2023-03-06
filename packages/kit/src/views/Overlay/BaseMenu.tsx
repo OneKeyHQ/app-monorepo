@@ -28,18 +28,20 @@ export type IBaseMenuOptions = (
 export type IMenu = Omit<IMenuProps, 'trigger'>;
 interface IBaseMenu extends IMenu {
   options: IBaseMenuOptions;
+  menuWidth?: number;
 }
 
 const BaseMenu: FC<IBaseMenu> = ({
   options,
   children,
   placement = 'bottom right',
+  menuWidth,
   ...rest
 }) => {
   const intl = useIntl();
   return (
     <Menu
-      w={190}
+      w={menuWidth || 190}
       placement={placement}
       trigger={(triggerProps) =>
         cloneElement(Children.only(children as ReactElement), triggerProps)
