@@ -51,7 +51,6 @@ export type IFetchAccountTokensParams = {
   accountId: string;
   networkId: string;
   forceReloadTokens?: boolean;
-  fromServerApi?: boolean;
 };
 
 @backgroundClass()
@@ -62,15 +61,11 @@ export default class ServiceToken extends ServiceBase {
   registerEvents() {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     appEventBus.on(AppEventBusNames.NetworkChanged, () => {
-      this.refreshTokenBalance({
-        fromServerApi: true,
-      });
+      this.refreshTokenBalance();
     });
     // eslint-disable-next-line @typescript-eslint/unbound-method
     appEventBus.on(AppEventBusNames.CurrencyChanged, () => {
-      this.refreshTokenBalance({
-        fromServerApi: true,
-      });
+      this.refreshTokenBalance();
     });
   }
 
@@ -82,9 +77,7 @@ export default class ServiceToken extends ServiceBase {
       return;
     }
     this.interval = setInterval(() => {
-      this.refreshTokenBalance({
-        fromServerApi: false,
-      });
+      this.refreshTokenBalance();
     }, getTimeDurationMs({ seconds: 15 }));
   }
 
@@ -96,7 +89,7 @@ export default class ServiceToken extends ServiceBase {
     this.interval = null;
   }
 
-  refreshTokenBalance = debounce((options?: { fromServerApi: boolean }) => {
+  refreshTokenBalance = debounce(() => {
     const { appSelector } = this.backgroundApi;
     const { activeAccountId, activeNetworkId } = appSelector((s) => s.general);
     if (!activeAccountId || !activeNetworkId) {
@@ -105,7 +98,6 @@ export default class ServiceToken extends ServiceBase {
     return this.fetchAccountTokens({
       accountId: activeAccountId,
       networkId: activeNetworkId,
-      fromServerApi: options?.fromServerApi ?? true,
     });
   }, 1000);
 
@@ -115,7 +107,6 @@ export default class ServiceToken extends ServiceBase {
     accountId,
     networkId,
     forceReloadTokens = false,
-    fromServerApi = true,
   }: IFetchAccountTokensParams) {
     const { engine, dispatch, servicePrice, appSelector } = this.backgroundApi;
 
@@ -133,9 +124,8 @@ export default class ServiceToken extends ServiceBase {
       networkId,
       tokenIds: accountTokens.map((token) => token.tokenIdOnNetwork),
       withMain: true,
-      fromServerApi,
     });
-    if (fromServerApi && autodetectedTokens.length) {
+    if (autodetectedTokens.length) {
       accountTokens.push(...autodetectedTokens);
     }
     // check token prices
@@ -145,15 +135,13 @@ export default class ServiceToken extends ServiceBase {
       tokenIds: accountTokens.map((t) => t.tokenIdOnNetwork),
       vsCurrency: selectedFiatMoneySymbol,
     });
-    if (fromServerApi) {
-      dispatch(
-        setAccountTokens({
-          accountId,
-          networkId,
-          tokens: accountTokens,
-        }),
-      );
-    }
+    dispatch(
+      setAccountTokens({
+        accountId,
+        networkId,
+        tokens: accountTokens,
+      }),
+    );
     return accountTokens;
   }
 
@@ -517,22 +505,15 @@ export default class ServiceToken extends ServiceBase {
     networkId: string;
     tokenIds?: string[];
     withMain?: boolean;
-    fromServerApi?: boolean;
   }): Promise<[Record<string, TokenBalanceValue>, Token[] | undefined]> {
     const { engine, dispatch, appSelector } = this.backgroundApi;
-    const {
-      accountId,
-      networkId,
-      tokenIds,
-      withMain = true,
-      fromServerApi = false,
-    } = params;
+    const { accountId, networkId, tokenIds, withMain = true } = params;
 
     let serverBalances: Record<string, TokenBalanceValue> = {};
     let rpcBalances: Record<string, TokenBalanceValue> = {};
     let autodetectedTokens: Token[] = [];
     let tokensMap: Record<string, Token> = {};
-    if (balanceSupprtedNetwork.includes(networkId) && fromServerApi) {
+    if (balanceSupprtedNetwork.includes(networkId)) {
       try {
         [serverBalances, autodetectedTokens = [], tokensMap] =
           await this.getAccountBalanceFromServerApi(
@@ -649,5 +630,4 @@ export default class ServiceToken extends ServiceBase {
 
     return vault.getMinDepositAmount();
   }
-
 }

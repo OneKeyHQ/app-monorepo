@@ -108,7 +108,6 @@ function AssetsList({
         serviceToken.fetchAccountTokens({
           accountId: account.id,
           networkId: network.id,
-          fromServerApi: true,
         });
       }
       return () => {
