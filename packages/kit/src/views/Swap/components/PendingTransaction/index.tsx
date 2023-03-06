@@ -36,9 +36,9 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
           const fromTokenIds = from.token.tokenIdOnNetwork
             ? [from.token.tokenIdOnNetwork]
             : [];
-          backgroundApiProxy.serviceToken.fetchTokenBalance({
-            activeAccountId: tx.accountId,
-            activeNetworkId: from.networkId,
+          backgroundApiProxy.serviceToken.getAccountTokenBalance({
+            accountId: tx.accountId,
+            networkId: from.networkId,
             tokenIds: fromTokenIds,
           });
           if (tx.receivingAddress) {
@@ -51,9 +51,9 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
               const toTokenIds = to.token.tokenIdOnNetwork
                 ? [to.token.tokenIdOnNetwork]
                 : [];
-              backgroundApiProxy.serviceToken.fetchTokenBalance({
-                activeAccountId: receivingAccount.id,
-                activeNetworkId: to.networkId,
+              backgroundApiProxy.serviceToken.getAccountTokenBalance({
+                accountId: receivingAccount.id,
+                networkId: to.networkId,
                 tokenIds: toTokenIds,
               });
             }

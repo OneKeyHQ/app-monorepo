@@ -713,9 +713,9 @@ export default class ServiceSwap extends ServiceBase {
 
     const { serviceToken } = this.backgroundApi;
 
-    serviceToken.fetchTokenBalance({
-      activeAccountId: accountId,
-      activeNetworkId: networkId,
+    serviceToken.getAccountTokenBalance({
+      accountId,
+      networkId,
       tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
     });
   }
