@@ -284,8 +284,8 @@ function TokenOutbox(props: Props) {
         serviceToken.startRefreshAccountTokens();
         serviceOverview.startQueryPendingTasks();
         serviceToken.fetchAccountTokens({
-          activeAccountId: accountId,
-          activeNetworkId: networkId,
+          accountId,
+          networkId,
         });
       }
       return () => {

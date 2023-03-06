@@ -76,8 +76,8 @@ const WalletTabs: FC = () => {
             backgroundApiProxy.engine.clearPriceCache();
             try {
               await backgroundApiProxy.serviceToken.fetchAccountTokens({
-                activeAccountId: account.id,
-                activeNetworkId: network.id,
+                accountId: account.id,
+                networkId: network.id,
                 forceReloadTokens: true,
               });
             } catch (e) {

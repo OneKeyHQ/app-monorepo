@@ -106,8 +106,8 @@ function AssetsList({
         serviceToken.startRefreshAccountTokens();
         serviceOverview.startQueryPendingTasks();
         serviceToken.fetchAccountTokens({
-          activeAccountId: account.id,
-          activeNetworkId: network.id,
+          accountId: account.id,
+          networkId: network.id,
         });
       }
       return () => {

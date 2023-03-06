@@ -100,8 +100,8 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
           }),
         });
         await backgroundApiProxy.serviceToken.fetchAccountTokens({
-          activeAccountId: accountId,
-          activeNetworkId: $networkId,
+          accountId,
+          networkId: $networkId,
         });
         if (navigation?.canGoBack?.()) {
           navigation.goBack();
