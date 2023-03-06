@@ -1,5 +1,5 @@
-import type { ComponentProps, FC } from 'react';
 import { useCallback, useMemo } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -443,7 +443,6 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
   showViewInBrowser,
 }) => {
   const intl = useIntl();
-
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
   const account = useTransactionsAccount(

@@ -521,11 +521,15 @@ export class SwapQuoter {
         }
       } else {
         const historyTx = await this.getHistoryTx(tx);
-        const txid = historyTx?.decodedTx.txid;
-        if (from.networkId.startsWith(IMPL_EVM) && txid && receivingAddress) {
-          if (from.networkId === to.networkId) {
+        const txid = historyTx?.decodedTx.txid || tx.hash;
+        if (
+          from.networkId.startsWith(IMPL_EVM) &&
+          to.networkId.startsWith(IMPL_EVM) &&
+          receivingAddress
+        ) {
+          if (txid && from.networkId === to.networkId) {
             const amount = await this.doQueryReceivedToken(
-              historyTx?.decodedTx.txid,
+              txid,
               to.token,
               receivingAddress,
             );
