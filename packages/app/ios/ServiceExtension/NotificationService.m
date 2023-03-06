@@ -20,8 +20,7 @@
 - (void)didReceiveNotificationRequest:(UNNotificationRequest *)request withContentHandler:(void (^)(UNNotificationContent * _Nonnull))contentHandler {
   self.contentHandler = contentHandler;
   self.bestAttemptContent = [request.content mutableCopy];
-  self.bestAttemptContent.title = [NSString stringWithFormat:@"[NotificationService]: %@",self.bestAttemptContent.title];
-
+//  self.bestAttemptContent.title = [NSString stringWithFormat:@"[NotificationService]: %@",self.bestAttemptContent.title];
   NSString * image = self.bestAttemptContent.userInfo[@"image"];
   //if exist
   if (image) {
@@ -29,8 +28,11 @@
     NSURL *imageURL = [NSURL URLWithString:image];
     [self downloadAndSave:imageURL handler:^(NSString *localPath) {
       if (localPath) {
-        UNNotificationAttachment *attachment = [UNNotificationAttachment attachmentWithIdentifier:@"image" URL:[NSURL fileURLWithPath:localPath] options:nil error:nil];
-        self.bestAttemptContent.attachments = @[attachment];
+        NSError *error = nil;
+        UNNotificationAttachment *attachment = [UNNotificationAttachment attachmentWithIdentifier:@"image" URL:[NSURL fileURLWithPath:localPath] options:nil error:&error];
+        if (!error) {
+          self.bestAttemptContent.attachments = @[attachment];
+        }
       }
       self.contentHandler(self.bestAttemptContent);
     }];
@@ -39,14 +41,20 @@
   }
 }
 
-- (void)downloadAndSave:(NSURL *)fileURL handler:(void (^)(NSString *))handler {
+- (void)downloadAndSave:(NSURL *)fileURL handler:(void (^)(NSString *localPath))handler {
   NSURLSession * session = [NSURLSession sharedSession];
   NSURLSessionDownloadTask *task = [session downloadTaskWithURL:fileURL completionHandler:^(NSURL * _Nullable location, NSURLResponse * _Nullable response, NSError * _Nullable error) {
     NSString *localPath = nil;
+
     if (!error) {
-      NSString * localURL = [NSString stringWithFormat:@"%@/%@", NSTemporaryDirectory(),fileURL.lastPathComponent];
-      if ([[NSFileManager defaultManager] moveItemAtPath:location.path toPath:localURL error:nil]) {
-        localPath = localURL;
+      NSString *mimeType = [response MIMEType];
+      NSString *extension = [self getExtensionForMimeType:mimeType];
+      if(extension != nil) {
+        NSString *fileName = [[[NSUUID UUID] UUIDString] stringByAppendingPathExtension:extension];
+        NSString *localURL = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
+        if ([[NSFileManager defaultManager] moveItemAtPath:location.path toPath:localURL error:nil]) {
+          localPath = localURL;
+        }
       }
     }
     handler(localPath);
@@ -54,9 +62,19 @@
   [task resume];
 }
 
+- (NSString *)getExtensionForMimeType:(NSString *)mimeType {
+    NSDictionary *mapping = @{
+        @"image/gif" : @"gif",
+        @"image/png" : @"png",
+        @"image/jpeg" : @"jpg",
+//        @"video/mp4" : @"mp4",
+//        @"audio/mpeg" : @"mp3",
+//        @"application/octet-stream" : @"",
+    };
+    return [mapping objectForKey:mimeType];
+}
+
 - (void)serviceExtensionTimeWillExpire {
-    // Called just before the extension will be terminated by the system.
-    // Use this as an opportunity to deliver your "best attempt" at modified content, otherwise the original push payload will be used.
     self.contentHandler(self.bestAttemptContent);
 }
 
