@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FC } from 'react';
-
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import type { SvgProps } from 'react-native-svg';
 
 import { useThemeValue } from '@onekeyhq/components';
@@ -20,6 +20,7 @@ const Icon: FC<IconProps> = ({ name, size = 24, color }) => {
   const primaryColor = useThemeValue(color ?? 'icon-default');
   let SVGComponent = ICON_CONFIG[name];
   const [_, setRefreshKey] = useState(Math.random());
+  const isMounted = useIsMounted();
 
   useEffect(() => {
     // @ts-ignore
@@ -31,7 +32,9 @@ const Icon: FC<IconProps> = ({ name, size = 24, color }) => {
         SVGComponent.__ready = true;
         // @ts-ignore
         ICON_CONFIG[name] = SVGComponent;
-        setRefreshKey(Math.random());
+        if (isMounted) {
+          setRefreshKey(Math.random());
+        }
       });
     }
   }, [name]);
