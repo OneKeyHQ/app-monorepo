@@ -1,3 +1,5 @@
+import { omit } from 'lodash';
+
 import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import {
   COINTYPE_BTC,
@@ -5,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { getDefaultPurpose } from '../../../managers/derivation';
+import { getAccountNameInfoByImpl } from '../../../managers/impl';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -14,6 +17,7 @@ import Provider from './provider';
 import settings from './settings';
 
 import type { DBUTXOAccount } from '../../../types/account';
+import type { AccountNameInfo } from '../../../types/network';
 
 export default class Vault extends VaultBtcFork {
   override providerClass = Provider;
@@ -82,5 +86,24 @@ export default class Vault extends VaultBtcFork {
       (accounts?.[0] as DBUTXOAccount).xpub,
     );
     return accountUsed;
+  }
+
+  override async getAccountNameInfoMap(): Promise<
+    Record<string, AccountNameInfo>
+  > {
+    const isHwWallet = this.walletId.startsWith('hw');
+    const network = await this.getNetwork();
+    const accountNameInfo = getAccountNameInfoByImpl(network.impl);
+    if (!isHwWallet || !this.walletId) {
+      return accountNameInfo;
+    }
+    const wallet = await this.engine.getWallet(this.walletId);
+    if (
+      isHwWallet &&
+      (wallet.deviceType === 'classic' || wallet.deviceType === 'mini')
+    ) {
+      return omit(accountNameInfo, 'BIP86');
+    }
+    return accountNameInfo;
   }
 }
