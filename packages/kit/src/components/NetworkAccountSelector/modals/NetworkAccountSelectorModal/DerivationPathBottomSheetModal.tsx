@@ -248,6 +248,7 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
               })}
               dismiss={false}
               alertType="info"
+              customIconName="InformationCircleMini"
             />
           </Box>
           {invalidOptions.map((option) => (

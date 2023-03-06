@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "Blockchain Explorer URL",
   "form__blockchain_explorer_url_invalid": "URL нь http эсвэл https угтвар шаарддаг.",
   "form__borrowed_uppercase": "ЗЭЭЛЭЭ",
+  "form__bridge_fee": "Гүүрний төлбөр",
   "form__btc_and_eth_movement": "BTC ба ETH хөдөлгөөн",
   "form__btc_and_eth_movement_desc": "BTC болон ETH үнийн томоохон үнийн хэлбэлзэл",
   "form__buy_int_max_purchase": "{0} Хамгийн их худалдан авалт",

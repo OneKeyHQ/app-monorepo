@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "ब्लॉकचैन एक्सप्लोरर यूआरएल",
   "form__blockchain_explorer_url_invalid": "URL के लिए http या https उपसर्ग आवश्यक है।",
   "form__borrowed_uppercase": "उधार",
+  "form__bridge_fee": "पुल शुल्क",
   "form__btc_and_eth_movement": "बीटीसी और ईटीएच आंदोलन",
   "form__btc_and_eth_movement_desc": "बीटीसी और ईटीएच कीमतों में बड़ा उतार-चढ़ाव",
   "form__buy_int_max_purchase": "{0} अधिकतम खरीद",

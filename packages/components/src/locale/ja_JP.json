@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "ブロックチェーンエクスプローラー URL",
   "form__blockchain_explorer_url_invalid": "URLにはhttpまたはhttpsの接頭辞が必要となる。",
   "form__borrowed_uppercase": "借りた",
+  "form__bridge_fee": "ブリッジ料金",
   "form__btc_and_eth_movement": "BTCとETHのトレンド",
   "form__btc_and_eth_movement_desc": "BTC と ETH の価格は大幅に変動する",
   "form__buy_int_max_purchase": "{0}の最大購入量",

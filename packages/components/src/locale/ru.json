@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "URL Blockchain Explorer",
   "form__blockchain_explorer_url_invalid": "URL требует префикса http или https.",
   "form__borrowed_uppercase": "ЗАИМСТВОВАН",
+  "form__bridge_fee": "Плата за мост",
   "form__btc_and_eth_movement": "Движение BTC и ETH",
   "form__btc_and_eth_movement_desc": "Большие колебания цен на BTC и ETH",
   "form__buy_int_max_purchase": "{0} Максимальная покупка",

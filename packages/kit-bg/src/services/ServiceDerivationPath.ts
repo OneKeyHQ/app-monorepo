@@ -95,6 +95,7 @@ export default class ServiceDerivationPath extends ServiceBase {
     serviceAccountSelector.preloadingCreateAccount({
       walletId,
       networkId,
+      template,
     });
 
     let addedAccount: IAccount | undefined;
@@ -115,6 +116,7 @@ export default class ServiceDerivationPath extends ServiceBase {
         walletId,
         networkId,
         accountId: addedAccount?.id,
+        template: usedTemplate,
       });
     }
   }

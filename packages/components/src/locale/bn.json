@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "ব্লকচেইন এক্সপ্লোরার ইউআরএল",
   "form__blockchain_explorer_url_invalid": "URL-এর জন্য http বা https উপসর্গ প্রয়োজন।",
   "form__borrowed_uppercase": "ধার করা হয়েছে",
+  "form__bridge_fee": "সেতু ফি",
   "form__btc_and_eth_movement": "বিটিসি এবং ইটিএইচ আন্দোলন",
   "form__btc_and_eth_movement_desc": "BTC এবং ETH দামে বড় দামের ওঠানামা",
   "form__buy_int_max_purchase": "{0} সর্বোচ্চ ক্রয়",

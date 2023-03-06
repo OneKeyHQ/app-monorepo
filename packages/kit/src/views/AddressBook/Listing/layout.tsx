@@ -44,12 +44,13 @@ const LaptopLayout: FC<LayoutProps> = ({ children, onNew }) => {
   return (
     <Box
       width="full"
+      height="full"
       display="flex"
       flexDirection="column"
       justifyContent="center"
       alignItems="center"
     >
-      <Box maxW="768px" width="full">
+      <Box maxW="768px" width="full" height="full">
         <Box
           display="flex"
           flexDirection="row"
@@ -63,7 +64,9 @@ const LaptopLayout: FC<LayoutProps> = ({ children, onNew }) => {
             {intl.formatMessage({ id: 'action__add_new_address' })}
           </Button>
         </Box>
-        <Box width="full">{children}</Box>
+        <Box width="full" flex={1}>
+          {children}
+        </Box>
       </Box>
     </Box>
   );

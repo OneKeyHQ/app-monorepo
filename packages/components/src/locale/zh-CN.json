@@ -943,6 +943,7 @@
   "form__blockchain_explorer_url": "区块浏览器网址",
   "form__blockchain_explorer_url_invalid": "网址需要有 http 或 https 的前缀。",
   "form__borrowed_uppercase": "借贷",
+  "form__bridge_fee": "跨链桥费用",
   "form__btc_and_eth_movement": "BTC 和 ETH 走势",
   "form__btc_and_eth_movement_desc": "BTC 和 ETH 的价格大幅波动",
   "form__buy_int_max_purchase": "{0} 最大购买量",
