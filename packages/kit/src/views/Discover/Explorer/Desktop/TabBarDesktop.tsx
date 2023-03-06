@@ -1,8 +1,11 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { Image } from 'react-native';
+
 import { Box, Button, Pressable, Typography } from '@onekeyhq/components';
 import ScrollableButtonGroup from '@onekeyhq/components/src/ScrollableButtonGroup/ScrollableButtonGroup';
+import dAppFavicon from '@onekeyhq/kit/assets/dapp_favicon.png';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../../hooks';
@@ -21,7 +24,7 @@ const Tab: FC<
   WebTab & {
     onLayout?: (e: LayoutChangeEvent) => void;
   }
-> = ({ isCurrent, id, title, onLayout }) => {
+> = ({ isCurrent, id, title, onLayout, favicon }) => {
   const { dispatch } = backgroundApiProxy;
   const setCurrentTab = useCallback(() => {
     dispatch(setCurrentWebTab(id));
@@ -58,6 +61,11 @@ const Tab: FC<
       alignItems="center"
       onLayout={onLayout}
     >
+      <Image
+        style={{ width: 16, height: 16, marginRight: 8 }}
+        source={{ uri: favicon }}
+        defaultSource={dAppFavicon}
+      />
       <Typography.Caption
         maxW="82px"
         mr="10px"
