@@ -11,6 +11,7 @@ export { RecoverAccountModalRoutes };
 type RecoverAccountsAdvancedParams = {
   fromIndex: number;
   generateCount?: number;
+  networkId?: string;
 };
 
 export type RecoverAccountRoutesParams = {

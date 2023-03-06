@@ -66,6 +66,7 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
     await serviceAccountSelector.preloadingCreateAccount({
       walletId,
       networkId: network,
+      template,
     });
     return serviceAccount.addHDAccounts(
       password,
@@ -142,6 +143,7 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
         walletId,
         networkId: network,
         accountId: addedAccount?.id,
+        template,
       });
     }
 

@@ -46,6 +46,7 @@ type ImportableHDAccount = {
   defaultName: string;
   displayAddress: string;
   mainBalance: string;
+  template?: string;
 };
 
 export { AccountType };
