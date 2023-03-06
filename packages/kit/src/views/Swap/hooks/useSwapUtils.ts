@@ -154,15 +154,3 @@ export const useSwapMinimumReceivedAmount = () => {
     }
   }, [quote, swapSlippagePercent]);
 };
-
-export const useSwapProtocalsFee = () => {
-  const protocolFees = useAppSelector((s) => s.swap.quote?.protocolFees);
-  if (protocolFees) {
-    const { amount, asset } = protocolFees;
-    const bn = new BigNumber(amount);
-    const decimals = new BigNumber(asset.decimals);
-    const base = new BigNumber(10);
-    const value = bn.dividedBy(base.exponentiatedBy(decimals)).toFixed();
-    return { value, symbol: asset.symbol };
-  }
-};

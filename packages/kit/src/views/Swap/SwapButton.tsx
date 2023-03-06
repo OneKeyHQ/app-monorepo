@@ -436,6 +436,7 @@ const ExchangeButton = () => {
             providers: newQuote?.sources ?? quote.providers,
             arrivalTime: quote.arrivalTime,
             percentageFee: quote.percentageFee,
+            protocalFees: quote.protocolFees,
             networkFee,
             tokens: {
               from,
