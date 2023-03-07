@@ -93,6 +93,7 @@ export type DesktopAPI = {
     body: string,
   ) => void;
   stopServer: () => void;
+  quitApp: () => void;
 };
 declare global {
   interface Window {
@@ -244,6 +245,9 @@ const desktopApi = {
     body: string,
   ) => {
     ipcRenderer.send('server/respond', { requestId, code, type, body });
+  },
+  quitApp: () => {
+    ipcRenderer.send('app/quit');
   },
 };
 

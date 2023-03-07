@@ -35,15 +35,6 @@ export type TBottomBarFoldableItem<T = any> = {
 
 export type TBottomBarRefAttr = BottomSheet;
 
-export type TBottomBarModalProps = {
-  onOpen: () => void;
-  onClose: () => void;
-  handleClose: () => void;
-  handleOpen: () => void;
-  foldableList: TBottomBarFoldableItem[];
-  tabBarHeight: number;
-};
-
 export type Layout = { width: number; height: number };
 
 export type BottomTabNavigationEventMap = {
@@ -335,7 +326,6 @@ export interface BottomTabBarProps {
   state: TabNavigationState<ParamListBase>;
   descriptors: BottomTabDescriptorMap;
   navigation: NavigationHelpers<ParamListBase, BottomTabNavigationEventMap>;
-  foldableList: TBottomBarFoldableItem[];
 }
 
 export interface BottomTabBarButtonProps
