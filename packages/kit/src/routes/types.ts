@@ -5,9 +5,8 @@ import type { ComponentType } from 'react';
 
 import type { HeaderTitleProps } from '@onekeyhq/components/src/NavHeader/HeaderTitle';
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
-import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
-import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/views/ReceiveToken/types';
@@ -15,8 +14,6 @@ import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/views/ReceiveTo
 
 import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
 
-import type { Token } from '../store/typings';
-import type { PNLData } from '../views/NFTMarket/PNL/PNLDetail';
 import type { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
 import type { StackBasicRoutesParams } from './Dev';
 import type * as SubModalRoutesParams from './Modal/types';
@@ -27,7 +24,6 @@ import type {
   ParamListBase,
 } from '@react-navigation/native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type B from 'bignumber.js';
 
 export type ScreensList<T extends string> = ({
   name: T;

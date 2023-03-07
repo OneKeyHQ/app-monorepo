@@ -34,10 +34,7 @@ export function useNavigationActions() {
     ({ mode }: { mode?: EAccountSelectorMode }) => {
       dispatch(updateAccountSelectorMode(mode || EAccountSelectorMode.Wallet));
       navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.ManageNetwork,
-        params: {
-          screen: ManageNetworkRoutes.NetworkAccountSelector,
-        },
+        screen: ManageNetworkRoutes.NetworkAccountSelector,
       });
     },
     [dispatch, navigation],
@@ -52,12 +49,9 @@ export function useNavigationActions() {
     }) => {
       dispatch(updateAccountSelectorMode(mode || EAccountSelectorMode.Wallet));
       navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.ManageNetwork,
+        screen: ManageNetworkRoutes.NetworkSelector,
         params: {
-          screen: ManageNetworkRoutes.NetworkSelector,
-          params: {
-            networkImpl,
-          },
+          networkImpl,
         },
       });
     },

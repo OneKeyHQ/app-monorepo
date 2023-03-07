@@ -23,15 +23,13 @@ import {
   getActiveWalletAccount,
   useActiveWalletAccount,
 } from '@onekeyhq/kit/src/hooks/redux';
-import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
-import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
+import type { ManageNetworkRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import {
   ModalRoutes,
   RootRoutes,
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import type { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -43,8 +41,7 @@ import { calculateGains } from '../../../utils/priceUtils';
 import AccountMoreMenu from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
 
-type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
-  ModalScreenProps<SendRoutesParams>;
+type NavigationProps = ModalScreenProps<ManageNetworkRoutesParams>;
 
 export const FIXED_VERTICAL_HEADER_HEIGHT = 238;
 export const FIXED_HORIZONTAL_HEDER_HEIGHT = 152;
@@ -211,7 +208,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
             navigation.navigate(RootRoutes.Modal, {
-              screen: ReceiveTokenRoutes.ReceiveToken,
+              screen: ModalRoutes.Receive,
               params: {},
             });
           }}

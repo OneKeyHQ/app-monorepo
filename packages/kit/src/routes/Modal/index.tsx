@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+import type { ComponentType } from 'react';
 import { memo, useMemo } from 'react';
 
-// import { createStackNavigator } from '@react-navigation/stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
@@ -11,236 +10,182 @@ import { ModalRoutes } from '../types';
 
 import { buildModalOpenAnimationOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
+import ManageNetworkModal from './ManageNetwork';
 
 import type { ModalRoutesParams } from '../types';
 
-const BackupWalletModal = createLazyComponent(() => import('./BackupWallet'));
-
-const CollectibleModal = createLazyComponent(() => import('./Collectibles'));
-const CreateAccountModal = createLazyComponent(() => import('./CreateAccount'));
-const RecoverAccountModal = createLazyComponent(
-  () => import('./RecoverAccount'),
-);
-const CreateWalletModalStack = createLazyComponent(
-  () => import('./CreateWallet'),
-);
-const DappConnectionStack = createLazyComponent(
-  () => import('./DappConnection'),
-);
-const DiscoverModal = createLazyComponent(() => import('./Discover'));
-const EnableLocalAuthenticationModal = createLazyComponent(
-  () => import('./EnableLocalAuthentication'),
-);
-const BuyModal = createLazyComponent(() => import('./FiatPay'));
-const OnekeyHardwareModal = createLazyComponent(
-  () => import('./HardwareOnekey'),
-);
-const HardwareOnekeyLitePinModal = createLazyComponent(
-  () => import('./HardwareOnekeyLiteChangePin'),
-);
-const HardwareOnekeyResetModal = createLazyComponent(
-  () => import('./HardwareOnekeyLiteReset'),
-);
-const HardwareUpdateModal = createLazyComponent(
-  () => import('./HardwareUpdate'),
-);
-const HistoryRequestModal = createLazyComponent(
-  () => import('./HistoryRequest'),
-);
-const ImportBackupPassword = createLazyComponent(
-  () => import('./ImportBackupPassword'),
-);
-const ManageConnectedSitesModal = createLazyComponent(
-  () => import('./ManageConnectSites'),
-);
-const ManageNetworkModal = createLazyComponent(() => import('./ManageNetwork'));
-const ManagerAccountModal = createLazyComponent(
-  () => import('./ManagerAccount'),
-);
-const ManagerWalletModal = createLazyComponent(() => import('./ManagerWallet'));
-const ManageTokenModal = createLazyComponent(() => import('./ManageToken'));
-const NFTMarket = createLazyComponent(() => import('./NFTMarket'));
-const PasswordModal = createLazyComponent(() => import('./Password'));
-const PushNotification = createLazyComponent(
-  () => import('./PushNotification'),
-);
-const ReceiveToken = createLazyComponent(() => import('./ReceiveToken'));
-const Revoke = createLazyComponent(() => import('./Revoke'));
-const BulkSender = createLazyComponent(() => import('./BulkSender'));
-const ScanQrcode = createLazyComponent(() => import('./ScanQrcode'));
-const Send = createLazyComponent(() => import('./Send'));
-const StakingModal = createLazyComponent(() => import('./Staking'));
-const SubmitRequestModal = createLazyComponent(() => import('./SubmitRequest'));
-const SwapModal = createLazyComponent(() => import('./Swap'));
-const TransactionDetailModal = createLazyComponent(
-  () => import('./TransactionDetail'),
-);
-const UpdateFeatureModal = createLazyComponent(() => import('./UpdateFeature'));
-const WebviewModal = createLazyComponent(
-  () => import('@onekeyhq/kit/src/views/Webview'),
-);
-
-const AddressBookModal = createLazyComponent(() => import('./AddressBook'));
-
-const OverviewModal = createLazyComponent(() => import('./Overview'));
-const Market = createLazyComponent(() => import('./Market'));
-
-const CurrencySelectModal = createLazyComponent(
-  () => import('./CurrencySelect'),
-);
-
-export enum ModalNavigatorRoutes {
-  ReceiveTokenNavigator = 'ReceiveTokenNavigator',
-  SendNavigator = 'SendNavigator',
-}
-
-const modalStackScreenList = [
+const modalStackScreenList: (
+  | {
+      name: keyof ModalRoutesParams;
+      children: {
+        name: keyof ModalRoutesParams;
+        component: ComponentType<any>;
+      }[];
+    }
+  | {
+      name: keyof ModalRoutesParams;
+      component: ComponentType<any>;
+    }
+)[] = [
   {
     name: ModalRoutes.CreateAccount,
-    component: CreateAccountModal,
+    component: createLazyComponent(() => import('./CreateAccount')),
   },
   {
     name: ModalRoutes.RecoverAccount,
-    component: RecoverAccountModal,
+    component: createLazyComponent(() => import('./RecoverAccount')),
   },
   {
     name: ModalRoutes.Receive,
-    component: ReceiveToken,
+    component: createLazyComponent(
+      () => import('@onekeyhq/kit/src/views/ReceiveToken'),
+    ),
   },
   {
     name: ModalRoutes.Send,
-    component: Send,
+    component: createLazyComponent(() => import('./Send')),
   },
   {
     name: ModalRoutes.ScanQrcode,
-    component: ScanQrcode,
+    component: createLazyComponent(() => import('./ScanQrcode')),
   },
   {
     name: ModalRoutes.BackupWallet,
-    component: BackupWalletModal,
+    component: createLazyComponent(() => import('./BackupWallet')),
   },
   {
     name: ModalRoutes.TransactionDetail,
-    component: TransactionDetailModal,
+    component: createLazyComponent(() => import('./TransactionDetail')),
   },
   {
     name: ModalRoutes.ManageToken,
-    component: ManageTokenModal,
+    component: createLazyComponent(() => import('./ManageToken')),
   },
   {
     name: ModalRoutes.SubmitRequest,
-    component: SubmitRequestModal,
+    component: createLazyComponent(() => import('./SubmitRequest')),
   },
   {
     name: ModalRoutes.HistoryRequest,
-    component: HistoryRequestModal,
+    component: createLazyComponent(() => import('./HistoryRequest')),
   },
   {
     name: ModalRoutes.Password,
-    component: PasswordModal,
+    component: createLazyComponent(() => import('./Password')),
   },
   {
     name: ModalRoutes.OnekeyLiteReset,
-    component: HardwareOnekeyResetModal,
+    component: createLazyComponent(() => import('./HardwareOnekeyLiteReset')),
   },
   {
     name: ModalRoutes.OnekeyLiteChangePinInputPin,
-    component: HardwareOnekeyLitePinModal,
+    component: createLazyComponent(
+      () => import('./HardwareOnekeyLiteChangePin'),
+    ),
   },
   {
     name: ModalRoutes.DappConnectionModal,
-    component: DappConnectionStack,
+    component: createLazyComponent(() => import('./DappConnection')),
   },
   {
     name: ModalRoutes.Collectibles,
-    component: CollectibleModal,
+    component: createLazyComponent(() => import('./Collectibles')),
   },
   {
     name: ModalRoutes.CreateWallet,
-    component: CreateWalletModalStack,
+    component: createLazyComponent(() => import('./CreateWallet')),
   },
   {
     name: ModalRoutes.ManagerWallet,
-    component: ManagerWalletModal,
+    component: createLazyComponent(() => import('./ManagerWallet')),
   },
   {
     name: ModalRoutes.ManagerAccount,
-    component: ManagerAccountModal,
+    component: createLazyComponent(() => import('./ManagerAccount')),
   },
   {
     name: ModalRoutes.EnableLocalAuthentication,
-    component: EnableLocalAuthenticationModal,
+    component: createLazyComponent(() => import('./EnableLocalAuthentication')),
   },
   {
     name: ModalRoutes.ManageNetwork,
-    component: ManageNetworkModal,
+    children: ManageNetworkModal,
   },
   {
     name: ModalRoutes.OnekeyHardware,
-    component: OnekeyHardwareModal,
+    component: createLazyComponent(() => import('./HardwareOnekey')),
   },
   {
     name: ModalRoutes.HardwareUpdate,
-    component: HardwareUpdateModal,
+    component: createLazyComponent(() => import('./HardwareUpdate')),
   },
   {
     name: ModalRoutes.Discover,
-    component: DiscoverModal,
+    component: createLazyComponent(() => import('./Discover')),
   },
   {
     name: ModalRoutes.Swap,
-    component: SwapModal,
+    component: createLazyComponent(() => import('./Swap')),
   },
   {
     name: ModalRoutes.UpdateFeature,
-    component: UpdateFeatureModal,
+    component: createLazyComponent(() => import('./UpdateFeature')),
   },
   {
     name: ModalRoutes.FiatPay,
-    component: BuyModal,
+    component: createLazyComponent(() => import('./FiatPay')),
   },
   {
     name: ModalRoutes.AddressBook,
-    component: AddressBookModal,
+    component: createLazyComponent(() => import('./AddressBook')),
   },
   {
     name: ModalRoutes.ImportBackupPassword,
-    component: ImportBackupPassword,
+    component: createLazyComponent(() => import('./ImportBackupPassword')),
   },
   {
     name: ModalRoutes.Staking,
-    component: StakingModal,
+    component: createLazyComponent(() => import('./Staking')),
   },
   {
     name: ModalRoutes.ManageConnectedSites,
-    component: ManageConnectedSitesModal,
+    component: createLazyComponent(() => import('./ManageConnectSites')),
   },
   {
     name: ModalRoutes.PushNotification,
-    component: PushNotification,
+    component: createLazyComponent(() => import('./PushNotification')),
   },
   {
     name: ModalRoutes.Webview,
-    component: WebviewModal,
+    component: createLazyComponent(
+      () => import('@onekeyhq/kit/src/views/Webview'),
+    ),
   },
   {
     name: ModalRoutes.Revoke,
-    component: Revoke,
+    component: createLazyComponent(() => import('./Revoke')),
   },
   {
     name: ModalRoutes.NFTMarket,
-    component: NFTMarket,
+    component: createLazyComponent(() => import('./NFTMarket')),
   },
   {
     name: ModalRoutes.Overview,
-    component: OverviewModal,
+    component: createLazyComponent(() => import('./Overview')),
   },
-  { name: ModalRoutes.CurrencySelect, component: CurrencySelectModal },
   {
     name: ModalRoutes.BulkSender,
-    component: BulkSender,
+    component: createLazyComponent(() => import('./BulkSender')),
   },
-  { name: ModalRoutes.Market, component: Market },
+  {
+    name: ModalRoutes.Market,
+    component: createLazyComponent(() => import('./Market')),
+  },
+
+  {
+    name: ModalRoutes.CurrencySelect,
+    component: createLazyComponent(() => import('./CurrencySelect')),
+  },
 ];
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();
@@ -258,13 +203,28 @@ const ModalStackNavigator = () => {
   return (
     <RootSiblingParent>
       <ModalStack.Navigator screenOptions={screenOptions}>
-        {modalStackScreenList.map((modal) => (
-          <ModalStack.Screen
-            key={modal.name}
-            name={modal.name}
-            component={modal.component}
-          />
-        ))}
+        {modalStackScreenList.map((modalStacks) => {
+          if ('component' in modalStacks) {
+            return (
+              <ModalStack.Screen
+                key={modalStacks.name}
+                name={modalStacks.name}
+                component={modalStacks.component}
+              />
+            );
+          }
+          return (
+            <ModalStack.Group key={modalStacks.name}>
+              {modalStacks.children.map((subModal) => (
+                <ModalStack.Screen
+                  key={subModal.name}
+                  name={subModal.name}
+                  component={subModal.component}
+                />
+              ))}
+            </ModalStack.Group>
+          );
+        })}
       </ModalStack.Navigator>
     </RootSiblingParent>
   );

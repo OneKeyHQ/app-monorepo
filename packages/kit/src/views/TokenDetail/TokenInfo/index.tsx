@@ -20,8 +20,7 @@ import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
-import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
-import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
+import type { FiatPayModalRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import {
   ModalRoutes,
@@ -38,7 +37,7 @@ import { ManageTokenRoutes } from '../../ManageTokens/types';
 
 import { PriceCurrencyNumber } from './PriceCurrencyNumber';
 
-type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
+type NavigationProps = ModalScreenProps<FiatPayModalRoutesParams>;
 
 export type TokenInfoProps = {
   token: TokenDO | null | undefined;

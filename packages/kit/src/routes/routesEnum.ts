@@ -167,4 +167,3 @@ export enum ModalRoutes {
   BulkSender = 'BulkSender',
   Market = 'Market',
 }
-

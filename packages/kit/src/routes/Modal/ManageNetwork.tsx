@@ -1,5 +1,3 @@
-import { useIsVerticalLayout } from '@onekeyhq/components';
-import { AddNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/AddNetwork';
 import { CustomNetwork } from '@onekeyhq/kit/src/views/ManageNetworks/CustomNetwork';
 import { Listing } from '@onekeyhq/kit/src/views/ManageNetworks/Listing';
 import { SortableView } from '@onekeyhq/kit/src/views/ManageNetworks/Listing/SortableView';
@@ -10,17 +8,12 @@ import { ManageNetworkRoutes } from '@onekeyhq/kit/src/views/ManageNetworks/type
 
 import { NetworkAccountSelectorModal } from '../../components/NetworkAccountSelector';
 import { NetworkSelectorModal } from '../../components/NetworkAccountSelector/modals/NetworkSelectorModal/NetworkSelectorModal';
+import { createLazyComponent } from '../../utils/createLazyComponent';
 import { AddNetworkConfirm } from '../../views/ManageNetworks/AddNetwork/AddNetworkConfirm';
 import { ManageNetworkQuickAdd } from '../../views/ManageNetworks/QuickAdd';
 import { SwitchNetwork } from '../../views/ManageNetworks/SwitchNetwork';
 
-import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
-import createStackNavigator from './createStackNavigator';
-
-const ManageNetworkNavigator =
-  createStackNavigator<ManageNetworkRoutesParams>();
-
-const modalRoutes = [
+const manageNetworkModals = [
   {
     name: ManageNetworkRoutes.NetworkAccountSelector,
     component: NetworkAccountSelectorModal,
@@ -35,7 +28,9 @@ const modalRoutes = [
   },
   {
     name: ManageNetworkRoutes.AddNetwork,
-    component: AddNetwork,
+    component: createLazyComponent(
+      () => import('@onekeyhq/kit/src/views/ManageNetworks/AddNetwork'),
+    ),
   },
   {
     name: ManageNetworkRoutes.CustomNetwork,
@@ -66,26 +61,6 @@ const modalRoutes = [
     component: SortableView,
   },
 ];
-
-const ManageNetworkModalStack = () => {
-  const isVerticalLayout = useIsVerticalLayout();
-  return (
-    <ManageNetworkNavigator.Navigator
-      screenOptions={(navInfo) => ({
-        ...buildModalStackNavigatorOptions({ isVerticalLayout, navInfo }),
-      })}
-    >
-      {modalRoutes.map((route) => (
-        <ManageNetworkNavigator.Screen
-          key={route.name}
-          name={route.name}
-          component={route.component}
-        />
-      ))}
-    </ManageNetworkNavigator.Navigator>
-  );
-};
-
-export default ManageNetworkModalStack;
+export default manageNetworkModals;
 export { ManageNetworkRoutes };
 export type { ManageNetworkRoutesParams };
