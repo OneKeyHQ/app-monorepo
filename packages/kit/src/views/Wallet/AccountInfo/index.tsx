@@ -211,11 +211,8 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           isDisabled={wallet?.type === 'watching' || !account}
           onPress={() => {
             navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Receive,
-              params: {
-                screen: ReceiveTokenRoutes.ReceiveToken,
-                params: {},
-              },
+              screen: ReceiveTokenRoutes.ReceiveToken,
+              params: {},
             });
           }}
         />

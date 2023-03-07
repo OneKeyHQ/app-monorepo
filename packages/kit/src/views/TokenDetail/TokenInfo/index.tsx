@@ -212,10 +212,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
             onPress={() => {
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.Receive,
-                params: {
-                  screen: ReceiveTokenRoutes.ReceiveToken,
-                  params: {},
-                },
+                params: {},
               });
             }}
           />

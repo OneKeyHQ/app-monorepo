@@ -35,12 +35,9 @@ export function useCopyAddress({
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Receive,
           params: {
-            screen: ReceiveTokenRoutes.ReceiveToken,
-            params: {
-              wallet,
-              network,
-              account,
-            },
+            wallet,
+            network,
+            account,
           },
         });
       } else {
