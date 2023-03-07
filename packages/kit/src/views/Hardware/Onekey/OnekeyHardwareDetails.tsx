@@ -95,25 +95,32 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
 
   return (
     <Box alignItems="center" mb={{ base: 4, md: 0 }}>
-      <Box w="100%" h="160px" alignItems="center">
-        <Box position="absolute" w="100%" h="100%" bottom="0">
-          <Icon name="HardwareAboutDeviceBgIllus" height={160} width={330} />
+      <Box alignItems="center" w="full" overflow="hidden">
+        <Box opacity={20} w="full" position="absolute" zIndex={-1}>
+          <Icon
+            name="HardwareAboutDeviceBgIllus"
+            height={330}
+            width={330}
+            color="interactive-default"
+          />
         </Box>
-        {devicePicture ? (
-          <Image w="50%" h="100%" source={devicePicture} />
-        ) : null}
-      </Box>
+        <Box h="160px">
+          {devicePicture ? (
+            <Image w="200" h="full" source={devicePicture} />
+          ) : null}
+        </Box>
 
-      <LinearGradient
-        colors={['rgba(92, 195, 76, 0)', '#5CC34C', 'rgba(92, 195, 76, 0)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          height: 1,
-          width: '100%',
-          opacity: 0.3,
-        }}
-      />
+        <LinearGradient
+          colors={['rgba(92, 195, 76, 0)', '#5CC34C', 'rgba(92, 195, 76, 0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{
+            height: 1,
+            width: '100%',
+            opacity: 0.3,
+          }}
+        />
+      </Box>
 
       <Pressable
         w="100%"
@@ -135,7 +142,7 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
           titleColor="text-default"
           describeColor="text-subdued"
           title={intl.formatMessage({ id: 'action__verify' })}
-          hasArrow
+          hasArrow={!deviceVerifiedStatus}
         >
           {deviceVerifiedStatus ? (
             <Box flexDirection="row" alignItems="center">

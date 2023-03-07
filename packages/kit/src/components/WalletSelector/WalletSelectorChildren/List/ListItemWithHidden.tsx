@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
+import { Box, Button, Icon, Pressable, Text } from '@onekeyhq/components';
 
 import { showOverlay } from '../../../../utils/overlayUtils';
 import CreateHwWalletDialog from '../../../../views/CreateWallet/HardwareWallet/CreateHwWalletDialog';
@@ -77,18 +77,7 @@ function ListItemWithHidden({
             </>
           ))}
           <Box px={4} py={2}>
-            <Pressable
-              // TODO hidden wallet add
-              rounded="xl"
-              flexDirection="row"
-              alignItems="center"
-              justifyContent="center"
-              p={2}
-              borderWidth={1}
-              borderColor="border-default"
-              borderStyle="dashed"
-              _hover={{ bgColor: 'surface-hovered' }}
-              _pressed={{ bgColor: 'surface-pressed' }}
+            <Button
               onPress={() => {
                 const associatedDevice =
                   item?.wallet?.associatedDevice ??
@@ -98,12 +87,10 @@ function ListItemWithHidden({
                   onAddPassphraseWallet(associatedDevice);
                 }
               }}
+              leftIconName="PlusSmMini"
             >
-              <Icon name="PlusSmMini" size={20} />
-              <Text ml={2} typography="Body2Strong">
-                {intl.formatMessage({ id: 'action__add_hidden_wallet' })}
-              </Text>
-            </Pressable>
+              {intl.formatMessage({ id: 'action__add_hidden_wallet' })}
+            </Button>
           </Box>
         </Box>
       ) : (

@@ -1,13 +1,13 @@
 import Svg, {
   SvgProps,
-  Circle,
+  Path,
   Defs,
   RadialGradient,
   Stop,
 } from 'react-native-svg';
 const SvgHardwareAboutDeviceBg = (props: SvgProps) => (
-  <Svg viewBox="0 0 330 160" fill="none" accessibilityRole="image" {...props}>
-    <Circle opacity={0.2} cx={165} cy={160} r={165} fill="url(#a)" />
+  <Svg viewBox="0 0 330 330" fill="none" accessibilityRole="image" {...props}>
+    <Path fill="url(#a)" d="M0 0h330v330H0z" />
     <Defs>
       <RadialGradient
         id="a"
@@ -15,7 +15,7 @@ const SvgHardwareAboutDeviceBg = (props: SvgProps) => (
         cy={0}
         r={1}
         gradientUnits="userSpaceOnUse"
-        gradientTransform="matrix(0 165 -165 0 165 160)"
+        gradientTransform="rotate(90 0 165) scale(165)"
       >
         <Stop stopColor="#5CC34C" />
         <Stop offset={1} stopColor="#5CC34C" stopOpacity={0} />

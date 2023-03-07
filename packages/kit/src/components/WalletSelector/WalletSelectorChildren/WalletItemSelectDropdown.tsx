@@ -71,9 +71,13 @@ function HardwarePassphraseMenuOptions({
             dispatch(rememberPassphraseWallet(wallet?.id));
           }
         }}
-        extraChildren={<CheckBox noMargin isChecked={isRememberPassphrase} />}
+        extraChildren={
+          <Box>
+            <CheckBox noMargin isChecked={isRememberPassphrase} />
+          </Box>
+        }
       >
-        {intl.formatMessage({ id: 'content__passphrase_pin_wallet' })}
+        {intl.formatMessage({ id: 'msg__use_passphrase_remember_wallet' })}
       </Menu.CustomItem>
       <Divider my="4px" />
       <Menu.CustomItem
@@ -209,27 +213,6 @@ function HardwareMenuOptions({
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.OnekeyHardware,
             params: {
-              screen: OnekeyHardwareModalRoutes.OnekeyHardwareVerifyModal,
-              params: {
-                walletId: wallet?.id ?? '',
-              },
-            },
-          });
-        }}
-        icon={!deviceVerifiedStatus ? 'MagnifyingGlassCircleMini' : undefined}
-        extraChildren={
-          !!deviceVerifiedStatus && (
-            <Icon name="CheckBadgeMini" color="interactive-default" size={20} />
-          )
-        }
-      >
-        {intl.formatMessage({ id: 'action__verify' })}
-      </Menu.CustomItem>
-      <Menu.CustomItem
-        onPress={() => {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.OnekeyHardware,
-            params: {
               screen: OnekeyHardwareModalRoutes.OnekeyHardwareDetailsModal,
               params: {
                 walletId: wallet?.id ?? '',
@@ -252,8 +235,8 @@ function HardwareMenuOptions({
       >
         {intl.formatMessage({ id: 'content__advanced' })}
       </Menu.CustomItem>
-      {!!hwInfo?.hasUpgrade && <Divider my="4px" />}
-      {!!hwInfo?.hasUpgrade && (
+      <Divider my="4px" />
+      {!!hwInfo?.hasUpgrade ? (
         <Menu.CustomItem
           onPress={() => {
             navigation.navigate(RootRoutes.Modal, {
@@ -270,6 +253,10 @@ function HardwareMenuOptions({
           icon="ArrowUpTrayMini"
         >
           {intl.formatMessage({ id: 'action__update_available' })}
+        </Menu.CustomItem>
+      ) : (
+        <Menu.CustomItem icon="MagnifyingGlassMini">
+          {intl.formatMessage({ id: 'form__check_for_updates' })}
         </Menu.CustomItem>
       )}
       <Divider my="4px" />
@@ -432,7 +419,8 @@ function WalletItemSelectDropdown({
   const menuView = useMemo(
     () => (
       <Menu
-        width={230}
+        placement="bottom right"
+        width={224}
         // eslint-disable-next-line react/no-unstable-nested-components
         trigger={(triggerProps) => {
           const { onPress } = triggerProps;

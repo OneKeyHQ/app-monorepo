@@ -21,6 +21,7 @@ import { setPendingRememberWalletConnectId } from '@onekeyhq/kit/src/store/reduc
 import BaseRequestView from './BaseRequest';
 
 import type { BaseRequestViewProps } from './BaseRequest';
+import { StyleSheet } from 'react-native';
 
 type EnterPassphraseViewProps = {
   connectId: string;
@@ -60,7 +61,7 @@ const SetupPassphraseView = ({
 
   return (
     <>
-      <Form mt={4} space={3}>
+      <Form mt={4} space={2}>
         <Form.Item
           control={control}
           name="passphrase"
@@ -90,10 +91,8 @@ const SetupPassphraseView = ({
           <Form.Input
             type="password"
             autoFocus
-            size="lg"
-            placeholder={intl.formatMessage({
-              id: 'form__passphrase_placeholder',
-            })}
+            size="xl"
+            placeholder="Passphrase"
             onKeyPress={(e) => {
               if (e.nativeEvent.key === 'Enter') {
                 onSubmit();
@@ -131,7 +130,7 @@ const SetupPassphraseView = ({
         >
           <Form.Input
             type="password"
-            size="lg"
+            size="xl"
             placeholder={intl.formatMessage({
               id: 'form__passphrase_confirm_placeholder',
             })}
@@ -252,38 +251,22 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
           }}
         />
       )}
-      <Button
-        type="plain"
-        size="base"
-        mt={3}
-        mb={passphraseState ? 0 : 4}
-        onPress={() => onDeviceInput()}
-      >
-        {intl.formatMessage({ id: 'msg__enter_passphrase_on_device' })}
-      </Button>
+
       {passphraseState ? null : (
         <>
-          <Divider />
-          <Box mt={6}>
+          <Box mt="24px">
             <Box flexDirection="row">
-              <Box>
-                <CheckBox
-                  isChecked={rememberWallet}
-                  onChange={setRememberWallet}
-                />
-              </Box>
-              <Box flex={1}>
-                <Text typography="Body2Strong" color="text-default">
-                  {intl.formatMessage({
-                    id: 'msg__use_passphrase_remember_wallet',
-                  })}
-                </Text>
-                <Text typography="Body2" color="text-subdued">
-                  {intl.formatMessage({
-                    id: 'msg__use_passphrase_remember_wallet_dsc',
-                  })}
-                </Text>
-              </Box>
+              <CheckBox
+                flex={1}
+                isChecked={rememberWallet}
+                onChange={setRememberWallet}
+                title={intl.formatMessage({
+                  id: 'msg__use_passphrase_remember_wallet',
+                })}
+                description={intl.formatMessage({
+                  id: 'msg__use_passphrase_remember_wallet_dsc',
+                })}
+              />
             </Box>
             <Box flexDirection="row" mt={4}>
               <Box>
@@ -309,6 +292,16 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
           </Box>
         </>
       )}
+      <Box
+        mt="24px"
+        pt="8px"
+        borderTopWidth={StyleSheet.hairlineWidth}
+        borderTopColor="border-subdued"
+      >
+        <Button type="plain" size="base" onPress={() => onDeviceInput()}>
+          {intl.formatMessage({ id: 'msg__enter_passphrase_on_device' })}
+        </Button>
+      </Box>
     </BaseRequestView>
   );
 };

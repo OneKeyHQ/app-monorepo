@@ -130,7 +130,12 @@ export function ListItemBase({
             {text}
           </Text>
           {deviceStatusContent && (
-            <Text typography="Body2" isTruncated color={deviceStatusColor}>
+            <Text
+              typography="Body2"
+              mt="4px"
+              isTruncated
+              color={deviceStatusColor}
+            >
               {deviceStatusContent}
             </Text>
           )}
