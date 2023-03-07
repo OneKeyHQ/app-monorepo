@@ -159,8 +159,8 @@ function SendConfirm({
       ) => {
         // refresh balance
         serviceToken.fetchAccountTokens({
-          activeAccountId: accountId,
-          activeNetworkId: networkId,
+          accountId,
+          networkId,
         });
         if (routeParams.signOnly) {
           // TODO Unified return to tx related processes to handle their own

@@ -19,18 +19,12 @@ import VStack from '../../VStack';
 import type { ICON_NAMES } from '../../Icon';
 import type { BottomTabBarProps } from '../BottomTabs';
 
-const Sidebar: FC<BottomTabBarProps> = ({
-  navigation,
-  state,
-  descriptors,
-  foldableList,
-}) => {
+const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
   const { routes } = state;
 
-  const [activeFontColor, inactiveFontColor, textDisabled] = useThemeValue([
+  const [activeFontColor, inactiveFontColor] = useThemeValue([
     'text-default',
     'text-subdued',
-    'text-disabled',
   ]);
 
   const tabs = useMemo(
@@ -102,43 +96,6 @@ const Sidebar: FC<BottomTabBarProps> = ({
     ],
   );
 
-  const tabsWithFloatButton = useMemo(() => {
-    const swapIndex = routes.findIndex((route) => route.name === 'swap');
-    return [
-      ...tabs.slice(0, swapIndex + 1),
-      foldableList
-        .filter((item) => !item.hideInHorizontalLayaout)
-        .map((foldable) => (
-          <Pressable
-            disabled={foldable.disabled}
-            key={foldable.name}
-            onPress={foldable.onPress}
-            _hover={{ bg: 'surface-hovered' }}
-            borderRadius="xl"
-            p="2"
-          >
-            <Box display="flex" flexDirection="column">
-              <Box display="flex" flexDirection="row" alignItems="center">
-                <Icon
-                  name={foldable?.tabBarIcon?.() as ICON_NAMES}
-                  color={foldable.disabled ? 'icon-disabled' : 'icon-subdued'}
-                  size={24}
-                />
-
-                <Typography.Body2Strong
-                  ml="3"
-                  color={foldable.disabled ? textDisabled : inactiveFontColor}
-                >
-                  {foldable.tabBarLabel}
-                </Typography.Body2Strong>
-              </Box>
-            </Box>
-          </Pressable>
-        )),
-      ...tabs.slice(swapIndex + 1),
-    ];
-  }, [tabs, foldableList, inactiveFontColor, routes, textDisabled]);
-
   const paddingTopValue = 3 + (platformEnv.isDesktopMac ? 5 : 0);
   return (
     <Box
@@ -163,7 +120,7 @@ const Sidebar: FC<BottomTabBarProps> = ({
           }}
         >
           <VStack space={1} flex={1}>
-            {tabsWithFloatButton}
+            {tabs}
           </VStack>
         </ScrollView>
       </VStack>

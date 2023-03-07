@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { createBottomTabNavigator } from '@onekeyhq/components/src/Layout/BottomTabs';
 import { LayoutHeaderMobile } from '@onekeyhq/components/src/Layout/Header/LayoutHeaderMobile';
-import { navigationRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { LazyDisplayView } from '../../components/LazyDisplayView';
@@ -23,42 +22,6 @@ const TabNavigator = () => {
   const isVerticalLayout = useIsVerticalLayout();
 
   const renderHeader = useCallback(() => <LayoutHeaderMobile />, []);
-
-  const foldableList = useMemo(
-    () => [
-      {
-        name: TabRoutes.Swap,
-        foldable: true,
-        component: () => null,
-        onPress: () => {
-          // @ts-expect-error
-          navigationRef.current?.navigate(TabRoutes.Swap);
-        },
-        tabBarLabel: intl.formatMessage({ id: 'title__swap' }),
-        tabBarIcon: () => 'ArrowsRightLeftOutline',
-        description: intl.formatMessage({
-          id: 'content__exchange_any_tokens',
-        }),
-        hideInHorizontalLayaout: true,
-      },
-      {
-        name: TabRoutes.Market,
-        foldable: true,
-        component: () => null,
-        onPress: () => {
-          // @ts-expect-error
-          navigationRef.current?.navigate(TabRoutes.Market);
-        },
-        tabBarLabel: intl.formatMessage({ id: 'title__market' }),
-        tabBarIcon: () => 'ChartLineSquareOutline',
-        description: intl.formatMessage({
-          id: 'content__exchange_any_tokens',
-        }),
-        hideInHorizontalLayaout: true,
-      },
-    ],
-    [intl],
-  );
 
   const tabRoutesList = useMemo(() => {
     let tabs = tabRoutes;
@@ -90,8 +53,6 @@ const TabNavigator = () => {
           screenOptions={{
             lazy: true,
             header: renderHeader,
-            // @ts-expect-error
-            foldableList,
             freezeOnBlur: true,
           }}
         >
@@ -99,7 +60,7 @@ const TabNavigator = () => {
         </Tab.Navigator>
       </LazyDisplayView>
     ),
-    [foldableList, renderHeader, tabRoutesList],
+    [renderHeader, tabRoutesList],
   );
 };
 

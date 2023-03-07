@@ -229,10 +229,11 @@ const ExchangeButton = () => {
     }
 
     if (!params.tokenIn.tokenIdOnNetwork) {
-      const [result] = await backgroundApiProxy.serviceToken.fetchTokenBalance({
-        activeAccountId: sendingAccount.id,
-        activeNetworkId: targetNetwork.id,
-      });
+      const [result] =
+        await backgroundApiProxy.serviceToken.getAccountTokenBalance({
+          accountId: sendingAccount.id,
+          networkId: targetNetwork.id,
+        });
       const balance = new BigNumber(result?.main?.balance ?? '0');
       const reservedValue = reservedNetworkFee[targetNetwork.id] ?? 0.1;
       if (balance.minus(inputAmount.typedValue).lt(reservedValue)) {
@@ -435,6 +436,7 @@ const ExchangeButton = () => {
             providers: newQuote?.sources ?? quote.providers,
             arrivalTime: quote.arrivalTime,
             percentageFee: quote.percentageFee,
+            protocalFees: quote.protocolFees,
             networkFee,
             tokens: {
               from,
