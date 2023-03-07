@@ -23,7 +23,6 @@ import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
-  addWebTab,
   closeAllWebTabs,
   homeTab,
   isTabLimitReached,
@@ -40,6 +39,7 @@ import {
   showTabGrid,
   showTabGridAnim,
 } from '../explorerAnimation';
+import { addNewBlankWebTab } from '../explorerUtils';
 import { showWebMoreMenu } from '../MoreMenu';
 
 export const ControllerBarMobile: FC = () => {
@@ -51,9 +51,6 @@ export const ControllerBarMobile: FC = () => {
   const bgColor = useThemeValue('surface-subdued');
   const { canGoForward } = currentTab;
   const { dispatch } = backgroundApiProxy;
-  const addNewTab = useCallback(() => {
-    dispatch(addWebTab({ ...homeTab }));
-  }, [dispatch]);
 
   const reachedTabLimit = isTabLimitReached(tabs);
 
@@ -98,7 +95,7 @@ export const ControllerBarMobile: FC = () => {
         flex={1}
         type="plain"
         disabled={reachedTabLimit}
-        onPress={addNewTab}
+        onPress={addNewBlankWebTab}
         iconSize={26}
         name="PlusCircleMini"
       />
@@ -187,7 +184,7 @@ export const ControllerBarMobile: FC = () => {
         flex={1}
         type="plain"
         disabled={reachedTabLimit}
-        onPress={addNewTab}
+        onPress={addNewBlankWebTab}
         iconSize={26}
         name="PlusCircleMini"
       />
