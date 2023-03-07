@@ -3770,35 +3770,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@gorhom/bottom-sheet@npm:^4":
-  version: 4.3.2
-  resolution: "@gorhom/bottom-sheet@npm:4.3.2"
-  dependencies:
-    "@gorhom/portal": 1.0.13
-    invariant: ^2.2.4
-    nanoid: ^3.3.3
-    react-native-redash: ^16.1.1
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-gesture-handler: ">=1.10.1"
-    react-native-reanimated: ">=2.2.0"
-  checksum: e8d4ecb82bd6f6dbc1dd555199bbb62665dfac7e30a1aa0f88664bce0196a4b9d4d2fcb5ec59eff6c319a40541776e71bbbb22c0e1274e68bb07afb3b66fd403
-  languageName: node
-  linkType: hard
-
-"@gorhom/portal@npm:1.0.13":
-  version: 1.0.13
-  resolution: "@gorhom/portal@npm:1.0.13"
-  dependencies:
-    nanoid: ^3.3.1
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 4dd471feedc0dbcc06e9ba725695727448b79550fdc95e5888ea3c2aa9dd51ffffaa0ec2c3e762526c8eef4a36cebd625f73271a3bc31b80786af5a90ba2ea5b
-  languageName: node
-  linkType: hard
-
 "@graphql-typed-document-node/core@npm:^3.1.0, @graphql-typed-document-node/core@npm:^3.1.1":
   version: 3.1.1
   resolution: "@graphql-typed-document-node/core@npm:3.1.1"
@@ -5525,7 +5496,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/components@workspace:packages/components"
   dependencies:
-    "@gorhom/bottom-sheet": ^4
     "@types/qrcode": ^1.4.2
     iso-639-1: ^2.1.13
     lodash: ^4.17.21
@@ -5689,7 +5659,6 @@ __metadata:
     "@reduxjs/toolkit": ^1.6.2
     "@types/d3-scale": ^4.0.2
     "@types/d3-shape": ^3.1.0
-    "@types/react-native-snap-carousel": 3.8.5
     "@types/socket.io-client": ^3.0.0
     "@types/url-parse": ^1.4.8
     date-fns: ^2.27.0
@@ -5720,7 +5689,6 @@ __metadata:
     react-native-camera: 4.2.1
     react-native-document-picker: ^8.1.3
     react-native-root-siblings: ^4.1.1
-    react-native-snap-carousel: 3.9.1
     react-native-url-polyfill: ^1.3.0
     react-native-uuid: ^2.0.1
     react-native-vision-camera: ^2.15.2
@@ -8816,16 +8784,6 @@ __metadata:
     "@types/react": "*"
     "@types/react-native": "*"
   checksum: aad15d329f8a127729f01d6e38a0ff6e7b31e0a076ffa0d303b010e9bdd6d5c6145ee62b522f047282a8a78011915787d536f65ed8a884ebf81a58ed51bcdbd6
-  languageName: node
-  linkType: hard
-
-"@types/react-native-snap-carousel@npm:3.8.5":
-  version: 3.8.5
-  resolution: "@types/react-native-snap-carousel@npm:3.8.5"
-  dependencies:
-    "@types/react": "*"
-    "@types/react-native": "*"
-  checksum: 8f512436017d0efe95c4cedc2ca5a2ebb27ee4056b04555e0e3889ab170abcddb232ef4ce18ef01ddc2c2710a27db2aaf4a6a7375607bfd61bfd00d7d42fbeef
   languageName: node
   linkType: hard
 
@@ -13625,13 +13583,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"core-js@npm:^1.0.0":
-  version: 1.2.7
-  resolution: "core-js@npm:1.2.7"
-  checksum: 0b76371bfa98708351cde580f9287e2360d2209920e738ae950ae74ad08639a2e063541020bf666c28778956fc356ed9fe56d962129c88a87a6a4a0612526c75
-  languageName: node
-  linkType: hard
-
 "core-js@npm:^2.4.0, core-js@npm:^2.5.3, core-js@npm:^2.6.5":
   version: 2.6.12
   resolution: "core-js@npm:2.6.12"
@@ -17573,21 +17524,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fbjs@npm:^0.8.4":
-  version: 0.8.18
-  resolution: "fbjs@npm:0.8.18"
-  dependencies:
-    core-js: ^1.0.0
-    isomorphic-fetch: ^2.1.1
-    loose-envify: ^1.0.0
-    object-assign: ^4.1.0
-    promise: ^7.1.1
-    setimmediate: ^1.0.5
-    ua-parser-js: ^0.7.30
-  checksum: 668731b946a765908c9cbe51d5160f973abb78004b3d122587c3e930e3e1ddcc0ce2b17f2a8637dc9d733e149aa580f8d3035a35cc2d3bc78b78f1b19aab90e2
-  languageName: node
-  linkType: hard
-
 "fbjs@npm:^3.0.0, fbjs@npm:^3.0.4":
   version: 3.0.4
   resolution: "fbjs@npm:3.0.4"
@@ -20750,16 +20686,6 @@ __metadata:
   version: 3.0.1
   resolution: "isobject@npm:3.0.1"
   checksum: db85c4c970ce30693676487cca0e61da2ca34e8d4967c2e1309143ff910c207133a969f9e4ddb2dc6aba670aabce4e0e307146c310350b298e74a31f7d464703
-  languageName: node
-  linkType: hard
-
-"isomorphic-fetch@npm:^2.1.1":
-  version: 2.2.1
-  resolution: "isomorphic-fetch@npm:2.2.1"
-  dependencies:
-    node-fetch: ^1.0.1
-    whatwg-fetch: ">=0.10.0"
-  checksum: bb5daa7c3785d6742f4379a81e55b549a469503f7c9bf9411b48592e86632cf5e8fe8ea878dba185c0f33eb7c510c23abdeb55aebfdf5d3c70f031ced68c5424
   languageName: node
   linkType: hard
 
@@ -24120,7 +24046,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nanoid@npm:^3.1.23, nanoid@npm:^3.1.30, nanoid@npm:^3.3.1, nanoid@npm:^3.3.3":
+"nanoid@npm:^3.1.23, nanoid@npm:^3.1.30":
   version: 3.3.4
   resolution: "nanoid@npm:3.3.4"
   bin:
@@ -26918,16 +26844,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-addons-shallow-compare@npm:15.6.2":
-  version: 15.6.2
-  resolution: "react-addons-shallow-compare@npm:15.6.2"
-  dependencies:
-    fbjs: ^0.8.4
-    object-assign: ^4.1.0
-  checksum: cfe94358c6103f8434b91969a2a1876d3e76df227f0be9bf58c11a1bdec01500475eb09ca7ddd9d98519a14c18f91fbd11127adfdd092c4f3c5b234b638c4802
-  languageName: node
-  linkType: hard
-
 "react-async-hook@npm:^4.0.0":
   version: 4.0.0
   resolution: "react-async-hook@npm:4.0.0"
@@ -27535,7 +27451,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-redash@npm:^16.1.1, react-native-redash@npm:^16.2.2":
+"react-native-redash@npm:^16.2.2":
   version: 16.3.0
   resolution: "react-native-redash@npm:16.3.0"
   dependencies:
@@ -27606,19 +27522,6 @@ __metadata:
   version: 7.6.6
   resolution: "react-native-share@npm:7.6.6"
   checksum: 76a53173b9cb790d9f8eabbef7dc28617c0c6490cb458e4fdc1b59a7329e09f01badcac343511f9eb2ce89c8f66a6c156062016d301ac40bddde3dae755a0b55
-  languageName: node
-  linkType: hard
-
-"react-native-snap-carousel@npm:3.9.1":
-  version: 3.9.1
-  resolution: "react-native-snap-carousel@npm:3.9.1"
-  dependencies:
-    prop-types: ^15.6.1
-    react-addons-shallow-compare: 15.6.2
-  peerDependencies:
-    react: ">=15.0.0"
-    react-native: "*"
-  checksum: e71f6887ba8e86b4aea6d6a88c304135a7acbb5ef9173b78018fc0e6d9965da9ec1d7c794db31282dc85892c6ca89f398d07145ab3e7d1e28cf12a09c247bb9d
   languageName: node
   linkType: hard
 
@@ -32908,7 +32811,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"whatwg-fetch@npm:>=0.10.0, whatwg-fetch@npm:^3.0.0":
+"whatwg-fetch@npm:^3.0.0":
   version: 3.6.2
   resolution: "whatwg-fetch@npm:3.6.2"
   checksum: ee976b7249e7791edb0d0a62cd806b29006ad7ec3a3d89145921ad8c00a3a67e4be8f3fb3ec6bc7b58498724fd568d11aeeeea1f7827e7e1e5eae6c8a275afed
