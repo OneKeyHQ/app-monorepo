@@ -113,7 +113,7 @@ const WalletTabs: FC = () => {
               accountId={accountId}
               networkId={networkId}
               ListFooterComponent={<Box h={6} />}
-              limitSize={20}
+              limitSize={10}
               renderDefiList
             />
             <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
