@@ -31,7 +31,7 @@ declare module '@mymonero/mymonero-lws-client' {
       address: string,
     ) => Promise<{ isNewAddress: boolean }>;
 
-    getAddressTxs: () => Promise<any>;
+    getAddressTxs: (viewKey: string, address: string) => Promise<any>;
 
     getAddressInfo: (
       viewKey: string,

@@ -1,4 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/naming-convention
+import LWSClient from '@mymonero/mymonero-lws-client';
+import MoneroParser from '@mymonero/mymonero-response-parser-utils';
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
 import { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
@@ -9,17 +12,8 @@ import { TransactionStatus } from '../../../types/provider';
 
 import { MoneroAddressInfo } from './types';
 
-import LWSClient from '@mymonero/mymonero-lws-client';
-
-import type * as chain from '../../../types/chain';
-import type {
-  AddressInfo,
-  ClientInfo,
-  FeePricePerUnit,
-  PartialTokenInfo,
-} from '../../../types/provider';
-import axios from 'axios';
-import type { Axios } from 'axios';
+import type { MoneroCoreInstance } from './sdk/moneroCore/moneroCoreTypes';
+import type { MoneroKeys } from './types';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum RPC_METHODS {
@@ -43,13 +37,29 @@ export class ClientXmr extends BaseClient {
 
   readonly wallet: LWSClient;
 
-  constructor(rpcUrl: string, walletUrl: string) {
+  readonly moneroCoreInstance: MoneroCoreInstance;
+
+  readonly keys: MoneroKeys;
+
+  constructor(
+    rpcUrl: string,
+    walletUrl: string,
+    moneroCoreInstance: MoneroCoreInstance,
+    keys: MoneroKeys,
+  ) {
     super();
     const instance = axios.create({
       baseURL: walletUrl,
     });
+    this.moneroCoreInstance = moneroCoreInstance;
     this.rpc = new JsonRPCRequest(rpcUrl);
     this.wallet = new LWSClient({ url: walletUrl, httpClient: instance });
+    this.keys = {
+      publicViewKey: Buffer.from(keys.publicViewKey ?? '').toString('hex'),
+      publicSpendKey: Buffer.from(keys.publicSpendKey ?? '').toString('hex'),
+      privateViewKey: Buffer.from(keys.privateViewKey ?? '').toString('hex'),
+      privateSpendKey: Buffer.from(keys.privateSpendKey ?? '').toString('hex'),
+    };
   }
 
   async broadcastTransaction(rawTx: string, options?: any): Promise<string> {
@@ -59,67 +69,36 @@ export class ClientXmr extends BaseClient {
     ]);
   }
 
-  async getInfo(): Promise<ClientInfo> {
-    // @ts-ignore
-    const [epochInfo, ok] = await this.rpc.batchCall([
-      [RPC_METHODS.GET_EPOCH_INFO, []],
-      [RPC_METHODS.GET_HEALTH, []],
-    ]);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const slot = epochInfo.absoluteSlot;
-    const isReady = ok === 'ok';
-    return {
-      bestBlockNumber: slot,
-      isReady,
-    };
-  }
-
-  async getAddresses(
-    addresses: string[],
-  ): Promise<Array<AddressInfo | undefined>> {
-    const calls: Array<any> = addresses.map((address) => [
-      RPC_METHODS.GET_ACCOUNT_INFO,
-      [address, { encoding: PARAMS_ENCODINGS.JSON_PARSED }],
-    ]);
-    const resp: Array<{ [key: string]: any } | undefined> =
-      await this.rpc.batchCall(calls);
-    const result: Array<AddressInfo | undefined> = [];
-    for (const accountInfo of resp) {
-      if (typeof accountInfo !== 'undefined') {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        const balance = new BigNumber(accountInfo?.value?.lamports);
-        const existing = balance.isFinite() && balance.gte(0);
-        result.push({
-          existing,
-          balance: existing ? balance : new BigNumber(0),
-        });
-      } else {
-        result.push(undefined);
-      }
-    }
-    return result;
-  }
-
   async getBalances(
     requests: Array<{
       address: string;
       coin: Partial<CoinInfo>;
-      privateViewKey: string;
     }>,
   ): Promise<(BigNumber | undefined)[]> {
     try {
-      const resp = await Promise.all(
-        requests.map(async (request) =>
-          this.wallet.getAddressInfo(request.privateViewKey, request.address),
-        ),
+      const [request] = requests;
+
+      const { publicSpendKey, privateViewKey, privateSpendKey } = this.keys;
+
+      const addressInfo = await this.wallet.getAddressInfo(
+        privateViewKey,
+        request.address,
       );
 
-      return resp.map((addressInfo) => {
-        const totalSent = new BigNumber(addressInfo.total_sent ?? 0);
-        const totalReceived = new BigNumber(addressInfo.total_received ?? 0);
-        const balance = totalReceived.minus(totalSent);
-        return balance.isNegative() ? new BigNumber(0) : balance;
-      });
+      const spentOutputs = addressInfo.spent_outputs || [];
+
+      for (const spentOutput of spentOutputs) {
+        const keyImage = this.moneroCoreInstance.generate_key_image(
+          spentOutput.tx_pub_key,
+          privateViewKey,
+          publicSpendKey,
+          privateSpendKey,
+          String(spentOutput.out_index),
+        );
+        console.log(keyImage);
+      }
+
+      return [];
     } catch (e) {
       console.log(e);
       return [];

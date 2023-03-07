@@ -1,4 +1,4 @@
-export interface MoneroAddressInfo {
+export interface IMoneroAddressInfo {
   total_received: string;
   total_sent: string;
   locked_funds: string;
@@ -8,4 +8,13 @@ export interface MoneroAddressInfo {
   blockchain_height: number;
   transaction_height: number;
   spent_outputs: any[];
+}
+
+export interface IOnChainHistoryTx {}
+
+export interface MoneroKeys {
+  publicViewKey: string;
+  publicSpendKey: string;
+  privateViewKey: string;
+  privateSpendKey: string;
 }

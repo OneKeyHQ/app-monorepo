@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-import instantiate from './monero-core';
-import wasmBinaryFileName from './monero-core.wasm.bin';
+import instantiate from './moneroUtil';
+import wasmBinaryFileName from './moneroUtil.wasm.bin';
 
-import type { MoneroCoreInstance } from './moneroCoreTypes';
+import type { MoneroUtilInstance } from './moneroUtilTypes';
 
 const locateFile = (file: string) => {
-  if (file !== 'monero-core.wasm') {
+  if (file !== 'moneroUtil.wasm') {
     console.error('Unexpected file:', file);
   }
   return wasmBinaryFileName;
@@ -14,7 +14,7 @@ const locateFile = (file: string) => {
 
 export const loadWasmInstance = async (
   importObj: any,
-): Promise<MoneroCoreInstance | null> => {
+): Promise<MoneroUtilInstance | null> => {
   importObj.locateFile = locateFile;
   return instantiate(importObj);
 };

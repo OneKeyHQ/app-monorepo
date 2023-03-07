@@ -4,15 +4,14 @@ import { mnemonicToSeedSync } from 'bip39';
 import { COINTYPE_XMR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
+import { slicePathTemplate } from '../../../managers/derivation';
+import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import { slicePathTemplate } from '../../../managers/derivation';
-import { getAccountNameInfoByTemplate } from '../../../managers/impl';
-
-import { getInstance } from './sdk/moneroCore/instance';
-import { MoneroNetTypeEnum } from './sdk/moneroCore/moneroCoreTypes';
-import { MoneroModule } from './sdk/moneroCore/monoreModule';
+import { getMoneroUtilInstance } from './sdk/moneroUtil/instance';
+import { MoneroUtilModule } from './sdk/moneroUtil/moneroUtilModule';
+import { MoneroNetTypeEnum } from './sdk/moneroUtil/moneroUtilTypes';
 import { getKeyPairFromRawPrivatekey, getRawPrivateKeyFromSeed } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
@@ -22,9 +21,6 @@ import type {
   ISignCredentialOptions,
   IUnsignedTxPro,
 } from '../../types';
-
-const HARDEN_PATH_PREFIX = `m/44'/${COIN_TYPE as string}'/0'/0`;
-const ACCOUNT_NAME_PREFIX = 'XMR';
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
@@ -38,8 +34,9 @@ export class KeyringHd extends KeyringHdBase {
       password,
     )) as ExportedSeedCredential;
 
-    const instance = await getInstance();
-    const xmrModule = new MoneroModule(instance);
+    const instance = await getMoneroUtilInstance();
+
+    const moneroUtilModule = new MoneroUtilModule(instance);
 
     const mnemonic = mnemonicFromEntropy(entropy, password);
     const seed = mnemonicToSeedSync(mnemonic);
@@ -53,12 +50,11 @@ export class KeyringHd extends KeyringHdBase {
     const impl = await this.getNetworkImpl();
     const { prefix } = getAccountNameInfoByTemplate(impl, template);
     for (const index of indexes) {
-      const { publicSpendKey, publicViewKey, privateViewKey } =
-        getKeyPairFromRawPrivatekey({
-          xmrModule,
-          rawPrivateKey,
-          index,
-        });
+      const { publicSpendKey, publicViewKey } = getKeyPairFromRawPrivatekey({
+        rawPrivateKey,
+        index,
+        moneroUtilModule,
+      });
 
       if (!publicSpendKey || !publicViewKey) {
         throw new OneKeyInternalError('Unable to get public spend/view key.');
@@ -66,11 +62,11 @@ export class KeyringHd extends KeyringHdBase {
 
       const path = `${pathPrefix}/${index}`;
 
-      const address = xmrModule.pubKeysToAddress(
+      const address = moneroUtilModule.pubKeysToAddress(
         network.isTestnet
           ? MoneroNetTypeEnum.TestNet
           : MoneroNetTypeEnum.MainNet,
-        false,
+        index !== 0,
         publicSpendKey,
         publicViewKey,
       );
@@ -85,11 +81,12 @@ export class KeyringHd extends KeyringHdBase {
         pub: `${Buffer.from(publicSpendKey).toString('hex')},${Buffer.from(
           publicViewKey,
         ).toString('hex')}`,
-        privateViewKey: Buffer.from(privateViewKey).toString('hex'),
         address: '',
+        raw: rawPrivateKey.toString('hex'),
         addresses: { [this.networkId]: address },
       });
     }
+    console.log(ret);
     return ret;
   }
 }

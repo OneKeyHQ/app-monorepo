@@ -1,12 +1,12 @@
 /* eslint-disable no-bitwise */
 
-import { MoneroNetTypeEnum } from './moneroCoreTypes';
+import { MoneroNetTypeEnum } from './moneroUtilTypes';
 import {
   MONERO_WORDS_ENGLISH,
   MONERO_WORDS_ENGLISH_PREFIX_LENGTH,
 } from './moneroWrods';
 
-import type { MoneroCoreInstance } from './moneroCoreTypes';
+import type { MoneroUtilInstance } from './moneroUtilTypes';
 
 const fromHexString = (hexString: string) =>
   new Uint8Array(
@@ -84,10 +84,10 @@ const base58Encode = function (data: Uint8Array) {
   return res;
 };
 
-class MoneroModule {
-  core: MoneroCoreInstance;
+class MoneroUtilModule {
+  core: MoneroUtilInstance;
 
-  constructor(core: MoneroCoreInstance) {
+  constructor(core: MoneroUtilInstance) {
     this.core = core;
   }
 
@@ -246,4 +246,4 @@ class MoneroModule {
   }
 }
 
-export { MoneroModule };
+export { MoneroUtilModule };

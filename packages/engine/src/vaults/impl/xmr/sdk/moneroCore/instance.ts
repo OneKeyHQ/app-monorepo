@@ -1,6 +1,7 @@
 import { loadWasmInstance } from './load';
 
 import type { MoneroCoreInstance } from './moneroCoreTypes';
+import type { CppBridge } from 'react-native-mymonero-core';
 
 let inst = null;
 
@@ -12,4 +13,6 @@ const instPromise = (async () => {
   return inst;
 })();
 
-export const getInstance = async (): Promise<MoneroCoreInstance> => instPromise;
+export const getMoneroCoreInstance = async (): Promise<
+  MoneroCoreInstance | CppBridge
+> => instPromise;

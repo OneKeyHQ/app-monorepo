@@ -360,7 +360,7 @@ var instantiate = (function () {
       };
     }
     var wasmBinaryFile;
-    wasmBinaryFile = 'monero-core.wasm';
+    wasmBinaryFile = 'moneroUtil.wasm';
     if (!isDataURI(wasmBinaryFile)) {
       wasmBinaryFile = locateFile(wasmBinaryFile);
     }

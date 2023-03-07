@@ -1,5 +1,3 @@
-import { mnemonicFromEntropy } from '@onekeyfe/blockchain-libs/dist/secret';
-import { mnemonicToSeedSync } from 'bip39';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
@@ -14,21 +12,24 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { getInstance } from './sdk/moneroCore/instance';
-import { MoneroNetTypeEnum } from './sdk/moneroCore/moneroCoreTypes';
-import { MoneroModule } from './sdk/moneroCore/monoreModule';
+import { getMoneroCoreInstance } from './sdk/moneroCore/instance';
+import { MoneroCoreModule } from './sdk/moneroCore/moneroCoreModule';
+import { getMoneroUtilInstance } from './sdk/moneroUtil/instance';
+import { MoneroUtilModule } from './sdk/moneroUtil/moneroUtilModule';
+import { MoneroNetTypeEnum } from './sdk/moneroUtil/moneroUtilTypes';
 import settings from './settings';
-import { getKeyPairFromRawPrivatekey, getRawPrivateKeyFromSeed } from './utils';
+import { getKeyPairFromRawPrivatekey } from './utils';
 
-import type { ExportedSeedCredential } from '../../../dbs/base';
 import type {
   Account,
   DBAccount,
   DBVariantAccount,
 } from '../../../types/account';
-import type BigNumber from 'bignumber.js';
 
-import axios from 'axios';
+import type { IHistoryTx } from '../../types';
+
+import type { IOnChainHistoryTx } from './types';
+import type BigNumber from 'bignumber.js';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -41,10 +42,10 @@ export default class Vault extends VaultBase {
 
   settings = settings;
 
-  private getXmrModule = memoizee(
+  private getMoneroUtilModule = memoizee(
     async () => {
-      const instance = await getInstance();
-      return new MoneroModule(instance);
+      const instance = await getMoneroUtilInstance();
+      return new MoneroUtilModule(instance);
     },
     {
       max: 1,
@@ -53,46 +54,64 @@ export default class Vault extends VaultBase {
     },
   );
 
+  private getMoneroCoreInstance = memoizee(
+    async () => getMoneroCoreInstance(),
+    {
+      max: 1,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+      promise: true,
+    },
+  );
+
+  private getMoneroKeys = memoizee(
+    async () => {
+      const moneroUtilModule = await this.getMoneroUtilModule();
+      const dbAccount = (await this.getDbAccount({
+        noCache: true,
+      })) as DBVariantAccount;
+      const rawPrivateKey = Buffer.from(dbAccount.raw ?? '', 'hex');
+      if (!rawPrivateKey) {
+        throw new OneKeyInternalError('Unable to get raw private key.');
+      }
+
+      return getKeyPairFromRawPrivatekey({
+        rawPrivateKey,
+        moneroUtilModule,
+        index: Number(dbAccount.path.split('/').pop()),
+      });
+    },
+    {
+      max: 5,
+      primitive: true,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+      promise: true,
+    },
+  );
+
   private async getClient(): Promise<ClientXmr> {
     const rpcURL = await this.getRpcUrl();
     const walletUrl = 'https://node.onekeytest.com/mymonero';
-    return this.createXmrClientFromURL(rpcURL, walletUrl);
+    const moneroCoreInstance = await this.getMoneroCoreInstance();
+    const keys = await this.getMoneroKeys();
+    return this.createXmrClient(rpcURL, walletUrl, moneroCoreInstance, keys);
   }
 
-  private createXmrClientFromURL = memoizee(
-    (rpcURL: string, walletUrl: string) => new ClientXmr(rpcURL, walletUrl),
+  private createXmrClient = memoizee(
+    (rpcURL: string, walletUrl: string, moneroCoreInstance, keys) =>
+      new ClientXmr(rpcURL, walletUrl, moneroCoreInstance, keys),
     {
       max: 1,
-      primitive: true,
       maxAge: getTimeDurationMs({ minute: 3 }),
     },
   );
 
-  override async getExportedCredential(password: string): Promise<string> {
+  override async getExportedCredential(): Promise<string> {
     const dbAccount = await this.getDbAccount();
-    const { path, id } = dbAccount;
-    const pathArr = path.split('/');
-    if (id.startsWith('hd-') || id.startsWith('imported')) {
-      const xmrModule = await this.getXmrModule();
-      const { entropy } = (await this.engine.dbApi.getCredential(
-        this.walletId,
-        password,
-      )) as ExportedSeedCredential;
-      const mnemonic = mnemonicFromEntropy(entropy, password);
-      const seed = mnemonicToSeedSync(mnemonic);
-      const rawPrivateKey = getRawPrivateKeyFromSeed(
-        seed,
-        pathArr.slice(0, path.length - 1).join('/'),
-      );
-      if (!rawPrivateKey) {
-        throw new OneKeyInternalError('Unable to get raw private key.');
-      }
-      const { privateSpendKey } = getKeyPairFromRawPrivatekey({
-        xmrModule,
-        rawPrivateKey,
-      });
+    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+      const moneroUtilModule = await this.getMoneroUtilModule();
+      const { privateSpendKey } = await this.getMoneroKeys();
 
-      return xmrModule.privateSpendKeyToWords(privateSpendKey);
+      return moneroUtilModule.privateSpendKeyToWords(privateSpendKey);
     }
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',
@@ -139,13 +158,12 @@ export default class Vault extends VaultBase {
   }
 
   override async addressFromBase(account: DBVariantAccount) {
-    const xmrModule = await this.getXmrModule();
+    const moneroUtilModule = await this.getMoneroUtilModule();
     const { isTestnet } = await this.getNetwork();
     const [publicSpendKey, publicViewKey] = account.pub.split(',');
-    const index = Number(account.path.split('/').pop());
-    return xmrModule.pubKeysToAddress(
+    return moneroUtilModule.pubKeysToAddress(
       isTestnet ? MoneroNetTypeEnum.TestNet : MoneroNetTypeEnum.MainNet,
-      index !== 0,
+      Number(account.path.split('/').pop()) !== 0,
       Buffer.from(publicSpendKey, 'hex'),
       Buffer.from(publicViewKey, 'hex'),
     );
@@ -155,22 +173,16 @@ export default class Vault extends VaultBase {
     requests: Array<{ address: string; tokenAddress?: string }>,
   ): Promise<(BigNumber | undefined)[]> {
     const client = await this.getClient();
+    if (requests.length > 1) return [];
 
-    const requestsNew = await Promise.all(
-      requests.map(async (request) => {
-        const account = (await this.engine.dbApi.getAccountByAddress({
-          address: request.address,
-        })) as DBVariantAccount;
+    const [request] = requests;
 
-        return {
-          address: request.address,
-          coin: {},
-          privateViewKey: account.privateViewKey as string,
-        };
-      }),
-    );
-
-    return client.getBalances(requestsNew);
+    return client.getBalances([
+      {
+        address: request.address,
+        coin: {},
+      },
+    ]);
   }
 
   override async getClientEndpointStatus(

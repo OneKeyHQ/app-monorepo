@@ -1,12 +1,8 @@
 import { fromSeed } from 'bip32';
 import sha3 from 'js-sha3';
 
-import { COINTYPE_XMR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
-
-import type { MoneroModule } from './sdk/moneroCore/monoreModule';
+import type { MoneroUtilModule } from './sdk/moneroUtil/moneroUtilModule';
 import type { BIP32Interface } from 'bip32';
-
-const HARDEN_PATH_PREFIX = `m/44'/${COIN_TYPE as string}'/0'/0`;
 
 export function calcBip32ExtendedKey(
   path: string,
@@ -65,31 +61,35 @@ export function getRawPrivateKeyFromSeed(seed: Buffer, pathPrefix: string) {
 }
 
 export function getKeyPairFromRawPrivatekey({
-  xmrModule,
   rawPrivateKey,
   index = 0,
+  moneroUtilModule,
 }: {
-  xmrModule: MoneroModule;
   rawPrivateKey: Buffer;
   index?: number;
+  moneroUtilModule: MoneroUtilModule;
 }) {
   const rawSecretSpendKey = new Uint8Array(
     sha3.keccak_256.update(rawPrivateKey).arrayBuffer(),
   );
-  let privateSpendKey = xmrModule.scReduce32(rawSecretSpendKey);
-  const privateViewKey = xmrModule.hashToScalar(privateSpendKey);
+  let privateSpendKey = moneroUtilModule.scReduce32(rawSecretSpendKey);
+  const privateViewKey = moneroUtilModule.hashToScalar(privateSpendKey);
 
   let publicSpendKey: Uint8Array | null;
   let publicViewKey: Uint8Array | null;
 
   if (index === 0) {
-    publicSpendKey = xmrModule.privateKeyToPublicKey(privateSpendKey);
-    publicViewKey = xmrModule.privateKeyToPublicKey(privateViewKey);
+    publicSpendKey = moneroUtilModule.privateKeyToPublicKey(privateSpendKey);
+    publicViewKey = moneroUtilModule.privateKeyToPublicKey(privateViewKey);
   } else {
-    const m = xmrModule.getSubaddressPrivateKey(privateViewKey, index, 0);
-    privateSpendKey = xmrModule.scAdd(m, privateSpendKey);
-    publicSpendKey = xmrModule.privateKeyToPublicKey(privateSpendKey);
-    publicViewKey = xmrModule.scalarmultKey(
+    const m = moneroUtilModule.getSubaddressPrivateKey(
+      privateViewKey,
+      index,
+      0,
+    );
+    privateSpendKey = moneroUtilModule.scAdd(m, privateSpendKey);
+    publicSpendKey = moneroUtilModule.privateKeyToPublicKey(privateSpendKey);
+    publicViewKey = moneroUtilModule.scalarmultKey(
       publicSpendKey || new Uint8Array(),
       privateViewKey,
     );
