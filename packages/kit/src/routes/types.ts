@@ -175,20 +175,6 @@ export type HomeRoutesParams = {
     address: string;
   };
   [HomeRoutes.WalletSwitch]: undefined;
-  [HomeRoutes.AnnualLoading]: undefined;
-  [HomeRoutes.AnnualReport]: {
-    account: Account;
-    networkId: string;
-    name: string;
-    tokens?: (Token & {
-      value: B;
-    })[];
-    nfts?: Collection[];
-    pnls?: {
-      data: PNLData;
-      assets: Record<string, NFTAsset>;
-    };
-  };
   [HomeRoutes.BulkSender]: undefined;
 };
 /** HomeStack */

@@ -118,9 +118,6 @@ const ToolsPage: FC = () => {
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation<NavigationProps>();
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
-  const annualReportEntryEnabled = useAppSelector(
-    (s) => s.settings?.annualReportEntryEnabled ?? false,
-  );
 
   const tools = useTools(network?.id);
 
@@ -139,10 +136,7 @@ const ToolsPage: FC = () => {
     if (network?.impl !== IMPL_EVM) {
       allItems = allItems.filter((n) => n.key !== 'revoke' && n.key !== 'pnl');
     }
-    if (
-      !annualReportEntryEnabled ||
-      !(platformEnv.isNativeAndroid || platformEnv.isNativeIOSPhone)
-    ) {
+    if (!(platformEnv.isNativeAndroid || platformEnv.isNativeIOSPhone)) {
       allItems = allItems.filter((n) => n.key !== 'annual');
     }
 
@@ -178,7 +172,6 @@ const ToolsPage: FC = () => {
     network?.impl,
     network?.settings.supportBatchTransfer,
     network?.id,
-    annualReportEntryEnabled,
     tools,
   ]);
 
@@ -192,11 +185,7 @@ const ToolsPage: FC = () => {
 
   const handlePress = useCallback(
     (key: string) => {
-      if (key === 'annual') {
-        navigation.navigate(RootRoutes.Root, {
-          screen: HomeRoutes.AnnualLoading,
-        });
-      } else if (key === 'revoke') {
+      if (key === 'revoke') {
         navigation.navigate(HomeRoutes.Revoke);
       } else if (key === 'explorer') {
         openAddressDetails(
