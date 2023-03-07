@@ -112,7 +112,7 @@ jobs:
           # eas build --profile=production --platform ios --non-interactive --no-wait
           # replace APP STORE provision
           echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
-          echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > packages/app/ios/certs/serviceextension-profile.mobileprovision
+          echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
 
           eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
 
