@@ -243,6 +243,12 @@ export class FileAlreadyExistError extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__file_already_exists';
 }
 
+export class IncompleteFileError extends OneKeyHardwareError {
+  override code = HardwareErrorCode.CheckDownloadFileError;
+
+  override key: LocaleIds = 'msg__incomplete_file';
+}
+
 // 未知错误
 export class UnknownHardwareError extends OneKeyHardwareError {
   override data = { reconnect: true };
