@@ -66,7 +66,7 @@ export function useWalletsSwapTransactions() {
   );
 }
 
-export function useTransactionsAccount(accountId: string, networkId?: string) {
+export function useTransactionsAccount(accountId?: string, networkId?: string) {
   const walletAccounts = useWalletsAccounts();
   const [account, setAccount] = useState<Account | undefined | null>(() =>
     walletAccounts.find((item) => item.accountId === accountId)

@@ -31,6 +31,8 @@ import { useTransactionsAccount } from '../../hooks/useTransactions';
 import {
   calculateProtocalsFee,
   formatAmount,
+  gt,
+  multiply,
   normalizeProviderName,
 } from '../../utils';
 import PendingTransaction from '../PendingTransaction';
@@ -184,7 +186,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
   const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
   const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
   const receivingAccount = useTransactionsAccount(
-    tx.accountId,
+    tx.receivingAccountId,
     tx.tokens?.to.networkId,
   );
   const account = useTransactionsAccount(
@@ -217,10 +219,10 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
             <Box
               bg="action-secondary-default"
               borderWidth="1px"
-              p="1"
+              py="1"
+              pl="1"
               pr="2"
-              h="6"
-              borderRadius={12}
+              borderRadius="full"
               borderColor="border-default"
               flexDirection="row"
               alignItems="center"
@@ -254,7 +256,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
           <TokenIcon size="8" token={tx.tokens?.to.token} />
           <Box ml="3">
             <Box flexDirection="row" alignItems="center">
-              <Typography.Caption mr="1">≈</Typography.Caption>
+              <Typography.Caption mr="1">～</Typography.Caption>
               <Typography.Body1>
                 {formatAmount(tx.tokens?.to.amount, 4)}
                 {tx.tokens?.to.token.symbol.toUpperCase()}
@@ -274,10 +276,10 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
             <Box
               bg="action-secondary-default"
               borderWidth="1px"
-              p="1"
+              py="1"
+              pl="1"
               pr="2"
-              h="6"
-              borderRadius={12}
+              borderRadius="full"
               borderColor="border-default"
               flexDirection="row"
               alignItems="center"
@@ -458,6 +460,49 @@ const ViewInBrowser: FC<ViewInBrowserProps> = ({ tx }) => {
   );
 };
 
+type TransactionOneKeyFeesProps = { tx: TransactionDetails };
+const TransactionOneKeyFees: FC<TransactionOneKeyFeesProps> = ({ tx }) => {
+  const from = tx.tokens?.from;
+  return (
+    <Box flexDirection="row" alignItems="center">
+      <TransactionFee
+        type={tx.quoterType}
+        percentageFee={tx.percentageFee}
+        typography="Body2Strong"
+        color="text-default"
+      />
+      {from && tx.percentageFee ? (
+        <Typography.Body2Strong>{`(${formatAmount(
+          multiply(tx.percentageFee, from.amount),
+          8,
+        )}${from.token.symbol.toUpperCase()})`}</Typography.Body2Strong>
+      ) : null}
+    </Box>
+  );
+};
+
+type TransactionProtocalsFeesProps = { tx: TransactionDetails };
+const TransactionProtocalsFees: FC<TransactionProtocalsFeesProps> = ({
+  tx,
+}) => {
+  const intl = useIntl();
+  if (tx.protocalFees) {
+    const result = calculateProtocalsFee(tx.protocalFees);
+    if (Number(result.value) > 0) {
+      return (
+        <TransactionField
+          label={intl.formatMessage({ id: 'form__bridge_fee' })}
+        >
+          <Typography.Body2Strong>
+            {`${formatAmount(result.value)} ${result.symbol.toUpperCase()}`}
+          </Typography.Body2Strong>
+        </TransactionField>
+      );
+    }
+  }
+  return null;
+};
+
 const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
   tx,
   showViewInBrowser,
@@ -532,7 +577,7 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               label={intl.formatMessage({ id: 'form__network_fee' })}
             >
               <Typography.Body2Strong>
-                {`${formatAmount(tx.networkFee, 6)} ${
+                {`${formatAmount(tx.networkFee, 8)} ${
                   network.symbol.toUpperCase() ?? ''
                 }`}
               </Typography.Body2Strong>
@@ -595,28 +640,13 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               color="text-default"
             />
           </TransactionField>
-          {tx.protocalFees ? (
-            <TransactionField
-              label={intl.formatMessage({ id: 'form__bridge_fee' })}
-            >
-              <Typography.Body2Strong>
-                {`${
-                  calculateProtocalsFee(tx.protocalFees).value
-                } ${calculateProtocalsFee(
-                  tx.protocalFees,
-                ).symbol.toUpperCase()}`}
-              </Typography.Body2Strong>
-            </TransactionField>
+          {gt(tx.protocalFees?.amount ?? '0', 0) ? (
+            <TransactionProtocalsFees tx={tx} />
           ) : null}
           <TransactionField
             label={intl.formatMessage({ id: 'form__included_onekey_fee' })}
           >
-            <TransactionFee
-              type={tx.quoterType}
-              percentageFee={tx.percentageFee}
-              typography="Body2Strong"
-              color="text-default"
-            />
+            <TransactionOneKeyFees tx={tx} />
           </TransactionField>
           {swftcOrderId ? (
             <TransactionField

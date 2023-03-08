@@ -33,6 +33,7 @@ import {
 import { SwapRoutes } from './typings';
 import {
   calculateProtocalsFee,
+  formatAmount,
   getTokenAmountValue,
   normalizeProviderName,
 } from './utils';
@@ -327,26 +328,31 @@ const SwapProtocalsFees = () => {
   const protocolFees = useAppSelector((s) => s.swap.quote?.protocolFees);
   if (protocolFees) {
     const result = calculateProtocalsFee(protocolFees);
-    return (
-      <Box
-        display="flex"
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        h="9"
-      >
-        <Box flexDirection="row" alignItems="center">
-          <Typography.Body2 color="text-disabled" mr="2">
-            {intl.formatMessage({ id: 'form__bridge_fee' })}
-          </Typography.Body2>
+    if (Number(result.value) > 0) {
+      return (
+        <Box
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          h="9"
+        >
+          <Box flexDirection="row" alignItems="center">
+            <Typography.Body2 color="text-disabled" mr="2">
+              {intl.formatMessage({ id: 'form__bridge_fee' })}
+            </Typography.Body2>
+          </Box>
+          <Box flex="1" flexDirection="row" justifyContent="flex-end">
+            <Typography.Body2 color="text-subdued">
+              {`${formatAmount(
+                result.value,
+                8,
+              )} ${result.symbol.toUpperCase()}`}
+            </Typography.Body2>
+          </Box>
         </Box>
-        <Box flex="1" flexDirection="row" justifyContent="flex-end">
-          <Typography.Body2 color="text-subdued">
-            {`${result.value} ${result.symbol.toUpperCase()}`}
-          </Typography.Body2>
-        </Box>
-      </Box>
-    );
+      );
+    }
   }
   return null;
 };
