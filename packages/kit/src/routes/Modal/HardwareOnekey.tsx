@@ -1,4 +1,5 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import OnekeyDeviceWalletName from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyDeviceWalletName';
 import OnekeyHardwareConfirm from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareConfirm';
 import OnekeyHardwareConnect from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareConnect';
 import OnekeyHardwareDetails from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareDetails';
@@ -17,6 +18,7 @@ export enum OnekeyHardwareModalRoutes {
   OnekeyHardwareConnectModal = 'OnekeyHardwareConnectModal',
   OnekeyHardwarePinCodeModal = 'OnekeyHardwarePinCodeModal',
   OnekeyHardwareConfirmModal = 'OnekeyHardwareConfirmModal',
+  OnekeyDeviceWalletNameModal = 'OnekeyDeviceWalletNameModal',
   OnekeyHardwareDeviceNameModal = 'OnekeyHardwareDeviceNameModal',
   OnekeyHardwareHomeScreenModal = 'OnekeyHardwareHomeScreenModal',
 }
@@ -42,6 +44,9 @@ export type OnekeyHardwareRoutesParams = {
   [OnekeyHardwareModalRoutes.OnekeyHardwareDeviceNameModal]: {
     walletId: string;
     deviceName: string;
+  };
+  [OnekeyHardwareModalRoutes.OnekeyDeviceWalletNameModal]: {
+    walletId: string;
   };
   [OnekeyHardwareModalRoutes.OnekeyHardwareHomeScreenModal]: {
     walletId: string;
@@ -80,6 +85,10 @@ const modalRoutes = [
   {
     name: OnekeyHardwareModalRoutes.OnekeyHardwareHomeScreenModal,
     component: OnekeyHardwareHomescreen,
+  },
+  {
+    name: OnekeyHardwareModalRoutes.OnekeyDeviceWalletNameModal,
+    component: OnekeyDeviceWalletName,
   },
 ];
 

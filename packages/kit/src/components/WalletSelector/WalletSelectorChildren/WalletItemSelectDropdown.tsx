@@ -43,10 +43,12 @@ import type { RootNavContainerRef } from '../../../provider/NavigationProvider';
 import type { TypeHardwareWalletInfo } from '../WalletAvatar';
 
 function HardwarePassphraseMenuOptions({
+  navigation,
   wallet,
   hwInfo,
   onDeleteWallet,
 }: {
+  navigation: RootNavContainerRef;
   wallet: IWallet;
   hwInfo: TypeHardwareWalletInfo | undefined;
   onDeleteWallet: (params?: DeleteWalletProp['hardware']) => void;
@@ -61,19 +63,41 @@ function HardwarePassphraseMenuOptions({
     [rememberPassphraseWallets, wallet.id],
   );
 
+  const onClickRememberPassphrase = useCallback(() => {
+    if (isRememberPassphrase) {
+      dispatch(forgetPassphraseWallet(wallet?.id));
+    } else {
+      dispatch(rememberPassphraseWallet(wallet?.id));
+    }
+  }, [dispatch, isRememberPassphrase, wallet?.id]);
+
   return (
     <>
       <Menu.CustomItem
         onPress={() => {
-          if (isRememberPassphrase) {
-            dispatch(forgetPassphraseWallet(wallet?.id));
-          } else {
-            dispatch(rememberPassphraseWallet(wallet?.id));
-          }
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.OnekeyHardware,
+            params: {
+              screen: OnekeyHardwareModalRoutes.OnekeyDeviceWalletNameModal,
+              params: {
+                walletId: wallet?.id ?? '',
+              },
+            },
+          });
         }}
+        icon="PencilMini"
+      >
+        {intl.formatMessage({ id: 'action__edit' })}
+      </Menu.CustomItem>
+      <Menu.CustomItem
+        onPress={onClickRememberPassphrase}
         extraChildren={
           <Box>
-            <CheckBox noMargin isChecked={isRememberPassphrase} />
+            <CheckBox
+              noMargin
+              isChecked={isRememberPassphrase}
+              onChange={onClickRememberPassphrase}
+            />
           </Box>
         }
       >
@@ -107,20 +131,13 @@ function HardwareMenuOptions({
   onDeleteWallet: (params?: DeleteWalletProp['hardware']) => void;
 }) {
   const intl = useIntl();
-  const deviceVerification = useAppSelector((s) => s.hardware.verification);
   const hwInfo = useHardwareWalletInfo({
     devicesStatus,
     wallet,
   });
   const { engine, serviceHardware } = backgroundApiProxy;
 
-  const [deviceConnectId, setDeviceConnectId] = useState('');
   const [showHomeScreenSetting, setShowHomeScreenSetting] = useState(false);
-
-  const deviceVerifiedStatus = useMemo(
-    () => deviceVerification?.[deviceConnectId],
-    [deviceConnectId, deviceVerification],
-  );
 
   const getModifyHomeScreenConfig = useCallback(
     async (connectId?: string) => {
@@ -140,7 +157,6 @@ function HardwareMenuOptions({
     (async () => {
       try {
         const device = await engine.getHWDeviceByWalletId(wallet.id);
-        setDeviceConnectId(device?.mac ?? '');
         await getModifyHomeScreenConfig(device?.mac);
       } catch (err: any) {
         if (navigation?.canGoBack?.()) {
@@ -162,6 +178,7 @@ function HardwareMenuOptions({
   if (hwInfo?.isPassphrase) {
     return (
       <HardwarePassphraseMenuOptions
+        navigation={navigation}
         wallet={wallet}
         hwInfo={hwInfo}
         onDeleteWallet={onDeleteWallet}
@@ -236,7 +253,7 @@ function HardwareMenuOptions({
         {intl.formatMessage({ id: 'content__advanced' })}
       </Menu.CustomItem>
       <Divider my="4px" />
-      {!!hwInfo?.hasUpgrade ? (
+      {hwInfo?.hasUpgrade ? (
         <Menu.CustomItem
           onPress={() => {
             navigation.navigate(RootRoutes.Modal, {
