@@ -79,6 +79,7 @@ const WalletTabs: FC = () => {
                 accountId: account.id,
                 networkId: network.id,
                 forceReloadTokens: true,
+                includeTop50TokensQuery: true,
               });
             } catch (e) {
               debugLogger.common.error(e);
@@ -113,7 +114,7 @@ const WalletTabs: FC = () => {
               accountId={accountId}
               networkId={networkId}
               ListFooterComponent={<Box h={6} />}
-              limitSize={20}
+              limitSize={10}
               renderDefiList
             />
             <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
