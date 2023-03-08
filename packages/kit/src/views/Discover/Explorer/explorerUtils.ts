@@ -3,10 +3,6 @@ import type { ReactNode } from 'react';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { appSelector } from '../../../store';
-import { addWebTab, homeTab } from '../../../store/reducers/webTabs';
-
-import type { WebTab } from '../../../store/reducers/webTabs';
 import type { DAppItemType, WebSiteHistory } from '../type';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
@@ -118,8 +114,14 @@ if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore
   global.$$webviewRefs = webviewRefs;
 }
+
 export function getWebviewWrapperRef(id?: string) {
-  const tabId = id || appSelector((s) => s.webTabs.currentTabId);
+  let tabId = id;
+  if (!tabId) {
+    const { appSelector } =
+      require('../../../store') as typeof import('../../../store');
+    tabId = appSelector((s) => s.webTabs.currentTabId);
+  }
   const ref = tabId ? webviewRefs[tabId] : null;
   return ref ?? null;
 }
@@ -222,17 +224,3 @@ export function resumeDappInteraction(id?: string) {
     }
   }
 }
-
-export const addNewWebTab = (tabData?: Partial<WebTab>) => {
-  const backgroundApiProxy =
-    require('@onekeyhq/kit/src/background/instance/backgroundApiProxy') as typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
-  const { dispatch } = backgroundApiProxy.default;
-  dispatch(
-    addWebTab({
-      ...homeTab,
-      ...tabData,
-    }),
-  );
-};
-
-export const addNewBlankWebTab = () => addNewWebTab();
