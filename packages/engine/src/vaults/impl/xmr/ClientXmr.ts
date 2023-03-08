@@ -1,6 +1,5 @@
 // eslint-disable-next-line @typescript-eslint/naming-convention
 import LWSClient from '@mymonero/mymonero-lws-client';
-import MoneroParser from '@mymonero/mymonero-response-parser-utils';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
@@ -10,8 +9,8 @@ import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
 import { TransactionStatus } from '../../../types/provider';
 
+import type { getMoneroApi } from './sdk';
 import type { MoneroKeys } from './types';
-import { getMoneroApi } from './sdk';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum RPC_METHODS {
@@ -92,18 +91,24 @@ export class ClientXmr extends BaseClient {
 
       const spentOutputs = addressInfo.spent_outputs || [];
 
+      let totalSentBN = new BigNumber(addressInfo.total_sent ?? 0);
+      const totalReceivedBN = new BigNumber(addressInfo.total_received ?? 0);
+
       for (const spentOutput of spentOutputs) {
-        const keyImage = this.moneroApi.generateKeyImage(
-          spentOutput.tx_pub_key,
+        const keyImage = this.moneroApi.generateKeyImage({
+          address: request.address,
+          txPublicKey: spentOutput.tx_pub_key,
           privateViewKey,
-          publicSpendKey,
           privateSpendKey,
-          String(spentOutput.out_index),
-        );
-        console.log(keyImage);
+          publicSpendKey,
+          outputIndex: String(spentOutput.out_index),
+        });
+        if (spentOutput.key_image !== keyImage) {
+          totalSentBN = totalSentBN.minus(new BigNumber(spentOutput.amount));
+        }
       }
 
-      return [];
+      return [totalReceivedBN.minus(totalSentBN)];
     } catch (e) {
       console.log(e);
       return [];

@@ -14,7 +14,7 @@ const settings: IVaultSettings = Object.freeze({
   importedAccountEnabled: true,
   watchingAccountEnabled: false,
   externalAccountEnabled: false,
-  hardwareAccountEnabled: true,
+  hardwareAccountEnabled: false,
 
   isUTXOModel: false,
 

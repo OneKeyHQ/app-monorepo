@@ -1,3 +1,4 @@
+/* eslint-disable */
 var instantiate = (function () {
   var _scriptDir =
     typeof document !== 'undefined' && document.currentScript

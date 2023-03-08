@@ -1,5 +1,10 @@
+/* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-bitwise */
+import {
+  Lazy_KeyImage,
+  Lazy_KeyImageCacheForWalletWith,
+} from '@mymonero/mymonero-keyimage-cache';
 import sha3 from 'js-sha3';
 
 import { cnFastHash, pubKeysToAddress } from './moneroAddress';
@@ -157,7 +162,8 @@ const getMoneroApi = async (networkId: string) => {
     privateViewKey: string;
     privateSpendKey: string;
     publicSpendKey: string;
-    outputIndex: number;
+    outputIndex: string;
+    address: string;
   }) => {
     const {
       txPublicKey,
@@ -165,20 +171,31 @@ const getMoneroApi = async (networkId: string) => {
       privateViewKey,
       publicSpendKey,
       outputIndex,
+      address,
     } = params;
 
-    const retString = moneroCoreInstance.generate_key_image(
+    const keyImageCache = Lazy_KeyImageCacheForWalletWith(address);
+
+    const keyImageJsonStr = Lazy_KeyImage(
+      keyImageCache,
       txPublicKey,
+      outputIndex,
+      address,
       privateViewKey,
       publicSpendKey,
       privateSpendKey,
-      outputIndex,
+      moneroCoreInstance,
     );
-    const ret = JSON.parse(retString);
-    if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
-      throw ret.err_msg;
+
+    if (typeof keyImageJsonStr === 'string') {
+      try {
+        const keyImageObj = JSON.parse(keyImageJsonStr) as { retVal: string };
+
+        if (keyImageObj.retVal) return keyImageObj.retVal;
+      } catch {
+        // pass
+      }
     }
-    return ret.retVal;
   };
 
   return {

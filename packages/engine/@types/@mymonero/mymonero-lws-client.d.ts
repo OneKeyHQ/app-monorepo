@@ -3,6 +3,14 @@ declare module '@mymonero/mymonero-lws-client' {
     spent_outputs: any[];
   }
 
+  interface SpentOutout {
+    amount: string;
+    key_image: string;
+    mixin: number;
+    out_index: number;
+    tx_pub_key: string;
+  }
+
   interface MoneroAddressInfo {
     total_received: string;
     total_sent: string;
@@ -12,7 +20,7 @@ declare module '@mymonero/mymonero-lws-client' {
     scanned_block_height: number;
     blockchain_height: number;
     transaction_height: number;
-    spent_outputs: any[];
+    spent_outputs: SpentOutout[];
   }
 
   interface Props {

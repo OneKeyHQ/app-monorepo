@@ -5,6 +5,6 @@ export interface MoneroCoreInstance
     privateViewKey: string,
     privateSpendKey: string,
     publicSpendKey: string,
-    outputIndex: number,
-  ) => { retVal: string };
+    outputIndex: string,
+  ) => string;
 }

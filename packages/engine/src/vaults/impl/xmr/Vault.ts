@@ -13,7 +13,6 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { getMoneroApi } from './sdk';
-import { getMoneroUtilInstance } from './sdk/moneroUtil/instance';
 import { MoneroNetTypeEnum } from './sdk/moneroUtil/moneroUtilTypes';
 import settings from './settings';
 
@@ -65,7 +64,7 @@ export default class Vault extends VaultBase {
 
   private async getClient(): Promise<ClientXmr> {
     const rpcUrl = await this.getRpcUrl();
-    const walletUrl = 'https://node.onekeytest.com/mymonero';
+    const walletUrl = 'https://node.onekey.so/mymonero';
     const keys = await this.getMoneroKeys();
     const moneroApi = await getMoneroApi(this.networkId);
     return this.createXmrClient(rpcUrl, walletUrl, moneroApi, keys);
@@ -163,7 +162,7 @@ export default class Vault extends VaultBase {
   override async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
-    const rpc = new JsonRPCRequest(`https://node.onekeytest.com/txmr/json_rpc`);
+    const rpc = new JsonRPCRequest(`https://node.onekey.so/txmr/json_rpc`);
     const start = performance.now();
     const resp = await rpc.call('get_last_block_header');
     return {
