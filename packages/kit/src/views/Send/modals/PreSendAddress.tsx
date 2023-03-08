@@ -464,13 +464,27 @@ function PreSendAddress() {
             errorMessage: '',
           });
         } else {
-          setvalidateMessage({
-            warningMessage: '',
-            successMessage: intl.formatMessage({
-              id: 'form__enter_recipient_address_valid',
-            }),
-            errorMessage: '',
-          });
+          const addressbookItem =
+            await backgroundApiProxy.serviceAddressbook.getItem({
+              address: toAddress,
+            });
+          if (addressbookItem) {
+            setvalidateMessage({
+              warningMessage: '',
+              successMessage: `${intl.formatMessage({
+                id: 'title__address_book',
+              })}:${addressbookItem.name}`,
+              errorMessage: '',
+            });
+          } else {
+            setvalidateMessage({
+              warningMessage: '',
+              successMessage: intl.formatMessage({
+                id: 'form__enter_recipient_address_valid',
+              }),
+              errorMessage: '',
+            });
+          }
         }
         return true;
       }, 100);

@@ -138,6 +138,10 @@ export default class ServiceTransaction extends ServiceBase {
       payload: params.payload,
     });
 
+    if (!decodedTx.feeInfo) {
+      decodedTx.feeInfo = feeInfoUnit;
+    }
+
     await serviceHistory.saveSendConfirmHistory({
       networkId,
       accountId,
