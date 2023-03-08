@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
@@ -16,6 +16,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+
+import DisablePassphraseDialog from './DisablePassphraseDialog';
+import EnablePassphraseDialog from './EnablePassphraseDialog';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
@@ -36,7 +39,7 @@ function DeviceAdvancedSettings({
   const intl = useIntl();
   const { engine, serviceHardware } = backgroundApiProxy;
   const [onDeviceInputPin, setOnDeviceInputPin] = useState<boolean>(true);
-  const [onDeviceInputPassphrase, setOnDeviceInputPassphrase] =
+  const [enableDevicePassphrase, setEnableDevicePassphrase] =
     useState<boolean>(false);
 
   const canOnDeviceInputPin = useMemo(() => {
@@ -56,13 +59,48 @@ function DeviceAdvancedSettings({
   };
 
   useEffect(() => {
-    setOnDeviceInputPassphrase(deviceFeatures.passphrase_protection === true);
+    setEnableDevicePassphrase(deviceFeatures.passphrase_protection === true);
   }, [deviceFeatures.passphrase_protection]);
 
   useEffect(() => {
     refreshDevicePayload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const onTogglePassphrase = useCallback(() => {
+    if (deviceId && deviceConnectId) {
+      const oldEnableDevicePassphrase = enableDevicePassphrase;
+      const newEnableDevicePassphrase = !enableDevicePassphrase;
+
+      showOverlay((onCloseOverlay) => {
+        if (oldEnableDevicePassphrase) {
+          return (
+            <DisablePassphraseDialog
+              deviceConnectId={deviceConnectId}
+              onClose={onCloseOverlay}
+              onSuccess={() => {
+                setEnableDevicePassphrase(newEnableDevicePassphrase);
+                onCloseOverlay();
+              }}
+              onError={onCloseOverlay}
+            />
+          );
+        }
+
+        return (
+          <EnablePassphraseDialog
+            deviceConnectId={deviceConnectId}
+            onClose={onCloseOverlay}
+            onSuccess={() => {
+              setEnableDevicePassphrase(newEnableDevicePassphrase);
+              onCloseOverlay();
+            }}
+            onError={onCloseOverlay}
+          />
+        );
+      });
+    }
+  }, [deviceConnectId, deviceId, enableDevicePassphrase]);
 
   return (
     <Box>
@@ -107,22 +145,8 @@ function DeviceAdvancedSettings({
       >
         <Switch
           labelType="false"
-          isChecked={onDeviceInputPassphrase}
-          onToggle={() => {
-            if (deviceId && deviceConnectId) {
-              const oldOnDeviceInputPassphrase = onDeviceInputPassphrase;
-              const newOnDeviceInputPassphrase = !onDeviceInputPassphrase;
-              setOnDeviceInputPassphrase(newOnDeviceInputPassphrase);
-              serviceHardware
-                .applySettings(deviceConnectId, {
-                  usePassphrase: newOnDeviceInputPassphrase,
-                })
-                .catch((e: any) => {
-                  setOnDeviceInputPassphrase(oldOnDeviceInputPassphrase);
-                  deviceUtils.showErrorToast(e);
-                });
-            }
-          }}
+          isChecked={enableDevicePassphrase}
+          onToggle={onTogglePassphrase}
         />
       </Container.Item>
 
@@ -184,13 +208,7 @@ function DeviceAdvancedSettingsBottomSheetModal({
         deviceUtils.showErrorToast(error, 'action__connection_timeout');
       }
     })();
-  }, [
-    closeOverlay,
-    deviceFeatures?.unlocked,
-    engine,
-    serviceHardware,
-    walletId,
-  ]);
+  }, [closeOverlay, engine, serviceHardware, walletId]);
 
   return (
     <BottomSheetModal
