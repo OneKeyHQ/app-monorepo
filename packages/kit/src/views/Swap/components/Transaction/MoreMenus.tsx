@@ -54,7 +54,7 @@ export const AccountMoreMenus: FC<IMenu & AccountMoreMenusProps> = ({
       },
       {
         id: 'action__copy_address',
-        onPress: () => copyText(account?.address ?? ''),
+        onPress: () => setTimeout(() => copyText(account?.address ?? ''), 200),
         icon: 'Square2StackOutline',
       },
       openBlockBrowser.hasAvailable && {
@@ -103,7 +103,7 @@ export const ReceiptMoreMenus: FC<IMenu & ReceiptProps> = ({
       },
       {
         id: 'action__copy_address',
-        onPress: () => copyText(address ?? ''),
+        onPress: () => setTimeout(() => copyText(address ?? ''), 200),
         icon: 'Square2StackOutline',
       },
       openBlockBrowser.hasAvailable && {

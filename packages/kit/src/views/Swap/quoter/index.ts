@@ -32,6 +32,7 @@ import type {
   QuoteData,
   QuoteLimited,
   Quoter,
+  SerializableBlockReceipt,
   SerializableTransactionReceipt,
   TransactionData,
   TransactionDetails,
@@ -545,6 +546,38 @@ export class SwapQuoter {
             );
             if (amount) {
               return getTokenAmountValue(tx.tokens.to.token, amount).toFixed();
+            }
+          }
+        }
+      }
+    }
+  }
+
+  async getTxConfirmTime(tx: TransactionDetails) {
+    if (tx.tokens) {
+      const { to } = tx.tokens;
+      if (isEvmNetworkId(to.networkId)) {
+        const historyTx = await this.getHistoryTx(tx);
+        const txid = historyTx?.decodedTx.txid || tx.hash;
+        const result = (await backgroundApiProxy.serviceNetwork.rpcCall(
+          to.networkId,
+          {
+            method: 'eth_getTransactionReceipt',
+            params: [txid],
+          },
+        )) as SerializableTransactionReceipt | undefined;
+        if (result) {
+          if (result.blockHash) {
+            const blockInfo = (await backgroundApiProxy.serviceNetwork.rpcCall(
+              to.networkId,
+              {
+                method: 'eth_getBlockByHash',
+                params: [result.blockHash, true],
+              },
+            )) as SerializableBlockReceipt | undefined;
+            if (blockInfo?.timestamp) {
+              const tm = new BigNumber(blockInfo.timestamp);
+              return tm.multipliedBy(1000).toFixed();
             }
           }
         }
