@@ -196,7 +196,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
   const receivingName = useAddressName({ address: tx.receivingAddress });
 
   return (
-    <Box my="6" borderRadius="12" background="surface-default" p="4">
+    <Box my="0" px="4">
       <Box
         flexDirection="row"
         alignItems="center"
@@ -245,7 +245,6 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
         <Box mr="4" width="8" flexDirection="row" justifyContent="center">
           <Icon name="ArrowDownMini" size={16} />
         </Box>
-        <Divider flex="1" />
       </Box>
       <Box
         flexDirection="row"
@@ -554,8 +553,9 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
   return (
     <Box>
       <Header tx={tx} onPress={onPress} />
+      <Divider my="6" />
       <InputOutput tx={tx} />
-      <Divider mb="6" />
+      <Divider my="6" />
       <Box>
         <Typography.Subheading color="text-subdued" mb="4">
           {intl.formatMessage({ id: 'form__on_chain_info_uppercase' })}
