@@ -13,6 +13,7 @@ import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useShortcuts } from '../hooks/useShortcuts';
 import '../routes/deepLink';
 import buildLinking from '../routes/linking';
 
@@ -95,6 +96,8 @@ const NavigationApp = () => {
   // https://reactnavigation.org/docs/devtools/#useflipper
   // only work during development and are disabled in production.
   useFlipper(navigationRef);
+
+  useShortcuts();
 
   return (
     <NavigationContainer

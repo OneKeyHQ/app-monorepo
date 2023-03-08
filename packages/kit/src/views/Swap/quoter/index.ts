@@ -1,11 +1,21 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
+import { getNetworkImpl } from '@onekeyhq/engine/src/managers/network';
+import type { Token } from '@onekeyhq/engine/src/types/token';
+import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { QuoterType } from '../typings';
-import { convertBuildParams, convertParams, multiply } from '../utils';
+import {
+  convertBuildParams,
+  convertParams,
+  getTokenAmountValue,
+  isEvmNetworkId,
+  multiply,
+} from '../utils';
 
 import { SimpleQuoter } from './0x';
 import { JupiterQuoter } from './jupiter';
@@ -18,8 +28,12 @@ import type {
   BuildTransactionResponse,
   FetchQuoteParams,
   FetchQuoteResponse,
+  ProtocolFees,
+  QuoteData,
   QuoteLimited,
   Quoter,
+  SerializableBlockReceipt,
+  SerializableTransactionReceipt,
   TransactionData,
   TransactionDetails,
   TransactionProgress,
@@ -73,6 +87,7 @@ type FetchQuoteHttpParams = {
 
 type FetchQuoteHttpResult = {
   quoter: string;
+  quoterLogo?: string;
   instantRate: string;
   sellAmount: string;
   sellTokenAddress: string;
@@ -82,6 +97,8 @@ type FetchQuoteHttpResult = {
   sources?: { name: string; logoUrl?: string }[];
   arrivalTime?: number;
   percentageFee?: string;
+  minAmountOut?: string;
+  protocolFees?: ProtocolFees;
 };
 
 type FetchQuoteHttpLimit = {
@@ -202,8 +219,9 @@ export class SwapQuoter {
       }
       const estimatedPercentageFee =
         extraPercentageFee + Number(fetchQuote.percentageFee ?? 0);
-      const data = {
+      const data: QuoteData = {
         type: fetchQuote.quoter as QuoterType,
+        quoterlogo: fetchQuote.quoterLogo,
         instantRate: fetchQuote.instantRate,
         sellAmount: fetchQuote.sellAmount,
         sellTokenAddress: fetchQuote.sellTokenAddress,
@@ -218,6 +236,8 @@ export class SwapQuoter {
           fetchQuote.buyAmount,
           1 - estimatedPercentageFee,
         ),
+        minAmountOut: fetchQuote.minAmountOut,
+        protocolFees: fetchQuote.protocolFees,
       };
 
       if (data.allowanceTarget && spendersAllowance) {
@@ -436,6 +456,133 @@ export class SwapQuoter {
       }
     }
     return undefined;
+  }
+
+  async getHistoryTx(tx: TransactionDetails) {
+    const { serviceHistory } = backgroundApiProxy;
+    const { accountId, networkId, nonce } = tx;
+    const impl = getNetworkImpl(tx.networkId);
+    if (impl === IMPL_EVM && nonce !== undefined) {
+      const historys = await serviceHistory.getTransactionsWithNonce({
+        accountId,
+        networkId,
+        nonce,
+      });
+      const history = historys.find(
+        (item) => item.decodedTx.status === IDecodedTxStatus.Confirmed,
+      );
+      if (history) {
+        return history;
+      }
+    } else {
+      const historys = await serviceHistory.getLocalHistory({
+        accountId,
+        networkId,
+      });
+      const history = historys.find((item) => item.decodedTx.txid === tx.hash);
+      return history;
+    }
+  }
+
+  async doQueryReceivedToken(
+    txid: string,
+    token: Token,
+    receivingAddress: string,
+  ) {
+    const result = (await backgroundApiProxy.serviceNetwork.rpcCall(
+      token.networkId,
+      {
+        method: 'eth_getTransactionReceipt',
+        params: [txid],
+      },
+    )) as SerializableTransactionReceipt | undefined;
+    if (result) {
+      const strippedAddress = (address: string) =>
+        `0x${address.slice(2).replace(/^0+/, '').padStart(40, '0')}`;
+      const log = result.logs?.find((item) => {
+        const itemAddress = strippedAddress(item.address.toLowerCase());
+        return (
+          itemAddress === token.tokenIdOnNetwork.toLowerCase() &&
+          item.topics.length === 3 &&
+          item.topics[2] &&
+          strippedAddress(item.topics[2]) === receivingAddress.toLowerCase()
+        );
+      });
+      return log?.data;
+    }
+  }
+
+  async getActualReceived(tx: TransactionDetails) {
+    if (tx.tokens) {
+      const { receivingAddress } = tx;
+      const { from, to } = tx.tokens;
+      if (tx?.quoterType === 'swftc') {
+        const orderInfo = await this.swftc.getTxOrderInfo(tx);
+        if (orderInfo) {
+          return orderInfo.receiveCoinAmt;
+        }
+      } else {
+        const historyTx = await this.getHistoryTx(tx);
+        const txid = historyTx?.decodedTx.txid || tx.hash;
+        if (
+          isEvmNetworkId(from.networkId) &&
+          isEvmNetworkId(to.networkId) &&
+          receivingAddress
+        ) {
+          if (txid && from.networkId === to.networkId) {
+            const amount = await this.doQueryReceivedToken(
+              txid,
+              to.token,
+              receivingAddress,
+            );
+            if (amount) {
+              return getTokenAmountValue(tx.tokens.to.token, amount).toFixed();
+            }
+          } else if (tx.destinationTransactionHash) {
+            const amount = await this.doQueryReceivedToken(
+              tx.destinationTransactionHash,
+              to.token,
+              receivingAddress,
+            );
+            if (amount) {
+              return getTokenAmountValue(tx.tokens.to.token, amount).toFixed();
+            }
+          }
+        }
+      }
+    }
+  }
+
+  async getTxConfirmTime(tx: TransactionDetails) {
+    if (tx.tokens) {
+      const { to } = tx.tokens;
+      if (isEvmNetworkId(to.networkId)) {
+        const historyTx = await this.getHistoryTx(tx);
+        const txid = historyTx?.decodedTx.txid || tx.hash;
+        const result = (await backgroundApiProxy.serviceNetwork.rpcCall(
+          to.networkId,
+          {
+            method: 'eth_getTransactionReceipt',
+            params: [txid],
+          },
+        )) as SerializableTransactionReceipt | undefined;
+        if (result) {
+          if (result.blockHash) {
+            const blockInfo = (await backgroundApiProxy.serviceNetwork.rpcCall(
+              to.networkId,
+              {
+                method: 'eth_getBlockByHash',
+                params: [result.blockHash, true],
+              },
+            )) as SerializableBlockReceipt | undefined;
+            if (blockInfo?.timestamp) {
+              const tm = new BigNumber(blockInfo.timestamp);
+              return tm.multipliedBy(1000).toFixed();
+            }
+          }
+        }
+      }
+    }
   }
 
   async swftModifyTxId(orderId: string, depositTxid: string) {

@@ -1,27 +1,36 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { Image } from 'react-native';
+
 import { Box, Button, Pressable, Typography } from '@onekeyhq/components';
 import ScrollableButtonGroup from '@onekeyhq/components/src/ScrollableButtonGroup/ScrollableButtonGroup';
+import ShortcutsTooltip from '@onekeyhq/components/src/ShortcutsTooltip';
+import dAppFavicon from '@onekeyhq/kit/assets/dapp_favicon.png';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  ExplorerShortcutEvents,
+  getShortcutsMap,
+} from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../../hooks';
 import {
-  addWebTab,
   closeWebTab,
-  homeTab,
   setCurrentWebTab,
 } from '../../../../store/reducers/webTabs';
+import { addNewBlankWebTab } from '../explorerUtils';
 
 import type { WebTab } from '../../../../store/reducers/webTabs';
 import type { LayoutChangeEvent } from 'react-native';
 import type Animated from 'react-native-reanimated';
 
+const shortcutsMap = getShortcutsMap(platformEnv.isDesktopMac);
 const Tab: FC<
   WebTab & {
     onLayout?: (e: LayoutChangeEvent) => void;
   }
-> = ({ isCurrent, id, title, onLayout }) => {
+> = ({ isCurrent, id, title, onLayout, favicon }) => {
   const { dispatch } = backgroundApiProxy;
   const setCurrentTab = useCallback(() => {
     dispatch(setCurrentWebTab(id));
@@ -58,6 +67,11 @@ const Tab: FC<
       alignItems="center"
       onLayout={onLayout}
     >
+      <Image
+        style={{ width: 16, height: 16, marginRight: 8 }}
+        source={{ uri: favicon }}
+        defaultSource={dAppFavicon}
+      />
       <Typography.Caption
         maxW="82px"
         mr="10px"
@@ -66,34 +80,35 @@ const Tab: FC<
       >
         {title}
       </Typography.Caption>
-      <Button
-        size="xs"
-        type="plain"
-        iconSize={12}
-        leftIconName="XMarkMini"
-        onPress={closeTab}
-      />
+      <ShortcutsTooltip
+        desc={shortcutsMap[ExplorerShortcutEvents.CloseTab].desc}
+        keys={shortcutsMap[ExplorerShortcutEvents.CloseTab].keys}
+      >
+        <Button
+          size="xs"
+          type="plain"
+          iconSize={12}
+          leftIconName="XMarkMini"
+          onPress={closeTab}
+        />
+      </ShortcutsTooltip>
     </Pressable>
   );
 };
 
-const addNewTab = () => {
-  const { dispatch } = backgroundApiProxy;
-  dispatch(
-    addWebTab({
-      ...homeTab,
-    }),
-  );
-};
-
-const AddTabButton: FC = () => (
-  <Button
-    flex={1}
-    borderRadius={0}
-    type="plain"
-    leftIconName="PlusMini"
-    onPress={addNewTab}
-  />
+const AddTabButton = () => (
+  <ShortcutsTooltip
+    desc={shortcutsMap[ExplorerShortcutEvents.NewTabAndFocus].desc}
+    keys={shortcutsMap[ExplorerShortcutEvents.NewTabAndFocus].keys}
+  >
+    <Button
+      flex={1}
+      borderRadius={0}
+      type="plain"
+      leftIconName="PlusMini"
+      onPress={addNewBlankWebTab}
+    />
+  </ShortcutsTooltip>
 );
 
 const TabBarDesktop: FC = () => {

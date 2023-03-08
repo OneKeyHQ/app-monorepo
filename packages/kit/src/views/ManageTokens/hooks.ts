@@ -16,7 +16,7 @@ import type { FiatPayModeType } from '../FiatPay/types';
 export const useSearchTokens = (
   terms: string,
   keyword: string,
-  networkid?: string,
+  networkId?: string,
   accountId?: string,
 ) => {
   const [loading, setLoading] = useState(false);
@@ -29,7 +29,7 @@ export const useSearchTokens = (
   }, [terms, keyword]);
   useEffect(() => {
     async function main() {
-      if (terms.length === 0 || !networkid || !accountId) {
+      if (terms.length === 0 || !networkId || !accountId) {
         setLoading(false);
         setTokens([]);
         return;
@@ -38,27 +38,27 @@ export const useSearchTokens = (
       setTokens([]);
       let tokens = [];
       try {
-        tokens = await backgroundApiProxy.engine.searchTokens(networkid, terms);
+        tokens = await backgroundApiProxy.engine.searchTokens(networkId, terms);
         setTokens(tokens);
       } finally {
         setLoading(false);
       }
       const [balances] =
-        await backgroundApiProxy.serviceToken.getAccountBalance(
+        await backgroundApiProxy.serviceToken.getAccountTokenBalance({
           accountId,
-          networkid,
-          tokens.map((i) => i.tokenIdOnNetwork),
-        );
+          networkId,
+          tokenIds: tokens.map((i) => i.tokenIdOnNetwork),
+        });
       backgroundApiProxy.dispatch(
         setAccountTokensBalances({
-          activeAccountId: accountId,
-          activeNetworkId: networkid,
+          accountId,
+          networkId,
           tokensBalance: balances,
         }),
       );
     }
     main();
-  }, [terms, networkid, accountId]);
+  }, [terms, networkId, accountId]);
   return {
     loading,
     searchedTokens,

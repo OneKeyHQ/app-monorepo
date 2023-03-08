@@ -39,9 +39,7 @@ export const useNotifyChanges = () => {
   const tabUrl = tab?.url;
   const tabId = tab?.id;
 
-  const webviewRef = getWebviewWrapperRef({
-    tabId,
-  });
+  const webviewRef = getWebviewWrapperRef(tabId);
 
   const isFocusedInDiscoverTab = useIsFocusedInTab(TabRoutes.Discover);
   useEffect(() => {

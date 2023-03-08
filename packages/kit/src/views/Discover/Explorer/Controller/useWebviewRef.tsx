@@ -167,9 +167,7 @@ export const useWebviewRef = ({
   }, [ref]);
 
   const reload = useCallback(() => {
-    const wrapperRef = getWebviewWrapperRef({
-      tabId,
-    });
+    const wrapperRef = getWebviewWrapperRef(tabId);
     // cross-platform reload()
     wrapperRef?.reload();
   }, [tabId]);

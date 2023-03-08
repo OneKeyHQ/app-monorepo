@@ -21,7 +21,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { TYPE_PREFIX } from './Vault';
+import { TYPE_PREFIX } from './consts';
 
 import type { DotImplOptions } from './types';
 import type Vault from './Vault';

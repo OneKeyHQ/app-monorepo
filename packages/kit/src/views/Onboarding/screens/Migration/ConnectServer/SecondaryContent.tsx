@@ -49,7 +49,8 @@ import {
 } from '../util';
 
 import { ServerStatus, useMigrateContext } from './context';
-import { ExportResult, useConnectServer, useExportData } from './hook';
+import { ExportResult, useExportData } from './hook';
+import { useConnectServer } from './hook.useConnectServer';
 import { showSendDataRequestModal } from './SendDataRequestModal';
 
 const QRCodeView: FC<{

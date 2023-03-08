@@ -15,8 +15,18 @@ import {
 } from '@onekeyhq/components';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import type { IEncodedTx, ISwapInfo } from '@onekeyhq/engine/src/vaults/types';
+import type {
+  IDecodedTx,
+  IEncodedTx,
+  IFeeInfoUnit,
+  ISwapInfo,
+} from '@onekeyhq/engine/src/vaults/types';
+import {
+  calculateTotalFeeNative,
+  calculateTotalFeeRange,
+} from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   AppUIEventBusNames,
@@ -112,6 +122,23 @@ function convertToSwapInfo(options: IConvertToSwapInfoOptions): ISwapInfo {
   return swapInfo;
 }
 
+function calculateNetworkFee(feeInfo: IFeeInfoUnit, network: Network) {
+  const feeRange = calculateTotalFeeRange(feeInfo);
+  const calculatedTotalFeeInNative = calculateTotalFeeNative({
+    amount: feeRange.max,
+    info: {
+      defaultPresetIndex: '0',
+      prices: [],
+
+      feeSymbol: network.feeSymbol,
+      feeDecimals: network.feeDecimals,
+      nativeSymbol: network.symbol,
+      nativeDecimals: network.decimals,
+    },
+  });
+  return calculatedTotalFeeInNative;
+}
+
 const SwapTransactionsCancelApprovalBottomSheetModal: FC<
   SwapTransactionsCancelApprovalBottomSheetModalProps
 > = ({ close, onSubmit }) => {
@@ -202,10 +229,11 @@ const ExchangeButton = () => {
     }
 
     if (!params.tokenIn.tokenIdOnNetwork) {
-      const [result] = await backgroundApiProxy.serviceToken.fetchTokenBalance({
-        activeAccountId: sendingAccount.id,
-        activeNetworkId: targetNetwork.id,
-      });
+      const [result] =
+        await backgroundApiProxy.serviceToken.getAccountTokenBalance({
+          accountId: sendingAccount.id,
+          networkId: targetNetwork.id,
+        });
       const balance = new BigNumber(result?.main?.balance ?? '0');
       const reservedValue = reservedNetworkFee[targetNetwork.id] ?? 0.1;
       if (balance.minus(inputAmount.typedValue).lt(reservedValue)) {
@@ -350,10 +378,23 @@ const ExchangeButton = () => {
       }
     }
 
-    const addSwapTransaction = async (hash: string, nonce?: number) => {
+    const addSwapTransaction = async ({
+      hash,
+      decodedTx,
+    }: {
+      hash: string;
+      decodedTx?: IDecodedTx;
+    }) => {
       if (res === undefined) {
         return;
       }
+      const nonce = decodedTx?.nonce;
+
+      let networkFee: string | undefined;
+      if (decodedTx?.feeInfo) {
+        networkFee = calculateNetworkFee(decodedTx?.feeInfo, targetNetwork);
+      }
+
       const from: TransactionToken = {
         networkId: inputAmount.token.networkId,
         token: inputAmount.token,
@@ -387,12 +428,16 @@ const ExchangeButton = () => {
             accountId: sendingAccount.id,
             networkId: targetNetwork.id,
             quoterType: quote.type,
+            quoterLogo: quote.quoterlogo,
             nonce,
             attachment: res.attachment,
+            receivingAccountId: recipient?.accountId,
             receivingAddress: recipient?.address,
             providers: newQuote?.sources ?? quote.providers,
             arrivalTime: quote.arrivalTime,
             percentageFee: quote.percentageFee,
+            protocalFees: quote.protocolFees,
+            networkFee,
             tokens: {
               from,
               to,
@@ -483,7 +528,7 @@ const ExchangeButton = () => {
                   swapInfo,
                 },
               });
-            addSwapTransaction(result.txid, decodedTx.nonce);
+            addSwapTransaction({ hash: result.txid, decodedTx });
             appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
           } catch (e: any) {
             deviceUtils.showErrorToast(e, e?.data?.message || e.message);
@@ -517,7 +562,10 @@ const ExchangeButton = () => {
                     });
                   },
                   onSuccess: (tx, data) => {
-                    addSwapTransaction(tx.txid, data?.decodedTx?.nonce);
+                    addSwapTransaction({
+                      hash: tx.txid,
+                      decodedTx: data?.decodedTx ?? undefined,
+                    });
                   },
                 },
               },
@@ -567,7 +615,7 @@ const ExchangeButton = () => {
                   swapInfo,
                 },
               });
-            addSwapTransaction(result.txid, decodedTx.nonce);
+            addSwapTransaction({ hash: result.txid, decodedTx });
             if (options?.skipSendFeedbackReceipt) {
               return;
             }
@@ -611,7 +659,7 @@ const ExchangeButton = () => {
                             swapInfo,
                           },
                         });
-                      addSwapTransaction(result.txid, decodedTx.nonce);
+                      addSwapTransaction({ hash: result.txid, decodedTx });
                     },
                   },
                 },
@@ -644,7 +692,10 @@ const ExchangeButton = () => {
                     });
                   },
                   onSuccess: (tx, data) => {
-                    addSwapTransaction(tx.txid, data?.decodedTx?.nonce);
+                    addSwapTransaction({
+                      hash: tx.txid,
+                      decodedTx: data?.decodedTx ?? undefined,
+                    });
                   },
                 },
               },

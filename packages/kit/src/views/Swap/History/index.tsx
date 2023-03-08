@@ -170,7 +170,8 @@ const HistoryLayout: FC = ({ children }) => {
       navigation.setOptions({ headerShown: false });
     } else {
       navigation.setOptions({
-        headerRight: TrashButton,
+        // eslint-disable-next-line react/no-unstable-nested-components
+        headerRight: () => <TrashButton />,
       });
     }
   }, [navigation, isSmall]);

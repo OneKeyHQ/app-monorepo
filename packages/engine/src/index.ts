@@ -102,10 +102,8 @@ import {
   WALLET_TYPE_WATCHING,
 } from './types/wallet';
 import { Validators } from './validators';
-import {
-  createVaultHelperInstance,
-  createVaultSettings,
-} from './vaults/factory';
+import { createVaultHelperInstance } from './vaults/factory';
+import { createVaultSettings } from './vaults/factory.createVaultSettings';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IDecodedTxActionType } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
@@ -805,6 +803,7 @@ class Engine {
     // TODO: need a method to get default network from coinType.
     const networkId = {
       '60': OnekeyNetwork.eth,
+      '61': OnekeyNetwork.etc,
       '503': OnekeyNetwork.cfx,
       '397': OnekeyNetwork.near,
       '0': OnekeyNetwork.btc,

@@ -1,5 +1,5 @@
-import type { ComponentProps, FC } from 'react';
 import { useCallback, useMemo } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -10,6 +10,7 @@ import {
   Center,
   Divider,
   Icon,
+  Image,
   Pressable,
   Select,
   ToastManager,
@@ -27,11 +28,20 @@ import useFormatDate from '../../../../hooks/useFormatDate';
 import { buildTransactionDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
 import { openUrlExternal } from '../../../../utils/openUrl';
 import { useTransactionsAccount } from '../../hooks/useTransactions';
-import { formatAmount } from '../../utils';
+import {
+  calculateProtocalsFee,
+  formatAmount,
+  gt,
+  multiply,
+  normalizeProviderName,
+} from '../../utils';
 import PendingTransaction from '../PendingTransaction';
 import SwappingVia from '../SwappingVia';
 import TransactionFee from '../TransactionFee';
 import TransactionRate from '../TransactionRate';
+
+import { HashMoreMenu } from './HashMoreMenus';
+import { AccountMoreMenus, ReceiptMoreMenus } from './MoreMenus';
 
 import type {
   SwapRoutes,
@@ -48,12 +58,12 @@ type TransactionProps = {
 type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.Transaction>;
 type NavigationProps = NavigationProp<SwapRoutesParams, SwapRoutes.Transaction>;
 
-const formatAddressName = (address: string, name?: string) => {
-  if (!name) {
-    return `${shortenAddress(address)}`;
-  }
-  return `${name}(${address.slice(-4)})`;
-};
+// const formatAddressName = (address: string, name?: string) => {
+//   if (!name) {
+//     return `${shortenAddress(address)}`;
+//   }
+//   return `${name}(${address.slice(-4)})`;
+// };
 
 const StatusIcon: FC<{ status: TransactionStatus }> = ({ status }) => {
   if (status === 'sucesss') {
@@ -175,6 +185,16 @@ const Header: FC<TransactionProps & { onPress?: () => void }> = ({
 const InputOutput: FC<TransactionProps> = ({ tx }) => {
   const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
   const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
+  const receivingAccount = useTransactionsAccount(
+    tx.receivingAccountId,
+    tx.tokens?.to.networkId,
+  );
+  const account = useTransactionsAccount(
+    tx.accountId,
+    tx.tokens?.from.networkId,
+  );
+  const receivingName = useAddressName({ address: tx.receivingAddress });
+
   return (
     <Box my="6" borderRadius="12" background="surface-default" p="4">
       <Box
@@ -194,6 +214,26 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
             </Typography.Body2>
           </Box>
         </Box>
+        <AccountMoreMenus networkId={tx.networkId} accountId={tx.accountId}>
+          <Pressable>
+            <Box
+              bg="action-secondary-default"
+              borderWidth="1px"
+              py="1"
+              pl="1"
+              pr="2"
+              borderRadius="full"
+              borderColor="border-default"
+              flexDirection="row"
+              alignItems="center"
+            >
+              <Image w="4" h="4" mr="1" src={fromNetwork?.logoURI} />
+              <Typography.Body2Strong selectable={false}>
+                {account?.name}
+              </Typography.Body2Strong>
+            </Box>
+          </Pressable>
+        </AccountMoreMenus>
       </Box>
       <Box
         h="8"
@@ -215,15 +255,44 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
         <Box flexDirection="row" alignItems="center">
           <TokenIcon size="8" token={tx.tokens?.to.token} />
           <Box ml="3">
-            <Typography.Body1>
-              {formatAmount(tx.tokens?.to.amount, 4)}
-              {tx.tokens?.to.token.symbol.toUpperCase()}
-            </Typography.Body1>
+            <Box flexDirection="row" alignItems="center">
+              <Typography.Caption mr="1">～</Typography.Caption>
+              <Typography.Body1>
+                {formatAmount(tx.tokens?.to.amount, 4)}
+                {tx.tokens?.to.token.symbol.toUpperCase()}
+              </Typography.Body1>
+            </Box>
             <Typography.Body2 color="text-subdued">
               {toNetwork?.shortName}
             </Typography.Body2>
           </Box>
         </Box>
+        <ReceiptMoreMenus
+          address={tx.receivingAddress}
+          networkId={tx.tokens?.to.networkId}
+          accountId={tx.receivingAccountId}
+        >
+          <Pressable>
+            <Box
+              bg="action-secondary-default"
+              borderWidth="1px"
+              py="1"
+              pl="1"
+              pr="2"
+              borderRadius="full"
+              borderColor="border-default"
+              flexDirection="row"
+              alignItems="center"
+            >
+              <Image w="4" h="4" mr="1" src={toNetwork?.logoURI} />
+              <Typography.Body2Strong selectable={false}>
+                {receivingAccount?.name ||
+                  receivingName ||
+                  shortenAddress(tx.receivingAddress || '')}
+              </Typography.Body2Strong>
+            </Box>
+          </Pressable>
+        </ReceiptMoreMenus>
       </Box>
     </Box>
   );
@@ -236,12 +305,13 @@ const TransactionField: FC<TransactionFieldProps> = ({
   ...rest
 }) => (
   <Box
+    position="relative"
     flexDirection="row"
     justifyContent="space-between"
     alignItems="center"
     {...rest}
   >
-    <Typography.Caption color="text-disabled">{label}</Typography.Caption>
+    <Typography.Body2 color="text-disabled">{label}</Typography.Body2>
     <Box>{children}</Box>
   </Box>
 );
@@ -252,32 +322,50 @@ type ViewInBrowserSelectorItem = {
   logoURI?: string;
   url?: string;
 };
+
+type Option = {
+  label: string;
+  logoURI: string;
+  value: string;
+  url: string;
+};
 type ViewInBrowserSelectorProps = { tx: TransactionDetails };
 const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
   const intl = useIntl();
   const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
   const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
 
-  const options = useMemo(
-    () => [
+  const options = useMemo(() => {
+    let base: Option[] = [
       {
         label: fromNetwork?.shortName ?? '',
-        logoURI: fromNetwork?.logoURI,
-        value: tx.hash,
+        logoURI: fromNetwork?.logoURI ?? '',
+        value: tx.hash ?? '',
         url: buildTransactionDetailsUrl(fromNetwork, tx.hash),
       },
       {
         label: toNetwork?.shortName ?? '',
-        logoURI: toNetwork?.logoURI,
-        value: tx.destinationTransactionHash,
+        logoURI: toNetwork?.logoURI ?? '',
+        value: tx.destinationTransactionHash ?? '',
         url: buildTransactionDetailsUrl(
           toNetwork,
           tx.destinationTransactionHash,
         ),
       },
-    ],
-    [tx, fromNetwork, toNetwork],
-  );
+    ];
+    if (tx.quoterType === 'socket') {
+      const socketOption: Option[] = [
+        {
+          label: 'Socketscan',
+          logoURI: 'https://common.onekey-asset.com/logo/SocketBridge.png',
+          value: 'Socketscan',
+          url: `https://socketscan.io/tx/${tx.hash}`,
+        },
+      ];
+      base = socketOption.concat(base);
+    }
+    return base;
+  }, [tx, fromNetwork, toNetwork]);
   const onPress = useCallback((_: any, item: any) => {
     // eslint-disable-next-line
     if (item.url) {
@@ -312,7 +400,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
               key={item.value}
               h="12"
               px="3"
-              onPress={() => onChange?.(undefined, item)}
+              onPress={() => onChange?.('', item)}
             >
               <Box flexDirection="row" alignItems="center">
                 <TokenIcon size="8" token={token} />
@@ -332,14 +420,10 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
         }}
         renderTrigger={() => (
           <Box flexDirection="row" alignItems="center">
-            <Typography.Caption mr="1" color="text-subdued">
+            <Typography.Body2Strong mr="1">
               {intl.formatMessage({ id: 'action__view_in_browser' })}
-            </Typography.Caption>
-            <Icon
-              name="ArrowTopRightOnSquareOutline"
-              size={16}
-              color="icon-subdued"
-            />
+            </Typography.Body2Strong>
+            <Icon name="ArrowTopRightOnSquareOutline" size={16} />
           </Box>
         )}
       />
@@ -357,15 +441,11 @@ const ViewInBrowserLink: FC<ViewInBrowserLinkProps> = ({ tx }) => {
   }, [network, tx.hash]);
 
   return (
-    <Pressable flexDirection="row" onPress={onOpenTx}>
-      <Typography.Caption mr="1" color="text-subdued">
+    <Pressable flexDirection="row" onPress={onOpenTx} alignItems="center">
+      <Typography.Body2Strong mr="1">
         {intl.formatMessage({ id: 'action__view_in_browser' })}
-      </Typography.Caption>
-      <Icon
-        name="ArrowTopRightOnSquareOutline"
-        size={16}
-        color="icon-subdued"
-      />
+      </Typography.Body2Strong>
+      <Icon name="ArrowTopRightOnSquareOutline" size={16} />
     </Pressable>
   );
 };
@@ -380,12 +460,54 @@ const ViewInBrowser: FC<ViewInBrowserProps> = ({ tx }) => {
   );
 };
 
+type TransactionOneKeyFeesProps = { tx: TransactionDetails };
+const TransactionOneKeyFees: FC<TransactionOneKeyFeesProps> = ({ tx }) => {
+  const from = tx.tokens?.from;
+  return (
+    <Box flexDirection="row" alignItems="center">
+      <TransactionFee
+        type={tx.quoterType}
+        percentageFee={tx.percentageFee}
+        typography="Body2Strong"
+        color="text-default"
+      />
+      {from && tx.percentageFee ? (
+        <Typography.Body2Strong>{`(${formatAmount(
+          multiply(tx.percentageFee, from.amount),
+          8,
+        )}${from.token.symbol.toUpperCase()})`}</Typography.Body2Strong>
+      ) : null}
+    </Box>
+  );
+};
+
+type TransactionProtocalsFeesProps = { tx: TransactionDetails };
+const TransactionProtocalsFees: FC<TransactionProtocalsFeesProps> = ({
+  tx,
+}) => {
+  const intl = useIntl();
+  if (tx.protocalFees) {
+    const result = calculateProtocalsFee(tx.protocalFees);
+    if (Number(result.value) > 0) {
+      return (
+        <TransactionField
+          label={intl.formatMessage({ id: 'form__bridge_fee' })}
+        >
+          <Typography.Body2Strong>
+            {`${formatAmount(result.value)} ${result.symbol.toUpperCase()}`}
+          </Typography.Body2Strong>
+        </TransactionField>
+      );
+    }
+  }
+  return null;
+};
+
 const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
   tx,
   showViewInBrowser,
 }) => {
   const intl = useIntl();
-
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
   const account = useTransactionsAccount(
@@ -396,7 +518,6 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
   const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
   const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
 
-  const receivingName = useAddressName({ address: tx.receivingAddress });
   const { formatDate } = useFormatDate();
   const { from, to } = tx.tokens ?? {};
   const swftcOrderId = tx.attachment?.swftcOrderId ?? tx.thirdPartyOrderId;
@@ -434,125 +555,135 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
     <Box>
       <Header tx={tx} onPress={onPress} />
       <InputOutput tx={tx} />
-      <VStack space={4}>
-        {tx.receivingAddress !== undefined &&
-        tx.receivingAddress !== account.address ? (
-          <VStack space={4}>
+      <Divider mb="6" />
+      <Box>
+        <Typography.Subheading color="text-subdued" mb="4">
+          {intl.formatMessage({ id: 'form__on_chain_info_uppercase' })}
+        </Typography.Subheading>
+        <VStack space={4}>
+          {tx.actualReceived ? (
             <TransactionField
-              label={intl.formatMessage({ id: 'form__payment_address' })}
+              label={intl.formatMessage({ id: 'form__actual_received' })}
             >
-              <Pressable
-                flexDirection="row"
-                justifyContent="space-between"
-                alignItems="center"
-                onPress={() => onCopy(account.address)}
-              >
-                <Typography.Caption mr="1" color="text-subdued">
-                  {formatAddressName(account.address, account.name)}
-                </Typography.Caption>
-                <Icon
-                  name="Square2StackOutline"
-                  size={16}
-                  color="icon-subdued"
-                />
-              </Pressable>
+              <Typography.Body2Strong>
+                {`${formatAmount(tx.actualReceived, 6)} ${
+                  to?.token.symbol.toUpperCase() ?? ''
+                }`}
+              </Typography.Body2Strong>
             </TransactionField>
+          ) : null}
+          {tx.networkFee ? (
             <TransactionField
-              label={intl.formatMessage({ id: 'form__receiving_address' })}
+              label={intl.formatMessage({ id: 'form__network_fee' })}
             >
-              <Pressable
-                flexDirection="row"
-                justifyContent="space-between"
-                alignItems="center"
-                onPress={() => onCopy(tx.receivingAddress)}
-              >
-                <Typography.Caption mr="1" color="text-subdued">
-                  {formatAddressName(tx.receivingAddress, receivingName)}
-                </Typography.Caption>
-                <Icon
-                  name="Square2StackOutline"
-                  size={16}
-                  color="icon-subdued"
-                />
-              </Pressable>
+              <Typography.Body2Strong>
+                {`${formatAmount(tx.networkFee, 8)} ${
+                  network.symbol.toUpperCase() ?? ''
+                }`}
+              </Typography.Body2Strong>
             </TransactionField>
-          </VStack>
-        ) : (
-          <TransactionField label={intl.formatMessage({ id: 'form__account' })}>
-            <Pressable
-              flexDirection="row"
-              justifyContent="space-between"
-              alignItems="center"
-              onPress={() => onCopy(account.address)}
-            >
-              <Typography.Caption mr="1" color="text-subdued">
-                {formatAddressName(account.address, account.name)}
-              </Typography.Caption>
-              <Icon name="Square2StackOutline" size={16} color="icon-subdued" />
-            </Pressable>
+          ) : null}
+          <TransactionField label={intl.formatMessage({ id: 'content__hash' })}>
+            <HashMoreMenu tx={tx}>
+              <Pressable mr="1">
+                <Typography.Body2Strong>
+                  {shortenAddress(tx.hash)}
+                </Typography.Body2Strong>
+              </Pressable>
+            </HashMoreMenu>
           </TransactionField>
-        )}
-        <TransactionField label={intl.formatMessage({ id: 'Rate' })}>
-          <TransactionRate
-            tokenA={tx.tokens?.from.token}
-            tokenB={tx.tokens?.to.token}
-            rate={tx.tokens?.rate}
-            typography="Caption"
-            color="text-subdued"
-          />
-        </TransactionField>
-        <TransactionField
-          label={intl.formatMessage({ id: 'form__swapping_via' })}
-        >
-          <SwappingVia providers={tx.providers} />
-        </TransactionField>
-        <TransactionField
-          label={intl.formatMessage({ id: 'form__included_onekey_fee' })}
-        >
-          <TransactionFee
-            type={tx.quoterType}
-            percentageFee={tx.percentageFee}
-          />
-        </TransactionField>
-        <TransactionField label={intl.formatMessage({ id: 'form__created' })}>
-          <Typography.Caption color="text-subdued">
-            {formatDate(new Date(tx.addedTime))}
-          </Typography.Caption>
-        </TransactionField>
-        <TransactionField label={intl.formatMessage({ id: 'form__updated' })}>
-          <Typography.Caption color="text-subdued">
-            {formatDate(new Date(tx.confirmedTime ?? tx.addedTime))}
-          </Typography.Caption>
-        </TransactionField>
-        <TransactionField label={intl.formatMessage({ id: 'content__hash' })}>
-          <Pressable
-            flexDirection="row"
-            alignItems="center"
-            onPress={() => onCopy(tx.hash)}
-          >
-            <Typography.Caption color="text-subdued" mr="1">
-              {shortenAddress(tx.hash)}
-            </Typography.Caption>
-            <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
-          </Pressable>
-        </TransactionField>
-        {swftcOrderId ? (
+        </VStack>
+      </Box>
+      <Divider my="6" />
+      <Box>
+        <Typography.Subheading color="text-subdued" mb="4">
+          {intl.formatMessage({ id: 'form__swap_info_uppercase' })}
+        </Typography.Subheading>
+        <VStack space={4}>
+          <TransactionField label={intl.formatMessage({ id: 'Rate' })}>
+            <TransactionRate
+              tokenA={tx.tokens?.from.token}
+              tokenB={tx.tokens?.to.token}
+              rate={tx.tokens?.rate}
+              typography="Body2Strong"
+              color="text-default"
+            />
+          </TransactionField>
+
+          {tx.quoterType ? (
+            <TransactionField
+              label={intl.formatMessage({ id: 'form__provided_by' })}
+            >
+              <Box flexDirection="row" alignItems="center">
+                {tx.quoterLogo ? (
+                  <Image
+                    borderRadius="full"
+                    overflow="hidden"
+                    src={tx.quoterLogo}
+                    w="5"
+                    h="5"
+                    mr="2"
+                  />
+                ) : null}
+                <Typography.Body2Strong>
+                  {normalizeProviderName(tx.quoterType)}
+                </Typography.Body2Strong>
+              </Box>
+            </TransactionField>
+          ) : null}
           <TransactionField
-            label={intl.formatMessage({ id: 'form__order_no' })}
+            label={intl.formatMessage({ id: 'form__swapping_via' })}
           >
-            <Pressable
-              flexDirection="row"
-              alignItems="center"
-              onPress={() => onCopy(swftcOrderId ?? '')}
-            >
-              <Typography.Caption color="text-subdued">
-                {shortenAddress(swftcOrderId)}
-              </Typography.Caption>
-              <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
-            </Pressable>
+            <SwappingVia
+              providers={tx.providers}
+              typography="Body2Strong"
+              color="text-default"
+            />
           </TransactionField>
-        ) : null}
-      </VStack>
+          {gt(tx.protocalFees?.amount ?? '0', 0) ? (
+            <TransactionProtocalsFees tx={tx} />
+          ) : null}
+          <TransactionField
+            label={intl.formatMessage({ id: 'form__included_onekey_fee' })}
+          >
+            <TransactionOneKeyFees tx={tx} />
+          </TransactionField>
+          {swftcOrderId ? (
+            <TransactionField
+              label={intl.formatMessage({ id: 'form__order_no' })}
+            >
+              <Pressable
+                flexDirection="row"
+                alignItems="center"
+                onPress={() => onCopy(swftcOrderId ?? '')}
+              >
+                <Typography.Body2Strong>
+                  {shortenAddress(swftcOrderId)}
+                </Typography.Body2Strong>
+                <Icon name="Square2StackOutline" size={16} />
+              </Pressable>
+            </TransactionField>
+          ) : null}
+        </VStack>
+      </Box>
+      <Divider my="6" />
+      <Box>
+        <Typography.Subheading color="text-subdued" mb="4">
+          {intl.formatMessage({ id: 'form__time_uppercase' })}
+        </Typography.Subheading>
+        <VStack space={4}>
+          <TransactionField label={intl.formatMessage({ id: 'form__created' })}>
+            <Typography.Body2Strong color="text-default">
+              {formatDate(new Date(tx.addedTime))}
+            </Typography.Body2Strong>
+          </TransactionField>
+          <TransactionField label={intl.formatMessage({ id: 'form__updated' })}>
+            <Typography.Body2Strong color="text-default">
+              {formatDate(new Date(tx.confirmedTime ?? tx.addedTime))}
+            </Typography.Body2Strong>
+          </TransactionField>
+        </VStack>
+      </Box>
       <Divider my="7" />
       {showViewInBrowser ? (
         <Box
