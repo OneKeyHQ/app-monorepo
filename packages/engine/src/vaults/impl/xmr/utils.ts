@@ -1,7 +1,5 @@
 import { fromSeed } from 'bip32';
-import sha3 from 'js-sha3';
 
-import type { MoneroUtilModule } from './sdk/moneroUtil/moneroUtilModule';
 import type { BIP32Interface } from 'bip32';
 
 export function calcBip32ExtendedKey(
@@ -58,47 +56,4 @@ export function getRawPrivateKeyFromSeed(seed: Buffer, pathPrefix: string) {
   const rawPrivateKey = key.privateKey;
 
   return rawPrivateKey;
-}
-
-export function getKeyPairFromRawPrivatekey({
-  rawPrivateKey,
-  index = 0,
-  moneroUtilModule,
-}: {
-  rawPrivateKey: Buffer;
-  index?: number;
-  moneroUtilModule: MoneroUtilModule;
-}) {
-  const rawSecretSpendKey = new Uint8Array(
-    sha3.keccak_256.update(rawPrivateKey).arrayBuffer(),
-  );
-  let privateSpendKey = moneroUtilModule.scReduce32(rawSecretSpendKey);
-  const privateViewKey = moneroUtilModule.hashToScalar(privateSpendKey);
-
-  let publicSpendKey: Uint8Array | null;
-  let publicViewKey: Uint8Array | null;
-
-  if (index === 0) {
-    publicSpendKey = moneroUtilModule.privateKeyToPublicKey(privateSpendKey);
-    publicViewKey = moneroUtilModule.privateKeyToPublicKey(privateViewKey);
-  } else {
-    const m = moneroUtilModule.getSubaddressPrivateKey(
-      privateViewKey,
-      index,
-      0,
-    );
-    privateSpendKey = moneroUtilModule.scAdd(m, privateSpendKey);
-    publicSpendKey = moneroUtilModule.privateKeyToPublicKey(privateSpendKey);
-    publicViewKey = moneroUtilModule.scalarmultKey(
-      publicSpendKey || new Uint8Array(),
-      privateViewKey,
-    );
-  }
-
-  return {
-    privateSpendKey,
-    privateViewKey,
-    publicSpendKey,
-    publicViewKey,
-  };
 }

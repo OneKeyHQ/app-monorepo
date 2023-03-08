@@ -10,10 +10,8 @@ import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
 import { TransactionStatus } from '../../../types/provider';
 
-import { MoneroAddressInfo } from './types';
-
-import type { MoneroCoreInstance } from './sdk/moneroCore/moneroCoreTypes';
 import type { MoneroKeys } from './types';
+import { getMoneroApi } from './sdk';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum RPC_METHODS {
@@ -32,26 +30,32 @@ export enum PARAMS_ENCODINGS {
   JSON_PARSED = 'jsonParsed',
 }
 
+type MoneroApi = Awaited<ReturnType<typeof getMoneroApi>>;
+
 export class ClientXmr extends BaseClient {
   readonly rpc: JsonRPCRequest;
 
   readonly wallet: LWSClient;
 
-  readonly moneroCoreInstance: MoneroCoreInstance;
-
   readonly keys: MoneroKeys;
 
-  constructor(
-    rpcUrl: string,
-    walletUrl: string,
-    moneroCoreInstance: MoneroCoreInstance,
-    keys: MoneroKeys,
-  ) {
+  readonly moneroApi: MoneroApi;
+
+  constructor({
+    rpcUrl,
+    walletUrl,
+    keys,
+    moneroApi,
+  }: {
+    rpcUrl: string;
+    walletUrl: string;
+    keys: MoneroKeys;
+    moneroApi: MoneroApi;
+  }) {
     super();
     const instance = axios.create({
       baseURL: walletUrl,
     });
-    this.moneroCoreInstance = moneroCoreInstance;
     this.rpc = new JsonRPCRequest(rpcUrl);
     this.wallet = new LWSClient({ url: walletUrl, httpClient: instance });
     this.keys = {
@@ -60,6 +64,7 @@ export class ClientXmr extends BaseClient {
       privateViewKey: Buffer.from(keys.privateViewKey ?? '').toString('hex'),
       privateSpendKey: Buffer.from(keys.privateSpendKey ?? '').toString('hex'),
     };
+    this.moneroApi = moneroApi;
   }
 
   async broadcastTransaction(rawTx: string, options?: any): Promise<string> {
@@ -88,7 +93,7 @@ export class ClientXmr extends BaseClient {
       const spentOutputs = addressInfo.spent_outputs || [];
 
       for (const spentOutput of spentOutputs) {
-        const keyImage = this.moneroCoreInstance.generate_key_image(
+        const keyImage = this.moneroApi.generateKeyImage(
           spentOutput.tx_pub_key,
           privateViewKey,
           publicSpendKey,

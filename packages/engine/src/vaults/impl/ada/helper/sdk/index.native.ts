@@ -29,15 +29,21 @@ enum CardanoEvent {
 
 type IResult = { error: any; result: any };
 
+let networkId = '';
+
 /**
  * ensure web-embed is created successfully
  */
-const ensureSDKReady = async () =>
+const ensureSDKReady = async (id: string) =>
   new Promise((resolve) => {
-    appUIEventBus.emit(AppUIEventBusNames.EnsureChainWebEmbed, () => {
-      debugLogger.common.debug('ensure web embed exist resolve callback');
-      resolve(true);
-    });
+    appUIEventBus.emit(
+      AppUIEventBusNames.EnsureChainWebEmbed,
+      () => {
+        debugLogger.common.debug('ensure web embed exist resolve callback');
+        resolve(true);
+      },
+      id,
+    );
   });
 
 const composeTxPlan = async (
@@ -47,7 +53,7 @@ const composeTxPlan = async (
   changeAddress: string,
   outputs: IAdaOutputs[],
 ) => {
-  await ensureSDKReady();
+  await ensureSDKReady(networkId);
   debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
@@ -161,7 +167,7 @@ const txToOneKey = async (
   xpub: string,
   changeAddress: IChangeAddress,
 ) => {
-  await ensureSDKReady();
+  await ensureSDKReady(networkId);
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: CardanoEvent.txToOneKey,
@@ -190,7 +196,7 @@ const txToOneKey = async (
 
 // DApp Function
 const getBalance = async (balances: IAdaAmount[]) => {
-  await ensureSDKReady();
+  await ensureSDKReady(networkId);
   debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
@@ -209,7 +215,7 @@ const getUtxos = async (
   utxos: IAdaUTXO[],
   amount?: string | undefined,
 ) => {
-  await ensureSDKReady();
+  await ensureSDKReady(networkId);
   debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
@@ -228,7 +234,7 @@ const getUtxos = async (
 };
 
 const getAddresses = async (addresses: string[]) => {
-  await ensureSDKReady();
+  await ensureSDKReady(networkId);
   debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
@@ -248,7 +254,7 @@ const convertCborTxToEncodeTx = async (
   addresses: string[],
   changeAddress: IChangeAddress,
 ) => {
-  await ensureSDKReady();
+  await ensureSDKReady(networkId);
   debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
@@ -268,7 +274,7 @@ const signData = async (
   xprv: string,
   accountIndex: number,
 ) => {
-  await ensureSDKReady();
+  await ensureSDKReady(networkId);
   debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
@@ -290,13 +296,15 @@ const dAppUtils = {
   signData,
 };
 
-const getCardanoApi = async () =>
-  Promise.resolve({
+const getCardanoApi = async (id: string) => {
+  networkId = id;
+  return Promise.resolve({
     composeTxPlan,
     signTransaction,
     hwSignTransaction,
     txToOneKey,
     dAppUtils,
   });
+};
 
 export { getCardanoApi, ensureSDKReady };

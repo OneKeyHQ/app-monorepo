@@ -9,10 +9,9 @@ import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import { getMoneroUtilInstance } from './sdk/moneroUtil/instance';
-import { MoneroUtilModule } from './sdk/moneroUtil/moneroUtilModule';
+import { getMoneroApi } from './sdk';
 import { MoneroNetTypeEnum } from './sdk/moneroUtil/moneroUtilTypes';
-import { getKeyPairFromRawPrivatekey, getRawPrivateKeyFromSeed } from './utils';
+import { getRawPrivateKeyFromSeed } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBVariantAccount } from '../../../types/account';
@@ -34,9 +33,7 @@ export class KeyringHd extends KeyringHdBase {
       password,
     )) as ExportedSeedCredential;
 
-    const instance = await getMoneroUtilInstance();
-
-    const moneroUtilModule = new MoneroUtilModule(instance);
+    const moneroApi = await getMoneroApi(this.networkId);
 
     const mnemonic = mnemonicFromEntropy(entropy, password);
     const seed = mnemonicToSeedSync(mnemonic);
@@ -50,11 +47,11 @@ export class KeyringHd extends KeyringHdBase {
     const impl = await this.getNetworkImpl();
     const { prefix } = getAccountNameInfoByTemplate(impl, template);
     for (const index of indexes) {
-      const { publicSpendKey, publicViewKey } = getKeyPairFromRawPrivatekey({
-        rawPrivateKey,
-        index,
-        moneroUtilModule,
-      });
+      const { publicSpendKey, publicViewKey } =
+        await moneroApi.getKeyPairFromRawPrivatekey({
+          rawPrivateKey,
+          index,
+        });
 
       if (!publicSpendKey || !publicViewKey) {
         throw new OneKeyInternalError('Unable to get public spend/view key.');
@@ -62,7 +59,7 @@ export class KeyringHd extends KeyringHdBase {
 
       const path = `${pathPrefix}/${index}`;
 
-      const address = moneroUtilModule.pubKeysToAddress(
+      const address = moneroApi.pubKeysToAddress(
         network.isTestnet
           ? MoneroNetTypeEnum.TestNet
           : MoneroNetTypeEnum.MainNet,

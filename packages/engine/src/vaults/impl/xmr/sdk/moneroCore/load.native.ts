@@ -1,5 +1,7 @@
-import bridge from 'react-native-mymonero-core';
+import instantiate from './moneroCore';
 
-import type { CppBridge } from 'react-native-mymonero-core';
+import type { MoneroCoreInstance } from './moneroCoreTypes';
 
-export const loadWasmInstance = async (): Promise<CppBridge | null> => bridge;
+export const loadWasmInstance = async (
+  importObj: any,
+): Promise<MoneroCoreInstance | null> => instantiate(importObj);

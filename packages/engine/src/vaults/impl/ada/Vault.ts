@@ -415,7 +415,7 @@ export default class Vault extends VaultBase {
     const { xpub, path, addresses } = dbAccount;
     const [utxos] = await Promise.all([
       client.getUTXOs(xpub, path, addresses),
-      ensureSDKReady(),
+      ensureSDKReady(this.networkId),
     ]);
 
     const amountBN = new BigNumber(amount).shiftedBy(decimals);
@@ -435,7 +435,7 @@ export default class Vault extends VaultBase {
           amount: amountBN.toFixed(),
           assets: [],
         };
-    const CardanoApi = await getCardanoApi();
+    const CardanoApi = await getCardanoApi(this.networkId);
     let txPlan: Awaited<ReturnType<typeof CardanoApi.composeTxPlan>>;
     try {
       txPlan = await CardanoApi.composeTxPlan(
@@ -791,7 +791,7 @@ export default class Vault extends VaultBase {
       balance,
       ...(assetsBalance as IAdaAmount[]),
     ] as IAdaAmount[];
-    const CardanoApi = await getCardanoApi();
+    const CardanoApi = await getCardanoApi(this.networkId);
     return CardanoApi.dAppUtils.getBalance(result);
   }
 
@@ -800,20 +800,20 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const { xpub, path, addresses } = dbAccount;
     const utxos = await client.getUTXOs(xpub, path, addresses);
-    const CardanoApi = await getCardanoApi();
+    const CardanoApi = await getCardanoApi(this.networkId);
     return CardanoApi.dAppUtils.getUtxos(dbAccount.address, utxos, amount);
   }
 
   async getAccountAddressForDapp() {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    const CardanoApi = await getCardanoApi();
+    const CardanoApi = await getCardanoApi(this.networkId);
     return CardanoApi.dAppUtils.getAddresses([dbAccount.address]);
   }
 
   async getStakeAddressForDapp() {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const stakeAddress = await this.getStakeAddress(dbAccount.address);
-    const CardanoApi = await getCardanoApi();
+    const CardanoApi = await getCardanoApi(this.networkId);
     return CardanoApi.dAppUtils.getAddresses([stakeAddress]);
   }
 
@@ -825,7 +825,7 @@ export default class Vault extends VaultBase {
     const addresses = await client.getAssociatedAddresses(stakeAddress);
     const { xpub, path, addresses: accountAddresses } = dbAccount;
     const utxos = await client.getUTXOs(xpub, path, accountAddresses);
-    const CardanoApi = await getCardanoApi();
+    const CardanoApi = await getCardanoApi(this.networkId);
     const encodeTx = await CardanoApi.dAppUtils.convertCborTxToEncodeTx(
       txHex,
       utxos,

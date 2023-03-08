@@ -1,4 +1,3 @@
-import type { ComponentProps } from 'react';
 import {
   forwardRef,
   useCallback,
@@ -8,41 +7,40 @@ import {
   useState,
 } from 'react';
 
-import { Pressable } from '@onekeyhq/components';
+import { Box } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebView/WebViewWebEmbed';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useShowWebEmbedWebviewAgent } from '../../hooks/useSettingsDevMode';
-
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
-const CardanoWebEmbedView = forwardRef(
+export const ChainWebEmbedView = forwardRef(
   (
     {
+      routePath,
       callback,
     }: {
+      routePath: string;
       callback: (() => void) | null;
     },
     ref: any,
   ) => {
     const webviewRef = useRef<IWebViewWrapperRef | null>(null);
-    const isWebviewReadyRef = useRef(false);
-    const [topPosition, setTopPosition] = useState('100px');
-    const isWebviewVisible = useShowWebEmbedWebviewAgent();
+    const [isWebviewReady, setIsWebViewReady] = useState(false);
+
     useImperativeHandle(ref, () => ({
       innerRef: webviewRef.current,
-      checkWebViewReady: () => isWebviewReadyRef.current,
+      checkWebViewReady: () => isWebviewReady,
     }));
 
     useEffect(() => {
-      debugLogger.common.debug('CardanoWebEmbedView Render');
-    }, []);
+      debugLogger.common.debug(`${routePath} Render`);
+    }, [routePath]);
 
     const onWebViewRef = useCallback(($ref: IWebViewWrapperRef | null) => {
       webviewRef.current = $ref;
-      isWebviewReadyRef.current = true;
+      setIsWebViewReady(true);
     }, []);
 
     useEffect(() => {
@@ -57,36 +55,13 @@ const CardanoWebEmbedView = forwardRef(
       backgroundApiProxy.connectWebEmbedBridge(jsBridge);
     }, [webviewRef]);
 
-    const routePath = '/cardano';
-
-    let boxProps: ComponentProps<typeof Pressable> = {
-      height: '0px',
-      width: '0px',
-    };
-    if (isWebviewVisible) {
-      boxProps = {
-        height: '100px',
-        width: '300px',
-        zIndex: 9999,
-        position: 'absolute',
-        top: topPosition,
-        left: '20px',
-        borderColor: 'border-default',
-        borderWidth: '5px',
-        borderRightWidth: '50px',
-        onPress: () => {
-          setTopPosition(topPosition === '100px' ? '400px' : '100px');
-        },
-      };
-    }
-
     return (
-      <Pressable {...boxProps}>
+      <Box height="0px" width="0px">
         <WebViewWebEmbed
           onWebViewRef={onWebViewRef}
           onContentLoaded={() => {
-            debugLogger.common.debug('CardanoWebEmbedView Loaded');
-            isWebviewReadyRef.current = true;
+            debugLogger.common.debug(`${routePath} Loaded`);
+            setIsWebViewReady(true);
             callback?.();
           }}
           // *** use web-embed local html file
@@ -94,15 +69,13 @@ const CardanoWebEmbedView = forwardRef(
           // *** use remote url
           src={
             platformEnv.isDev
-              ? `http://192.168.31.204:3008/#${routePath}`
+              ? `http://192.168.50.36:3008/#${routePath}`
               : undefined
           }
         />
-      </Pressable>
+      </Box>
     );
   },
 );
 
-CardanoWebEmbedView.displayName = 'CardanoWebEmbedView';
-
-export { CardanoWebEmbedView };
+ChainWebEmbedView.displayName = 'ChainWebEmbedView';

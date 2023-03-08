@@ -12,13 +12,10 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { getMoneroCoreInstance } from './sdk/moneroCore/instance';
-import { MoneroCoreModule } from './sdk/moneroCore/moneroCoreModule';
+import { getMoneroApi } from './sdk';
 import { getMoneroUtilInstance } from './sdk/moneroUtil/instance';
-import { MoneroUtilModule } from './sdk/moneroUtil/moneroUtilModule';
 import { MoneroNetTypeEnum } from './sdk/moneroUtil/moneroUtilTypes';
 import settings from './settings';
-import { getKeyPairFromRawPrivatekey } from './utils';
 
 import type {
   Account,
@@ -42,30 +39,9 @@ export default class Vault extends VaultBase {
 
   settings = settings;
 
-  private getMoneroUtilModule = memoizee(
-    async () => {
-      const instance = await getMoneroUtilInstance();
-      return new MoneroUtilModule(instance);
-    },
-    {
-      max: 1,
-      maxAge: getTimeDurationMs({ minute: 3 }),
-      promise: true,
-    },
-  );
-
-  private getMoneroCoreInstance = memoizee(
-    async () => getMoneroCoreInstance(),
-    {
-      max: 1,
-      maxAge: getTimeDurationMs({ minute: 3 }),
-      promise: true,
-    },
-  );
-
   private getMoneroKeys = memoizee(
     async () => {
-      const moneroUtilModule = await this.getMoneroUtilModule();
+      const moneroApi = await getMoneroApi(this.networkId);
       const dbAccount = (await this.getDbAccount({
         noCache: true,
       })) as DBVariantAccount;
@@ -74,9 +50,8 @@ export default class Vault extends VaultBase {
         throw new OneKeyInternalError('Unable to get raw private key.');
       }
 
-      return getKeyPairFromRawPrivatekey({
+      return moneroApi.getKeyPairFromRawPrivatekey({
         rawPrivateKey,
-        moneroUtilModule,
         index: Number(dbAccount.path.split('/').pop()),
       });
     },
@@ -89,16 +64,16 @@ export default class Vault extends VaultBase {
   );
 
   private async getClient(): Promise<ClientXmr> {
-    const rpcURL = await this.getRpcUrl();
+    const rpcUrl = await this.getRpcUrl();
     const walletUrl = 'https://node.onekeytest.com/mymonero';
-    const moneroCoreInstance = await this.getMoneroCoreInstance();
     const keys = await this.getMoneroKeys();
-    return this.createXmrClient(rpcURL, walletUrl, moneroCoreInstance, keys);
+    const moneroApi = await getMoneroApi(this.networkId);
+    return this.createXmrClient(rpcUrl, walletUrl, moneroApi, keys);
   }
 
   private createXmrClient = memoizee(
-    (rpcURL: string, walletUrl: string, moneroCoreInstance, keys) =>
-      new ClientXmr(rpcURL, walletUrl, moneroCoreInstance, keys),
+    (rpcUrl: string, walletUrl: string, moneroApi, keys) =>
+      new ClientXmr({ rpcUrl, walletUrl, moneroApi, keys }),
     {
       max: 1,
       maxAge: getTimeDurationMs({ minute: 3 }),
@@ -108,10 +83,10 @@ export default class Vault extends VaultBase {
   override async getExportedCredential(): Promise<string> {
     const dbAccount = await this.getDbAccount();
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
-      const moneroUtilModule = await this.getMoneroUtilModule();
+      const moneroApi = await getMoneroApi(this.networkId);
       const { privateSpendKey } = await this.getMoneroKeys();
 
-      return moneroUtilModule.privateSpendKeyToWords(privateSpendKey);
+      return moneroApi.privateSpendKeyToWords(privateSpendKey);
     }
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',
@@ -158,10 +133,10 @@ export default class Vault extends VaultBase {
   }
 
   override async addressFromBase(account: DBVariantAccount) {
-    const moneroUtilModule = await this.getMoneroUtilModule();
+    const moneroApi = await getMoneroApi(this.networkId);
     const { isTestnet } = await this.getNetwork();
     const [publicSpendKey, publicViewKey] = account.pub.split(',');
-    return moneroUtilModule.pubKeysToAddress(
+    return moneroApi.pubKeysToAddress(
       isTestnet ? MoneroNetTypeEnum.TestNet : MoneroNetTypeEnum.MainNet,
       Number(account.path.split('/').pop()) !== 0,
       Buffer.from(publicSpendKey, 'hex'),

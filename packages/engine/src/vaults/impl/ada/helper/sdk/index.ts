@@ -1,4 +1,4 @@
-const getCardanoApi = async () => {
+const getCardanoApi = async (networkId: string) => {
   const Loader = await import('@onekeyfe/cardano-coin-selection');
   return {
     composeTxPlan: Loader.onekeyUtils.composeTxPlan,
@@ -12,6 +12,6 @@ const getCardanoApi = async () => {
 /**
  * Web SDK is always successful
  */
-const ensureSDKReady = async () => Promise.resolve(true);
+const ensureSDKReady = async (networkId: string) => Promise.resolve(true);
 
 export { getCardanoApi, ensureSDKReady };
