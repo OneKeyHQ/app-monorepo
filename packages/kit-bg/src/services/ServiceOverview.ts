@@ -76,6 +76,9 @@ class ServiceOverview extends ServiceBase {
       activeNetworkId: networkId,
       activeWalletId,
     } = appSelector((s) => s.general);
+    if (!activeWalletId || !activeAccountId) {
+      return;
+    }
 
     const account = await serviceAccount.getAccount({
       walletId: activeWalletId || '',

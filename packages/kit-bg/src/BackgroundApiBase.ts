@@ -86,7 +86,16 @@ function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {
 @backgroundClass()
 class BackgroundApiBase implements IBackgroundApiBridge {
   constructor() {
+    this.cycleDepsCheck();
     this._initBackgroundPersistor();
+  }
+
+  cycleDepsCheck() {
+    if (!this.persistor || !this.store || !this.appSelector) {
+      const msg = `background cycle deps ERROR: redux store failed, some reducer may reference backgroundApiProxy`;
+      alert(msg);
+      throw new Error(msg);
+    }
   }
 
   persistor = persistor;
