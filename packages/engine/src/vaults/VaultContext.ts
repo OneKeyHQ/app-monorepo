@@ -7,7 +7,6 @@ import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
 } from '../managers/account';
-import { parseNetworkId } from '../managers/network';
 import { AccountType } from '../types/account';
 
 import type { Engine } from '../index';

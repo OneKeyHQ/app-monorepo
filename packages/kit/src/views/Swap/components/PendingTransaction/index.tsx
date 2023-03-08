@@ -88,6 +88,19 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
             },
           }),
         );
+        const confirmTime = await SwapQuoter.client.getTxConfirmTime(tx);
+        if (confirmTime) {
+          backgroundApiProxy.dispatch(
+            updateTransaction({
+              accountId: tx.accountId,
+              networkId: tx.networkId,
+              hash: tx.hash,
+              transaction: {
+                confirmedTime: Number(confirmTime),
+              },
+            }),
+          );
+        }
       }
     }
     // eslint-disable-next-line

@@ -257,6 +257,10 @@ export interface SerializableTransactionReceipt {
   logs?: TransactionLog[];
 }
 
+export interface SerializableBlockReceipt {
+  timestamp: string;
+}
+
 export type TransactionStatus = 'pending' | 'failed' | 'canceled' | 'sucesss';
 export type TransactionType = 'approve' | 'swap';
 
@@ -324,6 +328,7 @@ export interface SwftcTransactionReceipt {
   instantRate: string;
   refundDepositTxid: string;
   transactionId?: string;
+  dealFinishTime?: string;
 }
 
 export type ISlippageMode = 'auto' | 'preset' | 'custom';
