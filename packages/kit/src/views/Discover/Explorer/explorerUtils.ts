@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { appSelector } from '../../../store';
 import { addWebTab, homeTab } from '../../../store/reducers/webTabs';
 
@@ -224,9 +225,7 @@ export function resumeDappInteraction(id?: string) {
 }
 
 export const addNewWebTab = (tabData?: Partial<WebTab>) => {
-  const backgroundApiProxy =
-    require('@onekeyhq/kit/src/background/instance/backgroundApiProxy') as typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
-  const { dispatch } = backgroundApiProxy.default;
+  const { dispatch } = backgroundApiProxy;
   dispatch(
     addWebTab({
       ...homeTab,
