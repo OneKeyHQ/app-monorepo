@@ -115,7 +115,8 @@ function BehindTheSceneCreatingWallet({
     } catch (e: any) {
       debugLogger.common.error(e);
       if (navigation.canGoBack?.() && entry === 'walletSelector') {
-        setTimeout(() => navigation.goBack());
+        debugLogger.common.info('go back when entry is wallet selector');
+        setTimeout(() => navigation.goBack(), 300);
       }
       const { className, message, data } = e || {};
       if (className === OneKeyErrorClassNames.OneKeyAlreadyExistWalletError) {
