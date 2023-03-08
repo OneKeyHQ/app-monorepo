@@ -106,4 +106,14 @@ export default class Vault extends VaultBtcFork {
     }
     return accountNameInfo;
   }
+
+  override async getAccountNameInfosByImportedOrWatchingCredential(
+    input: string,
+  ): Promise<AccountNameInfo[]> {
+    if (input.startsWith('xpub') || input.startsWith('xprv')) {
+      const accountNameInfo = getAccountNameInfoByImpl(IMPL_BTC);
+      return Promise.resolve([accountNameInfo.BIP86, accountNameInfo.BIP44]);
+    }
+    return Promise.resolve([]);
+  }
 }

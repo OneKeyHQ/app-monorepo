@@ -279,6 +279,7 @@ export type IPrepareWatchingAccountsParams = {
   target: string;
   name: string;
   accountIdPrefix: typeof WALLET_TYPE_WATCHING | typeof WALLET_TYPE_EXTERNAL;
+  template?: string;
 };
 export type IPrepareImportedAccountsParams = {
   privateKey: Buffer;

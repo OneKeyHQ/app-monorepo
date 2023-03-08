@@ -1087,12 +1087,14 @@ class Engine {
     name,
     walletType,
     checkExists,
+    template,
   }: {
     networkId: string;
     address: string; // address
     name: string;
     walletType: typeof WALLET_TYPE_WATCHING | typeof WALLET_TYPE_EXTERNAL;
     checkExists?: boolean;
+    template?: string;
   }): Promise<Account> {
     // throw new Error('sample test error');
     // Add an watching account. Raise an error if account already exists.
@@ -1106,6 +1108,7 @@ class Engine {
       target: address,
       name,
       accountIdPrefix: walletType,
+      template,
     });
 
     if (checkExists) {
