@@ -248,6 +248,9 @@ export interface TransactionLog {
 export interface SerializableTransactionReceipt {
   to: string;
   from: string;
+  gasUsed: string;
+  cumulativeGasUsed: string;
+  effectiveGasPrice: string;
   contractAddress: string;
   transactionIndex: number;
   blockHash: string;

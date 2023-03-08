@@ -10,8 +10,10 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { QuoterType } from '../typings';
 import {
+  calculateNetworkFee,
   convertBuildParams,
   convertParams,
+  div,
   getTokenAmountValue,
   isEvmNetworkId,
   multiply,
@@ -109,6 +111,11 @@ type FetchQuoteHttpLimit = {
 type FetchQuoteHttpResponse = {
   result: FetchQuoteHttpResult;
   limit?: FetchQuoteHttpLimit;
+};
+
+type BlockInfo = {
+  timestamp?: string;
+  networkFee?: string;
 };
 
 export class SwapQuoter {
@@ -553,7 +560,9 @@ export class SwapQuoter {
     }
   }
 
-  async getTxConfirmTime(tx: TransactionDetails) {
+  async getTxConfirmedBlockInfo(
+    tx: TransactionDetails,
+  ): Promise<BlockInfo | undefined> {
     if (tx.tokens) {
       const { to } = tx.tokens;
       if (isEvmNetworkId(to.networkId)) {
@@ -567,6 +576,19 @@ export class SwapQuoter {
           },
         )) as SerializableTransactionReceipt | undefined;
         if (result) {
+          const txBlockInfo: BlockInfo = {};
+          if (result.gasUsed) {
+            const network = await backgroundApiProxy.engine.getNetwork(
+              tx.networkId,
+            );
+            txBlockInfo.networkFee = calculateNetworkFee(
+              {
+                limit: result.gasUsed,
+                price: div(result.effectiveGasPrice, 10 ** 9),
+              },
+              network,
+            );
+          }
           if (result.blockHash) {
             const blockInfo = (await backgroundApiProxy.serviceNetwork.rpcCall(
               to.networkId,
@@ -577,12 +599,14 @@ export class SwapQuoter {
             )) as SerializableBlockReceipt | undefined;
             if (blockInfo?.timestamp) {
               const tm = new BigNumber(blockInfo.timestamp);
-              return tm.multipliedBy(1000).toFixed();
+              txBlockInfo.timestamp = tm.multipliedBy(1000).toFixed();
             }
           }
+          return txBlockInfo;
         }
       }
     }
+    return undefined;
   }
 
   async swftModifyTxId(orderId: string, depositTxid: string) {
