@@ -1082,18 +1082,22 @@ class ServiceAccount extends ServiceBase {
     const activeWalletId = appSelector((s) => s.general.activeWalletId);
 
     const accounts = new Set<Account>();
+    const removeWalletIds = new Set<string>();
 
     const pendingDelete = await engine.getWalletByDeviceId(deviceId);
+
     if (pendingDelete) {
-      pendingDelete.forEach(async (wallet, index) => {
+      for (const wallet of pendingDelete) {
         const pendingDeleteAccount = await engine.getAccounts(wallet.accounts);
         pendingDeleteAccount.forEach((account) => accounts.add(account));
+
+        removeWalletIds.add(wallet.id);
         await engine.removeWallet(wallet.id, '');
         timelinePerfTrace.mark({
           name: ETimelinePerfNames.removeWallet,
-          title: `ServiceAccount.removeWalletAndDevice >> engine.removeWallet  ${index}`,
+          title: `ServiceAccount.removeWalletAndDevice >> engine.removeWallet  ${wallet.id}`,
         });
-      });
+      }
     }
 
     timelinePerfTrace.mark({
@@ -1107,7 +1111,7 @@ class ServiceAccount extends ServiceBase {
         this.postWalletRemoved({
           accounts: [...accounts],
           activeWalletId,
-          removedWalletId: [walletId],
+          removedWalletId: [...removeWalletIds],
         }),
       600,
     );
