@@ -110,7 +110,9 @@ function BehindTheSceneCreatingWallet({
       return true;
     } catch (e: any) {
       debugLogger.common.error(e);
-      // safeGoBack();
+      if (navigation.canGoBack?.()) {
+        navigation.goBack();
+      }
       const { className, message, data } = e || {};
       if (className === OneKeyErrorClassNames.OneKeyAlreadyExistWalletError) {
         setTimeout(() => {
@@ -150,6 +152,7 @@ function BehindTheSceneCreatingWallet({
     forceVisibleUnfocused,
     onPressOnboardingFinished,
     intl,
+    navigation,
   ]);
 
   const startCreatingHDWallet = useCallback(async () => {
