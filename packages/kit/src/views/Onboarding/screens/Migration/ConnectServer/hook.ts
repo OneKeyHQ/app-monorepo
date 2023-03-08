@@ -8,8 +8,6 @@ import backgroundApiProxy from '../../../../../background/instance/backgroundApi
 import { ValidationFields } from '../../../../../components/Protected';
 import useLocalAuthenticationModal from '../../../../../hooks/useLocalAuthenticationModal';
 
-import { showMigrateDataModal } from './MigrateDataModal';
-
 function isEmptyData(data: PublicBackupData) {
   let empty = true;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -67,26 +65,4 @@ export function useExportData() {
   );
 
   return { exportDataRequest };
-}
-
-export function useConnectServer() {
-  const { serviceMigrate } = backgroundApiProxy;
-
-  const connectServer = useCallback(
-    async (serverAddress: string) => {
-      const serverInfo = await serviceMigrate.connectServer(serverAddress);
-
-      if (serverInfo) {
-        showMigrateDataModal({
-          serverInfo,
-          serverAddress,
-        });
-        return true;
-      }
-      return false;
-    },
-    [serviceMigrate],
-  );
-
-  return { connectServer };
 }

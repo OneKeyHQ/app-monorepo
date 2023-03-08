@@ -22,13 +22,14 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../errors';
-import { getNetworkImpl } from '../managers/network';
+import { getNetworkImpl } from '../managers/network.utils';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '../types/wallet';
 
+import { createVaultSettings } from './factory.createVaultSettings';
 import VaultHelperAda from './impl/ada/VaultHelper';
 import VaultHelperAlgo from './impl/algo/VaultHelper';
 import VaultHelperAptos from './impl/apt/VaultHelper';
@@ -50,89 +51,9 @@ import VaultHelperTron from './impl/tron/VaultHelper';
 import VaultHelperXrp from './impl/xrp/VaultHelper';
 
 import type { KeyringBase } from './keyring/KeyringBase';
-import type {
-  IVaultFactoryOptions,
-  IVaultOptions,
-  IVaultSettings,
-} from './types';
+import type { IVaultFactoryOptions, IVaultOptions } from './types';
 import type { VaultBase } from './VaultBase';
 import type { VaultHelperBase } from './VaultHelperBase';
-
-export function createVaultSettings(options: {
-  networkId?: string;
-  impl?: string;
-}): IVaultSettings {
-  if (!options.impl && !options.networkId) {
-    throw new Error('networkId and impl require at least one parameter');
-  }
-  let { impl } = options;
-  if (options.networkId) {
-    impl = getNetworkImpl(options.networkId);
-  }
-
-  if (impl === IMPL_EVM) {
-    return require('./impl/evm/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_NEAR) {
-    return require('./impl/near/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_CFX) {
-    return require('./impl/cfx/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_BTC) {
-    return require('./impl/btc/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_TBTC) {
-    return require('./impl/tbtc/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_STC) {
-    return require('./impl/stc/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_SOL) {
-    return require('./impl/sol/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_TRON) {
-    return require('./impl/tron/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_APTOS) {
-    return require('./impl/apt/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_DOGE) {
-    return require('./impl/doge/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_LTC) {
-    return require('./impl/ltc/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_ALGO) {
-    return require('./impl/algo/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_BCH) {
-    return require('./impl/bch/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_XRP) {
-    return require('./impl/xrp/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_COSMOS) {
-    return require('./impl/cosmos/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_ADA) {
-    return require('./impl/ada/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_SUI) {
-    return require('./impl/sui/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_FIL) {
-    return require('./impl/fil/settings').default as IVaultSettings;
-  }
-  if (impl === IMPL_DOT) {
-    return require('./impl/dot/settings').default as IVaultSettings;
-  }
-  throw new OneKeyInternalError(
-    `VaultSettings not found for: networkId=${options.networkId ?? ''}, impl=${
-      impl ?? ''
-    }`,
-  );
-}
 
 export async function createVaultHelperInstance(
   options: IVaultFactoryOptions,

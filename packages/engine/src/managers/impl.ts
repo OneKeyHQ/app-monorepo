@@ -45,7 +45,7 @@ import {
 
 import { NotImplemented } from '../errors';
 import { AccountType } from '../types/account';
-import { createVaultSettings } from '../vaults/factory';
+import { createVaultSettings } from '../vaults/factory.createVaultSettings';
 
 import type { DBAccount } from '../types/account';
 import type { AccountNameInfo } from '../types/network';
