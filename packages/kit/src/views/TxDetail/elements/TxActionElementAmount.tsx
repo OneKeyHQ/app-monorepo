@@ -13,32 +13,46 @@ import { TxActionElementPressable } from './TxActionElementPressable';
 
 import type { ITxActionAmountProps } from '../types';
 
+export function TxActionAmountMetaDataWithDirection(
+  direction?: IDecodedTxDirection,
+) {
+  let sign = '';
+  let color: string | undefined = 'text-default';
+  if (
+    direction === IDecodedTxDirection.SELF ||
+    direction === IDecodedTxDirection.OUT
+  ) {
+    sign = '-';
+    color = 'text-default';
+  }
+  if (direction === IDecodedTxDirection.IN) {
+    sign = '+';
+    color = 'text-success';
+  }
+  return {
+    sign,
+    color,
+  };
+}
+
 export function TxActionElementAmount(props: ITxActionAmountProps) {
   const { direction, amount, symbol, onPress, decimals, subText, ...others } =
     props;
-  const directionMeta = useMemo(() => {
-    let sign = '';
-    let color: string | undefined = 'text-default';
-    if (
-      direction === IDecodedTxDirection.SELF ||
-      direction === IDecodedTxDirection.OUT
-    ) {
-      sign = '-';
-      color = 'text-default';
-    }
-    if (direction === IDecodedTxDirection.IN) {
-      sign = '+';
-      color = 'text-success';
-    }
-    return {
-      sign,
-      color,
-    };
-  }, [direction]);
+  const directionMeta = useMemo(
+    () => TxActionAmountMetaDataWithDirection(direction),
+    [direction],
+  );
 
-  const amountBN = useMemo(() => new BigNumber(amount), [amount]);
+  const amountBN = useMemo(() => {
+    if (amount) {
+      return new BigNumber(amount);
+    }
+  }, [amount]);
 
   const amountText = useMemo((): string => {
+    if (!amountBN || !amount) {
+      return '';
+    }
     if (!isNil(decimals) && !amountBN.isNaN()) {
       return (
         formatBalanceDisplay(amount, '', {

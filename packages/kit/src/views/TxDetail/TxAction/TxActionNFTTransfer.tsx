@@ -1,19 +1,27 @@
+import { useMemo } from 'react';
+
+import { useNavigation } from '@react-navigation/native';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Box, HStack, Text } from '@onekeyhq/components';
+import { HStack, Icon, ListItem, Text } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import type { IDecodedTxAction } from '@onekeyhq/engine/src/vaults/types';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
 } from '@onekeyhq/engine/src/vaults/types';
+import { CollectiblesModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
 
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { TxDetailActionBox } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';
-import { TxStatusBarInList } from '../components/TxStatusBar';
 import { getTxActionElementAddressWithSecurityInfo } from '../elements/TxActionElementAddress';
-import { TxActionElementAmountNormal } from '../elements/TxActionElementAmount';
-import { TxActionElementNFT } from '../elements/TxActionElementNFT';
+import {
+  TxActionAmountMetaDataWithDirection,
+  TxActionElementAmountNormal,
+} from '../elements/TxActionElementAmount';
 import {
   TxActionElementTitleHeading,
   TxActionElementTitleNormal,
@@ -29,64 +37,75 @@ import type {
 
 const NOBODY = '0x0000000000000000000000000000000000000000';
 
-function getTitleInfo({
+export function getTitleInfo({
   type,
   send,
   receive,
   account,
+  from,
 }: {
   type: IDecodedTxActionType;
   send: string;
   receive: string;
   account: string;
+  from: string;
 }): ITxActionMetaTitle | undefined {
   if (send === account && receive === NOBODY) {
     return {
-      title: 'Burn',
+      titleKey: 'form_burn_nft',
     };
   }
-  if (send === NOBODY && receive === account) {
+  if (type === IDecodedTxActionType.NFT_MINT) {
+    if (from.toLowerCase() !== receive.toLowerCase()) {
+      return {
+        titleKey: 'form_receive_nft',
+      };
+    }
     return {
-      title: 'Mint',
+      titleKey: 'form_mint_nft',
     };
   }
   if (type === IDecodedTxActionType.NFT_SALE) {
-    if (send === account) {
-      return {
-        titleKey: 'action__sell',
-      };
-    }
-    if (receive === account) {
-      return {
-        titleKey: 'action__buy',
-      };
-    }
+    return {
+      titleKey: 'form_trade_nft',
+    };
   }
   if (type === IDecodedTxActionType.NFT_TRANSFER) {
     if (send === account) {
       return {
-        titleKey: 'action__send',
+        titleKey: 'form_send_nft',
       };
     }
     if (receive === account) {
       return {
-        titleKey: 'action__receive',
+        titleKey: 'form_receive_nft',
       };
     }
   }
   return undefined;
 }
 
-export function getTxActionNFTTransferInfo(props: ITxActionCardProps) {
-  const { action, decodedTx } = props;
-  const { nftTransfer } = action;
-  const account = decodedTx.owner;
+export function nftInfoFromAction(action: IDecodedTxAction) {
+  const { nftTransfer, nftTrade } = action;
+  if (action.type === IDecodedTxActionType.NFT_SALE) {
+    if (nftTrade) {
+      return nftTrade;
+    }
+  }
+  return nftTransfer;
+}
 
-  const amount = nftTransfer?.amount ?? '0';
-  const symbol =
-    nftTransfer?.asset.name ?? nftTransfer?.asset.contractName ?? '';
-  const send = nftTransfer?.send ?? '';
-  const receive = nftTransfer?.receive ?? '';
+export function getTxActionNFTInfo(props: ITxActionCardProps) {
+  const { action, decodedTx } = props;
+  const nftInfo = nftInfoFromAction(action);
+  const account = decodedTx.owner;
+  const amount = nftInfo?.amount ?? '0';
+  const symbol = nftInfo?.asset.name ?? nftInfo?.asset.contractName ?? '';
+  const send = nftInfo?.send ?? '';
+  const receive = nftInfo?.receive ?? '';
+  const from = nftInfo?.from ?? '';
+  const iconUrl = nftInfo?.asset.collection.logoUrl;
+
   const displayDecimals: number | undefined = 100;
 
   let direction = IDecodedTxDirection.OTHER;
@@ -105,9 +124,14 @@ export function getTxActionNFTTransferInfo(props: ITxActionCardProps) {
     direction === IDecodedTxDirection.OUT ||
     direction === IDecodedTxDirection.SELF ||
     direction === IDecodedTxDirection.OTHER;
-  const titleInfo = getTitleInfo({ type: action.type, send, receive, account });
+  const titleInfo = getTitleInfo({
+    type: action.type,
+    send,
+    receive,
+    account,
+    from,
+  });
 
-  const iconUrl = nftTransfer?.asset.collection.logoUrl;
   let iconInfo: ITxActionMetaIcon | undefined;
   if (iconUrl) {
     iconInfo = {
@@ -127,16 +151,17 @@ export function getTxActionNFTTransferInfo(props: ITxActionCardProps) {
     receive,
     isOut,
     action,
+    asset: nftInfo?.asset,
   };
 }
 
 export function TxActionNFTTransfer(props: ITxActionCardProps) {
-  const { action, meta, network } = props;
+  const { meta, network } = props;
   const intl = useIntl();
-  const { nftTransfer } = action;
-  const { symbol, send, receive, isOut } = getTxActionNFTTransferInfo(props);
+  const { symbol, send, receive, isOut, asset } = getTxActionNFTInfo(props);
   const detailContext = useTxDetailContext();
   const isCollapse = detailContext?.context.isCollapse;
+  const navigation = useNavigation();
 
   const details: ITxActionElementDetail[] = [
     {
@@ -179,19 +204,36 @@ export function TxActionNFTTransfer(props: ITxActionCardProps) {
   return (
     <TxDetailActionBox
       icon={
-        nftTransfer ? (
-          <NFTListImage
-            asset={nftTransfer.asset}
-            borderRadius="6px"
-            size={32}
-          />
+        asset ? (
+          <NFTListImage asset={asset} borderRadius="6px" size={32} />
         ) : undefined
       }
       title={titleView}
       content={
-        <Text typography="DisplayXLarge" mb="24px">
-          {symbol}
-        </Text>
+        <ListItem
+          px={0}
+          py="12px"
+          onPress={() => {
+            if (network && asset) {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Collectibles,
+                params: {
+                  screen: CollectiblesModalRoutes.NFTDetailModal,
+                  params: {
+                    asset,
+                    network,
+                    isOwner: false,
+                  },
+                },
+              });
+            }
+          }}
+        >
+          <Text numberOfLines={1} typography="DisplayXLarge">
+            {symbol}
+          </Text>
+          <Icon name="ChevronRightSolid" size={20} />
+        </ListItem>
       }
       showTitleDivider
       details={details}
@@ -200,35 +242,29 @@ export function TxActionNFTTransfer(props: ITxActionCardProps) {
 }
 
 export function TxActionNFTTransferT0(props: ITxActionCardProps) {
-  const { action, meta, decodedTx, historyTx } = props;
-  const { amount, symbol, send, receive, isOut, displayDecimals } =
-    getTxActionNFTTransferInfo(props);
-  const { nftTransfer } = action;
+  const { action, meta } = props;
+  const { amount, symbol, send, receive, isOut, asset } =
+    getTxActionNFTInfo(props);
+  const { color } = TxActionAmountMetaDataWithDirection(action.direction);
+  const amountBN = useMemo(() => new BigNumber(amount), [amount]);
 
-  const statusBar = (
-    <Box flexDirection="column" mt="8px">
-      {nftTransfer?.asset && (
-        <Box width="full" height="96px">
-          <TxActionElementNFT asset={nftTransfer?.asset} />
-        </Box>
-      )}
-      <TxStatusBarInList decodedTx={decodedTx} historyTx={historyTx} />
-    </Box>
-  );
   return (
     <TxListActionBox
       symbol={symbol}
-      footer={statusBar}
-      iconInfo={meta?.iconInfo}
+      icon={
+        asset ? (
+          <NFTListImage asset={asset} borderRadius="6px" size={32} />
+        ) : undefined
+      }
       titleInfo={meta?.titleInfo}
       content={
         <TxActionElementAmountNormal
           textAlign="right"
           justifyContent="flex-end"
-          amount={amount}
+          amount={amountBN.gt(1) ? amount : undefined}
           symbol={symbol}
-          decimals={displayDecimals}
-          direction={action.direction}
+          color={color}
+          direction={amountBN.gt(1) ? action.direction : undefined}
         />
       }
       subTitle={isOut ? shortenAddress(receive) : shortenAddress(send)}
