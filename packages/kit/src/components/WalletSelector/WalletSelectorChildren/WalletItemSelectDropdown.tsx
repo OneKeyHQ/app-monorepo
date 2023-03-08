@@ -11,6 +11,7 @@ import {
   Icon,
   IconButton,
   Menu,
+  ToastManager,
 } from '@onekeyhq/components';
 import type { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import type { IWallet } from '@onekeyhq/engine/src/types';
@@ -21,6 +22,7 @@ import { ValidationFields } from '@onekeyhq/kit/src/components/Protected';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useLocalAuthenticationModal from '@onekeyhq/kit/src/hooks/useLocalAuthenticationModal';
+import type { RootNavContainerRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
 import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
 import { OnekeyHardwareModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
@@ -34,12 +36,12 @@ import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { getHomescreenKeys } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
 import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
 import showDeviceAdvancedSettings from '@onekeyhq/kit/src/views/Hardware/Onekey/DeviceAdvancedSettingsBottomSheetModal';
+import HardwareLoadingDialog from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareConnectDialog';
 import ManagerWalletDeleteDialog from '@onekeyhq/kit/src/views/ManagerWallet/DeleteWallet';
 import type { DeleteWalletProp } from '@onekeyhq/kit/src/views/ManagerWallet/DeleteWallet';
 
 import { useHardwareWalletInfo } from '../WalletAvatar';
 
-import type { RootNavContainerRef } from '../../../provider/NavigationProvider';
 import type { TypeHardwareWalletInfo } from '../WalletAvatar';
 
 function HardwarePassphraseMenuOptions({
@@ -138,6 +140,7 @@ function HardwareMenuOptions({
   const { engine, serviceHardware } = backgroundApiProxy;
 
   const [showHomeScreenSetting, setShowHomeScreenSetting] = useState(false);
+  const [deviceConnectId, setDeviceConnectId] = useState<string | undefined>();
 
   const getModifyHomeScreenConfig = useCallback(
     async (connectId?: string) => {
@@ -153,10 +156,52 @@ function HardwareMenuOptions({
     [serviceHardware, hwInfo.hwWalletType],
   );
 
+  const checkFirmwareUpdate = useCallback(() => {
+    if (!deviceConnectId) return;
+
+    showOverlay((onCloseOverlay) => (
+      <HardwareLoadingDialog
+        onClose={onCloseOverlay}
+        onHandler={() =>
+          serviceHardware
+            .checkFirmwareUpdate(deviceConnectId)
+            .then((firmware) => {
+              if (firmware) {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.HardwareUpdate,
+                  params: {
+                    screen: HardwareUpdateModalRoutes.HardwareUpdateInfoModel,
+                    params: {
+                      walletId: wallet?.id ?? '',
+                    },
+                  },
+                });
+              } else {
+                ToastManager.show(
+                  {
+                    title: intl.formatMessage({
+                      id: 'msg__the_current_version_is_the_latest',
+                    }),
+                  },
+                  { type: 'success' },
+                );
+              }
+            })
+            .catch((e) => {
+              setTimeout(() => {
+                deviceUtils.showErrorToast(e);
+              }, 500);
+            })
+        }
+      />
+    ));
+  }, [deviceConnectId, intl, navigation, serviceHardware, wallet?.id]);
+
   useEffect(() => {
     (async () => {
       try {
         const device = await engine.getHWDeviceByWalletId(wallet.id);
+        setDeviceConnectId(device?.mac);
         await getModifyHomeScreenConfig(device?.mac);
       } catch (err: any) {
         if (navigation?.canGoBack?.()) {
@@ -272,7 +317,10 @@ function HardwareMenuOptions({
           {intl.formatMessage({ id: 'action__update_available' })}
         </Menu.CustomItem>
       ) : (
-        <Menu.CustomItem icon="MagnifyingGlassMini">
+        <Menu.CustomItem
+          icon="MagnifyingGlassMini"
+          onPress={checkFirmwareUpdate}
+        >
           {intl.formatMessage({ id: 'form__check_for_updates' })}
         </Menu.CustomItem>
       )}

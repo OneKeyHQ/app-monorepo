@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, CheckBox, Dialog, Input } from '@onekeyhq/components';
+import { CheckBox, Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
