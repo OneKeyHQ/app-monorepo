@@ -8,7 +8,7 @@ import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import type { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../../hooks';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   CreateAccountModalRoutes,
@@ -36,7 +36,7 @@ export function useCreateAccountInWallet({
   isFromAccountSelector?: boolean;
 }) {
   const { engine } = backgroundApiProxy;
-  const navigation = useNavigation();
+  const navigation = useAppNavigation();
 
   const intl = useIntl();
   const { connectAndCreateExternalAccount } =
@@ -134,7 +134,11 @@ export function useCreateAccountInWallet({
       } catch (e) {
         deviceUtils.showErrorToast(e);
       } finally {
-        navigation.getParent()?.goBack?.();
+        if (navigation.getParent()) {
+          navigation.getParent()?.goBack?.();
+        } else {
+          navigation.goBack?.();
+        }
       }
     },
     [walletAndNetworkInfo, walletId, navigation],
