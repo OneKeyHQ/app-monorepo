@@ -12,6 +12,7 @@ import { getFiatEndpoint } from '../endpoint';
 import { getPresetNetworks, networkIsPreset } from '../presets';
 
 import { getAccountNameInfoByImpl, implToCoinTypes } from './impl';
+import { getNetworkImpl } from './network.utils';
 
 import type {
   AddEVMNetworkParams,
@@ -192,13 +193,6 @@ function parseNetworkId(networkId: string): {
     impl,
     chainId,
   };
-}
-
-// getNetworkImplFromNetworkId
-// getImplFromNetworkId
-function getNetworkImpl(networkId: string) {
-  const [impl] = networkId.split(SEPERATOR);
-  return impl;
 }
 
 function getChainIdFromNetworkId(networkId: string) {

@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
 
-import { useAccount } from '.';
-
 import B from 'bignumber.js';
 
+import { useAccount } from './useAccount';
 import { useAppSelector } from './useAppSelector';
 import {
   useAccountTokenValues,

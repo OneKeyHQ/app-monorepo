@@ -266,6 +266,9 @@ export default class ServiceBootstrap extends ServiceBase {
       ...pick(n, 'address', 'coinType', 'id', 'name', 'path', 'type'),
       walletType: getWalletTypeFromAccountId(n.id),
     }));
+    if (!accounts.length) {
+      return;
+    }
     fetchData(
       '/overview/syncAccounts',
       {
