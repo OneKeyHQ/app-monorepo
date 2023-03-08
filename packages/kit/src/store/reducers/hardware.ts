@@ -25,7 +25,6 @@ type InitialState = {
   passphraseOpened: string[]; // deviceId array, open passphrase device list
   lastCheckUpdateTime: Record<string, number>; // connectId -> time
   updateFirmwareStep: string;
-  verification?: Record<string, boolean>; // connectId -> verified
   pendingRememberWalletConnectId?: string;
 };
 const initialState: InitialState = {
@@ -33,7 +32,6 @@ const initialState: InitialState = {
   passphraseOpened: [],
   lastCheckUpdateTime: {},
   updateFirmwareStep: '',
-  verification: {},
   pendingRememberWalletConnectId: undefined,
 };
 export const hardwareSlice = createSlice({
@@ -82,15 +80,6 @@ export const hardwareSlice = createSlice({
     setUpdateFirmwareStep: (state, action: PayloadAction<string>) => {
       state.updateFirmwareStep = action.payload;
     },
-    setVerification: (
-      state,
-      action: PayloadAction<{ connectId: string; verified: boolean }>,
-    ) => {
-      state.verification = {
-        ...state.verification,
-        [action.payload.connectId]: action.payload.verified,
-      };
-    },
     setPendingRememberWalletConnectId: (
       state,
       action: PayloadAction<string | undefined>,
@@ -107,7 +96,6 @@ export const {
   closeHardwarePopup,
   updateDevicePassphraseOpenedState,
   setUpdateFirmwareStep,
-  setVerification,
   setPendingRememberWalletConnectId,
 } = hardwareSlice.actions;
 

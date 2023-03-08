@@ -25,7 +25,7 @@ import type {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
-import { setVerification } from '@onekeyhq/kit/src/store/reducers/hardware';
+import { setVerification } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { getTimeStamp, hexlify } from '@onekeyhq/kit/src/utils/helper';
 import { CERTIFICATE_URL } from '@onekeyhq/shared/src/config/appConfig';

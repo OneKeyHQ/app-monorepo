@@ -1,6 +1,7 @@
 // TODO packages/kit/src/components/Header/AccountSelectorChildren/RightHeader.tsx
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import {
@@ -207,8 +208,6 @@ function HardwareMenuOptions({
         if (navigation?.canGoBack?.()) {
           navigation.goBack();
         }
-
-        deviceUtils.showErrorToast(err, 'action__connection_timeout');
       }
     })();
   }, [

@@ -108,6 +108,8 @@ export type SettingsState = {
   accountDerivationDbMigrationVersion?: string;
   hardware?: {
     rememberPassphraseWallets?: string[];
+    verification?: Record<string, boolean>; // connectId -> verified
+    versions?: Record<string, string>; // connectId -> version
   };
 };
 
@@ -175,6 +177,8 @@ const initialState: SettingsState = {
   accountDerivationDbMigrationVersion: '',
   hardware: {
     rememberPassphraseWallets: [], // walletId
+    verification: {}, // connectId -> verified
+    versions: {}, // connectId -> version
   },
 };
 
@@ -530,6 +534,30 @@ export const settingsSlice = createSlice({
         rememberPassphraseWallets: rememberWallets,
       };
     },
+    setVerification: (
+      state,
+      action: PayloadAction<{ connectId: string; verified: boolean }>,
+    ) => {
+      state.hardware = {
+        ...state.hardware,
+        verification: {
+          ...state.hardware?.verification,
+          [action.payload.connectId]: action.payload.verified,
+        },
+      };
+    },
+    setDeviceVersion: (
+      state,
+      action: PayloadAction<{ connectId: string; version: string }>,
+    ) => {
+      state.hardware = {
+        ...state.hardware,
+        versions: {
+          ...state.hardware?.versions,
+          [action.payload.connectId]: action.payload.version,
+        },
+      };
+    },
   },
 });
 
@@ -581,6 +609,8 @@ export const {
   setShowWebEmbedWebviewAgent,
   rememberPassphraseWallet,
   forgetPassphraseWallet,
+  setVerification,
+  setDeviceVersion,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

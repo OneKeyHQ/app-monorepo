@@ -51,7 +51,9 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   const navigation = useNavigation();
 
   const { serviceHardware } = backgroundApiProxy;
-  const deviceVerification = useAppSelector((s) => s.hardware.verification);
+  const deviceVerification = useAppSelector(
+    (s) => s.settings.hardware?.verification,
+  );
 
   const [deviceUUID, setDeviceUUID] = useState<string>('-');
   const [connectId, setConnectId] = useState<string>();
