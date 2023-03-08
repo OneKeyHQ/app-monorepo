@@ -284,6 +284,7 @@ export type IPrepareWatchingAccountsParams = {
 export type IPrepareImportedAccountsParams = {
   privateKey: Buffer;
   name: string;
+  template?: string;
 };
 export type IPrepareSoftwareAccountsParams = {
   password: string;

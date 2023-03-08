@@ -1052,6 +1052,7 @@ class Engine {
     networkId: string,
     credential: string,
     name?: string,
+    template?: string,
   ): Promise<Account> {
     await this.validator.validatePasswordStrength(password);
     const vault = await this.getWalletOnlyVault(networkId, 'imported');
@@ -1069,6 +1070,7 @@ class Engine {
     const [dbAccount] = await vault.keyring.prepareAccounts({
       privateKey,
       name: name || '',
+      template,
     });
 
     await this.dbApi.addAccountToWallet('imported', dbAccount, {

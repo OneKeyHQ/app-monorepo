@@ -1,7 +1,10 @@
 import { omit } from 'lodash';
 
 import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
-import { COINTYPE_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_TBTC,
+  IMPL_TBTC,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { getAccountNameInfoByImpl } from '../../../managers/impl';
 import Provider from '../btc/provider';
@@ -77,5 +80,15 @@ export default class Vault extends VaultBtcFork {
       return omit(accountNameInfo, 'BIP86');
     }
     return accountNameInfo;
+  }
+
+  override async getAccountNameInfosByImportedOrWatchingCredential(
+    input: string,
+  ): Promise<AccountNameInfo[]> {
+    if (input.startsWith('tpub') || input.startsWith('tprv')) {
+      const accountNameInfo = getAccountNameInfoByImpl(IMPL_TBTC);
+      return Promise.resolve([accountNameInfo.BIP86, accountNameInfo.BIP44]);
+    }
+    return Promise.resolve([]);
   }
 }

@@ -483,6 +483,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string,
     credential: string,
     name?: string,
+    template?: string,
   ) {
     const { engine } = this.backgroundApi;
     const account = await engine.addImportedAccount(
@@ -490,6 +491,7 @@ class ServiceAccount extends ServiceBase {
       networkId,
       credential,
       name,
+      template,
     );
 
     await this.postAccountAdded({

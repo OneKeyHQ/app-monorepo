@@ -63,6 +63,7 @@ export type IAddImportedAccountDoneModalParams = {
   privatekey: string;
   networkId: string;
   name: string;
+  template?: string;
   onSuccess?: (options: { account: Account }) => void;
   onFailure?: () => void;
 };

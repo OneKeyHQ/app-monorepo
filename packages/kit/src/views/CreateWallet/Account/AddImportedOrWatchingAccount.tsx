@@ -152,6 +152,7 @@ const AddImportedOrWatchingAccount = () => {
             privatekey: text,
             networkId: values.networkId,
             name,
+            template,
             onSuccess,
             onFailure,
           },
@@ -185,7 +186,7 @@ const AddImportedOrWatchingAccount = () => {
       text,
       onSuccess,
       onFailure,
-
+      defaultDerivationValue,
       intl,
     ],
   );
