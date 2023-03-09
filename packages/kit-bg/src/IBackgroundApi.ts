@@ -9,6 +9,7 @@ import type ProviderApiBase from './providers/ProviderApiBase';
 import type { ProviderApiWalletConnect } from './providers/ProviderApiWalletConnect';
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceAccountSelector from './services/ServiceAccountSelector';
+import type ServiceAddressbook from './services/ServiceAddressbook';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceBatchTransfer from './services/ServiceBatchTransfer';
 import type ServiceBootstrap from './services/ServiceBootstrap';
@@ -105,4 +106,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceHTTP: ServiceHTTP;
   serviceDerivationPath: ServiceDerivationPath;
   serviceFiatPay: ServiceFiatPay;
+  serviceAddressbook: ServiceAddressbook;
 }
