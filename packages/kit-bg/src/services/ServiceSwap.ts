@@ -35,6 +35,8 @@ import {
   setSwapChartMode,
   setSwapFeePresetIndex,
   updateTokenList,
+  setApprovalIssueTokens,
+  setWrapperTokens
 } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
 import type { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
 import type {
@@ -450,7 +452,7 @@ export default class ServiceSwap extends ServiceBase {
     const { data } = res;
     const actions: any[] = [];
     if (data) {
-      const { tokens, coingeckoIds, recommendedSlippage } = data;
+      const { tokens, coingeckoIds, recommendedSlippage, approvalIssueTokens, wrapperTokens } = data;
       if (tokens) {
         if (tokens && Array.isArray(tokens)) {
           const items = tokens.map((item) => ({
@@ -472,6 +474,16 @@ export default class ServiceSwap extends ServiceBase {
       }
       if (recommendedSlippage) {
         actions.push(setRecommendedSlippage(recommendedSlippage));
+      }
+      if (approvalIssueTokens && Array.isArray(approvalIssueTokens) && approvalIssueTokens.length > 0) {
+        actions.push(setApprovalIssueTokens(approvalIssueTokens))
+      }
+      if (wrapperTokens && Array.isArray(wrapperTokens) && wrapperTokens.length > 0) {
+        const data = wrapperTokens.reduce((result, item) => {
+          result[item.networkId] = item.address;
+          return result
+        }, {} as Record<string, string>);
+        actions.push(setWrapperTokens(data))
       }
     }
     if (actions.length > 0) {
