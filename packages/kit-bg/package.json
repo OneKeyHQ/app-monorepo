@@ -8,6 +8,7 @@
     "@onekeyhq/components": "*",
     "@openzeppelin/contracts": "^4.5.0",
     "@reduxjs/toolkit": "^1.6.2",
+    "@siddomains/sidjs": "^0.1.22",
     "@types/url-parse": "^1.4.8",
     "@unstoppabledomains/resolution": "^8.3.3",
     "date-fns": "^2.27.0",

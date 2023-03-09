@@ -1,3 +1,4 @@
+import SID, { getSidAddress } from '@siddomains/sidjs';
 import { Resolution } from '@unstoppabledomains/resolution';
 import { createInstance } from 'dotbit';
 import { filter, groupBy, map } from 'lodash';
@@ -99,6 +100,14 @@ export default class ServiceNameResolver extends ServiceBase {
         },
         resolver: this.resolveUnstoppableDomains.bind(this),
       },
+      {
+        pattern: /\.bnb$/,
+        shownSymbol: '.bnb',
+        supportImplsMap: {
+          'evm--*': ['eth', 'bsc', 'tbsc'],
+        },
+        resolver: this.resolveSIDDomains.bind(this),
+      },
     ];
     return NAME_RESOLVER;
   }
@@ -133,6 +142,8 @@ export default class ServiceNameResolver extends ServiceBase {
     'crypto.ATOM.address',
     'crypto.FET.version.FETCHAI.address',
   ];
+
+  private SIDSupportNetWork = ['eth', 'bsc', 'tbsc'];
 
   @backgroundMethod()
   async checkIsValidName(name: string) {
@@ -314,15 +325,51 @@ export default class ServiceNameResolver extends ServiceBase {
         const value = records[key];
         if (value?.length) {
           const subtype = key.replace('crypto.', '').replace('.address', '');
-          const resulet = {
+          const result = {
             subtype,
             value,
             type: 'address',
             key,
           };
-          names = [...names, resulet];
+          names = [...names, result];
         }
       });
+    } catch (e) {
+      return 'msg__network_request_failed';
+    }
+    return names;
+  }
+
+  async resolveSIDDomains(name: string) {
+    const { engine } = this.backgroundApi;
+    let names: ResolverNames[] = [];
+    try {
+      for (const net of this.SIDSupportNetWork) {
+        const chainOnlyVault = await engine.getChainOnlyVault(
+          Object.getOwnPropertyDescriptor(OnekeyNetwork, net)?.value,
+        );
+        const provider = await chainOnlyVault.getEthersProvider();
+        const chainId = await chainOnlyVault.getNetworkChainId();
+        const sidAddress = getSidAddress(chainId);
+        const sid = new SID({
+          provider,
+          sidAddress,
+        });
+        const sidName = sid.name(name);
+        const address = await sidName.getAddress();
+        if (
+          address &&
+          address !== '0x0000000000000000000000000000000000000000'
+        ) {
+          const result = {
+            subtype: net,
+            value: address,
+            type: 'address',
+            key: `address.${net}`,
+          };
+          names = [...names, result];
+        }
+      }
     } catch (e) {
       return 'msg__network_request_failed';
     }
