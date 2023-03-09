@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useMemo } from 'react';
 
+import { Divider } from '@onekeyhq/components';
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -62,6 +63,32 @@ const AccountSelectorWalletMenu: FC<
     });
   }, [navigation, walletId, networkId]);
 
+  const onPressBulkCopyAddresses = useCallback(() => {
+    setTimeout(() => {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.CreateAccount,
+        params: {
+          screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+          params: {
+            walletId,
+            onDone: (password) => {
+              setTimeout(() => {
+                navigation.replace(
+                  CreateAccountModalRoutes.BulkCopyAddresses as any,
+                  {
+                    walletId,
+                    networkId,
+                    password,
+                  },
+                );
+              }, 20);
+            },
+          },
+        },
+      });
+    });
+  }, [navigation, walletId, networkId]);
+
   const options = useMemo<IBaseMenuOptions>(
     () => [
       {
@@ -74,8 +101,14 @@ const AccountSelectorWalletMenu: FC<
         onPress: onPressManageAccount,
         icon: 'SquaresPlusMini',
       },
+      () => <Divider />,
+      {
+        id: 'title__bulk_copy_addresses',
+        onPress: onPressBulkCopyAddresses,
+        icon: 'TrashOutline',
+      },
     ],
-    [onPressCreateAccount, onPressManageAccount],
+    [onPressCreateAccount, onPressManageAccount, onPressBulkCopyAddresses],
   );
 
   return (
