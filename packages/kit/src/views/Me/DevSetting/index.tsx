@@ -18,6 +18,7 @@ import {
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import {
+  getCovalentApiEndpoint,
   getFiatEndpoint,
   getSocketEndpoint,
 } from '@onekeyhq/engine/src/endpoint';
@@ -215,7 +216,7 @@ export const DevSettingSection = () => {
         </Container.Item>
         <Container.Item
           title={intl.formatMessage({ id: 'action__test_onekey_service' })}
-          subDescribe={`范围: \n[token、价格、余额、推送] \n ${fiatEndpoint}\n ${getSocketEndpoint()}`}
+          subDescribe={`范围: \n[token、价格、余额、推送、历史记录] \n ${fiatEndpoint}\n ${getSocketEndpoint()} \n ${getCovalentApiEndpoint()}`}
           titleColor="text-critical"
         >
           <Switch
