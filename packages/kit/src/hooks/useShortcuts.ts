@@ -3,30 +3,33 @@ import { useEffect } from 'react';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ExplorerShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { TabRoutes } from '../routes/routesEnum';
 import { appSelector } from '../store';
+import { closeWebTab, setCurrentWebTab } from '../store/reducers/webTabs';
 import { isAtAppRootTab } from '../utils/routeUtils';
 import {
-  dAddNewWebTab,
-  dCloseWebTab,
-  dSetCurrentWebTab,
-} from '../views/Discover/Explorer/explorerActions';
-import { getWebviewWrapperRef } from '../views/Discover/Explorer/explorerUtils';
+  addNewWebTab,
+  getWebviewWrapperRef,
+} from '../views/Discover/Explorer/explorerUtils';
 
 export const useShortcuts = platformEnv.isDesktop
   ? () => {
       useEffect(() => {
         const handleShortcuts = (_e: any, data: ExplorerShortcutEvents) => {
           const isFocusedInDiscoverTab = isAtAppRootTab(TabRoutes.Discover);
+          const { dispatch } = backgroundApiProxy;
           if (isFocusedInDiscoverTab) {
             if (data === ExplorerShortcutEvents.NewTab) {
-              dAddNewWebTab({ isCurrent: false });
+              addNewWebTab({ isCurrent: false });
             } else if (data === ExplorerShortcutEvents.NewTabAndFocus) {
-              dAddNewWebTab();
+              addNewWebTab();
             } else if (data === ExplorerShortcutEvents.JumpToNextTab) {
               const tabs = appSelector((s) => s.webTabs.tabs);
               const curTabIndex = tabs.findIndex((tab) => tab.isCurrent);
-              dSetCurrentWebTab(tabs[(curTabIndex + 1) % tabs.length].id);
+              dispatch(
+                setCurrentWebTab(tabs[(curTabIndex + 1) % tabs.length].id),
+              );
             } else if (data === ExplorerShortcutEvents.GobackHistory) {
               try {
                 // @ts-ignore
@@ -44,7 +47,7 @@ export const useShortcuts = platformEnv.isDesktop
             } else if (data === ExplorerShortcutEvents.CloseTab) {
               const tabs = appSelector((s) => s.webTabs.tabs);
               if (tabs.length > 1) {
-                dCloseWebTab(tabs[tabs.length - 1].id);
+                dispatch(closeWebTab(tabs[tabs.length - 1].id));
               } else {
                 window.desktopApi.quitApp();
               }
