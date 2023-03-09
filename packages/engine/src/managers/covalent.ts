@@ -2,7 +2,6 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import camelcase from 'camelcase-keys';
 
-import { COVALENT_API_KEY } from '@onekeyhq/shared/src/config/appConfig';
 import debugCodes from '@onekeyhq/shared/src/debug/debugCodes';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -155,7 +154,7 @@ function getNftDetail(
   return axios
     .get<NftDetail>(request, {
       params: {
-        'key': COVALENT_API_KEY,
+        // 'key': COVALENT_API_KEY,
       },
     })
     .then((response) => {
@@ -407,7 +406,7 @@ function getTxHistories(
       params: {
         'page-number': pageNumber,
         'page-size': pageSize,
-        'key': COVALENT_API_KEY,
+        // 'key': COVALENT_API_KEY,
       },
     })
     .then(async (response) => {
@@ -878,7 +877,7 @@ async function fetchCovalentHistoryRaw({
       params: {
         'page-number': pageNumber,
         'page-size': pageSize,
-        'key': COVALENT_API_KEY,
+        // 'key': COVALENT_API_KEY,
         'contract-address': contract,
       },
     },
@@ -899,7 +898,7 @@ function getErc20TransferHistories(
       params: {
         'page-number': pageNumber,
         'page-size': pageSize,
-        'key': COVALENT_API_KEY,
+        // 'key': COVALENT_API_KEY,
         'contract-address': contract,
       },
     })
