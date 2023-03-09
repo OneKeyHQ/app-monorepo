@@ -124,6 +124,8 @@
   "action__erase_str_data": "محو بيانات {0}",
   "action__expand": "يوسع",
   "action__export": "يصدّر",
+  "action__export_addresses": "عناوين التصدير",
+  "action__export_file": "ملف التصدير",
   "action__export_private_key": "تصدير المفتاح الخاص",
   "action__fill_in": "أملأ",
   "action__find_an_address_by_path": "ابحث عن عنوان عن طريق المسار",
@@ -255,6 +257,7 @@
   "action__unlock": "الغاء القفل",
   "action__unstake": "نزع",
   "action__unsubscribe": "إلغاء الاشتراك",
+  "action__unwrap": "بسط",
   "action__update": "تحديث",
   "action__update_available": "التحديث متاح",
   "action__update_now": "تحديث الان",
@@ -283,6 +286,8 @@
   "action__view_recovery_seed": "مشاهدة عبارة الاسترداد",
   "action__visit": "يزور",
   "action__watch_lowercase": "راقب",
+  "action__wrap": "طَوّق",
+  "action__wrap_eth": "التفاف ETH",
   "action__yes_i_have": "نعم لدي",
   "action_copy_hash": "نسخ التجزئة",
   "action_retry": "أعد المحاولة",
@@ -353,7 +358,7 @@
   "content__allow_this_website_to_uppercase": "السماح لهذا الموقع:",
   "content__altcoin_pairs": "أزواج altcoin",
   "content__although_you_re_not_rich_as_elon": "على الرغم من أنك لست ثريًا مثل Elon ، إلا أنك تعرف بالضبط كيف تحشد مفتاحك الخاص.\n لذا فإن كل من Sat and Wei هو ملك لك حقًا.",
-  "content__amount": "مقدار",
+  "content__amount": "كمية",
   "content__amount_str": "المبلغ ( {0} )",
   "content__anti_rug_master": "سيد مكافحة البساط",
   "content__app_wallet_desc": "أضف محفظتك الصغيرة المعتادة.",
@@ -780,11 +785,12 @@
   "dialog__chain_already_existed_desc": "هل تريد تمكين هذه السلسلة؟",
   "dialog__delete_backup": "هل أنت متأكد أنك تريد حذف هذه النسخة الاحتياطية؟",
   "dialog__delete_backup_desc": "سيتم حذف هذا الملف نهائيًا من iCloud. تأكد من قيامك بتدوين عبارات الاسترداد حيث لن تتمكن من استعادة المحافظ بطريقة أخرى.",
-  "dialog__delete_hardware_passphrase_wallet_desc": "This will permanently delete your data. Ensure you have saved the passphrase of this hidden wallet.",
+  "dialog__delete_hardware_passphrase_wallet_desc": "سيؤدي هذا إلى حذف البيانات الخاصة بك بشكل دائم. تأكد من حفظ عبارة مرور هذه المحفظة المخفية.",
   "dialog__delete_hardware_wallet_desc": "سيؤدي هذا إلى حذف البيانات الخاصة بك بشكل دائم. ولكن لا يزال بإمكانك استعادتها من محفظة الأجهزة التي تم تحميل عبارة الاسترداد لهذه المحفظة.",
   "dialog__delete_wallet_desc": "تأكد من كتابة عبارة الاسترداد قبل حذفها. لن تتمكن من استرداد المحفظة بخلاف ذلك.",
-  "dialog__device_has_disabled_passphrase": "أوقف الجهاز عبارة المرور",
-  "dialog__device_has_disabled_passphrase_desc": "يمكنك تمكين عبارة المرور لاستخدام المحفظة المخفية.",
+  "dialog__device_has_desabled_passphrase_double_check": "لن أنسى عبارة المرور الخاصة بي",
+  "dialog__device_has_disabled_passphrase": "هل أنت متأكد من تمكين عبارة المرور؟",
+  "dialog__device_has_disabled_passphrase_desc": "كل محفظة مخفية لها عبارة المرور الخاصة بها. لا تنسى ذلك ، لأنه لا يمكن استرجاعه وستفقد الأموال بشكل دائم.",
   "dialog__device_has_enabled_passphrase": "قام الجهاز بتمكين عبارة المرور",
   "dialog__device_has_enabled_passphrase_desc": "يمكنك تعطيل عبارة المرور لاستخدام المحفظة القياسية.",
   "dialog__disabling_sync": "تعطيل المزامنة",
@@ -998,6 +1004,7 @@
   "form__dev_mode": "وضع المطور",
   "form__dev_platform_channel": "المنصات والقنوات",
   "form__dev_pre_update": "ترقية إصدار المعاينة",
+  "form__direct_wrap": "التفاف مباشر",
   "form__dominance": "هيمنة",
   "form__download_when_available": "قم بتنزيل التحديثات الجديدة عند توفرها",
   "form__drag_file_here": "إفلات الملف هنا",
@@ -1135,6 +1142,7 @@
   "form__modify_the_line_with_the_correct_format": "قم بتعديل الخط بالتنسيق الصحيح",
   "form__more_details": "المزيد من التفاصيل",
   "form__multiple_transactions": "معاملات متعددة",
+  "form__my_accounts": "حساباتي",
   "form__my_cryptos_uppercase": "التشفير الخاص بي",
   "form__my_tokens": "الرموز الخاصة بي",
   "form__my_wallet": "محفظتى",
@@ -1241,7 +1249,7 @@
   "form__rate": "معدل",
   "form__rate_our_app": "قيم تطبيقنا",
   "form__raw_desc": "التمهيد لمركز معلومات Web3 الشخصي الخاص بك من أكثر من 500 موجز ويب لـ RSS.",
-  "form__receiver_address_amount": "Reiceiver العنوان ، المبلغ",
+  "form__receiver_address_amount": "عنوان المستلم ، المبلغ",
   "form__receiver_address_token_id_amount": "عنوان المستلم ، معرف الرمز ، المبلغ",
   "form__receiving_address": "عنوان الاستلام",
   "form__recent_searched_uppercase": "تم البحث عنها مؤخرًا",
@@ -1283,6 +1291,7 @@
   "form__send_tokens": "إرسال الرموز",
   "form__sent": "لقد ارسلت",
   "form__service_fee": "رسوم الخدمة",
+  "form__set_range": "مجموعة مجموعة",
   "form__show_all": "عرض الكل",
   "form__show_path_and_link": "إظهار المسار والارتباط",
   "form__showing_str_out_of_str": "إظهار {0} من {1}",
@@ -1691,7 +1700,7 @@
   "msg__hardware_opened_passphrase": "يرجى إيقاف تشغيل عبارة المرور على جهازك لاستخدام المحفظة القياسية",
   "msg__hardware_polling_connect_timeout_error": "انتهت مهلة الاتصال ، يرجى التحقق من حالة OneKey Bridge وإعادة توصيل الأجهزة",
   "msg__hardware_status_connected": "متصل",
-  "msg__hardware_status_update_available": "Update Available",
+  "msg__hardware_status_update_available": "التحديث متاح",
   "msg__hardware_unknown_message_error": "البرنامج الثابت الحالي غير مدعوم ، يرجى محاولة الترقية.",
   "msg__hardware_user_cancel_error": "يقوم المستخدم بإلغاء العملية",
   "msg__hardware_verify_success": "البرامج الثابتة الرسمية",
@@ -1814,7 +1823,7 @@
   "msg__use_passphrase_enter_hint_not_forget": "لا تنس عبارة مرورك",
   "msg__use_passphrase_enter_hint_not_forget_dsc": "لا يمكن استرداد عبارات المرور وستفقد أموالك بشكل دائم",
   "msg__use_passphrase_remember_wallet": "دبوس",
-  "msg__use_passphrase_remember_wallet_dsc": "تأكد من عدم إزالة هذه المحفظة المخفية بعد قتل التطبيق",
+  "msg__use_passphrase_remember_wallet_dsc": "تأكد من عدم إزالة هذه المحفظة المخفية بعد إغلاق التطبيق",
   "msg__using_latest_release": "أنت تستخدم أحدث إصدار! 🎉",
   "msg__verification_failure": "فشل التحقق",
   "msg__wallet_already_exist": "المحفظة موجودة بالفعل.",
@@ -1836,7 +1845,7 @@
   "msg_insufficient_gas_fee": "رسوم الغاز غير كافية",
   "network__network": "شبكة",
   "network__networks": "الشبكات",
-  "onboarding__import_wallet_desc": "حدد طريقة لاستيراد محفظتك.",
+  "onboarding__import_wallet_desc": "اختر طريقة الاستيراد",
   "onboarding__import_wallet_with_keytag": "مع KeyTag",
   "onboarding__import_wallet_with_lite": "مع OneKey Lite",
   "onboarding__import_wallet_with_migrate": "الترحيل من تطبيق OneKey",
@@ -1871,6 +1880,7 @@
   "title__add_a_network": "أضف شبكة",
   "title__add_network": "اضافة شبكة",
   "title__add_rpc_node": "أضف عقدة RPC",
+  "title__add_rpc_node_desc": "السماح لهذا الموقع بإضافة عقدة RPC إلى قائمة عقدة RPC الخاصة بك.",
   "title__add_site_connection": "إضافة اتصال الموقع",
   "title__add_token": "أضف رمز",
   "title__adding_str": "إضافة {0}",
@@ -1898,6 +1908,7 @@
   "title__blockchain_explorer": "مستكشف Blockchain",
   "title__blockchain_explorer_desc": "ابحث عن عنوان أو عقد أو تجزئة txns أو الرموز المميزة.",
   "title__browser": "المستعرض",
+  "title__bulk_copy_addresses": "نسخ مجمعة للعناوين",
   "title__bulksender": "بولكسندر",
   "title__bulksender_desc": "Airdrop لعدة مستفيدين من حساب واحد.",
   "title__buy_onekey_hardware": "شراء أجهزة OneKey",
@@ -2080,9 +2091,9 @@
   "title__welcome_to_onekey_swap": "مرحبًا بك في OneKey Swap!",
   "title__welcome_to_onekey_swap_desc": "آمن وسريع والعثور على أفضل سعر.",
   "title__whats_new": "ما هو الجديد",
-  "title__you_ve_added_this_rpc_node_before": "لقد قمت بإضافة عقدة RPC هذه من قبل",
   "title__you_ve_added_this_rpc_node_desc": "هل تريد التبديل إلى عقدة RPC هذه؟",
   "title__you_ve_paused_the_transaction_generation": "لقد أوقفت إنشاء المعاملة مؤقتًا",
+  "title__youve_added_this_rpc_node": "لقد قمت بإضافة هذه العقدة RPC",
   "title_select_wallet": "حدد Wallet",
   "title_use_touchid_unlock": "استخدم TouchID Unlock",
   "transaction__approve_token_spend_limit": "الموافقة على حد الإنفاق {token}",

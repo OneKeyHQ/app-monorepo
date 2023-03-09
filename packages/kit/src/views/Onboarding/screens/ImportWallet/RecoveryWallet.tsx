@@ -54,9 +54,10 @@ const RecoveryWallet = () => {
     </Center>
   ) : (
     <>
+      {/* TODO:F remove the key onboarding__import_with_phrase */}
       <Layout
         disableAnimation={disableAnimation}
-        title={intl.formatMessage({ id: 'onboarding__import_with_phrase' })}
+        title="Import Recovery Phrase"
         secondaryContent={
           <SecondaryContent
             mode={mode}

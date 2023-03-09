@@ -120,10 +120,9 @@ const ImportWallet = () => {
     >
       <Box m={-2} flexDirection={{ base: 'column', sm: 'row' }} flexWrap="wrap">
         <ItemWrapper>
+          {/* TODO:F remove the key onboarding__import_wallet_with_recovery_phrase */}
           <OptionRecoveryPhrase
-            title={intl.formatMessage({
-              id: 'onboarding__import_wallet_with_recovery_phrase',
-            })}
+            title={intl.formatMessage({ id: 'title__recovery_phrase' })}
             onPress={() => {
               onPressRecoveryWallet('mnemonic');
             }}
@@ -131,48 +130,13 @@ const ImportWallet = () => {
         </ItemWrapper>
         <ItemWrapper>
           <OptionPrivateKey
-            title="With PrivateKey"
+            icon="KeyOutline"
+            title="Private Key"
             onPress={() => {
               onPressRecoveryWallet('imported');
             }}
           />
         </ItemWrapper>
-        <ItemWrapper>
-          <OptionAdress
-            title="With Address"
-            onPress={() => {
-              onPressRecoveryWallet('watching');
-            }}
-          />
-        </ItemWrapper>
-        {supportedNFC && (
-          <ItemWrapper>
-            <OptionOneKeyLite
-              title={intl.formatMessage({
-                id: 'onboarding__import_wallet_with_lite',
-              })}
-              onPress={onPressOneKeyLite}
-            />
-          </ItemWrapper>
-        )}
-        <ItemWrapper>
-          <OptionKeyTag
-            title={intl.formatMessage({
-              id: 'onboarding__import_wallet_with_keytag',
-            })}
-            onPress={onPressKeyTag}
-          />
-        </ItemWrapper>
-        {MigrationEnable && (
-          <ItemWrapper>
-            <OptionMigration
-              title={intl.formatMessage({
-                id: 'onboarding__import_wallet_with_migrate',
-              })}
-              onPress={onPressMigration}
-            />
-          </ItemWrapper>
-        )}
         {(platformEnv.isNativeIOS || platformEnv.isNativeIOSPad) && (
           <ItemWrapper>
             <OptioniCloud
@@ -183,6 +147,40 @@ const ImportWallet = () => {
             />
           </ItemWrapper>
         )}
+        {/* TODO:F remove the key onboarding__import_wallet_with_migrate */}
+        {MigrationEnable && (
+          <ItemWrapper>
+            <OptionMigration
+              title={intl.formatMessage({
+                id: 'title__migration',
+              })}
+              onPress={onPressMigration}
+            />
+          </ItemWrapper>
+        )}
+        {supportedNFC && (
+          <ItemWrapper>
+            <OptionOneKeyLite
+              title={intl.formatMessage({
+                id: 'onboarding__import_wallet_with_lite',
+              })}
+              onPress={onPressOneKeyLite}
+            />
+          </ItemWrapper>
+        )}
+        {/* TODO:F remove the key onboarding__import_wallet_with_keytag */}
+        <ItemWrapper>
+          <OptionKeyTag title="KeyTag" onPress={onPressKeyTag} />
+        </ItemWrapper>
+        <ItemWrapper>
+          <OptionAdress
+            icon="EyeOutline"
+            title={intl.formatMessage({ id: 'wallet__watched_accounts' })}
+            onPress={() => {
+              onPressRecoveryWallet('watching');
+            }}
+          />
+        </ItemWrapper>
       </Box>
     </Layout>
   );
