@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access */
 import { memo, useCallback, useEffect } from 'react';
 
-import { Box } from '@onekeyhq/components';
+import { Center, Text } from '@onekeyhq/components';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -220,7 +220,11 @@ function CardanoProvider() {
     };
   }, [handler]);
 
-  return <Box />;
+  return (
+    <Center p={4} bgColor="surface-warning-subdued" minH="100%">
+      <Text>Cardano web-embed Webview Agent</Text>
+    </Center>
+  );
 }
 
 export default memo(CardanoProvider);

@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import {
   forwardRef,
   useCallback,
@@ -13,6 +14,11 @@ import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebView/WebViewWeb
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import {
+  useIsDevModeEnabled,
+  useShowWebEmbedWebviewAgent,
+} from '../../hooks/useSettingsDevMode';
+
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 export const CardanoWebEmbedView = forwardRef(
@@ -26,7 +32,7 @@ export const CardanoWebEmbedView = forwardRef(
   ) => {
     const webviewRef = useRef<IWebViewWrapperRef | null>(null);
     const [isWebviewReady, setIsWebViewReady] = useState(false);
-
+    const isWebviewVisible = useShowWebEmbedWebviewAgent();
     useImperativeHandle(ref, () => ({
       innerRef: webviewRef.current,
       checkWebViewReady: () => isWebviewReady,
@@ -55,8 +61,26 @@ export const CardanoWebEmbedView = forwardRef(
 
     const routePath = '/cardano';
 
+
+    let boxProps: ComponentProps<typeof Box> = {
+      height: '0px',
+      width: '0px',
+    };
+    if (isWebviewVisible) {
+      boxProps = {
+        height: '100px',
+        width: '300px',
+        zIndex: 9999,
+        position: 'absolute',
+        top: '100px',
+        left: '20px',
+        borderColor: 'border-default',
+        borderWidth: '4px',
+      };
+    }
+
     return (
-      <Box height="0px" width="0px">
+      <Box {...boxProps}>
         <WebViewWebEmbed
           onWebViewRef={onWebViewRef}
           onContentLoaded={() => {
@@ -69,7 +93,7 @@ export const CardanoWebEmbedView = forwardRef(
           // *** use remote url
           src={
             platformEnv.isDev
-              ? `http://192.168.50.36:3008/#${routePath}`
+              ? `http://localhost:3008/#${routePath}`
               : undefined
           }
         />

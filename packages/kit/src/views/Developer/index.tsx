@@ -551,6 +551,15 @@ export const Debug = () => {
             </Pressable>
             <Pressable
               {...pressableProps}
+              onPress={() => {
+                // openUrlByWebview('https://www.bing.com');
+                openUrlByWebview('http://localhost:3008');
+              }}
+            >
+              <Typography.Body1>Open web-embed</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
               onPress={() => handleBatchTransfer()}
             >
               <Typography.Body1>Batch Transfer ETH 0</Typography.Body1>

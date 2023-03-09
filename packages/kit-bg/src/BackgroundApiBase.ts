@@ -36,7 +36,7 @@ import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
 const PRIVATE_WHITE_LIST_ORIGIN = [
   'https://onekey.so',
-  'http://localhost:8081', // iOS DEV localhost for web-embed
+  'http://localhost:3008', // iOS simulator DEV localhost for web-embed
   'null', // Android DEV localhost for web-embed. url like file://
   ...(platformEnv.isDev
     ? [
