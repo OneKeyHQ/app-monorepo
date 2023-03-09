@@ -32,7 +32,7 @@ enum CardanoEvent {
   dAppSignData = 'Cardano_DAppSignData',
 }
 
-function CardanoProvider() {
+function WebEmbedWebviewAgentCardano() {
   const sendResponse = useCallback((promiseId: number, result: any) => {
     window.$onekey.$private.request({
       method: ProvideResponseMethod,
@@ -43,7 +43,7 @@ function CardanoProvider() {
 
   const handler = useCallback(
     async (payload: IJsonRpcRequest) => {
-      console.log('CardanoProvider Recive Message: ', payload);
+      console.log('WebEmbedWebviewAgentCardano Recive Message: ', payload);
       console.log('params: ', JSON.stringify(payload.params));
       const { method, params } = payload;
 
@@ -237,4 +237,4 @@ function CardanoProvider() {
   );
 }
 
-export default memo(CardanoProvider);
+export default memo(WebEmbedWebviewAgentCardano);

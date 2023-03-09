@@ -5,7 +5,6 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
-  useState,
 } from 'react';
 
 import { Box } from '@onekeyhq/components';
@@ -31,11 +30,11 @@ export const CardanoWebEmbedView = forwardRef(
     ref: any,
   ) => {
     const webviewRef = useRef<IWebViewWrapperRef | null>(null);
-    const [isWebviewReady, setIsWebViewReady] = useState(false);
+    const isWebviewReadyRef = useRef(false);
     const isWebviewVisible = useShowWebEmbedWebviewAgent();
     useImperativeHandle(ref, () => ({
       innerRef: webviewRef.current,
-      checkWebViewReady: () => isWebviewReady,
+      checkWebViewReady: () => isWebviewReadyRef.current,
     }));
 
     useEffect(() => {
@@ -44,7 +43,7 @@ export const CardanoWebEmbedView = forwardRef(
 
     const onWebViewRef = useCallback(($ref: IWebViewWrapperRef | null) => {
       webviewRef.current = $ref;
-      setIsWebViewReady(true);
+      isWebviewReadyRef.current = true;
     }, []);
 
     useEffect(() => {
@@ -84,7 +83,7 @@ export const CardanoWebEmbedView = forwardRef(
           onWebViewRef={onWebViewRef}
           onContentLoaded={() => {
             debugLogger.common.debug('CardanoWebEmbedView Loaded');
-            setIsWebViewReady(true);
+            isWebviewReadyRef.current = true;
             callback?.();
           }}
           // *** use web-embed local html file
