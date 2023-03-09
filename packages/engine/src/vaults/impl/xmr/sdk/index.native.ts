@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -15,13 +16,10 @@ enum MoneroEvent {
 }
 
 type IResult = { error: any; result: any };
-
-let networkId = '';
-
 /**
  * ensure web-embed is created successfully
  */
-const ensureSDKReady = async (id: string) =>
+const ensureSDKReady = async () =>
   new Promise((resolve) => {
     appUIEventBus.emit(
       AppUIEventBusNames.EnsureChainWebEmbed,
@@ -29,7 +27,7 @@ const ensureSDKReady = async (id: string) =>
         debugLogger.common.debug('ensure web embed exist resolve callback');
         resolve(true);
       },
-      id,
+      OnekeyNetwork.xmr,
     );
   });
 
@@ -37,7 +35,7 @@ const getKeyPairFromRawPrivatekey = async (params: {
   rawPrivateKey: Buffer;
   index?: number;
 }) => {
-  await ensureSDKReady(networkId);
+  await ensureSDKReady();
   debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
@@ -59,13 +57,11 @@ const getKeyPairFromRawPrivatekey = async (params: {
   return result.result;
 };
 
-const getCardanoApi = async (id: string) => {
-  networkId = id;
-  return Promise.resolve({
+const getMoneroApi = async () =>
+  Promise.resolve({
     getKeyPairFromRawPrivatekey,
     privateSpendKeyToWords,
     pubKeysToAddress,
   });
-};
 
-export { getCardanoApi, ensureSDKReady };
+export { getMoneroApi, ensureSDKReady };

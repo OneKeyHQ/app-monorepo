@@ -130,7 +130,7 @@ export class KeyringHd extends KeyringHdBase {
     const accountIndex = getPathIndex(dbAccount.path);
 
     // sign for dapp if signOnly
-    const CardanoApi = await getCardanoApi(this.networkId);
+    const CardanoApi = await getCardanoApi();
     const { signedTx, txid } = await CardanoApi.signTransaction(
       encodedTx.tx.body,
       dbAccount.address,
@@ -161,7 +161,7 @@ export class KeyringHd extends KeyringHdBase {
     const xprv = await getXprvString(password, entropy);
     const accountIndex = getPathIndex(dbAccount.path);
 
-    const CardanoApi = await getCardanoApi(this.networkId);
+    const CardanoApi = await getCardanoApi();
     const result = await Promise.all(
       messages.map(
         ({ payload }: { payload: { addr: string; payload: string } }) =>

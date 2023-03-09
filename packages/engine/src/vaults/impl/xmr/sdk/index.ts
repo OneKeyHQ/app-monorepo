@@ -12,7 +12,7 @@ import { getMoneroCoreInstance } from './moneroCore/instance';
 import { getMoneroUtilInstance } from './moneroUtil/instance';
 import { privateSpendKeyToWords } from './moneroWords';
 
-const getMoneroApi = async (networkId: string) => {
+const getMoneroApi = async () => {
   const moneroCoreInstance = await getMoneroCoreInstance();
   const moneroUtilInstance = await getMoneroUtilInstance();
 
@@ -157,7 +157,7 @@ const getMoneroApi = async (networkId: string) => {
     });
   };
 
-  const generateKeyImage = (params: {
+  const generateKeyImage = async (params: {
     txPublicKey: string;
     privateViewKey: string;
     privateSpendKey: string;
@@ -191,7 +191,8 @@ const getMoneroApi = async (networkId: string) => {
       try {
         const keyImageObj = JSON.parse(keyImageJsonStr) as { retVal: string };
 
-        if (keyImageObj.retVal) return keyImageObj.retVal;
+        if (keyImageObj.retVal)
+          return await Promise.resolve(keyImageObj.retVal);
       } catch {
         // pass
       }
@@ -209,6 +210,6 @@ const getMoneroApi = async (networkId: string) => {
 /**
  * Web SDK is always successful
  */
-const ensureSDKReady = async (networkId: string) => Promise.resolve(true);
+const ensureSDKReady = async () => Promise.resolve(true);
 
 export { getMoneroApi, ensureSDKReady };

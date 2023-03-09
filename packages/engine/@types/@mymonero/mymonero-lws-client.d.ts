@@ -1,6 +1,17 @@
 declare module '@mymonero/mymonero-lws-client' {
   interface MoneroTransaction {
-    spent_outputs: any[];
+    coinbase: boolean;
+    hash: string;
+    height: number;
+    id: number;
+    mempool: boolean;
+    mixin: number;
+    timestamp: string;
+    total_received: string;
+    total_sent: string;
+    unlock_time: number;
+    spent_outputs?: SpentOutout[];
+    fee?: string;
   }
 
   interface SpentOutout {
@@ -37,13 +48,21 @@ declare module '@mymonero/mymonero-lws-client' {
     login: (
       viewKey: string,
       address: string,
+      createAccount?: boolean,
     ) => Promise<{ isNewAddress: boolean }>;
 
-    getAddressTxs: (viewKey: string, address: string) => Promise<any>;
+    getAddressTxs: (
+      viewKey: string,
+      address: string,
+    ) => Promise<{
+      transactions: MoneroTransaction[];
+    }>;
 
     getAddressInfo: (
       viewKey: string,
       address: string,
     ) => Promise<MoneroAddressInfo>;
   }
+
+  export { MoneroAddressInfo, SpentOutout, MoneroTransaction };
 }

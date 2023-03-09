@@ -33,7 +33,7 @@ export class KeyringHd extends KeyringHdBase {
       password,
     )) as ExportedSeedCredential;
 
-    const moneroApi = await getMoneroApi(this.networkId);
+    const moneroApi = await getMoneroApi();
 
     const mnemonic = mnemonicFromEntropy(entropy, password);
     const seed = mnemonicToSeedSync(mnemonic);

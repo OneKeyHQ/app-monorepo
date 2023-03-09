@@ -122,7 +122,7 @@ export class KeyringImported extends KeyringImportedBase {
 
     const xprv = await getXprvString(encodeKey.rootKey);
     const accountIndex = getPathIndex(dbAccount.path);
-    const CardanoApi = await getCardanoApi(this.networkId);
+    const CardanoApi = await getCardanoApi();
     const { signedTx, txid } = await CardanoApi.signTransaction(
       encodedTx.tx.body,
       dbAccount.address,
@@ -157,7 +157,7 @@ export class KeyringImported extends KeyringImportedBase {
     const xprv = await getXprvString(encodeKey.rootKey);
     const accountIndex = getPathIndex(dbAccount.path);
 
-    const CardanoApi = await getCardanoApi(this.networkId);
+    const CardanoApi = await getCardanoApi();
     const result = await Promise.all(
       messages.map(
         ({ payload }: { payload: { addr: string; payload: string } }) =>

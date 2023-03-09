@@ -9,19 +9,13 @@ import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
 import { TransactionStatus } from '../../../types/provider';
 
-import type { getMoneroApi } from './sdk';
+import { getMoneroApi } from './sdk';
+
 import type { MoneroKeys } from './types';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum RPC_METHODS {
-  SEND_TRANSACTION = 'sendTransaction',
-  GET_EPOCH_INFO = 'getEpochInfo',
-  GET_HEALTH = 'getHealth',
-  GET_ACCOUNT_INFO = 'getAccountInfo',
-  GET_BALANCE = 'get_balance',
-  GET_FEES = 'getFees',
-  GET_TRANSACTION = 'getTransaction',
-  GET_LAST_BLOCK_HEADER = 'get_last_block_header',
+  GET_HEIGHT = 'get_height',
 }
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum PARAMS_ENCODINGS {
@@ -29,41 +23,50 @@ export enum PARAMS_ENCODINGS {
   JSON_PARSED = 'jsonParsed',
 }
 
-type MoneroApi = Awaited<ReturnType<typeof getMoneroApi>>;
-
 export class ClientXmr extends BaseClient {
   readonly rpc: JsonRPCRequest;
 
   readonly wallet: LWSClient;
 
-  readonly keys: MoneroKeys;
+  readonly rpcUrl: string;
 
-  readonly moneroApi: MoneroApi;
+  readonly publicSpendKey: string;
+
+  readonly publicViewKey: string;
+
+  readonly privateSpendKey: string;
+
+  readonly privateViewKey: string;
 
   constructor({
     rpcUrl,
     walletUrl,
-    keys,
-    moneroApi,
+    address,
+    publicSpendKey,
+    publicViewKey,
+    privateSpendKey,
+    privateViewKey,
   }: {
     rpcUrl: string;
     walletUrl: string;
-    keys: MoneroKeys;
-    moneroApi: MoneroApi;
+    address: string;
+    publicSpendKey: string;
+    publicViewKey: string;
+    privateSpendKey: string;
+    privateViewKey: string;
   }) {
     super();
     const instance = axios.create({
       baseURL: walletUrl,
     });
-    this.rpc = new JsonRPCRequest(rpcUrl);
+    this.rpc = new JsonRPCRequest(`${rpcUrl}/json_rpc`);
     this.wallet = new LWSClient({ url: walletUrl, httpClient: instance });
-    this.keys = {
-      publicViewKey: Buffer.from(keys.publicViewKey ?? '').toString('hex'),
-      publicSpendKey: Buffer.from(keys.publicSpendKey ?? '').toString('hex'),
-      privateViewKey: Buffer.from(keys.privateViewKey ?? '').toString('hex'),
-      privateSpendKey: Buffer.from(keys.privateSpendKey ?? '').toString('hex'),
-    };
-    this.moneroApi = moneroApi;
+    this.publicSpendKey = publicSpendKey;
+    this.publicViewKey = publicViewKey;
+    this.privateSpendKey = privateSpendKey;
+    this.privateViewKey = privateViewKey;
+    this.rpcUrl = rpcUrl;
+    this.wallet.login(privateViewKey, address, true);
   }
 
   async broadcastTransaction(rawTx: string, options?: any): Promise<string> {
@@ -82,10 +85,10 @@ export class ClientXmr extends BaseClient {
     try {
       const [request] = requests;
 
-      const { publicSpendKey, privateViewKey, privateSpendKey } = this.keys;
+      const moneroApi = await getMoneroApi();
 
       const addressInfo = await this.wallet.getAddressInfo(
-        privateViewKey,
+        this.privateViewKey,
         request.address,
       );
 
@@ -95,12 +98,12 @@ export class ClientXmr extends BaseClient {
       const totalReceivedBN = new BigNumber(addressInfo.total_received ?? 0);
 
       for (const spentOutput of spentOutputs) {
-        const keyImage = this.moneroApi.generateKeyImage({
+        const keyImage = await moneroApi.generateKeyImage({
           address: request.address,
           txPublicKey: spentOutput.tx_pub_key,
-          privateViewKey,
-          privateSpendKey,
-          publicSpendKey,
+          privateViewKey: this.privateViewKey,
+          privateSpendKey: this.privateSpendKey,
+          publicSpendKey: this.publicSpendKey,
           outputIndex: String(spentOutput.out_index),
         });
         if (spentOutput.key_image !== keyImage) {
@@ -117,14 +120,7 @@ export class ClientXmr extends BaseClient {
 
   async getAccountInfo(
     address: string,
-  ): Promise<{ [key: string]: any } | null> {
-    const response: { [key: string]: any } = await this.rpc.call(
-      RPC_METHODS.GET_ACCOUNT_INFO,
-      [address, { encoding: PARAMS_ENCODINGS.JSON_PARSED }],
-    );
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return response.value;
-  }
+  ): Promise<{ [key: string]: any } | null> {}
 
   async getFeePricePerUnit(): Promise<FeePricePerUnit> {
     const [feePerSig] = await this.getFees();
@@ -148,35 +144,55 @@ export class ClientXmr extends BaseClient {
 
   async getTransactionStatuses(
     txids: string[],
-  ): Promise<Array<TransactionStatus | undefined>> {
-    const calls: Array<any> = txids.map((txid) => [
-      RPC_METHODS.GET_TRANSACTION,
-      [txid, PARAMS_ENCODINGS.JSON_PARSED],
-    ]);
-    const result = [];
-    const resp: Array<{ [key: string]: any } | undefined> =
-      await this.rpc.batchCall(calls);
-    for (const tx of resp) {
-      if (typeof tx !== 'undefined') {
-        if (tx === null) {
-          result.push(TransactionStatus.NOT_FOUND);
-        } else {
-          result.push(
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            tx.meta.err === null
-              ? TransactionStatus.CONFIRM_AND_SUCCESS
-              : TransactionStatus.CONFIRM_BUT_FAILED,
-          );
+  ): Promise<Array<TransactionStatus | undefined>> {}
+
+  async getCurrentHeight() {
+    try {
+      const resp = await axios.post<{ height: number }>(
+        `${this.rpcUrl}/${RPC_METHODS.GET_HEIGHT}`,
+      );
+      return resp.data.height;
+    } catch {
+      return 0;
+    }
+  }
+
+  async getHistory(address: string) {
+    const moneroApi = await getMoneroApi();
+
+    const realTxs = [];
+
+    const { transactions } = await this.wallet.getAddressTxs(
+      this.privateViewKey,
+      address,
+    );
+
+    for (const tx of transactions) {
+      const totalReceivedInTxBN = new BigNumber(tx.total_received ?? 0);
+      let totalSentInTxBN = new BigNumber(tx.total_sent ?? 0);
+      for (const spentOutput of tx.spent_outputs ?? []) {
+        const keyImage = await moneroApi.generateKeyImage({
+          address,
+          txPublicKey: spentOutput.tx_pub_key,
+          privateViewKey: this.privateViewKey,
+          privateSpendKey: this.privateSpendKey,
+          publicSpendKey: this.publicSpendKey,
+          outputIndex: String(spentOutput.out_index),
+        });
+
+        if (keyImage !== spentOutput.key_image) {
+          totalSentInTxBN = totalSentInTxBN.minus(spentOutput.amount);
         }
-      } else {
-        result.push(undefined);
+      }
+
+      if (totalReceivedInTxBN.plus(totalSentInTxBN).isGreaterThan(0)) {
+        realTxs.push({
+          ...tx,
+          amount: totalReceivedInTxBN.minus(totalSentInTxBN).toFixed(),
+        });
       }
     }
 
-    return result;
-  }
-
-  async getClientEndpointStatus(url: string) {
-    return this.rpc.call(RPC_METHODS.GET_LAST_BLOCK_HEADER);
+    return realTxs;
   }
 }

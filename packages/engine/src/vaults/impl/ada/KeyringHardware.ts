@@ -176,7 +176,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { inputs, outputs, fee, tx } = encodedTx;
     const isSignOnly = !!encodedTx.signOnly;
     const { rawTxHex } = tx;
-    const CardanoApi = await getCardanoApi(this.networkId);
+    const CardanoApi = await getCardanoApi();
     let cardanoParams;
     // sign for DApp
     if (isSignOnly && rawTxHex) {

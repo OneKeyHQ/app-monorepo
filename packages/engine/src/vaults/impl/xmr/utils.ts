@@ -1,6 +1,11 @@
 import { fromSeed } from 'bip32';
 
+import { IDecodedTxStatus } from '../../types';
+
+import type { IOnChainHistoryTx } from './types';
 import type { BIP32Interface } from 'bip32';
+
+const TX_MIN_CONFIRMS = 10;
 
 export function calcBip32ExtendedKey(
   path: string,
@@ -56,4 +61,19 @@ export function getRawPrivateKeyFromSeed(seed: Buffer, pathPrefix: string) {
   const rawPrivateKey = key.privateKey;
 
   return rawPrivateKey;
+}
+
+export function getDecodedTxStatus(
+  tx: IOnChainHistoryTx,
+  blockchainHeight: number,
+) {
+  if (tx.mempool) {
+    return IDecodedTxStatus.Pending;
+  }
+  if (tx.height === null || tx.height === undefined) {
+    return IDecodedTxStatus.Pending;
+  }
+  return blockchainHeight - tx.height > TX_MIN_CONFIRMS
+    ? IDecodedTxStatus.Confirmed
+    : IDecodedTxStatus.Pending;
 }
