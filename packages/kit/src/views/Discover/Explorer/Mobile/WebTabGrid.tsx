@@ -22,8 +22,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import {
+  closeWebTab,
+  setCurrentWebTab,
+} from '../../../../store/reducers/webTabs';
 import { useWebTabs } from '../Controller/useWebTabs';
-import { dCloseWebTab, dSetCurrentWebTab } from '../explorerActions';
 import {
   MIN_OR_HIDE,
   hideTabGrid,
@@ -80,7 +84,7 @@ const WebTabCard: FC<
       mt={`${CELL_GAP}px`}
       onPress={() => {
         if (!isCurrent) {
-          dSetCurrentWebTab(id);
+          backgroundApiProxy.dispatch(setCurrentWebTab(id));
         }
         hideTabGrid(id);
       }}
@@ -125,7 +129,7 @@ const WebTabCard: FC<
             type="plain"
             name="XMarkMini"
             onPress={() => {
-              dCloseWebTab(id);
+              backgroundApiProxy.dispatch(closeWebTab(id));
             }}
           />
         </Box>
