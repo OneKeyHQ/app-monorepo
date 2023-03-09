@@ -553,7 +553,7 @@ export const Debug = () => {
               {...pressableProps}
               onPress={() => {
                 // openUrlByWebview('https://www.bing.com');
-                openUrlByWebview('http://localhost:3008');
+                openUrlByWebview('http://192.168.31.204:3008/#/cardano');
               }}
             >
               <Typography.Body1>Open web-embed</Typography.Body1>

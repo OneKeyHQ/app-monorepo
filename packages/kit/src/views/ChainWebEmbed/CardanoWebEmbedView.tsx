@@ -61,7 +61,6 @@ export const CardanoWebEmbedView = forwardRef(
 
     const routePath = '/cardano';
 
-
     let boxProps: ComponentProps<typeof Box> = {
       height: '0px',
       width: '0px',
@@ -93,7 +92,7 @@ export const CardanoWebEmbedView = forwardRef(
           // *** use remote url
           src={
             platformEnv.isDev
-              ? `http://localhost:3008/#${routePath}`
+              ? `http://192.168.31.204:3008/#${routePath}`
               : undefined
           }
         />

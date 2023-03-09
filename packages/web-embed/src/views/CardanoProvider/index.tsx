@@ -222,7 +222,17 @@ function CardanoProvider() {
 
   return (
     <Center p={4} bgColor="surface-warning-subdued" minH="100%">
-      <Text>Cardano web-embed Webview Agent</Text>
+      <Text
+        onPress={() => {
+          window.$onekey.$private.request({
+            method: ProvideResponseMethod,
+            data: '88837777222',
+          });
+          alert('773655188');
+        }}
+      >
+        Cardano web-embed Webview Agent
+      </Text>
     </Center>
   );
 }
