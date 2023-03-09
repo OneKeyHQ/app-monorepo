@@ -1,12 +1,15 @@
 import type { FC } from 'react';
+import { useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Modal, Token } from '@onekeyhq/components';
+import { Box, Modal, SegmentedControl, Token } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import { useRuntime } from '../../../hooks/redux';
+
+import SetRange from './SetRange';
 
 import type {
   CreateAccountModalRoutes,
@@ -46,21 +49,31 @@ const HeaderDescription: FC<{ network: Network }> = ({
 const BulkCopyAddress = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { networkId } = route.params;
+  const { walletId, networkId } = route.params;
   const { networks } = useRuntime();
   const network = networks.filter((n) => n.id === networkId)[0];
+
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
   return (
     <Modal
-      height="640px"
       header={intl.formatMessage({ id: 'title__bulk_copy_addresses' })}
       headerDescription={<HeaderDescription network={network} />}
-      primaryActionTranslationId="action__export_addresses"
-      onPrimaryActionPress={() => {
-        console.log('Action');
-      }}
       hideSecondaryAction
+      hidePrimaryAction
+      footer={null}
     >
-      <Box>111</Box>
+      <Box mb={6}>
+        <SegmentedControl
+          values={[
+            intl.formatMessage({ id: 'form__set_range' }),
+            intl.formatMessage({ id: 'form__my_accounts' }),
+          ]}
+          selectedIndex={selectedIndex}
+          onChange={setSelectedIndex}
+        />
+      </Box>
+
+      <SetRange walletId={walletId} networkId={networkId} />
     </Modal>
   );
 };
