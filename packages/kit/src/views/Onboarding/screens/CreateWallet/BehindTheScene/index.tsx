@@ -158,6 +158,7 @@ function BehindTheSceneCreatingWallet({
     onPressOnboardingFinished,
     intl,
     navigation,
+    entry,
   ]);
 
   const startCreatingHDWallet = useCallback(async () => {
