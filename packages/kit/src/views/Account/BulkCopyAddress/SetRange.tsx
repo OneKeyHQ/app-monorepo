@@ -20,6 +20,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useDerivationPath } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
 
+import { formatDerivationLabel } from './helper';
+
 import type { IDerivationOption } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
 
 const GenerateCount = [10, 50, 100];
@@ -37,20 +39,14 @@ const SetRange: FC<{ walletId?: string; networkId: string }> = ({
 }) => {
   const isSmallScreen = useIsVerticalLayout();
   const intl = useIntl();
-  const {
-    control,
-    handleSubmit,
-    setError,
-    setValue,
-    getValues,
-    formState: { isValid },
-  } = useForm<FromValues>({
-    defaultValues: {
-      derivationType: 'default',
-      fromIndex: '1',
-      generateCount: '10',
-    },
-  });
+  const { control, handleSubmit, setError, setValue, getValues } =
+    useForm<FromValues>({
+      defaultValues: {
+        derivationType: 'default',
+        fromIndex: '1',
+        generateCount: '10',
+      },
+    });
   const { derivationOptions } = useDerivationPath(walletId, networkId);
   const [selectedOption, setSelectedOption] = useState<IDerivationOption>();
 
@@ -73,9 +69,7 @@ const SetRange: FC<{ walletId?: string; networkId: string }> = ({
         (derivationOptions ?? []).find((item) => item.key === 'default')
           ?.label || '';
     }
-    if (!label) return '';
-    if (typeof label === 'string') return label;
-    if (typeof label === 'object') return intl.formatMessage({ id: label.id });
+    return formatDerivationLabel(intl, label);
   }, [selectedOption, derivationOptions, intl]);
 
   useEffect(() => {

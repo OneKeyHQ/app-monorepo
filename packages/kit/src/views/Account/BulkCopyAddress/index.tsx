@@ -10,6 +10,7 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 import { useRuntime } from '../../../hooks/redux';
 
 import SetRange from './SetRange';
+import WalletAccounts from './WalletAccounts';
 
 import type {
   CreateAccountModalRoutes,
@@ -73,7 +74,12 @@ const BulkCopyAddress = () => {
         />
       </Box>
 
-      <SetRange walletId={walletId} networkId={networkId} />
+      {selectedIndex === 0 && (
+        <SetRange walletId={walletId} networkId={networkId} />
+      )}
+      {selectedIndex === 1 && (
+        <WalletAccounts walletId={walletId} networkId={networkId} />
+      )}
     </Modal>
   );
 };
