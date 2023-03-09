@@ -91,26 +91,34 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  changeCurrrentAccount({
+  async changeCurrrentAccount({
     accountId,
     networkId,
   }: {
     accountId: string;
     networkId: string;
   }) {
-    const { appSelector, dispatch } = this.backgroundApi;
+    const {
+      appSelector,
+      serviceNetwork,
+      serviceAccount,
+      serviceAccountSelector,
+    } = this.backgroundApi;
     const wallets = appSelector((s) => s.runtime.wallets);
     for (let i = 0; i < wallets.length; i += 1) {
       const wallet = wallets[i];
       const { accounts } = wallet;
       if (accounts.includes(accountId)) {
-        dispatch(
-          setActiveIds({
-            activeAccountId: accountId,
-            activeWalletId: wallet.id,
-            activeNetworkId: networkId,
-          }),
-        );
+        if (networkId) {
+          await serviceNetwork.changeActiveNetwork(networkId);
+        }
+        if (accountId) {
+          await serviceAccount.changeActiveAccount({
+            accountId: accountId || '',
+            walletId: wallet.id ?? '',
+          });
+        }
+        await serviceAccountSelector.setSelectedWalletToActive();
         break;
       }
     }
