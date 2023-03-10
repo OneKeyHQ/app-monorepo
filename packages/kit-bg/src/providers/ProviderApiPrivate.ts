@@ -214,10 +214,9 @@ class ProviderApiPrivate extends ProviderApiBase {
   @providerApiMethod()
   callCardanoWebEmbedMethod(payload: any) {
     console.log('$privide provide request ===> callCardanoWebEmbedMethod');
-    console.log('callCardanoWebEmbedMethod =====>>>>>>>');
+    console.log('callCardanoWebEmbedMethod =====>>>>>>>99999');
     console.log(payload);
     const data = ({ origin }: { origin: string }) => {
-      console.log(origin);
       const result = {
         method: payload.data?.method,
         params: {
@@ -226,6 +225,7 @@ class ProviderApiPrivate extends ProviderApiBase {
           params: { ...payload.data?.params },
         },
       };
+      console.log('callCardanoWebEmbedMethod &&&&&&&&& ', origin, result);
       return result;
     };
     payload.data?.send?.(data);
