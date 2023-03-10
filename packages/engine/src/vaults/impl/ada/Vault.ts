@@ -13,6 +13,7 @@ import {
   IMPL_ADA,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   InsufficientBalance,
@@ -836,6 +837,9 @@ export default class Vault extends VaultBase {
   }
 
   override async canAutoCreateNextAccount(password: string): Promise<boolean> {
+    if (platformEnv.isNative) {
+      return false;
+    }
     const wallet = await this.engine.getWallet(this.walletId);
     const accountInfos = await this.getAccountNameInfoMap();
 
