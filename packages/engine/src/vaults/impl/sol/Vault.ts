@@ -96,7 +96,7 @@ export default class Vault extends VaultBase {
 
   // client: axios
   getApiExplorer() {
-    const baseURL = 'https://public-api.solscan.io/';
+    const baseURL = 'https://api.solscan.io/';
     return this.getApiExplorerCache(baseURL);
   }
 
@@ -817,7 +817,10 @@ export default class Vault extends VaultBase {
     let transfers: Array<{
       signature?: string[] | string;
       txHash?: string;
-      decimals: number;
+      decimals?: number;
+      change?: {
+        decimals: number;
+      };
     }> = [];
 
     if (network.isTestnet) {
@@ -829,22 +832,35 @@ export default class Vault extends VaultBase {
       // Get full on chain history (including NFT) by using solscan api
       // Does not support devnet
       const splTransfersRequest = ApiExplorer.get<{
-        data: { signature?: string[]; txHash?: string; decimals: number }[];
-      }>('/account/splTransfers', {
+        data: {
+          tx: {
+            transactions: {
+              txHash: string;
+              change: {
+                decimals: number;
+              };
+            }[];
+          };
+        };
+      }>('/account/soltransfer/txs', {
         params: {
-          account: dbAccount.address,
-          limit: 50,
-          cluster: network.isTestnet && 'devnet',
+          address: dbAccount.address,
+          offset: 0,
+          limit: 25,
         },
       });
 
       const solTransferRequest = ApiExplorer.get<{
-        data: { signature?: string[]; txHash?: string; decimals: number }[];
-      }>('/account/solTransfers', {
+        data: {
+          tx: {
+            transactions: { txHash: string; decimals?: number }[];
+          };
+        };
+      }>('/account/token/txs', {
         params: {
-          account: dbAccount.address,
-          limit: 50,
-          cluster: network.isTestnet && 'devnet',
+          address: dbAccount.address,
+          offset: 0,
+          limit: 25,
         },
       });
 
@@ -853,8 +869,8 @@ export default class Vault extends VaultBase {
         solTransferRequest,
       ]);
 
-      const splTransfers = splResp.data.data || [];
-      const solTransfers = solResl.data.data || [];
+      const splTransfers = splResp?.data?.data?.tx?.transactions || [];
+      const solTransfers = solResl?.data?.data?.tx?.transactions || [];
       transfers = [...splTransfers, ...solTransfers];
     }
 
@@ -867,7 +883,7 @@ export default class Vault extends VaultBase {
         'getTransaction',
         [
           txHash || (isArray(signature) ? signature[0] : signature),
-          { encoding: 'base58' },
+          { encoding: 'base58', maxSupportedTransactionVersion: 0 },
         ],
       ]),
     );
@@ -896,7 +912,11 @@ export default class Vault extends VaultBase {
 
       const nftTxs = nftMap[txid];
 
-      if (transferItem && transferItem.decimals === 0 && isEmpty(nftTxs)) {
+      if (
+        transferItem &&
+        (transferItem.decimals === 0 || transferItem.change?.decimals === 0) &&
+        isEmpty(nftTxs)
+      ) {
         isFinal = false;
       }
 

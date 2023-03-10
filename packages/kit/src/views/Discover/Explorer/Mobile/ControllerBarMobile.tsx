@@ -23,7 +23,6 @@ import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
-  addWebTab,
   closeAllWebTabs,
   homeTab,
   isTabLimitReached,
@@ -32,6 +31,7 @@ import { showOverlay } from '../../../../utils/overlayUtils';
 import { OverlayPanel } from '../../../Overlay/OverlayPanel';
 import { PortalEntry } from '../../../Overlay/RootPortal';
 import { useWebController } from '../Controller/useWebController';
+import { dAddNewBlankWebTab } from '../explorerActions';
 import {
   MAX_OR_SHOW,
   MIN_OR_HIDE,
@@ -51,9 +51,6 @@ export const ControllerBarMobile: FC = () => {
   const bgColor = useThemeValue('surface-subdued');
   const { canGoForward } = currentTab;
   const { dispatch } = backgroundApiProxy;
-  const addNewTab = useCallback(() => {
-    dispatch(addWebTab({ ...homeTab }));
-  }, [dispatch]);
 
   const reachedTabLimit = isTabLimitReached(tabs);
 
@@ -98,7 +95,7 @@ export const ControllerBarMobile: FC = () => {
         flex={1}
         type="plain"
         disabled={reachedTabLimit}
-        onPress={addNewTab}
+        onPress={dAddNewBlankWebTab}
         iconSize={26}
         name="PlusCircleMini"
       />
@@ -187,7 +184,7 @@ export const ControllerBarMobile: FC = () => {
         flex={1}
         type="plain"
         disabled={reachedTabLimit}
-        onPress={addNewTab}
+        onPress={dAddNewBlankWebTab}
         iconSize={26}
         name="PlusCircleMini"
       />

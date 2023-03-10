@@ -248,6 +248,9 @@ export interface TransactionLog {
 export interface SerializableTransactionReceipt {
   to: string;
   from: string;
+  gasUsed: string;
+  cumulativeGasUsed: string;
+  effectiveGasPrice: string;
   contractAddress: string;
   transactionIndex: number;
   blockHash: string;
@@ -255,6 +258,10 @@ export interface SerializableTransactionReceipt {
   blockNumber: number;
   status?: string;
   logs?: TransactionLog[];
+}
+
+export interface SerializableBlockReceipt {
+  timestamp: string;
 }
 
 export type TransactionStatus = 'pending' | 'failed' | 'canceled' | 'sucesss';
@@ -292,6 +299,7 @@ export interface TransactionDetails {
   percentageFee?: string;
   networkFee?: string;
   actualReceived?: string;
+  protocalFees?: ProtocolFees;
 }
 
 export type TransactionProgress =
@@ -323,6 +331,7 @@ export interface SwftcTransactionReceipt {
   instantRate: string;
   refundDepositTxid: string;
   transactionId?: string;
+  dealFinishTime?: string;
 }
 
 export type ISlippageMode = 'auto' | 'preset' | 'custom';

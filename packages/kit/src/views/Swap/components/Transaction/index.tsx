@@ -1,5 +1,5 @@
-import type { ComponentProps, FC } from 'react';
 import { useCallback, useMemo } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -28,14 +28,20 @@ import useFormatDate from '../../../../hooks/useFormatDate';
 import { buildTransactionDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
 import { openUrlExternal } from '../../../../utils/openUrl';
 import { useTransactionsAccount } from '../../hooks/useTransactions';
-import { formatAmount, normalizeProviderName } from '../../utils';
+import {
+  calculateProtocalsFee,
+  formatAmount,
+  gt,
+  multiply,
+  normalizeProviderName,
+} from '../../utils';
 import PendingTransaction from '../PendingTransaction';
 import SwappingVia from '../SwappingVia';
 import TransactionFee from '../TransactionFee';
 import TransactionRate from '../TransactionRate';
 
 import { HashMoreMenu } from './HashMoreMenus';
-import { ReceiptMoreMenus } from './ReceiptMoreMenus';
+import { AccountMoreMenus, ReceiptMoreMenus } from './MoreMenus';
 
 import type {
   SwapRoutes,
@@ -179,6 +185,10 @@ const Header: FC<TransactionProps & { onPress?: () => void }> = ({
 const InputOutput: FC<TransactionProps> = ({ tx }) => {
   const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
   const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
+  const receivingAccount = useTransactionsAccount(
+    tx.receivingAccountId,
+    tx.tokens?.to.networkId,
+  );
   const account = useTransactionsAccount(
     tx.accountId,
     tx.tokens?.from.networkId,
@@ -186,7 +196,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
   const receivingName = useAddressName({ address: tx.receivingAddress });
 
   return (
-    <Box my="6" borderRadius="12" background="surface-default" p="4">
+    <Box my="0" px="4">
       <Box
         flexDirection="row"
         alignItems="center"
@@ -204,20 +214,26 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
             </Typography.Body2>
           </Box>
         </Box>
-        <Box
-          bg="action-secondary-default"
-          borderWidth="1px"
-          p="1"
-          pr="2"
-          h="6"
-          borderRadius={12}
-          borderColor="border-default"
-          flexDirection="row"
-          alignItems="center"
-        >
-          <Image w="4" h="4" mr="1" src={fromNetwork?.logoURI} />
-          <Typography.Body2Strong>{account?.name}</Typography.Body2Strong>
-        </Box>
+        <AccountMoreMenus networkId={tx.networkId} accountId={tx.accountId}>
+          <Pressable>
+            <Box
+              bg="action-secondary-default"
+              borderWidth="1px"
+              py="1"
+              pl="1"
+              pr="2"
+              borderRadius="full"
+              borderColor="border-default"
+              flexDirection="row"
+              alignItems="center"
+            >
+              <Image w="4" h="4" mr="1" src={fromNetwork?.logoURI} />
+              <Typography.Body2Strong selectable={false}>
+                {account?.name}
+              </Typography.Body2Strong>
+            </Box>
+          </Pressable>
+        </AccountMoreMenus>
       </Box>
       <Box
         h="8"
@@ -229,7 +245,6 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
         <Box mr="4" width="8" flexDirection="row" justifyContent="center">
           <Icon name="ArrowDownMini" size={16} />
         </Box>
-        <Divider flex="1" />
       </Box>
       <Box
         flexDirection="row"
@@ -240,7 +255,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
           <TokenIcon size="8" token={tx.tokens?.to.token} />
           <Box ml="3">
             <Box flexDirection="row" alignItems="center">
-              <Typography.Caption mr="1">≈</Typography.Caption>
+              <Typography.Caption mr="1">～</Typography.Caption>
               <Typography.Body1>
                 {formatAmount(tx.tokens?.to.amount, 4)}
                 {tx.tokens?.to.token.symbol.toUpperCase()}
@@ -251,22 +266,28 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
             </Typography.Body2>
           </Box>
         </Box>
-        <ReceiptMoreMenus tx={tx}>
+        <ReceiptMoreMenus
+          address={tx.receivingAddress}
+          networkId={tx.tokens?.to.networkId}
+          accountId={tx.receivingAccountId}
+        >
           <Pressable>
             <Box
               bg="action-secondary-default"
               borderWidth="1px"
-              p="1"
+              py="1"
+              pl="1"
               pr="2"
-              h="6"
-              borderRadius={12}
+              borderRadius="full"
               borderColor="border-default"
               flexDirection="row"
               alignItems="center"
             >
               <Image w="4" h="4" mr="1" src={toNetwork?.logoURI} />
-              <Typography.Body2Strong>
-                {receivingName || shortenAddress(tx.receivingAddress || '')}
+              <Typography.Body2Strong selectable={false}>
+                {receivingAccount?.name ||
+                  receivingName ||
+                  shortenAddress(tx.receivingAddress || '')}
               </Typography.Body2Strong>
             </Box>
           </Pressable>
@@ -300,32 +321,50 @@ type ViewInBrowserSelectorItem = {
   logoURI?: string;
   url?: string;
 };
+
+type Option = {
+  label: string;
+  logoURI: string;
+  value: string;
+  url: string;
+};
 type ViewInBrowserSelectorProps = { tx: TransactionDetails };
 const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
   const intl = useIntl();
   const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
   const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
 
-  const options = useMemo(
-    () => [
+  const options = useMemo(() => {
+    let base: Option[] = [
       {
         label: fromNetwork?.shortName ?? '',
-        logoURI: fromNetwork?.logoURI,
-        value: tx.hash,
+        logoURI: fromNetwork?.logoURI ?? '',
+        value: tx.hash ?? '',
         url: buildTransactionDetailsUrl(fromNetwork, tx.hash),
       },
       {
         label: toNetwork?.shortName ?? '',
-        logoURI: toNetwork?.logoURI,
-        value: tx.destinationTransactionHash,
+        logoURI: toNetwork?.logoURI ?? '',
+        value: tx.destinationTransactionHash ?? '',
         url: buildTransactionDetailsUrl(
           toNetwork,
           tx.destinationTransactionHash,
         ),
       },
-    ],
-    [tx, fromNetwork, toNetwork],
-  );
+    ];
+    if (tx.quoterType === 'socket') {
+      const socketOption: Option[] = [
+        {
+          label: 'Socketscan',
+          logoURI: 'https://common.onekey-asset.com/logo/SocketBridge.png',
+          value: 'Socketscan',
+          url: `https://socketscan.io/tx/${tx.hash}`,
+        },
+      ];
+      base = socketOption.concat(base);
+    }
+    return base;
+  }, [tx, fromNetwork, toNetwork]);
   const onPress = useCallback((_: any, item: any) => {
     // eslint-disable-next-line
     if (item.url) {
@@ -360,7 +399,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
               key={item.value}
               h="12"
               px="3"
-              onPress={() => onChange?.(undefined, item)}
+              onPress={() => onChange?.('', item)}
             >
               <Box flexDirection="row" alignItems="center">
                 <TokenIcon size="8" token={token} />
@@ -420,12 +459,54 @@ const ViewInBrowser: FC<ViewInBrowserProps> = ({ tx }) => {
   );
 };
 
+type TransactionOneKeyFeesProps = { tx: TransactionDetails };
+const TransactionOneKeyFees: FC<TransactionOneKeyFeesProps> = ({ tx }) => {
+  const from = tx.tokens?.from;
+  return (
+    <Box flexDirection="row" alignItems="center">
+      <TransactionFee
+        type={tx.quoterType}
+        percentageFee={tx.percentageFee}
+        typography="Body2Strong"
+        color="text-default"
+      />
+      {from && tx.percentageFee ? (
+        <Typography.Body2Strong>{`(${formatAmount(
+          multiply(tx.percentageFee, from.amount),
+          8,
+        )}${from.token.symbol.toUpperCase()})`}</Typography.Body2Strong>
+      ) : null}
+    </Box>
+  );
+};
+
+type TransactionProtocalsFeesProps = { tx: TransactionDetails };
+const TransactionProtocalsFees: FC<TransactionProtocalsFeesProps> = ({
+  tx,
+}) => {
+  const intl = useIntl();
+  if (tx.protocalFees) {
+    const result = calculateProtocalsFee(tx.protocalFees);
+    if (Number(result.value) > 0) {
+      return (
+        <TransactionField
+          label={intl.formatMessage({ id: 'form__bridge_fee' })}
+        >
+          <Typography.Body2Strong>
+            {`${formatAmount(result.value)} ${result.symbol.toUpperCase()}`}
+          </Typography.Body2Strong>
+        </TransactionField>
+      );
+    }
+  }
+  return null;
+};
+
 const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
   tx,
   showViewInBrowser,
 }) => {
   const intl = useIntl();
-
   const route = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps>();
   const account = useTransactionsAccount(
@@ -472,8 +553,9 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
   return (
     <Box>
       <Header tx={tx} onPress={onPress} />
+      <Divider my="6" />
       <InputOutput tx={tx} />
-      <Divider mb="6" />
+      <Divider my="6" />
       <Box>
         <Typography.Subheading color="text-subdued" mb="4">
           {intl.formatMessage({ id: 'form__on_chain_info_uppercase' })}
@@ -483,30 +565,22 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
             <TransactionField
               label={intl.formatMessage({ id: 'form__actual_received' })}
             >
-              <HashMoreMenu tx={tx}>
-                <Pressable mr="1">
-                  <Typography.Body2Strong>
-                    {`${formatAmount(tx.actualReceived, 6)} ${
-                      to?.token.symbol.toUpperCase() ?? ''
-                    }`}
-                  </Typography.Body2Strong>
-                </Pressable>
-              </HashMoreMenu>
+              <Typography.Body2Strong>
+                {`${formatAmount(tx.actualReceived, 6)} ${
+                  to?.token.symbol.toUpperCase() ?? ''
+                }`}
+              </Typography.Body2Strong>
             </TransactionField>
           ) : null}
           {tx.networkFee ? (
             <TransactionField
               label={intl.formatMessage({ id: 'form__network_fee' })}
             >
-              <HashMoreMenu tx={tx}>
-                <Pressable mr="1">
-                  <Typography.Body2Strong>
-                    {`${formatAmount(tx.networkFee, 6)} ${
-                      network.symbol.toUpperCase() ?? ''
-                    }`}
-                  </Typography.Body2Strong>
-                </Pressable>
-              </HashMoreMenu>
+              <Typography.Body2Strong>
+                {`${formatAmount(tx.networkFee, 8)} ${
+                  network.symbol.toUpperCase() ?? ''
+                }`}
+              </Typography.Body2Strong>
             </TransactionField>
           ) : null}
           <TransactionField label={intl.formatMessage({ id: 'content__hash' })}>
@@ -566,15 +640,13 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               color="text-default"
             />
           </TransactionField>
+          {gt(tx.protocalFees?.amount ?? '0', 0) ? (
+            <TransactionProtocalsFees tx={tx} />
+          ) : null}
           <TransactionField
             label={intl.formatMessage({ id: 'form__included_onekey_fee' })}
           >
-            <TransactionFee
-              type={tx.quoterType}
-              percentageFee={tx.percentageFee}
-              typography="Body2Strong"
-              color="text-default"
-            />
+            <TransactionOneKeyFees tx={tx} />
           </TransactionField>
           {swftcOrderId ? (
             <TransactionField

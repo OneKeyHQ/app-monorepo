@@ -3,7 +3,10 @@ import { memo, useEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { TransitionPresets } from '@react-navigation/stack';
-import * as LocalAuthentication from 'expo-local-authentication';
+import {
+  AuthenticationType,
+  supportedAuthenticationTypesAsync,
+} from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 import KeyboardManager from 'react-native-keyboard-manager';
@@ -183,19 +186,13 @@ const RootStackNavigator = () => {
 
   useEffect(() => {
     if (platformEnv.isNative) {
-      LocalAuthentication.supportedAuthenticationTypesAsync().then((types) => {
+      supportedAuthenticationTypesAsync().then((types) => {
         // OPPO phone return [1,2]
         // iphone 11 return [2]
         // The fingerprint identification is preferred (android)
-        if (
-          types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
-        ) {
+        if (types.includes(AuthenticationType.FINGERPRINT)) {
           dispatch(setAuthenticationType('FINGERPRINT'));
-        } else if (
-          types.includes(
-            LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION,
-          )
-        ) {
+        } else if (types.includes(AuthenticationType.FACIAL_RECOGNITION)) {
           dispatch(setAuthenticationType('FACIAL'));
         }
       });

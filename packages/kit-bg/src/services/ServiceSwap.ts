@@ -392,7 +392,7 @@ export default class ServiceSwap extends ServiceBase {
     const { appSelector } = this.backgroundApi;
     const wallets = appSelector((s) => s.runtime.wallets);
     for (let i = 0; i < wallets.length; i += 1) {
-      const wallet = wallets[0];
+      const wallet = wallets[i];
       const { accounts } = wallet;
       if (accounts.includes(accountId)) {
         return wallet;
@@ -713,9 +713,9 @@ export default class ServiceSwap extends ServiceBase {
 
     const { serviceToken } = this.backgroundApi;
 
-    serviceToken.fetchTokenBalance({
-      activeAccountId: accountId,
-      activeNetworkId: networkId,
+    serviceToken.getAccountTokenBalance({
+      accountId,
+      networkId,
       tokenIds: tokens.map((token) => token.tokenIdOnNetwork),
     });
   }

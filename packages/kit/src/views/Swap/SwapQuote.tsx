@@ -28,11 +28,15 @@ import TransactionFee from './components/TransactionFee';
 import {
   usePriceImpact,
   useSwapMinimumReceivedAmount,
-  useSwapProtocalsFee,
   useSwapSlippage,
 } from './hooks/useSwapUtils';
 import { SwapRoutes } from './typings';
-import { getTokenAmountValue, normalizeProviderName } from './utils';
+import {
+  calculateProtocalsFee,
+  formatAmount,
+  getTokenAmountValue,
+  normalizeProviderName,
+} from './utils';
 
 const SwapProviders = () => {
   const intl = useIntl();
@@ -321,28 +325,34 @@ const SwapPriceImpact = () => {
 
 const SwapProtocalsFees = () => {
   const intl = useIntl();
-  const protocalsFee = useSwapProtocalsFee();
-  if (protocalsFee) {
-    return (
-      <Box
-        display="flex"
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        h="9"
-      >
-        <Box flexDirection="row" alignItems="center">
-          <Typography.Body2 color="text-disabled" mr="2">
-            {intl.formatMessage({ id: 'form__bridge_fee' })}
-          </Typography.Body2>
+  const protocolFees = useAppSelector((s) => s.swap.quote?.protocolFees);
+  if (protocolFees) {
+    const result = calculateProtocalsFee(protocolFees);
+    if (Number(result.value) > 0) {
+      return (
+        <Box
+          display="flex"
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          h="9"
+        >
+          <Box flexDirection="row" alignItems="center">
+            <Typography.Body2 color="text-disabled" mr="2">
+              {intl.formatMessage({ id: 'form__bridge_fee' })}
+            </Typography.Body2>
+          </Box>
+          <Box flex="1" flexDirection="row" justifyContent="flex-end">
+            <Typography.Body2 color="text-subdued">
+              {`${formatAmount(
+                result.value,
+                8,
+              )} ${result.symbol.toUpperCase()}`}
+            </Typography.Body2>
+          </Box>
         </Box>
-        <Box flex="1" flexDirection="row" justifyContent="flex-end">
-          <Typography.Body2 color="text-subdued">
-            {`${protocalsFee.value}${protocalsFee.symbol.toUpperCase()}`}
-          </Typography.Body2>
-        </Box>
-      </Box>
-    );
+      );
+    }
   }
   return null;
 };

@@ -1,8 +1,13 @@
 import { FailedToEstimatedGasError } from '@onekeyhq/engine/src/errors';
 import type {
   IEncodedTx,
+  IFeeInfo,
   IFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/types';
+import {
+  calculateTotalFeeNative,
+  calculateTotalFeeRange,
+} from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import type { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
 import {
   backgroundClass,
@@ -50,9 +55,10 @@ export default class ServiceTransaction extends ServiceBase {
     }
 
     let feeInfoUnit: IFeeInfoUnit | undefined;
+    let feeInfo: IFeeInfo | undefined;
 
     try {
-      const feeInfo = await engine.fetchFeeInfo({
+      feeInfo = await engine.fetchFeeInfo({
         accountId,
         networkId,
         encodedTx,
@@ -137,6 +143,20 @@ export default class ServiceTransaction extends ServiceBase {
       encodedTx: signedTx.encodedTx,
       payload: params.payload,
     });
+
+    if (!decodedTx.feeInfo) {
+      decodedTx.feeInfo = feeInfoUnit;
+    }
+
+    if (!decodedTx.totalFeeInNative) {
+      if (feeInfoUnit && feeInfo) {
+        const total = calculateTotalFeeRange(feeInfoUnit).max;
+        decodedTx.totalFeeInNative = calculateTotalFeeNative({
+          amount: total,
+          info: feeInfo,
+        });
+      }
+    }
 
     await serviceHistory.saveSendConfirmHistory({
       networkId,

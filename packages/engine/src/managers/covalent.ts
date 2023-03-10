@@ -2,7 +2,6 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import camelcase from 'camelcase-keys';
 
-import { COVALENT_API_KEY } from '@onekeyhq/shared/src/config/appConfig';
 import debugCodes from '@onekeyhq/shared/src/debug/debugCodes';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -32,6 +31,7 @@ import type { Token } from '../types/token';
 import type { IEncodedTxEvm } from '../vaults/impl/evm/Vault';
 import type { IDecodedTx, IDecodedTxAction } from '../vaults/types';
 import type { VaultBase } from '../vaults/VaultBase';
+import { getCovalentApiEndpoint } from '../endpoint';
 
 const NOBODY = '0x0000000000000000000000000000000000000000';
 
@@ -149,12 +149,12 @@ function getNftDetail(
   contractAddress: string,
   tokenId: string,
 ): Promise<NftMetadata | null> {
-  const request = `https://api.covalenthq.com/v1/${chainId}/tokens/${contractAddress}/nft_metadata/${tokenId}/`;
+  const request = `${getCovalentApiEndpoint()}/v1/${chainId}/tokens/${contractAddress}/nft_metadata/${tokenId}/`;
 
   return axios
     .get<NftDetail>(request, {
       params: {
-        'key': COVALENT_API_KEY,
+        // 'key': COVALENT_API_KEY,
       },
     })
     .then((response) => {
@@ -400,13 +400,13 @@ function getTxHistories(
   pageNumber = 0,
   pageSize = 50,
 ): Promise<HistoryDetailList | null> {
-  const request = `https://api.covalenthq.com/v1/${chainId}/address/${address}/transactions_v2/`;
+  const request = `${getCovalentApiEndpoint()}/v1/${chainId}/address/${address}/transactions_v2/`;
   return axios
     .get<HistoryDetailList>(request, {
       params: {
         'page-number': pageNumber,
         'page-size': pageSize,
-        'key': COVALENT_API_KEY,
+        // 'key': COVALENT_API_KEY,
       },
     })
     .then(async (response) => {
@@ -867,9 +867,9 @@ async function fetchCovalentHistoryRaw({
   pageSize = pageSize ?? HISTORY_CONSTS.FETCH_ON_CHAIN_LIMIT;
 
   // https://www.covalenthq.com/docs/api/#/0/Get%20ERC20%20token%20transfers%20for%20address/USD/1
-  const tokenRequestUrl = `https://api.covalenthq.com/v1/${chainId}/address/${address}/transfers_v2/`;
+  const tokenRequestUrl = `${getCovalentApiEndpoint()}/v1/${chainId}/address/${address}/transfers_v2/`;
   // https://www.covalenthq.com/docs/api/#/0/Get%20transactions%20for%20address/USD/1
-  const url = `https://api.covalenthq.com/v1/${chainId}/address/${address}/transactions_v2/`;
+  const url = `${getCovalentApiEndpoint()}/v1/${chainId}/address/${address}/transactions_v2/`;
 
   const response = await axios.get<ICovalentHistoryList>(
     contract ? tokenRequestUrl : url,
@@ -877,7 +877,7 @@ async function fetchCovalentHistoryRaw({
       params: {
         'page-number': pageNumber,
         'page-size': pageSize,
-        'key': COVALENT_API_KEY,
+        // 'key': COVALENT_API_KEY,
         'contract-address': contract,
       },
     },
@@ -892,13 +892,13 @@ function getErc20TransferHistories(
   pageNumber: number,
   pageSize: number,
 ): Promise<HistoryDetailList | null> {
-  const request = `https://api.covalenthq.com/v1/${chainId}/address/${address}/transfers_v2/`;
+  const request = `${getCovalentApiEndpoint()}/v1/${chainId}/address/${address}/transfers_v2/`;
   return axios
     .get<HistoryDetailList>(request, {
       params: {
         'page-number': pageNumber,
         'page-size': pageSize,
-        'key': COVALENT_API_KEY,
+        // 'key': COVALENT_API_KEY,
         'contract-address': contract,
       },
     })

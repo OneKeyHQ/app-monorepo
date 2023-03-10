@@ -15,18 +15,12 @@ import {
 } from '@onekeyhq/components';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
-import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IDecodedTx,
   IEncodedTx,
-  IFeeInfoUnit,
   ISwapInfo,
 } from '@onekeyhq/engine/src/vaults/types';
-import {
-  calculateTotalFeeNative,
-  calculateTotalFeeRange,
-} from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   AppUIEventBusNames,
@@ -55,6 +49,7 @@ import { SwapQuoter } from './quoter';
 import { dangerRefs } from './refs';
 import { SwapError, SwapRoutes } from './typings';
 import {
+  calculateDecodedTxNetworkFee,
   formatAmount,
   getTokenAmountString,
   getTokenAmountValue,
@@ -120,23 +115,6 @@ function convertToSwapInfo(options: IConvertToSwapInfoOptions): ISwapInfo {
     swapQuote,
   };
   return swapInfo;
-}
-
-function calculateNetworkFee(feeInfo: IFeeInfoUnit, network: Network) {
-  const feeRange = calculateTotalFeeRange(feeInfo);
-  const calculatedTotalFeeInNative = calculateTotalFeeNative({
-    amount: feeRange.max,
-    info: {
-      defaultPresetIndex: '0',
-      prices: [],
-
-      feeSymbol: network.feeSymbol,
-      feeDecimals: network.feeDecimals,
-      nativeSymbol: network.symbol,
-      nativeDecimals: network.decimals,
-    },
-  });
-  return calculatedTotalFeeInNative;
 }
 
 const SwapTransactionsCancelApprovalBottomSheetModal: FC<
@@ -229,10 +207,11 @@ const ExchangeButton = () => {
     }
 
     if (!params.tokenIn.tokenIdOnNetwork) {
-      const [result] = await backgroundApiProxy.serviceToken.fetchTokenBalance({
-        activeAccountId: sendingAccount.id,
-        activeNetworkId: targetNetwork.id,
-      });
+      const [result] =
+        await backgroundApiProxy.serviceToken.getAccountTokenBalance({
+          accountId: sendingAccount.id,
+          networkId: targetNetwork.id,
+        });
       const balance = new BigNumber(result?.main?.balance ?? '0');
       const reservedValue = reservedNetworkFee[targetNetwork.id] ?? 0.1;
       if (balance.minus(inputAmount.typedValue).lt(reservedValue)) {
@@ -390,8 +369,8 @@ const ExchangeButton = () => {
       const nonce = decodedTx?.nonce;
 
       let networkFee: string | undefined;
-      if (decodedTx?.feeInfo) {
-        networkFee = calculateNetworkFee(decodedTx?.feeInfo, targetNetwork);
+      if (decodedTx) {
+        networkFee = calculateDecodedTxNetworkFee(decodedTx, targetNetwork);
       }
 
       const from: TransactionToken = {
@@ -435,6 +414,7 @@ const ExchangeButton = () => {
             providers: newQuote?.sources ?? quote.providers,
             arrivalTime: quote.arrivalTime,
             percentageFee: quote.percentageFee,
+            protocalFees: quote.protocolFees,
             networkFee,
             tokens: {
               from,

@@ -513,6 +513,7 @@ const RecoverAccounts: FC = () => {
   useEffect(() => {
     if (!depDataInit) return;
     if (isLoading && !isSwitchingDerivationPath.current) return;
+    if (!template) return;
 
     isFetchingData.current = true;
     if (!isSwitchingDerivationPath.current) {

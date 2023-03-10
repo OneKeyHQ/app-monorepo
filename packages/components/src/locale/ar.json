@@ -598,7 +598,6 @@
   "content__or_lowercase": "أو",
   "content__other": "آخر",
   "content__owners": "أصحاب",
-  "content__passphrase_pin_wallet": "Pin",
   "content__password_required_even_unlocked": "ستكون كلمة المرور مطلوبة في هذه الحالات حتى إذا قمت بالفعل بإلغاء قفل OneKey.",
   "content__password_required_unlock_onekey": "ستكون كلمة المرور مطلوبة في المرة التالية التي تقوم فيها بإلغاء تأمين OneKey.",
   "content__password_security": "يتم تخزين كلمة المرور بشكل آمن على جهازك. لن نتمكن من استعادتها لك ، لذا تأكد من تذكرها!",
@@ -781,11 +780,12 @@
   "dialog__chain_already_existed_desc": "هل تريد تمكين هذه السلسلة؟",
   "dialog__delete_backup": "هل أنت متأكد أنك تريد حذف هذه النسخة الاحتياطية؟",
   "dialog__delete_backup_desc": "سيتم حذف هذا الملف نهائيًا من iCloud. تأكد من قيامك بتدوين عبارات الاسترداد حيث لن تتمكن من استعادة المحافظ بطريقة أخرى.",
-  "dialog__delete_hardware_passphrase_wallet_desc": "This will permanently delete your data. Ensure you have saved the passphrase of this hidden wallet.",
+  "dialog__delete_hardware_passphrase_wallet_desc": "سيؤدي هذا إلى حذف البيانات الخاصة بك بشكل دائم. تأكد من حفظ عبارة مرور هذه المحفظة المخفية.",
   "dialog__delete_hardware_wallet_desc": "سيؤدي هذا إلى حذف البيانات الخاصة بك بشكل دائم. ولكن لا يزال بإمكانك استعادتها من محفظة الأجهزة التي تم تحميل عبارة الاسترداد لهذه المحفظة.",
   "dialog__delete_wallet_desc": "تأكد من كتابة عبارة الاسترداد قبل حذفها. لن تتمكن من استرداد المحفظة بخلاف ذلك.",
-  "dialog__device_has_disabled_passphrase": "أوقف الجهاز عبارة المرور",
-  "dialog__device_has_disabled_passphrase_desc": "يمكنك تمكين عبارة المرور لاستخدام المحفظة المخفية.",
+  "dialog__device_has_desabled_passphrase_double_check": "لن أنسى عبارة المرور الخاصة بي",
+  "dialog__device_has_disabled_passphrase": "هل أنت متأكد من تمكين عبارة المرور؟",
+  "dialog__device_has_disabled_passphrase_desc": "كل محفظة مخفية لها عبارة المرور الخاصة بها. لا تنسى ذلك ، لأنه لا يمكن استرجاعه وستفقد الأموال بشكل دائم.",
   "dialog__device_has_enabled_passphrase": "قام الجهاز بتمكين عبارة المرور",
   "dialog__device_has_enabled_passphrase_desc": "يمكنك تعطيل عبارة المرور لاستخدام المحفظة القياسية.",
   "dialog__disabling_sync": "تعطيل المزامنة",
@@ -973,6 +973,7 @@
   "form__chinese_traditional": "تقاليد صينية",
   "form__claimable_str": "قابل للمطالبة به: {0}",
   "form__claimable_uppercase": "قابل للمطالبة به",
+  "form__close_tab": "إغلاق علامة التبويب",
   "form__coingecko_desc": "أخبار التشفير من Coingecko",
   "form__compressing_failed_try_again": "فشل الضغط ، حاول مرة أخرى.",
   "form__connect_wallet_before_uploading": "قم بتوصيل المحفظة قبل التحميل",
@@ -1091,6 +1092,7 @@
   "form__incorrect_address_format": "تنسيق عنوان غير صحيح",
   "form__incorrect_dotmap": "Dotmap غير صحيح",
   "form__instant_transfer": "نقل فوري",
+  "form__jump_to_the_next_open_tab": "انتقل إلى علامة التبويب المفتوحة التالية",
   "form__keystore": "كيستور",
   "form__keystore_helperText": "عدة أسطر من النص تبدأ بـ \" {...} \".",
   "form__keystore_invalid": "تنسيق Keystore / JSON غير صحيح.",
@@ -1147,6 +1149,7 @@
   "form__network_uppercase": "شبكة الاتصال",
   "form__never": "أبداً",
   "form__new": "جديد",
+  "form__new_tab": "علامة تبويب جديدة",
   "form__nft": "NFT",
   "form__nft_search_placeholder": "ابحث عن مجموعات",
   "form__no_additional_issuance": "لا يوجد إصدار إضافي",
@@ -1182,6 +1185,9 @@
   "form__one_year_high": "1 سنة عالية",
   "form__one_year_low": "1 سنة منخفضة",
   "form__onekey_keytag": "OneKey KeyTag",
+  "form__open_a_new_tab": "افتح علامة تبويب جديدة",
+  "form__open_new_tab_and_jump": "افتح علامة تبويب جديدة واقفز",
+  "form__open_next_page_in_current_tab": "افتح الصفحة التالية في علامة التبويب الحالية",
   "form__order_no": "رقم الطلب",
   "form__outbox": "صندوق الصادر",
   "form__overwrite_metamask": "الكتابة فوق MetaMask",
@@ -1195,7 +1201,7 @@
   "form__ownership_cannot_be_taken_back": "لا يمكن استعادة الملكية",
   "form__ownership_cannot_be_taken_back_desc": "في حالة وجود هذه الوظيفة ، يمكن لمالك المشروع استعادة الملكية حتى بعد التنازل عنها",
   "form__page_number_placeholder": "رقم الصفحة ، على سبيل المثال: 16",
-  "form__passphrase_confirm_placeholder": "Confirm Passphrase",
+  "form__passphrase_confirm_placeholder": "قم بتأكيد عبارة المرور",
   "form__passphrase_placeholder": "أدخل عبارة المرور",
   "form__password": "كلمه السر",
   "form__password_free_payment": "الدفع بدون كلمة مرور",
@@ -1236,7 +1242,7 @@
   "form__rate": "معدل",
   "form__rate_our_app": "قيم تطبيقنا",
   "form__raw_desc": "التمهيد لمركز معلومات Web3 الشخصي الخاص بك من أكثر من 500 موجز ويب لـ RSS.",
-  "form__receiver_address_amount": "Reiceiver العنوان ، المبلغ",
+  "form__receiver_address_amount": "عنوان المستلم ، المبلغ",
   "form__receiver_address_token_id_amount": "عنوان المستلم ، معرف الرمز ، المبلغ",
   "form__receiving_address": "عنوان الاستلام",
   "form__recent_searched_uppercase": "تم البحث عنها مؤخرًا",
@@ -1246,6 +1252,7 @@
   "form__recovery_seed_invalid": "عبارة الاسترداد الخاصة بك غير صالحة.",
   "form__recovery_seed_placeholder": "اكتب كلمات عبارة الاسترداد الخاصة بك هنا",
   "form__release_notes": "ملاحظات الإصدار:",
+  "form__reopen_last_page_in_current_tab": "أعد فتح الصفحة الأخيرة في علامة التبويب الحالية",
   "form__request_type": "نوع الطلب",
   "form__reset_app": "إعادة تعيين التطبيق",
   "form__reward_history": "تاريخ المكافأة",
@@ -1488,7 +1495,7 @@
   "modal__enter_bootloader_mode_mini_desc": "استمر في الضغط على زر قفل الشاشة في OneKey Mini وأعد توصيل كابل USB.",
   "modal__enter_bootloader_mode_touch": "1. إيقاف TOUCH\n 2. اضغط مع الاستمرار على زر الطاقة بالجهاز أثناء التمرير على الشاشة\n 3. سيعرض الجهاز \"وضع التحديث\"",
   "modal__enter_pin": "أدخل رقم التعريف الشخصي",
-  "modal__enter_pin_desc": "تحقق من شاشة جهازك باستخدام تخطيط لوحة المفاتيح العشوائي",
+  "modal__enter_pin_desc": "أدخل رمز PIN الخاص بك باتباع التخطيط الرقمي المعروض على شاشة الجهاز",
   "modal__failed_to_connect": "فشل الاتصال",
   "modal__failed_to_connect_desc": "تأكد من أن الجهاز قريب من وحدة NFC بالهاتف ، ثم حاول مرة أخرى",
   "modal__finish_backup": "إنهاء النسخ الاحتياطي",
@@ -1684,11 +1691,11 @@
   "msg__hardware_open_blind_sign_error": "تنسيق توقيع غير معروف، انتقل إلى الأمان > التوقيع الأعمى وقم بتمكين التوقيع SOL-Sign المتقدم",
   "msg__hardware_opened_passphrase": "يرجى إيقاف تشغيل عبارة المرور على جهازك لاستخدام المحفظة القياسية",
   "msg__hardware_polling_connect_timeout_error": "انتهت مهلة الاتصال ، يرجى التحقق من حالة OneKey Bridge وإعادة توصيل الأجهزة",
-  "msg__hardware_status_connected": "Connected",
-  "msg__hardware_status_update_available": "Update Available",
+  "msg__hardware_status_connected": "متصل",
+  "msg__hardware_status_update_available": "التحديث متاح",
   "msg__hardware_unknown_message_error": "البرنامج الثابت الحالي غير مدعوم ، يرجى محاولة الترقية.",
   "msg__hardware_user_cancel_error": "يقوم المستخدم بإلغاء العملية",
-  "msg__hardware_verify_success": "جهازك أصلي",
+  "msg__hardware_verify_success": "البرامج الثابتة الرسمية",
   "msg__hardware_version_need_upgrade_error": "الرجاء ترقية البرنامج الثابت إلى {0} أو أعلى لاستخدام هذه الميزة.",
   "msg__hardware_version_to_low_error": "إصدار البرنامج الثابت سابق لأوانه لدعم هذه العملية.",
   "msg__high_price_volatility": "🚨 ارتفاع سعر التقلب!",
@@ -1698,6 +1705,7 @@
   "msg__image_download_failed": "فشل تنزيل الصورة.",
   "msg__image_saved": "تم حفظ الصورة",
   "msg__import_icloud_backup_failed_version": "فشل الاستيراد. يرجى التحديث إلى أحدث إصدار للمتابعة",
+  "msg__incomplete_file": "ملف غير مكتمل",
   "msg__incorrect_token_information": "معلومات رمز غير صحيحة",
   "msg__invalid_link_or_network_error": "ارتباط غير صالح أو خطأ في الشبكة",
   "msg__link_copied": "تم نسخ الرابط",
@@ -1725,7 +1733,7 @@
   "msg__offline": "غير متصل على الانترنت",
   "msg__other_str_lines_errors": "أخطاء أخرى {count} سطور",
   "msg__page_number_cannot_be_larger_than_str": "لا يمكن أن يكون رقم الصفحة أكبر من {number} .",
-  "msg__passphrase_needs_to_be_the_same": "Passphrase needs to be the same for both entries.",
+  "msg__passphrase_needs_to_be_the_same": "عبارة المرور غير متطابقة",
   "msg__passphrase_open_dsc": "تضيف عبارة المرور عبارة مخصصة إلى عبارة الاسترداد الخاصة بك لإنشاء محفظة مخفية. كل محفظة مخفية لها عبارة المرور الخاصة بها. لا تنسى ذلك ، لأنه لا يمكن استرجاعه وستفقد الأموال بشكل دائم.",
   "msg__password_changed": "تم تغيير كلمة السر",
   "msg__password_has_been_set": "تم تعيين كلمة المرور",
@@ -1804,10 +1812,10 @@
   "msg__upload_failed": "التحميل فشل",
   "msg__url_copied": "تم نسخ URL",
   "msg__use_passphrase_enter_hint_hide_wallet": "ستتم إزالة المحفظة المخفية مؤقتًا بعد إنهاء التطبيق.",
-  "msg__use_passphrase_enter_hint_not_forget": "Do not forget your passphrase",
-  "msg__use_passphrase_enter_hint_not_forget_dsc": "لا تنس عبارة مرورك. لا يمكن استرداد عبارات المرور وستفقد أموالك بشكل دائم.",
-  "msg__use_passphrase_remember_wallet": "Pin",
-  "msg__use_passphrase_remember_wallet_dsc": "Pin this hidden wallet so it won’t be removed after killing the app.",
+  "msg__use_passphrase_enter_hint_not_forget": "لا تنس عبارة مرورك",
+  "msg__use_passphrase_enter_hint_not_forget_dsc": "لا يمكن استرداد عبارات المرور وستفقد أموالك بشكل دائم",
+  "msg__use_passphrase_remember_wallet": "دبوس",
+  "msg__use_passphrase_remember_wallet_dsc": "تأكد من عدم إزالة هذه المحفظة المخفية بعد إغلاق التطبيق",
   "msg__using_latest_release": "أنت تستخدم أحدث إصدار! 🎉",
   "msg__verification_failure": "فشل التحقق",
   "msg__wallet_already_exist": "المحفظة موجودة بالفعل.",
@@ -1864,6 +1872,7 @@
   "title__add_a_network": "أضف شبكة",
   "title__add_network": "اضافة شبكة",
   "title__add_rpc_node": "أضف عقدة RPC",
+  "title__add_rpc_node_desc": "السماح لهذا الموقع بإضافة عقدة RPC إلى قائمة عقدة RPC الخاصة بك.",
   "title__add_site_connection": "إضافة اتصال الموقع",
   "title__add_token": "أضف رمز",
   "title__adding_str": "إضافة {0}",
@@ -2073,9 +2082,9 @@
   "title__welcome_to_onekey_swap": "مرحبًا بك في OneKey Swap!",
   "title__welcome_to_onekey_swap_desc": "آمن وسريع والعثور على أفضل سعر.",
   "title__whats_new": "ما هو الجديد",
-  "title__you_ve_added_this_rpc_node_before": "لقد قمت بإضافة عقدة RPC هذه من قبل",
   "title__you_ve_added_this_rpc_node_desc": "هل تريد التبديل إلى عقدة RPC هذه؟",
   "title__you_ve_paused_the_transaction_generation": "لقد أوقفت إنشاء المعاملة مؤقتًا",
+  "title__youve_added_this_rpc_node": "لقد قمت بإضافة هذه العقدة RPC",
   "title_select_wallet": "حدد Wallet",
   "title_use_touchid_unlock": "استخدم TouchID Unlock",
   "transaction__approve_token_spend_limit": "الموافقة على حد الإنفاق {token}",

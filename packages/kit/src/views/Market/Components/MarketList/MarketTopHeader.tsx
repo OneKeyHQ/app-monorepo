@@ -70,6 +70,18 @@ const HeaderSmall: FC<{ onPressSearch: () => void }> = ({ onPressSearch }) => {
     >
       <Box flexDirection="row">
         <Pressable
+          mr="3"
+          onPress={() => {
+            backgroundApiProxy.serviceMarket.switchMarketTopTab(SWAP_TAB_NAME);
+          }}
+        >
+          <Typography.DisplayMedium
+            color={tabName === SWAP_TAB_NAME ? 'text-default' : 'text-disabled'}
+          >
+            {intl.formatMessage({ id: 'title__Swap_Bridge' })}
+          </Typography.DisplayMedium>
+        </Pressable>
+        <Pressable
           onPress={() => {
             backgroundApiProxy.serviceMarket.switchMarketTopTab(
               MARKET_TAB_NAME,
@@ -82,18 +94,6 @@ const HeaderSmall: FC<{ onPressSearch: () => void }> = ({ onPressSearch }) => {
             }
           >
             {intl.formatMessage({ id: 'title__market' })}
-          </Typography.DisplayMedium>
-        </Pressable>
-        <Pressable
-          ml="3"
-          onPress={() => {
-            backgroundApiProxy.serviceMarket.switchMarketTopTab(SWAP_TAB_NAME);
-          }}
-        >
-          <Typography.DisplayMedium
-            color={tabName === SWAP_TAB_NAME ? 'text-default' : 'text-disabled'}
-          >
-            {intl.formatMessage({ id: 'title__Swap_Bridge' })}
           </Typography.DisplayMedium>
         </Pressable>
       </Box>

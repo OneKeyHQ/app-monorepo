@@ -2,8 +2,20 @@ import BigNumber from 'bignumber.js';
 
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import type {
+  IDecodedTx,
+  IFeeInfoUnit,
+} from '@onekeyhq/engine/src/vaults/types';
+import {
+  calculateTotalFeeNative,
+  calculateTotalFeeRange,
+} from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 
-import type { BuildTransactionParams, FetchQuoteParams } from './typings';
+import type {
+  BuildTransactionParams,
+  FetchQuoteParams,
+  ProtocolFees,
+} from './typings';
 
 export const nativeTokenAddress = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 export const feeRecipient = '0xc1e92BD5d1aa6e5f5F299D0490BefD9D8E5a887a';
@@ -258,3 +270,53 @@ export const normalizeProviderName = (text: string) => {
   }
   return text;
 };
+
+export const calculateProtocalsFee = (protocolFees: ProtocolFees) => {
+  const { amount, asset } = protocolFees;
+  const bn = new BigNumber(amount);
+  const decimals = new BigNumber(asset.decimals);
+  const base = new BigNumber(10);
+  const value = bn.dividedBy(base.exponentiatedBy(decimals)).toFixed();
+  return { value, symbol: asset.symbol };
+};
+
+export function calculateDecodedTxNetworkFee(
+  decodedTx: IDecodedTx,
+  network: Network,
+) {
+  const { feeInfo, totalFeeInNative } = decodedTx;
+  if (totalFeeInNative) {
+    return totalFeeInNative;
+  }
+  if (feeInfo) {
+    const feeRange = calculateTotalFeeRange(feeInfo);
+    const calculatedTotalFeeInNative = calculateTotalFeeNative({
+      amount: feeRange.max,
+      info: {
+        defaultPresetIndex: '0',
+        prices: [],
+        feeSymbol: network.feeSymbol,
+        feeDecimals: network.feeDecimals,
+        nativeSymbol: network.symbol,
+        nativeDecimals: network.decimals,
+      },
+    });
+    return calculatedTotalFeeInNative;
+  }
+}
+
+export function calculateNetworkFee(feeInfo: IFeeInfoUnit, network: Network) {
+  const feeRange = calculateTotalFeeRange(feeInfo);
+  const calculatedTotalFeeInNative = calculateTotalFeeNative({
+    amount: feeRange.max,
+    info: {
+      defaultPresetIndex: '0',
+      prices: [],
+      feeSymbol: network.feeSymbol,
+      feeDecimals: network.feeDecimals,
+      nativeSymbol: network.symbol,
+      nativeDecimals: network.decimals,
+    },
+  });
+  return calculatedTotalFeeInNative;
+}

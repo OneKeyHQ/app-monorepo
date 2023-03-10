@@ -10,9 +10,12 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { QuoterType } from '../typings';
 import {
+  calculateNetworkFee,
   convertBuildParams,
   convertParams,
+  div,
   getTokenAmountValue,
+  isEvmNetworkId,
   multiply,
 } from '../utils';
 
@@ -31,6 +34,7 @@ import type {
   QuoteData,
   QuoteLimited,
   Quoter,
+  SerializableBlockReceipt,
   SerializableTransactionReceipt,
   TransactionData,
   TransactionDetails,
@@ -131,6 +135,11 @@ export class SwapQuoter {
     this.jupiter,
     this.swftc,
   ];
+
+  transactionReceipts: Record<
+    string,
+    Record<string, SerializableTransactionReceipt>
+  > = {};
 
   prepare() {
     this.quoters.forEach((quoter) => {
@@ -482,18 +491,36 @@ export class SwapQuoter {
     }
   }
 
-  async doQueryReceivedToken(
+  async getTransactionReceipt(
+    networkId: string,
     txid: string,
-    token: Token,
-    receivingAddress: string,
-  ) {
-    const result = (await backgroundApiProxy.serviceNetwork.rpcCall(
-      token.networkId,
+  ): Promise<SerializableTransactionReceipt | undefined> {
+    if (!this.transactionReceipts[networkId]) {
+      this.transactionReceipts[networkId] = {};
+    }
+    if (this.transactionReceipts[networkId]?.[txid]) {
+      return this.transactionReceipts[networkId]?.[txid];
+    }
+
+    const receipt = (await backgroundApiProxy.serviceNetwork.rpcCall(
+      networkId,
       {
         method: 'eth_getTransactionReceipt',
         params: [txid],
       },
     )) as SerializableTransactionReceipt | undefined;
+    if (receipt) {
+      this.transactionReceipts[networkId][txid] = receipt;
+      return receipt;
+    }
+  }
+
+  async doQueryReceivedToken(
+    txid: string,
+    token: Token,
+    receivingAddress: string,
+  ) {
+    const result = await this.getTransactionReceipt(token.networkId, txid);
     if (result) {
       const strippedAddress = (address: string) =>
         `0x${address.slice(2).replace(/^0+/, '').padStart(40, '0')}`;
@@ -521,11 +548,15 @@ export class SwapQuoter {
         }
       } else {
         const historyTx = await this.getHistoryTx(tx);
-        const txid = historyTx?.decodedTx.txid;
-        if (from.networkId.startsWith(IMPL_EVM) && txid && receivingAddress) {
-          if (from.networkId === to.networkId) {
+        const txid = historyTx?.decodedTx.txid || tx.hash;
+        if (
+          isEvmNetworkId(from.networkId) &&
+          isEvmNetworkId(to.networkId) &&
+          receivingAddress
+        ) {
+          if (txid && from.networkId === to.networkId) {
             const amount = await this.doQueryReceivedToken(
-              historyTx?.decodedTx.txid,
+              txid,
               to.token,
               receivingAddress,
             );
@@ -542,6 +573,59 @@ export class SwapQuoter {
               return getTokenAmountValue(tx.tokens.to.token, amount).toFixed();
             }
           }
+        }
+      }
+    }
+  }
+
+  async getTxCompletedTime(tx: TransactionDetails) {
+    if (tx.tokens) {
+      const { to } = tx.tokens;
+      if (isEvmNetworkId(to.networkId)) {
+        let txid = tx.hash;
+        const historyTx = await this.getHistoryTx(tx);
+        if (historyTx?.decodedTx.txid) {
+          txid = historyTx?.decodedTx.txid;
+        }
+        if (tx.destinationTransactionHash) {
+          txid = tx.destinationTransactionHash;
+        }
+        const result = await this.getTransactionReceipt(to.networkId, txid);
+        if (result?.blockHash) {
+          const blockInfo = (await backgroundApiProxy.serviceNetwork.rpcCall(
+            to.networkId,
+            {
+              method: 'eth_getBlockByHash',
+              params: [result.blockHash, true],
+            },
+          )) as SerializableBlockReceipt | undefined;
+          if (blockInfo?.timestamp) {
+            const tm = new BigNumber(blockInfo.timestamp);
+            return tm.multipliedBy(1000).toFixed();
+          }
+        }
+      }
+    }
+  }
+
+  async getTxActualNetworkFee(tx: TransactionDetails) {
+    if (tx.tokens) {
+      const { from } = tx.tokens;
+      if (isEvmNetworkId(from.networkId)) {
+        const historyTx = await this.getHistoryTx(tx);
+        const txid = historyTx?.decodedTx.txid || tx.hash;
+        const result = await this.getTransactionReceipt(from.networkId, txid);
+        if (result) {
+          const network = await backgroundApiProxy.engine.getNetwork(
+            tx.networkId,
+          );
+          return calculateNetworkFee(
+            {
+              limit: result.gasUsed,
+              price: div(result.effectiveGasPrice, 10 ** 9),
+            },
+            network,
+          );
         }
       }
     }

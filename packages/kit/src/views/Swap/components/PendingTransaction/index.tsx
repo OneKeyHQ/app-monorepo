@@ -36,9 +36,9 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
           const fromTokenIds = from.token.tokenIdOnNetwork
             ? [from.token.tokenIdOnNetwork]
             : [];
-          backgroundApiProxy.serviceToken.fetchTokenBalance({
-            activeAccountId: tx.accountId,
-            activeNetworkId: from.networkId,
+          backgroundApiProxy.serviceToken.getAccountTokenBalance({
+            accountId: tx.accountId,
+            networkId: from.networkId,
             tokenIds: fromTokenIds,
           });
           if (tx.receivingAddress) {
@@ -51,9 +51,9 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
               const toTokenIds = to.token.tokenIdOnNetwork
                 ? [to.token.tokenIdOnNetwork]
                 : [];
-              backgroundApiProxy.serviceToken.fetchTokenBalance({
-                activeAccountId: receivingAccount.id,
-                activeNetworkId: to.networkId,
+              backgroundApiProxy.serviceToken.getAccountTokenBalance({
+                accountId: receivingAccount.id,
+                networkId: to.networkId,
                 tokenIds: toTokenIds,
               });
             }
@@ -75,8 +75,9 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
         );
       }
       if (status === 'sucesss') {
-        tx.destinationTransactionHash = destinationTransactionHash;
-        const actualReceived = await SwapQuoter.client.getActualReceived(tx);
+        const txObj = { ...tx };
+        txObj.destinationTransactionHash = destinationTransactionHash;
+        const actualReceived = await SwapQuoter.client.getActualReceived(txObj);
         backgroundApiProxy.dispatch(
           updateTransaction({
             accountId: tx.accountId,
@@ -87,6 +88,28 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
             },
           }),
         );
+        const completedTime = await SwapQuoter.client.getTxCompletedTime(tx);
+        if (completedTime) {
+          backgroundApiProxy.dispatch(
+            updateTransaction({
+              accountId: tx.accountId,
+              networkId: tx.networkId,
+              hash: tx.hash,
+              transaction: { confirmedTime: Number(completedTime) },
+            }),
+          );
+        }
+        const networkFee = await SwapQuoter.client.getTxActualNetworkFee(tx);
+        if (networkFee) {
+          backgroundApiProxy.dispatch(
+            updateTransaction({
+              accountId: tx.accountId,
+              networkId: tx.networkId,
+              hash: tx.hash,
+              transaction: { networkFee },
+            }),
+          );
+        }
       }
     }
     // eslint-disable-next-line

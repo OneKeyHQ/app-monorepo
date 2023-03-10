@@ -75,47 +75,56 @@ const NavHeader: FC<HeaderProps & Partial<NativeStackHeaderProps>> = ({
   }, [hasLeft, headerTitle, headerTitleProps, options]);
 
   return (
-    <View
-      pointerEvents="box-none"
-      style={[
-        {
-          height,
-          marginTop: safeTop ?? insets.top,
-          backgroundColor: bgColor,
-        },
-        style,
-      ]}
-    >
+    <>
       <View
         pointerEvents="box-none"
-        style={[styles.content, { marginHorizontal: isVertical ? 16 : 32 }]}
+        style={[
+          StyleSheet.absoluteFill,
+          { zIndex: 0, backgroundColor: bgColor },
+        ]}
+      />
+      <View
+        pointerEvents="box-none"
+        style={[
+          {
+            height,
+            marginTop: safeTop ?? insets.top,
+            backgroundColor: bgColor,
+          },
+          style,
+        ]}
       >
         <View
           pointerEvents="box-none"
-          style={[styles.left, { marginStart: insets.left }]}
+          style={[styles.content, { marginHorizontal: isVertical ? 16 : 32 }]}
         >
-          {(!!back || alwaysShowBackButton) && (
-            <Box ml="-6px" mr="8px">
-              <HeaderBackButton navigation={navigation} />
-            </Box>
-          )}
-          {headerLeft
-            ? headerLeft()
-            : // @ts-expect-error
-              options.headerLeft?.()}
-        </View>
-        {titleComponent}
-        <View
-          pointerEvents="box-none"
-          style={[styles.right, styles.expand, { marginEnd: insets.right }]}
-        >
-          {headerRight
-            ? headerRight()
-            : // @ts-expect-error
-              options.headerRight?.()}
+          <View
+            pointerEvents="box-none"
+            style={[styles.left, { marginStart: insets.left }]}
+          >
+            {(!!back || alwaysShowBackButton) && (
+              <Box ml="-6px" mr="8px">
+                <HeaderBackButton navigation={navigation} />
+              </Box>
+            )}
+            {headerLeft
+              ? headerLeft()
+              : // @ts-expect-error
+                options.headerLeft?.()}
+          </View>
+          {titleComponent}
+          <View
+            pointerEvents="box-none"
+            style={[styles.right, styles.expand, { marginEnd: insets.right }]}
+          >
+            {headerRight
+              ? headerRight()
+              : // @ts-expect-error
+                options.headerRight?.()}
+          </View>
         </View>
       </View>
-    </View>
+    </>
   );
 };
 

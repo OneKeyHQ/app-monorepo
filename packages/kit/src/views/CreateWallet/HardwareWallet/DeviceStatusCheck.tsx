@@ -42,7 +42,7 @@ type RouteProps = RouteProp<
 const DeviceStatusCheckModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { device } = useRoute<RouteProps>().params;
+  const { device, entry } = useRoute<RouteProps>().params;
   const { serviceHardware } = backgroundApiProxy;
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -121,6 +121,7 @@ const DeviceStatusCheckModal: FC = () => {
               device,
               features,
             },
+            entry,
           },
         });
       } finally {

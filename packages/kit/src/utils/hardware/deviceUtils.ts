@@ -476,6 +476,8 @@ class DeviceUtils {
         return new Error.OpenBlindSign(payload);
       case HardwareErrorCode.FileAlreadyExists:
         return new Error.FileAlreadyExistError(payload);
+      case HardwareErrorCode.CheckDownloadFileError:
+        return new Error.IncompleteFileError(payload);
       default:
         return new Error.UnknownHardwareError(payload);
     }
