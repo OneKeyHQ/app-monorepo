@@ -293,6 +293,8 @@ export function SwitchRpcModal() {
                         typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
                         textAlign="right"
                         flex="1"
+                        isTruncated
+                        pl="6"
                       >
                         {item.value}
                       </Text>
