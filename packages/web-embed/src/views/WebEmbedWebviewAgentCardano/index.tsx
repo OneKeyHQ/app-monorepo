@@ -32,6 +32,7 @@ enum CardanoEvent {
   dAppSignData = 'Cardano_DAppSignData',
 }
 
+let testCallingCount = 1;
 function WebEmbedWebviewAgentCardano() {
   const sendResponse = useCallback((promiseId: number, result: any) => {
     window.$onekey.$private.request({
@@ -56,7 +57,6 @@ function WebEmbedWebviewAgentCardano() {
       const CardanoApi = await getCardanoApi();
       switch (event) {
         case CardanoEvent.composeTxPlan: {
-          console.log('Cardano_composeTxPlan');
           const { transferInfo, xpub, utxos, changeAddress, outputs } =
             eventParams;
           try {
@@ -214,6 +214,7 @@ function WebEmbedWebviewAgentCardano() {
     if (!window.$onekey) {
       return;
     }
+    alert('register message_low_level');
     window.$onekey.$private.on('message_low_level', handler);
     return () => {
       window.$onekey.$private.off('message_low_level', handler);
@@ -224,10 +225,16 @@ function WebEmbedWebviewAgentCardano() {
     <Center p={4} bgColor="surface-warning-subdued" minH="100%">
       <Text
         onPress={() => {
-          window.$onekey.$private.request({
-            method: ProvideResponseMethod,
-            data: '88837777222',
-          });
+          setInterval(() => {
+            // eslint-disable-next-line no-plusplus
+            const content = `call private method interval::::   ${testCallingCount++}  `;
+            console.log(content);
+            window.$onekey.$private.request({
+              method: ProvideResponseMethod,
+              data: content,
+            });
+          }, 3000);
+
           alert('773655188');
         }}
       >

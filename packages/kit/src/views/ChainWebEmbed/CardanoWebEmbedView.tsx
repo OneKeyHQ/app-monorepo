@@ -5,18 +5,16 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from 'react';
 
-import { Box } from '@onekeyhq/components';
+import { Pressable } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebView/WebViewWebEmbed';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  useIsDevModeEnabled,
-  useShowWebEmbedWebviewAgent,
-} from '../../hooks/useSettingsDevMode';
+import { useShowWebEmbedWebviewAgent } from '../../hooks/useSettingsDevMode';
 
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
@@ -31,6 +29,7 @@ export const CardanoWebEmbedView = forwardRef(
   ) => {
     const webviewRef = useRef<IWebViewWrapperRef | null>(null);
     const isWebviewReadyRef = useRef(false);
+    const [topPosition, setTopPosition] = useState('100px');
     const isWebviewVisible = useShowWebEmbedWebviewAgent();
     useImperativeHandle(ref, () => ({
       innerRef: webviewRef.current,
@@ -60,7 +59,7 @@ export const CardanoWebEmbedView = forwardRef(
 
     const routePath = '/cardano';
 
-    let boxProps: ComponentProps<typeof Box> = {
+    let boxProps: ComponentProps<typeof Pressable> = {
       height: '0px',
       width: '0px',
     };
@@ -70,15 +69,19 @@ export const CardanoWebEmbedView = forwardRef(
         width: '300px',
         zIndex: 9999,
         position: 'absolute',
-        top: '100px',
+        top: topPosition,
         left: '20px',
         borderColor: 'border-default',
-        borderWidth: '4px',
+        borderWidth: '5px',
+        borderRightWidth: '50px',
+        onPress: () => {
+          setTopPosition(topPosition === '100px' ? '400px' : '100px');
+        },
       };
     }
 
     return (
-      <Box {...boxProps}>
+      <Pressable {...boxProps}>
         <WebViewWebEmbed
           onWebViewRef={onWebViewRef}
           onContentLoaded={() => {
@@ -95,7 +98,7 @@ export const CardanoWebEmbedView = forwardRef(
               : undefined
           }
         />
-      </Box>
+      </Pressable>
     );
   },
 );
