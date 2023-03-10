@@ -551,6 +551,15 @@ export const Debug = () => {
             </Pressable>
             <Pressable
               {...pressableProps}
+              onPress={() => {
+                // openUrlByWebview('https://www.bing.com');
+                openUrlByWebview('http://192.168.31.204:3008/#/cardano');
+              }}
+            >
+              <Typography.Body1>Open web-embed</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
               onPress={() => handleBatchTransfer()}
             >
               <Typography.Body1>Batch Transfer ETH 0</Typography.Body1>
