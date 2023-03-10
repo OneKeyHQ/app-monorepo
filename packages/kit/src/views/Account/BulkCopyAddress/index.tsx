@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -17,6 +17,7 @@ import type {
   CreateAccountRoutesParams,
 } from '../../../routes';
 import type { ModalScreenProps } from '../../../routes/types';
+import type { ISetRangeRefType } from './SetRange';
 import type { RouteProp } from '@react-navigation/native';
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
@@ -55,13 +56,23 @@ const BulkCopyAddress = () => {
   const network = networks.filter((n) => n.id === networkId)[0];
 
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
+
+  const setRangeRef = useRef<ISetRangeRefType>(null);
+  const onPrimaryActionPress = useCallback(async () => {
+    if (selectedIndex === 0) {
+      const data = await setRangeRef.current?.onSubmit();
+      console.log(data);
+    }
+  }, [selectedIndex]);
+
   return (
     <Modal
-      height="452px"
+      height="488px"
       header={intl.formatMessage({ id: 'title__bulk_copy_addresses' })}
       headerDescription={<HeaderDescription network={network} />}
       hideSecondaryAction
       primaryActionTranslationId="action__export_addresses"
+      onPrimaryActionPress={onPrimaryActionPress}
     >
       <Box mb={6}>
         <SegmentedControl
@@ -75,7 +86,7 @@ const BulkCopyAddress = () => {
       </Box>
 
       {selectedIndex === 0 && (
-        <SetRange walletId={walletId} networkId={networkId} />
+        <SetRange walletId={walletId} networkId={networkId} ref={setRangeRef} />
       )}
       {selectedIndex === 1 && (
         <WalletAccounts walletId={walletId} networkId={networkId} />
