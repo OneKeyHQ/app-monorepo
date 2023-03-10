@@ -59,6 +59,7 @@ function WebEmbedWebviewAgentCardano() {
       const CardanoApi = await getCardanoApi();
       switch (event) {
         case CardanoEvent.composeTxPlan: {
+          console.log('Cardano_composeTxPlan');
           const { transferInfo, xpub, utxos, changeAddress, outputs } =
             eventParams;
           try {
