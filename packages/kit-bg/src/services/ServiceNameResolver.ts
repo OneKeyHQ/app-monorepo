@@ -1,3 +1,4 @@
+import SID, { getSidAddress } from '@siddomains/sidjs';
 import { Resolution } from '@unstoppabledomains/resolution';
 import { createInstance } from 'dotbit';
 import { filter, groupBy, map } from 'lodash';
@@ -98,6 +99,14 @@ export default class ServiceNameResolver extends ServiceBase {
           [OnekeyNetwork.fetch]: ['FET.version.FETCHAI'],
         },
         resolver: this.resolveUnstoppableDomains.bind(this),
+      },
+      {
+        pattern: /(\.bnb|\.arb)$/,
+        shownSymbol: 'SID',
+        supportImplsMap: {
+          'evm--*': ['eth', 'bsc', 'arbitrum'],
+        },
+        resolver: this.resolveSIDDomains.bind(this),
       },
     ];
     return NAME_RESOLVER;
@@ -314,15 +323,58 @@ export default class ServiceNameResolver extends ServiceBase {
         const value = records[key];
         if (value?.length) {
           const subtype = key.replace('crypto.', '').replace('.address', '');
-          const resulet = {
+          const result = {
             subtype,
             value,
             type: 'address',
             key,
           };
-          names = [...names, resulet];
+          names = [...names, result];
         }
       });
+    } catch (e) {
+      return 'msg__network_request_failed';
+    }
+    return names;
+  }
+
+  async resolveSIDDomains(name: string) {
+    const { engine } = this.backgroundApi;
+    let names: ResolverNames[] = [];
+    let netWorks = ['eth'];
+    if (name.endsWith('.bnb')) {
+      netWorks = [...netWorks, 'bsc'];
+    }
+    if (name.endsWith('.arb')) {
+      netWorks = [...netWorks, 'arbitrum'];
+    }
+    try {
+      for (const net of netWorks) {
+        const chainOnlyVault = await engine.getChainOnlyVault(
+          Object.getOwnPropertyDescriptor(OnekeyNetwork, net)?.value,
+        );
+        const provider = await chainOnlyVault.getEthersProvider();
+        const chainId = await chainOnlyVault.getNetworkChainId();
+        const sidAddress = getSidAddress(chainId);
+        const sid = new SID({
+          provider,
+          sidAddress,
+        });
+        const sidName = sid.name(name);
+        const address = await sidName.getAddress();
+        if (
+          address &&
+          address !== '0x0000000000000000000000000000000000000000'
+        ) {
+          const result = {
+            subtype: net,
+            value: address,
+            type: 'address',
+            key: `address.${net}`,
+          };
+          names = [...names, result];
+        }
+      }
     } catch (e) {
       return 'msg__network_request_failed';
     }
