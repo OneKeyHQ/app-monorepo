@@ -31,6 +31,7 @@ import { showOverlay } from '../../../../utils/overlayUtils';
 import { OverlayPanel } from '../../../Overlay/OverlayPanel';
 import { PortalEntry } from '../../../Overlay/RootPortal';
 import { useWebController } from '../Controller/useWebController';
+import { dAddNewBlankWebTab } from '../explorerActions';
 import {
   MAX_OR_SHOW,
   MIN_OR_HIDE,
@@ -39,7 +40,6 @@ import {
   showTabGrid,
   showTabGridAnim,
 } from '../explorerAnimation';
-import { addNewBlankWebTab } from '../explorerUtils';
 import { showWebMoreMenu } from '../MoreMenu';
 
 export const ControllerBarMobile: FC = () => {
@@ -95,7 +95,7 @@ export const ControllerBarMobile: FC = () => {
         flex={1}
         type="plain"
         disabled={reachedTabLimit}
-        onPress={addNewBlankWebTab}
+        onPress={dAddNewBlankWebTab}
         iconSize={26}
         name="PlusCircleMini"
       />
@@ -184,7 +184,7 @@ export const ControllerBarMobile: FC = () => {
         flex={1}
         type="plain"
         disabled={reachedTabLimit}
-        onPress={addNewBlankWebTab}
+        onPress={dAddNewBlankWebTab}
         iconSize={26}
         name="PlusCircleMini"
       />

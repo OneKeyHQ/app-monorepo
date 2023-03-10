@@ -28,7 +28,7 @@ export const useAccessory = () => {
         setAccessoryData([]);
       }
     }, []),
-    500,
+    150,
     { trailing: true, leading: false },
   );
   const onSelectedKeybordAcessory = useCallback(

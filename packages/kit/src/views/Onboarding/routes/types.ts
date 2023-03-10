@@ -18,6 +18,7 @@ export type IOnboardingBehindTheSceneParams =
       device: SearchDevice;
       features: IOneKeyDeviceFeatures;
     };
+    entry?: 'onboarding' | 'walletSelector';
   };
 export type IOnboardingSetPasswordParams = {
   disableAnimation?: boolean;

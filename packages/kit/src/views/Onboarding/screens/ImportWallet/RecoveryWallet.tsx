@@ -57,7 +57,13 @@ const RecoveryWallet = () => {
       {/* TODO:F remove the key onboarding__import_with_phrase */}
       <Layout
         disableAnimation={disableAnimation}
-        title="Import Recovery Phrase"
+        title={
+          mode === 'mnemonic'
+            ? 'Import Recovery Phrase'
+            : mode === 'imported'
+            ? 'Import Private Key'
+            : 'Watch-only Accounts'
+        }
         secondaryContent={
           <SecondaryContent
             mode={mode}
