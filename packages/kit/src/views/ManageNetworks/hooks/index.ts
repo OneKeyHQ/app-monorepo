@@ -74,6 +74,7 @@ export const measureRpc = async (
 };
 
 export const useRPCUrls = (networkId?: string) => {
+  const [loading, setLoading] = useState(false);
   const [defaultRpc, setDefaultRpc] = useState<string>();
   const [preset, setPreset] = useState<string[]>([]);
   const [custom, setCustom] = useState<string[]>([]);
@@ -82,20 +83,22 @@ export const useRPCUrls = (networkId?: string) => {
     if (!networkId) {
       return;
     }
-    const { serviceNetwork } = backgroundApiProxy;
-
-    const { urls = [], defaultRpcURL } =
-      await serviceNetwork.getPresetRpcEndpoints(networkId);
-
-    const customUrls = await serviceNetwork.getCustomRpcUrls(networkId);
-
-    setDefaultRpc(defaultRpcURL);
-    if (networkIsPreset(networkId)) {
-      setCustom(customUrls ?? []);
-      setPreset(urls);
-    } else {
-      setCustom(uniq([...urls, ...customUrls]));
-      setPreset([]);
+    setLoading(true);
+    try {
+      const { serviceNetwork } = backgroundApiProxy;
+      const { urls = [], defaultRpcURL } =
+        await serviceNetwork.getPresetRpcEndpoints(networkId);
+      const customUrls = await serviceNetwork.getCustomRpcUrls(networkId);
+      setDefaultRpc(defaultRpcURL);
+      if (networkIsPreset(networkId)) {
+        setCustom(customUrls ?? []);
+        setPreset(urls);
+      } else {
+        setCustom(uniq([...urls, ...customUrls]));
+        setPreset([]);
+      }
+    } finally {
+      setLoading(false);
     }
   }, [networkId]);
 
@@ -104,6 +107,7 @@ export const useRPCUrls = (networkId?: string) => {
   }, [refresh]);
 
   return {
+    loading,
     defaultRpc,
     preset,
     custom,

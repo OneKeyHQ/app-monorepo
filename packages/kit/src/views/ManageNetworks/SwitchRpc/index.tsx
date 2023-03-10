@@ -96,7 +96,6 @@ export function SwitchRpcModal() {
   const intl = useIntl();
   const resolveRef = useRef<boolean>(false);
   const { name, rpcURL, logoURI, networkId } = useRouteParams();
-  // const { serviceNetwork } = backgroundApiProxy;
   const queryInfo = useDappParams();
   const dappApprove = useDappApproveAction({
     id: queryInfo.sourceInfo?.id ?? '',
@@ -107,7 +106,12 @@ export function SwitchRpcModal() {
     [networkId, rpcURL],
   );
 
-  const { preset, custom, defaultRpc } = useRPCUrls(networkId);
+  const {
+    preset,
+    custom,
+    defaultRpc,
+    loading: getRpcLoading,
+  } = useRPCUrls(networkId);
 
   const isDisabled = useMemo(() => loading || !result, [loading, result]);
 
@@ -228,25 +232,22 @@ export function SwitchRpcModal() {
   return (
     <Modal
       height="560px"
+      enableMobileFooterWrap
       onModalClose={onModalClose}
+      secondaryActionTranslationId="action__add_to_rpc_node_list_only"
       primaryActionTranslationId={
         hasAdded ? 'action__switch' : 'action__add_n_switch'
       }
-      secondaryActionTranslationId="action__add_to_rpc_node_list_only"
-      hideSecondaryAction={hasAdded}
-      primaryActionProps={{
-        isDisabled,
-      }}
-      onPrimaryActionPress={onPrimaryActionPress}
+      hideSecondaryAction={hasAdded || getRpcLoading}
       onSecondaryActionPress={addRpc}
+      onPrimaryActionPress={onPrimaryActionPress}
       secondaryActionProps={{
         isDisabled,
       }}
+      primaryActionProps={{
+        isDisabled,
+      }}
       scrollViewProps={{
-        contentContainerStyle: {
-          justifyContent: 'center',
-          alignItems: 'center',
-        },
         children: (
           <KeyboardDismissView>
             <Box>
