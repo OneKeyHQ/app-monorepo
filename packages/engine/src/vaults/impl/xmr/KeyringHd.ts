@@ -26,7 +26,11 @@ export class KeyringHd extends KeyringHdBase {
   async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
   ): Promise<Array<DBVariantAccount>> {
-    const { password, indexes, names, template } = params;
+    const { password, names, template } = params;
+
+    // only support primary address for now
+    const indexes = [0];
+
     const network = await this.getNetwork();
     const { entropy } = (await this.engine.dbApi.getCredential(
       this.walletId,
@@ -79,7 +83,6 @@ export class KeyringHd extends KeyringHdBase {
           publicViewKey,
         ).toString('hex')}`,
         address: '',
-        raw: rawPrivateKey.toString('hex'),
         addresses: { [this.networkId]: address },
       });
     }

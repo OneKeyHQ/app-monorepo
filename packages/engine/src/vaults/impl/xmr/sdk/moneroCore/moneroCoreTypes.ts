@@ -7,4 +7,6 @@ export interface MoneroCoreInstance
     publicSpendKey: string,
     outputIndex: string,
   ) => string;
+
+  decode_address: (address: string, netType: string) => string;
 }

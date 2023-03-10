@@ -1,12 +1,14 @@
-import axios from 'axios';
+import { mnemonicFromEntropy } from '@onekeyfe/blockchain-libs/dist/secret';
 import BigNumber from 'bignumber.js';
+import { mnemonicToSeedSync } from 'bip39';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
-import { OneKeyInternalError } from '../../../errors';
+import { InvalidAddress, OneKeyInternalError } from '../../../errors';
 import { isAccountCompatibleWithNetwork } from '../../../managers/account';
+import { slicePathTemplate } from '../../../managers/derivation';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
@@ -22,15 +24,16 @@ import { KeyringWatching } from './KeyringWatching';
 import { getMoneroApi } from './sdk';
 import { MoneroNetTypeEnum } from './sdk/moneroUtil/moneroUtilTypes';
 import settings from './settings';
-import { getDecodedTxStatus } from './utils';
+import { getDecodedTxStatus, getRawPrivateKeyFromSeed } from './utils';
 
+import type { ExportedSeedCredential } from '../../../dbs/base';
 import type {
   Account,
   DBAccount,
   DBVariantAccount,
 } from '../../../types/account';
-import type { IDecodedTx, IHistoryTx } from '../../types';
-import type { IOnChainHistoryTx } from './types';
+import type { IDecodedTx, IHistoryTx, ITransferInfo } from '../../types';
+import type { IEncodedTxXmr, IOnChainHistoryTx } from './types';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -41,17 +44,37 @@ export default class Vault extends VaultBase {
     external: KeyringWatching,
   };
 
+  rawPrivateKey = '';
+
   settings = settings;
 
   private getMoneroKeys = memoizee(
-    async (index?: number) => {
+    async (password: string, index?: number) => {
       const moneroApi = await getMoneroApi();
       const dbAccount = (await this.getDbAccount({
         noCache: true,
       })) as DBVariantAccount;
-      const rawPrivateKey = Buffer.from(dbAccount.raw ?? '', 'hex');
+      const { pathPrefix } = slicePathTemplate(dbAccount.template as string);
+      let rawPrivateKey: string | Buffer;
+      rawPrivateKey = this.rawPrivateKey;
+
       if (!rawPrivateKey) {
-        throw new OneKeyInternalError('Unable to get raw private key.');
+        const { entropy } = (await this.engine.dbApi.getCredential(
+          this.walletId,
+          password,
+        )) as ExportedSeedCredential;
+
+        const mnemonic = mnemonicFromEntropy(entropy, password);
+        const seed = mnemonicToSeedSync(mnemonic);
+        const resp = getRawPrivateKeyFromSeed(seed, pathPrefix);
+
+        if (!resp) {
+          throw new OneKeyInternalError('Unable to get raw private key.');
+        }
+        rawPrivateKey = resp;
+        this.rawPrivateKey = resp.toString('hex');
+      } else {
+        rawPrivateKey = Buffer.from(rawPrivateKey, 'hex');
       }
 
       return moneroApi.getKeyPairFromRawPrivatekey({
@@ -61,19 +84,19 @@ export default class Vault extends VaultBase {
       });
     },
     {
-      max: 5,
+      max: 1,
       primitive: true,
       maxAge: getTimeDurationMs({ minute: 3 }),
       promise: true,
     },
   );
 
-  private async getClient(): Promise<ClientXmr> {
+  private async getClient(password: string): Promise<ClientXmr> {
     // const rpcUrl = await this.getRpcUrl();
     const rpcUrl = 'https://node.onekey.so/xmr';
     const walletUrl = 'https://node.onekey.so/mymonero';
     const { publicSpendKey, publicViewKey, privateSpendKey, privateViewKey } =
-      await this.getMoneroKeys();
+      await this.getMoneroKeys(password);
     const { address } = await this.getOutputAccount();
     return this.createXmrClient(
       rpcUrl,
@@ -112,11 +135,11 @@ export default class Vault extends VaultBase {
     },
   );
 
-  override async getExportedCredential(): Promise<string> {
+  override async getExportedCredential(password: string): Promise<string> {
     const dbAccount = await this.getDbAccount();
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const moneroApi = await getMoneroApi();
-      const { privateSpendKey } = await this.getMoneroKeys();
+      const { privateSpendKey } = await this.getMoneroKeys(password);
 
       return moneroApi.privateSpendKeyToWords(privateSpendKey);
     }
@@ -125,12 +148,42 @@ export default class Vault extends VaultBase {
     );
   }
 
+  override async validateAddress(address: string): Promise<string> {
+    const moneroApi = await getMoneroApi();
+    const network = await this.getNetwork();
+
+    let isValid = false;
+
+    try {
+      const result = await moneroApi.decodeAddress(
+        address,
+        network.isTestnet ? 'TESTNET' : 'MAINNET',
+      );
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (result.err_msg) {
+        isValid = false;
+      } else {
+        isValid = true;
+      }
+    } catch {
+      isValid = false;
+    }
+    const normalizedAddress = isValid ? address.toLowerCase() : undefined;
+
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidAddress();
+    }
+    return Promise.resolve(normalizedAddress);
+  }
+
   override async fetchOnChainHistory(options: {
     tokenIdOnNetwork?: string;
     localHistory: IHistoryTx[];
+    password: string;
   }): Promise<IHistoryTx[]> {
-    const client = await this.getClient();
-    const { localHistory } = options;
+    const { localHistory, password } = options;
+    const client = await this.getClient(password);
     const network = await this.getNetwork();
 
     const address = await this.getAccountAddress();
@@ -268,8 +321,9 @@ export default class Vault extends VaultBase {
 
   override async getBalances(
     requests: Array<{ address: string; tokenAddress?: string }>,
+    password: string,
   ): Promise<(BigNumber | undefined)[]> {
-    const client = await this.getClient();
+    const client = await this.getClient(password);
     if (requests.length > 1) return [];
 
     const [request] = requests;

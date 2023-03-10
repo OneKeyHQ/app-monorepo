@@ -7,11 +7,16 @@ import { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import type { ChainInfo, CoinInfo } from '@onekeyhq/engine/src/types/chain';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
-import { TransactionStatus } from '../../../types/provider';
+import { NotImplemented } from '../../../errors';
 
 import { getMoneroApi } from './sdk';
 
-import type { MoneroKeys } from './types';
+import type {
+  AddressInfo,
+  ClientInfo,
+  FeePricePerUnit,
+  TransactionStatus,
+} from '../../../types/provider';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum RPC_METHODS {
@@ -69,13 +74,6 @@ export class ClientXmr extends BaseClient {
     this.wallet.login(privateViewKey, address, true);
   }
 
-  async broadcastTransaction(rawTx: string, options?: any): Promise<string> {
-    return this.rpc.call(RPC_METHODS.SEND_TRANSACTION, [
-      rawTx,
-      { encoding: PARAMS_ENCODINGS.BASE64, ...(options || {}) },
-    ]);
-  }
-
   async getBalances(
     requests: Array<{
       address: string;
@@ -118,34 +116,6 @@ export class ClientXmr extends BaseClient {
     }
   }
 
-  async getAccountInfo(
-    address: string,
-  ): Promise<{ [key: string]: any } | null> {}
-
-  async getFeePricePerUnit(): Promise<FeePricePerUnit> {
-    const [feePerSig] = await this.getFees();
-    return {
-      normal: {
-        price: new BigNumber(feePerSig),
-      },
-    };
-  }
-
-  async getFees(): Promise<[number, string]> {
-    const feeInfo: { [key: string]: any } = await this.rpc.call(
-      RPC_METHODS.GET_FEES,
-    );
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const feePerSig = feeInfo.value.feeCalculator.lamportsPerSignature;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const recentBlockhash = feeInfo.value.blockhash;
-    return [feePerSig, recentBlockhash];
-  }
-
-  async getTransactionStatuses(
-    txids: string[],
-  ): Promise<Array<TransactionStatus | undefined>> {}
-
   async getCurrentHeight() {
     try {
       const resp = await axios.post<{ height: number }>(
@@ -186,13 +156,39 @@ export class ClientXmr extends BaseClient {
       }
 
       if (totalReceivedInTxBN.plus(totalSentInTxBN).isGreaterThan(0)) {
+        let amount = totalReceivedInTxBN.minus(totalSentInTxBN);
+
+        if (amount.isNegative()) {
+          amount = amount.plus(tx.fee ?? 0);
+        }
+
         realTxs.push({
           ...tx,
-          amount: totalReceivedInTxBN.minus(totalSentInTxBN).toFixed(),
+          amount: amount.toFixed(),
         });
       }
     }
 
     return realTxs;
+  }
+
+  broadcastTransaction(): Promise<string> {
+    throw new NotImplemented();
+  }
+
+  getAddresses(): Promise<Array<AddressInfo | undefined>> {
+    throw new NotImplemented();
+  }
+
+  getFeePricePerUnit(): Promise<FeePricePerUnit> {
+    throw new NotImplemented();
+  }
+
+  getInfo(): Promise<ClientInfo> {
+    throw new NotImplemented();
+  }
+
+  getTransactionStatuses(): Promise<Array<TransactionStatus | undefined>> {
+    throw new NotImplemented();
   }
 }

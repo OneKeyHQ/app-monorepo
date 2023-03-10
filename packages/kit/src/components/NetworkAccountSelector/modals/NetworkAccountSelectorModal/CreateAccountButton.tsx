@@ -19,12 +19,16 @@ export function CreateAccountButton({
   isLoading?: boolean;
 }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { createAccount, isCreateAccountSupported, showCreateAccountMenu } =
-    useCreateAccountInWallet({
-      networkId,
-      walletId,
-      isFromAccountSelector: true,
-    });
+  const {
+    createAccount,
+    isCreateAccountSupported,
+    showCreateAccountMenu,
+    isAddressDerivationSupported,
+  } = useCreateAccountInWallet({
+    networkId,
+    walletId,
+    isFromAccountSelector: true,
+  });
   const isExternal = useMemo(() => {
     if (!walletId) {
       return false;
@@ -77,28 +81,29 @@ export function CreateAccountButton({
       {/* TODO move to parent */}
       {initWalletServiceRef.current}
 
-      {showCreateAccountMenu ? (
-        <AccountSelectorWalletMenu networkId={networkId} walletId={walletId}>
+      {isAddressDerivationSupported &&
+        (showCreateAccountMenu ? (
+          <AccountSelectorWalletMenu networkId={networkId} walletId={walletId}>
+            <IconButton
+              testID="NetworkAccountSelectorModal-CreateAccountButton"
+              isLoading={buttonIsLoading}
+              type="plain"
+              name={isCreateAccountSupported ? 'PlusCircleOutline' : 'BanMini'}
+              circle
+              hitSlop={8}
+            />
+          </AccountSelectorWalletMenu>
+        ) : (
           <IconButton
             testID="NetworkAccountSelectorModal-CreateAccountButton"
             isLoading={buttonIsLoading}
+            onPress={buttonOnPress}
             type="plain"
             name={isCreateAccountSupported ? 'PlusCircleOutline' : 'BanMini'}
             circle
             hitSlop={8}
           />
-        </AccountSelectorWalletMenu>
-      ) : (
-        <IconButton
-          testID="NetworkAccountSelectorModal-CreateAccountButton"
-          isLoading={buttonIsLoading}
-          onPress={buttonOnPress}
-          type="plain"
-          name={isCreateAccountSupported ? 'PlusCircleOutline' : 'BanMini'}
-          circle
-          hitSlop={8}
-        />
-      )}
+        ))}
     </>
   );
 }

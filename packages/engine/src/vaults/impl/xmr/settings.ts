@@ -18,6 +18,9 @@ const settings: IVaultSettings = Object.freeze({
 
   isUTXOModel: false,
 
+  addressDerivationDisabled: true,
+  validationRequired: true,
+
   accountNameInfo: {
     default: {
       prefix: 'XMR',

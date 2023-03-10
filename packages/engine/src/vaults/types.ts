@@ -54,6 +54,9 @@ export type IVaultSettings = {
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
 
+  addressDerivationDisabled?: boolean;
+  validationRequired?: true;
+
   minTransferAmount?: string;
 
   isUTXOModel: boolean;

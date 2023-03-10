@@ -8,3 +8,22 @@ export interface MoneroKeys {
   privateViewKey: string;
   privateSpendKey: string;
 }
+
+export type IEncodedTxXmr = {
+  destinations: [
+    {
+      'to_address': string;
+      'send_amount': string;
+    },
+  ];
+  priority: number;
+  address: string;
+  privateViewKey: string;
+  publicSpendKey: string;
+  privateSpendKey: string;
+  shouldSweep: false;
+  paymentId: '';
+  nettype: 'MAINNET';
+  unspentOuts: any[];
+  randomOutsCb: () => any;
+};

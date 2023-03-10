@@ -199,11 +199,17 @@ const getMoneroApi = async () => {
     }
   };
 
+  const decodeAddress = async (address: string, netType: string) => {
+    const result = moneroCoreInstance.decode_address(address, netType);
+    return Promise.resolve(JSON.parse(result));
+  };
+
   return {
     getKeyPairFromRawPrivatekey,
     privateSpendKeyToWords,
     pubKeysToAddress,
     generateKeyImage,
+    decodeAddress,
   };
 };
 
