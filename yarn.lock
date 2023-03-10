@@ -4703,7 +4703,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/secp256k1@npm:1.7.1, @noble/secp256k1@npm:^1.7.0, @noble/secp256k1@npm:~1.7.0":
+"@noble/secp256k1@npm:1.7.1, @noble/secp256k1@npm:^1.7.0, @noble/secp256k1@npm:^1.7.1, @noble/secp256k1@npm:~1.7.0":
   version: 1.7.1
   resolution: "@noble/secp256k1@npm:1.7.1"
   checksum: d2301f1f7690368d8409a3152450458f27e54df47e3f917292de3de82c298770890c2de7c967d237eff9c95b70af485389a9695f73eb05a43e2bd562d18b18cb
@@ -4995,23 +4995,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-ble-sdk@npm:0.2.37":
-  version: 0.2.37
-  resolution: "@onekeyfe/hd-ble-sdk@npm:0.2.37"
+"@onekeyfe/hd-ble-sdk@npm:0.2.38":
+  version: 0.2.38
+  resolution: "@onekeyfe/hd-ble-sdk@npm:0.2.38"
   dependencies:
-    "@onekeyfe/hd-core": ^0.2.37
-    "@onekeyfe/hd-shared": ^0.2.37
-    "@onekeyfe/hd-transport-react-native": ^0.2.37
-  checksum: bf5c7c071a0c1432c387801451345b9396fe8cd8b61c47c81749b0e8ff60356030c6ddc4d0e0d7fcf597f683831504ff9fbe7b2d3a43f875655b1ffc246f00cc
+    "@onekeyfe/hd-core": ^0.2.38
+    "@onekeyfe/hd-shared": ^0.2.38
+    "@onekeyfe/hd-transport-react-native": ^0.2.38
+  checksum: 3e744a243c986eeaa2d0f21e52836157cce21b6cde9450c60451ed4f570470c7829dceac7a637af9aa71a18910b6dfdad7d7147453e4e8f298a756cfcc397594
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-core@npm:0.2.37, @onekeyfe/hd-core@npm:^0.2.37":
-  version: 0.2.37
-  resolution: "@onekeyfe/hd-core@npm:0.2.37"
+"@onekeyfe/hd-core@npm:0.2.38, @onekeyfe/hd-core@npm:^0.2.38":
+  version: 0.2.38
+  resolution: "@onekeyfe/hd-core@npm:0.2.38"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.37
-    "@onekeyfe/hd-transport": ^0.2.37
+    "@onekeyfe/hd-shared": ^0.2.38
+    "@onekeyfe/hd-transport": ^0.2.38
     axios: ^0.27.2
     bignumber.js: ^9.0.2
     bytebuffer: ^5.0.1
@@ -5021,71 +5021,71 @@ __metadata:
   peerDependencies:
     "@noble/hashes": ^1.1.3
     ripple-keypairs: ^1.1.4
-  checksum: 7867b9f56e9f725de0438d42479f8a94301a91611d6a3725f6d39c98c6671fd4e2ee4d5ed1b3ae6effd31aaccc01d79a96a048e7e3c52557019eac8b78f3c4a3
+  checksum: 1ea71470a2d8c300d0564b4a9c3d2ba86890b6e2f7e5538d8b34d28d876e0cbc35e7bb47995001b0a3a719af551b1000daf470e928dd3ae1116813bce557c151
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-shared@npm:0.2.37, @onekeyfe/hd-shared@npm:^0.2.37":
-  version: 0.2.37
-  resolution: "@onekeyfe/hd-shared@npm:0.2.37"
-  checksum: 27d7d222df8469501d6b1e9ad2700f2072d8fe64cc135047cb0bd5a82f046293c853e00cacaf3e184cc6f15f27b89e56499e2b5404ab95ce898d71596abc5b93
+"@onekeyfe/hd-shared@npm:0.2.38, @onekeyfe/hd-shared@npm:^0.2.38":
+  version: 0.2.38
+  resolution: "@onekeyfe/hd-shared@npm:0.2.38"
+  checksum: f76c7f85ce9d2be0c5190cf2fe6e223735c3a1faa6cbba9091fe71fa66032f6c97764b140ea22acf4f83f60d987c9aee2f4b4a15fa0708fa2a0869ba784e94a6
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-http@npm:^0.2.37":
-  version: 0.2.37
-  resolution: "@onekeyfe/hd-transport-http@npm:0.2.37"
+"@onekeyfe/hd-transport-http@npm:^0.2.38":
+  version: 0.2.38
+  resolution: "@onekeyfe/hd-transport-http@npm:0.2.38"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.37
-    "@onekeyfe/hd-transport": ^0.2.37
+    "@onekeyfe/hd-shared": ^0.2.38
+    "@onekeyfe/hd-transport": ^0.2.38
     axios: ^0.27.2
-  checksum: 8ff1e0b253d7c071a67067426dfe7059ad950d9e32bc2d00d3f74ccff8844fb0f51493268ff6316a065ff0dcf667cf09b3d01a90ab0a3898c530c0a1af9e769a
+  checksum: 1aebfde54bbf8080b30e11979f1e72582583a4d2fdecd485a21a1e36e0f12a050ceb6b8d1b6d36949cbfd9c37f3b678ce240556ce06a4c0b83ff3d3fc677e5d9
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-react-native@npm:^0.2.37":
-  version: 0.2.37
-  resolution: "@onekeyfe/hd-transport-react-native@npm:0.2.37"
+"@onekeyfe/hd-transport-react-native@npm:^0.2.38":
+  version: 0.2.38
+  resolution: "@onekeyfe/hd-transport-react-native@npm:0.2.38"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.37
-    "@onekeyfe/hd-transport": ^0.2.37
+    "@onekeyfe/hd-shared": ^0.2.38
+    "@onekeyfe/hd-transport": ^0.2.38
     "@onekeyfe/react-native-ble-plx": 3.0.0
     react-native-ble-manager: ^8.1.0
-  checksum: f3117c2393924262280328cb1a0fa24fa57cc875ee6e85e259f9ba8ecba0f5896589cde053ee2bdaa212b016c10f28238f0177bd58e254b9e88fb6204c3d3490
+  checksum: 7153e0372fddeb07faaaac4d850df1d6dc78280c9d88af26d434ff721688e9ef9d2560c62d8da0dd806c907c84f946fca1aa57989d921a98a88e1f50099f68aa
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-webusb@npm:^0.2.37":
-  version: 0.2.37
-  resolution: "@onekeyfe/hd-transport-webusb@npm:0.2.37"
+"@onekeyfe/hd-transport-webusb@npm:^0.2.38":
+  version: 0.2.38
+  resolution: "@onekeyfe/hd-transport-webusb@npm:0.2.38"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.37
-    "@onekeyfe/hd-transport": ^0.2.37
-  checksum: 971bffc0c28df91b8d7be7ff6abaf89949ad41b9a10610511ad14ea19ce7bfdd14312c1294de376565a64ebd995b7456ae11a0a3749a8cb91e137f4ffef7fee8
+    "@onekeyfe/hd-shared": ^0.2.38
+    "@onekeyfe/hd-transport": ^0.2.38
+  checksum: 4a106a9e0366491e68a4269d1327ef8d79350cf5ce8c56441fe36f54fad1a5c3e44bb9041f4dcd43326bd1e496c9f5275ebf95ca336bb00c6bbc3e7792944a17
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport@npm:0.2.37, @onekeyfe/hd-transport@npm:^0.2.37":
-  version: 0.2.37
-  resolution: "@onekeyfe/hd-transport@npm:0.2.37"
+"@onekeyfe/hd-transport@npm:0.2.38, @onekeyfe/hd-transport@npm:^0.2.38":
+  version: 0.2.38
+  resolution: "@onekeyfe/hd-transport@npm:0.2.38"
   dependencies:
     bytebuffer: ^5.0.1
     long: ^4.0.0
     protobufjs: ^6.11.2
-  checksum: 2c6435f8fe21b85471e808e7b64cdab52eb26ffb78425b718aff135c64e461a748f49c1c37414d7564ceecb29edb8f8670833889ad9faae94cf7465adcf83720
+  checksum: 4acf6e0bb145995afeddcf3b89ca070a1a8f494383a27fef55c44160dfe2b62e8b2b07a41d3d8f5550ae866837d8057f57f5445ea3c0b4db2fb6f653765c0837
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-web-sdk@npm:0.2.37":
-  version: 0.2.37
-  resolution: "@onekeyfe/hd-web-sdk@npm:0.2.37"
+"@onekeyfe/hd-web-sdk@npm:0.2.38":
+  version: 0.2.38
+  resolution: "@onekeyfe/hd-web-sdk@npm:0.2.38"
   dependencies:
     "@onekeyfe/cross-inpage-provider-core": ^0.0.17
-    "@onekeyfe/hd-core": ^0.2.37
-    "@onekeyfe/hd-shared": ^0.2.37
-    "@onekeyfe/hd-transport-http": ^0.2.37
-    "@onekeyfe/hd-transport-webusb": ^0.2.37
-  checksum: 963daa18b3854f44a8e24b5eb5fe50f932bf4075f43ffaf6c27faba5e4ca4e90b4e581a73fea7cdbfbdebb9056732f6c611806490e7f3e56115c1ac39cf7d1db
+    "@onekeyfe/hd-core": ^0.2.38
+    "@onekeyfe/hd-shared": ^0.2.38
+    "@onekeyfe/hd-transport-http": ^0.2.38
+    "@onekeyfe/hd-transport-webusb": ^0.2.38
+  checksum: 4ace5de4a4bbcc2df3830f139ea075b6e6f3b7ad5b832134f6cba0b5bb8577046c14eba2f115dde355bb421d110e4e6f99e22f10bfd25ecc40b2161baffac463
   languageName: node
   linkType: hard
 
@@ -5334,11 +5334,11 @@ __metadata:
     "@onekeyfe/cross-inpage-provider-injected": 1.1.23
     "@onekeyfe/cross-inpage-provider-types": 1.1.23
     "@onekeyfe/extension-bridge-hosted": 1.1.23
-    "@onekeyfe/hd-ble-sdk": 0.2.37
-    "@onekeyfe/hd-core": 0.2.37
-    "@onekeyfe/hd-shared": 0.2.37
-    "@onekeyfe/hd-transport": 0.2.37
-    "@onekeyfe/hd-web-sdk": 0.2.37
+    "@onekeyfe/hd-ble-sdk": 0.2.38
+    "@onekeyfe/hd-core": 0.2.38
+    "@onekeyfe/hd-shared": 0.2.38
+    "@onekeyfe/hd-transport": 0.2.38
+    "@onekeyfe/hd-web-sdk": 0.2.38
     "@onekeyfe/network-list": 1.6.48
     "@onekeyfe/onekey-cross-webview": 1.1.23
     "@open-wc/webpack-import-meta-loader": ^0.4.7
@@ -5367,7 +5367,7 @@ __metadata:
     babel-plugin-import: ^1.13.5
     babel-plugin-inline-import: ^3.0.0
     babel-plugin-transform-inline-environment-variables: ^0.4.3
-    bitcoinjs-lib: 6.0.1
+    bitcoinjs-lib: 6.1.0
     bitcoinjs-message: 2.2.0
     console-feed: ^3.4.1
     copy-webpack-plugin: ^6.0.2
@@ -5607,6 +5607,7 @@ __metadata:
     "@metamask/eth-sig-util": ^4.0.1
     "@mysten/sui.js": 0.29.1
     "@noble/hashes": 1.1.2
+    "@noble/secp256k1": ^1.7.1
     "@onekeyfe/cardano-coin-selection": 1.0.0
     "@polkadot/extension-inject": 0.44.8
     "@solana/spl-token": ^0.3.0
@@ -5632,6 +5633,7 @@ __metadata:
     coinselect: ^3.1.12
     cosmjs-types: ^0.5.2
     crypto-browserify: ^3.12.0
+    ecpair: 2.0.1
     elliptic: ^6.5.4
     eth-sig-util: 3.0.1
     fake-indexeddb: ^3.1.7
@@ -11513,6 +11515,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"bip174@npm:^2.1.0":
+  version: 2.1.0
+  resolution: "bip174@npm:2.1.0"
+  checksum: 951dae544ef555d66f65b299a69ddf295733eac90449e57d2219abcedfd2d96e762856ca6b5cef4cd925a4498341ea174e359e8a4c45d0bb6b445c13c8add786
+  languageName: node
+  linkType: hard
+
 "bip32@npm:^2.0.4, bip32@npm:^2.0.5, bip32@npm:^2.0.6":
   version: 2.0.6
   resolution: "bip32@npm:2.0.6"
@@ -11580,7 +11589,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bitcoinjs-lib@npm:6.0.1, bitcoinjs-lib@npm:^6.0.1":
+"bitcoinjs-lib@npm:6.1.0":
+  version: 6.1.0
+  resolution: "bitcoinjs-lib@npm:6.1.0"
+  dependencies:
+    bech32: ^2.0.0
+    bip174: ^2.1.0
+    bs58check: ^2.1.2
+    create-hash: ^1.1.0
+    ripemd160: ^2.0.2
+    typeforce: ^1.11.3
+    varuint-bitcoin: ^1.1.2
+    wif: ^2.0.1
+  checksum: 0b23d0d5bb7377ea4ac467c9f1f6c6517ed112cd1b1f5e66a1402c854a99eba5fe5df9415a3e0d1ada631b179770075dda63d3d77531d0abdbc2b1d44be0a890
+  languageName: node
+  linkType: hard
+
+"bitcoinjs-lib@npm:^6.0.1":
   version: 6.0.1
   resolution: "bitcoinjs-lib@npm:6.0.1"
   dependencies:
@@ -15234,6 +15259,17 @@ __metadata:
     jsbn: ~0.1.0
     safer-buffer: ^2.1.0
   checksum: 22fef4b6203e5f31d425f5b711eb389e4c6c2723402e389af394f8411b76a488fa414d309d866e2b577ce3e8462d344205545c88a8143cc21752a5172818888a
+  languageName: node
+  linkType: hard
+
+"ecpair@npm:2.0.1":
+  version: 2.0.1
+  resolution: "ecpair@npm:2.0.1"
+  dependencies:
+    randombytes: ^2.1.0
+    typeforce: ^1.18.0
+    wif: ^2.0.6
+  checksum: 4cd4a8e04d6af12b237f7bacf9ddab3791cb45c3fd46d3c0b26569f2eeeb916b6da9fe859ee65c103007bde5e80f302e3e21e3c7d5a6924f2ba72f7034d475b1
   languageName: node
   linkType: hard
 
@@ -28687,7 +28723,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ripemd160@npm:^2.0.0, ripemd160@npm:^2.0.1":
+"ripemd160@npm:^2.0.0, ripemd160@npm:^2.0.1, ripemd160@npm:^2.0.2":
   version: 2.0.2
   resolution: "ripemd160@npm:2.0.2"
   dependencies:
@@ -31469,7 +31505,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"typeforce@npm:^1.11.3, typeforce@npm:^1.11.5":
+"typeforce@npm:^1.11.3, typeforce@npm:^1.11.5, typeforce@npm:^1.18.0":
   version: 1.18.0
   resolution: "typeforce@npm:1.18.0"
   checksum: e3b21e27e76cb05f32285bef7c30a29760e79c622cfe4aa3c179ce49d1c7895b7154c8deedb9fe4599b1fd0428d35860d43e0776da1c04861168f3ad7ed99c70
