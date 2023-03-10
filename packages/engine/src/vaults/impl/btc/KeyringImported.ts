@@ -1,113 +1,39 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import bs58check from 'bs58check';
+import { omit } from 'lodash';
 
-import type { Provider } from '@onekeyhq/blockchain-libs/src/provider/chains/btc/provider';
-import type { ExtendedKey } from '@onekeyhq/engine/src/secret';
-import { BaseBip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
-import type { Bip32KeyDeriver } from '@onekeyhq/engine/src/secret/bip32';
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
-import {
-  decrypt,
-  encrypt,
-} from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import { COINTYPE_BTC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { KeyringImported as KeyringImportedBtcFork } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/KeyringImported';
 
 import { OneKeyInternalError } from '../../../errors';
-import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
-import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
+import { AddressEncodings } from '../../utils/btcForkChain/types';
 
 import type { DBUTXOAccount } from '../../../types/account';
 import type { IPrepareImportedAccountsParams } from '../../types';
-import type BTCVault from './Vault';
+import type BTCForkVault from '../../utils/btcForkChain/VaultBtcFork';
 
-const deriver = new BaseBip32KeyDeriver(
-  Buffer.from('Bitcoin seed'),
-  secp256k1,
-) as Bip32KeyDeriver;
-
-export class KeyringImported extends KeyringImportedBase {
-  override async getSigners(
-    password: string,
-    addresses: Array<string>,
-  ): Promise<Record<string, Signer>> {
-    const relPathToAddresses: Record<string, string> = {};
-    const utxos = await (this.vault as BTCVault).collectUTXOs();
-    for (const utxo of utxos) {
-      const { address, path } = utxo;
-      if (addresses.includes(address)) {
-        const relPath = path.split('/').slice(-2).join('/');
-        relPathToAddresses[relPath] = address;
-      }
-    }
-
-    const relPaths = Object.keys(relPathToAddresses);
-    if (relPaths.length === 0) {
-      throw new OneKeyInternalError('No signers would be chosen.');
-    }
-
-    const ret: Record<string, Signer> = {};
-    const cache: Record<string, ExtendedKey> = {};
-
-    const [encryptedXprv] = Object.values(await this.getPrivateKeys(password));
-    const xprv = decrypt(password, encryptedXprv);
-    const startKey = { chainCode: xprv.slice(13, 45), key: xprv.slice(46, 78) };
-
-    relPaths.forEach((relPath) => {
-      const pathComponents = relPath.split('/');
-
-      let currentPath = '';
-      let parent = startKey;
-      pathComponents.forEach((pathComponent) => {
-        currentPath =
-          currentPath.length > 0
-            ? `${currentPath}/${pathComponent}`
-            : pathComponent;
-        if (typeof cache[currentPath] === 'undefined') {
-          const index = pathComponent.endsWith("'")
-            ? parseInt(pathComponent.slice(0, -1)) + 2 ** 31
-            : parseInt(pathComponent);
-          const thisPrivKey = deriver.CKDPriv(parent, index);
-          cache[currentPath] = thisPrivKey;
-        }
-        parent = cache[currentPath];
-      });
-      const address = relPathToAddresses[relPath];
-      ret[address] = new Signer(
-        encrypt(password, cache[relPath].key),
-        password,
-        'secp256k1',
-      );
-    });
-    return ret;
-  }
-
+export class KeyringImported extends KeyringImportedBtcFork {
   override async prepareAccounts(
     params: IPrepareImportedAccountsParams,
-  ): Promise<Array<DBUTXOAccount>> {
-    const { privateKey, name } = params;
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as Provider;
+  ): Promise<DBUTXOAccount[]> {
+    const { privateKey, name, template } = params;
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
+    const COIN_TYPE = (this.vault as unknown as BTCForkVault).getCoinType();
+
     let xpub = '';
 
-    /* TODO: error in blockchain-libs, need to fix it.
-    try {
-      xpub = provider.xprvToXpub(bs58check.encode(privateKey));
-    } catch (e) {
-      console.error(e);
-      throw new OneKeyInternalError('Invalid private key.');
-    }
-    */
     const { network } = provider;
     const xprvVersionBytesNum = parseInt(
       privateKey.slice(0, 4).toString('hex'),
       16,
     );
-    for (const versionBytes of [
-      ...Object.values(network.segwitVersionBytes || {}),
+    const versionByteOptions = [
+      ...Object.values(omit(network.segwitVersionBytes, AddressEncodings.P2TR)),
       network.bip32,
-    ]) {
+    ];
+    for (const versionBytes of versionByteOptions) {
       if (versionBytes.private === xprvVersionBytesNum) {
         const publicKey = secp256k1.publicFromPrivate(privateKey.slice(46, 78));
         const pubVersionBytes = Buffer.from(
@@ -127,19 +53,37 @@ export class KeyringImported extends KeyringImportedBase {
       throw new OneKeyInternalError('Invalid private key.');
     }
 
+    let addressEncoding;
+    let xpubSegwit = xpub;
+    if (template) {
+      if (template.startsWith(`m/44'/`)) {
+        addressEncoding = AddressEncodings.P2PKH;
+      } else if (template.startsWith(`m/86'/`)) {
+        addressEncoding = AddressEncodings.P2TR;
+        xpubSegwit = `tr(${xpub})`;
+      } else {
+        addressEncoding = undefined;
+      }
+    }
+
     const firstAddressRelPath = '0/0';
-    const { [firstAddressRelPath]: address } = provider.xpubToAddresses(xpub, [
-      firstAddressRelPath,
-    ]);
+    const { [firstAddressRelPath]: address } = provider.xpubToAddresses(
+      xpub,
+      [firstAddressRelPath],
+      addressEncoding,
+    );
 
     return Promise.resolve([
       {
-        id: `imported--${COIN_TYPE}--${xpub}`,
+        id: `imported--${COIN_TYPE}--${xpub}--${
+          addressEncoding === AddressEncodings.P2TR ? `86'/` : ''
+        }`,
         name: name || '',
         type: AccountType.UTXO,
         path: '',
         coinType: COIN_TYPE,
         xpub,
+        xpubSegwit,
         address,
         addresses: { [firstAddressRelPath]: address },
       },
