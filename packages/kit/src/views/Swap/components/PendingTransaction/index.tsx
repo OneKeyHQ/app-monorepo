@@ -88,16 +88,25 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
             },
           }),
         );
-        const confirmTime = await SwapQuoter.client.getTxConfirmTime(tx);
-        if (confirmTime) {
+        const completedTime = await SwapQuoter.client.getTxCompletedTime(tx);
+        if (completedTime) {
           backgroundApiProxy.dispatch(
             updateTransaction({
               accountId: tx.accountId,
               networkId: tx.networkId,
               hash: tx.hash,
-              transaction: {
-                confirmedTime: Number(confirmTime),
-              },
+              transaction: { confirmedTime: Number(completedTime) },
+            }),
+          );
+        }
+        const networkFee = await SwapQuoter.client.getTxActualNetworkFee(tx);
+        if (networkFee) {
+          backgroundApiProxy.dispatch(
+            updateTransaction({
+              accountId: tx.accountId,
+              networkId: tx.networkId,
+              hash: tx.hash,
+              transaction: { networkFee },
             }),
           );
         }

@@ -68,7 +68,9 @@ export type IAddImportedAccountDoneModalParams = {
   onFailure?: () => void;
 };
 export type CreateWalletRoutesParams = {
-  [CreateWalletModalRoutes.ConnectHardwareModal]: undefined;
+  [CreateWalletModalRoutes.ConnectHardwareModal]: {
+    entry?: 'onboarding' | 'walletSelector';
+  };
   [CreateWalletModalRoutes.AttentionsModal]: {
     password: string;
     withEnableAuthentication?: boolean;
@@ -89,7 +91,10 @@ export type CreateWalletRoutesParams = {
     device: SearchDevice;
     type: SetupNewDeviceType;
   };
-  [CreateWalletModalRoutes.DeviceStatusCheckModal]: { device: SearchDevice };
+  [CreateWalletModalRoutes.DeviceStatusCheckModal]: {
+    device: SearchDevice;
+    entry?: 'onboarding' | 'walletSelector';
+  };
   [CreateWalletModalRoutes.RestoreHardwareWalletModal]: {
     device: SearchDevice;
   };

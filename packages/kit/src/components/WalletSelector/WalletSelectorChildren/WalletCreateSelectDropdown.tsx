@@ -167,6 +167,9 @@ export function WalletCreateSelectDropdown({
               screen: ModalRoutes.CreateWallet,
               params: {
                 screen: CreateWalletModalRoutes.ConnectHardwareModal,
+                params: {
+                  entry: 'walletSelector',
+                },
               },
             });
           } else {

@@ -66,11 +66,15 @@ function BehindTheSceneCreatingWallet({
   setIsNavBackDisabled?: (b: boolean) => void;
 }) {
   const intl = useIntl();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useAppNavigation();
   const { onboardingGoBack } = useOnboardingClose();
-  const { password, mnemonic, withEnableAuthentication, isHardwareCreating } =
-    routeParams;
+  const {
+    password,
+    mnemonic,
+    withEnableAuthentication,
+    isHardwareCreating,
+    entry,
+  } = routeParams;
 
   const context = useOnboardingContext();
   const forceVisibleUnfocused = context?.forceVisibleUnfocused;
@@ -110,8 +114,9 @@ function BehindTheSceneCreatingWallet({
       return true;
     } catch (e: any) {
       debugLogger.common.error(e);
-      if (navigation.canGoBack?.()) {
-        navigation.goBack();
+      if (navigation.canGoBack?.() && entry === 'walletSelector') {
+        debugLogger.common.info('go back when entry is wallet selector');
+        setTimeout(() => navigation.goBack(), 300);
       }
       const { className, message, data } = e || {};
       if (className === OneKeyErrorClassNames.OneKeyAlreadyExistWalletError) {
@@ -153,6 +158,7 @@ function BehindTheSceneCreatingWallet({
     onPressOnboardingFinished,
     intl,
     navigation,
+    entry,
   ]);
 
   const startCreatingHDWallet = useCallback(async () => {

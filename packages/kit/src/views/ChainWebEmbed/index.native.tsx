@@ -64,7 +64,10 @@ function ChainWebEmbed() {
   }, []);
 
   const content = useMemo(() => {
-    debugLogger.common.debug('Parent ChainView Render');
+    debugLogger.common.debug('Parent ChainView Render', {
+      isWebViewActive,
+      activeNetworkId,
+    });
     if (isWebViewActive && activeNetworkId === 'ada--0') {
       debugLogger.common.debug('Parent Web View Render');
       return (
