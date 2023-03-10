@@ -101,10 +101,10 @@ export default class ServiceNameResolver extends ServiceBase {
         resolver: this.resolveUnstoppableDomains.bind(this),
       },
       {
-        pattern: /\.bnb$/,
-        shownSymbol: '.bnb',
+        pattern: /(\.bnb|\.arb)$/,
+        shownSymbol: 'SID',
         supportImplsMap: {
-          'evm--*': ['eth', 'bsc', 'tbsc'],
+          'evm--*': ['eth', 'bsc', 'arbitrum'],
         },
         resolver: this.resolveSIDDomains.bind(this),
       },
@@ -142,8 +142,6 @@ export default class ServiceNameResolver extends ServiceBase {
     'crypto.ATOM.address',
     'crypto.FET.version.FETCHAI.address',
   ];
-
-  private SIDSupportNetWork = ['eth', 'bsc', 'tbsc'];
 
   @backgroundMethod()
   async checkIsValidName(name: string) {
@@ -343,8 +341,15 @@ export default class ServiceNameResolver extends ServiceBase {
   async resolveSIDDomains(name: string) {
     const { engine } = this.backgroundApi;
     let names: ResolverNames[] = [];
+    let netWorks = ['eth'];
+    if (name.endsWith('.bnb')) {
+      netWorks = [...netWorks, 'bsc'];
+    }
+    if (name.endsWith('.arb')) {
+      netWorks = [...netWorks, 'arbitrum'];
+    }
     try {
-      for (const net of this.SIDSupportNetWork) {
+      for (const net of netWorks) {
         const chainOnlyVault = await engine.getChainOnlyVault(
           Object.getOwnPropertyDescriptor(OnekeyNetwork, net)?.value,
         );
