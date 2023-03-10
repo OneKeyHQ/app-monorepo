@@ -51,7 +51,7 @@ const RecoveryWallet = () => {
   const getPageTitleKey = useMemo(() => {
     if (mode === 'mnemonic') return 'title__import_recovery_phrase';
     if (mode === 'imported') return 'title__import_private_key';
-    return 'content__import_private_key_as_imported_account';
+    return 'wallet__watched_accounts';
   }, [mode]);
 
   return onBoardingLoadingBehindModal ? (
@@ -60,7 +60,6 @@ const RecoveryWallet = () => {
     </Center>
   ) : (
     <>
-      {/* TODO:F remove the key onboarding__import_with_phrase */}
       <Layout
         disableAnimation={disableAnimation}
         title={intl.formatMessage({ id: getPageTitleKey })}

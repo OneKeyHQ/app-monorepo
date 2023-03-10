@@ -43,11 +43,8 @@ export const AccessoryView: FC<AccessoryViewProps> = ({
       position="absolute"
       bottom="0"
       left="0"
-      h="58px"
       w="full"
-      backgroundColor={
-        showInvalidTip ? 'surface-warning-subdued' : 'background-default'
-      }
+      bgColor="background-default"
       {...boxProps}
     >
       {showInvalidTip ? (

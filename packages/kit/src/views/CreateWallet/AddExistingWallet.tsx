@@ -463,7 +463,7 @@ function AddExistingWalletView(
                 placeholder={placeholder}
                 backgroundColor="action-secondary-default"
                 secureTextEntry
-                h="50px"
+                size="xl"
                 rightCustomElement={PasteBtn()}
               />
             ) : (
@@ -472,21 +472,16 @@ function AddExistingWalletView(
                 autoFocus
                 autoCorrect={false}
                 placeholder={placeholder}
-                h={isVerticalLayout ? '88px' : '116px'}
+                totalLines={3}
                 trimValue={!['all', 'mnemonic'].includes(mode)}
               />
             )}
           </Form.Item>
-          {platformEnv.isNativeIOS && (
-            <InputAccessoryView nativeID="1">
-              <Box />
-            </InputAccessoryView>
-          )}
           {showSubmitButton ? (
             <Button
               isDisabled={submitDisabled || disableSubmitBtn}
               type="primary"
-              size={isVerticalLayout ? 'xl' : 'lg'}
+              size="xl"
               onPromise={handleSubmit(async (values) => {
                 if (!disableSubmitBtn && address) {
                   values.text = address;
@@ -500,6 +495,9 @@ function AddExistingWalletView(
           ) : null}
         </Form>
       )}
+
+      {/* remove the ios default AccessoryView */}
+      {platformEnv.isNativeIOS && <InputAccessoryView nativeID="1" />}
 
       {children}
     </Box>

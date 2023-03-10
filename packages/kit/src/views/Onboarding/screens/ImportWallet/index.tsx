@@ -120,7 +120,6 @@ const ImportWallet = () => {
     >
       <Box m={-2} flexDirection={{ base: 'column', sm: 'row' }} flexWrap="wrap">
         <ItemWrapper>
-          {/* TODO:F remove the key onboarding__import_wallet_with_recovery_phrase */}
           <OptionRecoveryPhrase
             title={intl.formatMessage({ id: 'title__recovery_phrase' })}
             onPress={() => {
@@ -131,7 +130,7 @@ const ImportWallet = () => {
         <ItemWrapper>
           <OptionPrivateKey
             icon="KeyOutline"
-            title="Private Key"
+            title={intl.formatMessage({ id: 'form__private_key' })}
             onPress={() => {
               onPressRecoveryWallet('imported');
             }}
@@ -147,7 +146,6 @@ const ImportWallet = () => {
             />
           </ItemWrapper>
         )}
-        {/* TODO:F remove the key onboarding__import_wallet_with_migrate */}
         {MigrationEnable && (
           <ItemWrapper>
             <OptionMigration
@@ -168,7 +166,6 @@ const ImportWallet = () => {
             />
           </ItemWrapper>
         )}
-        {/* TODO:F remove the key onboarding__import_wallet_with_keytag */}
         <ItemWrapper>
           <OptionKeyTag title="KeyTag" onPress={onPressKeyTag} />
         </ItemWrapper>
