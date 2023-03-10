@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { uniq } from 'lodash';
+
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
+import { networkIsPreset } from '@onekeyhq/engine/src/presets';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
@@ -75,24 +78,30 @@ export const useRPCUrls = (networkId?: string) => {
   const [preset, setPreset] = useState<string[]>([]);
   const [custom, setCustom] = useState<string[]>([]);
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(async () => {
     if (!networkId) {
       return;
     }
     const { serviceNetwork } = backgroundApiProxy;
-    serviceNetwork
-      .getPresetRpcEndpoints(networkId)
-      .then(({ urls, defaultRpcURL }) => {
-        setPreset(urls);
-        setDefaultRpc(defaultRpcURL);
-      });
 
-    serviceNetwork.getCustomRpcUrls(networkId).then((urls) => {
-      setCustom(urls || []);
-    });
+    const { urls = [], defaultRpcURL } =
+      await serviceNetwork.getPresetRpcEndpoints(networkId);
+
+    const customUrls = await serviceNetwork.getCustomRpcUrls(networkId);
+
+    setDefaultRpc(defaultRpcURL);
+    if (networkIsPreset(networkId)) {
+      setCustom(customUrls ?? []);
+      setPreset(urls);
+    } else {
+      setCustom(uniq([...urls, ...customUrls]));
+      setPreset([]);
+    }
   }, [networkId]);
 
-  useEffect(refresh, [refresh]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   return {
     defaultRpc,

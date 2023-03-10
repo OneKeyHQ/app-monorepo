@@ -13,6 +13,7 @@ import { NetworkSelectorModal } from '../../components/NetworkAccountSelector/mo
 import { AddNetworkConfirm } from '../../views/ManageNetworks/AddNetwork/AddNetworkConfirm';
 import { ManageNetworkQuickAdd } from '../../views/ManageNetworks/QuickAdd';
 import { SwitchNetwork } from '../../views/ManageNetworks/SwitchNetwork';
+import { SwitchRpcModal } from '../../views/ManageNetworks/SwitchRpc';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
@@ -64,6 +65,10 @@ const modalRoutes = [
   {
     name: ManageNetworkRoutes.Sort,
     component: SortableView,
+  },
+  {
+    name: ManageNetworkRoutes.SwitchRpc,
+    component: SwitchRpcModal,
   },
 ];
 

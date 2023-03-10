@@ -4,13 +4,17 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
-import { debounce, get } from 'lodash';
+import { get } from 'lodash';
 import memoizee from 'memoizee';
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import type { EvmExtraInfo, Network } from '@onekeyhq/engine/src/types/network';
+import type {
+  EvmExtraInfo,
+  Network,
+  SwitchRpcParams,
+} from '@onekeyhq/engine/src/types/network';
 import type VaultEvm from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IEncodedTxEvm,
@@ -731,12 +735,27 @@ class ProviderApiEthereum extends ProviderApiBase {
     address?: string,
     ...others: any[]
   ) => {
+    console.log(request, params, address, others);
     const networks = await this.backgroundApi.serviceNetwork.fetchNetworks();
     const networkId = `evm--${parseInt(params.chainId)}`;
-    const included = networks.some((network) => network.id === networkId);
-    if (included) {
-      return this.switchEthereumChain(request, {
-        chainId: params.chainId,
+    const network = networks.find((n) => n.id === networkId);
+    if (network) {
+      const result = await this.backgroundApi.getState();
+      const activeNetworkId = get(
+        result,
+        'state.general.activeNetworkId',
+        null,
+      );
+      if (activeNetworkId !== networkId) {
+        return this.switchEthereumChain(request, {
+          chainId: params.chainId,
+        });
+      }
+      return this.switchRpc(request, {
+        name: network.name,
+        networkId: network.id,
+        rpcURL: params.rpcUrls?.[0] ?? '',
+        logoURI: network.logoURI,
       });
     }
 
@@ -759,6 +778,17 @@ class ProviderApiEthereum extends ProviderApiBase {
       return JSON.stringify(p);
     },
   });
+
+  switchRpc = async (
+    request: IJsBridgeMessagePayload,
+    params: SwitchRpcParams,
+  ) => {
+    const result = await this.backgroundApi.serviceDapp?.openSwitchRpcModal(
+      request,
+      params,
+    );
+    return convertToEthereumChainResult(result as any);
+  };
 
   switchEthereumChain = async (
     request: IJsBridgeMessagePayload,

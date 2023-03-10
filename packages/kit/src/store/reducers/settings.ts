@@ -1,6 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { dequal as deepEqual } from 'dequal';
-import { debounce } from 'lodash';
+import { debounce, uniq } from 'lodash';
 import uuid from 'react-native-uuid';
 
 import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
@@ -454,9 +454,21 @@ export const settingsSlice = createSlice({
       }
       if (type === 'add') {
         map[networkId].push(rpc);
+        map[networkId] = uniq(map[networkId]);
       } else if (type === 'remove') {
         map[networkId] = map[networkId].filter((n) => n !== rpc);
       }
+      state.customNetworkRpcMap = map;
+    },
+    clearNetworkCustomRpcs(
+      state,
+      action: PayloadAction<{ networkId: string }>,
+    ) {
+      const { networkId } = action.payload;
+      const map = {
+        ...(state.customNetworkRpcMap || {}),
+      };
+      delete map[networkId];
       state.customNetworkRpcMap = map;
     },
     setEnableWebAuthn(state, action: PayloadAction<boolean>) {
@@ -544,6 +556,7 @@ export const {
   setAccountDerivationDbMigrationVersion,
   setOnRamperTestMode,
   setShowWebEmbedWebviewAgent,
+  clearNetworkCustomRpcs,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;
