@@ -2,6 +2,7 @@
 import { memo, useCallback, useEffect } from 'react';
 
 import { Center, Text } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -33,6 +34,7 @@ enum CardanoEvent {
 }
 
 let testCallingCount = 1;
+let testCallingInterval: ReturnType<typeof setInterval> | undefined;
 function WebEmbedWebviewAgentCardano() {
   const sendResponse = useCallback((promiseId: number, result: any) => {
     window.$onekey.$private.request({
@@ -214,7 +216,6 @@ function WebEmbedWebviewAgentCardano() {
     if (!window.$onekey) {
       return;
     }
-    alert('register message_low_level');
     window.$onekey.$private.on('message_low_level', handler);
     return () => {
       window.$onekey.$private.off('message_low_level', handler);
@@ -225,17 +226,18 @@ function WebEmbedWebviewAgentCardano() {
     <Center p={4} bgColor="surface-warning-subdued" minH="100%">
       <Text
         onPress={() => {
-          setInterval(() => {
-            // eslint-disable-next-line no-plusplus
-            const content = `call private method interval::::   ${testCallingCount++}  `;
-            console.log(content);
-            window.$onekey.$private.request({
-              method: ProvideResponseMethod,
-              data: content,
-            });
-          }, 3000);
-
-          alert('773655188');
+          if (platformEnv.isDev) {
+            clearInterval(testCallingInterval);
+            testCallingInterval = setInterval(() => {
+              // eslint-disable-next-line no-plusplus
+              const content = `call private method interval::::   ${testCallingCount++}  `;
+              console.log(content);
+              window.$onekey.$private.request({
+                method: ProvideResponseMethod,
+                data: content,
+              });
+            }, 3000);
+          }
         }}
       >
         Cardano web-embed Webview Agent
