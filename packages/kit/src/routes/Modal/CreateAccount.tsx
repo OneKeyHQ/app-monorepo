@@ -10,6 +10,7 @@ import RecoverAccountsAdvanced from '@onekeyhq/kit/src/views/Account/AddNewAccou
 import RecoverConfirm from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverConfirm';
 import SelectChain from '@onekeyhq/kit/src/views/Account/AddNewAccount/SelectChain';
 import BulkCopyAddresses from '@onekeyhq/kit/src/views/Account/BulkCopyAddress';
+import FetchAddressModal from '@onekeyhq/kit/src/views/Account/BulkCopyAddress/FetchAddressModal';
 
 import { CreateAccountModalRoutes } from '../routesEnum';
 
@@ -67,6 +68,11 @@ export type CreateAccountRoutesParams = {
     walletId: string;
     password: string;
   };
+  [CreateAccountModalRoutes.FetchAddressModal]: {
+    networkId: string;
+    walletId: string;
+    password: string;
+  };
 };
 
 const CreateAccountNavigator =
@@ -104,6 +110,10 @@ const modalRoutes = [
   {
     name: CreateAccountModalRoutes.BulkCopyAddresses,
     component: BulkCopyAddresses,
+  },
+  {
+    name: CreateAccountModalRoutes.FetchAddressModal,
+    component: FetchAddressModal,
   },
 ];
 

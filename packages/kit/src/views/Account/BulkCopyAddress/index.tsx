@@ -8,16 +8,15 @@ import { Box, Modal, SegmentedControl, Token } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import { useRuntime } from '../../../hooks/redux';
+import { CreateAccountModalRoutes } from '../../../routes';
 
 import SetRange from './SetRange';
 import WalletAccounts from './WalletAccounts';
 
-import type {
-  CreateAccountModalRoutes,
-  CreateAccountRoutesParams,
-} from '../../../routes';
+import type { CreateAccountRoutesParams } from '../../../routes';
 import type { ModalScreenProps } from '../../../routes/types';
 import type { ISetRangeRefType } from './SetRange';
+import type { IWalletAccountsRefType } from './WalletAccounts';
 import type { RouteProp } from '@react-navigation/native';
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
@@ -48,22 +47,33 @@ const HeaderDescription: FC<{ network: Network }> = ({
   />
 );
 
-const BulkCopyAddress = () => {
+const BulkCopyAddress: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { walletId, networkId } = route.params;
+  const { walletId, networkId, password } = route.params;
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const { networks } = useRuntime();
   const network = networks.filter((n) => n.id === networkId)[0];
 
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
 
   const setRangeRef = useRef<ISetRangeRefType>(null);
+  const walletAccountsRef = useRef<IWalletAccountsRefType>(null);
   const onPrimaryActionPress = useCallback(async () => {
     if (selectedIndex === 0) {
       const data = await setRangeRef.current?.onSubmit();
       console.log(data);
+    } else {
+      const data = walletAccountsRef.current?.onSubmit();
+      console.log(data);
     }
-  }, [selectedIndex]);
+
+    navigation.navigate(CreateAccountModalRoutes.FetchAddressModal, {
+      networkId,
+      walletId,
+      password,
+    });
+  }, [selectedIndex, navigation, networkId, walletId, password]);
 
   return (
     <Modal
@@ -89,7 +99,11 @@ const BulkCopyAddress = () => {
         <SetRange walletId={walletId} networkId={networkId} ref={setRangeRef} />
       )}
       {selectedIndex === 1 && (
-        <WalletAccounts walletId={walletId} networkId={networkId} />
+        <WalletAccounts
+          walletId={walletId}
+          networkId={networkId}
+          ref={walletAccountsRef}
+        />
       )}
     </Modal>
   );
