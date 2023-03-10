@@ -15,13 +15,13 @@ import {
   Text,
   Typography,
   useForm,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import BaseMenu from '../../../../Overlay/BaseMenu';
 
 import { AccessoryView } from './AccessoryView';
+import AnimateHeight from './AnimateHeight';
 import { useAccessory, validMenmonicWord } from './hooks';
 
 import type { IBaseMenuOptions } from '../../../../Overlay/BaseMenu';
@@ -38,7 +38,6 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
   onSubmit,
 }) => {
   const intl = useIntl();
-  const isVertical = useIsVerticalLayout();
   const {
     control,
     handleSubmit,
@@ -211,28 +210,23 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
           </Form>
         </Box>
       )}
-      {(accessoryData && accessoryData.length > 0) || !accessoryData ? (
-        <Box h="44px" mt={3} mb={2} w="full">
-          <AccessoryView
-            boxProps={{
-              position: 'relative',
-              display: 'flex',
-              flex: 1,
-              borderRadius: '12px',
-            }}
-            accessoryData={accessoryData}
-            withKeybord={false}
-            selected={(value) => {
-              setValue(focusInputName, value);
-              trigger(focusInputName);
-              const focusInputNameNumber = parseInt(focusInputName);
-              if (focusInputNameNumber < currentWordsCount) {
-                setFocus(`${focusInputNameNumber + 1}`);
-              }
-            }}
-          />
-        </Box>
-      ) : null}
+      <AnimateHeight>
+        <AccessoryView
+          boxProps={{
+            position: 'relative',
+          }}
+          accessoryData={accessoryData}
+          withKeybord={false}
+          selected={(value) => {
+            setValue(focusInputName, value);
+            trigger(focusInputName);
+            const focusInputNameNumber = parseInt(focusInputName);
+            if (focusInputNameNumber < currentWordsCount) {
+              setFocus(`${focusInputNameNumber + 1}`);
+            }
+          }}
+        />
+      </AnimateHeight>
       {mnemonicoValidateShow && (
         <Box h="44px" mt={3} mb={2} w="full">
           <Alert

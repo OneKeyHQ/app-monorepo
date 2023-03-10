@@ -1,6 +1,8 @@
 import type { FC } from 'react';
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   Button,
@@ -13,7 +15,6 @@ import {
 import useIsKeyboardShown from '@onekeyhq/components/src/Layout/BottomTabs/utils/useIsKeyboardShown';
 
 import type { IBoxProps } from 'native-base';
-import { useIntl } from 'react-intl';
 
 type AccessoryViewProps = {
   withKeybord?: boolean;
@@ -52,7 +53,9 @@ export const AccessoryView: FC<AccessoryViewProps> = ({
       {showInvalidTip ? (
         <Center flex={1} flexDirection="row">
           <Icon name="ExclamationTriangleMini" color="icon-warning" />
-          <Typography.Body2Strong>invalid word</Typography.Body2Strong>
+          <Typography.Body2Strong>
+            {intl.formatMessage({ id: 'msg__invalid_word' })}
+          </Typography.Body2Strong>
         </Center>
       ) : (
         <Box flex={1}>
@@ -61,12 +64,7 @@ export const AccessoryView: FC<AccessoryViewProps> = ({
               {accessoryData.map((value, index) => (
                 <Button
                   key={`${value}-${index}`}
-                  type="basic"
-                  h="34px"
                   size="sm"
-                  borderColor="border-default"
-                  bgColor="action-secondary-default"
-                  borderRadius="12px"
                   onPress={() => {
                     if (selected) {
                       selected(value);

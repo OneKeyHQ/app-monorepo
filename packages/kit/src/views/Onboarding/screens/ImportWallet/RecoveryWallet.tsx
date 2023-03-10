@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -48,6 +48,12 @@ const RecoveryWallet = () => {
   const { valueText, accessoryData, onChangeText, onSelectedKeybordAcessory } =
     useAccessory();
 
+  const getPageTitleKey = useMemo(() => {
+    if (mode === 'mnemonic') return 'title__import_recovery_phrase';
+    if (mode === 'imported') return 'title__import_private_key';
+    return 'content__import_private_key_as_imported_account';
+  }, [mode]);
+
   return onBoardingLoadingBehindModal ? (
     <Center bgColor={bgColor} flex={1} height="full">
       <Spinner size="lg" />
@@ -57,13 +63,7 @@ const RecoveryWallet = () => {
       {/* TODO:F remove the key onboarding__import_with_phrase */}
       <Layout
         disableAnimation={disableAnimation}
-        title={
-          mode === 'mnemonic'
-            ? 'Import Recovery Phrase'
-            : mode === 'imported'
-            ? 'Import Private Key'
-            : 'Watch-only Accounts'
-        }
+        title={intl.formatMessage({ id: getPageTitleKey })}
         secondaryContent={
           <SecondaryContent
             mode={mode}
