@@ -34,14 +34,17 @@ const settings: IVaultSettings = Object.freeze({
       },
       subDesc: 'BIP49, P2SH-P2WPKH, Base58.',
     },
-    BIP44: {
-      prefix: 'TBTC Legacy',
-      category: `44'/${COINTYPE_TBTC}'`,
-      template: `m/44'/${COINTYPE_TBTC}'/${INDEX_PLACEHOLDER}'/0/0`,
+    BIP86: {
+      prefix: 'TBTC Taproot',
+      category: `86'/${COINTYPE_TBTC}'`,
+      template: `m/86'/${COINTYPE_TBTC}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_TBTC,
-      label: 'Legacy',
-      desc: { id: 'form__bitcoin__legacy_desc', placeholder: { 0: 'm' } },
-      subDesc: 'BIP44, P2PKH, Base58.',
+      label: 'Taproot',
+      desc: {
+        id: 'form__bitcoin__taproot_desc',
+        placeholder: { 0: 'tb1p' },
+      },
+      subDesc: 'BIP86, P2TR, Bech32m.',
     },
     BIP84: {
       prefix: 'TBTC Native SegWit',
@@ -54,6 +57,15 @@ const settings: IVaultSettings = Object.freeze({
         placeholder: { 0: 'tb1' },
       },
       subDesc: 'BIP84, P2WPKH, Bech32. ',
+    },
+    BIP44: {
+      prefix: 'TBTC Legacy',
+      category: `44'/${COINTYPE_TBTC}'`,
+      template: `m/44'/${COINTYPE_TBTC}'/${INDEX_PLACEHOLDER}'/0/0`,
+      coinType: COINTYPE_TBTC,
+      label: 'Legacy',
+      desc: { id: 'form__bitcoin__legacy_desc', placeholder: { 0: 'm' } },
+      subDesc: 'BIP44, P2PKH, Base58.',
     },
   } as Record<string, AccountNameInfo>,
 });

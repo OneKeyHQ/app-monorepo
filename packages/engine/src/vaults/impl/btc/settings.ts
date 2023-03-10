@@ -34,6 +34,18 @@ const settings: IVaultSettings = Object.freeze({
       },
       subDesc: 'BIP49, P2SH-P2WPKH, Base58.',
     },
+    BIP86: {
+      prefix: 'BTC Taproot',
+      category: `86'/${COINTYPE_BTC}'`,
+      template: `m/86'/${COINTYPE_BTC}'/${INDEX_PLACEHOLDER}'/0/0`,
+      coinType: COINTYPE_BTC,
+      label: 'Taproot',
+      desc: {
+        id: 'form__bitcoin__taproot_desc',
+        placeholder: { 0: 'bc1p' },
+      },
+      subDesc: 'BIP86, P2TR, Bech32m.',
+    },
     BIP84: {
       prefix: 'BTC Native SegWit',
       category: `84'/${COINTYPE_BTC}'`,

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable camelcase */
-import { Base64DataBuffer } from '@mysten/sui.js';
+import { fromB64 } from '@mysten/sui.js';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -280,10 +280,7 @@ class ProviderApiSui extends ProviderApiBase {
       accountId,
     })) as VaultSUI;
 
-    const data =
-      typeof params === 'string'
-        ? new Base64DataBuffer(params).getData()
-        : params;
+    const data = typeof params === 'string' ? fromB64(params) : params;
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,

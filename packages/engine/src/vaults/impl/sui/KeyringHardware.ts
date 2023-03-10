@@ -1,6 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { JsonRpcProvider } from '@mysten/sui.js';
+import {
+  Connection,
+  Ed25519PublicKey,
+  JsonRpcProvider,
+  toB64,
+  toSerializedSignature,
+} from '@mysten/sui.js';
+import { hexToBytes } from '@noble/hashes/utils';
 
 import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
@@ -136,7 +143,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     debugLogger.common.info('signTransaction', unsignedTx);
     const dbAccount = await this.getDbAccount();
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
-    const client = new JsonRpcProvider(rpcURL);
+    const client = new JsonRpcProvider(new Connection({ fullnode: rpcURL }));
     const sender = dbAccount.address;
 
     const senderPublicKey = unsignedTx.inputs?.[0]?.publicKey;
@@ -146,7 +153,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const { encodedTx } = unsignedTx.payload;
     const txnBytes = await toTransaction(client, sender, encodedTx);
-    const signData = await handleSignDataWithRpcVersion(client, txnBytes);
+    const signData = handleSignDataWithRpcVersion(client, txnBytes);
 
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
@@ -155,17 +162,24 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const response = await HardwareSDK.suiSignTransaction(connectId, deviceId, {
       path: dbAccount.path,
-      rawTx: hexlify(Buffer.from(signData.getData())),
+      rawTx: hexlify(Buffer.from(signData)),
       ...passphraseState,
     });
 
     if (response.success) {
       const { signature } = response.payload;
+
+      const serializeSignature = toSerializedSignature({
+        signatureScheme: 'ED25519',
+        signature: hexToBytes(signature),
+        pubKey: new Ed25519PublicKey(hexToBytes(senderPublicKey)),
+      });
+
       return {
         txid: '',
-        rawTx: txnBytes,
+        rawTx: toB64(txnBytes),
         signatureScheme: 'ed25519',
-        signature: addHexPrefix(signature),
+        signature: serializeSignature,
         publicKey: addHexPrefix(senderPublicKey),
       };
     }

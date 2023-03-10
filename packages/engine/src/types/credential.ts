@@ -1,3 +1,5 @@
+import type { AccountNameInfo } from './network';
+
 enum CredentialType {
   SOFTWARE = 'software', // HD
   HARDWARE = 'hardware',
@@ -41,6 +43,7 @@ enum UserInputCategory {
 type UserInputCheckResult = {
   category: UserInputCategory;
   possibleNetworks?: Array<string>;
+  derivationOptions?: AccountNameInfo[];
 };
 
 export { CredentialType, UserInputCategory };

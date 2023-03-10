@@ -1,76 +1,56 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import bs58check from 'bs58check';
 
-import type { Provider } from '@onekeyhq/blockchain-libs/src/provider/chains/btc/provider';
-import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
-import { COINTYPE_BTC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  batchGetPublicKeys,
+  generateRootFingerprint,
+} from '@onekeyhq/engine/src/secret';
+import { KeyringHd as KeyringHdBtcFork } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/KeyringHd';
+import {
+  COINTYPE_BCH,
+  COINTYPE_DOGE,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
 import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
-import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
-import { KeyringHdBase } from '../../keyring/KeyringHdBase';
-
-import { getAccountDefaultByPurpose } from './utils';
+import {
+  getAccountDefaultByPurpose,
+  isTaprootPath,
+} from '../../utils/btcForkChain/utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBUTXOAccount } from '../../../types/account';
 import type { IPrepareSoftwareAccountsParams } from '../../types';
-import type BTCVault from './Vault';
+import type BTCForkVault from '../../utils/btcForkChain/VaultBtcFork';
 
-const DEFAULT_PURPOSE = 49;
-
-export class KeyringHd extends KeyringHdBase {
-  override async getSigners(
-    password: string,
-    addresses: Array<string>,
-  ): Promise<Record<string, Signer>> {
-    const relPathToAddresses: Record<string, string> = {};
-    const utxos = await (this.vault as BTCVault).collectUTXOs();
-    for (const utxo of utxos) {
-      const { address, path } = utxo;
-      if (addresses.includes(address)) {
-        relPathToAddresses[path] = address;
-      }
-    }
-
-    const relPaths = Object.keys(relPathToAddresses).map((fullPath) =>
-      fullPath.split('/').slice(-2).join('/'),
-    );
-    if (relPaths.length === 0) {
-      throw new OneKeyInternalError('No signers would be chosen.');
-    }
-    const privateKeys = await this.getPrivateKeys(password, relPaths);
-    const ret: Record<string, Signer> = {};
-    for (const [path, privateKey] of Object.entries(privateKeys)) {
-      const address = relPathToAddresses[path];
-      ret[address] = new Signer(privateKey, password, 'secp256k1');
-    }
-    return ret;
-  }
-
+export class KeyringHd extends KeyringHdBtcFork {
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
-  ): Promise<Array<DBUTXOAccount>> {
-    const impl = await this.getNetworkImpl();
+  ): Promise<DBUTXOAccount[]> {
     const { password, indexes, purpose, names, template } = params;
-    const usedPurpose = purpose || DEFAULT_PURPOSE;
+    const impl = await this.getNetworkImpl();
+    const vault = this.vault as unknown as BTCForkVault;
+    const defaultPurpose = vault.getDefaultPurpose();
+    const coinName = vault.getCoinName();
+    const COIN_TYPE = vault.getCoinType();
+
+    const usedPurpose = purpose || defaultPurpose;
     const ignoreFirst = indexes[0] !== 0;
     const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
-    const { addressEncoding } = getAccountDefaultByPurpose(usedPurpose);
+    const { addressEncoding } = getAccountDefaultByPurpose(
+      usedPurpose,
+      coinName,
+    );
     const { prefix: namePrefix } = getAccountNameInfoByTemplate(impl, template);
-    const provider = (await this.engine.providerManager.getProvider(
-      this.networkId,
-    )) as Provider;
-    const { network } = provider;
-    const { public: xpubVersionBytes } =
-      (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
-
     const { seed } = (await this.engine.dbApi.getCredential(
       this.walletId,
       password,
     )) as ExportedSeedCredential;
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
+    const { network } = provider;
     const { pathPrefix } = slicePathTemplate(template);
     const pubkeyInfos = batchGetPublicKeys(
       'secp256k1',
@@ -82,6 +62,9 @@ export class KeyringHd extends KeyringHdBase {
     if (pubkeyInfos.length !== usedIndexes.length) {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
+
+    const { public: xpubVersionBytes } =
+      (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
 
     const ret = [];
     let index = 0;
@@ -103,10 +86,28 @@ export class KeyringHd extends KeyringHdBase {
       const { [firstAddressRelPath]: address } = provider.xpubToAddresses(
         xpub,
         [firstAddressRelPath],
+        addressEncoding,
       );
+      const prefix = [COINTYPE_DOGE, COINTYPE_BCH].includes(COIN_TYPE)
+        ? coinName
+        : namePrefix;
       const name =
-        (names || [])[index - (ignoreFirst ? 1 : 0)] ||
-        `${namePrefix} #${usedIndexes[index] + 1}`;
+        (names || [])[index] || `${prefix} #${usedIndexes[index] + 1}`;
+      let xpubSegwit = xpub;
+      if (isTaprootPath(pathPrefix)) {
+        const rootFingerprint = generateRootFingerprint(
+          'secp256k1',
+          seed,
+          password,
+        );
+        const fingerprint = Number(
+          Buffer.from(rootFingerprint).readUInt32BE(0) || 0,
+        )
+          .toString(16)
+          .padStart(8, '0');
+        const descriptorPath = `${fingerprint}${path.substring(1)}`;
+        xpubSegwit = `tr([${descriptorPath}]${xpub}/<0;1>/*)`;
+      }
       if (!ignoreFirst || index > 0) {
         ret.push({
           id: `${this.walletId}--${path}`,
@@ -115,6 +116,7 @@ export class KeyringHd extends KeyringHdBase {
           path,
           coinType: COIN_TYPE,
           xpub,
+          xpubSegwit,
           address,
           addresses: { [firstAddressRelPath]: address },
           template,
@@ -127,14 +129,17 @@ export class KeyringHd extends KeyringHdBase {
       }
 
       const { txs } = (await provider.getAccount(
-        { type: 'simple', xpub },
+        { type: 'simple', xpub: xpubSegwit || xpub },
         addressEncoding,
       )) as { txs: number };
       if (txs > 0) {
         index += 1;
-        // TODO: blockbook API rate limit.
+        // blockbook API rate limit.
         await new Promise((r) => setTimeout(r, 200));
       } else {
+        // Software should prevent a creation of an account
+        // if a previous account does not have a transaction history (meaning none of its addresses have been used before).
+        // https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
         break;
       }
     }
