@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -95,14 +95,13 @@ function useAddExistingWallet({
     reValidateMode: 'onBlur',
   });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { isValid, formValues } =
-    useFormOnChangeDebounced<AddExistingWalletValues>({
-      useFormReturn,
-      revalidate: false,
-      clearErrorIfEmpty: true,
-    });
+  const { formValues } = useFormOnChangeDebounced<AddExistingWalletValues>({
+    useFormReturn,
+    revalidate: false,
+    clearErrorIfEmpty: true,
+    clearErrorWhenTextChange: true,
+  });
   const { control, handleSubmit, setValue, trigger } = useFormReturn;
-  // const submitDisabled = !isValid;
   const submitDisabled = !formValues?.text;
   const inputCategory = useMemo(() => {
     let onlyForcategory: UserInputCategory | undefined;
@@ -360,6 +359,7 @@ function AddExistingWalletView(
     address,
   } = useNameServiceStatus();
   const isVerticalLayout = useIsVerticalLayout();
+  const [isRealValid, setIsRealValid] = useState(false);
   const helpText = useCallback(
     (value: string) => (
       <NameServiceResolver
@@ -419,6 +419,7 @@ function AddExistingWalletView(
               validate: async (t) => {
                 const text = nameServiceAddress || address || t;
                 if (!text) {
+                  setIsRealValid(false);
                   return true;
                 }
                 if (
@@ -431,8 +432,10 @@ function AddExistingWalletView(
                     ({ category }) => category !== UserInputCategory.ADDRESS,
                   ).length > 0
                 ) {
+                  setIsRealValid(true);
                   return true;
                 }
+                setIsRealValid(false);
                 // Special treatment for BTC address.
                 try {
                   await backgroundApiProxy.validator.validateAddress(
@@ -484,7 +487,7 @@ function AddExistingWalletView(
           )}
           {showSubmitButton ? (
             <Button
-              isDisabled={submitDisabled || disableSubmitBtn}
+              isDisabled={submitDisabled || disableSubmitBtn || !isRealValid}
               type="primary"
               size={isVerticalLayout ? 'xl' : 'lg'}
               onPromise={handleSubmit(async (values) => {
