@@ -39,16 +39,14 @@ type FromValues = {
 };
 
 type IProps = { walletId?: string; networkId: string };
+export type ISetRangeReturnType = {
+  derivationOption: IDerivationOption | undefined;
+  derivationType: string;
+  fromIndex: string;
+  generateCount?: string | undefined;
+};
 export type ISetRangeRefType = {
-  onSubmit: () => Promise<
-    | false
-    | {
-        selectedOption: IDerivationOption | undefined;
-        derivationType: string;
-        fromIndex: string;
-        generateCount?: string | undefined;
-      }
-  >;
+  onSubmit: () => Promise<false | ISetRangeReturnType>;
 };
 
 const SetRange = forwardRef<ISetRangeRefType, IProps>(
@@ -186,7 +184,7 @@ const SetRange = forwardRef<ISetRangeRefType, IProps>(
               }
               resolve({
                 ...data,
-                selectedOption,
+                derivationOption: selectedOption,
               });
             },
             () => resolve(false),

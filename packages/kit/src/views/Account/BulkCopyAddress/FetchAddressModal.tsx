@@ -66,3 +66,7 @@ const FetchAddressModal: FC = () => {
 };
 
 export default FetchAddressModal;
+
+// type setRange
+
+// type walletAccounts

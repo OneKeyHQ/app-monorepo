@@ -9,6 +9,10 @@ import RecoverAccounts from '@onekeyhq/kit/src/views/Account/AddNewAccount/Recov
 import RecoverAccountsAdvanced from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverAccountsAdvanced';
 import RecoverConfirm from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverConfirm';
 import SelectChain from '@onekeyhq/kit/src/views/Account/AddNewAccount/SelectChain';
+import type {
+  IFetchAddressByRange,
+  IFetchAddressByWallet,
+} from '@onekeyhq/kit/src/views/Account/BulkCopyAddress';
 import BulkCopyAddresses from '@onekeyhq/kit/src/views/Account/BulkCopyAddress';
 import FetchAddressModal from '@onekeyhq/kit/src/views/Account/BulkCopyAddress/FetchAddressModal';
 
@@ -72,6 +76,7 @@ export type CreateAccountRoutesParams = {
     networkId: string;
     walletId: string;
     password: string;
+    data: IFetchAddressByRange | IFetchAddressByWallet;
   };
 };
 

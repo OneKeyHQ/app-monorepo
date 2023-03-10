@@ -15,9 +15,20 @@ import WalletAccounts from './WalletAccounts';
 
 import type { CreateAccountRoutesParams } from '../../../routes';
 import type { ModalScreenProps } from '../../../routes/types';
-import type { ISetRangeRefType } from './SetRange';
-import type { IWalletAccountsRefType } from './WalletAccounts';
+import type { ISetRangeRefType, ISetRangeReturnType } from './SetRange';
+import type {
+  IWalletAccountsRefType,
+  IWalletAccountsReturnType,
+} from './WalletAccounts';
 import type { RouteProp } from '@react-navigation/native';
+
+export type IFetchAddressByRange = {
+  type: 'setRange';
+} & ISetRangeReturnType;
+
+export type IFetchAddressByWallet = {
+  type: 'walletAccounts';
+} & IWalletAccountsReturnType;
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 type RouteProps = RouteProp<
@@ -60,18 +71,20 @@ const BulkCopyAddress: FC = () => {
   const setRangeRef = useRef<ISetRangeRefType>(null);
   const walletAccountsRef = useRef<IWalletAccountsRefType>(null);
   const onPrimaryActionPress = useCallback(async () => {
+    let data: IFetchAddressByRange | IFetchAddressByWallet;
     if (selectedIndex === 0) {
-      const data = await setRangeRef.current?.onSubmit();
-      console.log(data);
+      const value = await setRangeRef.current?.onSubmit();
+      data = { ...value, type: 'setRange' } as IFetchAddressByRange;
     } else {
-      const data = walletAccountsRef.current?.onSubmit();
-      console.log(data);
+      const value = walletAccountsRef.current?.onSubmit();
+      data = { ...value, type: 'walletAccounts' } as IFetchAddressByWallet;
     }
 
     navigation.navigate(CreateAccountModalRoutes.FetchAddressModal, {
       networkId,
       walletId,
       password,
+      data,
     });
   }, [selectedIndex, navigation, networkId, walletId, password]);
 
