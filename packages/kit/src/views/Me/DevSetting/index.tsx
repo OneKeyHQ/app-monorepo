@@ -89,7 +89,7 @@ const emptyObj: any = Object.freeze({});
 export const DevSettingSection = () => {
   const { themeVariant } = useTheme();
   const { devMode, pushNotification, instanceId } = useSettings();
-  const { registrationId } = pushNotification || emptyObj;
+  const registrationId = pushNotification?.registrationId;
   const devModeData: ISettingsDevModeInfo = devMode || emptyObj;
   const {
     enable: devModeEnable,
