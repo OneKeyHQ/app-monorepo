@@ -3,12 +3,12 @@ import type { FC } from 'react';
 
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
   Button,
   CheckBox,
-  Divider,
   Form,
   Icon,
   Text,
@@ -21,7 +21,6 @@ import { setPendingRememberWalletConnectId } from '@onekeyhq/kit/src/store/reduc
 import BaseRequestView from './BaseRequest';
 
 import type { BaseRequestViewProps } from './BaseRequest';
-import { StyleSheet } from 'react-native';
 
 type EnterPassphraseViewProps = {
   connectId: string;
@@ -253,44 +252,42 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
       )}
 
       {passphraseState ? null : (
-        <>
-          <Box mt="24px">
-            <Box flexDirection="row">
-              <CheckBox
-                flex={1}
-                isChecked={rememberWallet}
-                onChange={setRememberWallet}
-                title={intl.formatMessage({
-                  id: 'msg__use_passphrase_remember_wallet',
-                })}
-                description={intl.formatMessage({
-                  id: 'msg__use_passphrase_remember_wallet_dsc',
-                })}
+        <Box mt="24px">
+          <Box flexDirection="row">
+            <CheckBox
+              flex={1}
+              isChecked={rememberWallet}
+              onChange={setRememberWallet}
+              title={intl.formatMessage({
+                id: 'msg__use_passphrase_remember_wallet',
+              })}
+              description={intl.formatMessage({
+                id: 'msg__use_passphrase_remember_wallet_dsc',
+              })}
+            />
+          </Box>
+          <Box flexDirection="row" mt={4}>
+            <Box>
+              <Icon
+                name="ExclamationTriangleOutline"
+                size={20}
+                color="icon-warning"
               />
             </Box>
-            <Box flexDirection="row" mt={4}>
-              <Box>
-                <Icon
-                  name="ExclamationTriangleOutline"
-                  size={20}
-                  color="icon-warning"
-                />
-              </Box>
-              <Box flex={1} ml={3}>
-                <Text typography="Body2Strong" color="text-default">
-                  {intl.formatMessage({
-                    id: 'msg__use_passphrase_enter_hint_not_forget',
-                  })}
-                </Text>
-                <Text typography="Body2" color="text-subdued">
-                  {intl.formatMessage({
-                    id: 'msg__use_passphrase_enter_hint_not_forget_dsc',
-                  })}
-                </Text>
-              </Box>
+            <Box flex={1} ml={3}>
+              <Text typography="Body2Strong" color="text-default">
+                {intl.formatMessage({
+                  id: 'msg__use_passphrase_enter_hint_not_forget',
+                })}
+              </Text>
+              <Text typography="Body2" color="text-subdued">
+                {intl.formatMessage({
+                  id: 'msg__use_passphrase_enter_hint_not_forget_dsc',
+                })}
+              </Text>
             </Box>
           </Box>
-        </>
+        </Box>
       )}
       <Box
         mt="24px"

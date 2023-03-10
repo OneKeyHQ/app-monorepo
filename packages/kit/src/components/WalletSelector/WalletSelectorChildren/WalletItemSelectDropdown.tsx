@@ -1,7 +1,6 @@
 // TODO packages/kit/src/components/Header/AccountSelectorChildren/RightHeader.tsx
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import {
@@ -97,7 +96,7 @@ function HardwarePassphraseMenuOptions({
         extraChildren={
           <Box>
             <CheckBox
-              noMargin
+              containerStyle={{ mr: '0' }}
               isChecked={isRememberPassphrase}
               onChange={onClickRememberPassphrase}
             />

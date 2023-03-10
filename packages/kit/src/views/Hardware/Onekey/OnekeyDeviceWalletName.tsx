@@ -13,7 +13,6 @@ import {
   KeyboardDismissView,
   Modal,
   ToastManager,
-  Typography,
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
