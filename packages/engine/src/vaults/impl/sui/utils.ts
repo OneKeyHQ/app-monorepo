@@ -1,15 +1,17 @@
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/naming-convention */
 import {
-  Base64DataBuffer,
   Coin,
+  IntentScope,
   LocalTxnDataSerializer,
   SUI_TYPE_ARG,
+  fromB64,
   getMoveObject,
   getObjectExistsResponse,
   getPaySuiTransaction,
   getPayTransaction,
   getTransferSuiTransaction,
+  messageWithIntent,
 } from '@mysten/sui.js';
 import { isArray } from 'lodash';
 
@@ -44,10 +46,6 @@ export const SUI_SYSTEM_STATE_OBJECT_ID =
 
 export const SUI_NATIVE_COIN = SUI_TYPE_ARG;
 
-// See: sui/crates/sui-types/src/intent.rs
-// This is currently hardcoded with [IntentScope::TransactionData = 0, Version::V0 = 0, AppId::Sui = 0]
-const INTENT_BYTES = [0, 0, 0];
-
 /* -------------------------------------------------------------------------- */
 /*                              Helper functions                              */
 /* -------------------------------------------------------------------------- */
@@ -79,7 +77,7 @@ export function decodeBytesTransaction(txn: any) {
     if (txn.indexOf(',') !== -1) {
       bcsTxn = new Uint8Array(txn.split(',').map((item) => parseInt(item, 10)));
     } else {
-      bcsTxn = new Base64DataBuffer(txn).getData();
+      bcsTxn = fromB64(txn);
     }
   } else {
     throw new Error('invalidParams');
@@ -88,61 +86,38 @@ export function decodeBytesTransaction(txn: any) {
   return bcsTxn;
 }
 
-export async function handleSignDataWithRpcVersion(
+export function handleSignDataWithRpcVersion(
   client: Provider,
-  txBase64: string,
+  txBase64: Uint8Array,
 ) {
-  const txBytes = new Base64DataBuffer(txBase64);
-  const version = await client.getRpcApiVersion();
-  let dataToSign;
-  if (version?.major === 0 && version?.minor < 19) {
-    dataToSign = txBytes;
-  } else {
-    const intentMessage = new Uint8Array(
-      INTENT_BYTES.length + txBytes.getLength(),
-    );
-    intentMessage.set(INTENT_BYTES);
-    intentMessage.set(txBytes.getData(), INTENT_BYTES.length);
-
-    dataToSign = new Base64DataBuffer(intentMessage);
-  }
-  return dataToSign;
+  return messageWithIntent(IntentScope.TransactionData, txBase64);
 }
 
 export async function toTransaction(
   client: Provider,
   sender: string,
-  tx: SignableTransaction | string | Base64DataBuffer,
+  tx: SignableTransaction | string | Uint8Array,
 ) {
   const address = sender;
-  let txBytes: string;
+  let transactionBytes: Uint8Array;
   if (typeof tx === 'string') {
-    txBytes = tx;
-  } else if (tx instanceof Base64DataBuffer) {
-    txBytes = tx.toString();
+    transactionBytes = fromB64(tx);
+  } else if (
+    tx instanceof Uint8Array ||
+    (typeof tx !== 'string' && 'kind' in tx && tx.kind === 'bytes')
+  ) {
+    transactionBytes = tx instanceof Uint8Array ? tx : tx.data;
   } else {
-    const { kind } = tx;
-    switch (kind) {
-      case 'bytes':
-        // The format of the dapp is incorrect after serialization
-        txBytes = new Base64DataBuffer(
-          decodeBytesTransaction(tx.data),
-        ).toString();
-        break;
-      default:
-        try {
-          const serializer = new LocalTxnDataSerializer(client);
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-          txBytes = (await serializer.serializeToBytes(address, tx)).toString();
-        } catch (e) {
-          throw new Error(
-            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-            `Error, unknown transaction kind ${kind}. Can't dry run transaction.`,
-          );
-        }
-    }
+    const serializer = new LocalTxnDataSerializer(client);
+    transactionBytes = await serializer.serializeToBytes(address, tx, 'Commit');
+    // transactionBytes = await convertToTransactionBuilder(
+    //   await this.getAddress(),
+    //   transaction,
+    //   this.provider,
+    // );
   }
-  return txBytes;
+
+  return transactionBytes;
 }
 
 export function computeGasBudget(inputSize: number) {
