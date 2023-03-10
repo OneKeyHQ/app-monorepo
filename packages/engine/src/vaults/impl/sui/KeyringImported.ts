@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Ed25519PublicKey, JsonRpcProvider } from '@mysten/sui.js';
-import * as SHA3 from 'js-sha3';
+import {
+  Connection,
+  Ed25519PublicKey,
+  JsonRpcProvider,
+  toB64,
+  toSerializedSignature,
+} from '@mysten/sui.js';
+import { hexToBytes } from '@noble/hashes/utils';
 
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
@@ -77,7 +83,8 @@ export class KeyringImported extends KeyringImportedBase {
   ): Promise<SignedTxResult> {
     const dbAccount = await this.getDbAccount();
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
-    const client = new JsonRpcProvider(rpcURL);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const client = new JsonRpcProvider(new Connection({ fullnode: rpcURL }));
     const sender = dbAccount.address;
     const signers = await this.getSigners(options.password || '', [
       dbAccount.address,
@@ -90,14 +97,20 @@ export class KeyringImported extends KeyringImportedBase {
     }
     const { encodedTx } = unsignedTx.payload;
     const txnBytes = await toTransaction(client, sender, encodedTx);
-    const signData = await handleSignDataWithRpcVersion(client, txnBytes);
-    const [signature] = await signer.sign(Buffer.from(signData.getData()));
+    const signData = handleSignDataWithRpcVersion(client, txnBytes);
+    const [signature] = await signer.sign(Buffer.from(signData));
+
+    const serializeSignature = toSerializedSignature({
+      signatureScheme: 'ED25519',
+      signature,
+      pubKey: new Ed25519PublicKey(hexToBytes(senderPublicKey)),
+    });
 
     return {
       txid: '',
-      rawTx: txnBytes,
+      rawTx: toB64(txnBytes),
       signatureScheme: 'ed25519',
-      signature: addHexPrefix(signature.toString('hex')),
+      signature: serializeSignature,
       publicKey: addHexPrefix(senderPublicKey),
     };
   }

@@ -132,6 +132,10 @@ export function warningIfNotRunInBackground({
       // iOS/Android cannot get full source code error.stack
       return;
     }
+    if (platformEnv.isWebEmbed) {
+      // web-embed error.stack data is not reliable, missing background keywords
+      return;
+    }
     try {
       throw new Error();
     } catch (error) {

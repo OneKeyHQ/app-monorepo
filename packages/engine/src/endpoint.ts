@@ -1,18 +1,34 @@
-const DEFAULT_ONLINE_ENDPOINT = 'https://fiat.onekeycn.com';
-const TEST_ENDPOINT = 'https://fiat.onekeytest.com';
+const endpointsMap: Record<
+  'fiat' | 'wss' | 'covalent',
+  { prd: string; test: string }
+> = {
+  fiat: {
+    prd: 'https://fiat.onekeycn.com',
+    test: 'https://fiat.onekeytest.com',
+  },
+  wss: {
+    prd: 'wss://fiat.onekeycn.com',
+    test: 'wss://fiat.onekeytest.com',
+  },
+  covalent: {
+    prd: 'https://node.onekey.so/covalent/client1-HghTg3a33',
+    test: 'https://node.onekeytest.com/covalent/client1-HghTg3a33',
+  },
+};
 
-const DEFAULT_SOCKET_ENDPOINT = 'wss://fiat.onekeycn.com';
-const TEST_SOCKET_ENDPOINT = 'wss://fiat.onekeytest.com';
-
-let endpoint = DEFAULT_ONLINE_ENDPOINT;
-let websocketEndpoint = DEFAULT_SOCKET_ENDPOINT;
+let endpoint = '';
+let websocketEndpoint = '';
+let covalentApiEndpoint = '';
 
 export const switchTestEndpoint = (isTestEnable?: boolean) => {
-  endpoint = isTestEnable ? TEST_ENDPOINT : DEFAULT_ONLINE_ENDPOINT;
-  websocketEndpoint = isTestEnable
-    ? TEST_SOCKET_ENDPOINT
-    : DEFAULT_SOCKET_ENDPOINT;
+  const key = isTestEnable ? 'test' : 'prd';
+  endpoint = endpointsMap.fiat[key];
+  websocketEndpoint = endpointsMap.wss[key];
+  covalentApiEndpoint = endpointsMap.covalent[key];
 };
+
+switchTestEndpoint(false);
 
 export const getFiatEndpoint = () => endpoint;
 export const getSocketEndpoint = () => websocketEndpoint;
+export const getCovalentApiEndpoint = () => covalentApiEndpoint;

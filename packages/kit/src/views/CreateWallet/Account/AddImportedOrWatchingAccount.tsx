@@ -24,6 +24,7 @@ type AddImportedOrWatchingAccountValues = {
   name: string;
   importAs: number; // A segmented control value.
   networkId: string;
+  template: string;
 };
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
@@ -75,6 +76,42 @@ const AddImportedOrWatchingAccount = () => {
     [watchNetwork, checkResults],
   );
 
+  const derivationOptions = useMemo(() => {
+    const options = checkResults.find((r) =>
+      r.possibleNetworks?.includes(watchNetwork),
+    )?.derivationOptions;
+    if (!options || !options.length) return [];
+    const ret = [];
+    for (const value of options) {
+      let label = '';
+      if (typeof value.label === 'string') {
+        label = value.label;
+      } else if (typeof value.label === 'object') {
+        label = intl.formatMessage({ id: value.label?.id });
+      }
+      let description;
+      if (typeof value.desc === 'string') {
+        description = value.desc;
+      } else if (typeof value.desc === 'object') {
+        description = intl.formatMessage(
+          { id: value.desc?.id },
+          value.desc?.placeholder,
+        );
+      }
+      ret.push({
+        label,
+        value: value.template,
+        description,
+      });
+    }
+    return ret;
+  }, [watchNetwork, checkResults, intl]);
+
+  const defaultDerivationValue = useMemo(() => {
+    if (!derivationOptions.length) return '';
+    return derivationOptions[0].value;
+  }, [derivationOptions]);
+
   const defaultAccountNames = useMemo(() => {
     const typeToNextIdMap = Object.fromEntries(
       wallets
@@ -106,6 +143,7 @@ const AddImportedOrWatchingAccount = () => {
       const importType = inputCategories[selectedTypeIndex];
       const name =
         values.name || defaultName || defaultAccountNames[selectedTypeIndex];
+      const template = values.template || defaultDerivationValue || undefined;
 
       if (importType === UserInputCategory.IMPORTED) {
         navigation.navigate(
@@ -114,6 +152,7 @@ const AddImportedOrWatchingAccount = () => {
             privatekey: text,
             networkId: values.networkId,
             name,
+            template,
             onSuccess,
             onFailure,
           },
@@ -125,6 +164,7 @@ const AddImportedOrWatchingAccount = () => {
               values.networkId,
               text,
               name,
+              template,
             );
           onSuccess?.({
             account: accountAdded,
@@ -146,7 +186,7 @@ const AddImportedOrWatchingAccount = () => {
       text,
       onSuccess,
       onFailure,
-
+      defaultDerivationValue,
       intl,
     ],
   );
@@ -172,6 +212,7 @@ const AddImportedOrWatchingAccount = () => {
             selectableNetworks={selectableNetworks}
             control={control}
             name="networkId"
+            hideHelpText
           />
         )}
         {possibleAddTypes.length === 1 ? undefined : (
@@ -188,25 +229,20 @@ const AddImportedOrWatchingAccount = () => {
             />
           </Form.Item>
         )}
-        <Form.Item
-          name="name"
-          label={intl.formatMessage({ id: 'form__account_name' })}
-          rules={{
-            required: intl.formatMessage({
-              id: 'form__field_is_required',
-            }),
-            maxLength: {
-              value: 24,
-              message: intl.formatMessage({
-                id: 'msg__exceeding_the_maximum_word_limit',
-              }),
-            },
-          }}
-          control={control}
-          defaultValue={defaultName || defaultAccountNames[importTypeIndex]}
-        >
-          <Form.Input />
-        </Form.Item>
+        {derivationOptions.length <= 1 ? undefined : (
+          <Form.Item
+            name="template"
+            label={intl.formatMessage({ id: 'form__address_type_label' })}
+            control={control}
+          >
+            <Form.Select
+              headerShown={false}
+              footer={null}
+              defaultValue={defaultDerivationValue}
+              options={derivationOptions}
+            />
+          </Form.Item>
+        )}
       </Form>
     </Modal>
   );

@@ -2,7 +2,10 @@ import BigNumber from 'bignumber.js';
 
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import type { IFeeInfoUnit } from '@onekeyhq/engine/src/vaults/types';
+import type {
+  IDecodedTx,
+  IFeeInfoUnit,
+} from '@onekeyhq/engine/src/vaults/types';
 import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
@@ -276,6 +279,31 @@ export const calculateProtocalsFee = (protocolFees: ProtocolFees) => {
   const value = bn.dividedBy(base.exponentiatedBy(decimals)).toFixed();
   return { value, symbol: asset.symbol };
 };
+
+export function calculateDecodedTxNetworkFee(
+  decodedTx: IDecodedTx,
+  network: Network,
+) {
+  const { feeInfo, totalFeeInNative } = decodedTx;
+  if (totalFeeInNative) {
+    return totalFeeInNative;
+  }
+  if (feeInfo) {
+    const feeRange = calculateTotalFeeRange(feeInfo);
+    const calculatedTotalFeeInNative = calculateTotalFeeNative({
+      amount: feeRange.max,
+      info: {
+        defaultPresetIndex: '0',
+        prices: [],
+        feeSymbol: network.feeSymbol,
+        feeDecimals: network.feeDecimals,
+        nativeSymbol: network.symbol,
+        nativeDecimals: network.decimals,
+      },
+    });
+    return calculatedTotalFeeInNative;
+  }
+}
 
 export function calculateNetworkFee(feeInfo: IFeeInfoUnit, network: Network) {
   const feeRange = calculateTotalFeeRange(feeInfo);
