@@ -735,7 +735,6 @@ class ProviderApiEthereum extends ProviderApiBase {
     address?: string,
     ...others: any[]
   ) => {
-    console.log(request, params, address, others);
     const networks = await this.backgroundApi.serviceNetwork.fetchNetworks();
     const networkId = `evm--${parseInt(params.chainId)}`;
     const network = networks.find((n) => n.id === networkId);
