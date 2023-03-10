@@ -32,7 +32,21 @@ export type FirmwareUpdate = {
   firmware?: SYSFirmwareInfo;
   ble?: BLEFirmwareInfo;
 };
-
+export type ISettingsDevModeInfo = {
+  enable?: boolean;
+  preReleaseUpdate?: boolean;
+  updateDeviceBle?: boolean;
+  updateDeviceSys?: boolean;
+  updateDeviceRes?: boolean;
+  enableTestFiatEndpoint?: boolean;
+  enableZeroNotificationThreshold?: boolean;
+  enablePerfCheck?: boolean;
+  defiBuildService?: string;
+  hideDiscoverContent?: boolean;
+  enableExternalAccountAnnualReport?: boolean;
+  onRamperTestMode?: boolean;
+  showWebEmbedWebviewAgent?: boolean;
+};
 export type SettingsState = {
   theme: ThemeVariant | 'system';
   lastLocale: LocaleSymbol;
@@ -60,19 +74,7 @@ export type SettingsState = {
     string, // networkId + walletName
     WalletSwitchItem
   >;
-  devMode?: {
-    enable?: boolean;
-    preReleaseUpdate?: boolean;
-    updateDeviceBle?: boolean;
-    updateDeviceSys?: boolean;
-    updateDeviceRes?: boolean;
-    enableTestFiatEndpoint?: boolean;
-    enableZeroNotificationThreshold?: boolean;
-    enablePerfCheck?: boolean;
-    defiBuildService?: string;
-    hideDiscoverContent?: boolean;
-    onRamperTestMode?: boolean;
-  };
+  devMode?: ISettingsDevModeInfo;
   pushNotification?: {
     registrationId?: string;
     threshold: number;
@@ -299,6 +301,12 @@ export const settingsSlice = createSlice({
         onRamperTestMode: action.payload,
       };
     },
+    setShowWebEmbedWebviewAgent(state, action: PayloadAction<boolean>) {
+      state.devMode = {
+        ...state.devMode,
+        showWebEmbedWebviewAgent: action.payload,
+      };
+    },
     setEnableTestFiatEndpoint(state, action: PayloadAction<boolean>) {
       state.devMode = {
         ...state.devMode,
@@ -522,6 +530,7 @@ export const {
   setHideScamHistory,
   setAccountDerivationDbMigrationVersion,
   setOnRamperTestMode,
+  setShowWebEmbedWebviewAgent,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

@@ -1,5 +1,7 @@
 import { useCallback, useLayoutEffect, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Box, Textarea } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -14,6 +16,8 @@ function TextareaWithLineNumber(props: Props) {
   const textAreaRef = useRef<HTMLTextAreaElement>();
   const textAreaLineNumberRef = useRef<HTMLTextAreaElement>();
   const { receiverString, setReceiverString } = props;
+
+  const intl = useIntl();
 
   const receiverStringWithLineNumber =
     encodeReceiverWithLineNumber(receiverString);
@@ -35,6 +39,9 @@ function TextareaWithLineNumber(props: Props) {
       <Textarea
         // @ts-ignore
         ref={textAreaRef}
+        placeholder={intl.formatMessage({
+          id: 'form__receiver_address_amount',
+        })}
         onScroll={handleTextareaOnScroll}
         bgColor="transparent"
         bg="transparent"

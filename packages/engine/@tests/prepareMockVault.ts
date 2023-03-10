@@ -4,7 +4,7 @@ import bufferUitls from '@onekeyhq/shared/src/utils/bufferUtils';
 import { getCurveByImpl } from '../src/managers/impl';
 import { fromDBNetworkToNetwork } from '../src/managers/network';
 import { Verifier, fromDBNetworkToChainInfo } from '../src/proxy';
-import { createVaultSettings } from '../src/vaults/factory';
+import { createVaultSettings } from '../src/vaults/factory.createVaultSettings';
 
 import type { Engine } from '../src';
 import type { ExportedCredential } from '../src/dbs/base';

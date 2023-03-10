@@ -104,10 +104,6 @@ const SwapHistory = createLazyComponent(
 
 const Drawer = createLazyComponent(() => import('../Drawer'));
 
-const ChainWebEmbed = createLazyComponent(
-  () => import('@onekeyhq/kit/src/views/ChainWebEmbed'),
-);
-
 const AddressBook = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/AddressBook/Listing'),
 );
@@ -338,7 +334,6 @@ function MainScreen() {
         <WalletSelectorEffectsSingleton />
         {/* TODO Waiting notification component */}
         <UpdateAlert />
-        <ChainWebEmbed />
       </Box>
     </RootSiblingParent>
   );

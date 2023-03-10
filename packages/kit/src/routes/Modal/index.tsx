@@ -195,7 +195,7 @@ const ModalStackNavigator = () => {
   const screenOptions = useMemo(
     () => ({
       headerShown: false,
-      // presentation: 'modal' as const,
+      presentation: 'modal' as const,
       ...buildModalOpenAnimationOptions({ isVerticalLayout }),
     }),
     [isVerticalLayout],

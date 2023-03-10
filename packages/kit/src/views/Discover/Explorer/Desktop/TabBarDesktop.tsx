@@ -13,13 +13,12 @@ import {
   getShortcutsMap,
 } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../../hooks';
 import {
-  closeWebTab,
-  setCurrentWebTab,
-} from '../../../../store/reducers/webTabs';
-import { addNewBlankWebTab } from '../explorerUtils';
+  dAddNewBlankWebTab,
+  dCloseWebTab,
+  dSetCurrentWebTab,
+} from '../explorerActions';
 
 import type { WebTab } from '../../../../store/reducers/webTabs';
 import type { LayoutChangeEvent } from 'react-native';
@@ -31,13 +30,12 @@ const Tab: FC<
     onLayout?: (e: LayoutChangeEvent) => void;
   }
 > = ({ isCurrent, id, title, onLayout, favicon }) => {
-  const { dispatch } = backgroundApiProxy;
   const setCurrentTab = useCallback(() => {
-    dispatch(setCurrentWebTab(id));
-  }, [dispatch, id]);
+    dSetCurrentWebTab(id);
+  }, [id]);
   const closeTab = useCallback(() => {
-    dispatch(closeWebTab(id));
-  }, [dispatch, id]);
+    dCloseWebTab(id);
+  }, [id]);
   return id === 'home' ? (
     <Button
       type="plain"
@@ -106,7 +104,7 @@ const AddTabButton = () => (
       borderRadius={0}
       type="plain"
       leftIconName="PlusMini"
-      onPress={addNewBlankWebTab}
+      onPress={dAddNewBlankWebTab}
     />
   </ShortcutsTooltip>
 );

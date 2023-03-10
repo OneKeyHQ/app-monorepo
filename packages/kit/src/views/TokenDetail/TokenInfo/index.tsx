@@ -59,7 +59,12 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
     }) ?? 0;
 
   const balances = useAccountTokensBalance(networkId, accountId);
-  const { balance: amount } = balances[getBalanceKey(token)] ?? {
+  const { balance: amount } = balances[
+    getBalanceKey({
+      ...token,
+      sendAddress,
+    })
+  ] ?? {
     balance: '0',
   };
 
