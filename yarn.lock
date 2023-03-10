@@ -5607,7 +5607,6 @@ __metadata:
     "@types/bchaddrjs": ^0.4.0
     "@types/bs58": ^4.0.1
     "@types/bs58check": ^2.1.0
-    "@types/create-hmac": ^1.1.0
     "@types/elliptic": ^6.4.14
     "@types/node": ^17.0.2
     algosdk: ^1.21.0
@@ -5624,7 +5623,6 @@ __metadata:
     cardano-crypto.js: ^6.1.1
     coinselect: ^3.1.12
     cosmjs-types: ^0.5.2
-    create-hmac: ^1.1.7
     crypto-browserify: ^3.12.0
     ecpair: 2.0.1
     elliptic: ^6.5.4
@@ -8369,15 +8367,6 @@ __metadata:
   version: 2.1.2
   resolution: "@types/cookiejar@npm:2.1.2"
   checksum: f6e1903454007f86edd6c3520cbb4d553e1d4e17eaf1f77f6f75e3270f48cc828d74397a113a36942f5fe52f9fa71067bcfa738f53ad468fcca0bc52cb1cbd28
-  languageName: node
-  linkType: hard
-
-"@types/create-hmac@npm:^1.1.0":
-  version: 1.1.0
-  resolution: "@types/create-hmac@npm:1.1.0"
-  dependencies:
-    "@types/node": "*"
-  checksum: 82a99d6202bf79d62ad8ad9974b6a047500dd7429b90ae4e83993023ab953ca03956d1fb248939fd6efc8caa1d1192f76cd19750c540440ca174733a342b45fd
   languageName: node
   linkType: hard
 
