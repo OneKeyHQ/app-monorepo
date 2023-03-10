@@ -105,7 +105,7 @@ const AccountSelectorWalletMenu: FC<
       {
         id: 'title__bulk_copy_addresses',
         onPress: onPressBulkCopyAddresses,
-        icon: 'TrashOutline',
+        icon: 'Square2StackOutline',
       },
     ],
     [onPressCreateAccount, onPressManageAccount, onPressBulkCopyAddresses],
@@ -115,7 +115,7 @@ const AccountSelectorWalletMenu: FC<
     <BaseMenu
       options={options}
       {...props}
-      menuWidth={platformEnv.isNative ? 200 : 190}
+      menuWidth={platformEnv.isNative ? 249 : 239}
     />
   );
 };

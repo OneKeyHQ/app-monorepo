@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Button,
   Divider,
   Form,
   KeyboardDismissView,
@@ -289,19 +288,6 @@ const SetRange: FC<{ walletId?: string; networkId: string }> = ({
           />
         </Form.Item>
       </Form>
-      <Button
-        size={isSmallScreen ? 'xl' : 'lg'}
-        onPromise={handleSubmit(onSubmit)}
-        // isDisabled={!isValid}
-        type="primary"
-        onPress={() => {
-          console.log('prefffff');
-        }}
-      >
-        {intl.formatMessage({
-          id: 'action__export_addresses',
-        })}
-      </Button>
     </KeyboardDismissView>
   );
 };

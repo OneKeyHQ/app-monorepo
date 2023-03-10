@@ -1,16 +1,9 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Button,
-  HStack,
-  Text,
-  VStack,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+import { Box, HStack, Text, VStack } from '@onekeyhq/components';
 import type { DBAccountDerivation } from '@onekeyhq/engine/src/types/accountDerivation';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
@@ -29,7 +22,6 @@ const WalletAccounts: FC<{ walletId: string; networkId: string }> = ({
   walletId,
   networkId,
 }) => {
-  const isSmallScreen = useIsVerticalLayout();
   const intl = useIntl();
   const { wallets } = useRuntime();
   const wallet = wallets.find((item) => item.id === walletId);
@@ -59,6 +51,8 @@ const WalletAccounts: FC<{ walletId: string; networkId: string }> = ({
     [derivationOptions, intl],
   );
 
+  const onSubmit = useCallback(() => {}, []);
+
   if (!wallet) {
     return null;
   }
@@ -84,11 +78,19 @@ const WalletAccounts: FC<{ walletId: string; networkId: string }> = ({
           {wallet.name}
         </Text>
       </HStack>
-      <VStack>
+      <VStack mt={4} mb={6} space={4}>
         {networkDerivations.map((item) => (
-          <HStack>
-            <Text>{item.template}</Text>
-            <Text>{getDerivationName(item)}</Text>
+          <HStack alignItems="center" justifyContent="space-between">
+            <Text typography={{ sm: 'Body2Strong', md: 'Body2Strong' }}>
+              {getDerivationName(item)}
+            </Text>
+            <Text
+              typography={{ sm: 'Body2Strong', md: 'Body2Strong' }}
+              color="text-subdued"
+            >
+              {item.accounts.length}{' '}
+              {intl.formatMessage({ id: 'title__accounts' })}
+            </Text>
           </HStack>
         ))}
       </VStack>

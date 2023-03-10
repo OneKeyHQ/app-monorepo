@@ -57,11 +57,11 @@ const BulkCopyAddress = () => {
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   return (
     <Modal
+      height="452px"
       header={intl.formatMessage({ id: 'title__bulk_copy_addresses' })}
       headerDescription={<HeaderDescription network={network} />}
       hideSecondaryAction
-      hidePrimaryAction
-      footer={null}
+      primaryActionTranslationId="action__export_addresses"
     >
       <Box mb={6}>
         <SegmentedControl
