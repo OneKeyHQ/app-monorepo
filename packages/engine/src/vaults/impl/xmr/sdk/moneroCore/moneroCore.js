@@ -5832,7 +5832,7 @@ var MyMoneroLibAppCpp = (() => {
           return str;
         },
         'toWireType': function (destructors, value) {
-          if (value instanceof ArrayBuffer || value === 0) {
+          if (value instanceof ArrayBuffer) {
             value = new Uint8Array(value);
           }
 

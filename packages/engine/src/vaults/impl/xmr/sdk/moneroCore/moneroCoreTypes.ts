@@ -9,4 +9,12 @@ export interface MoneroCoreInstance
   ) => string;
 
   decode_address: (address: string, netType: string) => string;
+
+  estimated_tx_network_fee: (
+    priority: string,
+    feePerByte: string,
+    forkVersion?: string,
+  ) => string;
+
+  send_funds: (...args: any[]) => void;
 }

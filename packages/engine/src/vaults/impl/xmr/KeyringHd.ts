@@ -1,3 +1,5 @@
+import LWSClient from '@mymonero/mymonero-lws-client';
+import axios from 'axios';
 import { mnemonicFromEntropy } from '@onekeyfe/blockchain-libs/dist/secret';
 import { mnemonicToSeedSync } from 'bip39';
 
@@ -15,11 +17,15 @@ import { getRawPrivateKeyFromSeed } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBVariantAccount } from '../../../types/account';
+import type { SignedTx } from '../../../types/provider';
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
   IUnsignedTxPro,
 } from '../../types';
+import type { IEncodedTxXmr, ISendFundsArgs } from './types';
+
+const walletUrl = 'https://node.onekey.so/mymonero';
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
@@ -88,5 +94,58 @@ export class KeyringHd extends KeyringHdBase {
     }
     console.log(ret);
     return ret;
+  }
+
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+    options: ISignCredentialOptions,
+  ): Promise<SignedTx> {
+    const dbAccount = await this.getDbAccount();
+    const moneroApi = await getMoneroApi();
+    const { entropy } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      options.password || '',
+    )) as ExportedSeedCredential;
+
+    const mnemonic = mnemonicFromEntropy(entropy, options.password || '');
+    const seed = mnemonicToSeedSync(mnemonic);
+    const { pathPrefix } = slicePathTemplate(dbAccount.template as string);
+    const rawPrivateKey = getRawPrivateKeyFromSeed(seed, pathPrefix);
+    if (!rawPrivateKey) {
+      throw new OneKeyInternalError('Unable to get raw private key.');
+    }
+
+    const { publicSpendKey, privateViewKey, privateSpendKey } =
+      await moneroApi.getKeyPairFromRawPrivatekey({
+        rawPrivateKey,
+      });
+
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxXmr;
+
+    const sendFundsArgs: ISendFundsArgs = {
+      destinations: encodedTx.destinations,
+      from_address_string: encodedTx.address,
+      is_sweeping: encodedTx.shouldSweep,
+      nettype: encodedTx.nettype,
+      priority: encodedTx.priority,
+
+      pub_spendKey_string: Buffer.from(publicSpendKey || []).toString('hex'),
+      sec_spendKey_string: Buffer.from(privateSpendKey).toString('hex'),
+      sec_viewKey_string: Buffer.from(privateViewKey || []).toString('hex'),
+
+      fromWallet_didFailToBoot: false,
+      fromWallet_didFailToInitialize: false,
+      fromWallet_needsImport: false,
+      hasPickedAContact: false,
+      manuallyEnteredPaymentID: '',
+      manuallyEnteredPaymentID_fieldIsVisible: false,
+      requireAuthentication: false,
+      resolvedAddress: '',
+      resolvedAddress_fieldIsVisible: false,
+      resolvedPaymentID: '',
+      resolvedPaymentID_fieldIsVisible: false,
+    };
+    const signedTx = await moneroApi.sendFunds(sendFundsArgs);
+    return signedTx;
   }
 }

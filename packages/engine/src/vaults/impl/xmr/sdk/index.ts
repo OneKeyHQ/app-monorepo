@@ -1,20 +1,52 @@
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable no-bitwise */
+import MyMoneroLibAppBridgeClass from '@mymonero/mymonero-app-bridge/MyMoneroLibAppBridgeClass';
 import {
   Lazy_KeyImage,
   Lazy_KeyImageCacheForWalletWith,
 } from '@mymonero/mymonero-keyimage-cache';
+import axios from 'axios';
 import sha3 from 'js-sha3';
 
-import { cnFastHash, pubKeysToAddress } from './moneroAddress';
+import { OneKeyInternalError } from '../../../../errors';
+
+import * as moneroAddress from './moneroAddress';
 import { getMoneroCoreInstance } from './moneroCore/instance';
 import { getMoneroUtilInstance } from './moneroUtil/instance';
 import { privateSpendKeyToWords } from './moneroWords';
 
+import type { SignedTx } from '../../../../types/provider';
+import type { ISendFundsArgs, ISendFundsCallback } from '../types';
+
+const walletUrl = 'https://node.onekey.so/mymonero';
+
+const handleMoneroCoreResponse = <T>(
+  resp: undefined | string | { retVal: T },
+) => {
+  if (resp !== undefined) {
+    if (typeof resp === 'string') {
+      try {
+        const result: { retVal: T } = JSON.parse(resp);
+
+        if (result.retVal !== undefined) return result.retVal;
+
+        return resp;
+      } catch {
+        return resp;
+      }
+    }
+
+    return resp.retVal;
+  }
+  return resp;
+};
+
 const getMoneroApi = async () => {
   const moneroCoreInstance = await getMoneroCoreInstance();
   const moneroUtilInstance = await getMoneroUtilInstance();
+
+  console.log(moneroCoreInstance);
 
   const scReduce32 = (data: Uint8Array) => {
     const dataLen = data.length * data.BYTES_PER_ELEMENT;
@@ -75,7 +107,8 @@ const getMoneroApi = async () => {
     return res;
   };
 
-  const hashToScalar = (data: Uint8Array) => scReduce32(cnFastHash(data));
+  const hashToScalar = (data: Uint8Array) =>
+    scReduce32(moneroAddress.cnFastHash(data));
 
   const getSubaddressPrivateKey = (
     data: Uint8Array,
@@ -187,16 +220,7 @@ const getMoneroApi = async () => {
       moneroCoreInstance,
     );
 
-    if (typeof keyImageJsonStr === 'string') {
-      try {
-        const keyImageObj = JSON.parse(keyImageJsonStr) as { retVal: string };
-
-        if (keyImageObj.retVal)
-          return await Promise.resolve(keyImageObj.retVal);
-      } catch {
-        // pass
-      }
-    }
+    return Promise.resolve(handleMoneroCoreResponse<string>(keyImageJsonStr));
   };
 
   const decodeAddress = async (address: string, netType: string) => {
@@ -204,12 +228,76 @@ const getMoneroApi = async () => {
     return Promise.resolve(JSON.parse(result));
   };
 
+  const estimatedTxFee = async (priority: string, feePerByte: string) => {
+    const fee = moneroCoreInstance.estimated_tx_network_fee(
+      priority,
+      feePerByte,
+      '0',
+    );
+    return Promise.resolve(handleMoneroCoreResponse<string>(fee));
+  };
+
+  const sendFunds = async (args: any): Promise<SignedTx> => {
+    const instance = axios.create({
+      baseURL: walletUrl,
+    });
+    return new Promise((resolve, reject) => {
+      const sendFundsArgs: ISendFundsArgs & ISendFundsCallback = {
+        ...args,
+        willBeginSending_fn: () => {},
+        authenticate_fn: () => {},
+        status_update_fn: () => {},
+        canceled_fn: () => {
+          reject(new OneKeyInternalError('Transaction canceled'));
+        },
+        get_unspent_outs_fn: async (params, callback) => {
+          try {
+            const resp = await instance.post('/get_unspent_outs', params);
+            callback(null, resp.data);
+          } catch {
+            reject(new OneKeyInternalError('Get unspent outs error.'));
+          }
+        },
+        get_random_outs_fn: async (params, callback) => {
+          try {
+            const resp = await instance.post('/get_random_outs', params);
+            callback(null, resp.data);
+          } catch {
+            reject(new OneKeyInternalError('Get unspent outs error.'));
+          }
+        },
+        submit_raw_tx_fn: async (params, callback) => {
+          try {
+            const resp = await instance.post('/submit_raw_tx', params);
+            callback(null, resp.data);
+          } catch {
+            reject(new OneKeyInternalError('Submit raw tx error.'));
+          }
+        },
+        success_fn: (params) => {
+          resolve({
+            txid: params.tx_hash,
+            rawTx: params.serialized_signed_tx,
+          });
+        },
+        error_fn: (params) => {
+          reject(params.err_msg ?? params.err_code);
+        },
+      };
+
+      const lib = new MyMoneroLibAppBridgeClass(moneroCoreInstance);
+      lib.async__send_funds(sendFundsArgs);
+    });
+  };
+
   return {
     getKeyPairFromRawPrivatekey,
     privateSpendKeyToWords,
-    pubKeysToAddress,
+    pubKeysToAddress: moneroAddress.pubKeysToAddress,
     generateKeyImage,
     decodeAddress,
+    estimatedTxFee,
+    sendFunds,
   };
 };
 

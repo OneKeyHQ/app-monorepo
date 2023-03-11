@@ -21,6 +21,7 @@ import type {
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum RPC_METHODS {
   GET_HEIGHT = 'get_height',
+  GET_FEE_ESTIMATE = 'get_fee_estimate',
 }
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum PARAMS_ENCODINGS {
@@ -132,10 +133,8 @@ export class ClientXmr extends BaseClient {
 
     const realTxs = [];
 
-    const { transactions } = await this.wallet.getAddressTxs(
-      this.privateViewKey,
-      address,
-    );
+    const { transactions, blockchain_height: blockHeight } =
+      await this.wallet.getAddressTxs(this.privateViewKey, address);
 
     for (const tx of transactions) {
       const totalReceivedInTxBN = new BigNumber(tx.total_received ?? 0);
@@ -169,7 +168,31 @@ export class ClientXmr extends BaseClient {
       }
     }
 
-    return realTxs;
+    return {
+      txs: realTxs,
+      blockHeight,
+    };
+  }
+
+  async getFee(priority = 1) {
+    const { fee, fees } = await this.rpc.call<{ fee: number; fees: number[] }>(
+      RPC_METHODS.GET_FEE_ESTIMATE,
+    );
+
+    const feePerByte = fees[priority] ?? fee;
+
+    const moneroApi = await getMoneroApi();
+
+    const finalFee = await moneroApi.estimatedTxFee(
+      String(priority),
+      String(feePerByte),
+    );
+    return {
+      limit: new BigNumber(finalFee ?? 0)
+        .dividedToIntegerBy(feePerByte)
+        .toFixed(),
+      price: feePerByte,
+    };
   }
 
   broadcastTransaction(): Promise<string> {

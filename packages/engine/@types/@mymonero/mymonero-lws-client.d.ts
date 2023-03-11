@@ -34,6 +34,11 @@ declare module '@mymonero/mymonero-lws-client' {
     spent_outputs: SpentOutout[];
   }
 
+  interface AmountOut {
+    amount: string;
+    outputs: SpentOutout[];
+  }
+
   interface Props {
     httpClient?: any;
     url?: string;
@@ -56,12 +61,28 @@ declare module '@mymonero/mymonero-lws-client' {
       address: string,
     ) => Promise<{
       transactions: MoneroTransaction[];
+      blockchain_height: number;
     }>;
 
     getAddressInfo: (
       viewKey: string,
       address: string,
     ) => Promise<MoneroAddressInfo>;
+
+    unspentOutputs: (
+      viewKey: string,
+      address: string,
+    ) => Promise<{
+      amount: string;
+      outputs: SpentOutout[];
+      per_byte_fee: number;
+      fee_mask: number;
+      fork_version: number;
+    }>;
+
+    randomOutputs: (
+      numberOfOutputs: number,
+    ) => Promise<{ amount_outs: AmountOut[] }>;
   }
 
   export { MoneroAddressInfo, SpentOutout, MoneroTransaction };

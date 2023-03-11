@@ -32,7 +32,17 @@ import type {
   DBAccount,
   DBVariantAccount,
 } from '../../../types/account';
-import type { IDecodedTx, IHistoryTx, ITransferInfo } from '../../types';
+import type {
+  IDecodedTx,
+  IDecodedTxLegacy,
+  IEncodedTxUpdateOptions,
+  IFeeInfo,
+  IFeeInfoUnit,
+  IHistoryTx,
+  ITransferInfo,
+  IUnsignedTxPro,
+  ISignedTxPro,
+} from '../../types';
 import type { IEncodedTxXmr, IOnChainHistoryTx } from './types';
 
 export default class Vault extends VaultBase {
@@ -49,7 +59,7 @@ export default class Vault extends VaultBase {
   settings = settings;
 
   private getMoneroKeys = memoizee(
-    async (password: string, index?: number) => {
+    async (password?: string, index?: number) => {
       const moneroApi = await getMoneroApi();
       const dbAccount = (await this.getDbAccount({
         noCache: true,
@@ -58,13 +68,17 @@ export default class Vault extends VaultBase {
       let rawPrivateKey: string | Buffer;
       rawPrivateKey = this.rawPrivateKey;
 
+      if (password === undefined && !rawPrivateKey) {
+        throw new OneKeyInternalError('Unable to get raw private key.');
+      }
+
       if (!rawPrivateKey) {
         const { entropy } = (await this.engine.dbApi.getCredential(
           this.walletId,
-          password,
+          password as string,
         )) as ExportedSeedCredential;
 
-        const mnemonic = mnemonicFromEntropy(entropy, password);
+        const mnemonic = mnemonicFromEntropy(entropy, password as string);
         const seed = mnemonicToSeedSync(mnemonic);
         const resp = getRawPrivateKeyFromSeed(seed, pathPrefix);
 
@@ -91,7 +105,7 @@ export default class Vault extends VaultBase {
     },
   );
 
-  private async getClient(password: string): Promise<ClientXmr> {
+  private async getClient(password?: string): Promise<ClientXmr> {
     // const rpcUrl = await this.getRpcUrl();
     const rpcUrl = 'https://node.onekey.so/xmr';
     const walletUrl = 'https://node.onekey.so/mymonero';
@@ -134,6 +148,119 @@ export default class Vault extends VaultBase {
       maxAge: getTimeDurationMs({ minute: 3 }),
     },
   );
+
+  async buildEncodedTxFromTransfer(
+    transferInfo: ITransferInfo,
+  ): Promise<IEncodedTxXmr> {
+    const network = await this.getNetwork();
+
+    return {
+      destinations: [
+        {
+          to_address: transferInfo.to,
+          send_amount: transferInfo.amount,
+        },
+      ],
+      priority: 1,
+      address: transferInfo.from,
+      nettype: network.isTestnet
+        ? MoneroNetTypeEnum.TestNet
+        : MoneroNetTypeEnum.MainNet,
+      paymentId: '',
+      shouldSweep: false,
+    };
+  }
+
+  async fetchFeeInfo(encodedTx: IEncodedTxXmr): Promise<IFeeInfo> {
+    const client = await this.getClient();
+    const network = await this.engine.getNetwork(this.networkId);
+
+    const { limit, price } = await client.getFee(encodedTx.priority);
+
+    return {
+      customDisabled: true,
+      limit,
+      prices: [
+        new BigNumber(price ?? 0).shiftedBy(-network.feeDecimals).toFixed(),
+      ],
+      defaultPresetIndex: '0',
+      feeSymbol: network.feeSymbol,
+      feeDecimals: network.feeDecimals,
+      nativeSymbol: network.symbol,
+      nativeDecimals: network.decimals,
+      tx: null, // Must be null if network not support feeInTx
+    };
+  }
+
+  updateEncodedTx(
+    encodedTx: IEncodedTxXmr,
+    payload: any,
+    options: IEncodedTxUpdateOptions,
+  ): Promise<IEncodedTxXmr> {
+    return Promise.resolve(encodedTx);
+  }
+
+  async decodeTx(encodedTx: IEncodedTxXmr, payload?: any): Promise<IDecodedTx> {
+    const network = await this.engine.getNetwork(this.networkId);
+    const address = await this.getAccountAddress();
+    const token = await this.engine.getNativeTokenInfo(this.networkId);
+
+    const actions = [];
+
+    for (const destination of encodedTx.destinations) {
+      actions.push({
+        type: IDecodedTxActionType.NATIVE_TRANSFER,
+        nativeTransfer: {
+          tokenInfo: token,
+          from: encodedTx.address,
+          to: destination.to_address,
+          amount: new BigNumber(destination.send_amount)
+            .shiftedBy(-network.decimals)
+            .toFixed(),
+          amountValue: destination.send_amount,
+          extraInfo: null,
+        },
+        direction:
+          destination.to_address === address
+            ? IDecodedTxDirection.SELF
+            : IDecodedTxDirection.OUT,
+      });
+    }
+
+    const decodedTx: IDecodedTx = {
+      txid: encodedTx.tx_hash || '',
+      owner: encodedTx.address || address,
+      signer: encodedTx.address || address,
+      nonce: 0,
+      actions,
+      status: IDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      encodedTx,
+      payload,
+      extraInfo: null,
+    };
+
+    return decodedTx;
+  }
+
+  async attachFeeInfoToEncodedTx(params: {
+    encodedTx: IEncodedTxXmr;
+    feeInfoValue: IFeeInfoUnit;
+  }): Promise<IEncodedTxXmr> {
+    return Promise.resolve(params.encodedTx);
+  }
+
+  async buildUnsignedTxFromEncodedTx(
+    encodedTx: IEncodedTxXmr,
+  ): Promise<IUnsignedTxPro> {
+    return Promise.resolve({
+      inputs: [],
+      outputs: [],
+      payload: { encodedTx },
+      encodedTx,
+    });
+  }
 
   override async getExportedCredential(password: string): Promise<string> {
     const dbAccount = await this.getDbAccount();
@@ -189,13 +316,14 @@ export default class Vault extends VaultBase {
     const address = await this.getAccountAddress();
     const token = await this.engine.getNativeTokenInfo(this.networkId);
     let txs: IOnChainHistoryTx[] = [];
+    let currentHeight = 0;
     try {
-      txs = await client.getHistory(address);
+      const result = await client.getHistory(address);
+      txs = result.txs;
+      currentHeight = result.blockHeight;
     } catch (e) {
       console.error(e);
     }
-
-    const currentHeight = await client.getCurrentHeight();
 
     const promises = txs.map(async (tx) => {
       try {
@@ -336,6 +464,12 @@ export default class Vault extends VaultBase {
     ]);
   }
 
+  override async broadcastTransaction(
+    signedTx: ISignedTxPro,
+  ): Promise<ISignedTxPro> {
+    return Promise.resolve(signedTx);
+  }
+
   override async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
@@ -346,5 +480,9 @@ export default class Vault extends VaultBase {
       responseTime: Math.floor(performance.now() - start),
       latestBlock: 1,
     };
+  }
+
+  decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
+    return Promise.resolve({} as IDecodedTxLegacy);
   }
 }
