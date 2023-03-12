@@ -1616,16 +1616,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/runtime@npm:^7.0.0, @babel/runtime@npm:^7.1.2, @babel/runtime@npm:^7.10.2, @babel/runtime@npm:^7.10.5, @babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.14.0, @babel/runtime@npm:^7.15.4, @babel/runtime@npm:^7.17.2, @babel/runtime@npm:^7.18.6, @babel/runtime@npm:^7.18.9, @babel/runtime@npm:^7.20.13, @babel/runtime@npm:^7.20.6, @babel/runtime@npm:^7.20.7, @babel/runtime@npm:^7.4.5, @babel/runtime@npm:^7.5.5, @babel/runtime@npm:^7.6.2, @babel/runtime@npm:^7.7.2, @babel/runtime@npm:^7.7.6, @babel/runtime@npm:^7.8.4, @babel/runtime@npm:^7.8.7, @babel/runtime@npm:^7.9.2":
-  version: 7.20.13
-  resolution: "@babel/runtime@npm:7.20.13"
-  dependencies:
-    regenerator-runtime: ^0.13.11
-  checksum: 09b7a97a05c80540db6c9e4ddf8c5d2ebb06cae5caf3a87e33c33f27f8c4d49d9c67a2d72f1570e796045288fad569f98a26ceba0c4f5fad2af84b6ad855c4fb
-  languageName: node
-  linkType: hard
-
-"@babel/runtime@npm:^7.4.4":
+"@babel/runtime@npm:^7.0.0, @babel/runtime@npm:^7.1.2, @babel/runtime@npm:^7.10.2, @babel/runtime@npm:^7.10.5, @babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.14.0, @babel/runtime@npm:^7.15.4, @babel/runtime@npm:^7.17.2, @babel/runtime@npm:^7.18.6, @babel/runtime@npm:^7.18.9, @babel/runtime@npm:^7.20.13, @babel/runtime@npm:^7.20.6, @babel/runtime@npm:^7.20.7, @babel/runtime@npm:^7.4.4, @babel/runtime@npm:^7.4.5, @babel/runtime@npm:^7.5.5, @babel/runtime@npm:^7.6.2, @babel/runtime@npm:^7.7.2, @babel/runtime@npm:^7.7.6, @babel/runtime@npm:^7.8.4, @babel/runtime@npm:^7.8.7, @babel/runtime@npm:^7.9.2":
   version: 7.21.0
   resolution: "@babel/runtime@npm:7.21.0"
   dependencies:
@@ -5778,10 +5769,9 @@ __metadata:
   resolution: "@onekeyhq/shared@workspace:packages/shared"
   dependencies:
     "@react-native-async-storage/async-storage": 1.17.3
-    "@types/circular-json": "*"
     "@types/webextension-polyfill": ^0.8.2
     async-mutex: ^0.3.2
-    circular-json: ^0.5.9
+    flatted: ^3.2.7
     localforage: ^1.10.0
     ms: ^2.1.3
     react-native-logs: ^5.0.1
@@ -8426,13 +8416,6 @@ __metadata:
     "@types/filesystem": "*"
     "@types/har-format": "*"
   checksum: cf22d0e5ea51d9632ae57b52f8e2ed9abfac5249df4badc83e0148e13011baff7e9b7bfca804a0566fa110e2fa28c3a1639f0a8c799d54191cc0c8f06384442f
-  languageName: node
-  linkType: hard
-
-"@types/circular-json@npm:*":
-  version: 0.4.0
-  resolution: "@types/circular-json@npm:0.4.0"
-  checksum: e7c9b80a075cb3f0886079dda53bf8dea180d1685acde200efe2c0824f6aa53deeed1b23d47d37e2c37b224d6765f1211a7c20fa340d92b15e1a5a45c311bc93
   languageName: node
   linkType: hard
 
@@ -11589,14 +11572,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bip174@npm:^2.0.1":
-  version: 2.0.1
-  resolution: "bip174@npm:2.0.1"
-  checksum: 1611f74dd9b973449c55412e0a6e6cd24bf55110fde581d508fddc60d0f2d54eb6a8e69ddc6eb60810a0e44c755b3577d563bf3e3a2b6513d3dee0569342e463
-  languageName: node
-  linkType: hard
-
-"bip174@npm:^2.1.0":
+"bip174@npm:^2.0.1, bip174@npm:^2.1.0":
   version: 2.1.0
   resolution: "bip174@npm:2.1.0"
   checksum: 951dae544ef555d66f65b299a69ddf295733eac90449e57d2219abcedfd2d96e762856ca6b5cef4cd925a4498341ea174e359e8a4c45d0bb6b445c13c8add786
@@ -11670,7 +11646,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bitcoinjs-lib@npm:6.1.0":
+"bitcoinjs-lib@npm:6.1.0, bitcoinjs-lib@npm:^6.0.1":
   version: 6.1.0
   resolution: "bitcoinjs-lib@npm:6.1.0"
   dependencies:
@@ -11683,21 +11659,6 @@ __metadata:
     varuint-bitcoin: ^1.1.2
     wif: ^2.0.1
   checksum: 0b23d0d5bb7377ea4ac467c9f1f6c6517ed112cd1b1f5e66a1402c854a99eba5fe5df9415a3e0d1ada631b179770075dda63d3d77531d0abdbc2b1d44be0a890
-  languageName: node
-  linkType: hard
-
-"bitcoinjs-lib@npm:^6.0.1":
-  version: 6.0.1
-  resolution: "bitcoinjs-lib@npm:6.0.1"
-  dependencies:
-    bech32: ^2.0.0
-    bip174: ^2.0.1
-    bs58check: ^2.1.2
-    create-hash: ^1.1.0
-    typeforce: ^1.11.3
-    varuint-bitcoin: ^1.1.2
-    wif: ^2.0.1
-  checksum: bffb9fb0f26425da6a449f981aa244f2fc0c056bcb0b9a7a0d07ebf8e2ce766852ef72ab88d5043097819524a4209a035f1595e9ed6cdea7e02674bbe5afe781
   languageName: node
   linkType: hard
 
@@ -18103,10 +18064,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"flatted@npm:^3.1.0":
-  version: 3.2.4
-  resolution: "flatted@npm:3.2.4"
-  checksum: 7d33846428ab337ec81ef9b8b9103894c1c81f5f67feb32bd4ed106fbc47da60d56edb42efd36c9f1f30a010272aeccd34ec1ffacfe9dfdff19673b1d4df481b
+"flatted@npm:^3.1.0, flatted@npm:^3.2.7":
+  version: 3.2.7
+  resolution: "flatted@npm:3.2.7"
+  checksum: 427633049d55bdb80201c68f7eb1cbd533e03eac541f97d3aecab8c5526f12a20ccecaeede08b57503e772c769e7f8680b37e8d482d1e5f8d7e2194687f9ea35
   languageName: node
   linkType: hard
 

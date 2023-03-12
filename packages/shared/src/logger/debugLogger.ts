@@ -7,7 +7,7 @@ import {
   fileAsyncTransport,
 } from 'react-native-logs';
 // eslint-disable-next-line import/order
-import { stringify } from 'circular-json';
+import { stringify } from 'flatted';
 
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
@@ -25,6 +25,8 @@ type IConsoleFuncProps = {
   options?: any;
 };
 
+const LOG_STRING_LIMIT = 500;
+
 function stringifyLog(...args: any[]) {
   const argsNew = args.map((arg) => {
     if (arg instanceof Error) {
@@ -34,8 +36,12 @@ function stringifyLog(...args: any[]) {
     }
     return arg as unknown;
   });
-  // @ts-ignore
-  return stringify(...argsNew);
+  const stringifiedLog =
+    // @ts-ignore
+    stringify(...argsNew);
+  return stringifiedLog.length > LOG_STRING_LIMIT
+    ? `${stringifiedLog.slice(0, LOG_STRING_LIMIT)}...`
+    : stringifiedLog;
 }
 
 function logToConsole(props: IConsoleFuncProps) {
