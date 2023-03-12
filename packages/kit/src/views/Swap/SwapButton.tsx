@@ -49,7 +49,7 @@ import { SwapQuoter } from './quoter';
 import { dangerRefs } from './refs';
 import { SwapError, SwapRoutes } from './typings';
 import {
-  calculateNetworkFee,
+  calculateDecodedTxNetworkFee,
   formatAmount,
   getTokenAmountString,
   getTokenAmountValue,
@@ -369,8 +369,8 @@ const ExchangeButton = () => {
       const nonce = decodedTx?.nonce;
 
       let networkFee: string | undefined;
-      if (decodedTx?.feeInfo) {
-        networkFee = calculateNetworkFee(decodedTx?.feeInfo, targetNetwork);
+      if (decodedTx) {
+        networkFee = calculateDecodedTxNetworkFee(decodedTx, targetNetwork);
       }
 
       const from: TransactionToken = {

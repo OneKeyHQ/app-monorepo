@@ -91,26 +91,34 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  changeCurrrentAccount({
+  async changeCurrrentAccount({
     accountId,
     networkId,
   }: {
     accountId: string;
     networkId: string;
   }) {
-    const { appSelector, dispatch } = this.backgroundApi;
+    const {
+      appSelector,
+      serviceNetwork,
+      serviceAccount,
+      serviceAccountSelector,
+    } = this.backgroundApi;
     const wallets = appSelector((s) => s.runtime.wallets);
     for (let i = 0; i < wallets.length; i += 1) {
       const wallet = wallets[i];
       const { accounts } = wallet;
       if (accounts.includes(accountId)) {
-        dispatch(
-          setActiveIds({
-            activeAccountId: accountId,
-            activeWalletId: wallet.id,
-            activeNetworkId: networkId,
-          }),
-        );
+        if (networkId) {
+          await serviceNetwork.changeActiveNetwork(networkId);
+        }
+        if (accountId) {
+          await serviceAccount.changeActiveAccount({
+            accountId: accountId || '',
+            walletId: wallet.id ?? '',
+          });
+        }
+        await serviceAccountSelector.setSelectedWalletToActive();
         break;
       }
     }
@@ -483,6 +491,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string,
     credential: string,
     name?: string,
+    template?: string,
   ) {
     const { engine } = this.backgroundApi;
     const account = await engine.addImportedAccount(
@@ -490,6 +499,7 @@ class ServiceAccount extends ServiceBase {
       networkId,
       credential,
       name,
+      template,
     );
 
     await this.postAccountAdded({
@@ -642,13 +652,19 @@ class ServiceAccount extends ServiceBase {
 
   // networkId="evm--1"
   @backgroundMethod()
-  async addWatchAccount(networkId: string, address: string, name: string) {
+  async addWatchAccount(
+    networkId: string,
+    address: string,
+    name: string,
+    template?: string,
+  ) {
     const { engine } = this.backgroundApi;
     const account = await engine.addWatchingOrExternalAccount({
       networkId,
       address,
       name,
       walletType: 'watching',
+      template,
     });
 
     await this.postAccountAdded({

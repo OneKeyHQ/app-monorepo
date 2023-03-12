@@ -17,7 +17,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { NetworkAccountSelectorEffectsSingleton } from '../../components/NetworkAccountSelector/hooks/useAccountSelectorEffects';
 import { WalletSelectorEffectsSingleton } from '../../components/WalletSelector/hooks/useWalletSelectorEffects';
 import { createLazyComponent } from '../../utils/createLazyComponent';
-import { RouteKeytag } from '../../views/KeyTag/Routes/RouteKeytag';
 import { HomeRoutes } from '../types';
 
 import type { HomeRoutesParams, ScreensList } from '../types';
@@ -103,10 +102,6 @@ const SwapHistory = createLazyComponent(
 );
 
 const Drawer = createLazyComponent(() => import('../Drawer'));
-
-const ChainWebEmbed = createLazyComponent(
-  () => import('@onekeyhq/kit/src/views/ChainWebEmbed'),
-);
 
 const AddressBook = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/AddressBook/Listing'),
@@ -316,14 +311,6 @@ const Dashboard = memo(() => {
           name={HomeRoutes.HomeOnboarding}
           component={RouteOnboarding}
         />
-        <StackNavigator.Screen
-          name={HomeRoutes.KeyTag}
-          component={RouteKeytag}
-          options={{
-            presentation: 'fullScreenModal', // containedModal card fullScreenModal
-            animation: 'fade',
-          }}
-        />
       </StackNavigator.Group>
       <StackNavigator.Group>{stackScreens}</StackNavigator.Group>
     </StackNavigator.Navigator>
@@ -354,7 +341,6 @@ function MainScreen() {
         <WalletSelectorEffectsSingleton />
         {/* TODO Waiting notification component */}
         <UpdateAlert />
-        <ChainWebEmbed />
       </Box>
     </RootSiblingParent>
   );
