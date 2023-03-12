@@ -76,27 +76,7 @@ const WalletTabs: FC = () => {
       <Tabs.Container
         canOpenDrawer
         refreshing={refreshing}
-<<<<<<< HEAD
-        onRefresh={async () => {
-          setRefreshing(true);
-          if (account?.id && network?.id) {
-            backgroundApiProxy.engine.clearPriceCache();
-            try {
-              await backgroundApiProxy.serviceToken.fetchAccountTokens({
-                accountId: account.id,
-                networkId: network.id,
-                forceReloadTokens: true,
-                includeTop50TokensQuery: true,
-              });
-            } catch (e) {
-              debugLogger.common.error(e);
-            }
-          }
-          setTimeout(() => setRefreshing(false), 10);
-        }}
-=======
         onRefresh={onRefresh}
->>>>>>> 56d236957 (feat: add entry of active refresh, OK-17728)
         onIndexChange={(index) => {
           backgroundApiProxy.dispatch(setHomeTabName(HomeTabOrder[index]));
         }}

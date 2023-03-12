@@ -194,10 +194,10 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                   />
                 </Box>
 
-                {sourceInfo ? (
+                {sourceInfo?.id ? (
                   <HStack justifyContent="center" alignItems="center" mt="16px">
                     <Typography.Body1 mr="18px">
-                      {sourceInfo?.origin?.split('://')[1] ?? 'DApp'}
+                      {sourceInfo?.hostname ?? 'DApp'}
                     </Typography.Body1>
                     <Icon size={20} name="ArrowsRightLeftMini" />
                     <Image
