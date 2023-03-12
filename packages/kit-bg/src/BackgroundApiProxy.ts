@@ -11,6 +11,7 @@ import type { IBackgroundApi } from './IBackgroundApi';
 import type { ProviderApiWalletConnect } from './providers/ProviderApiWalletConnect';
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceAccountSelector from './services/ServiceAccountSelector';
+import type ServiceAddressbook from './services/ServiceAddressbook';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceBatchTransfer from './services/ServiceBatchTransfer';
 import type ServiceBootstrap from './services/ServiceBootstrap';
@@ -165,6 +166,10 @@ class BackgroundApiProxy
   ) as ServiceDerivationPath;
 
   serviceFiatPay = this._createProxyService('serviceFiatPay') as ServiceFiatPay;
+
+  serviceAddressbook = this._createProxyService(
+    'serviceAddressbook',
+  ) as ServiceAddressbook;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

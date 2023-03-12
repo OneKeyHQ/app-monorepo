@@ -105,7 +105,9 @@ export type TabRoutesParams = {
 export type HomeRoutesParams = {
   [HomeRoutes.InitialTab]: undefined;
   [HomeRoutes.Dev]: NavigatorScreenParams<StackBasicRoutesParams>;
-  [HomeRoutes.HomeOnboarding]: undefined;
+  [HomeRoutes.HomeOnboarding]:
+    | NavigatorScreenParams<IOnboardingRoutesParams>
+    | undefined;
   [HomeRoutes.ScreenTokenDetail]: {
     accountId: string;
     networkId: string;

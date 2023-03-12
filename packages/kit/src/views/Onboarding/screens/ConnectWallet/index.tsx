@@ -55,6 +55,7 @@ function ConnectHardwareButton() {
       screen: ModalRoutes.CreateWallet,
       params: {
         screen: CreateWalletModalRoutes.ConnectHardwareModal,
+        params: {},
       },
     });
   }, [forceVisibleUnfocused, navigation]);

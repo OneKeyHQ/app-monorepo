@@ -92,7 +92,7 @@ const AddressInput: FC<AddressInputProps> = ({
         onChangeText={onChange}
         placeholder={`${intl.formatMessage({
           id: 'form__address',
-        })}, ENS ${intl.formatMessage({
+        })}, ENS, UD, SID ${intl.formatMessage({
           id: 'content__or_lowercase',
         })} .bit `}
         borderWidth="0"

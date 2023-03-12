@@ -102,10 +102,8 @@ import {
   WALLET_TYPE_WATCHING,
 } from './types/wallet';
 import { Validators } from './validators';
-import {
-  createVaultHelperInstance,
-  createVaultSettings,
-} from './vaults/factory';
+import { createVaultHelperInstance } from './vaults/factory';
+import { createVaultSettings } from './vaults/factory.createVaultSettings';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
 import { IDecodedTxActionType } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
@@ -1052,6 +1050,7 @@ class Engine {
     networkId: string,
     credential: string,
     name?: string,
+    template?: string,
   ): Promise<Account> {
     await this.validator.validatePasswordStrength(password);
     const vault = await this.getWalletOnlyVault(networkId, 'imported');
@@ -1069,6 +1068,7 @@ class Engine {
     const [dbAccount] = await vault.keyring.prepareAccounts({
       privateKey,
       name: name || '',
+      template,
     });
 
     await this.dbApi.addAccountToWallet('imported', dbAccount, {
@@ -1087,12 +1087,14 @@ class Engine {
     name,
     walletType,
     checkExists,
+    template,
   }: {
     networkId: string;
     address: string; // address
     name: string;
     walletType: typeof WALLET_TYPE_WATCHING | typeof WALLET_TYPE_EXTERNAL;
     checkExists?: boolean;
+    template?: string;
   }): Promise<Account> {
     // throw new Error('sample test error');
     // Add an watching account. Raise an error if account already exists.
@@ -1106,6 +1108,7 @@ class Engine {
       target: address,
       name,
       accountIdPrefix: walletType,
+      template,
     });
 
     if (checkExists) {

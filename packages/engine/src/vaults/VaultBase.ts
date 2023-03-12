@@ -222,6 +222,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
       shouldChangeActiveAccount: false,
     });
   }
+
+  async getAccountNameInfosByImportedOrWatchingCredential(
+    input: string,
+  ): Promise<AccountNameInfo[]> {
+    return Promise.resolve([]);
+  }
 }
 
 /*

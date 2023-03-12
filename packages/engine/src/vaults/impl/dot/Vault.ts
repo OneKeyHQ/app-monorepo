@@ -83,13 +83,6 @@ import type { Metadata } from '@polkadot/types';
 import type { BlockHash, RuntimeVersion } from '@polkadot/types/interfaces';
 import type { BaseTxInfo, TypeRegistry } from '@substrate/txwrapper-polkadot';
 
-export const TYPE_PREFIX = {
-  ecdsa: new Uint8Array([2]),
-  ed25519: new Uint8Array([0]),
-  ethereum: new Uint8Array([2]),
-  sr25519: new Uint8Array([1]),
-};
-
 // @ts-ignore
 export default class Vault extends VaultBase {
   keyringMap = {
