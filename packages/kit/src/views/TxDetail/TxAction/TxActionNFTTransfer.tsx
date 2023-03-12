@@ -50,7 +50,10 @@ export function getTitleInfo({
   account: string;
   from: string;
 }): ITxActionMetaTitle | undefined {
-  if (send === account && receive === NOBODY) {
+  if (
+    (send === account && receive === NOBODY) ||
+    type === IDecodedTxActionType.NFT_BURN
+  ) {
     return {
       titleKey: 'form_burn_nft',
     };
