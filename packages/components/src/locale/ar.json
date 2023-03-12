@@ -1261,7 +1261,7 @@
   "form__recent_searched_uppercase": "تم البحث عنها مؤخرًا",
   "form__recommended": "مُستَحسَن",
   "form__record_your_recovery_phrase_like_a_dot_punching_game": "سجل عبارة الاسترداد الخاصة بك مثل لعبة التثقيب.",
-  "form__recovery_phrase": "عبارة الاسترداد",
+  "form__recovery_phrase": "Use spaces between words",
   "form__recovery_seed_invalid": "عبارة الاسترداد الخاصة بك غير صالحة.",
   "form__recovery_seed_placeholder": "اكتب كلمات عبارة الاسترداد الخاصة بك هنا",
   "form__release_notes": "ملاحظات الإصدار:",
@@ -1274,6 +1274,7 @@
   "form__rocket_rapid": "🚀 سريع",
   "form__rpc_fetched_failed": "فشل جلب RPC.",
   "form__rpc_node": "عقدة RPC",
+  "form__rpc_status": "حالة RPC",
   "form__rpc_url": "عنوان URL لـ RPC",
   "form__rpc_url_connecting": "اتصال RPC ...",
   "form__rpc_url_fetched": "تم جلب معلومات RPC!",
@@ -1799,6 +1800,7 @@
   "msg__swap_successful": "⚖️ المبادلة ناجحة",
   "msg__switch_to_str": "تحول إلى {0}",
   "msg__tab_has_reached_the_maximum_limit_of_str": "وصلت علامة التبويب إلى الحد الأقصى البالغ {0} .",
+  "msg__the_content_format_of_the_upload_file_is_incorrect": "تنسيق محتوى الملف الذي تم تحميله غير صحيح. راجع المثال لتعديل الملف المراد تحميله.",
   "msg__the_current_version_is_the_latest": "👏 الإصدار الحالي هو الأحدث",
   "msg__the_disk_path_was_not_found": "لم يتم العثور على مسار القرص",
   "msg__the_recipient_address_is_a_contract_address": "عنوان المستلم هو عنوان عقد ، وقد يؤدي التحويل إلى هذا العنوان إلى خسارة الأصول.",
@@ -1854,11 +1856,7 @@
   "network__network": "شبكة",
   "network__networks": "الشبكات",
   "onboarding__import_wallet_desc": "اختر طريقة الاستيراد",
-  "onboarding__import_wallet_with_keytag": "مع KeyTag",
   "onboarding__import_wallet_with_lite": "مع OneKey Lite",
-  "onboarding__import_wallet_with_migrate": "الترحيل من تطبيق OneKey",
-  "onboarding__import_wallet_with_recovery_phrase": "باستخدام عبارة الاسترداد أو المفتاح الخاص أو العنوان",
-  "onboarding__import_with_phrase": "عبارة الاسترداد أو المفتاح الخاص أو العنوان",
   "onboarding__landing_encryption_desc": "يستخدم OneKey تقنية تشفير رائدة في الصناعة لتخزين معلوماتك محليًا. يمكنك فقط فك تشفير المعلومات.",
   "onboarding__landing_encryption_title": "التشفير التام بين الأطراف",
   "onboarding__landing_opensource_desc": "لن يقوم OneKey بتخزين مفتاحك الخاص أو عبارة الاسترداد ، وجميع الأجهزة والبرامج التي صنعناها مفتوحة المصدر.",
@@ -1887,6 +1885,7 @@
   "title__activity": "نشاط",
   "title__add_a_network": "أضف شبكة",
   "title__add_network": "اضافة شبكة",
+  "title__add_network_desc": "السماح لهذا الموقع بإضافة شبكة.",
   "title__add_rpc_node": "أضف عقدة RPC",
   "title__add_rpc_node_desc": "السماح لهذا الموقع بإضافة عقدة RPC إلى قائمة عقدة RPC الخاصة بك.",
   "title__add_site_connection": "إضافة اتصال الموقع",
@@ -2076,6 +2075,7 @@
   "title__swap_history": "سجل المبادلة",
   "title__swap_processing_1_2": "معالجة المقايضة ... (1/2)",
   "title__switch_to_str": "هل تريد التبديل إلى {0} ؟",
+  "title__switch_to_str_desc": "اسمح لهذا الموقع بتبديل شبكتك إلى {0} .",
   "title__the_device_has_been_reset": "تم إعادة ضبط الجهاز!",
   "title__this_is_an_address_you_want_multiline": "هذا عنوان ،\n انت تريد...",
   "title__token_approvals": "الموافقات الرمزية",
