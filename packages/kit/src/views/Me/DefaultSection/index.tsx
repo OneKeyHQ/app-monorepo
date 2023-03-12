@@ -110,8 +110,8 @@ export const DefaultSection = () => {
           py={4}
           px={{ base: 4, md: 6 }}
           onPress={() => {
-            appNavigation.navigate(RootRoutes.Root, {
-              screen: HomeRoutes.KeyTag,
+            navigation.navigate(HomeRoutes.HomeOnboarding, {
+              screen: EOnboardingRoutes.KeyTag,
             });
           }}
         >
