@@ -166,6 +166,14 @@ export type QuoteData = {
   protocolFees?: ProtocolFees;
 };
 
+type WrapperTransactionType = 'Withdraw' | 'Deposite'
+
+export type WrapperTransactionInfo = {
+  isWrapperTransaction: boolean
+  type: WrapperTransactionType,
+  encodedTx: IEncodedTx
+}
+
 export type SwapRecord = {
   txid: string;
   from: {

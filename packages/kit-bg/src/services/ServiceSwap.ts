@@ -9,6 +9,7 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   clearState,
@@ -46,6 +47,7 @@ import type {
   QuoteLimited,
   Recipient,
   SwapRecord,
+  WrapperTransactionInfo
 } from '@onekeyhq/kit/src/views/Swap/typings';
 import {
   convertBuildParams,
@@ -250,6 +252,35 @@ export default class ServiceSwap extends ServiceBase {
     }
     this.prevParams = params;
     return result;
+  }
+
+  @backgroundMethod()
+  async buildWrapperTransaction(params: FetchQuoteParams | undefined): Promise<WrapperTransactionInfo | undefined> {
+    const { appSelector } = this.backgroundApi;
+    const wrapperTokens = appSelector(s => s.swapTransactions.wrapperTokens);
+    if (!params || !wrapperTokens) { return }
+    const { tokenIn, activeAccount, typedValue, tokenOut, receivingAddress } = params;
+    const address = activeAccount.address.toLowerCase();
+
+    if (tokenIn.networkId !== tokenOut.networkId || address.toLowerCase() !== receivingAddress?.toLowerCase()) { return }
+
+    const networkId = tokenIn.networkId;
+    const wrapperTokensAddress = wrapperTokens[networkId];
+    if (wrapperTokensAddress) {
+      if (!tokenIn.tokenIdOnNetwork) {
+        const result = tokenOut.tokenIdOnNetwork.toLowerCase() === wrapperTokensAddress.toLowerCase();
+        if (result) {
+          const encodedTx = await backgroundApiProxy.engine.buildEncodedTxFromWrapperTokenDeposit({ networkId: tokenIn.networkId, accountId: activeAccount.id, amount: typedValue, contract: wrapperTokensAddress })
+          return { isWrapperTransaction: true, encodedTx, type: 'Deposite' }
+        }
+      } else {
+        const result = tokenIn.tokenIdOnNetwork.toLowerCase() === wrapperTokensAddress.toLowerCase() && !tokenOut.tokenIdOnNetwork
+        if (result) {
+          const encodedTx = await backgroundApiProxy.engine.buildEncodedTxFromWrapperTokenWithdraw({ networkId: tokenIn.networkId, accountId: activeAccount.id, amount: typedValue, contract: wrapperTokensAddress })
+          return { isWrapperTransaction: true, encodedTx, type: 'Withdraw' }
+        }
+      }
+    }
   }
 
   @backgroundMethod()

@@ -45,6 +45,7 @@ import {
   useSwapError,
   useSwapQuoteRequestParams,
 } from './hooks/useSwap';
+import { useSwapSend } from './hooks/useSwapSend'
 import { SwapQuoter } from './quoter';
 import { dangerRefs } from './refs';
 import { SwapError, SwapRoutes } from './typings';
@@ -198,7 +199,7 @@ const ExchangeButton = () => {
 
     const targetNetworkId = inputAmount.token.networkId;
 
-    const targetNetwork = networks.find((item) => item.id === targetNetworkId);
+    const targetNetwork = await backgroundApiProxy.serviceNetwork.getNetwork(targetNetworkId)
     if (!targetNetwork) {
       ToastManager.show({
         title: intl.formatMessage({ id: 'msg__unknown_error' }),
@@ -318,10 +319,10 @@ const ExchangeButton = () => {
         needApproved &&
         ((targetNetworkId === OnekeyNetwork.eth &&
           params.tokenIn.tokenIdOnNetwork.toLowerCase() ===
-            '0xdac17f958d2ee523a2206206994597c13d831ec7') ||
+          '0xdac17f958d2ee523a2206206994597c13d831ec7') ||
           (targetNetworkId === OnekeyNetwork.heco &&
             params.tokenIn.tokenIdOnNetwork.toLowerCase() ===
-              '0x897442804e4c8ac3a28fadb217f08b401411183e')) &&
+            '0x897442804e4c8ac3a28fadb217f08b401411183e')) &&
         Number(allowance || '0') > 0;
       if (needCancelApproval) {
         cancelApproveTx =
@@ -338,9 +339,9 @@ const ExchangeButton = () => {
         const amount = disableSwapExactApproveAmount
           ? 'unlimited'
           : getTokenAmountValue(
-              inputAmount.token,
-              newQuote.sellAmount,
-            ).toFixed();
+            inputAmount.token,
+            newQuote.sellAmount,
+          ).toFixed();
 
         approveTx = (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
           spender: newQuote.allowanceTarget,
@@ -856,6 +857,83 @@ const SwapStateButton = () => {
   return <ExchangeButton />;
 };
 
+const WrapperTokenButton = () => {
+  const intl = useIntl();
+  const [loading, setLoading] = useState(false);
+  const wrapperTransaction = useAppSelector(s => s.swap.wrapperTransaction);
+  const params = useSwapQuoteRequestParams();
+  const sendTx = useSwapSend()
+  const onSubmit = useCallback(() => {
+    if (params && wrapperTransaction) {
+      const { tokenIn, activeAccount } = params;
+      setLoading(true);
+      try {
+        sendTx({
+          networkId: tokenIn.networkId, 
+          accountId: activeAccount.id, 
+          encodedTx: wrapperTransaction.encodedTx, 
+          onSuccess: async ({ result, decodedTx }) => {
+            let networkFee: string | undefined;
+            const targetNetwork = await backgroundApiProxy.serviceNetwork.getNetwork(tokenIn.networkId)
+            if (decodedTx && targetNetwork) {
+              networkFee = calculateDecodedTxNetworkFee(decodedTx, targetNetwork);
+            }
+            backgroundApiProxy.dispatch(
+              addTransaction({
+                accountId: activeAccount.id,
+                networkId: tokenIn.networkId,
+                transaction: {
+                  hash: result.txid,
+                  from: activeAccount.address,
+                  addedTime: Date.now(),
+                  status: 'pending',
+                  type: 'swap',
+                  accountId: activeAccount.id,
+                  networkId: tokenIn.networkId,
+                  nonce: decodedTx?.nonce,
+                  receivingAccountId: activeAccount.id,
+                  receivingAddress: activeAccount.address,
+                  arrivalTime: 30,
+                  networkFee,
+                  tokens: {
+                    from: {
+                      token: params.tokenIn,
+                      networkId: tokenIn.networkId,
+                      amount: params.typedValue
+                    },
+                    to: {
+                      token: params.tokenOut,
+                      networkId: tokenIn.networkId,
+                      amount: params.typedValue
+                    },
+                    rate: 1,
+                  },
+                },
+              }),
+            );
+            backgroundApiProxy.serviceSwap.clearState()
+          }
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+  }, [params, params, sendTx])
+  if (params && wrapperTransaction) {
+    return (
+      <Button size="xl" type="primary" key="baseError" onPress={onSubmit} isLoading={loading}>
+        {wrapperTransaction.type === 'Deposite' ? intl.formatMessage({ id: 'action__wrap' }) : intl.formatMessage({ id: 'action__unwrap' })}
+      </Button>
+    )
+  }
+  return null
+}
+
+const SwapEnabledButton = () => {
+  const wrapperTransaction = useAppSelector(s => s.swap.wrapperTransaction);
+  return wrapperTransaction ? <WrapperTokenButton /> : <SwapStateButton />
+}
+
 const SwapButton = () => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -882,7 +960,7 @@ const SwapButton = () => {
     );
   }
 
-  return <SwapStateButton />;
+  return <SwapEnabledButton />;
 };
 
 export default SwapButton;

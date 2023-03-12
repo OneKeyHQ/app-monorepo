@@ -11,6 +11,7 @@ import {
   setQuote,
   setQuoteLimited,
   setResponses,
+  setWrapperTransaction
 } from '../../../store/reducers/swap';
 import { SwapQuoter } from '../quoter';
 import { dangerRefs } from '../refs';
@@ -125,9 +126,7 @@ export const useSwapQuoteCallback = function (
   }, [params]);
 
   const swapQuote = useCallback(async () => {
-    const isRefresh = await backgroundApiProxy.serviceSwap.refreshParams(
-      params,
-    );
+
     if (!params) {
       backgroundApiProxy.dispatch(
         setQuote(undefined),
@@ -136,9 +135,22 @@ export const useSwapQuoteCallback = function (
       );
       return;
     }
+    const wrapperTx = await backgroundApiProxy.serviceSwap.buildWrapperTransaction(params)
+    if (wrapperTx && wrapperTx.encodedTx) {
+      backgroundApiProxy.dispatch(setWrapperTransaction(wrapperTx))
+      return 
+    } else {
+      backgroundApiProxy.dispatch(setWrapperTransaction(undefined))
+    }
+    
+    const isRefresh = await backgroundApiProxy.serviceSwap.refreshParams(
+      params,
+    );
+
     if (showLoading) {
       backgroundApiProxy.dispatch(setLoading(true));
     }
+
     backgroundApiProxy.dispatch(setError(undefined));
 
     const findBestResponse = async (

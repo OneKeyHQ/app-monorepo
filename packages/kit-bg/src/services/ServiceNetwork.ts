@@ -164,6 +164,13 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getNetwork(networkId: string) {
+    const { appSelector } = this.backgroundApi;
+    const networks = appSelector(s => s.runtime.networks);
+    return networks.find((item) => item.id === networkId)
+  }
+
+  @backgroundMethod()
   async initNetworks() {
     const { engine } = this.backgroundApi;
     await engine.syncPresetNetworks();

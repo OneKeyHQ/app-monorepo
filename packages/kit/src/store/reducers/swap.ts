@@ -10,6 +10,7 @@ import type {
   QuoteLimited,
   Recipient,
   SwapError,
+  WrapperTransactionInfo
 } from '../../views/Swap/typings';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
@@ -20,6 +21,7 @@ type SwapState = {
   outputToken?: Token;
   typedValue: string;
   independentField: 'INPUT' | 'OUTPUT';
+  wrapperTransaction?: WrapperTransactionInfo | undefined
   quote?: QuoteData;
   quoteLimited?: QuoteLimited;
   quoteTime?: number;
@@ -95,6 +97,7 @@ export const swapSlice = createSlice({
       state.showMoreQuoteDetail = false;
       state.userSelectedQuoter = undefined;
       state.responses = undefined;
+      state.wrapperTransaction = undefined;
     },
     resetState(state) {
       state.inputToken = undefined;
@@ -114,6 +117,7 @@ export const swapSlice = createSlice({
       state.showMoreQuoteDetail = false;
       state.userSelectedQuoter = undefined;
       state.responses = undefined;
+      state.wrapperTransaction = undefined;
     },
     setQuote(state, action: PayloadAction<QuoteData | undefined>) {
       // SUI Transaction: error TS2589: Type instantiation is excessively deep and possibly infinite.
@@ -163,6 +167,9 @@ export const swapSlice = createSlice({
     ) {
       state.responses = action.payload;
     },
+    setWrapperTransaction(state, action: PayloadAction<WrapperTransactionInfo | undefined>) {
+      state.wrapperTransaction = action.payload
+    }
   },
 });
 
@@ -185,6 +192,7 @@ export const {
   setUserSelectedQuoter,
   clearUserSelectedQuoter,
   setResponses,
+  setWrapperTransaction
 } = swapSlice.actions;
 
 export default swapSlice.reducer;
