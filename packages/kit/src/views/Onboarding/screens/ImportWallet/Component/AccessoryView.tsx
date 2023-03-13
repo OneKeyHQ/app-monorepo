@@ -1,11 +1,10 @@
-import type { ComponentProps, FC } from 'react';
+import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Box, Button, ScrollView } from '@onekeyhq/components';
+import { Alert, Button, ScrollView } from '@onekeyhq/components';
 import useIsKeyboardShown from '@onekeyhq/components/src/Layout/BottomTabs/utils/useIsKeyboardShown';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface AccessoryViewProps extends ComponentProps<typeof ScrollView> {
   withKeybord?: boolean;
@@ -49,22 +48,18 @@ export const AccessoryView = ({
           }}
         />
       ) : (
-        <>
-          {accessoryData.map((value, index) => (
-            <Button
-              key={`${value}-${index}`}
-              size="sm"
-              onPress={() => {
-                if (selected) {
-                  selected(value);
-                }
-              }}
-              mr="8px"
-            >
-              {value}
-            </Button>
-          ))}
-        </>
+        accessoryData.map((value, index) => (
+          <Button
+            key={`${value}-${index}`}
+            size="sm"
+            onPress={() => {
+              selected?.(value);
+            }}
+            mr="8px"
+          >
+            {value}
+          </Button>
+        ))
       )}
     </ScrollView>
   ) : null;

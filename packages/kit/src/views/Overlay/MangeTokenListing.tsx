@@ -1,7 +1,6 @@
 import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import { Button, HStack, Text, Typography, VStack } from '@onekeyhq/components';
 import type { ModalProps } from '@onekeyhq/components/src/Modal';
