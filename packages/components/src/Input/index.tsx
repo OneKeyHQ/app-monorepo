@@ -250,7 +250,7 @@ const Input = forwardRef<typeof BaseInput, Props>(
         InputRightElement={inputRightElement}
         w="80"
         minW="0"
-        h={size === 'xl' ? '50px' : { base: '42px', md: 'auto' }}
+        h={size === 'xl' ? '50px' : { base: '42px', md: '38px' }}
         borderColor="border-default"
         bg="action-secondary-default"
         color={isDisabled ? 'text-disabled' : 'text-default'}

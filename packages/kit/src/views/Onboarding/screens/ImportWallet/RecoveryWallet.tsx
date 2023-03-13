@@ -1,14 +1,22 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Center, Spinner, useThemeValue } from '@onekeyhq/components';
+import {
+  Center,
+  KeyboardAvoidingView,
+  Spinner,
+  useThemeValue,
+} from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../../hooks';
 import { OnboardingAddExistingWallet } from '../../../CreateWallet/AddExistingWallet';
 import Layout from '../../Layout';
 
+import { AccessoryView } from './Component/AccessoryView';
+import { useAccessory } from './Component/hooks';
 import Drawer from './ImportWalletGuideDrawer';
 import SecondaryContent from './SecondaryContent';
 
@@ -20,7 +28,7 @@ const defaultProps = {} as const;
 
 type RouteProps = RouteProp<
   IOnboardingRoutesParams,
-  EOnboardingRoutes.ImportWallet
+  EOnboardingRoutes.RecoveryWallet
 >;
 
 const RecoveryWallet = () => {
@@ -34,7 +42,17 @@ const RecoveryWallet = () => {
   const onPressDrawerTrigger = useCallback(() => {
     setDrawerVisible(true);
   }, []);
-  const disableAnimation = route?.params?.disableAnimation;
+  const { disableAnimation, mode } = route.params;
+  const enableListenInput = mode === 'mnemonic';
+
+  const { valueText, accessoryData, onChangeText, onSelectedKeybordAcessory } =
+    useAccessory();
+
+  const getPageTitleKey = useMemo(() => {
+    if (mode === 'mnemonic') return 'title__import_recovery_phrase';
+    if (mode === 'imported') return 'title__import_private_key';
+    return 'wallet__watched_accounts';
+  }, [mode]);
 
   return onBoardingLoadingBehindModal ? (
     <Center bgColor={bgColor} flex={1} height="full">
@@ -44,14 +62,37 @@ const RecoveryWallet = () => {
     <>
       <Layout
         disableAnimation={disableAnimation}
-        title={intl.formatMessage({ id: 'onboarding__import_with_phrase' })}
+        title={intl.formatMessage({ id: getPageTitleKey })}
         secondaryContent={
-          <SecondaryContent onPressDrawerTrigger={onPressDrawerTrigger} />
+          <SecondaryContent
+            mode={mode}
+            onPressDrawerTrigger={onPressDrawerTrigger}
+          />
         }
       >
-        <OnboardingAddExistingWallet />
+        <OnboardingAddExistingWallet
+          inputMode={mode}
+          onChangeTextForMnemonic={enableListenInput ? onChangeText : undefined}
+          valueTextForMnemonic={enableListenInput ? valueText : undefined}
+        />
       </Layout>
       <Drawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
+      {mode === 'mnemonic' && (
+        <KeyboardAvoidingView
+          behavior={platformEnv.isNativeIOS ? 'position' : 'height'}
+        >
+          <AccessoryView
+            position="absolute"
+            bottom="0"
+            left="0"
+            right="0"
+            p="12px"
+            withKeybord
+            accessoryData={accessoryData}
+            selected={onSelectedKeybordAcessory}
+          />
+        </KeyboardAvoidingView>
+      )}
     </>
   );
 };

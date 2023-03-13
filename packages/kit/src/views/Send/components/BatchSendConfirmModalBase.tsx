@@ -14,6 +14,8 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
+import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -64,11 +66,22 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
 
   const nativeBalance = useNativeTokenBalance(networkId, accountId);
 
-  const balanceInsufficient = useMemo(
-    () =>
-      new BigNumber(nativeBalance ?? '0').lt(new BigNumber(totalFeeInNative)),
-    [totalFeeInNative, nativeBalance],
-  );
+  const balanceInsufficient = useMemo(() => {
+    let nativeBalanceTransferBN = new BigNumber(0);
+    for (const tx of decodedTxs) {
+      for (const action of (tx as IDecodedTx).actions) {
+        if (action.type === IDecodedTxActionType.NATIVE_TRANSFER) {
+          nativeBalanceTransferBN = nativeBalanceTransferBN.plus(
+            action.nativeTransfer?.amount ?? 0,
+          );
+        }
+      }
+    }
+
+    return new BigNumber(nativeBalance ?? '0').lt(
+      nativeBalanceTransferBN.plus(totalFeeInNative),
+    );
+  }, [totalFeeInNative, nativeBalance, decodedTxs]);
 
   const isWatching = useMemo(
     () => isWatchingAccount({ accountId }),

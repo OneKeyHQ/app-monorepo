@@ -24,6 +24,9 @@ const HomeBalanceSettings: FC = () => {
     useAppSelector((s) => s.settings);
   return (
     <>
+      <Typography.Subheading mb="3" color="text-subdued">
+        {intl.formatMessage({ id: 'form__preferences' })}
+      </Typography.Subheading>
       <BottomSheetSettingRow>
         <Typography.Body1Strong>
           {intl.formatMessage({ id: 'form__hide_small_balance' })}
@@ -38,18 +41,6 @@ const HomeBalanceSettings: FC = () => {
       </BottomSheetSettingRow>
       <BottomSheetSettingRow mt="4">
         <Typography.Body1Strong>
-          {intl.formatMessage({ id: 'form__hide_risk_tokens' })}
-        </Typography.Body1Strong>
-        <Switch
-          labelType="false"
-          isChecked={hideRiskTokens}
-          onToggle={() =>
-            backgroundApiProxy.dispatch(setHideRiskTokens(!hideRiskTokens))
-          }
-        />
-      </BottomSheetSettingRow>
-      <BottomSheetSettingRow mt="4">
-        <Typography.Body1Strong>
           {intl.formatMessage({ id: 'form__put_coins_at_the_top' })}
         </Typography.Body1Strong>
         <Switch
@@ -59,6 +50,21 @@ const HomeBalanceSettings: FC = () => {
             backgroundApiProxy.dispatch(
               setPutMainTokenOnTop(!putMainTokenOnTop),
             )
+          }
+        />
+      </BottomSheetSettingRow>
+      <Typography.Subheading mb="3" mt="8" color="text-subdued">
+        {intl.formatMessage({ id: 'form__anti_scam' })}
+      </Typography.Subheading>
+      <BottomSheetSettingRow>
+        <Typography.Body1Strong>
+          {intl.formatMessage({ id: 'form__hide_risk_tokens' })}
+        </Typography.Body1Strong>
+        <Switch
+          labelType="false"
+          isChecked={hideRiskTokens}
+          onToggle={() =>
+            backgroundApiProxy.dispatch(setHideRiskTokens(!hideRiskTokens))
           }
         />
       </BottomSheetSettingRow>

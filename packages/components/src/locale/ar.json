@@ -124,6 +124,8 @@
   "action__erase_str_data": "محو بيانات {0}",
   "action__expand": "يوسع",
   "action__export": "يصدّر",
+  "action__export_addresses": "عناوين التصدير",
+  "action__export_file": "ملف التصدير",
   "action__export_private_key": "تصدير المفتاح الخاص",
   "action__fill_in": "أملأ",
   "action__find_an_address_by_path": "ابحث عن عنوان عن طريق المسار",
@@ -169,6 +171,7 @@
   "action__open_blockchain_browser": "افتح متصفح Blockchain",
   "action__open_finder": "افتح الباحث",
   "action__open_in_browser": "افتح في المتصفح",
+  "action__open_onekey": "افتح OneKey",
   "action__open_system_preference": "افتح تفضيلات النظام",
   "action__overwrite": "الكتابة فوق",
   "action__passphrase": "Passphrase",
@@ -180,6 +183,7 @@
   "action__profit_and_loss": "الربح والخسارة",
   "action__protection": "حماية",
   "action__quick_add": "إضافة سريعة",
+  "action__quit": "يترك",
   "action__receive": "تسلم",
   "action__recently_deleted": "تم حذفه مؤخرًا",
   "action__recover": "استعادة",
@@ -255,6 +259,7 @@
   "action__unlock": "الغاء القفل",
   "action__unstake": "نزع",
   "action__unsubscribe": "إلغاء الاشتراك",
+  "action__unwrap": "بسط",
   "action__update": "تحديث",
   "action__update_available": "التحديث متاح",
   "action__update_now": "تحديث الان",
@@ -283,6 +288,8 @@
   "action__view_recovery_seed": "مشاهدة عبارة الاسترداد",
   "action__visit": "يزور",
   "action__watch_lowercase": "راقب",
+  "action__wrap": "طَوّق",
+  "action__wrap_eth": "التفاف ETH",
   "action__yes_i_have": "نعم لدي",
   "action_copy_hash": "نسخ التجزئة",
   "action_retry": "أعد المحاولة",
@@ -353,7 +360,7 @@
   "content__allow_this_website_to_uppercase": "السماح لهذا الموقع:",
   "content__altcoin_pairs": "أزواج altcoin",
   "content__although_you_re_not_rich_as_elon": "على الرغم من أنك لست ثريًا مثل Elon ، إلا أنك تعرف بالضبط كيف تحشد مفتاحك الخاص.\n لذا فإن كل من Sat and Wei هو ملك لك حقًا.",
-  "content__amount": "مقدار",
+  "content__amount": "كمية",
   "content__amount_str": "المبلغ ( {0} )",
   "content__anti_rug_master": "سيد مكافحة البساط",
   "content__app_wallet_desc": "أضف محفظتك الصغيرة المعتادة.",
@@ -687,7 +694,7 @@
   "content__str_is_your_favorite_onlyone": "{0} هو المفضل لديك فقط.",
   "content__str_is_your_favorite_onlytwo": "{symbol_0} هو المفضل لديك ،\n لكنك أيضًا تحب {symbol_1} .",
   "content__str_mins": "{content__str_mins, plural, zero {} one {# دقيقة} two {} few {} many {} other {# دقيقة}}",
-  "content__str_seconds": "{content__str_seconds, plural, zero {} one {# ثانية} two {} few {} many {} other {# ثانية}}",
+  "content__str_seconds": "{content__str_seconds, plural, zero {# ثانية} one {# ثانية} two {# ثانية} few {# ثانية} many {# ثانية} other {# ثانية}}",
   "content__str_succeeded": "{0} تم النجاح!",
   "content__str_transactions_failed": "{0} فشلت المعاملات!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, zero {} one {معاملة # قيد التقدم ...} two {} few {} many {} other {# المعاملات قيد التقدم ...}}",
@@ -923,6 +930,8 @@
   "form__assinged_address_slippage_is_modifiable": "تعديل انزلاق العنوان",
   "form__assinged_address_slippage_is_modifiable_desc": "يجوز لصاحب العقد وضع معدل ضريبي مرتفع على العنوان المخصص لمنع التجارة.",
   "form__auto": "نظام",
+  "form__auto_refresh_time": "وقت التحديث التلقائي",
+  "form__auto_scroll_time": "وقت التمرير التلقائي",
   "form__automatic": "تلقائي",
   "form__back": "الجانب الخلفي",
   "form__balance": "الرصيد",
@@ -999,6 +1008,7 @@
   "form__dev_mode": "وضع المطور",
   "form__dev_platform_channel": "المنصات والقنوات",
   "form__dev_pre_update": "ترقية إصدار المعاينة",
+  "form__direct_wrap": "التفاف مباشر",
   "form__dominance": "هيمنة",
   "form__download_when_available": "قم بتنزيل التحديثات الجديدة عند توفرها",
   "form__drag_file_here": "إفلات الملف هنا",
@@ -1107,6 +1117,7 @@
   "form__limit": "حد",
   "form__line_str": "خط {0}",
   "form__manage": "يدير",
+  "form__manage_menu_bar": "إدارة شريط القوائم",
   "form__manage_threshold": "إدارة العتبة",
   "form__manually_added": "يضاف يدويا",
   "form__market_cap": "القيمة السوقية",
@@ -1126,6 +1137,7 @@
   "form__max_spend_limit": "حد الإنفاق الأقصى",
   "form__max_spend_limit_validateRules": "الرجاء إدخال مبلغ حد الإنفاق.",
   "form__max_str": "الحد الأقصى: {0}",
+  "form__menu_bar": "شريط القوائم",
   "form__message_tab": "رسالة",
   "form__message_uppercase": "رسالة",
   "form__min_amount": "المبلغ الأدنى:",
@@ -1136,6 +1148,7 @@
   "form__modify_the_line_with_the_correct_format": "قم بتعديل الخط بالتنسيق الصحيح",
   "form__more_details": "المزيد من التفاصيل",
   "form__multiple_transactions": "معاملات متعددة",
+  "form__my_accounts": "حساباتي",
   "form__my_cryptos_uppercase": "التشفير الخاص بي",
   "form__my_tokens": "الرموز الخاصة بي",
   "form__my_wallet": "محفظتى",
@@ -1284,7 +1297,9 @@
   "form__send_tokens": "إرسال الرموز",
   "form__sent": "لقد ارسلت",
   "form__service_fee": "رسوم الخدمة",
+  "form__set_range": "مجموعة مجموعة",
   "form__show_all": "عرض الكل",
+  "form__show_in_menu_bar": "إظهار في شريط القوائم",
   "form__show_path_and_link": "إظهار المسار والارتباط",
   "form__showing_str_out_of_str": "إظهار {0} من {1}",
   "form__sign_method_type_uppercase": "طريقة تسجيل الدخول",
@@ -1708,6 +1723,7 @@
   "msg__incomplete_file": "ملف غير مكتمل",
   "msg__incorrect_token_information": "معلومات رمز غير صحيحة",
   "msg__invalid_link_or_network_error": "ارتباط غير صالح أو خطأ في الشبكة",
+  "msg__invalid_word": "كلمة غير صحيحة",
   "msg__link_copied": "تم نسخ الرابط",
   "msg__mine": "الخاص بي",
   "msg__minted": "💎 سكت {assets}",
@@ -1837,7 +1853,7 @@
   "msg_insufficient_gas_fee": "رسوم الغاز غير كافية",
   "network__network": "شبكة",
   "network__networks": "الشبكات",
-  "onboarding__import_wallet_desc": "حدد طريقة لاستيراد محفظتك.",
+  "onboarding__import_wallet_desc": "اختر طريقة الاستيراد",
   "onboarding__import_wallet_with_keytag": "مع KeyTag",
   "onboarding__import_wallet_with_lite": "مع OneKey Lite",
   "onboarding__import_wallet_with_migrate": "الترحيل من تطبيق OneKey",
@@ -1900,6 +1916,7 @@
   "title__blockchain_explorer": "مستكشف Blockchain",
   "title__blockchain_explorer_desc": "ابحث عن عنوان أو عقد أو تجزئة txns أو الرموز المميزة.",
   "title__browser": "المستعرض",
+  "title__bulk_copy_addresses": "نسخ مجمعة للعناوين",
   "title__bulksender": "بولكسندر",
   "title__bulksender_desc": "Airdrop لعدة مستفيدين من حساب واحد.",
   "title__buy_onekey_hardware": "شراء أجهزة OneKey",
@@ -1949,6 +1966,8 @@
   "title__help": "مساعدة",
   "title__help_center": "مركز المساعدة",
   "title__home": "مسكن",
+  "title__import_private_key": "استيراد مفتاح خاص",
+  "title__import_recovery_phrase": "استيراد عبارة الاسترداد",
   "title__import_wallet": "استيراد المحفظة",
   "title__import_wallet_with_keytag": "استيراد Wallet باستخدام KeyTag",
   "title__import_wallet_with_keytag_desc": "املأ الفراغ وفقًا لنسخة KeyTag الاحتياطية.",
