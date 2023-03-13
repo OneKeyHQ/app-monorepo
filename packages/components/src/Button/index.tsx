@@ -554,7 +554,7 @@ const Button = forwardRef<
           <Spinner size="sm" />
         </Center>
       ),
-      [],
+      [spinnerContainerSize],
     );
     return (
       <Component

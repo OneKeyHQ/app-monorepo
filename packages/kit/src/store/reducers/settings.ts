@@ -43,7 +43,6 @@ export type ISettingsDevModeInfo = {
   enablePerfCheck?: boolean;
   defiBuildService?: string;
   hideDiscoverContent?: boolean;
-  enableExternalAccountAnnualReport?: boolean;
   onRamperTestMode?: boolean;
   showWebEmbedWebviewAgent?: boolean;
 };
@@ -104,7 +103,6 @@ export type SettingsState = {
   customNetworkRpcMap?: {
     [networkId: string]: string[];
   };
-  annualReportEntryEnabled?: boolean;
   accountDerivationDbMigrationVersion?: string;
   hardware?: {
     rememberPassphraseWallets?: string[];
@@ -173,7 +171,6 @@ const initialState: SettingsState = {
   },
   disableSwapExactApproveAmount: false,
   customNetworkRpcMap: {},
-  annualReportEntryEnabled: false,
   accountDerivationDbMigrationVersion: '',
   hardware: {
     rememberPassphraseWallets: [], // walletId
@@ -306,15 +303,6 @@ export const settingsSlice = createSlice({
     },
     setHideDiscoverContent(state, action: PayloadAction<boolean>) {
       state.devMode = { ...state.devMode, hideDiscoverContent: action.payload };
-    },
-    setEnableExternalAccountReport(state, action: PayloadAction<boolean>) {
-      state.devMode = {
-        ...state.devMode,
-        enableExternalAccountAnnualReport: action.payload,
-      };
-    },
-    setAnnualReportEntryEnabled(state, action: PayloadAction<boolean>) {
-      state.annualReportEntryEnabled = action.payload;
     },
     setOnRamperTestMode(state, action: PayloadAction<boolean>) {
       state.devMode = {
@@ -613,8 +601,6 @@ export const {
   setHideDiscoverContent,
   setWalletSwitch,
   toggleWalletSwitch,
-  setAnnualReportEntryEnabled,
-  setEnableExternalAccountReport,
   setHideScamHistory,
   setAccountDerivationDbMigrationVersion,
   setOnRamperTestMode,

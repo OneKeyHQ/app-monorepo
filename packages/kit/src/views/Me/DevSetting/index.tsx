@@ -27,7 +27,6 @@ import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import type { ISettingsDevModeInfo } from '@onekeyhq/kit/src/store/reducers/settings';
 import {
   setDevMode,
-  setEnableExternalAccountReport,
   setEnablePerfCheck,
   setEnableTestFiatEndpoint,
   setEnableZeroNotificationThreshold,
@@ -102,7 +101,6 @@ export const DevSettingSection = () => {
     enablePerfCheck,
     defiBuildService,
     hideDiscoverContent,
-    enableExternalAccountAnnualReport,
     onRamperTestMode,
     showWebEmbedWebviewAgent,
   } = devModeData;
@@ -337,22 +335,6 @@ export const DevSettingSection = () => {
             isChecked={hideDiscoverContent}
             onToggle={() => {
               dispatch(setHideDiscoverContent(!hideDiscoverContent));
-            }}
-          />
-        </Container.Item>
-        <Container.Item
-          title="Enable Extenal Account Annual Report"
-          titleColor="text-critical"
-        >
-          <Switch
-            labelType="false"
-            isChecked={enableExternalAccountAnnualReport}
-            onToggle={() => {
-              dispatch(
-                setEnableExternalAccountReport(
-                  !enableExternalAccountAnnualReport,
-                ),
-              );
             }}
           />
         </Container.Item>
