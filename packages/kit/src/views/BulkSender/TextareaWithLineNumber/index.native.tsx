@@ -8,17 +8,27 @@ import type {
   NativeSyntheticEvent,
   TextInput,
   TextInputScrollEventData,
+  ViewStyle,
 } from 'react-native';
 
 type Props = {
   receiverString: string;
   setReceiverString: React.Dispatch<React.SetStateAction<string>>;
+  height?: string | number;
+  containerStyle?: ViewStyle;
+  readonly?: boolean;
 };
 
 function TextareaWithLineNumber(props: Props) {
   const textAreaRef = useRef<TextInput>();
   const textAreaLineNumberScrollViewRef = useRef<ScrollView>();
-  const { receiverString, setReceiverString } = props;
+  const {
+    receiverString,
+    setReceiverString,
+    height,
+    containerStyle,
+    readonly,
+  } = props;
 
   const lines = receiverString.split('\n');
 
@@ -32,7 +42,7 @@ function TextareaWithLineNumber(props: Props) {
     [],
   );
   return (
-    <Box position="relative">
+    <Box position="relative" style={containerStyle}>
       <Textarea
         // @ts-ignore
         ref={textAreaRef}
@@ -42,17 +52,18 @@ function TextareaWithLineNumber(props: Props) {
         value={receiverString}
         pl="46px"
         py={2}
-        h="240px"
+        h={height}
         lineHeight="24px"
         fontWeight={500}
         fontFamily="monospace"
         shadow="none"
+        isReadOnly={readonly}
         onChangeText={(text) => setReceiverString(text)}
       />
       <View
         style={{
           zIndex: -1,
-          height: 240,
+          height,
           position: 'absolute',
           left: 0,
           top: 0,

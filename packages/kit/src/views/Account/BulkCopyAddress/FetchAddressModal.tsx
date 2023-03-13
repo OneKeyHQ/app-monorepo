@@ -20,20 +20,34 @@ import { INDEX_PLACEHOLDER } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { CreateAccountModalRoutes } from '../../../routes';
 
-import type {
-  CreateAccountModalRoutes,
-  CreateAccountRoutesParams,
-} from '../../../routes';
+import { formatDerivationLabel } from './helper';
+
+import type { CreateAccountRoutesParams } from '../../../routes';
 import type { ModalScreenProps } from '../../../routes/types';
 import type { INetworkDerivationItem } from './WalletAccounts';
 import type { RouteProp } from '@react-navigation/native';
+
+export type IExportAddressData = {
+  data: {
+    address: string;
+    path: string;
+    index: number;
+  }[];
+  template: string;
+  name: string;
+};
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 type RouteProps = RouteProp<
   CreateAccountRoutesParams,
   CreateAccountModalRoutes.FetchAddressModal
 >;
+
+type IWalletAccounts = INetworkDerivationItem & {
+  accountData: (Account & { index: number })[];
+};
 
 const FROM_INDEX_MAX = 2 ** 31;
 
@@ -50,6 +64,7 @@ const FetchAddressModal: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { walletId, networkId, data, password } = route.params;
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const isHwWallet = walletId.startsWith('hw');
   const [progress, setProgress] = useState<number>(0);
@@ -57,9 +72,7 @@ const FetchAddressModal: FC = () => {
     ImportableHDAccount[]
   >([]);
 
-  const [walletAccounts, setWalletAccounts] = useState<
-    (INetworkDerivationItem & { accountData: Account[] })[]
-  >([]);
+  const [walletAccounts, setWalletAccounts] = useState<IWalletAccounts[]>([]);
 
   const updateSetRangeAccountProgress = useCallback(
     (result: any[], forceFinish?: boolean) => {
@@ -196,10 +209,7 @@ const FetchAddressModal: FC = () => {
   }, [data, isHwWallet, networkId, walletId, updateSetRangeAccountProgress]);
 
   const updateWalletsAccountProgress = useCallback(
-    (
-      result: (INetworkDerivationItem & { accountData: Account[] })[],
-      forceFinish?: boolean,
-    ) => {
+    (result: IWalletAccounts[], forceFinish?: boolean) => {
       if (data.type !== 'walletAccounts') return;
       const { networkDerivations } = data;
       const totalLength = networkDerivations.reduce(
@@ -224,8 +234,7 @@ const FetchAddressModal: FC = () => {
     if (data.type !== 'walletAccounts') return;
     (async () => {
       const { networkDerivations } = data;
-      const result: (INetworkDerivationItem & { accountData: Account[] })[] =
-        [];
+      const result: IWalletAccounts[] = [];
       for (const networkDerivation of networkDerivations) {
         const accounts = await backgroundApiProxy.engine.getAccounts(
           networkDerivation.accounts,
@@ -258,12 +267,16 @@ const FetchAddressModal: FC = () => {
           if (derivationIndex > -1) {
             result.splice(derivationIndex, 1, {
               ...networkDerivation,
-              accountData: sortedAccountData,
+              accountData: sortedAccountData as unknown as (Account & {
+                index: number;
+              })[],
             });
           } else {
             result.push({
               ...networkDerivation,
-              accountData: sortedAccountData,
+              accountData: sortedAccountData as unknown as (Account & {
+                index: number;
+              })[],
             });
           }
           updateWalletsAccountProgress(result);
@@ -271,6 +284,57 @@ const FetchAddressModal: FC = () => {
       }
     })();
   }, [data, isHwWallet, updateWalletsAccountProgress, networkId, walletId]);
+
+  useEffect(() => {
+    if (progress >= 1) {
+      let exportData: IExportAddressData[];
+      if (data.type === 'setRange') {
+        exportData = [
+          {
+            template: data.derivationOption?.template ?? '',
+            name:
+              formatDerivationLabel(intl, data.derivationOption?.label) ?? '',
+            data: generatedAccounts.map((account) => ({
+              address: account.displayAddress,
+              path: account.path,
+              index: account.index,
+            })),
+          },
+        ];
+      } else {
+        exportData = walletAccounts.map((networkDerivation) => ({
+          template: networkDerivation.template,
+          name: networkDerivation.name ?? '',
+          data: networkDerivation.accountData.map((account) => ({
+            index: account.index,
+            address: account.address,
+            path: account.path,
+          })),
+        }));
+      }
+
+      setTimeout(
+        () => {
+          navigation.replace(CreateAccountModalRoutes.ExportAddresses, {
+            networkId,
+            walletId,
+            data: exportData,
+          });
+        },
+        isHwWallet ? 0 : 500,
+      );
+    }
+  }, [
+    progress,
+    data,
+    generatedAccounts,
+    walletAccounts,
+    intl,
+    navigation,
+    networkId,
+    walletId,
+    isHwWallet,
+  ]);
 
   const progressText = useMemo(() => {
     if (data.type === 'setRange') {

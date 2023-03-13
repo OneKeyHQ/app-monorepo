@@ -7,15 +7,26 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { encodeReceiverWithLineNumber } from '../utils';
 
+import type { ViewStyle } from 'react-native';
+
 type Props = {
   receiverString: string;
   setReceiverString: React.Dispatch<React.SetStateAction<string>>;
+  height?: string | number;
+  containerStyle?: ViewStyle;
+  readonly?: boolean;
 };
 
 function TextareaWithLineNumber(props: Props) {
   const textAreaRef = useRef<HTMLTextAreaElement>();
   const textAreaLineNumberRef = useRef<HTMLTextAreaElement>();
-  const { receiverString, setReceiverString } = props;
+  const {
+    receiverString,
+    setReceiverString,
+    containerStyle,
+    height = '240px',
+    readonly,
+  } = props;
 
   const intl = useIntl();
 
@@ -35,7 +46,7 @@ function TextareaWithLineNumber(props: Props) {
   }, []);
 
   return (
-    <Box position="relative">
+    <Box position="relative" style={containerStyle}>
       <Textarea
         // @ts-ignore
         ref={textAreaRef}
@@ -47,10 +58,11 @@ function TextareaWithLineNumber(props: Props) {
         bg="transparent"
         value={receiverString}
         pl="46px"
-        h="240px"
+        h={height}
         margin="1px"
         shadow="none"
         fontFamily={platformEnv.isNativeIOS ? 'Menlo' : 'monospace'}
+        isReadOnly={readonly}
         onChangeText={(text) => setReceiverString(text)}
       />
       <Textarea
@@ -59,7 +71,7 @@ function TextareaWithLineNumber(props: Props) {
         borderColor="transparent"
         color="text-disabled"
         value={receiverStringWithLineNumber}
-        h="240px"
+        h={height}
         fontFamily="monospace"
         position="absolute"
         zIndex={-1}

@@ -124,6 +124,7 @@ export enum CreateAccountModalRoutes {
   RecoverAccountsConfirmAuthentication = 'RecoverAccountsConfirmAuthentication',
   BulkCopyAddresses = 'BulkCopyAddresses',
   FetchAddressModal = 'FetchAddressModal',
+  ExportAddresses = 'ExportAddresses',
 }
 
 export enum RecoverAccountModalRoutes {

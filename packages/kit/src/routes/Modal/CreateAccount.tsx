@@ -14,6 +14,8 @@ import type {
   IFetchAddressByWallet,
 } from '@onekeyhq/kit/src/views/Account/BulkCopyAddress';
 import BulkCopyAddresses from '@onekeyhq/kit/src/views/Account/BulkCopyAddress';
+import ExportAddresses from '@onekeyhq/kit/src/views/Account/BulkCopyAddress/ExportAddresses';
+import type { IExportAddressData } from '@onekeyhq/kit/src/views/Account/BulkCopyAddress/FetchAddressModal';
 import FetchAddressModal from '@onekeyhq/kit/src/views/Account/BulkCopyAddress/FetchAddressModal';
 
 import { CreateAccountModalRoutes } from '../routesEnum';
@@ -78,6 +80,17 @@ export type CreateAccountRoutesParams = {
     password: string;
     data: IFetchAddressByRange | IFetchAddressByWallet;
   };
+  [CreateAccountModalRoutes.FetchAddressModal]: {
+    networkId: string;
+    walletId: string;
+    password: string;
+    data: IFetchAddressByRange | IFetchAddressByWallet;
+  };
+  [CreateAccountModalRoutes.ExportAddresses]: {
+    networkId: string;
+    walletId: string;
+    data: IExportAddressData[];
+  };
 };
 
 const CreateAccountNavigator =
@@ -119,6 +132,10 @@ const modalRoutes = [
   {
     name: CreateAccountModalRoutes.FetchAddressModal,
     component: FetchAddressModal,
+  },
+  {
+    name: CreateAccountModalRoutes.ExportAddresses,
+    component: ExportAddresses,
   },
 ];
 
