@@ -24,7 +24,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 // css should be imported at last
 import '@onekeyhq/shared/src/web/index.css';
 
-import CardanoProvider from './src/views/CardanoProvider';
+import WebEmbedWebviewAgentCardano from './src/views/WebEmbedWebviewAgentCardano';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -172,7 +172,7 @@ const App: FC = function () {
             path="/onboarding/auto_typing"
             element={<OnboardingAutoTyping />}
           />
-          <Route path="/cardano" element={<CardanoProvider />} />
+          <Route path="/cardano" element={<WebEmbedWebviewAgentCardano />} />
         </Routes>
       </HashRouter>
     </Provider>

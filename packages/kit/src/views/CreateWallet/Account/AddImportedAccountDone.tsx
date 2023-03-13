@@ -31,6 +31,7 @@ type DoneProps = {
   password: string;
   privatekey: string;
   name: string;
+  template?: string;
   networkId: string;
   withEnableAuthentication?: boolean;
   onSuccess?: (options: { account: Account }) => void;
@@ -40,6 +41,7 @@ type DoneProps = {
 const Done: FC<DoneProps> = ({
   privatekey,
   name,
+  template,
   networkId,
   password,
   withEnableAuthentication,
@@ -57,6 +59,7 @@ const Done: FC<DoneProps> = ({
             networkId,
             privatekey,
             name,
+            template,
           );
         if (withEnableAuthentication) {
           backgroundApiProxy.dispatch(setEnableLocalAuthentication(true));
@@ -91,7 +94,7 @@ const Done: FC<DoneProps> = ({
 export const AddImportedAccountDone = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
-  const { privatekey, name, networkId, onSuccess, onFailure } =
+  const { privatekey, name, networkId, template, onSuccess, onFailure } =
     route.params ?? {};
   useEffect(() => {
     navigation.setOptions({ gestureEnabled: false });
@@ -108,6 +111,7 @@ export const AddImportedAccountDone = () => {
             withEnableAuthentication={withEnableAuthentication}
             privatekey={privatekey}
             name={name}
+            template={template}
             networkId={networkId}
             password={password}
             onSuccess={onSuccess}

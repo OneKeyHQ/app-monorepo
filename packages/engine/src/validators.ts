@@ -71,8 +71,11 @@ class Validators {
       filterCategories.includes(category) &&
       (await vault.validateImportedCredential(input))
     ) {
-      if (returnEarly) return [{ category, possibleNetworks }];
-      ret.push({ category, possibleNetworks });
+      const derivationOptions =
+        await vault.getAccountNameInfosByImportedOrWatchingCredential(input);
+      if (returnEarly)
+        return [{ category, possibleNetworks, derivationOptions }];
+      ret.push({ category, possibleNetworks, derivationOptions });
     }
 
     category = UserInputCategory.WATCHING;
@@ -80,8 +83,11 @@ class Validators {
       filterCategories.includes(category) &&
       (await vault.validateWatchingCredential(input))
     ) {
-      if (returnEarly) return [{ category, possibleNetworks }];
-      ret.push({ category, possibleNetworks });
+      const derivationOptions =
+        await vault.getAccountNameInfosByImportedOrWatchingCredential(input);
+      if (returnEarly)
+        return [{ category, possibleNetworks, derivationOptions }];
+      ret.push({ category, possibleNetworks, derivationOptions });
     }
 
     category = UserInputCategory.ADDRESS;

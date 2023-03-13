@@ -25,6 +25,8 @@ class AccountSchema extends Realm.Object {
 
   public xpub?: string;
 
+  public xpubSegwit?: string;
+
   public address?: string;
 
   public addresses?: Realm.Dictionary<string>;
@@ -46,6 +48,7 @@ class AccountSchema extends Realm.Object {
       coinType: 'string',
       pub: 'string?',
       xpub: 'string?',
+      xpubSegwit: 'string?',
       address: 'string?',
       addresses: { type: 'dictionary', default: {}, objectType: 'string' },
       tokens: { type: 'Token<>', default: [] },
@@ -75,6 +78,7 @@ class AccountSchema extends Realm.Object {
       (ret as DBVariantAccount).addresses = this.addresses || {};
     } else if (this.type === AccountType.UTXO) {
       (ret as DBUTXOAccount).xpub = this.xpub || '';
+      (ret as DBUTXOAccount).xpubSegwit = this.xpubSegwit || '';
       (ret as DBUTXOAccount).addresses = this.addresses || {};
     }
     return ret;

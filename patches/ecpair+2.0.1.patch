@@ -1,0 +1,16 @@
+diff --git a/node_modules/ecpair/src/ecpair.js b/node_modules/ecpair/src/ecpair.js
+index 7d40f4a..19e12eb 100644
+--- a/node_modules/ecpair/src/ecpair.js
++++ b/node_modules/ecpair/src/ecpair.js
+@@ -63,11 +63,6 @@ function ECPairFactory(ecc) {
+     return fromPrivateKey(d, options);
+   }
+   class ECPair {
+-    __D;
+-    __Q;
+-    compressed;
+-    network;
+-    lowR;
+     constructor(__D, __Q, options) {
+       this.__D = __D;
+       this.__Q = __Q;

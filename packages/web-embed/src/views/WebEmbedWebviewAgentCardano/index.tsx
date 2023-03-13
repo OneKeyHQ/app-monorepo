@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access */
 import { memo, useCallback, useEffect } from 'react';
 
-import { Box } from '@onekeyhq/components';
+import { Center, Text } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -32,7 +33,9 @@ enum CardanoEvent {
   dAppSignData = 'Cardano_DAppSignData',
 }
 
-function CardanoProvider() {
+let testCallingCount = 1;
+let testCallingInterval: ReturnType<typeof setInterval> | undefined;
+function WebEmbedWebviewAgentCardano() {
   const sendResponse = useCallback((promiseId: number, result: any) => {
     window.$onekey.$private.request({
       method: ProvideResponseMethod,
@@ -43,7 +46,7 @@ function CardanoProvider() {
 
   const handler = useCallback(
     async (payload: IJsonRpcRequest) => {
-      console.log('CardanoProvider Recive Message: ', payload);
+      console.log('WebEmbedWebviewAgentCardano Recive Message: ', payload);
       console.log('params: ', JSON.stringify(payload.params));
       const { method, params } = payload;
 
@@ -220,7 +223,28 @@ function CardanoProvider() {
     };
   }, [handler]);
 
-  return <Box />;
+  return (
+    <Center p={4} bgColor="surface-warning-subdued" minH="100%">
+      <Text
+        onPress={() => {
+          if (platformEnv.isDev) {
+            clearInterval(testCallingInterval);
+            testCallingInterval = setInterval(() => {
+              // eslint-disable-next-line no-plusplus
+              const content = `call private method interval::::   ${testCallingCount++}  `;
+              console.log(content);
+              window.$onekey.$private.request({
+                method: ProvideResponseMethod,
+                data: content,
+              });
+            }, 3000);
+          }
+        }}
+      >
+        Cardano web-embed Webview Agent
+      </Text>
+    </Center>
+  );
 }
 
-export default memo(CardanoProvider);
+export default memo(WebEmbedWebviewAgentCardano);
