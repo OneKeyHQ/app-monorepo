@@ -1261,7 +1261,7 @@
   "form__recent_searched_uppercase": "ZULETZT GESUCHT",
   "form__recommended": "Empfohlen",
   "form__record_your_recovery_phrase_like_a_dot_punching_game": "Nehmen Sie Ihre Wiederherstellungsphrase wie ein Punktschlagspiel auf.",
-  "form__recovery_phrase": "Wiederherstellungssatz",
+  "form__recovery_phrase": "Use spaces between words",
   "form__recovery_seed_invalid": "Ihre Wiederherstellungsphrase ist ungültig.",
   "form__recovery_seed_placeholder": "Geben Sie hier den Wortlaut Ihres Wiederherstellungssatzes ein",
   "form__release_notes": "Versionshinweise:",

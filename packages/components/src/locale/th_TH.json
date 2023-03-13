@@ -1261,7 +1261,7 @@
   "form__recent_searched_uppercase": "ค้นหาล่าสุด",
   "form__recommended": "ที่แนะนำ",
   "form__record_your_recovery_phrase_like_a_dot_punching_game": "บันทึกวลีการกู้คืนของคุณเหมือนเกมเจาะจุด",
-  "form__recovery_phrase": "การกู้คืนวลี",
+  "form__recovery_phrase": "Use spaces between words",
   "form__recovery_seed_invalid": "วลีกู้คืนของคุณไม่ถูกต้อง",
   "form__recovery_seed_placeholder": "พิมพ์คำของวลีกู้คืนของคุณที่นี่",
   "form__release_notes": "บันทึกประจำรุ่น:",

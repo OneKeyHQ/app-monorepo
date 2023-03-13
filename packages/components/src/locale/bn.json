@@ -1261,7 +1261,7 @@
   "form__recent_searched_uppercase": "সাম্প্রতিক অনুসন্ধান",
   "form__recommended": "প্রস্তাবিত",
   "form__record_your_recovery_phrase_like_a_dot_punching_game": "একটি ডট-পাঞ্চিং গেমের মতো আপনার পুনরুদ্ধার বাক্যাংশ রেকর্ড করুন।",
-  "form__recovery_phrase": "পুনরুদ্ধারের বাক্যাংশ",
+  "form__recovery_phrase": "Use spaces between words",
   "form__recovery_seed_invalid": "আপনার পুনরুদ্ধার বাক্যাংশ অবৈধ.",
   "form__recovery_seed_placeholder": "এখানে আপনার পুনরুদ্ধার শব্দগুচ্ছ শব্দ টাইপ করুন",
   "form__release_notes": "অব্যাহতি পত্র:",

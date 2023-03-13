@@ -1261,7 +1261,7 @@
   "form__recent_searched_uppercase": "ПОСЛЕДНИЕ ПОИСКИ",
   "form__recommended": "рекомендуемые",
   "form__record_your_recovery_phrase_like_a_dot_punching_game": "Запишите свою восстановительную фразу, как в игре с пробивкой точек.",
-  "form__recovery_phrase": "Фраза восстановления",
+  "form__recovery_phrase": "Use spaces between words",
   "form__recovery_seed_invalid": "Ваша фраза восстановления недействительна.",
   "form__recovery_seed_placeholder": "Введите здесь слова вашей фразы для восстановления",
   "form__release_notes": "Примечания к выпуску:",

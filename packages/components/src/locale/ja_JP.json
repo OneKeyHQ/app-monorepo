@@ -1261,7 +1261,7 @@
   "form__recent_searched_uppercase": "最近検索した",
   "form__recommended": "推奨された",
   "form__record_your_recovery_phrase_like_a_dot_punching_game": "ドット パンチ ゲームのように回復フレーズを記録しよう。",
-  "form__recovery_phrase": "回復フレーズ",
+  "form__recovery_phrase": "Use spaces between words",
   "form__recovery_seed_invalid": "無効な回復フレーズ",
   "form__recovery_seed_placeholder": "回復フレーズの単語を入力してください",
   "form__release_notes": "リリースノート：",
