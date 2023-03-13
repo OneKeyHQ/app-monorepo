@@ -39,7 +39,7 @@ function stringifyLog(...args: any[]) {
   const stringifiedLog =
     // @ts-ignore
     stringify(...argsNew);
-  return stringifiedLog.length > LOG_STRING_LIMIT
+  return platformEnv.isDev && stringifiedLog.length > LOG_STRING_LIMIT
     ? `${stringifiedLog.slice(0, LOG_STRING_LIMIT)}...`
     : stringifiedLog;
 }
