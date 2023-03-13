@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,9 +9,7 @@ import {
   Button,
   Center,
   Form,
-  Input,
   Modal,
-  Textarea,
   ToastManager,
   useForm,
   useIsVerticalLayout,
@@ -362,8 +360,6 @@ function AddExistingWalletView(
   } = useNameServiceStatus();
   const isVerticalLayout = useIsVerticalLayout();
   const [isRealValid, setIsRealValid] = useState(false);
-  const inputRef = useRef(null);
-  const textareaRef = useRef(null);
   const helpText = useCallback(
     (value: string) => (
       <NameServiceResolver
@@ -396,27 +392,6 @@ function AddExistingWalletView(
     }
     return res;
   }, [mode, showPasteButton]);
-
-  useEffect(() => {
-    if (inputRef.current || textareaRef.current) {
-      setTimeout(() => {
-        if (mode === 'imported' && inputRef.current) {
-          // @ts-expect-error
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          inputRef.current?.focus?.();
-        } else if (
-          textareaRef.current &&
-          ((mode === 'mnemonic' && platformEnv.isNative) ||
-            mode === 'all' ||
-            mode === 'watching')
-        ) {
-          // @ts-expect-error
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-          textareaRef.current?.focus?.();
-        }
-      }, 500);
-    }
-  }, [mode]);
 
   return (
     <Box
@@ -494,18 +469,18 @@ function AddExistingWalletView(
             helpText={helpText}
           >
             {mode === 'imported' ? (
-              <Input
-                ref={inputRef}
+              <Form.Input
                 placeholder={placeholder}
+                autoFocus
                 backgroundColor="action-secondary-default"
                 secureTextEntry
                 size="xl"
                 rightCustomElement={PasteBtn()}
               />
             ) : (
-              <Textarea
-                ref={textareaRef}
+              <Form.Textarea
                 inputAccessoryViewID="1"
+                autoFocus
                 autoCorrect={false}
                 placeholder={placeholder}
                 totalLines={3}
