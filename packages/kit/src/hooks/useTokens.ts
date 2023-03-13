@@ -123,11 +123,7 @@ export function useAccountTokens(
     if (hideSmallBalance && new B(t.usdValue).isLessThan(1)) {
       return false;
     }
-    if (
-      hideRiskTokens &&
-      t.riskLevel &&
-      t.riskLevel > TokenRiskLevel.VERIFIED
-    ) {
+    if (hideRiskTokens && t.riskLevel && t.riskLevel > TokenRiskLevel.WARN) {
       return false;
     }
     if (putMainTokenOnTop && (t.isNative || !t.address)) {

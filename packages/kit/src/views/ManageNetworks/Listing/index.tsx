@@ -5,7 +5,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useFocusEffect } from '@react-navigation/native';
-import { debounce } from 'lodash';
+import { debounce, pick } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -45,6 +45,25 @@ const updateNetworks = debounce(
     trailing: true,
   },
 );
+
+export const NetworkListEmpty = () => {
+  const intl = useIntl();
+  return (
+    <KeyboardDismissView>
+      <Empty
+        flex="1"
+        emoji="🔍"
+        title={intl.formatMessage({
+          id: 'content__no_results',
+          defaultMessage: 'No Result',
+        })}
+      />
+    </KeyboardDismissView>
+  );
+};
+
+export const strIncludes = (a: string, b: string) =>
+  a.toLowerCase().includes(b.toLowerCase());
 
 const NetworkItem: FC<{
   item: Network;
@@ -118,11 +137,16 @@ export const Listing: FC = () => {
 
   const data = useMemo(
     () =>
-      allNetworks.filter(
-        (d) =>
-          d.name.toLowerCase().includes(search.toLowerCase()) ||
-          d.shortName.toLowerCase().includes(search.toLowerCase()),
-      ),
+      allNetworks.filter((d) => {
+        for (const v of Object.values(
+          pick(d, 'name', 'shortName', 'id', 'symbol'),
+        )) {
+          if (strIncludes(String(v), search)) {
+            return true;
+          }
+        }
+        return false;
+      }),
     [allNetworks, search],
   );
 

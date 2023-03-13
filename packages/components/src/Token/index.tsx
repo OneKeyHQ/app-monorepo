@@ -77,12 +77,12 @@ export const SecurityIcon: FC<{ token: Partial<IToken>; size: number }> = ({
   }
   if (riskLevel === TokenRiskLevel.DANGER) {
     return (
-      <Icon size={size} name="ShieldExclamationMini" color="icon-critical" />
+      <Icon size={size} name="ExclamationTriangleMini" color="icon-warning" />
     );
   }
   if (riskLevel === TokenRiskLevel.WARN) {
     return (
-      <Icon size={size} name="ExclamationTriangleMini" color="icon-warning" />
+      <Icon size={size} name="ExclamationCircleMini" color="icon-subdued" />
     );
   }
   return null;
