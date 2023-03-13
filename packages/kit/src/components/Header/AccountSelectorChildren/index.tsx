@@ -73,7 +73,7 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
     selectedNetwork,
     selectedNetworkId,
 
-    deviceStatus,
+    devicesStatus,
 
     isLoading,
     isOpenDelay,
@@ -162,13 +162,13 @@ const AccountSelectorChildren: FC<IAccountSelectorChildrenProps> = ({
         setSelectedWallet={(w) =>
           serviceAccountSelector.updateSelectedWallet(w?.id)
         }
-        deviceStatus={deviceStatus}
+        deviceStatus={devicesStatus}
       />
       <VStack flex={1} pb={`${isVerticalLayout ? bottom : 0}px`}>
         <RightHeader
           selectedWallet={selectedWallet}
           deviceStatus={
-            deviceStatus?.[selectedWallet?.associatedDevice ?? ''] ?? undefined
+            devicesStatus?.[selectedWallet?.associatedDevice ?? ''] ?? undefined
           }
         />
         <Box

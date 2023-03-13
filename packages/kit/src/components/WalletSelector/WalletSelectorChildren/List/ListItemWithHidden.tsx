@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Pressable, Text } from '@onekeyhq/components';
+import { Box, Button } from '@onekeyhq/components';
 
 import { showOverlay } from '../../../../utils/overlayUtils';
 import CreateHwWalletDialog from '../../../../views/CreateWallet/HardwareWallet/CreateHwWalletDialog';
@@ -15,7 +15,7 @@ import type { IWalletDataSection } from '../../hooks/useWalletSelectorSectionDat
 import type { IWalletDataBase } from './index';
 
 function ListItemWithHidden({
-  deviceStatus,
+  devicesStatus,
   item,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   section,
@@ -23,7 +23,7 @@ function ListItemWithHidden({
 }: {
   item: IWalletDataBase;
   section: IWalletDataSection;
-  deviceStatus: IHardwareDeviceStatusMap | undefined;
+  devicesStatus: IHardwareDeviceStatusMap | undefined;
   onLastItemRender?: () => void;
 }) {
   const intl = useIntl();
@@ -61,7 +61,7 @@ function ListItemWithHidden({
           />
           <ListItem
             onLastItemRender={onLastItemRender}
-            deviceStatus={deviceStatus}
+            devicesStatus={devicesStatus}
             {...item}
           />
           {item.hiddenWallets?.map((hiddenWallet, index) => (
@@ -70,25 +70,14 @@ function ListItemWithHidden({
               <ListItem
                 {...item}
                 key={index}
-                deviceStatus={deviceStatus}
+                devicesStatus={undefined}
                 wallet={hiddenWallet}
                 onLastItemRender={onLastItemRender}
               />
             </>
           ))}
           <Box px={4} py={2}>
-            <Pressable
-              // TODO hidden wallet add
-              rounded="xl"
-              flexDirection="row"
-              alignItems="center"
-              justifyContent="center"
-              p={2}
-              borderWidth={1}
-              borderColor="border-default"
-              borderStyle="dashed"
-              _hover={{ bgColor: 'surface-hovered' }}
-              _pressed={{ bgColor: 'surface-pressed' }}
+            <Button
               onPress={() => {
                 const associatedDevice =
                   item?.wallet?.associatedDevice ??
@@ -98,18 +87,16 @@ function ListItemWithHidden({
                   onAddPassphraseWallet(associatedDevice);
                 }
               }}
+              leftIconName="PlusSmMini"
             >
-              <Icon name="PlusSmMini" size={20} />
-              <Text ml={2} typography="Body2Strong">
-                {intl.formatMessage({ id: 'action__add_hidden_wallet' })}
-              </Text>
-            </Pressable>
+              {intl.formatMessage({ id: 'action__add_hidden_wallet' })}
+            </Button>
           </Box>
         </Box>
       ) : (
         <ListItem
           onLastItemRender={onLastItemRender}
-          deviceStatus={deviceStatus}
+          devicesStatus={devicesStatus}
           {...item}
         />
       )}

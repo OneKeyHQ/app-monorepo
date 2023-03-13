@@ -163,6 +163,7 @@ export default async function showHardwarePopup({
 
     popupView = (
       <RequestPassphraseOnDeviceView
+        connectId={payload?.deviceConnectId ?? ''}
         deviceType={deviceType}
         passphraseState={payload?.passphraseState}
         onCancel={() => {
@@ -190,6 +191,7 @@ export default async function showHardwarePopup({
     popupType = 'inputPassphrase';
     popupView = (
       <EnterPassphraseView
+        connectId={payload?.deviceConnectId ?? ''}
         passphraseState={payload?.passphraseState}
         onConfirm={(passphrase) => onPassphraseAck(passphrase)}
         onDeviceInput={() => onPassphraseAck('', true)}

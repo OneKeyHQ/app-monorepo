@@ -25,12 +25,14 @@ type InitialState = {
   passphraseOpened: string[]; // deviceId array, open passphrase device list
   lastCheckUpdateTime: Record<string, number>; // connectId -> time
   updateFirmwareStep: string;
+  pendingRememberWalletConnectId?: string;
 };
 const initialState: InitialState = {
   connected: [],
   passphraseOpened: [],
   lastCheckUpdateTime: {},
   updateFirmwareStep: '',
+  pendingRememberWalletConnectId: undefined,
 };
 export const hardwareSlice = createSlice({
   name: 'hardware',
@@ -78,6 +80,12 @@ export const hardwareSlice = createSlice({
     setUpdateFirmwareStep: (state, action: PayloadAction<string>) => {
       state.updateFirmwareStep = action.payload;
     },
+    setPendingRememberWalletConnectId: (
+      state,
+      action: PayloadAction<string | undefined>,
+    ) => {
+      state.pendingRememberWalletConnectId = action.payload;
+    },
   },
 });
 
@@ -88,6 +96,7 @@ export const {
   closeHardwarePopup,
   updateDevicePassphraseOpenedState,
   setUpdateFirmwareStep,
+  setPendingRememberWalletConnectId,
 } = hardwareSlice.actions;
 
 export default hardwareSlice.reducer;

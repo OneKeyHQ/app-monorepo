@@ -1,4 +1,6 @@
-import { useCallback, useLayoutEffect } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -7,24 +9,28 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { IWallet } from '@onekeyhq/engine/src/types';
-import { WalletAvatarPro } from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import {
-  useActiveWalletAccount,
-  useNavigationActions,
-} from '../../../../hooks';
-import { useWalletName } from '../../../../hooks/useWalletName';
-import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
-import { wait } from '../../../../utils/helper';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY,
   WALLET_SELECTOR_DESKTOP_ACTION_DELAY_AFTER_CLOSE,
-} from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
+} from '@onekeyhq/kit/src/components/Header/AccountSelectorChildren/accountSelectorConsts';
+import type { IHardwareDeviceStatusMap } from '@onekeyhq/kit/src/components/NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
+import type { DeviceState } from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
+import {
+  WalletAvatarPro,
+  useHardwareWalletInfo,
+} from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
+import {
+  useActiveWalletAccount,
+  useNavigationActions,
+} from '@onekeyhq/kit/src/hooks';
+import { useWalletName } from '@onekeyhq/kit/src/hooks/useWalletName';
+import reducerAccountSelector from '@onekeyhq/kit/src/store/reducers/reducerAccountSelector';
+import { wait } from '@onekeyhq/kit/src/utils/helper';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { WalletItemSelectDropdown } from '../WalletItemSelectDropdown';
 
-import type { IHardwareDeviceStatusMap } from '../../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import type { IWalletDataBase } from './index';
 
 const SelectedIndicator = () => (
@@ -43,9 +49,9 @@ const SelectedIndicator = () => (
 function RightContent({
   wallet,
   isSingleton,
-  deviceStatus,
+  devicesStatus,
 }: IWalletDataBase & {
-  deviceStatus: IHardwareDeviceStatusMap | undefined;
+  devicesStatus: IHardwareDeviceStatusMap | undefined;
 }) {
   return (
     <>
@@ -54,7 +60,7 @@ function RightContent({
           {wallet ? (
             <WalletItemSelectDropdown
               wallet={wallet}
-              deviceStatus={deviceStatus}
+              devicesStatus={devicesStatus}
             />
           ) : null}
         </>
@@ -70,15 +76,39 @@ export function ListItemBase({
   leftView,
   rightView,
   text,
+  deviceState,
   onPress,
   isSelected,
 }: {
   text: string | undefined;
+  deviceState?: DeviceState;
   leftView?: any;
   rightView?: any;
   onPress?: () => void;
   isSelected?: boolean;
 }) {
+  const intl = useIntl();
+  const [deviceStatusColor, setDeviceStatusColor] = useState('');
+  const [deviceStatusContent, setDeviceStatusContent] = useState<
+    string | undefined
+  >();
+
+  useEffect(() => {
+    if (deviceState === 'connected') {
+      setDeviceStatusColor('interactive-default');
+      setDeviceStatusContent(
+        intl.formatMessage({ 'id': 'msg__hardware_status_connected' }),
+      );
+    } else if (deviceState === 'upgrade') {
+      setDeviceStatusColor('icon-highlight');
+      setDeviceStatusContent(
+        intl.formatMessage({ 'id': 'msg__hardware_status_update_available' }),
+      );
+    } else {
+      setDeviceStatusContent(undefined);
+    }
+  }, [deviceState, intl]);
+
   return (
     <Box px={2}>
       <Pressable
@@ -92,14 +122,24 @@ export function ListItemBase({
         onPress={onPress}
       >
         {leftView}
-        <Text
-          flex={1}
-          mx={3}
-          typography={platformEnv.isNative ? 'Body1Strong' : 'Body2Strong'}
-          isTruncated
-        >
-          {text}
-        </Text>
+        <Box flex={1} mx={3}>
+          <Text
+            typography={platformEnv.isNative ? 'Body1Strong' : 'Body2Strong'}
+            isTruncated
+          >
+            {text}
+          </Text>
+          {deviceStatusContent && (
+            <Text
+              typography="Body2"
+              mt="4px"
+              isTruncated
+              color={deviceStatusColor}
+            >
+              {deviceStatusContent}
+            </Text>
+          )}
+        </Box>
         {rightView}
       </Pressable>
       {isSelected ? <SelectedIndicator /> : undefined}
@@ -111,13 +151,13 @@ function ListItem({
   wallet,
   isSingleton,
   isLastItem,
-  deviceStatus,
+  devicesStatus,
   onLastItemRender,
 }: {
   wallet: IWallet;
   isSingleton?: boolean; // isSingleton Wallet: watching\imported\external
   isLastItem?: boolean;
-  deviceStatus: IHardwareDeviceStatusMap | undefined;
+  devicesStatus: IHardwareDeviceStatusMap | undefined;
   onLastItemRender?: () => void;
 }) {
   const { walletId } = useActiveWalletAccount();
@@ -126,6 +166,10 @@ function ListItem({
   const isVertical = useIsVerticalLayout();
   const { closeWalletSelector } = useNavigationActions();
   const name = useWalletName({ wallet });
+  const hwInfo = useHardwareWalletInfo({
+    devicesStatus,
+    wallet,
+  });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const numberOfAccounts = wallet.accounts.length;
@@ -137,6 +181,7 @@ function ListItem({
       onLastItemRender?.();
     }
   }, [isLastItem, onLastItemRender]);
+
   const onPress = useCallback(() => {
     closeWalletSelector();
 
@@ -163,22 +208,24 @@ function ListItem({
       }
     });
   }, [closeWalletSelector, dispatch, isVertical, serviceAccount, wallet?.id]);
+
   return (
     <ListItemBase
+      deviceState={hwInfo.deviceStatus}
       onPress={onPress}
       leftView={
         <WalletAvatarPro
           size={platformEnv.isNative ? 'lg' : 'sm'}
           circular={circular}
           wallet={wallet}
-          deviceStatus={deviceStatus}
+          devicesStatus={undefined}
         />
       }
       rightView={
         <RightContent
           wallet={wallet}
           isSingleton={isSingleton}
-          deviceStatus={deviceStatus}
+          devicesStatus={devicesStatus}
         />
       }
       text={name}
@@ -191,10 +238,10 @@ function ListItemWithEmptyWallet({
   wallet,
   isSingleton,
   isLastItem,
-  deviceStatus,
+  devicesStatus,
   onLastItemRender,
 }: IWalletDataBase & {
-  deviceStatus: IHardwareDeviceStatusMap | undefined;
+  devicesStatus: IHardwareDeviceStatusMap | undefined;
   onLastItemRender?: () => void;
 }) {
   if (!wallet) {
@@ -203,7 +250,7 @@ function ListItemWithEmptyWallet({
   return (
     <ListItem
       onLastItemRender={onLastItemRender}
-      deviceStatus={deviceStatus}
+      devicesStatus={devicesStatus}
       wallet={wallet}
       isSingleton={isSingleton}
       isLastItem={isLastItem}
