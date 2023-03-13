@@ -164,7 +164,7 @@ jobs:
             !./packages/desktop/build-electron/builder-debug.yml
 
       - name: Upload Artifacts to Snap Linux
-        if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/onekey') }}
+        if: ${{ github.event.workflow_run }}
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
         run: |

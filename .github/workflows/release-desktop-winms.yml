@@ -1,4 +1,4 @@
-name: release-desktop
+name: release-desktop-winms
 
 on:
   workflow_run:
