@@ -72,22 +72,24 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
   const [buyUrl, updateBuyUrl] = useState('');
   const [sellUrl, updateSellUrl] = useState('');
   useEffect(() => {
-    backgroundApiProxy.serviceFiatPay
-      .getFiatPayUrl({
-        type: 'buy',
-        address: account?.address,
-        tokenAddress: token?.address,
-        networkId: token?.networkId,
-      })
-      .then((url) => updateBuyUrl(url));
-    backgroundApiProxy.serviceFiatPay
-      .getFiatPayUrl({
-        type: 'sell',
-        address: account?.address,
-        tokenAddress: token?.address,
-        networkId: token?.networkId,
-      })
-      .then((url) => updateSellUrl(url));
+    if (token?.address !== undefined && token?.networkId !== undefined) {
+      backgroundApiProxy.serviceFiatPay
+        .getFiatPayUrl({
+          type: 'buy',
+          address: account?.address,
+          tokenAddress: token?.address,
+          networkId: token?.networkId,
+        })
+        .then((url) => updateBuyUrl(url));
+      backgroundApiProxy.serviceFiatPay
+        .getFiatPayUrl({
+          type: 'sell',
+          address: account?.address,
+          tokenAddress: token?.address,
+          networkId: token?.networkId,
+        })
+        .then((url) => updateSellUrl(url));
+    }
   }, [account?.address, token?.address, token?.networkId, updateBuyUrl]);
 
   const goToWebView = useCallback(
