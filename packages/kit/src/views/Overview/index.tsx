@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { memo, useCallback, useLayoutEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
@@ -27,7 +27,7 @@ const OverviewDefiListComponent: FC = () => {
   const navigation = useNavigation();
   const isVertical = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0);
   const { networkId, address } = route.params;
 
   const loadMore = useCallback(() => {
@@ -43,6 +43,10 @@ const OverviewDefiListComponent: FC = () => {
       title: 'DeFi',
     });
   }, [navigation]);
+
+  useEffect(() => {
+    setTimeout(loadMore, 200);
+  }, [loadMore]);
 
   return (
     <List
