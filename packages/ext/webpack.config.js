@@ -229,7 +229,8 @@ let chunkIndex = 800;
 function enableCodeSplitChunks({ config, name }) {
   let maxSizeMb = 4;
   const isFirefox = buildTargetBrowser === 'firefox';
-  const isChrome = buildTargetBrowser === 'chrome';
+  const isChrome =
+    buildTargetBrowser === 'chrome' || buildTargetBrowser === 'edge';
   if (isFirefox) {
     maxSizeMb = 1;
   }

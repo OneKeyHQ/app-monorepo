@@ -39,6 +39,7 @@ export type DesktopAPI = {
   arch: string;
   platform: string;
   isMas: boolean;
+  channel?: string;
   reload: () => void;
   ready: () => void;
   focus: () => void;
@@ -137,6 +138,20 @@ const validChannels = [
   'touch/update-progress',
 ];
 
+const getChannel = () => {
+  let channel;
+  try {
+    if (process.platform === 'linux' && process.env.APPIMAGE) {
+      channel = 'appImage';
+    } else if (process.platform === 'linux' && process.env.SNAP) {
+      channel = 'snap';
+    }
+  } catch (e) {
+    // ignore
+  }
+  return channel;
+};
+
 const desktopApi = {
   on: (channel: string, func: (...args: any[]) => any) => {
     if (validChannels.includes(channel)) {
@@ -147,6 +162,7 @@ const desktopApi = {
   arch: process.arch,
   platform: process.platform,
   isMas: process.mas,
+  channel: getChannel(),
   ready: () => ipcRenderer.send('app/ready'),
   reload: () => ipcRenderer.send('app/reload'),
   focus: () => ipcRenderer.send('app/focus'),
