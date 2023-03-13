@@ -15,7 +15,7 @@ export type IconProps = Omit<SvgProps, 'color'> & {
   color?: ThemeToken;
 };
 
-const Icon: FC<IconProps> = ({ name, size = 24, color }) => {
+const Icon: FC<IconProps> = ({ name, size = 24, color, width, height }) => {
   const defaultColor = useThemeValue('icon-default');
   const primaryColor = useThemeValue(color ?? 'icon-default');
   let SVGComponent = ICON_CONFIG[name];
@@ -48,8 +48,8 @@ const Icon: FC<IconProps> = ({ name, size = 24, color }) => {
     // @ts-ignore
     <SVGComponent
       // @ts-ignore
-      width={size ?? 'auto'}
-      height={size ?? 'auto'}
+      width={width ?? size ?? 'auto'}
+      height={height ?? size ?? 'auto'}
       color={svgColor}
     />
   );

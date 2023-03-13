@@ -22,7 +22,8 @@ export function useDeviceStatusOfHardwareWallet() {
   const { hardwareWallets } = useRuntimeWallets();
   const { deviceUpdates } = useSettings();
   const connected = useAppSelector((s) => s.hardware.connected);
-  const [deviceStatus, setDeviceStatus] = useState<IHardwareDeviceStatusMap>();
+  const [devicesStatus, setDevicesStatus] =
+    useState<IHardwareDeviceStatusMap>();
   const getStatus = useCallback(
     (connectId: string | undefined): DeviceStatusType | undefined => {
       if (!connectId) return undefined;
@@ -49,7 +50,7 @@ export function useDeviceStatusOfHardwareWallet() {
         return acc;
       }, {} as Record<string, Device>);
 
-      setDeviceStatus(
+      setDevicesStatus(
         hardwareWallets.reduce((acc, wallet) => {
           if (!wallet.associatedDevice) return acc;
 
@@ -71,6 +72,6 @@ export function useDeviceStatusOfHardwareWallet() {
   // deviceStatus
 
   return {
-    deviceStatus,
+    devicesStatus,
   };
 }

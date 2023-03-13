@@ -88,6 +88,12 @@ export class ConnectTimeoutError extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_polling_connect_timeout_error';
 }
 
+export class ConnectPollingStopError extends OneKeyHardwareError {
+  override code = HardwareErrorCode.PollingStop;
+
+  override key: LocaleIds = 'msg__hardware_polling_connect_timeout_error';
+}
+
 // 设备没有配对成功
 export class DeviceNotBonded extends OneKeyHardwareError {
   override code = HardwareErrorCode.BleDeviceNotBonded;

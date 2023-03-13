@@ -44,7 +44,7 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
   const isLoading = useAppSelector((s) => s.accountSelector.isLoading);
   const maxItemWidth = screenWidth / 2 - (platformEnv.isNative ? 72 : 0);
   const walletName = useWalletName({ wallet });
-  const { deviceStatus } = useDeviceStatusOfHardwareWallet();
+  const { devicesStatus } = useDeviceStatusOfHardwareWallet();
 
   if (!wallet) {
     return (
@@ -96,7 +96,7 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
             ) : (
               <WalletAvatarPro
                 wallet={wallet}
-                deviceStatus={deviceStatus}
+                devicesStatus={devicesStatus}
                 size="sm"
               />
             )}

@@ -140,7 +140,7 @@ export function WalletSelectDropdown({
                   <WalletAvatarPro
                     wallet={selectedWallet}
                     size="xs"
-                    deviceStatus={undefined}
+                    devicesStatus={undefined}
                   />
                 ) : null}
                 <Text
@@ -197,7 +197,7 @@ export function WalletSelectDropdown({
                     <WalletAvatarPro
                       // @ts-expect-error
                       wallet={item.wallet}
-                      deviceStatus={undefined}
+                      devicesStatus={undefined}
                       size={isVerticalLayout ? 'lg' : 'xs'}
                     />
                   ) : null
