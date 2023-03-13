@@ -9,6 +9,7 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   clearState,
@@ -29,11 +30,13 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/swap';
 import {
   clearTransactions,
+  setApprovalIssueTokens,
   setCoingeckoIds,
   setRecommendedSlippage,
   setSlippage,
   setSwapChartMode,
   setSwapFeePresetIndex,
+  setWrapperTokens,
   updateTokenList,
 } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
 import type { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
@@ -44,6 +47,7 @@ import type {
   QuoteLimited,
   Recipient,
   SwapRecord,
+  WrapperTransactionInfo,
 } from '@onekeyhq/kit/src/views/Swap/typings';
 import {
   convertBuildParams,
@@ -251,6 +255,65 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async buildWrapperTransaction(
+    params: FetchQuoteParams | undefined,
+  ): Promise<WrapperTransactionInfo | undefined> {
+    const { appSelector } = this.backgroundApi;
+    const wrapperTokens = appSelector((s) => s.swapTransactions.wrapperTokens);
+    if (!params || !wrapperTokens) {
+      return;
+    }
+    const { tokenIn, activeAccount, typedValue, tokenOut, receivingAddress } =
+      params;
+    const address = activeAccount.address.toLowerCase();
+
+    if (
+      tokenIn.networkId !== tokenOut.networkId ||
+      address.toLowerCase() !== receivingAddress?.toLowerCase()
+    ) {
+      return;
+    }
+
+    const { networkId } = tokenIn;
+    const wrapperTokensAddress = wrapperTokens[networkId];
+    if (wrapperTokensAddress) {
+      if (!tokenIn.tokenIdOnNetwork) {
+        const result =
+          tokenOut.tokenIdOnNetwork.toLowerCase() ===
+          wrapperTokensAddress.toLowerCase();
+        if (result) {
+          const encodedTx =
+            await backgroundApiProxy.engine.buildEncodedTxFromWrapperTokenDeposit(
+              {
+                networkId: tokenIn.networkId,
+                accountId: activeAccount.id,
+                amount: typedValue,
+                contract: wrapperTokensAddress,
+              },
+            );
+          return { isWrapperTransaction: true, encodedTx, type: 'Deposite' };
+        }
+      } else {
+        const result =
+          tokenIn.tokenIdOnNetwork.toLowerCase() ===
+            wrapperTokensAddress.toLowerCase() && !tokenOut.tokenIdOnNetwork;
+        if (result) {
+          const encodedTx =
+            await backgroundApiProxy.engine.buildEncodedTxFromWrapperTokenWithdraw(
+              {
+                networkId: tokenIn.networkId,
+                accountId: activeAccount.id,
+                amount: typedValue,
+                contract: wrapperTokensAddress,
+              },
+            );
+          return { isWrapperTransaction: true, encodedTx, type: 'Withdraw' };
+        }
+      }
+    }
+  }
+
+  @backgroundMethod()
   async setQuoteLimited(limited?: QuoteLimited) {
     const { dispatch } = this.backgroundApi;
     dispatch(setQuoteLimited(limited));
@@ -450,7 +513,13 @@ export default class ServiceSwap extends ServiceBase {
     const { data } = res;
     const actions: any[] = [];
     if (data) {
-      const { tokens, coingeckoIds, recommendedSlippage } = data;
+      const {
+        tokens,
+        coingeckoIds,
+        recommendedSlippage,
+        approvalIssueTokens,
+        wrapperTokens,
+      } = data;
       if (tokens) {
         if (tokens && Array.isArray(tokens)) {
           const items = tokens.map((item) => ({
@@ -472,6 +541,24 @@ export default class ServiceSwap extends ServiceBase {
       }
       if (recommendedSlippage) {
         actions.push(setRecommendedSlippage(recommendedSlippage));
+      }
+      if (
+        approvalIssueTokens &&
+        Array.isArray(approvalIssueTokens) &&
+        approvalIssueTokens.length > 0
+      ) {
+        actions.push(setApprovalIssueTokens(approvalIssueTokens));
+      }
+      if (
+        wrapperTokens &&
+        Array.isArray(wrapperTokens) &&
+        wrapperTokens.length > 0
+      ) {
+        const dataRecord = wrapperTokens.reduce((result, item) => {
+          result[item.networkId] = item.address;
+          return result;
+        }, {} as Record<string, string>);
+        actions.push(setWrapperTokens(dataRecord));
       }
     }
     if (actions.length > 0) {

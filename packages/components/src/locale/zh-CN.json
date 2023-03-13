@@ -1261,7 +1261,7 @@
   "form__recent_searched_uppercase": "最近搜索",
   "form__recommended": "推荐",
   "form__record_your_recovery_phrase_like_a_dot_punching_game": "像打点游戏一样记录您的助记词。",
-  "form__recovery_phrase": "助记词",
+  "form__recovery_phrase": "用空格分割单词",
   "form__recovery_seed_invalid": "无效的助记词。",
   "form__recovery_seed_placeholder": "请输入您的助记词",
   "form__release_notes": "版本更新内容:",

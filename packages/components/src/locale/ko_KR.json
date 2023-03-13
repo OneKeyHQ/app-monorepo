@@ -1261,7 +1261,7 @@
   "form__recent_searched_uppercase": "최근 검색",
   "form__recommended": "추천",
   "form__record_your_recovery_phrase_like_a_dot_punching_game": "닷 펀칭 게임처럼 회복 문구를 기록하세요.",
-  "form__recovery_phrase": "회복 문구",
+  "form__recovery_phrase": "Use spaces between words",
   "form__recovery_seed_invalid": "복구 문구가 잘못되었습니다.",
   "form__recovery_seed_placeholder": "여기에 복구 문구의 단어를 입력하십시오",
   "form__release_notes": "릴리즈 노트:",

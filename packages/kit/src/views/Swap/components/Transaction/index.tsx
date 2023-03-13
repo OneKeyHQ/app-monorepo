@@ -196,7 +196,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
   const receivingName = useAddressName({ address: tx.receivingAddress });
 
   return (
-    <Box my="0" px="4">
+    <Box my="0" px="0">
       <Box
         flexDirection="row"
         alignItems="center"
@@ -620,8 +620,8 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
                     borderRadius="full"
                     overflow="hidden"
                     src={tx.quoterLogo}
-                    w="5"
-                    h="5"
+                    w="4"
+                    h="4"
                     mr="2"
                   />
                 ) : null}
@@ -643,11 +643,13 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
           {gt(tx.protocalFees?.amount ?? '0', 0) ? (
             <TransactionProtocalsFees tx={tx} />
           ) : null}
-          <TransactionField
-            label={intl.formatMessage({ id: 'form__included_onekey_fee' })}
-          >
-            <TransactionOneKeyFees tx={tx} />
-          </TransactionField>
+          {tx.percentageFee ? (
+            <TransactionField
+              label={intl.formatMessage({ id: 'form__included_onekey_fee' })}
+            >
+              <TransactionOneKeyFees tx={tx} />
+            </TransactionField>
+          ) : null}
           {swftcOrderId ? (
             <TransactionField
               label={intl.formatMessage({ id: 'form__order_no' })}

@@ -1261,7 +1261,7 @@
   "form__recent_searched_uppercase": "تم البحث عنها مؤخرًا",
   "form__recommended": "مُستَحسَن",
   "form__record_your_recovery_phrase_like_a_dot_punching_game": "سجل عبارة الاسترداد الخاصة بك مثل لعبة التثقيب.",
-  "form__recovery_phrase": "عبارة الاسترداد",
+  "form__recovery_phrase": "Use spaces between words",
   "form__recovery_seed_invalid": "عبارة الاسترداد الخاصة بك غير صالحة.",
   "form__recovery_seed_placeholder": "اكتب كلمات عبارة الاسترداد الخاصة بك هنا",
   "form__release_notes": "ملاحظات الإصدار:",

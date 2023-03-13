@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await */
 import NetInfo from '@react-native-community/netinfo';
 import { debounce } from 'lodash';
 

@@ -1261,7 +1261,7 @@
   "form__recent_searched_uppercase": "СҮҮЛИЙН ХАЙСАН",
   "form__recommended": "Санал болгож байна",
   "form__record_your_recovery_phrase_like_a_dot_punching_game": "Сэргээх хэллэгээ цэг цоолох тоглоом шиг бичээрэй.",
-  "form__recovery_phrase": "Сэргээх хэллэг",
+  "form__recovery_phrase": "Use spaces between words",
   "form__recovery_seed_invalid": "Таны сэргээх хэллэг буруу байна.",
   "form__recovery_seed_placeholder": "Сэргээх хэллэгийнхээ үгийг энд бичнэ үү",
   "form__release_notes": "Хувилбарын тэмдэглэл:",
