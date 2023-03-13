@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -13,26 +13,23 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { HomeRoutes } from '../../../routes/types';
 import LayoutContainer from '../../Onboarding/Layout';
 import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
 import { KeyTagImportMatrix } from '../Component/KeyTagMatrix/keyTagImportMatrix';
 import { KeyTagMnemonicStatus } from '../types';
 import { generalKeyTagMnemonic, keyTagWordDataToMnemonic } from '../utils';
 
-import type { HomeRoutesParams, ModalScreenProps } from '../../../routes/types';
-import type { KeyTagRoutes } from '../Routes/enums';
-import type { IKeytagRoutesParams } from '../Routes/types';
+import type { IOnboardingRoutesParams } from '../../Onboarding/routes/types';
 import type { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProps = StackNavigationProp<
-  IKeytagRoutesParams,
-  KeyTagRoutes.ImportKeytag
-> &
-  ModalScreenProps<HomeRoutesParams>;
+  IOnboardingRoutesParams,
+  EOnboardingRoutes.KeyTag
+>;
 
 const ImportKeyTag: FC = () => {
   const navigation = useNavigation<NavigationProps>();
@@ -86,10 +83,7 @@ const ImportKeyTag: FC = () => {
         .join(' ');
       try {
         await backgroundApiProxy.validator.validateMnemonic(mnemonic);
-        navigation.navigate(HomeRoutes.HomeOnboarding, {
-          screen: EOnboardingRoutes.SetPassword,
-          params: { mnemonic },
-        });
+        navigation.navigate(EOnboardingRoutes.SetPassword, { mnemonic });
       } catch (e) {
         ToastManager.show(
           {
@@ -107,47 +101,33 @@ const ImportKeyTag: FC = () => {
     }
     setImportCheck(false);
   }, [navigation, mnemonicWordDatas, intl]);
-  const rightButton = useMemo(
-    () => (
-      <Button
-        mt={isVertical ? 2 : 6}
-        mr={platformEnv.isNative ? 0 : 6}
-        type="primary"
-        size="base"
-        isLoading={importCheck}
-        onPress={importValidation}
-      >
-        {intl.formatMessage({ id: 'action__import' })}
-      </Button>
-    ),
-    [importCheck, importValidation, intl, isVertical],
-  );
-  const LeftButton = useMemo(
-    () =>
-      !platformEnv.isNativeAndroid ? (
-        <Button
-          ml={isVertical ? 0 : 2}
-          mt={isVertical ? 2 : 6}
-          type="plain"
-          leftIconName="ChevronLeftOutline"
-          onPress={() => {
-            if (navigation?.canGoBack?.()) {
-              navigation.goBack();
-            }
-          }}
-        />
-      ) : null,
-    [isVertical, navigation],
-  );
-  const title = useMemo(() => <Box />, []);
-  navigation.setOptions({
-    headerShown: true,
-    headerLeft: () => LeftButton,
-    headerRight: () => rightButton,
-    headerTitle: () => title,
-    headerShadowVisible: false,
-  });
+
   const [showResult, setShowResult] = useState(true);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      // eslint-disable-next-line react/no-unstable-nested-components
+      header: () => (
+        <NavHeader
+          alwaysShowBackButton
+          // eslint-disable-next-line react/no-unstable-nested-components
+          headerRight={() => (
+            <Button
+              mt={isVertical ? 2 : 6}
+              mr={platformEnv.isNative ? 0 : 6}
+              type="primary"
+              size="base"
+              isLoading={importCheck}
+              onPress={importValidation}
+            >
+              {intl.formatMessage({ id: 'action__import' })}
+            </Button>
+          )}
+        />
+      ),
+    });
+  }, [importCheck, importValidation, intl, isVertical, navigation]);
   return (
     <LayoutContainer backButton={false}>
       <Box

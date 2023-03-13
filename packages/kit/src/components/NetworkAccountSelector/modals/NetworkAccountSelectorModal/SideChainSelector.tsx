@@ -8,7 +8,6 @@ import { StyleSheet } from 'react-native';
 
 import {
   Box,
-  Empty,
   HStack,
   Icon,
   KeyboardAvoidingView,
@@ -25,6 +24,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../../../hooks';
+import {
+  NetworkListEmpty,
+  strIncludes,
+} from '../../../../views/ManageNetworks/Listing';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AllNetwork } from '../../../Header/AccountSelectorChildren/RightChainSelector';
 import { RpcStatusButton } from '../../RpcStatusButton';
@@ -50,9 +53,6 @@ function ChainNetworkIcon({
     <Token size={8} token={{ logoURI: item.logoURI, name: item.shortName }} />
   );
 }
-
-const strIncludes = (a: string, b: string) =>
-  a.toLowerCase().includes(b.toLowerCase());
 
 function SideChainSelector({
   accountSelectorInfo,
@@ -91,19 +91,6 @@ function SideChainSelector({
     [networkImpl, enabledNetworks, search],
   );
 
-  const emptyComponent = useCallback(
-    () => (
-      <Empty
-        flex="1"
-        emoji="🔍"
-        title={intl.formatMessage({
-          id: 'content__no_results',
-          defaultMessage: 'No Result',
-        })}
-      />
-    ),
-    [intl],
-  );
   const isScrolledRef = useRef(false);
   const scrollToItem = useCallback(() => {
     if (
@@ -242,7 +229,7 @@ function SideChainSelector({
       ) : null}
       <KeyboardAvoidingView flex={1}>
         <FlatListRef
-          ListEmptyComponent={emptyComponent}
+          ListEmptyComponent={NetworkListEmpty}
           initialNumToRender={20}
           // TODO auto scroll to active item
           ref={flatListRef}
