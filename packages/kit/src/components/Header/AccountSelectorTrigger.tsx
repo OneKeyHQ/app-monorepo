@@ -13,12 +13,7 @@ import {
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useSettings,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
@@ -28,7 +23,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import ExternalAccountImg from '../../views/ExternalAccount/components/ExternalAccountImg';
-import WalletAvatar from '../WalletSelector/WalletAvatar';
+import { useDeviceStatusOfHardwareWallet } from '../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
+import WalletAvatar, {
+  convertDeviceStatus,
+} from '../WalletSelector/WalletAvatar';
+
+import type { DeviceState } from '../WalletSelector/WalletAvatar';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 type Props = {
@@ -41,16 +41,13 @@ const AccountSelectorTrigger: FC<Props> = ({
   handleToggleVisible,
 }) => {
   const intl = useIntl();
-  const { engine } = backgroundApiProxy;
-  const { deviceUpdates } = useSettings();
-  const connected = useAppSelector((s) => s.hardware.connected);
   const isVerticalLayout = useIsVerticalLayout();
   const { account, wallet } = useActiveWalletAccount();
   const { screenWidth } = useUserDevice();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const [hasWalletState, setHasWalletState] = useState(false);
-  const [walletState, setWalletState] = useState<string>();
+  const [walletState, setWalletState] = useState<DeviceState>(undefined);
   const [isPassphrase, setIsPassphrase] = useState<boolean>(false);
+  const { devicesStatus } = useDeviceStatusOfHardwareWallet();
 
   const maxItemWidth = screenWidth / 2 - (platformEnv.isNative ? 72 : 0);
 
@@ -58,23 +55,13 @@ const AccountSelectorTrigger: FC<Props> = ({
     if (wallet) {
       setIsPassphrase(isPassphraseWallet(wallet));
     }
-    if (wallet?.type === 'hw' && deviceUpdates) {
-      engine.getHWDeviceByWalletId(wallet.id).then((device) => {
-        if (!device) return;
-        const { ble, firmware } = deviceUpdates[device.mac] || {};
-        const hasConnected = connected.includes(device.mac);
-        setHasWalletState(!!ble || !!firmware || !!hasConnected);
-        if (ble || firmware) {
-          setWalletState('warning');
-        } else if (hasConnected) {
-          setWalletState('connected');
-        }
-      });
+    if (wallet?.type === 'hw') {
+      const deviceStatus = devicesStatus?.[wallet.id];
+      setWalletState(convertDeviceStatus(deviceStatus));
     } else {
-      setHasWalletState(false);
       setWalletState(undefined);
     }
-  }, [connected, deviceUpdates, engine, wallet]);
+  }, [devicesStatus, wallet]);
 
   if (!wallet) {
     return (
@@ -132,7 +119,7 @@ const AccountSelectorTrigger: FC<Props> = ({
               isPassphrase={isPassphrase}
               size="sm"
               mr={3}
-              status={hasWalletState ? walletState : undefined}
+              status={walletState}
             />
             {showExternalImg ? (
               <Box position="absolute" right="4px" bottom="-6px">

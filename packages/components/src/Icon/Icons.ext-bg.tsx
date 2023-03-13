@@ -8,6 +8,7 @@ const icons = {
   DiamondBadgeIllus: () => null,
   EmptyNftIllus: () => null,
   GasIllus: () => null,
+  HardwareAboutDeviceBgIllus: () => null,
   ImageBrokenIllus: () => null,
   LogoIllus: () => null,
   LogoBlackIllus: () => null,

@@ -8,6 +8,8 @@ const icons = {
   DiamondBadgeIllus: () => import("./react/illus/DiamondBadge"),
   EmptyNftIllus: () => import("./react/illus/EmptyNft"),
   GasIllus: () => import("./react/illus/Gas"),
+  HardwareAboutDeviceBgIllus: () =>
+    import("./react/illus/HardwareAboutDeviceBg"),
   ImageBrokenIllus: () => import("./react/illus/ImageBroken"),
   LogoIllus: () => import("./react/illus/Logo"),
   LogoBlackIllus: () => import("./react/illus/LogoBlack"),

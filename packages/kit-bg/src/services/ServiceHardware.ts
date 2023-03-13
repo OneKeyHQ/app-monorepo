@@ -11,7 +11,11 @@ import {
   setUpdateFirmwareStep,
   updateDevicePassphraseOpenedState,
 } from '@onekeyhq/kit/src/store/reducers/hardware';
-import { setDeviceUpdates } from '@onekeyhq/kit/src/store/reducers/settings';
+import {
+  setDeviceUpdates,
+  setDeviceVersion,
+  setVerification,
+} from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import {
   BridgeTimeoutError,
@@ -139,18 +143,7 @@ class ServiceHardware extends ServiceBase {
                 // ignore
               }
 
-              try {
-                if (typeof features.passphrase_protection === 'boolean') {
-                  this.backgroundApi.dispatch(
-                    updateDevicePassphraseOpenedState({
-                      deviceId: device.id,
-                      opened: features.passphrase_protection,
-                    }),
-                  );
-                }
-              } catch {
-                // ignore
-              }
+              this._checkPassphraseEnableStatus(device.id, features);
             } catch {
               // empty
             }
@@ -262,10 +255,17 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getPassphraseState(connectId: string) {
+  async unlockDevice(connectId: string) {
+    // only unlock device when device is locked
+    return this.getPassphraseState(connectId, true);
+  }
+
+  @backgroundMethod()
+  async getPassphraseState(connectId: string, useEmptyPassphrase?: boolean) {
     const hardwareSDK = await this.getSDKInstance();
     const response = await hardwareSDK?.getPassphraseState(connectId, {
       initSession: true,
+      useEmptyPassphrase,
     });
 
     if (response.success) {
@@ -616,6 +616,24 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
+  private _checkPassphraseEnableStatus(
+    deviceId: string,
+    features: IOneKeyDeviceFeatures,
+  ) {
+    try {
+      if (typeof features.passphrase_protection === 'boolean') {
+        this.backgroundApi.dispatch(
+          updateDevicePassphraseOpenedState({
+            deviceId,
+            opened: features.passphrase_protection,
+          }),
+        );
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   @backgroundMethod()
   async checkFirmwareUpdate(connectId: string) {
     const hardwareSDK = await this.getSDKInstance();
@@ -671,14 +689,15 @@ class ServiceHardware extends ServiceBase {
         break;
     }
 
+    const actions: any[] = [];
+
     // dev
     const settings = this.backgroundApi.appSelector((s) => s.settings) ?? {};
     const enable = settings?.devMode?.enable ?? false;
     const updateDeviceSys = settings?.devMode?.updateDeviceSys ?? false;
     const alwaysUpgrade = !!enable && !!updateDeviceSys;
 
-    const { dispatch } = this.backgroundApi;
-    dispatch(
+    actions.push(
       setDeviceUpdates({
         connectId,
         type: 'firmware',
@@ -688,6 +707,24 @@ class ServiceHardware extends ServiceBase {
         },
       }),
     );
+
+    // check device version and set verified
+    const currentVersion = settings?.hardware?.versions?.[connectId];
+    if (
+      currentVersion == null ||
+      payload.features?.onekey_version !== currentVersion
+    ) {
+      actions.push(
+        setDeviceVersion({
+          connectId,
+          version: payload.features?.onekey_version ?? '0.0.0',
+        }),
+      );
+      actions.push(setVerification({ connectId, verified: false }));
+    }
+
+    const { dispatch } = this.backgroundApi;
+    dispatch(...actions);
   }
 
   @backgroundMethod()

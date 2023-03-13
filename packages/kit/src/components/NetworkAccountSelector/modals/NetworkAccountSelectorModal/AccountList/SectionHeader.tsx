@@ -28,7 +28,7 @@ const SectionHeader: FC<SectionHeaderProps> = ({
     <Box mt={-2} pt={2} bg="surface-subdued">
       <Box flexDirection="row" alignItems="center" mb={2} pr={1.5} pl={2}>
         <Box flex={1} flexDirection="row" alignItems="center" mr={3}>
-          <WalletAvatarPro size="xs" wallet={wallet} deviceStatus={null} />
+          <WalletAvatarPro size="xs" wallet={wallet} devicesStatus={null} />
           <Text ml={2} typography="Subheading" color="text-subdued" isTruncated>
             {walletName}
           </Text>

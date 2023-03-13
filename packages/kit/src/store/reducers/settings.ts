@@ -106,6 +106,11 @@ export type SettingsState = {
   };
   annualReportEntryEnabled?: boolean;
   accountDerivationDbMigrationVersion?: string;
+  hardware?: {
+    rememberPassphraseWallets?: string[];
+    verification?: Record<string, boolean>; // connectId -> verified
+    versions?: Record<string, string>; // connectId -> version
+  };
 };
 
 export const defaultPushNotification = {
@@ -170,6 +175,11 @@ const initialState: SettingsState = {
   customNetworkRpcMap: {},
   annualReportEntryEnabled: false,
   accountDerivationDbMigrationVersion: '',
+  hardware: {
+    rememberPassphraseWallets: [], // walletId
+    verification: {}, // connectId -> verified
+    versions: {}, // connectId -> version
+  },
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -495,6 +505,59 @@ export const settingsSlice = createSlice({
     ) {
       state.accountDerivationDbMigrationVersion = action.payload;
     },
+    rememberPassphraseWallet(state, action: PayloadAction<string>) {
+      const { payload } = action;
+      const rememberWallets = state.hardware?.rememberPassphraseWallets || [];
+      if (!rememberWallets.includes(payload)) {
+        rememberWallets.push(payload);
+      }
+
+      state.hardware = {
+        ...state.hardware,
+        rememberPassphraseWallets: rememberWallets,
+      };
+    },
+    forgetPassphraseWallet(state, action: PayloadAction<string | string[]>) {
+      const { payload } = action;
+      const rememberWallets = state.hardware?.rememberPassphraseWallets || [];
+      const pendingDelete = Array.isArray(payload) ? payload : [payload];
+
+      pendingDelete.forEach((walletId) => {
+        const index = rememberWallets.indexOf(walletId);
+        if (index > -1) {
+          rememberWallets.splice(index, 1);
+        }
+      });
+
+      state.hardware = {
+        ...state.hardware,
+        rememberPassphraseWallets: rememberWallets,
+      };
+    },
+    setVerification: (
+      state,
+      action: PayloadAction<{ connectId: string; verified: boolean }>,
+    ) => {
+      state.hardware = {
+        ...state.hardware,
+        verification: {
+          ...state.hardware?.verification,
+          [action.payload.connectId]: action.payload.verified,
+        },
+      };
+    },
+    setDeviceVersion: (
+      state,
+      action: PayloadAction<{ connectId: string; version: string }>,
+    ) => {
+      state.hardware = {
+        ...state.hardware,
+        versions: {
+          ...state.hardware?.versions,
+          [action.payload.connectId]: action.payload.version,
+        },
+      };
+    },
   },
 });
 
@@ -544,6 +607,10 @@ export const {
   setAccountDerivationDbMigrationVersion,
   setOnRamperTestMode,
   setShowWebEmbedWebviewAgent,
+  rememberPassphraseWallet,
+  forgetPassphraseWallet,
+  setVerification,
+  setDeviceVersion,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

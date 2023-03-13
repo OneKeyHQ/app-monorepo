@@ -139,6 +139,8 @@ export function convertDeviceError(payload: any): OneKeyHardwareError {
       return new Error.BridgeTimeoutError(payload);
     case HardwareErrorCode.PollingTimeout:
       return new Error.ConnectTimeoutError(payload);
+    case HardwareErrorCode.PollingStop:
+      return new Error.ConnectPollingStopError(payload);
     case HardwareErrorCode.BlindSignDisabled:
       return new Error.OpenBlindSign(payload);
     default:

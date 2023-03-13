@@ -1,7 +1,13 @@
 import type { FC, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { Box, Center, IconButton, Spinner } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  IconButton,
+  Spinner,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IBoxProps } from 'native-base';
@@ -33,6 +39,7 @@ const BaseRequestView: FC<BaseRequestViewProps> = ({
   ...rest
 }) => {
   const [showClose, setShowClose] = useState(false);
+  const { bottom } = useSafeAreaInsets();
 
   const mobileFill = useMemo(
     () => platformEnv.isNative && mobileFillWidth,
@@ -58,7 +65,7 @@ const BaseRequestView: FC<BaseRequestViewProps> = ({
         w="full"
         mx="auto"
         p={4}
-        pb={6}
+        {...(bottom && { pb: `${bottom}px` })}
         rounded="xl"
         bgColor="surface-default"
         borderWidth={1}

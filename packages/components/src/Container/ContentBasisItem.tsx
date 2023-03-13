@@ -31,6 +31,8 @@ export type ContentItemProps = {
    */
   wrap?: ReactNode | null;
   hidePadding?: boolean;
+  px?: number;
+  py?: number;
   /**
    * @deprecated
    * Not recommended to use this prop.
@@ -58,14 +60,16 @@ const Item: FC<Omit<ContentItemProps, 'onPress'>> = ({
   hasDivider,
   children,
   hidePadding,
+  px,
+  py,
   wrap,
   onArrowIconPress,
 }) => (
   <Box w="100%" flexDirection="column">
     {wrap || (
       <Box
-        px={hidePadding ? '0' : { base: '4', lg: '6' }}
-        py={hidePadding ? 0 : 4}
+        px={hidePadding ? '0' : px ?? { base: '4', lg: '6' }}
+        py={hidePadding ? 0 : py ?? 4}
         w="100%"
         flexDirection="row"
         justifyContent="space-between"
