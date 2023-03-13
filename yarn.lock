@@ -3784,35 +3784,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@gorhom/bottom-sheet@npm:^4":
-  version: 4.3.2
-  resolution: "@gorhom/bottom-sheet@npm:4.3.2"
-  dependencies:
-    "@gorhom/portal": 1.0.13
-    invariant: ^2.2.4
-    nanoid: ^3.3.3
-    react-native-redash: ^16.1.1
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-gesture-handler: ">=1.10.1"
-    react-native-reanimated: ">=2.2.0"
-  checksum: e8d4ecb82bd6f6dbc1dd555199bbb62665dfac7e30a1aa0f88664bce0196a4b9d4d2fcb5ec59eff6c319a40541776e71bbbb22c0e1274e68bb07afb3b66fd403
-  languageName: node
-  linkType: hard
-
-"@gorhom/portal@npm:1.0.13":
-  version: 1.0.13
-  resolution: "@gorhom/portal@npm:1.0.13"
-  dependencies:
-    nanoid: ^3.3.1
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 4dd471feedc0dbcc06e9ba725695727448b79550fdc95e5888ea3c2aa9dd51ffffaa0ec2c3e762526c8eef4a36cebd625f73271a3bc31b80786af5a90ba2ea5b
-  languageName: node
-  linkType: hard
-
 "@graphql-typed-document-node/core@npm:^3.1.0, @graphql-typed-document-node/core@npm:^3.1.1":
   version: 3.1.1
   resolution: "@graphql-typed-document-node/core@npm:3.1.1"
@@ -5549,7 +5520,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/components@workspace:packages/components"
   dependencies:
-    "@gorhom/bottom-sheet": ^4
     "@types/qrcode": ^1.4.2
     iso-639-1: ^2.1.13
     lodash: ^4.17.21
@@ -9176,21 +9146,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/yargs@npm:^17.0.1":
+"@types/yargs@npm:^17.0.1, @types/yargs@npm:^17.0.8":
   version: 17.0.22
   resolution: "@types/yargs@npm:17.0.22"
   dependencies:
     "@types/yargs-parser": "*"
   checksum: 0773523fda71bafdc52f13f5970039e535a353665a60ba9261149a5c9c2b908242e6e77fbb7a8c06931ec78ce889d64d09673c68ba23eb5f5742d5385d0d1982
-  languageName: node
-  linkType: hard
-
-"@types/yargs@npm:^17.0.8":
-  version: 17.0.13
-  resolution: "@types/yargs@npm:17.0.13"
-  dependencies:
-    "@types/yargs-parser": "*"
-  checksum: 0ab269abc2da2223cf0a8c16d578850fbe327d40fb85724b5c3f9f6cf38d03656ef699518c05d4df3bc337339ec6d0aad7df01682a9dca4783ad1ccc7336cf12
   languageName: node
   linkType: hard
 
@@ -24348,7 +24309,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nanoid@npm:^3.1.23, nanoid@npm:^3.1.30, nanoid@npm:^3.3.1, nanoid@npm:^3.3.3":
+"nanoid@npm:^3.1.23, nanoid@npm:^3.1.30":
   version: 3.3.4
   resolution: "nanoid@npm:3.3.4"
   bin:
@@ -27808,7 +27769,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-redash@npm:^16.1.1, react-native-redash@npm:^16.2.2":
+"react-native-redash@npm:^16.2.2":
   version: 16.3.0
   resolution: "react-native-redash@npm:16.3.0"
   dependencies:
@@ -33922,7 +33883,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"yargs@npm:^17.0.1":
+"yargs@npm:^17.0.1, yargs@npm:^17.3.1":
   version: 17.7.1
   resolution: "yargs@npm:17.7.1"
   dependencies:
@@ -33934,21 +33895,6 @@ __metadata:
     y18n: ^5.0.5
     yargs-parser: ^21.1.1
   checksum: 3d8a43c336a4942bc68080768664aca85c7bd406f018bad362fd255c41c8f4e650277f42fd65d543fce99e084124ddafee7bbfc1a5c6a8fda4cec78609dcf8d4
-  languageName: node
-  linkType: hard
-
-"yargs@npm:^17.3.1":
-  version: 17.6.2
-  resolution: "yargs@npm:17.6.2"
-  dependencies:
-    cliui: ^8.0.1
-    escalade: ^3.1.1
-    get-caller-file: ^2.0.5
-    require-directory: ^2.1.1
-    string-width: ^4.2.3
-    y18n: ^5.0.5
-    yargs-parser: ^21.1.1
-  checksum: 47da1b0d854fa16d45a3ded57b716b013b2179022352a5f7467409da5a04a1eef5b3b3d97a2dfc13e8bbe5f2ffc0afe3bc6a4a72f8254e60f5a4bd7947138643
   languageName: node
   linkType: hard
 
