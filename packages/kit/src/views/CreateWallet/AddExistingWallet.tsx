@@ -359,7 +359,6 @@ function AddExistingWalletView(
     address,
   } = useNameServiceStatus();
   const isVerticalLayout = useIsVerticalLayout();
-  const [isRealValid, setIsRealValid] = useState(false);
   const helpText = useCallback(
     (value: string) => (
       <NameServiceResolver
@@ -419,7 +418,6 @@ function AddExistingWalletView(
               validate: async (t) => {
                 const text = nameServiceAddress || address || t;
                 if (!text) {
-                  setIsRealValid(false);
                   return true;
                 }
                 if (
@@ -432,10 +430,8 @@ function AddExistingWalletView(
                     ({ category }) => category !== UserInputCategory.ADDRESS,
                   ).length > 0
                 ) {
-                  setIsRealValid(true);
                   return true;
                 }
-                setIsRealValid(false);
                 // Special treatment for BTC address.
                 try {
                   await backgroundApiProxy.validator.validateAddress(
@@ -490,7 +486,7 @@ function AddExistingWalletView(
           </Form.Item>
           {showSubmitButton ? (
             <Button
-              isDisabled={submitDisabled || disableSubmitBtn || !isRealValid}
+              isDisabled={submitDisabled || disableSubmitBtn}
               type="primary"
               size="xl"
               onPromise={handleSubmit(async (values) => {
