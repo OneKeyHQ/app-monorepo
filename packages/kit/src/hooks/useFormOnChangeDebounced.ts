@@ -11,6 +11,7 @@ function useFormOnChangeDebounced<T>({
   wait = 500,
   revalidate = true,
   clearErrorIfEmpty = false,
+  clearErrorWhenTextChange = false,
   onChange,
 }: {
   // @ts-expect-error
@@ -18,6 +19,7 @@ function useFormOnChangeDebounced<T>({
   wait?: number;
   revalidate?: boolean;
   clearErrorIfEmpty?: boolean;
+  clearErrorWhenTextChange?: boolean;
   onChange?: WatchObserver<T>;
 }) {
   const { watch, trigger, formState, clearErrors, getValues } = useFormReturn;
@@ -61,11 +63,15 @@ function useFormOnChangeDebounced<T>({
     );
     const subscription = watch((formValues, { name, type }) => {
       loadingRef.current = true;
+      if (clearErrorWhenTextChange) {
+        clearErrors(name);
+      }
       debounceValidate(formValues, { name, type });
     });
     return () => subscription.unsubscribe();
   }, [
     clearErrorIfEmpty,
+    clearErrorWhenTextChange,
     clearErrors,
     onChange,
     revalidate,
