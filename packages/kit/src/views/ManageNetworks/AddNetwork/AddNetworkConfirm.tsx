@@ -5,9 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Center,
-  Icon,
-  Image,
   KeyboardDismissView,
   Modal,
   Text,
@@ -20,7 +17,10 @@ import type { AddEthereumChainParameter } from '@onekeyhq/shared/src/providerApi
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappParams from '../../../hooks/useDappParams';
+import { NetworkIcon } from '../components/NetworkIcon';
+import { SiteSection } from '../components/SiteSection';
 
+import type { ListItem } from '../SwitchRpc';
 import type { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/core';
 
@@ -28,8 +28,6 @@ type RouteProps = RouteProp<
   ManageNetworkRoutesParams,
   ManageNetworkRoutes.AddNetworkConfirm
 >;
-
-type ListItem = { label: string; value?: string };
 
 export type IViewNetworkModalProps = ModalProps;
 
@@ -63,16 +61,12 @@ const useRouteParams = () => {
   return params;
 };
 
-const Placeholder = () => (
-  <Center w="56px" h="56px" rounded="full" bgColor="surface-neutral-default">
-    <Icon size={32} name="QuestionMarkOutline" />
-  </Center>
-);
-
 function ViewNetworkModal(props: IViewNetworkModalProps) {
   const intl = useIntl();
   const { name, symbol, chainId, rpcURL, exploreUrl, iconUrl } =
     useRouteParams();
+  const queryInfo = useDappParams();
+
   const items: ListItem[] = useMemo(() => {
     const data = [
       {
@@ -81,13 +75,6 @@ function ViewNetworkModal(props: IViewNetworkModalProps) {
           defaultMessage: 'Name',
         }),
         value: name,
-      },
-      {
-        label: intl.formatMessage({
-          id: 'form__url',
-          defaultMessage: 'URL',
-        }),
-        value: rpcURL,
       },
       {
         label: intl.formatMessage({
@@ -110,6 +97,13 @@ function ViewNetworkModal(props: IViewNetworkModalProps) {
         }),
         value: exploreUrl,
       },
+      {
+        label: intl.formatMessage({
+          id: 'form__url',
+          defaultMessage: 'RPC Node',
+        }),
+        value: rpcURL,
+      },
     ];
     return data;
   }, [intl, name, rpcURL, chainId, symbol, exploreUrl]);
@@ -129,20 +123,28 @@ function ViewNetworkModal(props: IViewNetworkModalProps) {
                 mb="8"
                 mt="6"
               >
-                {iconUrl ? (
-                  <Image
-                    src={iconUrl}
-                    alt="logoURI"
-                    size="56px"
-                    borderRadius="full"
-                    fallbackElement={<Placeholder />}
-                  />
-                ) : (
-                  <Placeholder />
-                )}
+                <NetworkIcon
+                  name={symbol}
+                  logoURI={iconUrl}
+                  size="64px"
+                  iconName="PlusCircleSolid"
+                />
                 <Typography.PageHeading mt="4">{`${intl.formatMessage({
                   id: 'title__add_a_network',
                 })}`}</Typography.PageHeading>
+                <SiteSection
+                  url={queryInfo?.sourceInfo?.origin}
+                  mt="2"
+                  w="full"
+                />
+                <Typography.Body1 mt="2">
+                  {intl.formatMessage(
+                    { id: 'title__add_network_desc' },
+                    {
+                      0: symbol,
+                    },
+                  )}
+                </Typography.Body1>
               </Box>
               <Box bg="surface-default" borderRadius="12" mt="2" mb="3">
                 {items.map((item, index) => (
@@ -245,7 +247,7 @@ function AddNetworkConfirmModal() {
       footer
       hideSecondaryAction
       onModalClose={dappApprove.reject}
-      primaryActionTranslationId="action__confirm"
+      primaryActionTranslationId="action__add"
       onPrimaryActionPress={onPrimaryActionPress}
     />
   );
