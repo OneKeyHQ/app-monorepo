@@ -1855,7 +1855,7 @@ class Engine {
     networkId,
     accountId,
     contract,
-    amount
+    amount,
   }: {
     networkId: string;
     accountId: string;
@@ -1863,13 +1863,19 @@ class Engine {
     amount: string;
   }) {
     const vault = await this.getVault({ networkId, accountId });
-    const impl = await vault.getNetworkImpl()
+    const impl = await vault.getNetworkImpl();
     if (impl !== IMPL_EVM) {
-      throw new OneKeyInternalError(`networkId: ${networkId} dont support deposit`)
+      throw new OneKeyInternalError(
+        `networkId: ${networkId} dont support deposit`,
+      );
     }
     const { address } = await this.getAccount(accountId, networkId);
     const evmVault = vault as VaultEvm;
-    return evmVault.buildEncodedTxFromWrapperTokenDeposit({ amount, from: address, contract })
+    return evmVault.buildEncodedTxFromWrapperTokenDeposit({
+      amount,
+      from: address,
+      contract,
+    });
   }
 
   @backgroundMethod()
@@ -1877,7 +1883,7 @@ class Engine {
     networkId,
     accountId,
     contract,
-    amount
+    amount,
   }: {
     networkId: string;
     accountId: string;
@@ -1885,13 +1891,19 @@ class Engine {
     amount: string;
   }) {
     const vault = await this.getVault({ networkId, accountId });
-    const impl = await vault.getNetworkImpl()
+    const impl = await vault.getNetworkImpl();
     if (impl !== IMPL_EVM) {
-      throw new OneKeyInternalError(`networkId: ${networkId} dont support withdraw`)
+      throw new OneKeyInternalError(
+        `networkId: ${networkId} dont support withdraw`,
+      );
     }
     const { address } = await this.getAccount(accountId, networkId);
     const evmVault = vault as VaultEvm;
-    return evmVault.buildEncodedTxFromWrapperTokenWithdraw({ amount, from: address, contract })
+    return evmVault.buildEncodedTxFromWrapperTokenWithdraw({
+      amount,
+      from: address,
+      contract,
+    });
   }
 
   @backgroundMethod()

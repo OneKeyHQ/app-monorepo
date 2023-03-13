@@ -4,6 +4,7 @@ import { useCallback, useEffect } from 'react';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { updateTransaction } from '../../../../store/reducers/swapTransactions';
 import { SwapQuoter } from '../../quoter';
+import { isSimpleTx } from '../../utils';
 
 import type { TransactionDetails } from '../../typings';
 
@@ -120,7 +121,7 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
     if (stopInterval) {
       return;
     }
-    const ms = tx.quoterType !== '0x' ? 20 * 1000 : 5 * 1000;
+    const ms = isSimpleTx(tx) ? 5 * 1000 : 20 * 1000;
     const timer = setInterval(onQuery, ms);
     return () => {
       clearInterval(timer);

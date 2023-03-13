@@ -61,7 +61,7 @@ import {
   Erc1155MethodSelectors,
   Erc20MethodSelectors,
   Erc721MethodSelectors,
-  WrapperTokenMethodSelectors
+  WrapperTokenMethodSelectors,
 } from './decoder/abi';
 import {
   EVMDecodedTxType,
@@ -776,30 +776,50 @@ export default class Vault extends VaultBase {
     };
   }
 
-  buildEncodedTxFromWrapperTokenDeposit({ amount, from, contract }: { amount: string, from: string, contract: string }): IEncodedTxEvm {
+  buildEncodedTxFromWrapperTokenDeposit({
+    amount,
+    from,
+    contract,
+  }: {
+    amount: string;
+    from: string;
+    contract: string;
+  }): IEncodedTxEvm {
     const methodID = WrapperTokenMethodSelectors.doposit;
     const amountBN = new BigNumber(amount);
     const amountHex = toBigIntHex(amountBN.shiftedBy(18));
-    const data = `${methodID}${defaultAbiCoder.encode(['uint256'],[amountHex]).slice(2)}`
+    const data = `${methodID}${defaultAbiCoder
+      .encode(['uint256'], [amountHex])
+      .slice(2)}`;
     return {
-      from: from,
+      from,
       to: contract,
       value: amountHex,
       data,
-    }
+    };
   }
 
-  buildEncodedTxFromWrapperTokenWithdraw({ amount, from, contract }: { amount: string, from: string, contract: string }) {
+  buildEncodedTxFromWrapperTokenWithdraw({
+    amount,
+    from,
+    contract,
+  }: {
+    amount: string;
+    from: string;
+    contract: string;
+  }) {
     const methodID = WrapperTokenMethodSelectors.withdraw;
     const amountBN = new BigNumber(amount);
     const amountHex = toBigIntHex(amountBN.shiftedBy(18));
-    const data = `${methodID}${defaultAbiCoder.encode(['uint256'],[amountHex]).slice(2)}`
+    const data = `${methodID}${defaultAbiCoder
+      .encode(['uint256'], [amountHex])
+      .slice(2)}`;
     return {
       from,
       to: contract,
       value: '0x0',
-      data
-    }
+      data,
+    };
   }
 
   async buildEncodedTxFromApprove(

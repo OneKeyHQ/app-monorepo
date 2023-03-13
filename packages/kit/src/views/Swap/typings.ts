@@ -94,6 +94,7 @@ export enum QuoterType {
   mdex = 'mdex',
   zeroX = '0x',
   jupiter = 'jupiter',
+  onekey = 'onekey',
 }
 
 export type FieldType = 'INPUT' | 'OUTPUT';
@@ -153,6 +154,7 @@ export type QuoteData = {
   sellTokenAddress: string;
   buyAmount: string;
   buyTokenAddress: string;
+  wrapperTxInfo?: WrapperTransactionInfo;
   allowanceTarget?: string;
   providers?: Provider[];
   arrivalTime?: number;
@@ -166,13 +168,13 @@ export type QuoteData = {
   protocolFees?: ProtocolFees;
 };
 
-type WrapperTransactionType = 'Withdraw' | 'Deposite'
+type WrapperTransactionType = 'Withdraw' | 'Deposite';
 
 export type WrapperTransactionInfo = {
-  isWrapperTransaction: boolean
-  type: WrapperTransactionType,
-  encodedTx: IEncodedTx
-}
+  isWrapperTransaction: boolean;
+  type: WrapperTransactionType;
+  encodedTx: IEncodedTx;
+};
 
 export type SwapRecord = {
   txid: string;

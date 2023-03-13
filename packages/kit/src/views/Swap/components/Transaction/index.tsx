@@ -196,7 +196,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
   const receivingName = useAddressName({ address: tx.receivingAddress });
 
   return (
-    <Box my="0" px="4">
+    <Box my="0" px="0">
       <Box
         flexDirection="row"
         alignItems="center"
@@ -566,8 +566,9 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               label={intl.formatMessage({ id: 'form__actual_received' })}
             >
               <Typography.Body2Strong>
-                {`${formatAmount(tx.actualReceived, 6)} ${to?.token.symbol.toUpperCase() ?? ''
-                  }`}
+                {`${formatAmount(tx.actualReceived, 6)} ${
+                  to?.token.symbol.toUpperCase() ?? ''
+                }`}
               </Typography.Body2Strong>
             </TransactionField>
           ) : null}
@@ -576,8 +577,9 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               label={intl.formatMessage({ id: 'form__network_fee' })}
             >
               <Typography.Body2Strong>
-                {`${formatAmount(tx.networkFee, 8)} ${network.symbol.toUpperCase() ?? ''
-                  }`}
+                {`${formatAmount(tx.networkFee, 8)} ${
+                  network.symbol.toUpperCase() ?? ''
+                }`}
               </Typography.Body2Strong>
             </TransactionField>
           ) : null}
@@ -618,8 +620,8 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
                     borderRadius="full"
                     overflow="hidden"
                     src={tx.quoterLogo}
-                    w="5"
-                    h="5"
+                    w="4"
+                    h="4"
                     mr="2"
                   />
                 ) : null}
@@ -641,13 +643,13 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
           {gt(tx.protocalFees?.amount ?? '0', 0) ? (
             <TransactionProtocalsFees tx={tx} />
           ) : null}
-          {
-            tx.percentageFee ? <TransactionField
+          {tx.percentageFee ? (
+            <TransactionField
               label={intl.formatMessage({ id: 'form__included_onekey_fee' })}
             >
               <TransactionOneKeyFees tx={tx} />
-            </TransactionField> : null
-          }
+            </TransactionField>
+          ) : null}
           {swftcOrderId ? (
             <TransactionField
               label={intl.formatMessage({ id: 'form__order_no' })}

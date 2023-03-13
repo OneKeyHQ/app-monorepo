@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await */
 import NetInfo from '@react-native-community/netinfo';
 import { debounce } from 'lodash';
 
@@ -161,13 +162,6 @@ class ServiceNetwork extends ServiceBase {
     const { engine, dispatch } = this.backgroundApi;
     const res = await engine.updateNetworkList(networks);
     dispatch(updateNetworks(res));
-  }
-
-  @backgroundMethod()
-  async getNetwork(networkId: string) {
-    const { appSelector } = this.backgroundApi;
-    const networks = appSelector(s => s.runtime.networks);
-    return networks.find((item) => item.id === networkId)
   }
 
   @backgroundMethod()

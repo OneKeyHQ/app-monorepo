@@ -18,7 +18,7 @@ export type TokenListItem = {
 export type IssueToken = {
   networkId: string;
   address: string;
-} 
+};
 
 export type TransactionsState = {
   transactions: Record<string, Record<string, TransactionDetails[]>>;
@@ -33,8 +33,8 @@ export type TransactionsState = {
     stable?: string;
     others?: string;
   };
-  wrapperTokens?: Record<string, string>,
-  approvalIssueTokens?: IssueToken[]
+  wrapperTokens?: Record<string, string>;
+  approvalIssueTokens?: IssueToken[];
 };
 
 const initialState: TransactionsState = {
@@ -167,7 +167,7 @@ export const swapTransactionsSlice = createSlice({
     },
     setApprovalIssueTokens(state, action: PayloadAction<IssueToken[]>) {
       state.approvalIssueTokens = action.payload;
-    }
+    },
   },
 });
 
@@ -185,7 +185,7 @@ export const {
   setCoingeckoIds,
   setRecommendedSlippage,
   setWrapperTokens,
-  setApprovalIssueTokens
+  setApprovalIssueTokens,
 } = swapTransactionsSlice.actions;
 
 export default swapTransactionsSlice.reducer;
