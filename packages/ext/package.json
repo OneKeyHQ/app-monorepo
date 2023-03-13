@@ -7,7 +7,7 @@
     "clean": "rm -rf ./build",
     "build": "cross-env NODE_ENV=production ENABLE_ANALYZER=1 GENERATE_SOURCEMAP=false node --max-old-space-size=8192 ./development/build.js",
     "build:all-with-firefox": "yarn clean && yarn build && yarn build --firefox && node ./development/zip.js",
-    "build:all": "yarn clean && yarn build && node ./development/zip.js",
+    "build:all": "yarn clean && yarn build && yarn build --edge && node ./development/zip.js",
     "start": "node ./development/devServer.js",
     "firefox": "echo 'run first: \n\t yarn ext --firefox \n\n' && web-ext -s build/firefox/ run --verbose",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",

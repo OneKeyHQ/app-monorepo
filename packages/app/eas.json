@@ -48,7 +48,7 @@
       },
       "android": {
         "buildType": "app-bundle",
-        "gradleCommand": ":app:bundleRelease",
+        "gradleCommand": ":app:bundleGoogleRelease",
         "env": {
           "ANDROID_CHANNEL": "google"
         }
@@ -67,7 +67,7 @@
       },
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease",
+        "gradleCommand": ":app:assembleDirectRelease",
         "env": {
           "ANDROID_CHANNEL": "direct"
         }
@@ -77,6 +77,20 @@
         "buildConfiguration": "Release",
         "distribution": "internal",
         "credentialsSource": "local"
+      }
+    },
+    "production-huawei": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleHuaweiRelease",
+        "env": {
+          "ANDROID_CHANNEL": "huawei"
+        }
       }
     }
   },
