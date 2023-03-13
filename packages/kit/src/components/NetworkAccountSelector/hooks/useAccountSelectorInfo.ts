@@ -47,7 +47,7 @@ export function useAccountSelectorInfo() {
 
   const { wallets } = useRuntimeWallets();
   const { enabledNetworks } = useManageNetworks();
-  const { deviceStatus } = useDeviceStatusOfHardwareWallet();
+  const { devicesStatus } = useDeviceStatusOfHardwareWallet();
 
   const {
     account: activeAccount,
@@ -99,7 +99,7 @@ export function useAccountSelectorInfo() {
     () => ({
       wallets,
       refreshAccountSelectorTs,
-      deviceStatus,
+      devicesStatus,
 
       isOpenFromClose,
       isCloseFromOpen,
@@ -130,7 +130,7 @@ export function useAccountSelectorInfo() {
     [
       wallets,
       refreshAccountSelectorTs,
-      deviceStatus,
+      devicesStatus,
       isOpenFromClose,
       isCloseFromOpen,
       isOpenDelay,

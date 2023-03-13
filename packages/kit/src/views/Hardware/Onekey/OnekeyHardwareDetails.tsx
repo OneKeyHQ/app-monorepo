@@ -1,25 +1,32 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useIntl } from 'react-intl';
 
-import { Box, Container, Icon, Modal, Switch } from '@onekeyhq/components';
+import {
+  Box,
+  Container,
+  Icon,
+  Image,
+  Modal,
+  Pressable,
+  Typography,
+} from '@onekeyhq/components';
+import deviceClassicIcon from '@onekeyhq/kit/assets/hardware/about/device-classic.png';
+import deviceMiniIcon from '@onekeyhq/kit/assets/hardware/about/device-mini.png';
+import deviceTouchIcon from '@onekeyhq/kit/assets/hardware/about/device-touch.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
-import type { OnekeyHardwareRoutesParams } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks';
 import { OnekeyHardwareModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
-import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
-import { getHomescreenKeys } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
+import type { OnekeyHardwareRoutesParams } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { getDeviceFirmwareVersion } from '@onekeyhq/kit/src/utils/hardware/OneKeyHardware';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import { deviceUtils } from '../../../utils/hardware';
-
-import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
@@ -32,229 +39,155 @@ type OnekeyHardwareDetailsModalProps = {
   deviceFeatures?: IOneKeyDeviceFeatures;
 };
 
+const WrapperItem = ({ ...props }) => (
+  <Container.Item {...props} px={0} py={2} />
+);
+
 const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
   walletId,
   deviceFeatures,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { engine, serviceHardware } = backgroundApiProxy;
-  const { deviceUpdates } = useSettings();
 
-  const [deviceConnectId, setDeviceConnectId] = useState<string>();
-  const [deviceId, setDeviceId] = useState<string>();
-  const [onDeviceInputPin, setOnDeviceInputPin] = useState<boolean>(true);
-  const [showHomescreenSetting, setShowHomescreenSetting] = useState(false);
-  const [deviceType, setDeviceType] = useState<IDeviceType | undefined>();
+  const { serviceHardware } = backgroundApiProxy;
+  const deviceVerification = useAppSelector(
+    (s) => s.settings.hardware?.verification,
+  );
+
   const [deviceUUID, setDeviceUUID] = useState<string>('-');
+  const [connectId, setConnectId] = useState<string>();
+  const [devicePicture, setDevicePicture] = useState<any>();
+
+  const deviceVerifiedStatus = useMemo(() => {
+    if (!deviceFeatures) return undefined;
+    if (!connectId) return undefined;
+    return deviceVerification?.[connectId];
+  }, [connectId, deviceFeatures, deviceVerification]);
 
   useEffect(() => {
     if (!deviceFeatures) return;
     const setDeviceInfo = async () => {
       const { getDeviceType, getDeviceUUID } = await CoreSDKLoader();
-      setDeviceType(getDeviceType(deviceFeatures));
+      const $deviceType = getDeviceType(deviceFeatures);
       setDeviceUUID(getDeviceUUID(deviceFeatures));
+      try {
+        switch ($deviceType) {
+          case 'classic':
+            setDevicePicture(deviceClassicIcon);
+            break;
+          case 'mini':
+            setDevicePicture(deviceMiniIcon);
+            break;
+          case 'touch':
+            setDevicePicture(deviceTouchIcon);
+            break;
+          default:
+            break;
+        }
+      } catch (error) {
+        // ignore
+      }
+      setConnectId(
+        (await serviceHardware.getConnectId(deviceFeatures)) ?? undefined,
+      );
     };
     setDeviceInfo();
-  }, [deviceFeatures]);
-
-  const canOnDeviceInputPin = useMemo(() => {
-    if (deviceType === 'classic' || deviceType === 'mini') return true;
-    return false;
-  }, [deviceType]);
-
-  const updates = useMemo(
-    () => deviceUpdates?.[deviceConnectId ?? ''],
-    [deviceUpdates, deviceConnectId],
-  );
-
-  const getModifyHomescreenConfig = useCallback(
-    async (connectId?: string) => {
-      if (!connectId || !deviceType) return;
-      const hasHomescreen = getHomescreenKeys(deviceType).length > 0;
-      if (deviceType === 'mini' || deviceType === 'classic') {
-        setShowHomescreenSetting(hasHomescreen);
-        return;
-      }
-      const res = await serviceHardware.getDeviceSupportFeatures(connectId);
-      setShowHomescreenSetting(!!res.modifyHomescreen.support && hasHomescreen);
-    },
-    [serviceHardware, deviceType],
-  );
-
-  const refreshDevicePayload = () => {
-    engine
-      .getHWDeviceByWalletId(walletId)
-      .then((device) => {
-        setOnDeviceInputPin(device?.payload?.onDeviceInputPin ?? true);
-      })
-      .catch((err) => {
-        console.log(err);
-      });
-  };
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const device = await engine.getHWDeviceByWalletId(walletId);
-        setOnDeviceInputPin(device?.payload?.onDeviceInputPin ?? true);
-        setDeviceConnectId(device?.mac);
-        setDeviceId(device?.deviceId);
-        await getModifyHomescreenConfig(device?.mac);
-      } catch (err: any) {
-        if (navigation?.canGoBack?.()) {
-          navigation.goBack();
-        }
-
-        deviceUtils.showErrorToast(err, 'action__connection_timeout');
-      }
-    })();
-  }, [
-    deviceType,
-    engine,
-    intl,
-    navigation,
-    serviceHardware,
-    walletId,
-    getModifyHomescreenConfig,
-  ]);
+  }, [deviceFeatures, serviceHardware]);
 
   return (
     <Box alignItems="center" mb={{ base: 4, md: 0 }}>
-      {(updates?.ble || updates?.firmware) && (
-        <Container.Box mb={4} borderWidth={1} borderColor="border-subdued">
-          <Container.Item
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.HardwareUpdate,
-                params: {
-                  screen: HardwareUpdateModalRoutes.HardwareUpdateInfoModel,
-                  params: {
-                    walletId,
-                    onSuccess: () => {
-                      if (navigation?.canGoBack?.()) {
-                        navigation.goBack();
-                      }
-                    },
-                  },
-                },
-              });
-            }}
-            titleColor="text-default"
-            title={intl.formatMessage({ id: 'action__update_available' })}
-            subDescribeCustom={
-              <Icon name="InformationCircleMini" color="icon-success" />
-            }
+      <Box alignItems="center" w="full" overflow="hidden">
+        <Box opacity={20} w="full" position="absolute" zIndex={-1}>
+          <Icon
+            name="HardwareAboutDeviceBgIllus"
+            height={330}
+            width={330}
+            color="interactive-default"
           />
-        </Container.Box>
-      )}
+        </Box>
+        <Box h="160px">
+          {devicePicture ? (
+            <Image w="200" h="full" source={devicePicture} />
+          ) : null}
+        </Box>
 
-      <Container.Box borderWidth={1} borderColor="border-subdued">
-        <Container.Item
-          titleColor="text-default"
-          describeColor="text-subdued"
-          title={intl.formatMessage({ id: 'content__serial_number' })}
-          describe={deviceUUID}
-        />
-
-        <Container.Item
-          titleColor="text-default"
-          describeColor="text-subdued"
-          title={intl.formatMessage({ id: 'content__firmware_version' })}
-          describe={getDeviceFirmwareVersion(deviceFeatures).join('.')}
-        />
-
-        <Container.Item
-          titleColor="text-default"
-          describeColor="text-subdued"
-          title={intl.formatMessage({ id: 'content__bluetooth_name' })}
-          describe={deviceFeatures?.ble_name ?? '-'}
-        />
-
-        <Container.Item
-          titleColor="text-default"
-          describeColor="text-subdued"
-          title={intl.formatMessage({
-            id: 'content__bluetooth_firmware_version',
-          })}
-          describe={deviceFeatures?.ble_ver ?? '-'}
-        />
-
-        {showHomescreenSetting && (
-          <Container.Item
-            titleColor="text-default"
-            describeColor="text-subdued"
-            title={intl.formatMessage({
-              id: 'modal__homescreen',
-            })}
-            hasArrow
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.OnekeyHardware,
-                params: {
-                  screen:
-                    OnekeyHardwareModalRoutes.OnekeyHardwareHomescreenModal,
-                  params: {
-                    walletId,
-                    deviceType: deviceType ?? 'classic',
-                  },
-                },
-              });
-            }}
-          />
-        )}
-      </Container.Box>
-
-      <Container.Box mt={6} borderWidth={1} borderColor="border-subdued">
-        <Container.Item
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.OnekeyHardware,
-              params: {
-                screen: OnekeyHardwareModalRoutes.OnekeyHardwareVerifyModal,
-                params: {
-                  walletId,
-                },
-              },
-            });
+        <LinearGradient
+          colors={['rgba(92, 195, 76, 0)', '#5CC34C', 'rgba(92, 195, 76, 0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{
+            height: 1,
+            width: '100%',
+            opacity: 0.3,
           }}
-          hasArrow
+        />
+      </Box>
+
+      <Pressable
+        w="100%"
+        onPress={() => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.OnekeyHardware,
+            params: {
+              screen: OnekeyHardwareModalRoutes.OnekeyHardwareVerifyModal,
+              params: {
+                walletId,
+              },
+            },
+          });
+        }}
+      >
+        <Container.Item
+          px={0}
+          py={6}
           titleColor="text-default"
           describeColor="text-subdued"
           title={intl.formatMessage({ id: 'action__verify' })}
-        />
-        {!!canOnDeviceInputPin && (
-          <Container.Item
-            titleColor="text-default"
-            title={intl.formatMessage({
-              id: 'content__enter_pin_in_app',
-            })}
-          >
-            <Switch
-              labelType="false"
-              isChecked={!onDeviceInputPin}
-              onToggle={() => {
-                if (deviceId && deviceConnectId) {
-                  const newOnDeviceInputPin = !onDeviceInputPin;
-                  setOnDeviceInputPin(newOnDeviceInputPin);
-                  serviceHardware
-                    .setOnDeviceInputPin(
-                      deviceConnectId,
-                      deviceId,
-                      newOnDeviceInputPin,
-                    )
-                    .catch((e: any) => {
-                      deviceUtils.showErrorToast(e);
-                    })
-                    .finally(() => {
-                      refreshDevicePayload();
-                    });
-                }
-              }}
-            />
-          </Container.Item>
-        )}
-      </Container.Box>
+          hasArrow={!deviceVerifiedStatus}
+        >
+          {deviceVerifiedStatus ? (
+            <Box flexDirection="row" alignItems="center">
+              <Typography.Body1 mr={2} color="text-success">
+                {intl.formatMessage({ id: 'msg__hardware_verify_success' })}
+              </Typography.Body1>
+              <Icon name="CheckBadgeMini" color="text-success" size={20} />
+            </Box>
+          ) : null}
+        </Container.Item>
+      </Pressable>
+
+      <Box bg="divider" w="100%" h="1px" mb={4} />
+
+      <WrapperItem
+        titleColor="text-default"
+        describeColor="text-subdued"
+        title={intl.formatMessage({ id: 'content__serial_number' })}
+        describe={deviceUUID}
+      />
+
+      <WrapperItem
+        titleColor="text-default"
+        describeColor="text-subdued"
+        title={intl.formatMessage({ id: 'content__bluetooth_name' })}
+        describe={deviceFeatures?.ble_name ?? '-'}
+      />
+
+      <WrapperItem
+        titleColor="text-default"
+        describeColor="text-subdued"
+        title={intl.formatMessage({ id: 'content__firmware_version' })}
+        describe={getDeviceFirmwareVersion(deviceFeatures).join('.')}
+      />
+
+      <WrapperItem
+        titleColor="text-default"
+        describeColor="text-subdued"
+        title={intl.formatMessage({
+          id: 'content__bluetooth_firmware_version',
+        })}
+        describe={deviceFeatures?.ble_ver ?? '-'}
+      />
     </Box>
   );
 };
@@ -269,7 +202,7 @@ const OnekeyHardwareDetailsModal: FC = () => {
 
   return (
     <Modal
-      header={intl.formatMessage({ id: 'action__device_settings' })}
+      header={intl.formatMessage({ id: 'action__about_device' })}
       headerDescription=""
       footer={null}
       scrollViewProps={{

@@ -85,7 +85,7 @@ const KeyTagBackUpWallet = () => {
                 circular
                 size="lg"
                 wallet={item}
-                deviceStatus={undefined}
+                devicesStatus={undefined}
               />
             }
             rightView={<Icon name="ChevronRightMini" />}
