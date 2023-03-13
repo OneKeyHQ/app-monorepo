@@ -47,6 +47,7 @@ export const OnekeyNetwork = {
   'theco': 'evm--256',
   'tboba': 'evm--28',
   'tarbitrum': 'evm--421611',
+  'tarbitrum-goerli': 'evm--421613',
   'goerli': 'evm--5',
   'tokt': 'evm--65',
   'toptimism': 'evm--69',
