@@ -61,6 +61,7 @@ import {
   Erc1155MethodSelectors,
   Erc20MethodSelectors,
   Erc721MethodSelectors,
+  WrapperTokenMethodSelectors,
 } from './decoder/abi';
 import {
   EVMDecodedTxType,
@@ -772,6 +773,52 @@ export default class Vault extends VaultBase {
         .slice(2)}`,
       value: isTransferToken ? '0x0' : toBigIntHex(totalAmountBN),
       nonce: String(nextNonce),
+    };
+  }
+
+  buildEncodedTxFromWrapperTokenDeposit({
+    amount,
+    from,
+    contract,
+  }: {
+    amount: string;
+    from: string;
+    contract: string;
+  }): IEncodedTxEvm {
+    const methodID = WrapperTokenMethodSelectors.doposit;
+    const amountBN = new BigNumber(amount);
+    const amountHex = toBigIntHex(amountBN.shiftedBy(18));
+    const data = `${methodID}${defaultAbiCoder
+      .encode(['uint256'], [amountHex])
+      .slice(2)}`;
+    return {
+      from,
+      to: contract,
+      value: amountHex,
+      data,
+    };
+  }
+
+  buildEncodedTxFromWrapperTokenWithdraw({
+    amount,
+    from,
+    contract,
+  }: {
+    amount: string;
+    from: string;
+    contract: string;
+  }) {
+    const methodID = WrapperTokenMethodSelectors.withdraw;
+    const amountBN = new BigNumber(amount);
+    const amountHex = toBigIntHex(amountBN.shiftedBy(18));
+    const data = `${methodID}${defaultAbiCoder
+      .encode(['uint256'], [amountHex])
+      .slice(2)}`;
+    return {
+      from,
+      to: contract,
+      value: '0x0',
+      data,
     };
   }
 

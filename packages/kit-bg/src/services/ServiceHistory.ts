@@ -439,10 +439,11 @@ class ServiceHistory extends ServiceBase {
     if (statusList.includes(IDecodedTxStatus.Failed)) {
       return 'failed';
     }
-    if (statusList.includes(IDecodedTxStatus.Pending)) {
-      return 'pending';
-    }
-    return 'canceled';
+    // In some cases, there may be no pending state. so we use pending as default tx status
+    // if (statusList.includes(IDecodedTxStatus.Pending)) {
+    //   return 'pending';
+    // }
+    return 'pending';
   }
 
   @backgroundMethod()
@@ -461,13 +462,16 @@ class ServiceHistory extends ServiceBase {
     if (!tx) {
       return 'failed';
     }
-    if (tx.decodedTx.status === IDecodedTxStatus.Pending) {
-      return 'pending';
-    }
     if (tx.decodedTx.status === IDecodedTxStatus.Confirmed) {
       return 'sucesss';
     }
-    return 'failed';
+    if (tx.decodedTx.status === IDecodedTxStatus.Failed) {
+      return 'failed';
+    }
+    if (tx.decodedTx.status === IDecodedTxStatus.Dropped) {
+      return 'canceled';
+    }
+    return 'pending';
   }
 
   @backgroundMethod()

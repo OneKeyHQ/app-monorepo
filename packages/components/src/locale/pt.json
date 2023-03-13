@@ -1261,7 +1261,7 @@
   "form__recent_searched_uppercase": "PESQUISAS RECENTES",
   "form__recommended": "Recomendado",
   "form__record_your_recovery_phrase_like_a_dot_punching_game": "Grave sua frase de recuperação como um jogo de pontos.",
-  "form__recovery_phrase": "Frase de recuperação",
+  "form__recovery_phrase": "Use spaces between words",
   "form__recovery_seed_invalid": "Sua frase de recuperação é inválida.",
   "form__recovery_seed_placeholder": "Digite as palavras da sua frase de recuperação aqui",
   "form__release_notes": "Notas de lançamento:",
