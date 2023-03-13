@@ -748,6 +748,8 @@
   "content__what_is_a_validator_desc": "{0} komputer blockchain adalah validator. Untuk memercayai validator untuk memproses transaksi jaringan, Anda mempertaruhkan {0} . Validator menghadiahkan staking Anda.",
   "content__what_is_node_height": "Berapa \"Tinggi\" node?",
   "content__what_is_node_height_desc": "Jumlah ketinggian yang lebih besar berarti bahwa node memiliki sinkronisasi yang lebih stabil dan tepat waktu. Ketika node terhubung dengan kecepatan yang sama, disarankan untuk memilih node yang memiliki ketinggian lebih tinggi.",
+  "content__what_is_private_key": "Apa itu kunci pribadi?",
+  "content__what_is_private_key_desc": "Kombinasi huruf dan angka yang digunakan untuk mengelola aset Anda.",
   "content__what_is_recovery_phrase": "Apa itu frase pemulihan?",
   "content__what_is_recovery_phrase_desc": "Ini adalah frase 12, 18 atau 24 kata yang dapat digunakan untuk memulihkan dompet Anda.",
   "content__what_is_slippage": "Apa itu selip?",

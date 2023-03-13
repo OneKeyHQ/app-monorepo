@@ -748,6 +748,8 @@
   "content__what_is_a_validator_desc": "节点是组成 {0} 区块链的计算机，您可在节点质押 {0}，使其可以为网络处理交易。作为回报，您将得到质押奖劢。",
   "content__what_is_node_height": "节点的 「高度」是什么？",
   "content__what_is_node_height_desc": "高度值越大，代表节点的数据同步更稳定、及时。当节点的连接速度相近的情况下，建议选择高度值更大的节点。",
+  "content__what_is_private_key": "什么是私钥？",
+  "content__what_is_private_key_desc": "一个字母和数字的组合，用于管理您的资产。",
   "content__what_is_recovery_phrase": "什么是助记词？",
   "content__what_is_recovery_phrase_desc": "这是 12、18 或 24 个词语，可以用来恢复您的钱包。",
   "content__what_is_slippage": "什么是滑点？",

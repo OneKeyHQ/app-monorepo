@@ -748,6 +748,8 @@
   "content__what_is_a_validator_desc": "{0} Blockchain-Computer sind Validatoren. Um einem Validator die Verarbeitung von Netzwerktransaktionen anzuvertrauen, setzen Sie {0} ein. Der Validator belohnt Ihren Einsatz.",
   "content__what_is_node_height": "Was ist die \"Höhe\" von Knoten?",
   "content__what_is_node_height_desc": "Die größere Anzahl von Höhen bedeutet, dass die Knoten eine stabilere und zeitgerechtere Synchronisation aufweisen. Wenn die Knoten mit ähnlichen Geschwindigkeiten verbunden sind, wird empfohlen, den Knoten mit der höheren Höhe zu wählen.",
+  "content__what_is_private_key": "Was ist ein privater Schlüssel?",
+  "content__what_is_private_key_desc": "Eine Kombination aus Buchstaben und Zahlen, die zur Verwaltung Ihres Vermögens verwendet wird.",
   "content__what_is_recovery_phrase": "Was ist eine Wiederherstellungsphrase?",
   "content__what_is_recovery_phrase_desc": "Es ist ein 12-, 18- oder 24-Wörter-Satz, der verwendet werden kann, um Ihre Brieftasche wiederherzustellen.",
   "content__what_is_slippage": "Was ist Schlupf?",

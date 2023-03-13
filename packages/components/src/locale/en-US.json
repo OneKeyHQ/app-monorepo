@@ -748,6 +748,8 @@
   "content__what_is_a_validator_desc": "{0} blockchain computers are validators. To trust a validator to process network transactions, you stake {0}. The validator rewards your staking.",
   "content__what_is_node_height": "What’s the \"Height\" of nodes?",
   "content__what_is_node_height_desc": "The larger number of height means that the nodes have more stable and in-time synchronization. When the nodes are connected at similar speeds, it is recommended to choose the one which has a higher height.",
+  "content__what_is_private_key": "What is a private key?",
+  "content__what_is_private_key_desc": "A combination of letters and numbers that is utilized to manage your assets.",
   "content__what_is_recovery_phrase": "What is a recovery phrase?",
   "content__what_is_recovery_phrase_desc": "It is a 12, 18 or 24-word phrase that can be used to restore your wallet.",
   "content__what_is_slippage": "What is slippage?",

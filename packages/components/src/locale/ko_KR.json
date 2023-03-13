@@ -748,6 +748,8 @@
   "content__what_is_a_validator_desc": "{0} 블록체인 컴퓨터는 유효성 검사기입니다. 네트워크 트랜잭션을 처리하는 검증자를 신뢰하려면 {0} 을(를) 스테이킹합니다. 검증인은 귀하의 스테이킹에 대해 보상합니다.",
   "content__what_is_node_height": "노드의 \"높이\"는 얼마입니까?",
   "content__what_is_node_height_desc": "높이의 숫자가 클수록 노드가 더 안정적이고 시간에 따라 동기화됨을 의미합니다. 노드가 비슷한 속도로 연결될 경우 높이가 더 높은 노드를 선택하는 것이 좋습니다.",
+  "content__what_is_private_key": "개인 키란 무엇입니까?",
+  "content__what_is_private_key_desc": "자산관리에 활용되는 문자와 숫자의 조합입니다.",
   "content__what_is_recovery_phrase": "복구 문구 란 무엇입니까?",
   "content__what_is_recovery_phrase_desc": "지갑을 복원하는 데 사용할 수 있는 12, 18 또는 24단어 구문입니다.",
   "content__what_is_slippage": "미끄러짐이란 무엇입니까?",

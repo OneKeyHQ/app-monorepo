@@ -748,6 +748,8 @@
   "content__what_is_a_validator_desc": "節點是組成{0}區塊鏈的電腦，您可在節點質押{0}，使其可以為網絡處理交易。 作為回報，您將得到質押獎勱。",
   "content__what_is_node_height": "節點的 「高度」是什麼？",
   "content__what_is_node_height_desc": "高度值越大，代表節點的數據同步更穩定、及時。當節點的連接速度相近的情況下，建議選擇高度值更大的節點。",
+  "content__what_is_private_key": "什麼是私鑰？",
+  "content__what_is_private_key_desc": "一個字母和數字的組合，用於管理您的資產。",
   "content__what_is_recovery_phrase": "什麼是助記詞？",
   "content__what_is_recovery_phrase_desc": "這是 12、18 或 24 個單詞，可用於恢復您的錢包。",
   "content__what_is_slippage": "什麼是滑點？",

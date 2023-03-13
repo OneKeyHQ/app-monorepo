@@ -748,6 +748,8 @@
   "content__what_is_a_validator_desc": "{0} máy tính blockchain là trình xác thực. Để tin tưởng trình xác thực để xử lý các giao dịch mạng, bạn đặt cược {0} . Trình xác nhận thưởng cho việc đặt cược của bạn.",
   "content__what_is_node_height": "\"Chiều cao\" của các nút là gì?",
   "content__what_is_node_height_desc": "Số lượng chiều cao lớn hơn có nghĩa là các nút có sự đồng bộ hóa trong thời gian và ổn định hơn. Khi các nút được kết nối với tốc độ tương tự, bạn nên chọn nút có độ cao lớn hơn.",
+  "content__what_is_private_key": "Khóa riêng là gì?",
+  "content__what_is_private_key_desc": "Một sự kết hợp của các chữ cái và số được sử dụng để quản lý nội dung của bạn.",
   "content__what_is_recovery_phrase": "Cụm từ khôi phục là gì?",
   "content__what_is_recovery_phrase_desc": "Nó là một cụm từ gồm 12, 18 hoặc 24 từ có thể được sử dụng để khôi phục ví của bạn.",
   "content__what_is_slippage": "trượt là gì?",

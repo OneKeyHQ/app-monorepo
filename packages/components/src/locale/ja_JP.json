@@ -748,6 +748,8 @@
   "content__what_is_a_validator_desc": "{0}ブロックチェーン コンピュータはバリデータです。バリデーターがネットワーク トランザクションを処理することを信頼するには、 {0}をステークします。バリデーターはあなたのステーキングに報酬を与えます。",
   "content__what_is_node_height": "ノードの「高さ」とは?",
   "content__what_is_node_height_desc": "高さの値が大きいほど、ノードの同期がより安定でタイムリーであると意味している。ノード接続速度が同じであれば、値がより大きいノードを選択してください。",
+  "content__what_is_private_key": "秘密鍵とは何ですか?",
+  "content__what_is_private_key_desc": "資産の管理に使用される文字と数字の組み合わせ。",
   "content__what_is_recovery_phrase": "回復フレーズとは何ですか？",
   "content__what_is_recovery_phrase_desc": "ウォレットを復元するために使用できる12、18、または24個単語のフレーズである。",
   "content__what_is_slippage": "スリッページとは？",

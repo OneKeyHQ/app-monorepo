@@ -748,6 +748,8 @@
   "content__what_is_a_validator_desc": "{0} ang mga blockchain na computer ay mga validator. Upang pagkatiwalaan ang isang validator na magproseso ng mga transaksyon sa network, itinaya mo ang {0} . Gagantimpalaan ng validator ang iyong staking.",
   "content__what_is_node_height": "Ano ang \"Taas\" ng mga node?",
   "content__what_is_node_height_desc": "Ang mas malaking bilang ng taas ay nangangahulugan na ang mga node ay may mas matatag at in-time na pag-synchronize. Kapag ang mga node ay konektado sa magkatulad na bilis, inirerekumenda na piliin ang isa na may mas mataas na taas.",
+  "content__what_is_private_key": "Ano ang pribadong susi?",
+  "content__what_is_private_key_desc": "Isang kumbinasyon ng mga titik at numero na ginagamit upang pamahalaan ang iyong mga asset.",
   "content__what_is_recovery_phrase": "Ano ang isang parirala sa pagbawi?",
   "content__what_is_recovery_phrase_desc": "Ito ay isang 12-, 18 o 24 na salita na parirala na maaaring magamit upang ibalik ang iyong pitaka.",
   "content__what_is_slippage": "Ano ang slippage?",

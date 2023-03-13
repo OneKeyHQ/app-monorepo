@@ -748,6 +748,8 @@
   "content__what_is_a_validator_desc": "{0} computer blockchain sono validatori. Per affidare a un validatore l'elaborazione delle transazioni di rete, scommetti {0} . Il validatore premia la tua puntata.",
   "content__what_is_node_height": "Qual è l'\"altezza\" dei nodi?",
   "content__what_is_node_height_desc": "Il numero maggiore di altezza significa che i nodi hanno una sincronizzazione più stabile e in tempo. Quando i nodi sono collegati a velocità simili, si consiglia di scegliere quello che ha un'altezza maggiore.",
+  "content__what_is_private_key": "Cos'è una chiave privata?",
+  "content__what_is_private_key_desc": "Una combinazione di lettere e numeri che viene utilizzata per gestire le tue risorse.",
   "content__what_is_recovery_phrase": "Cos'è una frase di recupero?",
   "content__what_is_recovery_phrase_desc": "È una frase di 12, 18 o 24 parole che può essere utilizzata per ripristinare il tuo portafoglio.",
   "content__what_is_slippage": "Cos'è lo slittamento?",

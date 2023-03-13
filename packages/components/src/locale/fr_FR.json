@@ -748,6 +748,8 @@
   "content__what_is_a_validator_desc": "{0} les ordinateurs blockchain sont des validateurs. Pour faire confiance à un validateur pour traiter les transactions réseau, vous misez {0} . Le validateur récompense votre mise.",
   "content__what_is_node_height": "Quelle est la \"Hauteur\" des nœuds ?",
   "content__what_is_node_height_desc": "Le plus grand nombre de hauteur signifie que les nœuds ont une synchronisation plus stable et dans le temps. Lorsque les nœuds sont connectés à des vitesses similaires, il est recommandé de choisir celui qui a une hauteur plus élevée.",
+  "content__what_is_private_key": "Qu'est-ce qu'une clé privée ?",
+  "content__what_is_private_key_desc": "Une combinaison de lettres et de chiffres utilisée pour gérer vos actifs.",
   "content__what_is_recovery_phrase": "Qu'est-ce qu'une phrase de récupération ?",
   "content__what_is_recovery_phrase_desc": "Il s'agit d'une phrase de 12, 18 ou 24 mots qui peut être utilisée pour restaurer votre portefeuille.",
   "content__what_is_slippage": "Qu'est-ce que le glissement ?",
