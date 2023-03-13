@@ -40,7 +40,7 @@ const useUpdateItem: () => IBaseMenuOptions | null = () => {
       onPress: () => {
         if (state === 'ready') {
           window.desktopApi.installUpdate();
-        } else if (platformEnv.isMas) {
+        } else if (!platformEnv.supportAutoUpdate) {
           if (latest !== undefined && 'package' in latest) {
             appUpdates.openAppUpdate(latest);
           }
