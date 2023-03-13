@@ -767,4 +767,18 @@ export default class Vault extends VaultBase {
   override getPrivateKeyByCredential(credential: string) {
     return Buffer.from(sdk.seedFromMnemonic(credential));
   }
+
+  override validateImportedCredential(input: string): Promise<boolean> {
+    if (this.settings.importedAccountEnabled) {
+      try {
+        const seed = sdk.seedFromMnemonic(input);
+        if (seed) {
+          return Promise.resolve(true);
+        }
+      } catch {
+        // pass
+      }
+    }
+    return Promise.resolve(false);
+  }
 }
