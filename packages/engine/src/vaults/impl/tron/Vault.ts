@@ -48,12 +48,12 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type {
-  IAccountDetail,
   IContractDetail,
   IEncodedTxTron,
   IOnChainHistoryTokenTx,
   IOnChainHistoryTx,
   IRPCCallResponse,
+  ITokenDetail,
 } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -104,7 +104,7 @@ export default class Vault extends VaultBase {
     const network = await this.engine.getNetwork(this.networkId);
     let baseURL = network.blockExplorerURL.name;
     if (network.isTestnet) {
-      baseURL = network.blockExplorerURL.name.replace(/shast/, 'shastapi');
+      baseURL = network.blockExplorerURL.name.replace(/shasta/, 'shastapi');
     } else {
       baseURL = network.blockExplorerURL.name.replace(
         /(tronscan)/,
@@ -162,17 +162,21 @@ export default class Vault extends VaultBase {
     { promise: true, max: 100, maxAge: getTimeDurationMs({ minute: 3 }) },
   );
 
-  getAccountInfo = memoizee(
+  getAccountTokens = memoizee(
     async (address: string) => {
       try {
         const apiExplorer = await this.getApiExplorer();
-        const resp = await apiExplorer.get<IAccountDetail>('api/account', {
-          params: {
-            address,
+        const resp = await apiExplorer.get<{ data: ITokenDetail[] }>(
+          'api/account/tokens',
+          {
+            params: {
+              address,
+            },
           },
-        });
+        );
 
-        return resp.data;
+        const tokens = resp?.data?.data || [];
+        return tokens;
       } catch {
         // pass
       }
@@ -284,10 +288,8 @@ export default class Vault extends VaultBase {
             return new BigNumber(await tronWeb.trx.getBalance(address));
           }
 
-          const accountInfo = await this.getAccountInfo(address);
-
-          if (accountInfo) {
-            const { tokens } = accountInfo;
+          const tokens = await this.getAccountTokens(address);
+          if (tokens) {
             const token = find(tokens, { tokenId: tokenAddress });
             return new BigNumber(token?.balance ?? 0);
           }

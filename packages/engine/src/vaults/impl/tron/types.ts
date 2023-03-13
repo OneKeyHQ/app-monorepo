@@ -73,7 +73,3 @@ export type ITokenDetail = {
   'nrOfTokenHolders': number;
   'transferCount': number;
 };
-
-export type IAccountDetail = {
-  tokens: ITokenDetail[];
-};
