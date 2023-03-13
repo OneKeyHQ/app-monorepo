@@ -12,7 +12,11 @@ import {
   Progress,
   Text,
 } from '@onekeyhq/components';
-import type { ImportableHDAccount } from '@onekeyhq/engine/src/types/account';
+import type {
+  Account,
+  ImportableHDAccount,
+} from '@onekeyhq/engine/src/types/account';
+import { INDEX_PLACEHOLDER } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -22,6 +26,7 @@ import type {
   CreateAccountRoutesParams,
 } from '../../../routes';
 import type { ModalScreenProps } from '../../../routes/types';
+import type { INetworkDerivationItem } from './WalletAccounts';
 import type { RouteProp } from '@react-navigation/native';
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
@@ -31,6 +36,15 @@ type RouteProps = RouteProp<
 >;
 
 const FROM_INDEX_MAX = 2 ** 31;
+
+function getAccountIndex(template: string, path: string) {
+  const templateParts = template.split(INDEX_PLACEHOLDER).filter(Boolean);
+  let currentPath = path;
+  for (const part of templateParts) {
+    currentPath = currentPath.split(part).filter(Boolean)?.[0];
+  }
+  return currentPath.endsWith(`'`) ? currentPath.slice(0, -1) : currentPath;
+}
 
 const FetchAddressModal: FC = () => {
   const intl = useIntl();
@@ -43,6 +57,10 @@ const FetchAddressModal: FC = () => {
     ImportableHDAccount[]
   >([]);
 
+  const [walletAccounts, setWalletAccounts] = useState<
+    (INetworkDerivationItem & { accountData: Account[] })[]
+  >([]);
+
   const updateSetRangeAccountProgress = useCallback(
     (result: any[], forceFinish?: boolean) => {
       if (data.type !== 'setRange') return;
@@ -52,11 +70,6 @@ const FetchAddressModal: FC = () => {
         : Math.floor((result.length / Number(generateCount)) * 100) / 100;
       setProgress(value);
       setGeneratedAccounts(result);
-      console.log(
-        `progress value: ${value}, r => `,
-        result,
-        ` . ==length: ${result.length}`,
-      );
     },
     [data],
   );
@@ -140,6 +153,7 @@ const FetchAddressModal: FC = () => {
     updateSetRangeAccountProgress,
   ]);
 
+  // Fetch Hardware Address
   useEffect(() => {
     if (data.type !== 'setRange') return;
     if (!isHwWallet) return;
@@ -181,17 +195,112 @@ const FetchAddressModal: FC = () => {
     })();
   }, [data, isHwWallet, networkId, walletId, updateSetRangeAccountProgress]);
 
+  const updateWalletsAccountProgress = useCallback(
+    (
+      result: (INetworkDerivationItem & { accountData: Account[] })[],
+      forceFinish?: boolean,
+    ) => {
+      if (data.type !== 'walletAccounts') return;
+      const { networkDerivations } = data;
+      const totalLength = networkDerivations.reduce(
+        (acc, cur) => acc + cur.accounts.length,
+        0,
+      );
+      const finishLength = result.reduce(
+        (acc, cur) => acc + cur.accountData.length,
+        0,
+      );
+      const value = forceFinish
+        ? 1
+        : Math.floor((finishLength / Number(totalLength)) * 100) / 100;
+      setProgress(value);
+      setWalletAccounts(result);
+    },
+    [data],
+  );
+
+  // Fetch Wallet Accounts
+  useEffect(() => {
+    if (data.type !== 'walletAccounts') return;
+    (async () => {
+      const { networkDerivations } = data;
+      const result: (INetworkDerivationItem & { accountData: Account[] })[] =
+        [];
+      for (const networkDerivation of networkDerivations) {
+        const accounts = await backgroundApiProxy.engine.getAccounts(
+          networkDerivation.accounts,
+        );
+        const accountData = [];
+        for (const account of accounts) {
+          if (isHwWallet) {
+            const address = await backgroundApiProxy.engine.getHWAddress(
+              account.id,
+              networkId,
+              walletId,
+            );
+            if (address !== account.address) {
+              throw new Error('Not same address');
+            }
+          }
+          accountData.push({
+            ...account,
+            index: getAccountIndex(networkDerivation.template, account.path),
+          });
+
+          const sortedAccountData = accountData.sort(
+            // @ts-expect-error
+            (a, b) => a.index - b.index,
+          );
+          // replace or insert result data
+          const derivationIndex = result.findIndex(
+            (i) => i.template === networkDerivation.template,
+          );
+          if (derivationIndex > -1) {
+            result.splice(derivationIndex, 1, {
+              ...networkDerivation,
+              accountData: sortedAccountData,
+            });
+          } else {
+            result.push({
+              ...networkDerivation,
+              accountData: sortedAccountData,
+            });
+          }
+          updateWalletsAccountProgress(result);
+        }
+      }
+    })();
+  }, [data, isHwWallet, updateWalletsAccountProgress, networkId, walletId]);
+
   const progressText = useMemo(() => {
-    let total = '0';
     if (data.type === 'setRange') {
-      total = data.generateCount || '0';
+      const total = data.generateCount || '0';
+      return `${
+        Number.isSafeInteger(generatedAccounts.length)
+          ? generatedAccounts.length
+          : 0
+      }/${total}`;
     }
-    return `${
-      Number.isSafeInteger(generatedAccounts.length)
-        ? generatedAccounts.length
-        : 0
-    }/${total}`;
-  }, [data, generatedAccounts.length]);
+    if (data.type === 'walletAccounts') {
+      const total = data.networkDerivations.reduce(
+        (acc, cur) => acc + cur.accounts.length,
+        0,
+      );
+      const finish = walletAccounts.reduce(
+        (acc, cur) => acc + cur.accountData.length,
+        0,
+      );
+      return `${finish}/${total}`;
+    }
+    return '';
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    data,
+    generatedAccounts.length,
+    walletAccounts,
+    walletAccounts.length,
+    progress,
+  ]);
 
   return (
     <Modal

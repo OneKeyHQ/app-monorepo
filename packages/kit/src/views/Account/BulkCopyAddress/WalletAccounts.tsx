@@ -25,15 +25,16 @@ import { formatDerivationLabel } from './helper';
 
 type INetworkDerivation = DBAccountDerivation & { key: string };
 type IProps = { walletId: string; networkId: string };
+export type INetworkDerivationItem = {
+  name: string | undefined;
+  id: string;
+  walletId: string;
+  accounts: string[];
+  template: string;
+  key: string;
+};
 export type IWalletAccountsReturnType = {
-  networkDerivations: {
-    name: string | undefined;
-    id: string;
-    walletId: string;
-    accounts: string[];
-    template: string;
-    key: string;
-  }[];
+  networkDerivations: INetworkDerivationItem[];
 };
 export type IWalletAccountsRefType = {
   onSubmit: () => {
