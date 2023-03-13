@@ -425,9 +425,9 @@ class ServiceApp extends ServiceBase {
     const { dispatch, store } = this.backgroundApi;
     const { lastCheckTimestamp } = store.getState().autoUpdate;
 
-    let checkTimeDelay = 60 * 60 * 1000;
+    let checkTimeDelay = getTimeDurationMs({ hour: 1 });
     if (platformEnv.isExtension) {
-      checkTimeDelay = 3 * 60 * 60 * 1000;
+      checkTimeDelay = getTimeDurationMs({ hour: 3 });
     }
 
     // The first startup is not checked

@@ -170,7 +170,7 @@ function handleReleaseInfo(
 export async function getReleaseInfo(): Promise<PackagesInfo | null> {
   const key = Math.random().toString();
   return axios
-    .get<AppReleases>(`http://data.onekey.so/config.json?nocache=${key}`)
+    .get<AppReleases>(`https://data.onekey.so/config.json?nocache=${key}`)
     .then((releasesVersionResponse) => {
       const releasesVersion = releasesVersionResponse.data;
       return handleReleaseInfo(releasesVersion);
