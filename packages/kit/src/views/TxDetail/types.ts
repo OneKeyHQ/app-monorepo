@@ -47,7 +47,7 @@ export type ITxActionCardProps = {
 
 export type ITxActionAmountProps = ComponentProps<typeof Text> & {
   direction?: IDecodedTxDirection;
-  amount: string;
+  amount?: string;
   symbol?: string;
   decimals?: number;
   onPress?: (() => void) | null;

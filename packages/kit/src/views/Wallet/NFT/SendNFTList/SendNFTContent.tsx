@@ -3,7 +3,10 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 
-export type SelectAsset = NFTAsset & { selected: boolean };
+export type SelectAsset = NFTAsset & {
+  selected: boolean;
+  selectAmount: string;
+};
 export type ISendNFTContentData = {
   multiSelect?: boolean;
   listData: SelectAsset[];
