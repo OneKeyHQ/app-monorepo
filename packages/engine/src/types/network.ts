@@ -84,6 +84,13 @@ type AddEVMNetworkParams = {
   logoURI?: string;
 };
 
+type SwitchRpcParams = {
+  name: string;
+  rpcURL: string;
+  logoURI?: string;
+  networkId: string;
+};
+
 type AddNetworkParams = AddEVMNetworkParams;
 
 type UpdateEVMNetworkParams = {
@@ -120,4 +127,5 @@ export type {
   AddNetworkParams,
   UpdateNetworkParams,
   EIP1559Fee,
+  SwitchRpcParams,
 };

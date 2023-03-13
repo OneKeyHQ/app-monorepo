@@ -141,6 +141,7 @@ export enum ManageNetworkRoutes {
   RPCNode = 'RPCNode',
   QuickAdd = 'QuickAdd',
   Sort = 'Sort',
+  SwitchRpc = 'SwitchRpc',
 }
 
 export enum CreateWalletModalRoutes {
