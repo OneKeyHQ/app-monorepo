@@ -309,9 +309,7 @@ function useAddExistingWallet({
           })} .bit`
         : '',
     ];
-    return `${intl.formatMessage({
-      id: 'content__enter',
-    })} ${words.filter(Boolean).join(', ')}`;
+    return words.filter(Boolean).join(', ');
   }, [intl, mode]);
 
   return {
