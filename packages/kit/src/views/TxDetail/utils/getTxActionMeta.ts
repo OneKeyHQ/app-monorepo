@@ -6,9 +6,13 @@ import {
   getTxActionFunctionCallInfo,
 } from '../TxAction/TxActionFunctionCall';
 import {
+  TxActionNFTTrade,
+  TxActionNFTTradeT0,
+} from '../TxAction/TxActionNFTTrade';
+import {
   TxActionNFTTransfer,
   TxActionNFTTransferT0,
-  getTxActionNFTTransferInfo,
+  getTxActionNFTInfo,
 } from '../TxAction/TxActionNFTTransfer';
 import {
   TxActionStake,
@@ -137,15 +141,25 @@ export function getTxActionMeta(
   if (
     action.type === IDecodedTxActionType.NFT_TRANSFER ||
     action.type === IDecodedTxActionType.NFT_MINT ||
-    action.type === IDecodedTxActionType.NFT_SALE
+    action.type === IDecodedTxActionType.NFT_BURN
   ) {
-    const info = getTxActionNFTTransferInfo(props);
+    const info = getTxActionNFTInfo(props);
     titleInfo = info.titleInfo;
     iconInfo = info.iconInfo;
     components = {
       T0: TxActionNFTTransferT0,
       T1: TxActionNFTTransfer,
       T2: TxActionNFTTransfer,
+    };
+  }
+  if (action.type === IDecodedTxActionType.NFT_SALE) {
+    const info = getTxActionNFTInfo(props);
+    titleInfo = info.titleInfo;
+    iconInfo = info.iconInfo;
+    components = {
+      T0: TxActionNFTTradeT0,
+      T1: TxActionNFTTrade,
+      T2: TxActionNFTTrade,
     };
   }
   if (action.type === IDecodedTxActionType.FUNCTION_CALL) {

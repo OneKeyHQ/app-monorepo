@@ -360,6 +360,7 @@ export enum IDecodedTxActionType {
   NFT_TRANSFER = 'NFT_TRANSFER',
   NFT_MINT = 'NFT_MINT',
   NFT_SALE = 'NFT_SALE',
+  NFT_BURN = 'NFT_BURN',
 
   // Swap
   INTERNAL_SWAP = 'INTERNAL_SWAP',
@@ -429,13 +430,19 @@ export type IDecodedTxActionEvmInfo = {
   value: string;
   data?: string;
 };
-export type IDecodedTxActionNFTTransfer = IDecodedTxActionBase & {
+export type IDecodedTxActionNFTBase = IDecodedTxActionBase & {
   asset: NFTAsset;
   send: string;
   receive: string;
   amount: string;
+  from?: string;
+};
+
+export type IDecodedTxActionNFTTrade = IDecodedTxActionNFTBase & {
   value?: string;
-  exchangeName?: string; // Only for Sale
+  exchangeName?: string;
+  tradeSymbol?: string;
+  tradeSymbolAddress?: string | null;
 };
 
 export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & ISwapInfo;
@@ -456,8 +463,11 @@ export type IDecodedTxAction = {
   // other Unknown Action
   unknownAction?: IDecodedTxActionUnknown;
   evmInfo?: IDecodedTxActionEvmInfo;
-  nftTransfer?: IDecodedTxActionNFTTransfer;
+  // nft
+  nftTransfer?: IDecodedTxActionNFTBase;
+  nftTrade?: IDecodedTxActionNFTTrade;
 };
+
 export type IDecodedTx = {
   txid: string; // blockHash
 

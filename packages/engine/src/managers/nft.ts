@@ -174,35 +174,63 @@ export function createOutputActionFromNFTTransaction({
   transaction: NFTTransaction;
   address: string;
 }) {
-  const { send, receive, amount, tradePrice, asset, exchangeName, eventType } =
-    transaction;
+  const {
+    send,
+    receive,
+    amount,
+    tradePrice,
+    asset,
+    exchangeName,
+    eventType,
+    from,
+    tradeSymbol,
+    tradeSymbolAddress,
+  } = transaction;
   if (!asset) {
     return null;
   }
   let type: IDecodedTxActionType = IDecodedTxActionType.UNKNOWN;
+  const defaultData = {
+    from,
+    send,
+    receive,
+    amount: (amount ?? 0).toString(),
+    asset,
+    extraInfo: null,
+  };
   if (eventType === 'Transfer') {
     type = IDecodedTxActionType.NFT_TRANSFER;
   } else if (eventType === 'Sale') {
     type = IDecodedTxActionType.NFT_SALE;
   } else if (eventType === 'Mint') {
     type = IDecodedTxActionType.NFT_MINT;
+  } else if (eventType === 'Burn') {
+    type = IDecodedTxActionType.NFT_BURN;
   }
-
   const action = {
     type,
     hidden: !(send === address || receive === address),
     direction: IDecodedTxDirection.IN,
-    nftTransfer: {
-      send,
-      receive,
-      amount: (amount ?? 0).toString(),
-      asset,
-      value: tradePrice,
-      exchangeName,
-      extraInfo: null,
-    },
+    extraInfo: null,
+    nftTransfer: undefined,
+    nftTrade: undefined,
   };
-  return action;
+  if (type === IDecodedTxActionType.NFT_SALE) {
+    return {
+      ...action,
+      nftTrade: {
+        ...defaultData,
+        value: tradePrice,
+        exchangeName,
+        tradeSymbol,
+        tradeSymbolAddress,
+      },
+    };
+  }
+  return {
+    ...action,
+    nftTransfer: defaultData,
+  };
 }
 
 export async function getLocalNFTs({
