@@ -73,9 +73,7 @@ const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
   transportOptions: {
     consoleFunc: (msg: string, props: IConsoleFuncProps) => {
       logToConsole(props);
-      if (global.$backgroundApiProxy) {
-        global.$backgroundApiProxy?.serviceApp?.addLogger?.(`${msg}\r\n`);
-      }
+      global.$backgroundApiProxy?.serviceApp?.addLogger?.(`${msg}\r\n`);
     },
   },
 };
@@ -91,9 +89,7 @@ const NATIVE_TRANSPORT_CONFIG = {
     consoleFunc: (msg: string, props: IConsoleFuncProps) => {
       if (platformEnv.isDev) {
         logToConsole(props);
-        if (global.$backgroundApiProxy) {
-          global.$backgroundApiProxy?.serviceApp?.addLogger?.(`${msg}\r\n`);
-        }
+        global.$backgroundApiProxy?.serviceApp?.addLogger?.(`${msg}\r\n`);
       }
     },
   },
