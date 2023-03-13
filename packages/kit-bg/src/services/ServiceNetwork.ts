@@ -12,6 +12,10 @@ import type { GeneralInitialState } from '@onekeyhq/kit/src/store/reducers/gener
 import { changeActiveNetwork } from '@onekeyhq/kit/src/store/reducers/general';
 import reducerAccountSelector from '@onekeyhq/kit/src/store/reducers/reducerAccountSelector';
 import { updateNetworks } from '@onekeyhq/kit/src/store/reducers/runtime';
+import {
+  clearNetworkCustomRpcs,
+  updateCustomNetworkRpc,
+} from '@onekeyhq/kit/src/store/reducers/settings';
 import type { IRpcStatus } from '@onekeyhq/kit/src/store/reducers/status';
 import {
   setRpcStatus,
@@ -209,16 +213,24 @@ class ServiceNetwork extends ServiceBase {
 
   @backgroundMethod()
   async addNetwork(impl: string, params: AddNetworkParams) {
-    const { engine } = this.backgroundApi;
+    const { engine, dispatch } = this.backgroundApi;
     const network = await engine.addNetwork(impl, params);
+    dispatch(
+      updateCustomNetworkRpc({
+        networkId: network.id,
+        type: 'add',
+        rpc: params.rpcURL,
+      }),
+    );
     this.fetchNetworks();
     return network;
   }
 
   @backgroundMethod()
   async deleteNetwork(networkId: string) {
-    const { engine } = this.backgroundApi;
+    const { engine, dispatch } = this.backgroundApi;
     await engine.deleteNetwork(networkId);
+    dispatch(clearNetworkCustomRpcs({ networkId }));
     this.fetchNetworks();
   }
 

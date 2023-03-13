@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-import type { FC } from 'react';
-import { isValidElement, useState } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { isValidElement, useMemo, useState } from 'react';
 
 import {
   useFocusEffect,
@@ -9,7 +9,7 @@ import {
 } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { useSafeAreaInsets } from '@onekeyhq/components';
+import { VStack, useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../../Box';
@@ -40,6 +40,7 @@ const MobileModal: FC<ModalProps> = ({
   closeAction,
   hideBackButton,
   rightContent,
+  enableMobileFooterWrap,
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -52,6 +53,17 @@ const MobileModal: FC<ModalProps> = ({
   useFocusEffect(() => {
     setCurrentStackIndex(index);
   });
+
+  const { FooterButtonContainer, btnProps } = useMemo(() => {
+    const props: ComponentProps<typeof Button> = {
+      size: platformEnv.isExtension ? 'lg' : 'xl',
+    };
+    Object.assign(props, enableMobileFooterWrap ? { w: 'full' } : { flex: 1 });
+    return {
+      btnProps: props,
+      FooterButtonContainer: enableMobileFooterWrap ? VStack : HStack,
+    };
+  }, [enableMobileFooterWrap]);
 
   return (
     <Box
@@ -86,14 +98,15 @@ const MobileModal: FC<ModalProps> = ({
       ) : (
         <Box
           pb={`${bottom}px`}
-          borderTopWidth={platformEnv.isNativeIOS ? 0 : 1}
+          borderTopWidth={
+            platformEnv.isNativeIOS || enableMobileFooterWrap ? 0 : 1
+          }
           borderTopColor="divider"
         >
-          <HStack p={4} alignItems="center" space="4">
+          <FooterButtonContainer p={4} alignItems="center" space="4">
             {!hideSecondaryAction && (
               <Button
-                flex="1"
-                size={platformEnv.isExtension ? 'lg' : 'xl'}
+                {...btnProps}
                 onPress={() => {
                   onSecondaryActionPress?.({ close });
                   onClose?.();
@@ -108,8 +121,7 @@ const MobileModal: FC<ModalProps> = ({
             )}
             {!hidePrimaryAction && (
               <Button
-                flex="1"
-                size={platformEnv.isExtension ? 'lg' : 'xl'}
+                {...btnProps}
                 type="primary"
                 onPress={() => {
                   onPrimaryActionPress?.({ onClose, close });
@@ -122,7 +134,7 @@ const MobileModal: FC<ModalProps> = ({
                   })}
               </Button>
             )}
-          </HStack>
+          </FooterButtonContainer>
         </Box>
       )}
     </Box>

@@ -24,7 +24,7 @@ import ecc from './nobleSecp256k1Wrapper';
 import { PLACEHOLDER_VSIZE, estimateVsize, loadOPReturn } from './vsize';
 
 import type { Network } from './networks';
-import type { PsbtInput } from 'bitcoinjs-lib/node_modules/bip174/src/lib/interfaces';
+import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
 
 type GetAccountParams =

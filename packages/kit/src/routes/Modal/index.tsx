@@ -81,7 +81,6 @@ const WebviewModal = createLazyComponent(
 );
 
 const AddressBookModal = createLazyComponent(() => import('./AddressBook'));
-const AnnualReportModal = createLazyComponent(() => import('./AnnualReport'));
 
 const OverviewModal = createLazyComponent(() => import('./Overview'));
 const Market = createLazyComponent(() => import('./Market'));
@@ -235,10 +234,6 @@ const modalStackScreenList = [
   {
     name: ModalRoutes.Overview,
     component: OverviewModal,
-  },
-  {
-    name: ModalRoutes.AnnualReport,
-    component: AnnualReportModal,
   },
   { name: ModalRoutes.CurrencySelect, component: CurrencySelectModal },
   {

@@ -1,6 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { dequal as deepEqual } from 'dequal';
-import { debounce } from 'lodash';
+import { debounce, uniq } from 'lodash';
 import uuid from 'react-native-uuid';
 
 import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
@@ -43,7 +43,6 @@ export type ISettingsDevModeInfo = {
   enablePerfCheck?: boolean;
   defiBuildService?: string;
   hideDiscoverContent?: boolean;
-  enableExternalAccountAnnualReport?: boolean;
   onRamperTestMode?: boolean;
   showWebEmbedWebviewAgent?: boolean;
 };
@@ -104,7 +103,6 @@ export type SettingsState = {
   customNetworkRpcMap?: {
     [networkId: string]: string[];
   };
-  annualReportEntryEnabled?: boolean;
   accountDerivationDbMigrationVersion?: string;
   hardware?: {
     rememberPassphraseWallets?: string[];
@@ -173,7 +171,6 @@ const initialState: SettingsState = {
   },
   disableSwapExactApproveAmount: false,
   customNetworkRpcMap: {},
-  annualReportEntryEnabled: false,
   accountDerivationDbMigrationVersion: '',
   hardware: {
     rememberPassphraseWallets: [], // walletId
@@ -306,15 +303,6 @@ export const settingsSlice = createSlice({
     },
     setHideDiscoverContent(state, action: PayloadAction<boolean>) {
       state.devMode = { ...state.devMode, hideDiscoverContent: action.payload };
-    },
-    setEnableExternalAccountReport(state, action: PayloadAction<boolean>) {
-      state.devMode = {
-        ...state.devMode,
-        enableExternalAccountAnnualReport: action.payload,
-      };
-    },
-    setAnnualReportEntryEnabled(state, action: PayloadAction<boolean>) {
-      state.annualReportEntryEnabled = action.payload;
     },
     setOnRamperTestMode(state, action: PayloadAction<boolean>) {
       state.devMode = {
@@ -464,9 +452,21 @@ export const settingsSlice = createSlice({
       }
       if (type === 'add') {
         map[networkId].push(rpc);
+        map[networkId] = uniq(map[networkId]);
       } else if (type === 'remove') {
         map[networkId] = map[networkId].filter((n) => n !== rpc);
       }
+      state.customNetworkRpcMap = map;
+    },
+    clearNetworkCustomRpcs(
+      state,
+      action: PayloadAction<{ networkId: string }>,
+    ) {
+      const { networkId } = action.payload;
+      const map = {
+        ...(state.customNetworkRpcMap || {}),
+      };
+      delete map[networkId];
       state.customNetworkRpcMap = map;
     },
     setEnableWebAuthn(state, action: PayloadAction<boolean>) {
@@ -601,12 +601,11 @@ export const {
   setHideDiscoverContent,
   setWalletSwitch,
   toggleWalletSwitch,
-  setAnnualReportEntryEnabled,
-  setEnableExternalAccountReport,
   setHideScamHistory,
   setAccountDerivationDbMigrationVersion,
   setOnRamperTestMode,
   setShowWebEmbedWebviewAgent,
+  clearNetworkCustomRpcs,
   rememberPassphraseWallet,
   forgetPassphraseWallet,
   setVerification,

@@ -12,7 +12,7 @@ devUtils.execSync(`
 
 const version = process.env.VERSION;
 
-const browsers = ['chrome-extension', 'firefox-addon'];
+const browsers = ['chrome-extension', 'firefox-addon', 'edge-extension'];
 browsers.forEach((browser) => {
   const browserFolder = `${buildFolder}/${browser.replace(/-.+$/, '')}`;
   const cmd = `

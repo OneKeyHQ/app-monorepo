@@ -118,14 +118,6 @@ const OverviewDefiListScreen = createLazyComponent(
 const WalletSwitch = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/Me/UtilSection/WalletSwitch'),
 );
-
-const AnnualLoading = createLazyComponent(
-  () => import('@onekeyhq/kit/src/views/AnnualReport/Welcome'),
-);
-
-const AnnualReport = createLazyComponent(
-  () => import('@onekeyhq/kit/src/views/AnnualReport/Report'),
-);
 const BulkSender = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/BulkSender'),
 );
@@ -239,14 +231,6 @@ export const stackScreenList: ScreensList<HomeRoutes> = [
   {
     name: HomeRoutes.WalletSwitch,
     component: WalletSwitch,
-  },
-  {
-    name: HomeRoutes.AnnualLoading,
-    component: AnnualLoading,
-  },
-  {
-    name: HomeRoutes.AnnualReport,
-    component: AnnualReport,
   },
   {
     name: HomeRoutes.BulkSender,
