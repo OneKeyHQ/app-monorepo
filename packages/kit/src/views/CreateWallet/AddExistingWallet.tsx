@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { InputAccessoryView } from 'react-native';
 
 import {
   Box,
@@ -24,6 +25,7 @@ import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import type {
   CreateWalletRoutesParams,
   IAddExistingWalletModalParams,
+  IAddExistingWalletMode,
   IAddImportedAccountDoneModalParams,
   IAddImportedOrWatchingAccountModalParams,
   IAppWalletDoneModalParams,
@@ -45,6 +47,7 @@ import { useWalletName } from '../../hooks/useWalletName';
 import { wait } from '../../utils/helper';
 import { useOnboardingContext } from '../Onboarding/OnboardingContext';
 import { EOnboardingRoutes } from '../Onboarding/routes/enums';
+import { NineHouseLatticeInputForm } from '../Onboarding/screens/ImportWallet/Component/NineHouseLatticeInputForm';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -65,11 +68,17 @@ function useAddExistingWallet({
   onAddMnemonicAuth,
   onAddImportedAuth,
   onAddWatchingDone,
+  inputMode,
+  onTextChange,
+  textValue,
 }: {
   onMultipleResults: (p: IAddImportedOrWatchingAccountModalParams) => void;
   onAddMnemonicAuth: (p: IAppWalletDoneModalParams) => void;
   onAddImportedAuth: (p: IAddImportedAccountDoneModalParams) => void;
   onAddWatchingDone: () => void;
+  inputMode?: IAddExistingWalletMode;
+  onTextChange?: (text: string) => void;
+  textValue?: string;
 }) {
   const route = useRoute();
   const intl = useIntl();
@@ -77,8 +86,8 @@ function useAddExistingWallet({
   const { activeNetworkId } = useGeneral();
   const { wallets } = useRuntime();
   const onboardingDone = useOnboardingDone();
-
-  const { mode = 'all', presetText = '' } = (route.params ||
+  const { mode = 'all', presetText = '' } = ({ mode: inputMode } ||
+    route.params ||
     emptyParams) as IAddExistingWalletModalParams;
   const useFormReturn = useForm<AddExistingWalletValues>({
     defaultValues: { text: presetText || '' },
@@ -86,14 +95,13 @@ function useAddExistingWallet({
     reValidateMode: 'onBlur',
   });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { isValid, formValues } =
-    useFormOnChangeDebounced<AddExistingWalletValues>({
-      useFormReturn,
-      revalidate: false,
-      clearErrorIfEmpty: true,
-    });
+  const { formValues } = useFormOnChangeDebounced<AddExistingWalletValues>({
+    useFormReturn,
+    revalidate: false,
+    clearErrorIfEmpty: true,
+    clearErrorWhenTextChange: true,
+  });
   const { control, handleSubmit, setValue, trigger } = useFormReturn;
-  // const submitDisabled = !isValid;
   const submitDisabled = !formValues?.text;
   const inputCategory = useMemo(() => {
     let onlyForcategory: UserInputCategory | undefined;
@@ -266,6 +274,12 @@ function useAddExistingWallet({
     }
   }, [presetText, trigger]);
 
+  useEffect(() => {
+    if (textValue) {
+      setValue('text', textValue);
+    }
+  }, [setValue, textValue]);
+
   const onPaste = useCallback(async () => {
     const pastedText = await getClipboard();
     setValue('text', pastedText);
@@ -309,6 +323,7 @@ function useAddExistingWallet({
     inputCategory,
     placeholder,
     onPaste,
+    onTextChange,
     mode,
   };
 }
@@ -337,6 +352,7 @@ function AddExistingWalletView(
     showPasteButton,
     onNameServiceChange,
     nameServiceAddress,
+    onTextChange,
   } = props;
 
   const {
@@ -344,112 +360,168 @@ function AddExistingWalletView(
     disableSubmitBtn,
     address,
   } = useNameServiceStatus();
-  const isSmallScreen = useIsVerticalLayout();
   const isVerticalLayout = useIsVerticalLayout();
-
+  const [isRealValid, setIsRealValid] = useState(false);
   const helpText = useCallback(
     (value: string) => (
       <NameServiceResolver
         name={value}
-        disable={mode === 'imported'}
+        disable={mode === 'imported' || mode === 'mnemonic'}
         onChange={onNameServiceChange || onNameServiceStatusChange}
         disableBTC
       />
     ),
     [onNameServiceChange, onNameServiceStatusChange, mode],
   );
+  const PasteBtn = useCallback(
+    () => (
+      <Center>
+        <Button size="xl" type="plain" onPromise={onPaste}>
+          {intl.formatMessage({ id: 'action__paste' })}
+        </Button>
+      </Center>
+    ),
+    [intl, onPaste],
+  );
+
+  const labelAddonArr = useMemo(() => {
+    let res: Array<'scan' | 'paste'> = [];
+    if (mode === 'watching' || mode === 'all') {
+      res = [...res, 'scan'];
+    }
+    if (showPasteButton) {
+      res = [...res, 'paste'];
+    }
+    return res;
+  }, [mode, showPasteButton]);
 
   return (
     <Box
       display="flex"
       flexDirection="column"
-      justifyContent={isSmallScreen ? 'space-between' : 'flex-start'}
+      justifyContent={isVerticalLayout ? 'space-between' : 'flex-start'}
       flex={1}
       // h="full"
     >
-      <Form>
-        <Form.Item
-          control={control}
-          name="text"
-          rules={{
-            validate: async (t) => {
-              const text = nameServiceAddress || address || t;
-              if (!text) {
-                return true;
-              }
-              if (
-                (
-                  await backgroundApiProxy.validator.validateCreateInput({
-                    input: text,
-                    onlyFor: inputCategory,
-                  })
-                ).filter(
-                  ({ category }) => category !== UserInputCategory.ADDRESS,
-                ).length > 0
-              ) {
-                return true;
-              }
-              // Special treatment for BTC address.
-              try {
-                await backgroundApiProxy.validator.validateAddress(
-                  OnekeyNetwork.btc,
-                  text,
-                );
-                return intl.formatMessage({
-                  id: 'form__address_btc_as_wachted_account',
-                });
-              } catch {
-                // pass
-              }
-              return intl.formatMessage({
-                id: 'form__add_exsting_wallet_invalid',
-              });
-            },
+      {mode === 'mnemonic' && !platformEnv.isNative ? (
+        <NineHouseLatticeInputForm
+          onSubmit={async (text) => {
+            await onSubmit(text);
+            await wait(600);
           }}
-          helpText={helpText}
-        >
-          <Form.Textarea
-            placeholder={placeholder}
-            h="48"
-            trimValue={!['all', 'mnemonic'].includes(mode)}
-          />
-        </Form.Item>
-        {!(platformEnv.isExtension || platformEnv.isWeb) && showPasteButton && (
-          <Center>
-            <Button
-              size="xl"
-              type="plain"
-              leftIconName="Square2StackMini"
-              onPromise={onPaste}
-            >
-              {intl.formatMessage({ id: 'action__paste' })}
-            </Button>
-          </Center>
-        )}
-
-        {showSubmitButton ? (
-          <Button
-            isDisabled={submitDisabled || disableSubmitBtn}
-            type="primary"
-            size={isVerticalLayout ? 'xl' : 'lg'}
-            onPromise={handleSubmit(async (values) => {
-              if (!disableSubmitBtn && address) {
-                values.text = address;
-              }
-              await onSubmit(values);
-              await wait(600);
-            })}
+        />
+      ) : (
+        <Form>
+          <Form.Item
+            isLabelAddonActions
+            labelAddon={labelAddonArr}
+            control={control}
+            name="text"
+            rules={{
+              validate: async (t) => {
+                const text = nameServiceAddress || address || t;
+                if (!text) {
+                  setIsRealValid(false);
+                  return true;
+                }
+                if (
+                  (
+                    await backgroundApiProxy.validator.validateCreateInput({
+                      input: text,
+                      onlyFor: inputCategory,
+                    })
+                  ).filter(
+                    ({ category }) => category !== UserInputCategory.ADDRESS,
+                  ).length > 0
+                ) {
+                  setIsRealValid(true);
+                  return true;
+                }
+                setIsRealValid(false);
+                // Special treatment for BTC address.
+                try {
+                  await backgroundApiProxy.validator.validateAddress(
+                    OnekeyNetwork.btc,
+                    text,
+                  );
+                  return intl.formatMessage({
+                    id: 'form__address_btc_as_wachted_account',
+                  });
+                } catch {
+                  // pass
+                }
+                return intl.formatMessage({
+                  id: 'form__add_exsting_wallet_invalid',
+                });
+              },
+              onChange: (e: { target?: { name: string; value?: string } }) => {
+                const text = e?.target?.value;
+                if (onTextChange && typeof text === 'string') {
+                  onTextChange(text);
+                }
+              },
+            }}
+            helpText={helpText}
           >
-            {intl.formatMessage({ id: 'action__confirm' })}
-          </Button>
-        ) : null}
-      </Form>
+            {mode === 'imported' ? (
+              <Form.Input
+                placeholder={placeholder}
+                backgroundColor="action-secondary-default"
+                secureTextEntry
+                size="xl"
+                rightCustomElement={PasteBtn()}
+              />
+            ) : (
+              <Form.Textarea
+                inputAccessoryViewID="1"
+                autoFocus
+                autoCorrect={false}
+                placeholder={placeholder}
+                totalLines={3}
+                trimValue={!['all', 'mnemonic'].includes(mode)}
+              />
+            )}
+          </Form.Item>
+          {showSubmitButton ? (
+            <Button
+              isDisabled={submitDisabled || disableSubmitBtn || !isRealValid}
+              type="primary"
+              size="xl"
+              onPromise={handleSubmit(async (values) => {
+                if (!disableSubmitBtn && address) {
+                  values.text = address;
+                }
+                await onSubmit(values);
+                await wait(600);
+              })}
+            >
+              {intl.formatMessage({ id: 'action__confirm' })}
+            </Button>
+          ) : null}
+        </Form>
+      )}
+
+      {/* remove the ios default AccessoryView */}
+      {platformEnv.isNativeIOS && (
+        <InputAccessoryView nativeID="1">
+          <Box />
+        </InputAccessoryView>
+      )}
+
       {children}
     </Box>
   );
 }
 
-function OnboardingAddExistingWallet() {
+function OnboardingAddExistingWallet({
+  inputMode,
+  valueTextForMnemonic,
+  onChangeTextForMnemonic,
+}: {
+  inputMode: IAddExistingWalletMode;
+  valueTextForMnemonic?: string;
+  onChangeTextForMnemonic?: (text: string) => void;
+}) {
   const navigation = useNavigation();
 
   const context = useOnboardingContext();
@@ -521,8 +593,13 @@ function OnboardingAddExistingWallet() {
     onAddMnemonicAuth,
     onAddWatchingDone,
     onAddImportedAuth,
+    inputMode,
+    onTextChange: onChangeTextForMnemonic,
+    textValue: valueTextForMnemonic,
   });
-  return <AddExistingWalletView {...viewProps} showSubmitButton />;
+  return (
+    <AddExistingWalletView {...viewProps} showSubmitButton showPasteButton />
+  );
 }
 
 function OneKeyLiteRecoveryButton() {

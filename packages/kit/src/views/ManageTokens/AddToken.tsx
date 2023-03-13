@@ -194,23 +194,25 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                   />
                 </Box>
 
-                <HStack justifyContent="center" alignItems="center" mt="16px">
-                  <Typography.Body1 mr="18px">
-                    {sourceInfo?.origin?.split('://')[1] ?? 'DApp'}
-                  </Typography.Body1>
-                  <Icon size={20} name="ArrowsRightLeftMini" />
-                  <Image
-                    src={activeNetwork?.logoURI}
-                    ml="18px"
-                    mr="8px"
-                    width="16px"
-                    height="16px"
-                    borderRadius="full"
-                  />
-                  <Typography.Body2 maxW="40" isTruncated>
-                    {activeAccount?.name}
-                  </Typography.Body2>
-                </HStack>
+                {sourceInfo?.id ? (
+                  <HStack justifyContent="center" alignItems="center" mt="16px">
+                    <Typography.Body1 mr="18px">
+                      {sourceInfo?.hostname ?? 'DApp'}
+                    </Typography.Body1>
+                    <Icon size={20} name="ArrowsRightLeftMini" />
+                    <Image
+                      src={activeNetwork?.logoURI}
+                      ml="18px"
+                      mr="8px"
+                      width="16px"
+                      height="16px"
+                      borderRadius="full"
+                    />
+                    <Typography.Body2 maxW="40" isTruncated>
+                      {activeAccount?.name}
+                    </Typography.Body2>
+                  </HStack>
+                ) : null}
               </Box>
 
               <Box

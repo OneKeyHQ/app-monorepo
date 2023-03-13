@@ -82,6 +82,8 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
         _hover={{ bg: 'surface-hovered' }}
         onPress={() => {
           if (onSelectAsset) {
+            console.log('latestTradePrice = ', latestTradePrice);
+
             onSelectAsset(asset);
           }
         }}
