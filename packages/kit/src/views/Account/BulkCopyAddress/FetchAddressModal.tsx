@@ -13,6 +13,7 @@ import {
   Text,
 } from '@onekeyhq/components';
 import type { ImportableHDAccount } from '@onekeyhq/engine/src/types/account';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -42,6 +43,24 @@ const FetchAddressModal: FC = () => {
     ImportableHDAccount[]
   >([]);
 
+  const updateSetRangeAccountProgress = useCallback(
+    (result: any[], forceFinish?: boolean) => {
+      if (data.type !== 'setRange') return;
+      const { generateCount } = data;
+      const value = forceFinish
+        ? 1
+        : Math.floor((result.length / Number(generateCount)) * 100) / 100;
+      setProgress(value);
+      setGeneratedAccounts(result);
+      console.log(
+        `progress value: ${value}, r => `,
+        result,
+        ` . ==length: ${result.length}`,
+      );
+    },
+    [data],
+  );
+
   const generateHDAccounts = useCallback(
     async ({
       start,
@@ -66,25 +85,6 @@ const FetchAddressModal: FC = () => {
       return accounts;
     },
     [networkId, password, walletId],
-  );
-
-  const updateHDAccountProgress = useCallback(
-    (result: any[], forceFinish?: boolean) => {
-      if (data.type !== 'setRange') return;
-      if (isHwWallet) return;
-      const { generateCount } = data;
-      const value = forceFinish
-        ? 1
-        : Math.floor((result.length / Number(generateCount)) * 100) / 100;
-      setProgress(value);
-      setGeneratedAccounts(result);
-      console.log(
-        `progress value: ${value}, r => `,
-        result,
-        ` . ==length: ${result.length}`,
-      );
-    },
-    [data, isHwWallet],
   );
 
   // HD Wallet, fetch address for set range mode
@@ -124,10 +124,10 @@ const FetchAddressModal: FC = () => {
         result.push(...accounts);
         start += pageSize;
         if (accounts.length !== offset) {
-          updateHDAccountProgress(result, true);
+          updateSetRangeAccountProgress(result, true);
           break;
         }
-        updateHDAccountProgress(result);
+        updateSetRangeAccountProgress(result);
       }
     })();
   }, [
@@ -137,8 +137,49 @@ const FetchAddressModal: FC = () => {
     password,
     walletId,
     generateHDAccounts,
-    updateHDAccountProgress,
+    updateSetRangeAccountProgress,
   ]);
+
+  useEffect(() => {
+    if (data.type !== 'setRange') return;
+    if (!isHwWallet) return;
+    (async () => {
+      const { fromIndex, generateCount, derivationOption } = data;
+      const template = derivationOption?.template;
+      if (!template) throw new Error('must be a template');
+      const result = [];
+      let hasNotExistAccount = false;
+      // eslint-disable-next-line no-plusplus
+      for (let i = 0; i < Number(generateCount || 0); i++) {
+        const index = Number(fromIndex) - 1 + i;
+        try {
+          const addressInfo =
+            await backgroundApiProxy.serviceDerivationPath.getHWAddressByTemplate(
+              {
+                networkId,
+                walletId,
+                index,
+                template,
+              },
+            );
+          if (!addressInfo.accountExist) {
+            if (hasNotExistAccount) {
+              // If there is already no transaction record of the account, the result will be returned directly
+              updateSetRangeAccountProgress(result, true);
+              break;
+            }
+            hasNotExistAccount = true;
+          }
+          result.push(addressInfo);
+          updateSetRangeAccountProgress(result);
+        } catch (e) {
+          debugLogger.common.info('getHWAddressByTemplate error: ', e);
+          updateSetRangeAccountProgress(result, true);
+          break;
+        }
+      }
+    })();
+  }, [data, isHwWallet, networkId, walletId, updateSetRangeAccountProgress]);
 
   const progressText = useMemo(() => {
     let total = '0';

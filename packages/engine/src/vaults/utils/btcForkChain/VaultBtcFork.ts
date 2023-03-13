@@ -199,17 +199,30 @@ export default class VaultBtcFork extends VaultBase {
 
   override async checkAccountExistence(
     accountIdOnNetwork: string,
+    useAddress?: boolean,
   ): Promise<boolean> {
     let accountIsPresent = false;
+    let txCount = 0;
     try {
       const provider = await this.getProvider();
-      const { txs } = (await provider.getAccount({
-        type: 'simple',
-        xpub: accountIdOnNetwork,
-      })) as {
-        txs: number;
-      };
-      accountIsPresent = txs > 0;
+      if (useAddress) {
+        const { txs } = (await provider.getAccountWithAddress({
+          type: 'simple',
+          address: accountIdOnNetwork,
+        })) as {
+          txs: number;
+        };
+        txCount = txs;
+      } else {
+        const { txs } = (await provider.getAccount({
+          type: 'simple',
+          xpub: accountIdOnNetwork,
+        })) as {
+          txs: number;
+        };
+        txCount = txs;
+      }
+      accountIsPresent = txCount > 0;
     } catch (e) {
       console.error(e);
     }
