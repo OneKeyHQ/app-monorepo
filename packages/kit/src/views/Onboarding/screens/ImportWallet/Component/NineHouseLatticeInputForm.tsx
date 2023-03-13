@@ -115,7 +115,7 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
         </Pressable>
       </Box>
       {!showRecoveryPhraseFields ? (
-        <Box m="-4px" flexDirection="row" flexWrap="wrap">
+        <Box m="-4px" flexDirection="row" flexWrap="wrap" pb="16px">
           {skeletonDefaultArr.map(() => (
             <Box p="4px" w="1/3">
               <CustomSkeleton w="full" borderRadius="12px" h="38px" />
@@ -123,7 +123,7 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
           ))}
         </Box>
       ) : (
-        <Box m="-4px">
+        <Box m="-4px" pb="16px">
           <Form flexDirection="row" flexWrap="wrap">
             {inputIndexArray.map((index) => (
               <Form.Item
@@ -210,11 +210,8 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
           </Form>
         </Box>
       )}
-      <AnimateHeight>
+      <AnimateHeight containerTransition={{ type: 'timing', duration: 150 }}>
         <AccessoryView
-          boxProps={{
-            position: 'relative',
-          }}
           accessoryData={accessoryData}
           withKeybord={false}
           selected={(value) => {
@@ -239,7 +236,7 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
       <Button
         isDisabled={disableSubmit}
         type="primary"
-        mt={8}
+        mt={4}
         size="xl"
         onPromise={handleSubmit((values) => {
           const result = Object.values(values).join(' ');

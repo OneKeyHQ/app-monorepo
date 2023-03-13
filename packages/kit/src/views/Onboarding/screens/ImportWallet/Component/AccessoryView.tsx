@@ -1,34 +1,24 @@
-import type { FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Button,
-  Center,
-  HStack,
-  Icon,
-  ScrollView,
-  Typography,
-} from '@onekeyhq/components';
+import { Alert, Box, Button, ScrollView } from '@onekeyhq/components';
 import useIsKeyboardShown from '@onekeyhq/components/src/Layout/BottomTabs/utils/useIsKeyboardShown';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { IBoxProps } from 'native-base';
-
-type AccessoryViewProps = {
+interface AccessoryViewProps extends ComponentProps<typeof ScrollView> {
   withKeybord?: boolean;
   accessoryData?: string[];
   selected?: (value: string) => void;
-  boxProps?: IBoxProps;
-};
+}
 
-export const AccessoryView: FC<AccessoryViewProps> = ({
+export const AccessoryView = ({
   accessoryData,
   withKeybord,
   selected,
-  boxProps,
-}) => {
+  ...rest
+}: AccessoryViewProps) => {
   const isKeyboardshow = useIsKeyboardShown();
   const intl = useIntl();
   const showAccessory = useMemo(
@@ -39,42 +29,43 @@ export const AccessoryView: FC<AccessoryViewProps> = ({
   );
   const showInvalidTip = !accessoryData;
   return showAccessory ? (
-    <Box
-      position="absolute"
-      bottom="0"
-      left="0"
-      w="full"
+    <ScrollView
+      horizontal
+      disableScrollViewPanResponder
+      showsHorizontalScrollIndicator={false}
       bgColor="background-default"
-      {...boxProps}
+      contentContainerStyle={{
+        flexGrow: 1,
+      }}
+      {...rest}
     >
       {showInvalidTip ? (
-        <Center flex={1} flexDirection="row">
-          <Icon name="ExclamationTriangleMini" color="icon-warning" />
-          <Typography.Body2Strong>
-            {intl.formatMessage({ id: 'msg__invalid_word' })}
-          </Typography.Body2Strong>
-        </Center>
+        <Alert
+          alertType="warn"
+          title={intl.formatMessage({ id: 'msg__invalid_word' })}
+          dismiss={false}
+          containerProps={{
+            flex: 1,
+          }}
+        />
       ) : (
-        <Box flex={1}>
-          <ScrollView flex={1} horizontal disableScrollViewPanResponder>
-            <HStack ml={2} space={2} alignItems="center">
-              {accessoryData.map((value, index) => (
-                <Button
-                  key={`${value}-${index}`}
-                  size="sm"
-                  onPress={() => {
-                    if (selected) {
-                      selected(value);
-                    }
-                  }}
-                >
-                  {value}
-                </Button>
-              ))}
-            </HStack>
-          </ScrollView>
-        </Box>
+        <>
+          {accessoryData.map((value, index) => (
+            <Button
+              key={`${value}-${index}`}
+              size="sm"
+              onPress={() => {
+                if (selected) {
+                  selected(value);
+                }
+              }}
+              mr="8px"
+            >
+              {value}
+            </Button>
+          ))}
+        </>
       )}
-    </Box>
+    </ScrollView>
   ) : null;
 };
