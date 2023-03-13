@@ -8,7 +8,6 @@ import {
   Box,
   Modal,
   useIsVerticalLayout,
-  useTheme,
   useThemeValue,
 } from '@onekeyhq/components';
 
@@ -68,34 +67,14 @@ export const BottomSheetSettings: FC<{
 };
 
 export const BottomSheetSettingRow: FC<{
-  borderTopRadius?: number | string;
-  borderBottomRadius?: number | string;
-  borderTopWidth?: number | string;
   mt?: number | string;
-}> = ({
-  children,
-  borderTopRadius,
-  borderBottomRadius,
-  borderTopWidth,
-  mt,
-}) => {
-  const { themeVariant } = useTheme();
-  return (
-    <Box
-      p="16px"
-      borderWidth={themeVariant === 'light' ? 1 : 0}
-      borderColor="border-subdued"
-      borderRadius="12"
-      borderTopRadius={borderTopRadius}
-      borderBottomRadius={borderBottomRadius}
-      borderTopWidth={borderTopWidth}
-      bg="surface-default"
-      justifyContent="space-between"
-      flexDirection="row"
-      alignItems="center"
-      mt={mt}
-    >
-      {children}
-    </Box>
-  );
-};
+}> = ({ children, mt }) => (
+  <Box
+    justifyContent="space-between"
+    flexDirection="row"
+    alignItems="center"
+    mt={mt}
+  >
+    {children}
+  </Box>
+);

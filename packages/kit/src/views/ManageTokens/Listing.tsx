@@ -21,8 +21,8 @@ import {
 } from '@onekeyhq/components';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
@@ -38,6 +38,7 @@ import { deviceUtils } from '../../utils/hardware';
 import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValue } from '../../utils/priceUtils';
 import { showHomeBalanceSettings } from '../Overlay/HomeBalanceSettings';
+import { showManageTokenListingTip } from '../Overlay/MangeTokenListing';
 
 import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
 import { useSearchTokens } from './hooks';
@@ -266,6 +267,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
   const { walletId, accountId, networkId } = useActiveWalletAccount();
   const accountTokens = useAccountTokens(networkId, accountId);
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
+  const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
 
   const isOwned = accountTokens.some(
     (t) => item.tokenIdOnNetwork === t.tokenIdOnNetwork && !t.autoDetected,
@@ -294,8 +296,59 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
     });
   }, [walletId, accountId, networkId, item.tokenIdOnNetwork, navigation]);
 
+  const checkTokenVisible = useCallback(async () => {
+    if (!hideRiskTokens && !hideSmallBalance) {
+      return;
+    }
+
+    const options = {
+      title: intl.formatMessage(
+        { id: 'msg__str_has_been_added_but_is_hidden' },
+        { 0: item.symbol },
+      ),
+      content: '',
+    };
+    if (item.riskLevel && item.riskLevel > TokenRiskLevel.WARN) {
+      options.content = intl.formatMessage(
+        { id: 'msg__str_has_been_added_but_is_hidden_desc' },
+        { 0: item.symbol },
+      );
+    }
+    const { serviceToken, servicePrice } = backgroundApiProxy;
+    const [balances] = await serviceToken.getAccountBalanceFromRpc(
+      networkId,
+      accountId,
+      [item.tokenIdOnNetwork],
+      false,
+      {
+        [item.tokenIdOnNetwork]: item,
+      },
+    );
+    const price = await servicePrice.getSimpleTokenPrice({
+      networkId,
+      tokenId: item.tokenIdOnNetwork,
+    });
+    const value = getTokenValue({ token: item, price, balances });
+    if (value && value.isLessThan(1)) {
+      options.content = intl.formatMessage({
+        id: 'msg__token_has_been_added_but_is_hiddendesc_desc',
+      });
+    }
+    if (!options.content) {
+      return;
+    }
+    const close = showManageTokenListingTip({
+      ...options,
+      primaryActionTranslationId: 'action__show_it',
+      onPrimaryActionPress: () => {
+        close?.();
+        showHomeBalanceSettings();
+      },
+    });
+  }, [accountId, hideSmallBalance, hideRiskTokens, intl, item, networkId]);
+
   const onAddToken = useCallback(async () => {
-    const { engine, serviceToken, servicePrice } = backgroundApiProxy;
+    const { engine, serviceToken } = backgroundApiProxy;
     try {
       await checkIfShouldActiveToken();
       await engine.quickAddToken(
@@ -314,48 +367,17 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
       accountId,
       networkId,
     });
-    if (hideSmallBalance) {
-      const [balances] = await serviceToken.getAccountTokenBalance({
-        accountId,
-        networkId,
-        tokenIds: [item.tokenIdOnNetwork],
-      });
-      const price = await servicePrice.getSimpleTokenPrice({
-        networkId,
-        tokenId: item.tokenIdOnNetwork,
-      });
-      const value = getTokenValue({ token: item, price, balances });
-      if (value && value.isLessThan(1)) {
-        ToastManager.show(
-          {
-            title: intl.formatMessage({
-              id: 'msg__token_has_been_added_but_is_hidden',
-            }),
-          },
-          platformEnv.isNativeAndroid
-            ? undefined
-            : {
-                type: 'action',
-                text2: intl.formatMessage({
-                  id: 'action__go_to_setting',
-                }),
-                onPress: showHomeBalanceSettings,
-              },
-        );
-        return;
-      }
-    }
+    await checkTokenVisible();
     ToastManager.show({
       title: intl.formatMessage({ id: 'msg__token_added' }),
     });
   }, [
     accountId,
     networkId,
-    hideSmallBalance,
-
     intl,
     checkIfShouldActiveToken,
     item,
+    checkTokenVisible,
   ]);
 
   const onPress = useCallback(async () => {

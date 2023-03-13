@@ -135,7 +135,7 @@ function SectionHeader({
 
 function Body() {
   const sectionData = useWalletSelectorSectionData();
-  const { deviceStatus } = useDeviceStatusOfHardwareWallet();
+  const { devicesStatus } = useDeviceStatusOfHardwareWallet();
   const sectionListRef = useRef<any>(null);
   const { walletId } = useActiveWalletAccount();
   const { visible } = useWalletSelectorStatus();
@@ -205,7 +205,7 @@ function Body() {
         <ListItemWithHidden
           item={item}
           section={section}
-          deviceStatus={deviceStatus}
+          devicesStatus={devicesStatus}
           onLastItemRender={scrollToItemDebounced}
         />
       )}

@@ -26,6 +26,7 @@ import { OnekeyHardwareModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Hardwa
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
 import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
@@ -134,8 +135,6 @@ const RightHeader: FC<RightHeaderProps> = ({
 
   const { showVerify } = useLocalAuthenticationModal();
   const [showBackupDialog, setShowBackupDialog] = useState(false);
-  const [showDeleteWalletDialog, setShowDeleteWalletDialog] = useState(false);
-  const [deleteWallet, setDeleteWallet] = useState<DeleteWalletProp>();
   const isLoading = useAppSelector((s) => s.accountSelector.isLoading);
 
   const hasAvailableUpdate = useMemo(
@@ -143,25 +142,45 @@ const RightHeader: FC<RightHeaderProps> = ({
     [deviceStatus?.hasUpgrade],
   );
 
+  const showDeleteWalletDialog = useCallback(
+    (walletProps: DeleteWalletProp) => {
+      showOverlay((onClose) => (
+        <ManagerWalletDeleteDialog
+          deleteWallet={walletProps}
+          closeOverlay={onClose}
+        />
+      ));
+    },
+    [],
+  );
+
   const onDeleteWallet = useCallback(() => {
     if (selectedWallet?.type === 'hw') {
-      setDeleteWallet({
-        walletId: selectedWallet?.id ?? '',
-        password: undefined,
-        hardware: true,
-      });
-      setTimeout(() => setShowDeleteWalletDialog(true), 500);
+      setTimeout(
+        () =>
+          showDeleteWalletDialog({
+            walletId: selectedWallet?.id ?? '',
+            password: undefined,
+            hardware: {
+              isPassphrase: false,
+            },
+          }),
+        500,
+      );
       return;
     }
 
     if (selectedWallet?.backuped === true) {
       showVerify(
         (pwd) => {
-          setDeleteWallet({
-            walletId: selectedWallet?.id ?? '',
-            password: pwd,
-          });
-          setTimeout(() => setShowDeleteWalletDialog(true), 500);
+          setTimeout(
+            () =>
+              showDeleteWalletDialog({
+                walletId: selectedWallet?.id ?? '',
+                password: pwd,
+              }),
+            500,
+          );
         },
         () => {},
         null,
@@ -174,6 +193,7 @@ const RightHeader: FC<RightHeaderProps> = ({
     selectedWallet?.backuped,
     selectedWallet?.id,
     selectedWallet?.type,
+    showDeleteWalletDialog,
     showVerify,
   ]);
 
@@ -465,13 +485,6 @@ const RightHeader: FC<RightHeaderProps> = ({
         <HeaderTitle selectedWallet={selectedWallet} />
         <HStack justifyContent="flex-end">{optionsView}</HStack>
       </HStack>
-      <ManagerWalletDeleteDialog
-        visible={showDeleteWalletDialog}
-        deleteWallet={deleteWallet}
-        onDialogClose={() => {
-          setShowDeleteWalletDialog(false);
-        }}
-      />
       <Dialog
         visible={showBackupDialog}
         canceledOnTouchOutside={false}

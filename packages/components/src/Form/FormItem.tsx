@@ -156,7 +156,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
                 flexDirection="row"
                 justifyContent="space-between"
                 alignItems="center"
-                mb={1}
+                mb={label ? 1 : 0}
               >
                 {!!label && (
                   <FormControl.Label mb={0}>

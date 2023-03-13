@@ -13,7 +13,10 @@ import {
 } from '@onekeyhq/components';
 import LogoMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
 
+import type { IAddExistingWalletMode } from '../../../../routes';
+
 type SecondaryContentProps = {
+  mode: IAddExistingWalletMode;
   onPressDrawerTrigger?: () => void;
 };
 
@@ -23,7 +26,7 @@ const SecondaryContent: FC<SecondaryContentProps> = ({
   onPressDrawerTrigger,
 }) => {
   const intl = useIntl();
-
+  // todo 根据mode 判断 词条选择
   return (
     <>
       <Hidden from="base" till="sm">

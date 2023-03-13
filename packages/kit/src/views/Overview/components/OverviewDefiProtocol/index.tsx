@@ -163,6 +163,7 @@ export const OverviewDefiProtocol: FC<
   } = props;
   const intl = useIntl();
 
+  const isVertical = useIsVerticalLayout();
   const fiat = useCurrentFiatValue();
 
   const { networkId, accountId } = useActiveWalletAccount();
@@ -213,7 +214,7 @@ export const OverviewDefiProtocol: FC<
         borderWidth="1px"
         borderColor="border-subdued"
         mb="6"
-        defaultCollapsed={false}
+        value={false}
         overflow="hidden"
         renderCustomTrigger={(toggle, collapsed) =>
           showHeader ? (
@@ -222,7 +223,10 @@ export const OverviewDefiProtocol: FC<
               onOpenDapp={open}
               rate={rate}
               desc={
-                <Text typography={{ md: 'Heading', sm: 'Body1Strong' }}>
+                <Text
+                  typography={{ md: 'Heading', sm: 'Body1Strong' }}
+                  textAlign={isVertical ? 'left' : 'right'}
+                >
                   <FormatCurrencyNumber
                     value={0}
                     convertValue={new B(protocolValue)}
@@ -234,6 +238,7 @@ export const OverviewDefiProtocol: FC<
                   <Text
                     color="text-subdued"
                     typography={{ md: 'Body2Strong', sm: 'CaptionStrong' }}
+                    textAlign={isVertical ? 'left' : 'right'}
                   >
                     {intl.formatMessage(
                       { id: 'form__claimable_str' },
