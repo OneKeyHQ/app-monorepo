@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { BlurView } from 'expo-blur';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -57,6 +58,7 @@ import { SendRoutes } from '../../../../routes';
 import { deviceUtils } from '../../../../utils/hardware';
 import CollectionLogo from '../../../NFTMarket/CollectionLogo';
 import { useCollectionDetail } from '../../../NFTMarket/Home/hook';
+import { showAmountInputDialog } from '../AmountInputDialog';
 import { convertToMoneyFormat } from '../utils';
 
 import CollectibleContent from './CollectibleContent';
@@ -259,27 +261,51 @@ const NFTDetailModal: FC = () => {
     }
   }, [asset, device, intl, serviceHardware, network]);
 
+  const sendNFTWithAmount = useCallback(
+    (amount: string) => {
+      const { accountId, networkId } = getActiveWalletAccount();
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendRoutes.PreSendAddress,
+          params: {
+            accountId,
+            networkId,
+            isNFT: true,
+            from: '',
+            to: '',
+            amount,
+            token: asset.contractAddress ?? asset.tokenAddress,
+            tokenId: asset.tokenId ?? asset.tokenAddress,
+            type: asset.ercType,
+            closeModal: modalClose,
+          },
+        },
+      });
+    },
+    [
+      asset.contractAddress,
+      asset.ercType,
+      asset.tokenAddress,
+      asset.tokenId,
+      modalClose,
+      navigation,
+    ],
+  );
+
   const goToCollectionDetail = useCollectionDetail();
   const sendAction = () => {
-    const { accountId, networkId } = getActiveWalletAccount();
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Send,
-      params: {
-        screen: SendRoutes.PreSendAddress,
-        params: {
-          accountId,
-          networkId,
-          isNFT: true,
-          from: '',
-          to: '',
-          amount: outerAsset.amount ?? '1',
-          token: asset.contractAddress ?? asset.tokenAddress,
-          tokenId: asset.tokenId ?? asset.tokenAddress,
-          type: asset.ercType,
-          closeModal: modalClose,
+    if (outerAsset.amount && new BigNumber(outerAsset.amount).gt(1)) {
+      showAmountInputDialog({
+        total: outerAsset.amount,
+        onConfirm: (amount) => {
+          console.log('amount = ', amount);
+          sendNFTWithAmount(amount);
         },
-      },
-    });
+      });
+      return;
+    }
+    sendNFTWithAmount('1');
   };
 
   const AmountTag = useMemo(() => {
