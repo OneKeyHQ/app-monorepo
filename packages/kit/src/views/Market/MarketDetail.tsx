@@ -171,13 +171,15 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
 
   const [signedUrl, updateUrl] = useState('');
   useEffect(() => {
-    backgroundApiProxy.serviceFiatPay
-      .getFiatPayUrl({
-        type: 'buy',
-        tokenAddress: token?.address,
-        networkId: token?.networkId,
-      })
-      .then((url) => updateUrl(url));
+    if (token?.address !== undefined && token?.networkId !== undefined) {
+      backgroundApiProxy.serviceFiatPay
+        .getFiatPayUrl({
+          type: 'buy',
+          tokenAddress: token?.address,
+          networkId: token?.networkId,
+        })
+        .then((url) => updateUrl(url));
+    }
   }, [token?.address, token?.networkId]);
 
   const stakedSupport = useTokenSupportStakedAssets(
