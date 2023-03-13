@@ -7,8 +7,8 @@ import ecc from '../../utils/btcForkChain/provider/nobleSecp256k1Wrapper';
 
 import type { Network } from '../../utils/btcForkChain/provider/networks';
 import type { Signer } from '../../utils/btcForkChain/types';
+import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { Signer as BitcoinSigner } from 'bitcoinjs-lib';
-import type { PsbtInput } from 'bitcoinjs-lib/node_modules/bip174/src/lib/interfaces';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
 import type { TinySecp256k1Interface as ECPairTinySecp256k1Interface } from 'ecpair';
 
