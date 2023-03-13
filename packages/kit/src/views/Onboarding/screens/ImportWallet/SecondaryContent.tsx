@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -26,6 +27,9 @@ const SecondaryContent: FC<SecondaryContentProps> = ({
   onPressDrawerTrigger,
 }) => {
   const intl = useIntl();
+
+  const contents = useMemo(() => [], []);
+
   // todo 根据mode 判断 词条选择
   return (
     <>

@@ -1,21 +1,25 @@
-import type { ComponentProps, FC } from 'react';
+import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Alert, Box, Button, ScrollView } from '@onekeyhq/components';
 import useIsKeyboardShown from '@onekeyhq/components/src/Layout/BottomTabs/utils/useIsKeyboardShown';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface AccessoryViewProps extends ComponentProps<typeof ScrollView> {
   withKeybord?: boolean;
   accessoryData?: string[];
+  /* 
+    disable scroll behavior and show all contents
+  */
+  expandWords?: boolean;
   selected?: (value: string) => void;
 }
 
 export const AccessoryView = ({
   accessoryData,
   withKeybord,
+  expandWords,
   selected,
   ...rest
 }: AccessoryViewProps) => {
@@ -30,7 +34,7 @@ export const AccessoryView = ({
   const showInvalidTip = !accessoryData;
   return showAccessory ? (
     <ScrollView
-      horizontal
+      horizontal={!expandWords}
       disableScrollViewPanResponder
       showsHorizontalScrollIndicator={false}
       bgColor="background-default"
@@ -49,22 +53,26 @@ export const AccessoryView = ({
           }}
         />
       ) : (
-        <>
+        <Box
+          flexDirection="row"
+          m="-4px"
+          {...(expandWords && { flexWrap: 'wrap' })}
+        >
           {accessoryData.map((value, index) => (
             <Button
               key={`${value}-${index}`}
-              size="sm"
+              size={expandWords ? 'xs' : 'sm'}
               onPress={() => {
                 if (selected) {
                   selected(value);
                 }
               }}
-              mr="8px"
+              m="4px"
             >
               {value}
             </Button>
           ))}
-        </>
+        </Box>
       )}
     </ScrollView>
   ) : null;
