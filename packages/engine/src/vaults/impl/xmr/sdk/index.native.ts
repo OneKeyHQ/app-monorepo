@@ -20,6 +20,7 @@ enum MoneroEvent {
   decodeAddress = 'Monero_decodeAddress',
   estimatedTxFee = 'Monero_estimatedTxFee',
   sendFunds = 'Monero_sendFunds',
+  seedAndkeysFromMnemonic = 'Monero_seedAndkeysFromMnemonic',
 }
 
 type IResult = { error: any; result: any };
@@ -102,6 +103,32 @@ const generateKeyImage = async (params: {
   }
   debugLogger.providerApi.info(
     'monero web-embed generateKeyImage success: ',
+    result.result,
+  );
+  return result.result;
+};
+
+const seedAndkeysFromMnemonic = async (params: {
+  mnemonic: string;
+  netType: string;
+}) => {
+  await ensureSDKReady();
+  debugLogger.common.debug('ensure web embed exist');
+  const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
+    method: ProvideMethod,
+    event: MoneroEvent.seedAndkeysFromMnemonic,
+    params,
+  })) as IResult;
+
+  if (result.error) {
+    debugLogger.providerApi.error(
+      'moenro web-embed seedAndkeysFromMnemonic error: ',
+      result.error,
+    );
+    throw new Error(result.error);
+  }
+  debugLogger.providerApi.info(
+    'monero web-embed seedAndkeysFromMnemonic success: ',
     result.result,
   );
   return result.result;
@@ -190,6 +217,7 @@ const getMoneroApi = async () =>
     decodeAddress,
     estimatedTxFee,
     sendFunds,
+    seedAndkeysFromMnemonic,
   });
 
 export { getMoneroApi, ensureSDKReady };

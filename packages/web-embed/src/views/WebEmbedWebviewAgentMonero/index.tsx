@@ -18,6 +18,7 @@ enum MoneroEvent {
   decodeAddress = 'Monero_decodeAddress',
   estimatedTxFee = 'Monero_estimatedTxFee',
   sendFunds = 'Monero_sendFunds',
+  seedAndkeysFromMnemonic = 'Monero_seedAndkeysFromMnemonic',
 }
 
 const getMoneroApi = async () => {
@@ -83,6 +84,13 @@ function WebEmbedWebviewAgentMonero() {
           console.log('Monero_generateKeyImage');
           const keyImage = moneroApi.generateKeyImage(eventParams);
           sendResponse(promiseId, { error: null, result: keyImage });
+          break;
+        }
+
+        case MoneroEvent.seedAndkeysFromMnemonic: {
+          console.log('Monero_seedAndkeysFromMnemonic');
+          const seedAndKeys = moneroApi.seedAndkeysFromMnemonic(eventParams);
+          sendResponse(promiseId, { error: null, result: seedAndKeys });
           break;
         }
 
