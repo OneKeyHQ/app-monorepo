@@ -267,6 +267,14 @@ class ServiceDapp extends ServiceBase {
     });
   }
 
+  openSwitchRpcModal(request: IJsBridgeMessagePayload, params: any) {
+    return this.openModal({
+      request,
+      screens: [ModalRoutes.ManageNetwork, ManageNetworkRoutes.SwitchRpc],
+      params,
+    });
+  }
+
   isSendModalExisting() {
     return isSendModalRouteExisting();
   }

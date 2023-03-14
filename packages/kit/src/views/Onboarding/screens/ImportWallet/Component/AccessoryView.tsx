@@ -63,9 +63,7 @@ export const AccessoryView = ({
               key={`${value}-${index}`}
               size={expandWords ? 'xs' : 'sm'}
               onPress={() => {
-                if (selected) {
-                  selected(value);
-                }
+                selected?.(value);
               }}
               m="4px"
             >

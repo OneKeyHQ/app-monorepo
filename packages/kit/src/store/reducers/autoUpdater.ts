@@ -30,6 +30,7 @@ export interface AutoUpdaterState {
   progress: UpdateProgress;
   latest?: VersionInfo | DesktopVersion;
   window: UpdateWindow;
+  lastCheckTimestamp?: number;
 }
 
 const initialState: AutoUpdaterState = {
@@ -37,6 +38,7 @@ const initialState: AutoUpdaterState = {
   state: 'not-available',
   window: 'maximized',
   progress: {} as UpdateProgress,
+  lastCheckTimestamp: undefined,
 };
 
 export const autoUpdaterSlice = createSlice({
@@ -87,6 +89,9 @@ export const autoUpdaterSlice = createSlice({
     setUpdateWindow(state, action: PayloadAction<UpdateWindow>) {
       state.window = action.payload;
     },
+    setLastCheckTimestamp(state, action: PayloadAction<number>) {
+      state.lastCheckTimestamp = action.payload;
+    },
   },
 });
 
@@ -101,6 +106,7 @@ export const {
   skip,
   error,
   setUpdateWindow,
+  setLastCheckTimestamp,
 } = autoUpdaterSlice.actions;
 
 export default autoUpdaterSlice.reducer;

@@ -1,4 +1,7 @@
-import type { AddEVMNetworkParams } from '@onekeyhq/engine/src/types/network';
+import type {
+  AddEVMNetworkParams,
+  SwitchRpcParams,
+} from '@onekeyhq/engine/src/types/network';
 
 import { ManageNetworkRoutes } from '../../routes/routesEnum';
 
@@ -18,6 +21,7 @@ export type ManageNetworkRoutesParams = {
       id?: string;
     };
   };
+  [ManageNetworkRoutes.SwitchRpc]: SwitchRpcParams | { query: string };
   [ManageNetworkRoutes.CustomNetwork]: {
     id: string;
     name?: string;

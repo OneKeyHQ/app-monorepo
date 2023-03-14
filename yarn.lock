@@ -1616,16 +1616,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@babel/runtime@npm:^7.0.0, @babel/runtime@npm:^7.1.2, @babel/runtime@npm:^7.10.2, @babel/runtime@npm:^7.10.5, @babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.14.0, @babel/runtime@npm:^7.15.4, @babel/runtime@npm:^7.17.2, @babel/runtime@npm:^7.18.6, @babel/runtime@npm:^7.18.9, @babel/runtime@npm:^7.20.13, @babel/runtime@npm:^7.20.6, @babel/runtime@npm:^7.20.7, @babel/runtime@npm:^7.4.5, @babel/runtime@npm:^7.5.5, @babel/runtime@npm:^7.6.2, @babel/runtime@npm:^7.7.2, @babel/runtime@npm:^7.7.6, @babel/runtime@npm:^7.8.4, @babel/runtime@npm:^7.8.7, @babel/runtime@npm:^7.9.2":
-  version: 7.20.13
-  resolution: "@babel/runtime@npm:7.20.13"
-  dependencies:
-    regenerator-runtime: ^0.13.11
-  checksum: 09b7a97a05c80540db6c9e4ddf8c5d2ebb06cae5caf3a87e33c33f27f8c4d49d9c67a2d72f1570e796045288fad569f98a26ceba0c4f5fad2af84b6ad855c4fb
-  languageName: node
-  linkType: hard
-
-"@babel/runtime@npm:^7.4.4":
+"@babel/runtime@npm:^7.0.0, @babel/runtime@npm:^7.1.2, @babel/runtime@npm:^7.10.2, @babel/runtime@npm:^7.10.5, @babel/runtime@npm:^7.12.5, @babel/runtime@npm:^7.14.0, @babel/runtime@npm:^7.15.4, @babel/runtime@npm:^7.17.2, @babel/runtime@npm:^7.18.6, @babel/runtime@npm:^7.18.9, @babel/runtime@npm:^7.20.13, @babel/runtime@npm:^7.20.6, @babel/runtime@npm:^7.20.7, @babel/runtime@npm:^7.4.4, @babel/runtime@npm:^7.4.5, @babel/runtime@npm:^7.5.5, @babel/runtime@npm:^7.6.2, @babel/runtime@npm:^7.7.2, @babel/runtime@npm:^7.7.6, @babel/runtime@npm:^7.8.4, @babel/runtime@npm:^7.8.7, @babel/runtime@npm:^7.9.2":
   version: 7.21.0
   resolution: "@babel/runtime@npm:7.21.0"
   dependencies:
@@ -3793,35 +3784,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@gorhom/bottom-sheet@npm:^4":
-  version: 4.3.2
-  resolution: "@gorhom/bottom-sheet@npm:4.3.2"
-  dependencies:
-    "@gorhom/portal": 1.0.13
-    invariant: ^2.2.4
-    nanoid: ^3.3.3
-    react-native-redash: ^16.1.1
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-gesture-handler: ">=1.10.1"
-    react-native-reanimated: ">=2.2.0"
-  checksum: e8d4ecb82bd6f6dbc1dd555199bbb62665dfac7e30a1aa0f88664bce0196a4b9d4d2fcb5ec59eff6c319a40541776e71bbbb22c0e1274e68bb07afb3b66fd403
-  languageName: node
-  linkType: hard
-
-"@gorhom/portal@npm:1.0.13":
-  version: 1.0.13
-  resolution: "@gorhom/portal@npm:1.0.13"
-  dependencies:
-    nanoid: ^3.3.1
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 4dd471feedc0dbcc06e9ba725695727448b79550fdc95e5888ea3c2aa9dd51ffffaa0ec2c3e762526c8eef4a36cebd625f73271a3bc31b80786af5a90ba2ea5b
-  languageName: node
-  linkType: hard
-
 "@graphql-typed-document-node/core@npm:^3.1.0, @graphql-typed-document-node/core@npm:^3.1.1":
   version: 3.1.1
   resolution: "@graphql-typed-document-node/core@npm:3.1.1"
@@ -5144,10 +5106,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/network-list@npm:1.6.50":
-  version: 1.6.50
-  resolution: "@onekeyfe/network-list@npm:1.6.50"
-  checksum: ea23e350aedad4519bc03f46e4673a1742167b69d52d2b64d4ee80f2cfa5ff4501df2995da22881f0263bda3601d5ea91e171c75652cdc2bfd5567fe41711e69
+"@onekeyfe/network-list@npm:1.6.51":
+  version: 1.6.51
+  resolution: "@onekeyfe/network-list@npm:1.6.51"
+  checksum: 31efa9e715f92841323b09e8ed6fbc29e9e2c0ac7adf2f1ac0761bcf162427af1c46645c14561c17ae17994916850f92831627eeb27ff4e005c78ce57044f625
   languageName: node
   linkType: hard
 
@@ -5362,7 +5324,7 @@ __metadata:
     "@onekeyfe/hd-shared": 0.2.38
     "@onekeyfe/hd-transport": 0.2.38
     "@onekeyfe/hd-web-sdk": 0.2.38
-    "@onekeyfe/network-list": 1.6.50
+    "@onekeyfe/network-list": 1.6.51
     "@onekeyfe/onekey-cross-webview": 1.1.23
     "@open-wc/webpack-import-meta-loader": ^0.4.7
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.10
@@ -5558,7 +5520,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/components@workspace:packages/components"
   dependencies:
-    "@gorhom/bottom-sheet": ^4
     "@types/qrcode": ^1.4.2
     iso-639-1: ^2.1.13
     lodash: ^4.17.21
@@ -5778,10 +5739,9 @@ __metadata:
   resolution: "@onekeyhq/shared@workspace:packages/shared"
   dependencies:
     "@react-native-async-storage/async-storage": 1.17.3
-    "@types/circular-json": "*"
     "@types/webextension-polyfill": ^0.8.2
     async-mutex: ^0.3.2
-    circular-json: ^0.5.9
+    flatted: ^3.2.7
     localforage: ^1.10.0
     ms: ^2.1.3
     react-native-logs: ^5.0.1
@@ -8429,13 +8389,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/circular-json@npm:*":
-  version: 0.4.0
-  resolution: "@types/circular-json@npm:0.4.0"
-  checksum: e7c9b80a075cb3f0886079dda53bf8dea180d1685acde200efe2c0824f6aa53deeed1b23d47d37e2c37b224d6765f1211a7c20fa340d92b15e1a5a45c311bc93
-  languageName: node
-  linkType: hard
-
 "@types/connect-history-api-fallback@npm:^1.3.5":
   version: 1.3.5
   resolution: "@types/connect-history-api-fallback@npm:1.3.5"
@@ -9194,11 +9147,11 @@ __metadata:
   linkType: hard
 
 "@types/yargs@npm:^17.0.1, @types/yargs@npm:^17.0.8":
-  version: 17.0.13
-  resolution: "@types/yargs@npm:17.0.13"
+  version: 17.0.22
+  resolution: "@types/yargs@npm:17.0.22"
   dependencies:
     "@types/yargs-parser": "*"
-  checksum: 0ab269abc2da2223cf0a8c16d578850fbe327d40fb85724b5c3f9f6cf38d03656ef699518c05d4df3bc337339ec6d0aad7df01682a9dca4783ad1ccc7336cf12
+  checksum: 0773523fda71bafdc52f13f5970039e535a353665a60ba9261149a5c9c2b908242e6e77fbb7a8c06931ec78ce889d64d09673c68ba23eb5f5742d5385d0d1982
   languageName: node
   linkType: hard
 
@@ -11589,14 +11542,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bip174@npm:^2.0.1":
-  version: 2.0.1
-  resolution: "bip174@npm:2.0.1"
-  checksum: 1611f74dd9b973449c55412e0a6e6cd24bf55110fde581d508fddc60d0f2d54eb6a8e69ddc6eb60810a0e44c755b3577d563bf3e3a2b6513d3dee0569342e463
-  languageName: node
-  linkType: hard
-
-"bip174@npm:^2.1.0":
+"bip174@npm:^2.0.1, bip174@npm:^2.1.0":
   version: 2.1.0
   resolution: "bip174@npm:2.1.0"
   checksum: 951dae544ef555d66f65b299a69ddf295733eac90449e57d2219abcedfd2d96e762856ca6b5cef4cd925a4498341ea174e359e8a4c45d0bb6b445c13c8add786
@@ -11670,7 +11616,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bitcoinjs-lib@npm:6.1.0":
+"bitcoinjs-lib@npm:6.1.0, bitcoinjs-lib@npm:^6.0.1":
   version: 6.1.0
   resolution: "bitcoinjs-lib@npm:6.1.0"
   dependencies:
@@ -11683,21 +11629,6 @@ __metadata:
     varuint-bitcoin: ^1.1.2
     wif: ^2.0.1
   checksum: 0b23d0d5bb7377ea4ac467c9f1f6c6517ed112cd1b1f5e66a1402c854a99eba5fe5df9415a3e0d1ada631b179770075dda63d3d77531d0abdbc2b1d44be0a890
-  languageName: node
-  linkType: hard
-
-"bitcoinjs-lib@npm:^6.0.1":
-  version: 6.0.1
-  resolution: "bitcoinjs-lib@npm:6.0.1"
-  dependencies:
-    bech32: ^2.0.0
-    bip174: ^2.0.1
-    bs58check: ^2.1.2
-    create-hash: ^1.1.0
-    typeforce: ^1.11.3
-    varuint-bitcoin: ^1.1.2
-    wif: ^2.0.1
-  checksum: bffb9fb0f26425da6a449f981aa244f2fc0c056bcb0b9a7a0d07ebf8e2ce766852ef72ab88d5043097819524a4209a035f1595e9ed6cdea7e02674bbe5afe781
   languageName: node
   linkType: hard
 
@@ -18103,10 +18034,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"flatted@npm:^3.1.0":
-  version: 3.2.4
-  resolution: "flatted@npm:3.2.4"
-  checksum: 7d33846428ab337ec81ef9b8b9103894c1c81f5f67feb32bd4ed106fbc47da60d56edb42efd36c9f1f30a010272aeccd34ec1ffacfe9dfdff19673b1d4df481b
+"flatted@npm:^3.1.0, flatted@npm:^3.2.7":
+  version: 3.2.7
+  resolution: "flatted@npm:3.2.7"
+  checksum: 427633049d55bdb80201c68f7eb1cbd533e03eac541f97d3aecab8c5526f12a20ccecaeede08b57503e772c769e7f8680b37e8d482d1e5f8d7e2194687f9ea35
   languageName: node
   linkType: hard
 
@@ -24378,7 +24309,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nanoid@npm:^3.1.23, nanoid@npm:^3.1.30, nanoid@npm:^3.3.1, nanoid@npm:^3.3.3":
+"nanoid@npm:^3.1.23, nanoid@npm:^3.1.30":
   version: 3.3.4
   resolution: "nanoid@npm:3.3.4"
   bin:
@@ -27838,7 +27769,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-redash@npm:^16.1.1, react-native-redash@npm:^16.2.2":
+"react-native-redash@npm:^16.2.2":
   version: 16.3.0
   resolution: "react-native-redash@npm:16.3.0"
   dependencies:
@@ -33953,8 +33884,8 @@ __metadata:
   linkType: hard
 
 "yargs@npm:^17.0.1, yargs@npm:^17.3.1":
-  version: 17.6.2
-  resolution: "yargs@npm:17.6.2"
+  version: 17.7.1
+  resolution: "yargs@npm:17.7.1"
   dependencies:
     cliui: ^8.0.1
     escalade: ^3.1.1
@@ -33963,7 +33894,7 @@ __metadata:
     string-width: ^4.2.3
     y18n: ^5.0.5
     yargs-parser: ^21.1.1
-  checksum: 47da1b0d854fa16d45a3ded57b716b013b2179022352a5f7467409da5a04a1eef5b3b3d97a2dfc13e8bbe5f2ffc0afe3bc6a4a72f8254e60f5a4bd7947138643
+  checksum: 3d8a43c336a4942bc68080768664aca85c7bd406f018bad362fd255c41c8f4e650277f42fd65d543fce99e084124ddafee7bbfc1a5c6a8fda4cec78609dcf8d4
   languageName: node
   linkType: hard
 

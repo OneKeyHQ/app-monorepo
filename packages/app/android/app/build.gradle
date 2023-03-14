@@ -279,6 +279,24 @@ android {
             keyPassword 'android'
         }
     }
+
+    flavorDimensions "channel"
+    productFlavors {
+        direct {
+            dimension "channel"
+        }
+        huawei {
+            dimension "channel"
+        }
+        google {
+            dimension "channel"
+        }
+        productFlavors.all {
+            flavor -> flavor.manifestPlaceholders.put("CHANNEL", name)
+        }
+    }
+
+
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
@@ -398,7 +416,7 @@ dependencies {
 
     // Details see https://github.com/google/gson
     implementation 'com.google.code.gson:gson:2.8.9'
-    
+
     // Details see https://developer.android.com/kotlin/coroutines?hl=zh-cn
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.5.2'
 
@@ -406,7 +424,7 @@ dependencies {
 
     implementation 'org.nanohttpd:nanohttpd:2.3.1'
 
-    implementation("com.facebook.soloader:soloader:0.10.5")
+    implementation("com.facebook.soloader:soloader:0.10.4")
 }
 
 configurations.all {
@@ -514,12 +532,12 @@ tasks.whenTaskAdded {
         if (package_name_suffix != "") {
             applicationIdSuffix "." + package_name_suffix
         }
-        manifestPlaceholders = [OTAUpdatesEnable: ota_updates_enable]
+        manifestPlaceholders.put("OTAUpdatesEnable", ota_updates_enable)
     }
     android.buildTypes.release {
         if (package_name_suffix != "") {
             applicationIdSuffix "." + package_name_suffix
         }
-        manifestPlaceholders = [OTAUpdatesEnable: ota_updates_enable]
+        manifestPlaceholders.put("OTAUpdatesEnable", ota_updates_enable)
     }
 }

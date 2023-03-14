@@ -12,6 +12,10 @@ const portMap = {
     dev: 3101,
     sourcemap: 31318,
   },
+  'edge': {
+    dev: 3102,
+    sourcemap: 31319,
+  },
 };
 
 function getDevServerPort() {

@@ -15,6 +15,11 @@ export type TokenListItem = {
   tokens: Token[];
 };
 
+export type IssueToken = {
+  networkId: string;
+  address: string;
+};
+
 export type TransactionsState = {
   transactions: Record<string, Record<string, TransactionDetails[]>>;
   tokenList?: TokenListItem[];
@@ -28,6 +33,10 @@ export type TransactionsState = {
     stable?: string;
     others?: string;
   };
+  wrapperTokens?: Record<string, string>;
+  approvalIssueTokens?: IssueToken[];
+  payments?: Record<string, Token>;
+  defaultPayment?: Token;
 };
 
 const initialState: TransactionsState = {
@@ -155,6 +164,18 @@ export const swapTransactionsSlice = createSlice({
     ) {
       state.recommendedSlippage = action.payload;
     },
+    setWrapperTokens(state, action: PayloadAction<Record<string, string>>) {
+      state.wrapperTokens = action.payload;
+    },
+    setApprovalIssueTokens(state, action: PayloadAction<IssueToken[]>) {
+      state.approvalIssueTokens = action.payload;
+    },
+    setPayments(state, action: PayloadAction<Record<string, Token>>) {
+      state.payments = action.payload;
+    },
+    setDefaultPayment(state, action: PayloadAction<Token>) {
+      state.defaultPayment = action.payload;
+    },
   },
 });
 
@@ -171,6 +192,10 @@ export const {
   setSlippage,
   setCoingeckoIds,
   setRecommendedSlippage,
+  setWrapperTokens,
+  setApprovalIssueTokens,
+  setPayments,
+  setDefaultPayment,
 } = swapTransactionsSlice.actions;
 
 export default swapTransactionsSlice.reducer;

@@ -69,7 +69,7 @@ const TopMidCompoment = ({
         <WalletAvatarPro
           size={platformEnv.isNative ? 'lg' : 'sm'}
           wallet={wallet}
-          deviceStatus={undefined}
+          devicesStatus={undefined}
         />
       ) : null}
       <Box ml={wallet ? 3 : 0} flexDirection="column">

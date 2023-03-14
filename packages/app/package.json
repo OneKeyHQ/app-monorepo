@@ -6,6 +6,8 @@
     "start": "expo start --dev-client",
     "android": "ANDROID_CHANNEL=direct expo run:android",
     "android:device": "expo run:android --device",
+    "android:huawei": "ANDROID_CHANNEL=huawei expo run:android --variant=HuaweiDebug",
+    "android:google": "ANDROID_CHANNEL=google expo run:android --variant=GoogleDebug",
     "ios": "expo run:ios",
     "ios:device": "expo run:ios --device",
     "eject": "expo eject",

@@ -46,7 +46,6 @@ export enum ModalRoutes {
   Revoke = 'Revoke',
   NFTMarket = 'NFTMarket',
   Overview = 'Overview',
-  AnnualReport = 'AnnualReport',
   CurrencySelect = 'CurrencySelect',
   BulkSender = 'BulkSender',
   Market = 'Market',
@@ -97,8 +96,6 @@ export enum HomeRoutes {
   NFTPNLScreen = 'NFTPNLScreen',
   OverviewDefiListScreen = 'OverviewDefiListScreen',
   WalletSwitch = 'WalletSwitch',
-  AnnualLoading = 'AnnualLoading',
-  AnnualReport = 'AnnualReport',
   BulkSender = 'BulkSender',
 }
 export enum TabRoutes {
@@ -141,6 +138,7 @@ export enum ManageNetworkRoutes {
   RPCNode = 'RPCNode',
   QuickAdd = 'QuickAdd',
   Sort = 'Sort',
+  SwitchRpc = 'SwitchRpc',
 }
 
 export enum CreateWalletModalRoutes {

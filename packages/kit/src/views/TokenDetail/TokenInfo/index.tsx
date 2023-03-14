@@ -107,6 +107,24 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
     [navigation],
   );
 
+  const onSwap = useCallback(async () => {
+    const targetToken = await backgroundApiProxy.engine.getNativeTokenInfo(
+      networkId,
+    );
+    if (account) {
+      backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
+    }
+    if (targetToken) {
+      backgroundApiProxy.serviceSwap.sellToken(targetToken);
+    }
+    if (isVertical) {
+      backgroundApiProxy.serviceMarket.switchMarketTopTab(SWAP_TAB_NAME);
+      navigation.getParent()?.navigate(TabRoutes.Market);
+    } else {
+      navigation.getParent()?.navigate(TabRoutes.Swap);
+    }
+  }, [networkId, account, isVertical, navigation]);
+
   const renderAccountAmountInfo = useMemo(
     () => (
       <Box flexDirection={isVertical ? 'column' : 'row'} alignItems="center">
@@ -243,19 +261,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
             name="ArrowsRightLeftOutline"
             type="basic"
             isDisabled={wallet?.type === 'watching'}
-            onPress={() => {
-              if (token) {
-                backgroundApiProxy.serviceSwap.setInputToken(token);
-              }
-              if (isVertical) {
-                backgroundApiProxy.serviceMarket.switchMarketTopTab(
-                  SWAP_TAB_NAME,
-                );
-                navigation.getParent()?.navigate(TabRoutes.Market);
-              } else {
-                navigation.getParent()?.navigate(TabRoutes.Swap);
-              }
-            }}
+            onPress={onSwap}
           />
           <Typography.CaptionStrong
             textAlign="center"
@@ -368,6 +374,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
       token,
       sendAddress,
       goToWebView,
+      onSwap,
     ],
   );
 
