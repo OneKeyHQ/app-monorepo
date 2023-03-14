@@ -20,6 +20,8 @@ declare module '@mymonero/mymonero-lws-client' {
     mixin: number;
     out_index: number;
     tx_pub_key: string;
+    spend_key_images: string[];
+    index: number;
   }
 
   interface MoneroAddressInfo {

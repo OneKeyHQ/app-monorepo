@@ -73,7 +73,8 @@ export function getDecodedTxStatus(
   if (tx.height === null || tx.height === undefined) {
     return IDecodedTxStatus.Pending;
   }
-  return blockchainHeight - tx.height > TX_MIN_CONFIRMS
+
+  return blockchainHeight - tx.height >= TX_MIN_CONFIRMS
     ? IDecodedTxStatus.Confirmed
     : IDecodedTxStatus.Pending;
 }

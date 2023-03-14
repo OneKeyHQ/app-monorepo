@@ -159,7 +159,7 @@ export default class Vault extends VaultBase {
           send_amount: transferInfo.amount,
         },
       ],
-      priority: MoneroTxPriorityEnum.NORMAL,
+      priority: MoneroTxPriorityEnum.FAST,
       address: transferInfo.from,
       nettype: network.isTestnet
         ? MoneroNetTypeEnum.TestNet
@@ -489,7 +489,25 @@ export default class Vault extends VaultBase {
   }
 
   override async getFrozenBalance() {
-    return 0;
+    const client = await this.getClient();
+    const { address } = await this.getOutputAccount();
+    const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
+
+    try {
+      const [totalBN] = await client.getBalances([
+        {
+          address,
+          coin: {},
+        },
+      ]);
+      const unspentBN = await client.getUnspentBalance(address);
+
+      return {
+        'main': totalBN?.minus(unspentBN).shiftedBy(-decimals).toNumber() ?? 0,
+      };
+    } catch {
+      return 0;
+    }
   }
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {

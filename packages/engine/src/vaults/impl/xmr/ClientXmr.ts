@@ -87,10 +87,7 @@ export class ClientXmr extends BaseClient {
 
       const moneroApi = await getMoneroApi();
 
-      const addressInfo = await this.wallet.getAddressInfo(
-        this.privateViewKey,
-        request.address,
-      );
+      const addressInfo = await this.getAddressInfo(request.address);
 
       const spentOutputs = addressInfo.spent_outputs || [];
 
@@ -116,6 +113,15 @@ export class ClientXmr extends BaseClient {
       console.log(e);
       return [];
     }
+  }
+
+  async getAddressInfo(address: string) {
+    const addressInfo = await this.wallet.getAddressInfo(
+      this.privateViewKey,
+      address,
+    );
+
+    return addressInfo;
   }
 
   async getCurrentHeight() {
@@ -155,7 +161,10 @@ export class ClientXmr extends BaseClient {
         }
       }
 
-      if (totalReceivedInTxBN.plus(totalSentInTxBN).isGreaterThan(0)) {
+      if (
+        blockHeight - tx.height >= 1 &&
+        totalReceivedInTxBN.plus(totalSentInTxBN).isGreaterThan(0)
+      ) {
         let amount = totalReceivedInTxBN.minus(totalSentInTxBN);
 
         if (amount.isNegative()) {
@@ -190,6 +199,28 @@ export class ClientXmr extends BaseClient {
       limit: new BigNumber(finalFee ?? 0).dividedToIntegerBy(fee).toFixed(),
       price: fee,
     };
+  }
+
+  async getUnspentBalance(address: string) {
+    const moneroApi = await getMoneroApi();
+    let unspentBN = new BigNumber(0);
+    const resp = await this.wallet.unspentOutputs(this.privateViewKey, address);
+
+    for (const output of resp.outputs) {
+      const keyImage = await moneroApi.generateKeyImage({
+        address,
+        txPublicKey: output.tx_pub_key,
+        privateViewKey: this.privateViewKey,
+        privateSpendKey: this.privateSpendKey,
+        publicSpendKey: this.publicSpendKey,
+        outputIndex: String(output.index),
+      });
+
+      if (keyImage && !output.spend_key_images.includes(keyImage)) {
+        unspentBN = unspentBN.plus(output.amount);
+      }
+    }
+    return unspentBN;
   }
 
   broadcastTransaction(): Promise<string> {
