@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { InputAccessoryView } from 'react-native';
 
 import {
   Box,
@@ -300,14 +299,9 @@ function useAddExistingWallet({
       }`,
       `${
         mode === 'watching' || mode === 'all'
-          ? intl.formatMessage({ id: 'form__address' })
+          ? 'Address, public key (XPUB) or domain name'
           : ''
       }`,
-      mode === 'watching' || mode === 'all'
-        ? `ENS, UD, SID ${intl.formatMessage({
-            id: 'content__or_lowercase',
-          })} .bit`
-        : '',
     ];
     return words.filter(Boolean).join(', ');
   }, [intl, mode]);
@@ -448,6 +442,17 @@ function AddExistingWalletView(
                 } catch {
                   // pass
                 }
+                if (inputCategory === UserInputCategory.IMPORTED) {
+                  return intl.formatMessage({
+                    id: 'msg__invalid_private_key',
+                  });
+                }
+                if (inputCategory === UserInputCategory.MNEMONIC) {
+                  return intl.formatMessage({
+                    id: 'msg__engine__invalid_mnemonic',
+                  });
+                }
+                // watching and all category error message
                 return intl.formatMessage({
                   id: 'form__add_exsting_wallet_invalid',
                 });
@@ -463,7 +468,10 @@ function AddExistingWalletView(
           >
             {mode === 'imported' ? (
               <Form.Input
+                inputAccessoryViewID="1"
+                autoFocusDelay={600}
                 placeholder={placeholder}
+                autoFocus
                 backgroundColor="action-secondary-default"
                 secureTextEntry
                 size="xl"
@@ -474,8 +482,8 @@ function AddExistingWalletView(
                 inputAccessoryViewID="1"
                 autoFocus
                 autoCorrect={false}
+                totalLines={isVerticalLayout ? 3 : 5}
                 placeholder={placeholder}
-                totalLines={3}
                 trimValue={!['all', 'mnemonic'].includes(mode)}
               />
             )}
@@ -498,14 +506,6 @@ function AddExistingWalletView(
           ) : null}
         </Form>
       )}
-
-      {/* remove the ios default AccessoryView */}
-      {platformEnv.isNativeIOS && (
-        <InputAccessoryView nativeID="1">
-          <Box />
-        </InputAccessoryView>
-      )}
-
       {children}
     </Box>
   );

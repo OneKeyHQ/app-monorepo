@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback } from 'react';
+import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -30,7 +30,7 @@ const SecondaryContent: FC<SecondaryContentProps> = ({
 }) => {
   const intl = useIntl();
 
-  const getContents = useCallback((): {
+  const getContents = useMemo((): {
     title?: MessageDescriptor['id'] | undefined;
     description?: MessageDescriptor['id'] | undefined;
   }[] => {
@@ -65,12 +65,8 @@ const SecondaryContent: FC<SecondaryContentProps> = ({
       ];
     return [
       {
-        title: 'content__what_is_recovery_phrase',
-        description: 'content__what_is_recovery_phrase_desc',
-      },
-      {
-        title: 'content__safe_to_enter_into_onekey',
-        description: 'content__safe_to_enter_into_onekey_desc',
+        title: 'content__what_is_watch_only_account',
+        description: 'content__what_is_watch_only_account_desc',
       },
     ];
   }, [mode]);
@@ -92,8 +88,8 @@ const SecondaryContent: FC<SecondaryContentProps> = ({
         </Box>
       </Hidden>
       <Box mt={{ base: 16, sm: 8 }}>
-        {getContents()?.map((item, index) => (
-          <Box key={index} mb={index === getContents().length - 1 ? 0 : '24px'}>
+        {getContents.map((item, index) => (
+          <Box key={index} mb={index === getContents.length - 1 ? 0 : '24px'}>
             {item.title && (
               <Text typography="Body2Strong">
                 {intl.formatMessage({ id: item.title })}
