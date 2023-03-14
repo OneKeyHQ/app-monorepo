@@ -32,6 +32,8 @@ import {
   clearTransactions,
   setApprovalIssueTokens,
   setCoingeckoIds,
+  setDefaultPayment,
+  setPayments,
   setRecommendedSlippage,
   setSlippage,
   setSwapChartMode,
@@ -226,6 +228,12 @@ export default class ServiceSwap extends ServiceBase {
   async clearState() {
     const { dispatch } = this.backgroundApi;
     dispatch(clearState());
+  }
+
+  @backgroundMethod()
+  async setSendingAccountSimple(account: Account) {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setSendingAccount(account));
   }
 
   @backgroundMethod()
@@ -502,6 +510,7 @@ export default class ServiceSwap extends ServiceBase {
     if (!slippage) {
       dispatch(setSlippage({ mode: 'auto' }));
     }
+    this.getSwapConfig();
   }
 
   @backgroundMethod()
@@ -519,6 +528,7 @@ export default class ServiceSwap extends ServiceBase {
         recommendedSlippage,
         approvalIssueTokens,
         wrapperTokens,
+        payments,
       } = data;
       if (tokens) {
         if (tokens && Array.isArray(tokens)) {
@@ -559,6 +569,22 @@ export default class ServiceSwap extends ServiceBase {
           return result;
         }, {} as Record<string, string>);
         actions.push(setWrapperTokens(dataRecord));
+      }
+      if (payments) {
+        const { list } = payments;
+        const entries = Object.entries(list);
+        if (entries && Array.isArray(entries) && entries.length > 0) {
+          const paymentTokens = entries.reduce((result, item) => {
+            const [networkId, info] = item;
+            result[networkId] = formatServerToken(info as any);
+            return result;
+          }, {} as Record<string, Token>);
+          actions.push(setPayments(paymentTokens));
+        }
+        const { fallback } = payments;
+        if (fallback) {
+          actions.push(setDefaultPayment(formatServerToken(fallback)));
+        }
       }
     }
     if (actions.length > 0) {
@@ -603,6 +629,57 @@ export default class ServiceSwap extends ServiceBase {
       return watchingWallet.accounts.includes(recipient.accountId);
     }
     return false;
+  }
+
+  isSameToken(tokenA: Token, tokenB: Token) {
+    return (
+      tokenA.networkId === tokenB.networkId &&
+      tokenA.tokenIdOnNetwork.toLowerCase() ===
+        tokenB.tokenIdOnNetwork.toLowerCase()
+    );
+  }
+
+  @backgroundMethod()
+  async buyToken(token: Token) {
+    const { appSelector, engine } = this.backgroundApi;
+    const payments = appSelector((s) => s.swapTransactions.payments);
+    const defaultPayment = appSelector(
+      (s) => s.swapTransactions.defaultPayment,
+    );
+    const { networkId } = token;
+    const paymentToken = payments?.[networkId] ?? defaultPayment;
+
+    this.setOutputToken(token);
+    if (paymentToken) {
+      if (this.isSameToken(token, paymentToken)) {
+        const nativeToken = await engine.getNativeTokenInfo(token.networkId);
+        this.setInputToken(nativeToken);
+      } else {
+        this.setInputToken(paymentToken);
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async sellToken(token: Token) {
+    const { appSelector, engine } = this.backgroundApi;
+    const payments = appSelector((s) => s.swapTransactions.payments);
+    const defaultPayment = appSelector(
+      (s) => s.swapTransactions.defaultPayment,
+    );
+    const { networkId } = token;
+    const paymentToken = payments?.[networkId] ?? defaultPayment;
+
+    this.setInputToken(token);
+
+    if (paymentToken) {
+      if (this.isSameToken(token, paymentToken)) {
+        const nativeToken = await engine.getNativeTokenInfo(token.networkId);
+        this.setOutputToken(nativeToken);
+      } else {
+        this.setOutputToken(paymentToken);
+      }
+    }
   }
 
   @backgroundMethod()

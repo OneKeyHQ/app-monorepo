@@ -65,7 +65,7 @@ const MarketTokenSwapEnable = ({ tokens }: { tokens?: TokenType[] }) => {
         type="basic"
         size="xs"
         onPress={() => {
-          backgroundApiProxy.serviceSwap.setOutputToken(tokens[0]);
+          backgroundApiProxy.serviceSwap.buyToken(tokens[0]);
           navigation.navigate(TabRoutes.Swap);
         }}
       >
