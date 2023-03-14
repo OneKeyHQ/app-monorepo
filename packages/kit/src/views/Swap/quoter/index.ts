@@ -505,20 +505,35 @@ export class SwapQuoter {
     token: Token,
     receivingAddress: string,
   ) {
-    const result = await this.getTransactionReceipt(token.networkId, txid);
-    if (result) {
-      const strippedAddress = (address: string) =>
-        `0x${address.slice(2).replace(/^0+/, '').padStart(40, '0')}`;
-      const log = result.logs?.find((item) => {
-        const itemAddress = strippedAddress(item.address.toLowerCase());
-        return (
-          itemAddress === token.tokenIdOnNetwork.toLowerCase() &&
-          item.topics.length === 3 &&
-          item.topics[2] &&
-          strippedAddress(item.topics[2]) === receivingAddress.toLowerCase()
-        );
-      });
-      return log?.data;
+    if (isEvmNetworkId(token.networkId)) {
+      const result = await this.getTransactionReceipt(token.networkId, txid);
+      if (result) {
+        const strippedAddress = (address: string) =>
+            `0x${address.slice(2).replace(/^0+/, '').padStart(40, '0')}`;
+        if (token.tokenIdOnNetwork) {
+          const log = result.logs?.find((item) => {
+            const itemAddress = strippedAddress(item.address.toLowerCase());
+            return (
+              itemAddress === token.tokenIdOnNetwork.toLowerCase() &&
+              item.topics.length === 3 &&
+              item.topics[2] &&
+              strippedAddress(item.topics[2]) === receivingAddress.toLowerCase()
+            );
+          });
+          return log?.data;
+        } else {
+          const log = result.logs?.find(item => {
+            if (item.topics.length === 2) {
+              const topic = item.topics[0];
+              if (strippedAddress(topic).toLowerCase() === '0x7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65') {
+                return true
+              }
+            }
+            return false
+          })
+          return log?.data
+        }
+      }
     }
   }
 
