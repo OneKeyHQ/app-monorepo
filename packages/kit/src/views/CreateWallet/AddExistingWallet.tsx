@@ -85,9 +85,11 @@ function useAddExistingWallet({
   const { activeNetworkId } = useGeneral();
   const { wallets } = useRuntime();
   const onboardingDone = useOnboardingDone();
-  const { mode = 'all', presetText = '' } = ({ mode: inputMode } ||
-    route.params ||
+  let { mode = 'all', presetText = '' } = (route.params ||
     emptyParams) as IAddExistingWalletModalParams;
+  if (inputMode) {
+    mode = inputMode;
+  }
   const useFormReturn = useForm<AddExistingWalletValues>({
     defaultValues: { text: presetText || '' },
     mode: 'onBlur',
@@ -299,7 +301,9 @@ function useAddExistingWallet({
       }`,
       `${
         mode === 'watching' || mode === 'all'
-          ? 'Address, public key (XPUB) or domain name'
+          ? intl.formatMessage({
+              id: 'form__import_watch_only_account_placeholder',
+            })
           : ''
       }`,
     ];
@@ -670,7 +674,6 @@ const AddExistingWallet = () => {
     name,
   } = useNameServiceStatus();
   const { intl, onSubmit, handleSubmit, submitDisabled, mode } = viewProps;
-
   const liteRecoveryButton = useMemo(
     () =>
       (supportedNFC || platformEnv.isDev) && mode === 'all' ? (
