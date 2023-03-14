@@ -5397,7 +5397,6 @@ __metadata:
     "@onekeyfe/hd-transport": 0.2.38
     "@onekeyfe/hd-web-sdk": 0.2.38
     "@onekeyfe/network-list": 1.6.51
-    "@onekeyfe/js-sdk": 1.1.6
     "@onekeyfe/onekey-cross-webview": 1.1.23
     "@open-wc/webpack-import-meta-loader": ^0.4.7
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.10
