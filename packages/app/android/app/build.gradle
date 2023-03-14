@@ -424,7 +424,7 @@ dependencies {
 
     implementation 'org.nanohttpd:nanohttpd:2.3.1'
 
-    implementation("com.facebook.soloader:soloader:0.10.5")
+    implementation("com.facebook.soloader:soloader:0.10.4")
 }
 
 configurations.all {
