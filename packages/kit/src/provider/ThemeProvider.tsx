@@ -76,6 +76,7 @@ const ThemeApp: FC = ({ children }) => {
       themeVariant={themeVariant}
       locale={localeVariant}
       hapticsEnabled={enableHaptics}
+      reduxReady={isReady.isReady ?? false}
     >
       {children}
     </Provider>
