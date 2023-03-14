@@ -55,9 +55,10 @@ function WebEmbedWebviewAgentMonero() {
       switch (event) {
         case MoneroEvent.getKeyPairFromRawPrivatekey: {
           console.log('Monero_getKeyPairFromRawPrivatekey');
-          const { rawPrivateKey, index } = eventParams;
+          const { rawPrivateKey, index, isPrivateSpendKey } = eventParams;
           const keys = moneroApi.getKeyPairFromRawPrivatekey({
             rawPrivateKey,
+            isPrivateSpendKey,
             index,
           });
           sendResponse(promiseId, {

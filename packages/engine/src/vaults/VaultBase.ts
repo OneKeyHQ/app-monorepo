@@ -672,10 +672,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(account.address);
   }
 
-  getPrivateKeyByCredential(credential: string): Buffer | undefined {
-    return Buffer.from(
-      credential.startsWith('0x') ? credential.slice(2) : credential,
-      'hex',
+  getPrivateKeyByCredential(credential: string): Promise<Buffer | undefined> {
+    return Promise.resolve(
+      Buffer.from(
+        credential.startsWith('0x') ? credential.slice(2) : credential,
+        'hex',
+      ),
     );
   }
 

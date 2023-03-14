@@ -17,8 +17,9 @@ const getMoneroApi = async () => {
   const helper = new Helper(moneroUtilInstance, moneroCoreInstance);
 
   const getKeyPairFromRawPrivatekey = async (params: {
-    rawPrivateKey: Buffer;
+    rawPrivateKey: Buffer | string;
     index?: number;
+    isPrivateSpendKey?: boolean;
   }) => {
     const keys = helper.getKeyPairFromRawPrivatekey(params);
 
@@ -59,6 +60,14 @@ const getMoneroApi = async () => {
     return signedTx;
   };
 
+  const seedAndkeysFromMnemonic = async (params: {
+    mnemonic: string;
+    netType: string;
+  }) => {
+    const seedAndKeys = helper.seedAndkeysFromMnemonic(params);
+    return Promise.resolve(seedAndKeys);
+  };
+
   return {
     getKeyPairFromRawPrivatekey,
     privateSpendKeyToWords,
@@ -67,6 +76,7 @@ const getMoneroApi = async () => {
     decodeAddress,
     estimatedTxFee,
     sendFunds,
+    seedAndkeysFromMnemonic,
   };
 };
 

@@ -17,4 +17,6 @@ export interface MoneroCoreInstance
   ) => string;
 
   send_funds: (...args: any[]) => void;
+
+  seed_and_keys_from_mnemonic: (mnemonic: string, netType: string) => string;
 }

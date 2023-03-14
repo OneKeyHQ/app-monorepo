@@ -1057,7 +1057,7 @@ class Engine {
     const vault = await this.getWalletOnlyVault(networkId, 'imported');
     let privateKey: Buffer | undefined;
     try {
-      privateKey = vault.getPrivateKeyByCredential(credential);
+      privateKey = await vault.getPrivateKeyByCredential(credential);
     } catch (e) {
       console.error(e);
     }

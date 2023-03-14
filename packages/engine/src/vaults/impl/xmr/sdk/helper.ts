@@ -151,9 +151,11 @@ class Helper {
 
   getKeyPairFromRawPrivatekey({
     rawPrivateKey,
+    isPrivateSpendKey,
     index = 0,
   }: {
     rawPrivateKey: Buffer | string;
+    isPrivateSpendKey?: boolean;
     index?: number;
   }) {
     let raw = rawPrivateKey;
@@ -162,12 +164,18 @@ class Helper {
       raw = Buffer.from(raw, 'hex');
     }
 
-    const rawSecretSpendKey = new Uint8Array(
-      sha3.keccak_256.update(raw).arrayBuffer(),
-    );
-    let privateSpendKey = this.scReduce32(rawSecretSpendKey);
-    const privateViewKey = this.hashToScalar(privateSpendKey);
+    let privateSpendKey;
 
+    if (isPrivateSpendKey) {
+      privateSpendKey = raw;
+    } else {
+      const rawSecretSpendKey = new Uint8Array(
+        sha3.keccak_256.update(raw).arrayBuffer(),
+      );
+      privateSpendKey = this.scReduce32(rawSecretSpendKey);
+    }
+
+    const privateViewKey = this.hashToScalar(privateSpendKey);
     let publicSpendKey: Uint8Array | null;
     let publicViewKey: Uint8Array | null;
 
@@ -301,6 +309,26 @@ class Helper {
       const lib = new MyMoneroLibAppBridgeClass(this.coreModule);
       lib.async__send_funds(sendFundsArgs);
     });
+  }
+
+  seedAndkeysFromMnemonic({
+    mnemonic,
+    netType,
+  }: {
+    mnemonic: string;
+    netType: string;
+  }) {
+    const resp = this.coreModule.seed_and_keys_from_mnemonic(mnemonic, netType);
+    const result = JSON.parse(resp) as {
+      err_msg?: string;
+      seed: string;
+      address: string;
+      publicViewKey: string;
+      publicSpendKey: string;
+      privateViewKey: string;
+      privateSpendKey: string;
+    };
+    return result;
   }
 }
 

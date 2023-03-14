@@ -41,6 +41,7 @@ const ensureSDKReady = async () =>
 const getKeyPairFromRawPrivatekey = async (params: {
   rawPrivateKey: Buffer;
   index?: number;
+  isPrivateSpendKey?: boolean;
 }) => {
   await ensureSDKReady();
   debugLogger.common.debug('ensure web embed exist');
@@ -50,6 +51,7 @@ const getKeyPairFromRawPrivatekey = async (params: {
     params: {
       rawPrivateKey: params.rawPrivateKey.toString('hex'),
       index: params.index,
+      isPrivateSpendKey: params.isPrivateSpendKey,
     },
   })) as IResult;
 

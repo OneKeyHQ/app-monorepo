@@ -735,13 +735,13 @@ export default class Vault extends VaultBase {
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
   }
 
-  override getPrivateKeyByCredential(credential: string) {
+  override async getPrivateKeyByCredential(credential: string) {
     let privateKey;
     const [prefix, encoded] = credential.split(':');
     const decodedPrivateKey = Buffer.from(baseDecode(encoded));
     if (prefix === 'ed25519' && decodedPrivateKey.length === 64) {
       privateKey = decodedPrivateKey.slice(0, 32);
     }
-    return privateKey;
+    return Promise.resolve(privateKey);
   }
 }

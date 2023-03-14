@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { mnemonicToSeedSync } from 'bip39';
 import memoizee from 'memoizee';
 
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
@@ -30,9 +31,12 @@ import { getDecodedTxStatus, getRawPrivateKeyFromSeed } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { Account, DBVariantAccount } from '../../../types/account';
+import type { PartialTokenInfo } from '../../../types/provider';
 import type {
+  IApproveInfo,
   IDecodedTx,
   IDecodedTxLegacy,
+  IEncodedTx,
   IEncodedTxUpdateOptions,
   IEncodedTxUpdatePayloadTransfer,
   IFeeInfo,
@@ -53,31 +57,35 @@ export default class Vault extends VaultBase {
     external: KeyringWatching,
   };
 
-  rawPrivateKey = '';
+  password = '';
 
   settings = settings;
 
   private getMoneroKeys = memoizee(
-    async (password?: string, index?: number) => {
+    async (password?: string, isImportedAccount?: boolean, index?: number) => {
       const moneroApi = await getMoneroApi();
       const dbAccount = (await this.getDbAccount({
         noCache: true,
       })) as DBVariantAccount;
-      const { pathPrefix } = slicePathTemplate(dbAccount.template as string);
       let rawPrivateKey: string | Buffer;
-      rawPrivateKey = this.rawPrivateKey;
 
-      if (password === undefined && !rawPrivateKey) {
-        throw new OneKeyInternalError('Unable to get raw private key.');
+      if (password !== undefined) {
+        this.password = password;
       }
 
-      if (!rawPrivateKey) {
+      if (isImportedAccount) {
+        const [privateKey] = Object.values(
+          await (this.keyring as KeyringImported).getPrivateKeys(this.password),
+        );
+
+        rawPrivateKey = decrypt(this.password, privateKey);
+      } else {
         const { entropy } = (await this.engine.dbApi.getCredential(
           this.walletId,
           password as string,
         )) as ExportedSeedCredential;
-
-        const mnemonic = mnemonicFromEntropy(entropy, password as string);
+        const { pathPrefix } = slicePathTemplate(dbAccount.template as string);
+        const mnemonic = mnemonicFromEntropy(entropy, this.password);
         const seed = mnemonicToSeedSync(mnemonic);
         const resp = getRawPrivateKeyFromSeed(seed, pathPrefix);
 
@@ -85,15 +93,19 @@ export default class Vault extends VaultBase {
           throw new OneKeyInternalError('Unable to get raw private key.');
         }
         rawPrivateKey = resp;
-        this.rawPrivateKey = resp.toString('hex');
-      } else {
-        rawPrivateKey = Buffer.from(rawPrivateKey, 'hex');
+        rawPrivateKey = resp.toString('hex');
+      }
+
+      let accountIndex = 0;
+      if (!isImportedAccount) {
+        accountIndex =
+          index === undefined ? Number(dbAccount.path.split('/').pop()) : index;
       }
 
       return moneroApi.getKeyPairFromRawPrivatekey({
         rawPrivateKey,
-        index:
-          index === undefined ? Number(dbAccount.path.split('/').pop()) : index,
+        isPrivateSpendKey: isImportedAccount,
+        index: accountIndex,
       });
     },
     {
@@ -105,10 +117,11 @@ export default class Vault extends VaultBase {
   );
 
   private async getClient(password?: string): Promise<ClientXmr> {
+    const dbAccount = await this.getDbAccount({ noCache: true });
     const rpcUrl = await this.getRpcUrl();
     const scanUrl = await this.getScanUrl();
     const { publicSpendKey, publicViewKey, privateSpendKey, privateViewKey } =
-      await this.getMoneroKeys(password);
+      await this.getMoneroKeys(password, dbAccount.id.startsWith('imported'));
     const { address } = await this.getOutputAccount();
     return this.createXmrClient(
       rpcUrl,
@@ -265,10 +278,13 @@ export default class Vault extends VaultBase {
   }
 
   override async getExportedCredential(password: string): Promise<string> {
-    const dbAccount = await this.getDbAccount();
+    const dbAccount = await this.getDbAccount({ noCache: true });
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
       const moneroApi = await getMoneroApi();
-      const { privateSpendKey } = await this.getMoneroKeys(password);
+      const { privateSpendKey } = await this.getMoneroKeys(
+        password,
+        dbAccount.id.startsWith('imported'),
+      );
 
       return moneroApi.privateSpendKeyToWords(privateSpendKey);
     }
@@ -444,9 +460,13 @@ export default class Vault extends VaultBase {
     const moneroApi = await getMoneroApi();
     const { isTestnet } = await this.getNetwork();
     const [publicSpendKey, publicViewKey] = account.pub.split(',');
+    const isSubaddress = account.id.startsWith('imported')
+      ? false
+      : Number(account.path.split('/').pop()) !== 0;
+
     return moneroApi.pubKeysToAddress(
       isTestnet ? MoneroNetTypeEnum.TestNet : MoneroNetTypeEnum.MainNet,
-      Number(account.path.split('/').pop()) !== 0,
+      isSubaddress,
       Buffer.from(publicSpendKey, 'hex'),
       Buffer.from(publicViewKey, 'hex'),
     );
@@ -510,7 +530,57 @@ export default class Vault extends VaultBase {
     }
   }
 
+  override async getPrivateKeyByCredential(
+    credential: string,
+  ): Promise<Buffer | undefined> {
+    const moneroApi = await getMoneroApi();
+    const network = await this.getNetwork();
+    const resp = await moneroApi.seedAndkeysFromMnemonic({
+      mnemonic: credential,
+      netType: network.isTestnet ? 'TESTNET' : 'MAINNET',
+    });
+
+    return Buffer.from(resp.seed, 'hex');
+  }
+
+  override async validateImportedCredential(input: string): Promise<boolean> {
+    if (this.settings.importedAccountEnabled) {
+      const moneroApi = await getMoneroApi();
+      const network = await this.getNetwork();
+      try {
+        const resp = await moneroApi.seedAndkeysFromMnemonic({
+          mnemonic: input,
+          netType: network.isTestnet ? 'TESTNET' : 'MAINNET',
+        });
+        if (resp.err_msg) {
+          return await Promise.resolve(false);
+        }
+        return await Promise.resolve(true);
+      } catch (e) {
+        return Promise.resolve(false);
+      }
+    }
+    return Promise.resolve(false);
+  }
+
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
     return Promise.resolve({} as IDecodedTxLegacy);
+  }
+
+  buildEncodedTxFromApprove(approveInfo: IApproveInfo): Promise<IEncodedTx> {
+    throw new Error('Method not implemented.');
+  }
+
+  updateEncodedTxTokenApprove(
+    encodedTx: IEncodedTx,
+    amount: string,
+  ): Promise<IEncodedTx> {
+    throw new Error('Method not implemented.');
+  }
+
+  fetchTokenInfos(
+    tokenAddresses: string[],
+  ): Promise<(PartialTokenInfo | undefined)[]> {
+    throw new Error('Method not implemented.');
   }
 }
