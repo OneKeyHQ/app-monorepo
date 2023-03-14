@@ -10,7 +10,7 @@ import { IEncodedTxUpdateType } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount } from '../../../../hooks';
-import { useTokenBalance } from '../../../../hooks/useTokens';
+import { useTokenBalanceWithoutFrozen } from '../../../../hooks/useTokens';
 import { TxDetailView } from '../../../TxDetail/TxDetailView';
 import { BaseSendConfirmModal } from '../../components/BaseSendConfirmModal';
 
@@ -29,7 +29,7 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
 
   // TODO check only supports transferPayload, decodedTx.actions[0].type=== nativeTransfer
 
-  const balance = useTokenBalance({
+  const balance = useTokenBalanceWithoutFrozen({
     networkId,
     accountId,
     token: {

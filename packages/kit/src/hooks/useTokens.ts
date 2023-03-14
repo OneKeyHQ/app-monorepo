@@ -242,6 +242,37 @@ export const useTokenSupportStakedAssets = (
     [networkId, tokenIdOnNetwork],
   );
 
+export const useFrozenBalance = ({
+  networkId,
+  accountId,
+  tokenId,
+}: {
+  networkId: string;
+  accountId: string;
+  tokenId: string;
+}) => {
+  const [frozenBalance, setFrozenBalance] = useState<
+    number | Record<string, number>
+  >(0);
+
+  useEffect(() => {
+    backgroundApiProxy.engine
+      .getFrozenBalance({
+        accountId,
+        networkId,
+      })
+      .then(setFrozenBalance);
+  }, [networkId, accountId]);
+
+  return useMemo(
+    () =>
+      typeof frozenBalance === 'number'
+        ? frozenBalance
+        : frozenBalance?.[tokenId] ?? 0,
+    [tokenId, frozenBalance],
+  );
+};
+
 export const useTokenBalance = ({
   networkId,
   accountId,
@@ -258,6 +289,33 @@ export const useTokenBalance = ({
     balances?.[networkId]?.[accountId]?.[getBalanceKey(token)]?.balance ??
     fallback
   );
+};
+
+export const useTokenBalanceWithoutFrozen = ({
+  networkId,
+  accountId,
+  token,
+  fallback = '0',
+}: {
+  networkId: string;
+  accountId: string;
+  token?: Partial<Token> | null;
+  fallback?: string;
+}) => {
+  const balance = useTokenBalance({ networkId, accountId, token, fallback });
+  const frozenBalance = useFrozenBalance({
+    networkId,
+    accountId,
+    tokenId: token?.tokenIdOnNetwork || 'main',
+  });
+
+  return useMemo(() => {
+    const realBalance = new B(balance).minus(frozenBalance);
+    if (realBalance.isGreaterThan(0)) {
+      return realBalance.toFixed();
+    }
+    return '0';
+  }, [balance, frozenBalance]);
 };
 
 export const useTokenPrice = ({

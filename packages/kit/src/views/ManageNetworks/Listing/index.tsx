@@ -10,8 +10,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Empty,
-  KeyboardDismissView,
   List,
   ListItem,
   Modal,
@@ -26,6 +24,8 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { getActiveWalletAccount } from '../../../hooks/redux';
 import { getManageNetworks } from '../../../hooks/useManageNetworks';
 import { ManageNetworkRoutes } from '../../../routes/Modal/ManageNetwork';
+
+import { NetworkListEmpty, strIncludes } from './NetworkListEmpty';
 
 import type { ManageNetworkRoutesParams } from '../../../routes/Modal/ManageNetwork';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -45,25 +45,6 @@ const updateNetworks = debounce(
     trailing: true,
   },
 );
-
-export const NetworkListEmpty = () => {
-  const intl = useIntl();
-  return (
-    <KeyboardDismissView>
-      <Empty
-        flex="1"
-        emoji="🔍"
-        title={intl.formatMessage({
-          id: 'content__no_results',
-          defaultMessage: 'No Result',
-        })}
-      />
-    </KeyboardDismissView>
-  );
-};
-
-export const strIncludes = (a: string, b: string) =>
-  a.toLowerCase().includes(b.toLowerCase());
 
 const NetworkItem: FC<{
   item: Network;
@@ -175,22 +156,6 @@ export const Listing: FC = () => {
     }, []),
   );
 
-  const emptyComponent = useCallback(
-    () => (
-      <KeyboardDismissView>
-        <Empty
-          flex="1"
-          emoji="🔍"
-          title={intl.formatMessage({
-            id: 'content__no_results',
-            defaultMessage: 'No Result',
-          })}
-        />
-      </KeyboardDismissView>
-    ),
-    [intl],
-  );
-
   const renderItem = useCallback(
     ({ item }: { item: Network }) => (
       <NetworkItem
@@ -230,7 +195,7 @@ export const Listing: FC = () => {
         }}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={emptyComponent}
+        ListEmptyComponent={NetworkListEmpty}
       />
     </Modal>
   );

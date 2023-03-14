@@ -27,7 +27,7 @@ import { useManageNetworks } from '../../../../hooks';
 import {
   NetworkListEmpty,
   strIncludes,
-} from '../../../../views/ManageNetworks/Listing';
+} from '../../../../views/ManageNetworks/Listing/NetworkListEmpty';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AllNetwork } from '../../../Header/AccountSelectorChildren/RightChainSelector';
 import { RpcStatusButton } from '../../RpcStatusButton';
