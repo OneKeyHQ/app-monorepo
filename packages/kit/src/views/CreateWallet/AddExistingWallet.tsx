@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { InputAccessoryView } from 'react-native';
 
 import {
   Box,
   Button,
   Center,
   Form,
+  KeyboardAvoidingView,
   Modal,
   ToastManager,
   useForm,
@@ -48,15 +50,7 @@ import { useOnboardingContext } from '../Onboarding/OnboardingContext';
 import { EOnboardingRoutes } from '../Onboarding/routes/enums';
 import { NineHouseLatticeInputForm } from '../Onboarding/screens/ImportWallet/Component/NineHouseLatticeInputForm';
 
-import type { RouteProp } from '@react-navigation/core';
-
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-type RouteProps = RouteProp<
-  CreateWalletRoutesParams,
-  CreateWalletModalRoutes.AddExistingWalletModal
->;
 
 type AddExistingWalletValues = { text: string; defaultName?: string };
 
@@ -505,6 +499,12 @@ function AddExistingWalletView(
             </Button>
           ) : null}
         </Form>
+      )}
+      {/* remove the ios default AccessoryView */}
+      {platformEnv.isNativeIOS && ['all', 'mnemonic'].includes(mode) && (
+        <InputAccessoryView nativeID="1">
+          <Box />
+        </InputAccessoryView>
       )}
       {children}
     </Box>
