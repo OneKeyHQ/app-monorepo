@@ -17,6 +17,7 @@ import {
 } from 'react-native-reanimated';
 
 import { enableOnPressAnim } from '@onekeyhq/components/src/utils/beforeOnPress';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import NativeNestedTabView, {
@@ -67,7 +68,7 @@ const NestedTabView: ForwardRefRenderFunction<
           [pageIndex],
         );
       } catch (error) {
-        // pass
+        debugLogger.common.error(`switch account tab error`, error);
       }
     },
   }));

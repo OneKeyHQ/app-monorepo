@@ -19,17 +19,20 @@ import type { CollapsibleContainerProps } from './types';
 const Container: ForwardRefRenderFunction<
   ForwardRefHandle,
   CollapsibleContainerProps
-> = ({
-  disableRefresh,
-  refreshing,
-  renderHeader,
-  children,
-  onIndexChange,
-  onRefresh,
-  containerStyle,
-  scrollEnabled = false,
-  ...props
-}) => {
+> = (
+  {
+    disableRefresh,
+    refreshing,
+    renderHeader,
+    children,
+    onIndexChange,
+    onRefresh,
+    containerStyle,
+    scrollEnabled = false,
+    ...props
+  },
+  ref,
+) => {
   const tabs = Children.map(children, (child) =>
     // @ts-ignore
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
@@ -52,6 +55,7 @@ const Container: ForwardRefRenderFunction<
 
   return (
     <NestedTabView
+      ref={ref}
       values={tabs}
       style={containerStyle}
       disableRefresh={disableRefresh}

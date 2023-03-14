@@ -300,7 +300,7 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async switchToScreen({ screen, params }: NotificationExtra) {
-    const navigation = global.$navigationRef.current;
+    const navigation = getAppNavigation();
     const { dispatch, serviceApp } = this.backgroundApi;
     if (!platformEnv.isExtension) {
       const tabScreenName = params?.coingeckoId
