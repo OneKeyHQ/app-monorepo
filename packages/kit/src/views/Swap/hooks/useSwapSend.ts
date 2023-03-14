@@ -26,6 +26,7 @@ type SwapSendParams = {
   payloadInfo?: any;
   gasEstimateFallback?: boolean;
   onSuccess?: SendSuccessCallback;
+  showSendFeedbackReceipt?: boolean
 };
 
 // type SendTxnsParams = {
@@ -45,6 +46,7 @@ export function useSwapSend() {
       payloadInfo,
       onSuccess,
       gasEstimateFallback,
+      showSendFeedbackReceipt
     }: SwapSendParams) => {
       const walletId = getWalletIdFromAccountId(accountId);
       const wallet = await backgroundApiProxy.engine.getWallet(walletId);
@@ -59,6 +61,20 @@ export function useSwapSend() {
             autoFallback: gasEstimateFallback,
           });
         onSuccess?.({ result, decodedTx });
+        if (showSendFeedbackReceipt) {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Send,
+            params: {
+              screen: SendRoutes.SendFeedbackReceipt,
+              params: {
+                networkId: networkId,
+                accountId: accountId,
+                txid: result.txid,
+                type: 'Send',
+              },
+            },
+          });
+        }
       } else {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,

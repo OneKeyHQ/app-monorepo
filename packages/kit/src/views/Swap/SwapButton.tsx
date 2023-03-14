@@ -40,6 +40,7 @@ import { SendRoutes } from '../Send/types';
 
 import { reservedNetworkFee } from './config';
 import {
+  useCheckInputBalance,
   useDerivedSwapState,
   useInputLimitsError,
   useSwapError,
@@ -804,7 +805,7 @@ const ExchangeButton = () => {
   );
 };
 
-const SwapStateButton = () => {
+const SwapExchangeStateButton = () => {
   const intl = useIntl();
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const loading = useAppSelector((s) => s.swap.loading);
@@ -859,21 +860,22 @@ const SwapStateButton = () => {
   return <ExchangeButton />;
 };
 
-const WrapperTokenButton = () => {
+const SwapWrapButton = () => {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const wrapperTxInfo = useAppSelector((s) => s.swap.quote?.wrapperTxInfo);
   const params = useSwapQuoteRequestParams();
   const sendTx = useSwapSend();
-  const onSubmit = useCallback(() => {
+  const onSubmit = useCallback(async () => {
     if (params && wrapperTxInfo) {
       const { tokenIn, activeAccount } = params;
       setLoading(true);
       try {
-        sendTx({
+        await sendTx({
           networkId: tokenIn.networkId,
           accountId: activeAccount.id,
           encodedTx: wrapperTxInfo.encodedTx,
+          showSendFeedbackReceipt: true,
           onSuccess: async ({ result, decodedTx }) => {
             let networkFee: string | undefined;
             const targetNetwork = await backgroundApiProxy.engine.getNetwork(
@@ -944,9 +946,30 @@ const WrapperTokenButton = () => {
   return null;
 };
 
+const SwapWrapStateButton = () => {
+  const intl = useIntl();
+  const balanceInfo = useCheckInputBalance();
+  if (balanceInfo && balanceInfo.insufficient) {
+    return (
+      <Button
+        size="xl"
+        type="primary"
+        isDisabled
+        key="insufficient_balance_error"
+      >
+        {intl.formatMessage(
+          { id: 'form__amount_invalid' },
+          { '0': balanceInfo.token.symbol },
+        )}
+      </Button>
+    );
+  }
+  return <SwapWrapButton />;
+};
+
 const SwapEnabledButton = () => {
   const wrapperTxInfo = useAppSelector((s) => s.swap.quote?.wrapperTxInfo);
-  return wrapperTxInfo ? <WrapperTokenButton /> : <SwapStateButton />;
+  return wrapperTxInfo ? <SwapWrapStateButton /> : <SwapExchangeStateButton />;
 };
 
 const SwapButton = () => {
