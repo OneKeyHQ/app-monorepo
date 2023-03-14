@@ -1,9 +1,10 @@
-import type { FC } from 'react';
-import { Children, Fragment } from 'react';
+import type { ForwardRefRenderFunction } from 'react';
+import { Children, Fragment, forwardRef } from 'react';
 
 // @ts-expect-error
 import NestedScrollView from 'react-native-nested-scroll-view';
 
+import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import type { TabProps } from '@onekeyhq/app/src/views/NestedTabView/types';
 import { useThemeValue } from '@onekeyhq/components';
@@ -15,17 +16,23 @@ import { Body2StrongProps } from '../Typography';
 
 import type { CollapsibleContainerProps } from './types';
 
-const Container: FC<CollapsibleContainerProps> = ({
-  disableRefresh,
-  refreshing,
-  renderHeader,
-  children,
-  onIndexChange,
-  onRefresh,
-  containerStyle,
-  scrollEnabled = false,
-  ...props
-}) => {
+const Container: ForwardRefRenderFunction<
+  ForwardRefHandle,
+  CollapsibleContainerProps
+> = (
+  {
+    disableRefresh,
+    refreshing,
+    renderHeader,
+    children,
+    onIndexChange,
+    onRefresh,
+    containerStyle,
+    scrollEnabled = false,
+    ...props
+  },
+  ref,
+) => {
   const tabs = Children.map(children, (child) =>
     // @ts-ignore
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
@@ -48,6 +55,7 @@ const Container: FC<CollapsibleContainerProps> = ({
 
   return (
     <NestedTabView
+      ref={ref}
       values={tabs}
       style={containerStyle}
       disableRefresh={disableRefresh}
@@ -81,7 +89,7 @@ const Container: FC<CollapsibleContainerProps> = ({
 const renderScrollComponent = (props: any) => <NestedScrollView {...props} />;
 
 export const Tabs = {
-  Container,
+  Container: forwardRef(Container),
   // @ts-ignore to stop the warning about Fragment under development
   Tab: __DEV__ ? ({ children }) => <>{children}</> : Fragment,
   FlatList: ({ contentContainerStyle, ...props }: any) => (

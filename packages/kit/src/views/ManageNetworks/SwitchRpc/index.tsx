@@ -99,6 +99,7 @@ export function SwitchRpcModal() {
   const queryInfo = useDappParams();
   const dappApprove = useDappApproveAction({
     id: queryInfo.sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
   });
 
   const { result, loading } = useAsync(
