@@ -15,4 +15,5 @@ export interface CollapsibleContainerProps {
   swipeEnabled?: boolean;
   headerContainerStyle?: StyleProp<ViewStyle>;
   canOpenDrawer?: boolean;
+  children?: JSX.Element | JSX.Element[];
 }
