@@ -43,7 +43,6 @@
     "@solana/spl-token": "^0.3.0",
     "@solana/web3.js": "^1.47.3",
     "@substrate/txwrapper-polkadot": "5.0.0",
-    "@types/libsodium-wrappers": "^0.7.10",
     "algosdk": "^1.21.0",
     "aptos": "^1.3.17",
     "axios-retry": "^3.4.0",
