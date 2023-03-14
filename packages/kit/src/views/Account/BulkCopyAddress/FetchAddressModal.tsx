@@ -391,8 +391,15 @@ const FetchAddressModal: FC = () => {
           {intl.formatMessage({ id: 'title__fetching_addresses' })}
         </Text>
         <Box w="full">
-          <Button flex={1} type="basic" size="lg">
-            {intl.formatMessage({ id: 'action__cancel' })}
+          <Button
+            flex={1}
+            type="basic"
+            size="lg"
+            onPress={() => navigation.goBack()}
+          >
+            <Text typography={{ sm: 'Button1', md: 'Button1' }}>
+              {intl.formatMessage({ id: 'action__cancel' })}
+            </Text>
           </Button>
         </Box>
       </Center>
