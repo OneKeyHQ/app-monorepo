@@ -30,7 +30,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatBalanceTokenOfAccount } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
-import { useSingleToken, useTokenBalance } from '../../../hooks/useTokens';
+import {
+  useSingleToken,
+  useTokenBalanceWithoutFrozen,
+} from '../../../hooks/useTokens';
 import { wait } from '../../../utils/helper';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { SendRoutes } from '../types';
@@ -130,7 +133,7 @@ function PreSendAmount() {
     tokenIdOnNetwork ?? '',
   );
 
-  const tokenBalance = useTokenBalance({
+  const tokenBalance = useTokenBalanceWithoutFrozen({
     networkId,
     accountId,
     token: {

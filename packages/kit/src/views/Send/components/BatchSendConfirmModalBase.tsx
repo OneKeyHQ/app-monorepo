@@ -23,7 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useActiveSideAccount } from '../../../hooks';
 import {
   useNativeToken,
-  useNativeTokenBalance,
+  useTokenBalanceWithoutFrozen,
 } from '../../../hooks/useTokens';
 
 import { BaseSendModal } from './BaseSendModal';
@@ -64,7 +64,12 @@ function BatchSendConfirmModalBase(props: IBatchTxsConfirmViewProps) {
 
   const nativeToken = useNativeToken(networkId);
 
-  const nativeBalance = useNativeTokenBalance(networkId, accountId);
+  const nativeBalance = useTokenBalanceWithoutFrozen({
+    networkId,
+    accountId,
+    token: nativeToken,
+    fallback: '0',
+  });
 
   const balanceInsufficient = useMemo(() => {
     let nativeBalanceTransferBN = new BigNumber(0);

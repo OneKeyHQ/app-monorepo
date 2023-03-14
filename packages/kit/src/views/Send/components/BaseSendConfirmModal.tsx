@@ -12,7 +12,7 @@ import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveSideAccount, useNativeToken } from '../../../hooks';
-import { useTokenBalance } from '../../../hooks/useTokens';
+import { useTokenBalanceWithoutFrozen } from '../../../hooks/useTokens';
 
 import { BaseSendModal } from './BaseSendModal';
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
@@ -44,7 +44,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
 
   const modalClose = useModalClose();
 
-  const nativeBalance = useTokenBalance({
+  const nativeBalance = useTokenBalanceWithoutFrozen({
     networkId,
     accountId,
     token: nativeToken,
