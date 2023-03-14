@@ -1,29 +1,33 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access */
 import { memo, useCallback, useEffect } from 'react';
 
+import { Helper } from '@onekeyHq/engine/src/vaults/impl/xmr/sdk/helper';
+import { getMoneroCoreInstance } from '@onekeyHq/engine/src/vaults/impl/xmr/sdk/moneroCore/instance';
+import { getMoneroUtilInstance } from '@onekeyHq/engine/src/vaults/impl/xmr/sdk/moneroUtil/instance';
+
 import { Center, Text } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
-const LibLoader = async () => import('@onekeyfe/cardano-coin-selection-asmjs');
-
-const getMoneroApi = async () => {
-  const Loader = await LibLoader();
-  return {
-    composeTxPlan: Loader.onekeyUtils.composeTxPlan,
-    signTransaction: Loader.onekeyUtils.signTransaction,
-    hwSignTransaction: Loader.trezorUtils.signTransaction,
-    txToOneKey: Loader.onekeyUtils.txToOneKey,
-    dAppUtils: Loader.dAppUtils,
-  };
-};
-
 const ProvideResponseMethod = 'moneroWebEmbedResponse';
 
 enum MoneroEvent {
-  composeTxPlan = 'Cardano_composeTxPlan',
+  getKeyPairFromRawPrivatekey = 'Monero_getKeyPairFromRawPrivatekey',
+  generateKeyImage = 'Monero_generateKeyImage',
+  decodeAddress = 'Monero_decodeAddress',
+  estimatedTxFee = 'Monero_estimatedTxFee',
+  sendFunds = 'Monero_sendFunds',
 }
+
+const getMoneroApi = async () => {
+  const moneroCoreInstance = await getMoneroCoreInstance();
+  const moneroUtilInstance = await getMoneroUtilInstance();
+
+  const helper = new Helper(moneroUtilInstance, moneroCoreInstance);
+
+  return helper;
+};
 
 let testCallingCount = 1;
 let testCallingInterval: ReturnType<typeof setInterval> | undefined;
@@ -47,12 +51,60 @@ function WebEmbedWebviewAgentMonero() {
       }
 
       const { params: eventParams, promiseId, event } = params as any;
-
-      const MoneroApi = await getMoneroApi();
+      const moneroApi = await getMoneroApi();
       switch (event) {
-        case MoneroEvent.composeTxPlan: {
-          console.log('Monero_composeTxPlan');
+        case MoneroEvent.getKeyPairFromRawPrivatekey: {
+          console.log('Monero_getKeyPairFromRawPrivatekey');
+          const { rawPrivateKey, index } = eventParams;
+          const keys = moneroApi.getKeyPairFromRawPrivatekey({
+            rawPrivateKey,
+            index,
+          });
+          sendResponse(promiseId, {
+            error: null,
+            result: {
+              privateSpendKey: Buffer.from(keys.privateSpendKey).toString(
+                'hex',
+              ),
+              privateViewKey: Buffer.from(keys.privateViewKey).toString('hex'),
+              publicSpendKey: Buffer.from(keys.publicSpendKey || []).toString(
+                'hex',
+              ),
+              publicViewKey: Buffer.from(keys.publicViewKey || []).toString(
+                'hex',
+              ),
+            },
+          });
+          break;
+        }
 
+        case MoneroEvent.generateKeyImage: {
+          console.log('Monero_generateKeyImage');
+          const keyImage = moneroApi.generateKeyImage(eventParams);
+          sendResponse(promiseId, { error: null, result: keyImage });
+          break;
+        }
+
+        case MoneroEvent.decodeAddress: {
+          console.log('Monero_decodeAddress');
+          const decodedAddress = moneroApi.generateKeyImage(eventParams);
+          sendResponse(promiseId, { error: null, result: decodedAddress });
+          break;
+        }
+        case MoneroEvent.estimatedTxFee: {
+          console.log('Monero_estimatedTxFee');
+          const fee = moneroApi.estimatedTxFee(eventParams);
+          sendResponse(promiseId, { error: null, result: fee });
+          break;
+        }
+        case MoneroEvent.sendFunds: {
+          console.log('Monero_generateKeyImage');
+          try {
+            const signedTx = await moneroApi.sendFunds(eventParams);
+            sendResponse(promiseId, { error: null, result: signedTx });
+          } catch (e) {
+            sendResponse(promiseId, { error: e, result: null });
+          }
           break;
         }
 

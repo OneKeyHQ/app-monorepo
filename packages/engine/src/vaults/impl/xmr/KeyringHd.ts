@@ -1,5 +1,3 @@
-import LWSClient from '@mymonero/mymonero-lws-client';
-import axios from 'axios';
 import { mnemonicFromEntropy } from '@onekeyfe/blockchain-libs/dist/secret';
 import { mnemonicToSeedSync } from 'bip39';
 
@@ -24,8 +22,6 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IEncodedTxXmr, ISendFundsArgs } from './types';
-
-const walletUrl = 'https://node.onekey.so/mymonero';
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {

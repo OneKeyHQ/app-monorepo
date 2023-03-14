@@ -2,6 +2,13 @@ import type { MoneroTransaction } from '@mymonero/mymonero-lws-client';
 
 export type IOnChainHistoryTx = MoneroTransaction & { amount: string };
 
+export enum MoneroTxPriorityEnum {
+  SLOW = 1,
+  NORMAL = 2,
+  FAST = 3,
+  FASTEST = 4,
+}
+
 export interface MoneroKeys {
   publicViewKey: string;
   publicSpendKey: string;

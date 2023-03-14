@@ -4,7 +4,7 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
 import { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
-import type { ChainInfo, CoinInfo } from '@onekeyhq/engine/src/types/chain';
+import type { CoinInfo } from '@onekeyhq/engine/src/types/chain';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
 import { NotImplemented } from '../../../errors';
@@ -17,6 +17,7 @@ import type {
   FeePricePerUnit,
   TransactionStatus,
 } from '../../../types/provider';
+import type { MoneroTxPriorityEnum } from './types';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum RPC_METHODS {
@@ -174,24 +175,20 @@ export class ClientXmr extends BaseClient {
     };
   }
 
-  async getFee(priority = 1) {
-    const { fee, fees } = await this.rpc.call<{ fee: number; fees: number[] }>(
+  async getFee(priority: MoneroTxPriorityEnum) {
+    const { fee } = await this.rpc.call<{ fee: number; fees: number[] }>(
       RPC_METHODS.GET_FEE_ESTIMATE,
     );
 
-    const feePerByte = fees[priority] ?? fee;
-
     const moneroApi = await getMoneroApi();
 
-    const finalFee = await moneroApi.estimatedTxFee(
-      String(priority),
-      String(feePerByte),
-    );
+    const finalFee = await moneroApi.estimatedTxFee({
+      priority: String(priority),
+      feePerByte: String(fee),
+    });
     return {
-      limit: new BigNumber(finalFee ?? 0)
-        .dividedToIntegerBy(feePerByte)
-        .toFixed(),
-      price: feePerByte,
+      limit: new BigNumber(finalFee ?? 0).dividedToIntegerBy(fee).toFixed(),
+      price: fee,
     };
   }
 

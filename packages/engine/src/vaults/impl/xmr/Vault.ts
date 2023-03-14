@@ -24,14 +24,11 @@ import { KeyringWatching } from './KeyringWatching';
 import { getMoneroApi } from './sdk';
 import { MoneroNetTypeEnum } from './sdk/moneroUtil/moneroUtilTypes';
 import settings from './settings';
+import { MoneroTxPriorityEnum } from './types';
 import { getDecodedTxStatus, getRawPrivateKeyFromSeed } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
-import type {
-  Account,
-  DBAccount,
-  DBVariantAccount,
-} from '../../../types/account';
+import type { Account, DBVariantAccount } from '../../../types/account';
 import type {
   IDecodedTx,
   IDecodedTxLegacy,
@@ -39,9 +36,9 @@ import type {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
+  ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
-  ISignedTxPro,
 } from '../../types';
 import type { IEncodedTxXmr, IOnChainHistoryTx } from './types';
 
@@ -161,7 +158,7 @@ export default class Vault extends VaultBase {
           send_amount: transferInfo.amount,
         },
       ],
-      priority: 1,
+      priority: MoneroTxPriorityEnum.NORMAL,
       address: transferInfo.from,
       nettype: network.isTestnet
         ? MoneroNetTypeEnum.TestNet
@@ -214,10 +211,10 @@ export default class Vault extends VaultBase {
           tokenInfo: token,
           from: encodedTx.address,
           to: destination.to_address,
-          amount: new BigNumber(destination.send_amount)
-            .shiftedBy(-network.decimals)
+          amount: destination.send_amount,
+          amountValue: new BigNumber(destination.send_amount)
+            .shiftedBy(network.decimals)
             .toFixed(),
-          amountValue: destination.send_amount,
           extraInfo: null,
         },
         direction:
@@ -348,7 +345,10 @@ export default class Vault extends VaultBase {
         } else {
           direction = IDecodedTxDirection.OUT;
           from = address;
-          to = 'unknown';
+          to =
+            (historyTxToMerge?.isLocalCreated &&
+              historyTxToMerge.decodedTx.actions[0].nativeTransfer?.to) ||
+            'unknown';
         }
 
         const decodedTx: IDecodedTx = {
@@ -452,7 +452,6 @@ export default class Vault extends VaultBase {
     password: string,
   ): Promise<(BigNumber | undefined)[]> {
     const client = await this.getClient(password);
-    if (requests.length > 1) return [];
 
     const [request] = requests;
 

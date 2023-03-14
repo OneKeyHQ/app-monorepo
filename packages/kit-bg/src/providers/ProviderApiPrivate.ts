@@ -212,33 +212,55 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  callCardanoWebEmbedMethod(payload: any) {
-    console.log('$privide provide request ===> callCardanoWebEmbedMethod');
-    console.log('callCardanoWebEmbedMethod =====>>>>>>>99999');
+  callChainEmbedMethod(payload: any) {
+    const method: string = payload.data?.method;
+    console.log(`$privide provide request ===> ${method}`);
+    console.log(`${method} =====>>>>>>>99999`);
     console.log(payload);
     const data = ({ origin }: { origin: string }) => {
       const result = {
-        method: payload.data?.method,
+        method,
         params: {
           event: payload.data?.event,
           promiseId: payload.data?.promiseId,
           params: { ...payload.data?.params },
         },
       };
-      console.log('callCardanoWebEmbedMethod &&&&&&&&& ', origin, result);
+      console.log(`${method} &&&&&&&&&`, origin, result);
       return result;
     };
     payload.data?.send?.(data);
   }
 
   @providerApiMethod()
-  cardanoWebEmbedResponse(payload: any) {
-    console.log('cardanoWebEmbedResponse =====<<<<<<<');
+  callMoneroWebEmbedMethod(payload: any) {
+    this.callChainEmbedMethod(payload);
+  }
+
+  @providerApiMethod()
+  callCardanoWebEmbedMethod(payload: any) {
+    this.callChainEmbedMethod(payload);
+  }
+
+  @providerApiMethod()
+  chainWebEmbedResponse(payload: any) {
+    const method: string = payload.data?.method;
+    console.log(`${method} =====<<<<<<<`);
     console.log(payload);
     this.backgroundApi.servicePromise.resolveCallback({
       id: payload?.data?.promiseId,
       data: { ...(payload?.data?.data ?? {}) },
     });
+  }
+
+  @providerApiMethod()
+  moneroWebEmbedResponse(payload: any) {
+    this.chainWebEmbedResponse(payload);
+  }
+
+  @providerApiMethod()
+  cardanoWebEmbedResponse(payload: any) {
+    this.chainWebEmbedResponse(payload);
   }
 }
 
