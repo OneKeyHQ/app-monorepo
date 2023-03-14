@@ -16,8 +16,6 @@ import type { ISendFundsArgs, ISendFundsCallback } from '../types';
 import type { MoneroCoreInstance } from './moneroCore/moneroCoreTypes';
 import type { MoneroUtilInstance } from './moneroUtil/moneroUtilTypes';
 
-const walletUrl = 'https://node.onekey.so/mymonero';
-
 const handleMoneroCoreResponse = <T>(
   resp: undefined | string | { retVal: T },
 ) => {
@@ -252,9 +250,9 @@ class Helper {
     return fee;
   }
 
-  async sendFunds(args: any): Promise<SignedTx> {
+  async sendFunds(args: any, scanUrl: string): Promise<SignedTx> {
     const instance = axios.create({
-      baseURL: walletUrl,
+      baseURL: scanUrl,
     });
     return new Promise((resolve, reject) => {
       const sendFundsArgs: ISendFundsArgs & ISendFundsCallback = {

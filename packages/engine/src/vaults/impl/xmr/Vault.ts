@@ -13,7 +13,6 @@ import {
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
-  IEncodedTxUpdatePayloadTransfer,
   IEncodedTxUpdateType,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
@@ -35,6 +34,7 @@ import type {
   IDecodedTx,
   IDecodedTxLegacy,
   IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
@@ -105,15 +105,14 @@ export default class Vault extends VaultBase {
   );
 
   private async getClient(password?: string): Promise<ClientXmr> {
-    // const rpcUrl = await this.getRpcUrl();
-    const rpcUrl = 'https://node.onekey.so/xmr';
-    const walletUrl = 'https://node.onekey.so/mymonero';
+    const rpcUrl = await this.getRpcUrl();
+    const scanUrl = await this.getScanUrl();
     const { publicSpendKey, publicViewKey, privateSpendKey, privateViewKey } =
       await this.getMoneroKeys(password);
     const { address } = await this.getOutputAccount();
     return this.createXmrClient(
       rpcUrl,
-      walletUrl,
+      scanUrl,
       address,
       Buffer.from(publicSpendKey || '').toString('hex'),
       Buffer.from(publicViewKey || '').toString('hex'),
@@ -125,7 +124,7 @@ export default class Vault extends VaultBase {
   private createXmrClient = memoizee(
     (
       rpcUrl: string,
-      walletUrl: string,
+      scanUrl: string,
       address: string,
       publicSpendKey: string,
       publicViewKey: string,
@@ -134,7 +133,7 @@ export default class Vault extends VaultBase {
     ) =>
       new ClientXmr({
         rpcUrl,
-        walletUrl,
+        scanUrl,
         address,
         publicSpendKey,
         publicViewKey,
@@ -478,12 +477,14 @@ export default class Vault extends VaultBase {
   override async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
-    const rpc = new JsonRPCRequest(`https://node.onekey.so/xmr/json_rpc`);
+    const rpc = new JsonRPCRequest(`${url}/json_rpc`);
     const start = performance.now();
-    const resp = await rpc.call('get_last_block_header');
+    const resp = await rpc.call<{ block_header: { height: number } }>(
+      'get_last_block_header',
+    );
     return {
       responseTime: Math.floor(performance.now() - start),
-      latestBlock: 1,
+      latestBlock: resp.block_header.height,
     };
   }
 

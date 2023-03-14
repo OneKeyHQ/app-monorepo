@@ -98,6 +98,7 @@ export class KeyringHd extends KeyringHdBase {
   ): Promise<SignedTx> {
     const dbAccount = await this.getDbAccount();
     const moneroApi = await getMoneroApi();
+    const scanUrl = await this.getScanUrl();
     const { entropy } = (await this.engine.dbApi.getCredential(
       this.walletId,
       options.password || '',
@@ -150,7 +151,7 @@ export class KeyringHd extends KeyringHdBase {
       resolvedPaymentID: '',
       resolvedPaymentID_fieldIsVisible: false,
     };
-    const signedTx = await moneroApi.sendFunds(sendFundsArgs);
+    const signedTx = await moneroApi.sendFunds(sendFundsArgs, scanUrl);
     return signedTx;
   }
 }

@@ -10,8 +10,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import * as moneroAddress from './moneroAddress';
 import { privateSpendKeyToWords } from './moneroWords';
 
-import type { MoneroKeys } from '../types';
 import type { SignedTx } from '../../../../types/provider';
+import type { MoneroKeys } from '../types';
 
 const ProvideMethod = 'callMoneroWebEmbedMethod';
 enum MoneroEvent {
@@ -154,13 +154,16 @@ const estimatedTxFee = async (params: {
   return result.result;
 };
 
-const sendFunds = async (params: any): Promise<SignedTx> => {
+const sendFunds = async (args: any, scanUrl: string): Promise<SignedTx> => {
   await ensureSDKReady();
   debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.sendFunds,
-    params,
+    params: {
+      args,
+      scanUrl,
+    },
   })) as IResult;
 
   if (result.error) {

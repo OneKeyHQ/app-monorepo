@@ -100,7 +100,8 @@ function WebEmbedWebviewAgentMonero() {
         case MoneroEvent.sendFunds: {
           console.log('Monero_generateKeyImage');
           try {
-            const signedTx = await moneroApi.sendFunds(eventParams);
+            const { args, scanUrl } = eventParams;
+            const signedTx = await moneroApi.sendFunds(args, scanUrl);
             sendResponse(promiseId, { error: null, result: signedTx });
           } catch (e) {
             sendResponse(promiseId, { error: e, result: null });

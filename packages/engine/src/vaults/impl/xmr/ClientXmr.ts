@@ -47,7 +47,7 @@ export class ClientXmr extends BaseClient {
 
   constructor({
     rpcUrl,
-    walletUrl,
+    scanUrl,
     address,
     publicSpendKey,
     publicViewKey,
@@ -55,7 +55,7 @@ export class ClientXmr extends BaseClient {
     privateViewKey,
   }: {
     rpcUrl: string;
-    walletUrl: string;
+    scanUrl: string;
     address: string;
     publicSpendKey: string;
     publicViewKey: string;
@@ -64,10 +64,10 @@ export class ClientXmr extends BaseClient {
   }) {
     super();
     const instance = axios.create({
-      baseURL: walletUrl,
+      baseURL: scanUrl,
     });
     this.rpc = new JsonRPCRequest(`${rpcUrl}/json_rpc`);
-    this.wallet = new LWSClient({ url: walletUrl, httpClient: instance });
+    this.wallet = new LWSClient({ url: scanUrl, httpClient: instance });
     this.publicSpendKey = publicSpendKey;
     this.publicViewKey = publicViewKey;
     this.privateSpendKey = privateSpendKey;

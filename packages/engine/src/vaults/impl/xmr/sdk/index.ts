@@ -54,8 +54,8 @@ const getMoneroApi = async () => {
     return Promise.resolve(fee);
   };
 
-  const sendFunds = async (args: any): Promise<SignedTx> => {
-    const signedTx = await helper.sendFunds(args);
+  const sendFunds = async (args: any, scanUrl: string): Promise<SignedTx> => {
+    const signedTx = await helper.sendFunds(args, scanUrl);
     return signedTx;
   };
 
