@@ -101,8 +101,9 @@ const WalletTabs: FC = () => {
         initialTabName={homeTabName}
         refreshing={refreshing}
         onRefresh={onRefresh}
-        onIndexChange={(index) => {
-          backgroundApiProxy.dispatch(setHomeTabName(HomeTabOrder[index]));
+        onIndexChange={(index: number) => {
+          defaultIndexRef.current = index;
+          onIndexChange(index);
         }}
         renderHeader={AccountHeader}
         headerHeight={
