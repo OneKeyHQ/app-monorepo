@@ -129,6 +129,7 @@ export enum CreateAccountModalRoutes {
 
 export enum RecoverAccountModalRoutes {
   RecoverAccountsAdvanced = 'RecoverAccountsAdvanced',
+  BulkCopyAddresses = 'BulkCopyAddresses',
 }
 
 export enum ManageNetworkRoutes {

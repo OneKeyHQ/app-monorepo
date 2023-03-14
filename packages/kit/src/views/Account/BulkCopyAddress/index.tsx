@@ -61,12 +61,14 @@ const HeaderDescription: FC<{ network: Network }> = ({
 const BulkCopyAddress: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { walletId, networkId, password } = route.params;
+  const { walletId, networkId, password, entry } = route.params;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { networks } = useRuntime();
   const network = networks.filter((n) => n.id === networkId)[0];
 
-  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [selectedIndex, setSelectedIndex] = useState<number>(
+    entry === 'accountSelector' ? 1 : 0,
+  );
 
   const setRangeRef = useRef<ISetRangeRefType>(null);
   const walletAccountsRef = useRef<IWalletAccountsRefType>(null);

@@ -79,6 +79,7 @@ const AccountSelectorWalletMenu: FC<
                     walletId,
                     networkId,
                     password,
+                    entry: 'accountSelector',
                   },
                 );
               }, 20);
@@ -101,7 +102,7 @@ const AccountSelectorWalletMenu: FC<
         onPress: onPressManageAccount,
         icon: 'SquaresPlusMini',
       },
-      () => <Divider />,
+      () => <Divider my={1} />,
       {
         id: 'title__bulk_copy_addresses',
         onPress: onPressBulkCopyAddresses,

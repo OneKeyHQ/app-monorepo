@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -9,7 +9,6 @@ import {
   SegmentedControl,
   VStack,
 } from '@onekeyhq/components';
-import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 
 import { showOverlay } from '../../../utils/overlayUtils';
