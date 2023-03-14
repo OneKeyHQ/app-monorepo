@@ -1,7 +1,7 @@
 import type { FC } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { useNavigation, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { cacheDirectory } from 'expo-file-system';
 import { useIntl } from 'react-intl';
 
@@ -12,14 +12,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
+import showFileFormatBottomSheetModal from './SelectFileFormatBottomSheetModal';
+
 import type {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '../../../routes';
-import type { ModalScreenProps } from '../../../routes/types';
 import type { RouteProp } from '@react-navigation/native';
 
-type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 type RouteProps = RouteProp<
   CreateAccountRoutesParams,
   CreateAccountModalRoutes.ExportAddresses
@@ -62,10 +62,10 @@ const ExportAddresses: FC = () => {
   }, [data]);
 
   const addressCsvString = useMemo(() => {
-    const headerString = 'address\n';
+    const headerString = `${intl.formatMessage({ id: 'form__address' })}\n`;
     const csvString = `${headerString}${addressText}`;
     return csvString;
-  }, [addressText]);
+  }, [addressText, intl]);
 
   const getFileName = useCallback(
     async (fileType: FileType) => {
@@ -134,19 +134,22 @@ const ExportAddresses: FC = () => {
   );
 
   const onExportFile = useCallback(() => {
-    const fileType = 'csv';
-    if (platformEnv.isNative) {
-      nativeWriteFile(fileType);
-    } else {
-      downloadFile(fileType);
-    }
+    showFileFormatBottomSheetModal({
+      onSelect: (fileType: FileType) => {
+        if (platformEnv.isNative) {
+          nativeWriteFile(fileType);
+        } else {
+          downloadFile(fileType);
+        }
+      },
+    });
   }, [nativeWriteFile, downloadFile]);
 
   const onCopyAddresses = useCallback(() => {
     setTimeout(() => {
       copyToClipboard(addressText);
       ToastManager.show({
-        title: intl.formatMessage({ id: 'msg__address_copied' }),
+        title: intl.formatMessage({ id: 'msg__copied' }),
       });
     }, 200);
   }, [addressText, intl]);
