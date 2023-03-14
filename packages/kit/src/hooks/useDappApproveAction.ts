@@ -12,11 +12,13 @@ function useDappApproveAction({
   id,
   getResolveData,
   closeOnError,
+  closeWindowAfterResolved,
 }: {
   id: number | string;
   // Case of rejection only
   getResolveData?: () => Promise<any> | any;
   closeOnError?: boolean;
+  closeWindowAfterResolved?: boolean;
 }) {
   const isExtStandaloneWindow = platformEnv.isExtensionUiStandaloneWindow;
   const [rejectError, setRejectError] = useState<Error | null>(null);
@@ -53,13 +55,16 @@ function useDappApproveAction({
           data,
         });
         close?.();
+        if (isExtStandaloneWindow && closeWindowAfterResolved) {
+          window.close();
+        }
       } catch (error) {
         console.error('getResolveData ERROR:', error);
         setRejectError(error as Error);
         throw error;
       }
     },
-    [getResolveData, id],
+    [getResolveData, id, isExtStandaloneWindow, closeWindowAfterResolved],
   );
 
   useEffect(() => {
