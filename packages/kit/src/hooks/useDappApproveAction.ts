@@ -56,7 +56,9 @@ function useDappApproveAction({
         });
         close?.();
         if (isExtStandaloneWindow && closeWindowAfterResolved) {
-          window.close();
+          setTimeout(() => {
+            window.close();
+          }, 0);
         }
       } catch (error) {
         console.error('getResolveData ERROR:', error);
