@@ -297,10 +297,6 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
   }, [walletId, accountId, networkId, item.tokenIdOnNetwork, navigation]);
 
   const checkTokenVisible = useCallback(async () => {
-    if (!hideRiskTokens && !hideSmallBalance) {
-      return;
-    }
-
     const options = {
       title: intl.formatMessage(
         { id: 'msg__str_has_been_added_but_is_hidden' },
@@ -308,31 +304,35 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
       ),
       content: '',
     };
-    if (item.riskLevel && item.riskLevel > TokenRiskLevel.WARN) {
-      options.content = intl.formatMessage(
-        { id: 'msg__str_has_been_added_but_is_hidden_desc' },
-        { 0: item.symbol },
-      );
+    if (hideRiskTokens) {
+      if (item.riskLevel && item.riskLevel > TokenRiskLevel.WARN) {
+        options.content = intl.formatMessage(
+          { id: 'msg__str_has_been_added_but_is_hidden_desc' },
+          { 0: item.symbol },
+        );
+      }
     }
-    const { serviceToken, servicePrice } = backgroundApiProxy;
-    const [balances] = await serviceToken.getAccountBalanceFromRpc(
-      networkId,
-      accountId,
-      [item.tokenIdOnNetwork],
-      false,
-      {
-        [item.tokenIdOnNetwork]: item,
-      },
-    );
-    const price = await servicePrice.getSimpleTokenPrice({
-      networkId,
-      tokenId: item.tokenIdOnNetwork,
-    });
-    const value = getTokenValue({ token: item, price, balances });
-    if (value && value.isLessThan(1)) {
-      options.content = intl.formatMessage({
-        id: 'msg__token_has_been_added_but_is_hiddendesc_desc',
+    if (hideSmallBalance) {
+      const { serviceToken, servicePrice } = backgroundApiProxy;
+      const [balances] = await serviceToken.getAccountBalanceFromRpc(
+        networkId,
+        accountId,
+        [item.tokenIdOnNetwork],
+        false,
+        {
+          [item.tokenIdOnNetwork]: item,
+        },
+      );
+      const price = await servicePrice.getSimpleTokenPrice({
+        networkId,
+        tokenId: item.tokenIdOnNetwork,
       });
+      const value = getTokenValue({ token: item, price, balances });
+      if (value && value.isLessThan(1)) {
+        options.content = intl.formatMessage({
+          id: 'msg__token_has_been_added_but_is_hiddendesc_desc',
+        });
+      }
     }
     if (!options.content) {
       return;

@@ -35,6 +35,8 @@ export type TransactionsState = {
   };
   wrapperTokens?: Record<string, string>;
   approvalIssueTokens?: IssueToken[];
+  payments?: Record<string, Token>;
+  defaultPayment?: Token;
 };
 
 const initialState: TransactionsState = {
@@ -168,6 +170,12 @@ export const swapTransactionsSlice = createSlice({
     setApprovalIssueTokens(state, action: PayloadAction<IssueToken[]>) {
       state.approvalIssueTokens = action.payload;
     },
+    setPayments(state, action: PayloadAction<Record<string, Token>>) {
+      state.payments = action.payload;
+    },
+    setDefaultPayment(state, action: PayloadAction<Token>) {
+      state.defaultPayment = action.payload;
+    },
   },
 });
 
@@ -186,6 +194,8 @@ export const {
   setRecommendedSlippage,
   setWrapperTokens,
   setApprovalIssueTokens,
+  setPayments,
+  setDefaultPayment,
 } = swapTransactionsSlice.actions;
 
 export default swapTransactionsSlice.reducer;
