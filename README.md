@@ -20,8 +20,8 @@
 
 ## Community & Enterprise Edition
 
-- 🏡 🧔🏻‍♂️ For Community Edition, it will always remain FREE forever for open-sour projects by individuals and communities.
-- 🏦 💼 For Enterprise Edition, If you wish to self-host and develop locally, or access our market ticker data, NFT metadata, liquidity pools, or certain advanced features through enterprise-level APIs with higher request limit, you can contact BD manager sean@onekey.so to subscribe to paid plans.
+- 🏡 🧔🏻‍♂️ For Community Edition. It will always remain FREE FOREVER for open-source projects by individuals and communities.
+- 🏦 💼 For Enterprise Edition. If you wish to self-host and develop locally, or access our market ticker data, NFT metadata, liquidity pools, or certain advanced features through enterprise-level APIs with higher request limits, you can contact BD manager sean@onekey.so to subscribe our paid plans.
 
 
 ## Support
