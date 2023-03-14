@@ -64,9 +64,12 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
         closeOnSelect: true,
         onPress: () => {
           setCurrentWordsCount(value);
+          setTimeout(() => {
+            trigger('1');
+          }, 0);
         },
       })),
-    [],
+    [trigger],
   );
   useEffect(() => {
     setTimeout(() => {
@@ -166,7 +169,8 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
                 rules={{
                   validate: async (t) => {
                     const valuesMap = getValues();
-                    const values = Object.values(valuesMap);
+                    let values = Object.values(valuesMap);
+                    values = values.slice(0, currentWordsCount);
                     if (values.every((v: string) => v.length > 0)) {
                       try {
                         await backgroundApiProxy.validator.validateMnemonic(
