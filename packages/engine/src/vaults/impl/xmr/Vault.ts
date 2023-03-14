@@ -13,6 +13,8 @@ import {
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
+  IEncodedTxUpdatePayloadTransfer,
+  IEncodedTxUpdateType,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
@@ -189,11 +191,15 @@ export default class Vault extends VaultBase {
     };
   }
 
-  updateEncodedTx(
+  async updateEncodedTx(
     encodedTx: IEncodedTxXmr,
-    payload: any,
+    payload: IEncodedTxUpdatePayloadTransfer,
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTxXmr> {
+    if (options.type === IEncodedTxUpdateType.transfer) {
+      encodedTx.destinations[0].send_amount = payload.amount;
+      encodedTx.shouldSweep = true;
+    }
     return Promise.resolve(encodedTx);
   }
 
@@ -279,10 +285,10 @@ export default class Vault extends VaultBase {
     let isValid = false;
 
     try {
-      const result = await moneroApi.decodeAddress(
+      const result = await moneroApi.decodeAddress({
         address,
-        network.isTestnet ? 'TESTNET' : 'MAINNET',
-      );
+        netType: network.isTestnet ? 'TESTNET' : 'MAINNET',
+      });
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (result.err_msg) {
@@ -479,6 +485,10 @@ export default class Vault extends VaultBase {
       responseTime: Math.floor(performance.now() - start),
       latestBlock: 1,
     };
+  }
+
+  override async getFrozenBalance() {
+    return 0;
   }
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {

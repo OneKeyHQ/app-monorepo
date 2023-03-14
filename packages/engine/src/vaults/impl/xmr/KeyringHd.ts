@@ -118,8 +118,17 @@ export class KeyringHd extends KeyringHdBase {
 
     const encodedTx = unsignedTx.encodedTx as IEncodedTxXmr;
 
+    let destinations = [...encodedTx.destinations];
+
+    if (encodedTx.shouldSweep) {
+      destinations = destinations.map((destination) => ({
+        to_address: destination.to_address,
+        send_amount: '0',
+      }));
+    }
+
     const sendFundsArgs: ISendFundsArgs = {
-      destinations: encodedTx.destinations,
+      destinations,
       from_address_string: encodedTx.address,
       is_sweeping: encodedTx.shouldSweep,
       nettype: encodedTx.nettype,
