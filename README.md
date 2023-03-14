@@ -18,8 +18,13 @@
 - [Browser extensions: Chrome, Firefox, Edge & Brave](https://onekey.so/zh_CN/download?client=browserExtension)
 - [Bridge](https://onekey.so/zh_CN/download?client=bridge)
 
+## Community & Enterprise Edition
 
-## Community & Support
+- 🏡 🧔🏻‍♂️ For Community Edition. It will always remain FREE FOREVER for open-source projects by individuals and communities.
+- 🏦 💼 For Enterprise Edition. If you wish to self-host and develop locally, or access our market ticker data, NFT metadata, liquidity pools, or certain advanced features through enterprise-level APIs with higher request limits, you can contact BD manager sean@onekey.so to subscribe our paid plans.
+
+
+## Support
 
 - [Community Forum](https://github.com/orgs/OneKeyHQ/discussions). Best for: help with building, discussion about best practices.
 - [GitHub Issues](https://github.com/OneKeyHQ/app-monorepo/issues). Best for: bugs and errors you encounter using OneKey.
@@ -70,7 +75,7 @@ Execute the following commands in the root directory and build target for produc
 
 - web: `cd packages/web && yarn build`, build the static files at packages/web/web-build, for production build, see [release-web.yml](./.github/workflows/release-web.yml) job for details.
 - ios: use expo server to build, see [release-ios.yml](./.github/workflows/release-ios.yml) job for details.
-- android:  
+- android:
   - use expo server to build, see [release-android.yml](./.github/workflows/release-android.yml) job for details.
   - or use `cd packages/app/android && ./gradlew aR` to build in local.
 - desktop: : `cd packages/desktop && yarn build`, see [release-desktop.yml](./.github/workflows/release-desktop.yml) job for details.
