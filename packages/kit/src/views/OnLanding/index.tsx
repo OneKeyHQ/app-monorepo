@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import * as Linking from 'expo-linking';
+import { canOpenURL, parse } from 'expo-linking';
 import { useIntl } from 'react-intl';
 
 import { Button, Center, Icon, Typography } from '@onekeyhq/components';
@@ -29,7 +29,7 @@ export default function OnLanding() {
     if (!locationUrl) {
       return '';
     }
-    const { queryParams, path } = Linking.parse(locationUrl);
+    const { queryParams, path } = parse(locationUrl);
     if (path === WalletConnectUniversalLinkPath && queryParams?.uri) {
       const linkUrl = walletConnectUtils.buildOneKeyWalletConnectDeepLinkUrl({
         uri: queryParams?.uri as string,
@@ -50,7 +50,7 @@ export default function OnLanding() {
   }, [autoLaunchAppUrl]);
   useEffect(() => {
     (async () => {
-      if (autoLaunchAppUrl && (await Linking.canOpenURL(autoLaunchAppUrl))) {
+      if (autoLaunchAppUrl && (await canOpenURL(autoLaunchAppUrl))) {
         onLaunchApp();
       }
     })();

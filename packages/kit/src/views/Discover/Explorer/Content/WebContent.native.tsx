@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import * as Linking from 'expo-linking';
+import { openURL as LinkingOpenUrl } from 'expo-linking';
 import { BackHandler } from 'react-native';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
@@ -70,7 +70,7 @@ const WebContent: FC<WebTab & WebViewProps> = ({
         // canOpenURL may need additional config on android 11+
         // https://github.com/facebook/react-native/issues/32311#issuecomment-933568611
         // so just try open directly
-        Linking.openURL(navUrl).catch();
+        LinkingOpenUrl(navUrl).catch();
         return false;
       }
       return true;
