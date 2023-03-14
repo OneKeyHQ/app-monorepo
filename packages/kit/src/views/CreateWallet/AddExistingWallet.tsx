@@ -702,17 +702,20 @@ const AddExistingWallet = () => {
         isDisabled: submitDisabled || disableSubmitBtn,
       }}
       hideSecondaryAction
-    >
-      <AddExistingWalletView
-        {...viewProps}
-        showPasteButton
-        showSubmitButton={false}
-        nameServiceAddress={address}
-        onNameServiceChange={onNameServiceChange}
-      >
-        {liteRecoveryButton}
-      </AddExistingWalletView>
-    </Modal>
+      scrollViewProps={{
+        children: (
+          <AddExistingWalletView
+            {...viewProps}
+            showPasteButton
+            showSubmitButton={false}
+            nameServiceAddress={address}
+            onNameServiceChange={onNameServiceChange}
+          >
+            {liteRecoveryButton}
+          </AddExistingWalletView>
+        ),
+      }}
+    />
   );
 };
 
