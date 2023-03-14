@@ -40,7 +40,7 @@ const ChainWebEmbedView = forwardRef(
 
     useEffect(() => {
       debugLogger.common.debug(`${routePath} Render`);
-    }, []);
+    }, [routePath]);
 
     const onWebViewRef = useCallback(($ref: IWebViewWrapperRef | null) => {
       webviewRef.current = $ref;

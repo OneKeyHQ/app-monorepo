@@ -5471,6 +5471,7 @@ __metadata:
     "@onekeyfe/react-native-animated-charts": "https://github.com/OneKeyHQ/react-native-animated-charts.git"
     "@onekeyfe/react-native-ble-plx": 3.0.0
     "@onekeyhq/components": "*"
+    "@onekeyhq/engine": "*"
     "@onekeyhq/kit": "*"
     "@react-native-async-storage/async-storage": 1.17.3
     "@react-native-community/netinfo": ^8.1.0
@@ -5626,7 +5627,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@onekeyhq/engine@workspace:packages/engine":
+"@onekeyhq/engine@*, @onekeyhq/engine@workspace:packages/engine":
   version: 0.0.0-use.local
   resolution: "@onekeyhq/engine@workspace:packages/engine"
   dependencies:
@@ -5808,6 +5809,7 @@ __metadata:
   dependencies:
     "@onekeyfe/cardano-coin-selection-asmjs": 1.1.0
     "@onekeyhq/components": "*"
+    "@onekeyhq/engine": "*"
     "@onekeyhq/kit": "*"
     expo: ^45.0.5
     expo-yarn-workspaces: 2.0.3

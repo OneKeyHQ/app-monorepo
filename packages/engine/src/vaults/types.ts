@@ -35,8 +35,8 @@ import type { IEncodedTxSol, INativeTxSol } from './impl/sol/types';
 import type { IEncodedTxSTC } from './impl/stc/types';
 import type { IEncodedTxSUI } from './impl/sui/types';
 import type { IEncodedTxTron } from './impl/tron/types';
-import type { IEncodedTxXrp } from './impl/xrp/types';
 import type { IEncodedTxXmr } from './impl/xmr/types';
+import type { IEncodedTxXrp } from './impl/xrp/types';
 
 // Options ----------------------------------------------
 export type IVaultSubNetworkSettings = {
