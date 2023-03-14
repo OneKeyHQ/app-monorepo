@@ -18,6 +18,7 @@ import { QuoterType, SwapError } from '../typings';
 import {
   formatAmount,
   getTokenAmountString,
+  getTokenAmountValue,
   greaterThanZeroOrUndefined,
 } from '../utils';
 
@@ -56,10 +57,7 @@ class TokenAmount {
 export function useTokenAmount(token?: Token, amount?: string) {
   return useMemo(() => {
     if (!token || !amount) return;
-    const bn = new BigNumber(amount);
-    const decimals = new BigNumber(token.decimals);
-    const base = new BigNumber(10);
-    const value = bn.dividedBy(base.exponentiatedBy(decimals));
+    const value = getTokenAmountValue(token, amount);
     return new TokenAmount(token, value.toFixed());
   }, [token, amount]);
 }

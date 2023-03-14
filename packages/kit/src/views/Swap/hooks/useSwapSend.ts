@@ -11,13 +11,13 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppSelector } from '../../../hooks/useAppSelector';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { deviceUtils } from '../../../utils/hardware';
 import { SendRoutes } from '../../Send/types';
-import { SwapRoutes } from '../typings';
 
 type SendSuccessCallback = (param: {
   result: ISignedTxPro;
   decodedTx?: IDecodedTx;
-}) => void;
+}) => Promise<void>;
 
 type SwapSendParams = {
   encodedTx: IEncodedTx;
@@ -25,8 +25,10 @@ type SwapSendParams = {
   networkId: string;
   payloadInfo?: any;
   gasEstimateFallback?: boolean;
+  onDetail?: (txid: string) => any;
+  onFail?: (e: Error) => void;
   onSuccess?: SendSuccessCallback;
-  showSendFeedbackReceipt?: boolean
+  showSendFeedbackReceipt?: boolean;
 };
 
 // type SendTxnsParams = {
@@ -44,36 +46,45 @@ export function useSwapSend() {
       accountId,
       networkId,
       payloadInfo,
+      onFail,
       onSuccess,
+      onDetail,
       gasEstimateFallback,
-      showSendFeedbackReceipt
+      showSendFeedbackReceipt,
     }: SwapSendParams) => {
       const walletId = getWalletIdFromAccountId(accountId);
       const wallet = await backgroundApiProxy.engine.getWallet(walletId);
       const password = await backgroundApiProxy.servicePassword.getPassword();
       const secretFree = password && !validationSetting?.Payment;
       if (wallet.type === 'hw' || (wallet.type !== 'external' && secretFree)) {
-        const { result, decodedTx } =
-          await backgroundApiProxy.serviceSwap.sendTransaction({
-            accountId,
-            networkId,
-            encodedTx,
-            autoFallback: gasEstimateFallback,
-          });
-        onSuccess?.({ result, decodedTx });
-        if (showSendFeedbackReceipt) {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.Send,
-            params: {
-              screen: SendRoutes.SendFeedbackReceipt,
+        try {
+          const { result, decodedTx } =
+            await backgroundApiProxy.serviceSwap.sendTransaction({
+              accountId,
+              networkId,
+              encodedTx,
+              payload: payloadInfo,
+              autoFallback: gasEstimateFallback,
+            });
+          await onSuccess?.({ result, decodedTx });
+          if (showSendFeedbackReceipt) {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Send,
               params: {
-                networkId: networkId,
-                accountId: accountId,
-                txid: result.txid,
-                type: 'Send',
+                screen: SendRoutes.SendFeedbackReceipt,
+                params: {
+                  networkId,
+                  accountId,
+                  txid: result.txid,
+                  type: 'Send',
+                },
               },
-            },
-          });
+            });
+          }
+        } catch (e: any) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          deviceUtils.showErrorToast(e, e?.data?.message || e.message);
+          onFail?.(e as Error);
         }
       } else {
         navigation.navigate(RootRoutes.Modal, {
@@ -87,17 +98,7 @@ export function useSwapSend() {
               feeInfoEditable: true,
               feeInfoUseFeeInTx: false,
               encodedTx,
-              onDetail(txid) {
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.Swap,
-                  params: {
-                    screen: SwapRoutes.Transaction,
-                    params: {
-                      txid,
-                    },
-                  },
-                });
-              },
+              onDetail,
               onSuccess: (result, data) => {
                 onSuccess?.({
                   result,
