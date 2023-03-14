@@ -204,3 +204,25 @@ index f2ceeda..5349ade 100644
 +  end
 +end
 \ No newline at end of file
+diff --git a/node_modules/react-native/react.gradle b/node_modules/react-native/react.gradle
+index d876b13..0af21f0 100644
+--- a/node_modules/react-native/react.gradle
++++ b/node_modules/react-native/react.gradle
+@@ -355,13 +355,9 @@ afterEvaluate {
+                         from(jsBundleDir)
+                     }
+
+-                    // Workaround for Android Gradle Plugin 3.2+ new asset directory
+-                    into ("merged_assets/${variant.name}/merge${targetName}Assets/out") {
+-                        from(jsBundleDir)
+-                    }
+-
+-                    // Workaround for Android Gradle Plugin 3.4+ new asset directory
+-                    into ("merged_assets/${variant.name}/out") {
++                    // https://github.com/facebook/react-native/issues/32338
++                    // Workaround for Android Gradle Plugin 7.2 - 7.3 and React-Native 0.67.x - 0.68.x - Assets directory by christian
++                    into("assets/${variant.name}") {
+                         from(jsBundleDir)
+                     }
+                 }
+\ No newline at end of file
