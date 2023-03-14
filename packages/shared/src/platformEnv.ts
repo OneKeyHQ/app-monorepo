@@ -249,7 +249,7 @@ export const isManifestV3: boolean =
 export const canGetClipboard: boolean = !isWeb && !isExtension;
 
 export const supportAutoUpdate: boolean =
-  isDesktop && !(isMas || isDesktopLinuxSnap);
+  isDesktop && !(isMas || isDesktopLinuxSnap || isDesktopWinMsStore);
 
 const platformEnv: IPlatformEnv = {
   version: process.env.VERSION,

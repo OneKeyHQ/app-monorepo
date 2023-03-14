@@ -18,6 +18,8 @@ export const useAccessory = () => {
           const result = wordLists.filter((word) => word.startsWith(lastWord));
           if (!result?.length) {
             setAccessoryData(undefined);
+          } else if (result?.length === 1) {
+            setAccessoryData([]);
           } else {
             setAccessoryData(result);
           }
@@ -47,6 +49,7 @@ export const useAccessory = () => {
     onSelectedKeybordAcessory,
     valueText,
     accessoryData,
+    setAccessoryData,
   };
 };
 

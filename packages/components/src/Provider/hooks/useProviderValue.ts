@@ -9,6 +9,7 @@ export type ContextValue = {
   locale: LocaleSymbol;
   device: DeviceState;
   hapticsEnabled: boolean;
+  reduxReady?: boolean;
 };
 
 export const Context = createContext<ContextValue>({} as ContextValue);

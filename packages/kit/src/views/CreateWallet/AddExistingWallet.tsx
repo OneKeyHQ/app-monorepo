@@ -9,6 +9,7 @@ import {
   Button,
   Center,
   Form,
+  KeyboardAvoidingView,
   Modal,
   ToastManager,
   useForm,
@@ -49,15 +50,7 @@ import { useOnboardingContext } from '../Onboarding/OnboardingContext';
 import { EOnboardingRoutes } from '../Onboarding/routes/enums';
 import { NineHouseLatticeInputForm } from '../Onboarding/screens/ImportWallet/Component/NineHouseLatticeInputForm';
 
-import type { RouteProp } from '@react-navigation/core';
-
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-type RouteProps = RouteProp<
-  CreateWalletRoutesParams,
-  CreateWalletModalRoutes.AddExistingWalletModal
->;
 
 type AddExistingWalletValues = { text: string; defaultName?: string };
 
@@ -86,9 +79,11 @@ function useAddExistingWallet({
   const { activeNetworkId } = useGeneral();
   const { wallets } = useRuntime();
   const onboardingDone = useOnboardingDone();
-  const { mode = 'all', presetText = '' } = ({ mode: inputMode } ||
-    route.params ||
+  let { mode = 'all', presetText = '' } = (route.params ||
     emptyParams) as IAddExistingWalletModalParams;
+  if (inputMode) {
+    mode = inputMode;
+  }
   const useFormReturn = useForm<AddExistingWalletValues>({
     defaultValues: { text: presetText || '' },
     mode: 'onBlur',
@@ -300,18 +295,13 @@ function useAddExistingWallet({
       }`,
       `${
         mode === 'watching' || mode === 'all'
-          ? intl.formatMessage({ id: 'form__address' })
+          ? intl.formatMessage({
+              id: 'form__import_watch_only_account_placeholder',
+            })
           : ''
       }`,
-      mode === 'watching' || mode === 'all'
-        ? `ENS, UD, SID ${intl.formatMessage({
-            id: 'content__or_lowercase',
-          })} .bit`
-        : '',
     ];
-    return `${intl.formatMessage({
-      id: 'content__enter',
-    })} ${words.filter(Boolean).join(', ')}`;
+    return words.filter(Boolean).join(', ');
   }, [intl, mode]);
 
   return {
@@ -361,7 +351,6 @@ function AddExistingWalletView(
     address,
   } = useNameServiceStatus();
   const isVerticalLayout = useIsVerticalLayout();
-  const [isRealValid, setIsRealValid] = useState(false);
   const helpText = useCallback(
     (value: string) => (
       <NameServiceResolver
@@ -421,7 +410,6 @@ function AddExistingWalletView(
               validate: async (t) => {
                 const text = nameServiceAddress || address || t;
                 if (!text) {
-                  setIsRealValid(false);
                   return true;
                 }
                 if (
@@ -434,10 +422,8 @@ function AddExistingWalletView(
                     ({ category }) => category !== UserInputCategory.ADDRESS,
                   ).length > 0
                 ) {
-                  setIsRealValid(true);
                   return true;
                 }
-                setIsRealValid(false);
                 // Special treatment for BTC address.
                 try {
                   await backgroundApiProxy.validator.validateAddress(
@@ -450,6 +436,17 @@ function AddExistingWalletView(
                 } catch {
                   // pass
                 }
+                if (inputCategory === UserInputCategory.IMPORTED) {
+                  return intl.formatMessage({
+                    id: 'msg__invalid_private_key',
+                  });
+                }
+                if (inputCategory === UserInputCategory.MNEMONIC) {
+                  return intl.formatMessage({
+                    id: 'msg__engine__invalid_mnemonic',
+                  });
+                }
+                // watching and all category error message
                 return intl.formatMessage({
                   id: 'form__add_exsting_wallet_invalid',
                 });
@@ -465,7 +462,10 @@ function AddExistingWalletView(
           >
             {mode === 'imported' ? (
               <Form.Input
+                inputAccessoryViewID="1"
+                autoFocusDelay={600}
                 placeholder={placeholder}
+                autoFocus
                 backgroundColor="action-secondary-default"
                 secureTextEntry
                 size="xl"
@@ -476,15 +476,15 @@ function AddExistingWalletView(
                 inputAccessoryViewID="1"
                 autoFocus
                 autoCorrect={false}
+                totalLines={isVerticalLayout ? 3 : 5}
                 placeholder={placeholder}
-                totalLines={3}
                 trimValue={!['all', 'mnemonic'].includes(mode)}
               />
             )}
           </Form.Item>
           {showSubmitButton ? (
             <Button
-              isDisabled={submitDisabled || disableSubmitBtn || !isRealValid}
+              isDisabled={submitDisabled || disableSubmitBtn}
               type="primary"
               size="xl"
               onPromise={handleSubmit(async (values) => {
@@ -500,14 +500,12 @@ function AddExistingWalletView(
           ) : null}
         </Form>
       )}
-
       {/* remove the ios default AccessoryView */}
-      {platformEnv.isNativeIOS && (
+      {platformEnv.isNativeIOS && ['all', 'mnemonic'].includes(mode) && (
         <InputAccessoryView nativeID="1">
           <Box />
         </InputAccessoryView>
       )}
-
       {children}
     </Box>
   );
@@ -676,7 +674,6 @@ const AddExistingWallet = () => {
     name,
   } = useNameServiceStatus();
   const { intl, onSubmit, handleSubmit, submitDisabled, mode } = viewProps;
-
   const liteRecoveryButton = useMemo(
     () =>
       (supportedNFC || platformEnv.isDev) && mode === 'all' ? (
@@ -705,17 +702,20 @@ const AddExistingWallet = () => {
         isDisabled: submitDisabled || disableSubmitBtn,
       }}
       hideSecondaryAction
-    >
-      <AddExistingWalletView
-        {...viewProps}
-        showPasteButton
-        showSubmitButton={false}
-        nameServiceAddress={address}
-        onNameServiceChange={onNameServiceChange}
-      >
-        {liteRecoveryButton}
-      </AddExistingWalletView>
-    </Modal>
+      scrollViewProps={{
+        children: (
+          <AddExistingWalletView
+            {...viewProps}
+            showPasteButton
+            showSubmitButton={false}
+            nameServiceAddress={address}
+            onNameServiceChange={onNameServiceChange}
+          >
+            {liteRecoveryButton}
+          </AddExistingWalletView>
+        ),
+      }}
+    />
   );
 };
 

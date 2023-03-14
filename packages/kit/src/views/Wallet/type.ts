@@ -11,3 +11,10 @@ export const HomeTabOrder = [
   WalletHomeTabEnum.History,
   WalletHomeTabEnum.Tools,
 ];
+
+export const HomeTabIndex = {
+  [WalletHomeTabEnum.Tokens]: 0,
+  [WalletHomeTabEnum.Collectibles]: 1,
+  [WalletHomeTabEnum.History]: 2,
+  [WalletHomeTabEnum.Tools]: 3,
+};
