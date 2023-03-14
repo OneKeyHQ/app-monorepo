@@ -1,6 +1,7 @@
-import type { FC } from 'react';
-import { Children, Fragment } from 'react';
+import type { ForwardRefRenderFunction } from 'react';
+import { Children, Fragment, forwardRef } from 'react';
 
+import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import NestedTabView from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import type { TabProps } from '@onekeyhq/app/src/views/NestedTabView/types';
 import { useThemeValue } from '@onekeyhq/components';
@@ -12,19 +13,25 @@ import { Body2StrongProps } from '../Typography';
 
 import type { CollapsibleContainerProps } from './types';
 
-const Container: FC<CollapsibleContainerProps> = ({
-  disableRefresh,
-  children,
-  headerHeight,
-  renderHeader,
-  onIndexChange,
-  initialTabName,
-  onRefresh,
-  refreshing,
-  containerStyle,
-  scrollEnabled = false,
-  ...props
-}) => {
+const Container: ForwardRefRenderFunction<
+  ForwardRefHandle,
+  CollapsibleContainerProps
+> = (
+  {
+    disableRefresh,
+    children,
+    headerHeight,
+    renderHeader,
+    onIndexChange,
+    initialTabName,
+    onRefresh,
+    refreshing,
+    containerStyle,
+    scrollEnabled = false,
+    ...props
+  },
+  ref,
+) => {
   const tabs = Children.map(children, (child) =>
     // @ts-ignore
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
@@ -35,6 +42,7 @@ const Container: FC<CollapsibleContainerProps> = ({
   if (selectedIndex < 0) {
     selectedIndex = 0;
   }
+
   const [
     activeLabelColor,
     labelColor,
@@ -77,6 +85,7 @@ const Container: FC<CollapsibleContainerProps> = ({
         bottomLineColor,
         labelStyle: Body2StrongProps,
       }}
+      ref={ref}
       {...props}
     >
       {children}
@@ -85,7 +94,7 @@ const Container: FC<CollapsibleContainerProps> = ({
 };
 
 export const Tabs = {
-  Container,
+  Container: forwardRef(Container),
   // @ts-ignore to stop the warning about Fragment under development
   Tab: __DEV__ ? ({ children }) => <>{children}</> : Fragment,
   FlatList,

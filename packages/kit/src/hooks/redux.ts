@@ -16,6 +16,8 @@ import { useTransactionSendContext } from '../views/Send/utils/TransactionSendCo
 
 import { useAppSelector } from './useAppSelector';
 
+import type { StatusState } from '../store/reducers/status';
+
 export { useAppSelector };
 export type ISelectorBuilder = (
   selector: typeof useAppSelector,
@@ -54,10 +56,9 @@ export const useDiscover = () => {
   return discover;
 };
 
-export const useStatus = () => {
-  const status = useAppSelector((s) => s.status);
-  return status;
-};
+export const { use: useStatus, get: getStatus } = makeSelector<StatusState>(
+  (selector) => selector((s) => s.status),
+);
 
 export const useData = () => {
   const data = useAppSelector((s) => s.data);
