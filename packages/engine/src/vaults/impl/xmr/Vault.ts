@@ -48,6 +48,8 @@ import type {
 } from '../../types';
 import type { IEncodedTxXmr, IOnChainHistoryTx } from './types';
 
+let passwordCache = '';
+
 export default class Vault extends VaultBase {
   keyringMap = {
     hd: KeyringHd,
@@ -56,8 +58,6 @@ export default class Vault extends VaultBase {
     watching: KeyringWatching,
     external: KeyringWatching,
   };
-
-  password = '';
 
   settings = settings;
 
@@ -70,22 +70,22 @@ export default class Vault extends VaultBase {
       let rawPrivateKey: string | Buffer;
 
       if (password !== undefined) {
-        this.password = password;
+        passwordCache = password;
       }
 
       if (isImportedAccount) {
         const [privateKey] = Object.values(
-          await (this.keyring as KeyringImported).getPrivateKeys(this.password),
+          await (this.keyring as KeyringImported).getPrivateKeys(passwordCache),
         );
 
-        rawPrivateKey = decrypt(this.password, privateKey);
+        rawPrivateKey = decrypt(passwordCache, privateKey);
       } else {
         const { entropy } = (await this.engine.dbApi.getCredential(
           this.walletId,
-          password as string,
+          passwordCache,
         )) as ExportedSeedCredential;
         const { pathPrefix } = slicePathTemplate(dbAccount.template as string);
-        const mnemonic = mnemonicFromEntropy(entropy, this.password);
+        const mnemonic = mnemonicFromEntropy(entropy, passwordCache);
         const seed = mnemonicToSeedSync(mnemonic);
         const resp = getRawPrivateKeyFromSeed(seed, pathPrefix);
 
