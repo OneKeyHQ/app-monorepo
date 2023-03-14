@@ -31,12 +31,12 @@ export const DisplayKeyBlock = ({ children }: { children: string }) => {
 
 interface ShortcutsProps {
   desc: string;
-  keys: string;
+  keys: string | null;
 }
 
 export const ShortcutsDescription = memo(({ desc, keys }: ShortcutsProps) => {
   const displayKeys = keys
-    .split('+')
+    ?.split('+')
     .map((key, index) => <DisplayKeyBlock key={index}>{key}</DisplayKeyBlock>);
   return (
     <Box p="8px" flexDirection="row" justifyContent="space-between">
