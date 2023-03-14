@@ -16,6 +16,7 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import AccountDetails from '@onekeyhq/kit/assets/onboarding/account_details_on_metamask.png';
 import ExtStepFourImage from '@onekeyhq/kit/assets/onboarding/desk_reveal.png';
 import ExtStepThreeImage from '@onekeyhq/kit/assets/onboarding/desk_security.png';
 import ExtStepTwoImage from '@onekeyhq/kit/assets/onboarding/desk_settings.png';
@@ -24,59 +25,109 @@ import LogoMetaMask from '@onekeyhq/kit/assets/onboarding/logo_metamask.png';
 import NativeStepFourImage from '@onekeyhq/kit/assets/onboarding/mobile_reveal.png';
 import NativeStepThreeImage from '@onekeyhq/kit/assets/onboarding/mobile_security.png';
 import NativeStepTwoImage from '@onekeyhq/kit/assets/onboarding/mobile_settings.png';
+import ShowPrivateKey from '@onekeyhq/kit/assets/onboarding/mobile_show_private_key.png';
 import NativeStepOneImage from '@onekeyhq/kit/assets/onboarding/mobile_topbar.png';
 
-type DrawerProps = { visible?: boolean; onClose?: () => void };
+import type { IAddExistingWalletMode } from '../../../../routes';
+
+type DrawerProps = {
+  visible?: boolean;
+  onClose?: () => void;
+  mode?: IAddExistingWalletMode;
+};
 
 // MetaMask Import Guide
-const Drawer: FC<DrawerProps> = ({ visible, onClose }) => {
+const Drawer: FC<DrawerProps> = ({ visible, onClose, mode }) => {
   const insets = useSafeAreaInsets();
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
 
-  const steps = useMemo(
-    () => [
+  const steps = useMemo(() => {
+    if (mode === 'mnemonic')
+      return [
+        {
+          desc: isVerticalLayout
+            ? intl.formatMessage({ id: 'content__native_metamask_tutorials_1' })
+            : intl.formatMessage({ id: 'content__ext_metamask_tutorials_1' }),
+          image: isVerticalLayout ? NativeStepOneImage : ExtStepOneImage,
+          imageHeight: isVerticalLayout ? '51px' : '56px',
+        },
+        {
+          desc: intl.formatMessage({
+            id: 'content__native_metamask_tutorials_2',
+          }),
+          image: isVerticalLayout ? NativeStepTwoImage : ExtStepTwoImage,
+          imageHeight: isVerticalLayout ? '107px' : '103px',
+        },
+        {
+          desc: intl.formatMessage({
+            id: 'content__native_metamask_tutorials_3',
+          }),
+          image: isVerticalLayout ? NativeStepThreeImage : ExtStepThreeImage,
+          imageHeight: isVerticalLayout ? '99px' : '110px',
+        },
+        {
+          desc: intl.formatMessage({
+            id: 'content__native_metamask_tutorials_4',
+          }),
+          image: isVerticalLayout ? NativeStepFourImage : ExtStepFourImage,
+          imageHeight: isVerticalLayout ? '59px' : '66px',
+        },
+        {
+          desc: intl.formatMessage({
+            id: 'content__native_metamask_tutorials_5',
+          }),
+        },
+      ];
+
+    return [
       {
-        index: '1',
         desc: isVerticalLayout
           ? intl.formatMessage({ id: 'content__native_metamask_tutorials_1' })
-          : intl.formatMessage({ id: 'content__ext_metamask_tutorials_1' }),
-        image: isVerticalLayout ? NativeStepOneImage : ExtStepOneImage,
-        imageHeight: isVerticalLayout ? '51px' : '56px',
+          : intl.formatMessage({ id: 'content_click_account_details' }),
+        image: isVerticalLayout ? NativeStepOneImage : AccountDetails,
+        imageHeight: isVerticalLayout ? '51px' : '233px',
       },
       {
-        index: '2',
-        desc: intl.formatMessage({
-          id: 'content__native_metamask_tutorials_2',
-        }),
-        image: isVerticalLayout ? NativeStepTwoImage : ExtStepTwoImage,
-        imageHeight: isVerticalLayout ? '107px' : '103px',
+        desc: isVerticalLayout
+          ? intl.formatMessage({
+              id: 'content__native_metamask_tutorials_2',
+            })
+          : intl.formatMessage({
+              id: 'content__click_on_show_private_key',
+            }),
+        image: isVerticalLayout ? NativeStepTwoImage : ShowPrivateKey,
+        imageHeight: isVerticalLayout ? '107px' : '66px',
       },
       {
-        index: '3',
-        desc: intl.formatMessage({
-          id: 'content__native_metamask_tutorials_3',
-        }),
-        image: isVerticalLayout ? NativeStepThreeImage : ExtStepThreeImage,
+        desc: isVerticalLayout
+          ? intl.formatMessage({
+              id: 'content__native_metamask_tutorials_3',
+            })
+          : intl.formatMessage({
+              id: 'content__copy_and_private_key',
+            }),
+        image: isVerticalLayout ? NativeStepThreeImage : '',
         imageHeight: isVerticalLayout ? '99px' : '110px',
       },
       {
-        index: '4',
-        desc: intl.formatMessage({
-          id: 'content__native_metamask_tutorials_4',
-        }),
-        image: isVerticalLayout ? NativeStepFourImage : ExtStepFourImage,
-        imageHeight: isVerticalLayout ? '59px' : '66px',
+        desc: isVerticalLayout
+          ? intl.formatMessage({
+              id: 'content__click_on_show_private_key',
+            })
+          : '',
+        image: isVerticalLayout ? ShowPrivateKey : '',
+        imageHeight: '59px',
       },
       {
-        index: '5',
-        desc: intl.formatMessage({
-          id: 'content__native_metamask_tutorials_5',
-        }),
+        desc: isVerticalLayout
+          ? intl.formatMessage({
+              id: 'content__copy_and_private_key',
+            })
+          : '',
       },
-    ],
-    [intl, isVerticalLayout],
-  );
+    ];
+  }, [intl, isVerticalLayout, mode]);
 
   return (
     <PresenceTransition
@@ -112,7 +163,7 @@ const Drawer: FC<DrawerProps> = ({ visible, onClose }) => {
         right={0}
         bottom={0}
         w="full"
-        maxW={400}
+        maxW="400px"
         pt={`${16 + insets.top}px`}
         bgColor="background-default"
         pointerEvents="auto"
@@ -144,17 +195,19 @@ const Drawer: FC<DrawerProps> = ({ visible, onClose }) => {
           </Text>
           {steps.map((step, index) => (
             <Box mb={8} key={index}>
-              <Text typography="Body2" mb={4}>
-                {step.index}. {step.desc}
-              </Text>
-              {step.image ? (
+              {step.desc && (
+                <Text typography="Body2" mb={4}>
+                  {index + 1}. {step.desc}
+                </Text>
+              )}
+              {step.image && (
                 <Image
                   w="full"
                   h={step.imageHeight}
                   source={step.image}
                   resizeMode="cover"
                 />
-              ) : null}
+              )}
             </Box>
           ))}
         </ScrollView>
