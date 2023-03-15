@@ -32,6 +32,7 @@ import { FormatBalanceTokenOfAccount } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import {
   useSingleToken,
+  useTokenBalance,
   useTokenBalanceWithoutFrozen,
 } from '../../../hooks/useTokens';
 import { wait } from '../../../utils/helper';
@@ -143,6 +144,16 @@ function PreSendAmount() {
     fallback: '0',
   });
 
+  const originalTokenBalance = useTokenBalance({
+    networkId,
+    accountId,
+    token: {
+      ...tokenInfo,
+      sendAddress: transferInfo.sendAddress,
+    },
+    fallback: '0',
+  });
+
   const getAmountValidateError = useCallback(() => {
     if (!tokenInfo || !amount) {
       return 'error';
@@ -201,7 +212,7 @@ function PreSendAmount() {
         accountId,
         networkId,
         amount,
-        tokenBalance,
+        tokenBalance: originalTokenBalance,
         to: transferInfo.to,
       });
       return { result: true, errorInfo: null };
@@ -218,7 +229,7 @@ function PreSendAmount() {
     amount,
     engine,
     transferInfo,
-    tokenBalance,
+    originalTokenBalance,
     minAmountValidationPassed,
   ]);
   useEffect(() => {
