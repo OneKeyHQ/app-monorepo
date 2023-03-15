@@ -28,6 +28,7 @@ import KeleLogoPNG from '../../../../assets/staking/kele_pool.png';
 import { AutoSizeText } from '../../../components/AutoSizeText';
 import {
   FormatBalanceToken,
+  FormatBalanceTokenOfAccount,
   FormatCurrencyToken,
   formatBalanceDisplay,
 } from '../../../components/Format';
@@ -443,7 +444,7 @@ export default function StakingAmount() {
                 {intl.formatMessage({ id: 'content__available_balance' })}
               </Typography.Caption>
               <Box>
-                <FormatBalanceToken
+                <FormatBalanceTokenOfAccount
                   token={tokenInfo}
                   render={(ele) => (
                     <Typography.Body1Strong
@@ -454,6 +455,8 @@ export default function StakingAmount() {
                       {ele}
                     </Typography.Body1Strong>
                   )}
+                  accountId={accountId}
+                  networkId={networkId}
                 />
               </Box>
             </Box>
