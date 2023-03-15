@@ -51,7 +51,7 @@ import { BlockBook, getRpcUrlFromChainInfo } from './provider/blockbook';
 import { getAccountDefaultByPurpose, getBIP44Path } from './utils';
 
 import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
-import type { DBUTXOAccount } from '../../../types/account';
+import type { Account, DBUTXOAccount } from '../../../types/account';
 import type { KeyringBaseMock } from '../../keyring/KeyringBase';
 import type { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import type {
@@ -127,6 +127,21 @@ export default class VaultBtcFork extends VaultBase {
       this.provider = new ProviderClass(chainInfo);
     }
     return this.provider;
+  }
+
+  override async getOutputAccount(): Promise<Account> {
+    // The simplest case as default implementation.
+    const dbAccount = await this.getDbAccount({ noCache: true });
+    return {
+      id: dbAccount.id,
+      name: dbAccount.name,
+      type: dbAccount.type,
+      path: dbAccount.path,
+      coinType: dbAccount.coinType,
+      tokens: [],
+      address: dbAccount.address,
+      xpub: this.getAccountXpub(dbAccount as DBUTXOAccount),
+    };
   }
 
   override getFetchBalanceAddress(account: DBUTXOAccount): Promise<string> {
