@@ -47,6 +47,7 @@ const PRIVATE_WHITE_LIST_ORIGIN = [
         'http://192.168.31.96:3008',
         'http://192.168.50.36:3008',
         'http://192.168.124.2:3008',
+        'http://192.168.0.103:3008',
       ]
     : []),
 ].filter(Boolean);

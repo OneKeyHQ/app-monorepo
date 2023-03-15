@@ -1,5 +1,5 @@
 import differenceInDays from 'date-fns/differenceInDays';
-import * as Linking from 'expo-linking';
+import { openURL as LinkingOpenURL, canOpenURL } from 'expo-linking';
 import semver from 'semver';
 
 import { ToastManager } from '@onekeyhq/components';
@@ -149,9 +149,9 @@ class AppUpdates {
   openAppUpdate(versionInfo: VersionInfo): void {
     switch (versionInfo.package.channel) {
       case 'AppStore':
-        Linking.canOpenURL('itms-apps://').then((supported) => {
+        canOpenURL('itms-apps://').then((supported) => {
           if (supported) {
-            Linking.openURL('itms-apps://itunes.apple.com/app/id1609559473');
+            LinkingOpenURL('itms-apps://itunes.apple.com/app/id1609559473');
           } else {
             this._openUrl(versionInfo.package.download);
           }
@@ -159,9 +159,9 @@ class AppUpdates {
         break;
       case 'GooglePlay':
       case 'HuaweiAppGallery':
-        Linking.canOpenURL('market://').then((supported) => {
+        canOpenURL('market://').then((supported) => {
           if (supported) {
-            Linking.openURL('market://details?id=so.onekey.app.wallet');
+            LinkingOpenURL('market://details?id=so.onekey.app.wallet');
           } else {
             this._openUrl(versionInfo.package.download);
           }
@@ -169,7 +169,7 @@ class AppUpdates {
         break;
       case 'MsWindowsStore':
         // check ms-windows-store protocol support
-        Linking.openURL('ms-windows-store://pdp/?productid=XPFMHZDDF91TNL')
+        LinkingOpenURL('ms-windows-store://pdp/?productid=XPFMHZDDF91TNL')
           .then((success) => {
             if (!success) throw new Error('open ms-windows-store failed');
           })
@@ -200,7 +200,7 @@ class AppUpdates {
 
   _openUrl(url: string) {
     if (platformEnv.isNative) {
-      Linking.openURL(url);
+      LinkingOpenURL(url);
     } else {
       window.open(url, '_blank');
     }

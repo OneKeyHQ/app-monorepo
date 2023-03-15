@@ -256,12 +256,24 @@ export const useFrozenBalance = ({
   >(0);
 
   useEffect(() => {
-    backgroundApiProxy.engine
-      .getFrozenBalance({
-        accountId,
+    (async () => {
+      let password;
+
+      const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
         networkId,
-      })
-      .then(setFrozenBalance);
+      );
+      if (vaultSettings.validationRequired) {
+        password = await backgroundApiProxy.servicePassword.getPassword();
+      }
+
+      backgroundApiProxy.engine
+        .getFrozenBalance({
+          accountId,
+          networkId,
+          password,
+        })
+        .then(setFrozenBalance);
+    })();
   }, [networkId, accountId]);
 
   return useMemo(

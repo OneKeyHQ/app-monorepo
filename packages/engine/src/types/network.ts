@@ -23,6 +23,7 @@ type PresetNetwork = NetworkBase & {
   prices?: Array<Record<string, any>>;
   explorers?: Array<Record<string, any>>;
   extensions?: Record<string, any>;
+  scanURL?: string;
 };
 
 type DBNetwork = NetworkBase & {
@@ -30,6 +31,7 @@ type DBNetwork = NetworkBase & {
   position: number;
   curve?: string;
   explorerURL?: string;
+  scanURL?: string;
 };
 
 type EvmExtraInfo = {
@@ -74,6 +76,7 @@ type Network = NetworkBase & {
   // TODO: rpcURLs
   blockExplorerURL: BlockExplorer;
   settings: IVaultSettings;
+  scanURL?: string;
 };
 
 type AddEVMNetworkParams = {

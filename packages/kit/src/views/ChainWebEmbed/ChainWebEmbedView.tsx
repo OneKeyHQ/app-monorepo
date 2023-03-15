@@ -18,11 +18,13 @@ import { useShowWebEmbedWebviewAgent } from '../../hooks/useSettingsDevMode';
 
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
-export const CardanoWebEmbedView = forwardRef(
+const ChainWebEmbedView = forwardRef(
   (
     {
+      routePath,
       callback,
     }: {
+      routePath: string;
       callback: (() => void) | null;
     },
     ref: any,
@@ -37,8 +39,8 @@ export const CardanoWebEmbedView = forwardRef(
     }));
 
     useEffect(() => {
-      debugLogger.common.debug('CardanoWebEmbedView Render');
-    }, []);
+      debugLogger.common.debug(`${routePath} Render`);
+    }, [routePath]);
 
     const onWebViewRef = useCallback(($ref: IWebViewWrapperRef | null) => {
       webviewRef.current = $ref;
@@ -56,8 +58,6 @@ export const CardanoWebEmbedView = forwardRef(
       jsBridge.globalOnMessageEnabled = true;
       backgroundApiProxy.connectWebEmbedBridge(jsBridge);
     }, [webviewRef]);
-
-    const routePath = '/cardano';
 
     let boxProps: ComponentProps<typeof Pressable> = {
       height: '0px',
@@ -85,7 +85,7 @@ export const CardanoWebEmbedView = forwardRef(
         <WebViewWebEmbed
           onWebViewRef={onWebViewRef}
           onContentLoaded={() => {
-            debugLogger.common.debug('CardanoWebEmbedView Loaded');
+            debugLogger.common.debug(`${routePath} loaded`);
             isWebviewReadyRef.current = true;
             callback?.();
           }}
@@ -94,7 +94,7 @@ export const CardanoWebEmbedView = forwardRef(
           // *** use remote url
           src={
             platformEnv.isDev
-              ? `http://192.168.31.204:3008/#${routePath}`
+              ? `http://192.168.0.103:3008/#${routePath}`
               : undefined
           }
         />
@@ -103,4 +103,6 @@ export const CardanoWebEmbedView = forwardRef(
   },
 );
 
-CardanoWebEmbedView.displayName = 'CardanoWebEmbedView';
+ChainWebEmbedView.displayName = 'ChainWebEmbedView';
+
+export { ChainWebEmbedView };

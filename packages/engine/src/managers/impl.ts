@@ -20,6 +20,7 @@ import {
   COINTYPE_SUI,
   COINTYPE_TBTC,
   COINTYPE_TRON,
+  COINTYPE_XMR,
   COINTYPE_XRP,
   IMPL_ADA,
   IMPL_ALGO,
@@ -39,6 +40,7 @@ import {
   IMPL_SUI,
   IMPL_TBTC,
   IMPL_TRON,
+  IMPL_XMR,
   IMPL_XRP,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -75,6 +77,7 @@ const implToCoinTypes: Partial<Record<string, string | string[]>> = {
   [IMPL_SUI]: COINTYPE_SUI,
   [IMPL_FIL]: COINTYPE_FIL,
   [IMPL_DOT]: COINTYPE_DOT,
+  [IMPL_XMR]: COINTYPE_XMR,
 };
 
 const coinTypeToImpl: Record<string, string> = Object.fromEntries(
@@ -109,6 +112,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_SUI]: AccountType.SIMPLE,
   [IMPL_FIL]: AccountType.VARIANT,
   [IMPL_DOT]: AccountType.VARIANT,
+  [IMPL_XMR]: AccountType.VARIANT,
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {
@@ -137,6 +141,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_SUI]: Curve.ED25519,
   [IMPL_FIL]: Curve.SECP256K1,
   [IMPL_DOT]: Curve.ED25519,
+  [IMPL_XMR]: Curve.ED25519,
 };
 
 function getCurveByImpl(impl: string): string {

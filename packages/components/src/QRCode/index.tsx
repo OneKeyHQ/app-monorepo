@@ -5,12 +5,12 @@ import { useMemo } from 'react';
 import QRCodeUtil from 'qrcode';
 import Svg, { Circle, ClipPath, Defs, G, Image, Rect } from 'react-native-svg';
 
-import type * as ReactNative from 'react-native';
+import type { ImageProps } from 'react-native';
 
 export type QRCodeProps = {
   size: number;
   ecl?: 'L' | 'M' | 'Q' | 'H';
-  logo?: ReactNative.ImageProps['source'];
+  logo?: ImageProps['source'];
   logoBackgroundColor?: string;
   logoMargin?: number;
   logoSize?: number;
