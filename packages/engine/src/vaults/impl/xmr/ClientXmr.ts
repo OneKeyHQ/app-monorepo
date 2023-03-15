@@ -184,23 +184,6 @@ export class ClientXmr extends BaseClient {
     };
   }
 
-  async getFee(priority: MoneroTxPriorityEnum) {
-    const { fee } = await this.rpc.call<{ fee: number; fees: number[] }>(
-      RPC_METHODS.GET_FEE_ESTIMATE,
-    );
-
-    const moneroApi = await getMoneroApi();
-
-    const finalFee = await moneroApi.estimatedTxFee({
-      priority: String(priority),
-      feePerByte: String(fee),
-    });
-    return {
-      limit: new BigNumber(finalFee ?? 0).dividedToIntegerBy(fee).toFixed(),
-      price: fee,
-    };
-  }
-
   async getUnspentBalance(address: string) {
     const moneroApi = await getMoneroApi();
     let unspentBN = new BigNumber(0);

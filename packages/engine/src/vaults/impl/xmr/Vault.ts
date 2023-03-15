@@ -48,8 +48,6 @@ import type {
 } from '../../types';
 import type { IEncodedTxXmr, IOnChainHistoryTx } from './types';
 
-let passwordCache = '';
-
 export default class Vault extends VaultBase {
   keyringMap = {
     hd: KeyringHd,
@@ -61,40 +59,52 @@ export default class Vault extends VaultBase {
 
   settings = settings;
 
-  private getMoneroKeys = memoizee(
-    async (password?: string, isImportedAccount?: boolean, index?: number) => {
-      const moneroApi = await getMoneroApi();
-      const dbAccount = (await this.getDbAccount({
-        noCache: true,
-      })) as DBVariantAccount;
+  private getPrivateKey = memoizee(
+    async (password: string, accountId: string) => {
       let rawPrivateKey: string | Buffer;
-
-      if (password !== undefined) {
-        passwordCache = password;
-      }
-
+      const isImportedAccount = accountId.startsWith('imported');
       if (isImportedAccount) {
         const [privateKey] = Object.values(
-          await (this.keyring as KeyringImported).getPrivateKeys(passwordCache),
+          await (this.keyring as KeyringImported).getPrivateKeys(password),
         );
 
-        rawPrivateKey = decrypt(passwordCache, privateKey);
+        rawPrivateKey = decrypt(password, privateKey).toString('hex');
       } else {
+        const dbAccount = (await this.getDbAccount({
+          noCache: true,
+        })) as DBVariantAccount;
         const { entropy } = (await this.engine.dbApi.getCredential(
           this.walletId,
-          passwordCache,
+          password,
         )) as ExportedSeedCredential;
         const { pathPrefix } = slicePathTemplate(dbAccount.template as string);
-        const mnemonic = mnemonicFromEntropy(entropy, passwordCache);
+        const mnemonic = mnemonicFromEntropy(entropy, password);
         const seed = mnemonicToSeedSync(mnemonic);
         const resp = getRawPrivateKeyFromSeed(seed, pathPrefix);
 
         if (!resp) {
           throw new OneKeyInternalError('Unable to get raw private key.');
         }
-        rawPrivateKey = resp;
         rawPrivateKey = resp.toString('hex');
       }
+
+      return rawPrivateKey;
+    },
+    {
+      max: 1,
+      primitive: true,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
+
+  private getMoneroKeys = memoizee(
+    async (rawPrivateKey: string, accountId: string, index?: number) => {
+      const moneroApi = await getMoneroApi();
+      const dbAccount = (await this.getDbAccount({
+        noCache: true,
+      })) as DBVariantAccount;
+
+      const isImportedAccount = accountId.startsWith('imported');
 
       let accountIndex = 0;
       if (!isImportedAccount) {
@@ -116,12 +126,25 @@ export default class Vault extends VaultBase {
     },
   );
 
-  private async getClient(password?: string): Promise<ClientXmr> {
-    const dbAccount = await this.getDbAccount({ noCache: true });
+  private getRpcClient = memoizee(
+    async (url?: string) => {
+      const rpcUrl = await this.getRpcUrl();
+      const rpc = new JsonRPCRequest(`${url ?? rpcUrl}/json_rpc`);
+      return rpc;
+    },
+    {
+      primitive: true,
+      promise: true,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
+
+  private async getClient(password: string): Promise<ClientXmr> {
     const rpcUrl = await this.getRpcUrl();
     const scanUrl = await this.getScanUrl();
+    const privateKey = await this.getPrivateKey(password, this.accountId);
     const { publicSpendKey, publicViewKey, privateSpendKey, privateViewKey } =
-      await this.getMoneroKeys(password, dbAccount.id.startsWith('imported'));
+      await this.getMoneroKeys(privateKey, this.accountId);
     const { address } = await this.getOutputAccount();
     return this.createXmrClient(
       rpcUrl,
@@ -183,10 +206,23 @@ export default class Vault extends VaultBase {
   }
 
   async fetchFeeInfo(encodedTx: IEncodedTxXmr): Promise<IFeeInfo> {
-    const client = await this.getClient();
+    const rpc = await this.getRpcClient();
+    const moneroApi = await getMoneroApi();
     const network = await this.engine.getNetwork(this.networkId);
 
-    const { limit, price } = await client.getFee(encodedTx.priority);
+    const { fee } = await rpc.call<{ fee: number; fees: number[] }>(
+      'get_fee_estimate',
+    );
+
+    const finalFee = await moneroApi.estimatedTxFee({
+      priority: String(encodedTx.priority),
+      feePerByte: String(fee),
+    });
+
+    const limit = new BigNumber(finalFee ?? 0)
+      .dividedToIntegerBy(fee)
+      .toFixed();
+    const price = fee;
 
     return {
       customDisabled: true,
@@ -283,7 +319,7 @@ export default class Vault extends VaultBase {
       const moneroApi = await getMoneroApi();
       const { privateSpendKey } = await this.getMoneroKeys(
         password,
-        dbAccount.id.startsWith('imported'),
+        dbAccount.id,
       );
 
       return moneroApi.privateSpendKeyToWords(privateSpendKey);
@@ -497,7 +533,7 @@ export default class Vault extends VaultBase {
   override async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
-    const rpc = new JsonRPCRequest(`${url}/json_rpc`);
+    const rpc = await this.getRpcClient(url);
     const start = performance.now();
     const resp = await rpc.call<{ block_header: { height: number } }>(
       'get_last_block_header',
@@ -508,8 +544,8 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async getFrozenBalance() {
-    const client = await this.getClient();
+  override async getFrozenBalance(password: string) {
+    const client = await this.getClient(password);
     const { address } = await this.getOutputAccount();
     const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
 
