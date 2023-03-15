@@ -1,13 +1,13 @@
 import type { FC } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
+import { AnimatePresence, MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { Rect } from 'react-native-svg';
 
 import {
   Box,
   Button,
-  Hidden,
   Icon,
   Pressable,
   Skeleton,
@@ -27,15 +27,15 @@ import type { CreateWalletRoutesParams } from '../../../routes';
 import type { ModalScreenProps } from '../../../routes/types';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
-type Props = {
+export type WalletSelectorTriggerElementProps = {
   visible: boolean;
+  showWalletName?: boolean;
   handleToggleVisible: () => void;
 };
 
-export const WalletSelectorTriggerElement: FC<Props> = ({
-  visible,
-  handleToggleVisible,
-}) => {
+export const WalletSelectorTriggerElement: FC<
+  WalletSelectorTriggerElementProps
+> = ({ visible, showWalletName, handleToggleVisible }) => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet } = useActiveWalletAccount();
@@ -101,22 +101,43 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
               />
             )}
           </Box>
-          <Hidden from="base" till="md">
-            <>
-              <Typography.Body2Strong
-                isTruncated
-                numberOfLines={1}
-                ml={3}
-                mr={1}
-                maxWidth="106px"
+          <AnimatePresence>
+            {showWalletName && (
+              <MotiView
+                from={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{
+                  opacity: 0,
+                }}
+                transition={{
+                  type: 'timing',
+                  duration: 150,
+                }}
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}
               >
-                {name}
-              </Typography.Body2Strong>
-              <Box ml={!isVerticalLayout ? 'auto' : undefined}>
-                <Icon size={20} name="ChevronUpDownMini" color="icon-subdued" />
-              </Box>
-            </>
-          </Hidden>
+                <Typography.Body2Strong
+                  isTruncated
+                  numberOfLines={1}
+                  ml={3}
+                  mr={1}
+                  maxWidth="106px"
+                >
+                  {name}
+                </Typography.Body2Strong>
+                <Box ml={!isVerticalLayout ? 'auto' : undefined}>
+                  <Icon
+                    size={20}
+                    name="ChevronUpDownMini"
+                    color="icon-subdued"
+                  />
+                </Box>
+              </MotiView>
+            )}
+          </AnimatePresence>
         </Box>
       )}
     </Pressable>

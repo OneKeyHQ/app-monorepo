@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import type { FC } from 'react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { AnimatePresence, MotiView } from 'moti';
 
 import { useThemeValue } from '@onekeyhq/components';
 import WalletSelectorTrigger from '@onekeyhq/kit/src/components/WalletSelector/WalletSelectorTrigger/WalletSelectorTrigger';
@@ -21,10 +23,19 @@ import type { BottomTabBarProps } from '../BottomTabs';
 
 const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
   const { routes } = state;
+  const [isCollpase, setIsCollapse] = useState(false);
+  const paddingTopValue = 12 + (platformEnv.isDesktopMac ? 20 : 0);
 
-  const [activeFontColor, inactiveFontColor] = useThemeValue([
+  const [
+    sidebarBackgroundColor,
+    activeFontColor,
+    inactiveFontColor,
+    shadowColor,
+  ] = useThemeValue([
+    'surface-subdued',
     'text-default',
     'text-subdued',
+    'interactive-default',
   ]);
 
   const tabs = useMemo(
@@ -58,7 +69,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
             bg={isActive ? 'surface-selected' : undefined}
             borderRadius="xl"
             mt={index === routes.length - 1 ? 'auto' : undefined}
-            p="2"
+            p="8px"
           >
             <Box
               aria-current={isActive ? 'page' : undefined}
@@ -66,22 +77,40 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
               flexDirection="column"
             >
               <Box display="flex" flexDirection="row" alignItems="center">
-                <Icon
-                  // @ts-expect-error
-                  name={options?.tabBarIcon?.() as ICON_NAMES}
-                  color={isActive ? 'icon-default' : 'icon-subdued'}
-                  size={24}
-                />
+                <Box>
+                  <Icon
+                    // @ts-expect-error
+                    name={options?.tabBarIcon?.() as ICON_NAMES}
+                    color={isActive ? 'icon-default' : 'icon-subdued'}
+                    size={24}
+                  />
+                </Box>
 
-                <Typography.Body2Strong
-                  ml="3"
-                  color={isActive ? activeFontColor : inactiveFontColor}
-                >
-                  {options.tabBarLabel ?? route.name}
-                </Typography.Body2Strong>
+                <AnimatePresence>
+                  {/* hide label while collapse sidebar */}
+                  {!isCollpase && (
+                    <MotiView
+                      from={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{
+                        opacity: 0,
+                      }}
+                      transition={{
+                        type: 'timing',
+                        duration: 150,
+                      }}
+                    >
+                      <Typography.Body2Strong
+                        ml="3"
+                        color={isActive ? activeFontColor : inactiveFontColor}
+                      >
+                        {options.tabBarLabel ?? route.name}
+                      </Typography.Body2Strong>
+                    </MotiView>
+                  )}
+                </AnimatePresence>
               </Box>
             </Box>
-            {/* In the future, perhaps a 'Badge' will be placed here. */}
           </Pressable>
         );
       }),
@@ -89,6 +118,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
       activeFontColor,
       descriptors,
       inactiveFontColor,
+      isCollpase,
       navigation,
       routes,
       state.index,
@@ -96,22 +126,27 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
     ],
   );
 
-  const paddingTopValue = 3 + (platformEnv.isDesktopMac ? 5 : 0);
   return (
-    <Box
-      position="relative"
-      w="224px"
-      h="full"
-      bg="surface-subdued"
-      px={4}
-      pt={paddingTopValue}
-      pb={5}
+    <MotiView
+      animate={{ width: isCollpase ? 72 : 224 }}
+      transition={{
+        type: 'timing',
+        duration: 150,
+      }}
+      style={{
+        height: '100%',
+        width: 224,
+        backgroundColor: sidebarBackgroundColor,
+        paddingHorizontal: 16,
+        paddingTop: paddingTopValue,
+        paddingBottom: 20,
+      }}
     >
       <DesktopDragZoneAbsoluteBar h={paddingTopValue} />
       {/* Scrollable area */}
       <Box zIndex={1} testID="Desktop-WalletSelector-Container">
         {/* <AccountSelector /> */}
-        <WalletSelectorTrigger />
+        <WalletSelectorTrigger showWalletName={!isCollpase} />
       </Box>
       <VStack flex={1} mt={4} mb={2}>
         <ScrollView
@@ -128,7 +163,37 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
         {/* <ChainSelector /> */}
         {/* <NetworkAccountSelectorTrigger /> */}
       </Box>
-    </Box>
+      <Pressable
+        onPress={() => {
+          setIsCollapse(!isCollpase);
+        }}
+        position="absolute"
+        top="0"
+        bottom="0"
+        right="-8px"
+        pr="8px"
+      >
+        {({ isHovered }) => (
+          <MotiView
+            animate={{ opacity: isHovered ? 1 : 0 }}
+            transition={{ type: 'timing', duration: 150 }}
+            style={{ height: '100%', flexDirection: 'row' }}
+          >
+            <LinearGradient
+              colors={['transparent', shadowColor]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{
+                height: 'full',
+                width: '8px',
+                opacity: 0.1,
+              }}
+            />
+            <Box h="full" width="1px" bgColor="interactive-default" />
+          </MotiView>
+        )}
+      </Pressable>
+    </MotiView>
   );
 };
 export default Sidebar;
