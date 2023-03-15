@@ -7,6 +7,7 @@ export type TokenBalancesQuery = {
   address: string;
   // eslint-disable-next-line camelcase
   contract_addresses?: string[];
+  xpub?: string;
 };
 
 export type TokenBalancesResponse = {
@@ -18,16 +19,25 @@ export type TokenBalancesResponse = {
   bestBlockNumber?: string;
 }[];
 
-export const getBalancesFromApi = async (
-  networkId: string,
-  address: string,
-  tokenAddresses?: string[],
-) => {
+export const getBalancesFromApi = async ({
+  networkId,
+  address,
+  tokenAddresses,
+  xpub,
+}: {
+  networkId: string;
+  address: string;
+  tokenAddresses?: string[];
+  xpub?: string;
+}) => {
   const req = new RestfulRequest(getFiatEndpoint(), {}, 60 * 1000);
   const query: TokenBalancesQuery = {
     network: networkId,
     address,
   };
+  if (xpub) {
+    Object.assign(query, { xpub });
+  }
   if (tokenAddresses?.length) {
     query.contract_addresses = tokenAddresses;
   }
