@@ -1638,6 +1638,8 @@
   "msg__broadcast_dot_tx_outdated": "Transaksi sudah usang.",
   "msg__broadcast_tx_Insufficient_fee": "Biaya tidak mencukupi: Silakan periksa apakah saldo mencukupi atau coba ganti perlengkapan biaya.",
   "msg__broadcast_tx_sequence_number_error": "Sudah ada transaksi yang dikonfirmasi atau kegagalan Node.",
+  "msg__cancelled_during_the_process": "Dibatalkan selama proses",
+  "msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used": "Tidak dapat membuat akun baru jika akun terakhir dari jenis yang dibuat belum digunakan",
   "msg__cannot_import_existing_wallet": "Dompet yang ada tidak dapat diimpor.",
   "msg__change_saved": "Perubahan disimpan",
   "msg__coming_soon": "Segera hadir",

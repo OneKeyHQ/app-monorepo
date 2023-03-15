@@ -1638,6 +1638,8 @@
   "msg__broadcast_dot_tx_outdated": "La transazione è obsoleta.",
   "msg__broadcast_tx_Insufficient_fee": "Tariffa insufficiente: controlla se il saldo è sufficiente o prova a cambiare marcia.",
   "msg__broadcast_tx_sequence_number_error": "Ci sono già transazioni in fase di conferma o errore del nodo.",
+  "msg__cancelled_during_the_process": "Annullato durante il processo",
+  "msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used": "Impossibile creare un nuovo account quando l'ultimo account di quel tipo creato non è stato utilizzato",
   "msg__cannot_import_existing_wallet": "I portafogli esistenti non possono essere importati.",
   "msg__change_saved": "Cambiamento salvato!",
   "msg__coming_soon": "In arrivo",

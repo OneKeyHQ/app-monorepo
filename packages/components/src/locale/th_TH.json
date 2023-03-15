@@ -1638,6 +1638,8 @@
   "msg__broadcast_dot_tx_outdated": "ธุรกรรมล้าสมัย",
   "msg__broadcast_tx_Insufficient_fee": "ค่าธรรมเนียมการจัดการไม่เพียงพอ โปรดลองเปลี่ยนเกียร์",
   "msg__broadcast_tx_sequence_number_error": "มีธุรกรรมที่ได้รับการยืนยันแล้วหรือโหนดล้มเหลว",
+  "msg__cancelled_during_the_process": "ยกเลิกระหว่างดำเนินการ",
+  "msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used": "ไม่สามารถสร้างบัญชีใหม่ได้เมื่อไม่ได้ใช้บัญชีประเภทที่สร้างล่าสุด",
   "msg__cannot_import_existing_wallet": "กระเป๋าเงินที่มีอยู่ไม่สามารถนำเข้าได้",
   "msg__change_saved": "บันทึกการเปลี่ยนแปลง!",
   "msg__coming_soon": "เร็ว ๆ นี้",

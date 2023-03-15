@@ -1638,6 +1638,8 @@
   "msg__broadcast_dot_tx_outdated": "交易已过时。",
   "msg__broadcast_tx_Insufficient_fee": "手续费不足：请检查余额是否足够或者尝试切换手续费档位。",
   "msg__broadcast_tx_sequence_number_error": "交易正在确认或节点故障。",
+  "msg__cancelled_during_the_process": "过程中被取消",
+  "msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used": "当该类型的最后一个帐户尚未使用时，不能创建新的账户",
   "msg__cannot_import_existing_wallet": "无法导入已有的钱包",
   "msg__change_saved": "已保存更改",
   "msg__coming_soon": "敬请期待",

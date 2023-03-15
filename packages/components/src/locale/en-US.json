@@ -1638,6 +1638,8 @@
   "msg__broadcast_dot_tx_outdated": "Transaction is outdated.",
   "msg__broadcast_tx_Insufficient_fee": "Insufficient fee: Please check whether the balance is sufficient or try to switch the fee gear.",
   "msg__broadcast_tx_sequence_number_error": "There are already transactions being confirmed or Node failure.",
+  "msg__cancelled_during_the_process": "Cancelled during the process",
+  "msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used": "Cannot create a new account when last account of that type created has not used",
   "msg__cannot_import_existing_wallet": "Existing wallets can't be imported.",
   "msg__change_saved": "Change saved",
   "msg__coming_soon": "Coming Soon",

@@ -1638,6 +1638,8 @@
   "msg__broadcast_dot_tx_outdated": "Transaktion ist veraltet.",
   "msg__broadcast_tx_Insufficient_fee": "Die Bearbeitungsgebühr ist unzureichend, bitte versuchen Sie, die Gänge zu wechseln.",
   "msg__broadcast_tx_sequence_number_error": "Es werden bereits Transaktionen bestätigt oder Knotenfehler.",
+  "msg__cancelled_during_the_process": "Während des Vorgangs abgebrochen",
+  "msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used": "Es kann kein neues Konto erstellt werden, wenn das zuletzt erstellte Konto dieses Typs noch nicht verwendet wurde",
   "msg__cannot_import_existing_wallet": "Bestehende Wallets können nicht importiert werden.",
   "msg__change_saved": "Änderung gespeichert!",
   "msg__coming_soon": "Demnächst verfügbar",

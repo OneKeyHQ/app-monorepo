@@ -1638,6 +1638,8 @@
   "msg__broadcast_dot_tx_outdated": "الصفقة عفا عليها الزمن.",
   "msg__broadcast_tx_Insufficient_fee": "رسوم غير كافية: يرجى التحقق مما إذا كان الرصيد كافياً أو حاول تبديل ترس الرسوم.",
   "msg__broadcast_tx_sequence_number_error": "توجد بالفعل معاملات تم تأكيدها أو فشل العقدة.",
+  "msg__cancelled_during_the_process": "ألغيت أثناء العملية",
+  "msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used": "لا يمكن إنشاء حساب جديد في حالة عدم استخدام آخر حساب تم إنشاؤه من هذا النوع",
   "msg__cannot_import_existing_wallet": "لا يمكن استيراد المحافظ الموجودة.",
   "msg__change_saved": "تم حفظ التغيير!",
   "msg__coming_soon": "قريبا",

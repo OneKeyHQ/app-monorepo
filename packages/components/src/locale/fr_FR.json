@@ -1638,6 +1638,8 @@
   "msg__broadcast_dot_tx_outdated": "La transaction est obsolète.",
   "msg__broadcast_tx_Insufficient_fee": "Frais insuffisants : veuillez vérifier si le solde est suffisant ou essayez de changer de vitesse.",
   "msg__broadcast_tx_sequence_number_error": "Il y a déjà des transactions en cours de confirmation ou une défaillance du nœud.",
+  "msg__cancelled_during_the_process": "Annulé pendant le processus",
+  "msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used": "Impossible de créer un nouveau compte lorsque le dernier compte de ce type créé n'a pas été utilisé",
   "msg__cannot_import_existing_wallet": "Les portefeuilles existants ne peuvent pas être importés.",
   "msg__change_saved": "Changement sauvé !",
   "msg__coming_soon": "Bientôt disponible",
