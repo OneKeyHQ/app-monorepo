@@ -18,6 +18,7 @@ import {
   IMPL_SUI,
   IMPL_TBTC,
   IMPL_TRON,
+  IMPL_XMR,
   IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -94,6 +95,9 @@ export function createVaultSettings(options: {
   }
   if (impl === IMPL_DOT) {
     return require('./impl/dot/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_XMR) {
+    return require('./impl/xmr/settings').default as IVaultSettings;
   }
   throw new OneKeyInternalError(
     `VaultSettings not found for: networkId=${options.networkId ?? ''}, impl=${

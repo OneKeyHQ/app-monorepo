@@ -18,6 +18,7 @@ import {
   COINTYPE_SUI,
   COINTYPE_TBTC,
   COINTYPE_TRON,
+  COINTYPE_XMR,
   COINTYPE_XRP,
   IMPL_ADA,
   IMPL_ALGO,
@@ -36,6 +37,7 @@ import {
   IMPL_STC,
   IMPL_TBTC,
   IMPL_TRON,
+  IMPL_XMR,
   IMPL_XRP,
   INDEX_PLACEHOLDER,
   SEPERATOR,
@@ -68,6 +70,7 @@ const purposeMap: Record<string, Array<number>> = {
   [COINTYPE_SUI]: [44], // [COINTYPE_SUI]: [44,54],
   [IMPL_FIL]: [44],
   [IMPL_DOT]: [44],
+  [IMPL_XMR]: [44],
 };
 
 // derive path template by coin types.
@@ -95,6 +98,7 @@ const derivationPathTemplates: Record<string, string> = {
   [COINTYPE_SUI]: `m/44'/${COINTYPE_SUI}'/${INCREMENT_LEVEL_TAG}'/0'/0'`,
   [COINTYPE_FIL]: `m/44'/${COINTYPE_FIL}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_DOT]: `m/44'/${COINTYPE_DOT}'/${INCREMENT_LEVEL_TAG}'/0'/0'`,
+  [COINTYPE_XMR]: `m/44'/${COINTYPE_XMR}'/0'/0/${INCREMENT_LEVEL_TAG}`,
 };
 
 function getDerivationPaths(
