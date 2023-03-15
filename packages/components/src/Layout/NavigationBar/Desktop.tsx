@@ -14,6 +14,7 @@ import Box from '../../Box';
 import { DesktopDragZoneAbsoluteBar } from '../../DesktopDragZoneBox';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
+import useSafeAreaInsets from '../../Provider/hooks/useSafeAreaInsets';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
 import VStack from '../../VStack';
@@ -24,7 +25,9 @@ import type { BottomTabBarProps } from '../BottomTabs';
 const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
   const { routes } = state;
   const [isCollpase, setIsCollapse] = useState(false);
-  const paddingTopValue = 12 + (platformEnv.isDesktopMac ? 20 : 0);
+  const { top } = useSafeAreaInsets(); // used for ipad
+  const dragZoneAbsoluteBarHeight = platformEnv.isDesktopMac ? 20 : 0; // used for desktop
+  const paddingTopValue = 12 + top + dragZoneAbsoluteBarHeight;
 
   const [
     sidebarBackgroundColor,
@@ -65,52 +68,53 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
           <Pressable
             key={route.name}
             onPress={onPress}
-            _hover={!isActive ? { bg: 'surface-hovered' } : undefined}
-            bg={isActive ? 'surface-selected' : undefined}
-            borderRadius="xl"
+            flexDirection="row"
+            alignItems="center"
             mt={index === routes.length - 1 ? 'auto' : undefined}
             p="8px"
+            borderRadius="xl"
+            bg={isActive ? 'surface-selected' : undefined}
+            _hover={!isActive ? { bg: 'surface-hovered' } : undefined}
+            aria-current={isActive ? 'page' : undefined}
           >
-            <Box
-              aria-current={isActive ? 'page' : undefined}
-              display="flex"
-              flexDirection="column"
-            >
-              <Box display="flex" flexDirection="row" alignItems="center">
-                <Box>
-                  <Icon
-                    // @ts-expect-error
-                    name={options?.tabBarIcon?.() as ICON_NAMES}
-                    color={isActive ? 'icon-default' : 'icon-subdued'}
-                    size={24}
-                  />
-                </Box>
-
-                <AnimatePresence>
-                  {/* hide label while collapse sidebar */}
-                  {!isCollpase && (
-                    <MotiView
-                      from={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{
-                        opacity: 0,
-                      }}
-                      transition={{
-                        type: 'timing',
-                        duration: 150,
-                      }}
-                    >
-                      <Typography.Body2Strong
-                        ml="3"
-                        color={isActive ? activeFontColor : inactiveFontColor}
-                      >
-                        {options.tabBarLabel ?? route.name}
-                      </Typography.Body2Strong>
-                    </MotiView>
-                  )}
-                </AnimatePresence>
-              </Box>
+            <Box>
+              <Icon
+                // @ts-expect-error
+                name={options?.tabBarIcon?.() as ICON_NAMES}
+                color={isActive ? 'icon-default' : 'icon-subdued'}
+                size={24}
+              />
             </Box>
+
+            <AnimatePresence initial={false}>
+              {!isCollpase && (
+                <MotiView
+                  from={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{
+                    opacity: 0,
+                  }}
+                  transition={{
+                    type: 'timing',
+                    duration: 150,
+                  }}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Typography.Body2Strong
+                    flex={1}
+                    ml="3"
+                    color={isActive ? activeFontColor : inactiveFontColor}
+                    isTruncated
+                  >
+                    {options.tabBarLabel ?? route.name}
+                  </Typography.Body2Strong>
+                </MotiView>
+              )}
+            </AnimatePresence>
           </Pressable>
         );
       }),
@@ -142,7 +146,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
         paddingBottom: 20,
       }}
     >
-      <DesktopDragZoneAbsoluteBar h={paddingTopValue} />
+      <DesktopDragZoneAbsoluteBar h={dragZoneAbsoluteBarHeight} />
       {/* Scrollable area */}
       <Box zIndex={1} testID="Desktop-WalletSelector-Container">
         {/* <AccountSelector /> */}
@@ -171,11 +175,11 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
         top="0"
         bottom="0"
         right="-8px"
-        pr="8px"
+        w="16px"
       >
-        {({ isHovered }) => (
+        {({ isHovered, isPressed }) => (
           <MotiView
-            animate={{ opacity: isHovered ? 1 : 0 }}
+            animate={{ opacity: isHovered || isPressed ? 1 : 0 }}
             transition={{ type: 'timing', duration: 150 }}
             style={{ height: '100%', flexDirection: 'row' }}
           >
@@ -184,12 +188,17 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={{
-                height: 'full',
-                width: '8px',
+                flex: 1,
+                height: '100%',
                 opacity: 0.1,
               }}
             />
-            <Box h="full" width="1px" bgColor="interactive-default" />
+            <Box
+              h="full"
+              flex={1}
+              borderLeftWidth={1}
+              borderLeftColor="interactive-default"
+            />
           </MotiView>
         )}
       </Pressable>

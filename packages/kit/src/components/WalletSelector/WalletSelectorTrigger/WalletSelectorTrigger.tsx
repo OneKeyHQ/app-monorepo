@@ -93,7 +93,6 @@ const WalletSelectorTrigger: FC<
       ref={triggerRef}
       position="relative"
       alignItems="flex-start"
-      h="56px"
       justifyContent="center"
       w="full"
     >

@@ -13,9 +13,7 @@ import {
   Skeleton,
   Typography,
   useIsVerticalLayout,
-  useUserDevice,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
 import { useWalletName } from '../../../hooks/useWalletName';
@@ -39,10 +37,8 @@ export const WalletSelectorTriggerElement: FC<
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet } = useActiveWalletAccount();
-  const { screenWidth } = useUserDevice();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isLoading = useAppSelector((s) => s.accountSelector.isLoading);
-  const maxItemWidth = screenWidth / 2 - (platformEnv.isNative ? 72 : 0);
   const walletName = useWalletName({ wallet });
   const { devicesStatus } = useDeviceStatusOfHardwareWallet();
 
@@ -63,11 +59,7 @@ export const WalletSelectorTriggerElement: FC<
   // ** Android will crash after account switch
   // const showExternalImg = true;
   return (
-    <Pressable
-      onPress={handleToggleVisible}
-      justifyContent="center"
-      hitSlop={8}
-    >
+    <Pressable onPress={handleToggleVisible} hitSlop={8} w="full">
       {({ isHovered }) => (
         <Box
           flexDirection="row"
@@ -76,7 +68,6 @@ export const WalletSelectorTriggerElement: FC<
           p={1}
           pr={{ base: 1, md: 2 }}
           borderRadius="12px"
-          maxW={`${maxItemWidth}px`}
           bg={
             // eslint-disable-next-line no-nested-ternary
             visible && !isVerticalLayout
@@ -101,7 +92,7 @@ export const WalletSelectorTriggerElement: FC<
               />
             )}
           </Box>
-          <AnimatePresence>
+          <AnimatePresence initial={false}>
             {showWalletName && (
               <MotiView
                 from={{ opacity: 0 }}
@@ -119,16 +110,10 @@ export const WalletSelectorTriggerElement: FC<
                   alignItems: 'center',
                 }}
               >
-                <Typography.Body2Strong
-                  isTruncated
-                  numberOfLines={1}
-                  ml={3}
-                  mr={1}
-                  maxWidth="106px"
-                >
+                <Typography.Body2Strong flex={1} isTruncated ml={3} mr={1}>
                   {name}
                 </Typography.Body2Strong>
-                <Box ml={!isVerticalLayout ? 'auto' : undefined}>
+                <Box>
                   <Icon
                     size={20}
                     name="ChevronUpDownMini"
