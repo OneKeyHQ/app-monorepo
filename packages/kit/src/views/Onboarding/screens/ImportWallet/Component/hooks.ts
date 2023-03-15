@@ -18,7 +18,7 @@ export const useAccessory = () => {
           const result = wordLists.filter((word) => word.startsWith(lastWord));
           if (!result?.length) {
             setAccessoryData(undefined);
-          } else if (result?.length === 1) {
+          } else if (result?.length === 1 && result[0] === lastWord) {
             setAccessoryData([]);
           } else {
             setAccessoryData(result);
