@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -18,9 +18,11 @@ import type {
 } from '@onekeyhq/engine/src/types/account';
 import { INDEX_PLACEHOLDER } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { CreateAccountModalRoutes } from '../../../routes';
+import { wait } from '../../../utils/helper';
 
 import { formatDerivationLabel } from './helper';
 
@@ -67,6 +69,7 @@ const FetchAddressModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const isHwWallet = walletId.startsWith('hw');
+  const cancelFlagRef = useRef(false);
   const [progress, setProgress] = useState<number>(0);
   const [generatedAccounts, setGeneratedAccounts] = useState<
     ImportableHDAccount[]
@@ -118,6 +121,9 @@ const FetchAddressModal: FC = () => {
     if (data.type !== 'setRange') return;
     if (isHwWallet) return;
     (async () => {
+      if (platformEnv.isNativeAndroid) {
+        await wait(200);
+      }
       const { fromIndex, generateCount, derivationOption } = data;
       const template = derivationOption?.template;
       const purpose = parseInt(
@@ -141,6 +147,9 @@ const FetchAddressModal: FC = () => {
         if (offset <= 0) {
           break;
         }
+        if (cancelFlagRef.current) {
+          break;
+        }
         const accounts = await generateHDAccounts({
           start,
           offset,
@@ -149,6 +158,9 @@ const FetchAddressModal: FC = () => {
         });
         result.push(...accounts);
         start += pageSize;
+        if (platformEnv.isNativeAndroid) {
+          await wait(100);
+        }
         if (accounts.length !== offset) {
           updateSetRangeAccountProgress(result, true);
           break;
@@ -178,6 +190,9 @@ const FetchAddressModal: FC = () => {
       let hasNotExistAccount = false;
       // eslint-disable-next-line no-plusplus
       for (let i = 0; i < Number(generateCount || 0); i++) {
+        if (cancelFlagRef.current) {
+          break;
+        }
         const index = Number(fromIndex) - 1 + i;
         try {
           const addressInfo =
@@ -233,6 +248,9 @@ const FetchAddressModal: FC = () => {
   useEffect(() => {
     if (data.type !== 'walletAccounts') return;
     (async () => {
+      if (platformEnv.isNativeAndroid) {
+        await wait(200);
+      }
       const { networkDerivations } = data;
       const result: IWalletAccounts[] = [];
       for (const networkDerivation of networkDerivations) {
@@ -241,6 +259,9 @@ const FetchAddressModal: FC = () => {
         );
         const accountData = [];
         for (const account of accounts) {
+          if (cancelFlagRef.current) {
+            break;
+          }
           if (isHwWallet) {
             const address = await backgroundApiProxy.engine.getHWAddress(
               account.id,
@@ -315,6 +336,9 @@ const FetchAddressModal: FC = () => {
 
       setTimeout(
         () => {
+          if (cancelFlagRef.current) {
+            return;
+          }
           navigation.replace(CreateAccountModalRoutes.ExportAddresses, {
             networkId,
             walletId,
@@ -376,7 +400,7 @@ const FetchAddressModal: FC = () => {
       hideSecondaryAction
       hideBackButton
     >
-      <Center>
+      <Center w="full" h="full">
         <Progress.Circle
           progress={progress}
           text={
@@ -390,12 +414,24 @@ const FetchAddressModal: FC = () => {
         <Text my={6} typography={{ sm: 'Heading', md: 'Heading' }}>
           {intl.formatMessage({ id: 'title__fetching_addresses' })}
         </Text>
-        <Box w="full">
+        <Box w="full" h="42px">
           <Button
             flex={1}
             type="basic"
             size="lg"
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              cancelFlagRef.current = true;
+              // if (isHwWallet) {
+              //   const device =
+              //     await backgroundApiProxy.engine.getHWDeviceByWalletId(
+              //       walletId,
+              //     );
+              //   if (device) {
+              //     backgroundApiProxy.serviceHardware.cancel(device.mac);
+              //   }
+              // }
+              navigation.goBack();
+            }}
           >
             <Text typography={{ sm: 'Button1', md: 'Button1' }}>
               {intl.formatMessage({ id: 'action__cancel' })}
