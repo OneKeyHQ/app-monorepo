@@ -4,7 +4,6 @@ import B from 'bignumber.js';
 import natsort from 'natsort';
 import { useAsync } from 'react-async-hook';
 
-import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
