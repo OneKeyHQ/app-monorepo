@@ -78,8 +78,12 @@ const DerivationOption: FC<{
   const textColor = disabled ? 'text-disabled' : 'text-subdued';
   return (
     <Pressable
-      mr="7px"
-      my={2}
+      pl={2}
+      py={2}
+      pr="15px"
+      borderRadius="lg"
+      _hover={{ bgColor: 'surface-hovered' }}
+      _pressed={{ bgColor: 'surface-pressed' }}
       onPress={() => onPress(option)}
       isDisabled={disabled}
     >
@@ -213,7 +217,7 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
 
   const isSearchAccount = type === 'search';
   return (
-    <Box>
+    <Box mx="-8px">
       {isSearchAccount && (
         <Text typography={{ sm: 'Body2', md: 'Body2' }} mr="7px">
           {intl.formatMessage({

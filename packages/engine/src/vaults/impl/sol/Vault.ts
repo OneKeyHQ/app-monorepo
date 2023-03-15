@@ -984,4 +984,8 @@ export default class Vault extends VaultBase {
     }
     return accountNameInfo;
   }
+
+  override async canAutoCreateNextAccount(password: string): Promise<boolean> {
+    return Promise.resolve(true);
+  }
 }
