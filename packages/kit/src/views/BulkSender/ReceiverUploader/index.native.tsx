@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import * as FileSystem from 'expo-file-system';
+import { EncodingType, readAsStringAsync } from 'expo-file-system';
 import { pickSingle, types } from 'react-native-document-picker';
 import { read, utils } from 'xlsx';
 
@@ -16,7 +16,7 @@ interface Props {
   setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-function ReceiverUploader(props: Props) {
+export function ReceiverUploader(props: Props) {
   const { setReceiverFromOut, setIsUploadMode } = props;
 
   const handleUploadFile = useCallback(async () => {
@@ -29,8 +29,8 @@ function ReceiverUploader(props: Props) {
       });
       const path = f.fileCopyUri;
       if (!path) return;
-      const b64 = await FileSystem.readAsStringAsync(path, {
-        encoding: FileSystem.EncodingType.Base64,
+      const b64 = await readAsStringAsync(path, {
+        encoding: EncodingType.Base64,
       });
       const wb = read(b64, { raw: true, type: 'base64' });
 
@@ -73,5 +73,3 @@ function ReceiverUploader(props: Props) {
     </>
   );
 }
-
-export { ReceiverUploader };
