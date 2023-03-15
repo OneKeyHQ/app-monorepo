@@ -8,7 +8,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { ChainWebEmbedViewCardano } from './ChainWebEmbedViewCardano
+import { ChainWebEmbedViewCardano } from './ChainWebEmbedViewCardano';
 import { ChainWebEmbedViewMonero } from './ChainWebEmbedViewMonero';
 
 function ChainWebEmbed() {
