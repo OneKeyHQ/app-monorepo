@@ -90,11 +90,9 @@ const AddressInput: FC<AddressInputProps> = ({
         w="full"
         value={value}
         onChangeText={onChange}
-        placeholder={`${intl.formatMessage({
-          id: 'form__address',
-        })}, ENS, UD, SID ${intl.formatMessage({
-          id: 'content__or_lowercase',
-        })} .bit `}
+        placeholder={intl.formatMessage({
+          id: 'form__address_and_domain_placeholder',
+        })}
         borderWidth="0"
         onFocus={() => {
           setFocus(true);

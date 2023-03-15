@@ -3,7 +3,12 @@ import { memo, useEffect, useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
-import { Box, useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
+import {
+  Box,
+  useIsVerticalLayout,
+  useProviderValue,
+  useThemeValue,
+} from '@onekeyhq/components';
 import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
 import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -305,17 +310,21 @@ Dashboard.displayName = 'Dashboard';
 function MainScreen() {
   const { dispatch } = backgroundApiProxy;
 
+  const { reduxReady } = useProviderValue();
+
   useEffect(() => {
-    appUpdates.addUpdaterListener();
-    appUpdates
-      .checkUpdate()
-      ?.then((versionInfo) => {
-        if (versionInfo) {
-          dispatch(enable(), available(versionInfo));
-        }
-      })
-      .catch();
-  }, [dispatch]);
+    if (reduxReady) {
+      appUpdates.addUpdaterListener();
+      appUpdates
+        .checkUpdate()
+        ?.then((versionInfo) => {
+          if (versionInfo) {
+            dispatch(enable(), available(versionInfo));
+          }
+        })
+        .catch();
+    }
+  }, [dispatch, reduxReady]);
 
   return (
     <RootSiblingParent>

@@ -29,7 +29,7 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug",
+        "gradleCommand": ":app:assembleDirectDebug",
         "env": {
           "APPLICATION_ID_SUFFIX": "wrapper",
           "OTA_UPDATE_ENABLE": "true"

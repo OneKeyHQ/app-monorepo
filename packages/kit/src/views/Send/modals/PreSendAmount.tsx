@@ -30,7 +30,11 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatBalanceTokenOfAccount } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
-import { useSingleToken, useTokenBalance } from '../../../hooks/useTokens';
+import {
+  useSingleToken,
+  useTokenBalance,
+  useTokenBalanceWithoutFrozen,
+} from '../../../hooks/useTokens';
 import { wait } from '../../../utils/helper';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { SendRoutes } from '../types';
@@ -130,7 +134,17 @@ function PreSendAmount() {
     tokenIdOnNetwork ?? '',
   );
 
-  const tokenBalance = useTokenBalance({
+  const tokenBalance = useTokenBalanceWithoutFrozen({
+    networkId,
+    accountId,
+    token: {
+      ...tokenInfo,
+      sendAddress: transferInfo.sendAddress,
+    },
+    fallback: '0',
+  });
+
+  const originalTokenBalance = useTokenBalance({
     networkId,
     accountId,
     token: {
@@ -198,7 +212,7 @@ function PreSendAmount() {
         accountId,
         networkId,
         amount,
-        tokenBalance,
+        tokenBalance: originalTokenBalance,
         to: transferInfo.to,
       });
       return { result: true, errorInfo: null };
@@ -215,7 +229,7 @@ function PreSendAmount() {
     amount,
     engine,
     transferInfo,
-    tokenBalance,
+    originalTokenBalance,
     minAmountValidationPassed,
   ]);
   useEffect(() => {

@@ -1,4 +1,4 @@
-import type { FC, ReactElement } from 'react';
+import type { FC } from 'react';
 import { memo, useCallback, useEffect } from 'react';
 
 import { requestPermissionsAsync } from 'expo-notifications';
@@ -18,9 +18,8 @@ import PermissionDialog from '../components/PermissionDialog/PermissionDialog';
 import { setPushNotificationConfig } from '../store/reducers/settings';
 
 const NotificationProvider: FC<{
-  children: ReactElement<any, any> | null;
   launchNotification?: NotificationExtra;
-}> = ({ children, launchNotification }) => {
+}> = ({ launchNotification }) => {
   const { pushNotification } = useSettings();
 
   const { dispatch, serviceNotification } = backgroundApiProxy;
@@ -100,7 +99,7 @@ const NotificationProvider: FC<{
     checkPermissionAndInitJpush,
   ]);
 
-  return children;
+  return null;
 };
 
 NotificationProvider.displayName = 'NotificationProvider';

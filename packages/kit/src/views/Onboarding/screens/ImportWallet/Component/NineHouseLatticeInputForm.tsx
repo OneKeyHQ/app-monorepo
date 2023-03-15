@@ -64,15 +64,19 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
         closeOnSelect: true,
         onPress: () => {
           setCurrentWordsCount(value);
+          setTimeout(() => {
+            trigger('1');
+          }, 0);
         },
       })),
-    [],
+    [trigger],
   );
   useEffect(() => {
     setTimeout(() => {
       setIsShowRecoveryPhraseFields(true);
     }, 200);
   }, []);
+
   const inputIndexArray = useMemo(() => {
     let length = 0;
     let resArray: number[] = [];
@@ -89,7 +93,40 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
     setFocus(`${inputIndexArray?.[0] ?? 1}`);
   }, [inputIndexArray, setFocus, setValue]);
 
-  const { onChangeText, accessoryData } = useAccessory();
+  const pasteHandle = useCallback(
+    (e) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      let paste = e.clipboardData?.getData('text') as string;
+      if (paste) {
+        paste = paste.trim();
+        const values = paste.split(' ');
+        if (values.length > 2) {
+          setTimeout(() => {
+            inputIndexArray.forEach((inputIndex) => {
+              setValue(`${inputIndex}`, '');
+            });
+            values.forEach((v, i) => {
+              setValue(`${i + 1}`, v);
+              trigger(`${i + 1}`);
+            });
+            if (values.length < inputIndexArray.length) {
+              setFocus(`${values.length + 1}`);
+            }
+          }, 0);
+        }
+      }
+    },
+    [inputIndexArray, setFocus, setValue, trigger],
+  );
+
+  useEffect(() => {
+    window.addEventListener('paste', pasteHandle);
+    return () => {
+      window.removeEventListener('paste', pasteHandle);
+    };
+  }, [pasteHandle]);
+
+  const { onChangeText, accessoryData, setAccessoryData } = useAccessory();
   return (
     <Box flex={1}>
       <Box flexDirection="row" justifyContent="space-between" mb={4}>
@@ -132,7 +169,8 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
                 rules={{
                   validate: async (t) => {
                     const valuesMap = getValues();
-                    const values = Object.values(valuesMap);
+                    let values = Object.values(valuesMap);
+                    values = values.slice(0, currentWordsCount);
                     if (values.every((v: string) => v.length > 0)) {
                       try {
                         await backgroundApiProxy.validator.validateMnemonic(
@@ -144,6 +182,7 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
                         setDisableSubmit(true);
                         setMnemonicoValidateShow(true);
                       }
+                      setAccessoryData([]);
                     } else {
                       setDisableSubmit(true);
                       setMnemonicoValidateShow(false);
@@ -157,21 +196,7 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
                   }) => {
                     const { value } = e.target;
                     if (typeof value === 'string') {
-                      if (value.split(' ').length > 2) {
-                        setTimeout(() => {
-                          const valueArray = value.split(' ');
-                          inputIndexArray.forEach((inputIndex) => {
-                            setValue(`${inputIndex}`, '');
-                          });
-                          valueArray.forEach((v, i) => {
-                            setValue(`${i + 1}`, v);
-                            trigger(`${i + 1}`);
-                          });
-                          if (valueArray.length < inputIndexArray.length) {
-                            setFocus(`${valueArray.length + 1}`);
-                          }
-                        }, 0);
-                      } else {
+                      if (value.trim().split(' ').length < 3) {
                         onChangeText(value);
                       }
                     }
@@ -212,6 +237,7 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
       )}
       <AnimateHeight containerTransition={{ type: 'timing', duration: 150 }}>
         <AccessoryView
+          expandWords
           accessoryData={accessoryData}
           withKeybord={false}
           selected={(value) => {
@@ -223,16 +249,18 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
             }
           }}
         />
+        {mnemonicoValidateShow && (
+          <Box mt={2}>
+            <Alert
+              alertType="error"
+              dismiss={false}
+              title={intl.formatMessage({
+                id: 'msg__engine__invalid_mnemonic',
+              })}
+            />
+          </Box>
+        )}
       </AnimateHeight>
-      {mnemonicoValidateShow && (
-        <Box h="44px" mt={3} mb={2} w="full">
-          <Alert
-            alertType="error"
-            dismiss={false}
-            title={intl.formatMessage({ id: 'msg__engine__invalid_mnemonic' })}
-          />
-        </Box>
-      )}
       <Button
         isDisabled={disableSubmit}
         type="primary"
