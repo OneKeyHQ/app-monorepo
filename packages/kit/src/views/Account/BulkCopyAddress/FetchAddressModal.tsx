@@ -5,12 +5,11 @@ import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
-  Box,
-  Button,
   Center,
   Modal,
   Progress,
   Text,
+  ToastManager,
 } from '@onekeyhq/components';
 import type {
   Account,
@@ -70,6 +69,7 @@ const FetchAddressModal: FC = () => {
 
   const isHwWallet = walletId.startsWith('hw');
   const cancelFlagRef = useRef(false);
+  const handleExportDataRef = useRef(false);
   const [progress, setProgress] = useState<number>(0);
   const [generatedAccounts, setGeneratedAccounts] = useState<
     ImportableHDAccount[]
@@ -216,12 +216,24 @@ const FetchAddressModal: FC = () => {
           updateSetRangeAccountProgress(result);
         } catch (e) {
           debugLogger.common.info('getHWAddressByTemplate error: ', e);
+          ToastManager.show({
+            title: intl.formatMessage({
+              id: 'msg__cancelled_during_the_process',
+            }),
+          });
           updateSetRangeAccountProgress(result, true);
           break;
         }
       }
     })();
-  }, [data, isHwWallet, networkId, walletId, updateSetRangeAccountProgress]);
+  }, [
+    data,
+    isHwWallet,
+    networkId,
+    walletId,
+    updateSetRangeAccountProgress,
+    intl,
+  ]);
 
   const updateWalletsAccountProgress = useCallback(
     (result: IWalletAccounts[], forceFinish?: boolean) => {
@@ -251,6 +263,7 @@ const FetchAddressModal: FC = () => {
       if (platformEnv.isNativeAndroid) {
         await wait(200);
       }
+      let errorState = false;
       const { networkDerivations } = data;
       const result: IWalletAccounts[] = [];
       for (const networkDerivation of networkDerivations) {
@@ -259,55 +272,78 @@ const FetchAddressModal: FC = () => {
         );
         const accountData = [];
         for (const account of accounts) {
-          if (cancelFlagRef.current) {
-            break;
-          }
-          if (isHwWallet) {
-            const address = await backgroundApiProxy.engine.getHWAddress(
-              account.id,
-              networkId,
-              walletId,
+          try {
+            if (cancelFlagRef.current || errorState) {
+              break;
+            }
+            if (isHwWallet) {
+              const address = await backgroundApiProxy.engine.getHWAddress(
+                account.id,
+                networkId,
+                walletId,
+              );
+              if (address !== account.address) {
+                throw new Error('Not same address');
+              }
+            }
+            accountData.push({
+              ...account,
+              index: getAccountIndex(networkDerivation.template, account.path),
+            });
+
+            const sortedAccountData = accountData.sort(
+              // @ts-expect-error
+              (a, b) => a.index - b.index,
             );
-            if (address !== account.address) {
-              throw new Error('Not same address');
+            // replace or insert result data
+            const derivationIndex = result.findIndex(
+              (i) => i.template === networkDerivation.template,
+            );
+            if (derivationIndex > -1) {
+              result.splice(derivationIndex, 1, {
+                ...networkDerivation,
+                accountData: sortedAccountData as unknown as (Account & {
+                  index: number;
+                })[],
+              });
+            } else {
+              result.push({
+                ...networkDerivation,
+                accountData: sortedAccountData as unknown as (Account & {
+                  index: number;
+                })[],
+              });
+            }
+            updateWalletsAccountProgress(result);
+          } catch (e) {
+            debugLogger.common.info('Fetch Wallet Accounts error: ', e);
+            if (isHwWallet) {
+              ToastManager.show({
+                title: intl.formatMessage({
+                  id: 'msg__cancelled_during_the_process',
+                }),
+              });
+              updateWalletsAccountProgress(result, true);
+              errorState = true;
+              break;
             }
           }
-          accountData.push({
-            ...account,
-            index: getAccountIndex(networkDerivation.template, account.path),
-          });
-
-          const sortedAccountData = accountData.sort(
-            // @ts-expect-error
-            (a, b) => a.index - b.index,
-          );
-          // replace or insert result data
-          const derivationIndex = result.findIndex(
-            (i) => i.template === networkDerivation.template,
-          );
-          if (derivationIndex > -1) {
-            result.splice(derivationIndex, 1, {
-              ...networkDerivation,
-              accountData: sortedAccountData as unknown as (Account & {
-                index: number;
-              })[],
-            });
-          } else {
-            result.push({
-              ...networkDerivation,
-              accountData: sortedAccountData as unknown as (Account & {
-                index: number;
-              })[],
-            });
-          }
-          updateWalletsAccountProgress(result);
         }
       }
     })();
-  }, [data, isHwWallet, updateWalletsAccountProgress, networkId, walletId]);
+  }, [
+    data,
+    isHwWallet,
+    updateWalletsAccountProgress,
+    networkId,
+    walletId,
+    intl,
+  ]);
 
   useEffect(() => {
+    if (handleExportDataRef.current) return;
     if (progress >= 1) {
+      handleExportDataRef.current = true;
       let exportData: IExportAddressData[];
       if (data.type === 'setRange') {
         exportData = [
@@ -339,6 +375,10 @@ const FetchAddressModal: FC = () => {
           if (cancelFlagRef.current) {
             return;
           }
+          if (exportData.every((i) => !i.data.length)) {
+            navigation.goBack();
+            return;
+          }
           navigation.replace(CreateAccountModalRoutes.ExportAddresses, {
             networkId,
             walletId,
@@ -354,10 +394,10 @@ const FetchAddressModal: FC = () => {
     generatedAccounts,
     walletAccounts,
     intl,
-    navigation,
     networkId,
     walletId,
     isHwWallet,
+    navigation,
   ]);
 
   const progressText = useMemo(() => {
@@ -393,12 +433,27 @@ const FetchAddressModal: FC = () => {
   return (
     <Modal
       header={undefined}
-      footer={null}
       closeable={false}
       closeOnOverlayClick={false}
-      hidePrimaryAction
       hideSecondaryAction
       hideBackButton
+      primaryActionTranslationId="action__cancel"
+      primaryActionProps={{
+        type: 'basic',
+      }}
+      onPrimaryActionPress={() => {
+        cancelFlagRef.current = true;
+        // if (isHwWallet) {
+        //   const device =
+        //     await backgroundApiProxy.engine.getHWDeviceByWalletId(
+        //       walletId,
+        //     );
+        //   if (device) {
+        //     backgroundApiProxy.serviceHardware.cancel(device.mac);
+        //   }
+        // }
+        navigation.goBack();
+      }}
     >
       <Center w="full" h="full">
         <Progress.Circle
@@ -414,30 +469,6 @@ const FetchAddressModal: FC = () => {
         <Text my={6} typography={{ sm: 'Heading', md: 'Heading' }}>
           {intl.formatMessage({ id: 'title__fetching_addresses' })}
         </Text>
-        <Box w="full" h="42px">
-          <Button
-            flex={1}
-            type="basic"
-            size="lg"
-            onPress={() => {
-              cancelFlagRef.current = true;
-              // if (isHwWallet) {
-              //   const device =
-              //     await backgroundApiProxy.engine.getHWDeviceByWalletId(
-              //       walletId,
-              //     );
-              //   if (device) {
-              //     backgroundApiProxy.serviceHardware.cancel(device.mac);
-              //   }
-              // }
-              navigation.goBack();
-            }}
-          >
-            <Text typography={{ sm: 'Button1', md: 'Button1' }}>
-              {intl.formatMessage({ id: 'action__cancel' })}
-            </Text>
-          </Button>
-        </Box>
       </Center>
     </Modal>
   );
