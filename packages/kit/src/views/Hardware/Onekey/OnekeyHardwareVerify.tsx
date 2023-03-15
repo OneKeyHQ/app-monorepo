@@ -25,10 +25,10 @@ import type {
   OnekeyHardwareModalRoutes,
   OnekeyHardwareRoutesParams,
 } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
+import { setVerification } from '@onekeyhq/kit/src/store/reducers/settings';
+import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { getTimeStamp, hexlify } from '@onekeyhq/kit/src/utils/helper';
 import { CERTIFICATE_URL } from '@onekeyhq/shared/src/config/appConfig';
-
-import { deviceUtils } from '../../../utils/hardware';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -84,7 +84,7 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
   const navigation = useNavigation();
   const isVerticalLayout = useIsVerticalLayout();
 
-  const { engine, serviceHardware } = backgroundApiProxy;
+  const { engine, serviceHardware, dispatch } = backgroundApiProxy;
 
   const [device, setDevice] = useState<Device>();
 
@@ -137,12 +137,19 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
         data: dataHex,
         ...sigResponse,
       });
+
       if (data.sn !== deviceSN || !data.success) {
         setRequestState({
           isLoading: false,
           errorKey: data.code || 'SN_MISMATCH',
           success: false,
         });
+        dispatch(
+          setVerification({
+            connectId: deviceConnectId,
+            verified: false,
+          }),
+        );
         return;
       }
 
@@ -151,6 +158,12 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
         errorKey: '',
         success: true,
       });
+      dispatch(
+        setVerification({
+          connectId: deviceConnectId,
+          verified: true,
+        }),
+      );
     } catch (e) {
       setRequestState({
         isLoading: false,
@@ -158,7 +171,13 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
         success: false,
       });
     }
-  }, [serviceHardware, device?.mac, device?.deviceType, device?.uuid]);
+  }, [
+    device?.mac,
+    device?.deviceType,
+    device?.uuid,
+    serviceHardware,
+    dispatch,
+  ]);
 
   useEffect(() => {
     handleGetDeviceSigResponse();

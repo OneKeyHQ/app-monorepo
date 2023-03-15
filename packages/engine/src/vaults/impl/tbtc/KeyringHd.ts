@@ -1,3 +1,3 @@
-import { KeyringHd as KeyringHdBtcFork } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/KeyringHd';
+import { KeyringHd as KeyringHdBtc } from '@onekeyhq/engine/src/vaults/impl/btc/KeyringHd';
 
-export class KeyringHd extends KeyringHdBtcFork {}
+export class KeyringHd extends KeyringHdBtc {}

@@ -34,7 +34,10 @@ import {
 import { useActiveWalletAccount, useNetworkSimple } from '../../../hooks';
 import { useSettings } from '../../../hooks/redux';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
-import { useSingleToken, useTokenBalance } from '../../../hooks/useTokens';
+import {
+  useSingleToken,
+  useTokenBalanceWithoutFrozen,
+} from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { wait } from '../../../utils/helper';
 import { StakingRoutes } from '../typing';
@@ -286,7 +289,7 @@ export default function StakingAmount() {
     tokenIdOnNetwork ?? '',
   );
 
-  const tokenBalance = useTokenBalance({
+  const tokenBalance = useTokenBalanceWithoutFrozen({
     networkId,
     accountId,
     token: tokenInfo,

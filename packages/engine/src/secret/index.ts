@@ -308,6 +308,20 @@ function mnemonicFromEntropy(
   return revealEntropy(encryptor.decrypt(password, encryptedEntropy));
 }
 
+function generateRootFingerprint(
+  curveName: CurveName,
+  encryptedSeed: Buffer,
+  password: string,
+): Buffer {
+  const masterKey = generateMasterKeyFromSeed(
+    curveName,
+    encryptedSeed,
+    password,
+  );
+  const publicKey = publicFromPrivate(curveName, masterKey.key, password);
+  return hash160(publicKey).slice(0, 4);
+}
+
 export type { ExtendedKey, RevealableSeed };
 export {
   publicFromPrivate,
@@ -323,4 +337,5 @@ export {
   CKDPub,
   revealableSeedFromMnemonic,
   mnemonicFromEntropy,
+  generateRootFingerprint,
 };

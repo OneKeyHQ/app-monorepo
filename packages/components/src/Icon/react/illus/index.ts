@@ -5,6 +5,7 @@ export { default as CrownBadge } from './CrownBadge';
 export { default as DiamondBadge } from './DiamondBadge';
 export { default as EmptyNft } from './EmptyNft';
 export { default as Gas } from './Gas';
+export { default as HardwareAboutDeviceBg } from './HardwareAboutDeviceBg';
 export { default as ImageBroken } from './ImageBroken';
 export { default as LogoBlack } from './LogoBlack';
 export { default as LogoCircular } from './LogoCircular';

@@ -8,14 +8,15 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { QuoterType } from '../typings';
 import {
   calculateNetworkFee,
   convertBuildParams,
   convertParams,
   div,
+  getQuoteType,
   getTokenAmountValue,
   isEvmNetworkId,
+  isSimpleTx,
   multiply,
 } from '../utils';
 
@@ -34,6 +35,7 @@ import type {
   QuoteData,
   QuoteLimited,
   Quoter,
+  QuoterType,
   SerializableBlockReceipt,
   SerializableTransactionReceipt,
   TransactionData,
@@ -432,30 +434,13 @@ export class SwapQuoter {
     }
   }
 
-  getQuoteType(tx: TransactionDetails): QuoterType {
-    if (tx.quoterType) {
-      return tx.quoterType;
-    }
-    if (tx.thirdPartyOrderId) {
-      return QuoterType.swftc;
-    }
-    return QuoterType.zeroX;
-  }
-
-  isSimpileTx(tx: TransactionDetails) {
-    const from = tx.tokens?.from;
-    const to = tx.tokens?.to;
-    const quoterType = this.getQuoteType(tx);
-    return from?.networkId === to?.networkId && quoterType !== QuoterType.swftc;
-  }
-
   async queryTransactionProgress(
     tx: TransactionDetails,
   ): Promise<TransactionProgress> {
-    if (this.isSimpileTx(tx)) {
+    if (isSimpleTx(tx)) {
       return this.simple.queryTransactionProgress(tx);
     }
-    const quoterType = this.getQuoteType(tx);
+    const quoterType = getQuoteType(tx);
     for (let i = 0; i < this.quoters.length; i += 1) {
       const quoter = this.quoters[i];
       if (quoter.type === quoterType) {

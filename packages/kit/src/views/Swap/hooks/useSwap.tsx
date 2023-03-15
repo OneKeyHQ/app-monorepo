@@ -14,8 +14,12 @@ import {
 } from '../../../store/reducers/swap';
 import { SwapQuoter } from '../quoter';
 import { dangerRefs } from '../refs';
-import { SwapError } from '../typings';
-import { formatAmount, greaterThanZeroOrUndefined } from '../utils';
+import { QuoterType, SwapError } from '../typings';
+import {
+  formatAmount,
+  getTokenAmountString,
+  greaterThanZeroOrUndefined,
+} from '../utils';
 
 import { useTokenBalance } from './useSwapTokenUtils';
 import { useSwapSlippage } from './useSwapUtils';
@@ -125,9 +129,6 @@ export const useSwapQuoteCallback = function (
   }, [params]);
 
   const swapQuote = useCallback(async () => {
-    const isRefresh = await backgroundApiProxy.serviceSwap.refreshParams(
-      params,
-    );
     if (!params) {
       backgroundApiProxy.dispatch(
         setQuote(undefined),
@@ -136,9 +137,31 @@ export const useSwapQuoteCallback = function (
       );
       return;
     }
+    const wrapperTx =
+      await backgroundApiProxy.serviceSwap.buildWrapperTransaction(params);
+    if (wrapperTx && wrapperTx.encodedTx) {
+      backgroundApiProxy.dispatch(
+        setQuote({
+          type: QuoterType.onekey,
+          instantRate: '1',
+          wrapperTxInfo: wrapperTx,
+          sellAmount: getTokenAmountString(params.tokenIn, params.typedValue),
+          sellTokenAddress: params.tokenIn.tokenIdOnNetwork,
+          buyAmount: getTokenAmountString(params.tokenOut, params.typedValue),
+          buyTokenAddress: params.tokenOut.tokenIdOnNetwork,
+        }),
+      );
+      return;
+    }
+
+    const isRefresh = await backgroundApiProxy.serviceSwap.refreshParams(
+      params,
+    );
+
     if (showLoading) {
       backgroundApiProxy.dispatch(setLoading(true));
     }
+
     backgroundApiProxy.dispatch(setError(undefined));
 
     const findBestResponse = async (

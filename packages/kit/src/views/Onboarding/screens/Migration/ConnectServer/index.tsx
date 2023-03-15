@@ -5,6 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Text, useIsVerticalLayout } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import Layout from '../../../Layout';
@@ -85,6 +86,13 @@ const MigrationDescription: FC = () => {
       : intl.formatMessage({ id: 'content__migration_step_3_connect_by_link' }),
   ];
 
+  if (platformEnv.isDesktopWin) {
+    DESCRIPTIONS.splice(
+      1,
+      0,
+      intl.formatMessage({ id: 'content__migration_step_2_windows' }),
+    );
+  }
   return (
     <Box>
       {DESCRIPTIONS.map((description, index) => (

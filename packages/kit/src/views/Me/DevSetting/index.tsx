@@ -24,9 +24,9 @@ import {
 } from '@onekeyhq/engine/src/endpoint';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import type { ISettingsDevModeInfo } from '@onekeyhq/kit/src/store/reducers/settings';
 import {
   setDevMode,
-  setEnableExternalAccountReport,
   setEnablePerfCheck,
   setEnableTestFiatEndpoint,
   setEnableZeroNotificationThreshold,
@@ -34,6 +34,7 @@ import {
   setOnRamperTestMode,
   setOverviewDefiBuildByService,
   setPreReleaseUpdate,
+  setShowWebEmbedWebviewAgent,
   setUpdateDeviceBle,
   setUpdateDeviceRes,
   setUpdateDeviceSys,
@@ -83,11 +84,12 @@ function usePerfCheck({ enablePerfCheck }: { enablePerfCheck?: boolean }) {
     }
   }, [enablePerfCheck]);
 }
-
+const emptyObj: any = Object.freeze({});
 export const DevSettingSection = () => {
   const { themeVariant } = useTheme();
   const { devMode, pushNotification, instanceId } = useSettings();
-  const { registrationId } = pushNotification || {};
+  const registrationId = pushNotification?.registrationId;
+  const devModeData: ISettingsDevModeInfo = devMode || emptyObj;
   const {
     enable: devModeEnable,
     preReleaseUpdate,
@@ -99,9 +101,9 @@ export const DevSettingSection = () => {
     enablePerfCheck,
     defiBuildService,
     hideDiscoverContent,
-    enableExternalAccountAnnualReport,
     onRamperTestMode,
-  } = devMode || {};
+    showWebEmbedWebviewAgent,
+  } = devModeData;
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
   usePerfCheck({ enablePerfCheck });
@@ -337,22 +339,6 @@ export const DevSettingSection = () => {
           />
         </Container.Item>
         <Container.Item
-          title="Enable Extenal Account Annual Report"
-          titleColor="text-critical"
-        >
-          <Switch
-            labelType="false"
-            isChecked={enableExternalAccountAnnualReport}
-            onToggle={() => {
-              dispatch(
-                setEnableExternalAccountReport(
-                  !enableExternalAccountAnnualReport,
-                ),
-              );
-            }}
-          />
-        </Container.Item>
-        <Container.Item
           title="Enable OnRamper Test Mode"
           titleColor="text-critical"
         >
@@ -361,6 +347,18 @@ export const DevSettingSection = () => {
             isChecked={onRamperTestMode}
             onToggle={() => {
               dispatch(setOnRamperTestMode(!onRamperTestMode));
+            }}
+          />
+        </Container.Item>
+        <Container.Item
+          title="Show WebEmbed Webview Agent"
+          titleColor="text-critical"
+        >
+          <Switch
+            labelType="false"
+            isChecked={showWebEmbedWebviewAgent}
+            onToggle={() => {
+              dispatch(setShowWebEmbedWebviewAgent(!showWebEmbedWebviewAgent));
             }}
           />
         </Container.Item>

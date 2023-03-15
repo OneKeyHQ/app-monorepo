@@ -16,11 +16,16 @@ import type {
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import { AddressEncodings } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
+import { isTaprootXpubSegwit } from '../utils';
+
 import { getBlockBook } from './blockbook';
 import { getNetwork } from './networks';
+import ecc from './nobleSecp256k1Wrapper';
 import { PLACEHOLDER_VSIZE, estimateVsize, loadOPReturn } from './vsize';
 
 import type { Network } from './networks';
+import type { PsbtInput } from 'bip174/src/lib/interfaces';
+import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
 
 type GetAccountParams =
   | {
@@ -61,6 +66,8 @@ const validator = (
   msghash: Buffer,
   signature: Buffer,
 ): boolean => verify('secp256k1', pubkey, msghash, signature);
+
+BitcoinJS.initEccLib(ecc as unknown as TinySecp256k1Interface);
 
 class Provider {
   readonly chainInfo: ChainInfo;
@@ -193,6 +200,12 @@ class Provider {
           network: this.network,
         });
         break;
+      case AddressEncodings.P2TR:
+        payment = BitcoinJS.payments.p2tr({
+          internalPubkey: pubkey.slice(1, 33),
+          network: this.network,
+        });
+        break;
 
       default:
         throw new Error(`Invalid encoding: ${encoding as string}`);
@@ -238,11 +251,19 @@ class Provider {
     params: GetAccountParams,
     addressEncoding?: AddressEncodings,
   ) {
-    const decodedXpub = bs58check.decode(params.xpub);
-    check(this.isValidXpub(decodedXpub));
-    const versionBytes = parseInt(decodedXpub.slice(0, 4).toString('hex'), 16);
-    const encoding =
-      addressEncoding ?? this.versionBytesToEncodings.public[versionBytes][0];
+    let encoding = addressEncoding;
+    if (isTaprootXpubSegwit(params.xpub)) {
+      encoding = AddressEncodings.P2TR;
+    } else {
+      const decodedXpub = bs58check.decode(params.xpub);
+      check(this.isValidXpub(decodedXpub));
+      const versionBytes = parseInt(
+        decodedXpub.slice(0, 4).toString('hex'),
+        16,
+      );
+      encoding =
+        addressEncoding ?? this.versionBytesToEncodings.public[versionBytes][0];
+    }
     check(typeof encoding !== 'undefined');
 
     let usedXpub = params.xpub;
@@ -255,6 +276,9 @@ class Provider {
         break;
       case AddressEncodings.P2WPKH:
         usedXpub = `wpkh(${params.xpub})`;
+        break;
+      case AddressEncodings.P2TR:
+        usedXpub = params.xpub;
         break;
       default:
       // no-op
@@ -330,6 +354,12 @@ class Provider {
           decoded.data.length === 20
         ) {
           encoding = AddressEncodings.P2WPKH;
+        } else if (
+          decoded.version === 0x01 &&
+          decoded.prefix === this.network.bech32 &&
+          decoded.data.length === 32
+        ) {
+          encoding = AddressEncodings.P2TR;
         }
       } catch (_) {
         // ignore error
@@ -405,31 +435,41 @@ class Provider {
     return new BitcoinJS.Psbt({ network: this.network });
   }
 
+  async getBitcoinSigner(
+    signer: Signer,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    input: PsbtInput,
+  ): Promise<BitcoinJS.Signer> {
+    const publicKey = await signer.getPubkey(true);
+    return {
+      publicKey,
+      // @ts-expect-error
+      sign: async (hash: Buffer) => {
+        const [sig] = await signer.sign(hash);
+        return sig;
+      },
+    };
+  }
+
   async signTransaction(
     unsignedTx: UnsignedTx,
     signers: { [p: string]: Signer },
   ): Promise<SignedTx> {
-    const psdt = await this.packTransaction(unsignedTx, signers);
+    const psbt = await this.packTransaction(unsignedTx, signers);
 
     // eslint-disable-next-line no-plusplus
     for (let i = 0; i < unsignedTx.inputs.length; ++i) {
       const { address } = unsignedTx.inputs[i];
       const signer = signers[address];
-      const publicKey = await signer.getPubkey(true);
-
-      await psdt.signInputAsync(i, {
-        publicKey,
-        sign: async (hash: Buffer) => {
-          const [sig] = await signer.sign(hash);
-          return sig;
-        },
-      });
+      const psbtInput = psbt.data.inputs[0];
+      const bitcoinSigner = await this.getBitcoinSigner(signer, psbtInput);
+      await psbt.signInputAsync(i, bitcoinSigner);
     }
 
-    psdt.validateSignaturesOfAllInputs(validator);
-    psdt.finalizeAllInputs();
+    psbt.validateSignaturesOfAllInputs(validator);
+    psbt.finalizeAllInputs();
 
-    const tx = psdt.extractTransaction();
+    const tx = psbt.extractTransaction();
     return {
       txid: tx.getId(),
       rawTx: tx.toHex(),
@@ -492,7 +532,21 @@ class Provider {
             };
             mixin.redeemScript = payment.redeem?.output as Buffer;
           }
-
+          break;
+        case AddressEncodings.P2TR:
+          {
+            const payment = checkIsDefined(
+              this.pubkeyToPayment(
+                await signers[input.address].getPubkey(true),
+                encoding,
+              ),
+            );
+            mixin.witnessUtxo = {
+              script: payment.output as Buffer,
+              value: utxo.value.integerValue().toNumber(),
+            };
+            mixin.tapInternalKey = payment.internalPubkey;
+          }
           break;
         default:
           break;

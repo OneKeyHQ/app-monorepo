@@ -122,6 +122,7 @@ export type NFTTransaction = {
   amount?: string;
   tradePrice?: string;
   tradeSymbol?: string;
+  tradeSymbolAddress?: string | null;
   eventType?: string;
   exchangeName?: string;
   asset?: NFTAsset;

@@ -1,9 +1,18 @@
-import type { FC, ReactNode } from 'react';
-import { Children, Fragment, useCallback, useMemo, useState } from 'react';
+import type { FC, ForwardRefRenderFunction, ReactNode } from 'react';
+import {
+  Children,
+  Fragment,
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useWindowDimensions } from 'react-native';
 import { TabBar, TabView } from 'react-native-tab-view';
 
+import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 
 import Box from '../Box';
@@ -19,16 +28,22 @@ type TabProps = {
 };
 
 const tabbarHeight = 48;
-const Container: FC<CollapsibleContainerProps> = ({
-  children,
-  containerStyle,
-  headerHeight,
-  renderHeader,
-  headerContainerStyle,
-  onIndexChange,
-  initialTabName,
-  scrollEnabled = true,
-}) => {
+const Container: ForwardRefRenderFunction<
+  ForwardRefHandle,
+  CollapsibleContainerProps
+> = (
+  {
+    children,
+    containerStyle,
+    headerHeight,
+    renderHeader,
+    headerContainerStyle,
+    onIndexChange,
+    initialTabName,
+    scrollEnabled = true,
+  },
+  ref,
+) => {
   const layout = useWindowDimensions();
   const isVerticalLayout = useIsVerticalLayout();
   const { routes, renderScene, initialIndex } = useMemo(() => {
@@ -74,6 +89,12 @@ const Container: FC<CollapsibleContainerProps> = ({
       'border-subdued',
       'background-default',
     ]);
+
+  useImperativeHandle(ref, () => ({
+    setPageIndex: (pageIndex: number) => {
+      setIndex(pageIndex);
+    },
+  }));
 
   const renderTabBar = useCallback(
     (props: any) => {
@@ -153,7 +174,7 @@ const Container: FC<CollapsibleContainerProps> = ({
 };
 
 export const Tabs = {
-  Container,
+  Container: forwardRef(Container),
   // @ts-ignore to stop the warning about Fragment under development
   Tab: (__DEV__ ? ({ children }) => <>{children}</> : Fragment) as FC<TabProps>,
   FlatList,

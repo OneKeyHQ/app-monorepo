@@ -5,11 +5,10 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  HStack,
-  Icon,
-  Image,
   KeyboardDismissView,
+  Menu,
   Modal,
+  Pressable,
   Text,
   ToastManager,
   Token,
@@ -17,10 +16,13 @@ import {
 } from '@onekeyhq/components';
 import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { WatchAssetParameters } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -28,10 +30,14 @@ import { useAccountTokens, useAccountTokensBalance } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
+import { buildAddressDetailsUrl } from '../../hooks/useOpenBlockBrowser';
 import { wait } from '../../utils/helper';
+import { openUrl } from '../../utils/openUrl';
+import { SiteSection } from '../ManageNetworks/components/SiteSection';
 
 import { ManageTokenRoutes } from './types';
 
+import type { ListItem } from '../ManageNetworks/SwitchRpc';
 import type { ManageTokenRoutesParams } from './types';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -45,8 +51,6 @@ type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
   ManageTokenRoutes.AddToken
 >;
-
-type ListItem = { label: string; value: string };
 
 export type IViewTokenModalProps = ModalProps;
 
@@ -98,6 +102,36 @@ function ViewTokenModal(props: IViewTokenModalProps) {
   const { sourceInfo } = useDappParams();
   const token = useRouteParams();
   const { name, symbol, decimal, address } = token;
+
+  const menuTrigger = useCallback(
+    (triggerProps) => (
+      <Pressable accessibilityLabel="More options menu" {...triggerProps}>
+        <Text>{shortenAddress(address)}</Text>
+      </Pressable>
+    ),
+    [address],
+  );
+
+  const copyAction = useCallback(() => {
+    setTimeout(() => {
+      if (!address) return;
+      copyToClipboard(address);
+    }, 200);
+    ToastManager.show({
+      title: intl.formatMessage({ id: 'msg__copied' }),
+    });
+  }, [address, intl]);
+
+  const openExplorerAction = useCallback(() => {
+    openUrl(
+      buildAddressDetailsUrl(activeNetwork, address ?? ''),
+      intl.formatMessage({ id: 'form__explorers' }),
+      {
+        modalMode: true,
+      },
+    );
+  }, [intl, address, activeNetwork]);
+
   const items: ListItem[] = useMemo(() => {
     const data = [
       {
@@ -119,7 +153,23 @@ function ViewTokenModal(props: IViewTokenModalProps) {
           id: 'form__contract',
           defaultMessage: 'Contact',
         }),
-        value: address,
+        value: (
+          <Menu
+            w="190"
+            trigger={menuTrigger}
+            offset={platformEnv.isNativeAndroid ? 25 : 0}
+          >
+            <Menu.CustomItem onPress={copyAction} icon="DocumentDuplicateMini">
+              {intl.formatMessage({ id: 'action__copy_address' })}
+            </Menu.CustomItem>
+            <Menu.CustomItem
+              onPress={openExplorerAction}
+              icon="ArrowTopRightOnSquareMini"
+            >
+              {intl.formatMessage({ id: 'action__view_in_browser' })}
+            </Menu.CustomItem>
+          </Menu>
+        ),
       },
       {
         label: intl.formatMessage({
@@ -143,7 +193,17 @@ function ViewTokenModal(props: IViewTokenModalProps) {
       });
     }
     return data;
-  }, [name, symbol, address, decimal, balances, intl, token]);
+  }, [
+    name,
+    symbol,
+    decimal,
+    balances,
+    intl,
+    token,
+    copyAction,
+    menuTrigger,
+    openExplorerAction,
+  ]);
   useEffect(() => {
     async function fetchBalance() {
       if (activeAccount && activeNetwork) {
@@ -193,60 +253,36 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                     }}
                   />
                 </Box>
-
-                <HStack justifyContent="center" alignItems="center" mt="16px">
-                  <Typography.Body1 mr="18px">
-                    {sourceInfo?.origin?.split('://')[1] ?? 'DApp'}
-                  </Typography.Body1>
-                  <Icon size={20} name="ArrowsRightLeftMini" />
-                  <Image
-                    src={activeNetwork?.logoURI}
-                    ml="18px"
-                    mr="8px"
-                    width="16px"
-                    height="16px"
-                    borderRadius="full"
-                  />
-                  <Typography.Body2 maxW="40" isTruncated>
-                    {activeAccount?.name}
-                  </Typography.Body2>
-                </HStack>
+                {sourceInfo?.origin ? (
+                  <SiteSection mt="2" url={sourceInfo?.origin} />
+                ) : null}
               </Box>
-
-              <Box
-                borderRadius="12px"
-                borderWidth={1}
-                borderColor="border-subdued"
-                mt="2"
-                mb="3"
-              >
-                {items.map((item, index) => (
-                  <Box
-                    display="flex"
-                    flexDirection="row"
-                    justifyContent="space-between"
-                    p="4"
-                    alignItems="center"
-                    key={index}
-                    borderTopColor="divider"
-                    borderTopWidth={index !== 0 ? '1' : undefined}
+              {items.map((item, index) => (
+                <Box
+                  display="flex"
+                  flexDirection="row"
+                  justifyContent="space-between"
+                  p="4"
+                  alignItems="center"
+                  key={index}
+                  borderTopColor="divider"
+                  borderTopWidth={index !== 0 ? '1' : undefined}
+                >
+                  <Text
+                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                    color="text-subdued"
                   >
-                    <Text
-                      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                      color="text-subdued"
-                    >
-                      {item.label}
-                    </Text>
-                    <Text
-                      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                      maxW="56"
-                      textAlign="right"
-                    >
-                      {item.value}
-                    </Text>
-                  </Box>
-                ))}
-              </Box>
+                    {item.label}
+                  </Text>
+                  <Text
+                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                    maxW="56"
+                    textAlign="right"
+                  >
+                    {item.value}
+                  </Text>
+                </Box>
+              ))}
             </Box>
           </KeyboardDismissView>
         ),

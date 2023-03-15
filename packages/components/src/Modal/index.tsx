@@ -69,6 +69,7 @@ export type ModalProps = {
   children?: ReactNode;
 
   forceDesktop?: boolean;
+  enableMobileFooterWrap?: boolean;
 } & HeaderProps;
 
 const defaultProps = {

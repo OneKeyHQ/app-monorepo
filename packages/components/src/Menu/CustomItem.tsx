@@ -42,7 +42,7 @@ const CustomItem: FC<CustomItemProps> = ({
           variant === 'desctructive'
             ? 'text-critical'
             : variant === 'highlight'
-            ? 'interactive-default'
+            ? 'icon-highlight'
             : isDisabled
             ? 'text-disabled'
             : 'text-default'
@@ -58,7 +58,7 @@ const CustomItem: FC<CustomItemProps> = ({
             variant === 'desctructive'
               ? 'icon-critical'
               : variant === 'highlight'
-              ? 'interactive-default'
+              ? 'icon-highlight'
               : isDisabled
               ? 'icon-disabled'
               : 'icon-default'

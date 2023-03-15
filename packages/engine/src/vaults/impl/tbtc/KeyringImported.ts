@@ -1,3 +1,3 @@
-import { KeyringImported as KeyringImportedBtcFork } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/KeyringImported';
+import { KeyringImported as KeyringImportedBtc } from '@onekeyhq/engine/src/vaults/impl/btc/KeyringImported';
 
-export class KeyringImported extends KeyringImportedBtcFork {}
+export class KeyringImported extends KeyringImportedBtc {}

@@ -20,7 +20,8 @@ import type { TypographyStyle } from '../Typography';
 interface Props extends ComponentProps<typeof BaseInput> {
   value?: string | undefined;
   type?: 'text' | 'password' | 'number' | string;
-  autoFocus?: boolean;
+  autoFocus?: boolean | number;
+  autoFocusDelay?: number;
   isDisabled?: boolean;
   isReadOnly?: boolean;
   leftText?: string;
@@ -47,6 +48,7 @@ const Input = forwardRef<typeof BaseInput, Props>(
       value,
       type,
       autoFocus,
+      autoFocusDelay,
       isDisabled,
       isReadOnly,
       leftText,
@@ -78,13 +80,13 @@ const Input = forwardRef<typeof BaseInput, Props>(
           // @ts-ignore
           // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           inputRef.current?.focus?.();
-        }, 300);
+        }, autoFocusDelay || 300);
 
         return () => {
           clearTimeout(timer);
         };
       }
-    }, [autoFocus]);
+    }, [autoFocus, autoFocusDelay]);
 
     const leftElements: JSX.Element[] = [];
     const rightElements: JSX.Element[] = [];
@@ -250,7 +252,7 @@ const Input = forwardRef<typeof BaseInput, Props>(
         InputRightElement={inputRightElement}
         w="80"
         minW="0"
-        h={size === 'xl' ? '50px' : { base: '42px', md: 'auto' }}
+        h={size === 'xl' ? '50px' : { base: '42px', md: '38px' }}
         borderColor="border-default"
         bg="action-secondary-default"
         color={isDisabled ? 'text-disabled' : 'text-default'}

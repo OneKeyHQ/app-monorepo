@@ -5,7 +5,6 @@ import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Box,
   HStack,
   Icon,
@@ -22,6 +21,7 @@ import { useAccountValues, useAppSelector, useNavigation } from '../../hooks';
 import { useCurrentFiatValue } from '../../hooks/useTokens';
 import { HomeRoutes, ModalRoutes, RootRoutes } from '../../routes/types';
 
+import { OverviewBadge } from './components/OverviewBadge';
 import { OverviewModalRoutes } from './types';
 
 import type { HomeRoutesParams, RootRoutesParams } from '../../routes/types';
@@ -85,6 +85,7 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
     ),
     [value, isVertical],
   );
+
   return (
     <VStack bg="surface-default">
       <Pressable.Item px="6" py="4" bg="surface-subdued" onPress={onPress}>
@@ -107,9 +108,7 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
               </Box>
               <Typography.Heading>{name}</Typography.Heading>
               {isVertical ? null : protocolValueComp}
-              {rate.isGreaterThan(0) ? (
-                <Badge title={`${rate.toFixed(2)}%`} size="lg" ml="2" />
-              ) : null}
+              {rate.isGreaterThan(0) ? <OverviewBadge rate={rate} /> : null}
             </HStack>
             <HStack alignItems="center">
               <Typography.Body2Strong color="text-subdued">

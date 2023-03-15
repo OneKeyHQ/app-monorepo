@@ -2,10 +2,10 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import {
-  Base64DataBuffer,
   Coin,
-  Ed25519PublicKey,
+  Connection,
   LocalTxnDataSerializer,
+  fromB64,
   getCertifiedTransaction,
   getExecutionStatus,
   getMoveCallTransaction,
@@ -19,13 +19,10 @@ import {
   getTotalGasUsed,
   getTransactionData,
   getTransactionDigest,
-  getTransactionSender,
-  getTransactions,
   getTransferObjectTransaction,
   getTransferSuiTransaction,
   isValidSuiAddress,
 } from '@mysten/sui.js';
-import { hexToBytes } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
 import { groupBy, isArray, isEmpty } from 'lodash';
 import memoizee from 'memoizee';
@@ -128,13 +125,15 @@ export default class Vault extends VaultBase {
 
   getSuiClient(url: string) {
     // client: jayson > cross-fetch
-    return new QueryJsonRpcProvider(url, {
-      faucetURL: 'https://faucet.testnet.sui.io/gas',
-    });
+    return new QueryJsonRpcProvider(
+      new Connection({
+        fullnode: url,
+        faucet: 'https://faucet.testnet.sui.io/gas',
+      }),
+    );
   }
 
   // Chain only methods
-
   override async getClientEndpointStatus(
     url: string,
   ): Promise<{ responseTime: number; latestBlock: number }> {
@@ -336,8 +335,7 @@ export default class Vault extends VaultBase {
         const ser = new LocalTxnDataSerializer(await this.getClient());
         const decode =
           await ser.deserializeTransactionBytesToSignableTransaction(
-            true,
-            new Base64DataBuffer(decodeBytesTransaction(encodedTx.data)),
+            decodeBytesTransaction(encodedTx.data),
           );
         if (isArray(decode)) {
           [txData] = decode;
@@ -679,8 +677,7 @@ export default class Vault extends VaultBase {
         const ser = new LocalTxnDataSerializer(await this.getClient());
         const decode =
           await ser.deserializeTransactionBytesToSignableTransaction(
-            true,
-            new Base64DataBuffer(decodeBytesTransaction(encodedTx.data)),
+            decodeBytesTransaction(encodedTx.data),
           );
         let data;
         if (isArray(decode)) {
@@ -786,10 +783,9 @@ export default class Vault extends VaultBase {
       }
 
       const transactionResponse = await client.executeTransaction(
-        new Base64DataBuffer(signedTx.rawTx),
-        scheme,
-        new Base64DataBuffer(hexToBytes(stripHexPrefix(signature))),
-        new Ed25519PublicKey(hexToBytes(stripHexPrefix(publicKey))),
+        fromB64(signedTx.rawTx),
+        signature,
+        // new Ed25519PublicKey(hexToBytes(stripHexPrefix(publicKey))),
       );
 
       const txid = getTransactionDigest(transactionResponse);
@@ -884,8 +880,9 @@ export default class Vault extends VaultBase {
 
         const timestamp = getTimestampFromTransactionResponse(tx);
         const transactionData = getTransactionData(transaction);
-        const transactionActions = getTransactions(transaction);
-        const from = getTransactionSender(transaction);
+
+        const transactionActions = transactionData.transactions;
+        const from = transactionData.sender;
 
         const actions: IDecodedTxAction[] = [];
 
@@ -913,6 +910,7 @@ export default class Vault extends VaultBase {
             if (moveCall) {
               let functionName = '';
               if (moveCall.package && typeof moveCall.package === 'object') {
+                // @ts-expect-error
                 functionName = moveCall.package?.objectId ?? '';
               } else {
                 functionName = moveCall.package;

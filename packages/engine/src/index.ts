@@ -1050,6 +1050,7 @@ class Engine {
     networkId: string,
     credential: string,
     name?: string,
+    template?: string,
   ): Promise<Account> {
     await this.validator.validatePasswordStrength(password);
     const vault = await this.getWalletOnlyVault(networkId, 'imported');
@@ -1067,6 +1068,7 @@ class Engine {
     const [dbAccount] = await vault.keyring.prepareAccounts({
       privateKey,
       name: name || '',
+      template,
     });
 
     await this.dbApi.addAccountToWallet('imported', dbAccount, {
@@ -1085,12 +1087,14 @@ class Engine {
     name,
     walletType,
     checkExists,
+    template,
   }: {
     networkId: string;
     address: string; // address
     name: string;
     walletType: typeof WALLET_TYPE_WATCHING | typeof WALLET_TYPE_EXTERNAL;
     checkExists?: boolean;
+    template?: string;
   }): Promise<Account> {
     // throw new Error('sample test error');
     // Add an watching account. Raise an error if account already exists.
@@ -1104,6 +1108,7 @@ class Engine {
       target: address,
       name,
       accountIdPrefix: walletType,
+      template,
     });
 
     if (checkExists) {
@@ -1842,6 +1847,62 @@ class Engine {
       spender,
       amount,
       from: address,
+    });
+  }
+
+  @backgroundMethod()
+  async buildEncodedTxFromWrapperTokenDeposit({
+    networkId,
+    accountId,
+    contract,
+    amount,
+  }: {
+    networkId: string;
+    accountId: string;
+    contract: string;
+    amount: string;
+  }) {
+    const vault = await this.getVault({ networkId, accountId });
+    const impl = await vault.getNetworkImpl();
+    if (impl !== IMPL_EVM) {
+      throw new OneKeyInternalError(
+        `networkId: ${networkId} dont support deposit`,
+      );
+    }
+    const { address } = await this.getAccount(accountId, networkId);
+    const evmVault = vault as VaultEvm;
+    return evmVault.buildEncodedTxFromWrapperTokenDeposit({
+      amount,
+      from: address,
+      contract,
+    });
+  }
+
+  @backgroundMethod()
+  async buildEncodedTxFromWrapperTokenWithdraw({
+    networkId,
+    accountId,
+    contract,
+    amount,
+  }: {
+    networkId: string;
+    accountId: string;
+    contract: string;
+    amount: string;
+  }) {
+    const vault = await this.getVault({ networkId, accountId });
+    const impl = await vault.getNetworkImpl();
+    if (impl !== IMPL_EVM) {
+      throw new OneKeyInternalError(
+        `networkId: ${networkId} dont support withdraw`,
+      );
+    }
+    const { address } = await this.getAccount(accountId, networkId);
+    const evmVault = vault as VaultEvm;
+    return evmVault.buildEncodedTxFromWrapperTokenWithdraw({
+      amount,
+      from: address,
+      contract,
     });
   }
 

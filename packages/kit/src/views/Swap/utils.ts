@@ -11,10 +11,13 @@ import {
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 
+import { QuoterType } from './typings';
+
 import type {
   BuildTransactionParams,
   FetchQuoteParams,
   ProtocolFees,
+  TransactionDetails,
 } from './typings';
 
 export const nativeTokenAddress = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
@@ -319,4 +322,21 @@ export function calculateNetworkFee(feeInfo: IFeeInfoUnit, network: Network) {
     },
   });
   return calculatedTotalFeeInNative;
+}
+
+export function getQuoteType(tx: TransactionDetails): QuoterType {
+  if (tx.quoterType) {
+    return tx.quoterType;
+  }
+  if (tx.thirdPartyOrderId) {
+    return QuoterType.swftc;
+  }
+  return QuoterType.zeroX;
+}
+
+export function isSimpleTx(tx: TransactionDetails) {
+  const from = tx.tokens?.from;
+  const to = tx.tokens?.to;
+  const quoterType = getQuoteType(tx);
+  return from?.networkId === to?.networkId && quoterType !== QuoterType.swftc;
 }

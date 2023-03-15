@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -171,10 +171,32 @@ type AccountOptionProps = { isSmallView: boolean };
 const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { wallet, account } = useActiveWalletAccount();
+  const {
+    wallet,
+    account,
+    networkId: activeNetworkId,
+  } = useActiveWalletAccount();
   const isVertical = useIsVerticalLayout();
   const { sendToken } = useNavigationActions();
   const iconBoxFlex = isVertical ? 1 : 0;
+
+  const onSwap = useCallback(async () => {
+    const token = await backgroundApiProxy.engine.getNativeTokenInfo(
+      activeNetworkId,
+    );
+    if (account) {
+      backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
+    }
+    if (token) {
+      backgroundApiProxy.serviceSwap.sellToken(token);
+    }
+    if (isVertical) {
+      backgroundApiProxy.serviceMarket.switchMarketTopTab(SWAP_TAB_NAME);
+      navigation.getParent()?.navigate(TabRoutes.Market);
+    } else {
+      navigation.getParent()?.navigate(TabRoutes.Swap);
+    }
+  }, [activeNetworkId, account, navigation, isVertical]);
 
   return (
     <Box flexDirection="row" px={isVertical ? 1 : 0} mx={-3}>
@@ -238,16 +260,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           name="ArrowsRightLeftOutline"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
-          onPress={() => {
-            if (isVertical) {
-              backgroundApiProxy.serviceMarket.switchMarketTopTab(
-                SWAP_TAB_NAME,
-              );
-              navigation.getParent()?.navigate(TabRoutes.Market);
-            } else {
-              navigation.getParent()?.navigate(TabRoutes.Swap);
-            }
-          }}
+          onPress={onSwap}
         />
         <Typography.CaptionStrong
           textAlign="center"

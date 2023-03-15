@@ -151,6 +151,44 @@ export const OptionRecoveryPhrase: FC<OptionProps> = ({
     </Box>
   </Option>
 );
+export const OptionPrivateKey: FC<OptionProps> = ({
+  title,
+  icon,
+  description,
+  onPress,
+}) => (
+  <Option
+    title={title}
+    description={description}
+    icon={icon || 'ClipboardDocumentListOutline'}
+    onPress={onPress}
+  >
+    <Box px="16px" h="64px" pt="12px">
+      <Text typography="Caption" color="text-subdued">
+        0xd819390d77f9bfe05b74c729394deec8c4e7f3ec52b6cbe9f64b6a0e1c9d9435
+      </Text>
+    </Box>
+  </Option>
+);
+export const OptionAdress: FC<OptionProps> = ({
+  title,
+  icon,
+  description,
+  onPress,
+}) => (
+  <Option
+    title={title}
+    description={description}
+    icon={icon || 'ClipboardDocumentListOutline'}
+    onPress={onPress}
+  >
+    <Box px="16px" h="64px" pt="12px">
+      <Text typography="Caption" color="text-subdued">
+        0xb0CfcFdA37F05185324dC3A61dE9030bf6d98fb8
+      </Text>
+    </Box>
+  </Option>
+);
 
 export const OptionOneKeyLite: FC<OptionProps> = ({
   title,

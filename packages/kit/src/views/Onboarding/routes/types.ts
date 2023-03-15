@@ -2,6 +2,7 @@ import type { MigrateData } from '@onekeyhq/engine/src/types/migrate';
 import type { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import type { IAddExistingWalletMode } from '../../../routes';
 import type { KeyTagRoutes } from '../../KeyTag/Routes/enums';
 import type { EOnboardingRoutes } from './enums';
 import type { NavigatorScreenParams } from '@react-navigation/native';
@@ -46,7 +47,9 @@ export type IOnboardingRoutesParams = {
     | undefined;
 
   [EOnboardingRoutes.ImportWallet]: IOnboardingImportWalletParams | undefined;
-  [EOnboardingRoutes.RecoveryWallet]: undefined;
+  [EOnboardingRoutes.RecoveryWallet]: IOnboardingImportWalletParams & {
+    mode: IAddExistingWalletMode;
+  };
 
   [EOnboardingRoutes.SetPassword]: IOnboardingSetPasswordParams | undefined;
   [EOnboardingRoutes.RecoveryPhrase]: IOnboardingRecoveryPhraseParams;

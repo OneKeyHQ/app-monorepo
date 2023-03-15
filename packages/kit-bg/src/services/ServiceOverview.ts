@@ -1,4 +1,4 @@
-import { debounce, pick, uniqBy } from 'lodash';
+import { debounce, pick, throttle, uniqBy } from 'lodash';
 
 import { setOverviewPortfolioDefi } from '@onekeyhq/kit/src/store/reducers/overview';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
@@ -190,6 +190,44 @@ class ServiceOverview extends ServiceBase {
     }
 
     return pendingTasks;
+  }
+
+  refreshAccountWithThrottle = throttle(
+    async ({
+      networkId,
+      accountId,
+    }: {
+      networkId: string;
+      accountId: string;
+    }) => {
+      const { engine, serviceToken } = this.backgroundApi;
+
+      engine.clearPriceCache();
+      await serviceToken.fetchAccountTokens({
+        accountId,
+        networkId,
+        forceReloadTokens: true,
+        includeTop50TokensQuery: true,
+      });
+
+      await this.subscribe();
+    },
+    getTimeDurationMs({ seconds: 5 }),
+  );
+
+  @bindThis()
+  @backgroundMethod()
+  async refreshCurrentAccount() {
+    const { appSelector } = this.backgroundApi;
+
+    const { activeAccountId: accountId, activeNetworkId: networkId } =
+      appSelector((s) => s.general);
+
+    if (!accountId || !networkId) {
+      return;
+    }
+
+    return this.refreshAccountWithThrottle({ networkId, accountId });
   }
 
   @backgroundMethod()

@@ -38,34 +38,6 @@ import {
   normalizeProviderName,
 } from './utils';
 
-const SwapProviders = () => {
-  const intl = useIntl();
-  const quote = useAppSelector((s) => s.swap.quote);
-  if (!quote) {
-    return null;
-  }
-  return (
-    <Box mt="2">
-      <Divider />
-      <Box py="4">
-        <Typography.Caption color="text-subdued">
-          {intl.formatMessage(
-            {
-              id: 'content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api',
-            },
-            { '0': normalizeProviderName(quote.type) },
-          )}
-        </Typography.Caption>
-      </Box>
-    </Box>
-  );
-};
-
-const SwapArrivalTime = () => {
-  const arrivalTime = useAppSelector((s) => s.swap.quote?.arrivalTime);
-  return <ArrivalTime value={arrivalTime} typography="Body2" />;
-};
-
 const SwapExactAmountAllowanceBottomSheetModal: FC<{ onClose: () => void }> = ({
   onClose,
 }) => {
@@ -156,6 +128,7 @@ const SwapExactAmountAllowanceBottomSheetModal: FC<{ onClose: () => void }> = ({
 
 const SwapExactAmoutAllowance = () => {
   const intl = useIntl();
+  const quote = useAppSelector((s) => s.swap.quote);
   const disableSwapExactApproveAmount = useAppSelector(
     (s) => s.settings.disableSwapExactApproveAmount,
   );
@@ -170,6 +143,10 @@ const SwapExactAmoutAllowance = () => {
       </BottomSheetModal>
     ));
   }, [intl]);
+
+  if (!quote || !quote.needApproved) {
+    return null;
+  }
   return (
     <Box
       display="flex"
@@ -312,15 +289,35 @@ const SwapMinimumReceived = () => {
 };
 
 const SwapPriceImpact = () => {
+  const intl = useIntl();
   const priceImpact = usePriceImpact();
-  if (priceImpact) {
-    return (
-      <Typography.Body2 color="text-subdued">
-        -{Number(priceImpact).toFixed(2)}%
-      </Typography.Body2>
-    );
-  }
-  return <Typography.Body2 color="text-subdued">&lt;0.01%</Typography.Body2>;
+  const value = useMemo(() => {
+    if (priceImpact) {
+      return `-${Number(priceImpact).toFixed(2)}%`;
+    }
+    return '0.01%';
+  }, [priceImpact]);
+  return (
+    <Box
+      display="flex"
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      h="9"
+    >
+      <Box flexDirection="row" alignItems="center">
+        <Typography.Body2 color="text-disabled" mr="2">
+          {intl.formatMessage({ id: 'title__price_impact' })}
+        </Typography.Body2>
+        <SwapTooltip
+          label={intl.formatMessage({ id: 'form__price_impact_desc' })}
+        />
+      </Box>
+      <Box flex="1" flexDirection="row" justifyContent="flex-end">
+        <Typography.Body2 color="text-subdued">{value}</Typography.Body2>
+      </Box>
+    </Box>
+  );
 };
 
 const SwapProtocalsFees = () => {
@@ -357,24 +354,11 @@ const SwapProtocalsFees = () => {
   return null;
 };
 
-const SwapQuote = () => {
+const SwapSmartRoute = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const quote = useAppSelector((s) => s.swap.quote);
   const quoteLimited = useAppSelector((s) => s.swap.quoteLimited);
-
-  const showMoreQuoteDetail = useAppSelector((s) => s.swap.showMoreQuoteDetail);
-  const { mode, value: swapSlippagePercent } = useSwapSlippage();
-
-  const onSlippageSetting = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Swap,
-      params: {
-        screen: SwapRoutes.Slippage,
-      },
-    });
-  }, [navigation]);
-
   const onSelectRoute = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
@@ -389,30 +373,165 @@ const SwapQuote = () => {
   }
 
   return (
+    <Box
+      display="flex"
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      h="9"
+    >
+      <Typography.Body2 color="text-disabled" mr="2">
+        {intl.formatMessage({ id: 'form__smart_router' })}
+      </Typography.Body2>
+      <Box
+        flex="1"
+        flexDirection="row"
+        justifyContent="flex-end"
+        alignItems="center"
+      >
+        <Pressable onPress={onSelectRoute} disabled={!!quoteLimited}>
+          <SwappingVia providers={quote.providers} typography="Body2" />
+        </Pressable>
+        {quoteLimited ? null : <Icon size={16} name="ChevronRightOutline" />}
+      </Box>
+    </Box>
+  );
+};
+
+const SwapSlippage = () => {
+  const intl = useIntl();
+  const navigation = useNavigation();
+  const { mode, value: swapSlippagePercent } = useSwapSlippage();
+
+  const onSlippageSetting = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Swap,
+      params: {
+        screen: SwapRoutes.Slippage,
+      },
+    });
+  }, [navigation]);
+
+  return (
+    <Box
+      display="flex"
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      h="9"
+    >
+      <Box flexDirection="row" alignItems="center">
+        <Typography.Body2 color="text-disabled" mr="2">
+          {intl.formatMessage({ id: 'title__slippage' })}
+        </Typography.Body2>
+        <SwapTooltip
+          label={intl.formatMessage({ id: 'form__slippage_desc' })}
+        />
+      </Box>
+      <Box flexDirection="row" justifyContent="flex-end" alignItems="center">
+        <Pressable flexDirection="row" onPress={onSlippageSetting}>
+          <Typography.Body2 mr="1" color="text-subdued">
+            {mode === 'auto' ? intl.formatMessage({ id: 'form__auto' }) : null}(
+            {swapSlippagePercent}%)
+          </Typography.Body2>
+          <Icon size={16} name="ChevronRightOutline" />
+        </Pressable>
+      </Box>
+    </Box>
+  );
+};
+
+const SwapOnekeyFee = () => {
+  const intl = useIntl();
+  const quote = useAppSelector((s) => s.swap.quote);
+  if (!quote) {
+    return null;
+  }
+  return (
+    <Box
+      display="flex"
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      h="9"
+    >
+      <Box flexDirection="row" alignItems="center">
+        <Typography.Body2 color="text-disabled" mr="2">
+          {intl.formatMessage({ id: 'form__included_onekey_fee' })}
+        </Typography.Body2>
+        <SwapTooltip
+          label={intl.formatMessage({
+            id: 'form__included_onekey_fee_desc',
+          })}
+        />
+      </Box>
+      <Box flex="1" flexDirection="row" justifyContent="flex-end">
+        <TransactionFee
+          type={quote.type}
+          percentageFee={quote.percentageFee}
+          typography="Body2"
+        />
+      </Box>
+    </Box>
+  );
+};
+
+const SwapArrivalTime = () => {
+  const intl = useIntl();
+  const arrivalTime = useAppSelector((s) => s.swap.quote?.arrivalTime);
+  return (
+    <Box
+      display="flex"
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      h="9"
+    >
+      <Box flexDirection="row" alignItems="center">
+        <Typography.Body2 color="text-disabled" mr="2">
+          {intl.formatMessage({ id: 'title__arrival_time' })}
+        </Typography.Body2>
+        <SwapTooltip
+          label={intl.formatMessage({ id: 'form__arrival_time_desc' })}
+        />
+      </Box>
+      <Box flex="1" flexDirection="row" justifyContent="flex-end">
+        <ArrivalTime value={arrivalTime} typography="Body2" />
+      </Box>
+    </Box>
+  );
+};
+
+const SwapAPIIntro = () => {
+  const intl = useIntl();
+  const quote = useAppSelector((s) => s.swap.quote);
+  if (!quote) {
+    return null;
+  }
+  return (
+    <Box mt="2">
+      <Divider />
+      <Box py="4">
+        <Typography.Caption color="text-subdued">
+          {intl.formatMessage(
+            {
+              id: 'content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api',
+            },
+            { '0': normalizeProviderName(quote.type) },
+          )}
+        </Typography.Caption>
+      </Box>
+    </Box>
+  );
+};
+
+const SwapExchangeQuote = () => {
+  const intl = useIntl();
+  const showMoreQuoteDetail = useAppSelector((s) => s.swap.showMoreQuoteDetail);
+  return (
     <Box px="4">
       <SwapNetworkFeeInfo />
-      <Box
-        display="flex"
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        h="9"
-      >
-        <Typography.Body2 color="text-disabled" mr="2">
-          {intl.formatMessage({ id: 'form__smart_router' })}
-        </Typography.Body2>
-        <Box
-          flex="1"
-          flexDirection="row"
-          justifyContent="flex-end"
-          alignItems="center"
-        >
-          <Pressable onPress={onSelectRoute} disabled={!!quoteLimited}>
-            <SwappingVia providers={quote.providers} typography="Body2" />
-          </Pressable>
-          {quoteLimited ? null : <Icon size={16} name="ChevronRightOutline" />}
-        </Box>
-      </Box>
+      <SwapSmartRoute />
       <Box
         display="flex"
         flexDirection="row"
@@ -463,109 +582,31 @@ const SwapQuote = () => {
       </Center>
       {showMoreQuoteDetail ? (
         <>
-          {quote.needApproved ? <SwapExactAmoutAllowance /> : null}
-          <Box
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            h="9"
-          >
-            <Box flexDirection="row" alignItems="center">
-              <Typography.Body2 color="text-disabled" mr="2">
-                {intl.formatMessage({ id: 'title__slippage' })}
-              </Typography.Body2>
-              <SwapTooltip
-                label={intl.formatMessage({ id: 'form__slippage_desc' })}
-              />
-            </Box>
-            <Box
-              flexDirection="row"
-              justifyContent="flex-end"
-              alignItems="center"
-            >
-              <Pressable flexDirection="row" onPress={onSlippageSetting}>
-                <Typography.Body2 mr="1" color="text-subdued">
-                  {mode === 'auto'
-                    ? intl.formatMessage({ id: 'form__auto' })
-                    : null}
-                  ({swapSlippagePercent}%)
-                </Typography.Body2>
-                <Icon size={16} name="ChevronRightOutline" />
-              </Pressable>
-            </Box>
-          </Box>
-          <Box
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            h="9"
-          >
-            <Box flexDirection="row" alignItems="center">
-              <Typography.Body2 color="text-disabled" mr="2">
-                {intl.formatMessage({ id: 'title__price_impact' })}
-              </Typography.Body2>
-              <SwapTooltip
-                label={intl.formatMessage({ id: 'form__price_impact_desc' })}
-              />
-            </Box>
-
-            <Box flex="1" flexDirection="row" justifyContent="flex-end">
-              <SwapPriceImpact />
-            </Box>
-          </Box>
+          <SwapExactAmoutAllowance />
+          <SwapSlippage />
+          <SwapPriceImpact />
           <SwapProtocalsFees />
-          <Box
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            h="9"
-          >
-            <Box flexDirection="row" alignItems="center">
-              <Typography.Body2 color="text-disabled" mr="2">
-                {intl.formatMessage({ id: 'form__included_onekey_fee' })}
-              </Typography.Body2>
-              <SwapTooltip
-                label={intl.formatMessage({
-                  id: 'form__included_onekey_fee_desc',
-                })}
-              />
-            </Box>
-
-            <Box flex="1" flexDirection="row" justifyContent="flex-end">
-              <TransactionFee
-                type={quote.type}
-                percentageFee={quote.percentageFee}
-                typography="Body2"
-              />
-            </Box>
-          </Box>
-          <Box
-            display="flex"
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            h="9"
-          >
-            <Box flexDirection="row" alignItems="center">
-              <Typography.Body2 color="text-disabled" mr="2">
-                {intl.formatMessage({ id: 'title__arrival_time' })}
-              </Typography.Body2>
-              <SwapTooltip
-                label={intl.formatMessage({ id: 'form__arrival_time_desc' })}
-              />
-            </Box>
-            <Box flex="1" flexDirection="row" justifyContent="flex-end">
-              <SwapArrivalTime />
-            </Box>
-          </Box>
+          <SwapOnekeyFee />
+          <SwapArrivalTime />
         </>
       ) : null}
-      <SwapProviders />
+      <SwapAPIIntro />
     </Box>
   );
+};
+
+const SwapWrapperTxQuote = () => (
+  <Box px="4">
+    <SwapNetworkFeeInfo />
+  </Box>
+);
+
+const SwapQuote = () => {
+  const quote = useAppSelector((s) => s.swap.quote);
+  if (!quote) {
+    return null;
+  }
+  return quote.wrapperTxInfo ? <SwapWrapperTxQuote /> : <SwapExchangeQuote />;
 };
 
 export default SwapQuote;

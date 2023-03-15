@@ -14,12 +14,17 @@ import { ErrorBoundary } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { createLazyComponent } from '../utils/createLazyComponent';
+
 import AppLoading from './AppLoading';
 import NavigationApp from './NavigationProvider';
 import NotificationProvider from './NotificationProvider';
 import ThemeApp from './ThemeProvider';
 import { WhenAppActive } from './WhenAppActive';
 
+const ChainWebEmbed = createLazyComponent(
+  () => import('@onekeyhq/kit/src/views/ChainWebEmbed'),
+);
 type LaunchProps = {
   UIApplicationLaunchOptionsRemoteNotificationKey?: NotificationExtra;
 };
@@ -59,28 +64,28 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
           <ThemeApp>
             <AppLoading>
               <ErrorBoundary>
-                <NotificationProvider launchNotification={launchNotification}>
-                  <RootSiblingParent>
-                    <NavigationApp />
-                    <WhenAppActive />
-                    {platformEnv.isNativeIOS ? (
-                      // FullWindowOverlay can render above native views
-                      // but can not work with modal
-                      // https://github.com/software-mansion/react-native-screens/issues/1149
-                      // so now only used for toast
-                      <FullWindowOverlay>
-                        <View
-                          pointerEvents="box-none"
-                          style={StyleSheet.absoluteFill}
-                        >
-                          <CustomToast bottomOffset={60} />
-                        </View>
-                      </FullWindowOverlay>
-                    ) : (
-                      <CustomToast bottomOffset={60} />
-                    )}
-                  </RootSiblingParent>
-                </NotificationProvider>
+                <NotificationProvider launchNotification={launchNotification} />
+                <RootSiblingParent>
+                  <NavigationApp />
+                  <ChainWebEmbed />
+                  <WhenAppActive />
+                  {platformEnv.isNativeIOS ? (
+                    // FullWindowOverlay can render above native views
+                    // but can not work with modal
+                    // https://github.com/software-mansion/react-native-screens/issues/1149
+                    // so now only used for toast
+                    <FullWindowOverlay>
+                      <View
+                        pointerEvents="box-none"
+                        style={StyleSheet.absoluteFill}
+                      >
+                        <CustomToast bottomOffset={60} />
+                      </View>
+                    </FullWindowOverlay>
+                  ) : (
+                    <CustomToast bottomOffset={60} />
+                  )}
+                </RootSiblingParent>
               </ErrorBoundary>
             </AppLoading>
           </ThemeApp>
