@@ -4,8 +4,15 @@ import { useCallback, useMemo } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { cacheDirectory } from 'expo-file-system';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import { Modal, ToastManager } from '@onekeyhq/components';
+import {
+  Box,
+  Modal,
+  ScrollView,
+  Text,
+  ToastManager,
+} from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { TextareaWithLineNumber } from '@onekeyhq/kit/src/views/BulkSender/TextareaWithLineNumber';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -169,13 +176,53 @@ const ExportAddresses: FC = () => {
       }}
       onSecondaryActionPress={onCopyAddresses}
     >
-      <TextareaWithLineNumber
-        readonly
-        containerStyle={{ height: '100%' }}
-        height="100%"
-        receiverString={addressText}
-        setReceiverString={() => {}}
-      />
+      <Box
+        w="full"
+        h="full"
+        bg="action-secondary-default"
+        borderRadius="lg"
+        borderColor="border-default"
+        borderWidth={StyleSheet.hairlineWidth}
+      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+          style={{ width: '100%' }}
+        >
+          <Box px={3} py={2} w="full">
+            {addressText.split('\n').map((text, i) => (
+              <Box alignItems="flex-start" flexDirection="row" key={i}>
+                <Text
+                  typography={{ sm: 'Body2', md: 'Body2' }}
+                  color="text-disabled"
+                  fontWeight={500}
+                  fontSize={14}
+                  lineHeight="20px"
+                  fontFamily="monospace"
+                  textAlign="left"
+                  width="29px"
+                >
+                  {i + 1}
+                </Text>
+                <Text
+                  ml={1}
+                  flex={1}
+                  fontSize={14}
+                  lineHeight="20px"
+                  fontWeight={500}
+                  fontFamily="monospace"
+                  color={
+                    text.startsWith('//') ? 'text-disabled' : 'text-default'
+                  }
+                  overflow="hidden"
+                >
+                  {text}
+                </Text>
+              </Box>
+            ))}
+          </Box>
+        </ScrollView>
+      </Box>
     </Modal>
   );
 };
