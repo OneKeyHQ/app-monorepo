@@ -346,10 +346,9 @@ export default class ServiceToken extends ServiceBase {
       Record<string, Token>,
     ]
   > {
-    const { engine } = this.backgroundApi;
-    const vault = await engine.getVault({ networkId, accountId });
-    const account = await engine.getAccount(accountId, networkId);
-    const accountAddress = await vault.getFetchBalanceAddress(account);
+    const { engine, serviceAccount } = this.backgroundApi;
+    const { address: accountAddress, xpub } =
+      await serviceAccount.getAcccountAddressWithXpub(accountId, networkId);
 
     const accountTokens = await engine.getTokens(
       networkId,
@@ -361,7 +360,11 @@ export default class ServiceToken extends ServiceBase {
 
     const ret: Record<string, TokenBalanceValue> = {};
     const balancesFromApi =
-      (await getBalancesFromApi(networkId, accountAddress)) || [];
+      (await getBalancesFromApi({
+        networkId,
+        address: accountAddress,
+        xpub,
+      })) || [];
     const removedTokens = await simpleDb.token.localTokens.getRemovedTokens(
       accountId,
       networkId,

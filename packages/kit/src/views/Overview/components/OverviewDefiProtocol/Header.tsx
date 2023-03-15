@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import {
   HStack,
   Icon,
+  IconButton,
   Pressable,
   Text,
   VStack,
@@ -53,15 +54,11 @@ export const OverviewDefiBoxHeader: FC<{
               {rate.isNaN() ? null : badge}
             </HStack>
           </HStack>
-          <Pressable onPress={toggle}>
-            <HStack>
-              {collapsed ? (
-                <Icon name="ChevronDownMini" size={20} />
-              ) : (
-                <Icon name="ChevronUpMini" size={20} />
-              )}
-            </HStack>
-          </Pressable>
+          <IconButton
+            type="plain"
+            onPress={toggle}
+            name={collapsed ? 'ChevronDownMini' : 'ChevronUpMini'}
+          />
         </HStack>
         <VStack w="full">
           {desc}
