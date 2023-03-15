@@ -256,7 +256,7 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
       )}
       <AnimateHeight containerTransition={{ type: 'timing', duration: 150 }}>
         <AccessoryView
-          expandWords={false}
+          expandWords
           accessoryData={accessoryData}
           withKeybord={false}
           selected={(value) => {
