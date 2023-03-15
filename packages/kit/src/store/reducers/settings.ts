@@ -15,6 +15,7 @@ import { ValidationFields } from '../../components/Protected/types';
 import type {
   BLEFirmwareInfo,
   SYSFirmwareInfo,
+  VersionInfo,
 } from '../../utils/updates/type';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import type { ImageSourcePropType } from 'react-native';
@@ -109,6 +110,9 @@ export type SettingsState = {
     verification?: Record<string, boolean>; // connectId -> verified
     versions?: Record<string, string>; // connectId -> version
   };
+  softwareUpdate?: {
+    forceUpdateVersionInfo?: VersionInfo;
+  };
 };
 
 export const defaultPushNotification = {
@@ -176,6 +180,9 @@ const initialState: SettingsState = {
     rememberPassphraseWallets: [], // walletId
     verification: {}, // connectId -> verified
     versions: {}, // connectId -> version
+  },
+  softwareUpdate: {
+    forceUpdateVersionInfo: undefined,
   },
 };
 
@@ -558,6 +565,15 @@ export const settingsSlice = createSlice({
         },
       };
     },
+    setForceUpdateVersionInfo: (
+      state,
+      action: PayloadAction<VersionInfo | undefined>,
+    ) => {
+      state.softwareUpdate = {
+        ...state.softwareUpdate,
+        forceUpdateVersionInfo: action.payload,
+      };
+    },
   },
 });
 
@@ -610,6 +626,7 @@ export const {
   forgetPassphraseWallet,
   setVerification,
   setDeviceVersion,
+  setForceUpdateVersionInfo,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

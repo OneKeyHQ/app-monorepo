@@ -14,10 +14,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAutoUpdate, useSettings } from '@onekeyhq/kit/src/hooks/redux';
-import {
-  available,
-  enable,
-} from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import { setUpdateSetting } from '@onekeyhq/kit/src/store/reducers/settings';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -42,13 +38,11 @@ const AutoUpdateSectionItem: FC = () => {
               id: 'msg__using_latest_release',
             }),
           });
-        } else {
-          dispatch(enable(), available(version));
         }
       })
       .catch(() => {})
       .finally(() => {});
-  }, [dispatch, intl]);
+  }, [intl]);
 
   useEffect(() => {
     if (
