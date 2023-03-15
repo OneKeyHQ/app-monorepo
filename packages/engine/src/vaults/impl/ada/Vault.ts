@@ -13,6 +13,7 @@ import {
   IMPL_ADA,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   InsufficientBalance,
@@ -96,7 +97,9 @@ export default class Vault extends VaultBase {
   });
 
   override async getOutputAccount(): Promise<Account & { addresses: string }> {
-    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    const dbAccount = (await this.getDbAccount({
+      noCache: true,
+    })) as DBUTXOAccount;
     return {
       id: dbAccount.id,
       name: dbAccount.name,
@@ -753,8 +756,8 @@ export default class Vault extends VaultBase {
     );
   }
 
-  override getPrivateKeyByCredential(credential: string) {
-    return decodePrivateKeyByXprv(credential);
+  override async getPrivateKeyByCredential(credential: string) {
+    return Promise.resolve(decodePrivateKeyByXprv(credential));
   }
 
   private getStakeAddress = memoizee(
@@ -833,29 +836,5 @@ export default class Vault extends VaultBase {
       ...encodeTx,
       changeAddress,
     };
-  }
-
-  override async canAutoCreateNextAccount(password: string): Promise<boolean> {
-    const wallet = await this.engine.getWallet(this.walletId);
-    const accountInfos = await this.getAccountNameInfoMap();
-
-    if (wallet.type !== 'hd') return false;
-
-    const usedPurpose = getDefaultPurpose(IMPL_ADA);
-    const { template } = accountInfos.default;
-    const nextIndex = wallet.nextAccountIds[template] || 0;
-
-    const accounts = await this.keyring.prepareAccounts({
-      type: 'SEARCH_ACCOUNTS',
-      password,
-      indexes: [nextIndex],
-      purpose: usedPurpose,
-      coinType: COINTYPE_ADA,
-      template,
-    });
-    const accountUsed = await this.checkAccountExistence(
-      (accounts?.[0] as DBUTXOAccount).xpub,
-    );
-    return accountUsed;
   }
 }

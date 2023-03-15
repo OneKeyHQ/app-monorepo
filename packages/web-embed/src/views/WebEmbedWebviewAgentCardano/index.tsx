@@ -19,7 +19,7 @@ const getCardanoApi = async () => {
   };
 };
 
-const ProvideResponseMethod = 'cardanoWebEmbedResponse';
+const ProvideResponseMethod = 'chainWebEmbedResponse';
 
 enum CardanoEvent {
   composeTxPlan = 'Cardano_composeTxPlan',
@@ -50,7 +50,7 @@ function WebEmbedWebviewAgentCardano() {
       console.log('params: ', JSON.stringify(payload.params));
       const { method, params } = payload;
 
-      if (method !== 'callCardanoWebEmbedMethod') {
+      if (method !== 'callChainWebEmbedMethod') {
         return;
       }
 

@@ -13,6 +13,7 @@
   "dependencies": {
     "@onekeyfe/cardano-coin-selection-asmjs": "1.1.0",
     "@onekeyhq/components": "*",
+    "@onekeyhq/engine": "*",
     "@onekeyhq/kit": "*",
     "expo": "^45.0.5",
     "expo-yarn-workspaces": "2.0.3",

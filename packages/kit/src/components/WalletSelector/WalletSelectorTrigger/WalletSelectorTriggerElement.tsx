@@ -1,21 +1,19 @@
 import type { FC } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
+import { AnimatePresence, MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { Rect } from 'react-native-svg';
 
 import {
   Box,
   Button,
-  Hidden,
   Icon,
   Pressable,
   Skeleton,
   Typography,
   useIsVerticalLayout,
-  useUserDevice,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
 import { useWalletName } from '../../../hooks/useWalletName';
@@ -27,22 +25,20 @@ import type { CreateWalletRoutesParams } from '../../../routes';
 import type { ModalScreenProps } from '../../../routes/types';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
-type Props = {
+export type WalletSelectorTriggerElementProps = {
   visible: boolean;
+  showWalletName?: boolean;
   handleToggleVisible: () => void;
 };
 
-export const WalletSelectorTriggerElement: FC<Props> = ({
-  visible,
-  handleToggleVisible,
-}) => {
+export const WalletSelectorTriggerElement: FC<
+  WalletSelectorTriggerElementProps
+> = ({ visible, showWalletName, handleToggleVisible }) => {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const { wallet } = useActiveWalletAccount();
-  const { screenWidth } = useUserDevice();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isLoading = useAppSelector((s) => s.accountSelector.isLoading);
-  const maxItemWidth = screenWidth / 2 - (platformEnv.isNative ? 72 : 0);
   const walletName = useWalletName({ wallet });
   const { devicesStatus } = useDeviceStatusOfHardwareWallet();
 
@@ -63,11 +59,7 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
   // ** Android will crash after account switch
   // const showExternalImg = true;
   return (
-    <Pressable
-      onPress={handleToggleVisible}
-      justifyContent="center"
-      hitSlop={8}
-    >
+    <Pressable onPress={handleToggleVisible} hitSlop={8} w="full">
       {({ isHovered }) => (
         <Box
           flexDirection="row"
@@ -76,7 +68,6 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
           p={1}
           pr={{ base: 1, md: 2 }}
           borderRadius="12px"
-          maxW={`${maxItemWidth}px`}
           bg={
             // eslint-disable-next-line no-nested-ternary
             visible && !isVerticalLayout
@@ -101,22 +92,37 @@ export const WalletSelectorTriggerElement: FC<Props> = ({
               />
             )}
           </Box>
-          <Hidden from="base" till="md">
-            <>
-              <Typography.Body2Strong
-                isTruncated
-                numberOfLines={1}
-                ml={3}
-                mr={1}
-                maxWidth="106px"
+          <AnimatePresence initial={false}>
+            {showWalletName && (
+              <MotiView
+                from={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{
+                  opacity: 0,
+                }}
+                transition={{
+                  type: 'timing',
+                  duration: 150,
+                }}
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}
               >
-                {name}
-              </Typography.Body2Strong>
-              <Box ml={!isVerticalLayout ? 'auto' : undefined}>
-                <Icon size={20} name="ChevronUpDownMini" color="icon-subdued" />
-              </Box>
-            </>
-          </Hidden>
+                <Typography.Body2Strong flex={1} isTruncated ml={3} mr={1}>
+                  {name}
+                </Typography.Body2Strong>
+                <Box>
+                  <Icon
+                    size={20}
+                    name="ChevronUpDownMini"
+                    color="icon-subdued"
+                  />
+                </Box>
+              </MotiView>
+            )}
+          </AnimatePresence>
         </Box>
       )}
     </Pressable>

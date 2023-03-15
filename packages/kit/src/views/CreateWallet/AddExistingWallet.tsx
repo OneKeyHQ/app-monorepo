@@ -469,7 +469,9 @@ function AddExistingWalletView(
                 backgroundColor="action-secondary-default"
                 secureTextEntry
                 size="xl"
-                rightCustomElement={PasteBtn()}
+                rightCustomElement={
+                  platformEnv.canGetClipboard ? PasteBtn() : null
+                }
               />
             ) : (
               <Form.Textarea

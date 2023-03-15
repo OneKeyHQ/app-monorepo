@@ -20,7 +20,7 @@ import type { TypographyStyle } from '../Typography';
 interface Props extends ComponentProps<typeof BaseInput> {
   value?: string | undefined;
   type?: 'text' | 'password' | 'number' | string;
-  autoFocus?: boolean | number;
+  autoFocus?: boolean;
   autoFocusDelay?: number;
   isDisabled?: boolean;
   isReadOnly?: boolean;

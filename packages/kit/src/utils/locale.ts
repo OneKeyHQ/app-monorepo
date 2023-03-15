@@ -1,4 +1,4 @@
-import * as Localization from 'expo-localization';
+import { locale as LocalizationLocale } from 'expo-localization';
 
 import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
@@ -6,7 +6,7 @@ import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
 const locales = LOCALES_OPTION.map((locale) => locale.value);
 
 export function getDefaultLocale() {
-  const current = Localization.locale;
+  const current = LocalizationLocale;
   for (let i = 0; i < locales.length; i += 1) {
     const locale = locales[i];
     if (locale === current) {

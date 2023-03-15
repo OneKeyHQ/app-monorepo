@@ -5,11 +5,12 @@ export enum ExplorerShortcutEvents {
   GobackHistory = 'GobackHistory',
   GoForwardHistory = 'GoForwardHistory',
   CloseTab = 'CloseTab',
+  CloseTabOnWinOrLinux = 'CloseTabOnWinOrLinux',
 }
 
 export const getShortcutsMap: (
   isMac?: boolean,
-) => Record<ExplorerShortcutEvents, { keys: string; desc: string }> = (
+) => Record<ExplorerShortcutEvents, { keys: string | null; desc: string }> = (
   isMac,
 ) => ({
   [ExplorerShortcutEvents.NewTab]: {
@@ -34,6 +35,10 @@ export const getShortcutsMap: (
   },
   [ExplorerShortcutEvents.CloseTab]: {
     keys: 'CmdOrCtrl+W',
+    desc: 'Close Tab',
+  },
+  [ExplorerShortcutEvents.CloseTabOnWinOrLinux]: {
+    keys: isMac ? null : 'Ctrl+F4',
     desc: 'Close Tab',
   },
 });

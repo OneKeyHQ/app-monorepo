@@ -822,6 +822,7 @@ class Engine {
       '461': OnekeyNetwork.fil,
       '784': OnekeyNetwork.sui,
       '354': OnekeyNetwork.dot,
+      '128': OnekeyNetwork.xmr,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');
@@ -1056,7 +1057,7 @@ class Engine {
     const vault = await this.getWalletOnlyVault(networkId, 'imported');
     let privateKey: Buffer | undefined;
     try {
-      privateKey = vault.getPrivateKeyByCredential(credential);
+      privateKey = await vault.getPrivateKeyByCredential(credential);
     } catch (e) {
       console.error(e);
     }
@@ -2896,21 +2897,23 @@ class Engine {
   async getFrozenBalance({
     accountId,
     networkId,
+    password,
   }: {
     accountId: string;
     networkId: string;
+    password?: string;
   }) {
     if (!networkId || !accountId) return 0;
-    return this._getFrozenBalance(accountId, networkId);
+    return this._getFrozenBalance(accountId, networkId, password);
   }
 
   _getFrozenBalance = memoizee(
-    async (accountId: string, networkId: string) => {
+    async (accountId: string, networkId: string, password?: string) => {
       const vault = await this.getVault({
         accountId,
         networkId,
       });
-      return vault.getFrozenBalance();
+      return vault.getFrozenBalance(password);
     },
     {
       promise: true,
