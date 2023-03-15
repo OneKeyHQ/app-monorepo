@@ -210,7 +210,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
               {tx.tokens?.from.token?.symbol.toString()}
             </Typography.Body1>
             <Typography.Body2 color="text-subdued">
-              {fromNetwork?.shortName}
+              {fromNetwork?.name}
             </Typography.Body2>
           </Box>
         </Box>
@@ -264,7 +264,7 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
               </Typography.Body1>
             </Box>
             <Typography.Body2 color="text-subdued">
-              {toNetwork?.shortName}
+              {toNetwork?.name}
             </Typography.Body2>
           </Box>
         </Box>
