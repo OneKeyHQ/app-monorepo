@@ -756,8 +756,8 @@ export default class Vault extends VaultBase {
     );
   }
 
-  override getPrivateKeyByCredential(credential: string) {
-    return decodePrivateKeyByXprv(credential);
+  override async getPrivateKeyByCredential(credential: string) {
+    return Promise.resolve(decodePrivateKeyByXprv(credential));
   }
 
   private getStakeAddress = memoizee(

@@ -44,6 +44,7 @@ function initNetworkList(presetNetwork: NetworkList) {
       explorers: network.explorers,
       extensions: network.extensions,
       presetRpcURLs: urls.length > 0 ? urls : [''], // TODO: Update [''] for data consistency
+      scanURL: network.scanURL,
     };
     record[network.id] = pn;
   });

@@ -62,6 +62,7 @@ export function useCreateAccountInWallet({
 
     let isCreateAccountSupported = false;
     let showCreateAccountMenu = false;
+    let isAddressDerivationSupported = true;
     if (network?.id) {
       if (
         activeWallet?.type === 'external' &&
@@ -95,10 +96,15 @@ export function useCreateAccountInWallet({
         isCreateAccountSupported = true;
         showCreateAccountMenu = true;
       }
+
+      if (vaultSettings?.addressDerivationDisabled) {
+        isAddressDerivationSupported = false;
+      }
     } else {
       // AllNetwork
       isCreateAccountSupported = true;
       showCreateAccountMenu = false;
+      isAddressDerivationSupported = true;
     }
 
     return {
@@ -107,6 +113,7 @@ export function useCreateAccountInWallet({
       activeWallet,
       vaultSettings,
       isCreateAccountSupported,
+      isAddressDerivationSupported,
       showCreateAccountMenu,
     };
   }, [networkId, walletId]);
@@ -260,5 +267,7 @@ export function useCreateAccountInWallet({
     createAccount,
     isCreateAccountSupported: walletAndNetworkInfo?.isCreateAccountSupported,
     showCreateAccountMenu: walletAndNetworkInfo?.showCreateAccountMenu,
+    isAddressDerivationSupported:
+      walletAndNetworkInfo?.isAddressDerivationSupported,
   };
 }

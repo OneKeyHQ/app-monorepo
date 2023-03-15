@@ -169,13 +169,19 @@ export default class ServiceToken extends ServiceBase {
     networkId: string;
     accountIds: string[];
   }) {
-    const { dispatch, engine } = this.backgroundApi;
+    const { dispatch, engine, servicePassword } = this.backgroundApi;
 
     const vault = await engine.getWalletOnlyVault(networkId, walletId);
+    const vaultSettings = await engine.getVaultSettings(networkId);
     const dbNetwork = await engine.dbApi.getNetwork(networkId);
     const dbAccounts = await engine.dbApi.getAccounts(accountIds);
 
     let balances: Array<BigNumber | undefined>;
+    let password;
+
+    if (vaultSettings.validationRequired) {
+      password = await servicePassword.getPassword();
+    }
     try {
       const balancesAddress = await Promise.all(
         dbAccounts.map(async (a) => {
@@ -190,8 +196,9 @@ export default class ServiceToken extends ServiceBase {
           return { address: a.address };
         }),
       );
+
       const requests = balancesAddress.map((acc) => ({ address: acc.address }));
-      balances = await vault.getBalances(requests);
+      balances = await vault.getBalances(requests, password);
     } catch {
       balances = dbAccounts.map(() => undefined);
     }
@@ -474,8 +481,15 @@ export default class ServiceToken extends ServiceBase {
     withMain = true,
     tokensMap: Record<string, Token> = {},
   ): Promise<[Record<string, TokenBalanceValue>, Token[] | undefined]> {
-    const { engine, serviceNetwork } = this.backgroundApi;
+    const { engine, serviceNetwork, servicePassword } = this.backgroundApi;
     const network = await engine.getNetwork(networkId);
+    const vaultSettings = await engine.getVaultSettings(networkId);
+
+    let password;
+
+    if (vaultSettings.validationRequired) {
+      password = await servicePassword.getPassword();
+    }
 
     const vault = await engine.getVault({ networkId, accountId });
     const status = await serviceNetwork.measureRpcStatus(networkId);
@@ -483,7 +497,11 @@ export default class ServiceToken extends ServiceBase {
 
     const tokensToGet = uniq(tokenIds);
     const ret: Record<string, TokenBalanceValue> = {};
-    const balances = await vault.getAccountBalance(tokensToGet, withMain);
+    const balances = await vault.getAccountBalance(
+      tokensToGet,
+      withMain,
+      password,
+    );
     if (withMain && typeof balances[0] !== 'undefined') {
       Object.assign(ret, {
         main: {

@@ -257,14 +257,24 @@ export const useFrozenBalance = ({
   >(0);
 
   useEffect(() => {
-    if (isAccountCompatibleWithNetwork(accountId, networkId)) {
+    (async () => {
+      let password;
+
+      const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
+        networkId,
+      );
+      if (vaultSettings.validationRequired) {
+        password = await backgroundApiProxy.servicePassword.getPassword();
+      }
+
       backgroundApiProxy.engine
         .getFrozenBalance({
           accountId,
           networkId,
+          password,
         })
         .then(setFrozenBalance);
-    }
+    })();
   }, [networkId, accountId]);
 
   return useMemo(
