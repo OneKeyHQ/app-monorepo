@@ -1908,4 +1908,8 @@ export default class Vault extends VaultBase {
           newNetworkIsEtc && prevNetworkIsOtherEvm,
     });
   }
+
+  override async canAutoCreateNextAccount(password: string): Promise<boolean> {
+    return Promise.resolve(true);
+  }
 }

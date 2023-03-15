@@ -77,16 +77,11 @@ const RecoveryWallet = () => {
         />
       </Layout>
       <Drawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
-      {mode === 'mnemonic' && (
+      {platformEnv.isNative && mode === 'mnemonic' && (
         <KeyboardAvoidingView
           behavior={platformEnv.isNativeIOS ? 'position' : 'height'}
         >
           <AccessoryView
-            position="absolute"
-            bottom="0"
-            left="0"
-            right="0"
-            p="12px"
             withKeybord
             accessoryData={accessoryData}
             selected={onSelectedKeybordAcessory}
