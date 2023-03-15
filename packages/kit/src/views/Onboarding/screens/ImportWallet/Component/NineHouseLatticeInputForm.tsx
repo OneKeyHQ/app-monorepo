@@ -99,7 +99,7 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
       let paste = e.clipboardData?.getData('text') as string;
       if (paste) {
         paste = paste.trim();
-        const values = paste.split(' ');
+        const values = paste.split(/\s+/g);
         if (values.length > 2) {
           setTimeout(() => {
             inputIndexArray.forEach((inputIndex) => {
@@ -196,7 +196,7 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
                   }) => {
                     const { value } = e.target;
                     if (typeof value === 'string') {
-                      if (value.trim().split(' ').length < 3) {
+                      if (value.trim().split(/\s+/g).length < 3) {
                         onChangeText(value);
                       }
                     }
