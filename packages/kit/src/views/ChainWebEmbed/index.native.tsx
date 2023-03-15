@@ -1,14 +1,15 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useGeneral } from '@onekeyhq/kit/src/hooks/redux';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   AppUIEventBusNames,
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { CardanoWebEmbedView } from './CardanoWebEmbedView';
-import { MoneroWebEmbedView } from './MoneroWebEmbedView';
+import { ChainWebEmbedViewCardano } from './ChainWebEmbedViewCardano
+import { ChainWebEmbedViewMonero } from './ChainWebEmbedViewMonero';
 
 function ChainWebEmbed() {
   const { activeNetworkId } = useGeneral();
@@ -40,14 +41,14 @@ function ChainWebEmbed() {
     };
   } = useMemo(
     () => ({
-      'ada--0': {
-        Component: CardanoWebEmbedView,
+      [OnekeyNetwork.ada]: {
+        Component: ChainWebEmbedViewCardano,
         chainRef: cardanoRef,
         chainCallbackRef: cardanoCallbackRef,
         webviewCallback: cardanoWebviewCallback,
       },
-      'xmr--0': {
-        Component: MoneroWebEmbedView,
+      [OnekeyNetwork.xmr]: {
+        Component: ChainWebEmbedViewMonero,
         chainRef: moneroRef,
         chainCallbackRef: moneroCallbackRef,
         webviewCallback: moneroWebviewCallback,

@@ -4,7 +4,7 @@ import { ChainWebEmbedView } from './ChainWebEmbedView';
 
 const ROUTE_PATH = '/cardano';
 
-const CardanoWebEmbedView = forwardRef(
+const ChainWebEmbedViewCardano = forwardRef(
   (
     {
       callback,
@@ -17,6 +17,6 @@ const CardanoWebEmbedView = forwardRef(
   ),
 );
 
-CardanoWebEmbedView.displayName = 'CardanoWebEmbedView';
+ChainWebEmbedViewCardano.displayName = 'ChainWebEmbedViewCardano';
 
-export { CardanoWebEmbedView };
+export { ChainWebEmbedViewCardano };

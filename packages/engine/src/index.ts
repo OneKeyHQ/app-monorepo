@@ -2897,21 +2897,23 @@ class Engine {
   async getFrozenBalance({
     accountId,
     networkId,
+    password,
   }: {
     accountId: string;
     networkId: string;
+    password?: string;
   }) {
     if (!networkId || !accountId) return 0;
-    return this._getFrozenBalance(accountId, networkId);
+    return this._getFrozenBalance(accountId, networkId, password);
   }
 
   _getFrozenBalance = memoizee(
-    async (accountId: string, networkId: string) => {
+    async (accountId: string, networkId: string, password?: string) => {
       const vault = await this.getVault({
         accountId,
         networkId,
       });
-      return vault.getFrozenBalance();
+      return vault.getFrozenBalance(password);
     },
     {
       promise: true,

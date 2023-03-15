@@ -15,7 +15,7 @@ import type {
   IChangeAddress,
 } from '../../types';
 
-const ProvideMethod = 'callCardanoWebEmbedMethod';
+const ProvideMethod = 'callChainWebEmbedMethod';
 enum CardanoEvent {
   composeTxPlan = 'Cardano_composeTxPlan',
   signTransaction = 'Cardano_signTransaction',

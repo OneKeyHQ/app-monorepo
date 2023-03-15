@@ -166,7 +166,9 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     );
   }
 
-  async getFrozenBalance(): Promise<number | Record<string, number>> {
+  async getFrozenBalance(
+    password?: string,
+  ): Promise<number | Record<string, number>> {
     return 0;
   }
 

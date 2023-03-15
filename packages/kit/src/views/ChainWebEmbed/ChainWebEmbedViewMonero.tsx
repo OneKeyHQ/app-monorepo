@@ -4,7 +4,7 @@ import { ChainWebEmbedView } from './ChainWebEmbedView';
 
 const ROUTE_PATH = '/monero';
 
-const MoneroWebEmbedView = forwardRef(
+const ChainWebEmbedViewMonero = forwardRef(
   (
     {
       callback,
@@ -17,6 +17,6 @@ const MoneroWebEmbedView = forwardRef(
   ),
 );
 
-MoneroWebEmbedView.displayName = 'MoneroWebEmbedView';
+ChainWebEmbedViewMonero.displayName = 'ChainWebEmbedViewMonero';
 
-export { MoneroWebEmbedView };
+export { ChainWebEmbedViewMonero };

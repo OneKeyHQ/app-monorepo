@@ -233,16 +233,6 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  callMoneroWebEmbedMethod(payload: any) {
-    this.callChainEmbedMethod(payload);
-  }
-
-  @providerApiMethod()
-  callCardanoWebEmbedMethod(payload: any) {
-    this.callChainEmbedMethod(payload);
-  }
-
-  @providerApiMethod()
   chainWebEmbedResponse(payload: any) {
     const method: string = payload.data?.method;
     console.log(`${method} =====<<<<<<<`);
@@ -251,16 +241,6 @@ class ProviderApiPrivate extends ProviderApiBase {
       id: payload?.data?.promiseId,
       data: { ...(payload?.data?.data ?? {}) },
     });
-  }
-
-  @providerApiMethod()
-  moneroWebEmbedResponse(payload: any) {
-    this.chainWebEmbedResponse(payload);
-  }
-
-  @providerApiMethod()
-  cardanoWebEmbedResponse(payload: any) {
-    this.chainWebEmbedResponse(payload);
   }
 }
 

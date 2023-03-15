@@ -5,20 +5,12 @@ import { Center, Text } from '@onekeyhq/components';
 import { Helper } from '@onekeyhq/engine/src/vaults/impl/xmr/sdk/helper';
 import { getMoneroCoreInstance } from '@onekeyhq/engine/src/vaults/impl/xmr/sdk/moneroCore/instance';
 import { getMoneroUtilInstance } from '@onekeyhq/engine/src/vaults/impl/xmr/sdk/moneroUtil/instance';
+import { MoneroEvent } from '@onekeyhq/shared/src/engine/xmrConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
-const ProvideResponseMethod = 'moneroWebEmbedResponse';
-
-enum MoneroEvent {
-  getKeyPairFromRawPrivatekey = 'Monero_getKeyPairFromRawPrivatekey',
-  generateKeyImage = 'Monero_generateKeyImage',
-  decodeAddress = 'Monero_decodeAddress',
-  estimatedTxFee = 'Monero_estimatedTxFee',
-  sendFunds = 'Monero_sendFunds',
-  seedAndkeysFromMnemonic = 'Monero_seedAndkeysFromMnemonic',
-}
+const ProvideResponseMethod = 'chainWebEmbedResponse';
 
 const getMoneroApi = async () => {
   const moneroCoreInstance = await getMoneroCoreInstance();
@@ -46,7 +38,7 @@ function WebEmbedWebviewAgentMonero() {
       console.log('params: ', JSON.stringify(payload.params));
       const { method, params } = payload;
 
-      if (method !== 'callMoneroWebEmbedMethod') {
+      if (method !== 'callChainWebEmbedMethod') {
         return;
       }
 

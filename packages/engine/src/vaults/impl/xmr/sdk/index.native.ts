@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { MoneroEvent } from '@onekeyhq/shared/src/engine/xmrConsts';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -13,15 +14,7 @@ import { privateSpendKeyToWords } from './moneroWords';
 import type { SignedTx } from '../../../../types/provider';
 import type { MoneroKeys } from '../types';
 
-const ProvideMethod = 'callMoneroWebEmbedMethod';
-enum MoneroEvent {
-  getKeyPairFromRawPrivatekey = 'Monero_getKeyPairFromRawPrivatekey',
-  generateKeyImage = 'Monero_generateKeyImage',
-  decodeAddress = 'Monero_decodeAddress',
-  estimatedTxFee = 'Monero_estimatedTxFee',
-  sendFunds = 'Monero_sendFunds',
-  seedAndkeysFromMnemonic = 'Monero_seedAndkeysFromMnemonic',
-}
+const ProvideMethod = 'callChainEmbedMethod';
 
 type IResult = { error: any; result: any };
 /**
