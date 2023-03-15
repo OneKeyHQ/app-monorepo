@@ -35,6 +35,7 @@ import type { IEncodedTxSol, INativeTxSol } from './impl/sol/types';
 import type { IEncodedTxSTC } from './impl/stc/types';
 import type { IEncodedTxSUI } from './impl/sui/types';
 import type { IEncodedTxTron } from './impl/tron/types';
+import type { IEncodedTxXmr } from './impl/xmr/types';
 import type { IEncodedTxXrp } from './impl/xrp/types';
 
 // Options ----------------------------------------------
@@ -53,6 +54,9 @@ export type IVaultSettings = {
   watchingAccountEnabled: boolean;
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
+
+  addressDerivationDisabled?: boolean;
+  validationRequired?: true;
 
   minTransferAmount?: string;
 
@@ -183,7 +187,8 @@ export type IEncodedTx =
   | IEncodedTxADA
   | IEncodedTxSUI
   | IEncodedTxFil
-  | IEncodedTxDot;
+  | IEncodedTxDot
+  | IEncodedTxXmr;
 
 export type INativeTx =
   | INativeTxEvm

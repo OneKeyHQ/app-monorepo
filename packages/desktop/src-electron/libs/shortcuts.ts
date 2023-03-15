@@ -9,9 +9,12 @@ export function registerShortcuts(
 ) {
   app.whenReady().then(() => {
     Object.entries(shortcutsMap).forEach(([event, { keys }]) => {
-      globalShortcut.register(keys, () => {
-        callback(event as ExplorerShortcutEvents);
-      });
+      if (keys) {
+        globalShortcut.register(keys, () => {
+          console.log('shortcut', event);
+          callback(event as ExplorerShortcutEvents);
+        });
+      }
     });
   });
 }

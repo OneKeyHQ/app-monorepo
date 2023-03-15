@@ -128,12 +128,16 @@ export function getTxActionElementAddressWithSecurityInfo({
   withSecurityInfo = false,
   typography = 'Body2Strong',
   amount,
+  isCopy,
+  isShorten,
 }: {
   address: string;
   withSecurityInfo: boolean;
   amount?: string;
   networkId?: string;
   typography?: ComponentProps<typeof Text>['typography'];
+  isCopy?: boolean;
+  isShorten?: boolean;
 }) {
   if (withSecurityInfo && networkId) {
     return (
@@ -143,6 +147,8 @@ export function getTxActionElementAddressWithSecurityInfo({
         networkId={networkId}
         typography={typography}
         amount={amount}
+        isCopy={isCopy}
+        isShorten={isShorten}
       />
     );
   }
@@ -151,6 +157,8 @@ export function getTxActionElementAddressWithSecurityInfo({
       typography={typography}
       address={address}
       amount={amount}
+      isCopy={isCopy}
+      isShorten={isShorten}
     />
   );
 }

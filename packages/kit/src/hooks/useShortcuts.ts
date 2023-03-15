@@ -41,7 +41,10 @@ export const useShortcuts = platformEnv.isDesktop
                 getWebviewWrapperRef()?.innerRef?.goForward();
                 // eslint-disable-next-line no-empty
               } catch (e) {}
-            } else if (data === ExplorerShortcutEvents.CloseTab) {
+            } else if (
+              data === ExplorerShortcutEvents.CloseTab ||
+              data === ExplorerShortcutEvents.CloseTabOnWinOrLinux
+            ) {
               const tabs = appSelector((s) => s.webTabs.tabs);
               if (tabs.length > 1) {
                 dCloseWebTab(tabs[tabs.length - 1].id);
@@ -49,7 +52,10 @@ export const useShortcuts = platformEnv.isDesktop
                 window.desktopApi.quitApp();
               }
             }
-          } else if (data === ExplorerShortcutEvents.CloseTab) {
+          } else if (
+            data === ExplorerShortcutEvents.CloseTab ||
+            data === ExplorerShortcutEvents.CloseTabOnWinOrLinux
+          ) {
             window.desktopApi.quitApp();
           }
         };

@@ -69,12 +69,21 @@ class ServiceHistory extends ServiceBase {
     tokenIdOnNetwork?: string;
     localHistory?: IHistoryTx[];
   }) {
-    const { engine } = this.backgroundApi;
+    const { engine, servicePassword } = this.backgroundApi;
     const vault = await engine.getVault({ networkId, accountId });
+    const vaultSettings = await engine.getVaultSettings(networkId);
+
+    let password;
+
+    if (vaultSettings.validationRequired) {
+      password = await servicePassword.getPassword();
+    }
+
     return vault.fetchOnChainHistory({
       // TODO limit=50
       localHistory,
       tokenIdOnNetwork,
+      password,
     });
   }
 

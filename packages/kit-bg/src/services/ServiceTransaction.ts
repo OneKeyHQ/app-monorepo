@@ -137,9 +137,9 @@ export default class ServiceTransaction extends ServiceBase {
       throw new Error('signedTx.encodedTx is missing, please check code');
     }
 
-    let payload = params.payload;
+    let { payload } = params;
     if (payload?.swapInfo && payload?.swapInfo?.isApprove) {
-      payload = undefined
+      payload = undefined;
     }
 
     const { decodedTx } = await engine.decodeTx({

@@ -758,7 +758,7 @@ export default class VaultBtcFork extends VaultBase {
     throw new NotImplemented();
   }
 
-  override getPrivateKeyByCredential(credential: string) {
-    return bs58check.decode(credential);
+  override async getPrivateKeyByCredential(credential: string) {
+    return Promise.resolve(bs58check.decode(credential));
   }
 }

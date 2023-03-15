@@ -63,6 +63,9 @@ const COINTYPE_FIL = '461';
 const IMPL_DOT = 'dot';
 const COINTYPE_DOT = '354';
 
+const IMPL_XMR = 'xmr';
+const COINTYPE_XMR = '128';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
@@ -83,6 +86,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_SUI,
   IMPL_FIL,
   IMPL_DOT,
+  IMPL_XMR,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -105,6 +109,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_SUI,
   IMPL_FIL,
   IMPL_DOT,
+  IMPL_XMR,
 ]);
 
 export const HISTORY_CONSTS = {
@@ -176,6 +181,8 @@ export {
   COINTYPE_FIL,
   IMPL_DOT,
   COINTYPE_DOT,
+  IMPL_XMR,
+  COINTYPE_XMR,
   getSupportedImpls,
 };
 

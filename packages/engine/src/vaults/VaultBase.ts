@@ -157,6 +157,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
   async getBalances(
     requests: Array<{ address: string; tokenAddress?: string }>,
+    password?: string,
   ): Promise<Array<BigNumber | undefined>> {
     // Abstract requests
     const client = await this.engine.providerManager.getClient(this.networkId);
@@ -168,7 +169,9 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     );
   }
 
-  async getFrozenBalance(): Promise<number | Record<string, number>> {
+  async getFrozenBalance(
+    password?: string,
+  ): Promise<number | Record<string, number>> {
     return 0;
   }
 
@@ -419,12 +422,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     };
   }
 
-  async getAccountBalance(tokenIds: Array<string>, withMain = true) {
+  async getAccountBalance(
+    tokenIds: Array<string>,
+    withMain = true,
+    password?: string,
+  ) {
     const { address } = await this.getDbAccount();
     return this.getBalances(
       (withMain ? [{ address }] : []).concat(
         tokenIds.map((tokenAddress) => ({ address, tokenAddress })),
       ),
+      password,
     );
   }
 
@@ -565,6 +573,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     // ""=NativeToken   "0x88836623"=Erc20Token    undefined=ALL
     tokenIdOnNetwork?: string;
     localHistory?: IHistoryTx[];
+    password?: string;
   }): Promise<IHistoryTx[]> {
     throw new NotImplemented();
   }
@@ -668,10 +677,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(account.address);
   }
 
-  getPrivateKeyByCredential(credential: string): Buffer | undefined {
-    return Buffer.from(
-      credential.startsWith('0x') ? credential.slice(2) : credential,
-      'hex',
+  getPrivateKeyByCredential(credential: string): Promise<Buffer | undefined> {
+    return Promise.resolve(
+      Buffer.from(
+        credential.startsWith('0x') ? credential.slice(2) : credential,
+        'hex',
+      ),
     );
   }
 

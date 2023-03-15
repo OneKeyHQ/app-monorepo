@@ -79,8 +79,8 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
 }
 
 export function TxActionTransfer(props: ITxActionCardProps) {
-  const { action, meta, decodedTx, network } = props;
   const intl = useIntl();
+  const { action, meta, decodedTx, network } = props;
 
   const { amount, symbol, from, to, isOut } = getTxActionTransferInfo(props);
 
@@ -88,19 +88,27 @@ export function TxActionTransfer(props: ITxActionCardProps) {
     {
       title: intl.formatMessage({ id: 'content__from' }),
       content: getTxActionElementAddressWithSecurityInfo({
-        address: from,
+        address:
+          from === 'unknown'
+            ? intl.formatMessage({ id: 'form__unknown' })
+            : from,
         networkId: network?.id,
         withSecurityInfo: !isOut,
         amount,
+        isCopy: from !== 'unknown',
+        isShorten: from !== 'unknown',
       }),
     },
     {
       title: intl.formatMessage({ id: 'content__to' }),
       content: getTxActionElementAddressWithSecurityInfo({
-        address: to,
+        address:
+          to === 'unknown' ? intl.formatMessage({ id: 'form__unknown' }) : to,
         networkId: network?.id,
         withSecurityInfo: isOut,
         amount,
+        isCopy: to !== 'unknown',
+        isShorten: to !== 'unknown',
       }),
     },
   ];
@@ -121,6 +129,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
 }
 
 export function TxActionTransferT0(props: ITxActionCardProps) {
+  const intl = useIntl();
   const { action, meta, decodedTx, historyTx } = props;
   const { accountId, networkId } = decodedTx;
   const { amount, symbol, from, to, isOut, displayDecimals } =
@@ -128,6 +137,12 @@ export function TxActionTransferT0(props: ITxActionCardProps) {
   const statusBar = (
     <TxStatusBarInList decodedTx={decodedTx} historyTx={historyTx} />
   );
+
+  const subTitle = isOut ? to : from;
+  const subTitleFormated =
+    subTitle === 'unknown'
+      ? intl.formatMessage({ id: 'form__unknown' })
+      : shortenAddress(subTitle);
   return (
     <TxListActionBox
       footer={statusBar}
@@ -144,7 +159,7 @@ export function TxActionTransferT0(props: ITxActionCardProps) {
           direction={action.direction}
         />
       }
-      subTitle={isOut ? shortenAddress(to) : shortenAddress(from)}
+      subTitle={subTitleFormated}
       extra={
         <FormatCurrencyTokenOfAccount
           accountId={accountId}
