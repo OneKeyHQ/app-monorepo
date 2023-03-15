@@ -57,19 +57,17 @@ const ExtraFilters: FC<Props> = (props) => {
         isFullMode
         onToggle={() => handleChange('includeZeroBalancesTokens')}
       />
-      {isFromRpc ? (
-        <>
-          <Box h="6" />
-          <Switch
-            isChecked={filters.includeTokensWithoutAllowances}
-            label={intl.formatMessage({
-              id: 'form__include_tokens_without_allowances',
-            })}
-            isFullMode
-            onToggle={() => handleChange('includeTokensWithoutAllowances')}
-          />
-        </>
-      ) : null}
+      <>
+        <Box h="6" />
+        <Switch
+          isChecked={filters.includeTokensWithoutAllowances}
+          label={intl.formatMessage({
+            id: 'form__include_tokens_without_allowances',
+          })}
+          isFullMode
+          onToggle={() => handleChange('includeTokensWithoutAllowances')}
+        />
+      </>
     </VStack>
   );
 };

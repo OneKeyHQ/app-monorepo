@@ -45,7 +45,7 @@ const AccountItemMenu: FC<IMenu & { onChange: (value: string) => void }> = ({
         onPress: () => onPress('detail'),
         icon: 'DocumentTextOutline',
       },
-      () => <Divider />,
+      () => <Divider my={1} />,
       {
         id: 'action__remove_account',
         onPress: () => onPress('remove'),

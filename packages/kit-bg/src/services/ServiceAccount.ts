@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/engine/src/managers/network';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import type { Account, DBAccount } from '@onekeyhq/engine/src/types/account';
+import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
@@ -1426,6 +1427,22 @@ class ServiceAccount extends ServiceBase {
       newNetwork,
       activeAccountId,
     });
+  }
+
+  @backgroundMethod()
+  async getAcccountAddressWithXpub(accountId: string, networkId: string) {
+    const { engine } = this.backgroundApi;
+    const account = await engine.dbApi.getAccount(accountId);
+    const vault = await engine.getVault({ networkId, accountId });
+    if (account.type === AccountType.UTXO) {
+      const xpub = await vault.getFetchBalanceAddress(account);
+      return { xpub, address: account.address };
+    }
+    if (account.type === AccountType.VARIANT) {
+      const address = await vault.addressFromBase(account);
+      return { address };
+    }
+    return { address: account.address };
   }
 }
 

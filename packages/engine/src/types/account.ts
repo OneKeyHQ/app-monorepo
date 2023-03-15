@@ -39,6 +39,7 @@ type Account = DBBaseAccount & {
   tokens: Array<Token>;
   address: string;
   displayAddress?: string;
+  xpub?: string; // for btc fork chain
 };
 
 type ImportableHDAccount = {

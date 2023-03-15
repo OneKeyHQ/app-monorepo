@@ -255,7 +255,9 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
           <TokenIcon size="8" token={tx.tokens?.to.token} />
           <Box ml="3">
             <Box flexDirection="row" alignItems="center">
-              <Typography.Caption mr="1">～</Typography.Caption>
+              {!tx.actualReceived ? (
+                <Typography.Caption mr="1">~</Typography.Caption>
+              ) : null}
               <Typography.Body1>
                 {formatAmount(tx.tokens?.to.amount, 4)}
                 {tx.tokens?.to.token.symbol.toUpperCase()}
