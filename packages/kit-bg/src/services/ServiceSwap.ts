@@ -373,6 +373,19 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  setRecipientToAccount(account: Account, network?: Network | null) {
+    const { dispatch } = this.backgroundApi;
+    const data = {
+      address: account.address,
+      name: account.name,
+      accountId: account.id,
+      networkId: network?.id,
+      networkImpl: network?.impl,
+    };
+    dispatch(setRecipient(data));
+  }
+
+  @backgroundMethod()
   async refreshSendingAccount() {
     const { appSelector, engine } = this.backgroundApi;
     const sendingAccount = appSelector((s) => s.swap.sendingAccount);
@@ -640,15 +653,21 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async buyToken(token: Token) {
-    const { appSelector, engine } = this.backgroundApi;
+  async getPaymentToken(token: Token) {
+    const { appSelector } = this.backgroundApi;
     const payments = appSelector((s) => s.swapTransactions.payments);
     const defaultPayment = appSelector(
       (s) => s.swapTransactions.defaultPayment,
     );
     const { networkId } = token;
     const paymentToken = payments?.[networkId] ?? defaultPayment;
+    return paymentToken;
+  }
 
+  @backgroundMethod()
+  async buyToken(token: Token) {
+    const { engine } = this.backgroundApi;
+    const paymentToken = await this.getPaymentToken(token);
     this.setOutputToken(token);
     if (paymentToken) {
       if (this.isSameToken(token, paymentToken)) {
@@ -662,16 +681,9 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async sellToken(token: Token) {
-    const { appSelector, engine } = this.backgroundApi;
-    const payments = appSelector((s) => s.swapTransactions.payments);
-    const defaultPayment = appSelector(
-      (s) => s.swapTransactions.defaultPayment,
-    );
-    const { networkId } = token;
-    const paymentToken = payments?.[networkId] ?? defaultPayment;
-
+    const { engine } = this.backgroundApi;
+    const paymentToken = await this.getPaymentToken(token);
     this.setInputToken(token);
-
     if (paymentToken) {
       if (this.isSameToken(token, paymentToken)) {
         const nativeToken = await engine.getNativeTokenInfo(token.networkId);

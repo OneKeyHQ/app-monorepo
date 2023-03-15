@@ -171,24 +171,28 @@ type AccountOptionProps = { isSmallView: boolean };
 const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const {
-    wallet,
-    account,
-    networkId: activeNetworkId,
-  } = useActiveWalletAccount();
+  const { wallet, account, network } = useActiveWalletAccount();
   const isVertical = useIsVerticalLayout();
   const { sendToken } = useNavigationActions();
   const iconBoxFlex = isVertical ? 1 : 0;
 
   const onSwap = useCallback(async () => {
     const token = await backgroundApiProxy.engine.getNativeTokenInfo(
-      activeNetworkId,
+      network?.id ?? '',
     );
-    if (account) {
-      backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
-    }
     if (token) {
       backgroundApiProxy.serviceSwap.sellToken(token);
+      if (account) {
+        backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
+        const paymentToken =
+          await backgroundApiProxy.serviceSwap.getPaymentToken(token);
+        if (paymentToken?.networkId === network?.id) {
+          backgroundApiProxy.serviceSwap.setRecipientToAccount(
+            account,
+            network,
+          );
+        }
+      }
     }
     if (isVertical) {
       backgroundApiProxy.serviceMarket.switchMarketTopTab(SWAP_TAB_NAME);
@@ -196,7 +200,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
     } else {
       navigation.getParent()?.navigate(TabRoutes.Swap);
     }
-  }, [activeNetworkId, account, navigation, isVertical]);
+  }, [network, account, navigation, isVertical]);
 
   return (
     <Box flexDirection="row" px={isVertical ? 1 : 0} mx={-3}>
