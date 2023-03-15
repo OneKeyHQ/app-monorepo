@@ -67,7 +67,6 @@ export const OnekeyNetwork = {
   'trx': 'tron--0x2b6653dc',
   'ttrx': 'tron--0x94a9059e',
   'xmr': 'xmr--0',
-  'txmr': 'xmr--1',
   'xrp': 'xrp--0',
 } as const;
 

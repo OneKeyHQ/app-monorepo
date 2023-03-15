@@ -4,7 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
-import { Box, useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  useIsVerticalLayout,
+  useUserDevice,
+} from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import {
   getStatus,
@@ -17,6 +22,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
 import { OneKeyPerfTraceLog } from '../../components/OneKeyPerfTraceLog';
+import Protected, { ValidationFields } from '../../components/Protected';
 import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 import { useHtmlPreloadSplashLogoRemove } from '../../provider/AppLoading';
 import { setHomeTabName } from '../../store/reducers/status';
@@ -94,7 +100,7 @@ const WalletTabs: FC = () => {
     });
   }, []);
 
-  return (
+  const walletTabs = (
     <>
       <Tabs.Container
         canOpenDrawer
@@ -164,11 +170,25 @@ const WalletTabs: FC = () => {
       {backupToast()}
     </>
   );
+
+  if (!wallet) return null;
+
+  if (network?.settings.validationRequired) {
+    return (
+      <Center w="full" h="full">
+        <Protected walletId={wallet.id} field={ValidationFields.Account}>
+          {() => walletTabs}
+        </Protected>
+      </Center>
+    );
+  }
+  return walletTabs;
 };
 
 export default function Wallet() {
   useOnboardingRequired(true);
   useHtmlPreloadSplashLogoRemove();
+
   return (
     <>
       <IdentityAssertion>
