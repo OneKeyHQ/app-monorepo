@@ -55,6 +55,7 @@ export const AccessoryView = ({
       ) : (
         <Box
           flexDirection="row"
+          p={3}
           m="-4px"
           {...(expandWords && { flexWrap: 'wrap' })}
         >
