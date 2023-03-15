@@ -109,13 +109,22 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
 
   const onSwap = useCallback(async () => {
     const targetToken = await backgroundApiProxy.engine.getNativeTokenInfo(
-      networkId,
+      network?.id ?? '',
     );
-    if (account) {
-      backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
-    }
+
     if (targetToken) {
       backgroundApiProxy.serviceSwap.sellToken(targetToken);
+      if (account) {
+        backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
+        const paymentToken =
+          await backgroundApiProxy.serviceSwap.getPaymentToken(targetToken);
+        if (paymentToken?.networkId === network?.id) {
+          backgroundApiProxy.serviceSwap.setRecipientToAccount(
+            account,
+            network,
+          );
+        }
+      }
     }
     if (isVertical) {
       backgroundApiProxy.serviceMarket.switchMarketTopTab(SWAP_TAB_NAME);
@@ -123,7 +132,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
     } else {
       navigation.getParent()?.navigate(TabRoutes.Swap);
     }
-  }, [networkId, account, isVertical, navigation]);
+  }, [network, account, isVertical, navigation]);
 
   const renderAccountAmountInfo = useMemo(
     () => (

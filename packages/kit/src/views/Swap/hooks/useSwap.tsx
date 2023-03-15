@@ -18,6 +18,7 @@ import { QuoterType, SwapError } from '../typings';
 import {
   formatAmount,
   getTokenAmountString,
+  getTokenAmountValue,
   greaterThanZeroOrUndefined,
 } from '../utils';
 
@@ -56,10 +57,7 @@ class TokenAmount {
 export function useTokenAmount(token?: Token, amount?: string) {
   return useMemo(() => {
     if (!token || !amount) return;
-    const bn = new BigNumber(amount);
-    const decimals = new BigNumber(token.decimals);
-    const base = new BigNumber(10);
-    const value = bn.dividedBy(base.exponentiatedBy(decimals));
+    const value = getTokenAmountValue(token, amount);
     return new TokenAmount(token, value.toFixed());
   }, [token, amount]);
 }
@@ -327,25 +325,42 @@ export function useDerivedSwapState() {
   };
 }
 
-export const useSwapError = () => {
-  const error = useAppSelector((s) => s.swap.error);
+export function useSwapInputAmount() {
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const typedValue = useAppSelector((s) => s.swap.typedValue);
+  return useMemo(() => {
+    if (inputToken && typedValue) {
+      return getTokenAmountString(inputToken, typedValue);
+    }
+  }, [inputToken, typedValue]);
+}
+
+export const useCheckInputBalance = () => {
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
-  const { inputAmount } = useDerivedSwapState();
+  // const { inputAmount } = useDerivedSwapState();
+  const inputAmount = useSwapInputAmount();
   const inputBalance = useTokenBalance(
     inputAmount ? inputToken : undefined,
     sendingAccount?.id,
   );
-  const inputBalanceBN = useMemo(() => {
-    if (!inputBalance || !inputToken) return;
-    return new TokenAmount(inputToken, inputBalance).toNumber();
-  }, [inputToken, inputBalance]);
+  return useMemo(() => {
+    if (inputToken && inputBalance && inputAmount) {
+      const bn = new TokenAmount(inputToken, inputBalance).toNumber();
+      return { insufficient: bn.lt(inputAmount), token: inputToken };
+    }
+  }, [inputToken, inputBalance, inputAmount]);
+};
 
-  const balanceError =
-    inputAmount && inputBalanceBN && inputBalanceBN.lt(inputAmount.toNumber())
+export const useSwapError = () => {
+  const error = useAppSelector((s) => s.swap.error);
+  const balanceInfo = useCheckInputBalance();
+  return useMemo(() => {
+    if (error) return error;
+    return balanceInfo && balanceInfo.insufficient
       ? SwapError.InsufficientBalance
       : undefined;
-  return error || balanceError;
+  }, [error, balanceInfo]);
 };
 
 export function useInputLimitsError():

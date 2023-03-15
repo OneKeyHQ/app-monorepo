@@ -154,7 +154,9 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
             </Box>
             <Box flex="1">
               <Box flexDirection="row" alignItems="center">
-                <Typography.Caption mr="1">～</Typography.Caption>
+                {!tx.actualReceived ? (
+                  <Typography.Caption>~</Typography.Caption>
+                ) : null}
                 <Box flex="1">
                   <Typography.Body1Strong isTruncated>
                     {formatTokenAmount({
@@ -278,7 +280,9 @@ const HistoryItemVerticalView: FC<HistoryItemProps> = ({
             />
           </Box>
           <Box flexDirection="row" alignItems="center" flex="1" flexWrap="wrap">
-            <Typography.Caption mr="1">～</Typography.Caption>
+            {!tx.actualReceived ? (
+              <Typography.Caption>~</Typography.Caption>
+            ) : null}
             <Typography.Body1Strong mr="2">
               {formatTokenAmount({
                 token: tx.tokens?.to.token,
