@@ -58,6 +58,7 @@ function normalizeConfig({ platform, config }) {
     'ONEKEY_PLATFORM',
     'EXT_CHANNEL',
     'ANDROID_CHANNEL',
+    'DESK_CHANNEL',
     'COVALENT_KEY',
     'MOONPAY_KEY',
     'HARDWARE_SDK_CONNECT_SRC',

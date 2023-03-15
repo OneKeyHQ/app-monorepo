@@ -1,7 +1,7 @@
 import type { FC, ReactElement } from 'react';
+import { useMemo } from 'react';
 
 import {
-  Badge,
   HStack,
   Icon,
   Pressable,
@@ -10,6 +10,8 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { TokenIcon } from '@onekeyhq/components/src/Token';
+
+import { OverviewBadge } from '../OverviewBadge';
 
 import type B from 'bignumber.js';
 
@@ -25,6 +27,7 @@ export const OverviewDefiBoxHeader: FC<{
   onOpenDapp?: () => void;
 }> = ({ icon, name, rate, desc, extra, toggle, collapsed, onOpenDapp }) => {
   const isVertical = useIsVerticalLayout();
+  const badge = useMemo(() => <OverviewBadge rate={rate} />, [rate]);
   if (isVertical) {
     return (
       <VStack
@@ -47,9 +50,7 @@ export const OverviewDefiBoxHeader: FC<{
               <Text onPress={onOpenDapp} typography="Body1Strong" ml="2">
                 {name}
               </Text>
-              {rate.isNaN() ? null : (
-                <Badge ml="2" size="lg" title={`${rate.toFixed(2)}%`} />
-              )}
+              {rate.isNaN() ? null : badge}
             </HStack>
           </HStack>
           <Pressable onPress={toggle}>
@@ -89,9 +90,7 @@ export const OverviewDefiBoxHeader: FC<{
           <Text typography="Heading" ml="2" onPress={onOpenDapp}>
             {name}
           </Text>
-          {rate.isNaN() ? null : (
-            <Badge ml="2" size="lg" title={`${rate.toFixed(2)}%`} />
-          )}
+          {rate.isNaN() ? null : badge}
         </HStack>
       </HStack>
       <Pressable onPress={toggle}>

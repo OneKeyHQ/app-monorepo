@@ -8,7 +8,6 @@ import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Box,
   HStack,
   Modal,
@@ -22,6 +21,7 @@ import { FormatCurrencyNumber } from '../../../../components/Format';
 import { useAccountValues, useAppSelector } from '../../../../hooks';
 import { useNavigationBack } from '../../../../hooks/useAppNavigation';
 import { useCurrentFiatValue } from '../../../../hooks/useTokens';
+import { OverviewBadge } from '../OverviewBadge';
 
 import type {
   OverviewModalRoutes,
@@ -106,9 +106,7 @@ const OverviewProtocolDetail: FC = () => {
             convertValue={new B(protocol?.protocolValue ?? 0)}
           />
         </Typography.Heading>
-        {rate.isGreaterThan(0) ? (
-          <Badge title={`${rate.toFixed(2)}%`} size="lg" ml="2" />
-        ) : null}
+        {rate.isGreaterThan(0) ? <OverviewBadge rate={rate} /> : null}
       </HStack>
     );
   }, [isVertical, protocol, rate]);

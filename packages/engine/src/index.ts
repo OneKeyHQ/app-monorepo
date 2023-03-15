@@ -1851,6 +1851,62 @@ class Engine {
   }
 
   @backgroundMethod()
+  async buildEncodedTxFromWrapperTokenDeposit({
+    networkId,
+    accountId,
+    contract,
+    amount,
+  }: {
+    networkId: string;
+    accountId: string;
+    contract: string;
+    amount: string;
+  }) {
+    const vault = await this.getVault({ networkId, accountId });
+    const impl = await vault.getNetworkImpl();
+    if (impl !== IMPL_EVM) {
+      throw new OneKeyInternalError(
+        `networkId: ${networkId} dont support deposit`,
+      );
+    }
+    const { address } = await this.getAccount(accountId, networkId);
+    const evmVault = vault as VaultEvm;
+    return evmVault.buildEncodedTxFromWrapperTokenDeposit({
+      amount,
+      from: address,
+      contract,
+    });
+  }
+
+  @backgroundMethod()
+  async buildEncodedTxFromWrapperTokenWithdraw({
+    networkId,
+    accountId,
+    contract,
+    amount,
+  }: {
+    networkId: string;
+    accountId: string;
+    contract: string;
+    amount: string;
+  }) {
+    const vault = await this.getVault({ networkId, accountId });
+    const impl = await vault.getNetworkImpl();
+    if (impl !== IMPL_EVM) {
+      throw new OneKeyInternalError(
+        `networkId: ${networkId} dont support withdraw`,
+      );
+    }
+    const { address } = await this.getAccount(accountId, networkId);
+    const evmVault = vault as VaultEvm;
+    return evmVault.buildEncodedTxFromWrapperTokenWithdraw({
+      amount,
+      from: address,
+      contract,
+    });
+  }
+
+  @backgroundMethod()
   async buildEncodedTxsFromSetApproveForAll({
     networkId,
     accountId,

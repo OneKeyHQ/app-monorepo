@@ -3,7 +3,12 @@ import { memo, useEffect, useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
-import { Box, useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
+import {
+  Box,
+  useIsVerticalLayout,
+  useProviderValue,
+  useThemeValue,
+} from '@onekeyhq/components';
 import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
 import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -117,14 +122,6 @@ const OverviewDefiListScreen = createLazyComponent(
 
 const WalletSwitch = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/Me/UtilSection/WalletSwitch'),
-);
-
-const AnnualLoading = createLazyComponent(
-  () => import('@onekeyhq/kit/src/views/AnnualReport/Welcome'),
-);
-
-const AnnualReport = createLazyComponent(
-  () => import('@onekeyhq/kit/src/views/AnnualReport/Report'),
 );
 const BulkSender = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/BulkSender'),
@@ -241,14 +238,6 @@ export const stackScreenList: ScreensList<HomeRoutes> = [
     component: WalletSwitch,
   },
   {
-    name: HomeRoutes.AnnualLoading,
-    component: AnnualLoading,
-  },
-  {
-    name: HomeRoutes.AnnualReport,
-    component: AnnualReport,
-  },
-  {
     name: HomeRoutes.BulkSender,
     component: BulkSender,
     alwaysShowBackButton: true,
@@ -321,17 +310,21 @@ Dashboard.displayName = 'Dashboard';
 function MainScreen() {
   const { dispatch } = backgroundApiProxy;
 
+  const { reduxReady } = useProviderValue();
+
   useEffect(() => {
-    appUpdates.addUpdaterListener();
-    appUpdates
-      .checkUpdate()
-      ?.then((versionInfo) => {
-        if (versionInfo) {
-          dispatch(enable(), available(versionInfo));
-        }
-      })
-      .catch();
-  }, [dispatch]);
+    if (reduxReady) {
+      appUpdates.addUpdaterListener();
+      appUpdates
+        .checkUpdate()
+        ?.then((versionInfo) => {
+          if (versionInfo) {
+            dispatch(enable(), available(versionInfo));
+          }
+        })
+        .catch();
+    }
+  }, [dispatch, reduxReady]);
 
   return (
     <RootSiblingParent>

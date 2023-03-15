@@ -42,6 +42,7 @@ export type CheckBoxProps = {
    * 点击监听
    */
   onChange?: (isSelected: boolean) => void;
+  containerStyle?: ComponentProps<typeof Box>;
 } & ComponentProps<typeof Box>;
 
 const defaultProps = {
@@ -62,6 +63,7 @@ const CheckBox: FC<CheckBoxProps> = ({
   isDisabled,
   onChange,
   children,
+  containerStyle,
   ...props
 }) => {
   let titleColor = 'text-default';
@@ -72,6 +74,7 @@ const CheckBox: FC<CheckBoxProps> = ({
     descriptionColor = 'text-disabled';
   }
   const { ...boxProps } = props as IBoxProps;
+
   const onChangeCallback = useMemo(
     () => (!isDisabled ? onChange : undefined),
     [isDisabled, onChange],
@@ -84,7 +87,13 @@ const CheckBox: FC<CheckBoxProps> = ({
       flexDirection="row"
       alignItems="flex-start"
     >
-      <Box h="5" mr="3" justifyContent="flex-end" display="flex">
+      <Box
+        mr="3"
+        h="5"
+        justifyContent="flex-end"
+        display="flex"
+        {...containerStyle}
+      >
         <BaseCheckBox
           value={value}
           name={name}
@@ -168,11 +177,7 @@ const CheckBox: FC<CheckBoxProps> = ({
             }
           }}
         >
-          <Typography.Body2Strong
-            fontWeight="bold"
-            selectable={false}
-            color={titleColor}
-          >
+          <Typography.Body2Strong selectable={false} color={titleColor}>
             {title}
           </Typography.Body2Strong>
           {!!description && (

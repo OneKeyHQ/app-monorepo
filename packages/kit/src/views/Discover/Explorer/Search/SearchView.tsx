@@ -136,7 +136,7 @@ const SearchView = forwardRef<SearchViewRef, SearchViewProps>(
       dropdownPosition: 'right',
       translateY,
       setPositionOnlyMounted: false,
-      autoAdjust: false,
+      autoAdjust: true,
     });
 
     const onKeyPress = (keyEvent: SearchViewKeyEventType) => {

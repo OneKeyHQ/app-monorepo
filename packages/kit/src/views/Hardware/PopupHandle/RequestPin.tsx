@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  IconButton,
   Input,
   Keyboard,
   LottieView,
@@ -71,22 +72,27 @@ const PinOnSoftwareView: FC<PinOnSoftwareViewProps> = ({
         {intl.formatMessage({ id: 'modal__enter_pin' })}
       </Typography.Heading>
 
-      <Box w="full" mt={6}>
+      <Typography.Body2 color="text-subdued" mt="4px">
+        {intl.formatMessage({ id: 'modal__enter_pin_desc' })}
+      </Typography.Body2>
+
+      <Box w="full" my={6}>
         <Input
           isReadOnly
+          size="xl"
           maxLength={PINCodeMaxLength}
           type="text"
-          rightIconName="BackspaceOutline"
           w="100%"
           value={displayValue}
-          onPressRightIcon={() => setValue(value.slice(0, -1))}
+          rightElement={
+            <IconButton
+              onPress={() => setValue(value.slice(0, -1))}
+              size="xl"
+              type="plain"
+              name="BackspaceOutline"
+            />
+          }
         />
-      </Box>
-
-      <Box mt={6} mb={6}>
-        <Typography.Body2 color="text-subdued" textAlign="center">
-          {intl.formatMessage({ id: 'modal__enter_pin_desc' })}
-        </Typography.Body2>
       </Box>
 
       <Keyboard

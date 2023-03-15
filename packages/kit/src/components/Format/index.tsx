@@ -15,7 +15,7 @@ import {
   useSettings,
 } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
-import { useTokenBalance } from '../../hooks/useTokens';
+import { useTokenBalanceWithoutFrozen } from '../../hooks/useTokens';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 import { formatDecimalZero } from '../../views/Market/utils';
 
@@ -337,7 +337,7 @@ export function FormatBalanceTokenOfAccount({
   accountId: string;
   networkId: string;
 }) {
-  const tokenBalance = useTokenBalance({
+  const tokenBalance = useTokenBalanceWithoutFrozen({
     networkId,
     accountId,
     token,

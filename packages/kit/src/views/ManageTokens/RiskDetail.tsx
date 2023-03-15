@@ -64,12 +64,12 @@ const RiskDetail: FC = () => {
         return (
           <Center mt="6" mb="8">
             <Icon
-              name="ShieldExclamationMini"
-              color="icon-critical"
+              name="ExclamationTriangleMini"
+              color="icon-warning"
               size={44}
             />
             <Typography.DisplayLarge mt="2">
-              {intl.formatMessage({ id: 'title__risky_token' })}
+              {intl.formatMessage({ id: 'title__possible_risky_token' })}
             </Typography.DisplayLarge>
           </Center>
         );
@@ -77,9 +77,9 @@ const RiskDetail: FC = () => {
 
       return (
         <Center mt="6" mb="8">
-          <Icon name="ExclamationTriangleMini" color="icon-warning" size={44} />
+          <Icon name="ExclamationCircleMini" color="icon-subdued" size={44} />
           <Typography.DisplayLarge mt="2">
-            {intl.formatMessage({ id: 'title__attention_token' })}
+            {intl.formatMessage({ id: 'title__token_that_needs_caution' })}
           </Typography.DisplayLarge>
         </Center>
       );
@@ -133,18 +133,14 @@ const RiskDetail: FC = () => {
       if (hasSecurity) {
         if (isWarnItem) {
           icon = (
-            <Icon
-              size={20}
-              name="ExclamationTriangleMini"
-              color="icon-warning"
-            />
+            <Icon size={20} name="ExclamationCircleMini" color="icon-subdued" />
           );
         } else {
           icon = (
             <Icon
               size={20}
-              name="ShieldExclamationMini"
-              color="icon-critical"
+              name="ExclamationTriangleMini"
+              color="icon-warning"
             />
           );
         }
@@ -245,6 +241,7 @@ const RiskDetail: FC = () => {
           renderItem={renderItem}
           keyExtractor={(item: string, index) => `${item}_${index}`}
           ListFooterComponent={() => footer}
+          paddingX="2"
         />
       ) : (
         <List
@@ -253,6 +250,7 @@ const RiskDetail: FC = () => {
           renderItem={renderItem}
           keyExtractor={(item, index) => `${item as string}_${index}`}
           ListFooterComponent={() => footer}
+          paddingX="2"
         />
       )}
     </Modal>

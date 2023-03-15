@@ -9,17 +9,17 @@ import TouchIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import type { TypographyStyle } from '@onekeyhq/components/src/Typography';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
+import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { defaultAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
-import { getDeviceTypeByDeviceId } from '../../utils/hardware';
-
 import type {
   DeviceStatusType,
   IHardwareDeviceStatusMap,
 } from '../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 type WalletAvatarProps = {
   size?: 'xl' | 'lg' | 'sm' | 'xs' | string;
@@ -28,7 +28,7 @@ type WalletAvatarProps = {
   circular?: boolean;
   hwWalletType?: IOneKeyDeviceType;
   avatar?: Avatar;
-  status?: 'connected' | 'warning' | string | undefined;
+  status?: DeviceState;
   isPassphrase?: boolean;
 } & ComponentProps<typeof Center>;
 
@@ -42,7 +42,15 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
   walletImage,
   hwWalletType,
   avatar,
+  isPassphrase,
 }) => {
+  const iconFontSizeMap: { [size: string]: number } = {
+    'xs': 16,
+    'sm': 20,
+    'xl': 24,
+    'lg': 24,
+  };
+
   if (
     // ['classic', 'mini', 'touch'].includes(hwWalletType || '') &&
     walletImage === 'hw'
@@ -70,6 +78,17 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
         height: '18px',
       },
     };
+
+    if (isPassphrase) {
+      return (
+        <Icon
+          name="LockClosedSolid" // LockClosedSolid
+          size={iconFontSizeMap[(size as string) ?? 'lg'] ?? 24}
+          color="icon-subdued"
+        />
+      );
+    }
+
     let imgSource = ClassicIcon;
     if (hwWalletType === 'classic') {
       imgSource = ClassicIcon;
@@ -80,6 +99,7 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
     if (hwWalletType === 'touch') {
       imgSource = TouchIcon;
     }
+
     return (
       <Image
         key={hwWalletType}
@@ -90,12 +110,6 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
     );
   }
 
-  const iconFontSizeMap: { [size: string]: number } = {
-    'xs': 16,
-    'sm': 20,
-    'xl': 24,
-    'lg': 24,
-  };
   if (walletImage === 'imported' || walletImage === 'watching')
     return (
       <Icon
@@ -149,28 +163,10 @@ export const WalletStatus: FC<Partial<WalletAvatarProps>> = ({
   >
     <Box
       rounded="full"
-      bgColor={status === 'warning' ? 'icon-warning' : 'interactive-default'}
+      bgColor={status === 'upgrade' ? 'icon-warning' : 'interactive-default'}
       size={size === 'xl' || size === 'lg' ? '10px' : '8px'}
     />
   </Box>
-);
-
-const PassphraseStatus: FC<Partial<WalletAvatarProps>> = ({ size }) => (
-  <Center
-    position="absolute"
-    right={-3}
-    bottom={-3}
-    borderColor="background-default"
-    rounded="full"
-    size={size === 'xl' || size === 'lg' ? '16px' : '12px'}
-    bgColor="background-default"
-  >
-    <Icon
-      name="LockClosedMini"
-      color="icon-default"
-      size={size === 'xl' || size === 'lg' ? 12 : 10}
-    />
-  </Center>
 );
 
 const WalletAvatar: FC<WalletAvatarProps> = ({
@@ -185,9 +181,10 @@ const WalletAvatar: FC<WalletAvatarProps> = ({
   ...rest
 }) => {
   const hdAvatar = avatar ?? defaultAvatar;
-  const bgColor =
-    avatarBgColor ||
-    (walletImage === 'hd' ? hdAvatar.bgColor : 'surface-neutral-default');
+  const bgColor = isPassphrase
+    ? 'surface-neutral-default'
+    : avatarBgColor ||
+      (walletImage === 'hd' ? hdAvatar.bgColor : 'surface-neutral-default');
   return (
     <Center
       rounded={circular ? 'full' : size === 'xs' ? '6px' : '12px'}
@@ -211,41 +208,53 @@ const WalletAvatar: FC<WalletAvatarProps> = ({
         walletImage={walletImage}
         hwWalletType={hwWalletType}
         avatar={hdAvatar}
+        isPassphrase={isPassphrase}
       />
       {status ? <WalletStatus size={size} status={status} /> : undefined}
-      {isPassphrase ? <PassphraseStatus size={size} /> : undefined}
+      {/* {isPassphrase ? <PassphraseStatus size={size} /> : undefined} */}
     </Center>
   );
 };
 
 WalletAvatar.defaultProps = defaultProps;
 
-const convertDeviceStatus = (status: DeviceStatusType | undefined) => {
+export const convertDeviceStatus = (status: DeviceStatusType | undefined) => {
   if (!status) return undefined;
-  if (status?.hasUpgrade) return 'warning';
+  if (status?.isConnected && status?.hasUpgrade) return 'upgrade';
   if (status?.isConnected) return 'connected';
   return undefined;
 };
 
+export type DeviceState = 'connected' | 'upgrade' | undefined;
+
+export type TypeHardwareWalletInfo = {
+  isPassphrase: boolean;
+  deviceStatus: DeviceState;
+  hwWalletType: IDeviceType;
+  statusType: DeviceStatusType | undefined;
+  hasUpgrade: boolean;
+  isConnected: boolean;
+};
+
 export function useHardwareWalletInfo({
-  deviceStatus,
+  devicesStatus,
   wallet,
 }: {
   wallet: IWallet;
-  deviceStatus: IHardwareDeviceStatusMap | undefined | null;
-}) {
+  devicesStatus: IHardwareDeviceStatusMap | undefined | null;
+}): TypeHardwareWalletInfo {
   const hwInfo = useMemo(() => {
     const { type } = wallet;
     const { deviceType } = wallet;
     const deviceId = wallet.associatedDevice || '';
     let isPassphrase = false;
-    let status: string | undefined;
+    let deviceStatus: DeviceState;
     let statusType: DeviceStatusType | undefined;
     if (type === WALLET_TYPE_HW) {
-      statusType = deviceStatus?.[deviceId];
+      statusType = devicesStatus?.[deviceId];
       // TODO how to test status?
       //    packages/kit/src/components/Header/AccountSelectorChildren/LeftSide.tsx #getWalletItemStatus()
-      status = convertDeviceStatus(statusType); // hw status
+      deviceStatus = convertDeviceStatus(statusType); // hw status
       isPassphrase = isPassphraseWallet(wallet); // hw hiddenWallet
     }
     let hwWalletType = deviceType as IOneKeyDeviceType;
@@ -257,30 +266,30 @@ export function useHardwareWalletInfo({
     const isConnected = Boolean(statusType?.isConnected);
     return {
       isPassphrase,
-      status,
+      deviceStatus,
       hwWalletType,
       statusType,
       hasUpgrade,
       isConnected,
     };
-  }, [deviceStatus, wallet]);
+  }, [devicesStatus, wallet]);
   return hwInfo;
 }
 
 function WalletAvatarPro({
   wallet,
-  deviceStatus, // get by useDeviceStatusOfHardwareWallet()
+  devicesStatus, // get by useDeviceStatusOfHardwareWallet()
   ...others
 }: {
   wallet: IWallet;
-  deviceStatus: IHardwareDeviceStatusMap | undefined | null;
+  devicesStatus: IHardwareDeviceStatusMap | undefined | null;
 } & WalletAvatarProps) {
   const { avatar } = wallet;
   const walletImage = wallet.type;
   const avatarBgColor = avatar?.bgColor;
 
   const hwInfo = useHardwareWalletInfo({
-    deviceStatus,
+    devicesStatus,
     wallet,
   });
   return (
@@ -289,7 +298,7 @@ function WalletAvatarPro({
       avatarBgColor={avatarBgColor}
       avatar={avatar}
       hwWalletType={hwInfo.hwWalletType}
-      status={hwInfo.status}
+      status={hwInfo.deviceStatus}
       isPassphrase={hwInfo.isPassphrase}
       {...others}
     />

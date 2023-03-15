@@ -12,6 +12,9 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAutoUpdate } from '@onekeyhq/kit/src/hooks/redux';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { UpdateFeatureModalRoutes } from '@onekeyhq/kit/src/routes/Modal/UpdateFeature';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { disable } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -20,7 +23,21 @@ const UpdateAlert: FC = () => {
   const intl = useIntl();
   const { enabled, latest: lastVersion } = useAutoUpdate();
 
+  const navigation = useAppNavigation();
   const isSmallScreen = useIsVerticalLayout();
+
+  if (lastVersion && 'forceUpdate' in lastVersion && lastVersion.forceUpdate) {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.UpdateFeature,
+      params: {
+        screen: UpdateFeatureModalRoutes.ForcedUpdateModal,
+        params: {
+          versionInfo: lastVersion,
+        },
+      },
+    });
+    return null;
+  }
 
   if (
     platformEnv.isWeb ||
@@ -81,19 +98,21 @@ const UpdateAlert: FC = () => {
             {intl.formatMessage({ id: 'action__update_now' })}
           </Button>
         </Box>
-        <Pressable
-          ml={4}
-          padding={0.5}
-          onPress={() => {
-            backgroundApiProxy.dispatch(disable());
-          }}
-          rounded="full"
-          _hover={{ bgColor: 'surface-hovered' }}
-          _pressed={{ bgColor: 'surface-pressed' }}
-          alignSelf="flex-start"
-        >
-          <Icon size={20} name="XMarkOutline" color="icon-default" />
-        </Pressable>
+        {lastVersion?.forceUpdate ? null : (
+          <Pressable
+            ml={4}
+            padding={0.5}
+            onPress={() => {
+              backgroundApiProxy.dispatch(disable());
+            }}
+            rounded="full"
+            _hover={{ bgColor: 'surface-hovered' }}
+            _pressed={{ bgColor: 'surface-pressed' }}
+            alignSelf="flex-start"
+          >
+            <Icon size={20} name="XMarkOutline" color="icon-default" />
+          </Pressable>
+        )}
       </Box>
     </Box>
   ) : null;

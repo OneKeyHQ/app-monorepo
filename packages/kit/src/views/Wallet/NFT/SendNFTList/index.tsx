@@ -140,7 +140,7 @@ function SendButton({
     from: '',
     to: '',
     isNFT: true,
-    amount: item.amount ?? '1',
+    amount: item.selectAmount ?? '1',
     token: item.contractAddress ?? item.tokenAddress,
     tokenId: item.tokenId ?? item.tokenAddress,
     type: item.ercType,
@@ -205,7 +205,7 @@ function SendNFTList({
       collectibles
         .map((collection) => collection.assets)
         .flat()
-        .map((item) => ({ ...item, selected: false })),
+        .map((item) => ({ ...item, selected: false, selectAmount: '0' })),
     [collectibles],
   );
   const { serviceNFT } = backgroundApiProxy;
@@ -233,6 +233,8 @@ function SendNFTList({
         }
         const requestData = await fetchData();
         if (isMountedRef.current) {
+          console.log('requestData = ', requestData);
+
           updateListData(requestData);
         }
       }

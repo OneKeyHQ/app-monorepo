@@ -439,8 +439,6 @@ export default class ServiceRevoke extends ServiceBase {
 
   @backgroundMethod()
   async fetchERC20TokenAllowences(networkId: string, address: string) {
-    const { servicePrice } = this.backgroundApi;
-    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
     const events = await this.getTransferEvents(networkId, address);
     const res = await this.getERC20TokenApprovals(networkId, address, events);
     const allowanceList = await Promise.all(
@@ -464,16 +462,8 @@ export default class ServiceRevoke extends ServiceBase {
     const addresses = result
       .map((r) => r.token.address?.toLowerCase())
       .filter((a) => !!a) as string[];
-    const pricesMap = await servicePrice.getCgkTokenPrice({
-      platform: networkId,
-      contractAddresses: addresses,
-    });
-    const prices = Object.fromEntries(
-      Object.entries(pricesMap).map(([k, value]) => {
-        const v = value?.[vsCurrency];
-        return [k, v];
-      }),
-    );
+
+    const prices = await this.getTokenPriceMap(networkId, addresses);
     return {
       allowance: result,
       prices,
@@ -553,8 +543,31 @@ export default class ServiceRevoke extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getTokenPriceMap(
+    networkId: string,
+    addresses: string[],
+  ): Promise<Record<string, number>> {
+    const { servicePrice } = this.backgroundApi;
+    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
+    const pricesMap = await servicePrice.getCgkTokenPrice({
+      platform: networkId,
+      contractAddresses: addresses,
+    });
+
+    const prices: Record<string, number> = Object.fromEntries(
+      Object.entries(pricesMap).map(([k, value]) => {
+        const contract = k.split('-').pop();
+        const v = value?.[vsCurrency];
+        return [contract, v];
+      }),
+    );
+
+    return prices;
+  }
+
+  @backgroundMethod()
   async fetchGoPlusERC20TokenApproval(networkId: string, address: string) {
-    const { engine, servicePrice } = this.backgroundApi;
+    const { engine } = this.backgroundApi;
     const readProvider = await this.getReadProvider(networkId);
     if (!readProvider) {
       return {
@@ -563,7 +576,6 @@ export default class ServiceRevoke extends ServiceBase {
       };
     }
 
-    const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
     const res = await fetchSecurityInfo<GoPlusApproval[]>({
       networkId,
       address,
@@ -605,17 +617,7 @@ export default class ServiceRevoke extends ServiceBase {
       .map((r) => r.token?.address?.toLowerCase())
       .filter((a) => !!a) as string[];
 
-    const pricesMap = await servicePrice.getCgkTokenPrice({
-      platform: networkId,
-      contractAddresses: addresses,
-    });
-
-    const prices = Object.fromEntries(
-      Object.entries(pricesMap).map(([k, value]) => {
-        const v = value?.[vsCurrency];
-        return [k, v];
-      }),
-    );
+    const prices = await this.getTokenPriceMap(networkId, addresses);
 
     return {
       allowance,

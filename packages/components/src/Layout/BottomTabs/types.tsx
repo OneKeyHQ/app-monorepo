@@ -1,6 +1,5 @@
 import type { MouseEvent, ReactNode } from 'react';
 
-import type BottomSheet from '@gorhom/bottom-sheet';
 import type { HeaderOptions } from '@react-navigation/elements';
 import type {
   Descriptor,
@@ -19,21 +18,6 @@ import type {
   TouchableWithoutFeedbackProps,
   ViewStyle,
 } from 'react-native';
-
-export type TBottomBarFoldableItem<T = any> = {
-  name: T;
-  foldable: boolean;
-  disabled: boolean;
-  component: () => null;
-  onPress: () => void;
-  tabBarLabel: string;
-  description: string;
-  tabBarIcon: () => string;
-  hideInVerticalLayaout?: boolean;
-  hideInHorizontalLayaout?: boolean;
-};
-
-export type TBottomBarRefAttr = BottomSheet;
 
 export type Layout = { width: number; height: number };
 

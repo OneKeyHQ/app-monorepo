@@ -45,6 +45,7 @@ import {
   useSwapError,
   useSwapQuoteRequestParams,
 } from './hooks/useSwap';
+import { useSwapSend } from './hooks/useSwapSend';
 import { SwapQuoter } from './quoter';
 import { dangerRefs } from './refs';
 import { SwapError, SwapRoutes } from './typings';
@@ -198,7 +199,9 @@ const ExchangeButton = () => {
 
     const targetNetworkId = inputAmount.token.networkId;
 
-    const targetNetwork = networks.find((item) => item.id === targetNetworkId);
+    const targetNetwork = await backgroundApiProxy.engine.getNetwork(
+      targetNetworkId,
+    );
     if (!targetNetwork) {
       ToastManager.show({
         title: intl.formatMessage({ id: 'msg__unknown_error' }),
@@ -856,6 +859,96 @@ const SwapStateButton = () => {
   return <ExchangeButton />;
 };
 
+const WrapperTokenButton = () => {
+  const intl = useIntl();
+  const [loading, setLoading] = useState(false);
+  const wrapperTxInfo = useAppSelector((s) => s.swap.quote?.wrapperTxInfo);
+  const params = useSwapQuoteRequestParams();
+  const sendTx = useSwapSend();
+  const onSubmit = useCallback(() => {
+    if (params && wrapperTxInfo) {
+      const { tokenIn, activeAccount } = params;
+      setLoading(true);
+      try {
+        sendTx({
+          networkId: tokenIn.networkId,
+          accountId: activeAccount.id,
+          encodedTx: wrapperTxInfo.encodedTx,
+          onSuccess: async ({ result, decodedTx }) => {
+            let networkFee: string | undefined;
+            const targetNetwork = await backgroundApiProxy.engine.getNetwork(
+              tokenIn.networkId,
+            );
+            if (decodedTx && targetNetwork) {
+              networkFee = calculateDecodedTxNetworkFee(
+                decodedTx,
+                targetNetwork,
+              );
+            }
+            backgroundApiProxy.dispatch(
+              addTransaction({
+                accountId: activeAccount.id,
+                networkId: tokenIn.networkId,
+                transaction: {
+                  hash: result.txid,
+                  from: activeAccount.address,
+                  addedTime: Date.now(),
+                  status: 'pending',
+                  type: 'swap',
+                  accountId: activeAccount.id,
+                  networkId: tokenIn.networkId,
+                  nonce: decodedTx?.nonce,
+                  receivingAccountId: activeAccount.id,
+                  receivingAddress: activeAccount.address,
+                  arrivalTime: 30,
+                  networkFee,
+                  tokens: {
+                    from: {
+                      token: params.tokenIn,
+                      networkId: tokenIn.networkId,
+                      amount: params.typedValue,
+                    },
+                    to: {
+                      token: params.tokenOut,
+                      networkId: tokenIn.networkId,
+                      amount: params.typedValue,
+                    },
+                    rate: 1,
+                  },
+                },
+              }),
+            );
+            backgroundApiProxy.serviceSwap.clearState();
+          },
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
+  }, [params, sendTx, wrapperTxInfo]);
+  if (params && wrapperTxInfo) {
+    return (
+      <Button
+        size="xl"
+        type="primary"
+        key="baseError"
+        onPress={onSubmit}
+        isLoading={loading}
+      >
+        {wrapperTxInfo.type === 'Deposite'
+          ? intl.formatMessage({ id: 'action__wrap' })
+          : intl.formatMessage({ id: 'action__unwrap' })}
+      </Button>
+    );
+  }
+  return null;
+};
+
+const SwapEnabledButton = () => {
+  const wrapperTxInfo = useAppSelector((s) => s.swap.quote?.wrapperTxInfo);
+  return wrapperTxInfo ? <WrapperTokenButton /> : <SwapStateButton />;
+};
+
 const SwapButton = () => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -882,7 +975,7 @@ const SwapButton = () => {
     );
   }
 
-  return <SwapStateButton />;
+  return <SwapEnabledButton />;
 };
 
 export default SwapButton;

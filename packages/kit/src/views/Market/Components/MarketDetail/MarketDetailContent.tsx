@@ -47,9 +47,7 @@ const MarketDetailActionButton = ({
         size="lg"
         onPress={() => {
           if (marketTokenItem?.tokens?.length) {
-            backgroundApiProxy.serviceSwap.setOutputToken(
-              marketTokenItem.tokens[0],
-            );
+            backgroundApiProxy.serviceSwap.buyToken(marketTokenItem.tokens[0]);
             onBack();
           }
         }}
@@ -64,9 +62,7 @@ const MarketDetailActionButton = ({
         size="lg"
         onPress={() => {
           if (marketTokenItem?.tokens?.length) {
-            backgroundApiProxy.serviceSwap.setInputToken(
-              marketTokenItem.tokens[0],
-            );
+            backgroundApiProxy.serviceSwap.sellToken(marketTokenItem.tokens[0]);
             onBack();
           }
         }}

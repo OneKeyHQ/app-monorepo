@@ -17,6 +17,11 @@ export enum Erc20MethodSelectors {
   tokenApprove = '0x095ea7b3',
 }
 
+export enum WrapperTokenMethodSelectors {
+  withdraw = '0x2e1a7d4d',
+  doposit = '0xd0e30db0',
+}
+
 const ERC721 = [
   'function supportsInterface(bytes4) public view returns(bool)',
   'function safeTransferFrom(address from, address to, uint256 tokenId)',

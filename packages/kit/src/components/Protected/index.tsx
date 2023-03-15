@@ -45,7 +45,7 @@ const Protected: FC<ProtectedProps> = ({
   const navigation = useNavigation();
   const walletDetail = useGetWalletDetail(walletId);
   const intl = useIntl();
-  const { engine, serviceHardware } = backgroundApiProxy;
+  const { engine, serviceHardware, serviceApp } = backgroundApiProxy;
   const [deviceFeatures, setDeviceFeatures] = useState<IOneKeyDeviceFeatures>();
   const [password, setPassword] = useState('');
   const [withEnableAuthentication, setWithEnableAuthentication] =
@@ -77,6 +77,11 @@ const Protected: FC<ProtectedProps> = ({
    */
   const isHardware = walletDetail?.type === 'hw';
   const isExternalWallet = walletDetail?.type === WALLET_TYPE_EXTERNAL;
+
+  useEffect(() => {
+    serviceApp.checkUpdateStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!isHardware) return;

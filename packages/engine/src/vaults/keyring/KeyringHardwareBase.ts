@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import { HardwareSDK } from '@onekeyhq/shared/src/device/hardwareInstance';
+import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 
 import { KeyringBase } from './KeyringBase';
 
 export type WalletPassphraseState = {
   passphraseState?: string;
+  useEmptyPassphrase?: boolean;
 };
 
 export abstract class KeyringHardwareBase extends KeyringBase {
@@ -21,6 +23,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     const wallet = await this.engine.getWallet(this.vault.walletId);
     return {
       passphraseState: wallet?.passphraseState,
+      useEmptyPassphrase: !isPassphraseWallet(wallet),
     };
   }
 

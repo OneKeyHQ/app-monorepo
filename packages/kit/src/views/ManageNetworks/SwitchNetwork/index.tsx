@@ -5,9 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Center,
-  Icon,
-  Image,
   KeyboardDismissView,
   Modal,
   Spinner,
@@ -20,6 +17,8 @@ import type { SwitchEthereumChainParameter } from '@onekeyhq/shared/src/provider
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappParams from '../../../hooks/useDappParams';
+import { NetworkIcon } from '../components/NetworkIcon';
+import { SiteSection } from '../components/SiteSection';
 
 import type { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/core';
@@ -34,6 +33,8 @@ export type IViewNetworkModalProps = ModalProps & { network?: Network };
 function ViewNetworkModal(props: IViewNetworkModalProps) {
   const intl = useIntl();
   const { network } = props;
+
+  const queryInfo = useDappParams();
 
   return (
     <Modal
@@ -50,33 +51,12 @@ function ViewNetworkModal(props: IViewNetworkModalProps) {
                 mb="8"
                 mt="6"
               >
-                {network.logoURI ? (
-                  <Image
-                    src={network.logoURI}
-                    alt="logoURI"
-                    size="56px"
-                    borderRadius="full"
-                    fallbackElement={
-                      <Center
-                        w="56px"
-                        h="56px"
-                        rounded="full"
-                        bgColor="surface-neutral-default"
-                      >
-                        <Icon size={32} name="QuestionMarkOutline" />
-                      </Center>
-                    }
-                  />
-                ) : (
-                  <Center
-                    w="56px"
-                    h="56px"
-                    rounded="full"
-                    bgColor="surface-neutral-default"
-                  >
-                    <Icon size={32} name="QuestionMarkOutline" />
-                  </Center>
-                )}
+                <NetworkIcon
+                  size="64px"
+                  name={network.name}
+                  logoURI={network.logoURI}
+                  iconName="ArrowRightCircleSolid"
+                />
                 <Typography.PageHeading mt="4">
                   {intl.formatMessage(
                     { id: 'title__switch_to_str' },
@@ -85,6 +65,11 @@ function ViewNetworkModal(props: IViewNetworkModalProps) {
                     },
                   )}
                 </Typography.PageHeading>
+                <SiteSection
+                  url={queryInfo?.sourceInfo?.origin}
+                  mt="2"
+                  w="full"
+                />
                 <Typography.Body1
                   mt="2"
                   color="text-subdued"
@@ -159,7 +144,7 @@ function SwitchNetworkModal() {
       hidePrimaryAction={!network}
       hideSecondaryAction
       onModalClose={dappApprove.reject}
-      primaryActionTranslationId="action__confirm"
+      primaryActionTranslationId="action__switch"
       onPrimaryActionPress={onPrimaryActionPress}
     />
   );

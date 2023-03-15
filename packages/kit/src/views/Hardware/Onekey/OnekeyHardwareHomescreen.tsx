@@ -41,7 +41,7 @@ import type { MessageDescriptor } from 'react-intl';
 
 type RouteProps = RouteProp<
   OnekeyHardwareRoutesParams,
-  OnekeyHardwareModalRoutes.OnekeyHardwareHomescreenModal
+  OnekeyHardwareModalRoutes.OnekeyHardwareHomeScreenModal
 >;
 
 // eslint-disable-next-line react/no-unused-prop-types
