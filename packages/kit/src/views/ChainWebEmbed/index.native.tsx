@@ -140,9 +140,6 @@ function ChainWebEmbed() {
   const content = useMemo(() => {
     debugLogger.common.debug('Parent ChainView Render');
 
-    console.log('+++++++++++++++++++++++++');
-    console.log(usedNetworks);
-
     return (
       <>
         {usedNetworks.map((networkId) => {
@@ -158,6 +155,7 @@ function ChainWebEmbed() {
               />
             );
           }
+          return null;
         })}
       </>
     );
