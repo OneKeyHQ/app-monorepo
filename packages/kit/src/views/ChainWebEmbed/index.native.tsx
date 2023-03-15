@@ -139,18 +139,25 @@ function ChainWebEmbed() {
 
   const content = useMemo(() => {
     debugLogger.common.debug('Parent ChainView Render');
+
+    console.log('+++++++++++++++++++++++++');
+    console.log(usedNetworks);
+
     return (
       <>
         {usedNetworks.map((networkId) => {
-          const { Component, chainRef, webviewCallback } =
-            webEmbedMap[networkId];
-          return (
-            <Component
-              key={networkId}
-              ref={chainRef}
-              callback={webviewCallback}
-            />
-          );
+          const webEmbed = webEmbedMap[networkId];
+          if (webEmbed) {
+            const { Component, chainRef, webviewCallback } =
+              webEmbedMap[networkId];
+            return (
+              <Component
+                key={networkId}
+                ref={chainRef}
+                callback={webviewCallback}
+              />
+            );
+          }
         })}
       </>
     );

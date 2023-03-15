@@ -14,7 +14,7 @@ import { privateSpendKeyToWords } from './moneroWords';
 import type { SignedTx } from '../../../../types/provider';
 import type { MoneroKeys } from '../types';
 
-const ProvideMethod = 'callChainEmbedMethod';
+const ProvideMethod = 'callChainWebEmbedMethod';
 
 type IResult = { error: any; result: any };
 /**
