@@ -118,7 +118,7 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
             });
             if (values.length < inputIndexArray.length) {
               setFocus(`${values.length + 1}`);
-            } else {
+            } else if (values.length === inputIndexArray.length) {
               setFocus(`${values.length}`);
             }
           }, 0);
