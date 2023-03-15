@@ -835,31 +835,4 @@ export default class Vault extends VaultBase {
       changeAddress,
     };
   }
-
-  override async canAutoCreateNextAccount(password: string): Promise<boolean> {
-    if (platformEnv.isNative) {
-      return false;
-    }
-    const wallet = await this.engine.getWallet(this.walletId);
-    const accountInfos = await this.getAccountNameInfoMap();
-
-    if (wallet.type !== 'hd') return false;
-
-    const usedPurpose = getDefaultPurpose(IMPL_ADA);
-    const { template } = accountInfos.default;
-    const nextIndex = wallet.nextAccountIds[template] || 0;
-
-    const accounts = await this.keyring.prepareAccounts({
-      type: 'SEARCH_ACCOUNTS',
-      password,
-      indexes: [nextIndex],
-      purpose: usedPurpose,
-      coinType: COINTYPE_ADA,
-      template,
-    });
-    const accountUsed = await this.checkAccountExistence(
-      (accounts?.[0] as DBUTXOAccount).xpub,
-    );
-    return accountUsed;
-  }
 }

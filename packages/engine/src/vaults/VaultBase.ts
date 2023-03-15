@@ -192,7 +192,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   }
 
   async canAutoCreateNextAccount(password: string): Promise<boolean> {
-    return Promise.resolve(true);
+    return Promise.resolve(false);
   }
 
   async filterAccounts({
