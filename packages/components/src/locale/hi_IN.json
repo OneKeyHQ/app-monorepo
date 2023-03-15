@@ -1638,6 +1638,8 @@
   "msg__broadcast_dot_tx_outdated": "लेन-देन पुराना है।",
   "msg__broadcast_tx_Insufficient_fee": "अपर्याप्त शुल्क: कृपया जांचें कि क्या शेष राशि पर्याप्त है या शुल्क गियर को बदलने का प्रयास करें।",
   "msg__broadcast_tx_sequence_number_error": "पहले से ही लेन-देन की पुष्टि हो रही है या नोड विफल हो गया है।",
+  "msg__cancelled_during_the_process": "प्रक्रिया के दौरान रद्द कर दिया गया",
+  "msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used": "नया खाता तब नहीं बनाया जा सकता जब बनाए गए उस प्रकार के पिछले खाते का उपयोग नहीं किया गया हो",
   "msg__cannot_import_existing_wallet": "मौजूदा वॉलेट आयात नहीं किए जा सकते।",
   "msg__change_saved": "परिवर्तन सहेजा गया!",
   "msg__coming_soon": "जल्द आ रहा है",

@@ -1638,6 +1638,8 @@
   "msg__broadcast_dot_tx_outdated": "Трансакція застаріла.",
   "msg__broadcast_tx_Insufficient_fee": "Комісія за обробку недостатня, будь ласка, спробуйте перемкнути передачу.",
   "msg__broadcast_tx_sequence_number_error": "Уже є транзакції, що підтверджуються, або збій вузла.",
+  "msg__cancelled_during_the_process": "Скасовано під час процесу",
+  "msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used": "Неможливо створити новий обліковий запис, якщо останній створений обліковий запис цього типу не використовувався",
   "msg__cannot_import_existing_wallet": "Існуючі гаманці не можна імпортувати.",
   "msg__change_saved": "Зміну збережено!",
   "msg__coming_soon": "Незабаром",

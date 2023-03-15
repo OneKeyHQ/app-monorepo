@@ -1638,6 +1638,8 @@
   "msg__broadcast_dot_tx_outdated": "A transação está desatualizada.",
   "msg__broadcast_tx_Insufficient_fee": "A taxa de manuseio é insuficiente, tente mudar de marcha.",
   "msg__broadcast_tx_sequence_number_error": "Já existem transações sendo confirmadas ou falha de nó.",
+  "msg__cancelled_during_the_process": "Cancelado durante o processo",
+  "msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used": "Não é possível criar uma nova conta quando a última conta desse tipo criada não foi usada",
   "msg__cannot_import_existing_wallet": "Carteiras existentes não podem ser importadas.",
   "msg__change_saved": "Alteração salva!",
   "msg__coming_soon": "Em breve",

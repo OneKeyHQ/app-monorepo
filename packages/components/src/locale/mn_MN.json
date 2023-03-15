@@ -1638,6 +1638,8 @@
   "msg__broadcast_dot_tx_outdated": "Гүйлгээ хуучирсан.",
   "msg__broadcast_tx_Insufficient_fee": "Харьцуулах хураамж хангалтгүй байна, араагаа сольж үзнэ үү.",
   "msg__broadcast_tx_sequence_number_error": "Аль хэдийн гүйлгээ баталгаажсан эсвэл зангилааны бүтэлгүйтэл байна.",
+  "msg__cancelled_during_the_process": "Процессын явцад цуцалсан",
+  "msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used": "Сүүлд үүсгэсэн ийм төрлийн данс ашиглаагүй үед шинэ бүртгэл үүсгэх боломжгүй",
   "msg__cannot_import_existing_wallet": "Одоо байгаа түрийвчийг импортлох боломжгүй.",
   "msg__change_saved": "Өөрчлөлт хадгалагдсан!",
   "msg__coming_soon": "Тун удахгүй",

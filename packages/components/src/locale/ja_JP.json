@@ -1638,6 +1638,8 @@
   "msg__broadcast_dot_tx_outdated": "トランザクションが期限切れています。",
   "msg__broadcast_tx_Insufficient_fee": "手数料が不足している: 残高が十分かどうかを確認するか、手数料のギアを切り替えてみてください。",
   "msg__broadcast_tx_sequence_number_error": "すでにトランザクションが確認されているか、ノード障害があります。",
+  "msg__cancelled_during_the_process": "途中解約",
+  "msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used": "作成されたそのタイプの最後のアカウントが使用されていない場合、新しいアカウントを作成できません",
   "msg__cannot_import_existing_wallet": "既存ウォレットがインポートできできない",
   "msg__change_saved": "変更が保存済み",
   "msg__coming_soon": "近日公開予定",
