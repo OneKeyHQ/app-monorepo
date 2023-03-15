@@ -87,11 +87,11 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
   }, [currentWordsCount]);
 
   const onClear = useCallback(() => {
-    inputIndexArray.forEach((value) => {
-      setValue(`${value}`, '');
+    const valuesMap = getValues();
+    Object.keys(valuesMap).forEach((key) => {
+      setValue(key, '');
     });
-    setFocus(`${inputIndexArray?.[0] ?? 1}`);
-  }, [inputIndexArray, setFocus, setValue]);
+  }, [getValues, setValue]);
 
   const pasteHandle = useCallback(
     (e) => {
@@ -99,24 +99,33 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
       let paste = e.clipboardData?.getData('text') as string;
       if (paste) {
         paste = paste.trim();
-        const values = paste.split(' ');
+        let values = paste.split(' ');
         if (values.length > 2) {
+          if (values.length > Math.max(...defaultSupportWords)) {
+            values = values.slice(0, Math.max(...defaultSupportWords));
+          }
           setTimeout(() => {
-            inputIndexArray.forEach((inputIndex) => {
-              setValue(`${inputIndex}`, '');
-            });
+            onClear();
+            if (values.length > inputIndexArray.length) {
+              const findIndex = defaultSupportWords.findIndex(
+                (value) => value >= values.length,
+              );
+              setCurrentWordsCount(defaultSupportWords[findIndex]);
+            }
             values.forEach((v, i) => {
               setValue(`${i + 1}`, v);
               trigger(`${i + 1}`);
             });
             if (values.length < inputIndexArray.length) {
               setFocus(`${values.length + 1}`);
+            } else if (values.length === inputIndexArray.length) {
+              setFocus(`${values.length}`);
             }
           }, 0);
         }
       }
     },
-    [inputIndexArray, setFocus, setValue, trigger],
+    [inputIndexArray.length, onClear, setFocus, setValue, trigger],
   );
 
   useEffect(() => {
@@ -126,7 +135,7 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
     };
   }, [pasteHandle]);
 
-  const { onChangeText, accessoryData, setAccessoryData } = useAccessory();
+  const { onChangeText, accessoryData } = useAccessory();
   return (
     <Box flex={1}>
       <Box flexDirection="row" justifyContent="space-between" mb={4}>
@@ -144,7 +153,14 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
             <Icon color="icon-subdued" size={16} name="ChevronDownMini" />
           </Pressable>
         </BaseMenu>
-        <Pressable flexDirection="row" alignItems="center" onPress={onClear}>
+        <Pressable
+          flexDirection="row"
+          alignItems="center"
+          onPress={() => {
+            onClear();
+            setFocus(`${inputIndexArray?.[0] ?? 1}`);
+          }}
+        >
           <Icon color="icon-subdued" size={16} name="XCircleMini" />
           <Typography.Button2 color="text-subdued" ml={2}>
             {intl.formatMessage({ id: 'action__clear_all' })}
@@ -182,7 +198,10 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
                         setDisableSubmit(true);
                         setMnemonicoValidateShow(true);
                       }
-                      setAccessoryData([]);
+                      // check last input
+                      if (typeof t === 'string') {
+                        onChangeText(t);
+                      }
                     } else {
                       setDisableSubmit(true);
                       setMnemonicoValidateShow(false);
@@ -267,7 +286,9 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
         mt={4}
         size="xl"
         onPromise={handleSubmit((values) => {
-          const result = Object.values(values).join(' ');
+          const result = Object.values(values)
+            .slice(0, currentWordsCount)
+            .join(' ');
           onSubmit({ text: result });
         })}
       >

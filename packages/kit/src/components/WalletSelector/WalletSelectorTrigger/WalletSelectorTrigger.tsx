@@ -18,6 +18,8 @@ import WalletSelectorDesktop from '../WalletSelectorDesktop';
 
 import { WalletSelectorTriggerElement } from './WalletSelectorTriggerElement';
 
+import type { WalletSelectorTriggerElementProps } from './WalletSelectorTriggerElement';
+
 type AccountSelectorProps = {
   renderTrigger?: ({
     visible,
@@ -30,7 +32,9 @@ type AccountSelectorProps = {
 
 const { updateDesktopWalletSelectorVisible } = reducerAccountSelector.actions;
 
-const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
+const WalletSelectorTrigger: FC<
+  AccountSelectorProps & Partial<WalletSelectorTriggerElementProps>
+> = ({ renderTrigger, showWalletName }) => {
   const isVertical = useIsVerticalLayout();
 
   const triggerRef = useRef<HTMLElement>(null);
@@ -89,13 +93,13 @@ const WalletSelectorTrigger: FC<AccountSelectorProps> = ({ renderTrigger }) => {
       ref={triggerRef}
       position="relative"
       alignItems="flex-start"
-      h="56px"
       justifyContent="center"
       w="full"
     >
       {renderTrigger?.({ visible, handleToggleVisible }) ?? (
         <WalletSelectorTriggerElement
           visible={visible}
+          showWalletName={showWalletName}
           handleToggleVisible={handleToggleVisibleDefault}
         />
       )}

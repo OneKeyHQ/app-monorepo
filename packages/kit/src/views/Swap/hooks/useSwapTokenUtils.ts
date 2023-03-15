@@ -92,7 +92,7 @@ export const useTokenBalance = (token?: Token, accountId?: string) => {
     if (!token) {
       return undefined;
     }
-    return balances[getBalanceKey(token)]?.balance ?? '0';
+    return balances[getBalanceKey(token)]?.balance;
   }, [balances, token]);
 };
 
