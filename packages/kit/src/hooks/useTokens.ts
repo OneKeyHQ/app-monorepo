@@ -8,6 +8,7 @@ import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { getPreBaseValue } from '../utils/priceUtils';
@@ -272,7 +273,10 @@ export const useFrozenBalance = ({
           networkId,
           password,
         })
-        .then(setFrozenBalance);
+        .then(setFrozenBalance)
+        .catch((e) => {
+          debugLogger.common.error('getFrozenBalance error', e);
+        });
     })();
   }, [networkId, accountId]);
 
