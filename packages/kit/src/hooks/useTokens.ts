@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { useActiveWalletAccount } from '.';
+
 import B from 'bignumber.js';
 import natsort from 'natsort';
 import { useAsync } from 'react-async-hook';
@@ -234,14 +236,17 @@ export const useNFTPrice = ({
 export const useTokenSupportStakedAssets = (
   networkId?: string,
   tokenIdOnNetwork?: string,
-) =>
-  useMemo(
+) => {
+  const { networkId: activeNet } = useActiveWalletAccount();
+  return useMemo(
     () =>
       !tokenIdOnNetwork &&
+      activeNet === networkId &&
       (networkId === OnekeyNetwork.eth || networkId === OnekeyNetwork.goerli),
 
-    [networkId, tokenIdOnNetwork],
+    [activeNet, networkId, tokenIdOnNetwork],
   );
+};
 
 export const useFrozenBalance = ({
   networkId,
