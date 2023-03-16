@@ -149,7 +149,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       },
       networkId: NetworkId.MAINNET,
       protocolMagic: ProtocolMagic,
-      derivationType: PROTO.CardanoDerivationType.ICARUS_TREZOR,
+      derivationType: PROTO.CardanoDerivationType.ICARUS,
       isCheck: true,
       showOnOneKey: true,
     });
@@ -213,7 +213,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const res = await HardwareSDK.cardanoSignTransaction(connectId, deviceId, {
       ...passphraseState,
       inputs: transformToOneKeyInputs(inputs, utxos),
-      derivationType: PROTO.CardanoDerivationType.ICARUS_TREZOR,
+      derivationType: PROTO.CardanoDerivationType.ICARUS,
       ...cardanoParams,
     } as any);
     if (!res.success) {
