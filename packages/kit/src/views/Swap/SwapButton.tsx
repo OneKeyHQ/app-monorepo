@@ -751,6 +751,7 @@ const SwapWrapButton = () => {
                   nonce: decodedTx?.nonce,
                   receivingAccountId: activeAccount.id,
                   receivingAddress: activeAccount.address,
+                  actualReceived: params.typedValue,
                   arrivalTime: 30,
                   networkFee,
                   tokens: {

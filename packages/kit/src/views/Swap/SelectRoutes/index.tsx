@@ -23,7 +23,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
 import { ArrivalTime } from '../components/ArrivalTime';
-import { useSwapQuoteRequestParams } from '../hooks/useSwap';
 import { stringifyTokens } from '../utils';
 
 import { AmountLimit } from './AmountLimit';
@@ -191,7 +190,8 @@ const SelectRoutes = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const [selectedIndex, onSelectIndex] = useState(-1);
-  const params = useSwapQuoteRequestParams();
+  const tokenIn = useAppSelector((s) => s.swap.inputToken);
+  const tokenOut = useAppSelector((s) => s.swap.outputToken);
   const quote = useAppSelector((s) => s.swap.quote);
   const responses = useAppSelector((s) => s.swap.responses);
   const data = useMemo(() => responses ?? [], [responses]);
@@ -211,7 +211,7 @@ const SelectRoutes = () => {
     if (response) {
       if (response.data) {
         backgroundApiProxy.serviceSwap.setQuote(response.data);
-        const hash = stringifyTokens(params?.tokenIn, params?.tokenOut);
+        const hash = stringifyTokens(tokenIn, tokenOut);
         backgroundApiProxy.serviceSwap.setUserSelectedQuoter(
           hash,
           response.data.type,
@@ -220,7 +220,7 @@ const SelectRoutes = () => {
       backgroundApiProxy.serviceSwap.setQuoteLimited(response.limited);
     }
     navigation.goBack();
-  }, [selectedIndex, data, navigation, params]);
+  }, [selectedIndex, data, navigation, tokenIn, tokenOut]);
 
   const contextValue = useMemo(
     () => ({ selectedIndex, onSelect: onSelectIndex }),

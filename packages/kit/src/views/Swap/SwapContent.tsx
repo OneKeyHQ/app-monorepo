@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,26 +16,15 @@ import { useActiveWalletAccount, useAppSelector } from '../../hooks/redux';
 
 import ReceivingTokenInput from './components/ReceivingTokenInput';
 import TokenInput from './components/TokenInput';
-import {
-  useDerivedSwapState,
-  useSwapQuoteCallback,
-  useSwapState,
-} from './hooks/useSwap';
+import { useDerivedSwapState } from './hooks/useSwap';
 import { SwapRoutes } from './typings';
 
 const SwapContent = () => {
   const intl = useIntl();
   const isSmall = useIsVerticalLayout();
   const navigation = useNavigation();
-  const {
-    inputToken,
-    outputToken,
-    typedValue,
-    independentField,
-    loading,
-    sendingAccount,
-  } = useSwapState();
-  const onSwapQuoteCallback = useSwapQuoteCallback({ showLoading: true });
+  const independentField = useAppSelector((s) => s.swap.independentField);
+  const loading = useAppSelector((s) => s.swap.loading);
   const { wallet, network } = useActiveWalletAccount();
   const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
   const { formattedAmounts } = useDerivedSwapState();
@@ -63,24 +52,17 @@ const SwapContent = () => {
   const onChangeOutput = useCallback((value: string) => {
     backgroundApiProxy.serviceSwap.userInput('OUTPUT', value);
   }, []);
-
   const onSwitchTokens = useCallback(() => {
     backgroundApiProxy.serviceSwap.switchTokens();
   }, []);
 
-  useEffect(() => {
-    backgroundApiProxy.serviceSwap.setQuote(undefined);
-  }, [
-    inputToken?.tokenIdOnNetwork,
-    outputToken?.tokenIdOnNetwork,
-    typedValue,
-    independentField,
-  ]);
-
-  useEffect(() => {
-    onSwapQuoteCallback();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onSwapQuoteCallback]);
+  const containerProps = useMemo(
+    () => ({
+      upper: { pb: '0' },
+      lower: { pt: '0' },
+    }),
+    [],
+  );
 
   return (
     <Box w="full">
@@ -95,12 +77,10 @@ const SwapContent = () => {
           <TokenInput
             type="INPUT"
             label={intl.formatMessage({ id: 'form__pay' })}
-            token={inputToken}
-            account={sendingAccount}
             inputValue={formattedAmounts.INPUT}
             onChange={onChangeInput}
             onPress={onSelectInput}
-            containerProps={{ pb: '0' }}
+            containerProps={containerProps.upper}
             isDisabled={loading && independentField === 'OUTPUT'}
           />
         </Box>
@@ -149,7 +129,7 @@ const SwapContent = () => {
             inputValue={formattedAmounts.OUTPUT}
             onChange={onChangeOutput}
             onPress={onSelectOutput}
-            containerProps={{ pt: '0' }}
+            containerProps={containerProps.lower}
           />
         </Box>
         {isDisabled ? (
