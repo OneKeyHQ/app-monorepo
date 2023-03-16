@@ -87,3 +87,5 @@ function ReceiverUploader(props: Props) {
     </>
   );
 }
+
+export { ReceiverUploader };
