@@ -82,6 +82,7 @@ const RecoveryWallet = () => {
           behavior={platformEnv.isNativeIOS ? 'position' : 'height'}
         >
           <AccessoryView
+            p={3}
             withKeybord
             accessoryData={accessoryData}
             selected={onSelectedKeybordAcessory}
