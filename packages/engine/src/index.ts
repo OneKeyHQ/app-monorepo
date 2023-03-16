@@ -2908,24 +2908,12 @@ class Engine {
     password?: string;
   }) {
     if (!networkId || !accountId) return 0;
-    return this._getFrozenBalance(accountId, networkId, password);
+    const vault = await this.getVault({
+      accountId,
+      networkId,
+    });
+    return vault.getFrozenBalance(password);
   }
-
-  _getFrozenBalance = memoizee(
-    async (accountId: string, networkId: string, password?: string) => {
-      const vault = await this.getVault({
-        accountId,
-        networkId,
-      });
-      return vault.getFrozenBalance(password);
-    },
-    {
-      promise: true,
-      primitive: true,
-      max: 1,
-      maxAge: 1000 * 30,
-    },
-  );
 }
 
 export { Engine };
