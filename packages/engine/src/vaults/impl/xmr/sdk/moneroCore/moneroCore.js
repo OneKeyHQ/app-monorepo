@@ -346,8 +346,8 @@ var MyMoneroLibAppCpp = (() => {
       throw new Error('environment detection error');
     }
 
-    var out = Module['print'] || console.log.bind(console);
-    var err = Module['printErr'] || console.warn.bind(console);
+    var out = Module['print'] || console.log;
+    var err = Module['printErr'] || console.warn;
 
     // Merge back in the overrides
     Object.assign(Module, moduleOverrides);

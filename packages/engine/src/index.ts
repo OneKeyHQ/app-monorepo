@@ -28,6 +28,7 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
+  CHAINS_NOT_DISPLAYED_IN_EXT,
   IMPL_EVM,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -2251,7 +2252,10 @@ class Engine {
         .filter(
           (dbNetwork) =>
             (enabledOnly ? dbNetwork.enabled : true) &&
-            getSupportedImpls().has(dbNetwork.impl),
+            getSupportedImpls().has(dbNetwork.impl) &&
+            ((platformEnv.isExtension &&
+              !CHAINS_NOT_DISPLAYED_IN_EXT.includes(dbNetwork.impl)) ||
+              !platformEnv.isExtension),
         )
         .map(async (dbNetwork) => this.dbNetworkToNetwork(dbNetwork)),
     );
