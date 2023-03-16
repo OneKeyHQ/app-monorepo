@@ -152,8 +152,8 @@ var instantiate = (function () {
       };
     } else {
     }
-    var out = Module['print'] || console.log.bind(console);
-    var err = Module['printErr'] || console.warn.bind(console);
+    var out = Module['print'] || console.log;
+    var err = Module['printErr'] || console.warn;
     for (key in moduleOverrides) {
       if (moduleOverrides.hasOwnProperty(key)) {
         Module[key] = moduleOverrides[key];
