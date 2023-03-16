@@ -58,29 +58,37 @@ export function useSwapState() {
 }
 
 export function useSwapRecipient() {
-  const recipient = useAppSelector((s) => s.swap.recipient);
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const recipient = useAppSelector((s) => s.swap.recipient);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
   const allowAnotherRecipientAddress = useAppSelector(
     (s) => s.swapTransactions.allowAnotherRecipientAddress,
   );
-  if (inputToken && outputToken) {
-    const implA = getNetworkIdImpl(inputToken.networkId);
-    const implB = getNetworkIdImpl(outputToken.networkId);
-    if (implA === implB && !allowAnotherRecipientAddress) {
-      if (sendingAccount) {
-        return {
-          accountId: sendingAccount.id,
-          address: sendingAccount.address,
-          name: sendingAccount.name,
-          networkId: inputToken.networkId,
-          networkImpl: inputToken.impl,
-        };
+  return useMemo(() => {
+    if (inputToken && outputToken) {
+      const implA = getNetworkIdImpl(inputToken.networkId);
+      const implB = getNetworkIdImpl(outputToken.networkId);
+      if (implA === implB && !allowAnotherRecipientAddress) {
+        if (sendingAccount) {
+          return {
+            accountId: sendingAccount.id,
+            address: sendingAccount.address,
+            name: sendingAccount.name,
+            networkId: inputToken.networkId,
+            networkImpl: inputToken.impl,
+          };
+        }
       }
     }
-  }
-  return recipient;
+    return recipient;
+  }, [
+    recipient,
+    sendingAccount,
+    allowAnotherRecipientAddress,
+    inputToken,
+    outputToken,
+  ]);
 }
 
 export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {

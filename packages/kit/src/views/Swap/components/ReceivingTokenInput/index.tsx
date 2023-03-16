@@ -48,7 +48,7 @@ const TokenInputReceivingAddress: FC = () => {
   const recipient = useSwapRecipient();
   const [tooltip, setTooltip] = useState<string | undefined>();
   const [recipientUnknown, setRecipientUnknown] = useState<boolean>(false);
-  const borderBottomColor = useThemeValue('surface-neutral-default');
+  const tooltipColor = useThemeValue('surface-neutral-default');
 
   const onPress = useCallback(() => {
     setTooltip(undefined);
@@ -178,6 +178,41 @@ const TokenInputReceivingAddress: FC = () => {
   if (address) {
     return (
       <Box position="relative">
+        {tooltip ? (
+          <Box position="relative">
+            <View style={{ height: StyleSheet.hairlineWidth, width: 210 }} />
+            <Box
+              position="absolute"
+              zIndex={1}
+              bottom="2"
+              left="1"
+              bg="surface-neutral-default"
+              borderRadius={12}
+              width="56"
+            >
+              <Box
+                style={{
+                  width: 0,
+                  height: 0,
+                  backgroundColor: 'transparent',
+                  borderStyle: 'solid',
+                  borderLeftWidth: 5,
+                  borderRightWidth: 5,
+                  borderTopWidth: 10,
+                  borderLeftColor: 'transparent',
+                  borderRightColor: 'transparent',
+                  borderTopColor: tooltipColor,
+                  position: 'absolute',
+                  bottom: -10,
+                  left: 14,
+                }}
+              />
+              <Box p="3">
+                <Typography.Body2>{tooltip}</Typography.Body2>
+              </Box>
+            </Box>
+          </Box>
+        ) : null}
         <Box flexDirection="row">
           <Pressable
             flexDirection="row"
@@ -194,41 +229,6 @@ const TokenInputReceivingAddress: FC = () => {
             </Box>
           </Pressable>
         </Box>
-        {tooltip ? (
-          <Box position="relative">
-            <View style={{ height: StyleSheet.hairlineWidth, width: 210 }} />
-            <Box
-              position="absolute"
-              zIndex={1}
-              top="2"
-              left="1"
-              bg="surface-neutral-default"
-              borderRadius={12}
-              width="56"
-            >
-              <Box
-                style={{
-                  width: 0,
-                  height: 0,
-                  backgroundColor: 'transparent',
-                  borderStyle: 'solid',
-                  borderLeftWidth: 5,
-                  borderRightWidth: 5,
-                  borderBottomWidth: 10,
-                  borderLeftColor: 'transparent',
-                  borderRightColor: 'transparent',
-                  borderBottomColor,
-                  position: 'absolute',
-                  top: -10,
-                  left: 14,
-                }}
-              />
-              <Box p="3">
-                <Typography.Body2>{tooltip}</Typography.Body2>
-              </Box>
-            </Box>
-          </Box>
-        ) : null}
       </Box>
     );
   }
