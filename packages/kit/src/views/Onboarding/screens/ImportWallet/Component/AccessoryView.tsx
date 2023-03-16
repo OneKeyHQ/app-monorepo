@@ -55,7 +55,6 @@ export const AccessoryView = ({
       ) : (
         <Box
           flexDirection="row"
-          p={3}
           m="-4px"
           {...(expandWords && { flexWrap: 'wrap' })}
         >
@@ -67,6 +66,7 @@ export const AccessoryView = ({
                 selected?.(value);
               }}
               m="4px"
+              shadow="none"
             >
               {value}
             </Button>
