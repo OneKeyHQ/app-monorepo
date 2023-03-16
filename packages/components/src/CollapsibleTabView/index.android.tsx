@@ -28,7 +28,7 @@ const Container: ForwardRefRenderFunction<
     onIndexChange,
     onRefresh,
     containerStyle,
-    scrollEnabled = false,
+    scrollEnabled = true,
     ...props
   },
   ref,
