@@ -139,6 +139,7 @@ export const useSwapQuoteCallback = function (
       await backgroundApiProxy.serviceSwap.buildWrapperTransaction(params);
     if (wrapperTx && wrapperTx.encodedTx) {
       backgroundApiProxy.dispatch(
+        setQuoteLimited(undefined),
         setQuote({
           type: QuoterType.onekey,
           instantRate: '1',
