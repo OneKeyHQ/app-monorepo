@@ -30,6 +30,16 @@ import type { CardanoGetAddressMethodParams } from '@onekeyfe/hd-core';
 const PATH_PREFIX = `m/1852'/${COIN_TYPE}'`;
 const ProtocolMagic = 764824073;
 
+const getCardanoConstant = async () => {
+  const { PROTO } = await CoreSDKLoader();
+  return {
+    addressType: PROTO.CardanoAddressType.BASE,
+    derivationType: PROTO.CardanoDerivationType.ICARUS,
+    protocolMagic: ProtocolMagic,
+    networkId: NetworkId.MAINNET,
+  };
+};
+
 export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
@@ -43,7 +53,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     );
 
     const showOnOneKey = false;
-    const { PROTO } = await CoreSDKLoader();
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId, deviceType } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
@@ -52,15 +61,18 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw new NewFirmwareUnRelease();
     }
 
+    const { derivationType, addressType, networkId, protocolMagic } =
+      await getCardanoConstant();
+
     const bundle = paths.map((path, index) => ({
       addressParameters: {
-        addressType: PROTO.CardanoAddressType.BASE,
+        addressType,
         path,
         stakingPath: stakingPaths[index],
       },
-      networkId: NetworkId.MAINNET,
-      protocolMagic: 764824073,
-      derivationType: PROTO.CardanoDerivationType.ICARUS,
+      networkId,
+      protocolMagic,
+      derivationType,
       showOnOneKey,
     })) as CardanoGetAddressMethodParams[];
 
@@ -134,22 +146,23 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   async getAddress(params: IHardwareGetAddressParams): Promise<string> {
-    const { PROTO } = await CoreSDKLoader();
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const { path } = params;
     const stakingPath = `${path.split('/').slice(0, 4).join('/')}/2/0`;
+    const { derivationType, addressType, networkId, protocolMagic } =
+      await getCardanoConstant();
     const response = await HardwareSDK.cardanoGetAddress(connectId, deviceId, {
       ...passphraseState,
       addressParameters: {
-        addressType: PROTO.CardanoAddressType.BASE,
+        addressType,
         path,
         stakingPath,
       },
-      networkId: NetworkId.MAINNET,
-      protocolMagic: ProtocolMagic,
-      derivationType: PROTO.CardanoDerivationType.ICARUS,
+      networkId,
+      protocolMagic,
+      derivationType,
       isCheck: true,
       showOnOneKey: true,
     });
@@ -169,6 +182,8 @@ export class KeyringHardware extends KeyringHardwareBase {
     const encodedTx = unsignedTx.payload.encodedTx as unknown as IEncodedTxADA;
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const changeAddress = getChangeAddress(dbAccount);
+    const { derivationType, networkId, protocolMagic } =
+      await getCardanoConstant();
     const utxos = await (
       await (this.vault as AdaVault).getClient()
     ).getUTXOs(dbAccount.xpub, dbAccount.path, dbAccount.addresses);
@@ -190,7 +205,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       };
       cardanoParams = await CardanoApi.txToOneKey(
         rawTxHex,
-        NetworkId.MAINNET,
+        networkId,
         keys,
         dbAccount.xpub,
         changeAddress,
@@ -203,8 +218,8 @@ export class KeyringHardware extends KeyringHardwareBase {
           changeAddress.addressParameters,
         ),
         fee,
-        protocolMagic: ProtocolMagic,
-        networkId: NetworkId.MAINNET,
+        protocolMagic,
+        networkId,
       };
     }
 
@@ -213,7 +228,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const res = await HardwareSDK.cardanoSignTransaction(connectId, deviceId, {
       ...passphraseState,
       inputs: transformToOneKeyInputs(inputs, utxos),
-      derivationType: PROTO.CardanoDerivationType.ICARUS,
+      derivationType,
       ...cardanoParams,
     } as any);
     if (!res.success) {
@@ -239,10 +254,10 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<string[]> {
     debugLogger.common.info('signMessage', messages);
     const dbAccount = await this.getDbAccount();
-    const { PROTO } = await CoreSDKLoader();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const HardwareSDK = await this.getHardwareSDKInstance();
+    const { derivationType, networkId } = await getCardanoConstant();
     const result = await Promise.all(
       messages.map(
         // @ts-expect-error
@@ -253,8 +268,8 @@ export class KeyringHardware extends KeyringHardwareBase {
             {
               ...passphraseState,
               path: dbAccount.path,
-              networkId: NetworkId.MAINNET,
-              derivationType: PROTO.CardanoDerivationType.ICARUS,
+              networkId,
+              derivationType,
               message: payload.payload,
             },
           );
