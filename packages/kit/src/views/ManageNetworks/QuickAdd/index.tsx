@@ -21,7 +21,7 @@ import type { ChainListConfig } from '@onekeyhq/engine/src/managers/network';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useManageNetworks } from '../../../hooks';
+import { useDebounce, useManageNetworks } from '../../../hooks';
 import { ManageNetworkRoutes } from '../types';
 
 import type { ManageNetworkRoutesParams } from '../types';
@@ -60,13 +60,15 @@ export const ManageNetworkQuickAdd: FC = () => {
     setSearch(s);
   }, []);
 
+  const keywords = useDebounce(search, 1000);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const list = await serviceNetwork.fetchChainList({
         page,
         pageSize: 50,
-        query: search,
+        query: keywords,
         showTestNet,
       });
       const data = list.filter(
@@ -86,7 +88,7 @@ export const ManageNetworkQuickAdd: FC = () => {
     setTimeout(() => {
       setLoading(false);
     }, 500);
-  }, [allNetworks, serviceNetwork, search, showTestNet, page]);
+  }, [allNetworks, serviceNetwork, keywords, showTestNet, page]);
 
   const toAddChainPage = useCallback(
     async (chain: ChainListConfig) => {
