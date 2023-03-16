@@ -945,6 +945,7 @@ class ServiceAccount extends ServiceBase {
         }
       } catch (error) {
         // TODO need to handle this error
+        [account] = await engine.getAccounts(wallet.accounts);
       }
     }
 
