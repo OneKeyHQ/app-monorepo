@@ -81,14 +81,21 @@ const Container: ForwardRefRenderFunction<
     },
     [onIndexChange],
   );
-  const [activeLabelColor, labelColor, indicatorColor, borderDefault, bgColor] =
-    useThemeValue([
-      'text-default',
-      'text-subdued',
-      'action-primary-default',
-      'border-subdued',
-      'background-default',
-    ]);
+  const [
+    activeLabelColor,
+    labelColor,
+    indicatorColor,
+    indicatorContainerColor,
+    borderDefault,
+    bgColor,
+  ] = useThemeValue([
+    'text-default',
+    'text-subdued',
+    'action-primary-default',
+    'divider',
+    'border-subdued',
+    'background-default',
+  ]);
 
   useImperativeHandle(ref, () => ({
     setPageIndex: (pageIndex: number) => {
@@ -105,6 +112,7 @@ const Container: ForwardRefRenderFunction<
           height: tabbarHeight,
           borderBottomWidth: 0,
           borderBottomColor: borderDefault,
+          marginHorizontal: 16,
         },
         indicator: {
           backgroundColor: indicatorColor,
@@ -114,10 +122,12 @@ const Container: ForwardRefRenderFunction<
           height: 2,
           top: tabbarHeight - 2,
           width: '100%',
+          backgroundColor: indicatorContainerColor,
         },
         tabStyle: {
           width: isVerticalLayout ? layout.width / routes.length : 'auto',
-          minWidth: isVerticalLayout ? undefined : 90,
+          // minWidth: isVerticalLayout ? undefined : 90,
+          padding: 0,
         },
         label: {
           fontWeight: '500',
@@ -129,6 +139,7 @@ const Container: ForwardRefRenderFunction<
         <TabBar
           {...props}
           lazy
+          gap={isVerticalLayout ? 0 : 32}
           scrollEnabled={scrollEnabled}
           indicatorStyle={styles.indicator}
           indicatorContainerStyle={styles.indicatorContainer}
@@ -146,6 +157,7 @@ const Container: ForwardRefRenderFunction<
       activeLabelColor,
       borderDefault,
       indicatorColor,
+      indicatorContainerColor,
       isVerticalLayout,
       labelColor,
       layout.width,
