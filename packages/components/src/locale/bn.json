@@ -1365,6 +1365,7 @@
   "form__swap_info_uppercase": "তথ্য অদলবদল করুন",
   "form__swap_pending": "অদলবদল মুলতুবি",
   "form__swap_success": "অদলবদল সাফল্য",
+  "form__swap_to_another_address": "অন্য ঠিকানায় অদলবদল করুন",
   "form__swap_tokens": "অদলবদল টোকেন",
   "form__swapping_via": "মাধ্যমে অদলবদল",
   "form__symbol": "প্রতীক",

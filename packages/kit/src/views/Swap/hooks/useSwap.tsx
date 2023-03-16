@@ -17,6 +17,7 @@ import { dangerRefs } from '../refs';
 import { QuoterType, SwapError } from '../typings';
 import {
   formatAmount,
+  getNetworkIdImpl,
   getTokenAmountString,
   getTokenAmountValue,
   greaterThanZeroOrUndefined,
@@ -66,6 +67,32 @@ export function useSwapState() {
   return useAppSelector((s) => s.swap);
 }
 
+export function useSwapRecipient() {
+  const recipient = useAppSelector((s) => s.swap.recipient);
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const allowAnotherRecipientAddress = useAppSelector(
+    (s) => s.swapTransactions.allowAnotherRecipientAddress,
+  );
+  if (inputToken && outputToken) {
+    const implA = getNetworkIdImpl(inputToken.networkId);
+    const implB = getNetworkIdImpl(outputToken.networkId);
+    if (implA === implB && !allowAnotherRecipientAddress) {
+      if (sendingAccount) {
+        return {
+          accountId: sendingAccount.id,
+          address: sendingAccount.address,
+          name: sendingAccount.name,
+          networkId: inputToken.networkId,
+          networkImpl: inputToken.impl,
+        };
+      }
+    }
+  }
+  return recipient;
+}
+
 export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   const { value: swapSlippagePercent } = useSwapSlippage();
   const inputToken = useAppSelector((s) => s.swap.inputToken);
@@ -75,7 +102,8 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   const inputTokenNetwork = useAppSelector((s) => s.swap.inputTokenNetwork);
   const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
-  const receivingAddress = useAppSelector((s) => s.swap.recipient?.address);
+  const recipient = useSwapRecipient();
+  const receivingAddress = recipient?.address;
 
   const params = useMemo(() => {
     if (

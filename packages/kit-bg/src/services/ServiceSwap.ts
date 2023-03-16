@@ -53,6 +53,7 @@ import type {
 } from '@onekeyhq/kit/src/views/Swap/typings';
 import {
   convertBuildParams,
+  getNetworkIdImpl,
   stringifyTokens,
 } from '@onekeyhq/kit/src/views/Swap/utils';
 import {
@@ -472,6 +473,34 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getRecipient(): Promise<Recipient | undefined> {
+    const { appSelector } = this.backgroundApi;
+    const recipient = appSelector((s) => s.swap.recipient);
+    const inputToken = appSelector((s) => s.swap.inputToken);
+    const outputToken = appSelector((s) => s.swap.outputToken);
+    const allowAnotherRecipientAddress = appSelector(
+      (s) => s.swapTransactions.allowAnotherRecipientAddress,
+    );
+    if (inputToken && outputToken) {
+      const implA = getNetworkIdImpl(inputToken.networkId);
+      const implB = getNetworkIdImpl(outputToken.networkId);
+      if (implA === implB && !allowAnotherRecipientAddress) {
+        const sendingAccount = appSelector((s) => s.swap.sendingAccount);
+        if (sendingAccount) {
+          return {
+            accountId: sendingAccount.id,
+            address: sendingAccount.address,
+            name: sendingAccount.name,
+            networkId: inputToken.networkId,
+            networkImpl: inputToken.impl,
+          };
+        }
+      }
+    }
+    return recipient;
+  }
+
+  @backgroundMethod()
   async getAccountRelatedWallet(accountId: string) {
     const { appSelector } = this.backgroundApi;
     const wallets = appSelector((s) => s.runtime.wallets);
@@ -668,7 +697,7 @@ export default class ServiceSwap extends ServiceBase {
   async buyToken(token: Token) {
     const { engine } = this.backgroundApi;
     const paymentToken = await this.getPaymentToken(token);
-    this.clearState()
+    this.clearState();
     this.setOutputToken(token);
     if (paymentToken) {
       if (this.isSameToken(token, paymentToken)) {
@@ -684,7 +713,7 @@ export default class ServiceSwap extends ServiceBase {
   async sellToken(token: Token) {
     const { engine } = this.backgroundApi;
     const paymentToken = await this.getPaymentToken(token);
-    this.clearState()
+    this.clearState();
     this.setInputToken(token);
     if (paymentToken) {
       if (this.isSameToken(token, paymentToken)) {

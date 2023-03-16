@@ -30,7 +30,6 @@ const SwapContent = () => {
   const {
     inputToken,
     outputToken,
-    outputTokenNetwork,
     typedValue,
     independentField,
     loading,
@@ -147,8 +146,6 @@ const SwapContent = () => {
           <ReceivingTokenInput
             type="OUTPUT"
             label={intl.formatMessage({ id: 'action__receive' })}
-            token={outputToken}
-            tokenNetwork={outputTokenNetwork}
             inputValue={formattedAmounts.OUTPUT}
             onChange={onChangeOutput}
             onPress={onSelectOutput}

@@ -1365,6 +1365,7 @@
   "form__swap_info_uppercase": "INFORMASI TUKAR",
   "form__swap_pending": "Tukar Tertunda",
   "form__swap_success": "Tukar Berhasil",
+  "form__swap_to_another_address": "Tukar ke alamat lain",
   "form__swap_tokens": "Tukar Token",
   "form__swapping_via": "Bertukar melalui",
   "form__symbol": "Simbol",

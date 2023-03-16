@@ -1365,6 +1365,7 @@
   "form__swap_info_uppercase": "THÔNG TIN TRAO ĐỔI",
   "form__swap_pending": "Hoán đổi đang chờ xử lý",
   "form__swap_success": "Hoán đổi thành công",
+  "form__swap_to_another_address": "Đổi sang địa chỉ khác",
   "form__swap_tokens": "Hoán đổi mã thông báo",
   "form__swapping_via": "Trao đổi qua",
   "form__symbol": "Biểu tượng",

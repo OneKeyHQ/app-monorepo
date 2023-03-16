@@ -11,29 +11,27 @@ import {
   Icon,
   NumberInput,
   Pressable,
+  Switch,
   Typography,
   useThemeValue,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../../components/Format';
 import { useAppSelector, useNavigation } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setRecipient } from '../../../../store/reducers/swap';
+import { setAllowAnotherRecipientAddress } from '../../../../store/reducers/swapTransactions';
+import { useSwapRecipient } from '../../hooks/useSwap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
-import { formatAmount } from '../../utils';
+import { formatAmount, getNetworkIdImpl } from '../../utils';
 import { NetworkName } from '../NetworkName';
 import { TokenDisplay } from '../TokenDisplay';
 
-import type { Token as TokenType } from '../../../../store/typings';
-
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';
-  token?: TokenType;
-  tokenNetwork?: Network | null;
   label?: string;
   inputValue?: string;
   onPress?: () => void;
@@ -47,7 +45,7 @@ const TokenInputReceivingAddress: FC = () => {
   const navigation = useNavigation();
   const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
-  const recipient = useAppSelector((s) => s.swap.recipient);
+  const recipient = useSwapRecipient();
   const [tooltip, setTooltip] = useState<string | undefined>();
   const [recipientUnknown, setRecipientUnknown] = useState<boolean>(false);
   const borderBottomColor = useThemeValue('surface-neutral-default');
@@ -251,49 +249,140 @@ const TokenInputReceivingAddress: FC = () => {
   );
 };
 
-const TokenInput: FC<TokenInputProps> = ({
-  inputValue,
-  onPress,
-  token,
-  onChange,
-  containerProps,
-  isDisabled,
-}) => {
-  const intl = useIntl();
-  const price = useTokenPrice(token);
-  const recipient = useAppSelector((s) => s.swap.recipient);
+const TokenInputReceivingAddressField = () => {
+  const token = useAppSelector((s) => s.swap.outputToken);
+  const recipient = useSwapRecipient();
   const balance = useTokenBalance(token, recipient?.accountId);
-  const loading = useAppSelector((s) => s.swap.loading);
-  const independentField = useAppSelector((s) => s.swap.independentField);
   const value = balance ?? '0';
   let text = formatAmount(value, 6);
   if (!value || Number(value) === 0 || Number.isNaN(+value)) {
     text = '0';
   }
   return (
-    <Box {...containerProps} position="relative">
-      <Box position="relative">
+    <Box
+      display="flex"
+      flexDirection="row"
+      justifyContent="space-between"
+      alignItems="center"
+      zIndex={1}
+    >
+      <TokenInputReceivingAddress />
+      <Pressable
+        rounded="xl"
+        _hover={{ bg: 'surface-hovered' }}
+        _pressed={{ bg: 'surface-pressed' }}
+        p="2"
+      >
+        <Box flexDirection="row" alignItems="center">
+          <Typography.Caption color="text-subdued" fontWeight={500}>
+            {token ? `${text} ${token.symbol.toUpperCase()}` : '-'}
+          </Typography.Caption>
+        </Box>
+      </Pressable>
+    </Box>
+  );
+};
+
+const TokenInputReceivingAddressFieldShowControl = () => {
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const allowAnotherRecipientAddress = useAppSelector(
+    (s) => s.swapTransactions.allowAnotherRecipientAddress,
+  );
+  if (inputToken && outputToken) {
+    const implA = getNetworkIdImpl(inputToken.networkId);
+    const implB = getNetworkIdImpl(outputToken.networkId);
+    if (implA !== implB || allowAnotherRecipientAddress) {
+      return <TokenInputReceivingAddressField />;
+    }
+  }
+  return null;
+};
+
+const SendToAnotherAddress = () => {
+  const intl = useIntl();
+  const navigation = useNavigation();
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const allowAnotherRecipientAddress = useAppSelector(
+    (s) => s.swapTransactions.allowAnotherRecipientAddress,
+  );
+  const onToggle = useCallback(() => {
+    const newValue = !allowAnotherRecipientAddress;
+    backgroundApiProxy.dispatch(setAllowAnotherRecipientAddress(newValue));
+    if (newValue) {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Swap,
+        params: {
+          screen: SwapRoutes.PickRecipient,
+          params: {
+            networkId: outputToken?.networkId,
+            onSelected: ({
+              address: selectedAddress,
+              name: selectedName,
+              accountId,
+            }) => {
+              backgroundApiProxy.dispatch(
+                setRecipient({
+                  address: selectedAddress,
+                  name: selectedName,
+                  networkId: outputToken?.networkId,
+                  networkImpl: getNetworkIdImpl(outputToken?.networkId),
+                  accountId,
+                }),
+              );
+            },
+          },
+        },
+      });
+    }
+  }, [allowAnotherRecipientAddress, outputToken, navigation]);
+  if (inputToken && outputToken) {
+    const implA = getNetworkIdImpl(inputToken.networkId);
+    const implB = getNetworkIdImpl(outputToken.networkId);
+    if (implA === implB) {
+      return (
         <Box
           display="flex"
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
-          zIndex={1}
+          p="2"
         >
-          <TokenInputReceivingAddress />
-          <Pressable
-            rounded="xl"
-            _hover={{ bg: 'surface-hovered' }}
-            _pressed={{ bg: 'surface-pressed' }}
-            p="2"
-          >
-            <Box flexDirection="row" alignItems="center">
-              <Typography.Caption color="text-subdued" fontWeight={500}>
-                {token ? `${text} ${token.symbol.toUpperCase()}` : '-'}
-              </Typography.Caption>
-            </Box>
-          </Pressable>
+          <Typography.Body2 color="text-subdued">
+            {intl.formatMessage({ id: 'form__swap_to_another_address' })}
+          </Typography.Body2>
+          <Box>
+            <Switch
+              labelType="false"
+              size="mini"
+              onToggle={onToggle}
+              isChecked={allowAnotherRecipientAddress}
+            />
+          </Box>
         </Box>
+      );
+    }
+  }
+  return null;
+};
+
+const TokenInput: FC<TokenInputProps> = ({
+  inputValue,
+  onPress,
+  onChange,
+  containerProps,
+  isDisabled,
+}) => {
+  const intl = useIntl();
+  const token = useAppSelector((s) => s.swap.outputToken);
+  const price = useTokenPrice(token);
+  const loading = useAppSelector((s) => s.swap.loading);
+  const independentField = useAppSelector((s) => s.swap.independentField);
+
+  return (
+    <Box {...containerProps} position="relative">
+      <Box position="relative">
         <Box
           display="flex"
           flexDirection="row"
@@ -396,6 +485,8 @@ const TokenInput: FC<TokenInputProps> = ({
             </Typography.Caption>
           </Box>
         </Box>
+        <SendToAnotherAddress />
+        <TokenInputReceivingAddressFieldShowControl />
       </Box>
     </Box>
   );

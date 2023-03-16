@@ -1365,6 +1365,7 @@
   "form__swap_info_uppercase": "स्वैप जानकारी",
   "form__swap_pending": "स्वैप लंबित",
   "form__swap_success": "स्वैप सफलता",
+  "form__swap_to_another_address": "दूसरे पते पर स्वैप करें",
   "form__swap_tokens": "स्वैप टोकन",
   "form__swapping_via": "के माध्यम से अदला-बदली",
   "form__symbol": "प्रतीक",

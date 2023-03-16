@@ -1365,6 +1365,7 @@
   "form__swap_info_uppercase": "СВАП МЭДЭЭ",
   "form__swap_pending": "Хүлээгдэж буй солилцоо",
   "form__swap_success": "Амжилтыг солих",
+  "form__swap_to_another_address": "Өөр хаяг руу солино уу",
   "form__swap_tokens": "Токенуудыг солих",
   "form__swapping_via": "дамжуулан солих",
   "form__symbol": "Тэмдэг",

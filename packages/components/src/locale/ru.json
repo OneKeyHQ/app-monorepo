@@ -1365,6 +1365,7 @@
   "form__swap_info_uppercase": "ИНФОРМАЦИЯ О ОБМЕНЕ",
   "form__swap_pending": "Обмен в ожидании",
   "form__swap_success": "Обмен успеха",
+  "form__swap_to_another_address": "Переключиться на другой адрес",
   "form__swap_tokens": "Поменять токены",
   "form__swapping_via": "Обмен через",
   "form__symbol": "Символ",

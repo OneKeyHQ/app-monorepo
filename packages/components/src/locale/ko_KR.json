@@ -1365,6 +1365,7 @@
   "form__swap_info_uppercase": "스왑 정보",
   "form__swap_pending": "스왑 보류 중",
   "form__swap_success": "스왑 성공",
+  "form__swap_to_another_address": "다른 주소로 변경",
   "form__swap_tokens": "스왑 토큰",
   "form__swapping_via": "스와핑",
   "form__symbol": "상징",
