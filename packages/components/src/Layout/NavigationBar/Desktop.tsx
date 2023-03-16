@@ -6,7 +6,7 @@ import { CommonActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AnimatePresence, MotiView } from 'moti';
 
-import { useThemeValue } from '@onekeyhq/components';
+import { Center, Tooltip, useThemeValue } from '@onekeyhq/components';
 import WalletSelectorTrigger from '@onekeyhq/kit/src/components/WalletSelector/WalletSelectorTrigger/WalletSelectorTrigger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -65,57 +65,63 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
           }
         };
         return (
-          <Pressable
-            key={route.name}
-            onPress={onPress}
-            flexDirection="row"
-            alignItems="center"
-            mt={index === routes.length - 1 ? 'auto' : undefined}
-            p="8px"
-            borderRadius="xl"
-            bg={isActive ? 'surface-selected' : undefined}
-            _hover={!isActive ? { bg: 'surface-hovered' } : undefined}
-            aria-current={isActive ? 'page' : undefined}
+          <Tooltip
+            label={options.tabBarLabel as string}
+            isDisabled={!isCollpase}
+            placement="right"
           >
-            <Box>
-              <Icon
-                // @ts-expect-error
-                name={options?.tabBarIcon?.() as ICON_NAMES}
-                color={isActive ? 'icon-default' : 'icon-subdued'}
-                size={24}
-              />
-            </Box>
+            <Pressable
+              key={route.name}
+              onPress={onPress}
+              flexDirection="row"
+              alignItems="center"
+              mt={index === routes.length - 1 ? 'auto' : undefined}
+              p="8px"
+              borderRadius="xl"
+              bg={isActive ? 'surface-selected' : undefined}
+              _hover={!isActive ? { bg: 'surface-hovered' } : undefined}
+              aria-current={isActive ? 'page' : undefined}
+            >
+              <Box>
+                <Icon
+                  // @ts-expect-error
+                  name={options?.tabBarIcon?.() as ICON_NAMES}
+                  color={isActive ? 'icon-default' : 'icon-subdued'}
+                  size={24}
+                />
+              </Box>
 
-            <AnimatePresence initial={false}>
-              {!isCollpase && (
-                <MotiView
-                  from={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{
-                    opacity: 0,
-                  }}
-                  transition={{
-                    type: 'timing',
-                    duration: 150,
-                  }}
-                  style={{
-                    flex: 1,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Typography.Body2Strong
-                    flex={1}
-                    ml="3"
-                    color={isActive ? activeFontColor : inactiveFontColor}
-                    isTruncated
+              <AnimatePresence initial={false}>
+                {!isCollpase && (
+                  <MotiView
+                    from={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{
+                      opacity: 0,
+                    }}
+                    transition={{
+                      type: 'timing',
+                      duration: 150,
+                    }}
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
                   >
-                    {options.tabBarLabel ?? route.name}
-                  </Typography.Body2Strong>
-                </MotiView>
-              )}
-            </AnimatePresence>
-          </Pressable>
+                    <Typography.Body2Strong
+                      flex={1}
+                      ml="3"
+                      color={isActive ? activeFontColor : inactiveFontColor}
+                      isTruncated
+                    >
+                      {options.tabBarLabel ?? route.name}
+                    </Typography.Body2Strong>
+                  </MotiView>
+                )}
+              </AnimatePresence>
+            </Pressable>
+          </Tooltip>
         );
       }),
     [
@@ -174,8 +180,8 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
         position="absolute"
         top="0"
         bottom="0"
-        right="-8px"
-        w="16px"
+        right="-10px"
+        w="20px"
       >
         {({ isHovered, isPressed }) => (
           <MotiView
@@ -195,10 +201,29 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
             />
             <Box
               h="full"
-              flex={1}
-              borderLeftWidth={1}
-              borderLeftColor="interactive-default"
-            />
+              w="1px"
+              bgColor="interactive-default"
+              alignItems="center"
+            >
+              <Center mt={`${paddingTopValue}px`} size="40px">
+                <Box
+                  p="4px"
+                  rounded="full"
+                  bgColor="background-default"
+                  borderWidth="1px"
+                  borderColor="border-subdued"
+                  shadow="depth.1"
+                >
+                  <MotiView
+                    animate={{ rotate: isCollpase ? '180deg' : '0deg' }}
+                    transition={{ type: 'timing' }}
+                  >
+                    <Icon name="ChevronLeftMini" size={16} />
+                  </MotiView>
+                </Box>
+              </Center>
+            </Box>
+            <Box flex={1} />
           </MotiView>
         )}
       </Pressable>
