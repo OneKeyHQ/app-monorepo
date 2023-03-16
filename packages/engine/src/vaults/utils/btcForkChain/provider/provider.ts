@@ -40,6 +40,10 @@ type GetAccountParams =
       type: 'history';
       xpub: string;
       to?: number;
+    }
+  | {
+      type: 'usedAddress';
+      xpub: string;
     };
 
 type ErrorType = undefined | string | Error;
@@ -237,6 +241,9 @@ class Provider {
         break;
       case 'history':
         requestParams = { details: 'txs', pageSize: 50, to: params.to };
+        break;
+      case 'usedAddress':
+        requestParams = { details: 'tokenBalances', tokens: 'used' };
         break;
       default:
       // no-op
