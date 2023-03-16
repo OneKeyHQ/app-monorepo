@@ -24,6 +24,7 @@ import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { openUrl } from '../../utils/openUrl';
+import { useShowBookmark } from '../Discover/hooks';
 import {
   useAddressCanSubscribe,
   useEnabledAccountDynamicAccounts,
@@ -38,7 +39,7 @@ const NeedActivateAccountImpl = [IMPL_APTOS, IMPL_SUI];
 
 const AccountMoreMenu: FC<IMenu> = (props) => {
   const intl = useIntl();
-
+  const showBookmark = useShowBookmark();
   const navigation = useNavigation();
   const { network, account, wallet, accountId } = useActiveWalletAccount();
   const { copyAddress } = useCopyAddress({ wallet });
@@ -170,42 +171,44 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
         icon: 'LightBulbMini',
       },
       // TODO Connected Sites
-      walletType !== 'watching' && {
-        id: 'action__buy_crypto',
-        onPress: () => {
-          if (!account) return;
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.FiatPay,
-            params: {
-              screen: FiatPayRoutes.SupportTokenListModal,
+      walletType !== 'watching' &&
+        showBookmark && {
+          id: 'action__buy_crypto',
+          onPress: () => {
+            if (!account) return;
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.FiatPay,
               params: {
-                networkId: network?.id ?? '',
-                accountId,
-                type: 'buy',
+                screen: FiatPayRoutes.SupportTokenListModal,
+                params: {
+                  networkId: network?.id ?? '',
+                  accountId,
+                  type: 'buy',
+                },
               },
-            },
-          });
+            });
+          },
+          icon: 'PlusMini',
         },
-        icon: 'PlusMini',
-      },
-      walletType !== 'watching' && {
-        id: 'action__sell_crypto',
-        onPress: () => {
-          if (!account) return;
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.FiatPay,
-            params: {
-              screen: FiatPayRoutes.SupportTokenListModal,
+      walletType !== 'watching' &&
+        showBookmark && {
+          id: 'action__sell_crypto',
+          onPress: () => {
+            if (!account) return;
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.FiatPay,
               params: {
-                networkId: network?.id ?? '',
-                type: 'sell',
-                accountId,
+                screen: FiatPayRoutes.SupportTokenListModal,
+                params: {
+                  networkId: network?.id ?? '',
+                  type: 'sell',
+                  accountId,
+                },
               },
-            },
-          });
+            });
+          },
+          icon: 'BanknotesMini',
         },
-        icon: 'BanknotesMini',
-      },
       !!explorerUrl && {
         id: 'action__view_on_somewhere',
         intlValues: {
@@ -235,6 +238,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       // TODO Share
     ],
     [
+      showBookmark,
       needActivateAccount,
       walletType,
       explorerUrl,

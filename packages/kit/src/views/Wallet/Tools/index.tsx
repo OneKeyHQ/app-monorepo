@@ -15,7 +15,6 @@ import {
   Pressable,
   Typography,
   VStack,
-  useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
@@ -104,18 +103,12 @@ type NavigationProps = NativeStackNavigationProp<
 const ToolsPage: FC = () => {
   const intl = useIntl();
   const hasFetchedRef = useRef(false);
-  const { size } = useUserDevice();
   const { network, accountAddress } = useActiveWalletAccount();
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation<NavigationProps>();
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
 
   const tools = useTools(network?.id);
-
-  const responsivePadding = useMemo(() => {
-    if (['NORMAL', 'LARGE'].includes(size)) return 32;
-    return 16;
-  }, [size]);
 
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
 
@@ -210,6 +203,22 @@ const ToolsPage: FC = () => {
     [tools, navigation, openAddressDetails, accountAddress, intl, params],
   );
 
+  const getItemPaddingx = useCallback(
+    (index: number) => {
+      if (isVertical) {
+        return {
+          paddingLeft: 0,
+          paddingRight: 0,
+        };
+      }
+      return {
+        paddingLeft: index % 2 === 0 ? 0 : 6,
+        paddingRight: index % 2 === 1 ? 0 : 6,
+      };
+    },
+    [isVertical],
+  );
+
   const fetchData = useCallback(() => {
     backgroundApiProxy.serviceToken.fetchTools().finally(() => {
       hasFetchedRef.current = true;
@@ -247,10 +256,15 @@ const ToolsPage: FC = () => {
       numColumns={isVertical ? undefined : 2}
       contentContainerStyle={{
         marginVertical: 24,
-        paddingHorizontal: responsivePadding,
+        paddingHorizontal: isVertical ? 32 : 16,
       }}
-      renderItem={({ item }) => (
-        <Box key={item.key} p="6px" width={isVertical ? '100%' : '50%'}>
+      renderItem={({ item, index }) => (
+        <Box
+          key={item.key}
+          p="6px"
+          width={isVertical ? '100%' : '50%'}
+          style={getItemPaddingx(index)}
+        >
           <Pressable
             flexDirection="row"
             p="16px"

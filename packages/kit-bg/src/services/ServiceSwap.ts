@@ -668,6 +668,7 @@ export default class ServiceSwap extends ServiceBase {
   async buyToken(token: Token) {
     const { engine } = this.backgroundApi;
     const paymentToken = await this.getPaymentToken(token);
+    this.clearState()
     this.setOutputToken(token);
     if (paymentToken) {
       if (this.isSameToken(token, paymentToken)) {
@@ -683,6 +684,7 @@ export default class ServiceSwap extends ServiceBase {
   async sellToken(token: Token) {
     const { engine } = this.backgroundApi;
     const paymentToken = await this.getPaymentToken(token);
+    this.clearState()
     this.setInputToken(token);
     if (paymentToken) {
       if (this.isSameToken(token, paymentToken)) {
