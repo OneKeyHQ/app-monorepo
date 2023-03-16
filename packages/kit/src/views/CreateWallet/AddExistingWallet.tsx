@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,7 +9,6 @@ import {
   Button,
   Center,
   Form,
-  KeyboardAvoidingView,
   Modal,
   ToastManager,
   useForm,
