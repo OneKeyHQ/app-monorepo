@@ -89,7 +89,7 @@ class AppUpdates {
     }
   }
 
-  private async getPackageInfo() {
+  async getPackageInfo() {
     const { enable, preReleaseUpdate } =
       store.getState().settings.devMode || {};
 
