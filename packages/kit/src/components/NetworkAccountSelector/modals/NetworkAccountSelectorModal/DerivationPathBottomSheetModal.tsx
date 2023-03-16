@@ -8,6 +8,7 @@ import {
   Badge,
   BottomSheetModal,
   Box,
+  Divider,
   HStack,
   Icon,
   Spinner,
@@ -116,10 +117,7 @@ const DerivationOption: FC<{
             )}
           </HStack>
           {option.desc && (
-            <Text
-              typography={{ sm: 'Body2Mono', md: 'Body2Mono' }}
-              color={textColor}
-            >
+            <Text typography={{ sm: 'Body2', md: 'Body2' }} color={textColor}>
               {typeof option.desc === 'string'
                 ? option.desc
                 : intl.formatMessage(
@@ -133,6 +131,8 @@ const DerivationOption: FC<{
             color={textColor}
           >
             {showTemplate && option.template.replace(INDEX_PLACEHOLDER, '*')}
+          </Text>
+          <Text typography={{ sm: 'Body2', md: 'Body2' }} color={textColor}>
             {showSubDesc && option.subDesc}
           </Text>
         </VStack>
@@ -151,7 +151,7 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
   onSelect,
 }) => {
   const intl = useIntl();
-  const { derivationOptions, isUTXOModel } = useDerivationPath(
+  const { derivationOptions, isUTXOModel, showTemplate } = useDerivationPath(
     walletId,
     networkId,
   );
@@ -233,8 +233,8 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
               option={option}
               onPress={handleSelect}
               selectedOption={selectedOption}
-              showSubDesc={!!isUTXOModel}
-              showTemplate={!isUTXOModel}
+              showSubDesc={!showTemplate}
+              showTemplate={showTemplate}
               disabled={isLoading}
             />
           ))}
@@ -242,13 +242,11 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
       )}
       {showInvalidOptions && (
         <Box>
+          <Divider mt={6} mb={2} />
           <Box mb={2} mt={6}>
             <Alert
               title={intl.formatMessage({
-                id: 'content__last_account_of_these_types_are_not_used',
-              })}
-              description={intl.formatMessage({
-                id: 'content__you_cannot_create_a_new_account_when_the_last_account_of_that_type_created',
+                id: 'msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used',
               })}
               dismiss={false}
               alertType="info"

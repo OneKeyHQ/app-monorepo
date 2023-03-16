@@ -1,11 +1,11 @@
 import type { FC } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
-import { Center, Modal, Spinner, Typography } from '@onekeyhq/components';
+import { Center, Modal, Progress, Text } from '@onekeyhq/components';
 import type { IAccount } from '@onekeyhq/engine/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
@@ -49,6 +49,7 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
   const intl = useIntl();
   const [totalAccounts, setTotalAccounts] = useState(0);
   const [importedAccounts, setImportedAccounts] = useState(0);
+  const [progress, setProgress] = useState<number>(0);
 
   const { serviceAccount, serviceAccountSelector } = backgroundApiProxy;
   const stopRecoverFlag = useRef(stopFlag);
@@ -155,27 +156,45 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (importedAccounts > 0 && totalAccounts > 0) {
+      const value =
+        Math.floor((Number(importedAccounts) / Number(totalAccounts)) * 100) /
+        100;
+      setProgress(value);
+    }
+  }, [importedAccounts, totalAccounts]);
+
+  const progressText = useMemo(
+    () => `${importedAccounts}/${totalAccounts}`,
+    [importedAccounts, totalAccounts],
+  );
+
   return (
     <Center w="full" h="full">
       <SkipAppLock />
-      <Spinner size="lg" />
-      <Typography.DisplayMedium mt={3}>
-        {intl.formatMessage({ id: 'action__recover_accounts' })}
-      </Typography.DisplayMedium>
-      <Typography.Body1 mt={2} color="text-subdued">
-        {intl.formatMessage(
-          { id: 'msg__recover_account_progress' },
-          {
-            0: importedAccounts,
-            1: totalAccounts,
-          },
-        )}
-      </Typography.Body1>
-
+      <Progress.Circle
+        progress={progress}
+        text={
+          <Center>
+            <Text typography={{ sm: 'DisplayMedium', md: 'DisplayLarge' }}>
+              {progressText}
+            </Text>
+          </Center>
+        }
+      />
+      <Text my={6} typography={{ sm: 'DisplayMedium', md: 'DisplayMedium' }}>
+        {intl.formatMessage({ id: 'title__recovering_accounts' })}
+      </Text>
       {stopFlag && (
-        <Typography.Body2 position="absolute" bottom={1} color="text-subdued">
+        <Text
+          position="absolute"
+          bottom={1}
+          typography={{ sm: 'Body2', md: 'Body2' }}
+          color="text-subdued"
+        >
           {intl.formatMessage({ id: 'msg__recover_account_stopping' })}
-        </Typography.Body2>
+        </Text>
       )}
     </Center>
   );
@@ -199,7 +218,7 @@ const RecoverConfirm: FC = () => {
 
   return (
     <Modal
-      height="340px"
+      height="380px"
       headerShown={false}
       hidePrimaryAction
       onSecondaryActionPress={() => {
