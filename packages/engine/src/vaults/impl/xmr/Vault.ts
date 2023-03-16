@@ -71,14 +71,12 @@ export default class Vault extends VaultBase {
 
         rawPrivateKey = decrypt(psw, privateKey).toString('hex');
       } else {
-        const dbAccount = (await this.getDbAccount({
-          noCache: true,
-        })) as DBVariantAccount;
+        const { template } = this.settings.accountNameInfo.default;
         const { entropy } = (await this.engine.dbApi.getCredential(
           this.walletId,
           psw,
         )) as ExportedSeedCredential;
-        const { pathPrefix } = slicePathTemplate(dbAccount.template as string);
+        const { pathPrefix } = slicePathTemplate(template);
         const mnemonic = mnemonicFromEntropy(entropy, psw);
         const seed = mnemonicToSeedSync(mnemonic);
         const resp = getRawPrivateKeyFromSeed(seed, pathPrefix);
@@ -102,16 +100,13 @@ export default class Vault extends VaultBase {
   private getMoneroKeys = memoizee(
     async (accountId: string, rawPrivateKey: string, index?: number) => {
       const moneroApi = await getMoneroApi();
-      const dbAccount = (await this.getDbAccount({
-        noCache: true,
-      })) as DBVariantAccount;
 
       const isImportedAccount = accountId.startsWith('imported');
 
       let accountIndex = 0;
       if (!isImportedAccount) {
         accountIndex =
-          index === undefined ? Number(dbAccount.path.split('/').pop()) : index;
+          index === undefined ? Number(accountId.split('/').pop()) : index;
       }
 
       return moneroApi.getKeyPairFromRawPrivatekey({
@@ -141,17 +136,27 @@ export default class Vault extends VaultBase {
     },
   );
 
-  private async getClient(password: string): Promise<ClientXmr> {
+  private async getClient(
+    password: string,
+    accountId?: string,
+    address?: string,
+  ): Promise<ClientXmr> {
+    let accountAddress = address;
+    if (!accountAddress) {
+      accountAddress = (await this.getOutputAccount()).address;
+    }
     const rpcUrl = await this.getRpcUrl();
     const scanUrl = await this.getScanUrl();
-    const privateKey = await this.getPrivateKey(this.accountId, password);
+    const privateKey = await this.getPrivateKey(
+      accountId ?? this.accountId,
+      password,
+    );
     const { publicSpendKey, publicViewKey, privateSpendKey, privateViewKey } =
-      await this.getMoneroKeys(this.accountId, privateKey);
-    const { address } = await this.getOutputAccount();
+      await this.getMoneroKeys(accountId ?? this.accountId, privateKey);
     return this.createXmrClient(
       rpcUrl,
       scanUrl,
-      address,
+      address ?? accountAddress,
       Buffer.from(publicSpendKey || '').toString('hex'),
       Buffer.from(publicViewKey || '').toString('hex'),
       Buffer.from(privateSpendKey).toString('hex'),
@@ -511,12 +516,20 @@ export default class Vault extends VaultBase {
   }
 
   override async getBalances(
-    requests: Array<{ address: string; tokenAddress?: string }>,
+    requests: Array<{
+      address: string;
+      tokenAddress?: string;
+      accountId?: string;
+    }>,
     password: string,
   ): Promise<(BigNumber | undefined)[]> {
-    const client = await this.getClient(password);
-
     const [request] = requests;
+
+    const client = await this.getClient(
+      password,
+      request.accountId,
+      request.address,
+    );
 
     return client.getBalances([
       {
