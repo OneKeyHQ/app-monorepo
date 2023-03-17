@@ -30,10 +30,8 @@ import { useAppSelector } from '../../hooks';
 import { HomeRoutes } from '../../routes/types';
 import { setSwapPopoverShown } from '../../store/reducers/status';
 
-import {
-  useSwapQuoteCallback,
-  useSwapQuoteRequestParams,
-} from './hooks/useSwap';
+import { doQuote } from './doQuote';
+import { useSwapQuoteRequestParams } from './hooks/useSwap';
 import { useWalletsSwapTransactions } from './hooks/useTransactions';
 import { dangerRefs } from './refs';
 import { SwapError } from './typings';
@@ -149,8 +147,6 @@ const RefreshButton = () => {
     return true;
   }, [error, limited, params]);
 
-  const onSwapQuote = useSwapQuoteCallback({ showLoading: true });
-
   const lottie = useMemo(
     () => ({
       play: () => {
@@ -199,10 +195,10 @@ const RefreshButton = () => {
       useNativeDriver: true,
     }).start(async () => {
       lottie.reset();
-      await onSwapQuote();
+      await doQuote({ params, loading: true });
       lottie.play();
     });
-  }, [onSwapQuote, loadingAnim, limited, params, lottie]);
+  }, [loadingAnim, limited, params, lottie]);
 
   useEffect(() => {
     const fn = processAnim.addListener(({ value }) => {

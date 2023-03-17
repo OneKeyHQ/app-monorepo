@@ -13,6 +13,8 @@ import { useAppSelector, useNavigation, usePrevious } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { useRpcMeasureStatus } from '../ManageNetworks/hooks';
 
+import { doQuote } from './doQuote';
+import { useSwapQuoteRequestParams } from './hooks/useSwap';
 import { SwapError, SwapRoutes } from './typings';
 import { stringifyTokens } from './utils';
 
@@ -114,6 +116,26 @@ const PriceObserver = () => {
   return null;
 };
 
+const SwapQuoteResetObserver = () => {
+  // When the following parameters change, the state needs to be cleared immediately.
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const typedValue = useAppSelector((s) => s.swap.typedValue);
+  const independentField = useAppSelector((s) => s.swap.independentField);
+  useEffect(() => {
+    backgroundApiProxy.serviceSwap.setQuote(undefined);
+  }, [inputToken, outputToken, typedValue, independentField]);
+  return null;
+};
+
+const SwapParamsObserver = () => {
+  const params = useSwapQuoteRequestParams();
+  useEffect(() => {
+    doQuote({ params, loading: true });
+  }, [params]);
+  return null;
+};
+
 const SwapObserver = () => (
   <>
     <AccountsObserver />
@@ -121,6 +143,8 @@ const SwapObserver = () => (
     <WelcomeObserver />
     <NetworkStatusObserver />
     <PriceObserver />
+    <SwapQuoteResetObserver />
+    <SwapParamsObserver />
   </>
 );
 

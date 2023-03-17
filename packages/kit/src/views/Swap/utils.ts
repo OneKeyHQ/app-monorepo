@@ -10,6 +10,7 @@ import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { QuoterType } from './typings';
 
@@ -171,11 +172,15 @@ export function getChainIdFromNetworkId(networdId: string) {
   return networdId.split('--')[1] ?? '';
 }
 
-export function isEvmNetworkId(networdId?: string) {
+export function getNetworkIdImpl(networdId?: string) {
   if (!networdId) {
     return;
   }
-  return networdId.split('--')[0] === 'evm';
+  return networdId.split('--')[0];
+}
+
+export function isEvmNetworkId(networdId?: string) {
+  return getNetworkIdImpl(networdId) === IMPL_EVM;
 }
 
 export function getEvmTokenAddress(token: Token) {

@@ -36,8 +36,6 @@ import type { Token as TokenType } from '../../../../store/typings';
 
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';
-  account?: Account | null;
-  token?: TokenType;
   label?: string;
   inputValue?: string;
   onPress?: () => void;
@@ -137,15 +135,14 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
 const TokenInput: FC<TokenInputProps> = ({
   inputValue,
   onPress,
-  account,
-  token,
   onChange,
   containerProps,
   type,
   isDisabled,
 }) => {
   const intl = useIntl();
-
+  const token = useAppSelector((s) => s.swap.inputToken);
+  const account = useAppSelector((s) => s.swap.sendingAccount);
   const balance = useTokenBalance(token, account?.id);
   const loading = useAppSelector((s) => s.swap.loading);
   const independentField = useAppSelector((s) => s.swap.independentField);
