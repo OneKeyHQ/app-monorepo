@@ -14,9 +14,10 @@ type SessionProps = {
   field?: ValidationFields;
   onOk?: (text: string, isLocalAuthentication?: boolean) => void;
   hideTitle?: boolean;
+  placeCenter?: boolean;
 };
 
-const Session: FC<SessionProps> = ({ field, onOk, hideTitle }) => {
+const Session: FC<SessionProps> = ({ field, onOk, hideTitle, placeCenter }) => {
   const [loaded, setLoaded] = useState(false);
   const [verifiedPwd, setVerifiedPwd] = useState(false);
   const [hasvPw, setHasPw] = useState<boolean | undefined>();
@@ -60,11 +61,23 @@ const Session: FC<SessionProps> = ({ field, onOk, hideTitle }) => {
 
   if (!verifiedPwd) {
     if (isAlwaysNeedInputPassword) {
-      return <Validation onOk={onSubmit} hideTitle={hideTitle} />;
+      return (
+        <Validation
+          onOk={onSubmit}
+          hideTitle={hideTitle}
+          placeCenter={placeCenter}
+        />
+      );
     }
 
     if (loaded && !hasvPw) {
-      return <Validation onOk={onSubmit} hideTitle={hideTitle} />;
+      return (
+        <Validation
+          onOk={onSubmit}
+          hideTitle={hideTitle}
+          placeCenter={placeCenter}
+        />
+      );
     }
   }
 

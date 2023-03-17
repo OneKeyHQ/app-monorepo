@@ -39,6 +39,7 @@ import BackupToast from './BackupToast';
 import NFTList from './NFT/NFTList';
 import ToolsPage from './Tools';
 import { HomeTabIndex, HomeTabOrder, WalletHomeTabEnum } from './type';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const AccountHeader = () => <AccountInfo />;
 
@@ -176,7 +177,11 @@ const WalletTabs: FC = () => {
   if (network?.settings.validationRequired) {
     return (
       <Center w="full" h="full">
-        <Protected walletId={wallet.id} field={ValidationFields.Account}>
+        <Protected
+          walletId={wallet.id}
+          field={ValidationFields.Account}
+          placeCenter={!platformEnv.isNative}
+        >
           {() => walletTabs}
         </Protected>
       </Center>
