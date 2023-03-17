@@ -7,22 +7,26 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Center,
   IconButton,
   List,
   ListItem,
   Modal,
+  Spinner,
   Text,
   Token,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import type { BtcForkChainUsedAccount } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../../components/Format';
 import { useNetwork } from '../../../hooks';
 import { useRuntime } from '../../../hooks/redux';
 
-import RecoverAccountListItemMenu from './RecoverAccountListItemMenu';
+import BitcoinUsedAddressListItemMenu from './BitcoinUsedAddressListItemMenu';
 
 import type {
   CreateAccountModalRoutes,
@@ -43,14 +47,7 @@ type ListTableHeaderProps = {
   showPath: boolean;
 } & ComponentProps<typeof Box>;
 
-type IUsedAccount = {
-  name: string;
-  path: string;
-  decimals: number;
-  balance: string;
-  totalReceived: string;
-  displayTotalReceived: string;
-};
+const PAGE_SIZE = 2;
 
 const ListTableHeader: FC<ListTableHeaderProps> = () => {
   const intl = useIntl();
@@ -77,14 +74,14 @@ const ListTableHeader: FC<ListTableHeaderProps> = () => {
         flex={1}
       />
       <ListItem.Column>
-        <Box w="auto" />
+        <Box w="27px" />
       </ListItem.Column>
     </ListItem>
   );
 };
 
 type CellProps = {
-  item: IUsedAccount;
+  item: BtcForkChainUsedAccount;
   symbol: string | undefined;
   showPath: boolean;
   network: Network | undefined;
@@ -133,7 +130,10 @@ const AccountCell: FC<CellProps> = ({ item, symbol, network, showPath }) => {
         </Box>
       </ListItem.Column>
       <ListItem.Column>
-        <RecoverAccountListItemMenu item={item} network={network}>
+        <BitcoinUsedAddressListItemMenu
+          item={item}
+          network={network ?? ({} as Network)}
+        >
           <IconButton
             alignItems="flex-end"
             type="plain"
@@ -143,7 +143,7 @@ const AccountCell: FC<CellProps> = ({ item, symbol, network, showPath }) => {
             hitSlop={12}
             circle
           />
-        </RecoverAccountListItemMenu>
+        </BitcoinUsedAddressListItemMenu>
       </ListItem.Column>
     </ListItem>
   );
@@ -182,25 +182,47 @@ const BitcoinUsedAddress: FC = () => {
   const network = networks.find((n) => n.id === networkId);
   const account = accounts.find((i) => i.id === accountId);
 
-  const [config, setConfig] = useState<{ showPath: boolean }>({
+  const isFetchingDataRef = useRef(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [config, setConfig] = useState<{
+    showPath: boolean;
+    currentPage: number;
+  }>({
     showPath: false,
+    currentPage: 1,
   });
-  const [currentPageData, updateCurrentPageData] = useState<IUsedAccount[]>([]);
+  const [dataSource, setDataSource] = useState<BtcForkChainUsedAccount[]>([]);
+
+  const maxPage = useMemo(
+    () => Math.ceil(dataSource.length / PAGE_SIZE),
+    [dataSource],
+  );
+
+  const isMaxPage = useMemo(
+    () => config.currentPage >= maxPage,
+    [config.currentPage, maxPage],
+  );
+
+  const currentPageData = useMemo(
+    () => dataSource.slice((config.currentPage - 1) * PAGE_SIZE, PAGE_SIZE),
+    [config.currentPage, dataSource],
+  );
 
   useEffect(() => {
-    const res: IUsedAccount[] = [];
-    Array.from({ length: 100 }).forEach((_, index) => {
-      res.push({
-        name: '2N1n8YcwYgf3ng171pLsUyzR7AGqrBSN9Kj',
-        path: `m/49'/1'/0'/0/${index}`,
-        decimals: 8,
-        balance: '291098',
-        totalReceived: '41737579',
-        displayTotalReceived: new BigNumber('41737579').shiftedBy(-8).toFixed(),
+    if (isFetchingDataRef.current) return;
+    isFetchingDataRef.current = false;
+    setIsLoading(true);
+    backgroundApiProxy.serviceDerivationPath
+      .getAllUsedAddress({
+        networkId,
+        accountId,
+      })
+      .then((res) => setDataSource(res))
+      .finally(() => {
+        isFetchingDataRef.current = false;
+        setIsLoading(false);
       });
-    });
-    updateCurrentPageData(res);
-  }, []);
+  }, [networkId, accountId]);
 
   const itemSeparatorComponent = useCallback(
     () => (
@@ -212,7 +234,7 @@ const BitcoinUsedAddress: FC = () => {
   );
 
   const rowRenderer = useCallback(
-    ({ item }: ListRenderItemInfo<IUsedAccount>) => (
+    ({ item }: ListRenderItemInfo<BtcForkChainUsedAccount>) => (
       <AccountCell
         network={network}
         symbol={network?.symbol}
@@ -233,19 +255,25 @@ const BitcoinUsedAddress: FC = () => {
         />
       }
     >
-      <Box flex={1}>
-        <ListTableHeader
-          symbol={network?.symbol ?? ''}
-          showPath={config.showPath}
-        />
-        <List
-          data={currentPageData}
-          renderItem={rowRenderer}
-          keyExtractor={(item: IUsedAccount) => `${item.path}`}
-          showsVerticalScrollIndicator={false}
-          ItemSeparatorComponent={itemSeparatorComponent}
-        />
-      </Box>
+      {isLoading ? (
+        <Center flex={1}>
+          <Spinner size="lg" />
+        </Center>
+      ) : (
+        <Box flex={1}>
+          <ListTableHeader
+            symbol={network?.symbol ?? ''}
+            showPath={config.showPath}
+          />
+          <List
+            data={currentPageData}
+            renderItem={rowRenderer}
+            keyExtractor={(item: BtcForkChainUsedAccount) => `${item.path}`}
+            showsVerticalScrollIndicator={false}
+            ItemSeparatorComponent={itemSeparatorComponent}
+          />
+        </Box>
+      )}
     </Modal>
   );
 };

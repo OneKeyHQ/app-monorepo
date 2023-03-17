@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import type { BtcForkChainUsedAccount } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 import type {
@@ -14,20 +15,18 @@ import type {
 
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 
-import type { RecoverAccountType } from './RecoverAccounts';
-
-const RecoverAccountListItemMenu: FC<
-  IMenu & { item: RecoverAccountType; network: Network }
+const BitcoinUsedAddressListItemMenu: FC<
+  IMenu & { item: BtcForkChainUsedAccount; network: Network }
 > = ({ item, network, ...props }) => {
   const intl = useIntl();
   const { openAddressDetails } = useOpenBlockBrowser(network);
   const onOpenBlockChainBrowser = useCallback(() => {
-    openAddressDetails(item.displayAddress);
+    openAddressDetails(item.name);
   }, [item, openAddressDetails]);
 
   const onPressCopyAddress = useCallback(() => {
     setTimeout(() => {
-      copyToClipboard(item.displayAddress);
+      copyToClipboard(item.name);
       ToastManager.show({
         title: intl.formatMessage({ id: 'msg__address_copied' }),
       });
@@ -53,4 +52,4 @@ const RecoverAccountListItemMenu: FC<
   return <BaseMenu options={options} {...props} />;
 };
 
-export default RecoverAccountListItemMenu;
+export default BitcoinUsedAddressListItemMenu;
