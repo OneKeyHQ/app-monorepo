@@ -769,7 +769,7 @@ export default class VaultBtcFork extends VaultBase {
       .filter((usedAccount) => {
         const pathComponents = usedAccount.path.split('/');
         const isChange =
-          Number.isSafeInteger(pathComponents[4]) && +pathComponents[4] === 1;
+          Number.isSafeInteger(+pathComponents[4]) && +pathComponents[4] === 1;
         return usedAccount.transfers > 0 && !isChange;
       })
       .map((usedAccount) => ({
