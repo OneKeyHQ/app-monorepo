@@ -215,7 +215,6 @@ class ProviderApiPrivate extends ProviderApiBase {
   callChainWebEmbedMethod(payload: any) {
     const method: string = payload.data?.method;
     console.log(`$privide provide request ===> ${method}`);
-    console.log(`${method} =====>>>>>>>99999`);
     console.log(payload);
     const data = ({ origin }: { origin: string }) => {
       const result = {

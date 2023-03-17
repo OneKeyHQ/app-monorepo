@@ -65,13 +65,21 @@ function HardwarePassphraseMenuOptions({
     [rememberPassphraseWallets, wallet.id],
   );
 
-  const onClickRememberPassphrase = useCallback(() => {
-    if (isRememberPassphrase) {
-      dispatch(forgetPassphraseWallet(wallet?.id));
-    } else {
-      dispatch(rememberPassphraseWallet(wallet?.id));
-    }
-  }, [dispatch, isRememberPassphrase, wallet?.id]);
+  const onClickRememberPassphrase = useCallback(
+    (e) => {
+      if (isRememberPassphrase) {
+        dispatch(forgetPassphraseWallet(wallet?.id));
+      } else {
+        dispatch(rememberPassphraseWallet(wallet?.id));
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      e?.preventDefault?.();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      e?.stopPropagation?.();
+    },
+    [dispatch, isRememberPassphrase, wallet?.id],
+  );
 
   return (
     <>

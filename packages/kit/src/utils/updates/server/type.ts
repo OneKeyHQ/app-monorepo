@@ -42,6 +42,9 @@ export interface Desktop {
 }
 
 export interface AppReleases {
+  web: {
+    miniVersion?: number[];
+  };
   ios: IOS;
   android: Android;
   ext: Ext;

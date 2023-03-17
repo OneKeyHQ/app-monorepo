@@ -4,8 +4,8 @@
   "version": "0.0.1",
   "scripts": {
     "start": "expo start --dev-client",
-    "android": "ANDROID_CHANNEL=direct expo run:android",
-    "android:device": "expo run:android --device",
+    "android": "ANDROID_CHANNEL=direct expo run:android --variant=DirectDebug",
+    "android:device": "ANDROID_CHANNEL=direct expo run:android --variant=DirectDebug --device",
     "android:huawei": "ANDROID_CHANNEL=huawei expo run:android --variant=HuaweiDebug",
     "android:google": "ANDROID_CHANNEL=google expo run:android --variant=GoogleDebug",
     "ios": "expo run:ios",

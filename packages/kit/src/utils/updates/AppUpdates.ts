@@ -10,11 +10,16 @@ import {
   available,
   checking,
   downloading,
+  enable as enableUpdater,
   error,
   notAvailable,
   ready,
+  setLastCheckTimestamp,
 } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
-import { setUpdateSetting } from '@onekeyhq/kit/src/store/reducers/settings';
+import {
+  setForceUpdateVersionInfo,
+  setUpdateSetting,
+} from '@onekeyhq/kit/src/store/reducers/settings';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -33,11 +38,34 @@ class AppUpdates {
       this.checkDesktopUpdate(isManual);
     }
 
-    return this.checkAppUpdate();
+    const { dispatch } = backgroundApiProxy;
+
+    return this.checkAppUpdate().then((newVersion) => {
+      const actions: any[] = [setLastCheckTimestamp(getTimeStamp())];
+
+      if (newVersion) {
+        actions.push(enableUpdater());
+        actions.push(available(newVersion));
+      }
+
+      if (newVersion?.forceUpdate) {
+        actions.push(setForceUpdateVersionInfo(newVersion));
+      } else {
+        actions.push(setForceUpdateVersionInfo(undefined));
+      }
+
+      dispatch(...actions);
+      return newVersion;
+    });
   }
 
-  async checkAppUpdate(): Promise<VersionInfo | undefined> {
-    const packageInfo: PackageInfo | undefined = await this.getPackageInfo();
+  private async checkAppUpdate(): Promise<VersionInfo | undefined> {
+    const packageInfo: PackageInfo | undefined =
+      await this.getPackageInfo().catch(
+        () =>
+          store.getState().settings?.softwareUpdate?.forceUpdateVersionInfo
+            ?.package,
+      );
 
     if (packageInfo) {
       if (!packageInfo) return undefined;
@@ -138,6 +166,10 @@ class AppUpdates {
       }
     }
 
+    if (platformEnv.isWeb) {
+      packageInfo = releasePackages?.web?.find((x) => x.os === 'website');
+    }
+
     return packageInfo;
   }
 
@@ -169,13 +201,16 @@ class AppUpdates {
         break;
       case 'MsWindowsStore':
         // check ms-windows-store protocol support
-        LinkingOpenURL('ms-windows-store://pdp/?productid=XPFMHZDDF91TNL')
-          .then((success) => {
-            if (!success) throw new Error('open ms-windows-store failed');
-          })
-          .catch(() => {
-            this._openUrl(versionInfo.package.download);
-          });
+        canOpenURL('ms-windows-store://pdp/?productid=XPFMHZDDF91TNL').then(
+          (supported) => {
+            if (supported) {
+              return LinkingOpenURL(
+                'ms-windows-store://pdp/?productid=XPFMHZDDF91TNL',
+              );
+            }
+            return LinkingOpenURL(versionInfo.package.download);
+          },
+        );
         break;
       default:
         this._openUrl(versionInfo.package.download);
@@ -187,7 +222,17 @@ class AppUpdates {
     oldVersion: string,
     newVersion: string,
   ): Promise<string | undefined> {
-    const releaseInfo = await getChangeLog(oldVersion, newVersion);
+    const { enable, preReleaseUpdate } =
+      store.getState().settings.devMode || {};
+
+    const preUpdateMode = enable && preReleaseUpdate;
+
+    const releaseInfo = await getChangeLog(
+      oldVersion,
+      newVersion,
+      preUpdateMode,
+    );
+
     if (!releaseInfo) return;
 
     let locale = store.getState().settings.locale ?? 'en-US';
