@@ -67,7 +67,7 @@ const ListTableHeader: FC<ListTableHeaderProps> = () => {
       <ListItem.Column
         alignItems="flex-end"
         text={{
-          label: 'total received',
+          label: intl.formatMessage({ id: 'form__total_received' }),
           labelProps: {
             typography: 'Subheading',
             textAlign: 'right',
@@ -301,7 +301,7 @@ const BitcoinUsedAddress: FC = () => {
   );
   return (
     <Modal
-      header="Addresses"
+      header={intl.formatMessage({ id: 'title__addresses' })}
       headerDescription={
         <UsedAddressHeader
           networkId={networkId}
