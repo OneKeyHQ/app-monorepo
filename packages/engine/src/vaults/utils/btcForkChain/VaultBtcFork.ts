@@ -51,7 +51,11 @@ import { BlockBook, getRpcUrlFromChainInfo } from './provider/blockbook';
 import { getAccountDefaultByPurpose, getBIP44Path } from './utils';
 
 import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
-import type { Account, DBUTXOAccount } from '../../../types/account';
+import type {
+  Account,
+  BtcForkChainUsedAccount,
+  DBUTXOAccount,
+} from '../../../types/account';
 import type { KeyringBaseMock } from '../../keyring/KeyringBase';
 import type { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import type {
@@ -747,5 +751,32 @@ export default class VaultBtcFork extends VaultBase {
 
   override async getPrivateKeyByCredential(credential: string) {
     return Promise.resolve(bs58check.decode(credential));
+  }
+
+  override async getAllUsedAddress(): Promise<BtcForkChainUsedAccount[]> {
+    const account = (await this.getDbAccount()) as DBUTXOAccount;
+    const xpub = this.getAccountXpub(account);
+    if (!xpub) {
+      return [];
+    }
+    const provider = await this.getProvider();
+    const { tokens = [] } = (await provider.getAccount({
+      type: 'usedAddress',
+      xpub,
+    })) as unknown as { tokens: BtcForkChainUsedAccount[] };
+
+    return tokens
+      .filter((usedAccount) => {
+        const pathComponents = usedAccount.path.split('/');
+        const isChange =
+          Number.isSafeInteger(pathComponents[4]) && +pathComponents[4] === 1;
+        return usedAccount.transfers > 0 && !isChange;
+      })
+      .map((usedAccount) => ({
+        ...usedAccount,
+        displayTotalReceived: new BigNumber(usedAccount.totalReceived)
+          .shiftedBy(-8)
+          .toFixed(),
+      }));
   }
 }

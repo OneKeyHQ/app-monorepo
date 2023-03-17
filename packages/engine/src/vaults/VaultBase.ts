@@ -30,7 +30,11 @@ import { IMPL_MAPPINGS } from '../proxyUtils';
 import { IDecodedTxActionType, IDecodedTxDirection } from './types';
 import { VaultContext } from './VaultContext';
 
-import type { Account, DBAccount } from '../types/account';
+import type {
+  Account,
+  BtcForkChainUsedAccount,
+  DBAccount,
+} from '../types/account';
 import type { HistoryEntry, HistoryEntryStatus } from '../types/history';
 import type { AccountNameInfo, Network } from '../types/network';
 import type { WalletType } from '../types/wallet';
@@ -693,5 +697,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params?: Record<string, any>;
   }> {
     return { success: true };
+  }
+
+  async getAllUsedAddress(): Promise<BtcForkChainUsedAccount[]> {
+    return Promise.resolve([]);
   }
 }

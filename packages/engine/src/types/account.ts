@@ -51,6 +51,16 @@ type ImportableHDAccount = {
   template?: string;
 };
 
+type BtcForkChainUsedAccount = {
+  transfers: number;
+  name: string;
+  path: string;
+  decimals: number;
+  balance: string;
+  totalReceived: string;
+  displayTotalReceived: string;
+};
+
 export { AccountType };
 export type {
   DBSimpleAccount,
@@ -59,4 +69,5 @@ export type {
   DBAccount,
   Account,
   ImportableHDAccount,
+  BtcForkChainUsedAccount,
 };

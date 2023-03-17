@@ -120,4 +120,22 @@ export default class ServiceDerivationPath extends ServiceBase {
       });
     }
   }
+
+  @backgroundMethod()
+  async getAllUsedAddress({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    if (!accountId || !networkId) {
+      return [];
+    }
+    const vault = await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    });
+    return vault.getAllUsedAddress();
+  }
 }
