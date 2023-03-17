@@ -81,21 +81,14 @@ const Container: ForwardRefRenderFunction<
     },
     [onIndexChange],
   );
-  const [
-    activeLabelColor,
-    labelColor,
-    indicatorColor,
-    indicatorContainerColor,
-    borderDefault,
-    bgColor,
-  ] = useThemeValue([
-    'text-default',
-    'text-subdued',
-    'action-primary-default',
-    'divider',
-    'border-subdued',
-    'background-default',
-  ]);
+  const [activeLabelColor, labelColor, indicatorColor, borderDefault, bgColor] =
+    useThemeValue([
+      'text-default',
+      'text-subdued',
+      'action-primary-default',
+      'border-subdued',
+      'background-default',
+    ]);
 
   useImperativeHandle(ref, () => ({
     setPageIndex: (pageIndex: number) => {
@@ -105,16 +98,13 @@ const Container: ForwardRefRenderFunction<
 
   const renderTabBar = useCallback(
     (props: any) => {
-      const marginHorizontal = 16;
-      const tabContainerWidth = layout.width - marginHorizontal * 2;
       const styles = {
         tabbar: {
           backgroundColor: 'transparent',
-          // flex: 1,
+          width: '100%',
           height: tabbarHeight,
           borderBottomWidth: 0,
           borderBottomColor: borderDefault,
-          marginHorizontal,
         },
         indicator: {
           backgroundColor: indicatorColor,
@@ -124,12 +114,10 @@ const Container: ForwardRefRenderFunction<
           height: 2,
           top: tabbarHeight - 2,
           width: '100%',
-          backgroundColor: indicatorContainerColor,
         },
         tabStyle: {
-          width: isVerticalLayout ? tabContainerWidth / routes.length : 'auto',
-          // minWidth: isVerticalLayout ? undefined : 90,
-          paddingHorizontal: 0,
+          width: isVerticalLayout ? layout.width / routes.length : 'auto',
+          minWidth: isVerticalLayout ? undefined : 90,
         },
         label: {
           fontWeight: '500',
@@ -141,7 +129,6 @@ const Container: ForwardRefRenderFunction<
         <TabBar
           {...props}
           lazy
-          gap={isVerticalLayout ? 0 : 32}
           scrollEnabled={scrollEnabled}
           indicatorStyle={styles.indicator}
           indicatorContainerStyle={styles.indicatorContainer}
@@ -159,7 +146,6 @@ const Container: ForwardRefRenderFunction<
       activeLabelColor,
       borderDefault,
       indicatorColor,
-      indicatorContainerColor,
       isVerticalLayout,
       labelColor,
       layout.width,
