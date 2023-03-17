@@ -105,14 +105,16 @@ const Container: ForwardRefRenderFunction<
 
   const renderTabBar = useCallback(
     (props: any) => {
+      const marginHorizontal = 16;
+      const tabContainerWidth = layout.width - marginHorizontal * 2;
       const styles = {
         tabbar: {
           backgroundColor: 'transparent',
-          width: '100%',
+          // flex: 1,
           height: tabbarHeight,
           borderBottomWidth: 0,
           borderBottomColor: borderDefault,
-          marginHorizontal: 16,
+          marginHorizontal,
         },
         indicator: {
           backgroundColor: indicatorColor,
@@ -125,9 +127,9 @@ const Container: ForwardRefRenderFunction<
           backgroundColor: indicatorContainerColor,
         },
         tabStyle: {
-          width: isVerticalLayout ? layout.width / routes.length : 'auto',
+          width: isVerticalLayout ? tabContainerWidth / routes.length : 'auto',
           // minWidth: isVerticalLayout ? undefined : 90,
-          padding: 0,
+          paddingHorizontal: 0,
         },
         label: {
           fontWeight: '500',
