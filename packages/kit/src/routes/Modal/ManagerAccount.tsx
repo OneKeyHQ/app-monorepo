@@ -1,4 +1,5 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import type { AccountCredential } from '@onekeyhq/engine/src/types/account';
 import ManagerAccountModalView from '@onekeyhq/kit/src/views/ManagerAccount/AccountInfo';
 import ExportPrivateViewModal from '@onekeyhq/kit/src/views/ManagerAccount/ExportPrivate';
 
@@ -20,6 +21,7 @@ export type ManagerAccountRoutesParams = {
   [ManagerAccountModalRoutes.ManagerAccountExportPrivateModal]: {
     accountId: string;
     networkId: string;
+    accountCredential: AccountCredential;
   };
 };
 

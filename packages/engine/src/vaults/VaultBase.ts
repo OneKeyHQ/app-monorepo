@@ -30,7 +30,11 @@ import { IMPL_MAPPINGS } from '../proxyUtils';
 import { IDecodedTxActionType, IDecodedTxDirection } from './types';
 import { VaultContext } from './VaultContext';
 
-import type { Account, DBAccount } from '../types/account';
+import type {
+  Account,
+  AccountCredentialType,
+  DBAccount,
+} from '../types/account';
 import type { HistoryEntry, HistoryEntryStatus } from '../types/history';
 import type { AccountNameInfo, Network } from '../types/network';
 import type { WalletType } from '../types/wallet';
@@ -434,7 +438,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   // TODO move to keyring
-  abstract getExportedCredential(password: string): Promise<string>;
+  abstract getExportedCredential(
+    password: string,
+    credentialType: AccountCredentialType,
+  ): Promise<string>;
 
   async updatePendingTxs(
     pendingTxs: Array<HistoryEntry>,

@@ -11,6 +11,7 @@ import simpleDb from '../../../dbs/simple/simpleDb';
 import { InvalidAddress, OneKeyInternalError } from '../../../errors';
 import { isAccountCompatibleWithNetwork } from '../../../managers/account';
 import { slicePathTemplate } from '../../../managers/derivation';
+import { AccountCredentialType } from '../../../types/account';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
@@ -321,7 +322,10 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override async getExportedCredential(password: string): Promise<string> {
+  override async getExportedCredential(
+    password: string,
+    credentialType: AccountCredentialType,
+  ): Promise<string> {
     if (
       this.accountId.startsWith('hd-') ||
       this.accountId.startsWith('imported')
@@ -333,9 +337,18 @@ export default class Vault extends VaultBase {
         privateKey,
       );
 
-      return `Private View Key: ${Buffer.from(privateViewKey).toString('hex')}
-      Mnemonic: ${moneroApi.privateSpendKeyToWords(privateSpendKey)}`;
+      switch (credentialType) {
+        case AccountCredentialType.PrivateSpendKey:
+          return Buffer.from(privateSpendKey).toString('hex');
+        case AccountCredentialType.PrivateViewKey:
+          return Buffer.from(privateViewKey).toString('hex');
+        case AccountCredentialType.Mnemonic:
+          return moneroApi.privateSpendKeyToWords(privateSpendKey);
+        default:
+          return moneroApi.privateSpendKeyToWords(privateSpendKey);
+      }
     }
+
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',
     );

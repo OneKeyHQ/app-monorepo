@@ -28,7 +28,6 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
-  CHAINS_NOT_DISPLAYED_IN_EXT,
   IMPL_EVM,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -116,6 +115,7 @@ import type {
   DBAccount,
   DBUTXOAccount,
   ImportableHDAccount,
+  AccountCredentialType,
 } from './types/account';
 import type { BackupObject, ImportableHDWallet } from './types/backup';
 import type { DevicePayload } from './types/device';
@@ -795,11 +795,16 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getAccountPrivateKey(
-    accountId: string,
-    password: string,
-    // networkId?: string, TODO: different curves on different networks.
-  ): Promise<string> {
+  async getAccountPrivateKey({
+    accountId,
+    password,
+    credentialType,
+  }: {
+    accountId: string;
+    password: string;
+    credentialType: AccountCredentialType;
+  }): // networkId?: string, TODO: different curves on different networks.
+  Promise<string> {
     const { coinType } = await this.dbApi.getAccount(accountId);
     // TODO: need a method to get default network from coinType.
     const networkId = {
@@ -830,7 +835,7 @@ class Engine {
     }
 
     const vault = await this.getVault({ accountId, networkId });
-    return vault.getExportedCredential(password);
+    return vault.getExportedCredential(password, credentialType);
   }
 
   @backgroundMethod()

@@ -1,7 +1,10 @@
+import type { LocaleIds } from '@onekeyhq/components/src/locale/';
 import {
   COINTYPE_XMR,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+
+import { AccountCredentialType } from '../../../types/account';
 
 import type { IVaultSettings } from '../../types';
 
@@ -30,6 +33,21 @@ const settings: IVaultSettings = Object.freeze({
       coinType: COINTYPE_XMR,
     },
   },
+
+  exportCredentialInfo: [
+    {
+      type: AccountCredentialType.PrivateViewKey,
+      key: 'action__export_view_key' as LocaleIds,
+    },
+    {
+      type: AccountCredentialType.PrivateSpendKey,
+      key: 'action__export_spend_key' as LocaleIds,
+    },
+    {
+      type: AccountCredentialType.Mnemonic,
+      key: 'action__export_secret_mnemonic' as LocaleIds,
+    },
+  ],
 });
 
 export default settings;
