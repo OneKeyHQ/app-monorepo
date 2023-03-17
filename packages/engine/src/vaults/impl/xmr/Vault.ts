@@ -322,15 +322,19 @@ export default class Vault extends VaultBase {
   }
 
   override async getExportedCredential(password: string): Promise<string> {
-    const dbAccount = await this.getDbAccount({ noCache: true });
-    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+    if (
+      this.accountId.startsWith('hd-') ||
+      this.accountId.startsWith('imported')
+    ) {
       const moneroApi = await getMoneroApi();
-      const { privateSpendKey } = await this.getMoneroKeys(
-        password,
-        dbAccount.id,
+      const privateKey = await this.getPrivateKey(this.accountId, password);
+      const { privateSpendKey, privateViewKey } = await this.getMoneroKeys(
+        this.accountId,
+        privateKey,
       );
 
-      return moneroApi.privateSpendKeyToWords(privateSpendKey);
+      return `Private View Key: ${Buffer.from(privateViewKey).toString('hex')}
+      Mnemonic: ${moneroApi.privateSpendKeyToWords(privateSpendKey)}`;
     }
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',
