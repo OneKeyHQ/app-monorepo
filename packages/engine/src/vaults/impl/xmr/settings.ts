@@ -20,6 +20,7 @@ const settings: IVaultSettings = Object.freeze({
 
   addressDerivationDisabled: true,
   validationRequired: true,
+  disabledInExtension: true,
 
   accountNameInfo: {
     default: {

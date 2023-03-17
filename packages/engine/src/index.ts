@@ -2246,18 +2246,19 @@ class Engine {
 
   @backgroundMethod()
   async listNetworks(enabledOnly = true): Promise<Array<Network>> {
-    const networks = await this.dbApi.listNetworks();
-    return Promise.all(
-      networks
+    const dbNetworks = await this.dbApi.listNetworks();
+    const networks = await Promise.all(
+      dbNetworks
         .filter(
           (dbNetwork) =>
             (enabledOnly ? dbNetwork.enabled : true) &&
-            getSupportedImpls().has(dbNetwork.impl) &&
-            ((platformEnv.isExtension &&
-              !CHAINS_NOT_DISPLAYED_IN_EXT.includes(dbNetwork.impl)) ||
-              !platformEnv.isExtension),
+            getSupportedImpls().has(dbNetwork.impl),
         )
         .map(async (dbNetwork) => this.dbNetworkToNetwork(dbNetwork)),
+    );
+
+    return networks.filter((network) =>
+      platformEnv.isExtension ? !network.settings.disabledInExtension : true,
     );
   }
 

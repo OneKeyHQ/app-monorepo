@@ -56,7 +56,8 @@ export type IVaultSettings = {
   hardwareAccountEnabled: boolean;
 
   addressDerivationDisabled?: boolean;
-  validationRequired?: true;
+  validationRequired?: boolean;
+  disabledInExtension?: boolean;
 
   minTransferAmount?: string;
 

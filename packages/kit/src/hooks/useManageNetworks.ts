@@ -20,14 +20,14 @@ export const { use: useManageNetworks, get: getManageNetworks } =
     const networks = selector((s) => s.runtime.networks) ?? emptyArray;
 
     const [allNetworks, enabledNetworks] = useMemo(() => {
-      let chainsToHide = devModeEnable ? [] : CHAINS_DISPLAYED_IN_DEV;
-
-      if (platformEnv.isExtension && !devModeEnable) {
-        chainsToHide = [...chainsToHide, ...CHAINS_NOT_DISPLAYED_IN_EXT];
-      }
+      const chainsToHide = devModeEnable ? [] : CHAINS_DISPLAYED_IN_DEV;
 
       const all = networks.filter(
-        (network) => !chainsToHide.includes(network.impl),
+        (network) =>
+          !chainsToHide.includes(network.impl) &&
+          (platformEnv.isExtension
+            ? !network.settings.disabledInExtension
+            : true),
       );
       const enabled = all.filter((network) => network.enabled);
       return [all, enabled];
