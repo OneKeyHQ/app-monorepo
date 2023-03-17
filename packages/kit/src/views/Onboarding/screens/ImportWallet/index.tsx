@@ -188,6 +188,30 @@ const ImportWallet = () => {
             />
           </ItemWrapper>
         )}
+        {platformEnv.isNativeAndroid && (
+          <ItemWrapper>
+            <OptionGoogleDrive
+              title={intl.formatMessage({ id: 'action__restore_from_icloud' })}
+              onPress={() => {
+                if (!isLogin) {
+                  serviceCloudBackup.loginIfNeeded(true).then((result) => {
+                    setIsLogin(result);
+                    if (result) {
+                      mutate();
+                      onPressRestoreFromDrive();
+                    } else {
+                      // TODO:Drive
+                      // Login fail
+                    }
+                  });
+                } else {
+                  onPressRestoreFromDrive();
+                }
+              }}
+              isLoading={iCloudLoading}
+            />
+          </ItemWrapper>
+        )}
         {MigrationEnable && (
           <ItemWrapper>
             <OptionMigration
@@ -227,40 +251,6 @@ const ImportWallet = () => {
                 id: 'onboarding__import_wallet_with_migrate',
               })}
               onPress={onPressMigration}
-            />
-          </ItemWrapper>
-        )}
-        {(platformEnv.isNativeIOS || platformEnv.isNativeIOSPad) && (
-          <ItemWrapper>
-            <OptioniCloud
-              title={intl.formatMessage({ id: 'action__restore_from_icloud' })}
-              onPress={onPressRestoreFromCloud}
-              isDisabled={!hasPreviousBackups}
-              isLoading={iCloudLoading}
-            />
-          </ItemWrapper>
-        )}
-        {platformEnv.isNativeAndroid && (
-          <ItemWrapper>
-            <OptionGoogleDrive
-              title={intl.formatMessage({ id: 'action__restore_from_icloud' })}
-              onPress={() => {
-                if (!isLogin) {
-                  serviceCloudBackup.loginIfNeeded(true).then((result) => {
-                    setIsLogin(result);
-                    if (result) {
-                      mutate();
-                      onPressRestoreFromDrive();
-                    } else {
-                      // TODO:Drive
-                      // Login fail
-                    }
-                  });
-                } else {
-                  onPressRestoreFromDrive();
-                }
-              }}
-              isLoading={iCloudLoading}
             />
           </ItemWrapper>
         )}
