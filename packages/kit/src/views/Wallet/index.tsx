@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/kit/src/hooks/redux';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
@@ -39,7 +40,6 @@ import BackupToast from './BackupToast';
 import NFTList from './NFT/NFTList';
 import ToolsPage from './Tools';
 import { HomeTabIndex, HomeTabOrder, WalletHomeTabEnum } from './type';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const AccountHeader = () => <AccountInfo />;
 

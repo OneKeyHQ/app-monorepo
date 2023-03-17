@@ -112,10 +112,10 @@ import type { DBAPI, ExportedSeedCredential } from './dbs/base';
 import type { ChartQueryParams } from './priceController';
 import type {
   Account,
+  AccountCredentialType,
   DBAccount,
   DBUTXOAccount,
   ImportableHDAccount,
-  AccountCredentialType,
 } from './types/account';
 import type { BackupObject, ImportableHDWallet } from './types/backup';
 import type { DevicePayload } from './types/device';

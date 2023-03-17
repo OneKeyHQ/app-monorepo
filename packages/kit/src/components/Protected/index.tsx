@@ -31,7 +31,7 @@ type ProtectedProps = {
   children: (password: string, options: ProtectedOptions) => ReactNode;
   hideTitle?: boolean;
   isAutoHeight?: boolean;
-    placeCenter?: boolean;
+  placeCenter?: boolean;
 };
 
 // Protected
