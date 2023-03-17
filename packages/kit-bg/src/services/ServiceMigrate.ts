@@ -41,6 +41,7 @@ import ServiceBase from './ServiceBase';
 import { HTTPServiceNames } from './ServiceHTTP';
 
 import type { RequestData } from './ServiceHTTP';
+import type { AxiosError } from 'axios';
 
 const RAMDOMNUM_LEAGTH = 4;
 
@@ -272,7 +273,7 @@ class ServiceMigrate extends ServiceBase {
         ipAddress,
         MigrateAPINames.Connect,
       )}?${urlParams.toString()}`;
-      const { success, data } = await this.client
+      const { success, data, message } = await this.client
         .get<
           MigrateServiceResp<{
             deviceInfo: DeviceInfo;
@@ -280,9 +281,16 @@ class ServiceMigrate extends ServiceBase {
           }>
         >(url, { timeout: 60 * 1000 })
         .then((resp) => resp.data)
-        .catch(() => ({ success: false, data: undefined, message: undefined }));
+        .catch((e: AxiosError) => ({
+          success: false,
+          data: undefined,
+          message: e.code,
+        }));
       if (!success || data === undefined) {
         this.clearMigrateInfo(this.ensureUUID({ reset: false }));
+        if (message) {
+          return message;
+        }
         return;
       }
       const { deviceInfo: serverInfo, password } = data;
