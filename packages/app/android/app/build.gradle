@@ -155,7 +155,7 @@ android {
 
     defaultConfig {
         missingDimensionStrategy 'react-native-camera', 'mlkit'
-        applicationId 'so.onekey.app.wallet.dev'
+        applicationId 'com.linleiqin.wallet'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
 
@@ -342,7 +342,11 @@ android {
     packagingOptions {
         // (V8) Make sure libjsc.so does not packed in APK
         exclude "**/libjsc.so"
-
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/NOTICE.txt'
         // avoid conflict with react-native-bignumber
         // pickFirst "**/libcrypto.so"
         // pickFirst "**/libssl.so"

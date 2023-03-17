@@ -16,6 +16,7 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../../hooks';
@@ -43,6 +44,14 @@ type NavigationProps = CompositeNavigationProp<
   >
 >;
 
+function backupTitle() {
+  if (platformEnv.isNativeIOS) {
+    return 'iCloud';
+  }
+  if (platformEnv.isNativeAndroid) {
+    return 'Google Drive';
+  }
+}
 const InProgressContent = () => {
   const intl = useIntl();
 
@@ -90,6 +99,8 @@ const EnabledContent = ({
             onClose();
           },
         }}
+        // TODO:Drive
+        // i8n key
         contentProps={{
           iconName: 'CloudOutline',
           iconType: 'success',
@@ -146,6 +157,7 @@ const DisabledContent = () => {
             {intl.formatMessage({ id: 'content__backup_disabled' })}
           </Text>
           <Text typography="Body2" color="text-subdued">
+            {/* // TODO:Drive */}
             {intl.formatMessage({ id: 'content__backup_disabled_desc' })}
           </Text>
         </Box>
@@ -159,6 +171,7 @@ const DisabledContent = () => {
         alignSelf="center"
         w={{ base: 'full', sm: 'auto' }}
       >
+        {/* // TODO:Drive */}
         {intl.formatMessage({ id: 'action__backup_to_icloud' })}
       </Button>
     </Box>
@@ -234,7 +247,7 @@ const CloudBackup = () => {
   return (
     <Wrapper>
       <Text typography="Heading" mb={4}>
-        iCloud
+        {backupTitle()}
       </Text>
       {isAvailable ? (
         <Box>
@@ -271,6 +284,7 @@ const CloudBackup = () => {
         />
       </Box>
       <Text typography="Body2" color="text-subdued">
+        {/* // TODO:Drive */}
         {intl.formatMessage({ id: 'content__wont_backup' })}
       </Text>
     </Wrapper>

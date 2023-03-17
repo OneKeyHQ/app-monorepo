@@ -46,6 +46,7 @@ type NavigationProps = CompositeNavigationProp<
 
 export const SecuritySection = () => {
   const intl = useIntl();
+  const { dispatch, serviceCloudBackup } = backgroundApiProxy;
   const [isHardwareSupportWebAuthn, setHardwareSupportWebAuthn] =
     useState<boolean>(false);
   useEffect(() => {
@@ -55,7 +56,6 @@ export const SecuritySection = () => {
       );
     }
   }, []);
-  const { dispatch } = backgroundApiProxy;
   const enableWebAuthn = useAppSelector((s) => s.settings.enableWebAuthn);
   const enableAppLock = useAppSelector((s) => s.settings.enableAppLock);
   const appLockDuration = useAppSelector((s) => s.settings.appLockDuration);
@@ -124,7 +124,7 @@ export const SecuritySection = () => {
         borderWidth={themeVariant === 'light' ? 1 : undefined}
         borderColor="border-subdued"
       >
-        {platformEnv.isNativeIOS ? (
+        {platformEnv.isNative ? (
           <Pressable
             display="flex"
             flexDirection="row"
@@ -135,7 +135,20 @@ export const SecuritySection = () => {
             borderBottomWidth="1"
             borderBottomColor="divider"
             onPress={() => {
-              navigation.navigate(HomeRoutes.CloudBackup);
+              serviceCloudBackup.loginIfNeeded(false).then((isLogin) => {
+                if (isLogin) {
+                  navigation.navigate(HomeRoutes.CloudBackup);
+                } else {
+                  serviceCloudBackup.loginIfNeeded(true).then((result) => {
+                    if (result) {
+                      navigation.navigate(HomeRoutes.CloudBackup);
+                    } else {
+                      // TODO:Drive
+                      // Login fail
+                    }
+                  });
+                }
+              });
             }}
           >
             <Icon name="CloudOutline" />

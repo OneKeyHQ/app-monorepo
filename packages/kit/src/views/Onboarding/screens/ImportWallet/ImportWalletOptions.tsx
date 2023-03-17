@@ -272,3 +272,20 @@ export const OptioniCloud: FC<OptionProps> = ({
     <IconToIconIllus leftIcon="CloudSolid" rightIcon="OnekeyLogoSolid" />
   </Option>
 );
+
+export const OptionGoogleDrive: FC<OptionProps> = ({
+  title,
+  onPress,
+  isDisabled,
+  isLoading,
+}) => (
+  <Option
+    title={title}
+    icon="CloudOutline"
+    onPress={onPress}
+    isDisabled={isDisabled}
+    isLoading={isLoading}
+  >
+    <IconToIconIllus leftIcon="CloudSolid" rightIcon="OnekeyLogoSolid" />
+  </Option>
+);

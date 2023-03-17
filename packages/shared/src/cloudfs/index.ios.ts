@@ -1,3 +1,5 @@
+/* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
+
 import RNCloudFs from 'react-native-cloud-fs';
 
 import platformEnv from '../platformEnv';
@@ -6,6 +8,11 @@ export async function isAvailable(): Promise<boolean> {
   return !!platformEnv.isNativeIOS && RNCloudFs.isAvailable();
 }
 
+export async function loginIfNeeded(
+  _showSignInDialog: boolean,
+): Promise<boolean> {
+  return Promise.resolve(true);
+}
 export function sync(): Promise<boolean> {
   if (platformEnv.isNativeIOS) {
     return RNCloudFs.syncCloud();
@@ -40,7 +47,7 @@ export async function deleteFile(target: string): Promise<boolean> {
   return Promise.resolve(false);
 }
 
-export function downloadFromCloud(filename: string): Promise<string> {
+export async function downloadFromCloud(filename: string): Promise<string> {
   return RNCloudFs.getIcloudDocument(filename);
 }
 

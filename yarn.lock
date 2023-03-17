@@ -5474,6 +5474,7 @@ __metadata:
     "@onekeyhq/engine": "*"
     "@onekeyhq/kit": "*"
     "@react-native-async-storage/async-storage": 1.17.3
+    "@react-native-community/google-signin": ^5.0.0
     "@react-native-community/netinfo": ^8.1.0
     "@react-native-firebase/analytics": ^14
     "@react-native-firebase/app": ^14
@@ -5518,7 +5519,7 @@ __metadata:
     react-native-ble-manager: ^8.1.0
     react-native-camera: 4.2.1
     react-native-canvas: ^0.1.38
-    react-native-cloud-fs: "https://github.com/OneKeyHQ/react-native-cloud-fs#e7e3111fb427b6df5e97f61c700ca1e64636cad8"
+    react-native-cloud-fs: "rainbow-me/react-native-cloud-fs#c5bcc4699e9725ffe1160c635c9f19db92e82f9f"
     react-native-collapsible: ^1.6.0
     react-native-config: ^1.4.11
     react-native-confirmation-code-field: ^7.2.0
@@ -7143,6 +7144,17 @@ __metadata:
   bin:
     react-native: build/bin.js
   checksum: 5f2907e4e77f1013f41b1f0e2ca6e2fce5e0fcefb8ba3c4163f04e8c3af022a451d5b54b7f41303f966273da88b3b16f3ec718a37179515e72d7ac1ec387e073
+  languageName: node
+  linkType: hard
+
+"@react-native-community/google-signin@npm:^5.0.0":
+  version: 5.0.0
+  resolution: "@react-native-community/google-signin@npm:5.0.0"
+  peerDependencies:
+    prop-types: "*"
+    react: "*"
+    react-native: "*"
+  checksum: 9f2a9649fa514942f427a58101ee4921a17ae848cb5e6afa0a82be7ce141ccaac6906875f88d307fa2acf1a10543581d543d8f24f6469d8551a8e9edfb02a84e
   languageName: node
   linkType: hard
 
@@ -27465,10 +27477,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-cloud-fs@https://github.com/OneKeyHQ/react-native-cloud-fs#e7e3111fb427b6df5e97f61c700ca1e64636cad8":
-  version: 2.4.0
-  resolution: "react-native-cloud-fs@https://github.com/OneKeyHQ/react-native-cloud-fs.git#commit=e7e3111fb427b6df5e97f61c700ca1e64636cad8"
-  checksum: 13e53c2db5b0b6976eee1a543e6390adc66af55d1b5f12aa1a3b96d25a43f960e1637215d2adc906f0efeb1356826e6553a248c81266315e478b7087243636cf
+"react-native-cloud-fs@rainbow-me/react-native-cloud-fs#c5bcc4699e9725ffe1160c635c9f19db92e82f9f":
+  version: 2.5.0
+  resolution: "react-native-cloud-fs@https://github.com/rainbow-me/react-native-cloud-fs.git#commit=c5bcc4699e9725ffe1160c635c9f19db92e82f9f"
+  checksum: 32abb4584ed79b7e60f09afec7a864a23d9e82f9ccdd3477c4c7389a9c6eb2522ee5664e11027be83db7316b556e7afd56ad490eaf9693d3bb3906f2d3609b30
   languageName: node
   linkType: hard
 

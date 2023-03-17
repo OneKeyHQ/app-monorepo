@@ -5,6 +5,16 @@ export function isAvailable(): Promise<boolean> {
   return Promise.resolve(false);
 }
 
+export async function loginIfNeeded(
+  _showSignInDialog: boolean,
+): Promise<boolean> {
+  return Promise.resolve(true);
+}
+
+export function logoutFromGoogleDrive(): Promise<boolean> {
+  return Promise.resolve(true);
+}
+
 export function sync(): Promise<boolean> {
   return Promise.resolve(true);
 }
@@ -17,7 +27,7 @@ export function deleteFile(_target: string): Promise<boolean> {
   return Promise.resolve(false);
 }
 
-export function downloadFromCloud(_filename: string): Promise<string> {
+export async function downloadFromCloud(_filename: string): Promise<string> {
   return Promise.resolve('');
 }
 
