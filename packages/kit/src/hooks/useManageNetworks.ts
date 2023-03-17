@@ -1,8 +1,5 @@
 import type { INetwork } from '@onekeyhq/engine/src/types';
-import {
-  CHAINS_DISPLAYED_IN_DEV,
-  CHAINS_NOT_DISPLAYED_IN_EXT,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+import { CHAINS_DISPLAYED_IN_DEV } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { makeSelector } from './redux';
