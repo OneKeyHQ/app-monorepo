@@ -1365,6 +1365,7 @@
   "form__swap_info_uppercase": "INFORMACIÓN DE INTERCAMBIO",
   "form__swap_pending": "Intercambio pendiente",
   "form__swap_success": "Cambio exitoso",
+  "form__swap_to_another_address": "Cambiar a otra dirección",
   "form__swap_tokens": "Intercambiar fichas",
   "form__swapping_via": "Intercambio a través de",
   "form__symbol": "Símbolo",

@@ -1365,6 +1365,7 @@
   "form__swap_info_uppercase": "スワップ情報",
   "form__swap_pending": "スワップ中",
   "form__swap_success": "スワップ成功",
+  "form__swap_to_another_address": "別のアドレスに交換",
   "form__swap_tokens": "トークンをスワップ",
   "form__swapping_via": "スワップルート",
   "form__symbol": "シンボル",

@@ -1365,6 +1365,7 @@
   "form__swap_info_uppercase": "SWAP-INFO",
   "form__swap_pending": "Austausch ausstehend",
   "form__swap_success": "Erfolg tauschen",
+  "form__swap_to_another_address": "Wechseln Sie zu einer anderen Adresse",
   "form__swap_tokens": "Token tauschen",
   "form__swapping_via": "Austausch über",
   "form__symbol": "Symbol",

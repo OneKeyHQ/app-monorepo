@@ -1365,6 +1365,7 @@
   "form__swap_info_uppercase": "兑换信息",
   "form__swap_pending": "兑换中",
   "form__swap_success": "兑换成功",
+  "form__swap_to_another_address": "兑换到另一个地址",
   "form__swap_tokens": "兑换代币",
   "form__swapping_via": "闪兑通道",
   "form__symbol": "符号",

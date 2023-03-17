@@ -1365,6 +1365,7 @@
   "form__swap_info_uppercase": "แลกเปลี่ยนข้อมูล",
   "form__swap_pending": "อยู่ระหว่างดำเนินการแลกเปลี่ยน",
   "form__swap_success": "สลับสำเร็จ",
+  "form__swap_to_another_address": "สลับไปยังที่อยู่อื่น",
   "form__swap_tokens": "สลับโทเค็น",
   "form__swapping_via": "สลับผ่าน",
   "form__symbol": "สัญลักษณ์",

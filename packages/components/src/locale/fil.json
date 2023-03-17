@@ -1365,6 +1365,7 @@
   "form__swap_info_uppercase": "SWAP INFO",
   "form__swap_pending": "Pagpalitin Nakabinbin",
   "form__swap_success": "Pagpalitin ang Tagumpay",
+  "form__swap_to_another_address": "Magpalit sa ibang address",
   "form__swap_tokens": "Magpalit ng Token",
   "form__swapping_via": "Pagpapalit sa pamamagitan ng",
   "form__symbol": "Simbolo",

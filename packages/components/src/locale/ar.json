@@ -1365,6 +1365,7 @@
   "form__swap_info_uppercase": "معلومات المبادلة",
   "form__swap_pending": "المبادلة معلقة",
   "form__swap_success": "نجاح المبادلة",
+  "form__swap_to_another_address": "التبديل إلى عنوان آخر",
   "form__swap_tokens": "رموز المبادلة",
   "form__swapping_via": "مبادلة عبر",
   "form__symbol": "رمز",

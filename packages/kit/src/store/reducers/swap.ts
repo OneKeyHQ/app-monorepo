@@ -32,6 +32,8 @@ type SwapState = {
   showMoreQuoteDetail?: boolean;
   userSelectedQuoter?: Record<string, string>;
   responses?: FetchQuoteResponse[];
+
+  allowAnotherRecipientAddress?: boolean;
 };
 
 const initialState: SwapState = {
@@ -163,6 +165,9 @@ export const swapSlice = createSlice({
     ) {
       state.responses = action.payload;
     },
+    setAllowAnotherRecipientAddress(state, action: PayloadAction<boolean>) {
+      state.allowAnotherRecipientAddress = action.payload;
+    },
   },
 });
 
@@ -185,6 +190,7 @@ export const {
   setUserSelectedQuoter,
   clearUserSelectedQuoter,
   setResponses,
+  setAllowAnotherRecipientAddress,
 } = swapSlice.actions;
 
 export default swapSlice.reducer;
