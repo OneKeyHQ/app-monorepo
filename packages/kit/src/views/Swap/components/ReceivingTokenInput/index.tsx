@@ -21,8 +21,10 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { FormatCurrency } from '../../../../components/Format';
 import { useAppSelector, useNavigation } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
-import { setRecipient } from '../../../../store/reducers/swap';
-import { setAllowAnotherRecipientAddress } from '../../../../store/reducers/swapTransactions';
+import {
+  setAllowAnotherRecipientAddress,
+  setRecipient,
+} from '../../../../store/reducers/swap';
 import { useSwapRecipient } from '../../hooks/useSwap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
@@ -287,7 +289,7 @@ const TokenInputReceivingAddressFieldShowControl = () => {
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const outputToken = useAppSelector((s) => s.swap.outputToken);
   const allowAnotherRecipientAddress = useAppSelector(
-    (s) => s.swapTransactions.allowAnotherRecipientAddress,
+    (s) => s.swap.allowAnotherRecipientAddress,
   );
   if (inputToken && outputToken) {
     const implA = getNetworkIdImpl(inputToken.networkId);
@@ -305,7 +307,7 @@ const SendToAnotherAddress = () => {
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const outputToken = useAppSelector((s) => s.swap.outputToken);
   const allowAnotherRecipientAddress = useAppSelector(
-    (s) => s.swapTransactions.allowAnotherRecipientAddress,
+    (s) => s.swap.allowAnotherRecipientAddress,
   );
   const onToggle = useCallback(() => {
     const newValue = !allowAnotherRecipientAddress;

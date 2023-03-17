@@ -479,7 +479,7 @@ export default class ServiceSwap extends ServiceBase {
     const inputToken = appSelector((s) => s.swap.inputToken);
     const outputToken = appSelector((s) => s.swap.outputToken);
     const allowAnotherRecipientAddress = appSelector(
-      (s) => s.swapTransactions.allowAnotherRecipientAddress,
+      (s) => s.swap.allowAnotherRecipientAddress,
     );
     if (inputToken && outputToken) {
       const implA = getNetworkIdImpl(inputToken.networkId);

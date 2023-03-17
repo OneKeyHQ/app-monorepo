@@ -63,7 +63,7 @@ export function useSwapRecipient() {
   const recipient = useAppSelector((s) => s.swap.recipient);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
   const allowAnotherRecipientAddress = useAppSelector(
-    (s) => s.swapTransactions.allowAnotherRecipientAddress,
+    (s) => s.swap.allowAnotherRecipientAddress,
   );
   return useMemo(() => {
     if (inputToken && outputToken) {

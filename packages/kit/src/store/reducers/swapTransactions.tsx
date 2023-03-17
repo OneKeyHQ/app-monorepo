@@ -37,7 +37,6 @@ export type TransactionsState = {
   approvalIssueTokens?: IssueToken[];
   payments?: Record<string, Token>;
   defaultPayment?: Token;
-  allowAnotherRecipientAddress?: boolean;
 };
 
 const initialState: TransactionsState = {
@@ -177,9 +176,6 @@ export const swapTransactionsSlice = createSlice({
     setDefaultPayment(state, action: PayloadAction<Token>) {
       state.defaultPayment = action.payload;
     },
-    setAllowAnotherRecipientAddress(state, action: PayloadAction<boolean>) {
-      state.allowAnotherRecipientAddress = action.payload;
-    },
   },
 });
 
@@ -200,7 +196,6 @@ export const {
   setApprovalIssueTokens,
   setPayments,
   setDefaultPayment,
-  setAllowAnotherRecipientAddress,
 } = swapTransactionsSlice.actions;
 
 export default swapTransactionsSlice.reducer;
