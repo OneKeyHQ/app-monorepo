@@ -48,6 +48,15 @@ const settings: IVaultSettings = Object.freeze({
       key: 'action__export_secret_mnemonic' as LocaleIds,
     },
   ],
+
+  txExtraInfo: [
+    {
+      key: 'txKey',
+      title: 'form__secret_transaction_key' as LocaleIds,
+      canCopy: true,
+      isShorten: true,
+    },
+  ],
 });
 
 export default settings;

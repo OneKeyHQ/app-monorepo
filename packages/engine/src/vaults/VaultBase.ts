@@ -551,6 +551,16 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     if (isSigner) {
       decodedTx.signer = address;
     }
+    if (signedTx?.txKey) {
+      if (decodedTx.extraInfo) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        decodedTx.extraInfo.txKey = signedTx.txKey;
+      } else {
+        decodedTx.extraInfo = {
+          txKey: signedTx.txKey,
+        };
+      }
+    }
     // TODO base.mergeDecodedTx with signedTx.rawTx
     // must include accountId here, so that two account wont share same tx history
     const historyId = `${this.networkId}_${txid}_${this.accountId}`;

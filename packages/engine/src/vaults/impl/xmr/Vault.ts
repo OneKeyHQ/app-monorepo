@@ -412,7 +412,6 @@ export default class Vault extends VaultBase {
         if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
           return null;
         }
-
         const amountBN = new BigNumber(tx.amount);
 
         let from = '';
@@ -459,7 +458,7 @@ export default class Vault extends VaultBase {
               : new BigNumber(tx.fee).shiftedBy(-network.decimals).toFixed(),
           networkId: this.networkId,
           accountId: this.accountId,
-          extraInfo: null,
+          extraInfo: historyTxToMerge?.decodedTx.extraInfo,
         };
         decodedTx.updatedAt = new Date(tx.timestamp).getTime();
         decodedTx.createdAt =
