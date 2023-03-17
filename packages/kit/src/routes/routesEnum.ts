@@ -119,6 +119,7 @@ export enum CreateAccountModalRoutes {
   RecoverAccountsAdvanced = 'RecoverAccountsAdvanced',
   RecoverAccountsConfirm = 'RecoverAccountsConfirm',
   RecoverAccountsConfirmAuthentication = 'RecoverAccountsConfirmAuthentication',
+  BitcoinUsedAddress = 'BitcoinUsedAddress',
 }
 
 export enum RecoverAccountModalRoutes {

@@ -5,6 +5,7 @@ import type {
 } from '@onekeyhq/engine/src/types/account';
 import AddNewAccountModal from '@onekeyhq/kit/src/views/Account/AddNewAccount';
 import CreateAccountAuthenticationModal from '@onekeyhq/kit/src/views/Account/AddNewAccount/Authentication';
+import BitcoinUsedAddress from '@onekeyhq/kit/src/views/Account/AddNewAccount/BitcoinUsedAddress';
 import RecoverAccounts from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverAccounts';
 import RecoverAccountsAdvanced from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverAccountsAdvanced';
 import RecoverConfirm from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverConfirm';
@@ -61,6 +62,10 @@ export type CreateAccountRoutesParams = {
     walletId: string;
     onDone: (password: string) => void;
   };
+  [CreateAccountModalRoutes.BitcoinUsedAddress]: {
+    accountId: string;
+    networkId: string;
+  };
 };
 
 const CreateAccountNavigator =
@@ -94,6 +99,10 @@ const modalRoutes = [
   {
     name: CreateAccountModalRoutes.RecoverySelectChainList,
     component: SelectChain,
+  },
+  {
+    name: CreateAccountModalRoutes.BitcoinUsedAddress,
+    component: BitcoinUsedAddress,
   },
 ];
 

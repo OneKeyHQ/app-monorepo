@@ -13,6 +13,7 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useAppSelector } from '../../../../hooks';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { useCopyAddress } from '../../../../hooks/useCopyAddress';
+import { CreateAccountModalRoutes } from '../../../../routes/Modal/CreateAccount';
 import { ManagerAccountModalRoutes } from '../../../../routes/Modal/ManagerAccount';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { refreshAccountSelector } from '../../../../store/reducers/refresher';
@@ -159,6 +160,18 @@ function AccountItemSelectDropdown({
             networkId: network?.id ?? '',
             callback: () =>
               refreshAccounts(wallet?.id ?? '', network?.id ?? ''),
+          });
+          break;
+        case 'showAllUsedAddress':
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.CreateAccount,
+            params: {
+              screen: CreateAccountModalRoutes.BitcoinUsedAddress,
+              params: {
+                accountId: account.id,
+                networkId: network?.id ?? '',
+              },
+            },
           });
           break;
 
