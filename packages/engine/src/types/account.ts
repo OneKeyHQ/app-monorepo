@@ -1,3 +1,5 @@
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
+
 import type { HasName } from './base';
 import type { Token } from './token';
 
@@ -7,6 +9,13 @@ enum AccountType {
   VARIANT = 'variant',
 }
 // TODO: ACCOUNT_TYPE_MULVARIANT for cosmos/polkadot
+
+enum AccountCredentialType {
+  PrivateKey = 'PrivateKey',
+  PrivateViewKey = 'PrivateViewKey',
+  PrivateSpendKey = 'PrivateSpendKey',
+  Mnemonic = 'Mnemonic',
+}
 
 type DBBaseAccount = HasName & {
   type: AccountType;
@@ -51,8 +60,14 @@ type ImportableHDAccount = {
   template?: string;
 };
 
-export { AccountType };
+type AccountCredential = {
+  type: AccountCredentialType;
+  key: LocaleIds;
+};
+
+export { AccountType, AccountCredentialType };
 export type {
+  AccountCredential,
   DBSimpleAccount,
   DBUTXOAccount,
   DBVariantAccount,

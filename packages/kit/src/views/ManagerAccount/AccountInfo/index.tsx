@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -11,7 +11,11 @@ import {
   ToastManager,
   Typography,
 } from '@onekeyhq/components';
-import type { Account } from '@onekeyhq/engine/src/types/account';
+import type {
+  Account,
+  AccountCredential,
+} from '@onekeyhq/engine/src/types/account';
+import { AccountCredentialType } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { ManagerAccountRoutesParams } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
@@ -35,8 +39,8 @@ const ManagerAccountModal: FC = () => {
 
   const { goToRemoveAccount, RemoveAccountDialog } = useRemoveAccountDialog();
   const [modifyNameVisible, setModifyNameVisible] = useState(false);
-  const [canExportPrivateKey, setCanExportPrivateKey] = useState(false);
   const [modifyNameAccount, setModifyNameAccount] = useState<Account>();
+  const [credentialInfo, setCredentialInfo] = useState<AccountCredential[]>([]);
   const { walletId, accountId, networkId, refreshAccounts } =
     useRoute<RouteProps>().params;
 
@@ -75,11 +79,73 @@ const ManagerAccountModal: FC = () => {
   useEffect(() => {
     (async () => {
       const network = await serviceNetwork.getNetworkWithRuntime(networkId);
-      setCanExportPrivateKey(!!network?.settings?.privateKeyExportEnabled);
+
+      const exportCredentialInfo = network?.settings.exportCredentialInfo;
+      const privateKeyExportEnabled = network?.settings.privateKeyExportEnabled;
+
+      if (privateKeyExportEnabled) {
+        if (exportCredentialInfo) {
+          setCredentialInfo(exportCredentialInfo);
+        } else {
+          setCredentialInfo([
+            {
+              type: AccountCredentialType.PrivateKey,
+              key: 'action__export_private_key',
+            },
+          ]);
+        }
+      }
     })();
   }, [networkId, serviceNetwork]);
 
   const name = useWalletName({ wallet });
+
+  const credentialElements = useMemo(() => {
+    if (credentialInfo && credentialInfo.length) {
+      return credentialInfo.map((credential) => (
+        <Container.Item
+          key={credential.key}
+          hasArrow
+          title={intl.formatMessage({
+            id: credential.key,
+          })}
+          titleColor="text-default"
+          onPress={() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.ManagerAccount,
+              params: {
+                screen:
+                  ManagerAccountModalRoutes.ManagerAccountExportPrivateModal,
+                params: {
+                  accountId,
+                  networkId,
+                  accountCredential: credential,
+                },
+              },
+            });
+          }}
+        />
+      ));
+    }
+
+    return (
+      <Container.Item
+        hasArrow={false}
+        title={intl.formatMessage({
+          id: 'action__export_private_key',
+        })}
+        titleColor="text-default"
+        onPress={() =>
+          ToastManager.show({
+            title: intl.formatMessage({
+              id: 'badge__coming_soon',
+            }),
+          })
+        }
+      />
+    );
+  }, [accountId, credentialInfo, intl, navigation, networkId]);
+
   return (
     <>
       <Modal
@@ -124,34 +190,7 @@ const ManagerAccountModal: FC = () => {
                 borderColor="border-subdued"
               >
                 {(wallet?.type === 'hd' || wallet?.type === 'imported') && (
-                  <Container.Item
-                    hasArrow={canExportPrivateKey}
-                    title={intl.formatMessage({
-                      id: 'action__export_private_key',
-                    })}
-                    titleColor="text-default"
-                    onPress={() => {
-                      if (!canExportPrivateKey) {
-                        ToastManager.show({
-                          title: intl.formatMessage({
-                            id: 'badge__coming_soon',
-                          }),
-                        });
-                        return;
-                      }
-                      navigation.navigate(RootRoutes.Modal, {
-                        screen: ModalRoutes.ManagerAccount,
-                        params: {
-                          screen:
-                            ManagerAccountModalRoutes.ManagerAccountExportPrivateModal,
-                          params: {
-                            accountId,
-                            networkId,
-                          },
-                        },
-                      });
-                    }}
-                  />
+                  <>{credentialElements}</>
                 )}
                 <Container.Item
                   hasArrow
