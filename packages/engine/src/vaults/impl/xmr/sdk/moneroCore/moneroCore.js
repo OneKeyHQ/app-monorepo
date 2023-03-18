@@ -1235,34 +1235,17 @@ var MyMoneroLibAppCpp = (() => {
       // Cordova or Electron apps are typically loaded from a file:// url.
       // So use fetch if it is available and the url is not a file, otherwise fall back to XHR.
       if (!wasmBinary && (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER)) {
-        if (typeof fetch == 'function' && !isFileURI(wasmBinaryFile)) {
-          return fetch(wasmBinaryFile, { credentials: 'same-origin' })
-            .then(function (response) {
-              if (!response['ok']) {
-                throw (
-                  "failed to load wasm binary file at '" + wasmBinaryFile + "'"
-                );
-              }
-              return response['arrayBuffer']();
-            })
-            .catch(function () {
-              return getBinary(wasmBinaryFile);
-            });
-        } else {
-          if (readAsync) {
-            // fetch is not available or url is file => try XHR (readAsync uses XHR internally)
-            return new Promise(function (resolve, reject) {
-              readAsync(
-                wasmBinaryFile,
-                function (response) {
-                  resolve(
-                    new Uint8Array(/** @type{!ArrayBuffer} */ (response)),
-                  );
-                },
-                reject,
-              );
-            });
-          }
+        if (readAsync) {
+          // fetch is not available or url is file => try XHR (readAsync uses XHR internally)
+          return new Promise(function (resolve, reject) {
+            readAsync(
+              wasmBinaryFile,
+              function (response) {
+                resolve(new Uint8Array(/** @type{!ArrayBuffer} */ (response)));
+              },
+              reject,
+            );
+          });
         }
       }
 

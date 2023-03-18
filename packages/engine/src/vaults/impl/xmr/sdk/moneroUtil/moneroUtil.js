@@ -381,31 +381,16 @@ var instantiate = (function () {
     }
     function getBinaryPromise() {
       if (!wasmBinary && (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER)) {
-        if (typeof fetch === 'function' && !isFileURI(wasmBinaryFile)) {
-          return fetch(wasmBinaryFile, { credentials: 'same-origin' })
-            .then(function (response) {
-              if (!response['ok']) {
-                throw (
-                  "failed to load wasm binary file at '" + wasmBinaryFile + "'"
-                );
-              }
-              return response['arrayBuffer']();
-            })
-            .catch(function () {
-              return getBinary(wasmBinaryFile);
-            });
-        } else {
-          if (readAsync) {
-            return new Promise(function (resolve, reject) {
-              readAsync(
-                wasmBinaryFile,
-                function (response) {
-                  resolve(new Uint8Array(response));
-                },
-                reject,
-              );
-            });
-          }
+        if (readAsync) {
+          return new Promise(function (resolve, reject) {
+            readAsync(
+              wasmBinaryFile,
+              function (response) {
+                resolve(new Uint8Array(response));
+              },
+              reject,
+            );
+          });
         }
       }
       return Promise.resolve().then(function () {
