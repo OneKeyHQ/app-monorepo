@@ -112,12 +112,9 @@ public class MainApplication extends Application implements ReactApplication {
 //    if(BuildConfig.ENABLE_DEV_CLI){
 //      DevLauncherController.initialize(this, getReactNativeHost());
 //    }
-    // if (BuildConfig.DEBUG) {
-    //   WebView.setWebContentsDebuggingEnabled(true);
-    // }
-
-    WebView.setWebContentsDebuggingEnabled(true);
-
+    if (BuildConfig.DEBUG) {
+      WebView.setWebContentsDebuggingEnabled(true);
+    }
 
     initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
     ApplicationLifecycleDispatcher.onApplicationCreate(this);

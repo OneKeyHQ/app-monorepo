@@ -1332,42 +1332,7 @@ var MyMoneroLibAppCpp = (() => {
       }
 
       function instantiateAsync() {
-        if (
-          !wasmBinary &&
-          typeof WebAssembly.instantiateStreaming == 'function' &&
-          !isDataURI(wasmBinaryFile) &&
-          // Don't use streaming for file:// delivered objects in a webview, fetch them synchronously.
-          !isFileURI(wasmBinaryFile) &&
-          // Avoid instantiateStreaming() on Node.js environment for now, as while
-          // Node.js v18.1.0 implements it, it does not have a full fetch()
-          // implementation yet.
-          //
-          // Reference:
-          //   https://github.com/emscripten-core/emscripten/pull/16917
-          !ENVIRONMENT_IS_NODE &&
-          typeof fetch == 'function'
-        ) {
-          return fetch(wasmBinaryFile, { credentials: 'same-origin' }).then(
-            function (response) {
-              // Suppress closure warning here since the upstream definition for
-              // instantiateStreaming only allows Promise<Repsponse> rather than
-              // an actual Response.
-              // TODO(https://github.com/google/closure-compiler/pull/3913): Remove if/when upstream closure is fixed.
-              /** @suppress {checkTypes} */
-              var result = WebAssembly.instantiateStreaming(response, info);
-
-              return result.then(receiveInstantiationResult, function (reason) {
-                // We expect the most common failure cause to be a bad MIME type for the binary,
-                // in which case falling back to ArrayBuffer instantiation should work.
-                err('wasm streaming compile failed: ' + reason);
-                err('falling back to ArrayBuffer instantiation');
-                return instantiateArrayBuffer(receiveInstantiationResult);
-              });
-            },
-          );
-        } else {
-          return instantiateArrayBuffer(receiveInstantiationResult);
-        }
+        return instantiateArrayBuffer(receiveInstantiationResult);
       }
 
       // User shell pages can write their own Module.instantiateWasm = function(imports, successCallback) callback

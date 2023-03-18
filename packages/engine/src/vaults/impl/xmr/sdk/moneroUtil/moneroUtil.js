@@ -429,26 +429,7 @@ var instantiate = (function () {
           });
       }
       function instantiateAsync() {
-        if (
-          !wasmBinary &&
-          typeof WebAssembly.instantiateStreaming === 'function' &&
-          !isDataURI(wasmBinaryFile) &&
-          !isFileURI(wasmBinaryFile) &&
-          typeof fetch === 'function'
-        ) {
-          return fetch(wasmBinaryFile, { credentials: 'same-origin' }).then(
-            function (response) {
-              var result = WebAssembly.instantiateStreaming(response, info);
-              return result.then(receiveInstantiationResult, function (reason) {
-                err('wasm streaming compile failed: ' + reason);
-                err('falling back to ArrayBuffer instantiation');
-                return instantiateArrayBuffer(receiveInstantiationResult);
-              });
-            },
-          );
-        } else {
-          return instantiateArrayBuffer(receiveInstantiationResult);
-        }
+        return instantiateArrayBuffer(receiveInstantiationResult);
       }
       if (Module['instantiateWasm']) {
         try {
