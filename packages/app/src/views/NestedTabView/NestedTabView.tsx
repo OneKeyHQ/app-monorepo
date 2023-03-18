@@ -8,10 +8,9 @@ import {
   useState,
 } from 'react';
 
-// import { useWindowDimensions } from 'react-native';
-import ReactNative, { UIManager } from 'react-native';
+import { StyleSheet, UIManager, findNodeHandle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import {
+import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
@@ -45,6 +44,12 @@ enum LockDirection {
   Horizontal = 2,
 }
 const native = Gesture.Native();
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});
 const NestedTabView: ForwardRefRenderFunction<
   ForwardRefHandle,
   NestedTabViewProps
@@ -55,7 +60,7 @@ const NestedTabView: ForwardRefRenderFunction<
     onChange,
     defaultIndex,
     canOpenDrawer,
-    scrollEnabled,
+    scrollEnabled = true,
     disableRefresh = false,
     ...rest
   },
@@ -63,6 +68,7 @@ const NestedTabView: ForwardRefRenderFunction<
 ) => {
   const [innerDisableRefresh, setInnerDisableRefresh] =
     useState(disableRefresh);
+  const [innerScrollEnabled, setInnerScrollEnabled] = useState(scrollEnabled);
   const tabRef = useRef<typeof NativeNestedTabView>(null);
   // const { width: screenWidth } = useWindowDimensions();
   const tabIndex = useSharedValue(defaultIndex);
@@ -73,60 +79,71 @@ const NestedTabView: ForwardRefRenderFunction<
   const lastTransX = useSharedValue(0);
   const startY = useSharedValue(0);
 
+  const lockVertical = useCallback(() => {
+    console.log('lockVertical');
+    lockDirection.value = LockDirection.Vertical;
+    lastTransX.value = 0;
+    setInnerScrollEnabled(false);
+  }, [lastTransX, lockDirection]);
+
+  const lockHorizontal = useCallback(() => {
+    console.log('lockHorizontal');
+    setInnerDisableRefresh(false);
+    lockDirection.value = LockDirection.Horizontal;
+  }, [lockDirection]);
+
+  const resetGesture = useCallback(() => {
+    console.log('resetGesture');
+    lastTransX.value = 0;
+    lockDirection.value = LockDirection.None;
+    setInnerDisableRefresh(disableRefresh);
+    setInnerScrollEnabled(scrollEnabled);
+  }, [disableRefresh, lastTransX, lockDirection, scrollEnabled]);
+
+  const setPageIndex = useCallback((pageIndex: number) => {
+    try {
+      UIManager.dispatchViewManagerCommand(
+        findNodeHandle(tabRef.current),
+        getViewManagerConfig().Commands.setPageIndex,
+        [pageIndex],
+      );
+    } catch (error) {
+      debugLogger.common.error(`switch account tab error`, error);
+    }
+  }, []);
+
   useImperativeHandle(ref, () => ({
-    setPageIndex: (pageIndex: number) => {
-      try {
-        UIManager.dispatchViewManagerCommand(
-          ReactNative.findNodeHandle(tabRef.current),
-          getViewManagerConfig().Commands.setPageIndex,
-          [pageIndex],
-        );
-      } catch (error) {
-        debugLogger.common.error(`switch account tab error`, error);
-      }
-    },
+    setPageIndex,
   }));
 
-  const onEnd = useCallback(
-    () => {
-      if (canOpenDrawer && tabIndex.value === 0) {
-        if (lastTransX.value > drawerOpenDistance) {
-          nestedTabTransX.value = withSpring(0, {
-            velocity: 50,
-            stiffness: 1000,
-            damping: 500,
-            mass: 3,
-            overshootClamping: true,
-            restDisplacementThreshold: 0.01,
-            restSpeedThreshold: 0.01,
-          });
-        } else {
-          resetNestedTabTransX();
-        }
+  const onEnd = useCallback(() => {
+    if (canOpenDrawer && tabIndex.value === 0) {
+      if (lastTransX.value > drawerOpenDistance) {
+        nestedTabTransX.value = withSpring(0, {
+          velocity: 50,
+          stiffness: 1000,
+          damping: 500,
+          mass: 3,
+          overshootClamping: true,
+          restDisplacementThreshold: 0.01,
+          restSpeedThreshold: 0.01,
+        });
+      } else {
+        resetNestedTabTransX();
       }
+    }
+    resetGesture();
 
-      lastTransX.value = 0;
-      native.enabled(true);
-      // eslint-disable-next-line @typescript-eslint/no-use-before-define
-      pan.enabled(true);
-      lockDirection.value = LockDirection.None;
-      setInnerDisableRefresh(disableRefresh);
-      // restore the onPress function
-      enableOnPressAnim.value = withTiming(1, { duration: 50 });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canOpenDrawer, lockDirection, tabIndex.value],
-  );
+    // restore the onPress function
+    enableOnPressAnim.value = withTiming(1, { duration: 50 });
+  }, [canOpenDrawer, lastTransX.value, resetGesture, tabIndex.value]);
   const pan = useMemo(() => {
     const basePan = Gesture.Pan()
       .onTouchesDown(({ allTouches }) => {
+        resetGesture();
         nestedTabStartX.value = allTouches[0].absoluteX;
         startY.value = allTouches[0].absoluteY;
         offsetX.value = nestedTabTransX.value;
-        lastTransX.value = 0;
-        native.enabled(true);
-        lockDirection.value = LockDirection.None;
-        setInnerDisableRefresh(disableRefresh);
       })
       .onFinalize(onEnd);
     if (platformEnv.isNativeIOS) {
@@ -144,8 +161,6 @@ const NestedTabView: ForwardRefRenderFunction<
     if (platformEnv.isNativeAndroid) {
       // onTouchesMove works better on Android
       basePan.onTouchesMove(({ allTouches }) => {
-        pan.enabled(true);
-        native.enabled(true);
         // when fingers move,
         // disable the onPress function
         enableOnPressAnim.value = 0;
@@ -160,13 +175,10 @@ const NestedTabView: ForwardRefRenderFunction<
           if (
             Math.abs(allTouches[0].absoluteY - startY.value) > failedDistance
           ) {
-            lockDirection.value = LockDirection.Vertical;
-            lastTransX.value = 0;
+            lockVertical();
           }
-          if (transX > failedDistance) {
-            setInnerDisableRefresh(false);
-            native.enabled(false);
-            lockDirection.value = LockDirection.Horizontal;
+          if (Math.abs(transX) > failedDistance) {
+            lockHorizontal();
           }
         }
         if (canOpenDrawer && tabIndex.value === 0 && transX > failedDistance) {
@@ -179,10 +191,13 @@ const NestedTabView: ForwardRefRenderFunction<
     canOpenDrawer,
     lastTransX,
     lockDirection,
+    lockHorizontal,
+    lockVertical,
     offsetX,
     onEnd,
+    resetGesture,
     startY,
-    tabIndex.value,
+    tabIndex,
   ]);
 
   const onTabChange = useCallback(
@@ -196,7 +211,7 @@ const NestedTabView: ForwardRefRenderFunction<
     <NativeNestedTabView
       defaultIndex={defaultIndex}
       onChange={onTabChange}
-      scrollEnabled={scrollEnabled}
+      scrollEnabled={innerScrollEnabled}
       disableRefresh={innerDisableRefresh}
       // @ts-ignore
       ref={tabRef}
@@ -206,7 +221,7 @@ const NestedTabView: ForwardRefRenderFunction<
       {children}
     </NativeNestedTabView>
   );
-  return scrollEnabled ? (
+  return (
     <GestureDetector
       gesture={
         platformEnv.isNativeAndroid
@@ -214,10 +229,8 @@ const NestedTabView: ForwardRefRenderFunction<
           : Gesture.Simultaneous(pan, native)
       }
     >
-      {content}
+      <Animated.View style={styles.container}>{content}</Animated.View>
     </GestureDetector>
-  ) : (
-    content
   );
 };
 
