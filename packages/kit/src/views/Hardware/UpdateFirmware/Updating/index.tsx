@@ -340,15 +340,15 @@ const UpdatingModal: FC = () => {
             },
           });
         }
+
+        ToastManager.show(
+          {
+            title: intl.formatMessage({ id: key }),
+          },
+          { type: 'error' },
+        );
         break;
     }
-
-    ToastManager.show(
-      {
-        title: intl.formatMessage({ id: key }),
-      },
-      { type: 'error' },
-    );
 
     setProgressState('failure');
   };
