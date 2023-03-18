@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
+import emojiRegex from 'emoji-regex';
 import { useIntl } from 'react-intl';
 
 import {
@@ -149,6 +150,15 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
               message: intl.formatMessage({
                 id: 'msg__exceeding_the_maximum_word_limit',
               }),
+            },
+            validate: (value) => {
+              if (!value.length) return true;
+
+              if (emojiRegex().test(value)) {
+                return intl.formatMessage({
+                  id: 'form__not_extsis_emojis',
+                });
+              }
             },
           }}
         >

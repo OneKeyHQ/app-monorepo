@@ -1209,6 +1209,7 @@
   "form__not_appear_to_be_a_honeypot": "Не приманка",
   "form__not_appear_to_be_a_honeypot_desc": "Никакое известное нам кодирование не препятствует продаже токенов.",
   "form__not_enough_confirmations": "Недостаточно подтверждений.",
+  "form__not_extsis_emojis": "Emojis input is not allowed.",
   "form__not_recommended": "Не рекомендуется",
   "form__notification": "Уведомление",
   "form__on_chain_info_uppercase": "ИНФОРМАЦИЯ О СЕТИ",

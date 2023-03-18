@@ -1209,6 +1209,7 @@
   "form__not_appear_to_be_a_honeypot": "ไม่ใช่ Honeypot",
   "form__not_appear_to_be_a_honeypot_desc": "ไม่มีการเข้ารหัสที่เรารู้ว่าป้องกันการขายโทเค็น",
   "form__not_enough_confirmations": "การยืนยันไม่เพียงพอ",
+  "form__not_extsis_emojis": "Emojis input is not allowed.",
   "form__not_recommended": "ไม่แนะนำ",
   "form__notification": "การแจ้งเตือน",
   "form__on_chain_info_uppercase": "ข้อมูลออนไลน์",

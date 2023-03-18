@@ -1209,6 +1209,7 @@
   "form__not_appear_to_be_a_honeypot": "Honeypot биш",
   "form__not_appear_to_be_a_honeypot_desc": "Бидний мэддэг ямар ч код нь токен борлуулалтаас сэргийлдэггүй.",
   "form__not_enough_confirmations": "Баталгаажуулалт хангалтгүй байна.",
+  "form__not_extsis_emojis": "Emojis input is not allowed.",
   "form__not_recommended": "Санал болгогдоогүй",
   "form__notification": "Мэдэгдэл",
   "form__on_chain_info_uppercase": "СҮЛЖЭЭНИЙ МЭДЭЭЛЭЛ",
