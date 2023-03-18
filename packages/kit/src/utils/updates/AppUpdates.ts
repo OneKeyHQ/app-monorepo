@@ -190,14 +190,37 @@ class AppUpdates {
         });
         break;
       case 'GooglePlay':
+        canOpenURL('market://details?id=so.onekey.app.wallet').then(
+          (supported) => {
+            if (supported) {
+              LinkingOpenURL('market://details?id=so.onekey.app.wallet');
+            } else {
+              LinkingOpenURL(versionInfo.package.download);
+            }
+          },
+        );
+        break;
       case 'HuaweiAppGallery':
-        canOpenURL('market://').then((supported) => {
-          if (supported) {
-            LinkingOpenURL('market://details?id=so.onekey.app.wallet');
-          } else {
-            this._openUrl(versionInfo.package.download);
-          }
-        });
+        canOpenURL('hiapplink://com.huawei.appmarket?appId=C107439249')
+          .then((supported) => {
+            if (supported) {
+              LinkingOpenURL(
+                'hiapplink://com.huawei.appmarket?appId=C107439249',
+              );
+              return null;
+            }
+            return canOpenURL('market://details?id=so.onekey.app.wallet');
+          })
+          .then((supported) => {
+            if (!supported) return null;
+
+            if (supported) {
+              LinkingOpenURL('market://details?id=so.onekey.app.wallet');
+            } else {
+              LinkingOpenURL(versionInfo.package.download);
+            }
+          });
+
         break;
       case 'MsWindowsStore':
         // check ms-windows-store protocol support
