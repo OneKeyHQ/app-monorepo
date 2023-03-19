@@ -35,7 +35,7 @@ const ForcedUpdate: FC = () => {
   const { versionInfo } = useRoute<RouteProps>().params;
   const [changeLog, setChangeLog] = useState<string>();
 
-  useBackHandler(() => true);
+  useBackHandler();
 
   useEffect(() => {
     navigation.setOptions({
