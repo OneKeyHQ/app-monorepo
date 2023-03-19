@@ -8,9 +8,9 @@ import {
   useState,
 } from 'react';
 
-import { StyleSheet, UIManager, findNodeHandle } from 'react-native';
+import { UIManager, findNodeHandle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
+import {
   useSharedValue,
   withSpring,
   withTiming,
@@ -45,11 +45,6 @@ enum LockDirection {
 }
 const native = Gesture.Native();
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
 const NestedTabView: ForwardRefRenderFunction<
   ForwardRefHandle,
   NestedTabViewProps
@@ -149,6 +144,7 @@ const NestedTabView: ForwardRefRenderFunction<
     if (platformEnv.isNativeIOS) {
       // onUpdate works better on IOS
       basePan.onUpdate((e) => {
+        console.log('update', e);
         // when fingers move,
         // disable the onPress function
         enableOnPressAnim.value = 0;
@@ -229,7 +225,7 @@ const NestedTabView: ForwardRefRenderFunction<
           : Gesture.Simultaneous(pan, native)
       }
     >
-      <Animated.View style={styles.container}>{content}</Animated.View>
+      {content}
     </GestureDetector>
   );
 };
