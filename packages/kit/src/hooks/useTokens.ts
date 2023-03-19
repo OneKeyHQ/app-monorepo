@@ -330,6 +330,7 @@ export const useTokenBalanceWithoutFrozen = ({
   });
 
   return useMemo(() => {
+    if (frozenBalance < 0) return '0';
     const realBalance = new B(balance).minus(frozenBalance);
     if (realBalance.isGreaterThan(0)) {
       return realBalance.toFixed();

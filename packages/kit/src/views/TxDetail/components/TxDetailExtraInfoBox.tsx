@@ -5,13 +5,11 @@ import { useIntl } from 'react-intl';
 
 import { IconButton, Pressable } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
-import type { IDecodedTxExtraAlgo } from '@onekeyhq/engine/src/vaults/impl/algo/types';
 import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
-import { IMPL_ALGO } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useClipboard } from '../../../hooks/useClipboard';
@@ -138,14 +136,24 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
       ),
     });
   }
-  if (
-    network?.impl === IMPL_ALGO &&
-    decodedTx.extraInfo &&
-    (decodedTx.extraInfo as IDecodedTxExtraAlgo).note
-  ) {
-    details.push({
-      title: intl.formatMessage({ id: 'form__algo__note' }),
-      content: (decodedTx.extraInfo as IDecodedTxExtraAlgo).note,
+
+  if (network?.settings.txExtraInfo) {
+    network?.settings.txExtraInfo.forEach((item) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const extraInfo = decodedTx.extraInfo && decodedTx.extraInfo[item.key];
+      if (extraInfo !== undefined && extraInfo !== null) {
+        details.push({
+          title: intl.formatMessage({ id: item.title }),
+          content: (
+            <TxActionElementAddressNormal
+              address={extraInfo}
+              isCopy={item.canCopy}
+              isLabelShow={false}
+              isShorten={item.isShorten}
+            />
+          ),
+        });
+      }
     });
   }
 
