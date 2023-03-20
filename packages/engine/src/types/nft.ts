@@ -11,16 +11,6 @@ export const NFTChainMap: Record<string, string> = {
   [OnekeyNetwork.avalanche]: 'avalanche',
 };
 
-export const NFTSymbolMap: Record<string, string> = {
-  [OnekeyNetwork.eth]: 'main',
-  [OnekeyNetwork.optimism]: 'main',
-  [OnekeyNetwork.bsc]: 'main',
-  [OnekeyNetwork.polygon]: 'main',
-  [OnekeyNetwork.arbitrum]: 'main',
-  [OnekeyNetwork.sol]: 'main',
-  [OnekeyNetwork.avalanche]: 'main',
-};
-
 export type ERCType = 'erc721' | 'erc1155';
 
 export type Traits = {
