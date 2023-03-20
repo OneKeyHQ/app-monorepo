@@ -3,7 +3,6 @@ import RNRestart from 'react-native-restart';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { switchTestEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
-import { setLastCheckTimestamp } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import {
   passwordSet,
   release,
@@ -422,7 +421,7 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   checkUpdateStatus() {
-    const { dispatch, store } = this.backgroundApi;
+    const { store } = this.backgroundApi;
     const { lastCheckTimestamp } = store.getState().autoUpdate;
 
     let checkTimeDelay = getTimeDurationMs({ hour: 1 });
@@ -430,15 +429,8 @@ class ServiceApp extends ServiceBase {
       checkTimeDelay = getTimeDurationMs({ hour: 3 });
     }
 
-    // The first startup is not checked
-    if (!lastCheckTimestamp) {
-      dispatch(setLastCheckTimestamp(getTimeStamp()));
-      return;
-    }
-
-    if (getTimeStamp() - lastCheckTimestamp > checkTimeDelay) {
-      appUpdates.checkUpdate().then().catch();
-      dispatch(setLastCheckTimestamp(getTimeStamp()));
+    if (getTimeStamp() - (lastCheckTimestamp ?? 0) > checkTimeDelay) {
+      return appUpdates.checkUpdate().then();
     }
   }
 }

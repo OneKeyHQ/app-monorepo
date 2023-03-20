@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -11,7 +11,9 @@ import {
   Spinner,
   Typography,
 } from '@onekeyhq/components';
+import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import useBackHandler from '@onekeyhq/kit/src/hooks/useBackHandler';
 import type {
   UpdateFeatureModalRoutes,
   UpdateFeatureRoutesParams,
@@ -33,11 +35,20 @@ const ForcedUpdate: FC = () => {
   const { versionInfo } = useRoute<RouteProps>().params;
   const [changeLog, setChangeLog] = useState<string>();
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: intl.formatMessage({ id: 'transaction__history' }),
-    });
-  }, [intl, navigation]);
+  useBackHandler();
+
+  useEffect(() => {
+    const modalNav = navigation.getParent()?.getParent();
+    if (modalNav) {
+      modalNav.setOptions({
+        gestureEnabled: false,
+      });
+      return () =>
+        modalNav.setOptions({
+          gestureEnabled: true,
+        });
+    }
+  }, [navigation]);
 
   useEffect(() => {
     (async () => {
@@ -59,25 +70,26 @@ const ForcedUpdate: FC = () => {
 
   return (
     <Modal
+      closeable={false}
       closeOnOverlayClick={false}
       size="sm"
       headerShown={false}
       maxHeight={560}
-      header={intl.formatMessage({ id: 'modal__update_resources' })}
       hideSecondaryAction
       primaryActionTranslationId="action__update_now"
       primaryActionProps={{
         type: 'primary',
       }}
-      closeAction={() => {}}
       onPrimaryActionPress={() => appUpdates.openAppUpdate(versionInfo)}
       scrollViewProps={{
+        disableScrollViewPanResponder: true,
         children: changeLog ? (
           <>
+            <SkipAppLock />
             <Typography.DisplayMedium>
               {intl.formatMessage(
                 { id: 'modal__what_is_new_in_onekey_str' },
-                { 0: versionInfo.package.version },
+                { 0: versionInfo.package.forceUpdateVersion },
               )}
             </Typography.DisplayMedium>
             <Markdown>{changeLog}</Markdown>

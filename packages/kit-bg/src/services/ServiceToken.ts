@@ -187,17 +187,20 @@ export default class ServiceToken extends ServiceBase {
         dbAccounts.map(async (a) => {
           if (a.type === AccountType.UTXO) {
             const address = await vault.getFetchBalanceAddress(a);
-            return { address };
+            return { address, accountId: a.id };
           }
           if (a.type === AccountType.VARIANT) {
             const address = await vault.addressFromBase(a);
-            return { address };
+            return { address, accountId: a.id };
           }
-          return { address: a.address };
+          return { address: a.address, accountId: a.id };
         }),
       );
 
-      const requests = balancesAddress.map((acc) => ({ address: acc.address }));
+      const requests = balancesAddress.map((acc) => ({
+        address: acc.address,
+        accountId: acc.accountId,
+      }));
       balances = await vault.getBalances(requests, password);
     } catch {
       balances = dbAccounts.map(() => undefined);

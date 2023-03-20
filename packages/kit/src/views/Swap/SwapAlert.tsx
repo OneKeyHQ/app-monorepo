@@ -23,7 +23,7 @@ import {
 } from '../../hooks';
 import { showOverlay } from '../../utils/overlayUtils';
 
-import { useInputLimitsError } from './hooks/useSwap';
+import { useInputLimitsError, useSwapRecipient } from './hooks/useSwap';
 import { usePriceImpact, useSwapSlippage } from './hooks/useSwapUtils';
 import { SwapError } from './typings';
 
@@ -77,7 +77,7 @@ const RecipientBox = () => {
 };
 
 const RecipientAlert = () => {
-  const recipient = useAppSelector((s) => s.swap.recipient);
+  const recipient = useSwapRecipient();
 
   if (recipient) {
     return null;
@@ -159,7 +159,7 @@ const ExchangeAddressAlertContent = () => {
 
 const ExchangeAddressAlert = () => {
   const [recipientUnknown, setRecipientUnknown] = useState<boolean>(false);
-  const recipient = useAppSelector((s) => s.swap.recipient);
+  const recipient = useSwapRecipient();
   useEffect(() => {
     backgroundApiProxy.serviceSwap
       .recipientIsUnknown(recipient)

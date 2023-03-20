@@ -67,6 +67,8 @@ const UpdatingModal: FC = () => {
   const progressStepRef = useRef<ProgressStepType>();
   const [progressState, setProgressState] = useState<ProgressStateType>();
 
+  const autoEnterBootFailureCountRef = useRef(0);
+
   useEffect(() => {
     progressStepRef.current = progressStep;
   }, [progressStep]);
@@ -306,8 +308,32 @@ const UpdatingModal: FC = () => {
       case HardwareErrorCode.ActionCancelled:
       case HardwareErrorCode.PinCancelled:
       case HardwareErrorCode.FirmwareUpdateAutoEnterBootFailure:
+        autoEnterBootFailureCountRef.current += 1;
         if (progressStepRef.current === 'reboot-bootloader') {
-          setStateViewInfo({ type: 'reboot-bootloader-failure' });
+          if (deviceType === 'mini') {
+            setStateViewInfo({
+              type: 'manually-enter-bootloader-one',
+              content: {
+                deviceType,
+                nextState: {
+                  type: 'manually-enter-bootloader-two',
+                  content: {
+                    deviceType,
+                    primaryActionTranslationId: 'action__continue',
+                  },
+                },
+              },
+            });
+          } else if (autoEnterBootFailureCountRef.current >= 2) {
+            setStateViewInfo({
+              type: 'manually-enter-bootloader-one',
+              content: {
+                deviceType,
+              },
+            });
+          } else {
+            setStateViewInfo({ type: 'reboot-bootloader-failure' });
+          }
         } else {
           setStateViewInfo({
             type: 'common_error',
@@ -340,15 +366,15 @@ const UpdatingModal: FC = () => {
             },
           });
         }
+
+        ToastManager.show(
+          {
+            title: intl.formatMessage({ id: key }),
+          },
+          { type: 'error' },
+        );
         break;
     }
-
-    ToastManager.show(
-      {
-        title: intl.formatMessage({ id: key }),
-      },
-      { type: 'error' },
-    );
 
     setProgressState('failure');
   };

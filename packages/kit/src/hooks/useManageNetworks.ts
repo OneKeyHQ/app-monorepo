@@ -1,4 +1,5 @@
 import type { INetwork } from '@onekeyhq/engine/src/types';
+import { CHAINS_DISPLAYED_IN_DEV } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { makeSelector } from './redux';
@@ -8,8 +9,6 @@ export type IManageNetworks = {
   enabledNetworks: INetwork[];
 };
 
-const CHAINS_DISPLAYED_IN_DEV: string[] = [];
-const CHAINS_NOT_DISPLAYED_IN_EXT: string[] = [];
 const emptyArray = Object.freeze([]);
 
 export const { use: useManageNetworks, get: getManageNetworks } =
@@ -18,14 +17,14 @@ export const { use: useManageNetworks, get: getManageNetworks } =
     const networks = selector((s) => s.runtime.networks) ?? emptyArray;
 
     const [allNetworks, enabledNetworks] = useMemo(() => {
-      let chainsToHide = devModeEnable ? [] : CHAINS_DISPLAYED_IN_DEV;
-
-      if (platformEnv.isExtension && !devModeEnable) {
-        chainsToHide = [...chainsToHide, ...CHAINS_NOT_DISPLAYED_IN_EXT];
-      }
+      const chainsToHide = devModeEnable ? [] : CHAINS_DISPLAYED_IN_DEV;
 
       const all = networks.filter(
-        (network) => !chainsToHide.includes(network.impl),
+        (network) =>
+          !chainsToHide.includes(network.impl) &&
+          (platformEnv.isExtension
+            ? !network.settings.disabledInExtension
+            : true),
       );
       const enabled = all.filter((network) => network.enabled);
       return [all, enabled];

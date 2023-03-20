@@ -142,8 +142,15 @@ const UpdateInfoModal: FC = () => {
 
       const connectId = findDevice.mac;
 
-      const deviceFeatures = await serviceHardware.getFeatures(connectId ?? '');
-      setFeatures(deviceFeatures);
+      let deviceFeatures: IOneKeyDeviceFeatures;
+      try {
+        deviceFeatures = await serviceHardware.getFeatures(connectId ?? '');
+        setFeatures(deviceFeatures);
+      } catch (error) {
+        deviceUtils.showErrorToast(error);
+        navigation.goBack();
+        return;
+      }
 
       let { ble, firmware } = deviceUpdates?.[connectId] || {};
 

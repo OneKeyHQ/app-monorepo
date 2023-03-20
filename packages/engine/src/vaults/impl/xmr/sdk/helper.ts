@@ -11,7 +11,7 @@ import { OneKeyInternalError } from '../../../../errors';
 
 import { cnFastHash } from './moneroAddress';
 
-import type { SignedTx } from '../../../../types/provider';
+import type { ISignedTxPro } from '../../../types';
 import type { ISendFundsArgs, ISendFundsCallback } from '../types';
 import type { MoneroCoreInstance } from './moneroCore/moneroCoreTypes';
 import type { MoneroUtilInstance } from './moneroUtil/moneroUtilTypes';
@@ -258,7 +258,7 @@ class Helper {
     return fee;
   }
 
-  async sendFunds(args: any, scanUrl: string): Promise<SignedTx> {
+  async sendFunds(args: any, scanUrl: string): Promise<ISignedTxPro> {
     const instance = axios.create({
       baseURL: scanUrl,
     });
@@ -299,6 +299,7 @@ class Helper {
           resolve({
             txid: params.tx_hash,
             rawTx: params.serialized_signed_tx,
+            txKey: params.tx_key,
           });
         },
         error_fn: (params) => {

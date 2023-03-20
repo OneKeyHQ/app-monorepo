@@ -10,7 +10,8 @@ export type OS =
   | 'firefox'
   | 'chrome'
   | 'edge'
-  | 'mas';
+  | 'mas'
+  | 'website';
 
 export type Channel =
   | 'AppStore'
@@ -32,6 +33,7 @@ export interface PackageInfo {
 }
 
 export interface PackagesInfo {
+  web: PackageInfo[];
   ios: PackageInfo[];
   android: PackageInfo[];
   desktop: PackageInfo[];

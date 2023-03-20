@@ -7,6 +7,7 @@ import { useAsync } from 'react-async-hook';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -234,14 +235,17 @@ export const useNFTPrice = ({
 export const useTokenSupportStakedAssets = (
   networkId?: string,
   tokenIdOnNetwork?: string,
-) =>
-  useMemo(
+) => {
+  const { networkId: activeNet } = useActiveWalletAccount();
+  return useMemo(
     () =>
       !tokenIdOnNetwork &&
+      activeNet === networkId &&
       (networkId === OnekeyNetwork.eth || networkId === OnekeyNetwork.goerli),
 
-    [networkId, tokenIdOnNetwork],
+    [activeNet, networkId, tokenIdOnNetwork],
   );
+};
 
 export const useFrozenBalance = ({
   networkId,
@@ -326,6 +330,7 @@ export const useTokenBalanceWithoutFrozen = ({
   });
 
   return useMemo(() => {
+    if (frozenBalance < 0) return '0';
     const realBalance = new B(balance).minus(frozenBalance);
     if (realBalance.isGreaterThan(0)) {
       return realBalance.toFixed();
