@@ -1,3 +1,9 @@
+import { useEffect } from 'react';
+
+import { BackHandler } from 'react-native';
+
+const stopDefaultBackHandler = () => true;
+
 /**
  * Registers a hardware back press listener and invokes the provided callback
  * function when the back button is pressed on Android devices.
@@ -9,9 +15,14 @@
  * the default behavior will be executed. Defaults to always returning true.
  * @returns void
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const useBackHandler = (_callback?: () => boolean) => {
-  // only implemented on android
+const useBackHandler = (callback: () => boolean = stopDefaultBackHandler) => {
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      callback,
+    );
+    return () => backHandler.remove();
+  }, [callback]);
 };
 
 export default useBackHandler;

@@ -1209,6 +1209,7 @@
   "form__not_appear_to_be_a_honeypot": "ليس موضع جذب",
   "form__not_appear_to_be_a_honeypot_desc": "لا يوجد ترميز نعرفه يمنع مبيعات الرمز المميز.",
   "form__not_enough_confirmations": "التأكيدات غير كافية.",
+  "form__not_extsis_emojis": "Emojis input is not allowed.",
   "form__not_recommended": "لا ينصح",
   "form__notification": "تنبيه",
   "form__on_chain_info_uppercase": "معلومات على السلسلة",

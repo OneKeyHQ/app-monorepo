@@ -1209,6 +1209,7 @@
   "form__not_appear_to_be_a_honeypot": "ハニーポットではない",
   "form__not_appear_to_be_a_honeypot_desc": "私たちが知っているコーディングは、トークンの販売を妨げません。",
   "form__not_enough_confirmations": "確認数不足",
+  "form__not_extsis_emojis": "Emojis input is not allowed.",
   "form__not_recommended": "非推奨",
   "form__notification": "通知",
   "form__on_chain_info_uppercase": "オンチェーン情報",

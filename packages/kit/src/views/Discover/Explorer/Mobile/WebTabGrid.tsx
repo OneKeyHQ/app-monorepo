@@ -1,12 +1,7 @@
 import type { FC } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import {
-  BackHandler,
-  Image,
-  StyleSheet,
-  useWindowDimensions,
-} from 'react-native';
+import { Image, StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import {
@@ -22,6 +17,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import useBackHandler from '../../../../hooks/useBackHandler';
 import { useWebTabs } from '../Controller/useWebTabs';
 import { dCloseWebTab, dSetCurrentWebTab } from '../explorerActions';
 import {
@@ -145,20 +141,15 @@ const WebTabGrid = () => {
   const { width } = useWindowDimensions();
   const cellWidth = (width - CELL_GAP * 3) / 2;
 
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener(
-      'hardwareBackPress',
-      () => {
-        if (showTabGridAnim.value !== MIN_OR_HIDE) {
-          hideTabGrid();
-          return true;
-        }
-        return false;
-      },
-    );
-
-    return () => subscription.remove();
-  }, []);
+  useBackHandler(
+    useCallback(() => {
+      if (showTabGridAnim.value !== MIN_OR_HIDE) {
+        hideTabGrid();
+        return true;
+      }
+      return false;
+    }, []),
+  );
 
   const content = useMemo(
     () =>
