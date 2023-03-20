@@ -70,7 +70,7 @@ export type IVaultSettings = {
   disabledInExtension?: boolean;
   exportCredentialInfo?: AccountCredential[];
   txExtraInfo?: TxExtraInfo[];
-  enabledInDevModeOnly: boolean;
+  enabledInDevModeOnly?: boolean;
 
   minTransferAmount?: string;
 
