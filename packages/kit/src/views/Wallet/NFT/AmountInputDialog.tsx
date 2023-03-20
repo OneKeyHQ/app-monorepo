@@ -1,9 +1,10 @@
 import type { FC } from 'react';
 import { useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Box, Dialog, Input, Pressable, Text } from '@onekeyhq/components';
+import { Box, Dialog, NumberInput, Text } from '@onekeyhq/components';
 
 import { showOverlay } from '../../../utils/overlayUtils';
 
@@ -40,26 +41,19 @@ const AmountInputDialog: FC<Props> = ({ total, onConfirm, closeOverlay }) => {
             <Text typography="Body2Strong">
               {intl.formatMessage({ id: 'content__amount' })}
             </Text>
-            <Input
+            <NumberInput
               w="full"
-              value={input}
               size="lg"
-              rightCustomElement={
-                <Pressable
-                  onPress={() => {
-                    setInput(total);
-                  }}
-                  justifyContent="center"
-                  alignItems="center"
-                  width="80px"
-                  height="50px"
-                >
-                  <Text typography="Button1">
-                    {intl.formatMessage({ id: 'action__max' })}
-                  </Text>
-                </Pressable>
-              }
-              onChangeText={(text) => setInput(text.trim())}
+              enableMaxButton
+              value={input}
+              onChangeText={(text) => {
+                if (new BigNumber(text).lte(total) || text.length === 0) {
+                  setInput(text);
+                }
+              }}
+              onMaxChange={() => {
+                setInput(total);
+              }}
             />
             <Text mt="8px" typography="Body2" color="text-subdued">
               {`${intl.formatMessage({ id: 'content__total' })}: ${total}`}
