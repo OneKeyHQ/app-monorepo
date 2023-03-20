@@ -57,7 +57,7 @@ export default class ServiceStaking extends ServiceBase {
     await this.client.post(url, {
       payee_addr: params.payeeAddr,
       token: 'eth',
-      source: 'OneKey',
+      source: 'onekey',
     });
   }
 
@@ -67,7 +67,7 @@ export default class ServiceStaking extends ServiceBase {
     networkId: string;
   }) {
     return {
-      data: '0xd0e30db0', // bytes4(keccak256(bytes('deposit()')))
+      data: '0xd9712d546f6e656b65790000000000000000000000000000000000000000000000000000', // bytes4(keccak256(bytes('deposit("onekey")')))
       to: this.getKeleContractAddress(params.networkId),
       value: params.value,
     };
