@@ -6,6 +6,8 @@ import { KeyringBase } from './KeyringBase';
 
 import type { Signer } from '../../proxy';
 import type {
+  IPrepareAccountByAddressIndexParams,
+  IPrepareAccountByAddressIndexResponse,
   ISignCredentialOptions,
   ISignedTxPro,
   IUnsignedTxPro,
@@ -76,6 +78,13 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   }
 
   override getAddress(): Promise<string> {
+    throw new Error('Method not implemented.');
+  }
+
+  override prepareAccountByAddressIndex(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    params: IPrepareAccountByAddressIndexParams,
+  ): Promise<IPrepareAccountByAddressIndexResponse[]> {
     throw new Error('Method not implemented.');
   }
 }

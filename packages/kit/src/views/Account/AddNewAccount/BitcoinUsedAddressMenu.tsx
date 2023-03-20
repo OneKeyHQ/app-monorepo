@@ -2,13 +2,28 @@ import type { FC } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { CheckBox, Divider } from '@onekeyhq/components';
+import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 import type {
   IBaseMenuOptions,
   IMenu,
 } from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useNavigation } from '../../../hooks';
+import {
+  CreateAccountModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../routes/routesEnum';
+
 import showFindAddressByPathBottomSheetModal from './FindAddressByPathBottomSheetModal';
+
+import type { IDerivationOption } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
+
+type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
 const BitcoinUsedAddressMenu: FC<
   IMenu & {
@@ -20,21 +35,65 @@ const BitcoinUsedAddressMenu: FC<
   }
 > = (props) => {
   const { showPath, onChange, walletId, networkId, accountId } = props;
+  const navigation = useNavigation<NavigationProps['navigation']>();
 
   const onPressShowPath = useCallback(() => {
     onChange?.(!showPath);
   }, [onChange, showPath]);
+
+  const onCreateAccountByAddressIndex = useCallback(
+    ({
+      password,
+      derivationOption,
+      addressIndex,
+      account,
+    }: {
+      password: string;
+      derivationOption?: IDerivationOption;
+      addressIndex?: string;
+      account?: Account;
+    }) => {
+      backgroundApiProxy.serviceDerivationPath.createAccountByCustomAddressIndex(
+        {
+          walletId,
+          accountId,
+          networkId,
+          password,
+          addressIndex: addressIndex ?? '',
+          account,
+          template: derivationOption?.template ?? '',
+        },
+      );
+    },
+    [walletId, networkId, accountId],
+  );
 
   const onPressFindAddressByPath = useCallback(() => {
     showFindAddressByPathBottomSheetModal({
       walletId,
       networkId,
       accountId,
-      onConfirm: () => {
-        console.log('confirm');
+      onConfirm: ({ data }) => {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.CreateAccount,
+          params: {
+            screen: CreateAccountModalRoutes.CreateAccountAuthentication,
+            params: {
+              walletId,
+              onDone: (password) =>
+                onCreateAccountByAddressIndex({ password, ...data }),
+            },
+          },
+        });
       },
     });
-  }, [walletId, networkId, accountId]);
+  }, [
+    walletId,
+    networkId,
+    accountId,
+    navigation,
+    onCreateAccountByAddressIndex,
+  ]);
 
   const showPathCheckBox = useMemo(
     () => (

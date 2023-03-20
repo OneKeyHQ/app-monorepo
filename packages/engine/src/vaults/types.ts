@@ -4,6 +4,7 @@ import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import type { Engine } from '../index';
+import type { Account, AccountType } from '../types/account';
 import type { AccountNameInfo, EIP1559Fee } from '../types/network';
 import type { NFTAsset } from '../types/nft';
 import type { Token } from '../types/token';
@@ -321,6 +322,24 @@ export type IHardwareGetAddressParams = {
 };
 
 export type IGetAddressParams = IHardwareGetAddressParams;
+
+// PrepareAccountByAddressIndex
+export type IPrepareAccountByAddressIndexParams = {
+  password: string;
+  template: string;
+  accountIndex: number;
+  addressIndex: number;
+};
+
+export type IPrepareAccountByAddressIndexResponse = {
+  id: string;
+  type: AccountType;
+  path: string;
+  coinType: string;
+  addresses: Record<string, string>;
+  customAddresses: Record<string, string>;
+  template: string;
+};
 
 // DecodedTx ----------------------------------------------
 export type IDecodedTxLegacy = EVMDecodedItem;

@@ -1,6 +1,7 @@
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { getNextAccountId } from '@onekeyhq/engine/src/managers/derivation';
 import type { IAccount } from '@onekeyhq/engine/src/types';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import {
   backgroundClass,
   backgroundMethod,
@@ -137,5 +138,43 @@ export default class ServiceDerivationPath extends ServiceBase {
       accountId,
     });
     return vault.getAllUsedAddress();
+  }
+
+  @backgroundMethod()
+  async createAccountByCustomAddressIndex({
+    walletId,
+    networkId,
+    accountId,
+    password,
+    template,
+    addressIndex,
+    account,
+  }: {
+    walletId: string;
+    networkId: string;
+    accountId: string;
+    password: string;
+    template: string;
+    addressIndex: string;
+    account?: Account;
+  }) {
+    if (!account) {
+      throw new Error('no account');
+    }
+    // 1. create vault
+    const vault = await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    });
+    // 2. use vault.prepareAccountByAddressIndex to get account address
+    const accountIndex = account.path.split('/')[3].slice(0, -1);
+    const accounts = await vault.keyring.prepareAccountByAddressIndex({
+      password,
+      template,
+      accountIndex: Number(accountIndex),
+      addressIndex: Number(addressIndex),
+    });
+    console.log(accounts);
+    // 3. inserrt [accountIndex/addressIndexes] to customAddresses in indexeddb and realm
   }
 }

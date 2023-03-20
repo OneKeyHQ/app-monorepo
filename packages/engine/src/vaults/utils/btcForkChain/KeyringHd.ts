@@ -18,8 +18,10 @@ import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import { getAccountDefaultByPurpose } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
-import type { DBUTXOAccount } from '../../../types/account';
+import type { DBAccount, DBUTXOAccount } from '../../../types/account';
 import type {
+  IPrepareAccountByAddressIndexParams,
+  IPrepareAccountByAddressIndexResponse,
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
@@ -175,6 +177,79 @@ export class KeyringHd extends KeyringHdBase {
         // https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
         break;
       }
+    }
+    return ret;
+  }
+
+  override async prepareAccountByAddressIndex(
+    params: IPrepareAccountByAddressIndexParams,
+  ): Promise<IPrepareAccountByAddressIndexResponse[]> {
+    const { password, template, accountIndex, addressIndex } = params;
+    const vault = this.vault as unknown as BTCForkVault;
+    const coinName = vault.getCoinName();
+    const COIN_TYPE = vault.getCoinType();
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
+    const { network } = provider;
+
+    const usedIndexes = [accountIndex];
+    const purpose = parseInt(template.split('/')?.[1], 10);
+    const { addressEncoding } = getAccountDefaultByPurpose(purpose, coinName);
+    const { seed } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      password,
+    )) as ExportedSeedCredential;
+    const { pathPrefix } = slicePathTemplate(template);
+    const pubkeyInfos = batchGetPublicKeys(
+      'secp256k1',
+      seed,
+      password,
+      pathPrefix,
+      usedIndexes.map((index) => `${index.toString()}'`),
+    );
+    if (pubkeyInfos.length !== 1) {
+      throw new OneKeyInternalError('Unable to get publick key.');
+    }
+    const { public: xpubVersionBytes } =
+      (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
+
+    const ret = [];
+    const index = 0;
+    for (const { path, parentFingerPrint, extendedKey } of pubkeyInfos) {
+      const xpub = bs58check.encode(
+        Buffer.concat([
+          Buffer.from(xpubVersionBytes.toString(16).padStart(8, '0'), 'hex'),
+          Buffer.from([3]),
+          parentFingerPrint,
+          Buffer.from(
+            (usedIndexes[index] + 2 ** 31).toString(16).padStart(8, '0'),
+            'hex',
+          ),
+          extendedKey.chainCode,
+          extendedKey.key,
+        ]),
+      );
+      const customAddressPath = `0/${addressIndex}`;
+      const { [customAddressPath]: address } = provider.xpubToAddresses(
+        xpub,
+        [customAddressPath],
+        addressEncoding,
+      );
+
+      ret.push({
+        id: `${this.walletId}--${path}`,
+        type: AccountType.UTXO,
+        path,
+        coinType: COIN_TYPE,
+        addresses: {
+          [customAddressPath]: address,
+        },
+        customAddresses: {
+          [customAddressPath]: address,
+        },
+        template,
+      });
     }
     return ret;
   }
