@@ -11,7 +11,9 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getDebugLoggerSettings } from '@onekeyhq/shared/src/logger/debugLogger';
+import debugLogger, {
+  getDebugLoggerSettings,
+} from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -214,8 +216,10 @@ class ProviderApiPrivate extends ProviderApiBase {
   @providerApiMethod()
   callChainWebEmbedMethod(payload: any) {
     const method: string = payload.data?.method;
-    console.log(`$privide provide request ===> ${method}`);
-    console.log(payload);
+    debugLogger.providerApi.info(
+      'ProviderApiPrivate.callChainWebEmbedMethod',
+      payload,
+    );
     const data = ({ origin }: { origin: string }) => {
       const result = {
         method,
@@ -225,7 +229,12 @@ class ProviderApiPrivate extends ProviderApiBase {
           params: { ...payload.data?.params },
         },
       };
-      console.log(`${method} &&&&&&&&&`, origin, result);
+      debugLogger.providerApi.info(
+        'ProviderApiPrivate.callChainWebEmbedMethod',
+        method,
+        origin,
+        result,
+      );
       return result;
     };
     payload.data?.send?.(data);
@@ -233,9 +242,10 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   @providerApiMethod()
   chainWebEmbedResponse(payload: any) {
-    const method: string = payload.data?.method;
-    console.log(`${method} =====<<<<<<<`);
-    console.log(payload);
+    debugLogger.providerApi.info(
+      'ProviderApiPrivate.chainWebEmbedResponse',
+      payload,
+    );
     this.backgroundApi.servicePromise.resolveCallback({
       id: payload?.data?.promiseId,
       data: { ...(payload?.data?.data ?? {}) },

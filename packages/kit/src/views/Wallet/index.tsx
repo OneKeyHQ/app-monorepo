@@ -181,6 +181,12 @@ const WalletTabs: FC = () => {
           walletId={wallet.id}
           field={ValidationFields.Account}
           placeCenter={!platformEnv.isNative}
+          subTitle={intl.formatMessage(
+            {
+              id: 'title__password_verification_is_required_to_view_account_details_on_str',
+            },
+            { '0': network.name },
+          )}
         >
           {() => walletTabs}
         </Protected>
