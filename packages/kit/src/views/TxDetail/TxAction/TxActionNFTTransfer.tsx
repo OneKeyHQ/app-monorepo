@@ -61,7 +61,7 @@ export function getTitleInfo({
   if (type === IDecodedTxActionType.NFT_MINT) {
     if (from.toLowerCase() !== receive.toLowerCase()) {
       return {
-        titleKey: 'form_receive_nft',
+        titleKey: 'form_receive_airdrop_nft',
       };
     }
     return {

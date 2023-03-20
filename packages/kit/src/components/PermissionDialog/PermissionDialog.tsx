@@ -34,6 +34,7 @@ const titleIds: PrefContent = {
   location: 'modal__location_access_not_granted',
   notification: 'modal__notification_has_been_disabled',
   locationService: 'modal__location_access_not_granted',
+  localNetwork: 'dialog__not_enabled_local_network',
 };
 
 const contentIds: PrefContent = {
@@ -42,6 +43,7 @@ const contentIds: PrefContent = {
   location: 'modal__location_access_not_granted_use_bluetooth_desc',
   notification: 'modal__notification_has_been_disabled_desc',
   locationService: 'modal__location_access_not_granted_use_bluetooth_desc',
+  localNetwork: 'dialog__not_enabled_local_network_desc',
 };
 
 const linkMap: PrefLink = {
@@ -63,6 +65,9 @@ const linkMap: PrefLink = {
   // Only Android system require location service access permission
   locationService: {
     android: IntentLauncher.ActivityAction.LOCATION_SOURCE_SETTINGS,
+  },
+  localNetwork: {
+    iOS: 'App-Prefs:BVJ3FU5H2K.so.onekey.wallet',
   },
 };
 
