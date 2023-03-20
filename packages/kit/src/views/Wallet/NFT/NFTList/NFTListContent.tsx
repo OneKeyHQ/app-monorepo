@@ -3,7 +3,6 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 export type INFTListContentData = {
   priceType?: boolean;
-  price: number;
 };
 
 export type INFTListContent = {
@@ -18,18 +17,16 @@ function NFTListContentProvider(
     children: JSX.Element;
   },
 ) {
-  const { children, priceType, price = 0 } = props;
+  const { children, priceType } = props;
   const [context, setContext] = useState<INFTListContentData>({
     priceType,
-    price,
   });
   useEffect(() => {
     setContext((ctx) => ({
       ...ctx,
       priceType,
-      price,
     }));
-  }, [priceType, price]);
+  }, [priceType]);
 
   const contextValue = useMemo(() => ({ context, setContext }), [context]);
   return (

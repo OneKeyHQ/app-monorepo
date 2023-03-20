@@ -13,10 +13,11 @@ import {
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
+import { useTokenPrice } from '../../../../hooks/useTokens';
 
-import { useNFTListContent } from './NFTListContent';
 import NFTListImage from './NFTListImage';
 
 type Props = ComponentProps<typeof Box> & {
@@ -93,6 +94,8 @@ const CollectionCard: FC<Props> = ({
 }) => {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
+  const { network } = useActiveWalletAccount();
+
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
   const width = isSmallScreen
@@ -100,8 +103,11 @@ const CollectionCard: FC<Props> = ({
     : 177;
   const { themeVariant } = useTheme();
   const contentSize = width - 2 * padding;
-  const nftContent = useNFTListContent();
-  const price = nftContent?.context.price ?? 0;
+  const price = useTokenPrice({
+    networkId: network?.id ?? '',
+    tokenIdOnNetwork: '',
+    vsCurrency: 'usd',
+  });
   const value = price * (collectible.totalPrice ?? 0);
   return (
     <Box mb="16px" {...rest}>
@@ -131,7 +137,11 @@ const CollectionCard: FC<Props> = ({
           {collectible.contractName}
         </Text>
         <Text typography="Body2" height="20px" color="text-subdued">
-          <FormatCurrencyNumber value={value > 0 ? value : ''} />
+          <FormatCurrencyNumber
+            value={0}
+            decimals={2}
+            convertValue={value > 0 ? value : ''}
+          />
         </Text>
       </Pressable>
     </Box>

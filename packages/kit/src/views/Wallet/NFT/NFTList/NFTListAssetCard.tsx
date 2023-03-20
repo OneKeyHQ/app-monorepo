@@ -15,10 +15,9 @@ import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useSimpleTokenPriceValue } from '../../../../hooks/useManegeTokenPrice';
+import { useTokenPrice } from '../../../../hooks/useTokens';
 import { convertToMoneyFormat } from '../utils';
 
-import { useNFTListContent } from './NFTListContent';
 import NFTListImage from './NFTListImage';
 
 type Props = ComponentProps<typeof Box> & {
@@ -29,11 +28,11 @@ type Props = ComponentProps<typeof Box> & {
 const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
-  const nftContent = useNFTListContent();
   const { network } = useActiveWalletAccount();
-  const symbolPrice = useSimpleTokenPriceValue({
-    networkId: network?.id,
-    contractAdress: '',
+  const symbolPrice = useTokenPrice({
+    networkId: network?.id ?? '',
+    tokenIdOnNetwork: '',
+    vsCurrency: 'usd',
   });
 
   const MARGIN = isSmallScreen ? 16 : 20;
@@ -49,7 +48,7 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
   const { themeVariant } = useTheme();
   const { latestTradePrice } = asset;
 
-  const price = nftContent?.context.price ?? symbolPrice ?? 0;
+  const price = symbolPrice ?? 0;
   const value = price * (latestTradePrice ?? 0);
 
   const AmountTag = useMemo(() => {
@@ -108,7 +107,11 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
         </Text>
         {latestTradePrice ? (
           <Text typography="Body2" height="20px" color="text-subdued">
-            <FormatCurrencyNumber value={value > 0 ? value : ''} />
+            <FormatCurrencyNumber
+              value={0}
+              decimals={2}
+              convertValue={value > 0 ? value : ''}
+            />
           </Text>
         ) : (
           <Box height="20px" />

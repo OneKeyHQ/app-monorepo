@@ -58,7 +58,11 @@ const NFTListHeader = ({
         >
           <Box flexDirection="column">
             <Typography.DisplayLarge>
-              <FormatCurrencyNumber value={totalPrice} />
+              <FormatCurrencyNumber
+                value={0}
+                decimals={2}
+                convertValue={totalPrice > 0 ? totalPrice : ''}
+              />
             </Typography.DisplayLarge>
             <Typography.Body2 color="text-subdued">
               {intl.formatMessage(

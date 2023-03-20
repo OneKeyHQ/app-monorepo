@@ -44,9 +44,10 @@ export const useNFTPrice = ({
   networkId?: string;
 }) => {
   const { nftPrice, disPlayPriceType } = useAppSelector((s) => s.nft);
-  const symbolPrice = useSimpleTokenPriceValue({
-    networkId,
-    contractAdress: '',
+  const symbolPrice = useTokenPrice({
+    networkId: networkId ?? '',
+    tokenIdOnNetwork: '',
+    vsCurrency: 'usd',
   });
   const amount = useMemo(() => {
     if (accountId && networkId) {
