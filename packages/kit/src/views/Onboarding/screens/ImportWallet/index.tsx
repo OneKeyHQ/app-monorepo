@@ -244,16 +244,6 @@ const ImportWallet = () => {
             }}
           />
         </ItemWrapper>
-        {MigrationEnable && (
-          <ItemWrapper>
-            <OptionMigration
-              title={intl.formatMessage({
-                id: 'onboarding__import_wallet_with_migrate',
-              })}
-              onPress={onPressMigration}
-            />
-          </ItemWrapper>
-        )}
       </Box>
     </Layout>
   );
