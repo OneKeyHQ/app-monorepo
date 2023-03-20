@@ -4,6 +4,7 @@ import { read, utils } from 'xlsx';
 
 import { Box, Center, Icon, Text, useThemeValue } from '@onekeyhq/components';
 
+import { ReceiverErrors } from '../ReceiverEditor/ReceiverErrors';
 import { ReceiverExample } from '../ReceiverExample';
 import { TokenReceiverEnum } from '../types';
 
@@ -12,10 +13,17 @@ import type { TokenReceiver } from '../types';
 interface Props {
   setReceiverFromOut: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
   setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
+  showFileError: boolean;
+  setShowFileError: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 function ReceiverUploader(props: Props) {
-  const { setReceiverFromOut, setIsUploadMode } = props;
+  const {
+    setReceiverFromOut,
+    setIsUploadMode,
+    showFileError,
+    setShowFileError,
+  } = props;
   const [uploaderBg, uploaderBorderColor, uploaderActiveBorderColor] =
     useThemeValue(['surface-default', 'border-default', 'interactive-default']);
 
@@ -46,11 +54,17 @@ function ReceiverUploader(props: Props) {
                 item.Amount !== TokenReceiverEnum.Amount,
             ),
           );
+          setShowFileError(false);
           setIsUploadMode(false);
+        } else {
+          setShowFileError(true);
         }
       } catch {
-        // pass
+        setShowFileError(true);
       }
+    },
+    onDropRejected() {
+      setShowFileError(true);
     },
   });
 
@@ -78,6 +92,9 @@ function ReceiverUploader(props: Props) {
           </Text>
         </Center>
       </div>
+      <Box mt={3}>
+        <ReceiverErrors receiverErrors={[]} showFileError={showFileError} />
+      </Box>
       <Box mt={4}>
         <ReceiverExample />
       </Box>
