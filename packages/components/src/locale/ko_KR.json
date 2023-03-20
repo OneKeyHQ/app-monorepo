@@ -1209,6 +1209,7 @@
   "form__not_appear_to_be_a_honeypot": "허니팟 아님",
   "form__not_appear_to_be_a_honeypot_desc": "우리가 알고 있는 어떤 코딩도 토큰 판매를 방지합니다.",
   "form__not_enough_confirmations": "확인이 충분하지 않습니다.",
+  "form__not_extsis_emojis": "Emojis input is not allowed.",
   "form__not_recommended": "권장하지 않음",
   "form__notification": "공고",
   "form__on_chain_info_uppercase": "온체인 정보",

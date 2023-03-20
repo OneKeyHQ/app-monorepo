@@ -1209,6 +1209,7 @@
   "form__not_appear_to_be_a_honeypot": "Nicht Honeypot",
   "form__not_appear_to_be_a_honeypot_desc": "Keine uns bekannte Codierung verhindert Token-Verkäufe.",
   "form__not_enough_confirmations": "Zu wenig Bestätigungen.",
+  "form__not_extsis_emojis": "Emojis input is not allowed.",
   "form__not_recommended": "Nicht empfohlen",
   "form__notification": "Benachrichtigung",
   "form__on_chain_info_uppercase": "ON-CHAIN-INFO",

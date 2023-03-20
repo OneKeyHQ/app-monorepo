@@ -35,12 +35,19 @@ const ForcedUpdate: FC = () => {
   const { versionInfo } = useRoute<RouteProps>().params;
   const [changeLog, setChangeLog] = useState<string>();
 
-  useBackHandler(() => true);
+  useBackHandler();
 
   useEffect(() => {
-    navigation.setOptions({
-      gestureEnabled: false,
-    });
+    const modalNav = navigation.getParent()?.getParent();
+    if (modalNav) {
+      modalNav.setOptions({
+        gestureEnabled: false,
+      });
+      return () =>
+        modalNav.setOptions({
+          gestureEnabled: true,
+        });
+    }
   }, [navigation]);
 
   useEffect(() => {
@@ -73,9 +80,6 @@ const ForcedUpdate: FC = () => {
       primaryActionProps={{
         type: 'primary',
       }}
-      closeAction={() => false}
-      onClose={() => false}
-      onModalClose={() => false}
       onPrimaryActionPress={() => appUpdates.openAppUpdate(versionInfo)}
       scrollViewProps={{
         disableScrollViewPanResponder: true,

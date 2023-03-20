@@ -1209,6 +1209,7 @@
   "form__not_appear_to_be_a_honeypot": "হানিপট নয়",
   "form__not_appear_to_be_a_honeypot_desc": "আমরা জানি কোন কোডিং টোকেন বিক্রি রোধ করে না।",
   "form__not_enough_confirmations": "পর্যাপ্ত নিশ্চিতকরণ নয়।",
+  "form__not_extsis_emojis": "Emojis input is not allowed.",
   "form__not_recommended": "প্রস্তাবিত নয়",
   "form__notification": "বিজ্ঞপ্তি",
   "form__on_chain_info_uppercase": "অন-চেইন তথ্য",

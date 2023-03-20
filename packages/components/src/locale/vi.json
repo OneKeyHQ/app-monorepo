@@ -1209,6 +1209,7 @@
   "form__not_appear_to_be_a_honeypot": "Không phải Honeypot",
   "form__not_appear_to_be_a_honeypot_desc": "Không có mã hóa nào mà chúng tôi biết ngăn cản việc bán mã thông báo.",
   "form__not_enough_confirmations": "Không đủ xác nhận.",
+  "form__not_extsis_emojis": "Emojis input is not allowed.",
   "form__not_recommended": "Không được khuyến khích",
   "form__notification": "Thông báo",
   "form__on_chain_info_uppercase": "THÔNG TIN TRÊN CHUỖI",
