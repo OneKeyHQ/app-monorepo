@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-use-before-define */
 import type { ForwardRefRenderFunction } from 'react';
 import {
   forwardRef,
@@ -60,9 +61,6 @@ const NestedTabView: ForwardRefRenderFunction<
   },
   ref,
 ) => {
-  // const [innerDisableRefresh, setInnerDisableRefresh] =
-  //   useState(disableRefresh);
-  const [innerScrollEnabled, setInnerScrollEnabled] = useState(scrollEnabled);
   const tabRef = useRef<typeof NativeNestedTabView>(null);
   // const { width: screenWidth } = useWindowDimensions();
   const tabIndex = useSharedValue(defaultIndex);
@@ -72,19 +70,21 @@ const NestedTabView: ForwardRefRenderFunction<
   // only used on android cause touchMove event does not have translation values
   const lastTransX = useSharedValue(0);
   const startY = useSharedValue(0);
+  const native = Gesture.Native();
 
   const lockVertical = useCallback(() => {
     if (platformEnv.isNativeAndroid) {
       console.log('lockVertical');
       lockDirection.value = LockDirection.Vertical;
       lastTransX.value = 0;
-      setInnerScrollEnabled(false);
+      pan.enabled(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastTransX, lockDirection]);
 
   const lockHorizontal = useCallback(() => {
     if (platformEnv.isNativeAndroid) {
-      console.log('lockHorizontal');
+      // console.log('lockHorizontal');
       // setInnerDisableRefresh(false);
       lockDirection.value = LockDirection.Horizontal;
     }
@@ -92,13 +92,13 @@ const NestedTabView: ForwardRefRenderFunction<
 
   const resetGesture = useCallback(() => {
     if (platformEnv.isNativeAndroid) {
-      console.log('resetGesture');
+      // console.log('resetGesture');
       lastTransX.value = 0;
       lockDirection.value = LockDirection.None;
-      setInnerDisableRefresh(disableRefresh);
-      setInnerScrollEnabled(scrollEnabled);
+      pan.enabled(true);
     }
-  }, [lastTransX, lockDirection, scrollEnabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastTransX, lockDirection]);
 
   const setPageIndex = useCallback((pageIndex: number) => {
     try {
@@ -116,35 +116,32 @@ const NestedTabView: ForwardRefRenderFunction<
     setPageIndex,
   }));
 
-  const onEnd = useCallback(
-    ({ translationX }) => {
-      if (canOpenDrawer && tabIndex.value === 0) {
-        if (translationX > drawerOpenDistance) {
-          nestedTabTransX.value = withSpring(0, {
-            velocity: 50,
-            stiffness: 1000,
-            damping: 500,
-            mass: 3,
-            overshootClamping: true,
-            restDisplacementThreshold: 0.01,
-            restSpeedThreshold: 0.01,
-          });
-        } else {
-          resetNestedTabTransX();
-        }
+  const onEnd = useCallback(() => {
+    if (canOpenDrawer && tabIndex.value === 0) {
+      if (lastTransX.value > drawerOpenDistance) {
+        nestedTabTransX.value = withSpring(0, {
+          velocity: 50,
+          stiffness: 1000,
+          damping: 500,
+          mass: 3,
+          overshootClamping: true,
+          restDisplacementThreshold: 0.01,
+          restSpeedThreshold: 0.01,
+        });
+      } else {
+        resetNestedTabTransX();
       }
-      // resetGesture();
+    }
+    resetGesture();
 
-      // restore the onPress function
-      enableOnPressAnim.value = withTiming(1, { duration: 50 });
-    },
-    [canOpenDrawer, tabIndex],
-  );
-  const native = Gesture.Native();
+    // restore the onPress function
+    enableOnPressAnim.value = withTiming(1, { duration: 50 });
+  }, [canOpenDrawer, lastTransX, resetGesture, tabIndex]);
   const pan = useMemo(() => {
     const basePan = Gesture.Pan()
+      .enabled(scrollEnabled)
       .onTouchesDown(({ allTouches }) => {
-        // resetGesture();
+        resetGesture();
         nestedTabStartX.value = allTouches[0].absoluteX;
         startY.value = allTouches[0].absoluteY;
         offsetX.value = nestedTabTransX.value;
@@ -169,30 +166,42 @@ const NestedTabView: ForwardRefRenderFunction<
         // when fingers move,
         // disable the onPress function
         enableOnPressAnim.value = 0;
-        // if (lockDirection.value === LockDirection.Vertical) {
-        //   return;
-        // }
+        if (lockDirection.value === LockDirection.Vertical) {
+          return;
+        }
         // use Math.max to ensure the translation always increase
         const transX = allTouches[0].absoluteX - nestedTabStartX.value;
         lastTransX.value = transX;
 
-        // if (lockDirection.value === LockDirection.None) {
-        //   if (
-        //     Math.abs(allTouches[0].absoluteY - startY.value) > failedDistance
-        //   ) {
-        //     lockVertical();
-        //   }
-        //   if (Math.abs(transX) > failedDistance) {
-        //     lockHorizontal();
-        //   }
-        // }
+        if (lockDirection.value === LockDirection.None) {
+          if (
+            Math.abs(allTouches[0].absoluteY - startY.value) > failedDistance
+          ) {
+            lockVertical();
+          }
+          if (Math.abs(transX) > failedDistance) {
+            lockHorizontal();
+          }
+        }
         if (canOpenDrawer && tabIndex.value === 0 && transX > failedDistance) {
           nestedTabTransX.value = offsetX.value + transX;
         }
       });
     }
     return basePan;
-  }, [canOpenDrawer, lastTransX, offsetX, onEnd, startY, tabIndex]);
+  }, [
+    canOpenDrawer,
+    lastTransX,
+    lockDirection,
+    lockHorizontal,
+    lockVertical,
+    offsetX,
+    onEnd,
+    resetGesture,
+    scrollEnabled,
+    startY,
+    tabIndex,
+  ]);
 
   const onTabChange = useCallback(
     (e: NativeSyntheticEvent<{ tabName: string; index: number }>) => {
@@ -214,14 +223,6 @@ const NestedTabView: ForwardRefRenderFunction<
       {children}
     </NativeNestedTabView>
   );
-
-  useEffect(() => {
-    if (!scrollEnabled) {
-      pan.enabled(false);
-    } else {
-      pan.enabled(true);
-    }
-  }, [scrollEnabled, pan]);
 
   return (
     <GestureDetector
