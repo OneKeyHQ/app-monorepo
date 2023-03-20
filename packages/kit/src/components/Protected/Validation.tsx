@@ -27,9 +27,17 @@ type ValidationProps = {
   onOk?: (text: string, isLocalAuthentication?: boolean) => void;
   hideTitle?: boolean;
   placeCenter?: boolean;
+  title?: string;
+  subTitle?: string;
 };
 
-const Validation: FC<ValidationProps> = ({ onOk, hideTitle, placeCenter }) => {
+const Validation: FC<ValidationProps> = ({
+  onOk,
+  hideTitle,
+  placeCenter,
+  title,
+  subTitle,
+}) => {
   const intl = useIntl();
   const ref = useRef<any>();
   const enableLocalAuthentication = useAppSelector(
@@ -95,14 +103,16 @@ const Validation: FC<ValidationProps> = ({ onOk, hideTitle, placeCenter }) => {
         {!hideTitle ? (
           <Box mb="8">
             <Typography.DisplayLarge textAlign="center" mb={2}>
-              {intl.formatMessage({
-                id: 'Verify_Password',
-              })}
+              {title ||
+                intl.formatMessage({
+                  id: 'Verify_Password',
+                })}
             </Typography.DisplayLarge>
             <Typography.Body1 textAlign="center" color="text-subdued">
-              {intl.formatMessage({
-                id: 'Verify_password_to_continue',
-              })}
+              {subTitle ||
+                intl.formatMessage({
+                  id: 'Verify_password_to_continue',
+                })}
             </Typography.Body1>
           </Box>
         ) : null}

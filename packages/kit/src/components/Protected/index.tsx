@@ -32,6 +32,8 @@ type ProtectedProps = {
   hideTitle?: boolean;
   isAutoHeight?: boolean;
   placeCenter?: boolean;
+  title?: string;
+  subTitle?: string;
 };
 
 // Protected
@@ -43,6 +45,8 @@ const Protected: FC<ProtectedProps> = ({
   hideTitle,
   isAutoHeight,
   placeCenter,
+  title,
+  subTitle,
 }) => {
   const navigation = useNavigation();
   const walletDetail = useGetWalletDetail(walletId);
@@ -194,6 +198,8 @@ const Protected: FC<ProtectedProps> = ({
         field={field}
         hideTitle={hideTitle}
         placeCenter={placeCenter}
+        title={title}
+        subTitle={subTitle}
       />
     );
   }
@@ -204,6 +210,8 @@ const Protected: FC<ProtectedProps> = ({
       skipSavePassword={skipSavePassword}
       hideTitle={hideTitle}
       isAutoHeight={isAutoHeight}
+      title={title}
+      subTitle={subTitle}
     />
   );
 };

@@ -93,7 +93,7 @@ const NativeWebView = forwardRef(
     return (
       <WebView
         style={styles.container}
-        originWhitelist={['file://']}
+        originWhitelist={['*']}
         allowFileAccess
         allowFileAccessFromFileURLs
         allowUniversalAccessFromFileURLs
