@@ -26,9 +26,10 @@ type FieldValues = { password: string };
 type ValidationProps = {
   onOk?: (text: string, isLocalAuthentication?: boolean) => void;
   hideTitle?: boolean;
+  placeCenter?: boolean;
 };
 
-const Validation: FC<ValidationProps> = ({ onOk, hideTitle }) => {
+const Validation: FC<ValidationProps> = ({ onOk, hideTitle, placeCenter }) => {
   const intl = useIntl();
   const ref = useRef<any>();
   const enableLocalAuthentication = useAppSelector(
@@ -88,76 +89,101 @@ const Validation: FC<ValidationProps> = ({ onOk, hideTitle }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const content = useMemo(
+    () => (
+      <>
+        {!hideTitle ? (
+          <Box mb="8">
+            <Typography.DisplayLarge textAlign="center" mb={2}>
+              {intl.formatMessage({
+                id: 'Verify_Password',
+              })}
+            </Typography.DisplayLarge>
+            <Typography.Body1 textAlign="center" color="text-subdued">
+              {intl.formatMessage({
+                id: 'Verify_password_to_continue',
+              })}
+            </Typography.Body1>
+          </Box>
+        ) : null}
+
+        <Form>
+          <Form.Item
+            name="password"
+            defaultValue=""
+            control={control}
+            rules={{
+              minLength: {
+                value: 8,
+                message: intl.formatMessage({
+                  id: 'msg__password_validation',
+                }),
+              },
+              maxLength: {
+                value: 128,
+                message: intl.formatMessage({
+                  id: 'msg__password_validation',
+                }),
+              },
+            }}
+          >
+            <Form.PasswordInput
+              ref={ref}
+              // press enter key to submit
+              onSubmitEditing={onSubmit}
+            />
+          </Form.Item>
+          <Button
+            isDisabled={!formValues?.password}
+            type="primary"
+            size="xl"
+            onPress={onSubmitThrottle}
+          >
+            {intl.formatMessage({
+              id: 'action__continue',
+              defaultMessage: 'Continue',
+            })}
+          </Button>
+        </Form>
+        <Center mt="8">
+          <LocalAuthenticationButton onOk={onLocalAuthenticationOk} />
+        </Center>
+      </>
+    ),
+    [
+      control,
+      formValues?.password,
+      hideTitle,
+      intl,
+      onLocalAuthenticationOk,
+      onSubmit,
+      onSubmitThrottle,
+    ],
+  );
+
+  if (placeCenter) {
+    return (
+      <KeyboardDismissView px={{ base: hideTitle ? 0 : 4, md: 0 }}>
+        <Center testID="Validation" w="full" h="full" bg="background-default">
+          <Box
+            maxW="96"
+            w="full"
+            h="full"
+            display="flex"
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+          >
+            {content}
+          </Box>
+        </Center>
+      </KeyboardDismissView>
+    );
+  }
+
   return (
     <KeyboardDismissView px={{ base: hideTitle ? 0 : 4, md: 0 }}>
-      <Center testID="Validation" w="full" h="full" bg="background-default">
-        <Box
-          maxW="96"
-          w="full"
-          h="full"
-          display="flex"
-          flexDirection="column"
-          alignItems="center"
-          justifyContent="center"
-        >
-          {!hideTitle ? (
-            <Box mb="8">
-              <Typography.DisplayLarge textAlign="center" mb={2}>
-                {intl.formatMessage({
-                  id: 'Verify_Password',
-                })}
-              </Typography.DisplayLarge>
-              <Typography.Body1 textAlign="center" color="text-subdued">
-                {intl.formatMessage({
-                  id: 'Verify_password_to_continue',
-                })}
-              </Typography.Body1>
-            </Box>
-          ) : null}
-
-          <Form>
-            <Form.Item
-              name="password"
-              defaultValue=""
-              control={control}
-              rules={{
-                minLength: {
-                  value: 8,
-                  message: intl.formatMessage({
-                    id: 'msg__password_validation',
-                  }),
-                },
-                maxLength: {
-                  value: 128,
-                  message: intl.formatMessage({
-                    id: 'msg__password_validation',
-                  }),
-                },
-              }}
-            >
-              <Form.PasswordInput
-                ref={ref}
-                // press enter key to submit
-                onSubmitEditing={onSubmit}
-              />
-            </Form.Item>
-            <Button
-              isDisabled={!formValues?.password}
-              type="primary"
-              size="xl"
-              onPress={onSubmitThrottle}
-            >
-              {intl.formatMessage({
-                id: 'action__continue',
-                defaultMessage: 'Continue',
-              })}
-            </Button>
-          </Form>
-          <Center mt="8">
-            <LocalAuthenticationButton onOk={onLocalAuthenticationOk} />
-          </Center>
-        </Box>
-      </Center>
+      {content}
     </KeyboardDismissView>
   );
 };

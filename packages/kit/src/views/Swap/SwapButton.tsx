@@ -310,7 +310,6 @@ const ExchangeButton = () => {
   const ref = useRef(false);
   const [loading, setLoading] = useState(false);
   const quote = useAppSelector((s) => s.swap.quote);
-  const recipient = useAppSelector((s) => s.swap.recipient);
   const params = useSwapQuoteRequestParams();
   const disableSwapExactApproveAmount = useAppSelector(
     (s) => s.settings.disableSwapExactApproveAmount,
@@ -319,6 +318,7 @@ const ExchangeButton = () => {
   const sendSwapTx = useSwapSend();
 
   const onSubmit = useCallback(async () => {
+    const recipient = await backgroundApiProxy.serviceSwap.getRecipient();
     if (!params || !quote || !recipient) {
       ToastManager.show({
         title: intl.formatMessage({ id: 'msg__unknown_error' }),
@@ -622,7 +622,7 @@ const ExchangeButton = () => {
     }
     await wait(1000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params, quote, recipient, disableSwapExactApproveAmount]);
+  }, [params, quote, disableSwapExactApproveAmount]);
 
   const onPress = useCallback(async () => {
     if (ref.current) {
@@ -646,7 +646,7 @@ const ExchangeButton = () => {
       size="xl"
       type="primary"
       isLoading={loading}
-      isDisabled={!quote || !recipient}
+      isDisabled={!quote}
       onPress={onPress}
     >
       {intl.formatMessage({ id: 'title__swap' })}
@@ -751,6 +751,7 @@ const SwapWrapButton = () => {
                   nonce: decodedTx?.nonce,
                   receivingAccountId: activeAccount.id,
                   receivingAddress: activeAccount.address,
+                  actualReceived: params.typedValue,
                   arrivalTime: 30,
                   networkFee,
                   tokens: {

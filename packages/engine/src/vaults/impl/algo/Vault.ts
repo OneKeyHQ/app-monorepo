@@ -651,7 +651,7 @@ export default class Vault extends VaultBase {
           status: IDecodedTxStatus.Confirmed,
           networkId: this.networkId,
           accountId: this.accountId,
-          extraInfo: null,
+          extraInfo: historyTxToMerge?.decodedTx.extraInfo,
           totalFeeInNative: new BigNumber(transaction.fee)
             .shiftedBy(-nativeToken.decimals)
             .toFixed(),

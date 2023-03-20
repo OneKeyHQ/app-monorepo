@@ -28,7 +28,6 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
-  CHAINS_NOT_DISPLAYED_IN_EXT,
   IMPL_EVM,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -113,6 +112,7 @@ import type { DBAPI, ExportedSeedCredential } from './dbs/base';
 import type { ChartQueryParams } from './priceController';
 import type {
   Account,
+  AccountCredentialType,
   DBAccount,
   DBUTXOAccount,
   ImportableHDAccount,
@@ -795,11 +795,16 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getAccountPrivateKey(
-    accountId: string,
-    password: string,
-    // networkId?: string, TODO: different curves on different networks.
-  ): Promise<string> {
+  async getAccountPrivateKey({
+    accountId,
+    password,
+    credentialType,
+  }: {
+    accountId: string;
+    password: string;
+    credentialType: AccountCredentialType;
+  }): // networkId?: string, TODO: different curves on different networks.
+  Promise<string> {
     const { coinType } = await this.dbApi.getAccount(accountId);
     // TODO: need a method to get default network from coinType.
     const networkId = {
@@ -830,7 +835,7 @@ class Engine {
     }
 
     const vault = await this.getVault({ accountId, networkId });
-    return vault.getExportedCredential(password);
+    return vault.getExportedCredential(password, credentialType);
   }
 
   @backgroundMethod()
@@ -2246,18 +2251,19 @@ class Engine {
 
   @backgroundMethod()
   async listNetworks(enabledOnly = true): Promise<Array<Network>> {
-    const networks = await this.dbApi.listNetworks();
-    return Promise.all(
-      networks
+    const dbNetworks = await this.dbApi.listNetworks();
+    const networks = await Promise.all(
+      dbNetworks
         .filter(
           (dbNetwork) =>
             (enabledOnly ? dbNetwork.enabled : true) &&
-            getSupportedImpls().has(dbNetwork.impl) &&
-            ((platformEnv.isExtension &&
-              !CHAINS_NOT_DISPLAYED_IN_EXT.includes(dbNetwork.impl)) ||
-              !platformEnv.isExtension),
+            getSupportedImpls().has(dbNetwork.impl),
         )
         .map(async (dbNetwork) => this.dbNetworkToNetwork(dbNetwork)),
+    );
+
+    return networks.filter((network) =>
+      platformEnv.isExtension ? !network.settings.disabledInExtension : true,
     );
   }
 
@@ -2908,24 +2914,12 @@ class Engine {
     password?: string;
   }) {
     if (!networkId || !accountId) return 0;
-    return this._getFrozenBalance(accountId, networkId, password);
+    const vault = await this.getVault({
+      accountId,
+      networkId,
+    });
+    return vault.getFrozenBalance(password);
   }
-
-  _getFrozenBalance = memoizee(
-    async (accountId: string, networkId: string, password?: string) => {
-      const vault = await this.getVault({
-        accountId,
-        networkId,
-      });
-      return vault.getFrozenBalance(password);
-    },
-    {
-      promise: true,
-      primitive: true,
-      max: 1,
-      maxAge: 1000 * 30,
-    },
-  );
 }
 
 export { Engine };
