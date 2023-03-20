@@ -5029,23 +5029,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-ble-sdk@npm:0.2.39":
-  version: 0.2.39
-  resolution: "@onekeyfe/hd-ble-sdk@npm:0.2.39"
+"@onekeyfe/hd-ble-sdk@npm:0.2.40":
+  version: 0.2.40
+  resolution: "@onekeyfe/hd-ble-sdk@npm:0.2.40"
   dependencies:
-    "@onekeyfe/hd-core": ^0.2.39
-    "@onekeyfe/hd-shared": ^0.2.39
-    "@onekeyfe/hd-transport-react-native": ^0.2.39
-  checksum: fd5995909ca8f098dee57f3fc630ebb88a71dce49864c4f885eaa23a8fd4d11f478c0be2b8b6cc511632b9c6e2f60d4c64e008b1cb1306dd40aaecd9e43769f8
+    "@onekeyfe/hd-core": ^0.2.40
+    "@onekeyfe/hd-shared": ^0.2.40
+    "@onekeyfe/hd-transport-react-native": ^0.2.40
+  checksum: a6ef37683ed996e6deda543089272cc0b70d0ebf4db6b359502b8123eeca4ecd0bcaba54eb36c4845bdd19541a7cba63dcd5f2023a49300971b13d927865b5a5
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-core@npm:0.2.39, @onekeyfe/hd-core@npm:^0.2.39":
-  version: 0.2.39
-  resolution: "@onekeyfe/hd-core@npm:0.2.39"
+"@onekeyfe/hd-core@npm:0.2.40, @onekeyfe/hd-core@npm:^0.2.40":
+  version: 0.2.40
+  resolution: "@onekeyfe/hd-core@npm:0.2.40"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.39
-    "@onekeyfe/hd-transport": ^0.2.39
+    "@onekeyfe/hd-shared": ^0.2.40
+    "@onekeyfe/hd-transport": ^0.2.40
     axios: ^0.27.2
     bignumber.js: ^9.0.2
     bytebuffer: ^5.0.1
@@ -5055,71 +5055,71 @@ __metadata:
   peerDependencies:
     "@noble/hashes": ^1.1.3
     ripple-keypairs: ^1.1.4
-  checksum: 1ff2a10cfcfda0d1ed675441018a6655c2fcc2996d3e7e8278e03867e1cb9c5d3cfebb2c7f1268d7c0daf8e35760303d4d8442d8befd9bd3bd605c7f63a08509
+  checksum: 611548e499f304ba31e36ad7baf0242346b18c4bcc3b3a51dc1b476f3781dc06b4bcf0f525aa2fde9d75d1e2575ea8c77cc0c3ba929c3a6dbbde0d9481000bfc
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-shared@npm:0.2.39, @onekeyfe/hd-shared@npm:^0.2.39":
-  version: 0.2.39
-  resolution: "@onekeyfe/hd-shared@npm:0.2.39"
-  checksum: 56bfe00fc137fc4f0a81b53ac281f52e002ac2303f947b732bdafd3e2e3b688e2b98818f912cc07579c658494eaf789be10a5700985c63cfd132d3d03db09c33
+"@onekeyfe/hd-shared@npm:0.2.40, @onekeyfe/hd-shared@npm:^0.2.40":
+  version: 0.2.40
+  resolution: "@onekeyfe/hd-shared@npm:0.2.40"
+  checksum: d2ada078eeea9060b7ac10219843f87adfde2e514d83fa44cf44afee88df89c7625d38bb520539bd497fd4b3466a2ea13f59cf470ec425700f9d689e7dca2f4f
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-http@npm:^0.2.39":
-  version: 0.2.39
-  resolution: "@onekeyfe/hd-transport-http@npm:0.2.39"
+"@onekeyfe/hd-transport-http@npm:^0.2.40":
+  version: 0.2.40
+  resolution: "@onekeyfe/hd-transport-http@npm:0.2.40"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.39
-    "@onekeyfe/hd-transport": ^0.2.39
+    "@onekeyfe/hd-shared": ^0.2.40
+    "@onekeyfe/hd-transport": ^0.2.40
     axios: ^0.27.2
-  checksum: 84c819d0542efc17fba1f259dfcf2ae4fa1fad0f09952900e724b2f8dfc0a20f6e0c3642fdc81c0b700aca6bc68891b8f411d43a3f7b48905888d1da419fa99c
+  checksum: 6604ff24c01567dad3a2f243fc5fce23c9bde558a49d42098e30e18b02b7591fbbe326bb5f964786d9a84f76f077ded60abc7b627854bb89835867ec09d967fe
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-react-native@npm:^0.2.39":
-  version: 0.2.39
-  resolution: "@onekeyfe/hd-transport-react-native@npm:0.2.39"
+"@onekeyfe/hd-transport-react-native@npm:^0.2.40":
+  version: 0.2.40
+  resolution: "@onekeyfe/hd-transport-react-native@npm:0.2.40"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.39
-    "@onekeyfe/hd-transport": ^0.2.39
+    "@onekeyfe/hd-shared": ^0.2.40
+    "@onekeyfe/hd-transport": ^0.2.40
     "@onekeyfe/react-native-ble-plx": 3.0.0
     react-native-ble-manager: ^8.1.0
-  checksum: 06c9d9423fae064b9a1c4802b8ccea4f09dd4886cdc0b9882271df4b29c6c8b860ea484e2771082d9ce5daff0449a5e2761e1d32b3c91e0763267fe655c58445
+  checksum: f8e3dc700f69f9ecf1ff34221beb880b0300678aaf9215149bf36dbea462ba46813ca35959efd0487b6b7555d5f4bd28a26ce354842413b1bb9b5c465978e51b
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-webusb@npm:^0.2.39":
-  version: 0.2.39
-  resolution: "@onekeyfe/hd-transport-webusb@npm:0.2.39"
+"@onekeyfe/hd-transport-webusb@npm:^0.2.40":
+  version: 0.2.40
+  resolution: "@onekeyfe/hd-transport-webusb@npm:0.2.40"
   dependencies:
-    "@onekeyfe/hd-shared": ^0.2.39
-    "@onekeyfe/hd-transport": ^0.2.39
-  checksum: 710fbbd55903cee7624a30f132e0104e7baf876da4bff7b8b945f9d6303355ca60042868f3e4fd99a726ad2d2850b06833911e32ff775ed13f6dd8668792e843
+    "@onekeyfe/hd-shared": ^0.2.40
+    "@onekeyfe/hd-transport": ^0.2.40
+  checksum: 1be55fa8ad7c19480fa4c8c96ba3cbb58cd95f71550e7c784b30bcfbae50c66e31a969e202ed79de5b45e0201d07a6d62ca6a3e018a7bd9a9afb6e4f25c24550
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport@npm:0.2.39, @onekeyfe/hd-transport@npm:^0.2.39":
-  version: 0.2.39
-  resolution: "@onekeyfe/hd-transport@npm:0.2.39"
+"@onekeyfe/hd-transport@npm:0.2.40, @onekeyfe/hd-transport@npm:^0.2.40":
+  version: 0.2.40
+  resolution: "@onekeyfe/hd-transport@npm:0.2.40"
   dependencies:
     bytebuffer: ^5.0.1
     long: ^4.0.0
     protobufjs: ^6.11.2
-  checksum: 20cfa39b56a30bd08c1a19626829707a503ba3feab3eb39b33689195a54062cc393021b34c9a40e99110d6dceee8de4834e5b39ff9b42cf77cddc2db481910e0
+  checksum: e3559901182293666ffc1b5fe639b91a8a6c1370226ee8b5cf6866d468d0536e63c030f7ba686a20a6d7dea1dc2b03c1e786ba015a2d923c717a7b96df6d8898
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-web-sdk@npm:0.2.39":
-  version: 0.2.39
-  resolution: "@onekeyfe/hd-web-sdk@npm:0.2.39"
+"@onekeyfe/hd-web-sdk@npm:0.2.40":
+  version: 0.2.40
+  resolution: "@onekeyfe/hd-web-sdk@npm:0.2.40"
   dependencies:
     "@onekeyfe/cross-inpage-provider-core": ^0.0.17
-    "@onekeyfe/hd-core": ^0.2.39
-    "@onekeyfe/hd-shared": ^0.2.39
-    "@onekeyfe/hd-transport-http": ^0.2.39
-    "@onekeyfe/hd-transport-webusb": ^0.2.39
-  checksum: 28d39874e2ad3679bcd04428439304ed1e41870a04968463b196e68492e2d825e0e641ebd991f3a680b1c456546391d6a2aa2bf9e0d41cf69ea6087cc5f63723
+    "@onekeyfe/hd-core": ^0.2.40
+    "@onekeyfe/hd-shared": ^0.2.40
+    "@onekeyfe/hd-transport-http": ^0.2.40
+    "@onekeyfe/hd-transport-webusb": ^0.2.40
+  checksum: a15a9a86650671e02b0941453e357b2d547caaf80685a4ad101bfb13dfe435d051079013a382c325f1b9a58abe4f7f0060b79b17cd72fce47fbb4edba532062b
   languageName: node
   linkType: hard
 
@@ -5368,11 +5368,11 @@ __metadata:
     "@onekeyfe/cross-inpage-provider-injected": 1.1.23
     "@onekeyfe/cross-inpage-provider-types": 1.1.23
     "@onekeyfe/extension-bridge-hosted": 1.1.23
-    "@onekeyfe/hd-ble-sdk": 0.2.39
-    "@onekeyfe/hd-core": 0.2.39
-    "@onekeyfe/hd-shared": 0.2.39
-    "@onekeyfe/hd-transport": 0.2.39
-    "@onekeyfe/hd-web-sdk": 0.2.39
+    "@onekeyfe/hd-ble-sdk": 0.2.40
+    "@onekeyfe/hd-core": 0.2.40
+    "@onekeyfe/hd-shared": 0.2.40
+    "@onekeyfe/hd-transport": 0.2.40
+    "@onekeyfe/hd-web-sdk": 0.2.40
     "@onekeyfe/network-list": 1.6.54
     "@onekeyfe/onekey-cross-webview": 1.1.23
     "@open-wc/webpack-import-meta-loader": ^0.4.7
@@ -5740,7 +5740,6 @@ __metadata:
     "@reduxjs/toolkit": ^1.6.2
     "@types/d3-scale": ^4.0.2
     "@types/d3-shape": ^3.1.0
-    "@types/react-native-snap-carousel": 3.8.5
     "@types/socket.io-client": ^3.0.0
     "@types/url-parse": ^1.4.8
     date-fns: ^2.27.0
@@ -5771,7 +5770,6 @@ __metadata:
     react-native-camera: 4.2.1
     react-native-document-picker: ^8.1.3
     react-native-root-siblings: ^4.1.1
-    react-native-snap-carousel: 3.9.1
     react-native-url-polyfill: ^1.3.0
     react-native-uuid: ^2.0.1
     react-native-vision-camera: ^2.15.2
@@ -8930,16 +8928,6 @@ __metadata:
     "@types/react": "*"
     "@types/react-native": "*"
   checksum: aad15d329f8a127729f01d6e38a0ff6e7b31e0a076ffa0d303b010e9bdd6d5c6145ee62b522f047282a8a78011915787d536f65ed8a884ebf81a58ed51bcdbd6
-  languageName: node
-  linkType: hard
-
-"@types/react-native-snap-carousel@npm:3.8.5":
-  version: 3.8.5
-  resolution: "@types/react-native-snap-carousel@npm:3.8.5"
-  dependencies:
-    "@types/react": "*"
-    "@types/react-native": "*"
-  checksum: 8f512436017d0efe95c4cedc2ca5a2ebb27ee4056b04555e0e3889ab170abcddb232ef4ce18ef01ddc2c2710a27db2aaf4a6a7375607bfd61bfd00d7d42fbeef
   languageName: node
   linkType: hard
 
@@ -13765,13 +13753,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"core-js@npm:^1.0.0":
-  version: 1.2.7
-  resolution: "core-js@npm:1.2.7"
-  checksum: 0b76371bfa98708351cde580f9287e2360d2209920e738ae950ae74ad08639a2e063541020bf666c28778956fc356ed9fe56d962129c88a87a6a4a0612526c75
-  languageName: node
-  linkType: hard
-
 "core-js@npm:^2.4.0, core-js@npm:^2.5.3, core-js@npm:^2.6.5":
   version: 2.6.12
   resolution: "core-js@npm:2.6.12"
@@ -17739,21 +17720,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fbjs@npm:^0.8.4":
-  version: 0.8.18
-  resolution: "fbjs@npm:0.8.18"
-  dependencies:
-    core-js: ^1.0.0
-    isomorphic-fetch: ^2.1.1
-    loose-envify: ^1.0.0
-    object-assign: ^4.1.0
-    promise: ^7.1.1
-    setimmediate: ^1.0.5
-    ua-parser-js: ^0.7.30
-  checksum: 668731b946a765908c9cbe51d5160f973abb78004b3d122587c3e930e3e1ddcc0ce2b17f2a8637dc9d733e149aa580f8d3035a35cc2d3bc78b78f1b19aab90e2
-  languageName: node
-  linkType: hard
-
 "fbjs@npm:^3.0.0, fbjs@npm:^3.0.4":
   version: 3.0.4
   resolution: "fbjs@npm:3.0.4"
@@ -20969,16 +20935,6 @@ __metadata:
   version: 3.0.1
   resolution: "isobject@npm:3.0.1"
   checksum: db85c4c970ce30693676487cca0e61da2ca34e8d4967c2e1309143ff910c207133a969f9e4ddb2dc6aba670aabce4e0e307146c310350b298e74a31f7d464703
-  languageName: node
-  linkType: hard
-
-"isomorphic-fetch@npm:^2.1.1":
-  version: 2.2.1
-  resolution: "isomorphic-fetch@npm:2.2.1"
-  dependencies:
-    node-fetch: ^1.0.1
-    whatwg-fetch: ">=0.10.0"
-  checksum: bb5daa7c3785d6742f4379a81e55b549a469503f7c9bf9411b48592e86632cf5e8fe8ea878dba185c0f33eb7c510c23abdeb55aebfdf5d3c70f031ced68c5424
   languageName: node
   linkType: hard
 
@@ -27218,16 +27174,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-addons-shallow-compare@npm:15.6.2":
-  version: 15.6.2
-  resolution: "react-addons-shallow-compare@npm:15.6.2"
-  dependencies:
-    fbjs: ^0.8.4
-    object-assign: ^4.1.0
-  checksum: cfe94358c6103f8434b91969a2a1876d3e76df227f0be9bf58c11a1bdec01500475eb09ca7ddd9d98519a14c18f91fbd11127adfdd092c4f3c5b234b638c4802
-  languageName: node
-  linkType: hard
-
 "react-async-hook@npm:^4.0.0":
   version: 4.0.0
   resolution: "react-async-hook@npm:4.0.0"
@@ -27906,19 +27852,6 @@ __metadata:
   version: 7.6.6
   resolution: "react-native-share@npm:7.6.6"
   checksum: 76a53173b9cb790d9f8eabbef7dc28617c0c6490cb458e4fdc1b59a7329e09f01badcac343511f9eb2ce89c8f66a6c156062016d301ac40bddde3dae755a0b55
-  languageName: node
-  linkType: hard
-
-"react-native-snap-carousel@npm:3.9.1":
-  version: 3.9.1
-  resolution: "react-native-snap-carousel@npm:3.9.1"
-  dependencies:
-    prop-types: ^15.6.1
-    react-addons-shallow-compare: 15.6.2
-  peerDependencies:
-    react: ">=15.0.0"
-    react-native: "*"
-  checksum: e71f6887ba8e86b4aea6d6a88c304135a7acbb5ef9173b78018fc0e6d9965da9ec1d7c794db31282dc85892c6ca89f398d07145ab3e7d1e28cf12a09c247bb9d
   languageName: node
   linkType: hard
 
@@ -33301,7 +33234,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"whatwg-fetch@npm:>=0.10.0, whatwg-fetch@npm:^3.0.0":
+"whatwg-fetch@npm:^3.0.0":
   version: 3.6.2
   resolution: "whatwg-fetch@npm:3.6.2"
   checksum: ee976b7249e7791edb0d0a62cd806b29006ad7ec3a3d89145921ad8c00a3a67e4be8f3fb3ec6bc7b58498724fd568d11aeeeea1f7827e7e1e5eae6c8a275afed

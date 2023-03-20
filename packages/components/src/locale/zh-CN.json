@@ -1209,6 +1209,7 @@
   "form__not_appear_to_be_a_honeypot": "不是貔貅代币",
   "form__not_appear_to_be_a_honeypot_desc": "暂未发现该代币有导致用户只能买入无法卖出的逻辑。",
   "form__not_enough_confirmations": "没有足够的确认数",
+  "form__not_extsis_emojis": "不允许输入表情符号。",
   "form__not_recommended": "不推荐",
   "form__notification": "通知",
   "form__on_chain_info_uppercase": "链上信息",

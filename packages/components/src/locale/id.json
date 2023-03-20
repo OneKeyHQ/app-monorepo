@@ -1209,6 +1209,7 @@
   "form__not_appear_to_be_a_honeypot": "Bukan Honey Pot",
   "form__not_appear_to_be_a_honeypot_desc": "Tidak ada pengkodean yang kami ketahui mencegah penjualan token.",
   "form__not_enough_confirmations": "Tidak cukup konfirmasi.",
+  "form__not_extsis_emojis": "Emojis input is not allowed.",
   "form__not_recommended": "Tidak direkomendasikan",
   "form__notification": "Pemberitahuan",
   "form__on_chain_info_uppercase": "INFO RANTAI",
