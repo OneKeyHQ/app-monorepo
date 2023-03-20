@@ -63,6 +63,7 @@ export type CreateAccountRoutesParams = {
     onDone: (password: string) => void;
   };
   [CreateAccountModalRoutes.BitcoinUsedAddress]: {
+    walletId: string;
     accountId: string;
     networkId: string;
   };

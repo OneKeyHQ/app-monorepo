@@ -170,6 +170,7 @@ function AccountItemSelectDropdown({
               params: {
                 accountId: account.id,
                 networkId: network?.id ?? '',
+                walletId: wallet?.id ?? '',
               },
             },
           });

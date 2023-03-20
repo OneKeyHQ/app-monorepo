@@ -229,7 +229,7 @@ const UsedAddressHeader: FC<{
 const BitcoinUsedAddress: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { networkId, accountId } = route.params;
+  const { networkId, accountId, walletId } = route.params;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { networks, accounts } = useRuntime();
   const network = networks.find((n) => n.id === networkId);
@@ -310,6 +310,9 @@ const BitcoinUsedAddress: FC = () => {
       }
       rightContent={
         <BitcoinUsedAddressMenu
+          walletId={walletId}
+          networkId={networkId}
+          accountId={accountId}
           showPath={config.showPath}
           onChange={(isChecked) => {
             const newConfig = { ...config, showPath: isChecked };
