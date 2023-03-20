@@ -10,7 +10,6 @@ import type { CredentialSelector } from '../../types/credential';
 import type {
   IGetAddressParams,
   IPrepareAccountByAddressIndexParams,
-  IPrepareAccountByAddressIndexResponse,
   IPrepareAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,

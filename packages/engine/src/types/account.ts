@@ -25,6 +25,7 @@ type DBUTXOAccount = DBBaseAccount & {
   xpubSegwit?: string; // wrap regular xpub into bitcoind native descriptor
   address: string; // Display/selected address
   addresses: Record<string, string>;
+  customAddresses?: Record<string, string>; // for btc custom address
 };
 
 type DBVariantAccount = DBBaseAccount & {

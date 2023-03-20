@@ -1,7 +1,10 @@
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { getNextAccountId } from '@onekeyhq/engine/src/managers/derivation';
 import type { IAccount } from '@onekeyhq/engine/src/types';
-import type { Account } from '@onekeyhq/engine/src/types/account';
+import type {
+  Account,
+  DBUTXOAccount,
+} from '@onekeyhq/engine/src/types/account';
 import {
   backgroundClass,
   backgroundMethod,
@@ -142,7 +145,6 @@ export default class ServiceDerivationPath extends ServiceBase {
 
   @backgroundMethod()
   async createAccountByCustomAddressIndex({
-    walletId,
     networkId,
     accountId,
     password,
@@ -150,7 +152,6 @@ export default class ServiceDerivationPath extends ServiceBase {
     addressIndex,
     account,
   }: {
-    walletId: string;
     networkId: string;
     accountId: string;
     password: string;
@@ -161,12 +162,10 @@ export default class ServiceDerivationPath extends ServiceBase {
     if (!account) {
       throw new Error('no account');
     }
-    // 1. create vault
     const vault = await this.backgroundApi.engine.getVault({
       networkId,
       accountId,
     });
-    // 2. use vault.prepareAccountByAddressIndex to get account address
     const accountIndex = account.path.split('/')[3].slice(0, -1);
     const accounts = await vault.keyring.prepareAccountByAddressIndex({
       password,
@@ -174,7 +173,13 @@ export default class ServiceDerivationPath extends ServiceBase {
       accountIndex: Number(accountIndex),
       addressIndex: Number(addressIndex),
     });
+    if (accounts.length) {
+      await this.backgroundApi.engine.dbApi.updateUTXOAccountAddresses({
+        accountId,
+        addresses: (accounts[0] as DBUTXOAccount).customAddresses ?? {},
+        isCustomPath: true,
+      });
+    }
     console.log(accounts);
-    // 3. inserrt [accountIndex/addressIndexes] to customAddresses in indexeddb and realm
   }
 }

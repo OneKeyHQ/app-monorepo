@@ -203,6 +203,15 @@ interface DBAPI {
     networkId: string,
     address: string,
   ): Promise<DBAccount>;
+  updateUTXOAccountAddresses({
+    accountId,
+    addresses,
+    isCustomPath,
+  }: {
+    accountId: string;
+    addresses: Record<string, string>;
+    isCustomPath: boolean;
+  }): Promise<DBAccount>;
 
   addHistoryEntry(
     id: string,
