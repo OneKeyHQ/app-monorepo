@@ -210,8 +210,6 @@ const Protected: FC<ProtectedProps> = ({
       skipSavePassword={skipSavePassword}
       hideTitle={hideTitle}
       isAutoHeight={isAutoHeight}
-      title={title}
-      subTitle={subTitle}
     />
   );
 };
