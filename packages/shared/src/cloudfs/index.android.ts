@@ -8,7 +8,7 @@ import platformEnv from '../platformEnv';
 const GoogleSignInConfigure = {
   scopes: ['https://www.googleapis.com/auth/drive.file'],
   webClientId:
-    '484400594513-ih96lqpr6b7hs9a33fuam3rkie46e648.apps.googleusercontent.com',
+    '117481276073-fs7omuqsmvgtg6bci3ja1gvo03g0d984.apps.googleusercontent.com',
   offlineAccess: true,
 };
 

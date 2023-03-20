@@ -155,7 +155,7 @@ android {
 
     defaultConfig {
         missingDimensionStrategy 'react-native-camera', 'mlkit'
-        applicationId 'com.linleiqin.wallet'
+        applicationId 'so.onekey.app.wallet.dev'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
 
