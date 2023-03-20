@@ -2252,6 +2252,7 @@ class Engine {
   @backgroundMethod()
   async listNetworks(enabledOnly = true): Promise<Array<Network>> {
     const dbNetworks = await this.dbApi.listNetworks();
+    const devModeEnable = appSelector((s) => s.settings.devMode?.enable);
     const networks = await Promise.all(
       dbNetworks
         .filter(
@@ -2262,8 +2263,12 @@ class Engine {
         .map(async (dbNetwork) => this.dbNetworkToNetwork(dbNetwork)),
     );
 
-    return networks.filter((network) =>
-      platformEnv.isExtension ? !network.settings.disabledInExtension : true,
+    return networks.filter(
+      (network) =>
+        (platformEnv.isExtension
+          ? !network.settings.disabledInExtension
+          : true) &&
+        (devModeEnable ? true : !network.settings.enabledInDevModeOnly),
     );
   }
 
