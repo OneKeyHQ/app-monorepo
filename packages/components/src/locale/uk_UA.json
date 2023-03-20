@@ -1209,6 +1209,7 @@
   "form__not_appear_to_be_a_honeypot": "Не Honeypot",
   "form__not_appear_to_be_a_honeypot_desc": "Жодне відоме нам кодування не запобігає продажу токенів.",
   "form__not_enough_confirmations": "Недостатньо підтверджень.",
+  "form__not_extsis_emojis": "Emojis input is not allowed.",
   "form__not_recommended": "Не рекомендовано",
   "form__notification": "Сповіщення",
   "form__on_chain_info_uppercase": "ІНФОРМАЦІЯ ПРО ланцюг",
