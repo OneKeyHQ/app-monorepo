@@ -5,9 +5,9 @@ import { OneKeyInternalError } from '../../errors';
 import { KeyringBase } from './KeyringBase';
 
 import type { Signer } from '../../proxy';
+import type { DBAccount } from '../../types/account';
 import type {
   IPrepareAccountByAddressIndexParams,
-  IPrepareAccountByAddressIndexResponse,
   ISignCredentialOptions,
   ISignedTxPro,
   IUnsignedTxPro,
@@ -84,7 +84,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   override prepareAccountByAddressIndex(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     params: IPrepareAccountByAddressIndexParams,
-  ): Promise<IPrepareAccountByAddressIndexResponse[]> {
+  ): Promise<DBAccount[]> {
     throw new Error('Method not implemented.');
   }
 }

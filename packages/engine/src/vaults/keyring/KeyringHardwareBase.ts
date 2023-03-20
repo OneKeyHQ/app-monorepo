@@ -4,7 +4,7 @@ import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 
 import { KeyringBase } from './KeyringBase';
 
-import type { IPrepareAccountByAddressIndexResponse } from '../types';
+import type { DBAccount } from '../../types/account';
 
 export type WalletPassphraseState = {
   passphraseState?: string;
@@ -40,9 +40,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     return (sdk as typeof HardwareSDK) ?? HardwareSDK;
   }
 
-  override prepareAccountByAddressIndex(): Promise<
-    IPrepareAccountByAddressIndexResponse[]
-  > {
+  override prepareAccountByAddressIndex(): Promise<DBAccount[]> {
     throw new Error('Method not implemented.');
   }
 }

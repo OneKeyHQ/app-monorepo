@@ -50,7 +50,7 @@ export abstract class KeyringBase extends VaultContext {
 
   abstract prepareAccountByAddressIndex(
     params: IPrepareAccountByAddressIndexParams,
-  ): Promise<Array<IPrepareAccountByAddressIndexResponse>>;
+  ): Promise<Array<DBAccount>>;
 }
 
 // @ts-ignore

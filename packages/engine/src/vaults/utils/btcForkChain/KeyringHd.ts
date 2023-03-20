@@ -18,13 +18,13 @@ import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import { getAccountDefaultByPurpose } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
-import type { DBAccount, DBUTXOAccount } from '../../../types/account';
+import type { DBUTXOAccount } from '../../../types/account';
 import type {
   IPrepareAccountByAddressIndexParams,
-  IPrepareAccountByAddressIndexResponse,
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
+import type { AddressEncodings } from './types';
 import type BTCForkVault from './VaultBtcFork';
 
 export class KeyringHd extends KeyringHdBase {
@@ -80,6 +80,59 @@ export class KeyringHd extends KeyringHdBase {
     params: IPrepareSoftwareAccountsParams,
   ): Promise<DBUTXOAccount[]> {
     const { password, indexes, purpose, names, template } = params;
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
+
+    const ret = await this.createAccount({
+      password,
+      indexes,
+      purpose,
+      names,
+      template,
+      addressIndex: 0,
+      isChange: false,
+      isCustomAddress: false,
+      validator: async ({ xpub, addressEncoding }) => {
+        const { txs } = (await provider.getAccount(
+          { type: 'simple', xpub },
+          addressEncoding,
+        )) as { txs: number };
+        return txs > 0;
+      },
+    });
+    return ret;
+  }
+
+  private async createAccount({
+    password,
+    indexes,
+    purpose,
+    names,
+    template,
+    addressIndex,
+    isChange,
+    isCustomAddress,
+    validator,
+  }: {
+    password: string;
+    indexes: number[];
+    purpose?: number;
+    names?: string[];
+    template: string;
+    addressIndex: number;
+    isChange: boolean;
+    isCustomAddress: boolean;
+    validator?: ({
+      xpub,
+      address,
+      addressEncoding,
+    }: {
+      xpub: string;
+      address: string;
+      addressEncoding: AddressEncodings;
+    }) => Promise<boolean>;
+  }) {
     const impl = await this.getNetworkImpl();
     const vault = this.vault as unknown as BTCForkVault;
     const defaultPurpose = vault.getDefaultPurpose();
@@ -133,12 +186,15 @@ export class KeyringHd extends KeyringHdBase {
           extendedKey.key,
         ]),
       );
-      const firstAddressRelPath = '0/0';
-      const { [firstAddressRelPath]: address } = provider.xpubToAddresses(
+      const addressRelPath = `${isChange ? '1' : '0'}/${addressIndex}`;
+      const { [addressRelPath]: address } = provider.xpubToAddresses(
         xpub,
-        [firstAddressRelPath],
+        [addressRelPath],
         addressEncoding,
       );
+      const customAddresses = isCustomAddress
+        ? { [addressRelPath]: address }
+        : undefined;
       const prefix = [COINTYPE_DOGE, COINTYPE_BCH].includes(COIN_TYPE)
         ? coinName
         : namePrefix;
@@ -153,7 +209,8 @@ export class KeyringHd extends KeyringHdBase {
           coinType: COIN_TYPE,
           xpub,
           address,
-          addresses: { [firstAddressRelPath]: address },
+          addresses: { [addressRelPath]: address },
+          customAddresses,
           template,
         });
       }
@@ -163,19 +220,18 @@ export class KeyringHd extends KeyringHdBase {
         break;
       }
 
-      const { txs } = (await provider.getAccount(
-        { type: 'simple', xpub },
-        addressEncoding,
-      )) as { txs: number };
-      if (txs > 0) {
-        index += 1;
-        // blockbook API rate limit.
-        await new Promise((r) => setTimeout(r, 200));
+      if (validator) {
+        if (await validator?.({ xpub, address, addressEncoding })) {
+          index += 1;
+          await new Promise((r) => setTimeout(r, 200));
+        } else {
+          // Software should prevent a creation of an account
+          // if a previous account does not have a transaction history (meaning none of its addresses have been used before).
+          // https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
+          break;
+        }
       } else {
-        // Software should prevent a creation of an account
-        // if a previous account does not have a transaction history (meaning none of its addresses have been used before).
-        // https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
-        break;
+        index += 1;
       }
     }
     return ret;
@@ -183,74 +239,18 @@ export class KeyringHd extends KeyringHdBase {
 
   override async prepareAccountByAddressIndex(
     params: IPrepareAccountByAddressIndexParams,
-  ): Promise<IPrepareAccountByAddressIndexResponse[]> {
+  ): Promise<DBUTXOAccount[]> {
     const { password, template, accountIndex, addressIndex } = params;
-    const vault = this.vault as unknown as BTCForkVault;
-    const coinName = vault.getCoinName();
-    const COIN_TYPE = vault.getCoinType();
-    const provider = await (
-      this.vault as unknown as BTCForkVault
-    ).getProvider();
-    const { network } = provider;
-
-    const usedIndexes = [accountIndex];
     const purpose = parseInt(template.split('/')?.[1], 10);
-    const { addressEncoding } = getAccountDefaultByPurpose(purpose, coinName);
-    const { seed } = (await this.engine.dbApi.getCredential(
-      this.walletId,
+    const ret = this.createAccount({
       password,
-    )) as ExportedSeedCredential;
-    const { pathPrefix } = slicePathTemplate(template);
-    const pubkeyInfos = batchGetPublicKeys(
-      'secp256k1',
-      seed,
-      password,
-      pathPrefix,
-      usedIndexes.map((index) => `${index.toString()}'`),
-    );
-    if (pubkeyInfos.length !== 1) {
-      throw new OneKeyInternalError('Unable to get publick key.');
-    }
-    const { public: xpubVersionBytes } =
-      (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
-
-    const ret = [];
-    const index = 0;
-    for (const { path, parentFingerPrint, extendedKey } of pubkeyInfos) {
-      const xpub = bs58check.encode(
-        Buffer.concat([
-          Buffer.from(xpubVersionBytes.toString(16).padStart(8, '0'), 'hex'),
-          Buffer.from([3]),
-          parentFingerPrint,
-          Buffer.from(
-            (usedIndexes[index] + 2 ** 31).toString(16).padStart(8, '0'),
-            'hex',
-          ),
-          extendedKey.chainCode,
-          extendedKey.key,
-        ]),
-      );
-      const customAddressPath = `0/${addressIndex}`;
-      const { [customAddressPath]: address } = provider.xpubToAddresses(
-        xpub,
-        [customAddressPath],
-        addressEncoding,
-      );
-
-      ret.push({
-        id: `${this.walletId}--${path}`,
-        type: AccountType.UTXO,
-        path,
-        coinType: COIN_TYPE,
-        addresses: {
-          [customAddressPath]: address,
-        },
-        customAddresses: {
-          [customAddressPath]: address,
-        },
-        template,
-      });
-    }
+      indexes: [accountIndex],
+      purpose,
+      template,
+      addressIndex,
+      isChange: false,
+      isCustomAddress: true,
+    });
     return ret;
   }
 }
