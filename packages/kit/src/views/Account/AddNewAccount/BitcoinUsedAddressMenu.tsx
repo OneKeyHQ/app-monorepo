@@ -18,6 +18,7 @@ import {
   ModalRoutes,
   RootRoutes,
 } from '../../../routes/routesEnum';
+import { deviceUtils } from '../../../utils/hardware';
 
 import showFindAddressByPathBottomSheetModal from './FindAddressByPathBottomSheetModal';
 
@@ -42,7 +43,7 @@ const BitcoinUsedAddressMenu: FC<
   }, [onChange, showPath]);
 
   const onCreateAccountByAddressIndex = useCallback(
-    ({
+    async ({
       password,
       derivationOption,
       addressIndex,
@@ -53,19 +54,24 @@ const BitcoinUsedAddressMenu: FC<
       addressIndex?: string;
       account?: Account;
     }) => {
-      backgroundApiProxy.serviceDerivationPath.createAccountByCustomAddressIndex(
-        {
-          walletId,
-          accountId,
-          networkId,
-          password,
-          addressIndex: addressIndex ?? '',
-          account,
-          template: derivationOption?.template ?? '',
-        },
-      );
+      try {
+        await backgroundApiProxy.serviceDerivationPath.createAccountByCustomAddressIndex(
+          {
+            accountId,
+            networkId,
+            password,
+            addressIndex: addressIndex ?? '',
+            account,
+            template: derivationOption?.template ?? '',
+          },
+        );
+      } catch (e) {
+        deviceUtils.showErrorToast(e);
+      } finally {
+        navigation.goBack?.();
+      }
     },
-    [walletId, networkId, accountId],
+    [networkId, accountId, navigation],
   );
 
   const onPressFindAddressByPath = useCallback(() => {
