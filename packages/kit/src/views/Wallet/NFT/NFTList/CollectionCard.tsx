@@ -131,11 +131,7 @@ const CollectionCard: FC<Props> = ({
           {collectible.contractName}
         </Text>
         <Text typography="Body2" height="20px" color="text-subdued">
-          <FormatCurrencyNumber
-            value={0}
-            decimals={2}
-            convertValue={value > 0 ? value : ''}
-          />
+          <FormatCurrencyNumber value={value > 0 ? value : ''} />
         </Text>
       </Pressable>
     </Box>

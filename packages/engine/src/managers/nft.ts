@@ -7,7 +7,7 @@ import type {
   NFTServiceResp,
   NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
-import { NFTChainMap, NFTSymbolMap } from '@onekeyhq/engine/src/types/nft';
+import { NFTChainMap } from '@onekeyhq/engine/src/types/nft';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
@@ -114,16 +114,6 @@ export const syncImage = async (params: {
 };
 
 export const getNFTSymbolPrice = async (networkId: string) => {
-  const tokenId = NFTSymbolMap[networkId];
-  if (typeof tokenId === 'undefined') {
-    return null;
-  }
-
-  // const prices = await backgroundApiProxy.serviceToken.getPrices({
-  //   networkId,
-  //   tokenIds: [tokenId],
-  // });
-  // return prices?.[tokenId];
   const price = await backgroundApiProxy.servicePrice.getSimpleTokenPrice({
     networkId,
   });

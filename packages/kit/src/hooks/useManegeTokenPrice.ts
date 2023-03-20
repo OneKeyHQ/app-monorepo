@@ -35,3 +35,31 @@ export const useSimpleTokenPriceValue = ({
 
   return price;
 };
+
+export const useNFTPrice = ({
+  accountId,
+  networkId,
+}: {
+  accountId?: string;
+  networkId?: string;
+}) => {
+  const { nftPrice, disPlayPriceType } = useAppSelector((s) => s.nft);
+  const symbolPrice = useSimpleTokenPriceValue({
+    networkId,
+    contractAdress: '',
+  });
+  const amount = useMemo(() => {
+    if (accountId && networkId) {
+      const accountInfo = nftPrice[accountId];
+      if (accountInfo) {
+        const priceValue = accountInfo[networkId];
+        if (priceValue) {
+          return priceValue[disPlayPriceType];
+        }
+      }
+    }
+    return 0;
+  }, [accountId, disPlayPriceType, networkId, nftPrice]);
+
+  return symbolPrice * amount;
+};

@@ -15,7 +15,7 @@ import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useNFTSymbolPrice } from '../../../../hooks/useTokens';
+import { useSimpleTokenPriceValue } from '../../../../hooks/useManegeTokenPrice';
 import { convertToMoneyFormat } from '../utils';
 
 import { useNFTListContent } from './NFTListContent';
@@ -31,7 +31,10 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
   const { screenWidth } = useUserDevice();
   const nftContent = useNFTListContent();
   const { network } = useActiveWalletAccount();
-  const symbolPrice = useNFTSymbolPrice({ networkId: network?.id ?? '' });
+  const symbolPrice = useSimpleTokenPriceValue({
+    networkId: network?.id,
+    contractAdress: '',
+  });
 
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
@@ -82,8 +85,6 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
         _hover={{ bg: 'surface-hovered' }}
         onPress={() => {
           if (onSelectAsset) {
-            console.log('latestTradePrice = ', latestTradePrice);
-
             onSelectAsset(asset);
           }
         }}
@@ -107,11 +108,7 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
         </Text>
         {latestTradePrice ? (
           <Text typography="Body2" height="20px" color="text-subdued">
-            <FormatCurrencyNumber
-              value={0}
-              decimals={2}
-              convertValue={value > 0 ? value : ''}
-            />
+            <FormatCurrencyNumber value={value > 0 ? value : ''} />
           </Text>
         ) : (
           <Box height="20px" />
