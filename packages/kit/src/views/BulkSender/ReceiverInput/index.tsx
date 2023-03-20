@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -28,6 +30,11 @@ function ReceiverInput(props: ReceiverInputParams) {
   } = props;
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
+  const [showFileError, setShowFileError] = useState(false);
+
+  useEffect(() => {
+    setShowFileError(false);
+  }, [isUploadMode]);
 
   return (
     <>
@@ -67,6 +74,8 @@ function ReceiverInput(props: ReceiverInputParams) {
       </HStack>
       <Box display={isUploadMode ? 'flex' : 'none'}>
         <ReceiverUploader
+          showFileError={showFileError}
+          setShowFileError={setShowFileError}
           setReceiverFromOut={setReceiverFromOut}
           setIsUploadMode={setIsUploadMode}
         />
@@ -80,6 +89,8 @@ function ReceiverInput(props: ReceiverInputParams) {
           setReceiverFromOut={setReceiverFromOut}
           type={type}
           receiverErrors={receiverErrors}
+          showFileError={showFileError}
+          setShowFileError={setShowFileError}
         />
       </Box>
       <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>

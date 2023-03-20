@@ -14,7 +14,10 @@ import { ReceiverErrors } from './ReceiverErrors';
 
 import type { ReceiverInputParams, TokenReceiver } from '../types';
 
-type Props = Omit<ReceiverInputParams, 'isUploadMode' | 'setIsUploadMode'>;
+type Props = Omit<ReceiverInputParams, 'isUploadMode' | 'setIsUploadMode'> & {
+  showFileError: boolean;
+  setShowFileError: React.Dispatch<React.SetStateAction<boolean>>;
+};
 
 function ReceiverEditor(props: Props) {
   const {
@@ -23,6 +26,8 @@ function ReceiverEditor(props: Props) {
     setReceiver,
     type,
     receiverErrors,
+    showFileError,
+    setShowFileError,
   } = props;
 
   const intl = useIntl();
@@ -31,6 +36,11 @@ function ReceiverEditor(props: Props) {
   const { isDragAccept, data, getRootProps } = useDropUpload<TokenReceiver>({
     header: [TokenReceiverEnum.Address, TokenReceiverEnum.Amount],
     noClick: true,
+    onDrop(acceptedFiles, fileRejections) {
+      if (fileRejections.length > 0) {
+        setShowFileError(true);
+      }
+    },
   });
 
   const receiverStringDebounce = useDebounce(receiverString, 1000);
@@ -47,6 +57,7 @@ function ReceiverEditor(props: Props) {
 
   useEffect(() => {
     if (data && data[0] && data[0].Address && data[0].Amount) {
+      setShowFileError(false);
       setReceiverFromOut(
         data.filter(
           (item) =>
@@ -54,8 +65,10 @@ function ReceiverEditor(props: Props) {
             item.Amount !== TokenReceiverEnum.Amount,
         ),
       );
+    } else if (data && data[0]) {
+      setShowFileError(true);
     }
-  }, [data, setReceiverFromOut]);
+  }, [data, intl, setReceiverFromOut, setShowFileError]);
 
   return (
     <Box>
@@ -99,7 +112,10 @@ function ReceiverEditor(props: Props) {
         )}
       </div>
       <Box mt={3}>
-        <ReceiverErrors errors={receiverErrors} />
+        <ReceiverErrors
+          receiverErrors={receiverErrors}
+          showFileError={showFileError}
+        />
       </Box>
     </Box>
   );
