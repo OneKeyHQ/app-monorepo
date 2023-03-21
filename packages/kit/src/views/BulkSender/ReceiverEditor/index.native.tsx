@@ -36,7 +36,7 @@ function ReceiverEditor(props: Props) {
         setReceiverString={setReceiverString}
       />
       <Box mt={3}>
-        <ReceiverErrors errors={receiverErrors} />
+        <ReceiverErrors receiverErrors={receiverErrors} showFileError={false} />
       </Box>
     </Box>
   );

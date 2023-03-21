@@ -4,11 +4,8 @@ import B from 'bignumber.js';
 
 import { useAccount } from './useAccount';
 import { useAppSelector } from './useAppSelector';
-import {
-  useAccountTokenValues,
-  useCurrentFiatValue,
-  useNFTPrice,
-} from './useTokens';
+import { useNFTPrice } from './useManegeTokenPrice';
+import { useAccountTokenValues, useCurrentFiatValue } from './useTokens';
 
 export type OverviewAssetType = 'defis' | 'tokens' | 'nfts';
 

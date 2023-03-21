@@ -88,6 +88,7 @@ const SetupPassphraseView = ({
           }}
         >
           <Form.Input
+            clearTextOnFocus={false}
             type="password"
             autoFocus
             size="xl"
@@ -128,6 +129,7 @@ const SetupPassphraseView = ({
           }}
         >
           <Form.Input
+            clearTextOnFocus={false}
             type="password"
             size="xl"
             placeholder={intl.formatMessage({
@@ -196,6 +198,7 @@ const PassphraseView = ({
           }}
         >
           <Form.Input
+            clearTextOnFocus={false}
             type="password"
             autoFocus
             size="lg"

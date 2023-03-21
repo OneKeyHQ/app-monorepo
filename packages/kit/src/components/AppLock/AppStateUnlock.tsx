@@ -80,6 +80,7 @@ const ForgetPasswordButton = () => {
               <Input
                 w="full"
                 value={input}
+                placeholder="RESET"
                 onChangeText={(text) => setInput(text.trim())}
               />
             </Box>

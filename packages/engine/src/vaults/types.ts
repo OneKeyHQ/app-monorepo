@@ -1,10 +1,11 @@
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { CurveName } from '@onekeyhq/engine/src/secret';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { SendConfirmActionType } from '@onekeyhq/kit/src/views/Send/types';
 import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import type { Engine } from '../index';
-import type { AccountType } from '../types/account';
+import type { AccountCredential } from '../types/account';
 import type { AccountNameInfo, EIP1559Fee } from '../types/network';
 import type { NFTAsset } from '../types/nft';
 import type { Token } from '../types/token';
@@ -36,7 +37,7 @@ import type { IEncodedTxSol, INativeTxSol } from './impl/sol/types';
 import type { IEncodedTxSTC } from './impl/stc/types';
 import type { IEncodedTxSUI } from './impl/sui/types';
 import type { IEncodedTxTron } from './impl/tron/types';
-import type { IEncodedTxXmr } from './impl/xmr/types';
+import type { IDecodedTxExtraXmr, IEncodedTxXmr } from './impl/xmr/types';
 import type { IEncodedTxXrp } from './impl/xrp/types';
 
 // Options ----------------------------------------------
@@ -44,6 +45,14 @@ export type IVaultSubNetworkSettings = {
   isIntegerGasPrice?: boolean;
   minGasPrice?: string;
 };
+
+export type TxExtraInfo = {
+  key: string;
+  title: LocaleIds;
+  canCopy?: boolean;
+  isShorten?: boolean;
+};
+
 export type IVaultSettings = {
   accountNameInfo: Record<string, AccountNameInfo>;
   feeInfoEditable: boolean;
@@ -57,7 +66,11 @@ export type IVaultSettings = {
   hardwareAccountEnabled: boolean;
 
   addressDerivationDisabled?: boolean;
-  validationRequired?: true;
+  validationRequired?: boolean;
+  disabledInExtension?: boolean;
+  exportCredentialInfo?: AccountCredential[];
+  txExtraInfo?: TxExtraInfo[];
+  enabledInDevModeOnly?: boolean;
 
   minTransferAmount?: string;
 
@@ -211,6 +224,7 @@ export type SignedTxResult = {
   signature?: string; // hex string
   publicKey?: string; // hex string
   digest?: string; // hex string
+  txKey?: string; // hex string for Monero
 } & SignedTx;
 
 // EncodedTx Update ----------------------------------------------
@@ -514,6 +528,7 @@ export type IDecodedTx = {
     | IDecodedTxExtraNear
     | IDecodedTxExtraBtc
     | IDecodedTxExtraAlgo
+    | IDecodedTxExtraXmr
     | null;
 
   encodedTx?: IEncodedTx;

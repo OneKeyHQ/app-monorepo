@@ -1,5 +1,9 @@
 import type { MoneroTransaction } from '@mymonero/mymonero-lws-client';
 
+export type IDecodedTxExtraXmr = {
+  txKey: string;
+};
+
 export type IOnChainHistoryTx = MoneroTransaction & { amount: string };
 
 export enum MoneroTxPriorityEnum {

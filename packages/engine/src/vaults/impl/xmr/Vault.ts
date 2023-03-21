@@ -7,9 +7,11 @@ import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
+import simpleDb from '../../../dbs/simple/simpleDb';
 import { InvalidAddress, OneKeyInternalError } from '../../../errors';
 import { isAccountCompatibleWithNetwork } from '../../../managers/account';
 import { slicePathTemplate } from '../../../managers/derivation';
+import { AccountCredentialType } from '../../../types/account';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
@@ -71,14 +73,12 @@ export default class Vault extends VaultBase {
 
         rawPrivateKey = decrypt(psw, privateKey).toString('hex');
       } else {
-        const dbAccount = (await this.getDbAccount({
-          noCache: true,
-        })) as DBVariantAccount;
+        const { template } = this.settings.accountNameInfo.default;
         const { entropy } = (await this.engine.dbApi.getCredential(
           this.walletId,
           psw,
         )) as ExportedSeedCredential;
-        const { pathPrefix } = slicePathTemplate(dbAccount.template as string);
+        const { pathPrefix } = slicePathTemplate(template);
         const mnemonic = mnemonicFromEntropy(entropy, psw);
         const seed = mnemonicToSeedSync(mnemonic);
         const resp = getRawPrivateKeyFromSeed(seed, pathPrefix);
@@ -102,16 +102,13 @@ export default class Vault extends VaultBase {
   private getMoneroKeys = memoizee(
     async (accountId: string, rawPrivateKey: string, index?: number) => {
       const moneroApi = await getMoneroApi();
-      const dbAccount = (await this.getDbAccount({
-        noCache: true,
-      })) as DBVariantAccount;
 
       const isImportedAccount = accountId.startsWith('imported');
 
       let accountIndex = 0;
       if (!isImportedAccount) {
         accountIndex =
-          index === undefined ? Number(dbAccount.path.split('/').pop()) : index;
+          index === undefined ? Number(accountId.split('/').pop()) : index;
       }
 
       return moneroApi.getKeyPairFromRawPrivatekey({
@@ -141,17 +138,27 @@ export default class Vault extends VaultBase {
     },
   );
 
-  private async getClient(password: string): Promise<ClientXmr> {
+  private async getClient(
+    password: string,
+    accountId?: string,
+    address?: string,
+  ): Promise<ClientXmr> {
+    let accountAddress = address;
+    if (!accountAddress) {
+      accountAddress = (await this.getOutputAccount()).address;
+    }
     const rpcUrl = await this.getRpcUrl();
     const scanUrl = await this.getScanUrl();
-    const privateKey = await this.getPrivateKey(this.accountId, password);
+    const privateKey = await this.getPrivateKey(
+      accountId ?? this.accountId,
+      password,
+    );
     const { publicSpendKey, publicViewKey, privateSpendKey, privateViewKey } =
-      await this.getMoneroKeys(this.accountId, privateKey);
-    const { address } = await this.getOutputAccount();
+      await this.getMoneroKeys(accountId ?? this.accountId, privateKey);
     return this.createXmrClient(
       rpcUrl,
       scanUrl,
-      address,
+      address ?? accountAddress,
       Buffer.from(publicSpendKey || '').toString('hex'),
       Buffer.from(publicViewKey || '').toString('hex'),
       Buffer.from(privateSpendKey).toString('hex'),
@@ -315,17 +322,33 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override async getExportedCredential(password: string): Promise<string> {
-    const dbAccount = await this.getDbAccount({ noCache: true });
-    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+  override async getExportedCredential(
+    password: string,
+    credentialType: AccountCredentialType,
+  ): Promise<string> {
+    if (
+      this.accountId.startsWith('hd-') ||
+      this.accountId.startsWith('imported')
+    ) {
       const moneroApi = await getMoneroApi();
-      const { privateSpendKey } = await this.getMoneroKeys(
-        password,
-        dbAccount.id,
+      const privateKey = await this.getPrivateKey(this.accountId, password);
+      const { privateSpendKey, privateViewKey } = await this.getMoneroKeys(
+        this.accountId,
+        privateKey,
       );
 
-      return moneroApi.privateSpendKeyToWords(privateSpendKey);
+      switch (credentialType) {
+        case AccountCredentialType.PrivateSpendKey:
+          return Buffer.from(privateSpendKey).toString('hex');
+        case AccountCredentialType.PrivateViewKey:
+          return Buffer.from(privateViewKey).toString('hex');
+        case AccountCredentialType.Mnemonic:
+          return moneroApi.privateSpendKeyToWords(privateSpendKey);
+        default:
+          return moneroApi.privateSpendKeyToWords(privateSpendKey);
+      }
     }
+
     throw new OneKeyInternalError(
       'Only credential of HD or imported accounts can be exported',
     );
@@ -389,7 +412,6 @@ export default class Vault extends VaultBase {
         if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
           return null;
         }
-
         const amountBN = new BigNumber(tx.amount);
 
         let from = '';
@@ -436,7 +458,7 @@ export default class Vault extends VaultBase {
               : new BigNumber(tx.fee).shiftedBy(-network.decimals).toFixed(),
           networkId: this.networkId,
           accountId: this.accountId,
-          extraInfo: null,
+          extraInfo: historyTxToMerge?.decodedTx.extraInfo,
         };
         decodedTx.updatedAt = new Date(tx.timestamp).getTime();
         decodedTx.createdAt =
@@ -511,12 +533,20 @@ export default class Vault extends VaultBase {
   }
 
   override async getBalances(
-    requests: Array<{ address: string; tokenAddress?: string }>,
+    requests: Array<{
+      address: string;
+      tokenAddress?: string;
+      accountId?: string;
+    }>,
     password: string,
   ): Promise<(BigNumber | undefined)[]> {
-    const client = await this.getClient(password);
-
     const [request] = requests;
+
+    const client = await this.getClient(
+      password,
+      request.accountId,
+      request.address,
+    );
 
     return client.getBalances([
       {
@@ -546,10 +576,41 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async getFrozenBalance(password: string) {
-    const client = await this.getClient(password);
+  override async getFrozenBalance(password?: string) {
+    const client = await this.getClient(password ?? '');
     const { address } = await this.getOutputAccount();
     const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
+
+    // The interface for obtaining the frozen amount has a delay.
+    // If another request is sent immediately after sending one, an error will occur.
+    // Here, check whether the first ten local transactions have transfer-out transactions in the pending state as a supplement to the interface delay
+    // If there are any, all amounts will be frozen.
+    let hasLocalTxOutInPending = false;
+    const localHistory = (
+      await simpleDb.history.getAccountHistory({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        isPending: true,
+        limit: 10,
+      })
+    ).items;
+
+    for (let i = 0, len = localHistory.length; i < len; i = +1) {
+      const item = localHistory[i];
+      const action = item.decodedTx.actions[0];
+      if (
+        action.type === IDecodedTxActionType.NATIVE_TRANSFER &&
+        (IDecodedTxDirection.OUT === action.direction ||
+          IDecodedTxDirection.SELF === action.direction)
+      ) {
+        hasLocalTxOutInPending = true;
+        break;
+      }
+    }
+
+    if (hasLocalTxOutInPending) {
+      return -1;
+    }
 
     try {
       const [totalBN] = await client.getBalances([

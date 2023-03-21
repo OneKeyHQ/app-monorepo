@@ -19,6 +19,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useTokenSupportStakedAssets } from '../../hooks/useTokens';
 import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../../routes/types';
+import { useShowBookmark } from '../Discover/hooks';
 import { StakingRoutes } from '../Staking/typing';
 
 import MarketDetailContent from './Components/MarketDetail/MarketDetailContent';
@@ -153,6 +154,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
     NavigationProps & NavigationProps['navigation']
   >();
   const isVertical = useIsVerticalLayout();
+  const showBookmark = useShowBookmark();
   const marketTokenItem = useMarketTokenItem({ coingeckoId: marketTokenId });
   const onBack = useCallback(() => {
     navigation.goBack();
@@ -236,7 +238,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                   }}
                 />
               ) : null}
-              {signedUrl.length > 0 ? (
+              {signedUrl.length > 0 && showBookmark ? (
                 <PurchaseButton
                   onPress={() => {
                     navigation.navigate(RootRoutes.Modal, {

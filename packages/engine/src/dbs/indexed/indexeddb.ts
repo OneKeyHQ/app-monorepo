@@ -1060,14 +1060,13 @@ class IndexedDBApi implements DBAPI {
                 if (passphraseState) {
                   handleDisplayPassphraseWallet(hasExistWallet.id);
                   ret = hasExistWallet;
-                } else {
-                  reject(
-                    new OneKeyAlreadyExistWalletError(
-                      hasExistWallet.id,
-                      hasExistWallet.name,
-                    ),
-                  );
                 }
+                reject(
+                  new OneKeyAlreadyExistWalletError(
+                    hasExistWallet.id,
+                    hasExistWallet.name,
+                  ),
+                );
                 return;
               }
 

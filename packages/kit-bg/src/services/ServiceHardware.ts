@@ -261,11 +261,16 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getPassphraseState(connectId: string, useEmptyPassphrase?: boolean) {
+  async getPassphraseState(
+    connectId: string,
+    useEmptyPassphrase?: boolean,
+    deriveCardano?: boolean,
+  ) {
     const hardwareSDK = await this.getSDKInstance();
     const response = await hardwareSDK?.getPassphraseState(connectId, {
       initSession: true,
       useEmptyPassphrase,
+      deriveCardano,
     });
 
     if (response.success) {

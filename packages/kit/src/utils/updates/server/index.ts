@@ -10,6 +10,7 @@ function handleReleaseInfo(
   const extPackages: PackageInfo[] = [];
   const desktopPackages: PackageInfo[] = [];
   const iosPackages: PackageInfo[] = [];
+  const webPackages: PackageInfo[] = [];
 
   if (releasesVersion?.ios) {
     const forceUpdateVersion = releasesVersion.ios.miniVersion?.join('.');
@@ -135,7 +136,7 @@ function handleReleaseInfo(
         os: 'chrome',
         channel: 'ChromeWebStore',
         download: releasesVersion.ext.chrome,
-        version: '0.0.0',
+        version: forceUpdateVersion ?? '0.0.0',
         forceUpdateVersion,
       });
     }
@@ -144,7 +145,7 @@ function handleReleaseInfo(
         os: 'firefox',
         channel: 'MozillaAddOns',
         download: releasesVersion.ext.firefox,
-        version: '0.0.0',
+        version: forceUpdateVersion ?? '0.0.0',
         forceUpdateVersion,
       });
     }
@@ -153,10 +154,21 @@ function handleReleaseInfo(
         os: 'edge',
         channel: 'EdgeWebStore',
         download: releasesVersion.ext.edge,
-        version: '0.0.0',
+        version: forceUpdateVersion ?? '0.0.0',
         forceUpdateVersion,
       });
     }
+  }
+
+  if (releasesVersion?.web) {
+    const forceUpdateVersion = releasesVersion?.web.miniVersion?.join('.');
+    webPackages.push({
+      os: 'website',
+      channel: 'Direct',
+      download: 'https://app.onekey.so',
+      version: forceUpdateVersion ?? '0.0.0',
+      forceUpdateVersion,
+    });
   }
 
   return {
@@ -164,6 +176,7 @@ function handleReleaseInfo(
     android: androidPackages,
     extension: extPackages,
     desktop: desktopPackages,
+    web: webPackages,
   };
 }
 
@@ -174,8 +187,7 @@ export async function getReleaseInfo(): Promise<PackagesInfo | null> {
     .then((releasesVersionResponse) => {
       const releasesVersion = releasesVersionResponse.data;
       return handleReleaseInfo(releasesVersion);
-    })
-    .catch(() => null);
+    });
 }
 
 export async function getPreReleaseInfo(): Promise<PackagesInfo | null> {
@@ -185,17 +197,23 @@ export async function getPreReleaseInfo(): Promise<PackagesInfo | null> {
     .then((releasesVersionResponse) => {
       const releasesVersion = releasesVersionResponse.data;
       return handleReleaseInfo(releasesVersion);
-    })
-    .catch(() => null);
+    });
 }
 
 export async function getChangeLog(
   oldVersion: string,
   newVersion: string,
+  isPreRelease?: boolean,
 ): Promise<Changelog | undefined> {
   const key = Math.random().toString();
+
+  let changelogUrl = `https://data.onekey.so/config.json`;
+  if (isPreRelease) {
+    changelogUrl = `https://data.onekey.so/pre-config.json`;
+  }
+
   return axios
-    .get<AppReleases>(`https://data.onekey.so/config.json?nocache=${key}`)
+    .get<AppReleases>(`${changelogUrl}?nocache=${key}`)
     .then((releasesVersionResponse) => {
       const changeLogs = releasesVersionResponse.data.changelog;
       return (

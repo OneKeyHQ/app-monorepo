@@ -31,6 +31,9 @@ type ProtectedProps = {
   children: (password: string, options: ProtectedOptions) => ReactNode;
   hideTitle?: boolean;
   isAutoHeight?: boolean;
+  placeCenter?: boolean;
+  title?: string;
+  subTitle?: string;
 };
 
 // Protected
@@ -41,6 +44,9 @@ const Protected: FC<ProtectedProps> = ({
   walletId,
   hideTitle,
   isAutoHeight,
+  placeCenter,
+  title,
+  subTitle,
 }) => {
   const navigation = useNavigation();
   const walletDetail = useGetWalletDetail(walletId);
@@ -187,7 +193,14 @@ const Protected: FC<ProtectedProps> = ({
   // input password
   if (hasPassword) {
     return (
-      <Session onOk={onValidationOk} field={field} hideTitle={hideTitle} />
+      <Session
+        onOk={onValidationOk}
+        field={field}
+        hideTitle={hideTitle}
+        placeCenter={placeCenter}
+        title={title}
+        subTitle={subTitle}
+      />
     );
   }
   // create new password

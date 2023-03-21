@@ -32,6 +32,7 @@ import { VaultContext } from './VaultContext';
 
 import type {
   Account,
+  AccountCredentialType,
   BtcForkChainUsedAccount,
   DBAccount,
 } from '../types/account';
@@ -438,7 +439,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   // TODO move to keyring
-  abstract getExportedCredential(password: string): Promise<string>;
+  abstract getExportedCredential(
+    password: string,
+    credentialType: AccountCredentialType,
+  ): Promise<string>;
 
   async updatePendingTxs(
     pendingTxs: Array<HistoryEntry>,
@@ -547,6 +551,16 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     decodedTx.owner = address;
     if (isSigner) {
       decodedTx.signer = address;
+    }
+    if (signedTx?.txKey) {
+      if (decodedTx.extraInfo) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        decodedTx.extraInfo.txKey = signedTx.txKey;
+      } else {
+        decodedTx.extraInfo = {
+          txKey: signedTx.txKey,
+        };
+      }
     }
     // TODO base.mergeDecodedTx with signedTx.rawTx
     // must include accountId here, so that two account wont share same tx history
