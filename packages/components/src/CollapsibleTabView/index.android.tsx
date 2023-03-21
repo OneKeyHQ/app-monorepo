@@ -72,7 +72,7 @@ const Container: ForwardRefRenderFunction<
       onRefreshCallBack={() => {
         setTimeout(() => {
           onRefresh?.();
-        }, 0);
+        });
       }}
       renderHeader={renderHeader}
       onChange={(e) => {
