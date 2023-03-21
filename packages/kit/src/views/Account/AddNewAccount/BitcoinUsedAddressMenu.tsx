@@ -80,7 +80,7 @@ const BitcoinUsedAddressMenu: FC<
         navigation.goBack?.();
       }
     },
-    [networkId, accountId, navigation],
+    [networkId, accountId, navigation, onAddedCustomAddressCallback],
   );
 
   const onPressFindAddressByPath = useCallback(() => {

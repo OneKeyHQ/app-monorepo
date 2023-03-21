@@ -66,6 +66,11 @@ const UsedAddressHeader: FC<{
   );
 };
 
+// TODO:
+// 1. remove custom address
+// 2. create account by hardware
+// 3. verify on mobile
+// 4. copy address before hardware confirmation
 const BitcoinUsedAddress: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
@@ -229,6 +234,7 @@ const BitcoinUsedAddress: FC = () => {
               dataSource={dataSource}
               setConfig={setConfig}
               onRequestBalances={fetchAddressBalance}
+              onRefreshAccount={refreshAccount}
             />
           )}
         </Box>

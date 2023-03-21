@@ -13,6 +13,7 @@ import {
   ListItem,
   Spinner,
   Text,
+  ToastManager,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type {
@@ -22,7 +23,9 @@ import type {
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../../components/Format';
+import { deviceUtils } from '../../../utils/hardware';
 
 import BitcoinUsedAddressListItemMenu from './BitcoinUsedAddressListItemMenu';
 import { showJumpPageDialog } from './JumpPage';
@@ -72,9 +75,22 @@ type CellProps = {
   symbol: string | undefined;
   showPath: boolean;
   network: Network | undefined;
+  showRemoveAddress?: boolean;
+  onRemoveAddress?: (
+    item: BtcForkChainUsedAccount & {
+      suffixPath?: string;
+    },
+  ) => void;
 } & ComponentProps<typeof Box>;
 
-const AccountCell: FC<CellProps> = ({ item, symbol, network, showPath }) => (
+const AccountCell: FC<CellProps> = ({
+  item,
+  symbol,
+  network,
+  showPath,
+  showRemoveAddress,
+  onRemoveAddress,
+}) => (
   <ListItem flex={1}>
     <ListItem.Column
       style={{
@@ -117,6 +133,8 @@ const AccountCell: FC<CellProps> = ({ item, symbol, network, showPath }) => (
       <BitcoinUsedAddressListItemMenu
         item={item}
         network={network ?? ({} as Network)}
+        showRemoveOption={!!showRemoveAddress}
+        onRemoveAddress={onRemoveAddress}
       >
         <IconButton
           alignItems="flex-end"
@@ -312,6 +330,7 @@ type IMannualAddedAddressListProps = IListCommonProps & {
   onRequestBalances: (
     addresses: string[],
   ) => Promise<{ address: string; balance: string }[]>;
+  onRefreshAccount: () => Promise<void>;
 };
 
 const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
@@ -320,6 +339,7 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
   setConfig,
   account,
   onRequestBalances,
+  onRefreshAccount,
 }) => {
   const intl = useIntl();
   const dataSource = useMemo(
@@ -374,11 +394,11 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
           const pathIndex = Object.values(
             account.customAddresses ?? {},
           ).findIndex((addr) => addr === item.address);
-          const sufficPath = Object.keys(account.customAddresses ?? {})[
+          const suffixPath = Object.keys(account.customAddresses ?? {})[
             pathIndex
           ];
-          const path = `${account.path}/${sufficPath}`;
-          return { ...item, name: item.address, path };
+          const path = `${account.path}/${suffixPath}`;
+          return { ...item, name: item.address, path, suffixPath };
         });
 
         setCurrentPageData(data);
@@ -403,6 +423,28 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
     ),
     [config.showPath],
   );
+
+  const removeAddress = useCallback(
+    async (item: BtcForkChainUsedAccount & { suffixPath?: string }) => {
+      try {
+        if (!item.suffixPath && !item.name) return;
+        await backgroundApiProxy.serviceDerivationPath.removeCustomAddress({
+          accountId: account.id,
+          addresses: { [item.suffixPath ?? '']: item.name },
+        });
+        ToastManager.show({
+          title: intl.formatMessage({ id: 'msg__success' }),
+        });
+        setTimeout(() => {
+          onRefreshAccount();
+        }, 200);
+      } catch (e) {
+        deviceUtils.showErrorToast(e);
+      }
+    },
+    [account.id, intl, onRefreshAccount],
+  );
+
   const rowRenderer = useCallback(
     ({ item }: ListRenderItemInfo<BtcForkChainUsedAccount>) => (
       <AccountCell
@@ -411,9 +453,11 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
         showPath={config.showPath}
         flex={1}
         item={item}
+        showRemoveAddress
+        onRemoveAddress={removeAddress}
       />
     ),
-    [network, config.showPath],
+    [network, config.showPath, removeAddress],
   );
   return (
     <>

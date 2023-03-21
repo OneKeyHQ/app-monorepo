@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ToastManager } from '@onekeyhq/components';
+import { Divider, ToastManager } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { BtcForkChainUsedAccount } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -16,8 +16,15 @@ import type {
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 
 const BitcoinUsedAddressListItemMenu: FC<
-  IMenu & { item: BtcForkChainUsedAccount; network: Network }
-> = ({ item, network, ...props }) => {
+  IMenu & {
+    item: BtcForkChainUsedAccount & { suffixPath?: string };
+    network: Network;
+    showRemoveOption: boolean;
+    onRemoveAddress?: (
+      item: BtcForkChainUsedAccount & { suffixPath?: string },
+    ) => void;
+  }
+> = ({ item, network, showRemoveOption, onRemoveAddress, ...props }) => {
   const intl = useIntl();
   const { openAddressDetails } = useOpenBlockBrowser(network);
   const onOpenBlockChainBrowser = useCallback(() => {
@@ -45,11 +52,24 @@ const BitcoinUsedAddressListItemMenu: FC<
         onPress: onOpenBlockChainBrowser,
         icon: 'GlobeAltOutline',
       },
+      showRemoveOption && (() => <Divider my={1} />),
+      showRemoveOption && {
+        id: 'action__remove_address',
+        onPress: () => onRemoveAddress?.(item),
+        icon: 'TrashOutline',
+        variant: 'desctructive',
+      },
     ],
-    [onPressCopyAddress, onOpenBlockChainBrowser],
+    [
+      onPressCopyAddress,
+      onOpenBlockChainBrowser,
+      onRemoveAddress,
+      showRemoveOption,
+      item,
+    ],
   );
 
-  return <BaseMenu options={options} {...props} />;
+  return <BaseMenu options={options} {...props} menuWidth={310} />;
 };
 
 export default BitcoinUsedAddressListItemMenu;

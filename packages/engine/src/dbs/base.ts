@@ -212,6 +212,15 @@ interface DBAPI {
     addresses: Record<string, string>;
     isCustomPath: boolean;
   }): Promise<DBAccount>;
+  removeUTXOAccountAddresses({
+    accountId,
+    addresses,
+    isCustomPath,
+  }: {
+    accountId: string;
+    addresses: Record<string, string>;
+    isCustomPath: boolean;
+  }): Promise<DBAccount>;
 
   addHistoryEntry(
     id: string,

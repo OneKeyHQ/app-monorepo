@@ -187,6 +187,22 @@ export default class ServiceDerivationPath extends ServiceBase {
   }
 
   @backgroundMethod()
+  async removeCustomAddress({
+    accountId,
+    addresses,
+  }: {
+    accountId: string;
+    addresses: Record<string, string>;
+  }) {
+    if (!Object.keys(addresses).length) return;
+    await this.backgroundApi.engine.dbApi.removeUTXOAccountAddresses({
+      accountId,
+      addresses,
+      isCustomPath: true,
+    });
+  }
+
+  @backgroundMethod()
   async fetchCustomAddressBalance({
     networkId,
     accountId,

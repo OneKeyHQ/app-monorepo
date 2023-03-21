@@ -1808,6 +1808,52 @@ class RealmDB implements DBAPI {
     }
   }
 
+  removeUTXOAccountAddresses({
+    accountId,
+    addresses,
+    isCustomPath,
+  }: {
+    accountId: string;
+    addresses: Record<string, string>;
+    isCustomPath: boolean;
+  }): Promise<DBAccount> {
+    try {
+      const account = this.realm!.objectForPrimaryKey<AccountSchema>(
+        'Account',
+        accountId,
+      );
+      if (typeof account === 'undefined') {
+        return Promise.reject(
+          new OneKeyInternalError(`Account ${accountId} not found.`),
+        );
+      }
+      switch (account.type) {
+        case AccountType.UTXO:
+          this.realm!.write(() => {
+            Object.entries(addresses).forEach(([suffixPath, address]) => {
+              if (isCustomPath) {
+                if (
+                  account.customAddresses &&
+                  account.customAddresses[suffixPath]
+                ) {
+                  account.customAddresses.remove(suffixPath);
+                }
+              } else if (account.addresses && account.addresses[suffixPath]) {
+                account.addresses.remove(suffixPath);
+              }
+            });
+          });
+          break;
+        default:
+          throw new NotImplemented();
+      }
+      return Promise.resolve(account.internalObj);
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
   addHistoryEntry(
     id: string,
     networkId: string,
