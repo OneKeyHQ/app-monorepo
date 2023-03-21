@@ -249,23 +249,31 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   async getAddress(params: IGetAddressParams): Promise<string> {
     const coinName = (this.vault as unknown as BTCForkVault).getCoinName();
-    const dbAccount = (await this.getDbAccount({
-      noCache: true,
-    })) as DBUTXOAccount;
-    const { addresses, address, path } = dbAccount;
-    const pathSuffix = Object.keys(dbAccount.addresses).find(
-      (key) => addresses[key] === address,
-    );
 
-    if (!pathSuffix) {
-      return '';
+    let path = '';
+
+    if (params.isTemplatePath) {
+      path = params.path;
+    } else {
+      const dbAccount = (await this.getDbAccount({
+        noCache: true,
+      })) as DBUTXOAccount;
+      const { addresses, address } = dbAccount;
+      const pathSuffix = Object.keys(dbAccount.addresses).find(
+        (key) => addresses[key] === address,
+      );
+
+      if (!pathSuffix) {
+        return '';
+      }
+      path = `${dbAccount.path}/${pathSuffix}`;
     }
 
     await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const response = await HardwareSDK.btcGetAddress(connectId, deviceId, {
-      path: `${path}/${pathSuffix}`,
+      path,
       showOnOneKey: params.showOnOneKey,
       coin: coinName.toLowerCase(),
       ...passphraseState,
