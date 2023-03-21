@@ -78,10 +78,12 @@ const BitcoinUsedAddress: FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [config, setConfig] = useState<{
     showPath: boolean;
-    currentPage: number;
+    usedListCurrentPage: number;
+    mannualListCurrentPage: number;
   }>({
     showPath: false,
-    currentPage: 1,
+    usedListCurrentPage: 1,
+    mannualListCurrentPage: 1,
   });
   const [dataSource, setDataSource] = useState<BtcForkChainUsedAccount[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);

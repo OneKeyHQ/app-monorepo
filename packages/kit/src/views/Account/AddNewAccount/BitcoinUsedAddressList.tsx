@@ -190,12 +190,14 @@ type IListCommonProps = {
   network?: Network;
   config: {
     showPath: boolean;
-    currentPage: number;
+    usedListCurrentPage: number;
+    mannualListCurrentPage: number;
   };
   setConfig: Dispatch<
     SetStateAction<{
       showPath: boolean;
-      currentPage: number;
+      usedListCurrentPage: number;
+      mannualListCurrentPage: number;
     }>
   >;
 };
@@ -217,18 +219,19 @@ const BitcoinUsedAddressList: FC<IUsedAddressListProps> = ({
   );
 
   const isMaxPage = useMemo(
-    () => config.currentPage >= maxPage,
-    [config.currentPage, maxPage],
+    () => config.usedListCurrentPage >= maxPage,
+    [config.usedListCurrentPage, maxPage],
   );
 
   const currentPageData = useMemo(() => {
-    const startIndex = (config.currentPage - 1) * USED_ADDRESS_PAGE_SIZE;
+    const startIndex =
+      (config.usedListCurrentPage - 1) * USED_ADDRESS_PAGE_SIZE;
     const res = dataSource.slice(
       startIndex,
       USED_ADDRESS_PAGE_SIZE + startIndex,
     );
     return res;
-  }, [config.currentPage, dataSource]);
+  }, [config.usedListCurrentPage, dataSource]);
 
   const itemSeparatorComponent = useCallback(
     () => (
@@ -264,27 +267,27 @@ const BitcoinUsedAddressList: FC<IUsedAddressListProps> = ({
       />
       {maxPage > 1 && (
         <ListTableFooter
-          currentPage={config.currentPage}
-          prevButtonDisabled={config.currentPage === 1}
+          currentPage={config.usedListCurrentPage}
+          prevButtonDisabled={config.usedListCurrentPage === 1}
           nextButtonDisabled={isMaxPage}
           onPagePress={() => {
             showJumpPageDialog({
-              currentPage: config.currentPage - 1,
+              currentPage: config.usedListCurrentPage - 1,
               maxPage,
               onConfirm: (page) => {
                 setConfig((prev) => ({
                   ...prev,
-                  currentPage: page,
+                  usedListCurrentPage: page,
                 }));
               },
             });
           }}
           onPrevPagePress={() => {
             setConfig((prev) => {
-              if (prev.currentPage === 0) return prev;
+              if (prev.usedListCurrentPage === 0) return prev;
               return {
                 ...prev,
-                currentPage: prev.currentPage - 1,
+                usedListCurrentPage: prev.usedListCurrentPage - 1,
               };
             });
           }}
@@ -293,7 +296,7 @@ const BitcoinUsedAddressList: FC<IUsedAddressListProps> = ({
               if (isMaxPage) return prev;
               return {
                 ...prev,
-                currentPage: prev.currentPage + 1,
+                usedListCurrentPage: prev.usedListCurrentPage + 1,
               };
             });
           }}
@@ -329,13 +332,13 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
   );
 
   const isMaxPage = useMemo(
-    () => config.currentPage >= maxPage,
-    [config.currentPage, maxPage],
+    () => config.mannualListCurrentPage >= maxPage,
+    [config.mannualListCurrentPage, maxPage],
   );
 
   const currentPageAddresses = useMemo(() => {
     const startIndex =
-      (config.currentPage - 1) * MANNUAL_ADDED_ADDRESS_PAGE_SIZE;
+      (config.mannualListCurrentPage - 1) * MANNUAL_ADDED_ADDRESS_PAGE_SIZE;
     const suffixPaths = dataSource.slice(
       startIndex,
       MANNUAL_ADDED_ADDRESS_PAGE_SIZE + startIndex,
@@ -343,7 +346,7 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
     return suffixPaths
       .map((path) => account.customAddresses?.[path])
       .filter(Boolean);
-  }, [config.currentPage, dataSource, account.customAddresses]);
+  }, [config.mannualListCurrentPage, dataSource, account.customAddresses]);
 
   const [currentPageData, setCurrentPageData] = useState<
     { address: string; balance: string; path: string }[]
@@ -432,27 +435,27 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
           />
           {maxPage > 1 && (
             <ListTableFooter
-              currentPage={config.currentPage}
-              prevButtonDisabled={config.currentPage === 1}
+              currentPage={config.mannualListCurrentPage}
+              prevButtonDisabled={config.mannualListCurrentPage === 1}
               nextButtonDisabled={isMaxPage}
               onPagePress={() => {
                 showJumpPageDialog({
-                  currentPage: config.currentPage - 1,
+                  currentPage: config.mannualListCurrentPage - 1,
                   maxPage,
                   onConfirm: (page) => {
                     setConfig((prev) => ({
                       ...prev,
-                      currentPage: page,
+                      mannualListCurrentPage: page,
                     }));
                   },
                 });
               }}
               onPrevPagePress={() => {
                 setConfig((prev) => {
-                  if (prev.currentPage === 0) return prev;
+                  if (prev.mannualListCurrentPage === 0) return prev;
                   return {
                     ...prev,
-                    currentPage: prev.currentPage - 1,
+                    mannualListCurrentPage: prev.mannualListCurrentPage - 1,
                   };
                 });
               }}
@@ -461,7 +464,7 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
                   if (isMaxPage) return prev;
                   return {
                     ...prev,
-                    currentPage: prev.currentPage + 1,
+                    mannualListCurrentPage: prev.mannualListCurrentPage + 1,
                   };
                 });
               }}
