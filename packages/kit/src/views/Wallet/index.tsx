@@ -97,9 +97,11 @@ const WalletTabs: FC = () => {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     backgroundApiProxy.serviceOverview.refreshCurrentAccount().finally(() => {
-      setTimeout(() => setRefreshing(false), 10);
+      setTimeout(() => setRefreshing(false), 50);
     });
   }, []);
+
+  const timer = useRef<ReturnType<typeof setTimeout>>();
 
   const walletTabs = (
     <>
@@ -110,7 +112,10 @@ const WalletTabs: FC = () => {
         onRefresh={onRefresh}
         onIndexChange={(index: number) => {
           defaultIndexRef.current = index;
-          onIndexChange(index);
+          clearTimeout(timer.current);
+          timer.current = setTimeout(() => {
+            onIndexChange(defaultIndexRef.current);
+          }, 500);
         }}
         renderHeader={AccountHeader}
         headerHeight={
