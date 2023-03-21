@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { getNextAccountId } from '@onekeyhq/engine/src/managers/derivation';
 import type { IAccount } from '@onekeyhq/engine/src/types';
@@ -5,6 +7,7 @@ import type {
   Account,
   DBUTXOAccount,
 } from '@onekeyhq/engine/src/types/account';
+import type VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import {
   backgroundClass,
   backgroundMethod,
@@ -181,5 +184,32 @@ export default class ServiceDerivationPath extends ServiceBase {
       });
     }
     console.log(accounts);
+  }
+
+  @backgroundMethod()
+  async fetchCustomAddressBalance({
+    networkId,
+    accountId,
+    addresses,
+    decimals,
+  }: {
+    networkId: string;
+    accountId: string;
+    addresses: string[];
+    decimals: number;
+  }) {
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as unknown as VaultBtcFork;
+    const balances = await vault.getBalancesByAddress(
+      addresses.map((i) => ({ address: i })),
+    );
+    return addresses.map((address, index) => ({
+      address,
+      balance: new BigNumber(balances[index] ?? 0)
+        .shiftedBy(decimals)
+        .toFixed(),
+    }));
   }
 }

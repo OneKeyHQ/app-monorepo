@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -9,16 +9,24 @@ import {
   Center,
   IconButton,
   Modal,
+  SegmentedControl,
   Spinner,
   Token,
 } from '@onekeyhq/components';
-import type { BtcForkChainUsedAccount } from '@onekeyhq/engine/src/types/account';
+import type {
+  Account,
+  BtcForkChainUsedAccount,
+} from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../hooks';
 import { useRuntime } from '../../../hooks/redux';
+import { deviceUtils } from '../../../utils/hardware';
 
-import BitcoinUsedAddressList from './BitcoinUsedAddressList';
+import {
+  BitcoinMannualAddedAddressList,
+  BitcoinUsedAddressList,
+} from './BitcoinUsedAddressList';
 import BitcoinUsedAddressMenu from './BitcoinUsedAddressMenu';
 
 import type {
@@ -63,9 +71,8 @@ const BitcoinUsedAddress: FC = () => {
   const route = useRoute<RouteProps>();
   const { networkId, accountId, walletId } = route.params;
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { networks, accounts } = useRuntime();
+  const { networks } = useRuntime();
   const network = networks.find((n) => n.id === networkId);
-  const account = accounts.find((i) => i.id === accountId);
 
   const isFetchingDataRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -77,10 +84,30 @@ const BitcoinUsedAddress: FC = () => {
     currentPage: 1,
   });
   const [dataSource, setDataSource] = useState<BtcForkChainUsedAccount[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [showSegmentedControl, setShowSegmentedControl] = useState(false);
+  const [account, setAccount] = useState<Account | null>(null);
+
+  const refreshAccount = useCallback(async () => {
+    const searchAccount = await backgroundApiProxy.engine.getAccount(
+      accountId,
+      networkId,
+    );
+    setAccount(searchAccount);
+    setShowSegmentedControl(
+      Object.keys(searchAccount.customAddresses ?? {}).length > 0,
+    );
+  }, [accountId, networkId]);
+
+  useEffect(() => {
+    if (!account) {
+      refreshAccount();
+    }
+  }, [refreshAccount, account]);
 
   useEffect(() => {
     if (isFetchingDataRef.current) return;
-    isFetchingDataRef.current = false;
+    isFetchingDataRef.current = true;
     setIsLoading(true);
     backgroundApiProxy.serviceDerivationPath
       .getAllUsedAddress({
@@ -93,6 +120,47 @@ const BitcoinUsedAddress: FC = () => {
         setIsLoading(false);
       });
   }, [networkId, accountId]);
+
+  const customAddressCache: Record<string, string> = {};
+  const fetchAddressBalance = useCallback(
+    async (addresses: string[]) => {
+      isFetchingDataRef.current = true;
+      try {
+        if (addresses.every((address) => customAddressCache[address])) {
+          return addresses.map((address) => ({
+            address,
+            balance: customAddressCache[address],
+          }));
+        }
+        const filterAddresses = addresses.filter(
+          (addr) => !customAddressCache[addr],
+        );
+        const data =
+          await backgroundApiProxy.serviceDerivationPath.fetchCustomAddressBalance(
+            {
+              networkId,
+              accountId,
+              addresses: filterAddresses,
+              decimals: network?.decimals ?? 8,
+            },
+          );
+        data.forEach((item) => {
+          customAddressCache[item.address] = item.balance;
+        });
+        return addresses.map((addr) => ({
+          address: addr,
+          balance: customAddressCache[addr],
+        }));
+      } catch (e) {
+        deviceUtils.showErrorToast(e);
+        return [];
+      } finally {
+        isFetchingDataRef.current = false;
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [accountId, networkId, network?.decimals],
+  );
 
   return (
     <Modal
@@ -113,6 +181,7 @@ const BitcoinUsedAddress: FC = () => {
             const newConfig = { ...config, showPath: isChecked };
             setConfig(newConfig);
           }}
+          onAddedCustomAddressCallback={refreshAccount}
         >
           <IconButton
             type="plain"
@@ -130,12 +199,36 @@ const BitcoinUsedAddress: FC = () => {
         </Center>
       ) : (
         <Box flex={1}>
-          <BitcoinUsedAddressList
-            config={config}
-            network={network}
-            dataSource={dataSource}
-            setConfig={setConfig}
-          />
+          {showSegmentedControl && (
+            <Box mb={4}>
+              <SegmentedControl
+                values={[
+                  intl.formatMessage({ id: 'form__automatic' }),
+                  intl.formatMessage({ id: 'form__mannual_added' }),
+                ]}
+                selectedIndex={selectedIndex}
+                onChange={setSelectedIndex}
+              />
+            </Box>
+          )}
+          {selectedIndex === 0 && (
+            <BitcoinUsedAddressList
+              config={config}
+              network={network}
+              dataSource={dataSource}
+              setConfig={setConfig}
+            />
+          )}
+          {selectedIndex === 1 && account && (
+            <BitcoinMannualAddedAddressList
+              account={account}
+              config={config}
+              network={network}
+              dataSource={dataSource}
+              setConfig={setConfig}
+              onRequestBalances={fetchAddressBalance}
+            />
+          )}
         </Box>
       )}
     </Modal>

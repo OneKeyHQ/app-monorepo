@@ -1,5 +1,5 @@
 import type { ComponentProps, Dispatch, FC, SetStateAction } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,10 +11,14 @@ import {
   IconButton,
   List,
   ListItem,
+  Spinner,
   Text,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import type { BtcForkChainUsedAccount } from '@onekeyhq/engine/src/types/account';
+import type {
+  Account,
+  BtcForkChainUsedAccount,
+} from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -25,14 +29,14 @@ import { showJumpPageDialog } from './JumpPage';
 
 import type { ListRenderItemInfo } from 'react-native';
 
+const USED_ADDRESS_PAGE_SIZE = 50;
+const MANNUAL_ADDED_ADDRESS_PAGE_SIZE = 10;
+
 type ListTableHeaderProps = {
-  symbol: string;
-  showPath: boolean;
+  valueLabel: string;
 } & ComponentProps<typeof Box>;
 
-const PAGE_SIZE = 50;
-
-const ListTableHeader: FC<ListTableHeaderProps> = () => {
+const ListTableHeader: FC<ListTableHeaderProps> = ({ valueLabel }) => {
   const intl = useIntl();
 
   return (
@@ -47,7 +51,7 @@ const ListTableHeader: FC<ListTableHeaderProps> = () => {
       <ListItem.Column
         alignItems="flex-end"
         text={{
-          label: intl.formatMessage({ id: 'form__total_received' }),
+          label: valueLabel,
           labelProps: {
             typography: 'Subheading',
             textAlign: 'right',
@@ -88,7 +92,7 @@ const AccountCell: FC<CellProps> = ({ item, symbol, network, showPath }) => (
     <ListItem.Column>
       <Box alignItems="flex-end" flex={1}>
         <FormatBalance
-          balance={item.displayTotalReceived}
+          balance={item.displayTotalReceived ?? item.balance}
           formatOptions={{
             fixed: item.decimals ?? network?.decimals,
           }}
@@ -182,13 +186,12 @@ const ListTableFooter: FC<ListTableFooterProps> = ({
   </Center>
 );
 
-type IUsedAddressListProps = {
+type IListCommonProps = {
   network?: Network;
   config: {
     showPath: boolean;
     currentPage: number;
   };
-  dataSource: BtcForkChainUsedAccount[];
   setConfig: Dispatch<
     SetStateAction<{
       showPath: boolean;
@@ -197,14 +200,19 @@ type IUsedAddressListProps = {
   >;
 };
 
+type IUsedAddressListProps = IListCommonProps & {
+  dataSource: BtcForkChainUsedAccount[];
+};
+
 const BitcoinUsedAddressList: FC<IUsedAddressListProps> = ({
   config,
   network,
   dataSource,
   setConfig,
 }) => {
+  const intl = useIntl();
   const maxPage = useMemo(
-    () => Math.ceil(dataSource.length / PAGE_SIZE),
+    () => Math.ceil(dataSource.length / USED_ADDRESS_PAGE_SIZE),
     [dataSource],
   );
 
@@ -214,8 +222,11 @@ const BitcoinUsedAddressList: FC<IUsedAddressListProps> = ({
   );
 
   const currentPageData = useMemo(() => {
-    const startIndex = (config.currentPage - 1) * PAGE_SIZE;
-    const res = dataSource.slice(startIndex, PAGE_SIZE + startIndex);
+    const startIndex = (config.currentPage - 1) * USED_ADDRESS_PAGE_SIZE;
+    const res = dataSource.slice(
+      startIndex,
+      USED_ADDRESS_PAGE_SIZE + startIndex,
+    );
     return res;
   }, [config.currentPage, dataSource]);
 
@@ -242,8 +253,7 @@ const BitcoinUsedAddressList: FC<IUsedAddressListProps> = ({
   return (
     <>
       <ListTableHeader
-        symbol={network?.symbol ?? ''}
-        showPath={config.showPath}
+        valueLabel={intl.formatMessage({ id: 'form__total_received' })}
       />
       <List
         data={currentPageData}
@@ -293,4 +303,174 @@ const BitcoinUsedAddressList: FC<IUsedAddressListProps> = ({
   );
 };
 
-export default BitcoinUsedAddressList;
+type IMannualAddedAddressListProps = IListCommonProps & {
+  account: Account;
+  dataSource: BtcForkChainUsedAccount[];
+  onRequestBalances: (
+    addresses: string[],
+  ) => Promise<{ address: string; balance: string }[]>;
+};
+
+const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
+  config,
+  network,
+  setConfig,
+  account,
+  onRequestBalances,
+}) => {
+  const intl = useIntl();
+  const dataSource = useMemo(
+    () => Object.keys(account.customAddresses ?? {}),
+    [account],
+  );
+  const maxPage = useMemo(
+    () => Math.ceil(dataSource.length / MANNUAL_ADDED_ADDRESS_PAGE_SIZE),
+    [dataSource],
+  );
+
+  const isMaxPage = useMemo(
+    () => config.currentPage >= maxPage,
+    [config.currentPage, maxPage],
+  );
+
+  const currentPageAddresses = useMemo(() => {
+    const startIndex =
+      (config.currentPage - 1) * MANNUAL_ADDED_ADDRESS_PAGE_SIZE;
+    const suffixPaths = dataSource.slice(
+      startIndex,
+      MANNUAL_ADDED_ADDRESS_PAGE_SIZE + startIndex,
+    );
+    return suffixPaths
+      .map((path) => account.customAddresses?.[path])
+      .filter(Boolean);
+  }, [config.currentPage, dataSource, account.customAddresses]);
+
+  const [currentPageData, setCurrentPageData] = useState<
+    { address: string; balance: string; path: string }[]
+  >([]);
+
+  const isFetchingRef = useRef(false);
+  const [isLoading, setIsLoading] = useState(false);
+  useEffect(() => {
+    if (isFetchingRef.current) return;
+    if (!currentPageAddresses.length) {
+      setCurrentPageData([]);
+      return;
+    }
+    if (
+      currentPageData.length === currentPageAddresses.length &&
+      currentPageData.every((i) => currentPageAddresses.includes(i.address))
+    ) {
+      return;
+    }
+    isFetchingRef.current = true;
+    setIsLoading(true);
+    onRequestBalances(currentPageAddresses)
+      .then((res) => {
+        const data = res.map((item) => {
+          const pathIndex = Object.values(
+            account.customAddresses ?? {},
+          ).findIndex((addr) => addr === item.address);
+          const sufficPath = Object.keys(account.customAddresses ?? {})[
+            pathIndex
+          ];
+          const path = `${account.path}/${sufficPath}`;
+          return { ...item, name: item.address, path };
+        });
+
+        setCurrentPageData(data);
+      })
+      .finally(() => {
+        isFetchingRef.current = false;
+        setIsLoading(false);
+      });
+  }, [
+    currentPageAddresses,
+    account.customAddresses,
+    account.path,
+    currentPageData,
+    onRequestBalances,
+  ]);
+
+  const itemSeparatorComponent = useCallback(
+    () => (
+      <>
+        {!config.showPath && platformEnv.isNative ? <Box h="8px" /> : undefined}
+      </>
+    ),
+    [config.showPath],
+  );
+  const rowRenderer = useCallback(
+    ({ item }: ListRenderItemInfo<BtcForkChainUsedAccount>) => (
+      <AccountCell
+        network={network}
+        symbol={network?.symbol}
+        showPath={config.showPath}
+        flex={1}
+        item={item}
+      />
+    ),
+    [network, config.showPath],
+  );
+  return (
+    <>
+      {isLoading ? (
+        <Center flex={1}>
+          <Spinner size="lg" />
+        </Center>
+      ) : (
+        <>
+          <ListTableHeader
+            valueLabel={intl.formatMessage({ id: 'form__balance' })}
+          />
+          <List
+            data={currentPageData as any}
+            renderItem={rowRenderer}
+            keyExtractor={(item: BtcForkChainUsedAccount) => `${item.path}`}
+            showsVerticalScrollIndicator={false}
+            ItemSeparatorComponent={itemSeparatorComponent}
+          />
+          {maxPage > 1 && (
+            <ListTableFooter
+              currentPage={config.currentPage}
+              prevButtonDisabled={config.currentPage === 1}
+              nextButtonDisabled={isMaxPage}
+              onPagePress={() => {
+                showJumpPageDialog({
+                  currentPage: config.currentPage - 1,
+                  maxPage,
+                  onConfirm: (page) => {
+                    setConfig((prev) => ({
+                      ...prev,
+                      currentPage: page,
+                    }));
+                  },
+                });
+              }}
+              onPrevPagePress={() => {
+                setConfig((prev) => {
+                  if (prev.currentPage === 0) return prev;
+                  return {
+                    ...prev,
+                    currentPage: prev.currentPage - 1,
+                  };
+                });
+              }}
+              onNextPagePress={() => {
+                setConfig((prev) => {
+                  if (isMaxPage) return prev;
+                  return {
+                    ...prev,
+                    currentPage: prev.currentPage + 1,
+                  };
+                });
+              }}
+            />
+          )}
+        </>
+      )}
+    </>
+  );
+};
+
+export { BitcoinUsedAddressList, BitcoinMannualAddedAddressList };

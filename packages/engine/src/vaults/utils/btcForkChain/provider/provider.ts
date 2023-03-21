@@ -428,6 +428,16 @@ class Provider {
     );
   }
 
+  getBalancesByAddress(
+    requests: { address: string }[],
+  ): Promise<(BigNumber | undefined)[]> {
+    return this.blockbook.then((client) =>
+      Promise.all(
+        requests.map(({ address }) => client.getBalanceByAddress(address)),
+      ),
+    );
+  }
+
   getUTXOs = memoziee(
     async (xpub: string) =>
       this.blockbook.then((client) => client.getUTXOs(xpub)),

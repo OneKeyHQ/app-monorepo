@@ -33,9 +33,17 @@ const BitcoinUsedAddressMenu: FC<
     walletId: string;
     networkId: string;
     accountId: string;
+    onAddedCustomAddressCallback: () => void;
   }
 > = (props) => {
-  const { showPath, onChange, walletId, networkId, accountId } = props;
+  const {
+    showPath,
+    onChange,
+    walletId,
+    networkId,
+    accountId,
+    onAddedCustomAddressCallback,
+  } = props;
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const onPressShowPath = useCallback(() => {
@@ -65,6 +73,7 @@ const BitcoinUsedAddressMenu: FC<
             template: derivationOption?.template ?? '',
           },
         );
+        onAddedCustomAddressCallback();
       } catch (e) {
         deviceUtils.showErrorToast(e);
       } finally {

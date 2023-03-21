@@ -146,6 +146,7 @@ export default class VaultBtcFork extends VaultBase {
       address: dbAccount.address,
       xpub: this.getAccountXpub(dbAccount as DBUTXOAccount),
       template: dbAccount.template,
+      customAddresses: (dbAccount as DBUTXOAccount).customAddresses,
     };
   }
 
@@ -255,6 +256,12 @@ export default class VaultBtcFork extends VaultBase {
     requests: { address: string; tokenAddress?: string | undefined }[],
   ): Promise<(BigNumber | undefined)[]> {
     return (await this.getProvider()).getBalances(requests);
+  }
+
+  async getBalancesByAddress(
+    requests: { address: string; tokenAddress?: string | undefined }[],
+  ): Promise<(BigNumber | undefined)[]> {
+    return (await this.getProvider()).getBalancesByAddress(requests);
   }
 
   async getExportedCredential(password: string): Promise<string> {
