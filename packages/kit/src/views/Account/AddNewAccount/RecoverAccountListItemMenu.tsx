@@ -42,7 +42,7 @@ const RecoverAccountListItemMenu: FC<
         icon: 'Square2StackOutline',
       },
       {
-        id: 'action__open_blockchain_browser',
+        id: 'action__view_in_browser',
         onPress: onOpenBlockChainBrowser,
         icon: 'GlobeAltOutline',
       },

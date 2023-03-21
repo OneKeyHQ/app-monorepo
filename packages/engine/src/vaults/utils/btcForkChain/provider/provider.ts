@@ -46,6 +46,11 @@ type GetAccountParams =
       xpub: string;
     };
 
+type GetAccountWithAddressParams = {
+  type: 'simple';
+  address: string;
+};
+
 type ErrorType = undefined | string | Error;
 const check = (statement: any, orError?: ErrorType) => {
   let error;
@@ -251,6 +256,21 @@ class Provider {
 
     return this.blockbook.then((client) =>
       client.getAccount(usedXpub, requestParams),
+    );
+  }
+
+  getAccountWithAddress(params: GetAccountWithAddressParams) {
+    let requestParams = {};
+    switch (params.type) {
+      case 'simple':
+        requestParams = { details: 'basic' };
+        break;
+      default:
+      // no-op
+    }
+
+    return this.blockbook.then((client) =>
+      client.getAccountWithAddress(params.address, requestParams),
     );
   }
 

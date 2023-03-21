@@ -333,6 +333,12 @@ export type IPrepareAccountsParams =
 export type IHardwareGetAddressParams = {
   path: string;
   showOnOneKey: boolean;
+  /**
+   * for btc like chain, wheh isTemplatePath is true, param path is whole path
+   * e.g., isTemplatePath = false, then the path is m/44'/0'/0'
+   *       isTemplatePath = true, then the path is m/44'/0'/0'/0/0
+   */
+  isTemplatePath?: boolean;
 };
 
 export type IGetAddressParams = IHardwareGetAddressParams;
