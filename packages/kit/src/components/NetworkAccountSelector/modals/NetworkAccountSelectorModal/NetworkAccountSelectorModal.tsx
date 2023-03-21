@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-types */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,6 +10,7 @@ import { useAccountSelectorModalInfo } from '../../hooks/useAccountSelectorModal
 
 import AccountList from './AccountList';
 import Header from './Header';
+import { getNetWorkExtraInfo } from './NetworkExtraInfo';
 import SideChainSelector from './SideChainSelector';
 
 function NetworkAccountSelectorModal() {
@@ -21,6 +22,23 @@ function NetworkAccountSelectorModal() {
 
   const { accountSelectorInfo, shouldShowModal } =
     useAccountSelectorModalInfo();
+
+  const NetworkExtraInfo = useMemo(() => {
+    const hasNetworkExtraInfo =
+      accountSelectorInfo.activeNetwork?.settings.hasNetworkExtraInfo;
+    if (hasNetworkExtraInfo) {
+      return getNetWorkExtraInfo({
+        accountId: accountSelectorInfo.activeAccount?.id,
+        networkId: accountSelectorInfo.activeNetwork?.id,
+      });
+    }
+    return null;
+  }, [
+    accountSelectorInfo.activeAccount,
+    accountSelectorInfo.activeNetwork?.id,
+    accountSelectorInfo.activeNetwork?.settings.hasNetworkExtraInfo,
+  ]);
+
   if (!shouldShowModal) {
     return null;
   }
@@ -71,7 +89,16 @@ function NetworkAccountSelectorModal() {
               accountSelectorInfo={accountSelectorInfo}
               showCustomLegacyHeader={showCustomLegacyHeader}
             />
-            <AccountList accountSelectorInfo={accountSelectorInfo} />
+            {NetworkExtraInfo ? (
+              <>
+                <Box>
+                  <AccountList accountSelectorInfo={accountSelectorInfo} />
+                </Box>
+                <NetworkExtraInfo />
+              </>
+            ) : (
+              <AccountList accountSelectorInfo={accountSelectorInfo} />
+            )}
           </Box>
         </Box>
       </LazyDisplayView>

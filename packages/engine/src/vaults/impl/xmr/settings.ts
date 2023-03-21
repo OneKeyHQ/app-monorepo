@@ -25,6 +25,7 @@ const settings: IVaultSettings = Object.freeze({
   validationRequired: true,
   disabledInExtension: true,
   enabledInDevModeOnly: true,
+  hasNetworkExtraInfo: true,
 
   accountNameInfo: {
     default: {
