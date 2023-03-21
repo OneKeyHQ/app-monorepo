@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Center,
+  Empty,
   IconButton,
   Modal,
   SegmentedControl,
@@ -102,7 +103,7 @@ const BitcoinUsedAddress: FC = () => {
     );
     setAccount(searchAccount);
     setShowSegmentedControl(
-      Object.keys(searchAccount.customAddresses ?? {}).length > 0,
+      Object.keys(JSON.parse(searchAccount.customAddresses ?? '{}')).length > 0,
     );
   }, [accountId, networkId]);
 
@@ -178,6 +179,7 @@ const BitcoinUsedAddress: FC = () => {
           accountName={account?.name ?? ''}
         />
       }
+      height="640px"
       rightContent={
         <BitcoinUsedAddressMenu
           walletId={walletId}
@@ -218,14 +220,24 @@ const BitcoinUsedAddress: FC = () => {
               />
             </Box>
           )}
-          {selectedIndex === 0 && (
-            <BitcoinUsedAddressList
-              config={config}
-              network={network}
-              dataSource={dataSource}
-              setConfig={setConfig}
-            />
-          )}
+          {selectedIndex === 0 &&
+            (dataSource.length > 0 ? (
+              <BitcoinUsedAddressList
+                config={config}
+                network={network}
+                dataSource={dataSource}
+                setConfig={setConfig}
+              />
+            ) : (
+              <Center flex={1}>
+                <Empty
+                  emoji="💳"
+                  title={intl.formatMessage({
+                    id: 'empty__no_account_title',
+                  })}
+                />
+              </Center>
+            ))}
           {selectedIndex === 1 && account && (
             <BitcoinMannualAddedAddressList
               account={account}

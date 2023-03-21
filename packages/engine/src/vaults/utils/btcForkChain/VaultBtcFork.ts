@@ -146,7 +146,9 @@ export default class VaultBtcFork extends VaultBase {
       address: dbAccount.address,
       xpub: this.getAccountXpub(dbAccount as DBUTXOAccount),
       template: dbAccount.template,
-      customAddresses: (dbAccount as DBUTXOAccount).customAddresses,
+      customAddresses: JSON.stringify(
+        (dbAccount as DBUTXOAccount).customAddresses,
+      ),
     };
   }
 

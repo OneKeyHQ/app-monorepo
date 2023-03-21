@@ -342,9 +342,24 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
   onRefreshAccount,
 }) => {
   const intl = useIntl();
+
+  const customAddresses = useMemo<Record<string, string>>(() => {
+    try {
+      if (typeof account.customAddresses === 'string') {
+        return JSON.parse(account.customAddresses) as Record<string, string>;
+      }
+      if (typeof account.customAddresses === 'object') {
+        return account.customAddresses;
+      }
+      return {};
+    } catch {
+      return {};
+    }
+  }, [account.customAddresses]);
+
   const dataSource = useMemo(
-    () => Object.keys(account.customAddresses ?? {}),
-    [account],
+    () => Object.keys(customAddresses ?? {}),
+    [customAddresses],
   );
   const maxPage = useMemo(
     () => Math.ceil(dataSource.length / MANNUAL_ADDED_ADDRESS_PAGE_SIZE),
@@ -363,10 +378,8 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
       startIndex,
       MANNUAL_ADDED_ADDRESS_PAGE_SIZE + startIndex,
     );
-    return suffixPaths
-      .map((path) => account.customAddresses?.[path])
-      .filter(Boolean);
-  }, [config.mannualListCurrentPage, dataSource, account.customAddresses]);
+    return suffixPaths.map((path) => customAddresses[path]).filter(Boolean);
+  }, [config.mannualListCurrentPage, dataSource, customAddresses]);
 
   const [currentPageData, setCurrentPageData] = useState<
     { address: string; balance: string; path: string }[]
@@ -391,12 +404,10 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
     onRequestBalances(currentPageAddresses)
       .then((res) => {
         const data = res.map((item) => {
-          const pathIndex = Object.values(
-            account.customAddresses ?? {},
-          ).findIndex((addr) => addr === item.address);
-          const suffixPath = Object.keys(account.customAddresses ?? {})[
-            pathIndex
-          ];
+          const pathIndex = Object.values(customAddresses ?? {}).findIndex(
+            (addr) => addr === item.address,
+          );
+          const suffixPath = Object.keys(customAddresses ?? {})[pathIndex];
           const path = `${account.path}/${suffixPath}`;
           return { ...item, name: item.address, path, suffixPath };
         });
@@ -409,7 +420,7 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
       });
   }, [
     currentPageAddresses,
-    account.customAddresses,
+    customAddresses,
     account.path,
     currentPageData,
     onRequestBalances,
