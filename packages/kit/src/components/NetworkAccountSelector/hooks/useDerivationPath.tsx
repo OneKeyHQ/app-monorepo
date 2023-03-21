@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import type { AccountNameInfo } from '@onekeyhq/engine/src/types/network';
+import { IMPL_ADA } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../hooks';
@@ -26,8 +27,11 @@ export function useDerivationPath(
 
   const isUTXOModel = useMemo(() => network?.settings.isUTXOModel, [network]);
 
+  const showTemplate = !isUTXOModel || network?.impl === IMPL_ADA;
+
   return {
     derivationOptions,
     isUTXOModel,
+    showTemplate,
   };
 }

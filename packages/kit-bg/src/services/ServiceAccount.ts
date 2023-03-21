@@ -1,7 +1,10 @@
 import { find, flatten } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
+import {
+  OneKeyAlreadyExistWalletError,
+  OneKeyErrorClassNames,
+} from '@onekeyhq/engine/src/errors';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import {
   generateNetworkIdByChainId,
@@ -41,6 +44,7 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/status';
 import { DeviceNotOpenedPassphrase } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { wait } from '@onekeyhq/kit/src/utils/helper';
+import { getNetworkIdImpl } from '@onekeyhq/kit/src/views/Swap/utils';
 import {
   backgroundClass,
   backgroundMethod,
@@ -49,9 +53,9 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   COINTYPE_ETH,
+  IMPL_ADA,
   IMPL_CFX,
   IMPL_COSMOS,
-  IMPL_DOT,
   IMPL_FIL,
   IMPL_XMR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -945,6 +949,7 @@ class ServiceAccount extends ServiceBase {
         }
       } catch (error) {
         // TODO need to handle this error
+        [account] = await engine.getAccounts(wallet.accounts);
       }
     }
 
@@ -972,12 +977,20 @@ class ServiceAccount extends ServiceBase {
     const networkId = appSelector((s) => s.general.activeNetworkId) || '';
     const wallets: Wallet[] = appSelector((s) => s.runtime.wallets);
 
+    const networkImpl = getNetworkIdImpl(networkId);
+
     const existDeviceId = devices.find(
       (device) =>
         device.mac === connectId && device.deviceId === features.device_id,
     )?.id;
 
-    const passphraseState = await serviceHardware.getPassphraseState(connectId);
+    const useAda = networkImpl === IMPL_ADA;
+
+    const passphraseState = await serviceHardware.getPassphraseState(
+      connectId,
+      undefined,
+      useAda,
+    );
     if (!!onlyPassphrase && !passphraseState) {
       throw new DeviceNotOpenedPassphrase({
         connectId,
@@ -1036,14 +1049,14 @@ class ServiceAccount extends ServiceBase {
           actions.push(rememberPassphraseWallet(result?.wallet?.id));
       }
     } else if (!passphraseState && walletNormalExist) {
-      const [account] = await engine.getAccounts(
-        walletNormalExist.accounts,
-        networkId,
+      serviceAccount.autoChangeAccount({
+        walletId: walletNormalExist.id ?? null,
+      });
+
+      throw new OneKeyAlreadyExistWalletError(
+        walletNormalExist.id,
+        walletNormalExist.name,
       );
-      result = {
-        wallet: walletNormalExist,
-        accountId: account?.id ?? null,
-      };
     }
 
     const status: { boardingCompleted: boolean } = appSelector((s) => s.status);

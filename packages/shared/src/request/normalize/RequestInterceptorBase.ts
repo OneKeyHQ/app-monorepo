@@ -14,6 +14,8 @@ function isOneKeyUrl({ url }: { url: string }) {
     'onekey.so',
     'onekeycn.com',
     'onekeytest.com',
+    'localhost',
+    '192.168',
     // 'onekey-asset.com',
   ];
   for (const host of hosts) {

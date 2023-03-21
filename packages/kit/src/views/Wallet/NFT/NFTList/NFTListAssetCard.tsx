@@ -15,10 +15,9 @@ import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useNFTSymbolPrice } from '../../../../hooks/useTokens';
+import { useTokenPrice } from '../../../../hooks/useTokens';
 import { convertToMoneyFormat } from '../utils';
 
-import { useNFTListContent } from './NFTListContent';
 import NFTListImage from './NFTListImage';
 
 type Props = ComponentProps<typeof Box> & {
@@ -29,9 +28,12 @@ type Props = ComponentProps<typeof Box> & {
 const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
-  const nftContent = useNFTListContent();
   const { network } = useActiveWalletAccount();
-  const symbolPrice = useNFTSymbolPrice({ networkId: network?.id ?? '' });
+  const symbolPrice = useTokenPrice({
+    networkId: network?.id ?? '',
+    tokenIdOnNetwork: '',
+    vsCurrency: 'usd',
+  });
 
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
@@ -46,7 +48,7 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
   const { themeVariant } = useTheme();
   const { latestTradePrice } = asset;
 
-  const price = nftContent?.context.price ?? symbolPrice ?? 0;
+  const price = symbolPrice ?? 0;
   const value = price * (latestTradePrice ?? 0);
 
   const AmountTag = useMemo(() => {
@@ -82,8 +84,6 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
         _hover={{ bg: 'surface-hovered' }}
         onPress={() => {
           if (onSelectAsset) {
-            console.log('latestTradePrice = ', latestTradePrice);
-
             onSelectAsset(asset);
           }
         }}

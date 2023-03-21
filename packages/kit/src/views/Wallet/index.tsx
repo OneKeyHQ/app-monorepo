@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/kit/src/hooks/redux';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
@@ -176,7 +177,17 @@ const WalletTabs: FC = () => {
   if (network?.settings.validationRequired) {
     return (
       <Center w="full" h="full">
-        <Protected walletId={wallet.id} field={ValidationFields.Account}>
+        <Protected
+          walletId={wallet.id}
+          field={ValidationFields.Account}
+          placeCenter={!platformEnv.isNative}
+          subTitle={intl.formatMessage(
+            {
+              id: 'title__password_verification_is_required_to_view_account_details_on_str',
+            },
+            { '0': network.name },
+          )}
+        >
           {() => walletTabs}
         </Protected>
       </Center>

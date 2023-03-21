@@ -21,9 +21,12 @@ import {
   Text,
   ToastManager,
 } from '@onekeyhq/components';
+import DialogManager from '@onekeyhq/components/src/DialogManager';
 import { MigrateErrorCode } from '@onekeyhq/engine/src/types/migrate';
 import type { DeviceInfo } from '@onekeyhq/engine/src/types/migrate';
+import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
@@ -88,9 +91,20 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
       setTimeout(() => {
         serviceMigrate.connectServer(serverAddress).then((data) => {
           if (data) {
-            serverRef.current = data;
-            updateToData(data);
-            updateConnectStatus(ConnectStatus.Success);
+            if (typeof data === 'string') {
+              if (data === 'ERR_NETWORK') {
+                if (platformEnv.isNativeIOS) {
+                  DialogManager.show({
+                    render: <PermissionDialog type="localNetwork" />,
+                  });
+                }
+              }
+              updateConnectStatus(ConnectStatus.Fail);
+            } else {
+              serverRef.current = data;
+              updateToData(data);
+              updateConnectStatus(ConnectStatus.Success);
+            }
           } else {
             updateConnectStatus(ConnectStatus.Fail);
           }

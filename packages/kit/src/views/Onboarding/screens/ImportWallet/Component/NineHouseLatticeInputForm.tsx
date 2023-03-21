@@ -244,7 +244,10 @@ export const NineHouseLatticeInputForm: FC<NineHouseLatticeInputFormProps> = ({
                     setFocusInputName(`${index}`);
                     const valueText = e?.nativeEvent?.text;
                     if (typeof valueText === 'string') {
-                      onChangeText(valueText);
+                      // when paste set value will trigger onChange event to this onchangeText code  does not execute
+                      setTimeout(() => {
+                        onChangeText(valueText);
+                      }, 0);
                     }
                   }}
                   {...register(`${index}`)}

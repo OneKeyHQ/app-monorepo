@@ -10,22 +10,23 @@ import type { ReceiverError } from '../types';
 const MAX_ERROR_DISPLAY = 3;
 
 interface Props {
-  errors: ReceiverError[];
+  receiverErrors: ReceiverError[];
+  showFileError: boolean;
 }
 
 function ReceiverErrors(props: Props) {
-  const { errors } = props;
+  const { receiverErrors, showFileError } = props;
   const intl = useIntl();
 
-  const errorsDisplayed = useMemo(() => {
+  const receiverErrorsDisplayed = useMemo(() => {
     const result = [];
-    const errorCount = errors.length;
+    const errorCount = receiverErrors.length;
     for (
       let i = 0, len = BigNumber.min(errorCount, MAX_ERROR_DISPLAY).toNumber();
       i < len;
       i += 1
     ) {
-      const error = errors[i];
+      const error = receiverErrors[i];
       result.push(
         <HStack space="10px" alignItems="center" key={error.lineNumber}>
           <Icon
@@ -67,9 +68,27 @@ function ReceiverErrors(props: Props) {
       );
     }
     return result;
-  }, [errors, intl]);
+  }, [receiverErrors, intl]);
 
-  return <>{errorsDisplayed}</>;
+  return (
+    <>
+      {showFileError && (
+        <HStack space="10px" alignItems="center">
+          <Icon
+            name="InformationCircleOutline"
+            size={12}
+            color="icon-warning"
+          />
+          <Text typography="Caption" color="text-warning" fontSize={12}>
+            {intl.formatMessage({
+              'id': 'msg__the_content_format_of_the_upload_file_is_incorrect',
+            })}
+          </Text>
+        </HStack>
+      )}
+      {receiverErrorsDisplayed}
+    </>
+  );
 }
 
 export { ReceiverErrors };

@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { BackHandler, StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedStyle,
@@ -10,6 +10,7 @@ import Animated, {
 import { Box, Pressable, useSafeAreaInsets } from '@onekeyhq/components';
 
 import DelayedFreeze from '../../../../components/DelayedFreeze';
+import useBackHandler from '../../../../hooks/useBackHandler';
 import { useWebTabs } from '../Controller/useWebTabs';
 import {
   MAX_OR_SHOW,
@@ -62,22 +63,17 @@ const FloatingContainer: FC<
     afterMinimize?.();
   }, [afterMinimize, showContent]);
 
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener(
-      'hardwareBackPress',
-      () => {
-        if (expandAnim.value !== MIN_OR_HIDE) {
-          minimizeFloatingWindow({
-            before: beforeMinimize,
-          });
-          return true;
-        }
-        return false;
-      },
-    );
-
-    return () => subscription.remove();
-  }, [beforeMinimize]);
+  useBackHandler(
+    useCallback(() => {
+      if (expandAnim.value !== MIN_OR_HIDE) {
+        minimizeFloatingWindow({
+          before: beforeMinimize,
+        });
+        return true;
+      }
+      return false;
+    }, [beforeMinimize]),
+  );
 
   useEffect(() => {
     const newTabAdded = tabs.length > lastTabsLength.current;

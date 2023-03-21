@@ -32,7 +32,8 @@ export type PrefType =
   | 'bluetooth'
   | 'location'
   | 'notification'
-  | 'locationService';
+  | 'locationService'
+  | 'localNetwork';
 export type DesktopAPI = {
   on: (channel: string, func: (...args: any[]) => any) => void;
   hello: string;

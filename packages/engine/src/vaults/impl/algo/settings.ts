@@ -1,3 +1,4 @@
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import {
   COINTYPE_ALGO,
   INDEX_PLACEHOLDER,
@@ -27,6 +28,15 @@ const settings: IVaultSettings = Object.freeze({
       coinType: COINTYPE_ALGO,
     },
   },
+
+  txExtraInfo: [
+    {
+      key: 'note',
+      title: 'form__algo__note' as LocaleIds,
+      canCopy: false,
+      isShorten: false,
+    },
+  ],
 });
 
 export default settings;

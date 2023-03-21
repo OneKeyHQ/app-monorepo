@@ -6,6 +6,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useAppSelector, useNavigation } from '../../../hooks';
 import TokenSelector from '../components/TokenSelector';
 import { TokenSelectorContext } from '../components/TokenSelector/context';
+import { useSwapRecipient } from '../hooks/useSwap';
 import { useSwapTokenList } from '../hooks/useSwapTokenUtils';
 
 const Output = () => {
@@ -14,7 +15,7 @@ const Output = () => {
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const outputToken = useAppSelector((s) => s.swap.outputToken);
   const tokenList = useAppSelector((s) => s.swapTransactions.tokenList);
-  const recipient = useAppSelector((s) => s.swap.recipient);
+  const recipient = useSwapRecipient();
 
   const [networkSelectorId, onSelectNetworkId] = useState<string | undefined>(
     () => {

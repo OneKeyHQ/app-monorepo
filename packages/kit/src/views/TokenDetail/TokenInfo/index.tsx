@@ -34,6 +34,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useAccountTokensBalance } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { SWAP_TAB_NAME } from '../../../store/reducers/market';
+import { useShowBookmark } from '../../Discover/hooks';
 import { ManageTokenRoutes } from '../../ManageTokens/types';
 
 import { PriceCurrencyNumber } from './PriceCurrencyNumber';
@@ -48,6 +49,7 @@ export type TokenInfoProps = {
 
 const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
   const intl = useIntl();
+  const showBookmark = useShowBookmark();
   const isVertical = useIsVerticalLayout();
   const { wallet, network, networkId, accountId, account } =
     useActiveWalletAccount();
@@ -108,16 +110,13 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
   );
 
   const onSwap = useCallback(async () => {
-    const targetToken = await backgroundApiProxy.engine.getNativeTokenInfo(
-      network?.id ?? '',
-    );
-
-    if (targetToken) {
-      backgroundApiProxy.serviceSwap.sellToken(targetToken);
+    console.log('token', token);
+    if (token) {
+      backgroundApiProxy.serviceSwap.sellToken(token);
       if (account) {
         backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
         const paymentToken =
-          await backgroundApiProxy.serviceSwap.getPaymentToken(targetToken);
+          await backgroundApiProxy.serviceSwap.getPaymentToken(token);
         if (paymentToken?.networkId === network?.id) {
           backgroundApiProxy.serviceSwap.setRecipientToAccount(
             account,
@@ -132,7 +131,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
     } else {
       navigation.getParent()?.navigate(TabRoutes.Swap);
     }
-  }, [network, account, isVertical, navigation]);
+  }, [network, account, isVertical, navigation, token]);
 
   const renderAccountAmountInfo = useMemo(
     () => (
@@ -282,7 +281,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
             {intl.formatMessage({ id: 'title__swap' })}
           </Typography.CaptionStrong>
         </Box>
-        {isVertical ? null : (
+        {!isVertical && showBookmark ? (
           <>
             {buyUrl.length > 0 && (
               <Box flex={1} mx={3} minW="56px" alignItems="center">
@@ -335,7 +334,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
               </Box>
             )}
           </>
-        )}
+        ) : null}
         {priceReady &&
           !isVertical &&
           isValidCoingeckoId(token?.coingeckoId) && (
@@ -384,6 +383,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
       sendAddress,
       goToWebView,
       onSwap,
+      showBookmark,
     ],
   );
 

@@ -7,7 +7,9 @@ import { useAsync } from 'react-async-hook';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { getPreBaseValue } from '../utils/priceUtils';
@@ -190,57 +192,20 @@ export function useNetworkTokens(networkId?: string) {
   return tokens ?? [];
 }
 
-export const useNFTSymbolPrice = ({
-  networkId,
-}: {
-  networkId?: string | null;
-}) => {
-  const nftSymbolPrice = useAppSelector((s) => s.nft.nftSymbolPrice);
-  const symbolPrice = useMemo(() => {
-    if (networkId) {
-      return nftSymbolPrice[networkId] ?? 0;
-    }
-    return 0;
-  }, [networkId, nftSymbolPrice]);
-  return symbolPrice;
-};
-
-export const useNFTPrice = ({
-  accountId,
-  networkId,
-}: {
-  accountId?: string | null;
-  networkId?: string | null;
-}) => {
-  const { nftPrice, disPlayPriceType } = useAppSelector((s) => s.nft);
-  const symbolPrice = useNFTSymbolPrice({ networkId });
-  const amount = useMemo(() => {
-    if (accountId && networkId) {
-      const accountInfo = nftPrice[accountId];
-      if (accountInfo) {
-        const priceValue = accountInfo[networkId];
-        if (priceValue) {
-          return priceValue[disPlayPriceType];
-        }
-      }
-    }
-    return 0;
-  }, [accountId, disPlayPriceType, networkId, nftPrice]);
-
-  return symbolPrice * amount;
-};
-
 export const useTokenSupportStakedAssets = (
   networkId?: string,
   tokenIdOnNetwork?: string,
-) =>
-  useMemo(
+) => {
+  const { networkId: activeNet } = useActiveWalletAccount();
+  return useMemo(
     () =>
       !tokenIdOnNetwork &&
+      activeNet === networkId &&
       (networkId === OnekeyNetwork.eth || networkId === OnekeyNetwork.goerli),
 
-    [networkId, tokenIdOnNetwork],
+    [activeNet, networkId, tokenIdOnNetwork],
   );
+};
 
 export const useFrozenBalance = ({
   networkId,
@@ -272,7 +237,10 @@ export const useFrozenBalance = ({
           networkId,
           password,
         })
-        .then(setFrozenBalance);
+        .then(setFrozenBalance)
+        .catch((e) => {
+          debugLogger.common.error('getFrozenBalance error', e);
+        });
     })();
   }, [networkId, accountId]);
 
@@ -322,6 +290,7 @@ export const useTokenBalanceWithoutFrozen = ({
   });
 
   return useMemo(() => {
+    if (frozenBalance < 0) return '0';
     const realBalance = new B(balance).minus(frozenBalance);
     if (realBalance.isGreaterThan(0)) {
       return realBalance.toFixed();

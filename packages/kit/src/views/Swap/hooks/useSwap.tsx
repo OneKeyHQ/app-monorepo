@@ -1,22 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useDebounce } from '../../../hooks';
-import {
-  setError,
-  setLoading,
-  setQuote,
-  setQuoteLimited,
-  setResponses,
-} from '../../../store/reducers/swap';
-import { SwapQuoter } from '../quoter';
-import { dangerRefs } from '../refs';
-import { QuoterType, SwapError } from '../typings';
+import { SwapError } from '../typings';
 import {
   formatAmount,
+  getNetworkIdImpl,
   getTokenAmountString,
   getTokenAmountValue,
   greaterThanZeroOrUndefined,
@@ -26,7 +17,7 @@ import { useTokenBalance } from './useSwapTokenUtils';
 import { useSwapSlippage } from './useSwapUtils';
 
 import type { Token } from '../../../store/typings';
-import type { FetchQuoteParams, FetchQuoteResponse } from '../typings';
+import type { FetchQuoteParams } from '../typings';
 
 class TokenAmount {
   amount: BigNumber;
@@ -66,6 +57,40 @@ export function useSwapState() {
   return useAppSelector((s) => s.swap);
 }
 
+export function useSwapRecipient() {
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  const recipient = useAppSelector((s) => s.swap.recipient);
+  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const allowAnotherRecipientAddress = useAppSelector(
+    (s) => s.swap.allowAnotherRecipientAddress,
+  );
+  return useMemo(() => {
+    if (inputToken && outputToken) {
+      const implA = getNetworkIdImpl(inputToken.networkId);
+      const implB = getNetworkIdImpl(outputToken.networkId);
+      if (implA === implB && !allowAnotherRecipientAddress) {
+        if (sendingAccount) {
+          return {
+            accountId: sendingAccount.id,
+            address: sendingAccount.address,
+            name: sendingAccount.name,
+            networkId: inputToken.networkId,
+            networkImpl: inputToken.impl,
+          };
+        }
+      }
+    }
+    return recipient;
+  }, [
+    recipient,
+    sendingAccount,
+    allowAnotherRecipientAddress,
+    inputToken,
+    outputToken,
+  ]);
+}
+
 export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   const { value: swapSlippagePercent } = useSwapSlippage();
   const inputToken = useAppSelector((s) => s.swap.inputToken);
@@ -75,7 +100,8 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   const inputTokenNetwork = useAppSelector((s) => s.swap.inputTokenNetwork);
   const outputTokenNetwork = useAppSelector((s) => s.swap.outputTokenNetwork);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
-  const receivingAddress = useAppSelector((s) => s.swap.recipient?.address);
+  const recipient = useSwapRecipient();
+  const receivingAddress = recipient?.address;
 
   const params = useMemo(() => {
     if (
@@ -114,184 +140,6 @@ export function useSwapQuoteRequestParams(): FetchQuoteParams | undefined {
   ]);
   return useDebounce(params, 500);
 }
-
-export const useSwapQuoteCallback = function (
-  options: { showLoading: boolean } = { showLoading: false },
-) {
-  const { showLoading } = options;
-  const params = useSwapQuoteRequestParams();
-  const refs = useRef({ params, count: 0 });
-
-  useEffect(() => {
-    refs.current.params = params;
-  }, [params]);
-
-  const swapQuote = useCallback(async () => {
-    if (!params) {
-      backgroundApiProxy.dispatch(
-        setQuote(undefined),
-        setResponses(undefined),
-        setLoading(false),
-      );
-      return;
-    }
-    const wrapperTx =
-      await backgroundApiProxy.serviceSwap.buildWrapperTransaction(params);
-    if (wrapperTx && wrapperTx.encodedTx) {
-      backgroundApiProxy.dispatch(
-        setQuoteLimited(undefined),
-        setQuote({
-          type: QuoterType.onekey,
-          instantRate: '1',
-          wrapperTxInfo: wrapperTx,
-          sellAmount: getTokenAmountString(params.tokenIn, params.typedValue),
-          sellTokenAddress: params.tokenIn.tokenIdOnNetwork,
-          buyAmount: getTokenAmountString(params.tokenOut, params.typedValue),
-          buyTokenAddress: params.tokenOut.tokenIdOnNetwork,
-        }),
-      );
-      return;
-    }
-
-    const isRefresh = await backgroundApiProxy.serviceSwap.refreshParams(
-      params,
-    );
-
-    if (showLoading) {
-      backgroundApiProxy.dispatch(setLoading(true));
-    }
-
-    backgroundApiProxy.dispatch(setError(undefined));
-
-    const findBestResponse = async (
-      responses: FetchQuoteResponse[],
-    ): Promise<FetchQuoteResponse | undefined> => {
-      const items = responses.filter(
-        (item) => !item.limited && item.data !== undefined,
-      ) as Required<Pick<FetchQuoteResponse, 'data'>>[];
-      if (items.length > 0) {
-        const quoter =
-          await backgroundApiProxy.serviceSwap.getCurrentUserSelectedQuoter();
-        if (quoter) {
-          const searched = items.find((item) => item.data.type === quoter);
-          if (searched) {
-            return searched;
-          }
-        }
-        if (items.length === 1) {
-          return items[0];
-        }
-        items.sort((a, b) => {
-          const amountA = a.data.estimatedBuyAmount ?? a.data.buyAmount;
-          const amountB = b.data.estimatedBuyAmount ?? b.data.buyAmount;
-          return Number(amountB) - Number(amountA);
-        });
-        return items[0];
-      }
-      return responses[0];
-    };
-
-    const fetchASAPQuote = async () => {
-      refs.current.params = params;
-      refs.current.count += 1;
-
-      let firstResponse: FetchQuoteResponse | undefined;
-
-      const fetchAllQuotes = async () => {
-        const responses = await SwapQuoter.client.fetchQuotes(params);
-        if (
-          !dangerRefs.submited &&
-          refs.current.params === params &&
-          responses
-        ) {
-          backgroundApiProxy.dispatch(setResponses(responses));
-          const res = await findBestResponse(responses);
-          if (res && res.data?.type !== firstResponse?.data?.type) {
-            if (!firstResponse) {
-              firstResponse = res;
-            }
-            backgroundApiProxy.dispatch(
-              setQuote(res.data),
-              setQuoteLimited(res.limited),
-            );
-          }
-        }
-      };
-
-      fetchAllQuotes();
-      try {
-        const res = await SwapQuoter.client.fetchQuote(params);
-        if (refs.current.params === params && !firstResponse) {
-          if (res) {
-            firstResponse = res;
-            backgroundApiProxy.dispatch(
-              setQuote(res.data),
-              setQuoteLimited(res.limited),
-            );
-          } else {
-            backgroundApiProxy.dispatch(
-              setError(SwapError.NotSupport),
-              setQuoteLimited(undefined),
-            );
-          }
-        }
-      } catch {
-        backgroundApiProxy.dispatch(
-          setError(SwapError.QuoteFailed),
-          setLoading(false),
-        );
-      } finally {
-        refs.current.count -= 1;
-        if (refs.current.count === 0) {
-          backgroundApiProxy.dispatch(setLoading(false));
-        }
-      }
-    };
-
-    const refreshQuotes = async () => {
-      refs.current.params = params;
-      refs.current.count += 1;
-      try {
-        const responses = await SwapQuoter.client.fetchQuotes(params);
-        if (!dangerRefs.submited && refs.current.params === params) {
-          if (responses) {
-            backgroundApiProxy.dispatch(setResponses(responses));
-            const res = await findBestResponse(responses);
-            if (res) {
-              backgroundApiProxy.dispatch(
-                setQuote(res.data),
-                setQuoteLimited(res.limited),
-              );
-            } else {
-              backgroundApiProxy.dispatch(
-                setError(SwapError.NotSupport),
-                setQuoteLimited(undefined),
-              );
-            }
-          }
-        }
-      } catch (e) {
-        backgroundApiProxy.dispatch(
-          setError(SwapError.QuoteFailed),
-          setLoading(false),
-        );
-      } finally {
-        refs.current.count -= 1;
-        if (refs.current.count === 0) {
-          backgroundApiProxy.dispatch(setLoading(false));
-        }
-      }
-    };
-
-    if (!isRefresh) {
-      backgroundApiProxy.dispatch(setResponses(undefined));
-      await fetchASAPQuote();
-    } else {
-      await refreshQuotes();
-    }
-  }, [params, showLoading]);
-  return swapQuote;
-};
 
 export function useDerivedSwapState() {
   const independentField = useAppSelector((s) => s.swap.independentField);
@@ -339,7 +187,6 @@ export function useSwapInputAmount() {
 export const useCheckInputBalance = () => {
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
-  // const { inputAmount } = useDerivedSwapState();
   const inputAmount = useSwapInputAmount();
   const inputBalance = useTokenBalance(
     inputAmount ? inputToken : undefined,

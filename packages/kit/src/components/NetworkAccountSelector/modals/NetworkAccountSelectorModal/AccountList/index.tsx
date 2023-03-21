@@ -143,7 +143,7 @@ function DerivationSectionHeader({
       triggerWrapperProps={{
         p: 0,
         px: '7px',
-        borderRadius: 0,
+        borderRadius: 'lg',
         mb: 2,
       }}
       onCollapseChange={(isCollapsed) => {
