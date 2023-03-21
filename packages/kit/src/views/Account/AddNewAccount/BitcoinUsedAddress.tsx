@@ -12,8 +12,10 @@ import {
   Modal,
   SegmentedControl,
   Spinner,
+  ToastManager,
   Token,
 } from '@onekeyhq/components';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type {
   Account,
   BtcForkChainUsedAccount,
@@ -67,11 +69,6 @@ const UsedAddressHeader: FC<{
   );
 };
 
-// TODO:
-// 1. remove custom address
-// 2. create account by hardware
-// 3. verify on mobile
-// 4. copy address before hardware confirmation
 const BitcoinUsedAddress: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
@@ -173,6 +170,36 @@ const BitcoinUsedAddress: FC = () => {
     [accountId, networkId, network?.decimals],
   );
 
+  const onCopyAddress = useCallback(
+    ({ address, path }: { address: string; path: string }) => {
+      const accountIndex = path.split('/')[3].slice(0, -1);
+      backgroundApiProxy.serviceDerivationPath
+        .getHWAddressByTemplate({
+          networkId,
+          walletId,
+          index: parseInt(accountIndex, 10),
+          template: account?.template ?? '',
+          fullPath: path,
+        })
+        .then((res) => {
+          if (res.address !== address) {
+            ToastManager.show({
+              title: intl.formatMessage({ id: 'msg__not_the_same_wallet' }),
+            });
+            return;
+          }
+          copyToClipboard(res.address);
+          // navigator.clipboard
+          //   .writeText('<empty clipboard>')
+          //   .then(() => console.log('success'))
+          //   .catch((e) => {
+          //     console.log('fail: ', e);
+          //   });
+        });
+    },
+    [networkId, walletId, account?.template, intl],
+  );
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__addresses' })}
@@ -233,6 +260,7 @@ const BitcoinUsedAddress: FC = () => {
                 network={network}
                 dataSource={dataSource}
                 setConfig={setConfig}
+                onCopyAddress={onCopyAddress}
               />
             ) : (
               <Center flex={1}>
@@ -253,6 +281,7 @@ const BitcoinUsedAddress: FC = () => {
               setConfig={setConfig}
               onRequestBalances={fetchAddressBalance}
               onRefreshAccount={refreshAccount}
+              onCopyAddress={onCopyAddress}
             />
           )}
         </Box>

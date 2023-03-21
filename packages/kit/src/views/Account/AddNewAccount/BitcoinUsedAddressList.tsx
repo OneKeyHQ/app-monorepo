@@ -35,6 +35,14 @@ import type { ListRenderItemInfo } from 'react-native';
 const USED_ADDRESS_PAGE_SIZE = 50;
 const MANNUAL_ADDED_ADDRESS_PAGE_SIZE = 10;
 
+export type ICopyAddress = ({
+  address,
+  path,
+}: {
+  address: string;
+  path: string;
+}) => void;
+
 type ListTableHeaderProps = {
   valueLabel: string;
 } & ComponentProps<typeof Box>;
@@ -81,6 +89,7 @@ type CellProps = {
       suffixPath?: string;
     },
   ) => void;
+  onCopyAddress: ICopyAddress;
 } & ComponentProps<typeof Box>;
 
 const AccountCell: FC<CellProps> = ({
@@ -90,6 +99,7 @@ const AccountCell: FC<CellProps> = ({
   showPath,
   showRemoveAddress,
   onRemoveAddress,
+  onCopyAddress,
 }) => (
   <ListItem flex={1}>
     <ListItem.Column
@@ -135,6 +145,7 @@ const AccountCell: FC<CellProps> = ({
         network={network ?? ({} as Network)}
         showRemoveOption={!!showRemoveAddress}
         onRemoveAddress={onRemoveAddress}
+        onCopyAddress={onCopyAddress}
       >
         <IconButton
           alignItems="flex-end"
@@ -218,6 +229,7 @@ type IListCommonProps = {
       mannualListCurrentPage: number;
     }>
   >;
+  onCopyAddress: ICopyAddress;
 };
 
 type IUsedAddressListProps = IListCommonProps & {
@@ -229,6 +241,7 @@ const BitcoinUsedAddressList: FC<IUsedAddressListProps> = ({
   network,
   dataSource,
   setConfig,
+  onCopyAddress,
 }) => {
   const intl = useIntl();
   const maxPage = useMemo(
@@ -267,9 +280,10 @@ const BitcoinUsedAddressList: FC<IUsedAddressListProps> = ({
         showPath={config.showPath}
         flex={1}
         item={item}
+        onCopyAddress={onCopyAddress}
       />
     ),
-    [network, config.showPath],
+    [network, config.showPath, onCopyAddress],
   );
   return (
     <>
@@ -340,6 +354,7 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
   account,
   onRequestBalances,
   onRefreshAccount,
+  onCopyAddress,
 }) => {
   const intl = useIntl();
 
@@ -466,9 +481,10 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
         item={item}
         showRemoveAddress
         onRemoveAddress={removeAddress}
+        onCopyAddress={onCopyAddress}
       />
     ),
-    [network, config.showPath, removeAddress],
+    [network, config.showPath, removeAddress, onCopyAddress],
   );
   return (
     <>

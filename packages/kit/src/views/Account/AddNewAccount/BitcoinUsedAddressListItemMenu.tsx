@@ -15,6 +15,8 @@ import type {
 
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 
+import type { ICopyAddress } from './BitcoinUsedAddressList';
+
 const BitcoinUsedAddressListItemMenu: FC<
   IMenu & {
     item: BtcForkChainUsedAccount & { suffixPath?: string };
@@ -23,8 +25,16 @@ const BitcoinUsedAddressListItemMenu: FC<
     onRemoveAddress?: (
       item: BtcForkChainUsedAccount & { suffixPath?: string },
     ) => void;
+    onCopyAddress: ICopyAddress;
   }
-> = ({ item, network, showRemoveOption, onRemoveAddress, ...props }) => {
+> = ({
+  item,
+  network,
+  showRemoveOption,
+  onRemoveAddress,
+  onCopyAddress,
+  ...props
+}) => {
   const intl = useIntl();
   const { openAddressDetails } = useOpenBlockBrowser(network);
   const onOpenBlockChainBrowser = useCallback(() => {
@@ -33,12 +43,9 @@ const BitcoinUsedAddressListItemMenu: FC<
 
   const onPressCopyAddress = useCallback(() => {
     setTimeout(() => {
-      copyToClipboard(item.name);
-      ToastManager.show({
-        title: intl.formatMessage({ id: 'msg__address_copied' }),
-      });
+      onCopyAddress({ address: item.name, path: item.path });
     }, 200);
-  }, [item, intl]);
+  }, [item, intl, onCopyAddress]);
 
   const options = useMemo<IBaseMenuOptions>(
     () => [
