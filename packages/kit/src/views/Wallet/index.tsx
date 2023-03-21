@@ -115,7 +115,7 @@ const WalletTabs: FC = () => {
           clearTimeout(timer.current);
           timer.current = setTimeout(() => {
             onIndexChange(defaultIndexRef.current);
-          }, 500);
+          }, 1500);
         }}
         renderHeader={AccountHeader}
         headerHeight={
