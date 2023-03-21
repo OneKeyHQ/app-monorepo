@@ -96,6 +96,15 @@ class BlockBook {
       .then((i: any) => i.data);
   }
 
+  getAccountWithAddress(
+    address: string,
+    params: Record<string, any>,
+  ): Promise<any> {
+    return this.request
+      .get(`/api/v2/address/${address}`, { params })
+      .then((i: any) => i.data);
+  }
+
   getBalance(address: string): Promise<BigNumber> {
     return this.request
       .get(`/api/v2/xpub/${address}`, {
