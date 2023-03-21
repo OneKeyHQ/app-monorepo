@@ -8,10 +8,7 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
-import {
-  CoreSDKLoader,
-  getHardwareSDKInstance,
-} from '@onekeyhq/shared/src/device/hardwareInstance';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/utils/errorUtils';
@@ -55,10 +52,6 @@ class DeviceUtils {
   checkBonded = false;
 
   bleManager?: typeof BleManager;
-
-  async getSDKInstance() {
-    return getHardwareSDKInstance();
-  }
 
   async getBleManager() {
     if (!platformEnv.isNative) return null;
