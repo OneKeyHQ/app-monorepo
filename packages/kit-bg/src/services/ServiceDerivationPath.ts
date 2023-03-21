@@ -132,18 +132,22 @@ export default class ServiceDerivationPath extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
   async getHWAddressByTemplate({
     networkId,
     walletId,
     index,
     template,
+    fullPath,
   }: {
     networkId: string;
     walletId: string;
     index: number;
     template: string;
+    fullPath?: string;
   }) {
-    const path = template.replace(INDEX_PLACEHOLDER, index.toString());
+    const path =
+      fullPath || template.replace(INDEX_PLACEHOLDER, index.toString());
     const vault = await this.backgroundApi.engine.getWalletOnlyVault(
       networkId,
       walletId,
@@ -280,7 +284,7 @@ export default class ServiceDerivationPath extends ServiceBase {
     return addresses.map((address, index) => ({
       address,
       balance: new BigNumber(balances[index] ?? 0)
-        .shiftedBy(decimals)
+        .shiftedBy(-decimals)
         .toFixed(),
     }));
   }

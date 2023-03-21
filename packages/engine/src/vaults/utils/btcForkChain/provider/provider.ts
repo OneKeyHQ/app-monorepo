@@ -453,7 +453,7 @@ class Provider {
   ): Promise<(BigNumber | undefined)[]> {
     return this.blockbook.then((client) =>
       Promise.all(
-        requests.map(({ address }) => client.getBalanceByAddress(address)),
+        requests.map(({ address }) => client.getBalanceWithAddress(address)),
       ),
     );
   }
