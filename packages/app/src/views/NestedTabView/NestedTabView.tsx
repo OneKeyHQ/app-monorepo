@@ -3,11 +3,9 @@ import type { ForwardRefRenderFunction } from 'react';
 import {
   forwardRef,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
-  useState,
 } from 'react';
 
 import { UIManager, findNodeHandle } from 'react-native';
@@ -74,7 +72,7 @@ const NestedTabView: ForwardRefRenderFunction<
 
   const lockVertical = useCallback(() => {
     if (platformEnv.isNativeAndroid) {
-      console.log('lockVertical');
+      // console.log('lockVertical');
       lockDirection.value = LockDirection.Vertical;
       lastTransX.value = 0;
       pan.enabled(false);
