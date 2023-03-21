@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "帳戶不匹配",
   "msg__mismatched_networks": "網絡不匹配",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "某些代幣需要發起多比交易才能修改授權額度，在更改授權額度之前，需要將其先重置爲零",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "需要發送 {0} 筆交易來更改授權額度",
   "msg__network_added": "已添加網絡",
   "msg__network_removed": "網絡已移除",

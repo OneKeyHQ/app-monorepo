@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "Akun tidak cocok.",
   "msg__mismatched_networks": "Jaringan tidak cocok.",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "Beberapa token memerlukan banyak transaksi untuk mengubah tunjangan. Anda harus terlebih dahulu mengatur tunjangan ke nol sebelum menetapkan nilai tunjangan baru yang diinginkan.",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "Perlu mengirim {0} transaksi untuk mengubah jatah",
   "msg__network_added": "Rantai Ditambahkan",
   "msg__network_removed": "Rantai Dihapus",

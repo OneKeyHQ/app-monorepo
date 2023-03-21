@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "บัญชีไม่ตรงกัน",
   "msg__mismatched_networks": "เครือข่ายที่ไม่ตรงกัน",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "โทเค็นบางตัวต้องการธุรกรรมหลายรายการเพื่อแก้ไขค่าเผื่อ ก่อนอื่นคุณต้องตั้งค่าเผื่อเป็นศูนย์ก่อนที่จะกำหนดมูลค่าเผื่อที่ต้องการใหม่",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "จำเป็นต้องส่งธุรกรรม {0} รายการเพื่อเปลี่ยนค่าเผื่อ",
   "msg__network_added": "เพิ่มเครือข่ายแล้ว",
   "msg__network_removed": "เครือข่ายถูกลบ",

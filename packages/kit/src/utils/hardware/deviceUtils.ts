@@ -272,6 +272,18 @@ class DeviceUtils {
 
         const { connectId, deviceId } = data || {};
         if (connectId && deviceId) {
+          if (code === HardwareErrorCode.NewFirmwareForceUpdate) {
+            this.delayShowHardwarePopup({
+              uiRequest: CUSTOM_UI_RESPONSE.CUSTOM_FORCE_UPGRADE_FIRMWARE,
+              payload: {
+                deviceId,
+                deviceConnectId: connectId,
+              },
+              content: errorMessage,
+            });
+            return true;
+          }
+
           if (
             code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
             code === HardwareErrorCode.DeviceNotSupportPassphrase
@@ -418,6 +430,8 @@ class DeviceUtils {
         return new Error.FirmwareVersionTooLow(payload);
       case HardwareErrorCode.NewFirmwareUnRelease:
         return new Error.NewFirmwareUnRelease(payload);
+      case HardwareErrorCode.NewFirmwareForceUpdate:
+        return new Error.NewFirmwareForceUpdate(payload);
       case HardwareErrorCode.NetworkError:
         return new Error.NetworkError(payload);
       case HardwareErrorCode.BlePermissionError:

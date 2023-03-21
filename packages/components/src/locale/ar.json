@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "حساب غير متطابق.",
   "msg__mismatched_networks": "شبكات غير متطابقة.",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "تتطلب بعض الرموز المميزة معاملات متعددة لتعديل البدل. يجب عليك أولاً ضبط البدل على صفر قبل تحديد قيمة البدل الجديدة المرغوبة.",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "تحتاج إلى إرسال {0} معاملات لتغيير البدل",
   "msg__network_added": "تمت إضافة الشبكة",
   "msg__network_removed": "إزالة الشبكة!",

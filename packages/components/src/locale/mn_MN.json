@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "Бүртгэл таарахгүй байна.",
   "msg__mismatched_networks": "Тохиромжгүй сүлжээнүүд.",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "Зарим токенууд тэтгэмжийг өөрчлөхийн тулд олон гүйлгээ хийх шаардлагатай болдог. Хүссэн тэтгэмжийн шинэ утгыг тогтоохын өмнө та эхлээд тэтгэмжийг тэг болгох хэрэгтэй.",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "Тэтгэмжийг өөрчлөхийн тулд {0} гүйлгээ илгээх шаардлагатай",
   "msg__network_added": "Сүлжээ нэмсэн",
   "msg__network_removed": "Сүлжээг устгасан",

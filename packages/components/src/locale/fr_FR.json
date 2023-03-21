@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "Compte incompatible.",
   "msg__mismatched_networks": "Réseaux incompatibles.",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "Certains jetons nécessitent plusieurs transactions pour modifier l'allocation. Vous devez d'abord régler l'allocation sur zéro avant d'établir la nouvelle valeur d'allocation souhaitée.",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "Besoin d'envoyer {0} transactions pour modifier l'allocation",
   "msg__network_added": "Réseau ajouté",
   "msg__network_removed": "Réseau supprimé",

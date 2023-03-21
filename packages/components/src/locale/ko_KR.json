@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "계정이 일치하지 않습니다.",
   "msg__mismatched_networks": "일치하지 않는 네트워크.",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "일부 토큰은 수당을 수정하기 위해 여러 트랜잭션이 필요합니다. 원하는 새 공차 값을 설정하기 전에 먼저 공차를 0으로 설정해야 합니다.",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "허용량을 변경하려면 {0} 트랜잭션을 보내야 합니다.",
   "msg__network_added": "네트워크 추가됨",
   "msg__network_removed": "네트워크가 제거되었습니다",

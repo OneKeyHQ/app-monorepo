@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "Невідповідний обліковий запис.",
   "msg__mismatched_networks": "Невідповідні мережі.",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "Деякі токени вимагають кількох транзакцій для зміни дозволу. Ви повинні спочатку встановити припуск на нуль, перш ніж установлювати нове бажане значення припуску.",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "Потрібно надіслати {0} транзакцій, щоб змінити дозволи",
   "msg__network_added": "Мережа додана",
   "msg__network_removed": "Мережа видалена",

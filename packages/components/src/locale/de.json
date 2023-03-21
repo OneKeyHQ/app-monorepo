@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "Nicht übereinstimmendes Konto.",
   "msg__mismatched_networks": "Nicht übereinstimmende Netzwerke.",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "Bei einigen Token sind mehrere Transaktionen erforderlich, um den Freibetrag zu ändern. Sie müssen zuerst das Aufmaß auf Null setzen, bevor Sie den neuen gewünschten Aufmaßwert festlegen.",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "Sie müssen {0} Transaktionen senden, um das Guthaben zu ändern",
   "msg__network_added": "Netzwerk hinzugefügt",
   "msg__network_removed": "Netzwerk entfernt",

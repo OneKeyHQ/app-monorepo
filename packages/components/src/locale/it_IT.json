@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "Conto non corrispondente.",
   "msg__mismatched_networks": "Reti non corrispondenti.",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "Alcuni token richiedono più transazioni per modificare l'indennità. È necessario innanzitutto impostare l'indennità su zero prima di stabilire il nuovo valore dell'indennità desiderato.",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "È necessario inviare {0} transazioni per modificare l'indennità",
   "msg__network_added": "Rete aggiunta",
   "msg__network_removed": "Rete rimossa",

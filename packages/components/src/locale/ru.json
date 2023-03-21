@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "Несоответствующий аккаунт.",
   "msg__mismatched_networks": "Несоответствие сетей.",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "Для некоторых токенов требуется несколько транзакций для изменения разрешения. Вы должны сначала установить допуск равным нулю, прежде чем устанавливать новое желаемое значение допуска.",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "Необходимо отправить {0} транзакций для изменения разрешения",
   "msg__network_added": "Сеть добавлена",
   "msg__network_removed": "Сеть удалена",

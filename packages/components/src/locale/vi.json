@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "Tài khoản không khớp.",
   "msg__mismatched_networks": "Mạng không khớp.",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "Một số mã thông báo yêu cầu nhiều giao dịch để sửa đổi khoản trợ cấp. Trước tiên, bạn phải đặt định mức về 0 trước khi thiết lập giá trị định mức mong muốn mới.",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "Cần gửi giao dịch {0} để thay đổi hạn mức",
   "msg__network_added": "Đã thêm mạng",
   "msg__network_removed": "Mạng đã bị xóa",

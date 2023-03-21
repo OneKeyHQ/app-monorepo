@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "অমিল অ্যাকাউন্ট।",
   "msg__mismatched_networks": "অমিল নেটওয়ার্ক।",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "কিছু টোকেন ভাতা পরিবর্তন করতে একাধিক লেনদেনের প্রয়োজন। নতুন কাঙ্খিত ভাতা মান স্থাপন করার আগে আপনাকে প্রথমে ভাতা শূন্যতে সেট করতে হবে।",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "ভাতা পরিবর্তন করতে {0} লেনদেন পাঠাতে হবে",
   "msg__network_added": "নেটওয়ার্ক যোগ করা হয়েছে",
   "msg__network_removed": "নেটওয়ার্ক সরানো হয়েছে!",

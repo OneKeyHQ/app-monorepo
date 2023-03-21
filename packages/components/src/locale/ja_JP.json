@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "アカウントが不一致",
   "msg__mismatched_networks": "ネットワークが不一致",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "一部のトークンでは、許可を変更するために複数のトランザクションが必要となる。新しい許容値を設定する前に、元許容値をゼロに設定する必要がある。",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "許可を変更するには{0}通のトランザクションを送信する必要がある",
   "msg__network_added": "ネットワーク登録済み",
   "msg__network_removed": "ネットワークが削除された",

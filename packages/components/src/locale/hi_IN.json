@@ -1758,6 +1758,7 @@
   "msg__mismatched_account": "बेमेल खाता।",
   "msg__mismatched_networks": "बेमेल नेटवर्क।",
   "msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated": "भत्ते को संशोधित करने के लिए कुछ टोकन को कई लेन-देन की आवश्यकता होती है। नया वांछित भत्ता मान स्थापित करने से पहले आपको पहले भत्ता को शून्य पर सेट करना होगा।",
+  "msg__need_force_upgrade_firmware": "You need to upgrade the firmware.",
   "msg__need_to_send_str_transactions_to_change_allowance": "भत्ता बदलने के लिए {0} लेन-देन भेजने की आवश्यकता है",
   "msg__network_added": "नेटवर्क जोड़ा गया",
   "msg__network_removed": "नेटवर्क हटा दिया गया",
