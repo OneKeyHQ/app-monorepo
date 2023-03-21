@@ -213,7 +213,6 @@ function NFTListContainer() {
   const isMountedRef = useIsMounted();
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isFocused = useIsFocused();
-  const [price, updatePrice] = useState<number>(0);
   const [collectibles, updateListData] = useState<Collection[]>([]);
 
   const fetchData = async () => {
@@ -279,17 +278,6 @@ function NFTListContainer() {
     }
   }, [mutate, shouldDoRefresh, account, networkId]);
 
-  useEffect(() => {
-    (async () => {
-      if (networkId) {
-        const data = await serviceNFT.fetchSymbolPrice(networkId);
-        if (isMountedRef.current && data) {
-          updatePrice(data);
-        }
-      }
-    })();
-  }, [isMountedRef, networkId, serviceNFT]);
-
   const handleSelectAsset = useCallback(
     (asset: NFTAsset) => {
       if (!network) return;
@@ -327,7 +315,7 @@ function NFTListContainer() {
   );
 
   return (
-    <NFTListContentProvider price={price}>
+    <NFTListContentProvider>
       <NFTList
         collectibles={collectibles}
         onSelectCollection={handleSelectCollectible}

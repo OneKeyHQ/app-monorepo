@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/kit/src/hooks/redux';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useNFTPrice } from '../../../../hooks/useTokens';
+import { useNFTPrice } from '../../../../hooks/useManegeTokenPrice';
 // import { showSelectNFTPriceType } from '../../../Overlay/SelectNFTPriceType';
 
 type NFTListHeaderProps = {
@@ -61,7 +61,7 @@ const NFTListHeader = ({
               <FormatCurrencyNumber
                 value={0}
                 decimals={2}
-                convertValue={totalPrice}
+                convertValue={totalPrice > 0 ? totalPrice : ''}
               />
             </Typography.DisplayLarge>
             <Typography.Body2 color="text-subdued">
