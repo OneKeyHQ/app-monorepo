@@ -102,10 +102,13 @@ const BitcoinUsedAddress: FC = () => {
       networkId,
     );
     setAccount(searchAccount);
-    setShowSegmentedControl(
-      Object.keys(JSON.parse(searchAccount.customAddresses ?? '{}')).length > 0,
-    );
-  }, [accountId, networkId]);
+    const hasCustomAddresses =
+      Object.keys(JSON.parse(searchAccount.customAddresses ?? '{}')).length > 0;
+    setShowSegmentedControl(hasCustomAddresses);
+    if (!hasCustomAddresses && selectedIndex === 1) {
+      setSelectedIndex(0);
+    }
+  }, [accountId, networkId, selectedIndex]);
 
   useEffect(() => {
     if (!account) {
@@ -190,7 +193,10 @@ const BitcoinUsedAddress: FC = () => {
             const newConfig = { ...config, showPath: isChecked };
             setConfig(newConfig);
           }}
-          onAddedCustomAddressCallback={refreshAccount}
+          onAddedCustomAddressCallback={() => {
+            refreshAccount();
+            setTimeout(() => setSelectedIndex(1));
+          }}
         >
           <IconButton
             type="plain"
