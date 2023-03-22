@@ -121,6 +121,11 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
         }
     }
 
+    @ReactProp(name = "defaultIndex")
+    fun setDefaultIndex(view: HomePageView, index: Int?) {
+        view.setCurrentIndex(index)
+    }
+
     override fun getChildCount(parent: HomePageView): Int {
         return parent.getChildViewCount()
     }
