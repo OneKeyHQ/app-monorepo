@@ -163,6 +163,16 @@ open class HomePageLayout @JvmOverloads constructor(
         mTabTitles.addAll(tabProps.map { it.label })
     }
 
+    fun setCurrentIndex(index: Int?) {
+        // Finally set index
+        post {
+            index?.let {
+                if(it >= mTabProps.size) return@post
+                content.findViewById<ViewPager2>(R.id.viewpager)?.currentItem = it
+            }
+        }
+    }
+
     fun getChildViewCount(): Int {
         val contentView = content.findViewById<CollapsingToolbarLayout>(R.id.toolbar)
         return (contentView?.childCount ?: 0) + (getAdapter()?.itemCount ?: 0)

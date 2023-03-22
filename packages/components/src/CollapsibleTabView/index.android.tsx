@@ -27,6 +27,7 @@ const Container: ForwardRefRenderFunction<
     children,
     onIndexChange,
     onRefresh,
+    initialTabName,
     containerStyle,
     scrollEnabled = true,
     ...props
@@ -38,6 +39,11 @@ const Container: ForwardRefRenderFunction<
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
     ({ name: child.props.name, label: child.props.label }),
   ) as TabProps[];
+
+  let selectedIndex = tabs.findIndex((tab) => tab.name === initialTabName);
+  if (selectedIndex < 0) {
+    selectedIndex = 0;
+  }
 
   const [
     activeLabelColor,
@@ -60,6 +66,7 @@ const Container: ForwardRefRenderFunction<
       style={containerStyle}
       disableRefresh={disableRefresh}
       refresh={refreshing}
+      defaultIndex={selectedIndex}
       tabViewStyle={{
         height: 54,
         indicatorColor,
