@@ -24,6 +24,7 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../hooks';
 import { useRuntime } from '../../../hooks/redux';
+import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import { deviceUtils } from '../../../utils/hardware';
 
 import {
@@ -74,8 +75,9 @@ const BitcoinUsedAddress: FC = () => {
   const route = useRoute<RouteProps>();
   const { networkId, accountId, walletId } = route.params;
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { networks } = useRuntime();
+  const { networks, wallets } = useRuntime();
   const network = networks.find((n) => n.id === networkId);
+  const wallet = wallets.find((w) => w.id === walletId);
 
   const isFetchingDataRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -92,6 +94,8 @@ const BitcoinUsedAddress: FC = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showSegmentedControl, setShowSegmentedControl] = useState(false);
   const [account, setAccount] = useState<Account | null>(null);
+
+  const { copyAddress } = useCopyAddress({ wallet, account, network });
 
   const refreshAccount = useCallback(async () => {
     const searchAccount = await backgroundApiProxy.engine.getAccount(
@@ -172,32 +176,9 @@ const BitcoinUsedAddress: FC = () => {
 
   const onCopyAddress = useCallback(
     ({ address, path }: { address: string; path: string }) => {
-      const accountIndex = path.split('/')[3].slice(0, -1);
-      backgroundApiProxy.serviceDerivationPath
-        .getHWAddressByTemplate({
-          networkId,
-          walletId,
-          index: parseInt(accountIndex, 10),
-          template: account?.template ?? '',
-          fullPath: path,
-        })
-        .then((res) => {
-          if (res.address !== address) {
-            ToastManager.show({
-              title: intl.formatMessage({ id: 'msg__not_the_same_wallet' }),
-            });
-            return;
-          }
-          copyToClipboard(res.address);
-          // navigator.clipboard
-          //   .writeText('<empty clipboard>')
-          //   .then(() => console.log('success'))
-          //   .catch((e) => {
-          //     console.log('fail: ', e);
-          //   });
-        });
+      copyAddress(address, account?.template, path);
     },
-    [networkId, walletId, account?.template, intl],
+    [copyAddress, account?.template],
   );
 
   return (

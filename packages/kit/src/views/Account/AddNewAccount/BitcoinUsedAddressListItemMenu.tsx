@@ -1,10 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { Divider, ToastManager } from '@onekeyhq/components';
-import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { Divider } from '@onekeyhq/components';
 import type { BtcForkChainUsedAccount } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
@@ -35,7 +32,6 @@ const BitcoinUsedAddressListItemMenu: FC<
   onCopyAddress,
   ...props
 }) => {
-  const intl = useIntl();
   const { openAddressDetails } = useOpenBlockBrowser(network);
   const onOpenBlockChainBrowser = useCallback(() => {
     openAddressDetails(item.name);
@@ -45,7 +41,7 @@ const BitcoinUsedAddressListItemMenu: FC<
     setTimeout(() => {
       onCopyAddress({ address: item.name, path: item.path });
     }, 200);
-  }, [item, intl, onCopyAddress]);
+  }, [item, onCopyAddress]);
 
   const options = useMemo<IBaseMenuOptions>(
     () => [
@@ -55,7 +51,7 @@ const BitcoinUsedAddressListItemMenu: FC<
         icon: 'Square2StackOutline',
       },
       {
-        id: 'action__open_blockchain_browser',
+        id: 'action__view_in_browser',
         onPress: onOpenBlockChainBrowser,
         icon: 'GlobeAltOutline',
       },
@@ -76,7 +72,7 @@ const BitcoinUsedAddressListItemMenu: FC<
     ],
   );
 
-  return <BaseMenu options={options} {...props} menuWidth={310} />;
+  return <BaseMenu options={options} {...props} />;
 };
 
 export default BitcoinUsedAddressListItemMenu;
