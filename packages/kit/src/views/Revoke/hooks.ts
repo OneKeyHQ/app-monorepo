@@ -2,13 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useAsync } from 'react-async-hook';
-import { DeviceEventEmitter } from 'react-native';
 
 import { useUserDevice } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { ADDRESS_ZERO } from '@onekeyhq/engine/src/managers/revoke';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks';
@@ -60,9 +63,9 @@ export const useTokenAllowances = (
   }, [networkId, address, assetType]);
 
   useEffect(() => {
-    DeviceEventEmitter.addListener('Revoke:refresh', execute);
+    appUIEventBus.on(AppUIEventBusNames.RevokeRefresh, execute);
     return () => {
-      DeviceEventEmitter.removeAllListeners();
+      appUIEventBus.off(AppUIEventBusNames.RevokeRefresh, execute);
     };
   }, [execute]);
 
@@ -181,7 +184,7 @@ export const useUpdateAllowance = ({
             feeInfoUseFeeInTx: false,
             encodedTx: encodedApproveTx,
             onSuccess: () => {
-              DeviceEventEmitter?.emit('Revoke:refresh', assetType);
+              appUIEventBus.emit(AppUIEventBusNames.RevokeRefresh);
             },
           },
         },

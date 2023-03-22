@@ -192,46 +192,6 @@ export function useNetworkTokens(networkId?: string) {
   return tokens ?? [];
 }
 
-export const useNFTSymbolPrice = ({
-  networkId,
-}: {
-  networkId?: string | null;
-}) => {
-  const nftSymbolPrice = useAppSelector((s) => s.nft.nftSymbolPrice);
-  const symbolPrice = useMemo(() => {
-    if (networkId) {
-      return nftSymbolPrice[networkId] ?? 0;
-    }
-    return 0;
-  }, [networkId, nftSymbolPrice]);
-  return symbolPrice;
-};
-
-export const useNFTPrice = ({
-  accountId,
-  networkId,
-}: {
-  accountId?: string | null;
-  networkId?: string | null;
-}) => {
-  const { nftPrice, disPlayPriceType } = useAppSelector((s) => s.nft);
-  const symbolPrice = useNFTSymbolPrice({ networkId });
-  const amount = useMemo(() => {
-    if (accountId && networkId) {
-      const accountInfo = nftPrice[accountId];
-      if (accountInfo) {
-        const priceValue = accountInfo[networkId];
-        if (priceValue) {
-          return priceValue[disPlayPriceType];
-        }
-      }
-    }
-    return 0;
-  }, [accountId, disPlayPriceType, networkId, nftPrice]);
-
-  return symbolPrice * amount;
-};
-
 export const useTokenSupportStakedAssets = (
   networkId?: string,
   tokenIdOnNetwork?: string,
