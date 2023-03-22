@@ -17,6 +17,8 @@ import { QuoterType } from './typings';
 import type {
   BuildTransactionParams,
   FetchQuoteParams,
+  ILimitOrderQuoteParams,
+  LimitOrderTransactionDetails,
   ProtocolFees,
   TransactionDetails,
 } from './typings';
@@ -125,6 +127,15 @@ export function lte(a: BigNumber.Value, b: BigNumber.Value): boolean {
     return false;
   }
   return num1.lte(num2);
+}
+
+export function lt(a: BigNumber.Value, b: BigNumber.Value): boolean {
+  const num1 = new BigNumber(a);
+  const num2 = new BigNumber(b);
+  if (!BigNumber.isBigNumber(num1) || !BigNumber.isBigNumber(num2)) {
+    return false;
+  }
+  return num1.lt(num2);
 }
 
 export function tokenBN(value: BigNumber.Value, decimals: BigNumber.Value) {
@@ -262,6 +273,45 @@ export function convertParams(params: FetchQuoteParams) {
   return urlParams;
 }
 
+export function convertLimitOrderParams(params: ILimitOrderQuoteParams) {
+  const toNetworkId = params.tokenIn.networkId;
+  const fromNetworkId = params.tokenOut.networkId;
+
+  const toTokenAddress = params.tokenOut.tokenIdOnNetwork
+    ? params.tokenOut.tokenIdOnNetwork
+    : nativeTokenAddress;
+  const fromTokenAddress = params.tokenIn.tokenIdOnNetwork
+    ? params.tokenIn.tokenIdOnNetwork
+    : nativeTokenAddress;
+
+  const toTokenDecimals = params.tokenOut.decimals;
+  const fromTokenDecimals = params.tokenIn.decimals;
+
+  const userAddress = params.activeAccount.address;
+
+  const fromTokenAmount = getTokenAmountString(
+    params.tokenIn,
+    params.tokenInValue,
+  );
+
+  const urlParams: Record<string, string | number | boolean> = {
+    toNetworkId,
+    fromNetworkId,
+    toTokenAddress,
+    fromTokenAddress,
+    toTokenDecimals,
+    fromTokenDecimals,
+    slippagePercentage: 1,
+    userAddress,
+    receivingAddress: params.activeAccount.address,
+  };
+
+  if (fromTokenAmount) {
+    urlParams.fromTokenAmount = fromTokenAmount;
+  }
+  return urlParams;
+}
+
 export function convertBuildParams(params: BuildTransactionParams) {
   const urlParams = convertParams(params);
   if (!urlParams) {
@@ -346,6 +396,14 @@ export function isSimpleTx(tx: TransactionDetails) {
   return from?.networkId === to?.networkId && quoterType !== QuoterType.swftc;
 }
 
+export function tokenEqual(tokenA: Token, tokenB: Token) {
+  return (
+    tokenA.networkId === tokenB.networkId &&
+    tokenA.tokenIdOnNetwork.toLowerCase() ===
+      tokenB.tokenIdOnNetwork.toLowerCase()
+  );
+}
+
 export function recipientMustBeSendingAccount(
   tokenA: Token,
   tokenB: Token,
@@ -355,5 +413,15 @@ export function recipientMustBeSendingAccount(
   const implB = getNetworkIdImpl(tokenB.networkId);
   return (
     implA === implB && (!allowAnotherRecipientAddress || implA === IMPL_SOL)
+  );
+}
+
+export function getLimitOrderPercent(limitOrder: LimitOrderTransactionDetails) {
+  return multiply(
+    div(
+      minus(limitOrder.tokenOutValue, limitOrder.remainingFillable),
+      limitOrder.tokenOutValue,
+    ),
+    100,
   );
 }

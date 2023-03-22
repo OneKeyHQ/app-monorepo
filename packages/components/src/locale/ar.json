@@ -128,6 +128,8 @@
   "action__export_addresses": "عناوين التصدير",
   "action__export_file": "ملف التصدير",
   "action__export_private_key": "تصدير المفتاح الخاص",
+  "action__export_private_spend_key": "تصدير مفتاح الإنفاق الخاص",
+  "action__export_public_key": "تصدير المفتاح العام",
   "action__export_secret_mnemonic": "تصدير ذاكري السرية",
   "action__export_spend_key": "تصدير مفتاح الإنفاق",
   "action__export_view_key": "تصدير مفتاح العرض",
@@ -187,6 +189,7 @@
   "action__pick_an_emoji": "اختر رمزًا تعبيريًا",
   "action__place_limit_order": "وضع أمر الحد",
   "action__preview": "معاينة",
+  "action__private_view_key": "تصدير مفتاح العرض الخاص",
   "action__profit_and_loss": "الربح والخسارة",
   "action__protection": "حماية",
   "action__quick_add": "إضافة سريعة",
@@ -326,6 +329,7 @@
   "badge__backed_up": "استعيدت",
   "badge__blacklist_doubt": "📓 المشتبه به الخبيث",
   "badge__blackmail": "📧 ابتزاز",
+  "badge__cancelling": "الإلغاء",
   "badge__coming_soon": "قريبا",
   "badge__cybercrime": "💻 جرائم الإنترنت",
   "badge__darkweb_txns": "🎱 معاملات Darkweb",
@@ -1070,6 +1074,7 @@
   "form__exact_amount_allowance_desc": "احذر من إعطاء الكثير من البدل لأي عقد. قد يؤدي استخدام وضع المبلغ المحدد إلى تقليل المخاطر بشكل كبير. يمكنك تبديله في أي وقت.",
   "form__exact_amount_allowance_significantly_reduces_risk_exposure": "مخصص المبلغ المحدد يقلل بشكل كبير من التعرض للمخاطر.",
   "form__expand_view": "قم بتوسيع العرض",
+  "form__expiration": "انتهاء الصلاحية",
   "form__expired": "منتهي الصلاحية",
   "form__expires_in": "ينتهي في",
   "form__explorer": "إكسبلورر",
@@ -1132,7 +1137,7 @@
   "form__hot_tokens": "الرموز الساخنة",
   "form__hot_tokens_uppercase": "الرموز الساخنة",
   "form__import_as": "استيراد بتنسيق",
-  "form__import_watch_only_account_placeholder": "العنوان أو المفتاح العام (XPUB) أو اسم المجال",
+  "form__import_watch_only_account_placeholder": "العنوان أو المفتاح العام أو اسم المجال",
   "form__imported_as_a_watch_account": "استيراد كحساب مراقب",
   "form__include_nfts_in_totals": "تضمين NFTs في الإجماليات",
   "form__include_tokens_without_allowances": "قم بتضمين الرموز المميزة بدون البدلات",
@@ -1249,6 +1254,7 @@
   "form__open_a_new_tab": "افتح علامة تبويب جديدة",
   "form__open_new_tab_and_jump": "افتح علامة تبويب جديدة واقفز",
   "form__open_next_page_in_current_tab": "افتح الصفحة التالية في علامة التبويب الحالية",
+  "form__order_hash": "ترتيب التجزئة",
   "form__order_no": "رقم الطلب",
   "form__outbox": "صندوق الصادر",
   "form__overwrite_metamask": "الكتابة فوق MetaMask",
@@ -1805,6 +1811,8 @@
   "msg__invalid_link_or_network_error": "ارتباط غير صالح أو خطأ في الشبكة",
   "msg__invalid_private_key": "مفتاح خاص غير صالح",
   "msg__invalid_word": "كلمة غير صحيحة",
+  "msg__limit_price_is_str_lower_than_the_current_market_price": "السعر المحدد أقل {0} من السوق.",
+  "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "سوف تبيع {0} بسعر رخيص للغاية.",
   "msg__link_copied": "تم نسخ الرابط",
   "msg__mine": "الخاص بي",
   "msg__minted": "💎 سكت {assets}",
@@ -1831,6 +1839,8 @@
   "msg__ns_photo_library_add_usage_description": "استخدم مكتبة الصور لحفظ صور QR.",
   "msg__ns_photo_library_usage_description": "استخدم مكتبة الصور لقراءة صور QR.",
   "msg__offline": "غير متصل على الانترنت",
+  "msg__once_exposed_a_third_party_will_be_able_to_see_your_entire_transaction_history": "بمجرد الكشف عنها ، سيتمكن طرف ثالث من رؤية سجل معاملاتك بالكامل.",
+  "msg__once_exposed_a_third_party_will_be_able_to_take_full_control_of_your_account": "بمجرد الكشف ، سيتمكن طرف ثالث من السيطرة الكاملة على حسابك.",
   "msg__oneKey_does_not_support_creating_monero_accounts_for_the_moment": "لا يدعم OneKey إنشاء حسابات Monero للحظة",
   "msg__oneKey_does_not_support_creating_monero_accounts_for_the_moment_desc": "يمكنك إنشاء حساب Monero بأمان في <a> Monero GUI </a> باستخدام جهاز OneKey.",
   "msg__other_str_lines_errors": "أخطاء أخرى {count} سطور",
@@ -2114,6 +2124,7 @@
   "title__official_website": "الموقع الرسمي",
   "title__onekey_lite_pin": "OneKey Lite PIN",
   "title__open_order": "طلب مفتوح",
+  "title__order_details": "تفاصيل الطلب",
   "title__order_id": "رقم التعريف الخاص بالطلب",
   "title__overview": "ملخص",
   "title__password_verification_is_required_to_view_account_details_on_str": "مطلوب التحقق من كلمة المرور لعرض تفاصيل الحساب على {0}",

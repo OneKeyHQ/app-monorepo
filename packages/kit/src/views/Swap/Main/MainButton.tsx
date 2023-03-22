@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 
 import {
   BottomSheetModal,
+  Box,
   Button,
   Center,
   HStack,
@@ -15,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
+import { ethers } from '@onekeyhq/engine/src/vaults/impl/evm/sdk/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IDecodedTx,
@@ -27,33 +29,42 @@ import {
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../hooks';
-import { useActiveWalletAccount, useAppSelector } from '../../hooks/redux';
-import { ModalRoutes, RootRoutes } from '../../routes/types';
-import { addTransaction } from '../../store/reducers/swapTransactions';
-import { wait } from '../../utils/helper';
-import { canShowAppReview, openAppReview } from '../../utils/openAppReview';
-import { showOverlay } from '../../utils/overlayUtils';
-import { SendModalRoutes } from '../Send/types';
-
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useNavigation } from '../../../hooks';
+import { useActiveWalletAccount, useAppSelector } from '../../../hooks/redux';
+import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import {
+  addLimitOrderTransaction,
+  addTransaction,
+} from '../../../store/reducers/swapTransactions';
+import { wait } from '../../../utils/helper';
+import { canShowAppReview, openAppReview } from '../../../utils/openAppReview';
+import { showOverlay } from '../../../utils/overlayUtils';
+import { SendModalRoutes } from '../../Send/types';
+import { ZeroExchangeAddress } from '../config';
+import {
+  useCheckLimitOrderInputBalance,
+  useLimitOrderOutput,
+  useLimitOrderParams,
+} from '../hooks/useLimitOrder';
 import {
   useCheckInputBalance,
   useInputLimitsError,
   useSwapError,
   useSwapQuoteRequestParams,
-} from './hooks/useSwap';
-import { useSwapSend } from './hooks/useSwapSend';
-import { SwapQuoter } from './quoter';
-import { dangerRefs } from './refs';
-import { SwapError, SwapRoutes } from './typings';
+} from '../hooks/useSwap';
+import { useSwapSend, useSwapSignMessage } from '../hooks/useSwapSend';
+import { SwapQuoter } from '../quoter';
+import { dangerRefs } from '../refs';
+import { SwapError, SwapRoutes } from '../typings';
 import {
   TokenAmount,
   calculateDecodedTxNetworkFee,
   formatAmount,
   getTokenAmountString,
   getTokenAmountValue,
-} from './utils';
+  lte,
+} from '../utils';
 
 import type {
   BuildTransactionParams,
@@ -62,7 +73,7 @@ import type {
   QuoteData,
   Recipient,
   TransactionToken,
-} from './typings';
+} from '../typings';
 
 type IConvertToSwapInfoOptions = {
   swapQuote: QuoteData;
@@ -319,9 +330,12 @@ const ExchangeButton = () => {
   const onSubmit = useCallback(async () => {
     const recipient = await backgroundApiProxy.serviceSwap.getRecipient();
     if (!params || !quote || !recipient) {
-      ToastManager.show({
-        title: intl.formatMessage({ id: 'msg__unknown_error' }),
-      });
+      ToastManager.show(
+        {
+          title: intl.formatMessage({ id: 'msg__unknown_error' }),
+        },
+        { type: 'error' },
+      );
       return;
     }
     const sendingAccount = params.activeAccount;
@@ -358,9 +372,12 @@ const ExchangeButton = () => {
     );
 
     if (!fromNetwork) {
-      ToastManager.show({
-        title: intl.formatMessage({ id: 'msg__unknown_error' }),
-      });
+      ToastManager.show(
+        {
+          title: intl.formatMessage({ id: 'msg__unknown_error' }),
+        },
+        { type: 'error' },
+      );
       return;
     }
 
@@ -376,12 +393,17 @@ const ExchangeButton = () => {
           fromNetwork.id,
         );
       if (balance.minus(inputAmount.typedValue).lt(reservedValue)) {
-        ToastManager.show({
-          title: intl.formatMessage(
-            { id: 'msg__gas_fee_is_not_enough_please_keep_at_least_str' },
-            { '0': `${reservedValue} ${params.tokenIn.symbol.toUpperCase()}` },
-          ),
-        });
+        ToastManager.show(
+          {
+            title: intl.formatMessage(
+              { id: 'msg__gas_fee_is_not_enough_please_keep_at_least_str' },
+              {
+                '0': `${reservedValue} ${params.tokenIn.symbol.toUpperCase()}`,
+              },
+            ),
+          },
+          { type: 'error' },
+        );
         return;
       }
     }
@@ -408,7 +430,7 @@ const ExchangeButton = () => {
     if (res === undefined || !res?.data) {
       const title =
         res?.error?.msg ?? intl.formatMessage({ id: 'msg__unknown_error' });
-      ToastManager.show({ title });
+      ToastManager.show({ title }, { type: 'error' });
       return;
     }
 
@@ -707,7 +729,6 @@ const SwapExchangeStateButton = () => {
       </Button>
     );
   }
-
   return <ExchangeButton />;
 };
 
@@ -819,12 +840,206 @@ const SwapWrapStateButton = () => {
   return <SwapWrapButton />;
 };
 
-const SwapEnabledButton = () => {
+export const SwapButton = () => {
   const wrapperTxInfo = useAppSelector((s) => s.swap.quote?.wrapperTxInfo);
   return wrapperTxInfo ? <SwapWrapStateButton /> : <SwapExchangeStateButton />;
 };
 
-const SwapButton = () => {
+const LimitOrderButton = () => {
+  const intl = useIntl();
+  const ref = useRef(false);
+  const params = useLimitOrderParams();
+  const instantRate = useAppSelector((s) => s.limitOrder.instantRate);
+  const sendSwapTx = useSwapSend();
+  const sendSignMessage = useSwapSignMessage();
+  const [loading, setLoading] = useState(false);
+
+  const onSubmit = useCallback(async () => {
+    if (!params || !instantRate) {
+      ToastManager.show(
+        {
+          title: intl.formatMessage({ id: 'msg__unknown_error' }),
+        },
+        { type: 'error' },
+      );
+      return;
+    }
+
+    const order = await backgroundApiProxy.serviceLimitOrder.buildLimitOrder({
+      params,
+      instantRate,
+    });
+    const createdAt = Math.floor(Date.now() / 1000);
+
+    if (!order) {
+      ToastManager.show(
+        {
+          title: intl.formatMessage({ id: 'msg__unknown_error' }),
+        },
+        { type: 'error' },
+      );
+      return;
+    }
+
+    const tasks: Task[] = [];
+    const doLimitOrder = async () => {
+      const message =
+        await backgroundApiProxy.serviceLimitOrder.getEIP712TypedData({
+          domain: { networkId: params.tokenIn.networkId },
+          message: order,
+        });
+      const accountId = params.activeAccount.id;
+      const { networkId } = params.tokenIn;
+      const { tokenIn } = params;
+      const { tokenOut } = params;
+      sendSignMessage({
+        accountId,
+        networkId,
+        unsignedMessage: { type: 4, message: JSON.stringify(message) },
+        onSuccess: async (signature: any) => {
+          ToastManager.show({
+            title: intl.formatMessage({ id: 'transaction__success' }),
+          });
+          const orderHash = ethers.utils._TypedDataEncoder.hash(
+            message.domain,
+            { LimitOrder: message.types.LimitOrder },
+            message.message,
+          );
+
+          await backgroundApiProxy.serviceLimitOrder.submitLimitOrder({
+            order,
+            networkId: params.tokenIn.networkId,
+            signature,
+          });
+
+          backgroundApiProxy.dispatch(
+            addLimitOrderTransaction({
+              networkId: tokenIn.networkId,
+              accountId,
+              limitOrder: {
+                networkId: tokenIn.networkId,
+                accountId,
+                orderHash,
+                tokenIn,
+                tokenInValue: order.makerAmount,
+                tokenOut,
+                tokenOutValue: order.takerAmount,
+                remainingFillable: order.takerAmount,
+                rate: instantRate,
+                createdAt,
+                expiredIn: Number(order.expiry),
+              },
+            }),
+          );
+          backgroundApiProxy.serviceLimitOrder.resetState();
+        },
+      });
+    };
+    tasks.unshift(doLimitOrder);
+    let needApproved = false;
+    const allowance = await backgroundApiProxy.engine.getTokenAllowance({
+      networkId: params.tokenIn.networkId,
+      accountId: params.activeAccount.id,
+      tokenIdOnNetwork: params.tokenIn.tokenIdOnNetwork,
+      spender: ZeroExchangeAddress,
+    });
+    if (allowance) {
+      needApproved = new BigNumber(
+        getTokenAmountString(params.tokenIn, allowance),
+      ).lt(order.makerAmount);
+    }
+    if (needApproved) {
+      const doApprove = async (nextTask?: Task) => {
+        const approveTx =
+          (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
+            spender: ZeroExchangeAddress,
+            networkId: params.tokenIn.networkId,
+            accountId: params.activeAccount.id,
+            token: params.tokenIn.tokenIdOnNetwork,
+            amount: getTokenAmountValue(
+              params.tokenIn,
+              order.makerAmount,
+            ).toFixed(),
+          })) as IEncodedTxEvm;
+        await sendSwapTx({
+          accountId: params.activeAccount.id,
+          networkId: params.tokenIn.networkId,
+          encodedTx: approveTx,
+          onSuccess: async () => {
+            await nextTask?.();
+          },
+        });
+      };
+      tasks.unshift(doApprove);
+    }
+    await combinedTasks(tasks);
+  }, [params, instantRate, intl, sendSignMessage, sendSwapTx]);
+
+  const onPress = useCallback(async () => {
+    if (ref.current) {
+      return;
+    }
+    setLoading(true);
+    ref.current = true;
+    try {
+      await onSubmit();
+    } finally {
+      ref.current = false;
+      setLoading(false);
+    }
+  }, [onSubmit]);
+
+  return (
+    <Button
+      key="limit_order"
+      size="xl"
+      type="primary"
+      isLoading={loading}
+      onPress={onPress}
+    >
+      {intl.formatMessage({ id: 'action__place_limit_order' })}
+    </Button>
+  );
+};
+
+export const LimitOrderStateButton = () => {
+  const intl = useIntl();
+  const loading = useAppSelector((s) => s.limitOrder.loading);
+  const output = useLimitOrderOutput();
+  const balanceInfo = useCheckLimitOrderInputBalance();
+  const lessThanZero = lte(output, 0);
+  if (loading || lessThanZero) {
+    return (
+      <Button
+        key="limit_order"
+        size="xl"
+        type="primary"
+        isDisabled={lessThanZero}
+        isLoading={loading}
+      >
+        {intl.formatMessage({ id: 'action__place_limit_order' })}
+      </Button>
+    );
+  }
+  if (balanceInfo && balanceInfo.insufficient) {
+    return (
+      <Button
+        size="xl"
+        type="primary"
+        isDisabled
+        key="insufficient_balance_error"
+      >
+        {intl.formatMessage(
+          { id: 'form__amount_invalid' },
+          { '0': balanceInfo.token.symbol },
+        )}
+      </Button>
+    );
+  }
+  return <LimitOrderButton />;
+};
+
+export const MainButton: FC = ({ children }) => {
   const intl = useIntl();
   const navigation = useNavigation();
   const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
@@ -849,8 +1064,5 @@ const SwapButton = () => {
       </Button>
     );
   }
-
-  return <SwapEnabledButton />;
+  return <Box>{children}</Box>;
 };
-
-export default SwapButton;

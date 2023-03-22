@@ -8,6 +8,7 @@ import { useIntl } from 'react-intl';
 import { Animated } from 'react-native';
 
 import {
+  Badge,
   Box,
   Button,
   Center,
@@ -15,6 +16,8 @@ import {
   Icon,
   IconButton,
   LottieView,
+  Pressable,
+  ToastManager,
   Typography,
   useTheme,
   useThemeValue,
@@ -29,7 +32,9 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 import { HomeRoutes } from '../../routes/types';
 import { setSwapPopoverShown } from '../../store/reducers/status';
+import { setMode } from '../../store/reducers/swap';
 
+import { limitOrderNetworkIds } from './config';
 import { doQuote } from './doQuote';
 import { useSwapQuoteRequestParams } from './hooks/useSwap';
 import { useWalletsSwapTransactions } from './hooks/useTransactions';
@@ -281,24 +286,73 @@ export const SwapHeaderButtons = () => {
   );
 };
 
-const SwapHeader = () => {
+export const SwapHeaderSwitch = () => {
   const intl = useIntl();
+  const swapMode = useAppSelector((s) => s.swap.mode);
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const isSwap = swapMode === 'swap';
+
+  const setLimitOrderMode = useCallback(() => {
+    if (!inputToken || !limitOrderNetworkIds.includes(inputToken.networkId)) {
+      ToastManager.show(
+        {
+          title: intl.formatMessage(
+            {
+              id: 'limit_orders_are_only_supported_for_str',
+            },
+            { '0': 'ETH, BSC, Polygon' },
+          ),
+        },
+        { type: 'default' },
+      );
+    }
+    backgroundApiProxy.serviceLimitOrder.setDefaultTokens();
+    backgroundApiProxy.dispatch(setMode('limit'));
+  }, [inputToken, intl]);
+
   return (
-    <Center w="full" mt={8} mb={6} px="4" zIndex={2}>
-      <Box
-        display="flex"
-        flexDirection="row"
-        justifyContent="space-between"
-        maxW="768"
-        width="full"
+    <Box flexDirection="row" alignItems="center">
+      <Pressable
+        mr="3"
+        onPress={() => backgroundApiProxy.dispatch(setMode('swap'))}
       >
-        <Typography.DisplayLarge>
-          {intl.formatMessage({ id: 'title__Swap_Bridge' })}
-        </Typography.DisplayLarge>
-        <SwapHeaderButtons />
-      </Box>
-    </Center>
+        <Typography.Body1Strong
+          color={isSwap ? 'text-default' : 'text-disabled'}
+        >
+          {intl.formatMessage({ id: 'title__swap' })}
+        </Typography.Body1Strong>
+      </Pressable>
+      <Pressable
+        onPress={setLimitOrderMode}
+        flexDirection="row"
+        alignItems="center"
+      >
+        <Typography.Body1Strong
+          color={!isSwap ? 'text-default' : 'text-disabled'}
+        >
+          {intl.formatMessage({ id: 'form__limit' })}
+        </Typography.Body1Strong>
+        <Box ml="1">
+          <Badge type="info" size="sm" title="Beta" />
+        </Box>
+      </Pressable>
+    </Box>
   );
 };
 
-export default SwapHeader;
+export const SwapHeader = () => {
+  const swapMode = useAppSelector((s) => s.swap.mode);
+  const isSwap = swapMode === 'swap';
+  return (
+    <Box
+      width="full"
+      flexDirection="row"
+      h="9"
+      justifyContent="space-between"
+      alignItems="center"
+    >
+      <SwapHeaderSwitch />
+      {isSwap ? <SwapHeaderButtons /> : <Box />}
+    </Box>
+  );
+};

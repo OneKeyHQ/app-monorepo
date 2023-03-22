@@ -3,6 +3,8 @@ import { useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import { useIsVerticalLayout } from '@onekeyhq/components';
+
 import { useAppSelector, useDebounce } from '../../../hooks';
 import {
   div,
@@ -153,4 +155,13 @@ export const useSwapMinimumReceivedAmount = () => {
       }
     }
   }, [quote, swapSlippagePercent]);
+};
+
+export const useSwapChartMode = () => {
+  const swapChartMode = useAppSelector((s) => s.swapTransactions.swapChartMode);
+  const isSmall = useIsVerticalLayout();
+  if (isSmall) {
+    return 'simple';
+  }
+  return swapChartMode ?? 'chart';
 };

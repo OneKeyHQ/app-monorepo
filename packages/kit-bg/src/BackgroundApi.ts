@@ -385,5 +385,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceAddressbook', { value });
     return value;
   }
+
+  get serviceLimitOrder() {
+    const ServiceLimitOrder =
+      require('./services/ServiceLimitOrder') as typeof import('./services/ServiceLimitOrder');
+    const value = new ServiceLimitOrder.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceLimitOrder', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

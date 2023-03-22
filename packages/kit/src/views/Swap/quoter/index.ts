@@ -11,8 +11,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import {
   calculateNetworkFee,
   convertBuildParams,
+  convertLimitOrderParams,
   convertParams,
   div,
+  formatAmount,
   getQuoteType,
   getTokenAmountValue,
   isEvmNetworkId,
@@ -31,6 +33,7 @@ import type {
   BuildTransactionResponse,
   FetchQuoteParams,
   FetchQuoteResponse,
+  ILimitOrderQuoteParams,
   ProtocolFees,
   QuoteData,
   QuoteLimited,
@@ -184,6 +187,26 @@ export class SwapQuoter {
       });
     }
     return result;
+  }
+
+  async fetchLimitOrderQuote(params: ILimitOrderQuoteParams) {
+    const urlParams = convertLimitOrderParams(params) as
+      | FetchQuoteHttpParams
+      | undefined;
+    if (!urlParams) {
+      return;
+    }
+    urlParams.quoterType = '0x';
+    const serverEndPont =
+      await backgroundApiProxy.serviceSwap.getServerEndPoint();
+    const url = `${serverEndPont}/swap/v2/quote`;
+    const res = await this.httpClient.get(url, { params: urlParams });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const response = res.data?.data as FetchQuoteHttpResponse | undefined;
+    if (response && response.result?.instantRate) {
+      return { instantRate: formatAmount(response.result.instantRate) };
+    }
+    return undefined;
   }
 
   async buildQuote({

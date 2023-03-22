@@ -1,4 +1,5 @@
 import { FailedToEstimatedGasError } from '@onekeyhq/engine/src/errors';
+import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IEncodedTx,
   IFeeInfo,
@@ -30,15 +31,16 @@ export type ISendTransactionParams = {
   autoFallback?: boolean;
 };
 
+export type ISignMessageParams = {
+  accountId: string;
+  networkId: string;
+  unsignedMessage: IUnsignedMessageEvm;
+};
+
 @backgroundClass()
 export default class ServiceTransaction extends ServiceBase {
-  @backgroundMethod()
-  async sendTransaction(params: ISendTransactionParams) {
-    const { accountId, networkId, encodedTx, feePresetIndex, autoFallback } =
-      params;
-    const { engine, servicePassword, serviceHistory, appSelector } =
-      this.backgroundApi;
-    const network = await engine.getNetwork(params.networkId);
+  private async getPassword(accountId: string) {
+    const { servicePassword, appSelector } = this.backgroundApi;
     const wallets = appSelector((s) => s.runtime.wallets);
     const activeWallet = wallets.find((wallet) =>
       wallet.accounts.includes(accountId),
@@ -51,8 +53,18 @@ export default class ServiceTransaction extends ServiceBase {
     }
 
     if (password === undefined) {
-      throw new Error('Internal Error');
+      throw new Error('Failed to find the password');
     }
+    return password;
+  }
+
+  @backgroundMethod()
+  async sendTransaction(params: ISendTransactionParams) {
+    const { accountId, networkId, encodedTx, feePresetIndex, autoFallback } =
+      params;
+    const { engine, serviceHistory } = this.backgroundApi;
+    const network = await engine.getNetwork(params.networkId);
+    const password = await this.getPassword(accountId);
 
     let feeInfoUnit: IFeeInfoUnit | undefined;
     let feeInfo: IFeeInfo | undefined;
@@ -170,5 +182,19 @@ export default class ServiceTransaction extends ServiceBase {
     });
 
     return { result: signedTx, decodedTx, encodedTx: signedTx.encodedTx };
+  }
+
+  @backgroundMethod()
+  async signMessage(params: ISignMessageParams) {
+    const { accountId, networkId, unsignedMessage } = params;
+    const { engine } = this.backgroundApi;
+    const password = await this.getPassword(accountId);
+    const result = await engine.signMessage({
+      password,
+      networkId,
+      accountId,
+      unsignedMessage,
+    });
+    return result;
   }
 }
