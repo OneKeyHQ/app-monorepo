@@ -6,6 +6,7 @@ import { read, utils } from 'xlsx';
 
 import { Box, Center, Icon, Pressable } from '@onekeyhq/components';
 
+import { ReceiverErrors } from '../ReceiverEditor/ReceiverErrors';
 import { ReceiverExample } from '../ReceiverExample';
 import { TokenReceiverEnum } from '../types';
 
@@ -14,10 +15,17 @@ import type { TokenReceiver } from '../types';
 interface Props {
   setReceiverFromOut: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
   setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
+  showFileError: boolean;
+  setShowFileError: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export function ReceiverUploader(props: Props) {
-  const { setReceiverFromOut, setIsUploadMode } = props;
+function ReceiverUploader(props: Props) {
+  const {
+    setReceiverFromOut,
+    setIsUploadMode,
+    showFileError,
+    setShowFileError,
+  } = props;
 
   const handleUploadFile = useCallback(async () => {
     try {
@@ -46,12 +54,15 @@ export function ReceiverUploader(props: Props) {
               item.Amount !== TokenReceiverEnum.Amount,
           ),
         );
+        setShowFileError(false);
         setIsUploadMode(false);
+      } else {
+        setShowFileError(true);
       }
     } catch {
-      // pass
+      setShowFileError(true);
     }
-  }, [setIsUploadMode, setReceiverFromOut]);
+  }, [setIsUploadMode, setReceiverFromOut, setShowFileError]);
 
   return (
     <>
@@ -67,9 +78,14 @@ export function ReceiverUploader(props: Props) {
           <Icon name="UploadOutline" size={40} color="icon-subdued" />
         </Center>
       </Pressable>
+      <Box mt={3}>
+        <ReceiverErrors receiverErrors={[]} showFileError={showFileError} />
+      </Box>
       <Box mt={4}>
         <ReceiverExample />
       </Box>
     </>
   );
 }
+
+export { ReceiverUploader };

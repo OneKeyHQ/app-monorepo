@@ -1,10 +1,14 @@
-import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
+import {
+  OneKeyHardwareError,
+  OneKeyInternalError,
+} from '@onekeyhq/engine/src/errors';
 import { getNextAccountId } from '@onekeyhq/engine/src/managers/derivation';
 import type { IAccount } from '@onekeyhq/engine/src/types';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { INDEX_PLACEHOLDER } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 
@@ -118,6 +122,59 @@ export default class ServiceDerivationPath extends ServiceBase {
         accountId: addedAccount?.id,
         template: usedTemplate,
       });
+    }
+  }
+
+  @backgroundMethod()
+  async getHWAddressByTemplate({
+    networkId,
+    walletId,
+    index,
+    template,
+  }: {
+    networkId: string;
+    walletId: string;
+    index: number;
+    template: string;
+  }) {
+    const path = template.replace(INDEX_PLACEHOLDER, index.toString());
+    const vault = await this.backgroundApi.engine.getWalletOnlyVault(
+      networkId,
+      walletId,
+    );
+    const device = await this.backgroundApi.engine.getHWDeviceByWalletId(
+      walletId,
+    );
+    if (!device) {
+      throw new OneKeyInternalError(`Device not found.`);
+    }
+    try {
+      const address = await vault.keyring.getAddress({
+        path,
+        showOnOneKey: true,
+        isTemplatePath: true,
+      });
+
+      if (!address) {
+        throw new OneKeyInternalError(`Address not found.`);
+      }
+
+      const accountExist = await vault.checkAccountExistence(address, true);
+      return {
+        index,
+        path,
+        address,
+        displayAddress: address,
+        accountExist,
+      };
+    } catch (e) {
+      if (e instanceof OneKeyHardwareError) {
+        throw e;
+      } else {
+        throw new OneKeyHardwareError({
+          message: 'Failed to get address',
+        });
+      }
     }
   }
 }

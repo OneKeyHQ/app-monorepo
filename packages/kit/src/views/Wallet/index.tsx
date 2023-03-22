@@ -97,9 +97,11 @@ const WalletTabs: FC = () => {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     backgroundApiProxy.serviceOverview.refreshCurrentAccount().finally(() => {
-      setTimeout(() => setRefreshing(false), 10);
+      setTimeout(() => setRefreshing(false), 50);
     });
   }, []);
+
+  const timer = useRef<ReturnType<typeof setTimeout>>();
 
   const walletTabs = (
     <>
@@ -110,7 +112,10 @@ const WalletTabs: FC = () => {
         onRefresh={onRefresh}
         onIndexChange={(index: number) => {
           defaultIndexRef.current = index;
-          onIndexChange(index);
+          clearTimeout(timer.current);
+          timer.current = setTimeout(() => {
+            onIndexChange(defaultIndexRef.current);
+          }, 1500);
         }}
         renderHeader={AccountHeader}
         headerHeight={
@@ -181,6 +186,12 @@ const WalletTabs: FC = () => {
           walletId={wallet.id}
           field={ValidationFields.Account}
           placeCenter={!platformEnv.isNative}
+          subTitle={intl.formatMessage(
+            {
+              id: 'title__password_verification_is_required_to_view_account_details_on_str',
+            },
+            { '0': network.name },
+          )}
         >
           {() => walletTabs}
         </Protected>

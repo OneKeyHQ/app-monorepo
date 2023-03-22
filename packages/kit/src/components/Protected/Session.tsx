@@ -15,13 +15,23 @@ type SessionProps = {
   onOk?: (text: string, isLocalAuthentication?: boolean) => void;
   hideTitle?: boolean;
   placeCenter?: boolean;
+  title?: string;
+  subTitle?: string;
 };
 
-const Session: FC<SessionProps> = ({ field, onOk, hideTitle, placeCenter }) => {
+const Session: FC<SessionProps> = ({
+  field,
+  onOk,
+  hideTitle,
+  placeCenter,
+  title,
+  subTitle,
+}) => {
   const [loaded, setLoaded] = useState(false);
   const [verifiedPwd, setVerifiedPwd] = useState(false);
   const [hasvPw, setHasPw] = useState<boolean | undefined>();
   const validationSetting = useAppSelector((s) => s.settings.validationSetting);
+  const handOperatedLock = useAppSelector((s) => s.data.handOperatedLock);
   const isAlwaysNeedInputPassword = useMemo(() => {
     const value = field ? !!validationSetting?.[field] : false;
     if (field && field === ValidationFields.Secret) {
@@ -48,7 +58,7 @@ const Session: FC<SessionProps> = ({ field, onOk, hideTitle, placeCenter }) => {
       loadCachePassword();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [handOperatedLock]);
 
   const onSubmit = useCallback(
     async (text: string, isLocalAuthentication?: boolean) => {
@@ -66,6 +76,8 @@ const Session: FC<SessionProps> = ({ field, onOk, hideTitle, placeCenter }) => {
           onOk={onSubmit}
           hideTitle={hideTitle}
           placeCenter={placeCenter}
+          title={title}
+          subTitle={subTitle}
         />
       );
     }
@@ -76,6 +88,8 @@ const Session: FC<SessionProps> = ({ field, onOk, hideTitle, placeCenter }) => {
           onOk={onSubmit}
           hideTitle={hideTitle}
           placeCenter={placeCenter}
+          title={title}
+          subTitle={subTitle}
         />
       );
     }

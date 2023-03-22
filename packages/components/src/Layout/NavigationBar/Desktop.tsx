@@ -66,6 +66,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
         };
         return (
           <Tooltip
+            key={route.key}
             label={options.tabBarLabel as string}
             isDisabled={!isCollpase}
             placement="right"

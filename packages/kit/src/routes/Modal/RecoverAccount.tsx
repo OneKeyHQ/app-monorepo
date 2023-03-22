@@ -1,5 +1,6 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import RecoverAccountsAdvanced from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverAccountsAdvanced';
+import BulkCopyAddresses from '@onekeyhq/kit/src/views/Account/BulkCopyAddress';
 
 import { RecoverAccountModalRoutes } from '../routesEnum';
 
@@ -18,6 +19,12 @@ export type RecoverAccountRoutesParams = {
   [RecoverAccountModalRoutes.RecoverAccountsAdvanced]: RecoverAccountsAdvancedParams & {
     onApply: (options: RecoverAccountsAdvancedParams) => void;
   };
+  [RecoverAccountModalRoutes.BulkCopyAddresses]: {
+    networkId: string;
+    walletId: string;
+    password: string;
+    entry: 'accountSelector' | 'manageAccount';
+  };
 };
 
 const RecoverAccountNavigator =
@@ -27,6 +34,10 @@ const modalRoutes = [
   {
     name: RecoverAccountModalRoutes.RecoverAccountsAdvanced,
     component: RecoverAccountsAdvanced,
+  },
+  {
+    name: RecoverAccountModalRoutes.BulkCopyAddresses,
+    component: BulkCopyAddresses,
   },
 ];
 

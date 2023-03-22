@@ -1,3 +1,4 @@
+import type { IDerivationOption } from '@onekeyhq/kit/src/components/NetworkAccountSelector/hooks/useDerivationPath';
 import {
   COINTYPE_ADA,
   COINTYPE_ALGO,
@@ -211,7 +212,6 @@ function getAccountDerivationPrimaryKey({
 }) {
   return `${walletId}-${impl}-${template}`;
 }
-
 export {
   getPath,
   getDefaultPurpose,

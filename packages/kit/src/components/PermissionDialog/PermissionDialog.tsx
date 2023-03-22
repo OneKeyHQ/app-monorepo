@@ -67,7 +67,7 @@ const linkMap: PrefLink = {
     android: IntentLauncher.ActivityAction.LOCATION_SOURCE_SETTINGS,
   },
   localNetwork: {
-    iOS: 'App-Prefs:BVJ3FU5H2K.so.onekey.wallet',
+    iOS: 'App-Prefs:so.onekey.wallet',
   },
 };
 
