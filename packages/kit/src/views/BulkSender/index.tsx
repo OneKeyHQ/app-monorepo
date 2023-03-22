@@ -27,7 +27,7 @@ import { NotSupported } from './NotSupported';
 import { TokenOutbox } from './TokenOutbox';
 import { BulkSenderTypeEnum } from './types';
 
-const emptyHeader = () => <Box />;
+const emptyHeader = () => <Text>' '</Text>;
 function BulkSender() {
   const intl = useIntl();
   const goBack = useNavigationBack();

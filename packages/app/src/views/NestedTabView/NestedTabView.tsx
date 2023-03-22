@@ -136,13 +136,12 @@ const NestedTabView: ForwardRefRenderFunction<
       }
 
       // restore the onPress function
-      enableOnPressAnim.value = withTiming(1, { duration: 50 });
+      enableOnPressAnim.value = withTiming(1, { duration: 100 });
     },
     [canOpenDrawer, resetGesture, tabIndex.value],
   );
   const pan = useMemo(() => {
-    const enablePan = scrollEnabled;
-    const basePan = Gesture.Pan().enabled(enablePan);
+    const basePan = Gesture.Pan();
     if (canOpenDrawer) {
       basePan.onTouchesDown(({ allTouches }) => {
         resetGesture();
@@ -202,7 +201,6 @@ const NestedTabView: ForwardRefRenderFunction<
     offsetX,
     onEnd,
     resetGesture,
-    scrollEnabled,
     startY,
     tabIndex,
   ]);
