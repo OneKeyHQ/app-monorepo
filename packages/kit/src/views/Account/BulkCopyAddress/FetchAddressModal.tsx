@@ -84,8 +84,8 @@ const FetchAddressModal: FC = () => {
       const value = forceFinish
         ? 1
         : Math.floor((result.length / Number(generateCount)) * 100) / 100;
-      setProgress(value);
       setGeneratedAccounts(result);
+      setProgress(value);
     },
     [data],
   );
@@ -142,7 +142,7 @@ const FetchAddressModal: FC = () => {
       while (start < startIndex + finalLimit) {
         let offset = pageSize;
         if (start + pageSize > startIndex + finalLimit) {
-          offset = start + finalLimit - start;
+          offset = finalLimit - start;
         }
         if (offset <= 0) {
           break;
@@ -250,8 +250,8 @@ const FetchAddressModal: FC = () => {
       const value = forceFinish
         ? 1
         : Math.floor((finishLength / Number(totalLength)) * 100) / 100;
-      setProgress(value);
       setWalletAccounts(result);
+      setProgress(value);
     },
     [data],
   );

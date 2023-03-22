@@ -4,7 +4,13 @@ import { useCallback, useRef, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Modal, SegmentedControl, Token } from '@onekeyhq/components';
+import {
+  Box,
+  Modal,
+  SegmentedControl,
+  ToastManager,
+  Token,
+} from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import { useRuntime } from '../../../hooks/redux';
@@ -61,7 +67,7 @@ const HeaderDescription: FC<{ network: Network }> = ({
 const BulkCopyAddress: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { walletId, networkId, password, entry } = route.params;
+  const { walletId, networkId, password, entry, template } = route.params;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { networks } = useRuntime();
   const network = networks.filter((n) => n.id === networkId)[0];
@@ -76,9 +82,21 @@ const BulkCopyAddress: FC = () => {
     let data: IFetchAddressByRange | IFetchAddressByWallet;
     if (selectedIndex === 0) {
       const value = await setRangeRef.current?.onSubmit();
+      if (!value) {
+        return;
+      }
       data = { ...value, type: 'setRange' } as IFetchAddressByRange;
     } else {
       const value = walletAccountsRef.current?.onSubmit();
+      if (!value) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage({ id: 'empty__no_account_desc' }),
+          },
+          { type: 'default' },
+        );
+        return;
+      }
       data = { ...value, type: 'walletAccounts' } as IFetchAddressByWallet;
     }
 
@@ -88,7 +106,7 @@ const BulkCopyAddress: FC = () => {
       password,
       data,
     });
-  }, [selectedIndex, navigation, networkId, walletId, password]);
+  }, [selectedIndex, navigation, networkId, walletId, password, intl]);
 
   return (
     <Modal
@@ -111,7 +129,12 @@ const BulkCopyAddress: FC = () => {
       </Box>
 
       {selectedIndex === 0 && (
-        <SetRange walletId={walletId} networkId={networkId} ref={setRangeRef} />
+        <SetRange
+          walletId={walletId}
+          networkId={networkId}
+          template={template}
+          ref={setRangeRef}
+        />
       )}
       {selectedIndex === 1 && (
         <WalletAccounts

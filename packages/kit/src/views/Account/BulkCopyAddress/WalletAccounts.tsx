@@ -3,12 +3,13 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useState,
 } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, HStack, Text, VStack } from '@onekeyhq/components';
+import { Box, Center, Empty, HStack, Text, VStack } from '@onekeyhq/components';
 import type { DBAccountDerivation } from '@onekeyhq/engine/src/types/accountDerivation';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
@@ -36,9 +37,11 @@ export type IWalletAccountsReturnType = {
   networkDerivations: INetworkDerivationItem[];
 };
 export type IWalletAccountsRefType = {
-  onSubmit: () => {
-    wallet: Wallet | undefined;
-  } & IWalletAccountsReturnType;
+  onSubmit: () =>
+    | false
+    | ({
+        wallet: Wallet | undefined;
+      } & IWalletAccountsReturnType);
 };
 
 const WalletAccounts = forwardRef<IWalletAccountsRefType, IProps>(
@@ -71,16 +74,25 @@ const WalletAccounts = forwardRef<IWalletAccountsRefType, IProps>(
       [derivationOptions, intl],
     );
 
-    const onSubmit = useCallback(
-      () => ({
+    const isDisabled = useMemo(
+      () =>
+        !networkDerivations.length ||
+        networkDerivations.every((n) => !n.accounts.length),
+      [networkDerivations],
+    );
+
+    const onSubmit = useCallback(() => {
+      if (isDisabled) {
+        return false;
+      }
+      return {
         wallet,
         networkDerivations: networkDerivations.map((i) => ({
           ...i,
           name: getDerivationName(i),
         })),
-      }),
-      [wallet, networkDerivations, getDerivationName],
-    );
+      };
+    }, [wallet, networkDerivations, getDerivationName, isDisabled]);
 
     useImperativeHandle(
       ref,
@@ -95,7 +107,7 @@ const WalletAccounts = forwardRef<IWalletAccountsRefType, IProps>(
     }
 
     return (
-      <Box>
+      <Box flex={1}>
         <HStack alignItems="center" space={4}>
           <WalletAvatar
             walletImage={wallet.type}
@@ -115,22 +127,36 @@ const WalletAccounts = forwardRef<IWalletAccountsRefType, IProps>(
             {wallet.name}
           </Text>
         </HStack>
-        <VStack mt={4} mb={6} space={4}>
-          {networkDerivations.map((item) => (
-            <HStack alignItems="center" justifyContent="space-between">
-              <Text typography={{ sm: 'Body2Strong', md: 'Body2Strong' }}>
-                {getDerivationName(item)}
-              </Text>
-              <Text
-                typography={{ sm: 'Body2Strong', md: 'Body2Strong' }}
-                color="text-subdued"
-              >
-                {item.accounts.length}{' '}
-                {intl.formatMessage({ id: 'title__accounts' })}
-              </Text>
-            </HStack>
-          ))}
-        </VStack>
+        {networkDerivations.length ? (
+          <VStack mt={4} mb={6} space={4}>
+            {networkDerivations.map((item) => (
+              <HStack alignItems="center" justifyContent="space-between">
+                <Text typography={{ sm: 'Body2Strong', md: 'Body2Strong' }}>
+                  {getDerivationName(item)}
+                </Text>
+                <Text
+                  typography={{ sm: 'Body2Strong', md: 'Body2Strong' }}
+                  color="text-subdued"
+                >
+                  {item.accounts.length}{' '}
+                  {intl.formatMessage({ id: 'title__accounts' })}
+                </Text>
+              </HStack>
+            ))}
+          </VStack>
+        ) : (
+          <Center flex={1}>
+            <Empty
+              emoji="💳"
+              title={intl.formatMessage({
+                id: 'empty__no_account_title',
+              })}
+              subTitle={intl.formatMessage({
+                id: 'empty__no_account_desc',
+              })}
+            />
+          </Center>
+        )}
       </Box>
     );
   },

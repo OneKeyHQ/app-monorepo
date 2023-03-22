@@ -14,7 +14,6 @@ import {
   ToastManager,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { TextareaWithLineNumber } from '@onekeyhq/kit/src/views/BulkSender/TextareaWithLineNumber';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -65,7 +64,8 @@ const ExportAddresses: FC = () => {
       });
       index += 1;
     }
-    return content;
+    // slice the last \n
+    return content.slice(0, -2);
   }, [data]);
 
   const addressCsvString = useMemo(() => {

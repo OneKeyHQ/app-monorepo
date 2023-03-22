@@ -38,7 +38,7 @@ type FromValues = {
   generateCount?: string;
 };
 
-type IProps = { walletId?: string; networkId: string };
+type IProps = { walletId?: string; networkId: string; template?: string };
 export type ISetRangeReturnType = {
   derivationOption: IDerivationOption | undefined;
   derivationType: string;
@@ -50,7 +50,7 @@ export type ISetRangeRefType = {
 };
 
 const SetRange = forwardRef<ISetRangeRefType, IProps>(
-  ({ walletId, networkId }, ref) => {
+  ({ walletId, networkId, template }, ref) => {
     const isSmallScreen = useIsVerticalLayout();
     const intl = useIntl();
     const { control, handleSubmit, setError, setValue, getValues } =
@@ -66,13 +66,19 @@ const SetRange = forwardRef<ISetRangeRefType, IProps>(
 
     // set default derivation option
     useEffect(() => {
-      const defaultOption = derivationOptions.find(
-        (item) => item.key === 'default',
-      );
+      if (!derivationOptions) {
+        return;
+      }
+      const defaultOption = derivationOptions.find((item) => {
+        if (template) {
+          return item.template === template;
+        }
+        return item.key === 'default';
+      });
       if (defaultOption) {
         setSelectedOption(defaultOption);
       }
-    }, [derivationOptions]);
+    }, [derivationOptions, template]);
 
     const value = useMemo(() => {
       let label: IDerivationOption['label'];
@@ -204,17 +210,19 @@ const SetRange = forwardRef<ISetRangeRefType, IProps>(
     return (
       <KeyboardDismissView>
         <Form w="full" mb="26px">
-          <Pressable onPress={onPress}>
-            <Form.Item name="derivationType" control={control}>
-              <Form.Input
-                size={isSmallScreen ? 'xl' : 'default'}
-                rightIconName="ChevronDownMini"
-                isReadOnly
-                onPressRightIcon={onPress}
-                onPressIn={platformEnv.isNativeIOS ? onPress : undefined}
-              />
-            </Form.Item>
-          </Pressable>
+          {derivationOptions.length > 1 && (
+            <Pressable onPress={onPress}>
+              <Form.Item name="derivationType" control={control}>
+                <Form.Input
+                  size={isSmallScreen ? 'xl' : 'default'}
+                  rightIconName="ChevronDownMini"
+                  isReadOnly
+                  onPressRightIcon={onPress}
+                  onPressIn={platformEnv.isNativeIOS ? onPress : undefined}
+                />
+              </Form.Item>
+            </Pressable>
+          )}
           <Form.Item
             name="fromIndex"
             control={control}
