@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import {
   forwardRef,
   useCallback,
@@ -38,7 +39,12 @@ type FromValues = {
   generateCount?: string;
 };
 
-type IProps = { walletId?: string; networkId: string; template?: string };
+type IProps = {
+  walletId?: string;
+  networkId: string;
+  template?: string;
+  setButtonDisabled: Dispatch<SetStateAction<boolean>>;
+};
 export type ISetRangeReturnType = {
   derivationOption: IDerivationOption | undefined;
   derivationType: string;
@@ -50,17 +56,24 @@ export type ISetRangeRefType = {
 };
 
 const SetRange = forwardRef<ISetRangeRefType, IProps>(
-  ({ walletId, networkId, template }, ref) => {
+  ({ walletId, networkId, template, setButtonDisabled }, ref) => {
     const isSmallScreen = useIsVerticalLayout();
     const intl = useIntl();
-    const { control, handleSubmit, setError, setValue, getValues } =
-      useForm<FromValues>({
-        defaultValues: {
-          derivationType: 'default',
-          fromIndex: '1',
-          generateCount: '10',
-        },
-      });
+    const {
+      control,
+      handleSubmit,
+      setError,
+      setValue,
+      getValues,
+      formState: { isValid },
+    } = useForm<FromValues>({
+      defaultValues: {
+        derivationType: 'default',
+        fromIndex: '1',
+        generateCount: '10',
+      },
+      mode: 'onChange',
+    });
     const { derivationOptions } = useDerivationPath(walletId, networkId);
     const [selectedOption, setSelectedOption] = useState<IDerivationOption>();
 
@@ -136,6 +149,10 @@ const SetRange = forwardRef<ISetRangeRefType, IProps>(
       },
       [getValues],
     );
+
+    useEffect(() => {
+      setButtonDisabled(!isValid);
+    }, [isValid, setButtonDisabled]);
 
     const GenerateCountButton = useMemo(
       () => (

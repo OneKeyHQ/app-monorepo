@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
+import { useDebounce } from '../../../hooks';
 import { useRuntime } from '../../../hooks/redux';
 import { CreateAccountModalRoutes } from '../../../routes';
 
@@ -76,6 +77,27 @@ const BulkCopyAddress: FC = () => {
     entry === 'accountSelector' ? 1 : 0,
   );
 
+  const [setRangeDisabled, setSetRangeDisabled] = useState(false);
+  const [walletAccountDisabled, setWalletAccountDisabled] = useState(false);
+
+  const buttonDisabledInSetRange = useMemo(() => {
+    if (selectedIndex === 1) return false;
+    return setRangeDisabled;
+  }, [selectedIndex, setRangeDisabled]);
+  const debounceButtonDisabledInSetRange = useDebounce(
+    buttonDisabledInSetRange,
+    150,
+  );
+
+  const buttonDisabledInWalletAccount = useMemo(() => {
+    if (selectedIndex === 0) return false;
+    return walletAccountDisabled;
+  }, [selectedIndex, walletAccountDisabled]);
+  const debounceButtonDisabledInWalletAccount = useDebounce(
+    buttonDisabledInWalletAccount,
+    150,
+  );
+
   const setRangeRef = useRef<ISetRangeRefType>(null);
   const walletAccountsRef = useRef<IWalletAccountsRefType>(null);
   const onPrimaryActionPress = useCallback(async () => {
@@ -116,6 +138,11 @@ const BulkCopyAddress: FC = () => {
       hideSecondaryAction
       primaryActionTranslationId="action__export_addresses"
       onPrimaryActionPress={onPrimaryActionPress}
+      primaryActionProps={{
+        isDisabled:
+          debounceButtonDisabledInSetRange ||
+          debounceButtonDisabledInWalletAccount,
+      }}
     >
       <Box mb={6}>
         <SegmentedControl
@@ -133,6 +160,7 @@ const BulkCopyAddress: FC = () => {
           walletId={walletId}
           networkId={networkId}
           template={template}
+          setButtonDisabled={setSetRangeDisabled}
           ref={setRangeRef}
         />
       )}
@@ -140,6 +168,7 @@ const BulkCopyAddress: FC = () => {
         <WalletAccounts
           walletId={walletId}
           networkId={networkId}
+          setButtonDisabled={setWalletAccountDisabled}
           ref={walletAccountsRef}
         />
       )}

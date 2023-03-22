@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import {
   forwardRef,
   useCallback,
@@ -24,7 +25,11 @@ import { useRuntime } from '../../../hooks/redux';
 import { formatDerivationLabel } from './helper';
 
 type INetworkDerivation = DBAccountDerivation & { key: string };
-type IProps = { walletId: string; networkId: string };
+type IProps = {
+  walletId: string;
+  networkId: string;
+  setButtonDisabled: Dispatch<SetStateAction<boolean>>;
+};
 export type INetworkDerivationItem = {
   name: string | undefined;
   id: string;
@@ -45,7 +50,7 @@ export type IWalletAccountsRefType = {
 };
 
 const WalletAccounts = forwardRef<IWalletAccountsRefType, IProps>(
-  ({ walletId, networkId }: IProps, ref) => {
+  ({ walletId, networkId, setButtonDisabled }: IProps, ref) => {
     const intl = useIntl();
     const { wallets } = useRuntime();
     const wallet = wallets.find((item) => item.id === walletId);
@@ -80,6 +85,10 @@ const WalletAccounts = forwardRef<IWalletAccountsRefType, IProps>(
         networkDerivations.every((n) => !n.accounts.length),
       [networkDerivations],
     );
+
+    useEffect(() => {
+      setButtonDisabled(isDisabled);
+    }, [isDisabled, setButtonDisabled]);
 
     const onSubmit = useCallback(() => {
       if (isDisabled) {
