@@ -136,22 +136,24 @@ const WalletAccounts = forwardRef<IWalletAccountsRefType, IProps>(
             {wallet.name}
           </Text>
         </HStack>
-        {networkDerivations.length ? (
+        {!isDisabled ? (
           <VStack mt={4} mb={6} space={4}>
-            {networkDerivations.map((item) => (
-              <HStack alignItems="center" justifyContent="space-between">
-                <Text typography={{ sm: 'Body2Strong', md: 'Body2Strong' }}>
-                  {getDerivationName(item)}
-                </Text>
-                <Text
-                  typography={{ sm: 'Body2Strong', md: 'Body2Strong' }}
-                  color="text-subdued"
-                >
-                  {item.accounts.length}{' '}
-                  {intl.formatMessage({ id: 'title__accounts' })}
-                </Text>
-              </HStack>
-            ))}
+            {networkDerivations
+              .filter((item) => item.accounts.length)
+              .map((item) => (
+                <HStack alignItems="center" justifyContent="space-between">
+                  <Text typography={{ sm: 'Body2Strong', md: 'Body2Strong' }}>
+                    {getDerivationName(item)}
+                  </Text>
+                  <Text
+                    typography={{ sm: 'Body2Strong', md: 'Body2Strong' }}
+                    color="text-subdued"
+                  >
+                    {item.accounts.length}{' '}
+                    {intl.formatMessage({ id: 'title__accounts' })}
+                  </Text>
+                </HStack>
+              ))}
           </VStack>
         ) : (
           <Center flex={1}>

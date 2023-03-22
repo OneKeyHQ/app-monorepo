@@ -11,6 +11,7 @@ import {
   Text,
   ToastManager,
 } from '@onekeyhq/components';
+import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import type {
   Account,
   ImportableHDAccount,
@@ -21,6 +22,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { CreateAccountModalRoutes } from '../../../routes';
+import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
 
 import { formatDerivationLabel } from './helper';
@@ -216,11 +218,18 @@ const FetchAddressModal: FC = () => {
           updateSetRangeAccountProgress(result);
         } catch (e) {
           debugLogger.common.info('getHWAddressByTemplate error: ', e);
-          ToastManager.show({
-            title: intl.formatMessage({
-              id: 'msg__cancelled_during_the_process',
-            }),
-          });
+          if (e instanceof OneKeyHardwareError) {
+            deviceUtils.showErrorToast(e);
+          } else {
+            ToastManager.show({
+              title: intl.formatMessage(
+                {
+                  id: 'msg__cancelled_during_the_process',
+                },
+                { type: 'error' },
+              ),
+            });
+          }
           updateSetRangeAccountProgress(result, true);
           break;
         }
@@ -318,11 +327,18 @@ const FetchAddressModal: FC = () => {
           } catch (e) {
             debugLogger.common.info('Fetch Wallet Accounts error: ', e);
             if (isHwWallet) {
-              ToastManager.show({
-                title: intl.formatMessage({
-                  id: 'msg__cancelled_during_the_process',
-                }),
-              });
+              if (e instanceof OneKeyHardwareError) {
+                deviceUtils.showErrorToast(e);
+              } else {
+                ToastManager.show(
+                  {
+                    title: intl.formatMessage({
+                      id: 'msg__cancelled_during_the_process',
+                    }),
+                  },
+                  { type: 'error' },
+                );
+              }
               updateWalletsAccountProgress(result, true);
               errorState = true;
               break;

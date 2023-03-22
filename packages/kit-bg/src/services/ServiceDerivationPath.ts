@@ -159,7 +159,10 @@ export default class ServiceDerivationPath extends ServiceBase {
         throw new OneKeyInternalError(`Address not found.`);
       }
 
-      const accountExist = await vault.checkAccountExistence(address, true);
+      let accountExist = true;
+      if (vault.settings.isUTXOModel) {
+        accountExist = await vault.checkAccountExistence(address, true);
+      }
       return {
         index,
         path,
