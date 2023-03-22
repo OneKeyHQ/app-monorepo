@@ -52,8 +52,8 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     }
 
     @ReactProp(name = "disableRefresh")
-    fun setDisableRefresh(view: HomePageView, enable: Boolean) {
-        view.setEnableRefresh(!enable)
+    fun setDisableRefresh(view: HomePageView, disable: Boolean) {
+        view.setEnableRefresh(!disable)
     }
 
     @ReactProp(name = "refresh")

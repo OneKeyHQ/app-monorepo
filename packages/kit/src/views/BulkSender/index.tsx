@@ -116,7 +116,7 @@ function BulkSender() {
       }}
       renderHeader={() => <Text display="none">''</Text>}
       headerHeight={isVertical ? 0 : 30}
-      swipeEnabled={false}
+      scrollEnabled={false}
       disableRefresh
     >
       <Tabs.Tab

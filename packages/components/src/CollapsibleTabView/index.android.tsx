@@ -29,7 +29,7 @@ const Container: ForwardRefRenderFunction<
     onRefresh,
     initialTabName,
     containerStyle,
-    scrollEnabled = false,
+    scrollEnabled = true,
     ...props
   },
   ref,
@@ -79,7 +79,7 @@ const Container: ForwardRefRenderFunction<
       onRefreshCallBack={() => {
         setTimeout(() => {
           onRefresh?.();
-        }, 0);
+        });
       }}
       renderHeader={renderHeader}
       onChange={(e) => {
