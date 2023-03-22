@@ -10,6 +10,7 @@ import type {
   IBaseMenuOptions,
   IMenu,
 } from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
@@ -123,9 +124,15 @@ const BitcoinUsedAddressMenu: FC<
     [showPath, onPressShowPath],
   );
 
+  const showFindAddressByPath = useMemo(
+    () =>
+      ([OnekeyNetwork.btc, OnekeyNetwork.tbtc] as string[]).includes(networkId),
+    [networkId],
+  );
+
   const options = useMemo<IBaseMenuOptions>(
     () => [
-      {
+      showFindAddressByPath && {
         id: 'action__find_address_by_path',
         onPress: onPressFindAddressByPath,
         icon: 'MagnifyingGlassMini',
@@ -137,7 +144,12 @@ const BitcoinUsedAddressMenu: FC<
         extraChildren: showPathCheckBox,
       },
     ],
-    [onPressShowPath, showPathCheckBox, onPressFindAddressByPath],
+    [
+      onPressShowPath,
+      showPathCheckBox,
+      onPressFindAddressByPath,
+      showFindAddressByPath,
+    ],
   );
 
   return <BaseMenu options={options} {...props} menuWidth={261} />;
