@@ -2082,17 +2082,25 @@ class RealmDB implements DBAPI {
     const accountDerivations = this.realm!.objects<AccountDerivationSchema>(
       'AccountDerivation',
     ).filtered('walletId == $0', walletId);
-    const account = this.realm!.objectForPrimaryKey<AccountSchema>(
-      'Account',
-      accountId,
-    );
-    this.realm!.write(() => {
-      accountDerivations.forEach((accountDerivation) => {
-        accountDerivation.accounts = accountDerivation.accounts.filter(
-          (id) => id !== account?.id,
+    const derivationId = accountDerivations.find(
+      (accountDerivation) =>
+        (accountDerivation.accounts ?? []).findIndex((id) => id === accountId) >
+        -1,
+    )?.id;
+    if (derivationId) {
+      const accountDerivation =
+        this.realm!.objectForPrimaryKey<AccountDerivationSchema>(
+          'AccountDerivation',
+          derivationId,
         );
+      this.realm!.write(() => {
+        if (accountDerivation?.accounts) {
+          accountDerivation.accounts = accountDerivation?.accounts.filter(
+            (id) => id !== accountId,
+          );
+        }
       });
-    });
+    }
     return Promise.resolve();
   }
 
