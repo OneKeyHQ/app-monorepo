@@ -17,7 +17,6 @@ import DialogGallery from '@onekeyhq/kit/src/views/Components/stories/Dialog';
 import EmojiGallery from '@onekeyhq/kit/src/views/Components/stories/Emoji';
 import EmptyGallery from '@onekeyhq/kit/src/views/Components/stories/Empty';
 import FormGallery from '@onekeyhq/kit/src/views/Components/stories/Form';
-import GoogleSignIn from '@onekeyhq/kit/src/views/Components/stories/GoogleSignIn';
 import HardwareHomescreen from '@onekeyhq/kit/src/views/Components/stories/HardwareHomescreen';
 import IconGallery from '@onekeyhq/kit/src/views/Components/stories/Icon';
 import IconButtons from '@onekeyhq/kit/src/views/Components/stories/IconButtons';
@@ -64,7 +63,6 @@ import renderCustomSubStackHeader from '../Stack/Header';
 
 export enum StackRoutes {
   Developer = 'developer',
-  ComponentGoogleSignIn = 'component/A-GoogleSignIn',
   ComponentApproval = 'component/approval',
   ComponentSearchBar = 'component/searchBar',
   ComponentTextarea = 'component/textarea',
@@ -289,10 +287,6 @@ export const stackScreenList = [
   {
     name: StackRoutes.ComponentMnemonicCardGallery,
     component: MnemonicCardGallery,
-  },
-  {
-    name: StackRoutes.ComponentGoogleSignIn,
-    component: GoogleSignIn,
   },
 ];
 

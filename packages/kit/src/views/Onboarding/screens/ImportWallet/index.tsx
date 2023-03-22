@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 
 import { Box } from '@onekeyhq/components';
+import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -181,7 +182,10 @@ const ImportWallet = () => {
         {(platformEnv.isNativeIOS || platformEnv.isNativeIOSPad) && (
           <ItemWrapper>
             <OptioniCloud
-              title={intl.formatMessage({ id: 'action__restore_from_icloud' })}
+              title={intl.formatMessage(
+                { id: 'action__restore_from_icloud' },
+                { 'cloudName': backupPlatform().cloudName },
+              )}
               onPress={onPressRestoreFromCloud}
               isDisabled={!hasPreviousBackups}
               isLoading={iCloudLoading}
@@ -191,7 +195,11 @@ const ImportWallet = () => {
         {platformEnv.isNativeAndroid && (
           <ItemWrapper>
             <OptionGoogleDrive
-              title={intl.formatMessage({ id: 'action__restore_from_icloud' })}
+              title={intl.formatMessage(
+                { id: 'action__restore_from_icloud' },
+                { 'cloudName': backupPlatform().cloudName },
+              )}
+              isDisabled={!hasPreviousBackups}
               onPress={() => {
                 if (!isLogin) {
                   serviceCloudBackup.loginIfNeeded(true).then((result) => {

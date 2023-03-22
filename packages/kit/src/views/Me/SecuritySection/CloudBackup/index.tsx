@@ -16,6 +16,10 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import {
+  backupPlatform,
+  logoutFromGoogleDrive,
+} from '@onekeyhq/shared/src/cloudfs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -44,14 +48,6 @@ type NavigationProps = CompositeNavigationProp<
   >
 >;
 
-function backupTitle() {
-  if (platformEnv.isNativeIOS) {
-    return 'iCloud';
-  }
-  if (platformEnv.isNativeAndroid) {
-    return 'Google Drive';
-  }
-}
 const InProgressContent = () => {
   const intl = useIntl();
 
@@ -99,19 +95,26 @@ const EnabledContent = ({
             onClose();
           },
         }}
-        // TODO:Drive
-        // i8n key
         contentProps={{
           iconName: 'CloudOutline',
           iconType: 'success',
           title: intl.formatMessage({
             id: 'dialog__your_wallets_are_backed_up',
           }),
-          content: `${intl.formatMessage({
-            id: 'dialog__your_wallets_are_backed_up_desc',
-          })}\n\n${intl.formatMessage({
-            id: 'dialog__your_wallets_are_backed_up_desc_2',
-          })}`,
+          content: `${intl.formatMessage(
+            {
+              id: 'dialog__your_wallets_are_backed_up_desc',
+            },
+            {
+              'cloudName': backupPlatform().cloudName,
+              'platform': backupPlatform().platform,
+            },
+          )}\n\n${intl.formatMessage(
+            {
+              id: 'dialog__your_wallets_are_backed_up_desc_2',
+            },
+            { 'cloudName': backupPlatform().cloudName },
+          )}`,
         }}
       />
     ));
@@ -157,8 +160,10 @@ const DisabledContent = () => {
             {intl.formatMessage({ id: 'content__backup_disabled' })}
           </Text>
           <Text typography="Body2" color="text-subdued">
-            {/* // TODO:Drive */}
-            {intl.formatMessage({ id: 'content__backup_disabled_desc' })}
+            {intl.formatMessage(
+              { id: 'content__backup_disabled_desc' },
+              { 'cloudName': backupPlatform().cloudName },
+            )}
           </Text>
         </Box>
       </Box>
@@ -171,8 +176,10 @@ const DisabledContent = () => {
         alignSelf="center"
         w={{ base: 'full', sm: 'auto' }}
       >
-        {/* // TODO:Drive */}
-        {intl.formatMessage({ id: 'action__backup_to_icloud' })}
+        {intl.formatMessage(
+          { id: 'action__backup_to_icloud' },
+          { 'cloudName': backupPlatform().cloudName },
+        )}
       </Button>
     </Box>
   );
@@ -247,7 +254,7 @@ const CloudBackup = () => {
   return (
     <Wrapper>
       <Text typography="Heading" mb={4}>
-        {backupTitle()}
+        {backupPlatform().cloudName}
       </Text>
       {isAvailable ? (
         <Box>
@@ -272,9 +279,12 @@ const CloudBackup = () => {
         </Box>
       ) : (
         <Text typography="Body2" color="text-critical">
-          {intl.formatMessage({
-            id: 'content__log_in_icloud_to_enable_backup',
-          })}
+          {intl.formatMessage(
+            {
+              id: 'content__log_in_icloud_to_enable_backup',
+            },
+            { 'cloudName': backupPlatform().cloudName },
+          )}
         </Text>
       )}
       <Box w="full" py="6">
@@ -283,10 +293,25 @@ const CloudBackup = () => {
           borderBottomColor="divider"
         />
       </Box>
-      <Text typography="Body2" color="text-subdued">
-        {/* // TODO:Drive */}
-        {intl.formatMessage({ id: 'content__wont_backup' })}
-      </Text>
+      <Text typography="Body2" color="text-subdued" />
+      <Box w="full" py="6">
+        <Box
+          borderBottomWidth={StyleSheet.hairlineWidth}
+          borderBottomColor="divider"
+        />
+      </Box>
+      {platformEnv.isNativeAndroid && (
+        <Button
+          onPress={() => {
+            logoutFromGoogleDrive().then(() => {
+              navigation.goBack();
+            });
+          }}
+          size="xl"
+        >
+          {intl.formatMessage({ id: 'action__logout' })}
+        </Button>
+      )}
     </Wrapper>
   );
 };

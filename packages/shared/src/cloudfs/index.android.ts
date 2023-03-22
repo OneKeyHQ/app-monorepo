@@ -1,4 +1,5 @@
 import { GoogleSignin } from '@react-native-community/google-signin';
+import axios from 'axios';
 import RNCloudFs from 'react-native-cloud-fs';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -12,6 +13,10 @@ const GoogleSignInConfigure = {
   offlineAccess: true,
 };
 
+export function backupPlatform() {
+  return { cloudName: 'Google Drive', platform: 'Google' };
+}
+
 export async function isAvailable(): Promise<boolean> {
   const hasPlayServices = await GoogleSignin.hasPlayServices({
     showPlayServicesUpdateDialog: false,
@@ -19,13 +24,26 @@ export async function isAvailable(): Promise<boolean> {
   return Promise.resolve(hasPlayServices);
 }
 
+async function checkInternet() {
+  const result = await axios
+    .head('https://www.googleapis.com/auth/drive.file', { timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  return result;
+}
 export async function loginIfNeeded(
   showSignInDialog: boolean,
 ): Promise<boolean> {
   const signedIn = await GoogleSignin.isSignedIn();
+  console.log('signedIn = ', signedIn);
+
   if (signedIn) {
     try {
-      return await RNCloudFs.loginIfNeeded();
+      console.log('RNCloudFs');
+      const login = await RNCloudFs.loginIfNeeded();
+      console.log('login = ', login);
+
+      return login;
     } catch (error) {
       debugLogger.cloudBackup.error(error);
       return Promise.resolve(false);
@@ -34,7 +52,8 @@ export async function loginIfNeeded(
     try {
       GoogleSignin.configure(GoogleSignInConfigure);
       await GoogleSignin.signIn();
-      return await RNCloudFs.loginIfNeeded();
+      const login = await RNCloudFs.loginIfNeeded();
+      return login;
     } catch (error) {
       debugLogger.cloudBackup.error(error);
       return Promise.resolve(false);
@@ -55,6 +74,9 @@ export function sync(): Promise<boolean> {
 }
 
 export async function listFiles(target: string) {
+  if ((await checkInternet()) === false) {
+    return [];
+  }
   await loginIfNeeded(false);
   const { files }: { files: Array<{ isFile: boolean; name: string }> } =
     await RNCloudFs.listFiles({ scope: 'hidden', targetPath: target });
@@ -64,6 +86,9 @@ export async function listFiles(target: string) {
 async function getFileObject(
   target: string,
 ): Promise<{ id: string; name: string } | undefined> {
+  if ((await checkInternet()) === false) {
+    return undefined;
+  }
   const { files }: { files: Array<{ id: string; name: string }> } =
     await RNCloudFs.listFiles({
       scope: 'hidden',
@@ -71,7 +96,11 @@ async function getFileObject(
     });
   return files.find(({ name }) => target === name);
 }
+
 export async function deleteFile(target: string): Promise<boolean> {
+  if ((await checkInternet()) === false) {
+    return Promise.resolve(false);
+  }
   await loginIfNeeded(false);
   const file = await getFileObject(target);
   if (file) {
@@ -82,6 +111,9 @@ export async function deleteFile(target: string): Promise<boolean> {
 }
 
 export async function downloadFromCloud(target: string): Promise<string> {
+  if ((await checkInternet()) === false) {
+    return Promise.resolve('');
+  }
   await loginIfNeeded(false);
   const file = await getFileObject(target);
   if (file) {

@@ -4,6 +4,10 @@ import RNCloudFs from 'react-native-cloud-fs';
 
 import platformEnv from '../platformEnv';
 
+export function backupPlatform() {
+  return { cloudName: 'iCloud', platform: 'Apple' };
+}
+
 export async function isAvailable(): Promise<boolean> {
   return !!platformEnv.isNativeIOS && RNCloudFs.isAvailable();
 }

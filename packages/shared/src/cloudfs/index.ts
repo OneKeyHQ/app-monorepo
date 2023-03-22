@@ -1,6 +1,10 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 
+export function backupPlatform() {
+  return { cloudName: '', platform: '' };
+}
+
 export function isAvailable(): Promise<boolean> {
   return Promise.resolve(false);
 }
