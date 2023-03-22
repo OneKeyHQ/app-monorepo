@@ -29,12 +29,12 @@ function XmrExtraInfo() {
       <Alert
         dismiss={false}
         title={intl.formatMessage({
-          id: 'msg__oneKey_does_not_support_creating_monero_accounts_for_the_moment',
+          id: 'msg__creating_more_monero_accounts_is_not_supported_for_the_moment',
         })}
         alertType="info"
         description={intl.formatMessage(
           {
-            id: 'msg__oneKey_does_not_support_creating_monero_accounts_for_the_moment_desc',
+            id: 'msg__creating_more_monero_accounts_is_not_supported_for_the_moment_desc',
           },
           {
             a: downloadMoneroGUILink,
