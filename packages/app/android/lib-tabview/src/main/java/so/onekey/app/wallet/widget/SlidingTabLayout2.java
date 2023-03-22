@@ -162,10 +162,6 @@ public class SlidingTabLayout2 extends SlidingTabLayoutBase {
         public void onPageSelected(int position) {
             updateTabSelection(position);
         }
-
-        @Override
-        public void onPageScrollStateChanged(int state) {
-        }
     }
 
     class InnerPagerAdapter extends androidx.viewpager2.adapter.FragmentStateAdapter {
