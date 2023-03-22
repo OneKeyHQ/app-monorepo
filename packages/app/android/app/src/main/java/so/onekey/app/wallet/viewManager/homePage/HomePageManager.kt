@@ -52,8 +52,8 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     }
 
     @ReactProp(name = "disableRefresh")
-    fun setDisableRefresh(view: HomePageView, enable: Boolean) {
-        view.setEnableRefresh(!enable)
+    fun setDisableRefresh(view: HomePageView, disable: Boolean) {
+        view.setEnableRefresh(!disable)
     }
 
     @ReactProp(name = "refresh")
@@ -119,6 +119,11 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
             }
             view.setTabs(list)
         }
+    }
+
+    @ReactProp(name = "defaultIndex")
+    fun setDefaultIndex(view: HomePageView, index: Int?) {
+        view.setCurrentIndex(index)
     }
 
     override fun getChildCount(parent: HomePageView): Int {

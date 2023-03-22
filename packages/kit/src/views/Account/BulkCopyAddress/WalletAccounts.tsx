@@ -1,4 +1,3 @@
-import type { FC } from 'react';
 import {
   forwardRef,
   useCallback,

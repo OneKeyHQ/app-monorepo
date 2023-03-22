@@ -12,7 +12,6 @@ export interface CollapsibleContainerProps {
   onRefresh?: () => void;
   containerStyle?: StyleProp<ViewStyle>;
   scrollEnabled?: boolean;
-  swipeEnabled?: boolean;
   headerContainerStyle?: StyleProp<ViewStyle>;
   canOpenDrawer?: boolean;
   children?: JSX.Element | JSX.Element[];
