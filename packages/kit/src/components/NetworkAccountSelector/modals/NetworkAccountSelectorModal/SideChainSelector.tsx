@@ -92,36 +92,47 @@ function SideChainSelector({
   );
 
   const isScrolledRef = useRef(false);
-  const scrollToItem = useCallback(() => {
-    if (
-      isScrolledRef.current ||
-      !enabledNetworks ||
-      !enabledNetworks.length ||
-      !selectedNetworkId
-    ) {
-      return;
-    }
+  const isScrollToIndexRetried = useRef(false);
+  const scrollToItem = useCallback(
+    ({ isRetry }: { isRetry?: boolean } = {}) => {
+      if (
+        isScrolledRef.current ||
+        !enabledNetworks ||
+        !enabledNetworks.length ||
+        !selectedNetworkId
+      ) {
+        return;
+      }
+      if (isRetry && isScrollToIndexRetried.current) {
+        return;
+      }
+      if (isRetry) {
+        isScrollToIndexRetried.current = true;
+      }
 
-    /* timeout required:
+      /* timeout required:
     scrollToIndex should be used in conjunction with getItemLayout or onScrollToIndexFailed, otherwise there is no way to know the location of offscreen indices or handle failures.
      */
-    setTimeout(() => {
-      try {
-        const index = enabledNetworks.findIndex(
-          (item) => item.id === selectedNetworkId,
-        );
-        if (index < 5) {
-          return;
+      setTimeout(() => {
+        try {
+          const index = enabledNetworks.findIndex(
+            (item) => item.id === selectedNetworkId,
+          );
+          if (index < 5) {
+            return;
+          }
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
+          flatListRef?.current?.scrollToIndex?.({ animated: false, index });
+          isScrolledRef.current = true;
+        } catch (error) {
+          debugLogger.common.error(error);
         }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-        flatListRef?.current?.scrollToIndex?.({ animated: true, index });
-        isScrolledRef.current = true;
-      } catch (error) {
-        debugLogger.common.error(error);
-      }
-    }, 0);
-  }, [enabledNetworks, selectedNetworkId]);
+      }, 0);
+    },
+    [enabledNetworks, selectedNetworkId],
+  );
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const scrollToItemDebounced = useMemo(
     () =>
       debounce(scrollToItem, ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK, {
@@ -169,7 +180,7 @@ function SideChainSelector({
               <ChainNetworkIcon
                 item={item}
                 isLastItem={isLastItem}
-                onLastItemRender={scrollToItemDebounced}
+                onLastItemRender={() => scrollToItem({ isRetry: false })}
               />
               {fullWidthMode ? (
                 <>
@@ -200,7 +211,7 @@ function SideChainSelector({
     [
       data.length,
       fullWidthMode,
-      scrollToItemDebounced,
+      scrollToItem,
       onPress,
       selectedNetworkId,
       serviceAccountSelector,
@@ -229,6 +240,7 @@ function SideChainSelector({
       ) : null}
       <KeyboardAvoidingView flex={1}>
         <FlatListRef
+          onScrollToIndexFailed={() => scrollToItem({ isRetry: true })}
           ListEmptyComponent={NetworkListEmpty}
           initialNumToRender={20}
           // TODO auto scroll to active item
