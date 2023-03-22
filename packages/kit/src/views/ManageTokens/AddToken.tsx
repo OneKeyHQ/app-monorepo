@@ -106,7 +106,13 @@ function ViewTokenModal(props: IViewTokenModalProps) {
   const menuTrigger = useCallback(
     (triggerProps) => (
       <Pressable accessibilityLabel="More options menu" {...triggerProps}>
-        <Text>{shortenAddress(address)}</Text>
+        <Text
+          typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+          maxW="56"
+          textAlign="right"
+        >
+          {shortenAddress(address)}
+        </Text>
       </Pressable>
     ),
     [address],
@@ -157,7 +163,8 @@ function ViewTokenModal(props: IViewTokenModalProps) {
           <Menu
             w="190"
             trigger={menuTrigger}
-            offset={platformEnv.isNativeAndroid ? 25 : 0}
+            offset={platformEnv.isNativeAndroid ? 45 : 0}
+            placement="bottom right"
           >
             <Menu.CustomItem onPress={copyAction} icon="DocumentDuplicateMini">
               {intl.formatMessage({ id: 'action__copy_address' })}
@@ -274,13 +281,17 @@ function ViewTokenModal(props: IViewTokenModalProps) {
                   >
                     {item.label}
                   </Text>
-                  <Text
-                    typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
-                    maxW="56"
-                    textAlign="right"
-                  >
-                    {item.value}
-                  </Text>
+                  {typeof item.value === 'string' ? (
+                    <Text
+                      typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+                      maxW="56"
+                      textAlign="right"
+                    >
+                      {item.value}
+                    </Text>
+                  ) : (
+                    item.value
+                  )}
                 </Box>
               ))}
             </Box>
