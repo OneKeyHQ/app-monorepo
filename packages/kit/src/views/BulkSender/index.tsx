@@ -27,6 +27,7 @@ import { NotSupported } from './NotSupported';
 import { TokenOutbox } from './TokenOutbox';
 import { BulkSenderTypeEnum } from './types';
 
+const emptyHeader = () => <Box />;
 function BulkSender() {
   const intl = useIntl();
   const goBack = useNavigationBack();
@@ -114,9 +115,9 @@ function BulkSender() {
         alignSelf: 'center',
         flex: 1,
       }}
-      renderHeader={() => <Text display="none">''</Text>}
+      renderHeader={emptyHeader}
       headerHeight={isVertical ? 0 : 30}
-      scrollEnabled={false}
+      // scrollEnabled={false}
       disableRefresh
     >
       <Tabs.Tab

@@ -16,7 +16,7 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 
-import { enableOnPressAnim } from '@onekeyhq/components/src/utils/beforeOnPress';
+import { enableOnPressAnim } from '@onekeyhq/components/src/utils/useBeforeOnPress';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -114,37 +114,43 @@ const NestedTabView: ForwardRefRenderFunction<
     setPageIndex,
   }));
 
-  const onEnd = useCallback(() => {
-    if (canOpenDrawer && tabIndex.value === 0) {
-      if (lastTransX.value > drawerOpenDistance) {
-        nestedTabTransX.value = withSpring(0, {
-          velocity: 50,
-          stiffness: 1000,
-          damping: 500,
-          mass: 3,
-          overshootClamping: true,
-          restDisplacementThreshold: 0.01,
-          restSpeedThreshold: 0.01,
-        });
-      } else {
-        resetNestedTabTransX();
+  const onEnd = useCallback(
+    ({ translationX }) => {
+      if (canOpenDrawer) {
+        if (tabIndex.value === 0) {
+          if (translationX > drawerOpenDistance) {
+            nestedTabTransX.value = withSpring(0, {
+              velocity: 50,
+              stiffness: 1000,
+              damping: 500,
+              mass: 3,
+              overshootClamping: true,
+              restDisplacementThreshold: 0.01,
+              restSpeedThreshold: 0.01,
+            });
+          } else {
+            resetNestedTabTransX();
+          }
+        }
+        resetGesture();
       }
-    }
-    resetGesture();
 
-    // restore the onPress function
-    enableOnPressAnim.value = withTiming(1, { duration: 50 });
-  }, [canOpenDrawer, lastTransX, resetGesture, tabIndex]);
+      // restore the onPress function
+      enableOnPressAnim.value = withTiming(1, { duration: 50 });
+    },
+    [canOpenDrawer, resetGesture, tabIndex.value],
+  );
   const pan = useMemo(() => {
-    const basePan = Gesture.Pan()
-      .enabled(scrollEnabled)
-      .onTouchesDown(({ allTouches }) => {
+    const enablePan = scrollEnabled;
+    const basePan = Gesture.Pan().enabled(enablePan);
+    if (canOpenDrawer) {
+      basePan.onTouchesDown(({ allTouches }) => {
         resetGesture();
         nestedTabStartX.value = allTouches[0].absoluteX;
         startY.value = allTouches[0].absoluteY;
         offsetX.value = nestedTabTransX.value;
-      })
-      .onFinalize(onEnd);
+      });
+    }
     if (platformEnv.isNativeIOS) {
       // onUpdate works better on IOS
       basePan.onUpdate((e) => {
@@ -186,7 +192,7 @@ const NestedTabView: ForwardRefRenderFunction<
         }
       });
     }
-    return basePan;
+    return basePan.onFinalize(onEnd);
   }, [
     canOpenDrawer,
     lastTransX,
@@ -225,9 +231,14 @@ const NestedTabView: ForwardRefRenderFunction<
   return (
     <GestureDetector
       gesture={
+        // eslint-disable-next-line no-nested-ternary
         platformEnv.isNativeAndroid
           ? Gesture.Exclusive(native, pan)
-          : Gesture.Simultaneous(pan, native)
+          : canOpenDrawer
+          ? Gesture.Simultaneous(native, pan)
+          : // to solve ios system back gesture conflict
+            // in tab pages without drawer
+            Gesture.Race(native, pan)
       }
     >
       {content}

@@ -59,7 +59,7 @@ const Screen = () => {
         alignSelf: 'center',
         flex: 1,
       }}
-      scrollEnabled={false}
+      // scrollEnabled={false}
     >
       <Tabs.Tab
         name={TabEnum.Items}
