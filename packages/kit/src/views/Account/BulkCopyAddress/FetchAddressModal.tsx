@@ -453,6 +453,7 @@ const FetchAddressModal: FC = () => {
       closeOnOverlayClick={false}
       hideSecondaryAction
       hideBackButton
+      headerShown={false}
       primaryActionTranslationId="action__cancel"
       primaryActionProps={{
         type: 'basic',
