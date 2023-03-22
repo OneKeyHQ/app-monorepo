@@ -168,6 +168,8 @@ const Validation: FC<ValidationProps> = ({
       onLocalAuthenticationOk,
       onSubmit,
       onSubmitThrottle,
+      subTitle,
+      title,
     ],
   );
 
