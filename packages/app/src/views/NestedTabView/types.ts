@@ -1,13 +1,13 @@
 import type { ForwardedRef, ReactNode } from 'react';
 
 import { Dimensions } from 'react-native';
-import { makeMutable } from 'react-native-reanimated';
+import { makeMutable, withSpring } from 'react-native-reanimated';
 
 import type { FontProps } from '@onekeyhq/components/src/Typography';
 
 import type { NativeSyntheticEvent, StyleProp, ViewStyle } from 'react-native';
 
-export const getDrawerWidth = () => {
+const getDrawerWidth = () => {
   const { width } = Dimensions.get('window');
   // must sync with drawer width
   return width * 0.85;
@@ -17,6 +17,18 @@ export const nestedTabStartX = makeMutable(0);
 
 // to control drawer translation
 export const nestedTabTransX = makeMutable(-getDrawerWidth());
+
+export const resetNestedTabTransX = () => {
+  nestedTabTransX.value = withSpring(-getDrawerWidth(), {
+    velocity: 50,
+    stiffness: 1000,
+    damping: 500,
+    mass: 3,
+    overshootClamping: true,
+    restDisplacementThreshold: 0.01,
+    restSpeedThreshold: 0.01,
+  });
+};
 
 type TabViewStyle = {
   height: number;

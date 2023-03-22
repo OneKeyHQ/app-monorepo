@@ -47,6 +47,7 @@ open class HomePageLayout @JvmOverloads constructor(
     private var mTabViewStyle: TabViewStyle? = null
 
     private var mRefreshEnabled = true
+    private var mAppBarExtended = true
     private var mHeaderHeight = 56
 
     private val mPageChangeCallback = object : OnPageChangeCallback() {
@@ -54,6 +55,11 @@ open class HomePageLayout @JvmOverloads constructor(
             super.onPageSelected(position)
             if (mTabProps.isNotEmpty() && position < mTabProps.size) {
                 onReceiveNativeEvent(position, mTabProps[position])
+            }
+        }
+        override fun onPageScrollStateChanged(state: Int) {
+            content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)?.let {
+                it.isEnabled = if (state == ViewPager2.SCROLL_STATE_IDLE) mRefreshEnabled && mAppBarExtended else false
             }
         }
     }
@@ -103,7 +109,7 @@ open class HomePageLayout @JvmOverloads constructor(
     fun setEnableRefresh(enabled: Boolean) {
         mRefreshEnabled = enabled
         content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)?.let {
-            it.isEnabled = enabled
+            it.isEnabled = mRefreshEnabled && mAppBarExtended
         }
     }
 
@@ -128,10 +134,12 @@ open class HomePageLayout @JvmOverloads constructor(
                 ?.addOnOffsetChangedListener(object : AppBarLayout.OnOffsetChangedListener {
                     override fun onOffsetChanged(appBarLayout: AppBarLayout?, verticalOffset: Int) {
                         if (verticalOffset >= 0) {
-                            it.isEnabled = mRefreshEnabled
+                            mAppBarExtended = true
                         } else {
-                            it.isEnabled = false
+                            mAppBarExtended = false
                         }
+
+                        it.isEnabled = mRefreshEnabled && mAppBarExtended
                     }
                 })
         }
@@ -153,6 +161,16 @@ open class HomePageLayout @JvmOverloads constructor(
         mTabTitles.clear()
         mTabProps.addAll(tabProps)
         mTabTitles.addAll(tabProps.map { it.label })
+    }
+
+    fun setCurrentIndex(index: Int?) {
+        // Finally set index
+        post {
+            index?.let {
+                if(it >= mTabProps.size) return@post
+                content.findViewById<ViewPager2>(R.id.viewpager)?.currentItem = it
+            }
+        }
     }
 
     fun getChildViewCount(): Int {
