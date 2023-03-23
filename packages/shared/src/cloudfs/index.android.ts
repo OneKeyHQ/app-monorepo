@@ -8,8 +8,9 @@ import platformEnv from '../platformEnv';
 
 const GoogleSignInConfigure = {
   scopes: ['https://www.googleapis.com/auth/drive.file'],
-  webClientId:
-    '117481276073-fs7omuqsmvgtg6bci3ja1gvo03g0d984.apps.googleusercontent.com',
+  webClientId: platformEnv.isDev
+    ? '117481276073-fs7omuqsmvgtg6bci3ja1gvo03g0d984.apps.googleusercontent.com' // Dev
+    : '94391474021-ffaspa4ikjqpqvn5ndplqobvuvhnj8v3.apps.googleusercontent.com', // Pro
   offlineAccess: true,
 };
 
@@ -26,7 +27,9 @@ export async function isAvailable(): Promise<boolean> {
 
 async function checkInternet() {
   const result = await axios
-    .head('https://www.googleapis.com/auth/drive.file', { timeout: 5000 })
+    .head('https://www.googleapis.com/auth/drive.file', {
+      timeout: 100,
+    })
     .then(() => true)
     .catch(() => false);
   return result;
@@ -35,28 +38,26 @@ export async function loginIfNeeded(
   showSignInDialog: boolean,
 ): Promise<boolean> {
   const signedIn = await GoogleSignin.isSignedIn();
-  console.log('signedIn = ', signedIn);
-
   if (signedIn) {
     try {
-      console.log('RNCloudFs');
-      const login = await RNCloudFs.loginIfNeeded();
-      console.log('login = ', login);
-
-      return login;
+      return await RNCloudFs.loginIfNeeded();
     } catch (error) {
       debugLogger.cloudBackup.error(error);
       return Promise.resolve(false);
     }
   } else if (showSignInDialog) {
     try {
+      if ((await checkInternet()) === false) {
+        throw new Error('NETWORK');
+      }
       GoogleSignin.configure(GoogleSignInConfigure);
       await GoogleSignin.signIn();
-      const login = await RNCloudFs.loginIfNeeded();
-      return login;
+      return await RNCloudFs.loginIfNeeded();
     } catch (error) {
       debugLogger.cloudBackup.error(error);
-      return Promise.resolve(false);
+
+      throw error;
+      // return Promise.resolve(false);
     }
   }
   return Promise.resolve(false);
@@ -64,6 +65,8 @@ export async function loginIfNeeded(
 
 export function logoutFromGoogleDrive(): Promise<boolean> {
   if (platformEnv.isNativeAndroid) {
+    GoogleSignin.revokeAccess();
+    GoogleSignin.signOut();
     return RNCloudFs.logout();
   }
   return Promise.resolve(true);

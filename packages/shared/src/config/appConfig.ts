@@ -5,7 +5,6 @@ export const MAX_PAGE_CONTAINER_WIDTH = 1024;
  * Tokens will injected at build process. These are client token.
  */
 export const COVALENT_API_KEY = process.env.COVALENT_KEY!;
-export const MOONPAY_API_KEY = process.env.MOONPAY_KEY!;
 
 export const JPUSH_KEY = process.env.JPUSH_KEY!;
 

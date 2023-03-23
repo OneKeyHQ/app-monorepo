@@ -10,6 +10,7 @@ import {
   Select,
   Switch,
   Text,
+  ToastManager,
   Typography,
   useTheme,
 } from '@onekeyhq/components';
@@ -108,6 +109,9 @@ export const SecuritySection = () => {
   }, [enableAppLock, dispatch]);
   const lockDuration = Math.min(240, appLockDuration);
 
+  // const backupEnable =
+  //   platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay;
+  const backupEnable = true;
   return (
     <Box w="full" mb="6">
       <Box pb="2">
@@ -124,7 +128,7 @@ export const SecuritySection = () => {
         borderWidth={themeVariant === 'light' ? 1 : undefined}
         borderColor="border-subdued"
       >
-        {platformEnv.isNative ? (
+        {backupEnable ? (
           <Pressable
             display="flex"
             flexDirection="row"
@@ -139,14 +143,27 @@ export const SecuritySection = () => {
                 if (isLogin) {
                   navigation.navigate(HomeRoutes.CloudBackup);
                 } else {
-                  serviceCloudBackup.loginIfNeeded(true).then((result) => {
-                    if (result) {
-                      navigation.navigate(HomeRoutes.CloudBackup);
-                    } else {
-                      // TODO:Drive
-                      // Login fail
-                    }
-                  });
+                  serviceCloudBackup
+                    .loginIfNeeded(true)
+                    .then((result) => {
+                      if (result) {
+                        navigation.navigate(HomeRoutes.CloudBackup);
+                      }
+                    })
+                    .catch((error: Error) => {
+                      if (error.message === 'NETWORK') {
+                        ToastManager.show(
+                          {
+                            title: intl.formatMessage({
+                              id: 'title__no_connection_desc',
+                            }),
+                          },
+                          {
+                            type: 'error',
+                          },
+                        );
+                      }
+                    });
                 }
               });
             }}

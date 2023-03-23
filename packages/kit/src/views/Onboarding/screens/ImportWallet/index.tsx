@@ -5,7 +5,7 @@ import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 
-import { Box } from '@onekeyhq/components';
+import { Box, ToastManager } from '@onekeyhq/components';
 import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -73,8 +73,6 @@ const ImportWallet = () => {
 
   const [hasPreviousBackups, updateHasPreviousBackups] = useState(false);
   const getBackupStatus = async () => {
-    console.log('getBackupStatus = ');
-
     const status = await serviceCloudBackup.getBackupStatus();
     return status.hasPreviousBackups;
   };
@@ -96,8 +94,6 @@ const ImportWallet = () => {
       },
     },
   );
-
-  console.log('hasPreviousBackups = ', hasPreviousBackups);
 
   useEffect(() => {
     if (!isLogin) {
@@ -199,19 +195,31 @@ const ImportWallet = () => {
                 { id: 'action__restore_from_icloud' },
                 { 'cloudName': backupPlatform().cloudName },
               )}
-              isDisabled={!hasPreviousBackups}
               onPress={() => {
                 if (!isLogin) {
-                  serviceCloudBackup.loginIfNeeded(true).then((result) => {
-                    setIsLogin(result);
-                    if (result) {
-                      mutate();
-                      onPressRestoreFromDrive();
-                    } else {
-                      // TODO:Drive
-                      // Login fail
-                    }
-                  });
+                  serviceCloudBackup
+                    .loginIfNeeded(true)
+                    .then((result) => {
+                      setIsLogin(result);
+                      if (result) {
+                        mutate();
+                        onPressRestoreFromDrive();
+                      }
+                    })
+                    .catch((error: Error) => {
+                      if (error.message === 'NETWORK') {
+                        ToastManager.show(
+                          {
+                            title: intl.formatMessage({
+                              id: 'title__no_connection_desc',
+                            }),
+                          },
+                          {
+                            type: 'error',
+                          },
+                        );
+                      }
+                    });
                 } else {
                   onPressRestoreFromDrive();
                 }
