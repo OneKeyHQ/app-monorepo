@@ -72,6 +72,7 @@ const ForcedUpdate: FC = () => {
     <Modal
       closeable={false}
       closeOnOverlayClick={false}
+      closeAction={() => {}}
       size="sm"
       headerShown={false}
       maxHeight={560}
