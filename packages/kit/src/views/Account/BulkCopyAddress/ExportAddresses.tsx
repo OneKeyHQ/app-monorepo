@@ -14,7 +14,6 @@ import {
   ToastManager,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-// import { TextareaWithLineNumber } from '@onekeyhq/kit/src/views/BulkSender/TextareaWithLineNumber';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
