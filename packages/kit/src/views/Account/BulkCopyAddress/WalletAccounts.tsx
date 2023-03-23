@@ -74,7 +74,10 @@ const WalletAccounts = forwardRef<IWalletAccountsRefType, IProps>(
         const derivationOption = derivationOptions.find(
           (item) => item.template === option.template,
         );
-        return formatDerivationLabel(intl, derivationOption?.label);
+        return formatDerivationLabel(
+          intl,
+          derivationOption?.label || { id: 'form__bip44_standard' },
+        );
       },
       [derivationOptions, intl],
     );

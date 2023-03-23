@@ -5,6 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   Center,
   Modal,
   Progress,
@@ -76,6 +77,7 @@ const FetchAddressModal: FC = () => {
   const [generatedAccounts, setGeneratedAccounts] = useState<
     ImportableHDAccount[]
   >([]);
+  const [previousAddress, setPreviousAddress] = useState('');
 
   const [walletAccounts, setWalletAccounts] = useState<IWalletAccounts[]>([]);
 
@@ -215,6 +217,7 @@ const FetchAddressModal: FC = () => {
             hasNotExistAccount = true;
           }
           result.push(addressInfo);
+          setPreviousAddress(addressInfo.address);
           updateSetRangeAccountProgress(result);
         } catch (e) {
           debugLogger.common.info('getHWAddressByTemplate error: ', e);
@@ -294,6 +297,7 @@ const FetchAddressModal: FC = () => {
               if (address !== account.address) {
                 throw new Error('Not same address');
               }
+              setPreviousAddress(address);
             }
             accountData.push({
               ...account,
@@ -448,6 +452,7 @@ const FetchAddressModal: FC = () => {
 
   return (
     <Modal
+      height={isHwWallet ? 'auto' : '375px'}
       header={undefined}
       closeable={false}
       closeOnOverlayClick={false}
@@ -473,19 +478,32 @@ const FetchAddressModal: FC = () => {
       }}
     >
       <Center w="full" h="full">
-        <Progress.Circle
-          progress={progress}
-          text={
-            <Center>
-              <Text typography={{ sm: 'DisplayMedium', md: 'DisplayLarge' }}>
-                {progressText}
-              </Text>
-            </Center>
-          }
-        />
-        <Text my={6} typography={{ sm: 'Heading', md: 'Heading' }}>
+        <Box mt={6}>
+          <Progress.Circle
+            progress={progress}
+            text={
+              <Center>
+                <Text typography={{ sm: 'DisplayMedium', md: 'DisplayLarge' }}>
+                  {progressText}
+                </Text>
+              </Center>
+            }
+          />
+        </Box>
+        <Text mt={6} typography={{ sm: 'Heading', md: 'Heading' }}>
           {intl.formatMessage({ id: 'title__fetching_addresses' })}
         </Text>
+        {previousAddress && (
+          <Text
+            my={1}
+            typography={{ sm: 'Body1Strong', md: 'Body1Strong' }}
+            wordBreak="break-all"
+          >
+            {`${intl.formatMessage({
+              id: 'form__previous_confirmed',
+            })}: ${previousAddress}`}
+          </Text>
+        )}
       </Center>
     </Modal>
   );
