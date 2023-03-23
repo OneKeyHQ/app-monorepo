@@ -1,16 +1,17 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import useSWR from 'swr';
 
-import { Box } from '@onekeyhq/components';
+import { Box, ToastManager } from '@onekeyhq/components';
+import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import {
   CreateWalletModalRoutes,
   ModalRoutes,
@@ -24,6 +25,7 @@ import { MigrationEnable } from '../Migration/util';
 
 import {
   OptionAdress,
+  OptionGoogleDrive,
   OptionKeyTag,
   OptionMigration,
   OptionOneKeyLite,
@@ -64,17 +66,45 @@ const ImportWallet = () => {
   const context = useOnboardingContext();
   const forceVisibleUnfocused = context?.forceVisibleUnfocused;
 
-  const [iCloudLoading, setICloudLoading] = useState(false);
+  const [isLogin, setIsLogin] = useState(false);
+  const { serviceCloudBackup } = backgroundApiProxy;
 
   const disableAnimation = route?.params?.disableAnimation;
 
-  const { result: hasPreviousBackups } = usePromiseResult<boolean>(async () => {
-    setICloudLoading(true);
-    const status =
-      await backgroundApiProxy.serviceCloudBackup.getBackupStatus();
-    setICloudLoading(false);
+  const [hasPreviousBackups, updateHasPreviousBackups] = useState(false);
+  const getBackupStatus = async () => {
+    const status = await serviceCloudBackup.getBackupStatus();
     return status.hasPreviousBackups;
-  });
+  };
+
+  const swrKey = 'getBackupStatus';
+  const { mutate, isValidating: iCloudLoading } = useSWR(
+    swrKey,
+    getBackupStatus,
+    {
+      refreshInterval: 30 * 1000,
+      revalidateOnMount: false,
+      revalidateOnFocus: false,
+      shouldRetryOnError: false,
+      isPaused() {
+        return !isLogin;
+      },
+      onSuccess(data) {
+        updateHasPreviousBackups(data);
+      },
+    },
+  );
+
+  useEffect(() => {
+    if (!isLogin) {
+      serviceCloudBackup.loginIfNeeded(false).then((result) => {
+        setIsLogin(result);
+        if (result) {
+          mutate();
+        }
+      });
+    }
+  }, [isLogin, mutate, serviceCloudBackup]);
 
   const onPressRecoveryWallet = useCallback(
     (mode: IAddExistingWalletMode) => {
@@ -112,6 +142,15 @@ const ImportWallet = () => {
     navigation.navigate(EOnboardingRoutes.RestoreFromCloud);
   }, [navigation]);
 
+  const onPressRestoreFromDrive = useCallback(() => {
+    if (hasPreviousBackups) {
+      navigation.navigate(EOnboardingRoutes.RestoreFromCloud);
+    } else {
+      // TODO:Drive
+      // No backup data
+    }
+  }, [hasPreviousBackups, navigation]);
+
   return (
     <Layout
       disableAnimation={disableAnimation}
@@ -139,9 +178,52 @@ const ImportWallet = () => {
         {(platformEnv.isNativeIOS || platformEnv.isNativeIOSPad) && (
           <ItemWrapper>
             <OptioniCloud
-              title={intl.formatMessage({ id: 'action__restore_from_icloud' })}
+              title={intl.formatMessage(
+                { id: 'action__restore_from_icloud' },
+                { 'cloudName': backupPlatform().cloudName },
+              )}
               onPress={onPressRestoreFromCloud}
               isDisabled={!hasPreviousBackups}
+              isLoading={iCloudLoading}
+            />
+          </ItemWrapper>
+        )}
+        {platformEnv.isNativeAndroid && (
+          <ItemWrapper>
+            <OptionGoogleDrive
+              title={intl.formatMessage(
+                { id: 'action__restore_from_icloud' },
+                { 'cloudName': backupPlatform().cloudName },
+              )}
+              onPress={() => {
+                if (!isLogin) {
+                  serviceCloudBackup
+                    .loginIfNeeded(true)
+                    .then((result) => {
+                      setIsLogin(result);
+                      if (result) {
+                        mutate();
+                        onPressRestoreFromDrive();
+                      }
+                    })
+                    .catch((error: Error) => {
+                      if (error.message === 'NETWORK') {
+                        ToastManager.show(
+                          {
+                            title: intl.formatMessage({
+                              id: 'title__no_connection_desc',
+                            }),
+                          },
+                          {
+                            type: 'error',
+                          },
+                        );
+                      }
+                    });
+                } else {
+                  onPressRestoreFromDrive();
+                }
+              }}
               isLoading={iCloudLoading}
             />
           </ItemWrapper>

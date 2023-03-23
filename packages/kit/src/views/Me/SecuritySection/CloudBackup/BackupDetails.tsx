@@ -18,6 +18,7 @@ import {
   ToastManager,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
 import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
@@ -437,9 +438,12 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
           title: intl.formatMessage({
             id: 'dialog__delete_backup',
           }),
-          content: intl.formatMessage({
-            id: 'dialog__delete_backup_desc',
-          }),
+          content: intl.formatMessage(
+            {
+              id: 'dialog__delete_backup_desc',
+            },
+            { 'cloudName': backupPlatform().cloudName },
+          ),
         }}
       />
     ));
