@@ -1,7 +1,6 @@
 import { deviceName, osName } from 'expo-device';
 import { debounce } from 'lodash';
 import memoizee from 'memoizee';
-import { DocumentDirectoryPath, unlink, writeFile } from 'react-native-fs';
 import uuid from 'react-native-uuid';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -37,6 +36,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
 import type {
   BackupedContacts,
@@ -63,6 +63,10 @@ function getContactUUID({
   return uuid.v5(`${networkId},${address}`, CONTACT_NAMESPACE) as string;
 }
 
+const RNFS: typeof import('react-native-fs') = platformEnv.isNative
+  ? require('react-native-fs')
+  : {};
+
 @backgroundClass()
 class ServiceCloudBackup extends ServiceBase {
   private backupUUID = '';
@@ -81,7 +85,7 @@ class ServiceCloudBackup extends ServiceBase {
   }
 
   private getTempFilePath(backupUUID: string) {
-    return `${DocumentDirectoryPath ?? ''}/${this.getBackupFilename(
+    return `${RNFS.DocumentDirectoryPath ?? ''}/${this.getBackupFilename(
       backupUUID,
     )}`;
   }
@@ -570,13 +574,13 @@ class ServiceCloudBackup extends ServiceBase {
       throw Error('Invalid backup uuid.');
     }
     const localTempFilePath = this.getTempFilePath(backupUUID);
-    await writeFile(localTempFilePath, data, 'utf8');
+    await RNFS.writeFile(localTempFilePath, data, 'utf8');
     debugLogger.cloudBackup.debug(`Backup file ${localTempFilePath} written.`);
     await CloudFs.uploadToCloud(
       localTempFilePath,
       this.getBackupPath(backupUUID),
     );
-    await unlink(localTempFilePath);
+    await RNFS.unlink(localTempFilePath);
     debugLogger.cloudBackup.debug(`Backup file ${localTempFilePath} deleted.`);
   }
 }
