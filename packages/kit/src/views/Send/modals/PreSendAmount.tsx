@@ -38,6 +38,7 @@ import {
 import { wait } from '../../../utils/helper';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { SendRoutes } from '../types';
+import { getPreSendAmountAlert } from '../utils/getPreSendAmountAlert';
 import { usePreSendAmountInfo } from '../utils/usePreSendAmountInfo';
 
 import type { SendRoutesParams } from '../types';
@@ -287,6 +288,11 @@ function PreSendAmount() {
     networkId,
   });
 
+  const PreSendAmountAlert = useMemo(
+    () => getPreSendAmountAlert(networkId),
+    [networkId],
+  );
+
   return (
     <BaseSendModal
       accountId={accountId}
@@ -372,6 +378,13 @@ function PreSendAmount() {
           userSelect: 'none',
         }}
       >
+        {PreSendAmountAlert && (
+          <PreSendAmountAlert
+            accountId={accountId}
+            networkId={networkId}
+            tokenId={tokenInfo?.id ?? ''}
+          />
+        )}
         <Box flexDirection="row" alignItems="baseline">
           <Typography.Body2Strong mr={2} color="text-subdued">
             {intl.formatMessage({ id: 'content__to' })}:
