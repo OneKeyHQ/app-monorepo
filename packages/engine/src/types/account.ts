@@ -34,6 +34,7 @@ type DBUTXOAccount = DBBaseAccount & {
   xpubSegwit?: string; // wrap regular xpub into bitcoind native descriptor
   address: string; // Display/selected address
   addresses: Record<string, string>;
+  customAddresses?: Record<string, string>; // for btc custom address
 };
 
 type DBVariantAccount = DBBaseAccount & {
@@ -49,6 +50,7 @@ type Account = DBBaseAccount & {
   address: string;
   displayAddress?: string;
   xpub?: string; // for btc fork chain
+  customAddresses?: string; // for btc custom address
 };
 
 type ImportableHDAccount = {
@@ -58,6 +60,16 @@ type ImportableHDAccount = {
   displayAddress: string;
   mainBalance: string;
   template?: string;
+};
+
+type BtcForkChainUsedAccount = {
+  transfers: number;
+  name: string;
+  path: string;
+  decimals: number;
+  balance: string;
+  totalReceived: string;
+  displayTotalReceived: string;
 };
 
 type AccountCredential = {
@@ -74,4 +86,5 @@ export type {
   DBAccount,
   Account,
   ImportableHDAccount,
+  BtcForkChainUsedAccount,
 };

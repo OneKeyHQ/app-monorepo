@@ -3,6 +3,20 @@ import axios from 'axios';
 import type { PackageInfo, PackagesInfo } from '../type';
 import type { AppReleases, Changelog } from './type';
 
+function getForceUpdateVersion(params: {
+  miniVersion?: number[];
+  minVersion?: number[];
+}): string | undefined {
+  const { miniVersion, minVersion } = params;
+  if (miniVersion) {
+    return miniVersion.join('.');
+  }
+  if (minVersion) {
+    return minVersion.join('.');
+  }
+  return undefined;
+}
+
 function handleReleaseInfo(
   releasesVersion: AppReleases | undefined,
 ): PackagesInfo {
@@ -13,7 +27,7 @@ function handleReleaseInfo(
   const webPackages: PackageInfo[] = [];
 
   if (releasesVersion?.ios) {
-    const forceUpdateVersion = releasesVersion.ios.miniVersion?.join('.');
+    const forceUpdateVersion = getForceUpdateVersion(releasesVersion.ios);
     const { url, version } = releasesVersion.ios;
     iosPackages.push({
       os: 'ios',
@@ -25,7 +39,7 @@ function handleReleaseInfo(
   }
 
   if (releasesVersion?.android) {
-    const forceUpdateVersion = releasesVersion.android.miniVersion?.join('.');
+    const forceUpdateVersion = getForceUpdateVersion(releasesVersion.android);
     if (releasesVersion.android.google) {
       const { url, version } = releasesVersion.android.google;
       androidPackages.push({
@@ -59,7 +73,7 @@ function handleReleaseInfo(
   }
 
   if (releasesVersion?.desktop) {
-    const forceUpdateVersion = releasesVersion.desktop.miniVersion?.join('.');
+    const forceUpdateVersion = getForceUpdateVersion(releasesVersion.desktop);
     if (releasesVersion.desktop.linux) {
       desktopPackages.push({
         os: 'linux',
@@ -130,7 +144,7 @@ function handleReleaseInfo(
   }
 
   if (releasesVersion?.ext) {
-    const forceUpdateVersion = releasesVersion.ext.miniVersion?.join('.');
+    const forceUpdateVersion = getForceUpdateVersion(releasesVersion.ext);
     if (releasesVersion.ext.chrome) {
       extPackages.push({
         os: 'chrome',
@@ -161,7 +175,7 @@ function handleReleaseInfo(
   }
 
   if (releasesVersion?.web) {
-    const forceUpdateVersion = releasesVersion?.web.miniVersion?.join('.');
+    const forceUpdateVersion = getForceUpdateVersion(releasesVersion.web);
     webPackages.push({
       os: 'website',
       channel: 'Direct',

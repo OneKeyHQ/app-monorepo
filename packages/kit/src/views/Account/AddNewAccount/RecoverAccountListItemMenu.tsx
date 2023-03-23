@@ -26,10 +26,12 @@ const RecoverAccountListItemMenu: FC<
   }, [item, openAddressDetails]);
 
   const onPressCopyAddress = useCallback(() => {
-    copyToClipboard(item.displayAddress);
-    ToastManager.show({
-      title: intl.formatMessage({ id: 'msg__address_copied' }),
-    });
+    setTimeout(() => {
+      copyToClipboard(item.displayAddress);
+      ToastManager.show({
+        title: intl.formatMessage({ id: 'msg__address_copied' }),
+      });
+    }, 200);
   }, [item, intl]);
 
   const options = useMemo<IBaseMenuOptions>(

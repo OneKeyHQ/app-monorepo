@@ -30,4 +30,8 @@ export abstract class KeyringImportedBase extends KeyringSoftwareBase {
   override getAddress(): Promise<string> {
     throw new Error('Method not implemented.');
   }
+
+  override prepareAccountByAddressIndex(): Promise<[]> {
+    throw new Error('Method not implemented.');
+  }
 }

@@ -40,6 +40,10 @@ type GetAccountParams =
       type: 'history';
       xpub: string;
       to?: number;
+    }
+  | {
+      type: 'usedAddress';
+      xpub: string;
     };
 
 type GetAccountWithAddressParams = {
@@ -243,6 +247,9 @@ class Provider {
       case 'history':
         requestParams = { details: 'txs', pageSize: 50, to: params.to };
         break;
+      case 'usedAddress':
+        requestParams = { details: 'tokenBalances', tokens: 'used' };
+        break;
       default:
       // no-op
     }
@@ -438,6 +445,16 @@ class Provider {
   ): Promise<(BigNumber | undefined)[]> {
     return this.blockbook.then((client) =>
       Promise.all(requests.map(({ address }) => client.getBalance(address))),
+    );
+  }
+
+  getBalancesByAddress(
+    requests: { address: string }[],
+  ): Promise<(BigNumber | undefined)[]> {
+    return this.blockbook.then((client) =>
+      Promise.all(
+        requests.map(({ address }) => client.getBalanceWithAddress(address)),
+      ),
     );
   }
 
