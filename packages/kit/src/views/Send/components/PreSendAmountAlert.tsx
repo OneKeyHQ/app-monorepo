@@ -2,18 +2,13 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Alert, Box } from '@onekeyhq/components';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { useFrozenBalance } from '../../../hooks/useTokens';
 
-export function XmrAlert({
-  accountId,
-  networkId,
-  tokenId,
-}: {
-  accountId: string;
-  networkId: string;
-  tokenId: string;
-}) {
+type Props = { accountId: string; networkId: string; tokenId: string };
+
+export function XmrAlert({ accountId, networkId, tokenId }: Props) {
   const intl = useIntl();
   const frozenBalance = useFrozenBalance({ accountId, networkId, tokenId });
   return new BigNumber(frozenBalance).isNegative() ? (
@@ -27,4 +22,13 @@ export function XmrAlert({
       />
     </Box>
   ) : null;
+}
+
+export function PreSendAmountAlert(props: Props) {
+  const { networkId } = props;
+  if (networkId === OnekeyNetwork.xmr) {
+    return <XmrAlert {...props} />;
+  }
+
+  return null;
 }
