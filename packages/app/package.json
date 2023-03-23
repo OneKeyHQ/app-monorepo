@@ -69,7 +69,7 @@
     "react-native-ble-manager": "^8.1.0",
     "react-native-camera": "4.2.1",
     "react-native-canvas": "^0.1.38",
-    "react-native-cloud-fs": "rainbow-me/react-native-cloud-fs#c5bcc4699e9725ffe1160c635c9f19db92e82f9f",
+    "react-native-cloud-fs": "https://github.com/OneKeyHQ/react-native-cloud-fs#450b00b11555e8e9523adf5c5d0726b5ae966d9e",
     "react-native-collapsible": "^1.6.0",
     "react-native-config": "^1.4.11",
     "react-native-confirmation-code-field": "^7.2.0",

@@ -5519,7 +5519,7 @@ __metadata:
     react-native-ble-manager: ^8.1.0
     react-native-camera: 4.2.1
     react-native-canvas: ^0.1.38
-    react-native-cloud-fs: "rainbow-me/react-native-cloud-fs#c5bcc4699e9725ffe1160c635c9f19db92e82f9f"
+    react-native-cloud-fs: "https://github.com/OneKeyHQ/react-native-cloud-fs#450b00b11555e8e9523adf5c5d0726b5ae966d9e"
     react-native-collapsible: ^1.6.0
     react-native-config: ^1.4.11
     react-native-confirmation-code-field: ^7.2.0
@@ -27423,10 +27423,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-cloud-fs@rainbow-me/react-native-cloud-fs#c5bcc4699e9725ffe1160c635c9f19db92e82f9f":
-  version: 2.5.0
-  resolution: "react-native-cloud-fs@https://github.com/rainbow-me/react-native-cloud-fs.git#commit=c5bcc4699e9725ffe1160c635c9f19db92e82f9f"
-  checksum: 32abb4584ed79b7e60f09afec7a864a23d9e82f9ccdd3477c4c7389a9c6eb2522ee5664e11027be83db7316b556e7afd56ad490eaf9693d3bb3906f2d3609b30
+"react-native-cloud-fs@https://github.com/OneKeyHQ/react-native-cloud-fs#450b00b11555e8e9523adf5c5d0726b5ae966d9e":
+  version: 2.6.0
+  resolution: "react-native-cloud-fs@https://github.com/OneKeyHQ/react-native-cloud-fs.git#commit=450b00b11555e8e9523adf5c5d0726b5ae966d9e"
+  checksum: 2c279a6b2abfd45594e0e82489e1aa39c2da50895572a0bd7cce3d22f568cc2c7a1cd2f3ac2b2e640b9802322f97dcf561b7f90290592ee108725836434670a7
   languageName: node
   linkType: hard
 
