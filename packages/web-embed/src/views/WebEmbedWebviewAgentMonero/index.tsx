@@ -87,7 +87,7 @@ function WebEmbedWebviewAgentMonero() {
 
         case MoneroEvent.decodeAddress: {
           console.log('Monero_decodeAddress');
-          const decodedAddress = moneroApi.generateKeyImage(eventParams);
+          const decodedAddress = moneroApi.decodeAddress(eventParams);
           sendResponse(promiseId, { error: null, result: decodedAddress });
           break;
         }

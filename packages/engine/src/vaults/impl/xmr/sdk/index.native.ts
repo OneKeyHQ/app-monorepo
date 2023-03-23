@@ -38,7 +38,6 @@ const getKeyPairFromRawPrivatekey = async (params: {
   isPrivateSpendKey?: boolean;
 }) => {
   await ensureSDKReady();
-  debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.getKeyPairFromRawPrivatekey,
@@ -80,7 +79,6 @@ const generateKeyImage = async (params: {
   address: string;
 }) => {
   await ensureSDKReady();
-  debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.generateKeyImage,
@@ -106,7 +104,6 @@ const seedAndkeysFromMnemonic = async (params: {
   netType: string;
 }) => {
   await ensureSDKReady();
-  debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.seedAndkeysFromMnemonic,
@@ -129,7 +126,6 @@ const seedAndkeysFromMnemonic = async (params: {
 
 const decodeAddress = async (params: { address: string; netType: string }) => {
   await ensureSDKReady();
-  debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.decodeAddress,
@@ -155,7 +151,6 @@ const estimatedTxFee = async (params: {
   feePerByte: string;
 }) => {
   await ensureSDKReady();
-  debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.estimatedTxFee,
@@ -178,7 +173,6 @@ const estimatedTxFee = async (params: {
 
 const sendFunds = async (args: any, scanUrl: string): Promise<SignedTx> => {
   await ensureSDKReady();
-  debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.sendFunds,
