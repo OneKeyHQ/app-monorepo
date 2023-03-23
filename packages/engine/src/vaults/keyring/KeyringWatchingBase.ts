@@ -36,4 +36,8 @@ export abstract class KeyringWatchingBase extends KeyringBase {
   override getAddress(): Promise<string> {
     throw new Error('Method not implemented.');
   }
+
+  override prepareAccountByAddressIndex(): Promise<[]> {
+    throw new Error('Method not implemented.');
+  }
 }
