@@ -19,7 +19,6 @@ import type {
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/utils/errorUtils';
 
 import { wait } from '../../../utils/helper';
@@ -53,7 +52,7 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
   const [totalAccounts, setTotalAccounts] = useState(0);
   const [importedAccounts, setImportedAccounts] = useState(0);
 
-  const { serviceAccount, serviceAccountSelector } = backgroundApiProxy;
+  const { serviceAccount, serviceAccountSelector, engine } = backgroundApiProxy;
   const stopRecoverFlag = useRef(stopFlag);
 
   // Prevents screen locking
@@ -63,26 +62,38 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
     stopRecoverFlag.current = stopFlag;
   }, [stopFlag]);
 
-  const recoverAccountIndex = async (index: number[]) => {
+  const recoverAccountIndex = async (index: number[], lastGroup: boolean) => {
     debugLogger.common.info('recoverAccountIndex', JSON.stringify(index));
 
-    if (!platformEnv.isNativeAndroid) {
+    if (lastGroup) {
       await serviceAccountSelector.preloadingCreateAccount({
         walletId,
         networkId: network,
         template,
       });
     }
-    return serviceAccount.addHDAccounts(
+    if (lastGroup) {
+      return serviceAccount.addHDAccounts(
+        password,
+        walletId,
+        network,
+        index,
+        undefined,
+        purpose,
+        true,
+        template,
+      );
+    }
+    return engine.addHdOrHwAccounts({
       password,
       walletId,
-      network,
-      index,
-      undefined,
+      networkId: network,
+      indexes: index,
+      names: undefined,
       purpose,
-      true,
+      skipRepeat: true,
       template,
-    );
+    });
   };
 
   function filterUndefined(value: any): value is number {
@@ -126,34 +137,47 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
 
       setTotalAccounts(unAddedIndexes.length);
 
-      // Add every 20 accounts at a time
+      // Add every 10 accounts at a time
       while (unAddedIndexes.length > 0) {
         const indexes = unAddedIndexes.splice(
           0,
           Math.min(unAddedIndexes.length, 10),
         );
-        const recoverAccounts = await recoverAccountIndex(indexes);
+        const isLastGroup = unAddedIndexes.length === 0;
+        const recoverAccounts = await recoverAccountIndex(indexes, isLastGroup);
         if (recoverAccounts?.[0]) {
           addedAccount = recoverAccounts?.[0];
         }
         setImportedAccounts((prev) => prev + (indexes?.length ?? 0));
 
-        if (stopRecoverFlag.current) break;
-
-        // await wait(50);
+        if (stopRecoverFlag.current) {
+          if (!isLastGroup && addedAccount) {
+            await serviceAccount.postAccountAdded({
+              networkId: network,
+              account: addedAccount,
+              walletType: walletId.startsWith('hw-') ? 'hw' : 'hd',
+              checkOnBoarding: false,
+              checkPasswordSet: false,
+              shouldBackup: true,
+              password,
+            });
+          }
+          break;
+        }
+        if (!isLastGroup) {
+          await wait(50);
+        }
       }
     } catch (e: any) {
       debugLogger.common.error('recover error:', toPlainErrorObject(e));
       deviceUtils.showErrorToast(e, 'action__connection_timeout');
     } finally {
-      if (!platformEnv.isNativeAndroid) {
-        await serviceAccountSelector.preloadingCreateAccountDone({
-          walletId,
-          networkId: network,
-          accountId: addedAccount?.id,
-          template,
-        });
-      }
+      await serviceAccountSelector.preloadingCreateAccountDone({
+        walletId,
+        networkId: network,
+        accountId: addedAccount?.id,
+        template,
+      });
     }
 
     onDone();
