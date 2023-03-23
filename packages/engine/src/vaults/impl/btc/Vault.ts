@@ -1,5 +1,3 @@
-import { omit } from 'lodash';
-
 import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import {
   COINTYPE_BTC,

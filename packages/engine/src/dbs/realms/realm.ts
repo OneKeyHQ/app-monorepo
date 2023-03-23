@@ -1830,7 +1830,7 @@ class RealmDB implements DBAPI {
       switch (account.type) {
         case AccountType.UTXO:
           this.realm!.write(() => {
-            Object.entries(addresses).forEach(([suffixPath, address]) => {
+            Object.entries(addresses).forEach(([suffixPath]) => {
               if (isCustomPath) {
                 if (
                   account.customAddresses &&

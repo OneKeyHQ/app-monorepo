@@ -1,4 +1,3 @@
-import type { IDerivationOption } from '@onekeyhq/kit/src/components/NetworkAccountSelector/hooks/useDerivationPath';
 import {
   COINTYPE_ADA,
   COINTYPE_ALGO,
