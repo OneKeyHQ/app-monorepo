@@ -49,6 +49,9 @@ const showFileFormatBottomSheetModal = ({
         id: 'title__select_file_format',
       })}
       closeOverlay={close}
+      modalLizeProps={{
+        tapGestureEnabled: false,
+      }}
     >
       <Content
         onSelect={(type: 'csv' | 'txt') => {

@@ -281,6 +281,7 @@ const FetchAddressModal: FC = () => {
       for (const networkDerivation of networkDerivations) {
         const accounts = await backgroundApiProxy.engine.getAccounts(
           networkDerivation.accounts,
+          networkId,
         );
         const accountData = [];
         for (const account of accounts) {
