@@ -71,8 +71,7 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
         networkId: network,
         template,
       });
-    }
-    if (lastGroup) {
+
       return serviceAccount.addHDAccounts(
         password,
         walletId,
@@ -166,6 +165,7 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
           break;
         }
         if (!isLastGroup) {
+          // for response ui event
           await wait(50);
         }
       }
