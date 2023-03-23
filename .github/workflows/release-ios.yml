@@ -98,11 +98,9 @@ jobs:
       - name: Inject Environment Variables
         env:
           COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
-          MOONPAY_KEY: ${{ secrets.MOONPAY_KEY }}
           GITHUB_SHA: ${{ github.sha }}
         run: |
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env.expo
-          echo "MOONPAY_KEY=${{ env.MOONPAY_KEY }}" >> .env.expo
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env.expo
 
       - name: Build on EAS And Auto Submit
