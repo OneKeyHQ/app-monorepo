@@ -48,6 +48,8 @@ const ReceiveToken = () => {
   const account = routePrams?.account ?? activeInfo?.account;
   const network = routePrams?.network ?? activeInfo?.network;
   const wallet = routePrams?.wallet ?? activeInfo?.wallet;
+  const customPath = routePrams?.customPath;
+  const template = routePrams?.template ?? account?.template;
 
   const accountId = account?.id || '';
   const networkId = network?.id || '';
@@ -64,15 +66,40 @@ const ReceiveToken = () => {
   const [ignoreDeviceCheck, setIgnoreDeviceCheck] = useState(false);
   const [isLoadingForHardware, setIsLoadingForHardware] = useState(false);
 
+  // single address without account
+  const isSingleAddress = useMemo(
+    () => template && customPath,
+    [template, customPath],
+  );
+
   const getAddress = useCallback(async () => {
     const hwAddress = await engine.getHWAddress(accountId, networkId, walletId);
     return hwAddress;
   }, [engine, accountId, networkId, walletId]);
 
+  const getAddressByPath = useCallback(async () => {
+    if (!customPath || !template) return '';
+    const accountIndex = customPath.split('/')[3].slice(0, -1);
+    const res =
+      await backgroundApiProxy.serviceDerivationPath.getHWAddressByTemplate({
+        networkId,
+        walletId,
+        index: parseInt(accountIndex ?? '0', 10),
+        template,
+        fullPath: customPath,
+      });
+    return res.address;
+  }, [customPath, template, networkId, walletId]);
+
   const confirmOnDevice = useCallback(async () => {
     setIsLoadingForHardware(true);
     try {
-      const res = await getAddress();
+      let res: string;
+      if (isSingleAddress) {
+        res = await getAddressByPath();
+      } else {
+        res = await getAddress();
+      }
       const isSameAddress = res === (address ?? account?.address);
       if (!isSameAddress) {
         ToastManager.show(
@@ -89,7 +116,7 @@ const ReceiveToken = () => {
     } finally {
       setIsLoadingForHardware(false);
     }
-  }, [getAddress, intl, address, account]);
+  }, [getAddress, getAddressByPath, isSingleAddress, intl, address, account]);
 
   const copyAddressToClipboard = useCallback(() => {
     copyToClipboard(shownAddress);
@@ -170,15 +197,17 @@ const ReceiveToken = () => {
               id: 'action__check_address',
             })}
           </Button>
-          <Button
-            mt={4}
-            size={isVerticalLayout ? 'lg' : 'base'}
-            onPress={() => setIgnoreDeviceCheck(true)}
-          >
-            {intl.formatMessage({
-              id: 'action__dont_have_device',
-            })}
-          </Button>
+          {isSingleAddress ? null : (
+            <Button
+              mt={4}
+              size={isVerticalLayout ? 'lg' : 'base'}
+              onPress={() => setIgnoreDeviceCheck(true)}
+            >
+              {intl.formatMessage({
+                id: 'action__dont_have_device',
+              })}
+            </Button>
+          )}
         </Box>
       </Box>
     ),
@@ -189,6 +218,7 @@ const ReceiveToken = () => {
       intl,
       isVerticalLayout,
       confirmOnDevice,
+      isSingleAddress,
     ],
   );
 

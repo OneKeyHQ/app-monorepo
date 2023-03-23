@@ -5,6 +5,7 @@ import type {
 } from '@onekeyhq/engine/src/types/account';
 import AddNewAccountModal from '@onekeyhq/kit/src/views/Account/AddNewAccount';
 import CreateAccountAuthenticationModal from '@onekeyhq/kit/src/views/Account/AddNewAccount/Authentication';
+import BitcoinUsedAddress from '@onekeyhq/kit/src/views/Account/AddNewAccount/BitcoinUsedAddress';
 import RecoverAccounts from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverAccounts';
 import RecoverAccountsAdvanced from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverAccountsAdvanced';
 import RecoverConfirm from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverConfirm';
@@ -81,16 +82,15 @@ export type CreateAccountRoutesParams = {
     password: string;
     data: IFetchAddressByRange | IFetchAddressByWallet;
   };
-  [CreateAccountModalRoutes.FetchAddressModal]: {
-    networkId: string;
-    walletId: string;
-    password: string;
-    data: IFetchAddressByRange | IFetchAddressByWallet;
-  };
   [CreateAccountModalRoutes.ExportAddresses]: {
     networkId: string;
     walletId: string;
     data: IExportAddressData[];
+  };
+  [CreateAccountModalRoutes.BitcoinUsedAddress]: {
+    walletId: string;
+    accountId: string;
+    networkId: string;
   };
 };
 
@@ -137,6 +137,10 @@ const modalRoutes = [
   {
     name: CreateAccountModalRoutes.ExportAddresses,
     component: ExportAddresses,
+  },
+  {
+    name: CreateAccountModalRoutes.BitcoinUsedAddress,
+    component: BitcoinUsedAddress,
   },
 ];
 

@@ -51,7 +51,11 @@ import {
   encrypt,
 } from '../base';
 
-import type { DBAccount, DBVariantAccount } from '../../types/account';
+import type {
+  DBAccount,
+  DBUTXOAccount,
+  DBVariantAccount,
+} from '../../types/account';
 import type {
   DBAccountDerivation,
   IAddAccountDerivationParams,
@@ -2090,6 +2094,115 @@ class IndexedDBApi implements DBAPI {
             }
             accountStore.put(account);
             resolve(account);
+          };
+        }),
+    );
+  }
+
+  updateUTXOAccountAddresses({
+    accountId,
+    addresses,
+    isCustomPath,
+  }: {
+    accountId: string;
+    addresses: Record<string, string>;
+    isCustomPath: boolean;
+  }): Promise<DBAccount> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const accountStore = db
+            .transaction([ACCOUNT_STORE_NAME], 'readwrite')
+            .objectStore(ACCOUNT_STORE_NAME);
+          const getAccountRequest = accountStore.get(accountId);
+          getAccountRequest.onsuccess = (_aevent) => {
+            const account = getAccountRequest.result as DBAccount;
+            let utxoAccount: DBUTXOAccount;
+            if (typeof account === 'undefined') {
+              reject(
+                new OneKeyInternalError(`Account ${accountId} not found.`),
+              );
+              return;
+            }
+            switch (account.type) {
+              case AccountType.UTXO:
+                utxoAccount = account as DBUTXOAccount;
+                Object.entries(addresses).forEach(([suffixPath, address]) => {
+                  if (isCustomPath) {
+                    if (!utxoAccount.customAddresses) {
+                      utxoAccount.customAddresses = {};
+                    }
+                    utxoAccount.customAddresses[suffixPath] = address;
+                  } else {
+                    utxoAccount.addresses[suffixPath] = address;
+                  }
+                });
+                break;
+              default:
+                reject(new NotImplemented());
+                return;
+            }
+            if (utxoAccount) {
+              accountStore.put(utxoAccount);
+            }
+            resolve(utxoAccount);
+          };
+        }),
+    );
+  }
+
+  removeUTXOAccountAddresses({
+    accountId,
+    addresses,
+    isCustomPath,
+  }: {
+    accountId: string;
+    addresses: Record<string, string>;
+    isCustomPath: boolean;
+  }): Promise<DBAccount> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const accountStore = db
+            .transaction([ACCOUNT_STORE_NAME], 'readwrite')
+            .objectStore(ACCOUNT_STORE_NAME);
+          const getAccountRequest = accountStore.get(accountId);
+          getAccountRequest.onsuccess = (_aevent) => {
+            const account = getAccountRequest.result as DBAccount;
+            let utxoAccount: DBUTXOAccount;
+            if (typeof account === 'undefined') {
+              reject(
+                new OneKeyInternalError(`Account ${accountId} not found.`),
+              );
+              return;
+            }
+            switch (account.type) {
+              case AccountType.UTXO:
+                utxoAccount = account as DBUTXOAccount;
+                Object.keys(addresses).forEach((suffixPath) => {
+                  if (isCustomPath) {
+                    if (
+                      utxoAccount.customAddresses &&
+                      utxoAccount.customAddresses[suffixPath]
+                    ) {
+                      delete utxoAccount.customAddresses[suffixPath];
+                    }
+                  } else if (
+                    utxoAccount.addresses &&
+                    utxoAccount.addresses[suffixPath]
+                  ) {
+                    delete utxoAccount.addresses[suffixPath];
+                  }
+                });
+                break;
+              default:
+                reject(new NotImplemented());
+                return;
+            }
+            if (utxoAccount) {
+              accountStore.put(utxoAccount);
+            }
+            resolve(utxoAccount);
           };
         }),
     );

@@ -69,6 +69,8 @@ const settings: IVaultSettings = Object.freeze({
       notRecommended: true,
     },
   } as Record<string, AccountNameInfo>,
+
+  showUsedAddress: true,
 });
 
 export default settings;

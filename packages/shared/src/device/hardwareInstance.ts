@@ -12,7 +12,7 @@ import type { ConnectSettings, CoreApi } from '@onekeyfe/hd-core';
 let HardwareSDK: CoreApi;
 
 export const getHardwareSDKInstance = memoizee(
-  async () =>
+  async (params: { isPreRelease: boolean }) =>
     // eslint-disable-next-line no-async-promise-executor
     new Promise<CoreApi>(async (resolve, reject) => {
       if (HardwareSDK) {
@@ -37,6 +37,8 @@ export const getHardwareSDKInstance = memoizee(
         }
         settings.connectSrc = connectSrc;
       }
+
+      settings.preRelease = params.isPreRelease;
 
       try {
         await HardwareSDK.init(settings);
