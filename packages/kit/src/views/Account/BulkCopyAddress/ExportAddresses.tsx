@@ -65,7 +65,7 @@ const ExportAddresses: FC = () => {
       index += 1;
     }
     // slice the last \n
-    return content.slice(0, -2);
+    return content.replace(/\n$/, '');
   }, [data]);
 
   const addressCsvString = useMemo(() => {
