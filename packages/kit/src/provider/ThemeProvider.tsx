@@ -7,19 +7,13 @@ import LOCALES from '@onekeyhq/components/src/locale';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useColorScheme } from '@onekeyhq/kit/src/hooks/useColorScheme';
 import { setThemePreloadToLocalStorage } from '@onekeyhq/kit/src/store/reducers/settings';
-import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
 
 import { useSystemLocale } from '../hooks/useSystemLocale';
 
 import { useReduxReady } from './useReduxReady';
 
 export function useThemeProviderVariant() {
-  const {
-    theme,
-    locale,
-    lastLocale,
-    enableHaptics = defaultHapticStatus,
-  } = useSettings();
+  const { theme, locale, lastLocale } = useSettings();
   const systemLocale = useSystemLocale();
   const colorScheme = useColorScheme();
   const themeVariant = theme === 'system' ? colorScheme ?? 'dark' : theme;
@@ -53,13 +47,11 @@ export function useThemeProviderVariant() {
   return {
     themeVariant,
     localeVariant: localeReady ? currentVariant : localeVariant,
-    enableHaptics,
   };
 }
 
 const ThemeApp: FC = ({ children }) => {
-  const { themeVariant, localeVariant, enableHaptics } =
-    useThemeProviderVariant();
+  const { themeVariant, localeVariant } = useThemeProviderVariant();
   const isReady = useReduxReady();
   useEffect(() => {
     if (isReady) {
@@ -75,7 +67,6 @@ const ThemeApp: FC = ({ children }) => {
     <Provider
       themeVariant={themeVariant}
       locale={localeVariant}
-      hapticsEnabled={enableHaptics}
       reduxReady={isReady.isReady ?? false}
     >
       {children}
