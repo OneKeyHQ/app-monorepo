@@ -161,6 +161,7 @@
   "action__load_more": "Загрузи больше",
   "action__local_picture": "Местная картина",
   "action__lock_now": "Заблокировать сейчас",
+  "action__logout": "Выйти",
   "action__manage_account": "Управление учетными записями",
   "action__manage_address": "Управление адресом",
   "action__max": "Макс",

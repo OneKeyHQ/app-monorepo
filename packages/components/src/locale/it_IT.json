@@ -161,6 +161,7 @@
   "action__load_more": "Carica di più",
   "action__local_picture": "Immagine locale",
   "action__lock_now": "Blocca ora",
+  "action__logout": "Disconnettersi",
   "action__manage_account": "Gestisci account",
   "action__manage_address": "Gestire l'indirizzo",
   "action__max": "Max",

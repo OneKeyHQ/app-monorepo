@@ -161,6 +161,7 @@
   "action__load_more": "Charger plus",
   "action__local_picture": "Image locale",
   "action__lock_now": "Verrouiller maintenant",
+  "action__logout": "Se déconnecter",
   "action__manage_account": "Gérer les comptes",
   "action__manage_address": "Gérer l'adresse",
   "action__max": "Max",

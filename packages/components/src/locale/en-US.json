@@ -161,6 +161,7 @@
   "action__load_more": "Load More",
   "action__local_picture": "Choose from Album",
   "action__lock_now": "Lock Now",
+  "action__logout": "Logout",
   "action__manage_account": "Manage Accounts",
   "action__manage_address": "Manage Address",
   "action__max": "Max",

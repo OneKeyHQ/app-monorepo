@@ -161,6 +161,7 @@
   "action__load_more": "โหลดเพิ่ม",
   "action__local_picture": "รูปภาพท้องถิ่น",
   "action__lock_now": "ล็อคเลย",
+  "action__logout": "ออกจากระบบ",
   "action__manage_account": "จัดการบัญชี",
   "action__manage_address": "จัดการที่อยู่",
   "action__max": "แม็กซ์",

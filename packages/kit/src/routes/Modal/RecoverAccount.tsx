@@ -24,6 +24,7 @@ export type RecoverAccountRoutesParams = {
     walletId: string;
     password: string;
     entry: 'accountSelector' | 'manageAccount';
+    template?: string;
   };
 };
 

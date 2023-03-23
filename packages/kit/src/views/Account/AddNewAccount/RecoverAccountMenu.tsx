@@ -26,9 +26,10 @@ const RecoverAccountMenu: FC<
     password: string;
     walletId: string;
     networkId: string;
+    template: string;
   }
 > = (props) => {
-  const { showPath, onChange, password, walletId, networkId } = props;
+  const { showPath, onChange, password, walletId, networkId, template } = props;
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const onPressShowPath = useCallback(() => {
@@ -59,11 +60,12 @@ const RecoverAccountMenu: FC<
             networkId,
             password,
             entry: 'manageAccount',
+            template,
           },
         },
       });
     });
-  }, [navigation, walletId, networkId, password]);
+  }, [navigation, walletId, networkId, password, template]);
 
   const options = useMemo<IBaseMenuOptions>(
     () => [

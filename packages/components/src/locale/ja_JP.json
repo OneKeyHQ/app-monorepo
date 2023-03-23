@@ -161,6 +161,7 @@
   "action__load_more": "もっと読み込む",
   "action__local_picture": "アルバムから選ぶ",
   "action__lock_now": "直ちにロックする",
+  "action__logout": "ログアウト",
   "action__manage_account": "アカウント管理",
   "action__manage_address": "アドレス管理",
   "action__max": "最大",

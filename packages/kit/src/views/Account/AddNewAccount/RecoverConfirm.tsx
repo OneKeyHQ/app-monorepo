@@ -1,11 +1,11 @@
 import type { FC } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
-import { Center, Modal, Progress, Text } from '@onekeyhq/components';
+import { Center, Modal, Spinner, Typography } from '@onekeyhq/components';
 import type { IAccount } from '@onekeyhq/engine/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
@@ -20,6 +20,8 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/utils/errorUtils';
+
+import { wait } from '../../../utils/helper';
 
 import type { AdvancedValues, RecoverAccountType } from './types';
 import type { RouteProp } from '@react-navigation/native';
@@ -49,9 +51,8 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
   const intl = useIntl();
   const [totalAccounts, setTotalAccounts] = useState(0);
   const [importedAccounts, setImportedAccounts] = useState(0);
-  const [progress, setProgress] = useState<number>(0);
 
-  const { serviceAccount, serviceAccountSelector } = backgroundApiProxy;
+  const { serviceAccount, serviceAccountSelector, engine } = backgroundApiProxy;
   const stopRecoverFlag = useRef(stopFlag);
 
   // Prevents screen locking
@@ -61,24 +62,37 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
     stopRecoverFlag.current = stopFlag;
   }, [stopFlag]);
 
-  const recoverAccountIndex = async (index: number[]) => {
+  const recoverAccountIndex = async (index: number[], lastGroup: boolean) => {
     debugLogger.common.info('recoverAccountIndex', JSON.stringify(index));
 
-    await serviceAccountSelector.preloadingCreateAccount({
-      walletId,
-      networkId: network,
-      template,
-    });
-    return serviceAccount.addHDAccounts(
+    if (lastGroup) {
+      await serviceAccountSelector.preloadingCreateAccount({
+        walletId,
+        networkId: network,
+        template,
+      });
+
+      return serviceAccount.addHDAccounts(
+        password,
+        walletId,
+        network,
+        index,
+        undefined,
+        purpose,
+        true,
+        template,
+      );
+    }
+    return engine.addHdOrHwAccounts({
       password,
       walletId,
-      network,
-      index,
-      undefined,
+      networkId: network,
+      indexes: index,
+      names: undefined,
       purpose,
-      true,
+      skipRepeat: true,
       template,
-    );
+    });
   };
 
   function filterUndefined(value: any): value is number {
@@ -122,19 +136,38 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
 
       setTotalAccounts(unAddedIndexes.length);
 
-      // Add every 20 accounts at a time
+      // Add every 10 accounts at a time
       while (unAddedIndexes.length > 0) {
         const indexes = unAddedIndexes.splice(
           0,
-          Math.min(unAddedIndexes.length, 20),
+          Math.min(unAddedIndexes.length, 10),
         );
-        const recoverAccounts = await recoverAccountIndex(indexes);
+        const isLastGroup = unAddedIndexes.length === 0;
+        const recoverAccounts = await recoverAccountIndex(indexes, isLastGroup);
         if (recoverAccounts?.[0]) {
           addedAccount = recoverAccounts?.[0];
         }
         setImportedAccounts((prev) => prev + (indexes?.length ?? 0));
 
-        if (stopRecoverFlag.current) break;
+        if (stopRecoverFlag.current) {
+          if (!isLastGroup && addedAccount) {
+            await serviceAccount.postAccountAdded({
+              walletId,
+              networkId: network,
+              account: addedAccount,
+              walletType: walletId.startsWith('hw-') ? 'hw' : 'hd',
+              checkOnBoarding: false,
+              checkPasswordSet: false,
+              shouldBackup: true,
+              password,
+            });
+          }
+          break;
+        }
+        if (!isLastGroup) {
+          // for response ui event
+          await wait(50);
+        }
       }
     } catch (e: any) {
       debugLogger.common.error('recover error:', toPlainErrorObject(e));
@@ -152,49 +185,33 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
   };
 
   useEffect(() => {
-    authenticationDone(accounts);
+    setTimeout(() => {
+      authenticationDone(accounts);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (importedAccounts > 0 && totalAccounts > 0) {
-      const value =
-        Math.floor((Number(importedAccounts) / Number(totalAccounts)) * 100) /
-        100;
-      setProgress(value);
-    }
-  }, [importedAccounts, totalAccounts]);
-
-  const progressText = useMemo(
-    () => `${importedAccounts}/${totalAccounts}`,
-    [importedAccounts, totalAccounts],
-  );
 
   return (
     <Center w="full" h="full">
       <SkipAppLock />
-      <Progress.Circle
-        progress={progress}
-        text={
-          <Center>
-            <Text typography={{ sm: 'DisplayMedium', md: 'DisplayLarge' }}>
-              {progressText}
-            </Text>
-          </Center>
-        }
-      />
-      <Text my={6} typography={{ sm: 'DisplayMedium', md: 'DisplayMedium' }}>
-        {intl.formatMessage({ id: 'title__recovering_accounts' })}
-      </Text>
+      <Spinner size="lg" />
+      <Typography.DisplayMedium mt={3}>
+        {intl.formatMessage({ id: 'action__recover_accounts' })}
+      </Typography.DisplayMedium>
+      <Typography.Body1 mt={2} color="text-subdued">
+        {intl.formatMessage(
+          { id: 'msg__recover_account_progress' },
+          {
+            0: importedAccounts,
+            1: totalAccounts,
+          },
+        )}
+      </Typography.Body1>
+
       {stopFlag && (
-        <Text
-          position="absolute"
-          bottom={1}
-          typography={{ sm: 'Body2', md: 'Body2' }}
-          color="text-subdued"
-        >
+        <Typography.Body2 position="absolute" bottom={1} color="text-subdued">
           {intl.formatMessage({ id: 'msg__recover_account_stopping' })}
-        </Text>
+        </Typography.Body2>
       )}
     </Center>
   );
@@ -218,7 +235,7 @@ const RecoverConfirm: FC = () => {
 
   return (
     <Modal
-      height="380px"
+      height="340px"
       headerShown={false}
       hidePrimaryAction
       onSecondaryActionPress={() => {
