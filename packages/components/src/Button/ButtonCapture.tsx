@@ -1,19 +1,14 @@
-import { forwardRef, memo, useCallback } from 'react';
+import { forwardRef, memo } from 'react';
 
 import { Button } from 'native-base';
 
-import { beforeOnPress } from '../utils/beforeOnPress';
+import { useBeforeOnPress } from '../utils/useBeforeOnPress';
 
 import type { IButtonProps } from 'native-base';
 
 const ButtonCapture = forwardRef<any, IButtonProps>(
   ({ onPress, ...props }, ref) => {
-    const onPressOverride = useCallback(
-      (e) => {
-        beforeOnPress(e, onPress);
-      },
-      [onPress],
-    );
+    const onPressOverride = useBeforeOnPress(onPress);
     return (
       <Button
         // @ts-ignore

@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useNavigation, useRoute } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,10 +12,8 @@ import {
   Modal,
   SegmentedControl,
   Spinner,
-  ToastManager,
   Token,
 } from '@onekeyhq/components';
-import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type {
   Account,
   BtcForkChainUsedAccount,
@@ -37,10 +35,8 @@ import type {
   CreateAccountModalRoutes,
   CreateAccountRoutesParams,
 } from '../../../routes';
-import type { ModalScreenProps } from '../../../routes/types';
 import type { RouteProp } from '@react-navigation/native';
 
-type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 type RouteProps = RouteProp<
   CreateAccountRoutesParams,
   CreateAccountModalRoutes.BitcoinUsedAddress
@@ -74,7 +70,6 @@ const BitcoinUsedAddress: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { networkId, accountId, walletId } = route.params;
-  const navigation = useNavigation<NavigationProps['navigation']>();
   const { networks, wallets } = useRuntime();
   const network = networks.find((n) => n.id === networkId);
   const wallet = wallets.find((w) => w.id === walletId);

@@ -759,6 +759,7 @@ class ServiceAccount extends ServiceBase {
     return { account, networkId };
   }
 
+  @backgroundMethod()
   async postAccountAdded({
     networkId,
     account,
