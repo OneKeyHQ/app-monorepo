@@ -85,6 +85,8 @@ export function convertDeviceError(payload: any): OneKeyHardwareError {
       return new Error.FirmwareVersionTooLow(payload);
     case HardwareErrorCode.NewFirmwareUnRelease:
       return new Error.NewFirmwareUnRelease(payload);
+    case HardwareErrorCode.NewFirmwareForceUpdate:
+      return new Error.NewFirmwareForceUpdate(payload);
     case HardwareErrorCode.NetworkError:
       return new Error.NetworkError(payload);
     case HardwareErrorCode.BlePermissionError:

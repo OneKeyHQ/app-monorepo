@@ -31,6 +31,8 @@ class AccountSchema extends Realm.Object {
 
   public addresses?: Realm.Dictionary<string>;
 
+  public customAddresses?: Realm.Dictionary<string>;
+
   public tokens?: Realm.Set<TokenSchema>;
 
   public assignee!: Realm.Results<WalletSchema>;
@@ -51,6 +53,11 @@ class AccountSchema extends Realm.Object {
       xpubSegwit: 'string?',
       address: 'string?',
       addresses: { type: 'dictionary', default: {}, objectType: 'string' },
+      customAddresses: {
+        type: 'dictionary',
+        default: {},
+        objectType: 'string',
+      },
       tokens: { type: 'Token<>', default: [] },
       assignee: {
         type: 'linkingObjects',
@@ -80,6 +87,7 @@ class AccountSchema extends Realm.Object {
       (ret as DBUTXOAccount).xpub = this.xpub || '';
       (ret as DBUTXOAccount).xpubSegwit = this.xpubSegwit || '';
       (ret as DBUTXOAccount).addresses = this.addresses || {};
+      (ret as DBUTXOAccount).customAddresses = this.customAddresses || {};
     }
     return ret;
   }

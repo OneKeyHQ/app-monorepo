@@ -107,6 +107,7 @@ export type IVaultSettings = {
   batchTokenTransferApprovalRequired?: boolean;
   maxActionsInTx?: number;
   transactionIdPattern?: string;
+  showUsedAddress?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -341,6 +342,14 @@ export type IHardwareGetAddressParams = {
 };
 
 export type IGetAddressParams = IHardwareGetAddressParams;
+
+// PrepareAccountByAddressIndex
+export type IPrepareAccountByAddressIndexParams = {
+  password: string;
+  template: string;
+  accountIndex: number;
+  addressIndex: number;
+};
 
 // DecodedTx ----------------------------------------------
 export type IDecodedTxLegacy = EVMDecodedItem;

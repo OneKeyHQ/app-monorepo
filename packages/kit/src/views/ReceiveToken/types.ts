@@ -14,5 +14,7 @@ export type ReceiveTokenRoutesParams = {
     wallet?: Wallet | null;
     network?: Network | null;
     account?: Account | null;
+    customPath?: string;
+    template?: string;
   };
 };

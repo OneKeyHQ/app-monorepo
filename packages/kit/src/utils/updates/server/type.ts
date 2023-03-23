@@ -4,6 +4,7 @@ export interface IOS {
   url: string;
   version: number[];
   miniVersion?: number[];
+  minVersion?: number[];
 }
 
 export interface ChannelInfo {
@@ -14,6 +15,7 @@ export interface ChannelInfo {
 export interface Android extends ChannelInfo {
   googlePlay: string;
   miniVersion?: number[];
+  minVersion?: number[];
   google: ChannelInfo;
   huawei: ChannelInfo;
 }
@@ -23,6 +25,7 @@ export interface Ext {
   firefox: string;
   edge: string;
   miniVersion?: number[];
+  minVersion?: number[];
 }
 
 export type Changelog = Record<LocaleSymbol, string>;
@@ -31,6 +34,7 @@ export interface Desktop {
   sha256sumAsc: string;
   version: number[];
   miniVersion?: number[];
+  minVersion?: number[];
   linux: string;
   macX64: string;
   macARM: string;
@@ -44,6 +48,7 @@ export interface Desktop {
 export interface AppReleases {
   web: {
     miniVersion?: number[];
+    minVersion?: number[];
   };
   ios: IOS;
   android: Android;

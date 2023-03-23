@@ -199,6 +199,12 @@ export class NewFirmwareUnRelease extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__str_not_supported_by_hardware_wallets';
 }
 
+export class NewFirmwareForceUpdate extends OneKeyHardwareError {
+  override code = HardwareErrorCode.NewFirmwareForceUpdate;
+
+  override key: LocaleIds = 'msg__need_force_upgrade_firmware';
+}
+
 export class DeviceNotSame extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceCheckDeviceIdError;
 

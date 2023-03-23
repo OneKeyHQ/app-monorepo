@@ -96,7 +96,7 @@ import type {
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 16;
+const SCHEMA_VERSION = 17;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -1755,6 +1755,93 @@ class RealmDB implements DBAPI {
         case AccountType.VARIANT:
           this.realm!.write(() => {
             account.addresses![networkId] = address;
+          });
+          break;
+        default:
+          throw new NotImplemented();
+      }
+      return Promise.resolve(account.internalObj);
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  updateUTXOAccountAddresses({
+    accountId,
+    addresses,
+    isCustomPath,
+  }: {
+    accountId: string;
+    addresses: Record<string, string>;
+    isCustomPath: boolean;
+  }): Promise<DBAccount> {
+    try {
+      const account = this.realm!.objectForPrimaryKey<AccountSchema>(
+        'Account',
+        accountId,
+      );
+      if (typeof account === 'undefined') {
+        return Promise.reject(
+          new OneKeyInternalError(`Account ${accountId} not found.`),
+        );
+      }
+      switch (account.type) {
+        case AccountType.UTXO:
+          this.realm!.write(() => {
+            Object.entries(addresses).forEach(([suffixPath, address]) => {
+              if (isCustomPath) {
+                account.customAddresses![suffixPath] = address;
+              } else {
+                account.addresses![suffixPath] = address;
+              }
+            });
+          });
+          break;
+        default:
+          throw new NotImplemented();
+      }
+      return Promise.resolve(account.internalObj);
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  removeUTXOAccountAddresses({
+    accountId,
+    addresses,
+    isCustomPath,
+  }: {
+    accountId: string;
+    addresses: Record<string, string>;
+    isCustomPath: boolean;
+  }): Promise<DBAccount> {
+    try {
+      const account = this.realm!.objectForPrimaryKey<AccountSchema>(
+        'Account',
+        accountId,
+      );
+      if (typeof account === 'undefined') {
+        return Promise.reject(
+          new OneKeyInternalError(`Account ${accountId} not found.`),
+        );
+      }
+      switch (account.type) {
+        case AccountType.UTXO:
+          this.realm!.write(() => {
+            Object.entries(addresses).forEach(([suffixPath, address]) => {
+              if (isCustomPath) {
+                if (
+                  account.customAddresses &&
+                  account.customAddresses[suffixPath]
+                ) {
+                  account.customAddresses.remove(suffixPath);
+                }
+              } else if (account.addresses && account.addresses[suffixPath]) {
+                account.addresses.remove(suffixPath);
+              }
+            });
           });
           break;
         default:

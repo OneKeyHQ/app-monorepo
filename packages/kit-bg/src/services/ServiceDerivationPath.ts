@@ -1,9 +1,16 @@
+import BigNumber from 'bignumber.js';
+
 import {
   OneKeyHardwareError,
   OneKeyInternalError,
 } from '@onekeyhq/engine/src/errors';
 import { getNextAccountId } from '@onekeyhq/engine/src/managers/derivation';
 import type { IAccount } from '@onekeyhq/engine/src/types';
+import type {
+  Account,
+  DBUTXOAccount,
+} from '@onekeyhq/engine/src/types/account';
+import type VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import {
   backgroundClass,
   backgroundMethod,
@@ -131,13 +138,16 @@ export default class ServiceDerivationPath extends ServiceBase {
     walletId,
     index,
     template,
+    fullPath,
   }: {
     networkId: string;
     walletId: string;
     index: number;
     template: string;
+    fullPath?: string;
   }) {
-    const path = template.replace(INDEX_PLACEHOLDER, index.toString());
+    const path =
+      fullPath || template.replace(INDEX_PLACEHOLDER, index.toString());
     const vault = await this.backgroundApi.engine.getWalletOnlyVault(
       networkId,
       walletId,
@@ -179,5 +189,106 @@ export default class ServiceDerivationPath extends ServiceBase {
         });
       }
     }
+  }
+
+  @backgroundMethod()
+  async getAllUsedAddress({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    if (!accountId || !networkId) {
+      return [];
+    }
+    const vault = await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    });
+    return vault.getAllUsedAddress();
+  }
+
+  @backgroundMethod()
+  async createAccountByCustomAddressIndex({
+    networkId,
+    accountId,
+    password,
+    template,
+    addressIndex,
+    account,
+  }: {
+    networkId: string;
+    accountId: string;
+    password: string;
+    template: string;
+    addressIndex: string;
+    account?: Account;
+  }) {
+    if (!account) {
+      throw new Error('no account');
+    }
+    const vault = await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    });
+    const accountIndex = account.path.split('/')[3].slice(0, -1);
+    const accounts = await vault.keyring.prepareAccountByAddressIndex({
+      password,
+      template,
+      accountIndex: Number(accountIndex),
+      addressIndex: Number(addressIndex),
+    });
+    if (accounts.length) {
+      await this.backgroundApi.engine.dbApi.updateUTXOAccountAddresses({
+        accountId,
+        addresses: (accounts[0] as DBUTXOAccount).customAddresses ?? {},
+        isCustomPath: true,
+      });
+    }
+    console.log(accounts);
+  }
+
+  @backgroundMethod()
+  async removeCustomAddress({
+    accountId,
+    addresses,
+  }: {
+    accountId: string;
+    addresses: Record<string, string>;
+  }) {
+    if (!Object.keys(addresses).length) return;
+    await this.backgroundApi.engine.dbApi.removeUTXOAccountAddresses({
+      accountId,
+      addresses,
+      isCustomPath: true,
+    });
+  }
+
+  @backgroundMethod()
+  async fetchCustomAddressBalance({
+    networkId,
+    accountId,
+    addresses,
+    decimals,
+  }: {
+    networkId: string;
+    accountId: string;
+    addresses: string[];
+    decimals: number;
+  }) {
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as unknown as VaultBtcFork;
+    const balances = await vault.getBalancesByAddress(
+      addresses.map((i) => ({ address: i })),
+    );
+    return addresses.map((address, index) => ({
+      address,
+      balance: new BigNumber(balances[index] ?? 0)
+        .shiftedBy(-decimals)
+        .toFixed(),
+    }));
   }
 }

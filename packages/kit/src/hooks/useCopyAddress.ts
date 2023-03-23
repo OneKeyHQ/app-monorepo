@@ -30,16 +30,19 @@ export function useCopyAddress({
   const navigation = useNavigation();
 
   const copyAddress = useCallback(
-    (address?: string) => {
+    (address?: string, template?: string, customPath?: string) => {
       if (isHwWallet) {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Receive,
           params: {
             screen: ReceiveTokenRoutes.ReceiveToken,
             params: {
+              address,
               wallet,
               network,
               account,
+              template,
+              customPath,
             },
           },
         });

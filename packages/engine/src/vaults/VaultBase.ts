@@ -33,6 +33,7 @@ import { VaultContext } from './VaultContext';
 import type {
   Account,
   AccountCredentialType,
+  BtcForkChainUsedAccount,
   DBAccount,
 } from '../types/account';
 import type { HistoryEntry, HistoryEntryStatus } from '../types/history';
@@ -713,5 +714,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params?: Record<string, any>;
   }> {
     return { success: true };
+  }
+
+  async getAllUsedAddress(): Promise<BtcForkChainUsedAccount[]> {
+    return Promise.resolve([]);
   }
 }
