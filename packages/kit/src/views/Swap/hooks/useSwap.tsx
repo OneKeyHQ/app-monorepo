@@ -155,15 +155,15 @@ export function useDerivedSwapState() {
     outputToken,
     greaterThanZeroOrUndefined(swapQuote?.buyAmount),
   );
-
+  const precision = Boolean(swapQuote?.wrapperTxInfo) ? 18 : undefined
   const formattedAmounts = useMemo(() => {
     const dependentField = independentField === 'INPUT' ? 'OUTPUT' : 'INPUT';
     return {
       [independentField]: typedValue,
       [dependentField]:
         dependentField === 'INPUT'
-          ? formatAmount(inputAmount?.value)
-          : formatAmount(outputAmount?.value),
+          ? formatAmount(inputAmount?.value, precision)
+          : formatAmount(outputAmount?.value, precision),
     } as { 'INPUT'?: string; 'OUTPUT'?: string };
   }, [independentField, inputAmount, outputAmount, typedValue]);
 

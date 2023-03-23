@@ -147,7 +147,7 @@ export function formatAmount(value?: BigNumber.Value, precision = 4) {
   if (bn.isNaN()) {
     return '';
   }
-  return bn.decimalPlaces(precision).toFixed();
+  return bn.decimalPlaces(precision, BigNumber.ROUND_FLOOR).toFixed();
 }
 
 export function calculateRate(
