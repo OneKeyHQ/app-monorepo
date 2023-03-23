@@ -5,12 +5,14 @@ import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   Center,
   Modal,
   Progress,
   Text,
   ToastManager,
 } from '@onekeyhq/components';
+import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import type {
   Account,
   ImportableHDAccount,
@@ -21,6 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { CreateAccountModalRoutes } from '../../../routes';
+import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
 
 import { formatDerivationLabel } from './helper';
@@ -74,6 +77,7 @@ const FetchAddressModal: FC = () => {
   const [generatedAccounts, setGeneratedAccounts] = useState<
     ImportableHDAccount[]
   >([]);
+  const [previousAddress, setPreviousAddress] = useState('');
 
   const [walletAccounts, setWalletAccounts] = useState<IWalletAccounts[]>([]);
 
@@ -84,8 +88,8 @@ const FetchAddressModal: FC = () => {
       const value = forceFinish
         ? 1
         : Math.floor((result.length / Number(generateCount)) * 100) / 100;
-      setProgress(value);
       setGeneratedAccounts(result);
+      setProgress(value);
     },
     [data],
   );
@@ -142,7 +146,7 @@ const FetchAddressModal: FC = () => {
       while (start < startIndex + finalLimit) {
         let offset = pageSize;
         if (start + pageSize > startIndex + finalLimit) {
-          offset = start + finalLimit - start;
+          offset = finalLimit - start;
         }
         if (offset <= 0) {
           break;
@@ -213,14 +217,22 @@ const FetchAddressModal: FC = () => {
             hasNotExistAccount = true;
           }
           result.push(addressInfo);
+          setPreviousAddress(addressInfo.address);
           updateSetRangeAccountProgress(result);
         } catch (e) {
           debugLogger.common.info('getHWAddressByTemplate error: ', e);
-          ToastManager.show({
-            title: intl.formatMessage({
-              id: 'msg__cancelled_during_the_process',
-            }),
-          });
+          if (e instanceof OneKeyHardwareError) {
+            deviceUtils.showErrorToast(e);
+          } else {
+            ToastManager.show({
+              title: intl.formatMessage(
+                {
+                  id: 'msg__cancelled_during_the_process',
+                },
+                { type: 'error' },
+              ),
+            });
+          }
           updateSetRangeAccountProgress(result, true);
           break;
         }
@@ -250,8 +262,8 @@ const FetchAddressModal: FC = () => {
       const value = forceFinish
         ? 1
         : Math.floor((finishLength / Number(totalLength)) * 100) / 100;
-      setProgress(value);
       setWalletAccounts(result);
+      setProgress(value);
     },
     [data],
   );
@@ -285,6 +297,7 @@ const FetchAddressModal: FC = () => {
               if (address !== account.address) {
                 throw new Error('Not same address');
               }
+              setPreviousAddress(address);
             }
             accountData.push({
               ...account,
@@ -318,11 +331,18 @@ const FetchAddressModal: FC = () => {
           } catch (e) {
             debugLogger.common.info('Fetch Wallet Accounts error: ', e);
             if (isHwWallet) {
-              ToastManager.show({
-                title: intl.formatMessage({
-                  id: 'msg__cancelled_during_the_process',
-                }),
-              });
+              if (e instanceof OneKeyHardwareError) {
+                deviceUtils.showErrorToast(e);
+              } else {
+                ToastManager.show(
+                  {
+                    title: intl.formatMessage({
+                      id: 'msg__cancelled_during_the_process',
+                    }),
+                  },
+                  { type: 'error' },
+                );
+              }
               updateWalletsAccountProgress(result, true);
               errorState = true;
               break;
@@ -432,11 +452,13 @@ const FetchAddressModal: FC = () => {
 
   return (
     <Modal
+      height={isHwWallet ? 'auto' : '375px'}
       header={undefined}
       closeable={false}
       closeOnOverlayClick={false}
       hideSecondaryAction
       hideBackButton
+      headerShown={false}
       primaryActionTranslationId="action__cancel"
       primaryActionProps={{
         type: 'basic',
@@ -456,19 +478,32 @@ const FetchAddressModal: FC = () => {
       }}
     >
       <Center w="full" h="full">
-        <Progress.Circle
-          progress={progress}
-          text={
-            <Center>
-              <Text typography={{ sm: 'DisplayMedium', md: 'DisplayLarge' }}>
-                {progressText}
-              </Text>
-            </Center>
-          }
-        />
-        <Text my={6} typography={{ sm: 'Heading', md: 'Heading' }}>
+        <Box mt={6}>
+          <Progress.Circle
+            progress={progress}
+            text={
+              <Center>
+                <Text typography={{ sm: 'DisplayMedium', md: 'DisplayLarge' }}>
+                  {progressText}
+                </Text>
+              </Center>
+            }
+          />
+        </Box>
+        <Text mt={6} typography={{ sm: 'Heading', md: 'Heading' }}>
           {intl.formatMessage({ id: 'title__fetching_addresses' })}
         </Text>
+        {previousAddress && (
+          <Text
+            my={1}
+            typography={{ sm: 'Body1Strong', md: 'Body1Strong' }}
+            wordBreak="break-all"
+          >
+            {`${intl.formatMessage({
+              id: 'form__previous_confirmed',
+            })}: ${previousAddress}`}
+          </Text>
+        )}
       </Center>
     </Modal>
   );

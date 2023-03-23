@@ -64,7 +64,8 @@ const ExportAddresses: FC = () => {
       });
       index += 1;
     }
-    return content;
+    // slice the last \n
+    return content.slice(0, -2);
   }, [data]);
 
   const addressCsvString = useMemo(() => {
@@ -106,8 +107,8 @@ const ExportAddresses: FC = () => {
 
   const shareFile = useCallback(
     async (fileType: FileType) => {
-      const filePath = `${cacheDirectory ?? ''}address.${fileType}`;
       const shareFileName = await getFileName(fileType);
+      const filePath = `${cacheDirectory ?? ''}${shareFileName}`;
       const Share = await getShareModule();
       if (!Share) return;
       Share.open({
@@ -123,9 +124,10 @@ const ExportAddresses: FC = () => {
 
   const nativeWriteFile = useCallback(
     async (fileType: FileType) => {
+      const fileName = await getFileName(fileType);
       const RNFS = await getRNFSModule();
       if (!RNFS) return;
-      const path = `${RNFS.CachesDirectoryPath}/address.${fileType}`;
+      const path = `${RNFS.CachesDirectoryPath}/${fileName}`;
       const content = fileType === 'txt' ? addressText : addressCsvString;
       RNFS.writeFile(path, content, 'utf8')
         .then((res) => {
@@ -136,7 +138,7 @@ const ExportAddresses: FC = () => {
           console.log('ERROR WRITING FILE!', err);
         });
     },
-    [shareFile, addressText, addressCsvString],
+    [shareFile, addressText, addressCsvString, getFileName],
   );
 
   const onExportFile = useCallback(() => {
