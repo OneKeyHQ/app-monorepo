@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import {
   forwardRef,
   useCallback,
@@ -38,7 +39,12 @@ type FromValues = {
   generateCount?: string;
 };
 
-type IProps = { walletId?: string; networkId: string };
+type IProps = {
+  walletId?: string;
+  networkId: string;
+  template?: string;
+  setButtonDisabled: Dispatch<SetStateAction<boolean>>;
+};
 export type ISetRangeReturnType = {
   derivationOption: IDerivationOption | undefined;
   derivationType: string;
@@ -50,29 +56,42 @@ export type ISetRangeRefType = {
 };
 
 const SetRange = forwardRef<ISetRangeRefType, IProps>(
-  ({ walletId, networkId }, ref) => {
+  ({ walletId, networkId, template, setButtonDisabled }, ref) => {
     const isSmallScreen = useIsVerticalLayout();
     const intl = useIntl();
-    const { control, handleSubmit, setError, setValue, getValues } =
-      useForm<FromValues>({
-        defaultValues: {
-          derivationType: 'default',
-          fromIndex: '1',
-          generateCount: '10',
-        },
-      });
+    const {
+      control,
+      handleSubmit,
+      setError,
+      setValue,
+      getValues,
+      formState: { isValid },
+    } = useForm<FromValues>({
+      defaultValues: {
+        derivationType: 'default',
+        fromIndex: '1',
+        generateCount: '10',
+      },
+      mode: 'onChange',
+    });
     const { derivationOptions } = useDerivationPath(walletId, networkId);
     const [selectedOption, setSelectedOption] = useState<IDerivationOption>();
 
     // set default derivation option
     useEffect(() => {
-      const defaultOption = derivationOptions.find(
-        (item) => item.key === 'default',
-      );
+      if (!derivationOptions) {
+        return;
+      }
+      const defaultOption = derivationOptions.find((item) => {
+        if (template) {
+          return item.template === template;
+        }
+        return item.key === 'default';
+      });
       if (defaultOption) {
         setSelectedOption(defaultOption);
       }
-    }, [derivationOptions]);
+    }, [derivationOptions, template]);
 
     const value = useMemo(() => {
       let label: IDerivationOption['label'];
@@ -130,6 +149,10 @@ const SetRange = forwardRef<ISetRangeRefType, IProps>(
       },
       [getValues],
     );
+
+    useEffect(() => {
+      setButtonDisabled(!isValid);
+    }, [isValid, setButtonDisabled]);
 
     const GenerateCountButton = useMemo(
       () => (
@@ -204,17 +227,19 @@ const SetRange = forwardRef<ISetRangeRefType, IProps>(
     return (
       <KeyboardDismissView>
         <Form w="full" mb="26px">
-          <Pressable onPress={onPress}>
-            <Form.Item name="derivationType" control={control}>
-              <Form.Input
-                size={isSmallScreen ? 'xl' : 'default'}
-                rightIconName="ChevronDownMini"
-                isReadOnly
-                onPressRightIcon={onPress}
-                onPressIn={platformEnv.isNativeIOS ? onPress : undefined}
-              />
-            </Form.Item>
-          </Pressable>
+          {derivationOptions.length > 1 && (
+            <Pressable onPress={onPress}>
+              <Form.Item name="derivationType" control={control}>
+                <Form.Input
+                  size={isSmallScreen ? 'xl' : 'default'}
+                  rightIconName="ChevronDownMini"
+                  isReadOnly
+                  onPressRightIcon={onPress}
+                  onPressIn={platformEnv.isNativeIOS ? onPress : undefined}
+                />
+              </Form.Item>
+            </Pressable>
+          )}
           <Form.Item
             name="fromIndex"
             control={control}

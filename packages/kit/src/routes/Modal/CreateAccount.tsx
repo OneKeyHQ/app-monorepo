@@ -75,6 +75,7 @@ export type CreateAccountRoutesParams = {
     walletId: string;
     password: string;
     entry: 'accountSelector' | 'manageAccount';
+    template?: string;
   };
   [CreateAccountModalRoutes.FetchAddressModal]: {
     networkId: string;
