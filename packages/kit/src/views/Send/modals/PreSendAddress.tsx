@@ -449,7 +449,6 @@ function PreSendAddress() {
             });
             return false;
           }
-          setIsValidatingAddress(false);
           setvalidateMessage({
             warningMessage: '',
             successMessage: '',
@@ -491,6 +490,7 @@ function PreSendAddress() {
             });
           }
         }
+        setIsValidatingAddress(false);
         return true;
       }, 100);
     },
@@ -514,7 +514,7 @@ function PreSendAddress() {
       primaryActionTranslationId="action__next"
       primaryActionProps={{
         isDisabled: submitDisabled,
-        isLoading: isLoadingAssets || isValidatingAddress,
+        isLoading: isLoadingAssets,
       }}
       onPrimaryActionPress={() => doSubmit()}
       scrollViewProps={{
