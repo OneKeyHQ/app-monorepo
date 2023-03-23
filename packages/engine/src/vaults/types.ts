@@ -71,7 +71,6 @@ export type IVaultSettings = {
   exportCredentialInfo?: AccountCredential[];
   txExtraInfo?: TxExtraInfo[];
   enabledInDevModeOnly?: boolean;
-  hasNetworkExtraInfo?: boolean;
 
   minTransferAmount?: string;
 

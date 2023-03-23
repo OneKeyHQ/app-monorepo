@@ -23,21 +23,14 @@ function NetworkAccountSelectorModal() {
   const { accountSelectorInfo, shouldShowModal } =
     useAccountSelectorModalInfo();
 
-  const NetworkExtraInfo = useMemo(() => {
-    const hasNetworkExtraInfo =
-      accountSelectorInfo.activeNetwork?.settings.hasNetworkExtraInfo;
-    if (hasNetworkExtraInfo) {
-      return getNetWorkExtraInfo({
+  const NetworkExtraInfo = useMemo(
+    () =>
+      getNetWorkExtraInfo({
         accountId: accountSelectorInfo.activeAccount?.id,
         networkId: accountSelectorInfo.activeNetwork?.id,
-      });
-    }
-    return null;
-  }, [
-    accountSelectorInfo.activeAccount,
-    accountSelectorInfo.activeNetwork?.id,
-    accountSelectorInfo.activeNetwork?.settings.hasNetworkExtraInfo,
-  ]);
+      }),
+    [accountSelectorInfo.activeAccount, accountSelectorInfo.activeNetwork?.id],
+  );
 
   if (!shouldShowModal) {
     return null;
