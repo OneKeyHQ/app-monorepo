@@ -153,6 +153,7 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
         if (stopRecoverFlag.current) {
           if (!isLastGroup && addedAccount) {
             await serviceAccount.postAccountAdded({
+              walletId,
               networkId: network,
               account: addedAccount,
               walletType: walletId.startsWith('hw-') ? 'hw' : 'hd',
