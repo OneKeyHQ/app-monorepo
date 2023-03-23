@@ -19,6 +19,7 @@ import type {
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/utils/errorUtils';
 
 import { wait } from '../../../utils/helper';
@@ -65,11 +66,13 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
   const recoverAccountIndex = async (index: number[]) => {
     debugLogger.common.info('recoverAccountIndex', JSON.stringify(index));
 
-    await serviceAccountSelector.preloadingCreateAccount({
-      walletId,
-      networkId: network,
-      template,
-    });
+    if (!platformEnv.isNativeAndroid) {
+      await serviceAccountSelector.preloadingCreateAccount({
+        walletId,
+        networkId: network,
+        template,
+      });
+    }
     return serviceAccount.addHDAccounts(
       password,
       walletId,
@@ -137,18 +140,20 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
 
         if (stopRecoverFlag.current) break;
 
-        await wait(50);
+        // await wait(50);
       }
     } catch (e: any) {
       debugLogger.common.error('recover error:', toPlainErrorObject(e));
       deviceUtils.showErrorToast(e, 'action__connection_timeout');
     } finally {
-      await serviceAccountSelector.preloadingCreateAccountDone({
-        walletId,
-        networkId: network,
-        accountId: addedAccount?.id,
-        template,
-      });
+      if (!platformEnv.isNativeAndroid) {
+        await serviceAccountSelector.preloadingCreateAccountDone({
+          walletId,
+          networkId: network,
+          accountId: addedAccount?.id,
+          template,
+        });
+      }
     }
 
     onDone();
