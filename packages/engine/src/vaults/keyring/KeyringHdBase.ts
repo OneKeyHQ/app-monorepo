@@ -5,6 +5,8 @@ import { OneKeyInternalError } from '../../errors';
 import { KeyringSoftwareBase } from './KeyringSoftwareBase';
 
 import type { ExportedSeedCredential } from '../../dbs/base';
+import type { DBAccount } from '../../types/account';
+import type { IPrepareAccountByAddressIndexParams } from '../types';
 
 export abstract class KeyringHdBase extends KeyringSoftwareBase {
   override async getPrivateKeys(
@@ -42,6 +44,13 @@ export abstract class KeyringHdBase extends KeyringSoftwareBase {
   }
 
   override getAddress(): Promise<string> {
+    throw new Error('Method not implemented.');
+  }
+
+  override prepareAccountByAddressIndex(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    params: IPrepareAccountByAddressIndexParams,
+  ): Promise<DBAccount[]> {
     throw new Error('Method not implemented.');
   }
 }

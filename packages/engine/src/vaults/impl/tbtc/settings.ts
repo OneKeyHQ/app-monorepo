@@ -68,6 +68,8 @@ const settings: IVaultSettings = Object.freeze({
       subDesc: 'BIP44, P2PKH, Base58.',
     },
   } as Record<string, AccountNameInfo>,
+
+  showUsedAddress: true,
 });
 
 export default settings;

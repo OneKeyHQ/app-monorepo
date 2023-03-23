@@ -30,6 +30,8 @@ const settings: IVaultSettings = Object.freeze({
       subDesc: 'BIP44, P2PKH, Base58.',
     },
   },
+
+  showUsedAddress: true,
 });
 
 export default settings;

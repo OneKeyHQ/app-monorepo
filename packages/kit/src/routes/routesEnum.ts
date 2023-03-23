@@ -122,6 +122,7 @@ export enum CreateAccountModalRoutes {
   BulkCopyAddresses = 'BulkCopyAddresses',
   FetchAddressModal = 'FetchAddressModal',
   ExportAddresses = 'ExportAddresses',
+  BitcoinUsedAddress = 'BitcoinUsedAddress',
 }
 
 export enum RecoverAccountModalRoutes {

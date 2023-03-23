@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { DialogManager, Divider, IconButton } from '@onekeyhq/components';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
@@ -10,24 +10,29 @@ import type {
 } from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useAppSelector } from '../../../../hooks';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { useCopyAddress } from '../../../../hooks/useCopyAddress';
+import { CreateAccountModalRoutes } from '../../../../routes/Modal/CreateAccount';
 import { ManagerAccountModalRoutes } from '../../../../routes/Modal/ManagerAccount';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { refreshAccountSelector } from '../../../../store/reducers/refresher';
 import AccountModifyNameDialog from '../../../../views/ManagerAccount/ModifyAccount';
 import useRemoveAccountDialog from '../../../../views/ManagerAccount/RemoveAccount';
 
-const AccountItemMenu: FC<IMenu & { onChange: (value: string) => void }> = ({
-  onChange,
-  ...props
-}) => {
+const AccountItemMenu: FC<
+  IMenu & {
+    onChange: (value: string) => void;
+    showAllUsedAddressOption: boolean;
+  }
+> = ({ onChange, showAllUsedAddressOption, ...props }) => {
   const onPress = useCallback(
     (value: string) => {
       onChange?.(value);
     },
     [onChange],
   );
+
   const options = useMemo<IBaseMenuOptions>(
     () => [
       {
@@ -45,6 +50,12 @@ const AccountItemMenu: FC<IMenu & { onChange: (value: string) => void }> = ({
         onPress: () => onPress('detail'),
         icon: 'DocumentTextOutline',
       },
+      showAllUsedAddressOption && (() => <Divider my={1} />),
+      showAllUsedAddressOption && {
+        id: 'action__show_all_used_addresses',
+        onPress: () => onPress('showAllUsedAddress'),
+        icon: 'ListBulletMini',
+      },
       () => <Divider my={1} />,
       {
         id: 'action__remove_account',
@@ -53,10 +64,16 @@ const AccountItemMenu: FC<IMenu & { onChange: (value: string) => void }> = ({
         variant: 'desctructive',
       },
     ],
-    [onPress],
+    [onPress, showAllUsedAddressOption],
   );
 
-  return <BaseMenu options={options} {...props} />;
+  return (
+    <BaseMenu
+      options={options}
+      {...props}
+      menuWidth={showAllUsedAddressOption ? 261 : undefined}
+    />
+  );
 };
 
 function AccountItemSelectDropdown({
@@ -76,6 +93,19 @@ function AccountItemSelectDropdown({
     account,
     network,
   });
+  const networks = useAppSelector((s) => s.runtime.networks);
+
+  const [showAllUsedAddressOption, setShowAllUsedAddressOption] =
+    useState(false);
+
+  useEffect(() => {
+    if (network?.id) {
+      const networkSettings = networks.find(
+        (i) => i.id === network.id,
+      )?.settings;
+      setShowAllUsedAddressOption(networkSettings?.showUsedAddress ?? false);
+    }
+  }, [network, networks]);
 
   // TODO refreshAccounts
   const refreshAccounts = useCallback(
@@ -132,6 +162,19 @@ function AccountItemSelectDropdown({
               refreshAccounts(wallet?.id ?? '', network?.id ?? ''),
           });
           break;
+        case 'showAllUsedAddress':
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.CreateAccount,
+            params: {
+              screen: CreateAccountModalRoutes.BitcoinUsedAddress,
+              params: {
+                accountId: account.id,
+                networkId: network?.id ?? '',
+                walletId: wallet?.id ?? '',
+              },
+            },
+          });
+          break;
 
         default:
           break;
@@ -152,7 +195,10 @@ function AccountItemSelectDropdown({
     <>
       {/* TODO move to parent */}
       {RemoveAccountDialog}
-      <AccountItemMenu onChange={handleChange}>
+      <AccountItemMenu
+        onChange={handleChange}
+        showAllUsedAddressOption={showAllUsedAddressOption}
+      >
         <IconButton
           name="EllipsisVerticalMini"
           type="plain"

@@ -9,6 +9,7 @@ import type { DBAccount } from '../../types/account';
 import type { CredentialSelector } from '../../types/credential';
 import type {
   IGetAddressParams,
+  IPrepareAccountByAddressIndexParams,
   IPrepareAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
@@ -45,6 +46,10 @@ export abstract class KeyringBase extends VaultContext {
   override async addressFromBase(account: DBAccount) {
     return this.vault.addressFromBase(account);
   }
+
+  abstract prepareAccountByAddressIndex(
+    params: IPrepareAccountByAddressIndexParams,
+  ): Promise<Array<DBAccount>>;
 }
 
 // @ts-ignore

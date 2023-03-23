@@ -4,6 +4,9 @@ import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 
 import { KeyringBase } from './KeyringBase';
 
+import type { DBAccount } from '../../types/account';
+import type { IPrepareAccountByAddressIndexParams } from '../types';
+
 export type WalletPassphraseState = {
   passphraseState?: string;
   useEmptyPassphrase?: boolean;
@@ -36,5 +39,11 @@ export abstract class KeyringHardwareBase extends KeyringBase {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
       await global?.$backgroundApiProxy?.backgroundApi?.serviceHardware?.getSDKInstance?.();
     return (sdk as typeof HardwareSDK) ?? HardwareSDK;
+  }
+
+  override prepareAccountByAddressIndex(
+    params: IPrepareAccountByAddressIndexParams,
+  ): Promise<DBAccount[]> {
+    throw new Error('Method not implemented.');
   }
 }

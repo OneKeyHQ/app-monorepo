@@ -8,10 +8,7 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
-import {
-  CoreSDKLoader,
-  getHardwareSDKInstance,
-} from '@onekeyhq/shared/src/device/hardwareInstance';
+import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/utils/errorUtils';
@@ -55,10 +52,6 @@ class DeviceUtils {
   checkBonded = false;
 
   bleManager?: typeof BleManager;
-
-  async getSDKInstance() {
-    return getHardwareSDKInstance();
-  }
 
   async getBleManager() {
     if (!platformEnv.isNative) return null;
@@ -272,6 +265,18 @@ class DeviceUtils {
 
         const { connectId, deviceId } = data || {};
         if (connectId && deviceId) {
+          if (code === HardwareErrorCode.NewFirmwareForceUpdate) {
+            this.delayShowHardwarePopup({
+              uiRequest: CUSTOM_UI_RESPONSE.CUSTOM_FORCE_UPGRADE_FIRMWARE,
+              payload: {
+                deviceId,
+                deviceConnectId: connectId,
+              },
+              content: errorMessage,
+            });
+            return true;
+          }
+
           if (
             code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
             code === HardwareErrorCode.DeviceNotSupportPassphrase
@@ -418,6 +423,8 @@ class DeviceUtils {
         return new Error.FirmwareVersionTooLow(payload);
       case HardwareErrorCode.NewFirmwareUnRelease:
         return new Error.NewFirmwareUnRelease(payload);
+      case HardwareErrorCode.NewFirmwareForceUpdate:
+        return new Error.NewFirmwareForceUpdate(payload);
       case HardwareErrorCode.NetworkError:
         return new Error.NetworkError(payload);
       case HardwareErrorCode.BlePermissionError:
