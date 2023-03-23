@@ -21,6 +21,8 @@ import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/utils/errorUtils';
 
+import { wait } from '../../../utils/helper';
+
 import type { AdvancedValues, RecoverAccountType } from './types';
 import type { RouteProp } from '@react-navigation/native';
 
@@ -126,15 +128,16 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
       while (unAddedIndexes.length > 0) {
         const indexes = unAddedIndexes.splice(
           0,
-          Math.min(unAddedIndexes.length, 20),
+          Math.min(unAddedIndexes.length, 10),
         );
         const recoverAccounts = await recoverAccountIndex(indexes);
         if (recoverAccounts?.[0]) {
           addedAccount = recoverAccounts?.[0];
         }
         setImportedAccounts((prev) => prev + (indexes?.length ?? 0));
-
         if (stopRecoverFlag.current) break;
+        // wait for ui render
+        await wait(100);
       }
     } catch (e: any) {
       debugLogger.common.error('recover error:', toPlainErrorObject(e));
@@ -152,7 +155,9 @@ const RecoverConfirmDone: FC<RecoverConfirmDoneProps> = ({
   };
 
   useEffect(() => {
-    authenticationDone(accounts);
+    setTimeout(() => {
+      authenticationDone(accounts);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
