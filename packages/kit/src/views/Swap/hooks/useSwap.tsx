@@ -155,7 +155,7 @@ export function useDerivedSwapState() {
     outputToken,
     greaterThanZeroOrUndefined(swapQuote?.buyAmount),
   );
-  const precision = Boolean(swapQuote?.wrapperTxInfo) ? 18 : undefined
+  const precision = swapQuote?.wrapperTxInfo ? 18 : undefined;
   const formattedAmounts = useMemo(() => {
     const dependentField = independentField === 'INPUT' ? 'OUTPUT' : 'INPUT';
     return {
@@ -165,7 +165,7 @@ export function useDerivedSwapState() {
           ? formatAmount(inputAmount?.value, precision)
           : formatAmount(outputAmount?.value, precision),
     } as { 'INPUT'?: string; 'OUTPUT'?: string };
-  }, [independentField, inputAmount, outputAmount, typedValue]);
+  }, [independentField, inputAmount, outputAmount, typedValue, precision]);
 
   return {
     inputAmount,
