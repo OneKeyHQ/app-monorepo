@@ -1,8 +1,22 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 
+export function backupPlatform() {
+  return { cloudName: '', platform: '' };
+}
+
 export function isAvailable(): Promise<boolean> {
   return Promise.resolve(false);
+}
+
+export async function loginIfNeeded(
+  _showSignInDialog: boolean,
+): Promise<boolean> {
+  return Promise.resolve(true);
+}
+
+export function logoutFromGoogleDrive(): Promise<boolean> {
+  return Promise.resolve(true);
 }
 
 export function sync(): Promise<boolean> {
@@ -17,7 +31,7 @@ export function deleteFile(_target: string): Promise<boolean> {
   return Promise.resolve(false);
 }
 
-export function downloadFromCloud(_filename: string): Promise<string> {
+export async function downloadFromCloud(_filename: string): Promise<string> {
   return Promise.resolve('');
 }
 

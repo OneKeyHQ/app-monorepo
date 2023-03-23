@@ -160,7 +160,6 @@ const App: FC = function () {
     <Provider
       themeVariant={appSettings.themeVariant}
       locale={appSettings.localeVariant}
-      hapticsEnabled={appSettings.enableHaptics}
       waitFontLoaded={false}
     >
       <HashRouter>

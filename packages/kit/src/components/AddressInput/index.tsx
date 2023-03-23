@@ -14,9 +14,11 @@ import {
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import { gotoScanQrcode } from '../../utils/gotoScanQrcode';
+import { parseUriScheme } from '../../utils/uriScheme';
 import { AddressBookRoutes } from '../../views/AddressBook/routes';
 
 type AddressInputPlugin = 'paste' | 'contact' | 'scan';
@@ -41,19 +43,38 @@ const AddressInput: FC<AddressInputProps> = ({
   const navigation = useNavigation();
   const [isFocus, setFocus] = useState(false);
   const onChangeValue = useCallback(
-    (text: string) => {
+    async (text: string, verify: boolean) => {
       if (text !== value) {
-        onChange?.(text);
+        let result = text;
+        const uriInfo = parseUriScheme(text);
+        if (uriInfo !== false) {
+          result = uriInfo.address;
+        }
+        if (verify && networkId) {
+          try {
+            await backgroundApiProxy.validator.validateAddress(
+              networkId,
+              result,
+            );
+            onChange?.(result);
+          } catch (error: any) {
+            onChange?.(text);
+          }
+        } else {
+          onChange?.(text);
+        }
       }
     },
-    [value, onChange],
+    [value, networkId, onChange],
   );
   const onPaste = useCallback(async () => {
     const text = await getClipboard();
-    onChangeValue?.(text);
+    onChangeValue?.(text, true);
   }, [onChangeValue]);
   const onScan = useCallback(() => {
-    gotoScanQrcode(onChangeValue);
+    gotoScanQrcode((text) => {
+      onChangeValue?.(text, true);
+    });
   }, [onChangeValue]);
   const onContacts = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -63,7 +84,7 @@ const AddressInput: FC<AddressInputProps> = ({
         params: {
           networkId,
           onSelected: ({ address, name }) => {
-            onChangeValue?.(address);
+            onChangeValue?.(address, false);
             if (name) {
               onChangeAddressName?.(name);
             }

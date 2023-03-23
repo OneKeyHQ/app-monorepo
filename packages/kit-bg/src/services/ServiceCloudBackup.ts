@@ -1,11 +1,7 @@
 import { deviceName, osName } from 'expo-device';
-import {
-  cacheDirectory,
-  deleteAsync,
-  writeAsStringAsync,
-} from 'expo-file-system';
 import { debounce } from 'lodash';
 import memoizee from 'memoizee';
+import { DocumentDirectoryPath, unlink, writeFile } from 'react-native-fs';
 import uuid from 'react-native-uuid';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -85,7 +81,9 @@ class ServiceCloudBackup extends ServiceBase {
   }
 
   private getTempFilePath(backupUUID: string) {
-    return `${cacheDirectory ?? ''}${this.getBackupFilename(backupUUID)}`;
+    return `${DocumentDirectoryPath ?? ''}/${this.getBackupFilename(
+      backupUUID,
+    )}`;
   }
 
   private async ensureUUID() {
@@ -530,6 +528,16 @@ class ServiceCloudBackup extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
+  async loginIfNeeded(showSignInDialog: boolean) {
+    return CloudFs.loginIfNeeded(showSignInDialog);
+  }
+
+  @backgroundMethod()
+  async logout() {
+    return CloudFs.logoutFromGoogleDrive();
+  }
+
   private syncCloud = memoizee(async () => CloudFs.sync(), {
     promise: true,
     maxAge: 1000 * 30,
@@ -562,13 +570,13 @@ class ServiceCloudBackup extends ServiceBase {
       throw Error('Invalid backup uuid.');
     }
     const localTempFilePath = this.getTempFilePath(backupUUID);
-    await writeAsStringAsync(localTempFilePath, data);
+    await writeFile(localTempFilePath, data, 'utf8');
     debugLogger.cloudBackup.debug(`Backup file ${localTempFilePath} written.`);
     await CloudFs.uploadToCloud(
       localTempFilePath,
       this.getBackupPath(backupUUID),
     );
-    await deleteAsync(localTempFilePath, { idempotent: true });
+    await unlink(localTempFilePath);
     debugLogger.cloudBackup.debug(`Backup file ${localTempFilePath} deleted.`);
   }
 }

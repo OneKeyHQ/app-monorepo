@@ -25,8 +25,7 @@ export function WebViewWebEmbed({
   isSpinnerLoading?: boolean;
   onContentLoaded?: () => void; // currently works in NativeWebView only
 }) {
-  const { themeVariant, localeVariant, enableHaptics } =
-    useThemeProviderVariant();
+  const { themeVariant, localeVariant } = useThemeProviderVariant();
   const nativeWebviewSource = useMemo(() => {
     if (src) {
       return undefined;
@@ -58,7 +57,6 @@ export function WebViewWebEmbed({
         window.WEB_EMBED_ONEKEY_APP_SETTINGS = {
           themeVariant: "${themeVariant}",
           localeVariant: "${localeVariant}",
-          enableHaptics: ${enableHaptics.toString()},
         };
       `}
     />

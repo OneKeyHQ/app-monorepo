@@ -21,9 +21,9 @@ module.exports = {
         ios: null,
       },
     },
-    'react-native-cloud-fs': {
+    '@react-native-community/google-signin': {
       platforms: {
-        android: null, // disable Android platform, other platforms will still autolink if provided
+        ios: null,
       },
     },
   },
