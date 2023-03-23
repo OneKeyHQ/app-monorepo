@@ -175,26 +175,51 @@ index 0000000..1782152
 +export default Image;
 +export type { IImageProps };
 diff --git a/node_modules/native-base/src/components/primitives/Overlay/Overlay.tsx b/node_modules/native-base/src/components/primitives/Overlay/Overlay.tsx
-index 5693616..6ceb717 100644
+index 5693616..1f8e2be 100644
 --- a/node_modules/native-base/src/components/primitives/Overlay/Overlay.tsx
 +++ b/node_modules/native-base/src/components/primitives/Overlay/Overlay.tsx
-@@ -1,4 +1,5 @@
+@@ -1,5 +1,5 @@
  /* eslint-disable @typescript-eslint/no-unused-vars */
+-import { OverlayContainer } from '@react-native-aria/overlays';
 +import { OverlayContainer as RootOverlayContainer } from '@onekeyhq/components';
- import { OverlayContainer } from '@react-native-aria/overlays';
  import React from 'react';
  import type { ViewStyle } from 'react-native';
-@@ -70,10 +71,11 @@ export function Overlay({
+ import { Modal, Platform } from 'react-native';
+@@ -28,7 +28,6 @@ export function Overlay({
+   //@ts-ignore
+   animationPreset = 'fade',
+   onRequestClose,
+-  style,
+   unmountOnExit,
+ }: IOverlayProps) {
+   const [exited, setExited] = React.useState(!isOpen);
+@@ -37,13 +36,6 @@ export function Overlay({
+     enabled: isOpen && isKeyboardDismissable,
+     callback: onRequestClose ? onRequestClose : () => {},
+   });
+-  const styleObj = { ...style };
+-  if (animationPreset === 'slide') {
+-    styleObj.overflow = 'hidden';
+-    styleObj.display = 'flex';
+-  } else {
+-    styleObj.display = exited && !isOpen ? 'none' : 'flex';
+-  }
+ 
+   if (unmountOnExit && !isOpen && exited) {
+     return null;
+@@ -70,11 +62,10 @@ export function Overlay({
    }
  
    return (
 -    //@ts-ignore
-     <OverlayContainer style={{ ...styleObj }}>
-       <ExitAnimationContext.Provider value={{ exited, setExited }}>
--        {children}
-+        <RootOverlayContainer useFullWindowForIOS>
-+          {children}
-+        </RootOverlayContainer>
-       </ExitAnimationContext.Provider>
-     </OverlayContainer>
+-    <OverlayContainer style={{ ...styleObj }}>
+-      <ExitAnimationContext.Provider value={{ exited, setExited }}>
++    <ExitAnimationContext.Provider value={{ exited, setExited }}>
++      <RootOverlayContainer>
+         {children}
+-      </ExitAnimationContext.Provider>
+-    </OverlayContainer>
++      </RootOverlayContainer>
++    </ExitAnimationContext.Provider>
    );
+ }
