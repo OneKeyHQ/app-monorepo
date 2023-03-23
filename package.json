@@ -51,7 +51,8 @@
     "prepare": "husky install",
     "stats:web": "yarn workspace @onekeyhq/web stats",
     "web-bundle-analyzer": "ANALYSE_MODULE=1 yarn stats:web && yarn webpack-bundle-analyzer packages/web/web-build/stats.json",
-    "swap-lock-registry": "npx swap-lock-registry --yarn --parallel --url https://registry.yarnpkg.com yarn.lock"
+    "swap-lock-registry": "npx swap-lock-registry --yarn --parallel --url https://registry.yarnpkg.com yarn.lock",
+    "debug:hardware-sdk": "node ./development/debug-hardware-sdk.js"
   },
   "ultra": {
     "concurrent": [
@@ -65,11 +66,11 @@
     "@onekeyfe/cross-inpage-provider-injected": "1.1.23",
     "@onekeyfe/cross-inpage-provider-types": "1.1.23",
     "@onekeyfe/extension-bridge-hosted": "1.1.23",
-    "@onekeyfe/hd-ble-sdk": "0.2.40",
-    "@onekeyfe/hd-core": "0.2.40",
-    "@onekeyfe/hd-shared": "0.2.40",
-    "@onekeyfe/hd-transport": "0.2.40",
-    "@onekeyfe/hd-web-sdk": "0.2.40",
+    "@onekeyfe/hd-ble-sdk": "0.2.41",
+    "@onekeyfe/hd-core": "0.2.41",
+    "@onekeyfe/hd-shared": "0.2.41",
+    "@onekeyfe/hd-transport": "0.2.41",
+    "@onekeyfe/hd-web-sdk": "0.2.41",
     "@onekeyfe/network-list": "1.6.54",
     "@onekeyfe/onekey-cross-webview": "1.1.23",
     "@starcoin/starcoin": "2.1.5",
