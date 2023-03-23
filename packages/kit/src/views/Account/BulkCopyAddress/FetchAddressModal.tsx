@@ -143,10 +143,11 @@ const FetchAddressModal: FC = () => {
       }
 
       const result: ImportableHDAccount[] = [];
+      let totalGenerateCount = 0;
       while (start < startIndex + finalLimit) {
         let offset = pageSize;
         if (start + pageSize > startIndex + finalLimit) {
-          offset = finalLimit - start;
+          offset = finalLimit - totalGenerateCount;
         }
         if (offset <= 0) {
           break;
@@ -162,6 +163,7 @@ const FetchAddressModal: FC = () => {
         });
         result.push(...accounts);
         start += pageSize;
+        totalGenerateCount += offset;
         if (platformEnv.isNativeAndroid) {
           await wait(100);
         }
