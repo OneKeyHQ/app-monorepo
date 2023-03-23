@@ -1,12 +1,9 @@
 import type { ComponentProps, FC } from 'react';
-import { memo, useCallback } from 'react';
+import { memo } from 'react';
 
 import { Pressable as NBPressable } from 'native-base';
 
-import { enableHaptics } from '@onekeyhq/shared/src/haptics';
-
-import useProviderValue from '../Provider/hooks/useProviderValue';
-import { beforeOnPress } from '../utils/beforeOnPress';
+import { useBeforeOnPress } from '../utils/useBeforeOnPress';
 
 export type PressableItemProps = ComponentProps<typeof NBPressable>;
 
@@ -15,16 +12,7 @@ const PressableItem: FC<PressableItemProps> = ({
   onPress,
   ...props
 }) => {
-  const { hapticsEnabled } = useProviderValue();
-  const onPressOverride = useCallback(
-    (e) => {
-      if (hapticsEnabled && onPress) {
-        enableHaptics();
-      }
-      beforeOnPress(e, onPress);
-    },
-    [onPress, hapticsEnabled],
-  );
+  const onPressOverride = useBeforeOnPress(onPress);
 
   // TODO: use child function to check hover state
   return (

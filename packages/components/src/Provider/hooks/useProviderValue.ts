@@ -8,7 +8,6 @@ export type ContextValue = {
   themeVariant: ThemeVariant;
   locale: LocaleSymbol;
   device: DeviceState;
-  hapticsEnabled: boolean;
   reduxReady?: boolean;
 };
 

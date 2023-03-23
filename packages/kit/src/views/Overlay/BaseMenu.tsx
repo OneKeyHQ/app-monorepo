@@ -64,7 +64,7 @@ const BaseMenu: FC<IBaseMenu> = ({
             key={index}
             {...menuItemProps}
             onPress={() => {
-              onPress();
+              setTimeout(onPress, 200);
               if (!closeOnSelect) {
                 return false;
               }

@@ -60,7 +60,6 @@ function normalizeConfig({ platform, config }) {
     'ANDROID_CHANNEL',
     'DESK_CHANNEL',
     'COVALENT_KEY',
-    'MOONPAY_KEY',
     'HARDWARE_SDK_CONNECT_SRC',
     'GITHUB_SHA',
   ];
