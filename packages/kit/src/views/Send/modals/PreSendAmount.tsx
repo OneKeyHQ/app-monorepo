@@ -37,6 +37,7 @@ import {
 } from '../../../hooks/useTokens';
 import { wait } from '../../../utils/helper';
 import { BaseSendModal } from '../components/BaseSendModal';
+import { PreSendAmountAlert } from '../components/PreSendAmountAlert';
 import { SendRoutes } from '../types';
 import { usePreSendAmountInfo } from '../utils/usePreSendAmountInfo';
 
@@ -372,6 +373,11 @@ function PreSendAmount() {
           userSelect: 'none',
         }}
       >
+        <PreSendAmountAlert
+          accountId={accountId}
+          networkId={networkId}
+          tokenId={tokenInfo?.id ?? ''}
+        />
         <Box flexDirection="row" alignItems="baseline">
           <Typography.Body2Strong mr={2} color="text-subdued">
             {intl.formatMessage({ id: 'content__to' })}:

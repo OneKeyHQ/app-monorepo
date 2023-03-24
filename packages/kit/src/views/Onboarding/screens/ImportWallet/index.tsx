@@ -139,17 +139,43 @@ const ImportWallet = () => {
   }, [navigation]);
 
   const onPressRestoreFromCloud = useCallback(() => {
-    navigation.navigate(EOnboardingRoutes.RestoreFromCloud);
-  }, [navigation]);
-
-  const onPressRestoreFromDrive = useCallback(() => {
-    if (hasPreviousBackups) {
+    if (!isLogin) {
+      serviceCloudBackup
+        .loginIfNeeded(true)
+        .then((result) => {
+          setIsLogin(result);
+          if (result) {
+            mutate();
+            if (hasPreviousBackups) {
+              navigation.navigate(EOnboardingRoutes.RestoreFromCloud);
+            }
+          }
+        })
+        .catch((error: Error) => {
+          if (error.message === 'NETWORK') {
+            ToastManager.show(
+              {
+                title: intl.formatMessage({
+                  id: 'title__no_connection_desc',
+                }),
+              },
+              {
+                type: 'error',
+              },
+            );
+          }
+        });
+    } else if (hasPreviousBackups) {
       navigation.navigate(EOnboardingRoutes.RestoreFromCloud);
-    } else {
-      // TODO:Drive
-      // No backup data
     }
-  }, [hasPreviousBackups, navigation]);
+  }, [
+    hasPreviousBackups,
+    intl,
+    isLogin,
+    mutate,
+    navigation,
+    serviceCloudBackup,
+  ]);
 
   return (
     <Layout
@@ -175,7 +201,7 @@ const ImportWallet = () => {
             }}
           />
         </ItemWrapper>
-        {(platformEnv.isNativeIOS || platformEnv.isNativeIOSPad) && (
+        {(platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) && (
           <ItemWrapper>
             <OptioniCloud
               title={intl.formatMessage(
@@ -184,46 +210,6 @@ const ImportWallet = () => {
               )}
               onPress={onPressRestoreFromCloud}
               isDisabled={!hasPreviousBackups}
-              isLoading={iCloudLoading}
-            />
-          </ItemWrapper>
-        )}
-        {platformEnv.isNativeAndroid && (
-          <ItemWrapper>
-            <OptionGoogleDrive
-              title={intl.formatMessage(
-                { id: 'action__restore_from_icloud' },
-                { 'cloudName': backupPlatform().cloudName },
-              )}
-              onPress={() => {
-                if (!isLogin) {
-                  serviceCloudBackup
-                    .loginIfNeeded(true)
-                    .then((result) => {
-                      setIsLogin(result);
-                      if (result) {
-                        mutate();
-                        onPressRestoreFromDrive();
-                      }
-                    })
-                    .catch((error: Error) => {
-                      if (error.message === 'NETWORK') {
-                        ToastManager.show(
-                          {
-                            title: intl.formatMessage({
-                              id: 'title__no_connection_desc',
-                            }),
-                          },
-                          {
-                            type: 'error',
-                          },
-                        );
-                      }
-                    });
-                } else {
-                  onPressRestoreFromDrive();
-                }
-              }}
               isLoading={iCloudLoading}
             />
           </ItemWrapper>

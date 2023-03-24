@@ -109,9 +109,8 @@ export const SecuritySection = () => {
   }, [enableAppLock, dispatch]);
   const lockDuration = Math.min(240, appLockDuration);
 
-  // const backupEnable =
-  //   platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay;
-  const backupEnable = true;
+  const backupEnable =
+    platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay;
   return (
     <Box w="full" mb="6">
       <Box pb="2">

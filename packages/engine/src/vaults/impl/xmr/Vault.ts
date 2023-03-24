@@ -582,37 +582,6 @@ export default class Vault extends VaultBase {
     const { address } = await this.getOutputAccount();
     const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
 
-    // The interface for obtaining the frozen amount has a delay.
-    // If another request is sent immediately after sending one, an error will occur.
-    // Here, check whether the first ten local transactions have transfer-out transactions in the pending state as a supplement to the interface delay
-    // If there are any, all amounts will be frozen.
-    let hasLocalTxOutInPending = false;
-    const localHistory = (
-      await simpleDb.history.getAccountHistory({
-        accountId: this.accountId,
-        networkId: this.networkId,
-        isPending: true,
-        limit: 10,
-      })
-    ).items;
-
-    for (let i = 0, len = localHistory.length; i < len; i = +1) {
-      const item = localHistory[i];
-      const action = item.decodedTx.actions[0];
-      if (
-        action.type === IDecodedTxActionType.NATIVE_TRANSFER &&
-        (IDecodedTxDirection.OUT === action.direction ||
-          IDecodedTxDirection.SELF === action.direction)
-      ) {
-        hasLocalTxOutInPending = true;
-        break;
-      }
-    }
-
-    if (hasLocalTxOutInPending) {
-      return -1;
-    }
-
     try {
       const [totalBN] = await client.getBalances([
         {
@@ -622,9 +591,48 @@ export default class Vault extends VaultBase {
       ]);
       const unspentBN = await client.getUnspentBalance(address);
 
-      return {
-        'main': totalBN?.minus(unspentBN).shiftedBy(-decimals).toNumber() ?? 0,
-      };
+      let frozenBalance = totalBN
+        ?.minus(unspentBN)
+        .shiftedBy(-decimals)
+        .toNumber();
+
+      if (totalBN?.isGreaterThan(0) && unspentBN.isZero()) {
+        frozenBalance = -1;
+      }
+
+      if (frozenBalance === 0) {
+        // The interface for obtaining the frozen amount has a delay.
+        // If another request is sent immediately after sending one, an error will occur.
+        // Here, check whether the first ten local transactions have transfer-out transactions in the pending state as a supplement to the interface delay
+        // If there are any, all amounts will be frozen.
+        let hasLocalTxOutInPending = false;
+        const localHistory = (
+          await simpleDb.history.getAccountHistory({
+            accountId: this.accountId,
+            networkId: this.networkId,
+            isPending: true,
+            limit: 10,
+          })
+        ).items;
+
+        for (let i = 0, len = localHistory.length; i < len; i = +1) {
+          const item = localHistory[i];
+          const action = item.decodedTx.actions[0];
+          if (
+            action.type === IDecodedTxActionType.NATIVE_TRANSFER &&
+            (IDecodedTxDirection.OUT === action.direction ||
+              IDecodedTxDirection.SELF === action.direction)
+          ) {
+            hasLocalTxOutInPending = true;
+            break;
+          }
+        }
+        if (hasLocalTxOutInPending) {
+          frozenBalance = -1;
+        }
+      }
+
+      return frozenBalance ?? 0;
     } catch {
       return 0;
     }
