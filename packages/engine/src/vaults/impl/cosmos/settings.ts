@@ -25,7 +25,7 @@ const settings: IVaultSettings = Object.freeze({
     default: {
       prefix: 'COSMOS',
       category: `44'/${COINTYPE_COSMOS}'`,
-      template: `m/44'/${COINTYPE_COSMOS}'/${INDEX_PLACEHOLDER}'/0/0`,
+      template: `m/44'/${COINTYPE_COSMOS}'/0'/0/${INDEX_PLACEHOLDER}`,
       coinType: COINTYPE_COSMOS,
     },
   },

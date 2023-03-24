@@ -174,11 +174,15 @@ export default class ServiceDerivationPath extends ServiceBase {
       if (vault.settings.isUTXOModel) {
         accountExist = await vault.checkAccountExistence(address, true);
       }
+      const displayAddress = await this.backgroundApi.engine.getDisplayAddress(
+        networkId,
+        address,
+      );
       return {
         index,
         path,
         address,
-        displayAddress: address,
+        displayAddress,
         accountExist,
       };
     } catch (e: any) {

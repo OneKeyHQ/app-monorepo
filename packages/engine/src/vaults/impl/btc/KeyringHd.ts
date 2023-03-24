@@ -28,7 +28,14 @@ export class KeyringHd extends KeyringHdBtcFork {
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
   ): Promise<DBUTXOAccount[]> {
-    const { password, indexes, purpose, names, template } = params;
+    const {
+      password,
+      indexes,
+      purpose,
+      names,
+      template,
+      skipCheckAccountExist,
+    } = params;
     const impl = await this.getNetworkImpl();
     const vault = this.vault as unknown as BTCForkVault;
     const defaultPurpose = vault.getDefaultPurpose();
@@ -128,19 +135,23 @@ export class KeyringHd extends KeyringHdBtcFork {
         break;
       }
 
-      const { txs } = (await provider.getAccount(
-        { type: 'simple', xpub: xpubSegwit || xpub },
-        addressEncoding,
-      )) as { txs: number };
-      if (txs > 0) {
+      if (skipCheckAccountExist) {
         index += 1;
-        // blockbook API rate limit.
-        await new Promise((r) => setTimeout(r, 200));
       } else {
-        // Software should prevent a creation of an account
-        // if a previous account does not have a transaction history (meaning none of its addresses have been used before).
-        // https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
-        break;
+        const { txs } = (await provider.getAccount(
+          { type: 'simple', xpub: xpubSegwit || xpub },
+          addressEncoding,
+        )) as { txs: number };
+        if (txs > 0) {
+          index += 1;
+          // blockbook API rate limit.
+          await new Promise((r) => setTimeout(r, 200));
+        } else {
+          // Software should prevent a creation of an account
+          // if a previous account does not have a transaction history (meaning none of its addresses have been used before).
+          // https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
+          break;
+        }
       }
     }
     return ret;

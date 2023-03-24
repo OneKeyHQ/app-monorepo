@@ -489,6 +489,7 @@ export default class Vault extends VaultBase {
       coinType: dbAccount.coinType,
       tokens: [],
       address: dbAccount.addresses?.[this.networkId] || '',
+      template: dbAccount.template,
     };
     if (
       ret.address.length === 0 &&

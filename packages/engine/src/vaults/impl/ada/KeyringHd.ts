@@ -50,7 +50,7 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
   ): Promise<DBUTXOAccount[]> {
-    const { password, indexes, names } = params;
+    const { password, indexes, names, skipCheckAccountExist } = params;
     const ignoreFirst = indexes[0] !== 0;
     const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
     const { entropy } = (await this.engine.dbApi.getCredential(
@@ -101,13 +101,17 @@ export class KeyringHd extends KeyringHdBase {
         break;
       }
 
-      const { tx_count: txCount } = await client.getAddressDetails(address);
-      if (txCount > 0) {
+      if (skipCheckAccountExist) {
         index += 1;
-        // api rate limit
-        await new Promise((r) => setTimeout(r, 200));
       } else {
-        break;
+        const { tx_count: txCount } = await client.getAddressDetails(address);
+        if (txCount > 0) {
+          index += 1;
+          // api rate limit
+          await new Promise((r) => setTimeout(r, 200));
+        } else {
+          break;
+        }
       }
     }
 
