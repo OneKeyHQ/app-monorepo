@@ -9,7 +9,7 @@ export const COVALENT_API_KEY = process.env.COVALENT_KEY!;
 export const JPUSH_KEY = process.env.JPUSH_KEY!;
 
 export const HARDWARE_SDK_IFRAME_SRC =
-  process.env.HARDWARE_SDK_CONNECT_SRC || 'https://jssdk.onekey.so/0.2.41/';
+  process.env.HARDWARE_SDK_CONNECT_SRC || 'https://jssdk.onekey.so/0.2.42/';
 
 export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';
