@@ -2145,6 +2145,29 @@ class RealmDB implements DBAPI {
     return Promise.resolve();
   }
 
+  removeAccountDerivation({
+    walletId,
+    impl,
+    template,
+  }: {
+    walletId: string;
+    impl: string;
+    template: string;
+  }): Promise<void> {
+    const id = getAccountDerivationPrimaryKey({ walletId, impl, template });
+    const accountDerivation =
+      this.realm!.objectForPrimaryKey<AccountDerivationSchema>(
+        'AccountDerivation',
+        id,
+      );
+    if (typeof accountDerivation !== 'undefined') {
+      this.realm!.write(() => {
+        this.realm!.delete(accountDerivation);
+      });
+    }
+    return Promise.resolve();
+  }
+
   removeAccountDerivationByWalletId({
     walletId,
   }: {

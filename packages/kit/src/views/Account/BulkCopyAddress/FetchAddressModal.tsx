@@ -391,6 +391,9 @@ const FetchAddressModal: FC = () => {
               });
             }
             updateWalletsAccountProgress(result);
+            if (platformEnv.isNative) {
+              await wait(0);
+            }
           } catch (e: any) {
             debugLogger.common.info('Fetch Wallet Accounts error: ', e);
             const { className } = e || {};
