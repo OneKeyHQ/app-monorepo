@@ -293,24 +293,33 @@ const CloudBackup = () => {
           borderBottomColor="divider"
         />
       </Box>
+      <Text typography="Body2" color="text-subdued">
+        {intl.formatMessage(
+          { id: 'content__wont_backup' },
+          { 'cloudName': backupPlatform().cloudName },
+        )}
+      </Text>
       <Text typography="Body2" color="text-subdued" />
-      <Box w="full" py="6">
-        <Box
-          borderBottomWidth={StyleSheet.hairlineWidth}
-          borderBottomColor="divider"
-        />
-      </Box>
       {platformEnv.isNativeAndroid && (
-        <Button
-          onPress={() => {
-            logoutFromGoogleDrive().then(() => {
-              navigation.goBack();
-            });
-          }}
-          size="xl"
-        >
-          {intl.formatMessage({ id: 'action__logout' })}
-        </Button>
+        <>
+          <Box w="full">
+            <Box
+              borderBottomWidth={StyleSheet.hairlineWidth}
+              borderBottomColor="divider"
+            />
+          </Box>
+          <Button
+            mt="6"
+            onPress={() => {
+              logoutFromGoogleDrive(false).then(() => {
+                navigation.goBack();
+              });
+            }}
+            size="xl"
+          >
+            {intl.formatMessage({ id: 'action__logout' })}
+          </Button>
+        </>
       )}
     </Wrapper>
   );

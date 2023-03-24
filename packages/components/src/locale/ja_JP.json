@@ -184,6 +184,7 @@
   "action__pause": "一時停止",
   "action__permanently_delete": "完全に削除する",
   "action__pick_an_emoji": "絵文字を選ぶ",
+  "action__place_limit_order": "限価注文を入れる",
   "action__preview": "プレビュー",
   "action__profit_and_loss": "損益",
   "action__protection": "保護",

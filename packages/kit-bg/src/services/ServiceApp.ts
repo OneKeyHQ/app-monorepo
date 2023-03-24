@@ -38,6 +38,7 @@ import {
   MAX_LOG_LENGTH,
   waitForDataLoaded,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { logoutFromGoogleDrive } from '@onekeyhq/shared/src/cloudfs';
 import {
   AppEventBusNames,
   appEventBus,
@@ -207,6 +208,7 @@ class ServiceApp extends ServiceBase {
     dispatch({ type: 'LOGOUT', payload: undefined });
     serviceNetwork.notifyChainChanged();
     serviceAccount.notifyAccountsChanged();
+    await logoutFromGoogleDrive(true);
 
     // await engine.resetApp() is NOT reliable of DB clean, so we need delay here.
     await wait(1500);
