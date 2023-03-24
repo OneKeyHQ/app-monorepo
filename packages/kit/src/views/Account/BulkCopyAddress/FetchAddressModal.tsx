@@ -12,7 +12,10 @@ import {
   Text,
   ToastManager,
 } from '@onekeyhq/components';
-import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import {
+  OneKeyErrorClassNames,
+  OneKeyHardwareError,
+} from '@onekeyhq/engine/src/errors';
 import type {
   Account,
   ImportableHDAccount,
@@ -221,9 +224,10 @@ const FetchAddressModal: FC = () => {
           result.push(addressInfo);
           setPreviousAddress(addressInfo.address);
           updateSetRangeAccountProgress(result);
-        } catch (e) {
+        } catch (e: any) {
           debugLogger.common.info('getHWAddressByTemplate error: ', e);
-          if (e instanceof OneKeyHardwareError) {
+          const { className } = e || {};
+          if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
             deviceUtils.showErrorToast(e);
           } else {
             ToastManager.show({
@@ -331,10 +335,11 @@ const FetchAddressModal: FC = () => {
               });
             }
             updateWalletsAccountProgress(result);
-          } catch (e) {
+          } catch (e: any) {
             debugLogger.common.info('Fetch Wallet Accounts error: ', e);
             if (isHwWallet) {
-              if (e instanceof OneKeyHardwareError) {
+              const { className } = e || {};
+              if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
                 deviceUtils.showErrorToast(e);
               } else {
                 ToastManager.show(
