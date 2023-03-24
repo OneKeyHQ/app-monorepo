@@ -16,6 +16,7 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../../components/Format';
@@ -28,7 +29,11 @@ import {
 import { useSwapRecipient } from '../../hooks/useSwap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
-import { formatAmount, getNetworkIdImpl } from '../../utils';
+import {
+  formatAmount,
+  getNetworkIdImpl,
+  recipientMustBeSendingAccount,
+} from '../../utils';
 import { NetworkName } from '../NetworkName';
 import { TokenDisplay } from '../TokenDisplay';
 
@@ -292,9 +297,12 @@ const TokenInputReceivingAddressFieldShowControl = () => {
     (s) => s.swap.allowAnotherRecipientAddress,
   );
   if (inputToken && outputToken) {
-    const implA = getNetworkIdImpl(inputToken.networkId);
-    const implB = getNetworkIdImpl(outputToken.networkId);
-    if (implA !== implB || allowAnotherRecipientAddress) {
+    const shouldBeSendingAccount = recipientMustBeSendingAccount(
+      inputToken,
+      outputToken,
+      allowAnotherRecipientAddress,
+    );
+    if (!shouldBeSendingAccount) {
       return <TokenInputReceivingAddressField />;
     }
   }
@@ -342,7 +350,7 @@ const SendToAnotherAddress = () => {
   if (inputToken && outputToken) {
     const implA = getNetworkIdImpl(inputToken.networkId);
     const implB = getNetworkIdImpl(outputToken.networkId);
-    if (implA === implB) {
+    if (implA === implB && implA !== IMPL_SOL) {
       return (
         <Box
           display="flex"
