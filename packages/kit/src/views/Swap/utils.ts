@@ -10,7 +10,7 @@ import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { QuoterType } from './typings';
 
@@ -344,4 +344,16 @@ export function isSimpleTx(tx: TransactionDetails) {
   const to = tx.tokens?.to;
   const quoterType = getQuoteType(tx);
   return from?.networkId === to?.networkId && quoterType !== QuoterType.swftc;
+}
+
+export function recipientMustBeSendingAccount(
+  tokenA: Token,
+  tokenB: Token,
+  allowAnotherRecipientAddress?: boolean,
+) {
+  const implA = getNetworkIdImpl(tokenA.networkId);
+  const implB = getNetworkIdImpl(tokenB.networkId);
+  return (
+    implA === implB && (!allowAnotherRecipientAddress || implA === IMPL_SOL)
+  );
 }
