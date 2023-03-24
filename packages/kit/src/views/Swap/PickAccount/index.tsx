@@ -42,15 +42,17 @@ const MyWallet = () => {
     async function main() {
       for (let i = 0; i < wallets.length; i += 1) {
         const wallet = wallets[i];
-        const accounts = await backgroundApiProxy.engine.getAccounts(
-          wallet.accounts,
-          networkId,
-        );
-        if (accounts && accounts.length > 0) {
-          setSections((prev) => [
-            ...prev,
-            { wallet, data: accounts, key: wallet.id },
-          ]);
+        if (wallet.type !== 'watching') {
+          const accounts = await backgroundApiProxy.engine.getAccounts(
+            wallet.accounts,
+            networkId,
+          );
+          if (accounts && accounts.length > 0) {
+            setSections((prev) => [
+              ...prev,
+              { wallet, data: accounts, key: wallet.id },
+            ]);
+          }
         }
       }
     }
