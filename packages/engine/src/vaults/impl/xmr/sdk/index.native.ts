@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { wait } from '@onekeyhq/kit/src/utils/helper';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { MoneroEvent } from '@onekeyhq/shared/src/engine/xmrConsts';
 import {
@@ -38,6 +39,7 @@ const getKeyPairFromRawPrivatekey = async (params: {
   isPrivateSpendKey?: boolean;
 }) => {
   await ensureSDKReady();
+  await wait(1000);
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.getKeyPairFromRawPrivatekey,
@@ -104,6 +106,7 @@ const seedAndkeysFromMnemonic = async (params: {
   netType: string;
 }) => {
   await ensureSDKReady();
+  await wait(1000);
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.seedAndkeysFromMnemonic,
