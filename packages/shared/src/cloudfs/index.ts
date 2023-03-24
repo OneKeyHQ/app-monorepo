@@ -15,7 +15,9 @@ export async function loginIfNeeded(
   return Promise.resolve(true);
 }
 
-export function logoutFromGoogleDrive(): Promise<boolean> {
+export function logoutFromGoogleDrive(
+  _revokeAccess: boolean,
+): Promise<boolean> {
   return Promise.resolve(true);
 }
 

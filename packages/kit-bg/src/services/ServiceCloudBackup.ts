@@ -537,11 +537,6 @@ class ServiceCloudBackup extends ServiceBase {
     return CloudFs.loginIfNeeded(showSignInDialog);
   }
 
-  @backgroundMethod()
-  async logout() {
-    return CloudFs.logoutFromGoogleDrive();
-  }
-
   private syncCloud = memoizee(async () => CloudFs.sync(), {
     promise: true,
     maxAge: 1000 * 30,
@@ -560,7 +555,11 @@ class ServiceCloudBackup extends ServiceBase {
 
   private getDataFromCloud = memoizee(
     (backupUUID: string) =>
-      CloudFs.downloadFromCloud(this.getBackupFilename(backupUUID)),
+      CloudFs.downloadFromCloud(
+        platformEnv.isNativeIOS
+          ? this.getBackupFilename(backupUUID)
+          : this.getBackupPath(backupUUID),
+      ),
     {
       promise: true,
       maxAge: 1000 * 30,
