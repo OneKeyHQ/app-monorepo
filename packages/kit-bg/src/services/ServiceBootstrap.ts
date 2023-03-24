@@ -270,14 +270,14 @@ export default class ServiceBootstrap extends ServiceBase {
         (s) => s.settings.accountDerivationDbMigrationVersion,
       );
       const appVersion = appSelector((s) => s.settings.version);
-      // if (
-      //   dbMigrationVersion &&
-      //   semver.valid(dbMigrationVersion) &&
-      //   semver.gte(dbMigrationVersion, FIX_COSMOS_TEMPLATE_DB_MIGRATION_VERSION)
-      // ) {
-      //   debugLogger.common.info('Skip Cosmos Template migration');
-      //   return;
-      // }
+      if (
+        dbMigrationVersion &&
+        semver.valid(dbMigrationVersion) &&
+        semver.gte(dbMigrationVersion, FIX_COSMOS_TEMPLATE_DB_MIGRATION_VERSION)
+      ) {
+        debugLogger.common.info('Skip Cosmos Template migration');
+        return;
+      }
 
       const { dbApi } = this.backgroundApi.engine;
       const wallets = await dbApi.getWallets();
