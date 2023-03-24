@@ -53,7 +53,7 @@ import type {
 } from '@onekeyhq/kit/src/views/Swap/typings';
 import {
   convertBuildParams,
-  getNetworkIdImpl,
+  recipientMustBeSendingAccount,
   stringifyTokens,
 } from '@onekeyhq/kit/src/views/Swap/utils';
 import {
@@ -482,19 +482,20 @@ export default class ServiceSwap extends ServiceBase {
       (s) => s.swap.allowAnotherRecipientAddress,
     );
     if (inputToken && outputToken) {
-      const implA = getNetworkIdImpl(inputToken.networkId);
-      const implB = getNetworkIdImpl(outputToken.networkId);
-      if (implA === implB && !allowAnotherRecipientAddress) {
-        const sendingAccount = appSelector((s) => s.swap.sendingAccount);
-        if (sendingAccount) {
-          return {
-            accountId: sendingAccount.id,
-            address: sendingAccount.address,
-            name: sendingAccount.name,
-            networkId: inputToken.networkId,
-            networkImpl: inputToken.impl,
-          };
-        }
+      const shouldBeSendingAccount = recipientMustBeSendingAccount(
+        inputToken,
+        outputToken,
+        allowAnotherRecipientAddress,
+      );
+      const sendingAccount = appSelector((s) => s.swap.sendingAccount);
+      if (sendingAccount && shouldBeSendingAccount) {
+        return {
+          accountId: sendingAccount.id,
+          address: sendingAccount.address,
+          name: sendingAccount.name,
+          networkId: inputToken.networkId,
+          networkImpl: inputToken.impl,
+        };
       }
     }
     return recipient;
