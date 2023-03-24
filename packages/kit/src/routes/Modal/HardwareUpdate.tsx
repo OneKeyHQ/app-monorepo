@@ -23,6 +23,7 @@ export type HardwareUpdateRoutesParams = {
   [HardwareUpdateModalRoutes.HardwareUpdateInfoModel]: (
     | { walletId: string }
     | { deviceId: string }
+    | { connectId: string }
   ) & {
     recheckFirmwareUpdate?: boolean;
     onSuccess?: () => void;
