@@ -560,7 +560,11 @@ class ServiceCloudBackup extends ServiceBase {
 
   private getDataFromCloud = memoizee(
     (backupUUID: string) =>
-      CloudFs.downloadFromCloud(this.getBackupFilename(backupUUID)),
+      CloudFs.downloadFromCloud(
+        platformEnv.isNativeIOS
+          ? this.getBackupFilename(backupUUID)
+          : this.getBackupPath(backupUUID),
+      ),
     {
       promise: true,
       maxAge: 1000 * 30,

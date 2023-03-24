@@ -83,7 +83,7 @@ export async function listFiles(target: string) {
   await loginIfNeeded(false);
   const { files }: { files: Array<{ isFile: boolean; name: string }> } =
     await RNCloudFs.listFiles({ scope: 'hidden', targetPath: target });
-  return files.map(({ name }) => name);
+  return files.map(({ name }) => name.replace(target, ''));
 }
 
 async function getFileObject(
