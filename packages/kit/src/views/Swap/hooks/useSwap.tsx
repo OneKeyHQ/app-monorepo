@@ -7,10 +7,10 @@ import { useAppSelector, useDebounce } from '../../../hooks';
 import { SwapError } from '../typings';
 import {
   formatAmount,
-  getNetworkIdImpl,
   getTokenAmountString,
   getTokenAmountValue,
   greaterThanZeroOrUndefined,
+  recipientMustBeSendingAccount,
 } from '../utils';
 
 import { useTokenBalance } from './useSwapTokenUtils';
@@ -67,18 +67,19 @@ export function useSwapRecipient() {
   );
   return useMemo(() => {
     if (inputToken && outputToken) {
-      const implA = getNetworkIdImpl(inputToken.networkId);
-      const implB = getNetworkIdImpl(outputToken.networkId);
-      if (implA === implB && !allowAnotherRecipientAddress) {
-        if (sendingAccount) {
-          return {
-            accountId: sendingAccount.id,
-            address: sendingAccount.address,
-            name: sendingAccount.name,
-            networkId: inputToken.networkId,
-            networkImpl: inputToken.impl,
-          };
-        }
+      const shouldBeSendingAccount = recipientMustBeSendingAccount(
+        inputToken,
+        outputToken,
+        allowAnotherRecipientAddress,
+      );
+      if (shouldBeSendingAccount && sendingAccount) {
+        return {
+          accountId: sendingAccount.id,
+          address: sendingAccount.address,
+          name: sendingAccount.name,
+          networkId: inputToken.networkId,
+          networkImpl: inputToken.impl,
+        };
       }
     }
     return recipient;
@@ -155,17 +156,17 @@ export function useDerivedSwapState() {
     outputToken,
     greaterThanZeroOrUndefined(swapQuote?.buyAmount),
   );
-
+  const precision = swapQuote?.wrapperTxInfo ? 18 : undefined;
   const formattedAmounts = useMemo(() => {
     const dependentField = independentField === 'INPUT' ? 'OUTPUT' : 'INPUT';
     return {
       [independentField]: typedValue,
       [dependentField]:
         dependentField === 'INPUT'
-          ? formatAmount(inputAmount?.value)
-          : formatAmount(outputAmount?.value),
+          ? formatAmount(inputAmount?.value, precision)
+          : formatAmount(outputAmount?.value, precision),
     } as { 'INPUT'?: string; 'OUTPUT'?: string };
-  }, [independentField, inputAmount, outputAmount, typedValue]);
+  }, [independentField, inputAmount, outputAmount, typedValue, precision]);
 
   return {
     inputAmount,
