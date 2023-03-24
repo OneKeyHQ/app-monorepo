@@ -284,7 +284,7 @@ export default class ServiceBootstrap extends ServiceBase {
       const hdOrHwWallets = wallets.filter(
         (w) => w.id.startsWith('hd') || w.id.startsWith('hw'),
       );
-
+      const incorrectTemplate = `m/44'/${COINTYPE_COSMOS}'/${INDEX_PLACEHOLDER}'/0/0`;
       for (const wallet of hdOrHwWallets) {
         debugLogger.common.info(`migrate wallet: ${JSON.stringify(wallet)}`);
         // filter cosmos account which template is m/44'/118'/0'/0/$$INDEX$$
@@ -298,8 +298,7 @@ export default class ServiceBootstrap extends ServiceBase {
           if (
             account.template &&
             // find incorrect template
-            account.template ===
-              `m/44'/${COINTYPE_COSMOS}'/${INDEX_PLACEHOLDER}'/0/0`
+            account.template === incorrectTemplate
           ) {
             await dbApi.addAccountDerivation({
               walletId: wallet.id,
@@ -319,8 +318,26 @@ export default class ServiceBootstrap extends ServiceBase {
         await dbApi.removeAccountDerivation({
           walletId: wallet.id,
           impl: IMPL_COSMOS,
-          template: `m/44'/${COINTYPE_COSMOS}'/${INDEX_PLACEHOLDER}'/0/0`, // incorrect template
+          template: incorrectTemplate, // incorrect template
         });
+
+        if (wallet.nextAccountIds?.[incorrectTemplate]) {
+          // migrate incorrect template next account id to correct template
+          const newNextAccountIds = {
+            ...wallet.nextAccountIds,
+            [template]: wallet.nextAccountIds[incorrectTemplate],
+          };
+
+          await dbApi.updateWalletNextAccountIds({
+            walletId: wallet.id,
+            nextAccountIds: newNextAccountIds,
+          });
+          debugLogger.common.info(
+            `update wallet nextAccountIds, wallet: ${
+              wallet.id
+            }, nextAccountIds: ${JSON.stringify(newNextAccountIds)}`,
+          );
+        }
       }
 
       this.backgroundApi.dispatch(
