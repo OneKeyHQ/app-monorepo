@@ -186,6 +186,8 @@ const UpdateInfoModal: FC = () => {
         setSysFirmware(firmware);
         setResourceUpdateInfo(resourceInfo);
       } else {
+        console.log('=====>>>>> no update');
+
         ToastManager.show(
           {
             title: intl.formatMessage({ id: 'msg__unknown_error' }),
