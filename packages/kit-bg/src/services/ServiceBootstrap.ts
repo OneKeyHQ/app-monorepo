@@ -91,6 +91,7 @@ export default class ServiceBootstrap extends ServiceBase {
     } = this.backgroundApi;
 
     this.migrateAccountDerivationTable();
+    this.migrateCosmosTemplateInDB();
     serviceToken.registerEvents();
     serviceOverview.registerEvents();
     serviceNetwork.registerEvents();
@@ -269,14 +270,14 @@ export default class ServiceBootstrap extends ServiceBase {
         (s) => s.settings.accountDerivationDbMigrationVersion,
       );
       const appVersion = appSelector((s) => s.settings.version);
-      if (
-        dbMigrationVersion &&
-        semver.valid(dbMigrationVersion) &&
-        semver.gte(dbMigrationVersion, FIX_COSMOS_TEMPLATE_DB_MIGRATION_VERSION)
-      ) {
-        debugLogger.common.info('Skip Cosmos Template migration');
-        return;
-      }
+      // if (
+      //   dbMigrationVersion &&
+      //   semver.valid(dbMigrationVersion) &&
+      //   semver.gte(dbMigrationVersion, FIX_COSMOS_TEMPLATE_DB_MIGRATION_VERSION)
+      // ) {
+      //   debugLogger.common.info('Skip Cosmos Template migration');
+      //   return;
+      // }
 
       const { dbApi } = this.backgroundApi.engine;
       const wallets = await dbApi.getWallets();
@@ -318,7 +319,7 @@ export default class ServiceBootstrap extends ServiceBase {
         await dbApi.removeAccountDerivation({
           walletId: wallet.id,
           impl: IMPL_COSMOS,
-          template,
+          template: `m/44'/${COINTYPE_COSMOS}'/${INDEX_PLACEHOLDER}'/0/0`, // incorrect template
         });
       }
 
