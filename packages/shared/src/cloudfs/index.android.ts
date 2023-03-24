@@ -63,9 +63,11 @@ export async function loginIfNeeded(
   return Promise.resolve(false);
 }
 
-export function logoutFromGoogleDrive(): Promise<boolean> {
+export function logoutFromGoogleDrive(revokeAccess: boolean): Promise<boolean> {
   if (platformEnv.isNativeAndroid) {
-    GoogleSignin.revokeAccess();
+    if (revokeAccess) {
+      GoogleSignin.revokeAccess();
+    }
     GoogleSignin.signOut();
     return RNCloudFs.logout();
   }

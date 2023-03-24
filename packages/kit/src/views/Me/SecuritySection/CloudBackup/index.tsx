@@ -311,7 +311,7 @@ const CloudBackup = () => {
           <Button
             mt="6"
             onPress={() => {
-              logoutFromGoogleDrive().then(() => {
+              logoutFromGoogleDrive(false).then(() => {
                 navigation.goBack();
               });
             }}

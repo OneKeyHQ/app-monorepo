@@ -537,11 +537,6 @@ class ServiceCloudBackup extends ServiceBase {
     return CloudFs.loginIfNeeded(showSignInDialog);
   }
 
-  @backgroundMethod()
-  async logout() {
-    return CloudFs.logoutFromGoogleDrive();
-  }
-
   private syncCloud = memoizee(async () => CloudFs.sync(), {
     promise: true,
     maxAge: 1000 * 30,
