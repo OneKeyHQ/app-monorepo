@@ -109,7 +109,7 @@ const NativeWebView = forwardRef(
         allowsInlineMediaPlayback
         // disable video autoplay
         mediaPlaybackRequiresUserAction
-        source={renderedOnce ? { uri: src } : undefined}
+        source={{ uri: src }}
         onMessage={webviewOnMessage}
         renderError={(
           errorDomain: string | undefined,
