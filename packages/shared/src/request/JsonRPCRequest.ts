@@ -2,6 +2,7 @@ import fetch from 'cross-fetch';
 import timeoutSignal from 'timeout-signal';
 
 import type { IJsonRpcResponsePro } from '@onekeyhq/engine/src/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   JsonPRCResponseError,
   ResponseError,
@@ -10,8 +11,6 @@ import {
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 type JsonRpcParams = undefined | { [p: string]: any } | Array<any>;
-
-const disabledRpcBatchHosts = ['rpc-endurance.fusionist.io'];
 
 function normalizePayload(
   method: string,
@@ -33,6 +32,8 @@ class JsonRPCRequest {
 
   readonly headers: Record<string, string>;
 
+  private disabledRpcBatchHosts: string[] = [];
+
   constructor(url: string, headers?: Record<string, string>, timeout = 30000) {
     this.url = url;
     this.timeout = timeout;
@@ -43,6 +44,10 @@ class JsonRPCRequest {
     if (headers) {
       Object.assign(this.headers, headers);
     }
+
+    backgroundApiProxy.serviceSetting
+      .getRpcBatchFallbackWhitelistHosts()
+      .then((value) => (this.disabledRpcBatchHosts = value));
   }
 
   private static parseRPCResponse<T>(
@@ -95,7 +100,7 @@ class JsonRPCRequest {
   ): Promise<T> {
     let jsonResponses: unknown[] = [];
 
-    if (!disabledRpcBatchHosts.includes(new URL(this.url).hostname)) {
+    if (!this.disabledRpcBatchHosts.includes(new URL(this.url).hostname)) {
       const payload = calls.map(([method, params], index) =>
         normalizePayload(method, params, index),
       );
