@@ -10,6 +10,7 @@ import { useAccountSelectorModalInfo } from '../../hooks/useAccountSelectorModal
 
 import AccountList from './AccountList';
 import Header from './Header';
+import { NetWorkExtraInfo } from './NetworkExtraInfo';
 import SideChainSelector from './SideChainSelector';
 
 function NetworkAccountSelectorModal() {
@@ -21,6 +22,7 @@ function NetworkAccountSelectorModal() {
 
   const { accountSelectorInfo, shouldShowModal } =
     useAccountSelectorModalInfo();
+
   if (!shouldShowModal) {
     return null;
   }
@@ -71,7 +73,13 @@ function NetworkAccountSelectorModal() {
               accountSelectorInfo={accountSelectorInfo}
               showCustomLegacyHeader={showCustomLegacyHeader}
             />
-            <AccountList accountSelectorInfo={accountSelectorInfo} />
+            <Box>
+              <AccountList accountSelectorInfo={accountSelectorInfo} />
+            </Box>
+            <NetWorkExtraInfo
+              accountId={accountSelectorInfo.activeAccount?.id}
+              networkId={accountSelectorInfo.activeNetwork?.id}
+            />
           </Box>
         </Box>
       </LazyDisplayView>

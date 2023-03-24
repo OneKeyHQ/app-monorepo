@@ -69,3 +69,9 @@ export async function uploadToCloud(
     targetPath: target,
   });
 }
+
+export function logoutFromGoogleDrive(
+  _revokeAccess: boolean,
+): Promise<boolean> {
+  return Promise.resolve(true);
+}

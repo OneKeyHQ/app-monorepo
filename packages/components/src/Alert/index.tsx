@@ -17,7 +17,7 @@ type AlertType = 'info' | 'warn' | 'error' | 'success' | 'SeriousWarning';
 
 export type AlertProps = {
   title: string | ReactNode;
-  description?: string;
+  description?: string | ReactNode;
   alertType: AlertType;
   dismiss?: boolean;
   onDismiss?: () => void;
