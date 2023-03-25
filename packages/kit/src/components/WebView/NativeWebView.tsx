@@ -4,7 +4,6 @@ import {
   useImperativeHandle,
   useMemo,
   useRef,
-  useState,
 } from 'react';
 
 import { JsBridgeNativeHost } from '@onekeyfe/onekey-cross-webview';
@@ -42,7 +41,6 @@ const NativeWebView = forwardRef(
     ref,
   ) => {
     const webviewRef = useRef<WebView>();
-    const [renderedOnce, setRenderedOnce] = useState(false);
 
     const jsBridge = useMemo(
       () =>
@@ -85,11 +83,6 @@ const NativeWebView = forwardRef(
       return wrapper;
     });
 
-    // https://github.com/react-native-webview/react-native-webview/issues/656#issuecomment-551312436
-    const updateSource = () => {
-      setRenderedOnce(true);
-    };
-
     return (
       <WebView
         style={styles.container}
@@ -109,7 +102,7 @@ const NativeWebView = forwardRef(
         allowsInlineMediaPlayback
         // disable video autoplay
         mediaPlaybackRequiresUserAction
-        source={renderedOnce ? { uri: src } : undefined}
+        source={{ uri: src }}
         onMessage={webviewOnMessage}
         renderError={(
           errorDomain: string | undefined,
@@ -119,7 +112,6 @@ const NativeWebView = forwardRef(
           debugLogger.webview.error({ errorDomain, errorCode, errorDesc, src });
           return <ErrorView onRefresh={() => webviewRef.current?.reload()} />;
         }}
-        onLoad={updateSource}
         {...props}
       />
     );

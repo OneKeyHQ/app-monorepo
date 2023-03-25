@@ -72,12 +72,6 @@ function ChainWebEmbed() {
 
       if (!chainRef || !chainCallbackRef) return;
 
-      if (!usedNetworksRef.current.includes(networkId)) {
-        const newUsedNetwroks = [...usedNetworksRef.current, networkId];
-        setUsedNetworks(newUsedNetwroks);
-        usedNetworksRef.current = newUsedNetwroks;
-      }
-
       if (!chainRef.current) {
         debugLogger.common.debug('not create webview, 1');
         if (resolve) {
@@ -90,6 +84,12 @@ function ChainWebEmbed() {
           'webview exist, just call resolve function, 3',
         );
         resolve();
+      }
+
+      if (!usedNetworksRef.current.includes(networkId)) {
+        const newUsedNetwroks = [...usedNetworksRef.current, networkId];
+        setUsedNetworks(newUsedNetwroks);
+        usedNetworksRef.current = newUsedNetwroks;
       }
     };
 
