@@ -17,10 +17,8 @@ export const useListSort = () => {
   return useMemo(() => listSort, [listSort]);
 };
 
-export const useMarketTopTabName = () => {
-  const tabName = useAppSelector((s) => s.market.marktTobTapName);
-  return useMemo(() => tabName, [tabName]);
-};
+export const useMarketTopTabName = () =>
+  useAppSelector((s) => s.market.marktTobTapName);
 
 const useMarketCategoryCoingeckoIds = () => {
   const selectedCategory = useMarketSelectedCategory();
