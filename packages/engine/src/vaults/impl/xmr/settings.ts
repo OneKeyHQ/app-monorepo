@@ -24,7 +24,6 @@ const settings: IVaultSettings = Object.freeze({
   addressDerivationDisabled: true,
   validationRequired: true,
   disabledInExtension: true,
-  enabledInDevModeOnly: true,
 
   accountNameInfo: {
     default: {
