@@ -17,6 +17,7 @@ export type DataInitialState = {
   feePresetIndexMap?: Record<string, string | undefined>;
   tools: Tool[];
   translations?: Record<string, Record<string, string>>;
+  isPasswordLoadedInVault?: boolean;
 };
 
 const initialState: DataInitialState = {
@@ -25,6 +26,7 @@ const initialState: DataInitialState = {
   isExtUiReduxReady: false,
   homePageCheckBoarding: false,
   isAppRenderReady: false,
+  isPasswordLoadedInVault: false,
   cursorMap: {},
   tools: [],
   translations: {},
@@ -34,6 +36,9 @@ export const dataSlice = createSlice({
   name: 'data',
   initialState,
   reducers: {
+    setIsPasswordLoadedInVault(state, action) {
+      state.isPasswordLoadedInVault = action.payload;
+    },
     setAppRenderReady(state) {
       stopTrace('js_render');
       state.isAppRenderReady = true;
@@ -98,6 +103,7 @@ export const {
   setFeePresetIndex,
   setTools,
   setTranslations,
+  setIsPasswordLoadedInVault,
 } = dataSlice.actions;
 
 export default dataSlice.reducer;

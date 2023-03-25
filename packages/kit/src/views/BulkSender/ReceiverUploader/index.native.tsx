@@ -37,6 +37,11 @@ function ReceiverUploader(props: Props) {
       });
       const path = f.fileCopyUri;
       if (!path) return;
+      const type = path.split('.').pop();
+      if (!['xlsx', 'txt', 'csv', 'xls'].includes(type?.toLowerCase() ?? '')) {
+        setShowFileError(true);
+        return;
+      }
       const b64 = await readAsStringAsync(path, {
         encoding: EncodingType.Base64,
       });

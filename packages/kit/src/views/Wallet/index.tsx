@@ -184,6 +184,7 @@ const WalletTabs: FC = () => {
       <Center w="full" h="full">
         <Protected
           walletId={wallet.id}
+          networkId={network.id}
           field={ValidationFields.Account}
           placeCenter={!platformEnv.isNative}
           subTitle={intl.formatMessage(
