@@ -90,6 +90,7 @@ function TextareaWithLineNumber(props: Props) {
                 <Text
                   fontWeight={500}
                   fontSize={16}
+                  lineHeight="24px"
                   color="transparent"
                   fontFamily={platformEnv.isNativeIOS ? 'Menlo' : 'monospace'}
                 >
