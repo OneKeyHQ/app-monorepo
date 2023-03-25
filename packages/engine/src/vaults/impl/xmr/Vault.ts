@@ -1,6 +1,4 @@
-import { mnemonicFromEntropy } from '@onekeyfe/blockchain-libs/dist/secret';
 import BigNumber from 'bignumber.js';
-import { mnemonicToSeedSync } from 'bip39';
 import memoizee from 'memoizee';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
@@ -15,6 +13,7 @@ import {
 } from '../../../errors';
 import { isAccountCompatibleWithNetwork } from '../../../managers/account';
 import { slicePathTemplate } from '../../../managers/derivation';
+import { batchGetPrivateKeys } from '../../../secret';
 import { AccountCredentialType } from '../../../types/account';
 import {
   IDecodedTxActionType,
@@ -33,7 +32,7 @@ import { getMoneroApi } from './sdk';
 import { MoneroNetTypeEnum } from './sdk/moneroUtil/moneroUtilTypes';
 import settings from './settings';
 import { MoneroTxPriorityEnum } from './types';
-import { getDecodedTxStatus, getRawPrivateKeyFromSeed } from './utils';
+import { getDecodedTxStatus } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { Account, DBVariantAccount } from '../../../types/account';
@@ -83,19 +82,23 @@ export default class Vault extends VaultBase {
           rawPrivateKey = decrypt(psw, privateKey).toString('hex');
         } else {
           const { template } = this.settings.accountNameInfo.default;
-          const { entropy } = (await this.engine.dbApi.getCredential(
+          const { seed } = (await this.engine.dbApi.getCredential(
             this.walletId,
             psw,
           )) as ExportedSeedCredential;
-          const { pathPrefix } = slicePathTemplate(template);
-          const mnemonic = mnemonicFromEntropy(entropy, psw);
-          const seed = mnemonicToSeedSync(mnemonic);
-          const resp = getRawPrivateKeyFromSeed(seed, pathPrefix);
+          const { pathPrefix, pathSuffix } = slicePathTemplate(template);
 
-          if (!resp) {
-            throw new OneKeyInternalError('Unable to get raw private key.');
-          }
-          rawPrivateKey = resp.toString('hex');
+          const [privateKeyInfo] = batchGetPrivateKeys(
+            'ed25519',
+            seed,
+            psw,
+            pathPrefix,
+            [pathSuffix.replace('{index}', '0')],
+          );
+
+          rawPrivateKey = decrypt(psw, privateKeyInfo.extendedKey.key).toString(
+            'hex',
+          );
         }
         passwordLoadedCallback?.(true);
         return rawPrivateKey;
@@ -122,7 +125,9 @@ export default class Vault extends VaultBase {
       let accountIndex = 0;
       if (!isImportedAccount) {
         accountIndex =
-          index === undefined ? Number(accountId.split('/').pop()) : index;
+          index === undefined
+            ? parseInt(accountId.split('/').pop() ?? '0')
+            : index;
       }
 
       return moneroApi.getKeyPairFromRawPrivatekey({
@@ -357,7 +362,6 @@ export default class Vault extends VaultBase {
         this.accountId,
         privateKey,
       );
-
       switch (credentialType) {
         case AccountCredentialType.PrivateSpendKey:
           return Buffer.from(privateSpendKey).toString('hex');
@@ -547,7 +551,7 @@ export default class Vault extends VaultBase {
     const [publicSpendKey, publicViewKey] = account.pub.split(',');
     const isSubaddress = account.id.startsWith('imported')
       ? false
-      : Number(account.path.split('/').pop()) !== 0;
+      : parseInt(account.path.split('/').pop() ?? '0') !== 0;
 
     return moneroApi.pubKeysToAddress(
       isTestnet ? MoneroNetTypeEnum.TestNet : MoneroNetTypeEnum.MainNet,
@@ -602,17 +606,12 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async getFrozenBalance(
-    password?: string,
-    passwordLoadedCallback?: (isLoaded: boolean) => void,
-  ) {
+  override async getFrozenBalance(password?: string) {
     const client = await this.getClient({
       password,
-      passwordLoadedCallback,
     });
     const { address } = await this.getOutputAccount();
     const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
-
     try {
       const [totalBN] = await client.getBalances([
         {
