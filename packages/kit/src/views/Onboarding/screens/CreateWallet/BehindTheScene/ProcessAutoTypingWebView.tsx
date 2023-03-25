@@ -71,7 +71,7 @@ function ProcessAutoTypingWebView(props: IProcessAutoTypingWebViewProps) {
       // *** use remote url
       src={
         platformEnv.isDev
-          ? `http://192.168.31.96:3008/#${routePath}` // yarn web-embed
+          ? `http://192.168.0.104:3008/#${routePath}` // yarn web-embed
           : undefined
       }
     />
