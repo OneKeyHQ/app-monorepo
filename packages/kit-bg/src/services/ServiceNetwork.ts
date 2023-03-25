@@ -313,10 +313,12 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async _measureRpcStatus(_networkId?: string) {
     let networkId: string | undefined | null = _networkId;
-    const { appSelector, engine, dispatch } = this.backgroundApi;
-    await this.backgroundApi.serviceApp.waitForAppInited({
-      logName: 'measureRpcStatus',
-    });
+    const { appSelector, engine, dispatch, serviceApp } = this.backgroundApi;
+    if (!serviceApp.isAppInited) {
+      await serviceApp.waitForAppInited({
+        logName: 'measureRpcStatus',
+      });
+    }
     if (!networkId) {
       networkId = appSelector((s) => s.general.activeNetworkId);
     }
