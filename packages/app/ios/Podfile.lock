@@ -503,7 +503,7 @@ PODS:
   - react-native-ble-plx (3.0.0):
     - MultiplatformBleAdapter (= 0.1.9)
     - React-Core
-  - react-native-cloud-fs (2.5.0):
+  - react-native-cloud-fs (2.6.0):
     - React
   - react-native-config (1.4.11):
     - react-native-config/App (= 1.4.11)
@@ -1176,7 +1176,7 @@ SPEC CHECKSUMS:
   React-logger: f790bd10f86b38012e108fb4b564023602702270
   react-native-ble-manager: d2ed36acf9051fa0ecf6efb3da5b3570b1e92771
   react-native-ble-plx: 4b0b605e4c52453ecbeb82807878bc4a2652d1c9
-  react-native-cloud-fs: a43ab9d1f2b57fd400035f10bbbbe1f2bdf13bc3
+  react-native-cloud-fs: cd21282c5cecaf285225e447dd7f3cf2f9015496
   react-native-config: bcafda5b4c51491ee1b0e1d0c4e3905bc7b56c1b
   react-native-document-picker: 958e2bc82e128be69055be261aeac8d872c8d34c
   react-native-flipper: 7eeb9b59b667dd0619372c7349cf7c78032d1de2
@@ -1229,4 +1229,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 4317c89179b0537316f55097bb4f00ff6ffcaca5
 
-COCOAPODS: 1.12.0
+COCOAPODS: 1.11.3

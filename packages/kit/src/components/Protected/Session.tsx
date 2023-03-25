@@ -31,7 +31,7 @@ const Session: FC<SessionProps> = ({
   const [verifiedPwd, setVerifiedPwd] = useState(false);
   const [hasvPw, setHasPw] = useState<boolean | undefined>();
   const validationSetting = useAppSelector((s) => s.settings.validationSetting);
-  const handOperatedLock = useAppSelector((s) => s.data.handOperatedLock);
+  const { handOperatedLock } = useAppSelector((s) => s.data);
   const isAlwaysNeedInputPassword = useMemo(() => {
     const value = field ? !!validationSetting?.[field] : false;
     if (field && field === ValidationFields.Secret) {
