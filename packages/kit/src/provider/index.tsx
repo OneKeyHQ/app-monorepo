@@ -67,7 +67,6 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
                 <NotificationProvider launchNotification={launchNotification} />
                 <RootSiblingParent>
                   <NavigationApp />
-                  <ChainWebEmbed />
                   <WhenAppActive />
                   {platformEnv.isNativeIOS ? (
                     // FullWindowOverlay can render above native views
@@ -79,11 +78,15 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
                         pointerEvents="box-none"
                         style={StyleSheet.absoluteFill}
                       >
+                        <ChainWebEmbed />
                         <CustomToast bottomOffset={60} />
                       </View>
                     </FullWindowOverlay>
                   ) : (
-                    <CustomToast bottomOffset={60} />
+                    <>
+                      <ChainWebEmbed />
+                      <CustomToast bottomOffset={60} />
+                    </>
                   )}
                 </RootSiblingParent>
               </ErrorBoundary>

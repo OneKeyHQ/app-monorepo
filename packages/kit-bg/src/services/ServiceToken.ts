@@ -23,7 +23,10 @@ import type { GoPlusTokenSecurity } from '@onekeyhq/engine/src/types/goplus';
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
-import { setTools } from '@onekeyhq/kit/src/store/reducers/data';
+import {
+  setIsPasswordLoadedInVault,
+  setTools,
+} from '@onekeyhq/kit/src/store/reducers/data';
 import type { TokenBalanceValue } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
   setAccountTokens,
@@ -178,9 +181,12 @@ export default class ServiceToken extends ServiceBase {
 
     let balances: Array<BigNumber | undefined>;
     let password;
+    let passwordLoadedCallback;
 
     if (vaultSettings.validationRequired) {
       password = await servicePassword.getPassword();
+      passwordLoadedCallback = (isLoaded: boolean) =>
+        dispatch(setIsPasswordLoadedInVault(isLoaded));
     }
     try {
       const balancesAddress = await Promise.all(
@@ -201,7 +207,11 @@ export default class ServiceToken extends ServiceBase {
         address: acc.address,
         accountId: acc.accountId,
       }));
-      balances = await vault.getBalances(requests, password);
+      balances = await vault.getBalances(
+        requests,
+        password,
+        passwordLoadedCallback,
+      );
     } catch {
       balances = dbAccounts.map(() => undefined);
     }
@@ -484,14 +494,18 @@ export default class ServiceToken extends ServiceBase {
     withMain = true,
     tokensMap: Record<string, Token> = {},
   ): Promise<[Record<string, TokenBalanceValue>, Token[] | undefined]> {
-    const { engine, serviceNetwork, servicePassword } = this.backgroundApi;
+    const { engine, dispatch, serviceNetwork, servicePassword } =
+      this.backgroundApi;
     const network = await engine.getNetwork(networkId);
     const vaultSettings = await engine.getVaultSettings(networkId);
 
     let password;
+    let passwordLoadedCallback;
 
     if (vaultSettings.validationRequired) {
       password = await servicePassword.getPassword();
+      passwordLoadedCallback = (isLoaded: boolean) =>
+        dispatch(setIsPasswordLoadedInVault(isLoaded));
     }
 
     const vault = await engine.getVault({ networkId, accountId });
@@ -504,6 +518,7 @@ export default class ServiceToken extends ServiceBase {
       tokensToGet,
       withMain,
       password,
+      passwordLoadedCallback,
     );
     if (withMain && typeof balances[0] !== 'undefined') {
       Object.assign(ret, {

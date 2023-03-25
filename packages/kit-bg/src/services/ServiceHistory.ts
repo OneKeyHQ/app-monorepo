@@ -8,6 +8,7 @@ import type {
   IHistoryTx,
 } from '@onekeyhq/engine/src/vaults/types';
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
+import { setIsPasswordLoadedInVault } from '@onekeyhq/kit/src/store/reducers/data';
 import { refreshHistory } from '@onekeyhq/kit/src/store/reducers/refresher';
 import type {
   SendConfirmOnSuccessData,
@@ -74,9 +75,12 @@ class ServiceHistory extends ServiceBase {
     const vaultSettings = await engine.getVaultSettings(networkId);
 
     let password;
+    let passwordLoadedCallback;
 
     if (vaultSettings.validationRequired) {
       password = await servicePassword.getPassword();
+      passwordLoadedCallback = (isLoaded: boolean) =>
+        this.backgroundApi.dispatch(setIsPasswordLoadedInVault(isLoaded));
     }
 
     return vault.fetchOnChainHistory({
@@ -84,6 +88,7 @@ class ServiceHistory extends ServiceBase {
       localHistory,
       tokenIdOnNetwork,
       password,
+      passwordLoadedCallback,
     });
   }
 

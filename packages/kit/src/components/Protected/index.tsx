@@ -8,10 +8,16 @@ import { useIntl } from 'react-intl';
 import { Box, Spinner, ToastManager, Typography } from '@onekeyhq/components';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useData, useGetWalletDetail } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useAppSelector,
+  useData,
+  useGetWalletDetail,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+
+import { useNetwork } from '../../hooks';
 
 import Session from './Session';
 import Setup from './Setup';
@@ -34,6 +40,7 @@ type ProtectedProps = {
   placeCenter?: boolean;
   title?: string;
   subTitle?: string;
+  networkId?: string;
 };
 
 // Protected
@@ -47,10 +54,12 @@ const Protected: FC<ProtectedProps> = ({
   placeCenter,
   title,
   subTitle,
+  networkId,
 }) => {
   const navigation = useNavigation();
   const walletDetail = useGetWalletDetail(walletId);
   const intl = useIntl();
+  const { network } = useNetwork({ networkId });
   const { engine, serviceHardware, serviceApp } = backgroundApiProxy;
   const [deviceFeatures, setDeviceFeatures] = useState<IOneKeyDeviceFeatures>();
   const [password, setPassword] = useState('');
@@ -59,6 +68,7 @@ const Protected: FC<ProtectedProps> = ({
   const [isLocalAuthentication, setLocalAuthentication] = useState<boolean>();
   const { isPasswordSet } = useData();
   const [hasPassword] = useState(isPasswordSet);
+  const { isPasswordLoadedInVault } = useAppSelector((s) => s.data);
 
   const onValidationOk = useCallback((text: string, value?: boolean) => {
     setLocalAuthentication(value);
@@ -144,6 +154,12 @@ const Protected: FC<ProtectedProps> = ({
     }
     loadDevices();
   }, [isHardware, engine, walletDetail?.id, intl, safeGoBack, serviceHardware]);
+
+  useEffect(() => {
+    if (network?.settings.validationRequired && !isPasswordLoadedInVault) {
+      setPassword('');
+    }
+  }, [isPasswordLoadedInVault, network]);
 
   if (isExternalWallet) {
     return (

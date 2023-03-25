@@ -167,6 +167,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async getBalances(
     requests: Array<{ address: string; tokenAddress?: string }>,
     password?: string,
+    passwordLoadedCallback?: (isLoaded: boolean) => void,
   ): Promise<Array<BigNumber | undefined>> {
     // Abstract requests
     const client = await this.engine.providerManager.getClient(this.networkId);
@@ -180,6 +181,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
   async getFrozenBalance(
     password?: string,
+    passwordLoadedCallback?: (isLoaded: boolean) => void,
   ): Promise<number | Record<string, number>> {
     return 0;
   }
@@ -436,6 +438,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tokenIds: Array<string>,
     withMain = true,
     password?: string,
+    passwordLoadedCallback?: (isLoaded: boolean) => void,
   ) {
     const { address } = await this.getDbAccount();
     return this.getBalances(
@@ -443,6 +446,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         tokenIds.map((tokenAddress) => ({ address, tokenAddress })),
       ),
       password,
+      passwordLoadedCallback,
     );
   }
 
@@ -597,6 +601,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tokenIdOnNetwork?: string;
     localHistory?: IHistoryTx[];
     password?: string;
+    passwordLoadedCallback?: (isLoaded: boolean) => void;
   }): Promise<IHistoryTx[]> {
     throw new NotImplemented();
   }

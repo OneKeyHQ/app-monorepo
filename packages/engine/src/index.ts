@@ -2984,17 +2984,19 @@ class Engine {
     accountId,
     networkId,
     password,
+    passwordLoadedCallback,
   }: {
     accountId: string;
     networkId: string;
     password?: string;
+    passwordLoadedCallback?: (isLoaded: boolean) => void;
   }) {
     if (!networkId || !accountId) return 0;
     const vault = await this.getVault({
       accountId,
       networkId,
     });
-    return vault.getFrozenBalance(password);
+    return vault.getFrozenBalance(password, passwordLoadedCallback);
   }
 }
 

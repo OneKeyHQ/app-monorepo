@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { wait } from '@onekeyhq/kit/src/utils/helper';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { MoneroEvent } from '@onekeyhq/shared/src/engine/xmrConsts';
 import {
@@ -38,7 +39,7 @@ const getKeyPairFromRawPrivatekey = async (params: {
   isPrivateSpendKey?: boolean;
 }) => {
   await ensureSDKReady();
-  debugLogger.common.debug('ensure web embed exist');
+  await wait(1000);
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.getKeyPairFromRawPrivatekey,
@@ -80,7 +81,6 @@ const generateKeyImage = async (params: {
   address: string;
 }) => {
   await ensureSDKReady();
-  debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.generateKeyImage,
@@ -106,7 +106,7 @@ const seedAndkeysFromMnemonic = async (params: {
   netType: string;
 }) => {
   await ensureSDKReady();
-  debugLogger.common.debug('ensure web embed exist');
+  await wait(1000);
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.seedAndkeysFromMnemonic,
@@ -129,7 +129,6 @@ const seedAndkeysFromMnemonic = async (params: {
 
 const decodeAddress = async (params: { address: string; netType: string }) => {
   await ensureSDKReady();
-  debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.decodeAddress,
@@ -155,7 +154,6 @@ const estimatedTxFee = async (params: {
   feePerByte: string;
 }) => {
   await ensureSDKReady();
-  debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.estimatedTxFee,
@@ -178,7 +176,6 @@ const estimatedTxFee = async (params: {
 
 const sendFunds = async (args: any, scanUrl: string): Promise<SignedTx> => {
   await ensureSDKReady();
-  debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
     event: MoneroEvent.sendFunds,
