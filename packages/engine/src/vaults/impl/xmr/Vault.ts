@@ -8,7 +8,11 @@ import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
 import simpleDb from '../../../dbs/simple/simpleDb';
-import { InvalidAddress, OneKeyInternalError } from '../../../errors';
+import {
+  InvalidAddress,
+  OneKeyInternalError,
+  WrongPassword,
+} from '../../../errors';
 import { isAccountCompatibleWithNetwork } from '../../../managers/account';
 import { slicePathTemplate } from '../../../managers/derivation';
 import { AccountCredentialType } from '../../../types/account';
@@ -62,38 +66,48 @@ export default class Vault extends VaultBase {
   settings = settings;
 
   private getPrivateKey = memoizee(
-    async (accountId: string, password: string) => {
-      let rawPrivateKey: string | Buffer;
-      const psw = password ?? '';
-      const isImportedAccount = accountId.startsWith('imported');
-      if (isImportedAccount) {
-        const [privateKey] = Object.values(
-          await (this.keyring as KeyringImported).getPrivateKeys(psw),
-        );
+    async (
+      accountId: string,
+      password?: string,
+      passwordLoadedCallback?: (isLoaded: boolean) => void,
+    ) => {
+      try {
+        let rawPrivateKey: string | Buffer;
+        const psw = password || '';
+        const isImportedAccount = accountId.startsWith('imported');
+        if (isImportedAccount) {
+          const [privateKey] = Object.values(
+            await (this.keyring as KeyringImported).getPrivateKeys(psw),
+          );
 
-        rawPrivateKey = decrypt(psw, privateKey).toString('hex');
-      } else {
-        const { template } = this.settings.accountNameInfo.default;
-        const { entropy } = (await this.engine.dbApi.getCredential(
-          this.walletId,
-          psw,
-        )) as ExportedSeedCredential;
-        const { pathPrefix } = slicePathTemplate(template);
-        const mnemonic = mnemonicFromEntropy(entropy, psw);
-        const seed = mnemonicToSeedSync(mnemonic);
-        const resp = getRawPrivateKeyFromSeed(seed, pathPrefix);
+          rawPrivateKey = decrypt(psw, privateKey).toString('hex');
+        } else {
+          const { template } = this.settings.accountNameInfo.default;
+          const { entropy } = (await this.engine.dbApi.getCredential(
+            this.walletId,
+            psw,
+          )) as ExportedSeedCredential;
+          const { pathPrefix } = slicePathTemplate(template);
+          const mnemonic = mnemonicFromEntropy(entropy, psw);
+          const seed = mnemonicToSeedSync(mnemonic);
+          const resp = getRawPrivateKeyFromSeed(seed, pathPrefix);
 
-        if (!resp) {
-          throw new OneKeyInternalError('Unable to get raw private key.');
+          if (!resp) {
+            throw new OneKeyInternalError('Unable to get raw private key.');
+          }
+          rawPrivateKey = resp.toString('hex');
         }
-        rawPrivateKey = resp.toString('hex');
+        passwordLoadedCallback?.(true);
+        return rawPrivateKey;
+      } catch (e) {
+        if (e instanceof WrongPassword) {
+          passwordLoadedCallback?.(false);
+        }
+        throw e;
       }
-
-      return rawPrivateKey;
     },
     {
       max: 1,
-      primitive: true,
       promise: true,
       maxAge: getTimeDurationMs({ minute: 5 }),
     },
@@ -138,11 +152,17 @@ export default class Vault extends VaultBase {
     },
   );
 
-  private async getClient(
-    password: string,
-    accountId?: string,
-    address?: string,
-  ): Promise<ClientXmr> {
+  private async getClient({
+    password,
+    accountId,
+    address,
+    passwordLoadedCallback,
+  }: {
+    password?: string;
+    accountId?: string;
+    address?: string;
+    passwordLoadedCallback?: (isLoaded: boolean) => void;
+  }): Promise<ClientXmr> {
     let accountAddress = address;
     if (!accountAddress) {
       accountAddress = (await this.getOutputAccount()).address;
@@ -152,6 +172,7 @@ export default class Vault extends VaultBase {
     const privateKey = await this.getPrivateKey(
       accountId ?? this.accountId,
       password,
+      passwordLoadedCallback,
     );
     const { publicSpendKey, publicViewKey, privateSpendKey, privateViewKey } =
       await this.getMoneroKeys(accountId ?? this.accountId, privateKey);
@@ -387,9 +408,13 @@ export default class Vault extends VaultBase {
     tokenIdOnNetwork?: string;
     localHistory: IHistoryTx[];
     password: string;
+    passwordLoadedCallback?: (isLoaded: boolean) => void;
   }): Promise<IHistoryTx[]> {
-    const { localHistory, password } = options;
-    const client = await this.getClient(password);
+    const { localHistory, password, passwordLoadedCallback } = options;
+    const client = await this.getClient({
+      password,
+      passwordLoadedCallback,
+    });
     const network = await this.getNetwork();
 
     const address = await this.getAccountAddress();
@@ -539,14 +564,15 @@ export default class Vault extends VaultBase {
       accountId?: string;
     }>,
     password: string,
+    passwordLoadedCallback?: (isLoaded: boolean) => void,
   ): Promise<(BigNumber | undefined)[]> {
     const [request] = requests;
-
-    const client = await this.getClient(
+    const client = await this.getClient({
       password,
-      request.accountId,
-      request.address,
-    );
+      accountId: request.accountId,
+      address: request.address,
+      passwordLoadedCallback,
+    });
 
     return client.getBalances([
       {
@@ -576,8 +602,14 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async getFrozenBalance(password?: string) {
-    const client = await this.getClient(password ?? '');
+  override async getFrozenBalance(
+    password?: string,
+    passwordLoadedCallback?: (isLoaded: boolean) => void,
+  ) {
+    const client = await this.getClient({
+      password,
+      passwordLoadedCallback,
+    });
     const { address } = await this.getOutputAccount();
     const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
 
