@@ -3,6 +3,7 @@ import { useCallback, useRef } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { Box, Text, Textarea } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type {
   NativeSyntheticEvent,
@@ -41,11 +42,11 @@ function TextareaWithLineNumber(props: Props) {
         bg="transparent"
         value={receiverString}
         pl="46px"
-        py={2}
+        py={platformEnv.isNativeIOS ? 1 : 2}
         h="240px"
         lineHeight="24px"
         fontWeight={500}
-        fontFamily="monospace"
+        fontFamily={platformEnv.isNativeIOS ? 'Menlo' : 'monospace'}
         shadow="none"
         onChangeText={(text) => setReceiverString(text)}
       />
@@ -82,7 +83,7 @@ function TextareaWithLineNumber(props: Props) {
                 fontWeight={500}
                 fontSize={16}
                 color="text-disabled"
-                fontFamily="monospace"
+                fontFamily={platformEnv.isNativeIOS ? 'Menlo' : 'monospace'}
                 lineHeight="24px"
               >
                 {index + 1}
@@ -91,9 +92,9 @@ function TextareaWithLineNumber(props: Props) {
                   fontSize={16}
                   lineHeight="24px"
                   color="transparent"
-                  fontFamily="monospace"
+                  fontFamily={platformEnv.isNativeIOS ? 'Menlo' : 'monospace'}
                 >
-                  {new Array(3).join(' ')}
+                  {new Array(3).join('0')}
                   {line}
                 </Text>
               </Text>
