@@ -109,6 +109,7 @@ export default class Vault extends VaultBase {
       tokens: [],
       address: dbAccount.address,
       addresses: JSON.stringify(dbAccount.addresses),
+      template: dbAccount.template,
     };
   }
 

@@ -115,6 +115,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo | undefined>>;
 
+  async getDisplayAddress(address: string): Promise<string> {
+    return Promise.resolve(address);
+  }
+
   async validateAddress(address: string): Promise<string> {
     const { normalizedAddress, isValid } =
       await this.engineProvider.verifyAddress(address);
@@ -425,6 +429,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       coinType: dbAccount.coinType,
       tokens: [],
       address: dbAccount.address,
+      template: dbAccount.template,
     };
   }
 

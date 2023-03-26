@@ -58,6 +58,7 @@ const UpdateInfoModal: FC = () => {
   const { recheckFirmwareUpdate, onSuccess } = routeParams;
   const deviceId = get(routeParams, 'deviceId', null);
   const walletId = get(routeParams, 'walletId', null);
+  const deviceConnectId = get(routeParams, 'connectId', null);
 
   const { engine, serviceHardware } = backgroundApiProxy;
   const { deviceUpdates } = useSettings();
@@ -131,9 +132,25 @@ const UpdateInfoModal: FC = () => {
         findDevice = await engine.getHWDeviceByDeviceId(deviceId);
       } else if (walletId) {
         findDevice = await engine.getHWDeviceByWalletId(walletId);
+      } else if (deviceConnectId) {
+        findDevice =
+          (await engine.getHWDevices()).find(
+            (d) => d.mac === deviceConnectId,
+          ) ?? null;
       }
 
       if (!findDevice) {
+        setTimeout(() => {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({
+                id: 'msg__hardware_software_cannot_be_upgrade',
+              }),
+            },
+            { type: 'default' },
+          );
+        }, 500);
+
         navigation.goBack();
         return;
       }
@@ -208,6 +225,7 @@ const UpdateInfoModal: FC = () => {
     walletId,
     showUpdateOnDesktopModal,
     isSmallScreen,
+    deviceConnectId,
   ]);
 
   const buttonEnable = useMemo(() => {

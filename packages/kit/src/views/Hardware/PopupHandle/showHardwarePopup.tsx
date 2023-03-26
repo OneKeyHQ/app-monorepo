@@ -207,7 +207,7 @@ export default async function showHardwarePopup({
     DialogManager.show({
       render: (
         <HandlerFirmwareUpgradeView
-          deviceId={payload?.deviceId ?? ''}
+          connectId={payload?.deviceConnectId ?? ''}
           content={content ?? ''}
           onClose={() => {
             closeHardwarePopup();
@@ -257,7 +257,7 @@ export default async function showHardwarePopup({
     DialogManager.show({
       render: (
         <HandlerFirmwareUpgradeView
-          deviceId={payload?.deviceId ?? ''}
+          connectId={payload?.deviceConnectId ?? ''}
           content={content ?? ''}
           onClose={() => {
             closeHardwarePopup();
