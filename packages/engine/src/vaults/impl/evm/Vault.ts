@@ -1349,6 +1349,10 @@ export default class Vault extends VaultBase {
     };
   }
 
+  override getDisplayAddress(address: string): Promise<string> {
+    return Promise.resolve(ethers.utils.getAddress(address));
+  }
+
   async getExportedCredential(password: string): Promise<string> {
     const dbAccount = await this.getDbAccount();
     if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {

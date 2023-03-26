@@ -252,6 +252,15 @@ interface DBAPI {
     impl,
     template,
   }: IAddAccountDerivationParams): Promise<void>;
+  removeAccountDerivation({
+    walletId,
+    impl,
+    template,
+  }: {
+    walletId: string;
+    impl: string;
+    template: string;
+  }): Promise<void>;
   removeAccountDerivationByWalletId({
     walletId,
   }: {

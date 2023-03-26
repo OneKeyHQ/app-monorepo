@@ -2553,11 +2553,10 @@ class IndexedDBApi implements DBAPI {
               'readwrite',
             );
             transaction.onerror = () => {
-              reject(new OneKeyInternalError('Failed to update wallet name.'));
+              reject(
+                new OneKeyInternalError('Failed to add account derivation.'),
+              );
             };
-            // transaction.oncomplete = () => {
-            //   resolve();
-            // };
 
             accountDerivationStore = transaction.objectStore(
               ACCOUNT_DERIVATION_STORE_NAME,
@@ -2610,6 +2609,54 @@ class IndexedDBApi implements DBAPI {
               requestInsert.onsuccess = () => {
                 resolve();
               };
+            }
+          };
+        }),
+    );
+  }
+
+  removeAccountDerivation({
+    walletId,
+    impl,
+    template,
+  }: {
+    walletId: string;
+    impl: string;
+    template: string;
+  }): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction(
+            [ACCOUNT_DERIVATION_STORE_NAME],
+            'readwrite',
+          );
+          transaction.onerror = () => {
+            reject(
+              new OneKeyInternalError(
+                'Failed to delete account derivation by account id.',
+              ),
+            );
+          };
+          transaction.oncomplete = () => {
+            resolve();
+          };
+
+          const accountDerivationStore = transaction.objectStore(
+            ACCOUNT_DERIVATION_STORE_NAME,
+          );
+
+          const accountDerivationId = getAccountDerivationPrimaryKey({
+            walletId,
+            impl,
+            template,
+          });
+          const getExistRecordRequest: IDBRequest<DBAccountDerivation> =
+            accountDerivationStore.get(accountDerivationId);
+          getExistRecordRequest.onsuccess = (_event) => {
+            const accountDerivation = getExistRecordRequest.result;
+            if (accountDerivation) {
+              accountDerivationStore.delete(accountDerivation.id);
             }
           };
         }),

@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import {
+  OneKeyErrorClassNames,
   OneKeyHardwareError,
   OneKeyInternalError,
 } from '@onekeyhq/engine/src/errors';
@@ -173,15 +174,20 @@ export default class ServiceDerivationPath extends ServiceBase {
       if (vault.settings.isUTXOModel) {
         accountExist = await vault.checkAccountExistence(address, true);
       }
+      const displayAddress = await this.backgroundApi.engine.getDisplayAddress(
+        networkId,
+        address,
+      );
       return {
         index,
         path,
         address,
-        displayAddress: address,
+        displayAddress,
         accountExist,
       };
-    } catch (e) {
-      if (e instanceof OneKeyHardwareError) {
+    } catch (e: any) {
+      const { className } = e || {};
+      if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
         throw e;
       } else {
         throw new OneKeyHardwareError({

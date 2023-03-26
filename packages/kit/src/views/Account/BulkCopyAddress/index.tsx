@@ -74,14 +74,14 @@ const BulkCopyAddress: FC = () => {
   const network = networks.filter((n) => n.id === networkId)[0];
 
   const [selectedIndex, setSelectedIndex] = useState<number>(
-    entry === 'accountSelector' ? 1 : 0,
+    entry === 'manageAccount' ? 1 : 0,
   );
 
   const [setRangeDisabled, setSetRangeDisabled] = useState(false);
   const [walletAccountDisabled, setWalletAccountDisabled] = useState(false);
 
   const buttonDisabledInSetRange = useMemo(() => {
-    if (selectedIndex === 1) return false;
+    if (selectedIndex === 0) return false;
     return setRangeDisabled;
   }, [selectedIndex, setRangeDisabled]);
   const debounceButtonDisabledInSetRange = useDebounce(
@@ -90,7 +90,7 @@ const BulkCopyAddress: FC = () => {
   );
 
   const buttonDisabledInWalletAccount = useMemo(() => {
-    if (selectedIndex === 0) return false;
+    if (selectedIndex === 1) return false;
     return walletAccountDisabled;
   }, [selectedIndex, walletAccountDisabled]);
   const debounceButtonDisabledInWalletAccount = useDebounce(
@@ -103,12 +103,6 @@ const BulkCopyAddress: FC = () => {
   const onPrimaryActionPress = useCallback(async () => {
     let data: IFetchAddressByRange | IFetchAddressByWallet;
     if (selectedIndex === 0) {
-      const value = await setRangeRef.current?.onSubmit();
-      if (!value) {
-        return;
-      }
-      data = { ...value, type: 'setRange' } as IFetchAddressByRange;
-    } else {
       const value = walletAccountsRef.current?.onSubmit();
       if (!value) {
         ToastManager.show(
@@ -120,6 +114,12 @@ const BulkCopyAddress: FC = () => {
         return;
       }
       data = { ...value, type: 'walletAccounts' } as IFetchAddressByWallet;
+    } else {
+      const value = await setRangeRef.current?.onSubmit();
+      if (!value) {
+        return;
+      }
+      data = { ...value, type: 'setRange' } as IFetchAddressByRange;
     }
 
     navigation.navigate(CreateAccountModalRoutes.FetchAddressModal, {
@@ -147,8 +147,8 @@ const BulkCopyAddress: FC = () => {
       <Box mb={6}>
         <SegmentedControl
           values={[
-            intl.formatMessage({ id: 'form__set_range' }),
             intl.formatMessage({ id: 'form__my_accounts' }),
+            intl.formatMessage({ id: 'form__set_range' }),
           ]}
           selectedIndex={selectedIndex}
           onChange={setSelectedIndex}
@@ -156,20 +156,20 @@ const BulkCopyAddress: FC = () => {
       </Box>
 
       {selectedIndex === 0 && (
+        <WalletAccounts
+          walletId={walletId}
+          networkId={networkId}
+          setButtonDisabled={setWalletAccountDisabled}
+          ref={walletAccountsRef}
+        />
+      )}
+      {selectedIndex === 1 && (
         <SetRange
           walletId={walletId}
           networkId={networkId}
           template={template}
           setButtonDisabled={setSetRangeDisabled}
           ref={setRangeRef}
-        />
-      )}
-      {selectedIndex === 1 && (
-        <WalletAccounts
-          walletId={walletId}
-          networkId={networkId}
-          setButtonDisabled={setWalletAccountDisabled}
-          ref={walletAccountsRef}
         />
       )}
     </Modal>
