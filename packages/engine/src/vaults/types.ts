@@ -314,6 +314,7 @@ export type IPrepareSoftwareAccountsParams = {
   names?: Array<string>;
   coinType: string;
   template: string;
+  skipCheckAccountExist?: boolean;
 };
 export type IPrepareHardwareAccountsParams = {
   type: 'SEARCH_ACCOUNTS' | 'ADD_ACCOUNTS';

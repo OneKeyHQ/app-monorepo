@@ -765,6 +765,77 @@ class Engine {
   }
 
   @backgroundMethod()
+  async getAccountsByVault({
+    walletId,
+    networkId,
+    password,
+    indexes,
+    purpose,
+    template,
+  }: {
+    walletId: string;
+    networkId: string;
+    password: string;
+    indexes: number[];
+    purpose?: number;
+    template?: string;
+  }): Promise<ImportableHDAccount[]> {
+    if (!walletId || !networkId) return [];
+    const vault = await this.getWalletOnlyVault(networkId, walletId);
+    const { impl } = await this.getNetwork(networkId);
+    const accountNameInfo = template
+      ? getAccountNameInfoByTemplate(impl, template)
+      : getDefaultAccountNameInfoByImpl(impl);
+    const accounts = await vault.keyring.prepareAccounts({
+      type: 'SEARCH_ACCOUNTS',
+      password,
+      indexes,
+      purpose,
+      coinType: accountNameInfo.coinType,
+      template: accountNameInfo.template,
+      skipCheckAccountExist: true,
+    });
+    const addresses = await Promise.all(
+      accounts.map(async (a) => {
+        if (a.type === AccountType.UTXO) {
+          return (a as DBUTXOAccount).address;
+        }
+        if (a.type === AccountType.VARIANT) {
+          return vault.addressFromBase(a);
+        }
+        return vault.getDisplayAddress(a.address);
+      }),
+    );
+    const balancesAddress = await Promise.all(
+      accounts.map(async (a) => {
+        if (a.type === AccountType.UTXO) {
+          const address = await vault.getFetchBalanceAddress(a);
+          return { address };
+        }
+        if (a.type === AccountType.VARIANT) {
+          const address = await vault.addressFromBase(a);
+          return { address };
+        }
+        return { address: a.address };
+      }),
+    );
+    return accounts.map((account, index) => ({
+      index: indexes[index],
+      path: account.path,
+      defaultName: account.name,
+      displayAddress: addresses[index],
+      balancesAddress: balancesAddress[index].address,
+      mainBalance: '0',
+    }));
+  }
+
+  @backgroundMethod()
+  async getDisplayAddress(networkId: string, address: string) {
+    const vault = await this.getChainOnlyVault(networkId);
+    return vault.getDisplayAddress(address);
+  }
+
+  @backgroundMethod()
   async getHWAddress(accountId: string, networkId: string, walletId: string) {
     const vault = await this.getVault({ accountId, networkId });
     const { path } = await this.dbApi.getAccount(accountId);

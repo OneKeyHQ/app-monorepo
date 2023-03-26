@@ -222,7 +222,13 @@ export class KeyringHardware extends KeyringHardwareBase {
       }
 
       if (validator) {
-        if (await validator?.({ xpub, address, addressEncoding })) {
+        if (
+          await validator?.({
+            xpub: xpubSegwit || xpub,
+            address,
+            addressEncoding,
+          })
+        ) {
           index += 1;
           await new Promise((r) => setTimeout(r, 200));
         } else {

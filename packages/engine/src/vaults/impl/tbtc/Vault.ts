@@ -63,25 +63,6 @@ export default class Vault extends VaultBtcFork {
     return account.xpubSegwit || account.xpub;
   }
 
-  override async getAccountNameInfoMap(): Promise<
-    Record<string, AccountNameInfo>
-  > {
-    const isHwWallet = this.walletId.startsWith('hw');
-    const network = await this.getNetwork();
-    const accountNameInfo = getAccountNameInfoByImpl(network.impl);
-    if (!isHwWallet || !this.walletId) {
-      return accountNameInfo;
-    }
-    const wallet = await this.engine.getWallet(this.walletId);
-    if (
-      isHwWallet &&
-      (wallet.deviceType === 'classic' || wallet.deviceType === 'mini')
-    ) {
-      return omit(accountNameInfo, 'BIP86');
-    }
-    return accountNameInfo;
-  }
-
   override async getAccountNameInfosByImportedOrWatchingCredential(
     input: string,
   ): Promise<AccountNameInfo[]> {

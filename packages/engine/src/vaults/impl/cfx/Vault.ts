@@ -459,6 +459,7 @@ export default class Vault extends VaultBase {
       coinType: dbAccount.coinType,
       tokens: [],
       address: dbAccount.address || '',
+      template: dbAccount.template,
     };
 
     if (
