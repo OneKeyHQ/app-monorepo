@@ -67,6 +67,7 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { startTrace, stopTrace } from '@onekeyhq/shared/src/perf/perfTrace';
 import timelinePerfTrace, {
   ETimelinePerfNames,
@@ -1031,23 +1032,48 @@ class ServiceAccount extends ServiceBase {
     const actions = [];
 
     if (passphraseState) {
-      result = await this.createHwSingleWallet({
-        existDeviceId,
-        networkId,
-        wallets,
-        features,
-        avatar,
-        connectId,
-        passphraseState,
-      });
-
-      const rememberWalletConnectId = appSelector(
-        (s) => s.hardware.pendingRememberWalletConnectId,
-      );
-      if (rememberWalletConnectId === connectId) {
-        actions.push(setPendingRememberWalletConnectId(undefined));
-        if (result?.wallet?.id)
-          actions.push(rememberPassphraseWallet(result?.wallet?.id));
+      let needTryRemember = false;
+      let hasError = false;
+      let walletId: string | undefined;
+      try {
+        result = await this.createHwSingleWallet({
+          existDeviceId,
+          networkId,
+          wallets,
+          features,
+          avatar,
+          connectId,
+          passphraseState,
+        });
+        needTryRemember = true;
+        walletId = result?.wallet?.id;
+      } catch (e: any) {
+        const { className, data } = e || {};
+        if (className === OneKeyErrorClassNames.OneKeyAlreadyExistWalletError) {
+          const { walletId: existsWalletId } = data || {};
+          needTryRemember = true;
+          walletId = existsWalletId;
+        }
+        hasError = true;
+        throw e;
+      } finally {
+        if (needTryRemember) {
+          const rememberWalletConnectId = appSelector(
+            (s) => s.hardware.pendingRememberWalletConnectId,
+          );
+          if (rememberWalletConnectId === connectId) {
+            if (walletId) actions.push(rememberPassphraseWallet(walletId));
+            actions.push(setPendingRememberWalletConnectId(undefined));
+          }
+          // Prevent accidental redux execution
+          if (actions.length > 2) {
+            debugLogger.common.warn(
+              '+++ Need to review the code, there may be an error here +++',
+            );
+          } else if (hasError) {
+            dispatch(...actions);
+          }
+        }
       }
     } else if (!passphraseState && walletNormalExist) {
       serviceAccount.autoChangeAccount({

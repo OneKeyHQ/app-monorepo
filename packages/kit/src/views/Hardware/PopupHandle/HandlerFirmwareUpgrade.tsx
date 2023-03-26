@@ -6,13 +6,13 @@ import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Hardwa
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
 type HandlerFirmwareUpgradeViewProps = {
-  deviceId: string;
+  connectId: string;
   content: string;
   onClose: () => void;
 };
 
 const HandlerFirmwareUpgradeView: FC<HandlerFirmwareUpgradeViewProps> = ({
-  deviceId,
+  connectId,
   content,
   onClose,
 }) => {
@@ -37,7 +37,7 @@ const HandlerFirmwareUpgradeView: FC<HandlerFirmwareUpgradeViewProps> = ({
             params: {
               screen: HardwareUpdateModalRoutes.HardwareUpdateInfoModel,
               params: {
-                deviceId,
+                connectId,
                 recheckFirmwareUpdate: true,
               },
             },

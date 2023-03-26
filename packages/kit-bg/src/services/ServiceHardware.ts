@@ -694,6 +694,7 @@ class ServiceHardware extends ServiceBase {
     switch (payload.status) {
       case 'required':
         hasFirmwareForce = true;
+        hasSysUpgrade = true;
         break;
       case 'valid':
       case 'none':
@@ -763,6 +764,7 @@ class ServiceHardware extends ServiceBase {
     switch (payload.status) {
       case 'required':
         hasBleForce = true;
+        hasBleUpgrade = true;
         break;
       case 'valid':
       case 'none':
