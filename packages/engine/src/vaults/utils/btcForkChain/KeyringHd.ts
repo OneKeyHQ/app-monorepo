@@ -251,7 +251,7 @@ export class KeyringHd extends KeyringHdBase {
   ): Promise<DBUTXOAccount[]> {
     const { password, template, accountIndex, addressIndex } = params;
     const purpose = parseInt(template.split('/')?.[1], 10);
-    const ret = this.createAccount({
+    const ret = await this.createAccount({
       password,
       indexes: [accountIndex],
       purpose,
