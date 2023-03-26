@@ -181,7 +181,6 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
   async getFrozenBalance(
     password?: string,
-    passwordLoadedCallback?: (isLoaded: boolean) => void,
   ): Promise<number | Record<string, number>> {
     return 0;
   }
