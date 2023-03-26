@@ -264,19 +264,20 @@ class DeviceUtils {
         const errorMessage = formatMessage({ id: key }, info ?? {});
 
         const { connectId, deviceId } = data || {};
-        if (connectId && deviceId) {
-          if (code === HardwareErrorCode.NewFirmwareForceUpdate) {
-            this.delayShowHardwarePopup({
-              uiRequest: CUSTOM_UI_RESPONSE.CUSTOM_FORCE_UPGRADE_FIRMWARE,
-              payload: {
-                deviceId,
-                deviceConnectId: connectId,
-              },
-              content: errorMessage,
-            });
-            return true;
-          }
 
+        if (connectId && code === HardwareErrorCode.NewFirmwareForceUpdate) {
+          this.delayShowHardwarePopup({
+            uiRequest: CUSTOM_UI_RESPONSE.CUSTOM_FORCE_UPGRADE_FIRMWARE,
+            payload: {
+              deviceId,
+              deviceConnectId: connectId,
+            },
+            content: errorMessage,
+          });
+          return true;
+        }
+
+        if (connectId && deviceId) {
           if (
             code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
             code === HardwareErrorCode.DeviceNotSupportPassphrase

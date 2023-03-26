@@ -156,7 +156,7 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
 
               if (emojiRegex().test(value)) {
                 return intl.formatMessage({
-                  id: 'form__not_extsis_emojis',
+                  id: 'form__failed_exists_emojis',
                 });
               }
             },
