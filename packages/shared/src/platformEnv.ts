@@ -96,6 +96,8 @@ export type IPlatformEnv = {
 
   canGetClipboard?: boolean;
   supportAutoUpdate?: boolean;
+
+  isAppleStoreEnv?: boolean
 };
 
 const isJest = JEST_WORKER_ID !== undefined || NODE_ENV === 'test';
@@ -251,6 +253,8 @@ export const canGetClipboard: boolean = !isWeb && !isExtension;
 export const supportAutoUpdate: boolean =
   isDesktop && !(isMas || isDesktopLinuxSnap || isDesktopWinMsStore);
 
+export const isAppleStoreEnv = isMas || isNativeIOSStore || isNativeIOSPadStore
+
 const platformEnv: IPlatformEnv = {
   version: process.env.VERSION,
   buildNumber: process.env.BUILD_NUMBER,
@@ -311,6 +315,7 @@ const platformEnv: IPlatformEnv = {
 
   canGetClipboard,
   supportAutoUpdate,
+  isAppleStoreEnv
 };
 
 if (isDev) {
