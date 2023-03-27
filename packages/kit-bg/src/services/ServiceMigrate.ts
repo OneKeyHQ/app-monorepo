@@ -1,4 +1,3 @@
-import fetch from 'cross-fetch';
 import RNUUID from 'react-native-uuid';
 
 import {
@@ -370,18 +369,13 @@ class ServiceMigrate extends ServiceBase {
       if (encryptData === false) {
         return false;
       }
-      const { success } = await fetch(url, {
-        method: 'POST',
-        body: encryptData,
-      })
-        .then((result) => {
-          if (result.ok) {
-            return result.json() as MigrateServiceResp<boolean>;
-          }
-          return {
-            success: false,
-          };
+      const { success } = await this.client
+        .post<MigrateServiceResp<boolean>>(url, encryptData, {
+          headers: {
+            'Content-Type': 'text/plain',
+          },
         })
+        .then((resp) => resp.data)
         .catch(() => ({
           success: false,
         }));
@@ -558,7 +552,10 @@ class ServiceMigrate extends ServiceBase {
         return;
       }
       const { postData: encryptData } = data;
-
+      if (encryptData === undefined) {
+        failResponse('encryptData not found', MigrateErrorCode.ConnectFail);
+        return;
+      }
       if (this.keypair === undefined) {
         failResponse('keypair lose', MigrateErrorCode.KetPairLose);
         return;
