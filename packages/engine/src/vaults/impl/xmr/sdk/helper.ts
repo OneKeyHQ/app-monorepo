@@ -5,7 +5,6 @@ import {
   Lazy_KeyImageCacheForWalletWith,
 } from '@mymonero/mymonero-keyimage-cache';
 import axios from 'axios';
-import sha3 from 'js-sha3';
 
 import { OneKeyInternalError } from '../../../../errors';
 
@@ -169,10 +168,7 @@ class Helper {
     if (isPrivateSpendKey) {
       privateSpendKey = raw;
     } else {
-      const rawSecretSpendKey = new Uint8Array(
-        sha3.keccak_256.update(raw).arrayBuffer(),
-      );
-      privateSpendKey = this.scReduce32(rawSecretSpendKey);
+      privateSpendKey = this.scReduce32(raw);
     }
 
     const privateViewKey = this.hashToScalar(privateSpendKey);

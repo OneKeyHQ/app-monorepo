@@ -24,13 +24,12 @@ const settings: IVaultSettings = Object.freeze({
   addressDerivationDisabled: true,
   validationRequired: true,
   disabledInExtension: true,
-  enabledInDevModeOnly: true,
 
   accountNameInfo: {
     default: {
       prefix: 'XMR',
       category: `44'/${COINTYPE_XMR}'`,
-      template: `m/44'/${COINTYPE_XMR}'/0'/0/${INDEX_PLACEHOLDER}`,
+      template: `m/44'/${COINTYPE_XMR}'/${INDEX_PLACEHOLDER}'`,
       coinType: COINTYPE_XMR,
     },
   },
