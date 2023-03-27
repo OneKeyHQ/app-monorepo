@@ -1,8 +1,8 @@
 import fetch from 'cross-fetch';
 import timeoutSignal from 'timeout-signal';
 
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import type { IJsonRpcResponsePro } from '@onekeyhq/engine/src/types';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   JsonPRCResponseError,
   ResponseError,
@@ -45,7 +45,7 @@ class JsonRPCRequest {
       Object.assign(this.headers, headers);
     }
 
-    backgroundApiProxy.serviceSetting
+    simpleDb.setting
       .getRpcBatchFallbackWhitelistHosts()
       .then((value) => (this.disabledRpcBatchHosts = value));
   }

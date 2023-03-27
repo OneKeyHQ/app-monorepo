@@ -99,11 +99,6 @@ export default class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getRpcBatchFallbackWhitelistHosts() {
-    return simpleDb.setting.getRpcBatchFallbackWhitelistHosts();
-  }
-
-  @backgroundMethod()
   async checkBrowserActionIcon() {
     const disableExt = this.backgroundApi.appSelector(
       (s) => s.settings.disableExt,
