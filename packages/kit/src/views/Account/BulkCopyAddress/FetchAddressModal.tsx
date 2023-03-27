@@ -313,7 +313,11 @@ const FetchAddressModal: FC = () => {
                 template = getDefaultAccountNameInfoByImpl(impl).template;
               }
               const pathComponent = account.path.split('/');
-              const purpose = Number(pathComponent[1]);
+              const purpose = Number(
+                pathComponent[1].endsWith(`'`)
+                  ? pathComponent[1].slice(0, -1)
+                  : pathComponent[1],
+              );
               const pathComponentAccountIndex = template
                 ?.split('/')
                 .findIndex((x: string) => x.startsWith(INDEX_PLACEHOLDER));
