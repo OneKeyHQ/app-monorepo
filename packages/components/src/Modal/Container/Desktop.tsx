@@ -49,6 +49,7 @@ const DesktopModal = ({
   secondaryActionProps,
   primaryActionTranslationId,
   secondaryActionTranslationId,
+  extraElement,
   hideSecondaryAction,
   hidePrimaryAction,
   onBackActionPress,
@@ -192,41 +193,38 @@ const DesktopModal = ({
             borderTopWidth={StyleSheet.hairlineWidth}
             borderTopColor="divider"
           >
-            <HStack
-              py="4"
-              px="6"
-              alignItems="center"
-              space="3"
-              justifyContent="flex-end"
-            >
-              {!hideSecondaryAction && (
-                <Button
-                  onPress={() => {
-                    onSecondaryActionPress?.({ close });
-                    onClose?.();
-                  }}
-                  {...secondaryActionProps}
-                >
-                  {secondaryActionProps?.children ??
-                    intl.formatMessage({
-                      id: secondaryActionTranslationId ?? 'action__cancel',
-                    })}
-                </Button>
-              )}
-              {!hidePrimaryAction && (
-                <Button
-                  type="primary"
-                  onPress={() => {
-                    onPrimaryActionPress?.({ onClose, close });
-                  }}
-                  {...primaryActionProps}
-                >
-                  {primaryActionProps?.children ??
-                    intl.formatMessage({
-                      id: primaryActionTranslationId ?? 'action__ok',
-                    })}
-                </Button>
-              )}
+            <HStack py="4" px="6" alignItems="center" space="12px">
+              {extraElement && <Box>{extraElement}</Box>}
+              <HStack flex={1} space="12px" justifyContent="flex-end">
+                {!hideSecondaryAction && (
+                  <Button
+                    onPress={() => {
+                      onSecondaryActionPress?.({ close });
+                      onClose?.();
+                    }}
+                    {...secondaryActionProps}
+                  >
+                    {secondaryActionProps?.children ??
+                      intl.formatMessage({
+                        id: secondaryActionTranslationId ?? 'action__cancel',
+                      })}
+                  </Button>
+                )}
+                {!hidePrimaryAction && (
+                  <Button
+                    type="primary"
+                    onPress={() => {
+                      onPrimaryActionPress?.({ onClose, close });
+                    }}
+                    {...primaryActionProps}
+                  >
+                    {primaryActionProps?.children ??
+                      intl.formatMessage({
+                        id: primaryActionTranslationId ?? 'action__ok',
+                      })}
+                  </Button>
+                )}
+              </HStack>
             </HStack>
           </Box>
         )}

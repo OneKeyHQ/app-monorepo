@@ -29,6 +29,7 @@ const MobileModal: FC<ModalProps> = ({
   secondaryActionProps,
   primaryActionTranslationId,
   secondaryActionTranslationId,
+  extraElement,
   hideSecondaryAction,
   hidePrimaryAction,
   onBackActionPress,
@@ -103,6 +104,11 @@ const MobileModal: FC<ModalProps> = ({
           }
           borderTopColor="divider"
         >
+          {extraElement && (
+            <Box alignSelf="center" p="16px" pb="0">
+              {extraElement}
+            </Box>
+          )}
           <FooterButtonContainer p={4} alignItems="center" space="4">
             {!hideSecondaryAction && (
               <Button
