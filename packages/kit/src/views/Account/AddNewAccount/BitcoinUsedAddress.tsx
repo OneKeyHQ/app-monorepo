@@ -245,7 +245,7 @@ const BitcoinUsedAddress: FC = () => {
                 <Empty
                   emoji="💳"
                   title={intl.formatMessage({
-                    id: 'empty__no_account_title',
+                    id: 'title__no_used_addresses',
                   })}
                 />
               </Center>
