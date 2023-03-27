@@ -69,7 +69,7 @@ const UsedAddressHeader: FC<{
 const BitcoinUsedAddress: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { networkId, accountId, walletId } = route.params;
+  const { networkId, accountId, walletId, entry } = route.params;
   const { networks, wallets } = useRuntime();
   const network = networks.find((n) => n.id === networkId);
   const wallet = wallets.find((w) => w.id === walletId);
@@ -86,7 +86,9 @@ const BitcoinUsedAddress: FC = () => {
     mannualListCurrentPage: 1,
   });
   const [dataSource, setDataSource] = useState<BtcForkChainUsedAccount[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(
+    entry === 'manageAccount' ? 1 : 0,
+  );
   const [showSegmentedControl, setShowSegmentedControl] = useState(false);
   const [account, setAccount] = useState<Account | null>(null);
 
@@ -243,7 +245,7 @@ const BitcoinUsedAddress: FC = () => {
                 <Empty
                   emoji="💳"
                   title={intl.formatMessage({
-                    id: 'empty__no_account_title',
+                    id: 'title__no_used_addresses',
                   })}
                 />
               </Center>

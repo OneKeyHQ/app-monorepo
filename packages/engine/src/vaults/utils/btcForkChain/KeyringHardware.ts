@@ -86,7 +86,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<DBUTXOAccount[]> {
-    const { indexes, purpose, names, template } = params;
+    const { indexes, purpose, names, template, skipCheckAccountExist } = params;
     const provider = await (
       this.vault as unknown as BTCForkVault
     ).getProvider();
@@ -99,13 +99,15 @@ export class KeyringHardware extends KeyringHardwareBase {
       addressIndex: 0,
       isChange: false,
       isCustomAddress: false,
-      validator: async ({ xpub, addressEncoding }) => {
-        const { txs } = (await provider.getAccount(
-          { type: 'simple', xpub },
-          addressEncoding,
-        )) as { txs: number };
-        return txs > 0;
-      },
+      validator: skipCheckAccountExist
+        ? undefined
+        : async ({ xpub, addressEncoding }) => {
+            const { txs } = (await provider.getAccount(
+              { type: 'simple', xpub },
+              addressEncoding,
+            )) as { txs: number };
+            return txs > 0;
+          },
     });
     return ret;
   }

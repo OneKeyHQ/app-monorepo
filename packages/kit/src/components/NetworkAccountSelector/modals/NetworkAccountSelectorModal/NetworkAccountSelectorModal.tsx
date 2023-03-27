@@ -3,7 +3,14 @@ import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Image, Modal, Pressable, Typography } from '@onekeyhq/components';
+import {
+  Box,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  Typography,
+} from '@onekeyhq/components';
 
 import { LazyDisplayView } from '../../../LazyDisplayView';
 import { useAccountSelectorModalInfo } from '../../hooks/useAccountSelectorModalInfo';
@@ -73,13 +80,13 @@ function NetworkAccountSelectorModal() {
               accountSelectorInfo={accountSelectorInfo}
               showCustomLegacyHeader={showCustomLegacyHeader}
             />
-            <Box>
+            <ScrollView>
               <AccountList accountSelectorInfo={accountSelectorInfo} />
-            </Box>
-            <NetWorkExtraInfo
-              accountId={accountSelectorInfo.activeAccount?.id}
-              networkId={accountSelectorInfo.activeNetwork?.id}
-            />
+              <NetWorkExtraInfo
+                accountId={accountSelectorInfo.activeAccount?.id}
+                networkId={accountSelectorInfo.selectedNetworkId}
+              />
+            </ScrollView>
           </Box>
         </Box>
       </LazyDisplayView>

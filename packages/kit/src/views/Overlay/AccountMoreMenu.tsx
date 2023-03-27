@@ -15,6 +15,7 @@ import {
   enabledAccountDynamicNetworkIds,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
@@ -24,7 +25,6 @@ import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { openUrl } from '../../utils/openUrl';
-import { useShowBookmark } from '../Discover/hooks';
 import {
   useAddressCanSubscribe,
   useEnabledAccountDynamicAccounts,
@@ -39,7 +39,6 @@ const NeedActivateAccountImpl = [IMPL_APTOS, IMPL_SUI];
 
 const AccountMoreMenu: FC<IMenu> = (props) => {
   const intl = useIntl();
-  const showBookmark = useShowBookmark();
   const navigation = useNavigation();
   const { network, account, wallet, accountId } = useActiveWalletAccount();
   const { copyAddress } = useCopyAddress({ wallet });
@@ -172,7 +171,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       },
       // TODO Connected Sites
       walletType !== 'watching' &&
-        showBookmark && {
+        !platformEnv.isAppleStoreEnv && {
           id: 'action__buy_crypto',
           onPress: () => {
             if (!account) return;
@@ -191,7 +190,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
           icon: 'PlusMini',
         },
       walletType !== 'watching' &&
-        showBookmark && {
+        !platformEnv.isAppleStoreEnv && {
           id: 'action__sell_crypto',
           onPress: () => {
             if (!account) return;
@@ -238,7 +237,6 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       // TODO Share
     ],
     [
-      showBookmark,
       needActivateAccount,
       walletType,
       explorerUrl,

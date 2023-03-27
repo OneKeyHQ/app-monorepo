@@ -307,6 +307,12 @@ const SetRange = forwardRef<ISetRangeRefType, IProps>(
               defaultMessage: 'Generate Amount',
             })}
             rules={{
+              required: {
+                value: true,
+                message: intl.formatMessage({
+                  id: 'form__field_is_required',
+                }),
+              },
               min: {
                 value: 1,
                 message: intl.formatMessage(

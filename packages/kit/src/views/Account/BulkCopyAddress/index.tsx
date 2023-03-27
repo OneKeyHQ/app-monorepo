@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -76,6 +76,12 @@ const BulkCopyAddress: FC = () => {
   const [selectedIndex, setSelectedIndex] = useState<number>(
     entry === 'manageAccount' ? 1 : 0,
   );
+  const showSetRange = useMemo(() => !network.settings.isUTXOModel, [network]);
+  useEffect(() => {
+    if (!showSetRange && selectedIndex === 1) {
+      setSelectedIndex(0);
+    }
+  }, [showSetRange, selectedIndex]);
 
   const [setRangeDisabled, setSetRangeDisabled] = useState(false);
   const [walletAccountDisabled, setWalletAccountDisabled] = useState(false);
@@ -144,16 +150,18 @@ const BulkCopyAddress: FC = () => {
           debounceButtonDisabledInWalletAccount,
       }}
     >
-      <Box mb={6}>
-        <SegmentedControl
-          values={[
-            intl.formatMessage({ id: 'form__my_accounts' }),
-            intl.formatMessage({ id: 'form__set_range' }),
-          ]}
-          selectedIndex={selectedIndex}
-          onChange={setSelectedIndex}
-        />
-      </Box>
+      {showSetRange && (
+        <Box mb={6}>
+          <SegmentedControl
+            values={[
+              intl.formatMessage({ id: 'form__my_accounts' }),
+              intl.formatMessage({ id: 'form__set_range' }),
+            ]}
+            selectedIndex={selectedIndex}
+            onChange={setSelectedIndex}
+          />
+        </Box>
+      )}
 
       {selectedIndex === 0 && (
         <WalletAccounts
@@ -163,7 +171,7 @@ const BulkCopyAddress: FC = () => {
           ref={walletAccountsRef}
         />
       )}
-      {selectedIndex === 1 && (
+      {showSetRange && selectedIndex === 1 && (
         <SetRange
           walletId={walletId}
           networkId={networkId}

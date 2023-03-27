@@ -17,6 +17,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { INDEX_PLACEHOLDER } from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
@@ -239,20 +240,24 @@ export default class ServiceDerivationPath extends ServiceBase {
       accountId,
     });
     const accountIndex = account.path.split('/')[3].slice(0, -1);
-    const accounts = await vault.keyring.prepareAccountByAddressIndex({
-      password,
-      template,
-      accountIndex: Number(accountIndex),
-      addressIndex: Number(addressIndex),
-    });
-    if (accounts.length) {
-      await this.backgroundApi.engine.dbApi.updateUTXOAccountAddresses({
-        accountId,
-        addresses: (accounts[0] as DBUTXOAccount).customAddresses ?? {},
-        isCustomPath: true,
+    try {
+      const accounts = await vault.keyring.prepareAccountByAddressIndex({
+        password,
+        template,
+        accountIndex: Number(accountIndex),
+        addressIndex: Number(addressIndex),
       });
+      if (accounts.length) {
+        await this.backgroundApi.engine.dbApi.updateUTXOAccountAddresses({
+          accountId,
+          addresses: (accounts[0] as DBUTXOAccount).customAddresses ?? {},
+          isCustomPath: true,
+        });
+      }
+    } catch (e) {
+      debugLogger.common.error('createAccountByCustomAddressIndex error: ', e);
+      throw e;
     }
-    console.log(accounts);
   }
 
   @backgroundMethod()
