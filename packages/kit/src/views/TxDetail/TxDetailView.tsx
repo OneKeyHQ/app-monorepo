@@ -2,6 +2,7 @@ import { useIntl } from 'react-intl';
 
 import { Alert, Box } from '@onekeyhq/components';
 
+import { TxAdvanceSettings } from './components/TxAdvanceSettings';
 import { TxDetailExtraInfoBox } from './components/TxDetailExtraInfoBox';
 import { TxInteractInfo } from './components/TxInteractInfo';
 import { getReplacedTxAlertTextKeys } from './elements/TxActionElementReplacedTxText';
@@ -52,15 +53,18 @@ export function TxDetailView(props: ITxActionListViewProps) {
         }
         networkId={decodedTx?.networkId ?? ''}
       />
-      <TxDetailExtraInfoBox {...props} />
-      {isMultipleActions ? <Box h={6} /> : <Box h={8} />}
       <TxDetailContextProvider
         isMultipleActions={isMultipleActions}
         isHistoryDetail={isHistoryDetail}
         isSendConfirm={isSendConfirm}
         sendConfirmParamsParsed={sendConfirmParamsParsed}
       >
-        <TxActionsListView {...props} transformType="T1" space={6} />
+        <>
+          <TxDetailExtraInfoBox {...props} />
+          <TxAdvanceSettings {...props} />
+          {isMultipleActions ? <Box h={6} /> : <Box h={8} />}
+          <TxActionsListView {...props} transformType="T1" space={6} />
+        </>
       </TxDetailContextProvider>
     </>
   );
