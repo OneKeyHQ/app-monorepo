@@ -33,8 +33,9 @@ export function useCreateBtcCustomAccount({
       try {
         let addedAccount = account;
         if (!account && accountIndex) {
-          const derivationTemplate = derivationOption?.template ?? '';
-          const purpose = parseInt(derivationTemplate.split('/')?.[1], 10);
+          const purpose = parseInt(
+            derivationOption?.category?.split("'/")?.[0] ?? '44',
+          );
           const accounts =
             await backgroundApiProxy.serviceAccount.addHDAccounts(
               password,
