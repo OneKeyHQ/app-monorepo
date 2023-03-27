@@ -323,6 +323,7 @@ export type IPrepareHardwareAccountsParams = {
   names?: Array<string>;
   coinType: string;
   template: string;
+  skipCheckAccountExist?: boolean;
 };
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams

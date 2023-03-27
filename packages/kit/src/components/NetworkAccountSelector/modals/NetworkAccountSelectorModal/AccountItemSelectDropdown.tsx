@@ -171,6 +171,7 @@ function AccountItemSelectDropdown({
                 accountId: account.id,
                 networkId: network?.id ?? '',
                 walletId: wallet?.id ?? '',
+                entry: 'usedAddress',
               },
             },
           });

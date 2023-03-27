@@ -42,7 +42,7 @@ type FromValues = {
   generateCount?: string;
 };
 
-export const FROM_INDEX_MAX = 2 ** 31;
+export const FROM_INDEX_MAX = 2 ** 31 - 1;
 
 const ModalHeader: FC<{ networkId: string | undefined }> = ({ networkId }) => {
   const { network } = useNetwork({ networkId });

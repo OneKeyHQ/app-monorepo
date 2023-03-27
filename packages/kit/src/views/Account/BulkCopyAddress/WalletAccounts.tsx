@@ -152,8 +152,10 @@ const WalletAccounts = forwardRef<IWalletAccountsRefType, IProps>(
                     typography={{ sm: 'Body2Strong', md: 'Body2Strong' }}
                     color="text-subdued"
                   >
-                    {item.accounts.length}{' '}
-                    {intl.formatMessage({ id: 'title__accounts' })}
+                    {intl.formatMessage(
+                      { id: 'form__str_accounts' },
+                      { count: item.accounts.length },
+                    )}
                   </Text>
                 </HStack>
               ))}

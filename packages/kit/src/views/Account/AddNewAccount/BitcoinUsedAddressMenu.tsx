@@ -2,7 +2,6 @@ import type { FC } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { CheckBox, Divider } from '@onekeyhq/components';
-import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
@@ -12,18 +11,15 @@ import type {
 } from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
 import {
   CreateAccountModalRoutes,
   ModalRoutes,
   RootRoutes,
 } from '../../../routes/routesEnum';
-import { deviceUtils } from '../../../utils/hardware';
 
 import showFindAddressByPathBottomSheetModal from './FindAddressByPathBottomSheetModal';
-
-import type { IDerivationOption } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
+import { useCreateBtcCustomAccount } from './useCreateBtcCustomAccount';
 
 type NavigationProps = ModalScreenProps<CreateAccountRoutesParams>;
 
@@ -50,39 +46,10 @@ const BitcoinUsedAddressMenu: FC<
   const onPressShowPath = useCallback(() => {
     onChange?.(!showPath);
   }, [onChange, showPath]);
-
-  const onCreateAccountByAddressIndex = useCallback(
-    async ({
-      password,
-      derivationOption,
-      addressIndex,
-      account,
-    }: {
-      password: string;
-      derivationOption?: IDerivationOption;
-      addressIndex?: string;
-      account?: Account;
-    }) => {
-      try {
-        await backgroundApiProxy.serviceDerivationPath.createAccountByCustomAddressIndex(
-          {
-            accountId,
-            networkId,
-            password,
-            addressIndex: addressIndex ?? '',
-            account,
-            template: derivationOption?.template ?? '',
-          },
-        );
-        onAddedCustomAddressCallback();
-      } catch (e) {
-        deviceUtils.showErrorToast(e);
-      } finally {
-        navigation.goBack?.();
-      }
-    },
-    [networkId, accountId, navigation, onAddedCustomAddressCallback],
-  );
+  const { onCreateAccountByAddressIndex } = useCreateBtcCustomAccount({
+    walletId,
+    networkId,
+  });
 
   const onPressFindAddressByPath = useCallback(() => {
     showFindAddressByPathBottomSheetModal({
@@ -97,7 +64,14 @@ const BitcoinUsedAddressMenu: FC<
             params: {
               walletId,
               onDone: (password) =>
-                onCreateAccountByAddressIndex({ password, ...data }),
+                onCreateAccountByAddressIndex({
+                  password,
+                  ...data,
+                  onAddedCustomAddressCallback: () => {
+                    onAddedCustomAddressCallback();
+                    navigation.goBack();
+                  },
+                }),
             },
           },
         });
@@ -108,6 +82,7 @@ const BitcoinUsedAddressMenu: FC<
     networkId,
     accountId,
     navigation,
+    onAddedCustomAddressCallback,
     onCreateAccountByAddressIndex,
   ]);
 
