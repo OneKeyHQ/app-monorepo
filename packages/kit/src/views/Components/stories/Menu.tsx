@@ -51,49 +51,60 @@ const MenuGallery = () => {
         </Menu.CustomItem>
       </Menu>
 
-      <Menu
-        w="190"
-        trigger={(triggerProps) => (
-          <Pressable {...triggerProps}>
-            <Text>Grouping</Text>
-          </Pressable>
-        )}
+      <BaseMenu
+        options={[
+          {
+            type: 'group',
+            title: 'title__help',
+            children: [{ id: 'content__enter_pin_in_app' }, { id: 'Rate' }],
+          },
+          () => <Divider my="4px" />,
+          {
+            type: 'group',
+            title: 'title__help',
+            children: [{ id: 'Verify_Password' }, { id: 'action__buy' }],
+          },
+        ]}
       >
-        <Menu.Group title="Free">
-          <Menu.Item>Arial</Menu.Item>
-          <Menu.Item>Nunito Sans</Menu.Item>
-        </Menu.Group>
-        <Divider my="4px" />
-        {/* <Divider mt="3" w="100%" /> */}
-        <Menu.Group title="Paid">
-          <Menu.Item>SF Pro</Menu.Item>
-          <Menu.Item>Helvetica</Menu.Item>
-        </Menu.Group>
-      </Menu>
+        <Pressable>
+          <Text>Grouping</Text>
+        </Pressable>
+      </BaseMenu>
 
-      <Menu
+      <BaseMenu
         closeOnSelect={false}
-        w="190"
-        onOpen={() => console.log('opened')}
-        onClose={() => console.log('closed')}
-        trigger={(triggerProps) => (
-          <Pressable {...triggerProps}>
-            <Text>MenuOptionGroups</Text>
-          </Pressable>
-        )}
+        options={[
+          {
+            type: 'radio',
+            title: 'title__help',
+            defaultValue: 1,
+            children: [
+              {
+                id: 'Handling_Fee',
+                value: 1,
+              },
+
+              {
+                id: 'Estimated_Gas',
+                value: 2,
+              },
+            ],
+          },
+          () => <Divider my="4px" />,
+          {
+            type: 'checkbox',
+            title: 'title__help',
+            children: [
+              { id: 'content__enter_pin_in_app', value: 1 },
+              { id: 'Confirm_password', value: 2 },
+            ],
+          },
+        ]}
       >
-        <Menu.OptionGroup defaultValue="Arial" title="free" type="radio">
-          <Menu.ItemOption value="Arial">Arial</Menu.ItemOption>
-          <Menu.ItemOption value="Nunito Sans">Nunito Sans</Menu.ItemOption>
-          <Menu.ItemOption value="Roboto">Roboto</Menu.ItemOption>
-        </Menu.OptionGroup>
-        <Divider my="4px" />
-        {/* <Divider mt="3" w="100%" /> */}
-        <Menu.OptionGroup title="paid" type="checkbox">
-          <Menu.ItemOption value="SF Pro">SF Pro</Menu.ItemOption>
-          <Menu.ItemOption value="Helvetica">Helvetica</Menu.ItemOption>
-        </Menu.OptionGroup>
-      </Menu>
+        <Pressable>
+          <Text>MenuOptionGroups</Text>
+        </Pressable>
+      </BaseMenu>
 
       <BaseMenu
         options={[
