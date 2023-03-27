@@ -12,7 +12,6 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { setIsPasswordLoadedInVault } from '../store/reducers/data';
 import { getPreBaseValue } from '../utils/priceUtils';
 
 import { useAppSelector } from './useAppSelector';
@@ -224,15 +223,12 @@ export const useFrozenBalance = ({
   useEffect(() => {
     (async () => {
       let password;
-      let passwordLoadedCallback;
 
       const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
         networkId,
       );
       if (vaultSettings.validationRequired) {
         password = await backgroundApiProxy.servicePassword.getPassword();
-        passwordLoadedCallback = (isLoaded: boolean) =>
-          backgroundApiProxy.dispatch(setIsPasswordLoadedInVault(isLoaded));
       }
 
       backgroundApiProxy.engine
@@ -240,7 +236,6 @@ export const useFrozenBalance = ({
           accountId,
           networkId,
           password,
-          passwordLoadedCallback,
         })
         .then(setFrozenBalance)
         .catch((e) => {

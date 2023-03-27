@@ -1,17 +1,15 @@
-import { mnemonicFromEntropy } from '@onekeyfe/blockchain-libs/dist/secret';
-import { mnemonicToSeedSync } from 'bip39';
-
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { COINTYPE_XMR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../errors';
 import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
+import { batchGetPrivateKeys } from '../../../secret';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
 import { getMoneroApi } from './sdk';
 import { MoneroNetTypeEnum } from './sdk/moneroUtil/moneroUtilTypes';
-import { getRawPrivateKeyFromSeed } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBVariantAccount } from '../../../types/account';
@@ -34,17 +32,25 @@ export class KeyringHd extends KeyringHdBase {
     const indexes = [0];
 
     const network = await this.getNetwork();
-    const { entropy } = (await this.engine.dbApi.getCredential(
+    const { seed } = (await this.engine.dbApi.getCredential(
       this.walletId,
       password,
     )) as ExportedSeedCredential;
 
     const moneroApi = await getMoneroApi();
 
-    const mnemonic = mnemonicFromEntropy(entropy, password);
-    const seed = mnemonicToSeedSync(mnemonic);
-    const { pathPrefix } = slicePathTemplate(template);
-    const rawPrivateKey = getRawPrivateKeyFromSeed(seed, pathPrefix);
+    const { pathPrefix, pathSuffix } = slicePathTemplate(template);
+
+    const [privateKeyInfo] = batchGetPrivateKeys(
+      'ed25519',
+      seed,
+      password,
+      pathPrefix,
+      [pathSuffix.replace('{index}', '0')],
+    );
+
+    const rawPrivateKey = decrypt(password, privateKeyInfo.extendedKey.key);
+
     if (!rawPrivateKey) {
       throw new OneKeyInternalError('Unable to get raw private key.');
     }
@@ -63,7 +69,10 @@ export class KeyringHd extends KeyringHdBase {
         throw new OneKeyInternalError('Unable to get public spend/view key.');
       }
 
-      const path = `${pathPrefix}/${index}`;
+      const path = `${pathPrefix}/${pathSuffix.replace(
+        '{index}',
+        index.toString(),
+      )}`;
 
       const address = moneroApi.pubKeysToAddress(
         network.isTestnet
@@ -88,7 +97,6 @@ export class KeyringHd extends KeyringHdBase {
         addresses: { [this.networkId]: address },
       });
     }
-    console.log(ret);
     return ret;
   }
 
@@ -96,18 +104,29 @@ export class KeyringHd extends KeyringHdBase {
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
+    const { password = '' } = options;
     const dbAccount = await this.getDbAccount();
     const moneroApi = await getMoneroApi();
     const scanUrl = await this.getScanUrl();
-    const { entropy } = (await this.engine.dbApi.getCredential(
+    const { seed } = (await this.engine.dbApi.getCredential(
       this.walletId,
-      options.password || '',
+      password,
     )) as ExportedSeedCredential;
 
-    const mnemonic = mnemonicFromEntropy(entropy, options.password || '');
-    const seed = mnemonicToSeedSync(mnemonic);
-    const { pathPrefix } = slicePathTemplate(dbAccount.template as string);
-    const rawPrivateKey = getRawPrivateKeyFromSeed(seed, pathPrefix);
+    const { pathPrefix, pathSuffix } = slicePathTemplate(
+      dbAccount.template as string,
+    );
+
+    const [privateKeyInfo] = batchGetPrivateKeys(
+      'ed25519',
+      seed,
+      password,
+      pathPrefix,
+      [pathSuffix.replace('{index}', '0')],
+    );
+
+    const rawPrivateKey = decrypt(password, privateKeyInfo.extendedKey.key);
+
     if (!rawPrivateKey) {
       throw new OneKeyInternalError('Unable to get raw private key.');
     }
