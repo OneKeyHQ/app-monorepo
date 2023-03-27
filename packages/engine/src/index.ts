@@ -1024,6 +1024,7 @@ class Engine {
     callback,
     isAddInitFirstAccountOnly,
     template,
+    skipCheckAccountExist,
   }: {
     password: string;
     walletId: string;
@@ -1035,6 +1036,7 @@ class Engine {
     callback?: (_account: Account) => Promise<boolean>;
     isAddInitFirstAccountOnly?: boolean;
     template?: string;
+    skipCheckAccountExist?: boolean;
   }): Promise<Array<Account>> {
     // eslint-disable-next-line no-param-reassign
     callback =
@@ -1093,6 +1095,7 @@ class Engine {
       names,
       coinType,
       template: accountNameInfo.template,
+      skipCheckAccountExist,
     });
 
     const ret: Array<Account> = [];

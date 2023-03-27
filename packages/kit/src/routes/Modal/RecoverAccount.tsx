@@ -1,4 +1,5 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import BitcoinUsedAddress from '@onekeyhq/kit/src/views/Account/AddNewAccount/BitcoinUsedAddress';
 import RecoverAccountsAdvanced from '@onekeyhq/kit/src/views/Account/AddNewAccount/RecoverAccountsAdvanced';
 import BulkCopyAddresses from '@onekeyhq/kit/src/views/Account/BulkCopyAddress';
 
@@ -26,6 +27,12 @@ export type RecoverAccountRoutesParams = {
     entry: 'accountSelector' | 'manageAccount';
     template?: string;
   };
+  [RecoverAccountModalRoutes.BitcoinUsedAddress]: {
+    walletId: string;
+    accountId: string;
+    networkId: string;
+    entry: 'usedAddress' | 'manageAccount';
+  };
 };
 
 const RecoverAccountNavigator =
@@ -39,6 +46,10 @@ const modalRoutes = [
   {
     name: RecoverAccountModalRoutes.BulkCopyAddresses,
     component: BulkCopyAddresses,
+  },
+  {
+    name: RecoverAccountModalRoutes.BitcoinUsedAddress,
+    component: BitcoinUsedAddress,
   },
 ];
 

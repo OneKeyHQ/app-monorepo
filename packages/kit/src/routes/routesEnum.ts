@@ -128,6 +128,7 @@ export enum CreateAccountModalRoutes {
 export enum RecoverAccountModalRoutes {
   RecoverAccountsAdvanced = 'RecoverAccountsAdvanced',
   BulkCopyAddresses = 'BulkCopyAddresses',
+  BitcoinUsedAddress = 'BitcoinUsedAddress',
 }
 
 export enum ManageNetworkRoutes {

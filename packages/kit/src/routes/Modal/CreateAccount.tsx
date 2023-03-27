@@ -92,6 +92,7 @@ export type CreateAccountRoutesParams = {
     walletId: string;
     accountId: string;
     networkId: string;
+    entry: 'usedAddress' | 'manageAccount';
   };
 };
 

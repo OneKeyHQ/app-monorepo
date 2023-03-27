@@ -14,10 +14,12 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-// import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
+import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import type { Account } from '@onekeyhq/engine/src/types/account';
-// import showDerivationPathBottomSheetModal from '@onekeyhq/kit/src/components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
+import showDerivationPathBottomSheetModal from '@onekeyhq/kit/src/components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useDerivationPath } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
@@ -32,7 +34,8 @@ import type { IDerivationOption } from '../../../components/NetworkAccountSelect
 type IFindAddressByPathProps = {
   walletId: string;
   networkId: string;
-  accountId: string;
+  accountId?: string;
+  template?: string;
   onConfirm: ({
     error,
     data,
@@ -41,7 +44,8 @@ type IFindAddressByPathProps = {
     data: {
       derivationOption: IDerivationOption;
       addressIndex: string;
-      account: Account;
+      accountIndex: string;
+      account: Account | null;
     } | null;
   }) => void;
 };
@@ -56,6 +60,7 @@ const FindAddressByPathContent: FC<IFindAddressByPathProps> = ({
   walletId,
   networkId,
   accountId,
+  template,
   onConfirm,
 }: IFindAddressByPathProps) => {
   const intl = useIntl();
@@ -70,10 +75,16 @@ const FindAddressByPathContent: FC<IFindAddressByPathProps> = ({
   });
   const { accounts } = useRuntime();
   const account = accounts.find((i) => i.id === accountId);
+  const hasAccount = useMemo(
+    () => !!accountId && !!account,
+    [accountId, account],
+  );
   useEffect(() => {
-    const pathIndex = account?.path.split('/')[3].slice(0, -1);
-    setValue('accountIndex', pathIndex ?? '');
-  }, [account?.path, setValue]);
+    if (account) {
+      const pathIndex = account.path.split('/')[3].slice(0, -1);
+      setValue('accountIndex', pathIndex ?? '');
+    }
+  }, [account, setValue]);
 
   const { derivationOptions } = useDerivationPath(walletId, networkId);
   const [selectedDerivation, setSelectedDerivation] =
@@ -81,27 +92,27 @@ const FindAddressByPathContent: FC<IFindAddressByPathProps> = ({
   useEffect(() => {
     if (!selectedDerivation) {
       const defaultValue = derivationOptions.find(
-        (d) => d.template === account?.template,
+        (d) => d.template === account?.template || d.template === template,
       );
       if (defaultValue) {
         setSelectedDerivation(defaultValue);
       }
     }
-  }, [derivationOptions, account?.template, selectedDerivation]);
+  }, [derivationOptions, account?.template, selectedDerivation, template]);
   useEffect(() => {
     if (selectedDerivation && typeof selectedDerivation.label === 'string') {
       setValue('derivationType', selectedDerivation.label);
     }
   }, [selectedDerivation, setValue]);
 
-  // const onSelectDerivationType = useCallback(() => {
-  //   showDerivationPathBottomSheetModal({
-  //     type: 'search',
-  //     walletId,
-  //     networkId,
-  //     onSelect: (option) => setSelectedDerivation(option),
-  //   });
-  // }, [networkId, walletId]);
+  const onSelectDerivationType = useCallback(() => {
+    showDerivationPathBottomSheetModal({
+      type: 'search',
+      walletId,
+      networkId,
+      onSelect: (option) => setSelectedDerivation(option),
+    });
+  }, [networkId, walletId]);
 
   const onSubmit = useCallback(
     (data: IFormValues) => {
@@ -116,15 +127,26 @@ const FindAddressByPathContent: FC<IFindAddressByPathProps> = ({
             data: {
               derivationOption: selectedDerivation,
               addressIndex: data.addressIndex,
+              accountIndex: data.accountIndex,
               account: res,
             },
           });
         })
         .catch((e) => {
-          console.log('=====>>>>>errr: ', e);
-          onConfirm({ error: e, data: null });
+          debugLogger.common.debug(
+            'can not find account, will create one: ',
+            e,
+          );
+          onConfirm({
+            error: null,
+            data: {
+              derivationOption: selectedDerivation,
+              addressIndex: data.addressIndex,
+              accountIndex: data.accountIndex,
+              account: null,
+            },
+          });
         });
-      console.log(selectedDerivation);
     },
     [selectedDerivation, networkId, walletId, onConfirm],
   );
@@ -219,20 +241,22 @@ const FindAddressByPathContent: FC<IFindAddressByPathProps> = ({
       />
       <KeyboardDismissView>
         <Form my={6}>
-          {/* <Pressable onPress={onSelectDerivationType}> */}
-          <Form.Item name="derivationType" control={control}>
-            <Form.Input
-              size={isSmallScreen ? 'xl' : 'default'}
-              // rightIconName="ChevronDownMini"
-              isReadOnly
-              isDisabled
-              // onPressRightIcon={onSelectDerivationType}
-              // onPressIn={
-              //   platformEnv.isNativeIOS ? onSelectDerivationType : undefined
-              // }
-            />
-          </Form.Item>
-          {/* </Pressable> */}
+          <Pressable onPress={onSelectDerivationType} isDisabled={hasAccount}>
+            <Form.Item name="derivationType" control={control}>
+              <Form.Input
+                size={isSmallScreen ? 'xl' : 'default'}
+                rightIconName="ChevronDownMini"
+                isReadOnly
+                isDisabled={hasAccount}
+                onPressRightIcon={
+                  hasAccount ? undefined : onSelectDerivationType
+                }
+                onPressIn={
+                  platformEnv.isNativeIOS ? onSelectDerivationType : undefined
+                }
+              />
+            </Form.Item>
+          </Pressable>
           <Form.Item
             name="accountIndex"
             control={control}
@@ -245,8 +269,8 @@ const FindAddressByPathContent: FC<IFindAddressByPathProps> = ({
               type="number"
               keyboardType="number-pad"
               size={isSmallScreen ? 'xl' : 'default'}
-              isReadOnly
-              isDisabled
+              isReadOnly={hasAccount}
+              isDisabled={hasAccount}
             />
           </Form.Item>
           <Form.Item
@@ -278,6 +302,7 @@ const showFindAddressByPathBottomSheetModal = ({
   walletId,
   networkId,
   accountId,
+  template,
   onConfirm,
 }: IFindAddressByPathProps) => {
   showOverlay((close) => (
@@ -291,6 +316,7 @@ const showFindAddressByPathBottomSheetModal = ({
         walletId={walletId}
         networkId={networkId}
         accountId={accountId}
+        template={template}
         onConfirm={({ error, data }) => {
           close?.();
           if (error) {

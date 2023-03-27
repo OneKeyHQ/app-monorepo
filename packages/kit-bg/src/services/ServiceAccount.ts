@@ -477,6 +477,7 @@ class ServiceAccount extends ServiceBase {
     purpose?: number,
     skipRepeat = false,
     template?: string,
+    skipCheckAccountExist?: boolean,
   ) {
     const { engine } = this.backgroundApi;
     const accounts = await engine.addHdOrHwAccounts({
@@ -488,6 +489,7 @@ class ServiceAccount extends ServiceBase {
       purpose,
       skipRepeat,
       template,
+      skipCheckAccountExist,
     });
 
     if (!accounts.length) return;
