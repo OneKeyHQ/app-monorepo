@@ -9,6 +9,7 @@ export type ISimpleDbEntitySettings = {
   swapReceivingIsNotSendingAccountShown?: boolean;
   swapReceivingUnknownShown?: boolean;
   swapPriceImpactShown?: boolean;
+  disabledRpcBatchHosts?: string[];
 };
 
 export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySettings> {
@@ -95,5 +96,15 @@ export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySet
   async getSwapPriceImpactShown() {
     const data = await this.getRawData();
     return Boolean(data?.swapPriceImpactShown);
+  }
+
+  async setRpcBatchFallbackWhitelistHosts(value: string[]) {
+    const rawData = await this.getRawData();
+    return this.setRawData({ ...rawData, disabledRpcBatchHosts: value });
+  }
+
+  async getRpcBatchFallbackWhitelistHosts() {
+    const data = await this.getRawData();
+    return data?.disabledRpcBatchHosts || [];
   }
 }
