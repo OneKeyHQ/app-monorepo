@@ -11,6 +11,7 @@ import {
   Progress,
   Text,
   ToastManager,
+  VStack,
 } from '@onekeyhq/components';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import { getDefaultAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
@@ -567,15 +568,23 @@ const FetchAddressModal: FC = () => {
           {intl.formatMessage({ id: 'title__fetching_addresses' })}
         </Text>
         {previousAddress && (
-          <Text
-            my={1}
-            typography={{ sm: 'Body1Strong', md: 'Body1Strong' }}
-            wordBreak="break-all"
-          >
-            {`${intl.formatMessage({
-              id: 'form__previous_confirmed',
-            })}: ${previousAddress}`}
-          </Text>
+          <VStack mt={4} space={1}>
+            <Text
+              textAlign="center"
+              typography={{ sm: 'Body2Strong', md: 'Body2Strong' }}
+              color="text-subdued"
+            >
+              {intl.formatMessage({
+                id: 'form__previous_confirmed',
+              })}
+            </Text>
+            <Text
+              typography={{ sm: 'Body2', md: 'Body2' }}
+              wordBreak="break-all"
+            >
+              {previousAddress}
+            </Text>
+          </VStack>
         )}
       </Center>
     </Modal>

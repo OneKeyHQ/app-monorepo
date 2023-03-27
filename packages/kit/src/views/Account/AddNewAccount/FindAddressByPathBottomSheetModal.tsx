@@ -106,13 +106,14 @@ const FindAddressByPathContent: FC<IFindAddressByPathProps> = ({
   }, [selectedDerivation, setValue]);
 
   const onSelectDerivationType = useCallback(() => {
+    if (hasAccount) return;
     showDerivationPathBottomSheetModal({
       type: 'search',
       walletId,
       networkId,
       onSelect: (option) => setSelectedDerivation(option),
     });
-  }, [networkId, walletId]);
+  }, [networkId, walletId, hasAccount]);
 
   const onSubmit = useCallback(
     (data: IFormValues) => {
@@ -227,19 +228,19 @@ const FindAddressByPathContent: FC<IFindAddressByPathProps> = ({
   );
 
   return (
-    <Box>
-      <Alert
-        title={intl.formatMessage({
-          id: 'msg__remember_your_path_settings',
-        })}
-        description={intl.formatMessage({
-          id: 'msg__remember_your_path_settings_desc',
-        })}
-        dismiss={false}
-        alertType="info"
-        customIconName="InformationCircleMini"
-      />
-      <KeyboardDismissView>
+    <KeyboardDismissView>
+      <Box>
+        <Alert
+          title={intl.formatMessage({
+            id: 'msg__remember_your_path_settings',
+          })}
+          description={intl.formatMessage({
+            id: 'msg__remember_your_path_settings_desc',
+          })}
+          dismiss={false}
+          alertType="info"
+          customIconName="InformationCircleMini"
+        />
         <Form my={6}>
           <Pressable onPress={onSelectDerivationType} isDisabled={hasAccount}>
             <Form.Item name="derivationType" control={control}>
@@ -248,9 +249,7 @@ const FindAddressByPathContent: FC<IFindAddressByPathProps> = ({
                 rightIconName="ChevronDownMini"
                 isReadOnly
                 isDisabled={hasAccount}
-                onPressRightIcon={
-                  hasAccount ? undefined : onSelectDerivationType
-                }
+                onPressRightIcon={onSelectDerivationType}
                 onPressIn={
                   platformEnv.isNativeIOS ? onSelectDerivationType : undefined
                 }
@@ -293,8 +292,8 @@ const FindAddressByPathContent: FC<IFindAddressByPathProps> = ({
         >
           {intl.formatMessage({ id: 'action__add' })}
         </Button>
-      </KeyboardDismissView>
-    </Box>
+      </Box>
+    </KeyboardDismissView>
   );
 };
 
