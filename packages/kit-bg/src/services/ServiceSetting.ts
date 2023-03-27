@@ -29,6 +29,7 @@ type RemoteSetting = {
   swapMaintain: boolean;
   helloVersion: string;
   bookmarkVersion: string;
+  disabledRpcBatchHosts: string[];
 };
 
 @backgroundClass()
@@ -46,6 +47,9 @@ export default class ServiceSetting extends ServiceBase {
     const data = res.data as RemoteSetting;
     await simpleDb.setting.setEnableAppRatings(data.enableAppRatings);
     await simpleDb.setting.setSwapMaintain(data.swapMaintain);
+    await simpleDb.setting.setRpcBatchFallbackWhitelistHosts(
+      data.disabledRpcBatchHosts,
+    );
     dispatch(setSwapMaintain(data.swapMaintain));
     let v = '';
     if (platformEnv.isNativeIOS || platformEnv.isMas) {
