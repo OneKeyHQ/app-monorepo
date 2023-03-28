@@ -11,7 +11,7 @@ import {
 import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 
 import { legacyLinkingPathMap, linkingPathMap } from './linking.path';
-import { buildTabName } from './Root/Main/Tab/tabNavHeader';
+import { buildAppRootTabName } from './Root/Main/Tab/tabNavHeader';
 import {
   DappConnectionModalRoutes,
   HomeRoutes,
@@ -43,7 +43,7 @@ type WhiteListItem = {
 type WhiteListItemList = WhiteListItem[];
 
 function buildAppRootTabScreen(tabName: TabRoutes) {
-  return `${RootRoutes.Main}/${MainRoutes.Tab}/${tabName}/${buildTabName(
+  return `${RootRoutes.Main}/${MainRoutes.Tab}/${tabName}/${buildAppRootTabName(
     tabName,
   )}`;
 }

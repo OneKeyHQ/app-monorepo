@@ -16,7 +16,7 @@ import type {
 } from '../../../types';
 import type { MessageDescriptor } from 'react-intl';
 
-export function buildTabName(name: TabRoutes) {
+export function buildAppRootTabName(name: TabRoutes) {
   return `tab-${name}`;
 }
 

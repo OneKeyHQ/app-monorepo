@@ -13,7 +13,7 @@ import { TabRoutes } from '../../../types';
 
 import { tabRoutes } from './routes/tabRoutes';
 import {
-  buildTabName,
+  buildAppRootTabName,
   buildTabNavigatorHeaderRender,
   buildTabScreenHeaderRender,
 } from './tabNavHeader';
@@ -36,7 +36,7 @@ export const getStackTabScreen = (
   const screens: ScreensList<string> = [
     {
       // fix: Found screens with the same name nested inside one another
-      name: buildTabName(tab.name),
+      name: buildAppRootTabName(tab.name),
       component: tab.component,
       alwaysShowBackButton: false,
       i18nTitle: tab.translationId,

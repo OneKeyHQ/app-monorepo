@@ -236,8 +236,6 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   async switchToTokenDetailScreen(params: NotificationExtra['params']) {
     const navigation = getAppNavigation();
-    const width = await this.getWindowWidthInBackground();
-    const isVertical = width < SCREEN_SIZE.MEDIUM;
     const { appSelector, serviceApp } = this.backgroundApi;
     const { activeAccountId: accountId, activeNetworkId: networkId } =
       appSelector((s) => s.general);
@@ -262,32 +260,22 @@ export default class ServiceNotification extends ServiceBase {
 
     const tabScreenName = isToMarketDetail ? TabRoutes.Market : TabRoutes.Home;
 
-    let expandRoutes = [
+    const expandRoutes = [
       RootRoutes.Main,
       MainRoutes.Tab,
       tabScreenName,
       detailScreenName,
     ];
-    let navigationRoutes: any = {
-      screen: RootRoutes.Main,
+    const navigationRoutes: any = {
+      screen: MainRoutes.Tab,
       params: {
-        screen: MainRoutes.Tab,
+        screen: tabScreenName,
         params: {
-          screen: tabScreenName,
-          params: {
-            screen: detailScreenName,
-            params: routerParams,
-          },
+          screen: detailScreenName,
+          params: routerParams,
         },
       },
     };
-    if (isVertical) {
-      expandRoutes = [RootRoutes.Main, detailScreenName];
-      navigationRoutes = {
-        screen: detailScreenName,
-        params: routerParams,
-      };
-    }
     if (platformEnv.isExtension) {
       serviceApp.openExtensionExpandTab({
         routes: expandRoutes,
@@ -309,7 +297,6 @@ export default class ServiceNotification extends ServiceBase {
       if (navigation?.canGoBack()) {
         navigation?.goBack();
       }
-      // @ts-ignore
       navigation?.navigate(RootRoutes.Main, {
         screen: MainRoutes.Tab,
         params: {

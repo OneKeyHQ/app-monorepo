@@ -87,13 +87,14 @@ export type ModalRoutesParams = {
 export type TabRoutesParams = {
   [TabRoutes.Home]: NavigatorScreenParams<HomeRoutesParams> | undefined;
   [TabRoutes.Swap]:
-    | undefined
-    | { inputTokenId?: string; outputTokenId?: string };
-  [TabRoutes.Developer]: undefined;
-  [TabRoutes.Discover]: undefined;
-  [TabRoutes.Me]: undefined;
-  [TabRoutes.Market]: undefined;
-  [TabRoutes.NFT]: undefined;
+    | NavigatorScreenParams<HomeRoutesParams>
+    | { inputTokenId?: string; outputTokenId?: string }
+    | undefined;
+  [TabRoutes.Developer]: NavigatorScreenParams<HomeRoutesParams> | undefined;
+  [TabRoutes.Discover]: NavigatorScreenParams<HomeRoutesParams> | undefined;
+  [TabRoutes.Me]: NavigatorScreenParams<HomeRoutesParams> | undefined;
+  [TabRoutes.Market]: NavigatorScreenParams<HomeRoutesParams> | undefined;
+  [TabRoutes.NFT]: NavigatorScreenParams<HomeRoutesParams> | undefined;
 };
 /** Tab */
 export type MainRoutesParams = {
