@@ -80,7 +80,11 @@ const PopularCard: FC<PopularCardProps> = ({ currency, index, onPress }) => {
             <Typography.Body1Strong color="text-default">
               {`${currency.toLocaleUpperCase()} - ${currencyData.unit ?? '$'}`}
             </Typography.Body1Strong>
-            <Typography.Button2 lineHeight={14} color="text-subdued">
+            <Typography.Button2
+              lineHeight={14}
+              numberOfLines={2}
+              color="text-subdued"
+            >
               {currencyData.name ?? ''}
             </Typography.Button2>
           </Box>
