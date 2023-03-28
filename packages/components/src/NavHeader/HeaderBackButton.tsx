@@ -3,7 +3,7 @@ import type { FC } from 'react';
 
 import { IconButton, useIsVerticalLayout } from '@onekeyhq/components';
 import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import navigationShortcuts from '@onekeyhq/kit/src/routes/navigationShortcuts';
+import { navigationShortcuts } from '@onekeyhq/kit/src/routes/navigationShortcuts';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

@@ -85,7 +85,7 @@ export type ModalRoutesParams = {
 /** Tab */
 
 export type TabRoutesParams = {
-  [TabRoutes.Home]: undefined;
+  [TabRoutes.Home]: NavigatorScreenParams<HomeRoutesParams> | undefined;
   [TabRoutes.Swap]:
     | undefined
     | { inputTokenId?: string; outputTokenId?: string };
@@ -96,7 +96,9 @@ export type TabRoutesParams = {
   [TabRoutes.NFT]: undefined;
 };
 /** Tab */
-
+export type MainRoutesParams = {
+  [MainRoutes.Tab]: NavigatorScreenParams<TabRoutesParams>;
+};
 export type HomeRoutesParams = {
   [HomeRoutes.ScreenTokenDetail]: {
     accountId: string;
@@ -169,7 +171,7 @@ export type HomeRoutesParams = {
 /** Root */
 
 export type RootRoutesParams = {
-  [RootRoutes.Main]: NavigatorScreenParams<HomeRoutesParams> | undefined;
+  [RootRoutes.Main]: NavigatorScreenParams<MainRoutesParams> | undefined;
   [RootRoutes.Modal]: NavigatorScreenParams<ModalRoutesParams>;
   // TODO remove, use HomeRoutes.HomeOnboarding instead
   [RootRoutes.Onboarding]:
