@@ -44,6 +44,7 @@ export type ModalProps = {
     close: () => void;
   }) => void;
   onSecondaryActionPress?: ({ close }: { close: () => void }) => void;
+  extraElement?: ReactNode;
   hidePrimaryAction?: boolean;
   hideSecondaryAction?: boolean;
   primaryActionProps?: ComponentProps<typeof Button>;

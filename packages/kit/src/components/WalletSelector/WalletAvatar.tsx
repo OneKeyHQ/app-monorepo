@@ -163,7 +163,7 @@ export const WalletStatus: FC<Partial<WalletAvatarProps>> = ({
   >
     <Box
       rounded="full"
-      bgColor={status === 'upgrade' ? 'icon-warning' : 'interactive-default'}
+      bgColor={status === 'upgrade' ? 'icon-highlight' : 'interactive-default'}
       size={size === 'xl' || size === 'lg' ? '10px' : '8px'}
     />
   </Box>
