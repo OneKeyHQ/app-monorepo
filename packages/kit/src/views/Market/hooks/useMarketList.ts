@@ -6,8 +6,11 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
-import { TabRoutes } from '../../../routes/routesEnum';
-import { MARKET_FAVORITES_CATEGORYID } from '../../../store/reducers/market';
+import {
+  MARKET_FAVORITES_CATEGORYID,
+  MARKET_TAB_NAME,
+  SWAP_TAB_NAME,
+} from '../../../store/reducers/market';
 
 import { useMarketSelectedCategory } from './useMarketCategory';
 import { useMarketMidLayout } from './useMarketLayout';
@@ -18,7 +21,7 @@ export const useListSort = () => {
 };
 
 export const useMarketTopTabName = () =>
-  useAppSelector((s) => s.market.marktTobTapName);
+  useAppSelector((s) => s.market.marketTopTabName) || SWAP_TAB_NAME;
 
 const useMarketCategoryCoingeckoIds = () => {
   const selectedCategory = useMarketSelectedCategory();
@@ -57,7 +60,7 @@ export const useMarketList = ({
     if (
       isFocused &&
       selectedCategory?.categoryId &&
-      marktTopTabName === TabRoutes.Market &&
+      marktTopTabName === MARKET_TAB_NAME &&
       checkFavoritesFetch
     ) {
       if (!listSort) {
