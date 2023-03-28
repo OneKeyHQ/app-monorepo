@@ -25,10 +25,7 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import type {
-  SubmitRequestModalRoutesParams,
-  SubmitRequestRoutes,
-} from '@onekeyhq/kit/src/routes';
+import type { SubmitRequestModalRoutesParams } from '@onekeyhq/kit/src/routes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SkipAppLock } from '../../../components/AppLock';
@@ -37,6 +34,7 @@ import { useNavigationBack } from '../../../hooks/useAppNavigation';
 
 import { requestTicketDetail, submitUri, uploadImage } from './TicketService';
 
+import type { SubmitRequestModalRoutes } from '../../../routes/routesEnum';
 import type { ImageModel, TicketType } from './types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -84,7 +82,7 @@ const valueWithOption = (option: string): string => {
 
 type NavigationProps = NativeStackNavigationProp<
   SubmitRequestModalRoutesParams,
-  SubmitRequestRoutes.SubmitRequestModal
+  SubmitRequestModalRoutes.SubmitRequestModal
 >;
 
 type ImageProps = {

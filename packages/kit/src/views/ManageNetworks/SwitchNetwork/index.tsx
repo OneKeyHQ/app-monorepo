@@ -20,12 +20,15 @@ import useDappParams from '../../../hooks/useDappParams';
 import { NetworkIcon } from '../components/NetworkIcon';
 import { SiteSection } from '../components/SiteSection';
 
-import type { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+import type {
+  ManageNetworkModalRoutes,
+  ManageNetworkRoutesParams,
+} from '../types';
 import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.SwitchNetwork
+  ManageNetworkModalRoutes.SwitchNetwork
 >;
 
 export type IViewNetworkModalProps = ModalProps & { network?: Network };

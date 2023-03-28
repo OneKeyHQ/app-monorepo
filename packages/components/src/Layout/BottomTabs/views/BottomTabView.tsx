@@ -14,7 +14,7 @@ import { Platform, StyleSheet } from 'react-native';
 import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 
 import NavigationBar from '../../NavigationBar';
-import { getTabBarHeight } from '../../NavigationBar/Mobile';
+import { getTabBarHeight } from '../../NavigationBar/MobileTabBar';
 import BottomTabBarHeightCallbackContext from '../utils/BottomTabBarHeightCallbackContext';
 import BottomTabBarHeightContext from '../utils/BottomTabBarHeightContext';
 
@@ -114,6 +114,8 @@ export default function BottomTabView(props: Props) {
             ),
           } = descriptor.options;
 
+          // @ts-ignore
+          // @ts-ignore
           return (
             <MaybeScreen
               key={route.key}

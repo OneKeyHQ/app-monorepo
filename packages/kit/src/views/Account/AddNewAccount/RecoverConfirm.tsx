@@ -12,10 +12,7 @@ import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
-import type {
-  CreateAccountModalRoutes,
-  CreateAccountRoutesParams,
-} from '@onekeyhq/kit/src/routes';
+import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -23,6 +20,7 @@ import { toPlainErrorObject } from '@onekeyhq/shared/src/utils/errorUtils';
 
 import { wait } from '../../../utils/helper';
 
+import type { CreateAccountModalRoutes } from '../../../routes/routesEnum';
 import type { AdvancedValues, RecoverAccountType } from './types';
 import type { RouteProp } from '@react-navigation/native';
 

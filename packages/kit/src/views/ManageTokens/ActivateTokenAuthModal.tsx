@@ -11,7 +11,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import Protected, { ValidationFields } from '../../components/Protected';
 
-import type { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
+import type { ManageTokenModalRoutes } from '../../routes/routesEnum';
+import type { ManageTokenRoutesParams } from './types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 export type EnableLocalAuthenticationProps = {
@@ -66,7 +67,7 @@ const Done: FC<EnableLocalAuthenticationProps> = ({
 
 type NavigationProps = NativeStackScreenProps<
   ManageTokenRoutesParams,
-  ManageTokenRoutes.ActivateToken
+  ManageTokenModalRoutes.ActivateToken
 >;
 
 const ActivateTokenAuthModal: FC<NavigationProps> = ({ route }) => {

@@ -36,10 +36,8 @@ import { DappSecurityView } from '../Send/components/DappSecurityView';
 
 import RugConfirmDialog from './RugConfirmDialog';
 
-import type {
-  DappConnectionModalRoutes,
-  DappConnectionRoutesParams,
-} from './types';
+import type { DappConnectionModalRoutes } from '../../routes/routesEnum';
+import type { DappConnectionRoutesParams } from './types';
 import type { RouteProp } from '@react-navigation/core';
 
 const MockData = {

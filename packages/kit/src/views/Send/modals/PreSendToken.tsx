@@ -11,7 +11,7 @@ import AssetsList from '../../Wallet/AssetsList';
 import SendNFTList from '../../Wallet/NFT/SendNFTList';
 import { BaseSendModal } from '../components/BaseSendModal';
 import SendTokenTabView from '../components/SendTokenTabView';
-import { SendRoutes } from '../types';
+import { SendModalRoutes } from '../types';
 import { useReloadAccountBalance } from '../utils/useReloadAccountBalance';
 
 import type { SendRoutesParams } from '../types';
@@ -20,9 +20,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
-  SendRoutes.PreSendToken
+  SendModalRoutes.PreSendToken
 >;
-type RouteProps = RouteProp<SendRoutesParams, SendRoutes.PreSendToken>;
+type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.PreSendToken>;
 
 function PreSendTokenScreen() {
   const intl = useIntl();
@@ -63,7 +63,7 @@ function PreSendTokenScreen() {
           }}
           onTokenPress={({ token }) => {
             navigation.navigate(
-              SendRoutes.PreSendAddress,
+              SendModalRoutes.PreSendAddress,
               merge(
                 {
                   from: '',

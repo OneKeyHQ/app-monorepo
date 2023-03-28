@@ -6,13 +6,16 @@ import { Box, Center, Icon, Typography } from '@onekeyhq/components';
 import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnboardingRequired';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { DecodeTxButtonTest } from '../components/DecodeTxButtonTest';
-import { SendRoutes } from '../types';
+import { SendModalRoutes } from '../types';
 import { useSendConfirmRouteParamsParsed } from '../utils/useSendConfirmRouteParamsParsed';
 
 import type { SendRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/native';
 
-type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendSpecialWarning>;
+type RouteProps = RouteProp<
+  SendRoutesParams,
+  SendModalRoutes.SendSpecialWarning
+>;
 
 // Remind whether to continue
 export const SendSpecialWarning = () => {
@@ -36,7 +39,7 @@ export const SendSpecialWarning = () => {
       hideSecondaryAction
       onPrimaryActionPress={() => {
         sendConfirmParamsParsed.navigation.navigate(
-          SendRoutes.SendAuthentication,
+          SendModalRoutes.SendAuthentication,
           params,
         );
       }}

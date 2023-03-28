@@ -19,14 +19,14 @@ import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
-import { ManageNetworkRoutes } from '../../views/ManageNetworks/types';
+import { ManageNetworkModalRoutes } from '../../views/ManageNetworks/types';
 
 import type { RootRoutesParams } from '../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
-  RootRoutes.Root
+  RootRoutes.Main
 >;
 const ChainSelector: FC = () => {
   const intl = useIntl();
@@ -82,7 +82,7 @@ const ChainSelector: FC = () => {
           setTimeout(() => {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.ManageNetwork,
-              params: { screen: ManageNetworkRoutes.Listing },
+              params: { screen: ManageNetworkModalRoutes.Listing },
             });
           }, 500);
         }}

@@ -9,8 +9,8 @@ import {
   Typography,
   useTheme,
 } from '@onekeyhq/components';
+import { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

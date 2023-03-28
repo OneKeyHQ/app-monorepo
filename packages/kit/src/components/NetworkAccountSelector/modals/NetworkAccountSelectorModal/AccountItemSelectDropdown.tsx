@@ -13,9 +13,12 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useAppSelector } from '../../../../hooks';
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { useCopyAddress } from '../../../../hooks/useCopyAddress';
-import { CreateAccountModalRoutes } from '../../../../routes/Modal/CreateAccount';
-import { ManagerAccountModalRoutes } from '../../../../routes/Modal/ManagerAccount';
-import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
+import {
+  CreateAccountModalRoutes,
+  ManagerAccountModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../../routes/routesEnum';
 import { refreshAccountSelector } from '../../../../store/reducers/refresher';
 import AccountModifyNameDialog from '../../../../views/ManagerAccount/ModifyAccount';
 import useRemoveAccountDialog from '../../../../views/ManagerAccount/RemoveAccount';

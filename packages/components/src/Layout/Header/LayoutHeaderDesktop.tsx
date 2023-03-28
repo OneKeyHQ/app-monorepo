@@ -58,6 +58,7 @@ export function LayoutHeaderDesktop({
 
   return (
     <LayoutHeader
+      testID="App-Layout-Header-Desktop"
       showOnDesktop
       // headerLeft={() => <AccountSelector />}
       // headerLeft={() => null}

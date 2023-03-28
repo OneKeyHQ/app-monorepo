@@ -9,8 +9,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
-import { SendRoutes } from '../../../routes';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { SendModalRoutes } from '../../Send/enums';
 
 import type { TransactionDetailRoutesParams } from '../../../routes';
 import type { ModalScreenProps } from '../../../routes/types';
@@ -130,7 +130,7 @@ async function doSpeedUpOrCancelTx(props: {
   navigation.navigate(RootRoutes.Modal, {
     screen: ModalRoutes.Send,
     params: {
-      screen: SendRoutes.SendConfirm,
+      screen: SendModalRoutes.SendConfirm,
       params: cloneDeep(params),
     },
   });

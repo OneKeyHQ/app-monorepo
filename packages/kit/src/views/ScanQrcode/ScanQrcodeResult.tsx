@@ -18,7 +18,7 @@ import {
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
+import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';

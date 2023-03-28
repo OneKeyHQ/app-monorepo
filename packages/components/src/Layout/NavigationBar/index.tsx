@@ -1,15 +1,15 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
-import Desktop from './Desktop';
-import Mobile from './Mobile';
+import DesktopSideBar from './DesktopSideBar';
+import MobileTabBar from './MobileTabBar';
 
-import type { BottomTabBarProps } from '../BottomTabs/types';
+import type { BottomTabBarProps } from '../BottomTabs';
 
 export default function NavigationBar(props: BottomTabBarProps) {
   const isSmallLayout = useIsVerticalLayout();
 
   if (isSmallLayout) {
-    return <Mobile {...props} />;
+    return <MobileTabBar {...props} />;
   }
-  return <Desktop {...props} />;
+  return <DesktopSideBar {...props} />;
 }

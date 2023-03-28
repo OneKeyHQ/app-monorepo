@@ -17,15 +17,13 @@ import {
 } from '@onekeyhq/components';
 import OnekeyMiniEnterPin from '@onekeyhq/kit/assets/animations/lottie_hardware_onekey_classic_enter_pin_code.json';
 // import OnekeyClassicEnterPin from '@onekeyhq/kit/assets/animations/lottie_hardware_onekey_mini_enter_pin_code.json';
-import type {
-  OnekeyHardwareModalRoutes,
-  OnekeyHardwareRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
+import type { OnekeyHardwareRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareOnekey';
+import { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import type { OnekeyHardwareModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type {
   ModalScreenProps,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -129,7 +127,7 @@ const OnekeyHardwarePinCode: FC = () => {
 
   const handleCloseSetup = () => {
     // Create wallet and account from device
-    navigation.navigate(RootRoutes.Root);
+    navigation.navigate(RootRoutes.Main);
   };
 
   return (

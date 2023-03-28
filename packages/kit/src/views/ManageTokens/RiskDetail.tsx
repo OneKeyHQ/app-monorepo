@@ -28,12 +28,13 @@ import { openUrl } from '../../utils/openUrl';
 
 import { useTokenSecurityInfo } from './hooks';
 
-import type { ManageTokenRoutes, ManageTokenRoutesParams } from './types';
+import type { ManageTokenModalRoutes } from '../../routes/routesEnum';
+import type { ManageTokenRoutesParams } from './types';
 import type { RouteProp } from '@react-navigation/native';
 
 type NavigationProps = RouteProp<
   ManageTokenRoutesParams,
-  ManageTokenRoutes.TokenRiskDetail
+  ManageTokenModalRoutes.TokenRiskDetail
 >;
 
 const RiskDetail: FC = () => {

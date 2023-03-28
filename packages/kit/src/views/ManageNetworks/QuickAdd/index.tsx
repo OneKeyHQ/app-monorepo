@@ -22,14 +22,14 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useDebounce, useManageNetworks } from '../../../hooks';
-import { ManageNetworkRoutes } from '../types';
+import { ManageNetworkModalRoutes } from '../types';
 
 import type { ManageNetworkRoutesParams } from '../types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.Listing
+  ManageNetworkModalRoutes.Listing
 >;
 
 export const ManageNetworkQuickAdd: FC = () => {
@@ -106,7 +106,7 @@ export const ManageNetworkQuickAdd: FC = () => {
         }
       }
       setCurrentChain(null);
-      navigation.navigate(ManageNetworkRoutes.AddNetwork, {
+      navigation.navigate(ManageNetworkModalRoutes.AddNetwork, {
         mode: 'add',
         network: {
           name: chain.name ?? '',

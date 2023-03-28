@@ -2,10 +2,8 @@ import { useCallback } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 
-import type {
-  BackupWalletModalRoutes,
-  BackupWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import type { BackupWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/BackupWallet';
+import type { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { updateWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';

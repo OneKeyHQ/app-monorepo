@@ -27,17 +27,17 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { FormatBalance } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import { useTokenBalance } from '../../../hooks/useTokens';
-import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
+import { FiatPayModalRoutes } from '../../../routes/routesEnum';
 import { useFiatPayTokens } from '../../ManageTokens/hooks';
 
-import type { FiatPayModalRoutesParams } from '../../../routes/Modal/FiatPay';
+import type { FiatPayModalRoutesParams } from '../../../routes/Root/Modal/FiatPay';
 import type { FiatPayModeType } from '../types';
 import type { RouteProp } from '@react-navigation/native';
 import type { ListRenderItem } from 'react-native';
 
 type RouteProps = RouteProp<
   FiatPayModalRoutesParams,
-  FiatPayRoutes.SupportTokenListModal
+  FiatPayModalRoutes.SupportTokenListModal
 >;
 
 const options = {
@@ -116,7 +116,7 @@ const TokenListCell: FC<ListCellProps> = ({
       networkId,
     });
     if (signedUrl.length > 0) {
-      navigation.navigate(FiatPayRoutes.MoonpayWebViewModal, {
+      navigation.navigate(FiatPayModalRoutes.MoonpayWebViewModal, {
         url: signedUrl,
       });
     }
@@ -151,7 +151,7 @@ const TokenListCell: FC<ListCellProps> = ({
   );
 };
 
-export const SupportTokenList: FC = () => {
+const SupportTokenList: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { networkId, accountId, type = 'buy' } = route.params;

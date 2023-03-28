@@ -13,7 +13,7 @@ export function createLazyKitProviderLegacy({
     useEffect(() => {
       setTimeout(() => {
         // KitProviderMock index
-        import('./index').then((module) => {
+        import('./KitProvider').then((module) => {
           const KitProvider = module.default;
           setCmp(<KitProvider {...propsRef.current} />);
         });
@@ -39,7 +39,7 @@ export function createLazyKitProvider({
 }: {
   displayName?: string;
 } = {}) {
-  const KitProvider = require('./index');
+  const KitProvider = require('./KitProvider');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-member-access
   return KitProvider.default;
 }

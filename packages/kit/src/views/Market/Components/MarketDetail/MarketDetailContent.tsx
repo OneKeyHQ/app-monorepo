@@ -14,7 +14,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { MarketTokenDetail } from '@onekeyhq/kit/src/store/reducers/market';
-import { SWAP_TAB_NAME } from '@onekeyhq/kit/src/store/reducers/market';
 
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
@@ -30,7 +29,6 @@ const MarketDetailActionButton = ({
   const marketTokenItem = useMarketTokenItem({ coingeckoId: marketTokenId });
   const navigation = useNavigation();
   const onBack = useCallback(() => {
-    backgroundApiProxy.serviceMarket.switchMarketTopTab(SWAP_TAB_NAME);
     if (navigation?.canGoBack?.()) {
       navigation?.goBack();
     }

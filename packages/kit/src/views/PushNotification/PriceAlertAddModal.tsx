@@ -25,21 +25,19 @@ import { useSettings } from '../../hooks/redux';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 import { PreSendAmountPreview } from '../Send/modals/PreSendAmount';
 
-import type {
-  ManageTokenRoutes,
-  ManageTokenRoutesParams,
-} from '../ManageTokens/types';
+import type { ManageTokenModalRoutes } from '../../routes/routesEnum';
+import type { ManageTokenRoutesParams } from '../ManageTokens/types';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
-  ManageTokenRoutes.PriceAlertList
+  ManageTokenModalRoutes.PriceAlertList
 >;
 
 type RouteProps = RouteProp<
   ManageTokenRoutesParams,
-  ManageTokenRoutes.PriceAlertAdd
+  ManageTokenModalRoutes.PriceAlertAdd
 >;
 
 export const PriceAlertAddModal: FC = () => {

@@ -25,7 +25,7 @@ import DialogManager from '@onekeyhq/components/src/DialogManager';
 import { MigrateErrorCode } from '@onekeyhq/engine/src/types/migrate';
 import type { DeviceInfo } from '@onekeyhq/engine/src/types/migrate';
 import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
-import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 

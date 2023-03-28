@@ -1,21 +1,11 @@
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
 import type { Token, TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 
-export enum ManageTokenRoutes {
-  Listing = 'ListTokensModal',
-  AddToken = 'AddToken',
-  ActivateToken = 'ActivateToken',
-  ViewToken = 'ViewToken',
-  CustomToken = 'CustomToken',
-  VerifiedToken = 'VerifiedToken',
-  PriceAlertList = 'PriceAlertList',
-  PriceAlertAdd = 'PriceAlertAdd',
-  TokenRiskDetail = 'TokenRiskDetail',
-}
+import type { ManageTokenModalRoutes } from '../../routes/routesEnum';
 
 export type ManageTokenRoutesParams = {
-  [ManageTokenRoutes.Listing]: undefined;
-  [ManageTokenRoutes.AddToken]:
+  [ManageTokenModalRoutes.Listing]: undefined;
+  [ManageTokenModalRoutes.AddToken]:
     | {
         name: string;
         symbol: string;
@@ -27,7 +17,7 @@ export type ManageTokenRoutesParams = {
         riskLevel: TokenRiskLevel;
       }
     | { query: string };
-  [ManageTokenRoutes.ActivateToken]: {
+  [ManageTokenModalRoutes.ActivateToken]: {
     walletId: string;
     accountId: string;
     networkId: string;
@@ -35,7 +25,7 @@ export type ManageTokenRoutesParams = {
     onSuccess?: () => void;
     onFailure?: (error?: Error) => void;
   };
-  [ManageTokenRoutes.ViewToken]: {
+  [ManageTokenModalRoutes.ViewToken]: {
     name: string;
     symbol: string;
     address: string;
@@ -45,20 +35,20 @@ export type ManageTokenRoutesParams = {
     sendAddress?: string;
     riskLevel?: TokenRiskLevel;
   };
-  [ManageTokenRoutes.VerifiedToken]: {
+  [ManageTokenModalRoutes.VerifiedToken]: {
     token: Partial<Token>;
   };
-  [ManageTokenRoutes.CustomToken]:
+  [ManageTokenModalRoutes.CustomToken]:
     | { address?: string; networkId?: string; sendAddress?: string }
     | undefined;
-  [ManageTokenRoutes.PriceAlertList]: {
+  [ManageTokenModalRoutes.PriceAlertList]: {
     price: number;
     token: Token;
   };
-  [ManageTokenRoutes.TokenRiskDetail]: {
+  [ManageTokenModalRoutes.TokenRiskDetail]: {
     token: Partial<Token>;
   };
-  [ManageTokenRoutes.PriceAlertAdd]: {
+  [ManageTokenModalRoutes.PriceAlertAdd]: {
     price: number;
     token: Token;
     alerts: PriceAlertItem[];

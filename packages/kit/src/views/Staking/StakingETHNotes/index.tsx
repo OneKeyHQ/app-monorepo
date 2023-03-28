@@ -12,7 +12,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useActiveWalletAccount, useNativeToken } from '../../../hooks';
 import { getActiveWalletAccount } from '../../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
-import { SendRoutes } from '../../Send/types';
+import { SendModalRoutes } from '../../Send/types';
 import { useKelePoolStakingState } from '../hooks';
 
 import type { StakingRoutes, StakingRoutesParams } from '../typing';
@@ -56,7 +56,7 @@ export default function StakingETHNotes() {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
-          screen: SendRoutes.SendConfirm,
+          screen: SendModalRoutes.SendConfirm,
           params: {
             networkId,
             accountId,

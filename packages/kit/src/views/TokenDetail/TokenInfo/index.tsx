@@ -19,23 +19,24 @@ import {
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import { FiatPayRoutes } from '@onekeyhq/kit/src/routes/Modal/FiatPay';
-import { ReceiveTokenRoutes } from '@onekeyhq/kit/src/routes/Modal/routes';
-import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Modal/types';
+import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/types';
+import {
+  FiatPayModalRoutes,
+  ManageTokenModalRoutes,
+  ReceiveTokenModalRoutes,
+  SendModalRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import {
   ModalRoutes,
   RootRoutes,
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokensBalance } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
-import { SWAP_TAB_NAME } from '../../../store/reducers/market';
-import { ManageTokenRoutes } from '../../ManageTokens/types';
 
 import { PriceCurrencyNumber } from './PriceCurrencyNumber';
 
@@ -98,7 +99,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.FiatPay,
         params: {
-          screen: FiatPayRoutes.MoonpayWebViewModal,
+          screen: FiatPayModalRoutes.MoonpayWebViewModal,
           params: {
             url: signedUrl,
           },
@@ -125,7 +126,6 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
       }
     }
     if (isVertical) {
-      backgroundApiProxy.serviceMarket.switchMarketTopTab(SWAP_TAB_NAME);
       navigation.getParent()?.navigate(TabRoutes.Market);
     } else {
       navigation.getParent()?.navigate(TabRoutes.Swap);
@@ -210,7 +210,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.Send,
                 params: {
-                  screen: SendRoutes.PreSendAddress,
+                  screen: SendModalRoutes.PreSendAddress,
                   params: {
                     accountId,
                     networkId,
@@ -245,7 +245,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.Receive,
                 params: {
-                  screen: ReceiveTokenRoutes.ReceiveToken,
+                  screen: ReceiveTokenModalRoutes.ReceiveToken,
                   params: {},
                 },
               });
@@ -347,7 +347,7 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
                   navigation.navigate(RootRoutes.Modal, {
                     screen: ModalRoutes.ManageToken,
                     params: {
-                      screen: ManageTokenRoutes.PriceAlertList,
+                      screen: ManageTokenModalRoutes.PriceAlertList,
                       params: {
                         price,
                         token: token as TokenDO,

@@ -28,6 +28,7 @@ import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/t
 import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   HomeRoutes,
+  MainRoutes,
   RootRoutes,
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
@@ -262,16 +263,15 @@ export default class ServiceNotification extends ServiceBase {
     const tabScreenName = isToMarketDetail ? TabRoutes.Market : TabRoutes.Home;
 
     let expandRoutes = [
-      RootRoutes.Root,
-      HomeRoutes.InitialTab,
-      RootRoutes.Tab,
+      RootRoutes.Main,
+      MainRoutes.Tab,
       tabScreenName,
       detailScreenName,
     ];
     let navigationRoutes: any = {
-      screen: HomeRoutes.InitialTab,
+      screen: RootRoutes.Main,
       params: {
-        screen: RootRoutes.Tab,
+        screen: MainRoutes.Tab,
         params: {
           screen: tabScreenName,
           params: {
@@ -282,7 +282,7 @@ export default class ServiceNotification extends ServiceBase {
       },
     };
     if (isVertical) {
-      expandRoutes = [RootRoutes.Root, detailScreenName];
+      expandRoutes = [RootRoutes.Main, detailScreenName];
       navigationRoutes = {
         screen: detailScreenName,
         params: routerParams,
@@ -294,7 +294,7 @@ export default class ServiceNotification extends ServiceBase {
         params: routerParams,
       });
     } else {
-      navigation?.navigate(RootRoutes.Root, navigationRoutes);
+      navigation?.navigate(RootRoutes.Main, navigationRoutes);
     }
   }
 
@@ -309,8 +309,12 @@ export default class ServiceNotification extends ServiceBase {
       if (navigation?.canGoBack()) {
         navigation?.goBack();
       }
-      navigation?.navigate(RootRoutes.Tab, {
-        screen: tabScreenName,
+      // @ts-ignore
+      navigation?.navigate(RootRoutes.Main, {
+        screen: MainRoutes.Tab,
+        params: {
+          screen: tabScreenName,
+        },
       });
       await wait(600);
     }
@@ -318,11 +322,11 @@ export default class ServiceNotification extends ServiceBase {
       case HomeRoutes.ScreenTokenDetail:
         this.switchToTokenDetailScreen(params);
         break;
-      case HomeRoutes.InitialTab:
+      case RootRoutes.Main:
         dispatch(setHomeTabName(WalletHomeTabEnum.History));
         if (platformEnv.isExtension) {
           serviceApp.openExtensionExpandTab({
-            routes: [RootRoutes.Tab, TabRoutes.Home],
+            routes: [MainRoutes.Tab, TabRoutes.Home],
           });
         }
         break;

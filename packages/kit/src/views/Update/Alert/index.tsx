@@ -13,8 +13,11 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAutoUpdate } from '@onekeyhq/kit/src/hooks/redux';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { UpdateFeatureModalRoutes } from '@onekeyhq/kit/src/routes/Modal/UpdateFeature';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import {
+  ModalRoutes,
+  RootRoutes,
+  UpdateFeatureModalRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 import { disable } from '@onekeyhq/kit/src/store/reducers/autoUpdater';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

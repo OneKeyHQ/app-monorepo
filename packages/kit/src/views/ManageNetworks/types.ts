@@ -3,26 +3,26 @@ import type {
   SwitchRpcParams,
 } from '@onekeyhq/engine/src/types/network';
 
-import { ManageNetworkRoutes } from '../../routes/routesEnum';
+import { ManageNetworkModalRoutes } from '../../routes/routesEnum';
 
-export { ManageNetworkRoutes };
+export { ManageNetworkModalRoutes };
 
 export type ManageNetworkRoutesParams = {
-  [ManageNetworkRoutes.NetworkAccountSelector]: undefined;
-  [ManageNetworkRoutes.NetworkSelector]:
+  [ManageNetworkModalRoutes.NetworkAccountSelector]: undefined;
+  [ManageNetworkModalRoutes.NetworkSelector]:
     | undefined
     | {
         networkImpl?: string;
       };
-  [ManageNetworkRoutes.Listing]: { onEdited?: () => void } | undefined;
-  [ManageNetworkRoutes.AddNetwork]: {
+  [ManageNetworkModalRoutes.Listing]: { onEdited?: () => void } | undefined;
+  [ManageNetworkModalRoutes.AddNetwork]: {
     mode?: 'add' | 'edit';
     network?: AddEVMNetworkParams & {
       id?: string;
     };
   };
-  [ManageNetworkRoutes.SwitchRpc]: SwitchRpcParams | { query: string };
-  [ManageNetworkRoutes.CustomNetwork]: {
+  [ManageNetworkModalRoutes.SwitchRpc]: SwitchRpcParams | { query: string };
+  [ManageNetworkModalRoutes.CustomNetwork]: {
     id: string;
     name?: string;
     rpcURL?: string;
@@ -30,7 +30,7 @@ export type ManageNetworkRoutesParams = {
     symbol?: string;
     exploreUrl?: string;
   };
-  [ManageNetworkRoutes.PresetNetwork]: {
+  [ManageNetworkModalRoutes.PresetNetwork]: {
     id: string;
     name?: string;
     rpcURL?: string;
@@ -39,7 +39,7 @@ export type ManageNetworkRoutesParams = {
     exploreUrl?: string;
     impl?: string;
   };
-  [ManageNetworkRoutes.AddNetworkConfirm]:
+  [ManageNetworkModalRoutes.AddNetworkConfirm]:
     | {
         id: string;
         name?: string;
@@ -50,11 +50,11 @@ export type ManageNetworkRoutesParams = {
         iconUrl?: string;
       }
     | { query: string };
-  [ManageNetworkRoutes.SwitchNetwork]: { query: string };
+  [ManageNetworkModalRoutes.SwitchNetwork]: { query: string };
 
-  [ManageNetworkRoutes.RPCNode]: { networkId: string };
+  [ManageNetworkModalRoutes.RPCNode]: { networkId: string };
 
-  [ManageNetworkRoutes.QuickAdd]: undefined;
+  [ManageNetworkModalRoutes.QuickAdd]: undefined;
 
-  [ManageNetworkRoutes.Sort]: undefined;
+  [ManageNetworkModalRoutes.Sort]: undefined;
 };

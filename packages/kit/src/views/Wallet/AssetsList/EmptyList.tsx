@@ -5,9 +5,12 @@ import { Box, Button, Center, Icon, Typography } from '@onekeyhq/components';
 import type { INetwork } from '@onekeyhq/engine/src/types';
 
 import { useActiveWalletAccount, useNavigation } from '../../../hooks';
-import { FiatPayRoutes } from '../../../routes/Modal/FiatPay';
-import { ManageTokenRoutes } from '../../../routes/Modal/ManageToken';
-import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import {
+  FiatPayModalRoutes,
+  ManageTokenModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../routes/routesEnum';
 
 function EmptyListOfAccount({
   network,
@@ -29,7 +32,7 @@ function EmptyListOfAccount({
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.FiatPay,
             params: {
-              screen: FiatPayRoutes.SupportTokenListModal,
+              screen: FiatPayModalRoutes.SupportTokenListModal,
               params: {
                 networkId: network?.id ?? '',
                 accountId,
@@ -76,7 +79,7 @@ function EmptyListOfAccount({
         onPress={() => {
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.ManageToken,
-            params: { screen: ManageTokenRoutes.Listing },
+            params: { screen: ManageTokenModalRoutes.Listing },
           });
         }}
       >

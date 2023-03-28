@@ -84,6 +84,7 @@ const NavHeader: FC<HeaderProps & Partial<NativeStackHeaderProps>> = ({
         ]}
       />
       <View
+        testID={`App-General-Nav-Header--${route?.name || ''}`}
         pointerEvents="box-none"
         style={[
           {

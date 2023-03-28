@@ -14,10 +14,13 @@ import { useActiveSideAccount, useInterval } from '../../../hooks';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { BaseSendModal } from '../components/BaseSendModal';
 
-import type { SendRoutes, SendRoutesParams } from '../types';
+import type { SendModalRoutes, SendRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/native';
 
-type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendFeedbackReceipt>;
+type RouteProps = RouteProp<
+  SendRoutesParams,
+  SendModalRoutes.SendFeedbackReceipt
+>;
 
 export function SendFeedbackReceipt() {
   const intl = useIntl();

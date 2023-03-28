@@ -28,7 +28,7 @@ export function useNavigationGoHomeForceReload() {
   return useCallback(() => {
     if (platformEnv.isRuntimeBrowser && !platformEnv.isExtensionBackground) {
       // navigate() not working
-      navigation.navigate(RootRoutes.Root);
+      navigation.navigate(RootRoutes.Main);
       if (
         platformEnv.isWeb ||
         platformEnv.isExtensionUiExpandTab ||
@@ -43,7 +43,7 @@ export function useNavigationGoHomeForceReload() {
         window.location.reload();
       }
     } else {
-      navigation.navigate(RootRoutes.Root);
+      navigation.navigate(RootRoutes.Main);
     }
   }, [navigation]);
 }

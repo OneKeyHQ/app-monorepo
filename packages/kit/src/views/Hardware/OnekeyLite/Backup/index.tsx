@@ -15,7 +15,7 @@ import { ToastManager } from '@onekeyhq/components';
 import type { ButtonType } from '@onekeyhq/components/src/Button';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes';
-import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
+import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { updateWallet } from '@onekeyhq/kit/src/store/reducers/runtime';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';

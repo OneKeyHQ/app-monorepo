@@ -14,10 +14,10 @@ import {
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTAsset, NFTPNL } from '@onekeyhq/engine/src/types/nft';
-import { CollectiblesModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import useFormatDate from '../../../../../hooks/useFormatDate';
+import { CollectiblesModalRoutes } from '../../../../../routes/routesEnum';
 import NFTListImage from '../../../../Wallet/NFT/NFTList/NFTListImage';
 import { PriceString } from '../../../PriceText';
 

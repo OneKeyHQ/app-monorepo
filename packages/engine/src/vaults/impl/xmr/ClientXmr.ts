@@ -17,7 +17,6 @@ import type {
   FeePricePerUnit,
   TransactionStatus,
 } from '../../../types/provider';
-import type { MoneroTxPriorityEnum } from './types';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum RPC_METHODS {

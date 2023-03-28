@@ -25,7 +25,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useDebounce } from '../../../hooks';
 import { RpcNodePattern } from '../constants';
-import { ManageNetworkRoutes } from '../types';
+import { ManageNetworkModalRoutes } from '../types';
 
 import type { ManageNetworkRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/native';
@@ -33,12 +33,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RouteProps = RouteProp<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.AddNetwork
+  ManageNetworkModalRoutes.AddNetwork
 >;
 
 type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.Listing
+  ManageNetworkModalRoutes.Listing
 >;
 
 type NetworkValues = {
@@ -172,7 +172,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
           title: intl.formatMessage({ id: 'msg__network_added' }),
         });
       }
-      navigation.navigate(ManageNetworkRoutes.Listing);
+      navigation.navigate(ManageNetworkModalRoutes.Listing);
     },
     [intl, serviceNetwork, navigation, route, network?.id],
   );
@@ -182,7 +182,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
   }, []);
 
   const toQuickAddPage = useCallback(() => {
-    navigation.navigate(ManageNetworkRoutes.QuickAdd);
+    navigation.navigate(ManageNetworkModalRoutes.QuickAdd);
   }, [navigation]);
 
   const onRemove = useCallback(async () => {

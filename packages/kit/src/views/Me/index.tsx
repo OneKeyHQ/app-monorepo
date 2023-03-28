@@ -1,6 +1,7 @@
 import { Box, ScrollView, useSafeAreaInsets } from '@onekeyhq/components';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import HelpSelector from '../Help/HelpSelector';
 
 import { AboutSection } from './AboutSection';
@@ -12,9 +13,11 @@ import { PushSection } from './PushSection';
 import { SecuritySection } from './SecuritySection';
 import { UtilSection } from './UtilSection';
 
-export const Me = () => {
+export const Me = (options: any) => {
+  // useHideTabNavigatorHeader();
   const { enable: devModeEnable } = useSettings().devMode || {};
 
+  console.log('me options >>>>', options);
   const inset = useSafeAreaInsets();
 
   return (
