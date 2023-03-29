@@ -70,6 +70,7 @@ function HeaderSmall({
   // const tabName = useMarketTopTabName();
   // const marketTopTabName = useMarketTopTabName();
   const intl = useIntl();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useNavigation<NavigationProps>();
   return (
     <Box

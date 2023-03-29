@@ -16,10 +16,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { MarketTokenDetail } from '@onekeyhq/kit/src/store/reducers/market';
 
 import { TabRoutes } from '../../../../routes/routesEnum';
-import {
-  HistoryRequestModalRoutesParams,
-  HistoryRequestRoutes,
-} from '../../../Help/Request/types';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
 import { MarketDetailComponent } from './MarketDetailComponent';

@@ -4,7 +4,6 @@ import { pick } from 'lodash';
 import memoizee from 'memoizee';
 import { Dimensions } from 'react-native';
 
-import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import type {
   AddPriceAlertConfig,
   NotificationExtra,
@@ -284,6 +283,7 @@ export default class ServiceNotification extends ServiceBase {
     } else {
       navigation?.navigate(RootRoutes.Main, navigationRoutes);
     }
+    return Promise.resolve(undefined);
   }
 
   @backgroundMethod()
