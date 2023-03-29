@@ -224,7 +224,10 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
         id: 'action__copy_address',
         onPress: () => {
           setTimeout(() => {
-            copyAddress(account?.address);
+            copyAddress({
+              address: account?.address,
+              displayAddress: account?.displayAddress,
+            });
           });
         },
         icon: 'Square2StackMini',

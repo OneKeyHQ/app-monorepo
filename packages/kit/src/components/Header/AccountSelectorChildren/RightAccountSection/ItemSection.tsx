@@ -70,7 +70,10 @@ const AccountSectionItem: FC<Props> = ({
     (value) => {
       switch (value) {
         case 'copy':
-          copyAddress(item.displayAddress ?? item.address);
+          copyAddress({
+            address: item.address,
+            displayAddress: item.displayAddress,
+          });
           break;
         case 'rename':
           DialogManager.show({

@@ -173,7 +173,7 @@ const BitcoinUsedAddress: FC = () => {
 
   const onCopyAddress = useCallback(
     ({ address, path }: { address: string; path: string }) => {
-      copyAddress(address, account?.template, path);
+      copyAddress({ address, template: account?.template, customPath: path });
     },
     [copyAddress, account?.template],
   );

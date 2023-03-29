@@ -123,7 +123,10 @@ const AccountAmountInfo: FC = () => {
             _hover={{ bg: 'surface-hovered' }}
             _pressed={{ bg: 'surface-pressed' }}
             onPress={() => {
-              copyAddress(account?.displayAddress ?? account?.address);
+              copyAddress({
+                address: account?.address,
+                displayAddress: account?.displayAddress,
+              });
             }}
           >
             <Text
