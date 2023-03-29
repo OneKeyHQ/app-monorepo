@@ -26,7 +26,7 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
     feeInfoPayload,
     feeInput,
     decodedTx: decodedTxInfo,
-    sendConfirmAdvancedSettings,
+    advancedSettingsForm,
   } = props;
   const decodedTx = decodedTxInfo as IDecodedTx;
   const { accountId, networkId } = useActiveSideAccount(props);
@@ -130,7 +130,7 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
         decodedTx={decodedTx}
         feeInput={feeInput}
         transferAmount={transferAmountToUpdate}
-        sendConfirmAdvancedSettings={sendConfirmAdvancedSettings}
+        advancedSettingsForm={advancedSettingsForm}
       />
     </BaseSendConfirmModal>
   );

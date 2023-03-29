@@ -19,7 +19,7 @@ import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { SendConfirmErrorBoundary } from './SendConfirmErrorBoundary';
 import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
 
-import type { ITxConfirmViewProps } from '../types';
+import { EditableNonceStatusEnum, ITxConfirmViewProps } from '../types';
 
 // TODO rename SendConfirmModalBase
 export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
@@ -38,6 +38,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     updateEncodedTxBeforeConfirm,
     autoConfirm,
     sourceInfo,
+    advancedSettings,
     ...others
   } = props;
   const nativeToken = useNativeToken(network?.id);
@@ -60,6 +61,22 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     () => new BigNumber(nativeBalance).lt(new BigNumber(fee)),
     [fee, nativeBalance],
   );
+
+  const editableNonceStatus = useMemo(() => {
+    if (network?.settings.nonceEditable && advancedSettings?.currentNonce) {
+      const currentNonceBN = new BigNumber(advancedSettings.currentNonce);
+      const originNonceBN = new BigNumber(advancedSettings.originNonce);
+      if (currentNonceBN.isLessThan(originNonceBN)) {
+        return EditableNonceStatusEnum.Less;
+      }
+      if (currentNonceBN.isGreaterThan(originNonceBN)) {
+        return EditableNonceStatusEnum.Greater;
+      }
+
+      return EditableNonceStatusEnum.Equal;
+    }
+    return EditableNonceStatusEnum.None;
+  }, [advancedSettings, network]);
 
   const isWatching = useMemo(
     () => isWatchingAccount({ accountId }),
@@ -134,6 +151,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
                 isWatchingAccount={isWatching}
                 balanceInsufficient={balanceInsufficient}
                 isAccountNotMatched={isAccountNotMatched}
+                editableNonceStatus={editableNonceStatus}
               />
             )}
 

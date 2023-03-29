@@ -915,8 +915,8 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxEvm,
     payload: SendConfirmAdvancedSettings,
   ) {
-    if (payload.nonce && this.settings.nonceEditable) {
-      encodedTx.nonce = payload.nonce;
+    if (this.settings.nonceEditable && payload.currentNonce) {
+      encodedTx.nonce = payload.currentNonce;
     }
     return Promise.resolve(encodedTx);
   }

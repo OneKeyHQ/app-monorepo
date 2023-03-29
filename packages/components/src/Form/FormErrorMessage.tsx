@@ -6,9 +6,11 @@ import Typography from '../Typography';
 export function FormErrorMessage({
   message,
   isAlertStyle,
+  type,
 }: {
   message: string;
   isAlertStyle?: boolean;
+  type?: React.ComponentProps<typeof Alert>['alertType'];
 }) {
   if (!message) {
     return null;
@@ -17,7 +19,7 @@ export function FormErrorMessage({
   if (isAlertStyle) {
     return (
       <Box>
-        <Alert alertType="error" title={message} />
+        <Alert alertType={type ?? 'error'} title={message} />
       </Box>
     );
   }

@@ -4,21 +4,26 @@ import { Box, VStack } from '@onekeyhq/components';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
+import { EditableNonceStatusEnum } from '../types';
+
 export function SendConfirmErrorsAlert({
   nativeToken,
   isWatchingAccount,
   balanceInsufficient,
   isNetworkNotMatched,
   isAccountNotMatched,
+  editableNonceStatus,
 }: {
   nativeToken?: Token;
   isWatchingAccount?: boolean;
   balanceInsufficient?: boolean;
   isNetworkNotMatched?: boolean;
   isAccountNotMatched?: boolean;
+  editableNonceStatus?: EditableNonceStatusEnum;
 }) {
   const errors = [];
   const intl = useIntl();
+
   if (isAccountNotMatched) {
     errors.push(
       <FormErrorMessage
@@ -62,6 +67,31 @@ export function SendConfirmErrorsAlert({
       />,
     );
   }
+
+  if (editableNonceStatus === EditableNonceStatusEnum.Less) {
+    errors.push(
+      <FormErrorMessage
+        type="warn"
+        isAlertStyle
+        message={intl.formatMessage({
+          id: 'form__error_trade_with_watched_acocunt',
+        })}
+      />,
+    );
+  }
+
+  if (editableNonceStatus === EditableNonceStatusEnum.Greater) {
+    errors.push(
+      <FormErrorMessage
+        type="warn"
+        isAlertStyle
+        message={intl.formatMessage({
+          id: 'form__error_trade_with_watched_acocunt',
+        })}
+      />,
+    );
+  }
+
   if (!errors || !errors.length) {
     return null;
   }

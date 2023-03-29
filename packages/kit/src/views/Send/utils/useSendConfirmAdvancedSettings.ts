@@ -13,7 +13,10 @@ function useSendConfirmAdvancedSettings({
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [advancedSettings, setAdvancedSettings] =
-    useState<SendConfirmAdvancedSettings>({ nonce: '' });
+    useState<SendConfirmAdvancedSettings>({
+      currentNonce: '',
+      originNonce: '',
+    });
   const { serviceTransaction } = backgroundApiProxy;
 
   useEffect(() => {
@@ -25,7 +28,8 @@ function useSendConfirmAdvancedSettings({
       });
       setAdvancedSettings((prev) => ({
         ...prev,
-        nonce: String(nextNonce),
+        currentNonce: String(nextNonce),
+        originNonce: String(nextNonce),
       }));
       setIsLoading(false);
     };
