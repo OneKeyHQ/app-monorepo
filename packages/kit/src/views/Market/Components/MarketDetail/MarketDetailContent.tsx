@@ -37,6 +37,7 @@ const MarketDetailActionButton = ({
   const intl = useIntl();
   const marketTokenItem = useMarketTokenItem({ coingeckoId: marketTokenId });
   const navigation = useNavigation<NavigationProps>();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const onBack = useCallback(() => {
     if (navigation?.canGoBack?.()) {
       navigation?.goBack();
