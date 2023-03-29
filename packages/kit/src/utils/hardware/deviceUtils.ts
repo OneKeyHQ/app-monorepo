@@ -486,6 +486,8 @@ class DeviceUtils {
         return new Error.FileAlreadyExistError(payload);
       case HardwareErrorCode.CheckDownloadFileError:
         return new Error.IncompleteFileError(payload);
+      case HardwareErrorCode.NotInSigningMode:
+        return new Error.NotInSigningModeError(payload);
       default:
         return new Error.UnknownHardwareError(payload);
     }

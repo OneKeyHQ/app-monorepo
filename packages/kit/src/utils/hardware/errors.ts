@@ -261,6 +261,13 @@ export class IncompleteFileError extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__incomplete_file';
 }
 
+export class NotInSigningModeError extends OneKeyHardwareError {
+  override code = HardwareErrorCode.NotInSigningMode;
+
+  override key: LocaleIds =
+    'msg__transaction_signing_error_not_in_signing_mode';
+}
+
 // 未知错误
 export class UnknownHardwareError extends OneKeyHardwareError {
   override data = { reconnect: true };
