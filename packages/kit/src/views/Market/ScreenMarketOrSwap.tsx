@@ -1,8 +1,14 @@
 import { useCallback, useMemo } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
+import { useWindowDimensions } from 'react-native';
+import { SceneMap, TabView } from 'react-native-tab-view';
 
-import { Box, useSafeAreaInsets } from '@onekeyhq/components';
+import {
+  Box,
+  useIsVerticalLayout,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { TabRoutes } from '../../routes/routesEnum';
@@ -13,6 +19,20 @@ import MarketList from './MarketList';
 
 import type { MarketTopTabName } from '../../store/reducers/market';
 
+const SwapWithoutBottomTabBar = () => <Swap hideBottomTabBar />;
+const renderScene = SceneMap({
+  [TabRoutes.Swap]: SwapWithoutBottomTabBar,
+  [TabRoutes.Market]: MarketList,
+});
+
+const routes: { key: MarketTopTabName }[] = [
+  { key: TabRoutes.Swap },
+  { key: TabRoutes.Market },
+];
+const setIndex = (index: number) => {
+  backgroundApiProxy.serviceMarket.switchMarketTopTab(routes[index].key);
+};
+
 export function ScreenMarketOrSwap({
   marketTopTabName,
 }: {
@@ -20,26 +40,30 @@ export function ScreenMarketOrSwap({
 }) {
   const { top } = useSafeAreaInsets();
 
+  const isVerticalLayout = useIsVerticalLayout();
+  const layout = useWindowDimensions();
+  const index = routes.findIndex((route) => route.key === marketTopTabName);
   useFocusEffect(
     useCallback(() => {
       backgroundApiProxy.serviceMarket.switchMarketTopTab(marketTopTabName);
     }, [marketTopTabName]),
   );
 
-  const contentComponent = useMemo(() => {
-    switch (marketTopTabName) {
-      case TabRoutes.Market:
-        return <MarketList />;
-      case TabRoutes.Swap:
-        return <Swap hideBottomTabBar />;
-      default:
-    }
-  }, [marketTopTabName]);
-
+  const renderTabBar = useCallback(
+    () => <MarketHeader marketTopTabName={marketTopTabName} />,
+    [marketTopTabName],
+  );
   return (
     <Box flex={1} mt={`${top}px`}>
-      <MarketHeader marketTopTabName={marketTopTabName} />
-      {contentComponent}
+      <TabView
+        lazy={!isVerticalLayout}
+        swipeEnabled={isVerticalLayout}
+        renderTabBar={renderTabBar}
+        navigationState={{ index, routes }}
+        renderScene={renderScene}
+        onIndexChange={setIndex}
+        initialLayout={{ width: layout.width }}
+      />
     </Box>
   );
 }

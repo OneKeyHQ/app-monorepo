@@ -5,6 +5,7 @@ import type { ISimpleSearchHistoryToken } from '@onekeyhq/engine/src/dbs/simple/
 
 import { EMarketCellData } from '../../views/Market/config';
 
+import type { TabRoutes } from '../../routes/routesEnum';
 import type { Token } from '../typings';
 import type { TokenChartData } from './tokens';
 import type { PayloadAction } from '@reduxjs/toolkit';
@@ -18,9 +19,6 @@ export enum MarketCategoryType {
   MRKET_CATEGORY_TYPE_TAB = 'tab',
   MRKET_CATEGORY_TYPE_SEARCH = 'search',
 }
-
-export const MARKET_TAB_NAME = 'Market';
-export const SWAP_TAB_NAME = 'Swap';
 
 type RecomentToken = {
   coingeckoId: string;
@@ -161,7 +159,7 @@ type SearchTokenPayloadAction = {
   coingeckoIds: CoingeckoId[];
 };
 
-export type MarketTopTabName = 'Market' | 'Swap';
+export type MarketTopTabName = TabRoutes.Market | TabRoutes.Swap;
 
 export type MarketInitialState = {
   selectedCategoryId?: CategoryId;
@@ -171,7 +169,7 @@ export type MarketInitialState = {
   charts: Record<CoingeckoId, Record<string, TokenChartData>>;
   details: Record<CoingeckoId, MarketTokenDetail>;
   listSort: MarketListSortType | null;
-  marketTopTabName: MarketTopTabName;
+  marketTopTabName?: MarketTopTabName;
   searchHistory?: ISimpleSearchHistoryToken[];
   searchTokens: Record<string, CoingeckoId[]>;
   searchKeyword?: string;
@@ -184,7 +182,7 @@ const initialState: MarketInitialState = {
   charts: {},
   details: {},
   searchTokens: {},
-  marketTopTabName: SWAP_TAB_NAME,
+  marketTopTabName: undefined,
 };
 
 function equalStringArr(arr1: string[], arr2: string[]) {
@@ -416,7 +414,9 @@ export const MarketSlicer = createSlice({
       });
     },
     switchMarketTopTab(state, action: PayloadAction<MarketTopTabName>) {
-      state.marketTopTabName = action.payload;
+      if (state.marketTopTabName !== action.payload) {
+        state.marketTopTabName = action.payload;
+      }
     },
     saveMarketSearchTokenHistory(
       state,
