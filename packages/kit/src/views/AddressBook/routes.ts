@@ -9,6 +9,7 @@ export enum AddressBookRoutes {
   EditAddressRoute = 'EditAddressRoute',
   PickAddressRoute = 'PickAddressRoute',
   EnterAddressRoute = 'EnterAddressRoute',
+  NewPickAddressRoute = 'NewPickAddressRoute',
 }
 
 export type AddressBookRoutesParams = {
@@ -35,4 +36,10 @@ export type AddressBookRoutesParams = {
     uuid: number;
     defaultValues: ContactValues;
   };
+  [AddressBookRoutes.NewPickAddressRoute]:
+    | {
+        networkId?: string;
+        onSelected?: (data: { address: string; name?: string }) => void;
+      }
+    | undefined;
 };

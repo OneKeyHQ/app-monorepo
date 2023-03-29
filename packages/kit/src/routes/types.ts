@@ -127,7 +127,6 @@ export type HomeRoutesParams = {
     onItemSelect?: (item: MatchDAppItemType) => void;
   };
   [HomeRoutes.Protected]: undefined;
-  [HomeRoutes.AddressBook]: undefined;
   [HomeRoutes.SwapHistory]: undefined;
   [HomeRoutes.VolumeHaptic]: undefined;
   [HomeRoutes.CloudBackup]: undefined;

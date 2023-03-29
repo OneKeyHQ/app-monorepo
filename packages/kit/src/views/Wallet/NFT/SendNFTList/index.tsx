@@ -233,8 +233,6 @@ function SendNFTList({
         }
         const requestData = await fetchData();
         if (isMountedRef.current) {
-          console.log('requestData = ', requestData);
-
           updateListData(requestData);
         }
       }

@@ -89,10 +89,12 @@ const EnabledContent = ({
         footerButtonProps={{
           primaryActionTranslationId: 'action__disable',
           secondaryActionTranslationId: 'action__dismiss',
-          primaryActionProps: { type: 'destructive' },
-          onPrimaryActionPress: async () => {
-            await serviceCloudBackup.disableService();
-            onClose();
+          primaryActionProps: {
+            type: 'destructive',
+            onPromise: async () => {
+              await serviceCloudBackup.disableService();
+              onClose();
+            },
           },
         }}
         contentProps={{

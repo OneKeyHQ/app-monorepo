@@ -2,6 +2,7 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import EditAddress from '../../../views/AddressBook/EditAddress';
 import EnterAddress from '../../../views/AddressBook/EnterAddress';
+import AddressBookModal from '../../../views/AddressBook/Listing';
 import NewAddress from '../../../views/AddressBook/NewAddress';
 import PickAddress from '../../../views/AddressBook/PickAddress';
 import { AddressBookRoutes } from '../../../views/AddressBook/routes';
@@ -28,6 +29,10 @@ const modalRoutes = [
   {
     name: AddressBookRoutes.EnterAddressRoute,
     component: EnterAddress,
+  },
+  {
+    name: AddressBookRoutes.NewPickAddressRoute,
+    component: AddressBookModal,
   },
 ];
 
