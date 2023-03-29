@@ -74,7 +74,7 @@ export function SendConfirmErrorsAlert({
         type="warn"
         isAlertStyle
         message={intl.formatMessage({
-          id: 'form__error_trade_with_watched_acocunt',
+          id: 'msg__nonce_used_this_will_generate_a_rbf_tx',
         })}
       />,
     );
@@ -86,7 +86,7 @@ export function SendConfirmErrorsAlert({
         type="warn"
         isAlertStyle
         message={intl.formatMessage({
-          id: 'form__error_trade_with_watched_acocunt',
+          id: 'msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed',
         })}
       />,
     );

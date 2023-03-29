@@ -2,6 +2,8 @@ import { memo, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import BigNumber from 'bignumber.js';
+
 import {
   Button,
   Collapse,
@@ -63,6 +65,10 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
 
   const currentNonce = formValues?.nonce;
 
+  const isLessNonce = new BigNumber(currentNonce ?? 0).isLessThan(
+    new BigNumber(originNonce),
+  );
+
   const { onBlur } = register('nonce', {
     onBlur: () => {
       if (!currentNonce) {
@@ -116,6 +122,9 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
           )}
         >
           <Form.NumberInput
+            borderColor={
+              isLessNonce ? 'border-warning-default' : 'border-default'
+            }
             isDisabled={isLoadingAdvancedSettings}
             decimal={0}
             size="xl"
