@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import type { MarketTopTabName } from '@onekeyhq/kit/src/store/reducers/market';
 
+import { navigationShortcuts } from '../../../../routes/navigationShortcuts';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../../../../routes/types';
 import { SwapHeaderButtons } from '../../../Swap/SwapHeader';
 import { MarketRoutes } from '../../types';
@@ -25,7 +26,6 @@ import type {
 } from '../../../../routes/types';
 import type { MarketRoutesParams } from '../../types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { navigationShortcuts } from '../../../../routes/navigationShortcuts';
 
 type ModalNavigationProps = ModalScreenProps<MarketRoutesParams>;
 
