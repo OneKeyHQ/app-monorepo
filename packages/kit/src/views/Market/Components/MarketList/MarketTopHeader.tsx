@@ -25,6 +25,7 @@ import type {
 } from '../../../../routes/types';
 import type { MarketRoutesParams } from '../../types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { navigationShortcuts } from '../../../../routes/navigationShortcuts';
 
 type ModalNavigationProps = ModalScreenProps<MarketRoutesParams>;
 
@@ -83,7 +84,8 @@ function HeaderSmall({
         <Pressable
           mr="3"
           onPress={() => {
-            navigation.navigate(TabRoutes.Swap);
+            // navigation.navigate(TabRoutes.Swap);
+            navigationShortcuts.navigateToSwap();
           }}
         >
           <Typography.DisplayMedium
@@ -98,7 +100,8 @@ function HeaderSmall({
         </Pressable>
         <Pressable
           onPress={() => {
-            navigation.navigate(TabRoutes.Market);
+            // navigation.navigate(TabRoutes.Market);
+            navigationShortcuts.navigateToMarket();
           }}
         >
           <Typography.DisplayMedium

@@ -10,6 +10,7 @@ import {
   useSafeAreaInsets,
   useUserDevice,
 } from '@onekeyhq/components';
+import { navigationShortcuts } from '@onekeyhq/kit/src/routes/navigationShortcuts';
 import {
   bottomTabBarDescriptors,
   bottomTabBarRoutes,
@@ -47,7 +48,7 @@ export const getTabBarHeight = ({ insets }: { insets: EdgeInsets }) => {
   return DEFAULT_TABBAR_HEIGHT + paddingBottom;
 };
 
-export default function MobileTabBar({
+export default function MobileBottomTabBar({
   inlineMode,
   navigation,
   state,
@@ -84,9 +85,13 @@ export default function MobileTabBar({
               route.name as TabRoutes,
             );
             if (isVertical && isSwapOrMarketRoute && marketTopTabName) {
-              navigation.navigate(marketTopTabName);
+              // navigation.navigate(marketTopTabName);
+              navigationShortcuts.navigateToAppRootTab(
+                marketTopTabName as TabRoutes,
+              );
             } else {
-              navigation.navigate(route.name);
+              // navigation.navigate(route.name);
+              navigationShortcuts.navigateToAppRootTab(route.name as TabRoutes);
             }
             return;
           }
@@ -192,7 +197,7 @@ export default function MobileTabBar({
 }
 
 // TODO use Portal render, or redux controlled singleton
-export function MobileTabBarInline({ name }: { name: TabRoutes }) {
+export function MobileBottomTabBarInline({ name }: { name: TabRoutes }) {
   const navigation = useNavigation();
   const isVertical = useIsVerticalLayout();
 
@@ -213,7 +218,7 @@ export function MobileTabBarInline({ name }: { name: TabRoutes }) {
   }
 
   return (
-    <MobileTabBar
+    <MobileBottomTabBar
       backgroundColor="#EEE"
       inlineMode
       navigation={navigation as any}

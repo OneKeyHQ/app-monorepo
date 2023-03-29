@@ -2,7 +2,7 @@ import type { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import { Box } from '../index';
 
-import { MobileTabBarInline } from './NavigationBar/MobileTabBar';
+import { MobileBottomTabBarInline } from './NavigationBar/MobileBottomTabBar';
 
 export function withTabLayout(
   WrappedComponent: any,
@@ -15,7 +15,7 @@ export function withTabLayout(
           {/* @ts-ignore */}
           <WrappedComponent />
         </Box>
-        <MobileTabBarInline name={name} />
+        <MobileBottomTabBarInline name={name} />
       </Box>
     );
   };
