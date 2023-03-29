@@ -77,7 +77,6 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
                 <NotificationProvider launchNotification={launchNotification} />
                 <RootSiblingParent>
                   <NavigationProvider />
-                  <ChainWebEmbed />
                   <WhenAppActive />
                   {platformEnv.isNativeIOS ? (
                     // FullWindowOverlay can render above native views
