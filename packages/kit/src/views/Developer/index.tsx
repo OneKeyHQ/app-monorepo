@@ -39,6 +39,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import { WalletConnectDappSideTest } from '../../components/WalletConnect/WalletConnectDappSideTest';
+import { useNavigationActions } from '../../hooks';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import {
   GalleryRoutes,
@@ -71,6 +72,7 @@ export const Debug = () => {
   const { width, height } = useWindowDimensions();
   const { network, account, wallet } = useActiveWalletAccount();
   const { serviceAccount, engine } = backgroundApiProxy;
+  const navigationActions = useNavigationActions();
 
   const pressableProps = {
     p: '4',
@@ -583,6 +585,13 @@ export const Debug = () => {
             >
               <Typography.Body1>Batch Transfer DAI</Typography.Body1>
             </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() => navigationActions.openDrawer()}
+            >
+              <Typography.Body1>Open Drawer</Typography.Body1>
+            </Pressable>
+
             <Pressable
               {...pressableProps}
               onPress={async () => {

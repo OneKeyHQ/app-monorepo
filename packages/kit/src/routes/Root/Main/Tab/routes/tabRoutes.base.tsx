@@ -9,8 +9,10 @@ export const tabRoutesOrders = [
   TabRoutes.NFT,
   TabRoutes.Discover,
   TabRoutes.Me,
-  TabRoutes.Developer,
 ];
+if (process.env.NODE_ENV !== 'production') {
+  tabRoutesOrders.push(TabRoutes.Developer);
+}
 
 export const swapAndMarketRoutes = [TabRoutes.Swap, TabRoutes.Market];
 
