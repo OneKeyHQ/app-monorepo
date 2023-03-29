@@ -145,6 +145,12 @@ export function convertDeviceError(payload: any): OneKeyHardwareError {
       return new Error.ConnectPollingStopError(payload);
     case HardwareErrorCode.BlindSignDisabled:
       return new Error.OpenBlindSign(payload);
+    case HardwareErrorCode.FileAlreadyExists:
+      return new Error.FileAlreadyExistError(payload);
+    case HardwareErrorCode.CheckDownloadFileError:
+      return new Error.IncompleteFileError(payload);
+    case HardwareErrorCode.NotInSigningMode:
+      return new Error.NotInSigningModeError(payload);
     default:
       return new Error.UnknownHardwareError(payload);
   }
