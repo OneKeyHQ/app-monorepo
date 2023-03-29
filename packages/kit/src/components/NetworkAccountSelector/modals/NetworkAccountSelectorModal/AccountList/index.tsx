@@ -4,7 +4,6 @@
 import type { Dispatch, FC, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import Fuse from 'fuse.js';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
