@@ -219,7 +219,7 @@ export function MobileBottomTabBarInline({ name }: { name: TabRoutes }) {
 
   return (
     <MobileBottomTabBar
-      backgroundColor="#EEE"
+      // backgroundColor="#EEE"
       inlineMode
       navigation={navigation as any}
       descriptors={descriptors as any}
