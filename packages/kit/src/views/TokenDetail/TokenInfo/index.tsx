@@ -125,12 +125,8 @@ const TokenInfo: FC<TokenInfoProps> = ({ token, priceReady, sendAddress }) => {
         }
       }
     }
-    if (isVertical) {
-      navigation.getParent()?.navigate(TabRoutes.Market);
-    } else {
-      navigation.getParent()?.navigate(TabRoutes.Swap);
-    }
-  }, [network, account, isVertical, navigation, token]);
+    navigation.getParent()?.navigate(TabRoutes.Swap);
+  }, [network, account, navigation, token]);
 
   const renderAccountAmountInfo = useMemo(
     () => (

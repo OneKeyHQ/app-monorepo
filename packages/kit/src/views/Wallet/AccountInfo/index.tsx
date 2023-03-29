@@ -193,12 +193,8 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         }
       }
     }
-    if (isVertical) {
-      navigation.getParent()?.navigate(TabRoutes.Market);
-    } else {
-      navigation.getParent()?.navigate(TabRoutes.Swap);
-    }
-  }, [network, account, navigation, isVertical]);
+    navigation.getParent()?.navigate(TabRoutes.Swap);
+  }, [network, account, navigation]);
 
   return (
     <Box flexDirection="row" px={isVertical ? 1 : 0} mx={-3}>

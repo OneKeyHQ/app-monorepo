@@ -15,10 +15,23 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { MarketTokenDetail } from '@onekeyhq/kit/src/store/reducers/market';
 
+import { TabRoutes } from '../../../../routes/routesEnum';
+import {
+  HistoryRequestModalRoutesParams,
+  HistoryRequestRoutes,
+} from '../../../Help/Request/types';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
 import { MarketDetailComponent } from './MarketDetailComponent';
 import MarketPriceChart from './MarketPriceChart';
+
+import type { TabRoutesParams } from '../../../../routes/types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = NativeStackNavigationProp<
+  TabRoutesParams,
+  TabRoutes.Home
+>;
 
 const MarketDetailActionButton = ({
   marketTokenId,
@@ -27,7 +40,7 @@ const MarketDetailActionButton = ({
 }) => {
   const intl = useIntl();
   const marketTokenItem = useMarketTokenItem({ coingeckoId: marketTokenId });
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
   const onBack = useCallback(() => {
     if (navigation?.canGoBack?.()) {
       navigation?.goBack();
@@ -38,7 +51,12 @@ const MarketDetailActionButton = ({
     [marketTokenItem],
   );
   return (
-    <Box flexDirection="row" alignItems="center" pt="24px">
+    <Box
+      testID="MarketDetailActionButton"
+      flexDirection="row"
+      alignItems="center"
+      pt="24px"
+    >
       <Button
         flex={1}
         type="basic"
@@ -46,7 +64,7 @@ const MarketDetailActionButton = ({
         onPress={() => {
           if (marketTokenItem?.tokens?.length) {
             backgroundApiProxy.serviceSwap.buyToken(marketTokenItem.tokens[0]);
-            onBack();
+            navigation.navigate(TabRoutes.Swap);
           }
         }}
         isDisabled={isDisabledSwap}
@@ -61,7 +79,7 @@ const MarketDetailActionButton = ({
         onPress={() => {
           if (marketTokenItem?.tokens?.length) {
             backgroundApiProxy.serviceSwap.sellToken(marketTokenItem.tokens[0]);
-            onBack();
+            navigation.navigate(TabRoutes.Swap);
           }
         }}
         isDisabled={isDisabledSwap}
