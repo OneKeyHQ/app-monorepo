@@ -2,7 +2,6 @@ import { useIntl } from 'react-intl';
 
 import { Alert, Box } from '@onekeyhq/components';
 
-import { TxAdvanceSettings } from './components/TxAdvanceSettings';
 import { TxDetailExtraInfoBox } from './components/TxDetailExtraInfoBox';
 import { TxInteractInfo } from './components/TxInteractInfo';
 import { getReplacedTxAlertTextKeys } from './elements/TxActionElementReplacedTxText';
@@ -18,6 +17,7 @@ export function TxDetailView(props: ITxActionListViewProps) {
     isHistoryDetail,
     isSendConfirm,
     sendConfirmParamsParsed,
+    sendConfirmAdvancedSettings,
   } = props;
   const replacedTxTextKeys = getReplacedTxAlertTextKeys({ historyTx });
   const intl = useIntl();
@@ -61,7 +61,7 @@ export function TxDetailView(props: ITxActionListViewProps) {
       >
         <>
           <TxDetailExtraInfoBox {...props} />
-          <TxAdvanceSettings {...props} />
+          {sendConfirmAdvancedSettings}
           {isMultipleActions ? <Box h={6} /> : <Box h={8} />}
           <TxActionsListView {...props} transformType="T1" space={6} />
         </>

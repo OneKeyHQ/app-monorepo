@@ -235,6 +235,7 @@ export enum IEncodedTxUpdateType {
   tokenApprove = 'tokenApprove',
   speedUp = 'speedUp',
   cancel = 'cancel',
+  advancedSettings = 'advancedSettings',
 }
 export type IEncodedTxUpdateOptions = {
   type?: IEncodedTxUpdateType;

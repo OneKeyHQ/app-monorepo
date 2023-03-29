@@ -24,6 +24,7 @@ import type {
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type {
   BatchSendConfirmPayloadInfo,
+  SendConfirmAdvancedSettings,
   SendConfirmPayloadInfo,
 } from '@onekeyhq/kit/src/views/Send/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
@@ -901,6 +902,21 @@ export default class Vault extends VaultBase {
     }
     if (options.type === IEncodedTxUpdateType.transfer) {
       return this.updateEncodedTxTransfer(encodedTx, payload);
+    }
+
+    if (options.type === IEncodedTxUpdateType.advancedSettings) {
+      return this.updateEncodedTxAdvancedSettings(encodedTx, payload);
+    }
+
+    return Promise.resolve(encodedTx);
+  }
+
+  async updateEncodedTxAdvancedSettings(
+    encodedTx: IEncodedTxEvm,
+    payload: SendConfirmAdvancedSettings,
+  ) {
+    if (payload.nonce && this.settings.nonceEditable) {
+      encodedTx.nonce = payload.nonce;
     }
     return Promise.resolve(encodedTx);
   }
