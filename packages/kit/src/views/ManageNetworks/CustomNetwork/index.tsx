@@ -21,7 +21,10 @@ import { useDebounce } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 import { RpcNodePattern } from '../constants';
 
-import type { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+import type {
+  ManageNetworkModalRoutes,
+  ManageNetworkRoutesParams,
+} from '../types';
 import type {
   NativeStackNavigationProp,
   NativeStackScreenProps,
@@ -38,12 +41,12 @@ type NetworkValues = {
 
 type NetworkCustomViewProps = NativeStackScreenProps<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.CustomNetwork
+  ManageNetworkModalRoutes.CustomNetwork
 >;
 
 type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.CustomNetwork
+  ManageNetworkModalRoutes.CustomNetwork
 >;
 
 export type NetworkRpcURLStatus = {

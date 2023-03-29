@@ -16,13 +16,11 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import type {
-  CreateAccountModalRoutes,
-  CreateAccountRoutesParams,
-} from '@onekeyhq/kit/src/routes';
+import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 
 import { useNetwork } from '../../../hooks';
 
+import type { CreateAccountModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 

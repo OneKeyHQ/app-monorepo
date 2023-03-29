@@ -17,12 +17,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
-import type {
-  OnekeyHardwareModalRoutes,
-  OnekeyHardwareRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
+import type { OnekeyHardwareRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareOnekey';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 
+import type { OnekeyHardwareModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/core';
 
 type FieldValues = { name: string };

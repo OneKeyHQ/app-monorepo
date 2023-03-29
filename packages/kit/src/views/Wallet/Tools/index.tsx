@@ -21,11 +21,11 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type {
   HomeRoutesParams,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -95,7 +95,7 @@ const data: DataItem[] = [
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
-  RootRoutes.Root
+  RootRoutes.Main
 > &
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.NFTPNLScreen> &
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.Revoke>;
@@ -178,7 +178,7 @@ const ToolsPage: FC = () => {
       } else if (key === 'bulkSender') {
         if (platformEnv.isExtFirefoxUiPopup) {
           backgroundApiProxy.serviceApp.openExtensionExpandTab({
-            routes: [RootRoutes.Root, HomeRoutes.BulkSender],
+            routes: [RootRoutes.Main, HomeRoutes.BulkSender],
           });
           setTimeout(() => {
             window.close();

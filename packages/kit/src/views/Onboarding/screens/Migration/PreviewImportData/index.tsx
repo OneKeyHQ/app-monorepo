@@ -20,10 +20,6 @@ import {
   ToastManager,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import type {
-  HomeRoutes,
-  HomeRoutesParams,
-} from '@onekeyhq/kit/src/routes/types';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
@@ -39,14 +35,8 @@ import Layout from '../../../Layout';
 import type { EOnboardingRoutes } from '../../../routes/enums';
 import type { IOnboardingRoutesParams } from '../../../routes/types';
 import type { RouteProp } from '@react-navigation/core';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const defaultProps = {} as const;
-
-type NavigationProps = NativeStackNavigationProp<
-  HomeRoutesParams,
-  HomeRoutes.InitialTab
->;
 
 type RouteProps = RouteProp<
   IOnboardingRoutesParams,
@@ -57,7 +47,7 @@ const PreviewImportData = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { data } = route.params;
-  const navigation = useNavigation<NavigationProps>();
+  const navigation = useNavigation();
   const { serviceCloudBackup } = backgroundApiProxy;
   const version = useAppSelector((s) => s.settings.version);
   const isVerticalLayout = useIsVerticalLayout();

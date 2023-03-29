@@ -15,14 +15,14 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import type { CollectiblesRoutesParams } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
-import { CollectiblesModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import type { CollectiblesRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Collectibles';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetworks } from '../../../hooks/redux';
 import { useIsMounted } from '../../../hooks/useIsMounted';
+import { CollectiblesModalRoutes } from '../../../routes/routesEnum';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { useGridListLayout } from '../../Wallet/NFT/SendNFTList';
 

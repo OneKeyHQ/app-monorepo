@@ -17,14 +17,14 @@ import RecyclerListView, {
   LayoutProvider,
 } from '@onekeyhq/components/src/RecyclerListView';
 import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
-import { CollectiblesModalRoutes } from '../../../routes/Modal/Collectibles';
+import { CollectiblesModalRoutes } from '../../../routes/routesEnum';
 
 import NFTListAssetCard from './NFTList/NFTListAssetCard';
 
-import type { CollectiblesRoutesParams } from '../../../routes/Modal/Collectibles';
+import type { CollectiblesRoutesParams } from '../../../routes/Root/Modal/Collectibles';
 import type { RouteProp } from '@react-navigation/native';
 
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;

@@ -24,8 +24,11 @@ import {
   useAccountTokenLoading,
   useTokenBalance,
 } from '@onekeyhq/kit/src/hooks/useTokens';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
-import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
+import {
+  ModalRoutes,
+  RootRoutes,
+  SendModalRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
@@ -244,7 +247,7 @@ function TokenOutbox(props: Props) {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Send,
       params: {
-        screen: SendRoutes.BatchSendConfirm,
+        screen: SendModalRoutes.BatchSendConfirm,
         params: {
           networkId,
           accountId,

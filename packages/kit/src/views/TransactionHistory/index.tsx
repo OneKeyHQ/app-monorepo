@@ -15,10 +15,7 @@ import HistoricalRecords from '../Wallet/HistoricalRecords';
 
 import type { RouteProp } from '@react-navigation/native';
 
-type RouteProps = RouteProp<
-  HomeRoutesParams,
-  HomeRoutes.TransactionHistoryScreen
->;
+type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 
 const TransactionHistory: FC = () => {
   const navigation = useNavigation();

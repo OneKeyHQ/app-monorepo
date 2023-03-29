@@ -38,7 +38,7 @@ import {
 import { wait } from '../../../utils/helper';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { PreSendAmountAlert } from '../components/PreSendAmountAlert';
-import { SendRoutes } from '../types';
+import { SendModalRoutes } from '../enums';
 import { usePreSendAmountInfo } from '../utils/usePreSendAmountInfo';
 
 import type { SendRoutesParams } from '../types';
@@ -48,9 +48,9 @@ import type { MessageDescriptor } from 'react-intl';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
-  SendRoutes.PreSendAmount
+  SendModalRoutes.PreSendAmount
 >;
-type RouteProps = RouteProp<SendRoutesParams, SendRoutes.PreSendAmount>;
+type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.PreSendAmount>;
 
 export function PreSendAmountPreview({
   title,
@@ -320,13 +320,13 @@ function PreSendAmount() {
             transferInfo,
           });
 
-          navigation.navigate(SendRoutes.SendConfirm, {
+          navigation.navigate(SendModalRoutes.SendConfirm, {
             accountId,
             networkId,
             encodedTx,
             feeInfoUseFeeInTx: false,
             feeInfoEditable: true,
-            backRouteName: SendRoutes.PreSendAddress,
+            backRouteName: SendModalRoutes.PreSendAddress,
             payload: {
               payloadType: 'Transfer',
               account,

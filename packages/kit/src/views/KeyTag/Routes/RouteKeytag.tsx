@@ -3,8 +3,6 @@ import { useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
-import { HomeRoutes } from '../../../routes/routesEnum';
-import { createLazyComponent } from '../../../utils/createLazyComponent';
 import EnterPhrase from '../Screen/EnterPhrase';
 import ImportKeyTag from '../Screen/ImportKeyTag';
 import Introduce from '../Screen/IntroduceKeyTag';
@@ -19,10 +17,6 @@ import { KeyTagRoutes } from './enums';
 import type { HomeRoutesParams } from '../../../routes/types';
 import type { IKeytagRoutesParams } from './types';
 
-const RouteOnboarding = createLazyComponent(
-  () => import('../../Onboarding/routes/RouteOnboarding'),
-);
-
 export const stackScreenList = [
   { name: KeyTagRoutes.StartedKeytag, component: StartedKeyTag },
   { name: KeyTagRoutes.ImportKeytag, component: ImportKeyTag },
@@ -35,7 +29,6 @@ export const stackScreenList = [
     name: KeyTagRoutes.KeyTagAttention,
     component: KeyTagBackupWalletAttentions,
   },
-  { name: HomeRoutes.HomeOnboarding, component: RouteOnboarding },
 ];
 
 export const StackNavigator = createNativeStackNavigator<

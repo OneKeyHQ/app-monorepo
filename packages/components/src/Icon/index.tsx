@@ -24,7 +24,7 @@ const Icon: FC<IconProps> = ({ name, size = 24, color, width, height }) => {
 
   useEffect(() => {
     // @ts-ignore
-    if (!SVGComponent.__ready) {
+    if (!SVGComponent?.__ready && SVGComponent) {
       SVGComponent().then((module) => {
         // @ts-ignore
         SVGComponent = module.default;
@@ -39,8 +39,10 @@ const Icon: FC<IconProps> = ({ name, size = 24, color, width, height }) => {
     }
   }, [name]);
 
+  if(!SVGComponent) return null;
+
   // @ts-ignore
-  if (!SVGComponent.__ready) return null;
+  if (!SVGComponent?.__ready) return null;
 
   const svgColor = primaryColor || defaultColor;
 

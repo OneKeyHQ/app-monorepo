@@ -23,11 +23,14 @@ import { useAppSelector } from '@onekeyhq/kit/src/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useLocalAuthenticationModal from '@onekeyhq/kit/src/hooks/useLocalAuthenticationModal';
 import type { RootNavContainerRef } from '@onekeyhq/kit/src/provider/NavigationProvider';
-import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
-import { OnekeyHardwareModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
-import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
-import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import {
+  BackupWalletModalRoutes,
+  HardwareUpdateModalRoutes,
+  ManagerWalletModalRoutes,
+  ModalRoutes,
+  OnekeyHardwareModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 import {
   forgetPassphraseWallet,
   rememberPassphraseWallet,

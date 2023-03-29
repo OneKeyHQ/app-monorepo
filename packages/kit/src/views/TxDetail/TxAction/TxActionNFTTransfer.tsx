@@ -11,9 +11,12 @@ import {
   IDecodedTxActionType,
   IDecodedTxDirection,
 } from '@onekeyhq/engine/src/vaults/types';
-import { CollectiblesModalRoutes } from '@onekeyhq/kit/src/routes/Modal/Collectibles';
 
-import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import {
+  CollectiblesModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../routes/routesEnum';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { TxDetailActionBox } from '../components/TxDetailActionBox';
 import { TxListActionBox } from '../components/TxListActionBox';

@@ -31,11 +31,10 @@ import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 import { buildAddressDetailsUrl } from '../../hooks/useOpenBlockBrowser';
+import { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import { wait } from '../../utils/helper';
 import { openUrl } from '../../utils/openUrl';
 import { SiteSection } from '../ManageNetworks/components/SiteSection';
-
-import { ManageTokenRoutes } from './types';
 
 import type { ListItem } from '../ManageNetworks/SwitchRpc';
 import type { ManageTokenRoutesParams } from './types';
@@ -44,12 +43,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RouteProps = RouteProp<
   ManageTokenRoutesParams,
-  ManageTokenRoutes.AddToken
+  ManageTokenModalRoutes.AddToken
 >;
 
 type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
-  ManageTokenRoutes.AddToken
+  ManageTokenModalRoutes.AddToken
 >;
 
 export type IViewTokenModalProps = ModalProps;
@@ -382,7 +381,7 @@ function AddTokenModal() {
         activeNetwork?.id,
       );
       if (vaultSettings?.activateTokenRequired) {
-        navigation.navigate(ManageTokenRoutes.ActivateToken, {
+        navigation.navigate(ManageTokenModalRoutes.ActivateToken, {
           walletId,
           accountId: activeAccount?.id,
           networkId: activeNetwork?.id,

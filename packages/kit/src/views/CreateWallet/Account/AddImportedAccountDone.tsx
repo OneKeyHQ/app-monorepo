@@ -11,15 +11,13 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
-import type {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/CreateWallet';
 
 import { useNavigation } from '../../../hooks';
 import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
 import { savePassword } from '../../../utils/localAuthentication';
 
+import type { CreateWalletModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<
@@ -91,7 +89,7 @@ const Done: FC<DoneProps> = ({
   );
 };
 
-export const AddImportedAccountDone = () => {
+const AddImportedAccountDone = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
   const { privatekey, name, networkId, template, onSuccess, onFailure } =

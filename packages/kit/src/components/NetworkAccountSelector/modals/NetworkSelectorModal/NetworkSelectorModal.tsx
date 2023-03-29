@@ -7,7 +7,7 @@ import { Box, IconButton, Modal } from '@onekeyhq/components';
 
 import useAppNavigation from '../../../../hooks/useAppNavigation';
 import {
-  ManageNetworkRoutes,
+  ManageNetworkModalRoutes,
   ModalRoutes,
   RootRoutes,
 } from '../../../../routes/routesEnum';
@@ -21,7 +21,7 @@ import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.NetworkSelector
+  ManageNetworkModalRoutes.NetworkSelector
 >;
 
 function NetworkSelectorModal() {
@@ -56,7 +56,7 @@ function NetworkSelectorModal() {
             onPress={() => {
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.ManageNetwork,
-                params: { screen: ManageNetworkRoutes.Sort },
+                params: { screen: ManageNetworkModalRoutes.Sort },
               });
             }}
           />
@@ -68,7 +68,7 @@ function NetworkSelectorModal() {
             onPress={() => {
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.ManageNetwork,
-                params: { screen: ManageNetworkRoutes.Listing },
+                params: { screen: ManageNetworkModalRoutes.Listing },
               });
             }}
           />

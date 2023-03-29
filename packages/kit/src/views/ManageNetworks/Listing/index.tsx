@@ -23,16 +23,16 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { getActiveWalletAccount } from '../../../hooks/redux';
 import { getManageNetworks } from '../../../hooks/useManageNetworks';
-import { ManageNetworkRoutes } from '../../../routes/Modal/ManageNetwork';
+import { ManageNetworkModalRoutes } from '../../../routes/routesEnum';
 
 import { NetworkListEmpty, strIncludes } from './NetworkListEmpty';
 
-import type { ManageNetworkRoutesParams } from '../../../routes/Modal/ManageNetwork';
+import type { ManageNetworkRoutesParams } from '../../../routes/Root/Modal/ManageNetwork';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.Listing
+  ManageNetworkModalRoutes.Listing
 >;
 
 const updateNetworks = debounce(
@@ -133,7 +133,10 @@ export const Listing: FC = () => {
 
   const onPress = useCallback(
     (network?: Network, mode: 'edit' | 'add' = 'add') => {
-      navigation.navigate(ManageNetworkRoutes.AddNetwork, { network, mode });
+      navigation.navigate(ManageNetworkModalRoutes.AddNetwork, {
+        network,
+        mode,
+      });
     },
     [navigation],
   );

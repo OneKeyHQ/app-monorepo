@@ -307,9 +307,11 @@ export interface BottomTabHeaderProps {
 }
 
 export interface BottomTabBarProps {
+  inlineMode?: boolean;
   state: TabNavigationState<ParamListBase>;
   descriptors: BottomTabDescriptorMap;
   navigation: NavigationHelpers<ParamListBase, BottomTabNavigationEventMap>;
+  backgroundColor?: string;
 }
 
 export interface BottomTabBarButtonProps

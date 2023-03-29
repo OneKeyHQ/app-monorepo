@@ -7,11 +7,9 @@ import { useIntl } from 'react-intl';
 import { Box, Modal, Spinner, Typography } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import type {
-  OnekeyHardwareModalRoutes,
-  OnekeyHardwareRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
+import type { OnekeyHardwareRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareOnekey';
 
+import type { OnekeyHardwareModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<

@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-empty-interface */
 /* eslint-disable @typescript-eslint/no-namespace */
 
-import type { ComponentType } from 'react';
+import type { ComponentType, FC } from 'react';
 
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { HeaderTitleProps } from '@onekeyhq/components/src/NavHeader/HeaderTitle';
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -11,12 +12,12 @@ import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explore
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
 // define enum here to avoid cycle import
-
 import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
 
 import type { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
-import type { StackBasicRoutesParams } from './Dev';
-import type * as SubModalRoutesParams from './Modal/types';
+import type { GalleryParams } from './Root/Gallery';
+import type * as SubModalRoutesParams from './Root/Modal/types';
+import type { MainRoutes } from './routesEnum';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type {
   CompositeScreenProps,
@@ -25,11 +26,12 @@ import type {
 } from '@react-navigation/native';
 import type { StackScreenProps } from '@react-navigation/stack';
 
-export type ScreensList<T extends string> = ({
+export type ScreensListItem<T extends string> = {
   name: T;
   component: ComponentType<any>;
   alwaysShowBackButton?: boolean;
-} & HeaderTitleProps)[];
+} & HeaderTitleProps;
+export type ScreensList<T extends string> = ScreensListItem<T>[];
 
 export { ModalRoutes, RootRoutes, HomeRoutes, TabRoutes };
 
@@ -83,26 +85,22 @@ export type ModalRoutesParams = {
 /** Tab */
 
 export type TabRoutesParams = {
-  [TabRoutes.Home]: undefined;
+  [TabRoutes.Home]: NavigatorScreenParams<HomeRoutesParams> | undefined;
   [TabRoutes.Swap]:
-    | undefined
-    | { inputTokenId?: string; outputTokenId?: string };
-  [TabRoutes.Developer]: undefined;
-  [TabRoutes.Discover]: undefined;
-  [TabRoutes.Me]: undefined;
-  [TabRoutes.Send]: undefined;
-  [TabRoutes.Receive]: undefined;
-  [TabRoutes.Market]: undefined;
-  [TabRoutes.NFT]: undefined;
+    | NavigatorScreenParams<HomeRoutesParams>
+    | { inputTokenId?: string; outputTokenId?: string }
+    | undefined;
+  [TabRoutes.Developer]: NavigatorScreenParams<HomeRoutesParams> | undefined;
+  [TabRoutes.Discover]: NavigatorScreenParams<HomeRoutesParams> | undefined;
+  [TabRoutes.Me]: NavigatorScreenParams<HomeRoutesParams> | undefined;
+  [TabRoutes.Market]: NavigatorScreenParams<HomeRoutesParams> | undefined;
+  [TabRoutes.NFT]: NavigatorScreenParams<HomeRoutesParams> | undefined;
 };
 /** Tab */
-
+export type MainRoutesParams = {
+  [MainRoutes.Tab]: NavigatorScreenParams<TabRoutesParams>;
+};
 export type HomeRoutesParams = {
-  [HomeRoutes.InitialTab]: undefined;
-  [HomeRoutes.Dev]: NavigatorScreenParams<StackBasicRoutesParams>;
-  [HomeRoutes.HomeOnboarding]:
-    | NavigatorScreenParams<IOnboardingRoutesParams>
-    | undefined;
   [HomeRoutes.ScreenTokenDetail]: {
     accountId: string;
     networkId: string;
@@ -114,7 +112,6 @@ export type HomeRoutesParams = {
     accountId?: string;
     networkId?: string;
   };
-  [HomeRoutes.DebugScreen]: undefined;
   [HomeRoutes.ScreenOnekeyLiteDetail]: undefined;
   [HomeRoutes.ExploreScreen]: {
     onItemSelect?: (item: DAppItemType) => Promise<boolean>;
@@ -128,10 +125,6 @@ export type HomeRoutesParams = {
   [HomeRoutes.MyDAppListScreen]: {
     defaultIndex?: number;
     onItemSelect?: (item: MatchDAppItemType) => void;
-  };
-  [HomeRoutes.TransactionHistoryScreen]: {
-    tokenId?: string;
-    historyFilter?: (item: any) => boolean;
   };
   [HomeRoutes.Protected]: undefined;
   [HomeRoutes.AddressBook]: undefined;
@@ -165,7 +158,7 @@ export type HomeRoutesParams = {
     title?: string;
   };
   [HomeRoutes.RevokeRedirect]: undefined;
-  [HomeRoutes.KeyTag]: undefined;
+  [HomeRoutes.RevokeRedirect2]: undefined;
   [HomeRoutes.NFTPNLScreen]: undefined;
   [HomeRoutes.OverviewDefiListScreen]: {
     networkId: string;
@@ -179,13 +172,17 @@ export type HomeRoutesParams = {
 /** Root */
 
 export type RootRoutesParams = {
-  [RootRoutes.Root]: NavigatorScreenParams<HomeRoutesParams> | undefined;
+  [RootRoutes.Main]: NavigatorScreenParams<MainRoutesParams> | undefined;
   [RootRoutes.Modal]: NavigatorScreenParams<ModalRoutesParams>;
-  [RootRoutes.Tab]: NavigatorScreenParams<TabRoutesParams>;
   // TODO remove, use HomeRoutes.HomeOnboarding instead
   [RootRoutes.Onboarding]:
     | NavigatorScreenParams<IOnboardingRoutesParams>
     | undefined;
+  [RootRoutes.Gallery]: NavigatorScreenParams<GalleryParams>;
+};
+
+export type IndexRoutesParams = {
+  [MainRoutes.Tab]: NavigatorScreenParams<TabRoutesParams>;
 };
 
 export type RootScreenProps<T extends keyof RootRoutesParams> =
@@ -210,4 +207,23 @@ declare global {
   namespace ReactNavigation {
     interface RootParamList extends RootRoutesParams {}
   }
+}
+export type TabRouteConfigNavHeaderType = 'SimpleTitle' | 'AccountSelector';
+export interface TabRouteConfigBase {
+  name: TabRoutes;
+  translationId: LocaleIds;
+  tabBarIcon: (props: { focused?: boolean }) => string;
+  hideOnMobile?: boolean;
+  hideOnProduction?: boolean;
+  hideDesktopNavHeader?: boolean;
+  hideMobileNavHeader?: boolean;
+  navHeaderType?: TabRouteConfigNavHeaderType;
+}
+export interface TabRouteConfig extends TabRouteConfigBase {
+  component: FC;
+  children?: ({
+    name: HomeRoutes;
+    component: FC<any>;
+    alwaysShowBackButton?: boolean;
+  } & HeaderTitleProps)[];
 }

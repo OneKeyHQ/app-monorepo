@@ -20,10 +20,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type {
-  OnekeyHardwareModalRoutes,
-  OnekeyHardwareRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
+import type { OnekeyHardwareRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareOnekey';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import type { HomescreenItem } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
 import { getHomescreenData } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
@@ -34,6 +31,7 @@ import {
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import type { OnekeyHardwareModalRoutes } from '../../../routes/routesEnum';
 import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 import type { ImageInfo } from 'expo-image-picker';

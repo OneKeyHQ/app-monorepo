@@ -27,10 +27,11 @@ import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decode
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useOpenBlockBrowser from '@onekeyhq/kit/src/hooks/useOpenBlockBrowser';
 import type { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes';
-import { TransactionDetailModalRoutes } from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { TransactionDetailModalRoutes } from '../../../routes/routesEnum';
 
 import { useHistoricalRecordsData } from './useHistoricalRecordsData';
 

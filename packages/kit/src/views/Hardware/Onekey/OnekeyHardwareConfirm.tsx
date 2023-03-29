@@ -6,15 +6,13 @@ import { useNavigation } from '@react-navigation/native';
 import { Box, LottieView, Modal, Typography } from '@onekeyhq/components';
 // import OnekeyClassicConfirm from '@onekeyhq/kit/assets/hardware/lottie_hardware_onekey_classic_confirm.json';
 import OnekeyMiniConfirm from '@onekeyhq/kit/assets/animations/lottie_hardware_onekey_mini_confirm.json';
-import type {
-  OnekeyHardwareModalRoutes,
-  OnekeyHardwareRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
+import type { OnekeyHardwareRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareOnekey';
+import type { OnekeyHardwareModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type {
   ModalScreenProps,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
-import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -48,7 +46,7 @@ const OnekeyHardwareConfirm: FC = () => {
 
   const handleCloseSetup = () => {
     // Create wallet and account from device
-    navigation.navigate(RootRoutes.Root);
+    navigation.navigate(RootRoutes.Main);
   };
 
   return (

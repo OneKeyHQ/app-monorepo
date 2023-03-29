@@ -6,18 +6,16 @@ import { useNavigation, useRoute } from '@react-navigation/core';
 import { Box, Modal } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
-import type {
-  FiatPayModalRoutesParams,
-  FiatPayRoutes,
-} from '../../../routes/Modal/FiatPay';
+import type { FiatPayModalRoutesParams } from '../../../routes/Root/Modal/FiatPay';
+import type { FiatPayModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   FiatPayModalRoutesParams,
-  FiatPayRoutes.MoonpayWebViewModal
+  FiatPayModalRoutes.MoonpayWebViewModal
 >;
 
-export const MoonpayWebView: FC = () => {
+const MoonpayWebView: FC = () => {
   const route = useRoute<RouteProps>();
   const { url } = route?.params || {};
   const navigation = useNavigation();

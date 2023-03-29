@@ -24,7 +24,7 @@ import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 import FormChainSelector from '../../components/Form/ChainSelector';
 import WalletAvatar from '../../components/WalletSelector/WalletAvatar';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
-import { SendRoutes } from '../Send/types';
+import { SendModalRoutes } from '../Send/types';
 
 import type { ModalScreenProps } from '../../routes/types';
 import type { SendRoutesParams } from '../Send/types';
@@ -62,7 +62,7 @@ const PreviewSend: FC<PreviewSendProps> = () => {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
-            screen: SendRoutes.PreSendToken,
+            screen: SendModalRoutes.PreSendToken,
             params: {
               accountId,
               networkId,

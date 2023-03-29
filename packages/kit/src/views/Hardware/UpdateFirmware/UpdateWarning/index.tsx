@@ -5,8 +5,8 @@ import { useIntl } from 'react-intl';
 
 import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
 import RecoveryPhrase from '@onekeyhq/kit/assets/3d_recovery_phrase.png';
-import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
-import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
+import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareUpdate';
+import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 

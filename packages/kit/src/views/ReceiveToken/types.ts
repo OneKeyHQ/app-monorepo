@@ -2,12 +2,12 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
-import { ReceiveTokenRoutes } from '../../routes/routesEnum';
+import { ReceiveTokenModalRoutes } from '../../routes/routesEnum';
 
-export { ReceiveTokenRoutes };
+export { ReceiveTokenModalRoutes };
 
 export type ReceiveTokenRoutesParams = {
-  [ReceiveTokenRoutes.ReceiveToken]: {
+  [ReceiveTokenModalRoutes.ReceiveToken]: {
     address?: string;
     name?: string;
 

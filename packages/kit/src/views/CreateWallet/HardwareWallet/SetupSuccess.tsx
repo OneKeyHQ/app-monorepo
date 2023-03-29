@@ -6,10 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { Center, Icon, Modal, Typography } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
-import type {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/CreateWallet';
 
 import { useNavigationActions } from '../../../hooks';
 import {
@@ -18,6 +15,7 @@ import {
 } from '../../../hooks/useOnboardingRequired';
 import { wait } from '../../../utils/helper';
 
+import type { CreateWalletModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<

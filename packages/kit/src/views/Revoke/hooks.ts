@@ -15,7 +15,11 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../hooks';
-import { ModalRoutes, RootRoutes, SendRoutes } from '../../routes/routesEnum';
+import {
+  ModalRoutes,
+  RootRoutes,
+  SendModalRoutes,
+} from '../../routes/routesEnum';
 
 import { AssetType } from './types';
 
@@ -176,7 +180,7 @@ export const useUpdateAllowance = ({
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
-          screen: SendRoutes.SendConfirm,
+          screen: SendModalRoutes.SendConfirm,
           params: {
             accountId,
             networkId,

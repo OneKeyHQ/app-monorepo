@@ -18,15 +18,19 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useTokenSupportStakedAssets } from '../../hooks/useTokens';
-import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
-import { ModalRoutes, RootRoutes, TabRoutes } from '../../routes/types';
+import {
+  FiatPayModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+  TabRoutes,
+} from '../../routes/routesEnum';
 import { StakingRoutes } from '../Staking/typing';
 
 import MarketDetailContent from './Components/MarketDetail/MarketDetailContent';
 import { useMarketDetail } from './hooks/useMarketDetail';
 import { useMarketTokenItem } from './hooks/useMarketToken';
 
-import type { FiatPayModalRoutesParams } from '../../routes/Modal/FiatPay';
+import type { FiatPayModalRoutesParams } from '../../routes/Root/Modal/FiatPay';
 import type {
   HomeRoutes,
   HomeRoutesParams,
@@ -243,7 +247,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                     navigation.navigate(RootRoutes.Modal, {
                       screen: ModalRoutes.FiatPay,
                       params: {
-                        screen: FiatPayRoutes.MoonpayWebViewModal,
+                        screen: FiatPayModalRoutes.MoonpayWebViewModal,
                         params: { url: signedUrl },
                       },
                     });

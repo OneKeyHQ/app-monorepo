@@ -23,7 +23,7 @@ import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks';
 import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
-import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes';
+import { CreateAccountModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 

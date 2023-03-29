@@ -23,15 +23,19 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useLocalAuthentication } from '../../../hooks/useLocalAuthentication';
-import { EnableLocalAuthenticationRoutes } from '../../../routes/Modal/EnableLocalAuthentication';
-import { PasswordRoutes } from '../../../routes/Modal/Password';
-import { HomeRoutes, ModalRoutes, RootRoutes } from '../../../routes/types';
+import {
+  HomeRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../routes/routesEnum';
 import {
   isContextSupportWebAuthn,
   isMac,
   isSupportedPlatform,
   isUserVerifyingPlatformAuthenticatorAvailable,
 } from '../../../utils/webauthn';
+import { EnableLocalAuthenticationRoutes } from '../../EnableLocalAuthentication/types';
+import { PasswordRoutes } from '../../Password/types';
 import { SelectTrigger } from '../SelectTrigger';
 
 import ResetButton from './ResetButton';
@@ -41,7 +45,7 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = CompositeNavigationProp<
-  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Root>,
+  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Main>,
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.Protected>
 >;
 

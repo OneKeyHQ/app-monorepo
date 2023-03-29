@@ -12,13 +12,11 @@ import ClassicSetupNewDevicePng from '@onekeyhq/kit/assets/wallet/setup-new-clas
 import MiniSetupNewDevicePng from '@onekeyhq/kit/assets/wallet/setup-new-mini-device.png';
 import TouchSetupNewDevicePng from '@onekeyhq/kit/assets/wallet/setup-new-touch-device.png';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks';
-import type {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/CreateWallet';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
+import type { CreateWalletModalRoutes } from '../../../routes/routesEnum';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/native';
 

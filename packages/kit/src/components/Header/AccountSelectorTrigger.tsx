@@ -15,8 +15,8 @@ import {
 } from '@onekeyhq/components';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes';
+import { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { getDeviceTypeByDeviceId } from '@onekeyhq/kit/src/utils/hardware';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

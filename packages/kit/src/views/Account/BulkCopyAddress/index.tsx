@@ -15,7 +15,7 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import { useDebounce } from '../../../hooks';
 import { useRuntime } from '../../../hooks/redux';
-import { CreateAccountModalRoutes } from '../../../routes';
+import { CreateAccountModalRoutes } from '../../../routes/routesEnum';
 
 import SetRange from './SetRange';
 import WalletAccounts from './WalletAccounts';

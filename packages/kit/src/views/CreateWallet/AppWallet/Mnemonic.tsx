@@ -20,10 +20,8 @@ import { setEnableLocalAuthentication } from '../../../store/reducers/settings';
 import { wait } from '../../../utils/helper';
 import { savePassword } from '../../../utils/localAuthentication';
 
-import type {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '../../../routes';
+import type { CreateWalletRoutesParams } from '../../../routes';
+import type { CreateWalletModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<
@@ -90,7 +88,7 @@ export const Mnemonic: FC<MnemonicProps> = ({
   );
 };
 
-const MnemonicContainer = () => {
+export const MnemonicContainer = () => {
   const route = useRoute<RouteProps>();
   const { mnemonic, password, withEnableAuthentication } = route.params ?? {};
 
@@ -129,5 +127,3 @@ const MnemonicContainer = () => {
   ]);
   return <Mnemonic mnemonic={mnemonic} onPromise={onPromise} />;
 };
-
-export default MnemonicContainer;

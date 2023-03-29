@@ -13,9 +13,13 @@ import { useIntl } from 'react-intl';
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
 import type { Token as IToken } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
-import { useNavigation, useNetwork } from '@onekeyhq/kit/src/hooks';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
-import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
+import { useNetwork } from '@onekeyhq/kit/src/hooks';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import {
+  ManageTokenModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -94,7 +98,7 @@ export const TokenVerifiedIcon: FC<{
 }> = ({ token, size = 16 }) => {
   const intl = useIntl();
 
-  const navigation = useNavigation();
+  const navigation = useAppNavigation();
 
   const icon = useMemo(() => {
     if (!token?.riskLevel) {
@@ -132,8 +136,8 @@ export const TokenVerifiedIcon: FC<{
         screen:
           typeof token?.riskLevel === 'number' &&
           token?.riskLevel > TokenRiskLevel.VERIFIED
-            ? ManageTokenRoutes.TokenRiskDetail
-            : ManageTokenRoutes.VerifiedToken,
+            ? ManageTokenModalRoutes.TokenRiskDetail
+            : ManageTokenModalRoutes.VerifiedToken,
         params: {
           token: {
             ...token,

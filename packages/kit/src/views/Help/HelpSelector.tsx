@@ -11,9 +11,12 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { SubmitRequestModalRoutesParams } from '@onekeyhq/kit/src/routes';
-import { SubmitRequestRoutes } from '@onekeyhq/kit/src/routes';
+import {
+  ModalRoutes,
+  RootRoutes,
+  SubmitRequestModalRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -132,7 +135,7 @@ const HelpSelector: FC = () => {
             backgroundApiProxy.serviceApp.openExtensionExpandTab({
               routes: [RootRoutes.Modal, ModalRoutes.SubmitRequest],
               params: {
-                screen: SubmitRequestRoutes.SubmitRequestModal,
+                screen: SubmitRequestModalRoutes.SubmitRequestModal,
               },
             });
             setTimeout(() => {
@@ -142,7 +145,7 @@ const HelpSelector: FC = () => {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.SubmitRequest,
               params: {
-                screen: SubmitRequestRoutes.SubmitRequestModal,
+                screen: SubmitRequestModalRoutes.SubmitRequestModal,
               },
             });
           }

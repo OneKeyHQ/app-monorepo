@@ -24,6 +24,7 @@ const headerRight = () => (
 export function LayoutHeaderMobile() {
   return (
     <LayoutHeader
+      testID="App-Layout-Header-Mobile"
       showOnDesktop={false}
       // headerLeft={() => <AccountSelector />}
       headerLeft={headerLeft}

@@ -40,16 +40,19 @@ import { useBatchSendConfirmDecodedTxs } from '../utils/useBatchSendConfirmDecod
 import type {
   ISendAuthenticationModalTitleInfo,
   SendConfirmPayloadInfo,
-  SendRoutes,
+  SendModalRoutes,
   SendRoutesParams,
 } from '../types';
 import type { NavigationProp } from '@react-navigation/core';
 import type { RouteProp } from '@react-navigation/native';
 
-type RouteProps = RouteProp<SendRoutesParams, SendRoutes.BatchSendProgress>;
+type RouteProps = RouteProp<
+  SendRoutesParams,
+  SendModalRoutes.BatchSendProgress
+>;
 type NavigationProps = NavigationProp<
   SendRoutesParams,
-  SendRoutes.BatchSendProgress
+  SendModalRoutes.BatchSendProgress
 >;
 type EnableLocalAuthenticationProps = {
   password: string;

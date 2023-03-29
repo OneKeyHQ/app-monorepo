@@ -28,16 +28,19 @@ import { DecodeTxButtonTest } from '../components/DecodeTxButtonTest';
 import type {
   ISendAuthenticationModalTitleInfo,
   SendConfirmPayloadInfo,
-  SendRoutes,
+  SendModalRoutes,
   SendRoutesParams,
 } from '../types';
 import type { NavigationProp } from '@react-navigation/core';
 import type { RouteProp } from '@react-navigation/native';
 
-type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendAuthentication>;
+type RouteProps = RouteProp<
+  SendRoutesParams,
+  SendModalRoutes.SendAuthentication
+>;
 type NavigationProps = NavigationProp<
   SendRoutesParams,
-  SendRoutes.SendAuthentication
+  SendModalRoutes.SendAuthentication
 >;
 type EnableLocalAuthenticationProps = {
   password: string;

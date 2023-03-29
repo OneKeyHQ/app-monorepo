@@ -68,7 +68,7 @@ const EnableLocalAuthenticationDone: FC<EnableLocalAuthenticationProps> = ({
   );
 };
 
-export const EnableLocalAuthentication = () => (
+const EnableLocalAuthentication = () => (
   <Modal footer={null}>
     <Protected walletId={null}>
       {(password, { isLocalAuthentication }) => (

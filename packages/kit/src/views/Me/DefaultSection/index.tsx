@@ -9,8 +9,8 @@ import {
   Text,
   useTheme,
 } from '@onekeyhq/components';
+import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -21,12 +21,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   HomeRoutesParams,
-  HomeRoutes.InitialTab
+  HomeRoutes.AddressBook
 >;
 
 export const DefaultSection = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  const navigationRoot = useAppNavigation();
   const appNavigation = useAppNavigation();
   const { themeVariant } = useTheme();
 
@@ -110,7 +111,7 @@ export const DefaultSection = () => {
           py={4}
           px={{ base: 4, md: 6 }}
           onPress={() => {
-            navigation.navigate(HomeRoutes.HomeOnboarding, {
+            navigationRoot.navigate(RootRoutes.Onboarding, {
               screen: EOnboardingRoutes.KeyTag,
             });
           }}

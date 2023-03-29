@@ -21,7 +21,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/engine/src/types/wallet';
 import { useAppSelector, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
-import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 

@@ -4,11 +4,11 @@ import { useCallback } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { CreateWalletModalRoutes } from '../../../routes/Modal/CreateWallet';
+import { CreateWalletModalRoutes } from '../../../routes/routesEnum';
 
 import { Attentions } from './Attentions';
 
-import type { CreateWalletRoutesParams } from '../../../routes/Modal/CreateWallet';
+import type { CreateWalletRoutesParams } from '../../../routes/Root/Modal/CreateWallet';
 import type { NavigationProp, RouteProp } from '@react-navigation/native';
 
 type NavigationProps = NavigationProp<
