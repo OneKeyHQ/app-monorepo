@@ -64,21 +64,29 @@ export function useNavigationActions() {
     [dispatch, navigation],
   );
 
+  const openDrawer = useCallback(() => {
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
+
+  const closeDrawer = useCallback(() => {
+    navigation.dispatch(DrawerActions.closeDrawer());
+  }, [navigation]);
+
   const closeWalletSelector = useCallback(() => {
     if (isVertical) {
-      navigation.dispatch(DrawerActions.closeDrawer());
+      closeDrawer();
     } else {
       dispatch(updateDesktopWalletSelectorVisible(false));
     }
-  }, [dispatch, isVertical, navigation]);
+  }, [closeDrawer, dispatch, isVertical]);
 
   const openWalletSelector = useCallback(() => {
     if (isVertical) {
-      navigation.dispatch(DrawerActions.openDrawer());
+      openDrawer();
     } else {
       dispatch(updateDesktopWalletSelectorVisible(true));
     }
-  }, [dispatch, isVertical, navigation]);
+  }, [dispatch, isVertical, openDrawer]);
 
   const toggleWalletSelector = useCallback(() => {
     setTimeout(() => {
@@ -189,6 +197,8 @@ export function useNavigationActions() {
       openAccountSelector,
       openNetworkSelector,
       sendToken,
+      openDrawer,
+      closeDrawer,
     }),
     [
       openAccountSelector,
@@ -200,6 +210,8 @@ export function useNavigationActions() {
       resetToWelcome,
       openRootHome,
       sendToken,
+      openDrawer,
+      closeDrawer,
     ],
   );
 }
