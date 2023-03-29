@@ -12,10 +12,8 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import type {
-  UpdateFeatureModalRoutes,
-  UpdateFeatureRoutesParams,
-} from '../../../routes/Modal/UpdateFeature';
+import type { UpdateFeatureRoutesParams } from '../../../routes/Root/Modal/UpdateFeature';
+import type { UpdateFeatureModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<

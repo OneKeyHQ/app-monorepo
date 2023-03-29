@@ -1,10 +1,9 @@
-import { useCallback, useLayoutEffect } from 'react';
-
-import { useNavigation } from '@react-navigation/core';
+import { useCallback } from 'react';
 
 import { Box, FlatList, useSafeAreaInsets } from '@onekeyhq/components';
 
 // import Banner from './Banner';
+
 import LiveMintingModule from './LiveMinting';
 import NotableCollections from './NotableCollections';
 import PageHeader from './PageHeader';
@@ -74,12 +73,7 @@ const Content = () => {
 };
 
 const NFTMarket = () => {
-  const navigation = useNavigation();
   const { top } = useSafeAreaInsets();
-
-  useLayoutEffect(() => {
-    navigation.setOptions({ headerShown: false });
-  }, [navigation]);
 
   return (
     <Box flex={1} mt={`${top}px`}>

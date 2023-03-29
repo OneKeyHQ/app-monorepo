@@ -22,7 +22,7 @@ import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModa
 import { BatchSendTokenInfo } from '../../components/BatchSendTokenInfo';
 import { BatchTransactionFeeInfo } from '../../components/BatchTransactionFeeInfo';
 import { MAX_TRANSACTIONS_DISPLAY_IN_CONFIRM } from '../../constants';
-import { SendRoutes } from '../../types';
+import { SendModalRoutes } from '../../types';
 import { useBatchSendConfirmDecodedTxs } from '../../utils/useBatchSendConfirmDecodedTxs';
 import { useBatchSendConfirmEncodedTxs } from '../../utils/useBatchSendConfirmEncodedTxs';
 import {
@@ -170,7 +170,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
-            screen: SendRoutes.SendFeedbackReceipt,
+            screen: SendModalRoutes.SendFeedbackReceipt,
             params,
           },
         });
@@ -202,7 +202,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       return navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
-          screen: SendRoutes.BatchSendProgress,
+          screen: SendModalRoutes.BatchSendProgress,
           params: nextRouteParams,
         },
       });

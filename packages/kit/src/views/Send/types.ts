@@ -19,7 +19,7 @@ import type {
 } from '@onekeyhq/engine/src/vaults/types';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
-import { SendRoutes } from './enums';
+import { SendModalRoutes } from './enums';
 
 import type { WalletService } from '../../components/WalletConnect/types';
 import type { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
@@ -28,7 +28,7 @@ import type { InjectedConnectorInfo } from '../ExternalAccount/injectedConnector
 import type { SwapQuoteTx } from '../Swap/typings';
 import type { IWalletConnectSession } from '@walletconnect/types';
 
-export { SendRoutes };
+export { SendModalRoutes };
 
 export type ISendAuthenticationModalTitleInfo = {
   title: string;
@@ -181,20 +181,20 @@ export type HardwareSwapContinueParams = {
 };
 
 export type SendRoutesParams = {
-  [SendRoutes.PreSendToken]: PreSendParams;
-  [SendRoutes.PreSendAddress]: PreSendParams;
-  [SendRoutes.PreSendAmount]: PreSendParams;
-  [SendRoutes.SendEditFee]: EditFeeParams;
-  [SendRoutes.TokenApproveAmountEdit]: TokenApproveAmountEditParams;
-  [SendRoutes.SendConfirmFromDapp]: SendConfirmFromDappParams;
-  [SendRoutes.SendConfirm]: SendConfirmParams;
-  [SendRoutes.SendAuthentication]: SendAuthenticationParams;
-  [SendRoutes.SendSpecialWarning]: SendSpecialWarningParams;
-  [SendRoutes.SignMessageConfirm]: SignMessageConfirmParams;
-  [SendRoutes.SendFeedbackReceipt]: SendFeedbackReceiptParams;
-  [SendRoutes.HardwareSwapContinue]: HardwareSwapContinueParams;
-  [SendRoutes.BatchSendConfirm]: BatchSendConfirmParams;
-  [SendRoutes.BatchSendProgress]: BatchSendProgressParams;
+  [SendModalRoutes.PreSendToken]: PreSendParams;
+  [SendModalRoutes.PreSendAddress]: PreSendParams;
+  [SendModalRoutes.PreSendAmount]: PreSendParams;
+  [SendModalRoutes.SendEditFee]: EditFeeParams;
+  [SendModalRoutes.TokenApproveAmountEdit]: TokenApproveAmountEditParams;
+  [SendModalRoutes.SendConfirmFromDapp]: SendConfirmFromDappParams;
+  [SendModalRoutes.SendConfirm]: SendConfirmParams;
+  [SendModalRoutes.SendAuthentication]: SendAuthenticationParams;
+  [SendModalRoutes.SendSpecialWarning]: SendSpecialWarningParams;
+  [SendModalRoutes.SignMessageConfirm]: SignMessageConfirmParams;
+  [SendModalRoutes.SendFeedbackReceipt]: SendFeedbackReceiptParams;
+  [SendModalRoutes.HardwareSwapContinue]: HardwareSwapContinueParams;
+  [SendModalRoutes.BatchSendConfirm]: BatchSendConfirmParams;
+  [SendModalRoutes.BatchSendProgress]: BatchSendProgressParams;
 };
 
 export type ITxConfirmViewPropsHandleConfirm = ({

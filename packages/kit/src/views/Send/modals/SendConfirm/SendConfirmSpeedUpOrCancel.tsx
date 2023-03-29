@@ -11,12 +11,12 @@ import { FeeInfoInputForSpeedUpOrCancel } from '../../components/FeeInfoInput';
 
 import type {
   ITxConfirmViewProps,
-  SendRoutes,
+  SendModalRoutes,
   SendRoutesParams,
 } from '../../types';
 import type { RouteProp } from '@react-navigation/native';
 
-type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
+type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.SendConfirm>;
 
 // check TxResendButtons doSpeedUpOrCancelTx() logic
 function SendConfirmSpeedUpOrCancel(props: ITxConfirmViewProps) {

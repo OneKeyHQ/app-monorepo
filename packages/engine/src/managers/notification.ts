@@ -2,7 +2,10 @@ import axios from 'axios';
 import { debounce } from 'lodash';
 import qs from 'qs';
 
-import type { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import type {
+  HomeRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 import { appSelector } from '@onekeyhq/kit/src/store';
 import type { SettingsState } from '@onekeyhq/kit/src/store/reducers/settings';
 import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
@@ -18,7 +21,7 @@ type PartialNotificationType = Partial<SettingsState['pushNotification']> & {
 };
 
 export type NotificationExtra = {
-  screen: HomeRoutes.ScreenTokenDetail | HomeRoutes.InitialTab;
+  screen: HomeRoutes.ScreenTokenDetail | RootRoutes.Main;
   params: {
     accountId?: string;
     networkId?: string;

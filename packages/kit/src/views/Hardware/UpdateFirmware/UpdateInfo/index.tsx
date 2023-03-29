@@ -26,8 +26,8 @@ import type { Device } from '@onekeyhq/engine/src/types/device';
 import TouchConnectDesktop from '@onekeyhq/kit/assets/illus_touch_connect_desktop.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
-import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
-import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
+import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareUpdate';
+import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
 import type {

@@ -23,17 +23,17 @@ import type { TokenSource } from '@onekeyhq/engine/src/managers/token';
 import NoRisks from '@onekeyhq/kit/assets/NoRisks.png';
 
 import { useNavigation } from '../../hooks';
+import { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 
 import { useTokenSecurityInfo, useTokenSourceList } from './hooks';
-import { ManageTokenRoutes } from './types';
 
 import type { ManageTokenRoutesParams } from './types';
 import type { RouteProp } from '@react-navigation/native';
 
 type NavigationProps = RouteProp<
   ManageTokenRoutesParams,
-  ManageTokenRoutes.VerifiedToken
+  ManageTokenModalRoutes.VerifiedToken
 >;
 
 const VerifiedTokens: FC = () => {
@@ -58,7 +58,7 @@ const VerifiedTokens: FC = () => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.ManageToken,
       params: {
-        screen: ManageTokenRoutes.TokenRiskDetail,
+        screen: ManageTokenModalRoutes.TokenRiskDetail,
         params: {
           token,
         },

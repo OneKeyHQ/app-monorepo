@@ -24,12 +24,15 @@ import { RPCItem } from '../components/RPCItem';
 import { measureRpc, useRPCUrls } from '../hooks';
 
 import type { MeasureResult } from '../hooks';
-import type { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+import type {
+  ManageNetworkModalRoutes,
+  ManageNetworkRoutesParams,
+} from '../types';
 import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.RPCNode
+  ManageNetworkModalRoutes.RPCNode
 >;
 
 const HeaderCollapse = () => {

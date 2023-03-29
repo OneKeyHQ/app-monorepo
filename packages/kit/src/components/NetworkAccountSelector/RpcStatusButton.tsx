@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/components';
 
 import { useNavigation } from '../../hooks';
-import { ManageNetworkRoutes } from '../../routes/routesEnum';
+import { ManageNetworkModalRoutes } from '../../routes/routesEnum';
 import { useRpcMeasureStatus } from '../../views/ManageNetworks/hooks';
 
 import Speedindicator from './modals/NetworkAccountSelectorModal/SpeedIndicator';
@@ -24,7 +24,7 @@ import type { GestureResponderEvent } from 'react-native';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.RPCNode
+  ManageNetworkModalRoutes.RPCNode
 >;
 
 interface IRpcStatusButtonProps {
@@ -40,7 +40,7 @@ function RpcStatusButton({ networkId }: IRpcStatusButtonProps) {
       event?.preventDefault?.();
       event?.stopPropagation?.();
       // setIsOpen(false);
-      navigation.navigate(ManageNetworkRoutes.RPCNode, {
+      navigation.navigate(ManageNetworkModalRoutes.RPCNode, {
         networkId: networkId || '',
       });
     },

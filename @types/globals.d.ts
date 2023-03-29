@@ -20,6 +20,7 @@ declare global {
   var $backgroundApiProxy: IBackgroundApi;
   var $backgroundApi: IBackgroundApi;
 
+  var $$navigationShortcuts: any;
   var $$simpleDb: any;
   var $$appEventBus: any;
   var $$appUIEventBus: any;

@@ -25,7 +25,6 @@ import {
   ModalRoutes,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/types';
-import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrencyNumber } from '../../../components/Format';
@@ -36,6 +35,7 @@ import {
 } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
 import { useAccountTokenValues } from '../../../hooks/useTokens';
+import { ManageTokenModalRoutes } from '../../../routes/routesEnum';
 import { showHomeBalanceSettings } from '../../Overlay/HomeBalanceSettings';
 import { OverviewBadge } from '../../Overview/components/OverviewBadge';
 
@@ -43,7 +43,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
-  RootRoutes.Root
+  RootRoutes.Main
 > &
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.FullTokenListScreen>;
 
@@ -90,7 +90,7 @@ const ListHeader: FC<{
             onPress={() =>
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.ManageToken,
-                params: { screen: ManageTokenRoutes.Listing },
+                params: { screen: ManageTokenModalRoutes.Listing },
               })
             }
           />
@@ -299,7 +299,7 @@ const AssetsListHeader: FC<{
                 onPress={() =>
                   navigation.navigate(RootRoutes.Modal, {
                     screen: ModalRoutes.ManageToken,
-                    params: { screen: ManageTokenRoutes.Listing },
+                    params: { screen: ManageTokenModalRoutes.Listing },
                   })
                 }
                 size="sm"

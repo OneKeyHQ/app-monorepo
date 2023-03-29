@@ -14,12 +14,10 @@ import {
 import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import useBackHandler from '@onekeyhq/kit/src/hooks/useBackHandler';
-import type {
-  UpdateFeatureModalRoutes,
-  UpdateFeatureRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/UpdateFeature';
+import type { UpdateFeatureRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/UpdateFeature';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 
+import type { UpdateFeatureModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<

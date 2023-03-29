@@ -8,8 +8,8 @@ import { isValidCoingeckoId } from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ManageTokenModalRoutes } from '../../../../routes/routesEnum';
 import { ModalRoutes, RootRoutes } from '../../../../routes/types';
-import { ManageTokenRoutes } from '../../../ManageTokens/types';
 import ChartWithLabel from '../../../PriceChart/ChartWithLabel';
 import { useChartTimeLabel } from '../../../PriceChart/hooks';
 import TimeControl, {
@@ -62,7 +62,7 @@ const MarketPriceChart: FC<MarketPriceChartProps> = ({
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.ManageToken,
         params: {
-          screen: ManageTokenRoutes.PriceAlertList,
+          screen: ManageTokenModalRoutes.PriceAlertList,
           params: {
             price,
             token: {

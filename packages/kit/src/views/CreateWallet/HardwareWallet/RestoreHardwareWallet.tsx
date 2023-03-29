@@ -13,10 +13,13 @@ import {
 } from '@onekeyhq/components';
 import UnboxingPng from '@onekeyhq/kit/assets/wallet/unboxing.png';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks';
-import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/CreateWallet';
+import {
+  CreateWalletModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
 import type { RouteProp } from '@react-navigation/core';

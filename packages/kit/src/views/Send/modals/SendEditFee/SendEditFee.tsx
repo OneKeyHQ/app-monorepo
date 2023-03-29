@@ -32,7 +32,7 @@ import { setFeePresetIndex } from '../../../../store/reducers/data';
 import { BaseSendModal } from '../../components/BaseSendModal';
 import { DecodeTxButtonTest } from '../../components/DecodeTxButtonTest';
 import { ESendEditFeeTypes } from '../../enums';
-import { SendRoutes } from '../../types';
+import { SendModalRoutes } from '../../types';
 import {
   IS_REPLACE_ROUTE_TO_FEE_EDIT,
   SEND_EDIT_FEE_PRICE_UP_RATIO,
@@ -52,10 +52,10 @@ import type {
 import type { RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 
-type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendEditFee>;
+type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.SendEditFee>;
 type NavigationProps = StackNavigationProp<
   SendRoutesParams,
-  SendRoutes.SendEditFee
+  SendModalRoutes.SendEditFee
 >;
 
 function selectMaxValue(
@@ -197,7 +197,7 @@ function ScreenSendEditFee({ ...rest }) {
         feeInfoUseFeeInTx: false,
         feeInfoEditable: true,
       };
-      return navigation.replace(SendRoutes.SendConfirm, sendConfirmParams);
+      return navigation.replace(SendModalRoutes.SendConfirm, sendConfirmParams);
     }
 
     const params = {
@@ -232,7 +232,7 @@ function ScreenSendEditFee({ ...rest }) {
       }
     }
 
-    const toRouteName = prevRouteName || SendRoutes.SendConfirm;
+    const toRouteName = prevRouteName || SendModalRoutes.SendConfirm;
     if (IS_REPLACE_ROUTE_TO_FEE_EDIT) {
       // navigation.navigate() with `merge=true` will fail in firefox
       return navigation.replace(toRouteName, params);

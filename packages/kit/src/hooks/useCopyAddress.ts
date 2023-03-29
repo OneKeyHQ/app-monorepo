@@ -10,7 +10,7 @@ import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import {
   ModalRoutes,
-  ReceiveTokenRoutes,
+  ReceiveTokenModalRoutes,
   RootRoutes,
 } from '../routes/routesEnum';
 
@@ -35,7 +35,7 @@ export function useCopyAddress({
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Receive,
           params: {
-            screen: ReceiveTokenRoutes.ReceiveToken,
+            screen: ReceiveTokenModalRoutes.ReceiveToken,
             params: {
               address,
               wallet,

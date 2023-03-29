@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 import { Typography } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
-import { SendRoutes } from '../../Send/types';
+import { SendModalRoutes } from '../../Send/types';
 import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../../Send/utils/sendConfirmConsts';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
 import { TxListActionBox } from '../components/TxListActionBox';
@@ -30,7 +30,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
-  SendRoutes.TokenApproveAmountEdit
+  SendModalRoutes.TokenApproveAmountEdit
 >;
 
 export function getTxActionTokenApproveInfo(props: ITxActionCardProps) {
@@ -93,7 +93,7 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
       onPress={
         isSendConfirm && !isCollapse
           ? () => {
-              const routeName = SendRoutes.TokenApproveAmountEdit;
+              const routeName = SendModalRoutes.TokenApproveAmountEdit;
               if (!sendConfirmParamsParsed?.routeParams) {
                 return;
               }

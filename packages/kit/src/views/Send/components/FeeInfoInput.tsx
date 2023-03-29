@@ -16,7 +16,7 @@ import {
 import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
-import { SendRoutes } from '../types';
+import { SendModalRoutes } from '../types';
 import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../utils/sendConfirmConsts';
 import { useNetworkFeeInfoEditable } from '../utils/useNetworkFeeInfoEditable';
 
@@ -33,9 +33,9 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProps = StackNavigationProp<
   SendRoutesParams,
-  SendRoutes.SendConfirm
+  SendModalRoutes.SendConfirm
 >;
-type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
+type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.SendConfirm>;
 
 function PressableWrapper({
   children,
@@ -82,7 +82,7 @@ function FeeInfoInput({
         return;
       }
       if (replace) {
-        navigation.replace(SendRoutes.SendEditFee, {
+        navigation.replace(SendModalRoutes.SendEditFee, {
           networkId,
           accountId,
           encodedTx,
@@ -95,7 +95,7 @@ function FeeInfoInput({
         navigation.navigate({
           // merge: true,
           // headerLeft: null,
-          name: SendRoutes.SendEditFee,
+          name: SendModalRoutes.SendEditFee,
           params: {
             networkId,
             accountId,

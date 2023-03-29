@@ -6,6 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useDebounce } from '../../hooks';
+import { unlockWhiteListUrls } from '../../routes/linking.path';
 import { setAppRenderReady } from '../../store/reducers/data';
 
 import { AppStateHeartbeat } from './AppStateHeartbeat';
@@ -14,19 +15,6 @@ import { AppStateUpdater } from './AppStateUpdater';
 
 type AppLockProps = { children: JSX.Element; renderAsOverlay?: boolean };
 
-// open url matched here won't show unlock screen
-// TODO use https://www.npmjs.com/package/path-to-regexp to check match
-const unlockWhiteListUrl = [
-  '/account/', // /account/0x88888
-  '/wc/connect',
-  '/wc/connect/wc',
-  '/onlanding',
-  '/revoke',
-  '/root/initial/tab/home/Revoke',
-  '/root/Revoke',
-  '/pnl',
-];
-
 function isUnlockWhiteListUrl() {
   // only available for web
   // TODO only for dapp mode web, but not wallet mode web
@@ -34,7 +22,7 @@ function isUnlockWhiteListUrl() {
     return false;
   }
   return Boolean(
-    unlockWhiteListUrl.find((item) =>
+    unlockWhiteListUrls.find((item) =>
       window.location?.pathname?.startsWith(item),
     ),
   );

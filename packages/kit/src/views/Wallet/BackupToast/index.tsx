@@ -11,7 +11,7 @@ import {
   Toast,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';

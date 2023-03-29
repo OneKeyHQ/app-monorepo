@@ -1,4 +1,4 @@
-export enum SendRoutes {
+export enum SendModalRoutes {
   PreSendToken = 'PreSendToken',
   PreSendAddress = 'PreSendAddress',
   PreSendAmount = 'PreSendAmount',

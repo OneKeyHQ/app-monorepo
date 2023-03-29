@@ -28,12 +28,15 @@ import { SiteSection } from '../components/SiteSection';
 import { measureRpc, useRPCUrls } from '../hooks';
 
 import type { MeasureResult } from '../hooks';
-import type { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+import type {
+  ManageNetworkModalRoutes,
+  ManageNetworkRoutesParams,
+} from '../types';
 import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.SwitchRpc
+  ManageNetworkModalRoutes.SwitchRpc
 >;
 
 export type ListItem = { label: string; value?: any };

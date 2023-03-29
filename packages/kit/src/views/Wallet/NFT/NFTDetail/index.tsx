@@ -40,12 +40,9 @@ import {
   getActiveWalletAccount,
   useActiveWalletAccount,
 } from '@onekeyhq/kit/src/hooks/redux';
-import type {
-  CollectiblesModalRoutes,
-  CollectiblesRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/Collectibles';
+import type { CollectiblesRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Collectibles';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 import { generateUploadNFTParams } from '@onekeyhq/kit/src/utils/hardware/nftUtils';
 import NFTDetailMenu from '@onekeyhq/kit/src/views/Overlay/NFTDetailMenu';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
@@ -54,7 +51,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { SendRoutes } from '../../../../routes';
+import { SendModalRoutes } from '../../../../routes/routesEnum';
 import { deviceUtils } from '../../../../utils/hardware';
 import CollectionLogo from '../../../NFTMarket/CollectionLogo';
 import { useCollectionDetail } from '../../../NFTMarket/Home/hook';
@@ -63,6 +60,7 @@ import { convertToMoneyFormat } from '../utils';
 
 import CollectibleContent from './CollectibleContent';
 
+import type { CollectiblesModalRoutes } from '../../../../routes/routesEnum';
 import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 
@@ -267,7 +265,7 @@ const NFTDetailModal: FC = () => {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
-          screen: SendRoutes.PreSendAddress,
+          screen: SendModalRoutes.PreSendAddress,
           params: {
             accountId,
             networkId,

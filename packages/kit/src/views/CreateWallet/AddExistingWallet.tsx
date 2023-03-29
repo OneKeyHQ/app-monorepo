@@ -29,7 +29,7 @@ import type {
   IAddImportedAccountDoneModalParams,
   IAddImportedOrWatchingAccountModalParams,
   IAppWalletDoneModalParams,
-} from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+} from '@onekeyhq/kit/src/routes/Root/Modal/CreateWallet';
 import {
   CreateWalletModalRoutes,
   ModalRoutes,

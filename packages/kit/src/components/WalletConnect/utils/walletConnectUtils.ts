@@ -5,9 +5,12 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getAppNavigation } from '../../../hooks/useAppNavigation';
-import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import {
+  DappConnectionModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../routes/routesEnum';
 import { getTimeDurationMs } from '../../../utils/helper';
-import { DappConnectionModalRoutes } from '../../../views/DappModals/types';
 import unlockUtils from '../../AppLock/unlockUtils';
 import { ONEKEY_APP_DEEP_LINK } from '../walletConnectConsts';
 

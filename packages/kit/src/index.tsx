@@ -5,4 +5,4 @@ import './background/instance/backgroundApiProxy';
 // eslint-disable-next-line global-require
 if (platformEnv.isNative) require('react-native-url-polyfill/auto');
 
-export { default as Provider } from './provider';
+export { default as KitProvider } from './provider/KitProvider';

@@ -35,7 +35,7 @@ import { addTransaction } from '../../store/reducers/swapTransactions';
 import { wait } from '../../utils/helper';
 import { canShowAppReview, openAppReview } from '../../utils/openAppReview';
 import { showOverlay } from '../../utils/overlayUtils';
-import { SendRoutes } from '../Send/types';
+import { SendModalRoutes } from '../Send/types';
 
 import { reservedNetworkFee } from './config';
 import {
@@ -575,7 +575,7 @@ const ExchangeButton = () => {
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.Send,
                 params: {
-                  screen: SendRoutes.HardwareSwapContinue,
+                  screen: SendModalRoutes.HardwareSwapContinue,
                   params: {
                     networkId: fromNetworkId,
                     accountId: sendingAccount.id,

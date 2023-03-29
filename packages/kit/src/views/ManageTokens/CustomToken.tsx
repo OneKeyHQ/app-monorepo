@@ -21,16 +21,18 @@ import {
   useDebounce,
   useNetworkSimple,
 } from '../../hooks';
-import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
-
-import { ManageTokenRoutes } from './types';
+import {
+  ManageTokenModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../routes/routesEnum';
 
 import type { ManageTokenRoutesParams } from './types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackScreenProps<
   ManageTokenRoutesParams,
-  ManageTokenRoutes.CustomToken
+  ManageTokenModalRoutes.CustomToken
 >;
 
 type AddCustomTokenValues = {
@@ -128,7 +130,7 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.ManageToken,
           params: {
-            screen: ManageTokenRoutes.ActivateToken,
+            screen: ManageTokenModalRoutes.ActivateToken,
             params: {
               walletId,
               accountId: $accountId,

@@ -13,7 +13,7 @@ import type {
 } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
 import type { ButtonType } from '@onekeyhq/components/src/Button';
 import type { OnekeyLiteChangePinRoutesParams } from '@onekeyhq/kit/src/routes';
-import { OnekeyLiteChangePinModalRoutes } from '@onekeyhq/kit/src/routes';
+import { OnekeyLiteChangePinModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import { SkipAppLock } from '../../../../components/AppLock';

@@ -1,3 +1,5 @@
+import type { DappConnectionModalRoutes } from '../../routes/routesEnum';
+
 export enum DappApproveModalRoutes {
   ApproveModal = 'ApproveModal',
   SpendLimitModal = 'SpendLimitModal',
@@ -11,11 +13,6 @@ export type DappApproveRoutesParams = {
   [DappApproveModalRoutes.EditFeeModal]: undefined;
   [DappApproveModalRoutes.ContractDataModal]: { contractData: string };
 };
-
-export enum DappConnectionModalRoutes {
-  ConnectionModal = 'ConnectionModal',
-  NetworkNotMatchModal = 'NetworkNotMatchModal',
-}
 
 export type DappConnectionRoutesParams = {
   [DappConnectionModalRoutes.ConnectionModal]: {

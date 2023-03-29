@@ -26,7 +26,7 @@ import reducerAccountSelector from '../../../../store/reducers/reducerAccountSel
 import { setFistTimeShowCheckRPCNodeTooltip } from '../../../../store/reducers/status';
 import { wait } from '../../../../utils/helper';
 import { useRpcMeasureStatus } from '../../../../views/ManageNetworks/hooks';
-import { ManageNetworkRoutes } from '../../../../views/ManageNetworks/types';
+import { ManageNetworkModalRoutes } from '../../../../views/ManageNetworks/types';
 
 import Speedindicator from './SpeedIndicator';
 import { WalletSelectDropdown } from './WalletSelectDropdown';
@@ -39,7 +39,7 @@ const { updateIsLoading } = reducerAccountSelector.actions;
 
 type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.RPCNode
+  ManageNetworkModalRoutes.RPCNode
 >;
 
 function Header({
@@ -62,7 +62,7 @@ function Header({
 
   const toCheckNodePage = useCallback(() => {
     setIsOpen(false);
-    navigation.navigate(ManageNetworkRoutes.RPCNode, {
+    navigation.navigate(ManageNetworkModalRoutes.RPCNode, {
       networkId: selectedNetwork?.id || '',
     });
   }, [navigation, selectedNetwork]);

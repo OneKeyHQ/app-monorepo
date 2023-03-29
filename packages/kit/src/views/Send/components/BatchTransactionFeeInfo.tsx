@@ -27,7 +27,7 @@ import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
 import { setFeePresetIndex } from '../../../store/reducers/data';
 import { showOverlay } from '../../../utils/overlayUtils';
 import { SendEditFeeStandardFormLite } from '../modals/SendEditFee/SendEditFeeStandardFormLite';
-import { SendRoutes } from '../types';
+import { SendModalRoutes } from '../types';
 import { useFeePresetIndex } from '../utils/useFeePresetIndex';
 import { useNetworkFeeInfoEditable } from '../utils/useNetworkFeeInfoEditable';
 
@@ -52,7 +52,7 @@ interface Props {
 
 type NavigationProps = StackNavigationProp<
   SendRoutesParams,
-  SendRoutes.BatchSendConfirm
+  SendModalRoutes.BatchSendConfirm
 >;
 
 function PressableWrapper({
@@ -198,7 +198,7 @@ function BatchTransactionFeeInfo(props: Props) {
       }
 
       if (replace) {
-        navigation.replace(SendRoutes.SendEditFee, {
+        navigation.replace(SendModalRoutes.SendEditFee, {
           networkId,
           accountId,
           encodedTx,
@@ -207,7 +207,7 @@ function BatchTransactionFeeInfo(props: Props) {
         });
       } else {
         navigation.navigate({
-          name: SendRoutes.SendEditFee,
+          name: SendModalRoutes.SendEditFee,
           params: {
             networkId,
             accountId,

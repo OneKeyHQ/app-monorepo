@@ -10,10 +10,7 @@ import { Modal, ToastManager } from '@onekeyhq/components';
 import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
-import type {
-  HardwareUpdateModalRoutes,
-  HardwareUpdateRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/HardwareUpdate';
+import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareUpdate';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { setDeviceDoneUpdate } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
@@ -28,6 +25,7 @@ import { UI_REQUEST } from '../../PopupHandle/showHardwarePopup';
 import RunningView from './RunningView';
 import StateView from './StateView';
 
+import type { HardwareUpdateModalRoutes } from '../../../../routes/routesEnum';
 import type { StateViewTypeInfo } from './StateView';
 import type { RouteProp } from '@react-navigation/core';
 

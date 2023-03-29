@@ -10,7 +10,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useActiveSideAccount } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import { BaseSendModal } from '../components/BaseSendModal';
-import { SendRoutes } from '../types';
+import { SendModalRoutes } from '../types';
 import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../utils/sendConfirmConsts';
 
 import type { SendRoutesParams } from '../types';
@@ -19,7 +19,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RouteProps = RouteProp<
   SendRoutesParams,
-  SendRoutes.TokenApproveAmountEdit
+  SendModalRoutes.TokenApproveAmountEdit
 >;
 
 type FeeValues = {
@@ -28,7 +28,7 @@ type FeeValues = {
 
 type NavigationProps = NativeStackNavigationProp<
   SendRoutesParams,
-  SendRoutes.TokenApproveAmountEdit
+  SendModalRoutes.TokenApproveAmountEdit
 >;
 
 function TokenApproveAmountEdit({ ...rest }) {
@@ -70,7 +70,8 @@ function TokenApproveAmountEdit({ ...rest }) {
     });
 
     const { routes, index } = navigation.getState();
-    const prevRouteName = routes[index - 1]?.name || SendRoutes.SendConfirm;
+    const prevRouteName =
+      routes[index - 1]?.name || SendModalRoutes.SendConfirm;
     const prevRouteParams = {
       ...sendConfirmParams,
       networkId,

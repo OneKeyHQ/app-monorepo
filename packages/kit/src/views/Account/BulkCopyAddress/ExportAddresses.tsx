@@ -20,10 +20,8 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 
 import showFileFormatBottomSheetModal from './SelectFileFormatBottomSheetModal';
 
-import type {
-  CreateAccountModalRoutes,
-  CreateAccountRoutesParams,
-} from '../../../routes';
+import type { CreateAccountRoutesParams } from '../../../routes';
+import type { CreateAccountModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<

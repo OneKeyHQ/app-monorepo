@@ -1,5 +1,3 @@
-import { useLayoutEffect } from 'react';
-
 import { useIntl } from 'react-intl';
 import { ScrollView } from 'react-native-gesture-handler';
 
@@ -13,7 +11,7 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector, useNavigation } from '../../hooks';
+import { useAppSelector } from '../../hooks';
 import SwapChart from '../PriceChart/SwapChart';
 
 import SwapAlert from './SwapAlert';
@@ -161,11 +159,7 @@ const DesktopChartLabel = () => {
 };
 
 export const Desktop = () => {
-  const navigation = useNavigation();
   const swapChartMode = useAppSelector((s) => s.swapTransactions.swapChartMode);
-  useLayoutEffect(() => {
-    navigation.setOptions({ headerShown: false });
-  }, [navigation]);
 
   const mode = swapChartMode || 'chart';
 

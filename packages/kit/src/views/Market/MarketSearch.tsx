@@ -19,8 +19,8 @@ import {
 } from '@onekeyhq/components';
 import NavigationButton from '@onekeyhq/components/src/Modal/Container/Header/NavigationButton';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
-import { HomeRoutes } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';

@@ -13,19 +13,19 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  MARKET_TAB_NAME,
-  SWAP_TAB_NAME,
-} from '@onekeyhq/kit/src/store/reducers/market';
+import type { MarketTopTabName } from '@onekeyhq/kit/src/store/reducers/market';
 
-import { ModalRoutes, RootRoutes } from '../../../../routes/types';
+import { navigationShortcuts } from '../../../../routes/navigationShortcuts';
+import { ModalRoutes, RootRoutes, TabRoutes } from '../../../../routes/types';
 import { SwapHeaderButtons } from '../../../Swap/SwapHeader';
-import { useMarketTopTabName } from '../../hooks/useMarketList';
 import { MarketRoutes } from '../../types';
 
-import type { ModalScreenProps } from '../../../../routes/types';
+import type {
+  ModalScreenProps,
+  TabRoutesParams,
+} from '../../../../routes/types';
 import type { MarketRoutesParams } from '../../types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type ModalNavigationProps = ModalScreenProps<MarketRoutesParams>;
 
@@ -44,7 +44,7 @@ const Header: FC<{ onPressSearch: () => void }> = ({ onPressSearch }) => {
           borderLeftColor="border-subdued"
           mx={3}
         />
-        <Pressable flexDirection="row" onPress={onPressSearch}>
+        <Pressable flexDirection="row" flex={1} onPress={onPressSearch}>
           <Icon name="MagnifyingGlassMini" size={24} />
           <Typography.Body1Strong ml={1} color="text-subdued">
             {intl.formatMessage({ id: 'form__search_tokens' })}
@@ -55,10 +55,23 @@ const Header: FC<{ onPressSearch: () => void }> = ({ onPressSearch }) => {
   );
 };
 
-const HeaderSmall: FC<{ onPressSearch: () => void }> = ({ onPressSearch }) => {
-  const tabName = useMarketTopTabName();
+type NavigationProps = NativeStackNavigationProp<
+  TabRoutesParams,
+  TabRoutes.Market
+>;
+
+function HeaderSmall({
+  marketTopTabName,
+  onPressSearch,
+}: {
+  marketTopTabName: MarketTopTabName;
+  onPressSearch: () => void;
+}) {
+  // const tabName = useMarketTopTabName();
+  // const marketTopTabName = useMarketTopTabName();
   const intl = useIntl();
-  const marketTopTabName = useMarketTopTabName();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const navigation = useNavigation<NavigationProps>();
   return (
     <Box
       px="4"
@@ -72,25 +85,31 @@ const HeaderSmall: FC<{ onPressSearch: () => void }> = ({ onPressSearch }) => {
         <Pressable
           mr="3"
           onPress={() => {
-            backgroundApiProxy.serviceMarket.switchMarketTopTab(SWAP_TAB_NAME);
+            // navigation.navigate(TabRoutes.Swap);
+            navigationShortcuts.navigateToSwap();
           }}
         >
           <Typography.DisplayMedium
-            color={tabName === SWAP_TAB_NAME ? 'text-default' : 'text-disabled'}
+            color={
+              marketTopTabName === TabRoutes.Swap
+                ? 'text-default'
+                : 'text-disabled'
+            }
           >
             {intl.formatMessage({ id: 'title__Swap_Bridge' })}
           </Typography.DisplayMedium>
         </Pressable>
         <Pressable
           onPress={() => {
-            backgroundApiProxy.serviceMarket.switchMarketTopTab(
-              MARKET_TAB_NAME,
-            );
+            // navigation.navigate(TabRoutes.Market);
+            navigationShortcuts.navigateToMarket();
           }}
         >
           <Typography.DisplayMedium
             color={
-              tabName === MARKET_TAB_NAME ? 'text-default' : 'text-disabled'
+              marketTopTabName === TabRoutes.Market
+                ? 'text-default'
+                : 'text-disabled'
             }
           >
             {intl.formatMessage({ id: 'title__market' })}
@@ -98,7 +117,7 @@ const HeaderSmall: FC<{ onPressSearch: () => void }> = ({ onPressSearch }) => {
         </Pressable>
       </Box>
       <Box>
-        {marketTopTabName === MARKET_TAB_NAME ? (
+        {marketTopTabName === TabRoutes.Market ? (
           <IconButton
             size="base"
             name="MagnifyingGlassMini"
@@ -107,13 +126,17 @@ const HeaderSmall: FC<{ onPressSearch: () => void }> = ({ onPressSearch }) => {
             onPress={onPressSearch}
           />
         ) : null}
-        {marketTopTabName === SWAP_TAB_NAME ? <SwapHeaderButtons /> : null}
+        {marketTopTabName === TabRoutes.Swap ? <SwapHeaderButtons /> : null}
       </Box>
     </Box>
   );
-};
+}
 
-const MarketHeader: FC = () => {
+function MarketHeader({
+  marketTopTabName,
+}: {
+  marketTopTabName: MarketTopTabName;
+}) {
   const navigation = useNavigation<ModalNavigationProps['navigation']>();
   const isVerticalLayout = useIsVerticalLayout();
   const onPressSearch = useCallback(() => {
@@ -124,11 +147,18 @@ const MarketHeader: FC = () => {
       },
     });
   }, [navigation]);
-  return isVerticalLayout ? (
-    <HeaderSmall onPressSearch={onPressSearch} />
-  ) : (
-    <Header onPressSearch={onPressSearch} />
-  );
-};
+  if (isVerticalLayout) {
+    return (
+      <HeaderSmall
+        onPressSearch={onPressSearch}
+        marketTopTabName={marketTopTabName}
+      />
+    );
+  }
+  if (marketTopTabName === TabRoutes.Swap) {
+    return null;
+  }
+  return <Header onPressSearch={onPressSearch} />;
+}
 
 export default memo(MarketHeader);

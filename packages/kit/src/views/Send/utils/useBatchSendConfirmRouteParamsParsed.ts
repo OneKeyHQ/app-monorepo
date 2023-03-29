@@ -8,14 +8,14 @@ import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import type { ModalScreenProps } from '../../../routes/types';
 import type {
   SendConfirmPayloadBase,
-  SendRoutes,
+  SendModalRoutes,
   SendRoutesParams,
 } from '../types';
 import type { RouteProp } from '@react-navigation/native';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
-type RouteProps = RouteProp<SendRoutesParams, SendRoutes.BatchSendConfirm>;
+type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.BatchSendConfirm>;
 
 export function useBatchSendConfirmRouteParamsParsed() {
   const navigation = useNavigation<NavigationProps['navigation']>();

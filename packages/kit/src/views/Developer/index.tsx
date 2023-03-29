@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback, useLayoutEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -25,9 +26,10 @@ import {
   useActiveWalletAccount,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
-import type { StackBasicRoutesParams } from '@onekeyhq/kit/src/routes/Dev';
-import { StackRoutes } from '@onekeyhq/kit/src/routes/Dev';
-import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
+import type {
+  HomeRoutesParams,
+  RootRoutesParams,
+} from '@onekeyhq/kit/src/routes/types';
 import {
   HomeRoutes,
   ModalRoutes,
@@ -37,17 +39,23 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import walletConnectUtils from '../../components/WalletConnect/utils/walletConnectUtils';
 import { WalletConnectDappSideTest } from '../../components/WalletConnect/WalletConnectDappSideTest';
-import { SendRoutes } from '../../routes';
+import useAppNavigation from '../../hooks/useAppNavigation';
+import {
+  GalleryRoutes,
+  MainRoutes,
+  SendModalRoutes,
+} from '../../routes/routesEnum';
 import { dappClearSiteConnection } from '../../store/reducers/dapp';
 import { refreshWebviewGlobalKey } from '../../store/reducers/status';
 import { openUrlByWebview } from '../../utils/openUrl';
 
+import type { GalleryParams } from '../../routes/Root/Gallery';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = CompositeNavigationProp<
-  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.Dev>,
-  NativeStackNavigationProp<StackBasicRoutesParams, StackRoutes.Developer>
+  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Main>,
+  NativeStackNavigationProp<GalleryParams, GalleryRoutes.Components>
 >;
 
 const DEFAULT_TEST_EVM_ADDRESS_1 = '0x76f3f64cb3cd19debee51436df630a342b736c24';
@@ -56,6 +64,7 @@ export const Debug = () => {
   const intl = useIntl();
   const [uri, setUri] = useState('');
   const navigation = useNavigation<NavigationProps>();
+  const navigationRoot = useAppNavigation();
   const connections = useAppSelector((s) => s.dapp.connections);
   const webviewKey = useAppSelector((s) => s.status.webviewGlobalKey);
   console.log('Developer Debug page render >>>>>>>');
@@ -109,7 +118,7 @@ export const Debug = () => {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
-            screen: SendRoutes.SendConfirm,
+            screen: SendModalRoutes.SendConfirm,
             params: {
               accountId,
               networkId,
@@ -181,14 +190,14 @@ export const Debug = () => {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
-          screen: SendRoutes.SendConfirm,
+          screen: SendModalRoutes.SendConfirm,
           params: {
             accountId,
             networkId,
             encodedTx,
             feeInfoUseFeeInTx: false,
             feeInfoEditable: true,
-            backRouteName: SendRoutes.PreSendAddress,
+            backRouteName: SendModalRoutes.PreSendAddress,
           },
         },
       });
@@ -208,8 +217,8 @@ export const Debug = () => {
             alignItems="center"
             justifyContent="space-between"
             onPress={() => {
-              navigation.navigate(HomeRoutes.Dev, {
-                screen: StackRoutes.Developer,
+              navigation.navigate(RootRoutes.Gallery, {
+                screen: GalleryRoutes.Components,
                 params: {
                   ts: new Date().getTime(),
                 },
@@ -247,8 +256,8 @@ export const Debug = () => {
             <Pressable
               {...pressableProps}
               onPress={() => {
-                navigation.navigate(HomeRoutes.Dev, {
-                  screen: StackRoutes.ComponentLogger,
+                navigation.navigate(RootRoutes.Gallery, {
+                  screen: GalleryRoutes.ComponentLogger,
                 });
               }}
             >
@@ -383,15 +392,15 @@ export const Debug = () => {
               {...pressableProps}
               onPress={() => {
                 const { networkId, accountId } = getActiveWalletAccount();
-                // @ts-ignore
-                navigation.navigate(RootRoutes.Modal, {
+                navigationRoot.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Send,
                   params: {
-                    screen: SendRoutes.SendFeedbackReceipt,
+                    screen: SendModalRoutes.SendFeedbackReceipt,
                     params: {
                       networkId,
                       accountId,
                       txid: 'test-txid',
+                      type: 'Send',
                     },
                   },
                 });
@@ -416,14 +425,14 @@ export const Debug = () => {
                await window.ethereum.request(p);
                  */
                 const { networkId, accountId } = getActiveWalletAccount();
-                // @ts-ignore
-                navigation.navigate(RootRoutes.Modal, {
+                navigationRoot.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Send,
                   params: {
-                    screen: SendRoutes.SendConfirmFromDapp,
+                    screen: SendModalRoutes.SendConfirmFromDapp,
                     params: {
-                      networkId,
-                      accountId,
+                      // type: 'Send',
+                      // networkId,
+                      // accountId,
                       query: `{"sourceInfo":{"id":0,"origin":"https://swap.onekey.so","scope":"ethereum","data":{
 
                       "method":"eth_sendTransaction","params":[
@@ -477,14 +486,14 @@ export const Debug = () => {
                   Math.random() * 10 ** 15,
                 ).toString(16)}`;
                 const { networkId, accountId } = getActiveWalletAccount();
-                // @ts-ignore
-                navigation.navigate(RootRoutes.Modal, {
+                navigationRoot.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Send,
                   params: {
-                    screen: SendRoutes.SendConfirmFromDapp,
+                    screen: SendModalRoutes.SendConfirmFromDapp,
                     params: {
-                      networkId,
-                      accountId,
+                      // type: 'Send',
+                      // networkId,
+                      // accountId,
                       query: `{
   "sourceInfo": {
     "id": 0,
@@ -525,14 +534,14 @@ export const Debug = () => {
                  */
                 const { networkId, accountId, accountAddress } =
                   getActiveWalletAccount();
-                // @ts-ignore
-                navigation.navigate(RootRoutes.Modal, {
+                navigationRoot.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Send,
                   params: {
-                    screen: SendRoutes.SendConfirmFromDapp,
+                    screen: SendModalRoutes.SendConfirmFromDapp,
                     params: {
-                      networkId,
-                      accountId,
+                      // type: 'Send',
+                      // networkId,
+                      // accountId,
                       query: `{
 
                       "sourceInfo":{"id":2,"origin":"https://dapp-example.onekeytest.com","scope":"ethereum","data":{
@@ -644,37 +653,4 @@ export const Debug = () => {
   );
 };
 
-export const DebugSection = () => {
-  const navigation = useNavigation<NavigationProps>();
-
-  if (!platformEnv.isDev) {
-    return null;
-  }
-  return (
-    <Box
-      w="full"
-      mb="6"
-      borderRadius="12"
-      bg="surface-default"
-      shadow="depth.2"
-    >
-      <Pressable
-        display="flex"
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
-        py={4}
-        px={{ base: 4, md: 6 }}
-        onPress={() => {
-          navigation.navigate(HomeRoutes.DebugScreen);
-        }}
-      >
-        <Typography.Body1Strong>Developer</Typography.Body1Strong>
-        <Box>
-          <Icon name="ChevronRightMini" size={20} />
-        </Box>
-      </Pressable>
-    </Box>
-  );
-};
 export default Debug;
