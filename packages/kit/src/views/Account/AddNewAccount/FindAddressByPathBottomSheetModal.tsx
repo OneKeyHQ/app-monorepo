@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import {
   Alert,
   BottomSheetModal,
-  Box,
   Button,
   Form,
   useForm,
@@ -227,7 +226,7 @@ const FindAddressByPathContent: FC<IFindAddressByPathProps> = ({
   );
 
   return (
-    <Box>
+    <>
       <Alert
         title={intl.formatMessage({
           id: 'msg__remember_your_path_settings',
@@ -290,7 +289,7 @@ const FindAddressByPathContent: FC<IFindAddressByPathProps> = ({
       >
         {intl.formatMessage({ id: 'action__add' })}
       </Button>
-    </Box>
+    </>
   );
 };
 
