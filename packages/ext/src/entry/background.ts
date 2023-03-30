@@ -71,7 +71,7 @@ chrome.webRequest.onBeforeRequest.addListener(
     let indexHtml = getExtensionIndexHtml();
     indexHtml = 'ui-expand-tab.html';
     const newUrl = chrome.runtime.getURL(
-      `/${indexHtml}/#${parsedUrl.pathname}`,
+      `/${indexHtml}/#${parsedUrl.pathname}${parsedUrl.query}`,
     );
 
     return { redirectUrl: newUrl };
