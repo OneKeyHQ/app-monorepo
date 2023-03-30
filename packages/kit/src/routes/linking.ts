@@ -48,7 +48,7 @@ function buildAppRootTabScreen(tabName: TabRoutes) {
   )}`;
 }
 
-const normalRouteWhiteList: WhiteListItemList = [
+export const normalRouteWhiteList: WhiteListItemList = [
   {
     screen: `${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
   },
