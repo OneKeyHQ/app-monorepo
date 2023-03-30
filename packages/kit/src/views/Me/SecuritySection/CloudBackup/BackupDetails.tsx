@@ -278,7 +278,6 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
   } = route.params;
 
   const [dataReady, setDataReady] = useState(true);
-  const [deleting, setDeleting] = useState(false);
   const [backupData, setBackupData] = useState({
     alreadyOnDevice: {
       contacts: {},
@@ -421,15 +420,13 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
         footerButtonProps={{
           primaryActionTranslationId: 'action__delete',
           secondaryActionTranslationId: 'action__cancel',
-          primaryActionProps: { type: 'destructive' },
-          onPrimaryActionPress: async () => {
-            if (!deleting) {
-              setDeleting(true);
+          primaryActionProps: {
+            type: 'destructive',
+            onPromise: async () => {
               await serviceCloudBackup.removeBackup(backupUUID);
-              setDeleting(false);
               onClose();
               navigation.pop(2);
-            }
+            },
           },
         }}
         contentProps={{
@@ -446,7 +443,7 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
         }}
       />
     ));
-  }, [backupUUID, deleting, intl, navigation, serviceCloudBackup]);
+  }, [backupUUID, intl, navigation, serviceCloudBackup]);
 
   return (
     <Wrapper

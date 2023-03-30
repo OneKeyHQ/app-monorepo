@@ -1,7 +1,6 @@
 import { withTabLayout } from '@onekeyhq/components/src/Layout/withTabLayout';
 
 import { toFocusedLazy } from '../../../../../components/LazyRenderWhenFocus';
-import AddressBook from '../../../../../views/AddressBook/Listing';
 import OnekeyLiteDetail from '../../../../../views/Hardware/OnekeyLite/Detail';
 import MeScreen from '../../../../../views/Me';
 import VolumeHaptic from '../../../../../views/Me/GenaralSection/VolumeHaptic';
@@ -37,11 +36,6 @@ const config: TabRouteConfig = {
     {
       name: HomeRoutes.Protected,
       component: Protected,
-    },
-    {
-      name: HomeRoutes.AddressBook,
-      component: AddressBook,
-      i18nTitle: 'title__address_book',
     },
     {
       name: HomeRoutes.WalletSwitch,

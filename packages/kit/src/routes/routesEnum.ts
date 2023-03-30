@@ -59,7 +59,6 @@ export enum HomeRoutes {
   // ****  Me Tab
   ScreenOnekeyLiteDetail = 'OnekeyLiteDetailScreen',
   Protected = 'Protected',
-  AddressBook = 'AddressBook',
   WalletSwitch = 'WalletSwitch',
   VolumeHaptic = 'VolumeHaptic',
   CloudBackup = 'CloudBackup',

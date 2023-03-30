@@ -10,7 +10,8 @@ type WrapperProps = {
 const defaultProps = {} as const;
 
 const Wrapper: FC<WrapperProps> = ({ children, footer }) => {
-  const insets = useSafeAreaInsets();
+  let { bottom } = useSafeAreaInsets();
+  bottom = bottom === 0 ? 20 : bottom;
 
   return (
     <>
@@ -28,7 +29,7 @@ const Wrapper: FC<WrapperProps> = ({ children, footer }) => {
         {children}
       </ScrollView>
       {footer ? (
-        <Box mx={4} py={4} mb={`${insets.bottom}px`}>
+        <Box mx={4} py={4} mb={`${bottom}px`}>
           {footer}
         </Box>
       ) : null}
