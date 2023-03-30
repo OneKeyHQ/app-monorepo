@@ -11,6 +11,7 @@ import type {
   RemovePriceAlertConfig,
 } from '@onekeyhq/engine/src/managers/notification';
 import {
+  NotificationAction,
   addAccountDynamic,
   addAccountDynamicBatch,
   addPriceAlertConfig,
@@ -287,29 +288,33 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
-  async switchToScreen({ screen, params }: NotificationExtra) {
-    const navigation = getAppNavigation();
-    const { dispatch, serviceApp } = this.backgroundApi;
-    if (!platformEnv.isExtension) {
-      const tabScreenName = params?.coingeckoId
-        ? TabRoutes.Market
-        : TabRoutes.Home;
-      if (navigation?.canGoBack()) {
-        navigation?.goBack();
-      }
-      navigation?.navigate(RootRoutes.Main, {
-        screen: MainRoutes.Tab,
-        params: {
-          screen: tabScreenName,
-        },
-      });
-      await wait(600);
+  async switchTab(tabScreenName: TabRoutes) {
+    if (platformEnv.isExtension) {
+      return;
     }
-    switch (screen) {
-      case HomeRoutes.ScreenTokenDetail:
+    const navigation = getAppNavigation();
+    if (navigation?.canGoBack()) {
+      navigation?.goBack();
+    }
+    navigation?.navigate(RootRoutes.Main, {
+      screen: MainRoutes.Tab,
+      params: {
+        screen: tabScreenName,
+      },
+    });
+    await wait(600);
+  }
+
+  @backgroundMethod()
+  async switchToScreen({ action, params }: NotificationExtra) {
+    const { dispatch, serviceApp } = this.backgroundApi;
+
+    switch (action) {
+      case NotificationAction.SwitchToTokenDetail:
         this.switchToTokenDetailScreen(params);
         break;
-      case RootRoutes.Main:
+      case NotificationAction.SwitchToAccountHistoryTab:
+        await this.switchTab(TabRoutes.Home);
         dispatch(setHomeTabName(WalletHomeTabEnum.History));
         if (platformEnv.isExtension) {
           serviceApp.openExtensionExpandTab({
@@ -348,10 +353,10 @@ export default class ServiceNotification extends ServiceBase {
       window?.focus?.();
     }
     const extras = result?.extras as {
-      screen: NotificationExtra['screen'];
+      action: NotificationAction;
       params: string;
     };
-    if (!extras.screen) {
+    if (!extras.action) {
       return;
     }
     let params: NotificationExtra['params'] = {};
@@ -372,7 +377,7 @@ export default class ServiceNotification extends ServiceBase {
       );
     }
     this.switchToScreen({
-      screen: extras.screen,
+      action: extras.action,
       params,
     });
   }
