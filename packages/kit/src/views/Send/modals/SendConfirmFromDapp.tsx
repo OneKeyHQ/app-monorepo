@@ -5,7 +5,7 @@ import { AppState } from 'react-native';
 
 import { getActiveWalletAccount } from '../../../hooks/redux';
 import useDappParams from '../../../hooks/useDappParams';
-import { SendRoutes } from '../types';
+import { SendModalRoutes } from '../types';
 
 import type {
   SendConfirmParams,
@@ -14,7 +14,10 @@ import type {
 } from '../types';
 import type { NavigationProp, StackActionType } from '@react-navigation/native';
 
-type NavigationProps = NavigationProp<SendRoutesParams, SendRoutes.SendConfirm>;
+type NavigationProps = NavigationProp<
+  SendRoutesParams,
+  SendModalRoutes.SendConfirm
+>;
 
 export function SendConfirmFromDapp() {
   const navigation = useNavigation<NavigationProps>();
@@ -58,7 +61,7 @@ export function SendConfirmFromDapp() {
         _$t,
       };
       // replace router to SendConfirm
-      action = StackActions.replace(SendRoutes.SendConfirm, params);
+      action = StackActions.replace(SendModalRoutes.SendConfirm, params);
     }
     if (unsignedMessage) {
       const params: SignMessageConfirmParams = {
@@ -70,7 +73,7 @@ export function SendConfirmFromDapp() {
         _disabledAnimationOfNavigate: true,
         _$t,
       };
-      action = StackActions.replace(SendRoutes.SignMessageConfirm, params);
+      action = StackActions.replace(SendModalRoutes.SignMessageConfirm, params);
     }
     if (action) {
       if (AppState.currentState === 'active') {

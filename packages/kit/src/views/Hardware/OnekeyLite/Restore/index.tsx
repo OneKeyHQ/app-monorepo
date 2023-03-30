@@ -14,7 +14,7 @@ import type {
 import { CardErrors } from '@onekeyhq/app/src/hardware/OnekeyLite/types';
 import type { ButtonType } from '@onekeyhq/components/src/Button';
 import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes';
-import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes';
+import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 

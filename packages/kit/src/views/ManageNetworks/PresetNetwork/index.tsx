@@ -26,7 +26,10 @@ import { URITester } from '../CustomNetwork';
 import { DiscardAlert } from './DiscardAlert';
 
 import type { NetworkRpcURLStatus } from '../CustomNetwork';
-import type { ManageNetworkRoutes, ManageNetworkRoutesParams } from '../types';
+import type {
+  ManageNetworkModalRoutes,
+  ManageNetworkRoutesParams,
+} from '../types';
 import type {
   NativeStackNavigationProp,
   NativeStackScreenProps,
@@ -34,7 +37,7 @@ import type {
 
 type NavigationProps = NativeStackNavigationProp<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.PresetNetwork
+  ManageNetworkModalRoutes.PresetNetwork
 >;
 
 type NetworkValues = {
@@ -48,7 +51,7 @@ type NetworkValues = {
 
 type PresetNetwokProps = NativeStackScreenProps<
   ManageNetworkRoutesParams,
-  ManageNetworkRoutes.PresetNetwork
+  ManageNetworkModalRoutes.PresetNetwork
 >;
 
 function getColor(value: number) {

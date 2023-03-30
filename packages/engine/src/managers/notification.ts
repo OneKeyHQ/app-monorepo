@@ -2,7 +2,6 @@ import axios from 'axios';
 import { debounce } from 'lodash';
 import qs from 'qs';
 
-import type { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { appSelector } from '@onekeyhq/kit/src/store';
 import type { SettingsState } from '@onekeyhq/kit/src/store/reducers/settings';
 import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
@@ -17,8 +16,13 @@ type PartialNotificationType = Partial<SettingsState['pushNotification']> & {
   instanceId?: string;
 };
 
+export enum NotificationAction {
+  SwitchToAccountHistoryTab = 'SwitchToAccountHistoryTab',
+  SwitchToTokenDetail = 'SwitchToTokenDetail',
+}
+
 export type NotificationExtra = {
-  screen: HomeRoutes.ScreenTokenDetail | HomeRoutes.InitialTab;
+  action: NotificationAction;
   params: {
     accountId?: string;
     networkId?: string;

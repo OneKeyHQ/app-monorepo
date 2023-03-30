@@ -23,7 +23,7 @@ import {
 } from '@onekeyhq/components';
 import PnlEmptyImage from '@onekeyhq/kit/assets/nft_pnl_empty_image.png';
 import PnlEmptyImageLight from '@onekeyhq/kit/assets/nft_pnl_empty_image_light.png';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import { useActiveWalletAccount } from '../../../../hooks';
 import { useConnectAndCreateExternalAccount } from '../../../ExternalAccount/useConnectAndCreateExternalAccount';

@@ -23,10 +23,13 @@ import {
 
 import { BaseSendModal } from '../components/BaseSendModal';
 
-import type { SendRoutes, SendRoutesParams } from '../types';
+import type { SendModalRoutes, SendRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/native';
 
-type RouteProps = RouteProp<SendRoutesParams, SendRoutes.HardwareSwapContinue>;
+type RouteProps = RouteProp<
+  SendRoutesParams,
+  SendModalRoutes.HardwareSwapContinue
+>;
 
 export function HardwareSwapContinue() {
   const intl = useIntl();

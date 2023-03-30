@@ -3,8 +3,8 @@ import type { FC } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/CreateWallet';
+import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import HardwarePinCode from '../../BasePinCode';

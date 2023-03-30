@@ -11,24 +11,21 @@ import {
   Pressable,
   Typography,
 } from '@onekeyhq/components';
-import type { StackBasicRoutesParams } from '@onekeyhq/kit/src/routes/Dev';
-import { StackRoutes } from '@onekeyhq/kit/src/routes/Dev';
 
 import { useNavigationBack } from '../../hooks/useAppNavigation';
+import { GalleryRoutes } from '../../routes/routesEnum';
 
+import type { GalleryParams } from '../../routes/Root/Gallery';
 import type { NavigationProp, RouteProp } from '@react-navigation/core';
 
-type StackRoutesType = typeof StackRoutes;
+type StackRoutesType = typeof GalleryRoutes;
 
 type NavigationProps = NavigationProp<
-  StackBasicRoutesParams,
+  GalleryParams,
   StackRoutesType[keyof StackRoutesType]
 >;
 
-type RouteProps = RouteProp<
-  StackBasicRoutesParams,
-  StackRoutesType['Developer']
->;
+type RouteProps = RouteProp<GalleryParams, StackRoutesType['Components']>;
 
 const ListHeaderComponent = () => {
   const goBack = useNavigationBack();
@@ -41,7 +38,7 @@ const Index = () => {
 
   console.log('route: ', route.params.ts);
 
-  const componentsRoute = Object.values(StackRoutes)
+  const componentsRoute = Object.values(GalleryRoutes)
     .filter((item) => item.startsWith('component'))
     .sort();
 

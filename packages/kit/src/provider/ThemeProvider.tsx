@@ -8,9 +8,8 @@ import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useColorScheme } from '@onekeyhq/kit/src/hooks/useColorScheme';
 import { setThemePreloadToLocalStorage } from '@onekeyhq/kit/src/store/reducers/settings';
 
+import { useReduxReady } from '../hooks/useReduxReady';
 import { useSystemLocale } from '../hooks/useSystemLocale';
-
-import { useReduxReady } from './useReduxReady';
 
 export function useThemeProviderVariant() {
   const { theme, locale, lastLocale } = useSettings();

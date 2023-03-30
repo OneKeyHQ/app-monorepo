@@ -25,7 +25,6 @@ import { MigrationEnable } from '../Migration/util';
 
 import {
   OptionAdress,
-  OptionGoogleDrive,
   OptionKeyTag,
   OptionMigration,
   OptionOneKeyLite,

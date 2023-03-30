@@ -60,7 +60,7 @@ function AccountRootLanding() {
   useEffect(() => {
     (async () => {
       // ** redirect to Home is required.
-      navigation.navigate(RootRoutes.Root);
+      navigation.navigate(RootRoutes.Main);
 
       // TODO evm lowercase
       const success = await serviceAccount.changeActiveAccountByAddress({

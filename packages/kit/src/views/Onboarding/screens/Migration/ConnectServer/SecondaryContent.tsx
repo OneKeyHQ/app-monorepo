@@ -31,7 +31,7 @@ import { httpServerEnable } from '@onekeyhq/kit-bg/src/services/ServiceHTTP';
 import { MigrateNotificationNames } from '@onekeyhq/kit-bg/src/services/ServiceMigrate';
 import type { MigrateNotificationData } from '@onekeyhq/kit-bg/src/services/ServiceMigrate';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
-import { RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import {
   AppUIEventBusNames,
   appUIEventBus,

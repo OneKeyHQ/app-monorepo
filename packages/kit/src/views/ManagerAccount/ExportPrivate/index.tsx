@@ -27,13 +27,11 @@ import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
-import type {
-  ManagerAccountModalRoutes,
-  ManagerAccountRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
+import type { ManagerAccountRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/ManagerAccount';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
+import type { ManagerAccountModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/core';
 
 type ExportPrivateViewProps = {

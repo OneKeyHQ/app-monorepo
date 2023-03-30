@@ -20,9 +20,12 @@ import deviceTouchIcon from '@onekeyhq/kit/assets/hardware/about/device-touch.pn
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 import { useAppSelector } from '@onekeyhq/kit/src/hooks';
-import { OnekeyHardwareModalRoutes } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
-import type { OnekeyHardwareRoutesParams } from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import type { OnekeyHardwareRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareOnekey';
+import {
+  ModalRoutes,
+  OnekeyHardwareModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 import { getDeviceFirmwareVersion } from '@onekeyhq/kit/src/utils/hardware/OneKeyHardware';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';

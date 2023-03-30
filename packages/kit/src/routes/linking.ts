@@ -2,22 +2,28 @@ import { getPathFromState as getPathFromStateDefault } from '@react-navigation/c
 import * as Linking from 'expo-linking';
 import { merge } from 'lodash';
 
-import { DappConnectionModalRoutes } from '@onekeyhq/kit/src/views/DappModals/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   ONEKEY_APP_DEEP_LINK,
   WALLET_CONNECT_DEEP_LINK,
 } from '../components/WalletConnect/walletConnectConsts';
-import { ManageNetworkRoutes } from '../views/ManageNetworks/types';
-import { ManageTokenRoutes } from '../views/ManageTokens/types';
 import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
-import { SendRoutes } from '../views/Send/types';
 
-import { WalletConnectUniversalLinkPathSchema } from './deepLink';
-import { SubmitRequestRoutes } from './Modal/SubmitRequest';
-import { AccountRootLandingPathSchema } from './Root/AccountRootLanding';
-import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
+import { legacyLinkingPathMap, linkingPathMap } from './linking.path';
+import { buildAppRootTabName } from './Root/Main/Tab/tabNavHeader';
+import {
+  DappConnectionModalRoutes,
+  HomeRoutes,
+  MainRoutes,
+  ManageNetworkModalRoutes,
+  ManageTokenModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+  SendModalRoutes,
+  SubmitRequestModalRoutes,
+  TabRoutes,
+} from './routesEnum';
 
 import type { LinkingOptions } from '@react-navigation/native';
 
@@ -30,136 +36,133 @@ type WhiteListItem = {
         vertical: string;
         desktop: string;
       };
-  path: string;
+  path?: string;
   exact?: boolean;
 };
 
 type WhiteListItemList = WhiteListItem[];
 
-const tabRoutesWhiteList: WhiteListItemList = [
-  {
-    screen: `${TabRoutes.Home}`,
-    path: `/${RootRoutes.Tab}/${TabRoutes.Home}`,
-  },
-  {
-    screen: `${TabRoutes.Discover}`,
-    path: `/${RootRoutes.Tab}/${TabRoutes.Discover}`,
-  },
-  {
-    screen: `${TabRoutes.Me}`,
-    path: `/${RootRoutes.Tab}/${TabRoutes.Me}`,
-  },
-  {
-    screen: `${TabRoutes.Swap}`,
-    path: `/${RootRoutes.Tab}/${TabRoutes.Swap}`,
-  },
-  {
-    screen: `${TabRoutes.Market}`,
-    path: `/${RootRoutes.Tab}/${TabRoutes.Market}`,
-  },
-  {
-    screen: `${TabRoutes.NFT}`,
-    path: `/${RootRoutes.Tab}/${TabRoutes.NFT}`,
-  },
-];
+function buildAppRootTabScreen(tabName: TabRoutes) {
+  return `${RootRoutes.Main}/${MainRoutes.Tab}/${tabName}/${buildAppRootTabName(
+    tabName,
+  )}`;
+}
 
-const normalRouteWhiteList: WhiteListItemList = [
+export const normalRouteWhiteList: WhiteListItemList = [
   {
-    screen: `${RootRoutes.Account}`,
-    path: `/${RootRoutes.Account}`,
+    screen: `${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
   },
   {
     screen: `${RootRoutes.OnLanding}`,
-    path: `/${RootRoutes.OnLanding}`,
+    path: linkingPathMap.onLanding, // /onlanding
   },
   {
     screen: `${RootRoutes.OnLandingWalletConnect}`,
-    path: `/${RootRoutes.OnLandingWalletConnect}`,
+    path: linkingPathMap.walletConnectUniversalLink, // /wc/connect/wc
+    exact: true,
   },
   {
-    screen: `${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
-    path: `/${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
+    screen: `${RootRoutes.Account}`,
+    path: linkingPathMap.watchingAccountAdding, // /account/:address/:networkId?
+    exact: true,
   },
   {
-    screen: `${RootRoutes.Modal}/${ModalRoutes.SubmitRequest}/${SubmitRequestRoutes.SubmitRequestModal}`,
-    path: `/${RootRoutes.Modal}/${ModalRoutes.SubmitRequest}/${SubmitRequestRoutes.SubmitRequestModal}`,
+    screen: buildAppRootTabScreen(TabRoutes.Home),
+    path: linkingPathMap.tabHome,
+    exact: true,
+  },
+  {
+    screen: buildAppRootTabScreen(TabRoutes.NFT),
+    path: linkingPathMap.tabNFT,
+    exact: true,
+  },
+  {
+    screen: buildAppRootTabScreen(TabRoutes.Market),
+    path: linkingPathMap.tabMarket,
+    exact: true,
+  },
+  {
+    screen: buildAppRootTabScreen(TabRoutes.Swap),
+    path: linkingPathMap.tabSwap,
+    exact: true,
+  },
+  {
+    screen: buildAppRootTabScreen(TabRoutes.Me),
+    path: linkingPathMap.tabMe,
+    exact: true,
+  },
+  {
+    screen: buildAppRootTabScreen(TabRoutes.Discover),
+    path: linkingPathMap.tabDiscover,
+    exact: true,
+  },
+  {
+    screen: buildAppRootTabScreen(TabRoutes.Developer),
+    path: linkingPathMap.tabDeveloper,
+    exact: true,
+  },
+  {
+    screen: `${RootRoutes.Modal}/${ModalRoutes.SubmitRequest}/${SubmitRequestModalRoutes.SubmitRequestModal}`,
   },
   {
     screen: `${RootRoutes.Modal}/${ModalRoutes.DappConnectionModal}/${DappConnectionModalRoutes.ConnectionModal}`,
-    path: `/${RootRoutes.Modal}/${ModalRoutes.DappConnectionModal}/${DappConnectionModalRoutes.ConnectionModal}`,
   },
   {
     screen: `${RootRoutes.Modal}/${ModalRoutes.DappConnectionModal}/${DappConnectionModalRoutes.NetworkNotMatchModal}`,
-    path: `/${RootRoutes.Modal}/${ModalRoutes.DappConnectionModal}/${DappConnectionModalRoutes.NetworkNotMatchModal}`,
   },
   {
-    screen: `${RootRoutes.Modal}/${ModalRoutes.ManageNetwork}/${ManageNetworkRoutes.AddNetworkConfirm}`,
-    path: `/${RootRoutes.Modal}/${ModalRoutes.ManageNetwork}/${ManageNetworkRoutes.AddNetworkConfirm}`,
+    screen: `${RootRoutes.Modal}/${ModalRoutes.ManageNetwork}/${ManageNetworkModalRoutes.AddNetworkConfirm}`,
   },
   {
-    screen: `${RootRoutes.Modal}/${ModalRoutes.ManageNetwork}/${ManageNetworkRoutes.SwitchNetwork}`,
-    path: `/${RootRoutes.Modal}/${ModalRoutes.ManageNetwork}/${ManageNetworkRoutes.SwitchNetwork}`,
+    screen: `${RootRoutes.Modal}/${ModalRoutes.ManageNetwork}/${ManageNetworkModalRoutes.SwitchNetwork}`,
   },
   {
-    screen: `${RootRoutes.Modal}/${ModalRoutes.ManageNetwork}/${ManageNetworkRoutes.SwitchRpc}`,
-    path: `/${RootRoutes.Modal}/${ModalRoutes.ManageNetwork}/${ManageNetworkRoutes.SwitchRpc}`,
+    screen: `${RootRoutes.Modal}/${ModalRoutes.ManageNetwork}/${ManageNetworkModalRoutes.SwitchRpc}`,
   },
   {
-    screen: `${RootRoutes.Modal}/${ModalRoutes.ManageToken}/${ManageTokenRoutes.AddToken}`,
-    path: `/${RootRoutes.Modal}/${ModalRoutes.ManageToken}/${ManageTokenRoutes.AddToken}`,
+    screen: `${RootRoutes.Modal}/${ModalRoutes.ManageToken}/${ManageTokenModalRoutes.AddToken}`,
   },
   {
-    screen: `${RootRoutes.Modal}/${ModalRoutes.Send}/${SendRoutes.SendConfirmFromDapp}`,
-    path: `/${RootRoutes.Modal}/${ModalRoutes.Send}/${SendRoutes.SendConfirmFromDapp}`,
+    screen: `${RootRoutes.Modal}/${ModalRoutes.Send}/${SendModalRoutes.SendConfirmFromDapp}`,
   },
   {
-    screen: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.RevokeRedirect}`,
-    path: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.Revoke}`,
+    screen: `${RootRoutes.Main}/${MainRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.RevokeRedirect}`,
+    path: legacyLinkingPathMap.revokeMobile,
     exact: true,
   },
   {
-    screen: `${RootRoutes.Root}/${HomeRoutes.RevokeRedirect}`,
-    path: `${RootRoutes.Root}/${HomeRoutes.Revoke}`,
+    screen: `${RootRoutes.Main}/${MainRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.RevokeRedirect2}`,
+    path: legacyLinkingPathMap.revokeDesktop,
     exact: true,
   },
   {
-    screen: {
-      vertical: `${RootRoutes.Root}/${HomeRoutes.ScreenTokenDetail}`,
-      desktop: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.ScreenTokenDetail}`,
-    },
-    path: `/tokenDetail`,
+    screen: `${RootRoutes.Main}/${MainRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.ScreenTokenDetail}`,
+    path: linkingPathMap.tokenDetail,
     exact: true,
   },
   {
-    screen: {
-      vertical: `${RootRoutes.Root}/${HomeRoutes.Revoke}`,
-      desktop: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.Revoke}`,
-    },
-    path: `/revoke`,
+    screen: `${RootRoutes.Main}/${MainRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.Revoke}`,
+    path: linkingPathMap.revoke,
     exact: true,
   },
   {
-    screen: {
-      vertical: `${RootRoutes.Root}/${HomeRoutes.MarketDetail}`,
-      desktop: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Market}/${HomeRoutes.MarketDetail}`,
-    },
-    path: `/marketDetail`,
+    screen: `${RootRoutes.Main}/${MainRoutes.Tab}/${TabRoutes.Market}/${HomeRoutes.MarketDetail}`,
+    path: linkingPathMap.marketDetail,
     exact: true,
   },
   {
-    screen: {
-      vertical: `${RootRoutes.Root}/${HomeRoutes.NFTPNLScreen}`,
-      desktop: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.NFT}/${HomeRoutes.NFTPNLScreen}`,
-    },
-    path: `/pnl`,
+    screen: `${RootRoutes.Main}/${MainRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.NFTPNLScreen}`,
+    path: linkingPathMap.pnlAtHome,
     exact: true,
   },
   {
-    screen: {
-      vertical: `${RootRoutes.Root}/${HomeRoutes.BulkSender}`,
-      desktop: `${RootRoutes.Root}/${HomeRoutes.InitialTab}/${RootRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.BulkSender}`,
-    },
-    path: `/bulkSender`,
+    screen: `${RootRoutes.Main}/${MainRoutes.Tab}/${TabRoutes.NFT}/${HomeRoutes.NFTPNLScreen}`,
+    path: linkingPathMap.pnlAtNFT,
+    exact: true,
+  },
+  {
+    screen: `${RootRoutes.Main}/${MainRoutes.Tab}/${TabRoutes.Home}/${HomeRoutes.BulkSender}`,
+    path: linkingPathMap.bulkSender,
     exact: true,
   },
   /**
@@ -167,23 +170,23 @@ const normalRouteWhiteList: WhiteListItemList = [
    * ** please add exact routes above here
    * */
   {
-    screen: `${RootRoutes.Root}`,
+    screen: `${RootRoutes.Main}`,
     path: `/`,
     exact: true,
   },
 ];
 
-const getScreen = (
-  screen: WhiteListItem['screen'],
-  isVerticalLayout?: boolean,
-) => {
+const getScreen = (screen: WhiteListItem['screen']) => {
   if (typeof screen === 'string') {
     return screen;
   }
-  if (isVerticalLayout && screen.vertical) {
-    return screen.vertical;
-  }
   return screen.desktop;
+
+  // **** vertical route is deprecated
+  // if (isVerticalLayout && screen.vertical) {
+  //   return screen.vertical;
+  // }
+  // return screen.desktop;
 };
 
 /**
@@ -196,12 +199,16 @@ const generateScreenHierarchyRouteConfig = ({
   fullPath,
 }: {
   screenListStr: string;
-  path: string;
+  path?: string;
   exact?: boolean;
-  fullPath: string;
+  fullPath?: string;
 }): Record<string, any> => {
   const screens = screenListStr.split('/').filter(Boolean);
-  const pathList = (path || '').split('/').filter(Boolean);
+  let pathStr = path;
+  if (!pathStr && screenListStr) {
+    pathStr = `/${screenListStr}`;
+  }
+  const pathList = (pathStr || '').split('/').filter(Boolean);
   if (!screens.length || (!pathList.length && !exact)) {
     return {};
   }
@@ -227,14 +234,13 @@ const generateScreenHierarchyRouteConfig = ({
 
 const generateScreenHierarchyRouteConfigList = (
   whiteListConfig: WhiteListItemList,
-  isVerticalLayout = false,
 ) =>
   whiteListConfig.reduce(
     (memo, tab) =>
       merge(
         memo,
         generateScreenHierarchyRouteConfig({
-          screenListStr: getScreen(tab.screen, isVerticalLayout),
+          screenListStr: getScreen(tab.screen),
           path: tab.path,
           exact: tab.exact,
           fullPath: tab.path,
@@ -243,42 +249,7 @@ const generateScreenHierarchyRouteConfigList = (
     {},
   );
 
-const whiteList = [...tabRoutesWhiteList, ...normalRouteWhiteList];
-
-/**
- *  For tab routes:
- *  vertical layout: home
- *  horizontal layout: home -> tab-home
- *  make them as same route url at linking
- *  home: {
-      path: isVerticalLayout ? '/tab/home' : undefined,
-      ...(isVerticalLayout
-        ? {}
-        : {
-            screens: {
-              'tab-home': '/tab/home',
-            },
-          }),
-    }
- */
-function generateTabHierarchy(isVerticalLayout?: boolean) {
-  return tabRoutesWhiteList.reduce(
-    (memo, tabRoute) => ({
-      ...memo,
-      [getScreen(tabRoute.screen)]: {
-        path: isVerticalLayout ? tabRoute.path : undefined,
-        ...(isVerticalLayout
-          ? {}
-          : {
-              screens: {
-                [`tab-${getScreen(tabRoute.screen)}`]: tabRoute.path,
-              },
-            }),
-      },
-    }),
-    {},
-  );
-}
+const whiteList = [...normalRouteWhiteList];
 
 export function getExtensionIndexHtml() {
   if (platformEnv.isExtensionBackgroundHtml) {
@@ -296,11 +267,9 @@ export function getExtensionIndexHtml() {
   return 'ui-expand-tab.html';
 }
 
-const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => {
-  const screenHierarchyConfig = generateScreenHierarchyRouteConfigList(
-    normalRouteWhiteList,
-    isVerticalLayout,
-  );
+const buildLinking = (): LinkingOptions<any> => {
+  const screenHierarchyConfig =
+    generateScreenHierarchyRouteConfigList(normalRouteWhiteList);
   return {
     enabled: true,
     prefixes: [prefix, ONEKEY_APP_DEEP_LINK, WALLET_CONNECT_DEEP_LINK],
@@ -325,26 +294,10 @@ const buildLinking = (isVerticalLayout?: boolean): LinkingOptions<any> => {
       return '/';
     },
     config: {
-      initialRouteName: RootRoutes.Root,
+      initialRouteName: RootRoutes.Main,
       screens: {
-        [RootRoutes.Root]: {
-          screens: {
-            [HomeRoutes.InitialTab]: {
-              screens: {
-                [RootRoutes.Tab]: {
-                  screens: generateTabHierarchy(isVerticalLayout),
-                },
-              },
-            },
-          },
-        },
         ...screenHierarchyConfig,
         // custom route with path params needs to be defined at last
-        // /account/:address/:networkId?
-        [RootRoutes.Account]: AccountRootLandingPathSchema,
-        // /wc/connect/wc
-        [RootRoutes.OnLandingWalletConnect]:
-          WalletConnectUniversalLinkPathSchema,
         NotFound: '*',
       },
     },

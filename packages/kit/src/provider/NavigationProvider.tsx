@@ -6,7 +6,7 @@ import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
-import RootStack from '@onekeyhq/kit/src/routes/Root';
+import { RootStackNavigator } from '@onekeyhq/kit/src/routes';
 import type { RootRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import { analyticLogEvent } from '@onekeyhq/shared/src/analytics';
 import { setAttributes } from '@onekeyhq/shared/src/crashlytics';
@@ -41,10 +41,7 @@ const NavigationApp = () => {
     'divider',
   ]);
 
-  const linking = useMemo(
-    () => buildLinking(isVerticalLayout),
-    [isVerticalLayout],
-  );
+  const linking = useMemo(() => buildLinking(), []);
 
   /**
    * native-android & vertical layout web or ext
@@ -133,7 +130,7 @@ const NavigationApp = () => {
     >
       <RootSiblingParent>
         <RedirectProvider>
-          <RootStack />
+          <RootStackNavigator />
         </RedirectProvider>
       </RootSiblingParent>
     </NavigationContainer>

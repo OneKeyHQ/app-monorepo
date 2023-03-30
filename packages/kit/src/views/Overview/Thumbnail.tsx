@@ -29,7 +29,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   RootRoutesParams,
-  RootRoutes.Root
+  RootRoutes.Main
 > &
   NativeStackNavigationProp<
     HomeRoutesParams,

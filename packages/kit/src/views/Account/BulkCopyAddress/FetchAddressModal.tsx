@@ -27,7 +27,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { CreateAccountModalRoutes } from '../../../routes';
+import { CreateAccountModalRoutes } from '../../../routes/routesEnum';
 import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
 

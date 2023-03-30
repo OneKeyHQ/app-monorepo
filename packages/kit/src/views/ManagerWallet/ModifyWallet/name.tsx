@@ -21,9 +21,12 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 import { useRuntime } from '@onekeyhq/kit/src/hooks/redux';
-import type { ManagerWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
-import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import type { ManagerWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/ManagerWallet';
+import {
+  ManagerWalletModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { defaultAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';

@@ -12,13 +12,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
-import type {
-  CreateWalletModalRoutes,
-  CreateWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes';
+import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes';
 import { setEnableLocalAuthentication } from '@onekeyhq/kit/src/store/reducers/settings';
 import { savePassword } from '@onekeyhq/kit/src/utils/localAuthentication';
 
+import type { CreateWalletModalRoutes } from '../../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/core';
 
 type PasswordViewProps = {

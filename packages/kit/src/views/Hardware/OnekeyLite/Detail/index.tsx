@@ -29,13 +29,14 @@ import type {
   OnekeyLiteResetRoutesParams,
 } from '@onekeyhq/kit/src/routes';
 import {
+  BackupWalletModalRoutes,
   CreateWalletModalRoutes,
+  ModalRoutes,
   OnekeyLiteChangePinModalRoutes,
   OnekeyLiteResetModalRoutes,
-} from '@onekeyhq/kit/src/routes';
-import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 type OptionType = 'restore' | 'change_pin' | 'reset' | 'backup';
 

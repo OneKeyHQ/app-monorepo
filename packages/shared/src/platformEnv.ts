@@ -26,6 +26,8 @@ const { NODE_ENV } = process.env;
 const { JEST_WORKER_ID } = process.env;
 
 export type IPlatformEnv = {
+  isNewRouteMode: boolean;
+
   version: string | undefined;
   buildNumber: string | undefined;
   NODE_ENV?: string;
@@ -97,7 +99,7 @@ export type IPlatformEnv = {
   canGetClipboard?: boolean;
   supportAutoUpdate?: boolean;
 
-  isAppleStoreEnv?: boolean
+  isAppleStoreEnv?: boolean;
 };
 
 const isJest = JEST_WORKER_ID !== undefined || NODE_ENV === 'test';
@@ -253,9 +255,11 @@ export const canGetClipboard: boolean = !isWeb && !isExtension;
 export const supportAutoUpdate: boolean =
   isDesktop && !(isMas || isDesktopLinuxSnap || isDesktopWinMsStore);
 
-export const isAppleStoreEnv = isMas || isNativeIOSStore || isNativeIOSPadStore
+export const isAppleStoreEnv = isMas || isNativeIOSStore || isNativeIOSPadStore;
 
 const platformEnv: IPlatformEnv = {
+  isNewRouteMode: true,
+
   version: process.env.VERSION,
   buildNumber: process.env.BUILD_NUMBER,
 
@@ -315,7 +319,7 @@ const platformEnv: IPlatformEnv = {
 
   canGetClipboard,
   supportAutoUpdate,
-  isAppleStoreEnv
+  isAppleStoreEnv,
 };
 
 if (isDev) {

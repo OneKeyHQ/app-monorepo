@@ -39,7 +39,7 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = CompositeNavigationProp<
-  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Root>,
+  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Main>,
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.VolumeHaptic>
 >;
 

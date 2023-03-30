@@ -7,7 +7,7 @@ import useDappApproveAction from '../../../hooks/useDappApproveAction';
 
 import type {
   SendConfirmPayloadBase,
-  SendRoutes,
+  SendModalRoutes,
   SendRoutesParams,
 } from '../types';
 import type { RouteProp } from '@react-navigation/native';
@@ -15,11 +15,11 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProps = StackNavigationProp<
   SendRoutesParams,
-  SendRoutes.SendConfirm
+  SendModalRoutes.SendConfirm
 >;
 // type ModalNavigationProps = ModalScreenProps<SendRoutesParams>;
 
-type RouteProps = RouteProp<SendRoutesParams, SendRoutes.SendConfirm>;
+type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.SendConfirm>;
 
 // TODO move to SendContext
 export function useSendConfirmRouteParamsParsed() {

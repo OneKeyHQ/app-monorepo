@@ -12,7 +12,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppSelector } from '../../../hooks/useAppSelector';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { deviceUtils } from '../../../utils/hardware';
-import { SendRoutes } from '../../Send/types';
+import { SendModalRoutes } from '../../Send/types';
 
 type SendSuccessCallback = (param: {
   result: ISignedTxPro;
@@ -71,7 +71,7 @@ export function useSwapSend() {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.Send,
               params: {
-                screen: SendRoutes.SendFeedbackReceipt,
+                screen: SendModalRoutes.SendFeedbackReceipt,
                 params: {
                   networkId,
                   accountId,
@@ -90,7 +90,7 @@ export function useSwapSend() {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
-            screen: SendRoutes.SendConfirm,
+            screen: SendModalRoutes.SendConfirm,
             params: {
               accountId,
               networkId,

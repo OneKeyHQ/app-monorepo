@@ -29,7 +29,7 @@ import { useAppSelector, useData } from '../../../../hooks/redux';
 import useImportBackupPasswordModal from '../../../../hooks/useImportBackupPasswordModal';
 import useLocalAuthenticationModal from '../../../../hooks/useLocalAuthenticationModal';
 import { useOnboardingDone } from '../../../../hooks/useOnboardingRequired';
-import { HomeRoutes } from '../../../../routes/types';
+import { RootRoutes } from '../../../../routes/routesEnum';
 import { showOverlay } from '../../../../utils/overlayUtils';
 
 import BackupIcon from './BackupIcon';
@@ -38,12 +38,11 @@ import { showUpgrateDialog } from './UpgrateDialog';
 import Wrapper from './Wrapper';
 
 import type {
+  HomeRoutes,
   HomeRoutesParams,
-  RootRoutes,
   RootRoutesParams,
 } from '../../../../routes/types';
 import type { RouteProp } from '@react-navigation/core';
-import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { IBoxProps } from 'native-base';
 
@@ -52,9 +51,9 @@ type BackupDetailsRouteProp = RouteProp<
   HomeRoutes.CloudBackupDetails
 >;
 
-type NavigationProps = CompositeNavigationProp<
-  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Root>,
-  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.InitialTab>
+type NavigationProps = NativeStackNavigationProp<
+  RootRoutesParams,
+  RootRoutes.Main
 >;
 
 const WalletBackupItem = ({
@@ -279,7 +278,6 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
   } = route.params;
 
   const [dataReady, setDataReady] = useState(true);
-  const [deleting, setDeleting] = useState(false);
   const [backupData, setBackupData] = useState({
     alreadyOnDevice: {
       contacts: {},
@@ -337,7 +335,7 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
     if (onboarding) {
       await onboardingDone({ delay: 200 });
     } else {
-      navigation.navigate(HomeRoutes.InitialTab);
+      navigation.navigate(RootRoutes.Main);
     }
   }, [intl, onboarding, onboardingDone, navigation]);
 
@@ -422,15 +420,13 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
         footerButtonProps={{
           primaryActionTranslationId: 'action__delete',
           secondaryActionTranslationId: 'action__cancel',
-          primaryActionProps: { type: 'destructive' },
-          onPrimaryActionPress: async () => {
-            if (!deleting) {
-              setDeleting(true);
+          primaryActionProps: {
+            type: 'destructive',
+            onPromise: async () => {
               await serviceCloudBackup.removeBackup(backupUUID);
-              setDeleting(false);
               onClose();
               navigation.pop(2);
-            }
+            },
           },
         }}
         contentProps={{
@@ -447,7 +443,7 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
         }}
       />
     ));
-  }, [backupUUID, deleting, intl, navigation, serviceCloudBackup]);
+  }, [backupUUID, intl, navigation, serviceCloudBackup]);
 
   return (
     <Wrapper

@@ -21,8 +21,11 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import { useCopyAddress } from '../../hooks/useCopyAddress';
 import { buildAddressDetailsUrl } from '../../hooks/useOpenBlockBrowser';
-import { FiatPayRoutes } from '../../routes/Modal/FiatPay';
-import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
+import {
+  FiatPayModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { openUrl } from '../../utils/openUrl';
 import {
@@ -178,7 +181,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.FiatPay,
               params: {
-                screen: FiatPayRoutes.SupportTokenListModal,
+                screen: FiatPayModalRoutes.SupportTokenListModal,
                 params: {
                   networkId: network?.id ?? '',
                   accountId,
@@ -197,7 +200,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.FiatPay,
               params: {
-                screen: FiatPayRoutes.SupportTokenListModal,
+                screen: FiatPayModalRoutes.SupportTokenListModal,
                 params: {
                   networkId: network?.id ?? '',
                   type: 'sell',

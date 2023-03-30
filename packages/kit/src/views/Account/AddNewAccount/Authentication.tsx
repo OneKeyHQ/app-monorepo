@@ -8,13 +8,11 @@ import { Center, Modal, Spinner } from '@onekeyhq/components';
 import Protected, {
   ValidationFields,
 } from '@onekeyhq/kit/src/components/Protected';
-import type {
-  CreateAccountModalRoutes,
-  CreateAccountRoutesParams,
-} from '@onekeyhq/kit/src/routes';
+import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 
 import { useNavigation } from '../../../hooks';
 
+import type { CreateAccountModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/native';
 
 export type EnableLocalAuthenticationProps = {

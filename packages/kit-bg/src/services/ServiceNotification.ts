@@ -4,7 +4,6 @@ import { pick } from 'lodash';
 import memoizee from 'memoizee';
 import { Dimensions } from 'react-native';
 
-import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import type {
   AddPriceAlertConfig,
   NotificationExtra,
@@ -12,6 +11,7 @@ import type {
   RemovePriceAlertConfig,
 } from '@onekeyhq/engine/src/managers/notification';
 import {
+  NotificationAction,
   addAccountDynamic,
   addAccountDynamicBatch,
   addPriceAlertConfig,
@@ -28,6 +28,7 @@ import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/t
 import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   HomeRoutes,
+  MainRoutes,
   RootRoutes,
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
@@ -235,8 +236,6 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   async switchToTokenDetailScreen(params: NotificationExtra['params']) {
     const navigation = getAppNavigation();
-    const width = await this.getWindowWidthInBackground();
-    const isVertical = width < SCREEN_SIZE.MEDIUM;
     const { appSelector, serviceApp } = this.backgroundApi;
     const { activeAccountId: accountId, activeNetworkId: networkId } =
       appSelector((s) => s.general);
@@ -261,68 +260,65 @@ export default class ServiceNotification extends ServiceBase {
 
     const tabScreenName = isToMarketDetail ? TabRoutes.Market : TabRoutes.Home;
 
-    let expandRoutes = [
-      RootRoutes.Root,
-      HomeRoutes.InitialTab,
-      RootRoutes.Tab,
+    const expandRoutes = [
+      RootRoutes.Main,
+      MainRoutes.Tab,
       tabScreenName,
       detailScreenName,
     ];
-    let navigationRoutes: any = {
-      screen: HomeRoutes.InitialTab,
+    const navigationRoutes: any = {
+      screen: MainRoutes.Tab,
       params: {
-        screen: RootRoutes.Tab,
+        screen: tabScreenName,
         params: {
-          screen: tabScreenName,
-          params: {
-            screen: detailScreenName,
-            params: routerParams,
-          },
+          screen: detailScreenName,
+          params: routerParams,
         },
       },
     };
-    if (isVertical) {
-      expandRoutes = [RootRoutes.Root, detailScreenName];
-      navigationRoutes = {
-        screen: detailScreenName,
-        params: routerParams,
-      };
-    }
     if (platformEnv.isExtension) {
       serviceApp.openExtensionExpandTab({
         routes: expandRoutes,
         params: routerParams,
       });
     } else {
-      navigation?.navigate(RootRoutes.Root, navigationRoutes);
+      navigation?.navigate(RootRoutes.Main, navigationRoutes);
     }
+    return Promise.resolve(undefined);
   }
 
   @backgroundMethod()
-  async switchToScreen({ screen, params }: NotificationExtra) {
-    const navigation = getAppNavigation();
-    const { dispatch, serviceApp } = this.backgroundApi;
-    if (!platformEnv.isExtension) {
-      const tabScreenName = params?.coingeckoId
-        ? TabRoutes.Market
-        : TabRoutes.Home;
-      if (navigation?.canGoBack()) {
-        navigation?.goBack();
-      }
-      navigation?.navigate(RootRoutes.Tab, {
-        screen: tabScreenName,
-      });
-      await wait(600);
+  async switchTab(tabScreenName: TabRoutes) {
+    if (platformEnv.isExtension) {
+      return;
     }
-    switch (screen) {
-      case HomeRoutes.ScreenTokenDetail:
+    const navigation = getAppNavigation();
+    if (navigation?.canGoBack()) {
+      navigation?.goBack();
+    }
+    navigation?.navigate(RootRoutes.Main, {
+      screen: MainRoutes.Tab,
+      params: {
+        screen: tabScreenName,
+      },
+    });
+    await wait(600);
+  }
+
+  @backgroundMethod()
+  async switchToScreen({ action, params }: NotificationExtra) {
+    const { dispatch, serviceApp } = this.backgroundApi;
+
+    switch (action) {
+      case NotificationAction.SwitchToTokenDetail:
         this.switchToTokenDetailScreen(params);
         break;
-      case HomeRoutes.InitialTab:
+      case NotificationAction.SwitchToAccountHistoryTab:
+        await this.switchTab(TabRoutes.Home);
         dispatch(setHomeTabName(WalletHomeTabEnum.History));
         if (platformEnv.isExtension) {
           serviceApp.openExtensionExpandTab({
-            routes: [RootRoutes.Tab, TabRoutes.Home],
+            routes: [MainRoutes.Tab, TabRoutes.Home],
           });
         }
         break;
@@ -357,10 +353,10 @@ export default class ServiceNotification extends ServiceBase {
       window?.focus?.();
     }
     const extras = result?.extras as {
-      screen: NotificationExtra['screen'];
+      action: NotificationAction;
       params: string;
     };
-    if (!extras.screen) {
+    if (!extras.action) {
       return;
     }
     let params: NotificationExtra['params'] = {};
@@ -381,7 +377,7 @@ export default class ServiceNotification extends ServiceBase {
       );
     }
     this.switchToScreen({
-      screen: extras.screen,
+      action: extras.action,
       params,
     });
   }

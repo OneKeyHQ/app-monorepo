@@ -22,8 +22,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../../hooks/redux';
 import useFormatDate from '../../../hooks/useFormatDate';
-import { SubmitRequestRoutes } from '../../../routes';
-import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import {
+  ModalRoutes,
+  RootRoutes,
+  SubmitRequestModalRoutes,
+} from '../../../routes/routesEnum';
 
 import { listUri } from './TicketService';
 import { HistoryRequestRoutes } from './types';
@@ -69,7 +72,7 @@ export const HistoryRequest: FC = () => {
       backgroundApiProxy.serviceApp.openExtensionExpandTab({
         routes: [RootRoutes.Modal, ModalRoutes.SubmitRequest],
         params: {
-          screen: SubmitRequestRoutes.SubmitRequestModal,
+          screen: SubmitRequestModalRoutes.SubmitRequestModal,
         },
       });
       setTimeout(() => {

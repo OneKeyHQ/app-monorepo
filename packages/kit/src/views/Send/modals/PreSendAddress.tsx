@@ -28,7 +28,7 @@ import { BulkSenderTypeEnum } from '../../BulkSender/types';
 import { GoPlusSecurityItems } from '../../ManageTokens/components/GoPlusAlertItems';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { BaseSendModal } from '../components/BaseSendModal';
-import { SendRoutes } from '../types';
+import { SendModalRoutes } from '../types';
 
 import type { ModalScreenProps } from '../../../routes/types';
 import type { SendRoutesParams } from '../types';
@@ -36,7 +36,7 @@ import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
-type RouteProps = RouteProp<SendRoutesParams, SendRoutes.PreSendAddress>;
+type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.PreSendAddress>;
 
 type FormValues = {
   to: string;
@@ -270,14 +270,14 @@ function PreSendAddress() {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
-            screen: SendRoutes.BatchSendConfirm,
+            screen: SendModalRoutes.BatchSendConfirm,
             params: {
               networkId,
               accountId,
               feeInfoUseFeeInTx: false,
               feeInfoEditable: true,
               encodedTxs: [...encodedApproveTxs, encodedTx],
-              backRouteName: SendRoutes.PreSendAddress,
+              backRouteName: SendModalRoutes.PreSendAddress,
               payloadInfo: {
                 type: 'Transfer',
                 nftInfos,
@@ -297,7 +297,7 @@ function PreSendAddress() {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
-            screen: SendRoutes.SendConfirm,
+            screen: SendModalRoutes.SendConfirm,
             params: {
               ...transferInfo,
               networkId,
@@ -305,7 +305,7 @@ function PreSendAddress() {
               encodedTx,
               feeInfoUseFeeInTx: false,
               feeInfoEditable: true,
-              backRouteName: SendRoutes.PreSendAddress,
+              backRouteName: SendModalRoutes.PreSendAddress,
               payloadInfo: {
                 type: 'Transfer',
                 nftInfo: {
@@ -337,7 +337,7 @@ function PreSendAddress() {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
-            screen: SendRoutes.PreSendAmount,
+            screen: SendModalRoutes.PreSendAmount,
             params: {
               ...transferInfo,
               networkId,

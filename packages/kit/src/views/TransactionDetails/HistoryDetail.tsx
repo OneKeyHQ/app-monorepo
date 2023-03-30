@@ -8,13 +8,11 @@ import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
-import type {
-  TransactionDetailModalRoutes,
-  TransactionDetailRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
+import type { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/TransactionDetail';
 
 import TxHistoryDetail from '../TxDetail/_legacy/TxHistoryDetail';
 
+import type { TransactionDetailModalRoutes } from '../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/native';
 import type { IntlShape } from 'react-intl';
 

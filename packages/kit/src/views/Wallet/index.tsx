@@ -24,8 +24,8 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
 import { OneKeyPerfTraceLog } from '../../components/OneKeyPerfTraceLog';
 import Protected, { ValidationFields } from '../../components/Protected';
+import { useHtmlPreloadSplashLogoRemove } from '../../hooks/useHtmlPreloadSplashLogoRemove';
 import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
-import { useHtmlPreloadSplashLogoRemove } from '../../provider/AppLoading';
 import { setHomeTabName } from '../../store/reducers/status';
 import OfflineView from '../Offline';
 import { GuideToPushFirstTimeCheck } from '../PushNotification/GuideToPushFirstTime';
@@ -42,6 +42,7 @@ import ToolsPage from './Tools';
 import { HomeTabIndex, HomeTabOrder, WalletHomeTabEnum } from './type';
 
 const AccountHeader = () => <AccountInfo />;
+// const AccountHeader = () => null;
 
 // HomeTabs
 const WalletTabs: FC = () => {
@@ -208,9 +209,11 @@ export default function Wallet() {
 
   return (
     <>
-      <IdentityAssertion>
-        <WalletTabs />
-      </IdentityAssertion>
+      <Box flex={1}>
+        <IdentityAssertion>
+          <WalletTabs />
+        </IdentityAssertion>
+      </Box>
       <OfflineView />
     </>
   );

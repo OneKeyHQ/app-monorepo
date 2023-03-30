@@ -20,10 +20,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 import WalletAvatar from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
-import type {
-  OnekeyHardwareModalRoutes,
-  OnekeyHardwareRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/HardwareOnekey';
+import type { OnekeyHardwareRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareOnekey';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import type {
@@ -31,6 +28,7 @@ import type {
   IOneKeyDeviceType,
 } from '@onekeyhq/shared/types';
 
+import type { OnekeyHardwareModalRoutes } from '../../../routes/routesEnum';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 

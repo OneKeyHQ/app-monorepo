@@ -63,7 +63,7 @@ const EnableWebAuthnDone: FC<EnableWebAuthnProps> = () => {
   );
 };
 
-export const EnableWebAuthn = () => (
+const EnableWebAuthn = () => (
   <Modal footer={null}>
     <Protected walletId={null}>
       {(password) => <EnableWebAuthnDone password={password} />}

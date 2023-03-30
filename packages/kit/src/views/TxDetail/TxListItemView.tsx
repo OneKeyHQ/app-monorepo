@@ -15,8 +15,11 @@ import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
-import { TransactionDetailModalRoutes } from '../../routes';
-import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
+import {
+  ModalRoutes,
+  RootRoutes,
+  TransactionDetailModalRoutes,
+} from '../../routes/routesEnum';
 
 import { TxResendButtons } from './components/TxResendButtons';
 import { TxActionElementTime } from './elements/TxActionElementTime';

@@ -19,7 +19,7 @@ const jsRules = {
   'react/jsx-no-useless-fragment': ['error', { allowExpressions: true }],
   'no-promise-executor-return': 'off',
   'default-param-last': 'off',
-  'import/no-cycle': 'warn',
+  'import/no-cycle': 'error',
   // 'no-console': [isDev ? 'warn' : 'off'],
 };
 const tsRules = {

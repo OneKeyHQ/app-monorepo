@@ -18,8 +18,8 @@ import type {
 import { AccountCredentialType } from '@onekeyhq/engine/src/types/account';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { ManagerAccountRoutesParams } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
-import { ManagerAccountModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerAccount';
+import type { ManagerAccountRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/ManagerAccount';
+import { ManagerAccountModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import { useWalletName } from '../../../hooks/useWalletName';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';

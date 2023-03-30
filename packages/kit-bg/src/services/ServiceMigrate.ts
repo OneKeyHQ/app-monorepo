@@ -376,9 +376,12 @@ class ServiceMigrate extends ServiceBase {
           },
         })
         .then((resp) => resp.data)
-        .catch(() => ({
-          success: false,
-        }));
+        .catch((error) => {
+          debugLogger.migrate.error('sendDataToServer :', error);
+          return {
+            success: false,
+          };
+        });
       return success;
     } catch (error) {
       debugLogger.migrate.error('sendDataToServer encrypt:', error);

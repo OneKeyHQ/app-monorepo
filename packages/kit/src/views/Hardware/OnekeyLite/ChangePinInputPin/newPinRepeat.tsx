@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { OnekeyLiteChangePinModalRoutes } from '@onekeyhq/kit/src/routes';
 import type { OnekeyLiteChangePinRoutesParams } from '@onekeyhq/kit/src/routes';
+import { OnekeyLiteChangePinModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import HardwarePinCode from '../../BasePinCode';

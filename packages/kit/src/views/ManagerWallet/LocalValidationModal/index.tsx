@@ -7,11 +7,9 @@ import { Center } from 'native-base';
 
 import { Modal, Spinner } from '@onekeyhq/components';
 import Protected from '@onekeyhq/kit/src/components/Protected';
-import type {
-  ManagerWalletModalRoutes,
-  ManagerWalletRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
+import type { ManagerWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/ManagerWallet';
 
+import type { ManagerWalletModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<

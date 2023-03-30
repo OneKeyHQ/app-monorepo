@@ -14,7 +14,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   ModalRoutes,
   RootRoutes,
-  SendRoutes,
+  SendModalRoutes,
 } from '../../../routes/routesEnum';
 import reducerAccountSelector, {
   EAccountSelectorMode,
@@ -57,7 +57,7 @@ export function useAccountSelectorChangeAccountOnPress() {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
-            screen: SendRoutes.PreSendToken,
+            screen: SendModalRoutes.PreSendToken,
             params: {
               accountId: accountId || '',
               networkId: networkId || '',

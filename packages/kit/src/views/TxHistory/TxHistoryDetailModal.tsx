@@ -4,16 +4,14 @@ import { useEffect } from 'react';
 import { useRoute } from '@react-navigation/core';
 
 import { Button, Modal, Spinner } from '@onekeyhq/components';
-import type {
-  TransactionDetailModalRoutes,
-  TransactionDetailRoutesParams,
-} from '@onekeyhq/kit/src/routes/Modal/TransactionDetail';
+import type { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/TransactionDetail';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { TxActionElementTime } from '../TxDetail/elements/TxActionElementTime';
 import { TxDetailView } from '../TxDetail/TxDetailView';
 
+import type { TransactionDetailModalRoutes } from '../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/native';
 
 type TransactionDetailRouteProp = RouteProp<

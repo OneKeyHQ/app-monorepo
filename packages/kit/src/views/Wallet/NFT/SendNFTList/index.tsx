@@ -20,7 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount, useNetwork } from '../../../../hooks';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
-import { SendRoutes } from '../../../../routes/routesEnum';
+import { SendModalRoutes } from '../../../../routes/routesEnum';
 import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 
 import SelectNFTCard from './SelectNFTCard';
@@ -155,7 +155,7 @@ function SendButton({
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Send,
       params: {
-        screen: SendRoutes.PreSendAddress,
+        screen: SendModalRoutes.PreSendAddress,
         params,
       },
     });
@@ -233,8 +233,6 @@ function SendNFTList({
         }
         const requestData = await fetchData();
         if (isMountedRef.current) {
-          console.log('requestData = ', requestData);
-
           updateListData(requestData);
         }
       }

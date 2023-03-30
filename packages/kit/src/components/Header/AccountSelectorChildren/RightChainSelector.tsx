@@ -15,8 +15,11 @@ import type { SelectItem } from '@onekeyhq/components/src/Select';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import { useManageNetworks } from '@onekeyhq/kit/src/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ManageNetworkRoutes } from '@onekeyhq/kit/src/routes';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import {
+  ManageNetworkModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 
 type Props = {
   selectedNetworkId: string | undefined;
@@ -111,7 +114,7 @@ const RightChainSelector: FC<Props> = ({
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.ManageNetwork,
             params: {
-              screen: ManageNetworkRoutes.Listing,
+              screen: ManageNetworkModalRoutes.Listing,
               // params: { onEdited: refreshAccounts },
             },
           });

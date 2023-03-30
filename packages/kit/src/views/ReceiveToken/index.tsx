@@ -26,12 +26,15 @@ import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { ReceiveTokenRoutes, ReceiveTokenRoutesParams } from './types';
+import type {
+  ReceiveTokenModalRoutes,
+  ReceiveTokenRoutesParams,
+} from './types';
 import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = RouteProp<
   ReceiveTokenRoutesParams,
-  ReceiveTokenRoutes.ReceiveToken
+  ReceiveTokenModalRoutes.ReceiveToken
 >;
 
 const ReceiveToken = () => {

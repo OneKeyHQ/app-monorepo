@@ -9,6 +9,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  Searchbar,
   Typography,
 } from '@onekeyhq/components';
 
@@ -20,6 +21,51 @@ import Header from './Header';
 import { NetWorkExtraInfo } from './NetworkExtraInfo';
 import SideChainSelector from './SideChainSelector';
 
+import type { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
+
+function LazyDisplayContentView({
+  showSideChainSelector,
+  showCustomLegacyHeader,
+  accountSelectorInfo,
+}: {
+  showSideChainSelector: boolean;
+  showCustomLegacyHeader: boolean;
+  accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
+}) {
+  const [search, setSearch] = useState('');
+
+  return (
+    <Box flex={1} flexDirection="row">
+      {showSideChainSelector ? (
+        <SideChainSelector accountSelectorInfo={accountSelectorInfo} />
+      ) : null}
+      <Box alignSelf="stretch" flex={1}>
+        <Header
+          accountSelectorInfo={accountSelectorInfo}
+          showCustomLegacyHeader={showCustomLegacyHeader}
+        />
+        <Box px="16px" mb="16px">
+          <Searchbar
+            w="full"
+            value={search}
+            onChangeText={setSearch}
+            onClear={() => setSearch('')}
+          />
+        </Box>
+        <ScrollView>
+          <AccountList
+            accountSelectorInfo={accountSelectorInfo}
+            searchValue={search}
+          />
+          <NetWorkExtraInfo
+            accountId={accountSelectorInfo.activeAccount?.id}
+            networkId={accountSelectorInfo.selectedNetworkId}
+          />
+        </ScrollView>
+      </Box>
+    </Box>
+  );
+}
 function NetworkAccountSelectorModal() {
   const intl = useIntl();
 
@@ -71,24 +117,11 @@ function NetworkAccountSelectorModal() {
       height="560px"
     >
       <LazyDisplayView delay={0}>
-        <Box flex={1} flexDirection="row">
-          {showSideChainSelector ? (
-            <SideChainSelector accountSelectorInfo={accountSelectorInfo} />
-          ) : null}
-          <Box alignSelf="stretch" flex={1}>
-            <Header
-              accountSelectorInfo={accountSelectorInfo}
-              showCustomLegacyHeader={showCustomLegacyHeader}
-            />
-            <ScrollView>
-              <AccountList accountSelectorInfo={accountSelectorInfo} />
-              <NetWorkExtraInfo
-                accountId={accountSelectorInfo.activeAccount?.id}
-                networkId={accountSelectorInfo.selectedNetworkId}
-              />
-            </ScrollView>
-          </Box>
-        </Box>
+        <LazyDisplayContentView
+          accountSelectorInfo={accountSelectorInfo}
+          showSideChainSelector={showSideChainSelector}
+          showCustomLegacyHeader={showCustomLegacyHeader}
+        />
       </LazyDisplayView>
     </Modal>
   );

@@ -41,7 +41,7 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = CompositeNavigationProp<
-  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Root>,
+  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Main>,
   NativeStackNavigationProp<
     HomeRoutesParams,
     HomeRoutes.CloudBackupPreviousBackups
@@ -89,10 +89,12 @@ const EnabledContent = ({
         footerButtonProps={{
           primaryActionTranslationId: 'action__disable',
           secondaryActionTranslationId: 'action__dismiss',
-          primaryActionProps: { type: 'destructive' },
-          onPrimaryActionPress: async () => {
-            await serviceCloudBackup.disableService();
-            onClose();
+          primaryActionProps: {
+            type: 'destructive',
+            onPromise: async () => {
+              await serviceCloudBackup.disableService();
+              onClose();
+            },
           },
         }}
         contentProps={{

@@ -9,8 +9,8 @@ import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import FormChainSelector from '@onekeyhq/kit/src/components/Form/ChainSelector';
 import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
-import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
-import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/CreateWallet';
+import type { CreateWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/CreateWallet';
+import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import type { RouteProp } from '@react-navigation/native';

@@ -34,6 +34,7 @@ import {
   useNetworkTokens,
 } from '../../hooks';
 import { useSingleToken, useTokenBalance } from '../../hooks/useTokens';
+import { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import { deviceUtils } from '../../utils/hardware';
 import { showOverlay } from '../../utils/overlayUtils';
 import { getTokenValue } from '../../utils/priceUtils';
@@ -42,7 +43,6 @@ import { showManageTokenListingTip } from '../Overlay/MangeTokenListing';
 
 import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
 import { useSearchTokens } from './hooks';
-import { ManageTokenRoutes } from './types';
 
 import type { SimplifiedToken } from '../../store/reducers/tokens';
 import type { ManageTokenRoutesParams } from './types';
@@ -51,7 +51,7 @@ import type { ListRenderItem } from 'react-native';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
-  ManageTokenRoutes.Listing
+  ManageTokenModalRoutes.Listing
 >;
 
 const isValidateAddr = (addr: string) => addr.length === 42;
@@ -74,7 +74,7 @@ const HeaderTokenItem: FC<
 
   const onDetail = useCallback(
     (t: Token) => {
-      navigation.navigate(ManageTokenRoutes.ViewToken, {
+      navigation.navigate(ManageTokenModalRoutes.ViewToken, {
         ...t,
         decimal: t.decimals,
         source: t.source ?? '',
@@ -247,7 +247,7 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
         if (isValidateAddr(terms)) {
           params.address = terms;
         }
-        navigation.navigate(ManageTokenRoutes.CustomToken, params);
+        navigation.navigate(ManageTokenModalRoutes.CustomToken, params);
       }}
     />
   ) : null;
@@ -281,7 +281,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
       return;
     }
     return new Promise((resolve, reject) => {
-      navigation.navigate(ManageTokenRoutes.ActivateToken, {
+      navigation.navigate(ManageTokenModalRoutes.ActivateToken, {
         walletId,
         accountId,
         networkId,
@@ -394,8 +394,8 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
 
   const onDetail = useCallback(() => {
     const routeName = isOwned
-      ? ManageTokenRoutes.ViewToken
-      : ManageTokenRoutes.AddToken;
+      ? ManageTokenModalRoutes.ViewToken
+      : ManageTokenModalRoutes.AddToken;
     navigation.navigate(routeName, {
       name: item.name,
       symbol: item.symbol,
@@ -521,7 +521,7 @@ export const ListingModal: FC<ListingModalProps> = ({
       headerDescription={activeNetwork?.shortName}
       hidePrimaryAction
       onSecondaryActionPress={() => {
-        navigation.navigate(ManageTokenRoutes.CustomToken);
+        navigation.navigate(ManageTokenModalRoutes.CustomToken);
       }}
       secondaryActionProps={{ type: 'basic', leftIconName: 'PlusOutline' }}
       secondaryActionTranslationId="action__add_custom_tokens"

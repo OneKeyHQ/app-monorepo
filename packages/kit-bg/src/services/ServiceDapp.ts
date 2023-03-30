@@ -3,12 +3,19 @@ import { cloneDeep, debounce } from 'lodash';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
+import { buildModalRouteParams } from '@onekeyhq/kit/src/hooks/useAutoNavigateOnMount';
 import type {
   IDappConnectionParams,
   IDappSignAndSendParams,
 } from '@onekeyhq/kit/src/hooks/useDappParams';
-import { buildModalRouteParams } from '@onekeyhq/kit/src/provider/useAutoNavigateOnMount';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import {
+  DappConnectionModalRoutes,
+  ManageNetworkModalRoutes,
+  ManageTokenModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+  SendModalRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 import type {
   DappSiteConnection,
   DappSiteConnectionRemovePayload,
@@ -21,10 +28,6 @@ import {
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import { isSendModalRouteExisting } from '@onekeyhq/kit/src/utils/routeUtils';
-import { DappConnectionModalRoutes } from '@onekeyhq/kit/src/views/DappModals/types';
-import { ManageNetworkRoutes } from '@onekeyhq/kit/src/views/ManageNetworks/types';
-import { ManageTokenRoutes } from '@onekeyhq/kit/src/views/ManageTokens/types';
-import { SendRoutes } from '@onekeyhq/kit/src/views/Send/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -234,7 +237,7 @@ class ServiceDapp extends ServiceBase {
 
     return this.openModal({
       request,
-      screens: [ModalRoutes.Send, SendRoutes.SendConfirmFromDapp],
+      screens: [ModalRoutes.Send, SendModalRoutes.SendConfirmFromDapp],
       params,
       isAuthorizedRequired: true,
     });
@@ -243,7 +246,7 @@ class ServiceDapp extends ServiceBase {
   openAddTokenModal(request: IJsBridgeMessagePayload, params: any) {
     return this.openModal({
       request,
-      screens: [ModalRoutes.ManageToken, ManageTokenRoutes.AddToken],
+      screens: [ModalRoutes.ManageToken, ManageTokenModalRoutes.AddToken],
       params,
     });
   }
@@ -253,7 +256,7 @@ class ServiceDapp extends ServiceBase {
       request,
       screens: [
         ModalRoutes.ManageNetwork,
-        ManageNetworkRoutes.AddNetworkConfirm,
+        ManageNetworkModalRoutes.AddNetworkConfirm,
       ],
       params,
     });
@@ -262,7 +265,10 @@ class ServiceDapp extends ServiceBase {
   openSwitchNetworkModal(request: IJsBridgeMessagePayload, params: any) {
     return this.openModal({
       request,
-      screens: [ModalRoutes.ManageNetwork, ManageNetworkRoutes.SwitchNetwork],
+      screens: [
+        ModalRoutes.ManageNetwork,
+        ManageNetworkModalRoutes.SwitchNetwork,
+      ],
       params,
     });
   }
@@ -270,7 +276,7 @@ class ServiceDapp extends ServiceBase {
   openSwitchRpcModal(request: IJsBridgeMessagePayload, params: any) {
     return this.openModal({
       request,
-      screens: [ModalRoutes.ManageNetwork, ManageNetworkRoutes.SwitchRpc],
+      screens: [ModalRoutes.ManageNetwork, ManageNetworkModalRoutes.SwitchRpc],
       params,
     });
   }

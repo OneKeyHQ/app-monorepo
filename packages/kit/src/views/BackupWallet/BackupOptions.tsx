@@ -6,8 +6,8 @@ import { Column } from 'native-base';
 import { useIntl } from 'react-intl';
 
 import { Modal } from '@onekeyhq/components';
-import type { BackupWalletRoutesParams } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
-import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/BackupWallet';
+import type { BackupWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/BackupWallet';
+import { BackupWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 

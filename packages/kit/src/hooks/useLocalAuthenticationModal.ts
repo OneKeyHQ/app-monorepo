@@ -1,5 +1,8 @@
-import { ManagerWalletModalRoutes } from '@onekeyhq/kit/src/routes/Modal/ManagerWallet';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
+import {
+  ManagerWalletModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 
 import useAppNavigation from './useAppNavigation';
 

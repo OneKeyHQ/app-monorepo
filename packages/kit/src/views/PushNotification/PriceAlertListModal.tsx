@@ -12,8 +12,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../hooks/redux';
+import { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
-import { ManageTokenRoutes } from '../ManageTokens/types';
 
 import { ListEmptyComponent } from './Empty';
 import PriceItem from './PriceItem';
@@ -24,12 +24,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   ManageTokenRoutesParams,
-  ManageTokenRoutes.PriceAlertList
+  ManageTokenModalRoutes.PriceAlertList
 >;
 
 type RouteProps = RouteProp<
   ManageTokenRoutesParams,
-  ManageTokenRoutes.PriceAlertList
+  ManageTokenModalRoutes.PriceAlertList
 >;
 
 const MAX_ALERT = 50;
@@ -78,7 +78,7 @@ export const PriceAlertListModal: FC = () => {
         setPushNotificationConfig({ pushEnable: true, priceAlertEnable: true }),
       );
     }
-    navigation.navigate(ManageTokenRoutes.PriceAlertAdd, {
+    navigation.navigate(ManageTokenModalRoutes.PriceAlertAdd, {
       price,
       token,
       alerts: data,
