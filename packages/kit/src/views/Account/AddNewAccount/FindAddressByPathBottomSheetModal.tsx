@@ -10,7 +10,6 @@ import {
   Box,
   Button,
   Form,
-  KeyboardDismissView,
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -228,72 +227,70 @@ const FindAddressByPathContent: FC<IFindAddressByPathProps> = ({
   );
 
   return (
-    <KeyboardDismissView>
-      <Box>
-        <Alert
-          title={intl.formatMessage({
-            id: 'msg__remember_your_path_settings',
-          })}
-          description={intl.formatMessage({
-            id: 'msg__remember_your_path_settings_desc',
-          })}
-          dismiss={false}
-          alertType="info"
-          customIconName="InformationCircleMini"
-        />
-        <Form my={6}>
-          <Pressable onPress={onSelectDerivationType} isDisabled={hasAccount}>
-            <Form.Item name="derivationType" control={control}>
-              <Form.Input
-                size={isSmallScreen ? 'xl' : 'default'}
-                rightIconName="ChevronDownMini"
-                isReadOnly
-                isDisabled={hasAccount}
-                onPressRightIcon={onSelectDerivationType}
-                onPressIn={
-                  platformEnv.isNativeIOS ? onSelectDerivationType : undefined
-                }
-              />
-            </Form.Item>
-          </Pressable>
-          <Form.Item
-            name="accountIndex"
-            control={control}
-            label={intl.formatMessage({
-              id: 'form__account',
-            })}
-            rules={indexRules}
-          >
+    <Box>
+      <Alert
+        title={intl.formatMessage({
+          id: 'msg__remember_your_path_settings',
+        })}
+        description={intl.formatMessage({
+          id: 'msg__remember_your_path_settings_desc',
+        })}
+        dismiss={false}
+        alertType="info"
+        customIconName="InformationCircleMini"
+      />
+      <Form my={6}>
+        <Pressable onPress={onSelectDerivationType} isDisabled={hasAccount}>
+          <Form.Item name="derivationType" control={control}>
             <Form.Input
-              type="number"
-              keyboardType="number-pad"
               size={isSmallScreen ? 'xl' : 'default'}
-              isReadOnly={hasAccount}
+              rightIconName="ChevronDownMini"
+              isReadOnly
               isDisabled={hasAccount}
+              onPressRightIcon={onSelectDerivationType}
+              onPressIn={
+                platformEnv.isNativeIOS ? onSelectDerivationType : undefined
+              }
             />
           </Form.Item>
-          <Form.Item
-            name="addressIndex"
-            control={control}
-            label="Address_index"
-            rules={indexRules}
-          >
-            <Form.Input
-              type="number"
-              keyboardType="number-pad"
-              size={isSmallScreen ? 'xl' : 'default'}
-            />
-          </Form.Item>
-        </Form>
-        <Button
-          type="primary"
-          size={isSmallScreen ? 'xl' : 'base'}
-          onPress={handleSubmit(onSubmit)}
+        </Pressable>
+        <Form.Item
+          name="accountIndex"
+          control={control}
+          label={intl.formatMessage({
+            id: 'form__account',
+          })}
+          rules={indexRules}
         >
-          {intl.formatMessage({ id: 'action__add' })}
-        </Button>
-      </Box>
-    </KeyboardDismissView>
+          <Form.Input
+            type="number"
+            keyboardType="number-pad"
+            size={isSmallScreen ? 'xl' : 'default'}
+            isReadOnly={hasAccount}
+            isDisabled={hasAccount}
+          />
+        </Form.Item>
+        <Form.Item
+          name="addressIndex"
+          control={control}
+          label="Address_index"
+          rules={indexRules}
+        >
+          <Form.Input
+            type="number"
+            keyboardType="number-pad"
+            size={isSmallScreen ? 'xl' : 'default'}
+          />
+        </Form.Item>
+      </Form>
+      <Button
+        type="primary"
+        size={isSmallScreen ? 'xl' : 'base'}
+        onPress={handleSubmit(onSubmit)}
+      >
+        {intl.formatMessage({ id: 'action__add' })}
+      </Button>
+    </Box>
   );
 };
 
@@ -310,6 +307,9 @@ const showFindAddressByPathBottomSheetModal = ({
         id: 'action__find_address_by_path',
       })}
       closeOverlay={close}
+      modalLizeProps={{
+        avoidKeyboardLikeIOS: false,
+      }}
     >
       <FindAddressByPathContent
         walletId={walletId}
