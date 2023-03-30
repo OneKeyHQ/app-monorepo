@@ -125,7 +125,7 @@ const TabNavigator = () => {
         <Tab.Navigator
           screenOptions={{
             // TODO make component content lazy
-            lazy: !platformEnv.isNewRouteMode, // avoid tab switch flashing on mobile
+            // lazy: !platformEnv.isNewRouteMode, // avoid tab switch flashing on mobile
             header: tabNavigatorHeaderRender,
             freezeOnBlur: true,
           }}
