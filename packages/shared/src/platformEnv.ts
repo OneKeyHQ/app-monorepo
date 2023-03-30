@@ -258,10 +258,7 @@ export const supportAutoUpdate: boolean =
 export const isAppleStoreEnv = isMas || isNativeIOSStore || isNativeIOSPadStore;
 
 const platformEnv: IPlatformEnv = {
-  // localStorage.setItem('$$isNewRouteMode','1');
-  isNewRouteMode: isDesktop
-    ? localStorage.getItem('$$isNewRouteMode') === '1'
-    : true,
+  isNewRouteMode: true,
 
   version: process.env.VERSION,
   buildNumber: process.env.BUILD_NUMBER,
