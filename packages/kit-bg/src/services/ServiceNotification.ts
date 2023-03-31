@@ -53,6 +53,7 @@ import { initJpush } from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
+import { navigationShortcuts } from '@onekeyhq/kit/src/routes/navigationShortcuts';
 
 @backgroundClass()
 export default class ServiceNotification extends ServiceBase {
@@ -292,16 +293,7 @@ export default class ServiceNotification extends ServiceBase {
     if (platformEnv.isExtension) {
       return;
     }
-    const navigation = getAppNavigation();
-    if (navigation?.canGoBack()) {
-      navigation?.goBack();
-    }
-    navigation?.navigate(RootRoutes.Main, {
-      screen: MainRoutes.Tab,
-      params: {
-        screen: tabScreenName,
-      },
-    });
+    navigationShortcuts.navigateToAppRootTab(tabScreenName);
     await wait(600);
   }
 
