@@ -12,6 +12,7 @@ import {
   KeyboardDismissView,
   Modal,
   RadioButton,
+  Text,
   Token,
   useForm,
   useIsVerticalLayout,
@@ -82,7 +83,7 @@ const RecoverAccountsAdvanced: FC = () => {
   } = useForm<FromValues>({
     defaultValues: {
       fromIndex: `${fromIndex}`,
-      generateCount: generateCount ? `${generateCount}` : undefined,
+      generateCount: generateCount ? `${generateCount}` : `10`,
     },
     mode: 'onChange',
   });
@@ -188,7 +189,7 @@ const RecoverAccountsAdvanced: FC = () => {
         onPromise: handleSubmit(onSubmit),
         isDisabled: !isValid,
       }}
-      primaryActionTranslationId="action__apply"
+      primaryActionTranslationId="action__preview"
       hideSecondaryAction
     >
       <KeyboardDismissView>
@@ -261,6 +262,12 @@ const RecoverAccountsAdvanced: FC = () => {
               defaultMessage: 'Generate Amount',
             })}
             rules={{
+              required: {
+                value: true,
+                message: intl.formatMessage({
+                  id: 'form__field_is_required',
+                }),
+              },
               min: {
                 value: 1,
                 message: intl.formatMessage(
@@ -298,6 +305,16 @@ const RecoverAccountsAdvanced: FC = () => {
               rightCustomElement={generateCountButton}
             />
           </Form.Item>
+          <Text
+            typography={{ sm: 'Body2', md: 'Body2' }}
+            color="text-subdued"
+            mt="-20px"
+          >
+            {intl.formatMessage(
+              { id: 'msg__up_to_str_can_be_generated_at_a_time' },
+              { 0: 100 },
+            )}
+          </Text>
         </Form>
       </KeyboardDismissView>
     </Modal>
