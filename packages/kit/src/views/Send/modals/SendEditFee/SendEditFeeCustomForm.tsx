@@ -69,7 +69,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
       feeRange = calculateTotalFeeRange({
         eip1559: true,
         limit: getValues('gasLimit'),
-        price: {
+        price1559: {
           baseFee: getValues('baseFee'),
           maxFeePerGas: getValues('maxFeePerGas'),
           maxPriorityFeePerGas: getValues('maxPriorityFeePerGas'),
@@ -138,10 +138,11 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                   lowValue: lowFee?.maxPriorityFeePerGas,
                   highValue: highFee?.maxPriorityFeePerGas,
                   minValue:
-                    autoConfirmAfterFeeSaved && selectedFeeInfo?.custom?.price
+                    autoConfirmAfterFeeSaved &&
+                    selectedFeeInfo?.custom?.price1559
                       ? new BigNumber(
                           (
-                            selectedFeeInfo?.custom?.price as
+                            selectedFeeInfo?.custom?.price1559 as
                               | EIP1559Fee
                               | undefined
                           )?.maxPriorityFeePerGas as string,
@@ -210,10 +211,11 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                   lowValue: lowFee?.maxFeePerGas,
                   highValue: highFee?.maxFeePerGas,
                   minValue:
-                    autoConfirmAfterFeeSaved && selectedFeeInfo?.custom?.price
+                    autoConfirmAfterFeeSaved &&
+                    selectedFeeInfo?.custom?.price1559
                       ? new BigNumber(
                           (
-                            selectedFeeInfo?.custom?.price as
+                            selectedFeeInfo?.custom?.price1559 as
                               | EIP1559Fee
                               | undefined
                           )?.maxFeePerGas as string,
@@ -276,7 +278,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                   value,
                   minValue:
                     autoConfirmAfterFeeSaved && selectedFeeInfo?.custom?.price
-                      ? new BigNumber(selectedFeeInfo?.custom?.price as string)
+                      ? new BigNumber(selectedFeeInfo?.custom?.price)
                           .times(SEND_EDIT_FEE_PRICE_UP_RATIO)
                           .toFixed()
                       : '0',

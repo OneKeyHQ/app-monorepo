@@ -72,7 +72,7 @@ export function calculateTotalFeeRange(feeValue: IFeeInfoUnit) {
   const limit = feeValue.limitUsed || feeValue.limit;
   if (feeValue.eip1559) {
     // MIN: (baseFee + maxPriorityFeePerGas) * limit
-    const priceInfo = feeValue.price as EIP1559Fee;
+    const priceInfo = feeValue.price1559 as EIP1559Fee;
     const min = new BigNumber(limit as string)
       .times(
         new BigNumber(priceInfo.baseFee).plus(priceInfo.maxPriorityFeePerGas),

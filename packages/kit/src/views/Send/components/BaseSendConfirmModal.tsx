@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { Text } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { NetworkCongestionThresholds } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
@@ -13,13 +14,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveSideAccount, useNativeToken } from '../../../hooks';
 import { useTokenBalanceWithoutFrozen } from '../../../hooks/useTokens';
+import { EditableNonceStatusEnum } from '../types';
 
 import { BaseSendModal } from './BaseSendModal';
 import { DecodeTxButtonTest } from './DecodeTxButtonTest';
 import { SendConfirmErrorBoundary } from './SendConfirmErrorBoundary';
 import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
 
-import { EditableNonceStatusEnum, ITxConfirmViewProps } from '../types';
+import type { ITxConfirmViewProps } from '../types';
 
 // TODO rename SendConfirmModalBase
 export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
@@ -100,6 +102,16 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     return false;
   }, [accountAddress, encodedTx, networkImpl]);
 
+  const isNetworkBusy = useMemo(() => {
+    const info = feeInfoPayload?.info;
+    if (info?.eip1559 && info.extraInfo?.networkCongestion) {
+      return (
+        info.extraInfo.networkCongestion >= NetworkCongestionThresholds.busy
+      );
+    }
+    return false;
+  }, [feeInfoPayload?.info]);
+
   const confirmAction = useCallback(
     async ({ close, onClose }) => {
       let tx = encodedTx;
@@ -152,6 +164,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
                 balanceInsufficient={balanceInsufficient}
                 isAccountNotMatched={isAccountNotMatched}
                 editableNonceStatus={editableNonceStatus}
+                isNetworkBusy={isNetworkBusy}
               />
             )}
 

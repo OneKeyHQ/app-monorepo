@@ -1,8 +1,7 @@
 import { memo, useEffect, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -155,6 +154,7 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
     currentNonce,
     intl,
     control,
+    isLessNonce,
     isLoadingAdvancedSettings,
     onBlur,
     setValue,

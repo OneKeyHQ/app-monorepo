@@ -13,12 +13,14 @@ export function SendConfirmErrorsAlert({
   isNetworkNotMatched,
   isAccountNotMatched,
   editableNonceStatus,
+  isNetworkBusy,
 }: {
   nativeToken?: Token;
   isWatchingAccount?: boolean;
   balanceInsufficient?: boolean;
   isNetworkNotMatched?: boolean;
   isAccountNotMatched?: boolean;
+  isNetworkBusy?: boolean;
   editableNonceStatus?: EditableNonceStatusEnum;
 }) {
   const errors = [];
@@ -87,6 +89,18 @@ export function SendConfirmErrorsAlert({
         isAlertStyle
         message={intl.formatMessage({
           id: 'msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed',
+        })}
+      />,
+    );
+  }
+
+  if (isNetworkBusy) {
+    errors.push(
+      <FormErrorMessage
+        type="warn"
+        isAlertStyle
+        message={intl.formatMessage({
+          id: 'msg__eth_tx_warning_network_busy_gas_is_high',
         })}
       />,
     );

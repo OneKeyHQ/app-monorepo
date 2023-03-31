@@ -2189,15 +2189,23 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getGasPrice(networkId: string): Promise<Array<string | EIP1559Fee>> {
-    const ret = await this.providerManager.getGasPrice(networkId);
-    if (ret.length > 0 && ret[0] instanceof BigNumber) {
+  async getGasInfo(networkId: string): Promise<{
+    prices: Array<string | EIP1559Fee>;
+    networkCongestion?: number;
+    estimatedTransactionCount?: number;
+  }> {
+    const gasInfo = await this.providerManager.getGasInfo(networkId);
+    const { prices } = gasInfo;
+    if (prices.length > 0 && prices[0] instanceof BigNumber) {
       const { feeDecimals } = await this.dbApi.getNetwork(networkId);
-      return (ret as Array<BigNumber>).map((price: BigNumber) =>
-        price.shiftedBy(-feeDecimals).toFixed(),
-      );
+      return {
+        ...gasInfo,
+        prices: (prices as Array<BigNumber>).map((price: BigNumber) =>
+          price.shiftedBy(-feeDecimals).toFixed(),
+        ),
+      };
     }
-    return ret as Array<EIP1559Fee>;
+    return gasInfo as { prices: EIP1559Fee[] };
   }
 
   async getVault(options: { networkId: string; accountId: string }) {

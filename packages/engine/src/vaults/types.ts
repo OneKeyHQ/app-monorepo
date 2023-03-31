@@ -253,7 +253,8 @@ export type IFeeInfoPrice = string | EIP1559Fee; // in GWEI
 export type IFeeInfoUnit = {
   eip1559?: boolean;
   priceValue?: string;
-  price?: IFeeInfoPrice; // in GWEI
+  price?: string; // in GWEI
+  price1559?: EIP1559Fee;
   limit?: string;
   limitUsed?: string;
 };
@@ -276,7 +277,12 @@ export type IFeeInfo = {
   eip1559?: boolean;
   customDisabled?: boolean;
   baseFeeValue?: string; // A base fee: e.g. L1 fee for Layer 2 networks
-  extraInfo?: any | null;
+  extraInfo?: {
+    tokensChangedTo?: { [key: string]: string | undefined };
+    networkCongestion?: number;
+    estimatedTransactionCount?: number;
+    originalPrices?: Array<EIP1559Fee | string> | null;
+  } | null;
 };
 export type IFeeInfoSelectedType = 'preset' | 'custom';
 export type IFeeInfoSelected = {

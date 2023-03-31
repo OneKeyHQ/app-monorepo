@@ -353,7 +353,7 @@ export default class Vault extends VaultBase {
       feeInfo = {
         eip1559: true,
         limit,
-        price: {
+        price1559: {
           baseFee: '0',
           maxPriorityFeePerGas: new BigNumber(gasInfo.maxPriorityFeePerGas)
             .shiftedBy(-network.feeDecimals)
@@ -562,7 +562,7 @@ export default class Vault extends VaultBase {
       feeInfo = {
         eip1559: true,
         limit,
-        price: {
+        price1559: {
           // TODO add baseFee in encodedTx
           baseFee: '0',
 
@@ -1066,7 +1066,15 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
 
     // RPC: eth_gasPrice
-    let prices = await this.engine.getGasPrice(this.networkId);
+    let { prices, networkCongestion, estimatedTransactionCount } =
+      await this.engine.getGasInfo(this.networkId);
+    let originalPrices = null;
+
+    // fi blocknative returns 5 gas gears, then take the middle 3 as the default prices
+    if (prices.length === 5) {
+      originalPrices = prices;
+      prices = prices.slice(1, 4);
+    }
 
     const subNetworkSetting =
       this.settings.subNetworkSettings?.[this.networkId];
@@ -1203,9 +1211,16 @@ export default class Vault extends VaultBase {
       tx: {
         eip1559,
         limit: gasLimitInTx,
-        price: gasPriceInTx,
+        ...(eip1559
+          ? { price1559: gasPriceInTx as EIP1559Fee }
+          : { price: gasPriceInTx as string }),
       },
       baseFeeValue,
+      extraInfo: {
+        originalPrices,
+        networkCongestion,
+        estimatedTransactionCount,
+      },
     };
   }
 
@@ -1225,21 +1240,21 @@ export default class Vault extends VaultBase {
     // TODO to hex and shift decimals, do not shift decimals in fillUnsignedTxObj
     if (!isNil(feeInfoValue.price)) {
       if (feeInfoValue.eip1559) {
-        const priceInfo = feeInfoValue.price as EIP1559Fee;
+        const priceInfo = feeInfoValue.price1559;
         encodedTxWithFee.maxFeePerGas = toBigIntHex(
-          new BigNumber(priceInfo.maxFeePerGas).shiftedBy(network.feeDecimals),
+          new BigNumber(priceInfo?.maxFeePerGas ?? 0).shiftedBy(
+            network.feeDecimals,
+          ),
         );
         encodedTxWithFee.maxPriorityFeePerGas = toBigIntHex(
-          new BigNumber(priceInfo.maxPriorityFeePerGas).shiftedBy(
+          new BigNumber(priceInfo?.maxPriorityFeePerGas ?? 0).shiftedBy(
             network.feeDecimals,
           ),
         );
         delete encodedTxWithFee.gasPrice;
       } else {
         encodedTxWithFee.gasPrice = toBigIntHex(
-          new BigNumber(feeInfoValue.price as string).shiftedBy(
-            network.feeDecimals,
-          ),
+          new BigNumber(feeInfoValue.price).shiftedBy(network.feeDecimals),
         );
       }
     }
@@ -1566,7 +1581,7 @@ export default class Vault extends VaultBase {
         decodedTx.feeInfo.limitUsed = limitUsed;
         decodedTx.feeInfo.limit = limit;
         if (decodedTx.feeInfo.eip1559) {
-          const eip1559Fee = decodedTx.feeInfo.price as EIP1559Fee;
+          const eip1559Fee = decodedTx.feeInfo.price1559 as EIP1559Fee;
           eip1559Fee.gasPrice = priceGwei;
           eip1559Fee.gasPriceValue = priceValue;
         }

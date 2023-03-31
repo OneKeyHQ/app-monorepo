@@ -176,8 +176,10 @@ function ScreenSendEditFee({ ...rest }) {
       preset: radioValue || '1',
       custom: {
         eip1559: isEIP1559Fee,
-        price: priceInfo,
         limit: data.gasLimit || '0',
+        ...(isEIP1559Fee
+          ? { price1559: priceInfo as EIP1559Fee }
+          : { price: priceInfo as string }),
       },
     };
     debugLogger.sendTx.info('SendEditFee Confirm >>>> ', feeInfoSelected);
@@ -253,9 +255,9 @@ function ScreenSendEditFee({ ...rest }) {
 
   const setFormValuesFromFeeInfo = useCallback(
     (feeInfoValue: IFeeInfoUnit) => {
-      const { price, limit } = feeInfoValue;
+      const { price, limit, price1559 } = feeInfoValue;
       if (isEIP1559Fee) {
-        const priceInfo = price as EIP1559Fee;
+        const priceInfo = price1559 as EIP1559Fee;
         setValue('baseFee', priceInfo.baseFee);
         setValue('maxFeePerGas', priceInfo.maxFeePerGas);
         setValue('maxPriorityFeePerGas', priceInfo.maxPriorityFeePerGas);
@@ -276,11 +278,11 @@ function ScreenSendEditFee({ ...rest }) {
     ) {
       return;
     }
-    const { limit, price } = getSelectedFeeInfoUnit({
+    const { limit, price, price1559 } = getSelectedFeeInfoUnit({
       info: feeInfoPayload.info,
       index: radioValue,
     });
-    setFormValuesFromFeeInfo({ price, limit });
+    setFormValuesFromFeeInfo({ price, price1559, limit });
   }, [
     feeInfoPayload,
     feeType,
@@ -339,7 +341,7 @@ function ScreenSendEditFee({ ...rest }) {
           }
 
           if (customValues?.eip1559) {
-            const eip1559Price = customValues.price as EIP1559Fee;
+            const eip1559Price = customValues.price1559 as EIP1559Fee;
             if (eip1559Price) {
               const highPriceInfo = highPriceData as EIP1559Fee | undefined;
               eip1559Price.baseFee =

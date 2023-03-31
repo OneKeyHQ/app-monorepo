@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { RadioFee } from '@onekeyhq/components';
+import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type {
   IFeeInfo,
   IFeeInfoPayload,
@@ -41,7 +42,7 @@ export function SendEditFeeStandardForm({
         const { min, max } = calculateTotalFeeRange({
           eip1559: true,
           limit: feeInfoPayload?.info?.limit,
-          price: gas,
+          price1559: gas as EIP1559Fee,
         });
         const minFee = min;
         const totalFeeNative = calculateTotalFeeNative({
@@ -88,7 +89,7 @@ export function SendEditFeeStandardForm({
     return gasList.map((gas, index) => {
       const totalFee = calculateTotalFeeRange({
         limit: feeInfoPayload?.info?.limit,
-        price: gas,
+        price: gas as string,
       }).max;
       const totalFeeNative = calculateTotalFeeNative({
         amount: totalFee,
