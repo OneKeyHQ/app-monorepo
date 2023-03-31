@@ -9,11 +9,11 @@ import { createBottomTabNavigator } from '@onekeyhq/components/src/Layout/Bottom
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { LazyDisplayView } from '../../../../components/LazyDisplayView';
+import { buildAppRootTabName } from '../../../routesUtils';
 import { TabRoutes } from '../../../types';
 
 import { tabRoutes } from './routes/tabRoutes';
 import {
-  buildAppRootTabName,
   buildTabNavigatorHeaderRender,
   buildTabScreenHeaderRender,
 } from './tabNavHeader';

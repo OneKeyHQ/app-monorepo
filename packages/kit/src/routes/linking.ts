@@ -11,7 +11,6 @@ import {
 import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 
 import { legacyLinkingPathMap, linkingPathMap } from './linking.path';
-import { buildAppRootTabName } from './Root/Main/Tab/tabNavHeader';
 import {
   DappConnectionModalRoutes,
   HomeRoutes,
@@ -24,6 +23,7 @@ import {
   SubmitRequestModalRoutes,
   TabRoutes,
 } from './routesEnum';
+import { buildAppRootTabName } from './routesUtils';
 
 import type { LinkingOptions } from '@react-navigation/native';
 
