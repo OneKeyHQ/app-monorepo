@@ -43,6 +43,7 @@ import HardwareLoadingDialog from '@onekeyhq/kit/src/views/Hardware/Onekey/Oneke
 import ManagerWalletDeleteDialog from '@onekeyhq/kit/src/views/ManagerWallet/DeleteWallet';
 import type { DeleteWalletProp } from '@onekeyhq/kit/src/views/ManagerWallet/DeleteWallet';
 
+import { useWalletSelectorStatus } from '../hooks/useWalletSelectorStatus';
 import { useHardwareWalletInfo } from '../WalletAvatar';
 
 import type { TypeHardwareWalletInfo } from '../WalletAvatar';
@@ -557,6 +558,9 @@ function WalletItemSelectDropdown({
     [intl, navigateToBackupModal, showBackupDialog],
   );
 
+  const { visible } = useWalletSelectorStatus();
+
+  if (!visible) return null;
   return (
     <>
       {menuView}
