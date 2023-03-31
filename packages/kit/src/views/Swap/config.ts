@@ -54,15 +54,3 @@ export const networkProviderInfos: Record<string, Provider[]> = {
     },
   ],
 };
-
-export const reservedNetworkFee: Record<string, number> = {
-  [OnekeyNetwork.eth]: 0.01,
-  [OnekeyNetwork.bsc]: 0.01,
-  [OnekeyNetwork.polygon]: 0.1,
-  [OnekeyNetwork.btc]: 0.001,
-  [OnekeyNetwork.optimism]: 0.0001,
-  [OnekeyNetwork.xrp]: 11,
-  [OnekeyNetwork.trx]: 5,
-  [OnekeyNetwork.bch]: 0.01,
-  [OnekeyNetwork.algo]: 0.2,
-};

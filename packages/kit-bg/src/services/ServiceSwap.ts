@@ -35,6 +35,7 @@ import {
   setDefaultPayment,
   setPayments,
   setRecommendedSlippage,
+  setReservedNetworkFees,
   setSlippage,
   setSwapChartMode,
   setSwapFeePresetIndex,
@@ -572,6 +573,7 @@ export default class ServiceSwap extends ServiceBase {
         approvalIssueTokens,
         wrapperTokens,
         payments,
+        retainedValues,
       } = data;
       if (tokens) {
         if (tokens && Array.isArray(tokens)) {
@@ -629,10 +631,22 @@ export default class ServiceSwap extends ServiceBase {
           actions.push(setDefaultPayment(formatServerToken(fallback)));
         }
       }
+      if (retainedValues) {
+        actions.push(setReservedNetworkFees(retainedValues));
+      }
     }
     if (actions.length > 0) {
       dispatch(...actions);
     }
+  }
+
+  @backgroundMethod()
+  async getReservedNetworkFee(networkId: string) {
+    const { appSelector } = this.backgroundApi;
+    const reservedNetworkFees = appSelector(
+      (s) => s.swapTransactions.reservedNetworkFees,
+    );
+    return reservedNetworkFees?.[networkId] ?? ('0.01' as string);
   }
 
   @backgroundMethod()
