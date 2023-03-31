@@ -4,6 +4,8 @@ import {
   DrawerContentScrollView,
   useDrawerStatus,
 } from '@react-navigation/drawer';
+import { StyleSheet } from 'react-native';
+import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
@@ -15,7 +17,14 @@ import WalletSelectorChildren from './WalletSelectorChildren';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 
 const { updateMobileWalletSelectorDrawerOpen } = reducerAccountSelector.actions;
-function WalletSelectorMobile(props: DrawerContentComponentProps) {
+
+const styles = StyleSheet.create({
+  contentContainerStyle: {
+    flexDirection: 'row',
+    flex: 1,
+  },
+});
+export function WalletSelectorMobile(props: DrawerContentComponentProps) {
   const isVerticalLayout = useIsVerticalLayout();
 
   const { dispatch } = backgroundApiProxy;
@@ -32,15 +41,15 @@ function WalletSelectorMobile(props: DrawerContentComponentProps) {
 
   // accountSelectorInfo, isOpen
   return (
-    <DrawerContentScrollView
-      {...props}
-      scrollEnabled={false}
-      contentContainerStyle={{ flexDirection: 'row', flex: 1 }}
-    >
-      {/* AccountSelectorMobile */}
-      <WalletSelectorChildren />
-    </DrawerContentScrollView>
+    <RootSiblingParent inactive={!isDrawerOpen}>
+      <DrawerContentScrollView
+        {...props}
+        scrollEnabled={false}
+        contentContainerStyle={styles.contentContainerStyle}
+      >
+        {/* AccountSelectorMobile */}
+        <WalletSelectorChildren />
+      </DrawerContentScrollView>
+    </RootSiblingParent>
   );
 }
-
-export { WalletSelectorMobile };
