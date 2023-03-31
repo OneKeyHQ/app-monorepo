@@ -32,7 +32,6 @@ import {
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/types';
 import type { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountValues, useNavigationActions } from '../../../hooks';
