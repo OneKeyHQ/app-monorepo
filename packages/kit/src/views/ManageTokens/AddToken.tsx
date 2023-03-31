@@ -35,6 +35,7 @@ import { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import { wait } from '../../utils/helper';
 import { openUrl } from '../../utils/openUrl';
 import { SiteSection } from '../ManageNetworks/components/SiteSection';
+import { defaultMenuOffset } from '../Overlay/BaseMenu';
 
 import type { ListItem } from '../ManageNetworks/SwitchRpc';
 import type { ManageTokenRoutesParams } from './types';
@@ -162,7 +163,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
           <Menu
             w="190"
             trigger={menuTrigger}
-            offset={platformEnv.isNativeAndroid ? 45 : 0}
+            offset={defaultMenuOffset}
             placement="bottom right"
           >
             <Menu.CustomItem onPress={copyAction} icon="DocumentDuplicateMini">

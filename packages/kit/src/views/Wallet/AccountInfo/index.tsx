@@ -277,7 +277,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
       </Box>
 
       <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
-        <AccountMoreMenu offset={platformEnv.isNativeAndroid ? 55 : 30}>
+        <AccountMoreMenu>
           <IconButton
             circle
             size={isSmallView ? 'xl' : 'lg'}

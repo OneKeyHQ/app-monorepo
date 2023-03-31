@@ -22,10 +22,10 @@ import type {
   MarketNews,
 } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { buildAddressDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
 import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
+import { defaultMenuOffset } from '../../../Overlay/BaseMenu';
 import { useGridBoxStyle } from '../../hooks/useMarketLayout';
 import {
   formatMarketUnitPosition,
@@ -68,24 +68,22 @@ const ExplorerAction = ({
     });
   }, [explorer.contractAddress, intl]);
   const { network } = useNetwork({ networkId: explorer.networkId });
-  const ExplorerComponent = useCallback(
-    (i, e, triggerProps) => (
+  const renderExplorerComponent = useCallback(
+    (triggerProps) => (
       <MarketInfoExplorer
-        key={i}
-        index={i}
-        explorer={e}
+        key={index}
+        index={index}
+        explorer={explorer}
         triggerProps={triggerProps}
       />
     ),
-    [],
+    [explorer, index],
   );
   return (
     <Menu
-      offset={platformEnv.isNativeAndroid ? 25 : 0}
+      offset={defaultMenuOffset}
       width={width}
-      trigger={(triggerProps) =>
-        ExplorerComponent(index, explorer, triggerProps)
-      }
+      trigger={renderExplorerComponent}
     >
       <Menu.CustomItem onPress={copyAction} icon="DocumentDuplicateMini">
         {intl.formatMessage({ id: 'action__copy_address' })}
