@@ -14,8 +14,8 @@ import {
   Modal,
   Text,
   ToastManager,
-  Token,
 } from '@onekeyhq/components';
+import { formatMessage } from '@onekeyhq/components/src/Provider';
 import type { SectionListProps } from '@onekeyhq/components/src/SectionList';
 import type {
   Account,
@@ -34,7 +34,6 @@ import AccountModifyNameDialog from '../ModifyAccount';
 import useRemoveAccountDialog from '../RemoveAccount';
 
 import type { RouteProp } from '@react-navigation/core';
-import type { MessageDescriptor } from 'react-intl';
 
 type RouteProps = RouteProp<
   ManagerAccountRoutesParams,
@@ -42,9 +41,10 @@ type RouteProps = RouteProp<
 >;
 
 type IAccountInfoListItem = {
-  key: DataSourceKey;
+  key: ManageAccountKeys;
   label?: string;
   description?: string;
+  credentialInfo?: AccountCredential;
 };
 
 type IAccountInfoListSectionData = {
@@ -52,7 +52,7 @@ type IAccountInfoListSectionData = {
   data: IAccountInfoListItem[];
 };
 
-enum DataSourceKey {
+enum ManageAccountKeys {
   Name = 'Name',
   ExportPublicKey = 'ExportPublicKey',
   ExportPrivateKey = 'ExportPrivateKey',
@@ -63,7 +63,75 @@ enum DataSourceKey {
   RemoveAccount = 'RemoveAccount',
 }
 
-const ExportKeyListItem: FC<{ item: IAccountInfoListItem }> = ({ item }) => (
+const SpecialExportCredentialKeys = [
+  ManageAccountKeys.ExportPrivateSpendKey,
+  ManageAccountKeys.ExportPrivateViewKey,
+  ManageAccountKeys.ExportSecretMnemonic,
+];
+
+const manageAccountOptions: Record<ManageAccountKeys, IAccountInfoListItem> = {
+  [ManageAccountKeys.Name]: {
+    label: formatMessage({ id: 'form__name' }),
+    key: ManageAccountKeys.Name,
+  },
+  [ManageAccountKeys.ExportPublicKey]: {
+    label: formatMessage({ id: 'form__export_public_key' }),
+    key: ManageAccountKeys.ExportPublicKey,
+    description: formatMessage({
+      id: 'msg__once_exposed_a_third_party_will_be_able_to_see_your_entire_transaction_history',
+    }),
+  },
+  [ManageAccountKeys.HardwareCanNotExportPrivateKey]: {
+    key: ManageAccountKeys.HardwareCanNotExportPrivateKey,
+  },
+  [ManageAccountKeys.ExportPrivateKey]: {
+    label: formatMessage({ id: 'action__export_private_key' }),
+    key: ManageAccountKeys.ExportPrivateKey,
+    description: formatMessage({
+      id: 'msg__once_exposed_a_third_party_will_be_able_to_take_full_control_of_your_account',
+    }),
+    credentialInfo: {
+      type: AccountCredentialType.PrivateKey,
+      key: 'action__export_private_key',
+    },
+  },
+  [ManageAccountKeys.ExportPrivateViewKey]: {
+    label: formatMessage({ id: 'action__export_view_key' }),
+    key: ManageAccountKeys.ExportPrivateViewKey,
+    credentialInfo: {
+      type: AccountCredentialType.PrivateViewKey,
+      key: 'action__export_view_key',
+    },
+  },
+  [ManageAccountKeys.ExportPrivateSpendKey]: {
+    label: formatMessage({ id: 'action__export_spend_key' }),
+    key: ManageAccountKeys.ExportPrivateSpendKey,
+    credentialInfo: {
+      type: AccountCredentialType.PrivateSpendKey,
+      key: 'action__export_spend_key',
+    },
+  },
+  [ManageAccountKeys.ExportSecretMnemonic]: {
+    label: formatMessage({ id: 'action__export_secret_mnemonic' }),
+    description: formatMessage({
+      id: 'msg__once_exposed_a_third_party_will_be_able_to_take_full_control_of_your_account',
+    }),
+    key: ManageAccountKeys.ExportSecretMnemonic,
+    credentialInfo: {
+      type: AccountCredentialType.Mnemonic,
+      key: 'action__export_secret_mnemonic',
+    },
+  },
+  [ManageAccountKeys.RemoveAccount]: {
+    label: formatMessage({ id: 'action__remove_account' }),
+    key: ManageAccountKeys.RemoveAccount,
+  },
+};
+
+const ExportKeyListItem: FC<{
+  item: IAccountInfoListItem;
+  onPress: (item: IAccountInfoListItem) => void;
+}> = ({ item }) => (
   <ListItem
     onPress={() => {}}
     mx={-2}
@@ -80,60 +148,118 @@ const ExportKeyListItem: FC<{ item: IAccountInfoListItem }> = ({ item }) => (
   </ListItem>
 );
 
-function useManageDataSource() {
+function useManageDataSource({
+  wallet,
+  networkId,
+}: {
+  wallet?: Wallet;
+  networkId: string;
+}) {
   const intl = useIntl();
-  const dataSource: IAccountInfoListSectionData[] = [
+  const { network } = useNetwork({ networkId });
+  const [dataSource, setDataSource] = useState<IAccountInfoListSectionData[]>([
     {
       title: intl.formatMessage({ id: 'content__info' }),
-      data: [
-        {
-          label: intl.formatMessage({ id: 'form__name' }),
-          key: DataSourceKey.Name,
-        },
-      ],
+      data: [manageAccountOptions[ManageAccountKeys.Name]],
     },
-    {
-      title: intl.formatMessage({ id: 'form__security_uppercase' }),
-      data: [
+  ]);
+
+  useEffect(() => {
+    const keys: ManageAccountKeys[] = [];
+    if (network && wallet) {
+      const {
+        exportCredentialInfo,
+        privateKeyExportEnabled,
+        publicKeyExportEnabled,
+      } = network.settings;
+      if (publicKeyExportEnabled) {
+        keys.push(ManageAccountKeys.ExportPublicKey);
+      }
+      if (
+        privateKeyExportEnabled &&
+        (wallet.type === 'hd' || wallet.type === 'imported')
+      ) {
+        if (exportCredentialInfo) {
+          SpecialExportCredentialKeys.forEach((key) => {
+            const option = manageAccountOptions[key];
+            if (
+              exportCredentialInfo.some(
+                (info) => info.type === option.credentialInfo?.type,
+              )
+            ) {
+              keys.push(key);
+            }
+          });
+        } else {
+          keys.push(ManageAccountKeys.ExportPrivateKey);
+        }
+      }
+      if (wallet.type === 'hw') {
+        keys.push(ManageAccountKeys.HardwareCanNotExportPrivateKey);
+      }
+      keys.push(ManageAccountKeys.RemoveAccount);
+      setDataSource((prev) => [
+        ...prev,
         {
-          label: intl.formatMessage({ id: 'form__export_public_key' }),
-          key: DataSourceKey.ExportPublicKey,
-          description: intl.formatMessage({
-            id: 'msg__once_exposed_a_third_party_will_be_able_to_see_your_entire_transaction_history',
-          }),
+          title: intl.formatMessage({ id: 'form__security_uppercase' }),
+          data: keys.map((key) => manageAccountOptions[key]),
         },
-        {
-          key: DataSourceKey.HardwareCanNotExportPrivateKey,
-        },
-        {
-          label: intl.formatMessage({ id: 'action__export_private_key' }),
-          key: DataSourceKey.ExportPrivateKey,
-          description: intl.formatMessage({
-            id: 'msg__once_exposed_a_third_party_will_be_able_to_take_full_control_of_your_account',
-          }),
-        },
-        {
-          label: intl.formatMessage({ id: 'action__export_view_key' }),
-          key: DataSourceKey.ExportPrivateViewKey,
-        },
-        {
-          label: intl.formatMessage({ id: 'action__export_spend_key' }),
-          key: DataSourceKey.ExportPrivateSpendKey,
-        },
-        {
-          label: intl.formatMessage({ id: 'action__export_secret_mnemonic' }),
-          description: intl.formatMessage({
-            id: 'msg__once_exposed_a_third_party_will_be_able_to_take_full_control_of_your_account',
-          }),
-          key: DataSourceKey.ExportSecretMnemonic,
-        },
-        {
-          label: intl.formatMessage({ id: 'action__remove_account' }),
-          key: DataSourceKey.RemoveAccount,
-        },
-      ],
-    },
-  ];
+      ]);
+    }
+  }, [network, wallet, intl]);
+
+  // const dataSource: IAccountInfoListSectionData[] = [
+  //   {
+  //     title: intl.formatMessage({ id: 'content__info' }),
+  //     data: [
+  //       {
+  //         label: intl.formatMessage({ id: 'form__name' }),
+  //         key: ManageAccountKeys.Name,
+  //       },
+  //     ],
+  //   },
+  //   {
+  //     title: intl.formatMessage({ id: 'form__security_uppercase' }),
+  //     data: [
+  //       {
+  //         label: intl.formatMessage({ id: 'form__export_public_key' }),
+  //         key: ManageAccountKeys.ExportPublicKey,
+  //         description: intl.formatMessage({
+  //           id: 'msg__once_exposed_a_third_party_will_be_able_to_see_your_entire_transaction_history',
+  //         }),
+  //       },
+  //       {
+  //         key: ManageAccountKeys.HardwareCanNotExportPrivateKey,
+  //       },
+  //       {
+  //         label: intl.formatMessage({ id: 'action__export_private_key' }),
+  //         key: ManageAccountKeys.ExportPrivateKey,
+  //         description: intl.formatMessage({
+  //           id: 'msg__once_exposed_a_third_party_will_be_able_to_take_full_control_of_your_account',
+  //         }),
+  //       },
+  //       {
+  //         label: intl.formatMessage({ id: 'action__export_view_key' }),
+  //         key: ManageAccountKeys.ExportPrivateViewKey,
+  //       },
+  //       {
+  //         label: intl.formatMessage({ id: 'action__export_spend_key' }),
+  //         key: ManageAccountKeys.ExportPrivateSpendKey,
+  //       },
+  //       {
+  //         label: intl.formatMessage({ id: 'action__export_secret_mnemonic' }),
+  //         description: intl.formatMessage({
+  //           id: 'msg__once_exposed_a_third_party_will_be_able_to_take_full_control_of_your_account',
+  //         }),
+  //         key: ManageAccountKeys.ExportSecretMnemonic,
+  //       },
+  //       {
+  //         label: intl.formatMessage({ id: 'action__remove_account' }),
+  //         key: ManageAccountKeys.RemoveAccount,
+  //       },
+  //     ],
+  //   },
+  // ];
   return { dataSource };
 }
 
@@ -141,7 +267,6 @@ const ManagerAccountModal: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation();
 
-  const { dataSource } = useManageDataSource();
   const { goToRemoveAccount, RemoveAccountDialog } = useRemoveAccountDialog();
   const [modifyNameVisible, setModifyNameVisible] = useState(false);
   const [modifyNameAccount, setModifyNameAccount] = useState<Account>();
@@ -154,6 +279,7 @@ const ManagerAccountModal: FC = () => {
   const [wallet, setWallet] = useState<Wallet>();
   const [account, setAccount] = useState<Account>();
 
+  const { dataSource } = useManageDataSource({ networkId, wallet });
   const refreshWallet = useCallback(() => {
     if (!walletId) return;
 
@@ -251,6 +377,66 @@ const ManagerAccountModal: FC = () => {
     );
   }, [accountId, credentialInfo, intl, navigation, networkId]);
 
+  const onPress = useCallback(
+    (item: IAccountInfoListItem) => {
+      switch (item.key) {
+        case ManageAccountKeys.Name: {
+          setModifyNameAccount(account);
+          setModifyNameVisible(true);
+          return;
+        }
+        case ManageAccountKeys.ExportPrivateKey:
+        case ManageAccountKeys.ExportPrivateSpendKey:
+        case ManageAccountKeys.ExportPrivateViewKey: {
+          if (item.credentialInfo) {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.ManagerAccount,
+              params: {
+                screen:
+                  ManagerAccountModalRoutes.ManagerAccountExportPrivateModal,
+                params: {
+                  accountId,
+                  networkId,
+                  accountCredential: item.credentialInfo,
+                },
+              },
+            });
+          }
+          return;
+        }
+        case ManageAccountKeys.ExportPublicKey: {
+          console.log('xpub');
+          return;
+        }
+
+        case ManageAccountKeys.RemoveAccount: {
+          goToRemoveAccount({
+            wallet,
+            accountId,
+            networkId,
+            callback: () => {
+              refreshAccounts?.();
+              if (navigation?.canGoBack?.()) navigation.goBack();
+            },
+          });
+          break;
+        }
+
+        default:
+          break;
+      }
+    },
+    [
+      account,
+      accountId,
+      goToRemoveAccount,
+      navigation,
+      networkId,
+      refreshAccounts,
+      wallet,
+    ],
+  );
+
   const sectionListProps = useMemo<SectionListProps<any>>(
     () => ({
       sections: dataSource,
@@ -268,10 +454,10 @@ const ManagerAccountModal: FC = () => {
         </Text>
       ),
       renderItem: ({ item }: { item: IAccountInfoListItem }) => {
-        if (item.key === DataSourceKey.Name) {
+        if (item.key === ManageAccountKeys.Name) {
           return (
             <ListItem
-              onPress={() => {}}
+              onPress={() => onPress(item)}
               mx={-2}
               my={1.5}
               alignItems="center"
@@ -289,16 +475,18 @@ const ManagerAccountModal: FC = () => {
         }
         if (
           [
-            DataSourceKey.ExportPublicKey,
-            DataSourceKey.ExportPrivateKey,
-            DataSourceKey.ExportPrivateViewKey,
-            DataSourceKey.ExportPrivateSpendKey,
-            DataSourceKey.ExportSecretMnemonic,
+            ManageAccountKeys.ExportPublicKey,
+            ManageAccountKeys.ExportPrivateKey,
+            ManageAccountKeys.ExportPrivateViewKey,
+            ManageAccountKeys.ExportPrivateSpendKey,
+            ManageAccountKeys.ExportSecretMnemonic,
           ].includes(item.key)
         ) {
-          return <ExportKeyListItem item={item} />;
+          return (
+            <ExportKeyListItem item={item} onPress={() => onPress(item)} />
+          );
         }
-        if (item.key === DataSourceKey.HardwareCanNotExportPrivateKey) {
+        if (item.key === ManageAccountKeys.HardwareCanNotExportPrivateKey) {
           return (
             <Alert
               title={intl.formatMessage({
@@ -310,9 +498,9 @@ const ManagerAccountModal: FC = () => {
             />
           );
         }
-        if (item.key === DataSourceKey.RemoveAccount) {
+        if (item.key === ManageAccountKeys.RemoveAccount) {
           return (
-            <ListItem onPress={() => {}} mx={-2} my={1.5}>
+            <ListItem onPress={() => onPress(item)} mx={-2} my={1.5}>
               <Text typography="Body1Strong" color="text-critical">
                 {item.label}
               </Text>
@@ -323,7 +511,7 @@ const ManagerAccountModal: FC = () => {
       },
       renderSectionFooter: () => <Box h={5} />,
     }),
-    [dataSource, account],
+    [dataSource, account, intl, onPress],
   );
 
   return (
