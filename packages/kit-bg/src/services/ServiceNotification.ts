@@ -26,6 +26,7 @@ import {
 import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { navigationShortcuts } from '@onekeyhq/kit/src/routes/navigationShortcuts';
 import {
   HomeRoutes,
   MainRoutes,
@@ -292,16 +293,7 @@ export default class ServiceNotification extends ServiceBase {
     if (platformEnv.isExtension) {
       return;
     }
-    const navigation = getAppNavigation();
-    if (navigation?.canGoBack()) {
-      navigation?.goBack();
-    }
-    navigation?.navigate(RootRoutes.Main, {
-      screen: MainRoutes.Tab,
-      params: {
-        screen: tabScreenName,
-      },
-    });
+    navigationShortcuts.navigateToAppRootTab(tabScreenName);
     await wait(600);
   }
 
