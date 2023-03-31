@@ -1,8 +1,8 @@
 import { getAppNavigation } from '../hooks/useAppNavigation';
 
-import { buildAppRootTabName } from './Root/Main/Tab/tabNavHeader';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { HomeRoutes, MainRoutes, RootRoutes, TabRoutes } from './routesEnum';
+import { buildAppRootTabName } from './routesUtils';
 
 /*
 

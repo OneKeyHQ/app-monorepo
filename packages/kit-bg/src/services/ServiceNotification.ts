@@ -26,6 +26,7 @@ import {
 import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { navigationShortcuts } from '@onekeyhq/kit/src/routes/navigationShortcuts';
 import {
   HomeRoutes,
   MainRoutes,
@@ -53,7 +54,6 @@ import { initJpush } from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
-import { navigationShortcuts } from '@onekeyhq/kit/src/routes/navigationShortcuts';
 
 @backgroundClass()
 export default class ServiceNotification extends ServiceBase {
