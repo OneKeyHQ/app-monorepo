@@ -343,7 +343,6 @@ function AccountList({
       renderSectionHeader={({
         section,
       }: {
-        // eslint-disable-next-line react/no-unused-prop-types
         section: INetworkAccountSelectorAccountListSectionData;
       }) => {
         if (isListAccountsSingleWalletMode) {
