@@ -57,6 +57,7 @@ export type IVaultSettings = {
   accountNameInfo: Record<string, AccountNameInfo>;
   feeInfoEditable: boolean;
   privateKeyExportEnabled: boolean;
+  publicKeyExportEnabled?: boolean;
   tokenEnabled: boolean;
   txCanBeReplaced: boolean;
 
