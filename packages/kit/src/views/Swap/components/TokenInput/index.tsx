@@ -25,7 +25,6 @@ import {
 } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setSendingAccount } from '../../../../store/reducers/swap';
-import { reservedNetworkFee } from '../../config';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 import { formatAmount } from '../../utils';
@@ -148,14 +147,17 @@ const TokenInput: FC<TokenInputProps> = ({
   const independentField = useAppSelector((s) => s.swap.independentField);
   const price = useTokenPrice(token);
   const value = balance ?? '0';
-  const onMax = useCallback(() => {
+  const onMax = useCallback(async () => {
     if (!token || !value) {
       return;
     }
     if (token.tokenIdOnNetwork) {
       backgroundApiProxy.serviceSwap.userInput(type, value);
     } else {
-      const reserved = reservedNetworkFee[token.networkId] ?? 0.1;
+      const reserved =
+        await backgroundApiProxy.serviceSwap.getReservedNetworkFee(
+          token.networkId,
+        );
       const v = BigNumber.max(0, new BigNumber(value).minus(reserved));
       if (v.gt(0)) {
         backgroundApiProxy.serviceSwap.userInput(type, v.toFixed());

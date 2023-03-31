@@ -37,7 +37,6 @@ import { canShowAppReview, openAppReview } from '../../utils/openAppReview';
 import { showOverlay } from '../../utils/overlayUtils';
 import { SendModalRoutes } from '../Send/types';
 
-import { reservedNetworkFee } from './config';
 import {
   useCheckInputBalance,
   useInputLimitsError,
@@ -372,7 +371,10 @@ const ExchangeButton = () => {
           networkId: fromNetwork.id,
         });
       const balance = new BigNumber(result?.main?.balance ?? '0');
-      const reservedValue = reservedNetworkFee[fromNetwork.id] ?? 0.1;
+      const reservedValue =
+        await backgroundApiProxy.serviceSwap.getReservedNetworkFee(
+          fromNetwork.id,
+        );
       if (balance.minus(inputAmount.typedValue).lt(reservedValue)) {
         ToastManager.show({
           title: intl.formatMessage(
