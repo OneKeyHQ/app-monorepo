@@ -9,6 +9,7 @@ export { ReceiveTokenModalRoutes };
 export type ReceiveTokenRoutesParams = {
   [ReceiveTokenModalRoutes.ReceiveToken]: {
     address?: string;
+    displayAddress?: string;
     name?: string;
 
     wallet?: Wallet | null;

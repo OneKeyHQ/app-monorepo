@@ -124,7 +124,10 @@ function AccountItemSelectDropdown({
       switch (value) {
         case 'copy':
           setTimeout(() => {
-            copyAddress(account.displayAddress || account.address);
+            copyAddress({
+              address: account.address,
+              displayAddress: account.displayAddress,
+            });
           }, 150);
           break;
         case 'rename':

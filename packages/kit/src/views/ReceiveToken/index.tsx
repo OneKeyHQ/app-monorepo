@@ -42,7 +42,7 @@ const ReceiveToken = () => {
 
   const route = useRoute<NavigationProps>();
 
-  const { address, name } = route.params ?? {};
+  const { address, displayAddress, name } = route.params ?? {};
   const routePrams = route.params;
 
   const isVerticalLayout = useIsVerticalLayout();
@@ -59,7 +59,11 @@ const ReceiveToken = () => {
   const walletId = wallet?.id || '';
 
   const shownAddress =
-    address ?? account?.displayAddress ?? account?.address ?? '';
+    displayAddress ??
+    address ??
+    account?.displayAddress ??
+    account?.address ??
+    '';
   const shownName = name ?? account?.name ?? '';
 
   const { engine } = backgroundApiProxy;
