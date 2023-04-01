@@ -1,6 +1,6 @@
 {
   "name": "@onekeyhq/app",
-  "main": "__generated__/AppEntry.js",
+  "main": "index.js",
   "version": "0.0.1",
   "scripts": {
     "start": "expo start --dev-client",

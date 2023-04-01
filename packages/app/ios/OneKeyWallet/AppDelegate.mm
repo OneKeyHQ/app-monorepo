@@ -66,7 +66,7 @@
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge {
  #ifdef DEBUG
-    return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"__generated__/AppEntry.js"];
+    return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index.js"];
  #else
     return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
  #endif

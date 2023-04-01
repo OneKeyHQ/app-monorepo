@@ -1,6 +1,6 @@
 {
   "name": "@onekeyhq/desktop",
-  "main": "__generated__/AppEntry.js",
+  "main": "index.js",
   "version": "0.0.1",
   "description": "Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others",
   "private": true,

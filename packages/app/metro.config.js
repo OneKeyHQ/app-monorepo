@@ -1,6 +1,23 @@
 const { getDefaultConfig } = require('expo/metro-config');
+const path = require('path');
 
 const config = getDefaultConfig(__dirname);
+
+// https://docs.expo.dev/guides/monorepos/#modify-the-metro-config
+// Find the project and workspace directories
+const projectRoot = __dirname;
+// This can be replaced with `find-yarn-workspace-root`
+const workspaceRoot = path.resolve(projectRoot, '../..');
+
+// 1. Watch all files within the monorepo
+config.watchFolders = [...config.watchFolders, workspaceRoot];
+// 2. Let Metro know where to resolve packages and in what order
+config.resolver.nodeModulesPaths = [
+  path.resolve(projectRoot, 'node_modules'),
+  path.resolve(workspaceRoot, 'node_modules'),
+];
+// 3. Force Metro to resolve (sub)dependencies only from the `nodeModulesPaths`
+config.resolver.disableHierarchicalLookup = true;
 
 // hot-reload file type
 // cjs is needed for superstruct: https://github.com/ianstormtaylor/superstruct/issues/404#issuecomment-800182972
@@ -23,6 +40,5 @@ config.resolver.extraNodeModules = {
 };
 
 config.transformer.minifierPath = 'metro-minify-terser';
-config.watchFolders = [...config.watchFolders, '../'];
 
 module.exports = config;

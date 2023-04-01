@@ -57,7 +57,7 @@ public class MainApplication extends Application implements ReactApplication {
 
     @Override
     protected String getJSMainModuleName() {
-      return "__generated__/AppEntry.js";
+      return "index";
     }
 
     @Override
