@@ -64,7 +64,7 @@
     "react": "17.0.2",
     "react-content-loader": "^6.2.0",
     "react-dom": "17.0.2",
-    "react-native": "^0.68.3",
+    "react-native": "0.68.3",
     "react-native-auto-size-text": "^1.1.1",
     "react-native-ble-manager": "^8.1.0",
     "react-native-camera": "4.2.1",
