@@ -12,7 +12,11 @@ Nachdem Sie den neuesten Code über das Git-Kommandozeilen-Tool geholt haben, in
 ```
 # Installation aller JS-Abhängigkeiten und Submodul-Abhängigkeiten
 
-yarn
+Garn
+
+# Das Kommandozeilenprogramm expo global installieren
+
+npm install -g expo-cli
 ```
 
 ## 🛠 Entwicklung

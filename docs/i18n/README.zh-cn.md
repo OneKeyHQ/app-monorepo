@@ -11,6 +11,10 @@
 # 安装所有 JS 依赖及子模块依赖
 
 yarn
+
+# 全局安装 expo 命令行工具
+
+npm install -g expo-cli
 ```
 
 ## 🛠 开发

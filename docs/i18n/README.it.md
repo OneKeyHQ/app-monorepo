@@ -12,7 +12,11 @@ Dopo aver prelevato l'ultimo codice tramite lo strumento a riga di comando git, 
 ```
 # Installa tutte le dipendenze JS e i sottomoduli
 
-yarn
+filato
+
+# Installa globalmente lo strumento a riga di comando expo
+
+npm install -g expo-cli
 ```
 
 ## 🛠 Sviluppo
