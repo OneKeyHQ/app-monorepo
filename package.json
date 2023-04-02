@@ -210,11 +210,8 @@
     "react-native-web@0.18.10": "patch:react-native-web@npm%3A0.18.10#./.yarn/patches/react-native-web-npm-0.18.10-f9d1f2dee1.patch",
     "expo-device@^4.3.0": "patch:expo-device@npm%3A4.3.0#./.yarn/patches/expo-device-npm-4.3.0-6bf71e0966.patch",
     "@metamask/eth-sig-util@^4.0.1": "patch:@metamask/eth-sig-util@npm%3A4.0.1#./.yarn/patches/@metamask-eth-sig-util-npm-4.0.1-27d55ec43e.patch",
-    "cross-fetch@^3.1.4": "patch:cross-fetch@npm%3A3.1.5#./.yarn/patches/cross-fetch-npm-3.1.5-e414995db9.patch",
-    "cross-fetch@^3.1.5": "patch:cross-fetch@npm%3A3.1.5#./.yarn/patches/cross-fetch-npm-3.1.5-e414995db9.patch",
-    "cross-fetch@^3.0.6": "patch:cross-fetch@npm%3A3.1.5#./.yarn/patches/cross-fetch-npm-3.1.5-e414995db9.patch",
-    "protobufjs@^6.11.3": "patch:protobufjs@npm%3A6.11.3#./.yarn/patches/protobufjs-npm-6.11.3-566fb31188.patch",
-    "protobufjs@^6.11.2": "patch:protobufjs@npm%3A6.11.3#./.yarn/patches/protobufjs-npm-6.11.3-566fb31188.patch"
+    "cross-fetch": "patch:cross-fetch@npm%3A3.1.5#./.yarn/patches/cross-fetch-npm-3.1.5-e414995db9.patch",
+    "protobufjs": "patch:protobufjs@npm%3A6.11.3#./.yarn/patches/protobufjs-npm-6.11.3-566fb31188.patch"
   },
   "packageManager": "yarn@3.3.1"
 }

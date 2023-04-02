@@ -26805,7 +26805,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"protobufjs@npm:6.11.3, protobufjs@npm:~6.11.2":
+"protobufjs@npm:6.11.3":
   version: 6.11.3
   resolution: "protobufjs@npm:6.11.3"
   dependencies:
