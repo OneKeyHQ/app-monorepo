@@ -42,6 +42,7 @@ export type ICustomFeeFormProps = {
 export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   const { feeInfoPayload, useFormReturn, autoConfirmAfterFeeSaved, networkId } =
     props;
+
   const { control, getValues } = useFormReturn;
   const intl = useIntl();
   const [totalFeeRange, setTotalFeeRange] = useState({

@@ -27,13 +27,13 @@ export function FeeSpeedTime({
     );
   } else {
     if (indexInt === 0) {
-      title = intl.formatMessage({ id: 'content__maybe_in_30s' });
+      title = '>30s';
     }
     if (indexInt === 1) {
-      title = intl.formatMessage({ id: 'content__likely_less_than_15s' });
+      title = '~30s';
     }
     if (indexInt === 2) {
-      title = intl.formatMessage({ id: 'content__very_likely_less_than_15s' });
+      title = '<15s';
     }
   }
   return <>{title}</>;

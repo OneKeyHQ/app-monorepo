@@ -56,7 +56,7 @@ const getBlockNativeGasInfo = async (
     return {
       estimatedTransactionCount,
       baseFee: new BigNumber(baseFeePerGas).toFixed(),
-      prices,
+      prices: prices.sort((a, b) => (a.confidence > b.confidence ? 1 : -1)),
     };
   }
 

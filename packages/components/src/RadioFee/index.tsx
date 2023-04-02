@@ -24,60 +24,72 @@ export type RadioFeeProps = {
 const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
   const readItemComponents = () => {
     const itemComponents: ReactElement<RadioBoxProps>[] = [];
-    items.forEach((item) => {
-      itemComponents.push(
-        <RadioBox
-          disabled={item.isDisabled}
-          value={item.value}
-          flexDirection="row"
-          justifyContent="space-between"
-          mt={3}
-          key={item.value}
-        >
-          <Box alignSelf="stretch">
-            <Text
-              typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
-              color={item.isDisabled ? 'text-disabled' : 'text-default'}
-            >
-              {item.title}
-            </Text>
-            {!!item.titleSecond && (
-              <Typography.Body2
-                mt="auto"
-                color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
-              >
-                {item.titleSecond}
-              </Typography.Body2>
-            )}
-          </Box>
-          <Box alignItems="flex-end">
-            {!!item.describe && (
+    items.forEach(
+      ({
+        isDisabled,
+        value,
+        title,
+        titleSecond,
+        describe,
+        describeSecond,
+        describeThird,
+        ...rest
+      }) => {
+        itemComponents.push(
+          <RadioBox
+            disabled={isDisabled}
+            value={value}
+            flexDirection="row"
+            justifyContent="space-between"
+            mt={3}
+            key={value}
+            {...rest}
+          >
+            <Box alignSelf="stretch">
               <Text
                 typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
-                color={item.isDisabled ? 'text-disabled' : 'text-default'}
+                color={isDisabled ? 'text-disabled' : 'text-default'}
               >
-                {item.describe}
+                {title}
               </Text>
-            )}
-            {!!item.describeSecond && (
-              <Typography.Body2
-                color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
-              >
-                {item.describeSecond}
-              </Typography.Body2>
-            )}
+              {!!titleSecond && (
+                <Typography.Body2
+                  mt="auto"
+                  color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
+                >
+                  {item.titleSecond}
+                </Typography.Body2>
+              )}
+            </Box>
+            <Box alignItems="flex-end">
+              {!!describe && (
+                <Text
+                  typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
+                  color={isDisabled ? 'text-disabled' : 'text-default'}
+                >
+                  {describe}
+                </Text>
+              )}
+              {!!describeSecond && (
+                <Typography.Body2
+                  color={isDisabled ? 'text-disabled' : 'text-subdued'}
+                >
+                  {describeSecond}
+                </Typography.Body2>
+              )}
 
-            {!!item.describeThird && (
-              <Typography.Body2
-                color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
-              >
-                {item.describeThird}
-              </Typography.Body2>
-            )}
-          </Box>
-        </RadioBox>,
-      );
-    });
+              {!!describeThird && (
+                <Typography.Body2
+                  color={isDisabled ? 'text-disabled' : 'text-subdued'}
+                >
+                  {describeThird}
+                </Typography.Body2>
+              )}
+            </Box>
+          </RadioBox>,
+        );
+      },
+    );
     return itemComponents;
   };
 

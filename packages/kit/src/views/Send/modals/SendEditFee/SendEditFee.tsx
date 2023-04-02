@@ -410,28 +410,18 @@ function ScreenSendEditFee({ ...rest }) {
         feeInfoPayload={feeInfoPayload}
         value={radioValue}
         onChange={(value) => {
-          setRadioValue(value);
+          if (value === 'custom') {
+            setFeeType(ESendEditFeeTypes.advanced);
+          } else {
+            setRadioValue(value);
+          }
         }}
       />
     );
     content = feeInfoPayload ? (
-      <>
-        <SendEditFeeTabs
-          type={feeType}
-          onChange={(value) => {
-            setFeeType(
-              value === 0
-                ? ESendEditFeeTypes.standard
-                : ESendEditFeeTypes.advanced,
-            );
-          }}
-        />
-        <Box>
-          {feeType === ESendEditFeeTypes.standard
-            ? presetFeeForm
-            : customFeeForm}
-        </Box>
-      </>
+      <Box>
+        {feeType === ESendEditFeeTypes.standard ? presetFeeForm : customFeeForm}
+      </Box>
     ) : (
       <Box>{customFeeForm}</Box>
     );
@@ -451,11 +441,13 @@ function ScreenSendEditFee({ ...rest }) {
         isDisabled: feeInfoLoading,
       }}
       onPrimaryActionPress={() => onSubmit()}
+      hidePrimaryAction={feeType === ESendEditFeeTypes.advanced}
       hideSecondaryAction
       onModalClose={() => {
         oldSendConfirmParams?.onModalClose?.();
       }}
       header={title}
+      footer={feeType === ESendEditFeeTypes.advanced ? null : undefined}
       scrollViewProps={{
         children: (
           <>

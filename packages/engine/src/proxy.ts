@@ -335,7 +335,6 @@ class ProviderController extends BaseProviderController {
     if (EIP1559Enabled || false) {
       try {
         const gasInfo = await this.getGasInfoFromApi(networkId);
-
         return {
           ...gasInfo,
           prices: gasInfo.prices as EIP1559Fee[],
