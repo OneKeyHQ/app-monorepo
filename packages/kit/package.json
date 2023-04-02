@@ -25,6 +25,7 @@
     "expo-localization": "^13.0.0",
     "expo-notifications": "~0.15.4",
     "expo-secure-store": "^11.2.0",
+    "expo-splash-screen": "^0.15.1",
     "fuse.js": "^6.5.3",
     "lightweight-charts": "^3.8.0",
     "moti": "^0.22.0",

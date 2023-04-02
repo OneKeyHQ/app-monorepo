@@ -2,7 +2,7 @@
 import type { FC, ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
-import * as SplashScreen from 'expo-splash-screen';
+import { hideAsync as hideSplashScreen } from 'expo-splash-screen';
 // TODO: add .d.ts for react-native-animated-splash-screen
 // @ts-expect-error no .d.ts
 import AnimatedSplash from 'react-native-animated-splash-screen';
@@ -105,9 +105,7 @@ const AppLoading: FC = ({ children }) => {
       setInitDataReady(true);
 
       // end splash screen to show AnimatedSplash after 50ms to avoid twinkling
-      setTimeout(() => {
-        SplashScreen.hideAsync();
-      }, 50);
+      setTimeout(hideSplashScreen, 50);
     }
 
     main();

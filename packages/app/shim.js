@@ -1,5 +1,6 @@
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 import './intlPolyfill';
+import 'react-native-url-polyfill/auto';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 if (typeof __dirname === 'undefined') global.__dirname = '/';

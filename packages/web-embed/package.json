@@ -5,7 +5,7 @@
   "description": "Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others",
   "scripts": {
     "dev": "expo start",
-    "start": "WEB_PORT=3008 expo start --web",
+    "start": "WEB_PORT=3008 expo start:web --web",
     "build": "rm -rf ./web-build && GENERATE_SOURCEMAP=false npx expo build:web && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
   },
