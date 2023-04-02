@@ -17,15 +17,15 @@
     "cheerio": "^1.0.0-rc.12"
   },
   "dependencies": {
-    "@expo/next-adapter": "^5.0.2",
+    "@expo/next-adapter": "^4.0.13",
     "@hot-loader/react-dom": "^17.0.2",
     "@vespaiach/axios-fetch-adapter": "^0.3.1",
     "cross-env": "^7.0.3",
-    "next": "^13.2.3",
-    "next-compose-plugins": "^2.2.1",
+    "next": "^11.1.2",
+    "next-compose-plugins": "^2.2.0",
     "next-transpile-modules": "^8.0.0",
     "react": "17.0.2",
     "react-dom": "17.0.2",
-    "react-hot-loader": "^4.13.1"
+    "react-hot-loader": "^4.13.0"
   }
 }

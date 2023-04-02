@@ -1,0 +1,19 @@
+diff --git a/node_modules/@expo/next-adapter/build/babel.js b/node_modules/@expo/next-adapter/build/babel.js
+index d788789..0c03e4e 100644
+--- a/node_modules/@expo/next-adapter/build/babel.js
++++ b/node_modules/@expo/next-adapter/build/babel.js
+@@ -16,7 +16,13 @@ module.exports = function (api) {
+     return {
+         presets: [
+             // Only use next in the browser, it'll break your native project
+-            isWeb && require('next/babel'),
++            isWeb && [require('next/babel'), process.env.TRANSFORM_REGENERATOR_DISABLED ? {
++              'preset-env': {
++                targets: {
++                  browsers: ['chrome >= 63', 'firefox >= 68'],
++                }
++              }
++            }: undefined ],
+             [
+                 require('babel-preset-expo'),
+                 {

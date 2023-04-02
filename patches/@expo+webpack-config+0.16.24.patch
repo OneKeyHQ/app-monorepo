@@ -1,8 +1,8 @@
 diff --git a/node_modules/@expo/webpack-config/webpack/addons/withOptimizations.js b/node_modules/@expo/webpack-config/webpack/addons/withOptimizations.js
-index 6cd6035..d63848d 100644
+index 136d9ad..a7eca48 100644
 --- a/node_modules/@expo/webpack-config/webpack/addons/withOptimizations.js
 +++ b/node_modules/@expo/webpack-config/webpack/addons/withOptimizations.js
-@@ -70,6 +70,7 @@ function withOptimizations(webpackConfig) {
+@@ -57,6 +57,7 @@ function withOptimizations(webpackConfig) {
                          // Pending futher investigation:
                          // https://github.com/terser-js/terser/issues/120
                          inline: 2,
@@ -11,7 +11,7 @@ index 6cd6035..d63848d 100644
                      mangle: _isDebugMode
                          ? false
 diff --git a/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js b/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js
-index 6b8ae60..a9bb31f 100644
+index 675162c..6d83ee3 100644
 --- a/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js
 +++ b/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js
 @@ -68,7 +68,10 @@ class HtmlWebpackPlugin extends html_webpack_plugin_1.default {
@@ -25,4 +25,4 @@ index 6b8ae60..a9bb31f 100644
 +            templateParameters: locations.template.indexHtmlTemplateParameters || {},
              meta,
          });
-     }
+         this.platform = env.platform;

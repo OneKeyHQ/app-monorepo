@@ -83,7 +83,6 @@ function normalizeConfig({
   enableAnalyzerHtmlReport,
   buildTargetBrowser, // firefox or chrome, for extension build
 }) {
-  config.entry = './App.tsx';
   let resolveExtensions = createDefaultResolveExtensions();
   if (platform) {
     if (PUBLIC_URL) config.output.publicPath = PUBLIC_URL;
@@ -154,11 +153,11 @@ function normalizeConfig({
   }
 
   // https://polkadot.js.org/docs/usage/FAQ#on-webpack-4-i-have-a-parse-error-on-importmetaurl
-  // config.module.rules.push({
-  //   test: /@polkadot/,
-  //   // test: /[\s\S]*node_modules[/\\]@polkadot[\s\S]*.c?js$/,
-  //   loader: require.resolve('@open-wc/webpack-import-meta-loader'),
-  // });
+  config.module.rules.push({
+    test: /@polkadot/,
+    // test: /[\s\S]*node_modules[/\\]@polkadot[\s\S]*.c?js$/,
+    loader: require.resolve('@open-wc/webpack-import-meta-loader'),
+  });
 
   // let file-loader skip handle wasm files
   config.module.rules.forEach((rule) => {
@@ -167,15 +166,6 @@ function normalizeConfig({
         oneOf.exclude.push(/\.wasm$/);
       }
     });
-  });
-
-  // support type:'module'
-  // https://webpack.js.org/configuration/module/#resolvefullyspecified
-  config.module.rules.push({
-    test: /\.m?js$/,
-    resolve: {
-      fullySpecified: false, // disable the behaviour
-    },
   });
 
   config.resolve.extensions = lodash
@@ -188,29 +178,14 @@ function normalizeConfig({
       // sort platform specific extensions to the beginning
       return a.includes(platform) ? -1 : 0;
     });
-  // config.resolve.alias = {
-  //   ...config.resolve.alias,
-  //   '@solana/buffer-layout-utils':
-  //     '@solana/buffer-layout-utils/lib/cjs/index.js',
-  //   '@solana/spl-token': '@solana/spl-token/lib/cjs/index.js',
-  //   'aptos': 'aptos/dist/index.js',
-  //   'framer-motion': 'framer-motion/dist/framer-motion',
-  //   '@mysten/sui.js': '@mysten/sui.js/dist/index.js',
-  // };
-
-  config.resolve.fallback = {
-    ...config.resolve.fallback,
-    crypto: require.resolve('crypto-browserify'),
-    stream: require.resolve('readable-stream'),
-    path: require.resolve('path-browserify'),
-    http: require.resolve('stream-http'),
-    https: require.resolve('https-browserify'),
-    zlib: require.resolve('browserify-zlib'),
-    url: require.resolve('url'),
-    net: false,
-    tls: false,
-    fs: false,
-    os: false,
+  config.resolve.alias = {
+    ...config.resolve.alias,
+    '@solana/buffer-layout-utils':
+      '@solana/buffer-layout-utils/lib/cjs/index.js',
+    '@solana/spl-token': '@solana/spl-token/lib/cjs/index.js',
+    'aptos': 'aptos/dist/index.js',
+    'framer-motion': 'framer-motion/dist/framer-motion',
+    '@mysten/sui.js': '@mysten/sui.js/dist/index.js',
   };
 
   // Why? do not change original config directly
@@ -226,7 +201,7 @@ function normalizeConfig({
     maxSize: 4 * 1024 * 1024,
     hidePathInfo: true,
     automaticNameDelimiter: '.',
-    // automaticNameMaxLength: 15, // https://github.com/webpack/webpack/issues/10648#issuecomment-607214279
+    automaticNameMaxLength: 15,
     name: false, // reduce module duplication across chunks
     maxInitialRequests: 50000, // reduce module duplication across chunks
     maxAsyncRequests: 50000, // reduce module duplication across chunks
@@ -249,16 +224,6 @@ function normalizeConfig({
       // },
     },
   };
-  config.ignoreWarnings = [
-    // Ignore warnings raised by source-map-loader.
-    // some third party packages may ship miss-configured sourcemaps, that interrupts the build
-    // See: https://github.com/facebook/create-react-app/discussions/11278#discussioncomment-1780169
-    /Failed to parse source map/,
-  ];
-
-  if (process.env.NODE_ENV === 'production' && !process.env.ANALYSE_MODULE) {
-    config.devtool = false;
-  }
 
   return config;
 }

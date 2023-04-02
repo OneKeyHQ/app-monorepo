@@ -40,7 +40,7 @@
     "@noble/secp256k1": "^1.7.1",
     "@onekeyfe/cardano-coin-selection": "1.0.0",
     "@polkadot/extension-inject": "0.44.8",
-    "@solana/spl-token": "^0.3.0",
+    "@solana/spl-token": "^0.3.7",
     "@solana/web3.js": "^1.75.0",
     "@substrate/txwrapper-polkadot": "5.0.0",
     "algosdk": "^1.21.0",
