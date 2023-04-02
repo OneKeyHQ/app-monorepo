@@ -46,7 +46,10 @@ export function searchAccount(
 ): INetworkAccountSelectorAccountListSectionData[] {
   return accounts.map((item) => {
     const searchResult = item.data.filter(
-      ({ name, address }) => name.includes(terms) || address.includes(terms),
+      ({ name, address, displayAddress }) =>
+        name.includes(terms) ||
+        address.includes(terms) ||
+        displayAddress?.includes(terms),
     );
     return {
       ...item,
