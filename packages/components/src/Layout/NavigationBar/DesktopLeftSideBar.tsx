@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import type { FC } from 'react';
-import { useMemo, useState } from 'react';
+import { useContext, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,6 +14,7 @@ import Box from '../../Box';
 import { DesktopDragZoneAbsoluteBar } from '../../DesktopDragZoneBox';
 import Icon from '../../Icon';
 import Pressable from '../../Pressable';
+import { Context } from '../../Provider/hooks/useProviderValue';
 import useSafeAreaInsets from '../../Provider/hooks/useSafeAreaInsets';
 import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
@@ -24,7 +25,10 @@ import type { BottomTabBarProps } from '../BottomTabs';
 
 const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
   const { routes } = state;
-  const [isCollpase, setIsCollapse] = useState(false);
+  const {
+    leftSidebarCollapsed: isCollpase,
+    setLeftSidebarCollapsed: setIsCollapse,
+  } = useContext(Context);
   const { top } = useSafeAreaInsets(); // used for ipad
   const dragZoneAbsoluteBarHeight = platformEnv.isDesktopMac ? 20 : 0; // used for desktop
   const paddingTopValue = 12 + top + dragZoneAbsoluteBarHeight;
@@ -185,7 +189,7 @@ const Sidebar: FC<BottomTabBarProps> = ({ navigation, state, descriptors }) => {
       </Box>
       <Pressable
         onPress={() => {
-          setIsCollapse(!isCollpase);
+          setIsCollapse?.(!isCollpase);
         }}
         position="absolute"
         top="0"
