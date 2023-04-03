@@ -1,13 +1,17 @@
 import type { ComponentProps, FC } from 'react';
-import { memo, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { Provider } from '@onekeyhq/components';
 import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import LOCALES from '@onekeyhq/components/src/locale';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { useColorScheme } from '@onekeyhq/kit/src/hooks/useColorScheme';
-import { setThemePreloadToLocalStorage } from '@onekeyhq/kit/src/store/reducers/settings';
+import {
+  setLeftSidebarCollapsed,
+  setThemePreloadToLocalStorage,
+} from '@onekeyhq/kit/src/store/reducers/settings';
 
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useReduxReady } from '../hooks/useReduxReady';
 import { useSystemLocale } from '../hooks/useSystemLocale';
 
@@ -52,11 +56,18 @@ export function useThemeProviderVariant() {
 const ThemeApp: FC = ({ children }) => {
   const { themeVariant, localeVariant } = useThemeProviderVariant();
   const isReady = useReduxReady();
+  const leftSidebarCollapsed = useAppSelector(
+    (s) => s.settings.leftSidebarCollapsed,
+  );
   useEffect(() => {
     if (isReady) {
       setThemePreloadToLocalStorage(themeVariant);
     }
   }, [isReady, themeVariant]);
+
+  const setCollapsed = useCallback((value: boolean) => {
+    backgroundApiProxy.dispatch(setLeftSidebarCollapsed(value));
+  }, []);
 
   if (!isReady) {
     return null;
@@ -67,6 +78,8 @@ const ThemeApp: FC = ({ children }) => {
       themeVariant={themeVariant}
       locale={localeVariant}
       reduxReady={isReady.isReady ?? false}
+      leftSidebarCollapsed={!!leftSidebarCollapsed}
+      setLeftSidebarCollapsed={setCollapsed}
     >
       {children}
     </Provider>

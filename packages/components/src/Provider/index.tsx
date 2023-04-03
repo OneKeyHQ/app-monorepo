@@ -33,6 +33,9 @@ export type UIProviderProps = {
   reduxReady?: boolean;
 
   waitFontLoaded?: boolean;
+
+  leftSidebarCollapsed?: boolean;
+  setLeftSidebarCollapsed?: (value: boolean) => void;
 };
 export type IFontProviderProps = {
   children?: ReactNode;
@@ -57,6 +60,8 @@ const Provider: FC<UIProviderProps> = ({
   locale,
   reduxReady,
   waitFontLoaded,
+  leftSidebarCollapsed,
+  setLeftSidebarCollapsed,
 }) => {
   const { width, height } = useWindowDimensions();
 
@@ -70,8 +75,18 @@ const Provider: FC<UIProviderProps> = ({
         screenHeight: height,
         size: getSize(width),
       },
+      leftSidebarCollapsed,
+      setLeftSidebarCollapsed,
     }),
-    [themeVariant, locale, reduxReady, width, height],
+    [
+      themeVariant,
+      locale,
+      reduxReady,
+      width,
+      height,
+      leftSidebarCollapsed,
+      setLeftSidebarCollapsed,
+    ],
   );
 
   const themeVar = useMemo(
