@@ -2,7 +2,6 @@ import type { FC } from 'react';
 
 import { StyleSheet, View } from 'react-native';
 import { RootSiblingPortal } from 'react-native-root-siblings';
-import { FullWindowOverlay } from 'react-native-screens';
 
 import { PortalEntry } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
