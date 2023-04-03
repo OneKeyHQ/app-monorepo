@@ -22,6 +22,7 @@ import useFloatingBottomTabBarHeight from '@onekeyhq/components/src/Layout/Botto
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { TabRoutes } from '../../../../routes/routesEnum';
 import {
   closeAllWebTabs,
   homeTab,
@@ -197,7 +198,7 @@ export const ControllerBarMobile: FC = () => {
     </Animated.View>
   );
   return (
-    <PortalEntry target="BottomTab-Overlay">
+    <PortalEntry target={`BottomTab-Overlay-${TabRoutes.Discover}`}>
       <Animated.View
         style={[
           StyleSheet.absoluteFill,
