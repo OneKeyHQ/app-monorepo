@@ -22,7 +22,7 @@ export const HashMoreMenu: FC<IMenu & Props> = ({ tx, ...rest }) => {
     const baseOptions: IBaseMenuOptions = [
       {
         id: 'action_copy_hash',
-        onPress: () => setTimeout(() => copyText(hash), 200),
+        onPress: () => copyText(hash),
         icon: 'Square2StackOutline',
       },
       openBlockBrowser.hasAvailable && {
