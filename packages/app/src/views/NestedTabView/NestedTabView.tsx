@@ -16,6 +16,7 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 
+import { useIsVerticalLayout } from '@onekeyhq/components';
 import { enableOnPressAnim } from '@onekeyhq/components/src/utils/useBeforeOnPress';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -53,12 +54,13 @@ const NestedTabView: ForwardRefRenderFunction<
     children,
     onChange,
     defaultIndex,
-    canOpenDrawer,
     scrollEnabled = true,
     ...rest
   },
   ref,
 ) => {
+  const isVerticalLayout = useIsVerticalLayout();
+  const canOpenDrawer = rest.canOpenDrawer && isVerticalLayout;
   const tabRef = useRef<typeof NativeNestedTabView>(null);
   // const { width: screenWidth } = useWindowDimensions();
   const tabIndex = useSharedValue(defaultIndex);
