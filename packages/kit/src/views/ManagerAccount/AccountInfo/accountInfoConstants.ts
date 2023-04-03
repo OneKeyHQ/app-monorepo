@@ -15,8 +15,8 @@ export enum ManageAccountKeys {
 }
 
 export const SpecialExportCredentialKeys = [
-  ManageAccountKeys.ExportPrivateSpendKey,
   ManageAccountKeys.ExportPrivateViewKey,
+  ManageAccountKeys.ExportPrivateSpendKey,
   ManageAccountKeys.ExportSecretMnemonic,
 ];
 
@@ -50,7 +50,10 @@ export const manageAccountOptions: Record<
     },
   },
   [ManageAccountKeys.ExportPrivateViewKey]: {
-    label: formatMessage({ id: 'action__export_view_key' }),
+    label: formatMessage({ id: 'action__export_private_view_key' }),
+    description: formatMessage({
+      id: 'action__export_private_view_key_desc',
+    }),
     key: ManageAccountKeys.ExportPrivateViewKey,
     credentialInfo: {
       type: AccountCredentialType.PrivateViewKey,
@@ -58,7 +61,10 @@ export const manageAccountOptions: Record<
     },
   },
   [ManageAccountKeys.ExportPrivateSpendKey]: {
-    label: formatMessage({ id: 'action__export_spend_key' }),
+    label: formatMessage({ id: 'action__export_private_spend_key' }),
+    description: formatMessage({
+      id: 'action__export_private_spend_key_desc',
+    }),
     key: ManageAccountKeys.ExportPrivateSpendKey,
     credentialInfo: {
       type: AccountCredentialType.PrivateSpendKey,
