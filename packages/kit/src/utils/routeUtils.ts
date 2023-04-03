@@ -33,7 +33,7 @@ export function isSendModalRouteExisting() {
 
 export function getRootTabRouteState() {
   return global?.$navigationRef?.current?.getState?.()?.routes?.[0]?.state
-    ?.routes?.[0]?.state?.routes?.[0]?.state;
+    ?.routes?.[0]?.state;
 }
 
 export function isAtAppRootTab(appRootTabName: TabRoutes) {
