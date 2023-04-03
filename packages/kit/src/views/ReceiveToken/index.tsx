@@ -189,7 +189,8 @@ const ReceiveToken = () => {
             color="text-subdued"
             textAlign="center"
             typography={{ sm: 'Body1', md: 'Body2' }}
-            noOfLines={3}
+            w="full"
+            maxWidth="full"
           >
             {isLoadingForHardware ? shownAddress : shortenAddress(shownAddress)}
           </Text>
@@ -325,7 +326,8 @@ const ReceiveToken = () => {
                       color="text-subdued"
                       textAlign="center"
                       typography={{ sm: 'Body1', md: 'Body2' }}
-                      noOfLines={3}
+                      w="full"
+                      maxWidth="full"
                     >
                       {shownAddress}
                     </Text>
