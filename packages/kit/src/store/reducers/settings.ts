@@ -113,6 +113,7 @@ export type SettingsState = {
   softwareUpdate?: {
     forceUpdateVersionInfo?: VersionInfo;
   };
+  leftSidebarCollapsed?: boolean;
 };
 
 export const defaultPushNotification = {
@@ -574,6 +575,9 @@ export const settingsSlice = createSlice({
         forceUpdateVersionInfo: action.payload,
       };
     },
+    setLeftSidebarCollapsed(state, action: PayloadAction<boolean>) {
+      state.leftSidebarCollapsed = action.payload;
+    },
   },
 });
 
@@ -627,6 +631,7 @@ export const {
   setVerification,
   setDeviceVersion,
   setForceUpdateVersionInfo,
+  setLeftSidebarCollapsed,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;
