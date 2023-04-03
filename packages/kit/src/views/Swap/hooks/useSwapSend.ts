@@ -7,6 +7,7 @@ import type {
   IEncodedTx,
   ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -87,7 +88,11 @@ export function useSwapSend() {
           }
         } catch (e: any) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          deviceUtils.showErrorToast(e, e?.data?.message || e.message);
+          const message = e?.data?.message || e.message;
+          debugLogger.common.error(
+            `swap send failed with message ${message as string}`,
+          );
+          deviceUtils.showErrorToast(e, message);
           onFail?.(e as Error);
         }
       } else {
