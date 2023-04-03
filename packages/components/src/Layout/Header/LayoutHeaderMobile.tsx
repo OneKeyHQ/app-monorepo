@@ -4,13 +4,12 @@ import { HStack, IconButton } from '@onekeyhq/components';
 import { NetworkAccountSelectorTriggerMobile } from '@onekeyhq/kit/src/components/NetworkAccountSelector';
 import WalletSelectorTrigger from '@onekeyhq/kit/src/components/WalletSelector/WalletSelectorTrigger/WalletSelectorTrigger';
 import HomeMoreMenu from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const headerLeft = () => <WalletSelectorTrigger />;
 const headerRight = () => (
   <HStack space={3} alignItems="center">
     <NetworkAccountSelectorTriggerMobile />
-    <HomeMoreMenu offset={platformEnv.isNativeAndroid ? 25 : 0}>
+    <HomeMoreMenu>
       <IconButton
         name="EllipsisVerticalOutline"
         type="plain"
