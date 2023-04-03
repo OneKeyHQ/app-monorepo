@@ -9,6 +9,8 @@ export type ContextValue = {
   locale: LocaleSymbol;
   device: DeviceState;
   reduxReady?: boolean;
+  leftSidebarCollapsed?: boolean;
+  setLeftSidebarCollapsed?: (value: boolean) => void;
 };
 
 export const Context = createContext<ContextValue>({} as ContextValue);

@@ -22,7 +22,6 @@ import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { WatchAssetParameters } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -35,6 +34,7 @@ import { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import { wait } from '../../utils/helper';
 import { openUrl } from '../../utils/openUrl';
 import { SiteSection } from '../ManageNetworks/components/SiteSection';
+import { defaultMenuOffset } from '../Overlay/BaseMenu';
 
 import type { ListItem } from '../ManageNetworks/SwitchRpc';
 import type { ManageTokenRoutesParams } from './types';
@@ -162,7 +162,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
           <Menu
             w="190"
             trigger={menuTrigger}
-            offset={platformEnv.isNativeAndroid ? 45 : 0}
+            offset={defaultMenuOffset}
             placement="bottom right"
           >
             <Menu.CustomItem onPress={copyAction} icon="DocumentDuplicateMini">

@@ -830,10 +830,7 @@ export default class Vault extends VaultBase {
       }
     }
 
-    let defaultPresetIndex = '1';
-    if (prices.length > 0 && prices[0] === '0') {
-      defaultPresetIndex = '0';
-    }
+    const defaultPresetIndex = '1';
 
     return {
       nativeSymbol: network.symbol,

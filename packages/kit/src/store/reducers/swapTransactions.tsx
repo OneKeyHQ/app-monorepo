@@ -37,6 +37,7 @@ export type TransactionsState = {
   approvalIssueTokens?: IssueToken[];
   payments?: Record<string, Token>;
   defaultPayment?: Token;
+  reservedNetworkFees?: Record<string, string>;
 };
 
 const initialState: TransactionsState = {
@@ -176,6 +177,12 @@ export const swapTransactionsSlice = createSlice({
     setDefaultPayment(state, action: PayloadAction<Token>) {
       state.defaultPayment = action.payload;
     },
+    setReservedNetworkFees(
+      state,
+      action: PayloadAction<Record<string, string>>,
+    ) {
+      state.reservedNetworkFees = action.payload;
+    },
   },
 });
 
@@ -196,6 +203,7 @@ export const {
   setApprovalIssueTokens,
   setPayments,
   setDefaultPayment,
+  setReservedNetworkFees,
 } = swapTransactionsSlice.actions;
 
 export default swapTransactionsSlice.reducer;

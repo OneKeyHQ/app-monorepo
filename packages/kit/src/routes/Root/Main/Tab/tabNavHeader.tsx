@@ -16,10 +16,6 @@ import type {
 } from '../../../types';
 import type { MessageDescriptor } from 'react-intl';
 
-export function buildAppRootTabName(name: TabRoutes) {
-  return `tab-${name}`;
-}
-
 export function useHideTabNavigatorHeader() {
   const navigation = useNavigation();
   useEffect(() => {

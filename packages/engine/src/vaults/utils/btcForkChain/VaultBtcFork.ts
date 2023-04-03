@@ -61,6 +61,7 @@ import type { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import type {
   IApproveInfo,
   IDecodedTx,
+  IDecodedTxAction,
   IDecodedTxActionNativeTransfer,
   IDecodedTxLegacy,
   IEncodedTx,
@@ -709,6 +710,27 @@ export default class VaultBtcFork extends VaultBase {
       }
     });
     return (await Promise.all(promises)).filter(Boolean);
+  }
+
+  override async fixActionDirection({
+    action,
+    accountAddress,
+  }: {
+    action: IDecodedTxAction;
+    accountAddress: string;
+  }): Promise<IDecodedTxAction> {
+    // Calculate only if the action has no direction
+    if (
+      action.type === IDecodedTxActionType.NATIVE_TRANSFER &&
+      !action.direction
+    ) {
+      action.direction = await this.buildTxActionDirection({
+        from: action.nativeTransfer?.from || '',
+        to: action.nativeTransfer?.to || '',
+        address: accountAddress,
+      });
+    }
+    return action;
   }
 
   collectUTXOs = memoizee(

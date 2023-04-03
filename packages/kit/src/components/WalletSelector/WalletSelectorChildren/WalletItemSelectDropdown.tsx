@@ -43,6 +43,8 @@ import HardwareLoadingDialog from '@onekeyhq/kit/src/views/Hardware/Onekey/Oneke
 import ManagerWalletDeleteDialog from '@onekeyhq/kit/src/views/ManagerWallet/DeleteWallet';
 import type { DeleteWalletProp } from '@onekeyhq/kit/src/views/ManagerWallet/DeleteWallet';
 
+import { defaultMenuOffset } from '../../../views/Overlay/BaseMenu';
+import { useWalletSelectorStatus } from '../hooks/useWalletSelectorStatus';
 import { useHardwareWalletInfo } from '../WalletAvatar';
 
 import type { TypeHardwareWalletInfo } from '../WalletAvatar';
@@ -495,6 +497,7 @@ function WalletItemSelectDropdown({
       <Menu
         placement="bottom right"
         width={224}
+        offset={defaultMenuOffset}
         // eslint-disable-next-line react/no-unstable-nested-components
         trigger={(triggerProps) => {
           const { onPress } = triggerProps;
@@ -557,6 +560,9 @@ function WalletItemSelectDropdown({
     [intl, navigateToBackupModal, showBackupDialog],
   );
 
+  const { visible } = useWalletSelectorStatus();
+
+  if (!visible) return null;
   return (
     <>
       {menuView}

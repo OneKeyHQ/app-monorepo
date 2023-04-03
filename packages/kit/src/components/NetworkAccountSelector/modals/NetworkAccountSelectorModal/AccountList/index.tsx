@@ -44,18 +44,15 @@ export function searchAccount(
   accounts: INetworkAccountSelectorAccountListSectionData[],
   terms: string,
 ): INetworkAccountSelectorAccountListSectionData[] {
-  return accounts
-    .map((item) => {
-      const searchResult = item.data.filter(
-        (account) =>
-          account.name.includes(terms) || account.address.includes(terms),
-      );
-      return {
-        ...item,
-        data: searchResult,
-      };
-    })
-    .filter(({ data }) => data.length > 0);
+  return accounts.map((item) => {
+    const searchResult = item.data.filter(
+      ({ name, address }) => name.includes(terms) || address.includes(terms),
+    );
+    return {
+      ...item,
+      data: searchResult,
+    };
+  });
 }
 
 type EmptyAccountStateProps = {
@@ -191,7 +188,8 @@ function AccountList({
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
   searchValue: string;
 }) {
-  const terms = useDebounce(searchValue, 500).toLowerCase();
+  const terms = useDebounce(searchValue, 500);
+  const intl = useIntl();
 
   const {
     selectedNetworkId,
@@ -318,6 +316,16 @@ function AccountList({
     };
   }, [dataSource]);
 
+  const getSearchInfo = useCallback(() => {
+    const { isEmptyDataSource } = getDataSourceInfo();
+    const isEmptySearchData =
+      isEmptyDataSource && data.every((section) => section.data.length);
+
+    return {
+      isEmptySearchData,
+    };
+  }, [data, getDataSourceInfo]);
+
   const ListItemSeparatorComponent = useCallback(
     (props) => <AccountListItemSeparator {...props} dataSource={dataSource} />,
     [dataSource],
@@ -416,10 +424,25 @@ function AccountList({
         section: INetworkAccountSelectorAccountListSectionData;
       }) => {
         const { isEmptyDataSource } = getDataSourceInfo();
+        const { isEmptySearchData } = getSearchInfo();
+
         const { isEmptySectionData, isPreloadingCreate, sectionIndex } =
           getSectionMetaInfo({
             section,
           });
+        if (isEmptySearchData && sectionIndex === 0) {
+          return (
+            <Empty
+              flex={1}
+              mt={8}
+              emoji="🔍"
+              title={intl.formatMessage({
+                id: 'content__no_results',
+                defaultMessage: 'No Result',
+              })}
+            />
+          );
+        }
         return (
           <>
             {isPreloadingCreate ? (

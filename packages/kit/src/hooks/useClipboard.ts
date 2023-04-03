@@ -17,7 +17,7 @@ export function useClipboard() {
   const copyText = useCallback(
     (address: string, successMessageId?: LocaleIds) => {
       if (!address) return;
-      copyToClipboard(address);
+      setTimeout(() => copyToClipboard(address), 200);
       // msg__copied
       // msg__address_copied
       // msg__url_copied

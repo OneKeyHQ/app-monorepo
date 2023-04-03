@@ -9,11 +9,11 @@ import { createBottomTabNavigator } from '@onekeyhq/components/src/Layout/Bottom
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { LazyDisplayView } from '../../../../components/LazyDisplayView';
+import { buildAppRootTabName } from '../../../routesUtils';
 import { TabRoutes } from '../../../types';
 
 import { tabRoutes } from './routes/tabRoutes';
 import {
-  buildAppRootTabName,
   buildTabNavigatorHeaderRender,
   buildTabScreenHeaderRender,
 } from './tabNavHeader';
@@ -125,7 +125,8 @@ const TabNavigator = () => {
         <Tab.Navigator
           screenOptions={{
             // TODO make component content lazy
-            lazy: !platformEnv.isNewRouteMode, // avoid tab switch flashing on mobile
+            // FIXME: lazy causes issues with overlays
+            // lazy: !platformEnv.isNewRouteMode, // avoid tab switch flashing on mobile
             header: tabNavigatorHeaderRender,
             freezeOnBlur: true,
           }}
