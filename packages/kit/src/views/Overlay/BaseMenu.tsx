@@ -2,9 +2,11 @@ import type { FC, ReactElement, ReactNode } from 'react';
 import { Children, Fragment, cloneElement, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
+import { initialWindowMetrics } from 'react-native-safe-area-context';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
 import { Menu } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IMenuProps } from 'native-base';
 import type { MessageDescriptor } from 'react-intl';
@@ -22,6 +24,11 @@ interface ValidOption {
 }
 
 type SingleOption = false | undefined | (() => ReactElement) | ValidOption;
+
+// https://github.com/th3rdwave/react-native-safe-area-context/issues/124#issuecomment-1018323396
+export const defaultMenuOffset = platformEnv.isNativeAndroid
+  ? initialWindowMetrics?.insets.top
+  : 0;
 
 export type IBaseMenuOptions = (
   | SingleOption
@@ -132,6 +139,7 @@ const BaseMenu: FC<IBaseMenu> = ({
   return (
     <Menu
       w={menuWidth || 190}
+      offset={rest.offset ?? defaultMenuOffset}
       placement={placement}
       trigger={(triggerProps) =>
         cloneElement(Children.only(children as ReactElement), triggerProps)

@@ -36,7 +36,6 @@ import AccountInfo, {
   FIXED_VERTICAL_HEADER_HEIGHT,
 } from './AccountInfo';
 import AssetsList from './AssetsList';
-import BackupToast from './BackupToast';
 import NFTList from './NFT/NFTList';
 import ToolsPage from './Tools';
 import { HomeTabIndex, HomeTabOrder, WalletHomeTabEnum } from './type';
@@ -56,9 +55,6 @@ const WalletTabs: FC = () => {
   const { homeTabName } = useStatus();
   const { wallet, account, network, accountId, networkId } =
     useActiveWalletAccount();
-  const [backupMap, updateBackMap] = useState<
-    Record<string, boolean | undefined>
-  >({});
   const [refreshing, setRefreshing] = useState(false);
 
   const onIndexChange = useCallback((index: number) => {
@@ -78,23 +74,6 @@ const WalletTabs: FC = () => {
     defaultIndexRef.current = idx;
   }, [homeTabName, onIndexChange]);
 
-  const backupToast = useCallback(() => {
-    if (wallet && !wallet?.backuped && backupMap[wallet?.id] === undefined) {
-      return (
-        <BackupToast
-          walletId={wallet.id}
-          onClose={() => {
-            updateBackMap((prev) => {
-              prev[wallet?.id] = false;
-              return { ...prev };
-            });
-          }}
-        />
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet?.id, wallet?.backuped]);
-
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     backgroundApiProxy.serviceOverview.refreshCurrentAccount().finally(() => {
@@ -105,77 +84,74 @@ const WalletTabs: FC = () => {
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
   const walletTabs = (
-    <>
-      <Tabs.Container
-        canOpenDrawer
-        initialTabName={homeTabName}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        onIndexChange={(index: number) => {
-          defaultIndexRef.current = index;
-          clearTimeout(timer.current);
-          timer.current = setTimeout(() => {
-            onIndexChange(defaultIndexRef.current);
-          }, 1500);
-        }}
-        renderHeader={AccountHeader}
-        headerHeight={
-          isVerticalLayout
-            ? FIXED_VERTICAL_HEADER_HEIGHT
-            : FIXED_HORIZONTAL_HEDER_HEIGHT
-        }
-        ref={ref}
-        containerStyle={{
-          maxWidth: MAX_PAGE_CONTAINER_WIDTH,
-          // reduce the width on iPad, sidebar's width is 244
-          width: isVerticalLayout ? screenWidth : screenWidth - 224,
-          marginHorizontal: 'auto', // Center align vertically
-          alignSelf: 'center',
-          flex: 1,
-        }}
+    <Tabs.Container
+      canOpenDrawer
+      initialTabName={homeTabName}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      onIndexChange={(index: number) => {
+        defaultIndexRef.current = index;
+        clearTimeout(timer.current);
+        timer.current = setTimeout(() => {
+          onIndexChange(defaultIndexRef.current);
+        }, 1500);
+      }}
+      renderHeader={AccountHeader}
+      headerHeight={
+        isVerticalLayout
+          ? FIXED_VERTICAL_HEADER_HEIGHT
+          : FIXED_HORIZONTAL_HEDER_HEIGHT
+      }
+      ref={ref}
+      containerStyle={{
+        maxWidth: MAX_PAGE_CONTAINER_WIDTH,
+        // reduce the width on iPad, sidebar's width is 244
+        width: isVerticalLayout ? screenWidth : screenWidth - 224,
+        marginHorizontal: 'auto', // Center align vertically
+        alignSelf: 'center',
+        flex: 1,
+      }}
+    >
+      <Tabs.Tab
+        name={WalletHomeTabEnum.Tokens}
+        label={intl.formatMessage({ id: 'asset__tokens' })}
       >
-        <Tabs.Tab
-          name={WalletHomeTabEnum.Tokens}
-          label={intl.formatMessage({ id: 'asset__tokens' })}
-        >
-          <>
-            <AssetsList
-              accountId={accountId}
-              networkId={networkId}
-              ListFooterComponent={<Box h={6} />}
-              limitSize={10}
-              renderDefiList
-            />
-            <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
-            <GuideToPushFirstTimeCheck />
-          </>
-        </Tabs.Tab>
-        <Tabs.Tab
-          name={WalletHomeTabEnum.Collectibles}
-          label={intl.formatMessage({ id: 'asset__collectibles' })}
-        >
-          <NFTList />
-        </Tabs.Tab>
-        <Tabs.Tab
-          name={WalletHomeTabEnum.History}
-          label={intl.formatMessage({ id: 'transaction__history' })}
-        >
-          <TxHistoryListView
-            accountId={account?.id}
-            networkId={network?.id}
-            isHomeTab
+        <>
+          <AssetsList
+            accountId={accountId}
+            networkId={networkId}
+            ListFooterComponent={<Box h={6} />}
+            limitSize={10}
+            renderDefiList
           />
-          {/* )} */}
-        </Tabs.Tab>
-        <Tabs.Tab
-          name={WalletHomeTabEnum.Tools}
-          label={intl.formatMessage({ id: 'form__tools' })}
-        >
-          <ToolsPage />
-        </Tabs.Tab>
-      </Tabs.Container>
-      {backupToast()}
-    </>
+          <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
+          <GuideToPushFirstTimeCheck />
+        </>
+      </Tabs.Tab>
+      <Tabs.Tab
+        name={WalletHomeTabEnum.Collectibles}
+        label={intl.formatMessage({ id: 'asset__collectibles' })}
+      >
+        <NFTList />
+      </Tabs.Tab>
+      <Tabs.Tab
+        name={WalletHomeTabEnum.History}
+        label={intl.formatMessage({ id: 'transaction__history' })}
+      >
+        <TxHistoryListView
+          accountId={account?.id}
+          networkId={network?.id}
+          isHomeTab
+        />
+        {/* )} */}
+      </Tabs.Tab>
+      <Tabs.Tab
+        name={WalletHomeTabEnum.Tools}
+        label={intl.formatMessage({ id: 'form__tools' })}
+      >
+        <ToolsPage />
+      </Tabs.Tab>
+    </Tabs.Container>
   );
 
   if (!wallet) return null;
