@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { useCallback, useRef, useState } from 'react';
-import type { FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,11 +12,14 @@ import {
   Button,
   Center,
   HStack,
+  Pressable,
   ToastManager,
+  Token as TokDisplay,
   Typography,
 } from '@onekeyhq/components';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type { Account as BaseAccount } from '@onekeyhq/engine/src/types/account';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import { ethers } from '@onekeyhq/engine/src/vaults/impl/evm/sdk/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
@@ -312,6 +316,99 @@ const SwapTransactionsCancelApprovalBottomSheetModal: FC<
       </HStack>
     </BottomSheetModal>
   );
+};
+
+type ColorButtonProps = ComponentProps<typeof Button> & {
+  tokenA: Token;
+  tokenB: Token;
+};
+
+const ColorButton: FC<ColorButtonProps> = ({ tokenA, tokenB, onPress }) => {
+  const intl = useIntl();
+  return (
+    <Box h="50px" w="full" shadow="1" borderRadius="12" overflow="hidden">
+      <LinearGradient
+        colors={['rgba(18, 65, 232, 255)', 'rgba(17, 228, 54, 255)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={{
+          height: '100%',
+          width: '100%',
+          opacity: 1,
+        }}
+      >
+        <Pressable
+          w="full"
+          h="full"
+          flexDirection="row"
+          justifyContent="center"
+          alignItems="center"
+          onPress={onPress}
+        >
+          <Box
+            position="relative"
+            w="10"
+            h="10"
+            justifyContent="center"
+            alignItems="center"
+          >
+            <Box
+              position="absolute"
+              top="8px"
+              left="8px"
+              w="18px"
+              h="18px"
+              overflow="hidden"
+              borderRadius="full"
+              bg="border-default"
+              justifyContent="center"
+              alignItems="center"
+            >
+              <TokDisplay size="4" token={tokenA} />
+            </Box>
+            <Box
+              position="absolute"
+              top="16px"
+              left="16px"
+              w="18px"
+              h="18px"
+              overflow="hidden"
+              borderRadius="full"
+              bg="border-default"
+              justifyContent="center"
+              alignItems="center"
+            >
+              <TokDisplay size="4" token={tokenB} />
+            </Box>
+          </Box>
+          <Typography.Button1>
+            {intl.formatMessage({ id: 'form__cross_chain_swap' })}
+          </Typography.Button1>
+        </Pressable>
+      </LinearGradient>
+    </Box>
+  );
+};
+
+type SubmitButtonProps = ComponentProps<typeof Button>;
+
+const SubmitButton: FC<SubmitButtonProps> = ({
+  isDisabled,
+  isLoading,
+  ...props
+}) => {
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  if (
+    !isDisabled &&
+    !isLoading &&
+    inputToken &&
+    outputToken &&
+    inputToken.networkId !== outputToken?.networkId
+  ) {
+    return <ColorButton tokenA={inputToken} tokenB={outputToken} {...props} />;
+  }
+  return <Button isDisabled={isDisabled} isLoading={isLoading} {...props} />;
 };
 
 const ExchangeButton = () => {
@@ -665,7 +762,7 @@ const ExchangeButton = () => {
   }, [onSubmit]);
 
   return (
-    <Button
+    <SubmitButton
       key="submit"
       size="xl"
       type="primary"
@@ -674,13 +771,14 @@ const ExchangeButton = () => {
       onPress={onPress}
     >
       {intl.formatMessage({ id: 'title__swap' })}
-    </Button>
+    </SubmitButton>
   );
 };
 
 const SwapExchangeStateButton = () => {
   const intl = useIntl();
   const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const quote = useAppSelector((s) => s.swap.quote);
   const loading = useAppSelector((s) => s.swap.loading);
   const error = useSwapError();
   const limitsError = useInputLimitsError();
@@ -711,6 +809,14 @@ const SwapExchangeStateButton = () => {
   if (limitsError) {
     return (
       <Button size="xl" type="primary" isDisabled key="depositLimit">
+        {intl.formatMessage({ id: 'title__swap' })}
+      </Button>
+    );
+  }
+
+  if (!quote) {
+    return (
+      <Button size="xl" type="primary" isDisabled key="noQuote">
         {intl.formatMessage({ id: 'title__swap' })}
       </Button>
     );

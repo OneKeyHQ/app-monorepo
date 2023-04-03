@@ -33,8 +33,19 @@ export const TokenDisplay: FC<TokenDisplayProps> = ({ token }) => {
             bgColor="surface-neutral-default"
           />
         </Box>
-        <Box position="absolute" bottom={0} right="4px" width="18px">
-          <Image size="16px" src={network?.logoURI} />
+        <Box
+          position="absolute"
+          bottom={0}
+          right="4px"
+          w="18px"
+          h="18px"
+          bgColor="border-default"
+          justifyContent="center"
+          alignItems="center"
+          borderRadius="full"
+          overflow="hidden"
+        >
+          <Image size="4" src={network?.logoURI} />
         </Box>
       </Box>
       <Box>
