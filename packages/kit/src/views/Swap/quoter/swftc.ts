@@ -545,7 +545,7 @@ export class SwftcQuoter implements Quoter {
       }
     }
 
-    if (Date.now() - tx.addedTime > 60 * 60 * 1000 * 3) {
+    if (Date.now() - tx.addedTime > 60 * 60 * 1000 * 24) {
       return { status: 'failed' };
     }
 

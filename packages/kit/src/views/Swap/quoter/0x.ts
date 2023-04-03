@@ -253,7 +253,7 @@ export class SimpleQuoter implements Quoter {
       return { status: Number(result.status) === 1 ? 'sucesss' : 'failed' };
     }
 
-    if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
+    if (Date.now() - tx.addedTime > 60 * 60 * 1000 * 24) {
       return { status: 'failed' };
     }
     return undefined;
