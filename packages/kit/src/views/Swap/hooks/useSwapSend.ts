@@ -89,7 +89,7 @@ export function useSwapSend() {
         } catch (e: any) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           const message = e?.data?.message || e.message;
-          debugLogger.common.error(
+          debugLogger.swap.error(
             `swap send failed with message ${message as string}`,
           );
           deviceUtils.showErrorToast(e, message);

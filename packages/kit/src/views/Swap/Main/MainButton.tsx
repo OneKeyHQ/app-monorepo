@@ -58,6 +58,7 @@ import {
   useSwapQuoteRequestParams,
 } from '../hooks/useSwap';
 import { useSwapSend, useSwapSignMessage } from '../hooks/useSwapSend';
+import { useTagLogger } from '../hooks/useSwapUtils';
 import { SwapQuoter } from '../quoter';
 import { dangerRefs } from '../refs';
 import { SwapError, SwapRoutes } from '../typings';
@@ -411,6 +412,16 @@ const SubmitButton: FC<SubmitButtonProps> = ({
   return <Button isDisabled={isDisabled} isLoading={isLoading} {...props} />;
 };
 
+enum TAGS {
+  overview = 'overview',
+  approval = 'approval',
+  cancelApproval = 'cancelApproval',
+  swap = 'swap',
+  checkTokenBalance = 'checkTokenBalance',
+  checkTokenAllowance = 'checkTokenAllowance',
+  buildTransaction = 'buildTransaction',
+}
+
 const ExchangeButton = () => {
   const intl = useIntl();
   const navigation = useNavigation();
@@ -421,6 +432,7 @@ const ExchangeButton = () => {
   const disableSwapExactApproveAmount = useAppSelector(
     (s) => s.settings.disableSwapExactApproveAmount,
   );
+  const tagLogger = useTagLogger();
 
   const sendSwapTx = useSwapSend();
 
@@ -479,11 +491,15 @@ const ExchangeButton = () => {
     }
 
     if (!params.tokenIn.tokenIdOnNetwork) {
+      tagLogger.start(TAGS.checkTokenBalance);
       const [result] =
-        await backgroundApiProxy.serviceToken.getAccountTokenBalance({
-          accountId: sendingAccount.id,
-          networkId: fromNetwork.id,
-        });
+        await backgroundApiProxy.serviceToken.getAccountBalanceFromRpc(
+          fromNetwork.id,
+          sendingAccount.id,
+          [],
+          true,
+        );
+      tagLogger.end(TAGS.checkTokenBalance);
       const balance = new BigNumber(result?.main?.balance ?? '0');
       const reservedValue =
         await backgroundApiProxy.serviceSwap.getReservedNetworkFee(
@@ -517,7 +533,9 @@ const ExchangeButton = () => {
       disableValidate: true,
     };
     try {
+      tagLogger.start(TAGS.buildTransaction);
       res = await SwapQuoter.client.buildTransaction(quote.type, buildParams);
+      tagLogger.end(TAGS.buildTransaction);
     } catch (e: any) {
       const title = e?.response?.data?.message || e.message;
       ToastManager.show({ title }, { type: 'error' });
@@ -582,12 +600,14 @@ const ExchangeButton = () => {
     let cancelApproveTx: IEncodedTxEvm | undefined;
 
     if (newQuote.allowanceTarget && params.tokenIn.tokenIdOnNetwork) {
+      tagLogger.start(TAGS.checkTokenAllowance);
       const allowance = await backgroundApiProxy.engine.getTokenAllowance({
         networkId: params.tokenIn.networkId,
         accountId: params.activeAccount.id,
         tokenIdOnNetwork: params.tokenIn.tokenIdOnNetwork,
         spender: newQuote.allowanceTarget,
       });
+      tagLogger.end(TAGS.checkTokenAllowance);
       if (allowance) {
         needApproved = new BigNumber(
           getTokenAmountString(params.tokenIn, allowance),
@@ -636,6 +656,7 @@ const ExchangeButton = () => {
     const tasks: Task[] = [];
 
     const doSwap = async () => {
+      tagLogger.start(TAGS.swap);
       await sendSwapTx({
         accountId: sendingAccount.id,
         networkId: fromNetworkId,
@@ -675,6 +696,7 @@ const ExchangeButton = () => {
           appUIEventBus.emit(AppUIEventBusNames.SwapError);
         },
       });
+      tagLogger.end(TAGS.swap);
     };
 
     tasks.unshift(doSwap);
@@ -685,6 +707,7 @@ const ExchangeButton = () => {
         if (wallet.type !== 'external') {
           payloadInfo.swapInfo = { ...swapInfo, isApprove: true };
         }
+        tagLogger.start(TAGS.approval);
         await sendSwapTx({
           accountId: sendingAccount.id,
           networkId: fromNetworkId,
@@ -707,6 +730,7 @@ const ExchangeButton = () => {
             await nextTask?.();
           },
         });
+        tagLogger.end(TAGS.approval);
       };
       tasks.unshift(doApprove);
     }
@@ -717,6 +741,7 @@ const ExchangeButton = () => {
         if (wallet.type !== 'external') {
           payloadInfo.swapInfo = { ...swapInfo, isApprove: true };
         }
+        tagLogger.start(TAGS.cancelApproval);
         await sendSwapTx({
           accountId: sendingAccount.id,
           networkId: fromNetworkId,
@@ -727,6 +752,7 @@ const ExchangeButton = () => {
             await nextTask?.();
           },
         });
+        tagLogger.end(TAGS.cancelApproval);
       };
       tasks.unshift(doCancelApprove);
     }
@@ -743,7 +769,7 @@ const ExchangeButton = () => {
     }
     await wait(1000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params, quote, disableSwapExactApproveAmount]);
+  }, [params, quote, disableSwapExactApproveAmount, tagLogger]);
 
   const onPress = useCallback(async () => {
     if (ref.current) {
@@ -751,15 +777,18 @@ const ExchangeButton = () => {
     }
     setLoading(true);
     ref.current = true;
+    tagLogger.clear();
+    tagLogger.start(TAGS.overview);
     try {
       dangerRefs.submited = true;
       await onSubmit();
     } finally {
+      tagLogger.end(TAGS.overview);
       ref.current = false;
       dangerRefs.submited = false;
       setLoading(false);
     }
-  }, [onSubmit]);
+  }, [onSubmit, tagLogger]);
 
   return (
     <SubmitButton
