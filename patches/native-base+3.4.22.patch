@@ -175,7 +175,7 @@ index 0000000..1782152
 +export default Image;
 +export type { IImageProps };
 diff --git a/node_modules/native-base/src/components/primitives/Overlay/Overlay.tsx b/node_modules/native-base/src/components/primitives/Overlay/Overlay.tsx
-index 5693616..1f8e2be 100644
+index 5693616..c208e86 100644
 --- a/node_modules/native-base/src/components/primitives/Overlay/Overlay.tsx
 +++ b/node_modules/native-base/src/components/primitives/Overlay/Overlay.tsx
 @@ -1,5 +1,5 @@
@@ -215,7 +215,7 @@ index 5693616..1f8e2be 100644
 -    <OverlayContainer style={{ ...styleObj }}>
 -      <ExitAnimationContext.Provider value={{ exited, setExited }}>
 +    <ExitAnimationContext.Provider value={{ exited, setExited }}>
-+      <RootOverlayContainer>
++      <RootOverlayContainer useFullWindowForIOS>
          {children}
 -      </ExitAnimationContext.Provider>
 -    </OverlayContainer>
