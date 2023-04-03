@@ -325,6 +325,7 @@ export type IPrepareHardwareAccountsParams = {
   coinType: string;
   template: string;
   skipCheckAccountExist?: boolean;
+  confirmOnDevice?: boolean;
 };
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams

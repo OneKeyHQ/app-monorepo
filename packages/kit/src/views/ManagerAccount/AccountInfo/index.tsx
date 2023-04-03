@@ -140,7 +140,17 @@ const ManagerAccountModal: FC = () => {
           return;
         }
         case ManageAccountKeys.ExportPublicKey: {
-          console.log('xpub');
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.ManagerAccount,
+            params: {
+              screen: ManagerAccountModalRoutes.ManagerAccountExportPublicModal,
+              params: {
+                walletId,
+                accountId,
+                networkId,
+              },
+            },
+          });
           return;
         }
 
@@ -164,6 +174,7 @@ const ManagerAccountModal: FC = () => {
     [
       account,
       accountId,
+      walletId,
       goToRemoveAccount,
       navigation,
       networkId,

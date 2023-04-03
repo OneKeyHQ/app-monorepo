@@ -86,7 +86,8 @@ export const PrivateOrPublicKeyPreview: FC<{
           color="text-subdued"
           textAlign="center"
           typography={{ sm: 'Body1', md: 'Body2' }}
-          noOfLines={5}
+          w="full"
+          maxW="full"
         >
           {privateOrPublicKey}
         </Text>
@@ -98,6 +99,7 @@ export const PrivateOrPublicKeyPreview: FC<{
           size={isSmallScreen ? 'xl' : 'base'}
           leftIconName="Square2StackMini"
           onPress={copyDataToClipboard}
+          isLoading={!privateOrPublicKey}
         >
           {intl.formatMessage({
             id: 'action__copy',

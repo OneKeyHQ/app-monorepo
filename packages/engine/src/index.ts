@@ -29,6 +29,7 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
   IMPL_EVM,
+  INDEX_PLACEHOLDER,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -65,6 +66,7 @@ import {
   derivationPathTemplates,
   getDefaultPurpose,
   getNextAccountId,
+  parsePath,
 } from './managers/derivation';
 import { fetchSecurityInfo, getRiskLevel } from './managers/goplus';
 import {
@@ -2998,6 +3000,47 @@ class Engine {
       networkId,
     });
     return vault.getFrozenBalance(password);
+  }
+
+  @backgroundMethod()
+  async recomputeAccount({
+    walletId,
+    networkId,
+    password,
+    path,
+    template,
+    confirmOnDevice,
+  }: {
+    walletId: string;
+    networkId: string;
+    password: string;
+    path: string;
+    template?: string;
+    confirmOnDevice?: boolean;
+  }) {
+    if (!walletId || !networkId) return [];
+    const vault = await this.getWalletOnlyVault(networkId, walletId);
+    const { impl } = await this.getNetwork(networkId);
+    const {
+      accountIndex,
+      purpose,
+      coinType,
+      template: defaultTemplate,
+    } = parsePath(impl, path, template);
+    const accounts = await vault.keyring.prepareAccounts({
+      type: 'SEARCH_ACCOUNTS',
+      password,
+      indexes: [accountIndex],
+      purpose,
+      coinType,
+      template: template || defaultTemplate,
+      skipCheckAccountExist: true,
+      confirmOnDevice,
+    });
+    if (accounts.length) {
+      return accounts[0];
+    }
+    return null;
   }
 }
 
