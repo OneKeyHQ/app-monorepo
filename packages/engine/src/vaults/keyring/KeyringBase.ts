@@ -43,6 +43,10 @@ export abstract class KeyringBase extends VaultContext {
 
   abstract getAddress(params: IGetAddressParams): Promise<string>;
 
+  abstract batchGetAddress(
+    params: IGetAddressParams[],
+  ): Promise<{ path: string; address: string }[]>;
+
   override async addressFromBase(account: DBAccount) {
     return this.vault.addressFromBase(account);
   }

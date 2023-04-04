@@ -168,6 +168,31 @@ export class KeyringHardware extends KeyringHardwareBase {
     throw convertDeviceError(response.payload);
   }
 
+  override async batchGetAddress(
+    params: IGetAddressParams[],
+  ): Promise<{ path: string; address: string }[]> {
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    const chainId = new BigNumber(await this.getNetworkChainId()).toNumber();
+    const response = await HardwareSDK.aptosGetAddress(connectId, deviceId, {
+      ...passphraseState,
+      bundle: params.map(({ path, showOnOneKey }) => ({
+        path,
+        showOnOneKey: !!showOnOneKey,
+        chainId,
+      })),
+    });
+
+    if (!response.success) {
+      throw convertDeviceError(response.payload);
+    }
+    return response.payload.map((item) => ({
+      path: item.path ?? '',
+      address: item.address ?? '',
+    }));
+  }
+
   async handleSignMessage(message: IUnsignedMessageCfx) {
     const HardwareSDK = await this.getHardwareSDKInstance();
     const path = await this.getAccountPath();
