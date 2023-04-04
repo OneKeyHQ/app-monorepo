@@ -37,7 +37,7 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/settings';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { getHomescreenKeys } from '@onekeyhq/kit/src/utils/hardware/constants/homescreens';
-import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
+import { showDialog } from '@onekeyhq/kit/src/utils/overlayUtils';
 import showDeviceAdvancedSettings from '@onekeyhq/kit/src/views/Hardware/Onekey/DeviceAdvancedSettingsBottomSheetModal';
 import HardwareLoadingDialog from '@onekeyhq/kit/src/views/Hardware/Onekey/OnekeyHardwareConnectDialog';
 import ManagerWalletDeleteDialog from '@onekeyhq/kit/src/views/ManagerWallet/DeleteWallet';
@@ -172,9 +172,8 @@ function HardwareMenuOptions({
   const checkFirmwareUpdate = useCallback(() => {
     if (!deviceConnectId) return;
 
-    showOverlay((onCloseOverlay) => (
+    showDialog(
       <HardwareLoadingDialog
-        onClose={onCloseOverlay}
         onHandler={() =>
           serviceHardware
             .checkFirmwareUpdate(deviceConnectId)
@@ -206,8 +205,8 @@ function HardwareMenuOptions({
               }, 500);
             })
         }
-      />
-    ));
+      />,
+    );
   }, [deviceConnectId, intl, navigation, serviceHardware, wallet?.id]);
 
   useEffect(() => {
@@ -366,12 +365,7 @@ function WalletItemSelectDropdown({
 
   const showDeleteWalletDialog = useCallback(
     (walletProps: DeleteWalletProp) => {
-      showOverlay((onClose) => (
-        <ManagerWalletDeleteDialog
-          deleteWallet={walletProps}
-          closeOverlay={onClose}
-        />
-      ));
+      showDialog(<ManagerWalletDeleteDialog deleteWallet={walletProps} />);
     },
     [],
   );

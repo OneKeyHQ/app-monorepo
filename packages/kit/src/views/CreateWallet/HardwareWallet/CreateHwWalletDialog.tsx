@@ -14,7 +14,7 @@ import { DeviceNotFind } from '../../../utils/hardware/errors';
 export type CreateHwWalletDialogProps = {
   deviceId: string;
   onlyPassphrase?: boolean;
-  onClose: () => void;
+  onClose?: () => void;
 };
 
 const CreateHwWalletDialog: FC<CreateHwWalletDialogProps> = ({
@@ -59,7 +59,7 @@ const CreateHwWalletDialog: FC<CreateHwWalletDialogProps> = ({
         deviceUtils.showErrorToast(e);
       })
       .finally(() => {
-        onClose();
+        onClose?.();
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -27,7 +27,7 @@ import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { getDeviceTypeByDeviceId } from '../../../utils/hardware';
-import { showOverlay } from '../../../utils/overlayUtils';
+import { showDialog } from '../../../utils/overlayUtils';
 import CreateHwWalletDialog from '../../../views/CreateWallet/HardwareWallet/CreateHwWalletDialog';
 import WalletAvatar from '../../WalletSelector/WalletAvatar';
 
@@ -270,13 +270,7 @@ const LeftSide: FC<LeftSideProps> = ({
   }, [wallets]);
 
   const onAddPassphraseWallet = useCallback((deviceId: string) => {
-    showOverlay((onClose) => (
-      <CreateHwWalletDialog
-        deviceId={deviceId}
-        onlyPassphrase
-        onClose={onClose}
-      />
-    ));
+    showDialog(<CreateHwWalletDialog deviceId={deviceId} onlyPassphrase />);
   }, []);
 
   return (
