@@ -1,11 +1,14 @@
 import type { ReactElement } from 'react';
-import { createContext } from 'react';
 
+import { StyleSheet, View } from 'react-native';
 import RootSiblings from 'react-native-root-siblings';
+import { FullWindowOverlay } from 'react-native-screens';
 
-export const OverlayContext = createContext({
-  closeOverlay: () => {},
-});
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+// export const OverlayContext = createContext({
+//   closeOverlay: () => {},
+// });
 export function showOverlay(
   renderOverlay: (closeOverlay: () => void) => ReactElement,
 ) {
@@ -14,14 +17,17 @@ export function showOverlay(
     modal?.destroy();
     modal = null;
   };
+  const el = platformEnv.isNativeIOS ? (
+    <FullWindowOverlay>
+      <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+        {renderOverlay(closeOverlay)}
+      </View>
+    </FullWindowOverlay>
+  ) : (
+    renderOverlay(closeOverlay)
+  );
   setTimeout(() => {
-    modal = new RootSiblings(
-      (
-        <OverlayContext.Provider value={{ closeOverlay }}>
-          {renderOverlay(closeOverlay)}
-        </OverlayContext.Provider>
-      ),
-    );
+    modal = new RootSiblings(el);
   });
   return closeOverlay;
 }
