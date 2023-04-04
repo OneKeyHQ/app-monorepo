@@ -109,7 +109,12 @@ const SimpleView: FC<{ order: LimitOrderTransactionDetails }> = ({ order }) => {
     >
       <Box flex={1} flexDirection="row" alignItems="center">
         <Box mr="1">
-          <TokenImage size="10" borderRadius="full" token={tokenIn} />
+          <TokenImage
+            size="10"
+            borderRadius="full"
+            token={tokenIn}
+            bgColor="surface-neutral-default"
+          />
         </Box>
         <Box flex="1">
           <Box>
@@ -194,7 +199,12 @@ const FullView: FC<{ order: LimitOrderTransactionDetails }> = ({ order }) => {
       <Box flexDirection="row">
         <Box w="35%" flexDirection="row" alignItems="center">
           <Box mr="1">
-            <TokenImage size="8" borderRadius="full" token={tokenIn} />
+            <TokenImage
+              size="8"
+              borderRadius="full"
+              token={tokenIn}
+              bgColor="surface-neutral-default"
+            />
           </Box>
           <Box>
             <Typography.Body2Strong>
