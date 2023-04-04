@@ -242,8 +242,8 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
       )}
       {showInvalidOptions && (
         <Box>
-          <Divider mt={6} mb={2} />
-          <Box mb={2} mt={6}>
+          {showValidOptions && <Divider mt={6} mb={2} />}
+          <Box mb={2} mt={showValidOptions ? 6 : 0}>
             <Alert
               title={intl.formatMessage({
                 id: 'msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used',

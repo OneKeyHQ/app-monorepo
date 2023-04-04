@@ -73,12 +73,12 @@ target 'OneKeyWallet' do
 
   post_install do |installer|
     react_native_post_install(installer)
-    __apply_Xcode_14_3_RC_post_install_workaround(installer)
     
     if !ENV['CI']
       # Enable the workaround below if you need flipper
       __apply_Xcode_12_5_M1_post_install_workaround(installer)
-
+      # workaround for Xcode 14.3
+      __apply_Xcode_14_3_RC_post_install_workaround(installer)
 
       # workaround for apple silicon simulator
       installer.pods_project.targets.each do |target|
