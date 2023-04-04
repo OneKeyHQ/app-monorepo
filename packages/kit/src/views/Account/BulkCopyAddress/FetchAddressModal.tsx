@@ -19,6 +19,7 @@ import type {
   Account,
   ImportableHDAccount,
 } from '@onekeyhq/engine/src/types/account';
+import { HardwareSDK } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
   IMPL_COSMOS,
   INDEX_PLACEHOLDER,
@@ -99,6 +100,33 @@ const FetchAddressModal: FC = () => {
     },
     [data],
   );
+
+  const isSubscribeRef = useRef(false);
+  const templateAccountsRef = useRef<ImportableHDAccount[]>([]);
+  useEffect(() => {
+    if (!isHwWallet || isSubscribeRef.current) return;
+    isSubscribeRef.current = true;
+    HardwareSDK.on('UI_EVENT', (e) => {
+      const { type, payload } = e;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const payloadData = payload.data as unknown as {
+        address: string;
+        path: string;
+      };
+      if (type === 'ui-previous_address_result') {
+        setPreviousAddress(payloadData.address ?? '');
+        backgroundApiProxy.serviceDerivationPath
+          .convertPlainAddressItemToImportableHDAccount({
+            networkId,
+            ...payloadData,
+          })
+          .then((account) => {
+            templateAccountsRef.current.push(account);
+            updateSetRangeAccountProgress(templateAccountsRef.current);
+          });
+      }
+    });
+  }, [isHwWallet, networkId, updateSetRangeAccountProgress]);
 
   const generateHDAccounts = useCallback(
     async ({
@@ -207,53 +235,40 @@ const FetchAddressModal: FC = () => {
       const { fromIndex, generateCount, derivationOption } = data;
       const template = derivationOption?.template;
       if (!template) throw new Error('must be a template');
-      const result = [];
-      let hasNotExistAccount = false;
+      // const result = [];
+      // const hasNotExistAccount = false;
+      const indexes = [];
       // eslint-disable-next-line no-plusplus
       for (let i = 0; i < Number(generateCount || 0); i++) {
-        if (cancelFlagRef.current) {
-          break;
-        }
         const index = Number(fromIndex) - 1 + i;
-        try {
-          const addressInfo =
-            await backgroundApiProxy.serviceDerivationPath.getHWAddressByTemplate(
+        indexes.push(index);
+      }
+      try {
+        const addressInfos =
+          await backgroundApiProxy.serviceDerivationPath.batchGetHWAddress({
+            networkId,
+            walletId,
+            indexes,
+            template,
+            confirmOnDevice: true,
+          });
+        updateSetRangeAccountProgress(addressInfos);
+      } catch (e: any) {
+        debugLogger.common.info('getHWAddressByTemplate error: ', e);
+        const { className } = e || {};
+        if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+          deviceUtils.showErrorToast(e);
+        } else {
+          ToastManager.show({
+            title: intl.formatMessage(
               {
-                networkId,
-                walletId,
-                index,
-                template,
+                id: 'msg__cancelled_during_the_process',
               },
-            );
-          if (!addressInfo.accountExist) {
-            if (hasNotExistAccount) {
-              // If there is already no transaction record of the account, the result will be returned directly
-              updateSetRangeAccountProgress(result, true);
-              break;
-            }
-            hasNotExistAccount = true;
-          }
-          result.push(addressInfo);
-          setPreviousAddress(addressInfo.address);
-          updateSetRangeAccountProgress(result);
-        } catch (e: any) {
-          debugLogger.common.info('getHWAddressByTemplate error: ', e);
-          const { className } = e || {};
-          if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
-            deviceUtils.showErrorToast(e);
-          } else {
-            ToastManager.show({
-              title: intl.formatMessage(
-                {
-                  id: 'msg__cancelled_during_the_process',
-                },
-                { type: 'error' },
-              ),
-            });
-          }
-          updateSetRangeAccountProgress(result, true);
-          break;
+              { type: 'error' },
+            ),
+          });
         }
+        updateSetRangeAccountProgress(templateAccountsRef.current, true);
       }
     })();
   }, [
