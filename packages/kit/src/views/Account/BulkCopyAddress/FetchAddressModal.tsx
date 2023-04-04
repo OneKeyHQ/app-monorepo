@@ -19,6 +19,7 @@ import type {
   Account,
   ImportableHDAccount,
 } from '@onekeyhq/engine/src/types/account';
+import ServiceDerivationPath from '@onekeyhq/kit-bg/src/services/ServiceDerivationPath';
 import { HardwareSDK } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
   IMPL_COSMOS,
@@ -84,6 +85,7 @@ const FetchAddressModal: FC = () => {
   const [generatedAccounts, setGeneratedAccounts] = useState<
     ImportableHDAccount[]
   >([]);
+  const temporaryAccountsRef = useRef<ImportableHDAccount[]>([]);
   const [previousAddress, setPreviousAddress] = useState('');
 
   const [walletAccounts, setWalletAccounts] = useState<IWalletAccounts[]>([]);
@@ -100,33 +102,6 @@ const FetchAddressModal: FC = () => {
     },
     [data],
   );
-
-  const isSubscribeRef = useRef(false);
-  const templateAccountsRef = useRef<ImportableHDAccount[]>([]);
-  useEffect(() => {
-    if (!isHwWallet || isSubscribeRef.current) return;
-    isSubscribeRef.current = true;
-    HardwareSDK.on('UI_EVENT', (e) => {
-      const { type, payload } = e;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const payloadData = payload.data as unknown as {
-        address: string;
-        path: string;
-      };
-      if (type === 'ui-previous_address_result') {
-        setPreviousAddress(payloadData.address ?? '');
-        backgroundApiProxy.serviceDerivationPath
-          .convertPlainAddressItemToImportableHDAccount({
-            networkId,
-            ...payloadData,
-          })
-          .then((account) => {
-            templateAccountsRef.current.push(account);
-            updateSetRangeAccountProgress(templateAccountsRef.current);
-          });
-      }
-    });
-  }, [isHwWallet, networkId, updateSetRangeAccountProgress]);
 
   const generateHDAccounts = useCallback(
     async ({
@@ -268,7 +243,7 @@ const FetchAddressModal: FC = () => {
             ),
           });
         }
-        updateSetRangeAccountProgress(templateAccountsRef.current, true);
+        updateSetRangeAccountProgress(temporaryAccountsRef.current, true);
       }
     })();
   }, [
@@ -301,9 +276,10 @@ const FetchAddressModal: FC = () => {
     [data],
   );
 
-  // Fetch Wallet Accounts
+  // Fetch HD Wallet Accounts
   useEffect(() => {
     if (data.type !== 'walletAccounts') return;
+    if (isHwWallet) return;
     (async () => {
       if (platformEnv.isNative) {
         await wait(200);
@@ -366,17 +342,17 @@ const FetchAddressModal: FC = () => {
                 account.address = hdAccount[0].displayAddress;
               }
             }
-            if (isHwWallet) {
-              const address = await backgroundApiProxy.engine.getHWAddress(
-                account.id,
-                networkId,
-                walletId,
-              );
-              if (address !== account.address) {
-                throw new Error('Not same address');
-              }
-              setPreviousAddress(address);
-            }
+            // if (isHwWallet) {
+            //   const address = await backgroundApiProxy.engine.getHWAddress(
+            //     account.id,
+            //     networkId,
+            //     walletId,
+            //   );
+            //   if (address !== account.address) {
+            //     throw new Error('Not same address');
+            //   }
+            //   setPreviousAddress(address);
+            // }
             const address = await backgroundApiProxy.engine.getDisplayAddress(
               networkId,
               account.address,
@@ -447,6 +423,136 @@ const FetchAddressModal: FC = () => {
     intl,
     password,
     navigation,
+  ]);
+
+  // Fetch Hardware Wallet Accounts
+  useEffect(() => {
+    if (data.type !== 'walletAccounts') return;
+    if (isHdWallet) return;
+    (async () => {
+      if (platformEnv.isNative) {
+        await wait(200);
+      }
+      let errorState = false;
+      const { networkDerivations } = data;
+      const result: IWalletAccounts[] = [];
+      for (const networkDerivation of networkDerivations) {
+        try {
+          const accounts = await backgroundApiProxy.engine.getAccounts(
+            networkDerivation.accounts,
+            networkId,
+          );
+          const accountData = accounts
+            .map((account) => {
+              const index = getAccountIndex(
+                networkDerivation.template,
+                account.path,
+              );
+              return {
+                fullPath: networkDerivation.template.replace(
+                  INDEX_PLACEHOLDER,
+                  index.toString(),
+                ),
+                index: Number(index),
+                ...account,
+              };
+            })
+            .sort((a, b) => Number(a.index) - Number(b.index));
+
+          const hardwareAddressesResults =
+            await backgroundApiProxy.serviceDerivationPath.batchGetHWAddress({
+              networkId,
+              walletId,
+              indexes: accountData.map((i) => Number(i.index)),
+              confirmOnDevice: true,
+              template: networkDerivation.template,
+              // fullPaths: accountData.map((i) => i.fullPath),
+            });
+          hardwareAddressesResults.forEach((res) => {
+            const index = accountData.findIndex((i) => i.fullPath === res.path);
+            if (index > -1) {
+              accountData[index].displayAddress = res.displayAddress;
+            }
+          });
+          result.push({
+            ...networkDerivation,
+            accountData,
+          });
+          updateWalletsAccountProgress(result);
+          if (cancelFlagRef.current || errorState) {
+            break;
+          }
+          if (platformEnv.isNative) {
+            await wait(0);
+          }
+        } catch (e: any) {
+          debugLogger.common.info('Fetch Wallet Accounts error: ', e);
+          const { className } = e || {};
+          if (className === OneKeyErrorClassNames.OneKeyHardwareError) {
+            deviceUtils.showErrorToast(e);
+          } else {
+            ToastManager.show(
+              {
+                title: intl.formatMessage({
+                  id: 'msg__cancelled_during_the_process',
+                }),
+              },
+              { type: 'error' },
+            );
+          }
+          updateWalletsAccountProgress(result, true);
+          errorState = true;
+          navigation.goBack();
+          break;
+        }
+      }
+    })();
+  }, [
+    data,
+    isHwWallet,
+    isHdWallet,
+    updateWalletsAccountProgress,
+    networkId,
+    walletId,
+    intl,
+    password,
+    navigation,
+  ]);
+
+  const isSubscribeRef = useRef(false);
+  useEffect(() => {
+    if (!isHwWallet || isSubscribeRef.current) return;
+    isSubscribeRef.current = true;
+    HardwareSDK.on('UI_EVENT', (e) => {
+      const { type, payload } = e;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const payloadData = payload.data as unknown as {
+        address: string;
+        path: string;
+      };
+      if (type === 'ui-previous_address_result') {
+        setPreviousAddress(payloadData.address ?? '');
+        backgroundApiProxy.serviceDerivationPath
+          .convertPlainAddressItemToImportableHDAccount({
+            networkId,
+            ...payloadData,
+          })
+          .then((account) => {
+            if (data.type === 'setRange') {
+              temporaryAccountsRef.current.push(account);
+              updateSetRangeAccountProgress(temporaryAccountsRef.current);
+            } else {
+              // updateWalletsAccountProgress(temporaryAccountsRef.current);
+            }
+          });
+      }
+    });
+  }, [
+    isHwWallet,
+    networkId,
+    updateSetRangeAccountProgress,
+    data.type,
+    // updateWalletsAccountProgress,
   ]);
 
   useEffect(() => {
@@ -552,17 +658,16 @@ const FetchAddressModal: FC = () => {
       primaryActionProps={{
         type: 'basic',
       }}
-      onPrimaryActionPress={() => {
+      onPrimaryActionPress={async () => {
         cancelFlagRef.current = true;
-        // if (isHwWallet) {
-        //   const device =
-        //     await backgroundApiProxy.engine.getHWDeviceByWalletId(
-        //       walletId,
-        //     );
-        //   if (device) {
-        //     backgroundApiProxy.serviceHardware.cancel(device.mac);
-        //   }
-        // }
+        if (isHwWallet) {
+          const device = await backgroundApiProxy.engine.getHWDeviceByWalletId(
+            walletId,
+          );
+          if (device) {
+            backgroundApiProxy.serviceHardware.cancel(device.mac);
+          }
+        }
         navigation.goBack();
       }}
     >

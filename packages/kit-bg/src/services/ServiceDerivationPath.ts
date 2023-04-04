@@ -224,14 +224,14 @@ export default class ServiceDerivationPath extends ServiceBase {
     indexes,
     confirmOnDevice,
     template,
-    fullPath,
+    fullPaths,
   }: {
     networkId: string;
     walletId: string;
     indexes: number[];
     confirmOnDevice: boolean;
     template: string;
-    fullPath?: string;
+    fullPaths?: string[];
   }) {
     const vault = await this.backgroundApi.engine.getWalletOnlyVault(
       networkId,
@@ -243,10 +243,12 @@ export default class ServiceDerivationPath extends ServiceBase {
     if (!device) {
       throw new OneKeyInternalError(`Device not found.`);
     }
-    const bundle = indexes.map((index) => ({
-      path: template.replace(INDEX_PLACEHOLDER, index.toString()),
-      showOnOneKey: confirmOnDevice,
-    }));
+    const bundle = fullPaths
+      ? fullPaths.map((path) => ({ path, showOnOneKey: confirmOnDevice }))
+      : indexes.map((index) => ({
+          path: template.replace(INDEX_PLACEHOLDER, index.toString()),
+          showOnOneKey: confirmOnDevice,
+        }));
     const response = await vault.keyring.batchGetAddress(bundle);
     return Promise.all(
       response.map(async (item, idx) => {
@@ -258,7 +260,7 @@ export default class ServiceDerivationPath extends ServiceBase {
         return {
           ...importableAccount,
           ...item,
-          index: indexes[idx],
+          index: indexes?.[idx],
         };
       }),
     );
