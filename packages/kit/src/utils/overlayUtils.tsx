@@ -38,15 +38,18 @@ export function showOverlay(
 }
 
 // Because dialogs are wrapped in RN Modal
-// so there are 3 ways to use dialog in overlay:
+// so there are 2 ways to use dialog in overlay:
 // 1. showDialog(<Dialog />)
 // 2. showOverlay((onClose) => <Dialog onClose={onClose} />, true)
-// 3. DialogManager.show({ render: <Dialog />})
 export const showDialog = (render: ReactElement) =>
   showOverlay(
     (onClose) =>
       cloneElement(render, {
-        onClose,
+        onClose: () => {
+          onClose();
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+          render.props.onClose?.();
+        },
       }),
     true,
   );

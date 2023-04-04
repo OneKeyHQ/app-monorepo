@@ -8,7 +8,6 @@ import {
   Box,
   Collapse,
   Dialog,
-  DialogManager,
   Image,
   Text,
   Typography,
@@ -26,6 +25,7 @@ import {
 } from '../../../../hooks';
 import { useCurrentFiatValue } from '../../../../hooks/useTokens';
 import { openDapp } from '../../../../utils/openUrl';
+import { showDialog } from '../../../../utils/overlayUtils';
 
 import { OverviewDefiBoxHeader } from './Header';
 import { OverviewDefiPool } from './OverviewDefiPool';
@@ -122,9 +122,7 @@ export const useOpenProtocolUrl = (protocol: OverviewDefiRes | undefined) => {
     if (!isVertical) {
       return open();
     }
-    DialogManager.show({
-      render: <OpenDappDialog protocol={protocol} onConfirm={open} />,
-    });
+    showDialog(<OpenDappDialog protocol={protocol} onConfirm={open} />);
   }, [protocol, isVertical, open]);
 };
 

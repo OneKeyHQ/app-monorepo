@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { DialogManager } from '@onekeyhq/components';
 import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -12,6 +11,7 @@ import {
 } from '../../../components/WalletConnect/walletConnectConsts';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { wait } from '../../../utils/helper';
+import { showDialog } from '../../../utils/overlayUtils';
 import { getInjectedConnector } from '../injectedConnectors';
 
 import { DialogConfirmMismatchOrContinue } from './DialogConfirmMismatchOrContinue';
@@ -66,30 +66,28 @@ export function useSendConfirmInfoOfExternalAccount({
       shouldGoBack?: boolean;
     } & IDialogConfirmMismatchContinueInfo) =>
       new Promise((resolve) => {
-        DialogManager.show({
-          render: (
-            <DialogConfirmMismatchOrContinue
-              {...others}
-              onSubmit={() => {
-                resolve(true);
-              }}
-              onCancel={async () => {
-                if (shouldTerminateConnection) {
-                  await terminateWcConnection({
-                    client,
-                    walletUrl,
-                  });
+        showDialog(
+          <DialogConfirmMismatchOrContinue
+            {...others}
+            onSubmit={() => {
+              resolve(true);
+            }}
+            onCancel={async () => {
+              if (shouldTerminateConnection) {
+                await terminateWcConnection({
+                  client,
+                  walletUrl,
+                });
+              }
+              if (shouldGoBack) {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
                 }
-                if (shouldGoBack) {
-                  if (navigation.canGoBack()) {
-                    navigation.goBack();
-                  }
-                }
-                resolve(false);
-              }}
-            />
-          ),
-        });
+              }
+              resolve(false);
+            }}
+          />,
+        );
       }),
     [navigation],
   );

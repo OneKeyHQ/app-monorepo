@@ -8,7 +8,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Dialog,
-  DialogManager,
   HStack,
   IconButton,
   Pressable,
@@ -24,6 +23,7 @@ import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 import { FormatCurrencyNumber } from '../../../components/Format';
 import { navigationRef } from '../../../provider/NavigationProvider';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { showDialog } from '../../../utils/overlayUtils';
 import { useConnectAndCreateExternalAccount } from '../../ExternalAccount/useConnectAndCreateExternalAccount';
 import {
   useAccountCanTransaction,
@@ -131,9 +131,7 @@ export const ERC20Allowance: FC<Props> = ({
 
   const checkAccount = useCallback(() => {
     if (!hasPermission) {
-      DialogManager.show({
-        render: <ApproveDialog />,
-      });
+      showDialog(<ApproveDialog />);
       return false;
     }
     return true;

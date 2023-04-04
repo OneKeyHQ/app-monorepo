@@ -4,7 +4,6 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  DialogManager,
   HStack,
   IconButton,
   Pressable,
@@ -17,6 +16,7 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
 import { useActiveWalletAccount } from '../../../hooks';
+import { showDialog } from '../../../utils/overlayUtils';
 import {
   useAccountCanTransaction,
   useSpenderAppName,
@@ -67,9 +67,7 @@ export const ERC721Allowance: FC<Props> = ({
 
   const checkIsCurrentAccount = useCallback(() => {
     if (!hasPermission) {
-      DialogManager.show({
-        render: <ApproveDialog />,
-      });
+      showDialog(<ApproveDialog />);
       return false;
     }
     return true;
