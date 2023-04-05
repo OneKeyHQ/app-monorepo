@@ -7,16 +7,15 @@ import {
   Button,
   Collapse,
   Form,
-  HStack,
   Icon,
-  Pressable,
   Text,
-  Tooltip,
   useForm,
 } from '@onekeyhq/components';
 
 import { useNetworkSimple } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
+
+import { LabelWithTooltip } from './LableWithTooltip';
 
 import type { SendConfirmAdvancedSettings as AdvancedSettings } from '../types';
 
@@ -85,27 +84,10 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
         <Form.Item
           name="nonce"
           label={
-            <HStack alignItems="center" space={1}>
-              <Text typography="Body2Strong">
-                {intl.formatMessage({ id: 'form__nonce' })}
-              </Text>
-              <Tooltip
-                hasArrow
-                maxW="260px"
-                placement="top left"
-                label={intl.formatMessage({
-                  id: 'content__what_is_nonce_desc',
-                })}
-              >
-                <Pressable>
-                  <Icon
-                    name="QuestionMarkCircleMini"
-                    size={16}
-                    color="icon-subdued"
-                  />
-                </Pressable>
-              </Tooltip>
-            </HStack>
+            <LabelWithTooltip
+              labelId="form__nonce"
+              tooltipId="content__what_is_nonce_desc"
+            />
           }
           rules={{
             min: 0,

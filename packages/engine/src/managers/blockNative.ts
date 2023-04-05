@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { OneKeyInternalError } from '../errors';
+import { NotImplemented, OneKeyInternalError } from '../errors';
 
 import type {
   BlockNativeGasAPIResponse,
@@ -14,13 +14,15 @@ import type {
 const BLOCK_NATIVE_BASE_URL = 'https://api.blocknative.com';
 const SUPPORTED_CHAIN: string[] = [OnekeyNetwork.eth, OnekeyNetwork.polygon];
 
-const getBlockNativeGasInfo = async (
-  networkId: string,
-): Promise<BlockNativeGasInfo> => {
+const getBlockNativeGasInfo = async ({
+  networkId,
+  priceOrder,
+}: {
+  networkId: string;
+  priceOrder?: 'desc';
+}): Promise<BlockNativeGasInfo> => {
   if (!SUPPORTED_CHAIN.includes(networkId)) {
-    throw new OneKeyInternalError(
-      'block native does not supported this network',
-    );
+    throw new NotImplemented('block native does not supported this network');
   }
 
   const [, chainId] = networkId.split(SEPERATOR);
@@ -56,7 +58,12 @@ const getBlockNativeGasInfo = async (
     return {
       estimatedTransactionCount,
       baseFee: new BigNumber(baseFeePerGas).toFixed(),
-      prices: prices.sort((a, b) => (a.confidence > b.confidence ? 1 : -1)),
+      maxPrice: resp.maxPrice,
+      unit: resp.unit,
+      prices:
+        priceOrder === 'desc'
+          ? prices
+          : prices.sort((a, b) => (a.confidence > b.confidence ? 1 : -1)),
     };
   }
 

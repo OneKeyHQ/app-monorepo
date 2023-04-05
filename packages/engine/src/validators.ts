@@ -506,20 +506,24 @@ class Validators {
           ? new BigNumber(maxPriorityFee)
           : maxPriorityFee;
       if (v.isLessThan(pv)) {
-        throw new OneKeyValidatorError('form__max_fee_invalid_min');
+        throw new OneKeyValidatorError(
+          'msg__custom_fee_warning_max_fee_is_lower_than_priority_fee',
+        );
       }
 
       if (highValue) {
         const networkMax = new BigNumber(highValue);
         if (v.isGreaterThan(networkMax.times(FEE_PRICE_HIGH_VALUE_TIMES))) {
-          throw new OneKeyValidatorTip('form__max_fee_invalid_too_much');
+          throw new OneKeyValidatorTip(
+            'msg__custom_fee_warning_max_fee_is_high',
+          );
         }
       }
       if (lowValue) {
         if (v.isLessThan(lowValue)) {
-          throw new OneKeyValidatorTip('form__max_fee_invalid_too_low', {
-            0: lowValue,
-          });
+          throw new OneKeyValidatorTip(
+            'msg__custom_fee_warning_max_fee_is_low',
+          );
         }
       }
     } catch (e) {
@@ -565,7 +569,7 @@ class Validators {
       if (lowValue) {
         if (v.isLessThan(new BigNumber(lowValue))) {
           throw new OneKeyValidatorTip(
-            'form__max_priority_fee_invalid_too_low',
+            'msg__custom_fee_warning_priority_fee_is_low',
           );
         }
       }
@@ -576,7 +580,7 @@ class Validators {
           )
         ) {
           throw new OneKeyValidatorTip(
-            'form__max_priority_fee_invalid_too_much',
+            'msg__custom_fee_warning_priority_fee_is_high',
           );
         }
       }

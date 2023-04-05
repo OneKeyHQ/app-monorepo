@@ -257,6 +257,8 @@ export type IFeeInfoUnit = {
   price1559?: EIP1559Fee;
   limit?: string;
   limitUsed?: string;
+  similarToPreset?: string;
+  waitingSeconds?: number;
 };
 // TODO rename to IFeeInfoMeta
 export type IFeeInfo = {

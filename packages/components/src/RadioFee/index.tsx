@@ -55,9 +55,9 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
               {!!titleSecond && (
                 <Typography.Body2
                   mt="auto"
-                  color={item.isDisabled ? 'text-disabled' : 'text-subdued'}
+                  color={isDisabled ? 'text-disabled' : 'text-subdued'}
                 >
-                  {item.titleSecond}
+                  {titleSecond}
                 </Typography.Body2>
               )}
             </Box>

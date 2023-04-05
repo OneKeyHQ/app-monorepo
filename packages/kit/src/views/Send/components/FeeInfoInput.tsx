@@ -23,6 +23,7 @@ import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../utils/sendConfirmConsts';
 import { useNetworkFeeInfoEditable } from '../utils/useNetworkFeeInfoEditable';
 
 import { FeeSpeedLabel } from './FeeSpeedLabel';
+import { FeeSpeedTime } from './FeeSpeedTime';
 import { TxTitleDetailView } from './TxTitleDetailView';
 
 import type {
@@ -435,40 +436,38 @@ function FeeInfoInputForConfirmLite({
     if (!encodedTx || !feeInfoPayload) {
       return null;
     }
-    const totalNative = totalFeeInNative || '0';
-    const color = 'text-subdued';
-    if (isPreset) {
-      return (
-        <HStack alignItems="center">
-          <Text typography="Body1Strong" flex={1}>
-            <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
-          </Text>
-          {feeInfoEditable && (
-            <Icon name="ChevronRightMini" color="icon-subdued" />
-          )}
-        </HStack>
-      );
-    }
-    // TODO fallback to native value if fiat price is null
+
+    const { custom } = feeInfoPayload.selected;
+
+    const index = isPreset
+      ? feeInfoPayload?.selected?.preset
+      : custom?.similarToPreset;
+    const waitingSeconds = isPreset
+      ? feeInfoPayload?.info?.waitingSeconds?.[Number(index)]
+      : custom?.waitingSeconds;
     return (
-      <Text color={color}>
-        <FormatCurrencyNativeOfAccount
-          networkId={networkId}
-          accountId={accountId}
-          value={totalNative}
-          render={(ele) => <>{ele}</>}
-        />
-      </Text>
+      <HStack alignItems="center">
+        <HStack flex={1} space={2}>
+          <Text typography="Body1Strong">
+            <FeeSpeedLabel
+              isCustom={!isPreset}
+              index={feeInfoPayload?.selected?.preset}
+            />
+          </Text>
+          <Text typography="Body1Strong">
+            <FeeSpeedTime
+              index={index ?? 0}
+              waitingSeconds={waitingSeconds}
+              withColor
+            />
+          </Text>
+        </HStack>
+        {feeInfoEditable && (
+          <Icon name="ChevronRightMini" color="icon-subdued" />
+        )}
+      </HStack>
     );
-  }, [
-    accountId,
-    encodedTx,
-    feeInfoEditable,
-    feeInfoPayload,
-    isPreset,
-    networkId,
-    totalFeeInNative,
-  ]);
+  }, [encodedTx, feeInfoEditable, feeInfoPayload, isPreset]);
 
   const subTitle = useMemo(() => {
     if (!encodedTx || !feeInfoPayload) {

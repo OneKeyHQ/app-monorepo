@@ -404,7 +404,7 @@ class ProviderController extends BaseProviderController {
       let metaMaskGasInfo: MetaMaskGasInfo | null = null;
       let blockNativeGasInfoInit = false;
       let blockNativeGasInfo: BlockNativeGasInfo | null = null;
-      getBlockNativeGasInfo(networkId)
+      getBlockNativeGasInfo({ networkId })
         .then((gasInfo) => {
           blockNativeGasInfo = gasInfo;
         })

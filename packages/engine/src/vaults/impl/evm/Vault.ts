@@ -1068,11 +1068,9 @@ export default class Vault extends VaultBase {
     // RPC: eth_gasPrice
     let { prices, networkCongestion, estimatedTransactionCount } =
       await this.engine.getGasInfo(this.networkId);
-    let originalPrices = null;
 
     // fi blocknative returns 5 gas gears, then take the middle 3 as the default prices
     if (prices.length === 5) {
-      originalPrices = prices;
       prices = prices.slice(1, 4);
     }
 
@@ -1217,7 +1215,6 @@ export default class Vault extends VaultBase {
       },
       baseFeeValue,
       extraInfo: {
-        originalPrices,
         networkCongestion,
         estimatedTransactionCount,
       },

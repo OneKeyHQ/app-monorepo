@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { HStack, Text } from '@onekeyhq/components';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 
 export function FeeSpeedLabel({
   index,
@@ -14,7 +15,7 @@ export function FeeSpeedLabel({
   const intl = useIntl();
   const indexInt = parseInt(index as string, 10);
 
-  let titleId = '';
+  let titleId: LocaleIds;
   let titleIcon = '';
 
   if (isCustom) {
@@ -36,7 +37,7 @@ export function FeeSpeedLabel({
         break;
       default:
         titleIcon = '🚕';
-        titleId = `'form__market'`;
+        titleId = 'form__market';
     }
   }
 

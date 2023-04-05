@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { Icon, Tooltip } from '@onekeyhq/components';
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 
 export function FeeSpeedTip({
@@ -13,7 +14,7 @@ export function FeeSpeedTip({
   const intl = useIntl();
   const indexInt = parseInt(index as string, 10);
 
-  let feeSpeedTipId = '';
+  let feeSpeedTipId: LocaleIds;
 
   if (isCustom) {
     feeSpeedTipId = 'content__gas_option_custom_desc';
@@ -37,7 +38,7 @@ export function FeeSpeedTip({
     <Tooltip
       hasArrow
       maxW="260px"
-      placement="top left"
+      placement="top right"
       label={intl.formatMessage({
         id: feeSpeedTipId,
       })}

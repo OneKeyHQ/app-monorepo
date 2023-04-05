@@ -4,6 +4,22 @@ export type BlockNativeGasInfo = {
   estimatedTransactionCount: number;
   baseFee: string;
   prices: EIP1559Fee[];
+  maxPrice: number;
+  unit: string;
+};
+
+export type EstimatedPrice = {
+  confidence: number;
+  price: number;
+  maxPriorityFeePerGas: number;
+  maxFeePerGas: number;
+};
+
+export type BlockPrice = {
+  blockNumber: number;
+  estimatedTransactionCount: number;
+  baseFeePerGas: number;
+  estimatedPrices: EstimatedPrice[];
 };
 
 export type BlockNativeGasAPIResponse = {
@@ -13,15 +29,5 @@ export type BlockNativeGasAPIResponse = {
   maxPrice: number;
   currentBlockNumber: number;
   msSinceLastBlock: number;
-  blockPrices: {
-    blockNumber: number;
-    estimatedTransactionCount: number;
-    baseFeePerGas: number;
-    estimatedPrices: {
-      confidence: number;
-      price: number;
-      maxPriorityFeePerGas: number;
-      maxFeePerGas: number;
-    }[];
-  }[];
+  blockPrices: BlockPrice[];
 };

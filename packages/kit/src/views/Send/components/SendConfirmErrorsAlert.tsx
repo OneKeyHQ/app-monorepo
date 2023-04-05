@@ -1,9 +1,13 @@
+import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, VStack } from '@onekeyhq/components';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { MainRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
+import { setHomeTabName } from '../../../store/reducers/status';
 import { EditableNonceStatusEnum } from '../types';
 
 export function SendConfirmErrorsAlert({
@@ -14,6 +18,8 @@ export function SendConfirmErrorsAlert({
   isAccountNotMatched,
   editableNonceStatus,
   isNetworkBusy,
+  isLowMaxFee,
+  pendingTxCount,
 }: {
   nativeToken?: Token;
   isWatchingAccount?: boolean;
@@ -22,9 +28,12 @@ export function SendConfirmErrorsAlert({
   isAccountNotMatched?: boolean;
   isNetworkBusy?: boolean;
   editableNonceStatus?: EditableNonceStatusEnum;
+  isLowMaxFee?: boolean;
+  pendingTxCount?: string;
 }) {
   const errors = [];
   const intl = useIntl();
+  const navigation = useNavigation();
 
   if (isAccountNotMatched) {
     errors.push(
@@ -73,7 +82,7 @@ export function SendConfirmErrorsAlert({
   if (editableNonceStatus === EditableNonceStatusEnum.Less) {
     errors.push(
       <FormErrorMessage
-        type="warn"
+        alertType="warn"
         isAlertStyle
         message={intl.formatMessage({
           id: 'msg__nonce_used_this_will_generate_a_rbf_tx',
@@ -85,7 +94,7 @@ export function SendConfirmErrorsAlert({
   if (editableNonceStatus === EditableNonceStatusEnum.Greater) {
     errors.push(
       <FormErrorMessage
-        type="warn"
+        alertType="warn"
         isAlertStyle
         message={intl.formatMessage({
           id: 'msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed',
@@ -97,11 +106,46 @@ export function SendConfirmErrorsAlert({
   if (isNetworkBusy) {
     errors.push(
       <FormErrorMessage
-        type="warn"
+        alertType="warn"
         isAlertStyle
         message={intl.formatMessage({
           id: 'msg__eth_tx_warning_network_busy_gas_is_high',
         })}
+      />,
+    );
+  }
+
+  if (isLowMaxFee) {
+    errors.push(
+      <FormErrorMessage
+        alertType="warn"
+        isAlertStyle
+        message={intl.formatMessage({
+          id: 'msg__eth_tx_warning_future_tx_will_queue',
+        })}
+      />,
+    );
+  }
+
+  if (pendingTxCount && pendingTxCount !== '0') {
+    errors.push(
+      <FormErrorMessage
+        alertType="warn"
+        isAlertStyle
+        message={intl.formatMessage(
+          { id: 'msg__eth_tx_warning_tx_will_be_queued_str' },
+          { 'number': pendingTxCount },
+        )}
+        action={intl.formatMessage({ id: 'action__view' })}
+        onAction={() => {
+          backgroundApiProxy.dispatch(setHomeTabName('History'));
+          navigation?.navigate(RootRoutes.Main, {
+            screen: MainRoutes.Tab,
+            params: {
+              screen: TabRoutes.Home,
+            },
+          });
+        }}
       />,
     );
   }
