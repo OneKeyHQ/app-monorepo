@@ -107,6 +107,7 @@ export function useSwapSend() {
               feeInfoEditable: true,
               feeInfoUseFeeInTx: false,
               encodedTx,
+              hideSendFeedbackReceipt: !showSendFeedbackReceipt,
               onDetail,
               onSuccess: (result, data) => {
                 onSuccess?.({
