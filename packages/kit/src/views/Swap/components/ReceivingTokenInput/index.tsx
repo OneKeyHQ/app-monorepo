@@ -318,7 +318,6 @@ const SendToAnotherAddress = () => {
   );
   const onToggle = useCallback(() => {
     const newValue = !allowAnotherRecipientAddress;
-    backgroundApiProxy.dispatch(setAllowAnotherRecipientAddress(newValue));
     if (newValue) {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Swap,
@@ -340,10 +339,15 @@ const SendToAnotherAddress = () => {
                   accountId,
                 }),
               );
+              backgroundApiProxy.dispatch(
+                setAllowAnotherRecipientAddress(newValue),
+              );
             },
           },
         },
       });
+    } else {
+      backgroundApiProxy.dispatch(setAllowAnotherRecipientAddress(newValue));
     }
   }, [allowAnotherRecipientAddress, outputToken, navigation]);
   if (inputToken && outputToken) {
