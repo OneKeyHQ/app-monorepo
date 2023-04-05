@@ -845,7 +845,13 @@ const SwapExchangeStateButton = () => {
 
   if (!quote) {
     return (
-      <Button size="xl" type="primary" isDisabled key="noQuote">
+      <Button
+        size="xl"
+        type="primary"
+        isDisabled
+        key="noQuote"
+        isLoading={loading}
+      >
         {intl.formatMessage({ id: 'title__swap' })}
       </Button>
     );
