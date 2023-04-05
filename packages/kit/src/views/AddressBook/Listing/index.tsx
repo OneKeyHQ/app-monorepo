@@ -8,14 +8,13 @@ import {
   Box,
   Center,
   Empty,
-  Icon,
   IconButton,
   List,
   ListItem,
   Modal,
-  Pressable,
   ToastManager,
   Typography,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
@@ -50,6 +49,7 @@ type ListProps = {
 const AddressList = ({ networkId, onNew, onSelected }: ListProps) => {
   const intl = useIntl();
   const contacts = useAppSelector((s) => s.contacts.contacts);
+  const { bottom } = useSafeAreaInsets();
 
   const data = useMemo(() => {
     let values = Object.values(contacts);
@@ -90,56 +90,57 @@ const AddressList = ({ networkId, onNew, onSelected }: ListProps) => {
       const { name, badge, address } = item;
       return (
         <ListItem
-          px={0}
-          py={0}
-          my={0}
           onLongPress={() => {
             onCopy(address);
           }}
           onPress={() => onPress(item)}
         >
-          <Box
-            w="40px"
-            h="40px"
-            borderRadius="full"
-            bg="decorative-surface-one"
-            justifyContent="center"
-            alignItems="center"
-          >
-            <Typography.Body2 color="decorative-icon-one">
-              {name.toUpperCase()[0]}
-            </Typography.Body2>
-          </Box>
-          <Box flex="1">
-            <Box flexDirection="row" mb="4px">
-              <Typography.Body1Strong mr="8px" numberOfLines={1}>
-                {name}
-              </Typography.Body1Strong>
-              <Badge size="sm" title={badge.toUpperCase()} />
-            </Box>
-            <Typography.Body2 color="text-subdued" numberOfLines={2}>
-              {address}
-            </Typography.Body2>
-          </Box>
-          <AddressBookMenu contact={item}>
-            <Pressable
-              width="36px"
-              height="36px"
+          <ListItem.Column>
+            <Box
+              w="40px"
+              h="40px"
+              borderRadius="full"
+              bg="decorative-surface-one"
               justifyContent="center"
               alignItems="center"
             >
-              <Icon size={20} name="EllipsisVerticalMini" />
-            </Pressable>
-          </AddressBookMenu>
+              <Typography.Body2 color="decorative-icon-one">
+                {name.toUpperCase()[0]}
+              </Typography.Body2>
+            </Box>
+          </ListItem.Column>
+          <ListItem.Column
+            flex={1}
+            text={{
+              label: (
+                <Box flexDirection="row" alignItems="center">
+                  <Typography.Body1Strong mr="8px" isTruncated>
+                    {name}
+                  </Typography.Body1Strong>
+                  <Badge size="sm" title={badge.toUpperCase()} />
+                </Box>
+              ),
+              description: (
+                <Typography.Body2 color="text-subdued">
+                  {address}
+                </Typography.Body2>
+              ),
+            }}
+          />
+
+          <ListItem.Column>
+            <AddressBookMenu contact={item}>
+              <IconButton name="EllipsisVerticalMini" circle type="plain" />
+            </AddressBookMenu>
+          </ListItem.Column>
         </ListItem>
       );
     },
     [onCopy, onPress],
   );
-  const ItemSeparatorComponent = useCallback(() => <Box h="16px" />, []);
 
   return data.length === 0 ? (
-    <Center w="full" h="full" bg="background-default">
+    <Center w="full" h="full">
       <Empty
         title={intl.formatMessage({ id: 'title__no_cantact' })}
         subTitle={intl.formatMessage({ id: 'title__no_cantact_desc' })}
@@ -151,12 +152,10 @@ const AddressList = ({ networkId, onNew, onSelected }: ListProps) => {
     </Center>
   ) : (
     <List
-      m={0}
-      p="16px"
       data={data}
       renderItem={renderItem}
-      ItemSeparatorComponent={ItemSeparatorComponent}
       keyExtractor={(item) => String(item.id)}
+      ListFooterComponent={bottom > 0 ? <Box h={`${bottom}px`} /> : null}
     />
   );
 };
@@ -176,18 +175,16 @@ const AddressBookModal = () => {
       rightContent={
         <IconButton
           onPress={onNew}
-          width="40px"
-          height="40px"
           name="PlusCircleOutline"
           type="plain"
+          size="lg"
+          circle
         />
       }
-      header={intl.formatMessage({ id: 'title__select_contact' })}
+      header={intl.formatMessage({ id: 'title__contacts' })}
       hideSecondaryAction
       footer={null}
-      maxHeight="560px"
-      height="560px"
-      staticChildrenProps={{ flex: 1 }}
+      height="480px"
     >
       <AddressList
         networkId={networkId}
