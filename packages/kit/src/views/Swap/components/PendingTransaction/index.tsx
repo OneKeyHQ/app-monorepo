@@ -4,7 +4,6 @@ import { useEffect } from 'react';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { updateTransaction } from '../../../../store/reducers/swapTransactions';
 import { SwapQuoter } from '../../quoter';
-import { isSimpleTx } from '../../utils';
 
 import type { TransactionDetails } from '../../typings';
 
@@ -37,8 +36,9 @@ class Scheduler {
   }
 
   private getMs() {
-    const { addedTime } = this.tx;
-    const base = isSimpleTx(this.tx) ? 5 * 1000 : 30 * 1000;
+    const { addedTime, tokens } = this.tx;
+    const base =
+      tokens?.from.networkId === tokens?.to.networkId ? 5 * 1000 : 30 * 1000;
     const now = Date.now();
     const spent = now - addedTime;
     return spent <= 1000 * 60 * 60 ? base : 5 * 60 * 1000;

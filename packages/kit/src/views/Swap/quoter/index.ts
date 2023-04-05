@@ -19,6 +19,8 @@ import {
   getTokenAmountValue,
   isEvmNetworkId,
   isSimpleTx,
+  isSolNetworkId,
+  minus,
   multiply,
 } from '../utils';
 
@@ -39,6 +41,8 @@ import type {
   QuoteLimited,
   Quoter,
   QuoterType,
+  SOLSerializableTransactionReceipt,
+  SOLSerializableTransactionReceiptTokenBalancesItem,
   SerializableBlockReceipt,
   SerializableTransactionReceipt,
   TransactionData,
@@ -144,6 +148,11 @@ export class SwapQuoter {
   transactionReceipts: Record<
     string,
     Record<string, SerializableTransactionReceipt>
+  > = {};
+
+  solTransactionReceipts: Record<
+    string,
+    Record<string, SOLSerializableTransactionReceipt>
   > = {};
 
   prepare() {
@@ -523,6 +532,29 @@ export class SwapQuoter {
     }
   }
 
+  async getSOLTransactionReceipt(
+    networkId: string,
+    txid: string,
+  ): Promise<SOLSerializableTransactionReceipt | undefined> {
+    if (!this.solTransactionReceipts[networkId]) {
+      this.solTransactionReceipts[networkId] = {};
+    }
+    if (this.solTransactionReceipts[networkId]?.[txid]) {
+      return this.solTransactionReceipts[networkId]?.[txid];
+    }
+    const receipt = (await backgroundApiProxy.serviceNetwork.rpcCall(
+      networkId,
+      {
+        method: 'getTransaction',
+        params: [txid, 'json'],
+      },
+    )) as SOLSerializableTransactionReceipt | undefined;
+    if (receipt) {
+      this.solTransactionReceipts[networkId][txid] = receipt;
+      return receipt;
+    }
+  }
+
   async doQueryReceivedToken(
     txid: string,
     token: Token,
@@ -558,6 +590,28 @@ export class SwapQuoter {
           return false;
         });
         return log?.data;
+      }
+    } else if (isSolNetworkId(token.networkId)) {
+      const result = await this.getSOLTransactionReceipt(token.networkId, txid);
+      if (result) {
+        const findItem = (
+          item: SOLSerializableTransactionReceiptTokenBalancesItem,
+        ) => {
+          const address = token.tokenIdOnNetwork;
+          return (
+            item.owner.toLowerCase() === receivingAddress.toLowerCase() &&
+            item.mint.toLowerCase() === address.toLowerCase()
+          );
+        };
+        const pre = result.meta.preTokenBalances.find(findItem);
+        const post = result.meta.postTokenBalances.find(findItem);
+        if (pre && post) {
+          const value = minus(
+            post.uiTokenAmount.amount,
+            pre.uiTokenAmount.amount,
+          );
+          return value;
+        }
       }
     }
   }
@@ -597,6 +651,19 @@ export class SwapQuoter {
             if (amount) {
               return getTokenAmountValue(tx.tokens.to.token, amount).toFixed();
             }
+          }
+        } else if (
+          isSolNetworkId(from.networkId) &&
+          isSolNetworkId(to.networkId) &&
+          receivingAddress
+        ) {
+          const amount = await this.doQueryReceivedToken(
+            tx.hash,
+            to.token,
+            receivingAddress,
+          );
+          if (amount) {
+            return getTokenAmountValue(tx.tokens.to.token, amount).toFixed();
           }
         }
       }

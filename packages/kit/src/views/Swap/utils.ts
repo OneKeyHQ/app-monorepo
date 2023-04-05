@@ -194,6 +194,10 @@ export function isEvmNetworkId(networdId?: string) {
   return getNetworkIdImpl(networdId) === IMPL_EVM;
 }
 
+export function isSolNetworkId(networdId?: string) {
+  return getNetworkIdImpl(networdId) === IMPL_SOL;
+}
+
 export function getEvmTokenAddress(token: Token) {
   return token.tokenIdOnNetwork ? token.tokenIdOnNetwork : nativeTokenAddress;
 }
@@ -393,7 +397,11 @@ export function isSimpleTx(tx: TransactionDetails) {
   const from = tx.tokens?.from;
   const to = tx.tokens?.to;
   const quoterType = getQuoteType(tx);
-  return from?.networkId === to?.networkId && quoterType !== QuoterType.swftc;
+  return (
+    from?.networkId === to?.networkId &&
+    isEvmNetworkId(from?.networkId) &&
+    quoterType !== QuoterType.swftc
+  );
 }
 
 export function tokenEqual(tokenA: Token, tokenB: Token) {

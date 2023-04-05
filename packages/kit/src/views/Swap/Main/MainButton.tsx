@@ -1033,6 +1033,7 @@ const LimitOrderButton = () => {
       const { networkId } = params.tokenIn;
       const { tokenIn } = params;
       const { tokenOut } = params;
+      await wait(100);
       sendSignMessage({
         accountId,
         networkId,

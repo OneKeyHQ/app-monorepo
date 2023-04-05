@@ -276,6 +276,26 @@ export interface SerializableTransactionReceipt {
   logs?: TransactionLog[];
 }
 
+export type SOLSerializableTransactionReceiptTokenBalancesItem = {
+  mint: string;
+  owner: string;
+  uiTokenAmount: {
+    amount: string;
+    decimals: number;
+    uiAmount: number;
+    uiAmountString: 'string';
+  };
+};
+
+export interface SOLSerializableTransactionReceipt {
+  meta: {
+    preBalances: number[];
+    postBalances: number[];
+    postTokenBalances: SOLSerializableTransactionReceiptTokenBalancesItem[];
+    preTokenBalances: SOLSerializableTransactionReceiptTokenBalancesItem[];
+  };
+}
+
 export interface SerializableBlockReceipt {
   timestamp: string;
 }
