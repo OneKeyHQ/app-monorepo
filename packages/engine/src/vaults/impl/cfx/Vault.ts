@@ -211,7 +211,7 @@ export default class Vault extends VaultBase {
 
     if (!isNil(price)) {
       encodedTxWithFee.gasPrice = convertFeeGweiToValue({
-        value: (price as string) || '0.000000001',
+        value: price || '0.000000001',
         network,
       });
     }

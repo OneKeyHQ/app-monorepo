@@ -1,8 +1,6 @@
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Text } from '@onekeyhq/components';
-import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type {
   IFeeInfoPrice,
   IFeeInfoUnit,

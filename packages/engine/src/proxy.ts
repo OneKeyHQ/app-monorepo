@@ -48,9 +48,9 @@ import { IMPL_MAPPINGS, fillUnsignedTx, fillUnsignedTxObj } from './proxyUtils';
 import { HistoryEntryStatus } from './types/history';
 import { getRpcUrlFromChainInfo } from './vaults/utils/btcForkChain/provider/blockbook';
 
-import type { DBNetwork, EIP1559Fee } from './types/network';
 import type { BlockNativeGasInfo } from './types/blockNative';
 import type { MetaMaskGasInfo } from './types/metaMask';
+import type { DBNetwork, EIP1559Fee } from './types/network';
 
 type Curve = 'secp256k1' | 'ed25519';
 

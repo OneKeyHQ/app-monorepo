@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { first, toLower } from 'lodash';
+import { toLower } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Text } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { NetworkCongestionThresholds } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import { IDecodedTxDirection } from '@onekeyhq/engine/src/vaults/types';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount, useNativeToken } from '../../../hooks';
 import { useTokenBalanceWithoutFrozen } from '../../../hooks/useTokens';
 import { EditableNonceStatusEnum } from '../types';
@@ -22,9 +24,6 @@ import { SendConfirmErrorBoundary } from './SendConfirmErrorBoundary';
 import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
 
 import type { ITxConfirmViewProps } from '../types';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { IDecodedTxDirection } from '@onekeyhq/engine/src/vaults/types';
 
 // TODO rename SendConfirmModalBase
 export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
