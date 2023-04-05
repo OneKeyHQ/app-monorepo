@@ -688,18 +688,20 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
           setPriorityBooster={setPriorityBooster}
         />
       )}
-      <Box alignItems="center" mt={12}>
-        <CheckBox
-          onChange={(isSelected) => setSaveCustom(isSelected)}
-          isChecked={saveCustom}
-        >
-          <Text typography="Body2Strong">
-            {intl.formatMessage({
-              id: 'action__save_as_default_for_custom',
-            })}
-          </Text>
-        </CheckBox>
-      </Box>
+      {isEIP1559Fee && !autoConfirmAfterFeeSaved && (
+        <Box alignItems="center" mt={12}>
+          <CheckBox
+            onChange={(isSelected) => setSaveCustom(isSelected)}
+            isChecked={saveCustom}
+          >
+            <Text typography="Body2Strong">
+              {intl.formatMessage({
+                id: 'action__save_as_default_for_custom',
+              })}
+            </Text>
+          </CheckBox>
+        </Box>
+      )}
     </>
   ) : (
     <HStack space={6} alignContent="flex-start">

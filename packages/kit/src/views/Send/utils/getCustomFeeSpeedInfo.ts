@@ -37,12 +37,12 @@ function getCustomFeeSpeedInfo({
     );
     if (
       customPriorityBN.isGreaterThanOrEqualTo(
-        (medium.price as EIP1559Fee).maxPriorityFeePerGas,
+        (medium.price as EIP1559Fee)?.maxPriorityFeePerGas,
       )
     ) {
       if (
         customPriorityBN.isLessThan(
-          (high.price as EIP1559Fee).maxPriorityFeePerGas,
+          (high.price as EIP1559Fee)?.maxPriorityFeePerGas,
         )
       ) {
         // Medium

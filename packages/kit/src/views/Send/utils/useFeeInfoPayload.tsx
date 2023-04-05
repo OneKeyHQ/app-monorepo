@@ -253,8 +253,6 @@ export function useFeeInfoPayload({
         });
       }
 
-      console.log('currentInfoUnit', currentInfoUnit);
-
       // in GWEI
       const total = calculateTotalFeeRange(currentInfoUnit).max;
       const totalNative = calculateTotalFeeNative({

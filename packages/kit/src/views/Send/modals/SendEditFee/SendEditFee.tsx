@@ -305,13 +305,19 @@ function ScreenSendEditFee({ ...rest }) {
       const { price, limit, price1559 } = feeInfoValue;
       if (isEIP1559Fee) {
         const priceInfo = price1559 as EIP1559Fee;
-        setValue('baseFee', priceInfo.baseFee);
-        setValue('maxFeePerGas', priceInfo.maxFeePerGas);
-        setValue('maxPriorityFeePerGas', priceInfo.maxPriorityFeePerGas);
+        setValue('baseFee', new BigNumber(priceInfo.baseFee).toFixed());
+        setValue(
+          'maxFeePerGas',
+          new BigNumber(priceInfo.maxFeePerGas).toFixed(),
+        );
+        setValue(
+          'maxPriorityFeePerGas',
+          new BigNumber(priceInfo.maxPriorityFeePerGas).toFixed(),
+        );
       } else {
-        setValue('gasPrice', (price as string) ?? '');
+        setValue('gasPrice', new BigNumber(price ?? 0).toFixed());
       }
-      setValue('gasLimit', limit ?? '');
+      setValue('gasLimit', new BigNumber(limit ?? 0).toFixed());
     },
     [isEIP1559Fee, setValue],
   );
@@ -355,13 +361,9 @@ function ScreenSendEditFee({ ...rest }) {
 
   useEffect(() => {
     const selected = feeInfoPayload?.selected;
-    let type = selected?.type ?? 'preset';
-    if (
-      !feeInfoPayload ||
-      !feeInfoPayload?.info?.prices?.length ||
-      autoConfirmAfterFeeSaved
-    ) {
-      type = 'custom';
+    const type = selected?.type ?? 'preset';
+    if (!feeInfoPayload) {
+      return;
     }
     if (feeInfoPayload && type === 'preset') {
       let presetValue = selected?.preset || '1';
@@ -370,11 +372,12 @@ function ScreenSendEditFee({ ...rest }) {
         presetValue = '0';
       }
       setRadioValue(presetValue);
-      setFeeType(ESendEditFeeTypes.standard);
     } else if (type === 'custom') {
       const customValues = cloneDeep(selected?.custom ?? {});
-      setFeeType(ESendEditFeeTypes.advanced);
       if (customValues) {
+        setCurrentCustom(customValues);
+        setRadioValue('custom');
+        setFormValuesFromFeeInfo(customValues);
         // build fee customValues for speedUp & cancel tx
         if (autoConfirmAfterFeeSaved) {
           const actionType = oldSendConfirmParams?.actionType;
@@ -419,8 +422,9 @@ function ScreenSendEditFee({ ...rest }) {
               SEND_EDIT_FEE_PRICE_UP_RATIO,
             );
           }
+
+          setFeeType(ESendEditFeeTypes.advanced);
         }
-        setFormValuesFromFeeInfo(customValues);
       }
     }
   }, [
@@ -526,16 +530,18 @@ function ScreenSendEditFee({ ...rest }) {
             borderTopWidth={1}
             borderTopColor="border-subdued"
           >
-            <CheckBox
-              onChange={(isSelected) => setSaveCustom(isSelected)}
-              isChecked={saveCustom}
-            >
-              <Text typography="Body2Strong">
-                {intl.formatMessage({
-                  id: 'action__save_as_default_for_custom',
-                })}
-              </Text>
-            </CheckBox>
+            {isEIP1559Fee && (
+              <CheckBox
+                onChange={(isSelected) => setSaveCustom(isSelected)}
+                isChecked={saveCustom}
+              >
+                <Text typography="Body2Strong">
+                  {intl.formatMessage({
+                    id: 'action__save_as_default_for_custom',
+                  })}
+                </Text>
+              </CheckBox>
+            )}
             <Button
               isDisabled={!formState.isValid}
               onPress={() => onSubmit()}

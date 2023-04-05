@@ -1235,8 +1235,8 @@ export default class Vault extends VaultBase {
       );
     }
     // TODO to hex and shift decimals, do not shift decimals in fillUnsignedTxObj
-    if (!isNil(feeInfoValue.price)) {
-      if (feeInfoValue.eip1559) {
+    if (feeInfoValue.eip1559) {
+      if (!isNil(feeInfoValue.price1559)) {
         const priceInfo = feeInfoValue.price1559;
         encodedTxWithFee.maxFeePerGas = toBigIntHex(
           new BigNumber(priceInfo?.maxFeePerGas ?? 0).shiftedBy(
@@ -1249,12 +1249,13 @@ export default class Vault extends VaultBase {
           ),
         );
         delete encodedTxWithFee.gasPrice;
-      } else {
-        encodedTxWithFee.gasPrice = toBigIntHex(
-          new BigNumber(feeInfoValue.price).shiftedBy(network.feeDecimals),
-        );
       }
+    } else if (!isNil(feeInfoValue.price)) {
+      encodedTxWithFee.gasPrice = toBigIntHex(
+        new BigNumber(feeInfoValue.price).shiftedBy(network.feeDecimals),
+      );
     }
+
     return Promise.resolve(encodedTxWithFee);
   }
 
