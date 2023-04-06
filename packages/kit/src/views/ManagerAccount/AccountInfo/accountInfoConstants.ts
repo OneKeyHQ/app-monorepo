@@ -1,7 +1,7 @@
-import { formatMessage } from '@onekeyhq/components/src/Provider';
 import { AccountCredentialType } from '@onekeyhq/engine/src/types/account';
 
 import type { IAccountInfoListItem } from '.';
+import type { IntlShape } from 'react-intl';
 
 export enum ManageAccountKeys {
   Name = 'Name',
@@ -20,18 +20,17 @@ export const SpecialExportCredentialKeys = [
   ManageAccountKeys.ExportSecretMnemonic,
 ];
 
-export const manageAccountOptions: Record<
-  ManageAccountKeys,
-  IAccountInfoListItem
-> = {
+export const getManageAccountOptions: (
+  intl: IntlShape,
+) => Record<ManageAccountKeys, IAccountInfoListItem> = (intl) => ({
   [ManageAccountKeys.Name]: {
-    label: formatMessage({ id: 'form__name' }),
+    label: intl.formatMessage({ id: 'form__name' }),
     key: ManageAccountKeys.Name,
   },
   [ManageAccountKeys.ExportPublicKey]: {
-    label: formatMessage({ id: 'form__export_public_key' }),
+    label: intl.formatMessage({ id: 'form__export_public_key' }),
     key: ManageAccountKeys.ExportPublicKey,
-    description: formatMessage({
+    description: intl.formatMessage({
       id: 'msg__once_exposed_a_third_party_will_be_able_to_see_your_entire_transaction_history',
     }),
   },
@@ -39,9 +38,9 @@ export const manageAccountOptions: Record<
     key: ManageAccountKeys.HardwareCanNotExportPrivateKey,
   },
   [ManageAccountKeys.ExportPrivateKey]: {
-    label: formatMessage({ id: 'action__export_private_key' }),
+    label: intl.formatMessage({ id: 'action__export_private_key' }),
     key: ManageAccountKeys.ExportPrivateKey,
-    description: formatMessage({
+    description: intl.formatMessage({
       id: 'msg__once_exposed_a_third_party_will_be_able_to_take_full_control_of_your_account',
     }),
     credentialInfo: {
@@ -50,8 +49,8 @@ export const manageAccountOptions: Record<
     },
   },
   [ManageAccountKeys.ExportPrivateViewKey]: {
-    label: formatMessage({ id: 'action__export_private_view_key' }),
-    description: formatMessage({
+    label: intl.formatMessage({ id: 'action__export_private_view_key' }),
+    description: intl.formatMessage({
       id: 'action__export_private_view_key_desc',
     }),
     key: ManageAccountKeys.ExportPrivateViewKey,
@@ -61,8 +60,8 @@ export const manageAccountOptions: Record<
     },
   },
   [ManageAccountKeys.ExportPrivateSpendKey]: {
-    label: formatMessage({ id: 'action__export_private_spend_key' }),
-    description: formatMessage({
+    label: intl.formatMessage({ id: 'action__export_private_spend_key' }),
+    description: intl.formatMessage({
       id: 'action__export_private_spend_key_desc',
     }),
     key: ManageAccountKeys.ExportPrivateSpendKey,
@@ -72,8 +71,8 @@ export const manageAccountOptions: Record<
     },
   },
   [ManageAccountKeys.ExportSecretMnemonic]: {
-    label: formatMessage({ id: 'action__export_secret_mnemonic' }),
-    description: formatMessage({
+    label: intl.formatMessage({ id: 'action__export_secret_mnemonic' }),
+    description: intl.formatMessage({
       id: 'msg__once_exposed_a_third_party_will_be_able_to_take_full_control_of_your_account',
     }),
     key: ManageAccountKeys.ExportSecretMnemonic,
@@ -83,7 +82,7 @@ export const manageAccountOptions: Record<
     },
   },
   [ManageAccountKeys.RemoveAccount]: {
-    label: formatMessage({ id: 'action__remove_account' }),
+    label: intl.formatMessage({ id: 'action__remove_account' }),
     key: ManageAccountKeys.RemoveAccount,
   },
-};
+});

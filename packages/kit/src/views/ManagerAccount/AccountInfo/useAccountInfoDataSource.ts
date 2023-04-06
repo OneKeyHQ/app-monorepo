@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,7 +9,7 @@ import { useNetwork } from '../../../hooks';
 import {
   ManageAccountKeys,
   SpecialExportCredentialKeys,
-  manageAccountOptions,
+  getManageAccountOptions,
 } from './accountInfoConstants';
 
 import type { IAccountInfoListSectionData } from '.';
@@ -23,6 +23,10 @@ export function useAccountInfoDataSource({
 }) {
   const intl = useIntl();
   const { network } = useNetwork({ networkId });
+  const manageAccountOptions = useMemo(
+    () => getManageAccountOptions(intl),
+    [intl],
+  );
   const [dataSource, setDataSource] = useState<IAccountInfoListSectionData[]>([
     {
       title: intl.formatMessage({ id: 'content__info' }),
@@ -72,7 +76,7 @@ export function useAccountInfoDataSource({
         },
       ]);
     }
-  }, [network, wallet, intl]);
+  }, [network, wallet, intl, manageAccountOptions]);
 
   return { dataSource };
 }
