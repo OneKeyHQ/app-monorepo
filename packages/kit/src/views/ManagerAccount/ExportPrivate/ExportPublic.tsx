@@ -46,7 +46,7 @@ const ExportPublicKeyView: FC<ExportPublicKeyViewProps> = ({
   useEffect(() => {
     (async () => {
       try {
-        if (!accountId || !networkId || !password) return;
+        if (!accountId || !networkId) return;
         const account = await engine.getAccount(accountId, networkId);
         onAccountChange(account);
         const recomputeAccount = await engine.recomputeAccount({
@@ -97,7 +97,7 @@ const ExportPrivateViewModal = () => {
       height="auto"
     >
       <Protected
-        walletId={null}
+        walletId={walletId}
         skipSavePassword
         field={ValidationFields.Secret}
       >
