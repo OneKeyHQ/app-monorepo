@@ -3,7 +3,7 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
-import { find } from 'lodash';
+import { find, map, uniq } from 'lodash';
 import memoizee from 'memoizee';
 import TronWeb from 'tronweb';
 
@@ -48,14 +48,16 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type {
-  IContractDetail,
   IEncodedTxTron,
   IOnChainHistoryTokenTx,
   IOnChainHistoryTx,
   IRPCCallResponse,
+  ITRC10Detail,
+  ITRC20Detail,
   ITokenDetail,
 } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import EnablePassphraseDialog from '@onekeyhq/kit/src/views/Hardware/Onekey/EnablePassphraseDialog';
 
 const FAKE_OWNER_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 const SIGNATURE_LENGTH = 65;
@@ -101,17 +103,8 @@ export default class Vault extends VaultBase {
   );
 
   async getApiExplorer() {
-    const network = await this.engine.getNetwork(this.networkId);
-    let baseURL = network.blockExplorerURL.name;
-    if (network.isTestnet) {
-      baseURL = network.blockExplorerURL.name.replace(/shasta/, 'shastapi');
-    } else {
-      baseURL = network.blockExplorerURL.name.replace(
-        /(tronscan)/,
-        'apilist.$1',
-      );
-    }
-    return this.getApiExplorerCache(baseURL);
+    const scanURL = await this.getScanUrl();
+    return this.getApiExplorerCache(scanURL);
   }
 
   public async getClient() {
@@ -119,74 +112,48 @@ export default class Vault extends VaultBase {
     return this.getTronWeb(rpcURL);
   }
 
-  getTokenContact = memoizee(
-    async (tokenAddress) => {
-      const apiExplorer = await this.getApiExplorer();
-      const tokenContract = await apiExplorer.get<{
-        status: { code: number };
-        data: IContractDetail[];
-      }>('api/contract', {
-        params: {
-          contract: tokenAddress,
-        },
-      });
-
-      if (
-        tokenContract?.data?.status?.code === 0 &&
-        tokenContract?.data?.data?.length > 0
-      ) {
-        return tokenContract.data.data[0];
-      }
-    },
-    {
-      primitive: true,
-      promise: true,
-      max: 100,
-      maxAge: getTimeDurationMs({ minute: 3 }),
-    },
-  );
-
   getTokenInfo = memoizee(
     async (tokenAddress) => {
-      const tokenContract = await this.getTokenContact(tokenAddress);
-      if (tokenContract && tokenContract.tokenInfo?.tokenId) {
-        const { tokenInfo } = tokenContract;
-        return {
-          name: tokenInfo.tokenName,
-          symbol: tokenInfo.tokenAbbr,
-          decimals: tokenInfo.tokenDecimal,
-          logoURI: tokenInfo.tokenLogo,
-        };
-      }
-    },
-    { promise: true, max: 100, maxAge: getTimeDurationMs({ minute: 3 }) },
-  );
+      const apiExplorer = await this.getApiExplorer();
+      const isTrc10 = new BigNumber(tokenAddress).isInteger();
+      const path = isTrc10 ? 'api/token' : 'api/contract';
+      const params = isTrc10
+        ? { id: tokenAddress }
+        : { contract: tokenAddress };
 
-  getAccountTokens = memoizee(
-    async (address: string) => {
       try {
-        const apiExplorer = await this.getApiExplorer();
-        const resp = await apiExplorer.get<{ data: ITokenDetail[] }>(
-          'api/account/tokens',
-          {
-            params: {
-              address,
-            },
-          },
-        );
+        const resp = await apiExplorer.get(path, {
+          params,
+        });
 
-        const tokens = resp?.data?.data || [];
-        return tokens;
+        if (isTrc10) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          const tokenInfo: ITRC10Detail = resp.data.data?.[0];
+          if (tokenInfo) {
+            return {
+              name: tokenInfo.name,
+              symbol: tokenInfo.abbr,
+              decimals: tokenInfo.precision,
+              logoURI: tokenInfo.imgUrl,
+            };
+          }
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        const tokenInfo: ITRC20Detail = resp.data.trc20_tokens?.[0];
+        if (tokenInfo) {
+          return {
+            name: tokenInfo.name,
+            symbol: tokenInfo.symbol,
+            decimals: tokenInfo.decimals,
+            logoURI: tokenInfo.icon_url,
+          };
+        }
       } catch {
         // pass
       }
     },
-    {
-      primitive: true,
-      promise: true,
-      max: 1,
-      maxAge: getTimeDurationMs({ seconds: 30 }),
-    },
+    { promise: true, max: 100, maxAge: getTimeDurationMs({ minute: 3 }) },
   );
 
   getParameters = memoizee(
@@ -201,6 +168,25 @@ export default class Vault extends VaultBase {
     },
     { promise: true, maxAge: getTimeDurationMs({ minute: 3 }) },
   );
+
+  async getAccountTokens(address: string) {
+    try {
+      const apiExplorer = await this.getApiExplorer();
+      const resp = await apiExplorer.get<{ data: ITokenDetail[] }>(
+        'api/account/tokens',
+        {
+          params: {
+            address,
+          },
+        },
+      );
+
+      const tokens = resp?.data?.data || [];
+      return tokens;
+    } catch {
+      // pass
+    }
+  }
 
   async getConsumableResource(address: string) {
     const tronWeb = await this.getClient();
@@ -254,7 +240,15 @@ export default class Vault extends VaultBase {
     );
   }
 
-  override validateAddress(address: string) {
+  override async validateAddress(address: string) {
+    if (new BigNumber(address).isInteger()) {
+      const tokenInfo = await this.getTokenInfo(address);
+      if (tokenInfo) {
+        return address;
+      }
+      return Promise.reject(new InvalidAddress());
+    }
+
     if (TronWeb.isAddress(address)) {
       return Promise.resolve(TronWeb.address.fromHex(address));
     }
@@ -280,26 +274,37 @@ export default class Vault extends VaultBase {
   override async getBalances(
     requests: Array<{ address: string; tokenAddress?: string }>,
   ) {
-    const tronWeb = await this.getClient();
-    return Promise.all(
-      requests.map(async ({ address, tokenAddress }) => {
+    const addresses = uniq(map(requests, 'address'));
+    const tokens = await Promise.all(
+      addresses.map(async (address) => {
         try {
-          if (typeof tokenAddress === 'undefined') {
-            return new BigNumber(await tronWeb.trx.getBalance(address));
+          const accountTokens = await this.getAccountTokens(address);
+          if (accountTokens) {
+            return {
+              address,
+              tokens: accountTokens,
+            };
           }
-
-          const tokens = await this.getAccountTokens(address);
-          if (tokens) {
-            const token = find(tokens, { tokenId: tokenAddress });
-            return new BigNumber(token?.balance ?? 0);
-          }
-
-          return new BigNumber(0);
+          return null;
         } catch {
-          return new BigNumber(0);
+          return null;
         }
       }),
     );
+
+    return requests.map((request) => {
+      const { address, tokenAddress } = request;
+
+      const accountTokens = find(tokens, { address })?.tokens || [];
+
+      const token = find(accountTokens, { tokenId: tokenAddress ?? '_' });
+
+      if (token) {
+        return new BigNumber(token.balance ?? 0);
+      }
+
+      return new BigNumber(0);
+    });
   }
 
   override async getTransactionStatuses(
@@ -446,30 +451,49 @@ export default class Vault extends VaultBase {
         `Token not found: ${tokenAddress || 'TRX'}`,
       );
     }
-
     if (tokenAddress) {
-      const {
-        result: { result },
-        transaction,
-      } = await tronWeb.transactionBuilder.triggerSmartContract(
-        tokenAddress,
-        'transfer(address,uint256)',
-        {},
-        [
-          { type: 'address', value: to },
-          {
-            type: 'uint256',
-            value: new BigNumber(amount).shiftedBy(token.decimals).toFixed(0),
-          },
-        ],
-        from,
-      );
-      if (!result) {
-        throw new OneKeyInternalError(
-          'Unable to build token transfer transaction',
+      if (new BigNumber(tokenAddress).isInteger()) {
+        // trc10
+        try {
+          return await tronWeb.transactionBuilder.sendToken(
+            to,
+            parseInt(new BigNumber(amount).shiftedBy(token.decimals).toFixed()),
+            tokenAddress,
+            from,
+          );
+        } catch (e) {
+          if (typeof e === 'string' && e.endsWith('is not sufficient.')) {
+            throw new InsufficientBalance();
+          } else if (typeof e === 'string') {
+            throw new Error(e);
+          } else {
+            throw e;
+          }
+        }
+      } else {
+        const {
+          result: { result },
+          transaction,
+        } = await tronWeb.transactionBuilder.triggerSmartContract(
+          tokenAddress,
+          'transfer(address,uint256)',
+          {},
+          [
+            { type: 'address', value: to },
+            {
+              type: 'uint256',
+              value: new BigNumber(amount).shiftedBy(token.decimals).toFixed(0),
+            },
+          ],
+          from,
         );
+        if (!result) {
+          throw new OneKeyInternalError(
+            'Unable to build token transfer transaction',
+          );
+        }
+        return transaction;
       }
-      return transaction;
     }
 
     // TODO: handle insufficient balance case

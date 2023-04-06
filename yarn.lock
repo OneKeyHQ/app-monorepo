@@ -5155,10 +5155,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/network-list@npm:1.6.54":
-  version: 1.6.54
-  resolution: "@onekeyfe/network-list@npm:1.6.54"
-  checksum: 4f9d1c29af8aa7e03346a3982f1bbceb08de747d64e4e2206d64b7c87d9b216c74b0c07c8b30b9d96952c02650dea7331c9c4e10bbd7d6100d5304ac63a219ec
+"@onekeyfe/network-list@npm:1.6.55":
+  version: 1.6.55
+  resolution: "@onekeyfe/network-list@npm:1.6.55"
+  checksum: 5ee11963982eab04abe845da4fab8eac3b5178add6708efdecafa02aa3f34573974b6b096608eecb78060dd4d3c9c0f2b5765b350a2bf165877a277978f373b1
   languageName: node
   linkType: hard
 
@@ -5373,8 +5373,8 @@ __metadata:
     "@onekeyfe/hd-shared": 0.2.45
     "@onekeyfe/hd-transport": 0.2.45
     "@onekeyfe/hd-web-sdk": 0.2.45
-    "@onekeyfe/network-list": 1.6.54
     "@onekeyfe/onekey-cross-webview": 1.1.24
+    "@onekeyfe/network-list": 1.6.55
     "@open-wc/webpack-import-meta-loader": ^0.4.7
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.10
     "@starcoin/starcoin": 2.1.5
