@@ -1,4 +1,3 @@
-/* eslint-disable no-plusplus */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -91,37 +90,37 @@ export function useFetchWalletAddress({
     if (!payloadData) return;
     const { path, address } = payloadData;
     if (!currentTemplateRef.current) return;
-    for (let i = 0; i < temporaryAccountsRef.current.length; i++) {
-      if (
-        temporaryAccountsRef.current[i].template === currentTemplateRef.current
-      ) {
-        // compare path and insert address to accountData element
-        const { accountData } = temporaryAccountsRef.current[i];
-        for (let j = 0; j < accountData.length; j++) {
-          if (accountData[j].fullPath === path) {
-            if (
-              address &&
-              accountData[j].address.toLowerCase() !== address.toLowerCase()
-            ) {
-              throw new Error('not same address');
-            } else if (address) {
-              backgroundApiProxy.serviceDerivationPath
-                .convertPlainAddressItemToImportableHDAccount({
-                  networkId,
-                  path: path ?? '',
-                  address: address ?? '',
-                })
-                .then((account) => {
-                  accountData[j].address = account.displayAddress;
-                  accountData[j].confirm = true;
-                  setPreviousAddress(account.displayAddress ?? '');
-                  updateWalletsAccountProgress(temporaryAccountsRef.current);
-                });
-            }
-          }
+    temporaryAccountsRef.current.forEach((temporaryAccount) => {
+      if (temporaryAccount.template !== currentTemplateRef.current) {
+        return;
+      }
+      const { accountData } = temporaryAccount;
+      const matchIndex = accountData.findIndex(
+        (account) => account.fullPath === path,
+      );
+      if (matchIndex !== -1) {
+        if (
+          address &&
+          accountData[matchIndex].address.toLowerCase() !==
+            address.toLowerCase()
+        ) {
+          throw new Error('not same address');
+        } else if (address) {
+          backgroundApiProxy.serviceDerivationPath
+            .convertPlainAddressItemToImportableHDAccount({
+              networkId,
+              path: path ?? '',
+              address: address ?? '',
+            })
+            .then((account) => {
+              accountData[matchIndex].address = account.displayAddress;
+              accountData[matchIndex].confirm = true;
+              setPreviousAddress(account.displayAddress ?? '');
+              updateWalletsAccountProgress(temporaryAccountsRef.current);
+            });
         }
       }
-    }
+    });
   }, [
     previousAddressPayload,
     isFetchWalletAccountsMode,
