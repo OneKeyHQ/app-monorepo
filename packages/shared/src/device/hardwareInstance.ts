@@ -35,8 +35,7 @@ export const getHardwareSDKInstance = memoizee(
             connectSrc = sdkConnectSrc;
           }
         }
-        // settings.connectSrc = connectSrc;
-        settings.connectSrc = 'https://localhost:8087/';
+        settings.connectSrc = connectSrc;
       }
 
       settings.preRelease = params.isPreRelease;
