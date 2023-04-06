@@ -11,7 +11,7 @@ export type DeviceState = {
   screenHeight: number;
 };
 
-export const getSize = (screenWidth: number): DeviceState['size'] => {
+export const getScreenSize = (screenWidth: number): DeviceState['size'] => {
   if (!screenWidth) {
     return 'NORMAL';
   }

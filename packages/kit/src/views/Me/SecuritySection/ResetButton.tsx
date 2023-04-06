@@ -14,12 +14,12 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { showOverlay } from '../../../utils/overlayUtils';
+import { showDialog, showOverlay } from '../../../utils/overlayUtils';
 import { showSplashScreen } from '../../Overlay/showSplashScreen';
 
 export type ResetDialogProps = {
   onConfirm: () => Promise<void>;
-  onClose: () => void;
+  onClose?: () => void;
 };
 
 const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
@@ -44,7 +44,7 @@ const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
           setLoading(true);
           await onConfirm();
           setLoading(false);
-          onClose();
+          onClose?.();
         },
         onSecondaryActionPress: onClose,
       }}
@@ -79,45 +79,47 @@ const ResetDialog: FC<ResetDialogProps> = ({ onConfirm, onClose }) => {
 const ResetButton = () => {
   const intl = useIntl();
   const openResetHintDialog = useCallback(() => {
-    showOverlay((onClose) => (
+    showDialog(
       <ResetDialog
         onConfirm={async () => {
           showSplashScreen();
           return backgroundApiProxy.serviceApp.resetApp();
         }}
-        onClose={onClose}
-      />
-    ));
+      />,
+    );
   }, []);
 
   const openBackupModal = useCallback(() => {
-    showOverlay((onClose) => (
-      <Dialog
-        visible
-        onClose={onClose}
-        footerButtonProps={{
-          hideSecondaryAction: true,
-          onPrimaryActionPress: () => {
-            onClose();
-            setTimeout(openResetHintDialog, 500);
-          },
-          primaryActionTranslationId: 'action__i_got_it',
-          primaryActionProps: { type: 'primary' },
-        }}
-        contentProps={{
-          iconType: 'info',
-          title: intl.formatMessage({
-            id: 'modal__back_up_your_wallet',
-            defaultMessage: 'Back Up Your Wallet',
-          }),
-          content: intl.formatMessage({
-            id: 'modal__back_up_your_wallet_desc',
-            defaultMessage:
-              "Before resetting the App, make sure you've backed up all of your wallets.",
-          }),
-        }}
-      />
-    ));
+    showOverlay(
+      (onClose) => (
+        <Dialog
+          visible
+          onClose={onClose}
+          footerButtonProps={{
+            hideSecondaryAction: true,
+            onPrimaryActionPress: () => {
+              onClose();
+              setTimeout(openResetHintDialog, 500);
+            },
+            primaryActionTranslationId: 'action__i_got_it',
+            primaryActionProps: { type: 'primary' },
+          }}
+          contentProps={{
+            iconType: 'info',
+            title: intl.formatMessage({
+              id: 'modal__back_up_your_wallet',
+              defaultMessage: 'Back Up Your Wallet',
+            }),
+            content: intl.formatMessage({
+              id: 'modal__back_up_your_wallet_desc',
+              defaultMessage:
+                "Before resetting the App, make sure you've backed up all of your wallets.",
+            }),
+          }}
+        />
+      ),
+      true,
+    );
   }, [intl, openResetHintDialog]);
 
   const onOpenResetModal = useCallback(async () => {

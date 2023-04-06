@@ -413,36 +413,39 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
   ]);
 
   const onDelete = useCallback(() => {
-    showOverlay((onClose) => (
-      <Dialog
-        visible
-        onClose={onClose}
-        footerButtonProps={{
-          primaryActionTranslationId: 'action__delete',
-          secondaryActionTranslationId: 'action__cancel',
-          primaryActionProps: {
-            type: 'destructive',
-            onPromise: async () => {
-              await serviceCloudBackup.removeBackup(backupUUID);
-              onClose();
-              navigation.pop(2);
+    showOverlay(
+      (onClose) => (
+        <Dialog
+          visible
+          onClose={onClose}
+          footerButtonProps={{
+            primaryActionTranslationId: 'action__delete',
+            secondaryActionTranslationId: 'action__cancel',
+            primaryActionProps: {
+              type: 'destructive',
+              onPromise: async () => {
+                await serviceCloudBackup.removeBackup(backupUUID);
+                onClose();
+                navigation.pop(2);
+              },
             },
-          },
-        }}
-        contentProps={{
-          iconType: 'danger',
-          title: intl.formatMessage({
-            id: 'dialog__delete_backup',
-          }),
-          content: intl.formatMessage(
-            {
-              id: 'dialog__delete_backup_desc',
-            },
-            { 'cloudName': backupPlatform().cloudName },
-          ),
-        }}
-      />
-    ));
+          }}
+          contentProps={{
+            iconType: 'danger',
+            title: intl.formatMessage({
+              id: 'dialog__delete_backup',
+            }),
+            content: intl.formatMessage(
+              {
+                id: 'dialog__delete_backup_desc',
+              },
+              { 'cloudName': backupPlatform().cloudName },
+            ),
+          }}
+        />
+      ),
+      true,
+    );
   }, [backupUUID, intl, navigation, serviceCloudBackup]);
 
   return (

@@ -16,6 +16,7 @@ import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { createLazyComponent } from '../utils/createLazyComponent';
+import { PortalExit } from '../views/Overlay/RootPortal';
 
 import AppLoading from './AppLoading';
 import NavigationProvider from './NavigationProvider';
@@ -63,6 +64,7 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
       <>
         <ChainWebEmbed />
         <CustomToast bottomOffset={60} />
+        <PortalExit name="Root-FullWindowOverlay" />
       </>
     ),
     [],

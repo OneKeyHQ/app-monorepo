@@ -16,7 +16,7 @@ import type {
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import { AddressEncodings } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
-import { isTaprootXpubSegwit } from '../utils';
+import { isTaprootXpubSegwit, isWatchAccountTaprootSegwit } from '../utils';
 
 import { getBlockBook } from './blockbook';
 import { getNetwork } from './networks';
@@ -279,7 +279,10 @@ class Provider {
     addressEncoding?: AddressEncodings,
   ) {
     let encoding = addressEncoding;
-    if (isTaprootXpubSegwit(params.xpub)) {
+    if (
+      isTaprootXpubSegwit(params.xpub) ||
+      isWatchAccountTaprootSegwit(params.xpub)
+    ) {
       encoding = AddressEncodings.P2TR;
     } else {
       const decodedXpub = bs58check.decode(params.xpub);

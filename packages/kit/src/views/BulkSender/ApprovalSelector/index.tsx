@@ -14,7 +14,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
-import * as overlayUtils from '../../../utils/overlayUtils';
+import { showOverlay } from '../../../utils/overlayUtils';
 
 type ApprovalOption = {
   title: string;
@@ -139,7 +139,7 @@ const showApprovalSelector = ({
   isUnlimited: boolean;
   setIsUnlimited: React.Dispatch<React.SetStateAction<boolean>>;
 }) => {
-  overlayUtils.showOverlay((close) => (
+  showOverlay((close) => (
     <ApprovalSelectorBottomSheetModal
       isUnlimited={isUnlimited}
       setIsUnlimited={setIsUnlimited}

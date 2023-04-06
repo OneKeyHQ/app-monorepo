@@ -5,7 +5,6 @@ import { PermissionsAndroid, Platform } from 'react-native';
 import Modal from 'react-native-modal';
 import RootSiblingsManager from 'react-native-root-siblings';
 
-import DialogManager from '@onekeyhq/components/src/DialogManager';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
 import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
@@ -13,6 +12,8 @@ import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { HardwareUiEventPayload } from '@onekeyhq/kit/src/store/reducers/hardware';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { showDialog } from '../../../utils/overlayUtils';
 
 import EnterPassphraseView from './EnterPassphrase';
 import HandlerClosePassphraseView from './HandlerClosePassphrase';
@@ -204,67 +205,57 @@ export default async function showHardwarePopup({
   }
 
   if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_NEED_UPGRADE_FIRMWARE) {
-    DialogManager.show({
-      render: (
-        <HandlerFirmwareUpgradeView
-          connectId={payload?.deviceConnectId ?? ''}
-          content={content ?? ''}
-          onClose={() => {
-            closeHardwarePopup();
-          }}
-        />
-      ),
-    });
+    showDialog(
+      <HandlerFirmwareUpgradeView
+        connectId={payload?.deviceConnectId ?? ''}
+        content={content ?? ''}
+        onClose={() => {
+          closeHardwarePopup();
+        }}
+      />,
+    );
     return;
   }
 
   if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_NEED_CLOSE_PASSPHRASE) {
-    DialogManager.show({
-      render: (
-        <HandlerClosePassphraseView
-          deviceConnectId={payload?.deviceConnectId ?? ''}
-          onClose={() => {
-            closeHardwarePopup();
-          }}
-        />
-      ),
-    });
+    showDialog(
+      <HandlerClosePassphraseView
+        deviceConnectId={payload?.deviceConnectId ?? ''}
+        onClose={() => {
+          closeHardwarePopup();
+        }}
+      />,
+    );
     return;
   }
 
   if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_NEED_OPEN_PASSPHRASE) {
-    DialogManager.show({
-      render: (
-        <HandlerOpenPassphraseView
-          deviceConnectId={payload?.deviceConnectId ?? ''}
-          onClose={() => {
-            closeHardwarePopup();
-          }}
-        />
-      ),
-    });
+    showDialog(
+      <HandlerOpenPassphraseView
+        deviceConnectId={payload?.deviceConnectId ?? ''}
+        onClose={() => {
+          closeHardwarePopup();
+        }}
+      />,
+    );
     return;
   }
 
   if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_NEED_ONEKEY_BRIDGE) {
-    DialogManager.show({
-      render: <NeedBridgeDialog />,
-    });
+    showDialog(<NeedBridgeDialog />);
     return;
   }
 
   if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_FORCE_UPGRADE_FIRMWARE) {
-    DialogManager.show({
-      render: (
-        <HandlerFirmwareUpgradeView
-          connectId={payload?.deviceConnectId ?? ''}
-          content={content ?? ''}
-          onClose={() => {
-            closeHardwarePopup();
-          }}
-        />
-      ),
-    });
+    showDialog(
+      <HandlerFirmwareUpgradeView
+        connectId={payload?.deviceConnectId ?? ''}
+        content={content ?? ''}
+        onClose={() => {
+          closeHardwarePopup();
+        }}
+      />,
+    );
     return;
   }
 
@@ -286,17 +277,15 @@ export default async function showHardwarePopup({
     const check = await checkPermission();
 
     if (check || platformEnv.isNativeIOS) {
-      DialogManager.show({
-        render: (
-          <PermissionDialog
-            type="bluetooth"
-            onClose={() => {
-              getAppNavigation().goBack();
-              closeHardwarePopup();
-            }}
-          />
-        ),
-      });
+      showDialog(
+        <PermissionDialog
+          type="bluetooth"
+          onClose={() => {
+            getAppNavigation().goBack();
+            closeHardwarePopup();
+          }}
+        />,
+      );
       return;
     }
 
@@ -317,17 +306,15 @@ export default async function showHardwarePopup({
       result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN ||
       result === PermissionsAndroid.RESULTS.DENIED
     ) {
-      DialogManager.show({
-        render: (
-          <PermissionDialog
-            type={Platform.Version >= 31 ? 'bluetooth' : 'location'}
-            onClose={() => {
-              getAppNavigation()?.goBack();
-              closeHardwarePopup();
-            }}
-          />
-        ),
-      });
+      showDialog(
+        <PermissionDialog
+          type={Platform.Version >= 31 ? 'bluetooth' : 'location'}
+          onClose={() => {
+            getAppNavigation()?.goBack();
+            closeHardwarePopup();
+          }}
+        />,
+      );
     } else {
       closeHardwarePopup();
     }
@@ -335,17 +322,15 @@ export default async function showHardwarePopup({
   }
 
   if (uiRequest === UI_REQUEST.LOCATION_SERVICE_PERMISSION) {
-    DialogManager.show({
-      render: (
-        <PermissionDialog
-          type="locationService"
-          onClose={() => {
-            getAppNavigation()?.goBack();
-            closeHardwarePopup();
-          }}
-        />
-      ),
-    });
+    showDialog(
+      <PermissionDialog
+        type="locationService"
+        onClose={() => {
+          getAppNavigation()?.goBack();
+          closeHardwarePopup();
+        }}
+      />,
+    );
   }
 
   if (!popupView) {

@@ -3,15 +3,15 @@ import { useIntl } from 'react-intl';
 import { Dialog, ToastManager } from '@onekeyhq/components';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 
-import { showOverlay } from '../../../../utils/overlayUtils';
+import { showDialog } from '../../../../utils/overlayUtils';
 
-function UpgrateDialog({ closeOverlay }: { closeOverlay: () => void }) {
+function UpgrateDialog({ onClose }: { onClose?: () => void }) {
   const intl = useIntl();
 
   return (
     <Dialog
       visible
-      onClose={closeOverlay}
+      onClose={onClose}
       footerButtonProps={{
         primaryActionTranslationId: 'action__upgrade',
         secondaryActionTranslationId: 'action__cancel',
@@ -22,7 +22,7 @@ function UpgrateDialog({ closeOverlay }: { closeOverlay: () => void }) {
               const packageInfo = await appUpdates.getPackageInfo();
               if (packageInfo) {
                 appUpdates.openAppUpdate({ package: packageInfo });
-                closeOverlay();
+                onClose?.();
               }
             } catch (error) {
               ToastManager.show({
@@ -47,8 +47,6 @@ function UpgrateDialog({ closeOverlay }: { closeOverlay: () => void }) {
   );
 }
 
-const showUpgrateDialog = () => {
-  showOverlay((close) => <UpgrateDialog closeOverlay={close} />);
+export const showUpgrateDialog = () => {
+  showDialog(<UpgrateDialog />);
 };
-
-export { showUpgrateDialog };

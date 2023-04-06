@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -52,6 +52,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { SendModalRoutes } from '../../../../routes/routesEnum';
+import hardware from '../../../../store/reducers/hardware';
 import { deviceUtils } from '../../../../utils/hardware';
 import CollectionLogo from '../../../NFTMarket/CollectionLogo';
 import { useCollectionDetail } from '../../../NFTMarket/Home/hook';
@@ -206,6 +207,7 @@ const NFTDetailModal: FC = () => {
     })();
   }, [wallet, asset]);
 
+  const hardwareCancelFlagRef = useRef(false);
   const onCollectToTouch = useCallback(async () => {
     let uri;
     if (asset.nftscanUri && asset.nftscanUri.length > 0) {
@@ -242,7 +244,7 @@ const NFTDetailModal: FC = () => {
       setMenuLoading(false);
       return;
     }
-    if (uploadResParams) {
+    if (uploadResParams && !hardwareCancelFlagRef.current) {
       try {
         await serviceHardware.uploadResource(
           device?.mac ?? '',
@@ -729,7 +731,10 @@ const NFTDetailModal: FC = () => {
         top={platformEnv.isExtensionUiPopup ? '8px' : '24px'}
         right={platformEnv.isExtensionUiPopup ? '8px' : '24px'}
         zIndex={1}
-        onPress={modalClose}
+        onPress={() => {
+          hardwareCancelFlagRef.current = true;
+          modalClose();
+        }}
       />
       {modalContent()}
     </Modal>

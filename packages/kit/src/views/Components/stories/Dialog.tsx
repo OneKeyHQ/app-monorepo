@@ -7,12 +7,13 @@ import {
   Button,
   Center,
   Dialog,
-  DialogManager,
   Stack,
   Typography,
 } from '@onekeyhq/components';
 import type { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
 import { Metamask } from '@onekeyhq/components/src/Icon/react/illus';
+
+import { showDialog } from '../../../utils/overlayUtils';
 
 const Modal1 = () => {
   const [visible, setVisible] = useState(false);
@@ -175,11 +176,11 @@ const Modal7 = () => {
 };
 
 /**
- * DialogManager 会注入 onClose 方法，务必传入并使用才可关闭容器
+ * showDialog 会注入 onClose 方法，务必传入并使用才可关闭容器
  * Dialog 保证 visible 即可，容器会动态挂载此 Dialog
  *
  */
-function DialogManagerExample({ onClose }: { onClose?: () => void }) {
+function ShowDialogExample({ onClose }: { onClose?: () => void }) {
   return (
     <Dialog
       visible
@@ -207,12 +208,10 @@ function DialogManagerExample({ onClose }: { onClose?: () => void }) {
 const Modal8 = () => (
   <Button
     onPress={() => {
-      DialogManager.show({
-        render: <DialogManagerExample />,
-      });
+      showDialog(<ShowDialogExample />);
     }}
   >
-    DialogManager 打开
+    showDialog 打开
   </Button>
 );
 

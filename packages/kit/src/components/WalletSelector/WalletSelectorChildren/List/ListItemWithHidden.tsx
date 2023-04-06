@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Button } from '@onekeyhq/components';
 
-import { showOverlay } from '../../../../utils/overlayUtils';
+import { showDialog } from '../../../../utils/overlayUtils';
 import CreateHwWalletDialog from '../../../../views/CreateWallet/HardwareWallet/CreateHwWalletDialog';
 import { useIsPassphraseMode } from '../../hooks/useIsPassphraseMode';
 
@@ -30,13 +30,7 @@ function ListItemWithHidden({
   const isPassphraseMode = useIsPassphraseMode(item);
 
   const onAddPassphraseWallet = useCallback((deviceId: string) => {
-    showOverlay((onClose) => (
-      <CreateHwWalletDialog
-        deviceId={deviceId}
-        onlyPassphrase
-        onClose={onClose}
-      />
-    ));
+    showDialog(<CreateHwWalletDialog deviceId={deviceId} onlyPassphrase />);
   }, []);
 
   // hide singleton wallet if no accounts

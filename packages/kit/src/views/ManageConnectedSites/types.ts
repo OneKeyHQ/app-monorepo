@@ -18,5 +18,5 @@ export type ConnectedSitesHeaderProps = {
 };
 
 export type AddConnectionSideDialogProps = {
-  closeOverlay: () => void;
+  onClose?: () => void;
 };
