@@ -50,13 +50,34 @@ class ServiceHistory extends ServiceBase {
       ],
     }
      */
+
+    const { engine, appSelector } = this.backgroundApi;
+    const hideScamHistory = appSelector((s) => s.settings.hideScamHistory);
+    const vaultSettings = await engine.getVaultSettings(networkId);
+
     const { items } = await simpleDb.history.getAccountHistory({
       limit: limit ?? HISTORY_CONSTS.GET_LOCAL_LIMIT,
       networkId,
       accountId,
       tokenIdOnNetwork,
     });
-    return items;
+
+    if (!vaultSettings.supportFilterScam || !hideScamHistory) {
+      return items;
+    }
+
+    const filteredHistory: IHistoryTx[] = [];
+    for (let i = 0; i < items.length; i += 1) {
+      const isScam = await this.checkIsScamHistoryTx({
+        accountId,
+        networkId,
+        historyTx: items[i],
+      });
+      if (!isScam) {
+        filteredHistory.push(items[i]);
+      }
+    }
+    return filteredHistory;
   }
 
   async fetchOnChainHistory({
