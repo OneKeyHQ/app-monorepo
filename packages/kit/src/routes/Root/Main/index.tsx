@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
 
-import { RootSiblingParent } from 'react-native-root-siblings';
-
 import { Box, useProviderValue } from '@onekeyhq/components';
 import { setMainScreenDom } from '@onekeyhq/components/src/utils/SelectAutoHide';
 
@@ -38,15 +36,13 @@ function MainScreen() {
   }, [dispatch, reduxReady]);
 
   return (
-    <RootSiblingParent>
-      <Box ref={setMainScreenDom} w="full" h="full">
-        <Drawer />
-        <NetworkAccountSelectorEffectsSingleton />
-        <WalletSelectorEffectsSingleton />
-        {/* TODO Waiting notification component */}
-        <UpdateAlert />
-      </Box>
-    </RootSiblingParent>
+    <Box ref={setMainScreenDom} w="full" h="full">
+      <Drawer />
+      <NetworkAccountSelectorEffectsSingleton />
+      <WalletSelectorEffectsSingleton />
+      {/* TODO Waiting notification component */}
+      <UpdateAlert />
+    </Box>
   );
 }
 
