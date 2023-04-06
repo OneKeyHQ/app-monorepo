@@ -4,7 +4,6 @@ import { memo, useCallback, useEffect } from 'react';
 import { requestPermissionsAsync } from 'expo-notifications';
 import { AppState, NativeModules } from 'react-native';
 
-import { DialogManager } from '@onekeyhq/components';
 import type { NotificationExtra } from '@onekeyhq/engine/src/managers/notification';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import {
@@ -16,6 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import PermissionDialog from '../components/PermissionDialog/PermissionDialog';
 import { setPushNotificationConfig } from '../store/reducers/settings';
+import { showDialog } from '../utils/overlayUtils';
 
 const NotificationProvider: FC<{
   launchNotification?: NotificationExtra;
@@ -53,9 +53,7 @@ const NotificationProvider: FC<{
         pushEnable: false,
       }),
     );
-    DialogManager.show({
-      render: <PermissionDialog type="notification" />,
-    });
+    showDialog(<PermissionDialog type="notification" />);
     return false;
   }, [dispatch, pushNotification?.pushEnable]);
 

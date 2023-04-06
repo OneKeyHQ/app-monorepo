@@ -21,7 +21,6 @@ import {
   Text,
   ToastManager,
 } from '@onekeyhq/components';
-import DialogManager from '@onekeyhq/components/src/DialogManager';
 import { MigrateErrorCode } from '@onekeyhq/engine/src/types/migrate';
 import type { DeviceInfo } from '@onekeyhq/engine/src/types/migrate';
 import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
@@ -30,7 +29,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
-import { showOverlay } from '../../../../../utils/overlayUtils';
+import { showDialog, showOverlay } from '../../../../../utils/overlayUtils';
 import { EOnboardingRoutes } from '../../../routes/enums';
 import { deviceInfo, parseDeviceInfo } from '../util';
 
@@ -94,9 +93,7 @@ const Content: FC<Props> = ({ serverAddress, serverInfo, closeOverlay }) => {
             if (typeof data === 'string') {
               if (data === 'ERR_NETWORK') {
                 if (platformEnv.isNativeIOS) {
-                  DialogManager.show({
-                    render: <PermissionDialog type="localNetwork" />,
-                  });
+                  showDialog(<PermissionDialog type="localNetwork" />);
                 }
               }
               updateConnectStatus(ConnectStatus.Fail);

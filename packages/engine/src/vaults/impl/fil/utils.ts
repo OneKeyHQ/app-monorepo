@@ -47,30 +47,30 @@ export async function signTransaction(
 }
 
 export function getTxStatus(
-  status: number | null | undefined,
+  status: string | null | undefined,
   cid: string | undefined,
 ) {
-  if (status !== 0 && status !== -1) {
-    return TransactionStatus.CONFIRM_BUT_FAILED;
+  if (cid && status === 'OK') {
+    return TransactionStatus.CONFIRM_AND_SUCCESS;
   }
 
-  if (cid && status === 0) {
-    return TransactionStatus.CONFIRM_AND_SUCCESS;
+  if (status?.toLowerCase().includes('err')) {
+    return TransactionStatus.CONFIRM_BUT_FAILED;
   }
 
   return TransactionStatus.PENDING;
 }
 
 export function getDecodedTxStatus(
-  status: number | null | undefined,
+  status: string | null | undefined,
   cid: string | undefined,
 ) {
-  if (status !== 0 && status !== -1) {
-    return IDecodedTxStatus.Failed;
+  if (cid && status === 'OK') {
+    return IDecodedTxStatus.Confirmed;
   }
 
-  if (cid && status === 0) {
-    return IDecodedTxStatus.Confirmed;
+  if (status?.toLowerCase().includes('err')) {
+    return IDecodedTxStatus.Failed;
   }
 
   return IDecodedTxStatus.Pending;

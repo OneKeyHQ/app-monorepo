@@ -7,6 +7,7 @@ import {
 } from '@glif/filecoin-address';
 import { Message } from '@glif/filecoin-message';
 import LotusRpcEngine from '@glif/filecoin-rpc-client';
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, isObject } from 'lodash';
 import memoizee from 'memoizee';
@@ -31,6 +32,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
+import { FIL_UNIT_MAP } from './types';
 import { getDecodedTxStatus, getTxStatus } from './utils';
 
 import type {
@@ -52,7 +54,7 @@ import type {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
-import type { CID, IEncodedTxFil, IOnChainHistoryTx } from './types';
+import type { CID, FilUnit, IEncodedTxFil, IOnChainHistoryTx } from './types';
 
 let suggestedGasPremium = '0';
 
@@ -86,14 +88,29 @@ export default class Vault extends VaultBase {
     return this.getClientCache(url ?? rpcURL, 'Filecoin');
   }
 
-  async getScanClient() {
-    const { isTestnet } = await this.engine.getNetwork(this.networkId);
-    // TODO move to network-list config?
-    const rpcURL = isTestnet
-      ? 'https://calibration.filscan.io:8700/rpc/v1'
-      : 'https://api.filscan.io:8700/rpc/v1';
-    return this.getClientCache(rpcURL, 'filscan');
-  }
+  // async getScanClient() {
+  //   const { isTestnet } = await this.engine.getNetwork(this.networkId);
+  //   // TODO move to network-list config?
+  //   const rpcURL = isTestnet
+  //     ? 'https://calibration.filscan.io:8700/rpc/v1'
+  //     : 'https://api.filscan.io:8700/rpc/v1';
+  //   return this.getClientCache(rpcURL, 'filscan');
+  // }
+
+  getScanClient = memoizee(
+    async () => {
+      const { isTestnet } = await this.engine.getNetwork(this.networkId);
+      const scanApiUrl = isTestnet
+        ? 'https://calibration-api.filscout.com'
+        : 'https://api2.filscout.com';
+
+      return axios.create({ baseURL: scanApiUrl });
+    },
+    {
+      promise: true,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
 
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
@@ -287,54 +304,166 @@ export default class Vault extends VaultBase {
   override async getTransactionFeeInNative(txid: string) {
     try {
       const scanClient = await this.getScanClient();
-      const token = await this.engine.getNativeTokenInfo(this.networkId);
-      const tx = await scanClient.request<IOnChainHistoryTx>(
-        'MessageDetails',
-        txid,
+      const response = await scanClient.get<{ data: { value: string }[] }>(
+        `/api/v1/transaction/${txid}`,
       );
-      return new BigNumber(tx.all_gas_fee ?? 0)
-        .shiftedBy(-token.decimals)
-        .toFixed();
+      const [nodeFee, burnFee] = response.data.data;
+
+      const [nodeFeeValue, nodeFeeUnit] = nodeFee.value.split(' ');
+      const [burnFeeValue, burnFeeUnit] = burnFee.value.split(' ');
+
+      const nodefeeBN = new BigNumber(
+        nodeFeeValue.replaceAll(',', ''),
+      ).shiftedBy(-FIL_UNIT_MAP[nodeFeeUnit as FilUnit]);
+
+      const burnfeeBN = new BigNumber(
+        burnFeeValue.replaceAll(',', ''),
+      ).shiftedBy(-FIL_UNIT_MAP[burnFeeUnit as FilUnit]);
+
+      return nodefeeBN.plus(burnfeeBN).toFixed();
     } catch {
       return '';
     }
   }
 
+  // override async getTransactionStatuses(
+  //   txids: string[],
+  // ): Promise<(TransactionStatus | undefined)[]> {
+  //   return Promise.all(
+  //     txids.map(async (txid) => {
+  //       const scanClient = await this.getScanClient();
+  //       const response = await scanClient.request<IOnChainHistoryTx>(
+  //         'MessageDetails',
+  //         txid,
+  //       );
+  //       return getTxStatus(response.exit_code, response.signed_cid);
+  //     }),
+  //   );
+  // }
   override async getTransactionStatuses(
     txids: string[],
   ): Promise<(TransactionStatus | undefined)[]> {
     return Promise.all(
       txids.map(async (txid) => {
         const scanClient = await this.getScanClient();
-        const response = await scanClient.request<IOnChainHistoryTx>(
-          'MessageDetails',
-          txid,
+        const response = await scanClient.get<{ data: IOnChainHistoryTx }>(
+          `/api/v1/message/${txid}`,
         );
-        return getTxStatus(response.exit_code, response.signed_cid);
+        const txDetail = response.data.data;
+        return getTxStatus(txDetail.exitCodeName, txDetail.cid);
       }),
     );
   }
 
+  // override async fetchOnChainHistory(options: {
+  //   tokenIdOnNetwork?: string;
+  //   localHistory: IHistoryTx[];
+  // }): Promise<IHistoryTx[]> {
+  //   const scanClient = await this.getScanClient();
+  //   const { localHistory } = options;
+
+  //   const address = await this.getAccountAddress();
+  //   const token = await this.engine.getNativeTokenInfo(this.networkId);
+  //   let txs: IOnChainHistoryTx[] = [];
+  //   try {
+  //     const list = await scanClient.request<{ data: IOnChainHistoryTx[] }>(
+  //       'MessageByAddress',
+  //       {
+  //         address,
+  //         offset_range: { start: 0, count: 50 },
+  //       },
+  //     );
+
+  //     txs = list.data;
+  //   } catch (e) {
+  //     console.error(e);
+  //   }
+
+  //   const promises = txs.map(async (tx) => {
+  //     try {
+  //       const historyTxToMerge = localHistory.find(
+  //         (item) => item.decodedTx.txid === tx.signed_cid,
+  //       );
+  //       if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+  //         return null;
+  //       }
+  //       if (tx.method_name !== 'transfer') {
+  //         return null;
+  //       }
+
+  //       let direction = IDecodedTxDirection.OUT;
+  //       if (tx.to === address) {
+  //         direction =
+  //           tx.from === address
+  //             ? IDecodedTxDirection.SELF
+  //             : IDecodedTxDirection.IN;
+  //       }
+  //       const amountBN = new BigNumber(tx.value);
+
+  //       const decodedTx: IDecodedTx = {
+  //         txid: tx.signed_cid ?? '',
+  //         owner: tx.from,
+  //         signer: tx.from,
+  //         nonce: tx.nonce ?? 0,
+  //         actions: [
+  //           {
+  //             type: IDecodedTxActionType.NATIVE_TRANSFER,
+  //             direction,
+  //             nativeTransfer: {
+  //               tokenInfo: token,
+  //               from: tx.from,
+  //               to: tx.to,
+  //               amount: amountBN.shiftedBy(-token.decimals).toFixed(),
+  //               amountValue: amountBN.toFixed(),
+  //               extraInfo: null,
+  //             },
+  //           },
+  //         ],
+  //         status: getDecodedTxStatus(tx.exit_code, tx.signed_cid),
+  //         networkId: this.networkId,
+  //         accountId: this.accountId,
+  //         extraInfo: null,
+  //       };
+  //       decodedTx.updatedAt = new Date(tx.last_modified).getTime();
+  //       decodedTx.createdAt =
+  //         historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
+  //       decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+  //       return await this.buildHistoryTx({
+  //         decodedTx,
+  //         historyTxToMerge,
+  //       });
+  //     } catch (e) {
+  //       console.error(e);
+  //       return Promise.resolve(null);
+  //     }
+  //   });
+
+  //   return (await Promise.all(promises)).filter(Boolean);
+  // }
   override async fetchOnChainHistory(options: {
     tokenIdOnNetwork?: string;
     localHistory: IHistoryTx[];
   }): Promise<IHistoryTx[]> {
     const scanClient = await this.getScanClient();
     const { localHistory } = options;
-
     const address = await this.getAccountAddress();
     const token = await this.engine.getNativeTokenInfo(this.networkId);
     let txs: IOnChainHistoryTx[] = [];
     try {
-      const list = await scanClient.request<{ data: IOnChainHistoryTx[] }>(
-        'MessageByAddress',
-        {
-          address,
-          offset_range: { start: 0, count: 50 },
-        },
-      );
+      const list = await scanClient.post<{
+        data: IOnChainHistoryTx[];
+      }>('/api/v1/message', {
+        address,
+        blockCid: '',
+        idAddress: '',
+        method: '',
+        pageIndex: 1,
+        pageSize: 50,
+        timeEnd: 0,
+        timeStart: 0,
+      });
 
-      txs = list.data;
+      txs = list.data.data;
     } catch (e) {
       console.error(e);
     }
@@ -342,12 +471,12 @@ export default class Vault extends VaultBase {
     const promises = txs.map(async (tx) => {
       try {
         const historyTxToMerge = localHistory.find(
-          (item) => item.decodedTx.txid === tx.signed_cid,
+          (item) => item.decodedTx.txid === tx.cid,
         );
         if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
           return null;
         }
-        if (tx.method_name !== 'transfer') {
+        if (tx.method !== 'Send') {
           return null;
         }
 
@@ -358,13 +487,15 @@ export default class Vault extends VaultBase {
               ? IDecodedTxDirection.SELF
               : IDecodedTxDirection.IN;
         }
-        const amountBN = new BigNumber(tx.value);
+        const [amount, unit] = tx.value.split(' ');
+
+        const amountBN = new BigNumber(amount.replaceAll(',', ''));
 
         const decodedTx: IDecodedTx = {
-          txid: tx.signed_cid ?? '',
+          txid: tx.cid ?? '',
           owner: tx.from,
           signer: tx.from,
-          nonce: tx.nonce ?? 0,
+          nonce: 0,
           actions: [
             {
               type: IDecodedTxActionType.NATIVE_TRANSFER,
@@ -373,18 +504,22 @@ export default class Vault extends VaultBase {
                 tokenInfo: token,
                 from: tx.from,
                 to: tx.to,
-                amount: amountBN.shiftedBy(-token.decimals).toFixed(),
-                amountValue: amountBN.toFixed(),
+                amount: amountBN
+                  .shiftedBy(-FIL_UNIT_MAP[unit as FilUnit])
+                  .toFixed(),
+                amountValue: amountBN
+                  .shiftedBy(FIL_UNIT_MAP[unit as FilUnit])
+                  .toFixed(),
                 extraInfo: null,
               },
             },
           ],
-          status: getDecodedTxStatus(tx.exit_code, tx.signed_cid),
+          status: getDecodedTxStatus(tx.exitCodeName, tx.cid),
           networkId: this.networkId,
           accountId: this.accountId,
           extraInfo: null,
         };
-        decodedTx.updatedAt = new Date(tx.last_modified).getTime();
+        decodedTx.updatedAt = new Date(tx.timeFormat).getTime();
         decodedTx.createdAt =
           historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
         decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;

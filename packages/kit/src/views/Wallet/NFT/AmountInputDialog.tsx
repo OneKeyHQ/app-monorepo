@@ -6,15 +6,15 @@ import { useIntl } from 'react-intl';
 
 import { Box, Dialog, NumberInput, Text } from '@onekeyhq/components';
 
-import { showOverlay } from '../../../utils/overlayUtils';
+import { showDialog } from '../../../utils/overlayUtils';
 
 type Props = {
   total: string;
   onConfirm: (amount: string) => void;
-  closeOverlay: () => void;
+  onClose?: () => void;
 };
 
-const AmountInputDialog: FC<Props> = ({ total, onConfirm, closeOverlay }) => {
+const AmountInputDialog: FC<Props> = ({ total, onConfirm, onClose }) => {
   const intl = useIntl();
 
   const [input, setInput] = useState('1');
@@ -31,9 +31,9 @@ const AmountInputDialog: FC<Props> = ({ total, onConfirm, closeOverlay }) => {
         },
         onPrimaryActionPress: () => {
           onConfirm(input);
-          closeOverlay();
+          onClose?.();
         },
-        onSecondaryActionPress: closeOverlay,
+        onSecondaryActionPress: onClose,
       }}
       contentProps={{
         input: (
@@ -65,5 +65,5 @@ const AmountInputDialog: FC<Props> = ({ total, onConfirm, closeOverlay }) => {
   );
 };
 
-export const showAmountInputDialog = (props: Omit<Props, 'closeOverlay'>) =>
-  showOverlay((close) => <AmountInputDialog {...props} closeOverlay={close} />);
+export const showAmountInputDialog = (props: Omit<Props, 'onClose'>) =>
+  showDialog(<AmountInputDialog {...props} />);

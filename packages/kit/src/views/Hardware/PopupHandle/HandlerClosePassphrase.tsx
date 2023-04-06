@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
-import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
+import { showDialog } from '@onekeyhq/kit/src/utils/overlayUtils';
 
 import HardwareLoadingDialog from '../Onekey/OnekeyHardwareConnectDialog';
 
@@ -25,9 +25,8 @@ const HandlerClosePassphraseView: FC<HandlerClosePassphraseViewProps> = ({
   const showLoadingDialog = useCallback(() => {
     setTimeout(
       () =>
-        showOverlay((onCloseOverlay) => (
+        showDialog(
           <HardwareLoadingDialog
-            onClose={onCloseOverlay}
             onHandler={() =>
               serviceHardware
                 .applySettings(deviceConnectId, {
@@ -37,8 +36,8 @@ const HandlerClosePassphraseView: FC<HandlerClosePassphraseViewProps> = ({
                   deviceUtils.showErrorToast(e);
                 })
             }
-          />
-        )),
+          />,
+        ),
       100,
     );
   }, [deviceConnectId, serviceHardware]);

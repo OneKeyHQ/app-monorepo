@@ -464,23 +464,20 @@ const FetchAddressModal: FC = () => {
         }));
       }
 
-      setTimeout(
-        () => {
-          if (cancelFlagRef.current) {
-            return;
-          }
-          if (exportData.every((i) => !i.data.length)) {
-            navigation.goBack();
-            return;
-          }
-          navigation.replace(CreateAccountModalRoutes.ExportAddresses, {
-            networkId,
-            walletId,
-            data: exportData,
-          });
-        },
-        isHwWallet ? 0 : 500,
-      );
+      setTimeout(() => {
+        if (cancelFlagRef.current) {
+          return;
+        }
+        if (exportData.every((i) => !i.data.length)) {
+          navigation.goBack();
+          return;
+        }
+        navigation.replace(CreateAccountModalRoutes.ExportAddresses, {
+          networkId,
+          walletId,
+          data: exportData,
+        });
+      }, 500);
     }
   }, [
     progress,

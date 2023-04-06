@@ -19,7 +19,7 @@ import { useClipboard } from '../../../hooks/useClipboard';
 import type { AddConnectionSideDialogProps } from '../types';
 
 const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
-  closeOverlay,
+  onClose,
 }) => {
   const [inputDappUrl, setInputDappUrl] = useState('');
   const intl = useIntl();
@@ -32,7 +32,7 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
   return (
     <Dialog
       visible
-      onClose={closeOverlay}
+      onClose={onClose}
       footerButtonProps={{
         primaryActionTranslationId: 'action__add',
         primaryActionProps: { type: 'primary' },
@@ -78,7 +78,7 @@ const AddConnectionSiteDialog: FC<AddConnectionSideDialogProps> = ({
               //
             }
           }
-          closeOverlay();
+          onClose?.();
         },
       }}
       contentProps={{

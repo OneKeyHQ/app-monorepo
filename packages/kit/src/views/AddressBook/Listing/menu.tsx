@@ -64,7 +64,7 @@ const AddressBookMenu: FC<Props> = ({ contact, ...props }) => {
       {
         id: 'action__edit',
         onPress: onEdit,
-        icon: 'PencilOutline',
+        icon: 'PencilMini',
       },
       {
         id: 'action__copy_address',
@@ -74,7 +74,7 @@ const AddressBookMenu: FC<Props> = ({ contact, ...props }) => {
       {
         id: 'action__delete',
         onPress: onDel,
-        icon: 'TrashOutline',
+        icon: 'TrashMini',
         variant: 'desctructive',
       },
     ],

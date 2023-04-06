@@ -44,7 +44,7 @@ function LazyDisplayContentView({
           accountSelectorInfo={accountSelectorInfo}
           showCustomLegacyHeader={showCustomLegacyHeader}
         />
-        <Box px="16px" mb="16px">
+        <Box px={{ base: 4, md: 6 }} mb="16px">
           <Searchbar
             w="full"
             value={search}
