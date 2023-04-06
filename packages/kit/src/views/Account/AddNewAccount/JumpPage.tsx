@@ -14,7 +14,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
-import { showOverlay } from '../../../utils/overlayUtils';
+import { showDialog } from '../../../utils/overlayUtils';
 
 interface IJumpPageDialogProps {
   currentPage: number;
@@ -135,7 +135,7 @@ const JumpPageDialog: FC<IJumpPageDialogProps> = ({
 };
 
 const showJumpPageDialog = (props: IJumpPageDialogProps) => {
-  showOverlay((close) => <JumpPageDialog onClose={close} {...props} />);
+  showDialog(<JumpPageDialog {...props} />);
 };
 
 export { showJumpPageDialog };

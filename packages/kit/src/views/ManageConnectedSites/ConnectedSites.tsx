@@ -31,7 +31,7 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useAppSelector } from '../../hooks/redux';
 import { wait } from '../../utils/helper';
-import { showOverlay } from '../../utils/overlayUtils';
+import { showDialog, showOverlay } from '../../utils/overlayUtils';
 
 import AddConnectionSiteDialog from './Component/AddConnectionSite';
 import ConnectedSitesHeader from './Component/ConnectedSitesHeader';
@@ -146,46 +146,47 @@ export default function ConnectedSites() {
 
   const openDeleteDialog = useCallback(
     (dappName: string, disconnect: () => Promise<any>) => {
-      showOverlay((closeOverlay) => (
-        <Dialog
-          visible
-          onClose={closeOverlay}
-          footerButtonProps={{
-            primaryActionTranslationId: 'action__disconnect',
-            primaryActionProps: {
-              type: 'destructive',
-              onPromise: async () => {
-                await disconnect();
-                closeOverlay();
+      showOverlay(
+        (closeOverlay) => (
+          <Dialog
+            visible
+            onClose={closeOverlay}
+            footerButtonProps={{
+              primaryActionTranslationId: 'action__disconnect',
+              primaryActionProps: {
+                type: 'destructive',
+                onPromise: async () => {
+                  await disconnect();
+                  closeOverlay();
+                },
               },
-            },
-            wrap: true,
-          }}
-          contentProps={{
-            iconType: 'danger',
-            iconName: 'ConnectOffOutline',
-            title: intl.formatMessage({
-              id: 'dialog__disconnect_from_this_site',
-            }),
-            content: intl.formatMessage(
-              {
-                id: 'dialog__disconnect_all_accounts_desc',
-              },
-              {
-                0: dappName,
-              },
-            ),
-          }}
-        />
-      ));
+              wrap: true,
+            }}
+            contentProps={{
+              iconType: 'danger',
+              iconName: 'ConnectOffOutline',
+              title: intl.formatMessage({
+                id: 'dialog__disconnect_from_this_site',
+              }),
+              content: intl.formatMessage(
+                {
+                  id: 'dialog__disconnect_all_accounts_desc',
+                },
+                {
+                  0: dappName,
+                },
+              ),
+            }}
+          />
+        ),
+        true,
+      );
     },
     [intl],
   );
 
   const openAddDialog = useCallback(() => {
-    showOverlay((closeOverlay) => (
-      <AddConnectionSiteDialog closeOverlay={closeOverlay} />
-    ));
+    showDialog(<AddConnectionSiteDialog />);
   }, []);
 
   const renderItem: ListRenderItem<DappSiteConnection> = useCallback(

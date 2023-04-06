@@ -6,7 +6,6 @@ import { InteractionManager } from 'react-native';
 import {
   Account,
   Box,
-  DialogManager,
   HStack,
   Pressable,
   useIsVerticalLayout,
@@ -27,6 +26,7 @@ import useRemoveAccountDialog from '@onekeyhq/kit/src/views/ManagerAccount/Remov
 import { useCopyAddress } from '../../../../hooks/useCopyAddress';
 import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
 import { wait } from '../../../../utils/helper';
+import { showDialog } from '../../../../utils/overlayUtils';
 import ExternalAccountImg from '../../../../views/ExternalAccount/components/ExternalAccountImg';
 import { ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY } from '../accountSelectorConsts';
 
@@ -79,20 +79,15 @@ const AccountSectionItem: FC<Props> = ({
           });
           break;
         case 'rename':
-          DialogManager.show({
-            render: (
-              <AccountModifyNameDialog
-                visible
-                account={item}
-                onDone={() =>
-                  refreshAccounts(
-                    activeWallet?.id ?? '',
-                    activeNetwork?.id ?? '',
-                  )
-                }
-              />
-            ),
-          });
+          showDialog(
+            <AccountModifyNameDialog
+              visible
+              account={item}
+              onDone={() =>
+                refreshAccounts(activeWallet?.id ?? '', activeNetwork?.id ?? '')
+              }
+            />,
+          );
           break;
         case 'detail':
           navigation.navigate(RootRoutes.Modal, {

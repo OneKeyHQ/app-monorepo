@@ -140,7 +140,7 @@ export const openMatchDApp = ({
     // if (dapp.url !== tab?.url && firstRemindDAPP) {
     //   const { dispatch } = backgroundApiProxy;
     //   let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
-    //   DialogManager.show({
+    //   showDialog({
     //     render: (
     //       <DappOpenHintDialog
     //         onVisibilityChange={() => {

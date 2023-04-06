@@ -54,7 +54,6 @@ export { default as Text } from './Text';
 export { default as VStack } from './VStack';
 export { default as ZStack } from './ZStack';
 export { default as Dialog } from './Dialog';
-export { default as DialogManager } from './DialogManager';
 export { default as PageActions } from './PageActions';
 export { default as Form } from './Form';
 export { default as Image } from './Image';
