@@ -30,9 +30,6 @@ export function useFetchSetRangeAddress({
   networkId: string;
   password: string;
 }) {
-  useEffect(() => {
-    console.log('useFetchSetRangeAddress render render =====>>>>>');
-  }, []);
   const intl = useIntl();
   const isHwWallet = walletId.startsWith('hw');
   const isSetRangeMode = data.type === 'setRange';
@@ -63,10 +60,6 @@ export function useFetchSetRangeAddress({
 
   useEffect(() => {
     if (!isSetRangeMode) return;
-    console.log(
-      'previousAddressPayload render ===> :   ',
-      previousAddressPayload,
-    );
     const payloadData = previousAddressPayload?.data ?? {};
     if (!payloadData) return;
     const { path, address } = payloadData;
@@ -271,5 +264,6 @@ export function useFetchSetRangeAddress({
     progressText,
     generatedAccounts,
     previousAddress,
+    cancelFlagRef,
   };
 }

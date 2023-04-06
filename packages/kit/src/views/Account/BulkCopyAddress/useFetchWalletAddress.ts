@@ -82,10 +82,6 @@ export function useFetchWalletAddress({
 
   useEffect(() => {
     if (!isFetchWalletAccountsMode) return;
-    console.log(
-      'previousAddressPayload render ===> :   ',
-      previousAddressPayload,
-    );
     const payloadData = previousAddressPayload?.data ?? {};
     if (!payloadData) return;
     const { path, address } = payloadData;
@@ -386,5 +382,6 @@ export function useFetchWalletAddress({
     progressText,
     previousAddress,
     walletAccounts,
+    cancelFlagRef,
   };
 }

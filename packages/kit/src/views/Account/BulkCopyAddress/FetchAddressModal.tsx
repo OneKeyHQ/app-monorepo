@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -61,6 +61,7 @@ const FetchAddressModal: FC = () => {
     progressText: setRangeProgressText,
     previousAddress: setRangePreviousAddress,
     generatedAccounts,
+    cancelFlagRef: setRangeCancelFlagRef,
   } = useFetchSetRangeAddress({
     data,
     walletId,
@@ -73,6 +74,7 @@ const FetchAddressModal: FC = () => {
     progressText: walletAccountsProgressText,
     previousAddress: walletAccountsPreviousAddress,
     walletAccounts,
+    cancelFlagRef: walletAccountsCancelFlagRef,
   } = useFetchWalletAddress({
     data,
     walletId,
@@ -100,6 +102,15 @@ const FetchAddressModal: FC = () => {
     () =>
       isSetRangeMode ? setRangePreviousAddress : walletAccountsPreviousAddress,
     [isSetRangeMode, setRangePreviousAddress, walletAccountsPreviousAddress],
+  );
+
+  const setCancelFlag = useCallback(
+    (flag: boolean) => {
+      cancelFlagRef.current = flag;
+      setRangeCancelFlagRef.current = flag;
+      walletAccountsCancelFlagRef.current = flag;
+    },
+    [setRangeCancelFlagRef, walletAccountsCancelFlagRef],
   );
 
   useEffect(() => {
@@ -177,7 +188,7 @@ const FetchAddressModal: FC = () => {
         type: 'basic',
       }}
       onPrimaryActionPress={async () => {
-        cancelFlagRef.current = true;
+        setCancelFlag(true);
         if (isHwWallet) {
           const device = await backgroundApiProxy.engine.getHWDeviceByWalletId(
             walletId,
