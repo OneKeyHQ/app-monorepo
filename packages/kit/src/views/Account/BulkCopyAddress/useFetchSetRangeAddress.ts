@@ -5,12 +5,13 @@ import { useIntl } from 'react-intl';
 import { ToastManager } from '@onekeyhq/components';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { ImportableHDAccount } from '@onekeyhq/engine/src/types/account';
-import { HardwareSDK } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { INDEX_PLACEHOLDER } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useAppSelector } from '../../../hooks';
+import { clearPreviousAddress } from '../../../store/reducers/hardware';
 import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
 
@@ -43,6 +44,9 @@ export function useFetchSetRangeAddress({
   const temporaryAccountsRef = useRef<ImportableHDAccount[]>([]);
   const checkAddressPathRef = useRef<{ address?: string; path: string }[]>([]);
   const [previousAddress, setPreviousAddress] = useState('');
+  const previousAddressPayload = useAppSelector(
+    (s) => s.hardware.previousAddress,
+  );
 
   const updateSetRangeAccountProgress = useCallback(
     (result: any[], forceFinish?: boolean) => {
@@ -57,41 +61,45 @@ export function useFetchSetRangeAddress({
     [data],
   );
 
-  const isSubscribeRef = useRef(false);
   useEffect(() => {
-    if (!isHwWallet || isSubscribeRef.current) return;
-    isSubscribeRef.current = true;
-    HardwareSDK.on('UI_EVENT', (e) => {
-      const { type, payload } = e;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const payloadData = payload.data as unknown as {
-        address: string;
-        path: string;
-      };
-      if (type !== 'ui-previous_address_result') {
-        return;
-      }
-      if (!isSetRangeMode) {
-        return;
-      }
-      const pathIndex = checkAddressPathRef.current.findIndex(
-        (i) => i.path === payloadData.path,
-      );
-      if (pathIndex < 0) {
-        return;
-      }
-      setPreviousAddress(payloadData.address ?? '');
-      backgroundApiProxy.serviceDerivationPath
-        .convertPlainAddressItemToImportableHDAccount({
-          networkId,
-          ...payloadData,
-        })
-        .then((account) => {
-          temporaryAccountsRef.current.push(account);
-          updateSetRangeAccountProgress(temporaryAccountsRef.current);
-        });
-    });
-  }, [isHwWallet, isSetRangeMode, networkId, updateSetRangeAccountProgress]);
+    if (!isSetRangeMode) return;
+    console.log(
+      'previousAddressPayload render ===> :   ',
+      previousAddressPayload,
+    );
+    const payloadData = previousAddressPayload?.data ?? {};
+    if (!payloadData) return;
+    const { path, address } = payloadData;
+    const pathIndex = checkAddressPathRef.current.findIndex(
+      (i) => i.path === previousAddressPayload?.data.path,
+    );
+    if (pathIndex < 0) {
+      return;
+    }
+    setPreviousAddress(address ?? '');
+    backgroundApiProxy.serviceDerivationPath
+      .convertPlainAddressItemToImportableHDAccount({
+        networkId,
+        path: path ?? '',
+        address: address ?? '',
+      })
+      .then((account) => {
+        temporaryAccountsRef.current.push(account);
+        updateSetRangeAccountProgress(temporaryAccountsRef.current);
+      });
+  }, [
+    previousAddressPayload,
+    isSetRangeMode,
+    networkId,
+    updateSetRangeAccountProgress,
+  ]);
+
+  useEffect(() => {
+    backgroundApiProxy.dispatch(clearPreviousAddress());
+    return () => {
+      backgroundApiProxy.dispatch(clearPreviousAddress());
+    };
+  }, []);
 
   const generateHDAccounts = useCallback(
     async ({

@@ -3,6 +3,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
+import type { KnownDevice } from '@onekeyfe/hd-core';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 export type HardwareUiEventPayload = {
@@ -26,6 +27,10 @@ type InitialState = {
   lastCheckUpdateTime: Record<string, number>; // connectId -> time
   updateFirmwareStep: string;
   pendingRememberWalletConnectId?: string;
+  previousAddress?: {
+    device: KnownDevice;
+    data: { path?: string; address?: string };
+  };
 };
 const initialState: InitialState = {
   connected: [],
@@ -33,6 +38,7 @@ const initialState: InitialState = {
   lastCheckUpdateTime: {},
   updateFirmwareStep: '',
   pendingRememberWalletConnectId: undefined,
+  previousAddress: undefined,
 };
 export const hardwareSlice = createSlice({
   name: 'hardware',
@@ -86,6 +92,15 @@ export const hardwareSlice = createSlice({
     ) => {
       state.pendingRememberWalletConnectId = action.payload;
     },
+    setPreviousAddress(
+      state,
+      action: PayloadAction<InitialState['previousAddress']>,
+    ) {
+      state.previousAddress = action.payload;
+    },
+    clearPreviousAddress(state) {
+      state.previousAddress = undefined;
+    },
   },
 });
 
@@ -97,6 +112,8 @@ export const {
   updateDevicePassphraseOpenedState,
   setUpdateFirmwareStep,
   setPendingRememberWalletConnectId,
+  setPreviousAddress,
+  clearPreviousAddress,
 } = hardwareSlice.actions;
 
 export default hardwareSlice.reducer;
