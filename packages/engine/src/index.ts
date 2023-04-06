@@ -3006,6 +3006,7 @@ class Engine {
   async recomputeAccount({
     walletId,
     networkId,
+    accountId,
     password,
     path,
     template,
@@ -3013,12 +3014,16 @@ class Engine {
   }: {
     walletId: string;
     networkId: string;
+    accountId: string;
     password: string;
     path: string;
     template?: string;
     confirmOnDevice?: boolean;
   }) {
     if (!walletId || !networkId) return [];
+    if (walletId.startsWith('watching')) {
+      return this.dbApi.getAccount(accountId);
+    }
     const vault = await this.getWalletOnlyVault(networkId, walletId);
     const { impl } = await this.getNetwork(networkId);
     const {

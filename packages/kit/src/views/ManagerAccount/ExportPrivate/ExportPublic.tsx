@@ -52,6 +52,7 @@ const ExportPublicKeyView: FC<ExportPublicKeyViewProps> = ({
         const recomputeAccount = await engine.recomputeAccount({
           walletId,
           networkId,
+          accountId,
           password,
           path: account.path,
           template: account.template,
