@@ -1,9 +1,9 @@
 /* eslint-disable no-nested-ternary */
 import type { FC } from 'react';
 
-import * as Application from 'expo-application';
-import * as IntentLauncher from 'expo-intent-launcher';
-import * as Linking from 'expo-linking';
+import { applicationId } from 'expo-application';
+import { ActivityAction, startActivityAsync } from 'expo-intent-launcher';
+import { openURL as linkingOpenUrl } from 'expo-linking';
 import { isFunction, isNull, isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -50,7 +50,7 @@ const linkMap: PrefLink = {
   camera: {},
   bluetooth: {
     iOS: 'App-Prefs:Bluetooth',
-    android: IntentLauncher.ActivityAction.BLUETOOTH_SETTINGS,
+    android: ActivityAction.BLUETOOTH_SETTINGS,
     desktop: null,
   },
   location: {
@@ -64,7 +64,7 @@ const linkMap: PrefLink = {
   },
   // Only Android system require location service access permission
   locationService: {
-    android: IntentLauncher.ActivityAction.LOCATION_SOURCE_SETTINGS,
+    android: ActivityAction.LOCATION_SOURCE_SETTINGS,
   },
   localNetwork: {
     iOS: 'App-Prefs:so.onekey.wallet',
@@ -78,8 +78,8 @@ const getCurrentPlatformJumpLink = (
   const methods = jumpMethodMap[type];
 
   if (isNativeIOS) {
-    const defaultIOSJumpMethod = () => Linking.openURL('app-settings:');
-    const buildIOSJumpMethod = (link: string) => () => Linking.openURL(link);
+    const defaultIOSJumpMethod = () => linkingOpenUrl('app-settings:');
+    const buildIOSJumpMethod = (link: string) => () => linkingOpenUrl(link);
 
     return isString(methods.iOS)
       ? buildIOSJumpMethod(methods.iOS)
@@ -90,13 +90,13 @@ const getCurrentPlatformJumpLink = (
 
   if (isNativeAndroid) {
     const defaultAndroidJumpMethod = () =>
-      IntentLauncher.startActivityAsync(
-        IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS,
+      startActivityAsync(
+        ActivityAction.APPLICATION_DETAILS_SETTINGS,
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        { data: `package:${Application.applicationId!}` },
+        { data: `package:${applicationId!}` },
       );
     const buildAndroidJumpMethod = (link: string) => () =>
-      IntentLauncher.startActivityAsync(link);
+      startActivityAsync(link);
 
     return isString(methods.android)
       ? buildAndroidJumpMethod(methods.android)

@@ -44,9 +44,9 @@ export const showDialog = (render: ReactElement) =>
     (onClose) =>
       cloneElement(render, {
         onClose: () => {
-          onClose();
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
           render.props.onClose?.();
+          onClose();
         },
       }),
     true,
