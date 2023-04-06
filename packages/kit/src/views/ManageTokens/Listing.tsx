@@ -561,45 +561,48 @@ export const Listing: FC = () => {
       if (!token) {
         return;
       }
-      showOverlay((closeOverlay) => (
-        <Dialog
-          visible
-          onClose={closeOverlay}
-          footerButtonProps={{
-            primaryActionTranslationId: 'action__delete',
-            primaryActionProps: {
-              type: 'destructive',
-              onPromise: async () => {
-                if (accountId && token) {
-                  await backgroundApiProxy.engine.removeTokenFromAccount(
+      showOverlay(
+        (closeOverlay) => (
+          <Dialog
+            visible
+            onClose={closeOverlay}
+            footerButtonProps={{
+              primaryActionTranslationId: 'action__delete',
+              primaryActionProps: {
+                type: 'destructive',
+                onPromise: async () => {
+                  if (accountId && token) {
+                    await backgroundApiProxy.engine.removeTokenFromAccount(
+                      accountId,
+                      token.id,
+                    );
+                  }
+                  await backgroundApiProxy.serviceToken.fetchAccountTokens({
                     accountId,
-                    token.id,
-                  );
-                }
-                await backgroundApiProxy.serviceToken.fetchAccountTokens({
-                  accountId,
-                  networkId,
-                });
-                closeOverlay();
+                    networkId,
+                  });
+                  closeOverlay();
+                },
               },
-            },
-          }}
-          contentProps={{
-            iconType: 'danger',
-            title: intl.formatMessage({
-              id: 'modal__delete_this_token',
-              defaultMessage: 'Delete this token?',
-            }),
-            content: intl.formatMessage(
-              {
-                id: 'modal__delete_this_token_desc',
-                defaultMessage: '{token} will be removed from my tokens',
-              },
-              { token: token.name },
-            ),
-          }}
-        />
-      ));
+            }}
+            contentProps={{
+              iconType: 'danger',
+              title: intl.formatMessage({
+                id: 'modal__delete_this_token',
+                defaultMessage: 'Delete this token?',
+              }),
+              content: intl.formatMessage(
+                {
+                  id: 'modal__delete_this_token_desc',
+                  defaultMessage: '{token} will be removed from my tokens',
+                },
+                { token: token.name },
+              ),
+            }}
+          />
+        ),
+        true,
+      );
     },
     [accountId, intl, networkId],
   );

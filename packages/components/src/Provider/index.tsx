@@ -11,7 +11,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import LOCALES from '../locale';
 import { Body1Props, Body2Props, SubheadingProps } from '../Typography';
 
-import { SCREEN_SIZE, getSize } from './device';
+import { SCREEN_SIZE, getScreenSize } from './device';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { Context } from './hooks/useProviderValue';
 import COLORS from './theme';
@@ -73,7 +73,7 @@ const Provider: FC<UIProviderProps> = ({
       device: {
         screenWidth: width,
         screenHeight: height,
-        size: getSize(width),
+        size: getScreenSize(width),
       },
       leftSidebarCollapsed,
       setLeftSidebarCollapsed,

@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { CheckBox, Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
-import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
+import { showDialog } from '@onekeyhq/kit/src/utils/overlayUtils';
 
 import HardwareLoadingDialog from './OnekeyHardwareConnectDialog';
 
@@ -30,9 +30,8 @@ const EnablePassphraseDialog: FC<EnablePassphraseDialogProps> = ({
   const showLoadingDialog = useCallback(() => {
     setTimeout(
       () =>
-        showOverlay((onCloseOverlay) => (
+        showDialog(
           <HardwareLoadingDialog
-            onClose={onCloseOverlay}
             onHandler={() =>
               serviceHardware
                 .applySettings(deviceConnectId, {
@@ -48,8 +47,8 @@ const EnablePassphraseDialog: FC<EnablePassphraseDialogProps> = ({
                   }, 500);
                 })
             }
-          />
-        )),
+          />,
+        ),
       100,
     );
   }, [deviceConnectId, onError, onSuccess, serviceHardware]);

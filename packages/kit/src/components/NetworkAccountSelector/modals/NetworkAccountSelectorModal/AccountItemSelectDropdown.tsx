@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { DialogManager, Divider, IconButton } from '@onekeyhq/components';
+import { Divider, IconButton } from '@onekeyhq/components';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 import type {
@@ -20,6 +20,7 @@ import {
   RootRoutes,
 } from '../../../../routes/routesEnum';
 import { refreshAccountSelector } from '../../../../store/reducers/refresher';
+import { showDialog } from '../../../../utils/overlayUtils';
 import AccountModifyNameDialog from '../../../../views/ManagerAccount/ModifyAccount';
 import useRemoveAccountDialog from '../../../../views/ManagerAccount/RemoveAccount';
 
@@ -131,18 +132,16 @@ function AccountItemSelectDropdown({
           }, 150);
           break;
         case 'rename':
-          DialogManager.show({
-            render: (
-              <AccountModifyNameDialog
-                visible
-                account={account}
-                onDone={() => {
-                  // TODO refreshAccounts
-                  refreshAccounts(wallet?.id ?? '', network?.id ?? '');
-                }}
-              />
-            ),
-          });
+          showDialog(
+            <AccountModifyNameDialog
+              visible
+              account={account}
+              onDone={() => {
+                // TODO refreshAccounts
+                refreshAccounts(wallet?.id ?? '', network?.id ?? '');
+              }}
+            />,
+          );
           break;
         case 'detail':
           navigation.navigate(RootRoutes.Modal, {

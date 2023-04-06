@@ -101,8 +101,9 @@ const BitcoinUsedAddressMenu: FC<
 
   const showFindAddressByPath = useMemo(
     () =>
+      (walletId.startsWith('hd') || walletId.startsWith('hw')) &&
       ([OnekeyNetwork.btc, OnekeyNetwork.tbtc] as string[]).includes(networkId),
-    [networkId],
+    [networkId, walletId],
   );
 
   const options = useMemo<IBaseMenuOptions>(
@@ -112,7 +113,7 @@ const BitcoinUsedAddressMenu: FC<
         onPress: onPressFindAddressByPath,
         icon: 'MagnifyingGlassMini',
       },
-      () => <Divider my={1} />,
+      showFindAddressByPath && (() => <Divider my={1} />),
       {
         id: 'action__show_path',
         onPress: onPressShowPath,

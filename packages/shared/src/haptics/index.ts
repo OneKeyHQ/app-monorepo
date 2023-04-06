@@ -11,12 +11,12 @@ export const defaultHapticStatus = !!(
   platformEnv.isNativeIOSPhone && supportedHaptics
 );
 
-export const enableHaptics = supportedHaptics ? selectionAsync : () => {};
-
-export const doHapticsWhenEnabled = () => {
-  const { appSelector } =
-    require('@onekeyhq/kit/src/store') as typeof import('@onekeyhq/kit/src/store');
-  if (appSelector((s) => s.settings.enableHaptics) ?? defaultHapticStatus) {
-    enableHaptics();
-  }
-};
+export const doHapticsWhenEnabled = supportedHaptics
+  ? () => {
+      const { appSelector } =
+        require('@onekeyhq/kit/src/store') as typeof import('@onekeyhq/kit/src/store');
+      if (appSelector((s) => s.settings.enableHaptics) ?? defaultHapticStatus) {
+        selectionAsync();
+      }
+    }
+  : () => {};

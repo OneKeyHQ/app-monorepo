@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Center,
-  DialogManager,
   Modal,
   Spinner,
   ToastManager,
@@ -31,6 +30,7 @@ import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnbo
 import { setOnBoardingLoadingBehindModal } from '../../../store/reducers/runtime';
 import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
+import { showDialog } from '../../../utils/overlayUtils';
 import { EOnboardingRoutes } from '../../Onboarding/routes/enums';
 
 import type { RouteProp } from '@react-navigation/native';
@@ -86,7 +86,7 @@ const DeviceStatusCheckModal: FC = () => {
         safeGoBack();
         const { code } = e || {};
         if (code === CustomOneKeyHardwareError.NeedOneKeyBridge) {
-          DialogManager.show({ render: <NeedBridgeDialog /> });
+          showDialog(<NeedBridgeDialog />);
           return;
         }
 

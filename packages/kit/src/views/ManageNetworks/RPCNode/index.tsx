@@ -8,7 +8,6 @@ import {
   Button,
   Center,
   Collapse,
-  DialogManager,
   GroupingList,
   ListItem,
   Modal,
@@ -18,6 +17,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../hooks';
 import { updateCustomNetworkRpc } from '../../../store/reducers/settings';
+import { showDialog } from '../../../utils/overlayUtils';
 import AddNodeDialog from '../components/AddNodeDialog';
 // import RestartAppDialog from '../components/RestartDialog';
 import { RPCItem } from '../components/RPCItem';
@@ -83,7 +83,7 @@ export const ManageNetworkRPCNode: FC = () => {
       });
 
       // **** restart required
-      // DialogManager.show({
+      // showDialog({
       //   render: (
       //     <RestartAppDialog
       //       onConfirm={() => {
@@ -103,9 +103,7 @@ export const ManageNetworkRPCNode: FC = () => {
   );
 
   const showAddNodeDialog = useCallback(() => {
-    DialogManager.show({
-      render: <AddNodeDialog networkId={networkId} onConfirm={refresh} />,
-    });
+    showDialog(<AddNodeDialog networkId={networkId} onConfirm={refresh} />);
   }, [networkId, refresh]);
 
   const toggleEditMode = useCallback(() => {

@@ -3,7 +3,14 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Box, Form, Modal, useForm } from '@onekeyhq/components';
+import {
+  Alert,
+  Box,
+  Form,
+  Modal,
+  useForm,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 import NameServiceResolver, {
   useNameServiceStatus,
 } from '@onekeyhq/kit/src/components/NameServiceResolver';
@@ -60,6 +67,7 @@ const ModalView: FC<ModalViewProps> = ({
   const name = watch('name');
   const address = watch('address');
   const networkId = watch('networkId');
+  const isVerticalLayout = useIsVerticalLayout();
 
   const {
     onChange: onNameServiceChange,
@@ -161,12 +169,7 @@ const ModalView: FC<ModalViewProps> = ({
                   },
                 }}
               >
-                <Form.Input
-                  size="lg"
-                  placeholder={intl.formatMessage({
-                    id: 'form__enter_address_name',
-                  })}
-                />
+                <Form.Input size={isVerticalLayout ? 'xl' : 'default'} />
               </Form.Item>
               <Form.Item
                 control={control}
@@ -208,7 +211,7 @@ const ModalView: FC<ModalViewProps> = ({
                 <AddressInput />
               </Form.Item>
             </Form>
-            {!hideAddressBookAttention ? (
+            {/* {!hideAddressBookAttention ? (
               <Box mt="6">
                 <Alert
                   alertType="info"
@@ -218,7 +221,7 @@ const ModalView: FC<ModalViewProps> = ({
                   onDismiss={onDismiss}
                 />
               </Box>
-            ) : null}
+            ) : null} */}
           </Box>
         ),
       }}

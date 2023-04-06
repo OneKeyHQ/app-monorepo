@@ -29,7 +29,7 @@ import {
   OnekeyHardwareModalRoutes,
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
-import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
+import { showDialog } from '@onekeyhq/kit/src/utils/overlayUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
@@ -147,12 +147,7 @@ const RightHeader: FC<RightHeaderProps> = ({
 
   const showDeleteWalletDialog = useCallback(
     (walletProps: DeleteWalletProp) => {
-      showOverlay((onClose) => (
-        <ManagerWalletDeleteDialog
-          deleteWallet={walletProps}
-          closeOverlay={onClose}
-        />
-      ));
+      showDialog(<ManagerWalletDeleteDialog deleteWallet={walletProps} />);
     },
     [],
   );
