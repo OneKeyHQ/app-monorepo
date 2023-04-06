@@ -52,7 +52,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { SendModalRoutes } from '../../../../routes/routesEnum';
-import hardware from '../../../../store/reducers/hardware';
+// import hardware from '../../../../store/reducers/hardware';
 import { deviceUtils } from '../../../../utils/hardware';
 import CollectionLogo from '../../../NFTMarket/CollectionLogo';
 import { useCollectionDetail } from '../../../NFTMarket/Home/hook';
