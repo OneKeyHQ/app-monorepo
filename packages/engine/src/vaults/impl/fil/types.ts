@@ -31,19 +31,28 @@ export type IEncodedTxFil = {
 };
 
 export type IOnChainHistoryTx = {
-  all_gas_fee: string;
   cid: string;
-  signed_cid: string;
+  height: number;
+  time: number;
+  timeFormat: string;
+  fee: string;
+  method: string;
   from: string;
   to: string;
-  exit_code: number;
-  gas_burned: string;
-  gas_fee_cap: string;
-  gas_limit: number;
-  gas_premium: string;
-  gas_used: string;
-  last_modified: string;
-  method_name: string;
-  nonce: number;
+  toType: number;
+  exitCodeName: string;
   value: string;
+  gasUsed: number;
 };
+
+export const FIL_UNIT_MAP = {
+  FIL: 0,
+  milliFIL: 3,
+  microFIL: 6,
+  nanoFIL: 9,
+  picoFIL: 12,
+  femtoFIL: 15,
+  attoFIL: 18,
+};
+
+export type FilUnit = keyof typeof FIL_UNIT_MAP;
