@@ -12,7 +12,7 @@ import { PortalEntry } from '../views/Overlay/RootPortal';
 export function showOverlay(
   renderOverlay: (closeOverlay: () => void) => ReactElement,
   // enable this flag if you are showing a Dialog (based on RNModal)
-  withRNModal?: boolean,
+  // withRNModal?: boolean,
 ) {
   let modal: RootSiblings | null;
   const closeOverlay = () => {
@@ -25,12 +25,13 @@ export function showOverlay(
     // FullWindowOverlay can only be used on iOS
     platformEnv.isNativeIOS &&
     // FullWindowOverlay can not be used with RNModal
-    !withRNModal &&
+    // !withRNModal &&
     // Addtional detect to exclude RNModal
-    el.type !== Modal &&
+    el.type !== Modal
+    // &&
     // @ts-ignore
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    !el.type?.name?.endsWith?.('Dialog')
+    // !el.type?.name?.endsWith?.('Dialog')
   ) {
     useFullWindowOverlay = true;
   }
@@ -52,19 +53,13 @@ export function showOverlay(
   return closeOverlay;
 }
 
-// Because dialogs are wrapped in RN Modal
-// so there are 2 ways to use dialog in overlay:
-// 1. showDialog(<Dialog />)
-// 2. showOverlay((onClose) => <Dialog onClose={onClose} />, true)
 export const showDialog = (render: ReactElement) =>
-  showOverlay(
-    (onClose) =>
-      cloneElement(render, {
-        onClose: () => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-          render.props.onClose?.();
-          onClose();
-        },
-      }),
-    true,
+  showOverlay((onClose) =>
+    cloneElement(render, {
+      onClose: () => {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        render.props.onClose?.();
+        onClose();
+      },
+    }),
   );

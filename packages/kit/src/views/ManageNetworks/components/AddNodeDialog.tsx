@@ -86,7 +86,7 @@ const AddNodeDialog: FC<Props> = ({ onClose, onConfirm, networkId }) => {
   });
 
   return (
-    <Dialog visible hasFormInsideDialog>
+    <Dialog visible>
       <Center w="full" mb="6">
         <Typography.DisplayMedium>
           {intl.formatMessage({ id: 'action__add_node' })}

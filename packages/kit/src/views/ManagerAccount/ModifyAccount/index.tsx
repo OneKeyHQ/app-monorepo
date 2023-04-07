@@ -71,7 +71,7 @@ const AccountModifyNameDialog: FC<AccountModifyNameDialogProps> = ({
   return (
     <>
       {visible && (
-        <Dialog visible={visible} hasFormInsideDialog>
+        <Dialog visible={visible}>
           <Form>
             <Form.Item
               name="name"

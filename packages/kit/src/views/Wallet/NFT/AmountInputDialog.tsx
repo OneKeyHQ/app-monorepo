@@ -21,7 +21,6 @@ const AmountInputDialog: FC<Props> = ({ total, onConfirm, onClose }) => {
 
   return (
     <Dialog
-      hasFormInsideDialog
       visible
       footerButtonProps={{
         primaryActionTranslationId: 'action__confirm',

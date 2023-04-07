@@ -116,4 +116,4 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
 };
 
 export const showWebMoreMenu = () =>
-  showOverlay((onClose) => <MoreMenu onClose={onClose} />, true);
+  showOverlay((onClose) => <MoreMenu onClose={onClose} />);

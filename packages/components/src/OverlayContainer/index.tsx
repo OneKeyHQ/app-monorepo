@@ -1,10 +1,8 @@
 import type { FC } from 'react';
 
 import { StyleSheet, View } from 'react-native';
-import { RootSiblingPortal } from 'react-native-root-siblings';
 
 import { PortalEntry } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const OverlayContainer: FC<{ useFullWindowForIOS?: boolean }> = ({
   useFullWindowForIOS,
@@ -18,9 +16,6 @@ const OverlayContainer: FC<{ useFullWindowForIOS?: boolean }> = ({
       {...props}
     />
   );
-  if (useFullWindowForIOS && platformEnv.isNativeIOS) {
-    return <PortalEntry target="Root-FullWindowOverlay">{content}</PortalEntry>;
-  }
-  return <RootSiblingPortal>{content}</RootSiblingPortal>;
+  return <PortalEntry target="Root-FullWindowOverlay">{content}</PortalEntry>;
 };
 export default OverlayContainer;
