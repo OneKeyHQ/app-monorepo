@@ -1,6 +1,7 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { createDrawerNavigator } from '@react-navigation/drawer';
+import { useWindowDimensions } from 'react-native';
 
 import { useThemeValue } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -15,11 +16,16 @@ import type { StyleProp, ViewStyle } from 'react-native';
 const DrawerStack = createDrawerNavigator();
 
 const DrawerStackNavigator = () => {
+  const { width } = useWindowDimensions();
+  const drawerWidth = useMemo(() => {
+    const expectedWidth = Math.round(width * 0.85);
+    const maxWidth = 400;
+    return expectedWidth > maxWidth ? maxWidth : expectedWidth;
+  }, [width]);
+
   const drawerStyle: Partial<StyleProp<ViewStyle>> = {
     // must sync with nestedtabview
-    width: '85%',
-    // maxWidth is not supported on iPad mini
-    maxWidth: platformEnv.isNative ? undefined : 400,
+    width: drawerWidth,
     backgroundColor: useThemeValue('background-default'),
   };
   if (platformEnv.isRuntimeBrowser) {
