@@ -96,9 +96,9 @@ function generateEIP3091(customExplorerURL?: string):
     const block = u.toString().replace('%7Bblock%7D', '{block}');
 
     // https://onekeyhq.atlassian.net/browse/OK-15390
-    u.pathname = `${base}${
-      u.hostname === 'www.gatescan.org' ? 'tx' : 'transaction'
-    }/{transaction}`;
+    // https://onekeyhq.atlassian.net/browse/OK-18828
+    // https://eips.ethereum.org/EIPS/eip-3091
+    u.pathname = `${base}tx/{transaction}`;
     const transaction = u
       .toString()
       .replace('%7Btransaction%7D', '{transaction}');
