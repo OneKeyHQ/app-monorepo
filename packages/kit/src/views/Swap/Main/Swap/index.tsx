@@ -13,7 +13,7 @@ export function SwapMain() {
       <SwapContent />
       <PaddingControl>
         <SwapAlert />
-        <Box my="6">
+        <Box mt="6" mb="3">
           <MainButton>
             <SwapButton />
           </MainButton>
