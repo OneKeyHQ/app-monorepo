@@ -5,7 +5,6 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import { RootSiblingParent } from 'react-native-root-siblings';
 
 import {
   Badge,
@@ -456,9 +455,7 @@ const ConnectHardwareModal: FC = () => {
   };
 
   const content = platformEnv.isNative ? (
-    <RootSiblingParent>
-      <Center>{renderConnectScreen()}</Center>
-    </RootSiblingParent>
+    <Center>{renderConnectScreen()}</Center>
   ) : (
     <VStack space={8} alignItems="center">
       <Box>

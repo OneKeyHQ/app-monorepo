@@ -2,6 +2,7 @@
 import { memo, useMemo } from 'react';
 
 // import { createStackNavigator } from '@react-navigation/stack';
+import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
@@ -250,15 +251,17 @@ const ModalStackNavigator = () => {
     [isVerticalLayout],
   );
   return (
-    <ModalStack.Navigator screenOptions={screenOptions}>
-      {modalStackScreenList.map((modal) => (
-        <ModalStack.Screen
-          key={modal.name}
-          name={modal.name}
-          component={modal.component}
-        />
-      ))}
-    </ModalStack.Navigator>
+    <RootSiblingParent>
+      <ModalStack.Navigator screenOptions={screenOptions}>
+        {modalStackScreenList.map((modal) => (
+          <ModalStack.Screen
+            key={modal.name}
+            name={modal.name}
+            component={modal.component}
+          />
+        ))}
+      </ModalStack.Navigator>
+    </RootSiblingParent>
   );
 };
 

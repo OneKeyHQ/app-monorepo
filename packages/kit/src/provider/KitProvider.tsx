@@ -61,11 +61,11 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
   });
   const globalPortalViews = useMemo(
     () => (
-      <>
+      <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
         <ChainWebEmbed />
         <CustomToast bottomOffset={60} />
         <PortalExit name="Root-FullWindowOverlay" />
-      </>
+      </View>
     ),
     [],
   );
@@ -85,14 +85,7 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
                     // but can not work with modal
                     // https://github.com/software-mansion/react-native-screens/issues/1149
                     // so now only used for toast
-                    <FullWindowOverlay>
-                      <View
-                        pointerEvents="box-none"
-                        style={StyleSheet.absoluteFill}
-                      >
-                        {globalPortalViews}
-                      </View>
-                    </FullWindowOverlay>
+                    <FullWindowOverlay>{globalPortalViews}</FullWindowOverlay>
                   ) : (
                     globalPortalViews
                   )}

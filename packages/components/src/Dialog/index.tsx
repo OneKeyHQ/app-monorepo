@@ -4,7 +4,6 @@ import { cloneElement, useCallback, useMemo, useState } from 'react';
 import { Modal as NBModal } from 'native-base';
 import { Platform } from 'react-native';
 import Modal from 'react-native-modal';
-import { RootSiblingParent } from 'react-native-root-siblings';
 
 import Box from '../Box';
 import KeyboardDismissView from '../KeyboardDismissView';
@@ -55,7 +54,7 @@ const Outer: FC<OuterContainerProps> = ({
       style={{ marginHorizontal: 0 }}
       {...rest}
     >
-      <RootSiblingParent>{children}</RootSiblingParent>
+      {children}
     </Modal>
   );
 };
