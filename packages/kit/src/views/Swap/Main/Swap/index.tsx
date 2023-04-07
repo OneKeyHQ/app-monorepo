@@ -6,8 +6,10 @@ import { PaddingControl } from '../PaddingControl';
 import { SwapAlert } from './SwapAlert';
 import { SwapContent } from './SwapContent';
 import { SwapQuote } from './SwapQuote';
+import { useAppSelector } from '../../../../hooks';
 
 export function SwapMain() {
+  const loading = useAppSelector(s => s.swap.loading)
   return (
     <Box>
       <SwapContent />
@@ -18,7 +20,7 @@ export function SwapMain() {
             <SwapButton />
           </MainButton>
         </Box>
-        <SwapQuote />
+        { !loading ? <SwapQuote />: null }
       </PaddingControl>
     </Box>
   );
