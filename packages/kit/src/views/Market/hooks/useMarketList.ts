@@ -12,6 +12,8 @@ import { MARKET_FAVORITES_CATEGORYID } from '../../../store/reducers/market';
 import { useMarketSelectedCategory } from './useMarketCategory';
 import { useMarketMidLayout } from './useMarketLayout';
 
+import type { MarketTopTabName } from '../../../store/reducers/market';
+
 export const useListSort = () => {
   const listSort = useAppSelector((s) => s.market.listSort);
   return useMemo(() => listSort, [listSort]);
@@ -106,4 +108,18 @@ export const useMarketList = ({
     selectedCategory,
     onRefreshingMarketList,
   };
+};
+
+export const marketSwapTabRoutes: { key: MarketTopTabName }[] = [
+  { key: TabRoutes.Swap },
+  { key: TabRoutes.Market },
+];
+export const setMarketSwapTabIndex = (index: number) => {
+  if (index < 2) {
+    backgroundApiProxy.serviceMarket.switchMarketTopTab(
+      marketSwapTabRoutes[index].key,
+    );
+  } else {
+    // TODO: handle other tabs
+  }
 };
