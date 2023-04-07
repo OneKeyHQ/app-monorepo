@@ -7,7 +7,6 @@ import type {
 import { cloneElement, useCallback, useMemo, useRef } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
-import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { useIsVerticalLayout, useUserDevice } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -201,9 +200,6 @@ const Modal = ({
       content = <Box {...staticChildrenProps}>{rest.children}</Box>;
     }
 
-    if (platformEnv.isNative) {
-      return <RootSiblingParent>{content}</RootSiblingParent>;
-    }
     return content;
   }, [
     headerShown,

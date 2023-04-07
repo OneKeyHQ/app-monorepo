@@ -7,9 +7,6 @@ import { FullWindowOverlay } from 'react-native-screens';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-// export const OverlayContext = createContext({
-//   closeOverlay: () => {},
-// });
 export function showOverlay(
   renderOverlay: (closeOverlay: () => void) => ReactElement,
   // enable this flag if you are showing a Dialog (based on RNModal)
@@ -20,16 +17,17 @@ export function showOverlay(
     modal?.destroy();
     modal = null;
   };
+  const content = (
+    <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+      {renderOverlay(closeOverlay)}
+    </View>
+  );
   const el =
     // FullWindowOverlay can not be used with RNModal
     !withRNModal && platformEnv.isNativeIOS ? (
-      <FullWindowOverlay>
-        <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-          {renderOverlay(closeOverlay)}
-        </View>
-      </FullWindowOverlay>
+      <FullWindowOverlay>{content}</FullWindowOverlay>
     ) : (
-      renderOverlay(closeOverlay)
+      content
     );
   setTimeout(() => {
     modal = new RootSiblings(el);
@@ -46,9 +44,9 @@ export const showDialog = (render: ReactElement) =>
     (onClose) =>
       cloneElement(render, {
         onClose: () => {
-          onClose();
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
           render.props.onClose?.();
+          onClose();
         },
       }),
     true,

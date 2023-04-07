@@ -3,48 +3,28 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ICON_NAMES } from '@onekeyhq/components';
-import {
-  Box,
-  Icon,
-  Text,
-  ToastManager,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
-import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
-import { formatMessage } from '@onekeyhq/components/src/Provider';
+import { ToastManager, useIsVerticalLayout } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
-import { showOverlay } from '../../../utils/overlayUtils';
 import { DiscoverModalRoutes } from '../../Discover/type';
-import { OverlayPanel } from '../OverlayPanel';
+import BaseMenu from '../BaseMenu';
 
 import type { MatchDAppItemType } from '../../Discover/Explorer/explorerUtils';
-import type { ShowMenuProps } from './type';
-import type { MessageDescriptor } from 'react-intl';
+import type { IBaseMenuOptions, IMenu } from '../BaseMenu';
 
-const DiscoverFavoriteMenu: FC<{
-  closeOverlay: () => void;
-  item: MatchDAppItemType;
-}> = ({ closeOverlay, item }) => {
+const FavListMenu: FC<IMenu & { item: MatchDAppItemType; isFav?: boolean }> = ({
+  item,
+  isFav,
+  ...props
+}) => {
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
   const bookmarks = useAppSelector((s) => s.discover.bookmarks);
-
   const navigation = useNavigation();
-  const options: (
-    | {
-        id: MessageDescriptor['id'];
-        onPress: () => void;
-        icon: ICON_NAMES;
-        isDanger?: boolean;
-      }
-    | false
-    | undefined
-  )[] = useMemo(
+  const options: IBaseMenuOptions = useMemo(
     () => [
       isVerticalLayout
         ? {
@@ -76,9 +56,9 @@ const DiscoverFavoriteMenu: FC<{
             title: intl.formatMessage({ id: 'msg__copied' }),
           });
         },
-        icon: 'LinkOutline',
+        icon: 'LinkMini',
       },
-      {
+      isFav && {
         id: 'action__edit',
         onPress: () => {
           const url = item.dapp?.url ?? item.webSite?.url ?? '';
@@ -104,62 +84,22 @@ const DiscoverFavoriteMenu: FC<{
       {
         id: 'action__remove',
         onPress: () => {
-          backgroundApiProxy.serviceDiscover.removeFavorite(item.id);
+          if (isFav) {
+            backgroundApiProxy.serviceDiscover.removeFavorite(item.id);
+          } else {
+            backgroundApiProxy.serviceDiscover.removeMatchItem(item);
+          }
           ToastManager.show({
             title: intl.formatMessage({ id: 'transaction__success' }),
           });
         },
-        icon: 'TrashOutline',
-        isDanger: true,
+        icon: 'TrashMini',
+        variant: 'desctructive',
       },
     ],
-    [item, intl, isVerticalLayout, navigation, bookmarks],
+    [isVerticalLayout, isFav, item, navigation, intl, bookmarks],
   );
-  return (
-    <Box bg="surface-subdued" flexDirection="column">
-      {options.filter(Boolean).map(({ onPress, icon, id, isDanger }) => (
-        <PressableItem
-          key={id}
-          flexDirection="row"
-          alignItems="center"
-          py={{ base: '12px', sm: '8px' }}
-          px={{ base: '16px', sm: '8px' }}
-          bg="transparent"
-          borderRadius="12"
-          onPress={() => {
-            closeOverlay();
-            onPress();
-          }}
-        >
-          <Icon
-            size={isVerticalLayout ? 24 : 20}
-            name={icon}
-            color={isDanger ? 'text-critical' : 'text-default'}
-          />
-          <Text
-            typography={isVerticalLayout ? 'Body1Strong' : 'Body2Strong'}
-            ml="12px"
-            color={isDanger ? 'text-critical' : 'text-default'}
-          >
-            {intl.formatMessage({
-              id,
-            })}
-          </Text>
-        </PressableItem>
-      ))}
-    </Box>
-  );
+  return <BaseMenu options={options} {...props} />;
 };
 
-export const showFavoriteMenu: ShowMenuProps = ({ triggerEle, dapp, title }) =>
-  showOverlay((closeOverlay) => (
-    <OverlayPanel
-      triggerEle={triggerEle}
-      closeOverlay={closeOverlay}
-      modalProps={{
-        header: title ?? formatMessage({ id: 'action__more' }),
-      }}
-    >
-      <DiscoverFavoriteMenu closeOverlay={closeOverlay} item={dapp} />
-    </OverlayPanel>
-  ));
+export default FavListMenu;
