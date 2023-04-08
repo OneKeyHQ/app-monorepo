@@ -1797,10 +1797,9 @@ export default class Vault extends VaultBase {
     try {
       const { decodedTx } = historyTx;
       const { encodedTx } = decodedTx;
-      if (!encodedTx) return false;
 
-      const from = (encodedTx as IEncodedTxEvm).from.toLowerCase();
-      const to = (encodedTx as IEncodedTxEvm).to.toLowerCase();
+      const from = (encodedTx as IEncodedTxEvm)?.from.toLowerCase();
+      const to = (encodedTx as IEncodedTxEvm)?.to.toLowerCase();
       const address = (await this.getAccountAddress()).toLocaleLowerCase();
       if (from === address || to === address) return false;
 
