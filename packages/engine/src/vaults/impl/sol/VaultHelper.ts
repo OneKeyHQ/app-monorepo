@@ -1,4 +1,4 @@
-import { Transaction } from '@solana/web3.js';
+import { Transaction, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 import { NotImplemented } from '../../../errors';
@@ -12,7 +12,14 @@ export default class VaultHelper extends VaultHelperBase {
     if (!encodedTx) {
       return Promise.resolve(null);
     }
-    return Promise.resolve(Transaction.from(bs58.decode(encodedTx)));
+
+    const txByte = bs58.decode(encodedTx);
+
+    try {
+      return Promise.resolve(Transaction.from(txByte));
+    } catch (e) {
+      return Promise.resolve(VersionedTransaction.deserialize(txByte));
+    }
   }
 
   parseToEncodedTx(

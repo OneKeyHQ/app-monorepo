@@ -1,26 +1,35 @@
+import { VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 
 import type { Signer } from '../../../proxy';
-import type { PublicKey, Transaction } from '@solana/web3.js';
+import type { INativeTxSol } from './types';
+import type { PublicKey } from '@solana/web3.js';
 
 export async function signTransaction(
   unsignedTx: UnsignedTx,
   signer: Signer,
 ): Promise<SignedTx> {
   const { nativeTx: transaction, feePayer } = unsignedTx.payload as {
-    nativeTx: Transaction;
+    nativeTx: INativeTxSol;
     feePayer: PublicKey;
   };
-  const [sig] = await signer.sign(transaction.serializeMessage());
+
+  const isVersionedTransaction = transaction instanceof VersionedTransaction;
+
+  const [sig] = await signer.sign(
+    isVersionedTransaction
+      ? Buffer.from(transaction.message.serialize())
+      : transaction.serializeMessage(),
+  );
   transaction.addSignature(feePayer, sig);
 
   return {
     txid: bs58.encode(sig),
-    rawTx: transaction
-      .serialize({ requireAllSignatures: false })
-      .toString('base64'),
+    rawTx: Buffer.from(
+      transaction.serialize({ requireAllSignatures: false }),
+    ).toString('base64'),
   };
 }
 

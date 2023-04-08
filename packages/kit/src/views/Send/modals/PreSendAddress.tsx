@@ -558,17 +558,6 @@ function PreSendAddress() {
               </Form.Item>
               {DestinationTagForm}
             </Form>
-            <Box
-              height={
-                validateMessage.warningMessage?.length > 0 ||
-                validateMessage.successMessage?.length > 0 ||
-                validateMessage.errorMessage?.length > 0 ||
-                // @ts-ignore
-                formState?.errors?.to?.message?.length > 0
-                  ? 0
-                  : '28px'
-              }
-            />
             <GoPlusSecurityItems items={securityItems} />
           </Box>
         ),
