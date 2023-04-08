@@ -48,6 +48,7 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type {
+  IClientApi,
   IEncodedTxTron,
   IOnChainHistoryTokenTx,
   IOnChainHistoryTx,
@@ -57,7 +58,6 @@ import type {
   ITokenDetail,
 } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import EnablePassphraseDialog from '@onekeyhq/kit/src/views/Hardware/Onekey/EnablePassphraseDialog';
 
 const FAKE_OWNER_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 const SIGNATURE_LENGTH = 65;
@@ -103,8 +103,8 @@ export default class Vault extends VaultBase {
   );
 
   async getApiExplorer() {
-    const scanURL = await this.getScanUrl();
-    return this.getApiExplorerCache(scanURL);
+    const clientApi = await this.getClientApi<IClientApi>();
+    return this.getApiExplorerCache(clientApi.tronscan);
   }
 
   public async getClient() {

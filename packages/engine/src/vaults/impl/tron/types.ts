@@ -66,3 +66,7 @@ export type ITokenDetail = {
   'nrOfTokenHolders': number;
   'transferCount': number;
 };
+
+export type IClientApi = {
+  tronscan: string;
+};
