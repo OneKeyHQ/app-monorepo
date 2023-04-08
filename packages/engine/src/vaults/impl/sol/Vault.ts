@@ -16,6 +16,7 @@ import {
   SystemInstruction,
   SystemProgram,
   Transaction,
+  VersionedTransaction,
 } from '@solana/web3.js';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
@@ -124,7 +125,13 @@ export default class Vault extends VaultBase {
     const ret: Array<IDecodedTxAction> = [];
 
     const createdAta: Record<string, AssociatedTokenInfo> = {};
-    for (const instruction of nativeTx.instructions) {
+
+    // @ts-ignore
+    if (!nativeTx.instructions) {
+      return [{ type: IDecodedTxActionType.UNKNOWN }];
+    }
+
+    for (const instruction of (nativeTx as Transaction).instructions) {
       // TODO: only support system transfer & token transfer now
       if (
         instruction.programId.toString() === SystemProgram.programId.toString()
@@ -338,11 +345,20 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTx,
     payload?: any,
   ): Promise<IDecodedTx> {
-    const nativeTx: Transaction = await this.helper.parseToNativeTx(encodedTx);
+    const nativeTx: INativeTxSol = await this.helper.parseToNativeTx(encodedTx);
     let actions: IDecodedTxAction[] = await this.decodeNativeTxActions(
       nativeTx,
     );
 
+    const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
+
+    let signature = isVersionedTransaction
+      ? nativeTx.signatures[0]
+      : nativeTx.signature;
+
+    if (signature?.every((value) => value === 0)) {
+      signature = null;
+    }
     if (payload?.type === 'InternalSwap' && payload?.swapInfo) {
       actions = [
         {
@@ -378,9 +394,9 @@ export default class Vault extends VaultBase {
 
     const owner = await this.getAccountAddress();
     const decodedTx: IDecodedTx = {
-      txid: nativeTx.signature ? bs58.encode(nativeTx.signature) : '',
+      txid: signature ? bs58.encode(signature) : '',
       owner,
-      signer: nativeTx.feePayer?.toString() || owner,
+      signer: (nativeTx as Transaction).feePayer?.toString() || owner,
       nonce: 0,
       actions,
       status: IDecodedTxStatus.Pending,
@@ -966,7 +982,9 @@ export default class Vault extends VaultBase {
   }
 
   async refreshRecentBlockBash(transaction: string): Promise<string> {
-    const nativeTx = Transaction.from(bs58.decode(transaction));
+    const nativeTx: Transaction = await this.helper.parseToNativeTx(
+      transaction,
+    );
     const client = await this.getClient();
     [, nativeTx.recentBlockhash] = await client.getFees();
 
