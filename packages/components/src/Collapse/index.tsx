@@ -9,14 +9,9 @@ import { Box } from '@onekeyhq/components';
 
 import Icon from '../Icon';
 
-import type { GestureResponderEvent } from 'react-native-modal/dist/types';
-
 type CollapseProps = {
   trigger?: ReactNode;
-  renderCustomTrigger?: (
-    onPress: (event?: GestureResponderEvent) => void,
-    collapsed?: boolean,
-  ) => ReactNode;
+  renderCustomTrigger?: (onPress: () => void, collapsed?: boolean) => ReactNode;
   children: ReactNode;
   defaultCollapsed?: boolean;
   onCollapseChange?: (collapsed: boolean) => void;
