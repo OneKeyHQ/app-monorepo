@@ -52,7 +52,6 @@ const ForgetPasswordButton = () => {
         </Pressable>
       </Box>
       <Dialog
-        hasFormInsideDialog
         visible={visible}
         onClose={() => setVisible(false)}
         footerButtonProps={{

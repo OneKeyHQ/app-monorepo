@@ -5590,7 +5590,6 @@ __metadata:
     react-native-draggable-flatlist: 4.0.0
     react-native-keyboard-aware-scroll-view: ^0.9.5
     react-native-markdown-display: ^7.0.0-alpha.2
-    react-native-modal: ^13.0.1
     react-native-modalize: ^2.1.1
     react-native-progress: ^5.0.0
     react-native-root-siblings: ^4.1.1
@@ -27373,15 +27372,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-animatable@npm:1.3.3":
-  version: 1.3.3
-  resolution: "react-native-animatable@npm:1.3.3"
-  dependencies:
-    prop-types: ^15.7.2
-  checksum: eb35821de36ae4eb00f97d99fc22ed79bd017248092ff1299f9d46a7ab946de16d2e6d6bfbf4cab5ef77d0d3bf47684aec761a7670ec7d36aae8d77ab8ddd171
-  languageName: node
-  linkType: hard
-
 "react-native-animated-splash-screen@npm:^2.0.5":
   version: 2.0.5
   resolution: "react-native-animated-splash-screen@npm:2.0.5"
@@ -27690,19 +27680,6 @@ __metadata:
     react: ^16.2.0
     react-native: ">=0.50.4"
   checksum: 9f8f7a9ae165e6964719dc16a79d254e1ce7febc9938ebf035f1194f3cda3154eb6c7efd622de1b92b9c01704aad88c0501e64c00a0a2439331c44a039929db4
-  languageName: node
-  linkType: hard
-
-"react-native-modal@npm:^13.0.1":
-  version: 13.0.1
-  resolution: "react-native-modal@npm:13.0.1"
-  dependencies:
-    prop-types: ^15.6.2
-    react-native-animatable: 1.3.3
-  peerDependencies:
-    react: "*"
-    react-native: ">=0.65.0"
-  checksum: 15985fd6aaae7a2134ec1003c63abd384f4a17beabd0a80b74033c98eccee29161aa07150f479373fb43106cfb33b5837b7a4f1d2b721ff03b3727490c830a07
   languageName: node
   linkType: hard
 

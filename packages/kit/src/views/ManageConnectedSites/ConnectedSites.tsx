@@ -146,41 +146,38 @@ export default function ConnectedSites() {
 
   const openDeleteDialog = useCallback(
     (dappName: string, disconnect: () => Promise<any>) => {
-      showOverlay(
-        (closeOverlay) => (
-          <Dialog
-            visible
-            onClose={closeOverlay}
-            footerButtonProps={{
-              primaryActionTranslationId: 'action__disconnect',
-              primaryActionProps: {
-                type: 'destructive',
-                onPromise: async () => {
-                  await disconnect();
-                  closeOverlay();
-                },
+      showOverlay((closeOverlay) => (
+        <Dialog
+          visible
+          onClose={closeOverlay}
+          footerButtonProps={{
+            primaryActionTranslationId: 'action__disconnect',
+            primaryActionProps: {
+              type: 'destructive',
+              onPromise: async () => {
+                await disconnect();
+                closeOverlay();
               },
-              wrap: true,
-            }}
-            contentProps={{
-              iconType: 'danger',
-              iconName: 'ConnectOffOutline',
-              title: intl.formatMessage({
-                id: 'dialog__disconnect_from_this_site',
-              }),
-              content: intl.formatMessage(
-                {
-                  id: 'dialog__disconnect_all_accounts_desc',
-                },
-                {
-                  0: dappName,
-                },
-              ),
-            }}
-          />
-        ),
-        true,
-      );
+            },
+            wrap: true,
+          }}
+          contentProps={{
+            iconType: 'danger',
+            iconName: 'ConnectOffOutline',
+            title: intl.formatMessage({
+              id: 'dialog__disconnect_from_this_site',
+            }),
+            content: intl.formatMessage(
+              {
+                id: 'dialog__disconnect_all_accounts_desc',
+              },
+              {
+                0: dappName,
+              },
+            ),
+          }}
+        />
+      ));
     },
     [intl],
   );

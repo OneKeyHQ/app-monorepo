@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { memo, useMemo } from 'react';
 
-// import { createStackNavigator } from '@react-navigation/stack';
-
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import { createLazyComponent } from '../../../utils/createLazyComponent';
