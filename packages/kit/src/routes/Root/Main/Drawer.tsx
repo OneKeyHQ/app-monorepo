@@ -21,7 +21,7 @@ const DrawerStackNavigator = () => {
     // must sync with nestedtabview
     const expectedWidth = width * 0.85;
     const maxWidth = 400;
-    return expectedWidth > maxWidth ? maxWidth : expectedWidth;
+    return Math.min(maxWidth, expectedWidth);
   }, [width]);
 
   const backgroundColor = useThemeValue('background-default');
@@ -29,8 +29,6 @@ const DrawerStackNavigator = () => {
   const screenOptions = useMemo(() => {
     const drawerStyle: Partial<StyleProp<ViewStyle>> = {
       width: drawerWidth,
-      // maxWidth is not supported on iPad mini
-      maxWidth: platformEnv.isNative ? undefined : 400,
       backgroundColor,
     };
 
