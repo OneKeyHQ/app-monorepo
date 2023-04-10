@@ -2,6 +2,7 @@ import type { FC } from 'react';
 
 import { StyleSheet, View } from 'react-native';
 
+import { FULLWINDOW_OVERLAY_PORTAL } from '@onekeyhq/kit/src/utils/overlayUtils';
 import { PortalEntry } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
 
 import type { StyleProp, ViewStyle } from 'react-native';
@@ -18,6 +19,8 @@ const OverlayContainer: FC<{
       {...props}
     />
   );
-  return <PortalEntry target="Root-FullWindowOverlay">{content}</PortalEntry>;
+  return (
+    <PortalEntry target={FULLWINDOW_OVERLAY_PORTAL}>{content}</PortalEntry>
+  );
 };
 export default OverlayContainer;

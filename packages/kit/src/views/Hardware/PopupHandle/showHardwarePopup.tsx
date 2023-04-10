@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 
 import { MotiView } from 'moti';
-import { PermissionsAndroid, Platform, StyleSheet } from 'react-native';
+import { PermissionsAndroid, Platform } from 'react-native';
 import RootSiblingsManager from 'react-native-root-siblings';
 
 import { OverlayContainer } from '@onekeyhq/components';

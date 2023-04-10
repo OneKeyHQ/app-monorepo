@@ -7,6 +7,8 @@ import { enterPortal } from '../views/Overlay/RootPortal';
 
 import type { PortalManager } from '../views/Overlay/RootPortal';
 
+export const FULLWINDOW_OVERLAY_PORTAL = 'Root-FullWindowOverlay';
+
 export function showOverlay(
   renderOverlay: (closeOverlay: () => void) => ReactElement,
 ) {
@@ -21,7 +23,7 @@ export function showOverlay(
     </View>
   );
   setTimeout(() => {
-    portal = enterPortal('Root-FullWindowOverlay', content);
+    portal = enterPortal(FULLWINDOW_OVERLAY_PORTAL, content);
   });
   return closeOverlay;
 }
