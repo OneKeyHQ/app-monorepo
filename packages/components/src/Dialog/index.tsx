@@ -22,7 +22,13 @@ const Outer: FC<OuterContainerProps> = ({
   children,
 }) =>
   isVisible ? (
-    <OverlayContainer>
+    <OverlayContainer
+      style={{
+        // higher than react-native-modalize(9998)
+        zIndex: 9999,
+        flex: 1,
+      }}
+    >
       <View
         style={{
           flex: 1,
