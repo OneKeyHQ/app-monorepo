@@ -91,6 +91,16 @@ export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
     };
   }
 
+  if (feeValue.isBtcForkChain) {
+    const fee = new BigNumber(feeValue.btcFee ?? '0')
+      .shiftedBy(-decimal)
+      .toFixed(decimal);
+    return {
+      min: nanToZeroString(fee),
+      max: nanToZeroString(fee),
+    };
+  }
+
   const max = new BigNumber(limit as string)
     .times(feeValue.price as string)
     .toFixed();
