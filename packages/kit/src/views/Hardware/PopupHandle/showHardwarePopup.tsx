@@ -345,7 +345,13 @@ export default async function showHardwarePopup({
 
   setTimeout(() => {
     const modalPopup = (
-      <OverlayContainer>
+      <OverlayContainer
+        style={{
+          // higher than react-native-modalize(9998)
+          zIndex: 9999,
+          flex: 1,
+        }}
+      >
         <MotiView
           from={{ opacity: 0 }}
           animate={{ opacity: 1 }}

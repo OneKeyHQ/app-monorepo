@@ -19,6 +19,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useShortcuts } from '../hooks/useShortcuts';
 import '../routes/deepLink';
 import buildLinking from '../routes/linking';
+import { FULLWINDOW_OVERLAY_PORTAL } from '../utils/overlayUtils';
 import { PortalExit } from '../views/Overlay/RootPortal';
 
 import RedirectProvider from './RedirectProvider';
@@ -104,7 +105,7 @@ const NavigationApp = () => {
     () => (
       <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
         <CustomToast bottomOffset={60} />
-        <PortalExit name="Root-FullWindowOverlay" />
+        <PortalExit name={FULLWINDOW_OVERLAY_PORTAL} />
       </View>
     ),
     [],
