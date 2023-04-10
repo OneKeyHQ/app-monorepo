@@ -286,6 +286,8 @@ export type IFeeInfo = {
     estimatedTransactionCount?: number;
     originalPrices?: Array<EIP1559Fee | string> | null;
   } | null;
+  isBtcForkChain?: boolean;
+  feeList?: number[];
 };
 export type IFeeInfoSelectedType = 'preset' | 'custom';
 export type IFeeInfoSelected = {

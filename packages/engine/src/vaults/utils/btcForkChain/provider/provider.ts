@@ -409,17 +409,22 @@ class Provider {
   }
 
   buildUnsignedTx(unsignedTx: UnsignedTx): Promise<UnsignedTx> {
-    const { encodedTx } = unsignedTx;
+    const { encodedTx, inputs, outputs } = unsignedTx;
     let { feeLimit, feePricePerUnit } = unsignedTx;
-    const { inputsForCoinSelect, outputsForCoinSelect } = encodedTx ?? {};
+    const { inputsForCoinSelect } = encodedTx ?? {};
 
-    if (
-      Number(inputsForCoinSelect?.length) > 0 &&
-      Number(outputsForCoinSelect?.length) > 0
-    ) {
+    const selectedInputs = inputsForCoinSelect?.filter((input) =>
+      inputs.some(
+        (i) => i.utxo?.txid === input.txId && i.utxo.vout === input.vout,
+      ),
+    );
+    if (Number(selectedInputs?.length) > 0 && outputs.length > 0) {
       const txSize = estimateTxSize(
-        inputsForCoinSelect ?? [],
-        outputsForCoinSelect ?? [],
+        selectedInputs ?? [],
+        outputs.map((o) => ({
+          address: o.address,
+          value: parseInt(o.value.toFixed()),
+        })) ?? [],
       );
       console.log('buildUnsignedTx txSize', txSize);
       feeLimit =
