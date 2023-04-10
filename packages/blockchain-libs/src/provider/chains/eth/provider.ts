@@ -205,10 +205,27 @@ class Provider extends BaseProvider {
     signer: Signer,
     address?: string,
   ): Promise<string> => {
-    const messageHash = hashMessage(
-      message.type as MessageTypes,
-      message.message,
-    );
+    let finalMessage: any = message.message;
+
+    // Special temporary fix for attribute name error on SpaceSwap
+    // https://onekeyhq.atlassian.net/browse/OK-18748
+    try {
+      finalMessage = JSON.parse(message.message);
+      if (
+        finalMessage.message.value1 !== undefined &&
+        finalMessage.message.value === undefined
+      ) {
+        finalMessage.message.value = finalMessage.message.value1;
+
+        finalMessage = JSON.stringify(finalMessage);
+      } else {
+        finalMessage = message.message;
+      }
+    } catch (e) {
+      finalMessage = message.message;
+    }
+
+    const messageHash = hashMessage(message.type as MessageTypes, finalMessage);
     const [sig, recId] = await signer.sign(ethUtil.toBuffer(messageHash));
     return ethUtil.addHexPrefix(
       Buffer.concat([sig, Buffer.from([recId + 27])]).toString('hex'),
