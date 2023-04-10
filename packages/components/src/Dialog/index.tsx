@@ -2,7 +2,7 @@ import type { ComponentProps, FC, ReactElement, ReactNode } from 'react';
 import { cloneElement, useCallback, useMemo, useState } from 'react';
 
 import { MotiView } from 'moti';
-import { KeyboardAvoidingView } from 'react-native';
+import { KeyboardAvoidingView, StyleSheet, View } from 'react-native';
 
 import Box from '../Box';
 import KeyboardDismissView from '../KeyboardDismissView';
@@ -22,19 +22,29 @@ const Outer: FC<OuterContainerProps> = ({
   children,
 }) =>
   isVisible ? (
-    <OverlayContainer>
-      <MotiView
-        from={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+    <OverlayContainer
+      style={{
+        // higher than react-native-modalize(9998)
+        zIndex: 9999,
+        flex: 1,
+      }}
+    >
+      <View
         style={{
           flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <CloseBackDrop onClose={onClose} backgroundColor="#00000066" />
+        <MotiView
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          style={StyleSheet.absoluteFill}
+        >
+          <CloseBackDrop onClose={onClose} backgroundColor="#00000066" />
+        </MotiView>
         {children}
-      </MotiView>
+      </View>
     </OverlayContainer>
   ) : null;
 

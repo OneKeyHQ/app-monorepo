@@ -10,9 +10,9 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
+import { refreshHistory } from '../../store/reducers/refresher';
 import { setHideScamHistory } from '../../store/reducers/settings';
 import { showOverlay } from '../../utils/overlayUtils';
-import { refreshHistory } from '../../store/reducers/refresher';
 
 function TokenValueSettingsBottomSheetModal({
   closeOverlay,

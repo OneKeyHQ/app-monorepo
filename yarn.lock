@@ -4723,14 +4723,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/ed25519@npm:^1.6.0":
-  version: 1.6.0
-  resolution: "@noble/ed25519@npm:1.6.0"
-  checksum: cca5b412819529d983b09d7394ff2f506fb8100cba333cd6df23316bee7596813d1c5b38d3895bd46369ca70f7ac54d860521df80dcb19805892284930ac9d4a
-  languageName: node
-  linkType: hard
-
-"@noble/ed25519@npm:^1.7.0":
+"@noble/ed25519@npm:^1.6.0, @noble/ed25519@npm:^1.7.0":
   version: 1.7.3
   resolution: "@noble/ed25519@npm:1.7.3"
   checksum: 45169927d51de513e47bbeebff3a603433c4ac7579e1b8c5034c380a0afedbe85e6959be3d69584a7a5ed6828d638f8f28879003b9bb2fb5f22d8aa2d88fd5fe
@@ -29028,26 +29021,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rpc-websockets@npm:^7.5.0":
-  version: 7.5.0
-  resolution: "rpc-websockets@npm:7.5.0"
-  dependencies:
-    "@babel/runtime": ^7.17.2
-    bufferutil: ^4.0.1
-    eventemitter3: ^4.0.7
-    utf-8-validate: ^5.0.2
-    uuid: ^8.3.2
-    ws: ^8.5.0
-  dependenciesMeta:
-    bufferutil:
-      optional: true
-    utf-8-validate:
-      optional: true
-  checksum: cd4c999e54161f9f40e162f57d7f3313edf086ff5facefbdc0629d52066e9843ace987681dbff8b4329db225deb69f58c528d7818a9c7e89f0100969b7789c2d
-  languageName: node
-  linkType: hard
-
-"rpc-websockets@npm:^7.5.1":
+"rpc-websockets@npm:^7.5.0, rpc-websockets@npm:^7.5.1":
   version: 7.5.1
   resolution: "rpc-websockets@npm:7.5.1"
   dependencies:
