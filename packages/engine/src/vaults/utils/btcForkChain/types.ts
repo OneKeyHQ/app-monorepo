@@ -51,6 +51,14 @@ export type IBtcUTXO = {
   path: string;
 };
 
+export type ICoinSelectUTXO = {
+  txId: string;
+  vout: number;
+  value: number;
+  address: string;
+  path: string;
+};
+
 export type IUTXOInput = Omit<IBtcUTXO, 'txid'> & { txId: string };
 export type IUTXOOutput = { address: string; value: number };
 
@@ -63,6 +71,12 @@ export type IEncodedTxBtc = {
   }[];
   totalFee: string;
   totalFeeInNative: string;
+  feeRate: string;
+  inputsForCoinSelect: ICoinSelectUTXO[];
+  outputsForCoinSelect: {
+    address: string;
+    value?: number;
+  }[];
   transferInfo: ITransferInfo;
 };
 
@@ -96,6 +110,7 @@ export type UnsignedTx = {
   feePricePerUnit?: BigNumber;
   payload: { [key: string]: any };
   tokensChangedTo?: { [key: string]: string };
+  encodedTx?: IEncodedTxBtc;
 };
 
 export type TransactionMixin = {

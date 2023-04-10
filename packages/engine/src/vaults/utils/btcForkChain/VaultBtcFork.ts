@@ -449,12 +449,33 @@ export default class VaultBtcFork extends VaultBase {
             .shiftedBy(network.feeDecimals)
             .toFixed()
         : (await this.getFeeRate())[0];
+    console.log('buildEncodedTxFromTransfer feeRate', feeRate);
     const max = utxos
       .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
       .shiftedBy(-network.decimals)
       .lte(amount);
 
     const unspentSelectFn = max ? coinSelectSplit : coinSelect;
+    const inputsForCoinSelect = utxos.map(
+      ({ txid, vout, value, address, path }) => ({
+        txId: txid,
+        vout,
+        value: parseInt(value),
+        address,
+        path,
+      }),
+    );
+    console.log('build inpust =====> ', inputsForCoinSelect);
+    const outputsForCoinSelect = [
+      max
+        ? { address: to }
+        : {
+            address: to,
+            value: parseInt(
+              new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
+            ),
+          },
+    ];
     const {
       inputs,
       outputs,
@@ -465,23 +486,8 @@ export default class VaultBtcFork extends VaultBase {
       fee: number;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     } = unspentSelectFn(
-      utxos.map(({ txid, vout, value, address, path }) => ({
-        txId: txid,
-        vout,
-        value: parseInt(value),
-        address,
-        path,
-      })),
-      [
-        max
-          ? { address: to }
-          : {
-              address: to,
-              value: parseInt(
-                new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
-              ),
-            },
-      ],
+      inputsForCoinSelect,
+      outputsForCoinSelect,
       parseInt(feeRate),
     );
 
@@ -492,6 +498,10 @@ export default class VaultBtcFork extends VaultBase {
     const totalFeeInNative = new BigNumber(totalFee)
       .shiftedBy(-1 * network.feeDecimals)
       .toFixed();
+    console.log(
+      'buildEncodedTxFromTransfer totalFeeInNative',
+      totalFeeInNative,
+    );
     return {
       inputs: inputs.map(({ txId, value, ...keep }) => ({
         ...keep,
@@ -511,6 +521,9 @@ export default class VaultBtcFork extends VaultBase {
       totalFee,
       totalFeeInNative,
       transferInfo,
+      feeRate,
+      inputsForCoinSelect,
+      outputsForCoinSelect,
     };
   }
 
@@ -569,14 +582,18 @@ export default class VaultBtcFork extends VaultBase {
     const { feeLimit } = await provider.buildUnsignedTx({
       ...(await this.buildUnsignedTxFromEncodedTx(encodedTx)),
       feePricePerUnit: new BigNumber(1),
+      encodedTx,
     });
+
+    console.log('feeLimit in fetchFeeInfo: ', feeLimit?.toFixed(), ' BTC');
     // Prices are in sats/byte, convert it to BTC/byte for UI.
     const prices = (await this.getFeeRate()).map((price) =>
       new BigNumber(price).shiftedBy(-network.feeDecimals).toFixed(),
     );
+    console.log('prices in fetchFeeInfo: ', prices, ' BTC/byte');
+
     const blockNums = this.getDefaultBlockNums();
-    return {
-      customDisabled: true,
+    const result = {
       limit: (feeLimit ?? new BigNumber(0)).toFixed(), // bytes in BTC
       prices,
       waitingSeconds: blockNums.map(
@@ -589,6 +606,9 @@ export default class VaultBtcFork extends VaultBase {
       nativeDecimals: network.decimals,
       tx: null, // Must be null if network not support feeInTx
     };
+
+    console.log('result in fetchFeeInfo: ', result);
+    return result;
   }
 
   override async broadcastTransaction(
@@ -764,13 +784,15 @@ export default class VaultBtcFork extends VaultBase {
               .then((feeRate) => new BigNumber(feeRate).toFixed(0)),
           ),
         );
-        return fees.sort((a, b) => {
+        const result = fees.sort((a, b) => {
           const aBN = new BigNumber(a);
           const bBN = new BigNumber(b);
           if (aBN.gt(bBN)) return 1;
           if (aBN.lt(bBN)) return -1;
           return 0;
         });
+        console.log('getFeeRate result: ', result);
+        return result;
       } catch (e) {
         console.error(e);
         throw new OneKeyInternalError('Failed to get fee rates.');
