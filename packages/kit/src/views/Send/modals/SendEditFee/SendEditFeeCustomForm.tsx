@@ -100,6 +100,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   const feeSymbol = feeInfoPayload?.info?.feeSymbol || '';
   const nativeSymbol = feeInfoPayload?.info?.nativeSymbol || '';
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
+  const isBtcForkChain = feeInfoPayload?.info.isBtcForkChain;
   const isSmallScreen = useIsVerticalLayout();
 
   const [lastPresetFeeInfo, setLastPresetFeeInfo] = useState(
@@ -225,6 +226,66 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
       .times(formValues?.gasLimit || 0)
       .shiftedBy(-(feeInfoPayload?.info.feeDecimals ?? 0))
       .toFixed(8);
+    if (isBtcForkChain) {
+      return (
+        <Form mt={4}>
+          <Form.Item
+            label="Fee rate (sat/B)"
+            control={control}
+            name="feeRate"
+            rules={{
+              validate: async (value) => {
+                const lowValue = firstPresetFeeInfo as string;
+                const highValue = lastPresetFeeInfo as string;
+                try {
+                  await backgroundApiProxy.validator.validateFeeRate({
+                    networkId,
+                    value,
+                    lowValue,
+                    highValue,
+                  });
+                  setGasPriceTip(null);
+                } catch (error) {
+                  printError(error);
+                  const e = error as OneKeyError;
+                  if (
+                    e?.className === OneKeyErrorClassNames.OneKeyValidatorError
+                  ) {
+                    setGasPriceTip({
+                      type: 'error',
+                      message: intl.formatMessage(
+                        {
+                          id: e.key as any,
+                        },
+                        e.info,
+                      ),
+                    });
+                    return false;
+                  }
+                  if (
+                    e?.className === OneKeyErrorClassNames.OneKeyValidatorTip
+                  ) {
+                    setGasPriceTip({
+                      type: 'warn',
+                      message: intl.formatMessage(
+                        {
+                          id: e.key as any,
+                        },
+                        e.info,
+                      ),
+                    });
+                  }
+                }
+                return true;
+              },
+            }}
+            defaultValue=""
+          >
+            <Form.NumberInput size={isSmallScreen ? 'xl' : 'lg'} />
+          </Form.Item>
+        </Form>
+      );
+    }
 
     return (
       <Form mt={4}>

@@ -485,6 +485,37 @@ class Validators {
   }
 
   @backgroundMethod()
+  async validateFeeRate({
+    value,
+    lowValue,
+    highValue,
+  }: {
+    networkId: string;
+    value: string;
+    lowValue: string;
+    highValue: string;
+  }) {
+    const min = 0;
+    const max = 2000;
+    const valueBN = new BigNumber(value);
+    if (valueBN.isLessThanOrEqualTo(min) || valueBN.isGreaterThan(max)) {
+      throw new OneKeyValidatorError(
+        'msg__enter_a_fee_rate_between_1_and_1024',
+      );
+    }
+    if (valueBN.shiftedBy(-8).isLessThan(lowValue)) {
+      throw new OneKeyValidatorTip('msg__fee_rate_is_low_for_current_network');
+    }
+    if (
+      valueBN.shiftedBy(-8).isGreaterThan(new BigNumber(highValue).times(10))
+    ) {
+      throw new OneKeyValidatorTip('msg__fee_rate_is_higher_than_necessary');
+    }
+
+    return Promise.resolve();
+  }
+
+  @backgroundMethod()
   async validateMaxFee({
     networkId,
     maxPriorityFee,
