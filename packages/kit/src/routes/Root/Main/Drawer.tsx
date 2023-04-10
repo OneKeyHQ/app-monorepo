@@ -1,8 +1,8 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { createDrawerNavigator } from '@react-navigation/drawer';
-import { useWindowDimensions } from 'react-native';
 
+import { getDrawerWidth } from '@onekeyhq/app/src/views/NestedTabView/types';
 import { useThemeValue } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -16,19 +16,11 @@ import type { StyleProp, ViewStyle } from 'react-native';
 const DrawerStack = createDrawerNavigator();
 
 const DrawerStackNavigator = () => {
-  const { width } = useWindowDimensions();
-  const drawerWidth = useMemo(() => {
-    // must sync with nestedtabview
-    const expectedWidth = width * 0.85;
-    const maxWidth = 400;
-    return Math.min(maxWidth, expectedWidth);
-  }, [width]);
-
   const backgroundColor = useThemeValue('background-default');
 
   const screenOptions = useMemo(() => {
     const drawerStyle: Partial<StyleProp<ViewStyle>> = {
-      width: drawerWidth,
+      width: getDrawerWidth(),
       backgroundColor,
     };
 
@@ -44,7 +36,7 @@ const DrawerStackNavigator = () => {
       drawerStyle,
       swipeEnabled: false,
     } as const;
-  }, [backgroundColor, drawerWidth]);
+  }, [backgroundColor]);
 
   const drawerContent = useCallback(
     (props) => <WalletSelectorMobile {...props} />,
