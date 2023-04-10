@@ -29,7 +29,11 @@ import {
 import { getBlockNativeGasInfo } from '@onekeyhq/engine/src/managers/blockNative';
 import type { BlockNativeGasInfo } from '@onekeyhq/engine/src/types/blockNative';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
-import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
+import type {
+  IEncodedTx,
+  IFeeInfoPayload,
+} from '@onekeyhq/engine/src/vaults/types';
+import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useFormOnChangeDebounced } from '../../../../hooks/useFormOnChangeDebounced';
@@ -73,6 +77,7 @@ export type ICustomFeeFormProps = {
   setBlockNativeInit: (value: boolean) => void;
   saveCustom: boolean;
   setSaveCustom: (value: boolean) => void;
+  encodedTx?: IEncodedTx;
 };
 export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   const {
@@ -85,9 +90,16 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     setBlockNativeInit,
     saveCustom,
     setSaveCustom,
+    encodedTx,
   } = props;
 
-  const { control, getValues, setValue, trigger: formTrigger } = useFormReturn;
+  const {
+    control,
+    getValues,
+    setValue,
+    trigger: formTrigger,
+    watch,
+  } = useFormReturn;
   const { formValues } = useFormOnChangeDebounced<ISendEditFeeValues>({
     useFormReturn,
   });
@@ -142,6 +154,31 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     [basePriority, formValues?.baseFee, formValues?.maxFeePerGas, setValue],
   );
 
+  const [btcDisplayFee, setBtcDisplayFee] = useState<string | null>(null);
+  const watchFeeRate = watch('feeRate');
+  useEffect(() => {
+    console.log('watchFeeRate effect: ====> ', watchFeeRate);
+    if (encodedTx && watchFeeRate) {
+      backgroundApiProxy.engine
+        .attachFeeInfoToEncodedTx({
+          networkId,
+          accountId,
+          encodedTx,
+          feeInfoValue: {
+            feeRate: watchFeeRate,
+          },
+        })
+        .then((btcEncodedTx) => {
+          console.log('attachFeeInfoToEncodedTx result: ====> ', btcEncodedTx);
+          setBtcDisplayFee((btcEncodedTx as IEncodedTxBtc).totalFee);
+        })
+        .catch((e) => {
+          console.error(e);
+          setBtcDisplayFee(null);
+        });
+    }
+  }, [watchFeeRate, encodedTx, accountId, networkId]);
+
   const customFeeOverview = useMemo(() => {
     if (!formValues) return null;
     const limit = formValues.gasLimit;
@@ -155,7 +192,6 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     } else {
       price = formValues?.gasPrice;
     }
-
     return (
       <SendEditFeeOverview
         accountId={accountId}
@@ -163,9 +199,17 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
         feeInfo={feeInfoPayload?.info}
         price={price}
         limit={limit}
+        btcCustomFee={btcDisplayFee}
       />
     );
-  }, [accountId, feeInfoPayload?.info, formValues, isEIP1559Fee, networkId]);
+  }, [
+    accountId,
+    feeInfoPayload?.info,
+    formValues,
+    isEIP1559Fee,
+    networkId,
+    btcDisplayFee,
+  ]);
 
   const customConfidence = useMemo(() => {
     if (!isEIP1559Fee || !blockNativeFeeInfo?.prices || !formValues)
@@ -226,6 +270,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
       .times(formValues?.gasLimit || 0)
       .shiftedBy(-(feeInfoPayload?.info.feeDecimals ?? 0))
       .toFixed(8);
+
     if (isBtcForkChain) {
       return (
         <Form mt={4}>
@@ -279,7 +324,6 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                 return true;
               },
             }}
-            defaultValue=""
           >
             <Form.NumberInput size={isSmallScreen ? 'xl' : 'lg'} />
           </Form.Item>
@@ -668,6 +712,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     handleBoosterOnChange,
     intl,
     isEIP1559Fee,
+    isBtcForkChain,
     isSmallScreen,
     lastPresetFeeInfo,
     nativeSymbol,

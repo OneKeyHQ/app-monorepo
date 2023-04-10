@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Box, Text } from '@onekeyhq/components';
@@ -19,10 +20,11 @@ type Props = {
   feeInfo?: IFeeInfo;
   price?: IFeeInfoPrice;
   limit?: string;
+  btcCustomFee: string | null;
 };
 
 function SendEditFeeOverview(props: Props) {
-  const { accountId, networkId, feeInfo, price, limit } = props;
+  const { accountId, networkId, feeInfo, price, limit, btcCustomFee } = props;
 
   const intl = useIntl();
 
@@ -49,11 +51,17 @@ function SendEditFeeOverview(props: Props) {
       info: feeInfo,
     });
   } else if (isBtcForkChain) {
-    const priceIndex = feeInfo.prices.findIndex((i) => i === price);
+    let btcFee;
+    if (btcCustomFee) {
+      btcFee = parseInt(btcCustomFee);
+    } else {
+      const priceIndex = feeInfo.prices.findIndex((i) => i === price);
+      btcFee = feeInfo.feeList?.[priceIndex];
+    }
     const totalFee = calculateTotalFeeRange({
       limit,
       price: price as string,
-      btcFee: feeInfo.feeList?.[priceIndex],
+      btcFee,
       isBtcForkChain: true,
     }).max;
     totalFeeNative = calculateTotalFeeNative({

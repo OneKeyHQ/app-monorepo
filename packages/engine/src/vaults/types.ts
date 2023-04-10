@@ -262,6 +262,7 @@ export type IFeeInfoUnit = {
   waitingSeconds?: number;
   isBtcForkChain?: boolean;
   btcFee?: number;
+  feeRate?: string;
 };
 // TODO rename to IFeeInfoMeta
 export type IFeeInfo = {

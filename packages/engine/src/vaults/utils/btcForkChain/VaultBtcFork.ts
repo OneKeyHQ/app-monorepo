@@ -329,11 +329,16 @@ export default class VaultBtcFork extends VaultBase {
     );
   }
 
-  attachFeeInfoToEncodedTx(params: {
+  async attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTxBtc;
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxBtc> {
-    const feeRate = params.feeInfoValue.price;
+    const network = await this.engine.getNetwork(this.networkId);
+    const feeRate = params.feeInfoValue.feeRate
+      ? new BigNumber(params.feeInfoValue.feeRate)
+          .shiftedBy(-network.feeDecimals)
+          .toFixed()
+      : params.feeInfoValue.price;
     if (typeof feeRate === 'string') {
       return this.buildEncodedTxFromTransfer(
         params.encodedTx.transferInfo,

@@ -66,6 +66,7 @@ export function SendEditFeeStandardForm({
         feeInfo={feeInfoPayload?.info}
         price={price}
         limit={limit}
+        feeRate={null}
       />
     );
   }, [
