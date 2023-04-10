@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { first, last } from 'lodash';
+import { debounce, first, last } from 'lodash';
 import { Slider } from 'native-base';
 import { useIntl } from 'react-intl';
 
@@ -93,13 +93,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     encodedTx,
   } = props;
 
-  const {
-    control,
-    getValues,
-    setValue,
-    trigger: formTrigger,
-    watch,
-  } = useFormReturn;
+  const { control, getValues, setValue, trigger: formTrigger } = useFormReturn;
   const { formValues } = useFormOnChangeDebounced<ISendEditFeeValues>({
     useFormReturn,
   });
@@ -155,30 +149,37 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   );
 
   const [btcDisplayFee, setBtcDisplayFee] = useState<string | null>(null);
-  const watchFeeRate = watch('feeRate');
-  useEffect(() => {
-    console.log('watchFeeRate effect: ====> ', watchFeeRate);
-    if (encodedTx && watchFeeRate) {
-      backgroundApiProxy.engine
-        .attachFeeInfoToEncodedTx({
-          networkId,
-          accountId,
-          encodedTx,
-          feeInfoValue: {
-            feeRate: watchFeeRate,
-          },
-        })
-        .then((btcEncodedTx) => {
-          console.log('attachFeeInfoToEncodedTx result: ====> ', btcEncodedTx);
-          setBtcDisplayFee((btcEncodedTx as IEncodedTxBtc).totalFee);
-        })
-        .catch((e) => {
-          console.error(e);
-          setBtcDisplayFee(null);
+  const validateFeeRate = useCallback(
+    async (feeRate: string) => {
+      if (!encodedTx) {
+        return;
+      }
+      try {
+        const btcEncodedTx =
+          await backgroundApiProxy.engine.attachFeeInfoToEncodedTx({
+            networkId,
+            accountId,
+            encodedTx,
+            feeInfoValue: {
+              feeRate,
+            },
+          });
+        console.log('attachFeeInfoToEncodedTx result: ====> ', btcEncodedTx);
+        setBtcDisplayFee((btcEncodedTx as IEncodedTxBtc).totalFee);
+      } catch (e) {
+        console.error(e);
+        setBtcDisplayFee('0');
+        setGasPriceTip({
+          type: 'error',
+          message: intl.formatMessage({
+            id: 'msg__insufficient_balance',
+          }),
         });
-    }
-  }, [watchFeeRate, encodedTx, accountId, networkId]);
-
+      }
+    },
+    [encodedTx, accountId, networkId, intl],
+  );
+  const validateFeeRateDebounce = debounce(validateFeeRate, 200);
   const customFeeOverview = useMemo(() => {
     if (!formValues) return null;
     const limit = formValues.gasLimit;
@@ -321,6 +322,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                     });
                   }
                 }
+                await validateFeeRateDebounce(value);
                 return true;
               },
             }}
