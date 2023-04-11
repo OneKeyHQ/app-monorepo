@@ -10,17 +10,12 @@ import { ErrorBoundary } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import store from '@onekeyhq/kit/src/store';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { createLazyComponent } from '../utils/createLazyComponent';
-
 import AppLoading from './AppLoading';
 import NavigationProvider from './NavigationProvider';
 import NotificationProvider from './NotificationProvider';
 import ThemeProvider from './ThemeProvider';
 import { WhenAppActive } from './WhenAppActive';
 
-const ChainWebEmbed = createLazyComponent(
-  () => import('@onekeyhq/kit/src/views/ChainWebEmbed'),
-);
 type LaunchProps = {
   UIApplicationLaunchOptionsRemoteNotificationKey?: NotificationExtra;
 };
@@ -61,7 +56,6 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
             <AppLoading>
               <ErrorBoundary>
                 <NotificationProvider launchNotification={launchNotification} />
-                <ChainWebEmbed />
                 <NavigationProvider />
                 <WhenAppActive />
               </ErrorBoundary>
