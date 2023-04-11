@@ -63,7 +63,9 @@ export async function loginIfNeeded(
   return Promise.resolve(false);
 }
 
-export function logoutFromGoogleDrive(revokeAccess: boolean): Promise<boolean> {
+export async function logoutFromGoogleDrive(
+  revokeAccess: boolean,
+): Promise<boolean> {
   if (platformEnv.isNativeAndroid) {
     if (revokeAccess) {
       GoogleSignin.revokeAccess();

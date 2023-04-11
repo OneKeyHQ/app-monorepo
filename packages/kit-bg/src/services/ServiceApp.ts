@@ -1,3 +1,4 @@
+import { NativeModules } from 'react-native';
 import RNRestart from 'react-native-restart';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -38,7 +39,10 @@ import {
   MAX_LOG_LENGTH,
   waitForDataLoaded,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { logoutFromGoogleDrive } from '@onekeyhq/shared/src/cloudfs';
+import {
+  isAvailable,
+  logoutFromGoogleDrive,
+} from '@onekeyhq/shared/src/cloudfs';
 import {
   AppEventBusNames,
   appEventBus,
@@ -52,6 +56,7 @@ import ServiceBase from './ServiceBase';
 
 import type { IServiceBaseProps } from './ServiceBase';
 
+const { NativeAppRestart } = NativeModules;
 @backgroundClass()
 class ServiceApp extends ServiceBase {
   private _appInited = false;
@@ -138,6 +143,9 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   restartApp() {
+    if (platformEnv.isNativeAndroid) {
+      NativeAppRestart.restart();
+    }
     if (platformEnv.isNative) {
       return RNRestart.Restart();
     }
@@ -208,7 +216,10 @@ class ServiceApp extends ServiceBase {
     dispatch({ type: 'LOGOUT', payload: undefined });
     serviceNetwork.notifyChainChanged();
     serviceAccount.notifyAccountsChanged();
-    await logoutFromGoogleDrive(true);
+    if (await isAvailable()) {
+      logoutFromGoogleDrive(true);
+      await wait(1000);
+    }
 
     // await engine.resetApp() is NOT reliable of DB clean, so we need delay here.
     await wait(1500);

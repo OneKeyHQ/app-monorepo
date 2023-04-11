@@ -47,6 +47,7 @@ export interface HTTPServerManagerInterface extends NativeModule {
 export interface JPushManagerInterface extends NativeModule {
   registerNotification: () => void;
 }
+
 export interface MinimizerInterface extends NativeModule {
   exit: () => void;
   goBack: () => void;
@@ -55,6 +56,10 @@ export interface MinimizerInterface extends NativeModule {
 
 export interface CacheManagerInterface extends NativeModule {
   clearWebViewData: () => Promise<boolean>;
+}
+
+export interface AppRestartInterface extends NativeModule {
+  restart: () => void;
 }
 
 declare module 'react-native' {
@@ -66,5 +71,6 @@ declare module 'react-native' {
     JPushManager: JPushManagerInterface;
     Minimizer: MinimizerInterface;
     CacheManager: CacheManagerInterface;
+    NativeAppRestart: AppRestartInterface;
   }
 }
