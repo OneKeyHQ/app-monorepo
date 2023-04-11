@@ -106,7 +106,7 @@ export function SendConfirmErrorsAlert({
   if (isNetworkBusy) {
     errors.push(
       <FormErrorMessage
-        alertType="warn"
+        alertType="info"
         isAlertStyle
         message={intl.formatMessage({
           id: 'msg__eth_tx_warning_network_busy_gas_is_high',
