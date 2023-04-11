@@ -1810,6 +1810,7 @@
   "msg__engine__wallet_name_length_error": "O comprimento do nome da carteira está fora do limite.",
   "msg__engine_too_many_external_accounts": "Muitas contas externas",
   "msg__engine_too_many_watching_accounts": "Muitas contas de monitoramento",
+  "msg__enter_a_fee_rate_between_1_and_1024": "Insira uma taxa de taxa entre 1 e 1024",
   "msg__enter_a_fee_rate_between_str_and_str": "Insira uma taxa entre {min} e {max}",
   "msg__enter_a_number": "Insira um número.",
   "msg__enter_a_valid_slippage_percentage": "Insira uma porcentagem de derrapagem válida",

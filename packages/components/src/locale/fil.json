@@ -1810,6 +1810,7 @@
   "msg__engine__wallet_name_length_error": "Ang haba ng pangalan ng wallet ay wala sa limitasyon.",
   "msg__engine_too_many_external_accounts": "Masyadong maraming mga panlabas na account",
   "msg__engine_too_many_watching_accounts": "Masyadong maraming nanonood ng mga account",
+  "msg__enter_a_fee_rate_between_1_and_1024": "Maglagay ng rate ng bayad sa pagitan ng 1 hanggang 1024",
   "msg__enter_a_fee_rate_between_str_and_str": "Maglagay ng rate ng bayad sa pagitan ng {min} at {max}",
   "msg__enter_a_number": "Maglagay ng numero.",
   "msg__enter_a_valid_slippage_percentage": "Maglagay ng wastong porsyento ng slippage",

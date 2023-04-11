@@ -9,8 +9,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { MainRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
 import { setHomeTabName } from '../../../store/reducers/status';
 import { EditableNonceStatusEnum } from '../types';
+import { useNetwork } from '../../../hooks';
 
 export function SendConfirmErrorsAlert({
+  networkId,
   nativeToken,
   isWatchingAccount,
   balanceInsufficient,
@@ -21,6 +23,7 @@ export function SendConfirmErrorsAlert({
   isLowMaxFee,
   pendingTxCount,
 }: {
+  networkId: string;
   nativeToken?: Token;
   isWatchingAccount?: boolean;
   balanceInsufficient?: boolean;
@@ -34,6 +37,8 @@ export function SendConfirmErrorsAlert({
   const errors = [];
   const intl = useIntl();
   const navigation = useNavigation();
+
+  const { network } = useNetwork({ networkId });
 
   if (isAccountNotMatched) {
     errors.push(
@@ -73,6 +78,7 @@ export function SendConfirmErrorsAlert({
           { id: 'form__amount_invalid' },
           {
             0: nativeToken?.symbol ?? '',
+            1: network?.name ?? '',
           },
         )}
       />,

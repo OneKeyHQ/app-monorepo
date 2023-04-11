@@ -1810,6 +1810,7 @@
   "msg__engine__wallet_name_length_error": "The length of wallet name is out of limit.",
   "msg__engine_too_many_external_accounts": "Too many external accounts",
   "msg__engine_too_many_watching_accounts": "Too many watching accounts",
+  "msg__enter_a_fee_rate_between_1_and_1024": "Enter a fee rate between 1 and 1024",
   "msg__enter_a_fee_rate_between_str_and_str": "Enter a fee rate between {min} and {max}",
   "msg__enter_a_number": "Enter a number.",
   "msg__enter_a_valid_slippage_percentage": "Enter a valid slippage percentage",

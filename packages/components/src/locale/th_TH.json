@@ -1810,6 +1810,7 @@
   "msg__engine__wallet_name_length_error": "ความยาวของชื่อกระเป๋าเงินเกินขีดจำกัด",
   "msg__engine_too_many_external_accounts": "มีบัญชีภายนอกมากเกินไป",
   "msg__engine_too_many_watching_accounts": "มีบัญชีที่ดูมากเกินไป",
+  "msg__enter_a_fee_rate_between_1_and_1024": "ป้อนอัตราค่าธรรมเนียมระหว่าง 1 ถึง 1024",
   "msg__enter_a_fee_rate_between_str_and_str": "ป้อนอัตราค่าธรรมเนียมระหว่าง {min} ถึง {max}",
   "msg__enter_a_number": "ป้อนตัวเลข",
   "msg__enter_a_valid_slippage_percentage": "ป้อนเปอร์เซ็นต์การเลื่อนหลุดที่ถูกต้อง",

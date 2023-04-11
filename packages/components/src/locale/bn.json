@@ -1810,6 +1810,7 @@
   "msg__engine__wallet_name_length_error": "ওয়ালেট নামের দৈর্ঘ্য সীমার বাইরে।",
   "msg__engine_too_many_external_accounts": "অনেক বেশি বাহ্যিক অ্যাকাউন্ট",
   "msg__engine_too_many_watching_accounts": "অনেক বেশি দেখার অ্যাকাউন্ট",
+  "msg__enter_a_fee_rate_between_1_and_1024": "1 থেকে 1024 এর মধ্যে একটি ফি রেট লিখুন",
   "msg__enter_a_fee_rate_between_str_and_str": "{min} এবং {max} এর মধ্যে একটি ফি রেট লিখুন",
   "msg__enter_a_number": "একটি নম্বর লিখুন।",
   "msg__enter_a_valid_slippage_percentage": "একটি বৈধ স্লিপেজ শতাংশ লিখুন",
