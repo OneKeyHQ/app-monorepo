@@ -61,7 +61,7 @@ function BlockNativeFeeInfoItem({
         transition={{
           loop: true,
           type: 'timing',
-          duration: FEE_INFO_POLLING_INTERVAL + 500,
+          duration: FEE_INFO_POLLING_INTERVAL + 700,
           repeatReverse: false,
         }}
       >

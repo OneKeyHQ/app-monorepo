@@ -634,7 +634,8 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   );
 
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
+    // eslint-disable-next-line prefer-const
+    let timer: ReturnType<typeof setInterval>;
     const fetchBlockNativeGasInfo = async () => {
       try {
         const resp = await getBlockNativeGasInfo({
@@ -648,17 +649,14 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
         setFirstPresetFeeInfo(last(resp.prices));
 
         setBasePriority(first(resp.prices)?.maxPriorityFeePerGas ?? '0');
-        timer = setTimeout(fetchBlockNativeGasInfo, FEE_INFO_POLLING_INTERVAL);
       } catch (e) {
-        if (!(e instanceof NotImplemented)) {
-          timer = setTimeout(
-            fetchBlockNativeGasInfo,
-            FEE_INFO_POLLING_INTERVAL,
-          );
+        if (e instanceof NotImplemented) {
+          clearInterval(timer);
         }
       }
     };
     fetchBlockNativeGasInfo();
+    timer = setInterval(fetchBlockNativeGasInfo, FEE_INFO_POLLING_INTERVAL);
     return () => {
       clearInterval(timer);
     };

@@ -80,6 +80,7 @@ export type IVaultSettings = {
   activateTokenRequired?: boolean;
 
   minGasLimit?: number;
+  maxGasLimit?: number;
   minGasPrice?: string;
 
   cannotSendToSelf?: boolean;
