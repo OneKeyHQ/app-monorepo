@@ -449,7 +449,7 @@ export default class VaultBtcFork extends VaultBase {
         ? new BigNumber(specifiedFeeRate)
             .shiftedBy(network.feeDecimals)
             .toFixed()
-        : (await this.getFeeRate())[0];
+        : (await this.getFeeRate())[1];
     const max = utxos
       .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
       .shiftedBy(-network.decimals)
