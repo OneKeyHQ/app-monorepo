@@ -75,7 +75,7 @@ export function SendConfirmErrorsAlert({
       <FormErrorMessage
         isAlertStyle
         message={intl.formatMessage(
-          { id: 'form__amount_invalid' },
+          { id: 'msg__str_is_required_for_network_fees_top_up_str_to_make_tx' },
           {
             0: nativeToken?.symbol ?? '',
             1: network?.name ?? '',
