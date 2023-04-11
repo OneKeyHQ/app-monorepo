@@ -209,4 +209,29 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     return address;
   }
+
+  override async batchGetAddress(
+    params: IGetAddressParams[],
+  ): Promise<{ path: string; address: string }[]> {
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const chainId = await this.getNetworkChainId();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    const response = await HardwareSDK.evmGetAddress(connectId, deviceId, {
+      ...passphraseState,
+      bundle: params.map(({ path, showOnOneKey }) => ({
+        path,
+        showOnOneKey: !!showOnOneKey,
+        chainId: Number(chainId),
+      })),
+    });
+
+    if (!response.success) {
+      throw convertDeviceError(response.payload);
+    }
+    return response.payload.map((item) => ({
+      path: item.path ?? '',
+      address: item.address ?? '',
+    }));
+  }
 }

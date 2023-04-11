@@ -144,6 +144,38 @@ export class KeyringHardware extends KeyringHardwareBase {
     throw convertDeviceError(response.payload);
   }
 
+  override async batchGetAddress(
+    params: IHardwareGetAddressParams[],
+  ): Promise<{ path: string; address: string }[]> {
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    const chainInfo = await this.getChainInfo();
+    const curve = chainInfo?.implOptions?.curve ?? 'secp256k1';
+    const addressPrefix = chainInfo?.implOptions?.addressPrefix;
+
+    if (curve === 'ed25519') {
+      throw new HardwareError('ed25519 curve is not supported');
+    }
+
+    const response = await HardwareSDK.cosmosGetAddress(connectId, deviceId, {
+      ...passphraseState,
+      bundle: params.map(({ path, showOnOneKey }) => ({
+        path,
+        hrp: addressPrefix,
+        showOnOneKey: !!showOnOneKey,
+      })),
+    });
+
+    if (!response.success) {
+      throw convertDeviceError(response.payload);
+    }
+    return response.payload.map((item) => ({
+      path: item.path ?? '',
+      address: item.address ?? '',
+    }));
+  }
+
   async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
     debugLogger.common.info('signTransaction', unsignedTx);
     const dbAccount = await this.getDbAccount();

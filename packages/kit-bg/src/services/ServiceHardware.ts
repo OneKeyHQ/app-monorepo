@@ -8,6 +8,7 @@ import {
   addConnectedConnectId,
   removeConnectedConnectId,
   setHardwarePopup,
+  setPreviousAddress,
   setUpdateFirmwareStep,
   updateDevicePassphraseOpenedState,
 } from '@onekeyhq/kit/src/store/reducers/hardware';
@@ -89,6 +90,7 @@ class ServiceHardware extends ServiceBase {
             DEVICE,
             FIRMWARE,
             FIRMWARE_EVENT,
+            UI_REQUEST,
             supportInputPinOnSoftware,
           } = await CoreSDKLoader();
           instance.on('UI_EVENT', (e) => {
@@ -192,6 +194,9 @@ class ServiceHardware extends ServiceBase {
                 removeConnectedConnectId(device.connectId),
               );
             }
+          });
+          instance.on(UI_REQUEST.PREVIOUS_ADDRESS_RESULT, (payload) => {
+            this.backgroundApi.dispatch(setPreviousAddress(payload));
           });
         }
         return instance;
