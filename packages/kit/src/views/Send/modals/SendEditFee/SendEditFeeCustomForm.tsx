@@ -216,13 +216,13 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
 
   const customForm = useMemo(() => {
     const maxFeeInNative = new BigNumber(formValues?.maxFeePerGas ?? 0)
-      .times(formValues?.gasLimit ?? 0)
-      .shiftedBy(-(feeInfoPayload?.info.feeDecimals ?? 0))
+      .times(formValues?.gasLimit || 0)
+      .shiftedBy(-(feeInfoPayload?.info.feeDecimals || 0))
       .toFixed(8);
     const maxPriorityFeeInNative = new BigNumber(
-      formValues?.maxPriorityFeePerGas ?? 0,
+      formValues?.maxPriorityFeePerGas || 0,
     )
-      .times(formValues?.gasLimit ?? 0)
+      .times(formValues?.gasLimit || 0)
       .shiftedBy(-(feeInfoPayload?.info.feeDecimals ?? 0))
       .toFixed(8);
 

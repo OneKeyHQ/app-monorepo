@@ -6,10 +6,10 @@ import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useNetwork } from '../../../hooks';
 import { MainRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
 import { setHomeTabName } from '../../../store/reducers/status';
 import { EditableNonceStatusEnum } from '../types';
-import { useNetwork } from '../../../hooks';
 
 export function SendConfirmErrorsAlert({
   networkId,
@@ -23,7 +23,7 @@ export function SendConfirmErrorsAlert({
   isLowMaxFee,
   pendingTxCount,
 }: {
-  networkId: string;
+  networkId?: string;
   nativeToken?: Token;
   isWatchingAccount?: boolean;
   balanceInsufficient?: boolean;

@@ -408,6 +408,7 @@ class ProviderController extends BaseProviderController {
         .then((gasInfo) => {
           blockNativeGasInfo = gasInfo;
         })
+        .catch((e) => console.warn(e))
         .finally(() => {
           blockNativeGasInfoInit = true;
           if (metaMaskGasInfoInit) {
@@ -425,6 +426,7 @@ class ProviderController extends BaseProviderController {
         .then((gasInfo) => {
           metaMaskGasInfo = gasInfo;
         })
+        .catch((e) => console.warn(e))
         .finally(() => {
           metaMaskGasInfoInit = true;
           if (blockNativeGasInfoInit) {

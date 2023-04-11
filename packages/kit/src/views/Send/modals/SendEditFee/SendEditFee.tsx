@@ -308,18 +308,22 @@ function ScreenSendEditFee({ ...rest }) {
         setValue('baseFee', new BigNumber(priceInfo.baseFee).toFixed());
         setValue(
           'maxFeePerGas',
-          new BigNumber(priceInfo.maxFeePerGas).toFixed(),
+          new BigNumber(priceInfo.maxFeePerGas)
+            .times(autoConfirmAfterFeeSaved ? SEND_EDIT_FEE_PRICE_UP_RATIO : 1)
+            .toFixed(),
         );
         setValue(
           'maxPriorityFeePerGas',
-          new BigNumber(priceInfo.maxPriorityFeePerGas).toFixed(),
+          new BigNumber(priceInfo.maxPriorityFeePerGas)
+            .times(autoConfirmAfterFeeSaved ? SEND_EDIT_FEE_PRICE_UP_RATIO : 1)
+            .toFixed(),
         );
       } else {
         setValue('gasPrice', new BigNumber(price ?? 0).toFixed());
       }
       setValue('gasLimit', new BigNumber(limit ?? 0).toFixed());
     },
-    [isEIP1559Fee, setValue],
+    [autoConfirmAfterFeeSaved, isEIP1559Fee, setValue],
   );
 
   useEffect(() => {
@@ -512,7 +516,7 @@ function ScreenSendEditFee({ ...rest }) {
           : 'action__apply'
       }
       primaryActionProps={{
-        isDisabled: feeInfoLoading,
+        isDisabled: feeInfoLoading || !formState.isValid,
       }}
       onPrimaryActionPress={() => onSubmit()}
       hideSecondaryAction
