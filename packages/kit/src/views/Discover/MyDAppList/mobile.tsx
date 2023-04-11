@@ -4,7 +4,6 @@ import {
   useContext,
   useLayoutEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 
@@ -23,22 +22,19 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation, useTranslation } from '../../../hooks';
-import { showFavoriteMenu } from '../../Overlay/Discover/FavoriteMenu';
-import { showHistoryMenu } from '../../Overlay/Discover/HistoryMenu';
+import FavListMenu from '../../Overlay/Discover/FavListMenu';
 import DAppIcon from '../DAppIcon';
 import { useDiscoverFavorites, useUserBrowserHistories } from '../hooks';
 
 import { MyDAppListContext } from './context';
 import { getUrlHost } from './utils';
 
-import type { ShowMenuProps } from '../../Overlay/Discover/type';
 import type { MatchDAppItemType } from '../Explorer/explorerUtils';
 import type { ListRenderItem } from 'react-native';
 
-type RenderItemProps = { item: MatchDAppItemType; callback: ShowMenuProps };
+type RenderItemProps = { item: MatchDAppItemType; isFav?: boolean };
 
-const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
-  const ref = useRef();
+const RenderItem: FC<RenderItemProps> = ({ item, isFav }) => {
   const { onItemSelect } = useContext(MyDAppListContext);
   const t = useTranslation();
   const logoURL = item.dapp?.logoURL ?? item.webSite?.favicon;
@@ -77,13 +73,9 @@ const RenderItem: FC<RenderItemProps> = ({ item, callback }) => {
           </Typography.Caption>
         </Box>
       </Box>
-      <Box ref={ref}>
-        <IconButton
-          type="plain"
-          name="DotsHorizontalMini"
-          onPress={() => callback({ triggerEle: ref.current, dapp: item })}
-        />
-      </Box>
+      <FavListMenu item={item} isFav={isFav}>
+        <IconButton type="plain" name="DotsHorizontalMini" />
+      </FavListMenu>
     </Pressable>
   );
 };
@@ -113,7 +105,7 @@ const HistoryListEmptyComponent = () => {
 const Favorites = () => {
   const data = useDiscoverFavorites();
   const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
-    ({ item }) => <RenderItem item={item} callback={showFavoriteMenu} />,
+    ({ item }) => <RenderItem item={item} isFav />,
     [],
   );
   return (
@@ -131,7 +123,7 @@ const Favorites = () => {
 const History = () => {
   const data = useUserBrowserHistories();
   const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
-    ({ item }) => <RenderItem item={item} callback={showHistoryMenu} />,
+    ({ item }) => <RenderItem item={item} />,
     [],
   );
   return (

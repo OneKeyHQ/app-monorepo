@@ -31,10 +31,9 @@ import Mobile from './Container/Mobile';
 
 import type { ICON_NAMES } from '../Icon';
 import type { ColorType } from 'native-base/lib/typescript/components/types';
-import type { GestureResponderEvent } from 'react-native-modal';
 
 interface CloseButtonProps {
-  onClose: (event: GestureResponderEvent) => void;
+  onClose?: () => void;
   backgroundColor?: string;
 }
 

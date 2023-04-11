@@ -249,7 +249,6 @@ const OnekeyLiteDetail: FC = () => {
           {renderOptions}
         </Box>
         <Dialog
-          hasFormInsideDialog
           visible={resetDialogVisible}
           footerMoreView={
             <Box mb={3}>

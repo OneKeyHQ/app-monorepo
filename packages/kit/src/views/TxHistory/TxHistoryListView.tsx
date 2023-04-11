@@ -24,7 +24,6 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
-import { useFilterScamHistory } from '../../hooks/useScam';
 import { wait } from '../../utils/helper';
 import { useIsAtHomeTab } from '../../utils/routeUtils';
 import { TxListItemView } from '../TxDetail/TxListItemView';
@@ -146,12 +145,7 @@ function TxHistoryListSectionList(props: {
   accountId: string;
   networkId: string;
 }) {
-  const {
-    accountId,
-    networkId,
-    data: historyListData,
-    SectionListComponent,
-  } = props;
+  const { networkId, data: historyListData, SectionListComponent } = props;
   const { size } = useUserDevice();
   const formatDate = useFormatDate();
   const responsivePadding = useMemo(() => {
@@ -159,23 +153,17 @@ function TxHistoryListSectionList(props: {
     return 16;
   }, [size]);
 
-  const { filteredHistory } = useFilterScamHistory({
-    accountId,
-    networkId,
-    history: historyListData,
-  });
-
   const sections = useMemo(
     () =>
       convertToSectionGroups({
-        items: filteredHistory,
+        items: historyListData,
         formatDate: (date: number) =>
           formatDate.formatDate(new Date(date), {
             hideTheYear: true,
             hideTimeForever: true,
           }),
       }),
-    [formatDate, filteredHistory],
+    [historyListData, formatDate],
   );
   const isEmpty = !sections || !sections.length;
 

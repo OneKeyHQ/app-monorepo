@@ -82,47 +82,44 @@ const EnabledContent = ({
   const { serviceCloudBackup } = backgroundApiProxy;
 
   const openDisableBackupDialog = useCallback(() => {
-    showOverlay(
-      (onClose) => (
-        <Dialog
-          visible
-          onClose={onClose}
-          footerButtonProps={{
-            primaryActionTranslationId: 'action__disable',
-            secondaryActionTranslationId: 'action__dismiss',
-            primaryActionProps: {
-              type: 'destructive',
-              onPromise: async () => {
-                await serviceCloudBackup.disableService();
-                onClose();
-              },
+    showOverlay((onClose) => (
+      <Dialog
+        visible
+        onClose={onClose}
+        footerButtonProps={{
+          primaryActionTranslationId: 'action__disable',
+          secondaryActionTranslationId: 'action__dismiss',
+          primaryActionProps: {
+            type: 'destructive',
+            onPromise: async () => {
+              await serviceCloudBackup.disableService();
+              onClose();
             },
-          }}
-          contentProps={{
-            iconName: 'CloudOutline',
-            iconType: 'success',
-            title: intl.formatMessage({
-              id: 'dialog__your_wallets_are_backed_up',
-            }),
-            content: `${intl.formatMessage(
-              {
-                id: 'dialog__your_wallets_are_backed_up_desc',
-              },
-              {
-                'cloudName': backupPlatform().cloudName,
-                'platform': backupPlatform().platform,
-              },
-            )}\n\n${intl.formatMessage(
-              {
-                id: 'dialog__your_wallets_are_backed_up_desc_2',
-              },
-              { 'cloudName': backupPlatform().cloudName },
-            )}`,
-          }}
-        />
-      ),
-      true,
-    );
+          },
+        }}
+        contentProps={{
+          iconName: 'CloudOutline',
+          iconType: 'success',
+          title: intl.formatMessage({
+            id: 'dialog__your_wallets_are_backed_up',
+          }),
+          content: `${intl.formatMessage(
+            {
+              id: 'dialog__your_wallets_are_backed_up_desc',
+            },
+            {
+              'cloudName': backupPlatform().cloudName,
+              'platform': backupPlatform().platform,
+            },
+          )}\n\n${intl.formatMessage(
+            {
+              id: 'dialog__your_wallets_are_backed_up_desc_2',
+            },
+            { 'cloudName': backupPlatform().cloudName },
+          )}`,
+        }}
+      />
+    ));
   }, [intl, serviceCloudBackup]);
 
   return inProgress ? (

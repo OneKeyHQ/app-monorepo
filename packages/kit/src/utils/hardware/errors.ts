@@ -208,7 +208,8 @@ export class NewFirmwareForceUpdate extends OneKeyHardwareError {
 export class DeviceNotSame extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceCheckDeviceIdError;
 
-  override key: LocaleIds = 'msg__not_the_same_wallet';
+  override key: LocaleIds =
+    'msg__device_information_is_inconsistent_it_may_caused_by_device_reset';
 }
 
 export class DeviceNotFind extends OneKeyHardwareError {

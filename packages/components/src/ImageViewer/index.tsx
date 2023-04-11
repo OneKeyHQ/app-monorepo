@@ -8,16 +8,22 @@ import {
   saveToLibraryAsync,
 } from 'expo-media-library';
 import { PermissionStatus } from 'expo-modules-core';
+import { MotiView } from 'moti';
 import { Box, Center, Image } from 'native-base';
 import { useIntl } from 'react-intl';
 import {
   Image as RNImage,
-  Modal as RNModal,
+  StyleSheet,
   useWindowDimensions,
 } from 'react-native';
 import uuid from 'react-native-uuid';
 
-import { Icon, Pressable, Select } from '@onekeyhq/components';
+import {
+  Icon,
+  OverlayContainer,
+  Pressable,
+  Select,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import NetImage from '../NetImage';
@@ -137,62 +143,68 @@ const ImageViewer: FC<ImageViewerProps> = ({
     return null;
   }
   return (
-    <RNModal
-      transparent
-      visible={visible}
-      presentationStyle="overFullScreen"
-      animationType="fade"
-      supportedOrientations={['portrait']}
-      hardwareAccelerated
-    >
-      <Pressable onPress={handleClose}>
-        <Box bgColor="black" width={screenWidth} height={screenHeight}>
-          <Center flex="1">{ImageView}</Center>
-        </Box>
-        <Select
-          title="Image Options"
-          activatable={false}
-          onChange={onChange}
-          renderTrigger={() => (
-            <Box
-              position="absolute"
-              width="34px"
-              height="34px"
-              bottom="42px"
-              right="20px"
-              borderRadius="12"
-              borderWidth={1}
-              justifyContent="center"
-              alignItems="center"
-              borderColor="border-default"
-              bg="action-secondary-default"
-            >
-              <Icon name="ArrowDownTrayMini" size={20} />
-            </Box>
-          )}
-          containerProps={{
-            w: 'full',
-          }}
-          options={[
-            {
-              label: intl.formatMessage({ id: 'action__save' }),
-              value: 'save',
-              iconProps: {
-                name: 'InboxArrowDownOutline',
+    <OverlayContainer>
+      <MotiView
+        from={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{
+          opacity: 0,
+        }}
+        transition={{
+          type: 'timing',
+          duration: 150,
+        }}
+        style={StyleSheet.absoluteFill}
+      >
+        <Pressable onPress={handleClose}>
+          <Box bgColor="black" width={screenWidth} height={screenHeight}>
+            <Center flex="1">{ImageView}</Center>
+          </Box>
+          <Select
+            title="Image Options"
+            activatable={false}
+            onChange={onChange}
+            renderTrigger={() => (
+              <Box
+                position="absolute"
+                width="34px"
+                height="34px"
+                bottom="42px"
+                right="20px"
+                borderRadius="12"
+                borderWidth={1}
+                justifyContent="center"
+                alignItems="center"
+                borderColor="border-default"
+                bg="action-secondary-default"
+              >
+                <Icon name="ArrowDownTrayMini" size={20} />
+              </Box>
+            )}
+            containerProps={{
+              w: 'full',
+            }}
+            options={[
+              {
+                label: intl.formatMessage({ id: 'action__save' }),
+                value: 'save',
+                iconProps: {
+                  name: 'InboxArrowDownOutline',
+                },
               },
-            },
-            {
-              label: intl.formatMessage({ id: 'action__share' }),
-              value: 'share',
-              iconProps: {
-                name: 'ShareOutline',
+              {
+                label: intl.formatMessage({ id: 'action__share' }),
+                value: 'share',
+                iconProps: {
+                  name: 'ShareOutline',
+                },
               },
-            },
-          ]}
-          footer={null}
-        />
-      </Pressable>
-    </RNModal>
+            ]}
+            footer={null}
+          />
+        </Pressable>
+      </MotiView>
+    </OverlayContainer>
   );
 };
 

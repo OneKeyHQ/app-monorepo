@@ -4,6 +4,7 @@ const webModuleTranspile = [
   '@mysten/sui.js',
   'superstruct',
   '@polkadot',
+  '@solana/web3.js',
 ];
 
 const extModuleTranspile = [
@@ -20,6 +21,7 @@ const extModuleTranspile = [
   '@polkadot/types',
   '@polkadot/util-crypto',
   '@polkadot/keyring',
+  '@solana/web3.js',
 ];
 
 module.exports = {

@@ -42,24 +42,28 @@ function ExternalAccountImg({
   radius?: string;
 }) {
   const { serviceExternalAccount } = backgroundApiProxy;
-  const { result: accountImg } = usePromiseResult(async () => {
-    // eslint-disable-next-line no-param-reassign
-    accountId = accountId || account?.id || '';
-    if (isExternalAccount({ accountId })) {
-      let imgInfo = await serviceExternalAccount.getExternalAccountImage({
-        accountId,
-      });
-      // may be simpleDB not saved yet, try again
-      if (!imgInfo) {
-        await wait(1000);
-        imgInfo = await serviceExternalAccount.getExternalAccountImage({
+  const { result: accountImg } = usePromiseResult(
+    async () => {
+      // eslint-disable-next-line no-param-reassign
+      accountId = accountId || account?.id || '';
+      if (isExternalAccount({ accountId })) {
+        let imgInfo = await serviceExternalAccount.getExternalAccountImage({
           accountId,
         });
+        // may be simpleDB not saved yet, try again
+        if (!imgInfo) {
+          await wait(1000);
+          imgInfo = await serviceExternalAccount.getExternalAccountImage({
+            accountId,
+          });
+        }
+        return imgInfo?.sm || imgInfo?.md || imgInfo?.lg || '';
       }
-      return imgInfo?.sm || imgInfo?.md || imgInfo?.lg || '';
-    }
-    return '';
-  }, [accountId, account, walletName]);
+      return '';
+    },
+    [accountId, account, walletName],
+    { checkIsMounted: true },
+  );
 
   if (accountImg) {
     // return null;

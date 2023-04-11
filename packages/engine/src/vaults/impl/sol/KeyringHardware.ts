@@ -1,6 +1,8 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 
+import { VersionedTransaction } from '@solana/web3.js';
+
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
@@ -20,7 +22,8 @@ import type {
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
-import type { PublicKey, Transaction } from '@solana/web3.js';
+import type { INativeTxSol } from './types';
+import type { PublicKey } from '@solana/web3.js';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override async signTransaction(
@@ -32,13 +35,17 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const { nativeTx: transaction, feePayer } = unsignedTx.payload as {
-      nativeTx: Transaction;
+      nativeTx: INativeTxSol;
       feePayer: PublicKey;
     };
 
+    const isVersionedTransaction = transaction instanceof VersionedTransaction;
+
     const response = await HardwareSDK.solSignTransaction(connectId, deviceId, {
       path: dbAccount.path,
-      rawTx: transaction.serializeMessage().toString('hex'),
+      rawTx: isVersionedTransaction
+        ? Buffer.from(transaction.message.serialize()).toString('hex')
+        : transaction.serializeMessage().toString('hex'),
       ...passphraseState,
     });
 
@@ -47,9 +54,9 @@ export class KeyringHardware extends KeyringHardwareBase {
       transaction.addSignature(feePayer, Buffer.from(signature, 'hex'));
       return {
         txid: signature,
-        rawTx: transaction
-          .serialize({ requireAllSignatures: false })
-          .toString('base64'),
+        rawTx: Buffer.from(
+          transaction.serialize({ requireAllSignatures: false }),
+        ).toString('base64'),
       };
     }
 
