@@ -426,13 +426,11 @@ class Provider {
           value: parseInt(o.value.toFixed()),
         })) ?? [],
       );
-      console.log('buildUnsignedTx txSize', txSize);
       feeLimit =
         feeLimit && feeLimit.gte(txSize) ? feeLimit : new BigNumber(txSize);
     }
 
     feeLimit = feeLimit || new BigNumber(PLACEHOLDER_VSIZE);
-    console.log('buildUnsignedTx feeLimit', feeLimit);
 
     return Promise.resolve({ ...unsignedTx, feeLimit, feePricePerUnit });
   }

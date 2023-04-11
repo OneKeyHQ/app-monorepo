@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { debounce, first, last } from 'lodash';
+import { first, last } from 'lodash';
 import { Slider } from 'native-base';
 import { useIntl } from 'react-intl';
 
@@ -33,7 +33,6 @@ import type {
   IEncodedTx,
   IFeeInfoPayload,
 } from '@onekeyhq/engine/src/vaults/types';
-import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useFormOnChangeDebounced } from '../../../../hooks/useFormOnChangeDebounced';
@@ -46,7 +45,10 @@ import {
   FEE_LEVEL_BADGE_TYPE_MAP,
   SEND_EDIT_FEE_PRICE_UP_RATIO,
 } from '../../utils/sendConfirmConsts';
-import { useBtcCustomFeeForm } from '../../utils/useBtcCustomFee';
+import {
+  useBtcCustomFee,
+  useBtcCustomFeeForm,
+} from '../../utils/useBtcCustomFee';
 
 import type { ISendEditFeeValues } from '../../types';
 import type { UseFormReturn } from 'react-hook-form';
@@ -94,7 +96,13 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     encodedTx,
   } = props;
 
-  const { control, getValues, setValue, trigger: formTrigger } = useFormReturn;
+  const {
+    control,
+    getValues,
+    setValue,
+    trigger: formTrigger,
+    watch,
+  } = useFormReturn;
   const { formValues } = useFormOnChangeDebounced<ISendEditFeeValues>({
     useFormReturn,
   });
@@ -136,6 +144,14 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     firstPresetFeeInfo: firstPresetFeeInfo as string,
     lastPresetFeeInfo: lastPresetFeeInfo as string,
   });
+  const watchFeeRate = watch('feeRate');
+  const { btcTxFee } = useBtcCustomFee({
+    networkId,
+    accountId,
+    encodedTx,
+    feeRate: watchFeeRate,
+    feeType: 'custom',
+  });
 
   const handleBoosterOnChange = useCallback(
     (value) => {
@@ -158,38 +174,6 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     [basePriority, formValues?.baseFee, formValues?.maxFeePerGas, setValue],
   );
 
-  const [btcDisplayFee, setBtcDisplayFee] = useState<string | null>(null);
-  // const validateFeeRate = useCallback(
-  //   async (feeRate: string) => {
-  //     if (!encodedTx) {
-  //       return;
-  //     }
-  //     try {
-  //       const btcEncodedTx =
-  //         await backgroundApiProxy.engine.attachFeeInfoToEncodedTx({
-  //           networkId,
-  //           accountId,
-  //           encodedTx,
-  //           feeInfoValue: {
-  //             feeRate,
-  //           },
-  //         });
-  //       console.log('attachFeeInfoToEncodedTx result: ====> ', btcEncodedTx);
-  //       setBtcDisplayFee((btcEncodedTx as IEncodedTxBtc).totalFee);
-  //     } catch (e) {
-  //       console.error(e);
-  //       setBtcDisplayFee('0');
-  //       setGasPriceTip({
-  //         type: 'error',
-  //         message: intl.formatMessage({
-  //           id: 'msg__insufficient_balance',
-  //         }),
-  //       });
-  //     }
-  //   },
-  //   [encodedTx, accountId, networkId, intl],
-  // );
-  // const validateFeeRateDebounce = debounce(validateFeeRate, 200);
   const customFeeOverview = useMemo(() => {
     if (!formValues) return null;
     const limit = formValues.gasLimit;
@@ -210,7 +194,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
         feeInfo={feeInfoPayload?.info}
         price={price}
         limit={limit}
-        btcCustomFee={btcDisplayFee}
+        btcCustomFee={btcTxFee}
       />
     );
   }, [
@@ -219,7 +203,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     formValues,
     isEIP1559Fee,
     networkId,
-    btcDisplayFee,
+    btcTxFee,
   ]);
 
   const customConfidence = useMemo(() => {

@@ -43,6 +43,7 @@ import {
   IS_REPLACE_ROUTE_TO_FEE_EDIT,
   SEND_EDIT_FEE_PRICE_UP_RATIO,
 } from '../../utils/sendConfirmConsts';
+import { useBtcCustomFee } from '../../utils/useBtcCustomFee';
 import { useFeeInfoPayload } from '../../utils/useFeeInfoPayload';
 
 import { SendEditFeeCustomForm } from './SendEditFeeCustomForm';
@@ -184,23 +185,13 @@ function ScreenSendEditFee({ ...rest }) {
   );
 
   const watchBtcFeeRate = watch('feeRate');
-  const [btcFee, setBtcFee] = useState<string | null>(null);
-  useEffect(() => {
-    console.log('watchFeeRate effect: ====> ', watchBtcFeeRate);
-    if (encodedTx && watchBtcFeeRate && currentFeeType === 'custom') {
-      backgroundApiProxy.engine
-        .fetchFeeInfo({
-          networkId,
-          accountId,
-          encodedTx,
-          specifiedFeeRate: watchBtcFeeRate,
-        })
-        .then((r) => {
-          console.log('=====> Rrrrr: ', r);
-          setBtcFee(`${r.feeList?.[0] || 0}`);
-        });
-    }
-  }, [watchBtcFeeRate, encodedTx, networkId, accountId, currentFeeType]);
+  const { btcTxFee } = useBtcCustomFee({
+    networkId,
+    accountId,
+    encodedTx,
+    feeRate: watchBtcFeeRate,
+    feeType: currentFeeType,
+  });
 
   const onSubmit = handleSubmit(async (data) => {
     let type = currentFeeType;
@@ -247,8 +238,11 @@ function ScreenSendEditFee({ ...rest }) {
       feeInfoSelected.custom.similarToPreset = customSimilarToPreset;
       feeInfoSelected.custom.waitingSeconds = customWaitingSeconds;
 
-      if (isBtcForkChain && data.feeRate) {
-        feeInfoSelected.custom.btcFee = parseInt(btcFee || '0');
+      if (isBtcForkChain) {
+        feeInfoSelected.custom.isBtcForkChain = isBtcForkChain;
+        if (data.feeRate) {
+          feeInfoSelected.custom.btcFee = parseInt(btcTxFee || '0');
+        }
       }
 
       setCurrentCustom(feeInfoSelected.custom);

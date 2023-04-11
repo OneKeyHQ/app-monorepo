@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -10,10 +10,14 @@ import {
   OneKeyValidatorError,
   OneKeyValidatorTip,
 } from '@onekeyhq/engine/src/errors';
-import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
+import type {
+  IEncodedTx,
+  IFeeInfoSelectedType,
+} from '@onekeyhq/engine/src/vaults/types';
 import type { CustomAlert } from '@onekeyhq/kit/src/views/Send/modals/SendEditFee/SendEditFeeCustomForm';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useDebounce } from '../../../hooks';
 
 export function useBtcCustomFeeForm({
   networkId,
@@ -95,7 +99,6 @@ export function useBtcCustomFeeForm({
 
       const lowValue = firstPresetFeeInfo;
       const highValue = lastPresetFeeInfo;
-      console.log('value ====>>> render : ', value);
       try {
         await validateFeeRate({
           value,
@@ -104,7 +107,6 @@ export function useBtcCustomFeeForm({
         });
         setGasPriceTip(null);
       } catch (error) {
-        console.error(error);
         const e = error as OneKeyError;
         if (e?.className === OneKeyErrorClassNames.OneKeyValidatorError) {
           setGasPriceTip({
@@ -140,8 +142,45 @@ export function useBtcCustomFeeForm({
       validateFeeRate,
     ],
   );
-
   return {
     feeRateFormValidator,
+  };
+}
+
+export function useBtcCustomFee({
+  networkId,
+  accountId,
+  feeRate,
+  feeType,
+  encodedTx,
+}: {
+  networkId: string;
+  accountId: string;
+  feeRate: string;
+  feeType: IFeeInfoSelectedType;
+  encodedTx?: IEncodedTx;
+}) {
+  const [btcTxFee, setBtcTxFee] = useState<string | null>(null);
+  const debounceFeeRate = useDebounce(feeRate, 300);
+  useEffect(() => {
+    if (encodedTx && debounceFeeRate && feeType === 'custom') {
+      backgroundApiProxy.engine
+        .fetchFeeInfo({
+          networkId,
+          accountId,
+          encodedTx,
+          specifiedFeeRate: debounceFeeRate,
+        })
+        .then((feeInfo) => {
+          setBtcTxFee(`${feeInfo.feeList?.[0] || 0}`);
+        })
+        .catch(() => {
+          setBtcTxFee(null);
+        });
+    }
+  }, [debounceFeeRate, feeType, networkId, accountId, encodedTx]);
+
+  return {
+    btcTxFee,
   };
 }

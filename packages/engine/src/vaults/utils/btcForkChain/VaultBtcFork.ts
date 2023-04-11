@@ -450,7 +450,6 @@ export default class VaultBtcFork extends VaultBase {
             .shiftedBy(network.feeDecimals)
             .toFixed()
         : (await this.getFeeRate())[0];
-    console.log('buildEncodedTxFromTransfer feeRate', feeRate);
     const max = utxos
       .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
       .shiftedBy(-network.decimals)
@@ -465,7 +464,6 @@ export default class VaultBtcFork extends VaultBase {
         path,
       }),
     );
-    console.log('build inpust =====> ', inputsForCoinSelect);
     const outputsForCoinSelect = [
       max
         ? { address: to }
@@ -493,10 +491,6 @@ export default class VaultBtcFork extends VaultBase {
     const totalFeeInNative = new BigNumber(totalFee)
       .shiftedBy(-1 * network.feeDecimals)
       .toFixed();
-    console.log(
-      'buildEncodedTxFromTransfer totalFeeInNative',
-      totalFeeInNative,
-    );
     return {
       inputs: inputs.map(({ txId, value, ...keep }) => ({
         ...keep,
@@ -584,7 +578,6 @@ export default class VaultBtcFork extends VaultBase {
       encodedTx,
     });
 
-    console.log('feeLimit in fetchFeeInfo: ', feeLimit?.toFixed(), ' BTC');
     const feeRates = specifiedFeeRate
       ? [specifiedFeeRate]
       : await this.getFeeRate();
@@ -592,7 +585,6 @@ export default class VaultBtcFork extends VaultBase {
     const prices = feeRates.map((price) =>
       new BigNumber(price).shiftedBy(-network.feeDecimals).toFixed(),
     );
-    console.log('prices in fetchFeeInfo: ', prices, ' BTC/byte');
     const feeList = prices.map(
       (price) =>
         coinSelect(
@@ -601,7 +593,6 @@ export default class VaultBtcFork extends VaultBase {
           new BigNumber(price).shiftedBy(network.feeDecimals).toFixed(),
         ).fee,
     );
-    console.log('calculatedFee in fetchFeeInfo: ', feeList, ' sats');
 
     const blockNums = this.getDefaultBlockNums();
     const result = {
@@ -797,7 +788,6 @@ export default class VaultBtcFork extends VaultBase {
               .then((feeRate) => new BigNumber(feeRate).toFixed(0)),
           ),
         );
-        // return ['14', '20', '22'];
         return fees.sort((a, b) => {
           const aBN = new BigNumber(a);
           const bBN = new BigNumber(b);
