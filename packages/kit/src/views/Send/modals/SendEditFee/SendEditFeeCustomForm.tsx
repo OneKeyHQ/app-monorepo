@@ -46,13 +46,14 @@ import {
   FEE_LEVEL_BADGE_TYPE_MAP,
   SEND_EDIT_FEE_PRICE_UP_RATIO,
 } from '../../utils/sendConfirmConsts';
+import { useBtcCustomFeeForm } from '../../utils/useBtcCustomFee';
 
 import type { ISendEditFeeValues } from '../../types';
 import type { UseFormReturn } from 'react-hook-form';
 
 type AlertType = ComponentProps<typeof Alert>['alertType'];
 
-type CustomAlert = {
+export type CustomAlert = {
   type: AlertType;
   message: string;
 } | null;
@@ -127,6 +128,15 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   const [blockNativeFeeInfo, setBlockNativeFeeInfo] =
     useState<BlockNativeGasInfo>();
 
+  const { feeRateFormValidator } = useBtcCustomFeeForm({
+    networkId,
+    accountId,
+    encodedTx,
+    setGasPriceTip,
+    firstPresetFeeInfo: firstPresetFeeInfo as string,
+    lastPresetFeeInfo: lastPresetFeeInfo as string,
+  });
+
   const handleBoosterOnChange = useCallback(
     (value) => {
       setPriorityBooster(value);
@@ -149,37 +159,37 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   );
 
   const [btcDisplayFee, setBtcDisplayFee] = useState<string | null>(null);
-  const validateFeeRate = useCallback(
-    async (feeRate: string) => {
-      if (!encodedTx) {
-        return;
-      }
-      try {
-        const btcEncodedTx =
-          await backgroundApiProxy.engine.attachFeeInfoToEncodedTx({
-            networkId,
-            accountId,
-            encodedTx,
-            feeInfoValue: {
-              feeRate,
-            },
-          });
-        console.log('attachFeeInfoToEncodedTx result: ====> ', btcEncodedTx);
-        setBtcDisplayFee((btcEncodedTx as IEncodedTxBtc).totalFee);
-      } catch (e) {
-        console.error(e);
-        setBtcDisplayFee('0');
-        setGasPriceTip({
-          type: 'error',
-          message: intl.formatMessage({
-            id: 'msg__insufficient_balance',
-          }),
-        });
-      }
-    },
-    [encodedTx, accountId, networkId, intl],
-  );
-  const validateFeeRateDebounce = debounce(validateFeeRate, 200);
+  // const validateFeeRate = useCallback(
+  //   async (feeRate: string) => {
+  //     if (!encodedTx) {
+  //       return;
+  //     }
+  //     try {
+  //       const btcEncodedTx =
+  //         await backgroundApiProxy.engine.attachFeeInfoToEncodedTx({
+  //           networkId,
+  //           accountId,
+  //           encodedTx,
+  //           feeInfoValue: {
+  //             feeRate,
+  //           },
+  //         });
+  //       console.log('attachFeeInfoToEncodedTx result: ====> ', btcEncodedTx);
+  //       setBtcDisplayFee((btcEncodedTx as IEncodedTxBtc).totalFee);
+  //     } catch (e) {
+  //       console.error(e);
+  //       setBtcDisplayFee('0');
+  //       setGasPriceTip({
+  //         type: 'error',
+  //         message: intl.formatMessage({
+  //           id: 'msg__insufficient_balance',
+  //         }),
+  //       });
+  //     }
+  //   },
+  //   [encodedTx, accountId, networkId, intl],
+  // );
+  // const validateFeeRateDebounce = debounce(validateFeeRate, 200);
   const customFeeOverview = useMemo(() => {
     if (!formValues) return null;
     const limit = formValues.gasLimit;
@@ -280,52 +290,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
             control={control}
             name="feeRate"
             rules={{
-              validate: async (value) => {
-                const lowValue = firstPresetFeeInfo as string;
-                const highValue = lastPresetFeeInfo as string;
-                try {
-                  await backgroundApiProxy.validator.validateFeeRate({
-                    networkId,
-                    value,
-                    lowValue,
-                    highValue,
-                  });
-                  await validateFeeRateDebounce(value);
-                  setGasPriceTip(null);
-                } catch (error) {
-                  printError(error);
-                  const e = error as OneKeyError;
-                  if (
-                    e?.className === OneKeyErrorClassNames.OneKeyValidatorError
-                  ) {
-                    setGasPriceTip({
-                      type: 'error',
-                      message: intl.formatMessage(
-                        {
-                          id: e.key as any,
-                        },
-                        e.info,
-                      ),
-                    });
-                    return false;
-                  }
-                  if (
-                    e?.className === OneKeyErrorClassNames.OneKeyValidatorTip
-                  ) {
-                    await validateFeeRateDebounce(value);
-                    setGasPriceTip({
-                      type: 'warn',
-                      message: intl.formatMessage(
-                        {
-                          id: e.key as any,
-                        },
-                        e.info,
-                      ),
-                    });
-                  }
-                }
-                return true;
-              },
+              validate: async (value) => feeRateFormValidator({ value }),
             }}
           >
             <Form.NumberInput size={isSmallScreen ? 'xl' : 'lg'} />
@@ -716,7 +681,6 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     intl,
     isEIP1559Fee,
     isBtcForkChain,
-    validateFeeRateDebounce,
     isSmallScreen,
     lastPresetFeeInfo,
     nativeSymbol,
@@ -726,6 +690,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     selectedFeeInfo?.custom?.price,
     selectedFeeInfo?.custom?.price1559,
     setValue,
+    feeRateFormValidator,
   ]);
 
   const customAlert = useMemo(

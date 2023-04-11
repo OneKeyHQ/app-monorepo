@@ -6,16 +6,8 @@ import { isString } from 'lodash';
 import type { Network } from '@onekeyhq/kit/src/store/typings';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
-  COINTYPE_BTC,
-  IMPL_ADA,
-  IMPL_BCH,
-  IMPL_BTC,
   IMPL_COSMOS,
-  IMPL_DOGE,
   IMPL_DOT,
-  IMPL_LTC,
-  IMPL_TBTC,
-  SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import * as errors from './errors';
