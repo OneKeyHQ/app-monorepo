@@ -175,7 +175,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const chainId = new BigNumber(await this.getNetworkChainId()).toNumber();
-    const response = await HardwareSDK.aptosGetAddress(connectId, deviceId, {
+    const response = await HardwareSDK.confluxGetAddress(connectId, deviceId, {
       ...passphraseState,
       bundle: params.map(({ path, showOnOneKey }) => ({
         path,
