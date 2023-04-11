@@ -1879,18 +1879,24 @@ class Engine {
     accountId,
     encodedTx,
     signOnly,
+    specifiedFeeRate,
   }: {
     networkId: string;
     accountId: string;
     encodedTx: any;
     signOnly?: boolean;
+    specifiedFeeRate?: string;
   }) {
     const vault = await this.getVault({ networkId, accountId });
     // throw new Error('test fetch fee info error');
     // TODO move to vault.fetchFeeInfo and _fetchFeeInfo
     // clone encodedTx to avoid side effects
     try {
-      return await vault.fetchFeeInfo(cloneDeep(encodedTx), signOnly);
+      return await vault.fetchFeeInfo(
+        cloneDeep(encodedTx),
+        signOnly,
+        specifiedFeeRate,
+      );
     } catch (error: any) {
       // AxiosError error
       const axiosError = get(error, 'code', undefined) === 429;

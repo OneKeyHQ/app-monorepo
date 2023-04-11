@@ -449,7 +449,7 @@ export default class VaultBtcFork extends VaultBase {
         ? new BigNumber(specifiedFeeRate)
             .shiftedBy(network.feeDecimals)
             .toFixed()
-        : (await this.getFeeRate())[1];
+        : (await this.getFeeRate())[0];
     console.log('buildEncodedTxFromTransfer feeRate', feeRate);
     const max = utxos
       .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
@@ -571,7 +571,11 @@ export default class VaultBtcFork extends VaultBase {
     return Promise.resolve(ret);
   }
 
-  async fetchFeeInfo(encodedTx: IEncodedTxBtc): Promise<IFeeInfo> {
+  async fetchFeeInfo(
+    encodedTx: IEncodedTxBtc,
+    _: boolean | undefined,
+    specifiedFeeRate: string,
+  ): Promise<IFeeInfo> {
     const network = await this.engine.getNetwork(this.networkId);
     const provider = await this.getProvider();
     const { feeLimit } = await provider.buildUnsignedTx({
@@ -581,8 +585,11 @@ export default class VaultBtcFork extends VaultBase {
     });
 
     console.log('feeLimit in fetchFeeInfo: ', feeLimit?.toFixed(), ' BTC');
+    const feeRates = specifiedFeeRate
+      ? [specifiedFeeRate]
+      : await this.getFeeRate();
     // Prices are in sats/byte, convert it to BTC/byte for UI.
-    const prices = (await this.getFeeRate()).map((price) =>
+    const prices = feeRates.map((price) =>
       new BigNumber(price).shiftedBy(-network.feeDecimals).toFixed(),
     );
     console.log('prices in fetchFeeInfo: ', prices, ' BTC/byte');
@@ -790,6 +797,7 @@ export default class VaultBtcFork extends VaultBase {
               .then((feeRate) => new BigNumber(feeRate).toFixed(0)),
           ),
         );
+        // return ['14', '20', '22'];
         return fees.sort((a, b) => {
           const aBN = new BigNumber(a);
           const bBN = new BigNumber(b);

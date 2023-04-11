@@ -290,6 +290,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                     lowValue,
                     highValue,
                   });
+                  await validateFeeRateDebounce(value);
                   setGasPriceTip(null);
                 } catch (error) {
                   printError(error);
@@ -311,6 +312,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                   if (
                     e?.className === OneKeyErrorClassNames.OneKeyValidatorTip
                   ) {
+                    await validateFeeRateDebounce(value);
                     setGasPriceTip({
                       type: 'warn',
                       message: intl.formatMessage(
@@ -322,7 +324,6 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                     });
                   }
                 }
-                await validateFeeRateDebounce(value);
                 return true;
               },
             }}
@@ -715,6 +716,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     intl,
     isEIP1559Fee,
     isBtcForkChain,
+    validateFeeRateDebounce,
     isSmallScreen,
     lastPresetFeeInfo,
     nativeSymbol,

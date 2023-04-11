@@ -172,13 +172,38 @@ function ScreenSendEditFee({ ...rest }) {
     setValue,
     trigger: formTrigger,
     formState,
+    watch,
   } = useFormReturn;
 
-  const onSubmit = handleSubmit(async (data) => {
-    let type: IFeeInfoSelectedType =
+  const currentFeeType = useMemo<IFeeInfoSelectedType>(
+    () =>
       feeType === ESendEditFeeTypes.advanced || radioValue === 'custom'
         ? 'custom'
-        : 'preset';
+        : 'preset',
+    [feeType, radioValue],
+  );
+
+  const watchBtcFeeRate = watch('feeRate');
+  const [btcFee, setBtcFee] = useState<string | null>(null);
+  useEffect(() => {
+    console.log('watchFeeRate effect: ====> ', watchBtcFeeRate);
+    if (encodedTx && watchBtcFeeRate && currentFeeType === 'custom') {
+      backgroundApiProxy.engine
+        .fetchFeeInfo({
+          networkId,
+          accountId,
+          encodedTx,
+          specifiedFeeRate: watchBtcFeeRate,
+        })
+        .then((r) => {
+          console.log('=====> Rrrrr: ', r);
+          setBtcFee(`${r.feeList?.[0] || 0}`);
+        });
+    }
+  }, [watchBtcFeeRate, encodedTx, networkId, accountId, currentFeeType]);
+
+  const onSubmit = handleSubmit(async (data) => {
+    let type = currentFeeType;
     // const values = getValues();
     if (!radioValue && type === 'preset') {
       type = 'custom';
@@ -221,6 +246,10 @@ function ScreenSendEditFee({ ...rest }) {
 
       feeInfoSelected.custom.similarToPreset = customSimilarToPreset;
       feeInfoSelected.custom.waitingSeconds = customWaitingSeconds;
+
+      if (isBtcForkChain && data.feeRate) {
+        feeInfoSelected.custom.btcFee = parseInt(btcFee || '0');
+      }
 
       setCurrentCustom(feeInfoSelected.custom);
     }
@@ -324,7 +353,7 @@ function ScreenSendEditFee({ ...rest }) {
         setValue('gasPrice', new BigNumber(price ?? 0).toFixed());
       }
 
-      if (isBtcForkChain) {
+      if (isBtcForkChain && !feeInfoValue.feeRate) {
         setValue(
           'feeRate',
           new BigNumber(price ?? 0)
@@ -491,6 +520,7 @@ function ScreenSendEditFee({ ...rest }) {
         accountId={accountId}
         networkId={networkId}
         feeInfoPayload={feeInfoPayload}
+        currentFeeType={currentFeeType}
         currentCustom={currentCustom}
         value={radioValue}
         onChange={(value) => {

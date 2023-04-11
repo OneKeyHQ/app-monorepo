@@ -500,7 +500,11 @@ class Validators {
     const valueBN = new BigNumber(value);
     if (valueBN.isLessThanOrEqualTo(min) || valueBN.isGreaterThan(max)) {
       throw new OneKeyValidatorError(
-        'msg__enter_a_fee_rate_between_1_and_1024',
+        'msg__enter_a_fee_rate_between_str_and_str',
+        {
+          min: '0',
+          max: '2000',
+        },
       );
     }
     if (valueBN.shiftedBy(-8).isLessThan(lowValue)) {

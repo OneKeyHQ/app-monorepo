@@ -4,6 +4,7 @@ import { Box, HStack, RadioFee } from '@onekeyhq/components';
 import type {
   IFeeInfo,
   IFeeInfoPayload,
+  IFeeInfoSelectedType,
   IFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/types';
 
@@ -36,6 +37,7 @@ export type IStandardFeeProps = {
   accountId: string;
   networkId: string;
   currentCustom: null | IFeeInfoUnit;
+  currentFeeType: IFeeInfoSelectedType;
 };
 export function SendEditFeeStandardForm({
   feeInfoPayload,
@@ -44,9 +46,21 @@ export function SendEditFeeStandardForm({
   accountId,
   networkId,
   currentCustom,
+  currentFeeType,
 }: IStandardFeeProps) {
   const customFeeInfo = currentCustom || feeInfoPayload?.selected.custom;
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
+
+  const btcCustomFee = useMemo(() => {
+    if (!feeInfoPayload?.info?.isBtcForkChain) return null;
+    if (currentFeeType !== 'custom') return null;
+    if (!currentCustom?.btcFee) return null;
+    return `${currentCustom?.btcFee}`;
+  }, [
+    currentCustom?.btcFee,
+    currentFeeType,
+    feeInfoPayload?.info?.isBtcForkChain,
+  ]);
 
   const selectedFeeInfo = useMemo(() => {
     let price = null;
@@ -66,7 +80,7 @@ export function SendEditFeeStandardForm({
         feeInfo={feeInfoPayload?.info}
         price={price}
         limit={limit}
-        feeRate={null}
+        btcCustomFee={btcCustomFee}
       />
     );
   }, [
@@ -78,6 +92,7 @@ export function SendEditFeeStandardForm({
     isEIP1559Fee,
     networkId,
     value,
+    btcCustomFee,
   ]);
 
   const gasList = useMemo(
