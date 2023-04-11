@@ -13,14 +13,11 @@ import {
 import * as errors from './errors';
 import { OneKeyValidatorError, OneKeyValidatorTip } from './errors';
 import * as limits from './limits';
-import { getNextAccountId } from './managers/derivation';
-import { implToCoinTypes } from './managers/impl';
 import { UserInputCategory } from './types/credential';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
 
 import type { DBAPI } from './dbs/base';
 import type { Engine } from './index';
-import type { DBUTXOAccount } from './types/account';
 import type { UserInputCheckResult } from './types/credential';
 
 const FEE_LIMIT_HIGH_VALUE_TIMES = 20;
@@ -471,41 +468,6 @@ class Validators {
       )
     ) {
       throw new OneKeyValidatorTip('form__gas_price_invalid_too_much', {});
-    }
-
-    return Promise.resolve();
-  }
-
-  @backgroundMethod()
-  async validateFeeRate({
-    value,
-    lowValue,
-    highValue,
-  }: {
-    networkId: string;
-    value: string;
-    lowValue: string;
-    highValue: string;
-  }) {
-    const min = 0;
-    const max = 2000;
-    const valueBN = new BigNumber(value);
-    if (valueBN.isLessThanOrEqualTo(min) || valueBN.isGreaterThan(max)) {
-      throw new OneKeyValidatorError(
-        'msg__enter_a_fee_rate_between_str_and_str',
-        {
-          min: '0',
-          max: '2000',
-        },
-      );
-    }
-    if (valueBN.shiftedBy(-8).isLessThan(lowValue)) {
-      throw new OneKeyValidatorTip('msg__fee_rate_is_low_for_current_network');
-    }
-    if (
-      valueBN.shiftedBy(-8).isGreaterThan(new BigNumber(highValue).times(10))
-    ) {
-      throw new OneKeyValidatorTip('msg__fee_rate_is_higher_than_necessary');
     }
 
     return Promise.resolve();
