@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -40,6 +40,7 @@ import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { calculateGains } from '../../../utils/priceUtils';
 import AccountMoreMenu from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
+import { refreshHistory } from '../../../store/reducers/refresher';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
   ModalScreenProps<SendRoutesParams>;
@@ -197,6 +198,27 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
     }
     navigation.getParent()?.navigate(TabRoutes.Swap);
   }, [network, account, navigation]);
+
+  useEffect(() => {
+    const refreshPendingTx = async () => {
+      const pendingTxs =
+        await backgroundApiProxy.serviceHistory.getLocalHistory({
+          networkId: network?.id ?? '',
+          accountId: account?.id ?? '',
+          isPending: true,
+          limit: 1,
+        });
+
+      if (pendingTxs.length > 0) {
+        backgroundApiProxy.serviceHistory.refreshHistory({
+          networkId: network?.id ?? '',
+          accountId: account?.id ?? '',
+        });
+      }
+    };
+
+    refreshPendingTx();
+  }, [account, network]);
 
   return (
     <Box flexDirection="row" px={isVertical ? 1 : 0} mx={-3}>
