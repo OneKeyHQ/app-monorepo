@@ -1810,7 +1810,6 @@
   "msg__engine__wallet_name_length_error": "वॉलेट नाम की लंबाई सीमा से बाहर है।",
   "msg__engine_too_many_external_accounts": "बहुत अधिक बाहरी खाते",
   "msg__engine_too_many_watching_accounts": "बहुत सारे खाते देख रहे हैं",
-  "msg__enter_a_fee_rate_between_1_and_1024": "1 से 1024 के बीच शुल्क दर दर्ज करें",
   "msg__enter_a_fee_rate_between_str_and_str": "{min} और {max} के बीच शुल्क दर दर्ज करें",
   "msg__enter_a_number": "एक संख्या दर्ज करें।",
   "msg__enter_a_valid_slippage_percentage": "एक मान्य स्लिपेज प्रतिशत दर्ज करें",

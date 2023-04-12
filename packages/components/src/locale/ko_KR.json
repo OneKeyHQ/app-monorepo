@@ -1810,7 +1810,6 @@
   "msg__engine__wallet_name_length_error": "지갑 이름의 길이가 제한을 벗어났습니다.",
   "msg__engine_too_many_external_accounts": "외부 계정이 너무 많습니다.",
   "msg__engine_too_many_watching_accounts": "시청 계정이 너무 많습니다.",
-  "msg__enter_a_fee_rate_between_1_and_1024": "1에서 1024 사이의 수수료율을 입력하세요.",
   "msg__enter_a_fee_rate_between_str_and_str": "{min} 에서 {max} 사이의 수수료 요율을 입력하세요.",
   "msg__enter_a_number": "숫자를 입력하세요.",
   "msg__enter_a_valid_slippage_percentage": "유효한 미끄러짐 비율을 입력하십시오",

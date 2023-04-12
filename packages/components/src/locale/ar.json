@@ -1810,7 +1810,6 @@
   "msg__engine__wallet_name_length_error": "طول اسم المحفظة خارج عن الحد.",
   "msg__engine_too_many_external_accounts": "عدد كبير جدًا من الحسابات الخارجية",
   "msg__engine_too_many_watching_accounts": "عدد كبير جدًا من حسابات المشاهدة",
-  "msg__enter_a_fee_rate_between_1_and_1024": "أدخل معدل رسوم بين 1 و 1024",
   "msg__enter_a_fee_rate_between_str_and_str": "أدخل معدل رسوم يتراوح بين {min} و {max}",
   "msg__enter_a_number": "أدخل رقما.",
   "msg__enter_a_valid_slippage_percentage": "أدخل نسبة انزلاق سعرية صالحة",

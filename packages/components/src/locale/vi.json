@@ -1810,7 +1810,6 @@
   "msg__engine__wallet_name_length_error": "Độ dài của tên ví vượt quá giới hạn.",
   "msg__engine_too_many_external_accounts": "Quá nhiều tài khoản bên ngoài",
   "msg__engine_too_many_watching_accounts": "Quá nhiều tài khoản đang xem",
-  "msg__enter_a_fee_rate_between_1_and_1024": "Nhập tỷ lệ phí từ 1 đến 1024",
   "msg__enter_a_fee_rate_between_str_and_str": "Nhập mức phí từ {min} đến {max}",
   "msg__enter_a_number": "Nhập một số.",
   "msg__enter_a_valid_slippage_percentage": "Nhập phần trăm trượt giá hợp lệ",

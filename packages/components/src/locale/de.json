@@ -1810,7 +1810,6 @@
   "msg__engine__wallet_name_length_error": "Die Länge des Brieftaschennamens ist nicht begrenzt.",
   "msg__engine_too_many_external_accounts": "Zu viele externe Konten",
   "msg__engine_too_many_watching_accounts": "Zu viele beobachtende Konten",
-  "msg__enter_a_fee_rate_between_1_and_1024": "Geben Sie einen Gebührensatz zwischen 1 und 1024 ein",
   "msg__enter_a_fee_rate_between_str_and_str": "Geben Sie einen Gebührensatz zwischen {min} und {max} ein",
   "msg__enter_a_number": "Geben Sie eine Zahl ein.",
   "msg__enter_a_valid_slippage_percentage": "Geben Sie einen gültigen Slippage-Prozentsatz ein",

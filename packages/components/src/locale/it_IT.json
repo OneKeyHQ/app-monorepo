@@ -1810,7 +1810,6 @@
   "msg__engine__wallet_name_length_error": "La lunghezza del nome del portafoglio è fuori limite.",
   "msg__engine_too_many_external_accounts": "Troppi account esterni",
   "msg__engine_too_many_watching_accounts": "Troppi conti di sorveglianza",
-  "msg__enter_a_fee_rate_between_1_and_1024": "Inserisci un tasso di commissione compreso tra 1 e 1024",
   "msg__enter_a_fee_rate_between_str_and_str": "Inserisci una tariffa compresa tra {min} e {max}",
   "msg__enter_a_number": "Inserisci un numero.",
   "msg__enter_a_valid_slippage_percentage": "Immettere una percentuale di slittamento valida",

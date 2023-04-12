@@ -1810,7 +1810,6 @@
   "msg__engine__wallet_name_length_error": "钱包名称长度超出限制。",
   "msg__engine_too_many_external_accounts": "外部钱包账户数目超出限制",
   "msg__engine_too_many_watching_accounts": "观察钱包账户数目超出限制",
-  "msg__enter_a_fee_rate_between_1_and_1024": "交易费率必须在 1 到 1024 之间",
   "msg__enter_a_fee_rate_between_str_and_str": "交易费率必须在 {min} 到 {max} 之间",
   "msg__enter_a_number": "输入一个数字。",
   "msg__enter_a_valid_slippage_percentage": "请输入有效的滑点百分比",

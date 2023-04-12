@@ -1810,7 +1810,6 @@
   "msg__engine__wallet_name_length_error": "Panjang nama dompet di luar batas.",
   "msg__engine_too_many_external_accounts": "Terlalu banyak akun eksternal",
   "msg__engine_too_many_watching_accounts": "Terlalu banyak akun yang menonton",
-  "msg__enter_a_fee_rate_between_1_and_1024": "Masukkan tarif biaya antara 1 hingga 1024",
   "msg__enter_a_fee_rate_between_str_and_str": "Masukkan tarif biaya antara {min} dan {max}",
   "msg__enter_a_number": "Masukkan nomor.",
   "msg__enter_a_valid_slippage_percentage": "Masukkan persentase slippage yang valid",
