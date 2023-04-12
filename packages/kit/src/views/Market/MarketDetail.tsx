@@ -24,6 +24,7 @@ import {
   RootRoutes,
   TabRoutes,
 } from '../../routes/routesEnum';
+import { KeleETHUnstakeBulletin } from '../Staking/components/KeleETHUnstakeBulletin';
 import { StakingRoutes } from '../Staking/typing';
 
 import MarketDetailContent from './Components/MarketDetail/MarketDetailContent';
@@ -202,6 +203,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
       </Box>
       <Box flex={1} flexDirection="row" justifyContent="center">
         <Box flex={1} maxW={SCREEN_SIZE.LARGE}>
+          <KeleETHUnstakeBulletin token={token} />
           <Box
             display="flex"
             justifyContent="space-between"
