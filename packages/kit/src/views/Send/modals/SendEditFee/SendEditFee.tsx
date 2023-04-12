@@ -516,7 +516,9 @@ function ScreenSendEditFee({ ...rest }) {
           : 'action__apply'
       }
       primaryActionProps={{
-        isDisabled: feeInfoLoading || !formState.isValid,
+        isDisabled:
+          feeInfoLoading ||
+          (feeType === ESendEditFeeTypes.advanced && !formState.isValid),
       }}
       onPrimaryActionPress={() => onSubmit()}
       hideSecondaryAction
