@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -35,7 +35,6 @@ export function useBtcCustomFeeForm({
   lastPresetFeeInfo: string;
 }) {
   const intl = useIntl();
-  const prevFeeRateValueRef = useRef<string | undefined>(undefined);
 
   const validateFeeRate = useCallback(
     async ({
@@ -92,11 +91,6 @@ export function useBtcCustomFeeForm({
 
   const feeRateFormValidator = useCallback(
     async ({ value }: { value: string }) => {
-      if (value === prevFeeRateValueRef.current) {
-        return;
-      }
-      prevFeeRateValueRef.current = value;
-
       const lowValue = firstPresetFeeInfo;
       const highValue = lastPresetFeeInfo;
       try {
