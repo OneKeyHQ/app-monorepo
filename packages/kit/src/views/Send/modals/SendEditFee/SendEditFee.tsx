@@ -544,6 +544,16 @@ function ScreenSendEditFee({ ...rest }) {
     feeType === ESendEditFeeTypes.advanced &&
     blockNativeInit;
 
+  const buttonDisabled = useMemo(() => {
+    if (feeInfoLoading) {
+      return true;
+    }
+    if (isBtcForkChain || feeType === ESendEditFeeTypes.advanced) {
+      return !formState.isValid;
+    }
+    return false;
+  }, [isBtcForkChain, formState.isValid, feeType, feeInfoLoading]);
+
   return (
     <BaseSendModal
       size={isLargeModal ? '2xl' : 'xs'}
@@ -557,9 +567,7 @@ function ScreenSendEditFee({ ...rest }) {
           : 'action__apply'
       }
       primaryActionProps={{
-        isDisabled:
-          feeInfoLoading ||
-          (feeType === ESendEditFeeTypes.advanced && !formState.isValid),
+        isDisabled: buttonDisabled,
       }}
       onPrimaryActionPress={() => onSubmit()}
       hideSecondaryAction
