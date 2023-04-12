@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,6 +17,8 @@ import {
   useSafeAreaInsets,
   useUserDevice,
 } from '@onekeyhq/components';
+import { getMeasure } from '@onekeyhq/components/src/hooks/useDropdownPosition';
+import { ModalRefStore } from '@onekeyhq/components/src/Modal';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 
@@ -26,20 +28,26 @@ import { useAppSelector, useDebounce, useSettings } from '../../../../hooks';
 import { useCurrencyData, useCurrencyListData } from './hooks';
 import { fuseSearch } from './utils';
 
+import type { View } from 'react-native';
+
 type PopularCardProps = {
   currency: string;
   index: number;
   onPress: (currency: string) => void;
+  boxWidth: number;
 };
 
-const PopularCard: FC<PopularCardProps> = ({ currency, index, onPress }) => {
+const PopularCard: FC<PopularCardProps> = ({
+  currency,
+  index,
+  onPress,
+  boxWidth,
+}) => {
   const currencyData = useCurrencyData(currency);
   const { selectedFiatMoneySymbol } = useSettings();
   const isVerticalLayout = useIsVerticalLayout();
-  const { screenWidth } = useUserDevice();
   const { width, ml } = useMemo(() => {
     const xSpace = isVerticalLayout ? 32 : 48;
-    const boxWidth = screenWidth > SCREEN_SIZE.LARGE ? 720 : screenWidth;
     if (boxWidth >= 720) {
       return {
         width: Math.floor((boxWidth - xSpace - 12 * 2) / 3),
@@ -50,7 +58,8 @@ const PopularCard: FC<PopularCardProps> = ({ currency, index, onPress }) => {
       width: Math.floor((boxWidth - xSpace - 12) / 2),
       ml: index % 2 === 0 ? 0 : 3,
     };
-  }, [index, isVerticalLayout, screenWidth]);
+  }, [boxWidth, index, isVerticalLayout]);
+
   return (
     <Pressable
       onPress={() => {
@@ -104,9 +113,15 @@ type PopularHeaderProps = {
   keys: string[];
   onPress: (currency: string) => void;
   title?: string;
+  boxWidth: number;
 };
 
-const PopularHeader: FC<PopularHeaderProps> = ({ title, keys, onPress }) => (
+const PopularHeader: FC<PopularHeaderProps> = ({
+  title,
+  keys,
+  onPress,
+  boxWidth,
+}) => (
   <Box px={{ base: '16px', md: '24px' }}>
     <Typography.Subheading mb={3} color="text-subdued">
       {title ?? ''}
@@ -120,6 +135,7 @@ const PopularHeader: FC<PopularHeaderProps> = ({ title, keys, onPress }) => (
           key={index}
           currency={value}
           index={index}
+          boxWidth={boxWidth}
         />
       ))}
     </Box>
@@ -196,7 +212,9 @@ const CurrencySelectModal: FC = () => {
   const { popularList, ratesSectionList } = useCurrencyListData();
   const fiatMoneyMap = useAppSelector((s) => s.fiatMoney.map);
   const onClose = useModalClose();
-
+  const { screenWidth } = useUserDevice();
+  const defaultBoxWidth = screenWidth > SCREEN_SIZE.LARGE ? 720 : screenWidth;
+  const [boxWidth, setBoxWidth] = useState(defaultBoxWidth);
   const searchList = useMemo(() => {
     if (terms.length > 0) {
       const originList = Object.keys(fiatMoneyMap).map((item) => ({
@@ -215,6 +233,17 @@ const CurrencySelectModal: FC = () => {
     },
     [onClose],
   );
+  useEffect(() => {
+    setTimeout(async () => {
+      const modalRef = ModalRefStore.ref;
+      const modalMeasure = await getMeasure(
+        modalRef?.current as unknown as View,
+      );
+      if (modalMeasure?.width) {
+        setBoxWidth(modalMeasure?.width);
+      }
+    }, 10);
+  });
 
   const headerComponent = useMemo(
     () => (
@@ -224,9 +253,10 @@ const CurrencySelectModal: FC = () => {
           onSelectedCurrency(currency);
         }}
         keys={popularList}
+        boxWidth={boxWidth}
       />
     ),
-    [intl, onSelectedCurrency, popularList],
+    [boxWidth, intl, onSelectedCurrency, popularList],
   );
 
   const emptyComponent = useMemo(
@@ -255,6 +285,7 @@ const CurrencySelectModal: FC = () => {
       item={item}
     />
   );
+
   return (
     <Modal
       height="640px"
