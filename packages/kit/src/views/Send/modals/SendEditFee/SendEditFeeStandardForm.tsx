@@ -97,7 +97,12 @@ export function SendEditFeeStandardForm({
         describeSecond: (
           <HStack space="10px" alignItems="center">
             <FeeSpeedTime index={index} waitingSeconds={waitingSeconds} />
-            <FeeSpeedTip index={index} />
+            <FeeSpeedTip
+              index={index}
+              isEIP1559={feeInfoPayload?.info.eip1559}
+              price={gas}
+              limit={feeInfoPayload?.info.limit ?? '0'}
+            />
           </HStack>
         ),
         ...presetItemStyle,
@@ -117,7 +122,16 @@ export function SendEditFeeStandardForm({
               custom={customFeeInfo}
               prices={feeInfoPayload?.info.prices ?? []}
             />
-            <FeeSpeedTip isCustom />
+            <FeeSpeedTip
+              isCustom
+              isEIP1559={customFeeInfo?.eip1559}
+              price={
+                customFeeInfo?.eip1559
+                  ? customFeeInfo?.price1559
+                  : customFeeInfo?.price
+              }
+              limit={customFeeInfo?.limit ?? feeInfoPayload?.info.limit ?? '0'}
+            />
           </HStack>
         ),
         ...customItemStyle,

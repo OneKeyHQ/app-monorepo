@@ -1,8 +1,15 @@
+/* eslint-disable react/no-unstable-nested-components */
 import type { ComponentProps } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { HStack, Icon, Pressable, Text, Tooltip } from '@onekeyhq/components';
+import {
+  HStack,
+  Icon,
+  Pressable,
+  RichTooltip,
+  Text,
+} from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 
 function LabelWithTooltip({
@@ -26,18 +33,16 @@ function LabelWithTooltip({
         {intl.formatMessage({ id: labelId })}
         {labelAfter}
       </Text>
-      <Tooltip
-        hasArrow
-        maxW="260px"
-        placement="top left"
-        label={intl.formatMessage({
-          id: tooltipId,
-        })}
-      >
-        <Pressable>
-          <Icon name="QuestionMarkCircleMini" size={16} color="icon-subdued" />
-        </Pressable>
-      </Tooltip>
+      <RichTooltip
+        trigger={({ ...props }) => (
+          <Pressable {...props}>
+            <Icon name="InformationCircleMini" size={16} color="icon-subdued" />
+          </Pressable>
+        )}
+        bodyProps={{
+          children: <Text>{intl.formatMessage({ id: tooltipId })}</Text>,
+        }}
+      />
     </HStack>
   );
 }

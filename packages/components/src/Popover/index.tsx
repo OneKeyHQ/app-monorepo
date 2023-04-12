@@ -12,6 +12,7 @@ export type PopoverProps = {
   position?: IPopoverProps['placement'] | 'auto';
   bodyProps?: ComponentProps<typeof NBPopover.Body>;
   contentProps?: ComponentProps<typeof NBPopover.Content>;
+  arrowProps?: ComponentProps<typeof NBPopover.Arrow>;
 };
 
 const Popover: FC<PopoverProps> = ({
@@ -20,6 +21,7 @@ const Popover: FC<PopoverProps> = ({
   bgColor = 'text-default',
   position = 'auto',
   contentProps,
+  arrowProps,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const renderTigger = useCallback(
@@ -48,7 +50,7 @@ const Popover: FC<PopoverProps> = ({
         borderRadius="12px"
         {...contentProps}
       >
-        <NBPopover.Arrow />
+        <NBPopover.Arrow {...arrowProps} />
         <NBPopover.Body {...bodyProps} />
       </NBPopover.Content>
     </NBPopover>
