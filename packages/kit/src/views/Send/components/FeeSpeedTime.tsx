@@ -24,15 +24,21 @@ export function FeeSpeedTime({
   index,
   waitingSeconds,
   withColor,
+  prices,
 }: {
   index: number | string;
   waitingSeconds: number | undefined;
   withColor?: boolean;
+  prices?: IFeeInfoPrice[];
 }) {
   const intl = useIntl();
-  const indexInt = parseInt(index as string, 10);
+  let indexInt = parseInt(index as string, 10);
   let title = '<15s';
   let seconds = waitingSeconds;
+
+  if (prices && prices.length === 1) {
+    indexInt = 1;
+  }
 
   if (waitingSeconds) {
     title = intl.formatMessage(

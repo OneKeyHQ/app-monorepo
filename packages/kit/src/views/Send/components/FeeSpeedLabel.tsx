@@ -2,18 +2,25 @@ import { useIntl } from 'react-intl';
 
 import { HStack, Text } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { IFeeInfoPrice } from '@onekeyhq/engine/src/vaults/types';
 
 export function FeeSpeedLabel({
   index,
   isCustom,
   iconSize = 18,
+  prices,
 }: {
   index?: number | string;
   isCustom?: boolean;
   iconSize?: number;
+  prices?: IFeeInfoPrice[];
 }) {
   const intl = useIntl();
-  const indexInt = parseInt(index as string, 10);
+  let indexInt = parseInt(index as string, 10);
+
+  if (prices && prices.length === 1) {
+    indexInt = 1;
+  }
 
   let titleId: LocaleIds;
   let titleIcon = '';

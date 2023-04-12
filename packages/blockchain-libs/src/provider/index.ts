@@ -126,6 +126,7 @@ const IMPLS: { [key: string]: any } = {
   sui: mockProvider,
   apt: mockProvider,
   xmr: mockProvider,
+  fil: mockProvider,
 };
 
 class ProviderController {

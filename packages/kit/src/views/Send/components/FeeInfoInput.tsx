@@ -450,12 +450,14 @@ function FeeInfoInputForConfirmLite({
         <HStack flex={1} space={2}>
           <Text typography="Body1Strong">
             <FeeSpeedLabel
+              prices={feeInfoPayload?.info?.prices}
               isCustom={!isPreset}
               index={feeInfoPayload?.selected?.preset}
             />
           </Text>
           <Text typography="Body1Strong">
             <FeeSpeedTime
+              prices={feeInfoPayload?.info?.prices}
               index={index ?? 0}
               waitingSeconds={waitingSeconds}
               withColor
