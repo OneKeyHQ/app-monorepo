@@ -6,11 +6,11 @@ import { useIntl } from 'react-intl';
 import { IconButton, Pressable } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
+import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useClipboard } from '../../../hooks/useClipboard';
 import { useNetwork } from '../../../hooks/useNetwork';
@@ -75,7 +75,11 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
   const { copyText } = useClipboard();
   const clickTimes = useRef(0);
 
-  if (platformEnv.isDev && decodedTx.nonce && decodedTx.nonce >= 0) {
+  if (
+    decodedTx.status === IDecodedTxStatus.Pending &&
+    decodedTx.nonce &&
+    decodedTx.nonce >= 0
+  ) {
     details.push({
       title: 'Nonce',
       content: `${new BigNumber(decodedTx.nonce).toFixed()}`,
