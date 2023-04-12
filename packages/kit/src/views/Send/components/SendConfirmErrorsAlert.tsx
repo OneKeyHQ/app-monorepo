@@ -1,4 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
+import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Box, VStack } from '@onekeyhq/components';
@@ -7,12 +8,20 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../hooks';
-import { MainRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
+import {
+  FiatPayModalRoutes,
+  MainRoutes,
+  ModalRoutes,
+  RootRoutes,
+  TabRoutes,
+} from '../../../routes/routesEnum';
 import { setHomeTabName } from '../../../store/reducers/status';
+import { useFiatPayTokens } from '../../ManageTokens/hooks';
 import { EditableNonceStatusEnum } from '../types';
 
 export function SendConfirmErrorsAlert({
   networkId,
+  accountAddress,
   nativeToken,
   isWatchingAccount,
   balanceInsufficient,
@@ -24,6 +33,7 @@ export function SendConfirmErrorsAlert({
   pendingTxCount,
 }: {
   networkId?: string;
+  accountAddress?: string;
   nativeToken?: Token;
   isWatchingAccount?: boolean;
   balanceInsufficient?: boolean;
@@ -37,6 +47,7 @@ export function SendConfirmErrorsAlert({
   const errors = [];
   const intl = useIntl();
   const navigation = useNavigation();
+  const { tokenList } = useFiatPayTokens(networkId ?? '', 'buy');
 
   const { network } = useNetwork({ networkId });
 
@@ -71,9 +82,36 @@ export function SendConfirmErrorsAlert({
     );
   }
   if (balanceInsufficient) {
+    const nativeTokenToBuy = find(tokenList, { isNative: true });
+
     errors.push(
       <FormErrorMessage
         isAlertStyle
+        action={
+          nativeTokenToBuy
+            ? intl.formatMessage({ id: 'action__buy' })
+            : undefined
+        }
+        onAction={async () => {
+          if (nativeTokenToBuy) {
+            const signedUrl =
+              await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
+                type: 'buy',
+                tokenAddress: nativeTokenToBuy.address,
+                address: accountAddress,
+                networkId,
+              });
+            if (signedUrl.length > 0) {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.FiatPay,
+                params: {
+                  screen: FiatPayModalRoutes.MoonpayWebViewModal,
+                  params: { url: signedUrl },
+                },
+              });
+            }
+          }
+        }}
         message={intl.formatMessage(
           { id: 'msg__str_is_required_for_network_fees_top_up_str_to_make_tx' },
           {

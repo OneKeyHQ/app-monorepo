@@ -217,6 +217,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
             {!autoConfirm && (
               <SendConfirmErrorsAlert
                 networkId={networkId}
+                accountAddress={accountAddress}
                 nativeToken={nativeToken}
                 isWatchingAccount={isWatching}
                 balanceInsufficient={balanceInsufficient}
