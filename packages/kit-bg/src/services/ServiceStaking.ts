@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unsafe-member-access */
 
-import { sum } from 'lodash';
+import { add, sum } from 'lodash';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import {
@@ -32,8 +32,27 @@ import ServiceBase from './ServiceBase';
 const TestnetContractAddress = '0xdCAe38cC28606e61B1e54D8b4b134588e4ca7Ab7';
 const MainnetContractAddress = '0xACBA4cFE7F30E64dA787c6Dc7Dc34f623570e758';
 
+export interface SerializableTransactionReceipt {
+  to: string;
+  from: string;
+  gasUsed: string;
+  cumulativeGasUsed: string;
+  effectiveGasPrice: string;
+  contractAddress: string;
+  transactionIndex: number;
+  blockHash: string;
+  transactionHash: string;
+  blockNumber: number;
+  status?: string;
+}
+
 @backgroundClass()
 export default class ServiceStaking extends ServiceBase {
+  transactionReceipts: Record<
+    string,
+    Record<string, SerializableTransactionReceipt>
+  > = {};
+
   getKeleBaseUrl(networkId: string) {
     const base = getFiatEndpoint();
     if (networkId === OnekeyNetwork.eth) {
@@ -105,7 +124,7 @@ export default class ServiceStaking extends ServiceBase {
     const res = await this.client.get(url, {
       params: { address: account.address },
     });
-    if (res.data) {
+    if (res.data && res.data.data) {
       const incomes = res.data.data as KeleIncomeDTO[];
       dispatch(setKeleIncomes({ accountId, networkId, incomes }));
     }
@@ -117,7 +136,7 @@ export default class ServiceStaking extends ServiceBase {
     const baseUrl = this.getKeleBaseUrl(params.networkId);
     const url = `${baseUrl}/eth2/v2/global`;
     const res = await this.client.get(url);
-    if (res?.data) {
+    if (res.data && res.data.data) {
       const result = res.data.data as KeleDashboardGlobal;
       dispatch(setKeleDashboardGlobal(result));
     }
@@ -137,7 +156,7 @@ export default class ServiceStaking extends ServiceBase {
       params: { address: account.address },
     });
 
-    if (res.data) {
+    if (res.data && res.data.data) {
       const unstakeOverview = res.data.data as KeleUnstakeOverviewDTO;
       dispatch(
         setKeleUnstakeOverview({ networkId, accountId, unstakeOverview }),
@@ -175,7 +194,7 @@ export default class ServiceStaking extends ServiceBase {
     const res = await this.client.get(url, {
       params: { address: account.address },
     });
-    if (res.data) {
+    if (res.data && res.data.data) {
       const withdrawOverview = res.data.data as KeleWithdrawOverviewDTO;
       dispatch(
         setKeleWithdrawOverview({ networkId, accountId, withdrawOverview }),
@@ -217,7 +236,7 @@ export default class ServiceStaking extends ServiceBase {
         opType: params.opType,
       },
     });
-    if (res.data) {
+    if (res.data && res.data.data) {
       const historyItems = res.data.data as KeleOpHistoryDTO[];
       return historyItems;
     }
@@ -233,13 +252,55 @@ export default class ServiceStaking extends ServiceBase {
     const items = await this.getKeleOpHistory({
       networkId,
       accountId,
-      opType: '6',
+      opType: '6,7',
     });
     if (items && Array.isArray(items)) {
-      const nums = items.map((o) => o.amount);
-      const amount = sum(nums);
+      const pendings = items.filter((o) => Number(o.op_type) === 6);
+      const nums = pendings.map((o) => o.amount);
+      let amount = sum(nums);
+      const sentTxs = items.filter((o) => Number(o.op_type) === 7);
+      try {
+        for (let i = 0; i < sentTxs.length; i += 1) {
+          const tx = sentTxs[i];
+          const receipt = await this.getTransactionReceipt(
+            networkId,
+            tx.transaction_id,
+          );
+          if (!receipt || receipt.status === '0x0') {
+            amount = add(amount, tx.amount);
+          } else if (receipt?.status === '0x1') {
+            break;
+          }
+        }
+      } catch {
+        console.error('fetch pending withdraw error');
+      }
       dispatch(setKelePendingWithdraw({ accountId, networkId, amount }));
     }
+    this.fetchWithdrawOverview({ networkId, accountId });
+  }
+
+  async getTransactionReceipt(
+    networkId: string,
+    txid: string,
+  ): Promise<SerializableTransactionReceipt | undefined> {
+    if (!this.transactionReceipts[networkId]) {
+      this.transactionReceipts[networkId] = {};
+    }
+    if (this.transactionReceipts[networkId]?.[txid]) {
+      return this.transactionReceipts[networkId]?.[txid];
+    }
+
+    const { serviceNetwork } = this.backgroundApi;
+
+    const receipt = (await serviceNetwork.rpcCall(networkId, {
+      method: 'eth_getTransactionReceipt',
+      params: [txid],
+    })) as SerializableTransactionReceipt | undefined;
+    if (receipt && receipt.status === '0x1') {
+      this.transactionReceipts[networkId][txid] = receipt;
+    }
+    return receipt;
   }
 
   @backgroundMethod()
@@ -255,7 +316,7 @@ export default class ServiceStaking extends ServiceBase {
         interval: 'day',
       },
     });
-    if (res.data) {
+    if (res.data && res.data.data) {
       const minerOverview = res.data.data as KeleMinerOverview;
       dispatch(setKeleMinerOverviews({ networkId, accountId, minerOverview }));
       return minerOverview;

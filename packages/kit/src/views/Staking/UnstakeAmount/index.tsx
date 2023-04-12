@@ -9,15 +9,18 @@ import {
   Button,
   Center,
   HStack,
+  Keyboard,
   Modal,
-  NumberInput,
   Text,
   ToastManager,
   Typography,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-// import { AutoSizeText } from '../../../components/AutoSizeText';
+import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatCurrency } from '../../../components/Format';
 import { useActiveWalletAccount, useNetworkSimple } from '../../../hooks';
 import { useAppSelector } from '../../../hooks/redux';
@@ -38,9 +41,12 @@ import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.StakingAmount>;
 
+type NavigationProps = ModalScreenProps<StakingRoutesParams>;
+
 export default function UnstakeAmount() {
   const intl = useIntl();
-  const navigation = useNavigation();
+  const isSmallScreen = useIsVerticalLayout();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
   const { networkId, tokenIdOnNetwork } = route.params;
   const { account, accountId } = useActiveWalletAccount();
@@ -99,6 +105,11 @@ export default function UnstakeAmount() {
       }
     }
   }, [retailMinAmount, amount, intl, tokenInfo]);
+
+  const validAmountRegex = useMemo(() => {
+    const pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,18})?$`;
+    return new RegExp(pattern);
+  }, []);
 
   const userInput = useCallback(
     (percent: number) => {
@@ -176,7 +187,8 @@ export default function UnstakeAmount() {
                       { type: 'error' },
                     );
                   } else {
-                    navigation.navigate(RootRoutes.Modal, {
+                    setAmount('');
+                    navigation.replace(RootRoutes.Modal, {
                       screen: ModalRoutes.Staking,
                       params: {
                         screen: StakingRoutes.StakedETHOnKele,
@@ -213,85 +225,91 @@ export default function UnstakeAmount() {
         }
       }}
     >
-      <Box flexDirection="column">
-        <Box py={4} my={6} justifyContent="center">
-          <Text
-            textAlign="center"
-            typography="DisplayLarge"
-            color="text-subdued"
-          >
-            {tokenInfo?.symbol.toUpperCase() ?? ''}
-          </Text>
-          <Center flex={1} py="8">
-            <NumberInput
-              autoFocus
+      <Box flex="1">
+        <Box flexDirection="column">
+          <Box py={2} my={2} justifyContent="center">
+            <Text
               textAlign="center"
-              borderWidth="0"
-              fontSize="64px"
-              h="80px"
-              placeholder="0"
-              placeholderTextColor="text-disabled"
-              focusOutlineColor="transparent"
-              fontWeight="bold"
-              bgColor="transparent"
-              onChangeText={setAmount}
-              value={amount}
-            />
-          </Center>
-          <Center>
-            {minAmountErrMsg ? (
-              <Typography.Body1Strong color="text-critical">
-                {minAmountErrMsg}
-              </Typography.Body1Strong>
-            ) : (
-              <FormatCurrency
-                numbers={[mainPrice ?? 0, amount ?? 0]}
-                render={(ele) => (
-                  <Typography.Body2 color="text-subdued">
-                    {mainPrice ? ele : '$ 0'}
-                  </Typography.Body2>
-                )}
+              typography="DisplayLarge"
+              color="text-subdued"
+            >
+              {tokenInfo?.symbol.toUpperCase() ?? ''}
+            </Text>
+            <Center py="4" h={isSmallScreen ? '32' : undefined}>
+              <AutoSizeText
+                autoFocus
+                text={amount}
+                onChangeText={setAmount}
+                placeholder="0"
               />
-            )}
+            </Center>
+            <Center>
+              {minAmountErrMsg ? (
+                <Typography.Body1Strong color="text-critical">
+                  {minAmountErrMsg}
+                </Typography.Body1Strong>
+              ) : (
+                <FormatCurrency
+                  numbers={[mainPrice ?? 0, amount ?? 0]}
+                  render={(ele) => (
+                    <Typography.Body2 color="text-subdued">
+                      {mainPrice ? ele : '$ 0'}
+                    </Typography.Body2>
+                  )}
+                />
+              )}
+            </Center>
+          </Box>
+          <Center>
+            <HStack flexDirection="row" alignItems="center" space="3">
+              <Button size="sm" onPress={() => userInput(25)}>
+                25%
+              </Button>
+              <Button size="sm" onPress={() => userInput(50)}>
+                50%
+              </Button>
+              <Button size="sm" onPress={() => userInput(75)}>
+                75%
+              </Button>
+              <Button size="sm" onPress={() => userInput(100)}>
+                {intl.formatMessage({ id: 'action__max' })}
+              </Button>
+            </HStack>
           </Center>
-        </Box>
-        <Center>
-          <HStack flexDirection="row" alignItems="center" space="3">
-            <Button size="sm" onPress={() => userInput(25)}>
-              25%
-            </Button>
-            <Button size="sm" onPress={() => userInput(50)}>
-              50%
-            </Button>
-            <Button size="sm" onPress={() => userInput(75)}>
-              75%
-            </Button>
-            <Button size="sm" onPress={() => userInput(100)}>
-              {intl.formatMessage({ id: 'action__max' })}
-            </Button>
-          </HStack>
-        </Center>
-        <Box
-          mt="4"
-          flexDirection="row"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Typography.Body2 color="text-subdued" mr="1">
-            {intl.formatMessage({ id: 'content__available_balance' })}
-          </Typography.Body2>
-          <Typography.Body2Strong
-            color={errorMsg && amount ? 'text-critical' : 'text-default'}
+          <Box
+            mt="4"
+            flexDirection="row"
+            alignItems="center"
+            justifyContent="center"
           >
-            {balance ?? ''} {tokenInfo?.symbol.toUpperCase()}
-          </Typography.Body2Strong>
+            <Typography.Body2 color="text-subdued" mr="1">
+              {intl.formatMessage({ id: 'content__available_balance' })}
+            </Typography.Body2>
+            <Typography.Body2Strong
+              color={errorMsg && amount ? 'text-critical' : 'text-default'}
+            >
+              {balance ?? ''} {tokenInfo?.symbol.toUpperCase()}
+            </Typography.Body2Strong>
+          </Box>
+          <Box flexDirection="row" mt="16" justifyContent="space-between">
+            <Typography.Body2 color="text-subdued">
+              {intl.formatMessage({ id: 'form__est_arrival_time' })}
+            </Typography.Body2>
+            <Typography.Body2>{intlMinutes}</Typography.Body2>
+          </Box>
         </Box>
-        <Box flexDirection="row" mt="16" justifyContent="space-between">
-          <Typography.Body2 color="text-subdued">
-            {intl.formatMessage({ id: 'form__est_arrival_time' })}
-          </Typography.Body2>
-          <Typography.Body2>{intlMinutes}</Typography.Body2>
-        </Box>
+        {platformEnv.isNative && (
+          <Box mt="4">
+            <Keyboard
+              itemHeight={isSmallScreen ? '44px' : undefined}
+              pattern={validAmountRegex}
+              text={amount}
+              onTextChange={(text) => {
+                setAmount(text);
+              }}
+            />
+          </Box>
+        )}
       </Box>
     </Modal>
   );
