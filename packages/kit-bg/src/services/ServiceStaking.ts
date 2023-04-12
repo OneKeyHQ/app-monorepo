@@ -1,15 +1,24 @@
 /* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unsafe-member-access */
 
+import { sum } from 'lodash';
+
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import {
   setAccountStakingActivity,
   setKeleDashboardGlobal,
-  setKeleETH2StakingState,
-  setShowETH2UnableToUnstakeWarning,
+  setKeleIncomes,
+  setKeleMinerOverviews,
+  setKelePendingWithdraw,
+  setKeleUnstakeOverview,
+  setKeleWithdrawOverview,
 } from '@onekeyhq/kit/src/store/reducers/staking';
 import type {
   KeleDashboardGlobal,
-  KeleETHStakingState,
+  KeleIncomeDTO,
+  KeleMinerOverview,
+  KeleOpHistoryDTO,
+  KeleUnstakeOverviewDTO,
+  KeleWithdrawOverviewDTO,
   StakingActivity,
 } from '@onekeyhq/kit/src/views/Staking/typing';
 import {
@@ -25,17 +34,13 @@ const MainnetContractAddress = '0xACBA4cFE7F30E64dA787c6Dc7Dc34f623570e758';
 
 @backgroundClass()
 export default class ServiceStaking extends ServiceBase {
-  @backgroundMethod()
-  async hideETH2UnableToUnstakeWarning() {
-    this.backgroundApi.dispatch(setShowETH2UnableToUnstakeWarning(false));
-  }
-
   getKeleBaseUrl(networkId: string) {
+    const base = getFiatEndpoint();
     if (networkId === OnekeyNetwork.eth) {
-      return `${getFiatEndpoint()}/keleMainnet`;
+      return `${base}/keleMainnet`;
     }
     if (networkId === OnekeyNetwork.goerli) {
-      return `${getFiatEndpoint()}/keleTestnet`;
+      return `${base}/keleTestnet`;
     }
     throw new Error('Not supported network');
   }
@@ -74,67 +79,6 @@ export default class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchStakedStateOnKele(params: {
-    accountId: string;
-    networkId: string;
-    interval?: string;
-  }): Promise<KeleETHStakingState | undefined> {
-    const baseUrl = this.getKeleBaseUrl(params.networkId);
-    const account = await this.backgroundApi.engine.getAccount(
-      params.accountId,
-      params.networkId,
-    );
-    const url = `${baseUrl}/eth2/v2/miner/dashboard`;
-    const { data } = await this.client.get(url, {
-      params: {
-        address: account.address,
-        interval: params.interval || 'day',
-      },
-    });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    if (data.data) {
-      const stakingState = {
-        total: data.data.amount?.total_amount,
-        staked: data.data.amount?.staked_amount,
-        staking: data.data.amount?.staking_amount,
-      };
-      this.backgroundApi.dispatch(
-        setKeleETH2StakingState({
-          networkId: params.networkId,
-          accountId: account.id,
-          stakingState,
-        }),
-      );
-      return stakingState;
-    }
-  }
-
-  @backgroundMethod()
-  async getStakingIncomeHistoryOnKele(params: {
-    accountId: string;
-    networkId: string;
-  }) {
-    const baseUrl = this.getKeleBaseUrl(params.networkId);
-    const account = await this.backgroundApi.engine.getAccount(
-      params.accountId,
-      params.networkId,
-    );
-    const url = `${baseUrl}/eth2/v2/miner/income/query`;
-    const { data } = await this.client.get(url, {
-      params: { address: account.address },
-    });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    return data.data as
-      | {
-          date: string;
-          reward: number;
-          deposit?: number;
-          balance: number;
-        }[]
-      | undefined;
-  }
-
-  @backgroundMethod()
   async setAccountStakingActivity({
     networkId,
     accountId,
@@ -144,21 +88,177 @@ export default class ServiceStaking extends ServiceBase {
     accountId: string;
     data: StakingActivity | undefined;
   }) {
-    this.backgroundApi.dispatch(
-      setAccountStakingActivity({ networkId, accountId, data }),
-    );
+    const { dispatch } = this.backgroundApi;
+    dispatch(setAccountStakingActivity({ networkId, accountId, data }));
+  }
+
+  @backgroundMethod()
+  async fetchKeleIncomeHistory(params: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const { accountId, networkId } = params;
+    const { engine, dispatch } = this.backgroundApi;
+    const baseUrl = this.getKeleBaseUrl(params.networkId);
+    const account = await engine.getAccount(accountId, networkId);
+    const url = `${baseUrl}/eth2/v2/miner/income/query`;
+    const res = await this.client.get(url, {
+      params: { address: account.address },
+    });
+    if (res.data) {
+      const incomes = res.data.data as KeleIncomeDTO[];
+      dispatch(setKeleIncomes({ accountId, networkId, incomes }));
+    }
   }
 
   @backgroundMethod()
   async getDashboardGlobal(params: { networkId: string }) {
+    const { dispatch } = this.backgroundApi;
     const baseUrl = this.getKeleBaseUrl(params.networkId);
     const url = `${baseUrl}/eth2/v2/global`;
-    const { data } = await this.client.get(url);
-    const result = data?.data;
-    if (result) {
-      this.backgroundApi.dispatch(
-        setKeleDashboardGlobal(result as KeleDashboardGlobal),
+    const res = await this.client.get(url);
+    if (res?.data) {
+      const result = res.data.data as KeleDashboardGlobal;
+      dispatch(setKeleDashboardGlobal(result));
+    }
+  }
+
+  @backgroundMethod()
+  async fetchKeleUnstakeOverview(params: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const { networkId, accountId } = params;
+    const baseUrl = this.getKeleBaseUrl(networkId);
+    const { engine, dispatch } = this.backgroundApi;
+    const account = await engine.getAccount(accountId, networkId);
+    const url = `${baseUrl}/unstake/overview`;
+    const res = await this.client.get(url, {
+      params: { address: account.address },
+    });
+
+    if (res.data) {
+      const unstakeOverview = res.data.data as KeleUnstakeOverviewDTO;
+      dispatch(
+        setKeleUnstakeOverview({ networkId, accountId, unstakeOverview }),
       );
+    }
+  }
+
+  @backgroundMethod()
+  async unstake(params: {
+    networkId: string;
+    address: string;
+    unstake_amt: string;
+    type: string;
+    signHash: string;
+    pirvSignRaw: string;
+  }) {
+    const { networkId, ...rest } = params;
+    const baseUrl = this.getKeleBaseUrl(params.networkId);
+    const url = `${baseUrl}/unstake`;
+    const res = await this.client.post(url, rest);
+    // eslint-disable-next-line
+    return res?.data;
+  }
+
+  @backgroundMethod()
+  async fetchWithdrawOverview(params: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const { networkId, accountId } = params;
+    const baseUrl = this.getKeleBaseUrl(params.networkId);
+    const { engine, dispatch } = this.backgroundApi;
+    const account = await engine.getAccount(accountId, networkId);
+    const url = `${baseUrl}/withdraw/overview`;
+    const res = await this.client.get(url, {
+      params: { address: account.address },
+    });
+    if (res.data) {
+      const withdrawOverview = res.data.data as KeleWithdrawOverviewDTO;
+      dispatch(
+        setKeleWithdrawOverview({ networkId, accountId, withdrawOverview }),
+      );
+    }
+  }
+
+  @backgroundMethod()
+  async withdraw(params: {
+    networkId: string;
+    accountId: string;
+    amount: string;
+  }) {
+    const baseUrl = this.getKeleBaseUrl(params.networkId);
+    const { engine } = this.backgroundApi;
+    const account = await engine.getAccount(params.accountId, params.networkId);
+    const url = `${baseUrl}/withdraw`;
+    const res = await this.client.post(url, {
+      amount: params.amount,
+      address: account.address,
+    });
+    // eslint-disable-next-line
+    return res.data;
+  }
+
+  async getKeleOpHistory(params: {
+    networkId: string;
+    accountId: string;
+    opType: string;
+  }) {
+    const { networkId, accountId } = params;
+    const { engine } = this.backgroundApi;
+    const baseUrl = this.getKeleBaseUrl(params.networkId);
+    const account = await engine.getAccount(accountId, networkId);
+    const url = `${baseUrl}/op/history`;
+    const res = await this.client.get(url, {
+      params: {
+        address: account.address,
+        opType: params.opType,
+      },
+    });
+    if (res.data) {
+      const historyItems = res.data.data as KeleOpHistoryDTO[];
+      return historyItems;
+    }
+  }
+
+  @backgroundMethod()
+  async fetchPendingWithdrawAmount(params: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const { networkId, accountId } = params;
+    const { dispatch } = this.backgroundApi;
+    const items = await this.getKeleOpHistory({
+      networkId,
+      accountId,
+      opType: '6',
+    });
+    if (items && Array.isArray(items)) {
+      const nums = items.map((o) => o.amount);
+      const amount = sum(nums);
+      dispatch(setKelePendingWithdraw({ accountId, networkId, amount }));
+    }
+  }
+
+  @backgroundMethod()
+  async fetchMinerOverview(params: { networkId: string; accountId: string }) {
+    const { networkId, accountId } = params;
+    const { dispatch, engine } = this.backgroundApi;
+    const baseUrl = this.getKeleBaseUrl(params.networkId);
+    const account = await engine.getAccount(accountId, networkId);
+    const url = `${baseUrl}/eth2/v2/miner/dashboard`;
+    const res = await this.client.get(url, {
+      params: {
+        address: account.address,
+        interval: 'day',
+      },
+    });
+    if (res.data) {
+      const minerOverview = res.data.data as KeleMinerOverview;
+      dispatch(setKeleMinerOverviews({ networkId, accountId, minerOverview }));
+      return minerOverview;
     }
   }
 }

@@ -137,6 +137,7 @@ export type SendConfirmParams = SendConfirmSharedParams & {
 export type SignMessageConfirmParams = SendConfirmSharedParams & {
   sourceInfo?: IDappSourceInfo;
   unsignedMessage: IUnsignedMessageEvm;
+  onSuccess?: (result: any) => void;
 };
 export type IWalletConnectExternalAccountInfo = {
   accountInfo?: IBaseExternalAccountInfo;
