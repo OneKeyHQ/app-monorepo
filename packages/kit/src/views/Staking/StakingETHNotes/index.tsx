@@ -13,7 +13,7 @@ import { useActiveWalletAccount, useNativeToken } from '../../../hooks';
 import { getActiveWalletAccount } from '../../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { SendModalRoutes } from '../../Send/types';
-import { useKelePoolStakingState } from '../hooks';
+import { useKeleMinerOverview } from '../hooks';
 
 import type { StakingRoutes, StakingRoutesParams } from '../typing';
 import type { RouteProp } from '@react-navigation/core';
@@ -25,7 +25,7 @@ export default function StakingETHNotes() {
   const navigation = useNavigation();
   const { params } = useRoute<RouteProps>();
   const { account } = useActiveWalletAccount();
-  const state = useKelePoolStakingState(params.networkId, account?.id);
+  const minerOverview = useKeleMinerOverview(params.networkId, account?.id);
   const tokenInfo = useNativeToken(params.networkId);
   const onClose = useCallback(() => {
     const parent = navigation.getParent();
@@ -77,7 +77,7 @@ export default function StakingETHNotes() {
                 accountId: account.id,
                 data: {
                   nonce: data?.decodedTx?.nonce,
-                  oldValue: state?.total,
+                  oldValue: minerOverview?.amount.total_amount,
                   txid: tx.txid,
                   amount: params.amount,
                   createdAt: Date.now(),
@@ -94,7 +94,7 @@ export default function StakingETHNotes() {
     params.networkId,
     params.amount,
     navigation,
-    state?.total,
+    minerOverview?.amount.total_amount,
     tokenInfo,
     onClose,
   ]);
@@ -115,43 +115,7 @@ export default function StakingETHNotes() {
               </Typography.DisplayLarge>
             </Center>
             <Box>
-              <Box flexDirection="row">
-                <Center
-                  w="8"
-                  h="8"
-                  borderRadius="full"
-                  bg="decorative-surface-one"
-                  mr="4"
-                >
-                  <Typography.Body2Strong color="decorative-icon-one">
-                    1
-                  </Typography.Body2Strong>
-                </Center>
-                <Box flex="1">
-                  <Typography.Body1Strong>
-                    {intl.formatMessage({
-                      id: 'content__staked_eth_can_t_be_taken_back_now',
-                    })}
-                  </Typography.Body1Strong>
-                  <Typography.Body2 color="text-subdued">
-                    {intl.formatMessage({
-                      id: 'content__staked_eth_can_t_be_taken_back_now_desc',
-                    })}
-                  </Typography.Body2>
-                </Box>
-              </Box>
               <Box flexDirection="row" mt="5">
-                <Center
-                  w="8"
-                  h="8"
-                  borderRadius="full"
-                  bg="decorative-surface-one"
-                  mr="4"
-                >
-                  <Typography.Body2Strong color="decorative-icon-one">
-                    2
-                  </Typography.Body2Strong>
-                </Center>
                 <Box flex="1">
                   <Typography.Body1Strong>
                     {intl.formatMessage({

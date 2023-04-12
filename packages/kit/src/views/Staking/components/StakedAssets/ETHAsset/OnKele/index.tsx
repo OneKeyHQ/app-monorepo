@@ -18,19 +18,23 @@ import {
 import KeleLogoPNG from '@onekeyhq/kit/assets/staking/kele_pool.png';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount, useNavigation } from '../../../../../../hooks';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+  useNavigation,
+} from '../../../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../../../routes/types';
 import {
   useAccountStakingActivity,
-  useKelePoolStakingState,
+  useKeleMinerOverview,
 } from '../../../../hooks';
 import { StakingRoutes } from '../../../../typing';
 
-import type { KeleETHStakingState } from '../../../../typing';
+import type { KeleMinerOverview } from '../../../../typing';
 
-type StakingButtonProps = Exclude<ComponentProps<typeof Button>, 'onPress'>;
+type ButtonProps = Exclude<ComponentProps<typeof Button>, 'onPress'>;
 
-const StakingButton: FC<StakingButtonProps> = ({ ...rest }) => {
+const StakingButton: FC<ButtonProps> = ({ ...rest }) => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { networkId, wallet } = useActiveWalletAccount();
@@ -57,9 +61,38 @@ const StakingButton: FC<StakingButtonProps> = ({ ...rest }) => {
   );
 };
 
+const UnstakingButton: FC<ButtonProps> = ({ ...rest }) => {
+  const intl = useIntl();
+  const navigation = useNavigation();
+  const { networkId, wallet } = useActiveWalletAccount();
+  const enableETH2Unstake = useAppSelector((s) => s.settings.enableETH2Unstake);
+
+  const onPress = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Staking,
+      params: {
+        screen: StakingRoutes.UnstakeKeleETHNotes,
+        params: {
+          networkId,
+        },
+      },
+    });
+  }, [navigation, networkId]);
+  return (
+    <Button
+      {...rest}
+      onPress={onPress}
+      isDisabled={wallet?.type === 'watching' || !enableETH2Unstake}
+    >
+      {intl.formatMessage({ id: 'action__unstake' })}
+    </Button>
+  );
+};
+
 function NoAssetsOnKele() {
   const intl = useIntl();
   const { themeVariant } = useTheme();
+  const apr = '4.12';
 
   return (
     <Box
@@ -83,7 +116,7 @@ function NoAssetsOnKele() {
           <Typography.Caption color="text-subdued">
             {intl.formatMessage(
               { id: 'form__stake_earn_desc' },
-              { '0': '4.12%' },
+              { '0': `${apr}%` },
             )}
           </Typography.Caption>
         </Box>
@@ -94,7 +127,7 @@ function NoAssetsOnKele() {
 }
 
 type StakingAssetOnKeleProps = {
-  state?: KeleETHStakingState;
+  state?: KeleMinerOverview;
   networkId: string;
   accountId: string;
 };
@@ -136,15 +169,16 @@ const AssetStakedOnKele: FC<StakingAssetOnKeleProps> = ({
           });
           return;
         }
-        const stateOnKele =
-          await backgroundApiProxy.serviceStaking.fetchStakedStateOnKele({
+        const minerOverview =
+          await backgroundApiProxy.serviceStaking.fetchMinerOverview({
             networkId,
             accountId,
           });
-        if (stateOnKele) {
+        if (minerOverview) {
           if (
-            stateOnKele.total &&
-            stateOnKele.total > Number(activeStakingActivity.oldValue ?? 0)
+            minerOverview.amount.total_amount &&
+            minerOverview.amount.total_amount >
+              Number(activeStakingActivity.oldValue ?? 0)
           ) {
             backgroundApiProxy.serviceStaking.setAccountStakingActivity({
               networkId,
@@ -207,7 +241,7 @@ const AssetStakedOnKele: FC<StakingAssetOnKeleProps> = ({
             </Box>
           ) : (
             <Typography.Body2 color="text-subdued">{`${
-              state?.total ?? '0'
+              state?.amount.total_amount ?? '0'
             } ETH`}</Typography.Body2>
           )}
         </Box>
@@ -228,9 +262,7 @@ const AssetStakedOnKele: FC<StakingAssetOnKeleProps> = ({
           </Box>
 
           <Stack direction="row" space={4}>
-            <Button size="sm" isDisabled>
-              {intl.formatMessage({ id: 'action__unstake' })}
-            </Button>
+            <UnstakingButton size="sm" />
             <StakingButton size="sm" type="primary" />
           </Stack>
         </Box>
@@ -245,18 +277,20 @@ type ETHAssetOnKeleProps = {
 };
 
 const ETHAssetOnKele: FC<ETHAssetOnKeleProps> = ({ networkId, accountId }) => {
-  const stakingState = useKelePoolStakingState(networkId, accountId);
+  const minerOverview = useKeleMinerOverview(networkId, accountId);
   const activeStakingActivity = useAccountStakingActivity(networkId, accountId);
   useEffect(() => {
-    backgroundApiProxy.serviceStaking.fetchStakedStateOnKele({
+    backgroundApiProxy.serviceStaking.fetchMinerOverview({
       accountId,
       networkId,
     });
   }, [accountId, networkId]);
-  return (stakingState && stakingState.total && stakingState.total > 0) ||
+  return (minerOverview &&
+    minerOverview.amount.total_amount &&
+    minerOverview.amount.total_amount > 0) ||
     activeStakingActivity ? (
     <AssetStakedOnKele
-      state={stakingState}
+      state={minerOverview}
       networkId={networkId}
       accountId={accountId}
     />
