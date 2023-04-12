@@ -54,7 +54,6 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
 
   return (
     <Dialog
-      hasFormInsideDialog
       visible
       canceledOnTouchOutside={false}
       onClose={() => {

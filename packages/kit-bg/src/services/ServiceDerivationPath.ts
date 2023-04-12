@@ -10,6 +10,7 @@ import type { IAccount } from '@onekeyhq/engine/src/types';
 import type {
   Account,
   DBUTXOAccount,
+  ImportableHDAccount,
 } from '@onekeyhq/engine/src/types/account';
 import type VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import {
@@ -214,6 +215,78 @@ export default class ServiceDerivationPath extends ServiceBase {
       accountId,
     });
     return vault.getAllUsedAddress();
+  }
+
+  @backgroundMethod()
+  async batchGetHWAddress({
+    networkId,
+    walletId,
+    indexes,
+    confirmOnDevice,
+    template,
+    fullPaths,
+  }: {
+    networkId: string;
+    walletId: string;
+    indexes: number[];
+    confirmOnDevice: boolean;
+    template: string;
+    fullPaths?: string[];
+  }) {
+    const vault = await this.backgroundApi.engine.getWalletOnlyVault(
+      networkId,
+      walletId,
+    );
+    const device = await this.backgroundApi.engine.getHWDeviceByWalletId(
+      walletId,
+    );
+    if (!device) {
+      throw new OneKeyInternalError(`Device not found.`);
+    }
+    const bundle = fullPaths
+      ? fullPaths.map((path) => ({ path, showOnOneKey: confirmOnDevice }))
+      : indexes.map((index) => ({
+          path: template.replace(INDEX_PLACEHOLDER, index.toString()),
+          showOnOneKey: confirmOnDevice,
+        }));
+    const response = await vault.keyring.batchGetAddress(bundle);
+    return Promise.all(
+      response.map(async (item, idx) => {
+        const importableAccount =
+          await this.convertPlainAddressItemToImportableHDAccount({
+            networkId,
+            ...item,
+          });
+        return {
+          ...importableAccount,
+          ...item,
+          index: indexes?.[idx],
+        };
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async convertPlainAddressItemToImportableHDAccount({
+    networkId,
+    address,
+    path,
+  }: {
+    networkId: string;
+    address: string;
+    path: string;
+  }): Promise<ImportableHDAccount> {
+    const displayAddress = await this.backgroundApi.engine.getDisplayAddress(
+      networkId,
+      address,
+    );
+    return {
+      displayAddress,
+      path,
+      index: -1,
+      defaultName: '',
+      mainBalance: '0',
+    };
   }
 
   @backgroundMethod()

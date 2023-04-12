@@ -20,6 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import { useCopyAddress } from '../../hooks/useCopyAddress';
+import { useIsMounted } from '../../hooks/useIsMounted';
 import { buildAddressDetailsUrl } from '../../hooks/useOpenBlockBrowser';
 import {
   FiatPayModalRoutes,
@@ -50,6 +51,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     useEnabledAccountDynamicAccounts();
   const [needActivateAccount, setNeedActivateAccount] =
     useState<boolean>(false);
+  const isMounted = useIsMounted();
 
   const enabledNotification = useMemo(
     () =>
@@ -78,11 +80,14 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       ) {
         return false;
       }
-      setNeedActivateAccount(
-        !!vaultSettings?.activateAccountRequired && wallet?.type !== 'watching',
-      );
+      if (isMounted.current) {
+        setNeedActivateAccount(
+          !!vaultSettings?.activateAccountRequired &&
+            wallet?.type !== 'watching',
+        );
+      }
     })();
-  }, [network, wallet?.type]);
+  }, [isMounted, network, wallet?.type]);
 
   const showSubscriptionIcon =
     !!account &&

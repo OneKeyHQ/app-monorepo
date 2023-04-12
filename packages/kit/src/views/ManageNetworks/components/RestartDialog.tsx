@@ -22,7 +22,6 @@ const RestartAppDialog: FC<Props> = ({ onClose, onConfirm }) => {
   return (
     <Dialog
       visible
-      hasFormInsideDialog
       contentProps={{
         title: intl.formatMessage({ id: 'dialog__restart_required' }),
         content: intl.formatMessage({

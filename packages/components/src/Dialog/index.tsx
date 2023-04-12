@@ -1,64 +1,52 @@
 import type { ComponentProps, FC, ReactElement, ReactNode } from 'react';
 import { cloneElement, useCallback, useMemo, useState } from 'react';
 
-import { Modal as NBModal } from 'native-base';
-import { Platform } from 'react-native';
-import Modal from 'react-native-modal';
-import { RootSiblingParent } from 'react-native-root-siblings';
+import { MotiView } from 'moti';
+import { KeyboardAvoidingView, StyleSheet, View } from 'react-native';
 
 import Box from '../Box';
 import KeyboardDismissView from '../KeyboardDismissView';
+import OverlayContainer from '../OverlayContainer';
+import { CloseBackDrop } from '../Select';
 
 import DialogCommon from './components';
-
-const defaultProps = {
-  canceledOnTouchOutside: false,
-} as const;
 
 type OuterContainerProps = {
   isVisible?: boolean;
   onClose?: () => void;
-  hasFormInsideDialog?: boolean;
 };
 
 const Outer: FC<OuterContainerProps> = ({
   isVisible,
-  onClose,
+  onClose = () => {},
   children,
-  hasFormInsideDialog,
-  ...rest
-}) => {
-  if (Platform.OS !== 'ios') {
-    // TODO use animated to do keyboard avoiding
-    return (
-      <NBModal
-        avoidKeyboard
-        isOpen={isVisible}
-        onClose={onClose}
-        bg="#00000066"
-        animationPreset="fade"
-        {...rest}
-      >
-        {children}
-      </NBModal>
-    );
-  }
-
-  return (
-    <Modal
-      avoidKeyboard
-      backdropColor="rgba(0, 0, 0, 0.6)"
-      animationOut="fadeOut"
-      animationIn="fadeIn"
-      isVisible={isVisible}
-      onModalHide={onClose}
-      style={{ marginHorizontal: 0 }}
-      {...rest}
+}) =>
+  isVisible ? (
+    <OverlayContainer
+      style={{
+        // higher than react-native-modalize(9998)
+        zIndex: 9999,
+        flex: 1,
+      }}
     >
-      <RootSiblingParent>{children}</RootSiblingParent>
-    </Modal>
-  );
-};
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <MotiView
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          style={StyleSheet.absoluteFill}
+        >
+          <CloseBackDrop onClose={onClose} backgroundColor="#00000066" />
+        </MotiView>
+        {children}
+      </View>
+    </OverlayContainer>
+  ) : null;
 
 export type DialogProps = {
   trigger?: ReactElement<any>;
@@ -75,7 +63,6 @@ export type DialogProps = {
   footerMoreView?: ReactNode;
   onClose?: () => void | boolean;
   onVisibleChange?: (v: boolean) => void;
-  hasFormInsideDialog?: boolean;
 };
 
 const Dialog: FC<DialogProps> = ({
@@ -86,7 +73,6 @@ const Dialog: FC<DialogProps> = ({
   canceledOnTouchOutside,
   footerMoreView,
   onClose,
-  hasFormInsideDialog,
   ...props
 }) => {
   const [innerVisible, setInnerVisible] = useState(false);
@@ -108,56 +94,50 @@ const Dialog: FC<DialogProps> = ({
   const container = useMemo(
     () => (
       <Outer
-        hasFormInsideDialog={hasFormInsideDialog}
         isVisible={!!visible}
         onClose={() => {
           if (canceledOnTouchOutside) handleClose();
         }}
         {...props}
       >
-        <KeyboardDismissView
-          p={6}
-          w="100%"
-          h="auto"
-          maxW="432px"
-          alignSelf="center"
-        >
-          <Box
-            w="100%"
-            p={{ base: '4', lg: '6' }}
-            shadow="depth.5"
-            borderRadius="24px"
-            bg="background-default"
-          >
-            {props.children ? (
-              props.children
-            ) : (
-              <Box minW={{ md: '80', sm: '4/5' }}>
-                {!!contentProps && <DialogCommon.Content {...contentProps} />}
-                {footerMoreView ?? footerMoreView}
-                {(!footerButtonProps?.hidePrimaryAction ||
-                  !footerButtonProps?.hideSecondaryAction) && (
-                  <DialogCommon.FooterButton
-                    {...footerButtonProps}
-                    onSecondaryActionPress={() => {
-                      handleClose();
-                      setTimeout(() => {
-                        footerButtonProps?.onSecondaryActionPress?.();
-                      }, 50);
-                    }}
-                    onPrimaryActionPress={() => {
-                      footerButtonProps?.onPrimaryActionPress?.({ onClose });
-                    }}
-                  />
-                )}
-              </Box>
-            )}
-          </Box>
+        <KeyboardDismissView p={6} maxW="432px" justifyContent="center">
+          <KeyboardAvoidingView behavior="position">
+            <Box
+              w="100%"
+              p={{ base: '4', lg: '6' }}
+              shadow="depth.5"
+              borderRadius="24px"
+              bg="background-default"
+            >
+              {props.children ? (
+                props.children
+              ) : (
+                <Box minW={{ md: '80', sm: '4/5' }}>
+                  {!!contentProps && <DialogCommon.Content {...contentProps} />}
+                  {footerMoreView ?? footerMoreView}
+                  {(!footerButtonProps?.hidePrimaryAction ||
+                    !footerButtonProps?.hideSecondaryAction) && (
+                    <DialogCommon.FooterButton
+                      {...footerButtonProps}
+                      onSecondaryActionPress={() => {
+                        handleClose();
+                        setTimeout(() => {
+                          footerButtonProps?.onSecondaryActionPress?.();
+                        }, 50);
+                      }}
+                      onPrimaryActionPress={() => {
+                        footerButtonProps?.onPrimaryActionPress?.({ onClose });
+                      }}
+                    />
+                  )}
+                </Box>
+              )}
+            </Box>
+          </KeyboardAvoidingView>
         </KeyboardDismissView>
       </Outer>
     ),
     [
-      hasFormInsideDialog,
       visible,
       props,
       contentProps,
@@ -182,5 +162,4 @@ const Dialog: FC<DialogProps> = ({
   );
 };
 
-Dialog.defaultProps = defaultProps;
 export default Dialog;

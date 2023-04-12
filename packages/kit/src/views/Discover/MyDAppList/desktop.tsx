@@ -4,7 +4,6 @@ import {
   useContext,
   useLayoutEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 
@@ -23,8 +22,7 @@ import {
 } from '@onekeyhq/components';
 
 import { useTranslation } from '../../../hooks';
-import { showFavoriteMenu } from '../../Overlay/Discover/FavoriteMenu';
-import { showHistoryMenu } from '../../Overlay/Discover/HistoryMenu';
+import FavListMenu from '../../Overlay/Discover/FavListMenu';
 import { Chains } from '../Chains';
 import DAppIcon from '../DAppIcon';
 import { useDiscoverFavorites, useUserBrowserHistories } from '../hooks';
@@ -32,7 +30,6 @@ import { useDiscoverFavorites, useUserBrowserHistories } from '../hooks';
 import { MyDAppListContext } from './context';
 import { getUrlHost } from './utils';
 
-import type { ShowMenuProps } from '../../Overlay/Discover/type';
 import type { MatchDAppItemType } from '../Explorer/explorerUtils';
 import type { ListRenderItem } from 'react-native';
 
@@ -61,10 +58,9 @@ const HistoryListEmptyComponent = () => {
 type RenderItemProps = {
   item: MatchDAppItemType;
   cardWidth: number;
-  callback: ShowMenuProps;
+  isFav?: boolean;
 };
-const RenderItem: FC<RenderItemProps> = ({ item, cardWidth, callback }) => {
-  const ref = useRef();
+const RenderItem: FC<RenderItemProps> = ({ item, cardWidth, isFav }) => {
   const t = useTranslation();
   const { onItemSelect } = useContext(MyDAppListContext);
 
@@ -104,13 +100,9 @@ const RenderItem: FC<RenderItemProps> = ({ item, cardWidth, callback }) => {
           onItemSelect?.(item);
         }}
       >
-        <Box position="absolute" top="0" right={0} ref={ref} zIndex="1">
-          <IconButton
-            type="plain"
-            name="DotsHorizontalMini"
-            onPress={() => callback({ triggerEle: ref.current, dapp: item })}
-          />
-        </Box>
+        <FavListMenu item={item} isFav={isFav}>
+          <IconButton type="plain" name="DotsHorizontalMini" />
+        </FavListMenu>
         <Box>
           <Box flexDirection="row">
             <DAppIcon
@@ -150,13 +142,7 @@ const Favorites = () => {
   const cardWidth = screenWidth / numColumns;
 
   const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
-    ({ item }) => (
-      <RenderItem
-        cardWidth={cardWidth}
-        item={item}
-        callback={showFavoriteMenu}
-      />
-    ),
+    ({ item }) => <RenderItem cardWidth={cardWidth} item={item} isFav />,
     [cardWidth],
   );
 
@@ -184,13 +170,7 @@ const History = () => {
   const cardWidth = screenWidth / numColumns;
 
   const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
-    ({ item }) => (
-      <RenderItem
-        cardWidth={cardWidth}
-        item={item}
-        callback={showHistoryMenu}
-      />
-    ),
+    ({ item }) => <RenderItem cardWidth={cardWidth} item={item} />,
     [cardWidth],
   );
 

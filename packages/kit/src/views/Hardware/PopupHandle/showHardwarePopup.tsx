@@ -1,10 +1,11 @@
 import type { ReactElement } from 'react';
 
-import { Modal as NBModal } from 'native-base';
+import { MotiView } from 'moti';
 import { PermissionsAndroid, Platform } from 'react-native';
-import Modal from 'react-native-modal';
 import RootSiblingsManager from 'react-native-root-siblings';
 
+import { OverlayContainer } from '@onekeyhq/components';
+import { CloseBackDrop } from '@onekeyhq/components/src/Select';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
 import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
@@ -343,57 +344,37 @@ export default async function showHardwarePopup({
   const modalTop = platformEnv.isNativeIOS ? 42 : 10;
 
   setTimeout(() => {
-    const modalPopup = platformEnv.isNativeIOS ? (
-      <Modal
-        isVisible
-        onModalHide={closeHardwarePopup}
-        backdropColor="overlay"
-        animationOut={popupType === 'normal' ? 'fadeOutDown' : 'fadeOutUp'}
-        animationIn={popupType === 'normal' ? 'fadeInDown' : 'fadeInUp'}
-        animationOutTiming={300}
-        backdropTransitionOutTiming={0}
-        coverScreen
-        useNativeDriver
-        hideModalContentWhileAnimating
+    const modalPopup = (
+      <OverlayContainer
         style={{
-          // passphrase input modal should always be displayed at the top of the page
-          justifyContent:
-            popupType === 'normal' || popupType === 'inputPassphrase'
-              ? 'flex-start'
-              : nativeInputContentAlign,
-          alignItems: 'center',
-          padding: 0,
-          margin: 0,
-          top:
-            popupType === 'normal' || popupType === 'inputPassphrase'
-              ? modalTop
-              : 0,
+          // higher than react-native-modalize(9998)
+          zIndex: 9999,
+          flex: 1,
         }}
       >
-        {popupView}
-      </Modal>
-    ) : (
-      <NBModal
-        isOpen
-        onClose={closeHardwarePopup}
-        bg="overlay"
-        closeOnOverlayClick={false}
-        style={{
-          justifyContent:
-            popupType === 'normal' || popupType === 'inputPassphrase'
-              ? 'flex-start'
-              : nativeInputContentAlign,
-          alignItems: 'center',
-          padding: 0,
-          margin: 0,
-          top:
-            popupType === 'normal' || popupType === 'inputPassphrase'
-              ? modalTop
-              : 0,
-        }}
-      >
-        {popupView}
-      </NBModal>
+        <MotiView
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          style={{
+            flex: 1,
+            // passphrase input modal should always be displayed at the top of the page
+            justifyContent:
+              popupType === 'normal' || popupType === 'inputPassphrase'
+                ? 'flex-start'
+                : nativeInputContentAlign,
+            alignItems: 'center',
+            padding: 0,
+            margin: 0,
+            top:
+              popupType === 'normal' || popupType === 'inputPassphrase'
+                ? modalTop
+                : 0,
+          }}
+        >
+          <CloseBackDrop backgroundColor="#00000066" />
+          {popupView}
+        </MotiView>
+      </OverlayContainer>
     );
     if (hardwarePopupHolder) {
       hardwarePopupHolder.update(modalPopup);

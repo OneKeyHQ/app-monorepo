@@ -25,6 +25,8 @@ export const GoPlusSecurityItems: FC<{
   items: (keyof GoPlusAddressSecurity)[];
 }> = ({ items }) => {
   const intl = useIntl();
+
+  if (items.length === 0) return null;
   return (
     <HStack mt="2" w="full" flexWrap="wrap">
       {items.map((item) => (

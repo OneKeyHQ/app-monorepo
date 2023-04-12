@@ -81,6 +81,10 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     throw new Error('Method not implemented.');
   }
 
+  override batchGetAddress(): Promise<{ path: string; address: string }[]> {
+    throw new Error('Method not implemented.');
+  }
+
   override prepareAccountByAddressIndex(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     params: IPrepareAccountByAddressIndexParams,

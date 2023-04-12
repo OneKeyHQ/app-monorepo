@@ -111,7 +111,9 @@ const ReceiveToken = () => {
       if (!isSameAddress) {
         ToastManager.show(
           {
-            title: intl.formatMessage({ id: 'msg__not_the_same_wallet' }),
+            title: intl.formatMessage({
+              id: 'msg__address_is_inconsistent_please_check_manually',
+            }),
           },
           { type: 'default' },
         );
@@ -175,6 +177,7 @@ const ReceiveToken = () => {
           alignItems="center"
           mt={isVerticalLayout ? '32px' : '24px'}
           mx="auto"
+          maxWidth="full"
         >
           <Text
             textAlign="center"

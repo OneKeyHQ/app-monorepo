@@ -49,7 +49,6 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
       {/* 设备没有 NFC */}
       <Dialog
         visible={code === CardErrors.NotExistsNFC}
-        hasFormInsideDialog
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -76,7 +75,6 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
           code === CardErrors.NotEnableNFC ||
           code === CardErrors.NotNFCPermission
         }
-        hasFormInsideDialog
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -108,7 +106,6 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
           code === CardErrors.ConnectionFail ||
           code === CardErrors.ExecFailure
         }
-        hasFormInsideDialog
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -132,7 +129,6 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
       {/* 操作中断（可能是连接问题） */}
       <Dialog
         visible={code === CardErrors.InterruptError}
-        hasFormInsideDialog
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -156,7 +152,6 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
       {/* 没有备份过内容 */}
       <Dialog
         visible={code === CardErrors.NotInitializedError}
-        hasFormInsideDialog
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -184,7 +179,6 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
       {/* 已经备份过内容 */}
       <Dialog
         visible={code === CardErrors.InitializedError}
-        hasFormInsideDialog
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -217,7 +211,6 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
           code === CardErrors.NotSetPassword ||
           code === CardErrors.InitPasswordError
         }
-        hasFormInsideDialog
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -248,7 +241,6 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
       {/* Card 已被锁定，需要手动 Reset */}
       <Dialog
         visible={code === CardErrors.CardLock}
-        hasFormInsideDialog
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{
@@ -272,7 +264,6 @@ const ErrorDialog: FC<ErrorDialogViewProps> = ({
       {/* Card Pin 码输入失败次数太多已经重置 */}
       <Dialog
         visible={code === CardErrors.UpperErrorAutoReset}
-        hasFormInsideDialog
         canceledOnTouchOutside={false}
         onClose={() => onDialogClose?.()}
         contentProps={{

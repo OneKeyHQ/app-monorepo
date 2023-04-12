@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
+  // Alert,
   Box,
   Form,
   Modal,
@@ -19,7 +19,7 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import AddressInput from '../../../../components/AddressInput';
 import ChainSelector from '../../../../components/Form/ChainSelector';
 import { useAppSelector, useDebounce } from '../../../../hooks';
-import { setHideAddressBookAttention } from '../../../../store/reducers/status';
+// import { setHideAddressBookAttention } from '../../../../store/reducers/status';
 
 import type { ContactValues } from '../../routes';
 
@@ -43,9 +43,9 @@ const ModalView: FC<ModalViewProps> = ({
   const intl = useIntl();
   const validateAddressError = useRef<boolean>();
   const contacts = useAppSelector((s) => s.contacts.contacts);
-  const hideAddressBookAttention = useAppSelector(
-    (s) => s.status.hideAddressBookAttention,
-  );
+  // const hideAddressBookAttention = useAppSelector(
+  //   (s) => s.status.hideAddressBookAttention,
+  // );
   const contactsMaps = useMemo(
     () =>
       new Map(Object.values(contacts).map((v) => [v.address.toLowerCase(), v])),
@@ -113,9 +113,9 @@ const ModalView: FC<ModalViewProps> = ({
     }
   }, [address, setValue]);
 
-  const onDismiss = useCallback(() => {
-    backgroundApiProxy.dispatch(setHideAddressBookAttention());
-  }, []);
+  // const onDismiss = useCallback(() => {
+  //   backgroundApiProxy.dispatch(setHideAddressBookAttention());
+  // }, []);
 
   const syncStateAndReTriggerValidate = useCallback(
     (val) => {
