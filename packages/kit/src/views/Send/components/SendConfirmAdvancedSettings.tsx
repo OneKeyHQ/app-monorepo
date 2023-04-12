@@ -179,7 +179,7 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
           ) : null
         }
       >
-        <Form mt={6} textAlign="left">
+        <Form mt={6} textAlign="left" paddingX="1px">
           {advanceSettings}
         </Form>
       </Collapse>

@@ -72,6 +72,8 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
               )}
               {!!describeSecond && (
                 <Typography.Body2
+                  display="flex"
+                  alignItems="center"
                   color={isDisabled ? 'text-disabled' : 'text-subdued'}
                 >
                   {describeSecond}
