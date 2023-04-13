@@ -4,8 +4,13 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, ToastManager } from '@onekeyhq/components';
+import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import { ethers } from '@onekeyhq/engine/src/vaults/impl/evm/sdk/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../../hooks';
@@ -47,6 +52,8 @@ const LimitOrderButton = () => {
       );
       return;
     }
+    const walletId = getWalletIdFromAccountId(params.activeAccount.id);
+    const wallet = await backgroundApiProxy.engine.getWallet(walletId);
 
     const order = await backgroundApiProxy.serviceLimitOrder.buildLimitOrder({
       params,
@@ -92,7 +99,6 @@ const LimitOrderButton = () => {
             networkId: params.tokenIn.networkId,
             signature,
           });
-
           backgroundApiProxy.dispatch(
             addLimitOrderTransaction({
               networkId: tokenIn.networkId,
@@ -112,6 +118,7 @@ const LimitOrderButton = () => {
               },
             }),
           );
+          appUIEventBus.emit(AppUIEventBusNames.LimitOrderCompleted);
           backgroundApiProxy.serviceLimitOrder.resetState();
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.Swap,
@@ -122,6 +129,9 @@ const LimitOrderButton = () => {
               },
             },
           });
+        },
+        onFail: () => {
+          appUIEventBus.emit(AppUIEventBusNames.LimitOrderError);
         },
       });
     };
@@ -156,6 +166,14 @@ const LimitOrderButton = () => {
           networkId: params.tokenIn.networkId,
           encodedTx: approveTx,
           onSuccess: async () => {
+            if (wallet.type === 'hw') {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Swap,
+                params: {
+                  screen: SwapRoutes.HardwareContinue,
+                },
+              });
+            }
             await nextTask?.();
           },
         });

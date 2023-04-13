@@ -32,6 +32,7 @@ export enum SwapRoutes {
   LimitOrderOutput = 'LimitOrderOutput',
   LimitOrderDetails = 'LimitOrderDetails',
   TransactionSubmitted = 'TransactionSubmitted',
+  HardwareContinue = 'HardwareContinue',
 }
 
 export type SwapRoutesParams = {
@@ -86,6 +87,7 @@ export type SwapRoutesParams = {
   };
   [SwapRoutes.LimitOrderDetails]: { orderHash: string };
   [SwapRoutes.TransactionSubmitted]: { orderHash: string };
+  [SwapRoutes.HardwareContinue]: undefined;
 };
 
 export enum SwapError {

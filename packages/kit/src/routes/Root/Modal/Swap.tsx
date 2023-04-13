@@ -2,6 +2,7 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import CustomToken from '../../../views/ManageTokens/CustomToken';
 import EnterAddress from '../../../views/Swap/EnterAddress';
+import HardwareContinue from '../../../views/Swap/HardwareContinue';
 import Input from '../../../views/Swap/Input';
 import LimitOrderDetails from '../../../views/Swap/LimitOrderDetails';
 import LimitOrderInput from '../../../views/Swap/LimitOrderInput';
@@ -108,6 +109,10 @@ const modalRoutes = [
   {
     name: SwapRoutes.TransactionSubmitted,
     component: TransactionSubmitted,
+  },
+  {
+    name: SwapRoutes.HardwareContinue,
+    component: HardwareContinue,
   },
 ];
 
