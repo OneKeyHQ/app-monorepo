@@ -3,10 +3,7 @@ import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Button,
-} from '@onekeyhq/components';
+import { Box, Button } from '@onekeyhq/components';
 
 import { useNavigation } from '../../../../hooks';
 import { useActiveWalletAccount } from '../../../../hooks/redux';

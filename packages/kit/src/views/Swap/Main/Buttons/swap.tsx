@@ -36,11 +36,12 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useNavigation } from '../../../../hooks';
 import { useAppSelector } from '../../../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../../../routes/types';
-import {
-  addTransaction,
-} from '../../../../store/reducers/swapTransactions';
+import { addTransaction } from '../../../../store/reducers/swapTransactions';
 import { wait } from '../../../../utils/helper';
-import { canShowAppReview, openAppReview } from '../../../../utils/openAppReview';
+import {
+  canShowAppReview,
+  openAppReview,
+} from '../../../../utils/openAppReview';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { SendModalRoutes } from '../../../Send/types';
 import {
@@ -62,6 +63,8 @@ import {
   getTokenAmountValue,
 } from '../../utils';
 
+import { combinedTasks } from './utils';
+
 import type {
   BuildTransactionParams,
   BuildTransactionResponse,
@@ -70,8 +73,7 @@ import type {
   Recipient,
   TransactionToken,
 } from '../../typings';
-import { combinedTasks } from './utils'
-import type { Task } from './utils'
+import type { Task } from './utils';
 
 type IConvertToSwapInfoOptions = {
   swapQuote: QuoteData;
@@ -311,7 +313,11 @@ type LinearGradientButtonProps = ComponentProps<typeof Button> & {
   tokenB: Token;
 };
 
-const LinearGradientButton: FC<LinearGradientButtonProps> = ({ tokenA, tokenB, onPress }) => {
+const LinearGradientButton: FC<LinearGradientButtonProps> = ({
+  tokenA,
+  tokenB,
+  onPress,
+}) => {
   const intl = useIntl();
   return (
     <Box h="50px" w="full" shadow="1" borderRadius="12" overflow="hidden">
@@ -595,10 +601,10 @@ const ExchangeButton = () => {
         needApproved &&
         ((fromNetworkId === OnekeyNetwork.eth &&
           params.tokenIn.tokenIdOnNetwork.toLowerCase() ===
-          '0xdac17f958d2ee523a2206206994597c13d831ec7') ||
+            '0xdac17f958d2ee523a2206206994597c13d831ec7') ||
           (fromNetworkId === OnekeyNetwork.heco &&
             params.tokenIn.tokenIdOnNetwork.toLowerCase() ===
-            '0x897442804e4c8ac3a28fadb217f08b401411183e')) &&
+              '0x897442804e4c8ac3a28fadb217f08b401411183e')) &&
         Number(allowance || '0') > 0;
       if (needCancelApproval) {
         cancelApproveTx =
@@ -964,7 +970,7 @@ export const SwapButton = () => {
 };
 
 export const SwapMainButton = () => {
-  const intl = useIntl()
+  const intl = useIntl();
   const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
   if (swapMaintain) {
     return (
@@ -973,6 +979,5 @@ export const SwapMainButton = () => {
       </Button>
     );
   }
-  return <SwapButton/>
-}
-
+  return <SwapButton />;
+};

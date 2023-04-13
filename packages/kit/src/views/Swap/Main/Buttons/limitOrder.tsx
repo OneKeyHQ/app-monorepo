@@ -1,14 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  ToastManager,
-  Box
-} from '@onekeyhq/components';
+import { Button, ToastManager } from '@onekeyhq/components';
 import { ethers } from '@onekeyhq/engine/src/vaults/impl/evm/sdk/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
@@ -16,9 +11,7 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useNavigation } from '../../../../hooks';
 import { useAppSelector } from '../../../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../../../routes/types';
-import {
-  addLimitOrderTransaction,
-} from '../../../../store/reducers/swapTransactions';
+import { addLimitOrderTransaction } from '../../../../store/reducers/swapTransactions';
 import { wait } from '../../../../utils/helper';
 import { ZeroExchangeAddress } from '../../config';
 import {
@@ -28,13 +21,11 @@ import {
 } from '../../hooks/useLimitOrder';
 import { useSwapSend, useSwapSignMessage } from '../../hooks/useSwapSend';
 import { SwapRoutes } from '../../typings';
-import {
-  getTokenAmountString,
-  getTokenAmountValue,
-  lte,
-} from '../../utils';
-import type { Task } from './utils'
-import { combinedTasks } from './utils'
+import { getTokenAmountString, getTokenAmountValue, lte } from '../../utils';
+
+import { combinedTasks } from './utils';
+
+import type { Task } from './utils';
 
 const LimitOrderButton = () => {
   const intl = useIntl();
@@ -239,8 +230,10 @@ const LimitOrderStateButton = () => {
 };
 
 export const LimitOrderMainButton = () => {
-  const intl = useIntl()
-  const limitOrderMaintain = useAppSelector(s => s.swapTransactions.limitOrderMaintain);
+  const intl = useIntl();
+  const limitOrderMaintain = useAppSelector(
+    (s) => s.swapTransactions.limitOrderMaintain,
+  );
   if (limitOrderMaintain) {
     return (
       <Button size="xl" type="primary" isDisabled key="limitOrderMaintain">
@@ -248,5 +241,5 @@ export const LimitOrderMainButton = () => {
       </Button>
     );
   }
-  return <LimitOrderStateButton />
-}
+  return <LimitOrderStateButton />;
+};

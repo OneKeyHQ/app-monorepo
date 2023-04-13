@@ -296,10 +296,11 @@ const FullViewList: FC<{ orders?: LimitOrderTransactionDetails[] }> = ({
 };
 
 export function PendingSimpleContent() {
-  const { activeAccount } = useAppSelector((s) => s.limitOrder);
+  const activeAccount = useAppSelector((s) => s.limitOrder.activeAccount);
+  const mode = useAppSelector((s) => s.swap.mode);
   const orders = useLimitOrders(activeAccount?.id);
   const intl = useIntl();
-  return (
+  return mode === 'limit' ? (
     <Box px="4">
       <Box>
         <Typography.Heading>
@@ -308,14 +309,15 @@ export function PendingSimpleContent() {
       </Box>
       <SimpleViewList orders={orders} />
     </Box>
-  );
+  ) : null;
 }
 
 export function PendingFullContent() {
   const intl = useIntl();
+  const mode = useAppSelector((s) => s.swap.mode);
   const { activeAccount } = useAppSelector((s) => s.limitOrder);
   const orders = useLimitOrders(activeAccount?.id);
-  return (
+  return mode === 'limit' ? (
     <Box px="4" mt="4">
       <Box>
         <Typography.Heading>
@@ -324,5 +326,5 @@ export function PendingFullContent() {
       </Box>
       <FullViewList orders={orders} />
     </Box>
-  );
+  ) : null;
 }

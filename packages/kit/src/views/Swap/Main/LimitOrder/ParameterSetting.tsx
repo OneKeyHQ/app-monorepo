@@ -144,7 +144,7 @@ function InstantRateSetting() {
             <Typography.CaptionStrong color="text-subdued" mr="1">
               {tokenB ?? ''}
             </Typography.CaptionStrong>
-            <Icon name="SwitchVerticalMini" size={10} />
+            <Icon name="ArrowsRightLeftMini" size={10} />
           </Pressable>
         </Box>
       </Box>

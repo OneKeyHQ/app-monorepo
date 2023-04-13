@@ -1,7 +1,7 @@
 import { Box } from '@onekeyhq/components';
 
 import { useAppSelector } from '../../../../hooks';
-import { SwapMainButton  } from '../Buttons/swap';
+import { SwapMainButton } from '../Buttons/swap';
 import { PaddingControl } from '../PaddingControl';
 
 import { SwapAlert } from './SwapAlert';
