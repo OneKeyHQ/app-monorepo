@@ -100,6 +100,8 @@ export { default as useTheme } from './Provider/hooks/useTheme';
 export { default as useThemeValue } from './Provider/hooks/useThemeValue';
 export { default as useUserDevice } from './Provider/hooks/useUserDevice';
 export { default as MnemonicCard } from './MnemonicCard';
+export { default as RichTooltip } from './RichTooltip';
+
 // only export default components or pure types here
 // the component name should be the same as the file name
 

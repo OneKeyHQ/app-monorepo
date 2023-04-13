@@ -1,0 +1,100 @@
+import { useIntl } from 'react-intl';
+
+import { Box, Text } from '@onekeyhq/components';
+import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
+import type {
+  IFeeInfo,
+  IFeeInfoPrice,
+} from '@onekeyhq/engine/src/vaults/types';
+import {
+  calculateTotalFeeNative,
+  calculateTotalFeeRange,
+} from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+
+import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
+
+type Props = {
+  accountId: string;
+  networkId: string;
+  feeInfo?: IFeeInfo;
+  price?: IFeeInfoPrice;
+  limit?: string;
+};
+
+function SendEditFeeOverview(props: Props) {
+  const { accountId, networkId, feeInfo, price, limit } = props;
+
+  const intl = useIntl();
+
+  const isEIP1559Fee = feeInfo?.eip1559;
+
+  let minFeeNative = '';
+  let totalFeeNative = '';
+
+  if (isEIP1559Fee) {
+    const { min, max } = calculateTotalFeeRange({
+      eip1559: true,
+      limit,
+      price1559: price as EIP1559Fee,
+    });
+    const minFee = min;
+    totalFeeNative = calculateTotalFeeNative({
+      amount: max,
+      info: feeInfo,
+    });
+
+    minFeeNative = calculateTotalFeeNative({
+      amount: minFee,
+      info: feeInfo,
+    });
+  } else {
+    const totalFee = calculateTotalFeeRange({
+      limit,
+      price: price as string,
+    }).max;
+    totalFeeNative = calculateTotalFeeNative({
+      amount: totalFee,
+      info: feeInfo as IFeeInfo,
+    });
+  }
+
+  return (
+    <Box>
+      <Text typography="Body2Strong" textAlign="center">
+        {minFeeNative || totalFeeNative}
+        {feeInfo?.nativeSymbol ?? ''}
+      </Text>
+      <Text typography="Display2XLarge" textAlign="center">
+        {minFeeNative ? (
+          <FormatCurrencyNativeOfAccount
+            accountId={accountId}
+            networkId={networkId}
+            value={minFeeNative}
+            render={(ele) => <>{!minFeeNative ? '-' : ele}</>}
+          />
+        ) : (
+          <FormatCurrencyNativeOfAccount
+            accountId={accountId}
+            networkId={networkId}
+            value={totalFeeNative}
+            render={(ele) => <>{!totalFeeNative ? '-' : ele}</>}
+          />
+        )}
+      </Text>
+      {minFeeNative && (
+        <Text typography="Body2" color="text-subdued" textAlign="center" mt={1}>
+          {intl.formatMessage({ id: 'content__max_fee' })}:
+          <FormatCurrencyNativeOfAccount
+            accountId={accountId}
+            networkId={networkId}
+            value={totalFeeNative}
+            render={(ele) => <>{!totalFeeNative ? '-' : ele}</>}
+          />
+          {`(${totalFeeNative}${feeInfo?.nativeSymbol ?? ''})`}
+        </Text>
+      )}
+    </Box>
+  );
+}
+
+export { SendEditFeeOverview };

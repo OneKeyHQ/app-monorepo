@@ -10,15 +10,20 @@ import {
   Box,
   Button,
   Center,
+  CheckBox,
+  HStack,
   Spinner,
+  Text,
   ToastManager,
   useForm,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
+  IFeeInfoSelected,
   IFeeInfoSelectedType,
   IFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/types';
@@ -33,6 +38,7 @@ import { BaseSendModal } from '../../components/BaseSendModal';
 import { DecodeTxButtonTest } from '../../components/DecodeTxButtonTest';
 import { ESendEditFeeTypes } from '../../enums';
 import { SendModalRoutes } from '../../types';
+import { getCustomFeeSpeedInfo } from '../../utils/getCustomFeeSpeedInfo';
 import {
   IS_REPLACE_ROUTE_TO_FEE_EDIT,
   SEND_EDIT_FEE_PRICE_UP_RATIO,
@@ -42,7 +48,6 @@ import { useFeeInfoPayload } from '../../utils/useFeeInfoPayload';
 import { SendEditFeeCustomForm } from './SendEditFeeCustomForm';
 import { SendEditFeeStandardForm } from './SendEditFeeStandardForm';
 import { SendEditFeeStandardFormLite } from './SendEditFeeStandardFormLite';
-import { SendEditFeeTabs } from './SendEditFeeTabs';
 
 import type {
   ISendEditFeeValues,
@@ -81,7 +86,14 @@ function selectMaxValue(
 
 function ScreenSendEditFee({ ...rest }) {
   const { trigger } = rest;
+
+  const [blockNativeInit, setBlockNativeInit] = useState(false);
+  const [saveCustom, setSaveCustom] = useState(false);
+  const [currentCustom, setCurrentCustom] = useState<IFeeInfoUnit | null>(null);
+
   const intl = useIntl();
+
+  const isVertical = useIsVerticalLayout();
 
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
@@ -154,11 +166,18 @@ function ScreenSendEditFee({ ...rest }) {
     mode: 'onBlur',
     reValidateMode: 'onBlur',
   });
-  const { handleSubmit, setValue, trigger: formTrigger } = useFormReturn;
+  const {
+    handleSubmit,
+    setValue,
+    trigger: formTrigger,
+    formState,
+  } = useFormReturn;
 
   const onSubmit = handleSubmit(async (data) => {
     let type: IFeeInfoSelectedType =
-      feeType === ESendEditFeeTypes.advanced ? 'custom' : 'preset';
+      feeType === ESendEditFeeTypes.advanced || radioValue === 'custom'
+        ? 'custom'
+        : 'preset';
     // const values = getValues();
     if (!radioValue && type === 'preset') {
       type = 'custom';
@@ -171,15 +190,39 @@ function ScreenSendEditFee({ ...rest }) {
         maxFeePerGas: data.maxFeePerGas || '0',
       };
     }
-    const feeInfoSelected = {
+
+    const feeInfoSelected: IFeeInfoSelected = {
       type,
       preset: radioValue || '1',
-      custom: {
-        eip1559: isEIP1559Fee,
-        price: priceInfo,
-        limit: data.gasLimit || '0',
-      },
     };
+
+    const custom = {
+      eip1559: isEIP1559Fee,
+      limit: data.gasLimit || '0',
+      waitingSeconds: 0,
+      similarToPreset: '0',
+      ...(isEIP1559Fee
+        ? { price1559: priceInfo as EIP1559Fee }
+        : { price: priceInfo as string }),
+    };
+
+    if (type === 'custom') {
+      feeInfoSelected.custom = custom;
+
+      const { customSimilarToPreset, customWaitingSeconds } =
+        getCustomFeeSpeedInfo({
+          custom: feeInfoSelected.custom,
+          prices: feeInfoPayload?.info.prices ?? [],
+          waitingSeconds: feeInfoPayload?.info.waitingSeconds ?? [],
+          isEIP1559Fee,
+        });
+
+      feeInfoSelected.custom.similarToPreset = customSimilarToPreset;
+      feeInfoSelected.custom.waitingSeconds = customWaitingSeconds;
+
+      setCurrentCustom(feeInfoSelected.custom);
+    }
+
     debugLogger.sendTx.info('SendEditFee Confirm >>>> ', feeInfoSelected);
     const { routes, index } = navigation.getState();
     const prevRouteName = routes[index - 1]?.name;
@@ -214,7 +257,7 @@ function ScreenSendEditFee({ ...rest }) {
             networkId,
             accountId,
             encodedTx: encodedTx as IEncodedTxBtc,
-            feeInfoValue: feeInfoSelected.custom,
+            feeInfoValue: custom,
           }),
         });
       } catch (e: any) {
@@ -244,6 +287,12 @@ function ScreenSendEditFee({ ...rest }) {
       );
     }
 
+    if (feeType === ESendEditFeeTypes.advanced) {
+      setRadioValue('custom');
+      setFeeType(ESendEditFeeTypes.standard);
+      return;
+    }
+
     return navigation.navigate({
       merge: true,
       name: toRouteName,
@@ -253,18 +302,28 @@ function ScreenSendEditFee({ ...rest }) {
 
   const setFormValuesFromFeeInfo = useCallback(
     (feeInfoValue: IFeeInfoUnit) => {
-      const { price, limit } = feeInfoValue;
+      const { price, limit, price1559 } = feeInfoValue;
       if (isEIP1559Fee) {
-        const priceInfo = price as EIP1559Fee;
-        setValue('baseFee', priceInfo.baseFee);
-        setValue('maxFeePerGas', priceInfo.maxFeePerGas);
-        setValue('maxPriorityFeePerGas', priceInfo.maxPriorityFeePerGas);
+        const priceInfo = price1559 as EIP1559Fee;
+        setValue('baseFee', new BigNumber(priceInfo.baseFee).toFixed());
+        setValue(
+          'maxFeePerGas',
+          new BigNumber(priceInfo.maxFeePerGas)
+            .times(autoConfirmAfterFeeSaved ? SEND_EDIT_FEE_PRICE_UP_RATIO : 1)
+            .toFixed(),
+        );
+        setValue(
+          'maxPriorityFeePerGas',
+          new BigNumber(priceInfo.maxPriorityFeePerGas)
+            .times(autoConfirmAfterFeeSaved ? SEND_EDIT_FEE_PRICE_UP_RATIO : 1)
+            .toFixed(),
+        );
       } else {
-        setValue('gasPrice', (price as string) ?? '');
+        setValue('gasPrice', new BigNumber(price ?? 0).toFixed());
       }
-      setValue('gasLimit', limit ?? '');
+      setValue('gasLimit', new BigNumber(limit ?? 0).toFixed());
     },
-    [isEIP1559Fee, setValue],
+    [autoConfirmAfterFeeSaved, isEIP1559Fee, setValue],
   );
 
   useEffect(() => {
@@ -276,12 +335,19 @@ function ScreenSendEditFee({ ...rest }) {
     ) {
       return;
     }
-    const { limit, price } = getSelectedFeeInfoUnit({
-      info: feeInfoPayload.info,
-      index: radioValue,
-    });
-    setFormValuesFromFeeInfo({ price, limit });
+
+    if (radioValue === 'custom' && currentCustom) {
+      setFormValuesFromFeeInfo(currentCustom);
+    } else {
+      const { limit, price, price1559 } = getSelectedFeeInfoUnit({
+        info: feeInfoPayload.info,
+        index: radioValue,
+      });
+
+      setFormValuesFromFeeInfo({ price, price1559, limit });
+    }
   }, [
+    currentCustom,
     feeInfoPayload,
     feeType,
     getSelectedFeeInfoUnit,
@@ -299,13 +365,9 @@ function ScreenSendEditFee({ ...rest }) {
 
   useEffect(() => {
     const selected = feeInfoPayload?.selected;
-    let type = selected?.type ?? 'preset';
-    if (
-      !feeInfoPayload ||
-      !feeInfoPayload?.info?.prices?.length ||
-      autoConfirmAfterFeeSaved
-    ) {
-      type = 'custom';
+    const type = selected?.type ?? 'preset';
+    if (!feeInfoPayload) {
+      return;
     }
     if (feeInfoPayload && type === 'preset') {
       let presetValue = selected?.preset || '1';
@@ -314,11 +376,12 @@ function ScreenSendEditFee({ ...rest }) {
         presetValue = '0';
       }
       setRadioValue(presetValue);
-      setFeeType(ESendEditFeeTypes.standard);
     } else if (type === 'custom') {
       const customValues = cloneDeep(selected?.custom ?? {});
-      setFeeType(ESendEditFeeTypes.advanced);
       if (customValues) {
+        setCurrentCustom(customValues);
+        setRadioValue('custom');
+        setFormValuesFromFeeInfo(customValues);
         // build fee customValues for speedUp & cancel tx
         if (autoConfirmAfterFeeSaved) {
           const actionType = oldSendConfirmParams?.actionType;
@@ -339,7 +402,7 @@ function ScreenSendEditFee({ ...rest }) {
           }
 
           if (customValues?.eip1559) {
-            const eip1559Price = customValues.price as EIP1559Fee;
+            const eip1559Price = customValues.price1559 as EIP1559Fee;
             if (eip1559Price) {
               const highPriceInfo = highPriceData as EIP1559Fee | undefined;
               eip1559Price.baseFee =
@@ -363,8 +426,9 @@ function ScreenSendEditFee({ ...rest }) {
               SEND_EDIT_FEE_PRICE_UP_RATIO,
             );
           }
+
+          setFeeType(ESendEditFeeTypes.advanced);
         }
-        setFormValuesFromFeeInfo(customValues);
       }
     }
   }, [
@@ -386,11 +450,15 @@ function ScreenSendEditFee({ ...rest }) {
   if (feeType && !feeInfoLoading) {
     const customFeeForm = (
       <SendEditFeeCustomForm
+        blockNativeInit={blockNativeInit}
+        setBlockNativeInit={setBlockNativeInit}
         accountId={accountId}
         networkId={networkId}
         autoConfirmAfterFeeSaved={autoConfirmAfterFeeSaved}
         feeInfoPayload={feeInfoPayload}
         useFormReturn={useFormReturn}
+        saveCustom={saveCustom}
+        setSaveCustom={setSaveCustom}
       />
     );
     const presetFeeForm = forBatchSend ? (
@@ -406,30 +474,21 @@ function ScreenSendEditFee({ ...rest }) {
         accountId={accountId}
         networkId={networkId}
         feeInfoPayload={feeInfoPayload}
+        currentCustom={currentCustom}
         value={radioValue}
         onChange={(value) => {
-          setRadioValue(value);
+          if (value === 'custom') {
+            setFeeType(ESendEditFeeTypes.advanced);
+          } else {
+            setRadioValue(value);
+          }
         }}
       />
     );
     content = feeInfoPayload ? (
-      <>
-        <SendEditFeeTabs
-          type={feeType}
-          onChange={(value) => {
-            setFeeType(
-              value === 0
-                ? ESendEditFeeTypes.standard
-                : ESendEditFeeTypes.advanced,
-            );
-          }}
-        />
-        <Box>
-          {feeType === ESendEditFeeTypes.standard
-            ? presetFeeForm
-            : customFeeForm}
-        </Box>
-      </>
+      <Box>
+        {feeType === ESendEditFeeTypes.standard ? presetFeeForm : customFeeForm}
+      </Box>
     ) : (
       <Box>{customFeeForm}</Box>
     );
@@ -438,15 +497,28 @@ function ScreenSendEditFee({ ...rest }) {
     }
   }
 
+  const isLargeModal =
+    !isVertical &&
+    !feeInfoLoading &&
+    feeType === ESendEditFeeTypes.advanced &&
+    blockNativeInit;
+
   return (
     <BaseSendModal
+      size={isLargeModal ? '2xl' : 'xs'}
       networkId={networkId}
       accountId={accountId}
       height="598px"
       trigger={trigger}
-      primaryActionTranslationId="action__apply"
+      primaryActionTranslationId={
+        feeType === ESendEditFeeTypes.advanced
+          ? 'action__save'
+          : 'action__apply'
+      }
       primaryActionProps={{
-        isDisabled: feeInfoLoading,
+        isDisabled:
+          feeInfoLoading ||
+          (feeType === ESendEditFeeTypes.advanced && !formState.isValid),
       }}
       onPrimaryActionPress={() => onSubmit()}
       hideSecondaryAction
@@ -454,6 +526,38 @@ function ScreenSendEditFee({ ...rest }) {
         oldSendConfirmParams?.onModalClose?.();
       }}
       header={title}
+      footer={
+        isLargeModal ? (
+          <HStack
+            justifyContent="space-between"
+            alignItems="center"
+            paddingY={4}
+            paddingX={6}
+            borderTopWidth={1}
+            borderTopColor="border-subdued"
+          >
+            {isEIP1559Fee && (
+              <CheckBox
+                onChange={(isSelected) => setSaveCustom(isSelected)}
+                isChecked={saveCustom}
+              >
+                <Text typography="Body2Strong">
+                  {intl.formatMessage({
+                    id: 'action__save_as_default_for_custom',
+                  })}
+                </Text>
+              </CheckBox>
+            )}
+            <Button
+              isDisabled={!formState.isValid}
+              onPress={() => onSubmit()}
+              type="primary"
+            >
+              {intl.formatMessage({ id: 'action__save' })}
+            </Button>
+          </HStack>
+        ) : undefined
+      }
       scrollViewProps={{
         children: (
           <>

@@ -244,9 +244,7 @@ export default class Vault extends VaultBase {
     }
 
     if (!isNil(price)) {
-      encodedTxWithFeeInfo.GasFeeCap = new BigNumber(
-        (price as string) || '0.000000001',
-      )
+      encodedTxWithFeeInfo.GasFeeCap = new BigNumber(price || '0.000000001')
         .shiftedBy(network.feeDecimals)
         .toFixed();
     }

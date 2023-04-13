@@ -80,6 +80,7 @@ export type IVaultSettings = {
   activateTokenRequired?: boolean;
 
   minGasLimit?: number;
+  maxGasLimit?: number;
   minGasPrice?: string;
 
   cannotSendToSelf?: boolean;
@@ -109,6 +110,7 @@ export type IVaultSettings = {
   maxActionsInTx?: number;
   transactionIdPattern?: string;
   showUsedAddress?: boolean;
+  nonceEditable?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -234,6 +236,7 @@ export enum IEncodedTxUpdateType {
   tokenApprove = 'tokenApprove',
   speedUp = 'speedUp',
   cancel = 'cancel',
+  advancedSettings = 'advancedSettings',
 }
 export type IEncodedTxUpdateOptions = {
   type?: IEncodedTxUpdateType;
@@ -251,9 +254,12 @@ export type IFeeInfoPrice = string | EIP1559Fee; // in GWEI
 export type IFeeInfoUnit = {
   eip1559?: boolean;
   priceValue?: string;
-  price?: IFeeInfoPrice; // in GWEI
+  price?: string; // in GWEI
+  price1559?: EIP1559Fee;
   limit?: string;
   limitUsed?: string;
+  similarToPreset?: string;
+  waitingSeconds?: number;
 };
 // TODO rename to IFeeInfoMeta
 export type IFeeInfo = {
@@ -274,7 +280,12 @@ export type IFeeInfo = {
   eip1559?: boolean;
   customDisabled?: boolean;
   baseFeeValue?: string; // A base fee: e.g. L1 fee for Layer 2 networks
-  extraInfo?: any | null;
+  extraInfo?: {
+    tokensChangedTo?: { [key: string]: string | undefined };
+    networkCongestion?: number;
+    estimatedTransactionCount?: number;
+    originalPrices?: Array<EIP1559Fee | string> | null;
+  } | null;
 };
 export type IFeeInfoSelectedType = 'preset' | 'custom';
 export type IFeeInfoSelected = {
