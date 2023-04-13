@@ -4321,6 +4321,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@kaspa/core-lib@npm:^1.6.5":
+  version: 1.6.5
+  resolution: "@kaspa/core-lib@npm:1.6.5"
+  dependencies:
+    blake2b-wasm: ^2.1.0
+    bn.js: =4.11.8
+    bs58: ^4.0.1
+    buffer-compare: =1.1.1
+    elliptic: ^6.5.3
+    inherits: =2.0.1
+    lodash: ^4.17.20
+    secp256k1-wasm: ">=2.0.0"
+    url: "*"
+  checksum: 6a7bfe769d007d1d2e4fb94a1f18817a69aa29b2eca6e5a3235882bf696ee718e5a721570981d8ff3eb3286f0364445725e5bc9d92b9c9e862ffcf9a39999511
+  languageName: node
+  linkType: hard
+
 "@koale/useworker@npm:^4.0.2":
   version: 4.0.2
   resolution: "@koale/useworker@npm:4.0.2"
@@ -5680,6 +5697,7 @@ __metadata:
     "@glif/filecoin-address": ^2.0.20
     "@glif/filecoin-message": ^2.0.27
     "@glif/filecoin-rpc-client": ^2.0.8
+    "@kaspa/core-lib": ^1.6.5
     "@metamask/eth-sig-util": ^4.0.1
     "@mymonero/mymonero-app-bridge": ^3.0.0
     "@mymonero/mymonero-keyimage-cache": ^3.0.0
@@ -11862,7 +11880,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"blake2b-wasm@npm:^2.4.0":
+"blake2b-wasm@npm:^2.1.0, blake2b-wasm@npm:^2.4.0":
   version: 2.4.0
   resolution: "blake2b-wasm@npm:2.4.0"
   dependencies:
@@ -29545,6 +29563,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"secp256k1-wasm@npm:>=2.0.0":
+  version: 2.0.0
+  resolution: "secp256k1-wasm@npm:2.0.0"
+  checksum: 0d77f0ae6a1a4305eabc0cab93fbb1abf8e3b3c784fb5ad28e6d082c5288933ef6528a23deeff8a643b0941ecff2dcd99ce9738ffbb02f038fbe45ff8cccd110
+  languageName: node
+  linkType: hard
+
 "secp256k1@npm:^4.0.3":
   version: 4.0.3
   resolution: "secp256k1@npm:4.0.3"
@@ -32537,7 +32562,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"url@npm:^0.11.0":
+"url@npm:*, url@npm:^0.11.0":
   version: 0.11.0
   resolution: "url@npm:0.11.0"
   dependencies:
