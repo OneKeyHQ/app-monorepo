@@ -17,6 +17,7 @@ import Slippage from '../../../views/Swap/Slippage';
 import SlippageCheck from '../../../views/Swap/SlippageCheck';
 import SwftcHelp from '../../../views/Swap/SwftcHelp';
 import Transaction from '../../../views/Swap/Transaction';
+import TransactionSubmitted from '../../../views/Swap/TransactionSubmitted';
 import { SwapRoutes } from '../../../views/Swap/typings';
 import Webview from '../../../views/Swap/Webview';
 import Welcome from '../../../views/Swap/Welcome';
@@ -103,6 +104,10 @@ const modalRoutes = [
   {
     name: SwapRoutes.LimitOrderDetails,
     component: LimitOrderDetails,
+  },
+  {
+    name: SwapRoutes.TransactionSubmitted,
+    component: TransactionSubmitted,
   },
 ];
 

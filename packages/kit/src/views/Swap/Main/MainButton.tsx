@@ -989,6 +989,7 @@ export const SwapButton = () => {
 const LimitOrderButton = () => {
   const intl = useIntl();
   const ref = useRef(false);
+  const navigation = useNavigation();
   const params = useLimitOrderParams();
   const instantRate = useAppSelector((s) => s.limitOrder.instantRate);
   const sendSwapTx = useSwapSend();
@@ -1039,9 +1040,6 @@ const LimitOrderButton = () => {
         networkId,
         unsignedMessage: { type: 4, message: JSON.stringify(message) },
         onSuccess: async (signature: any) => {
-          ToastManager.show({
-            title: intl.formatMessage({ id: 'transaction__success' }),
-          });
           const orderHash = ethers.utils._TypedDataEncoder.hash(
             message.domain,
             { LimitOrder: message.types.LimitOrder },
@@ -1074,6 +1072,15 @@ const LimitOrderButton = () => {
             }),
           );
           backgroundApiProxy.serviceLimitOrder.resetState();
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Swap,
+            params: {
+              screen: SwapRoutes.TransactionSubmitted,
+              params: {
+                orderHash,
+              },
+            },
+          });
         },
       });
     };
@@ -1115,7 +1122,7 @@ const LimitOrderButton = () => {
       tasks.unshift(doApprove);
     }
     await combinedTasks(tasks);
-  }, [params, instantRate, intl, sendSignMessage, sendSwapTx]);
+  }, [params, instantRate, intl, sendSignMessage, sendSwapTx, navigation]);
 
   const onPress = useCallback(async () => {
     if (ref.current) {
