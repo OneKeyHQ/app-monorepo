@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "कतार में बहुत अधिक लंबित लेन-देन हैं",
   "msg__engine__too_many_derived_accounts": "बहुत सारे खाते",
   "msg__engine__too_many_hd_wallets": "बहुत सारे पर्स",
+  "msg__engine__too_many_hw_passphrase_wallets": "बहुत अधिक हार्डवेयर पासफ़्रेज़ वॉलेट",
   "msg__engine__too_many_hw_wallets": "बहुत अधिक हार्डवेयर वॉलेट",
   "msg__engine__too_many_imported_accounts": "बहुत अधिक एकल-श्रृंखला खाते",
   "msg__engine__wallet_name_length_error": "वॉलेट नाम की लंबाई सीमा से बाहर है।",

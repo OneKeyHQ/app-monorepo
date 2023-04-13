@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "保留中のトランザクションが多すぎる",
   "msg__engine__too_many_derived_accounts": "アカウント数が上限超え",
   "msg__engine__too_many_hd_wallets": "ウォレットの数が上限超え",
+  "msg__engine__too_many_hw_passphrase_wallets": "ハードウェア パスフレーズ ウォレットが多すぎます",
   "msg__engine__too_many_hw_wallets": "ハードウェアウォレット数が上限超え",
   "msg__engine__too_many_imported_accounts": "シングルチェーンアカウントが多すぎる",
   "msg__engine__wallet_name_length_error": "ウォレット名の長さが上限超え",

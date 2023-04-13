@@ -133,6 +133,7 @@ export type SendConfirmParams = SendConfirmSharedParams & {
   onDetail?: (txid: string) => any;
   signOnly?: boolean;
   ignoreFetchFeeCalling?: boolean;
+  hideSendFeedbackReceipt?: boolean;
 };
 export type SignMessageConfirmParams = SendConfirmSharedParams & {
   sourceInfo?: IDappSourceInfo;

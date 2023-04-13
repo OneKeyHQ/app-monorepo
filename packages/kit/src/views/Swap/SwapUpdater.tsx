@@ -2,7 +2,9 @@ import { useEffect, useMemo } from 'react';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
+import PendingLimitOrder from './components/PendingLimitOrder';
 import PendingTransaction from './components/PendingTransaction';
+import { useAllLimitOrders } from './hooks/useLimitOrder';
 import { useWalletsSwapTransactions } from './hooks/useTransactions';
 
 const TransactionsUpdater = () => {
@@ -20,6 +22,17 @@ const TransactionsUpdater = () => {
   );
 };
 
+const LimitOrderUpdator = () => {
+  const orders = useAllLimitOrders();
+  return (
+    <>
+      {orders.map((order) => (
+        <PendingLimitOrder key={order.orderHash} limitOrder={order} />
+      ))}
+    </>
+  );
+};
+
 const TokenUpdater = () => {
   useEffect(() => {
     backgroundApiProxy.serviceSwap.getSwapConfig();
@@ -32,6 +45,7 @@ const SwapUpdater = () => (
   <>
     <TokenUpdater />
     <TransactionsUpdater />
+    <LimitOrderUpdator />
   </>
 );
 

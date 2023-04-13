@@ -3,6 +3,9 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 import CustomToken from '../../../views/ManageTokens/CustomToken';
 import EnterAddress from '../../../views/Swap/EnterAddress';
 import Input from '../../../views/Swap/Input';
+import LimitOrderDetails from '../../../views/Swap/LimitOrderDetails';
+import LimitOrderInput from '../../../views/Swap/LimitOrderInput';
+import LimitOrderOutput from '../../../views/Swap/LimitOrderOutput';
 import Output from '../../../views/Swap/Output';
 import PickAccount from '../../../views/Swap/PickAccount';
 import PickRecipient from '../../../views/Swap/PickRecipient';
@@ -88,6 +91,18 @@ const modalRoutes = [
   {
     name: SwapRoutes.SlippageCheck,
     component: SlippageCheck,
+  },
+  {
+    name: SwapRoutes.LimitOrderInput,
+    component: LimitOrderInput,
+  },
+  {
+    name: SwapRoutes.LimitOrderOutput,
+    component: LimitOrderOutput,
+  },
+  {
+    name: SwapRoutes.LimitOrderDetails,
+    component: LimitOrderDetails,
   },
 ];
 

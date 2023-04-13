@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "Слишком много ожидающих транзакций в очереди",
   "msg__engine__too_many_derived_accounts": "Слишком много аккаунтов",
   "msg__engine__too_many_hd_wallets": "Слишком много кошельков",
+  "msg__engine__too_many_hw_passphrase_wallets": "Слишком много аппаратных кошельков с парольной фразой",
   "msg__engine__too_many_hw_wallets": "Слишком много аппаратных кошельков",
   "msg__engine__too_many_imported_accounts": "Слишком много аккаунтов с одной цепью",
   "msg__engine__wallet_name_length_error": "Длина имени кошелька превышена.",

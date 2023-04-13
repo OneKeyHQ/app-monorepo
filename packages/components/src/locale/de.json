@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "Zu viele ausstehende Transaktionen in der Warteschlange",
   "msg__engine__too_many_derived_accounts": "Zu viele Konten",
   "msg__engine__too_many_hd_wallets": "Zu viele Geldbörsen",
+  "msg__engine__too_many_hw_passphrase_wallets": "Zu viele Hardware-Passphrase-Wallets",
   "msg__engine__too_many_hw_wallets": "Zu viele Hardware Wallets",
   "msg__engine__too_many_imported_accounts": "Zu viele Single-Chain-Konten",
   "msg__engine__wallet_name_length_error": "Die Länge des Brieftaschennamens ist nicht begrenzt.",

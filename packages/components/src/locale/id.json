@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "Terlalu banyak transaksi tertunda dalam antrean",
   "msg__engine__too_many_derived_accounts": "Terlalu banyak akun",
   "msg__engine__too_many_hd_wallets": "Terlalu banyak dompet",
+  "msg__engine__too_many_hw_passphrase_wallets": "Terlalu banyak dompet Kata Sandi perangkat keras",
   "msg__engine__too_many_hw_wallets": "Terlalu banyak dompet perangkat keras",
   "msg__engine__too_many_imported_accounts": "Terlalu banyak akun rantai tunggal",
   "msg__engine__wallet_name_length_error": "Panjang nama dompet di luar batas.",

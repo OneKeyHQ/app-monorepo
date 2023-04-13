@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "Troppe transazioni in sospeso in coda",
   "msg__engine__too_many_derived_accounts": "Troppi conti",
   "msg__engine__too_many_hd_wallets": "Troppi portafogli",
+  "msg__engine__too_many_hw_passphrase_wallets": "Troppi portafogli hardware con passphrase",
   "msg__engine__too_many_hw_wallets": "Troppi portafogli hardware",
   "msg__engine__too_many_imported_accounts": "Troppi conti a catena singola",
   "msg__engine__wallet_name_length_error": "La lunghezza del nome del portafoglio è fuori limite.",

@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "Quá nhiều giao dịch đang chờ xử lý trong hàng đợi",
   "msg__engine__too_many_derived_accounts": "Quá nhiều tài khoản",
   "msg__engine__too_many_hd_wallets": "Quá nhiều ví",
+  "msg__engine__too_many_hw_passphrase_wallets": "Quá nhiều ví Mật khẩu phần cứng",
   "msg__engine__too_many_hw_wallets": "Quá nhiều ví phần cứng",
   "msg__engine__too_many_imported_accounts": "Quá nhiều tài khoản chuỗi đơn",
   "msg__engine__wallet_name_length_error": "Độ dài của tên ví vượt quá giới hạn.",

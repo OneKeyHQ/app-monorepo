@@ -13,6 +13,8 @@ import type {
 } from '../../views/Swap/typings';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
+type SwapMode = 'swap' | 'limit';
+
 type SwapState = {
   inputTokenNetwork?: Network | null;
   inputToken?: Token;
@@ -34,6 +36,7 @@ type SwapState = {
   responses?: FetchQuoteResponse[];
 
   allowAnotherRecipientAddress?: boolean;
+  mode: SwapMode;
 };
 
 const initialState: SwapState = {
@@ -42,6 +45,7 @@ const initialState: SwapState = {
   typedValue: '',
   independentField: 'INPUT',
   loading: false,
+  mode: 'swap',
 };
 
 export const swapSlice = createSlice({
@@ -168,6 +172,9 @@ export const swapSlice = createSlice({
     setAllowAnotherRecipientAddress(state, action: PayloadAction<boolean>) {
       state.allowAnotherRecipientAddress = action.payload;
     },
+    setMode(state, action: PayloadAction<SwapMode>) {
+      state.mode = action.payload;
+    },
   },
 });
 
@@ -191,6 +198,7 @@ export const {
   clearUserSelectedQuoter,
   setResponses,
   setAllowAnotherRecipientAddress,
+  setMode,
 } = swapSlice.actions;
 
 export default swapSlice.reducer;

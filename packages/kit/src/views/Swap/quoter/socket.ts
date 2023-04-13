@@ -725,7 +725,7 @@ export class SocketQuoter implements Quoter {
         }
       }
     }
-    if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
+    if (Date.now() - tx.addedTime > 60 * 60 * 1000 * 24) {
       return { status: 'failed' };
     }
     return undefined;
@@ -735,7 +735,7 @@ export class SocketQuoter implements Quoter {
     tx: TransactionDetails,
   ): Promise<TransactionProgress> {
     const { networkId, accountId, nonce } = tx;
-    if (nonce) {
+    if (nonce !== undefined) {
       const status =
         await backgroundApiProxy.serviceHistory.queryTransactionNonceStatus({
           networkId,
@@ -752,7 +752,7 @@ export class SocketQuoter implements Quoter {
       return { status: Number(result.status) === 1 ? 'sucesss' : 'failed' };
     }
 
-    if (Date.now() - tx.addedTime > 60 * 60 * 1000) {
+    if (Date.now() - tx.addedTime > 60 * 60 * 1000 * 24) {
       return { status: 'failed' };
     }
     return undefined;

@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "队列中有太多待处理的交易",
   "msg__engine__too_many_derived_accounts": "账户数目超出限制",
   "msg__engine__too_many_hd_wallets": "钱包数目超出限制",
+  "msg__engine__too_many_hw_passphrase_wallets": "隐藏硬件钱包数目超出限制",
   "msg__engine__too_many_hw_wallets": "硬件钱包数目超出限制",
   "msg__engine__too_many_imported_accounts": "单链账户数目超出限制",
   "msg__engine__wallet_name_length_error": "钱包名称长度超出限制。",
