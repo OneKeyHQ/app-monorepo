@@ -1,7 +1,7 @@
 import { Box } from '@onekeyhq/components';
 
 import { useAppSelector } from '../../../../hooks';
-import { MainButton, SwapButton } from '../MainButton';
+import { SwapMainButton  } from '../Buttons/swap';
 import { PaddingControl } from '../PaddingControl';
 
 import { SwapAlert } from './SwapAlert';
@@ -16,9 +16,7 @@ export function SwapMain() {
       <PaddingControl>
         <SwapAlert />
         <Box mt="6" mb="3">
-          <MainButton>
-            <SwapButton />
-          </MainButton>
+          <SwapMainButton />
         </Box>
         {!loading ? <SwapQuote /> : null}
       </PaddingControl>

@@ -1,7 +1,7 @@
 import { Box } from '@onekeyhq/components';
 
 import { useSwapChartMode } from '../../hooks/useSwapUtils';
-import { LimitOrderStateButton, MainButton } from '../MainButton';
+import { LimitOrderMainButton } from '../Buttons/limitOrder';
 import { PaddingControl } from '../PaddingControl';
 
 import { MainContent } from './MainContent';
@@ -19,9 +19,7 @@ export function LimitOrderMain() {
       <PaddingControl>
         <Box my="6">
           <PriceWarning />
-          <MainButton>
-            <LimitOrderStateButton />
-          </MainButton>
+          <LimitOrderMainButton />
         </Box>
       </PaddingControl>
       {mode !== 'chart' ? <PendingSimpleContent /> : null}

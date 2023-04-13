@@ -13,7 +13,7 @@ import {
   toggleDisableExt,
   toggleWalletSwitch,
 } from '@onekeyhq/kit/src/store/reducers/settings';
-import { setSwapMaintain } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
+import { setSwapMaintain, setLimitOrderMaintain } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import {
   backgroundClass,
@@ -28,6 +28,7 @@ import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 type RemoteSetting = {
   enableAppRatings: boolean;
   swapMaintain: boolean;
+  limitOrderMaintain?: boolean;
   enableETH2Unstake: boolean;
   helloVersion: string;
   bookmarkVersion: string;
@@ -54,6 +55,7 @@ export default class ServiceSetting extends ServiceBase {
     );
     dispatch(setEnableETH2Unstake(data.enableETH2Unstake));
     dispatch(setSwapMaintain(data.swapMaintain));
+    dispatch(setLimitOrderMaintain(!!data.limitOrderMaintain));
     let v = '';
     if (platformEnv.isNativeIOS || platformEnv.isMas) {
       if (platformEnv.isNativeIOS && data.helloVersion) {
