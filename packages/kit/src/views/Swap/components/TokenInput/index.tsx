@@ -28,7 +28,6 @@ import { setSendingAccount } from '../../../../store/reducers/swap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 import { formatAmount } from '../../utils';
-import { NetworkName } from '../NetworkName';
 import { TokenDisplay } from '../TokenDisplay';
 
 import type { Token as TokenType } from '../../../../store/typings';
@@ -264,53 +263,49 @@ const TokenInput: FC<TokenInputProps> = ({
               </Box>
             ) : (
               <Box position="absolute" w="full" top="0" right="0">
-                <NumberInput
-                  w="full"
-                  h="auto"
-                  borderWidth={0}
-                  placeholder="0.00"
-                  fontSize={24}
-                  fontWeight="600"
-                  bg="transparent"
-                  _disabled={{ bg: 'transparent' }}
-                  _hover={{ bg: 'transparent' }}
-                  _focus={{ bg: 'transparent' }}
-                  value={inputValue}
-                  borderRadius={0}
-                  onChangeText={onChange}
-                  pb="12"
-                  focusOutlineColor="transparent"
-                  // py="1"
-                  pr="2"
-                  textAlign="right"
-                  isDisabled={isDisabled}
-                  rightCustomElement={null}
-                />
+                <Box w="full" position="relative">
+                  <Box position="absolute" bottom="7" right={2}>
+                    <Box pointerEvents="none">
+                      <Typography.Caption
+                        color="text-subdued"
+                        numberOfLines={2}
+                      >
+                        <FormatCurrency
+                          numbers={[price ?? 0, inputValue ?? 0]}
+                          render={(ele) => (
+                            <Typography.Caption ml={3} color="text-subdued">
+                              {price ? ele : '-'}
+                            </Typography.Caption>
+                          )}
+                        />
+                      </Typography.Caption>
+                    </Box>
+                  </Box>
+                  <NumberInput
+                    w="full"
+                    h="auto"
+                    borderWidth={0}
+                    placeholder="0.00"
+                    fontSize={24}
+                    fontWeight="600"
+                    bg="transparent"
+                    _disabled={{ bg: 'transparent' }}
+                    _hover={{ bg: 'transparent' }}
+                    _focus={{ bg: 'transparent' }}
+                    value={inputValue}
+                    borderRadius={0}
+                    onChangeText={onChange}
+                    pb="12"
+                    focusOutlineColor="transparent"
+                    // py="1"
+                    pr="2"
+                    textAlign="right"
+                    isDisabled={isDisabled}
+                    rightCustomElement={null}
+                  />
+                </Box>
               </Box>
             )}
-          </Box>
-        </Box>
-        <Box
-          display="flex"
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          zIndex="-1"
-          mt="2"
-          px={2}
-        >
-          <NetworkName networkId={token?.networkId} />
-          <Box pointerEvents="none">
-            <Typography.Caption color="text-subdued" numberOfLines={2}>
-              <FormatCurrency
-                numbers={[price ?? 0, inputValue ?? 0]}
-                render={(ele) => (
-                  <Typography.Caption ml={3} color="text-subdued">
-                    {price ? ele : '-'}
-                  </Typography.Caption>
-                )}
-              />
-            </Typography.Caption>
           </Box>
         </Box>
       </Box>

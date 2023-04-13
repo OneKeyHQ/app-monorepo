@@ -1,11 +1,13 @@
 import { useCallback } from 'react';
 
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
+import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IDecodedTx,
   IEncodedTx,
   ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -19,6 +21,8 @@ type SendSuccessCallback = (param: {
   decodedTx?: IDecodedTx;
 }) => Promise<void>;
 
+type SendMessageSuccessCallback = (param: string) => Promise<void>;
+
 type SwapSendParams = {
   encodedTx: IEncodedTx;
   accountId: string;
@@ -31,11 +35,12 @@ type SwapSendParams = {
   showSendFeedbackReceipt?: boolean;
 };
 
-// type SendTxnsParams = {
-//   accountId: string;
-//   networkId: string;
-//   txns: { tx: IEncodedTx, onSuccess?: SendSuccessCallback }[]
-// }
+type SwapSignMessageParams = {
+  accountId: string;
+  networkId: string;
+  unsignedMessage: IUnsignedMessageEvm;
+  onSuccess?: SendMessageSuccessCallback;
+};
 
 export function useSwapSend() {
   const navigation = useAppNavigation();
@@ -83,7 +88,11 @@ export function useSwapSend() {
           }
         } catch (e: any) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          deviceUtils.showErrorToast(e, e?.data?.message || e.message);
+          const message = e?.data?.message || e.message;
+          debugLogger.swap.error(
+            `swap send failed with message ${message as string}`,
+          );
+          deviceUtils.showErrorToast(e, message);
           onFail?.(e as Error);
         }
       } else {
@@ -98,6 +107,7 @@ export function useSwapSend() {
               feeInfoEditable: true,
               feeInfoUseFeeInTx: false,
               encodedTx,
+              hideSendFeedbackReceipt: !showSendFeedbackReceipt,
               onDetail,
               onSuccess: (result, data) => {
                 onSuccess?.({
@@ -111,5 +121,51 @@ export function useSwapSend() {
       }
     },
     [validationSetting, navigation],
+  );
+}
+
+export function useSwapSignMessage() {
+  const navigation = useAppNavigation();
+  const validationSetting = useAppSelector((s) => s.settings.validationSetting);
+  return useCallback(
+    async ({
+      accountId,
+      networkId,
+      unsignedMessage,
+      onSuccess,
+    }: SwapSignMessageParams) => {
+      const walletId = getWalletIdFromAccountId(accountId);
+      const wallet = await backgroundApiProxy.engine.getWallet(walletId);
+      const password = await backgroundApiProxy.servicePassword.getPassword();
+      const secretFree = password && !validationSetting?.Payment;
+      if (wallet.type === 'hw' || (wallet.type !== 'external' && secretFree)) {
+        try {
+          const result =
+            await backgroundApiProxy.serviceTransaction.signMessage({
+              accountId,
+              networkId,
+              unsignedMessage,
+            });
+          await onSuccess?.(result);
+        } catch (e: any) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          deviceUtils.showErrorToast(e, e?.data?.message || e.message);
+        }
+      } else {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendModalRoutes.SignMessageConfirm,
+            params: {
+              accountId,
+              networkId,
+              unsignedMessage,
+              onSuccess,
+            },
+          },
+        });
+      }
+    },
+    [navigation, validationSetting],
   );
 }

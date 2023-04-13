@@ -2,14 +2,13 @@ import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Button, Center, Modal, Typography } from '@onekeyhq/components';
+import { Box, Center, Modal, Typography } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
 
-const SwapFeatures = () => {
+const WelcomeContent = () => {
   const intl = useIntl();
-  const navigation = useNavigation();
   useEffect(() => {
     backgroundApiProxy.serviceSwap.setSwapWelcomeShown(true);
   }, []);
@@ -63,25 +62,23 @@ const SwapFeatures = () => {
           </Box>
         </Box>
       </Box>
-      <Button
-        size="xl"
-        type="primary"
-        mt="4"
-        onPress={() => navigation.goBack()}
-      >
-        {intl.formatMessage({ id: 'action__i_got_it' })}
-      </Button>
     </Box>
   );
 };
 
-const Welcome = () => (
-  <Modal
-    footer={null}
-    scrollViewProps={{
-      children: <SwapFeatures />,
-    }}
-  />
-);
+const Welcome = () => {
+  const navigation = useNavigation();
+  return (
+    <Modal
+      hideSecondaryAction
+      primaryActionTranslationId="action__i_got_it"
+      primaryActionProps={{ size: 'xl', type: 'primary' }}
+      onPrimaryActionPress={() => navigation.goBack()}
+      scrollViewProps={{
+        children: <WelcomeContent />,
+      }}
+    />
+  );
+};
 
 export default Welcome;

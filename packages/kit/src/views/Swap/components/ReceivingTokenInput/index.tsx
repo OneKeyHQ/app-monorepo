@@ -34,7 +34,6 @@ import {
   getNetworkIdImpl,
   recipientMustBeSendingAccount,
 } from '../../utils';
-import { NetworkName } from '../NetworkName';
 import { TokenDisplay } from '../TokenDisplay';
 
 type TokenInputProps = {
@@ -319,7 +318,6 @@ const SendToAnotherAddress = () => {
   );
   const onToggle = useCallback(() => {
     const newValue = !allowAnotherRecipientAddress;
-    backgroundApiProxy.dispatch(setAllowAnotherRecipientAddress(newValue));
     if (newValue) {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Swap,
@@ -341,10 +339,15 @@ const SendToAnotherAddress = () => {
                   accountId,
                 }),
               );
+              backgroundApiProxy.dispatch(
+                setAllowAnotherRecipientAddress(newValue),
+              );
             },
           },
         },
       });
+    } else {
+      backgroundApiProxy.dispatch(setAllowAnotherRecipientAddress(newValue));
     }
   }, [allowAnotherRecipientAddress, outputToken, navigation]);
   if (inputToken && outputToken) {
@@ -445,54 +448,50 @@ const TokenInput: FC<TokenInputProps> = ({
               </Box>
             ) : (
               <Box position="absolute" w="full" top="0" right="0">
-                <NumberInput
-                  w="full"
-                  h="auto"
-                  borderWidth={0}
-                  placeholder="0.00"
-                  fontSize={24}
-                  fontWeight="600"
-                  bg="transparent"
-                  color="text-subdued"
-                  _disabled={{ bg: 'transparent' }}
-                  _hover={{ bg: 'transparent' }}
-                  _focus={{ bg: 'transparent' }}
-                  value={inputValue}
-                  borderRadius={0}
-                  onChangeText={onChange}
-                  // pt="1.5"
-                  pr="2"
-                  pb="12"
-                  textAlign="right"
-                  isDisabled
-                  rightCustomElement={null}
-                  focusOutlineColor="transparent"
-                />
+                <Box w="full" position="relative">
+                  <Box position="absolute" bottom="7" right={2}>
+                    <Box pointerEvents="none">
+                      <Typography.Caption
+                        color="text-subdued"
+                        numberOfLines={2}
+                      >
+                        <FormatCurrency
+                          numbers={[price ?? 0, inputValue ?? 0]}
+                          render={(ele) => (
+                            <Typography.Caption ml={3} color="text-subdued">
+                              {price ? ele : '-'}
+                            </Typography.Caption>
+                          )}
+                        />
+                      </Typography.Caption>
+                    </Box>
+                  </Box>
+                  <NumberInput
+                    w="full"
+                    h="auto"
+                    borderWidth={0}
+                    placeholder="0.00"
+                    fontSize={24}
+                    fontWeight="600"
+                    bg="transparent"
+                    color="text-subdued"
+                    _disabled={{ bg: 'transparent' }}
+                    _hover={{ bg: 'transparent' }}
+                    _focus={{ bg: 'transparent' }}
+                    value={inputValue}
+                    borderRadius={0}
+                    onChangeText={onChange}
+                    // pt="1.5"
+                    pr="2"
+                    pb="12"
+                    textAlign="right"
+                    isDisabled
+                    rightCustomElement={null}
+                    focusOutlineColor="transparent"
+                  />
+                </Box>
               </Box>
             )}
-          </Box>
-        </Box>
-        <Box
-          display="flex"
-          flexDirection="row"
-          justifyContent="space-between"
-          alignItems="center"
-          zIndex="-1"
-          mt="2"
-          px={2}
-        >
-          <NetworkName networkId={token?.networkId} />
-          <Box pointerEvents="none">
-            <Typography.Caption color="text-subdued" numberOfLines={2}>
-              <FormatCurrency
-                numbers={[price ?? 0, inputValue ?? 0]}
-                render={(ele) => (
-                  <Typography.Caption ml={3} color="text-subdued">
-                    {price ? ele : '-'}
-                  </Typography.Caption>
-                )}
-              />
-            </Typography.Caption>
           </Box>
         </Box>
         <SendToAnotherAddress />
