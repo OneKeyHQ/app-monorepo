@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "Demasiadas transacciones pendientes en cola",
   "msg__engine__too_many_derived_accounts": "demasiadas cuentas",
   "msg__engine__too_many_hd_wallets": "demasiadas carteras",
+  "msg__engine__too_many_hw_passphrase_wallets": "Demasiadas carteras de contraseña de hardware",
   "msg__engine__too_many_hw_wallets": "Demasiadas carteras de hardware",
   "msg__engine__too_many_imported_accounts": "Demasiadas cuentas de cadena única",
   "msg__engine__wallet_name_length_error": "La longitud del nombre de la billetera está fuera de límite.",

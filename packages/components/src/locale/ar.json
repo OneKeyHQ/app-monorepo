@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "هناك عدد كبير جدًا من المعاملات المعلقة في قائمة الانتظار",
   "msg__engine__too_many_derived_accounts": "حسابات كثيرة جدًا",
   "msg__engine__too_many_hd_wallets": "عدد كبير جدًا من المحافظ",
+  "msg__engine__too_many_hw_passphrase_wallets": "عدد كبير جدًا من محافظ عبارة مرور الأجهزة",
   "msg__engine__too_many_hw_wallets": "عدد كبير جدًا من محافظ الأجهزة",
   "msg__engine__too_many_imported_accounts": "عدد كبير جدًا من حسابات السلسلة المفردة",
   "msg__engine__wallet_name_length_error": "طول اسم المحفظة خارج عن الحد.",

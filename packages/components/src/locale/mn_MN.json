@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "Хэт олон хүлээгдэж буй гүйлгээ дараалалд байна",
   "msg__engine__too_many_derived_accounts": "Хэт олон бүртгэл байна",
   "msg__engine__too_many_hd_wallets": "Хэт их хэтэвч",
+  "msg__engine__too_many_hw_passphrase_wallets": "Хэт олон техник хангамжийн нууц үг түрийвч",
   "msg__engine__too_many_hw_wallets": "Хэт олон тоног төхөөрөмжийн түрийвч",
   "msg__engine__too_many_imported_accounts": "Хэт олон нэг сүлжээ данс байна",
   "msg__engine__wallet_name_length_error": "Түрийвчний нэр хязгаараас хэтэрсэн байна.",

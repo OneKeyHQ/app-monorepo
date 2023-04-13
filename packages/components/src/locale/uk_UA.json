@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "Забагато незавершених транзакцій у черзі",
   "msg__engine__too_many_derived_accounts": "Забагато облікових записів",
   "msg__engine__too_many_hd_wallets": "Забагато гаманців",
+  "msg__engine__too_many_hw_passphrase_wallets": "Забагато апаратних гаманців Passphrase",
   "msg__engine__too_many_hw_wallets": "Забагато апаратних гаманців",
   "msg__engine__too_many_imported_accounts": "Забагато одноланцюжкових облікових записів",
   "msg__engine__wallet_name_length_error": "Довжина назви гаманця завищена.",

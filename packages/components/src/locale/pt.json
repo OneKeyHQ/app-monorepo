@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "Muitas transações pendentes na fila",
   "msg__engine__too_many_derived_accounts": "Muitas contas",
   "msg__engine__too_many_hd_wallets": "Muitas carteiras",
+  "msg__engine__too_many_hw_passphrase_wallets": "Muitas carteiras de senha de hardware",
   "msg__engine__too_many_hw_wallets": "Muitas carteiras de hardware",
   "msg__engine__too_many_imported_accounts": "Muitas contas de cadeia única",
   "msg__engine__wallet_name_length_error": "O comprimento do nome da carteira está fora do limite.",

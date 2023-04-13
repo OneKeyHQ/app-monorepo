@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "Too many pending transactions in queue",
   "msg__engine__too_many_derived_accounts": "Too many accounts",
   "msg__engine__too_many_hd_wallets": "Too many wallets",
+  "msg__engine__too_many_hw_passphrase_wallets": "Too many hardware Passphrase wallets",
   "msg__engine__too_many_hw_wallets": "Too many hardware wallets",
   "msg__engine__too_many_imported_accounts": "Too many single-chain accounts",
   "msg__engine__wallet_name_length_error": "The length of wallet name is out of limit.",

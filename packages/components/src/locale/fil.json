@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "Masyadong maraming nakabinbing transaksyon sa pila",
   "msg__engine__too_many_derived_accounts": "Masyadong maraming account",
   "msg__engine__too_many_hd_wallets": "Masyadong maraming wallet",
+  "msg__engine__too_many_hw_passphrase_wallets": "Masyadong maraming hardware Passphrase wallet",
   "msg__engine__too_many_hw_wallets": "Masyadong maraming hardware wallet",
   "msg__engine__too_many_imported_accounts": "Masyadong maraming single-chain na account",
   "msg__engine__wallet_name_length_error": "Ang haba ng pangalan ng wallet ay wala sa limitasyon.",

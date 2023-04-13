@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "มีธุรกรรมที่ค้างอยู่ในคิวมากเกินไป",
   "msg__engine__too_many_derived_accounts": "มีบัญชีมากเกินไป",
   "msg__engine__too_many_hd_wallets": "กระเป๋าตังค์เยอะมาก",
+  "msg__engine__too_many_hw_passphrase_wallets": "มีกระเป๋ารหัสผ่านรหัสผ่านฮาร์ดแวร์มากเกินไป",
   "msg__engine__too_many_hw_wallets": "มีกระเป๋าฮาร์ดแวร์มากเกินไป",
   "msg__engine__too_many_imported_accounts": "บัญชีลูกโซ่เดียวมากเกินไป",
   "msg__engine__wallet_name_length_error": "ความยาวของชื่อกระเป๋าเงินเกินขีดจำกัด",

@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "Trop de transactions en attente dans la file d'attente",
   "msg__engine__too_many_derived_accounts": "Trop de comptes",
   "msg__engine__too_many_hd_wallets": "Trop de portefeuilles",
+  "msg__engine__too_many_hw_passphrase_wallets": "Trop de portefeuilles matériels Passphrase",
   "msg__engine__too_many_hw_wallets": "Trop de portefeuilles matériels",
   "msg__engine__too_many_imported_accounts": "Trop de comptes à chaîne unique",
   "msg__engine__wallet_name_length_error": "La longueur du nom du portefeuille est hors limite.",

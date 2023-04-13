@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "대기열에 보류 중인 트랜잭션이 너무 많습니다.",
   "msg__engine__too_many_derived_accounts": "계정이 너무 많습니다.",
   "msg__engine__too_many_hd_wallets": "지갑이 너무 많다",
+  "msg__engine__too_many_hw_passphrase_wallets": "너무 많은 하드웨어 암호 지갑",
   "msg__engine__too_many_hw_wallets": "너무 많은 하드웨어 지갑",
   "msg__engine__too_many_imported_accounts": "단일 체인 계정이 너무 많습니다.",
   "msg__engine__wallet_name_length_error": "지갑 이름의 길이가 제한을 벗어났습니다.",

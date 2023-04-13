@@ -1804,6 +1804,7 @@
   "msg__engine__pending_queue_too_long": "সারিবদ্ধভাবে অনেকগুলি মুলতুবি লেনদেন",
   "msg__engine__too_many_derived_accounts": "অনেক বেশি অ্যাকাউন্ট",
   "msg__engine__too_many_hd_wallets": "অনেক মানিব্যাগ",
+  "msg__engine__too_many_hw_passphrase_wallets": "অনেকগুলি হার্ডওয়্যার পাসফ্রেজ ওয়ালেট৷",
   "msg__engine__too_many_hw_wallets": "অনেক হার্ডওয়্যার ওয়ালেট",
   "msg__engine__too_many_imported_accounts": "অনেকগুলো একক-চেইন অ্যাকাউন্ট",
   "msg__engine__wallet_name_length_error": "ওয়ালেট নামের দৈর্ঘ্য সীমার বাইরে।",
