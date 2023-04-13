@@ -10,6 +10,7 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
+import { refreshHistory } from '../../store/reducers/refresher';
 import { setHideScamHistory } from '../../store/reducers/settings';
 import { showOverlay } from '../../utils/overlayUtils';
 
@@ -43,7 +44,10 @@ function TokenValueSettingsBottomSheetModal({
             labelType="false"
             isChecked={hideScamHistory}
             onToggle={() =>
-              backgroundApiProxy.dispatch(setHideScamHistory(!hideScamHistory))
+              backgroundApiProxy.dispatch(
+                setHideScamHistory(!hideScamHistory),
+                refreshHistory(),
+              )
             }
           />
         </HStack>

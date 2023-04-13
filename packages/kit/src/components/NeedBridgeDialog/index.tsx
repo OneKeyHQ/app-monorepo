@@ -18,9 +18,7 @@ const NeedBridgeDialog: FC<NeedBridgeDialogProps> = ({ onClose }) => {
   return (
     <Dialog
       visible
-      onClose={() => {
-        onClose?.();
-      }}
+      onClose={onClose}
       contentProps={{
         icon: <Icon name="ExclamationTriangleOutline" size={48} />,
         title: intl.formatMessage({ id: 'modal__need_install_onekey_bridge' }),

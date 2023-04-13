@@ -36,9 +36,9 @@
 @property (nonatomic, copy) NSString *spinnerColor;
 
 @property (nonatomic, assign) BOOL isDragging;
-@property (nonatomic, assign) BOOL willDecelerate;
 
 @property (nonatomic, assign) CGFloat offsetY;
+@property (nonatomic, weak) UIWindow *window;
 
 
 @end
@@ -195,6 +195,12 @@
   }
 }
 
+-(UIWindow *)window{
+  if(!_window) {
+    _window = RCTKeyWindow();
+  }
+  return _window;
+}
 #pragma mark - JXPagingViewDelegate
 
 - (void)pagerView:(JXPagerView *)pagerView mainTableViewWillBeginDragging:(UIScrollView *)scrollView{
@@ -203,23 +209,24 @@
 }
 
 - (void)pagerView:(JXPagerView *)pagerView mainTableViewDidScroll:(UIScrollView *)scrollView {
-  UIWindow *window = RCTKeyWindow();
-  CGRect rect = [self convertRect:self.frame toView:window];
+  CGRect rect = [self convertRect:self.frame toView:self.window];
   BOOL isPhone = [[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPhone;
-  if (isPhone && CGRectGetMinX(rect) > 0 && (self.isDragging || self.willDecelerate)) {
+  if (isPhone && CGRectGetMinX(rect) > 0 && self.isDragging) {
     CGPoint offset = scrollView.contentOffset;
-    offset.y = self.offsetY;
-    [scrollView setContentOffset:offset];
+    if (offset.y < 0) {
+      offset.y = 0;
+      [scrollView setContentOffset:offset];
+    } else {
+      if (offset.y != self.offsetY) {
+        offset.y = self.offsetY;
+        [scrollView setContentOffset:offset];
+      }
+    }
   }
 }
 
 - (void)pagerView:(JXPagerView *)pagerView mainTableViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate {
   self.isDragging = NO;
-  self.willDecelerate = decelerate;
-}
-
-- (void)pagerView:(JXPagerView *)pagerView mainTableViewDidEndDecelerating:(UIScrollView *)scrollView {
-  self.willDecelerate = NO;
 }
 
 - (UIView *)tableHeaderViewInPagerView:(JXPagerView *)pagerView {

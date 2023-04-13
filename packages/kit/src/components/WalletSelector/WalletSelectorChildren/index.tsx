@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Box } from '@onekeyhq/components';
@@ -21,4 +23,4 @@ function WalletSelectorChildren() {
   );
 }
 
-export default WalletSelectorChildren;
+export default memo(WalletSelectorChildren);

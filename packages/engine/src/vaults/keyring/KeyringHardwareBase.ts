@@ -5,7 +5,10 @@ import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import { KeyringBase } from './KeyringBase';
 
 import type { DBAccount } from '../../types/account';
-import type { IPrepareAccountByAddressIndexParams } from '../types';
+import type {
+  IHardwareGetAddressParams,
+  IPrepareAccountByAddressIndexParams,
+} from '../types';
 
 export type WalletPassphraseState = {
   passphraseState?: string;

@@ -9,6 +9,7 @@ import { StyleSheet } from 'react-native';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useNavigationActions } from '../../hooks';
 import reducerAccountSelector from '../../store/reducers/reducerAccountSelector';
 
 import WalletSelectorChildren from './WalletSelectorChildren';
@@ -28,11 +29,18 @@ export function WalletSelectorMobile(props: DrawerContentComponentProps) {
 
   const { dispatch } = backgroundApiProxy;
   const drawerStatus = useDrawerStatus();
+  const { closeDrawer } = useNavigationActions();
   const isDrawerOpen = drawerStatus === 'open';
 
   useEffect(() => {
     dispatch(updateMobileWalletSelectorDrawerOpen(isDrawerOpen));
   }, [dispatch, isDrawerOpen]);
+
+  useEffect(() => {
+    if (!isVerticalLayout && isDrawerOpen) {
+      closeDrawer();
+    }
+  }, [closeDrawer, isDrawerOpen, isVerticalLayout]);
 
   if (!isVerticalLayout) {
     return null;

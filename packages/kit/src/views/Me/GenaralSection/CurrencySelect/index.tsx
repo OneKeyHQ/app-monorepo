@@ -18,6 +18,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
+import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useDebounce, useSettings } from '../../../../hooks';
@@ -38,7 +39,7 @@ const PopularCard: FC<PopularCardProps> = ({ currency, index, onPress }) => {
   const { screenWidth } = useUserDevice();
   const { width, ml } = useMemo(() => {
     const xSpace = isVerticalLayout ? 32 : 48;
-    const boxWidth = !isVerticalLayout ? 720 : screenWidth;
+    const boxWidth = screenWidth > SCREEN_SIZE.LARGE ? 720 : screenWidth;
     if (boxWidth >= 720) {
       return {
         width: Math.floor((boxWidth - xSpace - 12 * 2) / 3),
@@ -176,7 +177,12 @@ type CurrencySectionLableProps = {
 };
 
 const CurrencySectionLable: FC<CurrencySectionLableProps> = ({ title }) => (
-  <Box px={{ base: '16px', md: '24px' }} py={2} bgColor="background-default">
+  <Box
+    px={{ base: '16px', md: '24px' }}
+    py={2}
+    bgColor="background-default"
+    borderBottomRadius="18px"
+  >
     <Typography.Subheading color="text-subdued">{title}</Typography.Subheading>
   </Box>
 );

@@ -20,7 +20,6 @@ const DappOpenHintDialog: FC<DappOpenHintDialogProps> = ({
   return (
     <Dialog
       visible
-      hasFormInsideDialog
       onClose={() => {
         onVisibilityChange?.(false);
       }}

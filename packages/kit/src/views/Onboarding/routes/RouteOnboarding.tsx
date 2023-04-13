@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from 'react';
 
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { RootSiblingParent } from 'react-native-root-siblings';
 
 import { RouteKeytag } from '@onekeyhq/kit/src/views/KeyTag/Routes/RouteKeytag';
 
@@ -112,14 +111,12 @@ export default function RouteOnboarding() {
   }, []);
 
   return (
-    <RootSiblingParent>
-      <StackNavigator.Navigator
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        <StackNavigator.Group>{stackScreens}</StackNavigator.Group>
-      </StackNavigator.Navigator>
-    </RootSiblingParent>
+    <StackNavigator.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <StackNavigator.Group>{stackScreens}</StackNavigator.Group>
+    </StackNavigator.Navigator>
   );
 }

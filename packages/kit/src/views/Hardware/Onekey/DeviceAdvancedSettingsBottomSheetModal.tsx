@@ -98,7 +98,7 @@ function DeviceAdvancedSettings({
             onError={onCloseOverlay}
           />
         );
-      }, true);
+      });
     }
   }, [deviceConnectId, deviceId, enableDevicePassphrase]);
 
@@ -244,16 +244,13 @@ const showDeviceAdvancedSettings = ({
   walletId: string;
   deviceType: IDeviceType | undefined;
 }) => {
-  showOverlay(
-    (close) => (
-      <DeviceAdvancedSettingsBottomSheetModal
-        walletId={walletId}
-        deviceType={deviceType}
-        closeOverlay={close}
-      />
-    ),
-    true,
-  );
+  showOverlay((close) => (
+    <DeviceAdvancedSettingsBottomSheetModal
+      walletId={walletId}
+      deviceType={deviceType}
+      closeOverlay={close}
+    />
+  ));
 };
 
 export default showDeviceAdvancedSettings;

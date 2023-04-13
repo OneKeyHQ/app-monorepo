@@ -177,6 +177,7 @@ const ReceiveToken = () => {
           alignItems="center"
           mt={isVerticalLayout ? '32px' : '24px'}
           mx="auto"
+          maxWidth="full"
         >
           <Text
             textAlign="center"

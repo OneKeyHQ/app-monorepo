@@ -1,26 +1,26 @@
 import type { FC } from 'react';
 
 import { StyleSheet, View } from 'react-native';
-import { RootSiblingPortal } from 'react-native-root-siblings';
 
+import { FULLWINDOW_OVERLAY_PORTAL } from '@onekeyhq/kit/src/utils/overlayUtils';
 import { PortalEntry } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const OverlayContainer: FC<{ useFullWindowForIOS?: boolean }> = ({
-  useFullWindowForIOS,
-  ...props
-}) => {
+import type { StyleProp, ViewStyle } from 'react-native';
+
+const OverlayContainer: FC<{
+  useFullWindowForIOS?: boolean;
+  style?: StyleProp<ViewStyle>;
+}> = ({ useFullWindowForIOS, style, ...props }) => {
   const content = (
     <View
       // testID="OverlayContainer-View"
       pointerEvents="box-none"
-      style={StyleSheet.absoluteFill}
+      style={[StyleSheet.absoluteFill, style]}
       {...props}
     />
   );
-  if (useFullWindowForIOS && platformEnv.isNativeIOS) {
-    return <PortalEntry target="Root-FullWindowOverlay">{content}</PortalEntry>;
-  }
-  return <RootSiblingPortal>{content}</RootSiblingPortal>;
+  return (
+    <PortalEntry target={FULLWINDOW_OVERLAY_PORTAL}>{content}</PortalEntry>
+  );
 };
 export default OverlayContainer;
