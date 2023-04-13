@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { cacheDirectory } from 'expo-file-system';
 import { useIntl } from 'react-intl';
 
@@ -16,6 +17,18 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { HomeRoutes } from '../../../routes/routesEnum';
+
+import type { RootRoutes } from '../../../routes/routesEnum';
+import type { HomeRoutesParams, RootRoutesParams } from '../../../routes/types';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type NavigationProps = CompositeNavigationProp<
+  NativeStackNavigationProp<RootRoutesParams, RootRoutes.Main>,
+  NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.ClearCache>
+>;
+
 const getShareModule = async () => {
   if (!platformEnv.isNative) return null;
   return (await import('react-native-share')).default;
@@ -25,6 +38,7 @@ export const FooterAction = () => {
   const intl = useIntl();
 
   const { themeVariant } = useTheme();
+  const navigation = useNavigation<NavigationProps>();
 
   const getLogName = useCallback(() => {
     const str = new Date().toISOString().replace(/[-:.]/g, '');
@@ -119,6 +133,37 @@ export const FooterAction = () => {
           )}
         </Typography.Body2>
       </Pressable>
+
+      <Box
+        mt="24px"
+        borderRadius="12"
+        bg="surface-default"
+        borderWidth={themeVariant === 'light' ? 1 : undefined}
+        borderColor="border-subdued"
+      >
+        <Pressable
+          display="flex"
+          flexDirection="row"
+          alignItems="center"
+          py={4}
+          px={{ base: 4, md: 6 }}
+          onPress={() => {
+            navigation.navigate(HomeRoutes.ClearCache);
+          }}
+        >
+          <Icon name="FolderMinusOutline" />
+          <Text
+            typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
+            flex={1}
+            mx={3}
+          >
+            {intl.formatMessage({ id: 'action__clear_cache' })}
+          </Text>
+          <Box>
+            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+          </Box>
+        </Pressable>
+      </Box>
     </Box>
   );
 };

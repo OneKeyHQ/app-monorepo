@@ -177,6 +177,12 @@ function handleDeepLinkUrl(
   }
 }
 
+function clearWebData() {
+  session.defaultSession.clearStorageData({
+    storages: ['cookies', 'appcache'],
+  });
+}
+
 function createMainWindow() {
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
@@ -340,6 +346,10 @@ function createMainWindow() {
     logger.debug('restoreMainWindow receive');
     browserWindow.show();
     event.reply('app/restoreMainWindow', true);
+  });
+
+  ipcMain.on('app/clearWebViewData', () => {
+    clearWebData();
   });
 
   // reset appState to undefined  to avoid screen lock.
