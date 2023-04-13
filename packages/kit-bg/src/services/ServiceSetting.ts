@@ -13,7 +13,10 @@ import {
   toggleDisableExt,
   toggleWalletSwitch,
 } from '@onekeyhq/kit/src/store/reducers/settings';
-import { setSwapMaintain, setLimitOrderMaintain } from '@onekeyhq/kit/src/store/reducers/swapTransactions';
+import {
+  setLimitOrderMaintain,
+  setSwapMaintain,
+} from '@onekeyhq/kit/src/store/reducers/swapTransactions';
 import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import {
   backgroundClass,

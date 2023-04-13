@@ -22,7 +22,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatCurrency } from '../../../components/Format';
-import { useActiveWalletAccount, useNetworkSimple } from '../../../hooks';
+import { useActiveWalletAccount } from '../../../hooks';
 import { useAppSelector } from '../../../hooks/redux';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { useSingleToken } from '../../../hooks/useTokens';
@@ -50,7 +50,6 @@ export default function UnstakeAmount() {
   const route = useRoute<RouteProps>();
   const { networkId, tokenIdOnNetwork } = route.params;
   const { account, accountId } = useActiveWalletAccount();
-  const [isLoading, setIsLoading] = useState(false);
   const keleDashboardGlobal = useAppSelector(
     (s) => s.staking.keleDashboardGlobal,
   );
@@ -64,8 +63,6 @@ export default function UnstakeAmount() {
   const intlMinutes = useIntlMinutes(Math.floor(sec / 60));
 
   const [amount, setAmount] = useState('');
-
-  const network = useNetworkSimple(networkId);
 
   const { token: tokenInfo } = useSingleToken(
     networkId,
@@ -134,10 +131,9 @@ export default function UnstakeAmount() {
       hideSecondaryAction
       primaryActionProps={{
         isDisabled: !!errorMsg || !!minAmountErrMsg,
-        isLoading,
       }}
       onPrimaryActionPress={() => {
-        if (!account || !network || !tokenInfo) {
+        if (!account || !tokenInfo) {
           return;
         }
         const amountToSend = amount;
@@ -158,71 +154,49 @@ export default function UnstakeAmount() {
           method: 'post',
           api_param: apiParams,
         };
-
-        try {
-          setIsLoading(true);
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.Send,
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendModalRoutes.SignMessageConfirm,
             params: {
-              screen: SendModalRoutes.SignMessageConfirm,
-              params: {
-                accountId: account.id,
-                networkId: tokenInfo.networkId,
-                unsignedMessage: {
-                  type: 1,
-                  message: JSON.stringify(signUnstakeParams),
-                },
-                onSuccess: async (signHash: string) => {
-                  const res = await backgroundApiProxy.serviceStaking.unstake({
-                    ...apiParams,
-                    networkId: tokenInfo.networkId,
-                    pirvSignRaw: JSON.stringify(signUnstakeParams),
-                    signHash,
-                  });
-                  // eslint-disable-next-line
-                  if (res.code !== 0 && res.message) {
-                    ToastManager.show(
-                      // eslint-disable-next-line
-                      { title: res.message as string },
-                      { type: 'error' },
-                    );
-                  } else {
-                    setAmount('');
-                    navigation.replace(RootRoutes.Modal, {
-                      screen: ModalRoutes.Staking,
+              accountId: account.id,
+              networkId: tokenInfo.networkId,
+              unsignedMessage: {
+                type: 1,
+                message: JSON.stringify(signUnstakeParams),
+              },
+              onSuccess: async (signHash: string) => {
+                const res = await backgroundApiProxy.serviceStaking.unstake({
+                  ...apiParams,
+                  networkId: tokenInfo.networkId,
+                  pirvSignRaw: JSON.stringify(signUnstakeParams),
+                  signHash,
+                });
+                if (res.code !== 0 && res.message) {
+                  ToastManager.show({ title: res.message }, { type: 'error' });
+                } else {
+                  setAmount('');
+                  navigation.replace(RootRoutes.Modal, {
+                    screen: ModalRoutes.Staking,
+                    params: {
+                      screen: StakingRoutes.StakedETHOnKele,
                       params: {
-                        screen: StakingRoutes.StakedETHOnKele,
-                        params: {
-                          networkId,
-                        },
+                        networkId,
                       },
-                    });
-                    ToastManager.show({
-                      title: intl.formatMessage({ id: 'msg__success' }),
-                    });
-                    backgroundApiProxy.serviceStaking.fetchMinerOverview({
-                      networkId,
-                      accountId,
-                    });
-                  }
-                },
+                    },
+                  });
+                  ToastManager.show({
+                    title: intl.formatMessage({ id: 'msg__success' }),
+                  });
+                  backgroundApiProxy.serviceStaking.fetchMinerOverview({
+                    networkId,
+                    accountId,
+                  });
+                }
               },
             },
-          });
-        } catch (e: any) {
-          console.error(e);
-          const { key: errorKey = '' } = e;
-          if (errorKey === 'form__amount_invalid') {
-            ToastManager.show({
-              title: intl.formatMessage(
-                { id: 'form__amount_invalid' },
-                { 0: tokenInfo?.symbol ?? '' },
-              ),
-            });
-          }
-        } finally {
-          setIsLoading(false);
-        }
+          },
+        });
       }}
     >
       <Box flex="1">

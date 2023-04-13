@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/kit/src/store/reducers/staking';
 import type {
   KeleDashboardGlobal,
+  KeleHttpResponse,
   KeleIncomeDTO,
   KeleMinerOverview,
   KeleOpHistoryDTO,
@@ -183,8 +184,7 @@ export default class ServiceStaking extends ServiceBase {
     const baseUrl = this.getKeleBaseUrl(params.networkId);
     const url = `${baseUrl}/unstake`;
     const res = await this.client.post(url, rest);
-    // eslint-disable-next-line
-    return res?.data;
+    return res.data as KeleHttpResponse;
   }
 
   @backgroundMethod()
@@ -222,8 +222,7 @@ export default class ServiceStaking extends ServiceBase {
       amount: params.amount,
       address: account.address,
     });
-    // eslint-disable-next-line
-    return res.data;
+    return res.data as KeleHttpResponse;
   }
 
   async getKeleOpHistory(params: {
