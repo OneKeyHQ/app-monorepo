@@ -442,3 +442,8 @@ export type TokenListItem = {
   networkId: string;
   tokens: Token[];
 };
+
+export type TypedPrice = {
+  reversed?: boolean;
+  value: string;
+};

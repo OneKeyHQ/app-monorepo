@@ -3,6 +3,7 @@ import {
   setInstantRate,
   setLoading,
   setMktRate,
+  setTypedPrice,
 } from '../../store/reducers/limitOrder';
 
 import { SwapQuoter } from './quoter';
@@ -27,6 +28,7 @@ export const fetchOrderInstantRate = async ({
       setInstantRate(''),
       setMktRate(''),
       setLoading(false),
+      setTypedPrice({ reversed: false, value: '' }),
     );
     return;
   }
@@ -36,13 +38,8 @@ export const fetchOrderInstantRate = async ({
   refs.count += 1;
   try {
     const res = await SwapQuoter.client.fetchLimitOrderQuote(params);
-    if (refs.params === params) {
-      if (res) {
-        backgroundApiProxy.dispatch(
-          setInstantRate(res.instantRate),
-          setMktRate(res.instantRate),
-        );
-      }
+    if (res && refs.params === params) {
+      backgroundApiProxy.serviceLimitOrder.setRate(res.instantRate);
     }
   } finally {
     refs.count -= 1;

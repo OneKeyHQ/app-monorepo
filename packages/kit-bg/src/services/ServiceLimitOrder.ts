@@ -7,8 +7,11 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import {
   resetState,
   setActiveAccount,
+  setInstantRate,
+  setMktRate,
   setTokenIn,
   setTokenOut,
+  setTypedPrice,
   setTypedValue,
 } from '@onekeyhq/kit/src/store/reducers/limitOrder';
 import {
@@ -563,6 +566,17 @@ class ServiceLimitOrder extends ServiceBase {
         });
       }
     }
+  }
+
+  @backgroundMethod()
+  async setRate(rate: string) {
+    const { dispatch, appSelector } = this.backgroundApi;
+    const actions: any[] = [setMktRate(rate)];
+    const instantRate = appSelector((s) => s.limitOrder.instantRate);
+    if (!instantRate) {
+      actions.push(setInstantRate(rate), setTypedPrice({ value: rate }));
+    }
+    dispatch(...actions);
   }
 }
 
