@@ -96,6 +96,7 @@ export type DesktopAPI = {
   ) => void;
   stopServer: () => void;
   quitApp: () => void;
+  clearWebViewData: () => void;
 };
 declare global {
   interface Window {
@@ -265,6 +266,9 @@ const desktopApi = {
   },
   quitApp: () => {
     ipcRenderer.send('app/quit');
+  },
+  clearWebViewData: () => {
+    ipcRenderer.send('app/clearWebViewData');
   },
 };
 
