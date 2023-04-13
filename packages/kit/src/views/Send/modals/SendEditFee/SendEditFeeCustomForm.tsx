@@ -455,7 +455,9 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
 
         {!isEIP1559Fee && (
           <Form.Item
-            label={intl.formatMessage({ id: 'content__gas_price' })}
+            label={`${intl.formatMessage({
+              id: 'content__gas_price',
+            })} (${feeSymbol})`}
             control={control}
             name="gasPrice"
             rules={{
