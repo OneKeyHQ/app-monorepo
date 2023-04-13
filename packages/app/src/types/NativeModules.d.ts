@@ -53,6 +53,10 @@ export interface MinimizerInterface extends NativeModule {
   minimize: () => void;
 }
 
+export interface CacheManagerInterface extends NativeModule {
+  clearWebViewData: () => Promise<boolean>;
+}
+
 declare module 'react-native' {
   interface NativeModulesStatic {
     HTTPServerManager: HTTPServerManagerInterface;
@@ -61,5 +65,6 @@ declare module 'react-native' {
     SplashScreenManager: SplashScreenManagerInterface;
     JPushManager: JPushManagerInterface;
     Minimizer: MinimizerInterface;
+    CacheManager: CacheManagerInterface;
   }
 }

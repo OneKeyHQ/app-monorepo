@@ -86,6 +86,8 @@ const CurrencySelectModal = createLazyComponent(
   () => import('./CurrencySelect'),
 );
 
+const ClearCacheModal = createLazyComponent(() => import('./ClearCache'));
+
 const modalStackScreenList = [
   {
     name: ModalRoutes.CreateAccount,
@@ -233,6 +235,7 @@ const modalStackScreenList = [
     component: BulkSender,
   },
   { name: ModalRoutes.Market, component: Market },
+  { name: ModalRoutes.ClearCache, component: ClearCacheModal },
 ];
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();
