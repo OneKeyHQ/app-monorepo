@@ -46,6 +46,12 @@ class SimpleDbEntityUtxoAccounts extends SimpleDbEntityBase<ISimpleDbEntityUtxoD
     );
   }
 
+  async getCoinControlById(id: string) {
+    const rawData = await this.getRawData();
+    const items = rawData?.utxos ?? [];
+    return items.find((item) => item.id === id);
+  }
+
   // update
   async updateCoinControlItem(id: string, option: CoinControlOption) {
     const rawData = await this.getRawData();
