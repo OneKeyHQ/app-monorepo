@@ -7,6 +7,7 @@ import BigNumber from 'bignumber.js';
 
 import { ToastManager } from '@onekeyhq/components';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
+import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IDecodedTx,
@@ -85,8 +86,10 @@ export function useBatchSendConfirmFeeInfoPayload({
       const priceInfo = info.prices[priceIndex];
       return {
         eip1559: info.eip1559,
-        price: priceInfo,
         limit: info.limit,
+        ...(info.eip1559
+          ? { price1559: priceInfo as EIP1559Fee }
+          : { price: priceInfo as string }),
       };
     },
     [],
@@ -141,7 +144,7 @@ export function useBatchSendConfirmFeeInfoPayload({
             isUnapprovedBatchTx = true;
             let standardLimit = 0;
             let maxLimit = 0;
-            const gasPrice = await backgroundApiProxy.engine.getGasPrice(
+            const { prices } = await backgroundApiProxy.engine.getGasInfo(
               networkId,
             );
 
@@ -164,18 +167,29 @@ export function useBatchSendConfirmFeeInfoPayload({
               maxLimit = BigNumber.min(standardLimit * 3, maxLimit).toNumber();
             }
 
+            const eip1559 = Boolean(
+              prices?.length &&
+                prices?.every((price) => typeof price === 'object'),
+            );
+
+            const price = prices[prices.length - 1];
+
             currentInfoUnit = {
-              eip1559: typeof gasPrice[0] === 'object',
+              eip1559,
               limit: String(maxLimit),
-              price: gasPrice[gasPrice.length - 1],
+              ...(eip1559
+                ? { price1559: price as EIP1559Fee }
+                : { price: price as string }),
             };
 
             minInfoUnit = {
-              eip1559: typeof gasPrice[0] === 'object',
+              eip1559,
               limit: String(standardLimit || maxLimit),
-              price: gasPrice[gasPrice.length - 1],
+              ...(eip1559
+                ? { price1559: price as EIP1559Fee }
+                : { price: price as string }),
             };
-            info.prices = gasPrice;
+            info.prices = prices;
           } else {
             const { code: errCode, data: innerError } = error as {
               code?: number;

@@ -3,13 +3,14 @@ import Box from '../Box';
 import Icon from '../Icon';
 import Typography from '../Typography';
 
-export function FormErrorMessage({
-  message,
-  isAlertStyle,
-}: {
-  message: string;
+type Props = {
   isAlertStyle?: boolean;
-}) {
+  message?: string;
+} & Partial<React.ComponentProps<typeof Alert>>;
+
+export function FormErrorMessage(props: Props) {
+  const { isAlertStyle, message, alertType, dismiss, ...rest } = props;
+
   if (!message) {
     return null;
   }
@@ -17,7 +18,12 @@ export function FormErrorMessage({
   if (isAlertStyle) {
     return (
       <Box>
-        <Alert alertType="error" title={message} />
+        <Alert
+          title={message}
+          alertType={alertType ?? 'error'}
+          dismiss={dismiss ?? false}
+          {...rest}
+        />
       </Box>
     );
   }

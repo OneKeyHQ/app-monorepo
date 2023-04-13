@@ -50,6 +50,10 @@ function fixNumberValue(t: string, decimal?: number) {
   if (text) {
     result = text.replace(/^\D*(\d*(?:\.\d*)?).*$/g, '$1');
 
+    if (decimal === 0) {
+      result = result.replace('.', '');
+    }
+
     // limit max decimal
     if (decimal && decimal > 0) {
       const position = text.indexOf('.');

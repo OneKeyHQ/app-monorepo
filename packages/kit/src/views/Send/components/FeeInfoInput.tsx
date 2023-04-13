@@ -2,11 +2,13 @@ import type { ReactElement, ReactNode } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { TouchableOpacity } from 'react-native';
 
 import {
   Box,
+  HStack,
   Icon,
   Pressable,
   Spinner,
@@ -21,6 +23,7 @@ import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../utils/sendConfirmConsts';
 import { useNetworkFeeInfoEditable } from '../utils/useNetworkFeeInfoEditable';
 
 import { FeeSpeedLabel } from './FeeSpeedLabel';
+import { FeeSpeedTime } from './FeeSpeedTime';
 import { TxTitleDetailView } from './TxTitleDetailView';
 
 import type {
@@ -427,87 +430,72 @@ function FeeInfoInputForConfirmLite({
     totalFeeInNative = encodedTx.totalFeeInNative;
   }
 
-  // edit and loading icon
-  const icon: ReactElement | null = useMemo(() => {
-    if (
-      !encodedTx ||
-      sendConfirmParams.signOnly ||
-      !!feeInfoPayload?.info?.disableEditFee
-    ) {
-      return null;
-    }
-    if (loading) {
-      return <Spinner size="sm" />;
-    }
-    if (feeInfoPayload && editable && networkFeeInfoEditable) {
-      return <Icon size={20} name="PencilMini" />;
-    }
-    return null;
-  }, [
-    editable,
-    encodedTx,
-    feeInfoPayload,
-    loading,
-    networkFeeInfoEditable,
-    sendConfirmParams.signOnly,
-  ]);
+  const feeInfoEditable = feeInfoPayload && editable && networkFeeInfoEditable;
 
   const title = useMemo(() => {
     if (!encodedTx || !feeInfoPayload) {
       return null;
     }
-    const totalNative = totalFeeInNative || '0';
 
-    const typography = {
-      sm: 'Body1Strong',
-      md: 'Body2Strong',
-    } as any;
+    const { custom } = feeInfoPayload.selected;
+
+    const index = isPreset
+      ? feeInfoPayload?.selected?.preset
+      : custom?.similarToPreset;
+    const waitingSeconds = isPreset
+      ? feeInfoPayload?.info?.waitingSeconds?.[Number(index)]
+      : custom?.waitingSeconds;
     return (
-      <Box flexDirection="row" alignItems="center">
-        <Text typography={typography}>
-          {`${totalNative} ${feeInfoPayload?.info?.nativeSymbol || ''}`}
-        </Text>
-        <Box w={2} />
-        {icon}
-      </Box>
+      <HStack alignItems="center">
+        <HStack flex={1} space={2}>
+          <Text typography="Body1Strong">
+            <FeeSpeedLabel
+              prices={feeInfoPayload?.info?.prices}
+              isCustom={!isPreset}
+              index={feeInfoPayload?.selected?.preset}
+            />
+          </Text>
+          <Text typography="Body1Strong">
+            <FeeSpeedTime
+              prices={feeInfoPayload?.info?.prices}
+              index={index ?? 0}
+              waitingSeconds={waitingSeconds}
+              withColor
+            />
+          </Text>
+        </HStack>
+        {feeInfoEditable && (
+          <Icon name="ChevronRightMini" color="icon-subdued" />
+        )}
+      </HStack>
     );
-  }, [encodedTx, feeInfoPayload, icon, totalFeeInNative]);
+  }, [encodedTx, feeInfoEditable, feeInfoPayload, isPreset]);
 
   const subTitle = useMemo(() => {
     if (!encodedTx || !feeInfoPayload) {
       return null;
     }
-    const totalNative = totalFeeInNative || '0';
-    const color = 'text-subdued';
-    if (isPreset) {
-      return (
-        <Text color={color}>
-          <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
-          <FormatCurrencyNativeOfAccount
-            networkId={networkId}
-            accountId={accountId}
-            value={totalNative}
-            render={(ele) => <>(~ {ele})</>}
-          />
-        </Text>
-      );
-    }
-    // TODO fallback to native value if fiat price is null
+    const totalNative = new BigNumber(totalFeeInNative || '0').toFixed(8);
+
     return (
-      <Text color={color}>
+      <HStack space={1} alignItems="center">
+        <Text>
+          {`${totalNative} ${feeInfoPayload?.info?.nativeSymbol || ''}`}
+        </Text>
         <FormatCurrencyNativeOfAccount
           networkId={networkId}
           accountId={accountId}
           value={totalNative}
-          render={(ele) => <>{ele}</>}
+          render={(ele) => <Text color="text-subdued">{ele}</Text>}
         />
-      </Text>
+        {loading && <Spinner size="sm" />}
+      </HStack>
     );
   }, [
     accountId,
     encodedTx,
     feeInfoPayload,
-    isPreset,
+    loading,
     networkId,
     totalFeeInNative,
   ]);
