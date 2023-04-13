@@ -22,6 +22,7 @@
 		A24B8A7A27422EF300E321A9 /* OKLiteManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A24B8A7227422EF300E321A9 /* OKLiteManager.m */; };
 		A24B8A7B27422F0B00E321A9 /* GPChannelSDKCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A24B8A6F27422EF200E321A9 /* GPChannelSDKCore.framework */; };
 		A24B8A7C27422F0B00E321A9 /* GPChannelSDKCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A24B8A6F27422EF200E321A9 /* GPChannelSDKCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A2732D8D29D5989000D2B412 /* CacheManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A2732D8C29D5989000D2B412 /* CacheManager.m */; };
 		A2760463288EC098002A82DC /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A2760462288EC098002A82DC /* CloudKit.framework */; };
 		A2760468288F6E57002A82DC /* PlusJakartaSans-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A2760465288F6E57002A82DC /* PlusJakartaSans-Bold.ttf */; };
 		A2760469288F6E57002A82DC /* PlusJakartaSans-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A2760466288F6E57002A82DC /* PlusJakartaSans-SemiBold.ttf */; };
@@ -115,6 +116,8 @@
 		A24B8A7027422EF200E321A9 /* wallet.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = wallet.entitlements; path = OneKeyWallet/wallet.entitlements; sourceTree = "<group>"; };
 		A24B8A7227422EF300E321A9 /* OKLiteManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OKLiteManager.m; sourceTree = "<group>"; };
 		A24B8A7327422EF300E321A9 /* OKLiteManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OKLiteManager.h; sourceTree = "<group>"; };
+		A2732D8B29D5989000D2B412 /* CacheManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CacheManager.h; sourceTree = "<group>"; };
+		A2732D8C29D5989000D2B412 /* CacheManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CacheManager.m; sourceTree = "<group>"; };
 		A2760462288EC098002A82DC /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
 		A2760465288F6E57002A82DC /* PlusJakartaSans-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "PlusJakartaSans-Bold.ttf"; sourceTree = "<group>"; };
 		A2760466288F6E57002A82DC /* PlusJakartaSans-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "PlusJakartaSans-SemiBold.ttf"; sourceTree = "<group>"; };
@@ -322,6 +325,8 @@
 				A2D02C032824EAF9005A45F0 /* SplashScreenManager.m */,
 				A284EFA127C49CDD0070F4EA /* NFCConfig.h */,
 				A284EFA227C49CDD0070F4EA /* NFCConfig.m */,
+				A2732D8B29D5989000D2B412 /* CacheManager.h */,
+				A2732D8C29D5989000D2B412 /* CacheManager.m */,
 			);
 			name = RNBridge;
 			path = OneKeyWallet/RNBridge;
@@ -633,6 +638,7 @@
 				A2F1BFFB27A2D30900C4EE99 /* RNLiteCallBackManager.m in Sources */,
 				A2F6BE9928882FB9005798D7 /* RCTScrollView+swizzled.m in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
+				A2732D8D29D5989000D2B412 /* CacheManager.m in Sources */,
 				A23573BB2880172400A9CA58 /* RCTRootView+Orientation.m in Sources */,
 				A24B8A7527422EF300E321A9 /* OKNFCUtility.m in Sources */,
 				B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */,
