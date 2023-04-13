@@ -57,6 +57,7 @@ export type IVaultSettings = {
   accountNameInfo: Record<string, AccountNameInfo>;
   feeInfoEditable: boolean;
   privateKeyExportEnabled: boolean;
+  publicKeyExportEnabled?: boolean;
   tokenEnabled: boolean;
   txCanBeReplaced: boolean;
 
@@ -324,6 +325,7 @@ export type IPrepareHardwareAccountsParams = {
   coinType: string;
   template: string;
   skipCheckAccountExist?: boolean;
+  confirmOnDevice?: boolean;
 };
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams
