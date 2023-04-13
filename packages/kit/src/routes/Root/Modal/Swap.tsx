@@ -11,7 +11,6 @@ import Output from '../../../views/Swap/Output';
 import PickAccount from '../../../views/Swap/PickAccount';
 import PickRecipient from '../../../views/Swap/PickRecipient';
 import SelectRoutes from '../../../views/Swap/SelectRoutes';
-import Send from '../../../views/Swap/Send';
 import Settings from '../../../views/Swap/Settings';
 import Share from '../../../views/Swap/Share';
 import Slippage from '../../../views/Swap/Slippage';
@@ -81,10 +80,6 @@ const modalRoutes = [
   {
     name: SwapRoutes.SelectRoutes,
     component: SelectRoutes,
-  },
-  {
-    name: SwapRoutes.Send,
-    component: Send,
   },
   {
     name: SwapRoutes.Slippage,

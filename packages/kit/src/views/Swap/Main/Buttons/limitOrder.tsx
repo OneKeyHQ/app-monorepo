@@ -120,15 +120,17 @@ const LimitOrderButton = () => {
           );
           appUIEventBus.emit(AppUIEventBusNames.LimitOrderCompleted);
           backgroundApiProxy.serviceLimitOrder.resetState();
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.Swap,
-            params: {
-              screen: SwapRoutes.TransactionSubmitted,
+          setTimeout(() => {
+            navigation.navigate(RootRoutes.Modal, {
+              screen: ModalRoutes.Swap,
               params: {
-                orderHash,
+                screen: SwapRoutes.TransactionSubmitted,
+                params: {
+                  orderHash,
+                },
               },
-            },
-          });
+            });
+          }, 650);
         },
         onFail: () => {
           appUIEventBus.emit(AppUIEventBusNames.LimitOrderError);

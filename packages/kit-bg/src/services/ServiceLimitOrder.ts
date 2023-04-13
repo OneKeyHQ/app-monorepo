@@ -223,6 +223,9 @@ class ServiceLimitOrder extends ServiceBase {
     const { appSelector, dispatch } = this.backgroundApi;
     const tokenOut = appSelector((s) => s.limitOrder.tokenOut);
     const tokenIn = appSelector((s) => s.limitOrder.tokenIn);
+    if (tokenIn && tokenEqual(tokenIn, newToken)) {
+      return;
+    }
     const limitOrderInputToken = wToken(newToken);
     dispatch(setTokenIn(limitOrderInputToken));
     if (limitOrderInputToken.networkId === tokenIn?.networkId) {
@@ -242,9 +245,13 @@ class ServiceLimitOrder extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setOutputToken(token: Token) {
-    const { dispatch } = this.backgroundApi;
-    dispatch(setTokenOut(token));
+  async setOutputToken(newToken: Token) {
+    const { dispatch, appSelector } = this.backgroundApi;
+    const tokenOut = appSelector((s) => s.limitOrder.tokenOut);
+    if (tokenOut && tokenEqual(tokenOut, newToken)) {
+      return;
+    }
+    dispatch(setTokenOut(newToken));
   }
 
   @backgroundMethod()

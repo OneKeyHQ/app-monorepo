@@ -1,12 +1,7 @@
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import type {
-  IDecodedTx,
-  IEncodedTx,
-  ISignedTxPro,
-} from '@onekeyhq/engine/src/vaults/types';
-import type { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
+import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import type { SendConfirmPayloadBase } from '../Send/types';
 
@@ -25,7 +20,6 @@ export enum SwapRoutes {
   EnterAddress = 'EnterAddress',
   Welcome = 'Welcome',
   SelectRoutes = 'SelectRoutes',
-  Send = 'Send',
   Slippage = 'Slippage',
   SlippageCheck = 'SlippageCheck',
   LimitOrderInput = 'LimitOrderInput',
@@ -78,13 +72,6 @@ export type SwapRoutesParams = {
   [SwapRoutes.SelectRoutes]: undefined;
   [SwapRoutes.Slippage]: undefined;
   [SwapRoutes.SlippageCheck]: ISlippageSetting;
-  [SwapRoutes.Send]: {
-    accountId: string;
-    networkId: string;
-    encodedTx: IEncodedTx;
-    payload?: SendConfirmParams['payloadInfo'];
-    onSuccess?: (result: ISignedTxPro, data: IDecodedTx) => void;
-  };
   [SwapRoutes.LimitOrderDetails]: { orderHash: string };
   [SwapRoutes.TransactionSubmitted]: { orderHash: string };
   [SwapRoutes.HardwareContinue]: undefined;
