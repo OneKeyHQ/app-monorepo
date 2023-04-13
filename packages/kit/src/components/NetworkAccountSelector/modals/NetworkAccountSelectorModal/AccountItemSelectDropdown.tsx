@@ -107,7 +107,7 @@ function AccountItemSelectDropdown({
       const networkSettings = networks.find(
         (i) => i.id === network.id,
       )?.settings;
-      setShowAllUsedAddressOption(networkSettings?.showUsedAddress ?? false);
+      setShowAllUsedAddressOption(networkSettings?.isBtcForkChain ?? false);
     }
   }, [network, networks]);
 

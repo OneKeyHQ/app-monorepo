@@ -31,7 +31,7 @@ const settings: IVaultSettings = Object.freeze({
     },
   },
 
-  showUsedAddress: true,
+  isBtcForkChain: true,
 });
 
 export default settings;

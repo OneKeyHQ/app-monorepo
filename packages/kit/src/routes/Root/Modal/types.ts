@@ -25,6 +25,7 @@ export type { ScanQrcodeRoutesParams } from './ScanQrcode';
 export type { UpdateFeatureRoutesParams } from './UpdateFeature';
 export type { FiatPayModalRoutesParams } from './FiatPay';
 export type { AddressBookRoutesParams } from '../../../views/AddressBook/routes';
+export type { CoinControlRoutesParams } from './CoinControl';
 export type { ImportBackupPasswordRoutesParams } from './ImportBackupPassword';
 export type { StakingRoutesParams } from '../../../views/Staking/typing';
 export type { ManageConnectedSitesRoutesParams } from '../../../views/ManageConnectedSites/types';

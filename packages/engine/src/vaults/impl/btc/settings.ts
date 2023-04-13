@@ -70,7 +70,7 @@ const settings: IVaultSettings = Object.freeze({
     },
   } as Record<string, AccountNameInfo>,
 
-  showUsedAddress: true,
+  isBtcForkChain: true,
 });
 
 export default settings;

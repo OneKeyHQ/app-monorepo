@@ -85,6 +85,7 @@ const Market = createLazyComponent(() => import('./Market'));
 const CurrencySelectModal = createLazyComponent(
   () => import('./CurrencySelect'),
 );
+const CoinControlModal = createLazyComponent(() => import('./CoinControl'));
 
 const modalStackScreenList = [
   {
@@ -233,6 +234,7 @@ const modalStackScreenList = [
     component: BulkSender,
   },
   { name: ModalRoutes.Market, component: Market },
+  { name: ModalRoutes.CoinControl, component: CoinControlModal },
 ];
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();

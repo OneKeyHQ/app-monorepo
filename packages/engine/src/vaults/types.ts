@@ -107,7 +107,7 @@ export type IVaultSettings = {
   batchTokenTransferApprovalRequired?: boolean;
   maxActionsInTx?: number;
   transactionIdPattern?: string;
-  showUsedAddress?: boolean;
+  isBtcForkChain?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;

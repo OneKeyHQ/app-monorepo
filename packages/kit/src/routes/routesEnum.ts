@@ -191,6 +191,7 @@ export enum ModalRoutes {
   CurrencySelect = 'CurrencySelect',
   BulkSender = 'BulkSender',
   Market = 'Market',
+  CoinControl = 'CoinControl',
 }
 
 export { SendModalRoutes } from '../views/Send/enums';
@@ -357,4 +358,8 @@ export enum ManageTokenModalRoutes {
 export enum DappConnectionModalRoutes {
   ConnectionModal = 'ConnectionModal',
   NetworkNotMatchModal = 'NetworkNotMatchModal',
+}
+
+export enum CoinControlModalRoutes {
+  CoinControlModal = 'CoinControlModal',
 }

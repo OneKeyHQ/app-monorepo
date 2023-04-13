@@ -79,6 +79,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.Overview]: NavigatorScreenParams<SubModalRoutesParams.OverviewModalRoutesParams>;
   [ModalRoutes.CurrencySelect]: NavigatorScreenParams<SubModalRoutesParams.CurrencySelectModalParams>;
   [ModalRoutes.BulkSender]: NavigatorScreenParams<SubModalRoutesParams.BulkSenderRoutesParams>;
+  [ModalRoutes.CoinControl]: NavigatorScreenParams<SubModalRoutesParams.CoinControlRoutesParams>;
 };
 /** Modal */
 
