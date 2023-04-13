@@ -5,10 +5,6 @@ import { Animated, Easing } from 'react-native';
 
 import { Box, HStack, Icon, Typography } from '@onekeyhq/components';
 
-import { useAppSelector } from '../../hooks';
-
-import TransactionRate from './components/TransactionRate';
-
 const SwapFeatureText = () => {
   const intl = useIntl();
   return (
@@ -44,7 +40,7 @@ const SwapFeatureText = () => {
   );
 };
 
-const SwapTexts = () => {
+export const SwapCarousel = () => {
   const ref = useRef({ container: 0, width: 0, inProcess: false });
   const animatedValue = useRef(new Animated.Value(0)).current;
 
@@ -118,23 +114,3 @@ const SwapTexts = () => {
     </Box>
   );
 };
-
-const SwapBanner = () => {
-  const quote = useAppSelector((s) => s.swap.quote);
-  const inputToken = useAppSelector((s) => s.swap.inputToken);
-  const outputToken = useAppSelector((s) => s.swap.outputToken);
-  if (quote) {
-    return (
-      <TransactionRate
-        tokenA={inputToken}
-        tokenB={outputToken}
-        rate={quote?.instantRate}
-        typography="Body2"
-        color="text-subdued"
-      />
-    );
-  }
-  return <SwapTexts />;
-};
-
-export default SwapBanner;

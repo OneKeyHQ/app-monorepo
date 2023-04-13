@@ -37,6 +37,7 @@ import fiatMoneyReducer from './reducers/fiatMoney';
 import generalReducer from './reducers/general';
 import hardwareReducer from './reducers/hardware'; // 62.86 MB **** +40 Mb engine/background code
 import httpServerReducer from './reducers/httpServer';
+import limitOrderReducer from './reducers/limitOrder';
 import marketReducer from './reducers/market';
 import nftReducer from './reducers/nft';
 import overviewReducer from './reducers/overview';
@@ -83,6 +84,7 @@ const allReducers = combineReducers({
   webTabs: webTabsReducer,
   overview: overviewReducer,
   httpServer: httpServerReducer,
+  limitOrder: limitOrderReducer,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {

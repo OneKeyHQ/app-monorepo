@@ -4,16 +4,11 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import type {
   ISlippageSetting,
+  LimitOrderTransactionDetails,
+  TokenListItem,
   TransactionDetails,
 } from '../../views/Swap/typings';
 import type { PayloadAction } from '@reduxjs/toolkit';
-
-export type TokenListItem = {
-  name: string;
-  networkId: string;
-  logoURI: string;
-  tokens: Token[];
-};
 
 export type IssueToken = {
   networkId: string;
@@ -38,6 +33,10 @@ export type TransactionsState = {
   payments?: Record<string, Token>;
   defaultPayment?: Token;
   reservedNetworkFees?: Record<string, string>;
+  limitOrderDetails?: Record<
+    string,
+    Record<string, LimitOrderTransactionDetails[]>
+  >;
 };
 
 const initialState: TransactionsState = {
@@ -183,6 +182,87 @@ export const swapTransactionsSlice = createSlice({
     ) {
       state.reservedNetworkFees = action.payload;
     },
+    addLimitOrderTransaction(
+      state,
+      action: PayloadAction<{
+        accountId: string;
+        networkId: string;
+        limitOrder: LimitOrderTransactionDetails;
+      }>,
+    ) {
+      const { accountId, networkId, limitOrder } = action.payload;
+      if (!state.limitOrderDetails) {
+        state.limitOrderDetails = {};
+      }
+      if (!state.limitOrderDetails[accountId]) {
+        state.limitOrderDetails[accountId] = {};
+      }
+      const oldLimitOrderDetails =
+        state.limitOrderDetails[accountId]?.[networkId] ?? [];
+      const newLimitOrderDetails = [limitOrder, ...oldLimitOrderDetails];
+      if (newLimitOrderDetails.length > 30) {
+        newLimitOrderDetails.length = 30;
+      }
+      state.limitOrderDetails[accountId][networkId] = newLimitOrderDetails;
+    },
+    resetLimitOrderTransactions(
+      state,
+      action: PayloadAction<{
+        accountId: string;
+        networkId: string;
+        limitOrders: LimitOrderTransactionDetails[];
+      }>,
+    ) {
+      const { accountId, networkId, limitOrders } = action.payload;
+      if (!state.limitOrderDetails) {
+        state.limitOrderDetails = {};
+      }
+      if (!state.limitOrderDetails[accountId]) {
+        state.limitOrderDetails[accountId] = {};
+      }
+      state.limitOrderDetails[accountId][networkId] = limitOrders;
+    },
+    deleteLimitOrderTransaction(
+      state,
+      action: PayloadAction<{
+        accountId: string;
+        networkId: string;
+        orderHash: string;
+      }>,
+    ) {
+      const { accountId, networkId, orderHash } = action.payload;
+      if (!state.limitOrderDetails) return;
+      let details = state.limitOrderDetails[accountId]?.[networkId];
+      if (!details || details.length === 0) {
+        return;
+      }
+      details = details.filter((item) => item.orderHash !== orderHash);
+      state.limitOrderDetails[accountId][networkId] = details;
+    },
+    updateLimitOrderTransaction(
+      state,
+      action: PayloadAction<{
+        accountId: string;
+        networkId: string;
+        orderHash: string;
+        details: Partial<
+          Pick<LimitOrderTransactionDetails, 'remainingFillable' | 'canceled'>
+        >;
+      }>,
+    ) {
+      const { orderHash, networkId, accountId, details } = action.payload;
+      const limitOrderDetails =
+        state.limitOrderDetails?.[accountId]?.[networkId] ?? [];
+      const item = limitOrderDetails.find((o) => o.orderHash === orderHash);
+      if (item) {
+        if (details.remainingFillable) {
+          item.remainingFillable = details.remainingFillable;
+        }
+        if (details.canceled) {
+          item.canceled = details.canceled;
+        }
+      }
+    },
   },
 });
 
@@ -204,6 +284,10 @@ export const {
   setPayments,
   setDefaultPayment,
   setReservedNetworkFees,
+  addLimitOrderTransaction,
+  resetLimitOrderTransactions,
+  updateLimitOrderTransaction,
+  deleteLimitOrderTransaction,
 } = swapTransactionsSlice.actions;
 
 export default swapTransactionsSlice.reducer;

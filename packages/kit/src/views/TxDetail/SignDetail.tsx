@@ -90,7 +90,7 @@ const renderMessage = (json: any, padding = 0) => {
   }
 
   const siblings = Object.keys(json).map((key) => (
-    <Typography.Body2 color="text-subdued">
+    <Typography.Body2 key={key} color="text-subdued">
       {`${''.padStart(padding)}${key}: `}
       {renderMessage(json[key], padding + 4)}
     </Typography.Body2>

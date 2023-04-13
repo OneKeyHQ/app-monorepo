@@ -8,6 +8,7 @@ import { setShowBookmark } from '@onekeyhq/kit/src/store/reducers/discover';
 import type { WalletSwitchItem } from '@onekeyhq/kit/src/store/reducers/settings';
 import {
   disableExtSwitchTips,
+  setEnableETH2Unstake,
   setWalletSwitch,
   toggleDisableExt,
   toggleWalletSwitch,
@@ -27,6 +28,7 @@ import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 type RemoteSetting = {
   enableAppRatings: boolean;
   swapMaintain: boolean;
+  enableETH2Unstake: boolean;
   helloVersion: string;
   bookmarkVersion: string;
   disabledRpcBatchHosts: string[];
@@ -50,6 +52,7 @@ export default class ServiceSetting extends ServiceBase {
     await simpleDb.setting.setRpcBatchFallbackWhitelistHosts(
       data.disabledRpcBatchHosts,
     );
+    dispatch(setEnableETH2Unstake(data.enableETH2Unstake));
     dispatch(setSwapMaintain(data.swapMaintain));
     let v = '';
     if (platformEnv.isNativeIOS || platformEnv.isMas) {

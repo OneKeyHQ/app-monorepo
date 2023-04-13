@@ -131,6 +131,7 @@ const SignMessageConfirm = () => {
           ToastManager.show({
             title: successMsg,
           });
+          route.params.onSuccess?.(result);
           // wait modal animation done
           closeTimer = setTimeout(() => {
             close();

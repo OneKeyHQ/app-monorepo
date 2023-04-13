@@ -1,6 +1,7 @@
 import { withTabLayout } from '@onekeyhq/components/src/Layout/withTabLayout';
 
 import { toFocusedLazy } from '../../../../../components/LazyRenderWhenFocus';
+import ClearCache from '../../../../../views/ClearCache';
 import OnekeyLiteDetail from '../../../../../views/Hardware/OnekeyLite/Detail';
 import MeScreen from '../../../../../views/Me';
 import VolumeHaptic from '../../../../../views/Me/GenaralSection/VolumeHaptic';
@@ -68,6 +69,10 @@ const config: TabRouteConfig = {
     {
       name: HomeRoutes.PushNotificationManageAccountDynamic,
       component: PushNotificationManageAccountDynamic,
+    },
+    {
+      name: HomeRoutes.ClearCache,
+      component: ClearCache,
     },
   ],
 };

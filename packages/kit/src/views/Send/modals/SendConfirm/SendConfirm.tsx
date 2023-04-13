@@ -193,7 +193,8 @@ function SendConfirm({
             closeModal: close,
           };
           navigation.navigate(SendModalRoutes.HardwareSwapContinue, params);
-        } else {
+        } else if (!routeParams.hideSendFeedbackReceipt) {
+          // Sometimes it is necessary to send multiple transactions. So the feedback are not displayed.
           const type = routeParams.signOnly ? 'Sign' : 'Send';
           const params: SendFeedbackReceiptParams = {
             networkId,
@@ -205,6 +206,10 @@ function SendConfirm({
             isSingleTransformMode: true,
           };
           navigation.navigate(SendModalRoutes.SendFeedbackReceipt, params);
+        } else {
+          setTimeout(() => {
+            close();
+          }, 0);
         }
 
         if (routeParams.onSuccess) {
@@ -214,9 +219,9 @@ function SendConfirm({
 
         // navigate SendFeedbackReceipt onSuccess
         // close modal
-        setTimeout(() => {
-          // close()
-        }, 0);
+        // setTimeout(() => {
+        //   // close()
+        // }, 0);
       };
       const nextRouteParams: SendAuthenticationParams = {
         ...routeParams,

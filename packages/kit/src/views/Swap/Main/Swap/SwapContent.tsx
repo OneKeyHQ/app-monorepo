@@ -10,16 +10,18 @@ import {
 } from '@onekeyhq/components';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../hooks';
-import { useActiveWalletAccount, useAppSelector } from '../../hooks/redux';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useNavigation } from '../../../../hooks';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+} from '../../../../hooks/redux';
+import ReceivingTokenInput from '../../components/ReceivingTokenInput';
+import TokenInput from '../../components/TokenInput';
+import { useDerivedSwapState } from '../../hooks/useSwap';
+import { SwapRoutes } from '../../typings';
 
-import ReceivingTokenInput from './components/ReceivingTokenInput';
-import TokenInput from './components/TokenInput';
-import { useDerivedSwapState } from './hooks/useSwap';
-import { SwapRoutes } from './typings';
-
-const SwapContent = () => {
+export const SwapContent = () => {
   const intl = useIntl();
   const isSmall = useIsVerticalLayout();
   const navigation = useNavigation();
@@ -139,5 +141,3 @@ const SwapContent = () => {
     </Box>
   );
 };
-
-export default SwapContent;

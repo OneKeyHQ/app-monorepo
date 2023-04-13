@@ -20,6 +20,7 @@ import { useSingleToken } from '../../hooks/useTokens';
 import { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
 import PriceChart from '../PriceChart/PriceChart';
+import { KeleETHUnstakeBulletin } from '../Staking/components/KeleETHUnstakeBulletin';
 import StakedAssets from '../Staking/components/StakedAssets';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
@@ -172,6 +173,9 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
       w="100%"
       maxW={MAX_PAGE_CONTAINER_WIDTH}
     >
+      <Box px={isVertical ? '4' : 0}>
+        <KeleETHUnstakeBulletin token={token} />
+      </Box>
       <TxHistoryListView
         accountId={accountId}
         networkId={networkId}

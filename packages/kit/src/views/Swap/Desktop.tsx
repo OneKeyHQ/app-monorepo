@@ -1,3 +1,5 @@
+import { useLayoutEffect } from 'react';
+
 import { useIntl } from 'react-intl';
 import { ScrollView } from 'react-native-gesture-handler';
 
@@ -11,21 +13,19 @@ import {
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../hooks';
+import { useAppSelector, useNavigation } from '../../hooks';
 import SwapChart from '../PriceChart/SwapChart';
 
-import SwapAlert from './SwapAlert';
-import SwapBanner from './SwapBanner';
-import SwapButton from './SwapButton';
-import SwapContent from './SwapContent';
-import { SwapHeaderButtons } from './SwapHeader';
+import { useSwapChartMode } from './hooks/useSwapUtils';
+import { Main } from './Main';
+import { PendingFullContent } from './Main/LimitOrder/PendingContent';
+import { SwapHeader } from './SwapHeader';
 import SwapObserver from './SwapObserver';
-import SwapQuote from './SwapQuote';
 import SwapUpdater from './SwapUpdater';
 
 const DesktopHeader = () => {
   const intl = useIntl();
-  const swapChartMode = useAppSelector((s) => s.swapTransactions.swapChartMode);
+  const swapChartMode = useSwapChartMode();
   return (
     <Box
       h="16"
@@ -42,7 +42,7 @@ const DesktopHeader = () => {
           isTriggerPlain
           footer={null}
           headerShown={false}
-          defaultValue={swapChartMode ?? 'chart'}
+          defaultValue={swapChartMode}
           onChange={(value) => {
             backgroundApiProxy.serviceSwap.setSwapChartMode(value);
           }}
@@ -89,22 +89,11 @@ const DesktopMain = () => (
           mb="4"
           zIndex={1}
         >
-          <Box />
-          <SwapHeaderButtons />
+          <SwapHeader />
         </Box>
         <Box px="4">
-          <SwapContent />
+          <Main />
         </Box>
-        <Box px="4">
-          <SwapAlert />
-        </Box>
-        <Center py="3">
-          <SwapBanner />
-        </Center>
-        <Box mb="6" px="4">
-          <SwapButton />
-        </Box>
-        <SwapQuote />
       </Box>
     </Center>
     <SwapUpdater />
@@ -159,9 +148,11 @@ const DesktopChartLabel = () => {
 };
 
 export const Desktop = () => {
-  const swapChartMode = useAppSelector((s) => s.swapTransactions.swapChartMode);
-
-  const mode = swapChartMode || 'chart';
+  const navigation = useNavigation();
+  const mode = useSwapChartMode();
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
 
   return (
     <ScrollView>
@@ -178,6 +169,7 @@ export const Desktop = () => {
                 <DesktopChartLabel />
               </Box>
               <DesktopChart />
+              <PendingFullContent />
             </Box>
           ) : null}
           <Box w="480px">

@@ -14,18 +14,17 @@ import {
 } from '@onekeyhq/components';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useCreateAccountInWallet } from '../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useCreateAccountInWallet } from '../../../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
 import {
   useActiveWalletAccount,
   useAppSelector,
   useNetworkSimple,
-} from '../../hooks';
-import { showOverlay } from '../../utils/overlayUtils';
-
-import { useInputLimitsError, useSwapRecipient } from './hooks/useSwap';
-import { usePriceImpact, useSwapSlippage } from './hooks/useSwapUtils';
-import { SwapError } from './typings';
+} from '../../../../hooks';
+import { showOverlay } from '../../../../utils/overlayUtils';
+import { useInputLimitsError, useSwapRecipient } from '../../hooks/useSwap';
+import { usePriceImpact, useSwapSlippage } from '../../hooks/useSwapUtils';
+import { SwapError } from '../../typings';
 
 const RecipientBox = () => {
   const intl = useIntl();
@@ -266,7 +265,7 @@ const SlippageAlert = () => {
   return null;
 };
 
-const SwapWarning: FC = () => (
+export const SwapAlert: FC = () => (
   <>
     <ExchangeAddressAlert />
     <DepositLimitAlert />
@@ -276,5 +275,3 @@ const SwapWarning: FC = () => (
     <SlippageAlert />
   </>
 );
-
-export default SwapWarning;

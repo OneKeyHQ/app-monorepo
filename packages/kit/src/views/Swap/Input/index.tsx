@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   useActiveWalletAccount,
@@ -8,11 +10,12 @@ import {
 } from '../../../hooks';
 import TokenSelector from '../components/TokenSelector';
 import { TokenSelectorContext } from '../components/TokenSelector/context';
-import { useSwapTokenList } from '../hooks/useSwapTokenUtils';
 
 import type { Token } from '../../../store/typings';
+import type { NetworkOption } from '../components/TokenSelector/context';
 
 const Input = () => {
+  const intl = useIntl();
   const navigation = useNavigation();
   const { network } = useActiveWalletAccount();
   const outputToken = useAppSelector((s) => s.swap.outputToken);
@@ -29,8 +32,6 @@ const Input = () => {
     },
   );
 
-  const tokens = useSwapTokenList(networkSelectorId);
-
   const onSelect = useCallback(
     (token: Token) => {
       backgroundApiProxy.serviceSwap.setInputToken(token);
@@ -39,6 +40,24 @@ const Input = () => {
     [navigation],
   );
 
+  const networkOptions = useMemo<NetworkOption[]>(() => {
+    if (!tokenList) {
+      return [];
+    }
+    return tokenList.map((item) => {
+      const name =
+        item.name.toLowerCase() === 'all'
+          ? intl.formatMessage({ id: 'option__all' })
+          : item.name;
+      return {
+        name,
+        networkId:
+          item.name.toLowerCase() === 'all' ? undefined : item.networkId,
+        logoURI: item.logoURI,
+      };
+    });
+  }, [tokenList, intl]);
+
   const value = useMemo(
     () => ({
       impl: network?.impl,
@@ -46,6 +65,8 @@ const Input = () => {
       setNetworkId: onSelectNetworkId,
       selectedToken: outputToken,
       accountId: sendingAccount?.id,
+      tokenList,
+      networkOptions,
     }),
     [
       outputToken,
@@ -53,6 +74,8 @@ const Input = () => {
       onSelectNetworkId,
       network?.impl,
       sendingAccount?.id,
+      tokenList,
+      networkOptions,
     ],
   );
 
@@ -62,16 +85,6 @@ const Input = () => {
       networkId: networkSelectorId,
     });
   }, [networkSelectorId, sendingAccount?.id]);
-
-  useEffect(() => {
-    if (networkSelectorId && sendingAccount?.id) {
-      backgroundApiProxy.servicePrice.fetchSimpleTokenPrice({
-        networkId: networkSelectorId,
-        accountId: sendingAccount.id,
-        tokenIds: tokens.map((item) => item.tokenIdOnNetwork),
-      });
-    }
-  }, [tokens, networkSelectorId, sendingAccount?.id]);
 
   return (
     <TokenSelectorContext.Provider value={value}>
