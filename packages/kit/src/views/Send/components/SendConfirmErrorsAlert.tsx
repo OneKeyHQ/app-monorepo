@@ -4,19 +4,14 @@ import { useIntl } from 'react-intl';
 
 import { Box, VStack } from '@onekeyhq/components';
 import { FormErrorMessage } from '@onekeyhq/components/src/Form/FormErrorMessage';
-import type { Token } from '@onekeyhq/engine/src/types/token';
+import type { Token, Tool } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../hooks';
-import {
-  FiatPayModalRoutes,
-  MainRoutes,
-  ModalRoutes,
-  RootRoutes,
-  TabRoutes,
-} from '../../../routes/routesEnum';
+import { useTools } from '../../../hooks/redux';
+import { MainRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
 import { setHomeTabName } from '../../../store/reducers/status';
-import { useFiatPayTokens } from '../../ManageTokens/hooks';
+import { openUrl } from '../../../utils/openUrl';
 import { EditableNonceStatusEnum } from '../types';
 
 export function SendConfirmErrorsAlert({
@@ -47,7 +42,8 @@ export function SendConfirmErrorsAlert({
   const errors = [];
   const intl = useIntl();
   const navigation = useNavigation();
-  const { tokenList } = useFiatPayTokens(networkId ?? '', 'buy');
+
+  const tools = useTools(networkId);
 
   const { network } = useNetwork({ networkId });
 
@@ -82,34 +78,16 @@ export function SendConfirmErrorsAlert({
     );
   }
   if (balanceInsufficient) {
-    const nativeTokenToBuy = find(tokenList, { isNative: true });
-
+    const gasShop = find(tools, { title: 'GasShop' }) as Tool;
     errors.push(
       <FormErrorMessage
         isAlertStyle
         action={
-          nativeTokenToBuy
-            ? intl.formatMessage({ id: 'action__buy' })
-            : undefined
+          gasShop?.link ? intl.formatMessage({ id: 'action__buy' }) : undefined
         }
-        onAction={async () => {
-          if (nativeTokenToBuy) {
-            const signedUrl =
-              await backgroundApiProxy.serviceFiatPay.getFiatPayUrl({
-                type: 'buy',
-                tokenAddress: nativeTokenToBuy.address,
-                address: accountAddress,
-                networkId,
-              });
-            if (signedUrl.length > 0) {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.FiatPay,
-                params: {
-                  screen: FiatPayModalRoutes.MoonpayWebViewModal,
-                  params: { url: signedUrl },
-                },
-              });
-            }
+        onAction={() => {
+          if (gasShop && gasShop.link) {
+            openUrl(gasShop.link.replace('{address}', accountAddress ?? ''));
           }
         }}
         message={intl.formatMessage(

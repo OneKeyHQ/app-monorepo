@@ -504,6 +504,28 @@ function PreSendAddress() {
     ],
   );
 
+  // Refersh pending tx status before entering the send confirm modal
+  // To avoid pending tx alert on send confirm modal (actually there isn't)
+  useEffect(() => {
+    const refreshPendingTx = async () => {
+      const pendingTxs =
+        await backgroundApiProxy.serviceHistory.getLocalHistory({
+          networkId,
+          accountId,
+          isPending: true,
+          limit: 1,
+        });
+      if (pendingTxs.length > 0) {
+        backgroundApiProxy.serviceHistory.refreshHistory({
+          networkId,
+          accountId,
+        });
+      }
+    };
+
+    refreshPendingTx();
+  }, [accountId, networkId]);
+
   return (
     <BaseSendModal
       accountId={accountId}
