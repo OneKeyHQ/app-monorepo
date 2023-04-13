@@ -10,7 +10,6 @@ import {
   Pressable,
   Select,
   Typography,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -237,19 +236,11 @@ function ExpireSetting() {
 
 export function ParameterSetting() {
   const mktRate = useAppSelector((s) => s.limitOrder.mktRate);
-  const isSmall = useIsVerticalLayout();
   if (!mktRate) {
     return null;
   }
   return (
-    <Box
-      flexDirection="row"
-      w="full"
-      h="20"
-      mt="1"
-      borderRadius={isSmall ? 0 : 12}
-      overflow="hidden"
-    >
+    <Box flexDirection="row" w="full" h="20" mt="1" overflow="hidden">
       <InstantRateSetting />
       <ExpireSetting />
     </Box>

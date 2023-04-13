@@ -1,4 +1,4 @@
-import { Box } from '@onekeyhq/components';
+import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 
 import { useSwapChartMode } from '../../hooks/useSwapUtils';
 import { LimitOrderMainButton } from '../Buttons/limitOrder';
@@ -12,10 +12,13 @@ import { PriceWarning } from './PriceWarning';
 
 export function LimitOrderMain() {
   const mode = useSwapChartMode();
+  const isSmall = useIsVerticalLayout();
   return (
     <Box>
-      <MainContent />
-      <ParameterSetting />
+      <Box borderRadius={isSmall ? undefined : '12'} overflow="hidden">
+        <MainContent />
+        <ParameterSetting />
+      </Box>
       <PaddingControl>
         <Box my="6">
           <PriceWarning />
