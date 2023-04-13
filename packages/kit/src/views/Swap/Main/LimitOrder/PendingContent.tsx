@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 
 import { useAccount, useAppSelector, useNavigation } from '../../../../hooks';
+import useFormatDate from '../../../../hooks/useFormatDate';
 import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import {
   useCancelLimitOrderCallback,
@@ -179,6 +180,7 @@ const FullView: FC<{ order: LimitOrderTransactionDetails }> = ({ order }) => {
     tokenOutValue,
     remainingFillable,
     canceled,
+    expiredIn,
   } = order;
   const intl = useIntl();
   const showDetails = useShowLimitOrderDetails(order);
@@ -188,6 +190,7 @@ const FullView: FC<{ order: LimitOrderTransactionDetails }> = ({ order }) => {
   const tokenOutValueString = formatAmount(
     getTokenAmountValue(tokenOut, tokenOutValue),
   );
+  const { formatDate } = useFormatDate();
 
   const expr =
     Number(remainingFillable) === 0
@@ -197,7 +200,7 @@ const FullView: FC<{ order: LimitOrderTransactionDetails }> = ({ order }) => {
   return (
     <Pressable onPress={showDetails}>
       <Box flexDirection="row">
-        <Box w="35%" flexDirection="row" alignItems="center">
+        <Box w="20%" flexDirection="row" alignItems="center">
           <Box mr="1">
             <TokenImage
               size="8"
@@ -206,23 +209,27 @@ const FullView: FC<{ order: LimitOrderTransactionDetails }> = ({ order }) => {
               bgColor="surface-neutral-default"
             />
           </Box>
-          <Box>
-            <Typography.Body2Strong>
+          <Box flex={1} flexDirection="row" alignItems="center">
+            <Typography.Body2Strong overflow="clip">
               {tokenInValueString} {tokenIn.symbol.toUpperCase()}
             </Typography.Body2Strong>
           </Box>
         </Box>
-        <Box w="35%" flexDirection="row" alignItems="center">
-          <Box mr="1">
-            <TokenImage size="8" borderRadius="full" token={tokenOut} />
-          </Box>
-          <Box>
-            <Typography.Body2Strong>
+        <Box w="20%" flexDirection="row" alignItems="center">
+          <Box flex={1} flexDirection="row" alignItems="center">
+            <Typography.Body2Strong overflow="clip">
               {tokenOutValueString} {tokenOut.symbol.toUpperCase()}
             </Typography.Body2Strong>
           </Box>
         </Box>
-        <Box flex="1" flexDirection="row" alignItems="center">
+        <Box w="30%" flexDirection="row" alignItems="center">
+          <Box flex={1} flexDirection="row" alignItems="center">
+            <Typography.Body2Strong overflow="clip">
+              {formatDate(new Date(expiredIn * 1000))}
+            </Typography.Body2Strong>
+          </Box>
+        </Box>
+        <Box w="20%" flexDirection="row" alignItems="center">
           {canceled ? (
             <Badge
               type="warning"
@@ -267,17 +274,22 @@ const FullViewList: FC<{ orders?: LimitOrderTransactionDetails[] }> = ({
   return (
     <Box py="4">
       <Box flexDirection="row">
-        <Box w="35%">
+        <Box w="20%">
           <Typography.Subheading color="text-subdued">
             {intl.formatMessage({ id: 'action__receive' }).toUpperCase()}
           </Typography.Subheading>
         </Box>
-        <Box w="35%">
+        <Box w="20%">
           <Typography.Subheading color="text-subdued">
             {intl.formatMessage({ id: 'form__pay' }).toUpperCase()}
           </Typography.Subheading>
         </Box>
-        <Box flex="1">
+        <Box w="30%">
+          <Typography.Subheading color="text-subdued">
+            {intl.formatMessage({ id: 'form__expiration' }).toUpperCase()}
+          </Typography.Subheading>
+        </Box>
+        <Box w="20%">
           <Typography.Subheading color="text-subdued">
             {intl.formatMessage({ id: 'form__status' }).toUpperCase()}
           </Typography.Subheading>
