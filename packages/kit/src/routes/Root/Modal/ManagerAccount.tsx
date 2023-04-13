@@ -3,6 +3,7 @@ import type { AccountCredential } from '@onekeyhq/engine/src/types/account';
 
 import ManagerAccountModalView from '../../../views/ManagerAccount/AccountInfo';
 import ExportPrivateViewModal from '../../../views/ManagerAccount/ExportPrivate';
+import ExportPublicViewModal from '../../../views/ManagerAccount/ExportPrivate/ExportPublic';
 import { ManagerAccountModalRoutes } from '../../routesEnum';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
@@ -20,6 +21,11 @@ export type ManagerAccountRoutesParams = {
     networkId: string;
     accountCredential: AccountCredential;
   };
+  [ManagerAccountModalRoutes.ManagerAccountExportPublicModal]: {
+    walletId: string;
+    accountId: string;
+    networkId: string;
+  };
 };
 
 const ManagerAccountNavigator =
@@ -33,6 +39,10 @@ const modalRoutes = [
   {
     name: ManagerAccountModalRoutes.ManagerAccountExportPrivateModal,
     component: ExportPrivateViewModal,
+  },
+  {
+    name: ManagerAccountModalRoutes.ManagerAccountExportPublicModal,
+    component: ExportPublicViewModal,
   },
 ];
 
