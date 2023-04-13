@@ -295,7 +295,7 @@ const FullViewList: FC<{ orders?: LimitOrderTransactionDetails[] }> = ({
   );
 };
 
-export function PendingSimpleContent() {
+export function PendingLimitOrdersSimpleContent() {
   const activeAccount = useAppSelector((s) => s.limitOrder.activeAccount);
   const mode = useAppSelector((s) => s.swap.mode);
   const orders = useLimitOrders(activeAccount?.id);
@@ -312,7 +312,7 @@ export function PendingSimpleContent() {
   ) : null;
 }
 
-export function PendingFullContent() {
+export function PendingLimitOrdersProfessionalContent() {
   const intl = useIntl();
   const mode = useAppSelector((s) => s.swap.mode);
   const { activeAccount } = useAppSelector((s) => s.limitOrder);

@@ -235,10 +235,6 @@ function ExpireSetting() {
 }
 
 export function ParameterSetting() {
-  const mktRate = useAppSelector((s) => s.limitOrder.mktRate);
-  if (!mktRate) {
-    return null;
-  }
   return (
     <Box flexDirection="row" w="full" h="20" mt="1" overflow="hidden">
       <InstantRateSetting />

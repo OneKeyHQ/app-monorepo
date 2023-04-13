@@ -7,7 +7,7 @@ import { PaddingControl } from '../PaddingControl';
 import { MainContent } from './MainContent';
 import { LimitOrderObserver } from './Observer';
 import { ParameterSetting } from './ParameterSetting';
-import { PendingSimpleContent } from './PendingContent';
+import { PendingLimitOrdersSimpleContent } from './PendingContent';
 import { PriceWarning } from './PriceWarning';
 
 export function LimitOrderMain() {
@@ -25,7 +25,7 @@ export function LimitOrderMain() {
           <LimitOrderMainButton />
         </Box>
       </PaddingControl>
-      {mode !== 'chart' ? <PendingSimpleContent /> : null}
+      {mode !== 'chart' ? <PendingLimitOrdersSimpleContent /> : null}
       <LimitOrderObserver />
     </Box>
   );
