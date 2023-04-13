@@ -8,6 +8,7 @@ import type { IVaultSettings } from '../../types';
 const settings: IVaultSettings = Object.freeze({
   feeInfoEditable: true,
   privateKeyExportEnabled: true,
+  publicKeyExportEnabled: true,
   tokenEnabled: false,
   txCanBeReplaced: false,
 

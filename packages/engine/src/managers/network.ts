@@ -134,7 +134,7 @@ function fromDBNetworkToNetwork(
     forNetwork.name = presetNetwork.name ?? forNetwork.name;
     forNetwork.symbol = presetNetwork.symbol ?? forNetwork.symbol;
     forNetwork.logoURI = presetNetwork.logoURI ?? forNetwork.logoURI;
-    forNetwork.scanURL = presetNetwork.scanURL || forNetwork.scanURL;
+    forNetwork.clientApi = presetNetwork.clientApi || forNetwork.clientApi;
 
     // Default rpc URL
     forNetwork.rpcURL = forNetwork.rpcURL || presetNetwork.presetRpcURLs[0];

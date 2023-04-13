@@ -330,6 +330,7 @@ export enum ImportBackupPasswordModalRoutes {
 export enum ManagerAccountModalRoutes {
   ManagerAccountModal = 'ManagerAccountModal',
   ManagerAccountExportPrivateModal = 'ManagerAccountExportPrivateModal',
+  ManagerAccountExportPublicModal = 'ManagerAccountExportPublicModal',
 }
 
 export enum ManagerWalletModalRoutes {

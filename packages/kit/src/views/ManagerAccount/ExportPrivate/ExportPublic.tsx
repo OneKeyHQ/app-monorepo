@@ -6,8 +6,8 @@ import { useIntl } from 'react-intl';
 
 import { Modal } from '@onekeyhq/components';
 import type {
-  AccountCredentialType,
   Account as AccountEngineType,
+  DBUTXOAccount,
 } from '@onekeyhq/engine/src/types/account';
 import Protected, {
   ValidationFields,
@@ -15,53 +15,64 @@ import Protected, {
 import type { ManagerAccountRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/ManagerAccount';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { deviceUtils } from '../../../utils/hardware';
 
 import { PrivateOrPublicKeyPreview } from './previewView';
 
 import type { ManagerAccountModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/core';
 
-type ExportPrivateViewProps = {
+type ExportPublicKeyViewProps = {
+  walletId: string;
   accountId: string;
   networkId: string;
   password: string;
-  credentialType: AccountCredentialType;
   onAccountChange: (account: AccountEngineType) => void;
 };
 
-const ExportPrivateView: FC<ExportPrivateViewProps> = ({
+const ExportPublicKeyView: FC<ExportPublicKeyViewProps> = ({
+  walletId,
   accountId,
   networkId,
   password,
-  credentialType,
   onAccountChange,
 }) => {
   const { engine } = backgroundApiProxy;
 
-  const [privateKey, setPrivateKey] = useState<string>();
+  const [publicKey, setPublicKey] = useState<string>();
+  const navigation = useAppNavigation();
 
   useEffect(() => {
-    if (!accountId || !networkId || !password) return;
+    (async () => {
+      try {
+        if (!accountId || !networkId) return;
+        const account = await engine.getAccount(accountId, networkId);
+        onAccountChange(account);
+        const recomputeAccount = await engine.recomputeAccount({
+          walletId,
+          networkId,
+          accountId,
+          password,
+          path: account.path,
+          template: account.template,
+          confirmOnDevice: true,
+        });
+        if (recomputeAccount) {
+          setPublicKey((recomputeAccount as DBUTXOAccount).xpub);
+        }
+      } catch (e) {
+        deviceUtils.showErrorToast(e);
+        navigation.goBack?.();
+      }
+    })();
 
-    engine.getAccount(accountId, networkId).then(($account) => {
-      onAccountChange($account);
-    });
-
-    engine
-      .getAccountPrivateKey({
-        accountId,
-        credentialType,
-        password,
-      })
-      .then(($privateKey) => {
-        setPrivateKey($privateKey);
-      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountId, engine, networkId, password]);
+  }, [walletId, accountId, engine, networkId, password]);
 
   return (
     <PrivateOrPublicKeyPreview
-      privateOrPublicKey={privateKey}
+      privateOrPublicKey={publicKey}
       qrCodeContainerSize={{ base: 296, md: 208 }}
     />
   );
@@ -69,32 +80,32 @@ const ExportPrivateView: FC<ExportPrivateViewProps> = ({
 
 type NavigationProps = RouteProp<
   ManagerAccountRoutesParams,
-  ManagerAccountModalRoutes.ManagerAccountExportPrivateModal
+  ManagerAccountModalRoutes.ManagerAccountExportPublicModal
 >;
 
 const ExportPrivateViewModal = () => {
   const intl = useIntl();
   const route = useRoute<NavigationProps>();
-  const { accountId, networkId, accountCredential } = route.params;
+  const { accountId, networkId, walletId } = route.params;
   const [account, setAccount] = useState<AccountEngineType>();
 
   return (
     <Modal
       footer={null}
-      header={intl.formatMessage({ id: accountCredential.key })}
+      header={intl.formatMessage({ id: 'title__export_public_key' })}
       headerDescription={account?.name}
       height="auto"
     >
       <Protected
-        walletId={null}
+        walletId={walletId}
         skipSavePassword
         field={ValidationFields.Secret}
       >
         {(pwd) => (
-          <ExportPrivateView
+          <ExportPublicKeyView
             accountId={accountId}
             networkId={networkId}
-            credentialType={accountCredential.type}
+            walletId={walletId}
             password={pwd}
             onAccountChange={(acc) => setAccount(acc)}
           />

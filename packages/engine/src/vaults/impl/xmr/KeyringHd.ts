@@ -19,7 +19,7 @@ import type {
   ISignCredentialOptions,
   IUnsignedTxPro,
 } from '../../types';
-import type { IEncodedTxXmr, ISendFundsArgs } from './types';
+import type { IClientApi, IEncodedTxXmr, ISendFundsArgs } from './types';
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
@@ -107,7 +107,7 @@ export class KeyringHd extends KeyringHdBase {
     const { password = '' } = options;
     const dbAccount = await this.getDbAccount();
     const moneroApi = await getMoneroApi();
-    const scanUrl = await this.getScanUrl();
+    const clientApi = await this.getClientApi<IClientApi>();
     const { seed } = (await this.engine.dbApi.getCredential(
       this.walletId,
       password,
@@ -170,7 +170,10 @@ export class KeyringHd extends KeyringHdBase {
       resolvedPaymentID: '',
       resolvedPaymentID_fieldIsVisible: false,
     };
-    const signedTx = await moneroApi.sendFunds(sendFundsArgs, scanUrl);
+    const signedTx = await moneroApi.sendFunds(
+      sendFundsArgs,
+      clientApi.mymonero,
+    );
     return signedTx;
   }
 }
