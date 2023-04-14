@@ -91,7 +91,7 @@ const Desktop: FC<BottomSheetModalProps> = ({
   showCloseButton = true,
   showHeader = true,
 }) => (
-  <Center position="absolute" w="full" h="full" zIndex={999}>
+  <Center w="full" h="full">
     <CloseBackDrop
       onClose={closeOverlay}
       backgroundColor="rgba(0, 0, 0, 0.5)"
