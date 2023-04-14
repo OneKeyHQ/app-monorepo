@@ -1,6 +1,14 @@
-import type { SignableTransaction, SuiMoveObject } from '@mysten/sui.js';
+import type { IFeeInfoUnit } from '../../types';
+import type {
+  ExecuteTransactionRequestType,
+  SuiMoveObject,
+} from '@mysten/sui.js';
 
-export type IEncodedTxSUI = SignableTransaction;
+export type IEncodedTxSUI = {
+  rawTx: string;
+  feeInfo?: IFeeInfoUnit;
+  requestType?: ExecuteTransactionRequestType;
+};
 
 export type CoinObject = {
   objectId: string;

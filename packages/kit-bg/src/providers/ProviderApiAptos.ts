@@ -4,6 +4,7 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { BCS, TxnBuilderTypes } from 'aptos';
+import { isArray } from 'lodash';
 
 import { AptosMessageTypes } from '@onekeyhq/engine/src/types/message';
 import type {
@@ -19,7 +20,6 @@ import {
   transactionPayloadToTxPayload,
 } from '@onekeyhq/engine/src/vaults/impl/apt/utils';
 import type VaultAptos from '@onekeyhq/engine/src/vaults/impl/apt/Vault';
-import { decodeBytesTransaction } from '@onekeyhq/engine/src/vaults/impl/sui/utils';
 import {
   hexlify,
   stripHexPrefix,
@@ -44,6 +44,25 @@ type AccountInfo =
       address: string;
     }
   | undefined;
+
+export function decodeBytesTransaction(txn: any) {
+  let bcsTxn: Uint8Array;
+  if (isArray(txn)) {
+    bcsTxn = Uint8Array.from(txn);
+  } else if (typeof txn === 'object') {
+    bcsTxn = new Uint8Array(Object.values(txn));
+  } else if (typeof txn === 'string') {
+    if (txn.indexOf(',') !== -1) {
+      bcsTxn = new Uint8Array(txn.split(',').map((item) => parseInt(item, 10)));
+    } else {
+      bcsTxn = hexToBytes(txn);
+    }
+  } else {
+    throw new Error('invalidParams');
+  }
+
+  return bcsTxn;
+}
 
 @backgroundClass()
 class ProviderApiAptos extends ProviderApiBase {

@@ -12,6 +12,7 @@ import { ENABLED_DAPP_SCOPE } from '@onekeyhq/shared/src/background/backgroundUt
 import {
   IMPL_COSMOS,
   IMPL_DOT,
+  IMPL_SUI,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -184,7 +185,11 @@ function SendConfirm({
         });
         if (routeParams.signOnly) {
           // TODO Unified return to tx related processes to handle their own
-          if (networkImpl === IMPL_COSMOS || networkImpl === IMPL_DOT) {
+          if (
+            networkImpl === IMPL_COSMOS ||
+            networkImpl === IMPL_DOT ||
+            networkImpl === IMPL_SUI
+          ) {
             await dappApprove.resolve({ result: tx });
           } else {
             await dappApprove.resolve({ result: tx.rawTx });
