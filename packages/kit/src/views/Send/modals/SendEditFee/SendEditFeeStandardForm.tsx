@@ -19,8 +19,8 @@ const presetItemStyle = {
   marginTop: 2,
   paddingLeft: '16px',
   paddingRight: '16px',
-  paddingTop: '8px',
-  paddingBottom: '8px',
+  paddingTop: '4px',
+  paddingBottom: '4px',
   alignItems: 'center',
 };
 
