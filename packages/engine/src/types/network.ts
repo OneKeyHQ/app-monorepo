@@ -117,7 +117,18 @@ type EIP1559Fee = {
 
   gasPrice?: string; // in GWEI
   gasPriceValue?: string;
+
+  confidence?: number;
 };
+
+// metamask
+enum NetworkCongestionThresholds {
+  notBusy = 0,
+  stable = 0.33,
+  busy = 0.66,
+}
+
+export { NetworkCongestionThresholds };
 
 export type {
   DBNetwork,

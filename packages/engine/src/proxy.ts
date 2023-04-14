@@ -37,16 +37,19 @@ import {
   IMPL_TBTC,
   SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { RestfulRequest } from '@onekeyhq/shared/src/request/RestfulRequest';
 import bufferUitls from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { OneKeyInternalError } from './errors';
+import { getBlockNativeGasInfo } from './managers/blockNative';
 import { getCurveByImpl } from './managers/impl';
+import { getMetaMaskGasInfo } from './managers/metaMask';
 import { getPresetNetworks } from './presets';
 import { IMPL_MAPPINGS, fillUnsignedTx, fillUnsignedTxObj } from './proxyUtils';
 import { HistoryEntryStatus } from './types/history';
 import { getRpcUrlFromChainInfo } from './vaults/utils/btcForkChain/provider/blockbook';
 
+import type { BlockNativeGasInfo } from './types/blockNative';
+import type { MetaMaskGasInfo } from './types/metaMask';
 import type { DBNetwork, EIP1559Fee } from './types/network';
 
 type Curve = 'secp256k1' | 'ed25519';
@@ -321,35 +324,21 @@ class ProviderController extends BaseProviderController {
     );
   }
 
-  async getGasPrice(networkId: string): Promise<Array<BigNumber | EIP1559Fee>> {
+  async getGasInfo(networkId: string): Promise<{
+    prices: Array<BigNumber | EIP1559Fee>;
+    networkCongestion?: number;
+    estimatedTransactionCount?: number;
+  }> {
     // TODO: move this into libs.
-    const { chainId, EIP1559Enabled } =
+    const { EIP1559Enabled } =
       (await this.getProvider(networkId)).chainInfo.implOptions || {};
     if (EIP1559Enabled || false) {
       try {
-        const request = new RestfulRequest(
-          `https://gas-api.metaswap.codefi.network/networks/${parseInt(
-            chainId,
-          )}/suggestedGasFees`,
-          {},
-          60 * 1000,
-        );
-        const { low, medium, high, estimatedBaseFee } = await request
-          .get('')
-          .then((i) => i.json());
-        const baseFee = new BigNumber(estimatedBaseFee);
-        return [low, medium, high].map(
-          (p: {
-            suggestedMaxPriorityFeePerGas: string;
-            suggestedMaxFeePerGas: string;
-          }) => ({
-            baseFee: baseFee.toFixed(),
-            maxPriorityFeePerGas: new BigNumber(
-              p.suggestedMaxPriorityFeePerGas,
-            ).toFixed(),
-            maxFeePerGas: new BigNumber(p.suggestedMaxFeePerGas).toFixed(),
-          }),
-        );
+        const gasInfo = await this.getGasInfoFromApi(networkId);
+        return {
+          ...gasInfo,
+          prices: gasInfo.prices as EIP1559Fee[],
+        };
       } catch {
         const {
           baseFeePerGas,
@@ -378,29 +367,80 @@ class ProviderController extends BaseProviderController {
         const coefficients = ['1.13', '1.25', '1.3'].map(
           (c) => new BigNumber(c),
         );
-        return [lows, mediums, highs].map((rewardList, index) => {
-          const coefficient = coefficients[index];
-          const maxPriorityFeePerGas = rewardList
-            .sort((a, b) => (a.gt(b) ? 1 : -1))[11]
-            .shiftedBy(-9);
-          return {
-            baseFee: baseFee.toFixed(),
-            maxPriorityFeePerGas: maxPriorityFeePerGas.toFixed(),
-            maxFeePerGas: baseFee
-              .times(new BigNumber(coefficient))
-              .plus(maxPriorityFeePerGas)
-              .toFixed(),
-          };
-        });
+        return {
+          prices: [lows, mediums, highs].map((rewardList, index) => {
+            const coefficient = coefficients[index];
+            const maxPriorityFeePerGas = rewardList
+              .sort((a, b) => (a.gt(b) ? 1 : -1))[11]
+              .shiftedBy(-9);
+            return {
+              baseFee: baseFee.toFixed(),
+              maxPriorityFeePerGas: maxPriorityFeePerGas.toFixed(),
+              maxFeePerGas: baseFee
+                .times(new BigNumber(coefficient))
+                .plus(maxPriorityFeePerGas)
+                .toFixed(),
+            };
+          }),
+        };
       }
     } else {
       const count = 3;
       const result = await this.getFeePricePerUnit(networkId);
-      return [result.normal, ...(result.others || [])]
-        .sort((a, b) => (a.price.gt(b.price) ? 1 : -1))
-        .map((p) => p.price)
-        .slice(0, count);
+      return {
+        prices: [result.normal, ...(result.others || [])]
+          .sort((a, b) => (a.price.gt(b.price) ? 1 : -1))
+          .map((p) => p.price)
+          .slice(0, count),
+      };
     }
+  }
+
+  async getGasInfoFromApi(
+    networkId: string,
+  ): Promise<Partial<MetaMaskGasInfo & BlockNativeGasInfo>> {
+    return new Promise((resolve, reject) => {
+      let metaMaskGasInfoInit = false;
+      let metaMaskGasInfo: MetaMaskGasInfo | null = null;
+      let blockNativeGasInfoInit = false;
+      let blockNativeGasInfo: BlockNativeGasInfo | null = null;
+      getBlockNativeGasInfo({ networkId })
+        .then((gasInfo) => {
+          blockNativeGasInfo = gasInfo;
+        })
+        .catch((e) => console.warn(e))
+        .finally(() => {
+          blockNativeGasInfoInit = true;
+          if (metaMaskGasInfoInit) {
+            if (blockNativeGasInfo || metaMaskGasInfo) {
+              resolve({
+                ...metaMaskGasInfo,
+                ...blockNativeGasInfo,
+              });
+            } else {
+              reject();
+            }
+          }
+        });
+      getMetaMaskGasInfo(networkId)
+        .then((gasInfo) => {
+          metaMaskGasInfo = gasInfo;
+        })
+        .catch((e) => console.warn(e))
+        .finally(() => {
+          metaMaskGasInfoInit = true;
+          if (blockNativeGasInfoInit) {
+            if (blockNativeGasInfo || metaMaskGasInfo) {
+              resolve({
+                ...metaMaskGasInfo,
+                ...blockNativeGasInfo,
+              });
+            } else {
+              reject();
+            }
+          }
+        });
+    });
   }
 
   async refreshPendingTxs(

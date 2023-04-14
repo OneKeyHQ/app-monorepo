@@ -82,4 +82,5 @@ export type ITxActionListViewProps = {
   transferAmount?: string;
   feeInput?: JSX.Element;
   isSingleTransformMode?: boolean;
+  advancedSettingsForm?: JSX.Element | null;
 } & ITxDetailContextData;

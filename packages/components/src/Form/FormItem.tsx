@@ -24,7 +24,7 @@ import type { ControllerProps, FieldValues } from 'react-hook-form';
 type InternalActionList = 'paste' | 'scan';
 
 type FormItemProps = {
-  label?: string;
+  label?: string | ReactElement;
   labelAddon?: ReactElement | InternalActionList[];
   isLabelAddonActions?: boolean;
   helpText?: string | ((v: any) => string | ReactElement) | ReactElement;
@@ -148,6 +148,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
             })
             .filter(Boolean);
         }
+
         return (
           <FormControl isInvalid={!!error} width="full" {...formControlProps}>
             {(!!label || !isLabelAddonActions) && (
@@ -160,7 +161,11 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
               >
                 {!!label && (
                   <FormControl.Label mb={0}>
-                    <Typography.Body2Strong>{label}</Typography.Body2Strong>
+                    {typeof label === 'string' ? (
+                      <Typography.Body2Strong>{label}</Typography.Body2Strong>
+                    ) : (
+                      label
+                    )}
                   </FormControl.Label>
                 )}
 

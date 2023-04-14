@@ -738,9 +738,9 @@ export default class Vault extends VaultBase {
   }
 
   override async fetchFeeInfo(encodedTx: IEncodedTx): Promise<IFeeInfo> {
-    const [network, prices, nativeTx] = await Promise.all([
+    const [network, { prices }, nativeTx] = await Promise.all([
       this.getNetwork(),
-      this.engine.getGasPrice(this.networkId),
+      this.engine.getGasInfo(this.networkId),
       this.helper.parseToNativeTx(encodedTx),
     ]);
 
