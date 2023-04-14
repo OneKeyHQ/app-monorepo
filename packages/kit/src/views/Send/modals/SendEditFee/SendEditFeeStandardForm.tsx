@@ -4,6 +4,7 @@ import { Box, HStack, RadioFee } from '@onekeyhq/components';
 import type {
   IFeeInfo,
   IFeeInfoPayload,
+  IFeeInfoSelectedType,
   IFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/types';
 
@@ -19,8 +20,8 @@ const presetItemStyle = {
   marginTop: 2,
   paddingLeft: '16px',
   paddingRight: '16px',
-  paddingTop: '8px',
-  paddingBottom: '8px',
+  paddingTop: '4px',
+  paddingBottom: '4px',
   alignItems: 'center',
 };
 
@@ -36,6 +37,7 @@ export type IStandardFeeProps = {
   accountId: string;
   networkId: string;
   currentCustom: null | IFeeInfoUnit;
+  currentFeeType: IFeeInfoSelectedType;
 };
 export function SendEditFeeStandardForm({
   feeInfoPayload,
@@ -44,9 +46,21 @@ export function SendEditFeeStandardForm({
   accountId,
   networkId,
   currentCustom,
+  currentFeeType,
 }: IStandardFeeProps) {
   const customFeeInfo = currentCustom || feeInfoPayload?.selected.custom;
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
+
+  const btcCustomFee = useMemo(() => {
+    if (!feeInfoPayload?.info?.isBtcForkChain) return null;
+    if (currentFeeType !== 'custom') return null;
+    if (!currentCustom?.btcFee) return null;
+    return `${currentCustom?.btcFee}`;
+  }, [
+    currentCustom?.btcFee,
+    currentFeeType,
+    feeInfoPayload?.info?.isBtcForkChain,
+  ]);
 
   const selectedFeeInfo = useMemo(() => {
     let price = null;
@@ -66,6 +80,7 @@ export function SendEditFeeStandardForm({
         feeInfo={feeInfoPayload?.info}
         price={price}
         limit={limit}
+        btcCustomFee={btcCustomFee}
       />
     );
   }, [
@@ -77,6 +92,7 @@ export function SendEditFeeStandardForm({
     isEIP1559Fee,
     networkId,
     value,
+    btcCustomFee,
   ]);
 
   const gasList = useMemo(
@@ -92,9 +108,16 @@ export function SendEditFeeStandardForm({
 
       return {
         value: index.toString(),
-        title: <FeeSpeedLabel index={index} iconSize={28} />,
+        title: (
+          <FeeSpeedLabel
+            index={index}
+            iconSize={28}
+            alignItems="center"
+            space={2}
+          />
+        ),
 
-        describeSecond: (
+        describe: (
           <HStack space="10px" alignItems="center">
             <FeeSpeedTime index={index} waitingSeconds={waitingSeconds} />
             <FeeSpeedTip
@@ -112,9 +135,11 @@ export function SendEditFeeStandardForm({
     if (!feeInfoPayload?.info.customDisabled) {
       items.push({
         value: 'custom',
-        title: <FeeSpeedLabel isCustom iconSize={28} />,
+        title: (
+          <FeeSpeedLabel isCustom iconSize={28} alignItems="center" space={2} />
+        ),
 
-        describeSecond: (
+        describe: (
           <HStack space="10px" alignItems="center">
             <CustomFeeSpeedTime
               isEIP1559Fee={isEIP1559Fee}

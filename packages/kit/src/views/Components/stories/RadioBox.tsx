@@ -50,24 +50,18 @@ const RadioBoxGallery = () => {
             {
               value: '1',
               title: 'Fast',
-              titleSecond: '30 sec',
               describe: '64.61 GWEI',
-              describeSecond: 'Max Fee: 127 GWEI',
               isDisabled: true,
             },
             {
               value: '2',
               title: 'Normal',
-              titleSecond: '5 min',
               describe: '64.61 GWEI',
-              describeSecond: 'Max Fee: 127 GWEI',
             },
             {
               value: '3',
               title: 'Slow',
-              titleSecond: '10 min',
               describe: '64.61 GWEI',
-              describeSecond: 'Max Fee: 127 GWEI',
             },
           ]}
           defaultValue="1"

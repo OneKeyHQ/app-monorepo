@@ -6,29 +6,18 @@ import { isString } from 'lodash';
 import type { Network } from '@onekeyhq/kit/src/store/typings';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
-  COINTYPE_BTC,
-  IMPL_ADA,
-  IMPL_BCH,
-  IMPL_BTC,
   IMPL_COSMOS,
-  IMPL_DOGE,
   IMPL_DOT,
-  IMPL_LTC,
-  IMPL_TBTC,
-  SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import * as errors from './errors';
 import { OneKeyValidatorError, OneKeyValidatorTip } from './errors';
 import * as limits from './limits';
-import { getNextAccountId } from './managers/derivation';
-import { implToCoinTypes } from './managers/impl';
 import { UserInputCategory } from './types/credential';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
 
 import type { DBAPI } from './dbs/base';
 import type { Engine } from './index';
-import type { DBUTXOAccount } from './types/account';
 import type { UserInputCheckResult } from './types/credential';
 
 const FEE_LIMIT_HIGH_VALUE_TIMES = 20;

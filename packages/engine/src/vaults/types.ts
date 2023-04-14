@@ -260,6 +260,9 @@ export type IFeeInfoUnit = {
   limitUsed?: string;
   similarToPreset?: string;
   waitingSeconds?: number;
+  isBtcForkChain?: boolean;
+  btcFee?: number;
+  feeRate?: string;
 };
 // TODO rename to IFeeInfoMeta
 export type IFeeInfo = {
@@ -286,6 +289,8 @@ export type IFeeInfo = {
     estimatedTransactionCount?: number;
     originalPrices?: Array<EIP1559Fee | string> | null;
   } | null;
+  isBtcForkChain?: boolean;
+  feeList?: number[];
 };
 export type IFeeInfoSelectedType = 'preset' | 'custom';
 export type IFeeInfoSelected = {

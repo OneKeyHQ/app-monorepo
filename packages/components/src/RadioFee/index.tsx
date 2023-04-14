@@ -1,9 +1,7 @@
 import type { FC, ReactElement } from 'react';
 
-import Box from '../Box';
 import RadioBox from '../RadioBox';
 import Text from '../Text';
-import Typography from '../Typography';
 
 import type { RadioBoxProps } from '../RadioBox/RadioBox';
 import type { RadioBoxGroupProps } from '../RadioBox/RadioBoxGroup';
@@ -11,10 +9,7 @@ import type { RadioBoxGroupProps } from '../RadioBox/RadioBoxGroup';
 export type RadioFeeItemProps = {
   value: string;
   title: string | ReactElement<any>;
-  titleSecond?: string | ReactElement<any>;
   describe?: string | ReactElement<any>;
-  describeSecond?: string | ReactElement<any>;
-  describeThird?: string | ReactElement<any>;
 } & RadioBoxProps;
 
 export type RadioFeeProps = {
@@ -24,74 +19,42 @@ export type RadioFeeProps = {
 const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
   const readItemComponents = () => {
     const itemComponents: ReactElement<RadioBoxProps>[] = [];
-    items.forEach(
-      ({
-        isDisabled,
-        value,
-        title,
-        titleSecond,
-        describe,
-        describeSecond,
-        describeThird,
-        ...rest
-      }) => {
-        itemComponents.push(
-          <RadioBox
-            disabled={isDisabled}
-            value={value}
-            flexDirection="row"
-            justifyContent="space-between"
-            mt={3}
-            key={value}
-            {...rest}
-          >
-            <Box alignSelf="stretch">
-              <Text
-                typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
-                color={isDisabled ? 'text-disabled' : 'text-default'}
-              >
-                {title}
-              </Text>
-              {!!titleSecond && (
-                <Typography.Body2
-                  mt="auto"
-                  color={isDisabled ? 'text-disabled' : 'text-subdued'}
-                >
-                  {titleSecond}
-                </Typography.Body2>
-              )}
-            </Box>
-            <Box alignItems="flex-end">
-              {!!describe && (
-                <Text
-                  typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
-                  color={isDisabled ? 'text-disabled' : 'text-default'}
-                >
-                  {describe}
-                </Text>
-              )}
-              {!!describeSecond && (
-                <Typography.Body2
-                  display="flex"
-                  alignItems="center"
-                  color={isDisabled ? 'text-disabled' : 'text-subdued'}
-                >
-                  {describeSecond}
-                </Typography.Body2>
-              )}
+    items.forEach(({ isDisabled, value, title, describe, ...rest }) => {
+      itemComponents.push(
+        <RadioBox
+          disabled={isDisabled}
+          value={value}
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          mt={3}
+          key={value}
+          {...rest}
+        >
+          {typeof title === 'string' ? (
+            <Text
+              typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
+              color={isDisabled ? 'text-disabled' : 'text-default'}
+            >
+              {title}
+            </Text>
+          ) : (
+            title
+          )}
 
-              {!!describeThird && (
-                <Typography.Body2
-                  color={isDisabled ? 'text-disabled' : 'text-subdued'}
-                >
-                  {describeThird}
-                </Typography.Body2>
-              )}
-            </Box>
-          </RadioBox>,
-        );
-      },
-    );
+          {!!describe && typeof describe === 'string' ? (
+            <Text
+              typography={{ sm: 'DisplayMedium', md: 'DisplaySmall' }}
+              color={isDisabled ? 'text-disabled' : 'text-subdued'}
+            >
+              {describe}
+            </Text>
+          ) : (
+            describe
+          )}
+        </RadioBox>,
+      );
+    });
     return itemComponents;
   };
 

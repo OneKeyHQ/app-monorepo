@@ -19,14 +19,16 @@ type Props = {
   feeInfo?: IFeeInfo;
   price?: IFeeInfoPrice;
   limit?: string;
+  btcCustomFee?: string | null;
 };
 
 function SendEditFeeOverview(props: Props) {
-  const { accountId, networkId, feeInfo, price, limit } = props;
+  const { accountId, networkId, feeInfo, price, limit, btcCustomFee } = props;
 
   const intl = useIntl();
 
   const isEIP1559Fee = feeInfo?.eip1559;
+  const isBtcForkChain = feeInfo?.isBtcForkChain;
 
   let minFeeNative = '';
   let totalFeeNative = '';
@@ -45,6 +47,24 @@ function SendEditFeeOverview(props: Props) {
 
     minFeeNative = calculateTotalFeeNative({
       amount: minFee,
+      info: feeInfo,
+    });
+  } else if (isBtcForkChain) {
+    let btcFee;
+    if (btcCustomFee) {
+      btcFee = parseInt(btcCustomFee);
+    } else {
+      const priceIndex = feeInfo.prices.findIndex((i) => i === price);
+      btcFee = feeInfo.feeList?.[priceIndex];
+    }
+    const totalFee = calculateTotalFeeRange({
+      limit,
+      price: price as string,
+      btcFee,
+      isBtcForkChain: true,
+    }).max;
+    totalFeeNative = calculateTotalFeeNative({
+      amount: totalFee,
       info: feeInfo,
     });
   } else {
