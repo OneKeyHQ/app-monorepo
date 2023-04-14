@@ -528,21 +528,9 @@ class ServiceLimitOrder extends ServiceBase {
 
   @backgroundMethod()
   async syncAccount({ accountId }: { accountId: string }) {
-    const { appSelector } = this.backgroundApi;
-    const limitOrderDetails = appSelector(
-      (s) => s.swapTransactions.limitOrderDetails,
-    );
-
-    const accountLimitOrderDetails = limitOrderDetails?.[accountId];
-    if (!accountLimitOrderDetails?.[OnekeyNetwork.eth]) {
-      this.syncAccountOrders({ networkId: OnekeyNetwork.eth, accountId });
-    }
-    if (!accountLimitOrderDetails?.[OnekeyNetwork.bsc]) {
-      this.syncAccountOrders({ networkId: OnekeyNetwork.bsc, accountId });
-    }
-    if (!accountLimitOrderDetails?.[OnekeyNetwork.polygon]) {
-      this.syncAccountOrders({ networkId: OnekeyNetwork.polygon, accountId });
-    }
+    this.syncAccountOrders({ networkId: OnekeyNetwork.eth, accountId });
+    this.syncAccountOrders({ networkId: OnekeyNetwork.bsc, accountId });
+    this.syncAccountOrders({ networkId: OnekeyNetwork.polygon, accountId });
   }
 
   @backgroundMethod()
