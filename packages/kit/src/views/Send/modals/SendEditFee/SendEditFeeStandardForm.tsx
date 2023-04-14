@@ -20,8 +20,8 @@ const presetItemStyle = {
   marginTop: 2,
   paddingLeft: '16px',
   paddingRight: '16px',
-  paddingTop: '8px',
-  paddingBottom: '8px',
+  paddingTop: '4px',
+  paddingBottom: '4px',
   alignItems: 'center',
 };
 
@@ -108,9 +108,16 @@ export function SendEditFeeStandardForm({
 
       return {
         value: index.toString(),
-        title: <FeeSpeedLabel index={index} iconSize={28} />,
+        title: (
+          <FeeSpeedLabel
+            index={index}
+            iconSize={28}
+            alignItems="center"
+            space={2}
+          />
+        ),
 
-        describeSecond: (
+        describe: (
           <HStack space="10px" alignItems="center">
             <FeeSpeedTime index={index} waitingSeconds={waitingSeconds} />
             <FeeSpeedTip
@@ -128,9 +135,11 @@ export function SendEditFeeStandardForm({
     if (!feeInfoPayload?.info.customDisabled) {
       items.push({
         value: 'custom',
-        title: <FeeSpeedLabel isCustom iconSize={28} />,
+        title: (
+          <FeeSpeedLabel isCustom iconSize={28} alignItems="center" space={2} />
+        ),
 
-        describeSecond: (
+        describe: (
           <HStack space="10px" alignItems="center">
             <CustomFeeSpeedTime
               isEIP1559Fee={isEIP1559Fee}

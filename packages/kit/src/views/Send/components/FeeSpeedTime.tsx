@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Text } from '@onekeyhq/components';
@@ -25,11 +27,13 @@ export function FeeSpeedTime({
   waitingSeconds,
   withColor,
   prices,
+  typography,
 }: {
   index: number | string;
   waitingSeconds: number | undefined;
   withColor?: boolean;
   prices?: IFeeInfoPrice[];
+  typography?: ComponentProps<typeof Text>['typography'];
 }) {
   const intl = useIntl();
   let indexInt = parseInt(index as string, 10);
@@ -69,9 +73,13 @@ export function FeeSpeedTime({
     }
   }
   return withColor ? (
-    <Text color={getSpeedColor(seconds as number)}>{title}</Text>
+    <Text typography={typography} color={getSpeedColor(seconds as number)}>
+      {title}
+    </Text>
   ) : (
-    <>{title}</>
+    <Text typography={typography} color="text-subdued">
+      {title}
+    </Text>
   );
 }
 

@@ -447,22 +447,20 @@ function FeeInfoInputForConfirmLite({
       : custom?.waitingSeconds;
     return (
       <HStack alignItems="center">
-        <HStack flex={1} space={2}>
-          <Text typography="Body1Strong">
-            <FeeSpeedLabel
-              prices={feeInfoPayload?.info?.prices}
-              isCustom={!isPreset}
-              index={feeInfoPayload?.selected?.preset}
-            />
-          </Text>
-          <Text typography="Body1Strong">
-            <FeeSpeedTime
-              prices={feeInfoPayload?.info?.prices}
-              index={index ?? 0}
-              waitingSeconds={waitingSeconds}
-              withColor
-            />
-          </Text>
+        <HStack flex={1} space={2} alignItems="center">
+          <FeeSpeedLabel
+            prices={feeInfoPayload?.info?.prices}
+            isCustom={!isPreset}
+            index={feeInfoPayload?.selected?.preset}
+            alignItems="baseline"
+          />
+          <FeeSpeedTime
+            prices={feeInfoPayload?.info?.prices}
+            index={index ?? 0}
+            waitingSeconds={waitingSeconds}
+            typography="Body1Strong"
+            withColor
+          />
         </HStack>
         {feeInfoEditable && (
           <Icon name="ChevronRightMini" color="icon-subdued" />
