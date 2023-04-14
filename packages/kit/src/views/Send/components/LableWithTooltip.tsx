@@ -27,7 +27,7 @@ function LabelWithTooltip({
 }) {
   const intl = useIntl();
   return (
-    <HStack alignItems="center" space={1} flex={1}>
+    <HStack alignItems="center" space={1}>
       <Text typography="Body2Strong" {...labelProps}>
         {labelBefore}
         {intl.formatMessage({ id: labelId })}
