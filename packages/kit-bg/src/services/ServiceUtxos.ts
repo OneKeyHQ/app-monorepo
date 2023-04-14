@@ -27,11 +27,23 @@ export default class ServiceUtxos extends ServiceBase {
     const dust = new BigNumber(vault.settings.minTransferAmount || 0).shiftedBy(
       network.decimals,
     );
-    const txs = await (vault as VaultBtcFork).getAccountInfo();
-    console.log(txs);
-    let utxos = (await (
-      vault as VaultBtcFork
-    ).collectUTXOs()) as ICoinControlListItem[];
+
+    let [utxos, txs]: [
+      utxos: ICoinControlListItem[],
+      txs: { transactions: { blockTime: number; blockHeight: number }[] },
+    ] = await Promise.all([
+      (vault as VaultBtcFork).collectUTXOs() as Promise<ICoinControlListItem[]>,
+      (vault as VaultBtcFork).getAccountInfo(),
+    ]);
+
+    // get block times
+    const blockTimesMap: Record<string, number> = {};
+    txs.transactions.forEach((tx) => {
+      if (!blockTimesMap[tx.blockHeight]) {
+        blockTimesMap[tx.blockHeight] = tx.blockTime;
+      }
+    });
+
     const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
       networkId,
       dbAccount.xpub,
@@ -45,9 +57,10 @@ export default class ServiceUtxos extends ServiceBase {
           ...utxo,
           label: archivedUtxo.label,
           frozen: archivedUtxo.frozen,
+          blockTime: blockTimesMap[utxo.height],
         };
       }
-      return utxo;
+      return { ...utxo, blockTime: blockTimesMap[utxo.height] };
     });
     const dataSourceWithoutDust = utxos.filter((utxo) =>
       new BigNumber(utxo.value).isGreaterThan(dust),

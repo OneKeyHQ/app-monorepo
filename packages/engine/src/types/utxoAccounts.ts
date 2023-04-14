@@ -14,4 +14,7 @@ export type CoinControlOption = {
   frozen: boolean;
 };
 
-export type ICoinControlListItem = IBtcUTXO & Partial<CoinControlOption>;
+export type ICoinControlListItem = IBtcUTXO & {
+  blockTime: number;
+  height: number;
+} & Partial<CoinControlOption>;
