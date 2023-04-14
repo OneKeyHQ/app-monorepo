@@ -99,7 +99,7 @@ export const MainContent = () => {
             </Center>
           </Box>
         </Box>
-        <Box px={4} py="5" bg="action-secondary-default" overflow="hidden">
+        <Box px={4} py="5" bg="surface-subdued" overflow="hidden">
           <LimitOrderReceivingTokenInput
             type="OUTPUT"
             label={intl.formatMessage({ id: 'action__receive' })}

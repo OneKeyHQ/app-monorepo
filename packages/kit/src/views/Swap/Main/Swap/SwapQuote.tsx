@@ -21,6 +21,7 @@ import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setDisableSwapExactApproveAmount } from '../../../../store/reducers/settings';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { ArrivalTime } from '../../components/ArrivalTime';
+import { SwapLoadingSkeleton } from '../../components/Skeleton';
 import SwappingVia from '../../components/SwappingVia';
 import SwapTooltip from '../../components/SwapTooltip';
 import TransactionFee from '../../components/TransactionFee';
@@ -389,10 +390,20 @@ const SwapSmartRoute = () => {
         justifyContent="flex-end"
         alignItems="center"
       >
-        <Pressable onPress={onSelectRoute} disabled={!!quoteLimited}>
-          <SwappingVia providers={quote.providers} typography="Body2" />
-        </Pressable>
-        {quoteLimited ? null : <Icon size={16} name="ChevronRightOutline" />}
+        <SwapLoadingSkeleton h="5" width="24" borderRadius="4px">
+          <Pressable
+            onPress={onSelectRoute}
+            disabled={!!quoteLimited}
+            flexDirection="row"
+            justifyContent="flex-end"
+            alignItems="center"
+          >
+            <SwappingVia providers={quote.providers} typography="Body2" />
+            {quoteLimited ? null : (
+              <Icon size={16} name="ChevronRightOutline" />
+            )}
+          </Pressable>
+        </SwapLoadingSkeleton>
       </Box>
     </Box>
   );
@@ -532,13 +543,15 @@ const SwapTransactionRate = () => {
   if (quote) {
     return (
       <Center py="3">
-        <TransactionRate
-          tokenA={inputToken}
-          tokenB={outputToken}
-          rate={quote?.instantRate}
-          typography="Body2"
-          color="text-subdued"
-        />
+        <SwapLoadingSkeleton h="5" width="24" borderRadius="4px">
+          <TransactionRate
+            tokenA={inputToken}
+            tokenB={outputToken}
+            rate={quote?.instantRate}
+            typography="Body2"
+            color="text-subdued"
+          />
+        </SwapLoadingSkeleton>
       </Center>
     );
   }
@@ -571,7 +584,9 @@ const SwapExchangeQuote = () => {
           />
         </Box>
         <Box flex="1" flexDirection="row" justifyContent="flex-end">
-          <SwapMinimumReceived />
+          <SwapLoadingSkeleton h="5" width="24" borderRadius="4px">
+            <SwapMinimumReceived />
+          </SwapLoadingSkeleton>
         </Box>
       </Box>
       <Center h="9">
