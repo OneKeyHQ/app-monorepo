@@ -18,7 +18,7 @@ import SwapChart from '../PriceChart/SwapChart';
 
 import { useSwapChartMode } from './hooks/useSwapUtils';
 import { Main } from './Main';
-import { PendingFullContent } from './Main/LimitOrder/PendingContent';
+import { PendingLimitOrdersProfessionalContent } from './Main/LimitOrder/PendingContent';
 import { SwapHeader } from './SwapHeader';
 import SwapObserver from './SwapObserver';
 import SwapUpdater from './SwapUpdater';
@@ -110,7 +110,7 @@ const DesktopChart = () => {
   }
 
   return (
-    <Box w="550px">
+    <Box>
       <SwapChart fromToken={inputToken} toToken={outputToken} />
     </Box>
   );
@@ -162,17 +162,19 @@ export const Desktop = () => {
           flexDirection="row"
           alignItems="flex-start"
           justifyContent="center"
+          px={mode === 'chart' ? '8' : undefined}
+          overflow="hidden"
         >
           {mode === 'chart' ? (
-            <Box>
+            <Box flex="1">
               <Box minH="52px">
                 <DesktopChartLabel />
               </Box>
               <DesktopChart />
-              <PendingFullContent />
+              <PendingLimitOrdersProfessionalContent />
             </Box>
           ) : null}
-          <Box w="480px">
+          <Box w="480px" bg="background-default">
             <DesktopMain />
           </Box>
         </Box>

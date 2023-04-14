@@ -8,6 +8,8 @@ let appUIEventBus: CrossEventEmitter;
 enum AppUIEventBusNames {
   SwapCompleted = 'SwapCompleted',
   SwapError = 'SwapError',
+  LimitOrderCompleted = 'LimitOrderCompleted',
+  LimitOrderError = 'LimitOrderError',
   RemoveAccount = 'RemoveAccount',
   Unlocked = 'Unlocked',
   StoreInitedFromPersistor = 'StoreInitedFromPersistor',

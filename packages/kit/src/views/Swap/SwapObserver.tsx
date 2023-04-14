@@ -11,7 +11,11 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation, usePrevious } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
-import { setInstantRate, setMktRate } from '../../store/reducers/limitOrder';
+import {
+  setInstantRate,
+  setMktRate,
+  setTypedPrice,
+} from '../../store/reducers/limitOrder';
 import { useRpcMeasureStatus } from '../ManageNetworks/hooks';
 
 import { fetchOrderInstantRate } from './doLimitOrder';
@@ -151,7 +155,11 @@ const LimitOrderRateResetObserver = () => {
   const tokenIn = useAppSelector((s) => s.limitOrder.tokenIn);
   const tokenOut = useAppSelector((s) => s.limitOrder.tokenOut);
   useEffect(() => {
-    backgroundApiProxy.dispatch(setMktRate(''), setInstantRate(''));
+    backgroundApiProxy.dispatch(
+      setMktRate(''),
+      setInstantRate(''),
+      setTypedPrice({ value: '' }),
+    );
   }, [tokenIn, tokenOut]);
   return null;
 };

@@ -7,13 +7,13 @@ import { useClipboard } from '../../hooks/useClipboard';
 
 export function browserSettingUrl() {
   if (platformEnv.isExtChrome) {
+    if (platformEnv.isRuntimeEdge) {
+      return 'edge://settings/clearBrowserData';
+    }
     return 'chrome://settings/clearBrowserData';
   }
   if (platformEnv.isExtFirefox) {
     return 'about:preferences#privacy';
-  }
-  if (platformEnv.isExtEdge) {
-    return 'edge://settings/clearBrowserData';
   }
 }
 

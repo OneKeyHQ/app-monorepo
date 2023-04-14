@@ -1,6 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -10,7 +9,6 @@ import {
   Pressable,
   Select,
   Typography,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -19,8 +17,9 @@ import { useAppSelector } from '../../../../hooks';
 import {
   setExpireIn,
   setInstantRate,
+  setTypedPrice,
 } from '../../../../store/reducers/limitOrder';
-import { div, formatAmount, lt } from '../../utils';
+import { div, formatAmount } from '../../utils';
 
 function formatExpireInString(expireIn: number) {
   const day = 60 * 24;
@@ -38,52 +37,41 @@ function formatExpireInString(expireIn: number) {
 
 function InstantRateSetting() {
   const intl = useIntl();
-  const [reverse, setReverse] = useState(false);
+  const typedPrice = useAppSelector((s) => s.limitOrder.typedPrice);
 
   const tokenIn = useAppSelector((s) => s.limitOrder.tokenIn);
   const tokenOut = useAppSelector((s) => s.limitOrder.tokenOut);
   const instantRate = useAppSelector((s) => s.limitOrder.instantRate);
   const mktRate = useAppSelector((s) => s.limitOrder.mktRate);
 
-  const percent = useMemo(() => {
-    if (instantRate && mktRate && instantRate !== mktRate) {
-      const bn = new BigNumber(mktRate);
-      const percentBN = bn
-        .minus(instantRate)
-        .absoluteValue()
-        .div(mktRate)
-        .multipliedBy(100);
-      const text = percentBN.decimalPlaces(2).toFixed();
-      return lt(instantRate, mktRate) ? `-${text}%` : `+${text}%`;
-    }
-    return '';
-  }, [instantRate, mktRate]);
-
-  const [price, setPrice] = useState(instantRate);
-
   const onChangeText = useCallback(
-    (text: string) => {
-      setPrice(text);
-      const value = reverse ? formatAmount(div(1, text)) : text;
-      backgroundApiProxy.dispatch(setInstantRate(value));
+    (value: string) => {
+      backgroundApiProxy.dispatch(
+        setTypedPrice({ reversed: typedPrice.reversed, value }),
+      );
+      const newInstantRate = typedPrice.reversed
+        ? formatAmount(div(1, value))
+        : value;
+      backgroundApiProxy.dispatch(setInstantRate(newInstantRate));
     },
-    [reverse],
+    [typedPrice.reversed],
   );
 
   const setAsMtkPrice = useCallback(() => {
-    const value = reverse ? formatAmount(div(1, mktRate)) : mktRate;
+    const value = typedPrice.reversed ? formatAmount(div(1, mktRate)) : mktRate;
     onChangeText(value);
-  }, [mktRate, reverse, onChangeText]);
+  }, [mktRate, typedPrice.reversed, onChangeText]);
 
   const onSwitch = useCallback(() => {
-    const newReverse = !reverse;
-    const value = newReverse ? formatAmount(div(1, instantRate)) : instantRate;
-    setReverse(newReverse);
-    setPrice(value);
-  }, [reverse, instantRate]);
+    const newReversed = !typedPrice.reversed;
+    const value = newReversed ? formatAmount(div(1, instantRate)) : instantRate;
+    backgroundApiProxy.dispatch(
+      setTypedPrice({ reversed: newReversed, value }),
+    );
+  }, [typedPrice.reversed, instantRate]);
 
-  const tokenA = !reverse ? tokenIn?.symbol : tokenOut?.symbol;
-  const tokenB = !reverse ? tokenOut?.symbol : tokenIn?.symbol;
+  const tokenA = !typedPrice.reversed ? tokenIn?.symbol : tokenOut?.symbol;
+  const tokenB = !typedPrice.reversed ? tokenOut?.symbol : tokenIn?.symbol;
 
   return (
     <Box flex="1" backgroundColor="surface-subdued" px="4" pb="4" pt="3">
@@ -99,11 +87,6 @@ function InstantRateSetting() {
               { '0': tokenA ?? '' },
             )}
           </Typography.Body1>
-          {percent ? (
-            <Typography.Caption ml="1" color="text-subdued">
-              {percent}
-            </Typography.Caption>
-          ) : null}
         </Box>
 
         <Pressable onPress={setAsMtkPrice}>
@@ -127,7 +110,7 @@ function InstantRateSetting() {
             pl={0}
             rightCustomElement={null}
             focusOutlineColor="transparent"
-            value={price ?? ''}
+            value={typedPrice.value ?? ''}
             onChangeText={onChangeText}
           />
         </Box>
@@ -144,7 +127,7 @@ function InstantRateSetting() {
             <Typography.CaptionStrong color="text-subdued" mr="1">
               {tokenB ?? ''}
             </Typography.CaptionStrong>
-            <Icon name="SwitchVerticalMini" size={10} />
+            <Icon name="ArrowsRightLeftMini" size={10} />
           </Pressable>
         </Box>
       </Box>
@@ -236,20 +219,8 @@ function ExpireSetting() {
 }
 
 export function ParameterSetting() {
-  const mktRate = useAppSelector((s) => s.limitOrder.mktRate);
-  const isSmall = useIsVerticalLayout();
-  if (!mktRate) {
-    return null;
-  }
   return (
-    <Box
-      flexDirection="row"
-      w="full"
-      h="20"
-      mt="1"
-      borderRadius={isSmall ? 0 : 12}
-      overflow="hidden"
-    >
+    <Box flexDirection="row" w="full" h="20" mt="1" overflow="hidden">
       <InstantRateSetting />
       <ExpireSetting />
     </Box>
