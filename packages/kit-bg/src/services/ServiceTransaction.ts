@@ -1,6 +1,6 @@
 import { FailedToEstimatedGasError } from '@onekeyhq/engine/src/errors';
-import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
+import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IEncodedTx,
   IFeeInfo,

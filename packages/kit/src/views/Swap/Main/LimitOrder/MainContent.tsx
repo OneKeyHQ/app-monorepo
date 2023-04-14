@@ -2,12 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Center,
-  IconButton,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+import { Box, Center, IconButton } from '@onekeyhq/components';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -23,7 +18,6 @@ import { SwapRoutes } from '../../typings';
 
 export const MainContent = () => {
   const intl = useIntl();
-  const isSmall = useIsVerticalLayout();
   const navigation = useNavigation();
   const { wallet, network } = useActiveWalletAccount();
   const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
@@ -64,13 +58,7 @@ export const MainContent = () => {
   return (
     <Box w="full">
       <Box position="relative">
-        <Box
-          px={4}
-          py="5"
-          bg="surface-subdued"
-          overflow="hidden"
-          borderRadius={isSmall ? undefined : '12'}
-        >
+        <Box px={4} py="5" bg="surface-subdued" overflow="hidden">
           <LimitOrderTokenInput
             type="INPUT"
             label={intl.formatMessage({ id: 'form__pay' })}
@@ -111,13 +99,7 @@ export const MainContent = () => {
             </Center>
           </Box>
         </Box>
-        <Box
-          px={4}
-          py="5"
-          bg="action-secondary-default"
-          overflow="hidden"
-          borderRadius={isSmall ? undefined : '12'}
-        >
+        <Box px={4} py="5" bg="action-secondary-default" overflow="hidden">
           <LimitOrderReceivingTokenInput
             type="OUTPUT"
             label={intl.formatMessage({ id: 'action__receive' })}
