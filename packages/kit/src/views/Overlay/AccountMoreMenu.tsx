@@ -153,10 +153,11 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
         screen: CoinControlModalRoutes.CoinControlModal,
         params: {
           networkId: network?.id ?? '',
+          accountId,
         },
       },
     });
-  }, [navigation, network?.id]);
+  }, [navigation, network?.id, accountId]);
 
   const walletType = wallet?.type;
 

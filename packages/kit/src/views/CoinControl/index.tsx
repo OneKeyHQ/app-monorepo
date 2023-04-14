@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -24,6 +24,7 @@ import {
 import type { CoinControlRoutesParams } from '@onekeyhq/kit/src/routes';
 import type { CoinControlModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../hooks';
 
 import { CoinControlList } from './components/List';
@@ -110,9 +111,13 @@ const ModalFooter: FC<any> = () => {
 const CoinControl = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { networkId } = route.params;
+  const { networkId, accountId } = route.params;
 
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  useEffect(() => {
+    backgroundApiProxy.serviceUtxos.getUtxos(networkId, accountId);
+  }, []);
 
   return (
     <Modal

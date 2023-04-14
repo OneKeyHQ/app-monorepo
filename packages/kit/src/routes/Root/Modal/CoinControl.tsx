@@ -9,6 +9,7 @@ import createStackNavigator from './createStackNavigator';
 export type CoinControlRoutesParams = {
   [CoinControlModalRoutes.CoinControlModal]: {
     networkId: string;
+    accountId: string;
   };
 };
 

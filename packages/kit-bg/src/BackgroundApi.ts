@@ -385,5 +385,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceAddressbook', { value });
     return value;
   }
+
+  get serviceUtxos() {
+    const ServiceUtxos =
+      require('./services/ServiceUtxos') as typeof import('./services/ServiceUtxos');
+    const value = new ServiceUtxos.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceUtxos', { value });
+
+    return value;
+  }
 }
 export default BackgroundApi;
