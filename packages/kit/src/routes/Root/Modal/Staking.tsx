@@ -7,6 +7,7 @@ import { StakingRoutes } from '../../../views/Staking/typing';
 import UnstakeAmount from '../../../views/Staking/UnstakeAmount';
 import UnstakeKeleETHNotes from '../../../views/Staking/UnstakeKeleETHNotes';
 import WithdrawAmount from '../../../views/Staking/WithdrawAmount';
+import WithdrawProtected from '../../../views/Staking/WithdrawProtected';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
@@ -39,6 +40,10 @@ const modalRoutes = [
   {
     name: StakingRoutes.WithdrawAmount,
     component: WithdrawAmount,
+  },
+  {
+    name: StakingRoutes.WithdrawProtected,
+    component: WithdrawProtected,
   },
 ];
 

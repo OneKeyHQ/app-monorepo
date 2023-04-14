@@ -3,6 +3,7 @@ import { openURL as LinkingOpenURL, canOpenURL } from 'expo-linking';
 import semver from 'semver';
 
 import { ToastManager } from '@onekeyhq/components';
+import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import store from '@onekeyhq/kit/src/store';
@@ -157,12 +158,15 @@ class AppUpdates {
         );
       }
       if (platformEnv.isExtChrome) {
-        packageInfo = releasePackages?.extension?.find(
-          (x) => x.os === 'chrome',
-        );
-      }
-      if (platformEnv.isExtEdge) {
-        packageInfo = releasePackages?.extension?.find((x) => x.os === 'edge');
+        if (platformEnv.isRuntimeEdge) {
+          packageInfo = releasePackages?.extension?.find(
+            (x) => x.os === 'edge',
+          );
+        } else {
+          packageInfo = releasePackages?.extension?.find(
+            (x) => x.os === 'chrome',
+          );
+        }
       }
     }
 
@@ -258,7 +262,7 @@ class AppUpdates {
 
     if (!releaseInfo) return;
 
-    let locale = store.getState().settings.locale ?? 'en-US';
+    let locale: LocaleSymbol = store.getState().settings.locale ?? 'en-US';
     if (locale === 'system') {
       locale = getDefaultLocale();
     }

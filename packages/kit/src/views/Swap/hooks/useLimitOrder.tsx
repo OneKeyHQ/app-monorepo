@@ -84,8 +84,8 @@ export function useAllLimitOrders(): LimitOrderTransactionDetails[] {
     if (!limitOrderDetails) {
       return [];
     }
-    const accountLimitOrderDetails = Object.values(limitOrderDetails);
-    const txs = accountLimitOrderDetails.reduce(
+    const limitOrderDetailsValues = Object.values(limitOrderDetails);
+    const txs = limitOrderDetailsValues.reduce(
       (result, item) => result.concat(...Object.values(item)),
       [] as LimitOrderTransactionDetails[],
     );
@@ -94,18 +94,18 @@ export function useAllLimitOrders(): LimitOrderTransactionDetails[] {
 }
 
 export const useCheckLimitOrderInputBalance = () => {
-  const inputToken = useAppSelector((s) => s.limitOrder.tokenIn);
+  const tokenIn = useAppSelector((s) => s.limitOrder.tokenIn);
   const sendingAccount = useAppSelector((s) => s.limitOrder.activeAccount);
   const typedValue = useAppSelector((s) => s.limitOrder.typedValue);
-  const inputBalance = useTokenBalance(
-    gt(typedValue, 0) ? inputToken : undefined,
+  const tokenBalance = useTokenBalance(
+    gt(typedValue, 0) ? tokenIn : undefined,
     sendingAccount?.id,
   );
   return useMemo(() => {
-    if (inputToken && inputBalance && typedValue) {
-      return { insufficient: lt(inputBalance, typedValue), token: inputToken };
+    if (tokenIn && tokenBalance && typedValue) {
+      return { insufficient: lt(tokenBalance, typedValue), token: tokenIn };
     }
-  }, [inputToken, inputBalance, typedValue]);
+  }, [tokenIn, tokenBalance, typedValue]);
 };
 
 export const useCancelLimitOrderCallback = () => {

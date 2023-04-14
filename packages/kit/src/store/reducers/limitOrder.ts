@@ -3,6 +3,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
+import type { TypedPrice } from '../../views/Swap/typings';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 type LimitOrderState = {
@@ -14,6 +15,7 @@ type LimitOrderState = {
   expireIn: number;
   instantRate: string;
   mktRate: string;
+  typedPrice: TypedPrice;
 };
 
 const initialState: LimitOrderState = {
@@ -23,6 +25,9 @@ const initialState: LimitOrderState = {
   expireIn: 10080,
   instantRate: '',
   mktRate: '',
+  typedPrice: {
+    value: '',
+  },
 };
 
 export const limitOrderSlice = createSlice({
@@ -54,9 +59,14 @@ export const limitOrderSlice = createSlice({
       state.typedValue = '';
       state.mktRate = '';
       state.instantRate = '';
+      state.typedPrice = { reversed: false, value: '' };
+      state.loading = false;
     },
     setExpireIn(state, action: PayloadAction<number>) {
       state.expireIn = action.payload;
+    },
+    setTypedPrice(state, action: PayloadAction<TypedPrice>) {
+      state.typedPrice = action.payload;
     },
   },
 });
@@ -71,6 +81,7 @@ export const {
   setMktRate,
   resetState,
   setExpireIn,
+  setTypedPrice,
 } = limitOrderSlice.actions;
 
 export default limitOrderSlice.reducer;
