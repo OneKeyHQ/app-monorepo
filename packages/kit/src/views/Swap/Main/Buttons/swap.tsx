@@ -26,7 +26,6 @@ import type {
   IEncodedTx,
   ISwapInfo,
 } from '@onekeyhq/engine/src/vaults/types';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -596,16 +595,12 @@ const ExchangeButton = () => {
           getTokenAmountString(params.tokenIn, allowance),
         ).lt(newQuote.sellAmount);
       }
-
+      const needToResetApproval =
+        await backgroundApiProxy.serviceSwap.needToResetApproval(
+          params.tokenIn,
+        );
       const needCancelApproval =
-        needApproved &&
-        ((fromNetworkId === OnekeyNetwork.eth &&
-          params.tokenIn.tokenIdOnNetwork.toLowerCase() ===
-            '0xdac17f958d2ee523a2206206994597c13d831ec7') ||
-          (fromNetworkId === OnekeyNetwork.heco &&
-            params.tokenIn.tokenIdOnNetwork.toLowerCase() ===
-              '0x897442804e4c8ac3a28fadb217f08b401411183e')) &&
-        Number(allowance || '0') > 0;
+        needApproved && needToResetApproval && Number(allowance || '0') > 0;
       if (needCancelApproval) {
         cancelApproveTx =
           (await backgroundApiProxy.engine.buildEncodedTxFromApprove({

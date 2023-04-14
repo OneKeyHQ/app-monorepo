@@ -324,6 +324,18 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async needToResetApproval(token: Token) {
+    const { appSelector } = this.backgroundApi;
+    const tokens = appSelector((s) => s.swapTransactions.approvalIssueTokens);
+    const finded = tokens?.find(
+      (item) =>
+        item.address.toLowerCase() === token.tokenIdOnNetwork &&
+        item.networkId === token.networkId,
+    );
+    return !!finded;
+  }
+
+  @backgroundMethod()
   async setQuoteLimited(limited?: QuoteLimited) {
     const { dispatch } = this.backgroundApi;
     dispatch(setQuoteLimited(limited));
