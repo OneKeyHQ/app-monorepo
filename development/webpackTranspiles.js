@@ -3,6 +3,7 @@ const webModuleTranspile = [
   '@gorhom',
   '@mysten/sui.js',
   'superstruct',
+  '@noble/curves',
   '@polkadot',
   '@solana/web3.js',
 ];
@@ -13,6 +14,7 @@ const extModuleTranspile = [
   'popmotion',
   '@mysten/sui.js',
   'superstruct',
+  '@noble/curves',
   '@polkadot/api',
   '@polkadot/wasm-bridge',
   '@polkadot/types-codec',

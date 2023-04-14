@@ -1,11 +1,16 @@
+import { TransactionBlock } from '@mysten/sui.js';
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable camelcase */
-import { fromB64 } from '@mysten/sui.js';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { get } from 'lodash';
 
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
+import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
+import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
+import type { IEncodedTxSUI } from '@onekeyhq/engine/src/vaults/impl/sui/types';
 import type VaultSUI from '@onekeyhq/engine/src/vaults/impl/sui/Vault';
+import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   backgroundClass,
@@ -19,10 +24,11 @@ import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type {
-  MoveCallTransaction,
-  SignableTransaction,
-  SuiAddress,
-  SuiTransactionResponse,
+  ExecuteTransactionRequestType,
+  SignedMessage,
+  SignedTransaction,
+  SuiTransactionBlockResponse,
+  SuiTransactionBlockResponseOptions,
 } from '@mysten/sui.js';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type {
@@ -31,12 +37,52 @@ import type {
 } from '@onekeyfe/onekey-sui-provider';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-interface SuiSignAndExecuteTransactionOptions {}
-
-interface SuiSignAndExecuteTransactionInput {
-  transaction: SignableTransaction;
-  options?: SuiSignAndExecuteTransactionOptions;
+interface AccountInfo {
+  address: string;
+  publicKey: string;
 }
+
+type IdentifierString = `${string}:${string}`;
+type IdentifierArray = readonly IdentifierString[];
+type WalletIcon = `data:image/${
+  | 'svg+xml'
+  | 'webp'
+  | 'png'
+  | 'gif'};base64,${string}`;
+
+interface WalletAccount {
+  readonly address: string;
+  readonly publicKey: Uint8Array;
+  readonly chains: IdentifierArray;
+  readonly features: IdentifierArray;
+  readonly label?: string;
+  readonly icon?: WalletIcon;
+}
+
+type SignAndExecuteTransactionBlockInput = {
+  blockSerialize: string;
+  walletSerialize: string;
+  account: WalletAccount;
+  chain: IdentifierString;
+  requestType?: ExecuteTransactionRequestType;
+  options?: SuiTransactionBlockResponseOptions;
+};
+type SignAndExecuteTransactionBlockOutput = SuiTransactionBlockResponse;
+
+type SignTransactionBlockInput = {
+  blockSerialize: string;
+  walletSerialize: string;
+  account: WalletAccount;
+  chain: IdentifierString;
+};
+type SignTransactionBlockOutput = SignedTransaction;
+
+type SignMessageInput = {
+  messageSerialize: string;
+  walletSerialize: string;
+  account: WalletAccount;
+};
+type SignMessageOutput = SignedMessage;
 
 @backgroundClass()
 class ProviderApiSui extends ProviderApiBase {
@@ -116,7 +162,7 @@ class ProviderApiSui extends ProviderApiBase {
   @providerApiMethod()
   public async getAccounts(
     request: IJsBridgeMessagePayload,
-  ): Promise<SuiAddress[]> {
+  ): Promise<AccountInfo[]> {
     debugLogger.providerApi.info('SUI getAccounts', request);
     let account = await this.account(request);
 
@@ -151,7 +197,7 @@ class ProviderApiSui extends ProviderApiBase {
 
   private async account(
     request: IJsBridgeMessagePayload,
-  ): Promise<string | undefined> {
+  ): Promise<AccountInfo | undefined> {
     debugLogger.providerApi.info('SUI account');
     const { networkId, networkImpl, accountId } = getActiveWalletAccount();
     if (networkImpl !== IMPL_SUI) {
@@ -172,20 +218,24 @@ class ProviderApiSui extends ProviderApiBase {
       accountId,
     })) as VaultSUI;
     const address = await vault.getAccountAddress();
+    const account = (await vault.getDbAccount()) as DBSimpleAccount;
 
-    const addresses = connectedAccounts.map((account) => account.address);
+    const addresses = connectedAccounts.map((a) => a.address);
     if (!addresses.includes(address)) {
       return undefined;
     }
 
-    return Promise.resolve(address);
+    return Promise.resolve({
+      address,
+      publicKey: account.pub,
+    });
   }
 
   @permissionRequired()
   @providerApiMethod()
   public getActiveChain(
     request: IJsBridgeMessagePayload,
-  ): Promise<SuiChainType> {
+  ): Promise<IdentifierString | undefined> {
     debugLogger.providerApi.info('SUI getActiveChain', request);
     return Promise.resolve(this.network());
   }
@@ -198,10 +248,10 @@ class ProviderApiSui extends ProviderApiBase {
     if (impl !== IMPL_SUI) {
       throw web3Errors.rpc.invalidRequest();
     }
-    if (chainId === '8888881') {
+    if (chainId === '8888883') {
       return 'sui:testnet';
     }
-    if (chainId === '8888882') {
+    if (chainId === '8888884') {
       return 'sui:devnet';
     }
 
@@ -210,25 +260,33 @@ class ProviderApiSui extends ProviderApiBase {
 
   @permissionRequired()
   @providerApiMethod()
-  public async signAndExecuteTransaction(
+  public async signAndExecuteTransactionBlock(
     request: IJsBridgeMessagePayload,
-    params: SuiSignAndExecuteTransactionInput,
-  ): Promise<SuiTransactionResponse> {
-    debugLogger.providerApi.info('SUI signAndSubmitTransaction', params);
-    const { networkId, accountId } = getActiveWalletAccount();
+    params: SignAndExecuteTransactionBlockInput,
+  ): Promise<SignAndExecuteTransactionBlockOutput> {
+    debugLogger.providerApi.info('SUI signAndExecuteTransactionBlock', params);
+    const { networkId, accountId, accountAddress } = getActiveWalletAccount();
+
+    const address = get(JSON.parse(params.walletSerialize), 'address');
+    if (address && address !== accountAddress) {
+      throw web3Errors.provider.unauthorized();
+    }
+
     const vault = (await this.backgroundApi.engine.getVault({
       networkId,
       accountId,
     })) as VaultSUI;
 
-    const encodeTx = params.transaction;
+    const encodeTx: IEncodedTxSUI = {
+      rawTx: TransactionBlock.from(params.blockSerialize).serialize(),
+    };
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
       { encodedTx: encodeTx },
     )) as string;
 
-    const tx = await vault.getTransactionByTxId(result);
+    const tx = await vault.getTransactionByTxId(result, params.options);
 
     if (!tx) throw new Error('Transaction not found');
 
@@ -237,66 +295,69 @@ class ProviderApiSui extends ProviderApiBase {
 
   @permissionRequired()
   @providerApiMethod()
-  public async executeMoveCall(
+  public async signTransactionBlock(
     request: IJsBridgeMessagePayload,
-    params: MoveCallTransaction,
-  ) {
-    debugLogger.providerApi.info('SUI executeMoveCall', params);
+    params: SignTransactionBlockInput,
+  ): Promise<SignTransactionBlockOutput> {
+    debugLogger.providerApi.info('SUI signTransactionBlock', params);
 
-    const { networkId, accountId } = getActiveWalletAccount();
-    const vault = (await this.backgroundApi.engine.getVault({
-      networkId,
-      accountId,
-    })) as VaultSUI;
+    const { accountAddress } = getActiveWalletAccount();
+
+    const address = get(JSON.parse(params.walletSerialize), 'address');
+    if (address && address !== accountAddress) {
+      throw web3Errors.provider.unauthorized();
+    }
+
+    const encodeTx: IEncodedTxSUI = {
+      rawTx: TransactionBlock.from(params.blockSerialize).serialize(),
+    };
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
       {
-        encodedTx: {
-          kind: 'moveCall',
-          data: params,
-        },
+        encodedTx: encodeTx,
+        signOnly: true,
       },
-    )) as string;
+    )) as ISignedTxPro;
 
-    const tx = await vault.getTransactionByTxId(result);
+    if (!result.signature) throw web3Errors.provider.unauthorized();
 
-    if (!tx) throw new Error('Transaction not found');
-
-    return Promise.resolve(tx);
+    return Promise.resolve({
+      transactionBlockBytes: result.rawTx,
+      signature: result.signature,
+    });
   }
 
   @permissionRequired()
   @providerApiMethod()
-  public async executeSerializedMoveCall(
+  public async signMessage(
     request: IJsBridgeMessagePayload,
-    params: string | Uint8Array,
-  ) {
-    debugLogger.providerApi.info('SUI executeSerializedMoveCall', params);
+    params: SignMessageInput,
+  ): Promise<SignMessageOutput> {
+    debugLogger.providerApi.info('SUI signMessage', params);
 
-    const { networkId, accountId } = getActiveWalletAccount();
-    const vault = (await this.backgroundApi.engine.getVault({
-      networkId,
-      accountId,
-    })) as VaultSUI;
+    const { accountAddress } = getActiveWalletAccount();
 
-    const data = typeof params === 'string' ? fromB64(params) : params;
+    const address = get(JSON.parse(params.walletSerialize), 'address');
+    if (address && address !== accountAddress) {
+      throw web3Errors.provider.unauthorized();
+    }
 
     const result = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
       {
-        encodedTx: {
-          kind: 'bytes',
-          data,
+        unsignedMessage: {
+          type: CommonMessageTypes.SIGN_MESSAGE,
+          message: params.messageSerialize,
+          secure: false,
         },
       },
     )) as string;
 
-    const tx = await vault.getTransactionByTxId(result);
-
-    if (!tx) throw new Error('Transaction not found');
-
-    return Promise.resolve(tx);
+    return {
+      messageBytes: params.messageSerialize,
+      signature: result,
+    };
   }
 }
 

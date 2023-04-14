@@ -123,7 +123,6 @@ export const swapSlice = createSlice({
     },
     setQuote(state, action: PayloadAction<QuoteData | undefined>) {
       // SUI Transaction: error TS2589: Type instantiation is excessively deep and possibly infinite.
-      // @ts-expect-error
       state.quote = action.payload;
     },
     setQuoteTime(state, action: PayloadAction<number | undefined>) {
