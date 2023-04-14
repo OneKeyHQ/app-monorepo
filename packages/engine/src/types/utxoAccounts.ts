@@ -1,3 +1,5 @@
+import type { IBtcUTXO } from '../vaults/utils/btcForkChain/types';
+
 export type CoinControlItem = CoinControlBase & CoinControlOption;
 
 export type CoinControlBase = {
@@ -11,3 +13,5 @@ export type CoinControlOption = {
   label: string;
   frozen: boolean;
 };
+
+export type ICoinControlListItem = IBtcUTXO & Partial<CoinControlOption>;

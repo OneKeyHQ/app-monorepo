@@ -1,5 +1,9 @@
 import BigNumber from 'bignumber.js';
 
+import { getUtxoId } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
+import type { ICoinControlListItem } from '@onekeyhq/engine/src/types/utxoAccounts';
 import type VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import {
   backgroundClass,
@@ -16,23 +20,48 @@ export default class ServiceUtxos extends ServiceBase {
       networkId,
       accountId,
     });
-    const network = await this.backgroundApi.engine.getNetwork(networkId);
+    const [dbAccount, network] = await Promise.all([
+      vault.getDbAccount() as unknown as DBUTXOAccount,
+      this.backgroundApi.engine.getNetwork(networkId),
+    ]);
     const dust = new BigNumber(vault.settings.minTransferAmount || 0).shiftedBy(
       network.decimals,
     );
-    const utxos = await (vault as VaultBtcFork).collectUTXOs();
+    const txs = await (vault as VaultBtcFork).getAccountInfo();
+    console.log(txs);
+    let utxos = (await (
+      vault as VaultBtcFork
+    ).collectUTXOs()) as ICoinControlListItem[];
+    const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
+      networkId,
+      dbAccount.xpub,
+    );
+    utxos = utxos.map((utxo) => {
+      const archivedUtxo = archivedUtxos.find(
+        (item) => item.id === getUtxoId(networkId, utxo),
+      );
+      if (archivedUtxo) {
+        return {
+          ...utxo,
+          label: archivedUtxo.label,
+          frozen: archivedUtxo.frozen,
+        };
+      }
+      return utxo;
+    });
     const dataSourceWithoutDust = utxos.filter((utxo) =>
       new BigNumber(utxo.value).isGreaterThan(dust),
     );
     const dustData = utxos.filter((utxo) =>
       new BigNumber(utxo.value).isLessThanOrEqualTo(dust),
     );
+    const frozenUtxos = utxos.filter((utxo) => utxo.frozen);
     const result = {
       utxos,
       utxosWithoutDust: dataSourceWithoutDust,
       utxosDust: dustData,
+      frozenUtxos,
     };
-    console.log('result: =====>>> ', result);
     return result;
   }
 }

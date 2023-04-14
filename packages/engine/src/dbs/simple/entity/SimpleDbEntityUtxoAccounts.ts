@@ -10,6 +10,10 @@ export type ISimpleDbEntityUtxoData = {
   utxos: CoinControlItem[];
 };
 
+export const getUtxoUniqueKey = (utxo: IBtcUTXO) => `${utxo.txid}_${utxo.vout}`;
+export const getUtxoId = (networkId: string, utxo: IBtcUTXO) =>
+  `${networkId}_${getUtxoUniqueKey(utxo)}`;
+
 class SimpleDbEntityUtxoAccounts extends SimpleDbEntityBase<ISimpleDbEntityUtxoData> {
   entityName = 'utxoAccounts';
 
@@ -26,12 +30,12 @@ class SimpleDbEntityUtxoAccounts extends SimpleDbEntityBase<ISimpleDbEntityUtxoD
     const newItems = [
       ...(rawData?.utxos ?? []),
       {
-        id: `${networkId}_${utxo.txid}_${utxo.vout}`,
+        id: getUtxoId(networkId, utxo),
         networkId,
         xpub,
         label: option.label,
         frozen: !!option.frozen,
-        key: `${utxo.txid}_${utxo.vout}`,
+        key: getUtxoUniqueKey(utxo),
       },
     ];
     return this.setRawData({ utxos: newItems });
