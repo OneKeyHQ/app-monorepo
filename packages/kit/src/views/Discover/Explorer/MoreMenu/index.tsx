@@ -20,17 +20,11 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
   return (
     <Select
       visible
-      dropdownPosition="right"
+      noTrigger
       title={intl.formatMessage({ id: 'select__options' })}
       onVisibleChange={onClose}
       footer={null}
       activatable={false}
-      triggerProps={{
-        width: '40px',
-      }}
-      dropdownProps={{
-        width: 248,
-      }}
       options={[
         {
           label: intl.formatMessage({
