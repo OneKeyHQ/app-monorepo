@@ -595,7 +595,7 @@ export default class VaultBtcFork extends VaultBase {
     );
 
     const blockNums = this.getDefaultBlockNums();
-    const result = {
+    return {
       isBtcForkChain: true,
       limit: (feeLimit ?? new BigNumber(0)).toFixed(), // bytes in BTC
       prices,
@@ -610,9 +610,6 @@ export default class VaultBtcFork extends VaultBase {
       nativeDecimals: network.decimals,
       tx: null, // Must be null if network not support feeInTx
     };
-
-    console.log('result in fetchFeeInfo: ', result);
-    return result;
   }
 
   override async broadcastTransaction(
