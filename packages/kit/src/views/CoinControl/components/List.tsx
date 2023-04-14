@@ -155,7 +155,7 @@ const CoinControlList: FC<any> = () => {
   const Footer = useMemo(
     () => (
       <Box>
-        <Divider mx={2} />
+        <Divider w="auto" mx={2} />
         <HStack mt={4} mb={2} mx={2}>
           <Tooltip
             label={intl.formatMessage({
@@ -178,6 +178,34 @@ const CoinControlList: FC<any> = () => {
         {Array.from({ length: 10 }).map((_, index) => (
           <CoinControlCell flex={1} />
         ))}
+        <Divider w="auto" mx={2} />
+        <HStack
+          mt={4}
+          mb={2}
+          mx={2}
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <Text typography="Subheading" color="text-subdued">
+            6 ITEMS
+          </Text>
+          <FormatBalance
+            balance="0.00000448"
+            formatOptions={{
+              fixed: 8,
+            }}
+            suffix="BTC"
+            render={(ele) => (
+              <Text
+                typography="Subheading"
+                color="text-subdued"
+                textAlign="right"
+              >
+                {ele}
+              </Text>
+            )}
+          />
+        </HStack>
       </Box>
     ),
     [],
