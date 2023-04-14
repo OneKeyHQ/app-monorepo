@@ -1,8 +1,14 @@
+// @ts-expect-error
+import coinSelectFn from 'coinselect';
+// @ts-expect-error
+import coinSelectSplit from 'coinselect/split';
+
 import { NotImplemented } from '../../../errors';
 
 import { AddressEncodings } from './types';
 
 import type { DBUTXOAccount } from '../../../types/account';
+import type { IEncodedTxBtc, IUTXOInput, IUTXOOutput } from './types';
 
 type IAccountDefault = {
   namePrefix: string;
@@ -80,3 +86,27 @@ export function getTaprootXpub(xpubSegwit: string) {
   }
   return xpubSegwit;
 }
+
+export const coinSelect = (
+  inputsForCoinSelect: IEncodedTxBtc['inputsForCoinSelect'],
+  outputsForCoinSelect: IEncodedTxBtc['outputsForCoinSelect'],
+  feeRate: string,
+) => {
+  const max = outputsForCoinSelect.every((i) => typeof i.value === 'undefined');
+  const unspentSelectFn = max ? coinSelectSplit : coinSelectFn;
+  const {
+    inputs,
+    outputs,
+    fee,
+  }: {
+    inputs: IUTXOInput[];
+    outputs: IUTXOOutput[];
+    fee: number;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  } = unspentSelectFn(
+    inputsForCoinSelect,
+    outputsForCoinSelect,
+    parseInt(feeRate),
+  );
+  return { inputs, outputs, fee };
+};

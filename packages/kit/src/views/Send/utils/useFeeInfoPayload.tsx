@@ -98,6 +98,16 @@ export function useFeeInfoPayload({
         };
       }
 
+      if (info.isBtcForkChain) {
+        return {
+          eip1559: false,
+          price: priceInfo as string,
+          limit: info.limit,
+          isBtcForkChain: true,
+          btcFee: info.feeList?.[priceIndex],
+        };
+      }
+
       return {
         eip1559: false,
         price: priceInfo as string,

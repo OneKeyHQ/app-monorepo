@@ -29,7 +29,10 @@ import {
 import { getBlockNativeGasInfo } from '@onekeyhq/engine/src/managers/blockNative';
 import type { BlockNativeGasInfo } from '@onekeyhq/engine/src/types/blockNative';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
-import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
+import type {
+  IEncodedTx,
+  IFeeInfoPayload,
+} from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useFormOnChangeDebounced } from '../../../../hooks/useFormOnChangeDebounced';
@@ -42,13 +45,17 @@ import {
   FEE_LEVEL_BADGE_TYPE_MAP,
   SEND_EDIT_FEE_PRICE_UP_RATIO,
 } from '../../utils/sendConfirmConsts';
+import {
+  useBtcCustomFee,
+  useBtcCustomFeeForm,
+} from '../../utils/useBtcCustomFee';
 
 import type { ISendEditFeeValues } from '../../types';
 import type { UseFormReturn } from 'react-hook-form';
 
 type AlertType = ComponentProps<typeof Alert>['alertType'];
 
-type CustomAlert = {
+export type CustomAlert = {
   type: AlertType;
   message: string;
 } | null;
@@ -73,6 +80,7 @@ export type ICustomFeeFormProps = {
   setBlockNativeInit: (value: boolean) => void;
   saveCustom: boolean;
   setSaveCustom: (value: boolean) => void;
+  encodedTx?: IEncodedTx;
 };
 export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   const {
@@ -85,9 +93,16 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     setBlockNativeInit,
     saveCustom,
     setSaveCustom,
+    encodedTx,
   } = props;
 
-  const { control, getValues, setValue, trigger: formTrigger } = useFormReturn;
+  const {
+    control,
+    getValues,
+    setValue,
+    trigger: formTrigger,
+    watch,
+  } = useFormReturn;
   const { formValues } = useFormOnChangeDebounced<ISendEditFeeValues>({
     useFormReturn,
   });
@@ -100,6 +115,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   const feeSymbol = feeInfoPayload?.info?.feeSymbol || '';
   const nativeSymbol = feeInfoPayload?.info?.nativeSymbol || '';
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
+  const isBtcForkChain = feeInfoPayload?.info.isBtcForkChain;
   const isSmallScreen = useIsVerticalLayout();
 
   const [lastPresetFeeInfo, setLastPresetFeeInfo] = useState(
@@ -119,6 +135,23 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   const [maxFeeTip, setMaxFeeTip] = useState<CustomAlert>(null);
   const [blockNativeFeeInfo, setBlockNativeFeeInfo] =
     useState<BlockNativeGasInfo>();
+
+  const { feeRateFormValidator } = useBtcCustomFeeForm({
+    networkId,
+    accountId,
+    encodedTx,
+    setGasPriceTip,
+    firstPresetFeeInfo: firstPresetFeeInfo as string,
+    lastPresetFeeInfo: lastPresetFeeInfo as string,
+  });
+  const watchFeeRate = watch('feeRate');
+  const { btcTxFee } = useBtcCustomFee({
+    networkId,
+    accountId,
+    encodedTx,
+    feeRate: watchFeeRate,
+    feeType: 'custom',
+  });
 
   const handleBoosterOnChange = useCallback(
     (value) => {
@@ -154,7 +187,6 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     } else {
       price = formValues?.gasPrice;
     }
-
     return (
       <SendEditFeeOverview
         accountId={accountId}
@@ -162,9 +194,17 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
         feeInfo={feeInfoPayload?.info}
         price={price}
         limit={limit}
+        btcCustomFee={btcTxFee}
       />
     );
-  }, [accountId, feeInfoPayload?.info, formValues, isEIP1559Fee, networkId]);
+  }, [
+    accountId,
+    feeInfoPayload?.info,
+    formValues,
+    isEIP1559Fee,
+    networkId,
+    btcTxFee,
+  ]);
 
   const customConfidence = useMemo(() => {
     if (!isEIP1559Fee || !blockNativeFeeInfo?.prices || !formValues)
@@ -225,6 +265,23 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
       .times(formValues?.gasLimit || 0)
       .shiftedBy(-(feeInfoPayload?.info.feeDecimals ?? 0))
       .toFixed(8);
+
+    if (isBtcForkChain) {
+      return (
+        <Form mt={4}>
+          <Form.Item
+            label="Fee rate (sat/B)"
+            control={control}
+            name="feeRate"
+            rules={{
+              validate: async (value) => feeRateFormValidator({ value }),
+            }}
+          >
+            <Form.NumberInput size={isSmallScreen ? 'xl' : 'lg'} />
+          </Form.Item>
+        </Form>
+      );
+    }
 
     return (
       <Form mt={4}>
@@ -605,6 +662,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     handleBoosterOnChange,
     intl,
     isEIP1559Fee,
+    isBtcForkChain,
     isSmallScreen,
     lastPresetFeeInfo,
     nativeSymbol,
@@ -614,6 +672,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     selectedFeeInfo?.custom?.price,
     selectedFeeInfo?.custom?.price1559,
     setValue,
+    feeRateFormValidator,
   ]);
 
   const customAlert = useMemo(

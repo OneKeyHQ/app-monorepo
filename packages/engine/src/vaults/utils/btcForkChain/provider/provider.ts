@@ -21,7 +21,7 @@ import { isTaprootXpubSegwit, isWatchAccountTaprootSegwit } from '../utils';
 import { getBlockBook } from './blockbook';
 import { getNetwork } from './networks';
 import ecc from './nobleSecp256k1Wrapper';
-import { PLACEHOLDER_VSIZE, estimateVsize, loadOPReturn } from './vsize';
+import { PLACEHOLDER_VSIZE, estimateTxSize, loadOPReturn } from './vsize';
 
 import type { Network } from './networks';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
@@ -408,39 +408,31 @@ class Provider {
         };
   }
 
-  async buildUnsignedTx(unsignedTx: UnsignedTx): Promise<UnsignedTx> {
-    const {
-      inputs,
-      outputs,
-      payload: { opReturn },
-    } = unsignedTx;
+  buildUnsignedTx(unsignedTx: UnsignedTx): Promise<UnsignedTx> {
+    const { encodedTx, inputs, outputs } = unsignedTx;
     let { feeLimit, feePricePerUnit } = unsignedTx;
+    const { inputsForCoinSelect } = encodedTx ?? {};
 
-    if (inputs.length > 0 && outputs.length > 0) {
-      const inputAddressEncodings = await this.parseAddressEncodings(
-        inputs.map((i) => i.address),
+    const selectedInputs = inputsForCoinSelect?.filter((input) =>
+      inputs.some(
+        (i) => i.utxo?.txid === input.txId && i.utxo.vout === input.vout,
+      ),
+    );
+    if (Number(selectedInputs?.length) > 0 && outputs.length > 0) {
+      const txSize = estimateTxSize(
+        selectedInputs ?? [],
+        outputs.map((o) => ({
+          address: o.address,
+          value: parseInt(o.value.toFixed()),
+        })) ?? [],
       );
-      const outputAddressEncodings = await this.parseAddressEncodings(
-        outputs.map((i) => i.address),
-      );
-
-      if (
-        inputAddressEncodings.length === inputs.length &&
-        outputAddressEncodings.length === outputs.length
-      ) {
-        const vsize = estimateVsize(
-          inputAddressEncodings,
-          outputAddressEncodings,
-          opReturn,
-        );
-        feeLimit =
-          feeLimit && feeLimit.gte(vsize) ? feeLimit : new BigNumber(vsize);
-      }
+      feeLimit =
+        feeLimit && feeLimit.gte(txSize) ? feeLimit : new BigNumber(txSize);
     }
 
     feeLimit = feeLimit || new BigNumber(PLACEHOLDER_VSIZE);
 
-    return { ...unsignedTx, feeLimit, feePricePerUnit };
+    return Promise.resolve({ ...unsignedTx, feeLimit, feePricePerUnit });
   }
 
   getBalances(

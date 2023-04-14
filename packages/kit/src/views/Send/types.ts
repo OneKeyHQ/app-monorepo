@@ -275,6 +275,7 @@ export type ISendEditFeeValues = {
   maxFeePerGas: string;
   baseFee: string;
   totalFee: string;
+  feeRate: string;
 };
 
 export type BatchSendConfirmPayloadInfo = {

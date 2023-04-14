@@ -58,7 +58,9 @@ function getCustomFeeSpeedInfo({
       customSimilarToPreset = '0';
     }
   } else {
-    const customPriceBN = new BigNumber(custom?.price ?? 0);
+    const customPriceBN = custom?.feeRate
+      ? new BigNumber(custom?.feeRate ?? 0).shiftedBy(-8)
+      : new BigNumber(custom?.price ?? 0);
     if (customPriceBN.isGreaterThanOrEqualTo(medium.price as string)) {
       if (customPriceBN.isLessThan(high.price as string)) {
         // Medium

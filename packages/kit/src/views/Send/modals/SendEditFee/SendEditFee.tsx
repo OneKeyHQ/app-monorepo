@@ -43,6 +43,7 @@ import {
   IS_REPLACE_ROUTE_TO_FEE_EDIT,
   SEND_EDIT_FEE_PRICE_UP_RATIO,
 } from '../../utils/sendConfirmConsts';
+import { useBtcCustomFee } from '../../utils/useBtcCustomFee';
 import { useFeeInfoPayload } from '../../utils/useFeeInfoPayload';
 
 import { SendEditFeeCustomForm } from './SendEditFeeCustomForm';
@@ -151,6 +152,7 @@ function ScreenSendEditFee({ ...rest }) {
     });
 
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
+  const isBtcForkChain = feeInfoPayload?.info?.isBtcForkChain;
 
   useEffect(() => {
     debugLogger.sendTx.info('SendEditFee  >>>>  ', feeInfoPayload, encodedTx);
@@ -171,13 +173,28 @@ function ScreenSendEditFee({ ...rest }) {
     setValue,
     trigger: formTrigger,
     formState,
+    watch,
   } = useFormReturn;
 
-  const onSubmit = handleSubmit(async (data) => {
-    let type: IFeeInfoSelectedType =
+  const currentFeeType = useMemo<IFeeInfoSelectedType>(
+    () =>
       feeType === ESendEditFeeTypes.advanced || radioValue === 'custom'
         ? 'custom'
-        : 'preset';
+        : 'preset',
+    [feeType, radioValue],
+  );
+
+  const watchBtcFeeRate = watch('feeRate');
+  const { btcTxFee } = useBtcCustomFee({
+    networkId,
+    accountId,
+    encodedTx,
+    feeRate: watchBtcFeeRate,
+    feeType: currentFeeType,
+  });
+
+  const onSubmit = handleSubmit(async (data) => {
+    let type = currentFeeType;
     // const values = getValues();
     if (!radioValue && type === 'preset') {
       type = 'custom';
@@ -204,6 +221,7 @@ function ScreenSendEditFee({ ...rest }) {
       ...(isEIP1559Fee
         ? { price1559: priceInfo as EIP1559Fee }
         : { price: priceInfo as string }),
+      ...(isBtcForkChain ? { feeRate: data.feeRate } : {}),
     };
 
     if (type === 'custom') {
@@ -219,6 +237,13 @@ function ScreenSendEditFee({ ...rest }) {
 
       feeInfoSelected.custom.similarToPreset = customSimilarToPreset;
       feeInfoSelected.custom.waitingSeconds = customWaitingSeconds;
+
+      if (isBtcForkChain) {
+        feeInfoSelected.custom.isBtcForkChain = isBtcForkChain;
+        if (data.feeRate) {
+          feeInfoSelected.custom.btcFee = parseInt(btcTxFee || '0');
+        }
+      }
 
       setCurrentCustom(feeInfoSelected.custom);
     }
@@ -321,9 +346,23 @@ function ScreenSendEditFee({ ...rest }) {
       } else {
         setValue('gasPrice', new BigNumber(price ?? 0).toFixed());
       }
+
+      if (isBtcForkChain && !feeInfoValue.feeRate) {
+        setValue(
+          'feeRate',
+          new BigNumber(price ?? 0)
+            .shiftedBy(feeInfoPayload.info.feeDecimals ?? 8)
+            .toFixed(),
+        );
+      }
       setValue('gasLimit', new BigNumber(limit ?? 0).toFixed());
     },
-    [autoConfirmAfterFeeSaved, isEIP1559Fee, setValue],
+    [
+      autoConfirmAfterFeeSaved,
+      isEIP1559Fee,
+      setValue,
+      feeInfoPayload?.info.feeDecimals,
+    ],
   );
 
   useEffect(() => {
@@ -459,6 +498,7 @@ function ScreenSendEditFee({ ...rest }) {
         useFormReturn={useFormReturn}
         saveCustom={saveCustom}
         setSaveCustom={setSaveCustom}
+        encodedTx={encodedTx}
       />
     );
     const presetFeeForm = forBatchSend ? (
@@ -474,6 +514,7 @@ function ScreenSendEditFee({ ...rest }) {
         accountId={accountId}
         networkId={networkId}
         feeInfoPayload={feeInfoPayload}
+        currentFeeType={currentFeeType}
         currentCustom={currentCustom}
         value={radioValue}
         onChange={(value) => {
@@ -503,6 +544,16 @@ function ScreenSendEditFee({ ...rest }) {
     feeType === ESendEditFeeTypes.advanced &&
     blockNativeInit;
 
+  const buttonDisabled = useMemo(() => {
+    if (feeInfoLoading) {
+      return true;
+    }
+    if (isBtcForkChain || feeType === ESendEditFeeTypes.advanced) {
+      return !formState.isValid;
+    }
+    return false;
+  }, [isBtcForkChain, formState.isValid, feeType, feeInfoLoading]);
+
   return (
     <BaseSendModal
       size={isLargeModal ? '2xl' : 'xs'}
@@ -516,9 +567,7 @@ function ScreenSendEditFee({ ...rest }) {
           : 'action__apply'
       }
       primaryActionProps={{
-        isDisabled:
-          feeInfoLoading ||
-          (feeType === ESendEditFeeTypes.advanced && !formState.isValid),
+        isDisabled: buttonDisabled,
       }}
       onPrimaryActionPress={() => onSubmit()}
       hideSecondaryAction

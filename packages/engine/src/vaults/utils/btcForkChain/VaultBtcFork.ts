@@ -2,10 +2,6 @@
 
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
-// @ts-expect-error
-import coinSelect from 'coinselect';
-// @ts-expect-error
-import coinSelectSplit from 'coinselect/split';
 import memoizee from 'memoizee';
 
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
@@ -48,7 +44,7 @@ import { VaultBase } from '../../VaultBase';
 
 import { Provider } from './provider';
 import { BlockBook, getRpcUrlFromChainInfo } from './provider/blockbook';
-import { getAccountDefaultByPurpose, getBIP44Path } from './utils';
+import { coinSelect, getAccountDefaultByPurpose, getBIP44Path } from './utils';
 
 import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import type {
@@ -333,11 +329,16 @@ export default class VaultBtcFork extends VaultBase {
     );
   }
 
-  attachFeeInfoToEncodedTx(params: {
+  async attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTxBtc;
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxBtc> {
-    const feeRate = params.feeInfoValue.price;
+    const network = await this.engine.getNetwork(this.networkId);
+    const feeRate = params.feeInfoValue.feeRate
+      ? new BigNumber(params.feeInfoValue.feeRate)
+          .shiftedBy(-network.feeDecimals)
+          .toFixed()
+      : params.feeInfoValue.price;
     if (typeof feeRate === 'string') {
       return this.buildEncodedTxFromTransfer(
         params.encodedTx.transferInfo,
@@ -448,13 +449,31 @@ export default class VaultBtcFork extends VaultBase {
         ? new BigNumber(specifiedFeeRate)
             .shiftedBy(network.feeDecimals)
             .toFixed()
-        : (await this.getFeeRate())[0];
+        : (await this.getFeeRate())[1];
     const max = utxos
       .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
       .shiftedBy(-network.decimals)
       .lte(amount);
 
-    const unspentSelectFn = max ? coinSelectSplit : coinSelect;
+    const inputsForCoinSelect = utxos.map(
+      ({ txid, vout, value, address, path }) => ({
+        txId: txid,
+        vout,
+        value: parseInt(value),
+        address,
+        path,
+      }),
+    );
+    const outputsForCoinSelect = [
+      max
+        ? { address: to }
+        : {
+            address: to,
+            value: parseInt(
+              new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
+            ),
+          },
+    ];
     const {
       inputs,
       outputs,
@@ -463,27 +482,7 @@ export default class VaultBtcFork extends VaultBase {
       inputs: IUTXOInput[];
       outputs: IUTXOOutput[];
       fee: number;
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    } = unspentSelectFn(
-      utxos.map(({ txid, vout, value, address, path }) => ({
-        txId: txid,
-        vout,
-        value: parseInt(value),
-        address,
-        path,
-      })),
-      [
-        max
-          ? { address: to }
-          : {
-              address: to,
-              value: parseInt(
-                new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
-              ),
-            },
-      ],
-      parseInt(feeRate),
-    );
+    } = coinSelect(inputsForCoinSelect, outputsForCoinSelect, feeRate);
 
     if (!inputs || !outputs) {
       throw new InsufficientBalance('Failed to select UTXOs');
@@ -511,6 +510,9 @@ export default class VaultBtcFork extends VaultBase {
       totalFee,
       totalFeeInNative,
       transferInfo,
+      feeRate,
+      inputsForCoinSelect,
+      outputsForCoinSelect,
     };
   }
 
@@ -563,22 +565,41 @@ export default class VaultBtcFork extends VaultBase {
     return Promise.resolve(ret);
   }
 
-  async fetchFeeInfo(encodedTx: IEncodedTxBtc): Promise<IFeeInfo> {
+  async fetchFeeInfo(
+    encodedTx: IEncodedTxBtc,
+    _: boolean | undefined,
+    specifiedFeeRate: string,
+  ): Promise<IFeeInfo> {
     const network = await this.engine.getNetwork(this.networkId);
     const provider = await this.getProvider();
     const { feeLimit } = await provider.buildUnsignedTx({
       ...(await this.buildUnsignedTxFromEncodedTx(encodedTx)),
       feePricePerUnit: new BigNumber(1),
+      encodedTx,
     });
+
+    const feeRates = specifiedFeeRate
+      ? [specifiedFeeRate]
+      : await this.getFeeRate();
     // Prices are in sats/byte, convert it to BTC/byte for UI.
-    const prices = (await this.getFeeRate()).map((price) =>
+    const prices = feeRates.map((price) =>
       new BigNumber(price).shiftedBy(-network.feeDecimals).toFixed(),
     );
+    const feeList = prices.map(
+      (price) =>
+        coinSelect(
+          encodedTx.inputsForCoinSelect,
+          encodedTx.outputsForCoinSelect,
+          new BigNumber(price).shiftedBy(network.feeDecimals).toFixed(),
+        ).fee,
+    );
+
     const blockNums = this.getDefaultBlockNums();
     return {
-      customDisabled: true,
+      isBtcForkChain: true,
       limit: (feeLimit ?? new BigNumber(0)).toFixed(), // bytes in BTC
       prices,
+      feeList,
       waitingSeconds: blockNums.map(
         (numOfBlocks) => numOfBlocks * this.getDefaultBlockTime(),
       ),
