@@ -1,30 +1,31 @@
-import { Box } from '@onekeyhq/components';
+import { Box, useIsVerticalLayout } from '@onekeyhq/components';
 
 import { useSwapChartMode } from '../../hooks/useSwapUtils';
-import { LimitOrderStateButton, MainButton } from '../MainButton';
+import { LimitOrderMainButton } from '../Buttons/limitOrder';
 import { PaddingControl } from '../PaddingControl';
 
 import { MainContent } from './MainContent';
 import { LimitOrderObserver } from './Observer';
 import { ParameterSetting } from './ParameterSetting';
-import { PendingSimpleContent } from './PendingContent';
+import { PendingLimitOrdersSimpleContent } from './PendingContent';
 import { PriceWarning } from './PriceWarning';
 
 export function LimitOrderMain() {
   const mode = useSwapChartMode();
+  const isSmall = useIsVerticalLayout();
   return (
     <Box>
-      <MainContent />
-      <ParameterSetting />
+      <Box borderRadius={isSmall ? undefined : '12'} overflow="hidden">
+        <MainContent />
+        <ParameterSetting />
+      </Box>
       <PaddingControl>
         <Box my="6">
           <PriceWarning />
-          <MainButton>
-            <LimitOrderStateButton />
-          </MainButton>
+          <LimitOrderMainButton />
         </Box>
       </PaddingControl>
-      {mode !== 'chart' ? <PendingSimpleContent /> : null}
+      {mode !== 'chart' ? <PendingLimitOrdersSimpleContent /> : null}
       <LimitOrderObserver />
     </Box>
   );

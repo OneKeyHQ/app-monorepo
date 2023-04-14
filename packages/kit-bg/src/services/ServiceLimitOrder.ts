@@ -7,8 +7,11 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import {
   resetState,
   setActiveAccount,
+  setInstantRate,
+  setMktRate,
   setTokenIn,
   setTokenOut,
+  setTypedPrice,
   setTypedValue,
 } from '@onekeyhq/kit/src/store/reducers/limitOrder';
 import {
@@ -223,6 +226,9 @@ class ServiceLimitOrder extends ServiceBase {
     const { appSelector, dispatch } = this.backgroundApi;
     const tokenOut = appSelector((s) => s.limitOrder.tokenOut);
     const tokenIn = appSelector((s) => s.limitOrder.tokenIn);
+    if (tokenIn && tokenEqual(tokenIn, newToken)) {
+      return;
+    }
     const limitOrderInputToken = wToken(newToken);
     dispatch(setTokenIn(limitOrderInputToken));
     if (limitOrderInputToken.networkId === tokenIn?.networkId) {
@@ -242,9 +248,13 @@ class ServiceLimitOrder extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setOutputToken(token: Token) {
-    const { dispatch } = this.backgroundApi;
-    dispatch(setTokenOut(token));
+  async setOutputToken(newToken: Token) {
+    const { dispatch, appSelector } = this.backgroundApi;
+    const tokenOut = appSelector((s) => s.limitOrder.tokenOut);
+    if (tokenOut && tokenEqual(tokenOut, newToken)) {
+      return;
+    }
+    dispatch(setTokenOut(newToken));
   }
 
   @backgroundMethod()
@@ -556,6 +566,17 @@ class ServiceLimitOrder extends ServiceBase {
         });
       }
     }
+  }
+
+  @backgroundMethod()
+  async setRate(rate: string) {
+    const { dispatch, appSelector } = this.backgroundApi;
+    const actions: any[] = [setMktRate(rate)];
+    const instantRate = appSelector((s) => s.limitOrder.instantRate);
+    if (!instantRate) {
+      actions.push(setInstantRate(rate), setTypedPrice({ value: rate }));
+    }
+    dispatch(...actions);
   }
 }
 

@@ -340,19 +340,15 @@ export const SwapHeaderSwitch = () => {
   );
 };
 
-export const SwapHeader = () => {
-  const swapMode = useAppSelector((s) => s.swap.mode);
-  const isSwap = swapMode === 'swap';
-  return (
-    <Box
-      width="full"
-      flexDirection="row"
-      h="9"
-      justifyContent="space-between"
-      alignItems="center"
-    >
-      <SwapHeaderSwitch />
-      {isSwap ? <SwapHeaderButtons /> : <Box />}
-    </Box>
-  );
-};
+export const SwapHeader = () => (
+  <Box
+    width="full"
+    flexDirection="row"
+    h="9"
+    justifyContent="space-between"
+    alignItems="center"
+  >
+    <SwapHeaderSwitch />
+    <SwapHeaderButtons />
+  </Box>
+);

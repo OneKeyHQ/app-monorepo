@@ -68,14 +68,12 @@ export const SwapContent = () => {
 
   return (
     <Box w="full">
-      <Box position="relative">
-        <Box
-          px={4}
-          py="5"
-          bg="surface-subdued"
-          overflow="hidden"
-          borderRadius={isSmall ? undefined : '12'}
-        >
+      <Box
+        position="relative"
+        borderRadius={isSmall ? undefined : '12'}
+        overflow="hidden"
+      >
+        <Box px={4} py="5" bg="surface-subdued" overflow="hidden">
           <TokenInput
             type="INPUT"
             label={intl.formatMessage({ id: 'form__pay' })}
@@ -118,13 +116,7 @@ export const SwapContent = () => {
             </Center>
           </Box>
         </Box>
-        <Box
-          px={4}
-          py="5"
-          bg="action-secondary-default"
-          overflow="hidden"
-          borderRadius={isSmall ? undefined : '12'}
-        >
+        <Box px={4} py="5" bg="action-secondary-default" overflow="hidden">
           <ReceivingTokenInput
             type="OUTPUT"
             label={intl.formatMessage({ id: 'action__receive' })}
