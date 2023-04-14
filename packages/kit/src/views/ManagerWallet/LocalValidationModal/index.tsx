@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 import { Center } from 'native-base';
 
-import { Modal, Spinner } from '@onekeyhq/components';
+import { Modal, OverlayContainer, Spinner } from '@onekeyhq/components';
 import Protected from '@onekeyhq/kit/src/components/Protected';
 import type { ManagerWalletRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/ManagerWallet';
 
@@ -46,16 +46,23 @@ const ManagerWalletLocalValidationView: FC = () => {
   };
 
   return (
-    <Modal
-      footer={null}
-      onModalClose={() => {
-        if (!inputPwd) onCancel?.();
+    <OverlayContainer
+      style={{
+        // higher than every known layer
+        zIndex: 10000,
       }}
     >
-      <Protected walletId={null} field={field}>
-        {(password) => <PasswordView password={password} />}
-      </Protected>
-    </Modal>
+      <Modal
+        footer={null}
+        onModalClose={() => {
+          if (!inputPwd) onCancel?.();
+        }}
+      >
+        <Protected walletId={null} field={field}>
+          {(password) => <PasswordView password={password} />}
+        </Protected>
+      </Modal>
+    </OverlayContainer>
   );
 };
 
