@@ -32,7 +32,7 @@ type Props = {
   setPriorityBooster?: (value: any) => void;
 } & ComponentProps<typeof Box>;
 
-export default function BlockNativeSvg(props: SvgProps) {
+function BlockNativeSvg(props: SvgProps) {
   return (
     <Svg width="82" height="12" viewBox="0 0 82 12" fill="none" {...props}>
       <G clip-path="url(#clip0_5959_37579)">
@@ -120,36 +120,42 @@ function BlockNativeFeeInfoItem({
 
   const progress = useMemo(
     () => (
-      <MotiView
-        style={{
-          height: '100%',
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          zIndex: -1,
-        }}
-        from={{
-          width: '0%',
-        }}
-        animate={{
-          width: '100%',
-        }}
-        transition={{
-          loop: true,
-          type: 'timing',
-          duration: FEE_INFO_POLLING_INTERVAL + 700,
-          repeatReverse: false,
-        }}
+      <Box
+        position="absolute"
+        left={0}
+        top={0}
+        right={0}
+        bottom={0}
+        zIndex={-1}
       >
-        <Box
-          position="absolute"
-          left={0}
-          top={0}
-          right={0}
-          bottom={0}
-          bg="surface-neutral-subdued"
-        />
-      </MotiView>
+        <MotiView
+          style={{
+            height: '100%',
+            backgroundColor: 'surface-neutral-subdued',
+          }}
+          from={{
+            width: '0%',
+          }}
+          animate={{
+            width: '100%',
+          }}
+          transition={{
+            loop: true,
+            type: 'timing',
+            duration: FEE_INFO_POLLING_INTERVAL + 100,
+            repeatReverse: false,
+          }}
+        >
+          <Box
+            position="absolute"
+            left={0}
+            top={0}
+            right={0}
+            bottom={0}
+            bgColor="surface-neutral-subdued"
+          />
+        </MotiView>
+      </Box>
     ),
     [],
   );
@@ -186,6 +192,7 @@ function BlockNativeFeeInfoItem({
             justifyContent="center"
             borderRadius="12px"
             overflow="hidden"
+            position="relative"
           >
             {progress}
             <Text
@@ -327,4 +334,4 @@ function BlockNativeFeeInfoPanel(props: Props) {
   );
 }
 
-export { BlockNativeFeeInfoPanel };
+export { BlockNativeFeeInfoPanel, BlockNativeSvg };

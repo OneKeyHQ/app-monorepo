@@ -111,7 +111,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
 
   const [priorityBooster, setPriorityBooster] = useState<number>(1);
   const [basePriority, setBasePriority] = useState(
-    (lastPresetFeeInfo as EIP1559Fee).maxPriorityFeePerGas,
+    (lastPresetFeeInfo as EIP1559Fee)?.maxPriorityFeePerGas,
   );
   const [gasLimitTip, setGasLimitTip] = useState<CustomAlert>(null);
   const [gasPriceTip, setGasPriceTip] = useState<CustomAlert>(null);
@@ -389,11 +389,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
               },
             }}
             helpText={
-              <HStack
-                justifyContent="space-between"
-                display="flex"
-                alignItems="center"
-              >
+              <HStack alignItems="center" width="100%" space={8}>
                 <LabelWithTooltip
                   labelId="form__priority_fee_booster"
                   tooltipId="content__custom_gas_priority_fee_booster_desc"
