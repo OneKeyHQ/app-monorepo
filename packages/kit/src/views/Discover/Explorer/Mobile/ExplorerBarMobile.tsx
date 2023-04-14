@@ -32,6 +32,7 @@ const ExplorerBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
         <Icon name="MagnifyingGlassMini" size={20} color="icon-subdued" />
         <Typography.Body1
           flex={1}
+          h="full"
           color="text-subdued"
           numberOfLines={1}
           ml="13px"

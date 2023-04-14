@@ -31,7 +31,7 @@ function Mobile<T>({
   onModalHide,
   activatable,
 }: ChildProps<T>) {
-  const { bottom } = useSafeAreaInsets();
+  const { bottom, top } = useSafeAreaInsets();
   const modalizeRef = useRef<Modalize>(null);
   const [defaultBgColor, handleBgColor] = useThemeValue([
     'background-default',
@@ -102,6 +102,7 @@ function Mobile<T>({
       ref={modalizeRef}
       withHandle={false}
       onClose={onModalHide}
+      modalTopOffset={top}
       modalStyle={{
         backgroundColor: defaultBgColor,
         borderTopLeftRadius: 24,
