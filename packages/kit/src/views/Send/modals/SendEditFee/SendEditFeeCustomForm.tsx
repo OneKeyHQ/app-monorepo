@@ -372,91 +372,106 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
           </Form.Item>
         )}
         {isEIP1559Fee && (
-          <Form.Item
-            label={
-              <LabelWithTooltip
-                labelId="content__max_priority_fee"
-                tooltipId="content__custom_gas_priority_fee_desc"
-                labelAfter={` (${feeSymbol})`}
-              />
-            }
-            control={control}
-            name="maxPriorityFeePerGas"
-            defaultValue=""
-            rules={{
-              validate: async (value) => {
-                const lowFee = firstPresetFeeInfo as EIP1559Fee;
-                const highFee = lastPresetFeeInfo as EIP1559Fee;
-
-                // getValues
-                try {
-                  await backgroundApiProxy.validator.validateMaxPriortyFee({
-                    networkId,
-                    value,
-                    lowValue: lowFee?.maxPriorityFeePerGas,
-                    highValue: highFee?.maxPriorityFeePerGas,
-                    minValue:
-                      autoConfirmAfterFeeSaved &&
-                      selectedFeeInfo?.custom?.price1559
-                        ? new BigNumber(
-                            (
-                              selectedFeeInfo?.custom?.price1559 as
-                                | EIP1559Fee
-                                | undefined
-                            )?.maxPriorityFeePerGas as string,
-                          )
-                            .times(SEND_EDIT_FEE_PRICE_UP_RATIO)
-                            .toFixed()
-                        : '0',
-                  });
-                  setMaxPriorityFeeTip(null);
-                } catch (error) {
-                  printError(error);
-                  const e = error as OneKeyError;
-
-                  if (
-                    e?.className === OneKeyErrorClassNames.OneKeyValidatorError
-                  ) {
-                    setMaxPriorityFeeTip({
-                      type: 'error',
-                      message: intl.formatMessage(
-                        {
-                          id: e.key as any,
-                        },
-                        e.info,
-                      ),
-                    });
-                    return false;
-                  }
-                  if (
-                    e?.className === OneKeyErrorClassNames.OneKeyValidatorTip
-                  ) {
-                    setMaxPriorityFeeTip({
-                      type: 'warn',
-                      message: intl.formatMessage(
-                        {
-                          id: e.key as any,
-                        },
-                        e.info,
-                      ),
-                    });
-                  }
-                }
-                return true;
-              },
-            }}
-            helpText={
-              <HStack alignItems="center" width="100%" space={8}>
+          <>
+            <Form.Item
+              label={
                 <LabelWithTooltip
-                  labelId="form__priority_fee_booster"
-                  tooltipId="content__custom_gas_priority_fee_booster_desc"
-                  labelProps={{
-                    typography: 'CaptionStrong',
-                    color: 'text-subdued',
-                  }}
+                  labelId="content__max_priority_fee"
+                  tooltipId="content__custom_gas_priority_fee_desc"
+                  labelAfter={` (${feeSymbol})`}
                 />
+              }
+              control={control}
+              name="maxPriorityFeePerGas"
+              defaultValue=""
+              rules={{
+                validate: async (value) => {
+                  const lowFee = firstPresetFeeInfo as EIP1559Fee;
+                  const highFee = lastPresetFeeInfo as EIP1559Fee;
+
+                  // getValues
+                  try {
+                    await backgroundApiProxy.validator.validateMaxPriortyFee({
+                      networkId,
+                      value,
+                      lowValue: lowFee?.maxPriorityFeePerGas,
+                      highValue: highFee?.maxPriorityFeePerGas,
+                      minValue:
+                        autoConfirmAfterFeeSaved &&
+                        selectedFeeInfo?.custom?.price1559
+                          ? new BigNumber(
+                              (
+                                selectedFeeInfo?.custom?.price1559 as
+                                  | EIP1559Fee
+                                  | undefined
+                              )?.maxPriorityFeePerGas as string,
+                            )
+                              .times(SEND_EDIT_FEE_PRICE_UP_RATIO)
+                              .toFixed()
+                          : '0',
+                    });
+                    setMaxPriorityFeeTip(null);
+                  } catch (error) {
+                    printError(error);
+                    const e = error as OneKeyError;
+
+                    if (
+                      e?.className ===
+                      OneKeyErrorClassNames.OneKeyValidatorError
+                    ) {
+                      setMaxPriorityFeeTip({
+                        type: 'error',
+                        message: intl.formatMessage(
+                          {
+                            id: e.key as any,
+                          },
+                          e.info,
+                        ),
+                      });
+                      return false;
+                    }
+                    if (
+                      e?.className === OneKeyErrorClassNames.OneKeyValidatorTip
+                    ) {
+                      setMaxPriorityFeeTip({
+                        type: 'warn',
+                        message: intl.formatMessage(
+                          {
+                            id: e.key as any,
+                          },
+                          e.info,
+                        ),
+                      });
+                    }
+                  }
+                  return true;
+                },
+              }}
+            >
+              <Form.NumberInput
+                mb={0}
+                rightCustomElement={
+                  <Text
+                    paddingRight={2}
+                    typography="Body1"
+                    color="text-subdued"
+                  >{`~${maxPriorityFeeInNative} ${nativeSymbol}`}</Text>
+                }
+                size={isSmallScreen ? 'xl' : 'lg'}
+              />
+            </Form.Item>
+            <HStack alignItems="center" width="100%" space={8} mt={-4}>
+              <LabelWithTooltip
+                labelId="form__priority_fee_booster"
+                tooltipId="content__custom_gas_priority_fee_booster_desc"
+                labelProps={{
+                  typography: 'CaptionStrong',
+                  color: 'text-subdued',
+                }}
+              />
+              <Box flex={1}>
                 <Slider
-                  flex={1}
+                  width="100%"
                   minValue={1}
                   maxValue={100}
                   accessibilityLabel={intl.formatMessage({
@@ -490,20 +505,9 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                     </Slider.Thumb>
                   </Tooltip>
                 </Slider>
-              </HStack>
-            }
-          >
-            <Form.NumberInput
-              rightCustomElement={
-                <Text
-                  paddingRight={2}
-                  typography="Body1"
-                  color="text-subdued"
-                >{`~${maxPriorityFeeInNative} ${nativeSymbol}`}</Text>
-              }
-              size={isSmallScreen ? 'xl' : 'lg'}
-            />
-          </Form.Item>
+              </Box>
+            </HStack>
+          </>
         )}
 
         {!isEIP1559Fee && (
