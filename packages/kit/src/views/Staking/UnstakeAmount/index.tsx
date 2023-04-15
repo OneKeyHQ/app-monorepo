@@ -154,6 +154,7 @@ export default function UnstakeAmount() {
           method: 'post',
           api_param: apiParams,
         };
+
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
@@ -176,21 +177,18 @@ export default function UnstakeAmount() {
                   ToastManager.show({ title: res.message }, { type: 'error' });
                 } else {
                   setAmount('');
+                  backgroundApiProxy.serviceStaking.fetchMinerOverview({
+                    networkId,
+                    accountId,
+                  });
                   navigation.replace(RootRoutes.Modal, {
                     screen: ModalRoutes.Staking,
                     params: {
-                      screen: StakingRoutes.StakedETHOnKele,
+                      screen: StakingRoutes.Feedback,
                       params: {
                         networkId,
                       },
                     },
-                  });
-                  ToastManager.show({
-                    title: intl.formatMessage({ id: 'msg__success' }),
-                  });
-                  backgroundApiProxy.serviceStaking.fetchMinerOverview({
-                    networkId,
-                    accountId,
                   });
                 }
               },
