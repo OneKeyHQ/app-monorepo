@@ -44,6 +44,14 @@ type GetAccountParams =
   | {
       type: 'usedAddress';
       xpub: string;
+    }
+  | {
+      type: 'accountInfo';
+      xpub: string;
+      details: string;
+      from?: number;
+      to?: number;
+      pageSize?: number;
     };
 
 type GetAccountWithAddressParams = {
@@ -249,6 +257,14 @@ class Provider {
         break;
       case 'usedAddress':
         requestParams = { details: 'tokenBalances', tokens: 'used' };
+        break;
+      case 'accountInfo':
+        requestParams = {
+          details: params.details,
+          from: params.from,
+          to: params.to,
+          pageSize: params.pageSize,
+        };
         break;
       default:
       // no-op

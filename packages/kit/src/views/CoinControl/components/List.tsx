@@ -29,6 +29,8 @@ import type { ICoinControlListItem } from '@onekeyhq/engine/src/types/utxoAccoun
 import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
 import BitcoinUsedAddressListItemMenu from '@onekeyhq/kit/src/views/Account/AddNewAccount/BitcoinUsedAddressListItemMenu';
 
+import useFormatDate from '../../../hooks/useFormatDate';
+
 import type { ListRenderItemInfo } from 'react-native';
 
 const ListTableHeader: FC<{
@@ -84,6 +86,7 @@ const CoinControlCell: FC<{
   selectedUtxos: string[];
   onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
 }> = ({ network, item, selectedUtxos = [], onChange }) => {
+  const { formatDate } = useFormatDate();
   const isSelected = selectedUtxos.find(
     (key) => key === getUtxoUniqueKey(item),
   );
@@ -91,6 +94,13 @@ const CoinControlCell: FC<{
     () => item.label && item.label.length,
     [item.label],
   );
+  const time = useMemo(() => {
+    if (!item.blockTime) return '';
+    return formatDate(new Date(item.blockTime * 1000), {
+      hideTimeForever: true,
+    });
+  }, [item.blockTime, formatDate]);
+
   return (
     <ListItem flex={1} space={2}>
       <ListItem.Column>
@@ -110,7 +120,7 @@ const CoinControlCell: FC<{
         <VStack>
           <Text typography="Body2Strong">{shortenAddress(item.address)}</Text>
           <HStack alignItems="center">
-            <Text>Sep 28, 2023</Text>
+            <Text>{time}</Text>
             {showBadge && (
               <>
                 <Text mx={1}>•</Text>

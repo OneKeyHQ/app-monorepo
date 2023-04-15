@@ -28,15 +28,20 @@ export default class ServiceUtxos extends ServiceBase {
       network.decimals,
     );
 
-    let [utxos, txs]: [
-      utxos: ICoinControlListItem[],
-      txs: { transactions: { blockTime: number; blockHeight: number }[] },
-    ] = await Promise.all([
-      (vault as VaultBtcFork).collectUTXOs() as Promise<ICoinControlListItem[]>,
-      (vault as VaultBtcFork).getAccountInfo(),
-    ]);
+    let utxos = (await (
+      vault as VaultBtcFork
+    ).collectUTXOs()) as ICoinControlListItem[];
+    const minBlockHeight = Math.min(...utxos.map((i) => i.height));
+    const maxBlockHeight = Math.max(...utxos.map((i) => i.height));
 
     // get block times
+    const txs = (await (vault as VaultBtcFork).getAccountInfo({
+      details: 'txs',
+      from: minBlockHeight,
+      to: maxBlockHeight,
+    })) as {
+      transactions: { blockTime: number; blockHeight: number }[];
+    };
     const blockTimesMap: Record<string, number> = {};
     txs.transactions.forEach((tx) => {
       if (!blockTimesMap[tx.blockHeight]) {

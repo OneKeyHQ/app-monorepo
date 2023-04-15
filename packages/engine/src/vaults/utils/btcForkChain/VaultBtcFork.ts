@@ -825,13 +825,30 @@ export default class VaultBtcFork extends VaultBase {
       }));
   }
 
-  async getAccountInfo() {
+  async getAccountInfo({
+    details = 'txs',
+    from,
+    to,
+    pageSize,
+  }: {
+    details: string;
+    from?: number;
+    to?: number;
+    pageSize?: number;
+  }) {
     const account = (await this.getDbAccount()) as DBUTXOAccount;
     const xpub = this.getAccountXpub(account);
     if (!xpub) {
       return [];
     }
     const provider = await this.getProvider();
-    return provider.getAccount({ type: 'history', xpub });
+    return provider.getAccount({
+      type: 'accountInfo',
+      xpub,
+      details,
+      from,
+      to,
+      pageSize,
+    });
   }
 }
