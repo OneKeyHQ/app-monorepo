@@ -3,10 +3,18 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, CheckBox, List, Modal, Text } from '@onekeyhq/components';
+import {
+  CheckBox,
+  List,
+  ListItem,
+  Modal,
+  ToastManager,
+} from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import type { ListRenderItem } from 'react-native';
 
@@ -47,9 +55,14 @@ const AppCache: ItemType[] = [
     localeId: 'form__connected_sites',
     selected: true,
   },
+  {
+    name: 'Explore',
+    localeId: 'form__explore',
+    selected: true,
+  },
 ];
 
-const ListItem: FC<{ item: ItemType; onPress: () => void }> = ({
+const ListCell: FC<{ item: ItemType; onPress: () => void }> = ({
   item,
   onPress,
 }) => {
@@ -57,20 +70,31 @@ const ListItem: FC<{ item: ItemType; onPress: () => void }> = ({
   const intl = useIntl();
 
   return (
-    <Box flexDirection="row" justifyContent="space-between">
-      <Text typography="Body1Strong">
-        {intl.formatMessage({
-          id: item.localeId,
-        })}
-      </Text>
-      <CheckBox
-        onChange={(isSelected) => {
-          setChecked(isSelected);
-          onPress();
+    <ListItem
+      onPress={() => {
+        setChecked((prev) => !prev);
+        onPress();
+      }}
+    >
+      <ListItem.Column
+        flex={1}
+        text={{
+          label: intl.formatMessage({
+            id: item.localeId,
+          }),
+          labelProps: { typography: 'Body1Strong' },
         }}
-        isChecked={checked}
       />
-    </Box>
+      <ListItem.Column>
+        <CheckBox
+          onChange={(isSelected) => {
+            setChecked(isSelected);
+            onPress();
+          }}
+          isChecked={checked}
+        />
+      </ListItem.Column>
+    </ListItem>
   );
 };
 
@@ -103,7 +127,7 @@ const ClearCacheModal = () => {
 
   const renderItem: ListRenderItem<ItemType> = useCallback(
     ({ item }) => (
-      <ListItem
+      <ListCell
         item={item}
         onPress={() => {
           selectHandle(item);
@@ -112,7 +136,6 @@ const ClearCacheModal = () => {
     ),
     [selectHandle],
   );
-  const ItemSeparatorComponent = useCallback(() => <Box h="16px" />, []);
 
   const clearAction = useCallback(
     async () =>
@@ -122,14 +145,18 @@ const ClearCacheModal = () => {
             simpleDb.history.clearRawData();
           } else if (item.name === 'Swap') {
             simpleDb.swap.clearRawData();
+            backgroundApiProxy.serviceSwap.clearTransactions();
           } else if (item.name === 'Token') {
             simpleDb.token.clearRawData();
           } else if (item.name === 'NFT') {
             simpleDb.nft.clearRawData();
           } else if (item.name === 'Market') {
             simpleDb.market.clearRawData();
+            backgroundApiProxy.serviceMarket.clearSearchHistory();
           } else if (item.name === 'ConnectedSites') {
             simpleDb.walletConnect.clearRawData();
+          } else if (item.name === 'Explore') {
+            backgroundApiProxy.serviceDiscover.clearHistory();
           }
         });
         return resolve(true);
@@ -147,6 +174,11 @@ const ClearCacheModal = () => {
       onPrimaryActionPress={() => {
         clearAction();
         modalClose();
+        ToastManager.show({
+          title: intl.formatMessage({
+            id: 'msg__cleared',
+          }),
+        });
       }}
       primaryActionProps={{
         isDisabled,
@@ -156,11 +188,9 @@ const ClearCacheModal = () => {
     >
       <List
         p="16px"
-        m={0}
         data={listData.current}
         keyExtractor={(item) => String(item.name)}
         renderItem={renderItem}
-        ItemSeparatorComponent={ItemSeparatorComponent}
       />
     </Modal>
   );
