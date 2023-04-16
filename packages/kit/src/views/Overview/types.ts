@@ -234,5 +234,6 @@ export type OverviewModalRoutesParams = {
     address: string;
     protocolId: string;
     accountId: string;
+    poolCode?: string;
   };
 };

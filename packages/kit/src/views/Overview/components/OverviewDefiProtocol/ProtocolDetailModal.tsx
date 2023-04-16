@@ -43,7 +43,7 @@ const OverviewProtocolDetail: FC = () => {
     fallback: close,
   });
 
-  const { networkId, address, protocolId, accountId } = route.params;
+  const { networkId, address, protocolId, accountId, poolCode } = route.params;
 
   const currentFiatValue = useCurrentFiatValue();
 
@@ -82,7 +82,7 @@ const OverviewProtocolDetail: FC = () => {
   }, [isVertical, protocol]);
 
   const header = useMemo(() => {
-    if (isVertical) {
+    if (isVertical || !!poolCode) {
       return (
         <Typography.Heading ml="3">{protocol?.protocolName}</Typography.Heading>
       );
@@ -109,7 +109,7 @@ const OverviewProtocolDetail: FC = () => {
         {rate.isGreaterThan(0) ? <OverviewBadge rate={rate} /> : null}
       </HStack>
     );
-  }, [isVertical, protocol, rate]);
+  }, [isVertical, protocol, rate, poolCode]);
 
   const open = useOpenProtocolUrl(protocol);
 
@@ -142,6 +142,7 @@ const OverviewProtocolDetail: FC = () => {
             {...protocol}
             showHeader={false}
             bgColor="surface-default"
+            poolCode={poolCode}
           />
         ),
       }}
