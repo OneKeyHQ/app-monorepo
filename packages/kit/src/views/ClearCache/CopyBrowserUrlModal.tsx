@@ -37,7 +37,7 @@ const CopyBrowserUrlModal = () => {
           })}
         </Text>
         <Text mt="8px" typography="Body1" color="text-subdued">
-          chrome://settings/clearBrowserData
+          {browserSettingUrl()}
         </Text>
         <IconButton
           onPress={() => {
