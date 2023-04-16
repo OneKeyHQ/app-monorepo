@@ -177,39 +177,41 @@ export default function WithdrawAmount() {
     >
       <Box flex="1" flexDirection="column">
         <Box flex="1" flexDirection="column">
-          <Box py={2} my={2} justifyContent="center">
-            <Text
-              textAlign="center"
-              typography="DisplayLarge"
-              color="text-subdued"
-            >
-              {tokenInfo?.symbol.toUpperCase() ?? ''}
-            </Text>
-            <Center py="4" h={isSmallScreen ? '32' : undefined}>
-              <AutoSizeText
-                autoFocus
-                text={amount}
-                onChangeText={setAmount}
-                placeholder="0"
-              />
-            </Center>
-            <Center>
-              {minAmountErrMsg ? (
-                <Typography.Body1Strong color="text-critical">
-                  {minAmountErrMsg}
-                </Typography.Body1Strong>
-              ) : (
-                <FormatCurrency
-                  numbers={[mainPrice ?? 0, amount ?? 0]}
-                  render={(ele) => (
-                    <Typography.Body2 color="text-subdued">
-                      {mainPrice ? ele : '$ 0'}
-                    </Typography.Body2>
-                  )}
+          <Center flex={1}>
+            <Center maxH="140px" my={2}>
+              <Text
+                textAlign="center"
+                typography="DisplayLarge"
+                color="text-subdued"
+              >
+                {tokenInfo?.symbol.toUpperCase() ?? ''}
+              </Text>
+              <Center py="4" h={isSmallScreen ? '32' : undefined}>
+                <AutoSizeText
+                  autoFocus
+                  text={amount}
+                  onChangeText={setAmount}
+                  placeholder="0"
                 />
-              )}
+              </Center>
+              <Center>
+                {minAmountErrMsg ? (
+                  <Typography.Body1Strong color="text-critical">
+                    {minAmountErrMsg}
+                  </Typography.Body1Strong>
+                ) : (
+                  <FormatCurrency
+                    numbers={[mainPrice ?? 0, amount ?? 0]}
+                    render={(ele) => (
+                      <Typography.Body2 color="text-subdued">
+                        {mainPrice ? ele : '$ 0'}
+                      </Typography.Body2>
+                    )}
+                  />
+                )}
+              </Center>
             </Center>
-          </Box>
+          </Center>
           <Center>
             <HStack flexDirection="row" alignItems="center" space="3">
               <Button size="sm" onPress={() => userInput(25)}>
@@ -275,7 +277,6 @@ export default function WithdrawAmount() {
               pattern={validAmountRegex}
               text={amount}
               onTextChange={(text) => {
-                console.log('text', text);
                 setAmount(text);
               }}
             />
