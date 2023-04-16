@@ -42,7 +42,6 @@ const DefiCell: FC<Props> = ({ item, tokenId, token, protocolId }) => {
     <ListItem
       mx="-8px"
       onPress={() => {
-        console.log('item = ', item);
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Overview,
           params: {

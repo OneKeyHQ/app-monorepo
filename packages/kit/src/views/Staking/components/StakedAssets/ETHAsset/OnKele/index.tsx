@@ -24,10 +24,7 @@ import {
   useNavigation,
 } from '../../../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../../../routes/types';
-import {
-  useAccountStakingActivity,
-  useKeleMinerOverview,
-} from '../../../../hooks';
+import { useAccountStakingActivity } from '../../../../hooks';
 import { StakingRoutes } from '../../../../typing';
 
 import type { KeleMinerOverview } from '../../../../typing';
