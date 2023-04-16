@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
 import { Animated } from 'react-native';
 
 import { Box, Center, Icon, LottieView, useTheme } from '@onekeyhq/components';
@@ -22,22 +21,13 @@ import { SwapError } from '../../typings';
 const RefreshButtonImpl = () => {
   const { themeVariant } = useTheme();
   const lottieRef = useRef<any>();
-  const isFocused = useIsFocused();
   const total = 15000;
 
   const loadingAnim = useRef(new Animated.Value(0)).current;
   const processAnim = useRef(new Animated.Value(0)).current;
   const params = useSwapQuoteRequestParams();
-  const error = useAppSelector((s) => s.swap.error);
   const limited = useAppSelector((s) => s.swap.quoteLimited);
   const loading = useAppSelector((s) => s.swap.loading);
-
-  const isOk = useMemo(() => {
-    if (error || limited || !params) {
-      return false;
-    }
-    return true;
-  }, [error, limited, params]);
 
   const lottie = useMemo(
     () => ({
@@ -109,14 +99,9 @@ const RefreshButtonImpl = () => {
   }, [onRefresh]);
 
   useEffect(() => {
-    if (isOk && isFocused) {
-      lottie.play();
-    } else if (!isFocused) {
-      lottie.pause();
-    } else if (!isOk) {
-      lottie.reset();
-    }
-  }, [isOk, isFocused, lottie]);
+    lottie.play();
+    // eslint-disable-next-line
+  }, []);
 
   return (
     <Pressable onPress={onRefresh} isDisabled={loading}>
@@ -136,8 +121,7 @@ const RefreshButtonImpl = () => {
           <LottieView
             onLoopComplete={onRefresh}
             ref={lottieRef}
-            autoplay={false}
-            // autoPlay={false}
+            autoPlay
             width={20}
             source={
               themeVariant === 'light'
