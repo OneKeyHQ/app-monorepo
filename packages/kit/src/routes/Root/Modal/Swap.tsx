@@ -2,18 +2,22 @@ import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import CustomToken from '../../../views/ManageTokens/CustomToken';
 import EnterAddress from '../../../views/Swap/EnterAddress';
+import HardwareContinue from '../../../views/Swap/HardwareContinue';
 import Input from '../../../views/Swap/Input';
+import LimitOrderDetails from '../../../views/Swap/LimitOrderDetails';
+import LimitOrderInput from '../../../views/Swap/LimitOrderInput';
+import LimitOrderOutput from '../../../views/Swap/LimitOrderOutput';
 import Output from '../../../views/Swap/Output';
 import PickAccount from '../../../views/Swap/PickAccount';
 import PickRecipient from '../../../views/Swap/PickRecipient';
 import SelectRoutes from '../../../views/Swap/SelectRoutes';
-import Send from '../../../views/Swap/Send';
 import Settings from '../../../views/Swap/Settings';
 import Share from '../../../views/Swap/Share';
 import Slippage from '../../../views/Swap/Slippage';
 import SlippageCheck from '../../../views/Swap/SlippageCheck';
 import SwftcHelp from '../../../views/Swap/SwftcHelp';
 import Transaction from '../../../views/Swap/Transaction';
+import TransactionSubmitted from '../../../views/Swap/TransactionSubmitted';
 import { SwapRoutes } from '../../../views/Swap/typings';
 import Webview from '../../../views/Swap/Webview';
 import Welcome from '../../../views/Swap/Welcome';
@@ -78,16 +82,32 @@ const modalRoutes = [
     component: SelectRoutes,
   },
   {
-    name: SwapRoutes.Send,
-    component: Send,
-  },
-  {
     name: SwapRoutes.Slippage,
     component: Slippage,
   },
   {
     name: SwapRoutes.SlippageCheck,
     component: SlippageCheck,
+  },
+  {
+    name: SwapRoutes.LimitOrderInput,
+    component: LimitOrderInput,
+  },
+  {
+    name: SwapRoutes.LimitOrderOutput,
+    component: LimitOrderOutput,
+  },
+  {
+    name: SwapRoutes.LimitOrderDetails,
+    component: LimitOrderDetails,
+  },
+  {
+    name: SwapRoutes.TransactionSubmitted,
+    component: TransactionSubmitted,
+  },
+  {
+    name: SwapRoutes.HardwareContinue,
+    component: HardwareContinue,
   },
 ];
 

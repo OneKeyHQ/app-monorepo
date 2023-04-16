@@ -11,9 +11,16 @@ import {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation, usePrevious } from '../../hooks';
 import { ModalRoutes, RootRoutes } from '../../routes/types';
+import {
+  setInstantRate,
+  setMktRate,
+  setTypedPrice,
+} from '../../store/reducers/limitOrder';
 import { useRpcMeasureStatus } from '../ManageNetworks/hooks';
 
+import { fetchOrderInstantRate } from './doLimitOrder';
 import { doQuote } from './doQuote';
+import { useLimitOrderParams } from './hooks/useLimitOrder';
 import { useSwapQuoteRequestParams } from './hooks/useSwap';
 import { SwapError, SwapRoutes } from './typings';
 import { stringifyTokens } from './utils';
@@ -136,6 +143,27 @@ const SwapParamsObserver = () => {
   return null;
 };
 
+const LimitOrderParamsObserver = () => {
+  const params = useLimitOrderParams();
+  useEffect(() => {
+    fetchOrderInstantRate({ params, loading: true });
+  }, [params]);
+  return null;
+};
+
+const LimitOrderRateResetObserver = () => {
+  const tokenIn = useAppSelector((s) => s.limitOrder.tokenIn);
+  const tokenOut = useAppSelector((s) => s.limitOrder.tokenOut);
+  useEffect(() => {
+    backgroundApiProxy.dispatch(
+      setMktRate(''),
+      setInstantRate(''),
+      setTypedPrice({ value: '' }),
+    );
+  }, [tokenIn, tokenOut]);
+  return null;
+};
+
 const SwapObserver = () => (
   <>
     <AccountsObserver />
@@ -145,6 +173,8 @@ const SwapObserver = () => (
     <PriceObserver />
     <SwapQuoteResetObserver />
     <SwapParamsObserver />
+    <LimitOrderParamsObserver />
+    <LimitOrderRateResetObserver />
   </>
 );
 

@@ -151,13 +151,25 @@ const UnstakePendingAlert = () => {
   const sec = unstakeOverview?.estimate_use_sec ?? 60;
   const minutes = useIntlMinutes(Math.floor(sec / 60));
 
+  useEffect(() => {
+    if (retailUnstaking) {
+      const timer = setInterval(() => {
+        backgroundApiProxy.serviceStaking.fetchMinerOverview({
+          networkId,
+          accountId,
+        });
+      }, 30 * 1000);
+      return () => clearInterval(timer);
+    }
+  }, [networkId, accountId, retailUnstaking]);
+
   return retailUnstaking ? (
     <Alert
       dismiss={false}
       alertType="info"
       title={intl.formatMessage(
         { id: 'msg__unstaking_in_progress_str' },
-        { '0': `${retailUnstaking} ETH ` },
+        { '0': `${formatAmount(retailUnstaking, 8)} ETH ` },
       )}
       description={intl.formatMessage(
         { id: 'msg__unstaking_in_progress_str_desc' },
@@ -178,7 +190,7 @@ const WithdrawPendingAlert = () => {
           networkId,
           accountId,
         });
-      }, 30 * 1000);
+      }, 120 * 1000);
       return () => clearInterval(timer);
     }
   }, [networkId, accountId, accountPendingWithdraw]);
@@ -188,7 +200,7 @@ const WithdrawPendingAlert = () => {
       alertType="info"
       title={intl.formatMessage(
         { id: 'msg__withdraw_in_progress_str' },
-        { '0': `${accountPendingWithdraw} ETH` },
+        { '0': `${formatAmount(accountPendingWithdraw, 8)} ETH` },
       )}
     />
   ) : null;
@@ -351,6 +363,10 @@ export default function StakedETHOnKele() {
   const incomeItems = useKeleIncomes(networkId, accountId);
 
   useEffect(() => {
+    backgroundApiProxy.serviceStaking.fetchPendingWithdrawAmount({
+      networkId,
+      accountId,
+    });
     backgroundApiProxy.serviceStaking.fetchMinerOverview({
       accountId,
       networkId,

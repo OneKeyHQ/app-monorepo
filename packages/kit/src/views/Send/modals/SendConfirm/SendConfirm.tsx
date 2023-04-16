@@ -4,11 +4,15 @@ import type {
   IFeeInfoUnit,
   ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
-import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
+import {
+  IDecodedTxActionType,
+  IEncodedTxUpdateType,
+} from '@onekeyhq/engine/src/vaults/types';
 import { ENABLED_DAPP_SCOPE } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   IMPL_COSMOS,
   IMPL_DOT,
+  IMPL_SUI,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -21,6 +25,7 @@ import { wait } from '../../../../utils/helper';
 import { TxDetailView } from '../../../TxDetail/TxDetailView';
 import { BaseSendConfirmModal } from '../../components/BaseSendConfirmModal';
 import { FeeInfoInputForConfirmLite } from '../../components/FeeInfoInput';
+import { SendConfirmAdvancedSettings } from '../../components/SendConfirmAdvancedSettings';
 import { SendConfirmErrorsAlert } from '../../components/SendConfirmErrorsAlert';
 import { SendModalRoutes } from '../../types';
 import {
@@ -28,6 +33,7 @@ import {
   useFeeInfoPayload,
 } from '../../utils/useFeeInfoPayload';
 import { useReloadAccountBalance } from '../../utils/useReloadAccountBalance';
+import { useSendConfirmAdvancedSettings } from '../../utils/useSendConfirmAdvancedSettings';
 import { useSendConfirmEncodedTx } from '../../utils/useSendConfirmEncodedTx';
 import { useSendConfirmRouteParamsParsed } from '../../utils/useSendConfirmRouteParamsParsed';
 
@@ -70,6 +76,11 @@ function SendConfirm({
   } = sendConfirmParamsParsed;
   useReloadAccountBalance({ networkId, accountId });
 
+  const {
+    isLoading: isLoadingAdvancedSettings,
+    advancedSettings,
+    setAdvancedSettings,
+  } = useSendConfirmAdvancedSettings({ accountId, networkId });
   const { walletId, networkImpl, account, wallet } = useActiveSideAccount({
     accountId,
     networkId,
@@ -142,10 +153,20 @@ function SendConfirm({
         });
       }
 
-      const result = await engine.specialCheckEncodedTx({
+      const encodedTxWithAdvancedSettings = await engine.updateEncodedTx({
         networkId,
         accountId,
         encodedTx: encodedTxWithFee,
+        payload: advancedSettings,
+        options: {
+          type: IEncodedTxUpdateType.advancedSettings,
+        },
+      });
+
+      const result = await engine.specialCheckEncodedTx({
+        networkId,
+        accountId,
+        encodedTx: encodedTxWithAdvancedSettings,
       });
 
       const onFail = (error: Error) => {
@@ -164,7 +185,11 @@ function SendConfirm({
         });
         if (routeParams.signOnly) {
           // TODO Unified return to tx related processes to handle their own
-          if (networkImpl === IMPL_COSMOS || networkImpl === IMPL_DOT) {
+          if (
+            networkImpl === IMPL_COSMOS ||
+            networkImpl === IMPL_DOT ||
+            networkImpl === IMPL_SUI
+          ) {
             await dappApprove.resolve({ result: tx });
           } else {
             await dappApprove.resolve({ result: tx.rawTx });
@@ -193,7 +218,8 @@ function SendConfirm({
             closeModal: close,
           };
           navigation.navigate(SendModalRoutes.HardwareSwapContinue, params);
-        } else {
+        } else if (!routeParams.hideSendFeedbackReceipt) {
+          // Sometimes it is necessary to send multiple transactions. So the feedback are not displayed.
           const type = routeParams.signOnly ? 'Sign' : 'Send';
           const params: SendFeedbackReceiptParams = {
             networkId,
@@ -205,6 +231,10 @@ function SendConfirm({
             isSingleTransformMode: true,
           };
           navigation.navigate(SendModalRoutes.SendFeedbackReceipt, params);
+        } else {
+          setTimeout(() => {
+            close();
+          }, 0);
         }
 
         if (routeParams.onSuccess) {
@@ -214,13 +244,13 @@ function SendConfirm({
 
         // navigate SendFeedbackReceipt onSuccess
         // close modal
-        setTimeout(() => {
-          // close()
-        }, 0);
+        // setTimeout(() => {
+        //   // close()
+        // }, 0);
       };
       const nextRouteParams: SendAuthenticationParams = {
         ...routeParams,
-        encodedTx: encodedTxWithFee,
+        encodedTx: encodedTxWithAdvancedSettings,
         accountId,
         networkId,
         walletId,
@@ -253,20 +283,21 @@ function SendConfirm({
     [
       feeInfoEditable,
       feeInfoPayload,
-      routeParams,
-      accountId,
-      walletId,
+      engine,
       networkId,
+      accountId,
+      advancedSettings,
+      routeParams,
+      walletId,
       onModalClose,
       navigation,
-      engine,
       dappApprove,
       serviceToken,
       payloadInfo?.swapInfo,
       wallet?.type,
       serviceHistory,
-      resendActionInfo,
       networkImpl,
+      resendActionInfo,
     ],
   );
 
@@ -282,6 +313,18 @@ function SendConfirm({
       feeInfoError={feeInfoError}
     />
   );
+
+  const advancedSettingsForm = (
+    <SendConfirmAdvancedSettings
+      accountId={accountId}
+      networkId={networkId}
+      encodedTx={encodedTx}
+      advancedSettings={advancedSettings}
+      setAdvancedSettings={setAdvancedSettings}
+      isLoadingAdvancedSettings={isLoadingAdvancedSettings}
+    />
+  );
+
   const sharedProps: ITxConfirmViewProps = {
     accountId,
     networkId,
@@ -298,6 +341,8 @@ function SendConfirm({
     feeInfoError,
     feeInfoEditable,
     feeInput,
+    advancedSettings,
+    advancedSettingsForm,
 
     handleConfirm,
     onSecondaryActionPress: ({ close }) => {
@@ -322,6 +367,7 @@ function SendConfirm({
       isSendConfirm
       decodedTx={decodedTx}
       feeInput={feeInput}
+      advancedSettingsForm={advancedSettingsForm}
     />
   );
 

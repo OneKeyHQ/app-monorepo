@@ -1,5 +1,5 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -20,7 +20,6 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type {
   HomeRoutesParams,
@@ -35,7 +34,6 @@ import { useTools } from '../../../hooks/redux';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { openUrl } from '../../../utils/openUrl';
 import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
-import { WalletHomeTabEnum } from '../type';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ImageSourcePropType } from 'react-native';
@@ -102,11 +100,9 @@ type NavigationProps = NativeStackNavigationProp<
 
 const ToolsPage: FC = () => {
   const intl = useIntl();
-  const hasFetchedRef = useRef(false);
   const { network, accountAddress } = useActiveWalletAccount();
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation<NavigationProps>();
-  const homeTabName = useAppSelector((s) => s.status.homeTabName);
 
   const tools = useTools(network?.id);
 
@@ -218,22 +214,6 @@ const ToolsPage: FC = () => {
     },
     [isVertical],
   );
-
-  const fetchData = useCallback(() => {
-    backgroundApiProxy.serviceToken.fetchTools().finally(() => {
-      hasFetchedRef.current = true;
-    });
-  }, []);
-
-  useEffect(() => {
-    if (hasFetchedRef.current) {
-      return;
-    }
-    if (homeTabName !== WalletHomeTabEnum.Tools) {
-      return;
-    }
-    fetchData();
-  }, [fetchData, homeTabName]);
 
   const renderIcon = useCallback((icon: DataItem['icon']) => {
     if (!icon) {

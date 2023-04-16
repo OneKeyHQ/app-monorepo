@@ -1,7 +1,10 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+
+import { useIsVerticalLayout } from '@onekeyhq/components';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { useAppSelector, useDebounce } from '../../../hooks';
 import {
@@ -153,4 +156,46 @@ export const useSwapMinimumReceivedAmount = () => {
       }
     }
   }, [quote, swapSlippagePercent]);
+};
+
+export const useSwapChartMode = () => {
+  const swapChartMode = useAppSelector((s) => s.swapTransactions.swapChartMode);
+  const isSmall = useIsVerticalLayout();
+  if (isSmall) {
+    return 'simple';
+  }
+  return swapChartMode ?? 'chart';
+};
+
+export const useTagLogger = () => {
+  const ref = useRef<Record<string, number>>({});
+  return useMemo(
+    () => ({
+      start: (tag: string) => {
+        const now = Date.now();
+        if (ref.current[tag]) {
+          debugLogger.swap.info(
+            `tag ${tag} already exists, it's value ${ref.current[tag]} will be replace with ${now}`,
+          );
+        }
+        ref.current[tag] = now;
+      },
+      end: (tag: string) => {
+        const startAt = ref.current[tag];
+        const now = Date.now();
+        if (!startAt) {
+          debugLogger.swap.info(`tag ${tag} ended at ${now}`);
+        } else {
+          const spent = ((now - startAt) / 1000).toFixed(2);
+          debugLogger.swap.info(
+            `tag ${tag} took ${spent} secords, ended at ${now}`,
+          );
+        }
+      },
+      clear: () => {
+        ref.current = {};
+      },
+    }),
+    [],
+  );
 };

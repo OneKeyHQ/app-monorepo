@@ -52,7 +52,7 @@ import type {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
-import type { IEncodedTxXmr, IOnChainHistoryTx } from './types';
+import type { IClientApi, IEncodedTxXmr, IOnChainHistoryTx } from './types';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -174,7 +174,7 @@ export default class Vault extends VaultBase {
       accountAddress = (await this.getOutputAccount()).address;
     }
     const rpcUrl = await this.getRpcUrl();
-    const scanUrl = await this.getScanUrl();
+    const clientApi = await this.getClientApi<IClientApi>();
     const privateKey = await this.getPrivateKey(
       accountId ?? this.accountId,
       password,
@@ -184,7 +184,7 @@ export default class Vault extends VaultBase {
       await this.getMoneroKeys(accountId ?? this.accountId, privateKey);
     return this.createXmrClient(
       rpcUrl,
-      scanUrl,
+      clientApi.mymonero,
       address ?? accountAddress,
       Buffer.from(publicSpendKey || '').toString('hex'),
       Buffer.from(publicViewKey || '').toString('hex'),

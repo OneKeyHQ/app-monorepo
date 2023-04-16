@@ -24,7 +24,7 @@ export function SendEditFeeStandardFormLite({
 
     return gasList.map((gas, index) => ({
       value: index.toString(),
-      title: <FeeSpeedLabel index={index} />,
+      title: <FeeSpeedLabel index={index} alignItems="center" space={2} />,
     }));
   }, [gasList]);
 

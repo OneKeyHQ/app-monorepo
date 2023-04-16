@@ -45,7 +45,11 @@ import {
 
 import { OneKeyInternalError } from '../errors';
 
-import { getAccountNameInfoByTemplate, getImplByCoinType } from './impl';
+import {
+  getAccountNameInfoByTemplate,
+  getDefaultAccountNameInfoByImpl,
+  getImplByCoinType,
+} from './impl';
 
 import type { DBAccountDerivation } from '../types/accountDerivation';
 import type { Wallet } from '../types/wallet';
@@ -211,8 +215,35 @@ function getAccountDerivationPrimaryKey({
 }) {
   return `${walletId}-${impl}-${template}`;
 }
+
+function parsePath(impl: string, path: string, template?: string) {
+  const accountNameInfo = template
+    ? getAccountNameInfoByTemplate(impl, template)
+    : getDefaultAccountNameInfoByImpl(impl);
+  const pathComponent = path.split('/');
+  const purpose = Number(
+    pathComponent[1].endsWith(`'`)
+      ? pathComponent[1].slice(0, -1)
+      : pathComponent[1],
+  );
+  const pathComponentAccountIndex = accountNameInfo.template
+    ?.split('/')
+    .findIndex((x: string) => x.startsWith(INDEX_PLACEHOLDER));
+  const accountIndex = pathComponent[pathComponentAccountIndex ?? 0].replace(
+    /'$/,
+    '',
+  );
+  return {
+    accountIndex: parseInt(accountIndex, 10),
+    purpose,
+    coinType: accountNameInfo.coinType,
+    template: accountNameInfo.template,
+  };
+}
+
 export {
   getPath,
+  parsePath,
   getDefaultPurpose,
   derivationPathTemplates,
   slicePathTemplate,

@@ -1,4 +1,6 @@
 import { FailedToEstimatedGasError } from '@onekeyhq/engine/src/errors';
+import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
+import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IEncodedTx,
   IFeeInfo,
@@ -30,15 +32,16 @@ export type ISendTransactionParams = {
   autoFallback?: boolean;
 };
 
+export type ISignMessageParams = {
+  accountId: string;
+  networkId: string;
+  unsignedMessage: IUnsignedMessageEvm;
+};
+
 @backgroundClass()
 export default class ServiceTransaction extends ServiceBase {
-  @backgroundMethod()
-  async sendTransaction(params: ISendTransactionParams) {
-    const { accountId, networkId, encodedTx, feePresetIndex, autoFallback } =
-      params;
-    const { engine, servicePassword, serviceHistory, appSelector } =
-      this.backgroundApi;
-    const network = await engine.getNetwork(params.networkId);
+  private async getPassword(accountId: string) {
+    const { servicePassword, appSelector } = this.backgroundApi;
     const wallets = appSelector((s) => s.runtime.wallets);
     const activeWallet = wallets.find((wallet) =>
       wallet.accounts.includes(accountId),
@@ -51,8 +54,18 @@ export default class ServiceTransaction extends ServiceBase {
     }
 
     if (password === undefined) {
-      throw new Error('Internal Error');
+      throw new Error('Failed to find the password');
     }
+    return password;
+  }
+
+  @backgroundMethod()
+  async sendTransaction(params: ISendTransactionParams) {
+    const { accountId, networkId, encodedTx, feePresetIndex, autoFallback } =
+      params;
+    const { engine, serviceHistory } = this.backgroundApi;
+    const network = await engine.getNetwork(params.networkId);
+    const password = await this.getPassword(accountId);
 
     let feeInfoUnit: IFeeInfoUnit | undefined;
     let feeInfo: IFeeInfo | undefined;
@@ -86,12 +99,14 @@ export default class ServiceTransaction extends ServiceBase {
       feeInfoUnit = {
         eip1559: feeInfo.eip1559,
         limit: feeInfo.limit,
-        price,
+        ...(feeInfo.eip1559
+          ? { price1559: price as EIP1559Fee }
+          : { price: price as string }),
       };
     } catch {
       if (autoFallback) {
         if (network.impl === IMPL_EVM) {
-          const gasPrice = await engine.getGasPrice(params.networkId);
+          const { prices } = await engine.getGasInfo(params.networkId);
           const blockData = await engine.proxyJsonRPCCall(params.networkId, {
             method: 'eth_getBlockByNumber',
             params: ['latest', false],
@@ -105,10 +120,19 @@ export default class ServiceTransaction extends ServiceBase {
           const gasUsed = 100 * 10000;
           const limit = Math.min(maxLimit, gasUsed);
 
+          const eip1559 = Boolean(
+            prices?.length &&
+              prices?.every((price) => typeof price === 'object'),
+          );
+
+          const price = prices[prices.length - 1];
+
           feeInfoUnit = {
-            eip1559: typeof gasPrice[0] === 'object',
+            eip1559,
             limit: String(limit),
-            price: gasPrice[gasPrice.length - 1],
+            ...(eip1559
+              ? { price1559: price as EIP1559Fee }
+              : { price: price as string }),
           };
         }
       }
@@ -170,5 +194,33 @@ export default class ServiceTransaction extends ServiceBase {
     });
 
     return { result: signedTx, decodedTx, encodedTx: signedTx.encodedTx };
+  }
+
+  @backgroundMethod()
+  async signMessage(params: ISignMessageParams) {
+    const { accountId, networkId, unsignedMessage } = params;
+    const { engine } = this.backgroundApi;
+    const password = await this.getPassword(accountId);
+    const result = await engine.signMessage({
+      password,
+      networkId,
+      accountId,
+      unsignedMessage,
+    });
+    return result;
+  }
+
+  @backgroundMethod()
+  async getNextTransactionNonce({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const { engine } = this.backgroundApi;
+    const vault = await engine.getVault({ accountId, networkId });
+    const dbAccount = await vault.getDbAccount();
+    return vault.getNextNonce(networkId, dbAccount);
   }
 }

@@ -26,9 +26,7 @@ export class Nft {
       previousTransaction,
       objectType: obj.type,
       fields: obj.fields,
-      hasPublicTransfer: obj.has_public_transfer
-        ? obj.has_public_transfer
-        : false,
+      hasPublicTransfer: obj.hasPublicTransfer ? obj.hasPublicTransfer : false,
     };
   }
 }

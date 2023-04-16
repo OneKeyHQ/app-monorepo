@@ -1,37 +1,30 @@
-/* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import {
-  Coin,
   Connection,
-  LocalTxnDataSerializer,
-  fromB64,
-  getCertifiedTransaction,
+  JsonRpcProvider,
+  TransactionBlock,
+  builder,
   getExecutionStatus,
-  getMoveCallTransaction,
-  getObjectExistsResponse,
-  getObjectId,
-  getPayAllSuiTransaction,
-  getPaySuiTransaction,
-  getPayTransaction,
-  getPublishTransaction,
   getTimestampFromTransactionResponse,
   getTotalGasUsed,
-  getTransactionData,
+  getTransaction,
   getTransactionDigest,
-  getTransferObjectTransaction,
-  getTransferSuiTransaction,
+  getTransactionSender,
   isValidSuiAddress,
 } from '@mysten/sui.js';
 import BigNumber from 'bignumber.js';
-import { groupBy, isArray, isEmpty } from 'lodash';
+import { get, groupBy, isArray, isEmpty } from 'lodash';
 import memoizee from 'memoizee';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import type { Token } from '@onekeyhq/kit/src/store/typings';
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import {
+  getTimeDurationMs,
+  getTimeStamp,
+} from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
@@ -55,22 +48,16 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { QueryJsonRpcProvider } from './provider/QueryJsonRpcProvider';
 import settings from './settings';
 import {
-  GAS_TYPE_ARG,
   SUI_NATIVE_COIN,
   computeGasBudget,
-  computeGasBudgetForPay,
-  decodeActionAllPay,
-  decodeActionPay,
-  decodeActionPayTransaction,
-  decodeBytesTransaction,
   deduplicate,
-  getTxnAmount,
+  dryRunTransactionBlock,
   moveCallTxnName,
-  toTransaction,
 } from './utils';
+import { createCoinSendTransaction } from './utils/Coin';
+import { decodeActionWithTransferObjects } from './utils/Transaction';
 
 import type { DBSimpleAccount } from '../../../types/account';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
@@ -81,6 +68,7 @@ import type {
   IDecodedTxLegacy,
   IEncodedTx,
   IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
@@ -90,14 +78,10 @@ import type {
 } from '../../types';
 import type { IEncodedTxSUI } from './types';
 import type {
-  ExportedKeypair,
-  GetObjectDataResponse,
-  Keypair,
+  CoinBalance,
   SignatureScheme,
-  SuiMoveObject,
-  SuiObject,
-  SuiTransactionResponse,
-  UnserializedSignableTransaction,
+  SuiTransactionBlockResponse,
+  SuiTransactionBlockResponseOptions,
 } from '@mysten/sui.js';
 
 // @ts-ignore
@@ -125,7 +109,7 @@ export default class Vault extends VaultBase {
 
   getSuiClient(url: string) {
     // client: jayson > cross-fetch
-    return new QueryJsonRpcProvider(
+    return new JsonRpcProvider(
       new Connection({
         fullnode: url,
         faucet: 'https://faucet.testnet.sui.io/gas',
@@ -140,10 +124,11 @@ export default class Vault extends VaultBase {
     const client = await this.getClientCache(url);
 
     const start = performance.now();
-    const latestBlock = await client.getTotalTransactionNumber();
+
+    const latestBlock = await client.getTotalTransactionBlocks();
     return {
       responseTime: Math.floor(performance.now() - start),
-      latestBlock,
+      latestBlock: Number(latestBlock),
     };
   }
 
@@ -176,58 +161,34 @@ export default class Vault extends VaultBase {
   override async checkAccountExistence(address: string): Promise<boolean> {
     const client = await this.getClient();
 
-    const accountData = await client.getObject(stripHexPrefix(address));
-    return accountData.status === 'Exists';
-  }
+    const accountData = await client.getObject({ id: stripHexPrefix(address) });
 
-  async getObjectsOwnedByAddress(
-    address: string,
-    typeArg?: string,
-  ): Promise<Record<string, bigint>> {
-    const client = await this.getClient();
-
-    const allObjRes = await client.getCoinBalancesOwnedByAddress(
-      address,
-      typeArg,
-    );
-
-    const allSuiObjects: SuiObject[] = [];
-    for (const objRes of allObjRes) {
-      const suiObj = getObjectExistsResponse(objRes);
-      if (suiObj) {
-        allSuiObjects.push(suiObj);
-      }
-    }
-
-    return allSuiObjects
-      .map((aCoin) => aCoin.data as SuiMoveObject)
-      .reduce((acc, aCoin) => {
-        const coinType = Coin.getCoinTypeArg(aCoin);
-        if (coinType) {
-          if (typeof acc[coinType] === 'undefined') {
-            acc[coinType] = BigInt(0);
-          }
-          acc[coinType] += Coin.getBalance(aCoin) ?? BigInt(0);
-        }
-        return acc;
-      }, {} as Record<string, bigint>);
+    return !accountData.error;
   }
 
   override async getBalances(
     requests: { address: string; tokenAddress?: string | undefined }[],
   ): Promise<(BigNumber | undefined)[]> {
+    const client = await this.getClient();
     const requestAddress = groupBy(requests, (request) => request.address);
 
     const balances = new Map<string, BigNumber>();
     await Promise.all(
       Object.entries(requestAddress).map(async ([address, tokens]) => {
         try {
-          const resources = await this.getObjectsOwnedByAddress(address);
+          const resources: CoinBalance[] = await client.getAllBalances({
+            owner: address,
+          });
+
+          const coinBalances: Record<string, string> = {};
+          for (const resource of resources) {
+            coinBalances[resource.coinType] = resource.totalBalance.toString();
+          }
 
           tokens.forEach((req) => {
             const { tokenAddress } = req;
             const typeTag = tokenAddress ?? SUI_NATIVE_COIN;
-            const balance = resources[typeTag]?.toString() ?? '0';
+            const balance = coinBalances[typeTag]?.toString() ?? '0';
             const key = `${address}-${typeTag}`;
             try {
               balances.set(key, new BigNumber(balance));
@@ -261,7 +222,9 @@ export default class Vault extends VaultBase {
     return Promise.all(
       tokenAddresses.map(async (tokenAddress) => {
         try {
-          const coinInfo = await client.getCoinMetadata(tokenAddress);
+          const coinInfo = await client.getCoinMetadata({
+            coinType: tokenAddress,
+          });
 
           return await Promise.resolve({
             name: coinInfo.name,
@@ -301,12 +264,17 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('Invalid fee limit');
     }
 
-    const { data } = params.encodedTx;
-    if (data && 'gasBudget' in data) {
-      data.gasBudget = parseInt(limit);
-    }
+    const newTx = TransactionBlock.from(params.encodedTx.rawTx);
+    newTx.blockData.gasConfig.price = price;
+    newTx.blockData.gasConfig.budget = limit;
 
-    return Promise.resolve(params.encodedTx);
+    return Promise.resolve({
+      rawTx: newTx.serialize(),
+      feeInfo: {
+        price,
+        limit,
+      },
+    });
   }
 
   override decodedTxToLegacy(
@@ -324,156 +292,121 @@ export default class Vault extends VaultBase {
     let token: Token | undefined = await this.engine.getNativeTokenInfo(
       this.networkId,
     );
-    const client = await this.getClient();
 
     const sender = await this.getAccountAddress();
+    const transactionBlock = TransactionBlock.from(encodedTx.rawTx);
 
-    let txData: UnserializedSignableTransaction;
-
-    if (encodedTx.kind === 'bytes') {
-      try {
-        const ser = new LocalTxnDataSerializer(await this.getClient());
-        const decode =
-          await ser.deserializeTransactionBytesToSignableTransaction(
-            decodeBytesTransaction(encodedTx.data),
-          );
-        if (isArray(decode)) {
-          [txData] = decode;
-        } else {
-          txData = decode;
-        }
-      } catch (e) {
-        throw new OneKeyError('Invalid transaction data.');
-      }
-    } else {
-      txData = encodedTx;
-    }
-
-    if (!txData) throw new OneKeyError('Invalid transaction data.');
+    if (!transactionBlock) throw new OneKeyError('Invalid transaction data.');
 
     const actions: IDecodedTxAction[] = [];
 
-    const { kind, data } = txData;
-    let gasLimit = 0;
-    if (data && 'gasBudget' in data) {
-      gasLimit = data.gasBudget ?? 0;
+    const { inputs, transactions } = transactionBlock.blockData;
+
+    let gasLimit = '0';
+    if (transactionBlock.blockData.gasConfig.budget) {
+      gasLimit = transactionBlock.blockData.gasConfig.budget ?? '0';
     }
 
-    switch (kind) {
-      case 'pay':
-        // eslint-disable-next-line no-case-declarations
-        const action = await decodeActionPayTransaction(client, data);
-        if (action) {
-          let actionKey = 'nativeTransfer';
-          if (!action.isNative) {
-            actionKey = 'tokenTransfer';
-            if (!action.coinType)
-              throw new OneKeyInternalError('Invalid coin type');
-            token = await this.engine.ensureTokenInDB(
-              this.networkId,
-              action.coinType,
-            );
+    try {
+      for (const transaction of transactions) {
+        switch (transaction.kind) {
+          case 'TransferObjects': {
+            const action = decodeActionWithTransferObjects(transaction, inputs);
+            if (action) {
+              let actionKey = 'nativeTransfer';
+              if (!action.isNative) {
+                actionKey = 'tokenTransfer';
+                if (!action.coinType)
+                  throw new OneKeyInternalError('Invalid coin type');
+                token = await this.engine.ensureTokenInDB(
+                  this.networkId,
+                  action.coinType,
+                );
 
-            if (!token) throw new OneKeyInternalError('Invalid coin type');
+                if (!token) throw new OneKeyInternalError('Invalid coin type');
+              }
+              actions.push({
+                type: action.type,
+                [actionKey]: {
+                  tokenInfo: token,
+                  from: sender,
+                  to: action.recipient,
+                  amount: new BigNumber(action.amount.toString() ?? '0')
+                    .shiftedBy(-token.decimals)
+                    .toFixed(),
+                  amountValue: action.amount?.toString() ?? '0',
+                  extraInfo: null,
+                },
+              });
+            }
+            break;
           }
-          actions.push({
-            type: action.type,
-            [actionKey]: {
-              tokenInfo: token,
-              from: sender,
-              to: action.recipient,
-              amount: new BigNumber(action.amount.toString() ?? '0')
-                .shiftedBy(-token.decimals)
-                .toFixed(),
-              amountValue: action.amount?.toString() ?? '0',
-              extraInfo: null,
-            },
-          });
+          case 'MoveCall': {
+            if (transaction.kind !== 'MoveCall') break;
+            const args: string[] = [];
+            let argInput;
+            for (const arg of transaction.arguments ?? []) {
+              switch (arg.kind) {
+                case 'Input':
+                case 'Result':
+                case 'NestedResult':
+                  argInput = inputs[arg.index];
+                  if (argInput.type === 'pure') {
+                    const argValue = get(
+                      argInput.value,
+                      'Pure',
+                      argInput.value,
+                    );
+
+                    try {
+                      args.push(builder.de('vector<u8>', argValue));
+                    } catch (e) {
+                      try {
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+                        args.push(argValue.toString());
+                      } catch (error) {
+                        // ignore
+                      }
+                    }
+                  } else if (argInput.type === 'object') {
+                    args.push(argInput.value);
+                  }
+                  break;
+
+                default:
+              }
+            }
+
+            const callName = moveCallTxnName(transaction.target).split('::');
+            actions.push({
+              type: IDecodedTxActionType.FUNCTION_CALL,
+              'functionCall': {
+                target: `${callName?.[1]}::${callName?.[2]}`,
+                // functionName: data.packageObjectId ?? '',
+                functionName: callName?.[0] ?? '',
+                args,
+                extraInfo: null,
+              },
+            });
+            break;
+          }
+          case 'MakeMoveVec':
+          case 'SplitCoins':
+          case 'MergeCoins':
+            break;
+          default:
+            actions.push({
+              type: IDecodedTxActionType.UNKNOWN,
+              direction: IDecodedTxDirection.OTHER,
+              unknownAction: {
+                extraInfo: {},
+              },
+            });
+            break;
         }
-        break;
-
-      case 'transferSui':
-        actions.push({
-          type: IDecodedTxActionType.NATIVE_TRANSFER,
-          'nativeTransfer': {
-            tokenInfo: token,
-            from: sender,
-            to: data.recipient,
-            amount: new BigNumber(data.amount ?? '0')
-              .shiftedBy(-token.decimals)
-              .toFixed(),
-            amountValue: data.amount?.toString() ?? '0',
-            extraInfo: null,
-          },
-        });
-        break;
-
-      case 'paySui':
-        // eslint-disable-next-line no-case-declarations
-        const toAddress = new Map<string, BigNumber>();
-        for (let i = 0; i < data.recipients.length; i += 1) {
-          const recipient = data.recipients[i];
-          const amount = data.amounts[i];
-
-          toAddress.set(
-            recipient,
-            (toAddress.get(recipient) ?? new BigNumber(0)).plus(
-              new BigNumber(amount),
-            ),
-          );
-        }
-
-        for (const [recipient, amount] of toAddress.entries()) {
-          actions.push({
-            type: IDecodedTxActionType.NATIVE_TRANSFER,
-            'nativeTransfer': {
-              tokenInfo: token,
-              from: sender,
-              to: recipient,
-              amount: amount.shiftedBy(-token.decimals).toFixed(),
-              amountValue: amount.toString(),
-              extraInfo: null,
-            },
-          });
-        }
-        break;
-
-      case 'payAllSui':
-        actions.push({
-          type: IDecodedTxActionType.NATIVE_TRANSFER,
-          'nativeTransfer': {
-            tokenInfo: token,
-            from: sender,
-            to: data.recipient,
-            // Todo get balance
-            amount: 'All',
-            amountValue: 'All',
-            extraInfo: null,
-          },
-        });
-        break;
-
-      case 'moveCall':
-        actions.push({
-          type: IDecodedTxActionType.FUNCTION_CALL,
-          'functionCall': {
-            target: moveCallTxnName(data.function),
-            functionName: data.packageObjectId ?? '',
-            args: data.arguments ?? [],
-            extraInfo: null,
-          },
-        });
-        break;
-
-      default:
-        actions.push({
-          type: IDecodedTxActionType.UNKNOWN,
-          direction: IDecodedTxDirection.OTHER,
-          unknownAction: {
-            extraInfo: {},
-          },
-        });
-        break;
+      }
+    } catch (e) {
+      // ignore
     }
 
     const result: IDecodedTx = {
@@ -490,7 +423,7 @@ export default class Vault extends VaultBase {
           value: '1',
           network,
         }),
-        limit: gasLimit?.toString(),
+        limit: gasLimit,
       },
       extraInfo: null,
       encodedTx,
@@ -530,73 +463,18 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
 
     const typeArg = isSuiTransfer ? SUI_NATIVE_COIN : tokenAddress;
-    const readyCoins = await client.getCoinBalancesOwnedByAddress(
-      sender,
-      typeArg,
-    );
-    const totalBalance = Coin.totalBalance(readyCoins);
-    const gasBudget = computeGasBudgetForPay(readyCoins, amountValue);
 
-    let amountAndGasBudget = isSuiTransfer
-      ? BigInt(amountValue) + BigInt(gasBudget)
-      : BigInt(amountValue);
-    if (amountAndGasBudget > totalBalance) {
-      amountAndGasBudget = totalBalance;
-    }
+    const transaction = await createCoinSendTransaction({
+      client,
+      address: sender,
+      to: recipient,
+      amount: amountValue,
+      coinType: typeArg,
+    });
 
-    const inputCoins = Coin.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
-      readyCoins,
-      amountAndGasBudget,
-    ) as GetObjectDataResponse[];
-
-    if (inputCoins.length === 0) {
-      throw new InsufficientBalance();
-    }
-
-    const selectCoinIds = inputCoins.map((object) => getObjectId(object));
-
-    const txCommon = {
-      inputCoins: selectCoinIds,
-      recipients: [recipient],
-      amounts: [parseInt(amountValue)],
-      gasBudget,
+    return {
+      rawTx: transaction.serialize(),
     };
-
-    let encodedTx: IEncodedTxSUI;
-    if (isSuiTransfer) {
-      encodedTx = {
-        kind: 'paySui',
-        data: {
-          ...txCommon,
-        },
-      };
-    } else {
-      // Get native coin objects
-      const gasFeeCoins = await client.selectCoinsWithBalanceGreaterThanOrEqual(
-        sender,
-        BigInt(gasBudget),
-        GAS_TYPE_ARG,
-      );
-
-      const gasCoin = Coin.selectCoinWithBalanceGreaterThanOrEqual(
-        gasFeeCoins,
-        BigInt(gasBudget),
-      ) as GetObjectDataResponse | undefined;
-
-      if (!gasCoin) {
-        throw new OneKeyInternalError('Failed to get gas coin.');
-      }
-
-      encodedTx = {
-        kind: 'pay',
-        data: {
-          ...txCommon,
-          gasPayment: getObjectId(gasCoin),
-        },
-      };
-    }
-
-    return encodedTx;
   }
 
   override buildEncodedTxFromApprove(
@@ -616,24 +494,35 @@ export default class Vault extends VaultBase {
 
   override async updateEncodedTx(
     encodedTx: IEncodedTxSUI,
-    payload: any,
+    payload: IEncodedTxUpdatePayloadTransfer,
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTxSUI> {
     // max native token transfer update
-    if (options.type === 'transfer' && encodedTx.kind === 'paySui') {
-      const { data } = encodedTx;
-      // Multiple transfers don't count
-      if (data.recipients.length === 1) {
-        return Promise.resolve({
-          kind: 'payAllSui',
-          data: {
-            // TODO: Don't have to flip it, wait for official restoration
-            inputCoins: data.inputCoins.reverse(),
-            recipient: data.recipients[0],
-            gasBudget: data.gasBudget,
-          },
-        });
-      }
+    if (options.type === 'transfer') {
+      const { rawTx } = encodedTx;
+      const oldTx = TransactionBlock.from(rawTx);
+
+      const transferObject = oldTx.blockData.transactions.find((transaction) =>
+        transaction.kind === 'TransferObjects' ? transaction : undefined,
+      );
+
+      if (!transferObject || transferObject.kind !== 'TransferObjects')
+        return Promise.resolve(encodedTx);
+
+      const client = await this.getClient();
+      const newTx = await createCoinSendTransaction({
+        client,
+        address: oldTx.blockData.sender ?? (await this.getAccountAddress()),
+        to: get(transferObject.address, 'value'),
+        amount: payload.amount,
+        coinType: SUI_NATIVE_COIN,
+        isPayAllSui: true,
+      });
+
+      return {
+        ...encodedTx,
+        rawTx: newTx.serialize(),
+      };
     }
 
     return Promise.resolve(encodedTx);
@@ -662,79 +551,53 @@ export default class Vault extends VaultBase {
   async fetchFeeInfo(encodedTx: IEncodedTxSUI): Promise<IFeeInfo> {
     const client = await this.getClient();
 
-    const [network, unsignedTx] = await Promise.all([
-      this.getNetwork(),
-      this.buildUnsignedTxFromEncodedTx(encodedTx),
-    ]);
+    const network = await this.getNetwork();
 
     // https://github.com/MystenLabs/sui/blob/f32877f2e40d35a008710c232e49b57aab886462/crates/sui-types/src/messages.rs#L338
     // see objectid 0x5 reference_gas_price
     const price = convertFeeValueToGwei({ value: '1', network });
     let limit: string;
 
-    if (encodedTx.kind === 'bytes') {
-      try {
-        const ser = new LocalTxnDataSerializer(await this.getClient());
-        const decode =
-          await ser.deserializeTransactionBytesToSignableTransaction(
-            decodeBytesTransaction(encodedTx.data),
-          );
-        let data;
-        if (isArray(decode)) {
-          data = decode[0].data;
-        } else {
-          data = decode.data;
-        }
-        if ('gasBudget' in data) {
-          return {
-            disableEditFee: true,
-            nativeSymbol: network.symbol,
-            nativeDecimals: network.decimals,
-            feeSymbol: network.feeSymbol,
-            feeDecimals: network.feeDecimals,
-
-            limit: data.gasBudget?.toString(),
-            prices: [price],
-            defaultPresetIndex: '0',
-          };
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    const txnBytes = await toTransaction(
-      client,
-      await this.getAccountAddress(),
-      unsignedTx.encodedTx as IEncodedTxSUI,
-    );
-
-    const newEncodedTx = unsignedTx.encodedTx as IEncodedTxSUI;
     try {
-      const simulationTx = await client.dryRunTransaction(txnBytes);
+      const tx = TransactionBlock.from(encodedTx.rawTx);
+
+      const simulationTx = (
+        await dryRunTransactionBlock({
+          provider: client,
+          sender: await this.getAccountAddress(),
+          transactionBlock: tx,
+        })
+      ).effects;
 
       if (simulationTx) {
-        const computationCost = simulationTx?.gasUsed?.computationCost || 0;
-        const storageCost = simulationTx.gasUsed?.storageCost || 0;
-        const storageRebate = simulationTx.gasUsed?.storageRebate || 0;
+        const computationCost = simulationTx?.gasUsed?.computationCost || '0';
+        const storageCost = simulationTx.gasUsed?.storageCost || '0';
+        const storageRebate = simulationTx.gasUsed?.storageRebate || '0';
 
-        const gasUsed = new BigNumber(
-          computationCost + storageCost - storageRebate,
-        );
+        const gasUsed = new BigNumber(computationCost)
+          .plus(storageCost)
+          .minus(storageRebate);
+
         // Only onekey max send can pass, other cases must be simulated successfully
         if (gasUsed.isEqualTo(0)) {
           // Exec failure
           throw new OneKeyError();
         }
 
-        limit = gasUsed.multipliedBy(2).toFixed();
+        limit = gasUsed.multipliedBy(1.2).toFixed();
       } else {
         throw new OneKeyError();
       }
     } catch (error) {
-      if (newEncodedTx.kind === 'paySui') {
-        const { data } = newEncodedTx;
-        limit = computeGasBudget(data.inputCoins.length).toString();
+      const transactionBlock = TransactionBlock.from(encodedTx.rawTx);
+
+      const existsPaySui = transactionBlock.blockData.transactions.some(
+        (txn) => txn.kind === 'TransferObjects',
+      );
+
+      if (existsPaySui) {
+        const { inputs } = transactionBlock.blockData;
+        limit = computeGasBudget(inputs.length).toString();
       } else {
         throw new OneKeyError();
       }
@@ -782,11 +645,11 @@ export default class Vault extends VaultBase {
         throw new Error('publicKey is empty');
       }
 
-      const transactionResponse = await client.executeTransaction(
-        fromB64(signedTx.rawTx),
+      const transactionResponse = await client.executeTransactionBlock({
+        transactionBlock: signedTx.rawTx,
         signature,
-        // new Ed25519PublicKey(hexToBytes(stripHexPrefix(publicKey))),
-      );
+        requestType: (signedTx.encodedTx as IEncodedTxSUI).requestType,
+      });
 
       const txid = getTransactionDigest(transactionResponse);
 
@@ -846,16 +709,36 @@ export default class Vault extends VaultBase {
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
 
-    const transactions = await client.getTransactionsForAddress(
-      dbAccount.address,
-    );
+    const fromTransactions = await client.queryTransactionBlocks({
+      filter: {
+        FromAddress: dbAccount.address,
+      },
+      limit: 20,
+      order: 'descending',
+    });
+    const toTransactions = await client.queryTransactionBlocks({
+      filter: {
+        ToAddress: dbAccount.address,
+      },
+      limit: 20,
+      order: 'descending',
+    });
+
+    const fromTransactionsIds = fromTransactions.data.map((tx) => tx.digest);
+    const toTransactionsIds = toTransactions.data.map((tx) => tx.digest);
+
+    const transactions = [...fromTransactionsIds, ...toTransactionsIds];
     if (!transactions || !transactions.length) {
       return [];
     }
 
-    const explorerTxs = await client.getTransactionWithEffectsBatch(
-      deduplicate(transactions),
-    );
+    const explorerTxs = await client.multiGetTransactionBlocks({
+      digests: deduplicate(transactions),
+      options: {
+        showInput: true,
+        showEffects: true,
+      },
+    });
 
     const promises = explorerTxs.map(async (tx) => {
       const historyTxToMerge = localHistory.find(
@@ -874,15 +757,24 @@ export default class Vault extends VaultBase {
         const isSuccess = executionStatus?.status === 'success';
         const isFailure = executionStatus?.status === 'failure';
 
-        const transaction = getCertifiedTransaction(tx);
+        const transaction = tx;
         if (!transaction)
           throw new Error('current transaction is empty, continue');
 
-        const timestamp = getTimestampFromTransactionResponse(tx);
-        const transactionData = getTransactionData(transaction);
+        const timestamp =
+          getTimestampFromTransactionResponse(tx) ?? getTimeStamp();
+
+        const transactionData = getTransaction(tx)?.data?.transaction;
+
+        if (
+          !transactionData ||
+          transactionData.kind !== 'ProgrammableTransaction'
+        ) {
+          throw new Error('current transaction is empty, continue');
+        }
 
         const transactionActions = transactionData.transactions;
-        const from = transactionData.sender;
+        const from = getTransactionSender(tx) ?? '';
 
         const actions: IDecodedTxAction[] = [];
 
@@ -890,24 +782,66 @@ export default class Vault extends VaultBase {
 
         await Promise.all(
           transactionActions.map(async (action) => {
-            const amountByRecipient = getTxnAmount(action);
-            const amount: bigint =
-              typeof amountByRecipient === 'bigint'
-                ? amountByRecipient
-                : Object.values(amountByRecipient || {})[0];
+            let amount: BigNumber = new BigNumber('0');
 
-            const transferObject = getTransferObjectTransaction(action);
-            if (transferObject) {
-              // NFT and more types of transfer
-            }
+            if ('TransferObjects' in action) {
+              const actionKey = 'nativeTransfer';
 
-            const publish = getPublishTransaction(action);
-            if (publish) {
-              // publish contract
-            }
+              const transferObjects = action.TransferObjects;
 
-            const moveCall = getMoveCallTransaction(action);
-            if (moveCall) {
+              const amountTransferObject = transferObjects[0];
+              const receiveTransferObject = transferObjects[1];
+
+              for (const transferObject of amountTransferObject) {
+                if (typeof transferObject === 'object') {
+                  if ('NestedResult' in transferObject) {
+                    const [index] = transferObject.NestedResult;
+                    const input = transactionData.inputs[index];
+                    if (input.type === 'pure') {
+                      amount = amount.plus(
+                        new BigNumber(input.value.toString()),
+                      );
+                      break;
+                    } else if (input.type === 'object') {
+                      // NFT
+                    }
+                  } else if ('Result' in transferObject) {
+                    const result = transferObject.Result;
+                    const input = transactionData.inputs[result];
+                    if (input.type === 'pure') {
+                      amount = new BigNumber(input.value.toString());
+                    } else if (input.type === 'object') {
+                      // NFT
+                    }
+                  }
+                }
+              }
+
+              if (typeof receiveTransferObject === 'object') {
+                if ('Input' in receiveTransferObject) {
+                  const result = receiveTransferObject.Input;
+                  const input = transactionData.inputs[result];
+                  if (input.type === 'pure') {
+                    to = input.value.toString();
+                  }
+                }
+              }
+
+              actions.push({
+                type: IDecodedTxActionType.NATIVE_TRANSFER,
+                [actionKey]: {
+                  tokenInfo: nativeToken,
+                  from,
+                  to,
+                  amount: new BigNumber(amount ?? '0')
+                    .shiftedBy(-nativeToken.decimals)
+                    .toFixed(),
+                  amountValue: amount?.toString() ?? '0',
+                  extraInfo: null,
+                },
+              });
+            } else if ('MoveCall' in action) {
+              const moveCall = action.MoveCall;
               let functionName = '';
               if (moveCall.package && typeof moveCall.package === 'object') {
                 // @ts-expect-error
@@ -915,144 +849,58 @@ export default class Vault extends VaultBase {
               } else {
                 functionName = moveCall.package;
               }
+              const args: string[] = [];
+              for (const arg of moveCall.arguments ?? []) {
+                if (typeof arg === 'object') {
+                  if ('Input' in arg) {
+                    const result = arg.Input;
+                    const input = transactionData.inputs[result];
+                    if (input.type === 'pure') {
+                      args.push(input.value.toString());
+                    } else if (input.type === 'object') {
+                      args.push(input.objectId);
+                    }
+                  } else if ('Result' in arg) {
+                    const result = arg.Result;
+                    const input = transactionData.inputs[result];
+                    if (input.type === 'pure') {
+                      args.push(input.value.toString());
+                    } else if (input.type === 'object') {
+                      args.push(input.objectId);
+                    }
+                  } else if ('NestedResult' in arg) {
+                    const [index] = arg.NestedResult;
+                    const input = transactionData.inputs[index];
+                    if (input.type === 'pure') {
+                      args.push(input.value.toString());
+                    } else if (input.type === 'object') {
+                      args.push(input.objectId);
+                    }
+                  }
+                }
+              }
               actions.push({
                 type: IDecodedTxActionType.FUNCTION_CALL,
                 'functionCall': {
                   target: moveCallTxnName(moveCall.function),
                   functionName,
-                  args: moveCall.arguments ?? [],
+                  args,
                   extraInfo: null,
                 },
               });
-              return true; // continue
-            }
-
-            const transferSui = getTransferSuiTransaction(action);
-            if (transferSui) {
-              to = transferSui.recipient;
+            } else if ('SplitCoins' in action || 'MergeCoins' in action) {
+              // ignore
+            } else if ('MakeMoveVec' in action) {
+              // ignore
+            } else {
               actions.push({
-                type: IDecodedTxActionType.NATIVE_TRANSFER,
-                'nativeTransfer': {
-                  tokenInfo: nativeToken,
-                  from,
-                  to,
-                  amount: new BigNumber(amount.toString())
-                    .shiftedBy(-nativeToken.decimals)
-                    .toFixed(),
-                  amountValue: amount.toString(),
-                  extraInfo: null,
+                type: IDecodedTxActionType.UNKNOWN,
+                direction: IDecodedTxDirection.OTHER,
+                unknownAction: {
+                  extraInfo: {},
                 },
               });
-              return true; // continue
             }
-
-            const pay = getPayTransaction(action);
-            const actionPay = await decodeActionPay(client, pay);
-            if (pay && actionPay) {
-              if (actionPay) {
-                to = actionPay.recipient;
-                let actionKey = 'nativeTransfer';
-                let tokenInfo: Token | undefined = nativeToken;
-                if (!actionPay.isNative) {
-                  actionKey = 'tokenTransfer';
-                  if (!actionPay.coinType)
-                    throw new OneKeyInternalError('Invalid coin type');
-                  tokenInfo = await this.engine.ensureTokenInDB(
-                    this.networkId,
-                    actionPay.coinType,
-                  );
-
-                  if (!tokenInfo)
-                    throw new OneKeyInternalError('Invalid coin type');
-                }
-                actions.push({
-                  type: actionPay.type,
-                  [actionKey]: {
-                    tokenInfo,
-                    from,
-                    to,
-                    amount: new BigNumber(actionPay.amount ?? '0')
-                      .shiftedBy(-tokenInfo.decimals)
-                      .toFixed(),
-                    amountValue: actionPay.amount?.toString() ?? '0',
-                    extraInfo: null,
-                  },
-                });
-              }
-              return true; // continue
-            }
-
-            const paySui = getPaySuiTransaction(action);
-            if (paySui) {
-              to = paySui.recipients[0] ?? '';
-
-              if (typeof amountByRecipient === 'bigint') {
-                actions.push({
-                  type: IDecodedTxActionType.NATIVE_TRANSFER,
-                  'nativeTransfer': {
-                    tokenInfo: nativeToken,
-                    from,
-                    to,
-                    amount: new BigNumber(amount.toString())
-                      .shiftedBy(-nativeToken.decimals)
-                      .toFixed(),
-                    amountValue: amount.toString(),
-                    extraInfo: null,
-                  },
-                });
-              } else {
-                const keys = Object.keys(amountByRecipient || {});
-
-                keys.forEach((key) => {
-                  const value = amountByRecipient[key];
-                  if (!value) return true;
-                  actions.push({
-                    type: IDecodedTxActionType.NATIVE_TRANSFER,
-                    'nativeTransfer': {
-                      tokenInfo: nativeToken,
-                      from,
-                      to,
-                      amount: new BigNumber(value.toString())
-                        .shiftedBy(-nativeToken.decimals)
-                        .toFixed(),
-                      amountValue: value.toString(),
-                      extraInfo: null,
-                    },
-                  });
-                });
-              }
-
-              return true; // continue
-            }
-
-            const paySuiAll = getPayAllSuiTransaction(action);
-            const decodePaySuiAll = await decodeActionAllPay(client, paySuiAll);
-            if (paySuiAll && decodePaySuiAll) {
-              to = paySuiAll.recipient;
-
-              actions.push({
-                type: IDecodedTxActionType.NATIVE_TRANSFER,
-                'nativeTransfer': {
-                  tokenInfo: nativeToken,
-                  from,
-                  to,
-                  amount: new BigNumber(decodePaySuiAll.amount.toString())
-                    .shiftedBy(-nativeToken.decimals)
-                    .toFixed(),
-                  amountValue: decodePaySuiAll.amount.toString(),
-                  extraInfo: null,
-                },
-              });
-              return true; // continue
-            }
-
-            actions.push({
-              type: IDecodedTxActionType.UNKNOWN,
-              direction: IDecodedTxDirection.OTHER,
-              unknownAction: {
-                extraInfo: {},
-              },
-            });
           }),
         );
 
@@ -1062,7 +910,7 @@ export default class Vault extends VaultBase {
           value: '',
         };
 
-        const feeValue = getTotalGasUsed(tx) ?? '0';
+        const feeValue = getTotalGasUsed(tx)?.toString() ?? '0';
 
         let status = IDecodedTxStatus.Pending;
         if (isFailure) {
@@ -1088,7 +936,11 @@ export default class Vault extends VaultBase {
             .shiftedBy(-decimals)
             .toFixed(),
         };
-        decodedTx.updatedAt = timestamp;
+        if (typeof timestamp === 'number') {
+          decodedTx.updatedAt = timestamp;
+        } else if (typeof timestamp === 'string') {
+          decodedTx.updatedAt = parseInt(timestamp);
+        }
         decodedTx.createdAt =
           historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
         decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
@@ -1111,7 +963,9 @@ export default class Vault extends VaultBase {
   ): Promise<Array<TransactionStatus | undefined>> {
     const client = await this.getClient();
 
-    const txs = await client.getTransactionWithEffectsBatch(txids);
+    const txs = await client.multiGetTransactionBlocks({
+      digests: txids,
+    });
 
     const txStatuses = new Map<string, TransactionStatus>();
 
@@ -1144,9 +998,13 @@ export default class Vault extends VaultBase {
 
   async getTransactionByTxId(
     txid: string,
-  ): Promise<SuiTransactionResponse | undefined> {
+    options?: SuiTransactionBlockResponseOptions,
+  ): Promise<SuiTransactionBlockResponse | undefined> {
     const client = await this.getClient();
-    const tx = await client.getTransactionWithEffects(txid);
+    const tx = await client.getTransactionBlock({
+      digest: txid,
+      options,
+    });
     return tx;
   }
 }

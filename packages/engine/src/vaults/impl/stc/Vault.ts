@@ -371,9 +371,9 @@ export default class Vault extends VaultBase {
       gasPrice: '1',
     };
 
-    const [network, prices, unsignedTx] = await Promise.all([
+    const [network, { prices }, unsignedTx] = await Promise.all([
       this.getNetwork(),
-      this.engine.getGasPrice(this.networkId),
+      this.engine.getGasInfo(this.networkId),
       this.buildUnsignedTxFromEncodedTx(encodedTxWithFakePriceAndNonce),
     ]);
 

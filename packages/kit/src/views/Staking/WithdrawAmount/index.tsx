@@ -9,23 +9,19 @@ import {
   Button,
   Center,
   HStack,
+  Keyboard,
   Modal,
-  NumberInput,
   Text,
-  ToastManager,
   Typography,
   VStack,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-// import { AutoSizeText } from '../../../components/AutoSizeText';
+import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatCurrency } from '../../../components/Format';
-import {
-  useActiveWalletAccount,
-  useNavigation,
-  useNetworkSimple,
-} from '../../../hooks';
+import { useActiveWalletAccount, useNavigation } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { useSingleToken } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
@@ -36,15 +32,15 @@ import { StakingRoutes } from '../typing';
 import type { StakingRoutesParams } from '../typing';
 import type { RouteProp } from '@react-navigation/core';
 
-type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.StakingAmount>;
+type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.WithdrawAmount>;
 
 export default function WithdrawAmount() {
   const intl = useIntl();
   const navigation = useNavigation();
+  const isSmallScreen = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
   const { networkId, tokenIdOnNetwork } = route.params;
-  const { account, accountId } = useActiveWalletAccount();
-  const [isLoading, setIsLoading] = useState(false);
+  const { accountId, account } = useActiveWalletAccount();
   const withdrawalOverview = useKeleWithdrawOverview(networkId, accountId);
 
   const mainPrice = useSimpleTokenPriceValue({ networkId });
@@ -53,8 +49,6 @@ export default function WithdrawAmount() {
   const minInputAmount = withdrawalOverview?.user_fee ?? '0';
 
   const [amount, setAmount] = useState('');
-
-  const network = useNetworkSimple(networkId);
 
   const { token: tokenInfo } = useSingleToken(
     networkId,
@@ -116,167 +110,142 @@ export default function WithdrawAmount() {
     [balance],
   );
 
+  const validAmountRegex = useMemo(() => {
+    const pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,18})?$`;
+    return new RegExp(pattern);
+  }, []);
+
   return (
     <Modal
-      header="Withdrawal"
+      header={intl.formatMessage({ id: 'action__withdraw' })}
       primaryActionTranslationId="action__next"
       hideSecondaryAction
       primaryActionProps={{
         isDisabled: !!errorMsg || !!minAmountErrMsg,
-        isLoading,
       }}
-      onPrimaryActionPress={async () => {
-        if (!account || !network || !tokenInfo) {
+      onPrimaryActionPress={() => {
+        if (!accountId || !tokenInfo) {
           return;
         }
-        const amountToSend = amount;
-
-        try {
-          setIsLoading(true);
-          const res = await backgroundApiProxy.serviceStaking.withdraw({
-            accountId: account.id,
-            networkId: tokenInfo.networkId,
-            amount: amountToSend,
-          });
-          // eslint-disable-next-line
-          if (res.code !== 0 && res.message) {
-            ToastManager.show(
-              // eslint-disable-next-line
-              { title: res.message },
-              { type: 'error' },
-            );
-          } else {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Staking,
-              params: {
-                screen: StakingRoutes.StakedETHOnKele,
-                params: {
-                  networkId,
-                },
-              },
-            });
-            await backgroundApiProxy.serviceStaking.fetchPendingWithdrawAmount({
-              accountId: account.id,
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Staking,
+          params: {
+            screen: StakingRoutes.WithdrawProtected,
+            params: {
               networkId: tokenInfo.networkId,
-            });
-            ToastManager.show({
-              title: intl.formatMessage({ id: 'msg__success' }),
-            });
-          }
-        } catch (e: any) {
-          const { key: errorKey = '' } = e;
-          if (errorKey === 'form__amount_invalid') {
-            ToastManager.show({
-              title: intl.formatMessage(
-                { id: 'form__amount_invalid' },
-                { 0: tokenInfo?.symbol ?? '' },
-              ),
-            });
-          }
-        } finally {
-          setIsLoading(false);
-        }
+              accountId,
+              amount,
+            },
+          },
+        });
       }}
     >
-      <Box flexDirection="column">
-        <Box py={4} my={6} justifyContent="center">
-          <Text
-            textAlign="center"
-            typography="DisplayLarge"
-            color="text-subdued"
-          >
-            {tokenInfo?.symbol.toUpperCase() ?? ''}
-          </Text>
-          <Center flex={1} py="8">
-            <NumberInput
-              autoFocus
+      <Box flex="1" flexDirection="column">
+        <Box flex="1" flexDirection="column">
+          <Box py={2} my={2} justifyContent="center">
+            <Text
               textAlign="center"
-              borderWidth="0"
-              fontSize="64px"
-              h="80px"
-              placeholder="0"
-              placeholderTextColor="text-disabled"
-              focusOutlineColor="transparent"
-              fontWeight="bold"
-              bgColor="transparent"
-              onChangeText={setAmount}
-              value={amount}
-            />
-          </Center>
-          <Center>
-            {minAmountErrMsg ? (
-              <Typography.Body1Strong color="text-critical">
-                {minAmountErrMsg}
-              </Typography.Body1Strong>
-            ) : (
-              <FormatCurrency
-                numbers={[mainPrice ?? 0, amount ?? 0]}
-                render={(ele) => (
-                  <Typography.Body2 color="text-subdued">
-                    {mainPrice ? ele : '$ 0'}
-                  </Typography.Body2>
-                )}
+              typography="DisplayLarge"
+              color="text-subdued"
+            >
+              {tokenInfo?.symbol.toUpperCase() ?? ''}
+            </Text>
+            <Center py="4" h={isSmallScreen ? '32' : undefined}>
+              <AutoSizeText
+                autoFocus
+                text={amount}
+                onChangeText={setAmount}
+                placeholder="0"
               />
-            )}
+            </Center>
+            <Center>
+              {minAmountErrMsg ? (
+                <Typography.Body1Strong color="text-critical">
+                  {minAmountErrMsg}
+                </Typography.Body1Strong>
+              ) : (
+                <FormatCurrency
+                  numbers={[mainPrice ?? 0, amount ?? 0]}
+                  render={(ele) => (
+                    <Typography.Body2 color="text-subdued">
+                      {mainPrice ? ele : '$ 0'}
+                    </Typography.Body2>
+                  )}
+                />
+              )}
+            </Center>
+          </Box>
+          <Center>
+            <HStack flexDirection="row" alignItems="center" space="3">
+              <Button size="sm" onPress={() => userInput(25)}>
+                25%
+              </Button>
+              <Button size="sm" onPress={() => userInput(50)}>
+                50%
+              </Button>
+              <Button size="sm" onPress={() => userInput(75)}>
+                75%
+              </Button>
+              <Button size="sm" onPress={() => userInput(100)}>
+                {intl.formatMessage({ id: 'action__max' })}
+              </Button>
+            </HStack>
           </Center>
-        </Box>
-        <Center>
-          <HStack flexDirection="row" alignItems="center" space="3">
-            <Button size="sm" onPress={() => userInput(25)}>
-              25%
-            </Button>
-            <Button size="sm" onPress={() => userInput(50)}>
-              50%
-            </Button>
-            <Button size="sm" onPress={() => userInput(75)}>
-              75%
-            </Button>
-            <Button size="sm" onPress={() => userInput(100)}>
-              {intl.formatMessage({ id: 'action__max' })}
-            </Button>
-          </HStack>
-        </Center>
-        <Box
-          mt="4"
-          flexDirection="row"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Typography.Body2 color="text-subdued" mr="1">
-            {intl.formatMessage({ id: 'content__available_balance' })}
-          </Typography.Body2>
-          <Typography.Body2Strong
-            color={errorMsg && amount ? 'text-critical' : 'text-default'}
+          <Box
+            mt="4"
+            flexDirection="row"
+            alignItems="center"
+            justifyContent="center"
           >
-            {formatAmount(balance, 8)} {tokenInfo?.symbol.toUpperCase()}
-          </Typography.Body2Strong>
-        </Box>
-        <VStack space="1" mt="16">
-          <Box flexDirection="row" justifyContent="space-between">
-            <Typography.Body2 color="text-subdued">
-              {intl.formatMessage({ id: 'content__gas_fee' })}
+            <Typography.Body2 color="text-subdued" mr="1">
+              {intl.formatMessage({ id: 'content__available_balance' })}
             </Typography.Body2>
-            <Typography.Body2>
-              {minInputAmount} {tokenInfo?.symbol.toUpperCase()}
-            </Typography.Body2>
+            <Typography.Body2Strong
+              color={errorMsg && amount ? 'text-critical' : 'text-default'}
+            >
+              {formatAmount(balance, 8)} {tokenInfo?.symbol.toUpperCase()}
+            </Typography.Body2Strong>
           </Box>
-          <Box flexDirection="row" justifyContent="space-between">
-            <Typography.Body2 color="text-subdued">
-              {intl.formatMessage({ id: 'form__receive_address' })}
-            </Typography.Body2>
-            <Typography.Body2>
-              {shortenAddress(account?.address ?? '')}
-            </Typography.Body2>
-          </Box>
-          {actualArrival ? (
+          <VStack space="1" mt="16">
             <Box flexDirection="row" justifyContent="space-between">
               <Typography.Body2 color="text-subdued">
-                {intl.formatMessage({ id: 'form__actual_arrival' })}
+                {intl.formatMessage({ id: 'content__gas_fee' })}
               </Typography.Body2>
-              <Typography.Body2>{actualArrival}</Typography.Body2>
+              <Typography.Body2>
+                {minInputAmount} {tokenInfo?.symbol.toUpperCase()}
+              </Typography.Body2>
             </Box>
-          ) : null}
-        </VStack>
+            <Box flexDirection="row" justifyContent="space-between">
+              <Typography.Body2 color="text-subdued">
+                {intl.formatMessage({ id: 'form__receive_address' })}
+              </Typography.Body2>
+              <Typography.Body2>
+                {shortenAddress(account?.address ?? '')}
+              </Typography.Body2>
+            </Box>
+            {actualArrival ? (
+              <Box flexDirection="row" justifyContent="space-between">
+                <Typography.Body2 color="text-subdued">
+                  {intl.formatMessage({ id: 'form__actual_arrival' })}
+                </Typography.Body2>
+                <Typography.Body2>{actualArrival}</Typography.Body2>
+              </Box>
+            ) : null}
+          </VStack>
+        </Box>
+        {platformEnv.isNative && (
+          <Box mt="4">
+            <Keyboard
+              itemHeight={isSmallScreen ? '44px' : undefined}
+              pattern={validAmountRegex}
+              text={amount}
+              onTextChange={(text) => {
+                console.log('text', text);
+                setAmount(text);
+              }}
+            />
+          </Box>
+        )}
       </Box>
     </Modal>
   );

@@ -79,6 +79,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.Overview]: NavigatorScreenParams<SubModalRoutesParams.OverviewModalRoutesParams>;
   [ModalRoutes.CurrencySelect]: NavigatorScreenParams<SubModalRoutesParams.CurrencySelectModalParams>;
   [ModalRoutes.BulkSender]: NavigatorScreenParams<SubModalRoutesParams.BulkSenderRoutesParams>;
+  [ModalRoutes.ClearCache]: NavigatorScreenParams<SubModalRoutesParams.ClearCacheModalRoutesParams>;
 };
 /** Modal */
 
@@ -165,6 +166,7 @@ export type HomeRoutesParams = {
   };
   [HomeRoutes.WalletSwitch]: undefined;
   [HomeRoutes.BulkSender]: undefined;
+  [HomeRoutes.ClearCache]: undefined;
 };
 /** HomeStack */
 

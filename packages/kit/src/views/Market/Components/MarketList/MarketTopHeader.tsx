@@ -17,7 +17,6 @@ import type { MarketTopTabName } from '@onekeyhq/kit/src/store/reducers/market';
 
 import { navigationShortcuts } from '../../../../routes/navigationShortcuts';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../../../../routes/types';
-import { SwapHeaderButtons } from '../../../Swap/SwapHeader';
 import { MarketRoutes } from '../../types';
 
 import type {
@@ -81,7 +80,7 @@ function HeaderSmall({
       justifyContent="space-between"
       zIndex={1}
     >
-      <Box flexDirection="row">
+      <Box flexDirection="row" h="9" alignContent="center">
         <Pressable
           mr="3"
           onPress={() => {
@@ -126,7 +125,6 @@ function HeaderSmall({
             onPress={onPressSearch}
           />
         ) : null}
-        {marketTopTabName === TabRoutes.Swap ? <SwapHeaderButtons /> : null}
       </Box>
     </Box>
   );

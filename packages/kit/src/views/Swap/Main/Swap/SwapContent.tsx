@@ -10,16 +10,18 @@ import {
 } from '@onekeyhq/components';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNavigation } from '../../hooks';
-import { useActiveWalletAccount, useAppSelector } from '../../hooks/redux';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useNavigation } from '../../../../hooks';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+} from '../../../../hooks/redux';
+import ReceivingTokenInput from '../../components/ReceivingTokenInput';
+import TokenInput from '../../components/TokenInput';
+import { useDerivedSwapState } from '../../hooks/useSwap';
+import { SwapRoutes } from '../../typings';
 
-import ReceivingTokenInput from './components/ReceivingTokenInput';
-import TokenInput from './components/TokenInput';
-import { useDerivedSwapState } from './hooks/useSwap';
-import { SwapRoutes } from './typings';
-
-const SwapContent = () => {
+export const SwapContent = () => {
   const intl = useIntl();
   const isSmall = useIsVerticalLayout();
   const navigation = useNavigation();
@@ -66,14 +68,12 @@ const SwapContent = () => {
 
   return (
     <Box w="full">
-      <Box position="relative">
-        <Box
-          px={4}
-          py="5"
-          bg="surface-subdued"
-          overflow="hidden"
-          borderRadius={isSmall ? undefined : '12'}
-        >
+      <Box
+        position="relative"
+        borderRadius={isSmall ? undefined : '12'}
+        overflow="hidden"
+      >
+        <Box px={4} py="5" bg="surface-subdued" overflow="hidden">
           <TokenInput
             type="INPUT"
             label={intl.formatMessage({ id: 'form__pay' })}
@@ -116,13 +116,7 @@ const SwapContent = () => {
             </Center>
           </Box>
         </Box>
-        <Box
-          px={4}
-          py="5"
-          bg="action-secondary-default"
-          overflow="hidden"
-          borderRadius={isSmall ? undefined : '12'}
-        >
+        <Box px={4} py="5" bg="action-secondary-default" overflow="hidden">
           <ReceivingTokenInput
             type="OUTPUT"
             label={intl.formatMessage({ id: 'action__receive' })}
@@ -139,5 +133,3 @@ const SwapContent = () => {
     </Box>
   );
 };
-
-export default SwapContent;

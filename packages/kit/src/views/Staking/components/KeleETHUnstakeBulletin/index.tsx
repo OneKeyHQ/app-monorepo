@@ -50,7 +50,7 @@ export const KeleETHUnstakeBulletin: FC<KeleETHUnstakeBulletinProps> = ({
 
   const show = useMemo(() => {
     const networkIds = [OnekeyNetwork.eth, OnekeyNetwork.goerli] as string[];
-    const retailStaked = keleMinerOverview?.amount.retail_staked ?? 0;
+    const retailStaked = keleMinerOverview?.amount?.retail_staked ?? 0;
     return (
       !hideUnstakeBulletin &&
       enableETH2Unstake &&

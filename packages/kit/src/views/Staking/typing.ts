@@ -5,6 +5,7 @@ export enum StakingRoutes {
   UnstakeAmount = 'UnstakeAmount',
   UnstakeKeleETHNotes = 'UnstakeKeleETHNotes',
   WithdrawAmount = 'WithdrawAmount',
+  WithdrawProtected = 'WithdrawProtected',
 }
 
 export type StakingRoutesParams = {
@@ -31,6 +32,12 @@ export type StakingRoutesParams = {
   };
   [StakingRoutes.WithdrawAmount]: {
     networkId: string;
+    tokenIdOnNetwork?: string;
+  };
+  [StakingRoutes.WithdrawProtected]: {
+    networkId: string;
+    accountId: string;
+    amount: string;
     tokenIdOnNetwork?: string;
   };
 };
@@ -107,4 +114,10 @@ export type KeleOpHistoryDTO = {
   amount: number;
   op_type: number;
   history_time: string;
+};
+
+export type KeleHttpResponse = {
+  code: number;
+  message: string;
+  data: any;
 };

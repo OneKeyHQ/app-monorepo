@@ -9,5 +9,6 @@ export const EXTERNAL_ACCOUNT_MAX_NUM = 9999;
 
 export const DERIVED_ACCOUNT_MAX_NUM = 2147483648; // 2 ** 31 by implementation
 
-export const HD_WALLET_MAX_NUM = 20;
-export const HW_WALLET_MAX_NUM = 20;
+export const HD_WALLET_MAX_NUM = 100;
+export const HW_WALLET_MAX_NUM = 100;
+export const HW_PASSPHRASE_WALLET_MAX_NUM = 20;

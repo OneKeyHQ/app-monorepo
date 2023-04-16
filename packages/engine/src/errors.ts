@@ -326,6 +326,10 @@ export class TooManyHWWallets extends NumberLimit {
   override key = 'msg__engine__too_many_hw_wallets';
 }
 
+export class TooManyHWPassphraseWallets extends NumberLimit {
+  override key = 'msg__engine__too_many_hw_passphrase_wallets';
+}
+
 export class TooManyDerivedAccounts extends NumberLimit {
   override key = 'msg__engine__too_many_derived_accounts';
 

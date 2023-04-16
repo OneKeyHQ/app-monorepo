@@ -1,3 +1,8 @@
+// @ts-expect-error
+import coinselectUtils from 'coinselect/utils';
+
+import type { IEncodedTxBtc } from '../types';
+
 // See https://bitcoinops.org/en/tools/calc-size/
 const HEADER_VSIZE = 10; // nVersion(4) + InputCount(1) + OutputCount(1) + nLockTime(4)
 const SEGWIT_HEADER_EXTENSION_VSIZE = 0.5; // SegwitMarker(0.25) + SegwitFlag(0.25)
@@ -64,4 +69,11 @@ const estimateVsize = (
   return Math.ceil(vsize);
 };
 
-export { estimateVsize, loadOPReturn, PLACEHOLDER_VSIZE };
+const estimateTxSize = (
+  inputsForCoinSelect: IEncodedTxBtc['inputsForCoinSelect'],
+  outputsForCoinSelect: IEncodedTxBtc['outputsForCoinSelect'],
+): number =>
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+  coinselectUtils.transactionBytes(inputsForCoinSelect, outputsForCoinSelect);
+
+export { estimateVsize, estimateTxSize, loadOPReturn, PLACEHOLDER_VSIZE };

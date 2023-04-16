@@ -21,7 +21,13 @@ import type {
 
 // For native transfer only
 function SendConfirmTransfer(props: ITxConfirmViewProps) {
-  const { payload, feeInfoPayload, feeInput, decodedTx: decodedTxInfo } = props;
+  const {
+    payload,
+    feeInfoPayload,
+    feeInput,
+    decodedTx: decodedTxInfo,
+    advancedSettingsForm,
+  } = props;
   const decodedTx = decodedTxInfo as IDecodedTx;
   const { accountId, networkId } = useActiveSideAccount(props);
   const transferPayload = payload as TransferSendParamsPayload | undefined;
@@ -124,6 +130,7 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
         decodedTx={decodedTx}
         feeInput={feeInput}
         transferAmount={transferAmountToUpdate}
+        advancedSettingsForm={advancedSettingsForm}
       />
     </BaseSendConfirmModal>
   );

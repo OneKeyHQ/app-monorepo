@@ -67,6 +67,7 @@ export enum HomeRoutes {
   PushNotification = 'PushNotification',
   PushNotificationManagePriceAlert = 'PushNotificationManagePriceAlert',
   PushNotificationManageAccountDynamic = 'PushNotificationManageAccountDynamic',
+  ClearCache = 'ClearCache',
 
   // **** Discover Tab
   ExploreScreen = 'ExploreScreen',
@@ -191,6 +192,7 @@ export enum ModalRoutes {
   CurrencySelect = 'CurrencySelect',
   BulkSender = 'BulkSender',
   Market = 'Market',
+  ClearCache = 'ClearCache',
 }
 
 export { SendModalRoutes } from '../views/Send/enums';
@@ -328,6 +330,7 @@ export enum ImportBackupPasswordModalRoutes {
 export enum ManagerAccountModalRoutes {
   ManagerAccountModal = 'ManagerAccountModal',
   ManagerAccountExportPrivateModal = 'ManagerAccountExportPrivateModal',
+  ManagerAccountExportPublicModal = 'ManagerAccountExportPublicModal',
 }
 
 export enum ManagerWalletModalRoutes {
@@ -357,4 +360,9 @@ export enum ManageTokenModalRoutes {
 export enum DappConnectionModalRoutes {
   ConnectionModal = 'ConnectionModal',
   NetworkNotMatchModal = 'NetworkNotMatchModal',
+}
+
+export enum ClearCacheModalRoutes {
+  ClearCacheModal = 'ClearCacheModal',
+  CopyBrowserUrlModal = 'CopyBrowserUrlModal',
 }

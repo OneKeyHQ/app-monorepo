@@ -71,6 +71,9 @@ const NestedTabView: ForwardRefRenderFunction<
   const native = Gesture.Native();
 
   const lockVertical = useCallback(() => {
+    // when fingers move,
+    // disable the onPress function
+    enableOnPressAnim.value = 0;
     if (platformEnv.isNativeAndroid) {
       // console.log('lockVertical');
       lockDirection.value = LockDirection.Vertical;
@@ -81,6 +84,9 @@ const NestedTabView: ForwardRefRenderFunction<
   }, [lastTransX, lockDirection]);
 
   const lockHorizontal = useCallback(() => {
+    // when fingers move,
+    // disable the onPress function
+    enableOnPressAnim.value = 0;
     if (platformEnv.isNativeAndroid) {
       // console.log('lockHorizontal');
       // setInnerDisableRefresh(false);
@@ -167,9 +173,6 @@ const NestedTabView: ForwardRefRenderFunction<
     if (platformEnv.isNativeAndroid) {
       // onTouchesMove works better on Android
       basePan.onTouchesMove(({ allTouches }) => {
-        // when fingers move,
-        // disable the onPress function
-        enableOnPressAnim.value = 0;
         if (lockDirection.value === LockDirection.Vertical) {
           return;
         }

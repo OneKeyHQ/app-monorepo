@@ -1,12 +1,7 @@
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import type {
-  IDecodedTx,
-  IEncodedTx,
-  ISignedTxPro,
-} from '@onekeyhq/engine/src/vaults/types';
-import type { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
+import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import type { SendConfirmPayloadBase } from '../Send/types';
 
@@ -25,15 +20,21 @@ export enum SwapRoutes {
   EnterAddress = 'EnterAddress',
   Welcome = 'Welcome',
   SelectRoutes = 'SelectRoutes',
-  Send = 'Send',
   Slippage = 'Slippage',
   SlippageCheck = 'SlippageCheck',
+  LimitOrderInput = 'LimitOrderInput',
+  LimitOrderOutput = 'LimitOrderOutput',
+  LimitOrderDetails = 'LimitOrderDetails',
+  TransactionSubmitted = 'TransactionSubmitted',
+  HardwareContinue = 'HardwareContinue',
 }
 
 export type SwapRoutesParams = {
   [SwapRoutes.Swap]: undefined;
   [SwapRoutes.Input]: undefined;
   [SwapRoutes.Output]: undefined;
+  [SwapRoutes.LimitOrderInput]: undefined;
+  [SwapRoutes.LimitOrderOutput]: undefined;
   [SwapRoutes.Settings]: undefined;
   [SwapRoutes.Webview]: { url: string };
   [SwapRoutes.SwftcHelp]: { orderid: string };
@@ -71,13 +72,9 @@ export type SwapRoutesParams = {
   [SwapRoutes.SelectRoutes]: undefined;
   [SwapRoutes.Slippage]: undefined;
   [SwapRoutes.SlippageCheck]: ISlippageSetting;
-  [SwapRoutes.Send]: {
-    accountId: string;
-    networkId: string;
-    encodedTx: IEncodedTx;
-    payload?: SendConfirmParams['payloadInfo'];
-    onSuccess?: (result: ISignedTxPro, data: IDecodedTx) => void;
-  };
+  [SwapRoutes.LimitOrderDetails]: { orderHash: string };
+  [SwapRoutes.TransactionSubmitted]: { orderHash: string };
+  [SwapRoutes.HardwareContinue]: undefined;
 };
 
 export enum SwapError {
@@ -270,6 +267,26 @@ export interface SerializableTransactionReceipt {
   logs?: TransactionLog[];
 }
 
+export type SOLSerializableTransactionReceiptTokenBalancesItem = {
+  mint: string;
+  owner: string;
+  uiTokenAmount: {
+    amount: string;
+    decimals: number;
+    uiAmount: number;
+    uiAmountString: 'string';
+  };
+};
+
+export interface SOLSerializableTransactionReceipt {
+  meta: {
+    preBalances: number[];
+    postBalances: number[];
+    postTokenBalances: SOLSerializableTransactionReceiptTokenBalancesItem[];
+    preTokenBalances: SOLSerializableTransactionReceiptTokenBalancesItem[];
+  };
+}
+
 export interface SerializableBlockReceipt {
   timestamp: string;
 }
@@ -369,3 +386,64 @@ export interface Quoter {
     tx: TransactionDetails,
   ): Promise<TransactionProgress>;
 }
+
+export type ILimitOrderQuoteParams = {
+  tokenOut: Token;
+  tokenIn: Token;
+  tokenInValue: string;
+  activeAccount: Account;
+};
+
+export type LimitOrder = {
+  makerToken: string;
+  takerToken: string;
+  makerAmount: string;
+  takerAmount: string;
+  takerTokenFeeAmount: string;
+  maker: string;
+  taker: string;
+  sender: string;
+  feeRecipient: string;
+  pool: string;
+  expiry: string;
+  salt: string;
+};
+
+export type LimitOrderMetadata = {
+  createdAt: string;
+  orderHash: string;
+  remainingFillableTakerAmount: string;
+};
+
+export type LimitOrderDetailsResponse = {
+  order: LimitOrder;
+  metaData: LimitOrderMetadata;
+};
+
+export interface LimitOrderTransactionDetails {
+  orderHash: string;
+  networkId: string;
+  accountId: string;
+  tokenIn: Token;
+  tokenInValue: string;
+  tokenOut: Token;
+  tokenOutValue: string;
+  remainingFillable: string;
+  rate: string;
+  createdAt: number;
+  expiredIn: number;
+  canceled?: boolean;
+  limitOrder?: LimitOrder;
+}
+
+export type TokenListItem = {
+  name: string;
+  logoURI: string;
+  networkId: string;
+  tokens: Token[];
+};
+
+export type TypedPrice = {
+  reversed?: boolean;
+  value: string;
+};
