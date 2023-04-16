@@ -93,10 +93,13 @@ export default function WithdrawAmount() {
     const symbol = tokenInfo?.symbol ?? '';
     if (minAmountRequired && input) {
       const amountBN = new BigNumber(input);
-      if (amountBN.isNaN() || (amountBN.gt(0) && amountBN.lt(minAmountBN))) {
-        return `${intl.formatMessage({
-          id: 'form__min_amount',
-        })} ${minAmountBN.toFixed()} ${symbol}`;
+      if (amountBN.isNaN() || (amountBN.gt(0) && amountBN.lte(minAmountBN))) {
+        return `${intl.formatMessage(
+          {
+            id: 'form__field_large_than',
+          },
+          { '0': `${minAmountBN.toFixed()} ${symbol}` },
+        )}`;
       }
     }
   }, [minInputAmount, amount, intl, tokenInfo]);
@@ -276,9 +279,7 @@ export default function WithdrawAmount() {
               itemHeight={isSmallScreen ? '44px' : undefined}
               pattern={validAmountRegex}
               text={amount}
-              onTextChange={(text) => {
-                setAmount(text);
-              }}
+              onTextChange={setAmount}
             />
           </Box>
         )}
