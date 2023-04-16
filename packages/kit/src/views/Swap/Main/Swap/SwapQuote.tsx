@@ -21,6 +21,7 @@ import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setDisableSwapExactApproveAmount } from '../../../../store/reducers/settings';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { ArrivalTime } from '../../components/ArrivalTime';
+import RefreshButton from '../../components/RefreshButton';
 import { SwapLoadingSkeleton } from '../../components/Skeleton';
 import SwappingVia from '../../components/SwappingVia';
 import SwapTooltip from '../../components/SwapTooltip';
@@ -544,13 +545,18 @@ const SwapTransactionRate = () => {
     return (
       <Center py="3">
         <SwapLoadingSkeleton h="5" width="24" borderRadius="4px">
-          <TransactionRate
-            tokenA={inputToken}
-            tokenB={outputToken}
-            rate={quote?.instantRate}
-            typography="Body2"
-            color="text-subdued"
-          />
+          <Box flexDirection="row" alignItems="center">
+            <Box mr="1">
+              <RefreshButton />
+            </Box>
+            <TransactionRate
+              tokenA={inputToken}
+              tokenB={outputToken}
+              rate={quote?.instantRate}
+              typography="Body2"
+              color="text-subdued"
+            />
+          </Box>
         </SwapLoadingSkeleton>
       </Center>
     );
