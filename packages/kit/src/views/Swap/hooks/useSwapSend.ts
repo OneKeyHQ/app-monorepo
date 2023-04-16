@@ -15,6 +15,7 @@ import { useAppSelector } from '../../../hooks/useAppSelector';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { deviceUtils } from '../../../utils/hardware';
 import { SendModalRoutes } from '../../Send/types';
+import { LoggerTimerTags, createLoggerTimer } from '../utils';
 
 type SendSuccessCallback = (param: {
   result: ISignedTxPro;
@@ -58,12 +59,14 @@ export function useSwapSend() {
       gasEstimateFallback,
       showSendFeedbackReceipt,
     }: SwapSendParams) => {
+      const tagLogger = createLoggerTimer();
       const walletId = getWalletIdFromAccountId(accountId);
       const wallet = await backgroundApiProxy.engine.getWallet(walletId);
       const password = await backgroundApiProxy.servicePassword.getPassword();
       const secretFree = password && !validationSetting?.Payment;
       if (wallet.type === 'hw' || (wallet.type !== 'external' && secretFree)) {
         try {
+          tagLogger.start(LoggerTimerTags.swap);
           const { result, decodedTx } =
             await backgroundApiProxy.serviceSwap.sendTransaction({
               accountId,
@@ -72,6 +75,7 @@ export function useSwapSend() {
               payload: payloadInfo,
               autoFallback: gasEstimateFallback,
             });
+          tagLogger.end(LoggerTimerTags.swap);
           await onSuccess?.({ result, decodedTx });
           if (showSendFeedbackReceipt) {
             navigation.navigate(RootRoutes.Modal, {
@@ -136,18 +140,21 @@ export function useSwapSignMessage() {
       onSuccess,
       onFail,
     }: SwapSignMessageParams) => {
+      const tagLogger = createLoggerTimer();
       const walletId = getWalletIdFromAccountId(accountId);
       const wallet = await backgroundApiProxy.engine.getWallet(walletId);
       const password = await backgroundApiProxy.servicePassword.getPassword();
       const secretFree = password && !validationSetting?.Payment;
       if (wallet.type === 'hw' || (wallet.type !== 'external' && secretFree)) {
         try {
+          tagLogger.start(LoggerTimerTags.signMessage);
           const result =
             await backgroundApiProxy.serviceTransaction.signMessage({
               accountId,
               networkId,
               unsignedMessage,
             });
+          tagLogger.end(LoggerTimerTags.signMessage);
           await onSuccess?.(result);
         } catch (e: any) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
