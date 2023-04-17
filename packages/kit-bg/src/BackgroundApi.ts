@@ -403,6 +403,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceUtxos', { value });
+    return value;
   }
 }
 export default BackgroundApi;

@@ -28,9 +28,10 @@ import {
   FormatBalance,
   FormatCurrencyTokenOfAccount,
 } from '@onekeyhq/kit/src/components/Format';
-import BitcoinUsedAddressListItemMenu from '@onekeyhq/kit/src/views/Account/AddNewAccount/BitcoinUsedAddressListItemMenu';
 
 import useFormatDate from '../../../hooks/useFormatDate';
+
+import { CoinControlListItemMenu } from './CoinControlListItemMenu';
 
 import type { ListRenderItemInfo } from 'react-native';
 
@@ -81,7 +82,7 @@ const ListTableHeader: FC<{
   );
 };
 
-type ICellProps = {
+export type ICellProps = {
   accountId: string;
   network: Network;
   token?: Token;
@@ -201,7 +202,8 @@ const CoinControlCell: FC<ICellProps> = ({
         </Box>
       </ListItem.Column>
       <ListItem.Column>
-        <BitcoinUsedAddressListItemMenu>
+        <CoinControlListItemMenu item={item} network={network}>
+          {/* <Box>1</Box> */}
           <IconButton
             alignItems="flex-end"
             type="plain"
@@ -212,7 +214,7 @@ const CoinControlCell: FC<ICellProps> = ({
             circle
             mr={-2}
           />
-        </BitcoinUsedAddressListItemMenu>
+        </CoinControlListItemMenu>
       </ListItem.Column>
     </ListItem>
   );
