@@ -85,15 +85,19 @@ const ListCell: FC<{ item: ItemType; onPress: () => void }> = ({
           labelProps: { typography: 'Body1Strong' },
         }}
       />
-      <ListItem.Column>
-        <CheckBox
-          onChange={(isSelected) => {
-            setChecked(isSelected);
-            onPress();
-          }}
-          isChecked={checked}
-        />
-      </ListItem.Column>
+      <ListItem.Column
+        text={{
+          label: (
+            <CheckBox
+              onChange={(isSelected) => {
+                setChecked(isSelected);
+                onPress();
+              }}
+              isChecked={checked}
+            />
+          ),
+        }}
+      />
     </ListItem>
   );
 };
