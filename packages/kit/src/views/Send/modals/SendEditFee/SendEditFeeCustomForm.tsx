@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { first, last } from 'lodash';
@@ -106,6 +106,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   const { formValues } = useFormOnChangeDebounced<ISendEditFeeValues>({
     useFormReturn,
   });
+
   const intl = useIntl();
 
   const originLimit = feeInfoPayload?.info?.limit ?? '21000';
@@ -136,6 +137,8 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   const [blockNativeFeeInfo, setBlockNativeFeeInfo] =
     useState<BlockNativeGasInfo>();
 
+  const maxFeeTouched = useRef(false);
+
   const { feeRateFormValidator } = useBtcCustomFeeForm({
     networkId,
     accountId,
@@ -145,6 +148,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     lastPresetFeeInfo: lastPresetFeeInfo as string,
   });
   const watchFeeRate = watch('feeRate');
+  const watchMaxFee = watch('maxFeePerGas');
   const { btcTxFee } = useBtcCustomFee({
     networkId,
     accountId,
@@ -168,6 +172,9 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
       const maxFee = maxPriorityFeePerGas.plus(formValues?.baseFee ?? 0);
 
       if (maxFee.isGreaterThanOrEqualTo(formValues?.maxFeePerGas ?? 0)) {
+        setValue('maxFeePerGas', maxFee.plus(1).toFixed());
+        maxFeeTouched.current = true;
+      } else if (maxFeeTouched.current) {
         setValue('maxFeePerGas', maxFee.plus(1).toFixed());
       }
     },
@@ -693,6 +700,17 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     ),
     [gasLimitTip, gasPriceTip, maxFeeTip, maxPriorityFeeTip],
   );
+
+  useEffect(() => {
+    if (
+      new BigNumber(formValues?.maxPriorityFeePerGas ?? 0)
+        .plus(formValues?.baseFee ?? 0)
+        .plus(1)
+        .isLessThan(watchMaxFee)
+    ) {
+      maxFeeTouched.current = false;
+    }
+  }, [formValues?.baseFee, formValues?.maxPriorityFeePerGas, watchMaxFee]);
 
   useEffect(() => {
     // eslint-disable-next-line prefer-const
