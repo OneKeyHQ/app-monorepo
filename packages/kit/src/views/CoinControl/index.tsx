@@ -11,6 +11,7 @@ import {
   SegmentedControl,
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { ICoinControlListItem } from '@onekeyhq/engine/src/types/utxoAccounts';
 import type { CoinControlRoutesParams } from '@onekeyhq/kit/src/routes';
 import type { CoinControlModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
@@ -40,7 +41,9 @@ const CoinControl = () => {
   const [utxosDust, setUtxosDust] = useState<ICoinControlListItem[]>([]);
   const [frozenUtxos, setFrozenUtxos] = useState<ICoinControlListItem[]>([]);
   const [selectedUtxos, setSelectedUtxos] = useState<string[]>([]);
+  const [blockTimeMap, setBlockTimeMap] = useState<Record<string, number>>({});
   const [isAllSelected, setIsAllSelected] = useState(false);
+  const [token, setToken] = useState<Token>();
 
   const { network } = useNetwork({ networkId });
 
@@ -51,6 +54,22 @@ const CoinControl = () => {
         setUtxosWithoutDust(response.utxosWithoutDust);
         setUtxosDust(response.utxosDust);
         setFrozenUtxos(response.frozenUtxos);
+        return response.utxos;
+      })
+      .then((utxos) => {
+        backgroundApiProxy.serviceUtxos
+          .getUtxosBlockTime(networkId, accountId, utxos)
+          .then((response) => {
+            setBlockTimeMap(response);
+          });
+      });
+    backgroundApiProxy.engine
+      .findToken({
+        networkId,
+        tokenIdOnNetwork: '',
+      })
+      .then((tokenRes) => {
+        setToken(tokenRes);
       });
   }, [networkId, accountId]);
 
@@ -72,12 +91,15 @@ const CoinControl = () => {
       </Box>
       {selectedIndex === 0 && (
         <CoinControlList
+          accountId={accountId}
           network={network as unknown as Network}
+          token={token}
           utxosWithoutDust={utxosWithoutDust}
           utxosDust={utxosDust}
           selectedUtxos={selectedUtxos}
           isAllSelected={isAllSelected}
           setIsAllSelected={setIsAllSelected}
+          blockTimeMap={blockTimeMap}
         />
       )}
       {selectedIndex === 1 && (

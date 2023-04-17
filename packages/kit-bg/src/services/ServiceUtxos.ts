@@ -31,23 +31,6 @@ export default class ServiceUtxos extends ServiceBase {
     let utxos = (await (
       vault as VaultBtcFork
     ).collectUTXOs()) as ICoinControlListItem[];
-    const minBlockHeight = Math.min(...utxos.map((i) => i.height));
-    const maxBlockHeight = Math.max(...utxos.map((i) => i.height));
-
-    // get block times
-    const txs = (await (vault as VaultBtcFork).getAccountInfo({
-      details: 'txs',
-      from: minBlockHeight,
-      to: maxBlockHeight,
-    })) as {
-      transactions: { blockTime: number; blockHeight: number }[];
-    };
-    const blockTimesMap: Record<string, number> = {};
-    txs.transactions.forEach((tx) => {
-      if (!blockTimesMap[tx.blockHeight]) {
-        blockTimesMap[tx.blockHeight] = tx.blockTime;
-      }
-    });
 
     const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
       networkId,
@@ -62,10 +45,9 @@ export default class ServiceUtxos extends ServiceBase {
           ...utxo,
           label: archivedUtxo.label,
           frozen: archivedUtxo.frozen,
-          blockTime: blockTimesMap[utxo.height],
         };
       }
-      return { ...utxo, blockTime: blockTimesMap[utxo.height] };
+      return utxo;
     });
     const dataSourceWithoutDust = utxos.filter((utxo) =>
       new BigNumber(utxo.value).isGreaterThan(dust),
@@ -81,5 +63,35 @@ export default class ServiceUtxos extends ServiceBase {
       frozenUtxos,
     };
     return result;
+  }
+
+  @backgroundMethod()
+  async getUtxosBlockTime(
+    networkId: string,
+    accountId: string,
+    utxos: ICoinControlListItem[],
+  ) {
+    const vault = await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    });
+    const minBlockHeight = Math.min(...utxos.map((i) => i.height));
+    const maxBlockHeight = Math.max(...utxos.map((i) => i.height));
+    // get block times
+    const txs = (await (vault as VaultBtcFork).getAccountInfo({
+      details: 'txs',
+      from: minBlockHeight,
+      to: maxBlockHeight,
+    })) as {
+      transactions: { blockTime: number; blockHeight: number }[];
+    };
+    const blockTimesMap: Record<string, number> = {};
+    txs.transactions.forEach((tx) => {
+      if (!blockTimesMap[tx.blockHeight]) {
+        blockTimesMap[tx.blockHeight] = tx.blockTime;
+      }
+    });
+
+    return blockTimesMap;
   }
 }

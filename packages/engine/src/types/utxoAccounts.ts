@@ -15,6 +15,5 @@ export type CoinControlOption = {
 };
 
 export type ICoinControlListItem = IBtcUTXO & {
-  blockTime: number;
   height: number;
 } & Partial<CoinControlOption>;

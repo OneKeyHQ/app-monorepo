@@ -16,6 +16,7 @@ import {
   IconButton,
   List,
   ListItem,
+  Skeleton,
   Spinner,
   Text,
   ToastManager,
@@ -25,8 +26,12 @@ import {
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { getUtxoUniqueKey } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { ICoinControlListItem } from '@onekeyhq/engine/src/types/utxoAccounts';
-import { FormatBalance } from '@onekeyhq/kit/src/components/Format';
+import {
+  FormatBalance,
+  FormatCurrencyTokenOfAccount,
+} from '@onekeyhq/kit/src/components/Format';
 import BitcoinUsedAddressListItemMenu from '@onekeyhq/kit/src/views/Account/AddNewAccount/BitcoinUsedAddressListItemMenu';
 
 import useFormatDate from '../../../hooks/useFormatDate';
@@ -80,12 +85,25 @@ const ListTableHeader: FC<{
   );
 };
 
-const CoinControlCell: FC<{
+type ICellProps = {
+  accountId: string;
   network: Network;
+  token?: Token;
   item: ICoinControlListItem;
   selectedUtxos: string[];
+  blockTimeMap: Record<string, number>;
   onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
-}> = ({ network, item, selectedUtxos = [], onChange }) => {
+};
+
+const CoinControlCell: FC<ICellProps> = ({
+  accountId,
+  network,
+  token,
+  item,
+  selectedUtxos = [],
+  blockTimeMap,
+  onChange,
+}) => {
   const { formatDate } = useFormatDate();
   const isSelected = selectedUtxos.find(
     (key) => key === getUtxoUniqueKey(item),
@@ -95,11 +113,11 @@ const CoinControlCell: FC<{
     [item.label],
   );
   const time = useMemo(() => {
-    if (!item.blockTime) return '';
-    return formatDate(new Date(item.blockTime * 1000), {
+    if (!blockTimeMap[item.height]) return '';
+    return formatDate(new Date(blockTimeMap[item.height] * 1000), {
       hideTimeForever: true,
     });
-  }, [item.blockTime, formatDate]);
+  }, [item.height, formatDate, blockTimeMap]);
 
   return (
     <ListItem flex={1} space={2}>
@@ -120,7 +138,13 @@ const CoinControlCell: FC<{
         <VStack>
           <Text typography="Body2Strong">{shortenAddress(item.address)}</Text>
           <HStack alignItems="center">
-            <Text>{time}</Text>
+            {time ? (
+              <Text typography="Body2" color="text-subdued">
+                {time}
+              </Text>
+            ) : (
+              <Skeleton shape="Body2" />
+            )}
             {showBadge && (
               <>
                 <Text mx={1}>•</Text>
@@ -161,6 +185,17 @@ const CoinControlCell: FC<{
               </Text>
             )}
           />
+          <FormatCurrencyTokenOfAccount
+            accountId={accountId}
+            networkId={network.id}
+            token={token}
+            value={new BigNumber(item.value).shiftedBy(-network.decimals)}
+            render={(ele) => (
+              <Text typography="Body2" color="text-subdued">
+                {ele}
+              </Text>
+            )}
+          />
         </Box>
       </ListItem.Column>
       <ListItem.Column>
@@ -181,8 +216,42 @@ const CoinControlCell: FC<{
   );
 };
 
-const ListFooter: FC = () => {
+const ListFooter: FC<
+  Omit<ICellProps, 'item'> & { dustUtxos: ICoinControlListItem[] }
+> = ({
+  dustUtxos,
+  accountId,
+  network,
+  token,
+  selectedUtxos = [],
+  blockTimeMap,
+  onChange,
+}) => {
   const intl = useIntl();
+  const renderFooterContent = useMemo(
+    () =>
+      dustUtxos.map((item) => (
+        <CoinControlCell
+          item={item}
+          accountId={accountId}
+          network={network}
+          token={token}
+          selectedUtxos={selectedUtxos}
+          blockTimeMap={blockTimeMap}
+          onChange={onChange}
+        />
+      )),
+    [
+      dustUtxos,
+      accountId,
+      network,
+      token,
+      selectedUtxos,
+      blockTimeMap,
+      onChange,
+    ],
+  );
+  if (!dustUtxos.length) return null;
   return (
     <Box>
       <Divider w="auto" mx={2} />
@@ -205,10 +274,7 @@ const ListFooter: FC = () => {
           </HStack>
         </Tooltip>
       </HStack>
-      {Array.from({ length: 10 }).map((_, index) => (
-        // <CoinControlCell item={{}} />
-        <Box>1</Box>
-      ))}
+      {renderFooterContent}
       <Divider w="auto" mx={2} />
       <HStack
         mt={4}
@@ -242,19 +308,25 @@ const ListFooter: FC = () => {
 };
 
 const CoinControlList: FC<{
+  accountId: string;
   network: Network;
+  token?: Token;
   utxosWithoutDust: ICoinControlListItem[];
   utxosDust: ICoinControlListItem[];
   selectedUtxos: string[];
   isAllSelected: boolean;
   setIsAllSelected: React.Dispatch<React.SetStateAction<boolean>>;
+  blockTimeMap: Record<string, number>;
 }> = ({
+  accountId,
   network,
+  token,
   utxosWithoutDust,
   utxosDust,
   selectedUtxos,
   isAllSelected,
   setIsAllSelected,
+  blockTimeMap,
 }) => {
   const intl = useIntl();
 
@@ -263,12 +335,15 @@ const CoinControlList: FC<{
     ({ item }: ListRenderItemInfo<ICoinControlListItem>) => (
       <CoinControlCell
         item={item}
+        accountId={accountId}
         network={network}
+        token={token}
         selectedUtxos={selectedUtxos}
+        blockTimeMap={blockTimeMap}
         onChange={() => {}}
       />
     ),
-    [selectedUtxos, network],
+    [selectedUtxos, network, blockTimeMap, token, accountId],
   );
 
   const headerComponent = useCallback(
@@ -278,9 +353,22 @@ const CoinControlList: FC<{
         setIsAllSelected={setIsAllSelected}
       />
     ),
-    [],
+    [isAllSelected, setIsAllSelected],
   );
-  const footerComponent = useCallback(() => <ListFooter />, []);
+  const footerComponent = useCallback(
+    () => (
+      <ListFooter
+        dustUtxos={utxosDust}
+        accountId={accountId}
+        network={network}
+        token={token}
+        selectedUtxos={selectedUtxos}
+        blockTimeMap={blockTimeMap}
+        onChange={() => {}}
+      />
+    ),
+    [utxosDust, selectedUtxos, network, blockTimeMap, token, accountId],
+  );
 
   return network ? (
     <List
