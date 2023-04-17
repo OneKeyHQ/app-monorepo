@@ -7,8 +7,6 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Box,
-  Button,
-  Center,
   CheckBox,
   Divider,
   HStack,
@@ -17,9 +15,7 @@ import {
   List,
   ListItem,
   Skeleton,
-  Spinner,
   Text,
-  ToastManager,
   Tooltip,
   VStack,
 } from '@onekeyhq/components';
@@ -217,8 +213,12 @@ const CoinControlCell: FC<ICellProps> = ({
 };
 
 const ListFooter: FC<
-  Omit<ICellProps, 'item'> & { dustUtxos: ICoinControlListItem[] }
+  Omit<ICellProps, 'item'> & {
+    allUtxos: ICoinControlListItem[];
+    dustUtxos: ICoinControlListItem[];
+  }
 > = ({
+  allUtxos,
   dustUtxos,
   accountId,
   network,
@@ -228,6 +228,17 @@ const ListFooter: FC<
   onChange,
 }) => {
   const intl = useIntl();
+
+  const sumUtxoAmount = useMemo(() => {
+    const sum = allUtxos.reduce(
+      (acc, cur) => acc.plus(cur.value),
+      new BigNumber(0),
+    );
+    return sum.shiftedBy(-network.decimals).toFixed();
+  }, [allUtxos, network]);
+
+  const hasDustUtxos = useMemo(() => dustUtxos.length > 0, [dustUtxos]);
+
   const renderFooterContent = useMemo(
     () =>
       dustUtxos.map((item) => (
@@ -251,30 +262,34 @@ const ListFooter: FC<
       onChange,
     ],
   );
-  if (!dustUtxos.length) return null;
+
   return (
     <Box>
-      <Divider w="auto" mx={2} />
-      <HStack mt={4} mb={2} mx={2}>
-        <Tooltip
-          label={intl.formatMessage({
-            id: 'content__royalty_fees_are_excluded',
-          })}
-          placement="top left"
-        >
-          <HStack alignItems="center" space={1} alignSelf="flex-start">
-            <Text typography="Subheading" color="text-subdued">
-              {intl.formatMessage({ id: 'form__dust__uppercase' })}
-            </Text>
-            <Icon
-              name="QuestionMarkCircleMini"
-              size={16}
-              color="icon-subdued"
-            />
+      {hasDustUtxos && (
+        <>
+          <Divider w="auto" mx={2} />
+          <HStack mt={4} mb={2} mx={2}>
+            <Tooltip
+              label={intl.formatMessage({
+                id: 'content__royalty_fees_are_excluded',
+              })}
+              placement="top left"
+            >
+              <HStack alignItems="center" space={1} alignSelf="flex-start">
+                <Text typography="Subheading" color="text-subdued">
+                  {intl.formatMessage({ id: 'form__dust__uppercase' })}
+                </Text>
+                <Icon
+                  name="QuestionMarkCircleMini"
+                  size={16}
+                  color="icon-subdued"
+                />
+              </HStack>
+            </Tooltip>
           </HStack>
-        </Tooltip>
-      </HStack>
-      {renderFooterContent}
+          {renderFooterContent}
+        </>
+      )}
       <Divider w="auto" mx={2} />
       <HStack
         mt={4}
@@ -284,14 +299,14 @@ const ListFooter: FC<
         justifyContent="space-between"
       >
         <Text typography="Subheading" color="text-subdued">
-          6 ITEMS
+          {allUtxos.length} ITEMS
         </Text>
         <FormatBalance
-          balance="0.00000448"
+          balance={sumUtxoAmount}
           formatOptions={{
-            fixed: 8,
+            fixed: network.decimals,
           }}
-          suffix="BTC"
+          suffix={network.symbol}
           render={(ele) => (
             <Text
               typography="Subheading"
@@ -311,6 +326,7 @@ const CoinControlList: FC<{
   accountId: string;
   network: Network;
   token?: Token;
+  allUtxos: ICoinControlListItem[];
   utxosWithoutDust: ICoinControlListItem[];
   utxosDust: ICoinControlListItem[];
   selectedUtxos: string[];
@@ -322,6 +338,7 @@ const CoinControlList: FC<{
   accountId,
   network,
   token,
+  allUtxos,
   utxosWithoutDust,
   utxosDust,
   selectedUtxos,
@@ -330,8 +347,6 @@ const CoinControlList: FC<{
   blockTimeMap,
   onChange,
 }) => {
-  const intl = useIntl();
-
   const rowRenderer = useCallback(
     ({ item }: ListRenderItemInfo<ICoinControlListItem>) => (
       <CoinControlCell
@@ -359,6 +374,7 @@ const CoinControlList: FC<{
   const footerComponent = useCallback(
     () => (
       <ListFooter
+        allUtxos={allUtxos}
         dustUtxos={utxosDust}
         accountId={accountId}
         network={network}
@@ -369,6 +385,7 @@ const CoinControlList: FC<{
       />
     ),
     [
+      allUtxos,
       utxosDust,
       selectedUtxos,
       network,

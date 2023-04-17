@@ -36,6 +36,7 @@ const CoinControl = () => {
   const { networkId, accountId } = route.params;
 
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [allUtxos, setAllUtxos] = useState<ICoinControlListItem[]>([]);
   const [utxosWithoutDust, setUtxosWithoutDust] = useState<
     ICoinControlListItem[]
   >([]);
@@ -43,7 +44,6 @@ const CoinControl = () => {
   const [frozenUtxos, setFrozenUtxos] = useState<ICoinControlListItem[]>([]);
   const [selectedUtxos, setSelectedUtxos] = useState<string[]>([]);
   const [blockTimeMap, setBlockTimeMap] = useState<Record<string, number>>({});
-  // const [triggerAllSelected, setTriggerAllSelected] = useState(false);
   const [token, setToken] = useState<Token>();
 
   const { network } = useNetwork({ networkId });
@@ -52,6 +52,7 @@ const CoinControl = () => {
     backgroundApiProxy.serviceUtxos
       .getUtxos(networkId, accountId)
       .then((response) => {
+        setAllUtxos(response.utxos);
         setUtxosWithoutDust(response.utxosWithoutDust);
         setUtxosDust(response.utxosDust);
         setFrozenUtxos(response.frozenUtxos);
@@ -74,29 +75,24 @@ const CoinControl = () => {
       });
   }, [networkId, accountId]);
 
-  const isAllSelected = useMemo(() => {
-    const allUtxos = utxosWithoutDust.concat(utxosDust);
-    return (
+  const isAllSelected = useMemo(
+    () =>
       allUtxos.length > 0 &&
-      allUtxos.every((utxo) => selectedUtxos.includes(getUtxoUniqueKey(utxo)))
-    );
-  }, [selectedUtxos, utxosWithoutDust, utxosDust]);
+      allUtxos.every((utxo) => selectedUtxos.includes(getUtxoUniqueKey(utxo))),
+    [selectedUtxos, allUtxos],
+  );
 
   const [, setIsSelectedAllInner] = useState(false);
   const triggerAllSelected = useCallback(
     (value: boolean) => {
       setIsSelectedAllInner(value);
       if (value) {
-        setSelectedUtxos(
-          utxosWithoutDust
-            .concat(utxosDust)
-            .map((utxo) => getUtxoUniqueKey(utxo)),
-        );
+        setSelectedUtxos(allUtxos.map((utxo) => getUtxoUniqueKey(utxo)));
       } else {
         setSelectedUtxos([]);
       }
     },
-    [utxosWithoutDust, utxosDust],
+    [allUtxos],
   );
 
   const onCheckBoxChange = useCallback(
@@ -115,7 +111,17 @@ const CoinControl = () => {
     <Modal
       header={intl.formatMessage({ id: 'title__coin_control' })}
       headerDescription={<ModalHeader networkId={networkId} />}
-      footer={<ModalFooter />}
+      footer={
+        <ModalFooter
+          accountId={accountId}
+          network={network}
+          token={token}
+          allUtxos={allUtxos}
+          dustUtxos={utxosDust}
+          selectedUtxos={selectedUtxos}
+          targetAmount="0.0003"
+        />
+      }
     >
       <Box mb={4}>
         <SegmentedControl
@@ -132,6 +138,7 @@ const CoinControl = () => {
           accountId={accountId}
           network={network as unknown as Network}
           token={token}
+          allUtxos={allUtxos}
           utxosWithoutDust={utxosWithoutDust}
           utxosDust={utxosDust}
           selectedUtxos={selectedUtxos}

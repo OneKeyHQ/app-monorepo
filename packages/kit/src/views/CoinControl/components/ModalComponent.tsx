@@ -1,11 +1,17 @@
 import type { FC } from 'react';
+import { useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Box, Button, HStack, Text, Token, VStack } from '@onekeyhq/components';
+import { getUtxoUniqueKey } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Token as IToken } from '@onekeyhq/engine/src/types/token';
+import type { ICoinControlListItem } from '@onekeyhq/engine/src/types/utxoAccounts';
 import {
   FormatBalance,
-  FormatCurrencyNumber,
+  FormatCurrencyTokenOfAccount,
 } from '@onekeyhq/kit/src/components/Format';
 
 import { useNetwork } from '../../../hooks';
@@ -33,49 +39,101 @@ export const ModalHeader: FC<{
   );
 };
 
-export const ModalFooter: FC<any> = () => {
+export const ModalFooter: FC<{
+  accountId: string;
+  network?: Network | null;
+  token?: IToken;
+  targetAmount: string;
+  allUtxos: ICoinControlListItem[];
+  dustUtxos: ICoinControlListItem[];
+  selectedUtxos: string[];
+}> = ({
+  accountId,
+  network,
+  token,
+  targetAmount,
+  allUtxos,
+  dustUtxos,
+  selectedUtxos,
+}) => {
   const intl = useIntl();
+
+  const sumAmount = useMemo(() => {
+    const selectedInputs = allUtxos.filter((utxo) =>
+      selectedUtxos.includes(getUtxoUniqueKey(utxo)),
+    );
+    const sum = selectedInputs.reduce(
+      (acc, cur) => acc.plus(cur.value),
+      new BigNumber(0),
+    );
+    return sum;
+  }, [allUtxos, selectedUtxos]);
+
+  const missAmount = useMemo(
+    () =>
+      new BigNumber(targetAmount)
+        .shiftedBy(network?.decimals ?? 8)
+        .minus(sumAmount),
+    [targetAmount, sumAmount, network],
+  );
+  const hasMissAmount = useMemo(() => missAmount.gt(0), [missAmount]);
+
+  const showDustWarning = useMemo(
+    () =>
+      selectedUtxos.some((key) =>
+        dustUtxos.some((utxo) => getUtxoUniqueKey(utxo) === key),
+      ),
+    [selectedUtxos, dustUtxos],
+  );
+
   return (
     <Box p={4} pt={0}>
-      <Text typography="Caption" color="text-critical" mt={2}>
-        {intl.formatMessage(
-          { id: 'msg__str_btc_missing_from_tx_input' },
-          { 0: '0.0000053 BTC' },
-        )}
-      </Text>
-      <Text typography="Caption" color="text-warning" mt={2}>
-        {intl.formatMessage({
-          id: 'msg__using_dust_will_increase_tx_fee_and_reduce_anonymity_and_privacy',
-        })}
-      </Text>
+      {hasMissAmount && (
+        <Text typography="Caption" color="text-critical" mt={2}>
+          {intl.formatMessage(
+            { id: 'msg__str_btc_missing_from_tx_input' },
+            {
+              0: `${missAmount.shiftedBy(-(network?.decimals ?? 8)).toFixed()}${
+                network?.symbol ?? ''
+              }`,
+            },
+          )}
+        </Text>
+      )}
+      {showDustWarning && (
+        <Text typography="Caption" color="text-warning" mt={2}>
+          {intl.formatMessage({
+            id: 'msg__using_dust_will_increase_tx_fee_and_reduce_anonymity_and_privacy',
+          })}
+        </Text>
+      )}
       <HStack alignItems="flex-start" justifyContent="space-between" mt={2}>
-        <Text typography="Body1Strong">2 selected</Text>
+        <Text typography="Body1Strong">
+          {selectedUtxos.length || 0} selected
+        </Text>
         <VStack alignItems="flex-end" space={1}>
           <FormatBalance
-            balance="0.00000448"
+            balance={sumAmount.shiftedBy(-(network?.decimals ?? 8))}
             formatOptions={{
-              fixed: 8,
+              fixed: network?.decimals ?? 8,
             }}
-            suffix="BTC"
+            suffix={network?.symbol}
             render={(ele) => <Text typography="Body1Strong">{ele}</Text>}
           />
-          {/* <FormatCurrencyTokenOfAccount
+          <FormatCurrencyTokenOfAccount
             accountId={accountId}
-            networkId={networkId}
-            token={tokenInfo}
-            value={amount}
+            networkId={network?.id ?? ''}
+            token={token}
+            value={sumAmount.shiftedBy(-(network?.decimals ?? 8))}
             render={(ele) => (
               <Text typography="Body2" color="text-subdued">
                 {ele}
               </Text>
             )}
-          /> */}
-          <Text typography="Body2" color="text-subdued">
-            <FormatCurrencyNumber value={0} convertValue={33333} />
-          </Text>
+          />
         </VStack>
       </HStack>
-      <Button type="primary" size="xl" mt={4}>
+      <Button type="primary" size="xl" mt={4} isDisabled={hasMissAmount}>
         {intl.formatMessage({ id: 'action__done' })}
       </Button>
     </Box>
