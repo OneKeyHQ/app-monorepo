@@ -31,6 +31,7 @@ import type {
 import type { DBNetwork, UpdateNetworkParams } from '../types/network';
 import type { Token } from '../types/token';
 import type { ISetNextAccountIdsParams, Wallet } from '../types/wallet';
+import type { IFeeInfoUnit } from '../vaults/types';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 type OneKeyContext = {
@@ -278,6 +279,11 @@ interface DBAPI {
   }: {
     walletId: string;
   }): Promise<Record<string, DBAccountDerivation>>;
+  getCustomFee(networkId: string): Promise<IFeeInfoUnit | undefined>;
+  updateCustomFee(
+    networkId: string,
+    customFee: IFeeInfoUnit | null | undefined,
+  ): Promise<void>;
 }
 
 export type {
