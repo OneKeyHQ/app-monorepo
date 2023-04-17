@@ -45,19 +45,21 @@ export function FeeSpeedTime({
   }
 
   if (waitingSeconds) {
-    title = intl.formatMessage(
-      { id: 'content__about_int_str' },
-      {
-        time:
-          waitingSeconds > 60 ? Math.ceil(waitingSeconds / 60) : waitingSeconds,
-        unit: intl.formatMessage({
-          id:
-            waitingSeconds > 60
-              ? 'content__minutes_lowercase'
-              : 'content__seconds__lowercase',
-        }),
-      },
-    );
+    const time =
+      waitingSeconds > 60 ? Math.ceil(waitingSeconds / 60) : waitingSeconds;
+    const unit = intl.formatMessage({
+      id:
+        waitingSeconds > 60
+          ? 'content__minutes_lowercase'
+          : 'content__seconds__lowercase',
+    });
+    if (indexInt === 0) {
+      title = `~${time} ${unit}`;
+    } else if (indexInt === 1) {
+      title = `~${time} ${unit}`;
+    } else if (indexInt === 2) {
+      title = `~${time} ${unit}`;
+    }
   } else {
     if (indexInt === 0) {
       title = '>30s';
