@@ -39,7 +39,7 @@ export default class Vault extends VaultBtcFork {
   }
 
   override getDefaultBlockNums(): number[] {
-    return [10, 5, 3];
+    return [25, 5, 2];
   }
 
   override getDefaultBlockTime(): number {

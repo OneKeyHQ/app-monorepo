@@ -386,6 +386,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceLimitOrder() {
+    const ServiceLimitOrder =
+      require('./services/ServiceLimitOrder') as typeof import('./services/ServiceLimitOrder');
+    const value = new ServiceLimitOrder.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceLimitOrder', { value });
+    return value;
+  }
+
   get serviceUtxos() {
     const ServiceUtxos =
       require('./services/ServiceUtxos') as typeof import('./services/ServiceUtxos');
@@ -393,8 +403,6 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceUtxos', { value });
-
-    return value;
   }
 }
 export default BackgroundApi;

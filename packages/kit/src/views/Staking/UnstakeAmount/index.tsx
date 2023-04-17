@@ -9,17 +9,20 @@ import {
   Button,
   Center,
   HStack,
+  Keyboard,
   Modal,
-  NumberInput,
   Text,
   ToastManager,
   Typography,
+  useIsVerticalLayout,
 } from '@onekeyhq/components';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-// import { AutoSizeText } from '../../../components/AutoSizeText';
+import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatCurrency } from '../../../components/Format';
-import { useActiveWalletAccount, useNetworkSimple } from '../../../hooks';
+import { useActiveWalletAccount } from '../../../hooks';
 import { useAppSelector } from '../../../hooks/redux';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { useSingleToken } from '../../../hooks/useTokens';
@@ -38,13 +41,15 @@ import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.StakingAmount>;
 
+type NavigationProps = ModalScreenProps<StakingRoutesParams>;
+
 export default function UnstakeAmount() {
   const intl = useIntl();
-  const navigation = useNavigation();
+  const isSmallScreen = useIsVerticalLayout();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
   const { networkId, tokenIdOnNetwork } = route.params;
   const { account, accountId } = useActiveWalletAccount();
-  const [isLoading, setIsLoading] = useState(false);
   const keleDashboardGlobal = useAppSelector(
     (s) => s.staking.keleDashboardGlobal,
   );
@@ -58,8 +63,6 @@ export default function UnstakeAmount() {
   const intlMinutes = useIntlMinutes(Math.floor(sec / 60));
 
   const [amount, setAmount] = useState('');
-
-  const network = useNetworkSimple(networkId);
 
   const { token: tokenInfo } = useSingleToken(
     networkId,
@@ -100,6 +103,11 @@ export default function UnstakeAmount() {
     }
   }, [retailMinAmount, amount, intl, tokenInfo]);
 
+  const validAmountRegex = useMemo(() => {
+    const pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,18})?$`;
+    return new RegExp(pattern);
+  }, []);
+
   const userInput = useCallback(
     (percent: number) => {
       const bn = new BigNumber(balance);
@@ -123,10 +131,9 @@ export default function UnstakeAmount() {
       hideSecondaryAction
       primaryActionProps={{
         isDisabled: !!errorMsg || !!minAmountErrMsg,
-        isLoading,
       }}
       onPrimaryActionPress={() => {
-        if (!account || !network || !tokenInfo) {
+        if (!account || !tokenInfo) {
           return;
         }
         const amountToSend = amount;
@@ -148,150 +155,137 @@ export default function UnstakeAmount() {
           api_param: apiParams,
         };
 
-        try {
-          setIsLoading(true);
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.Send,
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendModalRoutes.SignMessageConfirm,
             params: {
-              screen: SendModalRoutes.SignMessageConfirm,
-              params: {
-                accountId: account.id,
-                networkId: tokenInfo.networkId,
-                unsignedMessage: {
-                  type: 1,
-                  message: JSON.stringify(signUnstakeParams),
-                },
-                onSuccess: async (signHash: string) => {
-                  const res = await backgroundApiProxy.serviceStaking.unstake({
-                    ...apiParams,
-                    networkId: tokenInfo.networkId,
-                    pirvSignRaw: JSON.stringify(signUnstakeParams),
-                    signHash,
+              accountId: account.id,
+              networkId: tokenInfo.networkId,
+              unsignedMessage: {
+                type: 1,
+                message: JSON.stringify(signUnstakeParams),
+              },
+              onSuccess: async (signHash: string) => {
+                const res = await backgroundApiProxy.serviceStaking.unstake({
+                  ...apiParams,
+                  networkId: tokenInfo.networkId,
+                  pirvSignRaw: JSON.stringify(signUnstakeParams),
+                  signHash,
+                });
+                if (res.code !== 0 && res.message) {
+                  ToastManager.show({ title: res.message }, { type: 'error' });
+                } else {
+                  setAmount('');
+                  backgroundApiProxy.serviceStaking.fetchMinerOverview({
+                    networkId,
+                    accountId,
                   });
-                  // eslint-disable-next-line
-                  if (res.code !== 0 && res.message) {
-                    ToastManager.show(
-                      // eslint-disable-next-line
-                      { title: res.message as string },
-                      { type: 'error' },
-                    );
-                  } else {
-                    navigation.navigate(RootRoutes.Modal, {
-                      screen: ModalRoutes.Staking,
+                  navigation.replace(RootRoutes.Modal, {
+                    screen: ModalRoutes.Staking,
+                    params: {
+                      screen: StakingRoutes.Feedback,
                       params: {
-                        screen: StakingRoutes.StakedETHOnKele,
-                        params: {
-                          networkId,
-                        },
+                        networkId,
                       },
-                    });
-                    ToastManager.show({
-                      title: intl.formatMessage({ id: 'msg__success' }),
-                    });
-                    backgroundApiProxy.serviceStaking.fetchMinerOverview({
-                      networkId,
-                      accountId,
-                    });
-                  }
-                },
+                    },
+                  });
+                }
               },
             },
-          });
-        } catch (e: any) {
-          console.error(e);
-          const { key: errorKey = '' } = e;
-          if (errorKey === 'form__amount_invalid') {
-            ToastManager.show({
-              title: intl.formatMessage(
-                { id: 'form__amount_invalid' },
-                { 0: tokenInfo?.symbol ?? '' },
-              ),
-            });
-          }
-        } finally {
-          setIsLoading(false);
-        }
+          },
+        });
       }}
     >
-      <Box flexDirection="column">
-        <Box py={4} my={6} justifyContent="center">
-          <Text
-            textAlign="center"
-            typography="DisplayLarge"
-            color="text-subdued"
-          >
-            {tokenInfo?.symbol.toUpperCase() ?? ''}
-          </Text>
-          <Center flex={1} py="8">
-            <NumberInput
-              autoFocus
-              textAlign="center"
-              borderWidth="0"
-              fontSize="64px"
-              h="80px"
-              placeholder="0"
-              placeholderTextColor="text-disabled"
-              focusOutlineColor="transparent"
-              fontWeight="bold"
-              bgColor="transparent"
-              onChangeText={setAmount}
-              value={amount}
-            />
+      <Box flex="1">
+        <Box flex="1" flexDirection="column">
+          <Center flex="1" my={2}>
+            <Center maxH="140px">
+              <Text
+                textAlign="center"
+                typography="DisplayLarge"
+                color="text-subdued"
+              >
+                {tokenInfo?.symbol.toUpperCase() ?? ''}
+              </Text>
+              <Center flex="1" py="4">
+                <AutoSizeText
+                  autoFocus
+                  text={amount}
+                  onChangeText={setAmount}
+                  placeholder="0"
+                />
+              </Center>
+              <Center>
+                {minAmountErrMsg ? (
+                  <Typography.Body1Strong color="text-critical">
+                    {minAmountErrMsg}
+                  </Typography.Body1Strong>
+                ) : (
+                  <FormatCurrency
+                    numbers={[mainPrice ?? 0, amount ?? 0]}
+                    render={(ele) => (
+                      <Typography.Body2 color="text-subdued">
+                        {mainPrice ? ele : '$ 0'}
+                      </Typography.Body2>
+                    )}
+                  />
+                )}
+              </Center>
+            </Center>
           </Center>
           <Center>
-            {minAmountErrMsg ? (
-              <Typography.Body1Strong color="text-critical">
-                {minAmountErrMsg}
-              </Typography.Body1Strong>
-            ) : (
-              <FormatCurrency
-                numbers={[mainPrice ?? 0, amount ?? 0]}
-                render={(ele) => (
-                  <Typography.Body2 color="text-subdued">
-                    {mainPrice ? ele : '$ 0'}
-                  </Typography.Body2>
-                )}
-              />
-            )}
+            <HStack flexDirection="row" alignItems="center" space="3">
+              <Button size="sm" onPress={() => userInput(25)}>
+                25%
+              </Button>
+              <Button size="sm" onPress={() => userInput(50)}>
+                50%
+              </Button>
+              <Button size="sm" onPress={() => userInput(75)}>
+                75%
+              </Button>
+              <Button size="sm" onPress={() => userInput(100)}>
+                {intl.formatMessage({ id: 'action__max' })}
+              </Button>
+            </HStack>
           </Center>
-        </Box>
-        <Center>
-          <HStack flexDirection="row" alignItems="center" space="3">
-            <Button size="sm" onPress={() => userInput(25)}>
-              25%
-            </Button>
-            <Button size="sm" onPress={() => userInput(50)}>
-              50%
-            </Button>
-            <Button size="sm" onPress={() => userInput(75)}>
-              75%
-            </Button>
-            <Button size="sm" onPress={() => userInput(100)}>
-              {intl.formatMessage({ id: 'action__max' })}
-            </Button>
-          </HStack>
-        </Center>
-        <Box
-          mt="4"
-          flexDirection="row"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Typography.Body2 color="text-subdued" mr="1">
-            {intl.formatMessage({ id: 'content__available_balance' })}
-          </Typography.Body2>
-          <Typography.Body2Strong
-            color={errorMsg && amount ? 'text-critical' : 'text-default'}
+          <Box
+            mt="4"
+            flexDirection="row"
+            alignItems="center"
+            justifyContent="center"
           >
-            {balance ?? ''} {tokenInfo?.symbol.toUpperCase()}
-          </Typography.Body2Strong>
+            <Typography.Body2 color="text-subdued" mr="1">
+              {intl.formatMessage({ id: 'content__available_balance' })}
+            </Typography.Body2>
+            <Typography.Body2Strong
+              color={errorMsg && amount ? 'text-critical' : 'text-default'}
+            >
+              {balance ?? ''} {tokenInfo?.symbol.toUpperCase()}
+            </Typography.Body2Strong>
+          </Box>
+          <Box mt="16">
+            <Box flexDirection="row" justifyContent="space-between">
+              <Typography.Body2 color="text-subdued">
+                {intl.formatMessage({ id: 'form__est_arrival_time' })}
+              </Typography.Body2>
+              <Typography.Body2>{intlMinutes}</Typography.Body2>
+            </Box>
+          </Box>
         </Box>
-        <Box flexDirection="row" mt="16" justifyContent="space-between">
-          <Typography.Body2 color="text-subdued">
-            {intl.formatMessage({ id: 'form__est_arrival_time' })}
-          </Typography.Body2>
-          <Typography.Body2>{intlMinutes}</Typography.Body2>
-        </Box>
+        {platformEnv.isNative && (
+          <Box mt="4">
+            <Keyboard
+              itemHeight={isSmallScreen ? '44px' : undefined}
+              pattern={validAmountRegex}
+              text={amount}
+              onTextChange={(text) => {
+                setAmount(text);
+              }}
+            />
+          </Box>
+        )}
       </Box>
     </Modal>
   );

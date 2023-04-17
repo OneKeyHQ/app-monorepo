@@ -106,9 +106,9 @@ Some of the dependencies have native parts, so you need to go into the `packages
 
 For any environment, module and dependency issues in the startup phase, it is recommended to use the command `yarn clean` in the root directory first. The command will clear all sub-dependencies, as well as the module cache of yarn, the cache of tools such as metro / babel, and then restart the project to try.
 
-2. During the installation of dependencies or when adding new dependencies, yarn will prompt **error An unexpected error occurred: "expected workspace package to exist for**
+2. Failed to run some post install scripts
 
-Refer to https://github.com/yarnpkg/yarn/issues/7807, set the current environment yarn version to 1.18.0 through the command `yarn policies set-version 1.18.0`
+Sorry, we only develop on macOS and haven't tested on other operating system platforms, so there may be some compatibility issues with some scripts. If you encounter script running errors on a Windows platform, we suggest you try using a Unix-like environment, such as WSL.
 
 ## 🕋 Roadmap
 

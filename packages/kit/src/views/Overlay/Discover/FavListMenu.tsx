@@ -51,7 +51,10 @@ const FavListMenu: FC<IMenu & { item: MatchDAppItemType; isFav?: boolean }> = ({
       {
         id: 'action__copy_url',
         onPress: () => {
-          copyToClipboard(item?.dapp?.url ?? item?.webSite?.url ?? '');
+          setTimeout(() => {
+            const url = item?.dapp?.url || item?.webSite?.url || '';
+            copyToClipboard(url);
+          }, 600);
           ToastManager.show({
             title: intl.formatMessage({ id: 'msg__copied' }),
           });

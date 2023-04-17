@@ -1,5 +1,6 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
+import Feedback from '../../../views/Staking/Feedback';
 import StakedETHOnKele from '../../../views/Staking/StakedETHOnKele';
 import StakingAmount from '../../../views/Staking/StakingAmount';
 import StakingETHNotes from '../../../views/Staking/StakingETHNotes';
@@ -39,6 +40,10 @@ const modalRoutes = [
   {
     name: StakingRoutes.WithdrawAmount,
     component: WithdrawAmount,
+  },
+  {
+    name: StakingRoutes.Feedback,
+    component: Feedback,
   },
 ];
 

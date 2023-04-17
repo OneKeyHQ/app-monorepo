@@ -100,9 +100,11 @@ const RenderItem: FC<RenderItemProps> = ({ item, cardWidth, isFav }) => {
           onItemSelect?.(item);
         }}
       >
-        <FavListMenu item={item} isFav={isFav}>
-          <IconButton type="plain" name="DotsHorizontalMini" />
-        </FavListMenu>
+        <Box position="absolute" top="0" right="0">
+          <FavListMenu item={item} isFav={isFav}>
+            <IconButton type="plain" name="DotsHorizontalMini" />
+          </FavListMenu>
+        </Box>
         <Box>
           <Box flexDirection="row">
             <DAppIcon

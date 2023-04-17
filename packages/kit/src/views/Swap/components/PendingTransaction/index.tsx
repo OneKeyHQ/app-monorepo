@@ -1,22 +1,51 @@
 import type { FC } from 'react';
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { updateTransaction } from '../../../../store/reducers/swapTransactions';
 import { SwapQuoter } from '../../quoter';
-import { isSimpleTx } from '../../utils';
 
 import type { TransactionDetails } from '../../typings';
 
-type PendingTransactionProps = {
-  tx: TransactionDetails;
-  stopInterval?: boolean;
-};
-const PendingTransaction: FC<PendingTransactionProps> = ({
-  tx,
-  stopInterval,
-}) => {
-  const onQuery = useCallback(async () => {
+class Scheduler {
+  private timer?: ReturnType<typeof setTimeout>;
+
+  public tx: TransactionDetails;
+
+  constructor(tx: TransactionDetails) {
+    this.tx = tx;
+  }
+
+  run() {
+    this.runTask();
+    const ms = this.getMs();
+    if (ms) {
+      this.timer = setTimeout(() => {
+        this.run();
+      }, ms);
+    } else {
+      this.stop();
+    }
+  }
+
+  stop() {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = undefined;
+    }
+  }
+
+  private getMs() {
+    const { addedTime, tokens } = this.tx;
+    const base =
+      tokens?.from.networkId === tokens?.to.networkId ? 5 * 1000 : 30 * 1000;
+    const now = Date.now();
+    const spent = now - addedTime;
+    return spent <= 1000 * 60 * 60 ? base : 5 * 60 * 1000;
+  }
+
+  private async runTask() {
+    const { tx } = this;
     const progressRes = await SwapQuoter.client.queryTransactionProgress(tx);
     if (progressRes) {
       const { status } = progressRes;
@@ -113,20 +142,28 @@ const PendingTransaction: FC<PendingTransactionProps> = ({
         }
       }
     }
-    // eslint-disable-next-line
-  }, []);
+  }
+}
 
+type PendingTransactionProps = {
+  tx: TransactionDetails;
+  stopInterval?: boolean;
+};
+const PendingTransaction: FC<PendingTransactionProps> = ({
+  tx,
+  stopInterval,
+}) => {
   useEffect(() => {
-    onQuery();
+    const scheduler = new Scheduler(tx);
+    scheduler.run();
     if (stopInterval) {
+      scheduler.stop();
       return;
     }
-    const ms = isSimpleTx(tx) ? 5 * 1000 : 20 * 1000;
-    const timer = setInterval(onQuery, ms);
     return () => {
-      clearInterval(timer);
+      scheduler.stop();
     };
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return null;
 };

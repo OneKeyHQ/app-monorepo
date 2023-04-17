@@ -4,7 +4,9 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   OneKeyAlreadyExistWalletError,
   OneKeyErrorClassNames,
+  TooManyHWPassphraseWallets,
 } from '@onekeyhq/engine/src/errors';
+import { HW_PASSPHRASE_WALLET_MAX_NUM } from '@onekeyhq/engine/src/limits';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import {
   generateNetworkIdByChainId,
@@ -907,6 +909,11 @@ class ServiceAccount extends ServiceBase {
         ).filter(
           (w) => w.associatedDevice === existDeviceId && w.passphraseState,
         ).length;
+
+        if (size >= HW_PASSPHRASE_WALLET_MAX_NUM) {
+          throw new TooManyHWPassphraseWallets(HW_PASSPHRASE_WALLET_MAX_NUM);
+        }
+
         walletName = `Hidden Wallet #${size + 1}`;
       } else {
         walletName = 'Hidden Wallet #1';

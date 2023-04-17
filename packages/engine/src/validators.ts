@@ -6,29 +6,18 @@ import { isString } from 'lodash';
 import type { Network } from '@onekeyhq/kit/src/store/typings';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
-  COINTYPE_BTC,
-  IMPL_ADA,
-  IMPL_BCH,
-  IMPL_BTC,
   IMPL_COSMOS,
-  IMPL_DOGE,
   IMPL_DOT,
-  IMPL_LTC,
-  IMPL_TBTC,
-  SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import * as errors from './errors';
 import { OneKeyValidatorError, OneKeyValidatorTip } from './errors';
 import * as limits from './limits';
-import { getNextAccountId } from './managers/derivation';
-import { implToCoinTypes } from './managers/impl';
 import { UserInputCategory } from './types/credential';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
 
 import type { DBAPI } from './dbs/base';
 import type { Engine } from './index';
-import type { DBUTXOAccount } from './types/account';
 import type { UserInputCheckResult } from './types/credential';
 
 const FEE_LIMIT_HIGH_VALUE_TIMES = 20;
@@ -383,6 +372,7 @@ class Validators {
     const vaultSettings = await this.engine.getVaultSettings(networkId);
     // default: EVM 21000
     const minLimit = vaultSettings.minGasLimit ?? 21000;
+    const maxLimit = vaultSettings.maxGasLimit ?? 7920026;
 
     // eslint-disable-next-line no-param-reassign
     highValue = highValue ?? minLimit;
@@ -392,14 +382,26 @@ class Validators {
     };
     try {
       const v = typeof value === 'string' ? new BigNumber(value) : value;
-      if (!v || v.isNaN() || v.isLessThan(new BigNumber(minLimit))) {
+      if (
+        !v ||
+        v.isNaN() ||
+        v.isLessThan(new BigNumber(minLimit)) ||
+        v.isGreaterThan(maxLimit)
+      ) {
         throw new OneKeyValidatorError(
-          'form__gas_limit_invalid_min',
-          minI18nData,
+          'msg__custom_fee_warning_gas_limit_exceed',
+          {
+            0: minLimit - 1,
+            1: maxLimit + 1,
+          },
         );
       }
-      const maxLimit = new BigNumber(highValue);
-      if (v.isGreaterThan(maxLimit.times(FEE_LIMIT_HIGH_VALUE_TIMES))) {
+
+      if (
+        v.isGreaterThan(
+          new BigNumber(highValue).times(FEE_LIMIT_HIGH_VALUE_TIMES),
+        )
+      ) {
         throw new OneKeyValidatorTip('form__gas_limit_invalid_too_much');
       }
     } catch (e) {
@@ -506,20 +508,24 @@ class Validators {
           ? new BigNumber(maxPriorityFee)
           : maxPriorityFee;
       if (v.isLessThan(pv)) {
-        throw new OneKeyValidatorError('form__max_fee_invalid_min');
+        throw new OneKeyValidatorError(
+          'msg__custom_fee_warning_max_fee_is_lower_than_priority_fee',
+        );
       }
 
       if (highValue) {
         const networkMax = new BigNumber(highValue);
         if (v.isGreaterThan(networkMax.times(FEE_PRICE_HIGH_VALUE_TIMES))) {
-          throw new OneKeyValidatorTip('form__max_fee_invalid_too_much');
+          throw new OneKeyValidatorTip(
+            'msg__custom_fee_warning_max_fee_is_high',
+          );
         }
       }
       if (lowValue) {
         if (v.isLessThan(lowValue)) {
-          throw new OneKeyValidatorTip('form__max_fee_invalid_too_low', {
-            0: lowValue,
-          });
+          throw new OneKeyValidatorTip(
+            'msg__custom_fee_warning_max_fee_is_low',
+          );
         }
       }
     } catch (e) {
@@ -565,7 +571,7 @@ class Validators {
       if (lowValue) {
         if (v.isLessThan(new BigNumber(lowValue))) {
           throw new OneKeyValidatorTip(
-            'form__max_priority_fee_invalid_too_low',
+            'msg__custom_fee_warning_priority_fee_is_low',
           );
         }
       }
@@ -576,7 +582,7 @@ class Validators {
           )
         ) {
           throw new OneKeyValidatorTip(
-            'form__max_priority_fee_invalid_too_much',
+            'msg__custom_fee_warning_priority_fee_is_high',
           );
         }
       }

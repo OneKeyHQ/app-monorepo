@@ -17,6 +17,7 @@ export function TxDetailView(props: ITxActionListViewProps) {
     isHistoryDetail,
     isSendConfirm,
     sendConfirmParamsParsed,
+    advancedSettingsForm,
   } = props;
   const replacedTxTextKeys = getReplacedTxAlertTextKeys({ historyTx });
   const intl = useIntl();
@@ -52,15 +53,18 @@ export function TxDetailView(props: ITxActionListViewProps) {
         }
         networkId={decodedTx?.networkId ?? ''}
       />
-      <TxDetailExtraInfoBox {...props} />
-      {isMultipleActions ? <Box h={6} /> : <Box h={8} />}
       <TxDetailContextProvider
         isMultipleActions={isMultipleActions}
         isHistoryDetail={isHistoryDetail}
         isSendConfirm={isSendConfirm}
         sendConfirmParamsParsed={sendConfirmParamsParsed}
       >
-        <TxActionsListView {...props} transformType="T1" space={6} />
+        <>
+          <TxDetailExtraInfoBox {...props} />
+          {advancedSettingsForm}
+          {isMultipleActions ? <Box h={6} /> : <Box h={8} />}
+          <TxActionsListView {...props} transformType="T1" space={6} />
+        </>
       </TxDetailContextProvider>
     </>
   );

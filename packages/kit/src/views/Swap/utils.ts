@@ -11,12 +11,15 @@ import {
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { QuoterType } from './typings';
 
 import type {
   BuildTransactionParams,
   FetchQuoteParams,
+  ILimitOrderQuoteParams,
+  LimitOrderTransactionDetails,
   ProtocolFees,
   TransactionDetails,
 } from './typings';
@@ -127,6 +130,15 @@ export function lte(a: BigNumber.Value, b: BigNumber.Value): boolean {
   return num1.lte(num2);
 }
 
+export function lt(a: BigNumber.Value, b: BigNumber.Value): boolean {
+  const num1 = new BigNumber(a);
+  const num2 = new BigNumber(b);
+  if (!BigNumber.isBigNumber(num1) || !BigNumber.isBigNumber(num2)) {
+    return false;
+  }
+  return num1.lt(num2);
+}
+
 export function tokenBN(value: BigNumber.Value, decimals: BigNumber.Value) {
   return new BigNumber(10).exponentiatedBy(decimals).multipliedBy(value);
 }
@@ -181,6 +193,10 @@ export function getNetworkIdImpl(networdId?: string) {
 
 export function isEvmNetworkId(networdId?: string) {
   return getNetworkIdImpl(networdId) === IMPL_EVM;
+}
+
+export function isSolNetworkId(networdId?: string) {
+  return getNetworkIdImpl(networdId) === IMPL_SOL;
 }
 
 export function getEvmTokenAddress(token: Token) {
@@ -258,6 +274,45 @@ export function convertParams(params: FetchQuoteParams) {
   }
   if (toTokenAmount) {
     urlParams.toTokenAmount = toTokenAmount;
+  }
+  return urlParams;
+}
+
+export function convertLimitOrderParams(params: ILimitOrderQuoteParams) {
+  const toNetworkId = params.tokenIn.networkId;
+  const fromNetworkId = params.tokenOut.networkId;
+
+  const toTokenAddress = params.tokenOut.tokenIdOnNetwork
+    ? params.tokenOut.tokenIdOnNetwork
+    : nativeTokenAddress;
+  const fromTokenAddress = params.tokenIn.tokenIdOnNetwork
+    ? params.tokenIn.tokenIdOnNetwork
+    : nativeTokenAddress;
+
+  const toTokenDecimals = params.tokenOut.decimals;
+  const fromTokenDecimals = params.tokenIn.decimals;
+
+  const userAddress = params.activeAccount.address;
+
+  const fromTokenAmount = getTokenAmountString(
+    params.tokenIn,
+    params.tokenInValue,
+  );
+
+  const urlParams: Record<string, string | number | boolean> = {
+    toNetworkId,
+    fromNetworkId,
+    toTokenAddress,
+    fromTokenAddress,
+    toTokenDecimals,
+    fromTokenDecimals,
+    slippagePercentage: 1,
+    userAddress,
+    receivingAddress: params.activeAccount.address,
+  };
+
+  if (fromTokenAmount) {
+    urlParams.fromTokenAmount = fromTokenAmount;
   }
   return urlParams;
 }
@@ -343,7 +398,19 @@ export function isSimpleTx(tx: TransactionDetails) {
   const from = tx.tokens?.from;
   const to = tx.tokens?.to;
   const quoterType = getQuoteType(tx);
-  return from?.networkId === to?.networkId && quoterType !== QuoterType.swftc;
+  return (
+    from?.networkId === to?.networkId &&
+    isEvmNetworkId(from?.networkId) &&
+    quoterType !== QuoterType.swftc
+  );
+}
+
+export function tokenEqual(tokenA: Token, tokenB: Token) {
+  return (
+    tokenA.networkId === tokenB.networkId &&
+    tokenA.tokenIdOnNetwork.toLowerCase() ===
+      tokenB.tokenIdOnNetwork.toLowerCase()
+  );
 }
 
 export function recipientMustBeSendingAccount(
@@ -356,4 +423,56 @@ export function recipientMustBeSendingAccount(
   return (
     implA === implB && (!allowAnotherRecipientAddress || implA === IMPL_SOL)
   );
+}
+
+export function getLimitOrderPercent(limitOrder: LimitOrderTransactionDetails) {
+  return multiply(
+    div(
+      minus(limitOrder.tokenOutValue, limitOrder.remainingFillable),
+      limitOrder.tokenOutValue,
+    ),
+    100,
+  );
+}
+
+export enum LoggerTimerTags {
+  overview = 'overview',
+  approval = 'approval',
+  cancelApproval = 'cancelApproval',
+  swap = 'swap',
+  signMessage = 'signMessage',
+  gasEstimate = 'gasEstimate',
+  checkTokenBalance = 'checkTokenBalance',
+  checkTokenAllowance = 'checkTokenAllowance',
+  buildTransaction = 'buildTransaction',
+}
+
+export function createLoggerTimer() {
+  let ref: Record<string, number> = {};
+  return {
+    start: (tag: string) => {
+      const now = Date.now();
+      if (ref[tag]) {
+        debugLogger.swap.info(
+          `tag ${tag} already exists, it's value ${ref[tag]} will be replace with ${now}`,
+        );
+      }
+      ref[tag] = now;
+    },
+    end: (tag: string) => {
+      const startAt = ref[tag];
+      const now = Date.now();
+      if (!startAt) {
+        debugLogger.swap.info(`tag ${tag} ended at ${now}`);
+      } else {
+        const spent = ((now - startAt) / 1000).toFixed(2);
+        debugLogger.swap.info(
+          `tag ${tag} took ${spent} secords, ended at ${now}`,
+        );
+      }
+    },
+    clear: () => {
+      ref = {};
+    },
+  };
 }

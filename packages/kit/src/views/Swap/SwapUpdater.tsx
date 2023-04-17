@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useAppSelector } from '../../hooks';
 
 import PendingTransaction from './components/PendingTransaction';
 import { useWalletsSwapTransactions } from './hooks/useTransactions';
@@ -20,6 +21,23 @@ const TransactionsUpdater = () => {
   );
 };
 
+const LimitOrderUpdator = () => {
+  const activeAccount = useAppSelector((s) => s.limitOrder.activeAccount);
+  const refresh = useCallback(() => {
+    if (activeAccount) {
+      backgroundApiProxy.serviceLimitOrder.syncAccount({
+        accountId: activeAccount?.id,
+      });
+    }
+  }, [activeAccount]);
+  useEffect(() => {
+    refresh();
+    const timer = setInterval(refresh, 60 * 1000);
+    return () => clearInterval(timer);
+  }, [refresh]);
+  return null;
+};
+
 const TokenUpdater = () => {
   useEffect(() => {
     backgroundApiProxy.serviceSwap.getSwapConfig();
@@ -32,6 +50,7 @@ const SwapUpdater = () => (
   <>
     <TokenUpdater />
     <TransactionsUpdater />
+    <LimitOrderUpdator />
   </>
 );
 

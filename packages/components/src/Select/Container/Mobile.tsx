@@ -9,7 +9,6 @@ import { PortalEntry } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
 import Box from '../../Box';
 import Button from '../../Button';
 import IconButton from '../../IconButton';
-import ScrollView from '../../ScrollView';
 import Typography from '../../Typography';
 
 import { RenderOptions } from './Option';
@@ -32,7 +31,7 @@ function Mobile<T>({
   onModalHide,
   activatable,
 }: ChildProps<T>) {
-  const { bottom } = useSafeAreaInsets();
+  const { bottom, top } = useSafeAreaInsets();
   const modalizeRef = useRef<Modalize>(null);
   const [defaultBgColor, handleBgColor] = useThemeValue([
     'background-default',
@@ -103,6 +102,7 @@ function Mobile<T>({
       ref={modalizeRef}
       withHandle={false}
       onClose={onModalHide}
+      modalTopOffset={top}
       modalStyle={{
         backgroundColor: defaultBgColor,
         borderTopLeftRadius: 24,
@@ -123,6 +123,7 @@ function Mobile<T>({
       }}
       HeaderComponent={headerComponent}
       FooterComponent={footerComponent}
+      tapGestureEnabled={false}
     >
       <Box
         // maxHeight="70%"
@@ -130,19 +131,18 @@ function Mobile<T>({
         minW="full"
         // bg="surface-subdued"
         borderTopRadius="24px"
-        pb="0px"
+        p={2}
+        pb={4}
         // pb={`${footer === null ? bottom : 0}px`}
         {...dropdownProps}
       >
-        <ScrollView _contentContainerStyle={{ padding: 2, paddingBottom: '4' }}>
-          <RenderOptions
-            options={options}
-            activeOption={activeOption}
-            renderItem={renderItem}
-            onChange={onChange}
-            activatable={activatable}
-          />
-        </ScrollView>
+        <RenderOptions
+          options={options}
+          activeOption={activeOption}
+          renderItem={renderItem}
+          onChange={onChange}
+          activatable={activatable}
+        />
       </Box>
     </Modalize>
   );

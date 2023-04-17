@@ -15,28 +15,30 @@ import {
   Typography,
 } from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector, useNavigation, useNetwork } from '../../hooks';
-import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
-import { setDisableSwapExactApproveAmount } from '../../store/reducers/settings';
-import { showOverlay } from '../../utils/overlayUtils';
-
-import { ArrivalTime } from './components/ArrivalTime';
-import SwappingVia from './components/SwappingVia';
-import SwapTooltip from './components/SwapTooltip';
-import TransactionFee from './components/TransactionFee';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { useAppSelector, useNavigation, useNetwork } from '../../../../hooks';
+import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
+import { setDisableSwapExactApproveAmount } from '../../../../store/reducers/settings';
+import { showOverlay } from '../../../../utils/overlayUtils';
+import { ArrivalTime } from '../../components/ArrivalTime';
+import RefreshButton from '../../components/RefreshButton';
+import { SwapLoadingSkeleton } from '../../components/Skeleton';
+import SwappingVia from '../../components/SwappingVia';
+import SwapTooltip from '../../components/SwapTooltip';
+import TransactionFee from '../../components/TransactionFee';
+import TransactionRate from '../../components/TransactionRate';
 import {
   usePriceImpact,
   useSwapMinimumReceivedAmount,
   useSwapSlippage,
-} from './hooks/useSwapUtils';
-import { SwapRoutes } from './typings';
+} from '../../hooks/useSwapUtils';
+import { SwapRoutes } from '../../typings';
 import {
   calculateProtocalsFee,
   formatAmount,
   getTokenAmountValue,
   normalizeProviderName,
-} from './utils';
+} from '../../utils';
 
 const SwapExactAmountAllowanceBottomSheetModal: FC<{ onClose: () => void }> = ({
   onClose,
@@ -389,10 +391,20 @@ const SwapSmartRoute = () => {
         justifyContent="flex-end"
         alignItems="center"
       >
-        <Pressable onPress={onSelectRoute} disabled={!!quoteLimited}>
-          <SwappingVia providers={quote.providers} typography="Body2" />
-        </Pressable>
-        {quoteLimited ? null : <Icon size={16} name="ChevronRightOutline" />}
+        <SwapLoadingSkeleton h="5" width="24" borderRadius="4px">
+          <Pressable
+            onPress={onSelectRoute}
+            disabled={!!quoteLimited}
+            flexDirection="row"
+            justifyContent="flex-end"
+            alignItems="center"
+          >
+            <SwappingVia providers={quote.providers} typography="Body2" />
+            {quoteLimited ? null : (
+              <Icon size={16} name="ChevronRightOutline" />
+            )}
+          </Pressable>
+        </SwapLoadingSkeleton>
       </Box>
     </Box>
   );
@@ -525,11 +537,39 @@ const SwapAPIIntro = () => {
   );
 };
 
+const SwapTransactionRate = () => {
+  const quote = useAppSelector((s) => s.swap.quote);
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const outputToken = useAppSelector((s) => s.swap.outputToken);
+  if (quote) {
+    return (
+      <Center py="3">
+        <SwapLoadingSkeleton h="5" width="24" borderRadius="4px">
+          <Box flexDirection="row" alignItems="center">
+            <Box mr="1">
+              <RefreshButton />
+            </Box>
+            <TransactionRate
+              tokenA={inputToken}
+              tokenB={outputToken}
+              rate={quote?.instantRate}
+              typography="Body2"
+              color="text-subdued"
+            />
+          </Box>
+        </SwapLoadingSkeleton>
+      </Center>
+    );
+  }
+  return null;
+};
+
 const SwapExchangeQuote = () => {
   const intl = useIntl();
   const showMoreQuoteDetail = useAppSelector((s) => s.swap.showMoreQuoteDetail);
   return (
-    <Box px="4">
+    <Box>
+      <SwapTransactionRate />
       <SwapNetworkFeeInfo />
       <SwapSmartRoute />
       <Box
@@ -550,7 +590,9 @@ const SwapExchangeQuote = () => {
           />
         </Box>
         <Box flex="1" flexDirection="row" justifyContent="flex-end">
-          <SwapMinimumReceived />
+          <SwapLoadingSkeleton h="5" width="24" borderRadius="4px">
+            <SwapMinimumReceived />
+          </SwapLoadingSkeleton>
         </Box>
       </Box>
       <Center h="9">
@@ -596,17 +638,15 @@ const SwapExchangeQuote = () => {
 };
 
 const SwapWrapperTxQuote = () => (
-  <Box px="4">
+  <Box>
     <SwapNetworkFeeInfo />
   </Box>
 );
 
-const SwapQuote = () => {
+export const SwapQuote = () => {
   const quote = useAppSelector((s) => s.swap.quote);
   if (!quote) {
     return null;
   }
   return quote.wrapperTxInfo ? <SwapWrapperTxQuote /> : <SwapExchangeQuote />;
 };
-
-export default SwapQuote;

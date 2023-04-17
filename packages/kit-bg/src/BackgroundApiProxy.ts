@@ -25,6 +25,7 @@ import type ServiceFiatPay from './services/ServiceFiatPay';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
 import type ServiceHTTP from './services/ServiceHTTP';
+import type ServiceLimitOrder from './services/ServiceLimitOrder';
 import type ServiceMarket from './services/ServiceMarket';
 import type ServiceMigrate from './services/ServiceMigrate';
 import type ServiceNameResolver from './services/ServiceNameResolver';
@@ -171,6 +172,10 @@ class BackgroundApiProxy
   serviceAddressbook = this._createProxyService(
     'serviceAddressbook',
   ) as ServiceAddressbook;
+
+  serviceLimitOrder = this._createProxyService(
+    'serviceLimitOrder',
+  ) as ServiceLimitOrder;
 
   serviceUtxos = this._createProxyService('serviceUtxos') as ServiceUtxos;
 

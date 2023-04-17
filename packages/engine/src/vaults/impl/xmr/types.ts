@@ -101,3 +101,7 @@ export type ISendFundsCallback = {
     cb: (...args: any[]) => void,
   ) => void;
 };
+
+export type IClientApi = {
+  mymonero: string;
+};

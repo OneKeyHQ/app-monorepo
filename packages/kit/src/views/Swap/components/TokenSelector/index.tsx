@@ -21,21 +21,15 @@ import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/ac
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { FormatCurrency } from '../../../../components/Format';
-import {
-  useAppSelector,
-  useDebounce,
-  useNetworkSimple,
-} from '../../../../hooks';
+import { useDebounce, useNetworkSimple } from '../../../../hooks';
 import { useTokenBalance } from '../../../../hooks/useTokens';
 import { notifyIfRiskToken } from '../../../ManageTokens/helpers/TokenSecurityModalWrapper';
-import {
-  useSwapAccountTokens,
-  useTokenPrice,
-  useTokenSearch,
-} from '../../hooks/useSwapTokenUtils';
+import { useTokenPrice, useTokenSearch } from '../../hooks/useSwapTokenUtils';
 import { formatAmount, gt } from '../../utils';
 
 import { TokenSelectorContext } from './context';
+import { useContextAccountTokens } from './hooks';
+import { Observer } from './Observer';
 import { EmptySkeleton, LoadingSkeleton } from './Skeleton';
 
 import type { ListRenderItem } from 'react-native';
@@ -43,20 +37,16 @@ import type { ListRenderItem } from 'react-native';
 type NetworkItemProp = ToggleButtonProps & { networkId?: string };
 
 const NetworkSelector: FC = () => {
-  const intl = useIntl();
-  const { networkId, setNetworkId } = useContext(TokenSelectorContext);
-  const tokenList = useAppSelector((s) => s.swapTransactions.tokenList);
+  const { networkId, setNetworkId, networkOptions } =
+    useContext(TokenSelectorContext);
 
   const buttons: NetworkItemProp[] = useMemo(() => {
-    if (!tokenList) {
+    if (!networkOptions) {
       return [];
     }
-    return tokenList.map((item) => ({
-      text:
-        item.name.toLowerCase() === 'all'
-          ? intl.formatMessage({ id: 'option__all' })
-          : item.name,
-      networkId: item.name.toLowerCase() === 'all' ? undefined : item.networkId,
+    return networkOptions.map((item) => ({
+      text: item.name,
+      networkId: item.networkId,
       // eslint-disable-next-line
       leftComponentRender: () => (
         <Box mr="1">
@@ -64,7 +54,7 @@ const NetworkSelector: FC = () => {
         </Box>
       ),
     }));
-  }, [tokenList, intl]);
+  }, [networkOptions]);
 
   const onButtonPress = useCallback(
     (index: number) => {
@@ -78,6 +68,10 @@ const NetworkSelector: FC = () => {
     const index = buttons.findIndex((item) => item.networkId === networkId);
     return index;
   }, [buttons, networkId]);
+
+  if (buttons.length === 0) {
+    return null;
+  }
 
   return (
     <Box mb="4">
@@ -257,23 +251,21 @@ type TokenSelectorProps = {
   onSelect?: (token: Token) => void;
 };
 
-const TokenSelector: FC<TokenSelectorProps> = ({ onSelect }) => {
+const TokenSelector: FC<TokenSelectorProps> = ({ onSelect, excluded }) => {
   const intl = useIntl();
-  const { networkId: activeNetworkId, accountId } =
-    useContext(TokenSelectorContext);
-  const listedTokens = useSwapAccountTokens(activeNetworkId, accountId);
-
   const [keyword, setKeyword] = useState<string>('');
+  const { networkId, accountId } = useContext(TokenSelectorContext);
+  const contextAccountTokens = useContextAccountTokens(networkId, accountId);
   const searchQuery = useDebounce(keyword.trim(), 300);
   const { loading, result: searchedTokens } = useTokenSearch(
     searchQuery,
-    activeNetworkId,
+    networkId,
   );
 
   const isLoading = loading || keyword !== searchQuery;
 
   const { dataSources, renderItem } = useMemo(() => {
-    const tokens = searchedTokens ?? listedTokens;
+    const tokens = searchedTokens ?? contextAccountTokens;
     const renderFn: ListRenderItem<Token> = ({ item }) => (
       <ListRenderToken
         token={item}
@@ -282,13 +274,14 @@ const TokenSelector: FC<TokenSelectorProps> = ({ onSelect }) => {
       />
     );
     return {
-      dataSources: tokens,
+      dataSources: tokens.filter(
+        (i) => !excluded?.includes(i.tokenIdOnNetwork),
+      ),
       renderItem: renderFn,
     };
-  }, [searchedTokens, listedTokens, onSelect]);
+  }, [searchedTokens, contextAccountTokens, onSelect, excluded]);
 
-  const tokenSources = useAppSelector((s) => s.swapTransactions.tokenList);
-  if (!tokenSources) {
+  if (!contextAccountTokens || contextAccountTokens.length === 0) {
     return (
       <Modal
         header={intl.formatMessage({ id: 'title__select_a_token' })}
@@ -302,25 +295,32 @@ const TokenSelector: FC<TokenSelectorProps> = ({ onSelect }) => {
   }
 
   return (
-    <Modal
-      header={intl.formatMessage({ id: 'title__select_a_token' })}
-      height="560px"
-      footer={null}
-      hidePrimaryAction
-      flatListProps={{
-        data: dataSources,
-        // @ts-ignore
-        renderItem,
-        keyExtractor: (item) =>
-          `${(item as Token)?.tokenIdOnNetwork}:${(item as Token)?.networkId}`,
-        showsVerticalScrollIndicator: false,
-        ListEmptyComponent: (
-          <ListEmptyComponent isLoading={isLoading} terms={searchQuery} />
-        ),
-        ListHeaderComponent: <Header keyword={keyword} onChange={setKeyword} />,
-        mx: '-8px',
-      }}
-    />
+    <>
+      <Modal
+        header={intl.formatMessage({ id: 'title__select_a_token' })}
+        height="560px"
+        footer={null}
+        hidePrimaryAction
+        flatListProps={{
+          data: dataSources,
+          // @ts-ignore
+          renderItem,
+          keyExtractor: (item) =>
+            `${(item as Token)?.tokenIdOnNetwork}:${
+              (item as Token)?.networkId
+            }`,
+          showsVerticalScrollIndicator: false,
+          ListEmptyComponent: (
+            <ListEmptyComponent isLoading={isLoading} terms={searchQuery} />
+          ),
+          ListHeaderComponent: (
+            <Header keyword={keyword} onChange={setKeyword} />
+          ),
+          mx: '-8px',
+        }}
+      />
+      <Observer />
+    </>
   );
 };
 

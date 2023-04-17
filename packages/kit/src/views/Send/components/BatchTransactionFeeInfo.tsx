@@ -245,15 +245,21 @@ function BatchTransactionFeeInfo(props: Props) {
                   <Text typography="Body2Strong" color="text-subdued">
                     {intl.formatMessage({ id: 'form__gas_fee_settings' })}
                   </Text>
-                  <Text typography="Body1Strong">
-                    <FeeSpeedLabel index={feePresetIndex} />
-                    <FormatCurrencyNativeOfAccount
-                      networkId={networkId}
-                      accountId={accountId}
-                      value={totalFeeInNative}
-                      render={(ele) => <>(~ {ele})</>}
+                  <HStack alignItems="center">
+                    <FeeSpeedLabel
+                      index={feePresetIndex}
+                      space={2}
+                      alignItems="center"
                     />
-                  </Text>
+                    <Text typography="Body1Strong">
+                      <FormatCurrencyNativeOfAccount
+                        networkId={networkId}
+                        accountId={accountId}
+                        value={totalFeeInNative}
+                        render={(ele) => <>(~ {ele})</>}
+                      />
+                    </Text>
+                  </HStack>
                   <Box
                     w="100%"
                     flexDirection="row"
@@ -304,9 +310,11 @@ function BatchTransactionFeeInfo(props: Props) {
               <Text typography="Body2Strong" color="text-subdued">
                 {intl.formatMessage({ id: 'form__gas_fee_settings' })}
               </Text>
-              <Text typography="Body1Strong">
-                <FeeSpeedLabel index={feePresetIndex} />
-              </Text>
+              <FeeSpeedLabel
+                index={feePresetIndex}
+                alignItems="center"
+                space={2}
+              />
             </VStack>
             {!disabled && (
               <Box>

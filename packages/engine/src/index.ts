@@ -29,6 +29,7 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
   IMPL_EVM,
+  INDEX_PLACEHOLDER,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -65,6 +66,7 @@ import {
   derivationPathTemplates,
   getDefaultPurpose,
   getNextAccountId,
+  parsePath,
 } from './managers/derivation';
 import { fetchSecurityInfo, getRiskLevel } from './managers/goplus';
 import {
@@ -1877,18 +1879,24 @@ class Engine {
     accountId,
     encodedTx,
     signOnly,
+    specifiedFeeRate,
   }: {
     networkId: string;
     accountId: string;
     encodedTx: any;
     signOnly?: boolean;
+    specifiedFeeRate?: string;
   }) {
     const vault = await this.getVault({ networkId, accountId });
     // throw new Error('test fetch fee info error');
     // TODO move to vault.fetchFeeInfo and _fetchFeeInfo
     // clone encodedTx to avoid side effects
     try {
-      return await vault.fetchFeeInfo(cloneDeep(encodedTx), signOnly);
+      return await vault.fetchFeeInfo(
+        cloneDeep(encodedTx),
+        signOnly,
+        specifiedFeeRate,
+      );
     } catch (error: any) {
       // AxiosError error
       const axiosError = get(error, 'code', undefined) === 429;
@@ -2187,15 +2195,23 @@ class Engine {
   }
 
   @backgroundMethod()
-  async getGasPrice(networkId: string): Promise<Array<string | EIP1559Fee>> {
-    const ret = await this.providerManager.getGasPrice(networkId);
-    if (ret.length > 0 && ret[0] instanceof BigNumber) {
+  async getGasInfo(networkId: string): Promise<{
+    prices: Array<string | EIP1559Fee>;
+    networkCongestion?: number;
+    estimatedTransactionCount?: number;
+  }> {
+    const gasInfo = await this.providerManager.getGasInfo(networkId);
+    const { prices } = gasInfo;
+    if (prices.length > 0 && prices[0] instanceof BigNumber) {
       const { feeDecimals } = await this.dbApi.getNetwork(networkId);
-      return (ret as Array<BigNumber>).map((price: BigNumber) =>
-        price.shiftedBy(-feeDecimals).toFixed(),
-      );
+      return {
+        ...gasInfo,
+        prices: (prices as Array<BigNumber>).map((price: BigNumber) =>
+          price.shiftedBy(-feeDecimals).toFixed(),
+        ),
+      };
     }
-    return ret as Array<EIP1559Fee>;
+    return gasInfo as { prices: EIP1559Fee[] };
   }
 
   async getVault(options: { networkId: string; accountId: string }) {
@@ -2998,6 +3014,52 @@ class Engine {
       networkId,
     });
     return vault.getFrozenBalance(password);
+  }
+
+  @backgroundMethod()
+  async recomputeAccount({
+    walletId,
+    networkId,
+    accountId,
+    password,
+    path,
+    template,
+    confirmOnDevice,
+  }: {
+    walletId: string;
+    networkId: string;
+    accountId: string;
+    password: string;
+    path: string;
+    template?: string;
+    confirmOnDevice?: boolean;
+  }) {
+    if (!walletId || !networkId) return [];
+    if (walletId.startsWith('watching')) {
+      return this.dbApi.getAccount(accountId);
+    }
+    const vault = await this.getWalletOnlyVault(networkId, walletId);
+    const { impl } = await this.getNetwork(networkId);
+    const {
+      accountIndex,
+      purpose,
+      coinType,
+      template: defaultTemplate,
+    } = parsePath(impl, path, template);
+    const accounts = await vault.keyring.prepareAccounts({
+      type: 'SEARCH_ACCOUNTS',
+      password,
+      indexes: [accountIndex],
+      purpose,
+      coinType,
+      template: template || defaultTemplate,
+      skipCheckAccountExist: true,
+      confirmOnDevice,
+    });
+    if (accounts.length) {
+      return accounts[0];
+    }
+    return null;
   }
 }
 

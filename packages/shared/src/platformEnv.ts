@@ -7,7 +7,6 @@ export type IPlatform = 'native' | 'desktop' | 'ext' | 'web' | 'webEmbed';
 export type IDistributionChannel =
   | 'ext-chrome'
   | 'ext-firefox'
-  | 'ext-edge'
   | 'desktop-mac'
   | 'desktop-mac-arm64'
   | 'desktop-win'
@@ -65,7 +64,6 @@ export type IPlatformEnv = {
 
   isExtFirefox?: boolean;
   isExtChrome?: boolean;
-  isExtEdge?: boolean;
   isExtFirefoxUiPopup?: boolean;
 
   /** ios, both tablet & iPhone */
@@ -95,6 +93,7 @@ export type IPlatformEnv = {
   isRuntimeBrowser?: boolean;
   isRuntimeFirefox?: boolean;
   isRuntimeChrome?: boolean;
+  isRuntimeEdge?: boolean;
 
   canGetClipboard?: boolean;
   supportAutoUpdate?: boolean;
@@ -115,7 +114,6 @@ const isNative = process.env.ONEKEY_PLATFORM === 'app';
 
 const isExtChrome = process.env.EXT_CHANNEL === 'chrome';
 const isExtFirefox = process.env.EXT_CHANNEL === 'firefox';
-const isExtEdge = process.env.EXT_CHANNEL === 'edge';
 
 const isDesktopMac = isDesktop && window?.desktopApi?.platform === 'darwin';
 const isDesktopMacArm64 = isDesktopMac && window?.desktopApi?.arch === 'arm64';
@@ -151,7 +149,6 @@ const getPlatformSymbol = (): IPlatform | undefined => {
 const getDistributionChannel = (): IDistributionChannel | undefined => {
   if (isExtChrome) return 'ext-chrome';
   if (isExtFirefox) return 'ext-firefox';
-  if (isExtEdge) return 'ext-edge';
 
   if (isDesktopMacArm64) return 'desktop-mac-arm64';
   if (isDesktopMac) return 'desktop-mac';
@@ -173,6 +170,19 @@ const isRuntimeBrowser: boolean = typeof window !== 'undefined' && !isNative;
 
 // @ts-ignore
 const isRuntimeFirefox: boolean = typeof InstallTrigger !== 'undefined';
+
+const checkIsRuntimeEdge = (): boolean => {
+  if (!isRuntimeBrowser) {
+    return false;
+  }
+  const isChromium = window.chrome;
+  const winNav = window.navigator as typeof window.navigator | undefined;
+  const isIEedge = winNav ? winNav.userAgent.indexOf('Edg') > -1 : false;
+
+  if (isChromium && isIEedge === true) return true;
+
+  return false;
+};
 
 const checkIsRuntimeChrome = (): boolean => {
   if (!isRuntimeBrowser) {
@@ -212,6 +222,7 @@ const checkIsRuntimeChrome = (): boolean => {
 };
 
 const isRuntimeChrome = checkIsRuntimeChrome();
+const isRuntimeEdge = checkIsRuntimeEdge();
 
 // Ext manifest v2 background
 export const isExtensionBackgroundHtml: boolean =
@@ -289,7 +300,6 @@ const platformEnv: IPlatformEnv = {
 
   isExtFirefox,
   isExtChrome,
-  isExtEdge,
 
   isNativeIOS,
   isNativeIOSStore,
@@ -316,6 +326,7 @@ const platformEnv: IPlatformEnv = {
   isRuntimeBrowser,
   isRuntimeFirefox,
   isRuntimeChrome,
+  isRuntimeEdge,
 
   canGetClipboard,
   supportAutoUpdate,
