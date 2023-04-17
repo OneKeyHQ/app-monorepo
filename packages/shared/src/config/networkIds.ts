@@ -30,6 +30,7 @@ export const OnekeyNetwork = {
   'optimism': 'evm--10',
   'xdai': 'evm--100',
   'ethw': 'evm--10001',
+  'cfxespace': 'evm--1030',
   'heco': 'evm--128',
   'aurora': 'evm--1313161554',
   'polygon': 'evm--137',
