@@ -68,7 +68,7 @@ function checkIsValidHistoryTxId({
 
 // TODO rename ExtraInfoBox
 export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
-  const { decodedTx, historyTx, feeInput } = props;
+  const { decodedTx, historyTx, feeInput, isSendConfirm } = props;
   const { network } = useNetwork({ networkId: decodedTx.networkId });
   const details: ITxActionElementDetail[] = [];
   const intl = useIntl();
@@ -78,7 +78,8 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
   if (
     decodedTx.status === IDecodedTxStatus.Pending &&
     decodedTx.nonce &&
-    decodedTx.nonce >= 0
+    decodedTx.nonce >= 0 &&
+    !isSendConfirm
   ) {
     details.push({
       title: 'Nonce',
