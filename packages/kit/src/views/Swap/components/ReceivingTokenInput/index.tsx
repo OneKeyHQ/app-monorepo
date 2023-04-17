@@ -485,7 +485,7 @@ const TokenInput: FC<TokenInputProps> = ({
                     pr="2"
                     pb="12"
                     textAlign="right"
-                    isDisabled
+                    isReadOnly
                     rightCustomElement={null}
                     focusOutlineColor="transparent"
                   />

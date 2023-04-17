@@ -5,7 +5,7 @@ export enum StakingRoutes {
   UnstakeAmount = 'UnstakeAmount',
   UnstakeKeleETHNotes = 'UnstakeKeleETHNotes',
   WithdrawAmount = 'WithdrawAmount',
-  WithdrawProtected = 'WithdrawProtected',
+  Feedback = 'Feedback',
 }
 
 export type StakingRoutesParams = {
@@ -34,11 +34,8 @@ export type StakingRoutesParams = {
     networkId: string;
     tokenIdOnNetwork?: string;
   };
-  [StakingRoutes.WithdrawProtected]: {
+  [StakingRoutes.Feedback]: {
     networkId: string;
-    accountId: string;
-    amount: string;
-    tokenIdOnNetwork?: string;
   };
 };
 

@@ -213,7 +213,11 @@ export class SwapQuoter {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const response = res.data?.data as FetchQuoteHttpResponse | undefined;
     if (response && response.result?.instantRate) {
-      return { instantRate: formatAmount(response.result.instantRate) };
+      let instantRate = formatAmount(response.result.instantRate);
+      if (Number(instantRate) === 0) {
+        instantRate = formatAmount(response.result.instantRate, 8);
+      }
+      return { instantRate };
     }
     return undefined;
   }
