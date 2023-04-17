@@ -12,13 +12,16 @@ import {
   Keyboard,
   Modal,
   Text,
+  ToastManager,
   Typography,
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatCurrency } from '../../../components/Format';
 import { useActiveWalletAccount, useNavigation } from '../../../hooks';
@@ -26,6 +29,7 @@ import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { useSingleToken } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { formatAmount } from '../../../utils/priceUtils';
+import { SendModalRoutes } from '../../Send/types';
 import { useKeleWithdrawOverview } from '../hooks';
 import { StakingRoutes } from '../typing';
 
@@ -34,9 +38,11 @@ import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.WithdrawAmount>;
 
+type NavigationProps = ModalScreenProps<StakingRoutesParams>;
+
 export default function WithdrawAmount() {
   const intl = useIntl();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const isSmallScreen = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
   const { networkId, tokenIdOnNetwork } = route.params;
@@ -87,10 +93,13 @@ export default function WithdrawAmount() {
     const symbol = tokenInfo?.symbol ?? '';
     if (minAmountRequired && input) {
       const amountBN = new BigNumber(input);
-      if (amountBN.isNaN() || (amountBN.gt(0) && amountBN.lt(minAmountBN))) {
-        return `${intl.formatMessage({
-          id: 'form__min_amount',
-        })} ${minAmountBN.toFixed()} ${symbol}`;
+      if (amountBN.isNaN() || (amountBN.gt(0) && amountBN.lte(minAmountBN))) {
+        return `${intl.formatMessage(
+          {
+            id: 'form__field_large_than',
+          },
+          { '0': `${minAmountBN.toFixed()} ${symbol}` },
+        )}`;
       }
     }
   }, [minInputAmount, amount, intl, tokenInfo]);
@@ -124,17 +133,46 @@ export default function WithdrawAmount() {
         isDisabled: !!errorMsg || !!minAmountErrMsg,
       }}
       onPrimaryActionPress={() => {
-        if (!accountId || !tokenInfo) {
+        if (!account || !tokenInfo) {
           return;
         }
+        const message = { token: 'eth', amount, address: account.address };
         navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.Staking,
+          screen: ModalRoutes.Send,
           params: {
-            screen: StakingRoutes.WithdrawProtected,
+            screen: SendModalRoutes.SignMessageConfirm,
             params: {
-              networkId: tokenInfo.networkId,
               accountId,
-              amount,
+              networkId: tokenInfo.networkId,
+              unsignedMessage: {
+                type: 1,
+                message: JSON.stringify(message),
+              },
+              onSuccess: async () => {
+                const res = await backgroundApiProxy.serviceStaking.withdraw({
+                  accountId: account.id,
+                  networkId,
+                  amount,
+                });
+                if (res.code !== 0 && res.message) {
+                  ToastManager.show({ title: res.message }, { type: 'error' });
+                } else {
+                  setAmount('');
+                  backgroundApiProxy.serviceStaking.fetchPendingWithdrawAmount({
+                    accountId,
+                    networkId,
+                  });
+                  navigation.replace(RootRoutes.Modal, {
+                    screen: ModalRoutes.Staking,
+                    params: {
+                      screen: StakingRoutes.Feedback,
+                      params: {
+                        networkId,
+                      },
+                    },
+                  });
+                }
+              },
             },
           },
         });
@@ -142,39 +180,41 @@ export default function WithdrawAmount() {
     >
       <Box flex="1" flexDirection="column">
         <Box flex="1" flexDirection="column">
-          <Box py={2} my={2} justifyContent="center">
-            <Text
-              textAlign="center"
-              typography="DisplayLarge"
-              color="text-subdued"
-            >
-              {tokenInfo?.symbol.toUpperCase() ?? ''}
-            </Text>
-            <Center py="4" h={isSmallScreen ? '32' : undefined}>
-              <AutoSizeText
-                autoFocus
-                text={amount}
-                onChangeText={setAmount}
-                placeholder="0"
-              />
-            </Center>
-            <Center>
-              {minAmountErrMsg ? (
-                <Typography.Body1Strong color="text-critical">
-                  {minAmountErrMsg}
-                </Typography.Body1Strong>
-              ) : (
-                <FormatCurrency
-                  numbers={[mainPrice ?? 0, amount ?? 0]}
-                  render={(ele) => (
-                    <Typography.Body2 color="text-subdued">
-                      {mainPrice ? ele : '$ 0'}
-                    </Typography.Body2>
-                  )}
+          <Center flex={1}>
+            <Center maxH="140px" my={2}>
+              <Text
+                textAlign="center"
+                typography="DisplayLarge"
+                color="text-subdued"
+              >
+                {tokenInfo?.symbol.toUpperCase() ?? ''}
+              </Text>
+              <Center py="4" h={isSmallScreen ? '32' : undefined}>
+                <AutoSizeText
+                  autoFocus
+                  text={amount}
+                  onChangeText={setAmount}
+                  placeholder="0"
                 />
-              )}
+              </Center>
+              <Center>
+                {minAmountErrMsg ? (
+                  <Typography.Body1Strong color="text-critical">
+                    {minAmountErrMsg}
+                  </Typography.Body1Strong>
+                ) : (
+                  <FormatCurrency
+                    numbers={[mainPrice ?? 0, amount ?? 0]}
+                    render={(ele) => (
+                      <Typography.Body2 color="text-subdued">
+                        {mainPrice ? ele : '$ 0'}
+                      </Typography.Body2>
+                    )}
+                  />
+                )}
+              </Center>
             </Center>
-          </Box>
+          </Center>
           <Center>
             <HStack flexDirection="row" alignItems="center" space="3">
               <Button size="sm" onPress={() => userInput(25)}>
@@ -239,10 +279,7 @@ export default function WithdrawAmount() {
               itemHeight={isSmallScreen ? '44px' : undefined}
               pattern={validAmountRegex}
               text={amount}
-              onTextChange={(text) => {
-                console.log('text', text);
-                setAmount(text);
-              }}
+              onTextChange={setAmount}
             />
           </Box>
         )}

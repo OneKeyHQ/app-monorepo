@@ -494,14 +494,33 @@ class ServiceLimitOrder extends ServiceBase {
       accountId,
     });
 
-    const allPromises = responses.map((response) =>
-      this.formatResponseToLimitOrder({ response, networkId, accountId }),
-    );
-    const allPromiseRes = await Promise.allSettled(allPromises);
+    const allPromises: Promise<
+      | { status: 'fulfilled'; value: LimitOrderTransactionDetails }
+      | { status: 'rejected'; reason: string }
+    >[] = responses.map((response) => {
+      const p = this.formatResponseToLimitOrder({
+        response,
+        networkId,
+        accountId,
+      });
+      return p
+        .then((value) => ({
+          status: 'fulfilled' as const,
+          value,
+        }))
+        .catch((reason: string) => ({
+          status: 'rejected' as const,
+          reason,
+        }));
+    });
+
+    const allPromiseRes = await Promise.all(allPromises);
+
     const allFilteredPromiseRes = allPromiseRes.filter(
       (s) => s.status === 'fulfilled',
-    ) as PromiseFulfilledResult<LimitOrderTransactionDetails>[];
+    ) as { status: 'fulfilled'; value: LimitOrderTransactionDetails }[];
     const limitOrders = allFilteredPromiseRes.map((res) => res.value);
+
     dispatch(
       resetLimitOrderTransactions({ networkId, accountId, limitOrders }),
     );
@@ -509,20 +528,9 @@ class ServiceLimitOrder extends ServiceBase {
 
   @backgroundMethod()
   async syncAccount({ accountId }: { accountId: string }) {
-    const { appSelector } = this.backgroundApi;
-    const limitOrderDetails = appSelector(
-      (s) => s.swapTransactions.limitOrderDetails,
-    );
-    const accountLimitOrderDetails = limitOrderDetails?.[accountId];
-    if (!accountLimitOrderDetails?.[OnekeyNetwork.eth]) {
-      this.syncAccountOrders({ networkId: OnekeyNetwork.eth, accountId });
-    }
-    if (!accountLimitOrderDetails?.[OnekeyNetwork.bsc]) {
-      this.syncAccountOrders({ networkId: OnekeyNetwork.bsc, accountId });
-    }
-    if (!accountLimitOrderDetails?.[OnekeyNetwork.polygon]) {
-      this.syncAccountOrders({ networkId: OnekeyNetwork.polygon, accountId });
-    }
+    this.syncAccountOrders({ networkId: OnekeyNetwork.eth, accountId });
+    this.syncAccountOrders({ networkId: OnekeyNetwork.bsc, accountId });
+    this.syncAccountOrders({ networkId: OnekeyNetwork.polygon, accountId });
   }
 
   @backgroundMethod()

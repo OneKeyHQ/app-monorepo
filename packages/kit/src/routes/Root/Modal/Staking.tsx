@@ -1,5 +1,6 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
+import Feedback from '../../../views/Staking/Feedback';
 import StakedETHOnKele from '../../../views/Staking/StakedETHOnKele';
 import StakingAmount from '../../../views/Staking/StakingAmount';
 import StakingETHNotes from '../../../views/Staking/StakingETHNotes';
@@ -7,7 +8,6 @@ import { StakingRoutes } from '../../../views/Staking/typing';
 import UnstakeAmount from '../../../views/Staking/UnstakeAmount';
 import UnstakeKeleETHNotes from '../../../views/Staking/UnstakeKeleETHNotes';
 import WithdrawAmount from '../../../views/Staking/WithdrawAmount';
-import WithdrawProtected from '../../../views/Staking/WithdrawProtected';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';
@@ -42,8 +42,8 @@ const modalRoutes = [
     component: WithdrawAmount,
   },
   {
-    name: StakingRoutes.WithdrawProtected,
-    component: WithdrawProtected,
+    name: StakingRoutes.Feedback,
+    component: Feedback,
   },
 ];
 
