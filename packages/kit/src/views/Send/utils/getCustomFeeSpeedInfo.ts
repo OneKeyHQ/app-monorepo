@@ -61,7 +61,19 @@ function getCustomFeeSpeedInfo({
     const customPriceBN = custom?.feeRate
       ? new BigNumber(custom?.feeRate ?? 0).shiftedBy(-8)
       : new BigNumber(custom?.price ?? 0);
-    if (customPriceBN.isGreaterThanOrEqualTo(medium.price as string)) {
+
+    if (prices.length === 1) {
+      if (customPriceBN.isGreaterThan(low.price as string)) {
+        customWaitingSeconds = low.waitingSeconds - 1;
+        customSimilarToPreset = '2';
+      } else if (customPriceBN.isEqualTo(low.price as string)) {
+        customWaitingSeconds = low.waitingSeconds;
+        customSimilarToPreset = '1';
+      } else {
+        customWaitingSeconds = low.waitingSeconds + 1;
+        customSimilarToPreset = '0';
+      }
+    } else if (customPriceBN.isGreaterThanOrEqualTo(medium.price as string)) {
       if (customPriceBN.isLessThan(high.price as string)) {
         // Medium
         customWaitingSeconds = medium.waitingSeconds;
