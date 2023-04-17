@@ -114,12 +114,17 @@ export function SendEditFeeStandardForm({
             iconSize={28}
             alignItems="center"
             space={2}
+            prices={feeInfoPayload?.info.prices ?? []}
           />
         ),
 
         describe: (
           <HStack space="10px" alignItems="center">
-            <FeeSpeedTime index={index} waitingSeconds={waitingSeconds} />
+            <FeeSpeedTime
+              index={index}
+              waitingSeconds={waitingSeconds}
+              prices={feeInfoPayload?.info.prices ?? []}
+            />
             <FeeSpeedTip
               index={index}
               isEIP1559={feeInfoPayload?.info.eip1559}

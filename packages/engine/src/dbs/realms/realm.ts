@@ -59,6 +59,7 @@ import {
   AccountSchema,
   ContextSchema,
   CredentialSchema,
+  CustomFeeSchema,
   DeviceSchema,
   HistoryEntrySchema,
   NetworkSchema,
@@ -83,6 +84,7 @@ import type {
 import type { DBNetwork } from '../../types/network';
 import type { Token } from '../../types/token';
 import type { ISetNextAccountIdsParams, Wallet } from '../../types/wallet';
+import type { IFeeInfoUnit } from '../../vaults/types';
 import type {
   CreateHDWalletParams,
   CreateHWWalletParams,
@@ -96,7 +98,7 @@ import type {
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const DB_PATH = 'OneKey.realm';
-const SCHEMA_VERSION = 17;
+const SCHEMA_VERSION = 18;
 /**
  * Realm DB API
  * @implements { DBAPI }
@@ -123,6 +125,7 @@ class RealmDB implements DBAPI {
         HistoryEntrySchema,
         DeviceSchema,
         AccountDerivationSchema,
+        CustomFeeSchema,
       ],
       schemaVersion: SCHEMA_VERSION,
       migration: (oldRealm, newRealm) => {
@@ -2229,6 +2232,70 @@ class RealmDB implements DBAPI {
       result[accountDerivation.template] = accountDerivation.internalObj;
     });
     return Promise.resolve(result);
+  }
+
+  getCustomFee(networkId: string): Promise<IFeeInfoUnit> {
+    try {
+      const customFee = this.realm!.objectForPrimaryKey<CustomFeeSchema>(
+        'CustomFee',
+        networkId,
+      );
+      if (typeof customFee === 'undefined') {
+        return Promise.reject(
+          new OneKeyInternalError(`Custom fee of ${networkId} not found.`),
+        );
+      }
+
+      return Promise.resolve(customFee.internalObj);
+    } catch (error: any) {
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  updateCustomFee(
+    networkId: string,
+    customFee: IFeeInfoUnit | null,
+  ): Promise<void> {
+    try {
+      const custom = this.realm!.objectForPrimaryKey<CustomFeeSchema>(
+        'CustomFee',
+        networkId,
+      );
+
+      if (typeof custom !== 'undefined') {
+        if (customFee === null) {
+          this.realm!.write(() => {
+            this.realm!.delete(custom);
+          });
+        } else {
+          this.realm!.write(() => {
+            custom.eip1559 = customFee.eip1559;
+            custom.price = customFee.price;
+            // @ts-ignore
+            custom.price1559 = customFee.price1559;
+            custom.isBtcForkChain = customFee.isBtcForkChain;
+            custom.feeRate = customFee.feeRate;
+            custom.btcFee = customFee.btcFee;
+          });
+        }
+      } else if (customFee) {
+        this.realm!.write(() => {
+          this.realm!.create('CustomFee', {
+            id: networkId,
+            eip1559: customFee.eip1559,
+            price: customFee.price,
+            price1559: customFee.price1559,
+            isBtcForkChain: customFee.isBtcForkChain,
+            feeRate: customFee.feeRate,
+            btcFee: customFee.btcFee,
+          });
+        });
+      }
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+    return Promise.resolve();
   }
 
   private static addSingletonWalletEntry({
