@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -10,6 +10,7 @@ import {
   Modal,
   SegmentedControl,
 } from '@onekeyhq/components';
+import { getUtxoUniqueKey } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { ICoinControlListItem } from '@onekeyhq/engine/src/types/utxoAccounts';
@@ -42,7 +43,7 @@ const CoinControl = () => {
   const [frozenUtxos, setFrozenUtxos] = useState<ICoinControlListItem[]>([]);
   const [selectedUtxos, setSelectedUtxos] = useState<string[]>([]);
   const [blockTimeMap, setBlockTimeMap] = useState<Record<string, number>>({});
-  const [isAllSelected, setIsAllSelected] = useState(false);
+  // const [triggerAllSelected, setTriggerAllSelected] = useState(false);
   const [token, setToken] = useState<Token>();
 
   const { network } = useNetwork({ networkId });
@@ -73,6 +74,43 @@ const CoinControl = () => {
       });
   }, [networkId, accountId]);
 
+  const isAllSelected = useMemo(() => {
+    const allUtxos = utxosWithoutDust.concat(utxosDust);
+    return (
+      allUtxos.length > 0 &&
+      allUtxos.every((utxo) => selectedUtxos.includes(getUtxoUniqueKey(utxo)))
+    );
+  }, [selectedUtxos, utxosWithoutDust, utxosDust]);
+
+  const [, setIsSelectedAllInner] = useState(false);
+  const triggerAllSelected = useCallback(
+    (value: boolean) => {
+      setIsSelectedAllInner(value);
+      if (value) {
+        setSelectedUtxos(
+          utxosWithoutDust
+            .concat(utxosDust)
+            .map((utxo) => getUtxoUniqueKey(utxo)),
+        );
+      } else {
+        setSelectedUtxos([]);
+      }
+    },
+    [utxosWithoutDust, utxosDust],
+  );
+
+  const onCheckBoxChange = useCallback(
+    (item: ICoinControlListItem) => {
+      const key = getUtxoUniqueKey(item);
+      if (selectedUtxos.includes(key)) {
+        setSelectedUtxos(selectedUtxos.filter((utxoKey) => utxoKey !== key));
+      } else {
+        setSelectedUtxos([...selectedUtxos, key]);
+      }
+    },
+    [selectedUtxos],
+  );
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__coin_control' })}
@@ -98,8 +136,9 @@ const CoinControl = () => {
           utxosDust={utxosDust}
           selectedUtxos={selectedUtxos}
           isAllSelected={isAllSelected}
-          setIsAllSelected={setIsAllSelected}
+          triggerAllSelected={triggerAllSelected}
           blockTimeMap={blockTimeMap}
+          onChange={onCheckBoxChange}
         />
       )}
       {selectedIndex === 1 && (

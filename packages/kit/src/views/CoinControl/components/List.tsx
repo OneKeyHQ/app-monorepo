@@ -40,8 +40,8 @@ import type { ListRenderItemInfo } from 'react-native';
 
 const ListTableHeader: FC<{
   isAllSelected: boolean;
-  setIsAllSelected: React.Dispatch<React.SetStateAction<boolean>>;
-}> = ({ isAllSelected, setIsAllSelected }) => {
+  triggerAllSelected: (value: boolean) => void;
+}> = ({ isAllSelected, triggerAllSelected }) => {
   const intl = useIntl();
   return (
     <ListItem>
@@ -54,7 +54,7 @@ const ListTableHeader: FC<{
           <CheckBox
             w={5}
             isChecked={isAllSelected}
-            onChange={setIsAllSelected}
+            onChange={() => triggerAllSelected(!isAllSelected)}
           />
         </Box>
       </ListItem.Column>
@@ -315,8 +315,9 @@ const CoinControlList: FC<{
   utxosDust: ICoinControlListItem[];
   selectedUtxos: string[];
   isAllSelected: boolean;
-  setIsAllSelected: React.Dispatch<React.SetStateAction<boolean>>;
+  triggerAllSelected: (value: boolean) => void;
   blockTimeMap: Record<string, number>;
+  onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
 }> = ({
   accountId,
   network,
@@ -325,12 +326,12 @@ const CoinControlList: FC<{
   utxosDust,
   selectedUtxos,
   isAllSelected,
-  setIsAllSelected,
+  triggerAllSelected,
   blockTimeMap,
+  onChange,
 }) => {
   const intl = useIntl();
 
-  console.log(utxosWithoutDust);
   const rowRenderer = useCallback(
     ({ item }: ListRenderItemInfo<ICoinControlListItem>) => (
       <CoinControlCell
@@ -340,20 +341,20 @@ const CoinControlList: FC<{
         token={token}
         selectedUtxos={selectedUtxos}
         blockTimeMap={blockTimeMap}
-        onChange={() => {}}
+        onChange={onChange}
       />
     ),
-    [selectedUtxos, network, blockTimeMap, token, accountId],
+    [selectedUtxos, network, blockTimeMap, token, accountId, onChange],
   );
 
   const headerComponent = useCallback(
     () => (
       <ListTableHeader
         isAllSelected={isAllSelected}
-        setIsAllSelected={setIsAllSelected}
+        triggerAllSelected={triggerAllSelected}
       />
     ),
-    [isAllSelected, setIsAllSelected],
+    [isAllSelected, triggerAllSelected],
   );
   const footerComponent = useCallback(
     () => (
@@ -364,10 +365,18 @@ const CoinControlList: FC<{
         token={token}
         selectedUtxos={selectedUtxos}
         blockTimeMap={blockTimeMap}
-        onChange={() => {}}
+        onChange={onChange}
       />
     ),
-    [utxosDust, selectedUtxos, network, blockTimeMap, token, accountId],
+    [
+      utxosDust,
+      selectedUtxos,
+      network,
+      blockTimeMap,
+      token,
+      accountId,
+      onChange,
+    ],
   );
 
   return network ? (
