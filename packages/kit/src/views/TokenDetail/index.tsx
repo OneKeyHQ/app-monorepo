@@ -44,7 +44,6 @@ export enum TabEnum {
 }
 
 const TokenDetail: FC<TokenDetailViewProps> = () => {
-  const [refreshing, setRefreshing] = useState(false);
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
@@ -87,13 +86,6 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     return !!price;
   }, [price, token]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    // backgroundApiProxy.serviceOverview.refreshCurrentAccount().finally(() => {
-    //   setTimeout(() => setRefreshing(false), 50);
-    // });
-  }, []);
-
   const headerTitle = useCallback(() => {
     if (!isVerticalLayout) {
       return null;
@@ -134,8 +126,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   return (
     <HStack flex={1} justifyContent="center">
       <Tabs.Container
-        refreshing={refreshing}
-        onRefresh={onRefresh}
+        disableRefresh
         renderHeader={() => (
           <TokenDetailHeader
             accountId={accountId}
