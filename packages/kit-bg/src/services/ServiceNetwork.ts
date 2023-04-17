@@ -8,6 +8,7 @@ import type {
   Network,
   UpdateNetworkParams,
 } from '@onekeyhq/engine/src/types/network';
+import type { IFeeInfoUnit } from '@onekeyhq/engine/src/vaults/types';
 import type { GeneralInitialState } from '@onekeyhq/kit/src/store/reducers/general';
 import { changeActiveNetwork } from '@onekeyhq/kit/src/store/reducers/general';
 import reducerAccountSelector from '@onekeyhq/kit/src/store/reducers/reducerAccountSelector';
@@ -288,6 +289,35 @@ class ServiceNetwork extends ServiceBase {
     pageSize: number;
   }) {
     return fetchChainList(params);
+  }
+
+  @backgroundMethod()
+  async getNetworkCustomFee(networkId: string) {
+    const customFee = await this.backgroundApi.engine.dbApi.getCustomFee(
+      networkId,
+    );
+    if (customFee) {
+      return {
+        price: customFee.price,
+        eip1559: customFee.eip1559,
+        price1559: {
+          baseFee: customFee.price1559?.baseFee,
+          maxFeePerGas: customFee.price1559?.maxFeePerGas,
+          maxPriorityFeePerGas: customFee.price1559?.maxPriorityFeePerGas,
+        },
+        isBtcForkChain: customFee.isBtcForkChain,
+        feeRate: customFee.feeRate,
+        btcFee: customFee.btcFee,
+      } as IFeeInfoUnit;
+    }
+  }
+
+  @backgroundMethod()
+  async updateNetworkCustomFee(
+    networkId: string,
+    customFee: IFeeInfoUnit | null | undefined,
+  ) {
+    this.backgroundApi.engine.dbApi.updateCustomFee(networkId, customFee);
   }
 
   @backgroundMethod()

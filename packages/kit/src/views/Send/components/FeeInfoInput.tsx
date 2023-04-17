@@ -203,7 +203,7 @@ function FeeInfoInputForTransfer({
     if (isPreset) {
       return (
         <Text typography={typography}>
-          <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
+          <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} space={1} />{' '}
           <FormatCurrencyNativeOfAccount
             networkId={networkId}
             accountId={accountId}
@@ -453,6 +453,7 @@ function FeeInfoInputForConfirmLite({
             isCustom={!isPreset}
             index={feeInfoPayload?.selected?.preset}
             alignItems="baseline"
+            space={1}
           />
           <FeeSpeedTime
             prices={feeInfoPayload?.info?.prices}

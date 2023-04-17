@@ -3,13 +3,7 @@ import { useCallback, useLayoutEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Pressable,
-  Text,
-  ToastManager,
-  VStack,
-} from '@onekeyhq/components';
+import { Box, ListItem, ToastManager, VStack } from '@onekeyhq/components';
 import { clearWebViewData } from '@onekeyhq/shared/src/cacheManager';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -29,18 +23,15 @@ type OptionsProps = {
 };
 
 const Options: FC<OptionsProps> = ({ title, onPress, desc }) => (
-  <Pressable
-    flexDirection="column"
-    onPress={onPress}
-    borderBottomColor="divider"
-  >
-    <Text typography="Body1Strong" numberOfLines={1}>
-      {title}
-    </Text>
-    <Text mt="12px" typography="Body1" color="text-subdued">
-      {desc}
-    </Text>
-  </Pressable>
+  <ListItem onPress={onPress}>
+    <ListItem.Column
+      flex={1}
+      text={{
+        label: title,
+        description: desc,
+      }}
+    />
+  </ListItem>
 );
 
 const ClearCache = () => {
@@ -82,12 +73,12 @@ const ClearCache = () => {
       w="full"
       h="full"
       bg="background-default"
-      p="4"
+      p="8px"
       maxW={768}
       mx="auto"
     >
       <Box>
-        <VStack w="full" space="32px">
+        <VStack w="full" space="16px">
           <Options
             onPress={() => {
               navigation.navigate(RootRoutes.Modal, {

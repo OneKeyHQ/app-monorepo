@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/naming-convention */
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -44,6 +44,7 @@ import {
   SEND_EDIT_FEE_PRICE_UP_RATIO,
 } from '../../utils/sendConfirmConsts';
 import { useBtcCustomFee } from '../../utils/useBtcCustomFee';
+import { useCustomFee } from '../../utils/useCustomFee';
 import { useFeeInfoPayload } from '../../utils/useFeeInfoPayload';
 
 import { SendEditFeeCustomForm } from './SendEditFeeCustomForm';
@@ -91,6 +92,7 @@ function ScreenSendEditFee({ ...rest }) {
   const [blockNativeInit, setBlockNativeInit] = useState(false);
   const [saveCustom, setSaveCustom] = useState(false);
   const [currentCustom, setCurrentCustom] = useState<IFeeInfoUnit | null>(null);
+  const customFeeSynced = useRef<boolean>(false);
 
   const intl = useIntl();
 
@@ -192,6 +194,7 @@ function ScreenSendEditFee({ ...rest }) {
     feeRate: watchBtcFeeRate,
     feeType: currentFeeType,
   });
+  const { customFee, updateCustomFee } = useCustomFee(networkId);
 
   const onSubmit = handleSubmit(async (data) => {
     let type = currentFeeType;
@@ -315,6 +318,7 @@ function ScreenSendEditFee({ ...rest }) {
     if (feeType === ESendEditFeeTypes.advanced) {
       setRadioValue('custom');
       setFeeType(ESendEditFeeTypes.standard);
+      updateCustomFee(saveCustom ? feeInfoSelected.custom : null);
       return;
     }
 
@@ -358,9 +362,10 @@ function ScreenSendEditFee({ ...rest }) {
       setValue('gasLimit', new BigNumber(limit ?? 0).toFixed());
     },
     [
-      autoConfirmAfterFeeSaved,
       isEIP1559Fee,
+      isBtcForkChain,
       setValue,
+      autoConfirmAfterFeeSaved,
       feeInfoPayload?.info.feeDecimals,
     ],
   );
@@ -383,10 +388,13 @@ function ScreenSendEditFee({ ...rest }) {
         index: radioValue,
       });
 
-      setFormValuesFromFeeInfo({ price, price1559, limit });
+      if (!currentCustom) {
+        setFormValuesFromFeeInfo({ price, price1559, limit });
+      }
     }
   }, [
     currentCustom,
+    customFee,
     feeInfoPayload,
     feeType,
     getSelectedFeeInfoUnit,
@@ -405,9 +413,11 @@ function ScreenSendEditFee({ ...rest }) {
   useEffect(() => {
     const selected = feeInfoPayload?.selected;
     const type = selected?.type ?? 'preset';
+
     if (!feeInfoPayload) {
       return;
     }
+
     if (feeInfoPayload && type === 'preset') {
       let presetValue = selected?.preset || '1';
       // preset fix / presetFix
@@ -480,6 +490,25 @@ function ScreenSendEditFee({ ...rest }) {
     setValue,
   ]);
 
+  useEffect(() => {
+    setSaveCustom(!!customFee);
+
+    if (
+      !customFeeSynced.current &&
+      customFee !== undefined &&
+      feeInfoPayload &&
+      feeInfoPayload?.selected.type !== 'custom'
+    ) {
+      if (customFee) {
+        setCurrentCustom({
+          ...customFee,
+          limit: feeInfoPayload?.info.limit,
+        });
+      }
+      customFeeSynced.current = true;
+    }
+  }, [customFee, feeInfoPayload]);
+
   let content = (
     <Center w="full" py={16}>
       <Spinner size="lg" />
@@ -519,7 +548,11 @@ function ScreenSendEditFee({ ...rest }) {
         value={radioValue}
         onChange={(value) => {
           if (value === 'custom') {
-            setFeeType(ESendEditFeeTypes.advanced);
+            if (currentCustom && radioValue !== 'custom') {
+              setRadioValue(value);
+            } else {
+              setFeeType(ESendEditFeeTypes.advanced);
+            }
           } else {
             setRadioValue(value);
           }
