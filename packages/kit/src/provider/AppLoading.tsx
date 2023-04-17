@@ -45,7 +45,7 @@ const AnimatedSplashView = memo(
     const content = useMemo(
       () => (
         <AnimatedSplash
-          preload={false}
+          preload
           disableAppScale={platformEnv.isExtension}
           disableImageBackgroundAnimation={platformEnv.isExtension}
           // imageBackgroundSource
