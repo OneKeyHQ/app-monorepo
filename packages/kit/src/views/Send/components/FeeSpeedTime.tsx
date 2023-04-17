@@ -37,7 +37,10 @@ export function FeeSpeedTime({
 }) {
   const intl = useIntl();
   let indexInt = parseInt(index as string, 10);
-  let title = `< 15s`;
+  let title = `< ${intl.formatMessage(
+    { id: 'content__str_seconds_plural' },
+    { 0: '15' },
+  )}`;
   let seconds = waitingSeconds;
 
   if (prices && prices.length === 1) {
@@ -47,30 +50,36 @@ export function FeeSpeedTime({
   if (waitingSeconds) {
     const time =
       waitingSeconds > 60 ? Math.ceil(waitingSeconds / 60) : waitingSeconds;
-    const unit = intl.formatMessage({
-      id:
-        waitingSeconds > 60
-          ? 'content__minutes_lowercase'
-          : 'content__seconds__lowercase',
-    });
-    if (indexInt === 0) {
-      title = `~ ${time} ${unit}`;
-    } else if (indexInt === 1) {
-      title = `~ ${time} ${unit}`;
-    } else if (indexInt === 2) {
-      title = `~ ${time} ${unit}`;
-    }
+    const content = intl.formatMessage(
+      {
+        id:
+          waitingSeconds > 60
+            ? 'content__str_minutes_plural'
+            : 'content__str_seconds_plural',
+      },
+      { 0: time },
+    );
+    title = `~ ${content}`;
   } else {
     if (indexInt === 0) {
-      title = '> 30s';
+      title = `> ${intl.formatMessage(
+        { id: 'content__str_seconds_plural' },
+        { 0: '30' },
+      )}`;
       seconds = 31;
     }
     if (indexInt === 1) {
-      title = '~ 30s';
+      title = `~ ${intl.formatMessage(
+        { id: 'content__str_seconds_plural' },
+        { 0: '30' },
+      )}`;
       seconds = 30;
     }
     if (indexInt === 2) {
-      title = '< 15s';
+      title = `< ${intl.formatMessage(
+        { id: 'content__str_seconds_plural' },
+        { 0: '15' },
+      )}`;
       seconds = 14;
     }
   }
