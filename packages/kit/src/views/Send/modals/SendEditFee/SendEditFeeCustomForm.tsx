@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { first, last } from 'lodash';
@@ -106,6 +106,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   const { formValues } = useFormOnChangeDebounced<ISendEditFeeValues>({
     useFormReturn,
   });
+
   const intl = useIntl();
 
   const originLimit = feeInfoPayload?.info?.limit ?? '21000';
@@ -136,6 +137,8 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   const [blockNativeFeeInfo, setBlockNativeFeeInfo] =
     useState<BlockNativeGasInfo>();
 
+  const maxFeeTouched = useRef(false);
+
   const { feeRateFormValidator } = useBtcCustomFeeForm({
     networkId,
     accountId,
@@ -145,6 +148,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     lastPresetFeeInfo: lastPresetFeeInfo as string,
   });
   const watchFeeRate = watch('feeRate');
+  const watchMaxFee = watch('maxFeePerGas');
   const { btcTxFee } = useBtcCustomFee({
     networkId,
     accountId,
@@ -168,6 +172,9 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
       const maxFee = maxPriorityFeePerGas.plus(formValues?.baseFee ?? 0);
 
       if (maxFee.isGreaterThanOrEqualTo(formValues?.maxFeePerGas ?? 0)) {
+        setValue('maxFeePerGas', maxFee.plus(1).toFixed());
+        maxFeeTouched.current = true;
+      } else if (maxFeeTouched.current) {
         setValue('maxFeePerGas', maxFee.plus(1).toFixed());
       }
     },
@@ -372,91 +379,106 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
           </Form.Item>
         )}
         {isEIP1559Fee && (
-          <Form.Item
-            label={
-              <LabelWithTooltip
-                labelId="content__max_priority_fee"
-                tooltipId="content__custom_gas_priority_fee_desc"
-                labelAfter={` (${feeSymbol})`}
-              />
-            }
-            control={control}
-            name="maxPriorityFeePerGas"
-            defaultValue=""
-            rules={{
-              validate: async (value) => {
-                const lowFee = firstPresetFeeInfo as EIP1559Fee;
-                const highFee = lastPresetFeeInfo as EIP1559Fee;
-
-                // getValues
-                try {
-                  await backgroundApiProxy.validator.validateMaxPriortyFee({
-                    networkId,
-                    value,
-                    lowValue: lowFee?.maxPriorityFeePerGas,
-                    highValue: highFee?.maxPriorityFeePerGas,
-                    minValue:
-                      autoConfirmAfterFeeSaved &&
-                      selectedFeeInfo?.custom?.price1559
-                        ? new BigNumber(
-                            (
-                              selectedFeeInfo?.custom?.price1559 as
-                                | EIP1559Fee
-                                | undefined
-                            )?.maxPriorityFeePerGas as string,
-                          )
-                            .times(SEND_EDIT_FEE_PRICE_UP_RATIO)
-                            .toFixed()
-                        : '0',
-                  });
-                  setMaxPriorityFeeTip(null);
-                } catch (error) {
-                  printError(error);
-                  const e = error as OneKeyError;
-
-                  if (
-                    e?.className === OneKeyErrorClassNames.OneKeyValidatorError
-                  ) {
-                    setMaxPriorityFeeTip({
-                      type: 'error',
-                      message: intl.formatMessage(
-                        {
-                          id: e.key as any,
-                        },
-                        e.info,
-                      ),
-                    });
-                    return false;
-                  }
-                  if (
-                    e?.className === OneKeyErrorClassNames.OneKeyValidatorTip
-                  ) {
-                    setMaxPriorityFeeTip({
-                      type: 'warn',
-                      message: intl.formatMessage(
-                        {
-                          id: e.key as any,
-                        },
-                        e.info,
-                      ),
-                    });
-                  }
-                }
-                return true;
-              },
-            }}
-            helpText={
-              <HStack alignItems="center" width="100%" space={8}>
+          <>
+            <Form.Item
+              label={
                 <LabelWithTooltip
-                  labelId="form__priority_fee_booster"
-                  tooltipId="content__custom_gas_priority_fee_booster_desc"
-                  labelProps={{
-                    typography: 'CaptionStrong',
-                    color: 'text-subdued',
-                  }}
+                  labelId="content__max_priority_fee"
+                  tooltipId="content__custom_gas_priority_fee_desc"
+                  labelAfter={` (${feeSymbol})`}
                 />
+              }
+              control={control}
+              name="maxPriorityFeePerGas"
+              defaultValue=""
+              rules={{
+                validate: async (value) => {
+                  const lowFee = firstPresetFeeInfo as EIP1559Fee;
+                  const highFee = lastPresetFeeInfo as EIP1559Fee;
+
+                  // getValues
+                  try {
+                    await backgroundApiProxy.validator.validateMaxPriortyFee({
+                      networkId,
+                      value,
+                      lowValue: lowFee?.maxPriorityFeePerGas,
+                      highValue: highFee?.maxPriorityFeePerGas,
+                      minValue:
+                        autoConfirmAfterFeeSaved &&
+                        selectedFeeInfo?.custom?.price1559
+                          ? new BigNumber(
+                              (
+                                selectedFeeInfo?.custom?.price1559 as
+                                  | EIP1559Fee
+                                  | undefined
+                              )?.maxPriorityFeePerGas as string,
+                            )
+                              .times(SEND_EDIT_FEE_PRICE_UP_RATIO)
+                              .toFixed()
+                          : '0',
+                    });
+                    setMaxPriorityFeeTip(null);
+                  } catch (error) {
+                    printError(error);
+                    const e = error as OneKeyError;
+
+                    if (
+                      e?.className ===
+                      OneKeyErrorClassNames.OneKeyValidatorError
+                    ) {
+                      setMaxPriorityFeeTip({
+                        type: 'error',
+                        message: intl.formatMessage(
+                          {
+                            id: e.key as any,
+                          },
+                          e.info,
+                        ),
+                      });
+                      return false;
+                    }
+                    if (
+                      e?.className === OneKeyErrorClassNames.OneKeyValidatorTip
+                    ) {
+                      setMaxPriorityFeeTip({
+                        type: 'warn',
+                        message: intl.formatMessage(
+                          {
+                            id: e.key as any,
+                          },
+                          e.info,
+                        ),
+                      });
+                    }
+                  }
+                  return true;
+                },
+              }}
+            >
+              <Form.NumberInput
+                mb={0}
+                rightCustomElement={
+                  <Text
+                    paddingRight={2}
+                    typography="Body1"
+                    color="text-subdued"
+                  >{`~${maxPriorityFeeInNative} ${nativeSymbol}`}</Text>
+                }
+                size={isSmallScreen ? 'xl' : 'lg'}
+              />
+            </Form.Item>
+            <HStack alignItems="center" width="100%" space={8} mt={-4}>
+              <LabelWithTooltip
+                labelId="form__priority_fee_booster"
+                tooltipId="content__custom_gas_priority_fee_booster_desc"
+                labelProps={{
+                  typography: 'CaptionStrong',
+                  color: 'text-subdued',
+                }}
+              />
+              <Box flex={1}>
                 <Slider
-                  flex={1}
+                  width="100%"
                   minValue={1}
                   maxValue={100}
                   accessibilityLabel={intl.formatMessage({
@@ -490,20 +512,9 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                     </Slider.Thumb>
                   </Tooltip>
                 </Slider>
-              </HStack>
-            }
-          >
-            <Form.NumberInput
-              rightCustomElement={
-                <Text
-                  paddingRight={2}
-                  typography="Body1"
-                  color="text-subdued"
-                >{`~${maxPriorityFeeInNative} ${nativeSymbol}`}</Text>
-              }
-              size={isSmallScreen ? 'xl' : 'lg'}
-            />
-          </Form.Item>
+              </Box>
+            </HStack>
+          </>
         )}
 
         {!isEIP1559Fee && (
@@ -689,6 +700,17 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     ),
     [gasLimitTip, gasPriceTip, maxFeeTip, maxPriorityFeeTip],
   );
+
+  useEffect(() => {
+    if (
+      new BigNumber(formValues?.maxPriorityFeePerGas ?? 0)
+        .plus(formValues?.baseFee ?? 0)
+        .plus(1)
+        .isLessThan(watchMaxFee)
+    ) {
+      maxFeeTouched.current = false;
+    }
+  }, [formValues?.baseFee, formValues?.maxPriorityFeePerGas, watchMaxFee]);
 
   useEffect(() => {
     // eslint-disable-next-line prefer-const
