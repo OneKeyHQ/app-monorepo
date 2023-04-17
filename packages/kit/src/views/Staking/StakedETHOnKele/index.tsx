@@ -243,7 +243,8 @@ const ListHeaderComponent = () => {
     });
   }, [navigation, networkId]);
 
-  const totalAmount = minerOverview?.amount?.total_amount ?? 0;
+  const totalAmount = Number(minerOverview?.amount?.total_amount ?? 0);
+  const stakingAmount = Number(minerOverview?.amount?.staking_amount ?? 0);
 
   return (
     <Box>
@@ -288,11 +289,10 @@ const ListHeaderComponent = () => {
         </Typography.Body2>
       </Box>
       <KeleOverview />
-      <VStack space="2">
-        {minerOverview?.amount?.staking_amount ? (
+      <VStack space="2" mt="2">
+        {stakingAmount ? (
           <Box
             p="4"
-            mt="4"
             borderRadius={12}
             bg="surface-default"
             flexDirection="row"
@@ -311,7 +311,7 @@ const ListHeaderComponent = () => {
               <Typography.Body1>
                 {intl.formatMessage(
                   { id: 'form__str_is_activating' },
-                  { '0': `${minerOverview?.amount?.staking_amount} ETH` },
+                  { '0': `${stakingAmount} ETH` },
                 )}
               </Typography.Body1>
               <Typography.Body2 color="text-subdued">

@@ -11,6 +11,7 @@ import {
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { QuoterType } from './typings';
 
@@ -432,4 +433,46 @@ export function getLimitOrderPercent(limitOrder: LimitOrderTransactionDetails) {
     ),
     100,
   );
+}
+
+export enum LoggerTimerTags {
+  overview = 'overview',
+  approval = 'approval',
+  cancelApproval = 'cancelApproval',
+  swap = 'swap',
+  signMessage = 'signMessage',
+  gasEstimate = 'gasEstimate',
+  checkTokenBalance = 'checkTokenBalance',
+  checkTokenAllowance = 'checkTokenAllowance',
+  buildTransaction = 'buildTransaction',
+}
+
+export function createLoggerTimer() {
+  let ref: Record<string, number> = {};
+  return {
+    start: (tag: string) => {
+      const now = Date.now();
+      if (ref[tag]) {
+        debugLogger.swap.info(
+          `tag ${tag} already exists, it's value ${ref[tag]} will be replace with ${now}`,
+        );
+      }
+      ref[tag] = now;
+    },
+    end: (tag: string) => {
+      const startAt = ref[tag];
+      const now = Date.now();
+      if (!startAt) {
+        debugLogger.swap.info(`tag ${tag} ended at ${now}`);
+      } else {
+        const spent = ((now - startAt) / 1000).toFixed(2);
+        debugLogger.swap.info(
+          `tag ${tag} took ${spent} secords, ended at ${now}`,
+        );
+      }
+    },
+    clear: () => {
+      ref = {};
+    },
+  };
 }

@@ -154,6 +154,7 @@ export default function UnstakeAmount() {
           method: 'post',
           api_param: apiParams,
         };
+
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
@@ -176,21 +177,18 @@ export default function UnstakeAmount() {
                   ToastManager.show({ title: res.message }, { type: 'error' });
                 } else {
                   setAmount('');
+                  backgroundApiProxy.serviceStaking.fetchMinerOverview({
+                    networkId,
+                    accountId,
+                  });
                   navigation.replace(RootRoutes.Modal, {
                     screen: ModalRoutes.Staking,
                     params: {
-                      screen: StakingRoutes.StakedETHOnKele,
+                      screen: StakingRoutes.Feedback,
                       params: {
                         networkId,
                       },
                     },
-                  });
-                  ToastManager.show({
-                    title: intl.formatMessage({ id: 'msg__success' }),
-                  });
-                  backgroundApiProxy.serviceStaking.fetchMinerOverview({
-                    networkId,
-                    accountId,
                   });
                 }
               },
@@ -200,40 +198,42 @@ export default function UnstakeAmount() {
       }}
     >
       <Box flex="1">
-        <Box flexDirection="column">
-          <Box py={2} my={2} justifyContent="center">
-            <Text
-              textAlign="center"
-              typography="DisplayLarge"
-              color="text-subdued"
-            >
-              {tokenInfo?.symbol.toUpperCase() ?? ''}
-            </Text>
-            <Center py="4" h={isSmallScreen ? '32' : undefined}>
-              <AutoSizeText
-                autoFocus
-                text={amount}
-                onChangeText={setAmount}
-                placeholder="0"
-              />
-            </Center>
-            <Center>
-              {minAmountErrMsg ? (
-                <Typography.Body1Strong color="text-critical">
-                  {minAmountErrMsg}
-                </Typography.Body1Strong>
-              ) : (
-                <FormatCurrency
-                  numbers={[mainPrice ?? 0, amount ?? 0]}
-                  render={(ele) => (
-                    <Typography.Body2 color="text-subdued">
-                      {mainPrice ? ele : '$ 0'}
-                    </Typography.Body2>
-                  )}
+        <Box flex="1" flexDirection="column">
+          <Center flex="1" my={2}>
+            <Center maxH="140px">
+              <Text
+                textAlign="center"
+                typography="DisplayLarge"
+                color="text-subdued"
+              >
+                {tokenInfo?.symbol.toUpperCase() ?? ''}
+              </Text>
+              <Center flex="1" py="4">
+                <AutoSizeText
+                  autoFocus
+                  text={amount}
+                  onChangeText={setAmount}
+                  placeholder="0"
                 />
-              )}
+              </Center>
+              <Center>
+                {minAmountErrMsg ? (
+                  <Typography.Body1Strong color="text-critical">
+                    {minAmountErrMsg}
+                  </Typography.Body1Strong>
+                ) : (
+                  <FormatCurrency
+                    numbers={[mainPrice ?? 0, amount ?? 0]}
+                    render={(ele) => (
+                      <Typography.Body2 color="text-subdued">
+                        {mainPrice ? ele : '$ 0'}
+                      </Typography.Body2>
+                    )}
+                  />
+                )}
+              </Center>
             </Center>
-          </Box>
+          </Center>
           <Center>
             <HStack flexDirection="row" alignItems="center" space="3">
               <Button size="sm" onPress={() => userInput(25)}>
@@ -265,11 +265,13 @@ export default function UnstakeAmount() {
               {balance ?? ''} {tokenInfo?.symbol.toUpperCase()}
             </Typography.Body2Strong>
           </Box>
-          <Box flexDirection="row" mt="16" justifyContent="space-between">
-            <Typography.Body2 color="text-subdued">
-              {intl.formatMessage({ id: 'form__est_arrival_time' })}
-            </Typography.Body2>
-            <Typography.Body2>{intlMinutes}</Typography.Body2>
+          <Box mt="16">
+            <Box flexDirection="row" justifyContent="space-between">
+              <Typography.Body2 color="text-subdued">
+                {intl.formatMessage({ id: 'form__est_arrival_time' })}
+              </Typography.Body2>
+              <Typography.Body2>{intlMinutes}</Typography.Body2>
+            </Box>
           </Box>
         </Box>
         {platformEnv.isNative && (
