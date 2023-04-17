@@ -37,7 +37,7 @@ export function FeeSpeedTime({
 }) {
   const intl = useIntl();
   let indexInt = parseInt(index as string, 10);
-  let title = '<15s';
+  let title = `< 15s`;
   let seconds = waitingSeconds;
 
   if (prices && prices.length === 1) {
@@ -54,23 +54,23 @@ export function FeeSpeedTime({
           : 'content__seconds__lowercase',
     });
     if (indexInt === 0) {
-      title = `~${time} ${unit}`;
+      title = `~ ${time} ${unit}`;
     } else if (indexInt === 1) {
-      title = `~${time} ${unit}`;
+      title = `~ ${time} ${unit}`;
     } else if (indexInt === 2) {
-      title = `~${time} ${unit}`;
+      title = `~ ${time} ${unit}`;
     }
   } else {
     if (indexInt === 0) {
-      title = '>30s';
+      title = '> 30s';
       seconds = 31;
     }
     if (indexInt === 1) {
-      title = '~30s';
+      title = '~ 30s';
       seconds = 30;
     }
     if (indexInt === 2) {
-      title = '<15s';
+      title = '< 15s';
       seconds = 14;
     }
   }
