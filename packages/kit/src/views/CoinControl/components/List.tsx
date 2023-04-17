@@ -116,7 +116,13 @@ const CoinControlCell: FC<ICellProps> = ({
   }, [item.height, formatDate, blockTimeMap]);
 
   return (
-    <ListItem flex={1} space={2}>
+    <ListItem
+      flex={1}
+      space={2}
+      onPress={() => {
+        onChange(item, !isSelected);
+      }}
+    >
       <ListItem.Column>
         <Box
           flexDirection="row"
@@ -126,7 +132,7 @@ const CoinControlCell: FC<ICellProps> = ({
           <CheckBox
             w={5}
             isChecked={!!isSelected}
-            onChange={(value) => onChange(item, value)}
+            // onChange={(value) => onChange(item, value)}
           />
         </Box>
       </ListItem.Column>
