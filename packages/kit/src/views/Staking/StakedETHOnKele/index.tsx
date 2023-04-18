@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react';
+import type { FC } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { format as dateFormat } from 'date-fns';
@@ -29,7 +30,7 @@ import { ModalRoutes, RootRoutes } from '../../../routes/types';
 import { formatAmount } from '../../../utils/priceUtils';
 import {
   useIntlMinutes,
-  useKeleIncomes,
+  useKeleHistory,
   useKeleMinerOverview,
   useKeleUnstakeOverview,
   useKeleWithdrawOverview,
@@ -37,17 +38,15 @@ import {
 } from '../hooks';
 import { StakingRoutes } from '../typing';
 
-import type { StakingRoutesParams } from '../typing';
+import type {
+  KeleGenericHistory,
+  KeleIncomeDTO,
+  KeleOpHistoryDTO,
+  StakingRoutesParams,
+} from '../typing';
 import type { ListRenderItem } from 'react-native';
 
 type NavigationProps = ModalScreenProps<StakingRoutesParams>;
-
-type IncomeItem = {
-  date: string;
-  reward: number;
-  deposit?: number;
-  balance: number;
-};
 
 function prefixAmount(amount: number) {
   return Number(amount) > 0 ? `+${Number(amount)}` : amount;
@@ -343,6 +342,92 @@ const ListHeaderComponent = () => {
   );
 };
 
+const RewardHistory: FC<{ item: KeleIncomeDTO }> = ({ item }) => {
+  const intl = useIntl();
+  const { networkId } = useActiveWalletAccount();
+  const mainPrice = useSimpleTokenPriceValue({ networkId });
+  return (
+    <Box w="full">
+      <Box justifyContent="space-between" flexDirection="row" mb="1">
+        <Typography.Body1Strong>
+          {intl.formatMessage({ id: 'title__reward' })}
+        </Typography.Body1Strong>
+        <Typography.Body1Strong>
+          {prefixAmount(item.reward)} ETH
+        </Typography.Body1Strong>
+      </Box>
+      <Box justifyContent="space-between" flexDirection="row">
+        <Typography.Body2 color="text-subdued">
+          {dateFormat(new Date(item.date), 'LLL dd yyyy')}
+        </Typography.Body2>
+        <FormatCurrency
+          numbers={[mainPrice ?? 0, item.reward ?? 0]}
+          render={(ele) => (
+            <Typography.Body2 ml={3} color="text-subdued">
+              {mainPrice ? ele : '-'}
+            </Typography.Body2>
+          )}
+        />
+      </Box>
+    </Box>
+  );
+};
+
+const OpHistory: FC<{ item: KeleOpHistoryDTO }> = ({ item }) => {
+  const intl = useIntl();
+  const { networkId } = useActiveWalletAccount();
+  const mainPrice = useSimpleTokenPriceValue({ networkId });
+  const opType = item.op_type;
+  let title = intl.formatMessage({ id: 'action__stake' });
+  let status = '';
+  if ([0, 1].includes(opType)) {
+    title = intl.formatMessage({ id: 'form__staking' });
+    status = intl.formatMessage({ id: 'transaction__pending' });
+  } else if ([2].includes(opType)) {
+    title = intl.formatMessage({ id: 'form__staking' });
+  } else if ([3, 4].includes(opType)) {
+    title = intl.formatMessage({ id: 'form__unstaking' });
+    status = intl.formatMessage({ id: 'transaction__pending' });
+  } else if ([5].includes(opType)) {
+    title = intl.formatMessage({ id: 'form__unstaking' });
+  } else if ([6].includes(opType)) {
+    title = intl.formatMessage({ id: 'action__withdraw' });
+    status = intl.formatMessage({ id: 'transaction__pending' });
+  } else if ([7, 8].includes(opType)) {
+    title = intl.formatMessage({ id: 'action__withdraw' });
+  }
+
+  return (
+    <Box w="full">
+      <Box justifyContent="space-between" flexDirection="row" mb="1">
+        <Typography.Body1Strong>{title}</Typography.Body1Strong>
+        <Typography.Body1Strong>
+          {prefixAmount(item.amount)} ETH
+        </Typography.Body1Strong>
+      </Box>
+      <Box justifyContent="space-between" flexDirection="row">
+        <Typography.Body2 color="text-subdued">
+          {dateFormat(new Date(item.history_time), 'LLL dd yyyy')}
+        </Typography.Body2>
+        {status ? (
+          <Box>
+            <Typography.Body2 color="text-highlight">{status}</Typography.Body2>
+          </Box>
+        ) : (
+          <FormatCurrency
+            numbers={[mainPrice ?? 0, item.amount ?? 0]}
+            render={(ele) => (
+              <Typography.Body2 ml={3} color="text-subdued">
+                {mainPrice ? ele : '-'}
+              </Typography.Body2>
+            )}
+          />
+        )}
+      </Box>
+    </Box>
+  );
+};
+
 const ListEmptyComponent = () => {
   const intl = useIntl();
   return (
@@ -357,10 +442,8 @@ const ListEmptyComponent = () => {
 };
 
 export default function StakedETHOnKele() {
-  const intl = useIntl();
   const { networkId, accountId } = useActiveWalletAccount();
-  const mainPrice = useSimpleTokenPriceValue({ networkId });
-  const incomeItems = useKeleIncomes(networkId, accountId);
+  const history = useKeleHistory(networkId, accountId);
 
   useEffect(() => {
     backgroundApiProxy.serviceStaking.fetchPendingWithdrawAmount({
@@ -375,51 +458,37 @@ export default function StakedETHOnKele() {
       accountId,
       networkId,
     });
+    backgroundApiProxy.serviceStaking.fetchKeleOpHistory({
+      accountId,
+      networkId,
+    });
     backgroundApiProxy.serviceStaking.getDashboardGlobal({ networkId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const renderItem: ListRenderItem<IncomeItem> = useCallback(
+  const renderItem: ListRenderItem<KeleGenericHistory> = useCallback(
     ({ item, index }) => (
       <Box
         py="4"
         px="6"
         bg="surface-default"
+        overflow="hidden"
         borderTopRadius={index === 0 ? 12 : undefined}
         borderBottomRadius={
-          incomeItems && index === incomeItems.length - 1 ? 12 : undefined
+          history && index === history.length - 1 ? 12 : undefined
         }
       >
-        <Box justifyContent="space-between" flexDirection="row" mb="1">
-          <Typography.Body1Strong>
-            {intl.formatMessage({ id: 'form__staking_reward' })}
-          </Typography.Body1Strong>
-          <Typography.Body1Strong>
-            {prefixAmount(item.reward)} ETH
-          </Typography.Body1Strong>
-        </Box>
-        <Box justifyContent="space-between" flexDirection="row">
-          <Typography.Body2 color="text-subdued">
-            {dateFormat(new Date(item.date), 'LLL dd yyyy')}
-          </Typography.Body2>
-          <FormatCurrency
-            numbers={[mainPrice ?? 0, item.reward ?? 0]}
-            render={(ele) => (
-              <Typography.Body2 ml={3} color="text-subdued">
-                {mainPrice ? ele : '-'}
-              </Typography.Body2>
-            )}
-          />
-        </Box>
+        {item.op ? <OpHistory item={item.op} /> : null}
+        {item.income ? <RewardHistory item={item.income} /> : null}
       </Box>
     ),
-    [incomeItems, intl, mainPrice],
+    [history],
   );
   return (
     <Modal
       height="560px"
       footer={null}
       flatListProps={{
-        data: incomeItems ?? [],
+        data: history ?? [],
         // @ts-ignore
         renderItem,
         ListHeaderComponent,
