@@ -18,6 +18,7 @@ import {
 import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
+import { removeTrailingZeros } from '../../../utils/helper';
 import { SendModalRoutes } from '../types';
 import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../utils/sendConfirmConsts';
 import { useNetworkFeeInfoEditable } from '../utils/useNetworkFeeInfoEditable';
@@ -473,7 +474,9 @@ function FeeInfoInputForConfirmLite({
     if (!encodedTx || !feeInfoPayload) {
       return null;
     }
-    const totalNative = new BigNumber(totalFeeInNative || '0').toFixed(8);
+    const totalNative = removeTrailingZeros(
+      new BigNumber(totalFeeInNative || '0').toFixed(8),
+    );
 
     return (
       <HStack space={1} alignItems="center">
