@@ -53,6 +53,7 @@ export type Collection = {
   volume24h?: number;
   openseaVerified?: boolean;
   royalty?: number;
+  hasAttributes?: boolean;
   blueChip?: {
     next_blue_chip_probability: string | null;
   } | null;
