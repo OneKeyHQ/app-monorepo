@@ -4,6 +4,7 @@ import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import * as nft from '@onekeyhq/engine/src/managers/nft';
 import type {
   Collection,
+  CollectionAttribute,
   MarketPlace,
   NFTAsset,
   NFTMarketCapCollection,
@@ -89,6 +90,27 @@ class ServiceNFT extends ServiceBase {
       .get<NFTServiceResp<Collection>>(url)
       .then((resp) => resp.data)
       .catch(() => ({ success: false, data: {} as Collection }));
+    if (!success) {
+      return undefined;
+    }
+    return data;
+  }
+
+  @backgroundMethod()
+  async getCollectionAttributes({
+    chain,
+    contractAddress,
+  }: {
+    chain: string;
+    contractAddress: string;
+  }) {
+    const urlParams = new URLSearchParams({ chain, contractAddress });
+    const url = `${this.baseUrl}/collection/attributes?${urlParams.toString()}`;
+
+    const { data, success } = await this.client
+      .get<NFTServiceResp<CollectionAttribute[]>>(url)
+      .then((resp) => resp.data)
+      .catch(() => ({ success: false, data: [] }));
     if (!success) {
       return undefined;
     }
