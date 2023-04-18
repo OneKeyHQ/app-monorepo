@@ -128,6 +128,7 @@ export function SendEditFeeStandardForm({
               price={gas}
               limit={feeInfoPayload?.info.limit ?? '0'}
               feeInfo={feeInfoPayload?.info}
+              prices={feeInfoPayload?.info.prices ?? []}
             />
           </HStack>
         ),
