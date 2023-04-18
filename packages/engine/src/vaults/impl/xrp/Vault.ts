@@ -271,8 +271,10 @@ export default class Vault extends VaultBase {
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTx> {
     const { amount } = payload;
-    const dropAmount = XRPL.xrpToDrops(amount);
-    encodedTx.Amount = dropAmount;
+    if (amount) {
+      const dropAmount = XRPL.xrpToDrops(amount);
+      encodedTx.Amount = dropAmount;
+    }
     return Promise.resolve(encodedTx);
   }
 
