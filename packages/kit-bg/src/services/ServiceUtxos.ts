@@ -49,11 +49,12 @@ export default class ServiceUtxos extends ServiceBase {
       }
       return utxo;
     });
-    const dataSourceWithoutDust = utxos.filter((utxo) =>
-      new BigNumber(utxo.value).isGreaterThan(dust),
+    const dataSourceWithoutDust = utxos.filter(
+      (utxo) => new BigNumber(utxo.value).isGreaterThan(dust) && !utxo.frozen,
     );
-    const dustData = utxos.filter((utxo) =>
-      new BigNumber(utxo.value).isLessThanOrEqualTo(dust),
+    const dustData = utxos.filter(
+      (utxo) =>
+        new BigNumber(utxo.value).isLessThanOrEqualTo(dust) && !utxo.frozen,
     );
     const frozenUtxos = utxos.filter((utxo) => utxo.frozen);
     const result = {

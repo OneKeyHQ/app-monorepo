@@ -85,11 +85,18 @@ const CoinControl = () => {
       });
   }, [networkId, accountId, refreshUtxosData]);
 
+  const utxoWithDust = useMemo(
+    () => utxosWithoutDust.concat(utxosDust),
+    [utxosWithoutDust, utxosDust],
+  );
+
   const isAllSelected = useMemo(
     () =>
-      allUtxos.length > 0 &&
-      allUtxos.every((utxo) => selectedUtxos.includes(getUtxoUniqueKey(utxo))),
-    [selectedUtxos, allUtxos],
+      utxoWithDust.length > 0 &&
+      utxoWithDust.every((utxo) =>
+        selectedUtxos.includes(getUtxoUniqueKey(utxo)),
+      ),
+    [selectedUtxos, utxoWithDust],
   );
 
   const [, setIsSelectedAllInner] = useState(false);
@@ -97,12 +104,12 @@ const CoinControl = () => {
     (value: boolean) => {
       setIsSelectedAllInner(value);
       if (value) {
-        setSelectedUtxos(allUtxos.map((utxo) => getUtxoUniqueKey(utxo)));
+        setSelectedUtxos(utxoWithDust.map((utxo) => getUtxoUniqueKey(utxo)));
       } else {
         setSelectedUtxos([]);
       }
     },
-    [allUtxos],
+    [utxoWithDust],
   );
 
   const onCheckBoxChange = useCallback(
