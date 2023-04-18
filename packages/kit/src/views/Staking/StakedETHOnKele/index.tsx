@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react';
 import type { FC } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { format as dateFormat } from 'date-fns';
+import { format as dateFormat, parse } from 'date-fns';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -407,7 +407,10 @@ const OpHistory: FC<{ item: KeleOpHistoryDTO }> = ({ item }) => {
       </Box>
       <Box justifyContent="space-between" flexDirection="row">
         <Typography.Body2 color="text-subdued">
-          {dateFormat(new Date(item.history_time), 'LLL dd yyyy')}
+          {dateFormat(
+            parse(item.history_time, 'yyyy-MM-dd HH:mm:ss', new Date()),
+            'LLL dd yyyy',
+          )}
         </Typography.Body2>
         {status ? (
           <Box>
