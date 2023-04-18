@@ -247,7 +247,7 @@ const RecoverConfirm: FC = () => {
       <Protected
         walletId={walletId}
         skipSavePassword
-        field={ValidationFields.Wallet}
+        field={ValidationFields.Account}
       >
         {(password) => {
           setRecovering(true);
