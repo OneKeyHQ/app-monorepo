@@ -16,10 +16,11 @@ import { showEditLabelDialog } from './EditLabelDialog';
 
 const CoinControlListItemMenu: FC<
   IMenu & {
-    item: ICoinControlListItem;
     network: Network;
+    item: ICoinControlListItem;
+    onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
   }
-> = ({ item, network, ...props }) => {
+> = ({ item, network, onConfirmEditLabel, ...props }) => {
   const { openTransactionDetails } = useOpenBlockBrowser(network);
   const onOpenBlockChainBrowser = useCallback(() => {
     openTransactionDetails(item.txid);
@@ -36,10 +37,14 @@ const CoinControlListItemMenu: FC<
     showEditLabelDialog({
       defaultLabel: item.label ?? '',
       onConfirm: (label) => {
-        console.log(label);
+        onConfirmEditLabel(item, label);
       },
     });
-  }, [item.label]);
+  }, [item, onConfirmEditLabel]);
+
+  const onPressDeleteLabel = useCallback(() => {
+    onConfirmEditLabel(item, '');
+  }, [item, onConfirmEditLabel]);
 
   const options = useMemo<IBaseMenuOptions>(
     () => [
@@ -50,7 +55,7 @@ const CoinControlListItemMenu: FC<
       },
       hasLabel && {
         id: 'action__delete_label',
-        onPress: () => {},
+        onPress: onPressDeleteLabel,
         icon: 'TrashOutline',
       },
       () => <Divider my={1} />,
@@ -71,10 +76,8 @@ const CoinControlListItemMenu: FC<
         icon: 'SnowFlakeMini',
       },
     ],
-    [onOpenBlockChainBrowser, hasLabel, isFrozen],
+    [onOpenBlockChainBrowser, hasLabel, isFrozen, onPressEditLabel],
   );
-
-  console.log('options ====> :', options);
 
   return <BaseMenu options={options} {...props} />;
 };

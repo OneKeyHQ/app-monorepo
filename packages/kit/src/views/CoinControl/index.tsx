@@ -9,6 +9,7 @@ import {
   Empty,
   Modal,
   SegmentedControl,
+  ToastManager,
 } from '@onekeyhq/components';
 import { getUtxoUniqueKey } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -48,23 +49,28 @@ const CoinControl = () => {
 
   const { network } = useNetwork({ networkId });
 
+  const refreshUtxosData = useCallback(
+    () =>
+      backgroundApiProxy.serviceUtxos
+        .getUtxos(networkId, accountId)
+        .then((response) => {
+          setAllUtxos(response.utxos);
+          setUtxosWithoutDust(response.utxosWithoutDust);
+          setUtxosDust(response.utxosDust);
+          setFrozenUtxos(response.frozenUtxos);
+          return response.utxos;
+        }),
+    [networkId, accountId],
+  );
+
   useEffect(() => {
-    backgroundApiProxy.serviceUtxos
-      .getUtxos(networkId, accountId)
-      .then((response) => {
-        setAllUtxos(response.utxos);
-        setUtxosWithoutDust(response.utxosWithoutDust);
-        setUtxosDust(response.utxosDust);
-        setFrozenUtxos(response.frozenUtxos);
-        return response.utxos;
-      })
-      .then((utxos) => {
-        backgroundApiProxy.serviceUtxos
-          .getUtxosBlockTime(networkId, accountId, utxos)
-          .then((response) => {
-            setBlockTimeMap(response);
-          });
-      });
+    refreshUtxosData().then((utxos) => {
+      backgroundApiProxy.serviceUtxos
+        .getUtxosBlockTime(networkId, accountId, utxos)
+        .then((response) => {
+          setBlockTimeMap(response);
+        });
+    });
     backgroundApiProxy.engine
       .findToken({
         networkId,
@@ -73,7 +79,7 @@ const CoinControl = () => {
       .then((tokenRes) => {
         setToken(tokenRes);
       });
-  }, [networkId, accountId]);
+  }, [networkId, accountId, refreshUtxosData]);
 
   const isAllSelected = useMemo(
     () =>
@@ -105,6 +111,20 @@ const CoinControl = () => {
       }
     },
     [selectedUtxos],
+  );
+
+  const onConfirmEditLabel = useCallback(
+    (item: ICoinControlListItem, label: string) => {
+      backgroundApiProxy.serviceUtxos
+        .updateLabel(networkId, accountId, item, label)
+        .then(() => {
+          ToastManager.show({
+            title: intl.formatMessage({ id: 'msg__success' }),
+          });
+          refreshUtxosData();
+        });
+    },
+    [networkId, accountId, refreshUtxosData, intl],
   );
 
   return (
@@ -146,6 +166,7 @@ const CoinControl = () => {
           triggerAllSelected={triggerAllSelected}
           blockTimeMap={blockTimeMap}
           onChange={onCheckBoxChange}
+          onConfirmEditLabel={onConfirmEditLabel}
         />
       )}
       {selectedIndex === 1 && (

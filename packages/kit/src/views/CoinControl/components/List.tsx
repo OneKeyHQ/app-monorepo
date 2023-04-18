@@ -90,6 +90,7 @@ export type ICellProps = {
   selectedUtxos: string[];
   blockTimeMap: Record<string, number>;
   onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
+  onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
 };
 
 const CoinControlCell: FC<ICellProps> = ({
@@ -100,6 +101,7 @@ const CoinControlCell: FC<ICellProps> = ({
   selectedUtxos = [],
   blockTimeMap,
   onChange,
+  onConfirmEditLabel,
 }) => {
   const { formatDate } = useFormatDate();
   const isSelected = selectedUtxos.find(
@@ -202,8 +204,11 @@ const CoinControlCell: FC<ICellProps> = ({
         </Box>
       </ListItem.Column>
       <ListItem.Column>
-        <CoinControlListItemMenu item={item} network={network}>
-          {/* <Box>1</Box> */}
+        <CoinControlListItemMenu
+          item={item}
+          network={network}
+          onConfirmEditLabel={onConfirmEditLabel}
+        >
           <IconButton
             alignItems="flex-end"
             type="plain"
@@ -234,6 +239,7 @@ const ListFooter: FC<
   selectedUtxos = [],
   blockTimeMap,
   onChange,
+  onConfirmEditLabel,
 }) => {
   const intl = useIntl();
 
@@ -258,6 +264,7 @@ const ListFooter: FC<
           selectedUtxos={selectedUtxos}
           blockTimeMap={blockTimeMap}
           onChange={onChange}
+          onConfirmEditLabel={onConfirmEditLabel}
         />
       )),
     [
@@ -268,6 +275,7 @@ const ListFooter: FC<
       selectedUtxos,
       blockTimeMap,
       onChange,
+      onConfirmEditLabel,
     ],
   );
 
@@ -342,6 +350,7 @@ const CoinControlList: FC<{
   triggerAllSelected: (value: boolean) => void;
   blockTimeMap: Record<string, number>;
   onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
+  onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
 }> = ({
   accountId,
   network,
@@ -354,6 +363,7 @@ const CoinControlList: FC<{
   triggerAllSelected,
   blockTimeMap,
   onChange,
+  onConfirmEditLabel,
 }) => {
   const rowRenderer = useCallback(
     ({ item }: ListRenderItemInfo<ICoinControlListItem>) => (
@@ -365,9 +375,18 @@ const CoinControlList: FC<{
         selectedUtxos={selectedUtxos}
         blockTimeMap={blockTimeMap}
         onChange={onChange}
+        onConfirmEditLabel={onConfirmEditLabel}
       />
     ),
-    [selectedUtxos, network, blockTimeMap, token, accountId, onChange],
+    [
+      selectedUtxos,
+      network,
+      blockTimeMap,
+      token,
+      accountId,
+      onChange,
+      onConfirmEditLabel,
+    ],
   );
 
   const headerComponent = useCallback(
@@ -390,6 +409,7 @@ const CoinControlList: FC<{
         selectedUtxos={selectedUtxos}
         blockTimeMap={blockTimeMap}
         onChange={onChange}
+        onConfirmEditLabel={onConfirmEditLabel}
       />
     ),
     [
@@ -401,6 +421,7 @@ const CoinControlList: FC<{
       token,
       accountId,
       onChange,
+      onConfirmEditLabel,
     ],
   );
 
