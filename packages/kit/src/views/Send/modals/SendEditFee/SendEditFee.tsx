@@ -380,7 +380,7 @@ function ScreenSendEditFee({ ...rest }) {
     if (
       !feeInfoPayload ||
       feeType !== ESendEditFeeTypes.standard ||
-      parseFloat(radioValue) < 0 ||
+      (parseFloat(radioValue) < 0 && radioValue !== 'custom') ||
       !radioValue
     ) {
       return;
