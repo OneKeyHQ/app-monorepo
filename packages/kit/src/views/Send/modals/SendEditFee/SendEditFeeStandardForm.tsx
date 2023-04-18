@@ -23,6 +23,7 @@ const presetItemStyle = {
   paddingTop: '4px',
   paddingBottom: '4px',
   alignItems: 'center',
+  height: '64px',
 };
 
 const customItemStyle = {
@@ -109,7 +110,6 @@ export function SendEditFeeStandardForm({
           <FeeSpeedLabel
             index={index}
             iconSize={28}
-            alignItems="center"
             space={2}
             prices={feeInfoPayload?.info.prices ?? []}
           />
