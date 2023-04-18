@@ -3,10 +3,7 @@ import BigNumber from 'bignumber.js';
 import { getUtxoId } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
-import type {
-  CoinControlOption,
-  ICoinControlListItem,
-} from '@onekeyhq/engine/src/types/utxoAccounts';
+import type { ICoinControlListItem } from '@onekeyhq/engine/src/types/utxoAccounts';
 import type VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import {
   backgroundClass,

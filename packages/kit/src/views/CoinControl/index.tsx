@@ -9,6 +9,7 @@ import {
   Empty,
   Modal,
   SegmentedControl,
+  Spinner,
   ToastManager,
 } from '@onekeyhq/components';
 import { getUtxoUniqueKey } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
@@ -36,6 +37,7 @@ const CoinControl = () => {
   const route = useRoute<RouteProps>();
   const { networkId, accountId } = route.params;
 
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [allUtxos, setAllUtxos] = useState<ICoinControlListItem[]>([]);
   const [utxosWithoutDust, setUtxosWithoutDust] = useState<
@@ -49,19 +51,21 @@ const CoinControl = () => {
 
   const { network } = useNetwork({ networkId });
 
-  const refreshUtxosData = useCallback(
-    () =>
-      backgroundApiProxy.serviceUtxos
-        .getUtxos(networkId, accountId)
-        .then((response) => {
-          setAllUtxos(response.utxos);
-          setUtxosWithoutDust(response.utxosWithoutDust);
-          setUtxosDust(response.utxosDust);
-          setFrozenUtxos(response.frozenUtxos);
-          return response.utxos;
-        }),
-    [networkId, accountId],
-  );
+  const refreshUtxosData = useCallback(() => {
+    setIsLoading(true);
+    return backgroundApiProxy.serviceUtxos
+      .getUtxos(networkId, accountId)
+      .then((response) => {
+        setAllUtxos(response.utxos);
+        setUtxosWithoutDust(response.utxosWithoutDust);
+        setUtxosDust(response.utxosDust);
+        setFrozenUtxos(response.frozenUtxos);
+        return response.utxos;
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [networkId, accountId]);
 
   useEffect(() => {
     refreshUtxosData().then((utxos) => {
@@ -127,6 +131,54 @@ const CoinControl = () => {
     [networkId, accountId, refreshUtxosData, intl],
   );
 
+  const onFrozenUTXO = useCallback(
+    (item: ICoinControlListItem, value: boolean) => {
+      backgroundApiProxy.serviceUtxos
+        .updateFrozen(networkId, accountId, item, value)
+        .then(() => {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({
+                id: value
+                  ? 'msg__utxo_is_frozen_you_can_find_it_in_frozen_tab'
+                  : 'msg__utxo_is_unfrozen_you_can_find_it_in_availabel_tab',
+              }),
+            },
+            {
+              type: 'default',
+            },
+          );
+          refreshUtxosData();
+        });
+    },
+    [networkId, accountId, refreshUtxosData, intl],
+  );
+
+  const renderEmpty = useMemo(
+    () => (
+      <Center flex={1}>
+        <Empty
+          emoji="🪙"
+          title={intl.formatMessage({
+            id: 'content__no_coins',
+          })}
+          subTitle={intl.formatMessage({
+            id: 'content__no_utxos_in_this_account',
+          })}
+        />
+      </Center>
+    ),
+    [intl],
+  );
+
+  const showAvailableList = useMemo(
+    () => utxosWithoutDust.length > 0 || utxosDust.length > 0,
+    [utxosWithoutDust, utxosDust],
+  );
+  const showAvailableListCheckbox = useMemo(() => true, []);
+  const showFrozenList = useMemo(() => frozenUtxos.length > 0, [frozenUtxos]);
+  const showFrozenListCheckbox = useMemo(() => false, []);
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__coin_control' })}
@@ -153,35 +205,58 @@ const CoinControl = () => {
           onChange={setSelectedIndex}
         />
       </Box>
-      {selectedIndex === 0 && (
-        <CoinControlList
-          accountId={accountId}
-          network={network as unknown as Network}
-          token={token}
-          allUtxos={allUtxos}
-          utxosWithoutDust={utxosWithoutDust}
-          utxosDust={utxosDust}
-          selectedUtxos={selectedUtxos}
-          isAllSelected={isAllSelected}
-          triggerAllSelected={triggerAllSelected}
-          blockTimeMap={blockTimeMap}
-          onChange={onCheckBoxChange}
-          onConfirmEditLabel={onConfirmEditLabel}
-        />
-      )}
-      {selectedIndex === 1 && (
-        <Center flex={1}>
-          <Empty
-            emoji="🪙"
-            title={intl.formatMessage({
-              id: 'content__no_coins',
-            })}
-            subTitle={intl.formatMessage({
-              id: 'content__no_utxos_in_this_account',
-            })}
-          />
+
+      {isLoading ? (
+        <Center h="full">
+          <Spinner size="lg" />
         </Center>
-      )}
+      ) : null}
+
+      {!isLoading &&
+        selectedIndex === 0 &&
+        (showAvailableList ? (
+          <CoinControlList
+            accountId={accountId}
+            network={network as unknown as Network}
+            token={token}
+            allUtxos={allUtxos}
+            dataSource={utxosWithoutDust}
+            utxosDust={utxosDust}
+            showCheckbox={showAvailableListCheckbox}
+            selectedUtxos={selectedUtxos}
+            isAllSelected={isAllSelected}
+            triggerAllSelected={triggerAllSelected}
+            blockTimeMap={blockTimeMap}
+            onChange={onCheckBoxChange}
+            onConfirmEditLabel={onConfirmEditLabel}
+            onFrozenUTXO={onFrozenUTXO}
+          />
+        ) : (
+          renderEmpty
+        ))}
+
+      {!isLoading &&
+        selectedIndex === 1 &&
+        (showFrozenList ? (
+          <CoinControlList
+            accountId={accountId}
+            network={network as unknown as Network}
+            token={token}
+            allUtxos={allUtxos}
+            dataSource={frozenUtxos}
+            utxosDust={[]}
+            showCheckbox={showFrozenListCheckbox}
+            selectedUtxos={selectedUtxos}
+            isAllSelected={isAllSelected}
+            triggerAllSelected={triggerAllSelected}
+            blockTimeMap={blockTimeMap}
+            onChange={onCheckBoxChange}
+            onConfirmEditLabel={onConfirmEditLabel}
+            onFrozenUTXO={onFrozenUTXO}
+          />
+        ) : (
+          renderEmpty
+        ))}
     </Modal>
   );
 };

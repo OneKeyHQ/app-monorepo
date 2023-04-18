@@ -19,8 +19,9 @@ const CoinControlListItemMenu: FC<
     network: Network;
     item: ICoinControlListItem;
     onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
+    onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
   }
-> = ({ item, network, onConfirmEditLabel, ...props }) => {
+> = ({ item, network, onConfirmEditLabel, onFrozenUTXO, ...props }) => {
   const { openTransactionDetails } = useOpenBlockBrowser(network);
   const onOpenBlockChainBrowser = useCallback(() => {
     openTransactionDetails(item.txid);
@@ -46,6 +47,10 @@ const CoinControlListItemMenu: FC<
     onConfirmEditLabel(item, '');
   }, [item, onConfirmEditLabel]);
 
+  const onPressFrozenUTXO = useCallback(() => {
+    onFrozenUTXO(item, !isFrozen);
+  }, [item, onFrozenUTXO, isFrozen]);
+
   const options = useMemo<IBaseMenuOptions>(
     () => [
       {
@@ -65,18 +70,20 @@ const CoinControlListItemMenu: FC<
         icon: 'GlobeAltOutline',
       },
       () => <Divider my={1} />,
-      !isFrozen && {
-        id: 'action__freeze',
-        onPress: onOpenBlockChainBrowser,
-        icon: 'SnowFlakeMini',
-      },
-      isFrozen && {
-        id: 'action__unfreeze',
-        onPress: onOpenBlockChainBrowser,
+      {
+        id: isFrozen ? 'action__unfreeze' : 'action__freeze',
+        onPress: onPressFrozenUTXO,
         icon: 'SnowFlakeMini',
       },
     ],
-    [onOpenBlockChainBrowser, hasLabel, isFrozen, onPressEditLabel],
+    [
+      onOpenBlockChainBrowser,
+      hasLabel,
+      isFrozen,
+      onPressEditLabel,
+      onPressDeleteLabel,
+      onPressFrozenUTXO,
+    ],
   );
 
   return <BaseMenu options={options} {...props} />;

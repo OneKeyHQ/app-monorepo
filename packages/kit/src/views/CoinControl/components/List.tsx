@@ -36,25 +36,28 @@ import { CoinControlListItemMenu } from './CoinControlListItemMenu';
 import type { ListRenderItemInfo } from 'react-native';
 
 const ListTableHeader: FC<{
+  showCheckbox: boolean;
   isAllSelected: boolean;
   triggerAllSelected: (value: boolean) => void;
-}> = ({ isAllSelected, triggerAllSelected }) => {
+}> = ({ showCheckbox, isAllSelected, triggerAllSelected }) => {
   const intl = useIntl();
   return (
     <ListItem>
-      <ListItem.Column>
-        <Box
-          flexDirection="row"
-          alignItems="flex-start"
-          justifyContent="flex-start"
-        >
-          <CheckBox
-            w={5}
-            isChecked={isAllSelected}
-            onChange={() => triggerAllSelected(!isAllSelected)}
-          />
-        </Box>
-      </ListItem.Column>
+      {showCheckbox && (
+        <ListItem.Column>
+          <Box
+            flexDirection="row"
+            alignItems="flex-start"
+            justifyContent="flex-start"
+          >
+            <CheckBox
+              w={5}
+              isChecked={isAllSelected}
+              onChange={() => triggerAllSelected(!isAllSelected)}
+            />
+          </Box>
+        </ListItem.Column>
+      )}
       <ListItem.Column
         text={{
           label: intl.formatMessage({ id: 'form__address' }),
@@ -87,10 +90,12 @@ export type ICellProps = {
   network: Network;
   token?: Token;
   item: ICoinControlListItem;
+  showCheckbox: boolean;
   selectedUtxos: string[];
   blockTimeMap: Record<string, number>;
   onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
   onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
+  onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
 };
 
 const CoinControlCell: FC<ICellProps> = ({
@@ -98,10 +103,12 @@ const CoinControlCell: FC<ICellProps> = ({
   network,
   token,
   item,
+  showCheckbox,
   selectedUtxos = [],
   blockTimeMap,
   onChange,
   onConfirmEditLabel,
+  onFrozenUTXO,
 }) => {
   const { formatDate } = useFormatDate();
   const isSelected = selectedUtxos.find(
@@ -126,19 +133,21 @@ const CoinControlCell: FC<ICellProps> = ({
         onChange(item, !isSelected);
       }}
     >
-      <ListItem.Column>
-        <Box
-          flexDirection="row"
-          alignItems="flex-start"
-          justifyContent="flex-start"
-        >
-          <CheckBox
-            w={5}
-            isChecked={!!isSelected}
-            // onChange={(value) => onChange(item, value)}
-          />
-        </Box>
-      </ListItem.Column>
+      {showCheckbox && (
+        <ListItem.Column>
+          <Box
+            flexDirection="row"
+            alignItems="flex-start"
+            justifyContent="flex-start"
+          >
+            <CheckBox
+              w={5}
+              isChecked={!!isSelected}
+              // onChange={(value) => onChange(item, value)}
+            />
+          </Box>
+        </ListItem.Column>
+      )}
       <ListItem.Column>
         <VStack>
           <Text typography="Body2Strong">{shortenAddress(item.address)}</Text>
@@ -208,6 +217,7 @@ const CoinControlCell: FC<ICellProps> = ({
           item={item}
           network={network}
           onConfirmEditLabel={onConfirmEditLabel}
+          onFrozenUTXO={onFrozenUTXO}
         >
           <IconButton
             alignItems="flex-end"
@@ -227,29 +237,35 @@ const CoinControlCell: FC<ICellProps> = ({
 
 const ListFooter: FC<
   Omit<ICellProps, 'item'> & {
-    allUtxos: ICoinControlListItem[];
+    dataSource: ICoinControlListItem[];
     dustUtxos: ICoinControlListItem[];
   }
 > = ({
-  allUtxos,
+  dataSource,
   dustUtxos,
   accountId,
   network,
   token,
+  showCheckbox,
   selectedUtxos = [],
   blockTimeMap,
   onChange,
   onConfirmEditLabel,
+  onFrozenUTXO,
 }) => {
   const intl = useIntl();
 
   const sumUtxoAmount = useMemo(() => {
-    const sum = allUtxos.reduce(
-      (acc, cur) => acc.plus(cur.value),
-      new BigNumber(0),
-    );
+    const sum = dataSource
+      .concat(dustUtxos)
+      .reduce((acc, cur) => acc.plus(cur.value), new BigNumber(0));
     return sum.shiftedBy(-network.decimals).toFixed();
-  }, [allUtxos, network]);
+  }, [dataSource, dustUtxos, network]);
+
+  const itemLength = useMemo(
+    () => dataSource.concat(dustUtxos).length,
+    [dataSource, dustUtxos],
+  );
 
   const hasDustUtxos = useMemo(() => dustUtxos.length > 0, [dustUtxos]);
 
@@ -261,10 +277,12 @@ const ListFooter: FC<
           accountId={accountId}
           network={network}
           token={token}
+          showCheckbox={showCheckbox}
           selectedUtxos={selectedUtxos}
           blockTimeMap={blockTimeMap}
           onChange={onChange}
           onConfirmEditLabel={onConfirmEditLabel}
+          onFrozenUTXO={onFrozenUTXO}
         />
       )),
     [
@@ -272,10 +290,12 @@ const ListFooter: FC<
       accountId,
       network,
       token,
+      showCheckbox,
       selectedUtxos,
       blockTimeMap,
       onChange,
       onConfirmEditLabel,
+      onFrozenUTXO,
     ],
   );
 
@@ -315,7 +335,7 @@ const ListFooter: FC<
         justifyContent="space-between"
       >
         <Text typography="Subheading" color="text-subdued">
-          {allUtxos.length} ITEMS
+          {itemLength} ITEMS
         </Text>
         <FormatBalance
           balance={sumUtxoAmount}
@@ -343,27 +363,30 @@ const CoinControlList: FC<{
   network: Network;
   token?: Token;
   allUtxos: ICoinControlListItem[];
-  utxosWithoutDust: ICoinControlListItem[];
+  dataSource: ICoinControlListItem[];
   utxosDust: ICoinControlListItem[];
+  showCheckbox: boolean;
   selectedUtxos: string[];
   isAllSelected: boolean;
   triggerAllSelected: (value: boolean) => void;
   blockTimeMap: Record<string, number>;
   onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
   onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
+  onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
 }> = ({
   accountId,
   network,
   token,
-  allUtxos,
-  utxosWithoutDust,
+  dataSource,
   utxosDust,
+  showCheckbox,
   selectedUtxos,
   isAllSelected,
   triggerAllSelected,
   blockTimeMap,
   onChange,
   onConfirmEditLabel,
+  onFrozenUTXO,
 }) => {
   const rowRenderer = useCallback(
     ({ item }: ListRenderItemInfo<ICoinControlListItem>) => (
@@ -372,13 +395,16 @@ const CoinControlList: FC<{
         accountId={accountId}
         network={network}
         token={token}
+        showCheckbox={showCheckbox}
         selectedUtxos={selectedUtxos}
         blockTimeMap={blockTimeMap}
         onChange={onChange}
         onConfirmEditLabel={onConfirmEditLabel}
+        onFrozenUTXO={onFrozenUTXO}
       />
     ),
     [
+      showCheckbox,
       selectedUtxos,
       network,
       blockTimeMap,
@@ -386,35 +412,40 @@ const CoinControlList: FC<{
       accountId,
       onChange,
       onConfirmEditLabel,
+      onFrozenUTXO,
     ],
   );
 
   const headerComponent = useCallback(
     () => (
       <ListTableHeader
+        showCheckbox={showCheckbox}
         isAllSelected={isAllSelected}
         triggerAllSelected={triggerAllSelected}
       />
     ),
-    [isAllSelected, triggerAllSelected],
+    [showCheckbox, isAllSelected, triggerAllSelected],
   );
   const footerComponent = useCallback(
     () => (
       <ListFooter
-        allUtxos={allUtxos}
+        dataSource={dataSource}
         dustUtxos={utxosDust}
         accountId={accountId}
         network={network}
         token={token}
+        showCheckbox={showCheckbox}
         selectedUtxos={selectedUtxos}
         blockTimeMap={blockTimeMap}
         onChange={onChange}
         onConfirmEditLabel={onConfirmEditLabel}
+        onFrozenUTXO={onFrozenUTXO}
       />
     ),
     [
-      allUtxos,
+      dataSource,
       utxosDust,
+      showCheckbox,
       selectedUtxos,
       network,
       blockTimeMap,
@@ -422,12 +453,13 @@ const CoinControlList: FC<{
       accountId,
       onChange,
       onConfirmEditLabel,
+      onFrozenUTXO,
     ],
   );
 
   return network ? (
     <List
-      data={utxosWithoutDust}
+      data={dataSource}
       ListHeaderComponent={headerComponent}
       ListFooterComponent={footerComponent}
       renderItem={rowRenderer}
