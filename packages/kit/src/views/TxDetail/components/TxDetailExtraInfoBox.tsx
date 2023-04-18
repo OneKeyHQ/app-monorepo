@@ -146,7 +146,7 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
     network?.settings.txExtraInfo.forEach((item) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const extraInfo = decodedTx.extraInfo && decodedTx.extraInfo[item.key];
-      if (extraInfo !== undefined && extraInfo !== null) {
+      if (extraInfo) {
         details.push({
           title: intl.formatMessage({ id: item.title }),
           content: (
