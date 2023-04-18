@@ -254,6 +254,8 @@ function ScreenSendEditFee({ ...rest }) {
       setCurrentCustom(feeInfoSelected.custom);
     }
 
+    updateCustomFee(saveCustom ? feeInfoSelected.custom : null);
+
     debugLogger.sendTx.info('SendEditFee Confirm >>>> ', feeInfoSelected);
     const { routes, index } = navigation.getState();
     const prevRouteName = routes[index - 1]?.name;
@@ -321,7 +323,6 @@ function ScreenSendEditFee({ ...rest }) {
     if (feeType === ESendEditFeeTypes.advanced) {
       setRadioValue('custom');
       setFeeType(ESendEditFeeTypes.standard);
-      updateCustomFee(saveCustom ? feeInfoSelected.custom : null);
       return;
     }
 

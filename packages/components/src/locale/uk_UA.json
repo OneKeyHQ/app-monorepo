@@ -745,6 +745,7 @@
   "content__str_is_your_favorite_onlytwo": "{symbol_0} ваш улюблений,\n але вам також подобається {symbol_1} .",
   "content__str_mins": "{content__str_mins, plural, one {# хв} few {} many {} other {# хв}}",
   "content__str_minutes_plural": "{0} хвилин",
+  "content__str_minutes": "{content__str_minutes, plural, one {# хвилин} few {} many {} other {# хвилин}}",
   "content__str_seconds": "{content__str_seconds, plural, one {# секунда} few {# секунд} many {# секунд} other {# секунд}}",
   "content__str_seconds_plural": "{0} секунд",
   "content__str_succeeded": "{0} Вдало!",

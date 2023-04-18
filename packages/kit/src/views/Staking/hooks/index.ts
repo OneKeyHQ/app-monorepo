@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 
+import { parse } from 'date-fns';
 import { useIntl } from 'react-intl';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
@@ -113,7 +114,11 @@ export function useKeleHistory(networkId?: string, accountId?: string) {
         opHistory.map((item) => ({
           type: 'op',
           op: item,
-          time: new Date(item.history_time).getTime(),
+          time: parse(
+            item.history_time,
+            'yyyy-MM-dd HH:mm:ss',
+            new Date(),
+          ).getTime(),
         })),
       );
     }

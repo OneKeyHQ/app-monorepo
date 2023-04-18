@@ -745,6 +745,7 @@
   "content__str_is_your_favorite_onlytwo": "{symbol_0} ist dein Favorit,\n aber Sie mögen auch {symbol_1} .",
   "content__str_mins": "{content__str_mins, plural, one {# min} other {# Minuten}}",
   "content__str_minutes_plural": "{0} Minuten",
+  "content__str_minutes": "{content__str_minutes, plural, one {# Minuten} other {# Minuten}}",
   "content__str_seconds": "{content__str_seconds, plural, one {# Sekunde} other {# Sekunden}}",
   "content__str_seconds_plural": "{0} Sekunden",
   "content__str_succeeded": "{0} Erfolgreich!",

@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Box, Text } from '@onekeyhq/components';
@@ -20,10 +22,21 @@ type Props = {
   price?: IFeeInfoPrice;
   limit?: string;
   btcCustomFee?: string | null;
+  onlyCurrency?: boolean;
+  currencyProps?: ComponentProps<typeof Text>;
 };
 
 function SendEditFeeOverview(props: Props) {
-  const { accountId, networkId, feeInfo, price, limit, btcCustomFee } = props;
+  const {
+    accountId,
+    networkId,
+    feeInfo,
+    price,
+    limit,
+    btcCustomFee,
+    onlyCurrency,
+    currencyProps,
+  } = props;
 
   const intl = useIntl();
 
@@ -76,6 +89,28 @@ function SendEditFeeOverview(props: Props) {
       amount: totalFee,
       info: feeInfo as IFeeInfo,
     });
+  }
+
+  if (onlyCurrency) {
+    return (
+      <Text {...currencyProps}>
+        {minFeeNative ? (
+          <FormatCurrencyNativeOfAccount
+            accountId={accountId}
+            networkId={networkId}
+            value={minFeeNative}
+            render={(ele) => <>{!minFeeNative ? '-' : ele}</>}
+          />
+        ) : (
+          <FormatCurrencyNativeOfAccount
+            accountId={accountId}
+            networkId={networkId}
+            value={totalFeeNative}
+            render={(ele) => <>{!totalFeeNative ? '-' : ele}</>}
+          />
+        )}
+      </Text>
+    );
   }
 
   return (
