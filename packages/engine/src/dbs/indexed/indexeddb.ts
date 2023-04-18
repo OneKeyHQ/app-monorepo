@@ -72,6 +72,7 @@ import type {
 import type { DBNetwork, UpdateNetworkParams } from '../../types/network';
 import type { Token } from '../../types/token';
 import type { ISetNextAccountIdsParams, Wallet } from '../../types/wallet';
+import type { IFeeInfoUnit } from '../../vaults/types';
 import type {
   CreateHDWalletParams,
   CreateHWWalletParams,
@@ -93,7 +94,7 @@ type TokenBinding = {
 require('fake-indexeddb/auto');
 
 const DB_NAME = 'OneKey';
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 
 const CONTEXT_STORE_NAME = 'context';
 const CREDENTIAL_STORE_NAME = 'credentials';
@@ -105,6 +106,7 @@ const TOKEN_BINDING_STORE_NAME = 'token_bindings';
 const HISTORY_STORE_NAME = 'history';
 const DEVICE_STORE_NAME = 'devices';
 const ACCOUNT_DERIVATION_STORE_NAME = 'account_derivations';
+const CUSTOM_FEE_STORE_NAME = 'custom_fee';
 
 function initDb(db: IDBDatabase) {
   db.createObjectStore(CONTEXT_STORE_NAME, { keyPath: 'id' });
@@ -229,6 +231,12 @@ class IndexedDBApi implements DBAPI {
         }
         if (oldVersion < 7) {
           db.createObjectStore(ACCOUNT_DERIVATION_STORE_NAME, {
+            keyPath: 'id',
+          });
+        }
+
+        if (oldVersion < 8) {
+          db.createObjectStore(CUSTOM_FEE_STORE_NAME, {
             keyPath: 'id',
           });
         }
@@ -2815,6 +2823,73 @@ class IndexedDBApi implements DBAPI {
         resolve(accountDerivation);
       };
     });
+  }
+
+  getCustomFee(networkId: string): Promise<IFeeInfoUnit | undefined> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, _reject) => {
+          const request: IDBRequest = db
+            .transaction([CUSTOM_FEE_STORE_NAME], 'readonly')
+            .objectStore(CUSTOM_FEE_STORE_NAME)
+            .get(networkId);
+          request.onsuccess = (_event) => {
+            if (typeof request.result !== 'undefined') {
+              resolve(request.result);
+            } else {
+              resolve(undefined);
+            }
+          };
+        }),
+    );
+  }
+
+  updateCustomFee(
+    networkId: string,
+    customFee: IFeeInfoUnit | null | undefined,
+  ): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction(
+            [CUSTOM_FEE_STORE_NAME],
+            'readwrite',
+          );
+
+          const objectStore = transaction.objectStore(CUSTOM_FEE_STORE_NAME);
+
+          if (customFee) {
+            const request = objectStore.put({
+              ...customFee,
+              id: networkId,
+            });
+            request.onsuccess = () => {
+              resolve();
+            };
+
+            request.onerror = () => {
+              reject(
+                new OneKeyInternalError(
+                  `Update custom fee failed for ${networkId}`,
+                ),
+              );
+            };
+          } else if (customFee === null) {
+            const request = objectStore.delete(networkId);
+            request.onsuccess = () => {
+              resolve();
+            };
+
+            request.onerror = () => {
+              reject(
+                new OneKeyInternalError(
+                  `Delete custom fee failed for ${networkId}`,
+                ),
+              );
+            };
+          }
+        }),
+    );
   }
 }
 

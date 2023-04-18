@@ -41,15 +41,15 @@ export function FeeSpeedLabel({
         break;
       case 1:
         titleIcon = '🚕';
-        titleId = 'form__market';
+        titleId = 'form__normal';
         break;
       case 2:
         titleIcon = '🚅';
-        titleId = 'form__aggressive';
+        titleId = 'form__high';
         break;
       default:
         titleIcon = '🚕';
-        titleId = 'form__market';
+        titleId = 'form__normal';
     }
   }
 

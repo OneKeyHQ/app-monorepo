@@ -50,17 +50,14 @@ export function SendEditFeeStandardForm({
 }: IStandardFeeProps) {
   const customFeeInfo = currentCustom || feeInfoPayload?.selected.custom;
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
+  const isBtcForkChain = feeInfoPayload?.info?.isBtcForkChain;
 
   const btcCustomFee = useMemo(() => {
-    if (!feeInfoPayload?.info?.isBtcForkChain) return null;
+    if (!isBtcForkChain) return null;
     if (currentFeeType !== 'custom') return null;
     if (!currentCustom?.btcFee) return null;
     return `${currentCustom?.btcFee}`;
-  }, [
-    currentCustom?.btcFee,
-    currentFeeType,
-    feeInfoPayload?.info?.isBtcForkChain,
-  ]);
+  }, [currentCustom?.btcFee, currentFeeType, isBtcForkChain]);
 
   const selectedFeeInfo = useMemo(() => {
     let price = null;
@@ -114,17 +111,23 @@ export function SendEditFeeStandardForm({
             iconSize={28}
             alignItems="center"
             space={2}
+            prices={feeInfoPayload?.info.prices ?? []}
           />
         ),
 
         describe: (
           <HStack space="10px" alignItems="center">
-            <FeeSpeedTime index={index} waitingSeconds={waitingSeconds} />
+            <FeeSpeedTime
+              index={index}
+              waitingSeconds={waitingSeconds}
+              prices={feeInfoPayload?.info.prices ?? []}
+            />
             <FeeSpeedTip
               index={index}
               isEIP1559={feeInfoPayload?.info.eip1559}
               price={gas}
               limit={feeInfoPayload?.info.limit ?? '0'}
+              feeInfo={feeInfoPayload?.info}
             />
           </HStack>
         ),

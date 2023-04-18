@@ -1,11 +1,15 @@
 /* eslint-disable react/no-unstable-nested-components */
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Box, HStack, Icon, RichTooltip, Text } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
-import type { IFeeInfoPrice } from '@onekeyhq/engine/src/vaults/types';
+import type {
+  IFeeInfo,
+  IFeeInfoPrice,
+} from '@onekeyhq/engine/src/vaults/types';
 
 function FeeInfoItem({ title, value }: { title: string; value: string }) {
   return (
@@ -24,12 +28,14 @@ export function FeeSpeedTip({
   isEIP1559,
   price,
   limit,
+  feeInfo,
 }: {
   index?: number | string;
   isCustom?: boolean;
   isEIP1559?: boolean;
   price?: IFeeInfoPrice;
   limit?: string;
+  feeInfo?: IFeeInfo;
 }) {
   const intl = useIntl();
   const indexInt = parseInt(index as string, 10);
@@ -53,6 +59,8 @@ export function FeeSpeedTip({
         feeSpeedTipId = 'content__gas_option_market_desc';
     }
   }
+
+  const isBtcForkChain = feeInfo?.isBtcForkChain;
 
   return (
     <RichTooltip
@@ -85,7 +93,7 @@ export function FeeSpeedTip({
                 />
               </Box>
             )}
-            {!isEIP1559 && price && limit && (
+            {!isEIP1559 && !isBtcForkChain && price && limit && (
               <Box mt={1}>
                 <FeeInfoItem
                   title={intl.formatMessage({ id: 'content__gas_price' })}
@@ -94,6 +102,20 @@ export function FeeSpeedTip({
                 <FeeInfoItem
                   title={intl.formatMessage({ id: 'content__gas_limit' })}
                   value={limit}
+                />
+              </Box>
+            )}
+            {isBtcForkChain && price && limit && (
+              <Box mt={1}>
+                <FeeInfoItem
+                  title={intl.formatMessage({ id: 'form__fee_rate' })}
+                  value={`${new BigNumber(price as string)
+                    .shiftedBy(feeInfo?.feeDecimals ?? 8)
+                    .toFixed()} sat/B`}
+                />
+                <FeeInfoItem
+                  title={intl.formatMessage({ id: 'form__size' })}
+                  value={`${limit} B`}
                 />
               </Box>
             )}
