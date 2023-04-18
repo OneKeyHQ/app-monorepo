@@ -15,6 +15,7 @@ import LimitOrderReceivingTokenInput from '../../components/LimitOrderReceivingT
 import LimitOrderTokenInput from '../../components/LimitOrderTokenInput';
 import { useLimitOrderOutput } from '../../hooks/useLimitOrder';
 import { SwapRoutes } from '../../typings';
+import { formatAmount } from '../../utils';
 
 export const MainContent = () => {
   const intl = useIntl();
@@ -54,6 +55,11 @@ export const MainContent = () => {
     }),
     [],
   );
+
+  let outputValue = formatAmount(tokenOutValue, 8);
+  if (Number(outputValue) === 0) {
+    outputValue = formatAmount(tokenOutValue, 16);
+  }
 
   return (
     <Box w="full">
@@ -103,7 +109,7 @@ export const MainContent = () => {
           <LimitOrderReceivingTokenInput
             type="OUTPUT"
             label={intl.formatMessage({ id: 'action__receive' })}
-            inputValue={tokenOutValue}
+            inputValue={outputValue}
             onPress={onSelectOutput}
             containerProps={containerProps.lower}
           />
