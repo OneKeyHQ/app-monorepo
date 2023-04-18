@@ -58,3 +58,15 @@ export const hexlify = (...args: Parameters<typeof utils.hexlify>) =>
 
 export const isHexString = (...args: Parameters<typeof utils.isHexString>) =>
   utils.isHexString.apply(utils.isHexString, args);
+
+export const removeTrailingZeros = (num: string | number) => {
+  const parts = num.toString().split('.');
+  if (parts.length > 1) {
+    const decimalPart = parts[1].replace(/0+$/, '');
+    if (decimalPart.length > 0) {
+      return `${parts[0]}.${decimalPart}`;
+    }
+    return parts[0];
+  }
+  return num.toString();
+};
