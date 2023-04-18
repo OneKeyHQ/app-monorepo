@@ -6,9 +6,9 @@ import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import {
   setAccountStakingActivity,
   setKeleDashboardGlobal,
-  setKeleOpHistory,
   setKeleIncomes,
   setKeleMinerOverviews,
+  setKeleOpHistory,
   setKelePendingWithdraw,
   setKeleUnstakeOverview,
   setKeleWithdrawOverview,
@@ -249,10 +249,7 @@ export default class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchKeleOpHistory(params: {
-    networkId: string;
-    accountId: string;
-  }) {
+  async fetchKeleOpHistory(params: { networkId: string; accountId: string }) {
     const { networkId, accountId } = params;
     const { dispatch } = this.backgroundApi;
     const items = await this.getKeleOpHistory({
@@ -261,7 +258,7 @@ export default class ServiceStaking extends ServiceBase {
       opType: '1,2,3,4,5,6,7,8',
     });
     if (items && Array.isArray(items)) {
-      dispatch(setKeleOpHistory({ accountId, networkId, items }))
+      dispatch(setKeleOpHistory({ accountId, networkId, items }));
     }
   }
 
