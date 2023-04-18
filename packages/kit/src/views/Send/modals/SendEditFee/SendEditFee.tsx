@@ -115,18 +115,6 @@ function ScreenSendEditFee({ ...rest }) {
     accountId,
   });
 
-  const title = useMemo(() => {
-    let key: LocaleIds = 'action__edit_fee';
-
-    if (resendActionInfo?.type === 'speedUp') {
-      key = 'form__accelerated_transaction';
-    }
-    if (resendActionInfo?.type === 'cancel') {
-      key = 'form__cancelled_transaction';
-    }
-    return intl.formatMessage({ id: key });
-  }, [intl, resendActionInfo?.type]);
-
   useDisableNavigationAnimation({
     condition: !!autoConfirmAfterFeeSaved,
   });
@@ -164,6 +152,21 @@ function ScreenSendEditFee({ ...rest }) {
     ESendEditFeeTypes.standard,
   );
   const [radioValue, setRadioValue] = useState('');
+
+  const title = useMemo(() => {
+    let key: LocaleIds = 'action__edit_fee';
+
+    if (resendActionInfo?.type === 'speedUp') {
+      key = 'form__accelerated_transaction';
+    }
+    if (resendActionInfo?.type === 'cancel') {
+      key = 'form__cancelled_transaction';
+    }
+    if (feeType === ESendEditFeeTypes.advanced) {
+      key = 'title__custom';
+    }
+    return intl.formatMessage({ id: key });
+  }, [intl, resendActionInfo?.type, feeType]);
 
   // const isSmallScreen = useIsVerticalLayout();
   const useFormReturn = useForm<ISendEditFeeValues>({
