@@ -171,7 +171,7 @@ export function SendEditFeeStandardForm({
                     customFeeInfo?.limit ?? feeInfoPayload?.info.limit ?? '0'
                   }
                   currencyProps={{ typography: 'Body1', textAlign: 'right' }}
-                  btcCustomFee={btcCustomFee}
+                  btcCustomFee={String(currentCustom?.btcFee)}
                   onlyCurrency
                 />
               )}
@@ -207,6 +207,7 @@ export function SendEditFeeStandardForm({
     networkId,
     customFeeInfo,
     btcCustomFee,
+    currentCustom?.btcFee,
     isEIP1559Fee,
   ]);
 
