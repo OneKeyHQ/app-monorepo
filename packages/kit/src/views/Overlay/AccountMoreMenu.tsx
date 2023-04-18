@@ -236,7 +236,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
               address: account?.address,
               displayAddress: account?.displayAddress,
             });
-          });
+          }, 150);
         },
         icon: 'Square2StackMini',
       },

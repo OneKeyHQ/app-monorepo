@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,6 +7,8 @@ import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/ac
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import { isEvmNetworkId } from '../../Swap/utils';
+
+import type { KeleGenericHistory } from '../typing';
 
 export function useAccountStakingActivity(
   networkId: string,
@@ -63,6 +65,12 @@ export function useKeleIncomes(networkId?: string, accountId?: string) {
   );
 }
 
+export function useKeleOpHistory(networkId?: string, accountId?: string) {
+  return useAppSelector(
+    (s) => s.staking.keleOpHistory?.[accountId ?? '']?.[networkId ?? ''],
+  );
+}
+
 export function usePendingWithdraw(networkId?: string, accountId?: string) {
   return useAppSelector(
     (s) => s.staking.kelePendingWithdraw?.[accountId ?? '']?.[networkId ?? ''],
@@ -84,4 +92,31 @@ export function useIntlMinutes(minutes: number) {
   return `${minutes} ${intl.formatMessage({
     id: 'content__minutes_lowercase',
   })}`;
+}
+
+export function useKeleHistory(networkId?: string, accountId?: string) {
+  const incomes = useKeleIncomes(networkId, accountId);
+  const opHistory = useKeleOpHistory(networkId, accountId);
+  return useMemo(() => {
+    let result: KeleGenericHistory[] = [];
+    if (incomes && incomes.length) {
+      result = result.concat(
+        incomes.map((item) => ({
+          type: 'income',
+          income: item,
+          time: new Date(item.date).getTime(),
+        })),
+      );
+    }
+    if (opHistory && opHistory.length) {
+      result = result.concat(
+        opHistory.map((item) => ({
+          type: 'op',
+          op: item,
+          time: new Date(item.history_time).getTime(),
+        })),
+      );
+    }
+    return result.sort((a, b) => b.time - a.time);
+  }, [incomes, opHistory]);
 }
