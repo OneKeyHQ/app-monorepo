@@ -452,7 +452,6 @@ function FeeInfoInputForConfirmLite({
             prices={feeInfoPayload?.info?.prices}
             isCustom={!isPreset}
             index={feeInfoPayload?.selected?.preset}
-            alignItems="baseline"
             space={1}
           />
           <FeeSpeedTime
