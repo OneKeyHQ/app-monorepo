@@ -12,6 +12,8 @@ import type {
 
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 
+import { showEditLabelDialog } from './EditLabelDialog';
+
 const CoinControlListItemMenu: FC<
   IMenu & {
     item: ICoinControlListItem;
@@ -30,16 +32,20 @@ const CoinControlListItemMenu: FC<
 
   const isFrozen = useMemo(() => item.frozen, [item.frozen]);
 
+  const onPressEditLabel = useCallback(() => {
+    showEditLabelDialog({
+      defaultLabel: item.label ?? '',
+      onConfirm: (label) => {
+        console.log(label);
+      },
+    });
+  }, [item.label]);
+
   const options = useMemo<IBaseMenuOptions>(
     () => [
-      !hasLabel && {
-        id: 'action__add_label',
-        onPress: () => {},
-        icon: 'Square2StackOutline',
-      },
-      hasLabel && {
-        id: 'action__edit_label',
-        onPress: () => {},
+      {
+        id: hasLabel ? 'action__edit_label' : 'action__add_label',
+        onPress: onPressEditLabel,
         icon: 'Square2StackOutline',
       },
       hasLabel && {

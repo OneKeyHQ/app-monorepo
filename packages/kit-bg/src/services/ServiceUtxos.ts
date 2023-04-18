@@ -3,7 +3,10 @@ import BigNumber from 'bignumber.js';
 import { getUtxoId } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
-import type { ICoinControlListItem } from '@onekeyhq/engine/src/types/utxoAccounts';
+import type {
+  CoinControlOption,
+  ICoinControlListItem,
+} from '@onekeyhq/engine/src/types/utxoAccounts';
 import type VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import {
   backgroundClass,
@@ -93,5 +96,59 @@ export default class ServiceUtxos extends ServiceBase {
     });
 
     return blockTimesMap;
+  }
+
+  @backgroundMethod()
+  async updateLabel(
+    networkId: string,
+    accountId: string,
+    utxo: ICoinControlListItem,
+    label: string,
+  ) {
+    const id = getUtxoId(networkId, utxo);
+    const dbAccount = (await this.backgroundApi.engine.dbApi.getAccount(
+      accountId,
+    )) as DBUTXOAccount;
+    const existUtxo = await simpleDb.utxoAccounts.getCoinControlById(id);
+    if (!existUtxo) {
+      return simpleDb.utxoAccounts.addCoinControlItem(
+        networkId,
+        utxo,
+        dbAccount.xpub,
+        { label, frozen: false },
+      );
+    }
+
+    return simpleDb.utxoAccounts.updateCoinControlItem(id, {
+      label,
+      frozen: existUtxo.frozen,
+    });
+  }
+
+  @backgroundMethod()
+  async updateFrozen(
+    networkId: string,
+    accountId: string,
+    utxo: ICoinControlListItem,
+    frozen: boolean,
+  ) {
+    const id = getUtxoId(networkId, utxo);
+    const dbAccount = (await this.backgroundApi.engine.dbApi.getAccount(
+      accountId,
+    )) as DBUTXOAccount;
+    const existUtxo = await simpleDb.utxoAccounts.getCoinControlById(id);
+    if (!existUtxo) {
+      return simpleDb.utxoAccounts.addCoinControlItem(
+        networkId,
+        utxo,
+        dbAccount.xpub,
+        { label: '', frozen },
+      );
+    }
+
+    return simpleDb.utxoAccounts.updateCoinControlItem(id, {
+      label: existUtxo.label,
+      frozen,
+    });
   }
 }
