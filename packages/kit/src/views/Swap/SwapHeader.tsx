@@ -108,8 +108,8 @@ const HistoryButton = () => {
           h="2"
           bg="icon-warning"
           borderRadius="full"
-          top="1"
-          right="1"
+          top="2"
+          right="2"
         />
       ) : null}
     </Box>
