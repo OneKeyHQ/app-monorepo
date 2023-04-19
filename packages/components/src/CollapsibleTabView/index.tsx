@@ -14,6 +14,7 @@ import { TabBar, TabView } from 'react-native-tab-view';
 
 import type { ForwardRefHandle } from '@onekeyhq/app/src/views/NestedTabView/NestedTabView';
 import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
+import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import Box from '../Box';
 import FlatList from '../FlatList';
@@ -81,14 +82,21 @@ const Container: ForwardRefRenderFunction<
     },
     [onIndexChange],
   );
-  const [activeLabelColor, labelColor, indicatorColor, borderDefault, bgColor] =
-    useThemeValue([
-      'text-default',
-      'text-subdued',
-      'action-primary-default',
-      'border-subdued',
-      'background-default',
-    ]);
+  const [
+    activeLabelColor,
+    labelColor,
+    indicatorColor,
+    indicatorContainerColor,
+    borderDefault,
+    bgColor,
+  ] = useThemeValue([
+    'text-default',
+    'text-subdued',
+    'action-primary-default',
+    'divider',
+    'border-subdued',
+    'background-default',
+  ]);
 
   useImperativeHandle(ref, () => ({
     setPageIndex: (pageIndex: number) => {
@@ -98,13 +106,18 @@ const Container: ForwardRefRenderFunction<
 
   const renderTabBar = useCallback(
     (props: any) => {
+      const tabContainerWidth = isVerticalLayout
+        ? layout.width
+        : Math.min(MAX_PAGE_CONTAINER_WIDTH, layout.width - 224 - 32 * 2);
       const styles = {
         tabbar: {
           backgroundColor: 'transparent',
-          width: '100%',
+          flex: 1,
           height: tabbarHeight,
           borderBottomWidth: 0,
           borderBottomColor: borderDefault,
+          // marginHorizontal,
+          // width: tabContainerWidth,
         },
         indicator: {
           backgroundColor: indicatorColor,
@@ -114,10 +127,12 @@ const Container: ForwardRefRenderFunction<
           height: 2,
           top: tabbarHeight - 2,
           width: '100%',
+          backgroundColor: indicatorContainerColor,
         },
         tabStyle: {
-          width: isVerticalLayout ? layout.width / routes.length : 'auto',
-          minWidth: isVerticalLayout ? undefined : 90,
+          width: isVerticalLayout ? tabContainerWidth / routes.length : 'auto',
+          // minWidth: isVerticalLayout ? undefined : 90,
+          paddingHorizontal: 0,
         },
         label: {
           fontWeight: '500',
@@ -126,26 +141,30 @@ const Container: ForwardRefRenderFunction<
         },
       };
       return (
-        <TabBar
-          {...props}
-          lazy
-          scrollEnabled={scrollEnabled}
-          indicatorStyle={styles.indicator}
-          indicatorContainerStyle={styles.indicatorContainer}
-          style={styles.tabbar}
-          tabStyle={styles.tabStyle}
-          activeColor={activeLabelColor}
-          inactiveColor={labelColor}
-          labelStyle={styles.label}
-          getLabelText={({ route }) => route.title}
-          getAccessibilityLabel={({ route }) => route.title}
-        />
+        <Box maxW={MAX_PAGE_CONTAINER_WIDTH} px={{ sm: 8, lg: 4 }}>
+          <TabBar
+            {...props}
+            lazy
+            gap={isVerticalLayout ? 0 : 32}
+            scrollEnabled={scrollEnabled}
+            indicatorStyle={styles.indicator}
+            indicatorContainerStyle={styles.indicatorContainer}
+            style={styles.tabbar}
+            tabStyle={styles.tabStyle}
+            activeColor={activeLabelColor}
+            inactiveColor={labelColor}
+            labelStyle={styles.label}
+            getLabelText={({ route }) => route.title}
+            getAccessibilityLabel={({ route }) => route.title}
+          />
+        </Box>
       );
     },
     [
       activeLabelColor,
       borderDefault,
       indicatorColor,
+      indicatorContainerColor,
       isVerticalLayout,
       labelColor,
       layout.width,

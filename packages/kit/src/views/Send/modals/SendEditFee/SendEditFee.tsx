@@ -254,6 +254,10 @@ function ScreenSendEditFee({ ...rest }) {
       setCurrentCustom(feeInfoSelected.custom);
     }
 
+    if (feeType === ESendEditFeeTypes.advanced) {
+      updateCustomFee(saveCustom ? feeInfoSelected.custom : null);
+    }
+
     debugLogger.sendTx.info('SendEditFee Confirm >>>> ', feeInfoSelected);
     const { routes, index } = navigation.getState();
     const prevRouteName = routes[index - 1]?.name;
@@ -321,7 +325,6 @@ function ScreenSendEditFee({ ...rest }) {
     if (feeType === ESendEditFeeTypes.advanced) {
       setRadioValue('custom');
       setFeeType(ESendEditFeeTypes.standard);
-      updateCustomFee(saveCustom ? feeInfoSelected.custom : null);
       return;
     }
 
@@ -377,7 +380,7 @@ function ScreenSendEditFee({ ...rest }) {
     if (
       !feeInfoPayload ||
       feeType !== ESendEditFeeTypes.standard ||
-      parseFloat(radioValue) < 0 ||
+      (parseFloat(radioValue) < 0 && radioValue !== 'custom') ||
       !radioValue
     ) {
       return;
@@ -495,7 +498,6 @@ function ScreenSendEditFee({ ...rest }) {
 
   useEffect(() => {
     setSaveCustom(!!customFee);
-
     if (
       !customFeeSynced.current &&
       customFee !== undefined &&
@@ -609,6 +611,13 @@ function ScreenSendEditFee({ ...rest }) {
       hideSecondaryAction
       onModalClose={() => {
         oldSendConfirmParams?.onModalClose?.();
+      }}
+      onBackActionPress={() => {
+        if (feeType === ESendEditFeeTypes.advanced) {
+          setFeeType(ESendEditFeeTypes.standard);
+        } else if (navigation?.canGoBack?.()) {
+          navigation.goBack();
+        }
       }}
       header={title}
       footer={
