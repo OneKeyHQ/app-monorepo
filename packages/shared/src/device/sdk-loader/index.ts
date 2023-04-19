@@ -1,4 +1,9 @@
-import type { CoreApi } from '@onekeyfe/hd-core';
+import type { CoreApi, LowLevelCoreApi } from '@onekeyfe/hd-core';
 
 export const importHardwareSDK = async () =>
-  import('@onekeyfe/hd-web-sdk') as unknown as Promise<CoreApi>;
+  (await import('@onekeyfe/hd-web-sdk')).default
+    .HardwareWebSdk as unknown as Promise<CoreApi>;
+
+export const importHarwareSDKLowlevel = async () =>
+  (await import('@onekeyfe/hd-web-sdk')).default
+    .HardwareSDKLowLevel as unknown as Promise<LowLevelCoreApi>;

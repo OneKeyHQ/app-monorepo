@@ -4,12 +4,17 @@ import { HARDWARE_SDK_IFRAME_SRC } from '@onekeyhq/shared/src/config/appConfig';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { importHardwareSDK } from './sdk-loader';
+import { importHardwareSDK, importHarwareSDKLowlevel } from './sdk-loader';
 
-import type { ConnectSettings, CoreApi } from '@onekeyfe/hd-core';
+import type {
+  ConnectSettings,
+  CoreApi,
+  LowLevelCoreApi,
+} from '@onekeyfe/hd-core';
 
 // eslint-disable-next-line import/no-mutable-exports
 let HardwareSDK: CoreApi;
+let HardwareLowLevelSDK: LowLevelCoreApi;
 
 export const getHardwareSDKInstance = memoizee(
   async (params: { isPreRelease: boolean }) =>
@@ -36,12 +41,16 @@ export const getHardwareSDKInstance = memoizee(
           }
         }
         settings.connectSrc = connectSrc;
+        HardwareLowLevelSDK = await importHarwareSDKLowlevel();
+        HardwareLowLevelSDK?.addHardwareGlobalEventListener((eventParams) => {
+          HardwareSDK.emit(eventParams.event, { ...eventParams });
+        });
       }
 
       settings.preRelease = params.isPreRelease;
 
       try {
-        await HardwareSDK.init(settings);
+        await HardwareSDK.init(settings, HardwareLowLevelSDK);
         debugLogger.hardwareSDK.info('HardwareSDK initialized success');
         resolve(HardwareSDK);
       } catch (e) {
