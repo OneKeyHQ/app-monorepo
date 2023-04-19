@@ -18,6 +18,7 @@ import {
 import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { FormatCurrencyNativeOfAccount } from '../../../components/Format';
+import { removeTrailingZeros } from '../../../utils/helper';
 import { SendModalRoutes } from '../types';
 import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../utils/sendConfirmConsts';
 import { useNetworkFeeInfoEditable } from '../utils/useNetworkFeeInfoEditable';
@@ -203,7 +204,7 @@ function FeeInfoInputForTransfer({
     if (isPreset) {
       return (
         <Text typography={typography}>
-          <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} />{' '}
+          <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} space={1} />{' '}
           <FormatCurrencyNativeOfAccount
             networkId={networkId}
             accountId={accountId}
@@ -452,7 +453,7 @@ function FeeInfoInputForConfirmLite({
             prices={feeInfoPayload?.info?.prices}
             isCustom={!isPreset}
             index={feeInfoPayload?.selected?.preset}
-            alignItems="baseline"
+            space={1}
           />
           <FeeSpeedTime
             prices={feeInfoPayload?.info?.prices}
@@ -473,7 +474,9 @@ function FeeInfoInputForConfirmLite({
     if (!encodedTx || !feeInfoPayload) {
       return null;
     }
-    const totalNative = new BigNumber(totalFeeInNative || '0').toFixed(8);
+    const totalNative = removeTrailingZeros(
+      new BigNumber(totalFeeInNative || '0').toFixed(8),
+    );
 
     return (
       <HStack space={1} alignItems="center">

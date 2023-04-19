@@ -77,10 +77,11 @@ export default function WithdrawAmount() {
     const amountBN = new BigNumber(amount);
     const balanceBN = new BigNumber(balance);
     const { symbol } = tokenInfo;
-    if (amountBN.isNaN() || balanceBN.isNaN()) {
-      return intl.formatMessage({ id: 'form__amount_invalid' }, { 0: symbol });
-    }
-    if (balanceBN.isLessThan(amountBN)) {
+    if (
+      amountBN.isNaN() ||
+      balanceBN.isNaN() ||
+      balanceBN.isLessThan(amountBN)
+    ) {
       return intl.formatMessage({ id: 'form__amount_invalid' }, { 0: symbol });
     }
     return undefined;
@@ -130,7 +131,8 @@ export default function WithdrawAmount() {
       primaryActionTranslationId="action__next"
       hideSecondaryAction
       primaryActionProps={{
-        isDisabled: !!errorMsg || !!minAmountErrMsg,
+        isDisabled:
+          !!errorMsg || !!minAmountErrMsg || new BigNumber(amount).lte(0),
       }}
       onPrimaryActionPress={() => {
         if (!account || !tokenInfo) {

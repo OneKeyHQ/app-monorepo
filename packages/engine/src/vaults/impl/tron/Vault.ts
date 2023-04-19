@@ -116,7 +116,7 @@ export default class Vault extends VaultBase {
     async (tokenAddress) => {
       const apiExplorer = await this.getApiExplorer();
       const isTrc10 = new BigNumber(tokenAddress).isInteger();
-      const path = isTrc10 ? 'api/token' : 'api/contract';
+      const path = isTrc10 ? 'api/token' : 'api/token_trc20';
       const params = isTrc10
         ? { id: tokenAddress }
         : { contract: tokenAddress };

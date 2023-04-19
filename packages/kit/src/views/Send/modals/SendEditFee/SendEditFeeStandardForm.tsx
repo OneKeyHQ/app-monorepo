@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Box, HStack, RadioFee } from '@onekeyhq/components';
+import { Box, HStack, RadioFee, VStack } from '@onekeyhq/components';
 import type {
   IFeeInfo,
   IFeeInfoPayload,
@@ -23,6 +23,7 @@ const presetItemStyle = {
   paddingTop: '4px',
   paddingBottom: '4px',
   alignItems: 'center',
+  height: '64px',
 };
 
 const customItemStyle = {
@@ -50,17 +51,14 @@ export function SendEditFeeStandardForm({
 }: IStandardFeeProps) {
   const customFeeInfo = currentCustom || feeInfoPayload?.selected.custom;
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
+  const isBtcForkChain = feeInfoPayload?.info?.isBtcForkChain;
 
   const btcCustomFee = useMemo(() => {
-    if (!feeInfoPayload?.info?.isBtcForkChain) return null;
+    if (!isBtcForkChain) return null;
     if (currentFeeType !== 'custom') return null;
     if (!currentCustom?.btcFee) return null;
     return `${currentCustom?.btcFee}`;
-  }, [
-    currentCustom?.btcFee,
-    currentFeeType,
-    feeInfoPayload?.info?.isBtcForkChain,
-  ]);
+  }, [currentCustom?.btcFee, currentFeeType, isBtcForkChain]);
 
   const selectedFeeInfo = useMemo(() => {
     let price = null;
@@ -112,19 +110,36 @@ export function SendEditFeeStandardForm({
           <FeeSpeedLabel
             index={index}
             iconSize={28}
-            alignItems="center"
             space={2}
+            prices={feeInfoPayload?.info.prices ?? []}
           />
         ),
 
         describe: (
           <HStack space="10px" alignItems="center">
-            <FeeSpeedTime index={index} waitingSeconds={waitingSeconds} />
+            <VStack>
+              <SendEditFeeOverview
+                accountId={accountId}
+                networkId={networkId}
+                price={gas}
+                feeInfo={feeInfoPayload?.info}
+                limit={feeInfoPayload?.info.limit ?? '0'}
+                currencyProps={{ typography: 'Body1', textAlign: 'right' }}
+                onlyCurrency
+              />
+              <FeeSpeedTime
+                index={index}
+                waitingSeconds={waitingSeconds}
+                prices={feeInfoPayload?.info.prices ?? []}
+              />
+            </VStack>
             <FeeSpeedTip
               index={index}
               isEIP1559={feeInfoPayload?.info.eip1559}
               price={gas}
               limit={feeInfoPayload?.info.limit ?? '0'}
+              feeInfo={feeInfoPayload?.info}
+              prices={feeInfoPayload?.info.prices ?? []}
             />
           </HStack>
         ),
@@ -141,12 +156,33 @@ export function SendEditFeeStandardForm({
 
         describe: (
           <HStack space="10px" alignItems="center">
-            <CustomFeeSpeedTime
-              isEIP1559Fee={isEIP1559Fee}
-              waitingSeconds={feeInfoPayload?.info.waitingSeconds ?? []}
-              custom={customFeeInfo}
-              prices={feeInfoPayload?.info.prices ?? []}
-            />
+            <VStack>
+              {(customFeeInfo || btcCustomFee) && (
+                <SendEditFeeOverview
+                  accountId={accountId}
+                  networkId={networkId}
+                  price={
+                    customFeeInfo?.eip1559
+                      ? customFeeInfo?.price1559
+                      : customFeeInfo?.price
+                  }
+                  feeInfo={feeInfoPayload?.info}
+                  limit={
+                    customFeeInfo?.limit ?? feeInfoPayload?.info.limit ?? '0'
+                  }
+                  currencyProps={{ typography: 'Body1', textAlign: 'right' }}
+                  btcCustomFee={String(currentCustom?.btcFee)}
+                  onlyCurrency
+                />
+              )}
+
+              <CustomFeeSpeedTime
+                isEIP1559Fee={isEIP1559Fee}
+                waitingSeconds={feeInfoPayload?.info.waitingSeconds ?? []}
+                custom={customFeeInfo}
+                prices={feeInfoPayload?.info.prices ?? []}
+              />
+            </VStack>
             <FeeSpeedTip
               isCustom
               isEIP1559={customFeeInfo?.eip1559}
@@ -164,7 +200,16 @@ export function SendEditFeeStandardForm({
     }
 
     return items;
-  }, [gasList, feeInfoPayload?.info, isEIP1559Fee, customFeeInfo]);
+  }, [
+    gasList,
+    feeInfoPayload?.info,
+    accountId,
+    networkId,
+    customFeeInfo,
+    btcCustomFee,
+    currentCustom?.btcFee,
+    isEIP1559Fee,
+  ]);
 
   return (
     <Box>

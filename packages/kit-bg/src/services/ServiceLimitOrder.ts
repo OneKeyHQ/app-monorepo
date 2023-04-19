@@ -180,6 +180,7 @@ class ServiceLimitOrder extends ServiceBase {
   async setDefaultTokens() {
     const { appSelector } = this.backgroundApi;
     const inputToken = appSelector((s) => s.swap.inputToken);
+    const typedValue = appSelector((s) => s.swap.typedValue);
     let limitOrderInputToken: Token = WETH9[OnekeyNetwork.eth];
     if (inputToken && limitOrderNetworkIds.includes(inputToken.networkId)) {
       limitOrderInputToken = wToken(inputToken);
@@ -187,6 +188,7 @@ class ServiceLimitOrder extends ServiceBase {
 
     this.setInputToken(limitOrderInputToken);
     this.setSmartOutput(limitOrderInputToken);
+    this.userInputValue(typedValue);
   }
 
   @backgroundMethod()

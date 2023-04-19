@@ -92,13 +92,6 @@ export type KeleMinerOverview = {
   };
 };
 
-export type KeleIncomeDTO = {
-  date: string;
-  reward: number;
-  deposit?: number;
-  balance: number;
-};
-
 export type KeleWithdrawOverviewDTO = {
   balance: string;
   fee_free_threshold: string;
@@ -106,11 +99,25 @@ export type KeleWithdrawOverviewDTO = {
   pay_addr: string;
 };
 
+export type KeleIncomeDTO = {
+  date: string;
+  reward: number;
+  deposit?: number;
+  balance: number;
+};
+
 export type KeleOpHistoryDTO = {
   transaction_id: string;
   amount: number;
   op_type: number;
   history_time: string;
+};
+
+export type KeleGenericHistory = {
+  type: 'income' | 'op';
+  income?: KeleIncomeDTO;
+  op?: KeleOpHistoryDTO;
+  time: number;
 };
 
 export type KeleHttpResponse = {

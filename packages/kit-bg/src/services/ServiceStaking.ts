@@ -8,6 +8,7 @@ import {
   setKeleDashboardGlobal,
   setKeleIncomes,
   setKeleMinerOverviews,
+  setKeleOpHistory,
   setKelePendingWithdraw,
   setKeleUnstakeOverview,
   setKeleWithdrawOverview,
@@ -244,6 +245,20 @@ export default class ServiceStaking extends ServiceBase {
     if (this.isValidRes(res)) {
       const historyItems = res.data.data as KeleOpHistoryDTO[];
       return historyItems;
+    }
+  }
+
+  @backgroundMethod()
+  async fetchKeleOpHistory(params: { networkId: string; accountId: string }) {
+    const { networkId, accountId } = params;
+    const { dispatch } = this.backgroundApi;
+    const items = await this.getKeleOpHistory({
+      networkId,
+      accountId,
+      opType: '1,2,3,4,5,6,7,8',
+    });
+    if (items && Array.isArray(items)) {
+      dispatch(setKeleOpHistory({ accountId, networkId, items }));
     }
   }
 

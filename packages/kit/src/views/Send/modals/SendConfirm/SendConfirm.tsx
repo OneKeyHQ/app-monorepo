@@ -1,5 +1,11 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+import { find } from 'lodash';
+import { useIntl } from 'react-intl';
+
+import { ToastManager } from '@onekeyhq/components';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IFeeInfoUnit,
   ISignedTxPro,
@@ -55,6 +61,7 @@ function SendConfirm({
   sendConfirmParamsParsed: ReturnType<typeof useSendConfirmRouteParamsParsed>;
 }) {
   useOnboardingRequired();
+  const intl = useIntl();
   const { engine, serviceHistory, serviceToken } = backgroundApiProxy;
 
   const {
@@ -162,6 +169,63 @@ function SendConfirm({
           type: IEncodedTxUpdateType.advancedSettings,
         },
       });
+
+      const localPendingTxs = await serviceHistory.getLocalHistory({
+        networkId,
+        accountId,
+        isPending: true,
+        limit: 50,
+      });
+
+      const localPendingTxWithSameNonce = find(localPendingTxs, (tx) =>
+        new BigNumber(
+          (encodedTxWithAdvancedSettings as IEncodedTxEvm).nonce ?? 0,
+        ).isEqualTo(tx.decodedTx.nonce),
+      );
+
+      if (localPendingTxWithSameNonce) {
+        const { feeInfo } = localPendingTxWithSameNonce.decodedTx;
+        if (feeInfo && feeInfoValue) {
+          if (feeInfo.eip1559) {
+            if (
+              new BigNumber(
+                feeInfo.price1559?.maxFeePerGas ?? 0,
+              ).isGreaterThanOrEqualTo(
+                feeInfoValue.price1559?.maxFeePerGas ?? 0,
+              ) ||
+              new BigNumber(
+                feeInfo.price1559?.maxPriorityFeePerGas ?? 0,
+              ).isGreaterThanOrEqualTo(
+                feeInfoValue.price1559?.maxPriorityFeePerGas ?? 0,
+              )
+            ) {
+              ToastManager.show(
+                {
+                  title: intl.formatMessage({
+                    id: 'msg__invalid_rbf_tx_pay_a_higher_fee_and_retry',
+                  }),
+                },
+                { type: 'error' },
+              );
+              return;
+            }
+          } else if (
+            new BigNumber(feeInfo.price ?? 0).isGreaterThanOrEqualTo(
+              feeInfoValue.price ?? 0,
+            )
+          ) {
+            ToastManager.show(
+              {
+                title: intl.formatMessage({
+                  id: 'msg__invalid_rbf_tx_pay_a_higher_fee_and_retry',
+                }),
+              },
+              { type: 'error' },
+            );
+            return;
+          }
+        }
+      }
 
       const result = await engine.specialCheckEncodedTx({
         networkId,
@@ -287,15 +351,16 @@ function SendConfirm({
       networkId,
       accountId,
       advancedSettings,
+      serviceHistory,
       routeParams,
       walletId,
       onModalClose,
       navigation,
       dappApprove,
+      intl,
       serviceToken,
       payloadInfo?.swapInfo,
       wallet?.type,
-      serviceHistory,
       networkImpl,
       resendActionInfo,
     ],
