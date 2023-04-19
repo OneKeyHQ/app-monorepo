@@ -205,20 +205,20 @@ const FullView: FC<{ order: LimitOrderTransactionDetails }> = ({ order }) => {
             <TokenImage
               size="8"
               borderRadius="full"
-              token={tokenIn}
+              token={tokenOut}
               bgColor="surface-neutral-default"
             />
           </Box>
           <Box flex={1} flexDirection="row" alignItems="center">
             <Typography.Body2Strong overflow="clip">
-              {tokenInValueString} {tokenIn.symbol.toUpperCase()}
+              {tokenOutValueString} {tokenOut.symbol.toUpperCase()}
             </Typography.Body2Strong>
           </Box>
         </Box>
         <Box w="20%" flexDirection="row" alignItems="center">
           <Box flex={1} flexDirection="row" alignItems="center">
             <Typography.Body2Strong overflow="clip">
-              {tokenOutValueString} {tokenOut.symbol.toUpperCase()}
+              {tokenInValueString} {tokenIn.symbol.toUpperCase()}
             </Typography.Body2Strong>
           </Box>
         </Box>
