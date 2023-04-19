@@ -45,7 +45,7 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange }) => {
   return (
     <Slider
       maxW="300"
-      defaultValue={value}
+      value={Math.min(value, 100)}
       minValue={0}
       maxValue={100}
       step={1}

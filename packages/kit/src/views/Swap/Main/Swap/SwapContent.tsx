@@ -35,7 +35,7 @@ export const SwapContent = () => {
   const { formattedAmounts } = useDerivedSwapState();
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
-  const [value, setValue] = useState(0);
+  const [percent, setPercent] = useState(0);
   const isDisabled = !wallet || !network || swapMaintain;
 
   const inputBalance = useTokenBalance(inputToken, sendingAccount?.id);
@@ -56,11 +56,11 @@ export const SwapContent = () => {
       },
     });
   }, [navigation]);
-  const onChangeInput = useCallback((v: string) => {
-    backgroundApiProxy.serviceSwap.userInput('INPUT', v);
+  const onChangeInput = useCallback((value: string) => {
+    backgroundApiProxy.serviceSwap.userInput('INPUT', value);
   }, []);
-  const onChangeOutput = useCallback((v: string) => {
-    backgroundApiProxy.serviceSwap.userInput('OUTPUT', v);
+  const onChangeOutput = useCallback((value: string) => {
+    backgroundApiProxy.serviceSwap.userInput('OUTPUT', value);
   }, []);
   const onSwitchTokens = useCallback(() => {
     backgroundApiProxy.serviceSwap.switchTokens();
@@ -75,9 +75,12 @@ export const SwapContent = () => {
   );
   const onChange = useCallback(
     (v: number) => {
-      setValue(v);
+      setPercent(v);
       if (inputBalance) {
-        const inputValue = formatAmount(div(multiply(inputBalance, v), 100));
+        let inputValue = div(multiply(inputBalance, v), 100);
+        if (v < 100) {
+          inputValue = formatAmount(inputValue);
+        }
         backgroundApiProxy.serviceSwap.userInput('INPUT', inputValue);
       }
     },
@@ -135,7 +138,7 @@ export const SwapContent = () => {
             <Box position="absolute" top="0" right="5">
               <Center h="10" w="48">
                 <Box style={{ transform: [{ translateY: 2 }] }} w="full">
-                  <PercentInput value={value} onChange={onChange} />
+                  <PercentInput value={percent} onChange={onChange} />
                 </Box>
               </Center>
             </Box>
