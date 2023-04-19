@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,10 +16,13 @@ import {
   useActiveWalletAccount,
   useAppSelector,
 } from '../../../../hooks/redux';
+import PercentInput from '../../components/PercentInput';
 import ReceivingTokenInput from '../../components/ReceivingTokenInput';
 import TokenInput from '../../components/TokenInput';
 import { useDerivedSwapState } from '../../hooks/useSwap';
+import { useTokenBalance } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
+import { div, formatAmount, multiply } from '../../utils';
 
 export const SwapContent = () => {
   const intl = useIntl();
@@ -30,7 +33,12 @@ export const SwapContent = () => {
   const { wallet, network } = useActiveWalletAccount();
   const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
   const { formattedAmounts } = useDerivedSwapState();
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
+  const [value, setValue] = useState(0);
   const isDisabled = !wallet || !network || swapMaintain;
+
+  const inputBalance = useTokenBalance(inputToken, sendingAccount?.id);
 
   const onSelectInput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -48,11 +56,11 @@ export const SwapContent = () => {
       },
     });
   }, [navigation]);
-  const onChangeInput = useCallback((value: string) => {
-    backgroundApiProxy.serviceSwap.userInput('INPUT', value);
+  const onChangeInput = useCallback((v: string) => {
+    backgroundApiProxy.serviceSwap.userInput('INPUT', v);
   }, []);
-  const onChangeOutput = useCallback((value: string) => {
-    backgroundApiProxy.serviceSwap.userInput('OUTPUT', value);
+  const onChangeOutput = useCallback((v: string) => {
+    backgroundApiProxy.serviceSwap.userInput('OUTPUT', v);
   }, []);
   const onSwitchTokens = useCallback(() => {
     backgroundApiProxy.serviceSwap.switchTokens();
@@ -64,6 +72,16 @@ export const SwapContent = () => {
       lower: { pt: '0' },
     }),
     [],
+  );
+  const onChange = useCallback(
+    (v: number) => {
+      setValue(v);
+      if (inputBalance) {
+        const inputValue = formatAmount(div(multiply(inputBalance, v), 100));
+        backgroundApiProxy.serviceSwap.userInput('INPUT', inputValue);
+      }
+    },
+    [inputBalance],
   );
 
   return (
@@ -92,7 +110,7 @@ export const SwapContent = () => {
           zIndex={1}
         >
           <Box position="absolute" w="full" h="10" top={-20} left={0}>
-            <Center>
+            <Box position="absolute" top="0" left="5">
               <Center
                 w="10"
                 h="10"
@@ -113,7 +131,14 @@ export const SwapContent = () => {
                   bgColor="surface-neutral-subdued"
                 />
               </Center>
-            </Center>
+            </Box>
+            <Box position="absolute" top="0" right="5">
+              <Center h="10" w="48">
+                <Box style={{ transform: [{ translateY: 2 }] }} w="full">
+                  <PercentInput value={value} onChange={onChange} />
+                </Box>
+              </Center>
+            </Box>
           </Box>
         </Box>
         <Box px={4} py="5" bg="action-secondary-default" overflow="hidden">
