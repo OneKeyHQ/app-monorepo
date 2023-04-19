@@ -177,7 +177,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const { encodedTx } = unsignedTx.payload;
     const txnBytes = await toTransaction(client, sender, encodedTx);
-    const signData = handleSignData(txnBytes);
+    const signData = handleSignData(txnBytes, true);
 
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
