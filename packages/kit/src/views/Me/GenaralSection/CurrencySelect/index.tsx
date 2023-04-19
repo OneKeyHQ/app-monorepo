@@ -28,7 +28,7 @@ import { useAppSelector, useDebounce, useSettings } from '../../../../hooks';
 import { useCurrencyData, useCurrencyListData } from './hooks';
 import { fuseSearch } from './utils';
 
-import type { View } from 'react-native';
+import type { LayoutChangeEvent, View } from 'react-native';
 
 type PopularCardProps = {
   currency: string;
@@ -233,17 +233,13 @@ const CurrencySelectModal: FC = () => {
     },
     [onClose],
   );
-  useEffect(() => {
-    setTimeout(async () => {
-      const modalRef = ModalRefStore.ref;
-      const modalMeasure = await getMeasure(
-        modalRef?.current as unknown as View,
-      );
-      if (modalMeasure?.width) {
-        setBoxWidth(modalMeasure?.width);
-      }
-    }, 10);
-  });
+
+  const modalOnLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width } = e.nativeEvent.layout;
+    if (width) {
+      setBoxWidth(width);
+    }
+  }, []);
 
   const headerComponent = useMemo(
     () => (
@@ -288,6 +284,7 @@ const CurrencySelectModal: FC = () => {
 
   return (
     <Modal
+      onLayout={modalOnLayout}
       height="640px"
       footer={null}
       size="xl"
