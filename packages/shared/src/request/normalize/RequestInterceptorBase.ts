@@ -57,6 +57,7 @@ export abstract class RequestInterceptorBase {
         }),
       );
       this.setHeader(this.normalizeHeaderKey('x-onekey-request-id'), requestId);
+      this.setHeader(this.normalizeHeaderKey('traceparent'), requestId);
     }
     this.setDefaultTimeout(60 * 1000);
     this.setDefaultRetry(0);
