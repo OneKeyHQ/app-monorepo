@@ -1,11 +1,53 @@
 import type { FC } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 import type {
   IBaseMenuOptions,
   IMenu,
 } from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
+
+export function useCoinControlListMenu(): {
+  menuSortByIndex: number;
+  menuInfoIndex: number;
+  onSortByChange: (value: number) => void;
+  onInfoChange: (value: number) => void;
+  showPath: boolean;
+  sortMethod: 'balance' | 'height' | 'address' | 'label';
+} {
+  const [menuSortByIndex, setMenuSortByIndex] = useState(1);
+  const [menuInfoIndex, setMenuInfoIndex] = useState(1);
+  const onSortByChange = useCallback((value: number) => {
+    setMenuSortByIndex(value);
+  }, []);
+  const onInfoChange = useCallback((value: number) => {
+    setMenuInfoIndex(value);
+  }, []);
+  const showPath = useMemo(() => menuInfoIndex === 2, [menuInfoIndex]);
+  const sortMethod = useMemo(() => {
+    switch (menuSortByIndex) {
+      case 1:
+        return 'balance';
+      case 2:
+        return 'height';
+      case 3:
+        return 'address';
+      case 4:
+        return 'label';
+      default:
+        return 'balance';
+    }
+  }, [menuSortByIndex]);
+
+  return {
+    menuSortByIndex,
+    menuInfoIndex,
+    onSortByChange,
+    onInfoChange,
+    showPath,
+    sortMethod,
+  };
+}
 
 const CoinControlListMenu: FC<
   IMenu & {
@@ -62,7 +104,7 @@ const CoinControlListMenu: FC<
         onChange: onInfoChange,
       },
     ],
-    [],
+    [sortByIndex, onSortByChange, infoIndex, onInfoChange],
   );
 
   return <BaseMenu closeOnSelect={false} options={options} {...props} />;

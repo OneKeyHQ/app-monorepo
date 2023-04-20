@@ -23,7 +23,10 @@ import type { CoinControlModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../hooks';
 
-import { CoinControlListMenu } from './components/CoinControlListMenu';
+import {
+  CoinControlListMenu,
+  useCoinControlListMenu,
+} from './components/CoinControlListMenu';
 import { CoinControlList } from './components/List';
 import { ModalFooter, ModalHeader } from './components/ModalComponent';
 
@@ -53,29 +56,14 @@ const CoinControl = () => {
 
   const { network } = useNetwork({ networkId });
 
-  const [menuSortByIndex, setMenuSortByIndex] = useState(1);
-  const [menuInfoIndex, setMenuInfoIndex] = useState(1);
-  const onSortByChange = useCallback((value: number) => {
-    setMenuSortByIndex(value);
-  }, []);
-  const onInfoChange = useCallback((value: number) => {
-    setMenuInfoIndex(value);
-  }, []);
-  const showPath = useMemo(() => menuInfoIndex === 2, [menuInfoIndex]);
-  const sortMethod = useMemo(() => {
-    switch (menuSortByIndex) {
-      case 1:
-        return 'balance';
-      case 2:
-        return 'height';
-      case 3:
-        return 'address';
-      case 4:
-        return 'label';
-      default:
-        return 'balance';
-    }
-  }, [menuSortByIndex]);
+  const {
+    menuSortByIndex,
+    menuInfoIndex,
+    onSortByChange,
+    onInfoChange,
+    showPath,
+    sortMethod,
+  } = useCoinControlListMenu();
 
   const refreshUtxosData = useCallback(() => {
     setIsLoading(true);
