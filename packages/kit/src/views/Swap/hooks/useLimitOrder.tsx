@@ -69,10 +69,11 @@ export function useLimitOrders(accountId?: string, networkId?: string) {
     if (!details) {
       return [];
     }
-    return Object.values(details).reduce(
+    const txs = Object.values(details).reduce(
       (result, item) => result.concat(item),
       [] as LimitOrderTransactionDetails[],
     );
+    return txs.sort((a, b) => b.createdAt - a.createdAt);
   }, [limitOrderDetails, accountId, networkId]);
 }
 
@@ -89,7 +90,7 @@ export function useAllLimitOrders(): LimitOrderTransactionDetails[] {
       (result, item) => result.concat(...Object.values(item)),
       [] as LimitOrderTransactionDetails[],
     );
-    return txs;
+    return txs.sort((a, b) => b.createdAt - a.createdAt);
   }, [limitOrderDetails]);
 }
 
