@@ -5,6 +5,7 @@ import bs58check from 'bs58check';
 import memoizee from 'memoizee';
 
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type {
@@ -21,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { getUtxoId } from '../../../dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import {
   InsufficientBalance,
   InvalidAddress,
@@ -871,5 +873,33 @@ export default class VaultBtcFork extends VaultBase {
       to,
       pageSize,
     });
+  }
+
+  override async getFrozenBalance(): Promise<number> {
+    const utxos = await this.collectUTXOs();
+    const [dbAccount, network] = await Promise.all([
+      this.getDbAccount() as Promise<DBUTXOAccount>,
+      this.getNetwork(),
+    ]);
+    const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
+      this.networkId,
+      dbAccount.xpub,
+    );
+    // find frozen utxo
+    const allFrozenUtxo = utxos.filter((utxo) =>
+      archivedUtxos.find(
+        (archivedUtxo) =>
+          archivedUtxo.frozen &&
+          archivedUtxo.id === getUtxoId(this.networkId, utxo),
+      ),
+    );
+    // use bignumber to calculate sum allFrozenUtxo value
+    const frozenBalance = allFrozenUtxo.reduce(
+      (sum, utxo) => sum.plus(utxo.value),
+      new BigNumber(0),
+    );
+    return Promise.resolve(
+      frozenBalance.shiftedBy(-network.decimals).toNumber(),
+    );
   }
 }
