@@ -1,20 +1,24 @@
-import type { FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import {
   Box,
   HStack,
+  Pressable,
   Slider,
   Typography,
   useThemeValue,
 } from '@onekeyhq/components';
 
-type PercentInputProps = {
+type PercentInputProps = Exclude<
+  ComponentProps<typeof Slider>,
+  'onChangeEnd' | 'onChange'
+> & {
   value: number;
   onChange: (value: number) => void;
 };
 
-const PercentInput: FC<PercentInputProps> = ({ value, onChange }) => {
+const PercentInput: FC<PercentInputProps> = ({ value, onChange, ...rest }) => {
   const [isPressed, setPressed] = useState(false);
 
   const borderTopColor = useThemeValue('surface-neutral-subdued');
@@ -42,15 +46,18 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange }) => {
     [onChange],
   );
 
+  const valueNum = Math.min(value, 100);
+
   return (
     <Slider
       maxW="300"
-      value={Math.min(value, 100)}
+      value={valueNum}
       minValue={0}
       maxValue={100}
       step={1}
       onChangeEnd={handleChangeEnd}
       onChange={handleChange}
+      {...rest}
     >
       <Slider.Track position="relative">
         <HStack space={1} w="full" h="full" bg="background-default">
@@ -88,10 +95,10 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange }) => {
           </Box>
         </HStack>
       </Slider.Track>
-      <Box
+      <Pressable
         position="absolute"
         pointerEvents="none"
-        left={`${value}%`}
+        left={`${valueNum}%`}
         style={{ transform: [{ translateX: -8 }] }}
       >
         <Box position="relative">
@@ -142,7 +149,7 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange }) => {
             </Box>
           ) : null}
         </Box>
-      </Box>
+      </Pressable>
     </Slider>
   );
 };

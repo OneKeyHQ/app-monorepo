@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -35,10 +36,22 @@ export const SwapContent = () => {
   const { formattedAmounts } = useDerivedSwapState();
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
-  const [percent, setPercent] = useState(0);
   const isDisabled = !wallet || !network || swapMaintain;
 
   const inputBalance = useTokenBalance(inputToken, sendingAccount?.id);
+  const typedValue = useAppSelector((s) => s.swap.typedValue);
+
+  const percent = useMemo(() => {
+    if (inputBalance && typedValue) {
+      const inputBalanceBN = new BigNumber(inputBalance);
+      const valueBN = new BigNumber(typedValue);
+      if (inputBalanceBN.gt(0) && valueBN.gt(0)) {
+        const num = valueBN.div(inputBalanceBN).multipliedBy(100).toNumber();
+        return Math.ceil(num);
+      }
+    }
+    return 0;
+  }, [inputBalance, typedValue]);
 
   const onSelectInput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -75,7 +88,6 @@ export const SwapContent = () => {
   );
   const onChange = useCallback(
     (v: number) => {
-      setPercent(v);
       if (inputBalance) {
         let inputValue = div(multiply(inputBalance, v), 100);
         if (v < 100) {
