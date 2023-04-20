@@ -10,12 +10,27 @@ const InAppNotificationGallery = () => {
           showNotification({
             title: '😀 Notification',
             subtitle: 'Subtitle',
-            cover: 'https://onekey.so/assets/images/onekey-logo.png',
-            linkedRoute: 'Home',
+            cover:
+              'https://ethereum.org/favicon-32x32.png?v=8b512faa8d4a0b019c123a771b6622aa',
           });
         }}
       >
         showNotification
+      </Button>
+      <Button
+        mt={10}
+        onPress={() => {
+          showNotification({
+            title: '😀 Notification',
+            subtitle: 'Subtitle',
+            actionText: 'Update',
+            onActionPress: () => {
+              alert('Update');
+            },
+          });
+        }}
+      >
+        showNotification with action
       </Button>
     </Box>
   );

@@ -4,7 +4,6 @@ import InAppNotification from '../InAppNotification';
 
 import type { InAppNotificationProps } from '../InAppNotification';
 
-const DISMISS_TIMEOUT = 3000;
 
 let queue = Promise.resolve();
 
@@ -17,7 +16,6 @@ export const showNotification = (props: InAppNotificationProps) =>
             onClose();
             resolve();
           };
-          setTimeout(close, DISMISS_TIMEOUT);
           return <InAppNotification {...props} onClose={close} />;
         });
       }),
