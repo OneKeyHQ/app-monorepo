@@ -1,6 +1,7 @@
 import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,6 +13,7 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   FormatBalance,
   FormatCurrencyNumber,
@@ -22,7 +24,6 @@ import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import DefiCell from './Cells/DefiCell';
 import StakingCell from './Cells/StakingCell';
 import TokenCell from './Cells/TokenCell';
-import { useAccountTokenDetailAmount } from './hook';
 
 import type { ListRenderItem } from 'react-native';
 
@@ -100,12 +101,21 @@ const AssetsInfo: FC<Props> = ({
     accountId,
     networkId,
   });
-  const { totalAmount } = useAccountTokenDetailAmount({
-    accountId,
-    networkId,
-    tokenId,
-    sendAddress,
-  });
+  const [totalAmount, updateTotalAmount] = useState<B>(new B(0));
+
+  const { serviceToken } = backgroundApiProxy;
+  useEffect(() => {
+    serviceToken
+      .fetchTokenDetailAmount({
+        accountId,
+        networkId,
+        tokenId,
+        sendAddress,
+      })
+      .then((amount) => {
+        updateTotalAmount(new B(amount));
+      });
+  }, [accountId, networkId, sendAddress, serviceToken, tokenId]);
 
   const listData = useMemo(() => [{ type: 'token' }, { type: 'staking' }], []);
 

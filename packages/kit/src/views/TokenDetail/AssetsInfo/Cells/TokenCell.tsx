@@ -71,15 +71,7 @@ const TokenCell: FC<Props> = ({ tokenId, sendAddress }) => {
     <ListItem mx="-8px">
       <ListItem.Column>
         {token && (
-          <Token
-            size="40px"
-            // showInfo
-            token={token}
-            // showExtra={false}
-            showTokenVerifiedIcon={false}
-            // description={formatedBalance}
-            // infoBoxProps={{ flex: 1 }}
-          />
+          <Token size="40px" token={token} showTokenVerifiedIcon={false} />
         )}
       </ListItem.Column>
       <ListItem.Column

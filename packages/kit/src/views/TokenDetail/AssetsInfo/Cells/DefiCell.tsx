@@ -6,7 +6,10 @@ import B from 'bignumber.js';
 import { Badge, Box, ListItem, Token, Typography } from '@onekeyhq/components';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 
-import { FormatCurrencyNumber } from '../../../../components/Format';
+import {
+  FormatBalance,
+  FormatCurrencyNumber,
+} from '../../../../components/Format';
 import { useActiveWalletAccount, useNavigation } from '../../../../hooks';
 import { useCurrentFiatValue } from '../../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
@@ -68,9 +71,16 @@ const DefiCell: FC<Props> = ({ item, tokenId, token, protocolId }) => {
             name: item.protocolName,
           }}
           description={
-            <Typography.Body2 color="text-subdued">
-              {`${amount} ${token?.symbol ?? ''}`}
-            </Typography.Body2>
+            <FormatBalance
+              balance={amount}
+              suffix={token?.symbol}
+              formatOptions={{
+                fixed: token?.decimals ?? 4,
+              }}
+              render={(ele) => (
+                <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
+              )}
+            />
           }
         />
       </ListItem.Column>

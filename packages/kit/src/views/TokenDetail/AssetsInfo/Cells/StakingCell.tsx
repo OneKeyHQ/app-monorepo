@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -9,10 +9,17 @@ import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import KeleLogoPNG from '@onekeyhq/kit/assets/staking/kele_pool.png';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
-import { FormatCurrencyNumber } from '../../../../components/Format';
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import {
+  FormatBalance,
+  FormatCurrencyNumber,
+} from '../../../../components/Format';
 import { useSimpleTokenPriceValue } from '../../../../hooks/useManegeTokenPrice';
-import { useAccountStakingActivity } from '../../../Staking/hooks';
-import { useStakingAmount } from '../hook';
+import { useTokenSupportStakedAssets } from '../../../../hooks/useTokens';
+import {
+  useAccountStakingActivity,
+  useKeleMinerOverview,
+} from '../../../Staking/hooks';
 
 export type Props = {
   tokenId: string;
@@ -22,12 +29,19 @@ export type Props = {
 const StakingCell: FC<Props> = ({ token, tokenId }) => {
   const intl = useIntl();
   const { networkId, accountId } = useActiveWalletAccount();
-  const { amount, statedSupport } = useStakingAmount({
-    networkId,
-    accountId,
-    tokenId,
-  });
+  const minerOverview = useKeleMinerOverview(networkId, accountId);
 
+  const amount = useMemo(
+    () => minerOverview?.amount?.total_amount ?? 0,
+    [minerOverview],
+  );
+  const { serviceStaking } = backgroundApiProxy;
+
+  useEffect(() => {
+    serviceStaking.fetchMinerOverview({ networkId, accountId });
+  }, [accountId, networkId, serviceStaking, tokenId]);
+
+  const statedSupport = useTokenSupportStakedAssets(networkId, tokenId);
   const activeStakingActivity = useAccountStakingActivity(networkId, accountId);
   const price =
     useSimpleTokenPriceValue({
@@ -50,10 +64,18 @@ const StakingCell: FC<Props> = ({ token, tokenId }) => {
         text={{
           label: 'Kelepool',
           labelProps: { typography: 'Body1Strong' },
-          description: `${amount} ${token?.symbol ?? ''}`,
-          descriptionProps: {
-            typography: 'Body2',
-          },
+          description: (
+            <FormatBalance
+              balance={amount}
+              suffix={token?.symbol}
+              formatOptions={{
+                fixed: token?.decimals ?? 4,
+              }}
+              render={(ele) => (
+                <Typography.Body2 color="text-subdued">{ele}</Typography.Body2>
+              )}
+            />
+          ),
         }}
       />
 
