@@ -146,6 +146,7 @@ export enum GalleryRoutes {
   ComponentBottomSheetModal = 'component/BottomSheetModal',
   ComponentNavHeaderGallery = 'component/NavHeader',
   ComponentMnemonicCardGallery = 'component/MnemonicCard',
+  ComponentSlider = 'component/Slider',
 }
 
 // ModalRoutes ----------------------------------------------

@@ -31,10 +31,14 @@ export const SUI_NATIVE_COIN = SUI_TYPE_ARG;
 
 /* -------------------------------------------------------------------------- */
 /*                              Helper functions                              */
+
 /* -------------------------------------------------------------------------- */
 
-export function handleSignData(txnBytes: Uint8Array) {
+export function handleSignData(txnBytes: Uint8Array, isHardware = false) {
   const serializeTxn = messageWithIntent(IntentScope.TransactionData, txnBytes);
+  if (isHardware) {
+    return serializeTxn;
+  }
   return blake2b(serializeTxn, { dkLen: 32 });
 }
 
