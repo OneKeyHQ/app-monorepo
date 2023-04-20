@@ -47,6 +47,7 @@ import SegmentedControl from '../../../views/Components/stories/SegmentedControl
 import SelectGallery from '../../../views/Components/stories/Select';
 import ShadowsGallery from '../../../views/Components/stories/Shadows';
 import SkeletonGallery from '../../../views/Components/stories/Skeleton';
+import SliderGallery from '../../../views/Components/stories/Slider';
 import SortableListGallery from '../../../views/Components/stories/SortableList';
 import SpinnerGallery from '../../../views/Components/stories/Spinner';
 import SwitchGallery from '../../../views/Components/stories/Switch';
@@ -125,6 +126,7 @@ export type GalleryParams = {
   [GalleryRoutes.ComponentBottomSheetModal]: undefined;
   [GalleryRoutes.ComponentNavHeaderGallery]: undefined;
   [GalleryRoutes.ComponentMnemonicCardGallery]: undefined;
+  [GalleryRoutes.ComponentSlider]: undefined;
 };
 
 export const stackScreenList = [
@@ -244,6 +246,10 @@ export const stackScreenList = [
   {
     name: GalleryRoutes.ComponentMnemonicCardGallery,
     component: MnemonicCardGallery,
+  },
+  {
+    name: GalleryRoutes.ComponentSlider,
+    component: SliderGallery,
   },
 ];
 
