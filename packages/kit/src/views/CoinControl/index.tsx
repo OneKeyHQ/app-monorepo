@@ -112,6 +112,20 @@ const CoinControl = () => {
     [utxoWithDust],
   );
 
+  useEffect(() => {
+    if (
+      selectedUtxos.some((key) =>
+        frozenUtxos.find((utxo) => getUtxoUniqueKey(utxo) === key),
+      )
+    ) {
+      setSelectedUtxos((prev) =>
+        prev.filter(
+          (key) => !frozenUtxos.find((utxo) => getUtxoUniqueKey(utxo) === key),
+        ),
+      );
+    }
+  }, [frozenUtxos, selectedUtxos]);
+
   const onCheckBoxChange = useCallback(
     (item: ICoinControlListItem) => {
       const key = getUtxoUniqueKey(item);
