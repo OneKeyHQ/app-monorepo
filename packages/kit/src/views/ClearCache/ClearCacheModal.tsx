@@ -24,44 +24,6 @@ type ItemType = {
   selected?: boolean;
 };
 
-const AppCache: ItemType[] = [
-  {
-    name: 'Transaction',
-    localeId: 'form__transaction_history',
-    selected: true,
-  },
-  {
-    name: 'Swap',
-    localeId: 'form__swap_history',
-    selected: true,
-  },
-  {
-    name: 'Token',
-    localeId: 'form__token_data',
-    selected: true,
-  },
-  {
-    name: 'NFT',
-    localeId: 'form__nft_data',
-    selected: true,
-  },
-  {
-    name: 'Market',
-    localeId: 'form__market_data',
-    selected: true,
-  },
-  {
-    name: 'ConnectedSites',
-    localeId: 'form__connected_sites',
-    selected: true,
-  },
-  {
-    name: 'Explore',
-    localeId: 'form__explore',
-    selected: true,
-  },
-];
-
 const ListCell: FC<{ item: ItemType; onPress: () => void }> = ({
   item,
   onPress,
@@ -70,12 +32,7 @@ const ListCell: FC<{ item: ItemType; onPress: () => void }> = ({
   const intl = useIntl();
 
   return (
-    <ListItem
-      onPress={() => {
-        setChecked((prev) => !prev);
-        onPress();
-      }}
-    >
+    <ListItem>
       <ListItem.Column
         flex={1}
         text={{
@@ -85,15 +42,19 @@ const ListCell: FC<{ item: ItemType; onPress: () => void }> = ({
           labelProps: { typography: 'Body1Strong' },
         }}
       />
-      <ListItem.Column>
-        <CheckBox
-          onChange={(isSelected) => {
-            setChecked(isSelected);
-            onPress();
-          }}
-          isChecked={checked}
-        />
-      </ListItem.Column>
+      <ListItem.Column
+        text={{
+          label: (
+            <CheckBox
+              onChange={() => {
+                setChecked((prev) => !prev);
+                onPress();
+              }}
+              isChecked={checked}
+            />
+          ),
+        }}
+      />
     </ListItem>
   );
 };
@@ -102,7 +63,43 @@ const ClearCacheModal = () => {
   const intl = useIntl();
   const modalClose = useModalClose();
 
-  const listData = useRef(AppCache);
+  const listData = useRef<ItemType[]>([
+    {
+      name: 'Transaction',
+      localeId: 'form__transaction_history',
+      selected: true,
+    },
+    {
+      name: 'Swap',
+      localeId: 'form__swap_history',
+      selected: true,
+    },
+    {
+      name: 'Token',
+      localeId: 'form__token_data',
+      selected: true,
+    },
+    {
+      name: 'NFT',
+      localeId: 'form__nft_data',
+      selected: true,
+    },
+    {
+      name: 'Market',
+      localeId: 'form__market_data',
+      selected: true,
+    },
+    {
+      name: 'ConnectedSites',
+      localeId: 'form__connected_sites',
+      selected: true,
+    },
+    {
+      name: 'Explore',
+      localeId: 'form__explore',
+      selected: true,
+    },
+  ]);
 
   const [flag, updateFlag] = useState(0);
 
@@ -141,22 +138,24 @@ const ClearCacheModal = () => {
     async () =>
       new Promise((resolve) => {
         listData.current.forEach((item) => {
-          if (item.name === 'Transaction') {
-            simpleDb.history.clearRawData();
-          } else if (item.name === 'Swap') {
-            simpleDb.swap.clearRawData();
-            backgroundApiProxy.serviceSwap.clearTransactions();
-          } else if (item.name === 'Token') {
-            simpleDb.token.clearRawData();
-          } else if (item.name === 'NFT') {
-            simpleDb.nft.clearRawData();
-          } else if (item.name === 'Market') {
-            simpleDb.market.clearRawData();
-            backgroundApiProxy.serviceMarket.clearSearchHistory();
-          } else if (item.name === 'ConnectedSites') {
-            simpleDb.walletConnect.clearRawData();
-          } else if (item.name === 'Explore') {
-            backgroundApiProxy.serviceDiscover.clearHistory();
+          if (item.selected === true) {
+            if (item.name === 'Transaction') {
+              simpleDb.history.clearRawData();
+            } else if (item.name === 'Swap') {
+              simpleDb.swap.clearRawData();
+              backgroundApiProxy.serviceSwap.clearTransactions();
+            } else if (item.name === 'Token') {
+              simpleDb.token.clearRawData();
+            } else if (item.name === 'NFT') {
+              simpleDb.nft.clearRawData();
+            } else if (item.name === 'Market') {
+              simpleDb.market.clearRawData();
+              backgroundApiProxy.serviceMarket.clearSearchHistory();
+            } else if (item.name === 'ConnectedSites') {
+              simpleDb.walletConnect.clearRawData();
+            } else if (item.name === 'Explore') {
+              backgroundApiProxy.serviceDiscover.clearHistory();
+            }
           }
         });
         return resolve(true);

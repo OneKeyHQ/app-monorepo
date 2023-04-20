@@ -537,7 +537,7 @@ export default class Vault extends VaultBase {
   override validateImportedCredential(input: string): Promise<boolean> {
     let ret = false;
     if (this.settings.importedAccountEnabled) {
-      ret = /^(0x)?[0-9a-zA-Z]{64}|[0-9a-zA-Z]{160}$/.test(input);
+      ret = /^(0x)?([a-fA-F0-9]{64}|[a-fA-F0-9]{160})$/g.test(input);
     }
     return Promise.resolve(ret);
   }

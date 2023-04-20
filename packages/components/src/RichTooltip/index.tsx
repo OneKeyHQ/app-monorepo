@@ -10,7 +10,7 @@ function RichTooltip(props: RichTooltipProps) {
     arrowProps,
     bodyProps,
     contentProps,
-    position = 'auto',
+    position = 'top',
     bgColor = 'surface-default',
   } = props;
 

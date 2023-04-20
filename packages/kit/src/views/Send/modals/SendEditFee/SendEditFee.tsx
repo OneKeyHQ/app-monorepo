@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/naming-convention */
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -40,10 +40,12 @@ import { ESendEditFeeTypes } from '../../enums';
 import { SendModalRoutes } from '../../types';
 import { getCustomFeeSpeedInfo } from '../../utils/getCustomFeeSpeedInfo';
 import {
+  FEE_INFO_POLLING_INTERVAL,
   IS_REPLACE_ROUTE_TO_FEE_EDIT,
   SEND_EDIT_FEE_PRICE_UP_RATIO,
 } from '../../utils/sendConfirmConsts';
 import { useBtcCustomFee } from '../../utils/useBtcCustomFee';
+import { useCustomFee } from '../../utils/useCustomFee';
 import { useFeeInfoPayload } from '../../utils/useFeeInfoPayload';
 
 import { SendEditFeeCustomForm } from './SendEditFeeCustomForm';
@@ -91,6 +93,12 @@ function ScreenSendEditFee({ ...rest }) {
   const [blockNativeInit, setBlockNativeInit] = useState(false);
   const [saveCustom, setSaveCustom] = useState(false);
   const [currentCustom, setCurrentCustom] = useState<IFeeInfoUnit | null>(null);
+  const customFeeSynced = useRef<boolean>(false);
+  const radioValueInit = useRef<boolean>(false);
+  const [feeType, setFeeType] = useState<ESendEditFeeTypes>(
+    ESendEditFeeTypes.standard,
+  );
+  const [radioValue, setRadioValue] = useState('');
 
   const intl = useIntl();
 
@@ -112,18 +120,6 @@ function ScreenSendEditFee({ ...rest }) {
     networkId,
     accountId,
   });
-
-  const title = useMemo(() => {
-    let key: LocaleIds = 'action__edit_fee';
-
-    if (resendActionInfo?.type === 'speedUp') {
-      key = 'form__accelerated_transaction';
-    }
-    if (resendActionInfo?.type === 'cancel') {
-      key = 'form__cancelled_transaction';
-    }
-    return intl.formatMessage({ id: key });
-  }, [intl, resendActionInfo?.type]);
 
   useDisableNavigationAnimation({
     condition: !!autoConfirmAfterFeeSaved,
@@ -149,6 +145,8 @@ function ScreenSendEditFee({ ...rest }) {
       ignoreFetchFeeCalling: oldSendConfirmParams?.ignoreFetchFeeCalling,
       useFeeInTx: oldSendConfirmParams?.feeInfoUseFeeInTx,
       forBatchSend,
+      pollingInterval: FEE_INFO_POLLING_INTERVAL,
+      shouldStopPolling: feeType === ESendEditFeeTypes.advanced,
     });
 
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
@@ -158,10 +156,20 @@ function ScreenSendEditFee({ ...rest }) {
     debugLogger.sendTx.info('SendEditFee  >>>>  ', feeInfoPayload, encodedTx);
   }, [encodedTx, feeInfoPayload]);
 
-  const [feeType, setFeeType] = useState<ESendEditFeeTypes>(
-    ESendEditFeeTypes.standard,
-  );
-  const [radioValue, setRadioValue] = useState('');
+  const title = useMemo(() => {
+    let key: LocaleIds = 'action__edit_fee';
+
+    if (resendActionInfo?.type === 'speedUp') {
+      key = 'form__accelerated_transaction';
+    }
+    if (resendActionInfo?.type === 'cancel') {
+      key = 'form__cancelled_transaction';
+    }
+    if (feeType === ESendEditFeeTypes.advanced) {
+      key = 'title__custom';
+    }
+    return intl.formatMessage({ id: key });
+  }, [intl, resendActionInfo?.type, feeType]);
 
   // const isSmallScreen = useIsVerticalLayout();
   const useFormReturn = useForm<ISendEditFeeValues>({
@@ -192,6 +200,7 @@ function ScreenSendEditFee({ ...rest }) {
     feeRate: watchBtcFeeRate,
     feeType: currentFeeType,
   });
+  const { customFee, updateCustomFee } = useCustomFee(networkId);
 
   const onSubmit = handleSubmit(async (data) => {
     let type = currentFeeType;
@@ -246,6 +255,10 @@ function ScreenSendEditFee({ ...rest }) {
       }
 
       setCurrentCustom(feeInfoSelected.custom);
+    }
+
+    if (feeType === ESendEditFeeTypes.advanced) {
+      updateCustomFee(saveCustom ? feeInfoSelected.custom : null);
     }
 
     debugLogger.sendTx.info('SendEditFee Confirm >>>> ', feeInfoSelected);
@@ -358,9 +371,10 @@ function ScreenSendEditFee({ ...rest }) {
       setValue('gasLimit', new BigNumber(limit ?? 0).toFixed());
     },
     [
-      autoConfirmAfterFeeSaved,
       isEIP1559Fee,
+      isBtcForkChain,
       setValue,
+      autoConfirmAfterFeeSaved,
       feeInfoPayload?.info.feeDecimals,
     ],
   );
@@ -369,7 +383,7 @@ function ScreenSendEditFee({ ...rest }) {
     if (
       !feeInfoPayload ||
       feeType !== ESendEditFeeTypes.standard ||
-      parseFloat(radioValue) < 0 ||
+      (parseFloat(radioValue) < 0 && radioValue !== 'custom') ||
       !radioValue
     ) {
       return;
@@ -383,10 +397,13 @@ function ScreenSendEditFee({ ...rest }) {
         index: radioValue,
       });
 
-      setFormValuesFromFeeInfo({ price, price1559, limit });
+      if (!currentCustom) {
+        setFormValuesFromFeeInfo({ price, price1559, limit });
+      }
     }
   }, [
     currentCustom,
+    customFee,
     feeInfoPayload,
     feeType,
     getSelectedFeeInfoUnit,
@@ -405,21 +422,29 @@ function ScreenSendEditFee({ ...rest }) {
   useEffect(() => {
     const selected = feeInfoPayload?.selected;
     const type = selected?.type ?? 'preset';
+
     if (!feeInfoPayload) {
       return;
     }
+
     if (feeInfoPayload && type === 'preset') {
       let presetValue = selected?.preset || '1';
       // preset fix / presetFix
       if (feeInfoPayload?.info?.prices?.length < 2) {
         presetValue = '0';
       }
-      setRadioValue(presetValue);
+      if (!radioValueInit.current) {
+        radioValueInit.current = true;
+        setRadioValue(presetValue);
+      }
     } else if (type === 'custom') {
       const customValues = cloneDeep(selected?.custom ?? {});
       if (customValues) {
+        if (!radioValueInit.current) {
+          radioValueInit.current = true;
+          setRadioValue('custom');
+        }
         setCurrentCustom(customValues);
-        setRadioValue('custom');
         setFormValuesFromFeeInfo(customValues);
         // build fee customValues for speedUp & cancel tx
         if (autoConfirmAfterFeeSaved) {
@@ -480,6 +505,24 @@ function ScreenSendEditFee({ ...rest }) {
     setValue,
   ]);
 
+  useEffect(() => {
+    setSaveCustom(!!customFee);
+    if (
+      !customFeeSynced.current &&
+      customFee !== undefined &&
+      feeInfoPayload &&
+      feeInfoPayload?.selected.type !== 'custom'
+    ) {
+      if (customFee) {
+        setCurrentCustom({
+          ...customFee,
+          limit: feeInfoPayload?.info.limit,
+        });
+      }
+      customFeeSynced.current = true;
+    }
+  }, [customFee, feeInfoPayload]);
+
   let content = (
     <Center w="full" py={16}>
       <Spinner size="lg" />
@@ -519,7 +562,11 @@ function ScreenSendEditFee({ ...rest }) {
         value={radioValue}
         onChange={(value) => {
           if (value === 'custom') {
-            setFeeType(ESendEditFeeTypes.advanced);
+            if (currentCustom && radioValue !== 'custom') {
+              setRadioValue(value);
+            } else {
+              setFeeType(ESendEditFeeTypes.advanced);
+            }
           } else {
             setRadioValue(value);
           }
@@ -573,6 +620,13 @@ function ScreenSendEditFee({ ...rest }) {
       hideSecondaryAction
       onModalClose={() => {
         oldSendConfirmParams?.onModalClose?.();
+      }}
+      onBackActionPress={() => {
+        if (feeType === ESendEditFeeTypes.advanced) {
+          setFeeType(ESendEditFeeTypes.standard);
+        } else if (navigation?.canGoBack?.()) {
+          navigation.goBack();
+        }
       }}
       header={title}
       footer={

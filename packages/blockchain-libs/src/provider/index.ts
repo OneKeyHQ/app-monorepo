@@ -120,6 +120,7 @@ const IMPLS: { [key: string]: any } = {
   doge: mockProvider,
   btg: mockProvider,
   dgb: mockProvider,
+  xrp: mockProvider,
   nmc: mockProvider,
   vtc: mockProvider,
   dash: mockProvider,

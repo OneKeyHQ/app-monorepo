@@ -28,10 +28,10 @@ import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<NFTMarketRoutesParams>;
 
-const FilterButton: FC<{ onPress?: () => void; isDisabled?: boolean }> = ({
-  onPress,
-  isDisabled,
-}) => {
+const FilterButton: FC<{
+  onPromise?: () => Promise<any>;
+  isDisabled?: boolean;
+}> = ({ onPromise, isDisabled }) => {
   const intl = useIntl();
   return (
     <>
@@ -42,14 +42,14 @@ const FilterButton: FC<{ onPress?: () => void; isDisabled?: boolean }> = ({
           size="lg"
           type="plain"
           circle
-          onPress={onPress}
+          onPromise={onPromise}
         />
       </Hidden>
       <Hidden till="md">
         <Button
           isDisabled={isDisabled}
           leftIconName="BarsShrinkMini"
-          onPress={onPress}
+          onPromise={onPromise}
         >
           {intl.formatMessage({ id: 'title__filter' })}
         </Button>
@@ -74,6 +74,7 @@ const CollectionDetail = () => {
     networkId,
   });
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const { serviceNFT } = backgroundApiProxy;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -94,10 +95,18 @@ const CollectionDetail = () => {
       return (
         <Box mr={{ base: 2.5, md: 8 }}>
           <FilterButton
-            isDisabled={
-              ctxCollection.attributes && ctxCollection.attributes.length === 0
-            }
-            onPress={() => {
+            isDisabled={!ctxCollection.hasAttributes}
+            onPromise={async () => {
+              if (
+                typeof ctxCollection.attributes === 'undefined' ||
+                ctxCollection.attributes.length === 0
+              ) {
+                const data = await serviceNFT.getCollectionAttributes({
+                  chain: networkId,
+                  contractAddress,
+                });
+                ctxCollection.attributes = data;
+              }
               navigation.navigate(RootRoutes.Modal, {
                 screen: ModalRoutes.NFTMarket,
                 params: {
@@ -132,7 +141,15 @@ const CollectionDetail = () => {
         </Box>
       );
     }
-  }, [context.attributes, ctxCollection, isFilter, navigation]);
+  }, [
+    context.attributes,
+    contractAddress,
+    ctxCollection,
+    isFilter,
+    navigation,
+    networkId,
+    serviceNFT,
+  ]);
 
   useEffect(() => {
     if (ctxCollection) {
@@ -141,8 +158,6 @@ const CollectionDetail = () => {
       });
     }
   }, [ctxCollection, headerRight, navigation]);
-
-  const { serviceNFT } = backgroundApiProxy;
 
   useEffect(() => {
     (async () => {

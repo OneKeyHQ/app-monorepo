@@ -305,6 +305,8 @@ class ServiceApp extends ServiceBase {
     await this.checkLockStatus();
     serviceDiscover.init();
 
+    await serviceBootstrap.preBootstrap();
+
     const networks = await serviceNetwork.initNetworks();
     const wallets = await serviceAccount.initWallets();
     const activeNetworkId = serviceNetwork.initCheckingNetwork(networks);
