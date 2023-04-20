@@ -241,6 +241,14 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
       //  already known
       // TODO: better error displaying
       if (error?.code === -32603 && typeof error?.data?.message === 'string') {
+        if (
+          error?.data?.message.includes('nonce') &&
+          error?.data?.message.includes('high')
+        ) {
+          error.data.message = intl.formatMessage({
+            id: 'msg__invalid_tx_that_nonce_is_higher_than_default',
+          });
+        }
         ToastManager.show(
           {
             title:

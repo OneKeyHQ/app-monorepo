@@ -148,7 +148,6 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     lastPresetFeeInfo: lastPresetFeeInfo as string,
   });
   const watchFeeRate = watch('feeRate');
-  const watchMaxFee = watch('maxFeePerGas');
   const { btcTxFee } = useBtcCustomFee({
     networkId,
     accountId,
@@ -476,7 +475,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                   color: 'text-subdued',
                 }}
               />
-              <Box flex={1}>
+              <Box flex={1} pr={2}>
                 <Slider
                   width="100%"
                   minValue={1}
@@ -702,17 +701,6 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   );
 
   useEffect(() => {
-    if (
-      new BigNumber(formValues?.maxPriorityFeePerGas ?? 0)
-        .plus(formValues?.baseFee ?? 0)
-        .plus(1)
-        .isLessThan(watchMaxFee)
-    ) {
-      maxFeeTouched.current = false;
-    }
-  }, [formValues?.baseFee, formValues?.maxPriorityFeePerGas, watchMaxFee]);
-
-  useEffect(() => {
     // eslint-disable-next-line prefer-const
     let timer: ReturnType<typeof setInterval>;
     const fetchBlockNativeGasInfo = async () => {
@@ -765,7 +753,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
           setPriorityBooster={setPriorityBooster}
         />
       )}
-      {isEIP1559Fee && !autoConfirmAfterFeeSaved && (
+      {isEIP1559Fee && (
         <Box alignItems="center" mt={12}>
           <CheckBox
             onChange={(isSelected) => setSaveCustom(isSelected)}

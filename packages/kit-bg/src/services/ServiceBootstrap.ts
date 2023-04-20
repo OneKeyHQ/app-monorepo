@@ -21,6 +21,7 @@ import {
   ACCOUNT_DERIVATION_DB_MIGRATION_VERSION,
   AUTO_SWITCH_DEFAULT_RPC_AT_VERSION,
   COINTYPE_COSMOS,
+  COINTYPE_SUI,
   FIX_COSMOS_TEMPLATE_DB_MIGRATION_VERSION,
   IMPL_COSMOS,
   INDEX_PLACEHOLDER,
@@ -74,6 +75,12 @@ const defaultNetworkRpcs: Record<string, string> = {
 @backgroundClass()
 export default class ServiceBootstrap extends ServiceBase {
   private fetchFiatTimer: NodeJS.Timeout | null = null;
+
+  @bindThis()
+  async preBootstrap() {
+    // not use appSelector
+    await this.removeDeprecatedNetworks();
+  }
 
   @bindThis()
   bootstrap() {
@@ -372,5 +379,33 @@ export default class ServiceBootstrap extends ServiceBase {
       {},
       'POST',
     );
+  }
+
+  // remove deprecated wallet
+  @backgroundMethod()
+  private async removeDeprecatedNetworks() {
+    const needRemoveNetwork = [
+      // version 4.4.0 remove deprecated sui networks
+      'sui--8888881',
+      'sui--8888882',
+    ];
+    const { engine } = this.backgroundApi;
+    const networks = await engine.listNetworks(false);
+    const deprecatedNetworks = networks.filter((n) =>
+      needRemoveNetwork.includes(n.id),
+    );
+
+    if (deprecatedNetworks.length) {
+      const accounts = await engine.dbApi.getAllAccounts();
+      const needDeleteAccounts = accounts.filter(
+        (a) => a.coinType === COINTYPE_SUI,
+      );
+      for (const network of deprecatedNetworks) {
+        for (const account of needDeleteAccounts) {
+          await engine.removeAccount(account.id, '', network.id, true);
+        }
+        await engine.deleteNetwork(network.id);
+      }
+    }
   }
 }

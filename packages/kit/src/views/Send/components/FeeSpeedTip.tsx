@@ -29,6 +29,7 @@ export function FeeSpeedTip({
   price,
   limit,
   feeInfo,
+  prices,
 }: {
   index?: number | string;
   isCustom?: boolean;
@@ -36,6 +37,7 @@ export function FeeSpeedTip({
   price?: IFeeInfoPrice;
   limit?: string;
   feeInfo?: IFeeInfo;
+  prices?: IFeeInfoPrice[];
 }) {
   const intl = useIntl();
   const indexInt = parseInt(index as string, 10);
@@ -44,6 +46,8 @@ export function FeeSpeedTip({
 
   if (isCustom) {
     feeSpeedTipId = 'content__gas_option_custom_desc';
+  } else if (prices?.length === 1) {
+    feeSpeedTipId = 'content__gas_option_market_desc';
   } else {
     switch (indexInt) {
       case 0:

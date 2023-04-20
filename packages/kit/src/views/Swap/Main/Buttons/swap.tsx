@@ -12,9 +12,9 @@ import {
   Button,
   Center,
   HStack,
+  Image,
   Pressable,
   ToastManager,
-  Token as TokDisplay,
   Typography,
 } from '@onekeyhq/components';
 import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
@@ -32,7 +32,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useAppSelector, useNavigation } from '../../../../hooks';
+import { useAppSelector, useNavigation, useNetwork } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import { addTransaction } from '../../../../store/reducers/swapTransactions';
 import { wait } from '../../../../utils/helper';
@@ -297,6 +297,15 @@ const SwapTransactionsCancelApprovalBottomSheetModal: FC<
   );
 };
 
+type TokenNetworkDisplayProps = {
+  token: Token;
+};
+
+const TokenNetworkDisplay: FC<TokenNetworkDisplayProps> = ({ token }) => {
+  const { network } = useNetwork({ networkId: token.networkId });
+  return <Image size="4" src={network?.logoURI} />;
+};
+
 type LinearGradientButtonProps = ComponentProps<typeof Button> & {
   tokenA: Token;
   tokenB: Token;
@@ -347,7 +356,7 @@ const LinearGradientButton: FC<LinearGradientButtonProps> = ({
               justifyContent="center"
               alignItems="center"
             >
-              <TokDisplay size="4" token={tokenA} />
+              <TokenNetworkDisplay token={tokenA} />
             </Box>
             <Box
               position="absolute"
@@ -361,7 +370,7 @@ const LinearGradientButton: FC<LinearGradientButtonProps> = ({
               justifyContent="center"
               alignItems="center"
             >
-              <TokDisplay size="4" token={tokenB} />
+              <TokenNetworkDisplay token={tokenB} />
             </Box>
           </Box>
           <Typography.Button1>

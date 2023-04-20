@@ -4,6 +4,7 @@ import type {
   KeleDashboardGlobal,
   KeleIncomeDTO,
   KeleMinerOverview,
+  KeleOpHistoryDTO,
   KeleUnstakeOverviewDTO,
   KeleWithdrawOverviewDTO,
   StakingActivity,
@@ -25,6 +26,7 @@ export type StakingState = {
   keleMinerOverviews?: Record<string, Record<string, KeleMinerOverview>>;
   keleIncomes?: Record<string, Record<string, KeleIncomeDTO[]>>;
   kelePendingWithdraw?: Record<string, Record<string, number>>;
+  keleOpHistory?: Record<string, Record<string, KeleOpHistoryDTO[]>>;
 };
 
 const initialState: StakingState = {};
@@ -144,6 +146,23 @@ export const stakingSlice = createSlice({
     setHideUnstakeBulletin(state, action: PayloadAction<boolean>) {
       state.hideUnstakeBulletin = action.payload;
     },
+    setKeleOpHistory(
+      state,
+      action: PayloadAction<{
+        networkId: string;
+        accountId: string;
+        items: KeleOpHistoryDTO[];
+      }>,
+    ) {
+      if (!state.keleOpHistory) {
+        state.keleOpHistory = {};
+      }
+      const { networkId, accountId, items } = action.payload;
+      if (!state.keleOpHistory[accountId]) {
+        state.keleOpHistory[accountId] = {};
+      }
+      state.keleOpHistory[accountId][networkId] = items;
+    },
   },
 });
 
@@ -156,6 +175,7 @@ export const {
   setKeleIncomes,
   setKelePendingWithdraw,
   setHideUnstakeBulletin,
+  setKeleOpHistory,
 } = stakingSlice.actions;
 
 export default stakingSlice.reducer;

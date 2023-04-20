@@ -1,10 +1,12 @@
 import type { ComponentProps } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { HStack, Text } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { IFeeInfoPrice } from '@onekeyhq/engine/src/vaults/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type Props = {
   index?: number | string;
@@ -53,9 +55,26 @@ export function FeeSpeedLabel({
     }
   }
 
+  // car emoji hack on Android
+  const getIconPosition = useCallback(() => {
+    if (!isCustom && indexInt === 1 && platformEnv.isNativeAndroid) {
+      if (iconSize > 20) {
+        return {
+          mt: '-10px',
+        };
+      }
+
+      return {
+        mt: '-5px',
+      };
+    }
+  }, [iconSize, indexInt, isCustom]);
+
   return (
-    <HStack {...rest}>
-      <Text fontSize={iconSize}>{titleIcon}</Text>
+    <HStack alignItems="center" {...rest}>
+      <Text {...getIconPosition()} fontSize={iconSize}>
+        {titleIcon}
+      </Text>
       <Text typography="Body1Strong">
         {intl.formatMessage({ id: titleId })}
       </Text>
