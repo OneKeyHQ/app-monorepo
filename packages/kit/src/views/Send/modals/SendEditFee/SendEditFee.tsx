@@ -40,6 +40,7 @@ import { ESendEditFeeTypes } from '../../enums';
 import { SendModalRoutes } from '../../types';
 import { getCustomFeeSpeedInfo } from '../../utils/getCustomFeeSpeedInfo';
 import {
+  FEE_INFO_POLLING_INTERVAL,
   IS_REPLACE_ROUTE_TO_FEE_EDIT,
   SEND_EDIT_FEE_PRICE_UP_RATIO,
 } from '../../utils/sendConfirmConsts';
@@ -93,6 +94,11 @@ function ScreenSendEditFee({ ...rest }) {
   const [saveCustom, setSaveCustom] = useState(false);
   const [currentCustom, setCurrentCustom] = useState<IFeeInfoUnit | null>(null);
   const customFeeSynced = useRef<boolean>(false);
+  const radioValueInit = useRef<boolean>(false);
+  const [feeType, setFeeType] = useState<ESendEditFeeTypes>(
+    ESendEditFeeTypes.standard,
+  );
+  const [radioValue, setRadioValue] = useState('');
 
   const intl = useIntl();
 
@@ -139,6 +145,8 @@ function ScreenSendEditFee({ ...rest }) {
       ignoreFetchFeeCalling: oldSendConfirmParams?.ignoreFetchFeeCalling,
       useFeeInTx: oldSendConfirmParams?.feeInfoUseFeeInTx,
       forBatchSend,
+      pollingInterval: FEE_INFO_POLLING_INTERVAL,
+      shouldStopPolling: feeType === ESendEditFeeTypes.advanced,
     });
 
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
@@ -147,11 +155,6 @@ function ScreenSendEditFee({ ...rest }) {
   useEffect(() => {
     debugLogger.sendTx.info('SendEditFee  >>>>  ', feeInfoPayload, encodedTx);
   }, [encodedTx, feeInfoPayload]);
-
-  const [feeType, setFeeType] = useState<ESendEditFeeTypes>(
-    ESendEditFeeTypes.standard,
-  );
-  const [radioValue, setRadioValue] = useState('');
 
   const title = useMemo(() => {
     let key: LocaleIds = 'action__edit_fee';
@@ -430,12 +433,18 @@ function ScreenSendEditFee({ ...rest }) {
       if (feeInfoPayload?.info?.prices?.length < 2) {
         presetValue = '0';
       }
-      setRadioValue(presetValue);
+      if (!radioValueInit.current) {
+        radioValueInit.current = true;
+        setRadioValue(presetValue);
+      }
     } else if (type === 'custom') {
       const customValues = cloneDeep(selected?.custom ?? {});
       if (customValues) {
+        if (!radioValueInit.current) {
+          radioValueInit.current = true;
+          setRadioValue('custom');
+        }
         setCurrentCustom(customValues);
-        setRadioValue('custom');
         setFormValuesFromFeeInfo(customValues);
         // build fee customValues for speedUp & cancel tx
         if (autoConfirmAfterFeeSaved) {

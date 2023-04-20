@@ -42,6 +42,7 @@ export function useFeeInfoPayload({
   forBatchSend,
   payload,
   ignoreFetchFeeCalling,
+  shouldStopPolling,
 }: {
   encodedTx: IEncodedTx | null;
   useFeeInTx?: boolean;
@@ -53,6 +54,7 @@ export function useFeeInfoPayload({
   forBatchSend?: boolean;
   payload?: any;
   ignoreFetchFeeCalling?: boolean;
+  shouldStopPolling?: boolean;
 }) {
   const isFocused = useIsFocused();
   const { network } = useActiveSideAccount({ accountId, networkId });
@@ -335,10 +337,7 @@ export function useFeeInfoPayload({
     let timer: ReturnType<typeof setInterval>;
     if (pollingInterval && isFocused) {
       timer = setInterval(async () => {
-        if (loading) {
-          return;
-        }
-        if (feeInfoSelectedInRouteParams?.type === 'custom') {
+        if (loading || shouldStopPolling) {
           return;
         }
         try {
@@ -372,6 +371,7 @@ export function useFeeInfoPayload({
     loading,
     pollingInterval,
     isFocused,
+    shouldStopPolling,
   ]);
 
   return {

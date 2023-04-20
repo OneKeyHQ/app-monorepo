@@ -117,31 +117,42 @@ export default class ServiceBatchTransfer extends ServiceBase {
           approveInfos,
         });
       } else {
-        // one token to multiple addresses
-        const isUnlimitedAllowance = await this.checkIsUnlimitedAllowance({
+        const tokenInfo = await engine.ensureTokenInDB(
           networkId,
-          owner: transferInfo.from,
-          spender: contract,
-          token: transferInfo.token as string,
-        });
+          transferInfo.token ?? '',
+        );
 
+        if (!tokenInfo) {
+          throw new Error(`Token not found: ${transferInfo.token as string}`);
+        }
+
+        // one token to multiple addresses
+        const { isUnlimited: isUnlimitedAllowance, allowance } =
+          await this.checkIsUnlimitedAllowance({
+            networkId,
+            owner: transferInfo.from,
+            spender: contract,
+            token: transferInfo.token as string,
+          });
         if (!isUnlimitedAllowance) {
-          encodedApproveTxs = [
-            await engine.buildEncodedTxFromApprove({
-              networkId,
-              accountId,
-              token: transferInfo.token as string,
-              amount: isUnlimited
-                ? InfiniteAmountText
-                : transferInfos
-                    .reduce(
-                      (result, info) => result.plus(info.amount),
-                      new BigNumber(0),
-                    )
-                    .toFixed(),
-              spender: contract,
-            }),
-          ];
+          const amount = transferInfos.reduce(
+            (result, info) => result.plus(info.amount),
+            new BigNumber(0),
+          );
+          if (
+            isUnlimited ||
+            amount.shiftedBy(tokenInfo.decimals).isGreaterThan(allowance)
+          ) {
+            encodedApproveTxs = [
+              await engine.buildEncodedTxFromApprove({
+                networkId,
+                accountId,
+                token: transferInfo.token as string,
+                amount: isUnlimited ? InfiniteAmountText : amount.toFixed(),
+                spender: contract,
+              }),
+            ];
+          }
         }
       }
     }
@@ -251,9 +262,15 @@ export default class ServiceBatchTransfer extends ServiceBase {
       const totalSupplyRes: any = await contract.functions.totalSupply();
       // eslint-disable-next-line
       const totalSupply = totalSupplyRes?.[0]?.toString?.();
-      return new BigNumber(allowance).gt(new BigNumber(totalSupply));
+      return {
+        isUnlimited: new BigNumber(allowance).gt(new BigNumber(totalSupply)),
+        allowance,
+      };
     } catch (e) {
-      return false;
+      return {
+        isUnlimited: false,
+        allowance: 0,
+      };
     }
   }
 
