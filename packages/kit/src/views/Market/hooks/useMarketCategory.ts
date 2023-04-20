@@ -11,23 +11,23 @@ import {
   MarketCategoryType,
 } from '../../../store/reducers/market';
 
+export const useMarketSelectedCategoryId = () =>
+  useAppSelector((s) => s.market.selectedCategoryId);
+
+const useMarketCategories = () => useAppSelector((s) => s.market.categorys);
+
 export const useMarketSelectedCategory = () => {
-  const selectedCategoryId = useAppSelector((s) => s.market.selectedCategoryId);
-  const categorys = useAppSelector((s) => s.market.categorys);
+  const selectedCategoryId = useMarketSelectedCategoryId();
+  const categorys = useMarketCategories();
   return useMemo(
     () => (selectedCategoryId ? categorys[selectedCategoryId] : null),
     [categorys, selectedCategoryId],
   );
 };
 
-export const useMarketSelectedCategoryId = () => {
-  const selectedCategoryId = useAppSelector((s) => s.market.selectedCategoryId);
-  return useMemo(() => selectedCategoryId, [selectedCategoryId]);
-};
-
 export const useMarketCategoryList = () => {
   const isFocused = useIsFocused();
-  const categorys = useAppSelector((s) => s.market.categorys);
+  const categorys = useMarketCategories();
   useEffect(() => {
     if (isFocused) {
       backgroundApiProxy.serviceMarket.fetchMarketCategorys();
@@ -47,7 +47,7 @@ const RECOMMENDED_VIEW_COUNT_VERTIVAL = 8;
 const RECOMMENDED_VIEW_COUNT = 12;
 
 export const useMarketFavoriteRecommentedList = () => {
-  const categorys = useAppSelector((s) => s.market.categorys);
+  const categorys = useMarketCategories();
   const isVertival = useIsVerticalLayout();
   const favoritesCategory = categorys[MARKET_FAVORITES_CATEGORYID];
   return useMemo(() => {
@@ -78,7 +78,7 @@ export const useMarketFavoriteRecommentedList = () => {
 };
 
 export const useMarketFavoriteCategoryTokenIds = () => {
-  const categorys = useAppSelector((s) => s.market.categorys);
+  const categorys = useMarketCategories();
   const favoritesCategory = categorys[MARKET_FAVORITES_CATEGORYID];
   return useMemo(
     () =>
@@ -90,7 +90,7 @@ export const useMarketFavoriteCategoryTokenIds = () => {
 };
 
 export const useMarketSearchCategoryList = () => {
-  const categorys = useAppSelector((s) => s.market.categorys);
+  const categorys = useMarketCategories();
   return useMemo(() => {
     if (categorys && Object.values(categorys).length > 0) {
       return Object.values(categorys).filter(

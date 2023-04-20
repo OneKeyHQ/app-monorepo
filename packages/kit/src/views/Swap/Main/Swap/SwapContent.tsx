@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -16,10 +17,13 @@ import {
   useActiveWalletAccount,
   useAppSelector,
 } from '../../../../hooks/redux';
+import PercentInput from '../../components/PercentInput';
 import ReceivingTokenInput from '../../components/ReceivingTokenInput';
 import TokenInput from '../../components/TokenInput';
 import { useDerivedSwapState } from '../../hooks/useSwap';
+import { useTokenBalance } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
+import { div, formatAmount, multiply } from '../../utils';
 
 export const SwapContent = () => {
   const intl = useIntl();
@@ -30,7 +34,24 @@ export const SwapContent = () => {
   const { wallet, network } = useActiveWalletAccount();
   const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
   const { formattedAmounts } = useDerivedSwapState();
+  const inputToken = useAppSelector((s) => s.swap.inputToken);
+  const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
   const isDisabled = !wallet || !network || swapMaintain;
+
+  const inputBalance = useTokenBalance(inputToken, sendingAccount?.id);
+  const typedValue = useAppSelector((s) => s.swap.typedValue);
+
+  const percent = useMemo(() => {
+    if (inputBalance && typedValue) {
+      const inputBalanceBN = new BigNumber(inputBalance);
+      const valueBN = new BigNumber(typedValue);
+      if (inputBalanceBN.gt(0) && valueBN.gt(0)) {
+        const num = valueBN.div(inputBalanceBN).multipliedBy(100).toNumber();
+        return Math.ceil(num);
+      }
+    }
+    return 0;
+  }, [inputBalance, typedValue]);
 
   const onSelectInput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -65,6 +86,18 @@ export const SwapContent = () => {
     }),
     [],
   );
+  const onChange = useCallback(
+    (v: number) => {
+      if (inputBalance) {
+        let inputValue = div(multiply(inputBalance, v), 100);
+        if (v < 100) {
+          inputValue = formatAmount(inputValue);
+        }
+        backgroundApiProxy.serviceSwap.userInput('INPUT', inputValue);
+      }
+    },
+    [inputBalance],
+  );
 
   return (
     <Box w="full">
@@ -92,7 +125,7 @@ export const SwapContent = () => {
           zIndex={1}
         >
           <Box position="absolute" w="full" h="10" top={-20} left={0}>
-            <Center>
+            <Box position="absolute" top="0" left="5">
               <Center
                 w="10"
                 h="10"
@@ -113,7 +146,14 @@ export const SwapContent = () => {
                   bgColor="surface-neutral-subdued"
                 />
               </Center>
-            </Center>
+            </Box>
+            <Box position="absolute" top="0" right="5">
+              <Center h="10" w="48">
+                <Box style={{ transform: [{ translateY: 2 }] }} w="full">
+                  <PercentInput value={percent} onChange={onChange} />
+                </Box>
+              </Center>
+            </Box>
           </Box>
         </Box>
         <Box px={4} py="5" bg="action-secondary-default" overflow="hidden">
