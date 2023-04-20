@@ -169,7 +169,7 @@ export type MarketInitialState = {
   charts: Record<CoingeckoId, Record<string, TokenChartData>>;
   details: Record<CoingeckoId, MarketTokenDetail>;
   listSort: MarketListSortType | null;
-  marktTobTapName?: MarketTopTabName;
+  marketTopTabName?: MarketTopTabName;
   searchHistory?: ISimpleSearchHistoryToken[];
   searchTokens: Record<string, CoingeckoId[]>;
   searchKeyword?: string;
@@ -182,7 +182,7 @@ const initialState: MarketInitialState = {
   charts: {},
   details: {},
   searchTokens: {},
-  marktTobTapName: undefined,
+  marketTopTabName: undefined,
 };
 
 function equalStringArr(arr1: string[], arr2: string[]) {
@@ -414,8 +414,8 @@ export const MarketSlicer = createSlice({
       });
     },
     switchMarketTopTab(state, action: PayloadAction<MarketTopTabName>) {
-      if (state.marktTobTapName !== action.payload) {
-        state.marktTobTapName = action.payload;
+      if (state.marketTopTabName !== action.payload) {
+        state.marketTopTabName = action.payload;
       }
     },
     saveMarketSearchTokenHistory(
