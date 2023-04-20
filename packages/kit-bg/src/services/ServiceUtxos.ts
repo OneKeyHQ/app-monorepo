@@ -12,10 +12,56 @@ import {
 
 import ServiceBase from './ServiceBase';
 
+type ICompareFn = (a: ICoinControlListItem, b: ICoinControlListItem) => number;
+function compareByAddress(
+  a: ICoinControlListItem,
+  b: ICoinControlListItem,
+): number {
+  if (a.address < b.address) {
+    return -1;
+  }
+  if (a.address > b.address) {
+    return 1;
+  }
+  return 0;
+}
+
+// convert function to curry function
+function compareByBalanceOrHeight(field: 'value' | 'height') {
+  return function (a: ICoinControlListItem, b: ICoinControlListItem) {
+    const aBN = new BigNumber(a[field]);
+    const bBN = new BigNumber(b[field]);
+    if (aBN.isGreaterThan(bBN)) {
+      return -1;
+    }
+    if (aBN.isLessThan(bBN)) {
+      return 1;
+    }
+    return 0;
+  };
+}
+
+function compareByLabel(
+  a: ICoinControlListItem,
+  b: ICoinControlListItem,
+): number {
+  if (a.label && !b.label) {
+    return -1;
+  }
+  if (!a.label && b.label) {
+    return 1;
+  }
+  return 0;
+}
+
 @backgroundClass()
 export default class ServiceUtxos extends ServiceBase {
   @backgroundMethod()
-  async getUtxos(networkId: string, accountId: string) {
+  async getUtxos(
+    networkId: string,
+    accountId: string,
+    sortBy: 'balance' | 'height' | 'address' | 'label' = 'balance',
+  ) {
     const vault = await this.backgroundApi.engine.getVault({
       networkId,
       accountId,
@@ -36,19 +82,32 @@ export default class ServiceUtxos extends ServiceBase {
       networkId,
       dbAccount.xpub,
     );
-    utxos = utxos.map((utxo) => {
-      const archivedUtxo = archivedUtxos.find(
-        (item) => item.id === getUtxoId(networkId, utxo),
-      );
-      if (archivedUtxo) {
-        return {
-          ...utxo,
-          label: archivedUtxo.label,
-          frozen: archivedUtxo.frozen,
-        };
-      }
-      return utxo;
-    });
+
+    let compareFunction: ICompareFn = compareByBalanceOrHeight('value');
+    if (sortBy === 'height') {
+      compareFunction = compareByBalanceOrHeight('height');
+    } else if (sortBy === 'address') {
+      compareFunction = compareByAddress;
+    } else if (sortBy === 'label') {
+      compareFunction = compareByLabel;
+    }
+
+    utxos = utxos
+      .map((utxo) => {
+        const archivedUtxo = archivedUtxos.find(
+          (item) => item.id === getUtxoId(networkId, utxo),
+        );
+        if (archivedUtxo) {
+          return {
+            ...utxo,
+            label: archivedUtxo.label,
+            frozen: archivedUtxo.frozen,
+          };
+        }
+        return utxo;
+      })
+      .sort(compareFunction);
+
     const dataSourceWithoutDust = utxos.filter(
       (utxo) => new BigNumber(utxo.value).isGreaterThan(dust) && !utxo.frozen,
     );

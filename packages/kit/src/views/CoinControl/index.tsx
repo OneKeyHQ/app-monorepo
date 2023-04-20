@@ -7,6 +7,7 @@ import {
   Box,
   Center,
   Empty,
+  IconButton,
   Modal,
   SegmentedControl,
   Spinner,
@@ -22,6 +23,7 @@ import type { CoinControlModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../hooks';
 
+import { CoinControlListMenu } from './components/CoinControlListMenu';
 import { CoinControlList } from './components/List';
 import { ModalFooter, ModalHeader } from './components/ModalComponent';
 
@@ -51,10 +53,34 @@ const CoinControl = () => {
 
   const { network } = useNetwork({ networkId });
 
+  const [menuSortByIndex, setMenuSortByIndex] = useState(1);
+  const [menuInfoIndex, setMenuInfoIndex] = useState(1);
+  const onSortByChange = useCallback((value: number) => {
+    setMenuSortByIndex(value);
+  }, []);
+  const onInfoChange = useCallback((value: number) => {
+    setMenuInfoIndex(value);
+  }, []);
+  const showPath = useMemo(() => menuInfoIndex === 2, [menuInfoIndex]);
+  const sortMethod = useMemo(() => {
+    switch (menuSortByIndex) {
+      case 1:
+        return 'balance';
+      case 2:
+        return 'height';
+      case 3:
+        return 'address';
+      case 4:
+        return 'label';
+      default:
+        return 'balance';
+    }
+  }, [menuSortByIndex]);
+
   const refreshUtxosData = useCallback(() => {
     setIsLoading(true);
     return backgroundApiProxy.serviceUtxos
-      .getUtxos(networkId, accountId)
+      .getUtxos(networkId, accountId, sortMethod)
       .then((response) => {
         setAllUtxos(response.utxos);
         setUtxosWithoutDust(response.utxosWithoutDust);
@@ -65,7 +91,11 @@ const CoinControl = () => {
       .finally(() => {
         setIsLoading(false);
       });
-  }, [networkId, accountId]);
+  }, [networkId, accountId, sortMethod]);
+
+  useEffect(() => {
+    refreshUtxosData();
+  }, [menuSortByIndex, refreshUtxosData]);
 
   useEffect(() => {
     refreshUtxosData().then((utxos) => {
@@ -204,6 +234,21 @@ const CoinControl = () => {
     <Modal
       header={intl.formatMessage({ id: 'title__coin_control' })}
       headerDescription={<ModalHeader networkId={networkId} />}
+      rightContent={
+        <CoinControlListMenu
+          sortByIndex={menuSortByIndex}
+          onSortByChange={onSortByChange}
+          infoIndex={menuInfoIndex}
+          onInfoChange={onInfoChange}
+        >
+          <IconButton
+            type="plain"
+            size="lg"
+            circle
+            name="EllipsisVerticalOutline"
+          />
+        </CoinControlListMenu>
+      }
       footer={
         <ModalFooter
           accountId={accountId}
@@ -248,6 +293,7 @@ const CoinControl = () => {
             isAllSelected={isAllSelected}
             triggerAllSelected={triggerAllSelected}
             blockTimeMap={blockTimeMap}
+            showPath={showPath}
             onChange={onCheckBoxChange}
             onConfirmEditLabel={onConfirmEditLabel}
             onFrozenUTXO={onFrozenUTXO}
@@ -271,6 +317,7 @@ const CoinControl = () => {
             isAllSelected={isAllSelected}
             triggerAllSelected={triggerAllSelected}
             blockTimeMap={blockTimeMap}
+            showPath={showPath}
             onChange={onCheckBoxChange}
             onConfirmEditLabel={onConfirmEditLabel}
             onFrozenUTXO={onFrozenUTXO}

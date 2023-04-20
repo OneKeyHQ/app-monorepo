@@ -93,6 +93,7 @@ export type ICellProps = {
   showCheckbox: boolean;
   selectedUtxos: string[];
   blockTimeMap: Record<string, number>;
+  showPath: boolean;
   onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
   onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
   onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
@@ -106,6 +107,7 @@ const CoinControlCell: FC<ICellProps> = ({
   showCheckbox,
   selectedUtxos = [],
   blockTimeMap,
+  showPath,
   onChange,
   onConfirmEditLabel,
   onFrozenUTXO,
@@ -152,7 +154,12 @@ const CoinControlCell: FC<ICellProps> = ({
         <VStack>
           <Text typography="Body2Strong">{shortenAddress(item.address)}</Text>
           <HStack alignItems="center">
-            {time ? (
+            {/* eslint-disable-next-line no-nested-ternary */}
+            {showPath ? (
+              <Text typography="Body2" color="text-subdued">
+                {item.path}
+              </Text>
+            ) : time ? (
               <Text typography="Body2" color="text-subdued">
                 {time}
               </Text>
@@ -249,6 +256,7 @@ const ListFooter: FC<
   showCheckbox,
   selectedUtxos = [],
   blockTimeMap,
+  showPath,
   onChange,
   onConfirmEditLabel,
   onFrozenUTXO,
@@ -280,6 +288,7 @@ const ListFooter: FC<
           showCheckbox={showCheckbox}
           selectedUtxos={selectedUtxos}
           blockTimeMap={blockTimeMap}
+          showPath={showPath}
           onChange={onChange}
           onConfirmEditLabel={onConfirmEditLabel}
           onFrozenUTXO={onFrozenUTXO}
@@ -293,6 +302,7 @@ const ListFooter: FC<
       showCheckbox,
       selectedUtxos,
       blockTimeMap,
+      showPath,
       onChange,
       onConfirmEditLabel,
       onFrozenUTXO,
@@ -307,7 +317,7 @@ const ListFooter: FC<
           <HStack mt={4} mb={2} mx={2}>
             <Tooltip
               label={intl.formatMessage({
-                id: 'content__royalty_fees_are_excluded',
+                id: 'content__dust_refer_to_very_tiny_amount_of_bitcoin',
               })}
               placement="top left"
             >
@@ -370,6 +380,7 @@ const CoinControlList: FC<{
   isAllSelected: boolean;
   triggerAllSelected: (value: boolean) => void;
   blockTimeMap: Record<string, number>;
+  showPath: boolean;
   onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
   onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
   onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
@@ -384,6 +395,7 @@ const CoinControlList: FC<{
   isAllSelected,
   triggerAllSelected,
   blockTimeMap,
+  showPath,
   onChange,
   onConfirmEditLabel,
   onFrozenUTXO,
@@ -398,6 +410,7 @@ const CoinControlList: FC<{
         showCheckbox={showCheckbox}
         selectedUtxos={selectedUtxos}
         blockTimeMap={blockTimeMap}
+        showPath={showPath}
         onChange={onChange}
         onConfirmEditLabel={onConfirmEditLabel}
         onFrozenUTXO={onFrozenUTXO}
@@ -410,6 +423,7 @@ const CoinControlList: FC<{
       blockTimeMap,
       token,
       accountId,
+      showPath,
       onChange,
       onConfirmEditLabel,
       onFrozenUTXO,
@@ -437,6 +451,7 @@ const CoinControlList: FC<{
         showCheckbox={showCheckbox}
         selectedUtxos={selectedUtxos}
         blockTimeMap={blockTimeMap}
+        showPath={showPath}
         onChange={onChange}
         onConfirmEditLabel={onConfirmEditLabel}
         onFrozenUTXO={onFrozenUTXO}
@@ -451,6 +466,7 @@ const CoinControlList: FC<{
       blockTimeMap,
       token,
       accountId,
+      showPath,
       onChange,
       onConfirmEditLabel,
       onFrozenUTXO,
