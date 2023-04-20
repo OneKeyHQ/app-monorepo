@@ -1,45 +1,68 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
-import { useFocusEffect } from '@react-navigation/core';
+import { useWindowDimensions } from 'react-native';
+import { SceneMap, TabView } from 'react-native-tab-view';
 
-import { Box, useSafeAreaInsets } from '@onekeyhq/components';
+import {
+  Box,
+  useIsVerticalLayout,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { TabRoutes } from '../../routes/routesEnum';
 import Swap from '../Swap';
 
 import MarketHeader from './Components/MarketList/MarketTopHeader';
+import {
+  marketSwapTabRoutes,
+  setMarketSwapTabIndex,
+  useMarketTopTabName,
+} from './hooks/useMarketList';
 import MarketList from './MarketList';
 
 import type { MarketTopTabName } from '../../store/reducers/market';
 
+const SwapWithoutBottomTabBar = () => <Swap hideBottomTabBar />;
+const renderScene = SceneMap({
+  [TabRoutes.Swap]: SwapWithoutBottomTabBar,
+  [TabRoutes.Market]: MarketList,
+});
+
 export function ScreenMarketOrSwap({
-  marketTopTabName,
+  desktopTabName,
 }: {
-  marketTopTabName: MarketTopTabName;
+  desktopTabName: MarketTopTabName;
 }) {
   const { top } = useSafeAreaInsets();
+  const mobileTopTabName = useMarketTopTabName();
 
-  useFocusEffect(
-    useCallback(() => {
-      backgroundApiProxy.serviceMarket.switchMarketTopTab(marketTopTabName);
-    }, [marketTopTabName]),
+  const isVerticalLayout = useIsVerticalLayout();
+  const marketTabName = isVerticalLayout ? mobileTopTabName : desktopTabName;
+  const layout = useWindowDimensions();
+  const index = marketSwapTabRoutes.findIndex(
+    (route) => route.key === marketTabName,
   );
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     backgroundApiProxy.serviceMarket.switchMarketTopTab(marketTopTabName);
+  //   }, [marketTopTabName]),
+  // );
 
-  const contentComponent = useMemo(() => {
-    switch (marketTopTabName) {
-      case TabRoutes.Market:
-        return <MarketList />;
-      case TabRoutes.Swap:
-        return <Swap hideBottomTabBar />;
-      default:
-    }
-  }, [marketTopTabName]);
-
+  const renderTabBar = useCallback(
+    () => <MarketHeader marketTopTabName={marketTabName} />,
+    [marketTabName],
+  );
   return (
     <Box flex={1} mt={`${top}px`}>
-      <MarketHeader marketTopTabName={marketTopTabName} />
-      {contentComponent}
+      <TabView
+        lazy={!isVerticalLayout}
+        swipeEnabled={isVerticalLayout}
+        renderTabBar={renderTabBar}
+        navigationState={{ index, routes: marketSwapTabRoutes }}
+        renderScene={renderScene}
+        onIndexChange={setMarketSwapTabIndex}
+        initialLayout={{ width: layout.width }}
+      />
     </Box>
   );
 }
