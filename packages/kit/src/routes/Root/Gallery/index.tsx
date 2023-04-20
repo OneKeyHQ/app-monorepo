@@ -62,6 +62,7 @@ import WalletSelectorGallery from '../../../views/Components/stories/WalletSelec
 import WebViewGallery from '../../../views/Components/stories/WebView';
 import { GalleryRoutes } from '../../routesEnum';
 import renderCustomSubStackHeader from '../Main/Header';
+import InAppNotificationGallery from '../../../views/Components/stories/InAppNotification';
 
 export type GalleryParams = {
   [GalleryRoutes.Components]: { ts: number };
@@ -251,6 +252,10 @@ export const stackScreenList = [
     name: GalleryRoutes.ComponentSlider,
     component: SliderGallery,
   },
+  {
+    name: GalleryRoutes.ComponentInAppNotification,
+    component: InAppNotificationGallery,
+  }
 ];
 
 const DevStack = createNativeStackNavigator();
