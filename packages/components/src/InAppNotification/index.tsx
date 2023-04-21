@@ -167,7 +167,7 @@ const InAppNotification: FC<InAppNotificationProps> = ({
   return (
     <AnimatePresence>
       {visible && (
-        <GestureDetector gesture={Gesture.Exclusive(pan, tap)}>
+        <GestureDetector gesture={Gesture.Race(pan, tap)}>
           <MotiView
             from={{
               opacity: 1,
