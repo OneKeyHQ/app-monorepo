@@ -5754,7 +5754,7 @@ __metadata:
   dependencies:
     "@0xsequence/multicall": ^0.36.8
     "@onekeyhq/components": "*"
-    "@openzeppelin/contracts": ^4.5.0
+    "@openzeppelin/contracts": ^4.8.3
     "@reduxjs/toolkit": ^1.6.2
     "@siddomains/sidjs": ^0.1.22
     "@types/d3-scale": ^4.0.2
@@ -5900,10 +5900,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@openzeppelin/contracts@npm:^4.5.0":
-  version: 4.7.3
-  resolution: "@openzeppelin/contracts@npm:4.7.3"
-  checksum: 18382fcacf7cfd652f5dd0e70c08f08ea74eaa8ff11e9f9850639ada70198ae01a3f9493d89a52d724f2db394e9616bf6258017804612ba273167cf657fbb073
+"@openzeppelin/contracts@npm:^4.8.3":
+  version: 4.8.3
+  resolution: "@openzeppelin/contracts@npm:4.8.3"
+  checksum: aea130d38d46840c5cbe3adbaa9a7ac645e4bd66ad3f3baf2fa78588c408d1a686170b3408c9e2e5e05530fba22ecdc00d7efb6b27852a8b29f91accbc0af255
   languageName: node
   linkType: hard
 
