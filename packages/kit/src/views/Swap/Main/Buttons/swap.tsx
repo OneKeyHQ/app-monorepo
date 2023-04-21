@@ -7,11 +7,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useIntl } from 'react-intl';
 
 import {
-  BottomSheetModal,
   Box,
   Button,
-  Center,
-  HStack,
   Image,
   Pressable,
   ToastManager,
@@ -62,6 +59,8 @@ import {
   getTokenAmountValue,
 } from '../../utils';
 
+import { SwapTransactionsCancelApprovalBottomSheetModal } from './common';
+import { SwapProgressButton } from './progress';
 import { combinedTasks } from './utils';
 
 import type {
@@ -81,11 +80,6 @@ type IConvertToSwapInfoOptions = {
   outputAmount: TokenAmount;
   account: BaseAccount;
   receivingAddress?: string;
-};
-
-type SwapTransactionsCancelApprovalBottomSheetModalProps = {
-  close: () => void;
-  onSubmit: () => void;
 };
 
 const addSwapTransaction = async ({
@@ -261,42 +255,6 @@ function convertToSwapInfo(options: IConvertToSwapInfoOptions): ISwapInfo {
   return swapInfo;
 }
 
-const SwapTransactionsCancelApprovalBottomSheetModal: FC<
-  SwapTransactionsCancelApprovalBottomSheetModalProps
-> = ({ close, onSubmit }) => {
-  const intl = useIntl();
-  const onPress = useCallback(() => {
-    close();
-    onSubmit();
-  }, [close, onSubmit]);
-  return (
-    <BottomSheetModal closeOverlay={close} title="" showHeader={false}>
-      <Center h="16">
-        <Typography.Heading fontSize={60}> ℹ️ </Typography.Heading>
-      </Center>
-      <Typography.DisplayMedium mt="4">
-        {intl.formatMessage(
-          { id: 'msg__need_to_send_str_transactions_to_change_allowance' },
-          { '0': '2' },
-        )}
-      </Typography.DisplayMedium>
-      <Typography.Body1 color="text-subdued" my="4">
-        {intl.formatMessage({
-          id: 'msg__modifying_the_authorized_limit_of_usdt_requires_resetting_it_to_zero_first_so_two_authorization_transactions_may_be_initiated',
-        })}
-      </Typography.Body1>
-      <HStack flexDirection="row" space="4">
-        <Button size="xl" type="basic" onPress={close} flex="1">
-          {intl.formatMessage({ id: 'action__cancel' })}
-        </Button>
-        <Button size="xl" type="primary" onPress={onPress} flex="1">
-          {intl.formatMessage({ id: 'action__confirm' })}
-        </Button>
-      </HStack>
-    </BottomSheetModal>
-  );
-};
-
 type TokenNetworkDisplayProps = {
   token: Token;
 };
@@ -407,7 +365,7 @@ const ExchangeButton = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const ref = useRef(false);
-  const [loading, setLoading] = useState(false);
+  const progressStatus = useAppSelector((s) => s.swap.progressStatus);
   const quote = useAppSelector((s) => s.swap.quote);
   const params = useSwapQuoteRequestParams();
   const disableSwapExactApproveAmount = useAppSelector(
@@ -473,6 +431,12 @@ const ExchangeButton = () => {
     const tagLogger = createLoggerTimer();
 
     tagLogger.start(LoggerTimerTags.checkTokenBalance);
+    backgroundApiProxy.serviceSwap.setProgressStatus({
+      title: intl.formatMessage(
+        { id: 'action__confirming_balance_str' },
+        { '0': '' },
+      ),
+    });
     const [result] =
       await backgroundApiProxy.serviceToken.getAccountBalanceFromRpc(
         fromNetwork.id,
@@ -524,6 +488,12 @@ const ExchangeButton = () => {
     };
     try {
       tagLogger.start(LoggerTimerTags.buildTransaction);
+      backgroundApiProxy.serviceSwap.setProgressStatus({
+        title: intl.formatMessage(
+          { id: 'action__building_transaction_data_str' },
+          { '0': '' },
+        ),
+      });
       res = await SwapQuoter.client.buildTransaction(quote.type, buildParams);
       tagLogger.end(LoggerTimerTags.buildTransaction);
     } catch (e: any) {
@@ -642,6 +612,9 @@ const ExchangeButton = () => {
     const tasks: Task[] = [];
 
     const doSwap = async () => {
+      backgroundApiProxy.serviceSwap.setProgressStatus({
+        title: intl.formatMessage({ id: 'action__swapping_str' }, { '0': '' }),
+      });
       await sendSwapTx({
         accountId: sendingAccount.id,
         networkId: fromNetworkId,
@@ -692,6 +665,12 @@ const ExchangeButton = () => {
           payloadInfo.swapInfo = { ...swapInfo, isApprove: true };
         }
         tagLogger.start(LoggerTimerTags.approval);
+        backgroundApiProxy.serviceSwap.setProgressStatus({
+          title: intl.formatMessage(
+            { id: 'action__authorizing_str' },
+            { '0': '' },
+          ),
+        });
         await sendSwapTx({
           accountId: sendingAccount.id,
           networkId: fromNetworkId,
@@ -726,12 +705,17 @@ const ExchangeButton = () => {
           payloadInfo.swapInfo = { ...swapInfo, isApprove: true };
         }
         tagLogger.start(LoggerTimerTags.cancelApproval);
+        backgroundApiProxy.serviceSwap.setProgressStatus({
+          title: intl.formatMessage(
+            { id: 'action__resetting_authorizing_str' },
+            { '0': '' },
+          ),
+        });
         await sendSwapTx({
           accountId: sendingAccount.id,
           networkId: fromNetworkId,
           payloadInfo,
           encodedTx: cancelApproveTx as IEncodedTxEvm,
-          gasEstimateFallback: Boolean(cancelApproveTx),
           onSuccess: async () => {
             await nextTask?.();
           },
@@ -745,7 +729,16 @@ const ExchangeButton = () => {
       showOverlay((close) => (
         <SwapTransactionsCancelApprovalBottomSheetModal
           close={close}
-          onSubmit={() => combinedTasks(tasks)}
+          onSubmit={async () => {
+            try {
+              dangerRefs.submited = true;
+              backgroundApiProxy.serviceSwap.setProgressStatus({});
+              await combinedTasks(tasks);
+            } finally {
+              dangerRefs.submited = true;
+              backgroundApiProxy.serviceSwap.setProgressStatus(undefined);
+            }
+          }}
         />
       ));
     } else {
@@ -759,24 +752,27 @@ const ExchangeButton = () => {
     if (ref.current) {
       return;
     }
-    setLoading(true);
-    ref.current = true;
     try {
+      ref.current = true;
       dangerRefs.submited = true;
+      backgroundApiProxy.serviceSwap.openProgressStatus();
       await onSubmit();
     } finally {
       ref.current = false;
       dangerRefs.submited = false;
-      setLoading(false);
+      backgroundApiProxy.serviceSwap.closeProgressStatus();
     }
   }, [onSubmit]);
+
+  if (progressStatus) {
+    return <SwapProgressButton />;
+  }
 
   return (
     <LinearGradientExchangeButton
       key="submit"
       size="xl"
       type="primary"
-      isLoading={loading}
       isDisabled={!quote}
       onPress={onPress}
     >

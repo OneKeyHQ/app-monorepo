@@ -66,7 +66,7 @@ export function useSwapSend() {
       const secretFree = password && !validationSetting?.Payment;
       if (wallet.type === 'hw' || (wallet.type !== 'external' && secretFree)) {
         try {
-          tagLogger.start(LoggerTimerTags.swap);
+          tagLogger.start(LoggerTimerTags.sendTransaction);
           const { result, decodedTx } =
             await backgroundApiProxy.serviceSwap.sendTransaction({
               accountId,
@@ -75,7 +75,7 @@ export function useSwapSend() {
               payload: payloadInfo,
               autoFallback: gasEstimateFallback,
             });
-          tagLogger.end(LoggerTimerTags.swap);
+          tagLogger.end(LoggerTimerTags.sendTransaction);
           await onSuccess?.({ result, decodedTx });
           if (showSendFeedbackReceipt) {
             navigation.navigate(RootRoutes.Modal, {

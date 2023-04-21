@@ -9,6 +9,7 @@ import {
   setActiveAccount,
   setInstantRate,
   setMktRate,
+  setProgressStatus,
   setTokenIn,
   setTokenOut,
   setTypedPrice,
@@ -29,6 +30,7 @@ import type {
   LimitOrder,
   LimitOrderDetailsResponse,
   LimitOrderTransactionDetails,
+  ProgressStatus,
 } from '@onekeyhq/kit/src/views/Swap/typings';
 import {
   div,
@@ -587,6 +589,24 @@ class ServiceLimitOrder extends ServiceBase {
       actions.push(setInstantRate(rate), setTypedPrice({ value: rate }));
     }
     dispatch(...actions);
+  }
+
+  @backgroundMethod()
+  async setProgressStatus(data?: ProgressStatus) {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setProgressStatus(data));
+  }
+
+  @backgroundMethod()
+  async openProgressStatus() {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setProgressStatus({}));
+  }
+
+  @backgroundMethod()
+  async closeProgressStatus() {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setProgressStatus(undefined));
   }
 }
 

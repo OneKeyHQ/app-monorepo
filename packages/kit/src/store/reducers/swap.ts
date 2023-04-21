@@ -6,6 +6,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import type {
   FetchQuoteResponse,
+  ProgressStatus,
   QuoteData,
   QuoteLimited,
   Recipient,
@@ -36,6 +37,7 @@ type SwapState = {
   responses?: FetchQuoteResponse[];
 
   allowAnotherRecipientAddress?: boolean;
+  progressStatus?: ProgressStatus;
   mode: SwapMode;
 };
 
@@ -174,6 +176,12 @@ export const swapSlice = createSlice({
     setMode(state, action: PayloadAction<SwapMode>) {
       state.mode = action.payload;
     },
+    setProgressStatus(
+      state,
+      action: PayloadAction<ProgressStatus | undefined>,
+    ) {
+      state.progressStatus = action.payload;
+    },
   },
 });
 
@@ -197,6 +205,7 @@ export const {
   clearUserSelectedQuoter,
   setResponses,
   setAllowAnotherRecipientAddress,
+  setProgressStatus,
   setMode,
 } = swapSlice.actions;
 
