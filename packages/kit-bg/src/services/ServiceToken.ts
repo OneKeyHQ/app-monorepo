@@ -779,6 +779,7 @@ export default class ServiceToken extends ServiceBase {
     {
       promise: true,
       maxAge: 30 * 1000,
+      normalizer: (args) => JSON.stringify(args),
     },
   );
 }
