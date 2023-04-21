@@ -25,6 +25,7 @@ const DISMISS_TIMEOUT = 3000;
 const TRANSITION_DURATION = 300;
 const MAX_WIDTH = 374;
 const DISMISS_DISTANCE = 5;
+const VELOCITY_THRESHOLD = 20;
 
 const AnimatedButton = Animated.createAnimatedComponent(Button);
 export interface InAppNotificationProps {
@@ -40,6 +41,7 @@ export interface InAppNotificationProps {
   timeout?: number;
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 enum EXIT_DIRECTION {
   LEFT = 0,
   RIGHT = 1,
@@ -59,7 +61,7 @@ const InAppNotification: FC<InAppNotificationProps> = ({
   onClose,
 }) => {
   const { bottom, top } = useSafeAreaInsets();
-  const { width: screenW, height: screenH } = useWindowDimensions();
+  const { width: screenW } = useWindowDimensions();
   const [visible, setVisible] = useState(true);
   const isPositionedBottom = useIsVerticalLayout();
   const isHovered = useSharedValue(false);
@@ -72,6 +74,13 @@ const InAppNotification: FC<InAppNotificationProps> = ({
   );
   const startTransY = isPositionedBottom ? 100 + bottom : -(100 + top);
   const exitDirection = useSharedValue(-1);
+
+  const actionButtonStyle = useAnimatedStyle(
+    () => ({
+      display: exitDirection.value === -1 ? 'flex' : 'none',
+    }),
+    [],
+  );
   const closeTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const closeWithAnimation = useCallback(() => {
@@ -98,22 +107,37 @@ const InAppNotification: FC<InAppNotificationProps> = ({
     onBodyPress?.();
   }) as () => void;
 
-  const pan = Gesture.Pan().onUpdate(({ translationX, translationY }) => {
-    'worklet';
+  const pan = Gesture.Pan().onUpdate(
+    ({ translationX, translationY, velocityX, velocityY }) => {
+      'worklet';
 
-    if (translationX < -DISMISS_DISTANCE) {
-      exitDirection.value = EXIT_DIRECTION.LEFT;
-    } else if (translationX > DISMISS_DISTANCE) {
-      exitDirection.value = EXIT_DIRECTION.RIGHT;
-    } else if (translationY < -DISMISS_DISTANCE) {
-      exitDirection.value = EXIT_DIRECTION.TOP;
-    } else if (translationY > DISMISS_DISTANCE) {
-      exitDirection.value = EXIT_DIRECTION.BOTTOM;
-    } else {
-      return;
-    }
-    runOnJS(closeWithAnimation);
-  });
+      const distanceX = Math.abs(translationX);
+      const distanceY = Math.abs(translationY);
+      const velocityMagnitude = Math.sqrt(velocityX ** 2 + velocityY ** 2);
+
+      if (distanceY < DISMISS_DISTANCE && distanceX < DISMISS_DISTANCE) {
+        return;
+      }
+
+      if (velocityMagnitude > VELOCITY_THRESHOLD) {
+        if (Math.abs(velocityX) > Math.abs(velocityY)) {
+          exitDirection.value =
+            velocityX > 0 ? EXIT_DIRECTION.RIGHT : EXIT_DIRECTION.LEFT;
+        } else {
+          exitDirection.value =
+            velocityY > 0 ? EXIT_DIRECTION.BOTTOM : EXIT_DIRECTION.TOP;
+        }
+      } else if (distanceY > distanceX) {
+        exitDirection.value =
+          translationY > 0 ? EXIT_DIRECTION.BOTTOM : EXIT_DIRECTION.TOP;
+      } else {
+        exitDirection.value =
+          translationX > 0 ? EXIT_DIRECTION.RIGHT : EXIT_DIRECTION.LEFT;
+      }
+
+      runOnJS(closeWithAnimation);
+    },
+  );
 
   const tap = Gesture.Tap().onStart(onBodyPressOverride);
 
@@ -194,14 +218,15 @@ const InAppNotification: FC<InAppNotificationProps> = ({
                       src={cover}
                     />
                   ) : (
-                    <Button
+                    <AnimatedButton
+                      style={actionButtonStyle}
                       onPress={() => {
                         onClose?.();
                         onActionPress?.();
                       }}
                     >
                       {actionText}
-                    </Button>
+                    </AnimatedButton>
                   )}
                 </Box>
                 <AnimatedButton

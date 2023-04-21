@@ -23,6 +23,7 @@ import HardwareHomescreen from '../../../views/Components/stories/HardwareHomesc
 import IconGallery from '../../../views/Components/stories/Icon';
 import IconButtons from '../../../views/Components/stories/IconButtons';
 import ImageViewerGallery from '../../../views/Components/stories/ImageViewer';
+import InAppNotificationGallery from '../../../views/Components/stories/InAppNotification';
 import InputGallery from '../../../views/Components/stories/Input';
 import KeyboardGallery from '../../../views/Components/stories/Keyboard';
 import ListGallery from '../../../views/Components/stories/List';
@@ -62,7 +63,6 @@ import WalletSelectorGallery from '../../../views/Components/stories/WalletSelec
 import WebViewGallery from '../../../views/Components/stories/WebView';
 import { GalleryRoutes } from '../../routesEnum';
 import renderCustomSubStackHeader from '../Main/Header';
-import InAppNotificationGallery from '../../../views/Components/stories/InAppNotification';
 
 export type GalleryParams = {
   [GalleryRoutes.Components]: { ts: number };
@@ -128,6 +128,7 @@ export type GalleryParams = {
   [GalleryRoutes.ComponentNavHeaderGallery]: undefined;
   [GalleryRoutes.ComponentMnemonicCardGallery]: undefined;
   [GalleryRoutes.ComponentSlider]: undefined;
+  [GalleryRoutes.ComponentInAppNotification]: undefined;
 };
 
 export const stackScreenList = [
@@ -255,7 +256,7 @@ export const stackScreenList = [
   {
     name: GalleryRoutes.ComponentInAppNotification,
     component: InAppNotificationGallery,
-  }
+  },
 ];
 
 const DevStack = createNativeStackNavigator();
