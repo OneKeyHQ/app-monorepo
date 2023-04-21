@@ -14,13 +14,14 @@ import Animated, {
 import Box from '../Box';
 import Button from '../Button';
 import NetImage from '../NetImage';
-import Pressable from '../Pressable';
 import useIsVerticalLayout from '../Provider/hooks/useIsVerticalLayout';
 import useSafeAreaInsets from '../Provider/hooks/useSafeAreaInsets';
 import { Body2, Body2Strong } from '../Typography';
+import { useBeforeOnPress } from '../utils/useBeforeOnPress';
 
 const DISMISS_TIMEOUT = 3000;
 const TRANSITION_DURATION = 300;
+const MAX_WIDTH = 374;
 
 const AnimatedButton = Animated.createAnimatedComponent(Button);
 export interface InAppNotificationProps {
@@ -48,9 +49,9 @@ const InAppNotification: FC<InAppNotificationProps> = ({
   onClose,
 }) => {
   const { bottom, top } = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width: screenW } = useWindowDimensions();
   const [visible, setVisible] = useState(true);
-  const isVerticalLayout = useIsVerticalLayout();
+  const isPositionedBottom = useIsVerticalLayout();
   const isHovered = useSharedValue(false);
   const showCloseButtonStyle = useAnimatedStyle(
     () => ({
@@ -59,7 +60,8 @@ const InAppNotification: FC<InAppNotificationProps> = ({
     }),
     [],
   );
-  const startTransY = isVerticalLayout ? 100 + bottom : -(100 + top);
+  const startTransY = isPositionedBottom ? 100 + bottom : -(100 + top);
+
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       setVisible(false);
@@ -67,6 +69,11 @@ const InAppNotification: FC<InAppNotificationProps> = ({
     }, timeout);
     return () => clearTimeout(timeoutId);
   }, [onClose, timeout]);
+
+  const onBodyPressOverride = useBeforeOnPress(() => {
+    onClose?.();
+    onBodyPress?.();
+  }) as () => void;
   return (
     <AnimatePresence>
       {visible && (
@@ -81,21 +88,23 @@ const InAppNotification: FC<InAppNotificationProps> = ({
             opacity: 0,
             translateY: startTransY,
           }}
+          style={{
+            position: 'absolute',
+            top: isPositionedBottom ? undefined : 32,
+            bottom: isPositionedBottom ? 32 + bottom : undefined,
+            right: isPositionedBottom ? 16 : 32,
+          }}
         >
-          <MotiPressable onPress={onBodyPress} hoveredValue={isHovered}>
+          <MotiPressable onPress={onBodyPressOverride} hoveredValue={isHovered}>
             <Box
-              w={width - 16}
-              maxW="374px"
+              w={screenW - 32}
+              maxW={isPositionedBottom ? undefined : `${MAX_WIDTH}px`}
               px="16px"
               py="12px"
               borderRadius="12px"
               borderColor="border-default"
               borderWidth="1px"
               flexDirection="row"
-              position="absolute"
-              right={isVerticalLayout ? '8px' : '32px'}
-              top={isVerticalLayout ? undefined : '32px'}
-              bottom={isVerticalLayout ? `${8 + bottom}px` : undefined}
               bg="surface-default"
             >
               <Box flex={1}>
@@ -110,11 +119,18 @@ const InAppNotification: FC<InAppNotificationProps> = ({
                   <NetImage
                     width="40px"
                     height="40px"
-                    // resizeMode="cover"
+                    resizeMode="cover"
                     src={cover}
                   />
                 ) : (
-                  <Button onPress={onActionPress}>{actionText}</Button>
+                  <Button
+                    onPress={() => {
+                      onClose?.();
+                      onActionPress?.();
+                    }}
+                  >
+                    {actionText}
+                  </Button>
                 )}
               </Box>
               <AnimatedButton
