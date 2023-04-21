@@ -82,10 +82,9 @@ const InAppNotification: FC<InAppNotificationProps> = ({
             translateY: startTransY,
           }}
         >
-          <MotiPressable hoveredValue={isHovered}>
-            <Pressable
+          <MotiPressable onPress={onBodyPress} hoveredValue={isHovered}>
+            <Box
               w={width - 16}
-              onPress={onBodyPress}
               maxW="374px"
               px="16px"
               py="12px"
@@ -133,7 +132,7 @@ const InAppNotification: FC<InAppNotificationProps> = ({
                 pl={0}
                 onPress={onClose}
               />
-            </Pressable>
+            </Box>
           </MotiPressable>
         </MotiView>
       )}

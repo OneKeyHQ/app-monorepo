@@ -24,6 +24,9 @@ const InAppNotificationGallery = () => {
             title: '😀 Notification',
             subtitle: 'Subtitle',
             actionText: 'Update',
+            onBodyPress: () => {
+              alert('onBodyPress');
+            },
             onActionPress: () => {
               alert('Update');
             },
