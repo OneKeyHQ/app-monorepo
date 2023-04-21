@@ -440,8 +440,10 @@ export enum LoggerTimerTags {
   approval = 'approval',
   cancelApproval = 'cancelApproval',
   swap = 'swap',
+  sendTransaction = 'sendTransaction',
   signMessage = 'signMessage',
   gasEstimate = 'gasEstimate',
+
   checkTokenBalance = 'checkTokenBalance',
   checkTokenAllowance = 'checkTokenAllowance',
   buildTransaction = 'buildTransaction',

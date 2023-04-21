@@ -447,3 +447,7 @@ export type TypedPrice = {
   reversed?: boolean;
   value: string;
 };
+
+export type ProgressStatus = {
+  title?: string;
+};
