@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -17,7 +17,7 @@ import { useNavigation } from '../../../../hooks';
 import { useAppSelector } from '../../../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../../../routes/types';
 import { addLimitOrderTransaction } from '../../../../store/reducers/swapTransactions';
-import { wait } from '../../../../utils/helper';
+import { showOverlay } from '../../../../utils/overlayUtils';
 import { ZeroExchangeAddress } from '../../config';
 import {
   useCheckLimitOrderInputBalance,
@@ -28,6 +28,8 @@ import { useSwapSend, useSwapSignMessage } from '../../hooks/useSwapSend';
 import { SwapRoutes } from '../../typings';
 import { getTokenAmountString, getTokenAmountValue, lte } from '../../utils';
 
+import { SwapTransactionsCancelApprovalBottomSheetModal } from './common';
+import { LimitOrderProgressButton } from './progress';
 import { combinedTasks } from './utils';
 
 import type { Task } from './utils';
@@ -37,10 +39,10 @@ const LimitOrderButton = () => {
   const ref = useRef(false);
   const navigation = useNavigation();
   const params = useLimitOrderParams();
+  const progressStatus = useAppSelector((s) => s.limitOrder.progressStatus);
   const instantRate = useAppSelector((s) => s.limitOrder.instantRate);
   const sendSwapTx = useSwapSend();
   const sendSignMessage = useSwapSignMessage();
-  const [loading, setLoading] = useState(false);
 
   const onSubmit = useCallback(async () => {
     if (!params || !instantRate) {
@@ -82,8 +84,13 @@ const LimitOrderButton = () => {
       const { networkId } = params.tokenIn;
       const { tokenIn } = params;
       const { tokenOut } = params;
-      await wait(100);
-      sendSignMessage({
+      backgroundApiProxy.serviceLimitOrder.setProgressStatus({
+        title: intl.formatMessage(
+          { id: 'action__submitting_order_str' },
+          { '0': '' },
+        ),
+      });
+      await sendSignMessage({
         accountId,
         networkId,
         unsignedMessage: { type: 4, message: JSON.stringify(message) },
@@ -138,7 +145,11 @@ const LimitOrderButton = () => {
       });
     };
     tasks.unshift(doLimitOrder);
+
     let needApproved = false;
+    let approveTx: IEncodedTxEvm | undefined;
+    let cancelApproveTx: IEncodedTxEvm | undefined;
+
     const allowance = await backgroundApiProxy.engine.getTokenAllowance({
       networkId: params.tokenIn.networkId,
       accountId: params.activeAccount.id,
@@ -150,23 +161,51 @@ const LimitOrderButton = () => {
         getTokenAmountString(params.tokenIn, allowance),
       ).lt(order.makerAmount);
     }
+    const needToResetApproval =
+      await backgroundApiProxy.serviceSwap.needToResetApproval(params.tokenIn);
+    const needCancelApproval =
+      needApproved && needToResetApproval && Number(allowance || '0') > 0;
+    if (needCancelApproval) {
+      cancelApproveTx =
+        (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
+          spender: ZeroExchangeAddress,
+          networkId: params.tokenIn.networkId,
+          accountId: params.activeAccount.id,
+          token: params.tokenIn.tokenIdOnNetwork,
+          amount: '0',
+        })) as IEncodedTxEvm;
+    }
+
     if (needApproved) {
+      approveTx = (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
+        spender: ZeroExchangeAddress,
+        networkId: params.tokenIn.networkId,
+        accountId: params.activeAccount.id,
+        token: params.tokenIn.tokenIdOnNetwork,
+        amount: getTokenAmountValue(
+          params.tokenIn,
+          order.makerAmount,
+        ).toFixed(),
+      })) as IEncodedTxEvm;
+
+      if (cancelApproveTx && cancelApproveTx.nonce) {
+        approveTx.nonce = Number(cancelApproveTx.nonce) + 1;
+      }
+    }
+
+    if (approveTx) {
       const doApprove = async (nextTask?: Task) => {
-        const approveTx =
-          (await backgroundApiProxy.engine.buildEncodedTxFromApprove({
-            spender: ZeroExchangeAddress,
-            networkId: params.tokenIn.networkId,
-            accountId: params.activeAccount.id,
-            token: params.tokenIn.tokenIdOnNetwork,
-            amount: getTokenAmountValue(
-              params.tokenIn,
-              order.makerAmount,
-            ).toFixed(),
-          })) as IEncodedTxEvm;
+        backgroundApiProxy.serviceLimitOrder.setProgressStatus({
+          title: intl.formatMessage(
+            { id: 'action__authorizing_str' },
+            { '0': '' },
+          ),
+        });
         await sendSwapTx({
           accountId: params.activeAccount.id,
           networkId: params.tokenIn.networkId,
-          encodedTx: approveTx,
+          encodedTx: approveTx as IEncodedTxEvm,
+          gasEstimateFallback: Boolean(cancelApproveTx),
           onSuccess: async () => {
             if (wallet.type === 'hw') {
               navigation.navigate(RootRoutes.Modal, {
@@ -182,31 +221,66 @@ const LimitOrderButton = () => {
       };
       tasks.unshift(doApprove);
     }
-    await combinedTasks(tasks);
+
+    if (cancelApproveTx) {
+      const doCancelApprove = async (nextTask?: Task) => {
+        backgroundApiProxy.serviceLimitOrder.setProgressStatus({
+          title: intl.formatMessage(
+            { id: 'action__resetting_authorizing_str' },
+            { '0': '' },
+          ),
+        });
+        await sendSwapTx({
+          accountId: params.activeAccount.id,
+          networkId: params.tokenIn.networkId,
+          encodedTx: cancelApproveTx as IEncodedTxEvm,
+          onSuccess: async () => {
+            await nextTask?.();
+          },
+        });
+      };
+      tasks.unshift(doCancelApprove);
+    }
+    if (cancelApproveTx) {
+      showOverlay((close) => (
+        <SwapTransactionsCancelApprovalBottomSheetModal
+          close={close}
+          onSubmit={async () => {
+            try {
+              backgroundApiProxy.serviceLimitOrder.setProgressStatus({});
+              await combinedTasks(tasks);
+            } finally {
+              backgroundApiProxy.serviceLimitOrder.setProgressStatus(undefined);
+            }
+          }}
+        />
+      ));
+    } else {
+      await combinedTasks(tasks);
+    }
   }, [params, instantRate, intl, sendSignMessage, sendSwapTx, navigation]);
 
   const onPress = useCallback(async () => {
     if (ref.current) {
       return;
     }
-    setLoading(true);
+
     ref.current = true;
     try {
+      backgroundApiProxy.serviceLimitOrder.openProgressStatus();
       await onSubmit();
     } finally {
       ref.current = false;
-      setLoading(false);
+      backgroundApiProxy.serviceLimitOrder.closeProgressStatus();
     }
   }, [onSubmit]);
 
+  if (progressStatus) {
+    return <LimitOrderProgressButton />;
+  }
+
   return (
-    <Button
-      key="limit_order"
-      size="xl"
-      type="primary"
-      isLoading={loading}
-      onPress={onPress}
-    >
+    <Button key="limit_order" size="xl" type="primary" onPress={onPress}>
       {intl.formatMessage({ id: 'action__place_limit_order' })}
     </Button>
   );

@@ -18,6 +18,7 @@ import {
   resetTypedValue,
   setInputToken,
   setOutputToken,
+  setProgressStatus,
   setQuote,
   setQuoteLimited,
   setRecipient,
@@ -46,6 +47,7 @@ import type { SendConfirmParams } from '@onekeyhq/kit/src/views/Send/types';
 import type {
   FetchQuoteParams,
   FieldType,
+  ProgressStatus,
   QuoteData,
   QuoteLimited,
   Recipient,
@@ -979,6 +981,28 @@ export default class ServiceSwap extends ServiceBase {
       result,
       attachment,
     });
+  }
+
+  @backgroundMethod()
+  async setProgressStatus(data?: ProgressStatus) {
+    const { dispatch, appSelector } = this.backgroundApi;
+    const progressStatus = appSelector((s) => s.swap.progressStatus);
+    if (!progressStatus) {
+      return;
+    }
+    dispatch(setProgressStatus(data));
+  }
+
+  @backgroundMethod()
+  async openProgressStatus() {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setProgressStatus({}));
+  }
+
+  @backgroundMethod()
+  async closeProgressStatus() {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setProgressStatus(undefined));
   }
 
   @bindThis()
