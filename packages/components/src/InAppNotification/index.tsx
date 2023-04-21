@@ -1,13 +1,8 @@
 /* eslint-disable no-nested-ternary */
 import type { FC, ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import {
-  AnimatePresence,
-  MotiView,
-  useAnimationState,
-  useDynamicAnimation,
-} from 'moti';
+import { AnimatePresence, MotiView } from 'moti';
 import { MotiPressable } from 'moti/interactions';
 import { useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -17,8 +12,6 @@ import Animated, {
   useDerivedValue,
   useSharedValue,
 } from 'react-native-reanimated';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import Box from '../Box';
 import Button from '../Button';
@@ -82,16 +75,16 @@ const InAppNotification: FC<InAppNotificationProps> = ({
   const closeTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const closeWithAnimation = useCallback(() => {
+    clearTimeout(closeTimer.current);
+    if (
+      (exitDirection.value === EXIT_DIRECTION.TOP && isPositionedBottom) ||
+      (exitDirection.value === EXIT_DIRECTION.BOTTOM && !isPositionedBottom)
+    ) {
+      onBodyPress?.();
+    }
     setVisible(false);
     setTimeout(() => {
-      clearTimeout(closeTimer.current);
       onClose?.();
-      if (
-        (exitDirection.value === EXIT_DIRECTION.TOP && isPositionedBottom) ||
-        (exitDirection.value === EXIT_DIRECTION.BOTTOM && !isPositionedBottom)
-      ) {
-        onBodyPress?.();
-      }
     }, TRANSITION_DURATION);
   }, [exitDirection, isPositionedBottom, onBodyPress, onClose]);
 
@@ -122,6 +115,8 @@ const InAppNotification: FC<InAppNotificationProps> = ({
     runOnJS(closeWithAnimation);
   });
 
+  const tap = Gesture.Tap().onStart(onBodyPressOverride);
+
   const animateProp = useDerivedValue(() => {
     'worklet';
 
@@ -148,7 +143,7 @@ const InAppNotification: FC<InAppNotificationProps> = ({
   return (
     <AnimatePresence>
       {visible && (
-        <GestureDetector gesture={pan}>
+        <GestureDetector gesture={Gesture.Exclusive(pan, tap)}>
           <MotiView
             from={{
               opacity: 1,
@@ -171,10 +166,7 @@ const InAppNotification: FC<InAppNotificationProps> = ({
               zIndex: 9999,
             }}
           >
-            <MotiPressable
-              onPress={onBodyPressOverride}
-              hoveredValue={isHovered}
-            >
+            <MotiPressable hoveredValue={isHovered}>
               <Box
                 w={screenW - 32}
                 maxW={isPositionedBottom ? undefined : `${MAX_WIDTH}px`}
