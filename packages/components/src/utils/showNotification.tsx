@@ -4,7 +4,6 @@ import InAppNotification from '../InAppNotification';
 
 import type { InAppNotificationProps } from '../InAppNotification';
 
-
 let queue = Promise.resolve();
 
 export const showNotification = (props: InAppNotificationProps) =>
