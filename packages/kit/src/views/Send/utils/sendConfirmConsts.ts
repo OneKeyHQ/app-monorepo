@@ -9,7 +9,8 @@ export const IS_REPLACE_ROUTE_TO_FEE_EDIT = false;
 
 export const SEND_EDIT_FEE_PRICE_UP_RATIO = 1.1;
 
-export const FEE_INFO_POLLING_INTERVAL = 5000;
+// blocknative every 5 seconds for free tier apikeys
+export const FEE_INFO_POLLING_INTERVAL = 6000;
 
 export const FEE_LEVEL_TEXT_COLOR_MAP = [
   'decorative-icon-one',

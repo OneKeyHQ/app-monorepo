@@ -134,7 +134,7 @@ const SimpleView: FC<{ order: LimitOrderTransactionDetails }> = ({ order }) => {
           </Box>
         </Box>
       </Box>
-      <Box w="9">
+      <Box w="9" flexDirection="row" alignItems="center">
         {canceled ? null : (
           <Box>
             <CancelButton details={order} />
