@@ -9,6 +9,8 @@ const projectRoot = __dirname;
 
 const config = getDefaultConfig(projectRoot);
 
+config.projectRoot = projectRoot;
+
 // hot-reload file type
 // cjs is needed for superstruct: https://github.com/ianstormtaylor/superstruct/issues/404#issuecomment-800182972
 config.resolver.sourceExts = [
