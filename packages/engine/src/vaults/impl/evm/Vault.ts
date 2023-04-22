@@ -32,6 +32,7 @@ import {
   COINTYPE_ETC,
   HISTORY_CONSTS,
   IMPL_EVM,
+  UNIQUE_TOKEN_SYMBOLS,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -122,6 +123,7 @@ import type {
 } from './decoder/decoder';
 import type { IRpcTxEvm } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import { TokenRiskLevel } from '../../../types/token';
 
 const OPTIMISM_NETWORKS: string[] = [
   OnekeyNetwork.optimism,
@@ -1842,8 +1844,21 @@ export default class Vault extends VaultBase {
           action.type === IDecodedTxActionType.TOKEN_TRANSFER &&
           action.tokenTransfer?.amount &&
           !new BigNumber(action.tokenTransfer?.amount).isZero()
-        )
+        ) {
+          const impl = await this.getNetworkImpl();
+          const uniqueTokenSymbols = UNIQUE_TOKEN_SYMBOLS[impl] ?? [];
+          const { tokenInfo } = action.tokenTransfer;
+
+          if (
+            uniqueTokenSymbols.includes(tokenInfo.symbol.toUpperCase()) &&
+            tokenInfo.riskLevel &&
+            tokenInfo.riskLevel > TokenRiskLevel.WARN
+          ) {
+            return true;
+          }
+
           return false;
+        }
 
         if (
           action.type === IDecodedTxActionType.TOKEN_TRANSFER &&
