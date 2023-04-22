@@ -1,5 +1,3 @@
-diff --git a/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt b/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt
-index db5001b..a813904 100644
 --- a/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt
 +++ b/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt
 @@ -5,11 +5,7 @@ import android.annotation.TargetApi
@@ -28,3 +26,30 @@ index db5001b..a813904 100644
        }
  
        val drawable = RippleDrawable(
+diff --git a/node_modules/react-native-gesture-handler/lib/module/components/GestureComponents.web.js b/node_modules/react-native-gesture-handler/lib/module/components/GestureComponents.web.js
+index d773992..0af93f4 100644
+--- a/node_modules/react-native-gesture-handler/lib/module/components/GestureComponents.web.js
++++ b/node_modules/react-native-gesture-handler/lib/module/components/GestureComponents.web.js
+@@ -1,7 +1,7 @@
+ function _extends() { _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
+ 
+ import * as React from 'react';
+-import { DrawerLayoutAndroid as RNDrawerLayoutAndroid, FlatList as RNFlatList, Switch as RNSwitch, TextInput as RNTextInput, ScrollView as RNScrollView, View } from 'react-native';
++import { FlatList as RNFlatList, Switch as RNSwitch, TextInput as RNTextInput, ScrollView as RNScrollView, View } from 'react-native';
+ import createNativeWrapper from '../handlers/createNativeWrapper';
+ export const ScrollView = createNativeWrapper(RNScrollView, {
+   disallowInterruption: false
+@@ -12,9 +12,10 @@ export const Switch = createNativeWrapper(RNSwitch, {
+   disallowInterruption: true
+ });
+ export const TextInput = createNativeWrapper(RNTextInput);
+-export const DrawerLayoutAndroid = createNativeWrapper(RNDrawerLayoutAndroid, {
+-  disallowInterruption: true
+-}); // @ts-ignore -- TODO(TS) to investigate if it's needed
++export const DrawerLayoutAndroid = () => {
++  console.warn('DrawerLayoutAndroid is not supported on web!');
++  return <View />;
++};
+ 
+ DrawerLayoutAndroid.positions = RNDrawerLayoutAndroid.positions; // RefreshControl is implemented as a functional component, rendering a View
+ // NativeViewGestureHandler needs to set a ref on its child, which cannot be done

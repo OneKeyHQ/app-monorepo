@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 
 import { MotiView } from 'moti';
-import { PermissionsAndroid, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import RootSiblingsManager from 'react-native-root-siblings';
 
 import { OverlayContainer } from '@onekeyhq/components';
@@ -233,6 +233,11 @@ export default async function showHardwarePopup({
     uiRequest === UI_REQUEST.LOCATION_PERMISSION ||
     uiRequest === UI_REQUEST.BLUETOOTH_PERMISSION
   ) {
+    // to support react-native-web 0.19
+    const PermissionsAndroid: typeof import('react-native').PermissionsAndroid =
+      platformEnv.isNativeAndroid
+        ? require('react-native/Libraries/PermissionsAndroid/PermissionsAndroid')
+        : {};
     const checkPermission = () => {
       if (Platform.Version >= 31) {
         return PermissionsAndroid.check(
