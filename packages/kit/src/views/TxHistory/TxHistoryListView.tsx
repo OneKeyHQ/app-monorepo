@@ -227,6 +227,7 @@ export type ITxHistoryListViewProps = {
   tokenId?: string; // tokenIdOnNetwork
   isHomeTab?: boolean;
   headerView?: JSX.Element | null;
+  tabComponent?: boolean;
 };
 // TODO use Tabs.SectionList and SectionList instead
 function TxHistoryListViewComponent({
@@ -235,6 +236,7 @@ function TxHistoryListViewComponent({
   tokenId,
   headerView,
   isHomeTab,
+  tabComponent,
 }: ITxHistoryListViewProps) {
   const [historyListData, setHistoryListData] = useState<IHistoryTx[]>([]);
   const txDetailContext = useTxHistoryContext();
@@ -374,7 +376,8 @@ function TxHistoryListViewComponent({
   if (!accountId || !networkId) {
     return null;
   }
-  const SectionListComponent = isHomeTab ? Tabs.SectionList : SectionList;
+  const SectionListComponent =
+    isHomeTab || tabComponent ? Tabs.SectionList : SectionList;
 
   return (
     <TxHistoryListSectionsMemo

@@ -77,7 +77,7 @@ export default function StakingETHNotes() {
                 accountId: account.id,
                 data: {
                   nonce: data?.decodedTx?.nonce,
-                  oldValue: minerOverview?.amount.total_amount,
+                  oldValue: minerOverview?.amount?.total_amount,
                   txid: tx.txid,
                   amount: params.amount,
                   createdAt: Date.now(),
@@ -94,7 +94,7 @@ export default function StakingETHNotes() {
     params.networkId,
     params.amount,
     navigation,
-    minerOverview?.amount.total_amount,
+    minerOverview?.amount?.total_amount,
     tokenInfo,
     onClose,
   ]);

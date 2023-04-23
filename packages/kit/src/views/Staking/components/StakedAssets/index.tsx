@@ -25,7 +25,7 @@ const StakedAssets: FC<StakedAssetsProps> = ({
   if (networkId && statedSupport) {
     children = <ETHAsset networkId={networkId} accountId={accountId} />;
   }
-  return children ? <Box mb="4">{children}</Box> : null;
+  return children ? <Box mt="24px">{children}</Box> : null;
 };
 
 export default StakedAssets;
