@@ -447,6 +447,7 @@ export default class VaultBtcFork extends VaultBase {
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     let utxos = await this.collectUTXOs();
+
     // Select the slowest fee rate as default, otherwise the UTXO selection
     // would be failed.
     // SpecifiedFeeRate is from UI layer and is in BTC/byte, convert it to sats/byte
@@ -458,6 +459,13 @@ export default class VaultBtcFork extends VaultBase {
         : (await this.getFeeRate())[1];
 
     // Coin Control
+    const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub);
+    utxos = utxos.filter(
+      (utxo) =>
+        frozenUtxos.findIndex(
+          (frozenUtxo) => frozenUtxo.id === getUtxoId(this.networkId, utxo),
+        ) < 0,
+    );
     if (
       Array.isArray(transferInfo.selectedUtxos) &&
       transferInfo.selectedUtxos.length
@@ -906,22 +914,27 @@ export default class VaultBtcFork extends VaultBase {
     });
   }
 
+  private async getFrozenUtxos(xpub: string) {
+    const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
+      this.networkId,
+      xpub,
+    );
+    return archivedUtxos.filter((utxo) => utxo.frozen);
+  }
+
   override async getFrozenBalance(): Promise<number> {
     const utxos = await this.collectUTXOs();
     const [dbAccount, network] = await Promise.all([
       this.getDbAccount() as Promise<DBUTXOAccount>,
       this.getNetwork(),
     ]);
-    const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
-      this.networkId,
-      dbAccount.xpub,
-    );
     // find frozen utxo
+    const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub);
     const allFrozenUtxo = utxos.filter((utxo) =>
-      archivedUtxos.find(
-        (archivedUtxo) =>
-          archivedUtxo.frozen &&
-          archivedUtxo.id === getUtxoId(this.networkId, utxo),
+      frozenUtxos.find(
+        (frozenUtxo) =>
+          frozenUtxo.frozen &&
+          frozenUtxo.id === getUtxoId(this.networkId, utxo),
       ),
     );
     // use bignumber to calculate sum allFrozenUtxo value

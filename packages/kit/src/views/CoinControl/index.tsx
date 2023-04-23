@@ -56,6 +56,11 @@ const CoinControl = () => {
       ? encodedTx.inputs.map((input) => getUtxoUniqueKey(input))
       : [],
   );
+
+  const defaultutxos = encodedTx?.inputs.map((input) =>
+    getUtxoUniqueKey(input),
+  );
+  console.log(defaultutxos);
   const [blockTimeMap, setBlockTimeMap] = useState<Record<string, number>>({});
   const [token, setToken] = useState<Token>();
 
@@ -224,7 +229,7 @@ const CoinControl = () => {
     () => utxosWithoutDust.length > 0 || utxosDust.length > 0,
     [utxosWithoutDust, utxosDust],
   );
-  const showAvailableListCheckbox = useMemo(() => true, []);
+  const showAvailableListCheckbox = useMemo(() => isSelectMode, [isSelectMode]);
   const showFrozenList = useMemo(() => frozenUtxos.length > 0, [frozenUtxos]);
   const showFrozenListCheckbox = useMemo(() => false, []);
 
@@ -248,16 +253,18 @@ const CoinControl = () => {
         </CoinControlListMenu>
       }
       footer={
-        <ModalFooter
-          accountId={accountId}
-          network={network}
-          token={token}
-          allUtxos={allUtxos}
-          dustUtxos={utxosDust}
-          selectedUtxos={selectedUtxos}
-          targetAmount={targetAmount}
-          onConfirm={onConfirm}
-        />
+        isSelectMode ? (
+          <ModalFooter
+            accountId={accountId}
+            network={network}
+            token={token}
+            allUtxos={allUtxos}
+            dustUtxos={utxosDust}
+            selectedUtxos={selectedUtxos}
+            targetAmount={targetAmount}
+            onConfirm={onConfirm}
+          />
+        ) : null
       }
     >
       <Box mb={4}>
