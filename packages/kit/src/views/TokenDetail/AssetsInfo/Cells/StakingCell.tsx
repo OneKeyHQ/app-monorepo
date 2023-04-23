@@ -14,12 +14,15 @@ import {
   FormatBalance,
   FormatCurrencyNumber,
 } from '../../../../components/Format';
+import { useNavigation } from '../../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../../hooks/useManegeTokenPrice';
 import { useTokenSupportStakedAssets } from '../../../../hooks/useTokens';
+import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import {
   useAccountStakingActivity,
   useKeleMinerOverview,
 } from '../../../Staking/hooks';
+import { StakingRoutes } from '../../../Staking/typing';
 
 export type Props = {
   tokenId: string;
@@ -30,6 +33,7 @@ const StakingCell: FC<Props> = ({ token, tokenId }) => {
   const intl = useIntl();
   const { networkId, accountId } = useActiveWalletAccount();
   const minerOverview = useKeleMinerOverview(networkId, accountId);
+  const navigation = useNavigation();
 
   const amount = useMemo(
     () => minerOverview?.amount?.total_amount ?? 0,
@@ -58,7 +62,20 @@ const StakingCell: FC<Props> = ({ token, tokenId }) => {
     return null;
   }
   return amount > 0 || activeStakingActivity ? (
-    <ListItem mx="-8px" onPress={() => {}}>
+    <ListItem
+      mx="-8px"
+      onPress={() => {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Staking,
+          params: {
+            screen: StakingRoutes.StakedETHOnKele,
+            params: {
+              networkId,
+            },
+          },
+        });
+      }}
+    >
       <ListItem.Column image={{ source: KeleLogoPNG, w: '40px', h: '40px' }} />
       <ListItem.Column
         text={{
