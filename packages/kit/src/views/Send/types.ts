@@ -376,6 +376,7 @@ export type BatchSendConfirmOnSuccessData = {
 export type SendConfirmAdvancedSettings = {
   originNonce: string;
   currentNonce: string;
+  isCoinControlChecked: boolean;
 };
 
 export enum EditableNonceStatusEnum {

@@ -16,6 +16,7 @@ function useSendConfirmAdvancedSettings({
     useState<SendConfirmAdvancedSettings>({
       currentNonce: '',
       originNonce: '',
+      isCoinControlChecked: false,
     });
   const { serviceTransaction } = backgroundApiProxy;
 

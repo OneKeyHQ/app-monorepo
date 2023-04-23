@@ -15,6 +15,7 @@ import {
 import { useNetworkSimple } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 
+import CoinControlAdvancedSetting from './CoinControlAdvancedSetting';
 import { LabelWithTooltip } from './LableWithTooltip';
 
 import type { SendConfirmAdvancedSettings as AdvancedSettings } from '../types';
@@ -47,6 +48,7 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
   const network = useNetworkSimple(networkId);
 
   const nonceEditable = network?.settings?.nonceEditable;
+  const isBtcForkChain = network?.settings?.isBtcForkChain;
 
   const intl = useIntl();
 
@@ -75,12 +77,17 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
     },
   });
 
+  const isCoinControlChecked = useMemo(
+    () => !!advancedSettings?.isCoinControlChecked,
+    [advancedSettings?.isCoinControlChecked],
+  );
+
   const advanceSettings = useMemo(() => {
-    const setttings = [];
+    const settings = [];
 
     if (nonceEditable && originNonce !== '') {
       const isEditNonceDisabled = originNonce === currentNonce;
-      setttings.push(
+      settings.push(
         <Form.Item
           name="nonce"
           label={
@@ -129,17 +136,34 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
       );
     }
 
-    return setttings;
+    if (isBtcForkChain) {
+      settings.push(
+        <CoinControlAdvancedSetting
+          isChecked={isCoinControlChecked}
+          onToggleCoinControl={() => {
+            setAdvancedSettings((prev) => ({
+              ...prev,
+              isCoinControlChecked: !prev.isCoinControlChecked,
+            }));
+          }}
+        />,
+      );
+    }
+
+    return settings;
   }, [
     nonceEditable,
     originNonce,
+    isBtcForkChain,
     currentNonce,
     intl,
     control,
     isLessNonce,
     isLoadingAdvancedSettings,
+    isCoinControlChecked,
     onBlur,
     setValue,
+    setAdvancedSettings,
   ]);
 
   useEffect(() => {
