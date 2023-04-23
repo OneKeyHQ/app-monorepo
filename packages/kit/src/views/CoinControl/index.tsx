@@ -40,7 +40,8 @@ type RouteProps = RouteProp<
 const CoinControl = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { networkId, accountId } = route.params;
+  const { networkId, accountId, isSelectMode, encodedTx, onConfirm } =
+    route.params;
 
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -50,7 +51,11 @@ const CoinControl = () => {
   >([]);
   const [utxosDust, setUtxosDust] = useState<ICoinControlListItem[]>([]);
   const [frozenUtxos, setFrozenUtxos] = useState<ICoinControlListItem[]>([]);
-  const [selectedUtxos, setSelectedUtxos] = useState<string[]>([]);
+  const [selectedUtxos, setSelectedUtxos] = useState<string[]>(
+    isSelectMode && encodedTx
+      ? encodedTx.inputs.map((input) => getUtxoUniqueKey(input))
+      : [],
+  );
   const [blockTimeMap, setBlockTimeMap] = useState<Record<string, number>>({});
   const [token, setToken] = useState<Token>();
 
@@ -64,6 +69,11 @@ const CoinControl = () => {
     showPath,
     sortMethod,
   } = useCoinControlListMenu();
+
+  const targetAmount = useMemo(
+    () => encodedTx?.transferInfo.amount ?? '0',
+    [encodedTx?.transferInfo.amount],
+  );
 
   const refreshUtxosData = useCallback(() => {
     setIsLoading(true);
@@ -245,7 +255,8 @@ const CoinControl = () => {
           allUtxos={allUtxos}
           dustUtxos={utxosDust}
           selectedUtxos={selectedUtxos}
-          targetAmount="0.0003"
+          targetAmount={targetAmount}
+          onConfirm={onConfirm}
         />
       }
     >

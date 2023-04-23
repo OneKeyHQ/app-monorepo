@@ -17,20 +17,31 @@ import {
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import {
+  CoinControlModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../routes/routesEnum';
+
 type Props = {
   isChecked: boolean;
   onToggleCoinControl: () => void;
+  onSelectedUtxos: (selectedUtxos: string[]) => void;
   encodedTx: IEncodedTxBtc;
+  accountId: string;
   network: Network;
 };
 const CoinControlAdvancedSetting: FC<Props> = ({
   network,
+  accountId,
   encodedTx,
   isChecked,
   onToggleCoinControl,
+  onSelectedUtxos,
 }) => {
   const intl = useIntl();
-
+  const navigation = useAppNavigation();
   const inputLength = useMemo(
     () => encodedTx.inputs.length,
     [encodedTx.inputs],
@@ -68,6 +79,23 @@ const CoinControlAdvancedSetting: FC<Props> = ({
         borderRadius="xl"
         m={-2}
         isDisabled={!isChecked}
+        onPress={() => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.CoinControl,
+            params: {
+              screen: CoinControlModalRoutes.CoinControlModal,
+              params: {
+                networkId: network.id,
+                accountId,
+                isSelectMode: true,
+                encodedTx,
+                onConfirm: (selectedUtxos) => {
+                  onSelectedUtxos(selectedUtxos);
+                },
+              },
+            },
+          });
+        }}
       >
         <HStack alignItems="center" justifyContent="space-between" mx={2}>
           <Text

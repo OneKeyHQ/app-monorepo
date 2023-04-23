@@ -22,7 +22,10 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { getUtxoId } from '../../../dbs/simple/entity/SimpleDbEntityUtxoAccounts';
+import {
+  getUtxoId,
+  getUtxoUniqueKey,
+} from '../../../dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import {
   InsufficientBalance,
   InvalidAddress,
@@ -41,6 +44,7 @@ import {
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
+  IEncodedTxUpdateType,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
@@ -442,7 +446,7 @@ export default class VaultBtcFork extends VaultBase {
     const { to, amount } = transferInfo;
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    const utxos = await this.collectUTXOs();
+    let utxos = await this.collectUTXOs();
     // Select the slowest fee rate as default, otherwise the UTXO selection
     // would be failed.
     // SpecifiedFeeRate is from UI layer and is in BTC/byte, convert it to sats/byte
@@ -452,6 +456,17 @@ export default class VaultBtcFork extends VaultBase {
             .shiftedBy(network.feeDecimals)
             .toFixed()
         : (await this.getFeeRate())[1];
+
+    // Coin Control
+    if (
+      Array.isArray(transferInfo.selectedUtxos) &&
+      transferInfo.selectedUtxos.length
+    ) {
+      utxos = utxos.filter((utxo) =>
+        (transferInfo.selectedUtxos ?? []).includes(getUtxoUniqueKey(utxo)),
+      );
+    }
+
     const max = utxos
       .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
       .shiftedBy(-network.decimals)
@@ -529,11 +544,27 @@ export default class VaultBtcFork extends VaultBase {
     throw new NotImplemented();
   }
 
-  updateEncodedTx(
-    encodedTx: IEncodedTx,
-    payload: any,
+  async updateEncodedTx(
+    encodedTx: IEncodedTxBtc,
+    payload: { selectedUtxos?: string[] },
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTx> {
+    if (
+      options.type === IEncodedTxUpdateType.advancedSettings &&
+      Array.isArray(payload.selectedUtxos) &&
+      payload.selectedUtxos.length
+    ) {
+      const network = await this.engine.getNetwork(this.networkId);
+      return this.buildEncodedTxFromTransfer(
+        {
+          ...encodedTx.transferInfo,
+          selectedUtxos: payload.selectedUtxos,
+        },
+        new BigNumber(encodedTx.feeRate)
+          .shiftedBy(-network.feeDecimals)
+          .toFixed(),
+      );
+    }
     return Promise.resolve(encodedTx);
   }
 

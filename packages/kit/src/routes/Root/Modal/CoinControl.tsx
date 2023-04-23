@@ -1,4 +1,5 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import CoinControl from '@onekeyhq/kit/src/views/CoinControl';
 
 import { CoinControlModalRoutes } from '../../routesEnum';
@@ -10,6 +11,9 @@ export type CoinControlRoutesParams = {
   [CoinControlModalRoutes.CoinControlModal]: {
     networkId: string;
     accountId: string;
+    isSelectMode: boolean;
+    encodedTx?: IEncodedTxBtc;
+    onConfirm?: (selectedUtxos: string[]) => void;
   };
 };
 

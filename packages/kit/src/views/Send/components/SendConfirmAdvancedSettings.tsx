@@ -35,6 +35,7 @@ type AdvancedSettingsForm = {
 
 function SendConfirmAdvancedSettingsMemo(props: Props) {
   const {
+    accountId,
     networkId,
     encodedTx,
     advancedSettings,
@@ -139,13 +140,20 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
     if (isBtcForkChain) {
       settings.push(
         <CoinControlAdvancedSetting
+          network={network}
+          accountId={accountId}
           encodedTx={encodedTx}
           isChecked={isCoinControlChecked}
-          network={network}
           onToggleCoinControl={() => {
             setAdvancedSettings((prev) => ({
               ...prev,
               isCoinControlChecked: !prev.isCoinControlChecked,
+            }));
+          }}
+          onSelectedUtxos={(selectedUtxos) => {
+            setAdvancedSettings((prev) => ({
+              ...prev,
+              selectedUtxos,
             }));
           }}
         />,
@@ -154,6 +162,7 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
 
     return settings;
   }, [
+    accountId,
     network,
     encodedTx,
     nonceEditable,

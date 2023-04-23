@@ -43,10 +43,11 @@ export const ModalFooter: FC<{
   accountId: string;
   network?: Network | null;
   token?: IToken;
-  targetAmount: string;
+  targetAmount?: string;
   allUtxos: ICoinControlListItem[];
   dustUtxos: ICoinControlListItem[];
   selectedUtxos: string[];
+  onConfirm?: (selectedUtxos: string[]) => void;
 }> = ({
   accountId,
   network,
@@ -55,6 +56,7 @@ export const ModalFooter: FC<{
   allUtxos,
   dustUtxos,
   selectedUtxos,
+  onConfirm,
 }) => {
   const intl = useIntl();
 
@@ -71,7 +73,7 @@ export const ModalFooter: FC<{
 
   const missAmount = useMemo(
     () =>
-      new BigNumber(targetAmount)
+      new BigNumber(targetAmount ?? 0)
         .shiftedBy(network?.decimals ?? 8)
         .minus(sumAmount),
     [targetAmount, sumAmount, network],
@@ -133,7 +135,13 @@ export const ModalFooter: FC<{
           />
         </VStack>
       </HStack>
-      <Button type="primary" size="xl" mt={4} isDisabled={hasMissAmount}>
+      <Button
+        type="primary"
+        size="xl"
+        mt={4}
+        onPress={() => onConfirm?.(selectedUtxos)}
+        isDisabled={hasMissAmount}
+      >
         {intl.formatMessage({ id: 'action__done' })}
       </Button>
     </Box>
