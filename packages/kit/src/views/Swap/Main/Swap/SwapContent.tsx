@@ -12,6 +12,7 @@ import {
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { LazyDisplayView } from '../../../../components/LazyDisplayView';
 import { useNavigation } from '../../../../hooks';
 import {
   useActiveWalletAccount,
@@ -23,21 +24,11 @@ import TokenInput from '../../components/TokenInput';
 import { useDerivedSwapState } from '../../hooks/useSwap';
 import { useTokenBalance } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
-import { div, formatAmount, multiply } from '../../utils';
+import { div, formatPercentAmount, multiply } from '../../utils';
 
-export const SwapContent = () => {
-  const intl = useIntl();
-  const isSmall = useIsVerticalLayout();
-  const navigation = useNavigation();
-  const independentField = useAppSelector((s) => s.swap.independentField);
-  const loading = useAppSelector((s) => s.swap.loading);
-  const { wallet, network } = useActiveWalletAccount();
-  const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
-  const { formattedAmounts } = useDerivedSwapState();
+export const SwapPercentInput = () => {
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
-  const isDisabled = !wallet || !network || swapMaintain;
-
   const inputBalance = useTokenBalance(inputToken, sendingAccount?.id);
   const typedValue = useAppSelector((s) => s.swap.typedValue);
 
@@ -52,6 +43,39 @@ export const SwapContent = () => {
     }
     return 0;
   }, [inputBalance, typedValue]);
+
+  const onChange = useCallback(
+    (v: number) => {
+      if (inputBalance) {
+        let inputValue = div(multiply(inputBalance, v), 100);
+        if (v < 100) {
+          inputValue = formatPercentAmount(inputValue);
+        }
+        backgroundApiProxy.serviceSwap.userInput('INPUT', inputValue);
+      }
+    },
+    [inputBalance],
+  );
+  return (
+    <Center h="10" w="48">
+      <Box style={{ transform: [{ translateY: 2 }] }} w="full">
+        <PercentInput value={percent} onChange={onChange} />
+      </Box>
+    </Center>
+  );
+};
+
+export const SwapContent = () => {
+  const intl = useIntl();
+  const isSmall = useIsVerticalLayout();
+  const navigation = useNavigation();
+  const independentField = useAppSelector((s) => s.swap.independentField);
+  const loading = useAppSelector((s) => s.swap.loading);
+  const { wallet, network } = useActiveWalletAccount();
+  const swapMaintain = useAppSelector((s) => s.swapTransactions.swapMaintain);
+  const { formattedAmounts } = useDerivedSwapState();
+
+  const isDisabled = !wallet || !network || swapMaintain;
 
   const onSelectInput = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -85,18 +109,6 @@ export const SwapContent = () => {
       lower: { pt: '0' },
     }),
     [],
-  );
-  const onChange = useCallback(
-    (v: number) => {
-      if (inputBalance) {
-        let inputValue = div(multiply(inputBalance, v), 100);
-        if (v < 100) {
-          inputValue = formatAmount(inputValue);
-        }
-        backgroundApiProxy.serviceSwap.userInput('INPUT', inputValue);
-      }
-    },
-    [inputBalance],
   );
 
   return (
@@ -148,11 +160,9 @@ export const SwapContent = () => {
               </Center>
             </Box>
             <Box position="absolute" top="0" right="5">
-              <Center h="10" w="48">
-                <Box style={{ transform: [{ translateY: 2 }] }} w="full">
-                  <PercentInput value={percent} onChange={onChange} />
-                </Box>
-              </Center>
+              <LazyDisplayView delay={100}>
+                <SwapPercentInput />
+              </LazyDisplayView>
             </Box>
           </Box>
         </Box>
