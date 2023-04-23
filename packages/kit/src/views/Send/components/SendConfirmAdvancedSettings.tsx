@@ -139,7 +139,9 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
     if (isBtcForkChain) {
       settings.push(
         <CoinControlAdvancedSetting
+          encodedTx={encodedTx}
           isChecked={isCoinControlChecked}
+          network={network}
           onToggleCoinControl={() => {
             setAdvancedSettings((prev) => ({
               ...prev,
@@ -152,6 +154,8 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
 
     return settings;
   }, [
+    network,
+    encodedTx,
     nonceEditable,
     originNonce,
     isBtcForkChain,
