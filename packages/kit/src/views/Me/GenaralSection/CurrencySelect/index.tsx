@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,8 +17,6 @@ import {
   useSafeAreaInsets,
   useUserDevice,
 } from '@onekeyhq/components';
-import { getMeasure } from '@onekeyhq/components/src/hooks/useDropdownPosition';
-import { ModalRefStore } from '@onekeyhq/components/src/Modal';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 
@@ -28,7 +26,7 @@ import { useAppSelector, useDebounce, useSettings } from '../../../../hooks';
 import { useCurrencyData, useCurrencyListData } from './hooks';
 import { fuseSearch } from './utils';
 
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 
 type PopularCardProps = {
   currency: string;

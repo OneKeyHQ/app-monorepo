@@ -3,8 +3,8 @@ import { useCallback, useMemo, useState } from 'react';
 
 import {
   Box,
+  Center,
   HStack,
-  Pressable,
   Slider,
   Typography,
   useThemeValue,
@@ -47,6 +47,7 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange, ...rest }) => {
   );
 
   const valueNum = Math.min(value, 100);
+  const text = `${value}%`;
 
   return (
     <Slider
@@ -57,6 +58,59 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange, ...rest }) => {
       step={1}
       onChangeEnd={handleChangeEnd}
       onChange={handleChange}
+      _interactionBox={{
+        borderWidth: 0,
+        children: (
+          <Box position="relative">
+            <Box
+              w="4"
+              h="4"
+              bg="icon-default"
+              justifyContent="center"
+              alignItems="center"
+              borderRadius="full"
+            >
+              <Box w="3" h="3" bg="surface-neutral-default" borderRadius="full">
+                {isPressed}
+              </Box>
+            </Box>
+            {isPressed ? (
+              <Box
+                position="absolute"
+                zIndex={1}
+                right={0}
+                bottom={8}
+                bg="surface-neutral-subdued"
+                borderRadius={4}
+                style={{ transform: [{ translateX: 10 }] }}
+              >
+                <Box
+                  style={{
+                    width: 0,
+                    height: 0,
+                    backgroundColor: 'transparent',
+                    borderStyle: 'solid',
+                    borderLeftWidth: 5,
+                    borderRightWidth: 5,
+                    borderTopWidth: 10,
+                    borderLeftColor: 'transparent',
+                    borderRightColor: 'transparent',
+                    borderTopColor,
+                    position: 'absolute',
+                    bottom: -8,
+                    right: 12,
+                  }}
+                />
+                <Center p="1" flexDirection="row" w="9">
+                  <Typography.CaptionStrong color="text-default">
+                    {text}
+                  </Typography.CaptionStrong>
+                </Center>
+              </Box>
+            ) : null}
+          </Box>
+        ),
+      }}
       {...rest}
     >
       <Slider.Track position="relative">
@@ -95,61 +149,20 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange, ...rest }) => {
           </Box>
         </HStack>
       </Slider.Track>
-      <Pressable
-        position="absolute"
-        pointerEvents="none"
-        left={`${valueNum}%`}
-        style={{ transform: [{ translateX: -8 }] }}
-      >
-        <Box position="relative">
-          <Box
-            w="4"
-            h="4"
-            bg="icon-default"
-            justifyContent="center"
-            alignItems="center"
-            borderRadius="full"
-          >
-            <Box w="3" h="3" bg="surface-neutral-default" borderRadius="full">
-              {isPressed}
-            </Box>
-          </Box>
-          {isPressed ? (
-            <Box
-              position="absolute"
-              zIndex={1}
-              right={0}
-              bottom={8}
-              bg="surface-neutral-subdued"
-              borderRadius={4}
-              style={{ transform: [{ translateX: 10 }] }}
-            >
-              <Box
-                style={{
-                  width: 0,
-                  height: 0,
-                  backgroundColor: 'transparent',
-                  borderStyle: 'solid',
-                  borderLeftWidth: 5,
-                  borderRightWidth: 5,
-                  borderTopWidth: 10,
-                  borderLeftColor: 'transparent',
-                  borderRightColor: 'transparent',
-                  borderTopColor,
-                  position: 'absolute',
-                  bottom: -8,
-                  right: 12,
-                }}
-              />
-              <Box p="1">
-                <Typography.CaptionStrong color="text-default">
-                  {value}%
-                </Typography.CaptionStrong>
-              </Box>
-            </Box>
-          ) : null}
-        </Box>
-      </Pressable>
+      <Slider.Thumb
+        _pressed={{
+          borderWidth: 0,
+          outlineStyle: 'none',
+        }}
+        _focus={{
+          borderWidth: 0,
+          outlineStyle: 'none',
+        }}
+        _hover={{
+          borderWidth: 0,
+          outlineStyle: 'none',
+        }}
+      />
     </Slider>
   );
 };
