@@ -4,10 +4,10 @@ import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 
 import {
-  Box,
   Button,
   CustomSkeleton,
   HStack,
+  Icon,
   Text,
   Tooltip,
 } from '@onekeyhq/components';
@@ -72,15 +72,17 @@ function RpcStatusButton({ networkId }: IRpcStatusButtonProps) {
             py="8px"
             borderRadius="12px"
           >
-            <Box>
+            <HStack alignItems="center">
               <Text
                 typography="Body2Strong"
                 isTruncated
                 color={status.textColor}
+                mr="4px"
               >
                 {intl.formatMessage({ id: status.text })}
               </Text>
-            </Box>
+              <Icon name="ChevronRightMini" color={status.textColor} />
+            </HStack>
           </Tooltip>
         </HStack>
       </MotiView>
