@@ -90,6 +90,7 @@ const CoinControlAdvancedSetting: FC<Props> = ({
                 isSelectMode: true,
                 encodedTx,
                 onConfirm: (selectedUtxos) => {
+                  navigation.goBack();
                   onSelectedUtxos(selectedUtxos);
                 },
               },

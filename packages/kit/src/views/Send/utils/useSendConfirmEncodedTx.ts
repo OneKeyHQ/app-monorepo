@@ -23,7 +23,6 @@ export function useSendConfirmEncodedTx({
 }): { encodedTx: IEncodedTx | null } {
   const [encodedTx, setEncodedTx] = useState<IEncodedTx | null>(null);
   useEffect(() => {
-    console.log('useSendConfirmEncodedTx render ====> ', selectedUtxos);
     // remove gas price if need
     prepareSendConfirmEncodedTx({
       networkId,
