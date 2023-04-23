@@ -84,10 +84,10 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
   return isVerticalLayout ? (
     <>
       {priceLabel}
-      <Box h="190px" mt="25px" justifyContent="center" alignItems="center">
+      <Box h="190px" mt="24px" justifyContent="center" alignItems="center">
         {platformEnv.isNative ? chartView : chartViewWithSpinner}
       </Box>
-      {children}
+      <Box mt="8px">{children}</Box>
     </>
   ) : (
     <>
@@ -95,7 +95,7 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
         {priceLabel}
         <Box w="280px">{children}</Box>
       </Box>
-      <Box h="240px" mt="30px" justifyContent="center" alignItems="center">
+      <Box h="240px" mt="32px" justifyContent="center" alignItems="center">
         {chartViewWithSpinner}
       </Box>
     </>

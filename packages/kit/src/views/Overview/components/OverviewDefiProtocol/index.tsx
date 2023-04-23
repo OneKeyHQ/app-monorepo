@@ -30,7 +30,11 @@ import { showDialog } from '../../../../utils/overlayUtils';
 import { OverviewDefiBoxHeader } from './Header';
 import { OverviewDefiPool } from './OverviewDefiPool';
 
-import type { OverviewDeFiPoolType, OverviewDefiRes } from '../../types';
+import type {
+  IOverviewDeFiPortfolioItem,
+  OverviewDeFiPoolType,
+  OverviewDefiRes,
+} from '../../types';
 
 const OpenDappDialog: FC<{
   protocol: OverviewDefiRes;
@@ -146,6 +150,7 @@ export const OverviewDefiProtocol: FC<
   OverviewDefiRes & {
     showHeader?: boolean;
     bgColor?: string;
+    poolCode?: string;
   }
 > = (props) => {
   const {
@@ -158,6 +163,7 @@ export const OverviewDefiProtocol: FC<
     claimableValue,
     showHeader = true,
     bgColor,
+    poolCode,
   } = props;
   const intl = useIntl();
 
@@ -182,8 +188,36 @@ export const OverviewDefiProtocol: FC<
     [protocolValue, accountAllValues, fiat],
   );
 
-  const content = useMemo(
-    () => (
+  const content = useMemo(() => {
+    if (poolCode) {
+      const result: [OverviewDeFiPoolType, IOverviewDeFiPortfolioItem[]][] =
+        pools
+          .filter(
+            ([, items]) =>
+              items.filter((item) => item.poolCode === poolCode).length > 0,
+          )
+          .map(([poolType, items]) => {
+            const filterItems = items.filter(
+              (item) => item.poolCode === poolCode,
+            );
+            return [poolType, filterItems];
+          });
+      return result.map(([poolType, items], idx) => (
+        <VStack
+          key={poolType}
+          borderTopWidth={idx === 0 ? 0 : '1px'}
+          borderTopColor="divider"
+        >
+          <PoolName poolType={poolType} poolName={items?.[0]?.poolName} />
+          <OverviewDefiPool
+            networkId={_id.networkId}
+            poolType={poolType}
+            pools={items}
+          />
+        </VStack>
+      ));
+    }
+    return (
       <Box bg={bgColor}>
         {pools.map(([poolType, items], idx) => (
           <VStack
@@ -200,9 +234,8 @@ export const OverviewDefiProtocol: FC<
           </VStack>
         ))}
       </Box>
-    ),
-    [bgColor, pools, _id],
-  );
+    );
+  }, [bgColor, pools, _id, poolCode]);
 
   return (
     <ErrorBoundary>

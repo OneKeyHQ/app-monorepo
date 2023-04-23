@@ -1,6 +1,6 @@
 import type { FC } from 'react';
 
-import { SegmentedControl } from '@onekeyhq/components';
+import { SegmentedControl, useThemeValue } from '@onekeyhq/components';
 
 import type { MessageDescriptor } from 'react-intl';
 
@@ -24,14 +24,19 @@ const TimeControl: FC<TimeControlProps> = ({
   selectedIndex,
   onTimeChange,
   enabled,
-}) => (
-  <SegmentedControl
-    enabled={enabled}
-    style={{ marginTop: 5 }}
-    values={TIMEOPTIONS}
-    onValueChange={onTimeChange}
-    selectedIndex={selectedIndex}
-  />
-);
+}) => {
+  const bgColor = useThemeValue('background-default');
+
+  return (
+    <SegmentedControl
+      enabled={enabled}
+      style={{ marginTop: 5 }}
+      values={TIMEOPTIONS}
+      onValueChange={onTimeChange}
+      selectedIndex={selectedIndex}
+      backgroundColor={bgColor}
+    />
+  );
+};
 TimeControl.displayName = 'TimeControl';
 export default TimeControl;

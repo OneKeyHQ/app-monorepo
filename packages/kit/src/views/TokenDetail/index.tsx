@@ -1,30 +1,29 @@
 import type { FC } from 'react';
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Select, useIsVerticalLayout } from '@onekeyhq/components';
-import type { Token } from '@onekeyhq/engine/src/types/token';
-import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  HStack,
+  Token as TokenIcon,
+  Typography,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
+import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
+import { useTokenSupportStakedAssets } from '@onekeyhq/kit/src/hooks/useTokens';
 
-import { useActiveWalletAccount } from '../../hooks';
+import { useActiveSideAccount } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 import { useSingleToken } from '../../hooks/useTokens';
-import { ManageTokenModalRoutes } from '../../routes/routesEnum';
-import { ModalRoutes, RootRoutes } from '../../routes/types';
-import PriceChart from '../PriceChart/PriceChart';
-import { KeleETHUnstakeBulletin } from '../Staking/components/KeleETHUnstakeBulletin';
-import StakedAssets from '../Staking/components/StakedAssets';
+import { useKeleETHUnstakeBulletin } from '../Staking/components/KeleETHUnstakeBulletin';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
-import TokenInfo from './TokenInfo';
+import AssetsInfo from './AssetsInfo';
+import MarketInfo from './MarketInfo';
+import TokenDetailHeader from './TokenDetailHeader';
+import { FavoritedButton } from './TokenDetailHeader/DeskTopHeader';
 
 import type { HomeRoutes, HomeRoutesParams } from '../../routes/types';
 import type { TokenDetailRoutesParams } from './routes';
@@ -38,20 +37,47 @@ export type TokenDetailViewProps = NativeStackScreenProps<
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 
+export enum TabEnum {
+  Assets = 'Assets',
+  History = 'History',
+  Info = 'Info',
+}
+
 const TokenDetail: FC<TokenDetailViewProps> = () => {
   const intl = useIntl();
-  const firstUpdate = useRef(true);
-  const navigation = useNavigation();
+  const isVerticalLayout = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
-  const isVertical = useIsVerticalLayout();
+  const navigation = useNavigation();
+
   const { accountId, networkId, tokenId, sendAddress } = route.params;
+
+  const { network: activeNetwork } = useActiveSideAccount({
+    accountId,
+    networkId,
+  });
+
+  const { token } = useSingleToken(networkId, tokenId);
+  const { show } = useKeleETHUnstakeBulletin({ token });
+
   const price = useSimpleTokenPriceValue({
     networkId,
     contractAdress: tokenId,
   });
-  const { token } = useSingleToken(networkId, tokenId);
-  const { account: activeAccount, network: activeNetwork } =
-    useActiveWalletAccount();
+
+  const statedSupport = useTokenSupportStakedAssets(networkId, tokenId);
+
+  const headerHeight = useMemo(() => {
+    let height = 512;
+    if (isVerticalLayout) {
+      height = statedSupport === true ? 512 : 512 - 88;
+    } else {
+      height = 452;
+    }
+    if (show) {
+      height += isVerticalLayout ? 84 : 92;
+    }
+    return height;
+  }, [isVerticalLayout, show, statedSupport]);
 
   const priceReady = useMemo(() => {
     if (!token) {
@@ -60,129 +86,104 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     return !!price;
   }, [price, token]);
 
-  useLayoutEffect(() => {
-    if (firstUpdate.current) {
-      firstUpdate.current = false;
-      return;
+  const headerTitle = useCallback(() => {
+    if (!isVerticalLayout) {
+      return null;
     }
-    // Go back to Home if account or network changed.
-    if (navigation.canGoBack()) {
-      navigation.goBack();
+    return (
+      <HStack space="8px" alignItems="center">
+        <TokenIcon
+          size="24px"
+          showTokenVerifiedIcon
+          token={{
+            ...token,
+            logoURI: token?.logoURI || activeNetwork?.logoURI,
+          }}
+        />
+        <Typography.Heading>
+          {token?.tokenIdOnNetwork ? token?.symbol : activeNetwork?.symbol}
+        </Typography.Heading>
+        <TokenVerifiedIcon size={24} token={token || {}} />
+      </HStack>
+    );
+  }, [activeNetwork?.logoURI, activeNetwork?.symbol, isVerticalLayout, token]);
+
+  const headerRight = useCallback(() => {
+    if (!isVerticalLayout) {
+      return null;
     }
-  }, [activeAccount?.id, activeNetwork?.id, navigation]);
-
-  useEffect(() => {
-    navigation.setOptions({
-      title: token?.name || activeAccount?.name || '',
-    });
-  }, [navigation, token, accountId, networkId, activeAccount?.name]);
-
-  const onHeaderRightPress = useCallback(
-    (v) => {
-      if (v === 'priceAlert') {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.ManageToken,
-          params: {
-            screen: ManageTokenModalRoutes.PriceAlertList,
-            params: {
-              price,
-              token: token as Token,
-            },
-          },
-        });
-      }
-    },
-    [token, navigation, price],
-  );
-
-  const headerRight = useCallback(
-    () => (
-      <Select
-        dropdownPosition="right"
-        title={intl.formatMessage({ id: 'action__more' })}
-        onChange={onHeaderRightPress}
-        footer={null}
-        activatable={false}
-        triggerProps={{
-          width: '40px',
-        }}
-        dropdownProps={{
-          width: 248,
-        }}
-        options={[
-          {
-            label: intl.formatMessage({
-              id: 'form__price_alert',
-            }),
-            value: 'priceAlert',
-            iconProps: { name: 'BellOutline' },
-          },
-        ]}
-        renderTrigger={() => <Icon name="DotsHorizontalOutline" />}
-      />
-    ),
-    [intl, onHeaderRightPress],
-  );
+    return <FavoritedButton coingeckoId={token?.coingeckoId} />;
+  }, [isVerticalLayout, token]);
 
   useLayoutEffect(() => {
-    if (!priceReady) {
-      return;
-    }
-    if (!isVertical) {
-      return;
-    }
     navigation.setOptions({
+      title: '',
+      headerTitle,
       headerRight,
     });
-  }, [
-    navigation,
-    intl,
-    headerRight,
-    onHeaderRightPress,
-    priceReady,
-    token,
-    isVertical,
-  ]);
-
-  const headerView = (
-    <>
-      <TokenInfo
-        token={token}
-        sendAddress={sendAddress}
-        priceReady={priceReady}
-      />
-      <StakedAssets
-        networkId={token?.networkId}
-        tokenIdOnNetwork={token?.tokenIdOnNetwork}
-      />
-      <PriceChart
-        style={{
-          marginBottom: 20,
-        }}
-        networkId={networkId}
-        contract={tokenId}
-      />
-    </>
-  );
+  }, [headerRight, headerTitle, navigation]);
 
   return (
-    <Box
-      bg="background-default"
-      flex={1}
-      marginX="auto"
-      w="100%"
-      maxW={MAX_PAGE_CONTAINER_WIDTH}
-    >
-      <Box px={isVertical ? '4' : 0}>
-        <KeleETHUnstakeBulletin token={token} />
-      </Box>
-      <TxHistoryListView
-        accountId={accountId}
-        networkId={networkId}
-        tokenId={tokenId}
-        headerView={headerView}
-      />
-    </Box>
+    <HStack flex={1} justifyContent="center">
+      <Tabs.Container
+        disableRefresh
+        renderHeader={() => (
+          <TokenDetailHeader
+            accountId={accountId}
+            networkId={networkId}
+            token={token}
+            priceReady={priceReady}
+            paddingX={{ base: '16px', md: '32px' }}
+            bgColor="background-default"
+          />
+        )}
+        headerHeight={headerHeight}
+        containerStyle={{
+          maxWidth: 1088, // 1024+32*2
+          flex: 1,
+        }}
+      >
+        <Tabs.Tab
+          name={TabEnum.Assets}
+          label={intl.formatMessage({ id: 'content__asset' })}
+        >
+          <AssetsInfo
+            token={token}
+            tokenId={tokenId}
+            accountId={accountId}
+            networkId={networkId}
+            priceReady={priceReady}
+            sendAddress={sendAddress}
+          />
+        </Tabs.Tab>
+        <Tabs.Tab
+          name={TabEnum.History}
+          label={intl.formatMessage({ id: 'transaction__history' })}
+        >
+          <TxHistoryListView
+            accountId={accountId}
+            networkId={networkId}
+            tokenId={tokenId}
+            tabComponent
+          />
+        </Tabs.Tab>
+        <Tabs.Tab
+          name={TabEnum.Info}
+          label={intl.formatMessage({ id: 'content__info' })}
+        >
+          <MarketInfo token={token} />
+        </Tabs.Tab>
+      </Tabs.Container>
+      {/* {!isVerticalLayout && (
+        <Box
+          width="360px"
+          height="600px"
+          bgColor="blue.300"
+          mt="26px"
+          mr="32px"
+        />
+      )} */}
+    </HStack>
   );
 };
 export default TokenDetail;
