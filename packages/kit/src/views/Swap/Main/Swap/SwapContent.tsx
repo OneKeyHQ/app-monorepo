@@ -26,7 +26,7 @@ import { useTokenBalance } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 import { div, formatPercentAmount, multiply } from '../../utils';
 
-export const SwapPercentInput = () => {
+const SwapPercentInput = () => {
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
   const inputBalance = useTokenBalance(inputToken, sendingAccount?.id);
