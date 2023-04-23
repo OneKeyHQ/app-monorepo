@@ -4,9 +4,8 @@
   "main": "index.js",
   "description": "Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others",
   "scripts": {
-    "dev": "expo start",
     "start": "WEB_PORT=3008 expo start:web --web",
-    "build": "rm -rf ./web-build && GENERATE_SOURCEMAP=false npx expo build:web && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh",
+    "build": "rm -rf ./web-build && GENERATE_SOURCEMAP=false expo build:web && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
   },
   "dependencies": {
@@ -16,7 +15,7 @@
     "@onekeyhq/kit": "*",
     "expo": "^48.0.11",
     "firebase": "^9.8.2",
-    "react-native-web": "0.19.4",
+    "react-native-web": "0.18.10",
     "react-router-dom": "^6.3.0"
   },
   "private": true

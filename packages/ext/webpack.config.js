@@ -66,13 +66,6 @@ function createConfig({ config }) {
     module: {
       rules: [
         {
-          __ruleName__: 'shtml-rule',
-          // project/html-loader
-          test: /\.(shtml)$/i, // MUST BE .shtml different with withExpo() builtin .html
-          use: { loader: 'html-loader' },
-          exclude: /node_modules/,
-        },
-        {
           __ruleName__: 'css-rule',
           // project/css-loader
           // look for .css or .scss files

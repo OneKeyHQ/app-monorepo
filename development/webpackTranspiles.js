@@ -11,6 +11,7 @@ const webModuleTranspile = [
   '@kaspa/core-lib',
   '@zondax/izari-filecoin',
   '@onekeyhq',
+  'timeout-signal',
 ];
 
 const substrateModules = ['@substrate/txwrapper-core'];
@@ -42,6 +43,7 @@ const extModuleTranspile = [
   'popmotion',
   '@mysten/sui.js',
   'superstruct',
+  'timeout-signal',
   '@noble/curves',
   '@solana/web3.js',
   '@zondax/izari-filecoin',
