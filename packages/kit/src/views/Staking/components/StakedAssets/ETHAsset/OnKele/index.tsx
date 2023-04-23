@@ -24,10 +24,7 @@ import {
   useNavigation,
 } from '../../../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../../../routes/types';
-import {
-  useAccountStakingActivity,
-  useKeleMinerOverview,
-} from '../../../../hooks';
+import { useAccountStakingActivity } from '../../../../hooks';
 import { StakingRoutes } from '../../../../typing';
 
 import type { KeleMinerOverview } from '../../../../typing';
@@ -276,27 +273,29 @@ type ETHAssetOnKeleProps = {
   accountId: string;
 };
 
-const ETHAssetOnKele: FC<ETHAssetOnKeleProps> = ({ networkId, accountId }) => {
-  const minerOverview = useKeleMinerOverview(networkId, accountId);
-  const activeStakingActivity = useAccountStakingActivity(networkId, accountId);
-  useEffect(() => {
-    backgroundApiProxy.serviceStaking.fetchMinerOverview({
-      accountId,
-      networkId,
-    });
-  }, [accountId, networkId]);
-  return (minerOverview &&
-    minerOverview.amount.total_amount &&
-    minerOverview.amount.total_amount > 0) ||
-    activeStakingActivity ? (
-    <AssetStakedOnKele
-      state={minerOverview}
-      networkId={networkId}
-      accountId={accountId}
-    />
-  ) : (
-    <NoAssetsOnKele />
-  );
-};
+const ETHAssetOnKele: FC<ETHAssetOnKeleProps> = () => <NoAssetsOnKele />;
+
+// const ETHAssetOnKele: FC<ETHAssetOnKeleProps> = ({ networkId, accountId }) => {
+//   const minerOverview = useKeleMinerOverview(networkId, accountId);
+//   const activeStakingActivity = useAccountStakingActivity(networkId, accountId);
+//   useEffect(() => {
+//     backgroundApiProxy.serviceStaking.fetchMinerOverview({
+//       accountId,
+//       networkId,
+//     });
+//   }, [accountId, networkId]);
+//   return (minerOverview &&
+//     minerOverview.amount.total_amount &&
+//     minerOverview.amount.total_amount > 0) ||
+//     activeStakingActivity ? (
+//     <AssetStakedOnKele
+//       state={minerOverview}
+//       networkId={networkId}
+//       accountId={accountId}
+//     />
+//   ) : (
+//     <NoAssetsOnKele />
+//   );
+// };
 
 export default ETHAssetOnKele;

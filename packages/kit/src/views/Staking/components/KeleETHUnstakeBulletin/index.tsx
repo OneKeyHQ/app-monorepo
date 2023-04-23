@@ -22,32 +22,16 @@ type KeleETHUnstakeBulletinProps = {
   token?: Token;
 };
 
-export const KeleETHUnstakeBulletin: FC<KeleETHUnstakeBulletinProps> = ({
+export function useKeleETHUnstakeBulletin({
   token,
-}) => {
-  const intl = useIntl();
+}: KeleETHUnstakeBulletinProps) {
   const { accountId } = useActiveWalletAccount();
   const networkId = token?.networkId;
-  const navigation = useNavigation();
   const keleMinerOverview = useKeleMinerOverview(networkId, accountId);
   const enableETH2Unstake = useAppSelector((s) => s.settings.enableETH2Unstake);
   const hideUnstakeBulletin = useAppSelector(
     (s) => s.staking.hideUnstakeBulletin,
   );
-
-  const onUnstake = useCallback(() => {
-    backgroundApiProxy.dispatch(setHideUnstakeBulletin(true));
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Staking,
-      params: {
-        screen: StakingRoutes.StakedETHOnKele,
-        params: {
-          networkId: networkId ?? '',
-        },
-      },
-    });
-  }, [navigation, networkId]);
-
   const show = useMemo(() => {
     const networkIds = [OnekeyNetwork.eth, OnekeyNetwork.goerli] as string[];
     const retailStaked = keleMinerOverview?.amount?.retail_staked ?? 0;
@@ -66,13 +50,37 @@ export const KeleETHUnstakeBulletin: FC<KeleETHUnstakeBulletinProps> = ({
     enableETH2Unstake,
     hideUnstakeBulletin,
   ]);
+  return {
+    show,
+  };
+}
+export const KeleETHUnstakeBulletin: FC<KeleETHUnstakeBulletinProps> = ({
+  token,
+}) => {
+  const intl = useIntl();
+  const networkId = token?.networkId;
+  const navigation = useNavigation();
+  const { show } = useKeleETHUnstakeBulletin({ token });
+
+  const onUnstake = useCallback(() => {
+    backgroundApiProxy.dispatch(setHideUnstakeBulletin(true));
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Staking,
+      params: {
+        screen: StakingRoutes.StakedETHOnKele,
+        params: {
+          networkId: networkId ?? '',
+        },
+      },
+    });
+  }, [navigation, networkId]);
 
   const onDismiss = useCallback(() => {
     backgroundApiProxy.dispatch(setHideUnstakeBulletin(true));
   }, []);
 
   return show ? (
-    <Box mb="8">
+    <Box mb={{ base: '24px', md: '32px' }}>
       <Alert
         alertType="info"
         action={intl.formatMessage({ id: 'action__view' })}

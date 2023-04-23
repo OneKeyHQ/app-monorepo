@@ -21,9 +21,6 @@ const PriceLabel: FC<PriceLabelProps> = ({
   onPriceSubscribe,
 }) => {
   const intl = useIntl();
-  const priceLabel = intl.formatMessage({
-    id: 'content__price_uppercase',
-  });
   let displayInfo;
   if (price !== null) {
     const { gainText, percentageGain, gainTextColor } = calculateGains({
@@ -55,11 +52,7 @@ const PriceLabel: FC<PriceLabelProps> = ({
   // const { selectedFiatMoneySymbol } = useSettings();
   return (
     <Box flexDirection="column">
-      <Typography.Subheading color="text-subdued">
-        {priceLabel}
-      </Typography.Subheading>
       <Pressable
-        my={2}
         disabled={Boolean(!onPriceSubscribe)}
         flexDirection="row"
         alignItems="center"
@@ -74,7 +67,7 @@ const PriceLabel: FC<PriceLabelProps> = ({
         </Typography.DisplayXLarge>
         {onPriceSubscribe ? <Icon name="BellSolid" size={20} /> : null}
       </Pressable>
-      <Box flexDirection="row" alignItems="center">
+      <Box mt="4px" flexDirection="row" alignItems="center">
         {displayInfo}
       </Box>
     </Box>

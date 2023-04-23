@@ -29,9 +29,36 @@ export type WatchAssetParameters = {
   };
 };
 
+const TRON_SCAN_REQUESTED_URL = {
+  main: 'https://api.trongrid.io',
+  shasta: 'https://api.shasta.trongrid.io',
+};
+
+const TRON_SCAN_HOST_WHITE_LIST = [
+  'tronscan.org',
+  'tronscan.io',
+  'shasta.tronscan.org',
+];
+
 @backgroundClass()
 class ProviderApiTron extends ProviderApiBase {
   public providerName = IInjectedProviderNames.tron;
+
+  async tron_chainId() {
+    const { accountId, networkId, networkImpl } = getActiveWalletAccount();
+
+    if (networkImpl !== IMPL_TRON) {
+      return '0x0';
+    }
+
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultTron;
+
+    const chainId = await vault.getNetworkChainId();
+    return chainId;
+  }
 
   notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo): void {
     const data = async ({ origin }: { origin: string }) => {
@@ -48,7 +75,10 @@ class ProviderApiTron extends ProviderApiBase {
     const data = async () => {
       const result = {
         method: 'wallet_events_nodesChanged',
-        params: await this.tron_nodes(),
+        params: {
+          nodes: await this.tron_nodes(),
+          chainId: await this.tron_chainId(),
+        },
       };
       return result;
     };
@@ -102,7 +132,6 @@ class ProviderApiTron extends ProviderApiBase {
     })) as VaultTron;
 
     const tronWeb = await vault.getClient();
-
     return tronWeb.trx.getNodeInfo();
   }
 
@@ -114,11 +143,27 @@ class ProviderApiTron extends ProviderApiBase {
         impl: IMPL_TRON,
       },
     );
-    if (!accounts) {
-      return Promise.resolve([]);
+
+    if (accounts && accounts.length > 0) {
+      const accountAddresses = accounts.map((account) => account.address);
+      return Promise.resolve(accountAddresses);
     }
-    const accountAddresses = accounts.map((account) => account.address);
-    return Promise.resolve(accountAddresses);
+
+    if (
+      request.origin &&
+      TRON_SCAN_HOST_WHITE_LIST.includes(new URL(request.origin).host)
+    ) {
+      const { accountAddress } = getActiveWalletAccount();
+      this.backgroundApi.serviceDapp.saveConnectedAccounts({
+        site: {
+          origin: request.origin,
+        },
+        address: accountAddress,
+        networkImpl: IMPL_TRON,
+      });
+      return Promise.resolve([accountAddress]);
+    }
+    return Promise.resolve([]);
   }
 
   async tron_nodes() {
@@ -134,22 +179,21 @@ class ProviderApiTron extends ProviderApiBase {
     })) as VaultTron;
 
     const network = await vault.getNetwork();
+    const url = network.isTestnet
+      ? TRON_SCAN_REQUESTED_URL.shasta
+      : TRON_SCAN_REQUESTED_URL.main;
 
     return Promise.resolve({
-      fullHost: network.rpcURL,
-      fullNode: network.rpcURL,
-      solidityNode: network.rpcURL,
-      eventServer: network.rpcURL,
+      fullHost: url,
+      fullNode: url,
+      solidityNode: url,
+      eventServer: url,
     });
   }
 
   @providerApiMethod()
   async tron_requestAccounts(request: IJsBridgeMessagePayload) {
-    debugLogger.providerApi.info(
-      'ProviderTronConflux.tron_requestAccounts',
-      request,
-    );
-
+    debugLogger.providerApi.info('ProviderTron.tron_requestAccounts', request);
     const accounts = await this.tron_accounts(request);
     if (accounts && accounts.length) {
       return accounts;

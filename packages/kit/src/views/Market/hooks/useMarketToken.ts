@@ -60,15 +60,15 @@ export const useMarketTokenItem = ({
   coingeckoId,
   isList,
 }: {
-  coingeckoId: string;
+  coingeckoId?: string;
   isList?: boolean;
 }) => {
   const isVertical = useIsVerticalLayout();
   const isMidLayout = useMarketMidLayout();
   const marketTokens = useAppSelector((s) => s.market.marketTokens);
-  const marketTokenItem = marketTokens[coingeckoId];
   useEffect(() => {
     if (coingeckoId?.length) {
+      const marketTokenItem = marketTokens[coingeckoId];
       if (!isList && !marketTokenItem) {
         backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
           ids: coingeckoId,
@@ -76,7 +76,10 @@ export const useMarketTokenItem = ({
         });
       }
     }
-  }, [coingeckoId, isList, isMidLayout, isVertical, marketTokenItem]);
-
-  return useMemo(() => marketTokens[coingeckoId], [marketTokens, coingeckoId]);
+  }, [coingeckoId, isList, isMidLayout, isVertical, marketTokens]);
+  return useMemo(() => {
+    if (coingeckoId) {
+      return marketTokens[coingeckoId];
+    }
+  }, [marketTokens, coingeckoId]);
 };
