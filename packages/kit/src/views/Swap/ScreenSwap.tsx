@@ -2,5 +2,5 @@ import { TabRoutes } from '../../routes/routesEnum';
 import { ScreenMarketOrSwap } from '../Market/ScreenMarketOrSwap';
 
 export function ScreenSwap() {
-  return <ScreenMarketOrSwap desktopTabName={TabRoutes.Swap} />;
+  return <ScreenMarketOrSwap marketTopTabName={TabRoutes.Swap} />;
 }

@@ -774,13 +774,13 @@ export default class ServiceToken extends ServiceBase {
           }, new BigNumber(0));
         });
         resolve(
-          defiTokenAmount.plus(stakingAmount).plus(accountAmount).toString(),
+          defiTokenAmount.plus(stakingAmount).plus(accountAmount).toFixed(),
         );
       });
     },
     {
       promise: true,
-      maxAge: 30 * 1000,
+      maxAge: getTimeDurationMs({ seconds: 10 }),
       normalizer: (args) => JSON.stringify(args),
     },
   );
