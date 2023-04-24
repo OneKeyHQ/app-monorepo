@@ -618,7 +618,7 @@ const ExchangeButton = () => {
       await sendSwapTx({
         accountId: sendingAccount.id,
         networkId: fromNetworkId,
-        gasEstimateFallback: true,
+        gasEstimateFallback: Boolean(approveTx),
         encodedTx: encodedTx as IEncodedTxEvm,
         showSendFeedbackReceipt: true,
         payloadInfo: {
@@ -732,11 +732,11 @@ const ExchangeButton = () => {
           onSubmit={async () => {
             try {
               dangerRefs.submited = true;
-              backgroundApiProxy.serviceSwap.setProgressStatus({});
+              backgroundApiProxy.serviceSwap.openProgressStatus();
               await combinedTasks(tasks);
             } finally {
-              dangerRefs.submited = true;
-              backgroundApiProxy.serviceSwap.setProgressStatus(undefined);
+              dangerRefs.submited = false;
+              backgroundApiProxy.serviceSwap.closeProgressStatus();
             }
           }}
         />
