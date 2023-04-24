@@ -5197,10 +5197,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/network-list@npm:1.6.58":
-  version: 1.6.58
-  resolution: "@onekeyfe/network-list@npm:1.6.58"
-  checksum: 148eb8f075ecd21a11f945315015ef6f8aad8f52e6ef0b53d21320f007a17fd2b905eef31b0e6a457a69f90c5ca10eb3ef929962bc705fac4ef169606061596a
+"@onekeyfe/network-list@npm:1.6.59":
+  version: 1.6.59
+  resolution: "@onekeyfe/network-list@npm:1.6.59"
+  checksum: 9da6ddbf1313e9049b618b88a54da1157bbbc1a749984aa2c459270bcffb41334317e4d1b3df755993258fe617533b663ca1f0fceee725fd19ccd2512b71e6d9
   languageName: node
   linkType: hard
 
@@ -5415,7 +5415,7 @@ __metadata:
     "@onekeyfe/hd-shared": 0.2.49
     "@onekeyfe/hd-transport": 0.2.49
     "@onekeyfe/hd-web-sdk": 0.2.49
-    "@onekeyfe/network-list": 1.6.58
+    "@onekeyfe/network-list": 1.6.59
     "@onekeyfe/onekey-cross-webview": 1.1.27
     "@open-wc/webpack-import-meta-loader": ^0.4.7
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.10

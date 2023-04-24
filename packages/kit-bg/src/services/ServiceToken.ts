@@ -100,6 +100,10 @@ export default class ServiceToken extends ServiceBase {
       const { engine, dispatch, servicePrice, appSelector } =
         this.backgroundApi;
 
+      const accountTokensInRedux = appSelector(
+        (s) => s.tokens.accountTokens?.[networkId]?.[accountId],
+      );
+
       const accountTokens = await engine.getTokens(
         networkId,
         accountId,
@@ -107,6 +111,18 @@ export default class ServiceToken extends ServiceBase {
         true,
         forceReloadTokens,
       );
+
+      if (!accountTokensInRedux?.length) {
+        // show default tokens first
+        // update token autoDetected tokens async
+        dispatch(
+          setAccountTokens({
+            accountId,
+            networkId,
+            tokens: accountTokens,
+          }),
+        );
+      }
 
       const { selectedFiatMoneySymbol } = appSelector((s) => s.settings);
       const [, autodetectedTokens = []] = await this.getAccountTokenBalance({

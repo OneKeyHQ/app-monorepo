@@ -67,7 +67,7 @@ const MarketPriceChart: FC<MarketPriceChartProps> = ({
             price,
             token: {
               coingeckoId,
-              symbol: tokenItem?.symbol ?? coingeckoId,
+              symbol: tokenItem?.symbol,
               logoURI: tokenItem?.logoURI,
             } as TokenDO,
           },
