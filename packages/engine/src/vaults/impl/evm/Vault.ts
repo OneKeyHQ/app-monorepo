@@ -50,6 +50,7 @@ import { batchTransferContractAddress } from '../../../presets/batchTransferCont
 import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
 import { HistoryEntryStatus } from '../../../types/history';
 import { ETHMessageTypes } from '../../../types/message';
+import { TokenRiskLevel } from '../../../types/token';
 import {
   IDecodedTxActionType,
   IDecodedTxStatus,
@@ -123,7 +124,6 @@ import type {
 } from './decoder/decoder';
 import type { IRpcTxEvm } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import { TokenRiskLevel } from '../../../types/token';
 
 const OPTIMISM_NETWORKS: string[] = [
   OnekeyNetwork.optimism,
