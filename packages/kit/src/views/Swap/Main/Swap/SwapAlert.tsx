@@ -13,6 +13,10 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useCreateAccountInWallet } from '../../../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
@@ -109,21 +113,50 @@ const DepositLimitAlert = () => {
   return null;
 };
 
-const ErrorAlert = () => {
+const PriceUnknownAlertContent = () => {
   const intl = useIntl();
+
+  const onRefresh = useCallback(() => {
+    appUIEventBus.emit(AppUIEventBusNames.SwapRefresh);
+  }, []);
+
+  return (
+    <Box mt="6">
+      <Alert
+        title={intl.formatMessage({
+          id: 'msg__failed_to_fetch_quotes',
+        })}
+        alertType="warn"
+        action={intl.formatMessage({ id: 'action__retry' })}
+        onAction={onRefresh}
+        dismiss={false}
+      />
+    </Box>
+  );
+};
+
+const NotSupportAlertContent = () => {
+  const intl = useIntl();
+  return (
+    <Box mt="6">
+      <Alert
+        title={intl.formatMessage({
+          id: 'msg__this_transaction_is_not_supported',
+        })}
+        alertType="warn"
+        dismiss={false}
+      />
+    </Box>
+  );
+};
+
+const ErrorAlert = () => {
   const error = useAppSelector((s) => s.swap.error);
   if (error === SwapError.NotSupport) {
-    return (
-      <Box mt="6">
-        <Alert
-          title={intl.formatMessage({
-            id: 'msg__this_transaction_is_not_supported',
-          })}
-          alertType="warn"
-          dismiss={false}
-        />
-      </Box>
-    );
+    return <NotSupportAlertContent />;
+  }
+  if (error === SwapError.QuoteFailed) {
+    return <PriceUnknownAlertContent />;
   }
   return null;
 };
