@@ -34,7 +34,7 @@ const MarketTokenCellVertival: FC<IMarketTokenCellVertivalProps> = ({
 }) => {
   const { selectedFiatMoneySymbol } = useSettings();
   const unit = useCurrencyUnit(selectedFiatMoneySymbol);
-  const marketTokenItem: MarketTokenItem = useMarketTokenItem({
+  const marketTokenItem: MarketTokenItem | undefined = useMarketTokenItem({
     coingeckoId: marketTokenId,
     isList: true,
   });

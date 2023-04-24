@@ -151,7 +151,11 @@ export function greaterThanZeroOrUndefined(value?: string) {
   return num > 0 ? value : undefined;
 }
 
-export function formatAmount(value?: BigNumber.Value, precision = 4) {
+export function formatAmount(
+  value?: BigNumber.Value,
+  precision = 4,
+  roundingMode: BigNumber.RoundingMode = BigNumber.ROUND_HALF_UP,
+) {
   if (!value) {
     return '';
   }
@@ -159,7 +163,27 @@ export function formatAmount(value?: BigNumber.Value, precision = 4) {
   if (bn.isNaN()) {
     return '';
   }
-  return bn.decimalPlaces(precision).toFixed();
+  return bn.decimalPlaces(precision, roundingMode).toFixed();
+}
+
+export function formatPercentAmount(
+  value?: BigNumber.Value,
+  basePrecision = 4,
+) {
+  if (!value) {
+    return '';
+  }
+  const bn = new BigNumber(value);
+  let precision = 0;
+  for (let i = 0; i <= 4; i += 1) {
+    precision += basePrecision;
+    const result = formatAmount(bn, precision, BigNumber.ROUND_FLOOR);
+    const v = bn.minus(result).abs().div(bn).lt(0.01);
+    if (v) {
+      return result;
+    }
+  }
+  return formatAmount(bn, Math.max(4, precision), BigNumber.ROUND_FLOOR);
 }
 
 export function calculateRate(

@@ -88,10 +88,11 @@ function SendConfirm({
     advancedSettings,
     setAdvancedSettings,
   } = useSendConfirmAdvancedSettings({ accountId, networkId });
-  const { walletId, networkImpl, account, wallet } = useActiveSideAccount({
-    accountId,
-    networkId,
-  });
+  const { walletId, networkImpl, account, wallet, network } =
+    useActiveSideAccount({
+      accountId,
+      networkId,
+    });
 
   useDisableNavigationAnimation({
     condition: !!routeParams.autoConfirmAfterFeeSaved,
@@ -180,26 +181,43 @@ function SendConfirm({
         limit: 50,
       });
 
-      const localPendingTxWithSameNonce = find(localPendingTxs, (tx) =>
-        new BigNumber(
-          (encodedTxWithAdvancedSettings as IEncodedTxEvm).nonce ?? 0,
-        ).isEqualTo(tx.decodedTx.nonce),
-      );
+      // only check networks where both fee and nonce are editable
+      if (network?.settings.nonceEditable && network.settings.feeInfoEditable) {
+        const localPendingTxWithSameNonce = find(localPendingTxs, (tx) =>
+          new BigNumber(
+            (encodedTxWithAdvancedSettings as IEncodedTxEvm).nonce ?? 0,
+          ).isEqualTo(tx.decodedTx.nonce),
+        );
 
-      if (localPendingTxWithSameNonce) {
-        const { feeInfo } = localPendingTxWithSameNonce.decodedTx;
-        if (feeInfo && feeInfoValue) {
-          if (feeInfo.eip1559) {
-            if (
-              new BigNumber(
-                feeInfo.price1559?.maxFeePerGas ?? 0,
-              ).isGreaterThanOrEqualTo(
-                feeInfoValue.price1559?.maxFeePerGas ?? 0,
-              ) ||
-              new BigNumber(
-                feeInfo.price1559?.maxPriorityFeePerGas ?? 0,
-              ).isGreaterThanOrEqualTo(
-                feeInfoValue.price1559?.maxPriorityFeePerGas ?? 0,
+        if (localPendingTxWithSameNonce) {
+          const { feeInfo } = localPendingTxWithSameNonce.decodedTx;
+          if (feeInfo && feeInfoValue) {
+            if (feeInfo.eip1559) {
+              if (
+                new BigNumber(
+                  feeInfo.price1559?.maxFeePerGas ?? 0,
+                ).isGreaterThanOrEqualTo(
+                  feeInfoValue.price1559?.maxFeePerGas ?? 0,
+                ) ||
+                new BigNumber(
+                  feeInfo.price1559?.maxPriorityFeePerGas ?? 0,
+                ).isGreaterThanOrEqualTo(
+                  feeInfoValue.price1559?.maxPriorityFeePerGas ?? 0,
+                )
+              ) {
+                ToastManager.show(
+                  {
+                    title: intl.formatMessage({
+                      id: 'msg__invalid_rbf_tx_pay_a_higher_fee_and_retry',
+                    }),
+                  },
+                  { type: 'error' },
+                );
+                return;
+              }
+            } else if (
+              new BigNumber(feeInfo.price ?? 0).isGreaterThanOrEqualTo(
+                feeInfoValue.price ?? 0,
               )
             ) {
               ToastManager.show(
@@ -212,20 +230,6 @@ function SendConfirm({
               );
               return;
             }
-          } else if (
-            new BigNumber(feeInfo.price ?? 0).isGreaterThanOrEqualTo(
-              feeInfoValue.price ?? 0,
-            )
-          ) {
-            ToastManager.show(
-              {
-                title: intl.formatMessage({
-                  id: 'msg__invalid_rbf_tx_pay_a_higher_fee_and_retry',
-                }),
-              },
-              { type: 'error' },
-            );
-            return;
           }
         }
       }
@@ -355,12 +359,14 @@ function SendConfirm({
       accountId,
       advancedSettings,
       serviceHistory,
+      network?.settings.nonceEditable,
+      network?.settings.feeInfoEditable,
       routeParams,
       walletId,
       onModalClose,
       navigation,
-      dappApprove,
       intl,
+      dappApprove,
       serviceToken,
       payloadInfo?.swapInfo,
       wallet?.type,

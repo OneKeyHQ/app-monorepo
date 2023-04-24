@@ -90,13 +90,14 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
   const selectedCategoryId = useMarketSelectedCategoryId();
 
   const intl = useIntl();
-  const marketTokenItem: MarketTokenItem = useMarketTokenItem({
+  const marketTokenItem: MarketTokenItem | undefined = useMarketTokenItem({
     coingeckoId: marketTokenId,
     isList: true,
   });
   const moreButtonRef = useRef();
   const showMore = useCallback(
     () =>
+      marketTokenItem &&
       showMarketCellMoreMenu(
         marketTokenItem,
         {

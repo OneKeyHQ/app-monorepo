@@ -2,7 +2,14 @@ import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, HStack, Text, Typography, VStack } from '@onekeyhq/components';
+import {
+  Button,
+  HStack,
+  Text,
+  Typography,
+  VStack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import type { ModalProps } from '@onekeyhq/components/src/Modal';
 
 import { showOverlay } from '../../utils/overlayUtils';
@@ -36,15 +43,16 @@ const ManageTokenListingTip: FC<Props> = ({
   onClose,
 }) => {
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   return (
-    <VStack>
+    <VStack pb={`${bottom}px`}>
       <Text fontWeight="700" fontSize="56px" textAlign="center" mb="3">
         ℹ️
       </Text>
       <Typography.DisplayMedium textAlign="center" mb="2">
         {title}
       </Typography.DisplayMedium>
-      <Typography.Body2 textAlign="center" mb="8">
+      <Typography.Body2 textAlign="center" mb="8" color="text-subdued">
         {content}
       </Typography.Body2>
       <HStack alignItems="center" space="3" justifyContent="flex-end">
@@ -52,6 +60,7 @@ const ManageTokenListingTip: FC<Props> = ({
           <Button
             flex={1}
             lineHeight="50px"
+            size="xl"
             onPress={() => {
               onSecondaryActionPress?.({ close: () => onClose?.() });
               onClose?.();
@@ -69,6 +78,7 @@ const ManageTokenListingTip: FC<Props> = ({
             flex={1}
             type="primary"
             lineHeight="50px"
+            size="xl"
             onPress={() => {
               onPrimaryActionPress?.({ onClose, close: () => onClose?.() });
             }}
