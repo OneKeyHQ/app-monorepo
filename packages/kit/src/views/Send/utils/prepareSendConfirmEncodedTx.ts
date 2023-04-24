@@ -43,8 +43,8 @@ export async function prepareSendConfirmEncodedTx({
   address,
   selectedUtxos,
 }: {
-  networkId: string;
-  accountId: string;
+  networkId?: string;
+  accountId?: string;
   encodedTx?: IEncodedTx;
   networkImpl: string;
   sendConfirmParams: SendConfirmParams | BatchSendConfirmParams;
@@ -87,6 +87,9 @@ export async function prepareSendConfirmEncodedTx({
     [IMPL_BTC, IMPL_TBTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH].includes(networkImpl)
   ) {
     const encodedTxBtc = encodedTx as IEncodedTxBtc;
+    if (!networkId || !accountId) {
+      return Promise.resolve(encodedTx);
+    }
     const updatedTx = await backgroundApiProxy.engine.updateEncodedTx({
       networkId,
       accountId,

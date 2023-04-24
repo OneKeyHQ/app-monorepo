@@ -154,6 +154,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
         params: {
           networkId: network?.id ?? '',
           accountId,
+          isSelectMode: false,
         },
       },
     });
