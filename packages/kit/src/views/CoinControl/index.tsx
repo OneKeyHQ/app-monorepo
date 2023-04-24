@@ -21,7 +21,7 @@ import type { CoinControlRoutesParams } from '@onekeyhq/kit/src/routes';
 import type { CoinControlModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useNetwork } from '../../hooks';
+import { useAppSelector, useNetwork } from '../../hooks';
 
 import {
   CoinControlListMenu,
@@ -42,6 +42,9 @@ const CoinControl = () => {
   const route = useRoute<RouteProps>();
   const { networkId, accountId, isSelectMode, encodedTx, onConfirm } =
     route.params;
+
+  const useDustUtxo =
+    useAppSelector((s) => s.settings.advancedSettings?.useDustUtxo) ?? true;
 
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -230,7 +233,10 @@ const CoinControl = () => {
     [utxosWithoutDust, utxosDust],
   );
   const showAvailableListCheckbox = useMemo(() => isSelectMode, [isSelectMode]);
-  const showFrozenList = useMemo(() => frozenUtxos.length > 0, [frozenUtxos]);
+  const showFrozenList = useMemo(
+    () => frozenUtxos.length > 0 || (!useDustUtxo && utxosDust.length > 0),
+    [frozenUtxos, useDustUtxo, utxosDust],
+  );
   const showFrozenListCheckbox = useMemo(() => false, []);
 
   return (
@@ -288,12 +294,13 @@ const CoinControl = () => {
         selectedIndex === 0 &&
         (showAvailableList ? (
           <CoinControlList
+            type="Available"
             accountId={accountId}
             network={network as unknown as Network}
             token={token}
             allUtxos={allUtxos}
             dataSource={utxosWithoutDust}
-            utxosDust={utxosDust}
+            utxosDust={useDustUtxo ? utxosDust : []}
             showCheckbox={showAvailableListCheckbox}
             selectedUtxos={selectedUtxos}
             isAllSelected={isAllSelected}
@@ -312,12 +319,13 @@ const CoinControl = () => {
         selectedIndex === 1 &&
         (showFrozenList ? (
           <CoinControlList
+            type="Frozen"
             accountId={accountId}
             network={network as unknown as Network}
             token={token}
             allUtxos={allUtxos}
             dataSource={frozenUtxos}
-            utxosDust={[]}
+            utxosDust={useDustUtxo ? [] : utxosDust}
             showCheckbox={showFrozenListCheckbox}
             selectedUtxos={selectedUtxos}
             isAllSelected={isAllSelected}

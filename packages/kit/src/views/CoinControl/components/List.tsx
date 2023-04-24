@@ -86,6 +86,7 @@ const ListTableHeader: FC<{
 };
 
 export type ICellProps = {
+  listType: 'Available' | 'Frozen';
   accountId: string;
   network: Network;
   token?: Token;
@@ -94,12 +95,14 @@ export type ICellProps = {
   selectedUtxos: string[];
   blockTimeMap: Record<string, number>;
   showPath: boolean;
+  isDust: boolean;
   onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
   onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
   onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
 };
 
 const CoinControlCell: FC<ICellProps> = ({
+  listType,
   accountId,
   network,
   token,
@@ -108,6 +111,7 @@ const CoinControlCell: FC<ICellProps> = ({
   selectedUtxos = [],
   blockTimeMap,
   showPath,
+  isDust,
   onChange,
   onConfirmEditLabel,
   onFrozenUTXO,
@@ -225,6 +229,7 @@ const CoinControlCell: FC<ICellProps> = ({
           network={network}
           onConfirmEditLabel={onConfirmEditLabel}
           onFrozenUTXO={onFrozenUTXO}
+          showFrozenOption={!(isDust && listType === 'Frozen')}
         >
           <IconButton
             alignItems="flex-end"
@@ -257,6 +262,8 @@ const ListFooter: FC<
   selectedUtxos = [],
   blockTimeMap,
   showPath,
+  isDust,
+  listType,
   onChange,
   onConfirmEditLabel,
   onFrozenUTXO,
@@ -281,6 +288,7 @@ const ListFooter: FC<
     () =>
       dustUtxos.map((item) => (
         <CoinControlCell
+          listType={listType}
           item={item}
           accountId={accountId}
           network={network}
@@ -289,12 +297,14 @@ const ListFooter: FC<
           selectedUtxos={selectedUtxos}
           blockTimeMap={blockTimeMap}
           showPath={showPath}
+          isDust={isDust}
           onChange={onChange}
           onConfirmEditLabel={onConfirmEditLabel}
           onFrozenUTXO={onFrozenUTXO}
         />
       )),
     [
+      listType,
       dustUtxos,
       accountId,
       network,
@@ -303,6 +313,7 @@ const ListFooter: FC<
       selectedUtxos,
       blockTimeMap,
       showPath,
+      isDust,
       onChange,
       onConfirmEditLabel,
       onFrozenUTXO,
@@ -369,6 +380,7 @@ const ListFooter: FC<
 };
 
 const CoinControlList: FC<{
+  type: 'Available' | 'Frozen';
   accountId: string;
   network: Network;
   token?: Token;
@@ -385,6 +397,7 @@ const CoinControlList: FC<{
   onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
   onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
 }> = ({
+  type,
   accountId,
   network,
   token,
@@ -403,6 +416,7 @@ const CoinControlList: FC<{
   const rowRenderer = useCallback(
     ({ item }: ListRenderItemInfo<ICoinControlListItem>) => (
       <CoinControlCell
+        listType={type}
         item={item}
         accountId={accountId}
         network={network}
@@ -411,12 +425,14 @@ const CoinControlList: FC<{
         selectedUtxos={selectedUtxos}
         blockTimeMap={blockTimeMap}
         showPath={showPath}
+        isDust={false}
         onChange={onChange}
         onConfirmEditLabel={onConfirmEditLabel}
         onFrozenUTXO={onFrozenUTXO}
       />
     ),
     [
+      type,
       showCheckbox,
       selectedUtxos,
       network,
@@ -443,6 +459,7 @@ const CoinControlList: FC<{
   const footerComponent = useCallback(
     () => (
       <ListFooter
+        listType={type}
         dataSource={dataSource}
         dustUtxos={utxosDust}
         accountId={accountId}
@@ -452,12 +469,14 @@ const CoinControlList: FC<{
         selectedUtxos={selectedUtxos}
         blockTimeMap={blockTimeMap}
         showPath={showPath}
+        isDust
         onChange={onChange}
         onConfirmEditLabel={onConfirmEditLabel}
         onFrozenUTXO={onFrozenUTXO}
       />
     ),
     [
+      type,
       dataSource,
       utxosDust,
       showCheckbox,

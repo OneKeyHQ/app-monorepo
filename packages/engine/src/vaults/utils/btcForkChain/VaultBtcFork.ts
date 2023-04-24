@@ -10,12 +10,14 @@ import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type {
   IBlockBookTransaction,
+  IBtcUTXO,
   IEncodedTxBtc,
   IUTXOInput,
   IUTXOOutput,
   PartialTokenInfo,
   TxInput,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import { appSelector } from '@onekeyhq/kit/src/store';
 import {
   COINTYPE_BTC,
   IMPL_BTC,
@@ -36,7 +38,6 @@ import {
 import {
   getDefaultPurpose,
   getLastAccountId,
-  getNextAccountId,
 } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { EVMDecodedTxType } from '../../impl/evm/decoder/types';
@@ -58,6 +59,10 @@ import type {
   BtcForkChainUsedAccount,
   DBUTXOAccount,
 } from '../../../types/account';
+import type {
+  CoinControlItem,
+  ICoinControlListItem,
+} from '../../../types/utxoAccounts';
 import type { KeyringBaseMock } from '../../keyring/KeyringBase';
 import type { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import type {
@@ -459,7 +464,7 @@ export default class VaultBtcFork extends VaultBase {
         : (await this.getFeeRate())[1];
 
     // Coin Control
-    const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub);
+    const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub, utxos);
     utxos = utxos.filter(
       (utxo) =>
         frozenUtxos.findIndex(
@@ -914,12 +919,30 @@ export default class VaultBtcFork extends VaultBase {
     });
   }
 
-  private async getFrozenUtxos(xpub: string) {
+  private async getFrozenUtxos(xpub: string, utxos: IBtcUTXO[]) {
+    const useDustUtxo =
+      appSelector((s) => s.settings.advancedSettings?.useDustUtxo) ?? true;
+
+    let dustUtxos: CoinControlItem[] = [];
+    if (!useDustUtxo) {
+      const network = await this.getNetwork();
+      const dust = new BigNumber(
+        this.settings.minTransferAmount || 0,
+      ).shiftedBy(network.decimals);
+      dustUtxos = utxos
+        .filter((utxo) => new BigNumber(utxo.value).isLessThanOrEqualTo(dust))
+        .map((utxo) => ({
+          ...utxo,
+          id: getUtxoId(this.networkId, utxo),
+          key: getUtxoUniqueKey(utxo),
+        })) as unknown as CoinControlItem[];
+    }
     const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
       this.networkId,
       xpub,
     );
-    return archivedUtxos.filter((utxo) => utxo.frozen);
+    const frozenUtxos = archivedUtxos.filter((utxo) => utxo.frozen);
+    return frozenUtxos.concat(dustUtxos);
   }
 
   override async getFrozenBalance(): Promise<number> {
@@ -929,12 +952,10 @@ export default class VaultBtcFork extends VaultBase {
       this.getNetwork(),
     ]);
     // find frozen utxo
-    const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub);
+    const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub, utxos);
     const allFrozenUtxo = utxos.filter((utxo) =>
       frozenUtxos.find(
-        (frozenUtxo) =>
-          frozenUtxo.frozen &&
-          frozenUtxo.id === getUtxoId(this.networkId, utxo),
+        (frozenUtxo) => frozenUtxo.id === getUtxoId(this.networkId, utxo),
       ),
     );
     // use bignumber to calculate sum allFrozenUtxo value

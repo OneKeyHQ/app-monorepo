@@ -18,10 +18,18 @@ const CoinControlListItemMenu: FC<
   IMenu & {
     network: Network;
     item: ICoinControlListItem;
+    showFrozenOption: boolean;
     onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
     onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
   }
-> = ({ item, network, onConfirmEditLabel, onFrozenUTXO, ...props }) => {
+> = ({
+  item,
+  showFrozenOption = true,
+  network,
+  onConfirmEditLabel,
+  onFrozenUTXO,
+  ...props
+}) => {
   const { openTransactionDetails } = useOpenBlockBrowser(network);
   const onOpenBlockChainBrowser = useCallback(() => {
     openTransactionDetails(item.txid);
@@ -70,7 +78,7 @@ const CoinControlListItemMenu: FC<
         icon: 'GlobeAltOutline',
       },
       () => <Divider my={1} />,
-      {
+      showFrozenOption && {
         id: isFrozen ? 'action__unfreeze' : 'action__freeze',
         onPress: onPressFrozenUTXO,
         icon: 'SnowFlakeMini',
@@ -80,6 +88,7 @@ const CoinControlListItemMenu: FC<
       onOpenBlockChainBrowser,
       hasLabel,
       isFrozen,
+      showFrozenOption,
       onPressEditLabel,
       onPressDeleteLabel,
       onPressFrozenUTXO,
