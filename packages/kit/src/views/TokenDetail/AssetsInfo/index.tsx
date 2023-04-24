@@ -101,7 +101,7 @@ const AssetsInfo: FC<Props> = ({
     accountId,
     networkId,
   });
-  const [totalAmount, updateTotalAmount] = useState<B>(new B(0));
+  const [totalAmount, updateTotalAmount] = useState<string>('0');
 
   const { serviceToken } = backgroundApiProxy;
   useEffect(() => {
@@ -113,7 +113,7 @@ const AssetsInfo: FC<Props> = ({
         sendAddress,
       })
       .then((amount) => {
-        updateTotalAmount(new B(amount));
+        updateTotalAmount(amount);
       });
   }, [accountId, networkId, sendAddress, serviceToken, tokenId]);
 
@@ -159,7 +159,7 @@ const AssetsInfo: FC<Props> = ({
         />
 
         <Typography.Body2 mt="4px" mb="24px" color="text-subdued">
-          <FormatCurrencyNumber value={totalAmount.times(price)} />
+          <FormatCurrencyNumber value={new B(totalAmount).times(price)} />
         </Typography.Body2>
       </>
     ),
