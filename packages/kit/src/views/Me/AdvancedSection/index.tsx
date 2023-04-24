@@ -16,7 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
   HomeRoutesParams,
-  HomeRoutes.PushNotification
+  HomeRoutes.AdvancedSettings
 >;
 
 export const AdvancedSection = () => {
@@ -48,7 +48,7 @@ export const AdvancedSection = () => {
           py={4}
           px={{ base: 4, md: 6 }}
           onPress={() => {
-            navigation.navigate(HomeRoutes.PushNotification);
+            navigation.navigate(HomeRoutes.AdvancedSettings);
           }}
         >
           <Icon name="WrenchScrewdriverOutline" />

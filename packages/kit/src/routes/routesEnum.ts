@@ -68,6 +68,7 @@ export enum HomeRoutes {
   PushNotificationManagePriceAlert = 'PushNotificationManagePriceAlert',
   PushNotificationManageAccountDynamic = 'PushNotificationManageAccountDynamic',
   ClearCache = 'ClearCache',
+  AdvancedSettings = 'AdvancedSettings',
 
   // **** Discover Tab
   ExploreScreen = 'ExploreScreen',

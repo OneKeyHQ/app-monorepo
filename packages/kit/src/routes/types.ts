@@ -168,6 +168,7 @@ export type HomeRoutesParams = {
   [HomeRoutes.WalletSwitch]: undefined;
   [HomeRoutes.BulkSender]: undefined;
   [HomeRoutes.ClearCache]: undefined;
+  [HomeRoutes.AdvancedSettings]: undefined;
 };
 /** HomeStack */
 
