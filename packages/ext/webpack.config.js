@@ -29,9 +29,40 @@ const buildTargetBrowser = devUtils.getBuildTargetBrowser();
 //    You may need an appropriate loader to handle this file type
 const transpileModules = [...extModuleTranspile];
 
-const alias = {};
-if (IS_DEV) {
-  alias['react-dom'] = '@hot-loader/react-dom';
+// load the secrets
+const secretsPath = path.join(__dirname, `secrets.${env.NODE_ENV}.js`);
+const secrets = fse.existsSync(secretsPath) ? secretsPath : false;
+
+const alias = {
+  // 'react-dom': '@hot-loader/react-dom',
+  // 'secrets': secrets,
+};
+
+const fileExtensions = [
+  'jpg',
+  'jpeg',
+  'png',
+  'gif',
+  'eot',
+  'otf',
+  'svg',
+  'ttf',
+  'woff',
+  'woff2',
+];
+
+const resolveExtensions = fileExtensions
+  .map((extension) => `.${extension}`)
+  .concat(['.js', '.jsx', '.ts', '.tsx', '.d.ts', '.css']);
+
+class HtmlLazyScriptPlugin {
+  apply(compiler) {
+    compiler.hooks.done.tap('HtmlLazyScriptPlugin', (compilation, callback) => {
+      console.log('HtmlLazyScriptPlugin >>>>>>>> ');
+      const doTask = require('./development/htmlLazyScript');
+      doTask();
+    });
+  }
 }
 
 const isManifestV3 = devUtils.isManifestV3();
