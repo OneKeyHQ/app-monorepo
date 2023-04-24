@@ -698,7 +698,7 @@ export default class ServiceToken extends ServiceBase {
     accountId: string;
     tokenId: string;
     sendAddress?: string;
-  }) {
+  }): Promise<string> {
     return this._fetchTokenDetailAmountMemo(props);
   }
 
@@ -716,7 +716,7 @@ export default class ServiceToken extends ServiceBase {
         networkId,
         tokenIdOnNetwork: tokenId,
       });
-      return new Promise<BigNumber>((resolve) => {
+      return new Promise<string>((resolve) => {
         const account = appSelector((s) =>
           s.runtime.accounts?.find((n) => n.id === accountId),
         );
@@ -773,12 +773,14 @@ export default class ServiceToken extends ServiceBase {
             return protocolSum.plus(poolTokens);
           }, new BigNumber(0));
         });
-        resolve(defiTokenAmount.plus(stakingAmount).plus(accountAmount));
+        resolve(
+          defiTokenAmount.plus(stakingAmount).plus(accountAmount).toFixed(),
+        );
       });
     },
     {
       promise: true,
-      maxAge: 30 * 1000,
+      maxAge: getTimeDurationMs({ seconds: 10 }),
       normalizer: (args) => JSON.stringify(args),
     },
   );
