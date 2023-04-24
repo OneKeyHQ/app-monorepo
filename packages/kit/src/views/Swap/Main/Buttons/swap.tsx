@@ -453,26 +453,26 @@ const ExchangeButton = () => {
       });
       return;
     }
+    const safeReservedValueForGasFee =
+      await backgroundApiProxy.serviceSwap.getReservedNetworkFee(
+        fromNetwork.id,
+      );
 
-    if (!params.tokenIn.tokenIdOnNetwork) {
-      const reservedValue =
-        await backgroundApiProxy.serviceSwap.getReservedNetworkFee(
-          fromNetwork.id,
-        );
-      if (balance.minus(inputAmount.typedValue).lt(reservedValue)) {
-        ToastManager.show(
-          {
-            title: intl.formatMessage(
-              { id: 'msg__gas_fee_is_not_enough_please_keep_at_least_str' },
-              {
-                '0': `${reservedValue} ${params.tokenIn.symbol.toUpperCase()}`,
-              },
-            ),
-          },
-          { type: 'error' },
-        );
-        return;
-      }
+    const currentReservedValueForGasFee = !params.tokenIn.tokenIdOnNetwork
+      ? balance.minus(inputAmount.typedValue)
+      : balance;
+    if (currentReservedValueForGasFee.lt(safeReservedValueForGasFee)) {
+      ToastManager.show(
+        {
+          title: intl.formatMessage(
+            { id: 'msg__gas_fee_is_not_enough_please_keep_at_least_str' },
+            {
+              '0': `${safeReservedValueForGasFee} ${params.tokenIn.symbol.toUpperCase()}`,
+            },
+          ),
+        },
+        { type: 'error' },
+      );
     }
 
     let res: BuildTransactionResponse | undefined;
