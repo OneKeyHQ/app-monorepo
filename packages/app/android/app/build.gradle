@@ -235,7 +235,7 @@ android {
 
     packagingOptions {
         // (V8) Make sure libjsc.so does not packed in APK
-        exclude "**/libjsc.so"
+        // exclude "**/libjsc.so"
         exclude 'META-INF/DEPENDENCIES'
         exclude 'META-INF/NOTICE'
         exclude 'META-INF/LICENSE'
