@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgBriefcase = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
     fill="currentColor"
-    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -15,4 +15,5 @@ const SvgBriefcase = (props: SvgProps) => (
     <Path d="M3 15.055v-.684c.126.053.255.1.39.142 2.092.642 4.313.987 6.61.987 2.297 0 4.518-.345 6.61-.987.135-.041.264-.089.39-.142v.684c0 1.347-.985 2.53-2.363 2.686a41.454 41.454 0 0 1-9.274 0C3.985 17.585 3 16.402 3 15.055z" />
   </Svg>
 );
+
 export default SvgBriefcase;

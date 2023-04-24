@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgSquare3Stack3D = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
     fill="currentColor"
-    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -12,4 +12,5 @@ const SvgSquare3Stack3D = (props: SvgProps) => (
     <Path d="M10.38 1.103a.75.75 0 0 0-.76 0l-7.25 4.25a.75.75 0 0 0 0 1.294l7.25 4.25a.75.75 0 0 0 .76 0l7.25-4.25a.75.75 0 0 0 0-1.294l-7.25-4.25z" />
   </Svg>
 );
+
 export default SvgSquare3Stack3D;

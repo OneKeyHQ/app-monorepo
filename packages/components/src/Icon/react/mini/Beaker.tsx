@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgBeaker = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
     fill="currentColor"
-    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -14,4 +14,5 @@ const SvgBeaker = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgBeaker;

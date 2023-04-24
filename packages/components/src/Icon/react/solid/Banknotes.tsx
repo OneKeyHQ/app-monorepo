@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgBanknotes = (props: SvgProps) => (
   <Svg
     viewBox="0 0 24 24"
     fill="currentColor"
-    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -16,4 +16,5 @@ const SvgBanknotes = (props: SvgProps) => (
     <Path d="M2.25 18a.75.75 0 0 0 0 1.5c5.4 0 10.63.722 15.6 2.075 1.19.324 2.4-.558 2.4-1.82V18.75a.75.75 0 0 0-.75-.75H2.25z" />
   </Svg>
 );
+
 export default SvgBanknotes;

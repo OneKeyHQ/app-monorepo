@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgEnvelope = (props: SvgProps) => (
   <Svg
     viewBox="0 0 24 24"
     fill="currentColor"
-    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -11,4 +11,5 @@ const SvgEnvelope = (props: SvgProps) => (
     <Path d="M22.5 6.908V6.75a3 3 0 0 0-3-3h-15a3 3 0 0 0-3 3v.158l9.714 5.978a1.5 1.5 0 0 0 1.572 0L22.5 6.908z" />
   </Svg>
 );
+
 export default SvgEnvelope;

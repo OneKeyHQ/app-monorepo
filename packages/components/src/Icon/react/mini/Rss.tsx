@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgRss = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
     fill="currentColor"
-    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -11,4 +11,5 @@ const SvgRss = (props: SvgProps) => (
     <Path d="M3 8.75A.75.75 0 0 1 3.75 8H4a8 8 0 0 1 8 8v.25a.75.75 0 0 1-.75.75h-.5a.75.75 0 0 1-.75-.75V16a6 6 0 0 0-6-6h-.25A.75.75 0 0 1 3 9.25v-.5zM7 15a2 2 0 1 1-4 0 2 2 0 0 1 4 0z" />
   </Svg>
 );
+
 export default SvgRss;

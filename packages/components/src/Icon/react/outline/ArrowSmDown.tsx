@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgArrowSmDown = (props: SvgProps) => (
   <Svg
     fill="none"
@@ -15,4 +16,5 @@ const SvgArrowSmDown = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgArrowSmDown;

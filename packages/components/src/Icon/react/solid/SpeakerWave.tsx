@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgSpeakerWave = (props: SvgProps) => (
   <Svg
     viewBox="0 0 24 24"
     fill="currentColor"
-    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -11,4 +11,5 @@ const SvgSpeakerWave = (props: SvgProps) => (
     <Path d="M15.932 7.757a.75.75 0 0 1 1.061 0 6 6 0 0 1 0 8.486.75.75 0 0 1-1.06-1.061 4.5 4.5 0 0 0 0-6.364.75.75 0 0 1 0-1.06z" />
   </Svg>
 );
+
 export default SvgSpeakerWave;

@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgEyeSlash = (props: SvgProps) => (
   <Svg
     viewBox="0 0 24 24"
     fill="currentColor"
-    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -12,4 +12,5 @@ const SvgEyeSlash = (props: SvgProps) => (
     <Path d="M6.75 12c0-.619.107-1.213.304-1.764l-3.1-3.1a11.25 11.25 0 0 0-2.63 4.31c-.12.362-.12.752 0 1.114 1.489 4.467 5.704 7.69 10.675 7.69 1.5 0 2.933-.294 4.242-.827l-2.477-2.477A5.25 5.25 0 0 1 6.75 12z" />
   </Svg>
 );
+
 export default SvgEyeSlash;

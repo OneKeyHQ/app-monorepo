@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgViewGridAdd = (props: SvgProps) => (
   <Svg
     fill="none"
@@ -15,4 +16,5 @@ const SvgViewGridAdd = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgViewGridAdd;

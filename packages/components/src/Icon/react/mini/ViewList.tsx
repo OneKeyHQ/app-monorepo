@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgViewList = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
@@ -13,4 +14,5 @@ const SvgViewList = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgViewList;

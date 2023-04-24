@@ -234,7 +234,7 @@ export default async function showHardwarePopup({
     uiRequest === UI_REQUEST.BLUETOOTH_PERMISSION
   ) {
     const checkPermission = () => {
-      if (Platform.Version >= 31) {
+      if ((Platform.Version as number) >= 31) {
         return PermissionsAndroid.check(
           PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
         );
@@ -260,7 +260,7 @@ export default async function showHardwarePopup({
     }
 
     const requestPermission = () => {
-      if (Platform.Version >= 31) {
+      if ((Platform.Version as number) >= 31) {
         return PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
         );
@@ -278,7 +278,7 @@ export default async function showHardwarePopup({
     ) {
       showDialog(
         <PermissionDialog
-          type={Platform.Version >= 31 ? 'bluetooth' : 'location'}
+          type={(Platform.Version as number) >= 31 ? 'bluetooth' : 'location'}
           onClose={() => {
             getAppNavigation()?.goBack();
             closeHardwarePopup();

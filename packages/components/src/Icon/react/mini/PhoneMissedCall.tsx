@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgPhoneMissedCall = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
@@ -10,4 +11,5 @@ const SvgPhoneMissedCall = (props: SvgProps) => (
     <Path d="M16.707 3.293a1 1 0 0 1 0 1.414L15.414 6l1.293 1.293a1 1 0 0 1-1.414 1.414L14 7.414l-1.293 1.293a1 1 0 1 1-1.414-1.414L12.586 6l-1.293-1.293a1 1 0 0 1 1.414-1.414L14 4.586l1.293-1.293a1 1 0 0 1 1.414 0z" />
   </Svg>
 );
+
 export default SvgPhoneMissedCall;

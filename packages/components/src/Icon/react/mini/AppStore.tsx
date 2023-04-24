@@ -1,4 +1,5 @@
 import Svg, { SvgProps, G, Path, Defs, ClipPath } from 'react-native-svg';
+
 const SvgAppStore = (props: SvgProps) => (
   <Svg viewBox="0 0 24 24" fill="none" accessibilityRole="image" {...props}>
     <G clipPath="url(#a)">
@@ -14,4 +15,5 @@ const SvgAppStore = (props: SvgProps) => (
     </Defs>
   </Svg>
 );
+
 export default SvgAppStore;

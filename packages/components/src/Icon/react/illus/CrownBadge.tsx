@@ -6,6 +6,7 @@ import Svg, {
   LinearGradient,
   Stop,
 } from 'react-native-svg';
+
 const SvgCrownBadge = (props: SvgProps) => (
   <Svg viewBox="0 0 20 20" fill="none" accessibilityRole="image" {...props}>
     <Circle
@@ -63,4 +64,5 @@ const SvgCrownBadge = (props: SvgProps) => (
     </Defs>
   </Svg>
 );
+
 export default SvgCrownBadge;

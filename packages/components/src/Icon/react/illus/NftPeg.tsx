@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgNftPeg = (props: SvgProps) => (
   <Svg viewBox="0 0 53 60" fill="none" accessibilityRole="image" {...props}>
     <Path
@@ -61,4 +62,5 @@ const SvgNftPeg = (props: SvgProps) => (
     <Path fill="#330C18" d="M3.118 25.618h3.118v15.978H3.118z" />
   </Svg>
 );
+
 export default SvgNftPeg;

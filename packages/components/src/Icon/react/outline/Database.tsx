@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgDatabase = (props: SvgProps) => (
   <Svg
     fill="none"
@@ -15,4 +16,5 @@ const SvgDatabase = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgDatabase;

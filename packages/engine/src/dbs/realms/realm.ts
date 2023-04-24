@@ -1087,7 +1087,7 @@ class RealmDB implements DBAPI {
         context!.pendingWallets!.add(walletId);
       });
       if (wallet) {
-        return Promise.resolve(wallet.internalObj);
+        return Promise.resolve((wallet as WalletSchema).internalObj);
       }
       return Promise.reject(new OneKeyInternalError('Wallet creation failed.'));
     } catch (error: any) {

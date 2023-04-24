@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgOnekeyLogo = (props: SvgProps) => (
   <Svg
     viewBox="0 0 24 24"
@@ -19,4 +20,5 @@ const SvgOnekeyLogo = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgOnekeyLogo;

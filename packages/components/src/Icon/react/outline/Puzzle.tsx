@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgPuzzle = (props: SvgProps) => (
   <Svg
     fill="none"
@@ -15,4 +16,5 @@ const SvgPuzzle = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgPuzzle;

@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgKeytag = (props: SvgProps) => (
   <Svg viewBox="0 0 24 24" fill="none" accessibilityRole="image" {...props}>
     <Path
@@ -17,4 +18,5 @@ const SvgKeytag = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgKeytag;

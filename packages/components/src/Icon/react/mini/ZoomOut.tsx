@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgZoomOut = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
@@ -18,4 +19,5 @@ const SvgZoomOut = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgZoomOut;

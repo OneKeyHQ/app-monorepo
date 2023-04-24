@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgChartLineSquare = (props: SvgProps) => (
   <Svg
     viewBox="0 0 24 24"
@@ -13,4 +14,5 @@ const SvgChartLineSquare = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgChartLineSquare;

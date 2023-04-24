@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgPencilAlt = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
@@ -14,4 +15,5 @@ const SvgPencilAlt = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgPencilAlt;

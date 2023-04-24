@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgBars3BottomRight = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
     fill="currentColor"
-    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -14,4 +14,5 @@ const SvgBars3BottomRight = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgBars3BottomRight;

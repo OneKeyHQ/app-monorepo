@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgCompass = (props: SvgProps) => (
   <Svg
     viewBox="0 0 24 24"
@@ -14,4 +15,5 @@ const SvgCompass = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgCompass;

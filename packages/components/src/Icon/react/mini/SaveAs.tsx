@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgSaveAs = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
@@ -10,4 +11,5 @@ const SvgSaveAs = (props: SvgProps) => (
     <Path d="M4 9a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2H4V9z" />
   </Svg>
 );
+
 export default SvgSaveAs;

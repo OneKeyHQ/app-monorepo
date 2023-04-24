@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgBuildingLibrary = (props: SvgProps) => (
   <Svg
     viewBox="0 0 24 24"
     fill="currentColor"
-    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -16,4 +16,5 @@ const SvgBuildingLibrary = (props: SvgProps) => (
     <Path d="M12 7.875a1.125 1.125 0 1 0 0-2.25 1.125 1.125 0 0 0 0 2.25z" />
   </Svg>
 );
+
 export default SvgBuildingLibrary;

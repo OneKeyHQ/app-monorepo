@@ -30,7 +30,7 @@
     "expo-notifications": "~0.18.1",
     "expo-secure-store": "^12.1.1",
     "fuse.js": "^6.5.3",
-    "lightweight-charts": "^4.0.1",
+    "lightweight-charts": "^3.8.0",
     "moti": "^0.24.2",
     "react-async-hook": "^4.0.0",
     "react-freeze": "^1.0.3",

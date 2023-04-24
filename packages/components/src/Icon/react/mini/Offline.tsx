@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgOffline = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
@@ -14,4 +15,5 @@ const SvgOffline = (props: SvgProps) => (
     <Path d="M3.707 2.293a1 1 0 0 0-1.414 1.414l6.921 6.922c.05.062.105.118.168.167l6.91 6.911a1 1 0 0 0 1.415-1.414l-6.99-6.99a.922.922 0 0 0-.02-.02l-6.99-6.99Z" />
   </Svg>
 );
+
 export default SvgOffline;

@@ -1,4 +1,5 @@
 import Svg, { SvgProps, G, Rect, Defs, ClipPath } from 'react-native-svg';
+
 const SvgEmptyNft = (props: SvgProps) => (
   <Svg viewBox="0 0 98 98" fill="none" accessibilityRole="image" {...props}>
     <G clipPath="url(#a)">
@@ -1523,4 +1524,5 @@ const SvgEmptyNft = (props: SvgProps) => (
     </Defs>
   </Svg>
 );
+
 export default SvgEmptyNft;

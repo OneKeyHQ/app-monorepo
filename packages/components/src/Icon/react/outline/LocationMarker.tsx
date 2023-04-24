@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgLocationMarker = (props: SvgProps) => (
   <Svg
     fill="none"
@@ -21,4 +22,5 @@ const SvgLocationMarker = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgLocationMarker;

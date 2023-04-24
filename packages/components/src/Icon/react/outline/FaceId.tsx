@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgFaceId = (props: SvgProps) => (
   <Svg viewBox="0 0 24 24" fill="none" accessibilityRole="image" {...props}>
     <Path
@@ -10,4 +11,5 @@ const SvgFaceId = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgFaceId;

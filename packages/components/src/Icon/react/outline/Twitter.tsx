@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgTwitter = (props: SvgProps) => (
   <Svg
     viewBox="0 0 24 24"
@@ -15,4 +16,5 @@ const SvgTwitter = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgTwitter;

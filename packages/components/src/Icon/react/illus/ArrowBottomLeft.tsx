@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgArrowBottomLeft = (props: SvgProps) => (
   <Svg
     viewBox="0 0 38 62"
@@ -14,4 +15,5 @@ const SvgArrowBottomLeft = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgArrowBottomLeft;

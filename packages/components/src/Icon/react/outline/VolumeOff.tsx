@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgVolumeOff = (props: SvgProps) => (
   <Svg
     fill="none"
@@ -22,4 +23,5 @@ const SvgVolumeOff = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgVolumeOff;

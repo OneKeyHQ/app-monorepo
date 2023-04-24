@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgLogoCircular = (props: SvgProps) => (
   <Svg viewBox="0 0 32 32" fill="none" accessibilityRole="image" {...props}>
     <Path
@@ -9,4 +10,5 @@ const SvgLogoCircular = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgLogoCircular;

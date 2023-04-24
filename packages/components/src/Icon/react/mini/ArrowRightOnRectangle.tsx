@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgArrowRightOnRectangle = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
     fill="currentColor"
-    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -19,4 +19,5 @@ const SvgArrowRightOnRectangle = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgArrowRightOnRectangle;

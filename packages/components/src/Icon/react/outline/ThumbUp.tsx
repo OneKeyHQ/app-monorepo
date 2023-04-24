@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgThumbUp = (props: SvgProps) => (
   <Svg
     fill="none"
@@ -15,4 +16,5 @@ const SvgThumbUp = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgThumbUp;

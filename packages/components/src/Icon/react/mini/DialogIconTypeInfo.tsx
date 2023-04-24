@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Rect, Path } from 'react-native-svg';
+
 const SvgDialogIconTypeInfo = (props: SvgProps) => (
   <Svg viewBox="0 0 48 48" fill="none" accessibilityRole="image" {...props}>
     <Rect x={0.5} width={48} height={48} rx={24} fill="#3D3D4D" />
@@ -11,4 +12,5 @@ const SvgDialogIconTypeInfo = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgDialogIconTypeInfo;

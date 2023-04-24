@@ -1,4 +1,5 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
+
 const SvgCheckBoxIconChecked = (props: SvgProps) => (
   <Svg viewBox="0 0 16 16" fill="none" accessibilityRole="image" {...props}>
     <Path
@@ -7,4 +8,5 @@ const SvgCheckBoxIconChecked = (props: SvgProps) => (
     />
   </Svg>
 );
+
 export default SvgCheckBoxIconChecked;
