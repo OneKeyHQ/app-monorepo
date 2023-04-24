@@ -4,6 +4,8 @@ import memoizee from 'memoizee';
 import uuid from 'react-native-uuid';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import type { ISimpleDbEntityUtxoData } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   decrypt,
   encrypt,
@@ -103,6 +105,9 @@ class ServiceCloudBackup extends ServiceBase {
       importedAccounts: {},
       watchingAccounts: {},
       HDWallets: {},
+      simpleDb: {
+        utxoAccounts: {} as ISimpleDbEntityUtxoData,
+      },
     };
     const backupedContacts: BackupedContacts = {};
     const { version } = this.backgroundApi.appSelector((s) => s.settings);
@@ -149,6 +154,11 @@ class ServiceCloudBackup extends ServiceBase {
       { name, avatar, accountIds: accountUUIDs },
     ] of Object.entries(backupObject.wallets)) {
       publicBackupData.HDWallets[walletId] = { name, avatar, accountUUIDs };
+    }
+
+    if (backupObject.simpleDb.utxoAccounts) {
+      publicBackupData.simpleDb.utxoAccounts =
+        backupObject.simpleDb.utxoAccounts;
     }
 
     return {
@@ -295,12 +305,18 @@ class ServiceCloudBackup extends ServiceBase {
       importedAccounts: {},
       watchingAccounts: {},
       HDWallets: {},
+      simpleDb: {
+        utxoAccounts: {} as ISimpleDbEntityUtxoData,
+      },
     };
     const notOnDevice: PublicBackupData = {
       contacts: {},
       importedAccounts: {},
       watchingAccounts: {},
       HDWallets: {},
+      simpleDb: {
+        utxoAccounts: {} as ISimpleDbEntityUtxoData,
+      },
     };
 
     try {
@@ -362,6 +378,24 @@ class ServiceCloudBackup extends ServiceBase {
           notOnDevice.HDWallets[HDWalletId] = HDWallet;
         }
       }
+
+      notOnDevice.simpleDb.utxoAccounts.utxos = (
+        remoteData.simpleDb.utxoAccounts.utxos ?? []
+      ).filter(
+        (utxo) =>
+          localData.simpleDb.utxoAccounts.utxos?.findIndex(
+            (localUtxo) => localUtxo.id === utxo.id,
+          ) < 0,
+      );
+
+      alreadyOnDevice.simpleDb.utxoAccounts.utxos = (
+        remoteData.simpleDb.utxoAccounts.utxos ?? []
+      ).filter(
+        (utxo) =>
+          localData.simpleDb.utxoAccounts.utxos?.findIndex(
+            (localUtxo) => localUtxo.id === utxo.id,
+          ) > -1,
+      );
     } catch (e) {
       debugLogger.cloudBackup.error((e as Error).message);
     }

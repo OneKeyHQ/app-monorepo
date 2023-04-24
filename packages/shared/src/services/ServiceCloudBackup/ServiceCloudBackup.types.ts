@@ -1,3 +1,5 @@
+import type { ISimpleDbEntityUtxoData } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
+
 import type { Avatar } from '../../utils/emojiUtils';
 
 export type PublicBackupData = {
@@ -8,6 +10,9 @@ export type PublicBackupData = {
     string,
     { name: string; avatar?: Avatar; accountUUIDs: Array<string> }
   >;
+  simpleDb: {
+    utxoAccounts: ISimpleDbEntityUtxoData;
+  };
 };
 
 export type IBackupItemSummary = {

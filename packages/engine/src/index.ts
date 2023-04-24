@@ -110,6 +110,7 @@ import { IDecodedTxActionType } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
 
 import type { DBAPI, ExportedSeedCredential } from './dbs/base';
+import type { ISimpleDbEntityUtxoData } from './dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { ChartQueryParams } from './priceController';
 import type {
   Account,
@@ -2740,6 +2741,9 @@ class Engine {
       importedAccounts: {},
       watchingAccounts: {},
       wallets: {},
+      simpleDb: {
+        utxoAccounts: {} as ISimpleDbEntityUtxoData,
+      },
     };
 
     const wallets = await this.dbApi.getWallets({
@@ -2785,6 +2789,10 @@ class Engine {
         }
       }
     }
+
+    // prepare simpledb data
+    const utxoAccountsRawData = await simpleDb.utxoAccounts.getRawData();
+    backupObject.simpleDb.utxoAccounts.utxos = utxoAccountsRawData?.utxos ?? [];
     return backupObject;
   }
 
@@ -2925,6 +2933,12 @@ class Engine {
         }
         await this.dbApi.confirmWalletCreated(wallet.id);
       }),
+    );
+
+    await Promise.all(
+      backupObject.simpleDb.utxoAccounts.utxos.map((utxo) =>
+        simpleDb.utxoAccounts.insertRestoreData(utxo),
+      ),
     );
   }
 
