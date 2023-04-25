@@ -266,8 +266,13 @@ class Provider {
           pageSize: params.pageSize,
         };
         break;
-      default:
-      // no-op
+      default: {
+        const exhaustiveCheck: never = params;
+        // To make sure we have handled all types
+        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        throw new Error(`type not support: ${exhaustiveCheck.type}`);
+      }
     }
 
     return this.blockbook.then((client) =>

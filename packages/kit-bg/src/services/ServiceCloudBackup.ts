@@ -105,9 +105,7 @@ class ServiceCloudBackup extends ServiceBase {
       importedAccounts: {},
       watchingAccounts: {},
       HDWallets: {},
-      simpleDb: {
-        utxoAccounts: {} as ISimpleDbEntityUtxoData,
-      },
+      simpleDb: {},
     };
     const backupedContacts: BackupedContacts = {};
     const { version } = this.backgroundApi.appSelector((s) => s.settings);
@@ -157,6 +155,9 @@ class ServiceCloudBackup extends ServiceBase {
     }
 
     if (backupObject.simpleDb.utxoAccounts) {
+      if (!publicBackupData.simpleDb) {
+        publicBackupData.simpleDb = {};
+      }
       publicBackupData.simpleDb.utxoAccounts =
         backupObject.simpleDb.utxoAccounts;
     }
@@ -379,20 +380,33 @@ class ServiceCloudBackup extends ServiceBase {
         }
       }
 
+      if (!notOnDevice.simpleDb) {
+        notOnDevice.simpleDb = {};
+      }
+      if (!notOnDevice.simpleDb.utxoAccounts) {
+        notOnDevice.simpleDb.utxoAccounts = { utxos: [] };
+      }
       notOnDevice.simpleDb.utxoAccounts.utxos = (
-        remoteData.simpleDb.utxoAccounts.utxos ?? []
+        remoteData.simpleDb?.utxoAccounts?.utxos ?? []
       ).filter(
         (utxo) =>
-          localData.simpleDb.utxoAccounts.utxos?.findIndex(
+          (localData.simpleDb?.utxoAccounts?.utxos ?? []).findIndex(
             (localUtxo) => localUtxo.id === utxo.id,
           ) < 0,
       );
 
+      if (!alreadyOnDevice.simpleDb) {
+        alreadyOnDevice.simpleDb = {};
+      }
+      if (!alreadyOnDevice.simpleDb.utxoAccounts) {
+        alreadyOnDevice.simpleDb.utxoAccounts = { utxos: [] };
+      }
+
       alreadyOnDevice.simpleDb.utxoAccounts.utxos = (
-        remoteData.simpleDb.utxoAccounts.utxos ?? []
+        remoteData.simpleDb?.utxoAccounts?.utxos ?? []
       ).filter(
         (utxo) =>
-          localData.simpleDb.utxoAccounts.utxos?.findIndex(
+          (localData.simpleDb?.utxoAccounts?.utxos ?? []).findIndex(
             (localUtxo) => localUtxo.id === utxo.id,
           ) > -1,
       );

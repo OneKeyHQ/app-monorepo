@@ -83,25 +83,28 @@ export async function prepareSendConfirmEncodedTx({
     return Promise.resolve(tx);
   }
 
-  if (
-    [IMPL_BTC, IMPL_TBTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH].includes(networkImpl)
-  ) {
-    const encodedTxBtc = encodedTx as IEncodedTxBtc;
-    if (!networkId || !accountId) {
-      return Promise.resolve(encodedTx);
-    }
-    const updatedTx = await backgroundApiProxy.engine.updateEncodedTx({
+  if (networkId) {
+    const vaultSetting = await backgroundApiProxy.engine.getVaultSettings(
       networkId,
-      accountId,
-      encodedTx: encodedTxBtc,
-      payload: {
-        selectedUtxos,
-      },
-      options: {
-        type: IEncodedTxUpdateType.advancedSettings,
-      },
-    });
-    return updatedTx;
+    );
+    if (vaultSetting.isBtcForkChain) {
+      const encodedTxBtc = encodedTx as IEncodedTxBtc;
+      if (!accountId) {
+        return Promise.resolve(encodedTx);
+      }
+      const updatedTx = await backgroundApiProxy.engine.updateEncodedTx({
+        networkId,
+        accountId,
+        encodedTx: encodedTxBtc,
+        payload: {
+          selectedUtxos,
+        },
+        options: {
+          type: IEncodedTxUpdateType.advancedSettings,
+        },
+      });
+      return updatedTx;
+    }
   }
 
   return Promise.resolve(encodedTx);
