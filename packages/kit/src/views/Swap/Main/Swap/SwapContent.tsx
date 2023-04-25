@@ -10,6 +10,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { LazyDisplayView } from '../../../../components/LazyDisplayView';
@@ -26,7 +27,7 @@ import { useTokenBalance } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 import { div, formatPercentAmount, multiply } from '../../utils';
 
-const SwapPercentInput = () => {
+const PercentInputContainer = () => {
   const inputToken = useAppSelector((s) => s.swap.inputToken);
   const sendingAccount = useAppSelector((s) => s.swap.sendingAccount);
   const inputBalance = useTokenBalance(inputToken, sendingAccount?.id);
@@ -64,6 +65,15 @@ const SwapPercentInput = () => {
     </Center>
   );
 };
+
+const SwapPercentInput = () =>
+  platformEnv.isNative ? (
+    <PercentInputContainer />
+  ) : (
+    <LazyDisplayView delay={100}>
+      <PercentInputContainer />
+    </LazyDisplayView>
+  );
 
 export const SwapContent = () => {
   const intl = useIntl();
@@ -160,9 +170,7 @@ export const SwapContent = () => {
               </Center>
             </Box>
             <Box position="absolute" top="0" right="5">
-              <LazyDisplayView delay={100}>
-                <SwapPercentInput />
-              </LazyDisplayView>
+              <SwapPercentInput />
             </Box>
           </Box>
         </Box>
