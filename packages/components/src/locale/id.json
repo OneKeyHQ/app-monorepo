@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "Transaksi ini akan mengantri setelah {number} transaksi sebelumnya.",
   "msg__exceeding_the_maximum_word_limit": "Melebihi batas kata maksimum.",
   "msg__failed_to_add_token": "Gagal menambahkan token",
+  "msg__failed_to_fetch_quotes": "Tidak dapat mengambil kutipan",
   "msg__failed_to_get_price": "Gagal mendapatkan harga",
   "msg__fee_rate_is_higher_than_necessary": "Tingkat biaya lebih tinggi dari yang diperlukan",
   "msg__fee_rate_is_low_for_current_network": "Tingkat biaya rendah untuk kondisi jaringan saat ini",

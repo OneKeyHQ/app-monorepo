@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "Questa transazione verrà messa in coda dopo {number} transazioni precedenti.",
   "msg__exceeding_the_maximum_word_limit": "Superare il limite massimo di parole.",
   "msg__failed_to_add_token": "Impossibile aggiungere un token",
+  "msg__failed_to_fetch_quotes": "Impossibile recuperare le citazioni",
   "msg__failed_to_get_price": "Impossibile ottenere il prezzo",
   "msg__fee_rate_is_higher_than_necessary": "La tariffa è più alta del necessario",
   "msg__fee_rate_is_low_for_current_network": "La tariffa è bassa per le attuali condizioni della rete",

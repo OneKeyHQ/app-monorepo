@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "यह लेन-देन {number} पहले के लेन-देन के बाद पंक्तिबद्ध होगा।",
   "msg__exceeding_the_maximum_word_limit": "अधिकतम शब्द सीमा से अधिक।",
   "msg__failed_to_add_token": "टोकन जोड़ने में विफल",
+  "msg__failed_to_fetch_quotes": "कोटेशन प्राप्त नहीं किए जा सके",
   "msg__failed_to_get_price": "कीमत पाने में विफल",
   "msg__fee_rate_is_higher_than_necessary": "शुल्क दर आवश्यकता से अधिक है",
   "msg__fee_rate_is_low_for_current_network": "वर्तमान नेटवर्क स्थितियों के लिए शुल्क दर कम है",
