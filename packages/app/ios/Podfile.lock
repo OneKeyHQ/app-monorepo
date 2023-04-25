@@ -15,8 +15,6 @@ PODS:
     - ZXingObjC/PDF417
   - EXBlur (11.1.0):
     - ExpoModulesCore
-  - EXCamera (12.2.0):
-    - ExpoModulesCore
   - EXConstants (13.1.1):
     - ExpoModulesCore
   - EXDevice (4.3.0):
@@ -688,7 +686,6 @@ DEPENDENCIES:
   - EXAV (from `../../../node_modules/expo-av/ios`)
   - EXBarCodeScanner (from `../../../node_modules/expo-barcode-scanner/ios`)
   - EXBlur (from `../../../node_modules/expo-blur/ios`)
-  - EXCamera (from `../../../node_modules/expo-camera/ios`)
   - EXConstants (from `../../../node_modules/expo-constants/ios`)
   - EXDevice (from `../../../node_modules/expo-device/ios`)
   - EXFileSystem (from `../../../node_modules/expo-file-system/ios`)
@@ -856,8 +853,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-barcode-scanner/ios"
   EXBlur:
     :path: "../../../node_modules/expo-blur/ios"
-  EXCamera:
-    :path: "../../../node_modules/expo-camera/ios"
   EXConstants:
     :path: "../../../node_modules/expo-constants/ios"
   EXDevice:
@@ -1035,7 +1030,6 @@ SPEC CHECKSUMS:
   EXAV: 88f61c5af8415715b7ee51f084c1020235b85c56
   EXBarCodeScanner: b9e1b69371c233a80fc857edcf95843f14ae9e7b
   EXBlur: f594bc6b57fc241e906a29e00fb8e54b20c374a8
-  EXCamera: 2cbc8206cb520562c1527fe565aa9f00df8e5e8f
   EXConstants: fdbe52259365b6a6faaa5e99a3b82cfa6bc2eb61
   EXDevice: 7647ca9b1fd8b269dfd896a7643d659343358054
   EXFileSystem: 2aa2d9289f84bca9532b9ccbd81504fa31eb1ded

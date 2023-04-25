@@ -118,10 +118,14 @@
   "expo": {
     "autolinking": {
       "android": {
-        "exclude": ["expo-camera"]
+        "exclude": [
+          "expo-camera"
+        ]
       },
       "ios": {
-        "exclude": ["expo-camera"]
+        "exclude": [
+          "expo-camera"
+        ]
       }
     }
   },
