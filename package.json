@@ -82,7 +82,7 @@
     "bitcoinjs-lib": "6.1.0",
     "bitcoinjs-message": "2.2.0",
     "jsrsasign": "^10.7.1",
-    "expo": "^48.0.11",
+    "expo": "^48.0.12",
     "expo-device": "^5.0.0",
     "memoizee": "^0.4.15",
     "mime-types": "^2.1.35",
@@ -136,7 +136,7 @@
     "eslint-plugin-react": "^7.31.11",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eth-rpc-errors": "^4.0.3",
-    "expo": "^48.0.11",
+    "expo": "^48.0.12",
     "file-loader": "^6.2.0",
     "fs-extra": "^10.0.0",
     "globalthis": "^1.0.2",
@@ -227,7 +227,9 @@
     "@polkadot/types-augment": "^10.7.1",
     "@polkadot/util": "^12.2.1",
     "@polkadot/util-crypto": "^12.2.1",
-    "@polkadot/x-global": "^12.2.1"
+    "@polkadot/x-global": "^12.2.1",
+    "react": "18.2.0",
+    "jsc-android": "294992.0.0"
   },
   "packageManager": "yarn@3.5.0"
 }
