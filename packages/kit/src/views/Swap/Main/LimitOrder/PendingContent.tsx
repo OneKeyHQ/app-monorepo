@@ -99,7 +99,10 @@ const SimpleView: FC<{ order: LimitOrderTransactionDetails }> = ({ order }) => {
   const expr =
     Number(remainingFillable) === 0
       ? intl.formatMessage({ id: 'form_opened' })
-      : `${Math.floor(Number(getLimitOrderPercent(order)))}%`;
+      : intl.formatMessage(
+          { id: 'form__str_filled' },
+          { '0': `${Math.floor(Number(getLimitOrderPercent(order)))}%` },
+        );
 
   return (
     <Pressable
@@ -195,7 +198,10 @@ const FullView: FC<{ order: LimitOrderTransactionDetails }> = ({ order }) => {
   const expr =
     Number(remainingFillable) === 0
       ? intl.formatMessage({ id: 'form_opened' })
-      : `${Math.floor(Number(getLimitOrderPercent(order)))}%`;
+      : intl.formatMessage(
+          { id: 'form__str_filled' },
+          { '0': `${Math.floor(Number(getLimitOrderPercent(order)))}%` },
+        );
 
   return (
     <Pressable onPress={showDetails}>
