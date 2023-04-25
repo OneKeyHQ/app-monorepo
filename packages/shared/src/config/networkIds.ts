@@ -37,6 +37,7 @@ export const OnekeyNetwork = {
   'cronos': 'evm--25',
   'fantom': 'evm--250',
   'boba': 'evm--288',
+  'fevm': 'evm--314',
   'zksyncera': 'evm--324',
   'arbitrum': 'evm--42161',
   'celo': 'evm--42220',
