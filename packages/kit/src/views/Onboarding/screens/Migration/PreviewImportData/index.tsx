@@ -21,6 +21,10 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
+import type {
+  ISimpleDBBackUp,
+  PublicBackupData,
+} from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useData } from '../../../../../hooks/redux';
@@ -59,18 +63,23 @@ const PreviewImportData = () => {
   const { requestBackupPassword } = useImportBackupPasswordModal();
 
   const [hasRemoteData, setHasRemoteData] = useState(false);
-  const [backupData, setBackupData] = useState({
+  const [backupData, setBackupData] = useState<{
+    alreadyOnDevice: PublicBackupData;
+    notOnDevice: PublicBackupData;
+  }>({
     alreadyOnDevice: {
       contacts: {},
       importedAccounts: {},
       watchingAccounts: {},
       HDWallets: {},
+      simpleDb: {} as ISimpleDBBackUp,
     },
     notOnDevice: {
       contacts: {},
       importedAccounts: {},
       watchingAccounts: {},
       HDWallets: {},
+      simpleDb: {} as ISimpleDBBackUp,
     },
   });
 

@@ -2,6 +2,8 @@ import type { ComponentProps, FC } from 'react';
 
 import { Badge as NBBadge } from 'native-base';
 
+import type { Text } from '@onekeyhq/components';
+
 import Typography from '../Typography';
 
 export type BadgeType = 'default' | 'success' | 'info' | 'warning' | 'critical';
@@ -12,6 +14,8 @@ export type BadgeProps = {
   title: string;
   size: SizeType;
   color?: ComponentProps<typeof Typography.CaptionStrong>['color'];
+  labelProps?: ComponentProps<typeof Text>;
+  numberOfLines?: number;
 } & ComponentProps<typeof NBBadge>;
 
 type BadgeTypeProps = {
@@ -76,6 +80,7 @@ const Badge: FC<BadgeProps> = ({
   type = 'default',
   size,
   color,
+  labelProps,
   ...rest
 }) => {
   const bgColor: string = bgColorWithType(type);
@@ -99,6 +104,7 @@ const Badge: FC<BadgeProps> = ({
         fontSize={badgeTypeProps.fontSize}
         lineHeight={badgeTypeProps.lineHeight}
         color={color || textColor}
+        {...labelProps}
       >
         {title}
       </Typography.CaptionStrong>
