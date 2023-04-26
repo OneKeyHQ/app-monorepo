@@ -65,6 +65,9 @@ export type SYSFirmwareInfo = {
   changelog: Changelog;
   fullResource?: string;
   fullResourceRange?: string[];
+  bootloaderVersion?: number[];
+  bootloaderRelatedFirmwareVersion?: number[];
+  bootloaderChangelog?: Changelog;
 };
 
 export type BLEFirmwareInfo = {

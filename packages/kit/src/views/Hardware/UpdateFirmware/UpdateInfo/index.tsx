@@ -70,6 +70,7 @@ const UpdateInfoModal: FC = () => {
   const [resourceUpdateInfo, setResourceUpdateInfo] =
     useState<IResourceUpdateInfo>();
   const resourceRef = useRef<IResourceUpdateInfo>();
+  const [shouldUpdateBootlader, setShouldUpdateBootloader] = useState(false);
 
   const showUpdateOnDesktopModal = useCallback(() => {
     const closeOverlay = (close?: () => void) => {
@@ -185,7 +186,7 @@ const UpdateInfoModal: FC = () => {
       if (ble) {
         setBleFirmware(ble);
       } else if (firmware) {
-        // firmware check update
+        // check Touch resource update
         const resourceInfo = await deviceUtils.checkTouchNeedUpdateResource(
           deviceFeatures,
           firmware,
@@ -199,6 +200,16 @@ const UpdateInfoModal: FC = () => {
           if (!isSmallScreen) {
             navigation.goBack();
           }
+        }
+
+        if (findDevice.deviceType === 'classic') {
+          const shouldUpdateBootloader =
+            await serviceHardware.checkBootloaderRelease(
+              connectId,
+              firmware.version.join('.'),
+            );
+          console.log('shouldUpdateBootloader ====> ', shouldUpdateBootloader);
+          setShouldUpdateBootloader(!!shouldUpdateBootloader?.shouldUpdate);
         }
         setSysFirmware(firmware);
         setResourceUpdateInfo(resourceInfo);
@@ -228,16 +239,17 @@ const UpdateInfoModal: FC = () => {
     deviceConnectId,
   ]);
 
-  const buttonEnable = useMemo(() => {
-    if (device?.deviceType !== 'touch') return true;
-    return !!features;
-  }, [device, features]);
+  const buttonEnable = useMemo(() => !!features, [features]);
 
   return (
     <Modal
       maxHeight={560}
       hideSecondaryAction
-      header={intl.formatMessage({ id: 'modal__firmware_update' })}
+      header={intl.formatMessage({
+        id: shouldUpdateBootlader
+          ? 'modal__bootloader_update'
+          : 'modal__firmware_update',
+      })}
       primaryActionTranslationId="action__update"
       onPrimaryActionPress={() => {
         navigation.navigate(
@@ -246,6 +258,7 @@ const UpdateInfoModal: FC = () => {
             device,
             onSuccess,
             resourceUpdateInfo,
+            shouldUpdateBootlader,
           },
         );
       }}
@@ -311,7 +324,7 @@ const UpdateInfoModal: FC = () => {
               </>
             )}
 
-            {!!sysFirmware && (
+            {!!sysFirmware && !shouldUpdateBootlader && (
               <>
                 <Typography.DisplaySmall mt={6}>
                   {`🧩  ${intl.formatMessage({
@@ -321,6 +334,19 @@ const UpdateInfoModal: FC = () => {
                 <Markdown>
                   {sysFirmware?.changelog?.[local.locale] ??
                     sysFirmware?.changelog?.['en-US']}
+                </Markdown>
+              </>
+            )}
+            {!!sysFirmware && shouldUpdateBootlader && (
+              <>
+                <Typography.DisplaySmall mt={6}>
+                  {`🔗 bootloader ${
+                    sysFirmware?.bootloaderVersion?.join('.') ?? ''
+                  }`}
+                </Typography.DisplaySmall>
+                <Markdown>
+                  {sysFirmware?.bootloaderChangelog?.[local.locale] ??
+                    sysFirmware?.bootloaderChangelog?.['en-US']}
                 </Markdown>
               </>
             )}

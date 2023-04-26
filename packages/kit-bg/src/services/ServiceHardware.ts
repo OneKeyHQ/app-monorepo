@@ -832,6 +832,24 @@ class ServiceHardware extends ServiceBase {
         return response;
       });
   }
+
+  @backgroundMethod()
+  async checkBootloaderRelease(
+    connectId: string,
+    willUpdateFirmwareVersion: string,
+  ) {
+    const hardwareSDK = await this.getSDKInstance();
+    return hardwareSDK
+      ?.checkBootloaderRelease(connectId, { willUpdateFirmwareVersion })
+      .then((response) => {
+        if (!response.success) {
+          return Promise.reject(
+            deviceUtils.convertDeviceError(response.payload),
+          );
+        }
+        return response.payload;
+      });
+  }
 }
 
 export default ServiceHardware;

@@ -24,6 +24,7 @@ export type HardwareUpdateRoutesParams = {
   [HardwareUpdateModalRoutes.HardwareUpdateWarningModal]: {
     device?: Device;
     resourceUpdateInfo?: IResourceUpdateInfo;
+    shouldUpdateBootlader?: boolean;
     onSuccess?: () => void;
   };
   [HardwareUpdateModalRoutes.HardwareUpdateWarningPowerModal]: {
