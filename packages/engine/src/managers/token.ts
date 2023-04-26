@@ -59,6 +59,16 @@ function getNetworkIdFromTokenId(tokenId: string): string {
 
 export const isValidTokenId = (tokenId: string) => tokenId?.includes(SEPERATOR);
 
+export const getTokenAddress = (address: string, impl: string) => {
+  if (!address || !impl) {
+    return address;
+  }
+  if (caseSensitiveImpls.has(impl)) {
+    return address;
+  }
+  return address.toLowerCase();
+};
+
 export const formatServerToken = (token: ServerToken): Token => {
   const { address = '', logoURI, isNative } = token;
   const { impl, chainId } = token;
@@ -170,8 +180,11 @@ export const getBalanceKey = (token?: Partial<Token> | null) => {
   if (!token) {
     return '';
   }
-  const { sendAddress } = token;
-  const tokenAddress = token.tokenIdOnNetwork ?? token.address;
+  const { sendAddress, impl } = token;
+  const tokenAddress = getTokenAddress(
+    token.tokenIdOnNetwork ?? token.address ?? '',
+    impl ?? '',
+  );
   if (!tokenAddress) {
     return 'main';
   }
