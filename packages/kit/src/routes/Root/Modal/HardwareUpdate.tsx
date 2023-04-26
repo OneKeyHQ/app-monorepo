@@ -5,6 +5,7 @@ import UpdateInfoModel from '../../../views/Hardware/UpdateFirmware/UpdateInfo';
 import UpdateResourceModal from '../../../views/Hardware/UpdateFirmware/UpdateResource';
 import UpdateWarningModel from '../../../views/Hardware/UpdateFirmware/UpdateWarning';
 import UpdatingModel from '../../../views/Hardware/UpdateFirmware/Updating';
+import UpdatingBootloaderModal from '../../../views/Hardware/UpdateFirmware/UpdatingBootloader';
 import { HardwareUpdateModalRoutes } from '../../routesEnum';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
@@ -35,6 +36,14 @@ export type HardwareUpdateRoutesParams = {
     device?: Device;
     onSuccess?: () => void;
   };
+  [HardwareUpdateModalRoutes.HardwareUpdatingModal]: {
+    device?: Device;
+    onSuccess?: () => void;
+  };
+  [HardwareUpdateModalRoutes.HardwareUpdatingBootloaderModal]: {
+    device?: Device;
+    onSuccess?: () => void;
+  };
   [HardwareUpdateModalRoutes.HardwareUpdateResourceModal]: {
     device?: Device;
     resourceUpdateInfo?: IResourceUpdateInfo;
@@ -57,6 +66,10 @@ const modalRoutes = [
   {
     name: HardwareUpdateModalRoutes.HardwareUpdatingModal,
     component: UpdatingModel,
+  },
+  {
+    name: HardwareUpdateModalRoutes.HardwareUpdatingBootloaderModal,
+    component: UpdatingBootloaderModal,
   },
   {
     name: HardwareUpdateModalRoutes.HardwareUpdateResourceModal,

@@ -34,7 +34,7 @@ const UpdateWarningModal: FC = () => {
       'UpdateWarningModal, shouldUpdateBootloader: ',
       shouldUpdateBootlader,
     );
-  }, []);
+  }, [resourceUpdateInfo, shouldUpdateBootlader]);
 
   return (
     <Modal
@@ -53,10 +53,13 @@ const UpdateWarningModal: FC = () => {
             },
           );
         } else if (shouldUpdateBootlader) {
-          navigation.replace(HardwareUpdateModalRoutes.HardwareUpdatingModal, {
-            device,
-            onSuccess,
-          });
+          navigation.replace(
+            HardwareUpdateModalRoutes.HardwareUpdatingBootloaderModal,
+            {
+              device,
+              onSuccess,
+            },
+          );
         } else {
           navigation.replace(HardwareUpdateModalRoutes.HardwareUpdatingModal, {
             device,

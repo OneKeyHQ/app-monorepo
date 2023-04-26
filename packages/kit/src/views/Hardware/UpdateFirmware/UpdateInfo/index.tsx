@@ -324,19 +324,6 @@ const UpdateInfoModal: FC = () => {
               </>
             )}
 
-            {!!sysFirmware && !shouldUpdateBootlader && (
-              <>
-                <Typography.DisplaySmall mt={6}>
-                  {`🧩  ${intl.formatMessage({
-                    id: 'content__firmware_lowercase',
-                  })} ${sysFirmware?.version?.join('.') ?? ''}`}
-                </Typography.DisplaySmall>
-                <Markdown>
-                  {sysFirmware?.changelog?.[local.locale] ??
-                    sysFirmware?.changelog?.['en-US']}
-                </Markdown>
-              </>
-            )}
             {!!sysFirmware && shouldUpdateBootlader && (
               <>
                 <Typography.DisplaySmall mt={6}>
@@ -347,6 +334,20 @@ const UpdateInfoModal: FC = () => {
                 <Markdown>
                   {sysFirmware?.bootloaderChangelog?.[local.locale] ??
                     sysFirmware?.bootloaderChangelog?.['en-US']}
+                </Markdown>
+              </>
+            )}
+
+            {!!sysFirmware && (
+              <>
+                <Typography.DisplaySmall mt={6}>
+                  {`🧩  ${intl.formatMessage({
+                    id: 'content__firmware_lowercase',
+                  })} ${sysFirmware?.version?.join('.') ?? ''}`}
+                </Typography.DisplaySmall>
+                <Markdown>
+                  {sysFirmware?.changelog?.[local.locale] ??
+                    sysFirmware?.changelog?.['en-US']}
                 </Markdown>
               </>
             )}

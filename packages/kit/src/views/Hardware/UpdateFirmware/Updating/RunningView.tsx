@@ -8,6 +8,7 @@ import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 export type RunningViewProps = {
   progress: number;
   hint: string;
+  showBatteryAlert?: boolean;
 };
 
 const RunningView: FC<RunningViewProps> = ({ progress, hint }) => {
