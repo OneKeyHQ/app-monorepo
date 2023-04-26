@@ -377,6 +377,7 @@ const icons = {
   ShieldExclamationMini: () => null,
   ShoppingBagMini: () => null,
   ShoppingCartMini: () => null,
+  SnowFlakeMini: () => null,
   SignalMini: () => null,
   SignalSlashMini: () => null,
   SparklesMini: () => null,

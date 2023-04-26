@@ -392,6 +392,7 @@ const icons = {
   ShieldExclamationMini: () => import("./react/mini/ShieldExclamation"),
   ShoppingBagMini: () => import("./react/mini/ShoppingBag"),
   ShoppingCartMini: () => import("./react/mini/ShoppingCart"),
+  SnowFlakeMini: () => import('./react/mini/SnowFlake'),
   SignalMini: () => import("./react/mini/Signal"),
   SignalSlashMini: () => import("./react/mini/SignalSlash"),
   SparklesMini: () => import("./react/mini/Sparkles"),

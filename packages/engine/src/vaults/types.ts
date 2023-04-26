@@ -109,7 +109,7 @@ export type IVaultSettings = {
   batchTokenTransferApprovalRequired?: boolean;
   maxActionsInTx?: number;
   transactionIdPattern?: string;
-  showUsedAddress?: boolean;
+  isBtcForkChain?: boolean;
   nonceEditable?: boolean;
 };
 export type IVaultFactoryOptions = {
@@ -137,6 +137,7 @@ export type ITransferInfo = {
   type?: string; // NFT standard: erc721/erc1155
   destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
   keepAlive?: boolean; // Polkadot chain keep alive
+  selectedUtxos?: string[]; // coin control
 };
 export type IApproveInfo = {
   from: string; // token owner
