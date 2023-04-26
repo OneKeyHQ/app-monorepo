@@ -23,7 +23,6 @@ import { useCopyAddress } from '../../hooks/useCopyAddress';
 import { useIsMounted } from '../../hooks/useIsMounted';
 import { buildAddressDetailsUrl } from '../../hooks/useOpenBlockBrowser';
 import {
-  CoinControlModalRoutes,
   FiatPayModalRoutes,
   ModalRoutes,
   RootRoutes,
@@ -97,8 +96,6 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     enabledAccountDynamicNetworkIds.includes(network?.id || '') &&
     isCoinTypeCompatibleWithImpl(account.coinType, IMPL_EVM);
 
-  const showCoinControl = network?.settings.isBtcForkChain;
-
   const accountSubscriptionIcon = useMemo(
     () => (enabledNotification ? 'BellSlashMini' : 'BellMini'),
     [enabledNotification],
@@ -145,20 +142,6 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     enabledNotification,
     serviceNotification,
   ]);
-
-  const onPressCoinControl = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.CoinControl,
-      params: {
-        screen: CoinControlModalRoutes.CoinControlModal,
-        params: {
-          networkId: network?.id ?? '',
-          accountId,
-          isSelectMode: false,
-        },
-      },
-    });
-  }, [navigation, network?.id, accountId]);
 
   const walletType = wallet?.type;
 
@@ -262,11 +245,6 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
         onPress: onChangeAccountSubscribe,
         icon: accountSubscriptionIcon,
       },
-      showCoinControl && {
-        id: 'action__coin_control',
-        onPress: onPressCoinControl,
-        icon: 'DocumentTextOutline',
-      },
       // TODO Share
     ],
     [
@@ -275,10 +253,8 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       explorerUrl,
       explorerName,
       showSubscriptionIcon,
-      showCoinControl,
       enabledNotification,
       onChangeAccountSubscribe,
-      onPressCoinControl,
       accountSubscriptionIcon,
       account,
       network,

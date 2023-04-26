@@ -4,18 +4,7 @@ import { toLower } from 'lodash';
 
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
-import { IEncodedTxUpdateType } from '@onekeyhq/engine/src/vaults/types';
-import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
-import {
-  IMPL_BCH,
-  IMPL_BTC,
-  IMPL_DOGE,
-  IMPL_EVM,
-  IMPL_LTC,
-  IMPL_TBTC,
-} from '@onekeyhq/shared/src/engine/engineConsts';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import type { BatchSendConfirmParams, SendConfirmParams } from '../types';
 
@@ -35,21 +24,15 @@ function removeFeeInfoInTx(encodedTx: IEncodedTxEvm) {
 
 // TODO move to Vault / Service
 export async function prepareSendConfirmEncodedTx({
-  networkId,
-  accountId,
   encodedTx,
   networkImpl,
   sendConfirmParams,
   address,
-  selectedUtxos,
 }: {
-  networkId?: string;
-  accountId?: string;
   encodedTx?: IEncodedTx;
   networkImpl: string;
   sendConfirmParams: SendConfirmParams | BatchSendConfirmParams;
   address: string;
-  selectedUtxos?: string[];
 }): Promise<IEncodedTx> {
   if (!encodedTx) {
     throw new Error('prepareEncodedTx encodedTx should NOT be null');
@@ -82,30 +65,5 @@ export async function prepareSendConfirmEncodedTx({
 
     return Promise.resolve(tx);
   }
-
-  if (networkId) {
-    const vaultSetting = await backgroundApiProxy.engine.getVaultSettings(
-      networkId,
-    );
-    if (vaultSetting.isBtcForkChain) {
-      const encodedTxBtc = encodedTx as IEncodedTxBtc;
-      if (!accountId) {
-        return Promise.resolve(encodedTx);
-      }
-      const updatedTx = await backgroundApiProxy.engine.updateEncodedTx({
-        networkId,
-        accountId,
-        encodedTx: encodedTxBtc,
-        payload: {
-          selectedUtxos,
-        },
-        options: {
-          type: IEncodedTxUpdateType.advancedSettings,
-        },
-      });
-      return updatedTx;
-    }
-  }
-
   return Promise.resolve(encodedTx);
 }

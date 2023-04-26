@@ -5,7 +5,6 @@ import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import HelpSelector from '../Help/HelpSelector';
 
 import { AboutSection } from './AboutSection';
-import { AdvancedSection } from './AdvancedSection';
 import { DefaultSection } from './DefaultSection';
 import { DevSettingSection } from './DevSetting';
 import { FooterAction } from './FooterSection';
@@ -30,7 +29,6 @@ export const Me = (options: any) => {
           <GenaralSection />
           <SecuritySection />
           <PushSection />
-          <AdvancedSection />
           <AboutSection />
           <FooterAction />
           {devModeEnable ? <DevSettingSection /> : null}

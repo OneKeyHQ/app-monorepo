@@ -167,8 +167,7 @@ const ListGallery = () => (
               />
             </ListItem>
           )}
-          // footerText="Lorem Ipsum is simply dummy text of the printing and typesetting industry."
-          ListFooterComponent={<Box>ListFooterComponent</Box>}
+          footerText="Lorem Ipsum is simply dummy text of the printing and typesetting industry."
           keyExtractor={(item) => item.id}
         />
       </Box>

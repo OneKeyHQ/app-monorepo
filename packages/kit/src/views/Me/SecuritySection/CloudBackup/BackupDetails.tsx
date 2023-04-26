@@ -20,10 +20,7 @@ import {
 } from '@onekeyhq/components';
 import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
-import type {
-  ISimpleDBBackUp,
-  PublicBackupData,
-} from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
+import type { PublicBackupData } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -281,23 +278,18 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
   } = route.params;
 
   const [dataReady, setDataReady] = useState(true);
-  const [backupData, setBackupData] = useState<{
-    alreadyOnDevice: PublicBackupData;
-    notOnDevice: PublicBackupData;
-  }>({
+  const [backupData, setBackupData] = useState({
     alreadyOnDevice: {
       contacts: {},
       importedAccounts: {},
       watchingAccounts: {},
       HDWallets: {},
-      simpleDb: {} as ISimpleDBBackUp,
     },
     notOnDevice: {
       contacts: {},
       importedAccounts: {},
       watchingAccounts: {},
       HDWallets: {},
-      simpleDb: {} as ISimpleDBBackUp,
     },
   });
   const [hasLocalData, setHasLocalData] = useState(false);

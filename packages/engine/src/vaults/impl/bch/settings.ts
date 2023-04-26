@@ -32,7 +32,7 @@ const settings: IVaultSettings = Object.freeze({
     },
   },
 
-  isBtcForkChain: true,
+  showUsedAddress: true,
 });
 
 export default settings;

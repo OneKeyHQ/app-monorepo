@@ -323,7 +323,7 @@ export const FormatBalance: FC<{
 
   const Component = as;
 
-  return <Component numberOfLines={1}>{child}</Component>;
+  return <Component>{child}</Component>;
 };
 
 export function FormatBalanceTokenOfAccount({

@@ -115,9 +115,6 @@ export type SettingsState = {
   };
   leftSidebarCollapsed?: boolean;
   enableETH2Unstake?: boolean;
-  advancedSettings?: {
-    useDustUtxo?: boolean;
-  };
 };
 
 export const defaultPushNotification = {
@@ -188,9 +185,6 @@ const initialState: SettingsState = {
   },
   softwareUpdate: {
     forceUpdateVersionInfo: undefined,
-  },
-  advancedSettings: {
-    useDustUtxo: true,
   },
 };
 
@@ -588,16 +582,6 @@ export const settingsSlice = createSlice({
     setEnableETH2Unstake(state, action: PayloadAction<boolean>) {
       state.enableETH2Unstake = action.payload;
     },
-    setAdvancedSettings(
-      state,
-      action: PayloadAction<SettingsState['advancedSettings']>,
-    ) {
-      const prevSettings = state.advancedSettings ?? {};
-      state.advancedSettings = {
-        ...prevSettings,
-        ...action.payload,
-      };
-    },
   },
 });
 
@@ -653,7 +637,6 @@ export const {
   setForceUpdateVersionInfo,
   setLeftSidebarCollapsed,
   setEnableETH2Unstake,
-  setAdvancedSettings,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

@@ -9,4 +9,3 @@ export * from './Root/Modal/SubmitRequest';
 export * from './Root/Modal/HardwareOnekeyLiteReset';
 export * from './Root/Modal/HardwareOnekeyLiteChangePin';
 export * from './Root/Modal/DappConnection';
-export * from './Root/Modal/CoinControl';
