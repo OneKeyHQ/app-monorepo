@@ -12,7 +12,7 @@ import {
   Token,
   Typography,
 } from '@onekeyhq/components';
-import type { ButtonSize } from '@onekeyhq/components/src/Button';
+import type { ButtonSize, ButtonType } from '@onekeyhq/components/src/Button';
 import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/types';
@@ -29,7 +29,7 @@ import { useTokenSupportStakedAssets } from '../../../hooks/useTokens';
 import { useMarketTokenItem } from '../../Market/hooks/useMarketToken';
 import { StakingRoutes } from '../../Staking/typing';
 
-import TokenDetailMenu from './TokenDetailMenu';
+import MoreMenuButton from './MoreMenuButton';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
 
@@ -44,7 +44,9 @@ export type Props = {
 export const FavoritedButton: FC<{
   coingeckoId?: string;
   size?: ButtonSize;
-}> = ({ coingeckoId, size }) => {
+  type?: ButtonType;
+  circle?: boolean;
+}> = ({ coingeckoId, size, type, circle }) => {
   const intl = useIntl();
 
   const marketTokenItem = useMarketTokenItem({
@@ -52,8 +54,9 @@ export const FavoritedButton: FC<{
   });
   return (
     <IconButton
+      isDisabled={typeof marketTokenItem === 'undefined'}
       name={marketTokenItem?.favorited ? 'StarSolid' : 'StarOutline'}
-      circle
+      circle={circle}
       iconColor={marketTokenItem?.favorited ? 'icon-warning' : 'icon-default'}
       onPress={() => {
         if (marketTokenItem) {
@@ -78,6 +81,7 @@ export const FavoritedButton: FC<{
         }
       }}
       size={size}
+      type={type}
     />
   );
 };
@@ -174,15 +178,13 @@ const DeskTopHeader: FC<Props> = ({
           />
         ) : null}
 
-        <FavoritedButton coingeckoId={token?.coingeckoId} />
-        <TokenDetailMenu
+        <FavoritedButton coingeckoId={token?.coingeckoId} circle />
+        <MoreMenuButton
           token={token}
           sendAddress={sendAddress}
           accountId={accountId}
           networkId={networkId}
-        >
-          <IconButton circle size="base" name="EllipsisHorizontalOutline" />
-        </TokenDetailMenu>
+        />
       </HStack>
     ),
     [

@@ -112,7 +112,13 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     if (!isVerticalLayout) {
       return null;
     }
-    return <FavoritedButton coingeckoId={token?.coingeckoId} />;
+    return (
+      <FavoritedButton
+        coingeckoId={token?.coingeckoId}
+        type="plain"
+        size="xl"
+      />
+    );
   }, [isVerticalLayout, token]);
 
   useLayoutEffect(() => {
