@@ -62,7 +62,19 @@
     return;
   }
   _defaultIndex = defaultIndex;
-//  [self reloadTabView];
+}
+
+-(void)setHeaderHeight:(CGFloat)headerHeight {
+  BOOL needReload = _headerHeight != 0;
+  if (_headerHeight == headerHeight) {
+    return;
+  }
+  _headerHeight = headerHeight;
+  if (needReload) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [self.pagingView resizeTableHeaderViewHeightWithAnimatable:NO duration:0 curve:0];
+    });
+  }
 }
 
 -(void)setTabViewStyle:(NSDictionary *)tabViewStyle {
