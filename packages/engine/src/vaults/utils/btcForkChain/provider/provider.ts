@@ -44,14 +44,6 @@ type GetAccountParams =
   | {
       type: 'usedAddress';
       xpub: string;
-    }
-  | {
-      type: 'accountInfo';
-      xpub: string;
-      details: string;
-      from?: number;
-      to?: number;
-      pageSize?: number;
     };
 
 type GetAccountWithAddressParams = {
@@ -258,21 +250,8 @@ class Provider {
       case 'usedAddress':
         requestParams = { details: 'tokenBalances', tokens: 'used' };
         break;
-      case 'accountInfo':
-        requestParams = {
-          details: params.details,
-          from: params.from,
-          to: params.to,
-          pageSize: params.pageSize,
-        };
-        break;
-      default: {
-        const exhaustiveCheck: never = params;
-        // To make sure we have handled all types
-        // @ts-expect-error
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        throw new Error(`type not support: ${exhaustiveCheck.type}`);
-      }
+      default:
+      // no-op
     }
 
     return this.blockbook.then((client) =>

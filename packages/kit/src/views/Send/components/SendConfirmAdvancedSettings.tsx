@@ -15,7 +15,6 @@ import {
 import { useNetworkSimple } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 
-import CoinControlAdvancedSetting from './CoinControlAdvancedSetting';
 import { LabelWithTooltip } from './LableWithTooltip';
 
 import type { SendConfirmAdvancedSettings as AdvancedSettings } from '../types';
@@ -35,7 +34,6 @@ type AdvancedSettingsForm = {
 
 function SendConfirmAdvancedSettingsMemo(props: Props) {
   const {
-    accountId,
     networkId,
     encodedTx,
     advancedSettings,
@@ -49,7 +47,6 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
   const network = useNetworkSimple(networkId);
 
   const nonceEditable = network?.settings?.nonceEditable;
-  const isBtcForkChain = network?.settings?.isBtcForkChain;
 
   const intl = useIntl();
 
@@ -78,17 +75,12 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
     },
   });
 
-  const isCoinControlChecked = useMemo(
-    () => !!advancedSettings?.isCoinControlChecked,
-    [advancedSettings?.isCoinControlChecked],
-  );
-
   const advanceSettings = useMemo(() => {
-    const settings = [];
+    const setttings = [];
 
     if (nonceEditable && originNonce !== '') {
       const isEditNonceDisabled = originNonce === currentNonce;
-      settings.push(
+      setttings.push(
         <Form.Item
           name="nonce"
           label={
@@ -137,46 +129,17 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
       );
     }
 
-    if (isBtcForkChain) {
-      settings.push(
-        <CoinControlAdvancedSetting
-          network={network}
-          accountId={accountId}
-          encodedTx={encodedTx}
-          isChecked={isCoinControlChecked}
-          onToggleCoinControl={() => {
-            setAdvancedSettings((prev) => ({
-              ...prev,
-              isCoinControlChecked: !prev.isCoinControlChecked,
-            }));
-          }}
-          onSelectedUtxos={(selectedUtxos) => {
-            setAdvancedSettings((prev) => ({
-              ...prev,
-              selectedUtxos,
-            }));
-          }}
-        />,
-      );
-    }
-
-    return settings;
+    return setttings;
   }, [
-    accountId,
-    network,
-    encodedTx,
     nonceEditable,
     originNonce,
-    isBtcForkChain,
     currentNonce,
     intl,
     control,
     isLessNonce,
     isLoadingAdvancedSettings,
-    isCoinControlChecked,
     onBlur,
     setValue,
-    setAdvancedSettings,
   ]);
 
   useEffect(() => {

@@ -1,7 +1,6 @@
 import { withTabLayout } from '@onekeyhq/components/src/Layout/withTabLayout';
 
 import { toFocusedLazy } from '../../../../../components/LazyRenderWhenFocus';
-import AdvancedSettings from '../../../../../views/AdvancedSettings';
 import ClearCache from '../../../../../views/ClearCache';
 import OnekeyLiteDetail from '../../../../../views/Hardware/OnekeyLite/Detail';
 import MeScreen from '../../../../../views/Me';
@@ -74,10 +73,6 @@ const config: TabRouteConfig = {
     {
       name: HomeRoutes.ClearCache,
       component: ClearCache,
-    },
-    {
-      name: HomeRoutes.AdvancedSettings,
-      component: AdvancedSettings,
     },
   ],
 };

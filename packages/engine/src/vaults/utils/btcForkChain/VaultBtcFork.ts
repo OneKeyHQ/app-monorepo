@@ -5,29 +5,22 @@ import bs58check from 'bs58check';
 import memoizee from 'memoizee';
 
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type {
   IBlockBookTransaction,
-  IBtcUTXO,
   IEncodedTxBtc,
   IUTXOInput,
   IUTXOOutput,
   PartialTokenInfo,
   TxInput,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
-import { appSelector } from '@onekeyhq/kit/src/store';
 import {
   COINTYPE_BTC,
   IMPL_BTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import {
-  getUtxoId,
-  getUtxoUniqueKey,
-} from '../../../dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import {
   InsufficientBalance,
   InvalidAddress,
@@ -38,6 +31,7 @@ import {
 import {
   getDefaultPurpose,
   getLastAccountId,
+  getNextAccountId,
 } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { EVMDecodedTxType } from '../../impl/evm/decoder/types';
@@ -45,7 +39,6 @@ import {
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
-  IEncodedTxUpdateType,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
@@ -59,10 +52,6 @@ import type {
   BtcForkChainUsedAccount,
   DBUTXOAccount,
 } from '../../../types/account';
-import type {
-  CoinControlItem,
-  ICoinControlListItem,
-} from '../../../types/utxoAccounts';
 import type { KeyringBaseMock } from '../../keyring/KeyringBase';
 import type { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import type {
@@ -451,8 +440,7 @@ export default class VaultBtcFork extends VaultBase {
     const { to, amount } = transferInfo;
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    let utxos = await this.collectUTXOs();
-
+    const utxos = await this.collectUTXOs();
     // Select the slowest fee rate as default, otherwise the UTXO selection
     // would be failed.
     // SpecifiedFeeRate is from UI layer and is in BTC/byte, convert it to sats/byte
@@ -462,24 +450,6 @@ export default class VaultBtcFork extends VaultBase {
             .shiftedBy(network.feeDecimals)
             .toFixed()
         : (await this.getFeeRate())[1];
-
-    // Coin Control
-    const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub, utxos);
-    utxos = utxos.filter(
-      (utxo) =>
-        frozenUtxos.findIndex(
-          (frozenUtxo) => frozenUtxo.id === getUtxoId(this.networkId, utxo),
-        ) < 0,
-    );
-    if (
-      Array.isArray(transferInfo.selectedUtxos) &&
-      transferInfo.selectedUtxos.length
-    ) {
-      utxos = utxos.filter((utxo) =>
-        (transferInfo.selectedUtxos ?? []).includes(getUtxoUniqueKey(utxo)),
-      );
-    }
-
     const max = utxos
       .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
       .shiftedBy(-network.decimals)
@@ -557,27 +527,11 @@ export default class VaultBtcFork extends VaultBase {
     throw new NotImplemented();
   }
 
-  async updateEncodedTx(
-    encodedTx: IEncodedTxBtc,
-    payload: { selectedUtxos?: string[] },
+  updateEncodedTx(
+    encodedTx: IEncodedTx,
+    payload: any,
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTx> {
-    if (
-      options.type === IEncodedTxUpdateType.advancedSettings &&
-      Array.isArray(payload.selectedUtxos) &&
-      payload.selectedUtxos.length
-    ) {
-      const network = await this.engine.getNetwork(this.networkId);
-      return this.buildEncodedTxFromTransfer(
-        {
-          ...encodedTx.transferInfo,
-          selectedUtxos: payload.selectedUtxos,
-        },
-        new BigNumber(encodedTx.feeRate)
-          .shiftedBy(-network.feeDecimals)
-          .toFixed(),
-      );
-    }
     return Promise.resolve(encodedTx);
   }
 
@@ -890,81 +844,5 @@ export default class VaultBtcFork extends VaultBase {
           .shiftedBy(-8)
           .toFixed(),
       }));
-  }
-
-  async getAccountInfo({
-    details = 'txs',
-    from,
-    to,
-    pageSize,
-  }: {
-    details: string;
-    from?: number;
-    to?: number;
-    pageSize?: number;
-  }) {
-    const account = (await this.getDbAccount()) as DBUTXOAccount;
-    const xpub = this.getAccountXpub(account);
-    if (!xpub) {
-      return [];
-    }
-    const provider = await this.getProvider();
-    return provider.getAccount({
-      type: 'accountInfo',
-      xpub,
-      details,
-      from,
-      to,
-      pageSize,
-    });
-  }
-
-  private async getFrozenUtxos(xpub: string, utxos: IBtcUTXO[]) {
-    const useDustUtxo =
-      appSelector((s) => s.settings.advancedSettings?.useDustUtxo) ?? true;
-
-    let dustUtxos: CoinControlItem[] = [];
-    if (!useDustUtxo) {
-      const network = await this.getNetwork();
-      const dust = new BigNumber(
-        this.settings.minTransferAmount || 0,
-      ).shiftedBy(network.decimals);
-      dustUtxos = utxos
-        .filter((utxo) => new BigNumber(utxo.value).isLessThanOrEqualTo(dust))
-        .map((utxo) => ({
-          ...utxo,
-          id: getUtxoId(this.networkId, utxo),
-          key: getUtxoUniqueKey(utxo),
-        })) as unknown as CoinControlItem[];
-    }
-    const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
-      this.networkId,
-      xpub,
-    );
-    const frozenUtxos = archivedUtxos.filter((utxo) => utxo.frozen);
-    return frozenUtxos.concat(dustUtxos);
-  }
-
-  override async getFrozenBalance(): Promise<number> {
-    const utxos = await this.collectUTXOs();
-    const [dbAccount, network] = await Promise.all([
-      this.getDbAccount() as Promise<DBUTXOAccount>,
-      this.getNetwork(),
-    ]);
-    // find frozen utxo
-    const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub, utxos);
-    const allFrozenUtxo = utxos.filter((utxo) =>
-      frozenUtxos.find(
-        (frozenUtxo) => frozenUtxo.id === getUtxoId(this.networkId, utxo),
-      ),
-    );
-    // use bignumber to calculate sum allFrozenUtxo value
-    const frozenBalance = allFrozenUtxo.reduce(
-      (sum, utxo) => sum.plus(utxo.value),
-      new BigNumber(0),
-    );
-    return Promise.resolve(
-      frozenBalance.shiftedBy(-network.decimals).toNumber(),
-    );
   }
 }
