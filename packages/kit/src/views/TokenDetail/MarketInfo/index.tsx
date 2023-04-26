@@ -3,7 +3,12 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Empty, useIsVerticalLayout } from '@onekeyhq/components';
+import {
+  Box,
+  Empty,
+  useIsVerticalLayout,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 
@@ -16,9 +21,10 @@ type Props = {
 
 const Detail: FC<{ coingeckoId: string }> = ({ coingeckoId }) => {
   const { tokenDetail } = useMarketDetail({ coingeckoId });
+  const { bottom } = useSafeAreaInsets();
 
   return (
-    <Box mt="20px">
+    <Box mt="20px" mb={bottom}>
       <MarketDetailComponent
         low24h={tokenDetail?.stats?.low24h}
         high24h={tokenDetail?.stats?.high24h}
