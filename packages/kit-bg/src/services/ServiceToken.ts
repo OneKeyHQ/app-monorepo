@@ -104,7 +104,7 @@ export default class ServiceToken extends ServiceBase {
         (s) => s.tokens.accountTokens?.[networkId]?.[accountId],
       );
 
-      const accountTokens = await engine.getTokens(
+      let accountTokens = await engine.getTokens(
         networkId,
         accountId,
         true,
@@ -142,6 +142,28 @@ export default class ServiceToken extends ServiceBase {
         tokenIds: accountTokens.map((t) => t.tokenIdOnNetwork),
         vsCurrency: selectedFiatMoneySymbol,
       });
+
+      try {
+        const vault = await engine.getVault({
+          accountId,
+          networkId,
+        });
+        accountTokens = await Promise.all(
+          accountTokens.map(async (token) => {
+            let tokenAddress = token.address ?? token.tokenIdOnNetwork;
+            if (tokenAddress) {
+              tokenAddress = await vault.validateTokenAddress(tokenAddress);
+            }
+            return {
+              ...token,
+              address: tokenAddress,
+              tokenIdOnNetwork: tokenAddress,
+            };
+          }),
+        );
+      } catch (error) {
+        debugLogger.common.error('get vault error', error);
+      }
       dispatch(
         setAccountTokens({
           accountId,

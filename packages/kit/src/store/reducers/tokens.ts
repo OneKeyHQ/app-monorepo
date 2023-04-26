@@ -1,11 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { uniqBy } from 'lodash';
 
-import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
-import {
-  caseSensitiveImpls,
-  getTokenAddress,
-} from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import type { PayloadAction } from '@reduxjs/toolkit';
@@ -94,26 +89,17 @@ export const tokensSlice = createSlice({
         state.accountTokens[networkId] = {};
       }
       state.accountTokens[networkId][accountId] = uniqBy(
-        tokens
-          .map((t) => {
-            const tokenAddress = getTokenAddress(t.address ?? '', t.impl ?? '');
-            return {
-              ...t,
-              address: tokenAddress,
-              tokenIdOnNetwork: tokenAddress,
-            };
-          })
-          .filter((t, _i, arr) => {
-            if (
-              !t.sendAddress &&
-              arr.some(
-                (token) => token.sendAddress && token.address === t.address,
-              )
-            ) {
-              return false;
-            }
-            return true;
-          }),
+        tokens.filter((t, _i, arr) => {
+          if (
+            !t.sendAddress &&
+            arr.some(
+              (token) => token.sendAddress && token.address === t.address,
+            )
+          ) {
+            return false;
+          }
+          return true;
+        }),
         (t) => `${t.tokenIdOnNetwork}-${t.sendAddress ?? ''}`,
       );
     },
