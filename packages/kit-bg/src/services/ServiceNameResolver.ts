@@ -152,8 +152,17 @@ export default class ServiceNameResolver extends ServiceBase {
   ];
 
   @backgroundMethod()
-  async checkIsValidName(name: string) {
-    const status = this.config.some((resolver) => resolver.pattern.test(name));
+  async checkIsValidName(name: string, networId?: string) {
+    const status = this.config.some((resolver) => {
+      if (networId) {
+        const support = networId.startsWith('evm--')
+          ? resolver.supportImplsMap['evm--*']
+          : resolver.supportImplsMap[networId as 'evm--*'];
+        return !!support && resolver.pattern.test(name);
+      }
+
+      return resolver.pattern.test(name);
+    });
     return Promise.resolve(status);
   }
 
