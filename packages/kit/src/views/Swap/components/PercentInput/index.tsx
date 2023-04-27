@@ -88,7 +88,7 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange, ...rest }) => {
                 bottom={8}
                 bg="surface-neutral-subdued"
                 borderRadius={4}
-                style={{ transform: [{ translateX: 10 }] }}
+                style={{ transform: [{ translateX: 17 }] }}
               >
                 <Box
                   style={{
