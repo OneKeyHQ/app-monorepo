@@ -70,6 +70,7 @@ const UpdateInfoModal: FC = () => {
   const [resourceUpdateInfo, setResourceUpdateInfo] =
     useState<IResourceUpdateInfo>();
   const resourceRef = useRef<IResourceUpdateInfo>();
+  const [shouldUpdateBootlader, setShouldUpdateBootloader] = useState(false);
 
   const showUpdateOnDesktopModal = useCallback(() => {
     const closeOverlay = (close?: () => void) => {
@@ -125,6 +126,55 @@ const UpdateInfoModal: FC = () => {
     ));
   }, [intl, isSmallScreen, navigation]);
 
+  const [isLoading, setIsLoading] = useState(false);
+  const firstCheckBatteryRef = useRef(true);
+  const checkBatteryLevel = useCallback(
+    (deviceFeatures?: IOneKeyDeviceFeatures) => {
+      if (!deviceFeatures) return true;
+      if (
+        deviceFeatures.battery_level === undefined ||
+        deviceFeatures.battery_level === null
+      )
+        return true;
+      if (Number(deviceFeatures.battery_level ?? 0) <= 1) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage({
+              id: 'msg__low_battery_charge_to_25_before_updating_the_boot',
+            }),
+          },
+          { type: 'error' },
+        );
+        return false;
+      }
+      return true;
+    },
+    [intl],
+  );
+  const requestBattery = useCallback(async () => {
+    if (device?.deviceType !== 'classic') {
+      return true;
+    }
+    if (firstCheckBatteryRef.current) {
+      firstCheckBatteryRef.current = false;
+      return checkBatteryLevel(features);
+    }
+    setIsLoading(true);
+    if (device?.mac) {
+      const newFeatures = await serviceHardware.getFeatures(device.mac);
+      setIsLoading(false);
+      return checkBatteryLevel(newFeatures);
+    }
+    setIsLoading(false);
+    return true;
+  }, [
+    checkBatteryLevel,
+    device?.mac,
+    device?.deviceType,
+    features,
+    serviceHardware,
+  ]);
+
   useEffect(() => {
     (async () => {
       let findDevice: Device | null = null;
@@ -160,12 +210,14 @@ const UpdateInfoModal: FC = () => {
       const connectId = findDevice.mac;
 
       let deviceFeatures: IOneKeyDeviceFeatures;
+      setIsLoading(true);
       try {
         deviceFeatures = await serviceHardware.getFeatures(connectId ?? '');
         setFeatures(deviceFeatures);
       } catch (error) {
         deviceUtils.showErrorToast(error);
         navigation.goBack();
+        setIsLoading(false);
         return;
       }
 
@@ -184,8 +236,9 @@ const UpdateInfoModal: FC = () => {
 
       if (ble) {
         setBleFirmware(ble);
+        setIsLoading(true);
       } else if (firmware) {
-        // firmware check update
+        // check Touch resource update
         const resourceInfo = await deviceUtils.checkTouchNeedUpdateResource(
           deviceFeatures,
           firmware,
@@ -200,9 +253,21 @@ const UpdateInfoModal: FC = () => {
             navigation.goBack();
           }
         }
+
+        if (findDevice.deviceType === 'classic') {
+          const shouldUpdateBootloader =
+            await serviceHardware.checkBootloaderRelease(
+              connectId,
+              firmware.version.join('.'),
+            );
+          console.log('shouldUpdateBootloader ====> ', shouldUpdateBootloader);
+          setShouldUpdateBootloader(!!shouldUpdateBootloader?.shouldUpdate);
+        }
         setSysFirmware(firmware);
         setResourceUpdateInfo(resourceInfo);
+        setIsLoading(false);
       } else {
+        setIsLoading(false);
         ToastManager.show(
           {
             title: intl.formatMessage({ id: 'msg__unknown_error' }),
@@ -228,30 +293,34 @@ const UpdateInfoModal: FC = () => {
     deviceConnectId,
   ]);
 
-  const buttonEnable = useMemo(() => {
-    if (device?.deviceType !== 'touch') return true;
-    return !!features;
-  }, [device, features]);
+  const buttonEnable = useMemo(() => !!features, [features]);
 
   return (
     <Modal
       maxHeight={560}
       hideSecondaryAction
-      header={intl.formatMessage({ id: 'modal__firmware_update' })}
+      header={intl.formatMessage({
+        id: 'modal__firmware_update',
+      })}
       primaryActionTranslationId="action__update"
-      onPrimaryActionPress={() => {
+      onPrimaryActionPress={async () => {
+        if (device?.deviceType === 'classic') {
+          const checkBatteryRes = await requestBattery();
+          if (!checkBatteryRes) return;
+        }
         navigation.navigate(
           HardwareUpdateModalRoutes.HardwareUpdateWarningModal,
           {
             device,
             onSuccess,
             resourceUpdateInfo,
+            shouldUpdateBootlader,
           },
         );
       }}
       primaryActionProps={{
         isDisabled: !buttonEnable,
-        isLoading: !buttonEnable,
+        isLoading: !buttonEnable || isLoading,
       }}
       scrollViewProps={{
         children: (
@@ -307,6 +376,20 @@ const UpdateInfoModal: FC = () => {
                 <Markdown>
                   {bleFirmware?.changelog?.[local.locale] ??
                     bleFirmware?.changelog?.['en-US']}
+                </Markdown>
+              </>
+            )}
+
+            {!!sysFirmware && shouldUpdateBootlader && (
+              <>
+                <Typography.DisplaySmall mt={6}>
+                  {`🔗 bootloader ${
+                    sysFirmware?.bootloaderVersion?.join('.') ?? ''
+                  }`}
+                </Typography.DisplaySmall>
+                <Markdown>
+                  {sysFirmware?.bootloaderChangelog?.[local.locale] ??
+                    sysFirmware?.bootloaderChangelog?.['en-US']}
                 </Markdown>
               </>
             )}
