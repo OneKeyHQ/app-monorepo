@@ -126,6 +126,55 @@ const UpdateInfoModal: FC = () => {
     ));
   }, [intl, isSmallScreen, navigation]);
 
+  const [isLoading, setIsLoading] = useState(false);
+  const firstCheckBatteryRef = useRef(true);
+  const checkBatteryLevel = useCallback(
+    (deviceFeatures?: IOneKeyDeviceFeatures) => {
+      if (!deviceFeatures) return true;
+      if (
+        deviceFeatures.battery_level === undefined ||
+        deviceFeatures.battery_level === null
+      )
+        return true;
+      if (Number(deviceFeatures.battery_level ?? 0) <= 1) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage({
+              id: 'msg__low_battery_charge_to_25_before_updating_the_boot',
+            }),
+          },
+          { type: 'error' },
+        );
+        return false;
+      }
+      return true;
+    },
+    [intl],
+  );
+  const requestBattery = useCallback(async () => {
+    if (device?.deviceType !== 'classic') {
+      return true;
+    }
+    if (firstCheckBatteryRef.current) {
+      firstCheckBatteryRef.current = false;
+      return checkBatteryLevel(features);
+    }
+    setIsLoading(true);
+    if (device?.mac) {
+      const newFeatures = await serviceHardware.getFeatures(device.mac);
+      setIsLoading(false);
+      return checkBatteryLevel(newFeatures);
+    }
+    setIsLoading(false);
+    return true;
+  }, [
+    checkBatteryLevel,
+    device?.mac,
+    device?.deviceType,
+    features,
+    serviceHardware,
+  ]);
+
   useEffect(() => {
     (async () => {
       let findDevice: Device | null = null;
@@ -251,7 +300,11 @@ const UpdateInfoModal: FC = () => {
           : 'modal__firmware_update',
       })}
       primaryActionTranslationId="action__update"
-      onPrimaryActionPress={() => {
+      onPrimaryActionPress={async () => {
+        if (device?.deviceType === 'classic') {
+          const checkBatteryRes = await requestBattery();
+          if (!checkBatteryRes) return;
+        }
         navigation.navigate(
           HardwareUpdateModalRoutes.HardwareUpdateWarningModal,
           {
@@ -264,7 +317,7 @@ const UpdateInfoModal: FC = () => {
       }}
       primaryActionProps={{
         isDisabled: !buttonEnable,
-        isLoading: !buttonEnable,
+        isLoading: !buttonEnable || isLoading,
       }}
       scrollViewProps={{
         children: (
