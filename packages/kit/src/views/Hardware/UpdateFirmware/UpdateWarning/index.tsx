@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { useEffect } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -21,13 +22,19 @@ type RouteProps = RouteProp<
 const UpdateWarningModal: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const intl = useIntl();
-  const { device, resourceUpdateInfo, onSuccess } =
+  const { device, resourceUpdateInfo, onSuccess, shouldUpdateBootlader } =
     useRoute<RouteProps>().params;
 
-  debugLogger.hardwareSDK.info(
-    'UpdateWarningModal, resourceUpdateInfo: ',
-    resourceUpdateInfo,
-  );
+  useEffect(() => {
+    debugLogger.hardwareSDK.info(
+      'UpdateWarningModal, resourceUpdateInfo: ',
+      resourceUpdateInfo,
+    );
+    debugLogger.hardwareSDK.info(
+      'UpdateWarningModal, shouldUpdateBootloader: ',
+      shouldUpdateBootlader,
+    );
+  }, [resourceUpdateInfo, shouldUpdateBootlader]);
 
   return (
     <Modal
@@ -42,6 +49,14 @@ const UpdateWarningModal: FC = () => {
             {
               device,
               resourceUpdateInfo,
+              onSuccess,
+            },
+          );
+        } else if (shouldUpdateBootlader) {
+          navigation.replace(
+            HardwareUpdateModalRoutes.HardwareUpdatingBootloaderModal,
+            {
+              device,
               onSuccess,
             },
           );

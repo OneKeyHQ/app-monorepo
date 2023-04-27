@@ -225,6 +225,8 @@
   "action__remove_address": "إزالة العنوان",
   "action__remove_from_favorites": "إزالة من المفضلة",
   "action__remove_wallet": "إزالة المحفظة",
+  "action__remove_when_exit": "إزالة عند الخروج",
+  "action__remove_when_exit_desc": "قم بإزالة هذه المحفظة المخفية عند الخروج من التطبيق",
   "action__rename": "إعادة تسمية",
   "action__reply": "رد",
   "action__reset": "إعادة ضبط",
@@ -431,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "البرامج الثابتة بلوتوث",
   "content__bluetooth_firmware_version": "إصدار البرنامج الثابت للبلوتوث",
   "content__bluetooth_name": "اسم البلوتوث",
+  "content__bootloader_lowercase": "محمل الإقلاع",
   "content__btc_dominance": "هيمنة BTC",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "بإرسال هذا الطلب ، فإنك تؤكد على مبادلة مدعومة بواسطة {0} api.",
   "content__calculate_fee": "لا توجد رسوم متاحة.",
@@ -1012,6 +1015,7 @@
   "form__app_unlock_desc": "افتح التطبيق باستخدام Face ID بدلاً من كلمة المرور",
   "form__app_version": "نسخة التطبيق",
   "form__approval": "موافقة",
+  "form__approve_str": "قبول {0}",
   "form__apr_uppercase": "أبريل",
   "form__arrival_time_desc": "يتم تحديد وقت الوصول الفعلي بوقت التحقق من الكتلة.",
   "form__assinged_address_slippage_is_modifiable": "تعديل انزلاق العنوان",
@@ -1928,6 +1932,7 @@
   "msg__limit_price_is_str_lower_than_the_current_market_price": "السعر المحدد أقل {0} من السوق.",
   "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "سوف تبيع {0} بسعر رخيص للغاية.",
   "msg__link_copied": "تم نسخ الرابط",
+  "msg__low_battery_charge_to_25_before_updating_the_boot": "البطارية ضعيفة! اشحن حتى 25٪ قبل تحديث محمل الإقلاع",
   "msg__mine": "الخاص بي",
   "msg__minted": "💎 سكت {assets}",
   "msg__mismatched_account": "حساب غير متطابق.",
