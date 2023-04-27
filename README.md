@@ -174,5 +174,5 @@ Check out where we are now!
 
 ## ⚖️ License
 
-OneKey is available under the [MIT](https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE) license.
+OneKey is available under the [Apache-2.0 license](https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE) license.
 Free for commercial and non-commercial use.

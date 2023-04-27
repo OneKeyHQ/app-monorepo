@@ -7,7 +7,7 @@ import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
-import { signTransaction } from './utils';
+import { signTransactionWithSigner } from './utils';
 
 import type { DBVariantAccount } from '../../../types/account';
 import type {
@@ -74,6 +74,6 @@ export class KeyringImported extends KeyringImportedBase {
     ]);
     const signer = signers[selectedAddress];
 
-    return signTransaction(unsignedTx, signer);
+    return signTransactionWithSigner(unsignedTx, signer);
   }
 }

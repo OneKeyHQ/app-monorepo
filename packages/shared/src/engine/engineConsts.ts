@@ -66,6 +66,9 @@ const COINTYPE_DOT = '354';
 const IMPL_XMR = 'xmr';
 const COINTYPE_XMR = '128';
 
+const IMPL_KASPA = 'kaspa';
+const COINTYPE_KASPA = '111111';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
@@ -87,6 +90,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_FIL,
   IMPL_DOT,
   IMPL_XMR,
+  IMPL_KASPA,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -110,6 +114,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_FIL,
   IMPL_DOT,
   IMPL_XMR,
+  IMPL_KASPA,
 ]);
 
 export const HISTORY_CONSTS = {
@@ -183,6 +188,8 @@ export {
   COINTYPE_DOT,
   IMPL_XMR,
   COINTYPE_XMR,
+  IMPL_KASPA,
+  COINTYPE_KASPA,
   getSupportedImpls,
 };
 
