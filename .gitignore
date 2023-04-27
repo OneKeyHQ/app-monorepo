@@ -76,3 +76,4 @@ test-report.html
 
 /packages/desktop/public/res
 /packages/desktop/public/res-updater.zip
+packages/app/ios/.xcode.env.local
