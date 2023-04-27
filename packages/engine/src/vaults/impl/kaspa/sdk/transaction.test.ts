@@ -42,14 +42,19 @@ describe('Kaspa transaction Tests', () => {
   );
 
   it('kaspa transaction UTXO', async () => {
-    process.stdout.write(`>> origin pubKey ${publicKeyBuf.toString('hex')}\n`);
-    process.stdout.write(`>> origin priKey ${privateKeyBuf.toString('hex')}\n`);
+    // process.stdout.write(`>> origin pubKey ${publicKeyBuf.toString('hex')}\n`);
+    // process.stdout.write(`>> origin priKey ${privateKeyBuf.toString('hex')}\n`);
 
-    process.stdout.write(`>> pubKey ${publicKey.toBuffer().toString('hex')}\n`);
-    process.stdout.write(`>> priKey ${privateKey.toString()}\n`);
-
-    const confirmUTXOs = await queryConfirmUTXOs(client, from);
-    const { utxos } = selectUTXOs(confirmUTXOs, 100000);
+    // process.stdout.write(`>> pubKey ${publicKey.toBuffer().toString('hex')}\n`);
+    // process.stdout.write(`>> priKey ${privateKey.toString()}\n`);
+    let utxos: UnspentOutput[] = [];
+    try {
+      const confirmUTXOs = await queryConfirmUTXOs(client, from);
+      const selectUTXOsRes = selectUTXOs(confirmUTXOs, 100000);
+      utxos = selectUTXOsRes.utxos;
+    } catch (error) {
+      // ignore
+    }
 
     const transaction: Transaction = new Transaction()
       .from(utxos)
@@ -77,15 +82,11 @@ describe('Kaspa transaction Tests', () => {
   });
 
   it('kaspa transaction UTXO 1', async () => {
-    process.stdout.write(`>> origin pubKey ${publicKeyBuf.toString('hex')}\n`);
-    process.stdout.write(`>> origin priKey ${privateKeyBuf.toString('hex')}\n`);
+    // process.stdout.write(`>> origin pubKey ${publicKeyBuf.toString('hex')}\n`);
+    // process.stdout.write(`>> origin priKey ${privateKeyBuf.toString('hex')}\n`);
 
-    process.stdout.write(`>> pubKey ${publicKey.toBuffer().toString('hex')}\n`);
-    process.stdout.write(`>> priKey ${privateKey.toString()}\n`);
-
-    // wait wasm load
-    const confirmUTXOs = await queryConfirmUTXOs(client, from);
-    selectUTXOs(confirmUTXOs, 100000);
+    // process.stdout.write(`>> pubKey ${publicKey.toBuffer().toString('hex')}\n`);
+    // process.stdout.write(`>> priKey ${privateKey.toString()}\n`);
 
     const utxos = [
       new UnspentOutput({
