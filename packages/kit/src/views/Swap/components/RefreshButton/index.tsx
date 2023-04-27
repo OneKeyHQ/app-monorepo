@@ -30,7 +30,6 @@ const RefreshButton = () => {
     if (dangerRefs.submited || limited || !isFocused) {
       return;
     }
-    console.log('onRefresh');
     loadingAnim.setValue(0);
     Animated.timing(loadingAnim, {
       toValue: -1,

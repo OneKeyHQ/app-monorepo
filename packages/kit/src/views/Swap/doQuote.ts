@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
   setError,
@@ -44,7 +46,39 @@ const findBestResponse = async (
     });
     return items[0];
   }
-  return responses[0];
+  const notNullResponses = responses.filter(
+    (res) => res.data,
+  ) as Required<FetchQuoteResponse>[];
+  if (notNullResponses.length === 0) {
+    return;
+  }
+  if (notNullResponses.length === 1) {
+    return notNullResponses[0];
+  }
+  let selectedRes = notNullResponses[0];
+  let currentPriority: BigNumber | undefined;
+  for (let i = 0; i < notNullResponses.length; i += 1) {
+    const item = notNullResponses[i];
+    const max = item?.limited?.max;
+    const min = item?.limited?.min;
+    const sellAmount = new BigNumber(item.data.sellAmount);
+    const values: BigNumber.Value[] = [];
+    if (!sellAmount.isNaN() && max) {
+      values.push(sellAmount.minus(max).abs());
+    }
+    if (!sellAmount.isNaN() && min) {
+      values.push(sellAmount.minus(min).abs());
+    }
+    let priority: BigNumber | undefined;
+    if (values.length) {
+      priority = BigNumber.min(...values);
+    }
+    if (priority && (!currentPriority || priority.lt(currentPriority))) {
+      selectedRes = item;
+      currentPriority = priority;
+    }
+  }
+  return selectedRes;
 };
 
 const refreshQuotes = async (params: FetchQuoteParams) => {
