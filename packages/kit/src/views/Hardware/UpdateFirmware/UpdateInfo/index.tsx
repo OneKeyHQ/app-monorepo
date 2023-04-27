@@ -210,12 +210,14 @@ const UpdateInfoModal: FC = () => {
       const connectId = findDevice.mac;
 
       let deviceFeatures: IOneKeyDeviceFeatures;
+      setIsLoading(true);
       try {
         deviceFeatures = await serviceHardware.getFeatures(connectId ?? '');
         setFeatures(deviceFeatures);
       } catch (error) {
         deviceUtils.showErrorToast(error);
         navigation.goBack();
+        setIsLoading(false);
         return;
       }
 
@@ -234,6 +236,7 @@ const UpdateInfoModal: FC = () => {
 
       if (ble) {
         setBleFirmware(ble);
+        setIsLoading(true);
       } else if (firmware) {
         // check Touch resource update
         const resourceInfo = await deviceUtils.checkTouchNeedUpdateResource(
@@ -262,7 +265,9 @@ const UpdateInfoModal: FC = () => {
         }
         setSysFirmware(firmware);
         setResourceUpdateInfo(resourceInfo);
+        setIsLoading(false);
       } else {
+        setIsLoading(false);
         ToastManager.show(
           {
             title: intl.formatMessage({ id: 'msg__unknown_error' }),
@@ -301,7 +306,7 @@ const UpdateInfoModal: FC = () => {
       })}
       primaryActionTranslationId="action__update"
       onPrimaryActionPress={async () => {
-        if (device?.deviceType === 'classic') {
+        if (device?.deviceType === 'classic' && shouldUpdateBootlader) {
           const checkBatteryRes = await requestBattery();
           if (!checkBatteryRes) return;
         }
