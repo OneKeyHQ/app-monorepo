@@ -40,6 +40,14 @@ export default class ServiceNameResolver extends ServiceBase {
   get config() {
     const NAME_RESOLVER = [
       {
+        pattern: /^0x[a-fA-F0-9]{40}$/,
+        shownSymbol: 'FIL',
+        supportImplsMap: {
+          [OnekeyNetwork.fil]: ['fil'],
+        },
+        resolver: this.resolveFilEvm.bind(this),
+      },
+      {
         pattern: /\.eth$/,
         shownSymbol: 'ENS',
         supportImplsMap: {
@@ -379,5 +387,20 @@ export default class ServiceNameResolver extends ServiceBase {
       return 'msg__network_request_failed';
     }
     return names;
+  }
+
+  async resolveFilEvm(name: string) {
+    const { engine } = this.backgroundApi;
+
+    const chainOnlyVault = await engine.getChainOnlyVault(OnekeyNetwork.fil);
+    const filEvmAddress = await chainOnlyVault.validateAddress(name);
+    return [
+      {
+        subtype: 'fil',
+        value: filEvmAddress,
+        type: 'address',
+        key: 'fileEvmAddress',
+      },
+    ];
   }
 }

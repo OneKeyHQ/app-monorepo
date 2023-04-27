@@ -96,7 +96,6 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
       }),
   });
   if (
-    decodedTx.status !== IDecodedTxStatus.Pending &&
     checkIsValidHistoryTxId({
       txid: decodedTx.txid,
       txidPattern: network?.settings.transactionIdPattern,
