@@ -473,6 +473,7 @@ const ExchangeButton = () => {
         },
         { type: 'error' },
       );
+      return;
     }
 
     let res: BuildTransactionResponse | undefined;
