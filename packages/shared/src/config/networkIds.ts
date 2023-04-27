@@ -59,6 +59,7 @@ export const OnekeyNetwork = {
   'tbsc': 'evm--97',
   'fil': 'fil--314',
   'tfil': 'fil--314159',
+  'kaspa': 'kaspa--kaspa',
   'ltc': 'ltc--0',
   'near': 'near--0',
   'tnear': 'near--1',

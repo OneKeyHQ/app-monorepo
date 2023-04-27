@@ -11,6 +11,7 @@ import {
   IMPL_DOT,
   IMPL_EVM,
   IMPL_FIL,
+  IMPL_KASPA,
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
@@ -98,6 +99,9 @@ export function createVaultSettings(options: {
   }
   if (impl === IMPL_XMR) {
     return require('./impl/xmr/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_KASPA) {
+    return require('./impl/kaspa/settings').default as IVaultSettings;
   }
   throw new OneKeyInternalError(
     `VaultSettings not found for: networkId=${options.networkId ?? ''}, impl=${

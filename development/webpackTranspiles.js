@@ -6,6 +6,7 @@ const webModuleTranspile = [
   '@noble/curves',
   '@polkadot',
   '@solana/web3.js',
+  '@kaspa/core-lib',
 ];
 
 const extModuleTranspile = [

@@ -33,7 +33,7 @@ export async function isCfxNativeTransferType(
   return !data || data === '0x' || data === '0x0' || data === '0';
 }
 
-export async function signTransaction(
+export async function signTransactionWithSigner(
   unsignedTx: IUnsignedTxPro,
   signer: Signer,
 ): Promise<SignedTx> {

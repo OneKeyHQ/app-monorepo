@@ -13,6 +13,7 @@ import {
   COINTYPE_ETC,
   COINTYPE_ETH,
   COINTYPE_FIL,
+  COINTYPE_KASPA,
   COINTYPE_LTC,
   COINTYPE_NEAR,
   COINTYPE_SOL,
@@ -33,6 +34,7 @@ import {
   IMPL_DOT,
   IMPL_EVM,
   IMPL_FIL,
+  IMPL_KASPA,
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
@@ -78,6 +80,7 @@ const implToCoinTypes: Partial<Record<string, string | string[]>> = {
   [IMPL_FIL]: COINTYPE_FIL,
   [IMPL_DOT]: COINTYPE_DOT,
   [IMPL_XMR]: COINTYPE_XMR,
+  [IMPL_KASPA]: COINTYPE_KASPA,
 };
 
 const coinTypeToImpl: Record<string, string> = Object.fromEntries(
@@ -113,6 +116,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_FIL]: AccountType.VARIANT,
   [IMPL_DOT]: AccountType.VARIANT,
   [IMPL_XMR]: AccountType.VARIANT,
+  [IMPL_KASPA]: AccountType.SIMPLE,
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {
@@ -142,6 +146,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_FIL]: Curve.SECP256K1,
   [IMPL_DOT]: Curve.ED25519,
   [IMPL_XMR]: Curve.ED25519,
+  [IMPL_KASPA]: Curve.SECP256K1,
 };
 
 function getCurveByImpl(impl: string): string {

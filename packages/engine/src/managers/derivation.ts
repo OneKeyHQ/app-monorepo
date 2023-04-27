@@ -11,6 +11,7 @@ import {
   COINTYPE_ETC,
   COINTYPE_ETH,
   COINTYPE_FIL,
+  COINTYPE_KASPA,
   COINTYPE_LTC,
   COINTYPE_NEAR,
   COINTYPE_SOL,
@@ -31,6 +32,7 @@ import {
   IMPL_DOT,
   IMPL_EVM,
   IMPL_FIL,
+  IMPL_KASPA,
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
@@ -75,6 +77,7 @@ const purposeMap: Record<string, Array<number>> = {
   [IMPL_FIL]: [44],
   [IMPL_DOT]: [44],
   [IMPL_XMR]: [44],
+  [IMPL_KASPA]: [44],
 };
 
 // derive path template by coin types.
@@ -103,6 +106,7 @@ const derivationPathTemplates: Record<string, string> = {
   [COINTYPE_FIL]: `m/44'/${COINTYPE_FIL}'/0'/0/${INCREMENT_LEVEL_TAG}`,
   [COINTYPE_DOT]: `m/44'/${COINTYPE_DOT}'/${INCREMENT_LEVEL_TAG}'/0'/0'`,
   [COINTYPE_XMR]: `m/44'/${COINTYPE_XMR}'/0'/0/${INCREMENT_LEVEL_TAG}`,
+  [COINTYPE_KASPA]: `m/44'/${COINTYPE_KASPA}'/0'/0/${INCREMENT_LEVEL_TAG}`,
 };
 
 function getDerivationPaths(
