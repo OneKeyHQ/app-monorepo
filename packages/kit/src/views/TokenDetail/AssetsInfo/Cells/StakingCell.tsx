@@ -34,7 +34,7 @@ const StakingCell: FC<Props> = ({ token, tokenId }) => {
   const { networkId, accountId } = useActiveWalletAccount();
   const minerOverview = useKeleMinerOverview(networkId, accountId);
   const navigation = useNavigation();
-  const statedSupport = useTokenSupportStakedAssets(networkId, tokenId);
+  const stakedSupport = useTokenSupportStakedAssets(networkId, tokenId);
 
   const amount = useMemo(
     () => minerOverview?.amount?.total_amount ?? 0,
@@ -43,10 +43,10 @@ const StakingCell: FC<Props> = ({ token, tokenId }) => {
   const { serviceStaking } = backgroundApiProxy;
 
   useEffect(() => {
-    if (statedSupport) {
+    if (stakedSupport) {
       serviceStaking.fetchMinerOverview({ networkId, accountId });
     }
-  }, [accountId, networkId, serviceStaking, statedSupport, tokenId]);
+  }, [accountId, networkId, serviceStaking, stakedSupport, tokenId]);
 
   const activeStakingActivity = useAccountStakingActivity(networkId, accountId);
   const price =
@@ -60,7 +60,7 @@ const StakingCell: FC<Props> = ({ token, tokenId }) => {
     return new B(amount).times(price).toNumber() || 0;
   }, [amount, price]);
 
-  if (!statedSupport) {
+  if (!stakedSupport) {
     return null;
   }
   return amount > 0 || activeStakingActivity ? (
