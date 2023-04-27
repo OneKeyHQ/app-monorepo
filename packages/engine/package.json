@@ -31,6 +31,7 @@
     "@glif/filecoin-address": "^2.0.20",
     "@glif/filecoin-message": "^2.0.27",
     "@glif/filecoin-rpc-client": "^2.0.8",
+    "@kaspa/core-lib": "^1.6.5",
     "@metamask/eth-sig-util": "^4.0.1",
     "@mymonero/mymonero-app-bridge": "^3.0.0",
     "@mymonero/mymonero-keyimage-cache": "^3.0.0",

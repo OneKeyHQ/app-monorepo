@@ -76,7 +76,6 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     let addressesResponse;
     try {
-      // @ts-expect-error
       addressesResponse = await HardwareSDK.suiGetAddress(connectId, deviceId, {
         bundle: paths.map((path) => ({ path, showOnOneKey })),
         ...passphraseState,
@@ -125,7 +124,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
     const response = await HardwareSDK.suiGetAddress(connectId, deviceId, {
-      // @ts-expect-error
       path: params.path,
       showOnOneKey: params.showOnOneKey,
       ...passphraseState,
@@ -142,7 +140,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
-    // @ts-expect-error
     const response = await HardwareSDK.suiGetAddress(connectId, deviceId, {
       ...passphraseState,
       bundle: params.map(({ path, showOnOneKey }) => ({

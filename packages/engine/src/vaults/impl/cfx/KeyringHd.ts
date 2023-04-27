@@ -7,7 +7,7 @@ import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import { signTransaction } from './utils';
+import { signTransactionWithSigner } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBVariantAccount } from '../../../types/account';
@@ -104,7 +104,7 @@ export class KeyringHd extends KeyringHdBase {
     ]);
     const signer = signers[selectedAddress];
 
-    return signTransaction(unsignedTx, signer);
+    return signTransactionWithSigner(unsignedTx, signer);
   }
 
   override async signMessage(

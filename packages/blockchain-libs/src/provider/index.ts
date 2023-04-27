@@ -130,6 +130,7 @@ const IMPLS: { [key: string]: any } = {
   xmr: mockProvider,
   fil: mockProvider,
   tron: mockProvider,
+  kaspa: mockProvider,
 };
 
 class ProviderController {
