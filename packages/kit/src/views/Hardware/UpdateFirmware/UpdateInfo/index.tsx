@@ -300,13 +300,11 @@ const UpdateInfoModal: FC = () => {
       maxHeight={560}
       hideSecondaryAction
       header={intl.formatMessage({
-        id: shouldUpdateBootlader
-          ? 'modal__bootloader_update'
-          : 'modal__firmware_update',
+        id: 'modal__firmware_update',
       })}
       primaryActionTranslationId="action__update"
       onPrimaryActionPress={async () => {
-        if (device?.deviceType === 'classic' && shouldUpdateBootlader) {
+        if (device?.deviceType === 'classic') {
           const checkBatteryRes = await requestBattery();
           if (!checkBatteryRes) return;
         }
