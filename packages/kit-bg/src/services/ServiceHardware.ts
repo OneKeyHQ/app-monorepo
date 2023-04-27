@@ -407,6 +407,7 @@ class ServiceHardware extends ServiceBase {
         (response) => {
           tryCount += 1;
           if (tryCount > 10) {
+            deviceUtils.stopScan();
             resolve(false);
           }
           if (!response.success) {
@@ -841,7 +842,7 @@ class ServiceHardware extends ServiceBase {
   ) {
     const hardwareSDK = await this.getSDKInstance();
     return hardwareSDK
-      ?.checkBootloaderRelease(connectId, { willUpdateFirmwareVersion })
+      ?.checkBootloaderRelease(undefined, { willUpdateFirmwareVersion })
       .then((response) => {
         if (!response.success) {
           return Promise.reject(

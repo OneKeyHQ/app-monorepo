@@ -2,7 +2,7 @@ import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Center, Progress, Typography } from '@onekeyhq/components';
+import { Alert, Box, Center, Progress, Typography } from '@onekeyhq/components';
 import { SkipAppLock } from '@onekeyhq/kit/src/components/AppLock';
 
 export type RunningViewProps = {
@@ -11,7 +11,11 @@ export type RunningViewProps = {
   showBatteryAlert?: boolean;
 };
 
-const RunningView: FC<RunningViewProps> = ({ progress, hint }) => {
+const RunningView: FC<RunningViewProps> = ({
+  progress,
+  hint,
+  showBatteryAlert,
+}) => {
   const intl = useIntl();
   return (
     <>
@@ -36,11 +40,26 @@ const RunningView: FC<RunningViewProps> = ({ progress, hint }) => {
           </Typography.Body2>
         </Center>
 
-        <Typography.Body2 mb={3} px={8} textAlign="center" color="text-subdued">
-          {intl.formatMessage({
-            id: 'modal__updating_attention',
-          })}
-        </Typography.Body2>
+        {showBatteryAlert ? (
+          <Alert
+            title={intl.formatMessage({
+              id: 'msg__keep_device_charged_during_update_or_may_cause_malfunction',
+            })}
+            dismiss={false}
+            alertType="warn"
+          />
+        ) : (
+          <Typography.Body2
+            mb={3}
+            px={8}
+            textAlign="center"
+            color="text-subdued"
+          >
+            {intl.formatMessage({
+              id: 'modal__updating_attention',
+            })}
+          </Typography.Body2>
+        )}
       </Box>
     </>
   );

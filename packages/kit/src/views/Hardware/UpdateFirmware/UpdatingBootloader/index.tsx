@@ -13,6 +13,7 @@ import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareUpdate';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
+import * as Errors from '@onekeyhq/kit/src/utils/hardware/errors';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { HardwareUpdateModalRoutes } from '../../../../routes/routesEnum';
@@ -340,21 +341,34 @@ const UpdatingBootloader: FC = () => {
     setProgressState('failure');
   };
 
+  useEffect(
+    () => () => {
+      deviceUtils.stopScan();
+    },
+    [],
+  );
+
   const executeUpdate = async () => {
-    // getFeatures 再次判断是否需要升级
-    const bootloaderRelease = await serviceHardware.checkBootloaderRelease(
-      connectId,
-      willUpdateVersion?.join('.') ?? '',
-    );
-    if (!bootloaderRelease?.shouldUpdate) {
-      navigation.replace(HardwareUpdateModalRoutes.HardwareUpdatingModal, {
-        device,
-        onSuccess,
-      });
-      return;
-    }
     setProgressState('running');
     setProgress(0);
+    setMaxProgress(5);
+    try {
+      // Check if you need to upgrade the boot
+      const bootloaderRelease = await serviceHardware.checkBootloaderRelease(
+        connectId,
+        willUpdateVersion?.join('.') ?? '',
+      );
+      if (!bootloaderRelease?.shouldUpdate) {
+        navigation.replace(HardwareUpdateModalRoutes.HardwareUpdatingModal, {
+          device,
+          onSuccess,
+        });
+        return;
+      }
+    } catch (e) {
+      handleErrors(e as OneKeyHardwareError);
+      return;
+    }
     serviceHardware
       .updateBootloaderForClassic(connectId)
       .then(async (res) => {
@@ -369,7 +383,7 @@ const UpdatingBootloader: FC = () => {
             connectId,
           );
           if (!isFoundDevice) {
-            setProgressState('failure');
+            handleErrors(new Errors.DeviceNotFind());
           } else {
             setProgressState('done');
             setProgressStep('done-step');
@@ -426,7 +440,7 @@ const UpdatingBootloader: FC = () => {
       closeOnOverlayClick={false}
       footer={hasFailure || hasStepDone ? undefined : null}
       maxHeight={560}
-      hidePrimaryAction
+      hidePrimaryAction={hasStepDone}
       hideSecondaryAction={hasStepDone}
       primaryActionTranslationId={primaryActionContent}
       headerShown={false}
@@ -461,7 +475,11 @@ const UpdatingBootloader: FC = () => {
       {hasFailure ? (
         <StateView stateInfo={stateViewInfo} />
       ) : (
-        <RunningView progress={progress} hint={progressStepDesc} />
+        <RunningView
+          progress={progress}
+          hint={progressStepDesc}
+          showBatteryAlert
+        />
       )}
     </Modal>
   );
