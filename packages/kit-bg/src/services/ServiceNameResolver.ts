@@ -40,14 +40,6 @@ export default class ServiceNameResolver extends ServiceBase {
   get config() {
     const NAME_RESOLVER = [
       {
-        pattern: /^0x[a-fA-F0-9]{40}$/,
-        shownSymbol: 'FIL',
-        supportImplsMap: {
-          [OnekeyNetwork.fil]: ['fil'],
-        },
-        resolver: this.resolveFilEvm.bind(this),
-      },
-      {
         pattern: /\.eth$/,
         shownSymbol: 'ENS',
         supportImplsMap: {
@@ -115,6 +107,14 @@ export default class ServiceNameResolver extends ServiceBase {
           'evm--*': ['eth', 'bsc', 'arbitrum'],
         },
         resolver: this.resolveSIDDomains.bind(this),
+      },
+      {
+        pattern: /^0x[a-fA-F0-9]{40}$/,
+        shownSymbol: 'FIL',
+        supportImplsMap: {
+          [OnekeyNetwork.fil]: ['fil'],
+        },
+        resolver: this.resolveFilEvm.bind(this),
       },
     ];
     return NAME_RESOLVER;
@@ -209,7 +209,7 @@ export default class ServiceNameResolver extends ServiceBase {
     const filterNetworkList = (network?: string): string[] => {
       if (!network) return [];
       if (network.startsWith('evm')) {
-        return config.supportImplsMap['evm--*'];
+        return config.supportImplsMap['evm--*'] ?? [];
       }
       return config.supportImplsMap[network as 'evm--*'] ?? [];
     };
