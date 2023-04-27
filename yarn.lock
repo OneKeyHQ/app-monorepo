@@ -5601,8 +5601,8 @@ __metadata:
     "@glif/filecoin-address": ^2.0.43
     "@glif/filecoin-message": ^2.0.44
     "@glif/filecoin-rpc-client": ^2.0.8
-    "@kaspa/core-lib": ^1.6.5
     "@ipld/dag-cbor": ^8.0.0
+    "@kaspa/core-lib": ^1.6.5
     "@metamask/eth-sig-util": ^4.0.1
     "@mymonero/mymonero-app-bridge": ^3.0.0
     "@mymonero/mymonero-keyimage-cache": ^3.0.0
@@ -11755,6 +11755,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"bn.js@npm:=4.11.8":
+  version: 4.11.8
+  resolution: "bn.js@npm:4.11.8"
+  checksum: 80d4709cd58a21f0be8201e9e5859fea5ef133318e9800c8454cd334625c6e1caea593ca21f9b9a085fb560fbc12fb2fb3514363f8604258db924237fd039139
+  languageName: node
+  linkType: hard
+
 "bn.js@npm:^4, bn.js@npm:^4.0.0, bn.js@npm:^4.1.0, bn.js@npm:^4.11.0, bn.js@npm:^4.11.6, bn.js@npm:^4.11.8, bn.js@npm:^4.11.9, bn.js@npm:^4.4.0, bn.js@npm:^4.8.0":
   version: 4.12.0
   resolution: "bn.js@npm:4.12.0"
@@ -12134,6 +12141,13 @@ __metadata:
     buffer-alloc-unsafe: ^1.1.0
     buffer-fill: ^1.0.0
   checksum: 560cd27f3cbe73c614867da373407d4506309c62fe18de45a1ce191f3785ec6ca2488d802ff82065798542422980ca25f903db078c57822218182c37c3576df5
+  languageName: node
+  linkType: hard
+
+"buffer-compare@npm:=1.1.1":
+  version: 1.1.1
+  resolution: "buffer-compare@npm:1.1.1"
+  checksum: fe9a25cdd0c878eb689d928de4f8d6d3b4062b2a2c92bd4a1f6a5dcd22de17a95604bd102d4590542b2eb13779762c009f3193e840092dc9ed2c0dad8b726655
   languageName: node
   linkType: hard
 
@@ -19798,13 +19812,6 @@ __metadata:
   version: 2.0.4
   resolution: "inherits@npm:2.0.4"
   checksum: 4a48a733847879d6cf6691860a6b1e3f0f4754176e4d71494c41f3475553768b10f84b5ce1d40fbd0e34e6bfbb864ee35858ad4dd2cf31e02fc4a154b724d7f1
-  languageName: node
-  linkType: hard
-
-"inherits@npm:2.0.1":
-  version: 2.0.1
-  resolution: "inherits@npm:2.0.1"
-  checksum: 6536b9377296d4ce8ee89c5c543cb75030934e61af42dba98a428e7d026938c5985ea4d1e3b87743a5b834f40ed1187f89c2d7479e9d59e41d2d1051aefba07b
   languageName: node
   linkType: hard
 
