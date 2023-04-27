@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "firmware bluetooth",
   "content__bluetooth_firmware_version": "Versão do firmware do Bluetooth",
   "content__bluetooth_name": "Nome do Bluetooth",
+  "content__bootloader_lowercase": "bootloader",
   "content__btc_dominance": "Domínio do BTC",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "Ao enviar este pedido, você confirma uma troca desenvolvida por {0} API.",
   "content__calculate_fee": "Nenhuma taxa disponível.",

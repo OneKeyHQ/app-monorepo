@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "Bluetoothファームウェア",
   "content__bluetooth_firmware_version": "Bluetoothファームウェアバージョン",
   "content__bluetooth_name": "ブルートゥース名",
+  "content__bootloader_lowercase": "ブートローダー",
   "content__btc_dominance": "BTCドミナンス",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "この注文の送信により、 {0} が提供しているAPI を利用してスワップする。",
   "content__calculate_fee": "手数料なし。",

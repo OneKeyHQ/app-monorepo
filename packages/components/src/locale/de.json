@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "Bluetooth-Firmware",
   "content__bluetooth_firmware_version": "Bluetooth-Firmware-Version",
   "content__bluetooth_name": "Bluetooth-Name",
+  "content__bootloader_lowercase": "Bootloader",
   "content__btc_dominance": "BTC-Dominanz",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "Indem Sie diese Bestellung absenden, bestätigen Sie einen Tausch, der von {0} API betrieben wird.",
   "content__calculate_fee": "Keine verfügbare Gebühr.",

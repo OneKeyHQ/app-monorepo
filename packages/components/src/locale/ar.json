@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "البرامج الثابتة بلوتوث",
   "content__bluetooth_firmware_version": "إصدار البرنامج الثابت للبلوتوث",
   "content__bluetooth_name": "اسم البلوتوث",
+  "content__bootloader_lowercase": "محمل الإقلاع",
   "content__btc_dominance": "هيمنة BTC",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "بإرسال هذا الطلب ، فإنك تؤكد على مبادلة مدعومة بواسطة {0} api.",
   "content__calculate_fee": "لا توجد رسوم متاحة.",

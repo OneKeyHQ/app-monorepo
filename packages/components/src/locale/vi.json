@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "phần sụn bluetooth",
   "content__bluetooth_firmware_version": "Phiên bản chương trình cơ sở Bluetooth",
   "content__bluetooth_name": "Tên Bluetooth",
+  "content__bootloader_lowercase": "bộ nạp khởi động",
   "content__btc_dominance": "Sự thống trị của BTC",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "Bằng cách gửi đơn đặt hàng này, bạn đang xác nhận một giao dịch hoán đổi được cung cấp bởi {0} API.",
   "content__calculate_fee": "Không có phí khả dụng.",

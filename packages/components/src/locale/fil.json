@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "firmware ng bluetooth",
   "content__bluetooth_firmware_version": "Bersyon ng Bluetooth Firmware",
   "content__bluetooth_name": "Pangalan ng Bluetooth",
+  "content__bootloader_lowercase": "bootloader",
   "content__btc_dominance": "BTC Dominance",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "Sa pamamagitan ng pagsusumite ng order na ito, kinukumpirma mo ang isang swap na pinapagana ng {0} API.",
   "content__calculate_fee": "Walang Magagamit na Bayad.",

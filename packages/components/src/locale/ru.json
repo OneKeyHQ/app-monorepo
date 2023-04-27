@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "прошивка блютуз",
   "content__bluetooth_firmware_version": "Версия прошивки Bluetooth",
   "content__bluetooth_name": "Имя Bluetooth",
+  "content__bootloader_lowercase": "загрузчик",
   "content__btc_dominance": "Доминирование биткойнов",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "Отправляя этот заказ, вы подтверждаете обмен на базе {0} API.",
   "content__calculate_fee": "Нет доступной платы.",

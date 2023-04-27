@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "micrologiciel bluetooth",
   "content__bluetooth_firmware_version": "Version du micrologiciel Bluetooth",
   "content__bluetooth_name": "Nom Bluetooth",
+  "content__bootloader_lowercase": "chargeur de démarrage",
   "content__btc_dominance": "Dominance BTC",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "En soumettant cette commande, vous confirmez un échange alimenté par {0} API.",
   "content__calculate_fee": "Aucun frais disponible.",

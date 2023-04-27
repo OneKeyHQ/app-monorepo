@@ -118,7 +118,7 @@ const UpdatingBootloader: FC = () => {
             { id: 'content__downloading_str' },
             {
               0: intl.formatMessage({
-                id: 'content__firmware_lowercase',
+                id: 'content__bootloader_lowercase',
               }),
             },
           );
@@ -128,7 +128,7 @@ const UpdatingBootloader: FC = () => {
             { id: 'content__installing_str' },
             {
               0: intl.formatMessage({
-                id: 'content__firmware_lowercase',
+                id: 'content__bootloader_lowercase',
               }),
             },
           );

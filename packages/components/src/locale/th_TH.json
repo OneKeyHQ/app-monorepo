@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "เฟิร์มแวร์บลูทูธ",
   "content__bluetooth_firmware_version": "เวอร์ชั่นเฟิร์มแวร์บลูทูธ",
   "content__bluetooth_name": "ชื่อบลูทูธ",
+  "content__bootloader_lowercase": "ตัวโหลดบูต",
   "content__btc_dominance": "การครอบงำ BTC",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "เมื่อส่งคำสั่งซื้อนี้ แสดงว่าคุณยืนยันการแลกเปลี่ยนที่ขับเคลื่อนโดย {0} API",
   "content__calculate_fee": "ไม่มีค่าธรรมเนียม",

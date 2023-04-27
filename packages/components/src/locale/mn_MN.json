@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "bluetooth програм хангамж",
   "content__bluetooth_firmware_version": "Bluetooth програмын хувилбар",
   "content__bluetooth_name": "Bluetooth нэр",
+  "content__bootloader_lowercase": "ачаалагч",
   "content__btc_dominance": "BTC давамгайлал",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "Энэ захиалгыг өгснөөр та {0} api-ээр своп хийхийг баталгаажуулж байна.",
   "content__calculate_fee": "Боломжтой хураамж байхгүй.",

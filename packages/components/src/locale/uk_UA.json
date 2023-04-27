@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "прошивка bluetooth",
   "content__bluetooth_firmware_version": "Версія мікропрограми Bluetooth",
   "content__bluetooth_name": "Назва Bluetooth",
+  "content__bootloader_lowercase": "завантажувач",
   "content__btc_dominance": "Домінування BTC",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "Надсилаючи це замовлення, ви підтверджуєте обмін на базі API {0} .",
   "content__calculate_fee": "Немає доступної комісії.",

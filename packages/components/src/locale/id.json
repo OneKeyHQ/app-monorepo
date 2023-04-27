@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "firmware bluetooth",
   "content__bluetooth_firmware_version": "Versi Firmware Bluetooth",
   "content__bluetooth_name": "Nama Bluetooth",
+  "content__bootloader_lowercase": "bootloader",
   "content__btc_dominance": "Dominasi BTC",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "Dengan mengirimkan pesanan ini, Anda mengonfirmasi pertukaran yang didukung oleh {0} API.",
   "content__calculate_fee": "Tidak Ada Biaya yang Tersedia.",

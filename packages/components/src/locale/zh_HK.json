@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "藍牙固件",
   "content__bluetooth_firmware_version": "藍牙固件版本",
   "content__bluetooth_name": "藍牙名稱",
+  "content__bootloader_lowercase": "固件引導加載程序",
   "content__btc_dominance": "BTC 市值佔比",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "通過提交此訂單，您將使用 {0} 提供的 API 進行兌換",
   "content__calculate_fee": "暫無可用的交易費。",

@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "ব্লুটুথ ফার্মওয়্যার",
   "content__bluetooth_firmware_version": "ব্লুটুথ ফার্মওয়্যার সংস্করণ",
   "content__bluetooth_name": "ব্লুটুথের নাম",
+  "content__bootloader_lowercase": "বুটলোডার",
   "content__btc_dominance": "বিটিসি আধিপত্য",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "এই অর্ডার জমা দেওয়ার মাধ্যমে, আপনি {0} api দ্বারা চালিত একটি অদলবদল নিশ্চিত করছেন৷",
   "content__calculate_fee": "কোন উপলব্ধ ফি.",

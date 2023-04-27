@@ -433,6 +433,7 @@
   "content__bluetooth_firmware_lowercase": "블루투스 펌웨어",
   "content__bluetooth_firmware_version": "블루투스 펌웨어 버전",
   "content__bluetooth_name": "블루투스 이름",
+  "content__bootloader_lowercase": "부트로더",
   "content__btc_dominance": "BTC 도미넌스",
   "content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api": "이 주문을 제출하면 {0} API로 구동되는 스왑을 확인하는 것입니다.",
   "content__calculate_fee": "사용 가능한 수수료 없음.",
