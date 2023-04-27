@@ -917,6 +917,7 @@
   "empty__no_account_title": "Бүртгэл байхгүй",
   "empty__no_connected_sites": "Холбогдсон сайт байхгүй",
   "empty__no_connected_sites_desc": "dApps-тай шинэ холболт үүсгэж байна.",
+  "empty__no_data": "Өгөгдөл алга",
   "empty__no_info": "Мэдээлэл байхгүй",
   "empty__no_info_desc": "Энэ токены талаар мэдээлэл алга.",
   "empty__no_nfts": "NFT байхгүй",
