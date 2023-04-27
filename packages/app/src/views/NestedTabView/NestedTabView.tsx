@@ -95,9 +95,9 @@ const NestedTabView: ForwardRefRenderFunction<
   }, [lockDirection]);
 
   const resetGesture = useCallback(() => {
+    lastTransX.value = 0;
     if (platformEnv.isNativeAndroid) {
       // console.log('resetGesture');
-      lastTransX.value = 0;
       lockDirection.value = LockDirection.None;
       pan.enabled(true);
     }
@@ -120,33 +120,31 @@ const NestedTabView: ForwardRefRenderFunction<
     setPageIndex,
   }));
 
-  const onEnd = useCallback(
-    ({ translationX }) => {
-      if (canOpenDrawer) {
-        if (tabIndex.value === 0) {
-          if (translationX > drawerOpenDistance) {
-            openDrawer();
-            // nestedTabTransX.value = withSpring(0, {
-            //   velocity: 50,
-            //   stiffness: 1000,
-            //   damping: 500,
-            //   mass: 3,
-            //   overshootClamping: true,
-            //   restDisplacementThreshold: 0.01,
-            //   restSpeedThreshold: 0.01,
-            // });
-          } else {
-            resetNestedTabTransX();
-          }
+  const onEnd = useCallback(() => {
+    if (canOpenDrawer) {
+      if (tabIndex.value === 0) {
+        // console.log('lastTransX', lastTransX.value);
+        if (lastTransX.value > drawerOpenDistance) {
+          openDrawer();
+          // nestedTabTransX.value = withSpring(0, {
+          //   velocity: 50,
+          //   stiffness: 1000,
+          //   damping: 500,
+          //   mass: 3,
+          //   overshootClamping: true,
+          //   restDisplacementThreshold: 0.01,
+          //   restSpeedThreshold: 0.01,
+          // });
+        } else {
+          resetNestedTabTransX();
         }
-        resetGesture();
       }
+      resetGesture();
+    }
 
-      // restore the onPress function
-      enableOnPressAnim.value = withTiming(1, { duration: 100 });
-    },
-    [canOpenDrawer, resetGesture, tabIndex, openDrawer],
-  );
+    // restore the onPress function
+    enableOnPressAnim.value = withTiming(1, { duration: 200 });
+  }, [canOpenDrawer, tabIndex, resetGesture, lastTransX, openDrawer]);
   const pan = useMemo(() => {
     const basePan = Gesture.Pan();
     if (canOpenDrawer) {
@@ -159,14 +157,14 @@ const NestedTabView: ForwardRefRenderFunction<
     }
     if (platformEnv.isNativeIOS) {
       // onUpdate works better on IOS
-      basePan.onUpdate((e) => {
+      basePan.onUpdate(({ translationX }) => {
         // console.log('update', e);
         // when fingers move,
         // disable the onPress function
         enableOnPressAnim.value = 0;
-        if (canOpenDrawer && tabIndex.value === 0 && e.translationX > 0) {
-          nestedTabTransX.value = offsetX.value + e.translationX;
-          lastTransX.value = e.translationX;
+        if (canOpenDrawer && tabIndex.value === 0 && translationX > 0) {
+          nestedTabTransX.value = offsetX.value + translationX;
+          lastTransX.value = translationX;
         }
       });
     }
