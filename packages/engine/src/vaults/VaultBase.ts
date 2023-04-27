@@ -122,7 +122,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async validateAddress(address: string): Promise<string> {
     const { normalizedAddress, isValid } =
       await this.engineProvider.verifyAddress(address);
-    if (!isValid || typeof normalizedAddress === 'undefined') {
+    if (!isValid || !normalizedAddress) {
       throw new InvalidAddress();
     }
     return Promise.resolve(normalizedAddress);

@@ -6,9 +6,12 @@ import { isString } from 'lodash';
 import type { Network } from '@onekeyhq/kit/src/store/typings';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
+  IMPL_ADA,
   IMPL_COSMOS,
   IMPL_DOT,
+  IMPL_XMR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import * as errors from './errors';
 import { OneKeyValidatorError, OneKeyValidatorTip } from './errors';
@@ -19,11 +22,13 @@ import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
 import type { DBAPI } from './dbs/base';
 import type { Engine } from './index';
 import type { UserInputCheckResult } from './types/credential';
+import type { AccountNameInfo } from './types/network';
 
 const FEE_LIMIT_HIGH_VALUE_TIMES = 20;
 const FEE_PRICE_HIGH_VALUE_TIMES = 4;
 
 const FORK_CHAIN_ADDRESS_NOT_DIFFERENT = [IMPL_COSMOS, IMPL_DOT];
+const WEBVIEW_BACKED_CHAIN = platformEnv.isNative ? [IMPL_ADA, IMPL_XMR] : [];
 
 class Validators {
   private _dbApi: DBAPI;
@@ -55,13 +60,15 @@ class Validators {
     const vault = await this.engine.getChainOnlyVault(networkId);
     const possibleNetworks = networks.map((network) => network.id);
 
+    let derivationOptions: AccountNameInfo[] | undefined;
     let category = UserInputCategory.IMPORTED;
     if (
       filterCategories.includes(category) &&
       (await vault.validateImportedCredential(input))
     ) {
-      const derivationOptions =
+      derivationOptions =
         await vault.getAccountNameInfosByImportedOrWatchingCredential(input);
+
       if (returnEarly)
         return [{ category, possibleNetworks, derivationOptions }];
       ret.push({ category, possibleNetworks, derivationOptions });
@@ -72,8 +79,10 @@ class Validators {
       filterCategories.includes(category) &&
       (await vault.validateWatchingCredential(input))
     ) {
-      const derivationOptions =
-        await vault.getAccountNameInfosByImportedOrWatchingCredential(input);
+      if (!derivationOptions) {
+        derivationOptions =
+          await vault.getAccountNameInfosByImportedOrWatchingCredential(input);
+      }
       if (returnEarly)
         return [{ category, possibleNetworks, derivationOptions }];
       ret.push({ category, possibleNetworks, derivationOptions });
@@ -113,9 +122,7 @@ class Validators {
       try {
         await this.validateMnemonic(input);
         // Don't branch if the input is a valid mnemonic.
-        return await Promise.resolve([
-          { category: UserInputCategory.MNEMONIC },
-        ]);
+        return [{ category: UserInputCategory.MNEMONIC }];
       } catch {
         // pass
       }
@@ -132,15 +139,20 @@ class Validators {
     for (const [impl, networks] of Object.entries(
       await this.engine.listEnabledNetworksGroupedByVault(),
     )) {
+      if (WEBVIEW_BACKED_CHAIN.includes(impl)) {
+        // skip webview backed chain
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       if (FORK_CHAIN_ADDRESS_NOT_DIFFERENT.includes(impl)) {
         for (const network of networks) {
           const result = await this.matchingInputType(
             input,
             [network],
             filterCategories,
-          );
+          ).catch();
 
-          if (result.length > 0) {
+          if (result && result.length > 0) {
             ret.push(...result);
             if (returnEarly) return ret;
           }
@@ -150,14 +162,13 @@ class Validators {
           input,
           networks,
           filterCategories,
-        );
+        ).catch();
 
-        const hasResult = Array.isArray(result) && result.length > 0;
-        if (hasResult) {
+        if (result && result.length > 0) {
           ret.push(...result);
-        }
-        if (hasResult && returnEarly) {
-          return ret;
+          if (returnEarly) {
+            return ret;
+          }
         }
       }
     }
@@ -177,7 +188,7 @@ class Validators {
   }) {
     return this.validateUserInput(
       input,
-      typeof onlyFor !== 'undefined' ? [onlyFor] : [],
+      onlyFor !== undefined ? [onlyFor] : [],
       returnEarly,
     );
   }
