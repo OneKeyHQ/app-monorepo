@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "This transaction will queue after {number} earlier transactions.",
   "msg__exceeding_the_maximum_word_limit": "Exceeding the maximum word limit.",
   "msg__failed_to_add_token": "Failed to add token",
+  "msg__failed_to_fetch_quotes": "Couldn’t fetch quotes",
   "msg__failed_to_get_price": "Failed to get price",
   "msg__fee_rate_is_higher_than_necessary": "Fee rate is higher than necessary",
   "msg__fee_rate_is_low_for_current_network": "Fee rate is low for current network conditions",

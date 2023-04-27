@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "このトランザクションは、{number}個のトランザクションの後にキューに入れられる。",
   "msg__exceeding_the_maximum_word_limit": "文字数の上限を超えた",
   "msg__failed_to_add_token": "トークン追加失敗",
+  "msg__failed_to_fetch_quotes": "見積もりを取得できませんでした",
   "msg__failed_to_get_price": "価格の取得に失敗した",
   "msg__fee_rate_is_higher_than_necessary": "手数料率が必要値を上回っている",
   "msg__fee_rate_is_low_for_current_network": "現在のネットワーク状況に対して、手数料率が低い",

@@ -71,16 +71,26 @@ const TokenCell: FC<Props> = ({ tokenId, sendAddress }) => {
     <ListItem mx="-8px">
       <ListItem.Column>
         {token && (
-          <Token size="40px" token={token} showTokenVerifiedIcon={false} />
+          <Token
+            flex="1"
+            size="40px"
+            showInfo
+            token={token}
+            showExtra={false}
+            description={formatedBalance}
+            infoBoxProps={{ flex: 1 }}
+          />
+          // <Token size="40px" token={token} showTokenVerifiedIcon={false} />
         )}
       </ListItem.Column>
-      <ListItem.Column
+
+      {/* <ListItem.Column
         text={{
           label: token?.name,
-          labelProps: { typography: 'Body1Strong' },
+          labelProps: { typography: 'Body1Strong', numberOfLines: 1 },
           description: formatedBalance,
         }}
-      />
+      /> */}
       <ListItem.Column
         flex={1}
         alignItems="flex-end"

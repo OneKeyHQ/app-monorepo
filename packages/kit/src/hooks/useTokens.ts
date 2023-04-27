@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import B from 'bignumber.js';
+import { pick } from 'lodash';
 import natsort from 'natsort';
 import { useAsync } from 'react-async-hook';
 
@@ -12,6 +13,7 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { appSelector } from '../store';
 import { getPreBaseValue } from '../utils/priceUtils';
 
 import { useAppSelector } from './useAppSelector';
@@ -44,6 +46,22 @@ export const useSingleToken = (networkId: string, address: string) => {
 export function useNativeToken(networkId?: string): Token | undefined {
   const { token } = useSingleToken(networkId ?? '', '');
   return token;
+}
+
+export function useCurrentNetworkTokenInfoByCoingeckoId(
+  coingeckoId: string,
+): null | Pick<Token, 'coingeckoId' | 'name' | 'symbol' | 'logoURI'> {
+  const { networkId, accountId } = useActiveWalletAccount();
+  const accountTokens = appSelector(
+    (s) => s.tokens.accountTokens?.[networkId]?.[accountId] || [],
+  );
+  return useMemo(() => {
+    const token = accountTokens.find((t) => t.coingeckoId === coingeckoId);
+    if (!token) {
+      return null;
+    }
+    return pick(token, 'coingeckoId', 'name', 'symbol', 'logoURI');
+  }, [coingeckoId, accountTokens]);
 }
 
 export function useAccountTokensBalance(

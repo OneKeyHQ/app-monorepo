@@ -1,86 +1,45 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { Animated } from 'react-native';
 
-import { Box, Center, Icon, LottieView, useTheme } from '@onekeyhq/components';
+import { Center, LottieView, useTheme } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import {
   AppUIEventBusNames,
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../../hooks';
-import { doQuote } from '../../doQuote';
-import { useSwapQuoteRequestParams } from '../../hooks/useSwap';
+import { appSelector } from '../../../../store';
 import { dangerRefs } from '../../refs';
-import { SwapError } from '../../typings';
 
-const RefreshButtonImpl = () => {
+const RefreshButton = () => {
   const { themeVariant } = useTheme();
-  const lottieRef = useRef<any>();
+  const isFocused = useIsFocused();
   const total = 15000;
 
   const loadingAnim = useRef(new Animated.Value(0)).current;
   const processAnim = useRef(new Animated.Value(0)).current;
-  const params = useSwapQuoteRequestParams();
-  const limited = useAppSelector((s) => s.swap.quoteLimited);
   const loading = useAppSelector((s) => s.swap.loading);
 
-  const lottie = useMemo(
-    () => ({
-      play: () => {
-        lottieRef.current?.play?.();
-        if (platformEnv.isNative) {
-          const used = Number((processAnim as any)._value);
-          Animated.timing(processAnim, {
-            toValue: total,
-            duration: total - used,
-            useNativeDriver: true,
-          }).start();
-        }
-      },
-      reset: () => {
-        lottieRef.current?.reset?.();
-        if (platformEnv.isNative) {
-          processAnim.stopAnimation();
-          processAnim.setValue(0);
-        }
-      },
-      pause: () => {
-        lottieRef.current?.pause();
-        if (platformEnv.isNative) {
-          processAnim.stopAnimation();
-        }
-      },
-    }),
-    [lottieRef, processAnim],
-  );
-
   const onRefresh = useCallback(() => {
-    if (limited || !params || dangerRefs.submited) {
-      loadingAnim.setValue(0);
-      Animated.timing(loadingAnim, {
-        toValue: -1,
-        duration: 1000,
-        useNativeDriver: true,
-      }).start();
+    const limited = appSelector((s) => s.swap.quoteLimited);
+    if (dangerRefs.submited || limited || !isFocused) {
       return;
     }
+    console.log('onRefresh');
     loadingAnim.setValue(0);
-    lottie.pause();
     Animated.timing(loadingAnim, {
       toValue: -1,
       duration: 1000,
       useNativeDriver: true,
-    }).start(async () => {
-      lottie.reset();
-      await doQuote({ params, loading: true });
-      lottie.play();
+    }).start(() => {
+      appUIEventBus.emit(AppUIEventBusNames.SwapRefresh);
     });
-  }, [loadingAnim, limited, params, lottie]);
+  }, [loadingAnim, isFocused]);
 
   useEffect(() => {
     const fn = processAnim.addListener(({ value }) => {
@@ -92,16 +51,24 @@ const RefreshButtonImpl = () => {
   }, [onRefresh, processAnim]);
 
   useEffect(() => {
-    appUIEventBus.on(AppUIEventBusNames.SwapRefresh, onRefresh);
-    return () => {
-      appUIEventBus.off(AppUIEventBusNames.SwapRefresh, onRefresh);
-    };
-  }, [onRefresh]);
+    Animated.timing(processAnim, {
+      toValue: total,
+      duration: total,
+      useNativeDriver: true,
+    }).start();
+  }, [processAnim]);
 
   useEffect(() => {
-    lottie.play();
-    // eslint-disable-next-line
-  }, []);
+    if (isFocused) {
+      const value = Number((processAnim as any)._value);
+      if (value === total) {
+        setTimeout(
+          () => appUIEventBus.emit(AppUIEventBusNames.SwapRefresh),
+          100,
+        );
+      }
+    }
+  }, [isFocused, processAnim]);
 
   return (
     <Pressable onPress={onRefresh} isDisabled={loading}>
@@ -119,8 +86,6 @@ const RefreshButtonImpl = () => {
       >
         <Center w="5" h="5">
           <LottieView
-            onLoopComplete={onRefresh}
-            ref={lottieRef}
             autoPlay
             width={20}
             source={
@@ -132,24 +97,6 @@ const RefreshButtonImpl = () => {
         </Center>
       </Animated.View>
     </Pressable>
-  );
-};
-
-const RefreshButton = () => {
-  const error = useAppSelector((s) => s.swap.error);
-  return (
-    <Box position="relative">
-      <RefreshButtonImpl />
-      <Box
-        position="absolute"
-        display={error === SwapError.QuoteFailed ? 'flex' : 'none'}
-        bottom="1"
-        right="1"
-        pointerEvents="none"
-      >
-        <Icon size={14} name="ExclamationCircleSolid" color="icon-critical" />
-      </Box>
-    </Box>
   );
 };
 

@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "Энэ гүйлгээ нь {number} өмнөх гүйлгээний дараа дараалалд орно.",
   "msg__exceeding_the_maximum_word_limit": "Үгийн дээд хязгаарыг давж байна.",
   "msg__failed_to_add_token": "Токен нэмж чадсангүй",
+  "msg__failed_to_fetch_quotes": "Үнийн саналыг авч чадсангүй",
   "msg__failed_to_get_price": "Үнэ авч чадсангүй",
   "msg__fee_rate_is_higher_than_necessary": "Төлбөрийн хэмжээ шаардлагатай хэмжээнээс өндөр байна",
   "msg__fee_rate_is_low_for_current_network": "Одоогийн сүлжээний нөхцөлийн хувьд төлбөрийн хэмжээ бага байна",

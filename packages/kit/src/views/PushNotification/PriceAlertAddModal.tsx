@@ -22,6 +22,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useSettings } from '../../hooks/redux';
+import { useCurrentNetworkTokenInfoByCoingeckoId } from '../../hooks/useTokens';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 import { PreSendAmountPreview } from '../Send/modals/PreSendAmount';
 
@@ -50,6 +51,10 @@ export const PriceAlertAddModal: FC = () => {
   const isSmallScreen = useIsVerticalLayout();
   const { pushNotification } = useSettings();
   const navigation = useNavigation<NavigationProps>();
+
+  const tokenInfo = useCurrentNetworkTokenInfoByCoingeckoId(
+    token.coingeckoId ?? '',
+  );
   const { selectedFiatMoneySymbol } = useSettings();
 
   const { serviceNotification } = backgroundApiProxy;
@@ -125,8 +130,8 @@ export const PriceAlertAddModal: FC = () => {
     setLoading(true);
     try {
       await serviceNotification.addPriceAlertConfig({
-        symbol: token.symbol,
-        logoURI: token.logoURI,
+        symbol: token.symbol ?? tokenInfo?.symbol,
+        logoURI: token.logoURI ?? tokenInfo?.logoURI,
         operator: new B(text).isGreaterThanOrEqualTo(price)
           ? PriceAlertOperator.greater
           : PriceAlertOperator.less,
@@ -153,6 +158,7 @@ export const PriceAlertAddModal: FC = () => {
     selectedFiatMoneySymbol,
     text,
     token,
+    tokenInfo,
     price,
     serviceNotification,
     formatPrice,

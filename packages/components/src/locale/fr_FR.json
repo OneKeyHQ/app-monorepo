@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "Cette transaction sera mise en file d'attente après {number} transactions précédentes.",
   "msg__exceeding_the_maximum_word_limit": "Dépassement de la limite maximale de mots.",
   "msg__failed_to_add_token": "Échec de l'ajout du jeton",
+  "msg__failed_to_fetch_quotes": "Impossible de récupérer les devis",
   "msg__failed_to_get_price": "Impossible d'obtenir le prix",
   "msg__fee_rate_is_higher_than_necessary": "Le tarif est plus élevé que nécessaire",
   "msg__fee_rate_is_low_for_current_network": "Le taux de redevance est faible pour les conditions actuelles du réseau",
