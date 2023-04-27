@@ -866,7 +866,7 @@ class ServiceHardware extends ServiceBase {
       const response = await hardwareSDK.firmwareUpdateV2(connectId, {
         updateType: 'firmware',
         platform: platformEnv.symbol ?? 'web',
-        isUpdateBootloader: false,
+        isUpdateBootloader: true,
       });
       return response;
     } finally {
