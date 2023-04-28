@@ -400,13 +400,13 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async ensureDeviceExist(connectId: string) {
+  async ensureDeviceExist(connectId: string, maxTryCount = 10) {
     return new Promise((resolve) => {
       let tryCount = 0;
       deviceUtils.startDeviceScan(
         (response) => {
           tryCount += 1;
-          if (tryCount > 10) {
+          if (tryCount > maxTryCount) {
             deviceUtils.stopScan();
             resolve(false);
           }
@@ -433,7 +433,7 @@ class ServiceHardware extends ServiceBase {
     return new Promise(async (resolve) => {
       const hardwareSDK = await this.getSDKInstance();
       // restart count down
-      await wait(5000);
+      await wait(8000);
       let tryCount = 0;
       //  polling device when restart success
       const DISCONNECT_ERROR = 'Request failed with status code';

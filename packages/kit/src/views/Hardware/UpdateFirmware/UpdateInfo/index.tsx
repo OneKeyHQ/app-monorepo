@@ -140,7 +140,7 @@ const UpdateInfoModal: FC = () => {
         ToastManager.show(
           {
             title: intl.formatMessage({
-              id: 'msg__low_battery_charge_to_25_before_updating_the_boot',
+              id: 'msg__low_battery_charge_to_25_before_updating_firmware_or_boot',
             }),
           },
           { type: 'error' },
