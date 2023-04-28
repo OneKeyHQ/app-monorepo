@@ -236,7 +236,7 @@ const UpdateInfoModal: FC = () => {
 
       if (ble) {
         setBleFirmware(ble);
-        setIsLoading(true);
+        setIsLoading(false);
       } else if (firmware) {
         // check Touch resource update
         const resourceInfo = await deviceUtils.checkTouchNeedUpdateResource(
