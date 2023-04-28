@@ -1104,7 +1104,7 @@ export default class Vault extends VaultBase {
         //      at blockchain-libs/dist/provider/chains/eth/geth.js
         unsignedTx = await this.buildUnsignedTxFromEncodedTx({
           ...encodedTxWithFakePriceAndNonce,
-          // the estimated limit wii be insufficient when value is 0x0 on filecoin evm
+          // the estimated limit will be insufficient when value is 0x0 on filecoin evm
           value: this.networkId === OnekeyNetwork.fevm ? '0x1' : '0x0',
         });
       } catch (e) {
