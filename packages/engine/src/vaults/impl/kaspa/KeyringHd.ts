@@ -130,9 +130,6 @@ export class KeyringHd extends KeyringHdBase {
       async getPrivateKey(): Promise<PrivateKey> {
         const privateKey = await signer.getPrvkey();
         const publicKey = await signer.getPubkey(true);
-        console.log('=====>>>>> privateKey', bytesToHex(privateKey));
-        console.log('=====>>>>> publicKey', bytesToHex(publicKey));
-
         return privateKeyFromOriginPrivateKey(privateKey, publicKey, chainId);
       },
     });

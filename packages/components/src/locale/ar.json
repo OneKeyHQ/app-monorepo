@@ -917,6 +917,7 @@
   "empty__no_account_title": "لا حسابات",
   "empty__no_connected_sites": "لا توجد مواقع متصلة",
   "empty__no_connected_sites_desc": "إنشاء اتصال جديد مع dApps.",
+  "empty__no_data": "لايوجد بيانات",
   "empty__no_info": "لا توجد معلومات",
   "empty__no_info_desc": "لا توجد معلومات متاحة لهذا الرمز المميز.",
   "empty__no_nfts": "لا NFTs",
@@ -1932,7 +1933,7 @@
   "msg__limit_price_is_str_lower_than_the_current_market_price": "السعر المحدد أقل {0} من السوق.",
   "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "سوف تبيع {0} بسعر رخيص للغاية.",
   "msg__link_copied": "تم نسخ الرابط",
-  "msg__low_battery_charge_to_25_before_updating_the_boot": "البطارية ضعيفة! اشحن حتى 25٪ قبل تحديث محمل الإقلاع",
+  "msg__low_battery_charge_to_25_before_updating_firmware_or_boot": "البطارية ضعيفة! اشحن حتى 25٪ قبل التحديث",
   "msg__mine": "الخاص بي",
   "msg__minted": "💎 سكت {assets}",
   "msg__mismatched_account": "حساب غير متطابق.",

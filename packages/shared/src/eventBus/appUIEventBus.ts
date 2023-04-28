@@ -19,6 +19,7 @@ enum AppUIEventBusNames {
   ChainWebEmbedDisabled = 'ChainWebEmbedDisabled',
   Migrate = 'Migrate',
   RevokeRefresh = 'RevokeRefresh',
+  HardwareCancel = 'HardwareCancel',
 }
 
 if (isExtensionBackground) {
