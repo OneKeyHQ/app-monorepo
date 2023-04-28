@@ -226,7 +226,7 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxKaspa,
     payload?: any,
   ): Promise<IDecodedTx> {
-    const { inputs, outputs } = encodedTx;
+    const { inputs, outputs, feeInfo } = encodedTx;
 
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
@@ -280,7 +280,9 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: null,
-      totalFeeInNative: encodedTx.feeInfo?.limit ?? '0',
+      totalFeeInNative: new BigNumber(encodedTx.feeInfo?.limit ?? '0')
+        .multipliedBy(feeInfo?.price ?? '0.00000001')
+        .toFixed(),
     };
   }
 
