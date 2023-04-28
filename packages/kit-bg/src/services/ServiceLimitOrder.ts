@@ -593,7 +593,11 @@ class ServiceLimitOrder extends ServiceBase {
 
   @backgroundMethod()
   async setProgressStatus(data?: ProgressStatus) {
-    const { dispatch } = this.backgroundApi;
+    const { dispatch, appSelector } = this.backgroundApi;
+    const progressStatus = appSelector((s) => s.limitOrder.progressStatus);
+    if (!progressStatus) {
+      return;
+    }
     dispatch(setProgressStatus(data));
   }
 
