@@ -8,7 +8,7 @@ import type { IVaultSettings } from '../../types';
 const settings: IVaultSettings = Object.freeze({
   feeInfoEditable: false,
   privateKeyExportEnabled: true,
-  tokenEnabled: true,
+  tokenEnabled: false,
   txCanBeReplaced: false,
 
   importedAccountEnabled: true,
@@ -19,8 +19,6 @@ const settings: IVaultSettings = Object.freeze({
   isUTXOModel: false,
 
   minTransferAmount: '0.00000546',
-
-  disabledInExtension: false,
 
   accountNameInfo: {
     default: {

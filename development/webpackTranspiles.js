@@ -27,6 +27,7 @@ const extModuleTranspile = [
   '@polkadot/keyring',
   '@solana/web3.js',
   '@zondax/izari-filecoin',
+  '@kaspa/core-lib',
 ];
 
 module.exports = {
