@@ -917,6 +917,7 @@
   "empty__no_account_title": "アカウントなし",
   "empty__no_connected_sites": "接続されたサイトがない",
   "empty__no_connected_sites_desc": "dApps と新たに接続する。",
+  "empty__no_data": "データなし",
   "empty__no_info": "情報なし",
   "empty__no_info_desc": "このトークンに関する情報がない。",
   "empty__no_nfts": "NFTなし",

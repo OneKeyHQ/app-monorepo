@@ -917,6 +917,7 @@
   "empty__no_account_title": "계정 없음",
   "empty__no_connected_sites": "연결된 사이트 없음",
   "empty__no_connected_sites_desc": "dApp과 새로운 연결을 생성합니다.",
+  "empty__no_data": "데이터 없음",
   "empty__no_info": "정보 없음",
   "empty__no_info_desc": "이 토큰에 대한 정보가 없습니다.",
   "empty__no_nfts": "NFT 없음",

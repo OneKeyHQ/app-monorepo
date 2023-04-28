@@ -64,12 +64,12 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     contractAdress: tokenId,
   });
 
-  const statedSupport = useTokenSupportStakedAssets(networkId, tokenId);
+  const stakedSupport = useTokenSupportStakedAssets(networkId, tokenId);
 
   const headerHeight = useMemo(() => {
     let height = 512;
     if (isVerticalLayout) {
-      height = statedSupport === true ? 512 : 512 - 88;
+      height = stakedSupport === true ? 512 : 512 - 88;
     } else {
       height = 452;
     }
@@ -77,7 +77,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
       height += isVerticalLayout ? 84 : 92;
     }
     return height;
-  }, [isVerticalLayout, show, statedSupport]);
+  }, [isVerticalLayout, show, stakedSupport]);
 
   const priceReady = useMemo(() => {
     if (!token) {
