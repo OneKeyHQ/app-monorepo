@@ -68,10 +68,11 @@ function normalizeConfig({ platform, config }) {
     transformInlineEnviromentVariables.push('JPUSH_KEY');
     moduleResolver = {
       alias: {
-        '@ipld/dag-cbor':
-          '@zondax/izari-filecoin/node_modules/@ipld/dag-cbor/dist/index.min.js',
-        'multiformats':
-          '@zondax/izari-filecoin/node_modules/multiformats/dist/index.min.js',
+        '@ipld/dag-cbor': '@ipld/dag-cbor/dist/index.min.js',
+        'multiformats/basics': 'multiformats/basics',
+        'multiformats/cid': 'multiformats/cid',
+        'multiformats/hashes': 'multiformats/hashes',
+        'multiformats': 'multiformats/index.js',
       },
     };
   }
