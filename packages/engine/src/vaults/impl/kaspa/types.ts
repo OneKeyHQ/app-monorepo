@@ -1,10 +1,10 @@
 import type { IFeeInfoUnit } from '../../types';
-import type { UnspentOutput } from './sdk';
+import type { UnspentOutputInfo } from './sdk';
 import type { PrivateKey, PublicKey } from '@kaspa/core-lib';
 
 export type IEncodedTxKaspa = {
   utxoIds: string[];
-  inputs: UnspentOutput[];
+  inputs: UnspentOutputInfo[];
   outputs: {
     address: string;
     value: string;
