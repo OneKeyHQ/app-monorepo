@@ -5,11 +5,16 @@ import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils
 import { COINTYPE_FIL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { NotImplemented, OneKeyHardwareError } from '../../../errors';
+import {
+  NotImplemented,
+  OneKeyHardwareError,
+  OneKeyInternalError,
+} from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
 import { ProtocolIndicator } from './types';
+import { validateNetworkPrefix } from './utils';
 
 import type { DBVariantAccount } from '../../../types/account';
 import type {
@@ -19,7 +24,6 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IEncodedTxFil } from './types';
-import type { NetworkPrefix } from '@zondax/izari-filecoin';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 const accountNamePrefix = 'FIL';
@@ -142,14 +146,26 @@ export class KeyringHardware extends KeyringHardwareBase {
       );
     AddressSecp256k1.fromString = (address: string) => {
       const networkPrefix = address[0];
+      const protocolIndicator = address[1];
+
+      if (!validateNetworkPrefix(networkPrefix))
+        throw new OneKeyInternalError('Invalid filecoin network.');
+      if (parseInt(protocolIndicator) !== ProtocolIndicator.SECP256K1)
+        throw new OneKeyInternalError('Invalid filecoin protocol indicator.');
+
       const decodedData = Buffer.from(
         base32Decode(address.substring(2).toUpperCase(), 'RFC4648'),
       );
       const payload = decodedData.subarray(0, -4);
-      const newAddress = new AddressSecp256k1(
-        networkPrefix as NetworkPrefix,
-        payload,
-      );
+      const checksum = decodedData.subarray(-4);
+
+      const newAddress = new AddressSecp256k1(networkPrefix, payload);
+      if (
+        Buffer.from(newAddress.getChecksum()).toString('hex') !==
+        Buffer.from(checksum).toString('hex')
+      )
+        throw new OneKeyInternalError('Invalid filecoin checksum network.');
+
       return newAddress;
     };
 

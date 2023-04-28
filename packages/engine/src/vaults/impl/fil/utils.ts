@@ -1,10 +1,15 @@
-import { AddressSecp256k1, Transaction } from '@zondax/izari-filecoin';
+import {
+  AddressSecp256k1,
+  NetworkPrefix,
+  Transaction,
+} from '@zondax/izari-filecoin';
 import base32Decode from 'base32-decode';
 import blake from 'blakejs';
 
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 
+import { OneKeyInternalError } from '../../../errors';
 import { IDecodedTxStatus } from '../../types';
 
 import { ProtocolIndicator } from './types';
@@ -12,7 +17,6 @@ import { ProtocolIndicator } from './types';
 import type { Signer } from '../../../proxy';
 import type { IUnsignedTxPro } from '../../types';
 import type { IEncodedTxFil } from './types';
-import type { NetworkPrefix } from '@zondax/izari-filecoin';
 
 const CID_PREFIX = Buffer.from([0x01, 0x71, 0xa0, 0xe4, 0x02, 0x20]);
 const CID_LEN = 32;
@@ -30,6 +34,11 @@ export function getDigest(message: Buffer): Buffer {
   return Buffer.from(blake.blake2bFinal(blakeCtx));
 }
 
+export const validateNetworkPrefix = (
+  networkPrefix: string,
+): networkPrefix is NetworkPrefix =>
+  Object.values(NetworkPrefix).includes(networkPrefix as NetworkPrefix);
+
 export async function signTransaction(
   unsignedTx: IUnsignedTxPro,
   signer: Signer,
@@ -44,16 +53,33 @@ export async function signTransaction(
       list.map((item) => Buffer.from(item)),
       totalLength,
     );
+  // In @zondax/izari-filecoin AddressSecp256k1 fromString static fucntion
+  // When comparing the check sum of the address,
+  // The format of both sides is Buffer and Uint8Array,
+  // Resulting in different comparison results of the same checksum
+  // Which needs to be corrected
   AddressSecp256k1.fromString = (address: string) => {
     const networkPrefix = address[0];
+    const protocolIndicator = address[1];
+
+    if (!validateNetworkPrefix(networkPrefix))
+      throw new OneKeyInternalError('Invalid filecoin network.');
+    if (parseInt(protocolIndicator) !== ProtocolIndicator.SECP256K1)
+      throw new OneKeyInternalError('Invalid filecoin protocol indicator.');
+
     const decodedData = Buffer.from(
       base32Decode(address.substring(2).toUpperCase(), 'RFC4648'),
     );
     const payload = decodedData.subarray(0, -4);
-    const newAddress = new AddressSecp256k1(
-      networkPrefix as NetworkPrefix,
-      payload,
-    );
+    const checksum = decodedData.subarray(-4);
+
+    const newAddress = new AddressSecp256k1(networkPrefix, payload);
+    if (
+      Buffer.from(newAddress.getChecksum()).toString('hex') !==
+      Buffer.from(checksum).toString('hex')
+    )
+      throw new OneKeyInternalError('Invalid filecoin checksum network.');
+
     return newAddress;
   };
 
