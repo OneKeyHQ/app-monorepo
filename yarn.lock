@@ -4755,25 +4755,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/curves@npm:^0.8.3":
-  version: 0.8.3
-  resolution: "@noble/curves@npm:0.8.3"
-  dependencies:
-    "@noble/hashes": 1.3.0
-  checksum: caab73fbd0335e26249db26f2dbfa7eb7413814c62d1b94d688f19474b8c2dad7f6afe193a59ff45ae8a8516a473d8e86e9060aac806a1018d124a9e1307562b
-  languageName: node
-  linkType: hard
-
-"@noble/curves@npm:^0.9.0":
-  version: 0.9.1
-  resolution: "@noble/curves@npm:0.9.1"
-  dependencies:
-    "@noble/hashes": 1.3.0
-  checksum: f34b8256182d3287fa80225a793e4db470f8e47d62e95700150e97c18e96547891d6651b9ce1727c2fba88bfe96b3a10af6320a35f89f9eca04e0b1f0247a5af
-  languageName: node
-  linkType: hard
-
-"@noble/curves@npm:~1.0.0":
+"@noble/curves@npm:^1.0.0":
   version: 1.0.0
   resolution: "@noble/curves@npm:1.0.0"
   dependencies:

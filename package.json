@@ -202,6 +202,7 @@
     "js-conflux-sdk": "^2.1.6",
     "secp256k1": "^4.0.3",
     "util": "^0.12.5",
+    "@noble/curves": "^1.0.0",
     "@mysten/wallet-standard": "^0.5.1",
     "react-native-web@0.18.10": "patch:react-native-web@npm%3A0.18.10#./.yarn/patches/react-native-web-npm-0.18.10-f9d1f2dee1.patch",
     "expo-device@^4.3.0": "patch:expo-device@npm%3A4.3.0#./.yarn/patches/expo-device-npm-4.3.0-6bf71e0966.patch",
