@@ -41,7 +41,11 @@ import {
   getNFTTransactionHistory,
 } from '../../../managers/nft';
 import { extractResponseError } from '../../../proxy';
-import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
+import {
+  IDecodedTxActionType,
+  IDecodedTxStatus,
+  IEncodedTxUpdateType,
+} from '../../types';
 import { VaultBase } from '../../VaultBase';
 
 import { ClientSol } from './ClientSol';
@@ -619,6 +623,10 @@ export default class Vault extends VaultBase {
     payload: any,
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTx> {
+    if (options.type === IEncodedTxUpdateType.advancedSettings) {
+      return Promise.resolve(encodedTx);
+    }
+
     const nativeTx = (await this.helper.parseToNativeTx(
       encodedTx,
     )) as Transaction;
