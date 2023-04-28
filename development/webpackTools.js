@@ -186,8 +186,7 @@ function normalizeConfig({
     'aptos': 'aptos/dist/index.js',
     'framer-motion': 'framer-motion/dist/framer-motion',
     '@mysten/sui.js': '@mysten/sui.js/dist/index.js',
-    '@ipld/dag-cbor':
-      '@zondax/izari-filecoin/node_modules/@ipld/dag-cbor/dist/index.min.js',
+    '@ipld/dag-cbor': '@ipld/dag-cbor/dist/index.min.js',
   };
 
   // Why? do not change original config directly
