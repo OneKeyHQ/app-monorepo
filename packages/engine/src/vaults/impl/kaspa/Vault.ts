@@ -184,13 +184,6 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxKaspa,
   ): Promise<IUnsignedTxPro> {
     const { inputs, outputs } = encodedTx;
-    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
-
-    // const publicKey = publicKeyFromOriginPubkey(
-    //   Buffer.from(hexToBytes(dbAccount.pub)),
-    // )
-    //   .toBuffer()
-    //   .toString('hex');
 
     const inputsInUnsignedTx: TxInput[] = [];
     for (const input of inputs) {
@@ -199,7 +192,7 @@ export default class Vault extends VaultBase {
         address: input.address.toString(),
         value,
         // publicKey,
-        utxo: { txid: input.txId, vout: input.outputIndex, value },
+        utxo: { txid: input.txid, vout: input.vout, value },
       });
     }
     const outputsInUnsignedTx = outputs.map(({ address, value }) => ({

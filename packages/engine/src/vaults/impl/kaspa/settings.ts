@@ -20,8 +20,6 @@ const settings: IVaultSettings = Object.freeze({
 
   minTransferAmount: '0.00000546',
 
-  disabledInExtension: false,
-
   accountNameInfo: {
     default: {
       prefix: 'KASPA',
