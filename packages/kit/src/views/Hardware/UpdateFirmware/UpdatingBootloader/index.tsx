@@ -14,6 +14,10 @@ import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Root/M
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import * as Errors from '@onekeyhq/kit/src/utils/hardware/errors';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { HardwareUpdateModalRoutes } from '../../../../routes/routesEnum';
@@ -347,6 +351,17 @@ const UpdatingBootloader: FC = () => {
     },
     [],
   );
+
+  useEffect(() => {
+    const handler = () => {
+      handleErrors(new Errors.UserCancel());
+    };
+    appUIEventBus.on(AppUIEventBusNames.HardwareCancel, handler);
+    return () => {
+      appUIEventBus.off(AppUIEventBusNames.HardwareCancel, handler);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const executeUpdate = async () => {
     setProgressState('running');
