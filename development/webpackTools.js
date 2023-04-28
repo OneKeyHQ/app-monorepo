@@ -42,6 +42,7 @@ function createDefaultResolveExtensions() {
     '.tsx',
     '.mjs',
     '.js',
+    '.min.js',
     '.jsx',
     '.json',
     '.wasm',
