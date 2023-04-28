@@ -13,7 +13,7 @@ export const enableOnPressAnim = makeMutable(1);
 export const useBeforeOnPress = (onPress?: ((e: any) => void) | null) =>
   useCallback(
     (e: GestureResponderEvent | MouseEvent) => {
-      if (platformEnv.isRuntimeBrowser) {
+      if (!platformEnv.isNative) {
         const { autoHideSelectFunc } =
           require('./SelectAutoHide') as typeof import('./SelectAutoHide');
         autoHideSelectFunc(e as MouseEvent);

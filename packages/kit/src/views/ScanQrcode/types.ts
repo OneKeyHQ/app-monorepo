@@ -14,7 +14,7 @@ export type ScanResultCategory = UserInputCategory | ScanSubResultCategory;
 export interface ScanResult {
   type: ScanResultCategory;
   data: string;
-  possibleNetworks?: string[];
+  // possibleNetworks?: string[];
 }
 
 export enum ScanQrcodeRoutes {

@@ -1,6 +1,3 @@
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import walletConnectUtils from '../components/WalletConnect/utils/walletConnectUtils';
 import { getAppNavigation } from '../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../routes/types';
@@ -12,7 +9,7 @@ import {
 
 import type { ScanResult } from '../views/ScanQrcode/types';
 
-export const handleScanResult = async (data: string) => {
+export const handleScanResult = (data: string) => {
   const scanResult: ScanResult = { type: ScanSubResultCategory.TEXT, data };
   if (data.startsWith('https://') || data.startsWith('http://')) {
     scanResult.type = ScanSubResultCategory.URL;
@@ -25,20 +22,8 @@ export const handleScanResult = async (data: string) => {
       uri: data,
     });
     return;
-  } else {
-    try {
-      const [result] = await backgroundApiProxy.validator.validateCreateInput({
-        input: data,
-        returnEarly: true,
-      });
-      if (result) {
-        scanResult.type = result.category;
-        scanResult.possibleNetworks = result.possibleNetworks;
-      }
-    } catch (e) {
-      debugLogger.backgroundApi.error(e);
-    }
   }
+  // move network detect to result page
   return scanResult;
 };
 
