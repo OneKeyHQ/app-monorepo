@@ -1,11 +1,12 @@
 import { locale as LocalizationLocale } from 'expo-localization';
+import memoizee from 'memoizee';
 
 import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
 
 const locales = LOCALES_OPTION.map((locale) => locale.value);
 
-export function getDefaultLocale() {
+const getDefaultLocaleFunc = () => {
   const current = LocalizationLocale;
   for (let i = 0; i < locales.length; i += 1) {
     const locale = locales[i];
@@ -28,4 +29,6 @@ export function getDefaultLocale() {
     }
   }
   return locales[0] as LocaleSymbol;
-}
+};
+
+export const getDefaultLocale = memoizee(getDefaultLocaleFunc);
