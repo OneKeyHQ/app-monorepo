@@ -3901,16 +3901,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ipld/dag-cbor@npm:^8.0.0":
-  version: 8.0.1
-  resolution: "@ipld/dag-cbor@npm:8.0.1"
-  dependencies:
-    cborg: ^1.6.0
-    multiformats: ^11.0.0
-  checksum: 5fb0f60d56f9cf62b87899e440a17e39fbe0eacbd5a2e656c5017b76f8c9153b11f8ca7880df4618492e570df9228aa4c76eaf822209fe87e4b88c4cdcda81f1
-  languageName: node
-  linkType: hard
-
 "@ipld/dag-cbor@npm:^9.0.0":
   version: 9.0.0
   resolution: "@ipld/dag-cbor@npm:9.0.0"
@@ -5583,7 +5573,6 @@ __metadata:
     "@glif/filecoin-address": ^2.0.43
     "@glif/filecoin-message": ^2.0.44
     "@glif/filecoin-rpc-client": ^2.0.8
-    "@ipld/dag-cbor": ^8.0.0
     "@kaspa/core-lib": ^1.6.5
     "@metamask/eth-sig-util": ^4.0.1
     "@mymonero/mymonero-app-bridge": ^3.0.0
@@ -12625,7 +12614,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cborg@npm:^1.10.0, cborg@npm:^1.6.0":
+"cborg@npm:^1.10.0":
   version: 1.10.1
   resolution: "cborg@npm:1.10.1"
   bin:
