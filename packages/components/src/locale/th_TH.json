@@ -917,6 +917,7 @@
   "empty__no_account_title": "ไม่มีบัญชี",
   "empty__no_connected_sites": "ไม่มีไซต์ที่เชื่อมต่อ",
   "empty__no_connected_sites_desc": "การสร้างการเชื่อมต่อใหม่ด้วย dApps",
+  "empty__no_data": "ไม่มีข้อมูล",
   "empty__no_info": "ไม่มีข้อมูล",
   "empty__no_info_desc": "ไม่มีข้อมูลสำหรับโทเค็นนี้",
   "empty__no_nfts": "ไม่มี NFT",

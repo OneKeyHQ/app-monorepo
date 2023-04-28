@@ -9,6 +9,7 @@ import {
   Typography,
   useThemeValue,
 } from '@onekeyhq/components';
+import { doHapticsWhenEnabled } from '@onekeyhq/shared/src/haptics';
 
 type PercentInputProps = Exclude<
   ComponentProps<typeof Slider>,
@@ -32,6 +33,7 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange, ...rest }) => {
 
   const handleChange = useCallback(
     (v: number) => {
+      doHapticsWhenEnabled();
       setPressed(true);
       onChange(v);
     },
@@ -40,6 +42,7 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange, ...rest }) => {
 
   const handleChangeEnd = useCallback(
     (v: number) => {
+      doHapticsWhenEnabled();
       setPressed(false);
       onChange(v);
     },
@@ -70,9 +73,12 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange, ...rest }) => {
               alignItems="center"
               borderRadius="full"
             >
-              <Box w="3" h="3" bg="surface-neutral-default" borderRadius="full">
-                {isPressed}
-              </Box>
+              <Box
+                w="3"
+                h="3"
+                bg="surface-neutral-default"
+                borderRadius="full"
+              />
             </Box>
             {isPressed ? (
               <Box
@@ -82,7 +88,7 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange, ...rest }) => {
                 bottom={8}
                 bg="surface-neutral-subdued"
                 borderRadius={4}
-                style={{ transform: [{ translateX: 10 }] }}
+                style={{ transform: [{ translateX: 17 }] }}
               >
                 <Box
                   style={{
@@ -98,10 +104,10 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange, ...rest }) => {
                     borderTopColor,
                     position: 'absolute',
                     bottom: -8,
-                    right: 12,
+                    right: 20,
                   }}
                 />
-                <Center p="1" flexDirection="row" w="9">
+                <Center p="1" flexDirection="row" w="12">
                   <Typography.CaptionStrong color="text-default">
                     {text}
                   </Typography.CaptionStrong>
