@@ -17,6 +17,10 @@ import EnterPinCodeOnClassic from '@onekeyhq/kit/assets/animations/enter-pin-cod
 import EnterPinCodeOnMini from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-mini.json';
 import EnterPinCodeOnPro from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-pro.json';
 import EnterPinCodeOnTouch from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-touch.json';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import BaseRequestView from './BaseRequest';
@@ -173,7 +177,12 @@ const RequestPinView: FC<RequestPinViewProps> = ({
 
   return (
     <BaseRequestView
-      onCancel={onCancel}
+      onCancel={() => {
+        onCancel?.();
+        if (!innerOnDeviceInput) {
+          appUIEventBus.emit(AppUIEventBusNames.HardwareCancel);
+        }
+      }}
       mobileFillWidth={!innerOnDeviceInput}
       closeWay={innerOnDeviceInput ? 'delay' : 'now'}
       borderBottomRadius={

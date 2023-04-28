@@ -56,7 +56,12 @@ const LimitOrderButton = () => {
     }
     const walletId = getWalletIdFromAccountId(params.activeAccount.id);
     const wallet = await backgroundApiProxy.engine.getWallet(walletId);
-
+    backgroundApiProxy.serviceLimitOrder.setProgressStatus({
+      title: intl.formatMessage(
+        { id: 'action__building_transaction_data_str' },
+        { '0': '' },
+      ),
+    });
     const order = await backgroundApiProxy.serviceLimitOrder.buildLimitOrder({
       params,
       instantRate,
@@ -247,10 +252,10 @@ const LimitOrderButton = () => {
           close={close}
           onSubmit={async () => {
             try {
-              backgroundApiProxy.serviceLimitOrder.setProgressStatus({});
+              backgroundApiProxy.serviceLimitOrder.openProgressStatus();
               await combinedTasks(tasks);
             } finally {
-              backgroundApiProxy.serviceLimitOrder.setProgressStatus(undefined);
+              backgroundApiProxy.serviceLimitOrder.closeProgressStatus();
             }
           }}
         />

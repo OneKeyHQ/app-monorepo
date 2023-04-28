@@ -1,13 +1,14 @@
 import type { FC, ReactNode } from 'react';
 import { useCallback, useState } from 'react';
 
-import { Box, Spinner, useIsVerticalLayout } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Box, Empty, Spinner, useIsVerticalLayout } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useFormatDate from '../../hooks/useFormatDate';
 
 import ChartView from './ChartView';
-import SvgNoPriceData from './NoPriceData';
 import PriceLabel from './PriceLabel';
 
 import type { MarketApiData, OnHoverFunction } from './chartService';
@@ -28,6 +29,8 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
   onPriceSubscribe,
 }) => {
   const { formatDate } = useFormatDate();
+  const intl = useIntl();
+
   const [price, setPrice] = useState<string | number | undefined>();
   const [time, setTime] = useState('');
   const isVerticalLayout = useIsVerticalLayout();
@@ -69,6 +72,7 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
       basePrice={basePrice}
     />
   );
+
   const chartView = data ? (
     <ChartView
       isFetching={isFetching}
@@ -77,7 +81,15 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
       onHover={onHover}
     />
   ) : (
-    <SvgNoPriceData width="100%" height="100%" preserveAspectRatio="none" />
+    <Empty
+      emoji="📊"
+      title={intl.formatMessage({
+        id: 'empty__no_data',
+      })}
+      subTitle={intl.formatMessage({
+        id: 'content__data_for_this_token_is_not_included_yet',
+      })}
+    />
   );
   const chartViewWithSpinner =
     data && data.length === 0 ? <Spinner /> : chartView;

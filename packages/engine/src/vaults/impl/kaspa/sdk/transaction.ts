@@ -8,6 +8,7 @@ import ecc from '../../../utils/btcForkChain/provider/nobleSecp256k1Wrapper';
 import { hexlify, stripHexPrefix } from '../../../utils/hexUtils';
 
 import { DEFAULT_SEQNUMBER } from './constant';
+import { UnspentOutput } from './types';
 
 import type { IEncodedTxKaspa, IKaspaSigner } from '../types';
 import type {
@@ -42,7 +43,7 @@ export function toTransaction(tx: IEncodedTxKaspa): Transaction {
   }
 
   const txn = new Transaction()
-    .from(inputs)
+    .from(inputs.map((input) => new UnspentOutput(input)))
     .to(to, sendAmount.toNumber())
     .setVersion(0)
     .fee(mass)
