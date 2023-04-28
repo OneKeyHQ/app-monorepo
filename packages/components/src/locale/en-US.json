@@ -1933,7 +1933,7 @@
   "msg__limit_price_is_str_lower_than_the_current_market_price": "Limit price is {0} lower than the market.",
   "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "You will be selling your {0} exceedingly cheap.",
   "msg__link_copied": "Link copied",
-  "msg__low_battery_charge_to_25_before_updating_the_boot": "Low Battery! Charge to 25% before updating the bootloader",
+  "msg__low_battery_charge_to_25_before_updating_firmware_or_boot": "Low Battery! Charge to 25% before updating",
   "msg__mine": "Mine",
   "msg__minted": "💎 Minted {assets}",
   "msg__mismatched_account": "Mismatched account.",

@@ -1933,7 +1933,7 @@
   "msg__limit_price_is_str_lower_than_the_current_market_price": "Il prezzo limite è {0} inferiore al mercato.",
   "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "Venderai i tuoi {0} a un prezzo estremamente basso.",
   "msg__link_copied": "Collegamento copiato",
-  "msg__low_battery_charge_to_25_before_updating_the_boot": "Batteria scarica! Carica al 25% prima di aggiornare il bootloader",
+  "msg__low_battery_charge_to_25_before_updating_firmware_or_boot": "Batteria scarica! Carica al 25% prima dell'aggiornamento",
   "msg__mine": "Mio",
   "msg__minted": "💎 {assets} coniati",
   "msg__mismatched_account": "Conto non corrispondente.",

@@ -1933,7 +1933,7 @@
   "msg__limit_price_is_str_lower_than_the_current_market_price": "Limitpreis ist {0} niedriger als der Markt.",
   "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "Sie werden Ihre {0} äußerst billig verkaufen.",
   "msg__link_copied": "Link kopiert",
-  "msg__low_battery_charge_to_25_before_updating_the_boot": "Niedriger Batteriestatus! Laden Sie auf 25 % auf, bevor Sie den Bootloader aktualisieren",
+  "msg__low_battery_charge_to_25_before_updating_firmware_or_boot": "Niedriger Batteriestatus! Laden Sie vor dem Update auf 25 % auf",
   "msg__mine": "Bergwerk",
   "msg__minted": "💎 Geprägte {assets}",
   "msg__mismatched_account": "Nicht übereinstimmendes Konto.",

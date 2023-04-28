@@ -1933,7 +1933,7 @@
   "msg__limit_price_is_str_lower_than_the_current_market_price": "Ang limitasyon ng presyo ay {0} na mas mababa kaysa sa merkado.",
   "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "Ibebenta mo ang iyong {0} nang sobrang mura.",
   "msg__link_copied": "Nakopya ang link",
-  "msg__low_battery_charge_to_25_before_updating_the_boot": "Mahina na ang baterya! Mag-charge sa 25% bago i-update ang bootloader",
+  "msg__low_battery_charge_to_25_before_updating_firmware_or_boot": "Mahina na ang baterya! Mag-charge sa 25% bago mag-update",
   "msg__mine": "Akin",
   "msg__minted": "💎 Minted {assets}",
   "msg__mismatched_account": "Hindi tugmang account.",

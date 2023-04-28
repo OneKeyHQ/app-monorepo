@@ -1933,7 +1933,7 @@
   "msg__limit_price_is_str_lower_than_the_current_market_price": "當前比市場價低 {0}",
   "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "將以較低的價格出售您的 {0}",
   "msg__link_copied": "連結已復制",
-  "msg__low_battery_charge_to_25_before_updating_the_boot": "電量過低，升級 bootloader 前請先將電量充至 25%",
+  "msg__low_battery_charge_to_25_before_updating_firmware_or_boot": "電量過低，升級前請先將電量充至 25%",
   "msg__mine": "我的",
   "msg__minted": "💎 鑄造{assets}",
   "msg__mismatched_account": "帳戶不匹配",

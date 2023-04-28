@@ -1933,7 +1933,7 @@
   "msg__limit_price_is_str_lower_than_the_current_market_price": "指値価格は市場より{0}低くなっている。",
   "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "{0}を格安で販売される。",
   "msg__link_copied": "リンクをコピーした",
-  "msg__low_battery_charge_to_25_before_updating_the_boot": "低バッテリー！ブートローダーを更新する前に 25% まで充電する",
+  "msg__low_battery_charge_to_25_before_updating_firmware_or_boot": "低バッテリー！更新する前に 25% まで充電してください",
   "msg__mine": "私の",
   "msg__minted": "💎 {assets}ミント済み",
   "msg__mismatched_account": "アカウントが不一致",

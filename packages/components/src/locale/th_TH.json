@@ -1933,7 +1933,7 @@
   "msg__limit_price_is_str_lower_than_the_current_market_price": "ราคาจำกัดต่ำกว่าราคาตลาด {0}",
   "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "คุณจะขาย {0} ของคุณในราคาถูกมาก",
   "msg__link_copied": "คัดลอกลิงก์แล้ว",
-  "msg__low_battery_charge_to_25_before_updating_the_boot": "แบตเตอร์รี่ต่ำ! ชาร์จ 25% ก่อนอัปเดต bootloader",
+  "msg__low_battery_charge_to_25_before_updating_firmware_or_boot": "แบตเตอร์รี่ต่ำ! ชาร์จ 25% ก่อนอัปเดต",
   "msg__mine": "ของฉัน",
   "msg__minted": "💎 มิ้นต์ {assets}",
   "msg__mismatched_account": "บัญชีไม่ตรงกัน",

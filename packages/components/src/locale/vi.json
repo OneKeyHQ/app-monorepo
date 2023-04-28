@@ -1933,7 +1933,7 @@
   "msg__limit_price_is_str_lower_than_the_current_market_price": "Giá giới hạn thấp hơn {0} so với thị trường.",
   "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "Bạn sẽ bán {0} của mình cực kỳ rẻ.",
   "msg__link_copied": "Đã sao chép liên kết",
-  "msg__low_battery_charge_to_25_before_updating_the_boot": "Pin yếu! Sạc đến 25% trước khi cập nhật bootloader",
+  "msg__low_battery_charge_to_25_before_updating_firmware_or_boot": "Pin yếu! Sạc đến 25% trước khi cập nhật",
   "msg__mine": "Của tôi",
   "msg__minted": "💎 Đã đúc {assets}",
   "msg__mismatched_account": "Tài khoản không khớp.",
