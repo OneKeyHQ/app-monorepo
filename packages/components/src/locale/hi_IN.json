@@ -1933,7 +1933,7 @@
   "msg__limit_price_is_str_lower_than_the_current_market_price": "लिमिट कीमत बाजार से {0} कम है।",
   "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "आप अपने {0} बेहद सस्ते में बेच रहे होंगे।",
   "msg__link_copied": "लिंक कॉपी किया गया",
-  "msg__low_battery_charge_to_25_before_updating_the_boot": "लो बैटरी! बूटलोडर को अपडेट करने से पहले 25% चार्ज करें",
+  "msg__low_battery_charge_to_25_before_updating_firmware_or_boot": "लो बैटरी! अपडेट करने से पहले 25% चार्ज करें",
   "msg__mine": "मेरा",
   "msg__minted": "ढाला {assets}",
   "msg__mismatched_account": "बेमेल खाता।",

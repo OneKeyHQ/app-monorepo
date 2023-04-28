@@ -238,7 +238,14 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
     >
       <Center flex={1} paddingX={4} minHeight={240}>
         <Box alignItems="center">
-          {!!sourceSrc && <LottieView source={sourceSrc} autoPlay loop />}
+          {!!sourceSrc && (
+            <LottieView
+              source={sourceSrc}
+              autoPlay
+              loop
+              style={{ width: '100%' }}
+            />
+          )}
           {!!emoji && <Text fontSize={56}>{emoji}</Text>}
 
           <Typography.DisplayMedium mt={4}>{title}</Typography.DisplayMedium>
