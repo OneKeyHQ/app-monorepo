@@ -9,6 +9,7 @@ config.resolver.sourceExts = [
   'text-js',
   'd.ts',
   'cjs',
+  'min.js',
 ];
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,

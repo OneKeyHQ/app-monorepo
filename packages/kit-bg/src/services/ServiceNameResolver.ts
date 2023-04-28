@@ -108,6 +108,14 @@ export default class ServiceNameResolver extends ServiceBase {
         },
         resolver: this.resolveSIDDomains.bind(this),
       },
+      {
+        pattern: /^0x[a-fA-F0-9]{40}$/,
+        shownSymbol: 'FIL',
+        supportImplsMap: {
+          [OnekeyNetwork.fil]: ['fil'],
+        },
+        resolver: this.resolveFilEvm.bind(this),
+      },
     ];
     return NAME_RESOLVER;
   }
@@ -144,8 +152,17 @@ export default class ServiceNameResolver extends ServiceBase {
   ];
 
   @backgroundMethod()
-  async checkIsValidName(name: string) {
-    const status = this.config.some((resolver) => resolver.pattern.test(name));
+  async checkIsValidName(name: string, networId?: string) {
+    const status = this.config.some((resolver) => {
+      if (networId) {
+        const support = networId.startsWith('evm--')
+          ? resolver.supportImplsMap['evm--*']
+          : resolver.supportImplsMap[networId as 'evm--*'];
+        return !!support && resolver.pattern.test(name);
+      }
+
+      return resolver.pattern.test(name);
+    });
     return Promise.resolve(status);
   }
 
@@ -201,7 +218,7 @@ export default class ServiceNameResolver extends ServiceBase {
     const filterNetworkList = (network?: string): string[] => {
       if (!network) return [];
       if (network.startsWith('evm')) {
-        return config.supportImplsMap['evm--*'];
+        return config.supportImplsMap['evm--*'] ?? [];
       }
       return config.supportImplsMap[network as 'evm--*'] ?? [];
     };
@@ -379,5 +396,20 @@ export default class ServiceNameResolver extends ServiceBase {
       return 'msg__network_request_failed';
     }
     return names;
+  }
+
+  async resolveFilEvm(name: string) {
+    const { engine } = this.backgroundApi;
+
+    const chainOnlyVault = await engine.getChainOnlyVault(OnekeyNetwork.fil);
+    const filEvmAddress = await chainOnlyVault.validateAddress(name);
+    return [
+      {
+        subtype: 'fil',
+        value: filEvmAddress,
+        type: 'address',
+        key: 'fileEvmAddress',
+      },
+    ];
   }
 }

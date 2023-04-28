@@ -2,11 +2,13 @@
 import {
   CoinType,
   decode,
+  delegatedFromEthAddress,
   encode,
   validateAddressString,
 } from '@glif/filecoin-address';
 import { Message } from '@glif/filecoin-message';
 import LotusRpcEngine from '@glif/filecoin-rpc-client';
+import { ethers } from '@onekeyfe/blockchain-libs';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, isObject } from 'lodash';
@@ -32,7 +34,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
-import { FIL_UNIT_MAP } from './types';
+import { FIL_UNIT_MAP, ProtocolIndicator, TransferMethod } from './types';
 import { getDecodedTxStatus, getTxStatus } from './utils';
 
 import type {
@@ -117,6 +119,19 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxFil> {
     const { from, to, amount } = transferInfo;
     const network = await this.getNetwork();
+    let filToAddress = to;
+
+    if (ethers.utils.isAddress(filToAddress)) {
+      filToAddress = delegatedFromEthAddress(
+        to,
+        network.isTestnet ? CoinType.TEST : CoinType.MAIN,
+      );
+    }
+
+    const method =
+      Number(filToAddress[1]) === ProtocolIndicator.DELEGATED
+        ? TransferMethod.EVM
+        : TransferMethod.FIL;
 
     let amountBN = new BigNumber(amount);
     if (amountBN.isNaN()) {
@@ -125,10 +140,10 @@ export default class Vault extends VaultBase {
 
     const message = new Message({
       from,
-      to,
+      to: filToAddress,
       nonce: 0,
       value: amountBN.shiftedBy(network.decimals),
-      method: 0,
+      method,
       params: '',
     });
     return message.toLotusType();
@@ -474,9 +489,6 @@ export default class Vault extends VaultBase {
         if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
           return null;
         }
-        if (tx.method !== 'Send') {
-          return null;
-        }
 
         let direction = IDecodedTxDirection.OUT;
         if (tx.to === address) {
@@ -630,13 +642,24 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string): Promise<string> {
-    const isValid = validateAddressString(address);
-    const normalizedAddress = isValid ? address.toLowerCase() : undefined;
+    const isValidFilAddress = validateAddressString(address);
 
-    if (!isValid || typeof normalizedAddress === 'undefined') {
-      throw new InvalidAddress();
+    if (isValidFilAddress) {
+      return address.toLowerCase();
     }
-    return Promise.resolve(normalizedAddress);
+
+    const isValidEthAddress = ethers.utils.isAddress(address);
+
+    if (isValidEthAddress) {
+      const { isTestnet } = await this.getNetwork();
+      const ethAddress = delegatedFromEthAddress(
+        address,
+        isTestnet ? CoinType.TEST : CoinType.MAIN,
+      );
+      return ethAddress.toLowerCase();
+    }
+
+    throw new InvalidAddress();
   }
 
   override async broadcastTransaction(

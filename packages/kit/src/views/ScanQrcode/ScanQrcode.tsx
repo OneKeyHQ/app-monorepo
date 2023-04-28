@@ -55,7 +55,7 @@ const ScanQrcode: FC = () => {
   const onScanCompleted = route.params?.onScanCompleted;
 
   const handleBarCodeScanned = useCallback(
-    async (data?: string | null) => {
+    (data?: string | null) => {
       if (scanned.current || !data) {
         return;
       }
@@ -65,7 +65,7 @@ const ScanQrcode: FC = () => {
         navigation.goBack();
         return;
       }
-      const scanResult = await handleScanResult(data);
+      const scanResult = handleScanResult(data);
       if (scanResult) {
         if (scanResult.type === ScanSubResultCategory.MIGRATE) {
           navigation.goBack();

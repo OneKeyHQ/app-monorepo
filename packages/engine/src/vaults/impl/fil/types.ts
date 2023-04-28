@@ -8,6 +8,12 @@ export enum ProtocolIndicator {
   SECP256K1,
   ACTOR,
   BLS,
+  DELEGATED,
+}
+
+export enum TransferMethod {
+  FIL = 0,
+  EVM = 3844450837,
 }
 
 export type CID =

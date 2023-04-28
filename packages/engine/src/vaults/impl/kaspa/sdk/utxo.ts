@@ -4,27 +4,27 @@ import { CONFIRMATION_COUNT } from './constant';
 import { UnspentOutput } from './types';
 
 import type { RestAPIClient } from './clientRestApi';
-import type { UTXOResponse } from './types';
+import type { UTXOResponse, UnspentOutputInfo } from './types';
 
-function sortUXTO(utxos: UnspentOutput[]) {
+function sortUXTO(utxos: UnspentOutputInfo[]) {
   return utxos.sort(
-    (a: UnspentOutput, b: UnspentOutput): number =>
+    (a: UnspentOutputInfo, b: UnspentOutputInfo): number =>
       a.blockDaaScore - b.blockDaaScore ||
       b.satoshis - a.satoshis ||
-      a.txId.localeCompare(b.txId) ||
-      a.outputIndex - b.outputIndex,
+      a.txid.localeCompare(b.txid) ||
+      a.vout - b.vout,
   );
 }
 
-function formatUtxo(entries: UTXOResponse[]): UnspentOutput[] {
-  const result: UnspentOutput[] = [];
+function formatUtxo(entries: UTXOResponse[]): UnspentOutputInfo[] {
+  const result: UnspentOutputInfo[] = [];
 
   for (const entry of entries) {
     const { transactionId, index } = entry.outpoint;
     const { address, utxoEntry } = entry;
     const { amount, scriptPublicKey, blockDaaScore } = utxoEntry;
 
-    const item: UnspentOutput = new UnspentOutput({
+    const item: UnspentOutputInfo = {
       txid: transactionId,
       address,
       vout: index,
@@ -32,7 +32,7 @@ function formatUtxo(entries: UTXOResponse[]): UnspentOutput[] {
       scriptPublicKeyVersion: scriptPublicKey.version ?? 0,
       satoshis: +amount,
       blockDaaScore: parseInt(blockDaaScore),
-    });
+    };
     result.push(item);
   }
 
@@ -57,24 +57,25 @@ export async function queryConfirmUTXOs(
 }
 
 export function selectUTXOs(
-  confirmUtxos: UnspentOutput[],
+  confirmUtxos: UnspentOutputInfo[],
   txAmount: number,
 ): {
   utxoIds: string[];
-  utxos: UnspentOutput[];
+  utxos: UnspentOutputInfo[];
   mass: number;
 } {
   const sortedUtxos = sortUXTO(confirmUtxos);
 
-  const selectedUtxos: UnspentOutput[] = [];
+  const selectedUtxos: UnspentOutputInfo[] = [];
   const utxoIds: string[] = [];
   let totalVal = 0;
   let mass = 0;
 
-  for (const utxo of sortedUtxos) {
+  for (const info of sortedUtxos) {
     // if (!this.inUse.includes(utxoId)) {
+    const utxo = new UnspentOutput(info);
     utxoIds.push(utxo.id);
-    selectedUtxos.push(utxo);
+    selectedUtxos.push(info);
     mass += utxo.mass;
     totalVal += utxo.satoshis;
     // }

@@ -66,6 +66,15 @@ function normalizeConfig({ platform, config }) {
 
   if (platform === developmentConsts.platforms.app) {
     transformInlineEnviromentVariables.push('JPUSH_KEY');
+    moduleResolver = {
+      alias: {
+        '@ipld/dag-cbor': '@ipld/dag-cbor/dist/index.min.js',
+        'multiformats/basics': 'multiformats/basics',
+        'multiformats/cid': 'multiformats/cid',
+        'multiformats/hashes': 'multiformats/hashes',
+        'multiformats': 'multiformats/index.js',
+      },
+    };
   }
   const customAliasForComponents = (name, file) => {
     // const filename = file.opts.filename;

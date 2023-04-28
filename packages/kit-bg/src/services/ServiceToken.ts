@@ -4,6 +4,7 @@ import memoizee from 'memoizee';
 
 import { getBalancesFromApi } from '@onekeyhq/engine/src/apiProxyUtils';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import type { CheckParams } from '@onekeyhq/engine/src/managers/goplus';
 import {
   checkSite,
@@ -104,7 +105,7 @@ export default class ServiceToken extends ServiceBase {
         (s) => s.tokens.accountTokens?.[networkId]?.[accountId],
       );
 
-      const accountTokens = await engine.getTokens(
+      let accountTokens = await engine.getTokens(
         networkId,
         accountId,
         true,
@@ -142,6 +143,28 @@ export default class ServiceToken extends ServiceBase {
         tokenIds: accountTokens.map((t) => t.tokenIdOnNetwork),
         vsCurrency: selectedFiatMoneySymbol,
       });
+
+      const vault = await engine.getVault({
+        accountId,
+        networkId,
+      });
+      accountTokens = await Promise.all(
+        accountTokens.map(async (token) => {
+          let tokenAddress = token.address ?? token.tokenIdOnNetwork;
+          if (tokenAddress) {
+            try {
+              tokenAddress = await vault.validateTokenAddress(tokenAddress);
+            } catch (error) {
+              debugLogger.common.error('validateTokenAddress error', error);
+            }
+          }
+          return {
+            ...token,
+            address: tokenAddress,
+            tokenIdOnNetwork: tokenAddress,
+          };
+        }),
+      );
       dispatch(
         setAccountTokens({
           accountId,
@@ -170,6 +193,9 @@ export default class ServiceToken extends ServiceBase {
     const networkId = options.networkId || activeNetworkId || '';
 
     if (!accountId || !networkId) {
+      return [];
+    }
+    if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
       return [];
     }
     return this._refreshTokenBalanceWithMemo({

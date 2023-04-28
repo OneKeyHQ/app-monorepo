@@ -1,15 +1,20 @@
-import { FilecoinSigner } from '@blitslabs/filecoin-js-signer';
-import BigNumber from 'bignumber.js';
+import { AddressSecp256k1, Transaction } from '@zondax/izari-filecoin';
+import base32Decode from 'base32-decode';
 
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_FIL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { NotImplemented, OneKeyHardwareError } from '../../../errors';
+import {
+  NotImplemented,
+  OneKeyHardwareError,
+  OneKeyInternalError,
+} from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
 import { ProtocolIndicator } from './types';
+import { validateNetworkPrefix } from './utils';
 
 import type { DBVariantAccount } from '../../../types/account';
 import type {
@@ -131,21 +136,48 @@ export class KeyringHardware extends KeyringHardwareBase {
     const passphraseState = await this.getWalletPassphraseState();
     const encodedTx = unsignedTx.encodedTx as IEncodedTxFil;
 
-    const tool = new FilecoinSigner();
-    const unsignedMessage = {
-      ...encodedTx,
-      Value: new BigNumber(encodedTx.Value),
-      GasFeeCap: new BigNumber(encodedTx.GasFeeCap),
-      GasPremium: new BigNumber(encodedTx.GasPremium),
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const BufferConcatFunction = Buffer.concat;
+
+    Buffer.concat = (list: ReadonlyArray<Uint8Array>, totalLength?: number) =>
+      BufferConcatFunction(
+        list.map((item) => Buffer.from(item)),
+        totalLength,
+      );
+    AddressSecp256k1.fromString = (address: string) => {
+      const networkPrefix = address[0];
+      const protocolIndicator = address[1];
+
+      if (!validateNetworkPrefix(networkPrefix))
+        throw new OneKeyInternalError('Invalid filecoin network.');
+      if (parseInt(protocolIndicator) !== ProtocolIndicator.SECP256K1)
+        throw new OneKeyInternalError('Invalid filecoin protocol indicator.');
+
+      const decodedData = Buffer.from(
+        base32Decode(address.substring(2).toUpperCase(), 'RFC4648'),
+      );
+      const payload = decodedData.subarray(0, -4);
+      const checksum = decodedData.subarray(-4);
+
+      const newAddress = new AddressSecp256k1(networkPrefix, payload);
+      if (
+        Buffer.from(newAddress.getChecksum()).toString('hex') !==
+        Buffer.from(checksum).toString('hex')
+      )
+        throw new OneKeyInternalError('Invalid filecoin checksum network.');
+
+      return newAddress;
     };
-    const message = tool.tx.transactionSerializeRaw(unsignedMessage);
+
+    const transaction = await Transaction.fromJSON(encodedTx).serialize();
+    Buffer.concat = BufferConcatFunction;
 
     const response = await HardwareSDK.filecoinSignTransaction(
       connectId,
       deviceId,
       {
         path,
-        rawTx: Buffer.from(message).toString('hex'),
+        rawTx: Buffer.from(transaction).toString('hex'),
         isTestnet: network.isTestnet,
         ...passphraseState,
       },
