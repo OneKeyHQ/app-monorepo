@@ -12,7 +12,7 @@ import so.onekey.app.wallet.utils.Utils
 
 enum class AppleCardType(val aid: String, val prefixSN: String) {
     V1("D156000132834001", "OKLFT"),
-    V2("6f6e656b65792e6261636b757001", "OKRTY"),
+    V2("6f6e656b65792e6261636b757001", "OKLFB"),
 }
 
 enum class CommandArea(val code: String) {
