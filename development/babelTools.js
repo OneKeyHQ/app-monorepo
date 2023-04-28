@@ -66,6 +66,14 @@ function normalizeConfig({ platform, config }) {
 
   if (platform === developmentConsts.platforms.app) {
     transformInlineEnviromentVariables.push('JPUSH_KEY');
+    moduleResolver = {
+      alias: {
+        '@ipld/dag-cbor':
+          '@zondax/izari-filecoin/node_modules/@ipld/dag-cbor/dist/index.min.js',
+        'multiformats':
+          '@zondax/izari-filecoin/node_modules/multiformats/dist/index.min.js',
+      },
+    };
   }
   const customAliasForComponents = (name, file) => {
     // const filename = file.opts.filename;
