@@ -1,4 +1,5 @@
 module.exports = {
+  reactNativePath: '../../node_modules/react-native',
   dependencies: {
     'react-native-flipper': {
       // disable flipper in CI environment

@@ -1,13 +1,8 @@
 #import "AppDelegate.h"
 #import "JPushManager.h"
 
-#import <React/RCTBridge.h>
 #import <React/RCTBundleURLProvider.h>
-#import <React/RCTRootView.h>
 #import <React/RCTLinkingManager.h>
-#import <React/RCTConvert.h>
-#import "RCTRootView+Orientation.h"
-#import <React/RCTAppSetupUtils.h>
 
 #ifdef DEBUG
 #else
@@ -27,7 +22,6 @@
   FlipperClient *client = [FlipperClient sharedClient];
   [client addPlugin:[FlipperPerformancePlugin new]];
 #endif
-  RCTAppSetupPrepareApp(application, true);
 
   [JPushManager shareInstance];
   
@@ -39,34 +33,19 @@
   }
 #endif
   
-  RCTBridge *bridge = [self.reactDelegate createBridgeWithDelegate:self launchOptions:launchOptions];
-  RCTRootView *rootView = RCTAppSetupDefaultRootView(bridge, @"main", launchOptions, true);
-  rootView.loadingView = nil;
-  id rootViewBackgroundColor = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"RCTRootViewBackgroundColor"];
-  if (rootViewBackgroundColor != nil) {
-    rootView.backgroundColor = [RCTConvert UIColor:rootViewBackgroundColor];
-  } else {
-    rootView.backgroundColor = [UIColor whiteColor];
-  }
-  self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
-  UIViewController *rootViewController = [self.reactDelegate createRootViewController];
-  rootViewController.view = rootView;
-  self.window.rootViewController = rootViewController;
-  [self.window makeKeyAndVisible];
-  
-  [super application:application didFinishLaunchingWithOptions:launchOptions];
-  return YES;
+  self.moduleName = @"main";
+
+  // You can add your custom initial props in the dictionary below.
+  // They will be passed down to the ViewController used by React Native.
+  self.initialProps = @{};
+
+  return [super application:application didFinishLaunchingWithOptions:launchOptions];
 }
 
-- (NSArray<id<RCTBridgeModule>> *)extraModulesForBridge:(RCTBridge *)bridge
-{
-  // If you'd like to export some custom RCTBridgeModules, add them here!
-  return @[];
-}
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge {
  #ifdef DEBUG
-    return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index.js"];
+    return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index"];
  #else
     return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
  #endif
