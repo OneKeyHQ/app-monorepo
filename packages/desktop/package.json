@@ -36,7 +36,7 @@
     "electron-log": "^4.4.8",
     "electron-store": "^8.1.0",
     "electron-updater": "^5.2.1",
-    "expo": "^48.0.15",
+    "expo": "^48.0.17",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7",
     "react-native-web": "0.18.10",
