@@ -14,8 +14,8 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { MarketTopTabName } from '@onekeyhq/kit/src/store/reducers/market';
+import { setMarketSwapTabName } from '@onekeyhq/kit/src/views/Market/hooks/useMarketList';
 
-import { navigationShortcuts } from '../../../../routes/navigationShortcuts';
 import {
   ModalRoutes,
   RootRoutes,
@@ -23,12 +23,8 @@ import {
 } from '../../../../routes/routesEnum';
 import { MarketRoutes } from '../../types';
 
-import type {
-  ModalScreenProps,
-  TabRoutesParams,
-} from '../../../../routes/types';
+import type { ModalScreenProps } from '../../../../routes/types';
 import type { MarketRoutesParams } from '../../types';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type ModalNavigationProps = ModalScreenProps<MarketRoutesParams>;
 
@@ -58,10 +54,10 @@ const Header: FC<{ onPressSearch: () => void }> = ({ onPressSearch }) => {
   );
 };
 
-type NavigationProps = NativeStackNavigationProp<
-  TabRoutesParams,
-  TabRoutes.Market
->;
+// type NavigationProps = NativeStackNavigationProp<
+//   TabRoutesParams,
+//   TabRoutes.Market
+// >;
 
 function HeaderSmall({
   marketTopTabName,
@@ -70,11 +66,10 @@ function HeaderSmall({
   marketTopTabName: MarketTopTabName;
   onPressSearch: () => void;
 }) {
-  // const tabName = useMarketTopTabName();
   // const marketTopTabName = useMarketTopTabName();
   const intl = useIntl();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const navigation = useNavigation<NavigationProps>();
+  // const navigation = useNavigation<NavigationProps>();
   return (
     <Box
       px="4"
@@ -88,8 +83,7 @@ function HeaderSmall({
         <Pressable
           mr="3"
           onPress={() => {
-            // navigation.navigate(TabRoutes.Swap);
-            navigationShortcuts.navigateToSwap();
+            setMarketSwapTabName(TabRoutes.Swap);
           }}
         >
           <Typography.DisplayMedium
@@ -104,8 +98,7 @@ function HeaderSmall({
         </Pressable>
         <Pressable
           onPress={() => {
-            // navigation.navigate(TabRoutes.Market);
-            navigationShortcuts.navigateToMarket();
+            setMarketSwapTabName(TabRoutes.Market);
           }}
         >
           <Typography.DisplayMedium
@@ -134,12 +127,11 @@ function HeaderSmall({
   );
 }
 
-function MarketHeader({
-  marketTopTabName,
-}: {
+const MarketHeader: FC<{
   marketTopTabName: MarketTopTabName;
-}) {
+}> = ({ marketTopTabName }) => {
   const navigation = useNavigation<ModalNavigationProps['navigation']>();
+
   const isVerticalLayout = useIsVerticalLayout();
   const onPressSearch = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -161,6 +153,6 @@ function MarketHeader({
     return null;
   }
   return <Header onPressSearch={onPressSearch} />;
-}
+};
 
 export default memo(MarketHeader);
