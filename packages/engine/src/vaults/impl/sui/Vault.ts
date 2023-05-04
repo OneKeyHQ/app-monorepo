@@ -226,6 +226,8 @@ export default class Vault extends VaultBase {
             coinType: tokenAddress,
           });
 
+          if (!coinInfo) return undefined;
+
           return await Promise.resolve({
             name: coinInfo.name,
             symbol: coinInfo.symbol,
