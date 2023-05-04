@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -15,7 +16,6 @@ import {
   ToastManager,
   Typography,
   VStack,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
@@ -43,8 +43,8 @@ type NavigationProps = ModalScreenProps<StakingRoutesParams>;
 export default function WithdrawAmount() {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const isSmallScreen = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
+  const { height } = useWindowDimensions();
   const { networkId, tokenIdOnNetwork } = route.params;
   const { accountId, account } = useActiveWalletAccount();
   const withdrawalOverview = useKeleWithdrawOverview(networkId, accountId);
@@ -53,7 +53,7 @@ export default function WithdrawAmount() {
 
   const balance = withdrawalOverview?.balance ?? '0';
   const minInputAmount = withdrawalOverview?.user_fee ?? '0';
-
+  const shortScreen = height < 768;
   const [amount, setAmount] = useState('');
 
   const { token: tokenInfo } = useSingleToken(
@@ -180,10 +180,10 @@ export default function WithdrawAmount() {
         });
       }}
     >
-      <Box flex="1" flexDirection="column">
-        <Box flex="1" flexDirection="column">
-          <Center flex={1}>
-            <Center maxH="140px" my={2}>
+      <Box flex="1" flexDirection="column" justifyContent="space-between">
+        <Box flex="1" flexDirection="column" justifyContent="space-between">
+          <Center flex={1} flexDirection="column" justifyContent="space-around">
+            <Center flex={1} maxH="140px">
               <Text
                 textAlign="center"
                 typography="DisplayLarge"
@@ -191,7 +191,7 @@ export default function WithdrawAmount() {
               >
                 {tokenInfo?.symbol.toUpperCase() ?? ''}
               </Text>
-              <Center py="4" h={isSmallScreen ? '32' : undefined}>
+              <Center flex="1" minH="30px">
                 <AutoSizeText
                   autoFocus
                   text={amount}
@@ -216,39 +216,39 @@ export default function WithdrawAmount() {
                 )}
               </Center>
             </Center>
+            <Center>
+              <HStack flexDirection="row" alignItems="center" space="3">
+                <Button size="sm" onPress={() => userInput(25)}>
+                  25%
+                </Button>
+                <Button size="sm" onPress={() => userInput(50)}>
+                  50%
+                </Button>
+                <Button size="sm" onPress={() => userInput(75)}>
+                  75%
+                </Button>
+                <Button size="sm" onPress={() => userInput(100)}>
+                  {intl.formatMessage({ id: 'action__max' })}
+                </Button>
+              </HStack>
+              <Box
+                flexDirection="row"
+                alignItems="center"
+                justifyContent="center"
+                h="8"
+              >
+                <Typography.Body2 color="text-subdued" mr="1">
+                  {intl.formatMessage({ id: 'content__available_balance' })}
+                </Typography.Body2>
+                <Typography.Body2Strong
+                  color={errorMsg && amount ? 'text-critical' : 'text-default'}
+                >
+                  {formatAmount(balance, 8)} {tokenInfo?.symbol.toUpperCase()}
+                </Typography.Body2Strong>
+              </Box>
+            </Center>
           </Center>
-          <Center>
-            <HStack flexDirection="row" alignItems="center" space="3">
-              <Button size="sm" onPress={() => userInput(25)}>
-                25%
-              </Button>
-              <Button size="sm" onPress={() => userInput(50)}>
-                50%
-              </Button>
-              <Button size="sm" onPress={() => userInput(75)}>
-                75%
-              </Button>
-              <Button size="sm" onPress={() => userInput(100)}>
-                {intl.formatMessage({ id: 'action__max' })}
-              </Button>
-            </HStack>
-          </Center>
-          <Box
-            mt="4"
-            flexDirection="row"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Typography.Body2 color="text-subdued" mr="1">
-              {intl.formatMessage({ id: 'content__available_balance' })}
-            </Typography.Body2>
-            <Typography.Body2Strong
-              color={errorMsg && amount ? 'text-critical' : 'text-default'}
-            >
-              {formatAmount(balance, 8)} {tokenInfo?.symbol.toUpperCase()}
-            </Typography.Body2Strong>
-          </Box>
-          <VStack space="1" mt="16">
+          <VStack space="1">
             <Box flexDirection="row" justifyContent="space-between">
               <Typography.Body2 color="text-subdued">
                 {intl.formatMessage({ id: 'content__gas_fee' })}
@@ -278,7 +278,7 @@ export default function WithdrawAmount() {
         {platformEnv.isNative && (
           <Box mt="4">
             <Keyboard
-              itemHeight={isSmallScreen ? '44px' : undefined}
+              itemHeight={shortScreen ? '44px' : undefined}
               pattern={validAmountRegex}
               text={amount}
               onTextChange={setAmount}

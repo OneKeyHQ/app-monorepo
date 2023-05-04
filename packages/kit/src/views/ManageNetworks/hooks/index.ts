@@ -9,6 +9,8 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useAppSelector } from '../../../hooks';
 import { getTimeDurationMs } from '../../../utils/helper';
 
+import type { IRpcStatus } from '../../../store/reducers/status';
+
 export const RpcSpeed = {
   Fast: {
     iconColor: 'icon-success',
@@ -115,33 +117,32 @@ export const useRPCUrls = (networkId?: string) => {
   };
 };
 
+export function getRpcMeasureStatus(status?: IRpcStatus) {
+  const isOutofDated =
+    Date.now() - (status?.updatedAt ?? 0) > getTimeDurationMs({ minute: 2 });
+  if (!status || isOutofDated) {
+    return {
+      status: {
+        latestBlock: undefined,
+        responseTime: undefined,
+        ...RpcSpeed.Unavailable,
+      },
+      loading: true,
+    };
+  }
+  return {
+    status: {
+      ...status,
+      ...getRpcStatusByResponseTime(status.responseTime),
+    },
+    loading: !status,
+  };
+}
+
 export const useRpcMeasureStatus = (networkId?: string) => {
   const activeNetworkId = useAppSelector((s) => s.general.activeNetworkId);
   const status = useAppSelector(
     (s) => s.status.rpcStatus?.[networkId ?? activeNetworkId ?? ''],
   );
-
-  return useMemo(() => {
-    const isOutofDated =
-      Date.now() - (status?.updatedAt ?? 0) > getTimeDurationMs({ minute: 2 });
-
-    if (!status || isOutofDated) {
-      return {
-        status: {
-          latestBlock: undefined,
-          responseTime: undefined,
-          ...RpcSpeed.Unavailable,
-        },
-        loading: true,
-      };
-    }
-
-    return {
-      status: {
-        ...status,
-        ...getRpcStatusByResponseTime(status.responseTime),
-      },
-      loading: !status,
-    };
-  }, [status]);
+  return useMemo(() => getRpcMeasureStatus(status), [status]);
 };
