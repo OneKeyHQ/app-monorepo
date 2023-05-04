@@ -15,7 +15,9 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { MarketTokenDetail } from '@onekeyhq/kit/src/store/reducers/market';
 
+import { useAppSelector } from '../../../../hooks';
 import { TabRoutes } from '../../../../routes/routesEnum';
+import { getDefaultLocale } from '../../../../utils/locale';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
 import { MarketDetailComponent } from './MarketDetailComponent';
@@ -112,12 +114,16 @@ const MarketDetailContent: FC<MarketDetailTabsProps> = ({
   const isVerticalLayout = useIsVerticalLayout();
   const [refreshing, setRefreshing] = useState(false);
   const contentPadding = isVerticalLayout ? '16px' : '0px';
+  const locale = useAppSelector((s) => s.settings.locale);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await backgroundApiProxy.serviceMarket.fetchMarketDetail(marketTokenId);
+    await backgroundApiProxy.serviceMarket.fetchMarketDetail({
+      coingeckoId: marketTokenId,
+      locale: locale === 'system' ? getDefaultLocale() : locale,
+    });
     setRefreshing(false);
-  }, [marketTokenId]);
+  }, [locale, marketTokenId]);
 
   return (
     <ScrollView

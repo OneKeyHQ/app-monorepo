@@ -163,17 +163,22 @@ export default class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchMarketDetail(coingeckoId: string) {
+  async fetchMarketDetail({
+    coingeckoId,
+    locale,
+  }: {
+    coingeckoId: string;
+    locale: string;
+  }) {
     const { appSelector, dispatch } = this.backgroundApi;
     const vsCurrency = appSelector((s) => s.settings.selectedFiatMoneySymbol);
-    const locale = appSelector((s) => s.settings.locale);
     const path = '/market/detail';
     const data = await fetchData(
       path,
       {
         vs_currency: vsCurrency ?? 'usd',
         id: coingeckoId,
-        locale: locale === 'system' ? getDefaultLocale() : locale,
+        locale,
         explorer_platforms: true,
       },
       null,
