@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
-import { useIsVerticalLayout } from '@onekeyhq/components';
+import { IconButton, useIsVerticalLayout } from '@onekeyhq/components';
 import type { ICON_NAMES } from '@onekeyhq/components';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import {
@@ -27,7 +27,7 @@ type Props = IMenu & {
   networkId: string;
   sendAddress?: string;
 };
-const TokenDetailMenu: FC<Props> = ({
+const MoreMenuButton: FC<Props> = ({
   accountId,
   networkId,
   token,
@@ -163,7 +163,33 @@ const TokenDetailMenu: FC<Props> = ({
     sellUrl,
     token,
   ]);
-  return <BaseMenu w={190} options={options} {...props} />;
+
+  const Tigger = useMemo(() => {
+    const isDisabled = options.length === 0;
+    if (isVerticalLayout) {
+      return (
+        <IconButton
+          size="base"
+          name="EllipsisHorizontalOutline"
+          isDisabled={isDisabled}
+        />
+      );
+    }
+    return (
+      <IconButton
+        circle
+        size="base"
+        name="EllipsisHorizontalOutline"
+        isDisabled={isDisabled}
+      />
+    );
+  }, [isVerticalLayout, options.length]);
+
+  return (
+    <BaseMenu w={190} options={options} {...props}>
+      {Tigger}
+    </BaseMenu>
+  );
 };
 
-export default TokenDetailMenu;
+export default MoreMenuButton;

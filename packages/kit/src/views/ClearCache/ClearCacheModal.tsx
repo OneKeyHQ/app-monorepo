@@ -149,7 +149,6 @@ const ClearCacheModal = () => {
             } else if (item.name === 'NFT') {
               simpleDb.nft.clearRawData();
             } else if (item.name === 'Market') {
-              simpleDb.market.clearRawData();
               backgroundApiProxy.serviceMarket.clearSearchHistory();
             } else if (item.name === 'ConnectedSites') {
               simpleDb.walletConnect.clearRawData();

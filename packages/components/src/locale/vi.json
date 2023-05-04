@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "Giao dịch này sẽ xếp hàng sau {number} giao dịch trước đó.",
   "msg__exceeding_the_maximum_word_limit": "Vượt quá giới hạn từ tối đa.",
   "msg__failed_to_add_token": "Không thêm được mã thông báo",
+  "msg__failed_to_fetch_quotes": "Không thể tìm nạp báo giá",
   "msg__failed_to_get_price": "Không đạt được giá",
   "msg__fee_rate_is_higher_than_necessary": "Tỷ lệ phí cao hơn mức cần thiết",
   "msg__fee_rate_is_low_for_current_network": "Tỷ lệ phí thấp cho các điều kiện mạng hiện tại",

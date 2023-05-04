@@ -147,7 +147,7 @@ const ModifyWalletNameViewModal: FC = () => {
   const onPress = useCallback(() => {
     // Under Android, due to unknown reasons, there is a certain probability of crashing, and the onSubmit is delayed
     if (platformEnv.isNativeAndroid) {
-      setTimeout(onSubmit, 50);
+      setTimeout(onSubmit, 100);
     } else {
       onSubmit();
     }

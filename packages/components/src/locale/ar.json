@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "سيتم وضع هذه المعاملة في قائمة الانتظار بعد {number} المعاملات السابقة.",
   "msg__exceeding_the_maximum_word_limit": "تجاوز الحد الأقصى لعدد الكلمات.",
   "msg__failed_to_add_token": "فشل إضافة الرمز المميز",
+  "msg__failed_to_fetch_quotes": "تعذر جلب الاقتباسات",
   "msg__failed_to_get_price": "فشل في الحصول على السعر",
   "msg__fee_rate_is_higher_than_necessary": "معدل الرسوم أعلى من اللازم",
   "msg__fee_rate_is_low_for_current_network": "معدل الرسوم منخفض لظروف الشبكة الحالية",

@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "이 트랜잭션은 이전 트랜잭션 {number} 다음에 대기합니다.",
   "msg__exceeding_the_maximum_word_limit": "최대 단어 제한을 초과했습니다.",
   "msg__failed_to_add_token": "토큰을 추가하지 못했습니다.",
+  "msg__failed_to_fetch_quotes": "견적을 가져올 수 없습니다.",
   "msg__failed_to_get_price": "가격을 가져오지 못했습니다.",
   "msg__fee_rate_is_higher_than_necessary": "수수료율이 필요 이상으로 높음",
   "msg__fee_rate_is_low_for_current_network": "현재 네트워크 조건에 비해 낮은 수수료율",

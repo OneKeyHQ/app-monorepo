@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "Эта транзакция будет поставлена в очередь после {number} более ранних транзакций.",
   "msg__exceeding_the_maximum_word_limit": "Превышение максимального лимита слов.",
   "msg__failed_to_add_token": "Не удалось добавить токен",
+  "msg__failed_to_fetch_quotes": "Не удалось получить котировки.",
   "msg__failed_to_get_price": "Не удалось получить цену",
   "msg__fee_rate_is_higher_than_necessary": "Размер вознаграждения выше необходимого",
   "msg__fee_rate_is_low_for_current_network": "Ставка комиссии низкая для текущих условий сети",

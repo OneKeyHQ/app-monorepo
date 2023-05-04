@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
@@ -85,7 +85,6 @@ const NetworkStatusObserver = () => {
   const { status, loading } = useRpcMeasureStatus();
   const responseTime = status?.responseTime;
   const prevResponseTime = usePrevious(responseTime);
-
   useEffect(() => {
     if (prevResponseTime === undefined && status?.responseTime && !loading) {
       backgroundApiProxy.serviceSwap.getSwapError().then((error) => {
@@ -137,6 +136,19 @@ const SwapQuoteResetObserver = () => {
 
 const SwapParamsObserver = () => {
   const params = useSwapQuoteRequestParams();
+
+  const onRefresh = useCallback(
+    () => doQuote({ params, loading: true }),
+    [params],
+  );
+
+  useEffect(() => {
+    appUIEventBus.on(AppUIEventBusNames.SwapRefresh, onRefresh);
+    return () => {
+      appUIEventBus.off(AppUIEventBusNames.SwapRefresh, onRefresh);
+    };
+  }, [onRefresh]);
+
   useEffect(() => {
     doQuote({ params, loading: true });
   }, [params]);

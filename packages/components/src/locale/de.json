@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "Diese Transaktion wird nach {number} früheren Transaktionen in die Warteschlange gestellt.",
   "msg__exceeding_the_maximum_word_limit": "Überschreitung der maximalen Wortanzahl.",
   "msg__failed_to_add_token": "Token konnte nicht hinzugefügt werden",
+  "msg__failed_to_fetch_quotes": "Angebote konnten nicht abgerufen werden",
   "msg__failed_to_get_price": "Preis konnte nicht abgerufen werden",
   "msg__fee_rate_is_higher_than_necessary": "Der Gebührensatz ist höher als nötig",
   "msg__fee_rate_is_low_for_current_network": "Der Gebührensatz ist für die aktuellen Netzbedingungen niedrig",

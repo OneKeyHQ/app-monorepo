@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "Ця транзакція буде поставлена в чергу після {number} попередніх транзакцій.",
   "msg__exceeding_the_maximum_word_limit": "Перевищено максимальну кількість слів.",
   "msg__failed_to_add_token": "Не вдалося додати маркер",
+  "msg__failed_to_fetch_quotes": "Не вдалося отримати цитати",
   "msg__failed_to_get_price": "Не вдалося отримати ціну",
   "msg__fee_rate_is_higher_than_necessary": "Ставка комісії вища за необхідну",
   "msg__fee_rate_is_low_for_current_network": "Комісія низька для поточних умов мережі",

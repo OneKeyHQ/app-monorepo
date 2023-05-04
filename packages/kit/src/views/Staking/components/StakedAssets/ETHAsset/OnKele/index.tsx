@@ -129,7 +129,7 @@ type StakingAssetOnKeleProps = {
   accountId: string;
 };
 
-const AssetStakedOnKele: FC<StakingAssetOnKeleProps> = ({
+export const AssetStakedOnKele: FC<StakingAssetOnKeleProps> = ({
   state,
   networkId,
   accountId,

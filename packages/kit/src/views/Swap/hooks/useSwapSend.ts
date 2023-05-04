@@ -78,18 +78,20 @@ export function useSwapSend() {
           tagLogger.end(LoggerTimerTags.sendTransaction);
           await onSuccess?.({ result, decodedTx });
           if (showSendFeedbackReceipt) {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Send,
-              params: {
-                screen: SendModalRoutes.SendFeedbackReceipt,
+            setTimeout(() => {
+              navigation.navigate(RootRoutes.Modal, {
+                screen: ModalRoutes.Send,
                 params: {
-                  networkId,
-                  accountId,
-                  txid: result.txid,
-                  type: 'Send',
+                  screen: SendModalRoutes.SendFeedbackReceipt,
+                  params: {
+                    networkId,
+                    accountId,
+                    txid: result.txid,
+                    type: 'Send',
+                  },
                 },
-              },
-            });
+              });
+            }, 10)
           }
         } catch (e: any) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

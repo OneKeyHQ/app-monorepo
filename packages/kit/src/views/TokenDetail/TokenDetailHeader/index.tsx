@@ -4,13 +4,7 @@ import { useCallback } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Button,
-  HStack,
-  IconButton,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+import { Box, Button, HStack, useIsVerticalLayout } from '@onekeyhq/components';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/types';
 import { TabRoutes } from '@onekeyhq/kit/src/routes/types';
@@ -23,7 +17,7 @@ import { KeleETHUnstakeBulletin } from '../../Staking/components/KeleETHUnstakeB
 import StakedAssets from '../../Staking/components/StakedAssets';
 
 import DeskTopHeader from './DeskTopHeader';
-import TokenDetailMenu from './TokenDetailMenu';
+import MoreMenuButton from './MoreMenuButton';
 
 import type { HomeRoutes } from '../../../routes/types';
 import type { TokenDetailRoutesParams } from '../routes';
@@ -111,6 +105,7 @@ const TokenDetailHeader: FC<HeaderProps> = ({
       {isVerticalLayout && (
         <HStack space="8px" mt="24px">
           <Button
+            size="lg"
             onPress={() => {
               onSwap('buy');
             }}
@@ -119,6 +114,7 @@ const TokenDetailHeader: FC<HeaderProps> = ({
             {intl.formatMessage({ id: 'action__buy' })}
           </Button>
           <Button
+            size="lg"
             onPress={() => {
               onSwap('sell');
             }}
@@ -126,14 +122,12 @@ const TokenDetailHeader: FC<HeaderProps> = ({
           >
             {intl.formatMessage({ id: 'action__sell' })}
           </Button>
-          <TokenDetailMenu
+          <MoreMenuButton
             token={token}
             sendAddress={sendAddress}
             accountId={accountId}
             networkId={networkId}
-          >
-            <IconButton size="base" name="EllipsisHorizontalOutline" />
-          </TokenDetailMenu>
+          />
         </HStack>
       )}
       {isVerticalLayout && (

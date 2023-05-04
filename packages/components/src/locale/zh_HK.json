@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "此筆交易將在排在 {number} 個較早的交易隊列之後。",
   "msg__exceeding_the_maximum_word_limit": "超出最大字數限制",
   "msg__failed_to_add_token": "添加代幣失敗",
+  "msg__failed_to_fetch_quotes": "無法獲取報價",
   "msg__failed_to_get_price": "獲取價格失敗",
   "msg__fee_rate_is_higher_than_necessary": "交易費率高於必要水平",
   "msg__fee_rate_is_low_for_current_network": "當前網絡狀況下，交易費率較低",

@@ -1866,6 +1866,7 @@
   "msg__eth_tx_warning_tx_will_be_queued_str": "ธุรกรรมนี้จะเข้าคิวหลังจากธุรกรรมก่อนหน้านี้ {number} รายการ",
   "msg__exceeding_the_maximum_word_limit": "เกินขีดจำกัดคำสูงสุด",
   "msg__failed_to_add_token": "ไม่สามารถเพิ่มโทเค็น",
+  "msg__failed_to_fetch_quotes": "ไม่สามารถเรียกใบเสนอราคา",
   "msg__failed_to_get_price": "ไม่สามารถรับราคาได้",
   "msg__fee_rate_is_higher_than_necessary": "อัตราค่าธรรมเนียมสูงเกินความจำเป็น",
   "msg__fee_rate_is_low_for_current_network": "อัตราค่าธรรมเนียมต่ำสำหรับสภาพเครือข่ายปัจจุบัน",
