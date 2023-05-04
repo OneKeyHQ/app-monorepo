@@ -388,6 +388,8 @@ export default class ServiceBootstrap extends ServiceBase {
       // version 4.4.0 remove deprecated sui networks
       'sui--8888881',
       'sui--8888882',
+      // version 4.5.0 remove deprecated sui networks
+      'sui--8888884',
     ];
     const { engine } = this.backgroundApi;
     const networks = await engine.listNetworks(false);
