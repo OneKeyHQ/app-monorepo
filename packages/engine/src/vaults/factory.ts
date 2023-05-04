@@ -11,6 +11,7 @@ import {
   IMPL_DOT,
   IMPL_EVM,
   IMPL_FIL,
+  IMPL_KASPA,
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
@@ -42,6 +43,7 @@ import VaultHelperDoge from './impl/doge/VaultHelper';
 import VaultHelperDot from './impl/dot/VaultHelper';
 import VaultHelperEvm from './impl/evm/VaultHelper';
 import VaultHelperFil from './impl/fil/VaultHelper';
+import VaultHelperKaspa from './impl/kaspa/VaultHelper';
 import VaultHelperLtc from './impl/ltc/VaultHelper';
 import VaultHelperNear from './impl/near/VaultHelper';
 import VauleHelperSol from './impl/sol/VaultHelper';
@@ -120,6 +122,9 @@ export async function createVaultHelperInstance(
   }
   if (impl === IMPL_XMR) {
     return new VaultHelperXmr(options);
+  }
+  if (impl === IMPL_KASPA) {
+    return new VaultHelperKaspa(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -241,6 +246,10 @@ export async function createVaultInstance(options: IVaultOptions) {
   if (network.impl === IMPL_XMR) {
     const VaultXmr = (await import('./impl/xmr/Vault')).default;
     vault = new VaultXmr(options);
+  }
+  if (network.impl === IMPL_KASPA) {
+    const VaultKaspa = (await import('./impl/kaspa/Vault')).default;
+    vault = new VaultKaspa(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

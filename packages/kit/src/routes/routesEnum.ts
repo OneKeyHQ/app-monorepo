@@ -324,6 +324,7 @@ export enum HardwareUpdateModalRoutes {
   HardwareUpdateWarningModal = 'HardwareUpdateWarningModal',
   HardwareUpdateWarningPowerModal = 'HardwareUpdateWarningPowerModal',
   HardwareUpdatingModal = 'HardwareUpdatingModal',
+  HardwareUpdatingBootloaderModal = 'HardwareUpdatingBootloaderModal',
   HardwareUpdateResourceModal = 'HardwareUpdateResourceModal',
 }
 

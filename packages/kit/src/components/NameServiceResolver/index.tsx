@@ -110,7 +110,10 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
 
   const checkNameStatus = useCallback(
     async (nameStr: string) => {
-      const status = await serviceNameResolver.checkIsValidName(nameStr);
+      const status = await serviceNameResolver.checkIsValidName(
+        nameStr,
+        networkId,
+      );
       setResolverState((prev) => ({
         ...prev,
         isValidName: status,
@@ -119,7 +122,7 @@ const NameServiceResolver: FC<NameServiceResolverProps> = ({
       }));
       return status;
     },
-    [serviceNameResolver, setResolverState],
+    [networkId, serviceNameResolver, setResolverState],
   );
 
   const fetchNameResolveResult = useCallback(async () => {

@@ -399,44 +399,46 @@ class ServiceHardware extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
+  async ensureDeviceExist(connectId: string, maxTryCount = 10) {
+    return new Promise((resolve) => {
+      let tryCount = 0;
+      deviceUtils.startDeviceScan(
+        (response) => {
+          tryCount += 1;
+          if (tryCount > maxTryCount) {
+            deviceUtils.stopScan();
+            resolve(false);
+          }
+          if (!response.success) {
+            return;
+          }
+          if ((response.payload ?? []).find((d) => d.connectId === connectId)) {
+            deviceUtils.stopScan();
+            resolve(true);
+          }
+        },
+        () => {},
+        1,
+        3000,
+        Number.MAX_VALUE,
+      );
+    });
+  }
+
   updateBootloader(
     connectId: string,
   ): Promise<Unsuccessful | Success<boolean>> {
-    const ensureDeviceExist = () =>
-      new Promise((resolve) => {
-        let tryCount = 0;
-        deviceUtils.startDeviceScan(
-          (response) => {
-            tryCount += 1;
-            if (tryCount > 10) {
-              resolve(false);
-            }
-            if (!response.success) {
-              return;
-            }
-            if (
-              (response.payload ?? []).find((d) => d.connectId === connectId)
-            ) {
-              deviceUtils.stopScan();
-              resolve(true);
-            }
-          },
-          () => {},
-          1,
-          3000,
-          Number.MAX_VALUE,
-        );
-      });
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve) => {
       const hardwareSDK = await this.getSDKInstance();
       // restart count down
-      await wait(5000);
+      await wait(8000);
       let tryCount = 0;
       //  polling device when restart success
       const DISCONNECT_ERROR = 'Request failed with status code';
       const excute = async () => {
-        const isFoundDevice = await ensureDeviceExist();
+        const isFoundDevice = await this.ensureDeviceExist(connectId);
         if (!isFoundDevice) {
           resolve({
             success: false,
@@ -831,6 +833,45 @@ class ServiceHardware extends ServiceBase {
         }
         return response;
       });
+  }
+
+  @backgroundMethod()
+  async checkBootloaderRelease(
+    connectId: string,
+    willUpdateFirmwareVersion: string,
+  ) {
+    const hardwareSDK = await this.getSDKInstance();
+    return hardwareSDK
+      ?.checkBootloaderRelease(undefined, { willUpdateFirmwareVersion })
+      .then((response) => {
+        if (!response.success) {
+          return Promise.reject(
+            deviceUtils.convertDeviceError(response.payload),
+          );
+        }
+        return response.payload;
+      });
+  }
+
+  @backgroundMethod()
+  async updateBootloaderForClassic(connectId: string) {
+    const { dispatch } = this.backgroundApi;
+    dispatch(setUpdateFirmwareStep(''));
+    const hardwareSDK = await this.getSDKInstance();
+    const listener = (data: any) => {
+      dispatch(setUpdateFirmwareStep(get(data, 'data.message', '')));
+    };
+    hardwareSDK.on('ui-firmware-tip', listener);
+    try {
+      const response = await hardwareSDK.firmwareUpdateV2(connectId, {
+        updateType: 'firmware',
+        platform: platformEnv.symbol ?? 'web',
+        isUpdateBootloader: true,
+      });
+      return response;
+    } finally {
+      hardwareSDK.off('ui-firmware-tip', listener);
+    }
   }
 }
 

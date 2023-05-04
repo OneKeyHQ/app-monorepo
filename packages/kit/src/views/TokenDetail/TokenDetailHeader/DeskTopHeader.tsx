@@ -13,6 +13,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import type { ButtonSize, ButtonType } from '@onekeyhq/components/src/Button';
+import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/types';
@@ -52,12 +53,22 @@ export const FavoritedButton: FC<{
   const marketTokenItem = useMarketTokenItem({
     coingeckoId,
   });
+  const isDisabled = typeof marketTokenItem === 'undefined';
+  // if (isDisabled && isVerticalLayout) {
+  //   return null;
+  // }
+  let iconColor: ThemeToken = marketTokenItem?.favorited
+    ? 'icon-warning'
+    : 'icon-default';
+  if (isDisabled) {
+    iconColor = 'icon-disabled';
+  }
   return (
     <IconButton
-      isDisabled={typeof marketTokenItem === 'undefined'}
+      isDisabled={isDisabled}
       name={marketTokenItem?.favorited ? 'StarSolid' : 'StarOutline'}
       circle={circle}
-      iconColor={marketTokenItem?.favorited ? 'icon-warning' : 'icon-default'}
+      iconColor={iconColor}
       onPress={() => {
         if (marketTokenItem) {
           if (marketTokenItem.favorited) {

@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -19,6 +19,7 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
@@ -83,7 +84,30 @@ const ScanQrcodeResult: FC = () => {
   const { bottom } = useSafeAreaInsets();
   const { wallet } = useActiveWalletAccount();
   const route = useRoute<ScanQrcodeResultRouteProp>();
-  const { type, data, possibleNetworks } = route.params;
+  const { type: initialType, data } = route.params;
+  // TODO multiple types
+  const [type, setType] = useState(initialType);
+  const possibleNetworks = useRef<string[]>();
+
+  useEffect(() => {
+    if (initialType === ScanSubResultCategory.TEXT) {
+      backgroundApiProxy.validator
+        .validateCreateInput({
+          input: data,
+          returnEarly: true,
+        })
+        .then(([result]) => {
+          if (result) {
+            setType(result.category);
+            possibleNetworks.current = result.possibleNetworks;
+          }
+        })
+        .catch((e) => {
+          debugLogger.backgroundApi.error(e);
+        });
+    }
+  }, [data, initialType]);
+
   let header = intl.formatMessage({ id: 'title__qr_code_info' });
   if (type === ScanSubResultCategory.URL) {
     header = intl.formatMessage({ id: 'title__url' });
@@ -127,7 +151,7 @@ const ScanQrcodeResult: FC = () => {
                   ScanQrcodeRoutes.PreviewSend,
                   {
                     address: data,
-                    possibleNetworks,
+                    possibleNetworks: possibleNetworks.current,
                   },
                 );
               }}
@@ -163,7 +187,7 @@ const ScanQrcodeResult: FC = () => {
                     screen: AddressBookRoutes.NewAddressRoute,
                     params: {
                       address: data,
-                      possibleNetworks,
+                      possibleNetworks: possibleNetworks.current,
                     },
                   },
                 });

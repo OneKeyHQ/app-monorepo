@@ -12,7 +12,7 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount } from '../../../hooks';
-import MarketPriceChart from '../../Market/Components/MarketDetail/MarketPriceChart';
+import PriceChart from '../../PriceChart/PriceChart';
 import { KeleETHUnstakeBulletin } from '../../Staking/components/KeleETHUnstakeBulletin';
 import StakedAssets from '../../Staking/components/StakedAssets';
 
@@ -97,9 +97,13 @@ const TokenDetailHeader: FC<HeaderProps> = ({
           accountId={accountId}
         />
       )}
-      {token?.coingeckoId && (
+      {token && (
         <Box mt={{ base: '16px', md: 0 }}>
-          <MarketPriceChart coingeckoId={token?.coingeckoId} />
+          <PriceChart
+            networkId={networkId}
+            contract={token.tokenIdOnNetwork}
+            coingeckoId={token?.coingeckoId}
+          />
         </Box>
       )}
       {isVerticalLayout && (

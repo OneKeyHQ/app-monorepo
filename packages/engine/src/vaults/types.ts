@@ -28,6 +28,7 @@ import type { EVMDecodedItem } from './impl/evm/decoder/types';
 import type { INativeTxEvm } from './impl/evm/types';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
 import type { IEncodedTxFil } from './impl/fil/types';
+import type { IEncodedTxKaspa } from './impl/kaspa/types';
 import type {
   IDecodedTxExtraNear,
   IEncodedTxNear,
@@ -207,7 +208,8 @@ export type IEncodedTx =
   | IEncodedTxSUI
   | IEncodedTxFil
   | IEncodedTxDot
-  | IEncodedTxXmr;
+  | IEncodedTxXmr
+  | IEncodedTxKaspa;
 
 export type INativeTx =
   | INativeTxEvm
@@ -239,6 +241,7 @@ export enum IEncodedTxUpdateType {
   cancel = 'cancel',
   advancedSettings = 'advancedSettings',
 }
+
 export type IEncodedTxUpdateOptions = {
   type?: IEncodedTxUpdateType;
 };

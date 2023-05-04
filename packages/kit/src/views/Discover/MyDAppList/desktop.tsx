@@ -1,15 +1,8 @@
 import type { FC } from 'react';
-import {
-  useCallback,
-  useContext,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { useCallback, useContext, useLayoutEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -19,7 +12,9 @@ import {
   Pressable,
   SegmentedControl,
   Typography,
+  useUserDevice,
 } from '@onekeyhq/components';
+import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 
 import { useTranslation } from '../../../hooks';
 import FavListMenu from '../../Overlay/Discover/FavListMenu';
@@ -31,9 +26,9 @@ import { MyDAppListContext } from './context';
 import { getUrlHost } from './utils';
 
 import type { MatchDAppItemType } from '../Explorer/explorerUtils';
-import type { ListRenderItem } from 'react-native';
+import type { LayoutChangeEvent, ListRenderItem } from 'react-native';
 
-const FavoratesListEmptyComponent = () => {
+const FavouritesListEmptyComponent = () => {
   const intl = useIntl();
   return (
     <Empty
@@ -134,58 +129,44 @@ const RenderItem: FC<RenderItemProps> = ({ item, cardWidth, isFav }) => {
   );
 };
 
-const Favorites = () => {
-  const data = useDiscoverFavorites();
+const FavOrHisList = ({ isFav }: { isFav: boolean }) => {
+  const favData = useDiscoverFavorites();
+  const hisData = useUserBrowserHistories();
 
-  const { width } = useWindowDimensions();
-  const screenWidth = width - 64 - 224;
+  const { screenWidth } = useUserDevice();
+  const defaultBoxWidth = screenWidth > SCREEN_SIZE.LARGE ? 720 : screenWidth;
+  const [boxWidth, setBoxWidth] = useState(defaultBoxWidth);
   const minWidth = 250;
-  const numColumns = Math.floor(screenWidth / minWidth);
-  const cardWidth = screenWidth / numColumns;
+  const numColumns = Math.floor(boxWidth / minWidth);
+  const cardWidth = boxWidth / numColumns;
 
   const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
     ({ item }) => <RenderItem cardWidth={cardWidth} item={item} isFav />,
     [cardWidth],
   );
 
+  const onLayout = useCallback((e: LayoutChangeEvent) => {
+    // eslint-disable-next-line @typescript-eslint/no-shadow
+    const { width } = e.nativeEvent.layout;
+    if (width) {
+      setBoxWidth(width);
+    }
+  }, []);
+
   return (
     <FlatList
+      flex={1}
+      onLayout={onLayout}
       contentContainerStyle={{ paddingTop: 32, paddingBottom: 32 }}
       // paddingLeft="24px"
-      data={data}
+      data={isFav ? favData : hisData}
       renderItem={renderItem}
       numColumns={numColumns}
       key={`key${numColumns}`}
       keyExtractor={(item) => `${numColumns}key${item.id}`}
-      ListEmptyComponent={FavoratesListEmptyComponent}
-    />
-  );
-};
-
-const History = () => {
-  const { width } = useWindowDimensions();
-  const data = useUserBrowserHistories();
-  const screenWidth = width - 64 - 224;
-
-  const minWidth = 250;
-  const numColumns = Math.floor(screenWidth / minWidth);
-  const cardWidth = screenWidth / numColumns;
-
-  const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
-    ({ item }) => <RenderItem cardWidth={cardWidth} item={item} />,
-    [cardWidth],
-  );
-
-  return (
-    <FlatList
-      contentContainerStyle={{ paddingTop: 32, paddingBottom: 32 }}
-      // paddingLeft="24px"
-      data={data}
-      renderItem={renderItem}
-      numColumns={numColumns}
-      key={`key${numColumns}`}
-      keyExtractor={(item) => `${numColumns}key${item.id}`}
-      ListEmptyComponent={HistoryListEmptyComponent}
+      ListEmptyComponent={
+        isFav ? FavouritesListEmptyComponent : HistoryListEmptyComponent
+      }
     />
   );
 };
@@ -203,8 +184,6 @@ const Desktop = () => {
     navigation.goBack();
   }, [navigation]);
 
-  const favorates = useMemo(() => <Favorites />, []);
-  const history = useMemo(() => <History />, []);
   return (
     <Box w="full" h="full" mb="4" px="8">
       <Box
@@ -229,7 +208,7 @@ const Desktop = () => {
           />
         </Box>
       </Box>
-      <Box flex="1">{selectedIndex === 0 ? favorates : history}</Box>
+      <FavOrHisList isFav={selectedIndex === 0} />
     </Box>
   );
 };

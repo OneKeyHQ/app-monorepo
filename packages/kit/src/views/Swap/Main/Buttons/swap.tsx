@@ -462,17 +462,21 @@ const ExchangeButton = () => {
       ? balance.minus(inputAmount.typedValue)
       : balance;
     if (currentReservedValueForGasFee.lt(safeReservedValueForGasFee)) {
+      const nativeToken = await backgroundApiProxy.engine.getNativeTokenInfo(
+        fromNetworkId,
+      );
       ToastManager.show(
         {
           title: intl.formatMessage(
             { id: 'msg__gas_fee_is_not_enough_please_keep_at_least_str' },
             {
-              '0': `${safeReservedValueForGasFee} ${params.tokenIn.symbol.toUpperCase()}`,
+              '0': `${safeReservedValueForGasFee} ${nativeToken.symbol.toUpperCase()}`,
             },
           ),
         },
         { type: 'error' },
       );
+      return;
     }
 
     let res: BuildTransactionResponse | undefined;
