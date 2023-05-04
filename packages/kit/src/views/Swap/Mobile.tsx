@@ -8,6 +8,8 @@ import {
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
+import { isAtSwapTab } from '../../utils/routeUtils';
+
 import { Main } from './Main';
 import { SwapHeader } from './SwapHeader';
 import SwapObserver from './SwapObserver';
@@ -17,9 +19,11 @@ export const Mobile = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    appUIEventBus.emit(AppUIEventBusNames.SwapRefresh);
-    setTimeout(() => setRefreshing(false), 500);
+    if (isAtSwapTab()) {
+      setRefreshing(true);
+      appUIEventBus.emit(AppUIEventBusNames.SwapRefresh);
+      setTimeout(() => setRefreshing(false), 500);
+    }
   }, []);
   return (
     <ScrollView

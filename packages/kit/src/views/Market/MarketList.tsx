@@ -10,11 +10,12 @@ import {
   FlatList,
   IconButton,
   ScrollView,
-  useIsVerticalLayout,
+  useUserDevice,
 } from '@onekeyhq/components';
 
 import { HomeRoutes } from '../../routes/types';
 import { MARKET_FAVORITES_CATEGORYID } from '../../store/reducers/market';
+import { isAtMarketTab } from '../../utils/routeUtils';
 
 import MarketCategoryToggles from './Components/MarketList/MarketCategoryToggles';
 import { showMarketCellMoreMenu } from './Components/MarketList/MarketCellMoreMenu';
@@ -28,7 +29,6 @@ import {
   useMarketFavoriteCategoryTokenIds,
   useMarketFavoriteRecommentedList,
 } from './hooks/useMarketCategory';
-import { useMarketMidLayout } from './hooks/useMarketLayout';
 import { useMarketList } from './hooks/useMarketList';
 
 import type { HomeRoutesParams } from '../../routes/types';
@@ -44,8 +44,9 @@ import type {
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 const MarketList: FC = () => {
-  const isVerticalLayout = useIsVerticalLayout();
-  const isMidLayout = useMarketMidLayout();
+  const { size } = useUserDevice();
+  const isVerticalLayout = size === 'SMALL';
+  const isMidLayout = size === 'NORMAL';
   const categorys: MarketCategory[] = useMarketCategoryList();
   const recommendedTokens = useMarketFavoriteRecommentedList();
   const favoriteTokens = useMarketFavoriteCategoryTokenIds();
@@ -104,10 +105,12 @@ const MarketList: FC = () => {
   }, []);
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    onRefreshingMarketList().finally(() => {
-      setRefreshing(false);
-    });
+    if (isAtMarketTab()) {
+      setRefreshing(true);
+      onRefreshingMarketList().finally(() => {
+        setRefreshing(false);
+      });
+    }
   }, [onRefreshingMarketList]);
   const listHeader = useMemo(
     () => <MarketListHeader headTags={listHeadTags} />,
