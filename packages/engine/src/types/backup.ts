@@ -1,6 +1,5 @@
 import type { ISimpleDbEntityUtxoData } from '../dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { DBAccount } from './account';
-import type { CoinControlItem } from './utxoAccounts';
 import type { Wallet } from './wallet';
 
 // If version is not the same with the current supported version, we cannot
@@ -28,6 +27,6 @@ export type BackupObject = {
   // UUID -> ImportableHDWallet
   wallets: Record<string, ImportableHDWallet>;
   simpleDb: {
-    utxoAccounts: ISimpleDbEntityUtxoData;
+    utxoAccounts?: ISimpleDbEntityUtxoData;
   };
 };
