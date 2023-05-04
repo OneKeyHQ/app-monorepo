@@ -9,6 +9,7 @@ import so.onekey.app.wallet.reactModule.PermissionManager
 import so.onekey.app.wallet.reactModule.MinimizerModule
 import so.onekey.app.wallet.reactModule.HttpServerModule
 import so.onekey.app.wallet.reactModule.CacheModule
+import so.onekey.app.wallet.reactModule.AppRestartManager
 import so.onekey.app.wallet.viewManager.homePage.HomePageManager
 
 
@@ -21,6 +22,7 @@ class MainReactNativePackage : ReactPackage {
         modules.add(MinimizerModule(reactContext))
         modules.add(HttpServerModule(reactContext))
         modules.add(CacheModule(reactContext))
+        modules.add(AppRestartManager(reactContext))
 
         return modules
     }
