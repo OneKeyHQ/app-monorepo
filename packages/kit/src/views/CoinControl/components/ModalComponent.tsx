@@ -1,19 +1,30 @@
 import type { FC } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, HStack, Text, Token, VStack } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  HStack,
+  Text,
+  ToastManager,
+  Token,
+  VStack,
+} from '@onekeyhq/components';
 import { getUtxoUniqueKey } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token as IToken } from '@onekeyhq/engine/src/types/token';
 import type { ICoinControlListItem } from '@onekeyhq/engine/src/types/utxoAccounts';
+import { IEncodedTxUpdateType } from '@onekeyhq/engine/src/vaults/types';
+import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import {
   FormatBalance,
   FormatCurrencyTokenOfAccount,
 } from '@onekeyhq/kit/src/components/Format';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../hooks';
 
 export const ModalHeader: FC<{
@@ -47,6 +58,7 @@ export const ModalFooter: FC<{
   allUtxos: ICoinControlListItem[];
   dustUtxos: ICoinControlListItem[];
   selectedUtxos: string[];
+  encodedTx?: IEncodedTxBtc;
   onConfirm?: (selectedUtxos: string[]) => void;
 }> = ({
   accountId,
@@ -55,6 +67,7 @@ export const ModalFooter: FC<{
   targetAmount,
   allUtxos,
   dustUtxos,
+  encodedTx,
   selectedUtxos,
   onConfirm,
 }) => {
@@ -86,6 +99,42 @@ export const ModalFooter: FC<{
         dustUtxos.some((utxo) => getUtxoUniqueKey(utxo) === key),
       ),
     [selectedUtxos, dustUtxos],
+  );
+
+  const onPressConfirm = useCallback(
+    (utxos: string[]) => {
+      if (network && encodedTx) {
+        backgroundApiProxy.engine
+          .updateEncodedTx({
+            networkId: network.id,
+            accountId,
+            encodedTx,
+            payload: {
+              selectedUtxos: utxos,
+            },
+            options: {
+              type: IEncodedTxUpdateType.advancedSettings,
+            },
+          })
+          .then(() => {
+            onConfirm?.(utxos);
+          })
+          .catch(() => {
+            ToastManager.show(
+              {
+                title: intl.formatMessage(
+                  { id: 'form__amount_invalid' },
+                  { 0: network?.symbol },
+                ),
+              },
+              {
+                type: 'error',
+              },
+            );
+          });
+      }
+    },
+    [onConfirm, network, encodedTx, accountId, intl],
   );
 
   return (
@@ -139,7 +188,7 @@ export const ModalFooter: FC<{
         type="primary"
         size="xl"
         mt={4}
-        onPress={() => onConfirm?.(selectedUtxos)}
+        onPress={() => onPressConfirm(selectedUtxos)}
         isDisabled={hasMissAmount}
       >
         {intl.formatMessage({ id: 'action__done' })}

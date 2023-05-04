@@ -60,10 +60,6 @@ const CoinControl = () => {
       : [],
   );
 
-  const defaultutxos = encodedTx?.inputs.map((input) =>
-    getUtxoUniqueKey(input),
-  );
-  console.log(defaultutxos);
   const [blockTimeMap, setBlockTimeMap] = useState<Record<string, number>>({});
   const [token, setToken] = useState<Token>();
 
@@ -268,6 +264,7 @@ const CoinControl = () => {
             dustUtxos={utxosDust}
             selectedUtxos={selectedUtxos}
             targetAmount={targetAmount}
+            encodedTx={encodedTx}
             onConfirm={onConfirm}
           />
         ) : null
