@@ -7,7 +7,7 @@ index 337a867..8e538ac 100644
   */
  
 -import { superstruct } from 'superstruct/lib/index';
-+import { superstruct } from 'superstruct';
++import superstruct from 'superstruct';
  import { isUndefined } from './validate';
  
  export default superstruct({
