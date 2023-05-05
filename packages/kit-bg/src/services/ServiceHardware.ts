@@ -854,7 +854,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateBootloaderForClassic(connectId: string) {
+  async updateBootloaderForClassicAndMini(connectId: string) {
     const { dispatch } = this.backgroundApi;
     dispatch(setUpdateFirmwareStep(''));
     const hardwareSDK = await this.getSDKInstance();
