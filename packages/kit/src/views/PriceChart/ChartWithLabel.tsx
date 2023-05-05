@@ -64,6 +64,7 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
     },
     [formatDate],
   );
+
   const priceLabel = (
     <PriceLabel
       onPriceSubscribe={onPriceSubscribe}
@@ -73,26 +74,27 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
     />
   );
 
-  const chartView = data ? (
-    <ChartView
-      isFetching={isFetching}
-      height={isVerticalLayout ? 190 : 240}
-      data={data}
-      onHover={onHover}
-    />
-  ) : (
-    <Empty
-      emoji="📊"
-      title={intl.formatMessage({
-        id: 'empty__no_data',
-      })}
-      subTitle={intl.formatMessage({
-        id: 'content__data_for_this_token_is_not_included_yet',
-      })}
-    />
-  );
-  const chartViewWithSpinner =
-    data && data.length === 0 ? <Spinner /> : chartView;
+  const chartView =
+    data && data.length > 0 ? (
+      <ChartView
+        isFetching={isFetching}
+        height={isVerticalLayout ? 190 : 240}
+        data={data}
+        onHover={onHover}
+      />
+    ) : (
+      <Empty
+        emoji="📊"
+        title={intl.formatMessage({
+          id: 'empty__no_data',
+        })}
+        subTitle={intl.formatMessage({
+          id: 'content__data_for_this_token_is_not_included_yet',
+        })}
+      />
+    );
+
+  const chartViewWithSpinner = isFetching ? <Spinner /> : chartView;
   return isVerticalLayout ? (
     <>
       {priceLabel}
@@ -105,7 +107,7 @@ const ChartWithLabel: FC<ChartWithLabelProps> = ({
     <>
       <Box flexDirection="row" justifyContent="space-between">
         {priceLabel}
-        <Box w="280px">{children}</Box>
+        <Box w="280px">{data ? children : null}</Box>
       </Box>
       <Box h="240px" mt="32px" justifyContent="center" alignItems="center">
         {chartViewWithSpinner}
