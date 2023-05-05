@@ -1,0 +1,13 @@
+diff --git a/node_modules/@react-native-firebase/app/lib/common/struct.js b/node_modules/@react-native-firebase/app/lib/common/struct.js
+index 337a867..8e538ac 100644
+--- a/node_modules/@react-native-firebase/app/lib/common/struct.js
++++ b/node_modules/@react-native-firebase/app/lib/common/struct.js
+@@ -14,7 +14,7 @@
+  *  limitations under the License.
+  */
+ 
+-import { superstruct } from 'superstruct/lib/index';
++import { superstruct } from 'superstruct';
+ import { isUndefined } from './validate';
+ 
+ export default superstruct({
