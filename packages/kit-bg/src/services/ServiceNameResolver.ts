@@ -115,6 +115,7 @@ export default class ServiceNameResolver extends ServiceBase {
           [OnekeyNetwork.fil]: ['fil'],
         },
         resolver: this.resolveFilEvm.bind(this),
+        networkRequired: true,
       },
     ];
     return NAME_RESOLVER;
@@ -160,14 +161,13 @@ export default class ServiceNameResolver extends ServiceBase {
           : resolver.supportImplsMap[networId as 'evm--*'];
         return !!support && resolver.pattern.test(name);
       }
-
-      return resolver.pattern.test(name);
+      return !resolver.networkRequired && resolver.pattern.test(name);
     });
     return Promise.resolve(status);
   }
 
   async _resolveName(name: string, options?: ResolverOptions) {
-    const isValid = await this.checkIsValidName(name);
+    const isValid = await this.checkIsValidName(name, options?.networkId);
 
     const config = this.config.find((c) => c.pattern.test(name));
 
