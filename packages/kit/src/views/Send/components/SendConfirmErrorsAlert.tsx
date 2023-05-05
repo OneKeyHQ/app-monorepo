@@ -152,7 +152,7 @@ export function SendConfirmErrorsAlert({
   if (pendingTxCount && pendingTxCount !== '0') {
     errors.push(
       <FormErrorMessage
-        alertType="warn"
+        alertType="info"
         isAlertStyle
         message={intl.formatMessage(
           { id: 'msg__eth_tx_warning_tx_will_be_queued_str' },
