@@ -399,6 +399,7 @@ const UpdatingBootloader: FC = () => {
           const isFoundDevice = await serviceHardware.ensureDeviceExist(
             connectId,
             40,
+            true,
           );
           if (!isFoundDevice) {
             handleErrors(new Errors.DeviceNotFind());

@@ -376,7 +376,7 @@ class ServiceHardware extends ServiceBase {
     const version = settings.deviceUpdates?.[connectId][firmwareType]?.version;
 
     try {
-      const response = await hardwareSDK.firmwareUpdateV2(connectId, {
+      const response = await hardwareSDK.firmwareUpdateV2(undefined, {
         updateType: firmwareType,
         forcedUpdateRes,
         version,
@@ -400,7 +400,11 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async ensureDeviceExist(connectId: string, maxTryCount = 10) {
+  async ensureDeviceExist(
+    connectId: string,
+    maxTryCount = 10,
+    bootloaderMode = false,
+  ) {
     return new Promise((resolve) => {
       let tryCount = 0;
       deviceUtils.startDeviceScan(
@@ -413,7 +417,11 @@ class ServiceHardware extends ServiceBase {
           if (!response.success) {
             return;
           }
-          if ((response.payload ?? []).find((d) => d.connectId === connectId)) {
+          const deviceExist = bootloaderMode
+            ? // bootloader mode does not have connect id for classic
+              (response.payload ?? []).length > 0
+            : (response.payload ?? []).find((d) => d.connectId === connectId);
+          if (deviceExist) {
             deviceUtils.stopScan();
             resolve(true);
           }
