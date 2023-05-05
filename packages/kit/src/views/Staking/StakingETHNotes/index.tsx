@@ -43,12 +43,15 @@ export default function StakingETHNotes() {
       } catch {
         debugLogger.common.error('registerOnKele failed');
       }
+
+      const value = new BigNumber(10)
+      .exponentiatedBy(18)
+      .multipliedBy(params.amount)
+      .toFixed(0);
+
       const encodedTx =
         await backgroundApiProxy.serviceStaking.buildTxForStakingETHtoKele({
-          value: new BigNumber(10)
-            .exponentiatedBy(18)
-            .multipliedBy(params.amount)
-            .toFixed(0),
+          value,
           networkId: params.networkId,
         });
       onClose();

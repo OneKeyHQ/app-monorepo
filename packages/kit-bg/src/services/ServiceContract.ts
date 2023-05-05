@@ -17,6 +17,8 @@ type EvmTransactionParams = {
   params: any[];
 };
 
+const lidoReferralAddress = '0xc1e92BD5d1aa6e5f5F299D0490BefD9D8E5a887a';
+
 const LIDO_ABI = [
   {
     constant: false,
@@ -89,7 +91,7 @@ class ServiceContract extends ServiceBase {
     return this.buildEvmTransaction({
       abi: LIDO_ABI,
       method: 'submit',
-      params: [],
+      params: [lidoReferralAddress],
     });
   }
 }
