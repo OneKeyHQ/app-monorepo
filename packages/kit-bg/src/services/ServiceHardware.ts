@@ -854,7 +854,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateBootloaderForClassicAndMini(connectId: string) {
+  async updateBootloaderForClassicAndMini() {
     const { dispatch } = this.backgroundApi;
     dispatch(setUpdateFirmwareStep(''));
     const hardwareSDK = await this.getSDKInstance();
@@ -863,7 +863,7 @@ class ServiceHardware extends ServiceBase {
     };
     hardwareSDK.on('ui-firmware-tip', listener);
     try {
-      const response = await hardwareSDK.firmwareUpdateV2(connectId, {
+      const response = await hardwareSDK.firmwareUpdateV2(undefined, {
         updateType: 'firmware',
         platform: platformEnv.symbol ?? 'web',
         isUpdateBootloader: true,
