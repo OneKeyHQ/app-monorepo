@@ -64,8 +64,6 @@ const UpdatingModal: FC = () => {
   const [progressStep, setProgressStep] = useState<ProgressStepType>();
   const progressStepRef = useRef<ProgressStepType>();
   const [progressState, setProgressState] = useState<ProgressStateType>();
-  const [erasedFirmware, setErasedFirmware] = useState(false);
-  const erasedFirmwareRef = useRef(true);
 
   const autoEnterBootFailureCountRef = useRef(0);
 
@@ -234,8 +232,6 @@ const UpdatingModal: FC = () => {
         }, 300);
         break;
       case 'FirmwareEraseSuccess':
-        setErasedFirmware(true);
-        erasedFirmwareRef.current = true;
         setMaxProgress(90);
         dispatch(closeHardwarePopup());
         break;
@@ -246,151 +242,140 @@ const UpdatingModal: FC = () => {
     }
   }, [deviceType, connectId, dispatch, updateEvent]);
 
-  const handleErrors = useCallback(
-    (error: OneKeyHardwareError) => {
-      const { className, key, code } = error || {};
+  const handleErrors = (error: OneKeyHardwareError) => {
+    const { className, key, code } = error || {};
 
-      switch (code) {
-        case HardwareErrorCode.FirmwareUpdateLimitOneDevice:
-          setStateViewInfo({ type: 'device-not-only-ones' });
-          break;
-        case HardwareErrorCode.DeviceNotFound:
-          setStateViewInfo({ type: 'device-not-found' });
-          break;
+    switch (code) {
+      case HardwareErrorCode.FirmwareUpdateLimitOneDevice:
+        setStateViewInfo({ type: 'device-not-only-ones' });
+        break;
+      case HardwareErrorCode.DeviceNotFound:
+        setStateViewInfo({ type: 'device-not-found' });
+        break;
 
-        case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
-          setStateViewInfo({ type: 'reboot-bootloader-failure' });
-          break;
+      case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
+        setStateViewInfo({ type: 'reboot-bootloader-failure' });
+        break;
 
-        case HardwareErrorCode.FirmwareUpdateDownloadFailed:
-          // eslint-disable-next-line no-case-declarations
-          let typeContent = '';
-          if (firmwareType === 'ble') {
-            typeContent = intl.formatMessage({
-              id: 'content__bluetooth_firmware_lowercase',
-            });
-          } else if (firmwareType === 'firmware') {
-            typeContent = intl.formatMessage({
-              id: 'content__firmware_lowercase',
-            });
-          }
-
-          setStateViewInfo({
-            type: 'download-failure',
-            content: {
-              title: intl.formatMessage(
-                { id: 'content__downloading_str' },
-                {
-                  0: typeContent,
-                },
-              ),
-            },
+      case HardwareErrorCode.FirmwareUpdateDownloadFailed:
+        // eslint-disable-next-line no-case-declarations
+        let typeContent = '';
+        if (firmwareType === 'ble') {
+          typeContent = intl.formatMessage({
+            id: 'content__bluetooth_firmware_lowercase',
           });
-          break;
-        case HardwareErrorCode.BlePermissionError:
-          setStateViewInfo({ type: 'bluetooth-turned-off' });
-          break;
-        case HardwareErrorCode.FirmwareUpdateManuallyEnterBoot:
-          setStateViewInfo({
-            type: 'manually-enter-bootloader-one',
-            content: {
-              deviceType,
-              nextState:
-                deviceType === 'mini'
-                  ? {
-                      type: 'manually-enter-bootloader-two',
-                      content: {
-                        deviceType,
-                        primaryActionTranslationId: 'action__continue',
-                      },
-                    }
-                  : undefined,
-            },
+        } else if (firmwareType === 'firmware') {
+          typeContent = intl.formatMessage({
+            id: 'content__firmware_lowercase',
           });
-          break;
-        case HardwareErrorCode.ActionCancelled:
-        case HardwareErrorCode.PinCancelled:
-        case HardwareErrorCode.FirmwareUpdateAutoEnterBootFailure:
-          autoEnterBootFailureCountRef.current += 1;
-          if (progressStepRef.current === 'reboot-bootloader') {
-            if (deviceType === 'mini') {
-              setStateViewInfo({
-                type: 'manually-enter-bootloader-one',
-                content: {
-                  deviceType,
-                  nextState: {
+        }
+
+        setStateViewInfo({
+          type: 'download-failure',
+          content: {
+            title: intl.formatMessage(
+              { id: 'content__downloading_str' },
+              {
+                0: typeContent,
+              },
+            ),
+          },
+        });
+        break;
+      case HardwareErrorCode.BlePermissionError:
+        setStateViewInfo({ type: 'bluetooth-turned-off' });
+        break;
+      case HardwareErrorCode.FirmwareUpdateManuallyEnterBoot:
+        setStateViewInfo({
+          type: 'manually-enter-bootloader-one',
+          content: {
+            deviceType,
+            nextState:
+              deviceType === 'mini'
+                ? {
                     type: 'manually-enter-bootloader-two',
                     content: {
                       deviceType,
                       primaryActionTranslationId: 'action__continue',
                     },
+                  }
+                : undefined,
+          },
+        });
+        break;
+      case HardwareErrorCode.ActionCancelled:
+      case HardwareErrorCode.PinCancelled:
+      case HardwareErrorCode.FirmwareUpdateAutoEnterBootFailure:
+        autoEnterBootFailureCountRef.current += 1;
+        if (progressStepRef.current === 'reboot-bootloader') {
+          if (deviceType === 'mini') {
+            setStateViewInfo({
+              type: 'manually-enter-bootloader-one',
+              content: {
+                deviceType,
+                nextState: {
+                  type: 'manually-enter-bootloader-two',
+                  content: {
+                    deviceType,
+                    primaryActionTranslationId: 'action__continue',
                   },
                 },
-              });
-            } else if (autoEnterBootFailureCountRef.current >= 2) {
-              setStateViewInfo({
-                type: 'manually-enter-bootloader-one',
-                content: {
-                  deviceType,
-                },
-              });
-            } else {
-              setStateViewInfo({ type: 'reboot-bootloader-failure' });
-            }
-          } else {
-            setStateViewInfo({
-              type: 'common_error',
-              content: {
-                title: intl.formatMessage({
-                  id: key,
-                  defaultMessage: error.message,
-                }),
               },
             });
-          }
-          break;
-        default:
-          if (className === 'OneKeyHardwareError') {
+          } else if (autoEnterBootFailureCountRef.current >= 2) {
             setStateViewInfo({
-              type: 'common_error',
+              type: 'manually-enter-bootloader-one',
               content: {
-                title: erasedFirmwareRef.current
-                  ? intl.formatMessage({
-                      id: 'modal__update_resources_failed_go_to_website_reinstall_lastest_firmware',
-                    })
-                  : intl.formatMessage({
-                      id: key,
-                      defaultMessage: error.message,
-                    }),
+                deviceType,
               },
             });
           } else {
-            // other error
-            setStateViewInfo({
-              type: 'common_error',
-              content: {
-                title: erasedFirmwareRef.current
-                  ? intl.formatMessage({
-                      id: 'modal__update_resources_failed_go_to_website_reinstall_lastest_firmware',
-                    })
-                  : `「${code}」${error.message}`,
-              },
-            });
+            setStateViewInfo({ type: 'reboot-bootloader-failure' });
           }
-
-          ToastManager.show(
-            {
-              title: intl.formatMessage({ id: key }),
+        } else {
+          setStateViewInfo({
+            type: 'common_error',
+            content: {
+              title: intl.formatMessage({
+                id: key,
+                defaultMessage: error.message,
+              }),
             },
-            { type: 'error' },
-          );
-          break;
-      }
+          });
+        }
+        break;
+      default:
+        if (className === 'OneKeyHardwareError') {
+          setStateViewInfo({
+            type: 'common_error',
+            content: {
+              title: intl.formatMessage({
+                id: key,
+                defaultMessage: error.message,
+              }),
+            },
+          });
+        } else {
+          // other error
+          setStateViewInfo({
+            type: 'common_error',
+            content: {
+              title: `「${code}」${error.message}`,
+            },
+          });
+        }
 
-      setProgressState('failure');
-    },
-    [deviceType, firmwareType, intl],
-  );
+        ToastManager.show(
+          {
+            title: intl.formatMessage({ id: key }),
+          },
+          { type: 'error' },
+        );
+        break;
+    }
+
+    setProgressState('failure');
+  };
 
   const executeUpdate = () => {
     if (!firmwareType) return;
@@ -494,7 +479,7 @@ const UpdatingModal: FC = () => {
       }}
     >
       {hasStepDone || hasFailure ? (
-        <StateView stateInfo={stateViewInfo} erasedFirmware={erasedFirmware} />
+        <StateView stateInfo={stateViewInfo} />
       ) : (
         <RunningView progress={progress} hint={progressStepDesc} />
       )}

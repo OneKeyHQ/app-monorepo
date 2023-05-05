@@ -48,10 +48,9 @@ export type StateViewTypeInfo = {
 
 export type StateViewProps = {
   stateInfo?: StateViewTypeInfo;
-  erasedFirmware?: boolean;
 };
 
-const StateView: FC<StateViewProps> = ({ stateInfo, erasedFirmware }) => {
+const StateView: FC<StateViewProps> = ({ stateInfo }) => {
   const intl = useIntl();
 
   const { sourceSrc, emoji, title, description, help }: StateContent =
@@ -212,9 +211,7 @@ const StateView: FC<StateViewProps> = ({ stateInfo, erasedFirmware }) => {
           stateContent = {
             emoji: '😞',
             title: intl.formatMessage({
-              id: erasedFirmware
-                ? 'modal__update_resources_failed_go_to_website_reinstall_lastest_firmware'
-                : 'msg__unknown_error',
+              id: 'msg__unknown_error',
             }),
           };
           break;
@@ -223,16 +220,14 @@ const StateView: FC<StateViewProps> = ({ stateInfo, erasedFirmware }) => {
           stateContent = {
             emoji: '🤔',
             title: intl.formatMessage({
-              id: erasedFirmware
-                ? 'modal__update_resources_failed_go_to_website_reinstall_lastest_firmware'
-                : 'msg__unknown_error',
+              id: 'msg__unknown_error',
             }),
           };
           break;
       }
 
       return { ...stateContent, ...stateInfo?.content };
-    }, [intl, stateInfo, erasedFirmware]);
+    }, [intl, stateInfo]);
 
   return (
     <Box
@@ -253,9 +248,7 @@ const StateView: FC<StateViewProps> = ({ stateInfo, erasedFirmware }) => {
           )}
           {!!emoji && <Text fontSize={56}>{emoji}</Text>}
 
-          <Typography.DisplayMedium mt={4} wordBreak="break-all">
-            {title}
-          </Typography.DisplayMedium>
+          <Typography.DisplayMedium mt={4}>{title}</Typography.DisplayMedium>
           {!!description && (
             <Typography.Body1 color="text-subdued" mt={2} textAlign="center">
               {description}
