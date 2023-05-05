@@ -56,7 +56,7 @@ export interface IAsyncStorageLegacy {
    * multiGet invokes callback with an array of key-value pair arrays that matches the input format of multiSet
    */
   multiGet(
-    keys: string[],
+    keys: readonly string[],
     callback?: (errors?: Error[], result?: [string, string | null][]) => void,
   ): Promise<[string, string | null][]>;
 
@@ -129,7 +129,7 @@ class ExtensionStorage implements AsyncStorageStatic {
   }
 
   multiGet(
-    keys: string[],
+    keys: readonly string[],
     callback?: (errors?: Error[], result?: [string, string | null][]) => void,
   ): Promise<[string, string | null][]> {
     return Promise.resolve([]);
