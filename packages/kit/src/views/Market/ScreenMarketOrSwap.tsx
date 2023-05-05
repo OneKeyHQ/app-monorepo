@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { useWindowDimensions } from 'react-native';

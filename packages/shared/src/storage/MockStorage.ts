@@ -33,7 +33,7 @@ class MockStorage implements AsyncStorageStatic {
   }
 
   multiGet(
-    keys: string[],
+    keys: readonly string[],
     callback?: (errors?: Error[], result?: [string, string | null][]) => void,
   ): Promise<[string, string | null][]> {
     return Promise.resolve([]);

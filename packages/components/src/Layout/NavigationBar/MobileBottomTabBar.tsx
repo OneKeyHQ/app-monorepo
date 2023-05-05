@@ -87,7 +87,6 @@ export default function MobileBottomTabBar({
                 require('@onekeyhq/kit/src/store') as typeof import('@onekeyhq/kit/src/store');
               const marketTopTabName =
                 appSelector((s) => s.market.marketTopTabName) || TabRoutes.Swap;
-              console.log({ marketTopTabName });
               // navigation.navigate(marketTopTabName);
               navigationShortcuts.navigateToAppRootTab(
                 marketTopTabName as unknown as TabRoutes,
