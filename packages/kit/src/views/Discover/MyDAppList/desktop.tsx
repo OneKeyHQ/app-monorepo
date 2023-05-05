@@ -141,7 +141,9 @@ const FavOrHisList = ({ isFav }: { isFav: boolean }) => {
   const cardWidth = boxWidth / numColumns;
 
   const renderItem: ListRenderItem<MatchDAppItemType> = useCallback(
-    ({ item }) => <RenderItem cardWidth={cardWidth} item={item} isFav={isFav} />,
+    ({ item }) => (
+      <RenderItem cardWidth={cardWidth} item={item} isFav={isFav} />
+    ),
     [cardWidth, isFav],
   );
 

@@ -45,9 +45,9 @@ export default function StakingETHNotes() {
       }
 
       const value = new BigNumber(10)
-      .exponentiatedBy(18)
-      .multipliedBy(params.amount)
-      .toFixed(0);
+        .exponentiatedBy(18)
+        .multipliedBy(params.amount)
+        .toFixed(0);
 
       const encodedTx =
         await backgroundApiProxy.serviceStaking.buildTxForStakingETHtoKele({
