@@ -28,7 +28,7 @@ const FEE_LIMIT_HIGH_VALUE_TIMES = 20;
 const FEE_PRICE_HIGH_VALUE_TIMES = 4;
 
 const FORK_CHAIN_ADDRESS_NOT_DIFFERENT = [IMPL_COSMOS, IMPL_DOT];
-const WEBVIEW_BACKED_CHAIN = platformEnv.isNative ? [IMPL_ADA, IMPL_XMR] : [];
+const WEBVIEW_BACKED_CHAIN = platformEnv.isNative ? [IMPL_XMR] : [];
 
 class Validators {
   private _dbApi: DBAPI;
