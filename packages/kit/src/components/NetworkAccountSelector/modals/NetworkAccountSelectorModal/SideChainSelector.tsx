@@ -146,6 +146,86 @@ function SideChainSelector({
     [scrollToItem],
   );
 
+  const renderNetworkItem = useCallback(
+    ({
+      item,
+      isActive,
+      isDisabled,
+      isLastItem,
+    }: {
+      item: INetwork;
+      isActive: boolean;
+      isLastItem: boolean;
+      isDisabled: boolean;
+    }) => (
+      <Pressable
+        _disabled={{ opacity: 0.5 }}
+        disabled={isDisabled}
+        onPress={() => {
+          const id = (item.id === AllNetwork ? '' : item.id) || '';
+          serviceAccountSelector.updateSelectedNetwork(id);
+          onPress?.({ networkId: id });
+        }}
+        flex={1}
+      >
+        {({ isHovered, isPressed }) => (
+          <HStack
+            alignItems="center"
+            space={3}
+            p={1.5}
+            m={fullWidthMode ? 0 : 1}
+            borderWidth={2}
+            bgColor={
+              isPressed
+                ? 'surface-pressed'
+                : isHovered
+                ? 'surface-hovered'
+                : undefined
+            }
+            borderColor={(() => {
+              if (fullWidthMode) {
+                return 'transparent';
+              }
+              return isActive ? 'interactive-default' : 'transparent';
+            })()}
+            rounded={fullWidthMode ? '12px' : 'full'}
+          >
+            <ChainNetworkIcon
+              item={item}
+              isLastItem={isLastItem}
+              onLastItemRender={() => scrollToItem({ isRetry: false })}
+            />
+            {fullWidthMode ? (
+              <>
+                <Text
+                  flex={1}
+                  typography="Body1Strong"
+                  isTruncated
+                  numberOfLines={1}
+                >
+                  {item.name}
+                </Text>
+                {item.id === selectedNetworkId && !isDisabled ? (
+                  <>
+                    <RpcStatusButton networkId={item.id} />
+                    <Icon color="interactive-default" name="CheckCircleSolid" />
+                  </>
+                ) : null}
+              </>
+            ) : null}
+          </HStack>
+        )}
+      </Pressable>
+    ),
+    [
+      fullWidthMode,
+      onPress,
+      scrollToItem,
+      selectedNetworkId,
+      serviceAccountSelector,
+    ],
+  );
+
   const renderItem = useCallback(
     (options: { item: INetwork; index: number }) => {
       const { item, index } = options;
@@ -154,97 +234,40 @@ function SideChainSelector({
       const isDisabled =
         activeWallet?.type === WALLET_TYPE_HW &&
         !item.settings.hardwareAccountEnabled;
-      return (
-        <HStack alignItems="center">
-          <Pressable
-            _disabled={{ opacity: 0.5 }}
-            disabled={isDisabled}
-            onPress={() => {
-              const id = (item.id === AllNetwork ? '' : item.id) || '';
-              serviceAccountSelector.updateSelectedNetwork(id);
-              onPress?.({ networkId: id });
-            }}
-            flex={1}
-          >
-            {({ isHovered, isPressed }) => (
-              <HStack
-                alignItems="center"
-                space={3}
-                p={1.5}
-                m={fullWidthMode ? 0 : 1}
-                borderWidth={2}
-                bgColor={
-                  isPressed
-                    ? 'surface-pressed'
-                    : isHovered
-                    ? 'surface-hovered'
-                    : undefined
-                }
-                borderColor={(() => {
-                  if (fullWidthMode) {
-                    return 'transparent';
-                  }
-                  return isActive ? 'interactive-default' : 'transparent';
-                })()}
-                rounded={fullWidthMode ? '12px' : 'full'}
-              >
-                <ChainNetworkIcon
-                  item={item}
-                  isLastItem={isLastItem}
-                  onLastItemRender={() => scrollToItem({ isRetry: false })}
-                />
-                {fullWidthMode ? (
-                  <>
-                    <Text
-                      flex={1}
-                      typography="Body1Strong"
-                      isTruncated
-                      numberOfLines={1}
-                    >
-                      {item.name}
-                    </Text>
-                    {item.id === selectedNetworkId && !isDisabled ? (
-                      <>
-                        <RpcStatusButton networkId={item.id} />
-                        <Icon
-                          color="interactive-default"
-                          name="CheckCircleSolid"
-                        />
-                      </>
-                    ) : null}
-                  </>
-                ) : null}
-              </HStack>
-            )}
-          </Pressable>
-          {fullWidthMode && isDisabled && (
-            <RichTooltip
-              // eslint-disable-next-line react/no-unstable-nested-components
-              trigger={({ ...props }) => (
-                <Pressable {...props}>
-                  <Icon
-                    name="InformationCircleOutline"
-                    size={18}
-                    color="icon-subdued"
-                  />
-                </Pressable>
-              )}
-              bodyProps={{
-                children: <NetWorkDisabledInfo networkId={item.id} />,
-              }}
-            />
-          )}
-        </HStack>
-      );
+
+      if (fullWidthMode && isDisabled) {
+        return (
+          <HStack alignItems="center">
+            {renderNetworkItem({ item, isActive, isDisabled, isLastItem })}
+            <Box pr={2}>
+              <RichTooltip
+                // eslint-disable-next-line react/no-unstable-nested-components
+                trigger={({ ...props }) => (
+                  <Pressable {...props}>
+                    <Icon
+                      name="InformationCircleOutline"
+                      size={20}
+                      color="icon-subdued"
+                    />
+                  </Pressable>
+                )}
+                bodyProps={{
+                  children: <NetWorkDisabledInfo networkId={item.id} />,
+                }}
+              />
+            </Box>
+          </HStack>
+        );
+      }
+
+      return renderNetworkItem({ item, isActive, isDisabled, isLastItem });
     },
     [
       data.length,
       selectedNetworkId,
       activeWallet?.type,
       fullWidthMode,
-      serviceAccountSelector,
-      onPress,
-      scrollToItem,
+      renderNetworkItem,
     ],
   );
 

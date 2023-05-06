@@ -25,6 +25,7 @@ import {
   closeHardwarePopup,
   setHardwarePopup,
 } from '../../../../store/reducers/hardware';
+import { wait } from '../../../../utils/helper';
 import { UI_REQUEST } from '../../PopupHandle/showHardwarePopup';
 import RunningView from '../Updating/RunningView';
 import StateView from '../Updating/StateView';
@@ -385,7 +386,7 @@ const UpdatingBootloader: FC = () => {
       return;
     }
     serviceHardware
-      .updateBootloaderForClassicAndMini(connectId)
+      .updateBootloaderForClassicAndMini()
       .then(async (res) => {
         if (res.success) {
           engine.getWalletByDeviceId(device?.id ?? '').then((wallet) => {
@@ -393,10 +394,12 @@ const UpdatingBootloader: FC = () => {
               serviceHardware.cleanFeaturesCache(w.id);
             });
           });
+          await wait(15000);
           // polling found device
           const isFoundDevice = await serviceHardware.ensureDeviceExist(
             connectId,
             40,
+            true,
           );
           if (!isFoundDevice) {
             handleErrors(new Errors.DeviceNotFind());
