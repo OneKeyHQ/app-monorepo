@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { useWindowDimensions } from 'react-native';
@@ -10,6 +10,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { TabRoutes } from '../../routes/routesEnum';
 import Swap from '../Swap';
 
@@ -41,13 +42,18 @@ export function ScreenMarketOrSwap({
   const mobileTopTabName = useMobileMarketTopTabName();
 
   const isVerticalLayout = useIsVerticalLayout();
+  const lastIsVerticalLayout = useRef(isVerticalLayout);
   const marketTabName = isVerticalLayout ? mobileTopTabName : routeName;
 
   useFocusEffect(
     useCallback(() => {
       // reset when orientation change
-      if (isVerticalLayout && mobileTopTabName !== routeName) {
-        setMarketSwapTabName(routeName);
+      if (
+        !lastIsVerticalLayout.current &&
+        isVerticalLayout &&
+        mobileTopTabName !== routeName
+      ) {
+        backgroundApiProxy.serviceMarket.switchMarketTopTab(routeName);
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isVerticalLayout, routeName]),
@@ -85,6 +91,8 @@ export function ScreenMarketOrSwap({
           renderScene={renderScene}
           onIndexChange={setMarketSwapTabIndex}
           initialLayout={intialLayout}
+          // disable to avoid navigate animation
+          animationEnabled={false}
         />
       ) : (
         <>

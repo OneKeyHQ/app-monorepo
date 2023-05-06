@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
-import { InteractionManager } from 'react-native';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { navigationShortcuts } from '@onekeyhq/kit/src/routes/navigationShortcuts';
@@ -108,13 +107,15 @@ export const useMarketList = ({
   };
 };
 
+let switchingTimer: ReturnType<typeof setTimeout> | undefined;
 export const setMarketSwapTabName = (tabName: MarketTopTabName) => {
   backgroundApiProxy.serviceMarket.switchMarketTopTab(tabName);
-  InteractionManager.runAfterInteractions(() => {
+  clearTimeout(switchingTimer);
+  switchingTimer = setTimeout(() => {
     if (tabName === TabRoutes.Swap) {
       navigationShortcuts.navigateToSwap();
     } else if (tabName === TabRoutes.Market) {
       navigationShortcuts.navigateToMarket();
     }
-  });
+  }, 300);
 };
