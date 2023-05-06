@@ -105,7 +105,7 @@ class Validators {
     input: string,
     forCategories: Array<UserInputCategory> = [],
     returnEarly = false,
-    usedFor?: 'scanQRCode',
+    skipHeavyChains = false,
   ): Promise<Array<UserInputCheckResult>> {
     const ret = [];
     const filterCategories =
@@ -136,11 +136,10 @@ class Validators {
     // have to be done per network/chain basis, instead of per implementation
     // for now.
 
-    const isScanQRCode = usedFor === 'scanQRCode';
     for (const [impl, networks] of Object.entries(
       await this.engine.listEnabledNetworksGroupedByVault(),
     )) {
-      if (isScanQRCode && WEBVIEW_BACKED_CHAIN.includes(impl)) {
+      if (skipHeavyChains && WEBVIEW_BACKED_CHAIN.includes(impl)) {
         // skip webview backed chain
         // eslint-disable-next-line no-continue
         continue;
@@ -182,18 +181,18 @@ class Validators {
     input,
     onlyFor,
     returnEarly,
-    usedFor,
+    skipHeavyChains,
   }: {
     input: string;
     onlyFor?: UserInputCategory;
     returnEarly?: boolean;
-    usedFor?: 'scanQRCode';
+    skipHeavyChains?: boolean;
   }) {
     return this.validateUserInput(
       input,
       onlyFor !== undefined ? [onlyFor] : [],
       returnEarly,
-      usedFor,
+      skipHeavyChains,
     );
   }
 
