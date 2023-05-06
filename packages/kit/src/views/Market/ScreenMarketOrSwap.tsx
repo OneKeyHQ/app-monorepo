@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { useWindowDimensions } from 'react-native';
@@ -9,8 +9,9 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+// import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { TabRoutes } from '../../routes/routesEnum';
 import Swap from '../Swap';
 
@@ -33,6 +34,9 @@ const marketSwapTabRoutes: { key: MarketTopTabName }[] = [
   { key: TabRoutes.Swap },
   { key: TabRoutes.Market },
 ];
+
+let lastIsVerticalLayout: boolean;
+
 export function ScreenMarketOrSwap({
   routeName,
 }: {
@@ -42,21 +46,30 @@ export function ScreenMarketOrSwap({
   const mobileTopTabName = useMobileMarketTopTabName();
 
   const isVerticalLayout = useIsVerticalLayout();
-  const lastIsVerticalLayout = useRef(isVerticalLayout);
-  const marketTabName = isVerticalLayout ? mobileTopTabName : routeName;
+  if (lastIsVerticalLayout === undefined) {
+    lastIsVerticalLayout = isVerticalLayout;
+  }
+  const marketTabName =
+    isVerticalLayout && platformEnv.isNative ? mobileTopTabName : routeName;
 
+  // console.log({ marketTabName, mobileTopTabName, routeName });
   useFocusEffect(
     useCallback(() => {
       // reset when orientation change
-      if (
-        !lastIsVerticalLayout.current &&
-        isVerticalLayout &&
-        mobileTopTabName !== routeName
-      ) {
-        backgroundApiProxy.serviceMarket.switchMarketTopTab(routeName);
+      if (isVerticalLayout !== lastIsVerticalLayout) {
+        // console.log('orientation change');
+        if (isVerticalLayout) {
+          // big -> small screen
+          // align to current RouteName
+          setMarketSwapTabName(routeName);
+        } else {
+          // small -> big screen
+          // force navigate to align to current mobileTopTabName
+          setMarketSwapTabName(mobileTopTabName, true);
+        }
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isVerticalLayout, routeName]),
+      lastIsVerticalLayout = isVerticalLayout;
+    }, [isVerticalLayout, mobileTopTabName, routeName]),
   );
 
   const layout = useWindowDimensions();
@@ -77,7 +90,7 @@ export function ScreenMarketOrSwap({
   );
 
   const setMarketSwapTabIndex = useCallback((index: number) => {
-    setMarketSwapTabName(marketSwapTabRoutes[index].key);
+    setTimeout(() => setMarketSwapTabName(marketSwapTabRoutes[index].key));
   }, []);
 
   const intialLayout = useMemo(() => ({ width: layout.width }), [layout.width]);

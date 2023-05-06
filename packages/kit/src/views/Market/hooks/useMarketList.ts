@@ -4,12 +4,12 @@ import { useIsFocused } from '@react-navigation/core';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import { navigationShortcuts } from '@onekeyhq/kit/src/routes/navigationShortcuts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import { TabRoutes } from '../../../routes/routesEnum';
 import { MARKET_FAVORITES_CATEGORYID } from '../../../store/reducers/market';
-import { isAtMarketTab } from '../../../utils/routeUtils';
 
 import { useMarketSelectedCategory } from './useMarketCategory';
 import { useMarketMidLayout } from './useMarketLayout';
@@ -66,13 +66,11 @@ export const useMarketList = ({
         });
       }
       timer = setInterval(() => {
-        if (isAtMarketTab()) {
-          backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
-            categoryId: selectedCategory.categoryId,
-            ids: coingeckoIds,
-            sparkline: !isVerticalLayout && !isMidLayout,
-          });
-        }
+        backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
+          categoryId: selectedCategory.categoryId,
+          ids: coingeckoIds,
+          sparkline: !isVerticalLayout && !isMidLayout,
+        });
       }, pollingInterval * 1000);
     }
     return () => {
@@ -89,15 +87,13 @@ export const useMarketList = ({
     coingeckoIds,
   ]);
   const onRefreshingMarketList = useCallback(async () => {
-    if (isAtMarketTab()) {
-      await backgroundApiProxy.serviceMarket.fetchMarketCategorys();
-      if (selectedCategory) {
-        await backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
-          categoryId: selectedCategory.categoryId,
-          ids: coingeckoIds,
-          sparkline: !isVerticalLayout && !isMidLayout,
-        });
-      }
+    await backgroundApiProxy.serviceMarket.fetchMarketCategorys();
+    if (selectedCategory) {
+      await backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
+        categoryId: selectedCategory.categoryId,
+        ids: coingeckoIds,
+        sparkline: !isVerticalLayout && !isMidLayout,
+      });
     }
   }, [isMidLayout, isVerticalLayout, selectedCategory, coingeckoIds]);
 
@@ -107,15 +103,16 @@ export const useMarketList = ({
   };
 };
 
-let switchingTimer: ReturnType<typeof setTimeout> | undefined;
-export const setMarketSwapTabName = (tabName: MarketTopTabName) => {
-  backgroundApiProxy.serviceMarket.switchMarketTopTab(tabName);
-  clearTimeout(switchingTimer);
-  switchingTimer = setTimeout(() => {
-    if (tabName === TabRoutes.Swap) {
-      navigationShortcuts.navigateToSwap();
-    } else if (tabName === TabRoutes.Market) {
-      navigationShortcuts.navigateToMarket();
-    }
-  }, 300);
+export const setMarketSwapTabName = (
+  tabName: MarketTopTabName,
+  forceNavigate?: boolean,
+) => {
+  if (platformEnv.isNative && !forceNavigate) {
+    return backgroundApiProxy.serviceMarket.switchMarketTopTab(tabName);
+  }
+  if (tabName === TabRoutes.Swap) {
+    navigationShortcuts.navigateToSwap();
+  } else if (tabName === TabRoutes.Market) {
+    navigationShortcuts.navigateToMarket();
+  }
 };
