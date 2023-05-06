@@ -1,6 +1,7 @@
 import { useAppSelector } from '../hooks';
-import { ModalRoutes, RootRoutes, TabRoutes } from '../routes/routesEnum';
+import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
 
+import type { TabRoutes } from '../routes/routesEnum';
 import type { WalletHomeTabEnum } from '../views/Wallet/type';
 
 function getAppRootTabInfo() {
@@ -83,10 +84,6 @@ export function isAtAppRootTab(appRootTabName: TabRoutes) {
   }
   return false;
 }
-
-export const isAtMarketTab = () => isAtAppRootTab(TabRoutes.Market);
-
-export const isAtSwapTab = () => isAtAppRootTab(TabRoutes.Swap);
 
 export function useIsAtHomeTab(homeTabName: WalletHomeTabEnum) {
   const currentHomeTabName = useAppSelector((s) => s.status.homeTabName);

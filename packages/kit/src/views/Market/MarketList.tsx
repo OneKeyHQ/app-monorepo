@@ -15,7 +15,6 @@ import {
 
 import { HomeRoutes } from '../../routes/routesEnum';
 import { MARKET_FAVORITES_CATEGORYID } from '../../store/reducers/market';
-import { isAtMarketTab } from '../../utils/routeUtils';
 
 import MarketCategoryToggles from './Components/MarketList/MarketCategoryToggles';
 import { showMarketCellMoreMenu } from './Components/MarketList/MarketCellMoreMenu';
@@ -105,12 +104,10 @@ const MarketList: FC = () => {
   }, []);
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(() => {
-    if (isAtMarketTab()) {
-      setRefreshing(true);
-      onRefreshingMarketList().finally(() => {
-        setRefreshing(false);
-      });
-    }
+    setRefreshing(true);
+    onRefreshingMarketList().finally(() => {
+      setRefreshing(false);
+    });
   }, [onRefreshingMarketList]);
   const listHeader = useMemo(
     () => <MarketListHeader headTags={listHeadTags} />,
@@ -138,6 +135,7 @@ const MarketList: FC = () => {
           paddingBottom: 24,
         }}
         stickyHeaderIndices={[0]}
+        scrollEventThrottle={100}
       >
         <Box pt={1} mt={-1} bgColor="background-default">
           <MarketCategoryToggles categorys={categorys} />
