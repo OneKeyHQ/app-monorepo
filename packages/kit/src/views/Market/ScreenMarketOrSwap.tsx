@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react';
 
-import { useFocusEffect } from '@react-navigation/core';
 import { useWindowDimensions } from 'react-native';
 import { SceneMap, TabView } from 'react-native-tab-view';
 
@@ -17,6 +16,7 @@ import Swap from '../Swap';
 
 import MarketHeader from './Components/MarketList/MarketTopHeader';
 import {
+  marketSwapTabRoutes,
   setMarketSwapTabName,
   useMobileMarketTopTabName,
 } from './hooks/useMarketList';
@@ -29,11 +29,6 @@ const renderScene = SceneMap({
   [TabRoutes.Swap]: SwapWithoutBottomTabBar,
   [TabRoutes.Market]: MarketList,
 });
-
-const marketSwapTabRoutes: { key: MarketTopTabName }[] = [
-  { key: TabRoutes.Swap },
-  { key: TabRoutes.Market },
-];
 
 let lastIsVerticalLayout: boolean;
 
@@ -49,28 +44,29 @@ export function ScreenMarketOrSwap({
   if (lastIsVerticalLayout === undefined) {
     lastIsVerticalLayout = isVerticalLayout;
   }
+  // const marketTabName = routeName;
   const marketTabName =
     isVerticalLayout && platformEnv.isNative ? mobileTopTabName : routeName;
 
   // console.log({ marketTabName, mobileTopTabName, routeName });
-  useFocusEffect(
-    useCallback(() => {
-      // reset when orientation change
-      if (isVerticalLayout !== lastIsVerticalLayout) {
-        // console.log('orientation change');
-        if (isVerticalLayout) {
-          // big -> small screen
-          // align to current RouteName
-          setMarketSwapTabName(routeName);
-        } else {
-          // small -> big screen
-          // force navigate to align to current mobileTopTabName
-          setMarketSwapTabName(mobileTopTabName, true);
-        }
-      }
-      lastIsVerticalLayout = isVerticalLayout;
-    }, [isVerticalLayout, mobileTopTabName, routeName]),
-  );
+  // useFocusEffect(
+  //   useCallback(() => {
+  //     // reset when orientation change
+  //     if (isVerticalLayout !== lastIsVerticalLayout) {
+  //       // console.log('orientation change');
+  //       if (isVerticalLayout) {
+  //         // big -> small screen
+  //         // align to current RouteName
+  //         setMarketSwapTabName(routeName);
+  //       } else {
+  //         // small -> big screen
+  //         // force navigate to align to current mobileTopTabName
+  //         setMarketSwapTabName(mobileTopTabName, true);
+  //       }
+  //     }
+  //     lastIsVerticalLayout = isVerticalLayout;
+  //   }, [isVerticalLayout, mobileTopTabName, routeName]),
+  // );
 
   const layout = useWindowDimensions();
 

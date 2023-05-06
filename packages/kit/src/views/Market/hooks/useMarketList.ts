@@ -9,7 +9,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import { TabRoutes } from '../../../routes/routesEnum';
+import { buildAppRootTabName } from '../../../routes/routesUtils';
 import { MARKET_FAVORITES_CATEGORYID } from '../../../store/reducers/market';
+import {
+  getRootRoute,
+  getRootTabRoute,
+  getRootTabRouteState,
+} from '../../../utils/routeUtils';
 
 import { useMarketSelectedCategory } from './useMarketCategory';
 import { useMarketMidLayout } from './useMarketLayout';
@@ -103,16 +109,49 @@ export const useMarketList = ({
   };
 };
 
+export const marketSwapTabRoutes: { key: MarketTopTabName }[] = [
+  { key: TabRoutes.Swap },
+  { key: TabRoutes.Market },
+];
 export const setMarketSwapTabName = (
   tabName: MarketTopTabName,
   forceNavigate?: boolean,
 ) => {
-  if (platformEnv.isNative && !forceNavigate) {
-    return backgroundApiProxy.serviceMarket.switchMarketTopTab(tabName);
+  // if (platformEnv.isNative && !forceNavigate) {
+  //   return backgroundApiProxy.serviceMarket.switchMarketTopTab(tabName);
+  // }
+  backgroundApiProxy.serviceMarket.switchMarketTopTab(tabName);
+  // hack: force write new tab name to navigation state
+  const rootRoute = getRootRoute();
+  const tabRoute = getRootTabRoute();
+  const tabRouteState = getRootTabRouteState();
+  if (tabRouteState) {
+    const targetRoute = marketSwapTabRoutes.find((r) => r.key === tabName);
+    const targetKey = targetRoute?.key;
+    const paramsScreenName = buildAppRootTabName(tabName);
+    // @ts-expect-error
+    tabRouteState.index = marketSwapTabRoutes.findIndex(
+      (r) => r.key === tabName,
+    );
+    // @ts-expect-error
+    tabRouteState.history[1].key = targetKey;
+    // @ts-expect-error
+    tabRoute.params?.screen = tabName;
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    tabRoute.params?.params?.screen = paramsScreenName;
+
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    rootRoute.params?.params?.screen = tabName;
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    rootRoute.params?.params?.params?.screen = paramsScreenName;
   }
-  if (tabName === TabRoutes.Swap) {
-    navigationShortcuts.navigateToSwap();
-  } else if (tabName === TabRoutes.Market) {
-    navigationShortcuts.navigateToMarket();
-  }
+
+  // if (tabName === TabRoutes.Swap) {
+  //   navigationShortcuts.navigateToSwap();
+  // } else if (tabName === TabRoutes.Market) {
+  //   navigationShortcuts.navigateToMarket();
+  // }
 };
