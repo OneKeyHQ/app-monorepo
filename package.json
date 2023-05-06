@@ -81,6 +81,7 @@
     "expo-device": "^4.3.0",
     "jsrsasign": "^10.6.1",
     "memoizee": "^0.4.15",
+    "superstruct": "^1",
     "timeout-signal": "1.1.0"
   },
   "devDependencies": {
@@ -147,7 +148,6 @@
     "react-test-renderer": "17.0.2",
     "rimraf": "^3.0.2",
     "style-loader": "^2.0.0",
-    "superstruct": "^1",
     "terser-webpack-plugin": "^4.2.3",
     "ts-jest": "^27.0.5",
     "typescript": "4.8.4",
