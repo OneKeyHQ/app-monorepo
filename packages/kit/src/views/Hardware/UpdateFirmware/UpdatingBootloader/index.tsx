@@ -386,7 +386,7 @@ const UpdatingBootloader: FC = () => {
       return;
     }
     serviceHardware
-      .updateBootloaderForClassicAndMini()
+      .updateBootloaderForClassicAndMini(connectId)
       .then(async (res) => {
         if (res.success) {
           engine.getWalletByDeviceId(device?.id ?? '').then((wallet) => {
