@@ -2,6 +2,7 @@ import type { FC } from 'react';
 
 import {
   Box,
+  Icon,
   Image,
   Token as TokenImage,
   Typography,
@@ -48,13 +49,18 @@ export const TokenDisplay: FC<TokenDisplayProps> = ({ token }) => {
           <Image size="4" src={network?.logoURI} />
         </Box>
       </Box>
-      <Box>
-        <Typography.DisplayLarge color="text-default" fontSize={24}>
-          {token.symbol}
-        </Typography.DisplayLarge>
-        <Typography.Body2 color="text-subdued">
-          {network?.name ?? '-'}
-        </Typography.Body2>
+      <Box flexDirection="row" alignItems="center">
+        <Box>
+          <Typography.DisplayLarge color="text-default" fontSize={24}>
+            {token.symbol}
+          </Typography.DisplayLarge>
+          <Typography.Body2 color="text-subdued">
+            {network?.name ?? '-'}
+          </Typography.Body2>
+        </Box>
+        <Box ml="1">
+          <Icon size={12} name="ChevronDownSolid" />
+        </Box>
       </Box>
     </Box>
   );
