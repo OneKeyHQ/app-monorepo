@@ -6,7 +6,6 @@ import { isString } from 'lodash';
 import type { Network } from '@onekeyhq/kit/src/store/typings';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
-  IMPL_ADA,
   IMPL_COSMOS,
   IMPL_DOT,
   IMPL_XMR,
@@ -28,7 +27,7 @@ const FEE_LIMIT_HIGH_VALUE_TIMES = 20;
 const FEE_PRICE_HIGH_VALUE_TIMES = 4;
 
 const FORK_CHAIN_ADDRESS_NOT_DIFFERENT = [IMPL_COSMOS, IMPL_DOT];
-const WEBVIEW_BACKED_CHAIN = platformEnv.isNative ? [IMPL_ADA, IMPL_XMR] : [];
+const WEBVIEW_BACKED_CHAIN = platformEnv.isNative ? [IMPL_XMR] : [];
 
 class Validators {
   private _dbApi: DBAPI;
@@ -106,6 +105,7 @@ class Validators {
     input: string,
     forCategories: Array<UserInputCategory> = [],
     returnEarly = false,
+    skipHeavyChains = false,
   ): Promise<Array<UserInputCheckResult>> {
     const ret = [];
     const filterCategories =
@@ -139,7 +139,7 @@ class Validators {
     for (const [impl, networks] of Object.entries(
       await this.engine.listEnabledNetworksGroupedByVault(),
     )) {
-      if (WEBVIEW_BACKED_CHAIN.includes(impl)) {
+      if (skipHeavyChains && WEBVIEW_BACKED_CHAIN.includes(impl)) {
         // skip webview backed chain
         // eslint-disable-next-line no-continue
         continue;
@@ -181,15 +181,18 @@ class Validators {
     input,
     onlyFor,
     returnEarly,
+    skipHeavyChains,
   }: {
     input: string;
     onlyFor?: UserInputCategory;
     returnEarly?: boolean;
+    skipHeavyChains?: boolean;
   }) {
     return this.validateUserInput(
       input,
       onlyFor !== undefined ? [onlyFor] : [],
       returnEarly,
+      skipHeavyChains,
     );
   }
 
