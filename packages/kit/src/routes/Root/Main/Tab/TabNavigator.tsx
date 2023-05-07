@@ -110,6 +110,8 @@ const TabNavigator = () => {
           tabBarLabel: intl.formatMessage({ id: tab.translationId }),
           // TODO not working
           tabBarStyle: { display: 'none', height: 0 },
+          // avoid tab switch flashing on mobile
+          lazy: tab.name !== TabRoutes.Market,
         }}
       />
     ));

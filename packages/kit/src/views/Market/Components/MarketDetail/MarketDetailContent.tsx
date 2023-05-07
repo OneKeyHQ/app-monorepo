@@ -63,6 +63,7 @@ const MarketDetailActionButton = ({
         onPress={() => {
           if (marketTokenItem?.tokens?.length) {
             backgroundApiProxy.serviceSwap.buyToken(marketTokenItem.tokens[0]);
+            navigation.pop();
             navigation.navigate(TabRoutes.Swap);
           }
         }}
@@ -78,6 +79,7 @@ const MarketDetailActionButton = ({
         onPress={() => {
           if (marketTokenItem?.tokens?.length) {
             backgroundApiProxy.serviceSwap.sellToken(marketTokenItem.tokens[0]);
+            navigation.pop();
             navigation.navigate(TabRoutes.Swap);
           }
         }}

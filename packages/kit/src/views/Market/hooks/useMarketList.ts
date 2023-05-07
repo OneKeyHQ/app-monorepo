@@ -1,20 +1,15 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
-import { CommonActions } from '@react-navigation/native';
+import { TabActions } from '@react-navigation/native';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
+import { getAppNavigation } from '../../../hooks/useAppNavigation';
 import { TabRoutes } from '../../../routes/routesEnum';
-import { buildAppRootTabName } from '../../../routes/routesUtils';
 import { MARKET_FAVORITES_CATEGORYID } from '../../../store/reducers/market';
-import {
-  getRootRoute,
-  getRootTabRoute,
-  getRootTabRouteState,
-} from '../../../utils/routeUtils';
 
 import { useMarketSelectedCategory } from './useMarketCategory';
 import { useMarketMidLayout } from './useMarketLayout';
@@ -112,48 +107,9 @@ export const marketSwapTabRoutes: { key: MarketTopTabName }[] = [
   { key: TabRoutes.Swap },
   { key: TabRoutes.Market },
 ];
-export const setMarketSwapTabName = (
-  tabName: MarketTopTabName,
-  forceNavigate?: boolean,
-) => {
-  // if (platformEnv.isNative && !forceNavigate) {
-  //   return backgroundApiProxy.serviceMarket.switchMarketTopTab(tabName);
-  // }
+export const setMarketSwapTabName = (tabName: MarketTopTabName) => {
   backgroundApiProxy.serviceMarket.switchMarketTopTab(tabName);
-  if (forceNavigate) {
-    // hack: force write new tab name to navigation state
-    const rootRoute = getRootRoute();
-    const tabRoute = getRootTabRoute();
-    const tabRouteState = getRootTabRouteState();
-    // console.log(1, JSON.stringify(getRootRoute(), null));
-    if (tabRouteState) {
-      const targetRouteIndex = tabRouteState.routes?.findIndex(
-        (r) => r.name === tabName,
-      );
-      const targetRoute = tabRouteState.routes?.[targetRouteIndex];
-      const targetKey = targetRoute?.key;
-      const paramsScreenName = buildAppRootTabName(tabName);
-      // @ts-expect-error
-      tabRouteState.index = targetRouteIndex;
-      // @ts-expect-error
-      tabRouteState.history.at(-1).key = targetKey;
-      // @ts-expect-error
-      tabRoute.params.screen = tabName;
-      // @ts-expect-error
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      tabRoute.params.params.screen = paramsScreenName;
-
-      // @ts-expect-error
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      rootRoute.params.params.screen = tabName;
-      // @ts-expect-error
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      rootRoute.params.params.params.screen = paramsScreenName;
-
-      // dispatch to update the modified navigate state
-      global?.$navigationRef?.current?.dispatch(CommonActions.setParams({}));
-    }
-  }
+  getAppNavigation().dispatch(TabActions.jumpTo(tabName));
 
   // if (tabName === TabRoutes.Swap) {
   //   navigationShortcuts.navigateToSwap();
