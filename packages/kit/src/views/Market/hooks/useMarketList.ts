@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
+import { CommonActions } from '@react-navigation/native';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
-import { navigationShortcuts } from '@onekeyhq/kit/src/routes/navigationShortcuts';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
@@ -121,32 +120,39 @@ export const setMarketSwapTabName = (
   //   return backgroundApiProxy.serviceMarket.switchMarketTopTab(tabName);
   // }
   backgroundApiProxy.serviceMarket.switchMarketTopTab(tabName);
-  // hack: force write new tab name to navigation state
-  const rootRoute = getRootRoute();
-  const tabRoute = getRootTabRoute();
-  const tabRouteState = getRootTabRouteState();
-  if (tabRouteState) {
-    const targetRoute = marketSwapTabRoutes.find((r) => r.key === tabName);
-    const targetKey = targetRoute?.key;
-    const paramsScreenName = buildAppRootTabName(tabName);
-    // @ts-expect-error
-    tabRouteState.index = marketSwapTabRoutes.findIndex(
-      (r) => r.key === tabName,
-    );
-    // @ts-expect-error
-    tabRouteState.history[1].key = targetKey;
-    // @ts-expect-error
-    tabRoute.params?.screen = tabName;
-    // @ts-expect-error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    tabRoute.params?.params?.screen = paramsScreenName;
+  if (forceNavigate) {
+    // hack: force write new tab name to navigation state
+    const rootRoute = getRootRoute();
+    const tabRoute = getRootTabRoute();
+    const tabRouteState = getRootTabRouteState();
+    // console.log(1, JSON.stringify(getRootRoute(), null));
+    if (tabRouteState) {
+      const targetRouteIndex = tabRouteState.routes?.findIndex(
+        (r) => r.name === tabName,
+      );
+      const targetRoute = tabRouteState.routes?.[targetRouteIndex];
+      const targetKey = targetRoute?.key;
+      const paramsScreenName = buildAppRootTabName(tabName);
+      // @ts-expect-error
+      tabRouteState.index = targetRouteIndex;
+      // @ts-expect-error
+      tabRouteState.history.at(-1).key = targetKey;
+      // @ts-expect-error
+      tabRoute.params.screen = tabName;
+      // @ts-expect-error
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      tabRoute.params.params.screen = paramsScreenName;
 
-    // @ts-expect-error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    rootRoute.params?.params?.screen = tabName;
-    // @ts-expect-error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    rootRoute.params?.params?.params?.screen = paramsScreenName;
+      // @ts-expect-error
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      rootRoute.params.params.screen = tabName;
+      // @ts-expect-error
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      rootRoute.params.params.params.screen = paramsScreenName;
+
+      // dispatch to update the modified navigate state
+      global?.$navigationRef?.current?.dispatch(CommonActions.setParams({}));
+    }
   }
 
   // if (tabName === TabRoutes.Swap) {

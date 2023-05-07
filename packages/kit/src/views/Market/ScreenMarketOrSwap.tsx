@@ -1,5 +1,6 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
+import { useFocusEffect } from '@react-navigation/native';
 import { useWindowDimensions } from 'react-native';
 import { SceneMap, TabView } from 'react-native-tab-view';
 
@@ -48,25 +49,32 @@ export function ScreenMarketOrSwap({
   const marketTabName =
     isVerticalLayout && platformEnv.isNative ? mobileTopTabName : routeName;
 
-  // console.log({ marketTabName, mobileTopTabName, routeName });
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     // reset when orientation change
-  //     if (isVerticalLayout !== lastIsVerticalLayout) {
-  //       // console.log('orientation change');
-  //       if (isVerticalLayout) {
-  //         // big -> small screen
-  //         // align to current RouteName
-  //         setMarketSwapTabName(routeName);
-  //       } else {
-  //         // small -> big screen
-  //         // force navigate to align to current mobileTopTabName
-  //         setMarketSwapTabName(mobileTopTabName, true);
-  //       }
-  //     }
-  //     lastIsVerticalLayout = isVerticalLayout;
-  //   }, [isVerticalLayout, mobileTopTabName, routeName]),
-  // );
+  useEffect(() => {
+    // align on first render
+    if (routeName !== mobileTopTabName) {
+      setMarketSwapTabName(routeName);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      // reset when orientation change
+      if (isVerticalLayout !== lastIsVerticalLayout) {
+        // console.log('orientation change');
+        if (isVerticalLayout) {
+          // big -> small screen
+          // align to current RouteName
+          setMarketSwapTabName(routeName);
+        } else {
+          // small -> big screen
+          // force navigate to align to current mobileTopTabName
+          setMarketSwapTabName(mobileTopTabName, true);
+        }
+      }
+      lastIsVerticalLayout = isVerticalLayout;
+    }, [isVerticalLayout, mobileTopTabName, routeName]),
+  );
 
   const layout = useWindowDimensions();
 
@@ -86,7 +94,9 @@ export function ScreenMarketOrSwap({
   );
 
   const setMarketSwapTabIndex = useCallback((index: number) => {
-    setTimeout(() => setMarketSwapTabName(marketSwapTabRoutes[index].key));
+    setTimeout(() =>
+      setMarketSwapTabName(marketSwapTabRoutes[index].key, true),
+    );
   }, []);
 
   const intialLayout = useMemo(() => ({ width: layout.width }), [layout.width]);
