@@ -24,6 +24,7 @@ export function SendConfirmErrorsAlert({
   isAccountNotMatched,
   editableNonceStatus,
   isNetworkBusy,
+  isTxSameNonceWithLowerGas,
   isLowMaxFee,
   pendingTxCount,
 }: {
@@ -35,6 +36,7 @@ export function SendConfirmErrorsAlert({
   isNetworkNotMatched?: boolean;
   isAccountNotMatched?: boolean;
   isNetworkBusy?: boolean;
+  isTxSameNonceWithLowerGas?: boolean;
   editableNonceStatus?: EditableNonceStatusEnum;
   isLowMaxFee?: boolean;
   pendingTxCount?: string;
@@ -134,6 +136,12 @@ export function SendConfirmErrorsAlert({
           id: 'msg__eth_tx_warning_network_busy_gas_is_high',
         })}
       />,
+    );
+  }
+
+  if (isTxSameNonceWithLowerGas) {
+    errors.push(
+      <FormErrorMessage alertType="info" isAlertStyle message="hell world" />,
     );
   }
 

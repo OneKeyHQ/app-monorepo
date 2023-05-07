@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { toLower } from 'lodash';
+import { find, toLower } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Text } from '@onekeyhq/components';
@@ -61,6 +61,8 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
 
   const isAutoConfirmed = useRef(false);
   const [pendingTxCount, setPendingTxCount] = useState('0');
+  const [isTxSameNonceWithLowerGas, setIsTxSameNonceWithLowerGas] =
+    useState(false);
 
   const balanceInsufficient = useMemo(
     () => new BigNumber(nativeBalance).lt(new BigNumber(fee)),
@@ -191,6 +193,71 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     getPendingTxCount();
   }, [accountId, advancedSettings?.currentNonce, networkId]);
 
+  useEffect(() => {
+    const checkPendingTxWithSameNonce = async () => {
+      const localPendingTxs =
+        await backgroundApiProxy.serviceHistory.getLocalHistory({
+          networkId,
+          accountId,
+          isPending: true,
+          limit: 50,
+        });
+      // only check networks where both fee and nonce are editable
+      if (
+        network?.settings.nonceEditable &&
+        network.settings.feeInfoEditable &&
+        advancedSettings?.currentNonce
+      ) {
+        const feeInfoValue = feeInfoPayload?.current.value;
+        const localPendingTxWithSameNonce = find(localPendingTxs, (tx) =>
+          new BigNumber(advancedSettings.currentNonce).isEqualTo(
+            tx.decodedTx.nonce,
+          ),
+        );
+
+        if (localPendingTxWithSameNonce) {
+          const { feeInfo } = localPendingTxWithSameNonce.decodedTx;
+          if (feeInfo && feeInfoValue) {
+            if (feeInfo.eip1559) {
+              if (
+                new BigNumber(
+                  feeInfo.price1559?.maxFeePerGas ?? 0,
+                ).isGreaterThanOrEqualTo(
+                  feeInfoValue.price1559?.maxFeePerGas ?? 0,
+                ) ||
+                new BigNumber(
+                  feeInfo.price1559?.maxPriorityFeePerGas ?? 0,
+                ).isGreaterThanOrEqualTo(
+                  feeInfoValue.price1559?.maxPriorityFeePerGas ?? 0,
+                )
+              ) {
+                setIsTxSameNonceWithLowerGas(true);
+                return;
+              }
+            } else if (
+              new BigNumber(feeInfo.price ?? 0).isGreaterThanOrEqualTo(
+                feeInfoValue.price ?? 0,
+              )
+            ) {
+              setIsTxSameNonceWithLowerGas(true);
+              return;
+            }
+          }
+        }
+      }
+
+      setIsTxSameNonceWithLowerGas(false);
+    };
+    checkPendingTxWithSameNonce();
+  }, [
+    accountId,
+    advancedSettings?.currentNonce,
+    feeInfoPayload,
+    network?.settings?.feeInfoEditable,
+    network?.settings?.nonceEditable,
+    networkId,
+  ]);
+
   return (
     <BaseSendModal
       height="598px"
@@ -226,6 +293,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
                 isNetworkBusy={isNetworkBusy}
                 isLowMaxFee={isLowMaxFee}
                 pendingTxCount={pendingTxCount}
+                isTxSameNonceWithLowerGas={isTxSameNonceWithLowerGas}
               />
             )}
 
