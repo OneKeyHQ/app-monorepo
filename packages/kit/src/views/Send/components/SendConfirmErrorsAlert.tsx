@@ -24,6 +24,7 @@ export function SendConfirmErrorsAlert({
   isAccountNotMatched,
   editableNonceStatus,
   isNetworkBusy,
+  isTxSameNonce,
   isTxSameNonceWithLowerGas,
   isLowMaxFee,
   pendingTxCount,
@@ -36,6 +37,7 @@ export function SendConfirmErrorsAlert({
   isNetworkNotMatched?: boolean;
   isAccountNotMatched?: boolean;
   isNetworkBusy?: boolean;
+  isTxSameNonce?: boolean;
   isTxSameNonceWithLowerGas?: boolean;
   editableNonceStatus?: EditableNonceStatusEnum;
   isLowMaxFee?: boolean;
@@ -103,13 +105,17 @@ export function SendConfirmErrorsAlert({
     );
   }
 
-  if (editableNonceStatus === EditableNonceStatusEnum.Less) {
+  if (
+    !isTxSameNonceWithLowerGas &&
+    !isTxSameNonce &&
+    editableNonceStatus === EditableNonceStatusEnum.Less
+  ) {
     errors.push(
       <FormErrorMessage
         alertType="warn"
         isAlertStyle
         message={intl.formatMessage({
-          id: 'msg__nonce_used_this_will_generate_a_rbf_tx',
+          id: 'msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail',
         })}
       />,
     );
@@ -127,25 +133,23 @@ export function SendConfirmErrorsAlert({
     );
   }
 
-  if (isNetworkBusy) {
+  if (isTxSameNonceWithLowerGas) {
     errors.push(
       <FormErrorMessage
-        alertType="info"
         isAlertStyle
+        alertType="warn"
         message={intl.formatMessage({
-          id: 'msg__eth_tx_warning_network_busy_gas_is_high',
+          id: 'msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail',
         })}
       />,
     );
   }
 
-  if (isTxSameNonceWithLowerGas) {
-    errors.push(
-      <FormErrorMessage alertType="info" isAlertStyle message="hell world" />,
-    );
-  }
-
-  if (isLowMaxFee) {
+  if (
+    !isTxSameNonceWithLowerGas &&
+    editableNonceStatus !== EditableNonceStatusEnum.Less &&
+    isLowMaxFee
+  ) {
     errors.push(
       <FormErrorMessage
         alertType="warn"
@@ -176,6 +180,17 @@ export function SendConfirmErrorsAlert({
             },
           });
         }}
+      />,
+    );
+  }
+  if (isNetworkBusy) {
+    errors.push(
+      <FormErrorMessage
+        alertType="info"
+        isAlertStyle
+        message={intl.formatMessage({
+          id: 'msg__eth_tx_warning_network_busy_gas_is_high',
+        })}
       />,
     );
   }

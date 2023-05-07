@@ -63,6 +63,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
   const [pendingTxCount, setPendingTxCount] = useState('0');
   const [isTxSameNonceWithLowerGas, setIsTxSameNonceWithLowerGas] =
     useState(false);
+  const [isTxSameNonce, setIsTxSameNonce] = useState(false);
 
   const balanceInsufficient = useMemo(
     () => new BigNumber(nativeBalance).lt(new BigNumber(fee)),
@@ -216,6 +217,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
         );
 
         if (localPendingTxWithSameNonce) {
+          setIsTxSameNonce(true);
           const { feeInfo } = localPendingTxWithSameNonce.decodedTx;
           if (feeInfo && feeInfoValue) {
             if (feeInfo.eip1559) {
@@ -243,6 +245,8 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
               return;
             }
           }
+        } else {
+          setIsTxSameNonce(false);
         }
       }
 
@@ -293,6 +297,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
                 isNetworkBusy={isNetworkBusy}
                 isLowMaxFee={isLowMaxFee}
                 pendingTxCount={pendingTxCount}
+                isTxSameNonce={isTxSameNonce}
                 isTxSameNonceWithLowerGas={isTxSameNonceWithLowerGas}
               />
             )}
