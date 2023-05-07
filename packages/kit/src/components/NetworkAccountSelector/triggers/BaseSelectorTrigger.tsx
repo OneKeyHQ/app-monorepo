@@ -1,6 +1,9 @@
+import type { ComponentProps } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import {
+  Box,
   Center,
   HStack,
   Icon,
@@ -25,6 +28,7 @@ interface IBaseSelectorTriggerProps extends ISelectorTriggerSharedProps {
   label: any;
   description?: any;
   disabledInteractiveBg?: boolean;
+  hasArrow?: boolean;
 }
 function BaseSelectorTrigger({
   type = 'plain',
@@ -33,7 +37,10 @@ function BaseSelectorTrigger({
   label,
   description,
   onPress,
-}: IBaseSelectorTriggerProps) {
+  hasArrow,
+  space,
+  ...props
+}: IBaseSelectorTriggerProps & ComponentProps<typeof HStack>) {
   return (
     <Pressable onPress={onPress}>
       {(status) => {
@@ -54,19 +61,22 @@ function BaseSelectorTrigger({
         return (
           <HStack
             alignItems="center"
-            p={1}
+            px={1}
+            py={1}
             bg={bgColor}
             borderRadius="full"
             borderWidth={type === 'basic' ? StyleSheet.hairlineWidth : 0}
             borderColor="border-default"
+            {...props}
           >
-            <HStack space={0.5} alignItems="center">
+            <HStack alignItems="center" space={space ?? 0.5}>
               {icon ? <Center minH={5}>{icon}</Center> : null}
               {label ? (
                 <HStack
                   py={0.5}
                   px={1.5}
                   space={0.5}
+                  alignItems="center"
                   {...(type === 'plain' && { pr: 0.5 })}
                 >
                   <Typography.Body2Strong isTruncated maxW="120px">
@@ -77,16 +87,12 @@ function BaseSelectorTrigger({
                       {description}
                     </Typography.Body2>
                   ) : null}
-                  {type === 'plain' ? (
-                    <Icon
-                      size={20}
-                      name="ChevronDownMini"
-                      color="icon-subdued"
-                    />
-                  ) : null}
                 </HStack>
               ) : null}
             </HStack>
+            {type === 'plain' || hasArrow ? (
+              <Icon size={20} name="ChevronDownMini" color="icon-subdued" />
+            ) : null}
           </HStack>
         );
       }}

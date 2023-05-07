@@ -29,7 +29,10 @@ function NetworkSelectorModal() {
   const { onPressChangeAccount } = useAccountSelectorChangeAccountOnPress();
   const navigation = useAppNavigation();
   const route = useRoute<RouteProps>();
-  const networkImpl = route?.params?.networkImpl;
+
+  const params = route?.params ?? {};
+
+  const { networkImpl, onSelected } = params;
 
   const { accountSelectorInfo, shouldShowModal } =
     useAccountSelectorModalInfo();
@@ -82,10 +85,14 @@ function NetworkSelectorModal() {
             fullWidthMode // should be fullWidthMode here
             accountSelectorInfo={accountSelectorInfo}
             onPress={async ({ networkId }) => {
-              await onPressChangeAccount({
-                networkId,
-                accountSelectorMode: accountSelectorInfo.accountSelectorMode,
-              });
+              if (onSelected) {
+                onSelected(networkId);
+              } else {
+                await onPressChangeAccount({
+                  networkId,
+                  accountSelectorMode: accountSelectorInfo.accountSelectorMode,
+                });
+              }
             }}
           />
         </Box>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -17,11 +17,16 @@ import {
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NameServiceResolver, {
   useNameServiceStatus,
 } from '@onekeyhq/kit/src/components/NameServiceResolver';
-import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccountOrigin,
+  useGeneral,
+  useRuntime,
+} from '@onekeyhq/kit/src/hooks/redux';
 import type {
   CreateWalletRoutesParams,
   IAddExistingWalletModalParams,
@@ -41,6 +46,7 @@ import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useManageNetworks } from '../../hooks';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
 import { useWalletName } from '../../hooks/useWalletName';
@@ -48,10 +54,16 @@ import { wait } from '../../utils/helper';
 import { useOnboardingContext } from '../Onboarding/OnboardingContext';
 import { EOnboardingRoutes } from '../Onboarding/routes/enums';
 import { NineHouseLatticeInputForm } from '../Onboarding/screens/ImportWallet/Component/NineHouseLatticeInputForm';
+import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
+import { ImportAccountNetworkSelectorTeigger } from '../../components/NetworkAccountSelector/triggers/ImportAccountNetworkSelectorTeigger';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
-type AddExistingWalletValues = { text: string; defaultName?: string };
+type AddExistingWalletValues = {
+  text: string;
+  selectedNetwork?: string;
+  defaultName?: string;
+};
 
 const emptyParams = Object.freeze({});
 
@@ -344,6 +356,13 @@ function AddExistingWalletView(
     onTextChange,
   } = props;
 
+  const { enabledNetworks } = useManageNetworks();
+  const { network: activeNetwork } = useActiveWalletAccountOrigin();
+
+  const [selectedNetwork, setSelectedNetwork] = useState<Network>(
+    activeNetwork || enabledNetworks[0],
+  );
+
   const {
     onChange: onNameServiceStatusChange,
     disableSubmitBtn,
@@ -383,6 +402,8 @@ function AddExistingWalletView(
     return res;
   }, [mode, showPasteButton]);
 
+  const handleNetworkOnSelected = useCallback((networkId: string) => {}, []);
+
   return (
     <Box
       display="flex"
@@ -400,6 +421,9 @@ function AddExistingWalletView(
         />
       ) : (
         <Form>
+          <ImportAccountNetworkSelectorTeigger
+            onSelected={handleNetworkOnSelected}
+          />
           <Form.Item
             isLabelAddonActions
             labelAddon={labelAddonArr}

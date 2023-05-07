@@ -13,6 +13,7 @@ export type ManageNetworkRoutesParams = {
     | undefined
     | {
         networkImpl?: string;
+        onSelected?: (networkId: string) => void;
       };
   [ManageNetworkModalRoutes.Listing]: { onEdited?: () => void } | undefined;
   [ManageNetworkModalRoutes.AddNetwork]: {
