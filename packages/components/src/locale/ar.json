@@ -2,6 +2,8 @@
   "Confirm_password": "تأكيد كلمة المرور",
   "Estimated_Gas": "الغاز المقدر",
   "Handling_Fee": "رسوم المعالجة",
+  "Market__buy": "يشتري",
+  "Market__sell": "يبيع",
   "Minimum_Received": "تلقى الحد الأدنى",
   "Only_you_can_unlock_your_wallet": "يمكنك فقط فتح محفظتك",
   "Rate": "معدل",
@@ -61,6 +63,7 @@
   "action__change_pin": "تغيير PIN",
   "action__check_address": "تحقق من العنوان",
   "action__checking": "تدقيق...",
+  "action__checking_rpc_status": "جارٍ التحقق من حالة RPC ...",
   "action__choose_an_image": "الألبوم",
   "action__choose_from_library": "اختر من المكتبة",
   "action__clear": "صافي",
@@ -187,10 +190,12 @@
   "action__logout": "تسجيل خروج",
   "action__manage_account": "إضافة مجمعة",
   "action__manage_address": "إدارة العنوان",
+  "action__manage_utxos": "إدارة UTXOs",
   "action__max": "الأعلى",
   "action__merge": "دمج",
   "action__migrate": "يهاجر",
   "action__more": "أكثر",
+  "action__more _options": "المزيد من الخيارات",
   "action__move_to_top": "انتقل إلى الأعلى",
   "action__next": "التالي",
   "action__next_address": "العنوان التالي",
@@ -392,6 +397,7 @@
   "content__about_int_str": "حول {time} {unit}",
   "content__account_and_network_not_matched": "كلا الحساب والسلسلة غير متطابقين",
   "content__account_is_not_matched": "الحساب غير مطابق",
+  "content__account_type": "نوع الحساب",
   "content__activated": "مفعل",
   "content__active_on_this_device": "نشط على هذا الجهاز",
   "content__activity_logs": "سجلات النشاط",
@@ -698,6 +704,7 @@
   "content__price_updates_after_str": "تحديثات الأسعار بعد {0}",
   "content__price_uppercase": "سعر",
   "content__profit": "ربح",
+  "content__public_key": "المفتاح العمومي",
   "content__purchase_crypto_with_cash": "شراء العملات المشفرة نقدًا",
   "content__qr_code": "رمز الاستجابة السريعة",
   "content__ranking": "تصنيف",
@@ -1101,6 +1108,7 @@
   "form__cross_chain_swap": "المبادلة عبر السلاسل",
   "form__cross_chain_swap_desc": "يمكنك تبديل الرموز بحرية عبر أكثر من {0} سلاسل مدعومة.",
   "form__crypto": "عملة مشفرة",
+  "form__crypto_settings": "تشفير",
   "form__current_str": "الحالي: {0}",
   "form__dark": "داكن",
   "form__data": "البيانات",
@@ -1365,6 +1373,7 @@
   "form__please_confirm_on_device": "الرجاء التأكيد على الجهاز ...",
   "form__pool_uppercase": "حمام سباحة",
   "form__popular": "جمع",
+  "form__position_uppercase": "موضع",
   "form__powered_by": "مشغل بواسطة",
   "form__preferences": "التفضيلات",
   "form__previous_confirmed": "تم تأكيده مسبقًا",
@@ -1458,6 +1467,7 @@
   "form__source_code_not_verified_desc": "عقد رمزي لم يتم التحقق منه. لا توجد معلومات رمز العقد. قد تؤدي عقود الرموز غير الممنوحة إلى الاحتيال على المستثمرين.",
   "form__source_code_verified": "مصدر رمز التحقق",
   "form__source_code_verified_desc": "عقد رمزي مفتوح المصدر. توفر رموز العقود التفاصيل. قد تؤدي عقود الرمز المميز غير المصدر إلى خداع المستهلكين لممتلكاتهم.",
+  "form__spend_dust_utxo": "قضاء الغبار UTXO",
   "form__stake_balance": "رصيد الرهان",
   "form__stake_earn": "الرهان والكسب",
   "form__stake_earn_desc": "حتى {0} في المكافآت السنوية",
@@ -1617,6 +1627,7 @@
   "loading__nft_detailed_data_loading_failed_please_try_again": "😐 فشل تحميل البيانات التفصيلية NFT ، يرجى المحاولة مرة أخرى.",
   "loading__nft_profit_data_loading_failed_please_try_again": "😐 فشل تحميل بيانات أرباح NFT ، يرجى المحاولة مرة أخرى.",
   "loading__token_price_data_loading_failed_please_try_again": "😐 فشل تحميل بيانات سعر الرمز المميز ، يرجى المحاولة مرة أخرى.",
+  "market__market": "سوق",
   "message__choose_address": "اختر العنوان",
   "message__discover_favorite_is_empty": "ستظهر مفضلاتك هنا",
   "message__discover_history_is_empty": "سيظهر سجلك هنا",
@@ -1933,6 +1944,7 @@
   "msg__invalid_tx_that_nonce_is_higher_than_default": "معاملة غير صالحة ، nonce أعلى من القيمة الافتراضية",
   "msg__invalid_word": "كلمة غير صحيحة",
   "msg__keep_device_charged_during_update_or_may_cause_malfunction": "احتفظ بجهازك مشحونًا أثناء التحديث ، وإلا فقد يتسبب ذلك في حدوث خلل لا رجعة فيه",
+  "msg__label_name_can_be_up_to_15_characters": "يمكن أن يصل اسم التصنيف إلى 15 حرفًا",
   "msg__limit_price_is_str_lower_than_the_current_market_price": "السعر المحدد أقل {0} من السوق.",
   "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "سوف تبيع {0} بسعر رخيص للغاية.",
   "msg__link_copied": "تم نسخ الرابط",
@@ -1951,6 +1963,7 @@
   "msg__network_reset": "إعادة تعيين الشبكة",
   "msg__nfc_reader_usage_description": "استخدم NFC لإجراء نسخ احتياطي باستخدام OneKey Lite.",
   "msg__no_data_available": "لا تتوافر بيانات",
+  "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "تم استخدام Nonce وقد يتسبب في فشل هذه المعاملة.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce أعلى ، فهذا يعني أنه سيتم وضع المعاملة في قائمة الانتظار حتى يتم تأكيد المعاملات الموجودة أمامها.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "تم استخدام nonce ، سيؤدي ذلك إلى استبداله بمعاملة الرسوم. ادفع رسومًا أعلى لضمان إمكانية استبدال المعاملة المستهدفة.",
   "msg__not_support_passphrase_need_upgrade": "استخدم عبارة المرور ، تحتاج إلى ترقية البرامج الثابتة إلى {0} أو أحدث.",
@@ -2046,6 +2059,7 @@
   "msg__transaction_failed_desc": "فشل تنفيذ العقد",
   "msg__transaction_signing_error_not_in_signing_mode": "خطأ في توقيع المعاملة: ليس في وضع التوقيع",
   "msg__transaction_submitted": "تم إرسال المعاملة",
+  "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "توجد معاملات بنفس القيمة الفعلية بالفعل ، يرجى دفع رسوم شبكة أعلى ، وإلا فقد تفشل المعاملة.",
   "msg__unable_to_access_disk_onekey_data": "تعذر الوصول إلى القرص \"ONEKEY DATA\"",
   "msg__unknown_error": "خطأ غير معروف",
   "msg__unstaking_in_progress_str": "إلغاء التثبيت قيد التقدم: {0}",
@@ -2220,6 +2234,7 @@
   "title__manage_news_sources": "إدارة مصادر الأخبار",
   "title__manage_price_alert": "إدارة تنبيه السعر",
   "title__manage_tokens": "إدارة الرموز",
+  "title__manage_utxos": "إدارة UTXOs",
   "title__market": "سوق",
   "title__me": "أنا",
   "title__menu": "قائمة",
