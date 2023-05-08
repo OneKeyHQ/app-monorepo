@@ -1,11 +1,11 @@
-import { SUI_TYPE_ARG } from '@mysten/sui.js';
 import BigNumber from 'bignumber.js';
 
 import { IDecodedTxActionType } from '../../../types';
-import { GAS_TYPE_ARG } from '../utils';
+import { SUI_NATIVE_COIN } from '../utils';
 
 import type {
   JsonRpcProvider,
+  SuiGasData,
   TransactionBlock,
   TransactionBlockInput,
   TransferObjectsTransaction,
@@ -16,27 +16,44 @@ export async function decodeActionWithTransferObjects(
   transaction: TransferObjectsTransaction,
   transactions: TransactionBlock['blockData']['transactions'],
   inputs: TransactionBlockInput[],
+  payments?: SuiGasData['payment'] | undefined, // Payment
 ) {
   if (transaction.kind !== 'TransferObjects') {
     throw new Error('Invalid transaction kind');
   }
 
   let amount = new BigNumber('0');
-  let coinType = GAS_TYPE_ARG;
+  let coinType = SUI_NATIVE_COIN;
 
   for (const obj of transaction.objects) {
-    if (obj.kind === 'GasCoin') {
-      // payment
-      coinType = GAS_TYPE_ARG;
+    if (obj.kind === 'GasCoin' && payments) {
+      // payment all
+      coinType = SUI_NATIVE_COIN;
 
-      amount = inputs.reduce((acc, curr) => {
-        let current = acc;
-        if (curr.type === 'pure') {
-          current = current.plus(new BigNumber(curr.value));
-        } else {
-          // object
+      const objectIds = payments?.reduce((acc, curr) => {
+        if (curr.objectId) {
+          acc.push(curr.objectId);
         }
-        return current;
+        return acc;
+      }, new Array<string>(inputs.length));
+
+      const objects = await client.multiGetObjects({
+        ids: objectIds,
+        options: {
+          showType: true,
+          showOwner: true,
+          showContent: true,
+        },
+      });
+
+      amount = objects.reduce((acc, curr) => {
+        let temp = acc;
+        const content = curr.data?.content;
+        if (content?.dataType === 'moveObject') {
+          const balance = content.fields?.balance;
+          temp = temp.plus(new BigNumber(balance));
+        }
+        return temp;
       }, new BigNumber(0));
     } else if (obj.kind === 'Result') {
       const result = transactions[obj.index];
@@ -89,7 +106,7 @@ export async function decodeActionWithTransferObjects(
     to = transaction.address.value;
   }
 
-  const isNative = coinType === SUI_TYPE_ARG;
+  const isNative = coinType === SUI_NATIVE_COIN;
   return {
     type: isNative
       ? IDecodedTxActionType.NATIVE_TRANSFER

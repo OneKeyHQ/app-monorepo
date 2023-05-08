@@ -306,7 +306,7 @@ export default class Vault extends VaultBase {
 
     const actions: IDecodedTxAction[] = [];
 
-    const { inputs, transactions } = transactionBlock.blockData;
+    const { inputs, transactions, gasConfig } = transactionBlock.blockData;
 
     let gasLimit = '0';
     if (transactionBlock.blockData.gasConfig.budget) {
@@ -322,6 +322,7 @@ export default class Vault extends VaultBase {
               transaction,
               transactions,
               inputs,
+              gasConfig.payment,
             );
             if (action) {
               let actionKey = 'nativeTransfer';
@@ -585,9 +586,13 @@ export default class Vault extends VaultBase {
         const storageCost = simulationTx.gasUsed?.storageCost || '0';
         const storageRebate = simulationTx.gasUsed?.storageRebate || '0';
 
-        const gasUsed = new BigNumber(computationCost)
+        let gasUsed = new BigNumber(computationCost)
           .plus(storageCost)
           .minus(storageRebate);
+
+        if (gasUsed.isLessThan(0)) {
+          gasUsed = new BigNumber('0');
+        }
 
         // Only onekey max send can pass, other cases must be simulated successfully
         if (gasUsed.isEqualTo(0)) {
