@@ -2,11 +2,10 @@ import type { FC } from 'react';
 import { useMemo } from 'react';
 
 import { Box, Token } from '@onekeyhq/components';
+import type { INetwork } from '@onekeyhq/engine/src/types';
 
-import { useActiveWalletAccount } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
-  CreateWalletModalRoutes,
   ManageNetworkModalRoutes,
   ModalRoutes,
   RootRoutes,
@@ -18,33 +17,41 @@ import type { ISelectorTriggerSharedProps } from './BaseSelectorTrigger';
 
 interface ImportAccountNetworkSelectorTeiggerProps
   extends ISelectorTriggerSharedProps {
+  selectedNetwork: INetwork;
   showName?: boolean;
   onSelected?: (networkId: string) => void;
+  selectableNetworks?: INetwork[];
 }
 
 const ImportAccountNetworkSelectorTeigger: FC<
   ImportAccountNetworkSelectorTeiggerProps
-> = ({ showName = true, type = 'basic', bg, onSelected }) => {
-  const { network } = useActiveWalletAccount();
+> = ({
+  showName = true,
+  type = 'basic',
+  bg,
+  selectedNetwork,
+  selectableNetworks,
+  onSelected,
+}) => {
   const navigation = useAppNavigation();
   const activeOption = useMemo(
     () => ({
-      label: network?.name,
-      value: network?.id,
+      label: selectedNetwork?.name,
+      value: selectedNetwork?.id,
       tokenProps: {
         token: {
-          logoURI: network?.logoURI,
-          name: network?.shortName,
+          logoURI: selectedNetwork?.logoURI,
+          name: selectedNetwork?.shortName,
         },
       },
-      badge: network?.impl === 'evm' ? 'EVM' : undefined,
+      badge: selectedNetwork?.impl === 'evm' ? 'EVM' : undefined,
     }),
     [
-      network?.id,
-      network?.impl,
-      network?.logoURI,
-      network?.name,
-      network?.shortName,
+      selectedNetwork?.id,
+      selectedNetwork?.impl,
+      selectedNetwork?.logoURI,
+      selectedNetwork?.name,
+      selectedNetwork?.shortName,
     ],
   );
 
@@ -58,14 +65,19 @@ const ImportAccountNetworkSelectorTeigger: FC<
           <Token size={6} {...activeOption.tokenProps} />
         </Box>
       }
-      label={showName && activeOption.label}
+      label={showName && selectedNetwork.name}
       onPress={() => {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.ManageNetwork,
           params: {
             screen: ManageNetworkModalRoutes.NetworkSelector,
             params: {
+              selectedNetworkId: selectedNetwork.id,
+              selectableNetworks,
               onSelected,
+              sortDisabled: true,
+              customDisabled: true,
+              rpcStatusDisabled: true,
             },
           },
         });

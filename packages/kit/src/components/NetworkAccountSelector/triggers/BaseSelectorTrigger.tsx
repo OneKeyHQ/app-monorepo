@@ -3,7 +3,6 @@ import type { ComponentProps } from 'react';
 import { StyleSheet } from 'react-native';
 
 import {
-  Box,
   Center,
   HStack,
   Icon,

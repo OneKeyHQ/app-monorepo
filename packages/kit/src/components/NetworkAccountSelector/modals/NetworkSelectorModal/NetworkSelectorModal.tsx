@@ -32,7 +32,15 @@ function NetworkSelectorModal() {
 
   const params = route?.params ?? {};
 
-  const { networkImpl, onSelected } = params;
+  const {
+    networkImpl,
+    onSelected,
+    selectedNetworkId,
+    selectableNetworks,
+    sortDisabled,
+    customDisabled,
+    rpcStatusDisabled,
+  } = params;
 
   const { accountSelectorInfo, shouldShowModal } =
     useAccountSelectorModalInfo();
@@ -51,30 +59,34 @@ function NetworkSelectorModal() {
       height="560px"
       rightContent={
         <>
-          <IconButton
-            type="plain"
-            size="lg"
-            circle
-            name="BarsArrowUpOutline"
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.ManageNetwork,
-                params: { screen: ManageNetworkModalRoutes.Sort },
-              });
-            }}
-          />
-          <IconButton
-            type="plain"
-            size="lg"
-            circle
-            name="PlusCircleOutline"
-            onPress={() => {
-              navigation.navigate(RootRoutes.Modal, {
-                screen: ModalRoutes.ManageNetwork,
-                params: { screen: ManageNetworkModalRoutes.Listing },
-              });
-            }}
-          />
+          {sortDisabled ? null : (
+            <IconButton
+              type="plain"
+              size="lg"
+              circle
+              name="BarsArrowUpOutline"
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.ManageNetwork,
+                  params: { screen: ManageNetworkModalRoutes.Sort },
+                });
+              }}
+            />
+          )}
+          {customDisabled ? null : (
+            <IconButton
+              type="plain"
+              size="lg"
+              circle
+              name="PlusCircleOutline"
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.ManageNetwork,
+                  params: { screen: ManageNetworkModalRoutes.Listing },
+                });
+              }}
+            />
+          )}
         </>
       }
     >
@@ -83,7 +95,10 @@ function NetworkSelectorModal() {
           <SideChainSelector
             networkImpl={networkImpl}
             fullWidthMode // should be fullWidthMode here
+            rpcStatusDisabled={rpcStatusDisabled}
             accountSelectorInfo={accountSelectorInfo}
+            selectedNetworkId={selectedNetworkId}
+            selectableNetworks={selectableNetworks}
             onPress={async ({ networkId }) => {
               if (onSelected) {
                 onSelected(networkId);

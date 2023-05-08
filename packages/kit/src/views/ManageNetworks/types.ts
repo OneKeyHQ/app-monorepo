@@ -1,3 +1,4 @@
+import type { INetwork } from '@onekeyhq/engine/src/types';
 import type {
   AddEVMNetworkParams,
   SwitchRpcParams,
@@ -14,6 +15,11 @@ export type ManageNetworkRoutesParams = {
     | {
         networkImpl?: string;
         onSelected?: (networkId: string) => void;
+        selectableNetworks?: INetwork[];
+        sortDisabled?: boolean;
+        customDisabled?: boolean;
+        rpcStatusDisabled?: boolean;
+        selectedNetworkId?: string;
       };
   [ManageNetworkModalRoutes.Listing]: { onEdited?: () => void } | undefined;
   [ManageNetworkModalRoutes.AddNetwork]: {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
+import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
@@ -15,9 +16,10 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import type { INetwork } from '@onekeyhq/engine/src/types';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
-import type { Network } from '@onekeyhq/engine/src/types/network';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NameServiceResolver, {
   useNameServiceStatus,
@@ -46,6 +48,7 @@ import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ImportAccountNetworkSelectorTeigger } from '../../components/NetworkAccountSelector/triggers/ImportAccountNetworkSelectorTeigger';
 import { useManageNetworks } from '../../hooks';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
@@ -54,14 +57,14 @@ import { wait } from '../../utils/helper';
 import { useOnboardingContext } from '../Onboarding/OnboardingContext';
 import { EOnboardingRoutes } from '../Onboarding/routes/enums';
 import { NineHouseLatticeInputForm } from '../Onboarding/screens/ImportWallet/Component/NineHouseLatticeInputForm';
-import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
-import { ImportAccountNetworkSelectorTeigger } from '../../components/NetworkAccountSelector/triggers/ImportAccountNetworkSelectorTeigger';
+
+import type { Network } from '../../store/typings';
 
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
 type AddExistingWalletValues = {
   text: string;
-  selectedNetwork?: string;
+  selectedNetwork?: Network;
   defaultName?: string;
 };
 
@@ -134,7 +137,7 @@ function useAddExistingWallet({
 
   const onSubmit = useCallback(
     async (values: AddExistingWalletValues) => {
-      const { text, defaultName } = values;
+      const { text, defaultName, selectedNetwork } = values;
       if (!text) {
         return;
       }
@@ -142,6 +145,7 @@ function useAddExistingWallet({
         await backgroundApiProxy.validator.validateCreateInput({
           input: text,
           onlyFor: inputCategory,
+          selectedNetwork,
         })
       ).filter(({ category }) => category !== UserInputCategory.ADDRESS);
 
@@ -358,10 +362,7 @@ function AddExistingWalletView(
 
   const { enabledNetworks } = useManageNetworks();
   const { network: activeNetwork } = useActiveWalletAccountOrigin();
-
-  const [selectedNetwork, setSelectedNetwork] = useState<Network>(
-    activeNetwork || enabledNetworks[0],
-  );
+  const closeModal = useModalClose();
 
   const {
     onChange: onNameServiceStatusChange,
@@ -369,17 +370,7 @@ function AddExistingWalletView(
     address,
   } = useNameServiceStatus();
   const isVerticalLayout = useIsVerticalLayout();
-  const helpText = useCallback(
-    (value: string) => (
-      <NameServiceResolver
-        name={value}
-        disable={mode === 'imported' || mode === 'mnemonic'}
-        onChange={onNameServiceChange || onNameServiceStatusChange}
-        disableBTC
-      />
-    ),
-    [onNameServiceChange, onNameServiceStatusChange, mode],
-  );
+
   const PasteBtn = useCallback(
     () => (
       <Center>
@@ -402,7 +393,60 @@ function AddExistingWalletView(
     return res;
   }, [mode, showPasteButton]);
 
-  const handleNetworkOnSelected = useCallback((networkId: string) => {}, []);
+  const selectableNetworks = useMemo(
+    () =>
+      enabledNetworks.filter((network) => {
+        if (mode === 'imported') {
+          return network.settings.importedAccountEnabled;
+        }
+        if (mode === 'watching') {
+          return network.settings.watchingAccountEnabled;
+        }
+        return true;
+      }),
+    [enabledNetworks, mode],
+  );
+
+  const initNetwork = useMemo(() => {
+    if (activeNetwork) {
+      if (
+        mode === 'imported' &&
+        activeNetwork?.settings.importedAccountEnabled
+      ) {
+        return activeNetwork;
+      }
+      if (
+        mode === 'watching' &&
+        activeNetwork?.settings.watchingAccountEnabled
+      ) {
+        return activeNetwork;
+      }
+    }
+
+    return selectableNetworks[0];
+  }, [activeNetwork, mode, selectableNetworks]);
+
+  const [selectedNetwork, setSelectedNetwork] = useState<INetwork>(initNetwork);
+
+  const handleNetworkOnSelected = useCallback(
+    (networkId: string) => {
+      setSelectedNetwork(find(enabledNetworks, { id: networkId }) as INetwork);
+      closeModal();
+    },
+    [closeModal, enabledNetworks],
+  );
+  const helpText = useCallback(
+    (value: string) => (
+      <NameServiceResolver
+        name={value}
+        disable={mode === 'imported' || mode === 'mnemonic'}
+        onChange={onNameServiceChange || onNameServiceStatusChange}
+        networkId={selectedNetwork.id}
+        disableBTC
+      />
+    ),
+    [mode, onNameServiceChange, onNameServiceStatusChange, selectedNetwork.id],
+  );
 
   return (
     <Box
@@ -422,6 +466,8 @@ function AddExistingWalletView(
       ) : (
         <Form>
           <ImportAccountNetworkSelectorTeigger
+            selectedNetwork={selectedNetwork}
+            selectableNetworks={selectableNetworks}
             onSelected={handleNetworkOnSelected}
           />
           <Form.Item
@@ -440,6 +486,7 @@ function AddExistingWalletView(
                     await backgroundApiProxy.validator.validateCreateInput({
                       input: text,
                       onlyFor: inputCategory,
+                      selectedNetwork,
                     })
                   ).filter(
                     ({ category }) => category !== UserInputCategory.ADDRESS,
@@ -516,6 +563,7 @@ function AddExistingWalletView(
                 if (!disableSubmitBtn && address) {
                   values.text = address;
                 }
+                values.selectedNetwork = selectedNetwork;
                 await onSubmit(values);
                 await wait(600);
               })}
