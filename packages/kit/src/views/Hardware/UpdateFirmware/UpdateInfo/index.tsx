@@ -254,10 +254,7 @@ const UpdateInfoModal: FC = () => {
           }
         }
 
-        if (
-          findDevice.deviceType === 'classic' ||
-          findDevice.deviceType === 'mini'
-        ) {
+        if (findDevice.deviceType === 'classic') {
           const shouldUpdateBootloader =
             await serviceHardware.checkBootloaderRelease(
               connectId,

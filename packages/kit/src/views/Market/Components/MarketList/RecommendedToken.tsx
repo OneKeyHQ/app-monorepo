@@ -73,6 +73,7 @@ const RecommendedTokenBox: FC<RecomendedTokenProps> = ({
           onChange={() => {
             onPress(!isSelected, coingeckoId);
           }}
+          pointerEvents="box-only"
         />
       </Box>
     </Pressable>

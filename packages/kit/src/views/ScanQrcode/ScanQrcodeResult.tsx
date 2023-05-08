@@ -95,6 +95,7 @@ const ScanQrcodeResult: FC = () => {
         .validateCreateInput({
           input: data,
           returnEarly: true,
+          skipHeavyChains: true,
         })
         .then(([result]) => {
           if (result) {
