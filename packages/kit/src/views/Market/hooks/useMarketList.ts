@@ -10,6 +10,7 @@ import { useAppSelector } from '../../../hooks';
 import { getAppNavigation } from '../../../hooks/useAppNavigation';
 import { TabRoutes } from '../../../routes/routesEnum';
 import { MARKET_FAVORITES_CATEGORYID } from '../../../store/reducers/market';
+import { isAtAppRootTab } from '../../../utils/routeUtils';
 
 import { useMarketSelectedCategory } from './useMarketCategory';
 import { useMarketMidLayout } from './useMarketLayout';
@@ -66,11 +67,13 @@ export const useMarketList = ({
         });
       }
       timer = setInterval(() => {
-        backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
-          categoryId: selectedCategory.categoryId,
-          ids: coingeckoIds,
-          sparkline: !isVerticalLayout && !isMidLayout,
-        });
+        if (isAtAppRootTab(TabRoutes.Market)) {
+          backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
+            categoryId: selectedCategory.categoryId,
+            ids: coingeckoIds,
+            sparkline: !isVerticalLayout && !isMidLayout,
+          });
+        }
       }, pollingInterval * 1000);
     }
     return () => {
@@ -110,10 +113,4 @@ export const marketSwapTabRoutes: { key: MarketTopTabName }[] = [
 export const setMarketSwapTabName = (tabName: MarketTopTabName) => {
   backgroundApiProxy.serviceMarket.switchMarketTopTab(tabName);
   getAppNavigation().dispatch(TabActions.jumpTo(tabName));
-
-  // if (tabName === TabRoutes.Swap) {
-  //   navigationShortcuts.navigateToSwap();
-  // } else if (tabName === TabRoutes.Market) {
-  //   navigationShortcuts.navigateToMarket();
-  // }
 };
