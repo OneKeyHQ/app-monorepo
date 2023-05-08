@@ -154,23 +154,12 @@ const StakingCell: FC<Props> = ({ token, tokenId }) => {
   const isVerticalLayout = useIsVerticalLayout();
 
   const amount = useMemo(
-    () => minerOverview?.amount?.total_amount ?? 0,
+    () =>
+      Number(minerOverview?.amount?.total_amount ?? 0) +
+      Number(minerOverview?.amount.withdrawable ?? 0),
     [minerOverview],
   );
   const { serviceStaking } = backgroundApiProxy;
-
-  useEffect(() => {
-    if (stakedSupport) {
-      serviceStaking.fetchMinerOverview({ networkId, accountId });
-    }
-  }, [accountId, networkId, serviceStaking, stakedSupport, tokenId]);
-
-  const activeStakingActivity = useAccountStakingActivity(networkId, accountId);
-  const price =
-    useSimpleTokenPriceValue({
-      networkId,
-      contractAdress: tokenId,
-    }) ?? 0;
 
   const onPress = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -184,15 +173,27 @@ const StakingCell: FC<Props> = ({ token, tokenId }) => {
     });
   }, [navigation, networkId]);
 
+  const activeStakingActivity = useAccountStakingActivity(networkId, accountId);
+  const price =
+    useSimpleTokenPriceValue({
+      networkId,
+      contractAdress: tokenId,
+    }) ?? 0;
+
   const tokenValue = useMemo(() => {
     if (price === null) return 0;
     return new B(amount).times(price).toNumber() || 0;
   }, [amount, price]);
 
+  useEffect(() => {
+    if (stakedSupport) {
+      serviceStaking.fetchMinerOverview({ networkId, accountId });
+    }
+  }, [accountId, networkId, serviceStaking, stakedSupport, tokenId]);
+
   if (!stakedSupport || (amount === 0 && !activeStakingActivity)) {
     return null;
   }
-
   const props = {
     onPress,
     amount,

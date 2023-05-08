@@ -33,8 +33,11 @@ import ServiceBase from './ServiceBase';
 
 import type { AxiosResponse } from 'axios';
 
-const TestnetContractAddress = '0xdCAe38cC28606e61B1e54D8b4b134588e4ca7Ab7';
-const MainnetContractAddress = '0xACBA4cFE7F30E64dA787c6Dc7Dc34f623570e758';
+const TestnetKeleContractAddress = '0xdCAe38cC28606e61B1e54D8b4b134588e4ca7Ab7';
+const MainnetKeleContractAddress = '0xACBA4cFE7F30E64dA787c6Dc7Dc34f623570e758';
+
+const TestnetLidoContractAddress = '0x1643E812aE58766192Cf7D2Cf9567dF2C37e9B7F';
+const MainnetLidoContractAddress = '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84';
 
 export interface SerializableTransactionReceipt {
   to: string;
@@ -74,10 +77,20 @@ export default class ServiceStaking extends ServiceBase {
 
   getKeleContractAddress(networkId: string): string {
     if (networkId === OnekeyNetwork.eth) {
-      return MainnetContractAddress;
+      return MainnetKeleContractAddress;
     }
     if (networkId === OnekeyNetwork.goerli) {
-      return TestnetContractAddress;
+      return TestnetKeleContractAddress;
+    }
+    throw new Error('Not supported network');
+  }
+
+  getLidoContractAddress(networkId: string) {
+    if (networkId === OnekeyNetwork.eth) {
+      return MainnetLidoContractAddress;
+    }
+    if (networkId === OnekeyNetwork.goerli) {
+      return TestnetLidoContractAddress;
     }
     throw new Error('Not supported network');
   }
@@ -101,6 +114,20 @@ export default class ServiceStaking extends ServiceBase {
     return {
       data: '0xd9712d546f6e656b65790000000000000000000000000000000000000000000000000000', // bytes4(keccak256(bytes('deposit("onekey")')))
       to: this.getKeleContractAddress(params.networkId),
+      value: params.value,
+    };
+  }
+
+  @backgroundMethod()
+  async buildTxForStakingETHtoLido(params: {
+    value: string;
+    networkId: string;
+  }) {
+    const { serviceContract } = this.backgroundApi;
+    const data = await serviceContract.buildLidoStakeTransaction();
+    return {
+      data,
+      to: this.getLidoContractAddress(params.networkId),
       value: params.value,
     };
   }
