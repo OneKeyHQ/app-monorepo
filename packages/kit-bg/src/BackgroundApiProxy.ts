@@ -46,6 +46,7 @@ import type ServiceSwap from './services/ServiceSwap';
 import type ServiceToken from './services/ServiceToken';
 import type ServiceTransaction from './services/ServiceTransaction';
 import type ServiceTranslation from './services/ServiceTranslation';
+import type ServiceUtxos from './services/ServiceUtxos';
 import type ServiceWalletConnect from './services/ServiceWalletConnect';
 
 class BackgroundApiProxy
@@ -176,6 +177,8 @@ class BackgroundApiProxy
   serviceLimitOrder = this._createProxyService(
     'serviceLimitOrder',
   ) as ServiceLimitOrder;
+
+  serviceUtxos = this._createProxyService('serviceUtxos') as ServiceUtxos;
 
   serviceContract = this._createProxyService(
     'serviceContract',

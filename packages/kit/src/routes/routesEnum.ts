@@ -68,6 +68,7 @@ export enum HomeRoutes {
   PushNotificationManagePriceAlert = 'PushNotificationManagePriceAlert',
   PushNotificationManageAccountDynamic = 'PushNotificationManageAccountDynamic',
   ClearCache = 'ClearCache',
+  AdvancedSettings = 'AdvancedSettings',
 
   // **** Discover Tab
   ExploreScreen = 'ExploreScreen',
@@ -195,6 +196,7 @@ export enum ModalRoutes {
   BulkSender = 'BulkSender',
   Market = 'Market',
   ClearCache = 'ClearCache',
+  CoinControl = 'CoinControl',
 }
 
 export { SendModalRoutes } from '../views/Send/enums';
@@ -368,4 +370,8 @@ export enum DappConnectionModalRoutes {
 export enum ClearCacheModalRoutes {
   ClearCacheModal = 'ClearCacheModal',
   CopyBrowserUrlModal = 'CopyBrowserUrlModal',
+}
+
+export enum CoinControlModalRoutes {
+  CoinControlModal = 'CoinControlModal',
 }
