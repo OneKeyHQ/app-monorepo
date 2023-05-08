@@ -24,8 +24,8 @@ export function SendConfirmErrorsAlert({
   isAccountNotMatched,
   editableNonceStatus,
   isNetworkBusy,
-  isTxSameNonce,
-  isTxSameNonceWithLowerGas,
+  isPendingTxSameNonce,
+  isPendingTxSameNonceWithLowerGas,
   isLowMaxFee,
   pendingTxCount,
 }: {
@@ -37,8 +37,8 @@ export function SendConfirmErrorsAlert({
   isNetworkNotMatched?: boolean;
   isAccountNotMatched?: boolean;
   isNetworkBusy?: boolean;
-  isTxSameNonce?: boolean;
-  isTxSameNonceWithLowerGas?: boolean;
+  isPendingTxSameNonce?: boolean;
+  isPendingTxSameNonceWithLowerGas?: boolean;
   editableNonceStatus?: EditableNonceStatusEnum;
   isLowMaxFee?: boolean;
   pendingTxCount?: string;
@@ -106,8 +106,8 @@ export function SendConfirmErrorsAlert({
   }
 
   if (
-    !isTxSameNonceWithLowerGas &&
-    !isTxSameNonce &&
+    !isPendingTxSameNonceWithLowerGas &&
+    !isPendingTxSameNonce &&
     editableNonceStatus === EditableNonceStatusEnum.Less
   ) {
     errors.push(
@@ -133,7 +133,7 @@ export function SendConfirmErrorsAlert({
     );
   }
 
-  if (isTxSameNonceWithLowerGas) {
+  if (isPendingTxSameNonceWithLowerGas) {
     errors.push(
       <FormErrorMessage
         isAlertStyle
@@ -146,7 +146,7 @@ export function SendConfirmErrorsAlert({
   }
 
   if (
-    !isTxSameNonceWithLowerGas &&
+    !isPendingTxSameNonceWithLowerGas &&
     editableNonceStatus !== EditableNonceStatusEnum.Less &&
     isLowMaxFee
   ) {

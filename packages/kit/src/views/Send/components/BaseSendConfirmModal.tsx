@@ -61,9 +61,11 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
 
   const isAutoConfirmed = useRef(false);
   const [pendingTxCount, setPendingTxCount] = useState('0');
-  const [isTxSameNonceWithLowerGas, setIsTxSameNonceWithLowerGas] =
-    useState(false);
-  const [isTxSameNonce, setIsTxSameNonce] = useState(false);
+  const [
+    isPendingTxSameNonceWithLowerGas,
+    setIsPendingTxSameNonceWithLowerGas,
+  ] = useState(false);
+  const [isPendingTxSameNonce, setIsPendingTxSameNonce] = useState(false);
 
   const balanceInsufficient = useMemo(
     () => new BigNumber(nativeBalance).lt(new BigNumber(fee)),
@@ -217,7 +219,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
         );
 
         if (localPendingTxWithSameNonce) {
-          setIsTxSameNonce(true);
+          setIsPendingTxSameNonce(true);
           const { feeInfo } = localPendingTxWithSameNonce.decodedTx;
           if (feeInfo && feeInfoValue) {
             if (feeInfo.eip1559) {
@@ -233,7 +235,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
                   feeInfoValue.price1559?.maxPriorityFeePerGas ?? 0,
                 )
               ) {
-                setIsTxSameNonceWithLowerGas(true);
+                setIsPendingTxSameNonceWithLowerGas(true);
                 return;
               }
             } else if (
@@ -241,16 +243,16 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
                 feeInfoValue.price ?? 0,
               )
             ) {
-              setIsTxSameNonceWithLowerGas(true);
+              setIsPendingTxSameNonceWithLowerGas(true);
               return;
             }
           }
         } else {
-          setIsTxSameNonce(false);
+          setIsPendingTxSameNonce(false);
         }
       }
 
-      setIsTxSameNonceWithLowerGas(false);
+      setIsPendingTxSameNonceWithLowerGas(false);
     };
     checkPendingTxWithSameNonce();
   }, [
@@ -297,8 +299,10 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
                 isNetworkBusy={isNetworkBusy}
                 isLowMaxFee={isLowMaxFee}
                 pendingTxCount={pendingTxCount}
-                isTxSameNonce={isTxSameNonce}
-                isTxSameNonceWithLowerGas={isTxSameNonceWithLowerGas}
+                isPendingTxSameNonce={isPendingTxSameNonce}
+                isPendingTxSameNonceWithLowerGas={
+                  isPendingTxSameNonceWithLowerGas
+                }
               />
             )}
 
