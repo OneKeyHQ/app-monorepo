@@ -1,3 +1,4 @@
+import type { ISimpleDbEntityUtxoData } from '../dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { DBAccount } from './account';
 import type { Wallet } from './wallet';
 
@@ -25,4 +26,7 @@ export type BackupObject = {
   watchingAccounts: Record<string, DBAccount & HasVersion>;
   // UUID -> ImportableHDWallet
   wallets: Record<string, ImportableHDWallet>;
+  simpleDb: {
+    utxoAccounts?: ISimpleDbEntityUtxoData;
+  };
 };
