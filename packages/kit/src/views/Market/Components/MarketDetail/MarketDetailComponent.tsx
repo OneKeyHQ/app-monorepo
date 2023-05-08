@@ -162,7 +162,7 @@ type MarketDetailComponentProps = {
   volume24h?: number;
   marketCap?: number;
   expolorers?: MarketEXplorer[];
-  // news?: MarketNews[];   //marketCapDominance and news The source was intercepted by an anti-crawler and temporarily blocked
+  // news?: MarketNews[];   marketCapDominance and news The source was intercepted by an anti-crawler and temporarily blocked
   about?: string;
   atl?: {
     time?: string;
