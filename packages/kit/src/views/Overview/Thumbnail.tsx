@@ -19,7 +19,7 @@ import {
 import { FormatCurrencyNumber } from '../../components/Format';
 import { useAccountValues, useAppSelector, useNavigation } from '../../hooks';
 import { useCurrentFiatValue } from '../../hooks/useTokens';
-import { HomeRoutes, ModalRoutes, RootRoutes } from '../../routes/types';
+import { HomeRoutes, ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
 import { OverviewBadge } from './components/OverviewBadge';
 import { OverviewModalRoutes } from './types';

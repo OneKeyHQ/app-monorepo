@@ -19,10 +19,12 @@ import type { TabRouteConfig } from '../../../../types';
 const name = TabRoutes.Home;
 const config: TabRouteConfig = {
   ...tabRoutesConfigBaseMap[name],
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  component: toFocusedLazy(withTabLayout(HomeScreen, name), {
-    rootTabName: name,
-  }),
+  component: withTabLayout(
+    toFocusedLazy(HomeScreen, {
+      rootTabName: name,
+    }),
+    name,
+  ),
   children: [
     {
       name: HomeRoutes.ScreenTokenDetail,

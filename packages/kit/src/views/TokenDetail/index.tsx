@@ -25,13 +25,13 @@ import MarketInfo from './MarketInfo';
 import TokenDetailHeader from './TokenDetailHeader';
 import { FavoritedButton } from './TokenDetailHeader/DeskTopHeader';
 
-import type { HomeRoutes, HomeRoutesParams } from '../../routes/types';
-import type { TokenDetailRoutesParams } from './routes';
+import type { HomeRoutes } from '../../routes/routesEnum';
+import type { HomeRoutesParams } from '../../routes/types';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 export type TokenDetailViewProps = NativeStackScreenProps<
-  TokenDetailRoutesParams,
+  HomeRoutesParams,
   HomeRoutes.ScreenTokenDetail
 >;
 

@@ -1,5 +1,6 @@
-/* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
-import './intlPolyfill';
+/* eslint-disable global-require, no-restricted-syntax, import/no-unresolved,  @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
+import './intlShim';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 if (typeof __dirname === 'undefined') global.__dirname = '/';
@@ -10,6 +11,7 @@ if (typeof process === 'undefined') {
   const bProcess = require('process');
   for (const p in bProcess) {
     if (!(p in process)) {
+      // @ts-ignore
       process[p] = bProcess[p];
     }
   }
@@ -17,6 +19,7 @@ if (typeof process === 'undefined') {
 
 // TextEncoder and TextDecoder polyfill for starcoin
 if (typeof TextDecoder === 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   global.TextDecoder = require('text-encoding').TextDecoder;
 }
 if (typeof TextEncoder === 'undefined') {
@@ -30,7 +33,15 @@ if (typeof Buffer === 'undefined') {
 }
 
 // Crypto polyfill
-if (typeof crypto === 'undefined') global.crypto = require('crypto');
+
+if (typeof crypto === 'undefined') {
+  try {
+    // eslint-disable-next-line no-const-assign
+    global.crypto = require('crypto');
+  } catch (error) {
+    console.error(error);
+  }
+}
 
 // https://docs.ethers.io/v5/cookbook/react-native/
 // Import the crypto getRandomValues shim (**BEFORE** the shims)
@@ -40,10 +51,12 @@ require('@ethersproject/shims');
 
 if (platformEnv.isNativeAndroid) {
   const shimConsoleLog = (method) => {
+    // @ts-ignore
     const originMethod = console[method];
     if (!originMethod) {
       return;
     }
+    // @ts-ignore
     console[method] = (...args) => {
       args.forEach((item) => {
         if (item instanceof Error) {
@@ -51,6 +64,7 @@ if (platformEnv.isNativeAndroid) {
           delete item.stack;
         }
       });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       originMethod(...args);
     };
   };

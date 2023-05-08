@@ -26,7 +26,7 @@ import {
   setHardwarePopup,
 } from '../../../../store/reducers/hardware';
 import { wait } from '../../../../utils/helper';
-import { UI_REQUEST } from '../../PopupHandle/showHardwarePopup';
+import { UI_REQUEST } from '../../PopupHandle/showHardwarePopup.consts';
 import RunningView from '../Updating/RunningView';
 import StateView from '../Updating/StateView';
 

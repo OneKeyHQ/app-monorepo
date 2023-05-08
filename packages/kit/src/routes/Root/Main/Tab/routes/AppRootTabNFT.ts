@@ -15,12 +15,11 @@ import type { TabRouteConfig } from '../../../../types';
 const name = TabRoutes.NFT;
 const config: TabRouteConfig = {
   ...tabRoutesConfigBaseMap[name],
-  component: toFocusedLazy(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    withTabLayout(NFTMarket, name),
-    {
+  component: withTabLayout(
+    toFocusedLazy(NFTMarket, {
       rootTabName: name,
-    },
+    }),
+    name,
   ),
   children: [
     {

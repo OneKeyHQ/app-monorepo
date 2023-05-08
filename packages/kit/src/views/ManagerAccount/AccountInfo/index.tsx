@@ -17,7 +17,7 @@ import type { ManagerAccountRoutesParams } from '@onekeyhq/kit/src/routes/Root/M
 import { ManagerAccountModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import { useWalletName } from '../../../hooks/useWalletName';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import AccountModifyNameDialog from '../ModifyAccount';
 import useRemoveAccountDialog from '../RemoveAccount';
 

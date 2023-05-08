@@ -193,8 +193,8 @@ export default class Vault extends VaultBase {
             return (await client
               .accountInformation(address)
               .do()) as IAccountInformation;
-          } catch {
-            // pass
+          } catch (err) {
+            console.error(err);
           }
         }),
       )

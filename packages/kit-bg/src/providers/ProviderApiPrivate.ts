@@ -29,6 +29,36 @@ import type {
   JsBridgeDesktopHost,
 } from '@onekeyfe/onekey-cross-webview';
 
+export interface IOneKeyWalletInfo {
+  enableExtContentScriptReloadButton?: boolean;
+  platform?: string;
+  version?: string;
+  buildNumber?: string;
+  disableExt: boolean;
+  walletSwitchConfig: Record<string, string[]>;
+  isLegacy: boolean;
+  platformEnv: {
+    isRuntimeBrowser?: boolean;
+    isRuntimeChrome?: boolean;
+    isRuntimeFirefox?: boolean;
+
+    isWeb?: boolean;
+
+    isNative?: boolean;
+    isNativeIOS?: boolean;
+    isNativeAndroid?: boolean;
+
+    isExtension?: boolean;
+    isExtChrome?: boolean;
+    isExtFirefox?: boolean;
+
+    isDesktop?: boolean;
+    isDesktopWin?: boolean;
+    isDesktopLinux?: boolean;
+    isDesktopMac?: boolean;
+  };
+}
+
 @backgroundClass()
 class ProviderApiPrivate extends ProviderApiBase {
   public providerName = IInjectedProviderNames.$private;
@@ -118,12 +148,15 @@ class ProviderApiPrivate extends ProviderApiBase {
     return { success: 'wallet_sendSiteMetadata: save to DB' };
   }
 
-  getWalletInfo() {
+  getWalletInfo(): IOneKeyWalletInfo {
     const disableExt = !!this.backgroundApi.appSelector(
       (s) => s.settings.disableExt,
     );
     const walletSwitchData = this.backgroundApi.appSelector(
       (s) => s.settings.walletSwitchData,
+    );
+    const showContentScriptReloadButton = this.backgroundApi.appSelector(
+      (s) => s.settings?.devMode?.showContentScriptReloadButton,
     );
     const walletSwitchConfig: Record<string, string[]> = {
       enable: [],
@@ -145,6 +178,7 @@ class ProviderApiPrivate extends ProviderApiBase {
       });
     }
     return {
+      enableExtContentScriptReloadButton: showContentScriptReloadButton,
       platform: process.env.ONEKEY_PLATFORM,
       version: process.env.VERSION,
       buildNumber: process.env.BUILD_NUMBER,

@@ -20,7 +20,7 @@ import {
   closeHardwarePopup,
   setHardwarePopup,
 } from '../../../../store/reducers/hardware';
-import { UI_REQUEST } from '../../PopupHandle/showHardwarePopup';
+import { UI_REQUEST } from '../../PopupHandle/showHardwarePopup.consts';
 
 import RunningView from './RunningView';
 import StateView from './StateView';

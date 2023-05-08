@@ -1,4 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access */
+/* eslint-disable import/order */
+import '@onekeyhq/shared/src/polyfills';
+
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 

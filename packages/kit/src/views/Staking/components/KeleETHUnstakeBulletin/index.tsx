@@ -13,7 +13,7 @@ import {
   useAppSelector,
   useNavigation,
 } from '../../../../hooks';
-import { ModalRoutes, RootRoutes } from '../../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setHideUnstakeBulletin } from '../../../../store/reducers/staking';
 import { useKeleMinerOverview } from '../../hooks';
 import { StakingRoutes } from '../../typing';

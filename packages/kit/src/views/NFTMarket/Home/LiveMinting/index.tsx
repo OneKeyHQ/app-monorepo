@@ -16,7 +16,7 @@ import {
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { HomeRoutes } from '../../../../routes/types';
+import { HomeRoutes } from '../../../../routes/routesEnum';
 import ChainSelector from '../../ChainSelector';
 import { useDefaultNetWork } from '../hook';
 

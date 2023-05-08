@@ -9,8 +9,8 @@ import { createBottomTabNavigator } from '@onekeyhq/components/src/Layout/Bottom
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { LazyDisplayView } from '../../../../components/LazyDisplayView';
+import { TabRoutes } from '../../../routesEnum';
 import { buildAppRootTabName } from '../../../routesUtils';
-import { TabRoutes } from '../../../types';
 
 import { tabRoutes } from './routes/tabRoutes';
 import {
@@ -128,7 +128,7 @@ const TabNavigator = () => {
             // FIXME: lazy causes issues with overlays
             // lazy: !platformEnv.isNewRouteMode, // avoid tab switch flashing on mobile
             header: tabNavigatorHeaderRender,
-            freezeOnBlur: true,
+            freezeOnBlur: !platformEnv.isNativeIOS,
           }}
         >
           {tabRoutesList}

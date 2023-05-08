@@ -26,15 +26,15 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useNavigation } from '../../../../hooks';
 import { useAppSelector } from '../../../../hooks/redux';
 import useFormatDate from '../../../../hooks/useFormatDate';
-import { HomeRoutes } from '../../../../routes/types';
+import { HomeRoutes } from '../../../../routes/routesEnum';
 import { showOverlay } from '../../../../utils/overlayUtils';
 
 import BackupIcon from './BackupIcon';
 import Wrapper from './Wrapper';
 
+import type { RootRoutes } from '../../../../routes/routesEnum';
 import type {
   HomeRoutesParams,
-  RootRoutes,
   RootRoutesParams,
 } from '../../../../routes/types';
 import type { CompositeNavigationProp } from '@react-navigation/native';

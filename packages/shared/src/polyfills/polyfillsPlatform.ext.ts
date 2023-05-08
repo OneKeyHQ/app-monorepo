@@ -2,8 +2,17 @@
 import 'core-js/es7/global';
 import 'globalthis';
 import browser from 'webextension-polyfill'; // or extensionizer
+import './xhrShim';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+/*
+requestAnimationFrame is missing in mv3 background:
+  ReferenceError: requestAnimationFrame is not defined
+ */
+if (typeof global.requestAnimationFrame === 'undefined') {
+  global.requestAnimationFrame = setImmediate;
+}
 
 // TODO move to polyfill file
 if (platformEnv.isRuntimeFirefox) {

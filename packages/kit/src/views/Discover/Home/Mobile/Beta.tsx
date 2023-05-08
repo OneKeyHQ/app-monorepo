@@ -15,7 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppSelector } from '../../../../hooks';
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
-import { ModalRoutes, RootRoutes } from '../../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import DAppIcon from '../../DAppIcon';
 import { useDiscoverFavorites, useUserBrowserHistories } from '../../hooks';
 import { DiscoverModalRoutes } from '../../type';

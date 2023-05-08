@@ -18,7 +18,7 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
-import { HomeRoutes } from '../../routes/types';
+import { HomeRoutes } from '../../routes/routesEnum';
 import { setSwapPopoverShown } from '../../store/reducers/status';
 import { setMode } from '../../store/reducers/swap';
 

@@ -15,7 +15,7 @@ import {
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../../hooks';
 import { useAppSelector } from '../../../../hooks/redux';
-import { ModalRoutes, RootRoutes } from '../../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { addLimitOrderTransaction } from '../../../../store/reducers/swapTransactions';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { ZeroExchangeAddress } from '../../config';

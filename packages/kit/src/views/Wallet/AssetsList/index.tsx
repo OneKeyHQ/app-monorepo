@@ -15,10 +15,10 @@ import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import type { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type {
   HomeRoutesParams,
-  RootRoutes,
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';

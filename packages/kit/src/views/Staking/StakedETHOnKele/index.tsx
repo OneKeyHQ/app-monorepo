@@ -26,7 +26,7 @@ import { FormatCurrency } from '../../../components/Format';
 import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { useNativeToken, useTokenBalance } from '../../../hooks/useTokens';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { formatAmount } from '../../../utils/priceUtils';
 import {
   useIntlMinutes,

@@ -1,4 +1,4 @@
-import { TabRoutes } from '../../../../types';
+import { TabRoutes } from '../../../../routesEnum';
 
 import AppRootTabDiscover from './AppRootTabDiscover';
 import AppRootTabHome from './AppRootTabHome';
