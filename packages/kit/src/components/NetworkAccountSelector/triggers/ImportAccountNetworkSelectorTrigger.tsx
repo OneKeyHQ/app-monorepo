@@ -15,7 +15,7 @@ import { BaseSelectorTrigger } from './BaseSelectorTrigger';
 
 import type { ISelectorTriggerSharedProps } from './BaseSelectorTrigger';
 
-interface ImportAccountNetworkSelectorTeiggerProps
+interface ImportAccountNetworkSelectorTriggerProps
   extends ISelectorTriggerSharedProps {
   selectedNetwork: INetwork;
   showName?: boolean;
@@ -23,8 +23,8 @@ interface ImportAccountNetworkSelectorTeiggerProps
   selectableNetworks?: INetwork[];
 }
 
-const ImportAccountNetworkSelectorTeigger: FC<
-  ImportAccountNetworkSelectorTeiggerProps
+const ImportAccountNetworkSelectorTrigger: FC<
+  ImportAccountNetworkSelectorTriggerProps
 > = ({
   showName = true,
   type = 'basic',
@@ -91,4 +91,4 @@ const ImportAccountNetworkSelectorTeigger: FC<
   );
 };
 
-export { ImportAccountNetworkSelectorTeigger };
+export { ImportAccountNetworkSelectorTrigger };

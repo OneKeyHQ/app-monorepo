@@ -49,7 +49,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import showDerivationPathBottomSheetModal from '../../components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
 import { BaseSelectorTrigger } from '../../components/NetworkAccountSelector/triggers/BaseSelectorTrigger';
-import { ImportAccountNetworkSelectorTeigger } from '../../components/NetworkAccountSelector/triggers/ImportAccountNetworkSelectorTeigger';
+import { ImportAccountNetworkSelectorTrigger } from '../../components/NetworkAccountSelector/triggers/ImportAccountNetworkSelectorTrigger';
 import { useManageNetworks } from '../../hooks';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
@@ -587,7 +587,7 @@ function AddExistingWalletView(
         />
       ) : (
         <Form>
-          <ImportAccountNetworkSelectorTeigger
+          <ImportAccountNetworkSelectorTrigger
             selectedNetwork={selectedNetwork}
             selectableNetworks={selectableNetworks}
             onSelected={handleNetworkOnSelected}
