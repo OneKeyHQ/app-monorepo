@@ -490,6 +490,26 @@ export default class Vault extends VaultBase {
           extraInfo: null,
         };
 
+        let nativeFee = '';
+        try {
+          const inputAmount = tx.inputs.reduce(
+            (acc, input) => acc.plus(input.previous_outpoint_amount.toString()),
+            new BigNumber(0),
+          );
+
+          const outputAmount = tx.outputs.reduce(
+            (acc, output) => acc.plus(output.amount.toString()),
+            new BigNumber(0),
+          );
+
+          nativeFee = inputAmount
+            .minus(outputAmount)
+            .shiftedBy(-decimals)
+            .toFixed();
+        } catch {
+          nativeFee = new BigNumber(tx.mass).shiftedBy(-decimals).toFixed();
+        }
+
         const decodedTx: IDecodedTx = {
           txid: tx.transaction_id,
           owner: dbAccount.address,
@@ -509,9 +529,7 @@ export default class Vault extends VaultBase {
           networkId: this.networkId,
           accountId: this.accountId,
           extraInfo: null,
-          totalFeeInNative: new BigNumber(tx.mass)
-            .shiftedBy(-decimals)
-            .toFixed(),
+          totalFeeInNative: nativeFee,
         };
         decodedTx.updatedAt =
           typeof tx.block_time !== 'undefined' ? tx.block_time : Date.now();
