@@ -29,7 +29,6 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
   IMPL_EVM,
-  INDEX_PLACEHOLDER,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -111,6 +110,7 @@ import { IDecodedTxActionType } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
 
 import type { DBAPI, ExportedSeedCredential } from './dbs/base';
+import type { ISimpleDbEntityUtxoData } from './dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { ChartQueryParams } from './priceController';
 import type {
   Account,
@@ -2742,6 +2742,7 @@ class Engine {
       importedAccounts: {},
       watchingAccounts: {},
       wallets: {},
+      simpleDb: {},
     };
 
     const wallets = await this.dbApi.getWallets({
@@ -2787,6 +2788,15 @@ class Engine {
         }
       }
     }
+
+    // prepare simpledb data
+    const utxoAccountsRawData = await simpleDb.utxoAccounts.getRawData();
+    if (!backupObject.simpleDb.utxoAccounts) {
+      backupObject.simpleDb.utxoAccounts = {
+        utxos: [],
+      };
+    }
+    backupObject.simpleDb.utxoAccounts.utxos = utxoAccountsRawData?.utxos ?? [];
     return backupObject;
   }
 
@@ -2928,6 +2938,14 @@ class Engine {
         await this.dbApi.confirmWalletCreated(wallet.id);
       }),
     );
+
+    if (backupObject.simpleDb.utxoAccounts) {
+      await Promise.all(
+        backupObject.simpleDb.utxoAccounts.utxos.map((utxo) =>
+          simpleDb.utxoAccounts.insertRestoreData(utxo),
+        ),
+      );
+    }
   }
 
   @backgroundMethod()
