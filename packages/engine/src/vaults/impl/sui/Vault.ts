@@ -298,6 +298,7 @@ export default class Vault extends VaultBase {
       this.networkId,
     );
 
+    const client = await this.getClient();
     const sender = await this.getAccountAddress();
     const transactionBlock = TransactionBlock.from(encodedTx.rawTx);
 
@@ -316,7 +317,12 @@ export default class Vault extends VaultBase {
       for (const transaction of transactions) {
         switch (transaction.kind) {
           case 'TransferObjects': {
-            const action = decodeActionWithTransferObjects(transaction, inputs);
+            const action = await decodeActionWithTransferObjects(
+              client,
+              transaction,
+              transactions,
+              inputs,
+            );
             if (action) {
               let actionKey = 'nativeTransfer';
               if (!action.isNative) {

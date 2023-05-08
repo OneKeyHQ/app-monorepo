@@ -65,11 +65,11 @@ async function parseTransactionSplitCoinsInput(
   client?: OneKeyJsonRpcProvider,
 ) {
   const [paymentObj, numObj] = argument;
-  let paymentType = '';
-  const paymentInputs = [];
+  let coin = '';
+  const amounts = [];
 
   if (typeof paymentObj === 'string' && paymentObj === 'GasCoin') {
-    paymentType = GAS_TYPE_ARG;
+    coin = GAS_TYPE_ARG;
   } else if (typeof paymentObj === 'object' && 'Input' in paymentObj) {
     const input = inputs[paymentObj.Input];
     if (input.type === 'object' && input.objectType === 'immOrOwnedObject') {
@@ -93,7 +93,7 @@ async function parseTransactionSplitCoinsInput(
       if (match) {
         const extracted = match[1];
         if (paymentObject?.details.type.startsWith('0x2::coin::Coin<')) {
-          paymentType = extracted;
+          coin = extracted;
         }
       }
     }
@@ -102,14 +102,14 @@ async function parseTransactionSplitCoinsInput(
   if (Array.isArray(numObj)) {
     for (const iterator of numObj) {
       if (typeof iterator === 'object' && 'Input' in iterator) {
-        paymentInputs.push(inputs[iterator.Input]);
+        amounts.push(inputs[iterator.Input]);
       }
     }
   }
 
   return {
-    paymentType,
-    paymentInputs,
+    coin,
+    amounts,
   };
 }
 
@@ -119,17 +119,17 @@ async function parseTransactionSplitCoins(params: {
   client?: OneKeyJsonRpcProvider;
 }) {
   const gasAmounts: Map<string, bigint> = new Map();
-  const { paymentType, paymentInputs } = await parseTransactionSplitCoinsInput(
+  const { coin, amounts } = await parseTransactionSplitCoinsInput(
     params.argument,
     params.inputs,
     params.client,
   );
 
-  for (const iterator of paymentInputs) {
+  for (const iterator of amounts) {
     if (iterator?.type === 'pure') {
       if (iterator.valueType === 'u64') {
         // @ts-expect-error
-        gasAmounts.set(paymentType, iterator.value);
+        gasAmounts.set(coin, iterator.value);
       }
     }
   }

@@ -25,6 +25,8 @@ const Content = object({
   'fields': Fields,
 });
 
+// json to superstruct
+// https://quicktype-superstruct.jguddas.de/
 export const SuiPastObjectResponse = object({
   status: string(),
   details: object({
