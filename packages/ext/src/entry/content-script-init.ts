@@ -1,3 +1,4 @@
+/* eslint-disable import/order */
 // eslint-disable-next-line import/order
 import '@onekeyhq/shared/src/polyfills/polyfillsExtContentScript';
 
@@ -13,7 +14,7 @@ import type { IOneKeyWalletInfo } from '@onekeyhq/kit-bg/src/providers/ProviderA
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { startKeepAlivePolling } from '../background/keepAlive';
+// import { startKeepAlivePolling } from '../background/keepAlive';
 import devToolsButton from '../content-script/devToolsButton';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
