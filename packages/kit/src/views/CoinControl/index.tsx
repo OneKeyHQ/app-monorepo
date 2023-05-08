@@ -237,7 +237,11 @@ const CoinControl = () => {
 
   return (
     <Modal
-      header={intl.formatMessage({ id: 'title__coin_control' })}
+      header={
+        isSelectMode
+          ? intl.formatMessage({ id: 'title__coin_control' })
+          : 'UTXOs'
+      }
       headerDescription={<ModalHeader networkId={networkId} />}
       rightContent={
         <CoinControlListMenu

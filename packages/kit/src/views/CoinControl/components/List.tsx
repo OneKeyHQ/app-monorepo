@@ -131,6 +131,16 @@ const CoinControlCell: FC<ICellProps> = ({
     });
   }, [item.height, formatDate, blockTimeMap]);
 
+  const showFrozenOption = useMemo(() => {
+    if (listType === 'Available') {
+      return !showCheckbox;
+    }
+    if (listType === 'Frozen') {
+      return !isDust;
+    }
+    return true;
+  }, [listType, showCheckbox, isDust]);
+
   return (
     <ListItem
       flex={1}
@@ -229,7 +239,7 @@ const CoinControlCell: FC<ICellProps> = ({
           network={network}
           onConfirmEditLabel={onConfirmEditLabel}
           onFrozenUTXO={onFrozenUTXO}
-          showFrozenOption={!(isDust && listType === 'Frozen')}
+          showFrozenOption={showFrozenOption}
         >
           <IconButton
             alignItems="flex-end"

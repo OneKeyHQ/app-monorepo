@@ -263,9 +263,9 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
         icon: accountSubscriptionIcon,
       },
       showCoinControl && {
-        id: 'action__coin_control',
+        id: 'title__manage_utxos',
         onPress: onPressCoinControl,
-        icon: 'DocumentTextOutline',
+        icon: 'CircleStackOutline',
       },
       // TODO Share
     ],
