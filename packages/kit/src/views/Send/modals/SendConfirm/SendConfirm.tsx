@@ -99,9 +99,12 @@ function SendConfirm({
   });
 
   const { encodedTx } = useSendConfirmEncodedTx({
+    networkId,
+    accountId,
     sendConfirmParams: routeParams,
     networkImpl,
     address: account?.address || '',
+    selectedUtxos: advancedSettings.selectedUtxos,
   });
 
   const { decodedTx } = useDecodedTx({

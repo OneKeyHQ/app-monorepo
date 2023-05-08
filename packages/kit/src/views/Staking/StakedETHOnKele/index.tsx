@@ -242,7 +242,11 @@ const ListHeaderComponent = () => {
     });
   }, [navigation, networkId]);
 
-  const totalAmount = Number(minerOverview?.amount?.total_amount ?? 0);
+  const totalAmount =
+    Number(minerOverview?.amount?.total_amount ?? 0) +
+    Number(minerOverview?.amount.withdrawable ?? 0);
+  const totalAmountText = formatAmount(totalAmount, 8);
+  const isApproximate = Number(totalAmountText) !== totalAmount;
   const stakingAmount = Number(minerOverview?.amount?.staking_amount ?? 0);
 
   return (
@@ -264,7 +268,12 @@ const ListHeaderComponent = () => {
         />
       </Box>
       <Box mt="2">
-        <Typography.DisplayXLarge>{`${totalAmount} ETH`}</Typography.DisplayXLarge>
+        <Box flexDirection="row" alignItems="center">
+          {isApproximate ? (
+            <Typography.Caption mr="1">~</Typography.Caption>
+          ) : null}
+          <Typography.DisplayXLarge>{`${totalAmountText} ETH`}</Typography.DisplayXLarge>
+        </Box>
         <FormatCurrency
           numbers={[mainPrice ?? 0, totalAmount]}
           render={(ele) => (

@@ -37,7 +37,9 @@ const StakingCell: FC<Props> = ({ token, tokenId }) => {
   const stakedSupport = useTokenSupportStakedAssets(networkId, tokenId);
 
   const amount = useMemo(
-    () => minerOverview?.amount?.total_amount ?? 0,
+    () =>
+      Number(minerOverview?.amount?.total_amount ?? 0) +
+      Number(minerOverview?.amount.withdrawable ?? 0),
     [minerOverview],
   );
   const { serviceStaking } = backgroundApiProxy;
