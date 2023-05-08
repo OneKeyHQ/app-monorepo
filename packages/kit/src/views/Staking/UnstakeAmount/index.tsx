@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Box,
@@ -14,7 +15,6 @@ import {
   Text,
   ToastManager,
   Typography,
-  useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -45,7 +45,7 @@ type NavigationProps = ModalScreenProps<StakingRoutesParams>;
 
 export default function UnstakeAmount() {
   const intl = useIntl();
-  const isSmallScreen = useIsVerticalLayout();
+  const { height } = useWindowDimensions();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
   const { networkId, tokenIdOnNetwork } = route.params;
@@ -56,7 +56,7 @@ export default function UnstakeAmount() {
   const minerOverview = useKeleMinerOverview(networkId, accountId);
   const keleUnstakeOverview = useKeleUnstakeOverview(networkId, accountId);
   const mainPrice = useSimpleTokenPriceValue({ networkId });
-
+  const shortScreen = height < 768;
   const balance = minerOverview?.amount.retail_staked ?? '0';
   const retailMinAmount = keleDashboardGlobal?.retail_min_amount ?? '0';
   const sec = keleUnstakeOverview?.estimate_use_sec ?? 60;
@@ -200,9 +200,9 @@ export default function UnstakeAmount() {
       }}
     >
       <Box flex="1">
-        <Box flex="1" flexDirection="column">
-          <Center flex="1" my={2}>
-            <Center maxH="140px">
+        <Box flex="1" flexDirection="column" justifyContent="space-between">
+          <Center flex="1" flexDirection="column" justifyContent="space-around">
+            <Center flex="1" maxH="140px">
               <Text
                 textAlign="center"
                 typography="DisplayLarge"
@@ -210,7 +210,7 @@ export default function UnstakeAmount() {
               >
                 {tokenInfo?.symbol.toUpperCase() ?? ''}
               </Text>
-              <Center flex="1" py="4">
+              <Center flex="1" minH="30px">
                 <AutoSizeText
                   autoFocus
                   text={amount}
@@ -235,51 +235,49 @@ export default function UnstakeAmount() {
                 )}
               </Center>
             </Center>
+            <Center>
+              <HStack flexDirection="row" alignItems="center" space="3">
+                <Button size="sm" onPress={() => userInput(25)}>
+                  25%
+                </Button>
+                <Button size="sm" onPress={() => userInput(50)}>
+                  50%
+                </Button>
+                <Button size="sm" onPress={() => userInput(75)}>
+                  75%
+                </Button>
+                <Button size="sm" onPress={() => userInput(100)}>
+                  {intl.formatMessage({ id: 'action__max' })}
+                </Button>
+              </HStack>
+              <Box
+                h="8"
+                flexDirection="row"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Typography.Body2 color="text-subdued" mr="1">
+                  {intl.formatMessage({ id: 'content__available_balance' })}
+                </Typography.Body2>
+                <Typography.Body2Strong
+                  color={errorMsg && amount ? 'text-critical' : 'text-default'}
+                >
+                  {balance ?? ''} {tokenInfo?.symbol.toUpperCase()}
+                </Typography.Body2Strong>
+              </Box>
+            </Center>
           </Center>
-          <Center>
-            <HStack flexDirection="row" alignItems="center" space="3">
-              <Button size="sm" onPress={() => userInput(25)}>
-                25%
-              </Button>
-              <Button size="sm" onPress={() => userInput(50)}>
-                50%
-              </Button>
-              <Button size="sm" onPress={() => userInput(75)}>
-                75%
-              </Button>
-              <Button size="sm" onPress={() => userInput(100)}>
-                {intl.formatMessage({ id: 'action__max' })}
-              </Button>
-            </HStack>
-          </Center>
-          <Box
-            mt="4"
-            flexDirection="row"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Typography.Body2 color="text-subdued" mr="1">
-              {intl.formatMessage({ id: 'content__available_balance' })}
+          <Box flexDirection="row" justifyContent="space-between">
+            <Typography.Body2 color="text-subdued">
+              {intl.formatMessage({ id: 'form__est_arrival_time' })}
             </Typography.Body2>
-            <Typography.Body2Strong
-              color={errorMsg && amount ? 'text-critical' : 'text-default'}
-            >
-              {balance ?? ''} {tokenInfo?.symbol.toUpperCase()}
-            </Typography.Body2Strong>
-          </Box>
-          <Box mt="16">
-            <Box flexDirection="row" justifyContent="space-between">
-              <Typography.Body2 color="text-subdued">
-                {intl.formatMessage({ id: 'form__est_arrival_time' })}
-              </Typography.Body2>
-              <Typography.Body2>{intlMinutes}</Typography.Body2>
-            </Box>
+            <Typography.Body2>{intlMinutes}</Typography.Body2>
           </Box>
         </Box>
         {platformEnv.isNative && (
           <Box mt="4">
             <Keyboard
-              itemHeight={isSmallScreen ? '44px' : undefined}
+              itemHeight={shortScreen ? '44px' : undefined}
               pattern={validAmountRegex}
               text={amount}
               onTextChange={(text) => {

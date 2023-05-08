@@ -248,6 +248,9 @@ class ProviderApiSui extends ProviderApiBase {
     if (impl !== IMPL_SUI) {
       throw web3Errors.rpc.invalidRequest();
     }
+    if (chainId === 'mainnet') {
+      return 'sui:mainnet';
+    }
     if (chainId === '8888883') {
       return 'sui:testnet';
     }

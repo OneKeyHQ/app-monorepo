@@ -5,8 +5,7 @@ import { useIntl } from 'react-intl';
 import { Alert, Box, Text } from '@onekeyhq/components';
 
 import { openUrl } from '../../../../../utils/openUrl';
-
-const MONERO_GUI_URL = 'https://www.getmonero.org/downloads/';
+import { MONERO_GUI_URL } from '../../../consts';
 
 function XmrExtraInfo() {
   const intl = useIntl();

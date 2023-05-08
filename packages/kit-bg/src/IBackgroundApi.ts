@@ -14,6 +14,7 @@ import type ServiceApp from './services/ServiceApp';
 import type ServiceBatchTransfer from './services/ServiceBatchTransfer';
 import type ServiceBootstrap from './services/ServiceBootstrap';
 import type ServiceCloudBackup from './services/ServiceCloudBackup';
+import type ServiceContract from './services/ServiceContract';
 import type ServiceCronJob from './services/ServiceCronJob';
 import type ServiceDapp from './services/ServiceDapp';
 import type ServiceDerivationPath from './services/ServiceDerivationPath';
@@ -111,4 +112,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceAddressbook: ServiceAddressbook;
   serviceLimitOrder: ServiceLimitOrder;
   serviceUtxos: ServiceUtxos;
+  serviceContract: ServiceContract;
 }

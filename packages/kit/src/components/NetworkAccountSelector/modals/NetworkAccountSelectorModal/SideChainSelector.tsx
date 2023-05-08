@@ -12,6 +12,7 @@ import {
   Icon,
   KeyboardAvoidingView,
   Pressable,
+  RichTooltip,
   Searchbar,
   Text,
   Token,
@@ -19,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import { FlatListRef } from '@onekeyhq/components/src/FlatList';
 import type { INetwork } from '@onekeyhq/engine/src/types';
+import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -31,6 +33,8 @@ import {
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AllNetwork } from '../../../Header/AccountSelectorChildren/RightChainSelector';
 import { RpcStatusButton } from '../../RpcStatusButton';
+
+import { NetWorkDisabledInfo } from './NetworkDisabledInfo';
 
 import type { useAccountSelectorInfo } from '../../hooks/useAccountSelectorInfo';
 
@@ -70,7 +74,7 @@ function SideChainSelector({
   const [search, setSearch] = useState('');
   const { serviceAccountSelector } = backgroundApiProxy;
   const { enabledNetworks } = useManageNetworks();
-  const { selectedNetworkId } = accountSelectorInfo;
+  const { selectedNetworkId, activeWallet } = accountSelectorInfo;
   const flatListRef = useRef<any>(null);
 
   const data = useMemo(
@@ -142,79 +146,128 @@ function SideChainSelector({
     [scrollToItem],
   );
 
+  const renderNetworkItem = useCallback(
+    ({
+      item,
+      isActive,
+      isDisabled,
+      isLastItem,
+    }: {
+      item: INetwork;
+      isActive: boolean;
+      isLastItem: boolean;
+      isDisabled: boolean;
+    }) => (
+      <Pressable
+        _disabled={{ opacity: 0.5 }}
+        disabled={isDisabled}
+        onPress={() => {
+          const id = (item.id === AllNetwork ? '' : item.id) || '';
+          serviceAccountSelector.updateSelectedNetwork(id);
+          onPress?.({ networkId: id });
+        }}
+        flex={1}
+      >
+        {({ isHovered, isPressed }) => (
+          <HStack
+            alignItems="center"
+            space={3}
+            p={1.5}
+            m={fullWidthMode ? 0 : 1}
+            borderWidth={2}
+            bgColor={
+              isPressed
+                ? 'surface-pressed'
+                : isHovered
+                ? 'surface-hovered'
+                : undefined
+            }
+            borderColor={(() => {
+              if (fullWidthMode) {
+                return 'transparent';
+              }
+              return isActive ? 'interactive-default' : 'transparent';
+            })()}
+            rounded={fullWidthMode ? '12px' : 'full'}
+          >
+            <ChainNetworkIcon
+              item={item}
+              isLastItem={isLastItem}
+              onLastItemRender={() => scrollToItem({ isRetry: false })}
+            />
+            {fullWidthMode ? (
+              <>
+                <Text
+                  flex={1}
+                  typography="Body1Strong"
+                  isTruncated
+                  numberOfLines={1}
+                >
+                  {item.name}
+                </Text>
+                {item.id === selectedNetworkId && !isDisabled ? (
+                  <>
+                    <RpcStatusButton networkId={item.id} />
+                    <Icon color="interactive-default" name="CheckCircleSolid" />
+                  </>
+                ) : null}
+              </>
+            ) : null}
+          </HStack>
+        )}
+      </Pressable>
+    ),
+    [
+      fullWidthMode,
+      onPress,
+      scrollToItem,
+      selectedNetworkId,
+      serviceAccountSelector,
+    ],
+  );
+
   const renderItem = useCallback(
     (options: { item: INetwork; index: number }) => {
       const { item, index } = options;
       const isLastItem = index === data.length - 1;
       const isActive = selectedNetworkId === item.id;
-      return (
-        <Pressable
-          onPress={() => {
-            const id = (item.id === AllNetwork ? '' : item.id) || '';
-            serviceAccountSelector.updateSelectedNetwork(id);
-            onPress?.({ networkId: id });
-          }}
-        >
-          {({ isHovered, isPressed }) => (
-            <HStack
-              alignItems="center"
-              space={3}
-              p={1.5}
-              m={fullWidthMode ? 0 : 1}
-              borderWidth={2}
-              bgColor={
-                isPressed
-                  ? 'surface-pressed'
-                  : isHovered
-                  ? 'surface-hovered'
-                  : undefined
-              }
-              borderColor={(() => {
-                if (fullWidthMode) {
-                  return 'transparent';
-                }
-                return isActive ? 'interactive-default' : 'transparent';
-              })()}
-              rounded={fullWidthMode ? '12px' : 'full'}
-            >
-              <ChainNetworkIcon
-                item={item}
-                isLastItem={isLastItem}
-                onLastItemRender={() => scrollToItem({ isRetry: false })}
+      const isDisabled =
+        activeWallet?.type === WALLET_TYPE_HW &&
+        !item.settings.hardwareAccountEnabled;
+
+      if (fullWidthMode && isDisabled) {
+        return (
+          <HStack alignItems="center">
+            {renderNetworkItem({ item, isActive, isDisabled, isLastItem })}
+            <Box pr={2}>
+              <RichTooltip
+                // eslint-disable-next-line react/no-unstable-nested-components
+                trigger={({ ...props }) => (
+                  <Pressable {...props}>
+                    <Icon
+                      name="InformationCircleOutline"
+                      size={20}
+                      color="icon-subdued"
+                    />
+                  </Pressable>
+                )}
+                bodyProps={{
+                  children: <NetWorkDisabledInfo networkId={item.id} />,
+                }}
               />
-              {fullWidthMode ? (
-                <>
-                  <Text
-                    flex={1}
-                    typography="Body1Strong"
-                    isTruncated
-                    numberOfLines={1}
-                  >
-                    {item.name}
-                  </Text>
-                  {item.id === selectedNetworkId ? (
-                    <>
-                      <RpcStatusButton networkId={item.id} />
-                      <Icon
-                        color="interactive-default"
-                        name="CheckCircleSolid"
-                      />
-                    </>
-                  ) : null}
-                </>
-              ) : null}
-            </HStack>
-          )}
-        </Pressable>
-      );
+            </Box>
+          </HStack>
+        );
+      }
+
+      return renderNetworkItem({ item, isActive, isDisabled, isLastItem });
     },
     [
       data.length,
-      fullWidthMode,
-      scrollToItem,
-      onPress,
       selectedNetworkId,
-      serviceAccountSelector,
+      activeWallet?.type,
+      fullWidthMode,
+      renderNetworkItem,
     ],
   );
 

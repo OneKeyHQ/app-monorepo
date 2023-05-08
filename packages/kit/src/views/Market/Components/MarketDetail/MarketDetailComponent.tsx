@@ -26,7 +26,7 @@ import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { buildAddressDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
 import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
 import { defaultMenuOffset } from '../../../Overlay/BaseMenu';
-import { useGridBoxStyle } from '../../hooks/useMarketLayout';
+import { GridLayout, useGridBoxStyle } from '../../hooks/useMarketLayout';
 import {
   formatMarketUnitPosition,
   formatMarketValueForInfo,
@@ -215,105 +215,113 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
           <Typography.Heading mb={2}>
             {intl.formatMessage({ id: 'content__stats' })}
           </Typography.Heading>
-          <Box flexDirection="row" alignContent="flex-start" flexWrap="wrap">
-            <DataViewComponent
-              index={0}
-              isFetching={marketCap === undefined}
-              title={intl.formatMessage({ id: 'form__market_cap' })}
-              value={formatMarketUnitPosition(
-                unit,
-                formatMarketValueForInfo(marketCap),
-              )}
-            />
-            <DataViewComponent
-              index={1}
-              isFetching={marketCapRank === undefined}
-              title={intl.formatMessage({ id: 'form__market_cap_rank' })}
-              value={`#${marketCapRank ?? 0}`}
-            />
-            <DataViewComponent
-              index={2}
-              isFetching={marketCapDominance === undefined}
-              title={intl.formatMessage({ id: 'form__dominance' })}
-              value={`${marketCapDominance || 0}`}
-            />
-            <DataViewComponent
-              index={3}
-              isFetching={volume24h === undefined}
-              title={intl.formatMessage({ id: 'form__24h_volume' })}
-              value={formatMarketUnitPosition(
-                unit,
-                formatMarketValueForInfo(volume24h),
-              )}
-            />
-            <DataViewComponent
-              index={4}
-              isFetching={low24h === undefined}
-              title={intl.formatMessage({ id: 'form__24h_low' })}
-              value={formatMarketUnitPosition(
-                unit,
-                formatMarketValueForInfo(low24h),
-              )}
-            />
-            <DataViewComponent
-              index={5}
-              isFetching={high24h === undefined}
-              title={intl.formatMessage({ id: 'form__24h_high' })}
-              value={formatMarketUnitPosition(
-                unit,
-                formatMarketValueForInfo(high24h),
-              )}
-            />
-            <DataViewComponent
-              index={6}
-              isFetching={atl?.value === undefined}
-              title={intl.formatMessage({ id: 'form__all_time_low' })}
-              value={formatMarketUnitPosition(
-                unit,
-                formatMarketValueForInfo(atl?.value),
-              )}
-              subValue={atlTime}
-            />
-            <DataViewComponent
-              index={7}
-              isFetching={ath?.value === undefined}
-              title={intl.formatMessage({ id: 'form__all_time_high' })}
-              value={formatMarketUnitPosition(
-                unit,
-                formatMarketValueForInfo(ath?.value),
-              )}
-              subValue={athTime}
-            />
-          </Box>
+          <GridLayout>
+            <Box flexDirection="row" alignContent="flex-start" flexWrap="wrap">
+              <DataViewComponent
+                index={0}
+                isFetching={marketCap === undefined}
+                title={intl.formatMessage({ id: 'form__market_cap' })}
+                value={formatMarketUnitPosition(
+                  unit,
+                  formatMarketValueForInfo(marketCap),
+                )}
+              />
+              <DataViewComponent
+                index={1}
+                isFetching={marketCapRank === undefined}
+                title={intl.formatMessage({ id: 'form__market_cap_rank' })}
+                value={`#${marketCapRank ?? 0}`}
+              />
+              <DataViewComponent
+                index={2}
+                isFetching={marketCapDominance === undefined}
+                title={intl.formatMessage({ id: 'form__dominance' })}
+                value={`${marketCapDominance || 0}`}
+              />
+              <DataViewComponent
+                index={3}
+                isFetching={volume24h === undefined}
+                title={intl.formatMessage({ id: 'form__24h_volume' })}
+                value={formatMarketUnitPosition(
+                  unit,
+                  formatMarketValueForInfo(volume24h),
+                )}
+              />
+              <DataViewComponent
+                index={4}
+                isFetching={low24h === undefined}
+                title={intl.formatMessage({ id: 'form__24h_low' })}
+                value={formatMarketUnitPosition(
+                  unit,
+                  formatMarketValueForInfo(low24h),
+                )}
+              />
+              <DataViewComponent
+                index={5}
+                isFetching={high24h === undefined}
+                title={intl.formatMessage({ id: 'form__24h_high' })}
+                value={formatMarketUnitPosition(
+                  unit,
+                  formatMarketValueForInfo(high24h),
+                )}
+              />
+              <DataViewComponent
+                index={6}
+                isFetching={atl?.value === undefined}
+                title={intl.formatMessage({ id: 'form__all_time_low' })}
+                value={formatMarketUnitPosition(
+                  unit,
+                  formatMarketValueForInfo(atl?.value),
+                )}
+                subValue={atlTime}
+              />
+              <DataViewComponent
+                index={7}
+                isFetching={ath?.value === undefined}
+                title={intl.formatMessage({ id: 'form__all_time_high' })}
+                value={formatMarketUnitPosition(
+                  unit,
+                  formatMarketValueForInfo(ath?.value),
+                )}
+                subValue={athTime}
+              />
+            </Box>
+          </GridLayout>
         </Box>
         {expolorers?.length ? (
           <Box>
             <Typography.Heading mb={2}>
               {intl.formatMessage({ id: 'form__explorers' })}
             </Typography.Heading>
-            <Box flexDirection="row" alignContent="flex-start" flexWrap="wrap">
-              {expolorers?.map((e: MarketEXplorer, i) => {
-                if (e.url) {
-                  return (
-                    <MarketInfoExplorer
-                      key={i}
-                      index={i}
-                      explorer={e}
-                      onPress={() => {
-                        openUrl(
-                          e.url ?? '',
-                          intl.formatMessage({ id: 'form__explorers' }),
-                          {
-                            modalMode: true,
-                          },
-                        );
-                      }}
-                    />
-                  );
-                }
-                return <ExplorerAction explorer={e} index={i} />;
-              })}
-            </Box>
+            <GridLayout>
+              <Box
+                flexDirection="row"
+                alignContent="flex-start"
+                flexWrap="wrap"
+              >
+                {expolorers?.map((e: MarketEXplorer, i) => {
+                  if (e.url) {
+                    return (
+                      <MarketInfoExplorer
+                        key={i}
+                        index={i}
+                        explorer={e}
+                        onPress={() => {
+                          openUrl(
+                            e.url ?? '',
+                            intl.formatMessage({ id: 'form__explorers' }),
+                            {
+                              modalMode: true,
+                            },
+                          );
+                        }}
+                      />
+                    );
+                  }
+                  return <ExplorerAction explorer={e} index={i} />;
+                })}
+              </Box>
+            </GridLayout>
           </Box>
         ) : null}
         {about?.length ? (
