@@ -396,6 +396,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceUtxos() {
+    const ServiceUtxos =
+      require('./services/ServiceUtxos') as typeof import('./services/ServiceUtxos');
+    const value = new ServiceUtxos.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceUtxos', { value });
+    return value;
+  }
+
   get serviceContract() {
     const ServiceContract =
       require('./services/ServiceContract') as typeof import('./services/ServiceContract');

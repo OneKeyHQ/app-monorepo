@@ -8,6 +8,7 @@ import { SimpleDbEntityTokens } from './entity/SimpleDbEntityPresetTokens';
 import { SimpleDbEntityPwKey } from './entity/SimpleDbEntityPwKey';
 import { SimpleDbEntitySetting } from './entity/SimpleDbEntitySetting';
 import { SimpleDbEntitySwap } from './entity/SimpleDbEntitySwap';
+import { SimpleDbEntityUtxoAccounts } from './entity/SimpleDbEntityUtxoAccounts';
 import { SimpleDbEntityWalletConnect } from './entity/SimpleDbEntityWalletConnect';
 
 class SimpleDb {
@@ -28,6 +29,8 @@ class SimpleDb {
   market = new SimpleDbEntityMarket();
 
   setting = new SimpleDbEntitySetting();
+
+  utxoAccounts = new SimpleDbEntityUtxoAccounts();
 }
 
 // eslint-disable-next-line import/no-mutable-exports
