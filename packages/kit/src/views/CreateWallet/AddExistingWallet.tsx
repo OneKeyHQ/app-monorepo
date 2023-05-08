@@ -385,7 +385,7 @@ function AccountTypeSelectorTrigger({
         onPress={() =>
           showDerivationPathBottomSheetModal({
             type: 'create',
-            title: 'accountType',
+            title: intl.formatMessage({ id: 'content__account_type' }),
             walletId: mode,
             derivationOptions,
             selectedDerivation,
@@ -542,7 +542,9 @@ function AddExistingWalletView(
     const getImportWatchingAccountPlaceholder = () => {
       if (mode === 'watching' || mode === 'all') {
         if (mode === 'watching' && selectedNetwork.id === OnekeyNetwork.btc) {
-          return 'Public key';
+          return intl.formatMessage({
+            id: 'content__public_key',
+          });
         }
         return intl.formatMessage({
           id: 'form__import_watch_only_account_placeholder',
