@@ -14,6 +14,7 @@ import type {
   IAdaUTXO,
   IChangeAddress,
 } from '../../types';
+import type { IAdaSdk, IEnsureSDKReady, IGetCardanoApi } from './types';
 
 const ProvideMethod = 'callChainWebEmbedMethod';
 enum CardanoEvent {
@@ -33,7 +34,7 @@ type IResult = { error: any; result: any };
 /**
  * ensure web-embed is created successfully
  */
-const ensureSDKReady = async () =>
+const ensureSDKReady: IEnsureSDKReady = async () =>
   new Promise((resolve) => {
     appUIEventBus.emit(
       AppUIEventBusNames.EnsureChainWebEmbed,
@@ -130,7 +131,7 @@ type CardanoSignedTxWitness = {
 const hwSignTransaction = async (
   txBodyHex: string,
   signedWitnesses: CardanoSignedTxWitness[],
-  options: Record<string, any>,
+  options?: Record<string, any>,
 ) => {
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
     method: ProvideMethod,
@@ -194,7 +195,7 @@ const txToOneKey = async (
 };
 
 // DApp Function
-const getBalance = async (balances: IAdaAmount[]) => {
+const dAppGetBalance = async (balances: IAdaAmount[]) => {
   await ensureSDKReady();
   debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
@@ -209,7 +210,7 @@ const getBalance = async (balances: IAdaAmount[]) => {
   return result.result;
 };
 
-const getUtxos = async (
+const dAppGetUtxos = async (
   address: string,
   utxos: IAdaUTXO[],
   amount?: string | undefined,
@@ -232,7 +233,7 @@ const getUtxos = async (
   return result.result;
 };
 
-const getAddresses = async (addresses: string[]) => {
+const dAppGetAddresses = async (addresses: string[]) => {
   await ensureSDKReady();
   debugLogger.common.debug('ensure web embed exist');
   const result = (await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
@@ -247,7 +248,7 @@ const getAddresses = async (addresses: string[]) => {
   return result.result;
 };
 
-const convertCborTxToEncodeTx = async (
+const dAppConvertCborTxToEncodeTx = async (
   txHex: string,
   utxos: IAdaUTXO[],
   addresses: string[],
@@ -267,7 +268,7 @@ const convertCborTxToEncodeTx = async (
   return result.result;
 };
 
-const signData = async (
+const dAppSignData = async (
   address: string,
   payload: string,
   xprv: string,
@@ -287,21 +288,18 @@ const signData = async (
   return result.result;
 };
 
-const dAppUtils = {
-  getBalance,
-  getAddresses,
-  getUtxos,
-  convertCborTxToEncodeTx,
-  signData,
-};
-
-const getCardanoApi = async () =>
+const getCardanoApi: IGetCardanoApi = async () =>
   Promise.resolve({
     composeTxPlan,
     signTransaction,
     hwSignTransaction,
     txToOneKey,
-    dAppUtils,
+    dAppGetBalance,
+    dAppGetAddresses,
+    dAppGetUtxos,
+    dAppConvertCborTxToEncodeTx,
+    dAppSignData,
   });
 
-export { getCardanoApi, ensureSDKReady };
+const sdk: IAdaSdk = { getCardanoApi, ensureSDKReady };
+export default sdk;

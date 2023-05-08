@@ -9,7 +9,11 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { IBackgroundApi, IBackgroundApiBridge } from './IBackgroundApi';
+import type {
+  IBackgroundApi,
+  IBackgroundApiBridge,
+  IBackgroundApiInternalCallMessage,
+} from './IBackgroundApi';
 import type ProviderApiBase from './providers/ProviderApiBase';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -18,6 +22,7 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
+import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
 export class BackgroundApiProxyBase implements IBackgroundApiBridge {
   appSelector = (() => {
@@ -33,6 +38,8 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
   store = {} as IStore;
 
   bridge = {} as JsBridgeBase;
+
+  bridgeExtBg = {} as JsBridgeExtBackground;
 
   providers = {} as Record<IInjectedProviderNames, ProviderApiBase>;
 
@@ -70,7 +77,7 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
   }
 
   // init in NON-Ext UI env
-  private readonly backgroundApi?: IBackgroundApi | null = null;
+  readonly backgroundApi?: IBackgroundApi | null = null;
 
   async callBackgroundMethod(
     sync = true,
@@ -88,7 +95,7 @@ export class BackgroundApiProxyBase implements IBackgroundApiBridge {
     }
     let backgroundMethodName = `${INTERNAL_METHOD_PREFIX}${methodName}`;
     if (platformEnv.isExtension && platformEnv.isExtensionUi) {
-      const data = {
+      const data: IBackgroundApiInternalCallMessage = {
         service: serviceName,
         method: backgroundMethodName,
         params,

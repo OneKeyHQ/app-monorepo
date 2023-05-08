@@ -12,8 +12,12 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { navigationShortcuts } from '../routes/navigationShortcuts';
-import { ManageNetworkModalRoutes } from '../routes/routesEnum';
-import { ModalRoutes, RootRoutes, TabRoutes } from '../routes/types';
+import {
+  ManageNetworkModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+  TabRoutes,
+} from '../routes/routesEnum';
 import reducerAccountSelector, {
   EAccountSelectorMode,
 } from '../store/reducers/reducerAccountSelector';

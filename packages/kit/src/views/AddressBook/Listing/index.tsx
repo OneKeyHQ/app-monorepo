@@ -19,7 +19,7 @@ import {
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import { useAppSelector } from '../../../hooks';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { AddressBookRoutes } from '../routes';
 
 import AddressBookMenu from './menu';

@@ -22,7 +22,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { createBackgroundProviders } from './providers/backgroundProviders';
 
-import type { IBackgroundApiBridge } from './IBackgroundApi';
+import type {
+  IBackgroundApiBridge,
+  IBackgroundApiInternalCallMessage,
+} from './IBackgroundApi';
 import type ProviderApiBase from './providers/ProviderApiBase';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
@@ -296,8 +299,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async handleInternalMethods(payload: IJsBridgeMessagePayload): Promise<any> {
-    const { method, params } = (payload.data ?? {}) as IJsonRpcRequest;
-    const serviceName = (payload.data as { service?: string })?.service || '';
+    const { method, params, service } = (payload.data ??
+      {}) as IBackgroundApiInternalCallMessage;
+    const serviceName = service || '';
     const paramsArr = [].concat(params as any);
 
     /* eslint-disable  */

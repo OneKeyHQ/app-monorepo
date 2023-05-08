@@ -97,7 +97,7 @@ jobs:
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: 'cd packages/ext && yarn build:all'
+        run: 'yarn build:ext:v3'
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3

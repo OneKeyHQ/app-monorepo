@@ -5,7 +5,6 @@ import uuid from 'react-native-uuid';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { ISimpleDbEntityUtxoData } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   decrypt,
   encrypt,

@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { RootRoutes } from '../routes/types';
+import { RootRoutes } from '../routes/routesEnum';
 import { setHomePageCheckBoarding } from '../store/reducers/data';
 import { setOnBoardingLoadingBehindModal } from '../store/reducers/runtime';
 import { wait } from '../utils/helper';
@@ -12,6 +12,7 @@ import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 import { useAppSelector } from './redux';
 import useNavigation from './useNavigation';
 import { useNavigationActions } from './useNavigationActions';
+import { useReduxReady } from './useReduxReady';
 
 import type { ModalScreenProps, RootRoutesParams } from '../routes/types';
 
@@ -29,8 +30,9 @@ export const useOnboardingRequired = (isHomeCheck?: boolean) => {
   const homePageCheckBoarding = useAppSelector(
     (s) => s.data.homePageCheckBoarding,
   );
+  const { isReady } = useReduxReady();
   useEffect(() => {
-    if (!boardingCompleted) {
+    if (!boardingCompleted && isReady) {
       if (!isHomeCheck || (isHomeCheck && !homePageCheckBoarding)) {
         if (isHomeCheck) {
           backgroundApiProxy.dispatch(setHomePageCheckBoarding());
@@ -42,7 +44,7 @@ export const useOnboardingRequired = (isHomeCheck?: boolean) => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isReady]);
 };
 
 export function useOnboardingDone() {

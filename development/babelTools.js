@@ -1,6 +1,7 @@
 require('./env');
 const path = require('path');
 const developmentConsts = require('./developmentConsts');
+const envExposedToClient = require('./envExposedToClient');
 
 function fullPath(pathStr) {
   return path.resolve(__dirname, pathStr);
@@ -26,6 +27,13 @@ function normalizeConfig({ platform, config }) {
     moduleResolver = {
       alias: {
         ...moduleResolverAliasForAllWebPlatform,
+        ...(developmentConsts.isManifestV3
+          ? {
+              'filecoin.js': fullPath(
+                './module-resolver/filecoin.js/index.ext-bg-v3.js',
+              ),
+            }
+          : {}),
       },
     };
   }
@@ -50,22 +58,7 @@ function normalizeConfig({ platform, config }) {
       },
     };
   }
-
-  const transformInlineEnviromentVariables = [
-    'NODE_ENV',
-    'VERSION',
-    'BUILD_NUMBER',
-    'ONEKEY_PLATFORM',
-    'EXT_CHANNEL',
-    'ANDROID_CHANNEL',
-    'DESK_CHANNEL',
-    'COVALENT_KEY',
-    'HARDWARE_SDK_CONNECT_SRC',
-    'GITHUB_SHA',
-  ];
-
   if (platform === developmentConsts.platforms.app) {
-    transformInlineEnviromentVariables.push('JPUSH_KEY');
     moduleResolver = {
       alias: {
         '@ipld/dag-cbor': '@ipld/dag-cbor/dist/index.min.js',
@@ -92,7 +85,9 @@ function normalizeConfig({ platform, config }) {
       {
         // *** ATTENTION: DO NOT expose any sensitive variable here ***
         // ***        like password, secretKey, etc.                ***
-        'include': transformInlineEnviromentVariables,
+        'include': envExposedToClient.buildEnvExposedToClientDangerously({
+          platform,
+        }),
       },
     ],
     /*

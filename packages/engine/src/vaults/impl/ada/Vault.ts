@@ -42,7 +42,7 @@ import {
 } from './helper/bip32';
 import { getChangeAddress } from './helper/cardanoUtils';
 import ClientAda from './helper/ClientAda';
-import { ensureSDKReady, getCardanoApi } from './helper/sdk';
+import sdk from './helper/sdk';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -416,7 +416,7 @@ export default class Vault extends VaultBase {
     const { xpub, path, addresses } = dbAccount;
     const [utxos] = await Promise.all([
       client.getUTXOs(xpub, path, addresses),
-      ensureSDKReady(),
+      sdk.ensureSDKReady(),
     ]);
 
     const amountBN = new BigNumber(amount).shiftedBy(decimals);
@@ -436,7 +436,7 @@ export default class Vault extends VaultBase {
           amount: amountBN.toFixed(),
           assets: [],
         };
-    const CardanoApi = await getCardanoApi();
+    const CardanoApi = await sdk.getCardanoApi();
     let txPlan: Awaited<ReturnType<typeof CardanoApi.composeTxPlan>>;
     try {
       txPlan = await CardanoApi.composeTxPlan(
@@ -455,7 +455,6 @@ export default class Vault extends VaultBase {
     }
 
     const changeAddress = getChangeAddress(dbAccount);
-
     // @ts-expect-error
     const { fee, inputs, outputs, totalSpent, tx } = txPlan;
     const totalFeeInNative = new BigNumber(fee)
@@ -792,8 +791,8 @@ export default class Vault extends VaultBase {
       balance,
       ...(assetsBalance as IAdaAmount[]),
     ] as IAdaAmount[];
-    const CardanoApi = await getCardanoApi();
-    return CardanoApi.dAppUtils.getBalance(result);
+    const CardanoApi = await sdk.getCardanoApi();
+    return CardanoApi.dAppGetBalance(result);
   }
 
   async getUtxosForDapp(amount?: string) {
@@ -801,21 +800,21 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const { xpub, path, addresses } = dbAccount;
     const utxos = await client.getUTXOs(xpub, path, addresses);
-    const CardanoApi = await getCardanoApi();
-    return CardanoApi.dAppUtils.getUtxos(dbAccount.address, utxos, amount);
+    const CardanoApi = await sdk.getCardanoApi();
+    return CardanoApi.dAppGetUtxos(dbAccount.address, utxos, amount);
   }
 
   async getAccountAddressForDapp() {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    const CardanoApi = await getCardanoApi();
-    return CardanoApi.dAppUtils.getAddresses([dbAccount.address]);
+    const CardanoApi = await sdk.getCardanoApi();
+    return CardanoApi.dAppGetAddresses([dbAccount.address]);
   }
 
   async getStakeAddressForDapp() {
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const stakeAddress = await this.getStakeAddress(dbAccount.address);
-    const CardanoApi = await getCardanoApi();
-    return CardanoApi.dAppUtils.getAddresses([stakeAddress]);
+    const CardanoApi = await sdk.getCardanoApi();
+    return CardanoApi.dAppGetAddresses([stakeAddress]);
   }
 
   async buildTxCborToEncodeTx(txHex: string): Promise<IEncodedTxADA> {
@@ -826,8 +825,8 @@ export default class Vault extends VaultBase {
     const addresses = await client.getAssociatedAddresses(stakeAddress);
     const { xpub, path, addresses: accountAddresses } = dbAccount;
     const utxos = await client.getUTXOs(xpub, path, accountAddresses);
-    const CardanoApi = await getCardanoApi();
-    const encodeTx = await CardanoApi.dAppUtils.convertCborTxToEncodeTx(
+    const CardanoApi = await sdk.getCardanoApi();
+    const encodeTx = await CardanoApi.dAppConvertCborTxToEncodeTx(
       txHex,
       utxos,
       addresses,

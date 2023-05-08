@@ -7,7 +7,7 @@ import { Box, Icon, Image, Modal, Typography } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import swftLogoPNG from '../../../../assets/swft_logo.png';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { HistoryRequestRoutes } from '../../Help/Request/types';
 import Transaction from '../components/Transaction';
 import { swftcCustomerSupportUrl } from '../config';

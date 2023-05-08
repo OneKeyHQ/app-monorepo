@@ -9,7 +9,8 @@ import { useAppSelector, useNavigation } from '../../hooks';
 
 import { OverviewDefiProtocol } from './components/OverviewDefiProtocol';
 
-import type { HomeRoutes, HomeRoutesParams } from '../../routes/types';
+import type { HomeRoutes } from '../../routes/routesEnum';
+import type { HomeRoutesParams } from '../../routes/types';
 import type { RouteProp } from '@react-navigation/core';
 
 export type OverviewDefiListProps = {

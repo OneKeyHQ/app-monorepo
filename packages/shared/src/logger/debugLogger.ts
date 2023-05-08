@@ -211,7 +211,10 @@ if (platformEnv.isNative) {
 const DEBUG_LOGGER_STORAGE_KEY = '$$ONEKEY_DEBUG_LOGGER';
 
 const shouldUseLocalStorage =
-  platformEnv.isDesktop || platformEnv.isWeb || platformEnv.isJest;
+  platformEnv.isDesktop ||
+  platformEnv.isWeb ||
+  platformEnv.isJest ||
+  platformEnv.isExtensionOffscreen; // offscreen can't access chrome extension storage
 
 async function getDebugLoggerSettings(): Promise<string | undefined | null> {
   if (shouldUseLocalStorage) {

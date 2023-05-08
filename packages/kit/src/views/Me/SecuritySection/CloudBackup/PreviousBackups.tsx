@@ -16,14 +16,14 @@ import type { IBackupItemSummary } from '@onekeyhq/shared/src/services/ServiceCl
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../../hooks';
-import { HomeRoutes } from '../../../../routes/types';
+import { HomeRoutes } from '../../../../routes/routesEnum';
 
 import BackupSummary from './BackupSummary';
 import Wrapper from './Wrapper';
 
+import type { RootRoutes } from '../../../../routes/routesEnum';
 import type {
   HomeRoutesParams,
-  RootRoutes,
   RootRoutesParams,
 } from '../../../../routes/types';
 import type { CompositeNavigationProp } from '@react-navigation/native';

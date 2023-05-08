@@ -29,8 +29,13 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useAppSelector, useNavigation, useNetwork } from '../../../../hooks';
-import { ModalRoutes, RootRoutes } from '../../../../routes/types';
+import { useNavigation, useNetwork } from '../../../../hooks';
+import { useAppSelector } from '../../../../hooks/redux';
+import {
+  ModalRoutes,
+  RootRoutes,
+  SendModalRoutes,
+} from '../../../../routes/routesEnum';
 import { addTransaction } from '../../../../store/reducers/swapTransactions';
 import { wait } from '../../../../utils/helper';
 import {
@@ -38,7 +43,6 @@ import {
   openAppReview,
 } from '../../../../utils/openAppReview';
 import { showOverlay } from '../../../../utils/overlayUtils';
-import { SendModalRoutes } from '../../../Send/types';
 import {
   useCheckInputBalance,
   useInputLimitsError,
@@ -524,12 +528,11 @@ const ExchangeButton = () => {
 
     let encodedTx: IEncodedTx | undefined;
     if (typeof res?.data === 'object') {
-      // @ts-expect-error
       encodedTx = {
         ...res?.data,
         // SUI Transaction: error TS2322
         from: sendingAccount.address,
-      };
+      } as any;
     } else {
       encodedTx = res.data;
     }

@@ -19,7 +19,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const getShareModule = async () => {
   if (!platformEnv.isNative) return null;
-  return (await import('react-native-share')).default;
+  return (
+    await import('@onekeyhq/shared/src/modules3rdParty/react-native-share')
+  ).default;
 };
 
 export const ShareModal: FC = () => {

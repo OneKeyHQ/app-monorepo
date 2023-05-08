@@ -16,7 +16,11 @@ import {
 import type { MarketTopTabName } from '@onekeyhq/kit/src/store/reducers/market';
 
 import { navigationShortcuts } from '../../../../routes/navigationShortcuts';
-import { ModalRoutes, RootRoutes, TabRoutes } from '../../../../routes/types';
+import {
+  ModalRoutes,
+  RootRoutes,
+  TabRoutes,
+} from '../../../../routes/routesEnum';
 import { MarketRoutes } from '../../types';
 
 import type {

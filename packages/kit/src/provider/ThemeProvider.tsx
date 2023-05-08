@@ -55,7 +55,7 @@ export function useThemeProviderVariant() {
 
 const ThemeApp: FC = ({ children }) => {
   const { themeVariant, localeVariant } = useThemeProviderVariant();
-  const isReady = useReduxReady();
+  const { isReady } = useReduxReady();
   const leftSidebarCollapsed = useAppSelector(
     (s) => s.settings.leftSidebarCollapsed,
   );
@@ -77,7 +77,7 @@ const ThemeApp: FC = ({ children }) => {
     <Provider
       themeVariant={themeVariant}
       locale={localeVariant}
-      reduxReady={isReady.isReady ?? false}
+      reduxReady={isReady ?? false}
       leftSidebarCollapsed={!!leftSidebarCollapsed}
       setLeftSidebarCollapsed={setCollapsed}
     >

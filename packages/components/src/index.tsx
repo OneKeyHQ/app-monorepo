@@ -60,6 +60,7 @@ export { default as Image } from './Image';
 export { default as NetImage } from './NetImage';
 export { default as Slider } from './Slider';
 export { default as ImageViewer } from './ImageViewer';
+// do not expose in background
 export { default as SortableList } from './SortableList';
 export { default as TabView } from './TabView';
 export { default as Container } from './Container';

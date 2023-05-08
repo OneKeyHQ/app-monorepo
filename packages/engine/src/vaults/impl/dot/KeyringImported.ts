@@ -1,6 +1,5 @@
 import { bytesToHex } from '@noble/hashes/utils';
 import { ed25519 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
-import { bufferToU8a, u8aConcat } from '@polkadot/util';
 
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { Signer } from '@onekeyhq/engine/src/proxy';
@@ -17,6 +16,7 @@ import { COINTYPE_DOT as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineCon
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { TYPE_PREFIX } from './consts';
+import polkadotSdk from './sdk/polkadotSdk';
 
 import type { DotImplOptions } from './types';
 import type Vault from './Vault';
@@ -24,6 +24,8 @@ import type {
   SignedTx,
   UnsignedTx,
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
+
+const { bufferToU8a, u8aConcat } = polkadotSdk;
 
 // @ts-ignore
 export class KeyringImported extends KeyringImportedBase {

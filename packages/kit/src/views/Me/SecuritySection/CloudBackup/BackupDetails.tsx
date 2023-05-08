@@ -40,8 +40,8 @@ import BackupSummary from './BackupSummary';
 import { showUpgrateDialog } from './UpgrateDialog';
 import Wrapper from './Wrapper';
 
+import type { HomeRoutes } from '../../../../routes/routesEnum';
 import type {
-  HomeRoutes,
   HomeRoutesParams,
   RootRoutesParams,
 } from '../../../../routes/types';

@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
-import { u8aConcat } from '@polkadot/util';
 
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
@@ -22,6 +21,7 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { TYPE_PREFIX } from './consts';
+import polkadotSdk from './sdk/polkadotSdk';
 
 import type { DotImplOptions } from './types';
 import type Vault from './Vault';
@@ -31,6 +31,7 @@ import type {
 } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const HARDEN_PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
+const { u8aConcat } = polkadotSdk;
 
 // @ts-ignore
 export class KeyringHardware extends KeyringHardwareBase {

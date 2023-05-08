@@ -17,15 +17,15 @@ import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
 import type { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
-import type {
-  HomeRoutesParams,
-  ModalScreenProps,
-  RootRoutesParams,
-} from '@onekeyhq/kit/src/routes/types';
 import {
   HomeRoutes,
   ModalRoutes,
   RootRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
+import type {
+  HomeRoutesParams,
+  ModalScreenProps,
+  RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 import { setLocale, setTheme } from '@onekeyhq/kit/src/store/reducers/settings';
 import { supportedHaptics } from '@onekeyhq/shared/src/haptics';

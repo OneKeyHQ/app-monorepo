@@ -23,12 +23,11 @@ import type { TabRouteConfig } from '../../../../types';
 const name = TabRoutes.Me;
 const config: TabRouteConfig = {
   ...tabRoutesConfigBaseMap[name],
-  component: toFocusedLazy(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    withTabLayout(MeScreen, name),
-    {
+  component: withTabLayout(
+    toFocusedLazy(MeScreen, {
       rootTabName: name,
-    },
+    }),
+    name,
   ),
   children: [
     {

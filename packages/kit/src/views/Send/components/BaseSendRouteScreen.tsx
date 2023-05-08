@@ -29,6 +29,7 @@ export function BaseSendRouteScreen({
     closeOnError: true,
   });
   if (!accountId) {
+    // console.log('route.params >>>>>>', route.params);
     // TODO reject dapp request
     return (
       <BaseSendModal
@@ -49,12 +50,21 @@ export function BaseSendRouteScreen({
           dappApprove.reject();
         }}
       >
-        <Center flex={1} minH="300px">
+        <Center
+          flex={1}
+          minH="300px"
+          testID="BaseSendRouteScreen-EmptyAccountView"
+        >
           <Empty
             emoji="💳"
             title={intl.formatMessage({
               id: 'empty__no_account_title',
             })}
+            // handleAction={() => {
+            //   // $navigationRef.current.getState().routes[1].state.routes[0].state.routes[0].params
+            //   console.log('route.params >>>>>>', route.params);
+            // }}
+            // actionTitle="ok"
           />
         </Center>
       </BaseSendModal>

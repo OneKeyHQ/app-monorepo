@@ -7,7 +7,7 @@ import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import ETHLogoPNG from '../../../../assets/staking/eth_unstake.png';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { StakingRoutes } from '../typing';
 
 import type { StakingRoutesParams } from '../typing';

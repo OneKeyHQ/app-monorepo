@@ -23,7 +23,7 @@ import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import FormChainSelector from '../../components/Form/ChainSelector';
 import WalletAvatar from '../../components/WalletSelector/WalletAvatar';
-import { ModalRoutes, RootRoutes } from '../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { SendModalRoutes } from '../Send/types';
 
 import type { ModalScreenProps } from '../../routes/types';

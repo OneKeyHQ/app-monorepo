@@ -9,6 +9,9 @@ import { AccountCredentialType } from '../../../types/account';
 import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = Object.freeze({
+  disabledInExtensionManifestV3: true,
+  disabledInExtension: true,
+
   feeInfoEditable: false,
   privateKeyExportEnabled: true,
   tokenEnabled: false,
@@ -23,7 +26,6 @@ const settings: IVaultSettings = Object.freeze({
 
   addressDerivationDisabled: true,
   validationRequired: true,
-  disabledInExtension: true,
 
   accountNameInfo: {
     default: {

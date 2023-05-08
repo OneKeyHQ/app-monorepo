@@ -9,7 +9,7 @@ import type { ICON_NAMES } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { remove } from '../../../store/reducers/contacts';
 import BaseMenu from '../../Overlay/BaseMenu';
 import { AddressBookRoutes } from '../routes';

@@ -13,7 +13,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
-import { HomeRoutes } from '../../routes/types';
+import { HomeRoutes } from '../../routes/routesEnum';
 import { MARKET_FAVORITES_CATEGORYID } from '../../store/reducers/market';
 
 import MarketCategoryToggles from './Components/MarketList/MarketCategoryToggles';

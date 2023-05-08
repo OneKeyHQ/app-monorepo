@@ -8,6 +8,7 @@ import {
   ONEKEY_APP_DEEP_LINK,
   WALLET_CONNECT_DEEP_LINK,
 } from '../components/WalletConnect/walletConnectConsts';
+import { getExtensionIndexHtml } from '../utils/extUtils.getHtml';
 import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 
 import { legacyLinkingPathMap, linkingPathMap } from './linking.path';
@@ -30,12 +31,7 @@ import type { LinkingOptions } from '@react-navigation/native';
 const prefix = Linking.createURL('/');
 
 type WhiteListItem = {
-  screen:
-    | string
-    | {
-        vertical: string;
-        desktop: string;
-      };
+  screen: string;
   path?: string;
   exact?: boolean;
 };
@@ -51,6 +47,9 @@ function buildAppRootTabScreen(tabName: TabRoutes) {
 export const normalRouteWhiteList: WhiteListItemList = [
   {
     screen: `${RootRoutes.Onboarding}/${EOnboardingRoutes.Welcome}`,
+  },
+  {
+    screen: `${RootRoutes.Onboarding}`,
   },
   {
     screen: `${RootRoutes.OnLanding}`,
@@ -180,7 +179,7 @@ const getScreen = (screen: WhiteListItem['screen']) => {
   if (typeof screen === 'string') {
     return screen;
   }
-  return screen.desktop;
+  return screen;
 
   // **** vertical route is deprecated
   // if (isVerticalLayout && screen.vertical) {
@@ -188,6 +187,10 @@ const getScreen = (screen: WhiteListItem['screen']) => {
   // }
   // return screen.desktop;
 };
+
+function createPathFromScreen(screen: string) {
+  return `/${screen}`;
+}
 
 /**
  * split white list config and generate hierarchy config for react-navigation linking config
@@ -206,7 +209,7 @@ const generateScreenHierarchyRouteConfig = ({
   const screens = screenListStr.split('/').filter(Boolean);
   let pathStr = path;
   if (!pathStr && screenListStr) {
-    pathStr = `/${screenListStr}`;
+    pathStr = createPathFromScreen(screenListStr);
   }
   const pathList = (pathStr || '').split('/').filter(Boolean);
   if (!screens.length || (!pathList.length && !exact)) {
@@ -249,23 +252,15 @@ const generateScreenHierarchyRouteConfigList = (
     {},
   );
 
-const whiteList = [...normalRouteWhiteList];
-
-export function getExtensionIndexHtml() {
-  if (platformEnv.isExtensionBackgroundHtml) {
-    return 'background.html';
-  }
-  if (platformEnv.isExtensionUiPopup) {
-    return 'ui-popup.html';
-  }
-  if (platformEnv.isExtensionUiExpandTab) {
-    return 'ui-expand-tab.html';
-  }
-  if (platformEnv.isExtensionUiStandaloneWindow) {
-    return 'ui-standalone-window.html';
-  }
-  return 'ui-expand-tab.html';
+function buildWhiteList() {
+  const list = [...normalRouteWhiteList];
+  list.forEach((item) => {
+    item.path = item.path || createPathFromScreen(item.screen);
+  });
+  return list;
 }
+
+const whiteList = buildWhiteList();
 
 const buildLinking = (): LinkingOptions<any> => {
   const screenHierarchyConfig =
@@ -277,12 +272,14 @@ const buildLinking = (): LinkingOptions<any> => {
      * Only change url at whitelist routes, or return home page
      */
     getPathFromState(state, options) {
+      const extHtmlFileUrl = `/${getExtensionIndexHtml()}`;
       /**
        * firefox route issue, refresh cannot recognize hash, just redirect to home page after refresh.
        */
       if (platformEnv.isExtFirefox) {
-        return `/${getExtensionIndexHtml()}`;
+        return extHtmlFileUrl;
       }
+      let newPath = '/';
       const defaultPath = getPathFromStateDefault(state, options);
       const defaultPathWithoutQuery = defaultPath.split('?')[0] || '';
 
@@ -290,8 +287,14 @@ const buildLinking = (): LinkingOptions<any> => {
         (item) =>
           defaultPathWithoutQuery && item.path === defaultPathWithoutQuery,
       );
-      if (isWhiteList) return defaultPath;
-      return '/';
+      if (isWhiteList) {
+        newPath = defaultPath;
+      }
+      // keep manifest v3 url with html file
+      if (platformEnv.isExtChrome && platformEnv.isManifestV3) {
+        return `${extHtmlFileUrl}/#${newPath}`;
+      }
+      return newPath;
     },
     config: {
       initialRouteName: RootRoutes.Main,

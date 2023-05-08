@@ -1,3 +1,5 @@
+require('../../../development/env');
+
 // Do this as the first thing so that any code reading it knows the right env.
 process.env.BABEL_ENV = 'development';
 process.env.NODE_ENV = 'development';
@@ -10,6 +12,7 @@ const path = require('path');
 const configs = require('../webpack.config');
 const devUtils = require('./devUtils');
 const serverPort = require('./serverPort');
+const sourcemapBuilder = require('./sourcemapBuilder');
 
 devUtils.cleanBrowserBuild();
 
@@ -72,5 +75,8 @@ if (process.env.NODE_ENV !== 'production' && module.hot) {
 }
 
 (async () => {
+  if (sourcemapBuilder.isSourcemapEnabled) {
+    sourcemapBuilder.startServer();
+  }
   await server.start();
 })();

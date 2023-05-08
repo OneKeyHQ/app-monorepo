@@ -49,10 +49,18 @@ let uiHtml = [
 ].map((name) => createHtmlPlugin({ name }));
 uiHtml = lodash.flatten(uiHtml);
 
-let backgroundHtml = ['background'].map((name) => createHtmlPlugin({ name }));
+let backgroundHtml = [devUtils.consts.entry.background].map((name) =>
+  createHtmlPlugin({ name }),
+);
 backgroundHtml = lodash.flatten(backgroundHtml);
+
+let offscreenHtml = [devUtils.consts.entry.offscreen].map((name) =>
+  createHtmlPlugin({ name }),
+);
+offscreenHtml = lodash.flatten(offscreenHtml);
 
 module.exports = {
   uiHtml,
   backgroundHtml,
+  offscreenHtml,
 };
