@@ -14,12 +14,11 @@ import type { TabRouteConfig } from '../../../../types';
 const name = TabRoutes.Discover;
 const config: TabRouteConfig = {
   ...tabRoutesConfigBaseMap[name],
-  component: toFocusedLazy(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    withTabLayout(DiscoverScreen, name),
-    {
+  component: withTabLayout(
+    toFocusedLazy(DiscoverScreen, {
       rootTabName: name,
-    },
+    }),
+    name,
   ),
   children: [
     {

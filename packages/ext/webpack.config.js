@@ -1,3 +1,5 @@
+require('../../development/env');
+
 const webpack = require('webpack');
 const path = require('path');
 const fse = require('fs-extra');
@@ -6,73 +8,35 @@ const env = require('./development/env');
 const pluginsHtml = require('./development/pluginsHtml');
 const pluginsCopy = require('./development/pluginsCopy');
 const devUtils = require('./development/devUtils');
+const codeSplit = require('./development/codeSplit');
 const nextWebpack = require('./development/nextWebpack');
 const packageJson = require('./package.json');
 const webpackTools = require('../../development/webpackTools');
-const sourcemapServer = require('./development/sourcemapServer');
-const manifest = require('./src/manifest/index');
+const sourcemapBuilder = require('./development/sourcemapBuilder');
 const { extModuleTranspile } = require('../../development/webpackTranspiles');
+const htmlLazyScript = require('./development/htmlLazyScript');
+const minimizeOptions = require('./development/minimizeOptions');
 
 const ASSET_PATH = process.env.ASSET_PATH || '/';
 const IS_DEV = process.env.NODE_ENV !== 'production';
+const APP_VERSION = process.env.VERSION;
 
 // firefox chrome
 const buildTargetBrowser = devUtils.getBuildTargetBrowser();
 
-sourcemapServer.start();
-
 // FIX build error by withTM :
 //    Module parse failed: Unexpected token (7:11)
 //    You may need an appropriate loader to handle this file type
-const transpileModules = [
-  '@onekeyhq/blockchain-libs',
-  '@onekeyhq/components',
-  '@onekeyhq/kit',
-  '@onekeyhq/kit-bg',
-  '@onekeyhq/shared',
-  '@onekeyhq/engine',
-  '@onekeyhq/app',
-  ...extModuleTranspile,
-];
+const transpileModules = [...extModuleTranspile];
 
-// load the secrets
-const secretsPath = path.join(__dirname, `secrets.${env.NODE_ENV}.js`);
-const secrets = fse.existsSync(secretsPath) ? secretsPath : false;
-
-const alias = {
-  'react-dom': '@hot-loader/react-dom',
-  // 'secrets': secrets,
-};
-
-const fileExtensions = [
-  'jpg',
-  'jpeg',
-  'png',
-  'gif',
-  'eot',
-  'otf',
-  'svg',
-  'ttf',
-  'woff',
-  'woff2',
-];
-
-const resolveExtensions = fileExtensions
-  .map((extension) => `.${extension}`)
-  .concat(['.js', '.jsx', '.ts', '.tsx', '.d.ts', '.css']);
-
-class HtmlLazyScriptPlugin {
-  apply(compiler) {
-    compiler.hooks.done.tap('HtmlLazyScriptPlugin', (compilation, callback) => {
-      console.log('HtmlLazyScriptPlugin >>>>>>>> ');
-      const doTask = require('./development/htmlLazyScript');
-      doTask();
-    });
-  }
+const alias = {};
+if (IS_DEV) {
+  alias['react-dom'] = '@hot-loader/react-dom';
 }
 
-const isManifestV3 = manifest.manifest_version >= 3;
-const isManifestV2 = !isManifestV3;
+const isManifestV3 = devUtils.isManifestV3();
+const isManifestV2 = devUtils.isManifestV2();
+
 function createConfig({ config }) {
   let webpackConfig = {
     // add custom config, will be deleted later
@@ -80,9 +44,9 @@ function createConfig({ config }) {
       notHotReload: [
         // disable background webpackDevServer hotReload in manifest V3, it will cause error
         //    manifest V3 background will reload automatically after UI reloaded
-        isManifestV3 ? 'background' : '',
-        'content-script',
-        'ui-devtools',
+        isManifestV3 ? devUtils.consts.entry.background : '',
+        devUtils.consts.entry['content-script'],
+        devUtils.consts.entry['ui-devtools'],
       ].filter(Boolean),
     },
     mode: IS_DEV ? 'development' : 'production', // development, production
@@ -91,10 +55,10 @@ function createConfig({ config }) {
       // DO NOT set entry here, set by multipleEntryConfigs later
     },
     output: {
-      path: path.resolve(__dirname, 'build', buildTargetBrowser),
+      path: path.resolve(__dirname, 'build', devUtils.getOutputFolder()),
       // do not include [hash] here, as `content-script.bundle.js` filename should be stable
       filename: '[name].bundle.js',
-      chunkFilename: '[name].[chunkhash:6].chunk.js',
+      chunkFilename: `${config.name}.[name]-[chunkhash:6].chunk.js`,
       publicPath: ASSET_PATH,
       globalObject: 'this', // FIX: window is not defined in service-worker background
     },
@@ -148,16 +112,11 @@ function createConfig({ config }) {
     },
     plugins: [
       new webpack.ProgressPlugin(),
-      // expose and write the allowed env vars on the compiled bundle
-      new webpack.EnvironmentPlugin(['NODE_ENV']),
-      new webpack.DefinePlugin({
-        'process.env.VERSION': JSON.stringify(packageJson.version),
-      }),
       // FIX ERROR: process is not defined
       new webpack.ProvidePlugin({
         process: 'process/browser',
       }),
-      new HtmlLazyScriptPlugin(),
+      new htmlLazyScript.HtmlLazyScriptPlugin(config),
     ],
     infrastructureLogging: {
       level: 'info',
@@ -183,32 +142,13 @@ function createConfig({ config }) {
     //
 
     webpackConfig.devtool = false;
-    if (process.env.GENERATE_SOURCEMAP === 'true') {
-      webpackConfig.plugins.push(
-        new webpack.SourceMapDevToolPlugin({
-          append: `\n//# sourceMappingURL=http://127.0.0.1:${sourcemapServer.port}/[url]`,
-          filename: '[file].map',
-          // TODO eval is NOT support in Ext.
-          //      sourcemap building is very very very SLOW
-          module: true,
-          columns: true,
-        }),
-      );
+    if (sourcemapBuilder.isSourcemapEnabled) {
+      webpackConfig.plugins.push(sourcemapBuilder.createSourcemapBuildPlugin());
     }
   } else {
     webpackConfig.optimization = {
       ...webpackConfig.optimization,
-      minimize: true,
-      minimizer: [
-        new TerserPlugin({
-          extractComments: false,
-          terserOptions: {
-            compress: {
-              drop_console: true,
-            },
-          },
-        }),
-      ],
+      ...minimizeOptions.buildMinimizeOptions(),
     };
   }
 
@@ -216,6 +156,7 @@ function createConfig({ config }) {
 
   webpackConfig = webpackTools.normalizeConfig({
     platform: webpackTools.developmentConsts.platforms.ext,
+    isManifestV3,
     config: webpackConfig,
     configName: config.name,
     enableAnalyzerHtmlReport: true,
@@ -225,76 +166,34 @@ function createConfig({ config }) {
   return webpackConfig;
 }
 
-let chunkIndex = 800;
-function enableCodeSplitChunks({ config, name }) {
-  let maxSizeMb = 4;
-  const isFirefox = buildTargetBrowser === 'firefox';
-  const isChrome =
-    buildTargetBrowser === 'chrome' || buildTargetBrowser === 'edge';
-  if (isFirefox) {
-    maxSizeMb = 1;
-  }
-  config.optimization.splitChunks = {
-    // merge webpackTools.normalizeConfig() splitChunks config
-    ...config.optimization.splitChunks,
-    chunks: isFirefox ? 'all' : 'all', // all, async, and initial
-    minSize: 100 * 1024, // 100k
-    maxSize: maxSizeMb * 1024 * 1024, // limit to max 2MB to ignore firefox lint error
-
-    // auto-gen chunk file name by module name or just increasing number
-    name: (module, chunks, cacheGroupKey, p1, p2, p3) => {
-      chunkIndex += 1;
-      const returnName = name ? `vendors-${name}-${chunkIndex}` : false;
-      // return returnName;
-
-      // **** reduce module duplication across chunks
-      return false;
-    },
-
-    hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
-    automaticNameDelimiter: `.`, // ~ => .
-    automaticNameMaxLength: 15, // limit max length of auto-gen chunk file name
-    // maxAsyncRequests: 5, // for each additional load no more than 5 files at a time
-    // maxInitialRequests: 3, // each entrypoint should not request more then 3 js files
-    // cacheGroups: {
-    //   vendors: {
-    //     test: /[\\/]node_modules[\\/]/,
-    //     priority: -10,
-    //     enforce: true, // seperate vendor from our code
-    //   },
-    //   default: {
-    //     minChunks: 2,
-    //     priority: -20,
-    //     reuseExistingChunk: true,
-    //   },
-    // },
-  };
-  if (isChrome) {
-    // memory leak issue
-    // config.optimization.splitChunks = undefined;
-  }
-}
-function disableCodeSplitChunks({ config, name }) {
-  config.optimization.splitChunks = undefined;
-}
-
 // https://webpack.js.org/configuration/configuration-types/#exporting-multiple-configurations
 const multipleEntryConfigs = [
-  // ui build (always code-split)
+  // **** ui build (always code-split)
   {
     config: {
-      name: 'ui',
+      name: devUtils.consts.configName.ui,
       entry: {
-        'ui-popup': path.join(__dirname, 'src/entry/ui-popup.tsx'),
+        [devUtils.consts.entry['ui-popup']]: path.join(
+          __dirname,
+          'src/entry/ui-popup.tsx',
+        ),
         ...(isManifestV3
           ? {}
           : {
-              // 'background': path.join(__dirname, 'src/entry/background.ts'),
+              // [devUtils.consts.entry.background]: path.join(__dirname, 'src/entry/background.ts'),
             }),
       },
     },
     configUpdater(config) {
-      enableCodeSplitChunks({ config, name: 'ui' });
+      if (isManifestV2) {
+        codeSplit.enableCodeSplitChunks({
+          config,
+        });
+      } else {
+        codeSplit.enableCodeSplitChunks({
+          config,
+        });
+      }
       config.plugins = [
         ...config.plugins,
         ...pluginsHtml.uiHtml,
@@ -304,41 +203,94 @@ const multipleEntryConfigs = [
       return config;
     },
   },
-  // manifest v3 background standalone build without code-split
+
+  // **** manifest v3 background standalone build without code-split
   (isManifestV3 || isManifestV2) && {
     config: {
-      name: 'bg',
-      dependencies: IS_DEV ? ['ui'] : ['ui'],
+      name: devUtils.consts.configName.bg,
+      dependencies: IS_DEV
+        ? [devUtils.consts.configName.ui]
+        : [devUtils.consts.configName.ui],
       entry: {
-        'background': path.join(__dirname, 'src/entry/background.ts'),
+        [devUtils.consts.entry.background]: path.join(
+          __dirname,
+          'src/entry/background.ts',
+        ),
       },
     },
     configUpdater(config) {
       if (isManifestV2) {
-        enableCodeSplitChunks({ config, name: 'bg' });
+        codeSplit.enableCodeSplitChunks({
+          config,
+        });
       } else {
         // manifest v3 background can NOT split code
-        disableCodeSplitChunks({ config, name: 'bg' });
+        codeSplit.disableCodeSplitChunks({
+          config,
+        });
       }
 
-      config.plugins = [...config.plugins, ...pluginsHtml.backgroundHtml];
+      config.plugins = [
+        ...config.plugins,
+        ...pluginsHtml.backgroundHtml,
+      ].filter(Boolean);
       return config;
     },
   },
-  // content-script build (do NOT code-split)
+
+  // **** manifest v3 offscreen standalone build
+  isManifestV3 && {
+    config: {
+      name: devUtils.consts.configName.offscreen,
+      entry: {
+        [devUtils.consts.entry.offscreen]: path.join(
+          __dirname,
+          'src/entry/offscreen.ts',
+        ),
+      },
+      dependencies: [
+        devUtils.consts.configName.ui,
+        devUtils.consts.configName.bg,
+      ],
+    },
+    configUpdater(config) {
+      codeSplit.enableCodeSplitChunks({
+        config,
+      });
+
+      config.plugins = [...config.plugins, ...pluginsHtml.offscreenHtml].filter(
+        Boolean,
+      );
+
+      return config;
+    },
+  },
+
+  // **** content-script build (do NOT code-split)
   {
     config: {
-      name: 'cs',
-      dependencies: isManifestV3 ? ['ui', 'bg'] : ['ui', 'bg'],
+      name: devUtils.consts.configName.cs,
+      dependencies: isManifestV3
+        ? [
+            devUtils.consts.configName.ui,
+            devUtils.consts.configName.bg,
+            devUtils.consts.configName.offscreen,
+          ]
+        : [devUtils.consts.configName.ui, devUtils.consts.configName.bg],
       entry: {
-        'content-script': path.join(__dirname, 'src/entry/content-script.ts'),
+        [devUtils.consts.entry['content-script']]: path.join(
+          __dirname,
+          'src/entry/content-script.ts',
+        ),
       },
     },
     configUpdater(config) {
       // content-script can NOT split code
-      disableCodeSplitChunks({ config, name: 'cs' });
+      codeSplit.disableCodeSplitChunks({
+        config,
+      });
 
-      config.plugins = [...config.plugins, ...pluginsCopy];
+      config.plugins = [...config.plugins, ...pluginsCopy].filter(Boolean);
       return config;
     },
   },
@@ -348,6 +300,8 @@ const configs = devUtils.createMultipleEntryConfigs(
   createConfig,
   multipleEntryConfigs,
 );
+
+configs.forEach(codeSplit.disabledDynamicImportChunks);
 
 devUtils.writePreviewWebpackConfigJson(configs, 'webpack.config.preview.json');
 

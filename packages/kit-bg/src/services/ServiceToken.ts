@@ -631,7 +631,7 @@ export default class ServiceToken extends ServiceBase {
     } catch (e) {
       serverApiFetchFailed = true;
       debugLogger.common.error(
-        `getBalancesFromApi`,
+        `getAccountBalanceFromServerApi`,
         {
           params: [networkId, accountId],
           message: e instanceof Error ? e.message : e,

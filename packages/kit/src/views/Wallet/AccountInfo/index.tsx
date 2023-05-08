@@ -24,13 +24,13 @@ import {
   useActiveWalletAccount,
 } from '@onekeyhq/kit/src/hooks/redux';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/types';
-import { ReceiveTokenModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
-import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import {
   ModalRoutes,
+  ReceiveTokenModalRoutes,
   RootRoutes,
   TabRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+} from '@onekeyhq/kit/src/routes/routesEnum';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import type { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

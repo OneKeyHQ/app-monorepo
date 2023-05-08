@@ -7,7 +7,7 @@ import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
 import { encodePrivateKey, getPathIndex, getXprvString } from './helper/bip32';
-import { getCardanoApi } from './helper/sdk';
+import sdk from './helper/sdk';
 import { batchGetShelleyAddressByRootKey } from './helper/shelley-address';
 import { NetworkId } from './types';
 
@@ -122,7 +122,7 @@ export class KeyringImported extends KeyringImportedBase {
 
     const xprv = await getXprvString(encodeKey.rootKey);
     const accountIndex = getPathIndex(dbAccount.path);
-    const CardanoApi = await getCardanoApi();
+    const CardanoApi = await sdk.getCardanoApi();
     const { signedTx, txid } = await CardanoApi.signTransaction(
       encodedTx.tx.body,
       dbAccount.address,
@@ -157,11 +157,11 @@ export class KeyringImported extends KeyringImportedBase {
     const xprv = await getXprvString(encodeKey.rootKey);
     const accountIndex = getPathIndex(dbAccount.path);
 
-    const CardanoApi = await getCardanoApi();
+    const CardanoApi = await sdk.getCardanoApi();
     const result = await Promise.all(
       messages.map(
         ({ payload }: { payload: { addr: string; payload: string } }) =>
-          CardanoApi.dAppUtils.signData(
+          CardanoApi.dAppSignData(
             payload.addr,
             payload.payload,
             xprv,

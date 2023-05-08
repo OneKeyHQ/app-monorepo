@@ -70,6 +70,7 @@ export type IVaultSettings = {
   addressDerivationDisabled?: boolean;
   validationRequired?: boolean;
   disabledInExtension?: boolean;
+  disabledInExtensionManifestV3?: boolean;
   exportCredentialInfo?: AccountCredential[];
   txExtraInfo?: TxExtraInfo[];
   enabledInDevModeOnly?: boolean;

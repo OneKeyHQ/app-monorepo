@@ -12,12 +12,17 @@ import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explore
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
 
 // define enum here to avoid cycle import
-import { HomeRoutes, ModalRoutes, RootRoutes, TabRoutes } from './routesEnum';
 
 import type { IOnboardingRoutesParams } from '../views/Onboarding/routes/types';
 import type { GalleryParams } from './Root/Gallery';
 import type * as SubModalRoutesParams from './Root/Modal/types';
-import type { MainRoutes } from './routesEnum';
+import type {
+  HomeRoutes,
+  MainRoutes,
+  ModalRoutes,
+  RootRoutes,
+  TabRoutes,
+} from './routesEnum';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type {
   CompositeScreenProps,
@@ -32,8 +37,6 @@ export type ScreensListItem<T extends string> = {
   alwaysShowBackButton?: boolean;
 } & HeaderTitleProps;
 export type ScreensList<T extends string> = ScreensListItem<T>[];
-
-export { ModalRoutes, RootRoutes, HomeRoutes, TabRoutes };
 
 export type ModalRoutesParams = {
   [ModalRoutes.CreateAccount]: NavigatorScreenParams<SubModalRoutesParams.CreateAccountRoutesParams>;

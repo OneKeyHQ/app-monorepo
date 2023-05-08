@@ -5,6 +5,7 @@ import { AppState } from 'react-native';
 
 import { getActiveWalletAccount } from '../../../hooks/redux';
 import useDappParams from '../../../hooks/useDappParams';
+import { useReduxReady } from '../../../hooks/useReduxReady';
 import { SendModalRoutes } from '../types';
 
 import type {
@@ -22,6 +23,7 @@ type NavigationProps = NavigationProp<
 export function SendConfirmFromDapp() {
   const navigation = useNavigation<NavigationProps>();
   const pendingAction = useRef<StackActionType>();
+  const { isReady } = useReduxReady();
   const {
     sourceInfo,
     unsignedMessage,
@@ -32,6 +34,9 @@ export function SendConfirmFromDapp() {
     networkId: dappNetworkId,
   } = useDappParams();
   useEffect(() => {
+    if (!isReady) {
+      return;
+    }
     // OK-16560: navigate when app in background would cause modal render in wrong size
     const appStateListener = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
@@ -46,6 +51,9 @@ export function SendConfirmFromDapp() {
     let action: any;
     // TODO get network and account from dapp connections
     const { networkId, accountId } = getActiveWalletAccount();
+
+    // alert(JSON.stringify({ networkId, accountId, isReady }));
+
     // TODO providerName
     if (encodedTx) {
       const params: SendConfirmParams = {
@@ -86,6 +94,7 @@ export function SendConfirmFromDapp() {
       appStateListener.remove();
     };
   }, [
+    isReady,
     _$t,
     encodedTx,
     navigation,

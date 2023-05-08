@@ -26,7 +26,7 @@ import { useActiveWalletAccount } from '../../../hooks';
 import { useAppSelector } from '../../../hooks/redux';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { useSingleToken } from '../../../hooks/useTokens';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { formatAmount } from '../../../utils/priceUtils';
 import { SendModalRoutes } from '../../Send/types';
 import {

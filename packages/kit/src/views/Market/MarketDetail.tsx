@@ -32,8 +32,8 @@ import { useMarketDetail } from './hooks/useMarketDetail';
 import { useMarketTokenItem } from './hooks/useMarketToken';
 
 import type { FiatPayModalRoutesParams } from '../../routes/Root/Modal/FiatPay';
+import type { HomeRoutes } from '../../routes/routesEnum';
 import type {
-  HomeRoutes,
   HomeRoutesParams,
   ModalScreenProps,
   TabRoutesParams,

@@ -1,16 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
-import { ApiPromise, HttpProvider, WsProvider } from '@polkadot/api';
-import { EXTRINSIC_VERSION } from '@polkadot/types/extrinsic/v4/Extrinsic';
-import {
-  hexToNumber,
-  hexToU8a,
-  u8aConcat,
-  u8aToHex,
-  u8aToU8a,
-  u8aWrapBytes,
-} from '@polkadot/util';
 import {
   construct,
   createMetadata,
@@ -71,17 +61,37 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { accountIdToAddress } from './sdk/address';
+import polkadotSdk from './sdk/polkadotSdk';
+import { EXTRINSIC_VERSION } from './sdk/polkadotSdkTypes';
 import settings from './settings';
 import { SubScanClient } from './substrate/query/subscan';
 import { getTransactionType, getTransactionTypeFromTxInfo } from './utils';
 
+import type {
+  BlockHash,
+  IApiPromise,
+  IHttpProvider,
+  IWsProvider,
+  Metadata,
+  ProviderInterface,
+  RuntimeVersion,
+} from './sdk/polkadotSdkTypes';
 import type { ExtrinsicParam } from './substrate/query/subscan/type';
 import type { DotImplOptions, IEncodedTxDot } from './types';
 import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
-import type { ProviderInterface } from '@polkadot/rpc-provider/types';
-import type { Metadata } from '@polkadot/types';
-import type { BlockHash, RuntimeVersion } from '@polkadot/types/interfaces';
 import type { BaseTxInfo, TypeRegistry } from '@substrate/txwrapper-polkadot';
+
+const {
+  ApiPromise,
+  HttpProvider,
+  WsProvider,
+  hexToNumber,
+  hexToU8a,
+  u8aConcat,
+  u8aToHex,
+  u8aToU8a,
+  u8aWrapBytes,
+} = polkadotSdk;
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -233,19 +243,19 @@ export default class Vault extends VaultBase {
   );
 
   getClientCache = memoizee(
-    async (rpcUrl: string): Promise<ApiPromise> => this.getNodeClient(rpcUrl),
+    async (rpcUrl: string): Promise<IApiPromise> => this.getNodeClient(rpcUrl),
     {
       promise: true,
       primitive: true,
       max: 1,
       normalizer: ([rpcUrl]) => rpcUrl,
-      dispose: async (value: ApiPromise) => {
+      dispose: async (value: IApiPromise) => {
         await value.disconnect();
       },
     },
   );
 
-  async getApiClient(): Promise<ApiPromise> {
+  async getApiClient(): Promise<IApiPromise> {
     const { rpcURL } = await this.engine.getNetwork(this.networkId);
     return this.getClientCache(rpcURL);
   }

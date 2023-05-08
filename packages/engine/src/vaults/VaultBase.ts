@@ -640,6 +640,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async getNextNonce(networkId: string, dbAccount: DBAccount): Promise<number> {
+    // TODO move to Vault.getOnChainNextNonce
     const onChainNonce =
       (
         await this.engine.providerManager.getAddresses(networkId, [

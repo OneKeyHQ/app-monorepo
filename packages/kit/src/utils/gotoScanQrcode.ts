@@ -1,6 +1,6 @@
 import walletConnectUtils from '../components/WalletConnect/utils/walletConnectUtils';
 import { getAppNavigation } from '../hooks/useAppNavigation';
-import { ModalRoutes, RootRoutes } from '../routes/types';
+import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
 import { OneKeyMigrateQRCodePrefix } from '../views/Onboarding/screens/Migration/util';
 import {
   ScanQrcodeRoutes,

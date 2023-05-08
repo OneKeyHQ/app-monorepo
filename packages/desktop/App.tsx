@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/order
-import '@onekeyhq/shared/src/polyfill';
+import '@onekeyhq/shared/src/polyfills';
 
 import type { FC } from 'react';
 

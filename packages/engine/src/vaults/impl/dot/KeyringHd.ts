@@ -1,6 +1,5 @@
 import { bytesToHex } from '@noble/hashes/utils';
 import { mnemonicFromEntropy } from '@onekeyfe/blockchain-libs/dist/secret';
-import { bufferToU8a, u8aConcat } from '@polkadot/util';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
 import { encrypt } from '@onekeyhq/engine/src/dbs/base';
@@ -24,11 +23,14 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { TYPE_PREFIX } from './consts';
+import polkadotSdk from './sdk/polkadotSdk';
 import { derivationHdLedger } from './utils';
 
 import type { DotImplOptions } from './types';
 import type Vault from './Vault';
 import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
+
+const { bufferToU8a, u8aConcat } = polkadotSdk;
 
 const HARDEN_PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 

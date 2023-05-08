@@ -11,7 +11,7 @@ import ETHLogoPNG from '../../../../assets/staking/eth_staking.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNativeToken } from '../../../hooks';
 import { getActiveWalletAccount } from '../../../hooks/redux';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { SendModalRoutes } from '../../Send/types';
 import { useKeleMinerOverview } from '../hooks';
 

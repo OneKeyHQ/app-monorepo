@@ -85,6 +85,7 @@ export type IPlatformEnv = {
   isExtensionBackground?: boolean;
   isExtensionBackgroundHtml?: boolean;
   isExtensionBackgroundServiceWorker?: boolean;
+  isExtensionOffscreen?: boolean;
   isExtensionUi?: boolean;
   isExtensionUiPopup?: boolean;
   isExtensionUiExpandTab?: boolean;
@@ -242,6 +243,11 @@ export const isExtensionBackgroundServiceWorker: boolean =
 export const isExtensionBackground: boolean =
   isExtensionBackgroundHtml || isExtensionBackgroundServiceWorker;
 
+const isExtensionOffscreen: boolean =
+  isExtension &&
+  isRuntimeBrowser &&
+  window.location.pathname.startsWith('/offscreen.html');
+
 export const isExtensionUi: boolean =
   isExtension &&
   isRuntimeBrowser &&
@@ -259,7 +265,7 @@ export const isExtensionUiStandaloneWindow: boolean =
 
 export const isManifestV3: boolean =
   // TODO firefox check v3
-  isExtension && chrome.runtime.getManifest().manifest_version === 3;
+  isExtension && chrome?.runtime?.getManifest?.()?.manifest_version === 3;
 
 export const canGetClipboard: boolean = !isWeb && !isExtension;
 
@@ -317,6 +323,7 @@ const platformEnv: IPlatformEnv = {
   isExtensionBackground,
   isExtensionBackgroundHtml,
   isExtensionBackgroundServiceWorker,
+  isExtensionOffscreen,
   isExtensionUi,
   isExtensionUiPopup,
   isExtensionUiExpandTab,

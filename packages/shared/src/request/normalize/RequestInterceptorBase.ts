@@ -35,11 +35,15 @@ export abstract class RequestInterceptorBase {
 
   abstract requestLibName: RequestLibNames;
 
+  normalizeHeaderKey(key: string) {
+    return key?.toLowerCase() ?? key;
+  }
+
   interceptRequest({ url }: { url: string }) {
     if (url && isOneKeyUrl({ url })) {
       const requestId = uuid.v4() as string;
       this.setHeader(
-        'X-Request-By',
+        this.normalizeHeaderKey('X-Request-By'),
         JSON.stringify({
           agent: `OneKey/${this.requestLibName}`,
           isNativeIOS: platformEnv.isNativeIOS,
@@ -49,10 +53,10 @@ export abstract class RequestInterceptorBase {
           isExtFirefox: platformEnv.isExtFirefox,
           version: platformEnv.version,
           buildNumber: platformEnv.buildNumber,
-          'x-onekey-request-id': requestId,
+          requestId,
         }),
       );
-      this.setHeader('x-onekey-request-id', requestId);
+      this.setHeader(this.normalizeHeaderKey('x-onekey-request-id'), requestId);
     }
     this.setDefaultTimeout(60 * 1000);
     this.setDefaultRetry(0);

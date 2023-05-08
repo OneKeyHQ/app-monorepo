@@ -12,7 +12,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppSelector } from '../../../hooks/useAppSelector';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { deviceUtils } from '../../../utils/hardware';
 import { SendModalRoutes } from '../../Send/types';
 import { LoggerTimerTags, createLoggerTimer } from '../utils';

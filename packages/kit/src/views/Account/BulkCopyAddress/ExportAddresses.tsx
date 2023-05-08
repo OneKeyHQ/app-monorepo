@@ -33,7 +33,9 @@ type FileType = 'txt' | 'csv';
 
 const getShareModule = async () => {
   if (!platformEnv.isNative) return null;
-  return (await import('react-native-share')).default;
+  return (
+    await import('@onekeyhq/shared/src/modules3rdParty/react-native-share')
+  ).default;
 };
 
 const getRNFSModule = async () => {

@@ -16,6 +16,7 @@ module.exports = {
   },
   'author': 'https://www.onekey.so',
   // 'default_locale': 'en', // enable this after locale file exists
+
   'content_security_policy': `
 script-src 'self' 'wasm-unsafe-eval';
 object-src 'self';
@@ -48,6 +49,32 @@ object-src 'self';
         ]
       : []),
   ].filter(Boolean),
+
+  'content_scripts': [
+    {
+      'matches': ['http://*/*', 'https://*/*', '<all_urls>'],
+      'js': ['content-script.bundle.js'],
+      'run_at': 'document_start', // MUST be document_start to inject ASAP
+      'all_frames': true, // including iframe inject
+    },
+  ],
+
+  'permissions': [
+    'https://dapp-server.onekey.so/*', // allow CORS requests in firefox
+    // 'http://localhost:8545/',
+    // 'https://*.infura.io/',
+    '*://*.onekeycn.com/*',
+    '*://*.onekeytest.com/*',
+    // '*://*.eth/',
+    'storage',
+    'unlimitedStorage',
+    'webRequest',
+    'webRequestBlocking',
+    // 'clipboardWrite',
+    'notifications',
+    // 'activeTab',
+    // 'webRequest',
+  ],
 };
 /*
 action:{

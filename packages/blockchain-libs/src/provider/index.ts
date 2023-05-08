@@ -107,12 +107,13 @@ const mockProvider = {
 };
 const IMPLS: { [key: string]: any } = {
   algo: mockProvider,
+  ada: mockProvider,
   cosmos: mockProvider,
   cfx: require('./chains/cfx'),
   eth: require('./chains/eth'),
+  near: require('./chains/near'),
   sol: require('./chains/sol'),
   stc: require('./chains/stc'),
-  near: require('./chains/near'),
   btc: mockProvider,
   tbtc: mockProvider,
   bch: mockProvider,

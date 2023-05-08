@@ -2,6 +2,7 @@ const fse = require('fs-extra');
 const fs = require('fs');
 const path = require('path');
 const cheerio = require('cheerio');
+const devUtils = require('./devUtils');
 
 function doTaskInFolder({ folder }) {
   if (!fs.existsSync(folder)) {
@@ -86,14 +87,24 @@ function doTaskInFolder({ folder }) {
 }
 
 function doTask() {
+  const folder = devUtils.getOutputFolder();
   doTaskInFolder({
-    folder: path.resolve(__dirname, '../build/chrome'),
-  });
-  doTaskInFolder({
-    folder: path.resolve(__dirname, '../build/firefox'),
-  });
-  doTaskInFolder({
-    folder: path.resolve(__dirname, '../build/edge'),
+    folder: path.resolve(__dirname, `../build/${folder}`),
   });
 }
-module.exports = doTask;
+
+class HtmlLazyScriptPlugin {
+  constructor(config) {
+    this.config = config;
+  }
+
+  apply(compiler) {
+    compiler.hooks.done.tap('HtmlLazyScriptPlugin', (compilation, callback) => {
+      console.log(`${this.config.name}: HtmlLazyScriptPlugin >>>>>>>> `);
+      doTask();
+      console.log(`${this.config.name}: HtmlLazyScriptPlugin DONE !!!!! `);
+    });
+  }
+}
+
+module.exports = { doTask, HtmlLazyScriptPlugin };

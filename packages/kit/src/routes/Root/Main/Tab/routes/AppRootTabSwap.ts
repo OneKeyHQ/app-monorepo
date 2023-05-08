@@ -13,12 +13,11 @@ const name = TabRoutes.Swap;
 const config: TabRouteConfig = {
   ...tabRoutesConfigBaseMap[name],
   hideDesktopNavHeader: true,
-  component: toFocusedLazy(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    withTabLayout(ScreenSwap, name),
-    {
+  component: withTabLayout(
+    toFocusedLazy(ScreenSwap, {
       rootTabName: name,
-    },
+    }),
+    name,
   ),
   children: [
     {

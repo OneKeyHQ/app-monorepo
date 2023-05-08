@@ -1,6 +1,6 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, no-unused-vars, @typescript-eslint/no-unused-vars */
 
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
@@ -2343,6 +2343,7 @@ class Engine {
   @backgroundMethod()
   async listNetworks(enabledOnly = true): Promise<Array<Network>> {
     const dbNetworks = await this.dbApi.listNetworks();
+
     const devModeEnable = appSelector((s) => s.settings.devMode?.enable);
     const networks = await Promise.all(
       dbNetworks
@@ -2354,13 +2355,26 @@ class Engine {
         .map(async (dbNetwork) => this.dbNetworkToNetwork(dbNetwork)),
     );
 
-    return networks.filter(
-      (network) =>
-        (platformEnv.isExtension
-          ? !network.settings.disabledInExtension
-          : true) &&
-        (devModeEnable ? true : !network.settings.enabledInDevModeOnly),
-    );
+    return networks.filter((network) => {
+      const { settings } = network;
+      if (
+        platformEnv.isExtension &&
+        platformEnv.isManifestV3 &&
+        settings.disabledInExtensionManifestV3
+      ) {
+        return false;
+      }
+
+      if (platformEnv.isExtension && settings.disabledInExtension) {
+        return false;
+      }
+
+      if (settings.enabledInDevModeOnly && !devModeEnable) {
+        return false;
+      }
+
+      return true;
+    });
   }
 
   listEnabledNetworksGroupedByVault = memoizee(

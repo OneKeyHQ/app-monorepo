@@ -4,7 +4,7 @@ import { memo, useMemo } from 'react';
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import { createLazyComponent } from '../../../utils/createLazyComponent';
-import { ModalRoutes } from '../../types';
+import { ModalRoutes } from '../../routesEnum';
 
 import { buildModalOpenAnimationOptions } from './buildModalStackNavigatorOptions';
 import createStackNavigator from './createStackNavigator';

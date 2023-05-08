@@ -14,14 +14,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/utils/errorUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import showHardwarePopup, {
-  CUSTOM_UI_RESPONSE,
-} from '../../views/Hardware/PopupHandle/showHardwarePopup';
+import showHardwarePopup from '../../views/Hardware/PopupHandle/showHardwarePopup';
+import { CUSTOM_UI_RESPONSE } from '../../views/Hardware/PopupHandle/showHardwarePopup.consts';
 
 import * as Error from './errors';
 import { getDeviceFirmwareVersion } from './OneKeyHardware';
 
-import type { HardwarePopup } from '../../views/Hardware/PopupHandle/showHardwarePopup';
+import type { HardwarePopup } from '../../views/Hardware/PopupHandle/showHardwarePopup.consts';
 import type { IResourceUpdateInfo, SYSFirmwareInfo } from '../updates/type';
 import type {
   Features,

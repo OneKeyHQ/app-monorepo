@@ -26,14 +26,14 @@ import {
   useActiveWalletAccount,
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
-import type {
-  HomeRoutesParams,
-  RootRoutesParams,
-} from '@onekeyhq/kit/src/routes/types';
 import {
   HomeRoutes,
   ModalRoutes,
   RootRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
+import type {
+  HomeRoutesParams,
+  RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

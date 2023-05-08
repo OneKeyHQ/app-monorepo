@@ -40,7 +40,9 @@ export const ShareView = () => {
 
   const onCapture = useCallback(async () => {
     if (!platformEnv.isNative) return null;
-    const share = (await import('react-native-share')).default;
+    const share = (
+      await import('@onekeyhq/shared/src/modules3rdParty/react-native-share')
+    ).default;
     const uri = await ref.current?.capture?.();
     if (!share || !uri) {
       ToastManager.show({

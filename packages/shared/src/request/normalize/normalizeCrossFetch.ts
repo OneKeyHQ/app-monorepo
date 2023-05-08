@@ -82,6 +82,32 @@ export function normalizeCrossFetch({
       // eslint-disable-next-line no-param-reassign
       options = {};
     }
+    const resourceInfo = resource as Request;
+
+    // manifest v3 axios may pass headers in fetch resource
+    // so we need merge headers from axios to fetch
+    // @ts-ignore
+    if (resourceInfo && resourceInfo.headers && resourceInfo.headers.entries) {
+      const headersArr: Array<[string, string]> = Array.from(
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        resourceInfo.headers.entries(),
+      );
+      options.headers = options.headers || {};
+      const { headers } = options;
+      headersArr.forEach(([key, val]) => {
+        if (
+          key &&
+          !(key in headers) &&
+          !(key?.toLowerCase() in headers) &&
+          !(key?.toUpperCase() in headers)
+        ) {
+          // @ts-ignore
+          headers[key] = val;
+        }
+      });
+    }
+
     const interceptor = new RequestInterceptorFetch(options);
     const url = getUrlFromResource(resource);
     interceptor.interceptRequest({ url });
