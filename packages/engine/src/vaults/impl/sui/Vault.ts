@@ -48,8 +48,11 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { parseTransferObjects } from './parses/Transaction';
+import { OneKeyJsonRpcProvider } from './provider/OnekeyJsonRpcProvider';
 import settings from './settings';
 import {
+  GAS_TYPE_ARG,
   SUI_NATIVE_COIN,
   computeGasBudget,
   deduplicate,
@@ -109,7 +112,7 @@ export default class Vault extends VaultBase {
 
   getSuiClient(url: string) {
     // client: jayson > cross-fetch
-    return new JsonRpcProvider(
+    return new OneKeyJsonRpcProvider(
       new Connection({
         fullnode: url,
         faucet: 'https://faucet.testnet.sui.io/gas',
@@ -752,7 +755,7 @@ export default class Vault extends VaultBase {
       }
 
       try {
-        const nativeToken: Token | undefined =
+        let nativeToken: Token | undefined =
           await this.engine.getNativeTokenInfo(this.networkId);
 
         const executionStatus = getExecutionStatus(tx);
@@ -767,6 +770,7 @@ export default class Vault extends VaultBase {
           getTimestampFromTransactionResponse(tx) ?? getTimeStamp();
 
         const transactionData = getTransaction(tx)?.data?.transaction;
+        const payments = getTransaction(tx)?.data?.gasData.payment;
 
         if (
           !transactionData ||
@@ -787,50 +791,43 @@ export default class Vault extends VaultBase {
             let amount: BigNumber = new BigNumber('0');
 
             if ('TransferObjects' in action) {
-              const actionKey = 'nativeTransfer';
+              let actionKey = 'nativeTransfer';
+              let actionType = IDecodedTxActionType.NATIVE_TRANSFER;
 
-              const transferObjects = action.TransferObjects;
+              const details = await parseTransferObjects({
+                argument: action.TransferObjects,
+                actions: transactionActions,
+                inputs: transactionData.inputs,
+                payments,
+                client,
+              });
 
-              const amountTransferObject = transferObjects[0];
-              const receiveTransferObject = transferObjects[1];
+              to = details.receive;
+              if (details.amounts.has(GAS_TYPE_ARG)) {
+                actionKey = 'nativeTransfer';
+                actionType = IDecodedTxActionType.NATIVE_TRANSFER;
+                amount = new BigNumber(
+                  details.amounts.get(GAS_TYPE_ARG)?.toString() ?? '0',
+                );
+              } else {
+                actionKey = 'tokenTransfer';
+                actionType = IDecodedTxActionType.TOKEN_TRANSFER;
+                // read the first token amount
+                for (const [key, value] of details.amounts.entries()) {
+                  amount = new BigNumber(value.toString());
+                  actionKey = 'tokenTransfer';
 
-              for (const transferObject of amountTransferObject) {
-                if (typeof transferObject === 'object') {
-                  if ('NestedResult' in transferObject) {
-                    const [index] = transferObject.NestedResult;
-                    const input = transactionData.inputs[index];
-                    if (input.type === 'pure') {
-                      amount = amount.plus(
-                        new BigNumber(input.value.toString()),
-                      );
-                      break;
-                    } else if (input.type === 'object') {
-                      // NFT
-                    }
-                  } else if ('Result' in transferObject) {
-                    const result = transferObject.Result;
-                    const input = transactionData.inputs[result];
-                    if (input.type === 'pure') {
-                      amount = new BigNumber(input.value.toString());
-                    } else if (input.type === 'object') {
-                      // NFT
-                    }
-                  }
+                  nativeToken = await this.engine.ensureTokenInDB(
+                    this.networkId,
+                    key,
+                  );
                 }
               }
 
-              if (typeof receiveTransferObject === 'object') {
-                if ('Input' in receiveTransferObject) {
-                  const result = receiveTransferObject.Input;
-                  const input = transactionData.inputs[result];
-                  if (input.type === 'pure') {
-                    to = input.value.toString();
-                  }
-                }
-              }
+              if (!nativeToken) return null;
 
               actions.push({
-                type: IDecodedTxActionType.NATIVE_TRANSFER,
+                type: actionType,
                 [actionKey]: {
                   tokenInfo: nativeToken,
                   from,
