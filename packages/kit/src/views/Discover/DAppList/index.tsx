@@ -7,13 +7,11 @@ import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
 
 import { Box, useIsVerticalLayout } from '@onekeyhq/components';
-import type {
-  HomeRoutes,
-  HomeRoutesParams,
-} from '@onekeyhq/kit/src/routes/types';
+import type { HomeRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
 import { useTranslation } from '../../../hooks';
 
+import type { HomeRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.DAppListScreen>;

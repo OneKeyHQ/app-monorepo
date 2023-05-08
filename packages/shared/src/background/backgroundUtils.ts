@@ -348,6 +348,7 @@ export const isDappScopeMatchNetwork = (
 };
 
 export const DISPATCH_ACTION_BROADCAST_METHOD_NAME = 'dispatchActionBroadcast';
+export const REPLACE_WHOLE_STATE = 'REPLACE_WHOLE_STATE';
 export type IDispatchActionBroadcastParams = {
   actions?: PayloadAction[];
   $isDispatchFromBackground: boolean;

@@ -12,12 +12,11 @@ import type { TabRouteConfig } from '../../../../types';
 const name = TabRoutes.Market;
 const config: TabRouteConfig = {
   ...tabRoutesConfigBaseMap[name],
-  component: toFocusedLazy(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    withTabLayout(ScreenMarket, name),
-    {
+  component: withTabLayout(
+    toFocusedLazy(ScreenMarket, {
       rootTabName: name,
-    },
+    }),
+    name,
   ),
   children: [
     {

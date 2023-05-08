@@ -1,7 +1,10 @@
 import { isNil } from 'lodash';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { normalRouteWhiteList } from '../routes/linking';
 
+export { getExtensionIndexHtml } from './extUtils.getHtml';
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
 export const UI_HTML_DEFAULT_MIN_HEIGHT = 600;
@@ -105,7 +108,11 @@ function openStandaloneWindow(routeInfo: OpenUrlRouteInfo) {
 
 function updatBrowserActionIcon(enable: boolean) {
   const iconPath = `icon-128${enable ? '' : '-disable'}.png`;
-  chrome.browserAction.setIcon({ path: iconPath });
+  if (platformEnv.isManifestV3) {
+    chrome?.action?.setIcon({ path: iconPath });
+  } else {
+    chrome?.browserAction?.setIcon({ path: iconPath });
+  }
 }
 
 export default {

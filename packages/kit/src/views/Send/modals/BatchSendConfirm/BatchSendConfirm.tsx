@@ -15,7 +15,7 @@ import { useWalletConnectPrepareConnection } from '../../../../components/Wallet
 import { useActiveSideAccount } from '../../../../hooks';
 import { useDisableNavigationAnimation } from '../../../../hooks/useDisableNavigationAnimation';
 import { useOnboardingRequired } from '../../../../hooks/useOnboardingRequired';
-import { ModalRoutes, RootRoutes } from '../../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { BulkSenderTypeEnum } from '../../../BulkSender/types';
 import { BatchTxsItemView } from '../../../TxDetail/BatchTxsItemView';
 import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModalBase';

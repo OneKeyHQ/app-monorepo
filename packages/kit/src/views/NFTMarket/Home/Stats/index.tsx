@@ -16,7 +16,7 @@ import {
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
-import { HomeRoutes } from '../../../../routes/types';
+import { HomeRoutes } from '../../../../routes/routesEnum';
 import ChainSelector from '../../ChainSelector';
 import DateSelector from '../../DateSelector';
 import { useDefaultNetWork } from '../hook';

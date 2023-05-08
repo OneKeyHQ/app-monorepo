@@ -16,15 +16,6 @@ module.exports = {
   'devtools_page': 'ui-devtools.html',
   */
 
-  // https://developer.chrome.com/docs/extensions/mv3/content_scripts/
-  'content_scripts': [
-    {
-      'matches': ['http://*/*', 'https://*/*', '<all_urls>'],
-      'js': ['content-script.bundle.js'],
-      'run_at': 'document_start', // MUST be document_start to inject ASAP
-      'all_frames': true, // including iframe inject
-    },
-  ],
   'icons': {
     '128': 'icon-128.png',
   },
@@ -47,21 +38,5 @@ module.exports = {
       'resources': ['icon-128.png'],
       'matches': [],
     },
-  ],
-  'permissions': [
-    'https://dapp-server.onekey.so/*', // allow CORS requests in firefox
-    // 'http://localhost:8545/',
-    // 'https://*.infura.io/',
-    '*://*.onekeycn.com/*',
-    '*://*.onekeytest.com/*',
-    // '*://*.eth/',
-    'storage',
-    'unlimitedStorage',
-    'webRequest',
-    'webRequestBlocking',
-    // 'clipboardWrite',
-    'notifications',
-    // 'activeTab',
-    // 'webRequest',
   ],
 };

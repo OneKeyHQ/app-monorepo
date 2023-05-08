@@ -1,4 +1,4 @@
-import type { HomeRoutes } from '../../routes/types';
+import type { HomeRoutes } from '../../routes/routesEnum';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 export type TokenDetailScreenValues = {

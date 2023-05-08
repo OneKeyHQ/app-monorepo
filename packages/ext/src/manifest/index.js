@@ -7,11 +7,12 @@ const firefoxManifest = require('./firefox');
 let browserManifest = {};
 if (process.env.EXT_CHANNEL === 'firefox') {
   browserManifest = firefoxManifest;
+} else if (process.env.EXT_MANIFEST_V3) {
+  // manifest v3
+  browserManifest = chromeManifestV3;
 } else {
   // manifest v2
   browserManifest = chromeManifest;
-  // manifest v3
-  // browserManifest = chromeManifestV3;
 }
 
 const mergedManifest = lodash.merge(

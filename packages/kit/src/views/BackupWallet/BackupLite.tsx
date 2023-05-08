@@ -9,8 +9,11 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import Protected, { ValidationFields } from '../../components/Protected';
-import { CreateWalletModalRoutes } from '../../routes/routesEnum';
-import { ModalRoutes, RootRoutes } from '../../routes/types';
+import {
+  CreateWalletModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../routes/routesEnum';
 
 import type { BackupWalletModalRoutes } from '../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/native';

@@ -1,11 +1,11 @@
 import type { FC } from 'react';
 import { memo, useCallback, useEffect } from 'react';
 
-import { requestPermissionsAsync } from 'expo-notifications';
 import { AppState, NativeModules } from 'react-native';
 
 import type { NotificationExtra } from '@onekeyhq/engine/src/managers/notification';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { requestPermissionsAsync } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
 import {
   checkPushNotificationPermission,
   hasPermission,

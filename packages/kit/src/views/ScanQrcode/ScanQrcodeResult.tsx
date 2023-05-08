@@ -22,8 +22,7 @@ import { CreateWalletModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
-import { TabRoutes } from '../../routes/types';
+import { ModalRoutes, RootRoutes, TabRoutes } from '../../routes/routesEnum';
 import { setIncomingUrl } from '../../store/reducers/webTabs';
 import { AddressBookRoutes } from '../AddressBook/routes';
 

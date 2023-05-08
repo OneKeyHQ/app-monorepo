@@ -20,8 +20,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount, useNetwork } from '../../../../hooks';
 import { useIsMounted } from '../../../../hooks/useIsMounted';
-import { SendModalRoutes } from '../../../../routes/routesEnum';
-import { ModalRoutes, RootRoutes } from '../../../../routes/types';
+import {
+  ModalRoutes,
+  RootRoutes,
+  SendModalRoutes,
+} from '../../../../routes/routesEnum';
 
 import SelectNFTCard from './SelectNFTCard';
 import { SendNFTContentProvider, useSendNFTContent } from './SendNFTContent';

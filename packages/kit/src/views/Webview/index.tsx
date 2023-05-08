@@ -10,10 +10,8 @@ import { URL } from 'react-native-url-polyfill';
 import { Box, Icon, Select, ToastManager } from '@onekeyhq/components';
 import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import type {
-  ModalRoutes,
-  ModalRoutesParams,
-} from '@onekeyhq/kit/src/routes/types';
+import type { ModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import type { ModalRoutesParams } from '@onekeyhq/kit/src/routes/types';
 
 import WebView from '../../components/WebView';
 import { openUrlExternal } from '../../utils/openUrl';

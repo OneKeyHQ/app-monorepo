@@ -16,6 +16,7 @@ declare global {
   // eslint-disable-next-line
   // var onekey: WindowOneKey;
 
+  var $appIsReduxReady: boolean;
   var $onekey: IWindowOneKeyHub;
   var $backgroundApiProxy: IBackgroundApi;
   var $backgroundApi: IBackgroundApi;
@@ -65,7 +66,7 @@ declare global {
 
     // Ext internal (ui,background,contentScript)
     extJsBridgeUiToBg: JsBridgeBase;
-    extJsBridgeUiToIframe: JsBridgeBase;
+    extJsBridgeOffscreenToBg: JsBridgeBase;
     ONEKEY_DESKTOP_DEEP_LINKS: any[];
   }
 }

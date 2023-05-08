@@ -6,14 +6,7 @@ import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import { IEncodedTxUpdateType } from '@onekeyhq/engine/src/vaults/types';
 import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
-import {
-  IMPL_BCH,
-  IMPL_BTC,
-  IMPL_DOGE,
-  IMPL_EVM,
-  IMPL_LTC,
-  IMPL_TBTC,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 

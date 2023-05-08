@@ -11,7 +11,6 @@ export type DataInitialState = {
   isUnlock: boolean;
   isPasswordSet: boolean;
   homePageCheckBoarding: boolean;
-  isExtUiReduxReady?: boolean;
   cursorMap: Record<string, string>;
   handOperatedLock?: boolean;
   feePresetIndexMap?: Record<string, string | undefined>;
@@ -23,7 +22,6 @@ export type DataInitialState = {
 const initialState: DataInitialState = {
   isUnlock: !!platformEnv.isDev, // isUnlock is in memory, so when app was killed/reload, it will be reset to false
   isPasswordSet: false,
-  isExtUiReduxReady: false,
   homePageCheckBoarding: false,
   isAppRenderReady: false,
   isPasswordLoadedInVault: false,
@@ -42,9 +40,6 @@ export const dataSlice = createSlice({
     setAppRenderReady(state) {
       stopTrace('js_render');
       state.isAppRenderReady = true;
-    },
-    setIsExtUiReduxReady(state) {
-      state.isExtUiReduxReady = true;
     },
     release(state) {
       state.isUnlock = true;
@@ -96,7 +91,6 @@ export const {
   passwordSet,
   setHomePageCheckBoarding,
   setAppRenderReady,
-  setIsExtUiReduxReady,
   cursorMapSet,
   lock,
   setHandOperatedLock,

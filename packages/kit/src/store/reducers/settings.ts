@@ -46,6 +46,7 @@ export type ISettingsDevModeInfo = {
   hideDiscoverContent?: boolean;
   onRamperTestMode?: boolean;
   showWebEmbedWebviewAgent?: boolean;
+  showContentScriptReloadButton?: boolean;
 };
 export type SettingsState = {
   theme: ThemeVariant | 'system';
@@ -329,6 +330,12 @@ export const settingsSlice = createSlice({
       state.devMode = {
         ...state.devMode,
         showWebEmbedWebviewAgent: action.payload,
+      };
+    },
+    setShowContentScriptReloadButton(state, action: PayloadAction<boolean>) {
+      state.devMode = {
+        ...state.devMode,
+        showContentScriptReloadButton: action.payload,
       };
     },
     setEnableTestFiatEndpoint(state, action: PayloadAction<boolean>) {
@@ -645,6 +652,7 @@ export const {
   setAccountDerivationDbMigrationVersion,
   setOnRamperTestMode,
   setShowWebEmbedWebviewAgent,
+  setShowContentScriptReloadButton,
   clearNetworkCustomRpcs,
   rememberPassphraseWallet,
   forgetPassphraseWallet,

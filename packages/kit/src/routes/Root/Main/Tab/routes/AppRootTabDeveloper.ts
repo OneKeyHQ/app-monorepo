@@ -13,12 +13,11 @@ const DeveloperScreen = require('../../../../../views/Developer').default;
 const name = TabRoutes.Developer;
 const config: TabRouteConfig = {
   ...tabRoutesConfigBaseMap[name],
-  component: toFocusedLazy(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    withTabLayout(DeveloperScreen, name),
-    {
+  component: withTabLayout(
+    toFocusedLazy(DeveloperScreen, {
       rootTabName: name,
-    },
+    }),
+    name,
   ),
   children: [],
 };

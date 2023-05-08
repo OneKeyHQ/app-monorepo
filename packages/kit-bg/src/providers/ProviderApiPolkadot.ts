@@ -2,10 +2,15 @@
 /* eslint-disable camelcase */
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import { decodeAddress, encodeAddress } from '@polkadot/util-crypto';
 
 import type { CommonMessage } from '@onekeyhq/engine/src/types/message';
 import { CommonMessageTypes } from '@onekeyhq/engine/src/types/message';
+import polkadotSdk from '@onekeyhq/engine/src/vaults/impl/dot/sdk/polkadotSdk';
+import type {
+  InjectedAccount,
+  SignerPayloadJSON,
+  SignerPayloadRaw,
+} from '@onekeyhq/engine/src/vaults/impl/dot/sdk/polkadotSdkTypes';
 import type { IEncodedTxDot } from '@onekeyhq/engine/src/vaults/impl/dot/types';
 import type VaultDot from '@onekeyhq/engine/src/vaults/impl/dot/Vault';
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
@@ -22,11 +27,8 @@ import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
-import type { InjectedAccount } from '@polkadot/extension-inject/types';
-import type {
-  SignerPayloadJSON,
-  SignerPayloadRaw,
-} from '@polkadot/types/types';
+
+const { decodeAddress, encodeAddress } = polkadotSdk;
 
 export interface SignerResult {
   /**

@@ -8,8 +8,11 @@ import { isValidCoingeckoId } from '@onekeyhq/engine/src/managers/token';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { ManageTokenModalRoutes } from '../../../../routes/routesEnum';
-import { ModalRoutes, RootRoutes } from '../../../../routes/types';
+import {
+  ManageTokenModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../../routes/routesEnum';
 import ChartWithLabel from '../../../PriceChart/ChartWithLabel';
 import { useChartTimeLabel } from '../../../PriceChart/hooks';
 import TimeControl, {

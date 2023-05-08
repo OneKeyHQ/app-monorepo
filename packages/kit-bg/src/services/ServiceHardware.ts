@@ -204,6 +204,30 @@ class ServiceHardware extends ServiceBase {
     );
   }
 
+  /*
+    if (platformEnv.isExtensionBackgroundServiceWorker) {
+      chrome.runtime.onMessage.addListener(
+        (msg: IOffscreenApiHardwareEvent, sender, sendResponse) => {
+          // TODO check sender origin
+          // eslint-disable-next-line @typescript-eslint/require-await
+          if (msg && msg.type === OFFSCREEN_API_HARDWARE_EVENT) {
+            if (HardwareSDK) {
+              const eventParams = msg.payload;
+              HardwareSDK.emit(eventParams.event, { ...eventParams });
+            }
+          }
+          // **** return true to indicate that sendResponse is async
+          // return true;
+        },
+      );
+    }
+  */
+  @backgroundMethod()
+  async passHardwareEventsFromOffscreenToBackground(eventMessage: CoreMessage) {
+    const sdk = await this.getSDKInstance();
+    sdk.emit(eventMessage.event, eventMessage);
+  }
+
   @backgroundMethod()
   async getFeatursByWalletId(walletId: string) {
     return Promise.resolve(this.featuresCache[walletId] ?? null);

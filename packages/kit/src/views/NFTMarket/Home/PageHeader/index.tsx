@@ -17,7 +17,7 @@ import {
   HomeRoutes,
   ModalRoutes,
   RootRoutes,
-} from '@onekeyhq/kit/src/routes/types';
+} from '@onekeyhq/kit/src/routes/routesEnum';
 import type {
   HomeRoutesParams,
   ModalScreenProps,

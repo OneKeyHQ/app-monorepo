@@ -4,9 +4,32 @@ import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
 import type { TabRoutes } from '../routes/routesEnum';
 import type { WalletHomeTabEnum } from '../views/Wallet/type';
 
+function getAppRootTabInfo() {
+  return global?.$navigationRef?.current?.getRootState?.()?.routes?.[0]?.state
+    ?.routes?.[0]?.state;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function getAllAppRootTabRoutes() {
+  return getAppRootTabInfo()?.routes;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function getCurrentAppRootTabIndex() {
+  return getAppRootTabInfo()?.index;
+}
+
+function getCurrentAppRootTabInfo() {
+  const info = getAppRootTabInfo();
+  if (info && info.index !== undefined) {
+    return info.routes[info.index];
+  }
+  return undefined;
+}
+
 export function getCurrentModalRouteData() {
-  const modalRoute = global.$navigationRef.current
-    ?.getState()
+  const modalRoute = global?.$navigationRef?.current
+    ?.getRootState()
     ?.routes?.find((item) => item?.name === RootRoutes.Modal);
 
   if (modalRoute) {
@@ -31,20 +54,33 @@ export function isSendModalRouteExisting() {
   return existing;
 }
 
+// TODO remove
 export function getRootTabRouteState() {
   return global?.$navigationRef?.current?.getState?.()?.routes?.[0]?.state
     ?.routes?.[0]?.state;
 }
+export function getAppRootTabInfoOfTab(appRootTabName: TabRoutes) {
+  const info = getAppRootTabInfo();
+  if (info && info.routes) {
+    // @ts-ignore
+    return info.routes.find(
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      (item) => item.name === appRootTabName,
+    ) as typeof info.routes[0];
+  }
+  return undefined;
+}
+
+export function getCurrentAppRootTabStackRoutes() {
+  const info = getCurrentAppRootTabInfo();
+  return info?.state?.routes;
+}
 
 export function isAtAppRootTab(appRootTabName: TabRoutes) {
-  const tabRouteState = getRootTabRouteState();
-  if (tabRouteState && appRootTabName) {
-    const tabIndex = tabRouteState?.routes?.findIndex?.(
-      (item) => item.name === appRootTabName,
-    );
-    if (tabIndex === tabRouteState?.index) {
-      return true;
-    }
+  const info = getCurrentAppRootTabInfo();
+  if (info && info.name && appRootTabName) {
+    return info.name === appRootTabName;
   }
   return false;
 }
@@ -56,3 +92,9 @@ export function useIsAtHomeTab(homeTabName: WalletHomeTabEnum) {
 
 // @ts-ignore
 global.$$isAtAppRootTab = isAtAppRootTab;
+// @ts-ignore
+global.$$getCurrentAppRootTabStackRoutes = getCurrentAppRootTabStackRoutes;
+// @ts-ignore
+global.$$getCurrentModalRouteData = getCurrentModalRouteData;
+// @ts-ignore
+global.$$getAppRootTabInfoOfTab = getAppRootTabInfoOfTab;
