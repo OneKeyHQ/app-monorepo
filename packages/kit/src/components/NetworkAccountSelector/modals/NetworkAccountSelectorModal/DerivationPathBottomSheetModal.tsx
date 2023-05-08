@@ -28,10 +28,13 @@ import { useDerivationPath } from '../../hooks/useDerivationPath';
 import type { IDerivationOption } from '../../hooks/useDerivationPath';
 
 type IDerivationPathBottomSheetModalProps = {
-  type: 'create' | 'search';
+  title?: string;
   walletId: string;
+  type: 'create' | 'search';
   networkId: string | undefined;
   onSelect: (option: IDerivationOption) => void;
+  derivationOptions?: IDerivationOption[];
+  selectedDerivation?: IDerivationOption;
 };
 
 type IVerifiedOption = IDerivationOption & {
@@ -149,18 +152,26 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
   walletId,
   networkId,
   onSelect,
+  title,
+  derivationOptions,
+  selectedDerivation,
 }) => {
   const intl = useIntl();
-  const { derivationOptions, isUTXOModel, showTemplate } = useDerivationPath(
-    walletId,
-    networkId,
+  const {
+    derivationOptions: networkDerivationOptions,
+    isUTXOModel,
+    showTemplate,
+  } = useDerivationPath(walletId, networkId);
+  const [selectedOption, setSelectedOption] = useState(
+    selectedDerivation?.key ?? '',
   );
-  const [selectedOption, setSelectedOption] = useState('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [verifiedOptions, setVerifiedOptions] = useState<IVerifiedOption[]>([]);
 
+  const options = derivationOptions ?? networkDerivationOptions;
+
   useEffect(() => {
-    const promises = derivationOptions.map(async (option) => {
+    const promises = options.map(async (option) => {
       let canCreateNextAccount = false;
       if (type === 'create') {
         try {
@@ -188,7 +199,7 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
       .finally(() => {
         setIsLoading(false);
       });
-  }, [derivationOptions, walletId, networkId, type]);
+  }, [derivationOptions, walletId, networkId, type, options]);
 
   const validOptions = useMemo(
     () => verifiedOptions.filter((o) => o.canCreateNextAccount),
@@ -245,9 +256,12 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
           {showValidOptions && <Divider mt={6} mb={2} />}
           <Box mb={2} mt={showValidOptions ? 6 : 0}>
             <Alert
-              title={intl.formatMessage({
-                id: 'msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used',
-              })}
+              title={
+                title ??
+                intl.formatMessage({
+                  id: 'msg__cannot_create_a_new_account_when_last_account_of_that_type_created_has_not_used',
+                })
+              }
               dismiss={false}
               alertType="info"
               customIconName="InformationCircleMini"
@@ -275,14 +289,22 @@ const showDerivationPathBottomSheetModal = ({
   type,
   walletId,
   networkId,
+  selectedDerivation,
+  derivationOptions,
+  title,
   onSelect,
 }: IDerivationPathBottomSheetModalProps) => {
   showOverlay((close) => (
     <BottomSheetModal
-      title={formatMessage({
-        id:
-          type === 'create' ? 'action__add_account' : 'title__derivation_path',
-      })}
+      title={
+        title ??
+        formatMessage({
+          id:
+            type === 'create'
+              ? 'action__add_account'
+              : 'title__derivation_path',
+        })
+      }
       headerDescription={<DerivationPathHeader networkId={networkId} />}
       closeOverlay={close}
     >
@@ -290,6 +312,8 @@ const showDerivationPathBottomSheetModal = ({
         type={type}
         walletId={walletId}
         networkId={networkId}
+        selectedDerivation={selectedDerivation}
+        derivationOptions={derivationOptions}
         onSelect={(option) => {
           close?.();
           setTimeout(() => onSelect?.(option));

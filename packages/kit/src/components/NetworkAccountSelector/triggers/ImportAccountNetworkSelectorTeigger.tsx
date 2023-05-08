@@ -84,7 +84,7 @@ const ImportAccountNetworkSelectorTeigger: FC<
       }}
       borderRadius={12}
       px={2}
-      py={3}
+      py={2.5}
       space={3}
       justifyContent="space-between"
     />
