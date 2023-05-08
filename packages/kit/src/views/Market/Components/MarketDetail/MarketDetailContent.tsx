@@ -68,7 +68,7 @@ const MarketDetailActionButton = ({
         }}
         isDisabled={isDisabledSwap}
       >
-        {intl.formatMessage({ id: 'action__buy' })}
+        {intl.formatMessage({ id: 'Market__buy' })}
       </Button>
       <Button
         flex={1}
@@ -83,7 +83,7 @@ const MarketDetailActionButton = ({
         }}
         isDisabled={isDisabledSwap}
       >
-        {intl.formatMessage({ id: 'action__sell' })}
+        {intl.formatMessage({ id: 'Market__sell' })}
       </Button>
       {/* <IconButton
         ml={2}
