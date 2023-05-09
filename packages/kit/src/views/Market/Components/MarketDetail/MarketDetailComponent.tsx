@@ -81,6 +81,7 @@ const ExplorerAction = ({
     <Menu
       offset={defaultMenuOffset}
       width={width}
+      minWidth={220}
       trigger={renderExplorerComponent}
     >
       <Menu.CustomItem onPress={copyAction} icon="DocumentDuplicateMini">
