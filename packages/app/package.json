@@ -67,7 +67,7 @@
     "react-native": "0.68.3",
     "react-native-auto-size-text": "^1.1.1",
     "react-native-ble-manager": "^8.1.0",
-    "react-native-camera": "4.2.1",
+    "react-native-camera-kit": "14.0.0-beta2",
     "react-native-canvas": "^0.1.38",
     "react-native-cloud-fs": "https://github.com/OneKeyHQ/react-native-cloud-fs#450b00b11555e8e9523adf5c5d0726b5ae966d9e",
     "react-native-collapsible": "^1.6.0",
@@ -86,7 +86,7 @@
     "react-native-nested-scroll-view": "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git",
     "react-native-pager-view": "6.1.2",
     "react-native-randombytes": "^3.6.1",
-    "react-native-reanimated": "^2.17.0",
+    "react-native-reanimated": "^3.1.0",
     "react-native-restart": "0.0.24",
     "react-native-safe-area-context": "4.4.1",
     "react-native-screens": "^3.19.0",
@@ -96,7 +96,6 @@
     "react-native-toast-message": "2.1.5",
     "react-native-v8": "^1.6.0",
     "react-native-view-shot": "^3.5.0",
-    "react-native-vision-camera": "^2.15.2",
     "react-native-web": "0.18.10",
     "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview",
     "readable-stream": "^3.6.0",
@@ -105,8 +104,7 @@
     "rimraf": "^3.0.2",
     "stream-http": "^3.2.0",
     "text-encoding": "^0.7.0",
-    "v8-android-jit": "^10.100.1",
-    "vision-camera-code-scanner": "^0.2.0"
+    "v8-android-jit": "^10.100.1"
   },
   "devDependencies": {
     "@babel/core": "^7.19.3",
@@ -116,6 +114,20 @@
     "@types/react-native": "~0.68",
     "@types/react-native-canvas": "^0.1.9",
     "react-native-flipper-performance-plugin": "^0.3.1"
+  },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "exclude": [
+          "expo-camera"
+        ]
+      },
+      "ios": {
+        "exclude": [
+          "expo-camera"
+        ]
+      }
+    }
   },
   "private": true
 }

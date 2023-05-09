@@ -5411,7 +5411,7 @@ __metadata:
     react-native: 0.68.3
     react-native-auto-size-text: ^1.1.1
     react-native-ble-manager: ^8.1.0
-    react-native-camera: 4.2.1
+    react-native-camera-kit: 14.0.0-beta2
     react-native-canvas: ^0.1.38
     react-native-cloud-fs: "https://github.com/OneKeyHQ/react-native-cloud-fs#450b00b11555e8e9523adf5c5d0726b5ae966d9e"
     react-native-collapsible: ^1.6.0
@@ -5431,7 +5431,7 @@ __metadata:
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git"
     react-native-pager-view: 6.1.2
     react-native-randombytes: ^3.6.1
-    react-native-reanimated: ^2.17.0
+    react-native-reanimated: ^3.1.0
     react-native-restart: 0.0.24
     react-native-safe-area-context: 4.4.1
     react-native-screens: ^3.19.0
@@ -5441,7 +5441,6 @@ __metadata:
     react-native-toast-message: 2.1.5
     react-native-v8: ^1.6.0
     react-native-view-shot: ^3.5.0
-    react-native-vision-camera: ^2.15.2
     react-native-web: 0.18.10
     react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview"
     readable-stream: ^3.6.0
@@ -5451,7 +5450,6 @@ __metadata:
     stream-http: ^3.2.0
     text-encoding: ^0.7.0
     v8-android-jit: ^10.100.1
-    vision-camera-code-scanner: ^0.2.0
   languageName: unknown
   linkType: soft
 
@@ -5664,12 +5662,11 @@ __metadata:
     react-freeze: ^1.0.3
     react-intl: ^5.21.2
     react-native-animated-splash-screen: ^2.0.5
-    react-native-camera: 4.2.1
+    react-native-camera-kit: 14.0.0-beta2
     react-native-document-picker: ^8.1.3
     react-native-root-siblings: ^4.1.1
     react-native-url-polyfill: ^1.3.0
     react-native-uuid: ^2.0.1
-    react-native-vision-camera: ^2.15.2
     react-redux: ^7.2.6
     redux-persist: ^6.0.0
     rimraf: ^3.0.2
@@ -5677,7 +5674,6 @@ __metadata:
     socket.io-client: ^4.5.2
     swr: ^1.1.2
     url-parse: ^1.5.10
-    vision-camera-code-scanner: ^0.2.0
     xlsx: "https://cdn.sheetjs.com/xlsx-0.19.1/xlsx-0.19.1.tgz"
     zbar.wasm: ^2.1.1
   languageName: unknown
@@ -22657,7 +22653,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:>=3.5 <5, lodash@npm:^4.17.10, lodash@npm:^4.17.13, lodash@npm:^4.17.14, lodash@npm:^4.17.15, lodash@npm:^4.17.19, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:^4.17.4, lodash@npm:^4.17.5, lodash@npm:^4.7.0":
+"lodash@npm:>=3.5 <5, lodash@npm:^4.14.2, lodash@npm:^4.17.10, lodash@npm:^4.17.13, lodash@npm:^4.17.14, lodash@npm:^4.17.15, lodash@npm:^4.17.19, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:^4.17.4, lodash@npm:^4.17.5, lodash@npm:^4.7.0":
   version: 4.17.21
   resolution: "lodash@npm:4.17.21"
   checksum: eb835a2e51d381e561e508ce932ea50a8e5a68f4ebdd771ea240d3048244a8d13658acbd502cd4829768c56f2e16bdd4340b9ea141297d472517b83868e677f7
@@ -27056,12 +27052,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-camera@npm:4.2.1":
-  version: 4.2.1
-  resolution: "react-native-camera@npm:4.2.1"
+"react-native-camera-kit@npm:14.0.0-beta2":
+  version: 14.0.0-beta2
+  resolution: "react-native-camera-kit@npm:14.0.0-beta2"
   dependencies:
-    prop-types: ^15.6.2
-  checksum: 0e84ce657774694d1cc49395c43a8f2caabc03df36aa77aacfb5c797ad8cfe0368f4807deccc54e82ff2b193e8c2d1ce7ad504eedf7a9fc4719b38e39958a804
+    lodash: ^4.14.2
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 1ab0626e4fb5131e776b54ca24aa2af770f7cb24889ef1abeb5b7bc2c855d9f3e344086ddf033406a17a28591fd697a0e646b2d48bcc58e654fc83d518c867d0
   languageName: node
   linkType: hard
 
@@ -27402,21 +27401,24 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-reanimated@npm:^2.17.0, react-native-reanimated@npm:^2.4.1":
-  version: 2.17.0
-  resolution: "react-native-reanimated@npm:2.17.0"
+"react-native-reanimated@npm:^3":
+  version: 3.1.0
+  resolution: "react-native-reanimated@npm:3.1.0"
   dependencies:
     "@babel/plugin-transform-object-assign": ^7.16.7
     "@babel/preset-typescript": ^7.16.7
+    convert-source-map: ^2.0.0
     invariant: ^2.2.4
-    lodash.isequal: ^4.5.0
-    setimmediate: ^1.0.5
-    string-hash-64: ^1.0.3
   peerDependencies:
     "@babel/core": ^7.0.0-0
+    "@babel/plugin-proposal-nullish-coalescing-operator": ^7.0.0-0
+    "@babel/plugin-proposal-optional-chaining": ^7.0.0-0
+    "@babel/plugin-transform-arrow-functions": ^7.0.0-0
+    "@babel/plugin-transform-shorthand-properties": ^7.0.0-0
+    "@babel/plugin-transform-template-literals": ^7.0.0-0
     react: "*"
     react-native: "*"
-  checksum: bab274c5a9c0195e9b7b107f021580c06c37057340f325b3a8dfbb1e4ae2986eff87adb0b19760b4a32c96581d9e689aa73c379daca0b9faa88a32e23cf73a39
+  checksum: 28279642056c7b214649ff14d3c9f1e914c9dd3dd74afc734fc10d1af088a2c3b0e187751e2713d54fc0a9916c394068b29aec51e754b51625a4179f10e38bcd
   languageName: node
   linkType: hard
 
@@ -27591,16 +27593,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: c405d4859dc74d6de72e3c740977245fba805d1d422fa506f0347d98316cb9e80552fd31f76a294ecc8d7c136da4c7d5843f974a22f427b5fe8752a039c7f96b
-  languageName: node
-  linkType: hard
-
-"react-native-vision-camera@npm:^2.15.2":
-  version: 2.15.2
-  resolution: "react-native-vision-camera@npm:2.15.2"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 02436b3ba7ba67bcddf7ac3d334ceac134c8cd9d809441d7f3c287af1916a94a1a6194c8988f756cf556d9b7b60061b60de3d2500c638fe41374df6597d79191
   languageName: node
   linkType: hard
 
@@ -29959,13 +29951,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"string-hash-64@npm:^1.0.3":
-  version: 1.0.3
-  resolution: "string-hash-64@npm:1.0.3"
-  checksum: 79de8431b4fa3e85a2429cd52a34f7948221ff167b7a094e05d6bcfd0173474b232e0c9845c96f74b0d7b6b0c8bbe2c3532a4cacb21635293ef0cf3cc8e77f06
-  languageName: node
-  linkType: hard
-
 "string-hash@npm:1.1.3":
   version: 1.1.3
   resolution: "string-hash@npm:1.1.3"
@@ -32137,17 +32122,6 @@ __metadata:
     core-util-is: 1.0.2
     extsprintf: ^1.2.0
   checksum: 690a8d6ad5a4001672290e9719e3107c86269bc45fe19f844758eecf502e59f8aa9631b19b839f6d3dea562334884d22d1eb95ae7c863032075a9212c889e116
-  languageName: node
-  linkType: hard
-
-"vision-camera-code-scanner@npm:^0.2.0":
-  version: 0.2.0
-  resolution: "vision-camera-code-scanner@npm:0.2.0"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-vision-camera: ">=2.9.4"
-  checksum: d3cee8df7a04be024a1a183de739d7acb67e86214e56fc634b6d0a07fc7fcdc6da3b2f91b2ea276065f39847debe8855e88636d09d2ca4f7022b7c873b50b20d
   languageName: node
   linkType: hard
 
