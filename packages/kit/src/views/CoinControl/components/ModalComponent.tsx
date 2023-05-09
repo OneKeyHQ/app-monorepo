@@ -160,7 +160,10 @@ export const ModalFooter: FC<{
       )}
       <HStack alignItems="flex-start" justifyContent="space-between" mt={2}>
         <Text typography="Body1Strong">
-          {selectedUtxos.length || 0} selected
+          {intl.formatMessage(
+            { id: 'form__str_selected' },
+            { 0: selectedUtxos.length || 0 },
+          )}
         </Text>
         <VStack alignItems="flex-end" space={1}>
           <FormatBalance

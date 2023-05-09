@@ -366,7 +366,10 @@ const ListFooter: FC<
         justifyContent="space-between"
       >
         <Text typography="Subheading" color="text-subdued">
-          {itemLength} ITEMS
+          {intl.formatMessage(
+            { id: 'form__str_items__uppercase' },
+            { 0: itemLength },
+          )}
         </Text>
         <FormatBalance
           balance={sumUtxoAmount}
