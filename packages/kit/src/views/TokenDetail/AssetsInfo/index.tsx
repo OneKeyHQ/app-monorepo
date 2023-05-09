@@ -6,6 +6,8 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Hidden,
+  ListItem,
   Typography,
   VStack,
   useIsVerticalLayout,
@@ -161,6 +163,61 @@ const AssetsInfo: FC<Props> = ({
         <Typography.Body2 mt="4px" mb="24px" color="text-subdued">
           <FormatCurrencyNumber value={new B(totalAmount).times(price)} />
         </Typography.Body2>
+        <Hidden till="sm">
+          <ListItem py={4} mx="-8px">
+            <ListItem.Column
+              flex={3}
+              text={{
+                label: intl.formatMessage({
+                  id: 'form__position_uppercase',
+                }),
+                labelProps: {
+                  typography: 'Subheading',
+                  color: 'text-subdued',
+                },
+              }}
+            />
+            <ListItem.Column
+              flex={1}
+              text={{
+                label: intl.formatMessage({
+                  id: 'content__type',
+                }),
+                labelProps: {
+                  typography: 'Subheading',
+                  color: 'text-subdued',
+                  textAlign: 'right',
+                },
+              }}
+            />
+            <ListItem.Column
+              flex={2.5}
+              text={{
+                label: intl.formatMessage({
+                  id: 'content__balance',
+                }),
+                labelProps: {
+                  typography: 'Subheading',
+                  color: 'text-subdued',
+                  textAlign: 'right',
+                },
+              }}
+            />
+            <ListItem.Column
+              flex={2.5}
+              text={{
+                label: intl.formatMessage({
+                  id: 'form__value_uppercase',
+                }),
+                labelProps: {
+                  typography: 'Subheading',
+                  color: 'text-subdued',
+                  textAlign: 'right',
+                },
+              }}
+            />
+          </ListItem>
+        </Hidden>
       </>
     ),
     [

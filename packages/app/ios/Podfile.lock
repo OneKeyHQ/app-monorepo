@@ -15,8 +15,6 @@ PODS:
     - ZXingObjC/PDF417
   - EXBlur (11.1.0):
     - ExpoModulesCore
-  - EXCamera (12.2.0):
-    - ExpoModulesCore
   - EXConstants (13.1.1):
     - ExpoModulesCore
   - EXDevice (4.3.0):
@@ -201,23 +199,6 @@ PODS:
     - GoogleUtilities/Environment (~> 7.7)
     - nanopb (< 2.30910.0, >= 2.30908.0)
     - PromisesObjC (< 3.0, >= 1.2)
-  - GoogleMLKit/BarcodeScanning (3.2.0):
-    - GoogleMLKit/MLKitCore
-    - MLKitBarcodeScanning (~> 2.2.0)
-  - GoogleMLKit/MLKitCore (3.2.0):
-    - MLKitCommon (~> 8.0.0)
-  - GoogleToolboxForMac/DebugUtils (2.3.2):
-    - GoogleToolboxForMac/Defines (= 2.3.2)
-  - GoogleToolboxForMac/Defines (2.3.2)
-  - GoogleToolboxForMac/Logger (2.3.2):
-    - GoogleToolboxForMac/Defines (= 2.3.2)
-  - "GoogleToolboxForMac/NSData+zlib (2.3.2)":
-    - GoogleToolboxForMac/Defines (= 2.3.2)
-  - "GoogleToolboxForMac/NSDictionary+URLArguments (2.3.2)":
-    - GoogleToolboxForMac/DebugUtils (= 2.3.2)
-    - GoogleToolboxForMac/Defines (= 2.3.2)
-    - "GoogleToolboxForMac/NSString+URLArguments (= 2.3.2)"
-  - "GoogleToolboxForMac/NSString+URLArguments (2.3.2)"
   - GoogleUtilities/AppDelegateSwizzler (7.10.0):
     - GoogleUtilities/Environment
     - GoogleUtilities/Logger
@@ -238,9 +219,6 @@ PODS:
     - GoogleUtilities/Logger
   - GoogleUtilities/UserDefaults (7.10.0):
     - GoogleUtilities/Logger
-  - GoogleUtilitiesComponents (1.1.0):
-    - GoogleUtilities/Logger
-  - GTMSessionFetcher/Core (1.7.2)
   - IQKeyboardManagerSwift (6.5.4)
   - JCore (2.0.3):
     - React
@@ -262,26 +240,6 @@ PODS:
   - lottie-react-native (5.1.4):
     - lottie-ios (~> 3.4.0)
     - React-Core
-  - MLImage (1.0.0-beta3)
-  - MLKitBarcodeScanning (2.2.0):
-    - MLKitCommon (~> 8.0)
-    - MLKitVision (~> 4.2)
-  - MLKitCommon (8.0.0):
-    - GoogleDataTransport (~> 9.0)
-    - GoogleToolboxForMac/Logger (~> 2.1)
-    - "GoogleToolboxForMac/NSData+zlib (~> 2.1)"
-    - "GoogleToolboxForMac/NSDictionary+URLArguments (~> 2.1)"
-    - GoogleUtilities/UserDefaults (~> 7.0)
-    - GoogleUtilitiesComponents (~> 1.0)
-    - GTMSessionFetcher/Core (~> 1.1)
-    - Protobuf (~> 3.12)
-  - MLKitVision (4.2.0):
-    - GoogleToolboxForMac/Logger (~> 2.1)
-    - "GoogleToolboxForMac/NSData+zlib (~> 2.1)"
-    - GTMSessionFetcher/Core (~> 1.1)
-    - MLImage (= 1.0.0-beta3)
-    - MLKitCommon (~> 8.0)
-    - Protobuf (~> 3.12)
   - MultiplatformBleAdapter (0.1.9)
   - nanopb (2.30908.0):
     - nanopb/decode (= 2.30908.0)
@@ -290,7 +248,6 @@ PODS:
   - nanopb/encode (2.30908.0)
   - OpenSSL-Universal (1.1.1100)
   - PromisesObjC (2.1.1)
-  - Protobuf (3.21.12)
   - RCT-Folly (2021.06.28.00-v2):
     - boost
     - DoubleConversion
@@ -639,6 +596,8 @@ PODS:
     - React-logger (= 0.68.3)
     - React-perflogger (= 0.68.3)
     - ReactCommon/turbomodule/core (= 0.68.3)
+  - ReactNativeCameraKit (14.0.0-beta2):
+    - React-Core
   - ReactNativeKeyboardManager (6.5.4-4):
     - IQKeyboardManagerSwift (= 6.5.4)
     - React-Core
@@ -670,7 +629,7 @@ PODS:
     - React-Core
   - RNGestureHandler (2.9.0):
     - React-Core
-  - RNReanimated (2.17.0):
+  - RNReanimated (3.1.0):
     - DoubleConversion
     - FBLazyVector
     - FBReactNativeSpec
@@ -711,13 +670,6 @@ PODS:
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.10)
   - SocketRocket (0.6.0)
-  - vision-camera-code-scanner (0.2.0):
-    - GoogleMLKit/BarcodeScanning
-    - React-Core
-  - VisionCamera (2.15.2):
-    - React
-    - React-callinvoker
-    - React-Core
   - Yoga (1.14.0)
   - YogaKit (1.18.1):
     - Yoga (~> 1.14)
@@ -734,7 +686,6 @@ DEPENDENCIES:
   - EXAV (from `../../../node_modules/expo-av/ios`)
   - EXBarCodeScanner (from `../../../node_modules/expo-barcode-scanner/ios`)
   - EXBlur (from `../../../node_modules/expo-blur/ios`)
-  - EXCamera (from `../../../node_modules/expo-camera/ios`)
   - EXConstants (from `../../../node_modules/expo-constants/ios`)
   - EXDevice (from `../../../node_modules/expo-device/ios`)
   - EXFileSystem (from `../../../node_modules/expo-file-system/ios`)
@@ -830,6 +781,7 @@ DEPENDENCIES:
   - React-RCTVibration (from `../../../node_modules/react-native/Libraries/Vibration`)
   - React-runtimeexecutor (from `../../../node_modules/react-native/ReactCommon/runtimeexecutor`)
   - ReactCommon/turbomodule/core (from `../../../node_modules/react-native/ReactCommon`)
+  - ReactNativeCameraKit (from `../../../node_modules/react-native-camera-kit`)
   - ReactNativeKeyboardManager (from `../../../node_modules/react-native-keyboard-manager`)
   - RealmJS (from `../../../node_modules/realm`)
   - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
@@ -844,8 +796,6 @@ DEPENDENCIES:
   - RNScreens (from `../../../node_modules/react-native-screens`)
   - RNShare (from `../../../node_modules/react-native-share`)
   - RNSVG (from `../../../node_modules/react-native-svg`)
-  - vision-camera-code-scanner (from `../../../node_modules/vision-camera-code-scanner`)
-  - VisionCamera (from `../../../node_modules/react-native-vision-camera`)
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -873,26 +823,17 @@ SPEC REPOS:
     - GCDWebServer
     - GoogleAppMeasurement
     - GoogleDataTransport
-    - GoogleMLKit
-    - GoogleToolboxForMac
     - GoogleUtilities
-    - GoogleUtilitiesComponents
-    - GTMSessionFetcher
     - IQKeyboardManagerSwift
     - JXCategoryView
     - JXPagingView
     - libevent
     - libwebp
     - lottie-ios
-    - MLImage
-    - MLKitBarcodeScanning
-    - MLKitCommon
-    - MLKitVision
     - MultiplatformBleAdapter
     - nanopb
     - OpenSSL-Universal
     - PromisesObjC
-    - Protobuf
     - SDWebImage
     - SDWebImageWebPCoder
     - SocketRocket
@@ -912,8 +853,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-barcode-scanner/ios"
   EXBlur:
     :path: "../../../node_modules/expo-blur/ios"
-  EXCamera:
-    :path: "../../../node_modules/expo-camera/ios"
   EXConstants:
     :path: "../../../node_modules/expo-constants/ios"
   EXDevice:
@@ -1050,6 +989,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/runtimeexecutor"
   ReactCommon:
     :path: "../../../node_modules/react-native/ReactCommon"
+  ReactNativeCameraKit:
+    :path: "../../../node_modules/react-native-camera-kit"
   ReactNativeKeyboardManager:
     :path: "../../../node_modules/react-native-keyboard-manager"
   RealmJS:
@@ -1078,10 +1019,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-share"
   RNSVG:
     :path: "../../../node_modules/react-native-svg"
-  vision-camera-code-scanner:
-    :path: "../../../node_modules/vision-camera-code-scanner"
-  VisionCamera:
-    :path: "../../../node_modules/react-native-vision-camera"
   Yoga:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
@@ -1093,7 +1030,6 @@ SPEC CHECKSUMS:
   EXAV: 88f61c5af8415715b7ee51f084c1020235b85c56
   EXBarCodeScanner: b9e1b69371c233a80fc857edcf95843f14ae9e7b
   EXBlur: f594bc6b57fc241e906a29e00fb8e54b20c374a8
-  EXCamera: 2cbc8206cb520562c1527fe565aa9f00df8e5e8f
   EXConstants: fdbe52259365b6a6faaa5e99a3b82cfa6bc2eb61
   EXDevice: 7647ca9b1fd8b269dfd896a7643d659343358054
   EXFileSystem: 2aa2d9289f84bca9532b9ccbd81504fa31eb1ded
@@ -1138,11 +1074,7 @@ SPEC CHECKSUMS:
   glog: 476ee3e89abb49e07f822b48323c51c57124b572
   GoogleAppMeasurement: 4c19f031220c72464d460c9daa1fb5d1acce958e
   GoogleDataTransport: 1c8145da7117bd68bbbed00cf304edb6a24de00f
-  GoogleMLKit: 0017a6a8372e1a182139b9def4d89be5d87ca5a7
-  GoogleToolboxForMac: 8bef7c7c5cf7291c687cf5354f39f9db6399ad34
   GoogleUtilities: bad72cb363809015b1f7f19beb1f1cd23c589f95
-  GoogleUtilitiesComponents: 679b2c881db3b615a2777504623df6122dd20afe
-  GTMSessionFetcher: 5595ec75acf5be50814f81e9189490412bad82ba
   IQKeyboardManagerSwift: 2dde0fc70110e8eac7ccce2a46fdbec6a850b414
   JCore: fd3304b14f32fdb8cc3999c58d4d8366fb50085f
   JPush: 0f2e50224c69fe5c2d6385776ed8c84e1b0727bd
@@ -1152,15 +1084,10 @@ SPEC CHECKSUMS:
   libwebp: f62cb61d0a484ba548448a4bd52aabf150ff6eef
   lottie-ios: 8f97d3271e155c2d688875c29cd3c74908aef5f8
   lottie-react-native: b702fab740cdb952a8e2354713d3beda63ff97b0
-  MLImage: 489dfec109f21da8621b28d476401aaf7a0d4ff4
-  MLKitBarcodeScanning: d92fe1911001ec36870162c5a0eb206f612b7169
-  MLKitCommon: f6da6c5659618c070b50a80db01248ebe2964175
-  MLKitVision: 96c96571190b7f63eddf4a12068ce8a8689e0d2c
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
   nanopb: a0ba3315591a9ae0a16a309ee504766e90db0c96
   OpenSSL-Universal: ebc357f1e6bc71fa463ccb2fe676756aff50e88c
   PromisesObjC: ab77feca74fa2823e7af4249b8326368e61014cb
-  Protobuf: 120350fc38646e2dedc26f49ecba778184ea1de2
   RCT-Folly: 4d8508a426467c48885f1151029bc15fa5d7b3b8
   RCTRequired: b8caca023d386d43740dfb94c2cf68f695fa5e77
   RCTTypeSafety: ec44ea1d6ad1e5cd6447b22159ff40c2ebbd23b1
@@ -1204,6 +1131,7 @@ SPEC CHECKSUMS:
   React-RCTVibration: f41f116aad644973f24653effb3db3de64fa0314
   React-runtimeexecutor: 8cdd80915ed6dabf2221a689f1f7ddb50ea5e9f3
   ReactCommon: 5b1b43a7d81a1ac4eec85f7c4db3283a14a3b13d
+  ReactNativeCameraKit: 32e04877e57e0eeab26e45817e3fd532e7d302fb
   ReactNativeKeyboardManager: f82a63e0982254fb0f6a17ba327fac575a46f1e9
   RealmJS: 6ee99e016e85a71233f92c64b8255007810b7478
   RNCAsyncStorage: 005c0e2f09575360f142d0d1f1f15e4ec575b1af
@@ -1214,15 +1142,13 @@ SPEC CHECKSUMS:
   RNFBPerf: b85b621a4d15905847e8627a6aa67ad894e8e166
   RNFS: 4ac0f0ea233904cb798630b3c077808c06931688
   RNGestureHandler: 071d7a9ad81e8b83fe7663b303d132406a7d8f39
-  RNReanimated: 246041ed5634ebeaff30523d52aa2c8ddc7cba3c
+  RNReanimated: b450086c060e5dbb13fbd87b6cf6540335c99d0f
   RNScreens: ea4cd3a853063cda19a4e3c28d2e52180c80f4eb
   RNShare: d56424e3926cbc239db1cc1c168adcb051aad50b
   RNSVG: d787d64ca06b9158e763ad2638a8c4edce00782a
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
   SocketRocket: fccef3f9c5cedea1353a9ef6ada904fde10d6608
-  vision-camera-code-scanner: dda884a7f3ec8243a2a6d6489b91860648371bca
-  VisionCamera: d011219ead7037dd6bd0c776ab20fa0874d95de0
   Yoga: 2f6a78c58dcc2963bd8e34d96a4246d9dff2e3a7
   YogaKit: f782866e155069a2cca2517aafea43200b01fd5a
   ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb

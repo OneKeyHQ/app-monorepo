@@ -154,7 +154,7 @@ android {
     }
 
     defaultConfig {
-        missingDimensionStrategy 'react-native-camera', 'mlkit'
+        // missingDimensionStrategy 'react-native-camera', 'mlkit'
         applicationId 'so.onekey.app.wallet.dev'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
@@ -431,9 +431,9 @@ dependencies {
     implementation("com.facebook.soloader:soloader:0.10.4")
 }
 
-configurations.all {
-    exclude group: "com.google.android", module: "cameraview"
-}
+// configurations.all {
+//     exclude group: "com.google.android", module: "cameraview"
+// }
 
 if (isNewArchitectureEnabled()) {
     // If new architecture is enabled, we let you build RN from source
