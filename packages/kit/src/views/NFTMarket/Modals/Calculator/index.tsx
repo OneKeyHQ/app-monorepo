@@ -293,7 +293,7 @@ const CalculatorModal: FC = () => {
             <Input
               flex={1}
               size="xl"
-              placeholder={intl.formatMessage({ id: 'action__buy' })}
+              placeholder={intl.formatMessage({ id: 'Market__buy' })}
               value={buyInput}
               onChangeText={(text) => {
                 const number = new BigNumber(text);

@@ -115,7 +115,7 @@ const TokenDetailHeader: FC<HeaderProps> = ({
             }}
             flex={1}
           >
-            {intl.formatMessage({ id: 'action__buy' })}
+            {intl.formatMessage({ id: 'Market__buy' })}
           </Button>
           <Button
             size="lg"
@@ -124,7 +124,7 @@ const TokenDetailHeader: FC<HeaderProps> = ({
             }}
             flex={1}
           >
-            {intl.formatMessage({ id: 'action__sell' })}
+            {intl.formatMessage({ id: 'Market__sell' })}
           </Button>
           <MoreMenuButton
             token={token}
