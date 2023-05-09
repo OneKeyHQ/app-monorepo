@@ -45,7 +45,18 @@ const EditLabelDialog: FC<IEditLabelDialogProps> = ({
     <Dialog visible onClose={onClose}>
       <VStack>
         <Form w="full" mt={5}>
-          <Form.Item name="label" control={control} rules={{}}>
+          <Form.Item
+            name="label"
+            control={control}
+            rules={{
+              maxLength: {
+                value: 15,
+                message: intl.formatMessage({
+                  id: 'msg__label_name_can_be_up_to_15_characters',
+                }),
+              },
+            }}
+          >
             <Form.Input
               onKeyPress={(e) => {
                 if (e.nativeEvent.key === 'Enter') {
