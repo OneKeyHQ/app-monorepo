@@ -711,6 +711,7 @@
 				DEVELOPMENT_TEAM = BVJ3FU5H2K;
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = BVJ3FU5H2K;
 				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = (
 					"*/NFC/OKNFCBridge.h",
 					"*/NFC/OKNFCBridge.mm",
