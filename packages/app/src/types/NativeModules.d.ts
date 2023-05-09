@@ -62,6 +62,10 @@ export interface AppRestartInterface extends NativeModule {
   restart: () => void;
 }
 
+export interface LoggerNativeModulesInterface extends NativeModule {
+  log: (msg: string) => void;
+}
+
 declare module 'react-native' {
   interface NativeModulesStatic {
     HTTPServerManager: HTTPServerManagerInterface;
@@ -72,5 +76,6 @@ declare module 'react-native' {
     Minimizer: MinimizerInterface;
     CacheManager: CacheManagerInterface;
     NativeAppRestart: AppRestartInterface;
+    LoggerNative: LoggerNativeModulesInterface;
   }
 }
