@@ -587,11 +587,13 @@ function AddExistingWalletView(
         />
       ) : (
         <Form>
-          <ImportAccountNetworkSelectorTrigger
-            selectedNetwork={selectedNetwork}
-            selectableNetworks={selectableNetworks}
-            onSelected={handleNetworkOnSelected}
-          />
+          {mode !== 'mnemonic' && (
+            <ImportAccountNetworkSelectorTrigger
+              selectedNetwork={selectedNetwork}
+              selectableNetworks={selectableNetworks}
+              onSelected={handleNetworkOnSelected}
+            />
+          )}
           <Form.Item
             isLabelAddonActions
             labelAddon={labelAddonArr}
