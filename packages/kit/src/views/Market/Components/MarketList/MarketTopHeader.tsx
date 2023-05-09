@@ -35,7 +35,7 @@ const Header: FC<{ onPressSearch: () => void }> = ({ onPressSearch }) => {
     <Box flexDirection="column" w="full" mb={4}>
       <Box mt="4" ml="6" flexDirection="row" alignItems="center">
         <Typography.DisplayLarge>
-          {intl.formatMessage({ id: 'title__market' })}
+          {intl.formatMessage({ id: 'market__market' })}
         </Typography.DisplayLarge>
         <Box
           h="20px"
@@ -108,7 +108,7 @@ function HeaderSmall({
                 : 'text-disabled'
             }
           >
-            {intl.formatMessage({ id: 'title__market' })}
+            {intl.formatMessage({ id: 'market__market' })}
           </Typography.DisplayMedium>
         </Pressable>
       </Box>

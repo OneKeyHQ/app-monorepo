@@ -28,7 +28,7 @@ export const tabRoutesConfigBaseMap: Record<TabRoutes, TabRouteConfigBase> = {
     name: TabRoutes.Market,
     tabBarIcon: (focused) =>
       focused ? 'ChartLineSquareSolid' : 'ChartLineSquareOutline',
-    translationId: 'title__market',
+    translationId: 'market__market',
     hideDesktopNavHeader: true,
     hideMobileNavHeader: true,
     hideOnMobile: true,
