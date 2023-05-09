@@ -157,7 +157,7 @@ class Provider extends BaseProvider {
     payload.expirationTime =
       payload.expirationTime || Math.floor(Date.now() / 1000) + 60 * 60;
 
-    const maxGasAmount = 40000000;
+    const maxGasAmount = 10000000;
     const { chainId } = this.chainInfo.implOptions;
     const gasUnitPrice = feePricePerUnit.toNumber();
     const expirationTimestampSecs =
