@@ -63,23 +63,33 @@ function SideChainSelector({
   onPress,
   fullWidthMode,
   networkImpl,
+  rpcStatusDisabled,
+  selectedNetworkId,
+  selectableNetworks,
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
   onPress?: (payload: { networkId: string }) => void;
   fullWidthMode?: boolean;
   networkImpl?: string;
+  selectedNetworkId?: string;
+  selectableNetworks?: INetwork[];
+  rpcStatusDisabled?: boolean;
 }) {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const { serviceAccountSelector } = backgroundApiProxy;
   const { enabledNetworks } = useManageNetworks();
-  const { selectedNetworkId, activeWallet } = accountSelectorInfo;
+  const { selectedNetworkId: selectedNetworkIdinAccountInfo, activeWallet } =
+    accountSelectorInfo;
   const flatListRef = useRef<any>(null);
+
+  const networks = selectableNetworks ?? enabledNetworks;
+  const networkId = selectedNetworkId ?? selectedNetworkIdinAccountInfo;
 
   const data = useMemo(
     () =>
-      enabledNetworks.filter((d: INetwork) => {
+      networks.filter((d: INetwork) => {
         if (networkImpl && d.impl !== networkImpl) {
           return false;
         }
@@ -92,7 +102,7 @@ function SideChainSelector({
         }
         return false;
       }),
-    [networkImpl, enabledNetworks, search],
+    [networkImpl, networks, search],
   );
 
   const isScrolledRef = useRef(false);
@@ -101,9 +111,9 @@ function SideChainSelector({
     ({ isRetry }: { isRetry?: boolean } = {}) => {
       if (
         isScrolledRef.current ||
-        !enabledNetworks ||
-        !enabledNetworks.length ||
-        !selectedNetworkId
+        !networks ||
+        !networks.length ||
+        !networkId
       ) {
         return;
       }
@@ -119,9 +129,7 @@ function SideChainSelector({
      */
       setTimeout(() => {
         try {
-          const index = enabledNetworks.findIndex(
-            (item) => item.id === selectedNetworkId,
-          );
+          const index = networks.findIndex((item) => item.id === networkId);
           if (index < 5) {
             return;
           }
@@ -133,7 +141,7 @@ function SideChainSelector({
         }
       }, 0);
     },
-    [enabledNetworks, selectedNetworkId],
+    [networks, networkId],
   );
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -205,9 +213,11 @@ function SideChainSelector({
                 >
                   {item.name}
                 </Text>
-                {item.id === selectedNetworkId && !isDisabled ? (
+                {item.id === networkId && !isDisabled ? (
                   <>
-                    <RpcStatusButton networkId={item.id} />
+                    {!rpcStatusDisabled && (
+                      <RpcStatusButton networkId={item.id} />
+                    )}
                     <Icon color="interactive-default" name="CheckCircleSolid" />
                   </>
                 ) : null}
@@ -220,8 +230,9 @@ function SideChainSelector({
     [
       fullWidthMode,
       onPress,
+      rpcStatusDisabled,
       scrollToItem,
-      selectedNetworkId,
+      networkId,
       serviceAccountSelector,
     ],
   );
@@ -230,7 +241,7 @@ function SideChainSelector({
     (options: { item: INetwork; index: number }) => {
       const { item, index } = options;
       const isLastItem = index === data.length - 1;
-      const isActive = selectedNetworkId === item.id;
+      const isActive = networkId === item.id;
       const isDisabled =
         activeWallet?.type === WALLET_TYPE_HW &&
         !item.settings.hardwareAccountEnabled;
@@ -264,7 +275,7 @@ function SideChainSelector({
     },
     [
       data.length,
-      selectedNetworkId,
+      networkId,
       activeWallet?.type,
       fullWidthMode,
       renderNetworkItem,

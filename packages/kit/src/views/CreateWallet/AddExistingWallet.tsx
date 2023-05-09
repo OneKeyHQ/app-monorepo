@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
+import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
@@ -15,13 +16,18 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { UserInputCategory } from '@onekeyhq/engine/src/types/credential';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NameServiceResolver, {
   useNameServiceStatus,
 } from '@onekeyhq/kit/src/components/NameServiceResolver';
-import { useGeneral, useRuntime } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useGeneral,
+  useRuntime,
+} from '@onekeyhq/kit/src/hooks/redux';
 import type {
   CreateWalletRoutesParams,
   IAddExistingWalletModalParams,
@@ -41,6 +47,10 @@ import supportedNFC from '@onekeyhq/shared/src/detector/nfc';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import showDerivationPathBottomSheetModal from '../../components/NetworkAccountSelector/modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
+import { BaseSelectorTrigger } from '../../components/NetworkAccountSelector/triggers/BaseSelectorTrigger';
+import { ImportAccountNetworkSelectorTrigger } from '../../components/NetworkAccountSelector/triggers/ImportAccountNetworkSelectorTrigger';
+import { useManageNetworks } from '../../hooks';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { useOnboardingDone } from '../../hooks/useOnboardingRequired';
 import { useWalletName } from '../../hooks/useWalletName';
@@ -49,9 +59,18 @@ import { useOnboardingContext } from '../Onboarding/OnboardingContext';
 import { EOnboardingRoutes } from '../Onboarding/routes/enums';
 import { NineHouseLatticeInputForm } from '../Onboarding/screens/ImportWallet/Component/NineHouseLatticeInputForm';
 
+import type { IDerivationOption } from '../../components/NetworkAccountSelector/hooks/useDerivationPath';
+import type { Network } from '../../store/typings';
+import type { MessageDescriptor } from 'react-intl';
+
 type NavigationProps = ModalScreenProps<CreateWalletRoutesParams>;
 
-type AddExistingWalletValues = { text: string; defaultName?: string };
+type AddExistingWalletValues = {
+  text: string;
+  selectedNetwork?: Network;
+  defaultName?: string;
+  selectedDerivation?: IDerivationOption;
+};
 
 const emptyParams = Object.freeze({});
 
@@ -122,7 +141,7 @@ function useAddExistingWallet({
 
   const onSubmit = useCallback(
     async (values: AddExistingWalletValues) => {
-      const { text, defaultName } = values;
+      const { text, defaultName, selectedNetwork, selectedDerivation } = values;
       if (!text) {
         return;
       }
@@ -130,6 +149,7 @@ function useAddExistingWallet({
         await backgroundApiProxy.validator.validateCreateInput({
           input: text,
           onlyFor: inputCategory,
+          selectedNetwork,
         })
       ).filter(({ category }) => category !== UserInputCategory.ADDRESS);
 
@@ -211,6 +231,7 @@ function useAddExistingWallet({
             networkId,
             text,
             accountName,
+            selectedDerivation?.template,
           );
           ToastManager.show(
             {
@@ -234,6 +255,7 @@ function useAddExistingWallet({
           privatekey: text,
           name: accountName,
           networkId,
+          template: selectedDerivation?.template,
           onSuccess() {
             ToastManager.show(
               {
@@ -280,29 +302,6 @@ function useAddExistingWallet({
     trigger('text');
   }, [setValue, trigger]);
 
-  const placeholder = useMemo(() => {
-    const words = [
-      `${
-        mode === 'mnemonic' || mode === 'all'
-          ? intl.formatMessage({ id: 'form__recovery_phrase' })
-          : ''
-      }`,
-      `${
-        mode === 'imported' || mode === 'all'
-          ? intl.formatMessage({ id: 'form__private_key' })
-          : ''
-      }`,
-      `${
-        mode === 'watching' || mode === 'all'
-          ? intl.formatMessage({
-              id: 'form__import_watch_only_account_placeholder',
-            })
-          : ''
-      }`,
-    ];
-    return words.filter(Boolean).join(', ');
-  }, [intl, mode]);
-
   return {
     intl,
     handleSubmit,
@@ -310,11 +309,100 @@ function useAddExistingWallet({
     onSubmit,
     control,
     inputCategory,
-    placeholder,
     onPaste,
     onTextChange,
     mode,
   };
+}
+
+function AccountTypeSelectorTrigger({
+  value,
+  mode,
+  network,
+  inputCategory,
+  selectedDerivation,
+  setSelectedDerivation,
+}: {
+  value: string;
+  mode: IAddExistingWalletMode;
+  network: Network;
+  inputCategory?: UserInputCategory;
+  selectedDerivation: IDerivationOption | undefined;
+  setSelectedDerivation: (option: IDerivationOption | undefined) => void;
+}) {
+  const intl = useIntl();
+  const [derivationOptions, setDerivationOptions] = useState<
+    IDerivationOption[]
+  >([]);
+
+  useEffect(() => {
+    const checkCreateInput = async () => {
+      const result = (
+        await backgroundApiProxy.validator.validateCreateInput({
+          input: value,
+          onlyFor: inputCategory,
+          selectedNetwork: network,
+        })
+      )[0];
+
+      const options = Object.entries(result?.derivationOptions || []).map(
+        ([k, v]) => ({ ...v, key: k }),
+      );
+
+      setDerivationOptions(options);
+      setSelectedDerivation(options[0]);
+    };
+    checkCreateInput();
+  }, [value, inputCategory, network, setSelectedDerivation]);
+
+  const subDescription = useMemo(() => {
+    if (selectedDerivation && selectedDerivation.desc) {
+      if (typeof selectedDerivation.desc === 'string') {
+        return selectedDerivation.desc;
+      }
+
+      const desc = selectedDerivation.desc as {
+        id: MessageDescriptor['id'];
+        placeholder?: any;
+      };
+      return intl.formatMessage({ id: desc.id }, desc.placeholder);
+    }
+  }, [intl, selectedDerivation]);
+
+  if (
+    network.id === OnekeyNetwork.btc &&
+    derivationOptions.length > 0 &&
+    selectedDerivation
+  ) {
+    return (
+      <BaseSelectorTrigger
+        mt={2}
+        type="basic"
+        hasArrow
+        icon={null}
+        label={selectedDerivation?.label}
+        subDescription={subDescription}
+        onPress={() =>
+          showDerivationPathBottomSheetModal({
+            type: 'create',
+            title: intl.formatMessage({ id: 'content__account_type' }),
+            walletId: mode,
+            derivationOptions,
+            selectedDerivation,
+            onSelect: setSelectedDerivation,
+            networkId: network.id,
+          })
+        }
+        borderRadius={12}
+        px={2}
+        py={3}
+        space={3}
+        justifyContent="space-between"
+      />
+    );
+  }
+
+  return null;
 }
 
 function AddExistingWalletView(
@@ -333,7 +421,6 @@ function AddExistingWalletView(
     onSubmit,
     control,
     inputCategory,
-    placeholder,
     onPaste,
     mode,
     children,
@@ -344,23 +431,19 @@ function AddExistingWalletView(
     onTextChange,
   } = props;
 
+  const { enabledNetworks } = useManageNetworks();
+  const { network: activeNetwork } = useActiveWalletAccount();
+  const closeModal = useModalClose();
+  const [selectedDerivation, setSelectedDerivation] =
+    useState<IDerivationOption>();
+
   const {
     onChange: onNameServiceStatusChange,
     disableSubmitBtn,
     address,
   } = useNameServiceStatus();
   const isVerticalLayout = useIsVerticalLayout();
-  const helpText = useCallback(
-    (value: string) => (
-      <NameServiceResolver
-        name={value}
-        disable={mode === 'imported' || mode === 'mnemonic'}
-        onChange={onNameServiceChange || onNameServiceStatusChange}
-        disableBTC
-      />
-    ),
-    [onNameServiceChange, onNameServiceStatusChange, mode],
-  );
+
   const PasteBtn = useCallback(
     () => (
       <Center>
@@ -383,6 +466,110 @@ function AddExistingWalletView(
     return res;
   }, [mode, showPasteButton]);
 
+  const selectableNetworks = useMemo(
+    () =>
+      enabledNetworks.filter((network) => {
+        if (mode === 'imported') {
+          return network.settings.importedAccountEnabled;
+        }
+        if (mode === 'watching') {
+          return network.settings.watchingAccountEnabled;
+        }
+        return true;
+      }),
+    [enabledNetworks, mode],
+  );
+
+  const initNetwork = useMemo(() => {
+    if (activeNetwork) {
+      if (
+        mode === 'imported' &&
+        activeNetwork?.settings.importedAccountEnabled
+      ) {
+        return activeNetwork;
+      }
+      if (
+        mode === 'watching' &&
+        activeNetwork?.settings.watchingAccountEnabled
+      ) {
+        return activeNetwork;
+      }
+    }
+
+    return selectableNetworks[0];
+  }, [activeNetwork, mode, selectableNetworks]);
+
+  const [selectedNetwork, setSelectedNetwork] = useState<Network>(initNetwork);
+
+  const handleNetworkOnSelected = useCallback(
+    (networkId: string) => {
+      setSelectedNetwork(find(enabledNetworks, { id: networkId }) as Network);
+      closeModal();
+    },
+    [closeModal, enabledNetworks],
+  );
+  const helpText = useCallback(
+    (value: string) => (
+      <>
+        <NameServiceResolver
+          name={value}
+          disable={mode === 'imported' || mode === 'mnemonic'}
+          onChange={onNameServiceChange || onNameServiceStatusChange}
+          networkId={selectedNetwork.id}
+          disableBTC
+        />
+        <AccountTypeSelectorTrigger
+          value={value}
+          mode={mode}
+          selectedDerivation={selectedDerivation}
+          setSelectedDerivation={setSelectedDerivation}
+          inputCategory={inputCategory}
+          network={selectedNetwork}
+        />
+      </>
+    ),
+    [
+      inputCategory,
+      mode,
+      onNameServiceChange,
+      onNameServiceStatusChange,
+      selectedDerivation,
+      selectedNetwork,
+    ],
+  );
+
+  const placeholder = useMemo(() => {
+    const getImportWatchingAccountPlaceholder = () => {
+      if (mode === 'watching' || mode === 'all') {
+        if (mode === 'watching' && selectedNetwork.id === OnekeyNetwork.btc) {
+          return intl.formatMessage({
+            id: 'content__public_key',
+          });
+        }
+        return intl.formatMessage({
+          id: 'form__import_watch_only_account_placeholder',
+        });
+      }
+
+      return '';
+    };
+
+    const words = [
+      `${
+        mode === 'mnemonic' || mode === 'all'
+          ? intl.formatMessage({ id: 'form__recovery_phrase' })
+          : ''
+      }`,
+      `${
+        mode === 'imported' || mode === 'all'
+          ? intl.formatMessage({ id: 'form__private_key' })
+          : ''
+      }`,
+      `${getImportWatchingAccountPlaceholder()}`,
+    ];
+    return words.filter(Boolean).join(', ');
+  }, [intl, mode, selectedNetwork.id]);
+
   return (
     <Box
       display="flex"
@@ -400,6 +587,11 @@ function AddExistingWalletView(
         />
       ) : (
         <Form>
+          <ImportAccountNetworkSelectorTrigger
+            selectedNetwork={selectedNetwork}
+            selectableNetworks={selectableNetworks}
+            onSelected={handleNetworkOnSelected}
+          />
           <Form.Item
             isLabelAddonActions
             labelAddon={labelAddonArr}
@@ -416,6 +608,7 @@ function AddExistingWalletView(
                     await backgroundApiProxy.validator.validateCreateInput({
                       input: text,
                       onlyFor: inputCategory,
+                      selectedNetwork,
                     })
                   ).filter(
                     ({ category }) => category !== UserInputCategory.ADDRESS,
@@ -423,18 +616,22 @@ function AddExistingWalletView(
                 ) {
                   return true;
                 }
+
                 // Special treatment for BTC address.
-                try {
-                  await backgroundApiProxy.validator.validateAddress(
-                    OnekeyNetwork.btc,
-                    text,
-                  );
-                  return intl.formatMessage({
-                    id: 'form__address_btc_as_wachted_account',
-                  });
-                } catch {
-                  // pass
+                if (selectedNetwork.id === OnekeyNetwork.btc) {
+                  try {
+                    await backgroundApiProxy.validator.validateAddress(
+                      OnekeyNetwork.btc,
+                      text,
+                    );
+                    return intl.formatMessage({
+                      id: 'form__address_btc_as_wachted_account',
+                    });
+                  } catch {
+                    // pass
+                  }
                 }
+
                 if (inputCategory === UserInputCategory.IMPORTED) {
                   return intl.formatMessage({
                     id: 'msg__invalid_private_key',
@@ -492,6 +689,8 @@ function AddExistingWalletView(
                 if (!disableSubmitBtn && address) {
                   values.text = address;
                 }
+                values.selectedNetwork = selectedNetwork;
+                values.selectedDerivation = selectedDerivation;
                 await onSubmit(values);
                 await wait(600);
               })}

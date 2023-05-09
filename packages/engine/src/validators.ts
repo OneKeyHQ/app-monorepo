@@ -106,6 +106,7 @@ class Validators {
     forCategories: Array<UserInputCategory> = [],
     returnEarly = false,
     skipHeavyChains = false,
+    selectedNetwork: Network | undefined = undefined,
   ): Promise<Array<UserInputCheckResult>> {
     const ret = [];
     const filterCategories =
@@ -126,6 +127,20 @@ class Validators {
       } catch {
         // pass
       }
+    }
+
+    if (selectedNetwork) {
+      const result = await this.matchingInputType(
+        input,
+        [selectedNetwork],
+        filterCategories,
+      ).catch();
+
+      if (result && result.length > 0) {
+        ret.push(...result);
+      }
+
+      return ret;
     }
 
     // For implemetations(btc/evm/near/stc) we have at the moment, address
@@ -182,17 +197,20 @@ class Validators {
     onlyFor,
     returnEarly,
     skipHeavyChains,
+    selectedNetwork,
   }: {
     input: string;
     onlyFor?: UserInputCategory;
     returnEarly?: boolean;
     skipHeavyChains?: boolean;
+    selectedNetwork?: Network;
   }) {
     return this.validateUserInput(
       input,
       onlyFor !== undefined ? [onlyFor] : [],
       returnEarly,
       skipHeavyChains,
+      selectedNetwork,
     );
   }
 
