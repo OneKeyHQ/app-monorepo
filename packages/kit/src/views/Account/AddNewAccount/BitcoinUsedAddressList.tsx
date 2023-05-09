@@ -387,8 +387,12 @@ const BitcoinMannualAddedAddressList: FC<IMannualAddedAddressListProps> = ({
   );
 
   useEffect(() => {
-    if (config.mannualListCurrentPage > maxPage) {
-      setConfig((prev) => ({ ...prev, mannualListCurrentPage: maxPage }));
+    const maxCurrentPage = Math.max(maxPage, 1);
+    if (config.mannualListCurrentPage > maxCurrentPage) {
+      setConfig((prev) => ({
+        ...prev,
+        mannualListCurrentPage: maxCurrentPage,
+      }));
     }
   }, [maxPage, config.mannualListCurrentPage, setConfig]);
 
