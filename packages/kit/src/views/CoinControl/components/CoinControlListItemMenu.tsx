@@ -77,7 +77,7 @@ const CoinControlListItemMenu: FC<
         onPress: onOpenBlockChainBrowser,
         icon: 'GlobeAltOutline',
       },
-      () => <Divider my={1} />,
+      showFrozenOption && (() => <Divider my={1} />),
       showFrozenOption && {
         id: isFrozen ? 'action__unfreeze' : 'action__freeze',
         onPress: onPressFrozenUTXO,
