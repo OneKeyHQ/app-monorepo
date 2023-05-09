@@ -11,6 +11,7 @@ import {
   persistStore,
 } from 'redux-persist';
 
+import { REPLACE_WHOLE_STATE } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   AppEventBusNames,
   appEventBus,
@@ -95,7 +96,7 @@ function rootReducer(reducers: Reducer, initialState = {}): any {
   return function (state = {}, action: PayloadAction): any {
     switch (action.type) {
       // sync background redux to ui redux
-      case 'REPLACE_WHOLE_STATE':
+      case REPLACE_WHOLE_STATE:
         // return reducers(state, action);
         higherState.state = action.payload as any;
         return higherState.state;
@@ -134,8 +135,11 @@ export function makeStore() {
   const persistor = persistStore(store, null, () => {
     debugLogger.common.info(`receive: store persisted`);
     if (platformEnv.isExtensionUi) {
+      // extension ui Persistor done does NOT mean redux is ready, UI needs to sync data from background
+      //      UI use and check useReduxReady() for details
       appUIEventBus.emit(AppUIEventBusNames.StoreInitedFromPersistor);
     } else {
+      global.$appIsReduxReady = true;
       appEventBus.emit(AppEventBusNames.StoreInitedFromPersistor);
     }
   });
@@ -214,7 +218,7 @@ if (platformEnv.isDev) {
     s.counter.value = parseFloat(Date.now().toString().slice(5));
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     global.$$appDispatch({
-      type: 'REPLACE_WHOLE_STATE',
+      type: REPLACE_WHOLE_STATE,
       payload: s,
       $isDispatchFromBackground: true,
     });

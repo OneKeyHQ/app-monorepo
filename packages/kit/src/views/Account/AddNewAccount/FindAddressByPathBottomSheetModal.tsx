@@ -21,7 +21,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useDerivationPath } from '../../../components/NetworkAccountSelector/hooks/useDerivationPath';
-import { useRuntime } from '../../../hooks/redux';
 import { deviceUtils } from '../../../utils/hardware';
 import { showOverlay } from '../../../utils/overlayUtils';
 
@@ -71,8 +70,16 @@ const FindAddressByPathContent: FC<IFindAddressByPathProps> = ({
     },
     mode: 'onChange',
   });
-  const { accounts } = useRuntime();
-  const account = accounts.find((i) => i.id === accountId);
+  const [account, setAccount] = useState<Account | null>(null);
+  useEffect(() => {
+    if (accountId && networkId) {
+      backgroundApiProxy.engine
+        .getAccount(accountId, networkId)
+        .then((findAccount) => {
+          setAccount(findAccount);
+        });
+    }
+  }, [accountId, networkId]);
   const hasAccount = useMemo(
     () => !!accountId && !!account,
     [accountId, account],

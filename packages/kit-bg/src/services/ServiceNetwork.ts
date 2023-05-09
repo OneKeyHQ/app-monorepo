@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/require-await */
-import NetInfo from '@react-native-community/netinfo';
 import { debounce } from 'lodash';
 
 import { fetchChainList } from '@onekeyhq/engine/src/managers/network';
@@ -32,6 +31,7 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import NetInfo from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 
 import ServiceBase from './ServiceBase';
 
@@ -368,6 +368,7 @@ class ServiceNetwork extends ServiceBase {
       );
     } catch (error) {
       // pass
+      console.error('measureRpcStatus ERROR', error);
     }
     dispatch(
       setRpcStatus({

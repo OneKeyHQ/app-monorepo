@@ -8,7 +8,7 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { DiscoverModalRoutes } from '../../Discover/type';
 import BaseMenu from '../BaseMenu';
 

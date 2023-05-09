@@ -7,7 +7,7 @@ import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { useNetworks } from '../../../hooks/redux';
-import { HomeRoutes } from '../../../routes/types';
+import { HomeRoutes } from '../../../routes/routesEnum';
 
 import type { HomeRoutesParams } from '../../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';

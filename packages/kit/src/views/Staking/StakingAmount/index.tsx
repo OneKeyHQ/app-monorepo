@@ -38,7 +38,7 @@ import {
   useSingleToken,
   useTokenBalanceWithoutFrozen,
 } from '../../../hooks/useTokens';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { wait } from '../../../utils/helper';
 import { StakingRoutes } from '../typing';
 

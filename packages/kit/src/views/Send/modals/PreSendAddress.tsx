@@ -23,7 +23,7 @@ import NameServiceResolver, {
 import { useActiveSideAccount } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import { useSingleToken } from '../../../hooks/useTokens';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { BulkSenderTypeEnum } from '../../BulkSender/types';
 import { GoPlusSecurityItems } from '../../ManageTokens/components/GoPlusAlertItems';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';

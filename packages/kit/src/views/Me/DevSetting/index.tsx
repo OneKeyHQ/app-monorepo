@@ -34,6 +34,7 @@ import {
   setOnRamperTestMode,
   setOverviewDefiBuildByService,
   setPreReleaseUpdate,
+  setShowContentScriptReloadButton,
   setShowWebEmbedWebviewAgent,
   setUpdateDeviceBle,
   setUpdateDeviceRes,
@@ -103,6 +104,7 @@ export const DevSettingSection = () => {
     hideDiscoverContent,
     onRamperTestMode,
     showWebEmbedWebviewAgent,
+    showContentScriptReloadButton,
   } = devModeData;
   const { dispatch } = backgroundApiProxy;
   const intl = useIntl();
@@ -359,6 +361,22 @@ export const DevSettingSection = () => {
             isChecked={showWebEmbedWebviewAgent}
             onToggle={() => {
               dispatch(setShowWebEmbedWebviewAgent(!showWebEmbedWebviewAgent));
+            }}
+          />
+        </Container.Item>
+        <Container.Item
+          title="Show content-script reload BUTTON"
+          titleColor="text-critical"
+        >
+          <Switch
+            labelType="false"
+            isChecked={showContentScriptReloadButton}
+            onToggle={() => {
+              dispatch(
+                setShowContentScriptReloadButton(
+                  !showContentScriptReloadButton,
+                ),
+              );
             }}
           />
         </Container.Item>

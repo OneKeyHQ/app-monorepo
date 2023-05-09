@@ -22,7 +22,7 @@ import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
 
 import { FormatCurrencyNumber } from '../../../components/Format';
 import { navigationRef } from '../../../provider/NavigationProvider';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { showDialog } from '../../../utils/overlayUtils';
 import { useConnectAndCreateExternalAccount } from '../../ExternalAccount/useConnectAndCreateExternalAccount';
 import {

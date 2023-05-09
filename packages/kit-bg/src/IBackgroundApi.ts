@@ -50,11 +50,18 @@ import type {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsBridgeReceiveHandler,
+  IJsonRpcRequest,
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
+import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
+
+export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
+  service: string;
+};
 
 export interface IBackgroundApiBridge {
   bridge: JsBridgeBase | null;
+  bridgeExtBg: JsBridgeExtBackground | null;
   connectBridge(bridge: JsBridgeBase): void;
   connectWebEmbedBridge(bridge: JsBridgeBase): void;
   bridgeReceiveHandler: IJsBridgeReceiveHandler;

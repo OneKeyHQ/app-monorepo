@@ -19,7 +19,7 @@ import {
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { useNetworkSimple } from '../../../hooks';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import SwappingVia from '../components/SwappingVia';
 import { SwapRoutes } from '../typings';
 import { formatAmount } from '../utils';

@@ -5,6 +5,24 @@ const childProcess = require('child_process');
 const path = require('path');
 const util = require('util');
 const replicator = require('console-feed/lib/Transform');
+const manifest = require('../src/manifest');
+
+// TODO move to developmentConsts.js
+const consts = {
+  configName: {
+    bg: 'bg',
+    offscreen: 'offscreen',
+    ui: 'ui',
+    cs: 'cs',
+  },
+  entry: {
+    'ui-popup': 'ui-popup',
+    'ui-devtools': 'ui-devtools',
+    'background': 'background',
+    'offscreen': 'offscreen',
+    'content-script': 'content-script',
+  },
+};
 
 function execSync(cmd) {
   childProcess.execSync(cmd);
@@ -71,9 +89,9 @@ function createMultipleEntryConfigs(createConfig, multipleEntryConfigs) {
   });
   return configs;
 }
+
 // firefox chrome edge
 function getBuildTargetBrowser() {
-  console.log('getBuildTargetBrowser: process.argv', process.argv);
   let buildTargetBrowser = process.env.EXT_CHANNEL || 'chrome';
   const argv = process.argv[process.argv.length - 1];
   if (argv === '--firefox') {
@@ -89,22 +107,79 @@ function getBuildTargetBrowser() {
   return buildTargetBrowser;
 }
 
-function cleanBrowserBuild() {
+function getOutputFolder() {
+  // isManifestV3 ? `${buildTargetBrowser}_v3` : buildTargetBrowser,
   const buildTargetBrowser = getBuildTargetBrowser();
-  const cmd = `rm -rf ${path.resolve(
-    __dirname,
-    '../build',
-    buildTargetBrowser,
-  )}`;
+  return isManifestV3() ? `${buildTargetBrowser}_v3` : buildTargetBrowser;
+}
+
+function isBuildTargetBrowserChromeLike() {
+  const buildTargetBrowser = getBuildTargetBrowser();
+  return buildTargetBrowser === 'chrome' || buildTargetBrowser === 'edge';
+}
+
+function isBuildTargetBrowserFirefox() {
+  const buildTargetBrowser = getBuildTargetBrowser();
+  return buildTargetBrowser === 'firefox';
+}
+
+function cleanBrowserBuild() {
+  const outputFolder = getOutputFolder();
+  const cmd = `rm -rf ${path.resolve(__dirname, '../build', outputFolder)}`;
   execSync(cmd);
 }
 
+function isManifestV3() {
+  const isManifestV3 = manifest.manifest_version >= 3;
+  return isManifestV3;
+}
+
+function isManifestV2() {
+  return !isManifestV3();
+}
+
+function addBabelLoaderPlugin({ config, isPrepend, plugins }) {
+  const { rules } = config.module;
+  // eslint-disable-next-line no-param-reassign
+  plugins = [].concat(plugins);
+  rules.forEach((rule) => {
+    const uses = [].concat(rule.use || []);
+    uses.forEach((use) => {
+      const loader = typeof use === 'string' ? use : use.loader;
+      if (
+        loader === 'babel-loader' ||
+        loader.includes(
+          'node_modules/@expo/next-adapter/node_modules/babel-loader/lib/index.js',
+        )
+      ) {
+        // rule.test.toString() === '/\\.+(js|jsx|mjs|ts|tsx)$/'
+        const ruleTestRegex = rule.test.toString();
+        use.options = use.options || {};
+        use.options.plugins = use.options.plugins || [];
+        const configName = config.name;
+        if (isPrepend) {
+          use.options.plugins = [...plugins, ...use.options.plugins];
+        } else {
+          use.options.plugins = [...use.options.plugins, ...plugins];
+        }
+      }
+    });
+  });
+}
+
 module.exports = {
+  consts,
   execSync,
   pluginWithName,
   writePreviewWebpackConfigJson,
   cleanWebpackDebugFields,
   createMultipleEntryConfigs,
   getBuildTargetBrowser,
+  getOutputFolder,
+  isBuildTargetBrowserChromeLike,
+  isBuildTargetBrowserFirefox,
   cleanBrowserBuild,
+  isManifestV2,
+  isManifestV3,
+  addBabelLoaderPlugin,
 };

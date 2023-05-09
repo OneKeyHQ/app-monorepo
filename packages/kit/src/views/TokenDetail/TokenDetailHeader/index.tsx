@@ -7,7 +7,8 @@ import { useIntl } from 'react-intl';
 import { Box, Button, HStack, useIsVerticalLayout } from '@onekeyhq/components';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/types';
-import { TabRoutes } from '@onekeyhq/kit/src/routes/types';
+import type { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -19,7 +20,6 @@ import StakedAssets from '../../Staking/components/StakedAssets';
 import DeskTopHeader from './DeskTopHeader';
 import MoreMenuButton from './MoreMenuButton';
 
-import type { HomeRoutes } from '../../../routes/types';
 import type { TokenDetailRoutesParams } from '../routes';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 

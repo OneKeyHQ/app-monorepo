@@ -1,4 +1,4 @@
-import { TabRoutes } from '../../../../types';
+import { TabRoutes } from '../../../../routesEnum';
 
 import type { TabRouteConfigBase } from '../../../../types';
 

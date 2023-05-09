@@ -5,7 +5,7 @@ import { Box, useSafeAreaInsets } from '@onekeyhq/components';
 import { useActiveWalletAccount } from '../../hooks';
 import AssetsList from '../Wallet/AssetsList';
 
-import type { HomeRoutes } from '../../routes/types';
+import type { HomeRoutes } from '../../routes/routesEnum';
 import type { FullTokenListRoutesParams } from './routes';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 

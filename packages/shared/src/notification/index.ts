@@ -1,20 +1,19 @@
-import {
-  IosAuthorizationStatus,
-  getPermissionsAsync,
-} from 'expo-notifications';
 import JPush from 'jpush-react-native';
+
+import { getPermissionsAsync } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
+import type { NotificationPermissionsStatus } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications/types';
+import { IosAuthorizationStatus } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications/types';
 
 import { JPUSH_KEY } from '../config/appConfig';
 import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
-
-import type { NotificationPermissionsStatus } from 'expo-notifications';
 
 let jpushInited = false;
 export const hasPermission = (settings: NotificationPermissionsStatus) =>
   settings.granted ||
   settings.ios?.status === IosAuthorizationStatus.PROVISIONAL;
 
+// eslint-disable-next-line @typescript-eslint/require-await
 export const checkPushNotificationPermission = async () => {
   const permissions = await getPermissionsAsync();
   return hasPermission(permissions);

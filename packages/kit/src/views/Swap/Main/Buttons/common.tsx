@@ -14,7 +14,7 @@ import {
 
 import { useNavigation } from '../../../../hooks';
 import { useActiveWalletAccount } from '../../../../hooks/redux';
-import { RootRoutes } from '../../../../routes/types';
+import { RootRoutes } from '../../../../routes/routesEnum';
 
 export const MainButton: FC = ({ children }) => {
   const intl = useIntl();

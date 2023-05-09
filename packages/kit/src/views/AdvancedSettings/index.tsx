@@ -9,7 +9,8 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../hooks';
 import { setAdvancedSettings } from '../../store/reducers/settings';
 
-import type { HomeRoutes, HomeRoutesParams } from '../../routes/types';
+import type { HomeRoutes } from '../../routes/routesEnum';
+import type { HomeRoutesParams } from '../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<

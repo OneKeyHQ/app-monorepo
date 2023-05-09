@@ -1,5 +1,6 @@
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const path = require('path');
+const manifestBuilder = require('./manifestBuilder');
 
 CopyWebpackPlugin.prototype.pluginName = 'CopyWebpackPlugin';
 
@@ -27,13 +28,13 @@ const copy1 = createCopyPlugin({
       from: 'src/manifest/index.js',
       to: './manifest.json',
       transform(content, filePath) {
-        // eslint-disable-next-line global-require,import/no-dynamic-require
-        const manifest = require(filePath);
-        // generates the manifest file using the package.json informations
-        return Buffer.from(JSON.stringify(manifest, null, 2));
+        return manifestBuilder.buildManifest(content, filePath);
       },
     }),
     createPattern('src/entry/injected.js'),
+    // createPattern('src/entry/offscreen.html'),
+    // createPattern('src/entry/offscreen.js'),
+
     createPattern('src/assets/img/icon-128.png'),
     createPattern('src/assets/img/icon-128-disable.png'),
     createPattern('src/assets/ui-popup-boot.html'),

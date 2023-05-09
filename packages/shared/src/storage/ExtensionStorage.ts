@@ -94,19 +94,28 @@ class ExtensionStorage implements AsyncStorageStatic {
   browserApi: typeof chrome =
     platformEnv.isExtFirefox || !isManifestV3 ? global.browser : global.chrome;
 
+  _checkOffscreen() {
+    if (platformEnv.isExtensionOffscreen) {
+      throw new Error('ExtensionStorage is not supported in offscreen page.');
+    }
+  }
+
   async getItem(key: string) {
+    this._checkOffscreen();
     const data = (await this.browserApi.storage.local.get(key)) ?? {};
     const value = data[key] as string;
     return value;
   }
 
   async setItem(key: string, value: string) {
+    this._checkOffscreen();
     return this.browserApi.storage.local.set({
       [key]: value,
     });
   }
 
   async removeItem(key: string) {
+    this._checkOffscreen();
     return this.browserApi.storage.local.remove(key);
   }
 

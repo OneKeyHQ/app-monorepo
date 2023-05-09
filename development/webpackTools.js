@@ -7,6 +7,7 @@ const { getPathsAsync } = require('@expo/webpack-config/env');
 const path = require('path');
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 const DuplicatePackageCheckerPlugin = require('duplicate-package-checker-webpack-plugin');
+const devUtils = require('@onekeyhq/ext/development/devUtils');
 const developmentConsts = require('./developmentConsts');
 const indexHtmlParameter = require('./indexHtmlParameter');
 
@@ -90,7 +91,7 @@ function normalizeConfig({
 
     config.plugins = [
       ...config.plugins,
-      new DuplicatePackageCheckerPlugin(),
+      platform !== 'ext' ? new DuplicatePackageCheckerPlugin() : null,
       isDev ? new BuildDoneNotifyPlugin() : null,
       new webpack.DefinePlugin({
         // TODO use babelTools `transform-inline-environment-variables` instead
@@ -137,27 +138,47 @@ function normalizeConfig({
     }
 
     resolveExtensions = [
+      // .chrome-ext.ts, .firefox-ext.ts
       ...(buildTargetBrowser
         ? ['.ts', '.tsx', '.js', '.jsx'].map(
             (ext) => `.${buildTargetBrowser}-${platform}${ext}`,
           )
         : []),
+      // .ext-bg-v3.ts
+      ...(configName && platform === 'ext' && developmentConsts.isManifestV3
+        ? ['.ts', '.tsx', '.js', '.jsx'].map(
+            (ext) => `.${platform}-${configName}-v3${ext}`,
+          )
+        : []),
+      // .ext-ui.ts, .ext-bg.ts
       ...(configName
         ? ['.ts', '.tsx', '.js', '.jsx'].map(
             (ext) => `.${platform}-${configName}${ext}`,
           )
         : []),
+      // .ext.ts, .web.ts, .android.ts, .ios.ts, .native.ts
       ...['.ts', '.tsx', '.js', '.jsx'].map((ext) => `.${platform}${ext}`),
       ...resolveExtensions,
     ];
   }
 
-  // https://polkadot.js.org/docs/usage/FAQ#on-webpack-4-i-have-a-parse-error-on-importmetaurl
-  config.module.rules.push({
-    test: /@polkadot/,
-    // test: /[\s\S]*node_modules[/\\]@polkadot[\s\S]*.c?js$/,
-    loader: require.resolve('@open-wc/webpack-import-meta-loader'),
-  });
+  let useImportMetaLoader =
+    platform !== 'ext' ||
+    (platform === 'ext' && !developmentConsts.isManifestV3) ||
+    (platform === 'ext' &&
+      developmentConsts.isManifestV3 &&
+      configName === devUtils.consts.configName.offscreen);
+  useImportMetaLoader = true;
+  // reference window at node_modules/@open-wc/webpack-import-meta-loader/webpack-import-meta-loader.js
+  if (useImportMetaLoader) {
+    // https://polkadot.js.org/docs/usage/FAQ#on-webpack-4-i-have-a-parse-error-on-importmetaurl
+    config.module.rules.push({
+      test: /@polkadot/,
+      // test: /[\s\S]*node_modules[/\\]@polkadot[\s\S]*.c?js$/,
+      loader: require.resolve('@open-wc/webpack-import-meta-loader'),
+      // loader: require('./libs/@open-wc/webpack-import-meta-loader'),
+    });
+  }
 
   // let file-loader skip handle wasm files
   config.module.rules.forEach((rule) => {

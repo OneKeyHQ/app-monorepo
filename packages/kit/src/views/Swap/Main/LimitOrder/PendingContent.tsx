@@ -17,7 +17,7 @@ import {
 
 import { useAccount, useAppSelector, useNavigation } from '../../../../hooks';
 import useFormatDate from '../../../../hooks/useFormatDate';
-import { ModalRoutes, RootRoutes } from '../../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import {
   useCancelLimitOrderCallback,
   useLimitOrders,

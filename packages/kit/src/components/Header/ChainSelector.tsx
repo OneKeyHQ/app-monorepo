@@ -18,7 +18,7 @@ import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../hooks';
-import { ModalRoutes, RootRoutes } from '../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 import { ManageNetworkModalRoutes } from '../../views/ManageNetworks/types';
 
 import type { RootRoutesParams } from '../../routes/types';

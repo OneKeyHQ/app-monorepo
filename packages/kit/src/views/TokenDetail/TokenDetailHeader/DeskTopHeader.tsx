@@ -18,11 +18,12 @@ import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/types';
 import {
+  ModalRoutes,
   ReceiveTokenModalRoutes,
+  RootRoutes,
   SendModalRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount } from '../../../hooks';

@@ -27,7 +27,7 @@ import { FormatCurrency } from '../../../components/Format';
 import { useActiveWalletAccount, useNavigation } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { useSingleToken } from '../../../hooks/useTokens';
-import { ModalRoutes, RootRoutes } from '../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { formatAmount } from '../../../utils/priceUtils';
 import { SendModalRoutes } from '../../Send/types';
 import { useKeleWithdrawOverview } from '../hooks';

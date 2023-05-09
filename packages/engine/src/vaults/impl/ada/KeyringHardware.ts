@@ -9,7 +9,7 @@ import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
 import { getChangeAddress } from './helper/cardanoUtils';
-import { getCardanoApi } from './helper/sdk';
+import sdk from './helper/sdk';
 import {
   transformToOneKeyInputs,
   transformToOneKeyOutputs,
@@ -222,7 +222,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { inputs, outputs, fee, tx } = encodedTx;
     const isSignOnly = !!encodedTx.signOnly;
     const { rawTxHex } = tx;
-    const CardanoApi = await getCardanoApi();
+    const CardanoApi = await sdk.getCardanoApi();
     let cardanoParams;
     // sign for DApp
     if (isSignOnly && rawTxHex) {
