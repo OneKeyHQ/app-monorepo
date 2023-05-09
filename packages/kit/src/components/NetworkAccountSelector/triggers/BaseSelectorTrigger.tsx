@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import {
@@ -6,6 +8,7 @@ import {
   Icon,
   Pressable,
   Typography,
+  VStack,
 } from '@onekeyhq/components';
 
 import type { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
@@ -24,7 +27,9 @@ interface IBaseSelectorTriggerProps extends ISelectorTriggerSharedProps {
   icon: any;
   label: any;
   description?: any;
+  subDescription?: any;
   disabledInteractiveBg?: boolean;
+  hasArrow?: boolean;
 }
 function BaseSelectorTrigger({
   type = 'plain',
@@ -32,8 +37,12 @@ function BaseSelectorTrigger({
   icon,
   label,
   description,
+  subDescription,
   onPress,
-}: IBaseSelectorTriggerProps) {
+  hasArrow,
+  space,
+  ...props
+}: IBaseSelectorTriggerProps & ComponentProps<typeof HStack>) {
   return (
     <Pressable onPress={onPress}>
       {(status) => {
@@ -54,39 +63,43 @@ function BaseSelectorTrigger({
         return (
           <HStack
             alignItems="center"
-            p={1}
+            px={1}
+            py={1}
             bg={bgColor}
             borderRadius="full"
             borderWidth={type === 'basic' ? StyleSheet.hairlineWidth : 0}
             borderColor="border-default"
+            {...props}
           >
-            <HStack space={0.5} alignItems="center">
-              {icon ? <Center minH={5}>{icon}</Center> : null}
-              {label ? (
-                <HStack
-                  py={0.5}
-                  px={1.5}
-                  space={0.5}
-                  {...(type === 'plain' && { pr: 0.5 })}
-                >
-                  <Typography.Body2Strong isTruncated maxW="120px">
-                    {label}
-                  </Typography.Body2Strong>
-                  {description ? (
-                    <Typography.Body2 color="text-subdued" ml="0.5">
-                      {description}
-                    </Typography.Body2>
-                  ) : null}
-                  {type === 'plain' ? (
-                    <Icon
-                      size={20}
-                      name="ChevronDownMini"
-                      color="icon-subdued"
-                    />
-                  ) : null}
-                </HStack>
+            <VStack py={0.5} px={1.5}>
+              <HStack alignItems="center" space={space ?? 0.5}>
+                {icon ? <Center minH={5}>{icon}</Center> : null}
+                {label ? (
+                  <HStack
+                    space={0.5}
+                    alignItems="center"
+                    {...(type === 'plain' && { pr: 0.5 })}
+                  >
+                    <Typography.Body2Strong isTruncated maxW="120px">
+                      {label}
+                    </Typography.Body2Strong>
+                    {description ? (
+                      <Typography.Body2 color="text-subdued" ml="0.5">
+                        {description}
+                      </Typography.Body2>
+                    ) : null}
+                  </HStack>
+                ) : null}
+              </HStack>
+              {subDescription ? (
+                <Typography.Body2 color="text-subdued">
+                  {subDescription}
+                </Typography.Body2>
               ) : null}
-            </HStack>
+            </VStack>
+            {type === 'plain' || hasArrow ? (
+              <Icon size={20} name="ChevronDownMini" color="icon-subdued" />
+            ) : null}
           </HStack>
         );
       }}
