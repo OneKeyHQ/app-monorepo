@@ -1,7 +1,5 @@
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved,  @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
-import './intlShim';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+require('./intlShim');
 
 if (typeof __dirname === 'undefined') global.__dirname = '/';
 if (typeof __filename === 'undefined') global.__filename = '';
@@ -47,7 +45,15 @@ if (typeof crypto === 'undefined') {
 // Import the crypto getRandomValues shim (**BEFORE** the shims)
 require('react-native-get-random-values');
 // Import the the ethers shims (**BEFORE** ethers)
+/*
+Shims Injected:
+  - atob
+  - btoa
+  - nextTick
+  - FileReader.prototype.readAsArrayBuffer
+ */
 require('@ethersproject/shims');
+const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 
 if (platformEnv.isNativeAndroid) {
   const shimConsoleLog = (method) => {
@@ -79,3 +85,5 @@ if (platformEnv.isNativeIOS) {
   // typeforce causes iOS to crash.
   Error.captureStackTrace = () => {};
 }
+
+console.log('polyfillsPlatform.native shim loaded');
