@@ -25,3 +25,5 @@ if (platformEnv.isRuntimeFirefox) {
 } else {
   global.browser = global.browser || browser;
 }
+
+console.log('polyfillsPlatform.ext shim loaded');
