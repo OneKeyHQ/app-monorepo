@@ -162,9 +162,11 @@ const CoinControl = () => {
     (item: ICoinControlListItem) => {
       const key = getUtxoUniqueKey(item);
       if (selectedUtxos.includes(key)) {
-        setSelectedUtxos(selectedUtxos.filter((utxoKey) => utxoKey !== key));
+        setSelectedUtxos((prevSelectedUtxos) =>
+          prevSelectedUtxos.filter((utxoKey) => utxoKey !== key),
+        );
       } else {
-        setSelectedUtxos([...selectedUtxos, key]);
+        setSelectedUtxos((prevSelectedUtxos) => [...prevSelectedUtxos, key]);
       }
     },
     [selectedUtxos],
@@ -211,7 +213,7 @@ const CoinControl = () => {
     () => (
       <Center flex={1}>
         <Empty
-          emoji="🪙"
+          emoji="🕳️"
           title={intl.formatMessage({
             id: 'content__no_coins',
           })}

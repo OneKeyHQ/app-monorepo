@@ -14,9 +14,10 @@ import {
   IconButton,
   List,
   ListItem,
+  Pressable,
+  RichTooltip,
   Skeleton,
   Text,
-  Tooltip,
   VStack,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -161,7 +162,11 @@ const CoinControlCell: FC<ICellProps> = ({
             <CheckBox
               w={5}
               isChecked={!!isSelected}
-              // onChange={(value) => onChange(item, value)}
+              onChange={() => {
+                if (platformEnv.isNative) {
+                  onChange(item, !isSelected);
+                }
+              }}
             />
           </Box>
         </ListItem.Column>
@@ -338,23 +343,32 @@ const ListFooter: FC<
         <>
           <Divider w="auto" mx={2} />
           <HStack mt={4} mb={2} mx={2}>
-            <Tooltip
-              label={intl.formatMessage({
-                id: 'content__dust_refer_to_very_tiny_amount_of_bitcoin',
-              })}
-              placement="top left"
-            >
-              <HStack alignItems="center" space={1} alignSelf="flex-start">
-                <Text typography="Subheading" color="text-subdued">
-                  {intl.formatMessage({ id: 'form__dust__uppercase' })}
-                </Text>
-                <Icon
-                  name="QuestionMarkCircleMini"
-                  size={16}
-                  color="icon-subdued"
-                />
-              </HStack>
-            </Tooltip>
+            <RichTooltip
+              // eslint-disable-next-line react/no-unstable-nested-components
+              trigger={({ ...props }) => (
+                <Pressable {...props}>
+                  <HStack alignItems="center" space={1} alignSelf="flex-start">
+                    <Text typography="Subheading" color="text-subdued">
+                      {intl.formatMessage({ id: 'form__dust__uppercase' })}
+                    </Text>
+                    <Icon
+                      name="QuestionMarkCircleMini"
+                      size={16}
+                      color="icon-subdued"
+                    />
+                  </HStack>
+                </Pressable>
+              )}
+              bodyProps={{
+                children: (
+                  <Text>
+                    {intl.formatMessage({
+                      id: 'content__dust_refer_to_very_tiny_amount_of_bitcoin',
+                    })}
+                  </Text>
+                ),
+              }}
+            />
           </HStack>
           {renderFooterContent}
         </>
