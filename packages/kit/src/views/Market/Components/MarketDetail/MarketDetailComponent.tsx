@@ -19,7 +19,6 @@ import { useNetwork, useSettings } from '@onekeyhq/kit/src/hooks';
 import type {
   MarketEXplorer,
   MarketLinks,
-  MarketNews,
 } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
@@ -34,7 +33,6 @@ import {
 
 import { MarketInfoExplorer } from './MarketInfoExplorer';
 import { MarketInfoLinks } from './MarketInfoLinks';
-import { MarketInfoNewsList } from './MarketInfoNewsList';
 
 type DataViewComponentProps = {
   title?: string;
@@ -83,6 +81,7 @@ const ExplorerAction = ({
     <Menu
       offset={defaultMenuOffset}
       width={width}
+      minWidth={220}
       trigger={renderExplorerComponent}
     >
       <Menu.CustomItem onPress={copyAction} icon="DocumentDuplicateMini">
@@ -159,12 +158,12 @@ const DataViewComponent: FC<DataViewComponentProps> = ({
 type MarketDetailComponentProps = {
   low24h?: number;
   high24h?: number;
-  marketCapDominance?: string;
+  // marketCapDominance?: string;
   marketCapRank?: number;
   volume24h?: number;
   marketCap?: number;
   expolorers?: MarketEXplorer[];
-  news?: MarketNews[];
+  // news?: MarketNews[];   marketCapDominance and news The source was intercepted by an anti-crawler and temporarily blocked
   about?: string;
   atl?: {
     time?: string;
@@ -182,11 +181,9 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
   low24h,
   high24h,
   volume24h,
-  marketCapDominance,
   marketCapRank,
   marketCap,
   expolorers,
-  news,
   about,
   links,
   px,
@@ -210,7 +207,7 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
   }, [ath, atl]);
   return (
     <Box px={px}>
-      <VStack space={6} mt={2}>
+      <VStack space={6} my={2}>
         <Box>
           <Typography.Heading mb={2}>
             {intl.formatMessage({ id: 'content__stats' })}
@@ -234,12 +231,6 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
               />
               <DataViewComponent
                 index={2}
-                isFetching={marketCapDominance === undefined}
-                title={intl.formatMessage({ id: 'form__dominance' })}
-                value={`${marketCapDominance || 0}`}
-              />
-              <DataViewComponent
-                index={3}
                 isFetching={volume24h === undefined}
                 title={intl.formatMessage({ id: 'form__24h_volume' })}
                 value={formatMarketUnitPosition(
@@ -248,7 +239,7 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
                 )}
               />
               <DataViewComponent
-                index={4}
+                index={3}
                 isFetching={low24h === undefined}
                 title={intl.formatMessage({ id: 'form__24h_low' })}
                 value={formatMarketUnitPosition(
@@ -257,7 +248,7 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
                 )}
               />
               <DataViewComponent
-                index={5}
+                index={4}
                 isFetching={high24h === undefined}
                 title={intl.formatMessage({ id: 'form__24h_high' })}
                 value={formatMarketUnitPosition(
@@ -266,7 +257,7 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
                 )}
               />
               <DataViewComponent
-                index={6}
+                index={5}
                 isFetching={atl?.value === undefined}
                 title={intl.formatMessage({ id: 'form__all_time_low' })}
                 value={formatMarketUnitPosition(
@@ -276,7 +267,7 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
                 subValue={atlTime}
               />
               <DataViewComponent
-                index={7}
+                index={6}
                 isFetching={ath?.value === undefined}
                 title={intl.formatMessage({ id: 'form__all_time_high' })}
                 value={formatMarketUnitPosition(
@@ -333,14 +324,14 @@ export const MarketDetailComponent: FC<MarketDetailComponentProps> = ({
           </Box>
         ) : null}
         {links ? <MarketInfoLinks links={links} /> : null}
-        {news?.length ? (
+        {/* {news?.length ? (
           <Box>
             <Typography.Heading>
               {intl.formatMessage({ id: 'title__news' })}
             </Typography.Heading>
             <MarketInfoNewsList news={news} />
           </Box>
-        ) : null}
+        ) : null} */}
       </VStack>
     </Box>
   );

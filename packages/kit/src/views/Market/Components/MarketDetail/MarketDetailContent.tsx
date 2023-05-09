@@ -68,7 +68,7 @@ const MarketDetailActionButton = ({
         }}
         isDisabled={isDisabledSwap}
       >
-        {intl.formatMessage({ id: 'action__buy' })}
+        {intl.formatMessage({ id: 'Market__buy' })}
       </Button>
       <Button
         flex={1}
@@ -83,7 +83,7 @@ const MarketDetailActionButton = ({
         }}
         isDisabled={isDisabledSwap}
       >
-        {intl.formatMessage({ id: 'action__sell' })}
+        {intl.formatMessage({ id: 'Market__sell' })}
       </Button>
       {/* <IconButton
         ml={2}
@@ -150,11 +150,9 @@ const MarketDetailContent: FC<MarketDetailTabsProps> = ({
       <MarketDetailComponent
         low24h={tokenDetail?.stats?.low24h}
         high24h={tokenDetail?.stats?.high24h}
-        marketCapDominance={tokenDetail?.stats?.marketCapDominance}
         marketCapRank={tokenDetail?.stats?.marketCapRank}
         marketCap={tokenDetail?.stats?.marketCap}
         volume24h={tokenDetail?.stats?.volume24h}
-        news={tokenDetail?.news}
         expolorers={tokenDetail?.explorers}
         about={tokenDetail?.about}
         links={tokenDetail?.links}
