@@ -26,6 +26,10 @@ function isOneKeyUrl({ url }: { url: string }) {
   return false;
 }
 
+function generateTraceParent(requestId: string){
+  return `00-${requestId.replace(/-/g, '')}-08e5841cdcbc1c47-01`;
+}
+
 export abstract class RequestInterceptorBase {
   abstract setHeader(key: string, val: string): void;
 
@@ -57,7 +61,7 @@ export abstract class RequestInterceptorBase {
         }),
       );
       this.setHeader(this.normalizeHeaderKey('x-onekey-request-id'), requestId);
-      this.setHeader(this.normalizeHeaderKey('traceparent'), requestId);
+      this.setHeader(this.normalizeHeaderKey('traceparent'), generateTraceParent(requestId));
     }
     this.setDefaultTimeout(60 * 1000);
     this.setDefaultRetry(0);
