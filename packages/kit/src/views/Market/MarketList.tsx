@@ -10,7 +10,7 @@ import {
   FlatList,
   IconButton,
   ScrollView,
-  useIsVerticalLayout,
+  useUserDevice,
 } from '@onekeyhq/components';
 
 import { HomeRoutes } from '../../routes/routesEnum';
@@ -28,7 +28,6 @@ import {
   useMarketFavoriteCategoryTokenIds,
   useMarketFavoriteRecommentedList,
 } from './hooks/useMarketCategory';
-import { useMarketMidLayout } from './hooks/useMarketLayout';
 import { useMarketList } from './hooks/useMarketList';
 
 import type { HomeRoutesParams } from '../../routes/types';
@@ -44,8 +43,9 @@ import type {
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 const MarketList: FC = () => {
-  const isVerticalLayout = useIsVerticalLayout();
-  const isMidLayout = useMarketMidLayout();
+  const { size } = useUserDevice();
+  const isVerticalLayout = size === 'SMALL';
+  const isMidLayout = size === 'NORMAL';
   const categorys: MarketCategory[] = useMarketCategoryList();
   const recommendedTokens = useMarketFavoriteRecommentedList();
   const favoriteTokens = useMarketFavoriteCategoryTokenIds();
@@ -135,6 +135,7 @@ const MarketList: FC = () => {
           paddingBottom: 24,
         }}
         stickyHeaderIndices={[0]}
+        scrollEventThrottle={100}
       >
         <Box pt={1} mt={-1} bgColor="background-default">
           <MarketCategoryToggles categorys={categorys} />

@@ -82,7 +82,7 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           always-auth: true
           scope: '@onekeyhq'
-          
+
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
@@ -121,7 +121,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v3
 
-      - uses: github/webpack-bundlesize-compare-action@v1.5.0
+      - uses: github/webpack-bundlesize-compare-action@v1.7.0
         with:
           title: 'web bundle diff'
           github-token: ${{ secrets.GITHUB_TOKEN }}

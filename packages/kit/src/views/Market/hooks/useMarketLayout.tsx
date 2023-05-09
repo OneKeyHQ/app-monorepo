@@ -88,7 +88,7 @@ export const useGridBoxStyle = ({
 
 export const useMarketMidLayout = () => {
   const { size } = useUserDevice();
-  return useMemo(() => ['NORMAL'].includes(size), [size]);
+  return useMemo(() => size === 'NORMAL', [size]);
 };
 
 export const useDevicePixelRatio = () =>

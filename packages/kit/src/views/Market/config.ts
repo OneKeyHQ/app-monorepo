@@ -2,8 +2,8 @@ import type { ListHeadTagType } from './types';
 
 export const SUBMIT_TOKEN_URL = 'https://gr4yl99ujhl.typeform.com/to/ZM0qyr9e';
 
-export const MARKET_FAKE_SKELETON_LIST_ARRAY = new Array(10).fill(null);
-export const MARKET_FAKE_SKELETON_CATEGORY_ARRAY = new Array(10).fill(0);
+export const MARKET_FAKE_SKELETON_LIST_ARRAY = new Array(5).fill(null);
+export const MARKET_FAKE_SKELETON_CATEGORY_ARRAY = new Array(5).fill(0);
 
 export enum EMarketCellData {
   CollectionStar = 'CollectionStar',

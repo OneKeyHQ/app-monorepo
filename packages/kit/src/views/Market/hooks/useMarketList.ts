@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
+import { TabActions } from '@react-navigation/native';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
+import { getAppNavigation } from '../../../hooks/useAppNavigation';
 import { TabRoutes } from '../../../routes/routesEnum';
 import { MARKET_FAVORITES_CATEGORYID } from '../../../store/reducers/market';
+import { isAtAppRootTab } from '../../../utils/routeUtils';
 
 import { useMarketSelectedCategory } from './useMarketCategory';
 import { useMarketMidLayout } from './useMarketLayout';
@@ -19,7 +22,7 @@ export const useListSort = () => {
   return useMemo(() => listSort, [listSort]);
 };
 
-export const useMarketTopTabName = () =>
+export const useMobileMarketTopTabName = () =>
   useAppSelector((s) => s.market.marketTopTabName) || TabRoutes.Swap;
 
 const useMarketCategoryCoingeckoIds = () => {
@@ -38,10 +41,9 @@ export const useMarketList = ({
 } = {}) => {
   const isFocused = useIsFocused();
   const selectedCategory = useMarketSelectedCategory();
-  const isVerticalLlayout = useIsVerticalLayout();
+  const isVerticalLayout = useIsVerticalLayout();
   const isMidLayout = useMarketMidLayout();
   const listSort = useListSort();
-  const marktTopTabName = useMarketTopTabName();
 
   // if favorites is empty don't fetch
   const checkFavoritesFetch = useMemo(() => {
@@ -56,39 +58,33 @@ export const useMarketList = ({
   const coingeckoIds = useMarketCategoryCoingeckoIds();
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | undefined;
-    if (
-      isFocused &&
-      selectedCategory?.categoryId &&
-      marktTopTabName === TabRoutes.Market &&
-      checkFavoritesFetch
-    ) {
+    if (isFocused && selectedCategory?.categoryId && checkFavoritesFetch) {
       if (!listSort) {
         backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
           categoryId: selectedCategory.categoryId,
           ids: coingeckoIds,
-          sparkline: !isVerticalLlayout && !isMidLayout,
+          sparkline: !isVerticalLayout && !isMidLayout,
         });
       }
       timer = setInterval(() => {
-        backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
-          categoryId: selectedCategory.categoryId,
-          ids: coingeckoIds,
-          sparkline: !isVerticalLlayout && !isMidLayout,
-        });
+        if (isAtAppRootTab(TabRoutes.Market)) {
+          backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
+            categoryId: selectedCategory.categoryId,
+            ids: coingeckoIds,
+            sparkline: !isVerticalLayout && !isMidLayout,
+          });
+        }
       }, pollingInterval * 1000);
     }
     return () => {
-      if (timer) {
-        clearInterval(timer);
-      }
+      clearInterval(timer);
     };
   }, [
     selectedCategory?.categoryId,
     isFocused,
-    isVerticalLlayout,
+    isVerticalLayout,
     pollingInterval,
     listSort,
-    marktTopTabName,
     checkFavoritesFetch,
     isMidLayout,
     coingeckoIds,
@@ -99,10 +95,10 @@ export const useMarketList = ({
       await backgroundApiProxy.serviceMarket.fetchMarketListDebounced({
         categoryId: selectedCategory.categoryId,
         ids: coingeckoIds,
-        sparkline: !isVerticalLlayout && !isMidLayout,
+        sparkline: !isVerticalLayout && !isMidLayout,
       });
     }
-  }, [isMidLayout, isVerticalLlayout, selectedCategory, coingeckoIds]);
+  }, [isMidLayout, isVerticalLayout, selectedCategory, coingeckoIds]);
 
   return {
     selectedCategory,
@@ -114,12 +110,7 @@ export const marketSwapTabRoutes: { key: MarketTopTabName }[] = [
   { key: TabRoutes.Swap },
   { key: TabRoutes.Market },
 ];
-export const setMarketSwapTabIndex = (index: number) => {
-  if (index < 2) {
-    backgroundApiProxy.serviceMarket.switchMarketTopTab(
-      marketSwapTabRoutes[index].key,
-    );
-  } else {
-    // TODO: handle other tabs
-  }
+export const setMarketSwapTabName = (tabName: MarketTopTabName) => {
+  backgroundApiProxy.serviceMarket.switchMarketTopTab(tabName);
+  getAppNavigation().dispatch(TabActions.jumpTo(tabName));
 };
