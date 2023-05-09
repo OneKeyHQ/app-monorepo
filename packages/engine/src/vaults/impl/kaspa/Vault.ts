@@ -57,6 +57,7 @@ import type { TxInput } from '../../utils/btcForkChain/types';
 import type { IEncodedTxKaspa } from './types';
 
 // @ts-ignore
+// DOC https://kaspa-mdbook.aspectron.com/introduction.html
 export default class Vault extends VaultBase {
   keyringMap = {
     hd: KeyringHd,
@@ -142,7 +143,7 @@ export default class Vault extends VaultBase {
       .shiftedBy(network.decimals)
       .toFixed();
 
-    if (new BigNumber(amountValue).isLessThanOrEqualTo(DUST_AMOUNT)) {
+    if (new BigNumber(amountValue).isLessThan(DUST_AMOUNT)) {
       throw new OneKeyInternalError('Amount is too small');
     }
 
