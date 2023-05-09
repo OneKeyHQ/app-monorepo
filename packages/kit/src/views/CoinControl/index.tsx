@@ -269,6 +269,7 @@ const CoinControl = () => {
             selectedUtxos={selectedUtxos}
             targetAmount={targetAmount}
             encodedTx={encodedTx}
+            isLoading={isLoading}
             onConfirm={onConfirm}
           />
         ) : null

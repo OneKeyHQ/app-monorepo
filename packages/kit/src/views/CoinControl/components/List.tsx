@@ -28,6 +28,7 @@ import {
   FormatBalance,
   FormatCurrencyTokenOfAccount,
 } from '@onekeyhq/kit/src/components/Format';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useFormatDate from '../../../hooks/useFormatDate';
 
@@ -121,7 +122,7 @@ const CoinControlCell: FC<ICellProps> = ({
     (key) => key === getUtxoUniqueKey(item),
   );
   const showBadge = useMemo(
-    () => item.label && item.label.length,
+    () => !!(item.label && item.label.length > 0),
     [item.label],
   );
   const time = useMemo(() => {
@@ -143,6 +144,7 @@ const CoinControlCell: FC<ICellProps> = ({
 
   return (
     <ListItem
+      key={getUtxoUniqueKey(item)}
       flex={1}
       space={2}
       onPress={() => {
@@ -187,10 +189,10 @@ const CoinControlCell: FC<ICellProps> = ({
                   size="sm"
                   title={item.label ?? ''}
                   type="default"
-                  maxWidth="80px"
+                  maxWidth={platformEnv.isNativeAndroid ? '60px' : '80px'}
                   labelProps={{
                     numberOfLines: 1,
-                    maxWidth: '80px',
+                    maxWidth: platformEnv.isNativeAndroid ? '60px' : '80px',
                   }}
                 />
               </>
