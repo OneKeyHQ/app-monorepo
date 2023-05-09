@@ -60,6 +60,7 @@ export const ModalFooter: FC<{
   selectedUtxos: string[];
   encodedTx?: IEncodedTxBtc;
   onConfirm?: (selectedUtxos: string[]) => void;
+  isLoading: boolean;
 }> = ({
   accountId,
   network,
@@ -69,6 +70,7 @@ export const ModalFooter: FC<{
   dustUtxos,
   encodedTx,
   selectedUtxos,
+  isLoading,
   onConfirm,
 }) => {
   const intl = useIntl();
@@ -91,7 +93,10 @@ export const ModalFooter: FC<{
         .minus(sumAmount),
     [targetAmount, sumAmount, network],
   );
-  const hasMissAmount = useMemo(() => missAmount.gt(0), [missAmount]);
+  const hasMissAmount = useMemo(() => {
+    if (isLoading) return false;
+    return missAmount.gt(0);
+  }, [missAmount, isLoading]);
 
   const showDustWarning = useMemo(
     () =>
@@ -160,7 +165,10 @@ export const ModalFooter: FC<{
       )}
       <HStack alignItems="flex-start" justifyContent="space-between" mt={2}>
         <Text typography="Body1Strong">
-          {selectedUtxos.length || 0} selected
+          {intl.formatMessage(
+            { id: 'form__str_selected' },
+            { 0: selectedUtxos.length || 0 },
+          )}
         </Text>
         <VStack alignItems="flex-end" space={1}>
           <FormatBalance
