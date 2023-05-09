@@ -4,11 +4,11 @@ const endpointsMap: Record<
 > = {
   fiat: {
     prd: 'https://fiat.onekeycn.com',
-    test: 'https://fiat.onekeytest.com',
+    test: 'https://api-sandbox.onekeytest.com/api',
   },
   wss: {
     prd: 'wss://fiat.onekeycn.com',
-    test: 'wss://fiat.onekeytest.com',
+    test: 'wss://api.sandbox.onekeytest.com',
   },
   covalent: {
     prd: 'https://node.onekey.so/covalent/client1-HghTg3a33',
