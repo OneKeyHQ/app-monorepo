@@ -21,6 +21,7 @@ buildscript {
         // We use NDK 23 which has both M1 support and is the side-by-side NDK version from AGP.
         ndkVersion = "23.1.7779620"
         kotlinVersion = '1.5.31'
+        kotlin_version = kotlinVersion 
     }
     repositories {
         google()
@@ -57,10 +58,10 @@ allprojects {
                }
            }
        }
-        maven {
-            // expo-camera bundles a custom com.google.android:cameraview
-            url(new File(["node", "--print", "require.resolve('expo-camera/package.json')"].execute(null, rootDir).text.trim(), "../android/maven"))
-        }
+        // maven {
+        //     // expo-camera bundles a custom com.google.android:cameraview
+        //     url(new File(["node", "--print", "require.resolve('expo-camera/package.json')"].execute(null, rootDir).text.trim(), "../android/maven"))
+        // }
 
         mavenLocal()
         maven {

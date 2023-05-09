@@ -2,7 +2,7 @@ import type { FC } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIsFocused, useRoute } from '@react-navigation/core';
-import { requestCameraPermissionsAsync } from 'expo-camera';
+import { requestPermissionsAsync as requestCameraPermissionsAsync } from 'expo-barcode-scanner';
 import { launchImageLibraryAsync } from 'expo-image-picker';
 import { PermissionStatus } from 'expo-modules-core';
 import { useIntl } from 'react-intl';
