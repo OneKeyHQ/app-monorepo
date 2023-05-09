@@ -14,9 +14,10 @@ import {
   IconButton,
   List,
   ListItem,
+  Pressable,
+  RichTooltip,
   Skeleton,
   Text,
-  Tooltip,
   VStack,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -28,6 +29,7 @@ import {
   FormatBalance,
   FormatCurrencyTokenOfAccount,
 } from '@onekeyhq/kit/src/components/Format';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useFormatDate from '../../../hooks/useFormatDate';
 
@@ -121,7 +123,7 @@ const CoinControlCell: FC<ICellProps> = ({
     (key) => key === getUtxoUniqueKey(item),
   );
   const showBadge = useMemo(
-    () => item.label && item.label.length,
+    () => !!(item.label && item.label.length > 0),
     [item.label],
   );
   const time = useMemo(() => {
@@ -131,11 +133,23 @@ const CoinControlCell: FC<ICellProps> = ({
     });
   }, [item.height, formatDate, blockTimeMap]);
 
+  const showFrozenOption = useMemo(() => {
+    if (listType === 'Available') {
+      return !showCheckbox;
+    }
+    if (listType === 'Frozen') {
+      return !isDust;
+    }
+    return true;
+  }, [listType, showCheckbox, isDust]);
+
   return (
     <ListItem
+      key={getUtxoUniqueKey(item)}
       flex={1}
       space={2}
       onPress={() => {
+        if (item.frozen) return;
         onChange(item, !isSelected);
       }}
     >
@@ -149,7 +163,12 @@ const CoinControlCell: FC<ICellProps> = ({
             <CheckBox
               w={5}
               isChecked={!!isSelected}
-              // onChange={(value) => onChange(item, value)}
+              onChange={() => {
+                if (platformEnv.isNative) {
+                  if (item.frozen) return;
+                  onChange(item, !isSelected);
+                }
+              }}
             />
           </Box>
         </ListItem.Column>
@@ -177,10 +196,10 @@ const CoinControlCell: FC<ICellProps> = ({
                   size="sm"
                   title={item.label ?? ''}
                   type="default"
-                  maxWidth="80px"
+                  maxWidth={platformEnv.isNativeAndroid ? '60px' : '80px'}
                   labelProps={{
                     numberOfLines: 1,
-                    maxWidth: '80px',
+                    maxWidth: platformEnv.isNativeAndroid ? '60px' : '80px',
                   }}
                 />
               </>
@@ -229,7 +248,7 @@ const CoinControlCell: FC<ICellProps> = ({
           network={network}
           onConfirmEditLabel={onConfirmEditLabel}
           onFrozenUTXO={onFrozenUTXO}
-          showFrozenOption={!(isDust && listType === 'Frozen')}
+          showFrozenOption={showFrozenOption}
         >
           <IconButton
             alignItems="flex-end"
@@ -326,23 +345,32 @@ const ListFooter: FC<
         <>
           <Divider w="auto" mx={2} />
           <HStack mt={4} mb={2} mx={2}>
-            <Tooltip
-              label={intl.formatMessage({
-                id: 'content__dust_refer_to_very_tiny_amount_of_bitcoin',
-              })}
-              placement="top left"
-            >
-              <HStack alignItems="center" space={1} alignSelf="flex-start">
-                <Text typography="Subheading" color="text-subdued">
-                  {intl.formatMessage({ id: 'form__dust__uppercase' })}
-                </Text>
-                <Icon
-                  name="QuestionMarkCircleMini"
-                  size={16}
-                  color="icon-subdued"
-                />
-              </HStack>
-            </Tooltip>
+            <RichTooltip
+              // eslint-disable-next-line react/no-unstable-nested-components
+              trigger={({ ...props }) => (
+                <Pressable {...props}>
+                  <HStack alignItems="center" space={1} alignSelf="flex-start">
+                    <Text typography="Subheading" color="text-subdued">
+                      {intl.formatMessage({ id: 'form__dust__uppercase' })}
+                    </Text>
+                    <Icon
+                      name="QuestionMarkCircleMini"
+                      size={16}
+                      color="icon-subdued"
+                    />
+                  </HStack>
+                </Pressable>
+              )}
+              bodyProps={{
+                children: (
+                  <Text>
+                    {intl.formatMessage({
+                      id: 'content__dust_refer_to_very_tiny_amount_of_bitcoin',
+                    })}
+                  </Text>
+                ),
+              }}
+            />
           </HStack>
           {renderFooterContent}
         </>
@@ -356,7 +384,10 @@ const ListFooter: FC<
         justifyContent="space-between"
       >
         <Text typography="Subheading" color="text-subdued">
-          {itemLength} ITEMS
+          {intl.formatMessage(
+            { id: 'form__str_items__uppercase' },
+            { 0: itemLength },
+          )}
         </Text>
         <FormatBalance
           balance={sumUtxoAmount}

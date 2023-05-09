@@ -148,6 +148,7 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
             setAdvancedSettings((prev) => ({
               ...prev,
               isCoinControlChecked: !prev.isCoinControlChecked,
+              selectedUtxos: [],
             }));
           }}
           onSelectedUtxos={(selectedUtxos) => {
