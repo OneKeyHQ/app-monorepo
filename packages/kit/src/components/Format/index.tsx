@@ -192,12 +192,12 @@ export const FormatCurrency: FC<{
       amount.unit?.toLowerCase() === 'sats' ? (
         <>
           {numbers.length ? amount.amount : '--'}
-          &nbsp;{` ${amount.unit}`}
+          {` ${amount.unit}`}
         </>
       ) : (
         <>
           {amount.unit}
-          &nbsp;{numbers.length ? amount.amount : '--'}
+          {numbers.length ? amount.amount : '--'}
         </>
       ),
     [amount.amount, amount.unit, numbers.length],
