@@ -465,12 +465,13 @@ export default class VaultBtcFork extends VaultBase {
 
     // Coin Control
     const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub, utxos);
-    utxos = utxos.filter(
+    const allUtxosWithoutFrozen = utxos.filter(
       (utxo) =>
         frozenUtxos.findIndex(
           (frozenUtxo) => frozenUtxo.id === getUtxoId(this.networkId, utxo),
         ) < 0,
     );
+    utxos = allUtxosWithoutFrozen;
     if (
       Array.isArray(transferInfo.selectedUtxos) &&
       transferInfo.selectedUtxos.length
@@ -480,7 +481,7 @@ export default class VaultBtcFork extends VaultBase {
       );
     }
 
-    const max = utxos
+    const max = allUtxosWithoutFrozen
       .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
       .shiftedBy(-network.decimals)
       .lte(amount);
