@@ -16,8 +16,7 @@ import {
   bottomTabBarRoutes,
   swapAndMarketRoutes,
 } from '@onekeyhq/kit/src/routes/Root/Main/Tab/routes/tabRoutes.base';
-import type { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
-import { useMarketTopTabName } from '@onekeyhq/kit/src/views/Market/hooks/useMarketList';
+import { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { PortalExit } from '@onekeyhq/kit/src/views/Overlay/RootPortal';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -71,7 +70,6 @@ export default function MobileBottomTabBar({
   });
 
   const isVertical = useIsVerticalLayout();
-  const marketTopTabName = useMarketTopTabName();
 
   const tabs = useMemo(
     () =>
@@ -84,10 +82,14 @@ export default function MobileBottomTabBar({
             const isSwapOrMarketRoute = swapAndMarketRoutes.includes(
               route.name as TabRoutes,
             );
-            if (isVertical && isSwapOrMarketRoute && marketTopTabName) {
+            if (isVertical && isSwapOrMarketRoute) {
+              const { appSelector } =
+                require('@onekeyhq/kit/src/store') as typeof import('@onekeyhq/kit/src/store');
+              const marketTopTabName =
+                appSelector((s) => s.market.marketTopTabName) || TabRoutes.Swap;
               // navigation.navigate(marketTopTabName);
               navigationShortcuts.navigateToAppRootTab(
-                marketTopTabName as TabRoutes,
+                marketTopTabName as unknown as TabRoutes,
               );
             } else {
               // navigation.navigate(route.name);
@@ -156,7 +158,6 @@ export default function MobileBottomTabBar({
       inlineMode,
       isHide,
       isVertical,
-      marketTopTabName,
       navigation,
       routes,
       state.index,

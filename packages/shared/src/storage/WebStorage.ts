@@ -139,7 +139,7 @@ class WebStorage implements AsyncStorageStatic {
   }
 
   async multiGet(
-    keys: string[],
+    keys: readonly string[],
     callback: MultiGetCallback | undefined,
   ): Promise<readonly KeyValuePair[]> {
     await this.migrateFromLocalStorage();

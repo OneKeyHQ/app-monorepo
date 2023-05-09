@@ -1,45 +1,57 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
-import { useFocusEffect } from '@react-navigation/core';
+import { useFocusEffect } from '@react-navigation/native';
 
-import { Box, useSafeAreaInsets } from '@onekeyhq/components';
+import {
+  Box,
+  useIsVerticalLayout,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { TabRoutes } from '../../routes/routesEnum';
+import { PortalEntry, PortalExit } from '../Overlay/RootPortal';
 import Swap from '../Swap';
 
 import MarketHeader from './Components/MarketList/MarketTopHeader';
 import MarketList from './MarketList';
+import { SharedMobileTab } from './SharedMobileTab';
+import { sharedMobileTabRef } from './sharedMobileTabRef';
 
 import type { MarketTopTabName } from '../../store/reducers/market';
 
 export function ScreenMarketOrSwap({
-  marketTopTabName,
+  routeName,
 }: {
-  marketTopTabName: MarketTopTabName;
+  routeName: MarketTopTabName;
 }) {
   const { top } = useSafeAreaInsets();
-
+  const isVerticalLayout = useIsVerticalLayout();
   useFocusEffect(
     useCallback(() => {
-      backgroundApiProxy.serviceMarket.switchMarketTopTab(marketTopTabName);
-    }, [marketTopTabName]),
+      if (isVerticalLayout) {
+        sharedMobileTabRef.update(
+          <PortalEntry target={`${routeName}-portal`}>
+            <SharedMobileTab routeName={routeName} />
+          </PortalEntry>,
+        );
+      }
+    }, [routeName, isVerticalLayout]),
   );
-
-  const contentComponent = useMemo(() => {
-    switch (marketTopTabName) {
-      case TabRoutes.Market:
-        return <MarketList />;
-      case TabRoutes.Swap:
-        return <Swap hideBottomTabBar />;
-      default:
-    }
-  }, [marketTopTabName]);
 
   return (
     <Box flex={1} mt={`${top}px`}>
-      <MarketHeader marketTopTabName={marketTopTabName} />
-      {contentComponent}
+      {isVerticalLayout ? (
+        <PortalExit key={`${routeName}-portal`} name={`${routeName}-portal`} />
+      ) : (
+        <>
+          <MarketHeader marketTopTabName={routeName} />
+          {routeName === TabRoutes.Swap ? (
+            <Swap hideBottomTabBar />
+          ) : (
+            <MarketList />
+          )}
+        </>
+      )}
     </Box>
   );
 }

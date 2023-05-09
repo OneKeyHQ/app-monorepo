@@ -55,9 +55,16 @@ export function isSendModalRouteExisting() {
 }
 
 // TODO remove
+export function getRootRoute() {
+  return global?.$navigationRef?.current?.getState?.()?.routes?.[0];
+}
+
+export function getRootTabRoute() {
+  return getRootRoute()?.state?.routes?.[0];
+}
+
 export function getRootTabRouteState() {
-  return global?.$navigationRef?.current?.getState?.()?.routes?.[0]?.state
-    ?.routes?.[0]?.state;
+  return getRootTabRoute()?.state;
 }
 export function getAppRootTabInfoOfTab(appRootTabName: TabRoutes) {
   const info = getAppRootTabInfo();
