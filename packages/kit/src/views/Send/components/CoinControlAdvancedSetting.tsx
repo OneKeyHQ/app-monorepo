@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -55,6 +55,25 @@ const CoinControlAdvancedSetting: FC<Props> = ({
     return sumAmount.shiftedBy(-network.decimals).toFixed();
   }, [encodedTx.inputs, network.decimals]);
 
+  const onPress = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.CoinControl,
+      params: {
+        screen: CoinControlModalRoutes.CoinControlModal,
+        params: {
+          networkId: network.id,
+          accountId,
+          isSelectMode: true,
+          encodedTx,
+          onConfirm: (selectedUtxos) => {
+            navigation.goBack();
+            onSelectedUtxos(selectedUtxos);
+          },
+        },
+      },
+    });
+  }, [navigation, network.id, accountId, encodedTx, onSelectedUtxos]);
+
   return (
     <VStack
       p={4}
@@ -79,24 +98,7 @@ const CoinControlAdvancedSetting: FC<Props> = ({
         borderRadius="xl"
         m={-2}
         isDisabled={!isChecked}
-        onPress={() => {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.CoinControl,
-            params: {
-              screen: CoinControlModalRoutes.CoinControlModal,
-              params: {
-                networkId: network.id,
-                accountId,
-                isSelectMode: true,
-                encodedTx,
-                onConfirm: (selectedUtxos) => {
-                  navigation.goBack();
-                  onSelectedUtxos(selectedUtxos);
-                },
-              },
-            },
-          });
-        }}
+        onPress={onPress}
       >
         <HStack alignItems="center" justifyContent="space-between" mx={2}>
           <Text
@@ -120,6 +122,8 @@ const CoinControlAdvancedSetting: FC<Props> = ({
               name="ChevronRightMini"
               type="plain"
               iconColor={isChecked ? 'icon-subdued' : 'icon-disabled'}
+              isDisabled={!isChecked}
+              onPress={onPress}
             />
           </HStack>
         </HStack>
