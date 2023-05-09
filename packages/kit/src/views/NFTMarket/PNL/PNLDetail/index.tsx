@@ -472,10 +472,12 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
   );
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: '',
+      i18nTitle: isVerticalLayout
+        ? ''
+        : intl.formatMessage({ id: 'action__profit_and_loss' }),
       headerRight,
     });
-  }, [headerRight, navigation]);
+  }, [headerRight, intl, isVerticalLayout, navigation]);
 
   const [listData, updateListData] = useState<NFTPNL[]>([]);
   const allData = useRef<PNLData>({

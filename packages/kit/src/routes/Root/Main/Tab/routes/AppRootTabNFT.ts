@@ -38,7 +38,6 @@ const config: TabRouteConfig = {
       name: HomeRoutes.NFTPNLScreen,
       component: PNLDetailScreen,
       alwaysShowBackButton: true,
-      i18nTitle: 'action__profit_and_loss',
     },
   ],
 };
