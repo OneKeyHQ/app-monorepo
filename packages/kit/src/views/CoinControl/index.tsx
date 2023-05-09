@@ -289,7 +289,7 @@ const CoinControl = () => {
       </Box>
 
       {isLoading ? (
-        <Center h="full">
+        <Center h="full" pb={6}>
           <Spinner size="lg" />
         </Center>
       ) : null}

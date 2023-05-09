@@ -149,6 +149,7 @@ const CoinControlCell: FC<ICellProps> = ({
       flex={1}
       space={2}
       onPress={() => {
+        if (item.frozen) return;
         onChange(item, !isSelected);
       }}
     >
@@ -164,6 +165,7 @@ const CoinControlCell: FC<ICellProps> = ({
               isChecked={!!isSelected}
               onChange={() => {
                 if (platformEnv.isNative) {
+                  if (item.frozen) return;
                   onChange(item, !isSelected);
                 }
               }}
