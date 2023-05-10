@@ -60,7 +60,10 @@ import {
   moveCallTxnName,
 } from './utils';
 import { createCoinSendTransaction } from './utils/Coin';
-import { decodeActionWithTransferObjects } from './utils/Transaction';
+import {
+  decodeActionWithTransferObjects,
+  waitPendingTransaction,
+} from './utils/Transaction';
 
 import type { DBSimpleAccount } from '../../../types/account';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
@@ -1016,5 +1019,13 @@ export default class Vault extends VaultBase {
       options,
     });
     return tx;
+  }
+
+  async waitPendingTransaction(
+    txId: string,
+    options?: SuiTransactionBlockResponseOptions,
+  ): Promise<SuiTransactionBlockResponse | undefined> {
+    const client = await this.getClient();
+    return waitPendingTransaction(client, txId, options);
   }
 }

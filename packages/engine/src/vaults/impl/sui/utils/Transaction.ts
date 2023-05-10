@@ -1,11 +1,15 @@
 import BigNumber from 'bignumber.js';
 
-import { IDecodedTxActionType } from '../../../types';
+import { OneKeyError } from '@onekeyhq/engine/src/errors';
+import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
+
 import { SUI_NATIVE_COIN } from '../utils';
 
 import type {
   JsonRpcProvider,
   SuiGasData,
+  SuiTransactionBlockResponse,
+  SuiTransactionBlockResponseOptions,
   TransactionBlock,
   TransactionBlockInput,
   TransferObjectsTransaction,
@@ -116,4 +120,59 @@ export async function decodeActionWithTransferObjects(
     amount,
     recipient: to,
   };
+}
+
+const POLL_INTERVAL = 2000;
+type IPollFn<T> = (time?: number, index?: number) => T;
+export function waitPendingTransaction(
+  client: JsonRpcProvider,
+  txId: string,
+  options?: SuiTransactionBlockResponseOptions,
+  right = true,
+  retryCount = 10,
+): Promise<SuiTransactionBlockResponse | undefined> {
+  let retry = 0;
+
+  const poll: IPollFn<
+    Promise<SuiTransactionBlockResponse | undefined>
+  > = async (time = POLL_INTERVAL) => {
+    retry += 1;
+
+    let transaction: SuiTransactionBlockResponse | undefined;
+    try {
+      transaction = await client.getTransactionBlock({
+        digest: txId,
+        options: {
+          ...options,
+          showEffects: true,
+        },
+      });
+    } catch (error: any) {
+      if (right) {
+        // ignore transaction not found
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        if (error.code !== -32000) {
+          return Promise.reject(new OneKeyError(error));
+        }
+      }
+    }
+
+    const success = transaction?.effects?.status?.status === 'success';
+
+    if (success === true) {
+      return Promise.resolve(transaction);
+    }
+
+    if (retry > retryCount) {
+      return Promise.reject(new OneKeyError('transaction timeout'));
+    }
+
+    return new Promise(
+      (
+        resolve: (p: Promise<SuiTransactionBlockResponse | undefined>) => void,
+      ) => setTimeout(() => resolve(poll(time)), time),
+    );
+  };
+
+  return poll();
 }
