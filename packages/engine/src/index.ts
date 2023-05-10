@@ -2954,10 +2954,8 @@ class Engine {
     );
 
     if (backupObject.simpleDb.utxoAccounts) {
-      await Promise.all(
-        backupObject.simpleDb.utxoAccounts.utxos.map((utxo) =>
-          simpleDb.utxoAccounts.insertRestoreData(utxo),
-        ),
+      await simpleDb.utxoAccounts.insertRestoreData(
+        backupObject.simpleDb.utxoAccounts.utxos,
       );
     }
   }
