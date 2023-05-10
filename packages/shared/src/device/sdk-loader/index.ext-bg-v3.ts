@@ -4,7 +4,8 @@ export const importHardwareSDK = async () => {
   const sdkLib = await import('@onekeyfe/hd-web-sdk');
   const sdk =
     // @ts-ignore
-    (sdkLib.HardwareWebSdk as CoreApi) || sdkLib.default.HardwareWebSdk;
+    (sdkLib.HardwareSDKTopLevel as CoreApi) ||
+    sdkLib.default.HardwareSDKTopLevel;
   return sdk;
 };
 
