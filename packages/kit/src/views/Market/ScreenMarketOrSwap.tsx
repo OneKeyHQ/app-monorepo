@@ -7,6 +7,7 @@ import {
   useIsVerticalLayout,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TabRoutes } from '../../routes/routesEnum';
 import { PortalEntry, PortalExit } from '../Overlay/RootPortal';
@@ -28,7 +29,7 @@ export function ScreenMarketOrSwap({
   const isVerticalLayout = useIsVerticalLayout();
   useFocusEffect(
     useCallback(() => {
-      if (isVerticalLayout) {
+      if (isVerticalLayout && platformEnv.isNativeAndroid) {
         sharedMobileTabRef.update(
           <PortalEntry target={`${routeName}-portal`}>
             <SharedMobileTab routeName={routeName} />
@@ -40,7 +41,7 @@ export function ScreenMarketOrSwap({
 
   return (
     <Box flex={1} mt={`${top}px`}>
-      {isVerticalLayout ? (
+      {isVerticalLayout && platformEnv.isNativeAndroid ? (
         <PortalExit key={`${routeName}-portal`} name={`${routeName}-portal`} />
       ) : (
         <>
