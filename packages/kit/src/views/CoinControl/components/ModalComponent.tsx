@@ -149,9 +149,9 @@ export const ModalFooter: FC<{
           {intl.formatMessage(
             { id: 'msg__str_btc_missing_from_tx_input' },
             {
-              0: `${missAmount.shiftedBy(-(network?.decimals ?? 8)).toFixed()}${
-                network?.symbol ?? ''
-              }`,
+              0: `${missAmount
+                .shiftedBy(-(network?.decimals ?? 8))
+                .toFixed()} ${network?.symbol ?? ''}`,
             },
           )}
         </Text>
