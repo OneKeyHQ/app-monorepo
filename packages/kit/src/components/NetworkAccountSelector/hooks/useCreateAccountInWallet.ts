@@ -18,9 +18,13 @@ import {
 } from '../../../routes/routesEnum';
 import { deviceUtils } from '../../../utils/hardware';
 import { useConnectAndCreateExternalAccount } from '../../../views/ExternalAccount/useConnectAndCreateExternalAccount';
+import { EOnboardingRoutes } from '../../../views/Onboarding/routes/enums';
 import showDerivationPathBottomSheetModal from '../modals/NetworkAccountSelectorModal/DerivationPathBottomSheetModal';
 
+import type { ModalScreenProps, RootRoutesParams } from '../../../routes/types';
 import type { IDerivationOption } from './useDerivationPath';
+
+type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
 export const AllNetwork = 'all';
 export const NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY =
@@ -187,11 +191,11 @@ export function useCreateAccountInWallet({
         showNotSupportToast();
         return;
       }
-      return navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.CreateWallet,
+      navigation.goBack?.();
+      return navigation.navigate(RootRoutes.Onboarding, {
+        screen: EOnboardingRoutes.RecoveryWallet,
         params: {
-          screen: CreateWalletModalRoutes.AddExistingWalletModal,
-          params: { mode: 'imported', wallet: activeWallet },
+          mode: 'imported',
         },
       });
     }
@@ -200,11 +204,11 @@ export function useCreateAccountInWallet({
         showNotSupportToast();
         return;
       }
-      return navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.CreateWallet,
+      navigation.goBack?.();
+      return navigation.navigate(RootRoutes.Onboarding, {
+        screen: EOnboardingRoutes.RecoveryWallet,
         params: {
-          screen: CreateWalletModalRoutes.AddExistingWalletModal,
-          params: { mode: 'watching', wallet: activeWallet },
+          mode: 'watching',
         },
       });
     }

@@ -49,6 +49,7 @@ export type IOnboardingRoutesParams = {
   [EOnboardingRoutes.ImportWallet]: IOnboardingImportWalletParams | undefined;
   [EOnboardingRoutes.RecoveryWallet]: IOnboardingImportWalletParams & {
     mode: IAddExistingWalletMode;
+    presetText?: string;
   };
 
   [EOnboardingRoutes.SetPassword]: IOnboardingSetPasswordParams | undefined;
