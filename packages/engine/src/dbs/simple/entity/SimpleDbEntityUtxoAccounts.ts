@@ -81,22 +81,32 @@ class SimpleDbEntityUtxoAccounts extends SimpleDbEntityBase<ISimpleDbEntityUtxoD
     return this.setRawData({ utxos: newItems });
   }
 
-  async insertRestoreData(item: CoinControlItem) {
+  async insertRestoreData(data: CoinControlItem[]) {
     const rawData = await this.getRawData();
-    if (rawData?.utxos?.find((i) => i.id === item.id)) {
-      const newItems = rawData?.utxos.map((i) => {
-        if (i.id === item.id) {
-          return {
-            ...i,
+    const newItems = data.reduce((acc, item) => {
+      const existItem = rawData?.utxos?.find((i) => i.id === item.id);
+      if (existItem) {
+        return [
+          ...acc,
+          {
+            ...existItem,
             ...item,
-          };
-        }
-        return i;
-      });
-      return this.setRawData({ utxos: newItems });
-    }
-    const newItems = [...(rawData?.utxos ?? []), { ...item }];
-    return this.setRawData({ utxos: newItems });
+          },
+        ];
+      }
+      return [...acc, { ...item }];
+    }, rawData?.utxos ?? []);
+
+    const newItemsMap = newItems.reduce<Record<string, CoinControlItem>>(
+      (acc, item) => ({
+        ...acc,
+        [item.id]: item,
+      }),
+      {},
+    );
+    const newItemsUnique = Object.values(newItemsMap);
+
+    return this.setRawData({ utxos: newItemsUnique });
   }
 }
 

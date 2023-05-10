@@ -72,15 +72,6 @@ if (!global.btoa) {
   global.btoa = Base64.btoa;
 }
 
-// Shim ArrayBuffer.isView
-if (!ArrayBuffer.isView) {
-  shimsLog('ArrayBuffer.isView');
-  ArrayBuffer.isView = function (obj) {
-    // @TODO: This should probably check various instanceof aswell
-    return !!obj.buffer;
-  };
-}
-
 // Shim nextTick
 if (!global.nextTick) {
   shimsLog('nextTick');
@@ -91,6 +82,8 @@ if (!global.nextTick) {
 
 // Shim FileReader.readAsArrayBuffer
 // https://github.com/facebook/react-native/issues/21209
+// can remove after RN 0.72
+// https://github.com/facebook/react-native/commit/5b597b5ff94953accc635ed3090186baeecb3873
 try {
   const fr = new FileReader();
   try {
