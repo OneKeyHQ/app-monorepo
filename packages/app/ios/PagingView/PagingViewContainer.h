@@ -14,7 +14,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface PagingViewContainer : RCTView<JXPagerViewListViewDelegate>
 @property (nonatomic, weak) RCTScrollView *reactScrollView;
 -(instancetype)initWithReactView:(UIView *)reactView;
-
+-(void)bindingScrollView;
 @end
 
 NS_ASSUME_NONNULL_END

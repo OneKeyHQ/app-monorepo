@@ -35,11 +35,9 @@
 @property (nonatomic, assign) BOOL disableRefresh;
 @property (nonatomic, copy) NSString *spinnerColor;
 
-@property (nonatomic, assign) BOOL isDragging;
-
-@property (nonatomic, assign) CGFloat offsetY;
 @property (nonatomic, weak) UIWindow *window;
 
+@property (nonatomic, strong) CADisplayLink *displayLink;
 
 @end
 
@@ -49,9 +47,43 @@
   self = [super init];
   if (self){
     NSLog(@"PagingView init");
+    [self startObservingViewPosition];
   }
   return self;
 }
+
+-(void)dealloc {
+  NSLog(@"pagingview dealloc");
+  [self stopObservingViewPosition];
+}
+
+- (void)startObservingViewPosition {
+  self.displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(checkViewPosition)];
+  [self.displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+}
+
+- (void)stopObservingViewPosition {
+  [self.displayLink invalidate];
+  self.displayLink = nil;
+}
+
+- (void)checkViewPosition {
+  if (_pagingView) {
+    BOOL isPhone = [[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPhone;
+    CGRect rect = [self convertRect:self.frame toView:self.window];
+    BOOL scrollEnabled = !isPhone || CGRectGetMinX(rect) == 0;
+    if (scrollEnabled != self.pagingView.mainTableView.scrollEnabled) {
+      self.pagingView.mainTableView.scrollEnabled = scrollEnabled;
+      if (scrollEnabled) {
+        id view = [self.pagingView.listContainerView.validListDict objectForKey:@(self.pageIndex)];
+        if (view && [view isKindOfClass:[PagingViewContainer class]]) {
+          [(PagingViewContainer *)view bindingScrollView];
+        }
+      }
+    }
+  }
+}
+
 
 - (void)setPageIndex:(NSInteger)index{
   [self.tabView.categoryView selectItemAtIndex:index];
@@ -189,7 +221,7 @@
     _pagingView.isListHorizontalScrollEnabled = self.scrollEnabled;
     _pagingView.defaultSelectedIndex = self.defaultIndex;
     if (@available(iOS 15.0, *)) {
-        _pagingView.mainTableView.sectionHeaderTopPadding = 0;
+      _pagingView.mainTableView.sectionHeaderTopPadding = 0;
     }
     if (_disableRefresh == false) {
       _pagingView.mainTableView.refreshControl = self.refreshControl;
@@ -215,43 +247,16 @@
 }
 #pragma mark - JXPagingViewDelegate
 
-- (void)pagerView:(JXPagerView *)pagerView mainTableViewWillBeginDragging:(UIScrollView *)scrollView{
-  self.offsetY = scrollView.contentOffset.y;
-  self.isDragging = YES;
-}
-
-- (void)pagerView:(JXPagerView *)pagerView mainTableViewDidScroll:(UIScrollView *)scrollView {
-  CGRect rect = [self convertRect:self.frame toView:self.window];
-  BOOL isPhone = [[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPhone;
-  if (isPhone && CGRectGetMinX(rect) > 0 && self.isDragging) {
-    CGPoint offset = scrollView.contentOffset;
-    if (offset.y < 0) {
-      offset.y = 0;
-      [scrollView setContentOffset:offset];
-    } else {
-      if (offset.y != self.offsetY) {
-        offset.y = self.offsetY;
-        [scrollView setContentOffset:offset];
-      }
-    }
-  }
-}
-
-- (void)pagerView:(JXPagerView *)pagerView mainTableViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate {
-  self.isDragging = NO;
-}
-
 - (UIView *)tableHeaderViewInPagerView:(JXPagerView *)pagerView {
-    return self.headerView;
+  return self.headerView;
 }
 
 - (NSUInteger)tableHeaderViewHeightInPagerView:(JXPagerView *)pagerView {
-    return self.headerHeight;
+  return self.headerHeight;
 }
 
 - (NSUInteger)heightForPinSectionHeaderInPagerView:(JXPagerView *)pagerView {
-  
-    return self.tabView.model.height;
+  return self.tabView.model.height;
 }
 
 - (UIView *)viewForPinSectionHeaderInPagerView:(JXPagerView *)pagerView {
@@ -267,7 +272,4 @@
   return view;
 }
 
--(void)dealloc {
-  NSLog(@"pagingview dealloc");
-}
 @end
