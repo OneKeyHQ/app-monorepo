@@ -85,6 +85,7 @@ export type ICovalentHistoryListItem = {
   gas_spent: number; // gasUsed
   gas_price: number;
   parsedDecodedTx?: IDecodedTx;
+  onlyInvolvedInDelegateVotesChanged?: boolean;
 };
 export type ICovalentHistoryListData = {
   items: ICovalentHistoryListItem[];
