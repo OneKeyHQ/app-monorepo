@@ -47,10 +47,15 @@ export function SharedMobileTab({
 
   const setTargetIndex = useCallback((index: number) => {
     targetTabName.current = marketSwapTabRoutes[index].key;
+    if (platformEnv.isNativeIOS) {
+      setTimeout(() => setMarketSwapTabName(targetTabName.current));
+    }
   }, []);
 
   const onSwipeEnd = useCallback(() => {
-    setMarketSwapTabName(targetTabName.current);
+    if (platformEnv.isNativeAndroid) {
+      setMarketSwapTabName(targetTabName.current);
+    }
   }, []);
 
   const intialLayout = useMemo(() => ({ width: layout.width }), [layout.width]);
