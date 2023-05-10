@@ -84,7 +84,16 @@ class SimpleDbEntityUtxoAccounts extends SimpleDbEntityBase<ISimpleDbEntityUtxoD
   async insertRestoreData(item: CoinControlItem) {
     const rawData = await this.getRawData();
     if (rawData?.utxos?.find((i) => i.id === item.id)) {
-      return;
+      const newItems = rawData?.utxos.map((i) => {
+        if (i.id === item.id) {
+          return {
+            ...i,
+            ...item,
+          };
+        }
+        return i;
+      });
+      return this.setRawData({ utxos: newItems });
     }
     const newItems = [...(rawData?.utxos ?? []), { ...item }];
     return this.setRawData({ utxos: newItems });

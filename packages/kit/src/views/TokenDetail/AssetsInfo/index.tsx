@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Hidden,
   ListItem,
   Typography,
   VStack,
@@ -163,7 +162,7 @@ const AssetsInfo: FC<Props> = ({
         <Typography.Body2 mt="4px" mb="24px" color="text-subdued">
           <FormatCurrencyNumber value={new B(totalAmount).times(price)} />
         </Typography.Body2>
-        <Hidden till="sm">
+        {!isVerticalLayout ? (
           <ListItem py={4} mx="-8px">
             <ListItem.Column
               flex={3}
@@ -217,11 +216,12 @@ const AssetsInfo: FC<Props> = ({
               }}
             />
           </ListItem>
-        </Hidden>
+        ) : null}
       </>
     ),
     [
       intl,
+      isVerticalLayout,
       network?.nativeDisplayDecimals,
       network?.tokenDisplayDecimals,
       price,
