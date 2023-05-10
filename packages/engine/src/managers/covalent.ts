@@ -812,11 +812,12 @@ export async function parseCovalentTxToDecodedTx(
       .filter((item) => item && !item.hidden)
       .filter(Boolean);
 
-    // If address only involved in tx DelegateVotesChanged event
+    // If address only involved in tx DelegateVotesChanged event in multi log events
     // Then this tx does not belong to this address
     if (
       isContractCall &&
       !outputActions.length &&
+      covalentTx.log_events.length > 1 &&
       InvolvedInDelegateVotesChanged
     ) {
       covalentTx.onlyInvolvedInDelegateVotesChanged = true;
