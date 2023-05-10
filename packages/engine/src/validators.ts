@@ -104,8 +104,6 @@ class Validators {
   private async validateUserInput(
     input: string,
     forCategories: Array<UserInputCategory> = [],
-    returnEarly = false,
-    skipHeavyChains = false,
     selectedNetwork: Network | undefined = undefined,
   ): Promise<Array<UserInputCheckResult>> {
     const ret = [];
@@ -139,53 +137,6 @@ class Validators {
       if (result && result.length > 0) {
         ret.push(...result);
       }
-
-      return ret;
-    }
-
-    // For implemetations(btc/evm/near/stc) we have at the moment, address
-    // or watching input checking can be done with only one network and the
-    // result applies to all network with the same implementation.
-    // However, things would become complicated when we later introduce
-    // cosmos or polkadot networks. Address or watching input checking would
-    // have to be done per network/chain basis, instead of per implementation
-    // for now.
-
-    for (const [impl, networks] of Object.entries(
-      await this.engine.listEnabledNetworksGroupedByVault(),
-    )) {
-      if (skipHeavyChains && WEBVIEW_BACKED_CHAIN.includes(impl)) {
-        // skip webview backed chain
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-      if (FORK_CHAIN_ADDRESS_NOT_DIFFERENT.includes(impl)) {
-        for (const network of networks) {
-          const result = await this.matchingInputType(
-            input,
-            [network],
-            filterCategories,
-          ).catch();
-
-          if (result && result.length > 0) {
-            ret.push(...result);
-            if (returnEarly) return ret;
-          }
-        }
-      } else {
-        const result = await this.matchingInputType(
-          input,
-          networks,
-          filterCategories,
-        ).catch();
-
-        if (result && result.length > 0) {
-          ret.push(...result);
-          if (returnEarly) {
-            return ret;
-          }
-        }
-      }
     }
 
     return ret;
@@ -195,21 +146,15 @@ class Validators {
   validateCreateInput({
     input,
     onlyFor,
-    returnEarly,
-    skipHeavyChains,
     selectedNetwork,
   }: {
     input: string;
     onlyFor?: UserInputCategory;
-    returnEarly?: boolean;
-    skipHeavyChains?: boolean;
     selectedNetwork?: Network;
   }) {
     return this.validateUserInput(
       input,
       onlyFor !== undefined ? [onlyFor] : [],
-      returnEarly,
-      skipHeavyChains,
       selectedNetwork,
     );
   }
