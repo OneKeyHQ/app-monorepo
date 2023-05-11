@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import type { ComponentProps, FC } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -35,7 +35,7 @@ import {
   multiply,
   normalizeProviderName,
 } from '../../utils';
-import PendingTransaction from '../PendingTransaction';
+import { Scheduler } from '../PendingTransaction';
 import SwappingVia from '../SwappingVia';
 import TransactionFee from '../TransactionFee';
 import TransactionRate from '../TransactionRate';
@@ -57,13 +57,6 @@ type TransactionProps = {
 
 type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.Transaction>;
 type NavigationProps = NavigationProp<SwapRoutesParams, SwapRoutes.Transaction>;
-
-// const formatAddressName = (address: string, name?: string) => {
-//   if (!name) {
-//     return `${shortenAddress(address)}`;
-//   }
-//   return `${name}(${address.slice(-4)})`;
-// };
 
 const StatusIcon: FC<{ status: TransactionStatus }> = ({ status }) => {
   if (status === 'sucesss') {
@@ -375,60 +368,63 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
     }
   }, []);
 
+  useEffect(() => {
+    if (tx.status !== 'pending' && !tx.destinationTransactionHash) {
+      const s = new Scheduler(tx);
+      s.runTask();
+    }
+    // eslint-disable-next-line
+  }, []);
+
   return (
-    <>
-      {tx.status !== 'pending' && !tx.destinationTransactionHash ? (
-        <PendingTransaction tx={tx} stopInterval />
-      ) : null}
-      <Select
-        footer={null}
-        title={intl.formatMessage({
-          id: 'title__select_blockchain_browser',
-        })}
-        isTriggerPlain
-        options={options}
-        headerShown={false}
-        dropdownProps={{ width: '64' }}
-        dropdownPosition="right"
-        onChange={onPress}
-        renderItem={(item, _, onChange) => {
-          const token = item as unknown as ViewInBrowserSelectorItem;
-          return (
-            <Pressable
-              flexDirection="row"
-              justifyContent="space-between"
-              alignItems="center"
-              key={item.value}
-              h="12"
-              px="3"
-              onPress={() => onChange?.('', item)}
-            >
-              <Box flexDirection="row" alignItems="center">
-                <TokenIcon size="8" token={token} />
-                <Typography.Body1Strong ml={3}>
-                  {token.label}
-                </Typography.Body1Strong>
-              </Box>
-              {!token.value ? (
-                <Typography.Body1 color="text-disabled">
-                  {intl.formatMessage({
-                    id: 'transaction__swap_status_waiting',
-                  })}
-                </Typography.Body1>
-              ) : null}
-            </Pressable>
-          );
-        }}
-        renderTrigger={() => (
-          <Box flexDirection="row" alignItems="center">
-            <Typography.Body2Strong mr="1">
-              {intl.formatMessage({ id: 'action__view_in_browser' })}
-            </Typography.Body2Strong>
-            <Icon name="ArrowTopRightOnSquareOutline" size={16} />
-          </Box>
-        )}
-      />
-    </>
+    <Select
+      footer={null}
+      title={intl.formatMessage({
+        id: 'title__select_blockchain_browser',
+      })}
+      isTriggerPlain
+      options={options}
+      headerShown={false}
+      dropdownProps={{ width: '64' }}
+      dropdownPosition="right"
+      onChange={onPress}
+      renderItem={(item, _, onChange) => {
+        const token = item as unknown as ViewInBrowserSelectorItem;
+        return (
+          <Pressable
+            flexDirection="row"
+            justifyContent="space-between"
+            alignItems="center"
+            key={item.value}
+            h="12"
+            px="3"
+            onPress={() => onChange?.('', item)}
+          >
+            <Box flexDirection="row" alignItems="center">
+              <TokenIcon size="8" token={token} />
+              <Typography.Body1Strong ml={3}>
+                {token.label}
+              </Typography.Body1Strong>
+            </Box>
+            {!token.value ? (
+              <Typography.Body1 color="text-disabled">
+                {intl.formatMessage({
+                  id: 'transaction__swap_status_waiting',
+                })}
+              </Typography.Body1>
+            ) : null}
+          </Pressable>
+        );
+      }}
+      renderTrigger={() => (
+        <Box flexDirection="row" alignItems="center">
+          <Typography.Body2Strong mr="1">
+            {intl.formatMessage({ id: 'action__view_in_browser' })}
+          </Typography.Body2Strong>
+          <Icon name="ArrowTopRightOnSquareOutline" size={16} />
+        </Box>
+      )}
+    />
   );
 };
 

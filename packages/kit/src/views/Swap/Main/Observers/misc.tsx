@@ -4,7 +4,7 @@ import { useIsFocused } from '@react-navigation/native';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../../hooks';
-import { ModalRoutes, RootRoutes } from '../../../../routes/types';
+import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { SwapRoutes } from '../../typings';
 
 const WelcomeObserver = () => {

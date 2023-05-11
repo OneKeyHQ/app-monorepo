@@ -7,21 +7,14 @@ import type { LimitOrderTransactionDetails } from '../../typings';
 
 type PendingLimitOrderProps = {
   limitOrder: LimitOrderTransactionDetails;
-  stopInterval?: boolean;
 };
 
-const PendingLimitOrder: FC<PendingLimitOrderProps> = ({
-  limitOrder,
-  stopInterval,
-}) => {
+const PendingLimitOrder: FC<PendingLimitOrderProps> = ({ limitOrder }) => {
   const onQuery = useCallback(() => {
     backgroundApiProxy.serviceLimitOrder.queryOrderStateProcess(limitOrder);
   }, [limitOrder]);
   useEffect(() => {
     onQuery();
-    if (stopInterval) {
-      return;
-    }
     const timer = setInterval(onQuery, 30 * 1000);
     return () => {
       clearInterval(timer);
