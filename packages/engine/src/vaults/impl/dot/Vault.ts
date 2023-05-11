@@ -66,7 +66,11 @@ import polkadotSdk from './sdk/polkadotSdk';
 import { EXTRINSIC_VERSION } from './sdk/polkadotSdkTypes';
 import settings from './settings';
 import { SubScanClient } from './substrate/query/subscan';
-import { getTransactionType, getTransactionTypeFromTxInfo } from './utils';
+import {
+  getTransactionType,
+  getTransactionTypeFromTxInfo,
+  getTransactionTypeV2,
+} from './utils';
 
 import type {
   BlockHash,
@@ -701,6 +705,7 @@ export default class Vault extends VaultBase {
 
       const queryInfoJson = queryInfo.toJSON();
 
+      // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       const weight = queryInfoJson.partialFee.toString();
       limit = new BigNumber(weight).toFixed(0).toString();
@@ -712,8 +717,10 @@ export default class Vault extends VaultBase {
         );
       const queryInfoJson = queryInfo.toJSON();
 
+      // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       limit = new BigNumber(queryInfoJson.inclusionFee.baseFee.toString())
+        // @ts-expect-error
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
         .plus(queryInfoJson.inclusionFee.lenFee.toString())
         .toFixed(0)
@@ -1000,14 +1007,14 @@ export default class Vault extends VaultBase {
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
 
-    const explorerTxs = await scanClient.getTransactions(
+    const explorerTxs = await scanClient.getTransactionsV2(
       this.networkId,
       dbAccount.address,
     );
 
     const promises = explorerTxs.map(async (tx) => {
       const historyTxToMerge = localHistory.find(
-        (item) => item.decodedTx.txid === tx.extrinsic_hash,
+        (item) => item.decodedTx.txid === tx.hash,
       );
 
       if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
@@ -1016,55 +1023,23 @@ export default class Vault extends VaultBase {
       }
 
       try {
-        const from = tx.account_id;
+        const { from, to, module, amount_v2: amountValue, fee: feeValue } = tx;
 
-        const actionType = getTransactionType(
-          tx.call_module,
-          tx.call_module_function,
-        );
+        const actionType = getTransactionTypeV2(module);
 
         let action: IDecodedTxAction = {
           type: IDecodedTxActionType.UNKNOWN,
         };
 
+        const token: Token | undefined = await this.engine.getNativeTokenInfo(
+          this.networkId,
+        );
+
         if (
           actionType === IDecodedTxActionType.NATIVE_TRANSFER ||
           actionType === IDecodedTxActionType.TOKEN_TRANSFER
         ) {
-          const params = JSON.parse(tx.params) as ExtrinsicParam[];
-
-          let to = '';
-          let amountValue = '0';
-          let coinType = '0';
-
-          if (
-            tx.call_module_function === 'transfer' ||
-            tx.call_module_function === 'transfer_keep_alive'
-          ) {
-            const [toParam, amountParam] = params;
-
-            to = await this.addressFromAccountId(get(toParam, 'value.Id', ''));
-            amountValue = amountParam.value.toString();
-          }
-
-          if (tx.call_module_function === 'transfer_all') {
-            const [toParam] = params;
-
-            to = await this.addressFromAccountId(get(toParam, 'value.Id', ''));
-            amountValue = '0';
-          }
-
-          if (actionType === IDecodedTxActionType.TOKEN_TRANSFER) {
-            const [idParam, targetParam, amountParam] = params;
-
-            coinType = idParam.value.toString();
-            to = await this.addressFromAccountId(
-              get(targetParam, 'value.Id', ''),
-            );
-            amountValue = amountParam.value.toString();
-          }
-
-          const isToken = actionType === IDecodedTxActionType.TOKEN_TRANSFER;
+          // const isToken = actionType === IDecodedTxActionType.TOKEN_TRANSFER;
 
           let direction = IDecodedTxDirection.IN;
           if (from === dbAccount.address) {
@@ -1074,17 +1049,17 @@ export default class Vault extends VaultBase {
                 : IDecodedTxDirection.OUT;
           }
 
-          let token: Token | undefined = await this.engine.getNativeTokenInfo(
-            this.networkId,
-          );
-          let actionKey = 'nativeTransfer';
-          if (isToken) {
-            actionKey = 'tokenTransfer';
-            token = await this.engine.ensureTokenInDB(this.networkId, coinType);
-            if (typeof token === 'undefined') {
-              throw new OneKeyInternalError('Failed to get token info.');
-            }
-          }
+          // let token: Token | undefined = await this.engine.getNativeTokenInfo(
+          //   this.networkId,
+          // );
+          const actionKey = 'nativeTransfer';
+          // if (isToken) {
+          //   actionKey = 'tokenTransfer';
+          //   token = await this.engine.ensureTokenInDB(this.networkId, coinType);
+          //   if (typeof token === 'undefined') {
+          //     throw new OneKeyInternalError('Failed to get token info.');
+          //   }
+          // }
 
           action = {
             type: actionType,
@@ -1102,8 +1077,6 @@ export default class Vault extends VaultBase {
           };
         }
 
-        const feeValue = tx.fee_used;
-
         const { success } = tx;
         let status = IDecodedTxStatus.Pending;
         if (success === false) {
@@ -1113,7 +1086,7 @@ export default class Vault extends VaultBase {
         }
 
         const decodedTx: IDecodedTx = {
-          txid: tx.extrinsic_hash,
+          txid: tx.hash,
           owner: dbAccount.address,
           signer: from,
           nonce: tx.nonce,
