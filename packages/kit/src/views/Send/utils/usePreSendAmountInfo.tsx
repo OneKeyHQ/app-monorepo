@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { IconButton, Text } from '@onekeyhq/components';
 import type { INetwork } from '@onekeyhq/engine/src/types';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   FormatCurrencyTokenOfAccount,
@@ -92,26 +93,32 @@ export function usePreSendAmountInfo({
     },
     [getInputText, isFiatMode],
   );
-  const onTextChange = (text0: string) => {
-    const normalizedText = text0.replace(/。/g, '.');
-    // delete action
-    if (normalizedText.length < text.length) {
-      setText(normalizedText);
-      return;
-    }
-    if (validTextRegex.test(normalizedText)) {
-      setText(normalizedText);
-    } else {
-      const textBN = new BigNumber(normalizedText);
-      if (!textBN.isNaN()) {
-        const textFixed = textBN.toFixed(
-          textInputDecimals,
-          BigNumber.ROUND_FLOOR,
-        );
-        setText(textFixed);
+  const onTextChange = useCallback(
+    (text0: string) => {
+      let normalizedText = text0.replace(/。/g, '.');
+      if (platformEnv.isRuntimeBrowser && text0 === '.' && !text) {
+        normalizedText = '0.';
       }
-    }
-  };
+      // delete action
+      if (normalizedText.length < text.length) {
+        setText(normalizedText);
+        return;
+      }
+      if (validTextRegex.test(normalizedText)) {
+        setText(normalizedText);
+      } else {
+        const textBN = new BigNumber(normalizedText);
+        if (!textBN.isNaN()) {
+          const textFixed = textBN.toFixed(
+            textInputDecimals,
+            BigNumber.ROUND_FLOOR,
+          );
+          setText(textFixed);
+        }
+      }
+    },
+    [text, textInputDecimals, validTextRegex],
+  );
   const onAmountChange = useCallback(
     (text0: string) => {
       // delete action

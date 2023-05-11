@@ -12,7 +12,6 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   CreateAccountModalRoutes,
-  CreateWalletModalRoutes,
   ModalRoutes,
   RootRoutes,
 } from '../../../routes/routesEnum';
@@ -24,6 +23,7 @@ import showDerivationPathBottomSheetModal from '../modals/NetworkAccountSelector
 import type { ModalScreenProps, RootRoutesParams } from '../../../routes/types';
 import type { IDerivationOption } from './useDerivationPath';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
 export const AllNetwork = 'all';
