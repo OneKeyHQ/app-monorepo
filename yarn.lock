@@ -5423,13 +5423,13 @@ __metadata:
     react-native-flipper: 0.162.0
     react-native-flipper-performance-plugin: ^0.3.1
     react-native-fs: ^2.20.0
-    react-native-gesture-handler: ^2.9.0
+    react-native-gesture-handler: ^2.10.0
     react-native-get-random-values: ^1.8.0
     react-native-in-app-review: ^4.2.1
     react-native-keyboard-manager: ^6.5.4-4
     react-native-level-fs: ^3.0.1
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git"
-    react-native-pager-view: 6.1.2
+    react-native-pager-view: ^6.2.0
     react-native-randombytes: ^3.6.1
     react-native-reanimated: ^3.1.0
     react-native-restart: 0.0.24
@@ -27232,9 +27232,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-gesture-handler@npm:^2.5.0, react-native-gesture-handler@npm:^2.9.0":
-  version: 2.9.0
-  resolution: "react-native-gesture-handler@npm:2.9.0"
+"react-native-gesture-handler@npm:^2.10.0, react-native-gesture-handler@npm:^2.5.0":
+  version: 2.10.0
+  resolution: "react-native-gesture-handler@npm:2.10.0"
   dependencies:
     "@egjs/hammerjs": ^2.0.17
     hoist-non-react-statics: ^3.3.0
@@ -27244,7 +27244,7 @@ __metadata:
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 6bfdd9d23486193424dcfb0073dd821a216c2783dde746d73a3441e920602343f09efa10261c6f09fcbcb645d029a95305c86f61997053c01ad89751c8c6d236
+  checksum: 7bfde740a67e551458228ad9076af511ad3538c5e65598fc0aef0fdb7329c1743501e31d46ad64fc42697132e3f39721da45d044ad38c6049415b2ede79b13e8
   languageName: node
   linkType: hard
 
@@ -27356,13 +27356,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-pager-view@npm:6.1.2":
-  version: 6.1.2
-  resolution: "react-native-pager-view@npm:6.1.2"
+"react-native-pager-view@npm:^6.2.0":
+  version: 6.2.0
+  resolution: "react-native-pager-view@npm:6.2.0"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 813da82c7816748b7a66c87d281c11cc3d787342b0896ffad686ee15e968911f4ed7b1164cdf196068eb2abcb28513bd85cdd0023280af73ff66e2b42bd2efa1
+  checksum: 3006fe29f008d472ebfb654922302d138b08f56e7796627263424b5e91a3169dd9d0c450b5396efffd88d511197c5006180430a2b687d2d827926b324f8fb947
   languageName: node
   linkType: hard
 

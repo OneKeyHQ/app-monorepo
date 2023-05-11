@@ -1,15 +1,13 @@
 import type { FC } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-import { RefreshControl } from 'react-native';
 
 import {
   Box,
   Divider,
   FlatList,
   IconButton,
-  ScrollView,
   useUserDevice,
 } from '@onekeyhq/components';
 
@@ -34,10 +32,10 @@ import type { HomeRoutesParams } from '../../routes/types';
 import type { MarketCategory } from '../../store/reducers/market';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type {
+  FlatList as FlatListType,
   ListRenderItem,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  ScrollView as ScrollViewType,
 } from 'react-native';
 
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
@@ -45,12 +43,12 @@ type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 const MarketList: FC = () => {
   const { size } = useUserDevice();
   const isVerticalLayout = size === 'SMALL';
-  const isMidLayout = size === 'NORMAL';
   const categorys: MarketCategory[] = useMarketCategoryList();
   const recommendedTokens = useMarketFavoriteRecommentedList();
   const favoriteTokens = useMarketFavoriteCategoryTokenIds();
   const { selectedCategory, onRefreshingMarketList } = useMarketList();
   const listHeadTags = useMemo(() => {
+    const isMidLayout = size === 'NORMAL';
     if (isMidLayout) {
       return ListHeadTags.filter((t) => t.showNorMalDevice);
     }
@@ -58,9 +56,9 @@ const MarketList: FC = () => {
       return ListHeadTags.filter((t) => t.showVerticalLayout);
     }
     return ListHeadTags;
-  }, [isMidLayout, isVerticalLayout]);
+  }, [isVerticalLayout, size]);
   const navigation = useNavigation<NavigationProps>();
-  const scrollRef = useRef<ScrollViewType>(null);
+  const scrollRef = useRef<FlatListType>(null);
   const renderItem: ListRenderItem<string> = useCallback(
     ({ item }) =>
       isVerticalLayout ? (
@@ -109,10 +107,6 @@ const MarketList: FC = () => {
       setRefreshing(false);
     });
   }, [onRefreshingMarketList]);
-  const listHeader = useMemo(
-    () => <MarketListHeader headTags={listHeadTags} />,
-    [listHeadTags],
-  );
   const showRecomended = useMemo(
     () =>
       selectedCategory &&
@@ -121,42 +115,46 @@ const MarketList: FC = () => {
       recommendedTokens.length > 0,
     [favoriteTokens.length, recommendedTokens.length, selectedCategory],
   );
+
   return (
-    <Box flex={1} mt={3}>
-      <ScrollView
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        ref={scrollRef}
+    <>
+      <FlatList
+        flex={1}
+        mt={3}
         px={isVerticalLayout ? 2 : 3}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        ref={scrollRef}
         bg="background-default"
         onScroll={onScroll}
         contentContainerStyle={{
           paddingBottom: 24,
         }}
+        keyExtractor={(item) => item}
         stickyHeaderIndices={[0]}
-        scrollEventThrottle={100}
-      >
-        <Box pt={1} mt={-1} bgColor="background-default">
-          <MarketCategoryToggles categorys={categorys} />
-          {!showRecomended ? listHeader : null}
-        </Box>
-        {showRecomended ? (
-          <MarketRecomment tokens={recommendedTokens} />
-        ) : (
-          <FlatList
-            data={
-              !selectedCategory || !selectedCategory.coingeckoIds?.length
-                ? MARKET_FAKE_SKELETON_LIST_ARRAY
-                : selectedCategory.coingeckoIds
-            }
-            renderItem={renderItem}
-            // ListHeaderComponent={listHeader}
-            ItemSeparatorComponent={!isVerticalLayout ? Divider : null}
-          />
-        )}
-      </ScrollView>
-      {goToTopBtnShow ? (
+        scrollEventThrottle={200}
+        data={
+          // eslint-disable-next-line no-nested-ternary
+          showRecomended
+            ? null
+            : selectedCategory?.coingeckoIds?.length
+            ? selectedCategory.coingeckoIds
+            : MARKET_FAKE_SKELETON_LIST_ARRAY
+        }
+        renderItem={renderItem}
+        ItemSeparatorComponent={!isVerticalLayout ? Divider : null}
+        ListHeaderComponent={
+          <Box pt={1} mt={-1} bgColor="background-default">
+            <MarketCategoryToggles categorys={categorys} />
+            {showRecomended ? (
+              <MarketRecomment tokens={recommendedTokens} />
+            ) : (
+              <MarketListHeader headTags={listHeadTags} />
+            )}
+          </Box>
+        }
+      />
+      {goToTopBtnShow && (
         <IconButton
           circle
           name="UploadMini"
@@ -166,14 +164,12 @@ const MarketList: FC = () => {
           bottom="80px"
           right="20px"
           onPress={() => {
-            if (scrollRef.current) {
-              scrollRef.current.scrollTo({ y: 0, animated: true });
-            }
+            scrollRef.current?.scrollToOffset({ offset: 0, animated: true });
           }}
         />
-      ) : null}
-    </Box>
+      )}
+    </>
   );
 };
 
-export default MarketList;
+export default memo(MarketList);

@@ -14,7 +14,7 @@ import Swap from '../Swap';
 
 import MarketHeader from './Components/MarketList/MarketTopHeader';
 import MarketList from './MarketList';
-import { SharedMobileTab } from './SharedMobileTab';
+import SharedMobileTab from './SharedMobileTab';
 import { sharedMobileTabRef } from './sharedMobileTabRef';
 
 import type { MarketTopTabName } from '../../store/reducers/market';
