@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+import { bytesToHex } from '@noble/hashes/utils';
 import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import {
@@ -691,18 +692,33 @@ export default class Vault extends VaultBase {
     );
     const signedTransactionU8a = hexToU8a(signedTransaction);
 
-    const queryInfo = await client.call.transactionPaymentApi.queryInfo(
-      signedTransactionU8a,
-      signedTransactionU8a.length,
-    );
+    let limit = '0';
+    try {
+      const queryInfo = await client.call.transactionPaymentApi.queryInfo(
+        signedTransactionU8a,
+        signedTransactionU8a.length,
+      );
 
-    const queryInfoJson = queryInfo.toJSON();
+      const queryInfoJson = queryInfo.toJSON();
 
-    // @ts-expect-error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    const weight = queryInfoJson.partialFee.toString();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      const weight = queryInfoJson.partialFee.toString();
+      limit = new BigNumber(weight).toFixed(0).toString();
+    } catch (error) {
+      const queryInfo =
+        await client.call.transactionPaymentCallApi.queryCallFeeDetails(
+          signedTransactionU8a,
+          signedTransactionU8a.length,
+        );
+      const queryInfoJson = queryInfo.toJSON();
 
-    const limit = new BigNumber(weight).toFixed(0).toString();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      limit = new BigNumber(queryInfoJson.inclusionFee.baseFee.toString())
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        .plus(queryInfoJson.inclusionFee.lenFee.toString())
+        .toFixed(0)
+        .toString();
+    }
 
     return {
       disableEditFee: true,
