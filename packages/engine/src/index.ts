@@ -2805,7 +2805,10 @@ class Engine {
 
     // prepare simpledb data
     const utxoAccountsRawData = await simpleDb.utxoAccounts.getRawData();
-    if (!backupObject.simpleDb.utxoAccounts) {
+    if (!backupObject.simpleDb?.utxoAccounts) {
+      if (!backupObject.simpleDb) {
+        backupObject.simpleDb = {};
+      }
       backupObject.simpleDb.utxoAccounts = {
         utxos: [],
       };
@@ -2953,7 +2956,7 @@ class Engine {
       }),
     );
 
-    if (backupObject.simpleDb.utxoAccounts) {
+    if (backupObject.simpleDb?.utxoAccounts) {
       await simpleDb.utxoAccounts.insertRestoreData(
         backupObject.simpleDb.utxoAccounts.utxos,
       );
