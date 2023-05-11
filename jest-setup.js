@@ -23,6 +23,7 @@ class LocalStorageMock {
 }
 
 global.localStorage = new LocalStorageMock();
+global.fetch = require('node-fetch');
 
 // ** shim TextEncoder
 // const { TextEncoder, TextDecoder } = require('util');
