@@ -467,17 +467,20 @@ async function createOutputActionFromCovalent({
   const isTokenQuery = !!covalentTx?.transfers?.length;
   if (parseFloat(covalentTx.value) > 0 || !isContractCall) {
     const tokenInfo = await vault.engine.getNativeTokenInfo(vault.networkId);
+    const fromAddress = covalentTx.from_address?.toLocaleLowerCase();
+    const toAddress = covalentTx.to_address?.toLocaleLowerCase();
+    const accountAddress = address.toLocaleLowerCase();
     if (
       tokenInfo &&
-      (covalentTx.from_address === address || covalentTx.to_address === address)
+      (fromAddress === accountAddress || toAddress === accountAddress)
     ) {
       const { value } = covalentTx;
       nativeTransferAction = {
         type: IDecodedTxActionType.NATIVE_TRANSFER,
         nativeTransfer: {
           tokenInfo,
-          from: covalentTx.from_address,
-          to: covalentTx.to_address,
+          from: fromAddress,
+          to: toAddress,
           amount: convertTokenOnChainValueToAmount({ tokenInfo, value }),
           amountValue: value,
           extraInfo: null,
