@@ -422,11 +422,10 @@ export function isSimpleTx(tx: TransactionDetails) {
   const from = tx.tokens?.from;
   const to = tx.tokens?.to;
   const quoterType = getQuoteType(tx);
-  return (
-    from?.networkId === to?.networkId &&
-    isEvmNetworkId(from?.networkId) &&
-    quoterType !== QuoterType.swftc
-  );
+  if (quoterType === QuoterType.swftc) {
+    return false
+  }
+  return from?.networkId === to?.networkId;
 }
 
 export function tokenEqual(tokenA: Token, tokenB: Token) {
