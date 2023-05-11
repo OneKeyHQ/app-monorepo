@@ -152,7 +152,6 @@ const DerivationPathContent: FC<IDerivationPathBottomSheetModalProps> = ({
   walletId,
   networkId,
   onSelect,
-  title,
   derivationOptions,
   selectedDerivation,
 }) => {

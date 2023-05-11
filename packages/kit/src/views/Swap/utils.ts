@@ -423,7 +423,7 @@ export function isSimpleTx(tx: TransactionDetails) {
   const to = tx.tokens?.to;
   const quoterType = getQuoteType(tx);
   if (quoterType === QuoterType.swftc) {
-    return false
+    return false;
   }
   return from?.networkId === to?.networkId;
 }
