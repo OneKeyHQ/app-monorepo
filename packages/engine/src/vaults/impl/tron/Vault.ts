@@ -1,5 +1,6 @@
 /* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
 /* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 import { defaultAbiCoder } from '@ethersproject/abi';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
@@ -514,11 +515,99 @@ export default class Vault extends VaultBase {
     }
   }
 
-  override buildEncodedTxFromApprove(
-    _approveInfo: IApproveInfo,
+  async buildEncodedTxFromApprove(
+    approveInfo: IApproveInfo,
   ): Promise<IEncodedTx> {
-    // TODO
-    throw new NotImplemented();
+    const tronWeb = await this.getClient();
+    const token = await this.engine.ensureTokenInDB(
+      this.networkId,
+      approveInfo.token,
+    );
+    if (typeof token === 'undefined') {
+      throw new Error(`Token not found: ${approveInfo.token}`);
+    }
+    const params = [
+      { type: 'address', value: approveInfo.spender },
+      {
+        type: 'uint256',
+        value: Number(
+          new BigNumber(approveInfo.amount)
+            .shiftedBy(token.decimals)
+            .toFixed(0),
+        ),
+      },
+    ];
+    const {
+      result: { result },
+      transaction,
+    } = await tronWeb.transactionBuilder.triggerSmartContract(
+      approveInfo.token,
+      'approve(address,uint256)',
+      {},
+      params,
+      approveInfo.from,
+    );
+    if (!result) {
+      throw new OneKeyInternalError(
+        'Unable to build token approve transaction',
+      );
+    }
+    return transaction;
+  }
+
+  override async getTokenAllowance(
+    tokenAddress: string,
+    spenderAddress: string,
+  ): Promise<BigNumber> {
+    const [dbAccount, token] = await Promise.all([
+      this.getDbAccount(),
+      this.engine.ensureTokenInDB(this.networkId, tokenAddress),
+    ]);
+
+    if (typeof token === 'undefined') {
+      // This will be catched by engine.
+      console.error(`Token not found: ${tokenAddress}`);
+      throw new Error();
+    }
+
+    const abi = [
+      {
+        'constant': true,
+        'inputs': [
+          {
+            'name': '_owner',
+            'type': 'address',
+          },
+          {
+            'name': '_spender',
+            'type': 'address',
+          },
+        ],
+        'name': 'allowance',
+        'outputs': [
+          {
+            'name': 'remaining',
+            'type': 'uint256',
+          },
+        ],
+        'payable': false,
+        'stateMutability': 'view',
+        'type': 'function',
+      },
+    ];
+
+    const tronWeb = (await this.getClient()) as any;
+    const contract = await tronWeb.contract(abi, tokenAddress);
+
+    const [remaining] = await contract
+      .allowance(dbAccount.address, spenderAddress)
+      .call();
+
+    if (!remaining) {
+      return new BigNumber(0);
+    }
+
+    return new BigNumber(remaining.toHexString()).shiftedBy(-token.decimals);
   }
 
   override updateEncodedTxTokenApprove(

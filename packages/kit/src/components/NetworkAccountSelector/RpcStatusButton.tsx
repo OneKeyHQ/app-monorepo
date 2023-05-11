@@ -81,7 +81,11 @@ function RpcStatusButton({ networkId }: IRpcStatusButtonProps) {
               >
                 {intl.formatMessage({ id: status.text })}
               </Text>
-              <Icon name="ChevronRightMini" color={status.textColor} />
+              <Icon
+                name="ChevronRightMini"
+                color={status.textColor}
+                size={20}
+              />
             </HStack>
           </Tooltip>
         </HStack>
