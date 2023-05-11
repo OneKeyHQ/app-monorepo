@@ -153,7 +153,7 @@ class ServiceCloudBackup extends ServiceBase {
       publicBackupData.HDWallets[walletId] = { name, avatar, accountUUIDs };
     }
 
-    if (backupObject.simpleDb.utxoAccounts) {
+    if (backupObject.simpleDb?.utxoAccounts) {
       if (!publicBackupData.simpleDb) {
         publicBackupData.simpleDb = {};
       }
