@@ -26,7 +26,7 @@ export type BackupObject = {
   watchingAccounts: Record<string, DBAccount & HasVersion>;
   // UUID -> ImportableHDWallet
   wallets: Record<string, ImportableHDWallet>;
-  simpleDb: {
+  simpleDb?: {
     utxoAccounts?: ISimpleDbEntityUtxoData;
   };
 };
