@@ -3,8 +3,10 @@ import BigNumber from 'bignumber.js';
 
 import { getNetworkImpl } from '@onekeyhq/engine/src/managers/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import type { IEncodedTxAptos } from '@onekeyhq/engine/src/vaults/impl/apt/types';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_APTOS, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -66,9 +68,16 @@ type EVMTransaction = {
   data: string;
 };
 
+export type AptosTransaction = {
+  type_arguments: string[];
+  type: string;
+  function: string;
+  arguments: any[];
+};
+
 type StringTransaction = string;
 
-type Transaction = EVMTransaction | StringTransaction;
+type Transaction = EVMTransaction | AptosTransaction | StringTransaction;
 
 type BuildTransactionHttpResponse = {
   transaction?: Transaction;
@@ -408,8 +417,21 @@ export class SwapQuoter {
 
     if (data?.transaction) {
       if (typeof data.transaction === 'object') {
+        if (params.networkIn.impl === IMPL_APTOS) {
+          return {
+            data: {
+              ...data.transaction,
+              sender: params.activeAccount.address,
+            } as IEncodedTxAptos,
+            result: data.result,
+            requestId,
+          };
+        }
         return {
-          data: { ...data.transaction, from: params.activeAccount.address },
+          data: {
+            ...data.transaction,
+            from: params.activeAccount.address,
+          } as IEncodedTxEvm,
           result: data.result,
           requestId,
         };
