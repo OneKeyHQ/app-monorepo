@@ -450,6 +450,7 @@ async function createOutputActionFromCovalent({
   vault,
   covalentTx,
   encodedTx,
+  address,
 }: ICovalentTxToDecodedTxParseOptions) {
   let nativeTransferAction: IDecodedTxAction | undefined;
   // polygon also has log_events in nativeTransfer
@@ -466,14 +467,20 @@ async function createOutputActionFromCovalent({
   const isTokenQuery = !!covalentTx?.transfers?.length;
   if (parseFloat(covalentTx.value) > 0 || !isContractCall) {
     const tokenInfo = await vault.engine.getNativeTokenInfo(vault.networkId);
-    if (tokenInfo) {
+    const fromAddress = covalentTx.from_address?.toLocaleLowerCase();
+    const toAddress = covalentTx.to_address?.toLocaleLowerCase();
+    const accountAddress = address.toLocaleLowerCase();
+    if (
+      tokenInfo &&
+      (fromAddress === accountAddress || toAddress === accountAddress)
+    ) {
       const { value } = covalentTx;
       nativeTransferAction = {
         type: IDecodedTxActionType.NATIVE_TRANSFER,
         nativeTransfer: {
           tokenInfo,
-          from: covalentTx.from_address,
-          to: covalentTx.to_address,
+          from: fromAddress,
+          to: toAddress,
           amount: convertTokenOnChainValueToAmount({ tokenInfo, value }),
           amountValue: value,
           extraInfo: null,
@@ -733,6 +740,7 @@ export async function parseCovalentTxToDecodedTx(
 
     extraInfo: null,
   };
+  let InvolvedInDelegateVotesChanged = false;
 
   if (isTokenQuery && covalentTx.transfers) {
     const actions = await Promise.all(
@@ -785,6 +793,10 @@ export async function parseCovalentTxToDecodedTx(
               ).toLowerCase();
               return from === address || to === address;
             }
+
+            if (name === 'DelegateVotesChanged') {
+              InvolvedInDelegateVotesChanged = true;
+            }
           }
           return false;
         })
@@ -802,6 +814,18 @@ export async function parseCovalentTxToDecodedTx(
     outputActions = outputActions
       .filter((item) => item && !item.hidden)
       .filter(Boolean);
+
+    // If address only involved in tx DelegateVotesChanged event in multi log events
+    // Then this tx does not belong to this address
+    if (
+      isContractCall &&
+      !outputActions.length &&
+      covalentTx.log_events.length > 1 &&
+      InvolvedInDelegateVotesChanged
+    ) {
+      covalentTx.onlyInvolvedInDelegateVotesChanged = true;
+      return covalentTx;
+    }
 
     if (isContractCall && !outputActions.length) {
       outputActions = [commonAction];

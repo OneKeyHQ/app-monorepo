@@ -1785,7 +1785,9 @@ export default class Vault extends VaultBase {
 
         let decodedTx = covalentTx?.parsedDecodedTx;
 
-        decodedTx = covalentTx?.parsedDecodedTx;
+        if (!decodedTx && covalentTx?.onlyInvolvedInDelegateVotesChanged) {
+          return null;
+        }
 
         if (encodedTx) {
           // TODO _decode getOrAddToken RPC error
