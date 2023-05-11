@@ -1,9 +1,12 @@
 import Axios from 'axios';
+import { get } from 'lodash';
+
+import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 
 import { submitTransactionFromString } from './transaction';
 
 import type { GetTransactionResponse, UTXOResponse } from './types';
-import type { AxiosInstance } from 'axios';
+import type { AxiosError, AxiosInstance } from 'axios';
 
 // https://api.kaspa.org/docs
 export class RestAPIClient {
@@ -96,15 +99,32 @@ export class RestAPIClient {
 
   async sendRawTransaction(rawTx: string): Promise<string> {
     const transaction = submitTransactionFromString(rawTx);
-    const resp = await this.axios.post<{
-      transactionId: string;
-      error: string;
-    }>(`/transactions`, transaction, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    return resp.data.transactionId;
+    return this.axios
+      .post<{
+        transactionId: string;
+        error?: string;
+      }>(`/transactions`, transaction, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      .then((resp) => resp.data.transactionId)
+      .catch((error: AxiosError) => {
+        const message: string = get(error, 'response.data.error', '');
+
+        if (message.match(/payment of \d+ is dust/)) {
+          throw new OneKeyInternalError(message, 'msg__amount_too_small');
+        }
+
+        if (message.toLowerCase().indexOf('insufficient balance') !== -1) {
+          throw new OneKeyInternalError(
+            message,
+            'msg__broadcast_dot_tx_Insufficient_fee',
+          );
+        }
+
+        throw new OneKeyInternalError(message);
+      });
   }
 
   async getTransaction(transactionId: string): Promise<GetTransactionResponse> {
