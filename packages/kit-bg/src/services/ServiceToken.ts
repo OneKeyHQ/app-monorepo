@@ -123,18 +123,25 @@ export default class ServiceToken extends ServiceBase {
             tokens: accountTokens,
           }),
         );
+      } else {
+        accountTokens.push(...accountTokensInRedux);
       }
 
       const { selectedFiatMoneySymbol } = appSelector((s) => s.settings);
-      const [, autodetectedTokens = []] = await this.getAccountTokenBalance({
-        accountId,
-        networkId,
-        tokenIds: accountTokens.map((token) => token.tokenIdOnNetwork),
-        withMain: true,
-        includeTop50TokensQuery,
-      });
-      if (autodetectedTokens.length) {
-        accountTokens.push(...autodetectedTokens);
+      try {
+        const [, autodetectedTokens = []] = await this.getAccountTokenBalance({
+          accountId,
+          networkId,
+          tokenIds: accountTokens.map((token) => token.tokenIdOnNetwork),
+          withMain: true,
+          includeTop50TokensQuery,
+        });
+        if (autodetectedTokens.length) {
+          accountTokens.push(...autodetectedTokens);
+        }
+      } catch (e) {
+        debugLogger.common.error('fetchAccountTokens error', e);
+        return accountTokens;
       }
       // check token prices
       servicePrice.fetchSimpleTokenPrice({
@@ -639,44 +646,32 @@ export default class ServiceToken extends ServiceBase {
         e,
       );
     }
-    try {
-      const tokens = [
-        ...(appSelector((s) => s.tokens.accountTokens)?.[networkId]?.[
-          accountId
-        ] ?? []),
-        ...autodetectedTokens,
-      ];
-      if (includeTop50TokensQuery || serverApiFetchFailed) {
-        const top50tokens = await engine.getTopTokensOnNetwork(networkId, 50);
-        const accountTokensInDB = await engine.getTokens(
-          networkId,
-          accountId,
-          true,
-          true,
-        );
-        tokens.push(...top50tokens, ...accountTokensInDB);
-      }
-      const tokensToGet = tokens
-        .map((t) => t.tokenIdOnNetwork)
-        .concat(tokenIds || [])
-        .filter(Boolean);
-      [rpcBalances] = await this.getAccountBalanceFromRpc(
+    const accountTokensInRedux =
+      appSelector((s) => s.tokens.accountTokens)?.[networkId]?.[accountId] ??
+      [];
+    const tokens = [...accountTokensInRedux, ...autodetectedTokens];
+    if (includeTop50TokensQuery || serverApiFetchFailed) {
+      const top50tokens = await engine.getTopTokensOnNetwork(networkId, 50);
+      const accountTokensInDB = await engine.getTokens(
         networkId,
         accountId,
-        tokensToGet,
-        withMain,
-        tokensMap,
+        true,
+        true,
       );
-    } catch (e) {
-      debugLogger.common.error(
-        `getBalancesFromRpc`,
-        {
-          params: [networkId, accountId],
-          message: e instanceof Error ? e.message : e,
-        },
-        e,
-      );
+      tokens.push(...top50tokens, ...accountTokensInDB);
     }
+    const tokensToGet = tokens
+      .map((t) => t.tokenIdOnNetwork)
+      .concat(tokenIds || [])
+      .filter(Boolean);
+
+    [rpcBalances] = await this.getAccountBalanceFromRpc(
+      networkId,
+      accountId,
+      tokensToGet,
+      withMain,
+      tokensMap,
+    );
     const balances: Record<string, TokenBalanceValue> = {};
     for (const k of Object.keys({
       ...serverBalances,
