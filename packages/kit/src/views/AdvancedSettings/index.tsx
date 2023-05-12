@@ -53,7 +53,14 @@ function AdvancedSettings() {
   }, [navigation, intl]);
 
   return (
-    <ScrollView p={4}>
+    <ScrollView
+      w="full"
+      h="full"
+      bg="background-default"
+      maxW={768}
+      mx="auto"
+      p={4}
+    >
       <VStack space={3}>
         <Text typography="Subheading" color="text-subdued">
           BITCOIN
