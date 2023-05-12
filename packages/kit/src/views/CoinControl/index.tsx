@@ -37,6 +37,9 @@ type RouteProps = RouteProp<
   CoinControlModalRoutes.CoinControlModal
 >;
 
+let start = 0;
+let end = 0;
+
 const CoinControl = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
@@ -160,6 +163,7 @@ const CoinControl = () => {
 
   const onCheckBoxChange = useCallback(
     (item: ICoinControlListItem) => {
+      start = Date.now();
       const key = getUtxoUniqueKey(item);
       if (selectedUtxos.includes(key)) {
         setSelectedUtxos((prevSelectedUtxos) =>
@@ -171,6 +175,11 @@ const CoinControl = () => {
     },
     [selectedUtxos],
   );
+
+  useEffect(() => {
+    end = Date.now();
+    console.log('onCheckBoxChange render time===>: ', end - start);
+  }, [selectedUtxos]);
 
   const onConfirmEditLabel = useCallback(
     (item: ICoinControlListItem, label: string) => {
@@ -230,12 +239,18 @@ const CoinControl = () => {
     () => utxosWithoutDust.length > 0 || utxosDust.length > 0,
     [utxosWithoutDust, utxosDust],
   );
-  const showAvailableListCheckbox = useMemo(() => isSelectMode, [isSelectMode]);
+  // const showAvailableListCheckbox = useMemo(() => isSelectMode, [isSelectMode]);
+  const showAvailableListCheckbox = useMemo(() => true, []);
   const showFrozenList = useMemo(
     () => frozenUtxos.length > 0 || (!useDustUtxo && utxosDust.length > 0),
     [frozenUtxos, useDustUtxo, utxosDust],
   );
   const showFrozenListCheckbox = useMemo(() => false, []);
+
+  const currentPageData = useMemo(
+    () => utxosWithoutDust.slice(0, 15),
+    [utxosWithoutDust],
+  );
 
   return (
     <Modal
@@ -303,7 +318,7 @@ const CoinControl = () => {
             network={network as unknown as Network}
             token={token}
             allUtxos={allUtxos}
-            dataSource={utxosWithoutDust}
+            dataSource={currentPageData}
             utxosDust={useDustUtxo ? utxosDust : []}
             showCheckbox={showAvailableListCheckbox}
             selectedUtxos={selectedUtxos}
