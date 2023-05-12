@@ -864,15 +864,10 @@ class ProviderApiEthereum extends ProviderApiBase {
     }
 
     // **** should await return
-    const res = await this.addEthereumChainMemo(
-      request,
-      params,
-      address,
-      ...others,
-    );
+    await this.addEthereumChainMemo(request, params, address, ...others);
 
     // Metamask return null
-    return Promise.resolve(res ?? null);
+    return null;
   }
 
   /**
@@ -901,10 +896,10 @@ class ProviderApiEthereum extends ProviderApiBase {
     // some dapp will call methods many times, like https://beta.layer3.xyz/bounties/dca-into-mean
     // some dapp should wait this method response, like https://app.uniswap.org/#/swap
     // **** should await return
-    const res = await this.switchEthereumChainMemo(request, params);
+    await this.switchEthereumChainMemo(request, params);
 
     // Metamask return null
-    return Promise.resolve(res ?? null);
+    return null;
   }
 
   // TODO metamask_unlockStateChanged
