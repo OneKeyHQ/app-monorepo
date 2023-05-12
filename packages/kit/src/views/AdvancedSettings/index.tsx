@@ -63,13 +63,13 @@ function AdvancedSettings() {
     >
       <VStack space={3}>
         <Text typography="Subheading" color="text-subdued">
-          BITCOIN
+          BITCOIN, LITECOIN, BITCOIN CASH, DOGECOIN
         </Text>
-        <VStack space={5}>
+        <VStack space={5} bgColor="surface-default" borderRadius="xl" p={4}>
           <SettingItem
-            title={intl.formatMessage({ id: 'form__use_dust_utxo' })}
+            title={intl.formatMessage({ id: 'form__spend_dust_utxo' })}
             description={intl.formatMessage({
-              id: 'content__after_enable_btc_child_addr_addr_changes_every_time_after_receive_tx_and_change_addr_are_auto_used_when_send_btx_tx',
+              id: 'content__after_enable_use_btc_utxo_will_increase_tx_fee_and_reduce_anonymity_and_privacy_its_recommend_to_disable_dust_utxo',
             })}
             isChecked={useDustUtxo}
             onChange={setUseDustUtxoSetting}
