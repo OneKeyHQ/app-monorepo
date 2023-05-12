@@ -57,7 +57,7 @@ const initialState: WebTabsInitialState = {
 export const homeResettingFlags: Record<string, number> = {};
 
 const hasTabLimits = platformEnv.isNative && !platformEnv.isNativeIOSPad;
-const MAX_WEB_TABS = 10;
+const MAX_WEB_TABS = 100;
 export const isTabLimitReached = (tabs: WebTab[]) =>
   hasTabLimits && tabs.length >= MAX_WEB_TABS;
 
