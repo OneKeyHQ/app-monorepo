@@ -98,6 +98,19 @@ const CoinControl = () => {
       });
   }, [networkId, accountId, sortMethod]);
 
+  const availabelListDataSource = useMemo(() => {
+    if (useDustUtxo) {
+      const data = utxosWithoutDust.map((item, index) => ({
+        ...item,
+        dustSeparator:
+          index === utxosWithoutDust.length - 1 && utxosDust.length > 0,
+      })) as ICoinControlListItem[];
+      return data.concat(utxosDust);
+    }
+    return utxosWithoutDust;
+  }, [utxosWithoutDust, utxosDust, useDustUtxo]);
+  const currentPageData = useMemo(() => utxosWithoutDust, [utxosWithoutDust]);
+
   useEffect(() => {
     refreshUtxosData();
   }, [menuSortByIndex, refreshUtxosData]);
@@ -239,18 +252,13 @@ const CoinControl = () => {
     () => utxosWithoutDust.length > 0 || utxosDust.length > 0,
     [utxosWithoutDust, utxosDust],
   );
-  // const showAvailableListCheckbox = useMemo(() => isSelectMode, [isSelectMode]);
-  const showAvailableListCheckbox = useMemo(() => true, []);
+  const showAvailableListCheckbox = useMemo(() => isSelectMode, [isSelectMode]);
+  // const showAvailableListCheckbox = useMemo(() => true, []);
   const showFrozenList = useMemo(
     () => frozenUtxos.length > 0 || (!useDustUtxo && utxosDust.length > 0),
     [frozenUtxos, useDustUtxo, utxosDust],
   );
   const showFrozenListCheckbox = useMemo(() => false, []);
-
-  const currentPageData = useMemo(
-    () => utxosWithoutDust.slice(0, 15),
-    [utxosWithoutDust],
-  );
 
   return (
     <Modal
@@ -317,8 +325,7 @@ const CoinControl = () => {
             accountId={accountId}
             network={network as unknown as Network}
             token={token}
-            allUtxos={allUtxos}
-            dataSource={currentPageData}
+            dataSource={availabelListDataSource}
             utxosDust={useDustUtxo ? utxosDust : []}
             showCheckbox={showAvailableListCheckbox}
             selectedUtxos={selectedUtxos}
@@ -342,7 +349,6 @@ const CoinControl = () => {
             accountId={accountId}
             network={network as unknown as Network}
             token={token}
-            allUtxos={allUtxos}
             dataSource={frozenUtxos}
             utxosDust={useDustUtxo ? [] : utxosDust}
             showCheckbox={showFrozenListCheckbox}

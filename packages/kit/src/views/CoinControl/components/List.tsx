@@ -7,6 +7,8 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Box,
+  Button,
+  Center,
   CheckBox,
   Divider,
   HStack,
@@ -20,6 +22,7 @@ import {
   Text,
   VStack,
 } from '@onekeyhq/components';
+import ListItemSeparator from '@onekeyhq/components/src/List/ListItemSeparator';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { getUtxoUniqueKey } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -266,27 +269,105 @@ const CoinControlCell: FC<ICellProps> = ({
   );
 };
 
-const ListFooter: FC<
-  Omit<ICellProps, 'item'> & {
-    dataSource: ICoinControlListItem[];
-    dustUtxos: ICoinControlListItem[];
-  }
-> = ({
-  dataSource,
-  dustUtxos,
-  accountId,
-  network,
-  token,
-  showCheckbox,
-  selectedUtxos = [],
-  blockTimeMap,
-  showPath,
-  isDust,
-  listType,
-  onChange,
-  onConfirmEditLabel,
-  onFrozenUTXO,
+const ItemSeparator: FC<{ isDustSeparator: boolean }> = ({
+  isDustSeparator,
 }) => {
+  const intl = useIntl();
+  if (isDustSeparator) {
+    return (
+      <>
+        <Divider w="auto" mx={2} />
+        <HStack mt={4} mb={2} mx={2}>
+          <RichTooltip
+            // eslint-disable-next-line react/no-unstable-nested-components
+            trigger={({ ...props }) => (
+              <Pressable {...props}>
+                <HStack alignItems="center" space={1} alignSelf="flex-start">
+                  <Text typography="Subheading" color="text-subdued">
+                    {intl.formatMessage({ id: 'form__dust__uppercase' })}
+                  </Text>
+                  <Icon
+                    name="QuestionMarkCircleMini"
+                    size={16}
+                    color="icon-subdued"
+                  />
+                </HStack>
+              </Pressable>
+            )}
+            bodyProps={{
+              children: (
+                <Text>
+                  {intl.formatMessage({
+                    id: 'content__dust_refer_to_very_tiny_amount_of_bitcoin',
+                  })}
+                </Text>
+              ),
+            }}
+          />
+        </HStack>
+      </>
+    );
+  }
+  return <ListItemSeparator />;
+};
+
+const PageControl: FC<{
+  currentPage?: number;
+  prevButtonDisabled?: boolean;
+  nextButtonDisabled?: boolean;
+  onPagePress: () => void;
+  onNextPagePress: () => void;
+  onPrevPagePress: () => void;
+}> = ({
+  currentPage,
+  prevButtonDisabled,
+  nextButtonDisabled,
+  onPagePress,
+  onNextPagePress,
+  onPrevPagePress,
+}) => (
+  <Center my={8}>
+    <HStack space={0} alignItems="flex-end">
+      <Button
+        w="40px"
+        type="basic"
+        borderRightRadius={0}
+        leftIconName="ChevronLeftMini"
+        onPress={onPrevPagePress}
+        isDisabled={prevButtonDisabled}
+      />
+      <Button
+        w={platformEnv.isNative ? 'auto' : '39px'}
+        h={platformEnv.isNative ? '37px' : '38px'}
+        type="basic"
+        onPress={onPagePress}
+        isDisabled={false}
+        borderLeftWidth={0}
+        borderRightWidth={0}
+        borderLeftRadius={0}
+        borderRightRadius={0}
+      >
+        <Text maxW="30px" maxH="38px" isTruncated>
+          {currentPage}
+        </Text>
+      </Button>
+      <Button
+        w="40px"
+        type="basic"
+        borderLeftRadius={0}
+        leftIconName="ChevronRightMini"
+        onPress={onNextPagePress}
+        isDisabled={nextButtonDisabled}
+      />
+    </HStack>
+  </Center>
+);
+
+const ListFooter: FC<{
+  network: Network;
+  dataSource: ICoinControlListItem[];
+  dustUtxos: ICoinControlListItem[];
+}> = ({ dataSource, dustUtxos, network }) => {
   const intl = useIntl();
 
   const sumUtxoAmount = useMemo(() => {
@@ -301,88 +382,10 @@ const ListFooter: FC<
     [dataSource, dustUtxos],
   );
 
-  const hasDustUtxos = useMemo(() => dustUtxos.length > 0, [dustUtxos]);
-
-  const renderFooterContent = useMemo(
-    () =>
-      dustUtxos.map((item) => (
-        <CoinControlCell
-          listType={listType}
-          item={item}
-          accountId={accountId}
-          network={network}
-          token={token}
-          showCheckbox={showCheckbox}
-          selectedUtxos={selectedUtxos}
-          blockTimeMap={blockTimeMap}
-          showPath={showPath}
-          isDust={isDust}
-          onChange={onChange}
-          onConfirmEditLabel={onConfirmEditLabel}
-          onFrozenUTXO={onFrozenUTXO}
-        />
-      )),
-    [
-      listType,
-      dustUtxos,
-      accountId,
-      network,
-      token,
-      showCheckbox,
-      selectedUtxos,
-      blockTimeMap,
-      showPath,
-      isDust,
-      onChange,
-      onConfirmEditLabel,
-      onFrozenUTXO,
-    ],
-  );
-
   return (
     <Box>
-      {hasDustUtxos && (
-        <>
-          <Divider w="auto" mx={2} />
-          <HStack mt={4} mb={2} mx={2}>
-            <RichTooltip
-              // eslint-disable-next-line react/no-unstable-nested-components
-              trigger={({ ...props }) => (
-                <Pressable {...props}>
-                  <HStack alignItems="center" space={1} alignSelf="flex-start">
-                    <Text typography="Subheading" color="text-subdued">
-                      {intl.formatMessage({ id: 'form__dust__uppercase' })}
-                    </Text>
-                    <Icon
-                      name="QuestionMarkCircleMini"
-                      size={16}
-                      color="icon-subdued"
-                    />
-                  </HStack>
-                </Pressable>
-              )}
-              bodyProps={{
-                children: (
-                  <Text>
-                    {intl.formatMessage({
-                      id: 'content__dust_refer_to_very_tiny_amount_of_bitcoin',
-                    })}
-                  </Text>
-                ),
-              }}
-            />
-          </HStack>
-          {renderFooterContent}
-        </>
-      )}
       <Divider w="auto" mx={2} />
-      <HStack
-        mt={4}
-        mb={2}
-        mx={2}
-        alignItems="center"
-        justifyContent="space-between"
-      >
+      <HStack mt={4} mx={2} alignItems="center" justifyContent="space-between">
         <Text typography="Subheading" color="text-subdued">
           {intl.formatMessage(
             { id: 'form__str_items__uppercase' },
@@ -406,6 +409,12 @@ const ListFooter: FC<
           )}
         />
       </HStack>
+      <PageControl
+        currentPage={1}
+        onPagePress={() => {}}
+        onNextPagePress={() => {}}
+        onPrevPagePress={() => {}}
+      />
     </Box>
   );
 };
@@ -415,7 +424,6 @@ const CoinControlList: FC<{
   accountId: string;
   network: Network;
   token?: Token;
-  allUtxos: ICoinControlListItem[];
   dataSource: ICoinControlListItem[];
   utxosDust: ICoinControlListItem[];
   showCheckbox: boolean;
@@ -445,23 +453,28 @@ const CoinControlList: FC<{
   onFrozenUTXO,
 }) => {
   const rowRenderer = useCallback(
-    ({ item }: ListRenderItemInfo<ICoinControlListItem>) => (
-      <CoinControlCell
-        listType={type}
-        item={item}
-        accountId={accountId}
-        network={network}
-        token={token}
-        showCheckbox={showCheckbox}
-        selectedUtxos={selectedUtxos}
-        blockTimeMap={blockTimeMap}
-        showPath={showPath}
-        isDust={false}
-        onChange={onChange}
-        onConfirmEditLabel={onConfirmEditLabel}
-        onFrozenUTXO={onFrozenUTXO}
-      />
-    ),
+    ({ item, index, separators }: ListRenderItemInfo<ICoinControlListItem>) => {
+      if (index === 1) {
+        separators.updateProps('leading', { foo: 'bar' });
+      }
+      return (
+        <CoinControlCell
+          listType={type}
+          item={item}
+          accountId={accountId}
+          network={network}
+          token={token}
+          showCheckbox={showCheckbox}
+          selectedUtxos={selectedUtxos}
+          blockTimeMap={blockTimeMap}
+          showPath={showPath}
+          isDust={false}
+          onChange={onChange}
+          onConfirmEditLabel={onConfirmEditLabel}
+          onFrozenUTXO={onFrozenUTXO}
+        />
+      );
+    },
     [
       type,
       showCheckbox,
@@ -490,37 +503,19 @@ const CoinControlList: FC<{
   const footerComponent = useCallback(
     () => (
       <ListFooter
-        listType={type}
         dataSource={dataSource}
         dustUtxos={utxosDust}
-        accountId={accountId}
         network={network}
-        token={token}
-        showCheckbox={showCheckbox}
-        selectedUtxos={selectedUtxos}
-        blockTimeMap={blockTimeMap}
-        showPath={showPath}
-        isDust
-        onChange={onChange}
-        onConfirmEditLabel={onConfirmEditLabel}
-        onFrozenUTXO={onFrozenUTXO}
       />
     ),
-    [
-      type,
-      dataSource,
-      utxosDust,
-      showCheckbox,
-      selectedUtxos,
-      network,
-      blockTimeMap,
-      token,
-      accountId,
-      showPath,
-      onChange,
-      onConfirmEditLabel,
-      onFrozenUTXO,
-    ],
+    [dataSource, utxosDust, network],
+  );
+
+  const separator = useCallback(
+    ({ leadingItem }: { leadingItem: ICoinControlListItem }) => (
+      <ItemSeparator isDustSeparator={!!leadingItem.dustSeparator} />
+    ),
+    [],
   );
 
   return network ? (
@@ -528,6 +523,7 @@ const CoinControlList: FC<{
       data={dataSource}
       ListHeaderComponent={headerComponent}
       ListFooterComponent={footerComponent}
+      ItemSeparatorComponent={separator}
       renderItem={rowRenderer}
       keyExtractor={(item) => getUtxoUniqueKey(item)}
     />
