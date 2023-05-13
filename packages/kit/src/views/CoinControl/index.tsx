@@ -98,6 +98,14 @@ const CoinControl = () => {
       });
   }, [networkId, accountId, sortMethod]);
 
+  const [config, setConfig] = useState<{
+    availabelListCurrentPage: number;
+    frozenListCurrentPage: number;
+  }>({
+    availabelListCurrentPage: 1,
+    frozenListCurrentPage: 1,
+  });
+
   const availabelListDataSource = useMemo(() => {
     if (useDustUtxo) {
       const data = utxosWithoutDust.map((item, index) => ({
@@ -109,7 +117,6 @@ const CoinControl = () => {
     }
     return utxosWithoutDust;
   }, [utxosWithoutDust, utxosDust, useDustUtxo]);
-  const currentPageData = useMemo(() => utxosWithoutDust, [utxosWithoutDust]);
 
   useEffect(() => {
     refreshUtxosData();
@@ -268,6 +275,7 @@ const CoinControl = () => {
           : 'UTXOs'
       }
       headerDescription={<ModalHeader networkId={networkId} />}
+      height="80%"
       rightContent={
         <CoinControlListMenu
           sortByIndex={menuSortByIndex}
@@ -322,6 +330,8 @@ const CoinControl = () => {
         (showAvailableList ? (
           <CoinControlList
             type="Available"
+            config={config}
+            setConfig={setConfig}
             accountId={accountId}
             network={network as unknown as Network}
             token={token}
@@ -346,6 +356,8 @@ const CoinControl = () => {
         (showFrozenList ? (
           <CoinControlList
             type="Frozen"
+            config={config}
+            setConfig={setConfig}
             accountId={accountId}
             network={network as unknown as Network}
             token={token}

@@ -1,5 +1,5 @@
-import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import type { Dispatch, FC, SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -32,6 +32,7 @@ import {
   FormatBalance,
   FormatCurrencyTokenOfAccount,
 } from '@onekeyhq/kit/src/components/Format';
+import { showJumpPageDialog } from '@onekeyhq/kit/src/views/Account/AddNewAccount/JumpPage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useFormatDate from '../../../hooks/useFormatDate';
@@ -367,7 +368,23 @@ const ListFooter: FC<{
   network: Network;
   dataSource: ICoinControlListItem[];
   dustUtxos: ICoinControlListItem[];
-}> = ({ dataSource, dustUtxos, network }) => {
+  currentPage?: number;
+  prevButtonDisabled?: boolean;
+  nextButtonDisabled?: boolean;
+  onPagePress: () => void;
+  onNextPagePress: () => void;
+  onPrevPagePress: () => void;
+}> = ({
+  dataSource,
+  dustUtxos,
+  network,
+  currentPage,
+  prevButtonDisabled,
+  nextButtonDisabled,
+  onPagePress,
+  onNextPagePress,
+  onPrevPagePress,
+}) => {
   const intl = useIntl();
 
   const sumUtxoAmount = useMemo(() => {
@@ -410,10 +427,12 @@ const ListFooter: FC<{
         />
       </HStack>
       <PageControl
-        currentPage={1}
-        onPagePress={() => {}}
-        onNextPagePress={() => {}}
-        onPrevPagePress={() => {}}
+        currentPage={currentPage}
+        onPagePress={onPagePress}
+        onNextPagePress={onNextPagePress}
+        onPrevPagePress={onPrevPagePress}
+        prevButtonDisabled={prevButtonDisabled}
+        nextButtonDisabled={nextButtonDisabled}
       />
     </Box>
   );
@@ -421,6 +440,16 @@ const ListFooter: FC<{
 
 const CoinControlList: FC<{
   type: 'Available' | 'Frozen';
+  config: {
+    availabelListCurrentPage: number;
+    frozenListCurrentPage: number;
+  };
+  setConfig: Dispatch<
+    SetStateAction<{
+      availabelListCurrentPage: number;
+      frozenListCurrentPage: number;
+    }>
+  >;
   accountId: string;
   network: Network;
   token?: Token;
@@ -437,6 +466,8 @@ const CoinControlList: FC<{
   onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
 }> = ({
   type,
+  config,
+  setConfig,
   accountId,
   network,
   token,
@@ -452,6 +483,37 @@ const CoinControlList: FC<{
   onConfirmEditLabel,
   onFrozenUTXO,
 }) => {
+  const PAGE_SIZE = useMemo(() => (platformEnv.isNative ? 15 : 25), []);
+  const pageKey = useMemo(
+    () =>
+      type === 'Available'
+        ? 'availabelListCurrentPage'
+        : 'frozenListCurrentPage',
+    [type],
+  );
+  const maxPage = useMemo(
+    () => Math.ceil(dataSource.length / PAGE_SIZE),
+    [dataSource, PAGE_SIZE],
+  );
+  const isMaxPage = useMemo(
+    () => config[pageKey] >= maxPage,
+    [config, maxPage, pageKey],
+  );
+  const currentPageData = useMemo(() => {
+    const startIndex = (config[pageKey] - 1) * PAGE_SIZE;
+    const res = dataSource.slice(startIndex, PAGE_SIZE + startIndex);
+    return res;
+  }, [config, dataSource, PAGE_SIZE, pageKey]);
+  useEffect(() => {
+    const maxCurrentPage = Math.max(maxPage, 1);
+    if (config[pageKey] > maxCurrentPage) {
+      setConfig((prev) => ({
+        ...prev,
+        [pageKey]: maxCurrentPage,
+      }));
+    }
+  }, [maxPage, config, setConfig, pageKey]);
+
   const rowRenderer = useCallback(
     ({ item, index, separators }: ListRenderItemInfo<ICoinControlListItem>) => {
       if (index === 1) {
@@ -506,9 +568,51 @@ const CoinControlList: FC<{
         dataSource={dataSource}
         dustUtxos={utxosDust}
         network={network}
+        currentPage={config[pageKey]}
+        prevButtonDisabled={config[pageKey] === 1}
+        nextButtonDisabled={isMaxPage}
+        onPagePress={() => {
+          showJumpPageDialog({
+            currentPage: config[pageKey] - 1,
+            maxPage,
+            onConfirm: (page) => {
+              setConfig((prev) => ({
+                ...prev,
+                [pageKey]: page,
+              }));
+            },
+          });
+        }}
+        onPrevPagePress={() => {
+          setConfig((prev) => {
+            if (prev[pageKey] === 0) return prev;
+            return {
+              ...prev,
+              [pageKey]: prev[pageKey] - 1,
+            };
+          });
+        }}
+        onNextPagePress={() => {
+          setConfig((prev) => {
+            if (isMaxPage) return prev;
+            return {
+              ...prev,
+              [pageKey]: prev[pageKey] + 1,
+            };
+          });
+        }}
       />
     ),
-    [dataSource, utxosDust, network],
+    [
+      dataSource,
+      utxosDust,
+      network,
+      config,
+      setConfig,
+      isMaxPage,
+      maxPage,
+      pageKey,
+    ],
   );
 
   const separator = useCallback(
@@ -520,7 +624,7 @@ const CoinControlList: FC<{
 
   return network ? (
     <List
-      data={dataSource}
+      data={currentPageData}
       ListHeaderComponent={headerComponent}
       ListFooterComponent={footerComponent}
       ItemSeparatorComponent={separator}
