@@ -116,6 +116,7 @@ const Container: ForwardRefRenderFunction<
           height: tabbarHeight,
           borderBottomWidth: 0,
           borderBottomColor: borderDefault,
+          shadowOffset: null,
           // marginHorizontal,
           // width: tabContainerWidth,
         },
@@ -124,8 +125,8 @@ const Container: ForwardRefRenderFunction<
           height: 2,
         },
         indicatorContainer: {
-          height: 2,
-          top: tabbarHeight - 2,
+          height: 1,
+          top: tabbarHeight - 1,
           width: '100%',
           backgroundColor: indicatorContainerColor,
         },
