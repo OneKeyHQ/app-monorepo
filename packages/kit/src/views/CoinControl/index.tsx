@@ -37,9 +37,6 @@ type RouteProps = RouteProp<
   CoinControlModalRoutes.CoinControlModal
 >;
 
-let start = 0;
-let end = 0;
-
 const CoinControl = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
@@ -199,7 +196,6 @@ const CoinControl = () => {
 
   const onCheckBoxChange = useCallback(
     (item: ICoinControlListItem) => {
-      start = Date.now();
       const key = getUtxoUniqueKey(item);
       if (selectedUtxos.includes(key)) {
         setSelectedUtxos((prevSelectedUtxos) =>
@@ -211,11 +207,6 @@ const CoinControl = () => {
     },
     [selectedUtxos],
   );
-
-  useEffect(() => {
-    end = Date.now();
-    console.log('onCheckBoxChange render time===>: ', end - start);
-  }, [selectedUtxos]);
 
   const onConfirmEditLabel = useCallback(
     (item: ICoinControlListItem, label: string) => {
