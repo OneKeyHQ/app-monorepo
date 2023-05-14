@@ -118,6 +118,25 @@ const CoinControl = () => {
     return utxosWithoutDust;
   }, [utxosWithoutDust, utxosDust, useDustUtxo]);
 
+  const frozenListDataSource = useMemo(() => {
+    if (!useDustUtxo) {
+      const data = frozenUtxos.map((item, index) => ({
+        ...item,
+        dustSeparator: index === frozenUtxos.length - 1 && utxosDust.length > 0,
+      })) as ICoinControlListItem[];
+      const dustsData = utxosDust.map((item) => ({
+        ...item,
+        hideFrozenOption: true,
+      }));
+      return data.concat(dustsData);
+    }
+    return frozenUtxos;
+  }, [frozenUtxos, utxosDust, useDustUtxo]);
+  const showDustListHeader = useMemo(
+    () => utxosDust.length > 0 && !useDustUtxo && frozenUtxos.length <= 0,
+    [frozenUtxos, useDustUtxo, utxosDust],
+  );
+
   useEffect(() => {
     refreshUtxosData();
   }, [menuSortByIndex, refreshUtxosData]);
@@ -140,18 +159,13 @@ const CoinControl = () => {
       });
   }, [networkId, accountId, refreshUtxosData]);
 
-  const utxoWithDust = useMemo(
-    () => utxosWithoutDust.concat(utxosDust),
-    [utxosWithoutDust, utxosDust],
-  );
-
   const isAllSelected = useMemo(
     () =>
-      utxoWithDust.length > 0 &&
-      utxoWithDust.every((utxo) =>
+      availabelListDataSource.length > 0 &&
+      availabelListDataSource.every((utxo) =>
         selectedUtxos.includes(getUtxoUniqueKey(utxo)),
       ),
-    [selectedUtxos, utxoWithDust],
+    [selectedUtxos, availabelListDataSource],
   );
 
   const [, setIsSelectedAllInner] = useState(false);
@@ -159,12 +173,14 @@ const CoinControl = () => {
     (value: boolean) => {
       setIsSelectedAllInner(value);
       if (value) {
-        setSelectedUtxos(utxoWithDust.map((utxo) => getUtxoUniqueKey(utxo)));
+        setSelectedUtxos(
+          availabelListDataSource.map((utxo) => getUtxoUniqueKey(utxo)),
+        );
       } else {
         setSelectedUtxos([]);
       }
     },
-    [utxoWithDust],
+    [availabelListDataSource],
   );
 
   useEffect(() => {
@@ -336,7 +352,7 @@ const CoinControl = () => {
             network={network as unknown as Network}
             token={token}
             dataSource={availabelListDataSource}
-            utxosDust={useDustUtxo ? utxosDust : []}
+            showDustListHeader={false}
             showCheckbox={showAvailableListCheckbox}
             selectedUtxos={selectedUtxos}
             isAllSelected={isAllSelected}
@@ -361,8 +377,8 @@ const CoinControl = () => {
             accountId={accountId}
             network={network as unknown as Network}
             token={token}
-            dataSource={frozenUtxos}
-            utxosDust={useDustUtxo ? [] : utxosDust}
+            dataSource={frozenListDataSource}
+            showDustListHeader={showDustListHeader}
             showCheckbox={showFrozenListCheckbox}
             selectedUtxos={selectedUtxos}
             isAllSelected={isAllSelected}

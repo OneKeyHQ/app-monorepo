@@ -17,4 +17,5 @@ export type CoinControlOption = {
 export type ICoinControlListItem = IBtcUTXO & {
   height: number;
   dustSeparator?: boolean;
+  hideFrozenOption?: boolean;
 } & Partial<CoinControlOption>;

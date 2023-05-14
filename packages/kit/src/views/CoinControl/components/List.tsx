@@ -101,7 +101,6 @@ export type ICellProps = {
   selectedUtxos: string[];
   blockTimeMap: Record<string, number>;
   showPath: boolean;
-  isDust: boolean;
   onChange: (item: ICoinControlListItem, isSelected: boolean) => void;
   onConfirmEditLabel: (item: ICoinControlListItem, label: string) => void;
   onFrozenUTXO: (item: ICoinControlListItem, value: boolean) => void;
@@ -117,7 +116,6 @@ const CoinControlCell: FC<ICellProps> = ({
   selectedUtxos = [],
   blockTimeMap,
   showPath,
-  isDust,
   onChange,
   onConfirmEditLabel,
   onFrozenUTXO,
@@ -142,10 +140,10 @@ const CoinControlCell: FC<ICellProps> = ({
       return !showCheckbox;
     }
     if (listType === 'Frozen') {
-      return !isDust;
+      return !item.hideFrozenOption;
     }
     return true;
-  }, [listType, showCheckbox, isDust]);
+  }, [listType, showCheckbox, item.hideFrozenOption]);
 
   return (
     <ListItem
@@ -367,7 +365,6 @@ const PageControl: FC<{
 const ListFooter: FC<{
   network: Network;
   dataSource: ICoinControlListItem[];
-  dustUtxos: ICoinControlListItem[];
   currentPage?: number;
   prevButtonDisabled?: boolean;
   nextButtonDisabled?: boolean;
@@ -376,7 +373,6 @@ const ListFooter: FC<{
   onPrevPagePress: () => void;
 }> = ({
   dataSource,
-  dustUtxos,
   network,
   currentPage,
   prevButtonDisabled,
@@ -388,16 +384,14 @@ const ListFooter: FC<{
   const intl = useIntl();
 
   const sumUtxoAmount = useMemo(() => {
-    const sum = dataSource
-      .concat(dustUtxos)
-      .reduce((acc, cur) => acc.plus(cur.value), new BigNumber(0));
+    const sum = dataSource.reduce(
+      (acc, cur) => acc.plus(cur.value),
+      new BigNumber(0),
+    );
     return sum.shiftedBy(-network.decimals).toFixed();
-  }, [dataSource, dustUtxos, network]);
+  }, [dataSource, network]);
 
-  const itemLength = useMemo(
-    () => dataSource.concat(dustUtxos).length,
-    [dataSource, dustUtxos],
-  );
+  const itemLength = useMemo(() => dataSource.length, [dataSource]);
 
   return (
     <Box>
@@ -454,10 +448,10 @@ const CoinControlList: FC<{
   network: Network;
   token?: Token;
   dataSource: ICoinControlListItem[];
-  utxosDust: ICoinControlListItem[];
   showCheckbox: boolean;
   selectedUtxos: string[];
   isAllSelected: boolean;
+  showDustListHeader: boolean;
   triggerAllSelected: (value: boolean) => void;
   blockTimeMap: Record<string, number>;
   showPath: boolean;
@@ -472,7 +466,7 @@ const CoinControlList: FC<{
   network,
   token,
   dataSource,
-  utxosDust,
+  showDustListHeader,
   showCheckbox,
   selectedUtxos,
   isAllSelected,
@@ -530,7 +524,6 @@ const CoinControlList: FC<{
           selectedUtxos={selectedUtxos}
           blockTimeMap={blockTimeMap}
           showPath={showPath}
-          isDust={false}
           onChange={onChange}
           onConfirmEditLabel={onConfirmEditLabel}
           onFrozenUTXO={onFrozenUTXO}
@@ -552,21 +545,29 @@ const CoinControlList: FC<{
     ],
   );
 
-  const headerComponent = useCallback(
-    () => (
-      <ListTableHeader
-        showCheckbox={showCheckbox}
-        isAllSelected={isAllSelected}
-        triggerAllSelected={triggerAllSelected}
-      />
-    ),
-    [showCheckbox, isAllSelected, triggerAllSelected],
-  );
+  const headerComponent = useCallback(() => {
+    const showDustSeparator = type === 'Frozen' && showDustListHeader;
+    return (
+      <>
+        <ListTableHeader
+          showCheckbox={showCheckbox}
+          isAllSelected={isAllSelected}
+          triggerAllSelected={triggerAllSelected}
+        />
+        {showDustSeparator && <ItemSeparator isDustSeparator />}
+      </>
+    );
+  }, [
+    showCheckbox,
+    isAllSelected,
+    triggerAllSelected,
+    type,
+    showDustListHeader,
+  ]);
   const footerComponent = useCallback(
     () => (
       <ListFooter
         dataSource={dataSource}
-        dustUtxos={utxosDust}
         network={network}
         currentPage={config[pageKey]}
         prevButtonDisabled={config[pageKey] === 1}
@@ -603,16 +604,7 @@ const CoinControlList: FC<{
         }}
       />
     ),
-    [
-      dataSource,
-      utxosDust,
-      network,
-      config,
-      setConfig,
-      isMaxPage,
-      maxPage,
-      pageKey,
-    ],
+    [dataSource, network, config, setConfig, isMaxPage, maxPage, pageKey],
   );
 
   const separator = useCallback(
