@@ -49,6 +49,15 @@ function compareByLabel(
   a: ICoinControlListItem,
   b: ICoinControlListItem,
 ): number {
+  if (a.label && b.label) {
+    if (a.label < b.label) {
+      return -1;
+    }
+    if (a.label > b.label) {
+      return 1;
+    }
+    return 0;
+  }
   if (a.label && !b.label) {
     return -1;
   }
