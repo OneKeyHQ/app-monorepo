@@ -100,7 +100,7 @@ class JsonRPCRequest {
   ): Promise<T> {
     let jsonResponses: unknown[] = [];
 
-    if (!this.disabledRpcBatchHosts.includes(new URL(this.url).hostname)) {
+    if (!this.disabledRpcBatchHosts.find((u) => this.url.includes(u))) {
       const payload = calls.map(([method, params], index) =>
         normalizePayload(method, params, index),
       );
