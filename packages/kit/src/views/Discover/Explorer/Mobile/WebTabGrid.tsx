@@ -149,7 +149,7 @@ const WebTabGrid = () => {
   const { tabs } = useWebTabs();
   const { width } = useWindowDimensions();
   const cellWidth = (width - WEB_TAB_CELL_GAP * 3) / 2;
-  const scrollViewRef = useAnimatedRef<Animated.ScrollView>();
+  const listRef = useAnimatedRef<Animated.FlatList<WebTab>>();
 
   useBackHandler(
     useCallback(() => {
@@ -162,20 +162,21 @@ const WebTabGrid = () => {
   );
 
   useDerivedValue(() => {
-    scrollTo(scrollViewRef, 0, tabGridScrollY.value, true);
+    scrollTo(listRef, 0, tabGridScrollY.value, true);
   }, []);
 
-  const content = useMemo(
-    () =>
-      tabs
-        .slice(1)
-        .map((tab) => <WebTabCard key={tab.id} {...tab} width={cellWidth} />),
-    [cellWidth, tabs],
+  const data = useMemo(() => tabs.slice(1), [tabs]);
+  const renderItem = useCallback(
+    ({ item: tab }: { item: WebTab }) => (
+      <WebTabCard key={tab.id} {...tab} width={cellWidth} />
+    ),
+    [cellWidth],
   );
+  const keyExtractor = useCallback((item: WebTab) => item.id, []);
 
   return (
-    <Animated.ScrollView
-      ref={scrollViewRef}
+    <Animated.FlatList
+      ref={listRef}
       style={[
         {
           ...StyleSheet.absoluteFillObject,
@@ -187,9 +188,10 @@ const WebTabGrid = () => {
       ]}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.contentContainer}
-    >
-      {content}
-    </Animated.ScrollView>
+      data={data}
+      renderItem={renderItem}
+      keyExtractor={keyExtractor}
+    />
   );
 };
 WebTabGrid.displayName = 'WebTabGrid';
