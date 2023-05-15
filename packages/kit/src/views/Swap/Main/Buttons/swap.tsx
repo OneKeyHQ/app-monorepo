@@ -453,7 +453,7 @@ const ExchangeButton = () => {
 
     if (balance.isZero()) {
       ToastManager.show({
-        title: intl.formatMessage({ id: 'msg__insufficient_balance' }),
+        title: intl.formatMessage({ id: 'msg_insufficient_gas_fee' }),
       });
       return;
     }
@@ -526,16 +526,7 @@ const ExchangeButton = () => {
       receivingAddress: recipient?.address,
     });
 
-    let encodedTx: IEncodedTx | undefined;
-    if (typeof res?.data === 'object') {
-      encodedTx = {
-        ...res?.data,
-        // SUI Transaction: error TS2322
-        from: sendingAccount.address,
-      } as any;
-    } else {
-      encodedTx = res.data;
-    }
+    const encodedTx: IEncodedTx | undefined = res.data;
 
     if (encodedTx === undefined) {
       ToastManager.show(
