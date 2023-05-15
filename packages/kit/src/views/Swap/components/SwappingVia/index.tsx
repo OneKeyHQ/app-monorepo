@@ -16,13 +16,32 @@ function proxyimg(base: string) {
 }
 
 type SwappingViaLogosProps = { sources?: string[]; size?: number };
+
+export const OneKeyLogo: FC<SwappingViaLogosProps> = ({ size }) => {
+  const imageSize = size || 4;
+  return (
+    <Box
+      borderRadius="full"
+      w={imageSize}
+      h={imageSize}
+      overflow="hidden"
+      bgColor="surface-neutral-default"
+    >
+      <Image
+        size={imageSize}
+        source={require('@onekeyhq/kit/assets/logo.png')}
+      />
+    </Box>
+  );
+};
+
 export const SwappingViaLogos: FC<SwappingViaLogosProps> = ({
   sources,
   size,
 }) => {
   const imageSize = size || 4;
   if (!sources || sources.length === 0) {
-    return null;
+    return <OneKeyLogo />;
   }
   if (sources.length === 1) {
     return (
