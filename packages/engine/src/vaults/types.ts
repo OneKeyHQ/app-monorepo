@@ -253,6 +253,8 @@ export type IEncodedTxUpdatePayloadTokenApprove = {
 };
 export type IEncodedTxUpdatePayloadTransfer = {
   amount: string;
+  totalBalance?: string;
+  feeInfo?: IFeeInfo;
 };
 
 // FeeInfo ----------------------------------------------
