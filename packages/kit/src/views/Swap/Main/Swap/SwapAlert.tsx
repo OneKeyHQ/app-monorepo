@@ -9,7 +9,6 @@ import {
   Box,
   Button,
   Center,
-  Icon,
   Typography,
 } from '@onekeyhq/components';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
@@ -164,27 +163,18 @@ const ErrorAlert = () => {
 const ExchangeAddressAlertContent = () => {
   const intl = useIntl();
   return (
-    <Box flexDirection="row" mt="6">
-      <Box mr="3">
-        <Icon
-          width={20}
-          height={20}
-          color="text-warning"
-          name="ExclamationCircleOutline"
-        />
-      </Box>
-      <Box flex="1">
-        <Typography.Body2 color="text-warning">
-          {intl.formatMessage({
-            id: 'content__do_not_swap_directly_to_the_exchange',
-          })}
-        </Typography.Body2>
-        <Typography.Body2 color="text-subdued">
-          {intl.formatMessage({
-            id: 'content__do_not_swap_directly_to_the_exchange_desc',
-          })}
-        </Typography.Body2>
-      </Box>
+    <Box flexDirection="row" mt="6" w="full">
+      <Alert
+        alertType="warn"
+        dismiss={false}
+        containerProps={{ width: 'full' }}
+        title={intl.formatMessage({
+          id: 'content__do_not_swap_directly_to_the_exchange',
+        })}
+        description={intl.formatMessage({
+          id: 'content__do_not_swap_directly_to_the_exchange_desc',
+        })}
+      />
     </Box>
   );
 };
@@ -233,21 +223,14 @@ const PriceImpactAlertContent = () => {
   }, [intl]);
   return (
     <Box flexDirection="row" mt="6">
-      <Box mr="3">
-        <Icon
-          width={20}
-          height={20}
-          color="text-warning"
-          name="ExclamationCircleOutline"
-        />
-      </Box>
-      <Box flex="1">
-        <Typography.Body2 color="text-warning">
-          {intl.formatMessage({
-            id: 'msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss',
-          })}
-        </Typography.Body2>
-      </Box>
+      <Alert
+        alertType="warn"
+        dismiss={false}
+        containerProps={{ width: 'full' }}
+        title={intl.formatMessage({
+          id: 'msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss',
+        })}
+      />
     </Box>
   );
 };
