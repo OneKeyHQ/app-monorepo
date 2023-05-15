@@ -114,7 +114,7 @@ function useAddExistingWallet({
     clearErrorIfEmpty: true,
     clearErrorWhenTextChange: true,
   });
-  const { control, handleSubmit, setValue, trigger } = useFormReturn;
+  const { control, handleSubmit, setValue, trigger, getValues } = useFormReturn;
   const submitDisabled = !formValues?.text;
   const inputCategory = useMemo(() => {
     let onlyForcategory: UserInputCategory | undefined;
@@ -312,6 +312,8 @@ function useAddExistingWallet({
     onPaste,
     onTextChange,
     mode,
+    trigger,
+    getValues,
   };
 }
 
@@ -429,6 +431,8 @@ function AddExistingWalletView(
     onNameServiceChange,
     nameServiceAddress,
     onTextChange,
+    trigger,
+    getValues,
   } = props;
 
   const { enabledNetworks } = useManageNetworks();
@@ -569,6 +573,11 @@ function AddExistingWalletView(
     ];
     return words.filter(Boolean).join(', ');
   }, [intl, mode, selectedNetwork.id]);
+
+  useEffect(() => {
+    const text = getValues('text');
+    if (nameServiceAddress || address || text) trigger('text');
+  }, [getValues, nameServiceAddress, address, selectedNetwork.id, trigger]);
 
   return (
     <Box
