@@ -1,10 +1,11 @@
 import type { FC } from 'react';
-import { useCallback, useLayoutEffect, useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   HStack,
   Token as TokenIcon,
   Typography,
@@ -18,6 +19,7 @@ import { useActiveSideAccount } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 import { useSingleToken } from '../../hooks/useTokens';
 import { useKeleETHUnstakeBulletin } from '../Staking/components/KeleETHUnstakeBulletin';
+import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
 import AssetsInfo from './AssetsInfo';
@@ -29,6 +31,7 @@ import type { HomeRoutes } from '../../routes/routesEnum';
 import type { HomeRoutesParams } from '../../routes/types';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { LayoutChangeEvent } from 'react-native';
 
 export type TokenDetailViewProps = NativeStackScreenProps<
   HomeRoutesParams,
@@ -43,8 +46,19 @@ export enum TabEnum {
   Info = 'Info',
 }
 
+const SwapPanel = () => {
+  const route = useRoute<RouteProps>();
+  const { tokenId, networkId } = route.params;
+  return (
+    <Box width="360px" mt="6" mr="8">
+      <SwapPlugins tokenId={tokenId} networkId={networkId} />
+    </Box>
+  );
+};
+
 const TokenDetail: FC<TokenDetailViewProps> = () => {
   const intl = useIntl();
+  const [showSwapPanel, setShowSwapPanel] = useState(false);
   const isVerticalLayout = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
@@ -129,8 +143,18 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     });
   }, [headerRight, headerTitle, navigation]);
 
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    const {
+      nativeEvent: {
+        layout: { width },
+      },
+    } = event;
+    console.log('width', width);
+    setShowSwapPanel(width > 1280);
+  }, []);
+
   return (
-    <HStack flex={1} justifyContent="center">
+    <HStack flex={1} justifyContent="center" onLayout={onLayout}>
       <Tabs.Container
         disableRefresh
         renderHeader={() => (
@@ -180,15 +204,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
           <MarketInfo token={token} />
         </Tabs.Tab>
       </Tabs.Container>
-      {/* {!isVerticalLayout && (
-        <Box
-          width="360px"
-          height="600px"
-          bgColor="blue.300"
-          mt="26px"
-          mr="32px"
-        />
-      )} */}
+      {!isVerticalLayout && showSwapPanel ? <SwapPanel /> : null}
     </HStack>
   );
 };
