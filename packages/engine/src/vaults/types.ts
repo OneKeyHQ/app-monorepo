@@ -76,6 +76,7 @@ export type IVaultSettings = {
   enabledInDevModeOnly?: boolean;
 
   minTransferAmount?: string;
+  dust?: string;
 
   isUTXOModel: boolean;
   activateAccountRequired?: boolean;

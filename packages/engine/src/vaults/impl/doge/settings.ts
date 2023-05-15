@@ -17,7 +17,8 @@ const settings: IVaultSettings = Object.freeze({
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
-  minTransferAmount: '0.0099999',
+  minTransferAmount: '0.01',
+  dust: '0.0099999',
 
   isUTXOModel: true,
 

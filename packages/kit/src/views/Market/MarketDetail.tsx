@@ -26,6 +26,7 @@ import {
 } from '../../routes/routesEnum';
 import { KeleETHUnstakeBulletin } from '../Staking/components/KeleETHUnstakeBulletin';
 import { StakingRoutes } from '../Staking/typing';
+import { SwapPlugins } from '../Swap/Plugins/Swap';
 
 import MarketDetailContent from './Components/MarketDetail/MarketDetailContent';
 import { useMarketDetail } from './hooks/useMarketDetail';
@@ -41,6 +42,7 @@ import type {
 import type { MarketTokenItem } from '../../store/reducers/market';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { LayoutChangeEvent } from 'react-native';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.MarketDetail>;
 
@@ -159,6 +161,7 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
     NavigationProps & NavigationProps['navigation']
   >();
   const isVertical = useIsVerticalLayout();
+  const [show, setShow] = useState(false);
   const marketTokenItem = useMarketTokenItem({ coingeckoId: marketTokenId });
   const onBack = useCallback(() => {
     navigation.goBack();
@@ -188,6 +191,15 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
     }
   }, [token?.address, token?.networkId]);
 
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    const {
+      nativeEvent: {
+        layout: { width },
+      },
+    } = event;
+    setShow(width > 1280);
+  }, []);
+
   const stakedSupport = useTokenSupportStakedAssets(
     token?.networkId,
     token?.tokenIdOnNetwork,
@@ -201,7 +213,12 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
       <Box w="full" flexDirection="row" alignItems="center" py="5">
         <IconButton onPress={onBack} type="plain" name="ArrowLeftOutline" />
       </Box>
-      <Box flex={1} flexDirection="row" justifyContent="center">
+      <Box
+        flex={1}
+        flexDirection="row"
+        justifyContent="center"
+        onLayout={onLayout}
+      >
         <Box flex={1} maxW={SCREEN_SIZE.LARGE}>
           <KeleETHUnstakeBulletin token={token} />
           <Box
@@ -261,6 +278,14 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
           </Box>
           {children}
         </Box>
+        {token && show ? (
+          <Box width="360px" ml="4">
+            <SwapPlugins
+              networkId={token.networkId}
+              tokenId={token.tokenIdOnNetwork}
+            />
+          </Box>
+        ) : null}
       </Box>
     </Box>
   );

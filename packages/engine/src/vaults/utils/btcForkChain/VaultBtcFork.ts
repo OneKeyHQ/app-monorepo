@@ -928,7 +928,7 @@ export default class VaultBtcFork extends VaultBase {
     if (!useDustUtxo) {
       const network = await this.getNetwork();
       const dust = new BigNumber(
-        this.settings.minTransferAmount || 0,
+        (this.settings.dust ?? this.settings.minTransferAmount) || 0,
       ).shiftedBy(network.decimals);
       dustUtxos = utxos
         .filter((utxo) => new BigNumber(utxo.value).isLessThanOrEqualTo(dust))
