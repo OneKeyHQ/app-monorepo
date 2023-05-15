@@ -31,8 +31,10 @@ import {
   useKeleMinerOverview,
 } from '../../../Staking/hooks';
 import { StakingRoutes } from '../../../Staking/typing';
+import { isSupportStakedAssets } from '../../../Staking/utils';
 
 export type Props = {
+  networkId: string;
   tokenId: string;
   token: TokenDO | undefined;
 };
@@ -203,4 +205,11 @@ const StakingCell: FC<Props> = ({ token, tokenId }) => {
   return isVerticalLayout ? <Mobile {...props} /> : <Desktop {...props} />;
 };
 
-export default StakingCell;
+const StakingCellControl: FC<Props> = ({ token, tokenId, networkId }) => {
+  const isSupported = isSupportStakedAssets(networkId, tokenId);
+  return isSupported ? (
+    <StakingCell token={token} tokenId={tokenId} networkId={networkId} />
+  ) : null;
+};
+
+export default StakingCellControl;
