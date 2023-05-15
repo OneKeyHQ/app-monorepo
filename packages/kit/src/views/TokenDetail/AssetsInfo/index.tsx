@@ -132,11 +132,13 @@ const AssetsInfo: FC<Props> = ({
         );
       }
       if (item.type === 'staking') {
-        return <StakingCell tokenId={tokenId} token={token} />;
+        return (
+          <StakingCell tokenId={tokenId} networkId={networkId} token={token} />
+        );
       }
       return <Box />;
     },
-    [sendAddress, token, tokenId],
+    [sendAddress, token, tokenId, networkId],
   );
 
   const ListHeaderComponent = useMemo(
