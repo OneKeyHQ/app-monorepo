@@ -234,10 +234,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
           icon: 'BanknotesMini',
         },
       !!explorerUrl && {
-        id: 'action__view_on_somewhere',
-        intlValues: {
-          where: explorerName,
-        },
+        id: 'action__view_in_explorer',
         icon: 'GlobeAltMini',
         onPress: () => {
           openUrl(explorerUrl, explorerName, {
