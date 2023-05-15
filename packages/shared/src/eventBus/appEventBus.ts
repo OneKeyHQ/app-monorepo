@@ -14,7 +14,6 @@ enum AppEventBusNames {
   NotificationStatusChanged = 'NotificationStatusChanged',
   StoreInitedFromPersistor = 'StoreInitedFromPersistor',
   Unlocked = 'Unlocked',
-  WebTabThumbnailUpdated = 'WebTabThumbnailUpdated',
   HttpServerRequest = 'HttpServerRequest',
 }
 

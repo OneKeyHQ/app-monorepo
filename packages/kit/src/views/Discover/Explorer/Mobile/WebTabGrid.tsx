@@ -2,7 +2,12 @@ import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Image, StyleSheet, useWindowDimensions } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, {
+  scrollTo,
+  useAnimatedRef,
+  useAnimatedStyle,
+  useDerivedValue,
+} from 'react-native-reanimated';
 
 import {
   Box,
@@ -13,23 +18,24 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import {
-  AppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import useBackHandler from '../../../../hooks/useBackHandler';
 import { useWebTabs } from '../Controller/useWebTabs';
 import { dCloseWebTab, dSetCurrentWebTab } from '../explorerActions';
 import {
   MIN_OR_HIDE,
+  WEB_TAB_CELL_GAP,
   hideTabGrid,
   showTabGridAnim,
   tabGridRefs,
+  tabGridScrollY,
 } from '../explorerAnimation';
 
 import type { WebTab } from '../../../../store/reducers/webTabs';
 
-const CELL_GAP = 16;
 const styles = StyleSheet.create({
   image: {
     flex: 1,
@@ -40,8 +46,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     flexWrap: 'wrap',
     alignItems: 'flex-start',
-    paddingVertical: CELL_GAP,
-    paddingRight: CELL_GAP,
+    paddingVertical: WEB_TAB_CELL_GAP,
+    paddingRight: WEB_TAB_CELL_GAP,
   },
 });
 const WebTabCard: FC<
@@ -56,10 +62,13 @@ const WebTabCard: FC<
         setThumbnail(url);
       }
     };
-    appEventBus.on(AppEventBusNames.WebTabThumbnailUpdated, updateThumbnail);
+    appUIEventBus.on(
+      AppUIEventBusNames.WebTabThumbnailUpdated,
+      updateThumbnail,
+    );
     return () => {
-      appEventBus.removeListener(
-        AppEventBusNames.WebTabThumbnailUpdated,
+      appUIEventBus.removeListener(
+        AppUIEventBusNames.WebTabThumbnailUpdated,
         updateThumbnail,
       );
     };
@@ -72,8 +81,8 @@ const WebTabCard: FC<
       borderWidth="1px"
       borderColor={isCurrent ? 'interactive-default' : 'border-subdued'}
       overflow="hidden"
-      ml={`${CELL_GAP}px`}
-      mt={`${CELL_GAP}px`}
+      ml={`${WEB_TAB_CELL_GAP}px`}
+      mt={`${WEB_TAB_CELL_GAP}px`}
       onPress={() => {
         if (!isCurrent) {
           dSetCurrentWebTab(id);
@@ -139,7 +148,8 @@ const WebTabCard: FC<
 const WebTabGrid = () => {
   const { tabs } = useWebTabs();
   const { width } = useWindowDimensions();
-  const cellWidth = (width - CELL_GAP * 3) / 2;
+  const cellWidth = (width - WEB_TAB_CELL_GAP * 3) / 2;
+  const scrollViewRef = useAnimatedRef<Animated.ScrollView>();
 
   useBackHandler(
     useCallback(() => {
@@ -151,6 +161,10 @@ const WebTabGrid = () => {
     }, []),
   );
 
+  useDerivedValue(() => {
+    scrollTo(scrollViewRef, 0, tabGridScrollY.value, true);
+  }, []);
+
   const content = useMemo(
     () =>
       tabs
@@ -161,6 +175,7 @@ const WebTabGrid = () => {
 
   return (
     <Animated.ScrollView
+      ref={scrollViewRef}
       style={[
         {
           ...StyleSheet.absoluteFillObject,
