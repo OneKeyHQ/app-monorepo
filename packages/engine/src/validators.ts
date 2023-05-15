@@ -349,7 +349,6 @@ class Validators {
     const vaultSettings = await this.engine.getVaultSettings(networkId);
     // default: EVM 21000
     const minLimit = vaultSettings.minGasLimit ?? 21000;
-    const maxLimit = vaultSettings.maxGasLimit ?? 7920026;
 
     // eslint-disable-next-line no-param-reassign
     highValue = highValue ?? minLimit;
@@ -359,18 +358,10 @@ class Validators {
     };
     try {
       const v = typeof value === 'string' ? new BigNumber(value) : value;
-      if (
-        !v ||
-        v.isNaN() ||
-        v.isLessThan(new BigNumber(minLimit)) ||
-        v.isGreaterThan(maxLimit)
-      ) {
+      if (!v || v.isNaN() || v.isLessThan(new BigNumber(minLimit))) {
         throw new OneKeyValidatorError(
-          'msg__custom_fee_warning_gas_limit_exceed',
-          {
-            0: minLimit - 1,
-            1: maxLimit + 1,
-          },
+          'form__gas_limit_invalid_min',
+          minI18nData,
         );
       }
 
