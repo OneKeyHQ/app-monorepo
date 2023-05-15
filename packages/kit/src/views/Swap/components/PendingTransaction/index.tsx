@@ -7,7 +7,7 @@ import { SwapQuoter } from '../../quoter';
 
 import type { TransactionDetails } from '../../typings';
 
-class Scheduler {
+export class Scheduler {
   private timer?: ReturnType<typeof setTimeout>;
 
   public tx: TransactionDetails;
@@ -44,12 +44,13 @@ class Scheduler {
     return spent <= 1000 * 60 * 60 ? base : 5 * 60 * 1000;
   }
 
-  private async runTask() {
+  async runTask() {
     const { tx } = this;
     const progressRes = await SwapQuoter.client.queryTransactionProgress(tx);
     if (progressRes) {
       const { status } = progressRes;
       if (status && status !== 'pending') {
+        this.stop();
         backgroundApiProxy.dispatch(
           updateTransaction({
             accountId: tx.accountId,
@@ -147,19 +148,11 @@ class Scheduler {
 
 type PendingTransactionProps = {
   tx: TransactionDetails;
-  stopInterval?: boolean;
 };
-const PendingTransaction: FC<PendingTransactionProps> = ({
-  tx,
-  stopInterval,
-}) => {
+const PendingTransaction: FC<PendingTransactionProps> = ({ tx }) => {
   useEffect(() => {
     const scheduler = new Scheduler(tx);
     scheduler.run();
-    if (stopInterval) {
-      scheduler.stop();
-      return;
-    }
     return () => {
       scheduler.stop();
     };
