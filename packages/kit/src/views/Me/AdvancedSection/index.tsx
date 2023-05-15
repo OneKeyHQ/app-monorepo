@@ -51,7 +51,7 @@ export const AdvancedSection = () => {
             navigation.navigate(HomeRoutes.AdvancedSettings);
           }}
         >
-          <Icon name="WrenchScrewdriverOutline" />
+          <Icon name="CircleStackOutline" />
           <Text
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex="1"
@@ -59,7 +59,7 @@ export const AdvancedSection = () => {
             mx={3}
           >
             {intl.formatMessage({
-              id: 'form__advanced',
+              id: 'form__crypto_settings',
             })}
           </Text>
           <Box>

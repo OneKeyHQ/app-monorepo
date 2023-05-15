@@ -95,6 +95,45 @@ const CoinControl = () => {
       });
   }, [networkId, accountId, sortMethod]);
 
+  const [config, setConfig] = useState<{
+    availabelListCurrentPage: number;
+    frozenListCurrentPage: number;
+  }>({
+    availabelListCurrentPage: 1,
+    frozenListCurrentPage: 1,
+  });
+
+  const availabelListDataSource = useMemo(() => {
+    if (useDustUtxo) {
+      const data = utxosWithoutDust.map((item, index) => ({
+        ...item,
+        dustSeparator:
+          index === utxosWithoutDust.length - 1 && utxosDust.length > 0,
+      })) as ICoinControlListItem[];
+      return data.concat(utxosDust);
+    }
+    return utxosWithoutDust;
+  }, [utxosWithoutDust, utxosDust, useDustUtxo]);
+
+  const frozenListDataSource = useMemo(() => {
+    if (!useDustUtxo) {
+      const data = frozenUtxos.map((item, index) => ({
+        ...item,
+        dustSeparator: index === frozenUtxos.length - 1 && utxosDust.length > 0,
+      })) as ICoinControlListItem[];
+      const dustsData = utxosDust.map((item) => ({
+        ...item,
+        hideFrozenOption: true,
+      }));
+      return data.concat(dustsData);
+    }
+    return frozenUtxos;
+  }, [frozenUtxos, utxosDust, useDustUtxo]);
+  const showDustListHeader = useMemo(
+    () => utxosDust.length > 0 && !useDustUtxo && frozenUtxos.length <= 0,
+    [frozenUtxos, useDustUtxo, utxosDust],
+  );
+
   useEffect(() => {
     refreshUtxosData();
   }, [menuSortByIndex, refreshUtxosData]);
@@ -117,18 +156,13 @@ const CoinControl = () => {
       });
   }, [networkId, accountId, refreshUtxosData]);
 
-  const utxoWithDust = useMemo(
-    () => utxosWithoutDust.concat(utxosDust),
-    [utxosWithoutDust, utxosDust],
-  );
-
   const isAllSelected = useMemo(
     () =>
-      utxoWithDust.length > 0 &&
-      utxoWithDust.every((utxo) =>
+      availabelListDataSource.length > 0 &&
+      availabelListDataSource.every((utxo) =>
         selectedUtxos.includes(getUtxoUniqueKey(utxo)),
       ),
-    [selectedUtxos, utxoWithDust],
+    [selectedUtxos, availabelListDataSource],
   );
 
   const [, setIsSelectedAllInner] = useState(false);
@@ -136,12 +170,14 @@ const CoinControl = () => {
     (value: boolean) => {
       setIsSelectedAllInner(value);
       if (value) {
-        setSelectedUtxos(utxoWithDust.map((utxo) => getUtxoUniqueKey(utxo)));
+        setSelectedUtxos(
+          availabelListDataSource.map((utxo) => getUtxoUniqueKey(utxo)),
+        );
       } else {
         setSelectedUtxos([]);
       }
     },
-    [utxoWithDust],
+    [availabelListDataSource],
   );
 
   useEffect(() => {
@@ -231,6 +267,7 @@ const CoinControl = () => {
     [utxosWithoutDust, utxosDust],
   );
   const showAvailableListCheckbox = useMemo(() => isSelectMode, [isSelectMode]);
+  // const showAvailableListCheckbox = useMemo(() => true, []);
   const showFrozenList = useMemo(
     () => frozenUtxos.length > 0 || (!useDustUtxo && utxosDust.length > 0),
     [frozenUtxos, useDustUtxo, utxosDust],
@@ -245,6 +282,7 @@ const CoinControl = () => {
           : 'UTXOs'
       }
       headerDescription={<ModalHeader networkId={networkId} />}
+      height="80%"
       rightContent={
         <CoinControlListMenu
           sortByIndex={menuSortByIndex}
@@ -299,12 +337,13 @@ const CoinControl = () => {
         (showAvailableList ? (
           <CoinControlList
             type="Available"
+            config={config}
+            setConfig={setConfig}
             accountId={accountId}
             network={network as unknown as Network}
             token={token}
-            allUtxos={allUtxos}
-            dataSource={utxosWithoutDust}
-            utxosDust={useDustUtxo ? utxosDust : []}
+            dataSource={availabelListDataSource}
+            showDustListHeader={false}
             showCheckbox={showAvailableListCheckbox}
             selectedUtxos={selectedUtxos}
             isAllSelected={isAllSelected}
@@ -324,12 +363,13 @@ const CoinControl = () => {
         (showFrozenList ? (
           <CoinControlList
             type="Frozen"
+            config={config}
+            setConfig={setConfig}
             accountId={accountId}
             network={network as unknown as Network}
             token={token}
-            allUtxos={allUtxos}
-            dataSource={frozenUtxos}
-            utxosDust={useDustUtxo ? [] : utxosDust}
+            dataSource={frozenListDataSource}
+            showDustListHeader={showDustListHeader}
             showCheckbox={showFrozenListCheckbox}
             selectedUtxos={selectedUtxos}
             isAllSelected={isAllSelected}

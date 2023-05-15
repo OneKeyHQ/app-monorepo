@@ -49,6 +49,15 @@ function compareByLabel(
   a: ICoinControlListItem,
   b: ICoinControlListItem,
 ): number {
+  if (a.label && b.label) {
+    if (a.label < b.label) {
+      return -1;
+    }
+    if (a.label > b.label) {
+      return 1;
+    }
+    return 0;
+  }
   if (a.label && !b.label) {
     return -1;
   }
@@ -89,7 +98,7 @@ export default class ServiceUtxos extends ServiceBase {
         this.backgroundApi.engine.getNetwork(networkId),
       ]);
       const dust = new BigNumber(
-        vault.settings.minTransferAmount || 0,
+        (vault.settings.dust ?? vault.settings.minTransferAmount) || 0,
       ).shiftedBy(network.decimals);
 
       let utxos = (await vault.collectUTXOs()) as ICoinControlListItem[];
