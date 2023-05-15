@@ -100,7 +100,16 @@ export const ControllerBarMobile: FC = () => {
         iconSize={26}
         name="PlusCircleMini"
       />
-      <Button type="plain" pl={0} pr={0} flex={1} onPress={showTabGrid}>
+      <Button
+        justifyContent="center"
+        alignItems="center"
+        textAlign="center"
+        type="plain"
+        pl={0}
+        pr={0}
+        flex={1}
+        onPress={showTabGrid}
+      >
         <Center
           w="20px"
           h="20px"
@@ -108,13 +117,7 @@ export const ControllerBarMobile: FC = () => {
           borderWidth="2px"
           borderColor="icon-pressed"
         >
-          <Typography.CaptionStrong
-            textAlign="center"
-            size="12px"
-            lineHeight="13px"
-          >
-            {tabs.length - 1}
-          </Typography.CaptionStrong>
+          <Typography.CaptionStrong>{tabs.length - 1}</Typography.CaptionStrong>
         </Center>
       </Button>
       <IconButton
