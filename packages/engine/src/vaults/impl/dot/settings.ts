@@ -20,6 +20,8 @@ const settings: IVaultSettings = Object.freeze({
 
   existDeposit: true,
 
+  signOnlyReturnFullTx: true,
+
   accountNameInfo: {
     default: {
       prefix: 'DOT',

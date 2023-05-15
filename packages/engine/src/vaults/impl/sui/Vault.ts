@@ -25,6 +25,7 @@ import {
   getTimeDurationMs,
   getTimeStamp,
 } from '@onekeyhq/kit/src/utils/helper';
+import { log } from '@onekeyhq/shared/src/crashlytics/index.web';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
@@ -39,6 +40,7 @@ import {
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
+  IEncodedTxUpdateType,
 } from '../../types';
 import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { addHexPrefix, stripHexPrefix } from '../../utils/hexUtils';
@@ -59,7 +61,7 @@ import {
   dryRunTransactionBlock,
   moveCallTxnName,
 } from './utils';
-import { createCoinSendTransaction } from './utils/Coin';
+import { createCoinSendTransaction, getAllCoins } from './utils/Coin';
 import {
   decodeActionWithTransferObjects,
   waitPendingTransaction,
@@ -561,6 +563,62 @@ export default class Vault extends VaultBase {
       payload: { encodedTx: newEncodedTx },
       encodedTx: newEncodedTx,
     });
+  }
+
+  async tryFixFeePayment(encodedTx: IEncodedTxSUI): Promise<IEncodedTxSUI> {
+    const tx = TransactionBlock.from(encodedTx.rawTx);
+
+    if (!tx.blockData.gasConfig.payment) {
+      const client = await this.getClient();
+      const sender = await this.getAccountAddress();
+
+      const allCoins = await getAllCoins(client, sender, null);
+
+      const tempCoin = allCoins[0];
+
+      tx.blockData.gasConfig.payment = [
+        {
+          objectId: tempCoin.coinObjectId,
+          version: tempCoin.version,
+          digest: tempCoin.digest,
+        },
+      ];
+
+      const tempEncodedTx: IEncodedTxSUI = {
+        rawTx: TransactionBlock.from(tx.serialize()).serialize(),
+      };
+
+      const feeInfo = await this.fetchFeeInfo(tempEncodedTx);
+
+      // Use all coins to cobble together processing fees
+      const gasLimit = new BigNumber(feeInfo.limit ?? '0').toNumber();
+      const selectCoins = [];
+
+      let total = new BigNumber(0);
+      do {
+        const coin = allCoins.shift();
+        if (coin) {
+          const amount = new BigNumber(coin?.balance ?? '0');
+          total = total.plus(amount);
+          selectCoins.push(coin);
+        } else {
+          throw new OneKeyInternalError('Insufficient balance');
+        }
+      } while (total.isLessThan(gasLimit));
+
+      tx.blockData.gasConfig.payment = selectCoins.map((coin) => ({
+        objectId: coin.coinObjectId,
+        version: coin.version,
+        digest: coin.digest,
+      }));
+
+      return {
+        ...encodedTx,
+        rawTx: TransactionBlock.from(tx.serialize()).serialize(),
+      };
+    }
+
+    return encodedTx;
   }
 
   async fetchFeeInfo(encodedTx: IEncodedTxSUI): Promise<IFeeInfo> {

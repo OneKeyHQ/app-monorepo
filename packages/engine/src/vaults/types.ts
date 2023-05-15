@@ -114,6 +114,7 @@ export type IVaultSettings = {
   transactionIdPattern?: string;
   isBtcForkChain?: boolean;
   nonceEditable?: boolean;
+  signOnlyReturnFullTx?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
