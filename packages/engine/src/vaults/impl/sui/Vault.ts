@@ -192,11 +192,16 @@ export default class Vault extends VaultBase {
           for (const resource of resources) {
             coinBalances[resource.coinType] = resource.totalBalance.toString();
           }
-
           tokens.forEach((req) => {
             const { tokenAddress } = req;
+
             const typeTag = tokenAddress ?? SUI_NATIVE_COIN;
-            const balance = coinBalances[typeTag]?.toString() ?? '0';
+
+            const apiTypeTag = (tokenAddress ?? SUI_NATIVE_COIN).replace(
+              /^0x0*/,
+              '0x',
+            );
+            const balance = coinBalances[apiTypeTag]?.toString() ?? '0';
             const key = `${address}-${typeTag}`;
             try {
               balances.set(key, new BigNumber(balance));
