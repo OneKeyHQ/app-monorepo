@@ -4,9 +4,9 @@ import { makeMutable, runOnJS, withTiming } from 'react-native-reanimated';
 import { captureRef } from 'react-native-view-shot';
 
 import {
-  AppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { appSelector } from '../../../store';
@@ -31,6 +31,11 @@ export const targetPreviewY = makeMutable(0);
 export const targetPreviewWidth = makeMutable(0);
 export const targetPreviewHeight = makeMutable(0);
 
+// to scroll web tab grid to current tab position
+export const tabGridScrollY = makeMutable(0);
+
+export const WEB_TAB_CELL_GAP = 16;
+
 let thumbnailRatio = 0.8;
 export const setThumbnailRatio = (ratio: number) => {
   thumbnailRatio = ratio;
@@ -47,7 +52,7 @@ const getTabCellLayout = (tabId: string, callback: () => void) => {
 };
 export const showTabGrid = () => {
   pauseDappInteraction();
-  const { currentTabId } = appSelector((s) => s.webTabs);
+  const { currentTabId, tabs } = appSelector((s) => s.webTabs);
   if (platformEnv.isNative && tabViewShotRef.current) {
     captureRef(tabViewShotRef, {
       format: 'jpg',
@@ -55,8 +60,8 @@ export const showTabGrid = () => {
       height: thumbnailWidth * thumbnailRatio,
       quality: 0.6,
     }).then((uri) => {
-      appEventBus.emit(
-        AppEventBusNames.WebTabThumbnailUpdated,
+      appUIEventBus.emit(
+        AppUIEventBusNames.WebTabThumbnailUpdated,
         currentTabId,
         uri,
       );
@@ -64,6 +69,15 @@ export const showTabGrid = () => {
   }
   getTabCellLayout(currentTabId, () => {
     showTabGridAnim.value = withTiming(MAX_OR_SHOW);
+    setTimeout(() => {
+      const tabRowIndex = Math.floor(
+        (tabs.findIndex((t) => t.id === currentTabId) - 1) / 2,
+      );
+      // reset scroll position to trigger useDerivedValue
+      // tabGridScrollY.value = 0;
+      tabGridScrollY.value =
+        tabRowIndex * targetPreviewHeight.value + WEB_TAB_CELL_GAP;
+    }, 330);
   });
 };
 
