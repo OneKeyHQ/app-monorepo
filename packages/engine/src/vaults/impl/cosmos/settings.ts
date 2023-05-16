@@ -21,6 +21,8 @@ const settings: IVaultSettings = Object.freeze({
 
   minTransferAmount: '0.0000001',
 
+  signOnlyReturnFullTx: true,
+
   accountNameInfo: {
     default: {
       prefix: 'COSMOS',

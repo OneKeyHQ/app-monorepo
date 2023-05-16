@@ -279,7 +279,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getFeatures(connectId: string) {
+  async getFeatures(connectId?: string) {
     const hardwareSDK = await this.getSDKInstance();
     const { getDeviceType } = await CoreSDKLoader();
     const response = await hardwareSDK?.getFeatures(connectId);

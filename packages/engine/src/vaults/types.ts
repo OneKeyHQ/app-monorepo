@@ -114,6 +114,7 @@ export type IVaultSettings = {
   transactionIdPattern?: string;
   isBtcForkChain?: boolean;
   nonceEditable?: boolean;
+  signOnlyReturnFullTx?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -252,6 +253,8 @@ export type IEncodedTxUpdatePayloadTokenApprove = {
 };
 export type IEncodedTxUpdatePayloadTransfer = {
   amount: string;
+  totalBalance?: string;
+  feeInfo?: IFeeInfo;
 };
 
 // FeeInfo ----------------------------------------------

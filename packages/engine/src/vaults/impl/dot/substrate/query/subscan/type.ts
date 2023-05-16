@@ -47,3 +47,45 @@ export interface Extrinsic {
   finalized: boolean;
   success: boolean;
 }
+
+export interface TransactionV2 {
+  from: string;
+  to: string;
+  extrinsic_index: string;
+  event_idx: number;
+  success: boolean;
+  hash: string;
+  block_num: number;
+  block_timestamp: number;
+  module: string;
+  amount: string;
+  amount_v2: string;
+  fee: string;
+  nonce: number;
+  asset_symbol: string;
+  asset_type: string;
+  asset_unique_id: string;
+  from_account_display: AccountDisplay;
+  to_account_display: AccountDisplay;
+}
+
+export interface AccountDisplay {
+  address: string;
+  display?: string;
+  account_index?: string;
+  identity?: boolean;
+  judgements?: Judgement[];
+  parent?: Parent;
+}
+
+export interface Judgement {
+  index: number;
+  judgement: string;
+}
+
+export interface Parent {
+  address: string;
+  display: string;
+  sub_symbol: string;
+  identity: boolean;
+}
