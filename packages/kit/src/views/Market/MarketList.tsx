@@ -130,7 +130,7 @@ const MarketList: FC = () => {
         contentContainerStyle={{
           paddingBottom: 24,
         }}
-        keyExtractor={(item) => item}
+        keyExtractor={(item, index) => `${item}-${index}`}
         stickyHeaderIndices={[0]}
         scrollEventThrottle={200}
         data={
