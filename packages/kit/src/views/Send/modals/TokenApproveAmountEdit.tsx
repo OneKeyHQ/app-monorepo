@@ -144,6 +144,7 @@ function TokenApproveAmountEdit({ ...rest }) {
                 enableMaxButton
                 isMax={isMax}
                 maxModeCanEdit
+                maxButtonTranslationId="form__unlimited"
                 onMaxChange={(v) => {
                   setIsMax(v);
                   if (v) {

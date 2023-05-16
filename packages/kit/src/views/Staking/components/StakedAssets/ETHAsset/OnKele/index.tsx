@@ -1,5 +1,5 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -24,6 +24,7 @@ import {
   useNavigation,
 } from '../../../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../../../routes/routesEnum';
+import { multiply, plus } from '../../../../../Swap/utils';
 import { useAccountStakingActivity } from '../../../../hooks';
 import { StakingRoutes } from '../../../../typing';
 
@@ -89,7 +90,21 @@ const UnstakingButton: FC<ButtonProps> = ({ ...rest }) => {
 function NoAssetsOnKele() {
   const intl = useIntl();
   const { themeVariant } = useTheme();
-  const apr = '4.12';
+  const keleDashboardGlobal = useAppSelector(
+    (s) => s.staking.keleDashboardGlobal,
+  );
+  const apr = useMemo(() => {
+    if (!keleDashboardGlobal) {
+      return '4.12';
+    }
+    return multiply(
+      plus(
+        keleDashboardGlobal.apr_detail.basic,
+        keleDashboardGlobal.apr_detail.mev,
+      ),
+      100,
+    );
+  }, [keleDashboardGlobal]);
 
   return (
     <Box

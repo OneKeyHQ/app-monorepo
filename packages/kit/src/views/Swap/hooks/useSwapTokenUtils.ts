@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
@@ -75,11 +76,13 @@ export const useTokenBalance = (token?: Token, accountId?: string) => {
   const balances = useCachedBalances(token?.networkId, accountId);
   useEffect(() => {
     if (token && accountId) {
-      backgroundApiProxy.serviceToken.getAccountTokenBalance({
-        accountId,
-        networkId: token.networkId,
-        tokenIds: token.tokenIdOnNetwork ? [token.tokenIdOnNetwork] : [],
-      });
+      if (isAccountCompatibleWithNetwork(accountId, token.networkId)) {
+        backgroundApiProxy.serviceToken.getAccountTokenBalance({
+          accountId,
+          networkId: token.networkId,
+          tokenIds: token.tokenIdOnNetwork ? [token.tokenIdOnNetwork] : [],
+        });
+      }
     }
   }, [token, accountId]);
   return useMemo(() => {
