@@ -22,6 +22,8 @@ const settings: IVaultSettings = Object.freeze({
   feeInfoEditable: true,
   minGasLimit: 50,
 
+  signOnlyReturnFullTx: true,
+
   accountNameInfo: {
     default: {
       prefix: 'SUI',

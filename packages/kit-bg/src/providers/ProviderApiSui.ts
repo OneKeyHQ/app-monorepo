@@ -173,6 +173,7 @@ class ProviderApiSui extends ProviderApiBase {
     await this.backgroundApi.serviceDapp.openConnectionModal(request);
 
     account = await this.account(request);
+
     if (account) {
       return [account];
     }
@@ -289,7 +290,7 @@ class ProviderApiSui extends ProviderApiBase {
       { encodedTx: encodeTx },
     )) as string;
 
-    const tx = await vault.getTransactionByTxId(result, params.options);
+    const tx = await vault.waitPendingTransaction(result, params.options);
 
     if (!tx) throw new Error('Transaction not found');
 

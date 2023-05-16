@@ -18,6 +18,7 @@ import {
   AppUIEventBusNames,
   appUIEventBus,
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import { HardwareUpdateModalRoutes } from '../../../../routes/routesEnum';
@@ -84,6 +85,7 @@ const UpdatingBootloader: FC = () => {
   const deviceUpdates = useAppSelector((s) => s.settings.deviceUpdates);
   const willUpdateVersion = deviceUpdates?.[connectId].firmware?.version;
 
+  const firstUpdateRef = useRef(true);
   const hasFailure = progressState === 'failure';
   const hasStepDone = useMemo(
     () => progressStep === 'done-step',
@@ -368,6 +370,13 @@ const UpdatingBootloader: FC = () => {
     setProgressState('running');
     setProgress(0);
     setMaxProgress(5);
+    if (device?.deviceType === 'mini' && progressState === 'failure') {
+      if (!firstUpdateRef.current) {
+        // wait mini restart
+        await wait(5000);
+      }
+      firstUpdateRef.current = false;
+    }
     try {
       // Check if you need to upgrade the boot
       const bootloaderRelease = await serviceHardware.checkBootloaderRelease(
@@ -404,6 +413,9 @@ const UpdatingBootloader: FC = () => {
           if (!isFoundDevice) {
             handleErrors(new Errors.DeviceNotFind());
           } else {
+            await serviceHardware.getFeatures(
+              platformEnv.isNative ? connectId : undefined,
+            );
             setProgressState('done');
             setProgressStep('done-step');
             setTimeout(() => {

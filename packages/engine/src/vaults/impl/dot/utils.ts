@@ -8,6 +8,18 @@ import type { DecodedSignedTx } from '@substrate/txwrapper-polkadot';
 
 const { hdLedger } = polkadotSdk;
 
+export const getTransactionTypeV2 = (module: string) => {
+  if (module === 'balances') {
+    return IDecodedTxActionType.NATIVE_TRANSFER;
+  }
+
+  if (module === 'assets') {
+    return IDecodedTxActionType.TOKEN_TRANSFER;
+  }
+
+  return IDecodedTxActionType.UNKNOWN;
+};
+
 export const getTransactionType = (module: string, func: string) => {
   const formatFunc = func.replace(/(_)/g, '').toLowerCase();
 

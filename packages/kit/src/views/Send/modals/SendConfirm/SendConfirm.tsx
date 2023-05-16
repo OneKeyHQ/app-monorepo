@@ -9,11 +9,6 @@ import {
   IEncodedTxUpdateType,
 } from '@onekeyhq/engine/src/vaults/types';
 import { ENABLED_DAPP_SCOPE } from '@onekeyhq/shared/src/background/backgroundUtils';
-import {
-  IMPL_COSMOS,
-  IMPL_DOT,
-  IMPL_SUI,
-} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useWalletConnectPrepareConnection } from '../../../../components/WalletConnect/useWalletConnectPrepareConnection';
@@ -188,11 +183,8 @@ function SendConfirm({
         });
         if (routeParams.signOnly) {
           // TODO Unified return to tx related processes to handle their own
-          if (
-            networkImpl === IMPL_COSMOS ||
-            networkImpl === IMPL_DOT ||
-            networkImpl === IMPL_SUI
-          ) {
+          const settings = await engine.getVaultSettings(networkId);
+          if (settings.signOnlyReturnFullTx) {
             await dappApprove.resolve({ result: tx });
           } else {
             await dappApprove.resolve({ result: tx.rawTx });
@@ -299,7 +291,6 @@ function SendConfirm({
       serviceToken,
       payloadInfo?.swapInfo,
       wallet?.type,
-      networkImpl,
       resendActionInfo,
     ],
   );
