@@ -19,7 +19,7 @@ import {
   setInstantRate,
   setTypedPrice,
 } from '../../../../store/reducers/limitOrder';
-import { div, formatAmount } from '../../utils';
+import { div, formatAmountExact } from '../../utils';
 
 function formatExpireInString(expireIn: number) {
   const day = 60 * 24;
@@ -50,7 +50,7 @@ function InstantRateSetting() {
         setTypedPrice({ reversed: typedPrice.reversed, value }),
       );
       const newInstantRate = typedPrice.reversed
-        ? formatAmount(div(1, value))
+        ? formatAmountExact(div(1, value))
         : value;
       backgroundApiProxy.dispatch(setInstantRate(newInstantRate));
     },
@@ -58,13 +58,17 @@ function InstantRateSetting() {
   );
 
   const setAsMtkPrice = useCallback(() => {
-    const value = typedPrice.reversed ? formatAmount(div(1, mktRate)) : mktRate;
+    const value = typedPrice.reversed
+      ? formatAmountExact(div(1, mktRate))
+      : mktRate;
     onChangeText(value);
   }, [mktRate, typedPrice.reversed, onChangeText]);
 
   const onSwitch = useCallback(() => {
     const newReversed = !typedPrice.reversed;
-    const value = newReversed ? formatAmount(div(1, instantRate)) : instantRate;
+    const value = newReversed
+      ? formatAmountExact(div(1, instantRate))
+      : instantRate;
     backgroundApiProxy.dispatch(
       setTypedPrice({ reversed: newReversed, value }),
     );

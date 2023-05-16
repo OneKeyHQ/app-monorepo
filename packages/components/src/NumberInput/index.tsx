@@ -11,6 +11,7 @@ import Input from '../Input';
 import RadioButton from '../RadioButton';
 import Typography from '../Typography';
 
+import type { LocaleIds } from '../locale';
 import type {
   NativeSyntheticEvent,
   TextInputFocusEventData,
@@ -25,6 +26,7 @@ type NumberInputProps = ComponentProps<typeof Input> & {
   isMax?: boolean;
   onMaxChange?: (isMax: boolean) => void;
   maxText?: string;
+  maxButtonTranslationId?: LocaleIds;
   maxTextIsNumber?: boolean;
   maxModeCanEdit?: boolean;
   tokenSymbol?: string;
@@ -80,6 +82,7 @@ const NumberInput: FC<NumberInputProps> = ({
   tokenSymbol,
   value,
   size,
+  maxButtonTranslationId,
   ...props
 }) => {
   const intl = useIntl();
@@ -103,10 +106,12 @@ const NumberInput: FC<NumberInputProps> = ({
               inputRef?.current?.focus();
             }
           }}
-          title={intl.formatMessage({ id: 'action__max' })}
+          title={intl.formatMessage({
+            id: maxButtonTranslationId ?? 'action__max',
+          })}
         />
       ) : undefined,
-    [enableMaxButton, intl, isMax, onMaxChange, size],
+    [enableMaxButton, intl, isMax, onMaxChange, size, maxButtonTranslationId],
   );
 
   const handleChange = useCallback(

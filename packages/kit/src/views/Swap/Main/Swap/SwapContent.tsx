@@ -25,7 +25,7 @@ import TokenInput from '../../components/TokenInput';
 import { useDerivedSwapState } from '../../hooks/useSwap';
 import { useTokenBalance } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
-import { div, formatPercentAmount, multiply } from '../../utils';
+import { div, formatAmountExact, multiply } from '../../utils';
 
 const PercentInputContainer = () => {
   const inputToken = useAppSelector((s) => s.swap.inputToken);
@@ -50,7 +50,7 @@ const PercentInputContainer = () => {
       if (inputBalance) {
         let inputValue = div(multiply(inputBalance, v), 100);
         if (v < 100) {
-          inputValue = formatPercentAmount(inputValue);
+          inputValue = formatAmountExact(inputValue);
         }
         backgroundApiProxy.serviceSwap.userInput('INPUT', inputValue);
       }
