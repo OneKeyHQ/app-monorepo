@@ -6,7 +6,7 @@ import { getChainIdFromNetworkId } from '@onekeyhq/engine/src/managers/network';
 
 import { BaseDotClient } from '../BaseDotClient';
 
-import type { Extrinsic, Response, Transaction } from './type';
+import type { Extrinsic, Response, Transaction, TransactionV2 } from './type';
 
 interface ConnectionConfig {
   allowCache: boolean;
@@ -17,7 +17,7 @@ const CACHE_DEFAULT_EXPIRATION_TIME = 5000; // 5s
 export class SubScanClient extends BaseDotClient {
   private getBaseUrl(networkId: string) {
     const chainId = getChainIdFromNetworkId(networkId);
-    return `https://${chainId}.api.subscan.io/api/scan`;
+    return `https://${chainId}.api.subscan.io/api`;
   }
 
   private async postJson<T>(
@@ -64,7 +64,7 @@ export class SubScanClient extends BaseDotClient {
   );
 
   async getTransaction(networkId: string, hash: string): Promise<Extrinsic> {
-    return this.postJson<Extrinsic>(networkId, 'extrinsic', {
+    return this.postJson<Extrinsic>(networkId, 'scan/extrinsic', {
       hash,
     });
   }
@@ -75,10 +75,24 @@ export class SubScanClient extends BaseDotClient {
   ): Promise<Transaction[]> {
     return this.postJson<{
       extrinsics: Transaction[];
-    }>(networkId, 'extrinsics', {
+    }>(networkId, 'scan/extrinsics', {
       address,
       'row': 20,
       'page': 0,
     }).then((res) => res.extrinsics ?? []);
+  }
+
+  async getTransactionsV2(
+    networkId: string,
+    address: string,
+  ): Promise<TransactionV2[]> {
+    return this.postJson<{
+      transfers: TransactionV2[];
+    }>(networkId, 'v2/scan/transfers', {
+      address,
+      'row': 50,
+      'page': 0,
+      'direction': 'all',
+    }).then((res) => res.transfers ?? []);
   }
 }

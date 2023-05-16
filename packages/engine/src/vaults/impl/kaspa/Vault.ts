@@ -290,9 +290,13 @@ export default class Vault extends VaultBase {
     if (options.type === IEncodedTxUpdateType.transfer && outputs.length > 0) {
       const network = await this.getNetwork();
 
-      const sendAmount = new BigNumber(payload.amount)
+      const fee = new BigNumber(payload.feeInfo?.limit ?? '3000').multipliedBy(
+        '1.2',
+      );
+
+      const sendAmount = new BigNumber(payload.totalBalance ?? payload.amount)
         .shiftedBy(network.decimals)
-        .toFixed();
+        .toFixed(0);
 
       return Promise.resolve({
         ...encodedTx,
@@ -303,6 +307,7 @@ export default class Vault extends VaultBase {
             value: sendAmount,
           },
         ],
+        mass: parseInt(fee.toFixed(0)),
       });
     }
     return Promise.resolve(encodedTx);

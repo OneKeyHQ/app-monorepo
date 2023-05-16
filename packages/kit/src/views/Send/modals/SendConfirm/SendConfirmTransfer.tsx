@@ -110,6 +110,8 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
         if (!!transferPayload && isNativeMaxSend) {
           const updatePayload: IEncodedTxUpdatePayloadTransfer = {
             amount: transferAmountToUpdate,
+            totalBalance: balance,
+            feeInfo: feeInfoPayload?.info,
           };
           const newTx = await backgroundApiProxy.engine.updateEncodedTx({
             networkId,
