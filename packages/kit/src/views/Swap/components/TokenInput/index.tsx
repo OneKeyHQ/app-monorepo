@@ -119,9 +119,6 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
             <Typography.Body2Strong mr="1">
               {account.name}
             </Typography.Body2Strong>
-            <Typography.Body2 color="text-subdued">
-              {account.address.slice(-4)}
-            </Typography.Body2>
           </Box>
           <Icon size={16} name="ChevronDownSolid" />
         </Box>
@@ -200,19 +197,6 @@ const TokenInput: FC<TokenInputProps> = ({
               <Typography.Caption color="text-subdued" fontWeight={500}>
                 {token ? `${text} ${token.symbol.toUpperCase()}` : '-'}
               </Typography.Caption>
-              <Box
-                h="4"
-                w="8"
-                ml="1"
-                justifyContent="center"
-                alignItems="center"
-                borderRadius={4}
-                backgroundColor="surface-neutral-default"
-              >
-                <Typography.Caption color="text-default">
-                  {intl.formatMessage({ id: 'action__max' })}
-                </Typography.Caption>
-              </Box>
             </Box>
           </Pressable>
         </Box>

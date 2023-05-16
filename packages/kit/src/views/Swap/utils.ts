@@ -166,10 +166,7 @@ export function formatAmount(
   return bn.decimalPlaces(precision, roundingMode).toFixed();
 }
 
-export function formatPercentAmount(
-  value?: BigNumber.Value,
-  basePrecision = 4,
-) {
+export function formatAmountExact(value?: BigNumber.Value, basePrecision = 4) {
   if (!value) {
     return '';
   }

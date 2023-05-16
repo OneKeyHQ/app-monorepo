@@ -335,7 +335,7 @@ const LinearGradientButton: FC<LinearGradientButtonProps> = ({
               <TokenNetworkDisplay token={tokenB} />
             </Box>
           </Box>
-          <Typography.Button1>
+          <Typography.Button1 color="text-on-primary">
             {intl.formatMessage({ id: 'form__cross_chain_swap' })}
           </Typography.Button1>
         </Pressable>

@@ -35,6 +35,7 @@ import type {
 import {
   div,
   formatAmount,
+  formatAmountExact,
   getChainIdFromNetworkId,
   getTokenAmountString,
   getTokenAmountValue,
@@ -580,13 +581,48 @@ class ServiceLimitOrder extends ServiceBase {
     }
   }
 
+  isStableToken(token: Token) {
+    const address = token.tokenIdOnNetwork.toLowerCase();
+    if (token.networkId === OnekeyNetwork.eth) {
+      const tokens = [
+        '0xdac17f958d2ee523a2206206994597c13d831ec7',
+        '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      ];
+      return tokens.includes(address);
+    }
+    if (token.networkId === OnekeyNetwork.bsc) {
+      const tokens = [
+        '0x55d398326f99059ff775485246999027b3197955',
+        '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
+      ];
+      return tokens.includes(address);
+    }
+    if (token.networkId === OnekeyNetwork.polygon) {
+      const tokens = [
+        '0xc2132d05d31c914a87c6611c10748aeb04b58e8f',
+        '0x2791bca1f2de4661ed88a30c99a7a9449aa84174',
+      ];
+      return tokens.includes(address);
+    }
+    return false;
+  }
+
   @backgroundMethod()
   async setRate(rate: string) {
     const { dispatch, appSelector } = this.backgroundApi;
     const actions: any[] = [setMktRate(rate)];
     const instantRate = appSelector((s) => s.limitOrder.instantRate);
     if (!instantRate) {
-      actions.push(setInstantRate(rate), setTypedPrice({ value: rate }));
+      const tokenIn = appSelector((s) => s.limitOrder.tokenIn);
+      if (tokenIn && this.isStableToken(tokenIn)) {
+        const newRate = formatAmountExact(div(1, rate));
+        actions.push(
+          setInstantRate(rate),
+          setTypedPrice({ value: newRate, reversed: true }),
+        );
+      } else {
+        actions.push(setInstantRate(rate), setTypedPrice({ value: rate }));
+      }
     }
     dispatch(...actions);
   }
