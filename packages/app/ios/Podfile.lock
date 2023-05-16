@@ -481,7 +481,7 @@ PODS:
     - React-Core
   - react-native-netinfo (8.3.1):
     - React-Core
-  - react-native-pager-view (6.1.2):
+  - react-native-pager-view (6.2.0):
     - React-Core
   - react-native-randombytes (3.6.1):
     - React-Core
@@ -627,7 +627,7 @@ PODS:
     - RNFBApp
   - RNFS (2.20.0):
     - React-Core
-  - RNGestureHandler (2.9.0):
+  - RNGestureHandler (2.10.0):
     - React-Core
   - RNReanimated (3.1.0):
     - DoubleConversion
@@ -1111,7 +1111,7 @@ SPEC CHECKSUMS:
   react-native-get-random-values: a6ea6a8a65dc93e96e24a11105b1a9c8cfe1d72a
   react-native-in-app-review: a073f67c5f3392af6ea7fb383217cdb1aa2aa726
   react-native-netinfo: 1a6035d3b9780221d407c277ebfb5722ace00658
-  react-native-pager-view: 54bed894cecebe28cede54c01038d9d1e122de43
+  react-native-pager-view: 0ccb8bf60e2ebd38b1f3669fa3650ecce81db2df
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-restart: 45c8dca02491980f2958595333cbccd6877cb57e
   react-native-safe-area-context: 99b24a0c5acd0d5dcac2b1a7f18c49ea317be99a
@@ -1141,7 +1141,7 @@ SPEC CHECKSUMS:
   RNFBCrashlytics: 94e1f78e2a9aa9e02edbfb0d3f1f0921ce00094b
   RNFBPerf: b85b621a4d15905847e8627a6aa67ad894e8e166
   RNFS: 4ac0f0ea233904cb798630b3c077808c06931688
-  RNGestureHandler: 071d7a9ad81e8b83fe7663b303d132406a7d8f39
+  RNGestureHandler: e145476da655f3dbc48ef2f0a08cf7a34338c02b
   RNReanimated: b450086c060e5dbb13fbd87b6cf6540335c99d0f
   RNScreens: ea4cd3a853063cda19a4e3c28d2e52180c80f4eb
   RNShare: d56424e3926cbc239db1cc1c168adcb051aad50b
@@ -1155,4 +1155,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 65cb9284ce2de24e457d8677f7e1d12855fe92c8
 
-COCOAPODS: 1.11.3
+COCOAPODS: 1.12.0
