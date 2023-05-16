@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 import { SceneMap, TabView } from 'react-native-tab-view';
@@ -23,11 +23,7 @@ const renderScene = SceneMap({
   [TabRoutes.Market]: MarketList,
 });
 
-export function SharedMobileTab({
-  routeName,
-}: {
-  routeName: MarketTopTabName;
-}) {
+const SharedMobileTab = ({ routeName }: { routeName: MarketTopTabName }) => {
   const targetTabName = useRef(routeName);
 
   const layout = useWindowDimensions();
@@ -73,4 +69,6 @@ export function SharedMobileTab({
       animationEnabled={false}
     />
   );
-}
+};
+
+export default memo(SharedMobileTab);
