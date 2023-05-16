@@ -31,8 +31,6 @@ if (isExtensionUi) {
 } else {
   appEventBus = new CrossEventEmitter();
 }
-// increase limit for web tab thumbnail events
-appEventBus.setMaxListeners(200);
 
 if (process.env.NODE_ENV !== 'production') {
   global.$$appEventBus = appEventBus;
