@@ -3,7 +3,15 @@ import { useCallback, useMemo } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Box, Icon, Image, Modal, Typography } from '@onekeyhq/components';
+import {
+  Box,
+  Icon,
+  Image,
+  Modal,
+  ToastManager,
+  Typography,
+} from '@onekeyhq/components';
+import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import swftLogoPNG from '../../../../assets/swft_logo.png';
@@ -14,10 +22,39 @@ import { swftcCustomerSupportUrl } from '../config';
 import { useWalletsSwapTransactions } from '../hooks/useTransactions';
 import { SwapRoutes } from '../typings';
 
-import type { SwapRoutesParams } from '../typings';
+import type { SwapRoutesParams, TransactionDetails } from '../typings';
 import type { RouteProp } from '@react-navigation/native';
 
 type RouteProps = RouteProp<SwapRoutesParams, SwapRoutes.Transaction>;
+
+function serializeTx(tx: TransactionDetails) {
+  let data: string[] = [`accountId: ${tx.accountId}`, `txhash: ${tx.hash}`];
+  if (tx.tokens?.from) {
+    const item = tx.tokens.from;
+    data = data.concat([
+      `fromAmount: ${item.amount}`,
+      `fromTokenSymbol: ${item.token.symbol}`,
+      `fromNetworkId: ${item.networkId}`,
+      `fromTokenIdOnNetwork: ${item.token.tokenIdOnNetwork}`,
+    ]);
+  }
+  if (tx.tokens?.to) {
+    const item = tx.tokens.to;
+    data = data.concat([
+      `toAmount: ${item.amount}`,
+      `toTokenSymbol: ${item.token.symbol}`,
+      `toNetworkId: ${item.networkId}`,
+      `toTokenIdOnNetwork: ${item.token.tokenIdOnNetwork}`,
+    ]);
+  }
+  if (tx.destinationTransactionHash) {
+    data.push(`destinationTransactionHash: ${tx.destinationTransactionHash}`);
+  }
+  if (tx.actualReceived) {
+    data.push(`actualReceived: ${tx.actualReceived}`);
+  }
+  return data.join('\n');
+}
 
 const TransactionModal = () => {
   const route = useRoute<RouteProps>();
@@ -95,6 +132,13 @@ const TransactionModal = () => {
       ),
     };
   }, [tx, intl, onOpenCustomerSupport]);
+
+  const onLongPress = useCallback(() => {
+    const text = serializeTx(tx);
+    copyToClipboard(text);
+    ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
+  }, [tx, intl]);
+
   return (
     <Modal
       hidePrimaryAction={!platformEnv.isNative}
@@ -106,6 +150,7 @@ const TransactionModal = () => {
         leftIconName: 'ShareMini',
         type: 'basic',
         onPress: onShare,
+        onLongPress,
       }}
       secondaryActionTranslationId="action__support"
       secondaryActionProps={secondaryActionProps}
