@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 import { SceneMap, TabView } from 'react-native-tab-view';
@@ -14,6 +14,7 @@ import {
   setMarketSwapTabName,
 } from './hooks/useMarketList';
 import MarketList from './MarketList';
+import { SharedMobileTabContext } from './SharedMobileTabContext';
 
 import type { MarketTopTabName } from '../../store/reducers/market';
 
@@ -25,6 +26,7 @@ const renderScene = SceneMap({
 
 const SharedMobileTab = ({ routeName }: { routeName: MarketTopTabName }) => {
   const targetTabName = useRef(routeName);
+  const [swipeEnabled, setSwipeEnabled] = useState(platformEnv.isNative);
 
   const layout = useWindowDimensions();
 
@@ -57,17 +59,19 @@ const SharedMobileTab = ({ routeName }: { routeName: MarketTopTabName }) => {
   const intialLayout = useMemo(() => ({ width: layout.width }), [layout.width]);
 
   return (
-    <TabView
-      renderTabBar={renderTabBar}
-      navigationState={navigationState}
-      renderScene={renderScene}
-      onIndexChange={setTargetIndex}
-      onSwipeEnd={onSwipeEnd}
-      swipeEnabled={platformEnv.isNative}
-      initialLayout={intialLayout}
-      // disable to avoid navigate animation
-      animationEnabled={false}
-    />
+    <SharedMobileTabContext.Provider value={setSwipeEnabled}>
+      <TabView
+        renderTabBar={renderTabBar}
+        navigationState={navigationState}
+        renderScene={renderScene}
+        onIndexChange={setTargetIndex}
+        onSwipeEnd={onSwipeEnd}
+        swipeEnabled={swipeEnabled}
+        initialLayout={intialLayout}
+        // disable to avoid navigate animation
+        animationEnabled={false}
+      />
+    </SharedMobileTabContext.Provider>
   );
 };
 

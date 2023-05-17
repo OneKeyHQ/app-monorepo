@@ -84,7 +84,7 @@
     "react-native-keyboard-manager": "^6.5.4-4",
     "react-native-level-fs": "^3.0.1",
     "react-native-nested-scroll-view": "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git",
-    "react-native-pager-view": "^6.2.0",
+    "react-native-pager-view": "6.1.4",
     "react-native-randombytes": "^3.6.1",
     "react-native-reanimated": "^3.1.0",
     "react-native-restart": "0.0.24",

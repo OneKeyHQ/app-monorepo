@@ -11,15 +11,16 @@ import {
 } from '@onekeyhq/components';
 import { doHapticsWhenEnabled } from '@onekeyhq/shared/src/haptics';
 
-type PercentInputProps = Exclude<
-  ComponentProps<typeof Slider>,
-  'onChangeEnd' | 'onChange'
-> & {
+type PercentInputProps = ComponentProps<typeof Slider> & {
   value: number;
-  onChange: (value: number) => void;
 };
 
-const PercentInput: FC<PercentInputProps> = ({ value, onChange, ...rest }) => {
+const PercentInput: FC<PercentInputProps> = ({
+  value,
+  onChange,
+  onChangeEnd,
+  ...rest
+}) => {
   const [isPressed, setPressed] = useState(false);
 
   const borderTopColor = useThemeValue('surface-neutral-subdued');
@@ -35,7 +36,7 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange, ...rest }) => {
     (v: number) => {
       doHapticsWhenEnabled();
       setPressed(true);
-      onChange(v);
+      onChange?.(v);
     },
     [onChange],
   );
@@ -44,9 +45,10 @@ const PercentInput: FC<PercentInputProps> = ({ value, onChange, ...rest }) => {
     (v: number) => {
       doHapticsWhenEnabled();
       setPressed(false);
-      onChange(v);
+      onChange?.(v);
+      onChangeEnd?.(v);
     },
-    [onChange],
+    [onChange, onChangeEnd],
   );
 
   const valueNum = Math.min(value, 100);

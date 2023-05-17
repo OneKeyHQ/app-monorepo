@@ -481,7 +481,7 @@ PODS:
     - React-Core
   - react-native-netinfo (8.3.1):
     - React-Core
-  - react-native-pager-view (6.2.0):
+  - react-native-pager-view (6.1.4):
     - React-Core
   - react-native-randombytes (3.6.1):
     - React-Core
@@ -1111,7 +1111,7 @@ SPEC CHECKSUMS:
   react-native-get-random-values: a6ea6a8a65dc93e96e24a11105b1a9c8cfe1d72a
   react-native-in-app-review: a073f67c5f3392af6ea7fb383217cdb1aa2aa726
   react-native-netinfo: 1a6035d3b9780221d407c277ebfb5722ace00658
-  react-native-pager-view: 0ccb8bf60e2ebd38b1f3669fa3650ecce81db2df
+  react-native-pager-view: b58cb9e9f42f64e50cab3040815772c1d119a2e2
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-restart: 45c8dca02491980f2958595333cbccd6877cb57e
   react-native-safe-area-context: 99b24a0c5acd0d5dcac2b1a7f18c49ea317be99a
