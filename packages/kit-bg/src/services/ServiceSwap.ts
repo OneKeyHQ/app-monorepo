@@ -422,7 +422,6 @@ export default class ServiceSwap extends ServiceBase {
   async setSendingAccountByNetwork(
     network?: Network,
   ): Promise<Account | undefined> {
-    console.log('network', network);
     if (!network) {
       return;
     }
