@@ -10,6 +10,7 @@ import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -438,10 +439,21 @@ export function recipientMustBeSendingAccount(
   tokenB: Token,
   allowAnotherRecipientAddress?: boolean,
 ) {
-  const implA = getNetworkIdImpl(tokenA.networkId);
-  const implB = getNetworkIdImpl(tokenB.networkId);
+  const networkIdDontSupportRecipientAddress: string[] = [
+    // jupitor
+    OnekeyNetwork.sol,
+    // openocean
+    OnekeyNetwork.okt,
+    OnekeyNetwork.heco,
+    OnekeyNetwork.xdai,
+    OnekeyNetwork.zksyncera,
+    OnekeyNetwork.boba,
+    OnekeyNetwork.cronos,
+  ];
   return (
-    implA === implB && (!allowAnotherRecipientAddress || implA === IMPL_SOL)
+    tokenA.networkId === tokenB.networkId &&
+    (!allowAnotherRecipientAddress ||
+      networkIdDontSupportRecipientAddress.includes(tokenA.networkId))
   );
 }
 

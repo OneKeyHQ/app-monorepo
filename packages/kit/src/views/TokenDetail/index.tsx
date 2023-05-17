@@ -149,7 +149,6 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
         layout: { width },
       },
     } = event;
-    console.log('width', width);
     setShowSwapPanel(width > 1280);
   }, []);
 

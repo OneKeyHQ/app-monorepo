@@ -85,15 +85,6 @@ export default class ServiceSwap extends ServiceBase {
     );
   }
 
-  getNetwork(networkId?: string): Network | undefined {
-    if (!networkId) {
-      return;
-    }
-    const { appSelector } = this.backgroundApi;
-    const networks = appSelector((s) => s.runtime.networks);
-    return networks.find((network) => network.id === networkId);
-  }
-
   @backgroundMethod()
   async getServerEndPoint() {
     return getFiatEndpoint();
@@ -121,7 +112,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async setInputToken(token: Token) {
-    const { appSelector } = this.backgroundApi;
+    const { appSelector, engine } = this.backgroundApi;
     const outputToken = appSelector((s) => s.swap.outputToken);
     const inputToken = appSelector((s) => s.swap.inputToken);
     if (
@@ -129,14 +120,15 @@ export default class ServiceSwap extends ServiceBase {
       outputToken.networkId === token.networkId &&
       outputToken.tokenIdOnNetwork === token.tokenIdOnNetwork
     ) {
-      this.selectToken(
-        'OUTPUT',
-        this.getNetwork(inputToken?.networkId),
-        inputToken,
-      );
+      let network: Network | undefined;
+      if (inputToken?.networkId) {
+        network = await engine.getNetwork(inputToken?.networkId);
+      }
+      this.selectToken('OUTPUT', network, inputToken);
     }
-    this.selectToken('INPUT', this.getNetwork(token.networkId), token);
-    this.setSendingAccountByNetwork(this.getNetwork(token.networkId));
+    const network = await engine.getNetwork(token.networkId);
+    this.selectToken('INPUT', network, token);
+    this.setSendingAccountByNetwork(network);
   }
 
   @backgroundMethod()
@@ -169,7 +161,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async setOutputToken(token: Token) {
-    const { appSelector } = this.backgroundApi;
+    const { appSelector, engine } = this.backgroundApi;
     const outputToken = appSelector((s) => s.swap.outputToken);
     const inputToken = appSelector((s) => s.swap.inputToken);
     if (
@@ -180,14 +172,11 @@ export default class ServiceSwap extends ServiceBase {
       if (getActiveWalletAccount().networkId !== outputToken?.networkId) {
         this.selectToken('INPUT');
       } else {
-        this.selectToken(
-          'INPUT',
-          this.getNetwork(outputToken?.networkId),
-          outputToken,
-        );
+        const network = await engine.getNetwork(outputToken?.networkId);
+        this.selectToken('INPUT', network, outputToken);
       }
     }
-    const tokenNetwork = this.getNetwork(token.networkId);
+    const tokenNetwork = await engine.getNetwork(token.networkId);
     this.selectToken('OUTPUT', tokenNetwork, token);
     if (tokenNetwork) {
       this.setRecipient(tokenNetwork);
@@ -445,15 +434,26 @@ export default class ServiceSwap extends ServiceBase {
       return sendingAccount;
     }
     const wallets = appSelector((s) => s.runtime.wallets);
-    const { networks } = appSelector((s) => s.runtime);
+    const networks = appSelector((s) => s.runtime.networks);
     const { activeNetworkId, activeWalletId, activeAccountId } = appSelector(
       (s) => s.general,
     );
-    const activeWallet = wallets.find((item) => item.id === activeWalletId);
-    const activeNetwork = networks.find((item) => item.id === activeNetworkId);
+
+    let activeWallet = wallets.find((item) => item.id === activeWalletId);
+    let activeNetwork = networks.find((item) => item.id === activeNetworkId);
+
     if (!activeWallet || !activeNetwork) {
-      return;
+      if (activeWalletId) {
+        activeWallet = await engine.getWallet(activeWalletId);
+      }
+      if (activeNetworkId) {
+        activeNetwork = await engine.getNetwork(activeNetworkId);
+      }
+      if (!activeWallet || !activeNetwork) {
+        return;
+      }
     }
+
     const accounts = await engine.getAccounts(
       activeWallet.accounts,
       network.id,

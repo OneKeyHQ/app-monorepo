@@ -99,19 +99,28 @@ export const ShareView = () => {
 
   return (
     <Modal
-      footer={null}
+      hideSecondaryAction
+      primaryActionTranslationId="title__share"
+      primaryActionProps={{
+        onPress: onCapture,
+        leftIconName: 'ShareMini',
+        size: 'xl',
+        type: 'basic',
+        width: 'full',
+      }}
       header={intl.formatMessage({ id: 'title__share' })}
       scrollViewProps={{
         children: (
-          <Box bg="surface-subdued" alignItems="center" h="full">
+          <Box alignItems="center" h="full">
             <ViewShot ref={ref}>
-              <Box p="6" bg="surface-subdued">
+              <Box p="6" bg="background-default">
                 <Box
                   borderWidth="1"
                   borderColor="border-default"
                   p="6"
                   borderRadius={48}
                   alignItems="center"
+                  backgroundColor="surface-subdued"
                 >
                   <Box bg="white" p="6" borderRadius={24}>
                     <QRCode
@@ -124,7 +133,11 @@ export const ShareView = () => {
                   <Typography.DisplayMedium mt="6" color="text-default">
                     {name}
                   </Typography.DisplayMedium>
-                  <Typography.Body1 mt="2" color="text-subdued">
+                  <Typography.Body1
+                    mt="2"
+                    color="text-subdued"
+                    textAlign="center"
+                  >
                     {url}
                   </Typography.Body1>
                   <Divider
@@ -154,17 +167,7 @@ export const ShareView = () => {
                 leftIconName="Square2StackMini"
                 onPress={onCopy}
               >
-                Copy URL
-              </Button>
-              <Button
-                w="full"
-                mt="6"
-                type="basic"
-                size="xl"
-                leftIconName="ShareMini"
-                onPress={onCapture}
-              >
-                Share
+                {intl.formatMessage({ id: 'action__copy_url' })}
               </Button>
             </Box>
           </Box>
