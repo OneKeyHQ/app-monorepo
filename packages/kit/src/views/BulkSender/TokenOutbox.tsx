@@ -361,22 +361,21 @@ function TokenOutbox(props: Props) {
             >
               {intl.formatMessage({ id: 'action__edit_amount' })}
             </Button>
-            {!isNative &&
-              network?.settings.batchTokenTransferApprovalRequired && (
-                <Button
-                  mt={4}
-                  type="basic"
-                  size="xs"
-                  leftIconName="CurrencyDollarSolid"
-                  onPress={handleOpenApprovalSelector}
-                >
-                  {intl.formatMessage({
-                    id: isUnlimited
-                      ? 'action__approval_unlimited'
-                      : 'action__approval_exact_amount',
-                  })}
-                </Button>
-              )}
+            {!isNative && network?.settings.batchTransferApprovalRequired && (
+              <Button
+                mt={4}
+                type="basic"
+                size="xs"
+                leftIconName="CurrencyDollarSolid"
+                onPress={handleOpenApprovalSelector}
+              >
+                {intl.formatMessage({
+                  id: isUnlimited
+                    ? 'action__approval_unlimited'
+                    : 'action__approval_exact_amount',
+                })}
+              </Button>
+            )}
           </HStack>
           <Box mt={4}>
             <Button

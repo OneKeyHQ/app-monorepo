@@ -6,9 +6,7 @@ import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 
 import { ToastManager } from '@onekeyhq/components';
-import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
-import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   IDecodedTx,
   IEncodedTx,
@@ -21,7 +19,6 @@ import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -137,9 +134,13 @@ export function useBatchSendConfirmFeeInfoPayload({
           });
         } catch (error: any) {
           if (
-            network?.impl === IMPL_EVM &&
-            (encodedTx as IEncodedTxEvm).to ===
-              batchTransferContractAddress[network?.id]
+            !network?.settings.nativeSupportBatchTransfer &&
+            (await backgroundApiProxy.serviceBatchTransfer.checkIsBatchTransfer(
+              {
+                networkId,
+                encodedTx,
+              },
+            ))
           ) {
             isUnapprovedBatchTx = true;
             let standardLimit = 0;
@@ -148,31 +149,46 @@ export function useBatchSendConfirmFeeInfoPayload({
               networkId,
             );
 
-            const blockData = await backgroundApiProxy.engine.proxyJsonRPCCall(
-              networkId,
-              {
-                method: 'eth_getBlockByNumber',
-                params: ['latest', false],
-              },
-            );
-
-            const blockReceipt = blockData as {
-              gasLimit: string;
-            };
-
-            maxLimit = +blockReceipt.gasLimit / 10;
-
-            if (feeInfoStandard?.info?.limit) {
-              standardLimit = +feeInfoStandard.info.limit * transferCount;
-              maxLimit = BigNumber.min(standardLimit * 3, maxLimit).toNumber();
-            }
-
             const eip1559 = Boolean(
               prices?.length &&
                 prices?.every((price) => typeof price === 'object'),
             );
 
             const price = prices[prices.length - 1];
+
+            if (
+              feeInfoStandard?.info.baseFeeValue &&
+              new BigNumber(
+                feeInfoStandard?.info.limit ?? 0,
+              ).isLessThanOrEqualTo(0) &&
+              !eip1559
+            ) {
+              standardLimit = new BigNumber(feeInfoStandard.info.baseFeeValue)
+                .dividedBy(price as string)
+                .times(transferCount)
+                .toNumber();
+              maxLimit = standardLimit * 1.5;
+            } else {
+              const blockData =
+                await backgroundApiProxy.engine.proxyJsonRPCCall(networkId, {
+                  method: 'eth_getBlockByNumber',
+                  params: ['latest', false],
+                });
+
+              const blockReceipt = blockData as {
+                gasLimit: string;
+              };
+
+              maxLimit = +blockReceipt.gasLimit / 10;
+
+              if (feeInfoStandard?.info?.limit) {
+                standardLimit = +feeInfoStandard.info.limit * transferCount;
+                maxLimit = BigNumber.min(
+                  standardLimit * 3,
+                  maxLimit,
+                ).toNumber();
+              }
+            }
 
             currentInfoUnit = {
               eip1559,

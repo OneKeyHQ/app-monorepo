@@ -39,11 +39,11 @@ function BulkSender() {
     useActiveWalletAccount();
 
   const isSupported =
-    !network?.isTestnet &&
     network?.enabled &&
     network?.settings.supportBatchTransfer &&
-    (network.impl !== IMPL_EVM ||
-      (network.impl === IMPL_EVM && batchTransferContractAddress[network.id]));
+    (network?.settings.nativeSupportBatchTransfer
+      ? true
+      : batchTransferContractAddress[networkId]);
 
   const nativeToken = useNativeToken(networkId);
 

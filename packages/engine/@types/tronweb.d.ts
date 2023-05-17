@@ -4,6 +4,7 @@ type ITokenContract = {
   symbol: () => { call: () => Promise<{ _symbol: string } | string> };
   decimals: () => { call: () => Promise<{ _decimals: number } | number> };
   balanceOf: (string) => { call: () => Promise<number> };
+  allowance: (string, string) => { call: () => Promise<{ _hex: string }> };
 };
 
 type IAccountResources = {
@@ -111,6 +112,10 @@ declare module 'tronweb' {
       }>;
       sendTrx: (string, number, string) => Promise<IUnsignedTransaction>;
       sendToken: (to, amount, tokenID, from) => Promise<IUnsignedTransaction>;
+    };
+
+    address: {
+      toHex: (string) => string;
     };
 
     static isAddress: (string) => boolean;
