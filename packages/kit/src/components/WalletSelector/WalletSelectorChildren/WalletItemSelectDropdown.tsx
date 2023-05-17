@@ -130,13 +130,13 @@ function HardwarePassphraseMenuOptions({
           <Box>
             <CheckBox
               containerStyle={{ mr: '0' }}
-              isChecked={isRememberPassphrase}
+              isChecked={!isRememberPassphrase}
               onChange={onClickRememberPassphrase}
             />
           </Box>
         }
       >
-        {intl.formatMessage({ id: 'msg__use_passphrase_remember_wallet' })}
+        {intl.formatMessage({ id: 'action__remove_when_exit' })}
       </WalletMenuItem>
       <Divider my="4px" />
       <WalletMenuItem
