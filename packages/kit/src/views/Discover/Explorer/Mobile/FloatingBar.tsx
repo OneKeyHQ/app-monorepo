@@ -77,14 +77,14 @@ const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
         alignItems="center"
         onPress={onSearch}
       >
-        <Typography.Body1
+        <Typography.Body2
           mx="6px"
           flex="1"
           color="text-subdued"
           numberOfLines={1}
         >
           {tab?.url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')}
-        </Typography.Body1>
+        </Typography.Body2>
         <NetworkAccountSelectorTriggerMobile bg="surface-neutral-default" />
       </Pressable>
     </Box>
