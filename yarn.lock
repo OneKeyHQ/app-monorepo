@@ -5873,21 +5873,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@polkadot/keyring@npm:^12.1.2":
-  version: 12.1.2
-  resolution: "@polkadot/keyring@npm:12.1.2"
-  dependencies:
-    "@polkadot/util": 12.1.2
-    "@polkadot/util-crypto": 12.1.2
-    tslib: ^2.5.0
-  peerDependencies:
-    "@polkadot/util": 12.1.2
-    "@polkadot/util-crypto": 12.1.2
-  checksum: 60328a569098f2721330e51c90ebbb70ecd634bcceaa0e07979e4db8ac8d7d6d61092a5e37b5c3e3823b9135afb1cd3a69fd714613d81cb18047ded83395ba3e
-  languageName: node
-  linkType: hard
-
-"@polkadot/keyring@npm:^12.2.1":
+"@polkadot/keyring@npm:^12.1.2, @polkadot/keyring@npm:^12.2.1":
   version: 12.2.1
   resolution: "@polkadot/keyring@npm:12.2.1"
   dependencies:
@@ -28700,16 +28686,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rxjs@npm:*":
-  version: 7.8.0
-  resolution: "rxjs@npm:7.8.0"
-  dependencies:
-    tslib: ^2.1.0
-  checksum: 61b4d4fd323c1043d8d6ceb91f24183b28bcf5def4f01ca111511d5c6b66755bc5578587fe714ef5d67cf4c9f2e26f4490d4e1d8cabf9bd5967687835e9866a2
-  languageName: node
-  linkType: hard
-
-"rxjs@npm:^7.8.1":
+"rxjs@npm:*, rxjs@npm:^7.8.1":
   version: 7.8.1
   resolution: "rxjs@npm:7.8.1"
   dependencies:

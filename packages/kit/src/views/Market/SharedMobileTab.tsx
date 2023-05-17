@@ -3,6 +3,7 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { SceneMap, TabView } from 'react-native-tab-view';
 
+import { enableOnPressAnim } from '@onekeyhq/components/src/utils/useBeforeOnPress';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TabRoutes } from '../../routes/routesEnum';
@@ -50,10 +51,17 @@ const SharedMobileTab = ({ routeName }: { routeName: MarketTopTabName }) => {
     }
   }, []);
 
+  const onSwipeStart = useCallback(() => {
+    enableOnPressAnim.value = 0;
+  }, []);
+
   const onSwipeEnd = useCallback(() => {
     if (platformEnv.isNativeAndroid) {
       setMarketSwapTabName(targetTabName.current);
     }
+    setTimeout(() => {
+      enableOnPressAnim.value = 1;
+    }, 100);
   }, []);
 
   const intialLayout = useMemo(() => ({ width: layout.width }), [layout.width]);
@@ -65,6 +73,7 @@ const SharedMobileTab = ({ routeName }: { routeName: MarketTopTabName }) => {
         navigationState={navigationState}
         renderScene={renderScene}
         onIndexChange={setTargetIndex}
+        onSwipeStart={onSwipeStart}
         onSwipeEnd={onSwipeEnd}
         swipeEnabled={swipeEnabled}
         initialLayout={intialLayout}
