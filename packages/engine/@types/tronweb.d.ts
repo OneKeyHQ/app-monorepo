@@ -4,7 +4,12 @@ type ITokenContract = {
   symbol: () => { call: () => Promise<{ _symbol: string } | string> };
   decimals: () => { call: () => Promise<{ _decimals: number } | number> };
   balanceOf: (string) => { call: () => Promise<number> };
-  allowance: (string, string) => { call: () => Promise<{ _hex: string }> };
+  allowance: (
+    string,
+    string,
+  ) => {
+    call: () => Promise<{ _hex: string } | { remaining: { _hex: string } }>;
+  };
 };
 
 type IAccountResources = {

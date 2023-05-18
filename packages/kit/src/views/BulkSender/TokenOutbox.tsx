@@ -40,6 +40,7 @@ import { ReceiverInput } from './ReceiverInput';
 import { BulkSenderRoutes, BulkSenderTypeEnum } from './types';
 
 import type { TokenReceiver } from './types';
+import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 
 interface Props {
   accountId: string;
@@ -64,7 +65,11 @@ function TokenOutbox(props: Props) {
   const loading = useAccountTokenLoading(networkId, accountId);
   const accountTokens = useAccountTokens(networkId, accountId, true);
   const nativeToken = accountTokens.find((token) => token.isNative);
-  const tokens = accountTokens.filter((token) => !token.isNative);
+  const tokens = accountTokens.filter((token) =>
+    !token.isNative && network?.impl === IMPL_TRON
+      ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
+      : true,
+  );
 
   const { serviceBatchTransfer, serviceToken, serviceOverview } =
     backgroundApiProxy;

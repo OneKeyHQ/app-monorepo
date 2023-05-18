@@ -792,7 +792,10 @@ export default class Vault extends VaultBase {
     try {
       const tronWeb = await this.getClient();
       const tokenContract = await tronWeb.contract().at(token);
-      const allowance = await tokenContract.allowance(owner, spender).call();
+      const resp = await tokenContract.allowance(owner, spender).call();
+      const allowance =
+        (resp as { remaining: { _hex: string } }).remaining ?? resp;
+
       return {
         isUnlimited: allowance._hex === INFINITE_AMOUNT_HEX,
         allowance: new BigNumber(allowance._hex).toFixed(),
