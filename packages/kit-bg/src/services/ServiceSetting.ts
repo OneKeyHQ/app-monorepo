@@ -46,11 +46,17 @@ export default class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   async updateRemoteSetting() {
-    const { appSelector, dispatch } = this.backgroundApi;
     const baseUrl = this.getFiatEndpoint();
     const url = `${baseUrl}/setting/list`;
     const res = await this.client.get(url);
     const data = res.data as RemoteSetting;
+
+    return this.updateRemoteSettingWithData(data);
+  }
+
+  @backgroundMethod()
+  async updateRemoteSettingWithData(data: RemoteSetting) {
+    const { appSelector, dispatch } = this.backgroundApi;
     await simpleDb.setting.setEnableAppRatings(data.enableAppRatings);
     await simpleDb.setting.setSwapMaintain(data.swapMaintain);
     await simpleDb.setting.setRpcBatchFallbackWhitelistHosts(

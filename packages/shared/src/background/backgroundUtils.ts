@@ -396,12 +396,12 @@ export async function fetchData<T>(
   method: Method = 'GET',
 ): Promise<T> {
   const endpoint = getFiatEndpoint();
-  const isPost = method === 'POST' || method === 'post';
+  const isPostBody = ['post', 'put'].includes(method.toLowerCase());
   const apiUrl = `${endpoint}${path}${
-    !isPost ? `?${qs.stringify(query)}` : ''
+    !isPostBody ? `?${qs.stringify(query)}` : ''
   }`;
   try {
-    const postData = isPost ? query : undefined;
+    const postData = isPostBody ? query : undefined;
     const requestConfig = { url: apiUrl, method, data: postData };
     const { data } = await axios.request<T>(requestConfig);
     return data;

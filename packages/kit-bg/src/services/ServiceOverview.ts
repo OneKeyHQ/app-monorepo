@@ -13,10 +13,6 @@ import {
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
-import {
-  AppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
@@ -26,16 +22,6 @@ class ServiceOverview extends ServiceBase {
   private interval: any;
 
   private pendingTasks: IOverviewScanTaskItem[] = [];
-
-  @bindThis()
-  registerEvents() {
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    appEventBus.on(AppEventBusNames.AccountChanged, this.subscribeDebounced);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    appEventBus.on(AppEventBusNames.NetworkChanged, this.subscribeDebounced);
-
-    this.subscribeDebounced();
-  }
 
   // eslint-disable-next-line @typescript-eslint/require-await
   @bindThis()
@@ -113,7 +99,6 @@ class ServiceOverview extends ServiceBase {
     );
     if (res.tasks) {
       this.pendingTasks.push(task);
-      this.queryPendingTasks();
     }
     return res;
   }

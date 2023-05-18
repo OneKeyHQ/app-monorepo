@@ -101,21 +101,26 @@ function AssetsList({
 
   useFocusEffect(
     useCallback(() => {
+      if (!limitSize) {
+        return;
+      }
       const { serviceToken, serviceOverview } = backgroundApiProxy;
       if (account && network) {
-        serviceToken.startRefreshAccountTokens();
-        serviceOverview.startQueryPendingTasks();
         serviceToken.fetchAccountTokens({
           includeTop50TokensQuery: true,
           networkId: network?.id,
           accountId: account?.id,
         });
+        serviceOverview.subscribe();
+
+        serviceOverview.startQueryPendingTasks();
+        serviceToken.startRefreshAccountTokens();
       }
       return () => {
-        serviceToken.stopRefreshAccountTokens();
         serviceOverview.stopQueryPendingTasks();
+        serviceToken.stopRefreshAccountTokens();
       };
-    }, [account, network]),
+    }, [account, network, limitSize]),
   );
 
   const onTokenCellPress = useCallback(

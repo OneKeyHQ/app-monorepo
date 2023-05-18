@@ -4,15 +4,15 @@ import qs from 'qs';
 
 import { appSelector } from '@onekeyhq/kit/src/store';
 import type { SettingsState } from '@onekeyhq/kit/src/store/reducers/settings';
-import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getFiatEndpoint } from '../endpoint';
 
 import type { Method } from 'axios';
 
-type PartialNotificationType = Partial<SettingsState['pushNotification']> & {
+export type PartialNotificationType = Partial<
+  SettingsState['pushNotification']
+> & {
   instanceId?: string;
 };
 
@@ -121,25 +121,12 @@ async function fetchData<T>(
 }
 
 const sync = async (
+  config: PartialNotificationType,
   type: 'reset' | 'normal' = 'normal',
 ): Promise<PartialNotificationType> => {
-  const config: PartialNotificationType = appSelector((state) => ({
-    ...(state?.settings?.pushNotification || {}),
-    locale:
-      state.settings.locale === 'system'
-        ? getDefaultLocale()
-        : state.settings.locale,
-    currency: state.settings.selectedFiatMoneySymbol,
-  }));
   if (type === 'reset') {
     Object.assign(config, {
       pushEnable: false,
-    });
-  }
-  if (platformEnv.isRuntimeBrowser) {
-    const instanceId = appSelector((state) => state?.settings?.instanceId);
-    Object.assign(config, {
-      registrationId: instanceId,
     });
   }
   if (!config.registrationId) {
