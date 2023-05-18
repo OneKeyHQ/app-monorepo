@@ -82,7 +82,7 @@
     "bitcoinjs-lib": "6.1.0",
     "bitcoinjs-message": "2.2.0",
     "expo-device": "^4.3.0",
-    "jsrsasign": "^10.6.1",
+    "jsrsasign": "^10.7.1",
     "memoizee": "^0.4.15",
     "mime-types": "^2.1.35",
     "superstruct": "^1",
@@ -216,7 +216,20 @@
     "expo-device@^4.3.0": "patch:expo-device@npm%3A4.3.0#./.yarn/patches/expo-device-npm-4.3.0-6bf71e0966.patch",
     "@metamask/eth-sig-util@^4.0.1": "patch:@metamask/eth-sig-util@npm%3A4.0.1#./.yarn/patches/@metamask-eth-sig-util-npm-4.0.1-27d55ec43e.patch",
     "cross-fetch": "patch:cross-fetch@npm%3A3.1.5#./.yarn/patches/cross-fetch-npm-3.1.5-e414995db9.patch",
-    "protobufjs": "patch:protobufjs@npm%3A6.11.3#./.yarn/patches/protobufjs-npm-6.11.3-566fb31188.patch"
+    "protobufjs": "patch:protobufjs@npm%3A6.11.3#./.yarn/patches/protobufjs-npm-6.11.3-566fb31188.patch",
+    "@polkadot/extension-inject": "0.46.3",
+    "@polkadot/rpc-provider": "^10.7.1",
+    "@polkadot/rpc-core": "^10.7.1",
+    "@polkadot/rpc-augment": "^10.7.1",
+    "@polkadot/types": "^10.7.1",
+    "@polkadot/types-support": "^10.7.1",
+    "@polkadot/types-known": "^10.7.1",
+    "@polkadot/types-create": "^10.7.1",
+    "@polkadot/types-codec": "^10.7.1",
+    "@polkadot/types-augment": "^10.7.1",
+    "@polkadot/util": "^12.2.1",
+    "@polkadot/util-crypto": "^12.2.1",
+    "@polkadot/x-global": "^12.2.1"
   },
   "packageManager": "yarn@3.3.1"
 }

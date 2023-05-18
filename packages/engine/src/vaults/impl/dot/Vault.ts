@@ -517,7 +517,7 @@ export default class Vault extends VaultBase {
         unsigned = methods.balances.transferKeepAlive(
           {
             value: amountValue,
-            dest: to,
+            dest: { id: to },
           },
           info,
           option,
@@ -526,7 +526,7 @@ export default class Vault extends VaultBase {
         unsigned = methods.balances.transfer(
           {
             value: amountValue,
-            dest: to,
+            dest: { id: to },
           },
           info,
           option,

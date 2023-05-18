@@ -1,0 +1,15 @@
+diff --git a/node_modules/@polkadot/api/promise/Combinator.js b/node_modules/@polkadot/api/promise/Combinator.js
+index 6096e42..978dd8c 100644
+--- a/node_modules/@polkadot/api/promise/Combinator.js
++++ b/node_modules/@polkadot/api/promise/Combinator.js
+@@ -21,7 +21,9 @@ export class Combinator {
+         });
+     }
+     _allHasFired() {
+-        this.__internal__allHasFired ||= this.__internal__fired.filter((hasFired) => !hasFired).length === 0;
++        if (!this.__internal__allHasFired) {
++            this.__internal__allHasFired = this.__internal__fired.filter((hasFired) => !hasFired).length === 0;
++        }
+         return this.__internal__allHasFired;
+     }
+     _createCallback(index) {
