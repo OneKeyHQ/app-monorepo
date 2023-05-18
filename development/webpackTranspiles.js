@@ -12,7 +12,26 @@ const webModuleTranspile = [
   '@zondax/izari-filecoin',
 ];
 
+const substrateModules = [
+  '@substrate/txwrapper-core',
+  '@substrate/txwrapper-core/node_modules/@polkadot/keyring',
+];
+
+const polkadotModules = [
+  '@polkadot/api',
+  '@polkadot/wasm-bridge',
+  '@polkadot/types-codec',
+  '@polkadot/rpc-provider',
+  '@polkadot/rpc-core',
+  '@polkadot/types',
+  '@polkadot/util',
+  '@polkadot/util-crypto',
+  '@polkadot/keyring',
+];
+
 const extModuleTranspile = [
+  ...substrateModules,
+  ...polkadotModules,
   '@onekeyhq/blockchain-libs',
   '@onekeyhq/components',
   '@onekeyhq/kit',
@@ -26,14 +45,6 @@ const extModuleTranspile = [
   '@mysten/sui.js',
   'superstruct',
   '@noble/curves',
-  '@polkadot/api',
-  '@polkadot/wasm-bridge',
-  '@polkadot/types-codec',
-  '@polkadot/rpc-provider',
-  '@polkadot/rpc-core',
-  '@polkadot/types',
-  '@polkadot/util-crypto',
-  '@polkadot/keyring',
   '@solana/web3.js',
   '@zondax/izari-filecoin',
   '@kaspa/core-lib',

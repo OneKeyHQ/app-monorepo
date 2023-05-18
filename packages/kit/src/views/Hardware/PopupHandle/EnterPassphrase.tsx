@@ -231,7 +231,7 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
 }) => {
   const intl = useIntl();
   const { dispatch } = backgroundApiProxy;
-  const [rememberWallet, setRememberWallet] = useState(false);
+  const [removeWalletWhenExit, setRemoveWalletWhenExit] = useState(true);
 
   // Prevents screen locking
   useKeepAwake();
@@ -246,7 +246,7 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
           onConfirm={(passphrase) => {
             dispatch(
               setPendingRememberWalletConnectId(
-                rememberWallet ? connectId : undefined,
+                removeWalletWhenExit ? undefined : connectId,
               ),
             );
             onConfirm(passphrase);
@@ -259,13 +259,13 @@ const EnterPassphraseView: FC<EnterPassphraseViewProps> = ({
           <Box flexDirection="row">
             <CheckBox
               flex={1}
-              isChecked={rememberWallet}
-              onChange={setRememberWallet}
+              isChecked={removeWalletWhenExit}
+              onChange={setRemoveWalletWhenExit}
               title={intl.formatMessage({
-                id: 'msg__use_passphrase_remember_wallet',
+                id: 'action__remove_when_exit',
               })}
               description={intl.formatMessage({
-                id: 'msg__use_passphrase_remember_wallet_dsc',
+                id: 'action__remove_when_exit_desc',
               })}
             />
           </Box>

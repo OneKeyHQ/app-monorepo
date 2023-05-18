@@ -51,13 +51,15 @@ const RequestPassphraseOnDeviceView: FC<RequestPassphraseOnDeviceViewProps> = ({
   // Prevents screen locking
   useKeepAwake();
 
-  const [rememberWallet, setRememberWallet] = useState(false);
+  const [removeWalletWhenExit, setRemoveWalletWhenExit] = useState(true);
 
   useEffect(() => {
     dispatch(
-      setPendingRememberWalletConnectId(rememberWallet ? connectId : undefined),
+      setPendingRememberWalletConnectId(
+        removeWalletWhenExit ? undefined : connectId,
+      ),
     );
-  }, [connectId, dispatch, rememberWallet]);
+  }, [connectId, dispatch, removeWalletWhenExit]);
 
   return (
     <BaseRequestView {...props}>
@@ -82,19 +84,19 @@ const RequestPassphraseOnDeviceView: FC<RequestPassphraseOnDeviceViewProps> = ({
           <Box flexDirection="row">
             <Box>
               <CheckBox
-                isChecked={rememberWallet}
-                onChange={setRememberWallet}
+                isChecked={removeWalletWhenExit}
+                onChange={setRemoveWalletWhenExit}
               />
             </Box>
             <Box flex={1}>
               <Text typography="Body2Strong" color="text-default">
                 {intl.formatMessage({
-                  id: 'msg__use_passphrase_remember_wallet',
+                  id: 'action__remove_when_exit',
                 })}
               </Text>
               <Text typography="Body2" color="text-subdued">
                 {intl.formatMessage({
-                  id: 'msg__use_passphrase_remember_wallet_dsc',
+                  id: 'action__remove_when_exit_desc',
                 })}
               </Text>
             </Box>
