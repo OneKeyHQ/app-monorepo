@@ -583,9 +583,9 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
           ) : null}
           <TransactionField label={intl.formatMessage({ id: 'content__hash' })}>
             <HashMoreMenu tx={tx}>
-              <Pressable mr="1">
-                <Typography.Body2Strong>
-                  {shortenAddress(tx.hash)}
+              <Pressable mr="1" maxW="56">
+                <Typography.Body2Strong textAlign="right">
+                  {tx.hash}
                 </Typography.Body2Strong>
               </Pressable>
             </HashMoreMenu>

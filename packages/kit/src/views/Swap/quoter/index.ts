@@ -731,16 +731,18 @@ export class SwapQuoter {
         const txid = historyTx?.decodedTx.txid || tx.hash;
         const result = await this.getTransactionReceipt(from.networkId, txid);
         if (result) {
-          const network = await backgroundApiProxy.engine.getNetwork(
-            tx.networkId,
-          );
-          return calculateNetworkFee(
-            {
-              limit: result.gasUsed,
-              price: div(result.effectiveGasPrice, 10 ** 9),
-            },
-            network,
-          );
+          if (result.gasUsed && result.effectiveGasPrice) {
+            const network = await backgroundApiProxy.engine.getNetwork(
+              tx.networkId,
+            );
+            return calculateNetworkFee(
+              {
+                limit: result.gasUsed,
+                price: div(result.effectiveGasPrice, 10 ** 9),
+              },
+              network,
+            );
+          }
         }
       }
     }
