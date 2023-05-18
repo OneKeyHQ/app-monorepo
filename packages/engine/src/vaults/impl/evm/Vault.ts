@@ -1964,13 +1964,12 @@ export default class Vault extends VaultBase {
     return Promise.resolve(true);
   }
 
-  override async getClientEndpointStatus(
+  override async checkRpcBatchSupport(
     url: string,
   ): Promise<IClientEndpointStatus> {
     let result: IClientEndpointStatus | undefined;
     const client = await this.getJsonRPCClient();
     const start = performance.now();
-
     try {
       const res = await client.rpc.batchCall<Array<{ number: string }>>(
         [

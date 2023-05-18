@@ -110,6 +110,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
   }
 
+  async checkRpcBatchSupport(url: string): Promise<IClientEndpointStatus> {
+    throw new NotImplemented();
+  }
+
   abstract fetchTokenInfos(
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo | undefined>>;

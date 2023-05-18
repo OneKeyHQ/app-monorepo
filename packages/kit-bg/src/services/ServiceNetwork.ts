@@ -370,7 +370,12 @@ class ServiceNetwork extends ServiceBase {
     const isRpcInWhitelistHost = !!item;
 
     try {
-      status = await this.getRPCEndpointStatus(url, networkId, false);
+      if (networkId.startsWith(IMPL_EVM)) {
+        const vault = await engine.getChainOnlyVault(networkId);
+        status = await vault.checkRpcBatchSupport(url);
+      } else {
+        status = await this.getRPCEndpointStatus(url, networkId, false);
+      }
 
       if (networkId.startsWith(IMPL_EVM)) {
         if (status.rpcBatchSupported === false && !isRpcInWhitelistHost) {
