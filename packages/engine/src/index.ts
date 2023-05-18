@@ -1881,12 +1881,14 @@ class Engine {
     encodedTx,
     signOnly,
     specifiedFeeRate,
+    transferCount,
   }: {
     networkId: string;
     accountId: string;
     encodedTx: any;
     signOnly?: boolean;
     specifiedFeeRate?: string;
+    transferCount?: number;
   }) {
     const vault = await this.getVault({ networkId, accountId });
     // throw new Error('test fetch fee info error');
@@ -1897,6 +1899,7 @@ class Engine {
         cloneDeep(encodedTx),
         signOnly,
         specifiedFeeRate,
+        transferCount,
       );
     } catch (error: any) {
       // AxiosError error

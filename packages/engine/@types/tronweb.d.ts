@@ -117,6 +117,16 @@ declare module 'tronweb' {
         result: { result: boolean };
         transaction: IUnsignedTransaction;
       }>;
+      estimateEnergy: (
+        string, // contract address
+        string, // function
+        any, // options
+        any, // parameters to call the function
+        string, // from address
+      ) => Promise<{
+        result: { result: boolean };
+        energy_required: number;
+      }>;
       sendTrx: (string, number, string) => Promise<IUnsignedTransaction>;
       sendToken: (to, amount, tokenID, from) => Promise<IUnsignedTransaction>;
     };

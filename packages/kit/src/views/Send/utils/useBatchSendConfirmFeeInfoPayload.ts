@@ -131,6 +131,7 @@ export function useBatchSendConfirmFeeInfoPayload({
             networkId,
             encodedTx,
             signOnly,
+            transferCount
           });
         } catch (error: any) {
           if (

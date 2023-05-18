@@ -354,6 +354,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     encodedTx: IEncodedTx,
     signOnly?: boolean,
     specifiedFeeRate?: string,
+    transferCount?: number,
   ): Promise<IFeeInfo>;
 
   // DO NOT override this method

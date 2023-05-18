@@ -74,6 +74,7 @@ const TX_RESULT_SIZE = 64;
 const TX_SIZE_OVERHEAD = 5; // 1 byte raw_data key, 1 byte signature key, 1 byte signature number, 1 byte signature data length for 65 bytes, 1 byte tx result key. TODO: multisign support.
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+const MAX_FEE_LIMIT = 15000000000;
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -727,7 +728,8 @@ export default class Vault extends VaultBase {
       tronWeb.address.toHex(contract),
       batchMethod,
       {
-        callValue: isTransferToken ? 0 : totalAmountBN.toFixed(0),
+        callValue: isTransferToken ? 0 : totalAmountBN.toNumber(),
+        feeLimit: MAX_FEE_LIMIT,
       },
       params,
       tronWeb.address.toHex(dbAccount.address),
@@ -739,6 +741,45 @@ export default class Vault extends VaultBase {
       );
     }
     return transaction;
+  }
+
+  async getBatchTransferBaseEnergy() {
+    const network = await this.getNetwork();
+    const dbAccount = await this.getDbAccount();
+
+    const contract = batchTransferContractAddress[network.id];
+    const tronWeb = await this.getClient();
+    const batchMethod = BatchTransferMethods.disperseEther;
+    const paramTypes = ['address[]', 'uint256[]'];
+    const amount = new BigNumber(1).shiftedBy(network.decimals).toNumber();
+    const ParamValues = [[dbAccount.address], [amount]];
+
+    const params = paramTypes.map((type, index) => ({
+      type,
+      value: ParamValues[index],
+    }));
+
+    try {
+      const {
+        result: { result },
+        energy_required: energyRequired,
+      } = await tronWeb.transactionBuilder.estimateEnergy(
+        tronWeb.address.toHex(contract),
+        batchMethod,
+        {
+          callValue: amount,
+        },
+        params,
+        tronWeb.address.toHex(dbAccount.address),
+      );
+
+      if (result) {
+        return energyRequired;
+      }
+    } catch {
+      return 0;
+    }
+    return 0;
   }
 
   override async checkIsUnlimitedAllowance(params: {
@@ -923,6 +964,9 @@ export default class Vault extends VaultBase {
 
   override async fetchFeeInfo(
     uncastedEncodedTx: IEncodedTx,
+    signOnly: boolean,
+    specifiedFeeRate: any,
+    transferCount: number,
   ): Promise<IFeeInfo> {
     let baseFee = 0;
 
@@ -963,7 +1007,11 @@ export default class Vault extends VaultBase {
         call_value: callValue,
         owner_address: fromAddressHex,
       } = encodedTx.raw_data.contract[0].parameter.value;
+
+      let requiredEnergy = 0;
+
       const tronWeb = await this.getClient();
+
       const resp: IRPCCallResponse = await tronWeb.fullNode.request(
         'jsonrpc',
         {
@@ -985,10 +1033,20 @@ export default class Vault extends VaultBase {
       );
 
       if (resp.error && resp.error.message) {
-        throw new Error(resp.error.message);
+        if (
+          resp.error.message.startsWith("Not enough energy for 'CALL'") &&
+          TronWeb.address.fromHex(contractAddressHex) ===
+            batchTransferContractAddress[this.networkId]
+        ) {
+          requiredEnergy =
+            (await this.getBatchTransferBaseEnergy()) * transferCount;
+        } else {
+          throw new Error(resp.error.message);
+        }
+      } else {
+        requiredEnergy = parseInt(resp.result);
       }
 
-      const requiredEnergy = parseInt(resp.result);
       if (requiredEnergy > stakedEnergy) {
         baseFee += requiredEnergy * parameters.getEnergyFee;
       }
