@@ -24,7 +24,10 @@ import {
 } from '../../../errors';
 import { batchTransferContractAddress } from '../../../presets/batchTransferContractAddress';
 import { extractResponseError } from '../../../proxy';
-import { BatchTransferMethods } from '../../../types/batchTransfer';
+import {
+  BatchTransferMethods,
+  BatchTransferSelectors,
+} from '../../../types/batchTransfer';
 import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
 import { VaultBase } from '../../VaultBase';
 import { Erc20MethodSelectors } from '../evm/decoder/abi';
@@ -55,8 +58,9 @@ import type {
 import type {
   IClientApi,
   IEncodedTxTron,
-  IOnChainHistoryTokenTx,
-  IOnChainHistoryTx,
+  IOnChainInternalTxHistory,
+  IOnChainTransferHistory,
+  IOnChainTxHistory,
   IRPCCallResponse,
   ITRC10Detail,
   ITRC20Detail,
@@ -382,30 +386,58 @@ export default class Vault extends VaultBase {
         owner_address: fromAddressHex,
       } = encodedTx.raw_data.contract[0].parameter.value;
       try {
+        const fromAddress = TronWeb.address.fromHex(fromAddressHex);
         const tokenAddress = TronWeb.address.fromHex(contractAddressHex);
+
+        // batch transfer
+        if (tokenAddress === batchTransferContractAddress[this.networkId]) {
+          const decodeTx = await this.decodeBatchTransferTx(encodedTx);
+          if (decodeTx) return decodeTx;
+        }
+
         const [tokenInfo] = await this.fetchTokenInfos([tokenAddress]);
-        if (
-          typeof tokenInfo !== 'undefined' &&
-          `0x${data.slice(0, 8)}` === Erc20MethodSelectors.tokenTransfer
-        ) {
-          const [toAddressHex, decodedAmount] = defaultAbiCoder.decode(
-            ['address', 'uint256'],
-            `0x${data.slice(8)}`,
-          );
-          const amountBN = new BigNumber(
-            (decodedAmount as { _hex: string })._hex,
-          );
-          const token = await this.engine.ensureTokenInDB(
-            this.networkId,
-            tokenAddress,
-          );
-          if (typeof token !== 'undefined') {
+        const token = await this.engine.ensureTokenInDB(
+          this.networkId,
+          tokenAddress,
+        );
+        const methodSelector = `0x${data.slice(0, 8)}`;
+
+        if (tokenInfo && token) {
+          if (methodSelector === Erc20MethodSelectors.tokenTransfer) {
+            const [toAddressHex, decodedAmount] = defaultAbiCoder.decode(
+              ['address', 'uint256'],
+              `0x${data.slice(8)}`,
+            );
+
+            const amountBN = new BigNumber(
+              (decodedAmount as { _hex: string })._hex,
+            );
+            if (typeof token !== 'undefined') {
+              action = {
+                type: IDecodedTxActionType.TOKEN_TRANSFER,
+                tokenTransfer: {
+                  tokenInfo: token,
+                  from: fromAddress,
+                  to: TronWeb.address.fromHex(toAddressHex),
+                  amount: amountBN.shiftedBy(-token.decimals).toFixed(),
+                  amountValue: amountBN.toFixed(),
+                  extraInfo: null,
+                },
+              };
+            }
+          } else if (methodSelector === Erc20MethodSelectors.tokenApprove) {
+            const [spenderAddressHex, decodedAmount] = defaultAbiCoder.decode(
+              ['address', 'uint256'],
+              `0x${data.slice(8)}`,
+            );
+            const amountBN = new BigNumber(decodedAmount._hex);
             action = {
-              type: IDecodedTxActionType.TOKEN_TRANSFER,
-              tokenTransfer: {
+              type: IDecodedTxActionType.TOKEN_APPROVE,
+              tokenApprove: {
                 tokenInfo: token,
-                from: TronWeb.address.fromHex(fromAddressHex),
-                to: TronWeb.address.fromHex(toAddressHex),
+                owner: fromAddress,
+                spender: TronWeb.address.fromHex(spenderAddressHex),
+                isMax: toBigIntHex(amountBN) === INFINITE_AMOUNT_HEX,
                 amount: amountBN.shiftedBy(-token.decimals).toFixed(),
                 amountValue: amountBN.toFixed(),
                 extraInfo: null,
@@ -426,6 +458,106 @@ export default class Vault extends VaultBase {
       signer: owner,
       nonce: 0,
       actions: [action],
+      status: IDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+
+      extraInfo: null,
+      encodedTx,
+    };
+  }
+
+  async decodeBatchTransferTx(encodedTx: IEncodedTxTron) {
+    const owner = await this.getAccountAddress();
+
+    const { data, owner_address: fromAddressHex } = (
+      encodedTx.raw_data.contract[0] as ITriggerSmartContractCall
+    ).parameter.value;
+
+    const fromAddress = TronWeb.address.fromHex(fromAddressHex);
+
+    const transactionSelector = `0x${data.slice(0, 8)}`;
+    const extraActions: IDecodedTxAction[] = [];
+    const address = await this.getAccountAddress();
+    switch (transactionSelector) {
+      case BatchTransferSelectors.disperseEther: {
+        const nativeToken = await this.engine.getNativeTokenInfo(
+          this.networkId,
+        );
+        const [recipients, amounts] = defaultAbiCoder.decode(
+          ['address[]', 'uint256[]'],
+          `0x${data.slice(8)}`,
+        );
+        for (let i = 0; i < recipients.length; i += 1) {
+          const toAddress = TronWeb.address.fromHex(recipients[i]);
+          const amountBN = new BigNumber(amounts[i]._hex);
+          if (fromAddress === owner || toAddress === owner) {
+            extraActions.push({
+              type: IDecodedTxActionType.NATIVE_TRANSFER,
+              direction: await this.buildTxActionDirection({
+                from: fromAddress,
+                to: recipients[i],
+                address,
+              }),
+              nativeTransfer: {
+                tokenInfo: nativeToken,
+                from: fromAddress,
+                to: toAddress,
+                amount: amountBN.shiftedBy(-nativeToken.decimals).toFixed(),
+                amountValue: amountBN.toFixed(),
+                extraInfo: null,
+              },
+            });
+          }
+        }
+        break;
+      }
+      case BatchTransferSelectors.disperseTokenSimple: {
+        const [tokenAddress, recipients, amounts] = defaultAbiCoder.decode(
+          ['address', 'address[]', 'uint256[]'],
+          `0x${data.slice(8)}`,
+        );
+
+        const token = await this.engine.ensureTokenInDB(
+          this.networkId,
+          TronWeb.address.fromHex(tokenAddress),
+        );
+
+        if (!token) break;
+
+        for (let i = 0; i < recipients.length; i += 1) {
+          const toAddress = TronWeb.address.fromHex(recipients[i]);
+          const amountBN = new BigNumber(amounts[i]._hex);
+          extraActions.push({
+            type: IDecodedTxActionType.TOKEN_TRANSFER,
+            direction: await this.buildTxActionDirection({
+              from: fromAddress,
+              to: toAddress,
+              address,
+            }),
+            tokenTransfer: {
+              tokenInfo: token,
+              from: fromAddress,
+              to: toAddress,
+              amount: amountBN.shiftedBy(-token.decimals).toFixed(),
+              amountValue: amountBN.toFixed(),
+              extraInfo: null,
+            },
+          });
+        }
+        break;
+      }
+
+      default:
+        return null;
+    }
+
+    return {
+      txid: encodedTx.txID,
+      owner,
+      signer: fromAddress || owner,
+      nonce: 0,
+      actions: [...extraActions],
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -666,7 +798,7 @@ export default class Vault extends VaultBase {
             ? INFINITE_AMOUNT_HEX
             : new BigNumber(approveInfo.amount)
                 .shiftedBy(token.decimals)
-                .toNumber(),
+                .toFixed(),
       },
     ];
     const {
@@ -675,7 +807,7 @@ export default class Vault extends VaultBase {
     } = await tronWeb.transactionBuilder.triggerSmartContract(
       approveInfo.token,
       'approve(address,uint256)',
-      {},
+      { call_value: 0 },
       params,
       approveInfo.from,
     );
@@ -925,14 +1057,18 @@ export default class Vault extends VaultBase {
   }): Promise<IHistoryTx[]> {
     const { localHistory = [], tokenIdOnNetwork } = options;
 
-    let tokenOnChainHistory: IOnChainHistoryTokenTx[] = [];
-    let nativeTokenOnChainHistory: IOnChainHistoryTx[] = [];
+    let transferHistory: IOnChainTransferHistory[] = [];
+    let txHistory: IOnChainTxHistory[] = [];
+    // txs triggered by contract
+    let internalTxHistory: IOnChainInternalTxHistory[] = [];
 
     const tronWeb = await this.getClient();
+    const apiExplorer = await this.getApiExplorer();
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
-    const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
+    const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
+    const { decimals } = nativeToken;
 
-    tokenOnChainHistory = (
+    transferHistory = (
       (await tronWeb.fullNode.request(
         `v1/accounts/${
           dbAccount.address
@@ -940,25 +1076,34 @@ export default class Vault extends VaultBase {
           tokenIdOnNetwork ? `&&contract_address=${tokenIdOnNetwork}` : ''
         }`,
       )) as {
-        data: IOnChainHistoryTokenTx[];
+        data: IOnChainTransferHistory[];
       }
     ).data;
 
     if (!tokenIdOnNetwork) {
-      nativeTokenOnChainHistory = (
+      txHistory = (
         (await tronWeb.fullNode.request(
           `v1/accounts/${dbAccount.address}/transactions/?only_confirmed=true`,
         )) as {
-          data: IOnChainHistoryTx[];
+          data: IOnChainTxHistory[];
         }
       ).data;
+      internalTxHistory = (
+        await apiExplorer.get('api/internal-transaction', {
+          params: { address: dbAccount.address, start: 0, limit: 20 },
+        })
+      ).data.data;
     }
 
-    const tokenHistoryPromises = tokenOnChainHistory.map(async (tx) => {
+    const transferHistoryPromises = transferHistory.map(async (tx) => {
       const historyTxToMerge = localHistory.find(
         (item) => item.decodedTx.txid === tx.transaction_id,
       );
       if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+        return Promise.resolve(null);
+      }
+
+      if (tx.from === dbAccount.address) {
         return Promise.resolve(null);
       }
 
@@ -993,20 +1138,6 @@ export default class Vault extends VaultBase {
         };
       }
 
-      if (tx.type === 'Approval') {
-        action = {
-          type: IDecodedTxActionType.TOKEN_APPROVE,
-          tokenApprove: {
-            tokenInfo: token,
-            owner: tx.from,
-            spender: tx.to,
-            isMax: toBigIntHex(amountBN) === INFINITE_AMOUNT_HEX,
-            amount: amountBN.shiftedBy(-token.decimals).toFixed(),
-            amountValue: amountBN.toFixed(),
-            extraInfo: null,
-          },
-        };
-      }
       try {
         const decodedTx: IDecodedTx = {
           txid: tx.transaction_id,
@@ -1034,7 +1165,7 @@ export default class Vault extends VaultBase {
 
       return Promise.resolve(null);
     });
-    const nativeTokenPromises = nativeTokenOnChainHistory.map(async (tx) => {
+    const txHistoryPromises = txHistory.map(async (tx) => {
       const historyTxToMerge = localHistory.find(
         (item) => item.decodedTx.txid === tx.txID,
       );
@@ -1067,15 +1198,59 @@ export default class Vault extends VaultBase {
 
       return Promise.resolve(null);
     });
+    const internalTxHistoryPromises = internalTxHistory.map(async (tx) => {
+      const historyTxToMerge = localHistory.find(
+        (item) => item.decodedTx.txid === tx.hash,
+      );
+      if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+        // No need to update.
+        return Promise.resolve(null);
+      }
 
-    const tokenHistory = (await Promise.all(tokenHistoryPromises)).filter(
+      try {
+        const [txDetail, txInfo] = await Promise.all([
+          tronWeb.trx.getTransaction(tx.hash),
+          tronWeb.trx.getTransactionInfo(tx.hash),
+        ]);
+
+        const {
+          ret: [{ contractRet }],
+        } = txDetail;
+        const decodedTx: IDecodedTx = {
+          ...(await this.decodeTx(txDetail)),
+          txid: tx.hash,
+          totalFeeInNative: new BigNumber(txInfo.fee)
+            .shiftedBy(-decimals)
+            .toFixed(),
+          status:
+            contractRet === 'SUCCESS'
+              ? IDecodedTxStatus.Confirmed
+              : IDecodedTxStatus.Failed,
+          updatedAt: tx.timestamp,
+          createdAt: historyTxToMerge?.decodedTx.createdAt ?? tx.timestamp,
+          isFinal: true,
+        };
+        return await this.buildHistoryTx({ decodedTx, historyTxToMerge });
+      } catch (e) {
+        debugLogger.common.error(e);
+      }
+    });
+
+    const finanlTransferHistory = (
+      await Promise.all(transferHistoryPromises)
+    ).filter(Boolean);
+    const finalTxHistory = (await Promise.all(txHistoryPromises)).filter(
       Boolean,
     );
-    const nativeTokenHistory = (await Promise.all(nativeTokenPromises)).filter(
-      Boolean,
-    );
+    const finalInterTxHistory = (
+      await Promise.all(internalTxHistoryPromises)
+    ).filter(Boolean);
 
-    return [...tokenHistory, ...nativeTokenHistory];
+    return [
+      ...finanlTransferHistory,
+      ...finalTxHistory,
+      ...finalInterTxHistory,
+    ];
   }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {

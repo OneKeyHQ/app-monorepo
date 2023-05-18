@@ -67,6 +67,13 @@ type ITransactionInfo = {
   blockTimeStamp: number;
   contractResult: number[];
   contract_address: string;
+  internal_transactions: {
+    callValueInfo: { callValue: number }[];
+    caller_address: string;
+    hash: string;
+    note: string;
+    transferTo_address: string;
+  }[];
 };
 
 declare module 'tronweb' {
