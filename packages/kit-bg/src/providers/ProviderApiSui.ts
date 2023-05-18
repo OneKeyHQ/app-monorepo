@@ -238,7 +238,12 @@ class ProviderApiSui extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
   ): Promise<IdentifierString | undefined> {
     debugLogger.providerApi.info('SUI getActiveChain', request);
-    return Promise.resolve(this.network());
+
+    try {
+      return Promise.resolve(this.network());
+    } catch (e) {
+      return Promise.resolve(undefined);
+    }
   }
 
   private network(): SuiChainType {
