@@ -216,9 +216,14 @@ class ServiceApp extends ServiceBase {
     dispatch({ type: 'LOGOUT', payload: undefined });
     serviceNetwork.notifyChainChanged();
     serviceAccount.notifyAccountsChanged();
-    if (await isAvailable()) {
-      logoutFromGoogleDrive(true);
-      await wait(1000);
+
+    try {
+      if (platformEnv.isNativeAndroid && (await isAvailable())) {
+        logoutFromGoogleDrive(true);
+        await wait(1000);
+      }
+    } catch (error) {
+      // ignore
     }
 
     // await engine.resetApp() is NOT reliable of DB clean, so we need delay here.
