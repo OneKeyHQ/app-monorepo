@@ -29,6 +29,7 @@ import {
   RootRoutes,
   SendModalRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
+import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
@@ -40,7 +41,6 @@ import { ReceiverInput } from './ReceiverInput';
 import { BulkSenderRoutes, BulkSenderTypeEnum } from './types';
 
 import type { TokenReceiver } from './types';
-import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 
 interface Props {
   accountId: string;

@@ -15,7 +15,6 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { useNativeToken } from '@onekeyhq/kit/src/hooks';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
