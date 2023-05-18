@@ -44,7 +44,7 @@ const SignMessageConfirm = () => {
 
   const route = useRoute<RouteProps>();
   // TODO useSendConfirmRouteParamsParsed
-  const { sourceInfo, unsignedMessage } = route.params;
+  const { sourceInfo, unsignedMessage, hideToast } = route.params;
 
   const { walletId, accountId, networkId } = useActiveSideAccount(route.params);
 
@@ -127,10 +127,14 @@ const SignMessageConfirm = () => {
           await dappApprove.resolve({
             result,
           });
-          const successMsg = intl.formatMessage({ id: 'transaction__success' });
-          ToastManager.show({
-            title: successMsg,
-          });
+          if (!hideToast) {
+            const successMsg = intl.formatMessage({
+              id: 'transaction__success',
+            });
+            ToastManager.show({
+              title: successMsg,
+            });
+          }
           route.params.onSuccess?.(result);
           // wait modal animation done
           closeTimer = setTimeout(() => {
@@ -157,6 +161,7 @@ const SignMessageConfirm = () => {
       navigation,
       dappApprove,
       intl,
+      hideToast,
     ],
   );
 
