@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/require-await */
 import { debounce } from 'lodash';
 
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { fetchChainList } from '@onekeyhq/engine/src/managers/network';
 import type {
   AddNetworkParams,
@@ -27,6 +28,7 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   AppEventBusNames,
   appEventBus,
@@ -356,20 +358,39 @@ class ServiceNetwork extends ServiceBase {
       return;
     }
     let status: IRpcStatus = {
-      latestBlock: undefined,
       responseTime: undefined,
+      latestBlock: undefined,
     };
     const network = await engine.getNetwork(networkId);
+    const url = network.rpcURL;
+    const whitelistHosts =
+      await simpleDb.setting.getRpcBatchFallbackWhitelistHosts();
+
+    const item = whitelistHosts.find((n) => url.includes(n.url));
+    const isRpcInWhitelistHost = !!item;
+
     try {
-      status = await this.getRPCEndpointStatus(
-        network.rpcURL,
-        networkId,
-        false,
-      );
+      status = await this.getRPCEndpointStatus(url, networkId, false);
+
+      if (networkId.startsWith(IMPL_EVM)) {
+        if (status.rpcBatchSupported === false && !isRpcInWhitelistHost) {
+          await simpleDb.setting.addRpcBatchFallbackWhitelistHosts(url);
+        }
+
+        if (
+          status.rpcBatchSupported !== false &&
+          isRpcInWhitelistHost &&
+          item.type === 'custom' &&
+          Date.now() - item.createdAt > getTimeDurationMs({ day: 1 })
+        ) {
+          await simpleDb.setting.removeRpcBatchFallbackWhitelistHosts(url);
+        }
+      }
     } catch (error) {
       // pass
       console.error('measureRpcStatus ERROR', error);
     }
+
     dispatch(
       setRpcStatus({
         networkId,

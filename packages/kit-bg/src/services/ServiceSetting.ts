@@ -60,7 +60,11 @@ export default class ServiceSetting extends ServiceBase {
     await simpleDb.setting.setEnableAppRatings(data.enableAppRatings);
     await simpleDb.setting.setSwapMaintain(data.swapMaintain);
     await simpleDb.setting.setRpcBatchFallbackWhitelistHosts(
-      data.disabledRpcBatchHosts,
+      data.disabledRpcBatchHosts.map((u) => ({
+        createdAt: Date.now(),
+        type: 'default',
+        url: u,
+      })),
     );
     dispatch(setEnableETH2Unstake(data.enableETH2Unstake));
     dispatch(setSwapMaintain(data.swapMaintain));

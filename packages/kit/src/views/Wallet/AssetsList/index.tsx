@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { omit } from 'lodash';
@@ -99,11 +99,13 @@ function AssetsList({
     return 16;
   };
 
+  useEffect(() => {
+    const { serviceOverview } = backgroundApiProxy;
+    serviceOverview.subscribe();
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      if (!limitSize) {
-        return;
-      }
       const { serviceToken, serviceOverview } = backgroundApiProxy;
       if (account && network) {
         serviceToken.fetchAccountTokens({
@@ -111,7 +113,6 @@ function AssetsList({
           networkId: network?.id,
           accountId: account?.id,
         });
-        serviceOverview.subscribe();
 
         serviceOverview.startQueryPendingTasks();
         serviceToken.startRefreshAccountTokens();
@@ -120,7 +121,7 @@ function AssetsList({
         serviceOverview.stopQueryPendingTasks();
         serviceToken.stopRefreshAccountTokens();
       };
-    }, [account, network, limitSize]),
+    }, [account, network]),
   );
 
   const onTokenCellPress = useCallback(
