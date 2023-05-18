@@ -102,7 +102,7 @@ function AssetsList({
   useEffect(() => {
     const { serviceOverview } = backgroundApiProxy;
     serviceOverview.subscribe();
-  }, []);
+  }, [networkId, accountId]);
 
   useFocusEffect(
     useCallback(() => {
