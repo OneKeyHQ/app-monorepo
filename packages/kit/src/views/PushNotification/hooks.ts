@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { useAsync } from 'react-async-hook';
-
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
 import type {
   AccountDynamicItem,
@@ -72,7 +70,7 @@ export const useEvmWalletsAndAccounts = () => {
   };
 };
 
-export const useEnabledAccountDynamicAccounts = () => {
+export const useEnabledAccountDynamicAccounts = (queryOnMount = true) => {
   const [loading, setLoading] = useState(false);
   const { serviceNotification } = backgroundApiProxy;
   const { wallets, getWalletsAndAccounts } = useEvmWalletsAndAccounts();
@@ -96,8 +94,10 @@ export const useEnabledAccountDynamicAccounts = () => {
   }, [fetchEnabledAccounts, getWalletsAndAccounts]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (queryOnMount) {
+      refresh();
+    }
+  }, [refresh, queryOnMount]);
 
   return {
     loading,
@@ -155,15 +155,4 @@ export const checkAccountCanSubscribe = async (
     timeoutResult: false,
   });
   return !isContract;
-};
-
-export const useAddressCanSubscribe = (
-  account: Account | null,
-  networkId: string,
-) => {
-  const { result } = useAsync(
-    async () => checkAccountCanSubscribe(account, networkId),
-    [account],
-  );
-  return result ?? false;
 };

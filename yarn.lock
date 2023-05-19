@@ -5429,7 +5429,7 @@ __metadata:
     react-native-keyboard-manager: ^6.5.4-4
     react-native-level-fs: ^3.0.1
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git"
-    react-native-pager-view: ^6.2.0
+    react-native-pager-view: 6.1.4
     react-native-randombytes: ^3.6.1
     react-native-reanimated: ^3.1.0
     react-native-restart: 0.0.24
@@ -5873,21 +5873,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@polkadot/keyring@npm:^12.1.2":
-  version: 12.1.2
-  resolution: "@polkadot/keyring@npm:12.1.2"
-  dependencies:
-    "@polkadot/util": 12.1.2
-    "@polkadot/util-crypto": 12.1.2
-    tslib: ^2.5.0
-  peerDependencies:
-    "@polkadot/util": 12.1.2
-    "@polkadot/util-crypto": 12.1.2
-  checksum: 60328a569098f2721330e51c90ebbb70ecd634bcceaa0e07979e4db8ac8d7d6d61092a5e37b5c3e3823b9135afb1cd3a69fd714613d81cb18047ded83395ba3e
-  languageName: node
-  linkType: hard
-
-"@polkadot/keyring@npm:^12.2.1":
+"@polkadot/keyring@npm:^12.1.2, @polkadot/keyring@npm:^12.2.1":
   version: 12.2.1
   resolution: "@polkadot/keyring@npm:12.2.1"
   dependencies:
@@ -27345,13 +27331,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-pager-view@npm:^6.2.0":
-  version: 6.2.0
-  resolution: "react-native-pager-view@npm:6.2.0"
+"react-native-pager-view@npm:6.1.4":
+  version: 6.1.4
+  resolution: "react-native-pager-view@npm:6.1.4"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 3006fe29f008d472ebfb654922302d138b08f56e7796627263424b5e91a3169dd9d0c450b5396efffd88d511197c5006180430a2b687d2d827926b324f8fb947
+  checksum: f8116c717acc0461ceb023b262a18010b25276fb21be30cbb9cd6f3335c05dc579e8efad5331cd621f428200409dbb8ebf50cbef566b5a78952d0aab041fc429
   languageName: node
   linkType: hard
 
@@ -28700,16 +28686,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rxjs@npm:*":
-  version: 7.8.0
-  resolution: "rxjs@npm:7.8.0"
-  dependencies:
-    tslib: ^2.1.0
-  checksum: 61b4d4fd323c1043d8d6ceb91f24183b28bcf5def4f01ca111511d5c6b66755bc5578587fe714ef5d67cf4c9f2e26f4490d4e1d8cabf9bd5967687835e9866a2
-  languageName: node
-  linkType: hard
-
-"rxjs@npm:^7.8.1":
+"rxjs@npm:*, rxjs@npm:^7.8.1":
   version: 7.8.1
   resolution: "rxjs@npm:7.8.1"
   dependencies:

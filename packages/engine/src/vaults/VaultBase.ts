@@ -45,6 +45,7 @@ import type { IEncodedTxEvm } from './impl/evm/Vault';
 import type { KeyringBase, KeyringBaseMock } from './keyring/KeyringBase';
 import type {
   IApproveInfo,
+  IClientEndpointStatus,
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxLegacy,
@@ -103,13 +104,15 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     throw new NotImplemented();
   }
 
-  async getClientEndpointStatus(
-    url: string,
-  ): Promise<{ responseTime: number; latestBlock: number }> {
+  async getClientEndpointStatus(url: string): Promise<IClientEndpointStatus> {
     const client = this.createClientFromURL(url);
     const start = performance.now();
     const latestBlock = (await client.getInfo()).bestBlockNumber;
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
+  }
+
+  async checkRpcBatchSupport(url: string): Promise<IClientEndpointStatus> {
+    throw new NotImplemented();
   }
 
   abstract fetchTokenInfos(
