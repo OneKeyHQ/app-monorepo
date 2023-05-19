@@ -144,6 +144,7 @@ import type {
 import type VaultEvm from './vaults/impl/evm/Vault';
 import type VaultSol from './vaults/impl/sol/Vault';
 import type {
+  IClientEndpointStatus,
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxInteractInfo,
@@ -2432,7 +2433,7 @@ class Engine {
     rpcURL: string,
     networkId: string,
     useCache = true,
-  ): Promise<{ responseTime: number; latestBlock: number }> {
+  ): Promise<IClientEndpointStatus> {
     if (rpcURL.length === 0) {
       throw new OneKeyInternalError('Empty RPC URL.');
     }

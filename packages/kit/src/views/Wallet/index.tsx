@@ -183,17 +183,6 @@ export default function Wallet() {
   useOnboardingRequired(true);
   useHtmlPreloadSplashLogoRemove();
 
-  const hasFetchedRef = useRef(false);
-
-  useEffect(() => {
-    if (hasFetchedRef.current) {
-      return;
-    }
-    backgroundApiProxy.serviceToken.fetchTools().finally(() => {
-      hasFetchedRef.current = true;
-    });
-  }, []);
-
   return (
     <>
       <Box flex={1}>

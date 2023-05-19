@@ -1,3 +1,4 @@
+import { uniqBy } from 'lodash';
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 export type ISimpleDbEntitySettings = {
@@ -9,7 +10,11 @@ export type ISimpleDbEntitySettings = {
   swapReceivingIsNotSendingAccountShown?: boolean;
   swapReceivingUnknownShown?: boolean;
   swapPriceImpactShown?: boolean;
-  disabledRpcBatchHosts?: string[];
+  rpcBatchWhitelists?: {
+    url: string;
+    type: 'default' | 'custom';
+    createdAt: number;
+  }[];
 };
 
 export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySettings> {
@@ -98,13 +103,44 @@ export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySet
     return Boolean(data?.swapPriceImpactShown);
   }
 
-  async setRpcBatchFallbackWhitelistHosts(value: string[]) {
+  async setRpcBatchFallbackWhitelistHosts(
+    values: ISimpleDbEntitySettings['rpcBatchWhitelists'],
+  ) {
     const rawData = await this.getRawData();
-    return this.setRawData({ ...rawData, disabledRpcBatchHosts: value });
+    return this.setRawData({ ...rawData, rpcBatchWhitelists: values });
+  }
+
+  async addRpcBatchFallbackWhitelistHosts(value: string) {
+    const rawData = await this.getRawData();
+    return this.setRawData({
+      ...rawData,
+      rpcBatchWhitelists: uniqBy(
+        [
+          ...(rawData?.rpcBatchWhitelists ?? []),
+          {
+            url: value,
+            createdAt: Date.now(),
+            type: 'custom',
+          },
+        ],
+        'url',
+      ),
+    });
+  }
+
+  async removeRpcBatchFallbackWhitelistHosts(value: string) {
+    const rawData = await this.getRawData();
+    return this.setRawData({
+      ...rawData,
+      rpcBatchWhitelists:
+        rawData?.rpcBatchWhitelists?.filter(
+          (n) => n.url !== value && n.type === 'custom',
+        ) ?? [],
+    });
   }
 
   async getRpcBatchFallbackWhitelistHosts() {
     const data = await this.getRawData();
-    return data?.disabledRpcBatchHosts || [];
+    return data?.rpcBatchWhitelists || [];
   }
 }

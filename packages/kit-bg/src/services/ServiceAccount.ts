@@ -1,4 +1,4 @@
-import { find, flatten } from 'lodash';
+import { find, flatten, pick } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
@@ -7,7 +7,10 @@ import {
   TooManyHWPassphraseWallets,
 } from '@onekeyhq/engine/src/errors';
 import { HW_PASSPHRASE_WALLET_MAX_NUM } from '@onekeyhq/engine/src/limits';
-import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
+import {
+  getWalletTypeFromAccountId,
+  isAccountCompatibleWithNetwork,
+} from '@onekeyhq/engine/src/managers/account';
 import {
   generateNetworkIdByChainId,
   getCoinTypeFromNetworkId,
@@ -1500,6 +1503,20 @@ class ServiceAccount extends ServiceBase {
       return { address };
     }
     return { address: account.address };
+  }
+
+  @backgroundMethod()
+  async getUserAccounts() {
+    const { engine, appSelector } = this.backgroundApi;
+    const wallets = appSelector((s) => s.runtime.wallets);
+    const accounts = (
+      await engine.getAccounts(wallets.map((w) => w.accounts).flat())
+    ).map((n) => ({
+      ...pick(n, 'address', 'coinType', 'id', 'name', 'path', 'type'),
+      walletType: getWalletTypeFromAccountId(n.id),
+    }));
+
+    return accounts;
   }
 }
 

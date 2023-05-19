@@ -7,6 +7,7 @@ export type IRpcStatus =
       latestBlock?: number;
       responseTime?: number;
       updatedAt?: number;
+      rpcBatchSupported?: boolean;
     }
   | undefined;
 

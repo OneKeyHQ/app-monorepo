@@ -1,8 +1,6 @@
 import { networkList } from '@onekeyfe/network-list';
-import { pick } from 'lodash';
 import semver from 'semver';
 
-import { getWalletTypeFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import {
   getDBAccountTemplate,
   getDefaultAccountNameInfoByImpl,
@@ -85,12 +83,10 @@ export default class ServiceBootstrap extends ServiceBase {
   @bindThis()
   bootstrap() {
     const {
-      serviceOverview,
       serviceAccount,
       serviceToken,
       serviceNetwork,
       serviceSwap,
-      serviceSetting,
       serviceOnboarding,
       serviceCloudBackup,
       serviceTranslation,
@@ -100,20 +96,67 @@ export default class ServiceBootstrap extends ServiceBase {
     this.migrateAccountDerivationTable();
     this.migrateCosmosTemplateInDB();
     serviceToken.registerEvents();
-    serviceOverview.registerEvents();
     serviceNetwork.registerEvents();
     serviceSwap.registerEvents();
     serviceAccount.registerEvents();
 
-    this.syncAccounts();
-    this.fetchFiatMoneyRate();
+    this.initFetchFiatMoneyRateSchedule();
     this.switchDefaultRpcToOnekeyRpcNode();
     serviceOnboarding.checkOnboardingStatus();
-    serviceSetting.updateRemoteSetting();
     serviceCloudBackup.initCloudBackup();
+    // TODO: remove to discover page
     serviceTranslation.getTranslations();
     serviceDiscover.getCompactList();
+
+    this.fetchAppConfig();
+    this.syncUserConfig();
   }
+
+  async fetchAppConfig() {
+    const path = '/config/app';
+    const { swapConfig, remoteSettings, vsCurrencies } = await fetchData<{
+      swapConfig?: any;
+      remoteSettings?: any;
+      vsCurrencies?: any;
+    }>(path, {}, {});
+
+    const { servicePrice, serviceSwap, serviceSetting } = this.backgroundApi;
+
+    if (swapConfig) {
+      serviceSwap.initSwapConfig(swapConfig);
+    }
+
+    if (remoteSettings) {
+      serviceSetting.updateRemoteSettingWithData(remoteSettings);
+    }
+
+    if (vsCurrencies) {
+      servicePrice.updateFiatMoneyMap(vsCurrencies);
+    }
+  }
+
+  async syncUserConfig() {
+    const path = '/config/sync';
+    const { serviceAccount, serviceNotification, appSelector } =
+      this.backgroundApi;
+    const accounts = await serviceAccount.getUserAccounts();
+    const notificationConfig =
+      await serviceNotification.getNotificationConfig();
+
+    const instanceId = appSelector((s) => s.settings.instanceId);
+
+    return fetchData(
+      path,
+      {
+        accounts,
+        notificationConfig,
+        instanceId,
+      },
+      {},
+      'put',
+    );
+  }
+
   // eslint-disable-next-line
   @backgroundMethod()
   async checkShouldShowNotificationGuide(): Promise<boolean> {
@@ -184,8 +227,7 @@ export default class ServiceBootstrap extends ServiceBase {
   }
 
   @backgroundMethod()
-  fetchFiatMoneyRate() {
-    this.backgroundApi.serviceCronJob.getFiatMoney();
+  initFetchFiatMoneyRateSchedule() {
     if (!this.fetchFiatTimer) {
       this.fetchFiatTimer = setInterval(() => {
         this.backgroundApi.serviceCronJob.getFiatMoney();
@@ -354,31 +396,6 @@ export default class ServiceBootstrap extends ServiceBase {
       debugLogger.common.error('cosmos template migrate error: ', e);
       throw e;
     }
-  }
-
-  @backgroundMethod()
-  async syncAccounts() {
-    const { engine, appSelector } = this.backgroundApi;
-    const wallets = appSelector((s) => s.runtime.wallets);
-    const instanceId = appSelector((state) => state?.settings?.instanceId);
-    const accounts = (
-      await engine.getAccounts(wallets.map((w) => w.accounts).flat())
-    ).map((n) => ({
-      ...pick(n, 'address', 'coinType', 'id', 'name', 'path', 'type'),
-      walletType: getWalletTypeFromAccountId(n.id),
-    }));
-    if (!accounts.length) {
-      return;
-    }
-    fetchData(
-      '/overview/syncAccounts',
-      {
-        accounts,
-        instanceId,
-      },
-      {},
-      'POST',
-    );
   }
 
   // remove deprecated wallet

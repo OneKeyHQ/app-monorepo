@@ -32,8 +32,6 @@ class JsonRPCRequest {
 
   readonly headers: Record<string, string>;
 
-  private disabledRpcBatchHosts: string[] = [];
-
   constructor(url: string, headers?: Record<string, string>, timeout = 30000) {
     this.url = url;
     this.timeout = timeout;
@@ -44,10 +42,13 @@ class JsonRPCRequest {
     if (headers) {
       Object.assign(this.headers, headers);
     }
+  }
 
-    simpleDb.setting
-      .getRpcBatchFallbackWhitelistHosts()
-      .then((value) => (this.disabledRpcBatchHosts = value));
+  private async getIsRpcBatchDisabled(url: string): Promise<boolean> {
+    const whitelistHosts =
+      await simpleDb.setting.getRpcBatchFallbackWhitelistHosts();
+
+    return !!whitelistHosts.find((n) => url.includes(n.url));
   }
 
   private static parseRPCResponse<T>(
@@ -97,10 +98,14 @@ class JsonRPCRequest {
     headers?: { [p: string]: string },
     timeout?: number,
     ignoreSoloError = true,
+    autoFallbackToRpcSingle = true,
   ): Promise<T> {
     let jsonResponses: unknown[] = [];
 
-    if (!this.disabledRpcBatchHosts.find((u) => this.url.includes(u))) {
+    const useRpcBatch =
+      !autoFallbackToRpcSingle || !(await this.getIsRpcBatchDisabled(this.url));
+
+    if (useRpcBatch) {
       const payload = calls.map(([method, params], index) =>
         normalizePayload(method, params, index),
       );

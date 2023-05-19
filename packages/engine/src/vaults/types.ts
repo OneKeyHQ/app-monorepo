@@ -585,3 +585,9 @@ export type IHistoryTx = {
 
   decodedTx: IDecodedTx;
 };
+
+export type IClientEndpointStatus = {
+  responseTime: number;
+  latestBlock: number;
+  rpcBatchSupported?: boolean;
+};
