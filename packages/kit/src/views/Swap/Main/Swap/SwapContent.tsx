@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -19,6 +19,7 @@ import {
   useActiveWalletAccount,
   useAppSelector,
 } from '../../../../hooks/redux';
+import { SharedMobileTabContext } from '../../../Market/SharedMobileTabContext';
 import PercentInput from '../../components/PercentInput';
 import ReceivingTokenInput from '../../components/ReceivingTokenInput';
 import TokenInput from '../../components/TokenInput';
@@ -57,10 +58,26 @@ const PercentInputContainer = () => {
     },
     [inputBalance],
   );
+  const enableSwapTabSwipe = useContext(SharedMobileTabContext);
+  const onTouchStart = useCallback(() => {
+    if (platformEnv.isNative) {
+      enableSwapTabSwipe(false);
+    }
+  }, [enableSwapTabSwipe]);
+  const onTouchEnd = useCallback(() => {
+    if (platformEnv.isNative) {
+      enableSwapTabSwipe(true);
+    }
+  }, [enableSwapTabSwipe]);
   return (
     <Center h="10" w="48">
       <Box style={{ transform: [{ translateY: 2 }] }} w="full">
-        <PercentInput value={percent} onChange={onChange} />
+        <PercentInput
+          onTouchStart={onTouchStart}
+          onChangeEnd={onTouchEnd}
+          value={percent}
+          onChange={onChange}
+        />
       </Box>
     </Center>
   );
