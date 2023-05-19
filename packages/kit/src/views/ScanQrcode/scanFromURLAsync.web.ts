@@ -1,5 +1,3 @@
-import { scanImageData } from 'zbar.wasm';
-
 async function getImageData(dataUrl: string): Promise<ImageData> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -39,6 +37,8 @@ async function getImageData(dataUrl: string): Promise<ImageData> {
 
 export async function scanFromURLAsync(base64Url: string) {
   const imgData = await getImageData(base64Url);
+  const { scanImageData } = require('zbar.wasm') as typeof import('zbar.wasm');
+
   const res = await scanImageData(imgData);
   return res[0].decode();
 }
