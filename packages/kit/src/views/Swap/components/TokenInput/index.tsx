@@ -119,6 +119,9 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
             <Typography.Body2Strong mr="1">
               {account.name}
             </Typography.Body2Strong>
+            <Typography.Body2 color="text-subdued">
+              {account.address.slice(-4)}
+            </Typography.Body2>
           </Box>
           <Icon size={16} name="ChevronDownSolid" />
         </Box>

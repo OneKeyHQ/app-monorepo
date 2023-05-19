@@ -16,7 +16,6 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../../components/Format';
@@ -33,6 +32,7 @@ import {
   formatAmount,
   getNetworkIdImpl,
   recipientMustBeSendingAccount,
+  shouldShowAllowRecipientAddressInput,
 } from '../../utils';
 import { TokenDisplay } from '../TokenDisplay';
 
@@ -351,9 +351,11 @@ const SendToAnotherAddress = () => {
     }
   }, [allowAnotherRecipientAddress, outputToken, navigation]);
   if (inputToken && outputToken) {
-    const implA = getNetworkIdImpl(inputToken.networkId);
-    const implB = getNetworkIdImpl(outputToken.networkId);
-    if (implA === implB && implA !== IMPL_SOL) {
+    const showAllowRecipientAddressInput = shouldShowAllowRecipientAddressInput(
+      inputToken,
+      outputToken,
+    );
+    if (showAllowRecipientAddressInput) {
       return (
         <Box
           display="flex"
