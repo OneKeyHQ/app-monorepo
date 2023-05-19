@@ -208,7 +208,6 @@
     "electron": "19.1.8",
     "json5": "^2",
     "js-conflux-sdk": "^2.1.6",
-    "secp256k1": "^4.0.3",
     "util": "^0.12.5",
     "react-native-reanimated": "^3",
     "@mysten/wallet-standard": "^0.5.5",
