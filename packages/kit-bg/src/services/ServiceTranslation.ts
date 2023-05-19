@@ -15,7 +15,6 @@ class ServicTranslation extends ServiceBase {
 
   get baseUrl() {
     const url = getFiatEndpoint();
-    // const url = 'http://localhost:9000';
     return `${url}/translations`;
   }
 
@@ -25,6 +24,14 @@ class ServicTranslation extends ServiceBase {
     const res = await this.client.get(url);
     const data = res.data as Record<string, Record<string, string>>;
     this.backgroundApi.dispatch(setTranslations(data));
+  }
+
+  @backgroundMethod()
+  async fetchData() {
+    if (Date.now() - this.updatedAt > 60 * 60 * 1000) {
+      await this.getTranslations();
+      this.updatedAt = Date.now();
+    }
   }
 }
 
