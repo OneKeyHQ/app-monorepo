@@ -12,10 +12,7 @@ const webModuleTranspile = [
   '@zondax/izari-filecoin',
 ];
 
-const substrateModules = [
-  '@substrate/txwrapper-core',
-  '@substrate/txwrapper-core/node_modules/@polkadot/keyring',
-];
+const substrateModules = ['@substrate/txwrapper-core'];
 
 const polkadotModules = [
   '@polkadot/api',
