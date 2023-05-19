@@ -26,7 +26,7 @@ import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
 import so.onekey.app.wallet.utils.Utils;
 
-import io.csie.kudo.reactnative.v8.executor.V8ExecutorFactory;
+// import io.csie.kudo.reactnative.v8.executor.V8ExecutorFactory;
 
 public class MainApplication extends Application implements ReactApplication {
   
@@ -63,14 +63,14 @@ public class MainApplication extends Application implements ReactApplication {
         return BuildConfig.IS_HERMES_ENABLED;
       }
 
-      @Override
-      protected JavaScriptExecutorFactory getJavaScriptExecutorFactory() {
-        return new V8ExecutorFactory(
-                getApplicationContext(),
-                getPackageName(),
-                AndroidInfoHelpers.getFriendlyDeviceName(),
-                getUseDeveloperSupport());
-      }
+      // @Override
+      // protected JavaScriptExecutorFactory getJavaScriptExecutorFactory() {
+      //   return new V8ExecutorFactory(
+      //           getApplicationContext(),
+      //           getPackageName(),
+      //           AndroidInfoHelpers.getFriendlyDeviceName(),
+      //           getUseDeveloperSupport());
+      // }
     }
     
   );
