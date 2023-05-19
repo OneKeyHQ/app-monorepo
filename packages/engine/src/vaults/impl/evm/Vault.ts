@@ -1977,7 +1977,7 @@ export default class Vault extends VaultBase {
           [
             'eth_getBalance',
             // fake address
-            ['0x0000000000000000000000000000000000000000', 'latest'],
+            ['0xf44371ccc370662734cfc4b78b1beadf7012bc5d', 'latest'],
           ],
           ['eth_gasPrice', []],
         ],
