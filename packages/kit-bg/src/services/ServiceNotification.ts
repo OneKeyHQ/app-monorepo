@@ -8,6 +8,7 @@ import type {
   AddPriceAlertConfig,
   NotificationExtra,
   NotificationType,
+  PartialNotificationType,
   RemovePriceAlertConfig,
 } from '@onekeyhq/engine/src/managers/notification';
 import {
@@ -36,6 +37,7 @@ import {
 import { setPushNotificationConfig } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setHomeTabName } from '@onekeyhq/kit/src/store/reducers/status';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
+import { getDefaultLocale } from '@onekeyhq/kit/src/utils/locale';
 import { WalletHomeTabEnum } from '@onekeyhq/kit/src/views/Wallet/type';
 import {
   backgroundClass,
@@ -96,8 +98,8 @@ export default class ServiceNotification extends ServiceBase {
         debugLogger.notification.error(`init socket failed`, e);
       }
     }
-    this.syncLocalEnabledAccounts();
-    this.syncPushNotificationConfig();
+    // this.syncLocalEnabledAccounts();
+    // this.syncPushNotificationConfig();
 
     if (platformEnv.isNativeIOS && launchNotification) {
       const {
@@ -132,8 +134,33 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getNotificationConfig() {
+    const { appSelector } = this.backgroundApi;
+      const instanceId = appSelector((state) => state?.settings?.instanceId);
+
+    const config: PartialNotificationType = appSelector((state) => ({
+      ...(state?.settings?.pushNotification || {}),
+      locale:
+        state.settings.locale === 'system'
+          ? getDefaultLocale()
+          : state.settings.locale,
+      currency: state.settings.selectedFiatMoneySymbol,
+      instanceId
+    }));
+
+    if (platformEnv.isRuntimeBrowser) {
+      Object.assign(config, {
+        registrationId: instanceId,
+      });
+    }
+
+    return Promise.resolve(config);
+  }
+
+  @backgroundMethod()
   async syncPushNotificationConfig(type: 'reset' | 'normal' = 'normal') {
-    return syncPushNotificationConfig(type);
+    const config = await this.getNotificationConfig();
+    return syncPushNotificationConfig(config, type);
   }
 
   @backgroundMethod()

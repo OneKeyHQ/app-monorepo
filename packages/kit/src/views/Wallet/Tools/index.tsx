@@ -1,5 +1,5 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -226,6 +226,10 @@ const ToolsPage: FC = () => {
       return <Icon {...icon} size={24} />;
     }
     return <Image borderRadius="14px" source={icon} w="full" h="full" />;
+  }, []);
+
+  useEffect(() => {
+    backgroundApiProxy.serviceToken.fetchTools();
   }, []);
 
   return (

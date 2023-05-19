@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { omit } from 'lodash';
@@ -99,21 +99,27 @@ function AssetsList({
     return 16;
   };
 
+  useEffect(() => {
+    const { serviceOverview } = backgroundApiProxy;
+    serviceOverview.subscribe();
+  }, [networkId, accountId]);
+
   useFocusEffect(
     useCallback(() => {
       const { serviceToken, serviceOverview } = backgroundApiProxy;
       if (account && network) {
-        serviceToken.startRefreshAccountTokens();
-        serviceOverview.startQueryPendingTasks();
         serviceToken.fetchAccountTokens({
           includeTop50TokensQuery: true,
           networkId: network?.id,
           accountId: account?.id,
         });
+
+        serviceOverview.startQueryPendingTasks();
+        serviceToken.startRefreshAccountTokens();
       }
       return () => {
-        serviceToken.stopRefreshAccountTokens();
         serviceOverview.stopQueryPendingTasks();
+        serviceToken.stopRefreshAccountTokens();
       };
     }, [account, network]),
   );

@@ -31,7 +31,7 @@ import {
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { openUrl } from '../../utils/openUrl';
 import {
-  useAddressCanSubscribe,
+  checkAccountCanSubscribe,
   useEnabledAccountDynamicAccounts,
 } from '../PushNotification/hooks';
 
@@ -39,6 +39,7 @@ import BaseMenu from './BaseMenu';
 
 import type { IMenu } from './BaseMenu';
 import type { MessageDescriptor } from 'react-intl';
+import { useAsync } from 'react-async-hook';
 
 const NeedActivateAccountImpl = [IMPL_APTOS, IMPL_SUI];
 
@@ -49,7 +50,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
   const { copyAddress } = useCopyAddress({ wallet });
   const { serviceNotification, dispatch } = backgroundApiProxy;
   const { enabledAccounts, loading, refresh } =
-    useEnabledAccountDynamicAccounts();
+    useEnabledAccountDynamicAccounts(false);
   const [needActivateAccount, setNeedActivateAccount] =
     useState<boolean>(false);
   const isMounted = useIsMounted();
@@ -62,9 +63,13 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     [enabledAccounts, account],
   );
 
-  const addressCanSubscribe = useAddressCanSubscribe(
-    account,
-    network?.id ?? '',
+  const { result: addressCanSubscribe = false, execute } = useAsync(
+    async () => checkAccountCanSubscribe(account, network?.id ?? ''),
+    [account],
+    {
+      executeOnMount: false,
+      executeOnUpdate: false,
+    },
   );
 
   useEffect(() => {
@@ -284,7 +289,17 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       copyAddress,
     ],
   );
-  return <BaseMenu w={220} options={options} {...props} onOpen={refresh} />;
+  return (
+    <BaseMenu
+      w={220}
+      options={options}
+      {...props}
+      onOpen={() => {
+        refresh();
+        execute();
+      }}
+    />
+  );
 };
 
 export default AccountMoreMenu;

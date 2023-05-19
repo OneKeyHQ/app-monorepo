@@ -100,6 +100,7 @@ import type { NFTTransaction } from '../../../types/nft';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IApproveInfo,
+  IClientEndpointStatus,
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxInteractInfo,
@@ -1961,5 +1962,52 @@ export default class Vault extends VaultBase {
 
   override async canAutoCreateNextAccount(password: string): Promise<boolean> {
     return Promise.resolve(true);
+  }
+
+  override async checkRpcBatchSupport(
+    url: string,
+  ): Promise<IClientEndpointStatus> {
+    let result: IClientEndpointStatus | undefined;
+    const client = await this.getJsonRPCClient();
+    const start = performance.now();
+    try {
+      const res = await client.rpc.batchCall<Array<{ number: string }>>(
+        [
+          ['eth_getBlockByNumber', ['latest', false]],
+          [
+            'eth_getBalance',
+            // fake address
+            ['0xf44371ccc370662734cfc4b78b1beadf7012bc5d', 'latest'],
+          ],
+          ['eth_gasPrice', []],
+        ],
+        undefined,
+        undefined,
+        true,
+        false,
+      );
+      const latestBlock = parseInt(res[0].number);
+      if (
+        Number.isNaN(latestBlock) ||
+        typeof res[1] !== 'string' ||
+        typeof res[2] !== 'string'
+      ) {
+        throw new Error(
+          `[evm.getClientEndpointStatus] Invalid response ${JSON.stringify(
+            res,
+          )}`,
+        );
+      }
+      result = {
+        rpcBatchSupported: true,
+        responseTime: Math.floor(performance.now() - start),
+        latestBlock,
+      };
+    } catch (e) {
+      result = await super.getClientEndpointStatus(url);
+      result.rpcBatchSupported = false;
+    }
+
+    return result;
   }
 }

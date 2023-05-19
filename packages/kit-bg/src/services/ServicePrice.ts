@@ -1,5 +1,6 @@
 import { debounce, uniq, xor } from 'lodash';
 
+import { updateFiatMoneyMap } from '@onekeyhq/kit/src/store/reducers/fiatMoney';
 import { setSelectedFiatMoneySymbol } from '@onekeyhq/kit/src/store/reducers/settings';
 import type { SimpleTokenPrices } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { setTokenPriceMap } from '@onekeyhq/kit/src/store/reducers/tokens';
@@ -191,5 +192,13 @@ export default class ServicePrice extends ServiceBase {
     dispatch(setSelectedFiatMoneySymbol(value));
     appEventBus.emit(AppEventBusNames.CurrencyChanged);
     serviceNotification.syncPushNotificationConfig();
+  }
+
+  @backgroundMethod()
+  async updateFiatMoneyMap(fiatMoney: Record<string, Record<string, any>>) {
+    const { dispatch } = this.backgroundApi;
+    dispatch(updateFiatMoneyMap(fiatMoney));
+
+    return Promise.resolve();
   }
 }

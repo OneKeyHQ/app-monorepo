@@ -13,10 +13,6 @@ import {
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
-import {
-  AppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
@@ -26,16 +22,6 @@ class ServiceOverview extends ServiceBase {
   private interval: any;
 
   private pendingTasks: IOverviewScanTaskItem[] = [];
-
-  @bindThis()
-  registerEvents() {
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    appEventBus.on(AppEventBusNames.AccountChanged, this.subscribeDebounced);
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    appEventBus.on(AppEventBusNames.NetworkChanged, this.subscribeDebounced);
-
-    this.subscribeDebounced();
-  }
 
   // eslint-disable-next-line @typescript-eslint/require-await
   @bindThis()
@@ -58,8 +44,53 @@ class ServiceOverview extends ServiceBase {
   }
 
   subscribeDebounced = debounce(
-    // eslint-disable-next-line
-    this.subscribe,
+    async () => {
+      const { appSelector, serviceAccount } = this.backgroundApi;
+      const {
+        activeAccountId,
+        activeNetworkId: networkId,
+        activeWalletId,
+      } = appSelector((s) => s.general);
+      if (!activeWalletId || !activeAccountId) {
+        return;
+      }
+
+      const account = await serviceAccount.getAccount({
+        walletId: activeWalletId || '',
+        accountId: activeAccountId || '',
+      });
+      if (!account || !networkId) {
+        return;
+      }
+      const { address } = account;
+      if (
+        this.pendingTasks.some(
+          (t) => t.networkId === networkId && t.address === address,
+        )
+      ) {
+        return;
+      }
+      const task: IOverviewScanTaskItem = {
+        networkId,
+        address,
+        scanTypes: ['defi'],
+      };
+      debugLogger.overview.info('subscribe overview task=', task);
+      const res = await fetchData<{
+        tasks?: IOverviewScanTaskItem[];
+      }>(
+        '/overview/subscribe',
+        {
+          tasks: [task],
+        },
+        {},
+        'POST',
+      );
+      if (res.tasks) {
+        this.pendingTasks.push(task);
+      }
+      return res;
+    },
     getTimeDurationMs({ seconds: 5 }),
     {
       leading: false,
@@ -70,52 +101,7 @@ class ServiceOverview extends ServiceBase {
   @bindThis()
   @backgroundMethod()
   async subscribe() {
-    const { appSelector, serviceAccount } = this.backgroundApi;
-    const {
-      activeAccountId,
-      activeNetworkId: networkId,
-      activeWalletId,
-    } = appSelector((s) => s.general);
-    if (!activeWalletId || !activeAccountId) {
-      return;
-    }
-
-    const account = await serviceAccount.getAccount({
-      walletId: activeWalletId || '',
-      accountId: activeAccountId || '',
-    });
-    if (!account || !networkId) {
-      return;
-    }
-    const { address } = account;
-    if (
-      this.pendingTasks.some(
-        (t) => t.networkId === networkId && t.address === address,
-      )
-    ) {
-      return;
-    }
-    const task: IOverviewScanTaskItem = {
-      networkId,
-      address,
-      scanTypes: ['defi'],
-    };
-    debugLogger.overview.info('subscribe overview task=', task);
-    const res = await fetchData<{
-      tasks?: IOverviewScanTaskItem[];
-    }>(
-      '/overview/subscribe',
-      {
-        tasks: [task],
-      },
-      {},
-      'POST',
-    );
-    if (res.tasks) {
-      this.pendingTasks.push(task);
-      this.queryPendingTasks();
-    }
-    return res;
+    return this.subscribeDebounced();
   }
 
   @backgroundMethod()

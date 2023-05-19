@@ -568,86 +568,91 @@ export default class ServiceSwap extends ServiceBase {
     if (!slippage) {
       dispatch(setSlippage({ mode: 'auto' }));
     }
-    this.getSwapConfig();
   }
 
   @backgroundMethod()
   async getSwapConfig() {
-    const { dispatch } = this.backgroundApi;
     const endpoint = await this.getServerEndPoint();
     const url = `${endpoint}/swap/config`;
     const res = await this.client.get(url);
     const { data } = res;
+    return this.initSwapConfig(data);
+  }
+
+  @backgroundMethod()
+  async initSwapConfig(data: any) {
+    const { dispatch } = this.backgroundApi;
     const actions: any[] = [];
-    if (data) {
-      const {
-        tokens,
-        coingeckoIds,
-        recommendedSlippage,
-        approvalIssueTokens,
-        wrapperTokens,
-        payments,
-        retainedValues,
-      } = data;
-      if (tokens) {
-        if (tokens && Array.isArray(tokens)) {
-          const items = tokens.map((item) => ({
-            ...item,
-            tokens: item.tokens.map((o: any) => formatServerToken(o)),
-          }));
-          actions.push(updateTokenList(items));
-        }
+    if (!data) {
+      return;
+    }
+    const {
+      tokens,
+      coingeckoIds,
+      recommendedSlippage,
+      approvalIssueTokens,
+      wrapperTokens,
+      payments,
+      retainedValues,
+    } = data;
+    if (tokens) {
+      if (tokens && Array.isArray(tokens)) {
+        const items = tokens.map((item) => ({
+          ...item,
+          tokens: item.tokens.map((o: any) => formatServerToken(o)),
+        }));
+        actions.push(updateTokenList(items));
       }
-      if (coingeckoIds) {
-        const coingeckoIdsData: Record<string, string[]> = {};
-        if (coingeckoIds.popular && Array.isArray(coingeckoIds.popular)) {
-          coingeckoIdsData.popular = coingeckoIds.popular;
-        }
-        if (coingeckoIds.stable && Array.isArray(coingeckoIds.stable)) {
-          coingeckoIdsData.stable = coingeckoIds.stable;
-        }
-        actions.push(setCoingeckoIds(coingeckoIdsData));
+    }
+    if (coingeckoIds) {
+      const coingeckoIdsData: Record<string, string[]> = {};
+      if (coingeckoIds.popular && Array.isArray(coingeckoIds.popular)) {
+        coingeckoIdsData.popular = coingeckoIds.popular;
       }
-      if (recommendedSlippage) {
-        actions.push(setRecommendedSlippage(recommendedSlippage));
+      if (coingeckoIds.stable && Array.isArray(coingeckoIds.stable)) {
+        coingeckoIdsData.stable = coingeckoIds.stable;
       }
-      if (
-        approvalIssueTokens &&
-        Array.isArray(approvalIssueTokens) &&
-        approvalIssueTokens.length > 0
-      ) {
-        actions.push(setApprovalIssueTokens(approvalIssueTokens));
-      }
-      if (
-        wrapperTokens &&
-        Array.isArray(wrapperTokens) &&
-        wrapperTokens.length > 0
-      ) {
-        const dataRecord = wrapperTokens.reduce((result, item) => {
-          result[item.networkId] = item.address;
+      actions.push(setCoingeckoIds(coingeckoIdsData));
+    }
+    if (recommendedSlippage) {
+      actions.push(setRecommendedSlippage(recommendedSlippage));
+    }
+    if (
+      approvalIssueTokens &&
+      Array.isArray(approvalIssueTokens) &&
+      approvalIssueTokens.length > 0
+    ) {
+      actions.push(setApprovalIssueTokens(approvalIssueTokens));
+    }
+    if (
+      wrapperTokens &&
+      Array.isArray(wrapperTokens) &&
+      wrapperTokens.length > 0
+    ) {
+      const dataRecord = wrapperTokens.reduce((result, item) => {
+        result[item.networkId] = item.address;
+        return result;
+      }, {} as Record<string, string>);
+      actions.push(setWrapperTokens(dataRecord));
+    }
+    if (payments) {
+      const { list } = payments;
+      const entries = Object.entries(list);
+      if (entries && Array.isArray(entries) && entries.length > 0) {
+        const paymentTokens = entries.reduce((result, item) => {
+          const [networkId, info] = item;
+          result[networkId] = formatServerToken(info as any);
           return result;
-        }, {} as Record<string, string>);
-        actions.push(setWrapperTokens(dataRecord));
+        }, {} as Record<string, Token>);
+        actions.push(setPayments(paymentTokens));
       }
-      if (payments) {
-        const { list } = payments;
-        const entries = Object.entries(list);
-        if (entries && Array.isArray(entries) && entries.length > 0) {
-          const paymentTokens = entries.reduce((result, item) => {
-            const [networkId, info] = item;
-            result[networkId] = formatServerToken(info as any);
-            return result;
-          }, {} as Record<string, Token>);
-          actions.push(setPayments(paymentTokens));
-        }
-        const { fallback } = payments;
-        if (fallback) {
-          actions.push(setDefaultPayment(formatServerToken(fallback)));
-        }
+      const { fallback } = payments;
+      if (fallback) {
+        actions.push(setDefaultPayment(formatServerToken(fallback)));
       }
-      if (retainedValues) {
-        actions.push(setReservedNetworkFees(retainedValues));
-      }
+    }
+    if (retainedValues) {
+      actions.push(setReservedNetworkFees(retainedValues));
     }
     if (actions.length > 0) {
       dispatch(...actions);
