@@ -89,8 +89,6 @@ export default class ServiceBootstrap extends ServiceBase {
       serviceSwap,
       serviceOnboarding,
       serviceCloudBackup,
-      serviceTranslation,
-      serviceDiscover,
     } = this.backgroundApi;
 
     this.migrateAccountDerivationTable();
@@ -104,9 +102,6 @@ export default class ServiceBootstrap extends ServiceBase {
     this.switchDefaultRpcToOnekeyRpcNode();
     serviceOnboarding.checkOnboardingStatus();
     serviceCloudBackup.initCloudBackup();
-    // TODO: remove to discover page
-    serviceTranslation.getTranslations();
-    serviceDiscover.getCompactList();
 
     this.fetchAppConfig();
     this.syncUserConfig();
