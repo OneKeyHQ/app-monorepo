@@ -3,7 +3,14 @@ import { memo, useCallback, useLayoutEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { HStack, ScrollView, Switch, Text, VStack } from '@onekeyhq/components';
+import {
+  HStack,
+  ScrollView,
+  Switch,
+  Text,
+  VStack,
+  useTheme,
+} from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../hooks';
@@ -35,6 +42,7 @@ const SettingItem: FC<{
 function AdvancedSettings() {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps>();
+  const { themeVariant } = useTheme();
   const useDustUtxo =
     useAppSelector((s) => s.settings.advancedSettings?.useDustUtxo) ?? true;
   const setUseDustUtxoSetting = useCallback(() => {
@@ -65,7 +73,14 @@ function AdvancedSettings() {
         <Text typography="Subheading" color="text-subdued">
           BITCOIN, LITECOIN, BITCOIN CASH, DOGECOIN
         </Text>
-        <VStack space={5} bgColor="surface-default" borderRadius="xl" p={4}>
+        <VStack
+          space={5}
+          bg="surface-default"
+          borderRadius="12"
+          p={4}
+          borderWidth={themeVariant === 'light' ? 1 : undefined}
+          borderColor="border-subdued"
+        >
           <SettingItem
             title={intl.formatMessage({ id: 'form__spend_dust_utxo' })}
             description={intl.formatMessage({

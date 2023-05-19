@@ -33,6 +33,7 @@ import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import NetInfo from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 
 import ServiceBase from './ServiceBase';
@@ -45,6 +46,8 @@ const accountSelectorActions = reducerAccountSelector.actions;
 NetInfo.configure({
   reachabilityShouldRun: () => false,
 });
+
+const rpcUrlSupportBatchCheckTimestampMap: Map<string, number> = new Map();
 
 @backgroundClass()
 class ServiceNetwork extends ServiceBase {
@@ -378,22 +381,30 @@ class ServiceNetwork extends ServiceBase {
       }
 
       if (networkId.startsWith(IMPL_EVM)) {
+        const ts = rpcUrlSupportBatchCheckTimestampMap.get(url);
         if (status.rpcBatchSupported === false && !isRpcInWhitelistHost) {
-          await simpleDb.setting.addRpcBatchFallbackWhitelistHosts(url);
+          if (!ts || Date.now() - ts > getTimeDurationMs({ day: 1 })) {
+            debugLogger.http.info('add rpc to whitelistHosts', url, ts);
+            await simpleDb.setting.addRpcBatchFallbackWhitelistHosts(url);
+          }
+        }
+
+        if (status.rpcBatchSupported !== false) {
+          rpcUrlSupportBatchCheckTimestampMap.set(url, Date.now());
         }
 
         if (
           status.rpcBatchSupported !== false &&
           isRpcInWhitelistHost &&
-          item.type === 'custom' &&
-          Date.now() - item.createdAt > getTimeDurationMs({ day: 1 })
+          item.type === 'custom'
         ) {
+          debugLogger.http.info('remove rpc from whitelistHosts', url, ts);
           await simpleDb.setting.removeRpcBatchFallbackWhitelistHosts(url);
         }
       }
     } catch (error) {
       // pass
-      console.error('measureRpcStatus ERROR', error);
+      debugLogger.http.error('measureRpcStatus ERROR', error);
     }
 
     dispatch(
