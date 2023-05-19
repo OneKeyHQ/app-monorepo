@@ -30,9 +30,9 @@ const buildTargetBrowser = devUtils.getBuildTargetBrowser();
 const transpileModules = [...extModuleTranspile];
 
 const alias = {};
-if (IS_DEV) {
-  alias['react-dom'] = '@hot-loader/react-dom';
-}
+// if (IS_DEV) {
+//   alias['react-dom'] = '@hot-loader/react-dom';
+// }
 
 const isManifestV3 = devUtils.isManifestV3();
 const isManifestV2 = devUtils.isManifestV2();
