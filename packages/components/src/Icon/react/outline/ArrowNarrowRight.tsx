@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgArrowNarrowRight = (props: SvgProps) => (
   <Svg
     fill="none"
@@ -16,5 +15,4 @@ const SvgArrowNarrowRight = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgArrowNarrowRight;

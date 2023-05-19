@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgMetamask = (props: SvgProps) => (
   <Svg viewBox="0 0 35 33" fill="none" accessibilityRole="image" {...props}>
     <Path
@@ -100,5 +99,4 @@ const SvgMetamask = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgMetamask;

@@ -5,7 +5,6 @@ import Svg, {
   RadialGradient,
   Stop,
 } from 'react-native-svg';
-
 const SvgHardwareAboutDeviceBg = (props: SvgProps) => (
   <Svg viewBox="0 0 330 330" fill="none" accessibilityRole="image" {...props}>
     <Path fill="url(#a)" d="M0 0h330v330H0z" />
@@ -24,5 +23,4 @@ const SvgHardwareAboutDeviceBg = (props: SvgProps) => (
     </Defs>
   </Svg>
 );
-
 export default SvgHardwareAboutDeviceBg;

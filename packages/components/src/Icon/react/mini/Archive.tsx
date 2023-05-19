@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgArchive = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
@@ -15,5 +14,4 @@ const SvgArchive = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgArchive;

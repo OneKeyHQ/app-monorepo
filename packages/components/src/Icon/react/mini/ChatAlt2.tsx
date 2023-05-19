@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgChatAlt2 = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
@@ -11,5 +10,4 @@ const SvgChatAlt2 = (props: SvgProps) => (
     <Path d="M15 7v2a4 4 0 0 1-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-1z" />
   </Svg>
 );
-
 export default SvgChatAlt2;

@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgFolderRemove = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
@@ -17,5 +16,4 @@ const SvgFolderRemove = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgFolderRemove;

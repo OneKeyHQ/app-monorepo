@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgShrink = (props: SvgProps) => (
   <Svg viewBox="0 0 20 20" fill="none" accessibilityRole="image" {...props}>
     <Path
@@ -11,5 +10,4 @@ const SvgShrink = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgShrink;

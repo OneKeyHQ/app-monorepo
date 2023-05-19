@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgClipboardDocumentList = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
     fill="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -19,5 +19,4 @@ const SvgClipboardDocumentList = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgClipboardDocumentList;

@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgChatBubbleLeftRight = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
     fill="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -11,5 +11,4 @@ const SvgChatBubbleLeftRight = (props: SvgProps) => (
     <Path d="M14 6c-.762 0-1.52.02-2.271.062C10.157 6.148 9 7.472 9 8.998v2.24c0 1.519 1.147 2.839 2.71 2.935.214.013.428.024.642.034.2.009.385.09.518.224l2.35 2.35a.75.75 0 0 0 1.28-.531v-2.07c1.453-.195 2.5-1.463 2.5-2.915V8.998c0-1.526-1.157-2.85-2.729-2.936A41.645 41.645 0 0 0 14 6z" />
   </Svg>
 );
-
 export default SvgChatBubbleLeftRight;

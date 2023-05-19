@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgDocumentReport = (props: SvgProps) => (
   <Svg
     fill="none"
@@ -16,5 +15,4 @@ const SvgDocumentReport = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgDocumentReport;

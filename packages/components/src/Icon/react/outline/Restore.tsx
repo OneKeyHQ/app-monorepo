@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgRestore = (props: SvgProps) => (
   <Svg viewBox="0 0 24 24" fill="none" accessibilityRole="image" {...props}>
     <Path
@@ -11,5 +10,4 @@ const SvgRestore = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgRestore;

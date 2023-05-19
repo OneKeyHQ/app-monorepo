@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgNavBankCard = (props: SvgProps) => (
   <Svg
     viewBox="0 0 24 24"
@@ -15,5 +14,4 @@ const SvgNavBankCard = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgNavBankCard;

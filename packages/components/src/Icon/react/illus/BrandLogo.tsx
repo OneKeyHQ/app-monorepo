@@ -1,5 +1,4 @@
 import Svg, { SvgProps, G, Path, Defs, ClipPath } from 'react-native-svg';
-
 const SvgBrandLogo = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 27 27" accessibilityRole="image" {...props}>
     <G clipPath="url(#a)">
@@ -25,5 +24,4 @@ const SvgBrandLogo = (props: SvgProps) => (
     </Defs>
   </Svg>
 );
-
 export default SvgBrandLogo;

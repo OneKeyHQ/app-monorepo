@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgNavDiscovery = (props: SvgProps) => (
   <Svg
     viewBox="0 0 24 24"
@@ -14,5 +13,4 @@ const SvgNavDiscovery = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgNavDiscovery;

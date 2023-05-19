@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgTranslate = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
@@ -14,5 +13,4 @@ const SvgTranslate = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgTranslate;

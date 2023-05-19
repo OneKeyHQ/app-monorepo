@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgDocumentDuplicate = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
     fill="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -11,5 +11,4 @@ const SvgDocumentDuplicate = (props: SvgProps) => (
     <Path d="M4.5 6A1.5 1.5 0 0 0 3 7.5v9A1.5 1.5 0 0 0 4.5 18h7a1.5 1.5 0 0 0 1.5-1.5v-5.879a1.5 1.5 0 0 0-.44-1.06L9.44 6.439A1.5 1.5 0 0 0 8.378 6H4.5z" />
   </Svg>
 );
-
 export default SvgDocumentDuplicate;

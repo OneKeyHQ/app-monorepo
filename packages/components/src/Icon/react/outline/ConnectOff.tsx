@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgConnectOff = (props: SvgProps) => (
   <Svg viewBox="0 0 24 24" fill="none" accessibilityRole="image" {...props}>
     <Path
@@ -10,5 +9,4 @@ const SvgConnectOff = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgConnectOff;

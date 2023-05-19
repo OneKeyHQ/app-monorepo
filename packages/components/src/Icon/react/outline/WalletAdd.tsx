@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgWalletAdd = (props: SvgProps) => (
   <Svg
     fill="none"
@@ -22,5 +21,4 @@ const SvgWalletAdd = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgWalletAdd;

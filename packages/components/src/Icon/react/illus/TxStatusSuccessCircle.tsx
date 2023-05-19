@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgTxStatusSuccessCircle = (props: SvgProps) => (
   <Svg viewBox="0 0 56 56" fill="none" accessibilityRole="image" {...props}>
     <Path
@@ -15,5 +14,4 @@ const SvgTxStatusSuccessCircle = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgTxStatusSuccessCircle;

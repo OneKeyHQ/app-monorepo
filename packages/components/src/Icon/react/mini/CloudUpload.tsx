@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgCloudUpload = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
@@ -11,5 +10,4 @@ const SvgCloudUpload = (props: SvgProps) => (
     <Path d="M9 13h2v5a1 1 0 1 1-2 0v-5z" />
   </Svg>
 );
-
 export default SvgCloudUpload;

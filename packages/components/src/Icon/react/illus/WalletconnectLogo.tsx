@@ -1,5 +1,4 @@
 import Svg, { SvgProps, G, Path, Defs, ClipPath } from 'react-native-svg';
-
 const SvgWalletconnectLogo = (props: SvgProps) => (
   <Svg viewBox="0 0 20 20" fill="none" accessibilityRole="image" {...props}>
     <G clipPath="url(#a)">
@@ -15,5 +14,4 @@ const SvgWalletconnectLogo = (props: SvgProps) => (
     </Defs>
   </Svg>
 );
-
 export default SvgWalletconnectLogo;

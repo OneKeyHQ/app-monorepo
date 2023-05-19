@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgImageBroken = (props: SvgProps) => (
   <Svg viewBox="0 0 20 18" fill="none" accessibilityRole="image" {...props}>
     <Path
@@ -8,5 +7,4 @@ const SvgImageBroken = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgImageBroken;

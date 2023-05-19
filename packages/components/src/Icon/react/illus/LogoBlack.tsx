@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgLogoBlack = (props: SvgProps) => (
   <Svg viewBox="0 0 82 25" fill="none" accessibilityRole="image" {...props}>
     <Path
@@ -18,5 +17,4 @@ const SvgLogoBlack = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgLogoBlack;

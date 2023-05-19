@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgDocumentMinus = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
     fill="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -14,5 +14,4 @@ const SvgDocumentMinus = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgDocumentMinus;

@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgSignal = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
     fill="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -11,5 +11,4 @@ const SvgSignal = (props: SvgProps) => (
     <Path d="M12.475 6.465a.75.75 0 0 1 1.06 0 5 5 0 0 1 0 7.07.75.75 0 1 1-1.06-1.06 3.5 3.5 0 0 0 0-4.95.75.75 0 0 1 0-1.06zm-4.95 0a.75.75 0 0 1 0 1.06 3.5 3.5 0 0 0 0 4.95.75.75 0 0 1-1.06 1.06 5 5 0 0 1 0-7.07.75.75 0 0 1 1.06 0zM11 10a1 1 0 1 1-2 0 1 1 0 0 1 2 0z" />
   </Svg>
 );
-
 export default SvgSignal;

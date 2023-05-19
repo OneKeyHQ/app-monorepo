@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgClipboardCopy = (props: SvgProps) => (
   <Svg
     fill="none"
@@ -16,5 +15,4 @@ const SvgClipboardCopy = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgClipboardCopy;

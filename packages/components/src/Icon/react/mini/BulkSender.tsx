@@ -1,5 +1,4 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgBulkSender = (props: SvgProps) => (
   <Svg viewBox="0 0 26 24" fill="none" accessibilityRole="image" {...props}>
     <Path
@@ -8,5 +7,4 @@ const SvgBulkSender = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgBulkSender;

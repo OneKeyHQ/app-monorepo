@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgScissors = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
     fill="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -15,5 +15,4 @@ const SvgScissors = (props: SvgProps) => (
     <Path d="M12.52 11.89a.5.5 0 0 0 .056.894l3.274 1.381a2.75 2.75 0 0 0 1.78.123l.704-.188a.75.75 0 0 0 .18-1.374l-3.47-2.004a.5.5 0 0 0-.5 0L12.52 11.89z" />
   </Svg>
 );
-
 export default SvgScissors;

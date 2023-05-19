@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgBolt = (props: SvgProps) => (
   <Svg
     viewBox="0 0 24 24"
     fill="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -14,5 +14,4 @@ const SvgBolt = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgBolt;

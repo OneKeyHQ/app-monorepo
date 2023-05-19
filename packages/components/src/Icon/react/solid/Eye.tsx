@@ -1,9 +1,9 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgEye = (props: SvgProps) => (
   <Svg
     viewBox="0 0 24 24"
     fill="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -15,5 +15,4 @@ const SvgEye = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgEye;

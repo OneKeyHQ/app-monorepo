@@ -1,9 +1,9 @@
 import Svg, { SvgProps, G, Path, Defs, ClipPath } from 'react-native-svg';
-
 const SvgArrowLeftCircle = (props: SvgProps) => (
   <Svg
     viewBox="0 0 20 20"
     fill="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -21,5 +21,4 @@ const SvgArrowLeftCircle = (props: SvgProps) => (
     </Defs>
   </Svg>
 );
-
 export default SvgArrowLeftCircle;

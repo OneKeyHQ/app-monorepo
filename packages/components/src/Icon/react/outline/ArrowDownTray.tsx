@@ -1,11 +1,11 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
-
 const SvgArrowDownTray = (props: SvgProps) => (
   <Svg
     fill="none"
     viewBox="0 0 24 24"
     strokeWidth={1.5}
     stroke="currentColor"
+    aria-hidden="true"
     accessibilityRole="image"
     {...props}
   >
@@ -16,5 +16,4 @@ const SvgArrowDownTray = (props: SvgProps) => (
     />
   </Svg>
 );
-
 export default SvgArrowDownTray;
