@@ -172,11 +172,19 @@ export default class ServiceToken extends ServiceBase {
           };
         }),
       );
+
+      const removedTokens = await simpleDb.token.localTokens.getRemovedTokens(
+        accountId,
+        networkId,
+      );
+
       dispatch(
         setAccountTokens({
           accountId,
           networkId,
-          tokens: accountTokens,
+          tokens: accountTokens.filter(
+            (t) => !removedTokens.includes(t.address ?? ''),
+          ),
         }),
       );
       return accountTokens;
@@ -427,10 +435,6 @@ export default class ServiceToken extends ServiceBase {
         address: accountAddress,
         xpub,
       })) || [];
-    const removedTokens = await simpleDb.token.localTokens.getRemovedTokens(
-      accountId,
-      networkId,
-    );
     const allAccountTokens: Token[] = [];
     const tokens = await this.batchTokenDetail(
       networkId,
@@ -441,10 +445,7 @@ export default class ServiceToken extends ServiceBase {
       balance,
       sendAddress,
       bestBlockNumber: blockHeight,
-    } of balancesFromApi.filter(
-      (b) =>
-        (+b.balance > 0 || !b.address) && !removedTokens.includes(b.address),
-    )) {
+    } of balancesFromApi.filter((b) => +b.balance > 0 || !b.address)) {
       const token = tokens[address];
       if (token) {
         // only record new token balances
