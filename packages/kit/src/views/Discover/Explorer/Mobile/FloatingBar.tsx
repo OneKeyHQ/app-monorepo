@@ -22,7 +22,7 @@ const InfoBar: FC<{
     bg="surface-subdued"
     px="12px"
     py="8px"
-    h="56px"
+    h="48px"
     w="full"
     borderTopLeftRadius="12px"
     borderTopRightRadius="12px"
