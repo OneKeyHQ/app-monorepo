@@ -29,7 +29,7 @@ export interface INetworkAccountSelectorTriggerProps
 interface IBaseSelectorTriggerProps extends ISelectorTriggerSharedProps {
   onPress?: () => void;
   icon: any;
-  label: string;
+  label: string | boolean;
   labelTypography?: TypographyStyle;
   description?: string | boolean;
   subDescription?: string;
