@@ -109,7 +109,7 @@ export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySet
       rawData?.rpcBatchWhitelists?.filter((t) => t.type === 'custom') ?? [];
     return this.setRawData({
       ...rawData,
-      rpcBatchWhitelists: values?.concat(customWhitelist) ?? [],
+      rpcBatchWhitelists: (values ?? []).concat(customWhitelist),
     });
   }
 
@@ -136,7 +136,7 @@ export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySet
       ...rawData,
       rpcBatchWhitelists:
         rawData?.rpcBatchWhitelists?.filter(
-          (n) => n.url !== value && n.type === 'custom',
+          (n) => n.url !== value || n.type !== 'custom',
         ) ?? [],
     });
   }
