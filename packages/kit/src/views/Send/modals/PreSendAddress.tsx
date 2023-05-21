@@ -558,6 +558,7 @@ function PreSendAddress() {
                 warningMessage={validateMessage.warningMessage}
                 successMessage={validateMessage.successMessage}
                 errorMessage={validateMessage.errorMessage}
+                isValidating={isValidatingAddress}
                 name="to"
                 formControlProps={{ width: 'full' }}
                 helpText={helpTextOfNameServiceResolver}
