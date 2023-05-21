@@ -657,9 +657,11 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
                 alignItems="center"
                 onPress={() => onCopy(swftcOrderId ?? '')}
               >
-                <Typography.Body2Strong>
-                  {shortenAddress(swftcOrderId)}
-                </Typography.Body2Strong>
+                <Box maxW="56" mr="1">
+                  <Typography.Body2Strong textAlign="right">
+                    {swftcOrderId}
+                  </Typography.Body2Strong>
+                </Box>
                 <Icon name="Square2StackOutline" size={16} />
               </Pressable>
             </TransactionField>
