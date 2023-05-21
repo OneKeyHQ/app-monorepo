@@ -366,12 +366,6 @@ class ServiceNetwork extends ServiceBase {
     };
     const network = await engine.getNetwork(networkId);
     const url = network.rpcURL;
-    const whitelistHosts =
-      await simpleDb.setting.getRpcBatchFallbackWhitelistHosts();
-
-    const item = whitelistHosts.find((n) => url.includes(n.url));
-    const isRpcInWhitelistHost = !!item;
-
     try {
       if (networkId.startsWith(IMPL_EVM)) {
         const vault = await engine.getChainOnlyVault(networkId);
@@ -381,6 +375,12 @@ class ServiceNetwork extends ServiceBase {
       }
 
       if (networkId.startsWith(IMPL_EVM)) {
+        const whitelistHosts =
+          await simpleDb.setting.getRpcBatchFallbackWhitelistHosts();
+
+        const item = whitelistHosts.find((n) => url.includes(n.url));
+        const isRpcInWhitelistHost = !!item;
+
         const ts = rpcUrlSupportBatchCheckTimestampMap.get(url);
         if (status.rpcBatchSupported === false && !isRpcInWhitelistHost) {
           if (!ts || Date.now() - ts > getTimeDurationMs({ day: 1 })) {

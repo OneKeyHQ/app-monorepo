@@ -136,7 +136,7 @@ export default class ServiceNotification extends ServiceBase {
   @backgroundMethod()
   async getNotificationConfig() {
     const { appSelector } = this.backgroundApi;
-      const instanceId = appSelector((state) => state?.settings?.instanceId);
+    const instanceId = appSelector((state) => state?.settings?.instanceId);
 
     const config: PartialNotificationType = appSelector((state) => ({
       ...(state?.settings?.pushNotification || {}),
@@ -145,7 +145,7 @@ export default class ServiceNotification extends ServiceBase {
           ? getDefaultLocale()
           : state.settings.locale,
       currency: state.settings.selectedFiatMoneySymbol,
-      instanceId
+      instanceId,
     }));
 
     if (platformEnv.isRuntimeBrowser) {
