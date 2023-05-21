@@ -116,7 +116,7 @@ const FloatingContainer: FC<
                   translateY: interpolate(
                     expandAnim.value,
                     [MIN_OR_HIDE, MAX_OR_SHOW],
-                    [containerHeight - 48, 0],
+                    [containerHeight - 56, 0],
                   ),
                 },
               ],
@@ -179,7 +179,7 @@ const FloatingContainer: FC<
         >
           <Box flex={1} bg="background-default">
             <Pressable
-              h="48px"
+              h="56px"
               onPress={() => {
                 toggleFloatingWindow({
                   beforeMinimize,

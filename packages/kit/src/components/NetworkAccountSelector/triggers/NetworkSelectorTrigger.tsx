@@ -21,6 +21,7 @@ const NetworkSelectorTrigger: FC<NetworkSelectorTriggerProps> = ({
   type = 'plain',
   bg,
   mode,
+  iconSize = 6,
 }) => {
   const { network } = useActiveWalletAccount();
   const { openNetworkSelector } = useNavigationActions();
@@ -52,7 +53,7 @@ const NetworkSelectorTrigger: FC<NetworkSelectorTriggerProps> = ({
       bg={bg}
       icon={
         <Box position="relative">
-          <Token size={6} {...activeOption.tokenProps} />
+          <Token size={iconSize} {...activeOption.tokenProps} />
           {rpcStatus && !loading && (
             <Speedindicator
               position="absolute"
