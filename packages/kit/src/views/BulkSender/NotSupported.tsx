@@ -13,7 +13,6 @@ import {
 } from '@onekeyhq/components';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { INetwork } from '@onekeyhq/engine/src/types';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useManageNetworks, useNetwork } from '../../hooks';
@@ -26,11 +25,11 @@ function NotSupported({ networkId }: { networkId: string }) {
 
   const networkSupported = allNetworks.filter(
     (n) =>
-      !n.isTestnet &&
       n.enabled &&
       n?.settings.supportBatchTransfer &&
-      (n.impl !== IMPL_EVM ||
-        (n.impl === IMPL_EVM && batchTransferContractAddress[n.id])),
+      (n?.settings.nativeSupportBatchTransfer
+        ? true
+        : batchTransferContractAddress[n.id]),
   );
 
   const handleSelecteNetwork = useCallback(

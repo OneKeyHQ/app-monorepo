@@ -108,8 +108,10 @@ export type IVaultSettings = {
 
   supportFilterScam?: boolean;
   supportBatchTransfer?: boolean;
+  nativeSupportBatchTransfer?: boolean;
   supportDeflationary?: boolean;
-  batchTokenTransferApprovalRequired?: boolean;
+  batchTransferApprovalRequired?: boolean;
+  batchTransferApprovalConfirmRequired?: boolean;
   maxActionsInTx?: number;
   transactionIdPattern?: string;
   isBtcForkChain?: boolean;

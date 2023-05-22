@@ -29,6 +29,7 @@ import {
   RootRoutes,
   SendModalRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
+import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
@@ -64,7 +65,11 @@ function TokenOutbox(props: Props) {
   const loading = useAccountTokenLoading(networkId, accountId);
   const accountTokens = useAccountTokens(networkId, accountId, true);
   const nativeToken = accountTokens.find((token) => token.isNative);
-  const tokens = accountTokens.filter((token) => !token.isNative);
+  const tokens = accountTokens.filter((token) =>
+    !token.isNative && network?.impl === IMPL_TRON
+      ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
+      : true,
+  );
 
   const { serviceBatchTransfer, serviceToken, serviceOverview } =
     backgroundApiProxy;
@@ -361,22 +366,21 @@ function TokenOutbox(props: Props) {
             >
               {intl.formatMessage({ id: 'action__edit_amount' })}
             </Button>
-            {!isNative &&
-              network?.settings.batchTokenTransferApprovalRequired && (
-                <Button
-                  mt={4}
-                  type="basic"
-                  size="xs"
-                  leftIconName="CurrencyDollarSolid"
-                  onPress={handleOpenApprovalSelector}
-                >
-                  {intl.formatMessage({
-                    id: isUnlimited
-                      ? 'action__approval_unlimited'
-                      : 'action__approval_exact_amount',
-                  })}
-                </Button>
-              )}
+            {!isNative && network?.settings.batchTransferApprovalRequired && (
+              <Button
+                mt={4}
+                type="basic"
+                size="xs"
+                leftIconName="CurrencyDollarSolid"
+                onPress={handleOpenApprovalSelector}
+              >
+                {intl.formatMessage({
+                  id: isUnlimited
+                    ? 'action__approval_unlimited'
+                    : 'action__approval_exact_amount',
+                })}
+              </Button>
+            )}
           </HStack>
           <Box mt={4}>
             <Button
