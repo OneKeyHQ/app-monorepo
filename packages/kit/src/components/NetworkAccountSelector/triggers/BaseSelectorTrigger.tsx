@@ -15,6 +15,7 @@ import type { TypographyStyle } from '@onekeyhq/components/src/Typography';
 
 import type { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
 import type { ColorType } from 'native-base/lib/typescript/components/types';
+import type { MessageDescriptor } from 'react-intl';
 
 export interface ISelectorTriggerSharedProps {
   type?: 'basic' | 'plain'; // basic with outline border
@@ -29,7 +30,7 @@ export interface INetworkAccountSelectorTriggerProps
 interface IBaseSelectorTriggerProps extends ISelectorTriggerSharedProps {
   onPress?: () => void;
   icon: any;
-  label: string | boolean | undefined;
+  label: string | boolean | undefined | { id: MessageDescriptor['id'] };
   labelTypography?: TypographyStyle;
   description?: string | boolean;
   subDescription?: string;
