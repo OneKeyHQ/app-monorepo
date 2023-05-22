@@ -213,9 +213,10 @@ const PreviewImportData = () => {
       .then((backupDetails) => {
         setBackupData(backupDetails);
         setHasRemoteData(
-          Object.values(backupDetails.notOnDevice).some(
-            (o) => Object.keys(o).length > 0,
-          ),
+          Object.entries(backupDetails.notOnDevice).filter(
+            ([key, value]) =>
+              key !== 'simpleDb' && Object.keys(value).length > 0,
+          ).length > 0,
         );
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps

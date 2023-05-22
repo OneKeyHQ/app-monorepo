@@ -328,9 +328,10 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
           ),
         );
         setHasRemoteData(
-          Object.values(backupDetails.notOnDevice).some(
-            (o) => Object.keys(o).length > 0,
-          ),
+          Object.entries(backupDetails.notOnDevice).filter(
+            ([key, value]) =>
+              key !== 'simpleDb' && Object.keys(value).length > 0,
+          ).length > 0,
         );
         setDataReady(false);
       });
