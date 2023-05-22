@@ -75,8 +75,6 @@ const ImportAccountNetworkSelectorTrigger: FC<
               selectedNetworkId: selectedNetwork.id,
               selectableNetworks,
               onSelected,
-              sortDisabled: true,
-              customDisabled: true,
               rpcStatusDisabled: true,
             },
           },
