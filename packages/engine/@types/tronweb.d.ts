@@ -4,6 +4,12 @@ type ITokenContract = {
   symbol: () => { call: () => Promise<{ _symbol: string } | string> };
   decimals: () => { call: () => Promise<{ _decimals: number } | number> };
   balanceOf: (string) => { call: () => Promise<number> };
+  allowance: (
+    string,
+    string,
+  ) => {
+    call: () => Promise<{ _hex: string } | { remaining: { _hex: string } }>;
+  };
 };
 
 type IAccountResources = {
@@ -66,6 +72,13 @@ type ITransactionInfo = {
   blockTimeStamp: number;
   contractResult: number[];
   contract_address: string;
+  internal_transactions: {
+    callValueInfo: { callValue: number }[];
+    caller_address: string;
+    hash: string;
+    note: string;
+    transferTo_address: string;
+  }[];
 };
 
 declare module 'tronweb' {
@@ -109,8 +122,22 @@ declare module 'tronweb' {
         result: { result: boolean };
         transaction: IUnsignedTransaction;
       }>;
+      estimateEnergy: (
+        string, // contract address
+        string, // function
+        any, // options
+        any, // parameters to call the function
+        string, // from address
+      ) => Promise<{
+        result: { result: boolean };
+        energy_required: number;
+      }>;
       sendTrx: (string, number, string) => Promise<IUnsignedTransaction>;
       sendToken: (to, amount, tokenID, from) => Promise<IUnsignedTransaction>;
+    };
+
+    address: {
+      toHex: (string) => string;
     };
 
     static isAddress: (string) => boolean;

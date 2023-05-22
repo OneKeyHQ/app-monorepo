@@ -2,12 +2,12 @@ import type { Transaction } from 'tronweb';
 
 export type IEncodedTxTron = Transaction;
 
-export type IOnChainHistoryTx = {
+export type IOnChainTxHistory = {
   ret: [{ contractRet: string; fee: number }];
   block_timestamp: number;
 } & IEncodedTxTron;
 
-export type IOnChainHistoryTokenTx = {
+export type IOnChainTransferHistory = {
   transaction_id: string;
   token_info: {
     symbol: string;
@@ -21,6 +21,22 @@ export type IOnChainHistoryTokenTx = {
   to: string;
   type: string;
   value: number;
+};
+
+export type IOnChainInternalTxHistory = {
+  block: number;
+  call_value: number;
+  confirmed: boolean;
+  from: string;
+  hash: string;
+  internal_hash: string;
+  note: string;
+  rejected: boolean;
+  result: string;
+  revert: boolean;
+  timestamp: number;
+  to: string;
+  token_id: string;
 };
 
 export type IRPCCallResponse = {

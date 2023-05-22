@@ -1879,12 +1879,14 @@ class Engine {
     encodedTx,
     signOnly,
     specifiedFeeRate,
+    transferCount,
   }: {
     networkId: string;
     accountId: string;
     encodedTx: any;
     signOnly?: boolean;
     specifiedFeeRate?: string;
+    transferCount?: number;
   }) {
     const vault = await this.getVault({ networkId, accountId });
     // throw new Error('test fetch fee info error');
@@ -1895,6 +1897,7 @@ class Engine {
         cloneDeep(encodedTx),
         signOnly,
         specifiedFeeRate,
+        transferCount,
       );
     } catch (error: any) {
       // AxiosError error
@@ -2199,8 +2202,21 @@ class Engine {
     networkCongestion?: number;
     estimatedTransactionCount?: number;
   }> {
+    const vault = await this.getChainOnlyVault(networkId);
+
     const gasInfo = await this.providerManager.getGasInfo(networkId);
-    const { prices } = gasInfo;
+    let prices = [];
+
+    if (gasInfo === undefined) {
+      const result = await vault.getFeePricePerUnit();
+      prices = [result.normal, ...(result.others || [])]
+        .sort((a, b) => (a.price.gt(b.price) ? 1 : -1))
+        .map((p) => p.price)
+        .slice(0, 3);
+    } else {
+      prices = gasInfo.prices;
+    }
+
     if (prices.length > 0 && prices[0] instanceof BigNumber) {
       const { feeDecimals } = await this.dbApi.getNetwork(networkId);
       return {

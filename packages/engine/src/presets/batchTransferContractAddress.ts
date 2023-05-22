@@ -29,4 +29,8 @@ export const batchTransferContractAddress: {
   [OnekeyNetwork.arbitrum]: '0xe5206106ae1e21c347ab1aee0e1c5f9d84be21ac',
   // https://optimistic.etherscan.io/address/0x9874000287152a4e0a114ed6bb0c7ded57697e98
   [OnekeyNetwork.optimism]: '0x9874000287152a4e0a114ed6bb0c7ded57697e98',
+  // https://tronscan.org/#/contract/TWBQX8AAbxh3xsQzCgAc9Za4M26peAAVxx
+  [OnekeyNetwork.trx]: 'TWBQX8AAbxh3xsQzCgAc9Za4M26peAAVxx',
+  // https://shasta.tronscan.org/#/contract/TJLRMv3X6hZB1CRn3SqaEPr9wAdfwvUHYd
+  [OnekeyNetwork.ttrx]: 'TJLRMv3X6hZB1CRn3SqaEPr9wAdfwvUHYd',
 } as const;
