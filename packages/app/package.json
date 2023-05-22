@@ -78,7 +78,7 @@
     "react-native-fast-image": "^8.6.3",
     "react-native-flipper": "0.162.0",
     "react-native-fs": "^2.20.0",
-    "react-native-gesture-handler": "^2.10.0",
+    "react-native-gesture-handler": "^2.10.1",
     "react-native-get-random-values": "^1.8.0",
     "react-native-in-app-review": "^4.2.1",
     "react-native-keyboard-manager": "^6.5.4-4",
