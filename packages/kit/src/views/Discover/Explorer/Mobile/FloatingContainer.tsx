@@ -179,7 +179,7 @@ const FloatingContainer: FC<
         >
           <Box flex={1} bg="background-default">
             <Pressable
-              h="48px"
+              h="56px"
               onPress={() => {
                 toggleFloatingWindow({
                   beforeMinimize,

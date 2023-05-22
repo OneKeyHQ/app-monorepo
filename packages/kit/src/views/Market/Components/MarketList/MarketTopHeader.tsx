@@ -3,13 +3,14 @@ import { memo, useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Box,
+  HStack,
   Icon,
   IconButton,
   Pressable,
+  Text,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -32,25 +33,30 @@ const Header: FC<{ onPressSearch: () => void }> = ({ onPressSearch }) => {
   const intl = useIntl();
 
   return (
-    <Box flexDirection="column" w="full" mb={4}>
-      <Box mt="4" ml="6" flexDirection="row" alignItems="center">
-        <Typography.DisplayLarge>
-          {intl.formatMessage({ id: 'market__market' })}
-        </Typography.DisplayLarge>
-        <Box
-          h="20px"
-          borderLeftWidth={StyleSheet.hairlineWidth}
-          borderLeftColor="border-subdued"
-          mx={3}
-        />
-        <Pressable flexDirection="row" flex={1} onPress={onPressSearch}>
-          <Icon name="MagnifyingGlassMini" size={24} />
-          <Typography.Body1Strong ml={1} color="text-subdued">
-            {intl.formatMessage({ id: 'form__search_tokens' })}
-          </Typography.Body1Strong>
-        </Pressable>
-      </Box>
-    </Box>
+    <HStack
+      height={{ base: '56px', md: '64px' }}
+      alignItems="center"
+      pl={{ base: '16px', md: '32px' }}
+      pr={{ base: '10px', md: '32px' }}
+    >
+      <Text typography={{ sm: 'PageHeading', md: 'Heading' }}>
+        {intl.formatMessage({ id: 'market__market' })}
+      </Text>
+      <Box ml="16px" mr="8px" h="16px" w="1px" bgColor="divider" />
+      <Pressable
+        onPress={onPressSearch}
+        flexDirection="row"
+        p="8px"
+        borderRadius="xl"
+        _hover={{ bg: 'surface-hovered' }}
+        _pressed={{ bg: 'surface-pressed' }}
+      >
+        <Icon name="MagnifyingGlassMini" size={20} color="icon-subdued" />
+        <Text typography="Body2" color="text-subdued" ml={2}>
+          {intl.formatMessage({ id: 'form__search_tokens' })}
+        </Text>
+      </Pressable>
+    </HStack>
   );
 };
 

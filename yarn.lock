@@ -5423,7 +5423,7 @@ __metadata:
     react-native-flipper: 0.162.0
     react-native-flipper-performance-plugin: ^0.3.1
     react-native-fs: ^2.20.0
-    react-native-gesture-handler: ^2.10.0
+    react-native-gesture-handler: ^2.10.1
     react-native-get-random-values: ^1.8.0
     react-native-in-app-review: ^4.2.1
     react-native-keyboard-manager: ^6.5.4-4
@@ -27207,9 +27207,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-gesture-handler@npm:^2.10.0, react-native-gesture-handler@npm:^2.5.0":
-  version: 2.10.0
-  resolution: "react-native-gesture-handler@npm:2.10.0"
+"react-native-gesture-handler@npm:^2.10.1, react-native-gesture-handler@npm:^2.5.0":
+  version: 2.10.1
+  resolution: "react-native-gesture-handler@npm:2.10.1"
   dependencies:
     "@egjs/hammerjs": ^2.0.17
     hoist-non-react-statics: ^3.3.0
@@ -27219,7 +27219,7 @@ __metadata:
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 7bfde740a67e551458228ad9076af511ad3538c5e65598fc0aef0fdb7329c1743501e31d46ad64fc42697132e3f39721da45d044ad38c6049415b2ede79b13e8
+  checksum: 8770c6590aca1947957aefc1979bae7263cac1814fd087f5d7c6f3ed0f8a0acda85136421fee814e4d8ec86a973190b206136a8e0e90659488f569373d3af117
   languageName: node
   linkType: hard
 
