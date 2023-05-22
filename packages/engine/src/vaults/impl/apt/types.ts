@@ -35,7 +35,7 @@ export type IEncodedTxAptos = {
   // bcs tnx
   bscTxn?: string;
 
-  //  payload
+  forcePendingTx?: boolean;
 } & TxPayload;
 
 export class ArgumentABI {
