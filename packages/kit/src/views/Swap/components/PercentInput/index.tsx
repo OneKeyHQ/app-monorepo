@@ -70,7 +70,7 @@ const PercentInput: FC<PercentInputProps> = ({
             <Box
               w="4"
               h="4"
-              bg="icon-default"
+              bg="icon-subdued"
               justifyContent="center"
               alignItems="center"
               borderRadius="full"
