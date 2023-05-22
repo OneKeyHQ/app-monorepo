@@ -144,15 +144,6 @@ const ModifyWalletNameViewModal: FC = () => {
     [editAvatar, navigation],
   );
 
-  const onPress = useCallback(() => {
-    // Under Android, due to unknown reasons, there is a certain probability of crashing, and the onSubmit is delayed
-    if (platformEnv.isNativeAndroid) {
-      setTimeout(onSubmit, 100);
-    } else {
-      onSubmit();
-    }
-  }, [onSubmit]);
-
   return (
     <Modal
       header={intl.formatMessage({ id: 'modal__edit_wallet' })}
@@ -183,7 +174,7 @@ const ModifyWalletNameViewModal: FC = () => {
             type="primary"
             size="xl"
             isLoading={isLoading}
-            onPress={onPress}
+            onPress={onSubmit}
           >
             {intl.formatMessage({
               id: 'action__done',
