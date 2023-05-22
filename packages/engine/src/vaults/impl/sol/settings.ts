@@ -19,6 +19,7 @@ const settings: IVaultSettings = Object.freeze({
 
   isUTXOModel: false,
   supportBatchTransfer: true,
+  nativeSupportBatchTransfer: true,
   maxActionsInTx: 8,
 
   accountNameInfo: {
