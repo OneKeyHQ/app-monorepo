@@ -9,13 +9,9 @@ import { NetworkSelectorTrigger } from './NetworkSelectorTrigger';
 
 import type { INetworkAccountSelectorTriggerProps } from './BaseSelectorTrigger';
 
-const defaultProps = {
-  type: 'plain',
-} as const;
-
 const NetworkAccountSelectorTrigger: FC<
   INetworkAccountSelectorTriggerProps
-> = ({ type, bg, mode }) => {
+> = ({ type = 'plain', bg, mode, iconSize, labelTypography }) => {
   const { wallet } = useActiveWalletAccount();
   const isVerticalLayout = useIsVerticalLayout();
 
@@ -26,6 +22,7 @@ const NetworkAccountSelectorTrigger: FC<
   return (
     <HStack space={2} alignItems="center">
       <NetworkSelectorTrigger
+        iconSize={iconSize}
         type={type}
         bg={bg}
         mode={mode}
@@ -35,13 +32,12 @@ const NetworkAccountSelectorTrigger: FC<
         type={type}
         bg={bg}
         mode={mode}
+        labelTypography={labelTypography}
         showAddress={!isVerticalLayout}
       />
     </HStack>
   );
 };
-
-NetworkAccountSelectorTrigger.defaultProps = defaultProps;
 
 function NetworkAccountSelectorTriggerDesktop(
   props: INetworkAccountSelectorTriggerProps,

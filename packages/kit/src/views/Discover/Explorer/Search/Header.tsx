@@ -70,6 +70,7 @@ const Header: FC<HeaderProps> = ({
         autoFocus
         selectTextOnFocus
         value={keyword}
+        keyboardType="url"
         onClear={() => onChange('')}
         onChangeText={(text) => onChange(text)}
         onSubmitEditing={(event) => {
