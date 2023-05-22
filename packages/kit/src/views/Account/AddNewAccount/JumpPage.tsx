@@ -69,14 +69,14 @@ const JumpPageDialog: FC<IJumpPageDialogProps> = ({
               pattern: {
                 value: /^[0-9]*$/,
                 message: intl.formatMessage({
-                  id: 'msg__enter_a_number',
+                  id: 'form__field_only_integer',
                 }),
               },
               validate: (value) => {
                 const pageNumber = parseInt(value);
                 if (pageNumber <= 0) {
                   return intl.formatMessage({
-                    id: 'msg__enter_a_number',
+                    id: 'form__field_only_integer',
                   });
                 }
                 if (pageNumber > maxPage) {
