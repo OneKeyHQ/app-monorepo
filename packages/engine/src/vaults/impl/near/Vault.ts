@@ -719,11 +719,35 @@ export default class Vault extends VaultBase {
             finality: cli.defaultFinality,
           },
         );
-        return new BigNumber(amount).minus(
-          (await this.getStorageAmountPerByte()).times(storageUsage),
-        );
+        return new BigNumber(amount);
       },
     );
+  }
+
+  override async getFrozenBalance() {
+    const cli = await this._getNearCli();
+    const address = await this.getAccountAddress();
+    const { decimals } = await this.engine.getNativeTokenInfo(this.networkId);
+    try {
+      const {
+        storage_usage: storageUsage,
+      }: { amount: string; storage_usage: number } = await cli.rpc.call(
+        'query',
+        {
+          request_type: 'view_account',
+          account_id: address,
+          finality: cli.defaultFinality,
+        },
+      );
+      return {
+        'main': new BigNumber(await this.getStorageAmountPerByte())
+          .times(storageUsage)
+          .shiftedBy(-decimals)
+          .toNumber(),
+      };
+    } catch {
+      return 0;
+    }
   }
 
   override async getClientEndpointStatus(
