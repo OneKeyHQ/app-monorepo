@@ -5746,7 +5746,6 @@ __metadata:
     "@onekeyhq/kit": "*"
     expo: ^48.0.17
     firebase: ^9.8.2
-    moti: ^0.24.2
     react-native-web: 0.18.10
   languageName: unknown
   linkType: soft
@@ -23832,17 +23831,6 @@ __metadata:
   version: 1.1.0
   resolution: "modify-filename@npm:1.1.0"
   checksum: a1d104cf99ade063c05c79e4db47ef6263a116386568d7661ae4a00a390da72d5944070a64dba09867231a8eb6cbab57498ada99cb4b5ae0fded10831995079b
-  languageName: node
-  linkType: hard
-
-"moti@npm:^0.24.2":
-  version: 0.24.2
-  resolution: "moti@npm:0.24.2"
-  dependencies:
-    framer-motion: ^6.5.1
-  peerDependencies:
-    react-native-reanimated: "*"
-  checksum: c93a403a11d5023782a95b2a0eb4c56842dbcd2c8e38e758c6439f0496d04e3f03a199939370b9855333af8251e7958a0f1e2c465cb1a1c6564d122adb3afe58
   languageName: node
   linkType: hard
 
