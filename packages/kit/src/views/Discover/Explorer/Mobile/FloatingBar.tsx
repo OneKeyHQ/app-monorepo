@@ -60,7 +60,7 @@ const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
       flexDirection="row"
       alignItems="center"
       justifyContent="space-between"
-      pb="7px"
+      // pb="7px"
     >
       <Icon name="ChevronDownMini" color="icon-subdued" />
       <Pressable
@@ -72,20 +72,25 @@ const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
         borderColor="border-default"
         ml="12px"
         px="5px"
-        py="5px"
+        // my="5px"
         flexDirection="row"
         alignItems="center"
         onPress={onSearch}
       >
-        <Typography.Body1
+        <Typography.Body2
           mx="6px"
           flex="1"
           color="text-subdued"
           numberOfLines={1}
         >
           {tab?.url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')}
-        </Typography.Body1>
-        <NetworkAccountSelectorTriggerMobile bg="surface-neutral-default" />
+        </Typography.Body2>
+        <NetworkAccountSelectorTriggerMobile
+          bg="surface-neutral-default"
+          type="plain"
+          labelTypography="CaptionStrong"
+          iconSize={5}
+        />
       </Pressable>
     </Box>
   );
