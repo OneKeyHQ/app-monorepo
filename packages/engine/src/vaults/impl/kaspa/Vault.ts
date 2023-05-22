@@ -467,6 +467,47 @@ export default class Vault extends VaultBase {
 
       try {
         const { inputs, outputs } = tx;
+        const actions = [];
+
+        const senderExistsInput = inputs.find(
+          (input) => input.previous_outpoint_address === dbAccount.address,
+        );
+        const receiverExistsOutput = outputs.find(
+          (output) => output.script_public_key_address === dbAccount.address,
+        );
+
+        let from = '';
+        let to = '';
+        if (receiverExistsOutput && !senderExistsInput) {
+          // receive
+          from = inputs[0].previous_outpoint_address;
+          to = dbAccount.address;
+        } else if (senderExistsInput && receiverExistsOutput) {
+          // send and send self
+          from = dbAccount.address;
+
+          const filterInputs = inputs.filter(
+            (input) => input.previous_outpoint_address !== dbAccount.address,
+          );
+
+          if (filterInputs.length > 0) {
+            to = filterInputs[0].previous_outpoint_address;
+          } else {
+            to = dbAccount.address;
+          }
+        } else {
+          // continue;
+          return await Promise.resolve(null);
+        }
+
+        const currentOutput = outputs.find(
+          (output) => output.script_public_key_address === to,
+        );
+
+        if (!currentOutput) {
+          return await Promise.resolve(null);
+        }
+
         const nativeTransfer: IDecodedTxActionNativeTransfer = {
           tokenInfo: token,
           utxoFrom: inputs.map((input) => ({
@@ -487,14 +528,18 @@ export default class Vault extends VaultBase {
             symbol,
             isMine: output.script_public_key_address === dbAccount.address,
           })),
-          from: inputs[0].previous_outpoint_address,
-          to: outputs[0].script_public_key_address,
-          amount: new BigNumber(outputs[0].amount.toString())
+          from,
+          to,
+          amount: new BigNumber(currentOutput.amount.toString())
             .shiftedBy(-decimals)
             .toFixed(),
-          amountValue: outputs[0].amount.toString(),
+          amountValue: currentOutput.amount.toString(),
           extraInfo: null,
         };
+        actions.push({
+          type: IDecodedTxActionType.NATIVE_TRANSFER,
+          nativeTransfer,
+        });
 
         let nativeFee = '';
         try {
@@ -521,12 +566,7 @@ export default class Vault extends VaultBase {
           owner: dbAccount.address,
           signer: dbAccount.address,
           nonce: 0,
-          actions: [
-            {
-              type: IDecodedTxActionType.NATIVE_TRANSFER,
-              nativeTransfer,
-            },
-          ],
+          actions,
           status: new BigNumber(blockNumber)
             .minus(tx.accepting_block_blue_score)
             .isGreaterThanOrEqualTo(CONFIRMATION_COUNT)
