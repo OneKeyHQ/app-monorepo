@@ -124,7 +124,7 @@ export const ShareView = () => {
                 >
                   <Box bg="white" p="6" borderRadius={24}>
                     <QRCode
-                      value="https://onekey.so/download"
+                      value={url || "https://onekey.so/download"}
                       size={256}
                       logoBackgroundColor="white"
                       {...props}
