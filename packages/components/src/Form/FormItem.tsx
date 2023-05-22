@@ -31,6 +31,7 @@ type FormItemProps = {
   successMessage?: string | undefined;
   warningMessage?: string | undefined;
   errorMessage?: string | undefined;
+  isValidating?: boolean;
   onLabelAddonPress?: () => void;
   children?: ReactElement<any>;
   formControlProps?: ComponentProps<typeof FormControl>;
@@ -50,6 +51,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
   labelAddon,
   isLabelAddonActions,
   onLabelAddonPress,
+  isValidating,
   ...props
 }: Omit<ControllerProps<TFieldValues>, 'render'> & FormItemProps) {
   const handleCopied = useCallback(async (callback: (c: string) => void) => {
@@ -199,6 +201,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
             {successMessage ? (
               <FormControlMessage type="success" message={successMessage} />
             ) : null}
+            {isValidating ? <Box height={7} /> : null}
           </FormControl>
         );
       }}
