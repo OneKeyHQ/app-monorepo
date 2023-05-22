@@ -179,7 +179,7 @@ class RealmDB implements DBAPI {
     }
   }
 
-  getContext(): Promise<OneKeyContext | null> {
+  getContext(): Promise<OneKeyContext | null | undefined> {
     try {
       const context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
@@ -193,7 +193,7 @@ class RealmDB implements DBAPI {
   }
 
   updatePassword(oldPassword: string, newPassword: string): Promise<void> {
-    let context: ContextSchema | null;
+    let context: ContextSchema | null | undefined;
     try {
       context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
@@ -271,7 +271,7 @@ class RealmDB implements DBAPI {
   }
 
   getBackupUUID(): Promise<string> {
-    let context: ContextSchema | null;
+    let context: ContextSchema | null | undefined;
     try {
       context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
@@ -1046,7 +1046,7 @@ class RealmDB implements DBAPI {
     avatar,
     nextAccountIds = {},
   }: CreateHDWalletParams): Promise<Wallet> {
-    let context: ContextSchema | null;
+    let context: ContextSchema | null | undefined;
     try {
       context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
