@@ -177,43 +177,33 @@ export function TxActionTokenApproveT0(props: ITxActionCardProps) {
     <TxStatusBarInList decodedTx={decodedTx} historyTx={historyTx} />
   );
 
-  const approveTitle = useMemo(() => {
-    const titleInfo = meta?.titleInfo;
-    let title;
+  const amountText = useMemo((): string => {
     const amountBN = new BigNumber(amount);
-    if (titleInfo?.titleKey) {
-      title = intl.formatMessage({ id: titleInfo?.titleKey });
-    }
-    if (titleInfo?.title) {
-      title = titleInfo?.title;
-    }
-    if (title) {
-      if (amountBN && amount) {
-        let amountText = amount;
 
-        if (!isNil(displayDecimals) && !amountBN.isNaN()) {
-          amountText =
-            formatBalanceDisplay(amount, '', {
-              fixed: displayDecimals,
-            })?.amount || amount;
-        }
-        return {
-          title: `${title} ${amountText} ${symbol}`,
-        };
-      }
-
-      return {
-        title,
-      };
+    if (!amountBN || !amount) {
+      return '';
     }
-  }, [amount, displayDecimals, intl, meta?.titleInfo, symbol]);
+    if (!isNil(displayDecimals) && !amountBN.isNaN()) {
+      return (
+        formatBalanceDisplay(amount, '', {
+          fixed: displayDecimals,
+        })?.amount || amount
+      );
+    }
+    return amount;
+  }, [amount, displayDecimals]);
 
   return (
     <TxListActionBox
       symbol={symbol}
       footer={statusBar}
       iconInfo={meta?.iconInfo}
-      titleInfo={approveTitle}
+      titleInfo={{
+        title: intl.formatMessage(
+          { id: 'form__approve_str' },
+          { 0: `${amountText} ${symbol}` },
+        ),
+      }}
       subTitle={shortenAddress(spender)}
     />
   );
