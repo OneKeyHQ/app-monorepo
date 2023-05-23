@@ -83,6 +83,11 @@ export function SendFeedbackReceipt() {
     if (type === 'Send') {
       return intl.formatMessage({ id: 'modal__transaction_submitted' });
     }
+    if (type === 'SendUnconfirmed') {
+      return intl.formatMessage({
+        id: 'modal__transaction_submitted_unconfirmed',
+      });
+    }
     return intl.formatMessage({ id: 'msg__signature_done' });
   }, [intl, type]);
 
