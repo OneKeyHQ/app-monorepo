@@ -1,9 +1,14 @@
+import { useMemo } from 'react';
+
 import { useNavigation } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Typography } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
+import { formatBalanceDisplay } from '../../../components/Format';
 import { SendModalRoutes } from '../../Send/types';
 import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../../Send/utils/sendConfirmConsts';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
@@ -171,23 +176,45 @@ export function TxActionTokenApproveT0(props: ITxActionCardProps) {
   const statusBar = (
     <TxStatusBarInList decodedTx={decodedTx} historyTx={historyTx} />
   );
+
+  const approveTitle = useMemo(() => {
+    const titleInfo = meta?.titleInfo;
+    let title;
+    const amountBN = new BigNumber(amount);
+    if (titleInfo?.titleKey) {
+      title = intl.formatMessage({ id: titleInfo?.titleKey });
+    }
+    if (titleInfo?.title) {
+      title = titleInfo?.title;
+    }
+    if (title) {
+      if (amountBN && amount) {
+        let amountText = amount;
+
+        if (!isNil(displayDecimals) && !amountBN.isNaN()) {
+          amountText =
+            formatBalanceDisplay(amount, '', {
+              fixed: displayDecimals,
+            })?.amount || amount;
+        }
+        return {
+          title: `${title} ${amountText} ${symbol}`,
+        };
+      }
+
+      return {
+        title,
+      };
+    }
+  }, [amount, displayDecimals, intl, meta?.titleInfo, symbol]);
+
   return (
     <TxListActionBox
       symbol={symbol}
       footer={statusBar}
       iconInfo={meta?.iconInfo}
-      titleInfo={meta?.titleInfo}
+      titleInfo={approveTitle}
       subTitle={shortenAddress(spender)}
-      content={
-        <TxActionElementAmountNormal
-          textAlign="right"
-          justifyContent="flex-end"
-          amount={amount}
-          symbol={symbol}
-          decimals={displayDecimals}
-          direction={undefined}
-        />
-      }
     />
   );
 }
