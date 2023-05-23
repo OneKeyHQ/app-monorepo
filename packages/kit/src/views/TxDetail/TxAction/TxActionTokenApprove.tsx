@@ -1,9 +1,14 @@
+import { useMemo } from 'react';
+
 import { useNavigation } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Typography } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
+import { formatBalanceDisplay } from '../../../components/Format';
 import { SendModalRoutes } from '../../Send/types';
 import { IS_REPLACE_ROUTE_TO_FEE_EDIT } from '../../Send/utils/sendConfirmConsts';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
@@ -171,23 +176,35 @@ export function TxActionTokenApproveT0(props: ITxActionCardProps) {
   const statusBar = (
     <TxStatusBarInList decodedTx={decodedTx} historyTx={historyTx} />
   );
+
+  const amountText = useMemo((): string => {
+    const amountBN = new BigNumber(amount);
+
+    if (!amountBN || !amount) {
+      return '';
+    }
+    if (!isNil(displayDecimals) && !amountBN.isNaN()) {
+      return (
+        formatBalanceDisplay(amount, '', {
+          fixed: displayDecimals,
+        })?.amount || amount
+      );
+    }
+    return amount;
+  }, [amount, displayDecimals]);
+
   return (
     <TxListActionBox
       symbol={symbol}
       footer={statusBar}
       iconInfo={meta?.iconInfo}
-      titleInfo={meta?.titleInfo}
+      titleInfo={{
+        title: intl.formatMessage(
+          { id: 'form__approve_str' },
+          { 0: `${amountText} ${symbol}` },
+        ),
+      }}
       subTitle={shortenAddress(spender)}
-      content={
-        <TxActionElementAmountNormal
-          textAlign="right"
-          justifyContent="flex-end"
-          amount={amount}
-          symbol={symbol}
-          decimals={displayDecimals}
-          direction={undefined}
-        />
-      }
     />
   );
 }

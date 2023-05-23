@@ -50,13 +50,13 @@ We really need your support, star or watch this repo for latest updates.
 After pulling the latest code via the git command line tool, install the project dependencies in the root directory via the `yarn` command
 
 ```
-# Install all JS dependencies and submodule dependencies
-
-yarn
-
-# Install the expo command line tool globally
+# Install the expo command line tool globally at first.(Be careful not to modify the version, it may cause compilation failure.)
 
 npm install -g expo-cli@6.0.8
+
+# Next, install all JS dependencies and submodule dependencies.
+
+yarn
 ```
 
 ## 🧑‍💻 Develop
