@@ -276,7 +276,12 @@ const UpdateInfoModal: FC = () => {
           if (shouldUpdateBridge?.shouldUpdate) {
             navigation.goBack();
             setTimeout(() => {
-              showDialog(<NeedBridgeDialog />);
+              showDialog(
+                <NeedBridgeDialog
+                  update
+                  version={shouldUpdateBridge.version ?? ''}
+                />,
+              );
             }, 200);
             return;
           }
