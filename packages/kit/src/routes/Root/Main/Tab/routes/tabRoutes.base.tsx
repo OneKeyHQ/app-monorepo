@@ -37,7 +37,7 @@ export const tabRoutesConfigBaseMap: Record<TabRoutes, TabRouteConfigBase> = {
     name: TabRoutes.Swap,
     tabBarIcon: (focused) =>
       focused ? 'ArrowsRightLeftOutline' : 'ArrowsRightLeftOutline',
-    translationId: 'title__Swap_Bridge',
+    translationId: 'title__swap',
     hideDesktopNavHeader: true,
     hideMobileNavHeader: true,
   },

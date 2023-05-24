@@ -3,9 +3,11 @@
 import { useMemo } from 'react';
 
 import { CommonActions, useNavigation } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 import { Platform, StyleSheet } from 'react-native';
 
 import {
+  Text,
   useIsVerticalLayout,
   useSafeAreaInsets,
   useUserDevice,
@@ -25,6 +27,7 @@ import Icon from '../../Icon';
 import Pressable from '../../Pressable';
 
 import type { ICON_NAMES } from '../../Icon/Icons';
+import type { LocaleIds } from '../../locale';
 import type { DeviceState } from '../../Provider/device';
 import type { BottomTabBarProps } from '../BottomTabs/types';
 import type { EdgeInsets } from 'react-native-safe-area-context';
@@ -57,6 +60,7 @@ export default function MobileBottomTabBar({
   const { size } = useUserDevice();
   const insets = useSafeAreaInsets();
   const { routes } = state;
+  const intl = useIntl();
 
   const isHide = !inlineMode && platformEnv.isNewRouteMode;
 
@@ -112,6 +116,8 @@ export default function MobileBottomTabBar({
           }
         };
 
+        // @ts-expect-error
+        const translationId = options?.translationId as LocaleIds;
         return (
           <Box
             testID="Mobile-AppTabBar-TabItem"
@@ -147,6 +153,16 @@ export default function MobileBottomTabBar({
                 color={isActive ? 'icon-default' : 'icon-subdued'}
                 size={28}
               />
+              {translationId && platformEnv.isNative && (
+                <Text
+                  typography="Caption"
+                  color={isActive ? 'text-default' : 'text-subdued'}
+                  fontSize={11}
+                  numberOfLines={1}
+                >
+                  {intl.formatMessage({ id: translationId })}
+                </Text>
+              )}
             </Pressable>
           </Box>
         );
@@ -156,6 +172,7 @@ export default function MobileBottomTabBar({
       descriptors,
       horizontal,
       inlineMode,
+      intl,
       isHide,
       isVertical,
       navigation,
