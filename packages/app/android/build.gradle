@@ -5,7 +5,7 @@ project.ext {
       // Overriding Library SDK Versions
       firebase: [
         // Override Firebase SDK Version
-        bom           : "29.2.1"
+        bom           : "31.4.0"
       ],
     ],
   ])
@@ -20,7 +20,7 @@ buildscript {
 
         // We use NDK 23 which has both M1 support and is the side-by-side NDK version from AGP.
         ndkVersion = "23.1.7779620"
-        kotlinVersion = '1.5.31'
+        kotlinVersion = '1.8.10'
         kotlin_version = kotlinVersion 
     }
     repositories {
@@ -28,11 +28,11 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath('com.android.tools.build:gradle:7.3.1')
+        classpath('com.android.tools.build:gradle:7.4.2')
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
-        classpath 'com.google.gms:google-services:4.3.10'
+        classpath 'com.google.gms:google-services:4.3.15'
         classpath 'com.google.firebase:perf-plugin:1.4.2'
-        classpath 'com.google.firebase:firebase-crashlytics-gradle:2.8.1'
+        classpath 'com.google.firebase:firebase-crashlytics-gradle:2.9.5'
         classpath("com.facebook.react:react-native-gradle-plugin")
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
