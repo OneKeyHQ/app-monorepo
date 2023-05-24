@@ -10,6 +10,7 @@ import {
   handleDisplayPassphraseWallet,
 } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   AccountAlreadyExists,
@@ -162,6 +163,24 @@ class RealmDB implements DBAPI {
           });
         }
         this.realm = realm;
+        if (
+          platformEnv.isDev &&
+          platformEnv.isNative &&
+          // @ts-ignore
+          !global.$$realmPluginInited
+        ) {
+          const RootSiblingsManager = (
+            require('react-native-root-siblings') as typeof import('react-native-root-siblings')
+          ).default;
+          const RealmPlugin = (
+            require('realm-flipper-plugin-device') as typeof import('realm-flipper-plugin-device')
+          ).default;
+          // eslint-disable-next-line no-new
+          new RootSiblingsManager(<RealmPlugin realms={[realm]} />);
+          console.log('realm plugin inited');
+          // @ts-ignore
+          global.$$realmPluginInited = true;
+        }
       })
       .catch((error: any) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
