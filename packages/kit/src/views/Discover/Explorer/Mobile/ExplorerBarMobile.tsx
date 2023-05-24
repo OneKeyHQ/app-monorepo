@@ -30,7 +30,7 @@ const ExplorerBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
         alignItems="center"
       >
         <Icon name="MagnifyingGlassMini" size={20} color="icon-subdued" />
-        <Typography.Body1
+        <Typography.Body2
           flex={1}
           h="full"
           color="text-subdued"
@@ -40,7 +40,7 @@ const ExplorerBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
           {intl.formatMessage({
             id: 'content__search_dapps_or_type_url',
           })}
-        </Typography.Body1>
+        </Typography.Body2>
       </Pressable>
       <Pressable
         h="42px"

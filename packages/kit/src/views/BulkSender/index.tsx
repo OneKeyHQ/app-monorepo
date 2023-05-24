@@ -15,7 +15,6 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { useNativeToken } from '@onekeyhq/kit/src/hooks';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
@@ -39,11 +38,11 @@ function BulkSender() {
     useActiveWalletAccount();
 
   const isSupported =
-    !network?.isTestnet &&
     network?.enabled &&
     network?.settings.supportBatchTransfer &&
-    (network.impl !== IMPL_EVM ||
-      (network.impl === IMPL_EVM && batchTransferContractAddress[network.id]));
+    (network?.settings.nativeSupportBatchTransfer
+      ? true
+      : batchTransferContractAddress[networkId]);
 
   const nativeToken = useNativeToken(networkId);
 

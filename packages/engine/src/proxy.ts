@@ -22,7 +22,6 @@ import {
 } from '@onekeyhq/engine/src/secret';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { ChainInfo } from '@onekeyhq/engine/src/types/chain';
-import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type {
   Signer as ISigner,
@@ -45,7 +44,6 @@ import { getCurveByImpl } from './managers/impl';
 import { getMetaMaskGasInfo } from './managers/metaMask';
 import { getPresetNetworks } from './presets';
 import { IMPL_MAPPINGS, fillUnsignedTx, fillUnsignedTxObj } from './proxyUtils';
-import { HistoryEntryStatus } from './types/history';
 import { getRpcUrlFromChainInfo } from './vaults/utils/btcForkChain/provider/blockbook';
 
 import type { BlockNativeGasInfo } from './types/blockNative';
@@ -324,11 +322,14 @@ class ProviderController extends BaseProviderController {
     );
   }
 
-  async getGasInfo(networkId: string): Promise<{
-    prices: Array<BigNumber | EIP1559Fee>;
-    networkCongestion?: number;
-    estimatedTransactionCount?: number;
-  }> {
+  async getGasInfo(networkId: string): Promise<
+    | {
+        prices: Array<BigNumber | EIP1559Fee>;
+        networkCongestion?: number;
+        estimatedTransactionCount?: number;
+      }
+    | undefined
+  > {
     // TODO: move this into libs.
     const { EIP1559Enabled } =
       (await this.getProvider(networkId)).chainInfo.implOptions || {};
@@ -387,12 +388,14 @@ class ProviderController extends BaseProviderController {
     } else {
       const count = 3;
       const result = await this.getFeePricePerUnit(networkId);
-      return {
-        prices: [result.normal, ...(result.others || [])]
-          .sort((a, b) => (a.price.gt(b.price) ? 1 : -1))
-          .map((p) => p.price)
-          .slice(0, count),
-      };
+      if (result) {
+        return {
+          prices: [result.normal, ...(result.others || [])]
+            .sort((a, b) => (a.price.gt(b.price) ? 1 : -1))
+            .map((p) => p.price)
+            .slice(0, count),
+        };
+      }
     }
   }
 
@@ -441,33 +444,6 @@ class ProviderController extends BaseProviderController {
           }
         });
     });
-  }
-
-  async refreshPendingTxs(
-    networkId: string,
-    pendingTxs: Array<{ id: string }>,
-  ): Promise<Record<string, HistoryEntryStatus>> {
-    if (pendingTxs.length === 0) {
-      return {};
-    }
-
-    const ret: Record<string, HistoryEntryStatus> = {};
-    const regex = new RegExp(`^${networkId}${SEPERATOR}`);
-    const updatedStatuses = await this.getTransactionStatuses(
-      networkId,
-      pendingTxs.map((tx) => tx.id.replace(regex, '')),
-    );
-
-    updatedStatuses.forEach((status, index) => {
-      const { id } = pendingTxs[index];
-      if (status === TransactionStatus.CONFIRM_AND_SUCCESS) {
-        ret[id] = HistoryEntryStatus.SUCCESS;
-      } else if (status === TransactionStatus.CONFIRM_BUT_FAILED) {
-        ret[id] = HistoryEntryStatus.FAILED;
-      }
-    });
-
-    return ret;
   }
 
   // Wrap to throw JSON RPC errors
