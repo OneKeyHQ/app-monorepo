@@ -10,10 +10,6 @@ include ':app'
 include ':lib-keys-secret'
 includeBuild('../../../node_modules/react-native-gradle-plugin')
 
-if (settings.hasProperty("newArchEnabled") && settings.newArchEnabled == "true") {
-    include(":ReactAndroid")
-    project(":ReactAndroid").projectDir = file('../../../node_modules/react-native/ReactAndroid')
-}
 include ':lib-tabview'
 
 include ':jpush-react-native'

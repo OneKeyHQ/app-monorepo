@@ -92,8 +92,8 @@ const ScanQrcode: FC = () => {
       allowsMultipleSelection: false,
     });
 
-    if (!result.cancelled) {
-      const data = await scanFromURLAsync(result.uri);
+    if (!result.canceled) {
+      const data = await scanFromURLAsync(result.assets[0].uri);
       if (data) handleBarCodeScanned(data);
     }
   }, [handleBarCodeScanned]);

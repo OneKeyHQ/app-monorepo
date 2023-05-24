@@ -267,10 +267,7 @@ class Engine {
       }
 
       const context = await this.dbApi.getContext();
-      if (
-        typeof context !== 'undefined' &&
-        context.networkOrderChanged === true
-      ) {
+      if (context && context.networkOrderChanged === true) {
         return;
       }
 
@@ -2745,19 +2742,13 @@ class Engine {
   @backgroundMethod()
   async isMasterPasswordSet(): Promise<boolean> {
     const context = await this.dbApi.getContext();
-    return (
-      typeof context !== 'undefined' &&
-      context.verifyString !== DEFAULT_VERIFY_STRING
-    );
+    return context?.verifyString !== DEFAULT_VERIFY_STRING;
   }
 
   @backgroundMethod()
   async verifyMasterPassword(password: string): Promise<boolean> {
     const context = await this.dbApi.getContext();
-    if (
-      typeof context !== 'undefined' &&
-      context.verifyString !== DEFAULT_VERIFY_STRING
-    ) {
+    if (context && context.verifyString !== DEFAULT_VERIFY_STRING) {
       return checkPassword(context, password);
     }
     return true;

@@ -24,6 +24,12 @@
             }
           ]
         }
+      },
+      {
+        "name": "removeAttrs",
+        "params": {
+          "attrs": "aria-hidden"
+        }
       }
     ]
   }

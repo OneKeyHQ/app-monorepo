@@ -101,7 +101,7 @@ export const ReplyTicket: FC = () => {
   );
 
   const pickImage = useCallback(async () => {
-    const result = await launchImageLibraryAsync({
+    const results = await launchImageLibraryAsync({
       mediaTypes: MediaTypeOptions.Images,
       allowsEditing: false,
       base64: true,
@@ -109,9 +109,10 @@ export const ReplyTicket: FC = () => {
       quality: 0.3,
     });
 
-    if (!result.cancelled) {
+    if (!results.canceled) {
       const tempName = uuid.v4() as string;
       const imagename = `${tempName}.png`;
+      const result = results.assets[0];
       const image: ImageModel = {
         loading: true,
         localPath: result.uri,

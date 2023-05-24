@@ -102,7 +102,7 @@ export const DEFAULT_RPC_ENDPOINT_TO_CLEAR: Record<string, string> = {
 };
 
 function checkPassword(context: OneKeyContext, password: string): boolean {
-  if (typeof context === 'undefined') {
+  if (!context) {
     console.error('Unable to get main context.');
     return false;
   }
@@ -119,7 +119,7 @@ function checkPassword(context: OneKeyContext, password: string): boolean {
   }
 }
 interface DBAPI {
-  getContext(): Promise<OneKeyContext | undefined>;
+  getContext(): Promise<OneKeyContext | null | undefined>;
   updatePassword(oldPassword: string, newPassword: string): Promise<void>;
   reset(): Promise<void>;
 

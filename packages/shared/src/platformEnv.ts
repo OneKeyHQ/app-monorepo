@@ -128,7 +128,7 @@ const isDesktopLinuxSnap =
 const isNativeIOS = isNative && Platform.OS === 'ios';
 const isNativeIOSStore = isNativeIOS && isProduction;
 const isNativeIOSPhone =
-  isNative && Platform.OS === 'ios' && !Platform.isPad && !Platform.isTVOS;
+  isNative && Platform.OS === 'ios' && !Platform.isPad && !Platform.isTV;
 const isNativeIOSPad = isNative && Platform.OS === 'ios' && Platform.isPad;
 const isNativeIOSPadStore = isNativeIOSPad && isProduction;
 const isNativeAndroid = isNative && Platform.OS === 'android';

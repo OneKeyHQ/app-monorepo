@@ -5,7 +5,7 @@ import AnimatedLottieView from 'lottie-react-native';
 import { AppState } from 'react-native';
 
 import type { LottieComponentProps as LottieWebProps } from 'lottie-react';
-import type { AnimatedLottieViewProps as LottieNativeProps } from 'lottie-react-native';
+import type { AnimatedLottieViewProps as LottieNativeProps } from 'lottie-react-native/src/LottieView.types';
 import type { AppStateStatus } from 'react-native';
 
 // Stick props the same as LottieNative by now
