@@ -18,6 +18,7 @@ import {
   ToastManager,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import type { ICON_NAMES } from '@onekeyhq/components/src/Icon';
 import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
 import type {
@@ -101,42 +102,32 @@ const WalletBackupItem = ({
 };
 
 const GenericBackupItem = ({
-  category,
+  iconName,
   name,
   address,
 }: {
-  category: 'importedAccount' | 'watchingAccount' | 'contact';
+  iconName: ICON_NAMES;
   name: string;
   address: string;
-}) => {
-  let iconName: 'EyeOutline' | 'InboxArrowDownOutline' | 'BookOpenOutline' =
-    'EyeOutline';
-  if (category === 'contact') {
-    iconName = 'BookOpenOutline';
-  } else if (category === 'importedAccount') {
-    iconName = 'InboxArrowDownOutline';
-  }
-
-  return (
-    <Box
-      display="flex"
-      flexDirection="row"
-      justifyContent="space-between"
-      alignItems="center"
-      py={1}
-    >
-      <Center rounded="full" size="8" bgColor="surface-neutral-default">
-        <Icon name={iconName} size={20} color="icon-default" />
-      </Center>
-      <Text px="4" typography="Body2Strong" flex="1" isTruncated>
-        {name}
-      </Text>
-      <Text typography="Body2" color="text-subdued">
-        {address}
-      </Text>
-    </Box>
-  );
-};
+}) => (
+  <Box
+    display="flex"
+    flexDirection="row"
+    justifyContent="space-between"
+    alignItems="center"
+    py={1}
+  >
+    <Center rounded="full" size="8" bgColor="surface-neutral-default">
+      <Icon name={iconName} size={20} color="icon-default" />
+    </Center>
+    <Text px="4" typography="Body2Strong" flex="1" isTruncated>
+      {name}
+    </Text>
+    <Text typography="Body2" color="text-subdued">
+      {address}
+    </Text>
+  </Box>
+);
 
 export const GroupedBackupDetails = ({
   onDevice,
@@ -162,6 +153,8 @@ export const GroupedBackupDetails = ({
     .map(([uuid, info]) => ({ uuid, ...info }))
     .sort((a, b) => natsort({ insensitive: true })(a.name, b.name));
 
+  const utxos = publicBackupData?.simpleDb?.utxoAccounts?.utxos;
+
   return (
     <Box my={4} mx={12}>
       {showTitle && (
@@ -183,7 +176,7 @@ export const GroupedBackupDetails = ({
       ))}
       {importedAccountsData.map(({ uuid, name, address }) => (
         <GenericBackupItem
-          category="importedAccount"
+          iconName="InboxArrowDownOutline"
           name={name}
           address={address}
           key={uuid}
@@ -191,7 +184,7 @@ export const GroupedBackupDetails = ({
       ))}
       {watchingAccountsData.map(({ uuid, name, address }) => (
         <GenericBackupItem
-          category="watchingAccount"
+          iconName="EyeOutline"
           name={name}
           address={address}
           key={uuid}
@@ -199,12 +192,26 @@ export const GroupedBackupDetails = ({
       ))}
       {contactsData.map(({ uuid, name, address }) => (
         <GenericBackupItem
-          category="contact"
+          iconName="BookOpenOutline"
           name={name}
           address={address}
           key={uuid}
         />
       ))}
+      {utxos?.length && (
+        <GenericBackupItem
+          iconName="TagOutline"
+          name={intl.formatMessage({
+            id: 'form__utxo_label',
+          })}
+          address={intl.formatMessage(
+            {
+              id: 'content__int_items',
+            },
+            { 0: utxos?.length },
+          )}
+        />
+      )}
     </Box>
   );
 };
@@ -249,6 +256,17 @@ const BackupActions = ({
     </Box>
   );
 };
+
+export function checkHasRemoteData(notOnDevice: PublicBackupData): boolean {
+  if (notOnDevice?.simpleDb?.utxoAccounts?.utxos.length) {
+    return true;
+  }
+  return (
+    Object.entries(notOnDevice).filter(
+      ([key, value]) => key !== 'simpleDb' && Object.keys(value).length > 0,
+    ).length > 0
+  );
+}
 
 const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
   const intl = useIntl();
@@ -327,12 +345,7 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
             (o) => Object.keys(o).length > 0,
           ),
         );
-        setHasRemoteData(
-          Object.entries(backupDetails.notOnDevice).filter(
-            ([key, value]) =>
-              key !== 'simpleDb' && Object.keys(value).length > 0,
-          ).length > 0,
-        );
+        setHasRemoteData(checkHasRemoteData(backupDetails.notOnDevice));
         setDataReady(false);
       });
   }, [setDataReady, serviceCloudBackup, backupUUID]);
