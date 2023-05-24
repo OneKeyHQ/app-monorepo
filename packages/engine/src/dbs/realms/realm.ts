@@ -128,7 +128,7 @@ class RealmDB implements DBAPI {
         CustomFeeSchema,
       ],
       schemaVersion: SCHEMA_VERSION,
-      migration: (oldRealm, newRealm) => {
+      onMigration: (oldRealm: Realm, newRealm: Realm) => {
         if (oldRealm.schemaVersion < 13) {
           const networks = newRealm.objects<NetworkSchema>('Network');
           for (const network of networks) {
@@ -152,7 +152,7 @@ class RealmDB implements DBAPI {
           'Context',
           MAIN_CONTEXT,
         );
-        if (typeof context === 'undefined') {
+        if (!context) {
           realm.write(() => {
             realm.create('Context', {
               id: 'mainContext',
@@ -179,15 +179,13 @@ class RealmDB implements DBAPI {
     }
   }
 
-  getContext(): Promise<OneKeyContext | undefined> {
+  getContext(): Promise<OneKeyContext | null | undefined> {
     try {
       const context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
         MAIN_CONTEXT,
       );
-      return Promise.resolve(
-        typeof context !== 'undefined' ? context.internalObj : context,
-      );
+      return Promise.resolve(context ? context.internalObj : context);
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -195,13 +193,13 @@ class RealmDB implements DBAPI {
   }
 
   updatePassword(oldPassword: string, newPassword: string): Promise<void> {
-    let context: ContextSchema | undefined;
+    let context: ContextSchema | null | undefined;
     try {
       context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
         MAIN_CONTEXT,
       );
-      if (typeof context === 'undefined') {
+      if (!context) {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
       }
       if (!checkPassword(context.internalObj, oldPassword)) {
@@ -273,7 +271,7 @@ class RealmDB implements DBAPI {
   }
 
   getBackupUUID(): Promise<string> {
-    let context: ContextSchema | undefined;
+    let context: ContextSchema | null | undefined;
     try {
       context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
@@ -304,7 +302,7 @@ class RealmDB implements DBAPI {
         'Context',
         MAIN_CONTEXT,
       );
-      if (typeof context === 'undefined') {
+      if (!context) {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
       }
       if (!checkPassword(context.internalObj, password)) {
@@ -348,7 +346,7 @@ class RealmDB implements DBAPI {
         'Network',
         network.id,
       );
-      if (typeof networkFind !== 'undefined') {
+      if (networkFind) {
         return Promise.reject(
           new OneKeyInternalError(`Network ${network.id} already exist.`),
         );
@@ -392,7 +390,7 @@ class RealmDB implements DBAPI {
     const network =
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       this.realm!.objectForPrimaryKey<NetworkSchema>('Network', networkId);
-    if (typeof network === 'undefined') {
+    if (!network) {
       return Promise.reject(
         new OneKeyInternalError(`Network ${networkId} not found.`),
       );
@@ -443,7 +441,7 @@ class RealmDB implements DBAPI {
           );
         });
         if (orderChanged && !syncingDefault) {
-          if (typeof context !== 'undefined') {
+          if (context) {
             context.networkOrderChanged = true;
           }
         }
@@ -476,7 +474,7 @@ class RealmDB implements DBAPI {
         'Network',
         networkId,
       );
-      if (typeof network === 'undefined') {
+      if (!network) {
         return Promise.reject(
           new OneKeyInternalError(`Network ${networkId} to update not found.`),
         );
@@ -515,11 +513,11 @@ class RealmDB implements DBAPI {
         'Network',
         networkId,
       );
-      if (typeof network !== 'undefined' && !network.preset) {
+      if (network && !network.preset) {
         this.realm!.write(() => {
           this.realm!.delete(network);
         });
-      } else if (typeof network === 'undefined') {
+      } else if (!network) {
         return Promise.reject(
           new OneKeyInternalError(`Network ${networkId} not found.`),
         );
@@ -550,7 +548,7 @@ class RealmDB implements DBAPI {
         'Token',
         token.id,
       );
-      if (typeof tokenFind !== 'undefined') {
+      if (tokenFind) {
         return Promise.resolve(tokenFind.internalObj);
       }
       this.realm!.write(() => {
@@ -583,7 +581,7 @@ class RealmDB implements DBAPI {
         'Token',
         tokenId,
       );
-      if (typeof token === 'undefined') {
+      if (!token) {
         return Promise.resolve(undefined);
       }
       return Promise.resolve(token.internalObj);
@@ -603,7 +601,7 @@ class RealmDB implements DBAPI {
   getTokens(networkId: string, accountId?: string): Promise<Token[]> {
     let tokens: Realm.Results<TokenSchema> | undefined;
     try {
-      if (typeof accountId === 'undefined') {
+      if (!accountId) {
         tokens = this.realm!.objects<TokenSchema>('Token').filtered(
           'networkId == $0',
           networkId,
@@ -613,7 +611,7 @@ class RealmDB implements DBAPI {
           'Account',
           accountId,
         );
-        if (typeof account === 'undefined') {
+        if (!account) {
           return Promise.reject(
             new OneKeyInternalError(`Account ${accountId} not found.`),
           );
@@ -645,12 +643,12 @@ class RealmDB implements DBAPI {
         'Token',
         tokenId,
       );
-      if (typeof account === 'undefined') {
+      if (!account) {
         return Promise.reject(
           new OneKeyInternalError(`Account ${accountId} not found.`),
         );
       }
-      if (typeof token === 'undefined') {
+      if (!token) {
         return Promise.reject(
           new OneKeyInternalError(`Token ${tokenId} not found.`),
         );
@@ -683,12 +681,12 @@ class RealmDB implements DBAPI {
         'Token',
         tokenId,
       );
-      if (typeof account === 'undefined') {
+      if (!account) {
         return Promise.reject(
           new OneKeyInternalError(`Account ${accountId} not found.`),
         );
       }
-      if (typeof token === 'undefined') {
+      if (!token) {
         return Promise.reject(
           new OneKeyInternalError(`Token ${tokenId} not found.`),
         );
@@ -718,7 +716,7 @@ class RealmDB implements DBAPI {
         'Context',
         MAIN_CONTEXT,
       );
-      if (typeof context === 'undefined') {
+      if (!context) {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
       }
 
@@ -754,7 +752,7 @@ class RealmDB implements DBAPI {
         'Wallet',
         walletId,
       );
-      if (typeof wallet === 'undefined') {
+      if (!wallet) {
         return Promise.resolve(undefined);
       }
       return Promise.resolve(wallet.internalObj);
@@ -795,7 +793,7 @@ class RealmDB implements DBAPI {
         'Wallet',
         walletId,
       );
-      if (typeof wallet === 'undefined') {
+      if (!wallet) {
         return Promise.reject(
           new OneKeyInternalError(`Wallet ${walletId} not found.`),
         );
@@ -804,7 +802,7 @@ class RealmDB implements DBAPI {
         'Account',
         account.id,
       );
-      if (typeof accountFind !== 'undefined') {
+      if (accountFind) {
         return Promise.reject(new AccountAlreadyExists());
       }
       this.realm!.write(async () => {
@@ -862,7 +860,7 @@ class RealmDB implements DBAPI {
                 'AccountDerivation',
                 accountDerivationId,
               );
-            if (typeof accountDerivation === 'undefined') {
+            if (!accountDerivation) {
               this.realm!.create('AccountDerivation', {
                 id: accountDerivationId,
                 walletId,
@@ -1020,7 +1018,7 @@ class RealmDB implements DBAPI {
         'Account',
         accountId,
       );
-      if (typeof account === 'undefined') {
+      if (!account) {
         return Promise.reject(
           new OneKeyInternalError(`Account ${accountId} not found.`),
         );
@@ -1048,20 +1046,20 @@ class RealmDB implements DBAPI {
     avatar,
     nextAccountIds = {},
   }: CreateHDWalletParams): Promise<Wallet> {
-    let context: ContextSchema | undefined;
+    let context: ContextSchema | null | undefined;
     try {
       context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
         MAIN_CONTEXT,
       );
-      if (typeof context === 'undefined') {
+      if (!context) {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
       }
       if (!checkPassword(context.internalObj, password)) {
         return Promise.reject(new WrongPassword());
       }
       const walletId = `hd-${context.nextHD}`;
-      let wallet: WalletSchema | undefined;
+      let wallet: WalletSchema | null = null;
       this.realm!.write(() => {
         wallet = this.realm!.create('Wallet', {
           id: walletId,
@@ -1088,14 +1086,10 @@ class RealmDB implements DBAPI {
         context!.nextHD += 1;
         context!.pendingWallets!.add(walletId);
       });
-      // in order to disable lint error, here wallet is undefined is impossible ??
-      if (typeof wallet === 'undefined') {
-        return Promise.reject(
-          new OneKeyInternalError('Wallet creation failed.'),
-        );
+      if (wallet) {
+        return Promise.resolve((wallet as WalletSchema).internalObj);
       }
-
-      return Promise.resolve(wallet.internalObj);
+      return Promise.reject(new OneKeyInternalError('Wallet creation failed.'));
     } catch (error: any) {
       console.error(error);
       return Promise.reject(new OneKeyInternalError(error));
@@ -1172,7 +1166,7 @@ class RealmDB implements DBAPI {
         'Device',
         deviceTableId,
       );
-      if (typeof foundDevice === 'undefined') {
+      if (!foundDevice) {
         return await Promise.reject(
           new OneKeyInternalError(`Device ${id} not found.`),
         );
@@ -1182,13 +1176,13 @@ class RealmDB implements DBAPI {
         walletId,
       );
 
-      if (typeof wallet !== 'undefined' && !passphraseState) {
+      if (wallet && !passphraseState) {
         return await Promise.reject(
           new OneKeyAlreadyExistWalletError(wallet.id, wallet.name),
         );
       }
 
-      if (typeof wallet === 'undefined') {
+      if (!wallet) {
         this.realm!.write(() => {
           wallet = this.realm!.create('Wallet', {
             id: walletId,
@@ -1233,7 +1227,7 @@ class RealmDB implements DBAPI {
         'Wallet',
         walletId,
       );
-      if (typeof wallet === 'undefined') {
+      if (!wallet) {
         return Promise.reject(
           new OneKeyInternalError(`Wallet ${walletId} not found.`),
         );
@@ -1250,7 +1244,7 @@ class RealmDB implements DBAPI {
         'Context',
         MAIN_CONTEXT,
       );
-      if (typeof context === 'undefined') {
+      if (!context) {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
       }
       if (wallet.type === WALLET_TYPE_HD) {
@@ -1293,7 +1287,7 @@ class RealmDB implements DBAPI {
           this.realm!.delete(wallet.associatedDevice);
         }
         this.realm!.delete(wallet);
-        if (typeof credential !== 'undefined') {
+        if (credential) {
           this.realm!.delete(credential);
         }
         if (historyEntries.length > 0) {
@@ -1323,7 +1317,7 @@ class RealmDB implements DBAPI {
         'Wallet',
         walletId,
       );
-      if (typeof wallet === 'undefined') {
+      if (!wallet) {
         return Promise.reject(
           new OneKeyInternalError(`Wallet ${walletId} not found.`),
         );
@@ -1337,10 +1331,10 @@ class RealmDB implements DBAPI {
         );
       }
       this.realm!.write(() => {
-        if (typeof name !== 'undefined') {
+        if (name) {
           wallet.name = name;
         }
-        if (typeof avatar !== 'undefined') {
+        if (avatar) {
           wallet.avatar = JSON.stringify(avatar);
         }
       });
@@ -1360,7 +1354,7 @@ class RealmDB implements DBAPI {
         'Wallet',
         walletId,
       );
-      if (typeof wallet === 'undefined') {
+      if (!wallet) {
         return Promise.reject(
           new OneKeyInternalError(`Wallet ${walletId} not found.`),
         );
@@ -1402,7 +1396,7 @@ class RealmDB implements DBAPI {
         'Context',
         MAIN_CONTEXT,
       );
-      if (typeof context === 'undefined') {
+      if (!context) {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
       }
       if (!checkPassword(context.internalObj, password)) {
@@ -1412,7 +1406,7 @@ class RealmDB implements DBAPI {
         'Credential',
         credentialId,
       );
-      if (typeof credential === 'undefined') {
+      if (!credential) {
         return Promise.reject(
           new OneKeyInternalError(`Credential ${credentialId} not found.`),
         );
@@ -1454,7 +1448,7 @@ class RealmDB implements DBAPI {
         'Wallet',
         walletId,
       );
-      if (typeof wallet === 'undefined') {
+      if (!wallet) {
         return Promise.reject(
           new OneKeyInternalError(`Wallet ${walletId} not found.`),
         );
@@ -1488,14 +1482,14 @@ class RealmDB implements DBAPI {
         'Wallet',
         walletId,
       );
-      if (typeof wallet === 'undefined') {
+      if (!wallet) {
         return Promise.reject(new OneKeyInternalError('Wallet not found.'));
       }
       const context = this.realm!.objectForPrimaryKey<ContextSchema>(
         'Context',
         MAIN_CONTEXT,
       );
-      if (typeof context === 'undefined') {
+      if (!context) {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
       }
       this.realm!.write(() => {
@@ -1516,7 +1510,7 @@ class RealmDB implements DBAPI {
         'Context',
         MAIN_CONTEXT,
       );
-      if (typeof context !== 'undefined') {
+      if (context) {
         const wallets = this.realm!.objects<WalletSchema>('Wallet');
         for (const wallet of wallets) {
           if (context.pendingWallets?.has(wallet.id)) {
@@ -1529,7 +1523,7 @@ class RealmDB implements DBAPI {
               context.pendingWallets!.delete(wallet.id);
               this.realm!.delete(Array.from(wallet.accounts!));
               this.realm!.delete(wallet);
-              if (typeof credential !== 'undefined') {
+              if (credential) {
                 this.realm!.delete(credential);
               }
             });
@@ -1563,7 +1557,7 @@ class RealmDB implements DBAPI {
         'Wallet',
         walletId,
       );
-      if (typeof wallet === 'undefined') {
+      if (!wallet) {
         return Promise.reject(
           new OneKeyInternalError(`Wallet ${walletId} not found.`),
         );
@@ -1579,7 +1573,7 @@ class RealmDB implements DBAPI {
         'Account',
         accountId,
       );
-      if (typeof account === 'undefined') {
+      if (!account) {
         return Promise.reject(
           new OneKeyInternalError(`Account ${accountId} not found.`),
         );
@@ -1589,7 +1583,7 @@ class RealmDB implements DBAPI {
           'Context',
           MAIN_CONTEXT,
         );
-        if (typeof context === 'undefined') {
+        if (!context) {
           return Promise.reject(new OneKeyInternalError('Context not found.'));
         }
         if (
@@ -1610,7 +1604,7 @@ class RealmDB implements DBAPI {
         wallet.accounts!.delete(account);
         this.realm!.delete(account);
         this.realm!.delete(historyEntries);
-        if (walletIsImported(wallet.id) && typeof credential !== 'undefined') {
+        if (walletIsImported(wallet.id) && credential) {
           this.realm!.delete(credential);
         }
         for (const [category, index] of Object.entries(
@@ -1630,14 +1624,14 @@ class RealmDB implements DBAPI {
 
   removeAccounts(
     walletId: string,
-    password: string | undefined,
+    password: string | undefined | null,
   ): Promise<void> {
     try {
       const wallet = this.realm!.objectForPrimaryKey<WalletSchema>(
         'Wallet',
         walletId,
       );
-      if (typeof wallet === 'undefined') {
+      if (!wallet) {
         return Promise.reject(
           new OneKeyInternalError(`Wallet ${walletId} not found.`),
         );
@@ -1646,7 +1640,7 @@ class RealmDB implements DBAPI {
         'Context',
         MAIN_CONTEXT,
       );
-      if (typeof context === 'undefined') {
+      if (!context) {
         return Promise.reject(new OneKeyInternalError('Context not found.'));
       }
       if (wallet.type === WALLET_TYPE_HD) {
@@ -1693,7 +1687,7 @@ class RealmDB implements DBAPI {
         'Account',
         accountId,
       );
-      if (typeof account === 'undefined') {
+      if (!account) {
         return Promise.reject(
           new OneKeyInternalError(`Account ${accountId} not found.`),
         );
@@ -1717,7 +1711,7 @@ class RealmDB implements DBAPI {
         'Account',
         accountId,
       );
-      if (typeof account === 'undefined') {
+      if (!account) {
         return Promise.reject(
           new OneKeyInternalError(`Account ${accountId} not found.`),
         );
@@ -1749,7 +1743,7 @@ class RealmDB implements DBAPI {
         'Account',
         accountId,
       );
-      if (typeof account === 'undefined') {
+      if (!account) {
         return Promise.reject(
           new OneKeyInternalError(`Account ${accountId} not found.`),
         );
@@ -1784,7 +1778,7 @@ class RealmDB implements DBAPI {
         'Account',
         accountId,
       );
-      if (typeof account === 'undefined') {
+      if (!account) {
         return Promise.reject(
           new OneKeyInternalError(`Account ${accountId} not found.`),
         );
@@ -1825,7 +1819,7 @@ class RealmDB implements DBAPI {
         'Account',
         accountId,
       );
-      if (typeof account === 'undefined') {
+      if (!account) {
         return Promise.reject(
           new OneKeyInternalError(`Account ${accountId} not found.`),
         );
@@ -1920,7 +1914,7 @@ class RealmDB implements DBAPI {
         'HistoryEntry',
         entryId,
       );
-      if (typeof entry !== 'undefined') {
+      if (entry) {
         this.realm!.write(() => {
           this.realm!.delete(entry);
         });
@@ -1943,7 +1937,7 @@ class RealmDB implements DBAPI {
       let entries = this.realm!.objects<HistoryEntrySchema>('HistoryEntry')
         .filtered('networkId == $0', networkId)
         .filtered('accountId == $0', accountId);
-      if (typeof contract !== 'undefined') {
+      if (contract) {
         entries = entries.filtered('contract == $0', contract);
       }
       entries = entries
@@ -1982,7 +1976,7 @@ class RealmDB implements DBAPI {
         id,
       );
       const now = Date.now();
-      if (typeof foundDevice === 'undefined') {
+      if (!foundDevice) {
         /**
          * insert only for device
          */
@@ -2030,7 +2024,7 @@ class RealmDB implements DBAPI {
         'Device',
         deviceId,
       );
-      if (typeof device === 'undefined') {
+      if (!device) {
         return Promise.reject(
           new OneKeyInternalError(`Device ${deviceId} not found.`),
         );
@@ -2093,7 +2087,7 @@ class RealmDB implements DBAPI {
       'Wallet',
       walletId,
     );
-    if (typeof wallet === 'undefined') {
+    if (!wallet) {
       return Promise.reject(new OneKeyInternalError('Wallet not found.'));
     }
     this.realm!.write(() => {
@@ -2124,7 +2118,7 @@ class RealmDB implements DBAPI {
         'AccountDerivation',
         id,
       );
-    if (typeof accountDerivation === 'undefined') {
+    if (!accountDerivation) {
       this.realm!.write(() => {
         this.realm!.create('AccountDerivation', {
           id,
@@ -2164,7 +2158,7 @@ class RealmDB implements DBAPI {
         'AccountDerivation',
         id,
       );
-    if (typeof accountDerivation !== 'undefined') {
+    if (accountDerivation) {
       this.realm!.write(() => {
         this.realm!.delete(accountDerivation);
       });
@@ -2240,7 +2234,7 @@ class RealmDB implements DBAPI {
         'CustomFee',
         networkId,
       );
-      if (typeof customFee === 'undefined') {
+      if (!customFee) {
         return Promise.reject(
           new OneKeyInternalError(`Custom fee of ${networkId} not found.`),
         );
@@ -2262,7 +2256,7 @@ class RealmDB implements DBAPI {
         networkId,
       );
 
-      if (typeof custom !== 'undefined') {
+      if (custom) {
         if (customFee === null) {
           this.realm!.write(() => {
             this.realm!.delete(custom);
@@ -2312,7 +2306,7 @@ class RealmDB implements DBAPI {
       'Wallet',
       walletId,
     );
-    if (typeof walletObject === 'undefined') {
+    if (!walletObject) {
       realm.write(() => {
         realm.create('Wallet', {
           id: walletId,
