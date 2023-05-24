@@ -153,7 +153,7 @@ export default function MobileBottomTabBar({
                 color={isActive ? 'icon-default' : 'icon-subdued'}
                 size={28}
               />
-              {translationId && platformEnv.isNative && (
+              {translationId?.length && platformEnv.isNative ? (
                 <Text
                   typography="Caption"
                   color={isActive ? 'text-default' : 'text-subdued'}
@@ -162,7 +162,7 @@ export default function MobileBottomTabBar({
                 >
                   {intl.formatMessage({ id: translationId })}
                 </Text>
-              )}
+              ) : null}
             </Pressable>
           </Box>
         );
