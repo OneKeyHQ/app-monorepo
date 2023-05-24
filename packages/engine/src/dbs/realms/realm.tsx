@@ -172,12 +172,20 @@ class RealmDB implements DBAPI {
           const RootSiblingsManager = (
             require('react-native-root-siblings') as typeof import('react-native-root-siblings')
           ).default;
-          const RealmPlugin = (
-            require('realm-flipper-plugin-device') as typeof import('realm-flipper-plugin-device')
-          ).default;
+          const RealmPlugin = require('realm-flipper-plugin-device').default;
+          // const { PortalEntry } =
+          //   require('@onekeyhq/kit/src/views/Overlay/RootPortal') as typeof import('@onekeyhq/kit/src/views/Overlay/RootPortal');
+          // const { FULLWINDOW_OVERLAY_PORTAL } =
+          //   require('@onekeyhq/kit/src/utils/overlayUtils') as typeof import('@onekeyhq/kit/src/utils/overlayUtils');
           // eslint-disable-next-line no-new
-          new RootSiblingsManager(<RealmPlugin realms={[realm]} />);
-          console.log('realm plugin inited');
+          new RootSiblingsManager(
+            (
+              // <PortalEntry target={FULLWINDOW_OVERLAY_PORTAL}>
+              <RealmPlugin realms={[realm]} />
+              // </PortalEntry>
+            ),
+          );
+          // console.log('realm plugin inited');
           // @ts-ignore
           global.$$realmPluginInited = true;
         }
