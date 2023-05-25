@@ -6,6 +6,7 @@ import memoizee from 'memoizee';
 
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -762,6 +763,18 @@ export default class Vault extends VaultBase {
       privateKey = decodedPrivateKey.slice(0, 32);
     }
     return Promise.resolve(privateKey);
+  }
+
+  override async getTransactionStatuses(
+    txids: Array<string>,
+  ): Promise<Array<TransactionStatus | undefined>> {
+    const cli: NearCli = await this._getNearCli();
+    const results = await Promise.allSettled(
+      txids.map((txId) => cli.getTransactionStatus(txId)),
+    );
+    return results.map((res) =>
+      res.status === 'fulfilled' ? res.value : TransactionStatus.PENDING,
+    );
   }
 
   override async validateAddress(address: string): Promise<string> {
