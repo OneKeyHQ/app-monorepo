@@ -82,7 +82,7 @@ export function useOnboardingDone() {
         backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
       }
     },
-    [closeWalletSelector, navigation],
+    [closeWalletSelector, navigation, openRootHome],
   );
   return onboardingDone;
 }
