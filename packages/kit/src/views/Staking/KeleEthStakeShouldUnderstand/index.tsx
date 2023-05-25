@@ -18,7 +18,10 @@ import { useKeleMinerOverview } from '../hooks';
 import type { StakingRoutes, StakingRoutesParams } from '../typing';
 import type { RouteProp } from '@react-navigation/core';
 
-type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.StakingETHNotes>;
+type RouteProps = RouteProp<
+  StakingRoutesParams,
+  StakingRoutes.KeleEthStakeShouldUnderstand
+>;
 
 export default function StakingETHNotes() {
   const intl = useIntl();
