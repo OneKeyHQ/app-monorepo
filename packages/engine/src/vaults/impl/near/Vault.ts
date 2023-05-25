@@ -28,7 +28,7 @@ import { KeyringHd } from './keyring/KeyringHd';
 import { KeyringImported } from './keyring/KeyringImported';
 import { KeyringWatching } from './keyring/KeyringWatching';
 import { NearCli } from './sdk';
-import { settings } from './settings';
+import settings from './settings';
 import {
   BN,
   FT_MINIMUM_STORAGE_BALANCE_LARGE,
