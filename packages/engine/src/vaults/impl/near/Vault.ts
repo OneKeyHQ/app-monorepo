@@ -23,10 +23,12 @@ import {
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedTxType } from '../evm/decoder/types';
 
-import { KeyringHardware } from './keyring/KeyringHardware';
-import { KeyringHd } from './keyring/KeyringHd';
-import { KeyringImported } from './keyring/KeyringImported';
-import { KeyringWatching } from './keyring/KeyringWatching';
+import {
+  KeyringHardware,
+  KeyringHd,
+  KeyringImported,
+  KeyringWatching,
+} from './keyring';
 import { NearCli } from './sdk';
 import settings from './settings';
 import {
