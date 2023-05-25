@@ -50,7 +50,7 @@ export const useOnboardingRequired = (isHomeCheck?: boolean) => {
 export function useOnboardingDone() {
   // TODO should set s.status.boardingCompleted=true ?
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { closeWalletSelector } = useNavigationActions();
+  const { closeWalletSelector, openRootHome } = useNavigationActions();
   const onboardingDone = useCallback(
     async ({
       delay = 150,
@@ -63,12 +63,17 @@ export function useOnboardingDone() {
 
       closeWalletSelector();
       await wait(delay);
-      navigation?.navigate(RootRoutes.Main, {
-        screen: MainRoutes.Tab,
-        params: {
-          screen: TabRoutes.Home,
-        },
-      });
+      if (platformEnv.isNative) {
+        openRootHome();
+      } else {
+        navigation?.navigate(RootRoutes.Main, {
+          screen: MainRoutes.Tab,
+          params: {
+            screen: TabRoutes.Home,
+          },
+        });
+      }
+
       await wait(delay);
       closeExtensionWindowIfOnboardingFinished();
 

@@ -16,6 +16,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
@@ -33,7 +34,6 @@ import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-import { showAmountEditor } from './AmountEditor';
 import { showApprovalSelector } from './ApprovalSelector';
 import { useValidteReceiver } from './hooks';
 import { ReceiverExample } from './ReceiverExample';
@@ -57,6 +57,7 @@ function TokenOutbox(props: Props) {
   const [isUploadMode, setIsUploadMode] = useState(false);
   const [isBuildingTx, setIsBuildingTx] = useState(false);
   const [isUnlimited, setIsUnlimited] = useState(false);
+  const [isAlreadyUnlimited, setIsAlreadyUnlimited] = useState(false);
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
@@ -65,10 +66,12 @@ function TokenOutbox(props: Props) {
   const loading = useAccountTokenLoading(networkId, accountId);
   const accountTokens = useAccountTokens(networkId, accountId, true);
   const nativeToken = accountTokens.find((token) => token.isNative);
-  const tokens = accountTokens.filter((token) =>
-    !token.isNative && network?.impl === IMPL_TRON
-      ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
-      : true,
+  const tokens = accountTokens.filter(
+    (token) =>
+      !token.isNative &&
+      (network?.impl === IMPL_TRON
+        ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
+        : true),
   );
 
   const { serviceBatchTransfer, serviceToken, serviceOverview } =
@@ -134,8 +137,16 @@ function TokenOutbox(props: Props) {
   }, [accountId, handleOnTokenSelected, navigation, networkId, tokens]);
 
   const handleOpenAmountEditor = useCallback(() => {
-    showAmountEditor(handleOnAmountChanged);
-  }, [handleOnAmountChanged]);
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.BulkSender,
+      params: {
+        screen: BulkSenderRoutes.AmountEditor,
+        params: {
+          onAmountChanged: handleOnAmountChanged,
+        },
+      },
+    });
+  }, [handleOnAmountChanged, navigation]);
 
   const handleOpenApprovalSelector = useCallback(() => {
     showApprovalSelector({
@@ -304,6 +315,40 @@ function TokenOutbox(props: Props) {
   );
 
   useEffect(() => {
+    const fetchTokenAllowance = async () => {
+      const contract = batchTransferContractAddress[networkId];
+      if (
+        !isNative &&
+        network?.settings.batchTransferApprovalRequired &&
+        currentToken &&
+        contract
+      ) {
+        const { isUnlimited: isUnlimitedAllowance } =
+          await serviceBatchTransfer.checkIsUnlimitedAllowance({
+            networkId,
+            owner: accountAddress,
+            spender: contract,
+            token: currentToken?.tokenIdOnNetwork,
+          });
+        if (isUnlimitedAllowance) {
+          setIsUnlimited(isUnlimitedAllowance);
+          setIsAlreadyUnlimited(isUnlimitedAllowance);
+        } else {
+          setIsAlreadyUnlimited(isUnlimitedAllowance);
+        }
+      }
+    };
+    fetchTokenAllowance();
+  }, [
+    accountAddress,
+    currentToken,
+    isNative,
+    network?.settings.batchTransferApprovalRequired,
+    networkId,
+    serviceBatchTransfer,
+  ]);
+
+  useEffect(() => {
     if (accountId && networkId) {
       setSelectedToken(null);
     }
@@ -373,6 +418,7 @@ function TokenOutbox(props: Props) {
                 size="xs"
                 leftIconName="CurrencyDollarSolid"
                 onPress={handleOpenApprovalSelector}
+                isDisabled={isAlreadyUnlimited}
               >
                 {intl.formatMessage({
                   id: isUnlimited

@@ -221,7 +221,6 @@ export default class ServiceBatchTransfer extends ServiceBase {
     token: string;
   }) {
     const { networkId, owner, spender, token } = params;
-
     const { engine } = this.backgroundApi;
     const vault = await engine.getChainOnlyVault(networkId);
 

@@ -96,7 +96,7 @@ export function useValidteReceiver({
 
           if (!hasError && token?.decimals) {
             const minTokenBanance = new BigNumber(1).shiftedBy(-token.decimals);
-            if (amountBN.lt(minTokenBanance) && !amountBN.isZero()) {
+            if (!amountBN.shiftedBy(token.decimals).isInteger()) {
               validateErrors.push({
                 lineNumber: i + 1,
                 message: intl.formatMessage(
