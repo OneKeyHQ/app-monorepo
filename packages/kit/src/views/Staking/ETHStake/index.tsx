@@ -9,6 +9,7 @@ import {
   Box,
   Button,
   Center,
+  CustomSkeleton,
   HStack,
   Icon,
   Image,
@@ -179,7 +180,9 @@ export default function ETHStaking() {
         return;
       }
 
-      const value = new BigNumber(amount).shiftedBy(18).toFixed(0);
+      const value = new BigNumber(amount)
+        .shiftedBy(tokenInfo.decimals)
+        .toFixed(0);
 
       let encodedTx: IEncodedTxEvm | undefined;
       if (source === EthStakingSource.Kele) {
@@ -362,9 +365,15 @@ export default function ETHStaking() {
                 <Typography.Body2 color="text-subdued">
                   {intl.formatMessage({ id: 'form__apy' })}
                 </Typography.Body2>
-                <Typography.Body2 color="text-success">
-                  {aprValue}%
-                </Typography.Body2>
+                {aprValue ? (
+                  <Typography.Body2 color="text-success">
+                    {aprValue}%
+                  </Typography.Body2>
+                ) : (
+                  <Box w="6" h="4" overflow="hidden" borderRadius={12}>
+                    <CustomSkeleton />
+                  </Box>
+                )}
               </Box>
               <Box
                 flexDirection="row"

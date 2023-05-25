@@ -339,9 +339,12 @@ export const useSwapSubmit = () => {
     const balance = new BigNumber(balanceStr ?? '0');
 
     if (balance.isZero()) {
-      ToastManager.show({
-        title: intl.formatMessage({ id: 'msg_insufficient_gas_fee' }),
-      });
+      ToastManager.show(
+        {
+          title: intl.formatMessage({ id: 'msg_insufficient_gas_fee' }),
+        },
+        { type: 'error' },
+      );
       return;
     }
     const safeReservedValueForGasFee =
@@ -359,7 +362,7 @@ export const useSwapSubmit = () => {
       ToastManager.show(
         {
           title: intl.formatMessage(
-            { id: 'msg__gas_fee_is_not_enough_please_keep_at_least_str' },
+            { id: 'msg__suggest_reserving_str_as_gas_fee' },
             {
               '0': `${safeReservedValueForGasFee} ${nativeToken.symbol.toUpperCase()}`,
             },

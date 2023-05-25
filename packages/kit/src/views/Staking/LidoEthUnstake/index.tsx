@@ -133,7 +133,10 @@ export default function UnstakeAmount() {
     if (!account) {
       return;
     }
-    const value = new BigNumber(amount).shiftedBy(18).toFixed(0);
+    const token = await backgroundApiProxy.serviceStaking.getStEthToken({
+      networkId,
+    });
+    const value = new BigNumber(amount).shiftedBy(token.decimals).toFixed(0);
     const deadline = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
     const accountId = account.id;
 

@@ -47,9 +47,8 @@ export default function StakingETHNotes() {
         debugLogger.common.error('registerOnKele failed');
       }
 
-      const value = new BigNumber(10)
-        .exponentiatedBy(18)
-        .multipliedBy(params.amount)
+      const value = new BigNumber(params.amount)
+        .shiftedBy(tokenInfo.decimals)
         .toFixed(0);
 
       const encodedTx =

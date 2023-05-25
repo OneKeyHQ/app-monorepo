@@ -32,6 +32,7 @@ import {
 } from '../../../Staking/hooks';
 import { StakingRoutes } from '../../../Staking/typing';
 import { isSupportStakedAssets } from '../../../Staking/utils';
+import { formatAmount } from '../../../Swap/utils';
 
 export type Props = {
   networkId: string;
@@ -58,7 +59,7 @@ const Mobile: FC<CellProps> = ({ onPress, token, amount, tokenValue }) => {
           labelProps: { typography: 'Body1Strong' },
           description: (
             <FormatBalance
-              balance={amount}
+              balance={formatAmount(amount, 6)}
               suffix={token?.symbol}
               formatOptions={{
                 fixed: token?.decimals ?? 4,
@@ -119,7 +120,7 @@ const Desktop: FC<CellProps> = ({ onPress, token, amount, tokenValue }) => {
           text={{
             label: (
               <FormatBalance
-                balance={amount}
+                balance={formatAmount(amount, 6)}
                 suffix={token?.symbol}
                 formatOptions={{
                   fixed: token?.decimals ?? 4,

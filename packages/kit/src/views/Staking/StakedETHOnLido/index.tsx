@@ -251,6 +251,7 @@ export default function StakedETHOnLido() {
       networkId,
       accountId,
     });
+    backgroundApiProxy.serviceStaking.fetchEthAprSma();
     // eslint-disable-next-line
   }, []);
   const lidoOverview = useLidoOverview(networkId, accountId);

@@ -29,7 +29,7 @@ export function SwapMain() {
     };
     appUIEventBus.on(AppUIEventBusNames.SwapAddTransaction, listener);
     return () => {
-      appUIEventBus.on(AppUIEventBusNames.SwapAddTransaction, listener);
+      appUIEventBus.off(AppUIEventBusNames.SwapAddTransaction, listener);
     };
   }, []);
   return (

@@ -410,7 +410,7 @@ export default class ServiceStaking extends ServiceBase {
     {
       promise: true,
       primitive: true,
-      max: 50,
+      max: 1,
       maxAge: 1000 * 60 * 60,
     },
   );
@@ -576,8 +576,13 @@ export default class ServiceStaking extends ServiceBase {
     if (!balanceResult[0]) {
       return;
     }
+
+    const token = await this.getStEthToken({ networkId });
+
     const balanceBN = balanceResult[0] as BigNumber;
-    const balance = new BN(balanceBN.toString()).shiftedBy(-18).toString();
+    const balance = new BN(balanceBN.toString())
+      .shiftedBy(-token.decimals)
+      .toString();
 
     const requestsCalldata = calldatas[1];
     const requestsResult = await serviceContract.parseJsonResponse({
