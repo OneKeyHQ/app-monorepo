@@ -33,7 +33,7 @@ import type {
   IDecodedTxExtraNear,
   IEncodedTxNear,
   INativeTxNear,
-} from './impl/near/types';
+} from './impl/near/sdk/types';
 import type { IEncodedTxSol, INativeTxSol } from './impl/sol/types';
 import type { IEncodedTxSTC } from './impl/stc/types';
 import type { IEncodedTxSUI } from './impl/sui/types';

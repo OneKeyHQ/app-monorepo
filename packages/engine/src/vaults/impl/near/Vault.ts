@@ -23,12 +23,12 @@ import {
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedTxType } from '../evm/decoder/types';
 
-import { KeyringHardware } from './KeyringHardware';
-import { KeyringHd } from './KeyringHd';
-import { KeyringImported } from './KeyringImported';
-import { KeyringWatching } from './KeyringWatching';
+import { KeyringHardware } from './keyring/KeyringHardware';
+import { KeyringHd } from './keyring/KeyringHd';
+import { KeyringImported } from './keyring/KeyringImported';
+import { KeyringWatching } from './keyring/KeyringWatching';
 import { NearCli } from './sdk';
-import settings from './settings';
+import { settings } from './settings';
 import {
   BN,
   FT_MINIMUM_STORAGE_BALANCE_LARGE,
@@ -62,8 +62,7 @@ import type {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
-import type { NearAccessKey } from './sdk';
-import type { INearAccountStorageBalance } from './types';
+import type { INearAccountStorageBalance, NearAccessKey } from './sdk';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 // TODO extends evm/Vault

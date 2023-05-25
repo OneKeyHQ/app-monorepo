@@ -1,11 +1,11 @@
 import { COINTYPE_NEAR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { InvalidAddress } from '../../../errors';
-import { AccountType } from '../../../types/account';
-import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
+import { InvalidAddress } from '../../../../errors';
+import { AccountType } from '../../../../types/account';
+import { KeyringWatchingBase } from '../../../keyring/KeyringWatchingBase';
 
-import type { DBSimpleAccount } from '../../../types/account';
-import type { IPrepareWatchingAccountsParams } from '../../types';
+import type { DBSimpleAccount } from '../../../../types/account';
+import type { IPrepareWatchingAccountsParams } from '../../../types';
 
 export class KeyringWatching extends KeyringWatchingBase {
   override async prepareAccounts(
