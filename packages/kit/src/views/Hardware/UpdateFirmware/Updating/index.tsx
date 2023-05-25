@@ -235,7 +235,12 @@ const UpdatingModal: FC = () => {
         setMaxProgress(90);
         dispatch(closeHardwarePopup());
         break;
-
+      case 'StartTransferData':
+        setMaxProgress(80);
+        break;
+      case 'InstallingFirmware':
+        setMaxProgress(99);
+        break;
       default:
         setProgressStep('pre-check');
         break;
