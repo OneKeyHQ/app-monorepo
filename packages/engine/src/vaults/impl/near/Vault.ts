@@ -27,7 +27,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { NearCli, verifyAddress } from './sdk';
+import { NearCli } from './sdk';
 import settings from './settings';
 import {
   BN,
@@ -42,6 +42,7 @@ import {
   nearApiJs,
   parseJsonFromRawResponse,
   serializeTransaction,
+  verifyNearAddress,
 } from './utils';
 
 import type { DBVariantAccount } from '../../../types/account';
@@ -763,7 +764,7 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string): Promise<string> {
-    const result = verifyAddress(address);
+    const result = verifyNearAddress(address);
     if (result.isValid) {
       return Promise.resolve(result.normalizedAddress || address);
     }
