@@ -1,9 +1,15 @@
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { SwapQuoter } from '../Swap/quoter';
 
 import {
   MainnetLidoContractAddress,
   TestnetLidoContractAddress,
 } from './config';
+
+import type { BuildTransactionParams, FetchQuoteParams } from '../Swap/typings';
 
 export const isSupportStakedAssets = (
   networkId?: string,
@@ -44,3 +50,72 @@ export const isSTETH = (networkId?: string, tokenIdOnNetwork?: string) => {
   }
   return false;
 };
+
+export async function fetchStEthRate(params: {
+  networkId: string;
+  account: Account;
+}) {
+  const { networkId, account } = params;
+  const nativeToken = await backgroundApiProxy.engine.getNativeTokenInfo(
+    networkId,
+  );
+  const stETH = await backgroundApiProxy.serviceStaking.getStEthToken({
+    networkId,
+  });
+  const network = await backgroundApiProxy.engine.getNetwork(networkId);
+  const quoteParams: FetchQuoteParams = {
+    networkOut: network,
+    networkIn: network,
+    tokenOut: nativeToken,
+    tokenIn: stETH,
+    slippagePercentage: '1',
+    typedValue: '1',
+    independentField: 'INPUT',
+    activeAccount: account,
+    receivingAddress: account.address,
+  };
+  const res = await SwapQuoter.client.fetchQuote(quoteParams);
+  return res;
+}
+
+export async function buildWithdrawStEthTransaction(params: {
+  networkId: string;
+  account: Account;
+}) {
+  const { networkId, account } = params;
+  const nativeToken = await backgroundApiProxy.engine.getNativeTokenInfo(
+    networkId,
+  );
+  const stETH = await backgroundApiProxy.serviceStaking.getStEthToken({
+    networkId,
+  });
+  const network = await backgroundApiProxy.engine.getNetwork(networkId);
+  const quoteParams: FetchQuoteParams = {
+    networkOut: network,
+    networkIn: network,
+    tokenOut: nativeToken,
+    tokenIn: stETH,
+    slippagePercentage: '1',
+    typedValue: '1',
+    independentField: 'INPUT',
+    activeAccount: account,
+    receivingAddress: account.address,
+  };
+  const res = await SwapQuoter.client.fetchQuote(quoteParams);
+  const data = res?.data;
+  if (!data) {
+    return;
+  }
+
+  const buildParams: BuildTransactionParams = {
+    ...quoteParams,
+    sellAmount: data.sellAmount,
+    buyAmount: data.buyAmount,
+  };
+  const transactionRes = await SwapQuoter.client.buildTransaction(
+    data.type,
+    buildParams,
+  );
+
+  return transactionRes?.data;
+}

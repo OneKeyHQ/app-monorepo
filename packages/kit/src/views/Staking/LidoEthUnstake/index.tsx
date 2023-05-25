@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import type { FC } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -9,10 +10,14 @@ import {
   Button,
   Center,
   HStack,
+  Icon,
+  Image,
   Modal,
+  Pressable,
   Text,
   ToastManager,
   Typography,
+  VStack,
 } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
@@ -27,10 +32,47 @@ import { formatAmount } from '../../../utils/priceUtils';
 import { SendModalRoutes } from '../../Send/types';
 import { StakingKeyboard } from '../components/StakingKeyboard';
 import { useLidoOverview } from '../hooks';
+import { StakingRoutes } from '../typing';
+import { buildWithdrawStEthTransaction } from '../utils';
 
 import type { StakingRoutesParams } from '../typing';
 
 type NavigationProps = ModalScreenProps<StakingRoutesParams>;
+
+type UnstakeRouteOptionsValue = 'onekey' | 'lido';
+
+type UnstakeRouteOptionsProps = {
+  value: UnstakeRouteOptionsValue;
+};
+
+const UnstakeRouteOptions: FC<UnstakeRouteOptionsProps> = ({ value }) => {
+  if (value === 'lido') {
+    return (
+      <Box flexDirection="row" alignItems="center">
+        <Image
+          key="lido"
+          w="5"
+          h="5"
+          source={require('@onekeyhq/kit/assets/staking/lido_pool.png')}
+        />
+        <Typography.Body2Strong ml="2">Lido</Typography.Body2Strong>
+        <Icon name="ChevronRightMini" />
+      </Box>
+    );
+  }
+  return (
+    <Box flexDirection="row" alignItems="center">
+      <Image
+        key="onekey"
+        w="5"
+        h="5"
+        source={require('@onekeyhq/kit/assets/logo.png')}
+      />
+      <Typography.Body2Strong ml="2">OneKey Swap</Typography.Body2Strong>
+      <Icon name="ChevronRightMini" />
+    </Box>
+  );
+};
 
 export default function UnstakeAmount() {
   const intl = useIntl();
@@ -39,7 +81,9 @@ export default function UnstakeAmount() {
   const lidoOverview = useLidoOverview(networkId, account?.id);
   const balance = lidoOverview?.balance ?? '0';
   const tokenSymbol = networkId === OnekeyNetwork.eth ? 'ETH' : 'TETH';
+  const [source, setSource] = useState<UnstakeRouteOptionsValue>('lido');
   const [amount, setAmount] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const errorMsg = useMemo(() => {
     if (!amount) {
@@ -72,7 +116,29 @@ export default function UnstakeAmount() {
     [balance],
   );
 
-  const onPrimaryActionPress = useCallback(async () => {
+  const onUnstakeBySwap = useCallback(async () => {
+    if (account && networkId) {
+      const encodedTx = await buildWithdrawStEthTransaction({
+        networkId,
+        account,
+      });
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendModalRoutes.SendConfirm,
+          params: {
+            accountId: account.id,
+            networkId,
+            feeInfoUseFeeInTx: false,
+            feeInfoEditable: true,
+            encodedTx,
+          },
+        },
+      });
+    }
+  }, [networkId, account, navigation]);
+
+  const onUnstakeByLido = useCallback(async () => {
     if (!account) {
       return;
     }
@@ -162,7 +228,36 @@ export default function UnstakeAmount() {
         },
       },
     });
-  }, [account, amount, networkId, navigation, intl]);
+  }, [networkId, account, amount, navigation, intl]);
+
+  const onPrimaryActionPress = useCallback(async () => {
+    if (source === 'onekey') {
+      try {
+        setLoading(true);
+        await onUnstakeBySwap();
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      await onUnstakeByLido();
+    }
+  }, [source, onUnstakeBySwap, onUnstakeByLido]);
+
+  const onPress = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Staking,
+      params: {
+        screen: StakingRoutes.LidoEthUnstakeRoutes,
+        params: {
+          source,
+          onSelector: (value) => {
+            setSource(value as UnstakeRouteOptionsValue);
+            navigation.goBack();
+          },
+        },
+      },
+    });
+  }, [source, navigation]);
 
   return (
     <Modal
@@ -175,8 +270,9 @@ export default function UnstakeAmount() {
       hideSecondaryAction
       primaryActionProps={{
         isDisabled: !!errorMsg || new BigNumber(amount).lte(0),
+        onPress: onPrimaryActionPress,
+        isLoading: loading,
       }}
-      onPrimaryActionPress={onPrimaryActionPress}
     >
       <Box flex="1">
         <Box flex="1" flexDirection="column" justifyContent="space-between">
@@ -230,6 +326,21 @@ export default function UnstakeAmount() {
               </Box>
             </Center>
           </Center>
+          <VStack space="1">
+            <Box
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              h="10"
+            >
+              <Typography.Body2 color="text-subdued">
+                {intl.formatMessage({ id: 'form__protocol' })}
+              </Typography.Body2>
+              <Pressable onPress={onPress}>
+                <UnstakeRouteOptions value={source} />
+              </Pressable>
+            </Box>
+          </VStack>
         </Box>
         <StakingKeyboard text={amount} onTextChange={setAmount} />
       </Box>

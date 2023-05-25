@@ -7,6 +7,7 @@ import KeleEthStakeShouldUnderstand from '../../../views/Staking/KeleEthStakeSho
 import KeleEthUnstakeShouldUnderstand from '../../../views/Staking/KeleEthUnstakeShouldUnderstand';
 import LidoEthStakeShouldUnderStand from '../../../views/Staking/LidoEthStakeShouldUnderstand';
 import LidoEthUnstake from '../../../views/Staking/LidoEthUnstake';
+import LidoEthUnstakeRoutes from '../../../views/Staking/LidoEthUnstakeRoutes';
 import LidoEthUnstakeShouldUnderstand from '../../../views/Staking/LidoEthUnstakeShouldUnderstand';
 import StakedETHOnKele from '../../../views/Staking/StakedETHOnKele';
 import StakedETHOnLido from '../../../views/Staking/StakedETHOnLido';
@@ -74,6 +75,10 @@ const modalRoutes = [
   {
     name: StakingRoutes.LidoEthUnstake,
     component: LidoEthUnstake,
+  },
+  {
+    name: StakingRoutes.LidoEthUnstakeRoutes,
+    component: LidoEthUnstakeRoutes,
   },
 ];
 

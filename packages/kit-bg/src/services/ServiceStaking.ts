@@ -5,6 +5,7 @@ import { add, sum } from 'lodash';
 import memoizee from 'memoizee';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import type EvmVault from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
   setAccountStakingActivity,
@@ -978,5 +979,28 @@ export default class ServiceStaking extends ServiceBase {
     });
     const to = this.getLidoNFTContractAddress(networkId);
     return { to, data, value: '0x0' };
+  }
+
+  @backgroundMethod()
+  async getStEthToken(params: { networkId: string }) {
+    const { networkId } = params;
+    const baseToken: Token = {
+      id: '',
+      name: '',
+      networkId: '',
+      tokenIdOnNetwork: '',
+      symbol: 'stETH',
+      decimals: 18,
+      logoURI:
+        'https://common.onekey-asset.com/token/evm-1/0xae7ab96520de3a18e5e111b5eaab095312d7fe84.png',
+    };
+    if (networkId === OnekeyNetwork.eth) {
+      baseToken.networkId = OnekeyNetwork.eth;
+      baseToken.tokenIdOnNetwork = MainnetLidoContractAddress;
+    } else {
+      baseToken.networkId = OnekeyNetwork.goerli;
+      baseToken.tokenIdOnNetwork = TestnetLidoContractAddress;
+    }
+    return baseToken;
   }
 }
