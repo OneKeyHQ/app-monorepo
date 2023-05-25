@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, camelcase, @typescript-eslint/naming-convention */
-import { idFromAddress } from '@glif/filecoin-address';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { last } from 'lodash';
@@ -7,40 +6,28 @@ import memoizee from 'memoizee';
 
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
-import { NearCli } from '@onekeyhq/engine/src/vaults/impl/near/provider';
-import type {
-  NearAccessKey,
-  Provider as NearProvider,
-} from '@onekeyhq/engine/src/vaults/impl/near/provider';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
   InvalidAddress,
-  NotImplemented,
   OneKeyInternalError,
   WatchedAccountTradeError,
 } from '../../../errors';
 import { extractResponseError, fillUnsignedTx } from '../../../proxy';
-import { TxStatus } from '../../../types/covalent';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
-import {
-  EVMDecodedItem,
-  EVMDecodedItemERC20Transfer,
-  EVMDecodedTxType,
-} from '../evm/decoder/types';
+import { EVMDecodedTxType } from '../evm/decoder/types';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { verifyAddress } from './sdk';
+import { NearCli, verifyAddress } from './sdk';
 import settings from './settings';
 import {
   BN,
@@ -74,6 +61,8 @@ import type {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
+import type { NearAccessKey } from './sdk';
+import type { Provider as NearProvider } from './sdk/provider';
 import type { INearAccountStorageBalance } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 

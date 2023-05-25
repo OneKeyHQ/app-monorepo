@@ -12,18 +12,7 @@ import type {
 } from '@onekeyhq/engine/src/types/provider';
 import { JsonPRCResponseError } from '@onekeyhq/shared/src/errors/request-errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
-
-export type NearAccessKey = {
-  type: 'FullAccess' | 'FunctionCall';
-  pubkey: string;
-  pubkeyHex: string;
-  nonce: number;
-  functionCall?: {
-    allowance: string;
-    receiverId: string;
-    methodNames: string[];
-  };
-};
+import { NearAccessKey } from './type';
 
 function parseJsonFromRawResponse(response: Uint8Array): any {
   return JSON.parse(Buffer.from(response).toString());

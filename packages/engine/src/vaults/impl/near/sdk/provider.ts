@@ -9,14 +9,14 @@ import type {
 } from '@onekeyhq/engine/src/types/provider';
 import type { Signer, Verifier } from '@onekeyhq/engine/src/types/secret';
 
+import { PublicKey } from './key_pair';
 import { NearCli } from './nearcli';
-import { PublicKey } from './sdk/key_pair';
 import {
   createTransaction,
   functionCall,
   signTransactionObject,
   transfer,
-} from './sdk/transaction';
+} from './transaction';
 
 import type { GasCostConfig } from './nearcli';
 
