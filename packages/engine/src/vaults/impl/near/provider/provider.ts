@@ -11,7 +11,12 @@ import type { Signer, Verifier } from '@onekeyhq/engine/src/types/secret';
 
 import { NearCli } from './nearcli';
 import { PublicKey } from './sdk/key_pair';
-import * as nearTx from './sdk/transaction';
+import {
+  createTransaction,
+  functionCall,
+  signTransactionObject,
+  transfer,
+} from './sdk/transaction';
 
 import type { GasCostConfig } from './nearcli';
 
@@ -28,10 +33,10 @@ const packActions = (unsignedTx: UnsignedTx) => {
   const actions = [];
 
   if (!output.tokenAddress) {
-    actions.push(nearTx.transfer(output.value.integerValue().toFixed()));
+    actions.push(transfer(output.value.integerValue().toFixed()));
   } else {
     actions.push(
-      nearTx.functionCall(
+      functionCall(
         'ft_transfer',
         {
           amount: output.value.integerValue().toFixed(),
@@ -166,7 +171,7 @@ class Provider extends BaseProvider {
     const pubkey = await signer.getPubkey(true);
 
     const actions = packActions(unsignedTx);
-    const tx = nearTx.createTransaction(
+    const tx = createTransaction(
       input.address,
       PublicKey.from(new Uint8Array(pubkey)),
       output.tokenAddress || output.address,
@@ -175,7 +180,7 @@ class Provider extends BaseProvider {
       actions,
       baseDecode(blockHash),
     );
-    const [hash, signedTx] = await nearTx.signTransactionObject(tx, (digest) =>
+    const [hash, signedTx] = await signTransactionObject(tx, (digest) =>
       signer.sign(Buffer.from(digest)).then((res) => new Uint8Array(res[0])),
     );
 

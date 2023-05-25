@@ -1,19 +1,23 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, camelcase, @typescript-eslint/naming-convention */
+import { idFromAddress } from '@glif/filecoin-address';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { last } from 'lodash';
 import memoizee from 'memoizee';
 
-import { NearCli } from '@onekeyhq/blockchain-libs/src/provider/chains/near';
-import type { Provider as NearProvider } from '@onekeyhq/blockchain-libs/src/provider/chains/near';
-import type { NearAccessKey } from '@onekeyhq/blockchain-libs/src/provider/chains/near/nearcli';
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import { NearCli } from '@onekeyhq/engine/src/vaults/impl/near/provider';
+import type {
+  NearAccessKey,
+  Provider as NearProvider,
+} from '@onekeyhq/engine/src/vaults/impl/near/provider';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
+  InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
   WatchedAccountTradeError,
@@ -36,6 +40,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { verifyAddress } from './sdk';
 import settings from './settings';
 import {
   BN,
@@ -65,6 +70,7 @@ import type {
   IEncodedTxUpdatePayloadTransfer,
   IFeeInfo,
   IFeeInfoUnit,
+  ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -767,5 +773,33 @@ export default class Vault extends VaultBase {
       privateKey = decodedPrivateKey.slice(0, 32);
     }
     return Promise.resolve(privateKey);
+  }
+
+  override async validateAddress(address: string): Promise<string> {
+    const result = verifyAddress(address);
+    if (result.isValid) {
+      return Promise.resolve(result.normalizedAddress || address);
+    }
+    return Promise.reject(new InvalidAddress());
+  }
+
+  override async broadcastTransaction(
+    signedTx: ISignedTxPro,
+    options?: any,
+  ): Promise<ISignedTxPro> {
+    debugLogger.engine.info('broadcastTransaction START:', {
+      rawTx: signedTx.rawTx,
+    });
+    const cli = await this._getNearCli();
+    const txid = await cli.broadcastTransaction(signedTx.rawTx);
+    debugLogger.engine.info('broadcastTransaction END:', {
+      txid,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
+    };
   }
 }
