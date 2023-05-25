@@ -224,10 +224,13 @@ function TokenOutbox(props: Props) {
     }
 
     const maxActionsInTx = network?.settings?.maxActionsInTx || 0;
-    // const maxActionsInTx = 9;
     const transferInfoGroup = [];
-
-    if (maxActionsInTx > 0) {
+    if (
+      maxActionsInTx > 0 &&
+      (network?.settings?.hardwareMaxActionsEnabled
+        ? accountId.startsWith('hw-')
+        : true)
+    ) {
       for (
         let i = 0, len = transferInfos.length;
         i < len;
@@ -288,6 +291,7 @@ function TokenOutbox(props: Props) {
     isValid,
     isValidating,
     navigation,
+    network?.settings?.hardwareMaxActionsEnabled,
     network?.settings?.maxActionsInTx,
     networkId,
     receiver,
