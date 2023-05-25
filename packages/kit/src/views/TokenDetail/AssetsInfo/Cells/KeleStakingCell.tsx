@@ -206,7 +206,10 @@ const StakingCell: FC<Props> = ({ token, tokenId }) => {
 };
 
 const StakingCellControl: FC<Props> = ({ token, tokenId, networkId }) => {
-  const isSupported = isSupportStakedAssets(networkId, tokenId);
+  const isSupported = isSupportStakedAssets(
+    token?.networkId,
+    token?.tokenIdOnNetwork,
+  );
   return isSupported ? (
     <StakingCell token={token} tokenId={tokenId} networkId={networkId} />
   ) : null;

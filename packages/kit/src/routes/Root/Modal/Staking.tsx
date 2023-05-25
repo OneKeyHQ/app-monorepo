@@ -1,12 +1,18 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
+import ETHPoolSelector from '../../../views/Staking/ETHPoolSelector';
+import ETHStake from '../../../views/Staking/ETHStake';
 import Feedback from '../../../views/Staking/Feedback';
+import KeleEthStakeShouldUnderstand from '../../../views/Staking/KeleEthStakeShouldUnderstand';
+import KeleEthUnstakeShouldUnderstand from '../../../views/Staking/KeleEthUnstakeShouldUnderstand';
+import LidoEthStakeShouldUnderStand from '../../../views/Staking/LidoEthStakeShouldUnderstand';
+import LidoEthUnstake from '../../../views/Staking/LidoEthUnstake';
+import LidoEthUnstakeShouldUnderstand from '../../../views/Staking/LidoEthUnstakeShouldUnderstand';
 import StakedETHOnKele from '../../../views/Staking/StakedETHOnKele';
+import StakedETHOnLido from '../../../views/Staking/StakedETHOnLido';
 import StakingAmount from '../../../views/Staking/StakingAmount';
-import StakingETHNotes from '../../../views/Staking/StakingETHNotes';
 import { StakingRoutes } from '../../../views/Staking/typing';
 import UnstakeAmount from '../../../views/Staking/UnstakeAmount';
-import UnstakeKeleETHNotes from '../../../views/Staking/UnstakeKeleETHNotes';
 import WithdrawAmount from '../../../views/Staking/WithdrawAmount';
 
 import { buildModalStackNavigatorOptions } from './buildModalStackNavigatorOptions';
@@ -22,8 +28,8 @@ const modalRoutes = [
     component: StakingAmount,
   },
   {
-    name: StakingRoutes.StakingETHNotes,
-    component: StakingETHNotes,
+    name: StakingRoutes.KeleEthStakeShouldUnderstand,
+    component: KeleEthStakeShouldUnderstand,
   },
   {
     name: StakingRoutes.StakedETHOnKele,
@@ -34,8 +40,8 @@ const modalRoutes = [
     component: UnstakeAmount,
   },
   {
-    name: StakingRoutes.UnstakeKeleETHNotes,
-    component: UnstakeKeleETHNotes,
+    name: StakingRoutes.KeleEthUnstakeShouldUnderstand,
+    component: KeleEthUnstakeShouldUnderstand,
   },
   {
     name: StakingRoutes.WithdrawAmount,
@@ -44,6 +50,30 @@ const modalRoutes = [
   {
     name: StakingRoutes.Feedback,
     component: Feedback,
+  },
+  {
+    name: StakingRoutes.ETHPoolSelector,
+    component: ETHPoolSelector,
+  },
+  {
+    name: StakingRoutes.LidoEthStakeShouldUnderstand,
+    component: LidoEthStakeShouldUnderStand,
+  },
+  {
+    name: StakingRoutes.LidoEthUnstakeShouldUnderstand,
+    component: LidoEthUnstakeShouldUnderstand,
+  },
+  {
+    name: StakingRoutes.ETHStake,
+    component: ETHStake,
+  },
+  {
+    name: StakingRoutes.StakedETHOnLido,
+    component: StakedETHOnLido,
+  },
+  {
+    name: StakingRoutes.LidoEthUnstake,
+    component: LidoEthUnstake,
   },
 ];
 
