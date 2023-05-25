@@ -7,9 +7,10 @@ import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/ac
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
-import { isEvmNetworkId } from '../../Swap/utils';
+import { formatAmount, isEvmNetworkId } from '../../Swap/utils';
+import { EthStakingSource } from '../typing';
 
-import type { KeleGenericHistory } from '../typing';
+import type { KeleGenericHistory, LidoOverview } from '../typing';
 
 export function useAccountStakingActivity(
   networkId: string,
@@ -125,3 +126,29 @@ export function useKeleHistory(networkId?: string, accountId?: string) {
     return result.sort((a, b) => b.time - a.time);
   }, [incomes, opHistory]);
 }
+
+export const useStakingAprValue = (
+  source: EthStakingSource,
+  isTestnet?: boolean,
+) => {
+  const ethStakingApr = useAppSelector((s) => s.staking.ethStakingApr);
+  if (!ethStakingApr) {
+    return '';
+  }
+  const data = isTestnet ? ethStakingApr?.testnet : ethStakingApr.mainnet;
+  return source === EthStakingSource.Kele
+    ? formatAmount(data.kele, 2)
+    : formatAmount(data.lido, 2);
+};
+
+export const useLidoOverview = (
+  networkId?: string,
+  accountId?: string,
+): LidoOverview | undefined => {
+  const lidoOverview = useAppSelector((s) => s.staking.lidoOverview);
+  return useMemo(() => {
+    if (!lidoOverview || !networkId || !accountId) return undefined;
+    const overview = lidoOverview[accountId]?.[networkId];
+    return overview;
+  }, [networkId, accountId, lidoOverview]);
+};

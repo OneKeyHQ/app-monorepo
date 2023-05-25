@@ -23,7 +23,8 @@ import { useActiveSideAccount, useAppSelector } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 
 import DefiCell from './Cells/DefiCell';
-import StakingCell from './Cells/StakingCell';
+import KeleStakingCell from './Cells/KeleStakingCell';
+import LidoStakingCell from './Cells/LidoStakingCell';
 import TokenCell from './Cells/TokenCell';
 
 import type { ListRenderItem } from 'react-native';
@@ -118,7 +119,10 @@ const AssetsInfo: FC<Props> = ({
       });
   }, [accountId, networkId, sendAddress, serviceToken, tokenId]);
 
-  const listData = useMemo(() => [{ type: 'token' }, { type: 'staking' }], []);
+  const listData = useMemo(
+    () => [{ type: 'token' }, { type: 'keleStaking' }, { type: 'lidoStaking' }],
+    [],
+  );
 
   const renderItem: ListRenderItem<{ type: string }> = useCallback(
     ({ item }) => {
@@ -131,10 +135,17 @@ const AssetsInfo: FC<Props> = ({
           />
         );
       }
-      if (item.type === 'staking') {
+      if (item.type === 'keleStaking') {
         return (
-          <StakingCell tokenId={tokenId} networkId={networkId} token={token} />
+          <KeleStakingCell
+            tokenId={tokenId}
+            networkId={networkId}
+            token={token}
+          />
         );
+      }
+      if (item.type === 'lidoStaking') {
+        return <LidoStakingCell token={token} sendAddress={sendAddress} />;
       }
       return <Box />;
     },

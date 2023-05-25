@@ -679,6 +679,7 @@
   "content__not_synced": "غير متزامن",
   "content__notable_collections": "مجموعات بارزة",
   "content__onboarding_import_wallet_desc": "مع عبارة الاسترداد والمفتاح الخاص والعنوان و OneKey Lite و KeyTag والمزيد ...",
+  "content__onekey_bridge_str_is_now_available_do_you_want_to_download": "OneKey Bridge {0} متوفر الآن ، هل تريد التنزيل؟",
   "content__onekey_limit_text_input_to_str_due_to_the_limited_space_of_btc_blocks": "يقيد OneKey إدخال النص بـ {0} بسبب المساحة المحدودة لكتل البيتكوين.",
   "content__onekey_still_has_conflicts_with_other_extensions": "لا يزال OneKey يتعارض مع الامتدادات الأخرى (مثل rabby). يرجى تعطيلهم وحاول مرة أخرى.",
   "content__only_transactions_from_the_same_account_are_supported": "يتم دعم المعاملات من نفس الحساب فقط من خلال المسار الحالي.",
@@ -979,6 +980,7 @@
   "form__account_name_invalid_exists": "الاسم موجود بالفعل.",
   "form__account_uppercase": "الحساب",
   "form__activation_time": "وقت التنشيط",
+  "form__active_request": "طلب نشط",
   "form__actual_arrival": "الوصول الفعلي",
   "form__actual_received": "تلقى الفعلي",
   "form__add_exsting_wallet_invalid": "صيغة غير مدعومة",
@@ -1045,6 +1047,7 @@
   "form__auto_scroll_time": "وقت التمرير التلقائي",
   "form__automatic": "تلقائي",
   "form__available_balance": "الرصيد المتوفر:",
+  "form__available_for_claim": "متاح للمطالبة",
   "form__available_to_stake": "متاح للرهان",
   "form__back": "الجانب الخلفي",
   "form__balance": "الرصيد",
@@ -1097,6 +1100,8 @@
   "form__check_recovery_seed_placeholder": "كلمة {0}",
   "form__chinese_simplified": "الصينية المبسطة",
   "form__chinese_traditional": "تقاليد صينية",
+  "form__claim": "مطالبة",
+  "form__claim_desc": "اطلب ETH الخاص بك بعد معالجة طلب السحب.",
   "form__claimable_str": "قابل للمطالبة به: {0}",
   "form__claimable_uppercase": "قابل للمطالبة به",
   "form__clear_all_cache_on_app": "امسح كل ذاكرة التخزين المؤقت في التطبيق",
@@ -1156,6 +1161,8 @@
   "form__enter_recovery_phrase": "أدخل عبارة الاسترداد",
   "form__error_trade_with_watched_acocunt": "الحساب المراقب غير متاح للتداول.",
   "form__est_arrival_time": "EST. وقت الوصول",
+  "form__est_receipt": "EST. إيصال",
+  "form__est_str": "تقديرات {0}",
   "form__estimate_str": "تقدير {0}",
   "form__estimate_total_gas_fee": "تقدير إجمالي رسوم الغاز",
   "form__estomated_gas": "الغاز المقدر",
@@ -1432,6 +1439,8 @@
   "form__rate_our_app": "قيم تطبيقنا",
   "form__raw_desc": "التمهيد لمركز معلومات Web3 الشخصي الخاص بك من أكثر من 500 موجز ويب لـ RSS.",
   "form__receive_address": "تلقي العنوان",
+  "form__receive_lido_nft": "احصل على Lido NFT",
+  "form__receive_lido_nft_desc": "يُنشئ كل طلب سحب Lido NFT ، ويتغير مظهره عندما يصبح ETH الخاص بك متاحًا للسحب.",
   "form__receiver_address_amount": "عنوان المستلم ، المبلغ",
   "form__receiver_address_token_id_amount": "عنوان المستلم ، معرف الرمز ، المبلغ",
   "form__receiving_address": "عنوان الاستلام",
@@ -1445,12 +1454,15 @@
   "form__release_notes": "ملاحظات الإصدار:",
   "form__reopen_last_page_in_current_tab": "أعد فتح الصفحة الأخيرة في علامة التبويب الحالية",
   "form__request_type": "نوع الطلب",
+  "form__request_withdrawal": "طلب الانسحاب",
+  "form__request_withdrawal_desc": "قفل stETH / wstETH بإصدار طلب سحب. بعد 1-5 أيام ، سيتم تدمير stETH المقفل وسيصبح ETH الخاص بك متاحًا للسحب.",
   "form__reset_app": "إعادة تعيين التطبيق",
   "form__reward_history": "تاريخ المكافأة",
   "form__rewards_are_automatically_credited_to_your_deposit_every_few_days": "تُضاف المكافآت تلقائيًا إلى إيداعك <a> كل بضعة أيام </a>",
   "form__rewards_uppercase": "المكافآت",
   "form__risk_exposure": "التعرض للخطر",
   "form__rocket_rapid": "🚀 سريع",
+  "form__route": "طريق",
   "form__rpc_fetched_failed": "فشل جلب RPC.",
   "form__rpc_node": "عقدة RPC",
   "form__rpc_status": "حالة RPC",
@@ -1650,6 +1662,7 @@
   "form__with_str": "مع {0}",
   "form__withdraw_desc": "لسحب ETH إلى حسابك ، تحتاج إلى بدء معاملة.",
   "form__you_have_no_wallet_yet": "ليس لديك محفظة بعد",
+  "form__you_receive": "انت تستقبل",
   "form__you_start_earning_str": "تبدأ في كسب <a> كل يوم </a>",
   "form__your_email": "بريدك الالكتروني",
   "form__your_question_is": "سؤالك هو ...",
@@ -2286,6 +2299,8 @@
   "title__leaderboard": "ليدربورد",
   "title__lets_play_the_dot_punching_game": "هيا نلعب\n لعبة نقطة اللكم",
   "title__lets_play_the_dot_punching_game_desc": "سيقوم OneKey بتحويل عبارة الاسترداد إلى BIP39 dotmap. كل ما عليك القيام به هو اتباع dotmap لكمة النقاط على KeyTag باستخدام ثقب مركزي تلقائي ، ثم ستنتهي من النسخ الاحتياطي لمحفظتك. استمتع!",
+  "title__lido_unstaking": "ليدو غير مقيدة",
+  "title__lido_unstaking_desc": "عملية السحب بسيطة وسيتم تقسيمها إلى الخطوات التالية:",
   "title__major_update": "تحديث رئيسي",
   "title__manage_account_dynamic": "إدارة الحساب الديناميكي",
   "title__manage_accounts": "إدارة الحسابات",
@@ -2358,6 +2373,7 @@
   "title__refresh_website_to_take_effect": "قم بتحديث موقع الويب حتى يسري مفعوله",
   "title__refresh_website_to_take_effect_desc": "بعد تغيير الإعدادات ، يرجى تذكر تحديث موقع الويب ليصبح ساري المفعول.",
   "title__request_details": "طلب تفاصيل",
+  "title__requires_updating_of_onekey_bridge": "يتطلب تحديث OneKey Bridge",
   "title__revoke": "Revoke",
   "title__reward": "جائزة",
   "title__risky_token": "رمز محفوف بالمخاطر",

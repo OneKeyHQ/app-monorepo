@@ -15,12 +15,12 @@ import type { RouteProp } from '@react-navigation/core';
 
 type RouteProps = RouteProp<
   StakingRoutesParams,
-  StakingRoutes.UnstakeKeleETHNotes
+  StakingRoutes.KeleEthUnstakeShouldUnderstand
 >;
 
 type NavigationProps = ModalScreenProps<StakingRoutesParams>;
 
-export default function UnstakeKeleETHNotes() {
+export default function KeleEthUnstakeShouldUnderstand() {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { params } = useRoute<RouteProps>();
