@@ -146,33 +146,27 @@ export function crossWebviewLoadUrl({
 }
 
 // https://github.com/facebook/hermes/issues/114#issuecomment-887106990
-const injectToPauseWebsocket = () => {
-  'show source';
-
+const injectToPauseWebsocket = `
+(function(){  
   if (window.WebSocket) {
-    // @ts-ignore
     if (!window.$$onekeyWebSocketSend) {
-      // @ts-ignore
-      // eslint-disable-next-line @typescript-eslint/unbound-method
       window.$$onekeyWebSocketSend = window.WebSocket.prototype.send;
     }
     window.WebSocket.prototype.send = () => {};
   }
-};
+})()
+`;
 
-const injectToResumeWebsocket = () => {
-  'show source';
-
+const injectToResumeWebsocket = `
+(function(){  
   if (
     window.WebSocket &&
-    // @ts-ignore
     window.$$onekeyWebSocketSend
   ) {
-    // @ts-ignore
-    // eslint-disable-next-line @typescript-eslint/unbound-method
     window.WebSocket.prototype.send = window.$$onekeyWebSocketSend;
   }
-};
+})()
+`;
 
 export function pauseDappInteraction(id?: string) {
   const ref = getWebviewWrapperRef(id);
@@ -183,17 +177,13 @@ export function pauseDappInteraction(id?: string) {
     }
     // pause wallet connect websocket
     if (platformEnv.isNative) {
-      (ref.innerRef as WebView)?.injectJavaScript(
-        `(${injectToPauseWebsocket.toString()})()`,
-      );
+      (ref.innerRef as WebView)?.injectJavaScript(injectToPauseWebsocket);
     }
     if (platformEnv.isDesktop) {
       const deskTopRef = ref.innerRef as IElectronWebView;
       if (deskTopRef) {
         try {
-          deskTopRef.executeJavaScript(
-            `(${injectToPauseWebsocket.toString()})()`,
-          );
+          deskTopRef.executeJavaScript(injectToPauseWebsocket);
         } catch (e) {
           // if not dom ready, no need to pause websocket
         }
@@ -211,17 +201,13 @@ export function resumeDappInteraction(id?: string) {
     }
     // resume wallet connect websocket
     if (platformEnv.isNative) {
-      (ref.innerRef as WebView)?.injectJavaScript(
-        `(${injectToResumeWebsocket.toString()})()`,
-      );
+      (ref.innerRef as WebView)?.injectJavaScript(injectToResumeWebsocket);
     }
     if (platformEnv.isDesktop) {
       const deskTopRef = ref.innerRef as IElectronWebView;
       if (deskTopRef) {
         try {
-          deskTopRef.executeJavaScript(
-            `(${injectToResumeWebsocket.toString()})()`,
-          );
+          deskTopRef.executeJavaScript(injectToResumeWebsocket);
         } catch (e) {
           // if not dom ready, no need to resume websocket
         }

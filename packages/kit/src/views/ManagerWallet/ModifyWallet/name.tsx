@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
@@ -28,7 +28,6 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { defaultAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 

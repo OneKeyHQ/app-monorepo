@@ -5366,7 +5366,7 @@ __metadata:
     memoizee: ^0.4.15
     mime-types: ^2.1.35
     node-notifier: ^10.0.0
-    patch-package: ^6.5.1
+    patch-package: ^7.0.0
     prettier: ^2.8.1
     react-dom: 18.2.0
     react-native: 0.71.8
@@ -5406,7 +5406,7 @@ __metadata:
     "@react-native-firebase/app": ^14
     "@react-native-firebase/crashlytics": ^14
     "@react-native-firebase/perf": ^14
-    "@react-native-google-signin/google-signin": ^9.0.2
+    "@react-native-google-signin/google-signin": ^9.1.0
     "@react-native-segmented-control/segmented-control": ^2.4.1
     "@react-navigation/bottom-tabs": ^6.2.0
     "@react-navigation/drawer": ^6.5.6
@@ -5475,6 +5475,7 @@ __metadata:
     react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview"
     readable-stream: ^3.6.0
     realm: ^11.9.0
+    realm-flipper-plugin-device: ^1.1.0
     redux-flipper: ^2.0.2
     rimraf: ^4.1.2
     stream-http: ^3.2.0
@@ -5600,7 +5601,6 @@ __metadata:
     js-conflux-sdk: ^2.1.6
     natsort: ^2.0.3
     near-api-js: ^0.44.2
-    patch-package: ^6.5.0
     rimraf: ^3.0.2
     ripple-keypairs: ^1.1.4
     tiny-lru: ^8.0.2
@@ -7101,9 +7101,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native-google-signin/google-signin@npm:^9.0.2":
-  version: 9.0.2
-  resolution: "@react-native-google-signin/google-signin@npm:9.0.2"
+"@react-native-google-signin/google-signin@npm:^9.1.0":
+  version: 9.1.0
+  resolution: "@react-native-google-signin/google-signin@npm:9.1.0"
   peerDependencies:
     expo: ">=47.0.0"
     react: "*"
@@ -7111,7 +7111,7 @@ __metadata:
   peerDependenciesMeta:
     expo:
       optional: true
-  checksum: 4b9d0901ab53317de138f86141491da0159dc5b823f7de81fce07a4b8fe16cce463ad9e3a6f52f6f928eaf50db5311738b6b89658306f0d617a187ba62b9b5da
+  checksum: bfecb92ed158ef9eb05e024f1a108075fbb371a7df90eb4fcc01381f432fdfc024b572866c31d303b171c600b990552f9a52c53d44f173e693e85b3b824894da
   languageName: node
   linkType: hard
 
@@ -12784,10 +12784,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ci-info@npm:^3.2.0, ci-info@npm:^3.3.0":
-  version: 3.3.1
-  resolution: "ci-info@npm:3.3.1"
-  checksum: 244546317cca96955860d2cb8d0bf47dd66d9078bbe83a215fa87464ab24b352c6fc6f56027d1c82f002e3f833be253f1320d35ed7199bd81134f7788c657f3a
+"ci-info@npm:^3.2.0, ci-info@npm:^3.3.0, ci-info@npm:^3.7.0":
+  version: 3.8.0
+  resolution: "ci-info@npm:3.8.0"
+  checksum: d0a4d3160497cae54294974a7246202244fff031b0a6ea20dd57b10ec510aa17399c41a1b0982142c105f3255aff2173e5c0dd7302ee1b2f28ba3debda375098
   languageName: node
   linkType: hard
 
@@ -25397,16 +25397,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"patch-package@npm:^6.5.0, patch-package@npm:^6.5.1":
-  version: 6.5.1
-  resolution: "patch-package@npm:6.5.1"
+"patch-package@npm:^7.0.0":
+  version: 7.0.0
+  resolution: "patch-package@npm:7.0.0"
   dependencies:
     "@yarnpkg/lockfile": ^1.1.0
     chalk: ^4.1.2
-    cross-spawn: ^6.0.5
+    ci-info: ^3.7.0
+    cross-spawn: ^7.0.3
     find-yarn-workspace-root: ^2.0.0
     fs-extra: ^9.0.0
-    is-ci: ^2.0.0
     klaw-sync: ^6.0.0
     minimist: ^1.2.6
     open: ^7.4.2
@@ -25414,10 +25414,10 @@ __metadata:
     semver: ^5.6.0
     slash: ^2.0.0
     tmp: ^0.0.33
-    yaml: ^1.10.2
+    yaml: ^2.2.2
   bin:
     patch-package: index.js
-  checksum: 8530ffa30f11136b527c6eddf6da48fa12856ee510a47edb1f9cdf8a025636adb82968f5fae778b5e04ce8c87915ebdf5911422b54add59a5a42e372a8f30eb2
+  checksum: 63f6589320f8953ac06b5c0c1549c82ef051aea81db91173157ab270a8f4910deb895e0b4d49ee1626a4a0a02d74f134bdbeb76052b639a2239e2df83c4a7ce6
   languageName: node
   linkType: hard
 
@@ -27928,6 +27928,19 @@ __metadata:
     typeson: ^6.1.0
     typeson-registry: ^1.0.0-alpha.20
   checksum: aca8c7c2712519a8c05278456972dd4dd93f73da57be000f4693669d02479eebe995bc277019dc64adf508696b5dca3cbd425a06c0372557a0d3178da0adab06
+  languageName: node
+  linkType: hard
+
+"realm-flipper-plugin-device@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "realm-flipper-plugin-device@npm:1.1.0"
+  dependencies:
+    flatted: ^3.2.7
+  peerDependencies:
+    react: ">=17"
+    react-native-flipper: ">=0.162.0"
+    realm: ">=11.0.0"
+  checksum: e142d6d9c8b681eec832bf9caa90faee96006abd44bea69b8f21440bfa2d6cd680493cc7d0f4f2bc5a7060d2941164e904a54b4760a85e181cfae9d6af3c445a
   languageName: node
   linkType: hard
 
@@ -33306,10 +33319,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"yaml@npm:^1.10.0, yaml@npm:^1.10.2, yaml@npm:^1.7.2":
+"yaml@npm:^1.10.0, yaml@npm:^1.7.2":
   version: 1.10.2
   resolution: "yaml@npm:1.10.2"
   checksum: ce4ada136e8a78a0b08dc10b4b900936912d15de59905b2bf415b4d33c63df1d555d23acb2a41b23cf9fb5da41c256441afca3d6509de7247daa062fd2c5ea5f
+  languageName: node
+  linkType: hard
+
+"yaml@npm:^2.2.2":
+  version: 2.3.0
+  resolution: "yaml@npm:2.3.0"
+  checksum: 9c3d16c226472041fbdc9fb55e1645786d3a3e8d4fde67a502ed7bfbd9067b811e466679db590a0731b4405d4a3bef1f35d098fb650d2cf4bc24732fc829b961
   languageName: node
   linkType: hard
 
