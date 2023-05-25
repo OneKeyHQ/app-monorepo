@@ -62,7 +62,6 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { NearAccessKey } from './sdk';
-import type { Provider as NearProvider } from './sdk/provider';
 import type { INearAccountStorageBalance } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -121,7 +120,6 @@ export default class Vault extends VaultBase {
 
   // TODO rename to prop get client();
   async _getNearCli(): Promise<NearCli> {
-    // const nearCli2 = await (this.engineProvider as NearProvider).nearCli;
     const { rpcURL } = await this.getNetwork();
     const nearCli = await this._createNearCli(rpcURL, this.networkId);
     return nearCli;
