@@ -986,18 +986,20 @@ export default class ServiceStaking extends ServiceBase {
     const { networkId } = params;
     const baseToken: Token = {
       id: '',
-      name: '',
       networkId: '',
       tokenIdOnNetwork: '',
+      name: 'Liquid staked Ether 2.0',
       symbol: 'stETH',
       decimals: 18,
       logoURI:
         'https://common.onekey-asset.com/token/evm-1/0xae7ab96520de3a18e5e111b5eaab095312d7fe84.png',
     };
     if (networkId === OnekeyNetwork.eth) {
+      baseToken.id = `${OnekeyNetwork.eth}--${MainnetLidoContractAddress}`;
       baseToken.networkId = OnekeyNetwork.eth;
       baseToken.tokenIdOnNetwork = MainnetLidoContractAddress;
     } else {
+      baseToken.id = `${OnekeyNetwork.goerli}--${TestnetLidoContractAddress}`;
       baseToken.networkId = OnekeyNetwork.goerli;
       baseToken.tokenIdOnNetwork = TestnetLidoContractAddress;
     }

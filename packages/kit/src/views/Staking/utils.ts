@@ -78,11 +78,12 @@ export async function fetchStEthRate(params: {
   return res;
 }
 
-export async function buildWithdrawStEthTransaction(params: {
+export async function buildWithdrawStEthTransaction(input: {
+  typedValue: string;
   networkId: string;
   account: Account;
 }) {
-  const { networkId, account } = params;
+  const { networkId, account, typedValue } = input;
   const nativeToken = await backgroundApiProxy.engine.getNativeTokenInfo(
     networkId,
   );
@@ -90,32 +91,21 @@ export async function buildWithdrawStEthTransaction(params: {
     networkId,
   });
   const network = await backgroundApiProxy.engine.getNetwork(networkId);
-  const quoteParams: FetchQuoteParams = {
+  const params: FetchQuoteParams = {
     networkOut: network,
     networkIn: network,
     tokenOut: nativeToken,
     tokenIn: stETH,
     slippagePercentage: '1',
-    typedValue: '1',
+    typedValue,
     independentField: 'INPUT',
     activeAccount: account,
     receivingAddress: account.address,
   };
-  const res = await SwapQuoter.client.fetchQuote(quoteParams);
-  const data = res?.data;
-  if (!data) {
-    return;
+  const res = await SwapQuoter.client.fetchQuote(params);
+  const quote = res?.data;
+  if (!quote) {
+    throw new Error('failed to build unstake params');
   }
-
-  const buildParams: BuildTransactionParams = {
-    ...quoteParams,
-    sellAmount: data.sellAmount,
-    buyAmount: data.buyAmount,
-  };
-  const transactionRes = await SwapQuoter.client.buildTransaction(
-    data.type,
-    buildParams,
-  );
-
-  return transactionRes?.data;
+  return { params, quote };
 }

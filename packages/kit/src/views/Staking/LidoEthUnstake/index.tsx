@@ -30,6 +30,7 @@ import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { addTransaction } from '../../../store/reducers/staking';
 import { formatAmount } from '../../../utils/priceUtils';
 import { SendModalRoutes } from '../../Send/types';
+import { useSwapSubmit } from '../../Swap/hooks/useSwapSubmit';
 import { StakingKeyboard } from '../components/StakingKeyboard';
 import { useLidoOverview } from '../hooks';
 import { StakingRoutes } from '../typing';
@@ -84,6 +85,7 @@ export default function UnstakeAmount() {
   const [source, setSource] = useState<UnstakeRouteOptionsValue>('lido');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const swapSubmit = useSwapSubmit();
 
   const errorMsg = useMemo(() => {
     if (!amount) {
@@ -118,25 +120,14 @@ export default function UnstakeAmount() {
 
   const onUnstakeBySwap = useCallback(async () => {
     if (account && networkId) {
-      const encodedTx = await buildWithdrawStEthTransaction({
+      const { params, quote } = await buildWithdrawStEthTransaction({
         networkId,
         account,
+        typedValue: amount,
       });
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.Send,
-        params: {
-          screen: SendModalRoutes.SendConfirm,
-          params: {
-            accountId: account.id,
-            networkId,
-            feeInfoUseFeeInTx: false,
-            feeInfoEditable: true,
-            encodedTx,
-          },
-        },
-      });
+      await swapSubmit({ params, quote, recipient: account });
     }
-  }, [networkId, account, navigation]);
+  }, [networkId, account, amount, swapSubmit]);
 
   const onUnstakeByLido = useCallback(async () => {
     if (!account) {
