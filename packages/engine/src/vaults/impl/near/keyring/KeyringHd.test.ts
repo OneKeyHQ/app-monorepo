@@ -1,5 +1,6 @@
-import nearMockData from './@tests/nearMockData';
-import nearPresetCase from './@tests/nearPresetCase';
+import nearMockData from '../@tests/nearMockData';
+import nearPresetCase from '../@tests/nearPresetCase';
+
 import { KeyringHd } from './KeyringHd';
 
 jest.setTimeout(3 * 60 * 1000);

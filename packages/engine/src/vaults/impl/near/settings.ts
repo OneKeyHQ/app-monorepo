@@ -5,7 +5,7 @@ import {
 
 import type { IVaultSettings } from '../../types';
 
-export const settings: IVaultSettings = Object.freeze({
+const settings: IVaultSettings = Object.freeze({
   feeInfoEditable: false,
   privateKeyExportEnabled: true,
   tokenEnabled: true,
@@ -27,3 +27,5 @@ export const settings: IVaultSettings = Object.freeze({
     },
   },
 });
+
+export default settings;
