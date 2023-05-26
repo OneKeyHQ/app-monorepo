@@ -27,7 +27,11 @@ import {
   SendModalRoutes,
 } from '../../../routes/routesEnum';
 import { appSelector } from '../../../store';
-import { addTransaction } from '../../../store/reducers/swapTransactions';
+import { clearState } from '../../../store/reducers/swap';
+import {
+  addTransaction,
+  setSlippage,
+} from '../../../store/reducers/swapTransactions';
 import { wait } from '../../../utils/helper';
 import { showOverlay } from '../../../utils/overlayUtils';
 import { SwapTransactionsCancelApprovalBottomSheetModal } from '../components/CancelApprovalModal';
@@ -85,7 +89,8 @@ const addSwapTransaction = async ({
   if (response === undefined || newQuote === undefined) {
     return;
   }
-  backgroundApiProxy.serviceSwap.clearState();
+  const actions: any[] = [clearState()];
+  // backgroundApiProxy.serviceSwap.clearState();
   const sellAmount = newQuote.sellAmount || quote.sellAmount;
   const buyAmount = newQuote.buyAmount || quote.buyAmount;
   const quoterType = quote.type;
@@ -121,7 +126,7 @@ const addSwapTransaction = async ({
         new BigNumber(newQuote.buyAmount).shiftedBy(-params.tokenOut.decimals),
       ) || formatAmount(outputAmount),
   };
-  backgroundApiProxy.dispatch(
+  actions.push(
     addTransaction({
       accountId: params.activeAccount.id,
       networkId: params.tokenIn.networkId,
@@ -152,8 +157,14 @@ const addSwapTransaction = async ({
       },
     }),
   );
+  // backgroundApiProxy.serviceSwap.resetSwapSlippage();
+  const slippage = appSelector((s) => s.swapTransactions.slippage);
+  if (slippage && slippage.autoReset) {
+    actions.push(setSlippage({ mode: 'auto' }));
+  }
 
-  backgroundApiProxy.serviceSwap.resetSwapSlippage();
+  backgroundApiProxy.dispatch(...actions);
+
   backgroundApiProxy.serviceToken.addAccountToken(
     params.tokenIn.networkId,
     params.activeAccount.id,

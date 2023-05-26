@@ -582,7 +582,7 @@ export default class ServiceStaking extends ServiceBase {
     const balanceBN = balanceResult[0] as BigNumber;
     const balance = new BN(balanceBN.toString())
       .shiftedBy(-token.decimals)
-      .toString();
+      .toFixed();
 
     const requestsCalldata = calldatas[1];
     const requestsResult = await serviceContract.parseJsonResponse({
@@ -1003,10 +1003,12 @@ export default class ServiceStaking extends ServiceBase {
       baseToken.id = `${OnekeyNetwork.eth}--${MainnetLidoContractAddress}`;
       baseToken.networkId = OnekeyNetwork.eth;
       baseToken.tokenIdOnNetwork = MainnetLidoContractAddress;
-    } else {
+    } else if (networkId === OnekeyNetwork.goerli) {
       baseToken.id = `${OnekeyNetwork.goerli}--${TestnetLidoContractAddress}`;
       baseToken.networkId = OnekeyNetwork.goerli;
       baseToken.tokenIdOnNetwork = TestnetLidoContractAddress;
+    } else {
+      throw new Error('Wrong networkId');
     }
     return baseToken;
   }
