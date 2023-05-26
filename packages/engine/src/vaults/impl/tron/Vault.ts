@@ -796,9 +796,14 @@ export default class Vault extends VaultBase {
       const allowance =
         (resp as { remaining: { _hex: string } }).remaining ?? resp;
 
+      const allowanceBN = new BigNumber(allowance._hex);
+
+      const totalSupplyResp = await tokenContract.totalSupply().call();
+      const totalSupply = totalSupplyResp._hex;
+
       return {
-        isUnlimited: allowance._hex === INFINITE_AMOUNT_HEX,
-        allowance: new BigNumber(allowance._hex).toFixed(),
+        isUnlimited: allowanceBN.gt(totalSupply),
+        allowance: allowanceBN.toFixed(),
       };
     } catch {
       return {

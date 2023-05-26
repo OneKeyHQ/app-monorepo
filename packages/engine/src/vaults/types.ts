@@ -113,6 +113,7 @@ export type IVaultSettings = {
   batchTransferApprovalRequired?: boolean;
   batchTransferApprovalConfirmRequired?: boolean;
   maxActionsInTx?: number;
+  hardwareMaxActionsEnabled?: boolean;
   transactionIdPattern?: string;
   isBtcForkChain?: boolean;
   nonceEditable?: boolean;

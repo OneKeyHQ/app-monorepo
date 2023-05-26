@@ -10,6 +10,7 @@ type ITokenContract = {
   ) => {
     call: () => Promise<{ _hex: string } | { remaining: { _hex: string } }>;
   };
+  totalSupply: () => { call: () => Promise<{ _hex: number }> };
 };
 
 type IAccountResources = {
