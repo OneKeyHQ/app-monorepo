@@ -183,36 +183,6 @@ export default class Vault extends VaultBase {
     return Promise.resolve(params.encodedTx);
   }
 
-  getActionInfo(nativeTx: nearApiJs.transactions.Transaction) {
-    let txAction = nativeTx.actions.length === 1 ? nativeTx.actions[0] : null;
-    const isNativeTransfer = txAction && txAction?.enum === 'transfer';
-    const defaultResult = {
-      txType: EVMDecodedTxType.NATIVE_TRANSFER,
-      actionInfo: txAction?.transfer,
-    };
-    if (isNativeTransfer) {
-      return defaultResult;
-    }
-    const testIsTokenTransfer = (
-      action: nearApiJs.transactions.Action | null,
-    ) =>
-      action &&
-      action.enum === 'functionCall' &&
-      action?.functionCall?.methodName === 'ft_transfer';
-    let isTokenTransfer = testIsTokenTransfer(txAction);
-    if (!isTokenTransfer) {
-      txAction = nativeTx.actions.length === 2 ? nativeTx.actions[1] : null;
-    }
-    isTokenTransfer = testIsTokenTransfer(txAction);
-    if (isTokenTransfer) {
-      return {
-        txType: EVMDecodedTxType.TOKEN_TRANSFER,
-        actionInfo: txAction?.functionCall,
-      };
-    }
-    return defaultResult;
-  }
-
   async nativeTxActionToEncodedTxAction(
     nativeTx: nearApiJs.transactions.Transaction,
   ) {
