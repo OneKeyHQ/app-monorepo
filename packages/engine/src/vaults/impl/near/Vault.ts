@@ -15,14 +15,13 @@ import {
   OneKeyInternalError,
   WatchedAccountTradeError,
 } from '../../../errors';
-import { extractResponseError, fillUnsignedTx } from '../../../proxy';
+import { extractResponseError } from '../../../proxy';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
-import { EVMDecodedTxType } from '../evm/decoder/types';
 
 import {
   KeyringHardware,
@@ -65,7 +64,7 @@ import type {
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
-import type { INearAccountStorageBalance, NearAccessKey } from './sdk';
+import type { INearAccountStorageBalance, NearAccessKey } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 // TODO extends evm/Vault
