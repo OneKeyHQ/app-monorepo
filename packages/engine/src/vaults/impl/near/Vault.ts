@@ -766,15 +766,18 @@ export default class Vault extends VaultBase {
   }
 
   override async getTransactionStatuses(
-    txids: Array<string>,
+    txIds: Array<string>,
   ): Promise<Array<TransactionStatus | undefined>> {
     const cli: NearCli = await this._getNearCli();
-    const results = await Promise.allSettled(
-      txids.map((txId) => cli.getTransactionStatus(txId)),
+    const transactionStatuses = await Promise.all(
+      txIds.map((txId) =>
+        cli
+          .getTransactionStatus(txId)
+          .then((transactionStatus) => transactionStatus)
+          .catch(() => TransactionStatus.PENDING),
+      ),
     );
-    return results.map((res) =>
-      res.status === 'fulfilled' ? res.value : TransactionStatus.PENDING,
-    );
+    return transactionStatuses;
   }
 
   override async validateAddress(address: string): Promise<string> {

@@ -12,6 +12,7 @@ import type {
 } from '@onekeyhq/engine/src/types/provider';
 import { JsonPRCResponseError } from '@onekeyhq/shared/src/errors/request-errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
+
 import type { GasCostConfig, NearAccessKey } from '../types';
 
 function parseJsonFromRawResponse(response: Uint8Array): any {
