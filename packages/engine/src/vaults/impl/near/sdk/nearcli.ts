@@ -12,6 +12,7 @@ import type {
 } from '@onekeyhq/engine/src/types/provider';
 import { JsonPRCResponseError } from '@onekeyhq/shared/src/errors/request-errors';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
+import type { GasCostConfig, NearAccessKey } from '../types';
 
 function parseJsonFromRawResponse(response: Uint8Array): any {
   return JSON.parse(Buffer.from(response).toString());
@@ -20,24 +21,6 @@ function parseJsonFromRawResponse(response: Uint8Array): any {
 function bytesJsonStringify(input: any): Buffer {
   return Buffer.from(JSON.stringify(input));
 }
-
-export type NearAccessKey = {
-  type: 'FullAccess' | 'FunctionCall';
-  pubkey: string;
-  pubkeyHex: string;
-  nonce: number;
-  functionCall?: {
-    allowance: string;
-    receiverId: string;
-    methodNames: string[];
-  };
-};
-
-export type GasCostConfig = {
-  send_sir: number;
-  send_not_sir: number;
-  execution: number;
-};
 
 class NearCli extends SimpleClient {
   readonly rpc: JsonRPCRequest;
