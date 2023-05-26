@@ -23,6 +23,7 @@ import { useSingleToken } from '../../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { StakingRoutes } from '../../../Staking/typing';
 import { getLidoTokenEvmAddress } from '../../../Staking/utils';
+import { formatAmount } from '../../../Swap/utils';
 import { PriceCurrencyNumber } from '../../TokenDetailHeader/PriceCurrencyNumber';
 
 import type { TokenBalanceValue } from '../../../../store/reducers/tokens';
@@ -64,7 +65,7 @@ const Mobile: FC<CellProps> = ({
           labelProps: { typography: 'Body1Strong' },
           description: (
             <FormatBalance
-              balance={amount}
+              balance={formatAmount(amount, 6)}
               suffix={token?.symbol}
               formatOptions={{
                 fixed: token?.decimals ?? 4,
@@ -134,7 +135,7 @@ const Desktop: FC<CellProps> = ({
           text={{
             label: (
               <Typography.Body1Strong textAlign="right">
-                {amount}
+                {formatAmount(amount, 6)} stETH
               </Typography.Body1Strong>
             ),
           }}

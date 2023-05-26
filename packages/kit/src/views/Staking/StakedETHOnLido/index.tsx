@@ -163,9 +163,9 @@ const ListHeaderComponent = () => {
     });
   }, [navigation]);
 
-  const totalAmount = lidoOverview?.balance ?? 0;
+  const totalAmount = lidoOverview?.balance ?? '0';
   const totalAmountText = formatAmount(totalAmount, 8);
-  const isApproximate = Number(totalAmountText) !== totalAmount;
+  const isApproximate = Number(totalAmountText) !== Number(totalAmount);
 
   return (
     <Box>
@@ -251,6 +251,7 @@ export default function StakedETHOnLido() {
       networkId,
       accountId,
     });
+    backgroundApiProxy.serviceStaking.fetchEthAprSma();
     // eslint-disable-next-line
   }, []);
   const lidoOverview = useLidoOverview(networkId, accountId);

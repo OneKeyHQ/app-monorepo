@@ -1,33 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  BottomSheetModal,
-  Box,
-  Button,
-  HStack,
-  Icon,
-  Input,
-  Text,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+import { Box, HStack, Icon, Input, Modal, Text } from '@onekeyhq/components';
 
-import { showOverlay } from '../../../utils/overlayUtils';
+import type { BulkSenderRoutes, BulkSenderRoutesParams } from '../types';
+import type { RouteProp } from '@react-navigation/native';
 
-function AmountEditorBottomSheetModal({
-  onAmountChanged,
-  closeOverlay,
-}: {
-  onAmountChanged: (amount: string) => void;
-  closeOverlay: () => void;
-}) {
+type RouteProps = RouteProp<
+  BulkSenderRoutesParams,
+  BulkSenderRoutes.AmountEditor
+>;
+
+function AmountEditor() {
   const [amount, setAmount] = useState('');
   const [isValid, setIsValid] = useState(true);
 
+  const route = useRoute<RouteProps>();
+  const { onAmountChanged } = route.params;
+
   const intl = useIntl();
-  const isVertical = useIsVerticalLayout();
 
   useEffect(() => {
     if (amount === '') {
@@ -41,69 +35,53 @@ function AmountEditorBottomSheetModal({
   const handleConfirmAmount = useCallback(() => {
     if (!isValid) return;
     onAmountChanged(amount);
-    closeOverlay();
-  }, [amount, closeOverlay, isValid, onAmountChanged]);
+  }, [amount, isValid, onAmountChanged]);
 
   return (
-    <BottomSheetModal
-      closeOverlay={closeOverlay}
-      showCloseButton={!isVertical}
-      title={intl.formatMessage({ id: 'action__edit_amount' })}
+    <Modal
+      header={intl.formatMessage({ id: 'action__edit_amount' })}
+      onSecondaryActionPress={({ close }) => close()}
+      primaryActionTranslationId="action__confirm"
+      secondaryActionTranslationId="action__cancel"
+      primaryActionProps={{ isDisabled: !isValid }}
+      onPrimaryActionPress={({ close }) => {
+        handleConfirmAmount();
+        close();
+      }}
     >
-      <Text typography="Body1" color="text-subdued" textAlign="center">
-        {intl.formatMessage({
-          id: 'content__this_will_be_applied_to_all_receiver_address_in_the_input',
-        })}
-      </Text>
-      <Box mt={5}>
-        <Input
-          w="full"
-          size="xl"
-          placeholder={intl.formatMessage({ id: 'content__amount' })}
-          value={amount}
-          onChangeText={setAmount}
-        />
-        <HStack
-          mt={2}
-          space="10px"
-          alignItems="center"
-          opacity={isValid ? 0 : 1}
-        >
-          <Icon
-            name="InformationCircleOutline"
-            size={14}
-            color="icon-warning"
+      <Box flex={1}>
+        <Text typography="Body1" color="text-subdued" textAlign="center">
+          {intl.formatMessage({
+            id: 'content__this_will_be_applied_to_all_receiver_address_in_the_input',
+          })}
+        </Text>
+        <Box mt={5}>
+          <Input
+            w="full"
+            size="xl"
+            placeholder={intl.formatMessage({ id: 'content__amount' })}
+            value={amount}
+            onChangeText={setAmount}
           />
-          <Text typography="Caption" color="text-warning">
-            {intl.formatMessage({ id: 'msg__enter_a_number' })}
-          </Text>
-        </HStack>
+          <HStack
+            mt={2}
+            space="10px"
+            alignItems="center"
+            opacity={isValid ? 0 : 1}
+          >
+            <Icon
+              name="InformationCircleOutline"
+              size={14}
+              color="icon-warning"
+            />
+            <Text typography="Caption" color="text-warning">
+              {intl.formatMessage({ id: 'msg__enter_a_number' })}
+            </Text>
+          </HStack>
+        </Box>
       </Box>
-      <HStack mt={6} space={3}>
-        <Button size="xl" flex={1} onPress={closeOverlay}>
-          {intl.formatMessage({ id: 'action__cancel' })}
-        </Button>
-        <Button
-          isDisabled={!isValid || amount === ''}
-          size="xl"
-          type="primary"
-          flex={1}
-          onPress={handleConfirmAmount}
-        >
-          {intl.formatMessage({ id: 'action__confirm' })}
-        </Button>
-      </HStack>
-    </BottomSheetModal>
+    </Modal>
   );
 }
 
-const showAmountEditor = (onAmountChanged: (amount: string) => void) => {
-  showOverlay((close) => (
-    <AmountEditorBottomSheetModal
-      onAmountChanged={onAmountChanged}
-      closeOverlay={close}
-    />
-  ));
-};
-
-export { showAmountEditor };
+export { AmountEditor };

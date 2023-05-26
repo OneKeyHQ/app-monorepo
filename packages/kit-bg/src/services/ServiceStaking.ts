@@ -5,6 +5,7 @@ import { add, sum } from 'lodash';
 import memoizee from 'memoizee';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import type EvmVault from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
   setAccountStakingActivity,
@@ -409,7 +410,7 @@ export default class ServiceStaking extends ServiceBase {
     {
       promise: true,
       primitive: true,
-      max: 50,
+      max: 1,
       maxAge: 1000 * 60 * 60,
     },
   );
@@ -575,8 +576,13 @@ export default class ServiceStaking extends ServiceBase {
     if (!balanceResult[0]) {
       return;
     }
+
+    const token = await this.getStEthToken({ networkId });
+
     const balanceBN = balanceResult[0] as BigNumber;
-    const balance = new BN(balanceBN.toString()).shiftedBy(-18).toString();
+    const balance = new BN(balanceBN.toString())
+      .shiftedBy(-token.decimals)
+      .toFixed();
 
     const requestsCalldata = calldatas[1];
     const requestsResult = await serviceContract.parseJsonResponse({
@@ -978,5 +984,32 @@ export default class ServiceStaking extends ServiceBase {
     });
     const to = this.getLidoNFTContractAddress(networkId);
     return { to, data, value: '0x0' };
+  }
+
+  @backgroundMethod()
+  async getStEthToken(params: { networkId: string }) {
+    const { networkId } = params;
+    const baseToken: Token = {
+      id: '',
+      networkId: '',
+      tokenIdOnNetwork: '',
+      name: 'Liquid staked Ether 2.0',
+      symbol: 'stETH',
+      decimals: 18,
+      logoURI:
+        'https://common.onekey-asset.com/token/evm-1/0xae7ab96520de3a18e5e111b5eaab095312d7fe84.png',
+    };
+    if (networkId === OnekeyNetwork.eth) {
+      baseToken.id = `${OnekeyNetwork.eth}--${MainnetLidoContractAddress}`;
+      baseToken.networkId = OnekeyNetwork.eth;
+      baseToken.tokenIdOnNetwork = MainnetLidoContractAddress;
+    } else if (networkId === OnekeyNetwork.goerli) {
+      baseToken.id = `${OnekeyNetwork.goerli}--${TestnetLidoContractAddress}`;
+      baseToken.networkId = OnekeyNetwork.goerli;
+      baseToken.tokenIdOnNetwork = TestnetLidoContractAddress;
+    } else {
+      throw new Error('Wrong networkId');
+    }
+    return baseToken;
   }
 }

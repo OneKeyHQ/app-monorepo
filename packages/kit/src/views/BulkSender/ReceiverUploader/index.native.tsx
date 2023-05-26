@@ -1,10 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { EncodingType, readAsStringAsync } from 'expo-file-system';
 import { pickSingle, types } from 'react-native-document-picker';
 import { read, utils } from 'xlsx';
 
-import { Box, Center, Icon, Pressable } from '@onekeyhq/components';
+import { Box, Center, Icon, Pressable, Spinner } from '@onekeyhq/components';
 
 import { ReceiverErrors } from '../ReceiverEditor/ReceiverErrors';
 import { ReceiverExample } from '../ReceiverExample';
@@ -27,6 +27,8 @@ function ReceiverUploader(props: Props) {
     setShowFileError,
   } = props;
 
+  const [isUploading, setIsUploading] = useState(false);
+
   const handleUploadFile = useCallback(async () => {
     try {
       const f = await pickSingle({
@@ -42,6 +44,7 @@ function ReceiverUploader(props: Props) {
         setShowFileError(true);
         return;
       }
+      setIsUploading(true);
       const b64 = await readAsStringAsync(path, {
         encoding: EncodingType.Base64,
       });
@@ -64,14 +67,17 @@ function ReceiverUploader(props: Props) {
       } else {
         setShowFileError(true);
       }
+      setIsUploading(false);
     } catch {
       setShowFileError(true);
+      setIsUploading(false);
     }
   }, [setIsUploadMode, setReceiverFromOut, setShowFileError]);
 
   return (
     <>
       <Pressable
+        isDisabled={isUploading}
         height="148px"
         onPress={handleUploadFile}
         borderWidth={1}
@@ -80,7 +86,11 @@ function ReceiverUploader(props: Props) {
         backgroundColor="surface-default"
       >
         <Center w="full" h="full">
-          <Icon name="UploadOutline" size={40} color="icon-subdued" />
+          {isUploading ? (
+            <Spinner size="lg" />
+          ) : (
+            <Icon name="UploadOutline" size={40} color="icon-subdued" />
+          )}
         </Center>
       </Pressable>
       <Box mt={3}>

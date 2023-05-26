@@ -47,6 +47,7 @@
     "socket.io-client": "^4.5.4",
     "swr": "^2.1.5",
     "url-parse": "^1.5.10",
+    "use-debounce": "^9.0.4",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.19.1/xlsx-0.19.1.tgz",
     "zbar.wasm": "^2.1.1"
   },

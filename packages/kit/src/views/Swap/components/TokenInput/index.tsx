@@ -161,11 +161,19 @@ const TokenInput: FC<TokenInputProps> = ({
       if (v.gt(0)) {
         backgroundApiProxy.serviceSwap.userInput(type, v.toFixed());
       } else if (Number(value) > 0) {
-        ToastManager.show({
-          title: intl.formatMessage({
-            id: 'msg__current_token_balance_is_insufficient',
-          }),
-        });
+        ToastManager.show(
+          {
+            title: intl.formatMessage(
+              {
+                id: 'msg__suggest_reserving_str_as_gas_fee',
+              },
+              {
+                '0': `${reserved} ${token.symbol.toUpperCase()}`,
+              },
+            ),
+          },
+          { type: 'error' },
+        );
       }
     }
   }, [token, value, type, intl]);
