@@ -21,7 +21,7 @@ const settings: IVaultSettings = Object.freeze({
   cannotSendToSelf: true,
   supportBatchTransfer: true,
   batchTransferApprovalRequired: true,
-  maxActionsInTx: 10,
+  maxActionsInTx: 9,
   hardwareMaxActionsEnabled: true,
 
   accountNameInfo: {
