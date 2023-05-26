@@ -18,6 +18,7 @@ import { useAppSelector } from '../../../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { addLimitOrderTransaction } from '../../../../store/reducers/swapTransactions';
 import { showOverlay } from '../../../../utils/overlayUtils';
+import { SwapTransactionsCancelApprovalBottomSheetModal } from '../../components/CancelApprovalModal';
 import { ZeroExchangeAddress } from '../../config';
 import {
   useCheckLimitOrderInputBalance,
@@ -26,13 +27,16 @@ import {
 } from '../../hooks/useLimitOrder';
 import { useSwapSend, useSwapSignMessage } from '../../hooks/useSwapSend';
 import { SwapRoutes } from '../../typings';
-import { getTokenAmountString, getTokenAmountValue, lte } from '../../utils';
+import {
+  combinedTasks,
+  getTokenAmountString,
+  getTokenAmountValue,
+  lte,
+} from '../../utils';
 
-import { SwapTransactionsCancelApprovalBottomSheetModal } from './common';
 import { LimitOrderProgressButton } from './progress';
-import { combinedTasks } from './utils';
 
-import type { Task } from './utils';
+import type { Task } from '../../utils';
 
 const LimitOrderButton = () => {
   const intl = useIntl();

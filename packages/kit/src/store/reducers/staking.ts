@@ -33,6 +33,7 @@ export type StakingState = {
   ethStakingApr?: EthStakingApr;
   lidoOverview?: Record<string, Record<string, LidoOverview>>;
   transactions?: Record<string, Record<string, TransactionDetails[]>>;
+  stEthRate?: Record<string, string>;
 };
 
 const initialState: StakingState = {};
@@ -230,6 +231,16 @@ export const stakingSlice = createSlice({
         }
       });
     },
+    setStEthRate(
+      state,
+      action: PayloadAction<{ networkId: string; value: string }>,
+    ) {
+      if (!state.stEthRate) {
+        state.stEthRate = {};
+      }
+      const { networkId, value } = action.payload;
+      state.stEthRate[networkId] = value;
+    },
   },
 });
 
@@ -247,6 +258,7 @@ export const {
   setLidoOverview,
   addTransaction,
   archiveTransaction,
+  setStEthRate,
 } = stakingSlice.actions;
 
 export default stakingSlice.reducer;

@@ -14,6 +14,7 @@ export enum StakingRoutes {
   LidoEthStakeShouldUnderstand = 'LidoEthStakeShouldUnderStand',
   LidoEthUnstakeShouldUnderstand = 'LidoEthUnstakeShouldUnderStand',
   LidoEthUnstake = 'LidoEthUnstake',
+  LidoEthUnstakeRoutes = 'LidoEthUnstakeRoutes',
 
   ETHPoolSelector = 'ETHPoolSelector',
   ETHStake = 'ETHStake',
@@ -60,6 +61,10 @@ export type StakingRoutesParams = {
   [StakingRoutes.LidoEthStakeShouldUnderstand]: {};
   [StakingRoutes.LidoEthUnstakeShouldUnderstand]: {};
   [StakingRoutes.LidoEthUnstake]: {};
+  [StakingRoutes.LidoEthUnstakeRoutes]: {
+    source: string;
+    onSelector?: (name: string) => void;
+  };
   [StakingRoutes.StakedETHOnLido]: {};
   [StakingRoutes.ETHStake]: {
     source: EthStakingSource;
