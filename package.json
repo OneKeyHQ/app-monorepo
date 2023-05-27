@@ -178,7 +178,6 @@
     "got": "^11.8.5",
     "shell-quote": "^1.7.3",
     "react-native-svg": "^13.9.0",
-    "react-native-qrcode-svg": "6.1.2",
     "@solana/web3.js": "^1.75.0",
     "buffer": "^6.0.3",
     "@types/react": "^17",
