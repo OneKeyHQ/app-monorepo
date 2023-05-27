@@ -40,7 +40,6 @@
     "@react-navigation/stack": "^6.0.11",
     "@walletconnect/client": "^1.8.0",
     "@walletconnect/qrcode-modal": "^1.8.0",
-    "@walletconnect/react-native-dapp": "^1.8.0",
     "asyncstorage-down": "^4.2.0",
     "buffer": "^6.0.3",
     "expo": "^48.0.17",
