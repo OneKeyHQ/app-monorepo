@@ -5469,6 +5469,7 @@ __metadata:
     react-native-svg: ^13.9.0
     react-native-tcp-socket: ^6.0.6
     react-native-toast-message: ^2.1.6
+    react-native-v8: ^2.1.3
     react-native-view-shot: ^3.6.0
     react-native-web: 0.18.10
     react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview"
@@ -5479,6 +5480,7 @@ __metadata:
     rimraf: ^4.1.2
     stream-http: ^3.2.0
     text-encoding: ^0.7.0
+    v8-android-jit: 11.1000.3
   languageName: unknown
   linkType: soft
 
@@ -27532,6 +27534,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-v8@npm:^2.1.3":
+  version: 2.1.3
+  resolution: "react-native-v8@npm:2.1.3"
+  peerDependencies:
+    expo: "*"
+  peerDependenciesMeta:
+    expo:
+      optional: true
+  checksum: 06938825ca1688ac6e2acdd83e46b2bba586faf43f1865149273ffd10671f560609541c671d79ac1434c182d9f165f963f69b90f50fda6cf24a11aad7659dcb3
+  languageName: node
+  linkType: hard
+
 "react-native-view-shot@npm:^3.6.0":
   version: 3.6.0
   resolution: "react-native-view-shot@npm:3.6.0"
@@ -31976,6 +31990,13 @@ __metadata:
   bin:
     uuid: dist/bin/uuid
   checksum: 5575a8a75c13120e2f10e6ddc801b2c7ed7d8f3c8ac22c7ed0c7b2ba6383ec0abda88c905085d630e251719e0777045ae3236f04c812184b7c765f63a70e58df
+  languageName: node
+  linkType: hard
+
+"v8-android-jit@npm:11.1000.3":
+  version: 11.1000.3
+  resolution: "v8-android-jit@npm:11.1000.3"
+  checksum: cbaa8e49f3247c728acdea1189154d7d80f53fb6aa778f1eed98f10574b880365593fe182128432cc20e3f4c76c11590cea8523c4ac2d33210acd01da0c2d2de
   languageName: node
   linkType: hard
 
