@@ -22,6 +22,7 @@ import type {
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokens, useActiveSideAccount } from '../../../hooks';
@@ -41,6 +42,20 @@ type NavigationProps = NativeStackNavigationProp<
   RootRoutes.Main
 > &
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
+
+function tokenDetailEnable({
+  networkId,
+  tokenAddress,
+}: {
+  networkId: string;
+  tokenAddress: string;
+}) {
+  // brc20 Tokens on BTC chain
+  if (networkId === OnekeyNetwork.btc && tokenAddress?.length > 0) {
+    return false;
+  }
+  return true;
+}
 
 export type IAssetsListProps = Omit<FlatListProps, 'data' | 'renderItem'> & {
   onTokenPress?:
@@ -128,6 +143,11 @@ function AssetsList({
     (item: Token) => {
       if (onTokenPress) {
         onTokenPress({ token: item });
+        return;
+      }
+      if (
+        !tokenDetailEnable({ networkId, tokenAddress: item.tokenIdOnNetwork })
+      ) {
         return;
       }
       // TODO: make it work with multi chains.
