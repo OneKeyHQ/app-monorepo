@@ -1,5 +1,5 @@
 const webpack = require('webpack');
-const createWebpackConfigAsync = require('@expo/webpack-config');
+const { createWebpackConfigAsync } = require('expo-yarn-workspaces/webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const path = require('path');
 const webpackTools = require('../../development/webpackTools');
