@@ -73,13 +73,11 @@ const main = async () => {
     const version = process.env.VERSION || '';
     const res = await axios.get(`${endpoint}?version=${version}`);
 
-    const { networks } = res.data;
-
-    if (!Array.isArray(networks)) {
+    if (!Array.isArray(res.data.networks)) {
       throw new Error('[build-networklist] error, networks is not an array');
     }
 
-    fs.writeFileSync('/tmp/networks.json', JSON.stringify(networks, null, 2));
+    const networks = res.data.networks.filter((n) => n.status !== 'TRASH');
 
     generateNetworkIds(networks);
 
