@@ -1,91 +1,58 @@
-/* eslint no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
-/* eslint @typescript-eslint/no-unused-vars: ["warn", { "argsIgnorePattern": "^_" }] */
+import { serverPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { networkList } from '@onekeyfe/network-list';
-import axios from 'axios';
-
-import { REMOTE_URL, checkVersion } from './base';
+import simpleDb from '../dbs/simple/simpleDb';
 
 import type { PresetNetwork } from '../types/network';
-import type { Version } from './base';
-import type { NetworkList } from '@onekeyfe/network-list';
 
-// TODO: desc order is expected in network list
-
-let synced = true; // Change to false to enable remote updating
-let preset = networkList;
 //  network.id => PresetNetwork
 let presetNetworks: Record<string, PresetNetwork> = {};
-//  network.id => token_address[]
 
-function initNetworkList(presetNetwork: NetworkList) {
+export const formatServerNetworkToPresetNetwork = (
+  network: IServerNetwork,
+): PresetNetwork => {
+  const urls = network.rpcURLs?.map((rpc) => rpc.url) ?? [];
+  return {
+    id: network.id,
+    impl: network.impl,
+    name: network.name,
+    symbol: network.symbol,
+    decimals: network.decimals,
+    logoURI: network.logoURI,
+    enabled: !network.isTestnet && network.defaultEnabled,
+    chainId: network.chainId,
+    shortCode: network.shortcode,
+    shortName: network.shortname,
+    isTestnet: network.isTestnet,
+    feeSymbol: network.feeMeta.symbol,
+    feeDecimals: network.feeMeta.decimals,
+    balance2FeeDecimals: network.balance2FeeDecimals,
+    rpcURLs: network.rpcURLs,
+    prices: network.priceConfigs,
+    explorers: network.explorers,
+    extensions: network.extensions,
+    presetRpcURLs: urls.length > 0 ? urls : [''],
+    clientApi: network.clientApi,
+    status: network.status,
+  };
+};
+
+async function initNetworkList() {
   const record: Record<string, PresetNetwork> = {};
 
-  presetNetwork.networks.forEach((network) => {
-    const urls = network.rpcURLs?.map((rpc) => rpc.url) ?? [];
+  const serverUpdatedNetworks =
+    await simpleDb.serverNetworks.getServerNetworks();
 
-    const pn: PresetNetwork = {
-      id: network.id,
-      impl: network.impl,
-      name: network.name,
-      symbol: network.symbol,
-      decimals: network.decimals,
-      logoURI: network.logoURI,
-      enabled: !network.isTestnet && network.enable,
-      chainId: network.chainId,
-      shortCode: network.shortcode,
-      shortName: network.shortname,
-      isTestnet: network.isTestnet,
-      feeSymbol: network.fee.symbol,
-      feeDecimals: network.fee.decimals,
-      balance2FeeDecimals: network.balance2FeeDecimals,
-      rpcURLs: network.rpcURLs,
-      prices: network.prices,
-      explorers: network.explorers,
-      extensions: network.extensions,
-      presetRpcURLs: urls.length > 0 ? urls : [''], // TODO: Update [''] for data consistency
-      clientApi: network.clientApi,
-    };
-    record[network.id] = pn;
+  serverPresetNetworks.concat(serverUpdatedNetworks).forEach((s) => {
+    try {
+      const network = formatServerNetworkToPresetNetwork(s);
+      record[network.id] = network;
+    } catch (error) {
+      debugLogger.common.error(`[initNetworkList] error`, s);
+    }
   });
   presetNetworks = record;
-}
-
-initNetworkList(preset);
-
-async function syncNetworkList(ver: Version): Promise<NetworkList | null> {
-  const newVer: string = await checkVersion(
-    `${REMOTE_URL}/networklist/version`,
-    ver,
-  );
-  if (newVer === '') {
-    return null;
-  }
-
-  // from remote
-  let remoteList: NetworkList;
-  try {
-    const response = await axios.get<NetworkList>(
-      `${REMOTE_URL}/networklist/onekey.networklist.json`,
-    );
-    remoteList = response.data;
-  } catch (error) {
-    console.error(error);
-    return null;
-  }
-  return remoteList;
-}
-
-async function syncLatestNetworkList() {
-  if (synced) {
-    return;
-  }
-  const newNetworkList = await syncNetworkList(preset.version);
-  if (newNetworkList) {
-    preset = networkList;
-    initNetworkList(newNetworkList);
-  }
-  synced = true;
 }
 
 function getPresetNetworks(): Record<string, PresetNetwork> {
@@ -96,4 +63,4 @@ function networkIsPreset(networkId: string): boolean {
   return typeof presetNetworks[networkId] !== 'undefined';
 }
 
-export { networkIsPreset, getPresetNetworks, syncLatestNetworkList };
+export { networkIsPreset, getPresetNetworks, initNetworkList };

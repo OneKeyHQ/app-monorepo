@@ -37,7 +37,7 @@ import timelinePerfTrace, {
 } from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+import { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { DbApi } from './dbs';
 import { DEFAULT_VERIFY_STRING, checkPassword } from './dbs/base';
@@ -87,7 +87,6 @@ import {
 } from './managers/token';
 import { walletCanBeRemoved, walletIsHD } from './managers/wallet';
 import { getPresetNetworks, networkIsPreset } from './presets';
-import { syncLatestNetworkList } from './presets/network';
 import { PriceController } from './priceController';
 import { ProviderController, fromDBNetworkToChainInfo } from './proxy';
 import { AccountType } from './types/account';
@@ -110,7 +109,6 @@ import { IDecodedTxActionType } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
 
 import type { DBAPI, ExportedSeedCredential } from './dbs/base';
-import type { ISimpleDbEntityUtxoData } from './dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { ChartQueryParams } from './priceController';
 import type {
   Account,
@@ -194,94 +192,6 @@ class Engine {
 
   async cleanupDBOnStart() {
     await this.dbApi.cleanupPendingWallets();
-  }
-
-  async checkDisabledPresetNetworks() {
-    const dbNetworks = await this.dbApi.listNetworks();
-    const presetNetworksList = Object.values(getPresetNetworks());
-    const networksToRemoved = dbNetworks.filter(({ id }) => {
-      const preset = presetNetworksList.find((p) => p.id === id);
-      return preset && !preset.enabled && !preset.isTestnet;
-    });
-
-    for (const n of networksToRemoved) {
-      debugLogger.engine.warn(`will remove network: ${n.id}`);
-      await this.dbApi.deleteNetwork(n.id);
-    }
-  }
-
-  async syncPresetNetworks(): Promise<void> {
-    await syncLatestNetworkList();
-    await this.checkDisabledPresetNetworks();
-    try {
-      const defaultNetworkList: Array<[string, boolean]> = [];
-      const dbNetworks = await this.dbApi.listNetworks();
-      const dbNetworkMap = Object.fromEntries(
-        dbNetworks.map((dbNetwork) => [dbNetwork.id, dbNetwork.enabled]),
-      );
-
-      const presetNetworksList = Object.values(getPresetNetworks()).sort(
-        (a, b) => {
-          const aPosition =
-            (a.extensions || {}).position || Number.MAX_SAFE_INTEGER;
-          const bPosition =
-            (b.extensions || {}).position || Number.MAX_SAFE_INTEGER;
-          if (aPosition > bPosition) {
-            return 1;
-          }
-          if (aPosition < bPosition) {
-            return -1;
-          }
-          return a.name > b.name ? 1 : -1;
-        },
-      );
-
-      for (const network of presetNetworksList) {
-        if (getSupportedImpls().has(network.impl)) {
-          const existingStatus = dbNetworkMap[network.id];
-          if (typeof existingStatus !== 'undefined') {
-            defaultNetworkList.push([network.id, existingStatus]);
-          } else if (network.enabled || network.isTestnet) {
-            // both network.enabled and network.isTestnet are false
-            // means this network is disabled
-            // so do not add to local cache and do not show this network in ui
-            // TODO: add 'disbaled' field to hold above condition
-            await this.dbApi.addNetwork({
-              id: network.id,
-              name: network.name,
-              impl: network.impl,
-              symbol: network.symbol,
-              logoURI: network.logoURI,
-              enabled: network.enabled,
-              feeSymbol: network.feeSymbol,
-              decimals: network.decimals,
-              feeDecimals: network.feeDecimals,
-              balance2FeeDecimals: network.balance2FeeDecimals,
-              rpcURL: network.presetRpcURLs[0],
-              position: 0,
-            });
-            dbNetworkMap[network.id] = network.enabled;
-            defaultNetworkList.push([network.id, network.enabled]);
-          }
-        }
-      }
-
-      const context = await this.dbApi.getContext();
-      if (context && context.networkOrderChanged === true) {
-        return;
-      }
-
-      const specifiedNetworks = new Set(defaultNetworkList.map(([id]) => id));
-      dbNetworks.forEach((dbNetwork) => {
-        if (!specifiedNetworks.has(dbNetwork.id)) {
-          defaultNetworkList.push([dbNetwork.id, dbNetwork.enabled]);
-        }
-      });
-
-      await this.dbApi.updateNetworkList(defaultNetworkList, true);
-    } catch (error) {
-      console.error(error);
-    }
   }
 
   @backgroundMethod()
