@@ -69,20 +69,25 @@ const generatePresetNetworks = (networks) => {
 };
 
 const main = async () => {
-  const version = process.env.VERSION || '';
-  const res = await axios.get(`${endpoint}?version=${version}`);
+  try {
+    const version = process.env.VERSION || '';
+    const res = await axios.get(`${endpoint}?version=${version}`);
 
-  const { networks } = res.data;
+    const { networks } = res.data;
 
-  if (!Array.isArray(networks)) {
-    throw new Error('[build-networklist] error, networks is not an array');
+    if (!Array.isArray(networks)) {
+      throw new Error('[build-networklist] error, networks is not an array');
+    }
+
+    fs.writeFileSync('/tmp/networks.json', JSON.stringify(networks, null, 2));
+
+    generateNetworkIds(networks);
+
+    generatePresetNetworks(networks);
+  } catch (error) {
+    console.error(`[build-networklist] error: ${error.message}`);
+    console.error(error);
   }
-
-  fs.writeFileSync('/tmp/networks.json', JSON.stringify(networks, null, 2));
-
-  generateNetworkIds(networks);
-
-  generatePresetNetworks(networks);
 };
 
 main();
