@@ -8,6 +8,7 @@ import Vault from '../Vault';
 import VaultHelper from '../VaultHelper';
 
 import type { IPrepareMockVaultOptions } from '../../../../../@tests/types';
+import type { KeyringBase } from '../../../keyring/KeyringBase';
 import type { KeyringSoftwareBase } from '../../../keyring/KeyringSoftwareBase';
 import type { IPrepareAccountsParams } from '../../../types';
 import type { VaultBase } from '../../../VaultBase';
@@ -65,17 +66,18 @@ const prepareAccountsParams = {
 export async function testPrepareAccounts(
   prepareOptions: IPrepareMockVaultOptions,
   builder: {
-    keyring: (payload: { vault: VaultBase }) => KeyringSoftwareBase;
+    keyring: (payload: { vault: VaultBase }) => KeyringBase;
   },
 ) {
   const { options, dbAccount } = prepareMockVault(prepareOptions);
   const vault = new Vault(options);
   vault.helper = new VaultHelper(options);
   const keyring = builder.keyring({ vault });
-  process.stdout.write(`___:${JSON.stringify(dbAccount)}`);
   const accounts = await keyring.prepareAccounts({
     ...prepareAccountsParams,
     name: dbAccount.name,
+    target: dbAccount.address,
+    accountIdPrefix: 'external',
     password: prepareOptions.password,
     privateKey: prepareOptions?.privateKey,
   } as IPrepareAccountsParams);

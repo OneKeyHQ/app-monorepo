@@ -14,4 +14,5 @@ export interface IPrepareMockVaultOptions {
   privateKey?: string;
   dbAccount: DBAccount;
   dbNetwork: DBNetwork;
+  accountIdPrefix?: string;
 }
