@@ -187,7 +187,6 @@ const LidoEthStaking = () => {
       primaryActionTranslationId="action__lets_go"
       onPrimaryActionPress={onPrimaryActionPress}
       header={`${intl.formatMessage({ id: 'form__staking' })} ETH`}
-      headerDescription="Liquid Staking"
       scrollViewProps={{
         children: <LidoEthStakingContent />,
       }}

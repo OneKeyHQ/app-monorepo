@@ -125,9 +125,37 @@ export default function UnstakeAmount() {
         account,
         typedValue: amount,
       });
-      await swapSubmit({ params, quote, recipient: account });
+      await swapSubmit({
+        params,
+        quote,
+        recipient: account,
+        // eslint-disable-next-line @typescript-eslint/require-await
+        onSuccess: async ({ result, decodedTx }) => {
+          backgroundApiProxy.dispatch(
+            addTransaction({
+              accountId: account.id,
+              networkId,
+              transaction: {
+                hash: result.txid,
+                accountId: account.id,
+                networkId,
+                type: 'lidoUnstake',
+                nonce: decodedTx?.nonce,
+                addedTime: Date.now(),
+              },
+            }),
+          );
+          navigation.replace(RootRoutes.Modal, {
+            screen: ModalRoutes.Staking,
+            params: {
+              screen: StakingRoutes.StakedETHOnLido,
+              params: {},
+            },
+          });
+        },
+      });
     }
-  }, [networkId, account, amount, swapSubmit]);
+  }, [networkId, account, amount, swapSubmit, navigation]);
 
   const onUnstakeByLido = useCallback(async () => {
     if (!account) {
@@ -328,7 +356,30 @@ export default function UnstakeAmount() {
               </Box>
             </Center>
           </Center>
-          <VStack space="1">
+          <VStack>
+            <Box
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              h="10"
+            >
+              <Typography.Body2 color="text-subdued">
+                {intl.formatMessage({ id: 'form__est_arrival_time' })}
+              </Typography.Body2>
+              <Typography.Body2Strong>
+                {source === 'lido'
+                  ? intl
+                      .formatMessage(
+                        { id: 'form__str_day' },
+                        { '0': '~ 1 - 3' },
+                      )
+                      .toLowerCase()
+                  : intl.formatMessage(
+                      { id: 'content__str_minutes_plural' },
+                      { '0': '~ 1-5' },
+                    )}
+              </Typography.Body2Strong>
+            </Box>
             <Box
               flexDirection="row"
               justifyContent="space-between"

@@ -29,7 +29,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useActiveSideAccount } from '../../../hooks';
 import { useTokenSupportStakedAssets } from '../../../hooks/useTokens';
 import { useMarketTokenItem } from '../../Market/hooks/useMarketToken';
-import { StakingRoutes } from '../../Staking/typing';
+import { EthStakingSource, StakingRoutes } from '../../Staking/typing';
 
 import MoreMenuButton from './MoreMenuButton';
 
@@ -179,9 +179,9 @@ const DeskTopHeader: FC<Props> = ({
                 navigation.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Staking,
                   params: {
-                    screen: StakingRoutes.StakingAmount,
+                    screen: StakingRoutes.ETHStake,
                     params: {
-                      networkId: token.networkId,
+                      source: EthStakingSource.Lido,
                     },
                   },
                 });
