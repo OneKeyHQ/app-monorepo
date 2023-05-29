@@ -2780,6 +2780,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@expo/env@npm:~0.0.2":
+  version: 0.0.3
+  resolution: "@expo/env@npm:0.0.3"
+  dependencies:
+    chalk: ^4.0.0
+    debug: ^4.3.4
+    dotenv: ~16.0.3
+    dotenv-expand: ~10.0.0
+  checksum: 0d5ba26d1f1f2f39bc40f47a9f040d7bbb13e628e3ca5c4f49678432cb2f8886575c641c4efef7740fa2389f6808fd2901b6f8bfb2363bd507c798980a78468f
+  languageName: node
+  linkType: hard
+
 "@expo/image-utils@npm:0.3.22":
   version: 0.3.22
   resolution: "@expo/image-utils@npm:0.3.22"
@@ -2852,6 +2864,25 @@ __metadata:
     resolve-from: ^5.0.0
     sucrase: ^3.20.0
   checksum: 4140823d319cf82854044b3b5f5a80a48d727e6f39509a0cf5b4df9f4d6381f431b6b1191402bf921e298c9d452762e5f68a624051e243a10ec4b5e761184f57
+  languageName: node
+  linkType: hard
+
+"@expo/metro-config@npm:~0.8.0":
+  version: 0.8.0
+  resolution: "@expo/metro-config@npm:0.8.0"
+  dependencies:
+    "@expo/config": ~8.0.0
+    "@expo/env": ~0.0.2
+    "@expo/json-file": ~8.2.37
+    chalk: ^4.1.0
+    debug: ^4.3.2
+    find-yarn-workspace-root: ~2.0.0
+    getenv: ^1.0.0
+    lightningcss: ~1.19.0
+    postcss: ~8.4.21
+    resolve-from: ^5.0.0
+    sucrase: ^3.20.0
+  checksum: 11910fbc59d3429991d4df86645f58194699c19374fd74bd74bbe5f9b6770025eec1c8a72a9e9db806bcf669a76e3162b0198aba26e910f258f527ff1b10d32d
   languageName: node
   linkType: hard
 
@@ -3005,9 +3036,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@expo/webpack-config@npm:0.17.3":
-  version: 0.17.3
-  resolution: "@expo/webpack-config@npm:0.17.3"
+"@expo/webpack-config@npm:0.17.4":
+  version: 0.17.4
+  resolution: "@expo/webpack-config@npm:0.17.4"
   dependencies:
     "@babel/core": 7.9.0
     babel-loader: 8.1.0
@@ -3038,7 +3069,7 @@ __metadata:
     webpack: 4.43.0
     webpack-dev-server: 3.11.0
     webpack-manifest-plugin: ~2.2.0
-  checksum: 46c9d51d70ea35ecfc2c1a813d6bd9c6d3856621ccbc3fa82725b7d0e46a7078b81201520dfa6c8090ad7172739d581873c2ffaf9912a0df5b2497b52ac50824
+  checksum: 59e0dc4440fcf9bc3c77344788972c56859462ea5b39a818803d5035013e848167bf05563a0fc7f103428072a3738465200a802141291f20340b8a40e3ffc519
   languageName: node
   linkType: hard
 
@@ -5352,6 +5383,7 @@ __metadata:
     eth-rpc-errors: ^4.0.3
     expo: ^48.0.17
     expo-device: ^5.0.0
+    expo-yarn-workspaces: ^2.1.0
     file-loader: ^6.2.0
     fs-extra: ^10.0.0
     globalthis: ^1.0.2
@@ -5418,7 +5450,6 @@ __metadata:
     "@types/react-native-canvas": ^0.1.9
     "@walletconnect/client": ^1.8.0
     "@walletconnect/qrcode-modal": ^1.8.0
-    "@walletconnect/react-native-dapp": ^1.8.0
     asyncstorage-down: ^4.2.0
     buffer: ^6.0.3
     expo: ^48.0.17
@@ -5470,6 +5501,7 @@ __metadata:
     react-native-svg: ^13.9.0
     react-native-tcp-socket: ^6.0.6
     react-native-toast-message: ^2.1.6
+    react-native-v8: ^2.1.3
     react-native-view-shot: ^3.6.0
     react-native-web: 0.18.10
     react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview"
@@ -5480,6 +5512,7 @@ __metadata:
     rimraf: ^4.1.2
     stream-http: ^3.2.0
     text-encoding: ^0.7.0
+    v8-android-jit: 11.1000.3
   languageName: unknown
   linkType: soft
 
@@ -5665,6 +5698,7 @@ __metadata:
     "@types/socket.io-client": ^3.0.0
     "@types/url-parse": ^1.4.8
     date-fns: ^2.29.3
+    dequal: ^2.0.3
     dotbit: ^0.4.1
     eth-chains: ^1.0.0
     expo: ^48.0.17
@@ -9511,21 +9545,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@walletconnect/react-native-dapp@npm:^1.8.0":
-  version: 1.8.0
-  resolution: "@walletconnect/react-native-dapp@npm:1.8.0"
-  dependencies:
-    "@walletconnect/client": ^1.8.0
-    "@walletconnect/types": ^1.8.0
-    "@walletconnect/utils": ^1.8.0
-    keyvaluestorage: 0.7.1
-    react-native-qrcode-svg: 6.0.6
-    react-native-svg: 9.6.4
-    use-deep-compare-effect: 1.6.1
-  checksum: c512267e3191e3952a86cf1ef775083d06f4243379d8a5e6a0ba515ef12a3364e726d42c9fc5d2d5c301bd8c6c4b89ec98e662b5afa47689b94ef1f3692be912
-  languageName: node
-  linkType: hard
-
 "@walletconnect/safe-json@npm:1.0.0":
   version: 1.0.0
   resolution: "@walletconnect/safe-json@npm:1.0.0"
@@ -11450,17 +11469,6 @@ __metadata:
   dependencies:
     open: ^8.0.4
   checksum: 1471552fa7f733561e7f49e812be074b421153006ca744de985fb6d38939807959fc5fe9cb819cf09f864782e294704fd3b31711ea14c115baf3330a2f1135de
-  languageName: node
-  linkType: hard
-
-"better-sqlite3@npm:^7.1.2":
-  version: 7.6.2
-  resolution: "better-sqlite3@npm:7.6.2"
-  dependencies:
-    bindings: ^1.5.0
-    node-gyp: latest
-    prebuild-install: ^7.1.0
-  checksum: 45159e535d2c4f81456f85adcfef82e8a49025ca3e70a79bb8c0a47c13e4d822633a51b457cc37b986c42f8912344152091c91cab485048a187900aab7e7d619
   languageName: node
   linkType: hard
 
@@ -14777,7 +14785,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dequal@npm:^2.0.2":
+"dequal@npm:^2.0.3":
   version: 2.0.3
   resolution: "dequal@npm:2.0.3"
   checksum: 8679b850e1a3d0ebbc46ee780d5df7b478c23f335887464023a631d1b9af051ad4a6595a44220f9ff8ff95a8ddccf019b5ad778a976fd7bbf77383d36f412f90
@@ -14805,6 +14813,15 @@ __metadata:
   version: 5.2.0
   resolution: "detect-browser@npm:5.2.0"
   checksum: 63b5c38fecc657ff12de01a41e6c8c97b3d610dffa37aef1983ec5bfb4314687d588c0c44c5ee03bd45ef15b7fe465bce9349c373369e6a7405f318e0aae56f9
+  languageName: node
+  linkType: hard
+
+"detect-libc@npm:^1.0.3":
+  version: 1.0.3
+  resolution: "detect-libc@npm:1.0.3"
+  bin:
+    detect-libc: ./bin/detect-libc.js
+  checksum: daaaed925ffa7889bd91d56e9624e6c8033911bb60f3a50a74a87500680652969dbaab9526d1e200a4c94acf80fc862a22131841145a0a8482d60a99c24f4a3e
   languageName: node
   linkType: hard
 
@@ -15197,10 +15214,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"dotenv-expand@npm:~10.0.0":
+  version: 10.0.0
+  resolution: "dotenv-expand@npm:10.0.0"
+  checksum: 2a38b470efe0abcb1ac8490421a55e1d764dc9440fd220942bce40965074f3fb00b585f4346020cb0f0f219966ee6b4ee5023458b3e2953fe5b3214de1b314ee
+  languageName: node
+  linkType: hard
+
 "dotenv@npm:^9.0.2":
   version: 9.0.2
   resolution: "dotenv@npm:9.0.2"
   checksum: 6b7980330a653089bc9b83362248547791151ee74f9881eb223ac2f4d641b174b708f77315d88708b551d45b4177afd3ba71bca4832f8807e003f71c2a0f83e7
+  languageName: node
+  linkType: hard
+
+"dotenv@npm:~16.0.3":
+  version: 16.0.3
+  resolution: "dotenv@npm:16.0.3"
+  checksum: afcf03f373d7a6d62c7e9afea6328e62851d627a4e73f2e12d0a8deae1cd375892004f3021883f8aec85932cd2834b091f568ced92b4774625b321db83b827f8
   languageName: node
   linkType: hard
 
@@ -17261,6 +17292,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-yarn-workspaces@npm:^2.1.0":
+  version: 2.2.0
+  resolution: "expo-yarn-workspaces@npm:2.2.0"
+  dependencies:
+    "@expo/metro-config": ~0.8.0
+    "@expo/webpack-config": ~0.17.4
+    debug: ^4.3.2
+    find-yarn-workspace-root: ^2.0.0
+    glob: ^7.1.7
+    minimist: ^1.2.6
+    mkdirp: ^0.5.1
+  bin:
+    expo-yarn-workspaces: bin/expo-yarn-workspaces.js
+  checksum: c45483352439e59ecb79f32ab487d0466fc012abeb3b3bf7ea373753ba652bd468613d6ae52e13286a1fd1712fd601b8051555f2fcd703d7e8e71b1821f6fcda
+  languageName: node
+  linkType: hard
+
 "expo@npm:^48.0.17":
   version: 48.0.17
   resolution: "expo@npm:48.0.17"
@@ -18541,7 +18589,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"glob@npm:^7.0.3, glob@npm:^7.0.5, glob@npm:^7.1.2, glob@npm:^7.1.3, glob@npm:^7.1.4, glob@npm:^7.1.6, glob@npm:^7.2.0":
+"glob@npm:^7.0.3, glob@npm:^7.0.5, glob@npm:^7.1.2, glob@npm:^7.1.3, glob@npm:^7.1.4, glob@npm:^7.1.6, glob@npm:^7.1.7, glob@npm:^7.2.0":
   version: 7.2.3
   resolution: "glob@npm:7.2.3"
   dependencies:
@@ -21986,18 +22034,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"keyvaluestorage@npm:0.7.1":
-  version: 0.7.1
-  resolution: "keyvaluestorage@npm:0.7.1"
-  dependencies:
-    better-sqlite3: ^7.1.2
-    keyvaluestorage-interface: ^1.0.0
-    localStorage: ^1.0.4
-    safe-json-utils: ^1.1.1
-  checksum: 0cc014da93194426b45e2a28f84372c53b8cf0f0ebdf247e02c7e1118b940016afb357d13a7ea546e806a5e159cac005312e60d1622a8c09965800d7812d39cb
-  languageName: node
-  linkType: hard
-
 "kind-of@npm:^3.0.2, kind-of@npm:^3.0.3, kind-of@npm:^3.2.0":
   version: 3.2.2
   resolution: "kind-of@npm:3.2.2"
@@ -22310,6 +22346,96 @@ __metadata:
   languageName: node
   linkType: hard
 
+"lightningcss-darwin-arm64@npm:1.19.0":
+  version: 1.19.0
+  resolution: "lightningcss-darwin-arm64@npm:1.19.0"
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"lightningcss-darwin-x64@npm:1.19.0":
+  version: 1.19.0
+  resolution: "lightningcss-darwin-x64@npm:1.19.0"
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: hard
+
+"lightningcss-linux-arm-gnueabihf@npm:1.19.0":
+  version: 1.19.0
+  resolution: "lightningcss-linux-arm-gnueabihf@npm:1.19.0"
+  conditions: os=linux & cpu=arm
+  languageName: node
+  linkType: hard
+
+"lightningcss-linux-arm64-gnu@npm:1.19.0":
+  version: 1.19.0
+  resolution: "lightningcss-linux-arm64-gnu@npm:1.19.0"
+  conditions: os=linux & cpu=arm64 & libc=glibc
+  languageName: node
+  linkType: hard
+
+"lightningcss-linux-arm64-musl@npm:1.19.0":
+  version: 1.19.0
+  resolution: "lightningcss-linux-arm64-musl@npm:1.19.0"
+  conditions: os=linux & cpu=arm64 & libc=musl
+  languageName: node
+  linkType: hard
+
+"lightningcss-linux-x64-gnu@npm:1.19.0":
+  version: 1.19.0
+  resolution: "lightningcss-linux-x64-gnu@npm:1.19.0"
+  conditions: os=linux & cpu=x64 & libc=glibc
+  languageName: node
+  linkType: hard
+
+"lightningcss-linux-x64-musl@npm:1.19.0":
+  version: 1.19.0
+  resolution: "lightningcss-linux-x64-musl@npm:1.19.0"
+  conditions: os=linux & cpu=x64 & libc=musl
+  languageName: node
+  linkType: hard
+
+"lightningcss-win32-x64-msvc@npm:1.19.0":
+  version: 1.19.0
+  resolution: "lightningcss-win32-x64-msvc@npm:1.19.0"
+  conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"lightningcss@npm:~1.19.0":
+  version: 1.19.0
+  resolution: "lightningcss@npm:1.19.0"
+  dependencies:
+    detect-libc: ^1.0.3
+    lightningcss-darwin-arm64: 1.19.0
+    lightningcss-darwin-x64: 1.19.0
+    lightningcss-linux-arm-gnueabihf: 1.19.0
+    lightningcss-linux-arm64-gnu: 1.19.0
+    lightningcss-linux-arm64-musl: 1.19.0
+    lightningcss-linux-x64-gnu: 1.19.0
+    lightningcss-linux-x64-musl: 1.19.0
+    lightningcss-win32-x64-msvc: 1.19.0
+  dependenciesMeta:
+    lightningcss-darwin-arm64:
+      optional: true
+    lightningcss-darwin-x64:
+      optional: true
+    lightningcss-linux-arm-gnueabihf:
+      optional: true
+    lightningcss-linux-arm64-gnu:
+      optional: true
+    lightningcss-linux-arm64-musl:
+      optional: true
+    lightningcss-linux-x64-gnu:
+      optional: true
+    lightningcss-linux-x64-musl:
+      optional: true
+    lightningcss-win32-x64-msvc:
+      optional: true
+  checksum: c51de34b7379f9da391d0c1157893bb1484357d1ce2212a8c7943690d7a4fed7f2fa0d2dd7a92004b4444662011564ec7bf31f458a1638c856c529fe07285177
+  languageName: node
+  linkType: hard
+
 "lightweight-charts@npm:^3.8.0":
   version: 3.8.0
   resolution: "lightweight-charts@npm:3.8.0"
@@ -22459,13 +22585,6 @@ __metadata:
     emojis-list: ^3.0.0
     json5: ^2.1.2
   checksum: a5281f5fff1eaa310ad5e1164095689443630f3411e927f95031ab4fb83b4a98f388185bb1fe949e8ab8d4247004336a625e9255c22122b815bb9a4c5d8fc3b7
-  languageName: node
-  linkType: hard
-
-"localStorage@npm:^1.0.4":
-  version: 1.0.4
-  resolution: "localStorage@npm:1.0.4"
-  checksum: ba0b604cf7774573819ef0430acd59bf670a764dedf3734ed4d9f049afb3d98b0163f0a42c2156571a5ab5f2cd302e9747f4cafd54ee4f35ecadcdc801d614d9
   languageName: node
   linkType: hard
 
@@ -24028,6 +24147,15 @@ __metadata:
   bin:
     nanoid: bin/nanoid.cjs
   checksum: 2fddd6dee994b7676f008d3ffa4ab16035a754f4bb586c61df5a22cf8c8c94017aadd360368f47d653829e0569a92b129979152ff97af23a558331e47e37cd9c
+  languageName: node
+  linkType: hard
+
+"nanoid@npm:^3.3.6":
+  version: 3.3.6
+  resolution: "nanoid@npm:3.3.6"
+  bin:
+    nanoid: bin/nanoid.cjs
+  checksum: 7d0eda657002738aa5206107bd0580aead6c95c460ef1bdd0b1a87a9c7ae6277ac2e9b945306aaa5b32c6dcb7feaf462d0f552e7f8b5718abfc6ead5c94a71b3
   languageName: node
   linkType: hard
 
@@ -26246,6 +26374,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"postcss@npm:~8.4.21":
+  version: 8.4.23
+  resolution: "postcss@npm:8.4.23"
+  dependencies:
+    nanoid: ^3.3.6
+    picocolors: ^1.0.0
+    source-map-js: ^1.0.2
+  checksum: 8bb9d1b2ea6e694f8987d4f18c94617971b2b8d141602725fedcc2222fdc413b776a6e1b969a25d627d7b2681ca5aabb56f59e727ef94072e1b6ac8412105a2f
+  languageName: node
+  linkType: hard
+
 "preact@npm:10.4.1":
   version: 10.4.1
   resolution: "preact@npm:10.4.1"
@@ -26253,7 +26392,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prebuild-install@npm:^7.0.1, prebuild-install@npm:^7.1.0":
+"prebuild-install@npm:^7.0.1":
   version: 7.1.1
   resolution: "prebuild-install@npm:7.1.1"
   dependencies:
@@ -27384,20 +27523,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-qrcode-svg@npm:6.1.2":
-  version: 6.1.2
-  resolution: "react-native-qrcode-svg@npm:6.1.2"
-  dependencies:
-    prop-types: ^15.7.2
-    qrcode: ^1.5.0
-  peerDependencies:
-    react: "*"
-    react-native: ">=0.63.4"
-    react-native-svg: ^12.1.0
-  checksum: 2e3150bf872a7c545527130dcca352c7d903df89d880333e0b046ef2079f5368d83a38df50f13b66ed9a52efdb5b90c7e027e3c96ce3e25ca3053996799d4826
-  languageName: node
-  linkType: hard
-
 "react-native-randombytes@npm:^3.6.1":
   version: 3.6.1
   resolution: "react-native-randombytes@npm:3.6.1"
@@ -27588,6 +27713,18 @@ __metadata:
   version: 2.0.1
   resolution: "react-native-uuid@npm:2.0.1"
   checksum: 2fae6e2ee6cef108a31ae9d5be661a1947a86f4c6a812c7386b57d970861b364dc887bc4fe3225227aeea7925ccdc24d4478ff30193305abc283eb4a30ee2138
+  languageName: node
+  linkType: hard
+
+"react-native-v8@npm:^2.1.3":
+  version: 2.1.3
+  resolution: "react-native-v8@npm:2.1.3"
+  peerDependencies:
+    expo: "*"
+  peerDependenciesMeta:
+    expo:
+      optional: true
+  checksum: 06938825ca1688ac6e2acdd83e46b2bba586faf43f1865149273ffd10671f560609541c671d79ac1434c182d9f165f963f69b90f50fda6cf24a11aad7659dcb3
   languageName: node
   linkType: hard
 
@@ -28739,13 +28876,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"safe-json-utils@npm:^1.1.1":
-  version: 1.1.1
-  resolution: "safe-json-utils@npm:1.1.1"
-  checksum: f82a5833b7f6f25583c46520b3e158da3864d4f6f85b7cd68ec956ae7023395872e834d75f7f6216c109c546d10b6ee15c066d849f75ac2a7b86b8a041b4f01f
-  languageName: node
-  linkType: hard
-
 "safe-regex-test@npm:^1.0.0":
   version: 1.0.0
   resolution: "safe-regex-test@npm:1.0.0"
@@ -29546,6 +29676,13 @@ __metadata:
   version: 1.0.1
   resolution: "source-map-js@npm:1.0.1"
   checksum: 22606113d62bbd468712b0cb0c46e9a8629de7eb081049c62a04d977a211abafd7d61455617f8b78daba0b6c0c7e7c88f8c6b5aaeacffac0a6676ecf5caac5ce
+  languageName: node
+  linkType: hard
+
+"source-map-js@npm:^1.0.2":
+  version: 1.0.2
+  resolution: "source-map-js@npm:1.0.2"
+  checksum: c049a7fc4deb9a7e9b481ae3d424cc793cb4845daa690bc5a05d428bf41bf231ced49b4cf0c9e77f9d42fdb3d20d6187619fc586605f5eabe995a316da8d377c
   languageName: node
   linkType: hard
 
@@ -31884,19 +32021,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"use-deep-compare-effect@npm:1.6.1":
-  version: 1.6.1
-  resolution: "use-deep-compare-effect@npm:1.6.1"
-  dependencies:
-    "@babel/runtime": ^7.12.5
-    "@types/react": ^17.0.0
-    dequal: ^2.0.2
-  peerDependencies:
-    react: ">=16.13"
-  checksum: 3724473628570ccf62706b6775b2bdbdad57e4e72aaa70965388b5a4ae322a8bd0f9647d13d85f3a892cdcb4bb6d0dbdf7eedded5f7040ac3888ff7c96b381a9
-  languageName: node
-  linkType: hard
-
 "use-latest-callback@npm:^0.1.5":
   version: 0.1.5
   resolution: "use-latest-callback@npm:0.1.5"
@@ -32055,6 +32179,13 @@ __metadata:
   bin:
     uuid: dist/bin/uuid
   checksum: 5575a8a75c13120e2f10e6ddc801b2c7ed7d8f3c8ac22c7ed0c7b2ba6383ec0abda88c905085d630e251719e0777045ae3236f04c812184b7c765f63a70e58df
+  languageName: node
+  linkType: hard
+
+"v8-android-jit@npm:11.1000.3":
+  version: 11.1000.3
+  resolution: "v8-android-jit@npm:11.1000.3"
+  checksum: cbaa8e49f3247c728acdea1189154d7d80f53fb6aa778f1eed98f10574b880365593fe182128432cc20e3f4c76c11590cea8523c4ac2d33210acd01da0c2d2de
   languageName: node
   linkType: hard
 
