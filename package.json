@@ -8,7 +8,7 @@
     "node": "^16.0.0"
   },
   "scripts": {
-    "postinstall": "yarn setup:env && husky install && patch-package && yarn build:networklist && yarn copy:inject",
+    "postinstall": "yarn setup:env && husky install && patch-package && yarn copy:inject",
     "copy:inject": "bash development/copy-injected.sh",
     "clean": "./clean_workspace.sh && yarn cache clean",
     "_tsc": "sh -c 'npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache'",
@@ -69,7 +69,6 @@
     "@onekeyfe/hd-shared": "0.3.6",
     "@onekeyfe/hd-transport": "0.3.6",
     "@onekeyfe/hd-web-sdk": "0.3.6",
-    "@onekeyfe/network-list": "1.6.65",
     "@onekeyfe/onekey-cross-webview": "1.1.28",
     "@starcoin/starcoin": "2.1.5",
     "@web3-react/core": "8.0.35-beta.0",
