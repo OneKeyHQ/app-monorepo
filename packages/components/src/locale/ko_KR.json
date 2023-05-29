@@ -2119,6 +2119,7 @@
   "msg__the_disk_path_was_not_found": "디스크 경로를 찾을 수 없습니다",
   "msg__the_recipient_address_is_a_contract_address": "수취인 주소는 계약 주소이며, 이 주소로 이전하면 자산 손실이 발생할 수 있습니다.",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "전송이 진행 중일 때 체인의 소비 가능한 잔액은 0이 됩니다. 잔액을 사용할 수 있게 되려면 일반적으로 20분이 걸립니다.",
+  "msg__there_are_str_requests_waiting_for_confirmation_currently": "현재 {0} 개의 요청이 확인 대기 중입니다.",
   "msg__this_address_already_exists": "이 주소는 이미 존재합니다.",
   "msg__this_is_a_cross_chain_swap_transaction": "이것은 크로스체인 스왑 거래입니다.",
   "msg__this_is_a_cross_chain_swap_transaction_desc": "이러한 종류의 거래 정보는 계정의 거래 내역에 다양한 거래로 표시됩니다.",

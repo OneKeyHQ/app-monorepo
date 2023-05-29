@@ -2119,6 +2119,7 @@
   "msg__the_disk_path_was_not_found": "Il percorso del disco non è stato trovato",
   "msg__the_recipient_address_is_a_contract_address": "L'indirizzo del destinatario è un indirizzo contrattuale e il trasferimento a questo indirizzo può comportare una perdita di asset.",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "Il saldo spendibile sulla catena sarà 0 quando è in corso un trasferimento. In genere occorrono 20 minuti affinché il saldo diventi spendibile.",
+  "msg__there_are_str_requests_waiting_for_confirmation_currently": "Al momento ci sono {0} richieste in attesa di conferma.",
   "msg__this_address_already_exists": "Questo indirizzo esiste già.",
   "msg__this_is_a_cross_chain_swap_transaction": "Questa è una transazione di swap cross-chain.",
   "msg__this_is_a_cross_chain_swap_transaction_desc": "Questo tipo di informazioni sulle transazioni verranno visualizzate come tante diverse transazioni nella cronologia delle transazioni del tuo account.",

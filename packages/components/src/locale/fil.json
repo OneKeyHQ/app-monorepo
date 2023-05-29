@@ -2119,6 +2119,7 @@
   "msg__the_disk_path_was_not_found": "Ang disk path ay hindi nahanap",
   "msg__the_recipient_address_is_a_contract_address": "Ang address ng tatanggap ay isang address ng kontrata, at ang paglilipat sa address na ito ay maaaring magresulta sa pagkawala ng asset.",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "Magiging 0 ang magagastos na balanse sa chain kapag may isinasagawang paglilipat. Karaniwang aabutin ng 20 minuto para maging magastos ang balanse.",
+  "msg__there_are_str_requests_waiting_for_confirmation_currently": "Mayroong {0} mga kahilingan na naghihintay para sa kumpirmasyon sa kasalukuyan.",
   "msg__this_address_already_exists": "Umiiral na ang address na ito.",
   "msg__this_is_a_cross_chain_swap_transaction": "Isa itong cross-chain Swap na transaksyon.",
   "msg__this_is_a_cross_chain_swap_transaction_desc": "Ang ganitong uri ng impormasyon ng transaksyon ay ipapakita ng maraming iba't ibang mga transaksyon sa kasaysayan ng transaksyon ng iyong account.",

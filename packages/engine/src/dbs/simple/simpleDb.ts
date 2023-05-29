@@ -3,6 +3,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SimpleDbEntityHistory } from './entity/SimpleDbEntityHistory';
 import { SimpleDbEntityLastActivity } from './entity/SimpleDbEntityLastActivity';
 import { SimpleDbEntityMarket } from './entity/SimpleDbEntityMarket';
+import { SimpleDbEntityServerNetworks } from './entity/SimpleDbEntityNetworks';
 import { SimpleDbEntityNFT } from './entity/SimpleDbEntityNFT';
 import { SimpleDbEntityTokens } from './entity/SimpleDbEntityPresetTokens';
 import { SimpleDbEntityPwKey } from './entity/SimpleDbEntityPwKey';
@@ -31,6 +32,8 @@ class SimpleDb {
   setting = new SimpleDbEntitySetting();
 
   utxoAccounts = new SimpleDbEntityUtxoAccounts();
+
+  serverNetworks = new SimpleDbEntityServerNetworks();
 }
 
 // eslint-disable-next-line import/no-mutable-exports

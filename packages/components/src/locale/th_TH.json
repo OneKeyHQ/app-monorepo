@@ -2119,6 +2119,7 @@
   "msg__the_disk_path_was_not_found": "ไม่พบเส้นทางของดิสก์",
   "msg__the_recipient_address_is_a_contract_address": "ที่อยู่ของผู้รับคือที่อยู่ตามสัญญา และการโอนย้ายไปยังที่อยู่นี้อาจส่งผลให้ทรัพย์สินสูญหาย",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "ยอดใช้จ่ายในเครือข่ายจะเป็น 0 เมื่อการโอนกำลังดำเนินการ โดยทั่วไปจะใช้เวลา 20 นาทีเพื่อให้ยอดคงเหลือใช้งานได้",
+  "msg__there_are_str_requests_waiting_for_confirmation_currently": "ขณะนี้มีคำขอ {0} รายการที่รอการยืนยัน",
   "msg__this_address_already_exists": "มีที่อยู่นี้แล้ว",
   "msg__this_is_a_cross_chain_swap_transaction": "นี่คือธุรกรรมการแลกเปลี่ยนข้ามสายโซ่",
   "msg__this_is_a_cross_chain_swap_transaction_desc": "ข้อมูลธุรกรรมประเภทนี้จะแสดงเป็นธุรกรรมต่างๆ มากมายในประวัติการทำธุรกรรมของบัญชีของคุณ",

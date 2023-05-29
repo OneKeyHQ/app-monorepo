@@ -2119,6 +2119,7 @@
   "msg__the_disk_path_was_not_found": "ডিস্ক পাথ খুঁজে পাওয়া যায়নি",
   "msg__the_recipient_address_is_a_contract_address": "প্রাপকের ঠিকানা একটি চুক্তির ঠিকানা, এবং এই ঠিকানায় স্থানান্তর করার ফলে সম্পদের ক্ষতি হতে পারে।",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "যখন একটি স্থানান্তর চলছে তখন চেইনের ব্যয়যোগ্য ব্যালেন্স 0 হবে। ব্যালেন্সটি খরচযোগ্য হতে সাধারণত 20 মিনিট সময় লাগবে।",
+  "msg__there_are_str_requests_waiting_for_confirmation_currently": "বর্তমানে নিশ্চিতকরণের জন্য অপেক্ষা করছে {0} অনুরোধ।",
   "msg__this_address_already_exists": "এই ঠিকানাটি আগে থেকেই আছে।",
   "msg__this_is_a_cross_chain_swap_transaction": "এটি একটি ক্রস-চেইন সোয়াপ লেনদেন।",
   "msg__this_is_a_cross_chain_swap_transaction_desc": "এই ধরনের লেনদেনের তথ্য আপনার অ্যাকাউন্টের লেনদেনের ইতিহাসে বিভিন্ন লেনদেন হিসাবে প্রদর্শিত হবে।",
