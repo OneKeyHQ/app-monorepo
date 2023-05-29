@@ -279,7 +279,7 @@ const UpdateInfoModal: FC = () => {
               showDialog(
                 <NeedBridgeDialog
                   update
-                  version={shouldUpdateBridge.version ?? ''}
+                  version={shouldUpdateBridge.releaseVersion ?? ''}
                 />,
               );
             }, 200);
