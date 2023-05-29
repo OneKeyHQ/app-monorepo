@@ -7,18 +7,17 @@ import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils
 import { COINTYPE_NEAR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { NotImplemented, OneKeyHardwareError } from '../../../errors';
-import { AccountType } from '../../../types/account';
-import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
+import { NotImplemented, OneKeyHardwareError } from '../../../../errors';
+import { AccountType } from '../../../../types/account';
+import { KeyringHardwareBase } from '../../../keyring/KeyringHardwareBase';
+import { baseEncode, serializeTransaction } from '../utils';
 
-import { baseEncode, serializeTransaction } from './utils';
-
-import type { DBSimpleAccount } from '../../../types/account';
+import type { DBSimpleAccount } from '../../../../types/account';
 import type {
   IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
-} from '../../types';
+} from '../../../types';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
