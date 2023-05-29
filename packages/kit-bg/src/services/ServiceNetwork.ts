@@ -539,7 +539,7 @@ class ServiceNetwork extends ServiceBase {
       const context = await engine.dbApi.getContext();
       if (
         typeof context !== 'undefined' &&
-        context.networkOrderChanged === true
+        context?.networkOrderChanged === true
       ) {
         return;
       }
