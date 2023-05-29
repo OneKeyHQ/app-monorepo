@@ -913,6 +913,26 @@ class ServiceHardware extends ServiceBase {
       hardwareSDK.off('ui-firmware-tip', listener);
     }
   }
+
+  @backgroundMethod()
+  async checkBridgeRelease(
+    connectId: string,
+    willUpdateFirmwareVersion: string,
+  ) {
+    const hardwareSDK = await this.getSDKInstance();
+    return hardwareSDK
+      ?.checkBridgeRelease(platformEnv.isNative ? connectId : undefined, {
+        willUpdateFirmwareVersion,
+      })
+      .then((response) => {
+        if (!response.success) {
+          return Promise.reject(
+            deviceUtils.convertDeviceError(response.payload),
+          );
+        }
+        return response.payload;
+      });
+  }
 }
 
 export default ServiceHardware;

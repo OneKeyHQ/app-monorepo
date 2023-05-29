@@ -321,7 +321,7 @@ export const DevSettingSection = () => {
                 dispatch(setOverviewDefiBuildByService(value));
               }}
               value={defiBuildService || 'all'}
-              options={['all', '3', '5', '6', '9'].map((n) => ({
+              options={['all', '3', '5', '6', '9', '12'].map((n) => ({
                 label: n,
                 value: n,
               }))}
