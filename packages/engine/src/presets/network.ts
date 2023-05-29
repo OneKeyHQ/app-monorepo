@@ -1,4 +1,3 @@
-import { serverPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -43,6 +42,10 @@ async function initNetworkList() {
 
   const serverUpdatedNetworks =
     await simpleDb.serverNetworks.getServerNetworks();
+
+  const { serverPresetNetworks } = await import(
+    '@onekeyhq/shared/src/config/presetNetworks'
+  );
 
   serverPresetNetworks.concat(serverUpdatedNetworks).forEach((s) => {
     try {

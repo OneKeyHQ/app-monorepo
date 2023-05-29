@@ -433,20 +433,8 @@ class ServiceNetwork extends ServiceBase {
     if (!networks?.length) {
       return;
     }
-
-    const { appSelector } = this.backgroundApi;
-    const previousActiveNetworkId = appSelector(
-      (s) => s.general.activeNetworkId,
-    );
     await simpleDb.serverNetworks.updateNetworks(networks);
-    await initNetworkList();
-    const newNetworks = await this.initNetworks();
-
-    if (newNetworks.find((n) => n.id === previousActiveNetworkId)) {
-      return;
-    }
-    // TODO: Prompt user that current network is changed
-    await this.changeActiveNetwork(newNetworks[0].id);
+    await this.initNetworks();
   }
 
   async checkDisabledPresetNetworks() {
@@ -478,6 +466,7 @@ class ServiceNetwork extends ServiceBase {
         debugLogger.engine.warn(
           `[checkDisabledPresetNetworks] switch network: ${n.id}`,
         );
+        // TODO: Prompt user that current network is changed
         await this.changeActiveNetwork(firstAvailableNetwork.id);
       }
       await engine.dbApi.deleteNetwork(n.id);
