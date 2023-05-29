@@ -316,7 +316,6 @@ export function useFetchWalletAddress({
             ...networkDerivation,
             accountData,
           });
-          updateWalletsAccountProgress(result);
           if (cancelFlagRef.current || errorState) {
             break;
           }
