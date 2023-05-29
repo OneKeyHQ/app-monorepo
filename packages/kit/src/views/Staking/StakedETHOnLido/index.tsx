@@ -110,6 +110,7 @@ const ClaimAlert = () => {
 };
 
 const PendingTransactionAlert = () => {
+  const intl = useIntl();
   const { networkId, accountId } = useActiveWalletAccount();
   const transactions = useAppSelector((s) => s.staking.transactions);
   const txs = useMemo(() => {
@@ -124,7 +125,12 @@ const PendingTransactionAlert = () => {
     <Box>
       <Alert
         alertType="info"
-        title={`There is currently ${txs.length} request waiting for confirmation`}
+        title={intl.formatMessage(
+          {
+            id: 'msg__there_are_str_requests_waiting_for_confirmation_currently',
+          },
+          { '0': txs.length },
+        )}
         dismiss={false}
       />
       {txs.map((tx) => (

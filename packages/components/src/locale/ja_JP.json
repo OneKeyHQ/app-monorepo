@@ -2119,6 +2119,7 @@
   "msg__the_disk_path_was_not_found": "ディスク パスが見つかりませんでした",
   "msg__the_recipient_address_is_a_contract_address": "受信アドレスは契約アドレスであり、このアドレスに送信すると資産が失われる可能性がある",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "送信進行中の場合、チェーンの使用可能な残高は 0 になる。通常では、残高が使用可能になるまで 20 分かかる。",
+  "msg__there_are_str_requests_waiting_for_confirmation_currently": "現在確認を待っているリクエストが{0}件あります。",
   "msg__this_address_already_exists": "このアドレスは既に存在している",
   "msg__this_is_a_cross_chain_swap_transaction": "クロスチェーンのスワップ取引",
   "msg__this_is_a_cross_chain_swap_transaction_desc": "このような取引情報は、アカウントの取引履歴に複数の異なる取引として表示される。",
