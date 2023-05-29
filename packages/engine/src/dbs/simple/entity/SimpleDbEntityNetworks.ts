@@ -1,4 +1,5 @@
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+import { OnekeyNetworkUpdatedAt } from '@onekeyhq/shared/src/config/presetNetworks';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
@@ -42,7 +43,7 @@ export class SimpleDbEntityServerNetworks extends SimpleDbEntityBase<ISimpleDbEn
 
   async getTimestamp() {
     const data = await this.getData();
-    return data.updateTimestamp;
+    return data.updateTimestamp || OnekeyNetworkUpdatedAt;
   }
 
   async getData(): Promise<ISimpleDbEntityServerNetworksData> {

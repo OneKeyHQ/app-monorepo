@@ -449,7 +449,7 @@ class ServiceNetwork extends ServiceBase {
       if (preset.status === ENetworkStatus.TRASH) {
         return true;
       }
-      return !preset.enabled && !preset.isTestnet;
+      return false;
     });
 
     const currentNetworkId = appSelector((s) => s.general.activeNetworkId);
@@ -504,7 +504,7 @@ class ServiceNetwork extends ServiceBase {
           const existingStatus = dbNetworkMap[network.id];
           if (typeof existingStatus !== 'undefined') {
             defaultNetworkList.push([network.id, existingStatus]);
-          } else if (network.enabled || network.isTestnet) {
+          } else {
             await engine.dbApi.addNetwork({
               id: network.id,
               name: network.name,

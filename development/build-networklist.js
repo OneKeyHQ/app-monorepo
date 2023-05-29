@@ -49,13 +49,15 @@ const generateNetworkIds = (networks) => {
 const generatePresetNetworks = (networks) => {
   const output = `
     ${comments}
-    import { IServerNetwork } from '../../types';
+    import type { IServerNetwork } from '../../types';
 
     export const serverPresetNetworks = ${JSON.stringify(
       networks,
       null,
       2,
-    )} as unknown as IServerNetwork[]
+    )} as unknown as IServerNetwork[];\n
+
+    export const OnekeyNetworkUpdatedAt = ${Date.now()};\n
     ${comments}
   `;
 
