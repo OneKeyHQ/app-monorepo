@@ -2119,6 +2119,7 @@
   "msg__the_disk_path_was_not_found": "لم يتم العثور على مسار القرص",
   "msg__the_recipient_address_is_a_contract_address": "عنوان المستلم هو عنوان عقد ، وقد يؤدي التحويل إلى هذا العنوان إلى خسارة الأصول.",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "سيكون الرصيد القابل للإنفاق في السلسلة 0 عندما يكون التحويل قيد التنفيذ. عادةً ما يستغرق الأمر 20 دقيقة حتى يصبح الرصيد قابلاً للإنفاق.",
+  "msg__there_are_str_requests_waiting_for_confirmation_currently": "هناك {0} من الطلبات في انتظار التأكيد حاليًا.",
   "msg__this_address_already_exists": "هذا العنوان موجود بالفعل.",
   "msg__this_is_a_cross_chain_swap_transaction": "هذه معاملة مقايضة عبر سلسلة.",
   "msg__this_is_a_cross_chain_swap_transaction_desc": "سيتم عرض هذا النوع من معلومات المعاملات على أنه العديد من المعاملات المختلفة في سجل المعاملات الخاص بحسابك.",
