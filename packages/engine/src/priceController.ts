@@ -4,6 +4,7 @@ import lru from 'tiny-lru';
 
 import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { RestfulRequest } from '@onekeyhq/shared/src/request/RestfulRequest';
+import type { INetworkPriceConfig } from '@onekeyhq/shared/types';
 
 import { getFiatEndpoint } from './endpoint';
 import { getPresetNetworks } from './presets';
@@ -114,10 +115,9 @@ export class PriceController {
     const prices: Record<string, BigNumber> = {};
     const charts: Record<string, TokenChartData> = {};
 
-    const channels = (getPresetNetworks()[networkId]?.prices || []).reduce(
-      (obj, item) => ({ ...obj, [item.channel]: item }),
-      {},
-    );
+    const channels: Record<string, INetworkPriceConfig> = (
+      getPresetNetworks()[networkId]?.prices || []
+    ).reduce((obj, item) => ({ ...obj, [item.channel]: item }), {});
     const cgkChannel = channels.coingecko as {
       channel: string;
       native: string;
