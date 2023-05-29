@@ -88,6 +88,7 @@
     "mime-types": "^2.1.35",
     "react-dom": "18.2.0",
     "react-native": "0.71.8",
+    "react-native-web": "~0.18.11",
     "superstruct": "^1",
     "timeout-signal": "2.0.0"
   },
