@@ -2119,6 +2119,7 @@
   "msg__the_disk_path_was_not_found": "未找到磁盤路徑",
   "msg__the_recipient_address_is_a_contract_address": "收款地址是一個合約地址，發送到此地址可能會造成資產損失",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "當轉賬正在進行時，鏈上的可花費餘額將為 0。通常需要 20 分鐘才能使餘額變為可用狀態。",
+  "msg__there_are_str_requests_waiting_for_confirmation_currently": "當前有{0}個請求在等待確認",
   "msg__this_address_already_exists": "此地址已存在",
   "msg__this_is_a_cross_chain_swap_transaction": "這是一個跨鏈閃兌交易。",
   "msg__this_is_a_cross_chain_swap_transaction_desc": "此類交易信息會在您賬戶的交易記錄中顯示為多筆不同的交易。",

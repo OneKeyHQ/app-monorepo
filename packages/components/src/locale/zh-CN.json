@@ -2119,6 +2119,7 @@
   "msg__the_disk_path_was_not_found": "未找到磁盘路径",
   "msg__the_recipient_address_is_a_contract_address": "接收地址是一个合约地址，发送到该地址可能会造成资产损失",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "当转账正在进行时，链上的可花费余额将为 0。通常需要 20 分钟才能使余额变为可用状态。",
+  "msg__there_are_str_requests_waiting_for_confirmation_currently": "当前有{0}个请求在等待确认",
   "msg__this_address_already_exists": "此地址已存在",
   "msg__this_is_a_cross_chain_swap_transaction": "这是一笔跨链闪兑交易。",
   "msg__this_is_a_cross_chain_swap_transaction_desc": "此类交易信息在您账户的交易历史中将显示为多笔不同的交易。",

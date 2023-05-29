@@ -2119,6 +2119,7 @@
   "msg__the_disk_path_was_not_found": "Дискний зам олдсонгүй",
   "msg__the_recipient_address_is_a_contract_address": "Хүлээн авагчийн хаяг нь гэрээний хаяг бөгөөд энэ хаяг руу шилжүүлэх нь хөрөнгийн алдагдалд хүргэж болзошгүй.",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "Шилжүүлэг явагдаж байх үед гинжин хэлхээний зарцуулагдах үлдэгдэл 0 байх болно. Үлдэгдлийг зарцуулах боломжтой болоход ихэвчлэн 20 минут шаардагдана.",
+  "msg__there_are_str_requests_waiting_for_confirmation_currently": "Одоогоор баталгаажуулахыг хүлээж буй {0} хүсэлт байна.",
   "msg__this_address_already_exists": "Энэ хаяг аль хэдийн байна.",
   "msg__this_is_a_cross_chain_swap_transaction": "Энэ нь гинжин хэлхээ хоорондын Swap гүйлгээ юм.",
   "msg__this_is_a_cross_chain_swap_transaction_desc": "Энэ төрлийн гүйлгээний мэдээлэл нь таны дансны гүйлгээний түүхэнд олон төрлийн гүйлгээтэй байх болно.",

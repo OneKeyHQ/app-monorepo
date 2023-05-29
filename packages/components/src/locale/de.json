@@ -2119,6 +2119,7 @@
   "msg__the_disk_path_was_not_found": "Der Datenträgerpfad wurde nicht gefunden",
   "msg__the_recipient_address_is_a_contract_address": "Die Empfängeradresse ist eine Vertragsadresse und die Übertragung an diese Adresse kann zu Vermögensverlusten führen.",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "Das auszugebende Guthaben in der Kette ist 0, wenn eine Übertragung im Gange ist. Es dauert in der Regel 20 Minuten, bis das Guthaben ausgegeben werden kann.",
+  "msg__there_are_str_requests_waiting_for_confirmation_currently": "Derzeit warten {0} Anfragen auf eine Bestätigung.",
   "msg__this_address_already_exists": "Diese Adresse existiert bereits.",
   "msg__this_is_a_cross_chain_swap_transaction": "Dies ist eine Cross-Chain-Swap-Transaktion.",
   "msg__this_is_a_cross_chain_swap_transaction_desc": "Diese Art von Transaktionsinformationen werden als viele verschiedene Transaktionen im Transaktionsverlauf Ihres Kontos angezeigt.",

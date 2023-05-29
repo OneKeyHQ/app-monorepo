@@ -2119,6 +2119,7 @@
   "msg__the_disk_path_was_not_found": "No se encontró la ruta del disco",
   "msg__the_recipient_address_is_a_contract_address": "La dirección del destinatario es una dirección de contrato, y la transferencia a esta dirección puede resultar en la pérdida de activos.",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "El saldo disponible en la cadena será 0 cuando haya una transferencia en curso. Por lo general, tomará 20 minutos para que el saldo sea gastable.",
+  "msg__there_are_str_requests_waiting_for_confirmation_currently": "Actualmente hay {0} solicitudes esperando confirmación.",
   "msg__this_address_already_exists": "Esta dirección ya existe.",
   "msg__this_is_a_cross_chain_swap_transaction": "Esta es una transacción de intercambio entre cadenas.",
   "msg__this_is_a_cross_chain_swap_transaction_desc": "Este tipo de información de transacciones se mostrará como muchas transacciones diferentes en el historial de transacciones de tu cuenta.",

@@ -2119,6 +2119,7 @@
   "msg__the_disk_path_was_not_found": "Шлях до диска не знайдено",
   "msg__the_recipient_address_is_a_contract_address": "Адреса одержувача є адресою контракту, і передача на цю адресу може призвести до втрати активів.",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "Витрачений баланс у ланцюжку дорівнюватиме 0 під час переказу. Зазвичай потрібно 20 хвилин, щоб баланс став придатним для використання.",
+  "msg__there_are_str_requests_waiting_for_confirmation_currently": "Зараз {0} запитів очікують підтвердження.",
   "msg__this_address_already_exists": "Ця адреса вже існує.",
   "msg__this_is_a_cross_chain_swap_transaction": "Це міжланцюгова транзакція Swap.",
   "msg__this_is_a_cross_chain_swap_transaction_desc": "Ця інформація про транзакції відображатиметься як багато різних транзакцій в історії транзакцій вашого облікового запису.",
