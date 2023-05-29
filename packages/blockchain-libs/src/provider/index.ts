@@ -111,7 +111,7 @@ const IMPLS: { [key: string]: any } = {
   cosmos: mockProvider,
   cfx: require('./chains/cfx'),
   eth: require('./chains/eth'),
-  near: require('./chains/near'),
+  near: mockProvider,
   sol: require('./chains/sol'),
   stc: require('./chains/stc'),
   btc: mockProvider,
