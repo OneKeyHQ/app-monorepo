@@ -2,21 +2,20 @@ import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import type { CurveName } from '@onekeyhq/engine/src/secret';
 import { COINTYPE_NEAR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { OneKeyInternalError } from '../../../errors';
-import { Signer } from '../../../proxy';
-import { AccountType } from '../../../types/account';
-import { KeyringHdBase } from '../../keyring/KeyringHdBase';
+import { OneKeyInternalError } from '../../../../errors';
+import { Signer } from '../../../../proxy';
+import { AccountType } from '../../../../types/account';
+import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
+import { baseEncode, signTransaction } from '../utils';
 
-import { baseEncode, signTransaction } from './utils';
-
-import type { ExportedSeedCredential } from '../../../dbs/base';
-import type { DBSimpleAccount } from '../../../types/account';
+import type { ExportedSeedCredential } from '../../../../dbs/base';
+import type { DBSimpleAccount } from '../../../../types/account';
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
   IUnsignedTxPro,
-} from '../../types';
+} from '../../../types';
 
 // TODO move to abstract attribute
 // m/44'/397'/0', m/44'/397'/1', m/44'/397'/2'

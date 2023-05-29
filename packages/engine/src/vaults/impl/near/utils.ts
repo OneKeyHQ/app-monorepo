@@ -7,6 +7,7 @@ import { isString } from 'lodash';
 import * as nearApiJs from 'near-api-js';
 import { SignedTransaction } from 'near-api-js/lib/transaction';
 
+import type { AddressValidation } from '@onekeyhq/engine/src/types/provider';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { TxStatus } from '../../../types/covalent';
@@ -241,5 +242,47 @@ export async function signTransaction(
     signature: Buffer.from(signature).toString('hex'),
     publicKey: Buffer.from(publicKey).toString('hex'),
     encodedTx: unsignedTx.encodedTx,
+  };
+}
+
+const IMPLICIT_ACCOUNT_PATTERN = /^[a-z\d]{64}$/;
+const REGISTER_ACCOUNT_PATTERN =
+  /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
+
+export function verifyNearAddress(address: string): AddressValidation {
+  let encoding: string | undefined;
+  if (IMPLICIT_ACCOUNT_PATTERN.test(address)) {
+    encoding = 'IMPLICIT_ACCOUNT';
+  } else if (REGISTER_ACCOUNT_PATTERN.test(address)) {
+    return {
+      isValid: true,
+      normalizedAddress: address,
+      displayAddress: address,
+      encoding: 'REGISTER_ACCOUNT',
+    };
+  } else if (address.includes(':')) {
+    const [prefix, encoded] = address.split(':');
+    try {
+      if (
+        prefix === 'ed25519' &&
+        Buffer.from(baseDecode(encoded)).length === 32
+      ) {
+        encoding = 'ENCODED_PUBKEY';
+      }
+    } catch (e) {
+      // ignored
+    }
+  }
+
+  if (encoding) {
+    return {
+      isValid: true,
+      normalizedAddress: address,
+      displayAddress: address,
+      encoding,
+    };
+  }
+  return {
+    isValid: false,
   };
 }
