@@ -167,6 +167,7 @@ export default function UnstakeAmount() {
             type: 4,
             message,
           },
+          closeImmediately: true,
           onSuccess: async (signature: string) => {
             const r = `0x${signature.substring(2).substring(0, 64)}`;
             const s = `0x${signature.substring(2).substring(64, 128)}`;
@@ -213,11 +214,18 @@ export default function UnstakeAmount() {
                           },
                         }),
                       );
+                      navigation.replace(RootRoutes.Modal, {
+                        screen: ModalRoutes.Staking,
+                        params: {
+                          screen: StakingRoutes.StakedETHOnLido,
+                          params: {},
+                        },
+                      });
                     },
                   },
                 },
               });
-            }, 700);
+            }, 10);
           },
         },
       },
@@ -315,7 +323,7 @@ export default function UnstakeAmount() {
                 <Typography.Body2Strong
                   color={errorMsg && amount ? 'text-critical' : 'text-default'}
                 >
-                  {balance ?? ''} {tokenSymbol}
+                  {formatAmount(balance ?? '', 6)} {tokenSymbol}
                 </Typography.Body2Strong>
               </Box>
             </Center>
