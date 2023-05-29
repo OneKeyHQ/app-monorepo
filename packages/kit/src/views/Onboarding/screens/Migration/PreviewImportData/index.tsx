@@ -31,7 +31,10 @@ import { useAppSelector, useData } from '../../../../../hooks/redux';
 import useImportBackupPasswordModal from '../../../../../hooks/useImportBackupPasswordModal';
 import useLocalAuthenticationModal from '../../../../../hooks/useLocalAuthenticationModal';
 import { useOnboardingDone } from '../../../../../hooks/useOnboardingRequired';
-import { GroupedBackupDetails } from '../../../../Me/SecuritySection/CloudBackup/BackupDetails';
+import {
+  GroupedBackupDetails,
+  checkHasRemoteData,
+} from '../../../../Me/SecuritySection/CloudBackup/BackupDetails';
 import { showUpgrateDialog } from '../../../../Me/SecuritySection/CloudBackup/UpgrateDialog';
 import { useOnboardingClose } from '../../../hooks';
 import Layout from '../../../Layout';
@@ -212,11 +215,7 @@ const PreviewImportData = () => {
       .getBackupDetailsWithRemoteData(JSON.parse(data.public))
       .then((backupDetails) => {
         setBackupData(backupDetails);
-        setHasRemoteData(
-          Object.values(backupDetails.notOnDevice).some(
-            (o) => Object.keys(o).length > 0,
-          ),
-        );
+        setHasRemoteData(checkHasRemoteData(backupDetails.notOnDevice));
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceCloudBackup]);

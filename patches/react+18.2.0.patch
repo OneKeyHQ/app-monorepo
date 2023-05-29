@@ -1,0 +1,27 @@
+diff --git a/node_modules/react/cjs/react.development.js b/node_modules/react/cjs/react.development.js
+index 304b87e..1ac7ba9 100644
+--- a/node_modules/react/cjs/react.development.js
++++ b/node_modules/react/cjs/react.development.js
+@@ -1631,7 +1631,21 @@ function useRef(initialValue) {
+ }
+ function useEffect(create, deps) {
+   var dispatcher = resolveDispatcher();
+-  return dispatcher.useEffect(create, deps);
++  var createWithLog = create;
++  if (typeof localStorage !== 'undefined'
++    && localStorage.getItem('@onekey_debug_useEffect_log')) {
++    createWithLog = () => {
++      // let stack = '';
++      // try{
++      //   throw new Error('mock error');
++      // }catch (error){
++      //   stack = error.stack;
++      // }
++      console.warn('useEffect called...');
++      return create();
++    }
++  }
++  return dispatcher.useEffect(createWithLog, deps);
+ }
+ function useInsertionEffect(create, deps) {
+   var dispatcher = resolveDispatcher();

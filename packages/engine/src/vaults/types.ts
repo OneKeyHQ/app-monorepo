@@ -113,6 +113,7 @@ export type IVaultSettings = {
   batchTransferApprovalRequired?: boolean;
   batchTransferApprovalConfirmRequired?: boolean;
   maxActionsInTx?: number;
+  hardwareMaxActionsEnabled?: boolean;
   transactionIdPattern?: string;
   isBtcForkChain?: boolean;
   nonceEditable?: boolean;
@@ -236,6 +237,7 @@ export type SignedTxResult = {
   publicKey?: string; // hex string
   digest?: string; // hex string
   txKey?: string; // hex string for Monero
+  pendingTx?: boolean; // It is used for Aptos to wait for the chain to get the transaction state
 } & SignedTx;
 
 // EncodedTx Update ----------------------------------------------

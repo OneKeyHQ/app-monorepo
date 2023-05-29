@@ -1,6 +1,7 @@
-/* eslint-disable no-plusplus */
-/* eslint-disable global-require, no-restricted-syntax, import/no-unresolved,  @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
-require('./intlShim');
+/* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
+import './intlShim';
+import 'react-native-url-polyfill/auto';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const shimsLog = (str) => console.log(`Shims Injected: ${str}`);
 
@@ -112,8 +113,6 @@ try {
 } catch (error) {
   console.log('Missing FileReader; unsupported platform');
 }
-
-const platformEnv = require('@onekeyhq/shared/src/platformEnv');
 
 if (platformEnv.isNativeAndroid) {
   const shimConsoleLog = (method) => {

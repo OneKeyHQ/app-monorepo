@@ -305,6 +305,7 @@
   "action__test_update_ble_firmware": "اختبار ترقية بلي البرامج الثابتة",
   "action__test_update_firmware": "اختبار البرامج الثابتة للترقية",
   "action__test_update_resource": "اختبار مورد التحديث",
+  "action__transfer_brc20": "تحويل",
   "action__under_maintaince": "تحت Maintaince",
   "action__unfreeze": "تجمد",
   "action__unlock": "الغاء القفل",
@@ -680,6 +681,7 @@
   "content__notable_collections": "مجموعات بارزة",
   "content__onboarding_import_wallet_desc": "مع عبارة الاسترداد والمفتاح الخاص والعنوان و OneKey Lite و KeyTag والمزيد ...",
   "content__onekey_bridge_str_is_now_available_do_you_want_to_download": "OneKey Bridge {0} متوفر الآن ، هل تريد التنزيل؟",
+  "content__onekey_does_not_check_typos_nor_the_status_of_the_protocol_check_by_youself_and_inscribe_with_caution": "لا يتحقق OneKey من الأخطاء الإملائية ولا الحالة الحالية للبروتوكولات ، مثل نطاق .sats و brc-20 وما إلى ذلك. تحقق بنفسك وقم بالتسجيل بحذر.",
   "content__onekey_limit_text_input_to_str_due_to_the_limited_space_of_btc_blocks": "يقيد OneKey إدخال النص بـ {0} بسبب المساحة المحدودة لكتل البيتكوين.",
   "content__onekey_still_has_conflicts_with_other_extensions": "لا يزال OneKey يتعارض مع الامتدادات الأخرى (مثل rabby). يرجى تعطيلهم وحاول مرة أخرى.",
   "content__only_transactions_from_the_same_account_are_supported": "يتم دعم المعاملات من نفس الحساب فقط من خلال المسار الحالي.",
@@ -980,6 +982,7 @@
   "form__account_name_invalid_exists": "الاسم موجود بالفعل.",
   "form__account_uppercase": "الحساب",
   "form__activation_time": "وقت التنشيط",
+  "form__active_request": "طلب نشط",
   "form__actual_arrival": "الوصول الفعلي",
   "form__actual_received": "تلقى الفعلي",
   "form__add_exsting_wallet_invalid": "صيغة غير مدعومة",
@@ -1045,7 +1048,10 @@
   "form__auto_refresh_time": "وقت التحديث التلقائي",
   "form__auto_scroll_time": "وقت التمرير التلقائي",
   "form__automatic": "تلقائي",
+  "form__available": "متاح",
   "form__available_balance": "الرصيد المتوفر:",
+  "form__available_colon": "متاح:",
+  "form__available_for_claim": "متاح للمطالبة",
   "form__available_to_stake": "متاح للرهان",
   "form__back": "الجانب الخلفي",
   "form__balance": "الرصيد",
@@ -1098,6 +1104,8 @@
   "form__check_recovery_seed_placeholder": "كلمة {0}",
   "form__chinese_simplified": "الصينية المبسطة",
   "form__chinese_traditional": "تقاليد صينية",
+  "form__claim": "مطالبة",
+  "form__claim_desc": "اطلب ETH الخاص بك بعد معالجة طلب السحب.",
   "form__claimable_str": "قابل للمطالبة به: {0}",
   "form__claimable_uppercase": "قابل للمطالبة به",
   "form__clear_all_cache_on_app": "امسح كل ذاكرة التخزين المؤقت في التطبيق",
@@ -1157,6 +1165,8 @@
   "form__enter_recovery_phrase": "أدخل عبارة الاسترداد",
   "form__error_trade_with_watched_acocunt": "الحساب المراقب غير متاح للتداول.",
   "form__est_arrival_time": "EST. وقت الوصول",
+  "form__est_receipt": "EST. إيصال",
+  "form__est_str": "تقديرات {0}",
   "form__estimate_str": "تقدير {0}",
   "form__estimate_total_gas_fee": "تقدير إجمالي رسوم الغاز",
   "form__estomated_gas": "الغاز المقدر",
@@ -1298,6 +1308,7 @@
   "form__min_amount": "المبلغ الأدنى:",
   "form__minimum_received": "تلقى الحد الأدنى",
   "form__minimum_received_desc": "الحد الأدنى من الرموز التي يمكن استلامها بعد خصم الرسوم المختلفة",
+  "form__mint_str": "النعناع {0}",
   "form__modifiable_tax": "ضريبة قابلة للتعديل",
   "form__modifiable_tax_desc": "إذا تم زيادة ضريبة المعاملات إلى أكثر من 49٪ ، فلن تكون التوكنات قادرة على التداول (مخاطرة موضع الجذب).",
   "form__modify_the_line_with_the_correct_format": "قم بتعديل الخط بالتنسيق الصحيح",
@@ -1433,6 +1444,9 @@
   "form__rate_our_app": "قيم تطبيقنا",
   "form__raw_desc": "التمهيد لمركز معلومات Web3 الشخصي الخاص بك من أكثر من 500 موجز ويب لـ RSS.",
   "form__receive_address": "تلقي العنوان",
+  "form__receive_lido_nft": "احصل على Lido NFT",
+  "form__receive_lido_nft_desc": "يُنشئ كل طلب سحب Lido NFT ، ويتغير مظهره عندما يصبح ETH الخاص بك متاحًا للسحب.",
+  "form__receive_str": "تلقي {0}",
   "form__receiver_address_amount": "عنوان المستلم ، المبلغ",
   "form__receiver_address_token_id_amount": "عنوان المستلم ، معرف الرمز ، المبلغ",
   "form__receiving_address": "عنوان الاستلام",
@@ -1446,12 +1460,15 @@
   "form__release_notes": "ملاحظات الإصدار:",
   "form__reopen_last_page_in_current_tab": "أعد فتح الصفحة الأخيرة في علامة التبويب الحالية",
   "form__request_type": "نوع الطلب",
+  "form__request_withdrawal": "طلب الانسحاب",
+  "form__request_withdrawal_desc": "قفل stETH / wstETH بإصدار طلب سحب. بعد 1-5 أيام ، سيتم تدمير stETH المقفل وسيصبح ETH الخاص بك متاحًا للسحب.",
   "form__reset_app": "إعادة تعيين التطبيق",
   "form__reward_history": "تاريخ المكافأة",
   "form__rewards_are_automatically_credited_to_your_deposit_every_few_days": "تُضاف المكافآت تلقائيًا إلى إيداعك <a> كل بضعة أيام </a>",
   "form__rewards_uppercase": "المكافآت",
   "form__risk_exposure": "التعرض للخطر",
   "form__rocket_rapid": "🚀 سريع",
+  "form__route": "طريق",
   "form__rpc_fetched_failed": "فشل جلب RPC.",
   "form__rpc_node": "عقدة RPC",
   "form__rpc_status": "حالة RPC",
@@ -1478,6 +1495,7 @@
   "form__sell_max_transaction_amount": "{0} {1} الحد الأقصى للبيع.",
   "form__sell_min_transaction_amount": "{0} {1} الحد الأدنى للبيع",
   "form__sell_str_for_fiat": "بيع {0} لشركة فيات",
+  "form__send_str": "إرسال {0}",
   "form__send_tokens": "إرسال الرموز",
   "form__sent": "لقد ارسلت",
   "form__service_fee": "رسوم الخدمة",
@@ -1555,6 +1573,7 @@
   "form__swapping_via": "مبادلة عبر",
   "form__symbol": "رمز",
   "form__symbol_invalid": "يجب أن يتكون الرمز من 15 حرفًا أو أقل.",
+  "form__tansfer_brc20_str": "نقل {0}",
   "form__tax_can_not_be_modified": "لا يمكن تعديل الضريبة",
   "form__tax_can_not_be_modified_desc": "لا يجوز لصاحب العقد تغيير ضريبة المعاملات. إذا تجاوزت ضريبة المعاملات 49٪ ، فلا يمكن تداول الرموز المميزة (مخاطرة موقع المصيدة).",
   "form__testnets": "تيست نتس",
@@ -1583,6 +1602,7 @@
   "form__total_received": "إجمالي المتلقاة",
   "form__touch_id": "Touch ID",
   "form__track_token_price_changes_and_receive_real_time_alerts": "تتبع تغيرات أسعار الرمز المميز وتلقي تنبيهات في الوقت الفعلي.",
+  "form__trade": "تجارة",
   "form__trading_time": "وقت التداول",
   "form__trading_volume": "حجم التداول",
   "form__trading_with_cooldown_time": "التداول مع وقت التهدئة",
@@ -1592,6 +1612,8 @@
   "form__transaction_hash": "تجزئة الصفقة",
   "form__transaction_history": "تاريخ المعاملات",
   "form__transfer_amount": "مبلغ التحويل",
+  "form__transferable": "قابلة للتحويل",
+  "form__transferable_colon": "قابلة للتحويل:",
   "form__triggered_str": "تم التفعيل {0}",
   "form__trusted_token": "رمز موثوق",
   "form__trusted_token_desc": "هذا الرمز مشهور وجدير بالثقة.",
@@ -1651,6 +1673,7 @@
   "form__with_str": "مع {0}",
   "form__withdraw_desc": "لسحب ETH إلى حسابك ، تحتاج إلى بدء معاملة.",
   "form__you_have_no_wallet_yet": "ليس لديك محفظة بعد",
+  "form__you_receive": "انت تستقبل",
   "form__you_start_earning_str": "تبدأ في كسب <a> كل يوم </a>",
   "form__your_email": "بريدك الالكتروني",
   "form__your_question_is": "سؤالك هو ...",
@@ -2039,6 +2062,7 @@
   "msg__password_has_been_set": "تم تعيين كلمة المرور",
   "msg__password_needs_to_be_the_same": "يجب أن تكون كلمة المرور هي نفسها لكلا الإدخالين.",
   "msg__password_validation": "يجب أن تكون كلمة المرور بين 8 و 128 حرفًا.",
+  "msg__please_limit_the_amount_of_tokens_to_str_decimal_places_or_less": "الرجاء تحديد مقدار الرموز المميزة بـ {0} منازل عشرية أو أقل.",
   "msg__polkadot_account_deposit_amount": "الإيداع (التحويل الأول إلى حساب جديد أكبر من الإيداع)",
   "msg__polkadot_info_keep_account_alive": "في حالة الإغلاق ، ستتم إزالة مبلغ الحساب الذي يقل عن الرهن العقاري بواسطة الشبكة.",
   "msg__polkadot_keep_account_alive": "حساب على قيد الحياة",
@@ -2095,6 +2119,7 @@
   "msg__the_disk_path_was_not_found": "لم يتم العثور على مسار القرص",
   "msg__the_recipient_address_is_a_contract_address": "عنوان المستلم هو عنوان عقد ، وقد يؤدي التحويل إلى هذا العنوان إلى خسارة الأصول.",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "سيكون الرصيد القابل للإنفاق في السلسلة 0 عندما يكون التحويل قيد التنفيذ. عادةً ما يستغرق الأمر 20 دقيقة حتى يصبح الرصيد قابلاً للإنفاق.",
+  "msg__there_are_str_requests_waiting_for_confirmation_currently": "هناك {0} من الطلبات في انتظار التأكيد حاليًا.",
   "msg__this_address_already_exists": "هذا العنوان موجود بالفعل.",
   "msg__this_is_a_cross_chain_swap_transaction": "هذه معاملة مقايضة عبر سلسلة.",
   "msg__this_is_a_cross_chain_swap_transaction_desc": "سيتم عرض هذا النوع من معلومات المعاملات على أنه العديد من المعاملات المختلفة في سجل المعاملات الخاص بحسابك.",
@@ -2287,6 +2312,8 @@
   "title__leaderboard": "ليدربورد",
   "title__lets_play_the_dot_punching_game": "هيا نلعب\n لعبة نقطة اللكم",
   "title__lets_play_the_dot_punching_game_desc": "سيقوم OneKey بتحويل عبارة الاسترداد إلى BIP39 dotmap. كل ما عليك القيام به هو اتباع dotmap لكمة النقاط على KeyTag باستخدام ثقب مركزي تلقائي ، ثم ستنتهي من النسخ الاحتياطي لمحفظتك. استمتع!",
+  "title__lido_unstaking": "ليدو غير مقيدة",
+  "title__lido_unstaking_desc": "عملية السحب بسيطة وسيتم تقسيمها إلى الخطوات التالية:",
   "title__major_update": "تحديث رئيسي",
   "title__manage_account_dynamic": "إدارة الحساب الديناميكي",
   "title__manage_accounts": "إدارة الحسابات",

@@ -161,7 +161,7 @@ export const SubmitRequest: FC = () => {
   const imageWidth = (modalWidth - padding * 2) / 4;
   const [imageArr, updateImageArr] = useState<ImageModel[]>([]);
   const pickImage = useCallback(async () => {
-    const result = await launchImageLibraryAsync({
+    const results = await launchImageLibraryAsync({
       mediaTypes: MediaTypeOptions.Images,
       allowsEditing: false,
       base64: true,
@@ -169,7 +169,8 @@ export const SubmitRequest: FC = () => {
       quality: 0.3,
     });
 
-    if (!result.cancelled) {
+    if (!results.canceled) {
+      const result = results.assets[0];
       const tempName = uuid.v4() as string;
       const imagename = `${tempName}.png`;
       const image: ImageModel = {

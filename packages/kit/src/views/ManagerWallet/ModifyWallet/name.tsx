@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useNavigation } from '@react-navigation/native';
@@ -28,7 +28,6 @@ import {
   RootRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import { setRefreshTS } from '@onekeyhq/kit/src/store/reducers/settings';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { defaultAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
@@ -144,15 +143,6 @@ const ModifyWalletNameViewModal: FC = () => {
     [editAvatar, navigation],
   );
 
-  const onPress = useCallback(() => {
-    // Under Android, due to unknown reasons, there is a certain probability of crashing, and the onSubmit is delayed
-    if (platformEnv.isNativeAndroid) {
-      setTimeout(onSubmit, 100);
-    } else {
-      onSubmit();
-    }
-  }, [onSubmit]);
-
   return (
     <Modal
       header={intl.formatMessage({ id: 'modal__edit_wallet' })}
@@ -183,7 +173,7 @@ const ModifyWalletNameViewModal: FC = () => {
             type="primary"
             size="xl"
             isLoading={isLoading}
-            onPress={onPress}
+            onPress={onSubmit}
           >
             {intl.formatMessage({
               id: 'action__done',

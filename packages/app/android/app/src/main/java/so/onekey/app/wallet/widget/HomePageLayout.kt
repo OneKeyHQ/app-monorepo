@@ -81,6 +81,9 @@ open class HomePageLayout @JvmOverloads constructor(
 
     fun setHeaderHeight(height: Int) {
         mHeaderHeight = height
+        val contentView = content.findViewById<CollapsingToolbarLayout>(R.id.toolbar)
+        contentView.layoutParams.height = Utils.dp2px(context, height.toFloat())
+        contentView.requestLayout()
     }
 
     fun getHeaderView(): View? {

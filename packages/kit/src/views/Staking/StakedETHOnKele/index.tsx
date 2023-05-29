@@ -63,7 +63,7 @@ const KeleOverview = () => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
-        screen: StakingRoutes.UnstakeKeleETHNotes,
+        screen: StakingRoutes.KeleEthUnstakeShouldUnderstand,
         params: {
           networkId,
         },
@@ -221,7 +221,7 @@ const ListHeaderComponent = () => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
-        screen: StakingRoutes.UnstakeKeleETHNotes,
+        screen: StakingRoutes.KeleEthUnstakeShouldUnderstand,
         params: {
           networkId,
           readonly: true,

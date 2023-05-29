@@ -15,7 +15,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useActiveSideAccount } from '../../../hooks';
 import PriceChart from '../../PriceChart/PriceChart';
 import { KeleETHUnstakeBulletin } from '../../Staking/components/KeleETHUnstakeBulletin';
-import StakedAssets from '../../Staking/components/StakedAssets';
+import {
+  ETHRelatedPoolShowControl,
+  EthTopAprShowControl,
+} from '../../Staking/components/StakingEthOptions';
 
 import DeskTopHeader from './DeskTopHeader';
 import MoreMenuButton from './MoreMenuButton';
@@ -135,10 +138,10 @@ const TokenDetailHeader: FC<HeaderProps> = ({
         </HStack>
       )}
       {isVerticalLayout && (
-        <StakedAssets
-          networkId={token?.networkId}
-          tokenIdOnNetwork={token?.tokenIdOnNetwork}
-        />
+        <Box>
+          <EthTopAprShowControl token={token} />
+          <ETHRelatedPoolShowControl token={token} />
+        </Box>
       )}
     </Box>
   );

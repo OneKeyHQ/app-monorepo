@@ -17,7 +17,9 @@ function ReceiverEditor(props: Props) {
 
   const [receiverString, setReceiverString] = useState('');
 
-  const receiverStringDebounce = useDebounce(receiverString, 1000);
+  const receiverStringDebounce = useDebounce(receiverString, 500, {
+    leading: true,
+  });
 
   useEffect(() => {
     setReceiver(decodeReceiver(receiverStringDebounce, type));

@@ -1,0 +1,21 @@
+diff --git a/node_modules/react-native-cloud-fs/android/build.gradle b/node_modules/react-native-cloud-fs/android/build.gradle
+index 2494780..accf9ab 100644
+--- a/node_modules/react-native-cloud-fs/android/build.gradle
++++ b/node_modules/react-native-cloud-fs/android/build.gradle
+@@ -10,12 +10,12 @@ buildscript {
+ apply plugin: 'com.android.library'
+ 
+ android {
+-    compileSdkVersion 28
+-    buildToolsVersion "28.0.3"
++    compileSdkVersion 33
++    buildToolsVersion "33.0.0"
+ 
+     defaultConfig {
+-        minSdkVersion 19
+-        targetSdkVersion 28
++        minSdkVersion 23
++        targetSdkVersion 33
+         versionCode 1
+         versionName "1.0"
+         ndk {

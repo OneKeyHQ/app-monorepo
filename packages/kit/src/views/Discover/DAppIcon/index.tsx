@@ -67,7 +67,7 @@ const DAppNetworkIcon: FC<DAppNetworkIconProps> = ({ networkIds, size }) => {
   const network = useNetworkSimple(networkIds[0]);
   if (networkIds.length > 1) {
     return (
-      <Box>
+      <>
         <Image
           position="absolute"
           bottom="0.1px"
@@ -88,11 +88,11 @@ const DAppNetworkIcon: FC<DAppNetworkIconProps> = ({ networkIds, size }) => {
             source={multichainPNG}
           />
         </Box>
-      </Box>
+      </>
     );
   }
   return (
-    <Box>
+    <>
       <Image
         position="absolute"
         bottom="0.1px"
@@ -113,7 +113,7 @@ const DAppNetworkIcon: FC<DAppNetworkIconProps> = ({ networkIds, size }) => {
           borderRadius="full"
         />
       </Box>
-    </Box>
+    </>
   );
 };
 

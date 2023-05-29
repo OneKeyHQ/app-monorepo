@@ -1,13 +1,11 @@
 {
   "name": "@onekeyhq/web-embed",
   "version": "0.0.1",
-  "main": "__generated__/AppEntry.js",
+  "main": "index.js",
   "description": "Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others",
   "scripts": {
-    "postinstall": "expo-yarn-workspaces postinstall",
-    "dev": "expo start",
-    "start": "WEB_PORT=3008 expo start --web",
-    "build": "rm -rf ./web-build && GENERATE_SOURCEMAP=false npx expo build:web && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh",
+    "start": "WEB_PORT=3008 expo start:web --web",
+    "build": "rm -rf ./web-build && GENERATE_SOURCEMAP=false expo build:web && cp ./web-build/index.html ./web-build/404.html && sh ./postbuild.sh",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
   },
   "dependencies": {
@@ -15,8 +13,7 @@
     "@onekeyhq/components": "*",
     "@onekeyhq/engine": "*",
     "@onekeyhq/kit": "*",
-    "expo": "^45.0.5",
-    "expo-yarn-workspaces": "2.0.3",
+    "expo": "^48.0.17",
     "firebase": "^9.8.2",
     "react-native-web": "0.18.10",
     "react-router-dom": "^6.3.0"
