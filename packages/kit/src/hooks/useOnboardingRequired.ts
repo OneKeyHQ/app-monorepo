@@ -66,6 +66,7 @@ export function useOnboardingDone() {
       if (platformEnv.isNative) {
         openRootHome();
       } else {
+        navigation.goBack();
         navigation?.navigate(RootRoutes.Main, {
           screen: MainRoutes.Tab,
           params: {
