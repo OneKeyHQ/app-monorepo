@@ -11,8 +11,12 @@ import { IOnChainTransferType } from './types';
 
 import type { Signer } from '../../../proxy';
 import type { IUnsignedTxPro } from '../../types';
-import type { ISdkCfxContract, ISdkConflux } from './sdk/conflux';
-import type { IEncodedTxCfx, ITxAbiDecodeResult } from './types';
+import type {
+  IEncodedTxCfx,
+  ISdkCfxContract,
+  ISdkConflux,
+  ITxAbiDecodeResult,
+} from './types';
 
 const { Transaction } = sdkCfx;
 const getCodeCache = memoizee(
