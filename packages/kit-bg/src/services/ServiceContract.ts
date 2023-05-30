@@ -141,7 +141,7 @@ class ServiceContract extends ServiceBase {
       owner: eip712Message.owner,
       spender: eip712Message.spender,
       value: eip712Message.value,
-      nonce: eip712Message.nonce.toString(16),
+      nonce: eip712Message.nonce,
       deadline: eip712Message.deadline,
     };
     const data = JSON.stringify({
