@@ -40,6 +40,7 @@ import type { ListRenderItem } from 'react-native';
 type NavigationProps = ModalScreenProps<StakingRoutesParams>;
 
 const ClaimAlert = () => {
+  const intl = useIntl();
   const navigation = useNavigation();
   const { networkId, account } = useActiveWalletAccount();
   const lidoOverview = useLidoOverview(networkId, account?.id);
@@ -98,15 +99,18 @@ const ClaimAlert = () => {
   return (
     <Alert
       alertType="info"
-      title={`${lidoOverview.withdrawal} ETH Available for Claim`}
+      title={`${lidoOverview.withdrawal} ETH ${intl.formatMessage({
+        id: 'form__available_for_claim',
+      })}`}
       dismiss={false}
       onAction={onPress}
-      action="Claim"
+      action={intl.formatMessage({ id: 'form__claim' })}
     />
   );
 };
 
 const PendingTransactionAlert = () => {
+  const intl = useIntl();
   const { networkId, accountId } = useActiveWalletAccount();
   const transactions = useAppSelector((s) => s.staking.transactions);
   const txs = useMemo(() => {
@@ -121,7 +125,12 @@ const PendingTransactionAlert = () => {
     <Box>
       <Alert
         alertType="info"
-        title={`There is currently ${txs.length} request waiting for confirmation`}
+        title={intl.formatMessage(
+          {
+            id: 'msg__there_are_str_requests_waiting_for_confirmation_currently',
+          },
+          { '0': txs.length },
+        )}
         dismiss={false}
       />
       {txs.map((tx) => (
@@ -245,6 +254,7 @@ const ListEmptyComponent = () => {
 };
 
 export default function StakedETHOnLido() {
+  const intl = useIntl();
   const { networkId, accountId } = useActiveWalletAccount();
   useEffect(() => {
     backgroundApiProxy.serviceStaking.fetchLidoOverview({
@@ -285,20 +295,24 @@ export default function StakedETHOnLido() {
           />
           <Box ml="2">
             <Typography.Body1Strong>
-              Unstake #{item.requestId}
+              {intl.formatMessage({ id: 'action_unstake' })} #{item.requestId}
             </Typography.Body1Strong>
-            <Typography.Body2>est. 1-5 days</Typography.Body2>
+            <Typography.Body2>est. 1 - 5 days</Typography.Body2>
           </Box>
         </Box>
         <Box alignItems="flex-end">
-          <Typography.Body1Strong>+{item.stETH}ETH</Typography.Body1Strong>
+          <Typography.Body1Strong>
+            +{Number(item.stETH)}ETH
+          </Typography.Body1Strong>
           <Typography.Body2 color="text-highlight">
-            {item.isFinalized ? 'Available for Claim' : 'Pending'}
+            {item.isFinalized
+              ? intl.formatMessage({ id: 'form__available_for_claim' })
+              : intl.formatMessage({ id: 'transaction__pending' })}
           </Typography.Body2>
         </Box>
       </Box>
     ),
-    [nfts],
+    [nfts, intl],
   );
 
   return (

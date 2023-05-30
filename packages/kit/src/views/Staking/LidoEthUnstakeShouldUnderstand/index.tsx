@@ -115,7 +115,6 @@ const LidoEthUnstakeShouldUnderstand = () => {
       primaryActionTranslationId="action__lets_go"
       onPrimaryActionPress={onPrimaryActionPress}
       header={`${intl.formatMessage({ id: 'action_unstake' })} ETH`}
-      headerDescription="Liquid Unstaking"
       scrollViewProps={{
         children: <LidoEthUnstakeShouldUnderstandContent />,
       }}

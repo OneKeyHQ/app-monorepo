@@ -14,7 +14,6 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount } from '../../../hooks';
 import PriceChart from '../../PriceChart/PriceChart';
-import { KeleETHUnstakeBulletin } from '../../Staking/components/KeleETHUnstakeBulletin';
 import {
   ETHRelatedPoolShowControl,
   EthTopAprShowControl,
@@ -89,8 +88,6 @@ const TokenDetailHeader: FC<HeaderProps> = ({
 
   return (
     <Box {...props}>
-      <KeleETHUnstakeBulletin token={token} />
-
       {!isVerticalLayout && (
         <DeskTopHeader
           token={token}

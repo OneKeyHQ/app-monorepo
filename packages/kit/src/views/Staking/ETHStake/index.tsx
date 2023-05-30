@@ -16,6 +16,7 @@ import {
   Modal,
   Pressable,
   Text,
+  ToastManager,
   Typography,
 } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -265,12 +266,31 @@ export default function ETHStaking() {
                 );
                 // add stETH to user tokens list
               }
+              ToastManager.show({
+                title: intl.formatMessage({ id: 'msg__success' }),
+              });
+              navigation.replace(RootRoutes.Modal, {
+                screen: ModalRoutes.Staking,
+                params: {
+                  screen: StakingRoutes.StakedETHOnLido,
+                  params: {},
+                },
+              });
             },
           },
         },
       });
     },
-    [source, account, tokenInfo, networkId, accountId, amount, navigation],
+    [
+      source,
+      account,
+      tokenInfo,
+      networkId,
+      accountId,
+      amount,
+      navigation,
+      intl,
+    ],
   );
 
   return (
@@ -351,7 +371,8 @@ export default function ETHStaking() {
                 <Typography.Body2Strong
                   color={errorMsg && amount ? 'text-critical' : 'text-default'}
                 >
-                  {tokenBalance ?? ''} {tokenInfo?.symbol.toUpperCase()}
+                  {formatAmount(tokenBalance ?? '', 6)}{' '}
+                  {tokenInfo?.symbol.toUpperCase()}
                 </Typography.Body2Strong>
               </Box>
             </Center>

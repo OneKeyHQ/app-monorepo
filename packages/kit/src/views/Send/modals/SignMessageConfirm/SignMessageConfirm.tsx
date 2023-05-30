@@ -136,10 +136,15 @@ const SignMessageConfirm = () => {
             });
           }
           route.params.onSuccess?.(result);
-          // wait modal animation done
-          closeTimer = setTimeout(() => {
+
+          if (route.params.closeImmediately) {
             close();
-          }, 600);
+          } else {
+            // wait modal animation done
+            closeTimer = setTimeout(() => {
+              close();
+            }, 600);
+          }
         },
         onModalClose,
       };
