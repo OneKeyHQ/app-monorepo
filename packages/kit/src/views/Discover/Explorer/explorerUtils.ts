@@ -147,7 +147,7 @@ export function crossWebviewLoadUrl({
 
 // https://github.com/facebook/hermes/issues/114#issuecomment-887106990
 const injectToPauseWebsocket = `
-(function(){  
+(function(){
   if (window.WebSocket) {
     if (!window.$$onekeyWebSocketSend) {
       window.$$onekeyWebSocketSend = window.WebSocket.prototype.send;
@@ -158,7 +158,7 @@ const injectToPauseWebsocket = `
 `;
 
 const injectToResumeWebsocket = `
-(function(){  
+(function(){
   if (
     window.WebSocket &&
     window.$$onekeyWebSocketSend
@@ -177,7 +177,15 @@ export function pauseDappInteraction(id?: string) {
     }
     // pause wallet connect websocket
     if (platformEnv.isNative) {
-      (ref.innerRef as WebView)?.injectJavaScript(injectToPauseWebsocket);
+      try {
+        (ref.innerRef as WebView)?.injectJavaScript(injectToPauseWebsocket);
+      } catch (error) {
+        // ipad mini orientation changed cause injectJavaScript ERROR, which crash app
+        console.error(
+          'pauseDappInteraction webview.injectJavaScript() ERROR >>>>> ',
+          error,
+        );
+      }
     }
     if (platformEnv.isDesktop) {
       const deskTopRef = ref.innerRef as IElectronWebView;
