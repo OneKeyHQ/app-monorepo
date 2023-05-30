@@ -9,7 +9,7 @@ import {
   TestnetLidoContractAddress,
 } from './config';
 
-import type { BuildTransactionParams, FetchQuoteParams } from '../Swap/typings';
+import type { FetchQuoteParams } from '../Swap/typings';
 
 export const isSupportStakedAssets = (
   networkId?: string,

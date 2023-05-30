@@ -17,7 +17,7 @@ import { deviceUtils } from '../../../utils/hardware';
 import { SendModalRoutes } from '../../Send/types';
 import { LoggerTimerTags, createLoggerTimer } from '../utils';
 
-type SendSuccessCallback = (param: {
+export type SendSuccessCallback = (param: {
   result: ISignedTxPro;
   decodedTx?: IDecodedTx;
 }) => Promise<void>;

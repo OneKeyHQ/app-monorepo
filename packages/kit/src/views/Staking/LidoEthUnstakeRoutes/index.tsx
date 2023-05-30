@@ -80,7 +80,11 @@ const LidoEthUnstakeRoutes = () => {
             />
             <Box flexDirection="column" justifyContent="space-between">
               <Typography.Body1Strong>Lido</Typography.Body1Strong>
-              <Typography.Body2 color="text-subdued">~ 1 day</Typography.Body2>
+              <Typography.Body2 color="text-subdued">
+                {intl
+                  .formatMessage({ id: 'form__str_day' }, { '0': '~ 1 - 3' })
+                  .toLowerCase()}
+              </Typography.Body2>
             </Box>
           </Box>
           <Box flexDirection="row">
@@ -112,7 +116,10 @@ const LidoEthUnstakeRoutes = () => {
             <Box flexDirection="column" justifyContent="space-between">
               <Typography.Body1Strong>OneKey Swap</Typography.Body1Strong>
               <Typography.Body2 color="text-subdued">
-                ~ 1-5 minutes
+                {intl.formatMessage(
+                  { id: 'content__str_minutes_plural' },
+                  { '0': '~ 1-5' },
+                )}
               </Typography.Body2>
             </Box>
           </Box>

@@ -17,7 +17,6 @@ import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
 import { useActiveSideAccount } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 import { useSingleToken } from '../../hooks/useTokens';
-import { useKeleETHUnstakeBulletin } from '../Staking/components/KeleETHUnstakeBulletin';
 import { isSTETH, isSupportStakedAssets } from '../Staking/utils';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
@@ -71,7 +70,6 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   });
 
   const { token } = useSingleToken(networkId, tokenId);
-  const { show } = useKeleETHUnstakeBulletin({ token });
 
   const price = useSimpleTokenPriceValue({
     networkId,
@@ -89,11 +87,8 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     } else {
       height = 452;
     }
-    if (show) {
-      height += isVerticalLayout ? 84 : 92;
-    }
     return height;
-  }, [isVerticalLayout, show, networkId, tokenId]);
+  }, [isVerticalLayout, networkId, tokenId]);
 
   const priceReady = useMemo(() => {
     if (!token) {
