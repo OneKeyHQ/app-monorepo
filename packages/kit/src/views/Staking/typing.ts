@@ -181,13 +181,13 @@ export interface LidoNFTStatus {
 }
 
 export type LidoOverview = {
-  total: string;
-  pending: string;
-  pendingNums: number;
-  balance: string;
-  withdrawal: string;
-  nftsBalance: string;
-  nfts: LidoNFTStatus[];
+  total?: string;
+  pending?: string;
+  pendingNums?: number;
+  balance?: string;
+  withdrawal?: string;
+  nftsBalance?: string;
+  nfts?: LidoNFTStatus[];
 };
 
 export type TransactionStatus = 'pending' | 'failed' | 'canceled' | 'sucesss';

@@ -49,7 +49,9 @@ import type { ListRenderItem } from 'react-native';
 type NavigationProps = ModalScreenProps<StakingRoutesParams>;
 
 function prefixAmount(amount: number) {
-  return Number(amount) > 0 ? `+${Number(amount)}` : amount;
+  return Number(amount) > 0
+    ? `+${formatAmount(amount, 18)}`
+    : formatAmount(amount, 18);
 }
 
 const KeleOverview = () => {
