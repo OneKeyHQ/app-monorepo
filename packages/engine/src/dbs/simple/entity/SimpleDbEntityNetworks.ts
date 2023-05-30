@@ -1,5 +1,5 @@
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { OnekeyNetworkUpdatedAt } from '@onekeyhq/shared/src/config/presetNetworks';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
