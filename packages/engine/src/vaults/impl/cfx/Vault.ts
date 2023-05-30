@@ -13,6 +13,7 @@ import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import {
   fromBigIntHex,
@@ -43,7 +44,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import sdkCfx from './sdkCfx';
+import { conflux as sdkCfx } from './sdk';
 import settings from './settings';
 import { IOnChainTransferType } from './types';
 import {
@@ -71,6 +72,7 @@ import type {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
+  ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -810,6 +812,26 @@ export default class Vault extends VaultBase {
       this.networkId,
       tokenAddresses,
     );
+  }
+
+  override async broadcastTransaction(
+    signedTx: ISignedTxPro,
+    options?: any,
+  ): Promise<ISignedTxPro> {
+    debugLogger.engine.info('broadcastTransaction START:', {
+      rawTx: signedTx.rawTx,
+    });
+    const client = await this.getClient();
+    const txid = await client.sendRawTransaction(signedTx.rawTx);
+    debugLogger.engine.info('broadcastTransaction END:', {
+      txid,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
+    };
   }
 }
 

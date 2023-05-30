@@ -6,12 +6,12 @@ import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 
 import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
 
-import sdkCfx from './sdkCfx';
+import { conflux as sdkCfx } from './sdk';
 import { IOnChainTransferType } from './types';
 
 import type { Signer } from '../../../proxy';
 import type { IUnsignedTxPro } from '../../types';
-import type { ISdkCfxContract, ISdkConflux } from './sdkCfx';
+import type { ISdkCfxContract, ISdkConflux } from './sdk/conflux';
 import type { IEncodedTxCfx, ITxAbiDecodeResult } from './types';
 
 const { Transaction } = sdkCfx;

@@ -17,7 +17,7 @@ import { AccountType } from '../../../types/account';
 import { ETHMessageTypes } from '../../../types/message';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
-import sdk from './sdkCfx';
+import { conflux as sdkCfx } from './sdk';
 
 import type { DBVariantAccount } from '../../../types/account';
 import type { ETHMessage } from '../../../types/message';
@@ -29,7 +29,7 @@ import type {
 } from '../../types';
 import type { IEncodedTxCfx } from './types';
 
-const { Transaction, address: confluxAddress } = sdk;
+const { Transaction, address: confluxAddress } = sdkCfx;
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 

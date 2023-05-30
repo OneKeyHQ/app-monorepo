@@ -7,4 +7,4 @@ export type {
   Conflux as ISdkConflux,
 } from 'js-conflux-sdk/dist/types/index';
 
-export default sdk as typeof import('js-conflux-sdk');
+export const conflux = sdk as typeof import('js-conflux-sdk');
