@@ -39,7 +39,6 @@
     "expo": "^48.0.17",
     "keytar": "^7.9.0",
     "node-fetch": "^2.6.7",
-    "react-native-web": "0.18.10",
     "rimraf": "^3.0.2"
   },
   "devDependencies": {

@@ -2,6 +2,7 @@
 import { isValidElement, useEffect, useMemo } from 'react';
 
 import { useNavigation, useNavigationState } from '@react-navigation/core';
+import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -11,7 +12,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import Box from '../../Box';
 import Button from '../../Button';
 import HStack from '../../HStack';
-import PresenceTransition from '../../PresenceTransition';
 import Pressable from '../../Pressable';
 
 import Header from './Header/Header';
@@ -117,30 +117,28 @@ const DesktopModal = ({
         bottom="0"
         onPress={close}
       >
-        <PresenceTransition
-          as={Box}
-          visible
-          initial={{
+        <MotiView
+          from={{
             opacity: 0,
           }}
           animate={{
             opacity: 1,
-            transition: {
-              duration:
-                enableModalAnimation && !openedModalStack?.length ? 80 : 0,
-            },
           }}
-          // @ts-expect-error
-          w="full"
-          h="full"
-          bg="rgba(0, 0, 0, 0.6)"
+          transition={{
+            type: 'timing',
+            duration:
+              enableModalAnimation && !openedModalStack?.length ? 80 : 0,
+          }}
+          style={{
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          }}
         />
       </Pressable>
 
-      <PresenceTransition
-        as={Box}
-        visible
-        initial={{
+      <MotiView
+        from={{
           opacity: 0,
           // translateY: 24,
           scale: 0.95,
@@ -149,86 +147,91 @@ const DesktopModal = ({
           opacity: 1,
           // translateY: 0,
           scale: 1,
+        }}
+        transition={{
+          type: 'timing',
           // TODO show animation when open new Modal in Modal, but not push stack in same Modal
-          transition: { duration: enableModalAnimation ? 100 : 0 },
+          duration: enableModalAnimation ? 100 : 0,
         }}
         testID="DesktopModalContentContainer"
-        // @ts-expect-error
-        width={modalSizing(size)}
-        height={height}
-        maxHeight={maxHeight}
-        alignSelf="center"
-        borderRadius="24px"
-        bg="background-default"
-        zIndex={1}
       >
-        {!!headerShown && (
-          <Header
-            header={header}
-            headerDescription={headerDescription}
-            firstIndex={!navIndex}
-            hideBackButton={hideBackButton}
-            onPressBackButton={() => {
-              if (hideBackButton) {
-                return;
-              }
-              if (onBackActionPress) {
-                onBackActionPress();
-                return;
-              }
-              if (navigation?.canGoBack?.()) {
-                navigation.goBack();
-              }
-            }}
-            closeable={closeable}
-            onPressCloseButton={close}
-            rightContent={rightContent}
-          />
-        )}
-        {children}
-        {isValidElement(footer) || footer === null ? (
-          footer
-        ) : (
-          <Box
-            borderTopWidth={StyleSheet.hairlineWidth}
-            borderTopColor="divider"
-          >
-            <HStack py="4" px="6" alignItems="center" space="12px">
-              {extraElement && <Box>{extraElement}</Box>}
-              <HStack flex={1} space="12px" justifyContent="flex-end">
-                {!hideSecondaryAction && (
-                  <Button
-                    onPress={() => {
-                      onSecondaryActionPress?.({ close });
-                      onClose?.();
-                    }}
-                    {...secondaryActionProps}
-                  >
-                    {secondaryActionProps?.children ??
-                      intl.formatMessage({
-                        id: secondaryActionTranslationId ?? 'action__cancel',
-                      })}
-                  </Button>
-                )}
-                {!hidePrimaryAction && (
-                  <Button
-                    type="primary"
-                    onPress={() => {
-                      onPrimaryActionPress?.({ onClose, close });
-                    }}
-                    {...primaryActionProps}
-                  >
-                    {primaryActionProps?.children ??
-                      intl.formatMessage({
-                        id: primaryActionTranslationId ?? 'action__ok',
-                      })}
-                  </Button>
-                )}
+        <Box
+          width={modalSizing(size)}
+          height={height}
+          maxHeight={maxHeight}
+          alignSelf="center"
+          borderRadius="24px"
+          bg="background-default"
+          zIndex={1}
+        >
+          {!!headerShown && (
+            <Header
+              header={header}
+              headerDescription={headerDescription}
+              firstIndex={!navIndex}
+              hideBackButton={hideBackButton}
+              onPressBackButton={() => {
+                if (hideBackButton) {
+                  return;
+                }
+                if (onBackActionPress) {
+                  onBackActionPress();
+                  return;
+                }
+                if (navigation?.canGoBack?.()) {
+                  navigation.goBack();
+                }
+              }}
+              closeable={closeable}
+              onPressCloseButton={close}
+              rightContent={rightContent}
+            />
+          )}
+          {children}
+          {isValidElement(footer) || footer === null ? (
+            footer
+          ) : (
+            <Box
+              borderTopWidth={StyleSheet.hairlineWidth}
+              borderTopColor="divider"
+            >
+              <HStack py="4" px="6" alignItems="center" space="12px">
+                {extraElement && <Box>{extraElement}</Box>}
+                <HStack flex={1} space="12px" justifyContent="flex-end">
+                  {!hideSecondaryAction && (
+                    <Button
+                      onPress={() => {
+                        onSecondaryActionPress?.({ close });
+                        onClose?.();
+                      }}
+                      {...secondaryActionProps}
+                    >
+                      {secondaryActionProps?.children ??
+                        intl.formatMessage({
+                          id: secondaryActionTranslationId ?? 'action__cancel',
+                        })}
+                    </Button>
+                  )}
+                  {!hidePrimaryAction && (
+                    <Button
+                      type="primary"
+                      onPress={() => {
+                        onPrimaryActionPress?.({ onClose, close });
+                      }}
+                      {...primaryActionProps}
+                    >
+                      {primaryActionProps?.children ??
+                        intl.formatMessage({
+                          id: primaryActionTranslationId ?? 'action__ok',
+                        })}
+                    </Button>
+                  )}
+                </HStack>
               </HStack>
-            </HStack>
-          </Box>
-        )}
-      </PresenceTransition>
+            </Box>
+          )}
+        </Box>
+      </MotiView>
     </Box>
   );
 };

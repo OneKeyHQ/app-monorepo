@@ -14,8 +14,7 @@
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
     "expo": "^48.0.17",
-    "firebase": "^9.8.2",
-    "react-native-web": "0.18.10"
+    "firebase": "^9.8.2"
   },
   "private": true
 }
