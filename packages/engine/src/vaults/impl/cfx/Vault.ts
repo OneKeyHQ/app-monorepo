@@ -40,10 +40,12 @@ import {
 } from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
 
-import { KeyringHardware } from './KeyringHardware';
-import { KeyringHd } from './KeyringHd';
-import { KeyringImported } from './KeyringImported';
-import { KeyringWatching } from './KeyringWatching';
+import {
+  KeyringHardware,
+  KeyringHd,
+  KeyringImported,
+  KeyringWatching,
+} from './keyring';
 import { conflux as sdkCfx } from './sdk';
 import settings from './settings';
 import { IOnChainTransferType } from './types';

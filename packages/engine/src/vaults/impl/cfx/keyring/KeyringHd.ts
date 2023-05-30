@@ -2,20 +2,19 @@ import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { OneKeyInternalError } from '../../../errors';
-import { Signer } from '../../../proxy';
-import { AccountType } from '../../../types/account';
-import { KeyringHdBase } from '../../keyring/KeyringHdBase';
+import { OneKeyInternalError } from '../../../../errors';
+import { Signer } from '../../../../proxy';
+import { AccountType } from '../../../../types/account';
+import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
+import { signTransactionWithSigner } from '../utils';
 
-import { signTransactionWithSigner } from './utils';
-
-import type { ExportedSeedCredential } from '../../../dbs/base';
-import type { DBVariantAccount } from '../../../types/account';
+import type { ExportedSeedCredential } from '../../../../dbs/base';
+import type { DBVariantAccount } from '../../../../types/account';
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
   IUnsignedTxPro,
-} from '../../types';
+} from '../../../types';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 

@@ -2,19 +2,18 @@ import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { OneKeyInternalError } from '../../../errors';
-import { Signer } from '../../../proxy';
-import { AccountType } from '../../../types/account';
-import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
+import { OneKeyInternalError } from '../../../../errors';
+import { Signer } from '../../../../proxy';
+import { AccountType } from '../../../../types/account';
+import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
+import { signTransactionWithSigner } from '../utils';
 
-import { signTransactionWithSigner } from './utils';
-
-import type { DBVariantAccount } from '../../../types/account';
+import type { DBVariantAccount } from '../../../../types/account';
 import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
   IUnsignedTxPro,
-} from '../../types';
+} from '../../../types';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(password: string, addresses: Array<string>) {
