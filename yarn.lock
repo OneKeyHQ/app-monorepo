@@ -5111,13 +5111,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/network-list@npm:1.6.65":
-  version: 1.6.65
-  resolution: "@onekeyfe/network-list@npm:1.6.65"
-  checksum: cc3009b11aaa3e4a38a7ae17a72852f9083bdd5714bc1cd58add38c902c5c65c2706f3242a088ca79f9b0bef44fb5acca8e602f4718d0719a4b7a619013f236b
-  languageName: node
-  linkType: hard
-
 "@onekeyfe/onekey-aptos-provider@npm:1.1.28":
   version: 1.1.28
   resolution: "@onekeyfe/onekey-aptos-provider@npm:1.1.28"
@@ -5329,7 +5322,6 @@ __metadata:
     "@onekeyfe/hd-shared": 0.3.6
     "@onekeyfe/hd-transport": 0.3.6
     "@onekeyfe/hd-web-sdk": 0.3.6
-    "@onekeyfe/network-list": 1.6.65
     "@onekeyfe/onekey-cross-webview": 1.1.28
     "@open-wc/webpack-import-meta-loader": ^0.4.7
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.10
