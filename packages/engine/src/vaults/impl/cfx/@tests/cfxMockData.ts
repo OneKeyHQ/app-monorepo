@@ -56,13 +56,16 @@ const importedAccount1: IUnitTestMockAccount = {
 
 const importedAccount2: IUnitTestMockAccount = {
   account: {
-    address: '75fe307718a061f3b371c9777ad194ac485fde853d600a8e802ce748e5012361',
-    coinType: '397',
-    id: 'imported--397--75fe307718a061f3b371c9777ad194ac485fde853d600a8e802ce748e5012361',
+    address: '0x1a0e09b453c29ce1cb23f997869ff71c66cf6c7c',
+    coinType: '503',
+    id: 'imported--503--03107b9fcb2f3207b1b532750298d395c601742e68e9d0f54ab3d7df66c414304a',
     name: 'Account #1',
     path: '',
-    pub: 'ed25519:8wbWQQkeK9NV1qkiQZ95jbj7JNhpeapHafLPw3qsJdqi',
-    type: 'simple' as any,
+    pub: '03107b9fcb2f3207b1b532750298d395c601742e68e9d0f54ab3d7df66c414304a',
+    type: 'variant' as any,
+    addresses: {
+      'cfx--1029': 'cfx:aara6crymtbk32snet63tby986sgrx5ptucv9bmpfn',
+    },
   },
   privateKey: '62ec93894623daf9acf2b59d0517612f',
   password: mockCredentials.password,

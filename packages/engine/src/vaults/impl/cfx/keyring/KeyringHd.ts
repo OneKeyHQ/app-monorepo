@@ -1,4 +1,3 @@
-import type { CurveName } from '@onekeyhq/engine/src/secret';
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -8,6 +7,8 @@ import { Signer, Verifier } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
 import { pubkeyToAddress, signTransactionWithSigner } from '../utils';
+
+import { CURVE_NAME } from './contant';
 
 import type { ExportedSeedCredential } from '../../../../dbs/base';
 import type { DBVariantAccount } from '../../../../types/account';
@@ -48,9 +49,8 @@ export class KeyringHd extends KeyringHdBase {
       this.walletId,
       password,
     )) as ExportedSeedCredential;
-    const curve: CurveName = 'secp256k1';
     const pubkeyInfos = batchGetPublicKeys(
-      curve,
+      CURVE_NAME,
       seed,
       password,
       PATH_PREFIX,
@@ -71,7 +71,7 @@ export class KeyringHd extends KeyringHdBase {
       const pub = pubkey.toString('hex');
       const chainId = await this.vault.getNetworkChainId();
       const addressOnNetwork = await pubkeyToAddress(
-        new Verifier(pub, curve),
+        new Verifier(pub, CURVE_NAME),
         chainId,
       );
       const baseAddress = await this.vault.addressToBase(addressOnNetwork);
