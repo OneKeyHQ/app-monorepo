@@ -1639,7 +1639,7 @@ class Engine {
     const tokens = await this.getTokens(networkId);
     const localTokens = tokens.filter(
       (token) =>
-        token.name.match(matchPattern) || token.symbol.match(matchPattern),
+        token.name?.match(matchPattern) || token.symbol?.match(matchPattern),
     );
 
     return uniqBy(onlineTokens.concat(localTokens), 'tokenIdOnNetwork');

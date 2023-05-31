@@ -2098,4 +2098,9 @@ export default class Vault extends VaultBase {
 
     return result;
   }
+
+  override async fetchRpcChainId(url: string): Promise<string> {
+    const chainId = await this.engine.providerManager.getEVMChainId(url);
+    return String(chainId);
+  }
 }
