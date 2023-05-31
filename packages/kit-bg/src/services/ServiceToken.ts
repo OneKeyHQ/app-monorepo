@@ -763,10 +763,10 @@ export default class ServiceToken extends ServiceBase {
             s.tokens.accountTokensBalance[networkId]?.[accountId] ?? {};
           return (
             accountTokensBalance[
-              getBalanceKey({
-                ...token,
-                sendAddress,
-              })
+            getBalanceKey({
+              ...token,
+              sendAddress,
+            })
             ] ?? {
               balance: '0',
             }
