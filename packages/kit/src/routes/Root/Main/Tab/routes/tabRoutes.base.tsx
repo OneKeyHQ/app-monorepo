@@ -21,7 +21,7 @@ export const tabRoutesConfigBaseMap: Record<TabRoutes, TabRouteConfigBase> = {
     name: TabRoutes.Home,
     tabBarIcon: (focused) =>
       focused ? 'CreditCardSolid' : 'CreditCardOutline',
-    translationId: 'form__account',
+    translationId: 'wallet__wallet',
     navHeaderType: 'AccountSelector',
   },
   [TabRoutes.Market]: {
