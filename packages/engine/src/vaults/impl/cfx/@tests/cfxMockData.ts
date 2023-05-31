@@ -73,39 +73,16 @@ const importedAccount2: IUnitTestMockAccount = {
 
 const watchingAccount1: IUnitTestMockAccount = {
   account: {
-    address: 'ed25519:8wbWQQkeK9NV1qkiQZ95jbj7JNhpeapHafLPw3qsJdqi',
-    coinType: '397',
-    id: 'external--397--ed25519:8wbWQQkeK9NV1qkiQZ95jbj7JNhpeapHafLPw3qsJdqi',
+    address: '0x1a0e09b453c29ce1cb23f997869ff71c66cf6c7c',
+    addresses: {
+      'cfx--1029': 'cfx:aara6crymtbk32snet63tby986sgrx5ptucv9bmpfn',
+    },
+    coinType: '503',
+    id: 'external--503--0x1a0e09b453c29ce1cb23f997869ff71c66cf6c7c',
     name: 'Account #1',
     path: '',
     pub: '',
-    type: 'simple' as any,
-  },
-  password: '',
-};
-
-const watchingAccount2: IUnitTestMockAccount = {
-  account: {
-    address: 'a-b-c-d-e-f-g-h-i',
-    coinType: '397',
-    id: 'external--397--a-b-c-d-e-f-g-h-i',
-    name: 'Account #1',
-    path: '',
-    pub: '',
-    type: 'simple' as any,
-  },
-  password: '',
-};
-
-const watchingAccount3: IUnitTestMockAccount = {
-  account: {
-    address: '7t52o0p34zxf58v2mx8rszraplaapgeqb6xhllv5oy8tt5pzs1pfvpsjhrktg42n',
-    coinType: '397',
-    id: 'external--397--7t52o0p34zxf58v2mx8rszraplaapgeqb6xhllv5oy8tt5pzs1pfvpsjhrktg42n',
-    name: 'Account #1',
-    path: '',
-    pub: '',
-    type: 'simple' as any,
+    type: 'variant' as any,
   },
   password: '',
 };
@@ -116,6 +93,4 @@ export default {
   importedAccount1,
   importedAccount2,
   watchingAccount1,
-  watchingAccount2,
-  watchingAccount3,
 };

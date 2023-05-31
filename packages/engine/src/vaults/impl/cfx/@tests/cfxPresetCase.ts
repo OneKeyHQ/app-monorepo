@@ -1,3 +1,5 @@
+import { encode, isValidCfxAddress } from '@conflux-dev/conflux-address-js';
+
 import { IMPL_NEAR } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { prepareMockVault } from '../../../../../@tests/prepareMockVault';
@@ -23,14 +25,17 @@ export async function testPrepareAccounts(
     keyring: (payload: { vault: VaultBase }) => KeyringBase;
   },
 ) {
-  const { options, dbAccount } = prepareMockVault(prepareOptions);
+  const { options, dbAccount, network } = prepareMockVault(prepareOptions);
   const vault = new Vault(options);
   vault.helper = new VaultHelper(options);
   const keyring = builder.keyring({ vault });
   const accounts = await keyring.prepareAccounts({
     ...prepareAccountsParams,
     name: dbAccount.name,
-    target: dbAccount.address,
+    target: encode(
+      Buffer.from(dbAccount.address.slice(2), 'hex'),
+      parseInt(String(network.id.split('--').pop())),
+    ),
     accountIdPrefix: 'external',
     password: prepareOptions.password,
     privateKey: prepareOptions?.privateKey,

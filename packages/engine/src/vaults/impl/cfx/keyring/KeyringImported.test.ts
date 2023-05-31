@@ -1,4 +1,4 @@
-import nearMockData from '../@tests/cfxMockData';
+import cfxMockData from '../@tests/cfxMockData';
 import { testPrepareAccounts } from '../@tests/cfxPresetCase';
 
 import { KeyringImported } from './KeyringImported';
@@ -7,7 +7,7 @@ jest.setTimeout(3 * 60 * 1000);
 
 describe('Conflux KeyringImported Tests', () => {
   it('conflux prepareAccounts', async () => {
-    const { network, importedAccount2 } = nearMockData;
+    const { network, importedAccount2 } = cfxMockData;
     await testPrepareAccounts(
       {
         dbNetwork: network,
