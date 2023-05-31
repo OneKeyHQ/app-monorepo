@@ -1,3 +1,6 @@
+import {
+  encode as toCfxAddress,
+} from '@conflux-dev/conflux-address-js';
 import { hexZeroPad } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 import memoizee from 'memoizee';
@@ -9,7 +12,7 @@ import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
 import { conflux as sdkCfx } from './sdk';
 import { IOnChainTransferType } from './types';
 
-import type { Signer } from '../../../proxy';
+import type { Signer, Verifier } from '../../../proxy';
 import type { IUnsignedTxPro } from '../../types';
 import type {
   IEncodedTxCfx,
@@ -149,4 +152,21 @@ export function getApiExplorerTransferType(
   if (tokenIdOnNetwork === '') return IOnChainTransferType.Call;
 
   return IOnChainTransferType.Transaction;
+}
+
+export function ethAddressToCfxAddress(address: string): string {
+  return `0x1${address.toLowerCase().slice(1)}`;
+}
+
+export async function pubkeyToAddress(
+  verifier: Verifier,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  chainId: string,
+): Promise<string> {
+  const uncompressPubKey = await verifier.getPubkey(false);
+  const pubkey = uncompressPubKey.slice(1);
+
+  const ethAddress = ethAddressToCfxAddress(keccak256(pubkey).slice(-40));
+  const networkID = parseInt(chainId);
+  return toCfxAddress(ethAddress, networkID);
 }

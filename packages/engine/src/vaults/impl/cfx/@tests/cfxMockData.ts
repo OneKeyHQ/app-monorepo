@@ -6,29 +6,32 @@ import type { DBNetwork } from '../../../../types/network';
 // indexedDB -> networks
 const network: DBNetwork = {
   balance2FeeDecimals: 0,
-  decimals: 24,
+  decimals: 18,
   enabled: true,
-  feeDecimals: 24,
-  feeSymbol: 'NEAR',
-  id: 'near--0',
-  impl: 'near',
-  logoURI: 'https://onekey-asset.com/assets/near/near.png',
-  name: 'Near Mainnet',
+  feeDecimals: 18,
+  feeSymbol: 'CFX',
+  id: 'cfx--1029',
+  impl: 'cfx',
+  logoURI: 'https://onekey-asset.com/assets/cfx/cfx.png',
+  name: 'Conflux',
   position: 33,
-  rpcURL: 'https://node.onekey.so/near',
-  symbol: 'NEAR',
+  rpcURL: 'https://node.onekey.so/cfx',
+  symbol: 'CFX',
 };
 
 const hdAccount1: IUnitTestMockAccount = {
   // indexedDB -> accounts
   account: {
-    address: 'b1c2f16ca9c3b324039dd0881a63ec236f1f339b6220b54ede8347b4b828daa5',
-    coinType: '397',
-    id: "hd-19--m/44'/397'/0'",
-    name: 'NEAR #1',
-    path: "m/44'/397'/0'",
-    pub: 'ed25519:Cxua8Jtcu4414fr97m1CHqVt7WWFdkca1pFkdtLefD5n',
-    type: 'simple' as any,
+    address: '0x184d52330bd4adc4862c2a6bdf73f250fba45e67',
+    coinType: '503',
+    id: "hd-19--m/44'/503'/0'/0/0",
+    name: 'CFX #1',
+    path: "m/44'/503'/0'/0/0",
+    pub: '03b03e87ca0c131f33f78d1e6757c2932a88b317858ff99ac48fdd425f7f473159',
+    type: 'variant' as any,
+    addresses: {
+      'cfx--1029': 'cfx:aape4yvxbtmm5vegfuzg115x8kjt1kc8p6nztvyg66',
+    },
   },
   mnemonic: mockCredentials.mnemonic1,
   password: mockCredentials.password,
