@@ -201,7 +201,7 @@ const FloatingContainer: FC<
           </Box>
         </Animated.View>
         <DelayedFreeze freeze={!showContent}>
-          <WebTabGrid />
+          <WebTabGrid key={String(hasTabs)} />
         </DelayedFreeze>
       </Animated.View>
       <ControllerBarMobile />

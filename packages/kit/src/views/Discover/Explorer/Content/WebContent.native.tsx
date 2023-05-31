@@ -47,12 +47,19 @@ const WebContent: FC<WebTab & WebViewProps> = ({
         url: navUrl,
       } = navigationStateChangeEvent;
       if (loading) {
-        onNavigation({ url: navUrl, title, canGoBack, canGoForward, loading });
+        onNavigation({
+          url: navUrl,
+          title,
+          canGoBack,
+          canGoForward,
+          loading,
+          id,
+        });
       } else {
-        onNavigation({ title, canGoBack, canGoForward, loading });
+        onNavigation({ title, canGoBack, canGoForward, loading, id });
       }
     },
-    [showHome],
+    [id, showHome],
   );
   const onShouldStartLoadWithRequest = useCallback(
     (navigationStateChangeEvent: WebViewNavigation) => {
@@ -120,7 +127,7 @@ const WebContent: FC<WebTab & WebViewProps> = ({
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, showHome, androidLayerType],
+    [id, showHome, androidLayerType, onNavigationStateChange],
   );
 
   return webview;

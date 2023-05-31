@@ -150,6 +150,13 @@ const WebTabGrid = () => {
   const { width } = useWindowDimensions();
   const cellWidth = (width - WEB_TAB_CELL_GAP * 3) / 2;
   const listRef = useAnimatedRef<Animated.FlatList<WebTab>>();
+  const [delayedRender, setDelayedRender] = useState(false);
+
+  useEffect(() => {
+    setTimeout(() => {
+      setDelayedRender(true);
+    }, 100);
+  }, []);
 
   useBackHandler(
     useCallback(() => {
@@ -173,18 +180,20 @@ const WebTabGrid = () => {
     [cellWidth],
   );
   const keyExtractor = useCallback((item: WebTab) => item.id, []);
+  const backgroundColor = useThemeValue('background-default');
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: showTabGridAnim.value,
+  }));
 
-  return (
+  return delayedRender ? (
     <Animated.FlatList
       ref={listRef}
       style={[
         {
           ...StyleSheet.absoluteFillObject,
-          backgroundColor: useThemeValue('background-default'),
+          backgroundColor,
         },
-        useAnimatedStyle(() => ({
-          opacity: showTabGridAnim.value,
-        })),
+        animStyle,
       ]}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.contentContainer}
@@ -192,7 +201,7 @@ const WebTabGrid = () => {
       renderItem={renderItem}
       keyExtractor={keyExtractor}
     />
-  );
+  ) : null;
 };
 WebTabGrid.displayName = 'WebTabGrid';
 export default WebTabGrid;
