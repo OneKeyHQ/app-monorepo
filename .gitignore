@@ -26,8 +26,6 @@ yarn-error.log
 
 /packages/desktop/public/static/js-sdk
 
-/packages/shared/src/config/networkIds.ts
-
 .env
 webpack.config.preview.json
 webpack.config.preview.devServer.json

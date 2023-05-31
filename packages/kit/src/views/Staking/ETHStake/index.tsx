@@ -122,10 +122,10 @@ export default function ETHStaking() {
   }, [amount, intl, tokenBalance, tokenInfo]);
 
   const minAmountErrMsg = useMemo(() => {
-    if (source !== EthStakingSource.Kele) {
-      return;
-    }
-    const minAmountBN = new BigNumber('0.01');
+    const minAmountBN =
+      source === EthStakingSource.Kele
+        ? new BigNumber('0.01')
+        : new BigNumber('0.0000001');
     const minAmountRequired = !minAmountBN.isNaN() && minAmountBN.gt('0');
     const symbol = tokenInfo?.symbol ?? '';
     if (minAmountRequired) {
@@ -148,8 +148,11 @@ export default function ETHStaking() {
       if (bn.lte(0)) {
         return;
       }
-      const value = bn.multipliedBy(percent).dividedBy(100);
-      setAmount(formatAmount(value, 8));
+      const text =
+        percent >= 100
+          ? tokenBalance
+          : formatAmount(bn.multipliedBy(percent).dividedBy(100), 8);
+      setAmount(text);
     },
     [tokenBalance],
   );

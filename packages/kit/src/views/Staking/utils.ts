@@ -69,7 +69,7 @@ export async function fetchStEthRate(params: {
     tokenOut: nativeToken,
     tokenIn: stETH,
     slippagePercentage: '1',
-    typedValue: '1',
+    typedValue: '0.1',
     independentField: 'INPUT',
     activeAccount: account,
     receivingAddress: account.address,

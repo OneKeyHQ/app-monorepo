@@ -4,10 +4,15 @@ import { parse } from 'date-fns';
 import { useIntl } from 'react-intl';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
 import { formatAmount, isEvmNetworkId } from '../../Swap/utils';
+import {
+  MainnetLidoContractAddress,
+  TestnetLidoContractAddress,
+} from '../config';
 import { EthStakingSource } from '../typing';
 
 import type { KeleGenericHistory, LidoOverview } from '../typing';
@@ -146,9 +151,23 @@ export const useLidoOverview = (
   accountId?: string,
 ): LidoOverview | undefined => {
   const lidoOverview = useAppSelector((s) => s.staking.lidoOverview);
+  const balances = useAppSelector(
+    (s) => s.tokens.accountTokensBalance?.[networkId ?? '']?.[accountId ?? ''],
+  );
+
   return useMemo(() => {
-    if (!lidoOverview || !networkId || !accountId) return undefined;
-    const overview = lidoOverview[accountId]?.[networkId];
-    return overview;
-  }, [networkId, accountId, lidoOverview]);
+    if (!networkId || !accountId) return undefined;
+    const overview = lidoOverview?.[accountId]?.[networkId];
+    const address =
+      networkId === OnekeyNetwork.eth
+        ? MainnetLidoContractAddress
+        : TestnetLidoContractAddress;
+    const stBalance = balances?.[address.toLowerCase()]?.balance;
+
+    return {
+      ...overview,
+      balance: stBalance ?? overview?.balance,
+      nfts: overview?.nfts ?? [],
+    };
+  }, [networkId, accountId, lidoOverview, balances]);
 };

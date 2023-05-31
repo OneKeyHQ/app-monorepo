@@ -15,7 +15,6 @@
     "@onekeyhq/kit": "*",
     "expo": "^48.0.17",
     "firebase": "^9.8.2",
-    "react-native-web": "0.18.10",
     "react-router-dom": "^6.3.0"
   },
   "private": true

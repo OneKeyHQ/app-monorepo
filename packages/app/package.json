@@ -92,7 +92,6 @@
     "react-native-toast-message": "^2.1.6",
     "react-native-v8": "^2.1.3",
     "react-native-view-shot": "^3.6.0",
-    "react-native-web": "0.18.10",
     "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview",
     "readable-stream": "^3.6.0",
     "realm": "^11.9.0",

@@ -103,6 +103,7 @@ const TokenDetailHeader: FC<HeaderProps> = ({
             networkId={networkId}
             contract={token.tokenIdOnNetwork}
             coingeckoId={token?.coingeckoId}
+            symbol={token?.symbol}
           />
         </Box>
       )}
