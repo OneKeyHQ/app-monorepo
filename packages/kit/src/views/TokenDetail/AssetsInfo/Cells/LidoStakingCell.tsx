@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,10 +17,12 @@ import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import LidoLogoPNG from '@onekeyhq/kit/assets/staking/lido_pool.png';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../../../components/Format';
 import { useAccountTokensBalance, useNavigation } from '../../../../hooks';
 import { useSingleToken } from '../../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
+import { useLidoOverview } from '../../../Staking/hooks';
 import { StakingRoutes } from '../../../Staking/typing';
 import { getLidoTokenEvmAddress } from '../../../Staking/utils';
 import { formatAmount } from '../../../Swap/utils';
@@ -216,7 +218,22 @@ const LidoEthCellControl: FC<LidoEthCellControlProps> = ({
     token?.networkId,
     token?.tokenIdOnNetwork,
   );
-  return lidoAddress ? (
+  const { accountId, networkId } = useActiveWalletAccount();
+  const lidoOverview = useLidoOverview(networkId, accountId);
+
+  useEffect(() => {
+    if (!lidoOverview?.balance) {
+      backgroundApiProxy.serviceStaking.fetchLidoOverview({
+        accountId,
+        networkId,
+      });
+    }
+    //  eslint-disable-next-line
+  }, [])
+
+  return lidoAddress &&
+    lidoOverview?.balance &&
+    Number(lidoOverview?.balance) > 0 ? (
     <LidoEthCell tokenId={lidoAddress} sendAddress={sendAddress} />
   ) : null;
 };

@@ -436,7 +436,8 @@ export default class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async fetchLidoOverview(params: { networkId: string; accountId: string }) {
     const { networkId, accountId } = params;
-    const { engine, serviceContract, dispatch } = this.backgroundApi;
+    const { engine, serviceContract, dispatch, serviceToken } =
+      this.backgroundApi;
     if (networkId !== OnekeyNetwork.eth && networkId !== OnekeyNetwork.goerli) {
       return;
     }
@@ -513,36 +514,10 @@ export default class ServiceStaking extends ServiceBase {
         type: 'function',
       },
     ];
-    const ERC20_ABI = [
-      {
-        constant: true,
-        inputs: [
-          {
-            'name': '_owner',
-            'type': 'address',
-          },
-        ],
-        name: 'balanceOf',
-        outputs: [
-          {
-            'name': 'balance',
-            'type': 'uint256',
-          },
-        ],
-        payable: false,
-        stateMutability: 'view',
-        type: 'function',
-      },
-    ];
+
     const account = await engine.getAccount(accountId, networkId);
     const nftAddr = this.getLidoNFTContractAddress(networkId);
     const lidoAddr = this.getLidoContractAddress(networkId);
-
-    const balanceOfCalldata = await serviceContract.buildEvmCalldata({
-      abi: ERC20_ABI,
-      method: 'balanceOf',
-      params: [account.address],
-    });
 
     const getWithdrawalRequestsCalldata =
       await serviceContract.buildEvmCalldata({
@@ -554,10 +529,7 @@ export default class ServiceStaking extends ServiceBase {
     const vault = (await engine.getVault({ networkId, accountId })) as EvmVault;
     const client = await vault.getJsonRPCClient();
 
-    const calls = [
-      { to: lidoAddr, data: balanceOfCalldata },
-      { to: nftAddr, data: getWithdrawalRequestsCalldata },
-    ];
+    const calls = [{ to: nftAddr, data: getWithdrawalRequestsCalldata }];
 
     const calldatas = await client.batchEthCall(calls);
 
@@ -565,26 +537,18 @@ export default class ServiceStaking extends ServiceBase {
       return;
     }
 
-    const balanceCalldata = calldatas[0];
+    const tokenId = lidoAddr.toLowerCase();
 
-    const balanceResult = await serviceContract.parseJsonResponse({
-      abi: ERC20_ABI,
-      method: 'balanceOf',
-      data: balanceCalldata,
+    const [result] = await serviceToken.getAccountTokenBalance({
+      networkId,
+      accountId,
+      tokenIds: [tokenId],
+      withMain: true,
     });
 
-    if (!balanceResult[0]) {
-      return;
-    }
+    const balance = result?.[tokenId]?.balance ?? '0';
 
-    const token = await this.getStEthToken({ networkId });
-
-    const balanceBN = balanceResult[0] as BigNumber;
-    const balance = new BN(balanceBN.toString())
-      .shiftedBy(-token.decimals)
-      .toFixed();
-
-    const requestsCalldata = calldatas[1];
+    const requestsCalldata = calldatas[0];
     const requestsResult = await serviceContract.parseJsonResponse({
       abi: LIDO_NFT_ABI,
       method: 'getWithdrawalRequests',
@@ -646,18 +610,15 @@ export default class ServiceStaking extends ServiceBase {
     const pendingNfts = nfts.filter((nft) => !nft.isFinalized);
     const finalizedNfts = nfts.filter((nft) => nft.isFinalized);
 
-    const nftsBalance = nfts.reduce(
-      (result, nft) => plus(nft.stETH, result),
-      '0',
-    );
+    const nftsBalance = nfts.reduce((r, nft) => plus(nft.stETH, r), '0');
 
     const pendingNftBalances = pendingNfts.reduce(
-      (result, nft) => plus(nft.stETH, result),
+      (r, nft) => plus(nft.stETH, r),
       '0',
     );
 
     const withdrawal = finalizedNfts.reduce(
-      (result, nft) => plus(nft.stETH, result),
+      (r, nft) => plus(nft.stETH, r),
       '0',
     );
 

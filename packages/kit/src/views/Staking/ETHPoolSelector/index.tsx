@@ -11,10 +11,12 @@ import { EthStakingSource } from '../typing';
 
 import type { StakingRoutes, StakingRoutesParams } from '../typing';
 import type { RouteProp } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.ETHPoolSelector>;
 
 const ETHPool = () => {
+  const intl = useIntl()
   const route = useRoute<RouteProps>();
   const { isTestnet } = route.params;
   const ethStakingApr = useAppSelector((s) => s.staking.ethStakingApr);
@@ -38,7 +40,7 @@ const ETHPool = () => {
   }, [isTestnet, ethStakingApr]);
 
   return (
-    <Modal header="ETH Pool" footer={null}>
+    <Modal header={intl.formatMessage({ id: 'form__str_pools' }, { '0': 'ETH' })} footer={null}>
       <VStack space={4}>
         {items.map((o) => (
           <Options
