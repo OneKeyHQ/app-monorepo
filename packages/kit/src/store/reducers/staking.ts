@@ -31,7 +31,7 @@ export type StakingState = {
   kelePendingWithdraw?: Record<string, Record<string, number>>;
   keleOpHistory?: Record<string, Record<string, KeleOpHistoryDTO[]>>;
   ethStakingApr?: EthStakingApr;
-  lidoOverview?: Record<string, Record<string, LidoOverview>>;
+  lidoOverview?: Record<string, Record<string, LidoOverview | undefined>>;
   transactions?: Record<string, Record<string, TransactionDetails[]>>;
   stEthRate?: Record<string, string>;
 };

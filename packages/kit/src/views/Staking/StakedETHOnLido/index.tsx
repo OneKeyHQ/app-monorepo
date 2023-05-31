@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -30,6 +31,7 @@ import {
 } from '../../../routes/routesEnum';
 import { addTransaction } from '../../../store/reducers/staking';
 import { formatAmount } from '../../../utils/priceUtils';
+import { formatDecimalZero } from '../../Market/utils';
 import PendingTransaction from '../components/PendingTransaction';
 import { useLidoOverview } from '../hooks';
 import { EthStakingSource, StakingRoutes } from '../typing';
@@ -38,6 +40,14 @@ import type { LidoNFTStatus, StakingRoutesParams } from '../typing';
 import type { ListRenderItem } from 'react-native';
 
 type NavigationProps = ModalScreenProps<StakingRoutesParams>;
+
+const formatstETHNum = (value: string) => {
+  const bn = new BigNumber(value);
+  if (bn.lt('0.00000001')) {
+    return formatDecimalZero(bn.toNumber());
+  }
+  return formatAmount(value, 18);
+};
 
 const ClaimAlert = () => {
   const intl = useIntl();
@@ -48,9 +58,8 @@ const ClaimAlert = () => {
     if (!lidoOverview || !account) {
       return;
     }
-    const nfts = lidoOverview.nfts.filter(
-      (item) => !item.isClaimed && item.isFinalized,
-    );
+    const items = lidoOverview.nfts ?? [];
+    const nfts = items.filter((item) => !item.isClaimed && item.isFinalized);
     const requests = nfts.map((nft) => nft.requestId);
     const claimTx =
       await backgroundApiProxy.serviceStaking.buildLidoClaimWithdrawals({
@@ -92,21 +101,26 @@ const ClaimAlert = () => {
     });
   }, [navigation, lidoOverview, account, networkId]);
 
-  if (!lidoOverview || Number(lidoOverview.withdrawal) <= 0) {
-    return null;
+  if (
+    lidoOverview &&
+    lidoOverview.nfts &&
+    lidoOverview.nfts.length &&
+    lidoOverview.withdrawal &&
+    Number(lidoOverview.withdrawal) > 0
+  ) {
+    return (
+      <Alert
+        alertType="info"
+        title={`${lidoOverview.withdrawal} ETH ${intl.formatMessage({
+          id: 'form__available_for_claim',
+        })}`}
+        dismiss={false}
+        onAction={onPress}
+        action={intl.formatMessage({ id: 'form__claim' })}
+      />
+    );
   }
-
-  return (
-    <Alert
-      alertType="info"
-      title={`${lidoOverview.withdrawal} ETH ${intl.formatMessage({
-        id: 'form__available_for_claim',
-      })}`}
-      dismiss={false}
-      onAction={onPress}
-      action={intl.formatMessage({ id: 'form__claim' })}
-    />
-  );
+  return null;
 };
 
 const PendingTransactionAlert = () => {
@@ -270,7 +284,7 @@ export default function StakedETHOnLido() {
     if (!lidoOverview) {
       return [];
     }
-    const items = [...lidoOverview.nfts];
+    const items = lidoOverview.nfts ? [...lidoOverview.nfts] : [];
     return items.sort((a, b) => b.requestId - a.requestId);
   }, [lidoOverview]);
 
@@ -286,29 +300,47 @@ export default function StakedETHOnLido() {
         flexDirection="row"
         justifyContent="space-between"
       >
-        <Box flexDirection="row" alignItems="center">
+        <Box
+          flexDirection="row"
+          justifyContent="space-between"
+          alignItems="center"
+          w="full"
+        >
           <Image
             w="8"
             h="8"
             borderRadius="full"
             source={require('@onekeyhq/kit/assets/staking/eth_logo.png')}
+            mr="2"
           />
-          <Box ml="2">
-            <Typography.Body1Strong>
-              {intl.formatMessage({ id: 'action_unstake' })} #{item.requestId}
-            </Typography.Body1Strong>
-            <Typography.Body2>est. 1 - 5 days</Typography.Body2>
+          <Box flex="1">
+            <Box w="full" flexDirection="row" justifyContent="space-between">
+              <Typography.Body1Strong mr="2">
+                {intl.formatMessage({ id: 'action_unstake' })}
+              </Typography.Body1Strong>
+              <Typography.Body1Strong isTruncated>
+                +{formatstETHNum(item.stETH)}ETH
+              </Typography.Body1Strong>
+            </Box>
+            <Box w="full" flexDirection="row" justifyContent="space-between">
+              <Typography.Body2>
+                {intl.formatMessage(
+                  { id: 'form__est_str' },
+                  {
+                    '0': intl.formatMessage(
+                      { id: 'form__str_day' },
+                      { 0: ' 1 - 5' },
+                    ),
+                  },
+                )}
+              </Typography.Body2>
+              <Typography.Body2 color="text-highlight">
+                {item.isFinalized
+                  ? intl.formatMessage({ id: 'form__available_for_claim' })
+                  : intl.formatMessage({ id: 'transaction__pending' })}
+              </Typography.Body2>
+            </Box>
           </Box>
-        </Box>
-        <Box alignItems="flex-end">
-          <Typography.Body1Strong>
-            +{Number(item.stETH)}ETH
-          </Typography.Body1Strong>
-          <Typography.Body2 color="text-highlight">
-            {item.isFinalized
-              ? intl.formatMessage({ id: 'form__available_for_claim' })
-              : intl.formatMessage({ id: 'transaction__pending' })}
-          </Typography.Body2>
         </Box>
       </Box>
     ),
