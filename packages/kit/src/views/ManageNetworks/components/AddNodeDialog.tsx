@@ -60,18 +60,24 @@ const AddNodeDialog: FC<Props> = ({ onClose, onConfirm, networkId }) => {
   const onSubmit = handleSubmit(async (values: FieldValues) => {
     setIsLoading(true);
     const { url } = values;
-    const [measureRes, chainIdRes] = await Promise.allSettled([
-      measureRpc(networkId, url, false),
-      backgroundApiProxy.serviceNetwork.fetchRpcChainId({
-        url,
-      }),
-    ]);
-    if (
-      measureRes.status !== 'fulfilled' ||
-      chainIdRes.status !== 'fulfilled' ||
-      !measureRes.value.latestBlock ||
-      !(chainIdRes.value === null || networkId.endsWith(chainIdRes.value))
-    ) {
+    let hasError = false;
+    try {
+      const [measureRes, chainIdRes] = await Promise.all([
+        measureRpc(networkId, url, false),
+        backgroundApiProxy.serviceNetwork.fetchRpcChainId({
+          url,
+        }),
+      ]);
+      if (
+        !measureRes.latestBlock ||
+        !(chainIdRes === null || networkId.endsWith(chainIdRes))
+      ) {
+        hasError = true;
+      }
+    } catch (error) {
+      hasError = true;
+    }
+    if (hasError) {
       setError(
         'url',
         {
