@@ -74,7 +74,6 @@ export class KeyringHd extends KeyringHdBase {
         new Verifier(pub, curve),
         chainId,
       );
-      console.error(`_____, ${addressOnNetwork}`);
       const baseAddress = await this.vault.addressToBase(addressOnNetwork);
       const name = (names || [])[index] || `CFX #${indexes[index] + 1}`;
       ret.push({
