@@ -72,6 +72,8 @@ export const formatServerToken = (token: ServerToken): Token => {
   return {
     ...token,
     id: isNative ? networkId : `${networkId}--${tokenAddress}`,
+    name: token.name ?? '',
+    symbol: token.symbol ?? '',
     networkId,
     logoURI: logoURI || '',
     tokenIdOnNetwork: tokenAddress,

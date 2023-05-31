@@ -763,10 +763,10 @@ export default class ServiceToken extends ServiceBase {
             s.tokens.accountTokensBalance[networkId]?.[accountId] ?? {};
           return (
             accountTokensBalance[
-            getBalanceKey({
-              ...token,
-              sendAddress,
-            })
+              getBalanceKey({
+                ...token,
+                sendAddress,
+              })
             ] ?? {
               balance: '0',
             }
@@ -822,4 +822,35 @@ export default class ServiceToken extends ServiceBase {
       normalizer: (args) => JSON.stringify(args),
     },
   );
+
+  @backgroundMethod()
+  async deleteAccountToken({
+    accountId,
+    networkId,
+    address,
+    tokenId,
+  }: {
+    accountId: string;
+    networkId: string;
+    address: string;
+    tokenId: string;
+  }) {
+    const { dispatch, appSelector, engine } = this.backgroundApi;
+
+    await engine.removeTokenFromAccount(accountId, tokenId);
+
+    const accountTokensInRedux = appSelector(
+      (s) => s.tokens.accountTokens?.[networkId]?.[accountId],
+    );
+
+    dispatch(
+      setAccountTokens({
+        accountId,
+        networkId,
+        tokens: accountTokensInRedux.filter((t) => t.address !== address),
+      }),
+    );
+
+    return Promise.resolve();
+  }
 }
