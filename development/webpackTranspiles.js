@@ -1,6 +1,33 @@
 const developmentConsts = require('./developmentConsts');
 
+const sharedTranspile = [];
+
+const walletConnectModules = [
+  '@walletconnect/time',
+  '@walletconnect/utils',
+  '@walletconnect/window-getters',
+  '@walletconnect/window-metadata',
+  '@walletconnect/relay-api',
+  '@walletconnect/core',
+  '@walletconnect-v2/utils',
+  '@walletconnect-v2/core',
+  '@walletconnect-v2/core/node_modules/@walletconnect/utils',
+  '@walletconnect/auth-client',
+  '@walletconnect/auth-client/node_modules/@walletconnect/utils',
+  '@walletconnect/auth-client/node_modules/@walletconnect/core',
+  '@walletconnect/sign-client',
+  '@walletconnect/sign-client/node_modules/@walletconnect/utils',
+  '@walletconnect/sign-client/node_modules/@walletconnect/core',
+  '@stablelib/chacha20poly1305',
+  '@stablelib/hkdf',
+  '@stablelib/random',
+  '@stablelib/sha256',
+  '@stablelib/x25519',
+];
+
 const webModuleTranspile = [
+  ...sharedTranspile,
+  ...walletConnectModules,
   'moti',
   '@gorhom',
   '@mysten/sui.js',
@@ -29,8 +56,10 @@ const polkadotModules = [
 ];
 
 const extModuleTranspile = [
+  ...sharedTranspile,
   ...substrateModules,
   ...polkadotModules,
+  ...walletConnectModules,
   '@onekeyhq/blockchain-libs',
   '@onekeyhq/components',
   '@onekeyhq/kit',

@@ -6,9 +6,13 @@ import { StyleSheet, View } from 'react-native';
 import { RootSiblingParent } from 'react-native-root-siblings';
 import { FullWindowOverlay } from 'react-native-screens';
 
-import { useIsVerticalLayout, useThemeValue } from '@onekeyhq/components';
+import {
+  ToastManager,
+  useIsVerticalLayout,
+  useThemeValue,
+} from '@onekeyhq/components';
 import CustomToast from '@onekeyhq/components/src/Toast/Custom';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector, useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import { RootStackNavigator } from '@onekeyhq/kit/src/routes';
 import type { RootRoutesParams } from '@onekeyhq/kit/src/routes/types';
 import { analyticLogEvent } from '@onekeyhq/shared/src/analytics';
@@ -52,6 +56,24 @@ const NavigationApp = () => {
   ]);
 
   const linking = useMemo(() => buildLinking(), []);
+
+  const { backgroundShowToastOptions, backgroundShowToastTs } = useAppSelector(
+    (s) => s.refresher,
+  );
+
+  useEffect(() => {
+    if (!backgroundShowToastOptions.title) {
+      return;
+    }
+    ToastManager.show(
+      {
+        title: backgroundShowToastOptions.title,
+      },
+      {
+        type: backgroundShowToastOptions.type,
+      },
+    );
+  }, [backgroundShowToastTs, backgroundShowToastOptions]);
 
   /**
    * native-android & vertical layout web or ext

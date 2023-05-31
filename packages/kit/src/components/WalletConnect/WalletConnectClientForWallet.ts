@@ -1,3 +1,7 @@
+// eslint-disable-next-line import/order
+import './utils/walletConnectV2SdkShims';
+import { Core, RELAYER_EVENTS } from '@walletconnect-v2/core';
+import { Web3Wallet } from '@walletconnect-v2/web3wallet';
 import { merge } from 'lodash';
 import { Linking } from 'react-native';
 
@@ -9,16 +13,29 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import { wait } from '../../utils/helper';
 import Minimizer from '../Minimizer';
 
+import walletConnectUtils from './utils/walletConnectUtils';
 import { WalletConnectClientBase } from './WalletConnectClient';
-import { WALLET_CONNECT_CLIENT_META } from './walletConnectConsts';
+import {
+  WALLET_CONNECT_CLIENT_META,
+  WALLET_CONNECT_V2_PROJECT_ID,
+} from './walletConnectConsts';
 import { WalletConnectSessionStorage } from './WalletConnectSessionStorage';
 
-import type { OneKeyWalletConnector } from './OneKeyWalletConnector';
+import type { IWalletConnectRequestOptions } from './types';
 import type { IWalletConnectClientOptions } from './WalletConnectClient';
+import type { ISessionStatusPro } from './WalletConnectClientForDapp';
+import type { SessionTypes } from '@walletconnect-v2/types';
+import type { IWeb3Wallet } from '@walletconnect-v2/web3wallet';
+import type {
+  IKeyValueStorage,
+  KeyValueStorageOptions,
+} from '@walletconnect/keyvaluestorage';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { IClientMeta, ISessionStatus } from '@walletconnect/types';
 
 const sessionStorage = new WalletConnectSessionStorage({
@@ -49,13 +66,180 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
     })();
   }
 
-  abstract getSessionStatusToApprove(options: {
-    connector?: OneKeyWalletConnector;
-  }): Promise<ISessionStatus>;
+  async initWeb3WalletV2(delay = 0) {
+    // https://github.com/WalletConnect/walletconnect-monorepo/blob/v2.0/packages/core/src/controllers/relayer.ts#L315
+    try {
+      await wait(delay);
+      if (this.web3walletV2) {
+        return;
+      }
+      await this.createWeb3WalletV2();
+    } catch (error) {
+      console.error('createWeb3WalletV2 ERROR:', error);
+    }
+  }
+
+  async recreateWeb3WalletV2() {
+    // Web3Wallet instance exists, no need to recreate
+    if (this.web3walletV2 || this.web3walletV2Core) {
+      return;
+    }
+    await wait(5000);
+    return this.createWeb3WalletV2();
+  }
+
+  async createWeb3WalletV2() {
+    const storageOptions: KeyValueStorageOptions | undefined = {
+      database: ':memory:',
+      table: 'walletconnect.db',
+    };
+    // import KeyValueStorage from '@walletconnect/keyvaluestorage';
+    const storage: IKeyValueStorage | undefined = platformEnv.isRuntimeBrowser
+      ? // browser env should use default storage, otherwise it will cause error:
+        //      cannot convert null or undefined to object
+        undefined
+      : (appStorage as any);
+    // storage = new KeyValueStorage({ ...CORE_STORAGE_OPTIONS, ...opts?.storageOptions });
+    // TODO shared singleton Core instance for wallet and dapp?
+    const core = new Core({
+      projectId: WALLET_CONNECT_V2_PROJECT_ID,
+      storage,
+      storageOptions,
+    });
+    // @ts-ignore
+    core.isWalletSide = true;
+    this.web3walletV2Core = core;
+
+    // https://github.com/WalletConnect/walletconnect-monorepo/blob/v2.0/packages/core/src/controllers/relayer.ts#L222
+    core?.relayer?.once(RELAYER_EVENTS.transport_closed, (error0: any) => {
+      // $backgroundApiProxy.backgroundApi.walletConnect.web3walletV2Core.relayer.restartTransport()
+      // $backgroundApiProxy.backgroundApi.walletConnect.web3walletV2Core.relayer.transportClose()
+      // $backgroundApiProxy.backgroundApi.walletConnect.web3walletV2Core.relayer.provider.disconnect()
+      // $backgroundApiProxy.backgroundApi.walletConnect.web3walletV2Core.relayer.provider.connection.close()
+      console.error(
+        'WalletConnect V2 Core ERROR: relayer_transport_closed >>>>>> ',
+        error0,
+      );
+
+      const doReconnect = () => {
+        if (this.web3walletV2) {
+          this.unregisterEventsV2(this.web3walletV2);
+        }
+        try {
+          core?.relayer?.provider?.connection?.close();
+        } catch (error) {
+          console.error(error);
+        }
+        this.web3walletV2Core = undefined;
+        this.web3walletV2 = undefined;
+        this.recreateWeb3WalletV2();
+      };
+
+      core?.relayer?.provider?.connection?.once('open', () => {
+        console.error(
+          'WalletConnect V2 Core ERROR: relayer_transport_closed but WebSocket still open ',
+        );
+        // cause multiple socket, sdk will retry(disable sdk retry function), emit close event again,
+        // doReconnect();
+      });
+
+      core?.relayer?.provider?.connection?.once('close', () => {
+        console.error(
+          'WalletConnect V2 Core ERROR: relayer_transport_closed and WebSocket closed ',
+        );
+        // cause multiple socket, sdk will retry
+        // doReconnect();
+      });
+
+      // https://github.com/WalletConnect/walletconnect-utils/blob/master/jsonrpc/ws-connection/src/ws.ts#L137
+      core?.relayer?.provider?.connection?.once(
+        'register_error',
+        (error: Error) => {
+          const message = (error?.message || '').slice(0, 100);
+          console.error(
+            'WalletConnect V2 Core ERROR: WebSocket ERROR > register_error  >>>>>> ',
+            message,
+          );
+          doReconnect();
+        },
+      );
+    });
+
+    // Blocked network may cause errors below:
+    //    {context: 'core'} {context: 'core/relayer'} Error: socket stalled
+    //    {context: 'client'} 'closeTransport called before connection was established'
+    const web3walletV2 = await Web3Wallet.init({
+      core, // <- pass the shared `core` instance
+      metadata: WALLET_CONNECT_CLIENT_META,
+    });
+    this.web3walletV2 = web3walletV2;
+    // web3walletV2.engine.signClient.proposal.
+    this.registerEventsV2(this.web3walletV2);
+    await this.getActiveSessionsV2();
+  }
+
+  // TODO pair expired check
+  async pair(params: { uri: string }) {
+    if (!this.web3walletV2) {
+      throw new Error('web3walletV2 not ready yet');
+    }
+    return this.web3walletV2.core.pairing.pair({ uri: params.uri });
+  }
+
+  // TODO rename to disconnectPair
+  async pairDisconnect({ topic }: { topic: string }) {
+    return this.web3walletV2?.core.pairing.disconnect({ topic });
+  }
+
+  async getSessionV2ByTopic({
+    topic,
+  }: {
+    topic: string;
+  }): Promise<SessionTypes.Struct | undefined> {
+    if (!topic) {
+      return undefined;
+    }
+    const { sessions } = await this.getActiveSessionsV2({ saveCache: false });
+    let session = sessions.find((s) => s.topic === topic);
+    if (!session) {
+      session = this.prevActiveSessionsCache.find((s) => s.topic === topic);
+    }
+    return session;
+  }
+
+  prevActiveSessionsCache: SessionTypes.Struct[] = [];
+
+  async getActiveSessionsV2({
+    saveCache = true,
+  }: { saveCache?: boolean } = {}): Promise<{
+    sessions: SessionTypes.Struct[];
+  }> {
+    const sessions: SessionTypes.Struct[] = Object.values(
+      this.web3walletV2?.getActiveSessions() ?? {},
+    );
+    if (saveCache) {
+      this.prevActiveSessionsCache = sessions;
+    }
+    return Promise.resolve({
+      sessions,
+    });
+  }
+
+  abstract unregisterEventsV2(web3walletV2: IWeb3Wallet): void;
+
+  abstract registerEventsV2(web3walletV2: IWeb3Wallet): void;
+
+  abstract getSessionStatusToApprove(
+    options: IWalletConnectRequestOptions,
+  ): Promise<ISessionStatusPro>;
 
   previousUri: string | undefined;
 
-  async redirectToDapp({ connector }: { connector: OneKeyWalletConnector }) {
+  async redirectToDapp(options: IWalletConnectRequestOptions) {
+    const { connector } = options;
+    if (!connector) {
+      return;
+    }
     const isDeepLink = connector.session?.isDeepLink || connector.isDeepLink;
     debugLogger.walletConnect.info('redirectToDapp', { isDeepLink });
     if (!isDeepLink) {
@@ -78,12 +262,23 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
     Minimizer?.goBack?.();
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async connectV2({ uri, isDeepLink }: { uri: string; isDeepLink?: boolean }) {
+    return this.pair({ uri });
+  }
+
   // TODO connecting check, thread lock
   // connectToDapp
   @backgroundMethod()
   async connect({ uri, isDeepLink }: { uri: string; isDeepLink?: boolean }) {
     // eslint-disable-next-line no-param-reassign
     uri = uri?.trim() || uri;
+
+    const uriInfo = walletConnectUtils.getWalletConnectUriInfo({ uri });
+    if (uriInfo?.v2) {
+      return this.connectV2({ uri, isDeepLink });
+    }
+
     // uri network param defaults to evm
     const { searchParams } = new URL(uri);
 
@@ -116,7 +311,7 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
     );
 
     // TODO convert url to origin
-    const origin = this.getConnectorOrigin(connector);
+    const origin = this.getConnectorOrigin({ connector });
     debugLogger.walletConnect.info('new WalletConnect() by uri', {
       origin,
       network,
