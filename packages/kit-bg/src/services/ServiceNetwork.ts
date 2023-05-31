@@ -555,18 +555,13 @@ class ServiceNetwork extends ServiceBase {
   async fetchRpcChainId({
     url,
     networkId,
-    accountId,
   }: {
     url: string;
     networkId: string;
-    accountId: string;
   }) {
     const { engine } = this.backgroundApi;
 
-    const vault = await engine.getVault({
-      accountId,
-      networkId,
-    });
+    const vault = await engine.getChainOnlyVault(networkId);
 
     return vault.fetchRpcChainId(url);
   }

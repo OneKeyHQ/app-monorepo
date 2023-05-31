@@ -14,7 +14,6 @@ import {
 import DialogCommon from '@onekeyhq/components/src/Dialog/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount } from '../../../hooks';
 import { updateCustomNetworkRpc } from '../../../store/reducers/settings';
 import { RpcNodePattern } from '../constants';
 import { measureRpc, useRPCUrls } from '../hooks';
@@ -51,7 +50,6 @@ const TrimInput = ({
 const AddNodeDialog: FC<Props> = ({ onClose, onConfirm, networkId }) => {
   const intl = useIntl();
 
-  const { accountId } = useActiveWalletAccount();
   const { custom, preset } = useRPCUrls(networkId);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -69,7 +67,6 @@ const AddNodeDialog: FC<Props> = ({ onClose, onConfirm, networkId }) => {
         backgroundApiProxy.serviceNetwork.fetchRpcChainId({
           url,
           networkId,
-          accountId,
         }),
       ]);
       if (
