@@ -552,13 +552,20 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchRpcChainId({ url }: { url: string }) {
-    const { engine, appSelector } = this.backgroundApi;
+  async fetchRpcChainId({
+    url,
+    networkId,
+    accountId,
+  }: {
+    url: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const { engine } = this.backgroundApi;
 
-    const { activeAccountId, activeNetworkId } = appSelector((s) => s.general);
     const vault = await engine.getVault({
-      accountId: activeAccountId ?? '',
-      networkId: activeNetworkId ?? '',
+      accountId,
+      networkId,
     });
 
     return vault.fetchRpcChainId(url);
