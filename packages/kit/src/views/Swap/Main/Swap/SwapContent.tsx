@@ -116,7 +116,7 @@ export const SwapContent = () => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
       params: {
-        screen: SwapRoutes.Output,
+        screen: SwapRoutes.OutputCrosschain,
       },
     });
   }, [navigation]);
