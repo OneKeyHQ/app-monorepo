@@ -8,7 +8,7 @@ import { AccountType } from '../../../../types/account';
 import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
 import { pubkeyToAddress, signTransactionWithSigner } from '../utils';
 
-import { CURVE_NAME } from './contant';
+import { CURVE_NAME } from './constant';
 
 import type { DBVariantAccount } from '../../../../types/account';
 import type {
