@@ -6,15 +6,16 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
-import TokenSelectorControl from '../components/TokenSelectorControl';
-import { TokenSelectorControlContext } from '../components/TokenSelectorControl/context';
 import { useSwapRecipient } from '../hooks/useSwap';
 
-import type { NetworkOption } from '../components/TokenSelectorControl/context';
+import OutputCrosschainTokenSelector from './OutputCrosschainTokenSelector';
+import { OutputCrosschainTokenSelectorContext } from './OutputCrosschainTokenSelector/context';
+
+import type { NetworkOption } from './OutputCrosschainTokenSelector/context';
 
 const all = 'all';
 
-const Output = () => {
+const OutputCrosschain = () => {
   const intl = useIntl();
   const navigation = useNavigation();
 
@@ -32,20 +33,6 @@ const Output = () => {
       return undefined;
     },
   );
-
-  const [previousNetworkSelectorId, setPreviousNetworkSelectorId] = useState<
-    string | undefined
-  >(
-    inputToken?.networkId === outputToken?.networkId
-      ? undefined
-      : outputToken?.networkId,
-  );
-
-  useEffect(() => {
-    if (networkSelectorId && networkSelectorId !== inputToken?.networkId) {
-      setPreviousNetworkSelectorId(networkSelectorId);
-    }
-  }, [networkSelectorId, inputToken]);
 
   const data = useMemo<{
     actives: NetworkOption[];
@@ -77,12 +64,6 @@ const Output = () => {
       if (item.networkId === inputToken?.networkId) {
         return -9;
       }
-      if (
-        previousNetworkSelectorId &&
-        item.networkId === previousNetworkSelectorId
-      ) {
-        return -8;
-      }
       return 0;
     };
 
@@ -91,12 +72,34 @@ const Output = () => {
       const numB = getScore(b);
       return numA - numB;
     });
-    const len = previousNetworkSelectorId ? 3 : 2;
-    const actives: NetworkOption[] = items.slice(0, len);
-    const inactives: NetworkOption[] = items.slice(len);
+
+    const actives: NetworkOption[] = items.slice(0, 2);
+    const inactives: NetworkOption[] = items.slice(2);
+
+    if (networkSelectorId && networkSelectorId !== inputToken?.networkId) {
+      const nIndex = inactives.findIndex(
+        (o) => o.networkId === networkSelectorId,
+      );
+      if (nIndex >= 0) {
+        const networks = inactives.splice(nIndex, 1);
+        const option = networks[0];
+        if (option) {
+          option.name = `Cross-Chain ${option.name}`;
+          option.isCrosschain = true;
+          actives.push(option);
+        }
+      }
+    } else {
+      const option: NetworkOption = {
+        name: 'Cross-Chain',
+        isCrosschain: true,
+        networkId: 'cross-chain',
+      };
+      actives.push(option);
+    }
 
     return { actives, inactives };
-  }, [tokenList, intl, inputToken, previousNetworkSelectorId]);
+  }, [tokenList, intl, inputToken, networkSelectorId]);
 
   const onSelect = useCallback(
     (token: Token) => {
@@ -114,7 +117,7 @@ const Output = () => {
       accountId: recipient?.accountId,
       tokenList,
       networkOptions: data.actives,
-      more: data.inactives.length,
+      crosschainOptions: data.inactives,
     }),
     [
       networkSelectorId,
@@ -134,10 +137,10 @@ const Output = () => {
   }, [networkSelectorId, recipient?.accountId]);
 
   return (
-    <TokenSelectorControlContext.Provider value={value}>
-      <TokenSelectorControl onSelect={onSelect} />
-    </TokenSelectorControlContext.Provider>
+    <OutputCrosschainTokenSelectorContext.Provider value={value}>
+      <OutputCrosschainTokenSelector onSelect={onSelect} />
+    </OutputCrosschainTokenSelectorContext.Provider>
   );
 };
 
-export default Output;
+export default OutputCrosschain;
