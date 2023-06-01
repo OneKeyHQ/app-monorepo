@@ -145,7 +145,7 @@ export const SwapContent = () => {
         borderRadius={isSmall ? undefined : '12'}
         overflow="hidden"
       >
-        <Box px={4} py="5" bg="surface-subdued" overflow="hidden">
+        <Box px={2} pt="3" pb="5" bg="surface-subdued" overflow="hidden">
           <TokenInput
             type="INPUT"
             label={intl.formatMessage({ id: 'form__pay' })}
@@ -164,7 +164,7 @@ export const SwapContent = () => {
           zIndex={1}
         >
           <Box position="absolute" w="full" h="10" top={-20} left={0}>
-            <Box position="absolute" top="0" left="5">
+            <Box position="absolute" top="0" left="4">
               <Center
                 w="10"
                 h="10"
@@ -186,12 +186,18 @@ export const SwapContent = () => {
                 />
               </Center>
             </Box>
-            <Box position="absolute" top="0" right="5">
+            <Box position="absolute" top="0" right="4">
               <SwapPercentInput />
             </Box>
           </Box>
         </Box>
-        <Box px={4} py="5" bg="action-secondary-default" overflow="hidden">
+        <Box
+          px={2}
+          pb="3"
+          pt="5"
+          bg="action-secondary-default"
+          overflow="hidden"
+        >
           <ReceivingTokenInput
             type="OUTPUT"
             label={intl.formatMessage({ id: 'action__receive' })}

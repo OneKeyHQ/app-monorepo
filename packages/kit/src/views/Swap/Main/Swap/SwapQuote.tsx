@@ -158,7 +158,7 @@ const SwapExactAmoutAllowance = () => {
       h="9"
     >
       <Box flexDirection="row" alignItems="center">
-        <Typography.Body2 color="text-disabled" mr="2">
+        <Typography.Body2 color="text-subdued" mr="1">
           {intl.formatMessage({ id: 'form__approval' })}
         </Typography.Body2>
         <SwapTooltip
@@ -174,7 +174,7 @@ const SwapExactAmoutAllowance = () => {
         alignItems="center"
       >
         <Pressable flexDirection="row" alignItems="center" onPress={onPress}>
-          <Typography.Body2 mr="1" color="text-subdued">
+          <Typography.Body2 mr="1" color="text-default">
             {disableSwapExactApproveAmount
               ? intl.formatMessage({ id: 'form__unlimited' })
               : intl.formatMessage({ id: 'form__exact_amount' })}
@@ -250,7 +250,7 @@ const SwapNetworkFeeEditable = () => {
       h="9"
     >
       <Box flexDirection="row" alignItems="center">
-        <Typography.Body2 color="text-disabled" mr="2">
+        <Typography.Body2 color="text-subdued" mr="1">
           {intl.formatMessage({ id: 'form__network_fee' })}
         </Typography.Body2>
         <SwapTooltip
@@ -259,7 +259,7 @@ const SwapNetworkFeeEditable = () => {
       </Box>
       <Box flexDirection="row" justifyContent="flex-end" alignItems="center">
         <Pressable flexDirection="row" alignItems="center" onPress={onPress}>
-          <Typography.Body2 mr="1" color="text-subdued">
+          <Typography.Body2 mr="1" color="text-default">
             {text}
           </Typography.Body2>
           <Icon size={16} name="ChevronRightOutline" />
@@ -282,7 +282,7 @@ const SwapMinimumReceived = () => {
   if (outputToken && value) {
     const amount = getTokenAmountValue(outputToken, String(value));
     return (
-      <Typography.Body2 color="text-subdued">
+      <Typography.Body2 color="text-default">
         {amount.toFixed(4)} {outputToken.symbol.toUpperCase()}
       </Typography.Body2>
     );
@@ -308,7 +308,7 @@ const SwapPriceImpact = () => {
       h="9"
     >
       <Box flexDirection="row" alignItems="center">
-        <Typography.Body2 color="text-disabled" mr="2">
+        <Typography.Body2 color="text-subdued" mr="1">
           {intl.formatMessage({ id: 'title__price_impact' })}
         </Typography.Body2>
         <SwapTooltip
@@ -316,7 +316,7 @@ const SwapPriceImpact = () => {
         />
       </Box>
       <Box flex="1" flexDirection="row" justifyContent="flex-end">
-        <Typography.Body2 color="text-subdued">{value}</Typography.Body2>
+        <Typography.Body2 color="text-default">{value}</Typography.Body2>
       </Box>
     </Box>
   );
@@ -337,12 +337,12 @@ const SwapProtocalsFees = () => {
           h="9"
         >
           <Box flexDirection="row" alignItems="center">
-            <Typography.Body2 color="text-disabled" mr="2">
+            <Typography.Body2 color="text-subdued" mr="2">
               {intl.formatMessage({ id: 'form__bridge_fee' })}
             </Typography.Body2>
           </Box>
           <Box flex="1" flexDirection="row" justifyContent="flex-end">
-            <Typography.Body2 color="text-subdued">
+            <Typography.Body2 color="text-default">
               {`${formatAmount(
                 result.value,
                 8,
@@ -382,7 +382,7 @@ const SwapSmartRoute = () => {
       alignItems="center"
       h="9"
     >
-      <Typography.Body2 color="text-disabled" mr="2">
+      <Typography.Body2 color="text-subdued" mr="2">
         {intl.formatMessage({ id: 'form__smart_router' })}
       </Typography.Body2>
       <Box
@@ -399,7 +399,11 @@ const SwapSmartRoute = () => {
             justifyContent="flex-end"
             alignItems="center"
           >
-            <SwappingVia providers={quote.providers} typography="Body2" />
+            <SwappingVia
+              providers={quote.providers}
+              typography="Body2"
+              color="text-default"
+            />
             {quoteLimited ? null : (
               <Icon size={16} name="ChevronRightOutline" />
             )}
@@ -433,7 +437,7 @@ const SwapSlippage = () => {
       h="9"
     >
       <Box flexDirection="row" alignItems="center">
-        <Typography.Body2 color="text-disabled" mr="2">
+        <Typography.Body2 color="text-subdued" mr="1">
           {intl.formatMessage({ id: 'title__slippage' })}
         </Typography.Body2>
         <SwapTooltip
@@ -442,7 +446,7 @@ const SwapSlippage = () => {
       </Box>
       <Box flexDirection="row" justifyContent="flex-end" alignItems="center">
         <Pressable flexDirection="row" onPress={onSlippageSetting}>
-          <Typography.Body2 mr="1" color="text-subdued">
+          <Typography.Body2 mr="1" color="text-default">
             {mode === 'auto' ? intl.formatMessage({ id: 'form__auto' }) : null}(
             {swapSlippagePercent}%)
           </Typography.Body2>
@@ -468,7 +472,7 @@ const SwapOnekeyFee = () => {
       h="9"
     >
       <Box flexDirection="row" alignItems="center">
-        <Typography.Body2 color="text-disabled" mr="2">
+        <Typography.Body2 color="text-subdued" mr="1">
           {intl.formatMessage({ id: 'form__included_onekey_fee' })}
         </Typography.Body2>
         <SwapTooltip
@@ -482,6 +486,7 @@ const SwapOnekeyFee = () => {
           type={quote.type}
           percentageFee={quote.percentageFee}
           typography="Body2"
+          color="text-default"
         />
       </Box>
     </Box>
@@ -500,7 +505,7 @@ const SwapArrivalTime = () => {
       h="9"
     >
       <Box flexDirection="row" alignItems="center">
-        <Typography.Body2 color="text-disabled" mr="2">
+        <Typography.Body2 color="text-subdued" mr="1">
           {intl.formatMessage({ id: 'title__arrival_time' })}
         </Typography.Body2>
         <SwapTooltip
@@ -508,7 +513,11 @@ const SwapArrivalTime = () => {
         />
       </Box>
       <Box flex="1" flexDirection="row" justifyContent="flex-end">
-        <ArrivalTime value={arrivalTime} typography="Body2" />
+        <ArrivalTime
+          value={arrivalTime}
+          typography="Body2"
+          color="text-default"
+        />
       </Box>
     </Box>
   );
@@ -554,7 +563,7 @@ const SwapTransactionRate = () => {
               tokenB={outputToken}
               rate={quote?.instantRate}
               typography="Body2"
-              color="text-subdued"
+              color="text-default"
             />
           </Box>
         </SwapLoadingSkeleton>
@@ -580,7 +589,7 @@ const SwapExchangeQuote = () => {
         h="9"
       >
         <Box flexDirection="row" alignItems="center">
-          <Typography.Body2 color="text-disabled" mr="2">
+          <Typography.Body2 color="text-subdued" mr="1">
             {intl.formatMessage({ id: 'form__minimum_received' })}
           </Typography.Body2>
           <SwapTooltip

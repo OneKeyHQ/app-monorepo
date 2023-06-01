@@ -51,7 +51,7 @@ const NetworkSelector: FC = () => {
 
   return (
     <Box mb="4">
-      <HStack space="1">
+      <HStack space="2">
         {networkOptions.map((item) => (
           <Pressable
             key={item.name}
