@@ -116,7 +116,7 @@ export default function UnstakeAmount() {
     const input = amount.trim();
     const amountBN = new BigNumber(input);
     if (
-      minAmountBN.lt(0) &&
+      minAmountBN.gt(0) &&
       input &&
       (amountBN.isNaN() || (amountBN.gt(0) && amountBN.lt(minAmountBN)))
     ) {
@@ -378,6 +378,7 @@ export default function UnstakeAmount() {
               </Center>
             </Center>
             <Center>
+              <Box h="1" flexShrink="1" />
               <HStack flexDirection="row" alignItems="center" space="3">
                 <Button size="sm" onPress={() => userInput(25)}>
                   25%
@@ -392,6 +393,7 @@ export default function UnstakeAmount() {
                   {intl.formatMessage({ id: 'action__max' })}
                 </Button>
               </HStack>
+              <Box h="1" flexShrink="1" />
               <Box
                 h="8"
                 flexDirection="row"

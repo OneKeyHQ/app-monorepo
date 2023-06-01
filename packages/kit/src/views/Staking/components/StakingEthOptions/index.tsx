@@ -245,6 +245,16 @@ const RelatedPool: FC<EthAprOptionProps> = ({ isTestnet }) => {
           onPress={onPress}
         />
       ) : null}
+      <Box py="1">
+        <Typography.Body2 color="text-subdued">
+          {intl.formatMessage(
+            {
+              id: 'content__when_you_stake_str_you_receive_str',
+            },
+            { '0': 'ETH', '1': 'stETH' },
+          )}
+        </Typography.Body2>
+      </Box>
     </Box>
   );
 };
