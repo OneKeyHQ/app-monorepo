@@ -570,17 +570,19 @@ export const Listing: FC = () => {
             primaryActionProps: {
               type: 'destructive',
               onPromise: async () => {
-                if (accountId && token) {
-                  await backgroundApiProxy.engine.removeTokenFromAccount(
-                    accountId,
-                    token.id,
-                  );
+                if (!accountId || !token) {
+                  return;
                 }
-                await backgroundApiProxy.serviceToken.fetchAccountTokens({
-                  accountId,
-                  networkId,
-                });
-                closeOverlay();
+                return backgroundApiProxy.serviceToken
+                  .deleteAccountToken({
+                    accountId,
+                    networkId,
+                    tokenId: token.id,
+                    address: token.address ?? '',
+                  })
+                  .finally(() => {
+                    closeOverlay();
+                  });
               },
             },
           }}
