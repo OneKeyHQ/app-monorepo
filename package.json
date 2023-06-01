@@ -155,6 +155,7 @@
     "react-refresh": "^0.14.0",
     "react-test-renderer": "18.1.0",
     "rimraf": "^3.0.2",
+    "secp256k1-v3": "npm:secp256k1@3.8.0",
     "ts-jest": "^27.0.5",
     "typescript": "^5.0.4",
     "ultra-runner": "^3.10.5",

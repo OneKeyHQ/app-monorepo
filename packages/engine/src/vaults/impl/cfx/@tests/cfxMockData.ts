@@ -10,12 +10,12 @@ const network: DBNetwork = {
   enabled: true,
   feeDecimals: 18,
   feeSymbol: 'CFX',
-  id: 'cfx--1029',
+  id: 'cfx--1',
   impl: 'cfx',
   logoURI: 'https://onekey-asset.com/assets/cfx/cfx.png',
   name: 'Conflux',
   position: 33,
-  rpcURL: 'https://node.onekey.so/cfx',
+  rpcURL: 'https://test.confluxrpc.com',
   symbol: 'CFX',
 };
 
@@ -30,7 +30,7 @@ const hdAccount1: IUnitTestMockAccount = {
     pub: '03b03e87ca0c131f33f78d1e6757c2932a88b317858ff99ac48fdd425f7f473159',
     type: 'variant' as any,
     addresses: {
-      'cfx--1029': 'cfx:aape4yvxbtmm5vegfuzg115x8kjt1kc8p6nztvyg66',
+      'cfx--1': 'cfx:aape4yvxbtmm5vegfuzg115x8kjt1kc8p6nztvyg66',
     },
   },
   mnemonic: mockCredentials.mnemonic1,
@@ -64,7 +64,7 @@ const importedAccount2: IUnitTestMockAccount = {
     pub: '03107b9fcb2f3207b1b532750298d395c601742e68e9d0f54ab3d7df66c414304a',
     type: 'variant' as any,
     addresses: {
-      'cfx--1029': 'cfx:aara6crymtbk32snet63tby986sgrx5ptucv9bmpfn',
+      'cfx--1': 'cfxtest:aara6crymtbk32snet63tby986sgrx5ptuj4pvpgbb',
     },
   },
   privateKey: '62ec93894623daf9acf2b59d0517612f',
@@ -75,7 +75,7 @@ const watchingAccount1: IUnitTestMockAccount = {
   account: {
     address: '0x1a0e09b453c29ce1cb23f997869ff71c66cf6c7c',
     addresses: {
-      'cfx--1029': 'cfx:aara6crymtbk32snet63tby986sgrx5ptucv9bmpfn',
+      'cfx--1': 'cfxtest:aara6crymtbk32snet63tby986sgrx5ptuj4pvpgbb',
     },
     coinType: '503',
     id: 'external--503--0x1a0e09b453c29ce1cb23f997869ff71c66cf6c7c',

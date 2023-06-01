@@ -104,7 +104,6 @@ export class KeyringHd extends KeyringHdBase {
       selectedAddress,
     ]);
     const signer = signers[selectedAddress];
-
     return signTransactionWithSigner(unsignedTx, signer);
   }
 
