@@ -749,6 +749,12 @@ export default class Vault extends VaultBase {
     return transactionStatuses;
   }
 
+  override validateWatchingCredential(input: string): Promise<boolean> {
+    return Promise.resolve(
+      this.settings.watchingAccountEnabled && verifyNearAddress(input).isValid,
+    );
+  }
+
   override async validateAddress(address: string): Promise<string> {
     const result = verifyNearAddress(address);
     if (result.isValid) {
