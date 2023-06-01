@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import Box from '../../Box';
 import Button from '../../Button';
 import HStack from '../../HStack';
+import MotiBox from '../../MotiBox';
 import Pressable from '../../Pressable';
 
 import Header from './Header/Header';
@@ -137,112 +138,98 @@ const DesktopModal = ({
         />
       </Pressable>
 
-      <Box
+      <MotiBox
         width={modalSizing(size)}
         height={height}
         maxHeight={maxHeight}
+        borderRadius="24px"
+        bg="background-default"
         alignSelf="center"
         zIndex={1}
+        from={{
+          opacity: 0,
+          // translateY: 24,
+          scale: 0.95,
+        }}
+        animate={{
+          opacity: 1,
+          // translateY: 0,
+          scale: 1,
+        }}
+        transition={{
+          type: 'timing',
+          // TODO show animation when open new Modal in Modal, but not push stack in same Modal
+          duration: enableModalAnimation ? 100 : 0,
+        }}
+        testID="DesktopModalContentContainer"
       >
-        <MotiView
-          from={{
-            opacity: 0,
-            // translateY: 24,
-            scale: 0.95,
-          }}
-          animate={{
-            opacity: 1,
-            // translateY: 0,
-            scale: 1,
-          }}
-          transition={{
-            type: 'timing',
-            // TODO show animation when open new Modal in Modal, but not push stack in same Modal
-            duration: enableModalAnimation ? 100 : 0,
-          }}
-          testID="DesktopModalContentContainer"
-          style={{
-            width: modalSizing(size),
-            height,
-            maxHeight,
-          }}
-        >
+        {!!headerShown && (
+          <Header
+            header={header}
+            headerDescription={headerDescription}
+            firstIndex={!navIndex}
+            hideBackButton={hideBackButton}
+            onPressBackButton={() => {
+              if (hideBackButton) {
+                return;
+              }
+              if (onBackActionPress) {
+                onBackActionPress();
+                return;
+              }
+              if (navigation?.canGoBack?.()) {
+                navigation.goBack();
+              }
+            }}
+            closeable={closeable}
+            onPressCloseButton={close}
+            rightContent={rightContent}
+          />
+        )}
+        {children}
+        {isValidElement(footer) || footer === null ? (
+          footer
+        ) : (
           <Box
-            width={modalSizing(size)}
-            height={height}
-            borderRadius="24px"
-            bg="background-default"
+            borderTopWidth={StyleSheet.hairlineWidth}
+            borderTopColor="divider"
           >
-            {!!headerShown && (
-              <Header
-                header={header}
-                headerDescription={headerDescription}
-                firstIndex={!navIndex}
-                hideBackButton={hideBackButton}
-                onPressBackButton={() => {
-                  if (hideBackButton) {
-                    return;
-                  }
-                  if (onBackActionPress) {
-                    onBackActionPress();
-                    return;
-                  }
-                  if (navigation?.canGoBack?.()) {
-                    navigation.goBack();
-                  }
-                }}
-                closeable={closeable}
-                onPressCloseButton={close}
-                rightContent={rightContent}
-              />
-            )}
-            {children}
-            {isValidElement(footer) || footer === null ? (
-              footer
-            ) : (
-              <Box
-                borderTopWidth={StyleSheet.hairlineWidth}
-                borderTopColor="divider"
-              >
-                <HStack py="4" px="6" alignItems="center" space="12px">
-                  {extraElement && <Box>{extraElement}</Box>}
-                  <HStack flex={1} space="12px" justifyContent="flex-end">
-                    {!hideSecondaryAction && (
-                      <Button
-                        onPress={() => {
-                          onSecondaryActionPress?.({ close });
-                          onClose?.();
-                        }}
-                        {...secondaryActionProps}
-                      >
-                        {secondaryActionProps?.children ??
-                          intl.formatMessage({
-                            id:
-                              secondaryActionTranslationId ?? 'action__cancel',
-                          })}
-                      </Button>
-                    )}
-                    {!hidePrimaryAction && (
-                      <Button
-                        type="primary"
-                        onPress={() => {
-                          onPrimaryActionPress?.({ onClose, close });
-                        }}
-                        {...primaryActionProps}
-                      >
-                        {primaryActionProps?.children ??
-                          intl.formatMessage({
-                            id: primaryActionTranslationId ?? 'action__ok',
-                          })}
-                      </Button>
-                    )}
-                  </HStack>
-                </HStack>
-              </Box>
-            )}
+            <HStack py="4" px="6" alignItems="center" space="12px">
+              {extraElement && <Box>{extraElement}</Box>}
+              <HStack flex={1} space="12px" justifyContent="flex-end">
+                {!hideSecondaryAction && (
+                  <Button
+                    onPress={() => {
+                      onSecondaryActionPress?.({ close });
+                      onClose?.();
+                    }}
+                    {...secondaryActionProps}
+                  >
+                    {secondaryActionProps?.children ??
+                      intl.formatMessage({
+                        id: secondaryActionTranslationId ?? 'action__cancel',
+                      })}
+                  </Button>
+                )}
+                {!hidePrimaryAction && (
+                  <Button
+                    type="primary"
+                    onPress={() => {
+                      onPrimaryActionPress?.({ onClose, close });
+                    }}
+                    {...primaryActionProps}
+                  >
+                    {primaryActionProps?.children ??
+                      intl.formatMessage({
+                        id: primaryActionTranslationId ?? 'action__ok',
+                      })}
+                  </Button>
+                )}
+              </HStack>
+            </HStack>
           </Box>
-        </MotiView>
-      </Box>
+        )}
+      </MotiBox>
     </Box>
   );
 };
