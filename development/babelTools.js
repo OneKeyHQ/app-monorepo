@@ -77,6 +77,19 @@ function normalizeConfig({ platform, config }) {
     return `@onekeyhq/components/src/${name}`;
   };
 
+  const {
+    isJest,
+    isDev,
+    isProduction,
+    isWeb,
+    isWebEmbed,
+    isDesktop,
+    isExtension,
+    isNative,
+    isExtChrome,
+    isExtFirefox,
+  } = require('../packages/shared/src/buildTimeEnv');
+
   config.plugins = [
     ...(config.plugins || []),
     [
@@ -88,6 +101,21 @@ function normalizeConfig({ platform, config }) {
         'include': envExposedToClient.buildEnvExposedToClientDangerously({
           platform,
         }),
+      },
+    ],
+    [
+      'transform-define',
+      {
+        'platformEnv.isJest': isJest,
+        'platformEnv.isDev': isDev,
+        'platformEnv.isProduction': isProduction,
+        'platformEnv.isWeb': isWeb,
+        'platformEnv.isWebEmbed': isWebEmbed,
+        'platformEnv.isDesktop': isDesktop,
+        'platformEnv.isExtension': isExtension,
+        'platformEnv.isNative': isNative,
+        'platformEnv.isExtChrome': isExtChrome,
+        'platformEnv.isExtFirefox': isExtFirefox,
       },
     ],
     /*
