@@ -5336,6 +5336,7 @@ __metadata:
     "@types/react-dom": ^18.0.9
     "@types/react-native": ^0.71.6
     "@types/react-test-renderer": 18
+    "@types/secp256k1-v3": "npm:@types/secp256k1@3.5.0"
     "@types/semver": ^7.3.6
     "@types/superagent": ^4.1.16
     "@typescript-eslint/eslint-plugin": ^5.46.1
@@ -8968,6 +8969,15 @@ __metadata:
   version: 0.16.2
   resolution: "@types/scheduler@npm:0.16.2"
   checksum: b6b4dcfeae6deba2e06a70941860fb1435730576d3689225a421280b7742318d1548b3d22c1f66ab68e414f346a9542f29240bc955b6332c5b11e561077583bc
+  languageName: node
+  linkType: hard
+
+"@types/secp256k1-v3@npm:@types/secp256k1@3.5.0":
+  version: 3.5.0
+  resolution: "@types/secp256k1@npm:3.5.0"
+  dependencies:
+    "@types/node": "*"
+  checksum: 773b00775a288457fb1db579a714569ee287341f3d8f05188220f774a1d76b5bb91f6a282c44cdf80deb05df6694471974ea2ebb15f55e38ac6c7aafcd5d4a41
   languageName: node
   linkType: hard
 

@@ -96,6 +96,7 @@ export type UnsignedTx = {
 export type SignedTx = {
   txid: string;
   rawTx: string;
+  digest?: string;
 };
 
 export type TypedMessage = {

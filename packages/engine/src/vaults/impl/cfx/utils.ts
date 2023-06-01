@@ -60,6 +60,7 @@ export async function signTransactionWithSigner(
   });
 
   return {
+    digest,
     txid: signedTransaction.hash,
     rawTx: signedTransaction.serialize(),
   };

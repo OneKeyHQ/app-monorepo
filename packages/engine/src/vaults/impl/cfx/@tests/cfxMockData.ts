@@ -30,7 +30,7 @@ const hdAccount1: IUnitTestMockAccount = {
     pub: '03b03e87ca0c131f33f78d1e6757c2932a88b317858ff99ac48fdd425f7f473159',
     type: 'variant' as any,
     addresses: {
-      'cfx--1': 'cfx:aape4yvxbtmm5vegfuzg115x8kjt1kc8p6nztvyg66',
+      'cfx--1': 'cfxtest:aape4yvxbtmm5vegfuzg115x8kjt1kc8p6b86bwp20',
     },
   },
   mnemonic: mockCredentials.mnemonic1,
