@@ -8,9 +8,7 @@ import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/ac
 import type { CheckParams } from '@onekeyhq/engine/src/managers/goplus';
 import {
   checkSite,
-  fetchSecurityInfo,
   getAddressRiskyItems,
-  getRiskLevel,
   getTokenRiskyItems,
 } from '@onekeyhq/engine/src/managers/goplus';
 import {
@@ -20,9 +18,6 @@ import {
   getBalanceKey,
 } from '@onekeyhq/engine/src/managers/token';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
-import type { GoPlusTokenSecurity } from '@onekeyhq/engine/src/types/goplus';
-import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
-import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
 import {
   setIsPasswordLoadedInVault,
@@ -336,36 +331,33 @@ export default class ServiceToken extends ServiceBase {
     address: string,
     logoURI?: string,
   ): Promise<Token | undefined> {
-    const { engine, appSelector } = this.backgroundApi;
+    const { engine, appSelector, dispatch } = this.backgroundApi;
     if (!address) {
       return;
     }
     const accountTokens = appSelector((s) => s.tokens.accountTokens);
     const tokens = accountTokens[networkId]?.[accountId] ?? ([] as Token[]);
-    const isExists = tokens.find((item) => item.tokenIdOnNetwork === address);
+    const isExists = tokens.find(
+      (item) => item.tokenIdOnNetwork === address && !item.autoDetected,
+    );
     if (isExists) {
       return;
     }
-    const info = await fetchSecurityInfo<GoPlusTokenSecurity>({
-      networkId,
-      address,
-      apiName: GoPlusSupportApis.token_security,
-    });
-    const riskLevel = info ? getRiskLevel(info) : TokenRiskLevel.UNKNOWN;
     const result = await engine.quickAddToken(
       accountId,
       networkId,
       address,
       logoURI,
-      {
-        riskLevel,
-      },
     );
-    await this.fetchAccountTokens({
-      accountId,
-      networkId,
-      includeTop50TokensQuery: false,
-    });
+    if (result) {
+      dispatch(
+        setAccountTokens({
+          networkId,
+          accountId,
+          tokens: [...tokens, result],
+        }),
+      );
+    }
     return result;
   }
 
