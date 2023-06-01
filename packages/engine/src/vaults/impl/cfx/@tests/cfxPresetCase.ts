@@ -12,11 +12,11 @@ import type { KeyringBase } from '../../../keyring/KeyringBase';
 import type { IPrepareAccountsParams } from '../../../types';
 import type { VaultBase } from '../../../VaultBase';
 
-const nearAccountNameInfo = getAccountNameInfoByImpl(IMPL_NEAR);
+const cfxAccountNameInfo = getAccountNameInfoByImpl(IMPL_NEAR);
 const prepareAccountsParams = {
   indexes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-  coinType: nearAccountNameInfo.default.coinType,
-  template: nearAccountNameInfo.default.template,
+  coinType: cfxAccountNameInfo.default.coinType,
+  template: cfxAccountNameInfo.default.template,
 };
 
 export async function testPrepareAccounts(
