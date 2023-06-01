@@ -106,6 +106,8 @@ function normalizeConfig({ platform, config }) {
     [
       'transform-define',
       {
+        // override runtime env with buildtime env
+        // so it can do more tree shaking
         'platformEnv.isJest': isJest,
         'platformEnv.isDev': isDev,
         'platformEnv.isProduction': isProduction,
