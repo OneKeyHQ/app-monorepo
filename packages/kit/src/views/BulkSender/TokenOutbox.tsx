@@ -324,7 +324,7 @@ function TokenOutbox(props: Props) {
       if (
         !isNative &&
         network?.settings.batchTransferApprovalRequired &&
-        currentToken &&
+        currentToken?.tokenIdOnNetwork &&
         contract
       ) {
         const { isUnlimited: isUnlimitedAllowance } =
@@ -334,18 +334,14 @@ function TokenOutbox(props: Props) {
             spender: contract,
             token: currentToken?.tokenIdOnNetwork,
           });
-        if (isUnlimitedAllowance) {
-          setIsUnlimited(isUnlimitedAllowance);
-          setIsAlreadyUnlimited(isUnlimitedAllowance);
-        } else {
-          setIsAlreadyUnlimited(isUnlimitedAllowance);
-        }
+        setIsUnlimited(isUnlimitedAllowance);
+        setIsAlreadyUnlimited(isUnlimitedAllowance);
       }
     };
     fetchTokenAllowance();
   }, [
     accountAddress,
-    currentToken,
+    currentToken?.tokenIdOnNetwork,
     isNative,
     network?.settings.batchTransferApprovalRequired,
     networkId,
