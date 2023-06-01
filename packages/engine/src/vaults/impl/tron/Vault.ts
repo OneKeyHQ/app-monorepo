@@ -715,8 +715,8 @@ export default class Vault extends VaultBase {
     let ParamValues: any[];
     let totalAmountBN = new BigNumber(0);
 
-    const isTransferSameValue = transferInfos.every(
-      (info) => info.amount === transferInfo.amount,
+    const isTransferSameValue = transferInfos.every((info) =>
+      new BigNumber(info.amount).isEqualTo(transferInfo.amount),
     );
 
     if (isTransferToken) {
