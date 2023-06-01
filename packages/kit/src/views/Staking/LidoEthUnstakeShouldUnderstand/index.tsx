@@ -22,9 +22,9 @@ const LidoEthUnstakeShouldUnderstandContent = () => {
         <Typography.DisplayLarge>
           {intl.formatMessage({ id: 'title__lido_unstaking' })}
         </Typography.DisplayLarge>
-        <Typography.Body2 color="text-subdued" mt="2">
+        <Typography.Body1 color="text-subdued" mt="2">
           {intl.formatMessage({ id: 'title__lido_unstaking_desc' })}
-        </Typography.Body2>
+        </Typography.Body1>
       </Center>
       <Box>
         <Box flexDirection="row" mb="8">
@@ -40,12 +40,12 @@ const LidoEthUnstakeShouldUnderstandContent = () => {
             </Typography.Body2Strong>
           </Center>
           <Box flex="1">
-            <Typography.DisplayMedium>
+            <Typography.Body1Strong>
               {intl.formatMessage({ id: 'form__request_withdrawal' })}
-            </Typography.DisplayMedium>
-            <Typography.Body1 color="text-subdued">
+            </Typography.Body1Strong>
+            <Typography.Body2 color="text-subdued">
               {intl.formatMessage({ id: 'form__request_withdrawal_desc' })}
-            </Typography.Body1>
+            </Typography.Body2>
           </Box>
         </Box>
         <Box flexDirection="row" mb="8">
@@ -61,14 +61,14 @@ const LidoEthUnstakeShouldUnderstandContent = () => {
             </Typography.Body2Strong>
           </Center>
           <Box flex="1">
-            <Typography.DisplayMedium>
+            <Typography.Body1Strong>
               {intl.formatMessage({ id: 'form__receive_lido_nft' })}
-            </Typography.DisplayMedium>
-            <Typography.Body1 color="text-subdued">
+            </Typography.Body1Strong>
+            <Typography.Body2 color="text-subdued">
               {intl.formatMessage({
                 id: 'form__receive_lido_nft_desc',
               })}
-            </Typography.Body1>
+            </Typography.Body2>
           </Box>
         </Box>
         <Box flexDirection="row" mb="8">
@@ -84,12 +84,12 @@ const LidoEthUnstakeShouldUnderstandContent = () => {
             </Typography.Body2Strong>
           </Center>
           <Box flex="1">
-            <Typography.DisplayMedium>
+            <Typography.Body1Strong>
               {intl.formatMessage({ id: 'form__claim' })}
-            </Typography.DisplayMedium>
-            <Typography.Body1 color="text-subdued">
+            </Typography.Body1Strong>
+            <Typography.Body2 color="text-subdued">
               {intl.formatMessage({ id: 'form__claim_desc' })}
-            </Typography.Body1>
+            </Typography.Body2>
           </Box>
         </Box>
       </Box>
@@ -112,7 +112,7 @@ const LidoEthUnstakeShouldUnderstand = () => {
   return (
     <Modal
       hideSecondaryAction
-      primaryActionTranslationId="action__lets_go"
+      primaryActionTranslationId="action__i_got_it"
       onPrimaryActionPress={onPrimaryActionPress}
       header={`${intl.formatMessage({ id: 'action_unstake' })} ETH`}
       scrollViewProps={{

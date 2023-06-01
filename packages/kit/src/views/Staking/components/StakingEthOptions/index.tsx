@@ -70,9 +70,7 @@ export const Options: FC<OptionsProps> = ({
       </Box>
       <Box>
         <Typography.Body1Strong>{title}</Typography.Body1Strong>
-        <Typography.Body1Strong color="text-subdued">
-          {subtitle}
-        </Typography.Body1Strong>
+        <Typography.Body2 color="text-subdued">{subtitle}</Typography.Body2>
       </Box>
     </Box>
     <Box flexDirection="row" justifyContent="center" alignItems="center">

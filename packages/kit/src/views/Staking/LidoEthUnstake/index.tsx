@@ -309,6 +309,7 @@ export default function UnstakeAmount() {
         screen: StakingRoutes.LidoEthUnstakeRoutes,
         params: {
           source,
+          amount,
           onSelector: (value) => {
             setSource(value as UnstakeRouteOptionsValue);
             navigation.goBack();
@@ -316,7 +317,7 @@ export default function UnstakeAmount() {
         },
       },
     });
-  }, [source, navigation]);
+  }, [source, navigation, amount]);
 
   const rate = useMemo(() => {
     if (source === 'lido') {
@@ -456,7 +457,7 @@ export default function UnstakeAmount() {
               h="10"
             >
               <Typography.Body2 color="text-subdued">
-                {intl.formatMessage({ id: 'form__protocol' })}
+                {intl.formatMessage({ id: 'form__route' })}
               </Typography.Body2>
               <Pressable onPress={onPress}>
                 <UnstakeRouteOptions value={source} />
