@@ -75,6 +75,7 @@ const TX_SIZE_OVERHEAD = 5; // 1 byte raw_data key, 1 byte signature key, 1 byte
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 const MAX_FEE_LIMIT = 15000000000;
+const BATCH_TRANSFER_PARAMS_REGEX = /\(([^)]+)\)/;
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -481,17 +482,37 @@ export default class Vault extends VaultBase {
     const extraActions: IDecodedTxAction[] = [];
     const address = await this.getAccountAddress();
     switch (transactionSelector) {
+      case BatchTransferSelectors.disperseEtherSameValue:
       case BatchTransferSelectors.disperseEther: {
+        const isTransferSameValue =
+          transactionSelector === BatchTransferSelectors.disperseEtherSameValue;
         const nativeToken = await this.engine.getNativeTokenInfo(
           this.networkId,
         );
-        const [recipients, amounts] = defaultAbiCoder.decode(
-          ['address[]', 'uint256[]'],
-          `0x${data.slice(8)}`,
-        );
+
+        let recipients: string[] = [];
+        let amounts: { _hex: string }[] = [];
+
+        if (isTransferSameValue) {
+          const result = defaultAbiCoder.decode(
+            ['address[]', 'uint256'],
+            `0x${data.slice(8)}`,
+          );
+          [recipients] = result;
+          amounts = [result[1]];
+        } else {
+          const result = defaultAbiCoder.decode(
+            ['address[]', 'uint256[]'],
+            `0x${data.slice(8)}`,
+          );
+          [recipients, amounts] = result;
+        }
+
         for (let i = 0; i < recipients.length; i += 1) {
           const toAddress = TronWeb.address.fromHex(recipients[i]);
-          const amountBN = new BigNumber(amounts[i]._hex);
+          const amountBN = new BigNumber(
+            isTransferSameValue ? amounts[0]._hex : amounts[i]._hex,
+          );
           if (fromAddress === owner || toAddress === owner) {
             extraActions.push({
               type: IDecodedTxActionType.NATIVE_TRANSFER,
@@ -513,11 +534,29 @@ export default class Vault extends VaultBase {
         }
         break;
       }
+      case BatchTransferSelectors.disperseTokenSameValue:
       case BatchTransferSelectors.disperseTokenSimple: {
-        const [tokenAddress, recipients, amounts] = defaultAbiCoder.decode(
-          ['address', 'address[]', 'uint256[]'],
-          `0x${data.slice(8)}`,
-        );
+        const isTransferSameValue =
+          transactionSelector === BatchTransferSelectors.disperseTokenSameValue;
+
+        let tokenAddress = '';
+        let recipients: string[] = [];
+        let amounts: { _hex: string }[] = [];
+
+        if (isTransferSameValue) {
+          const result = defaultAbiCoder.decode(
+            ['address', 'address[]', 'uint256'],
+            `0x${data.slice(8)}`,
+          );
+          [tokenAddress, recipients] = result;
+          amounts = [result[2]];
+        } else {
+          const result = defaultAbiCoder.decode(
+            ['address', 'address[]', 'uint256[]'],
+            `0x${data.slice(8)}`,
+          );
+          [tokenAddress, recipients, amounts] = result;
+        }
 
         const token = await this.engine.ensureTokenInDB(
           this.networkId,
@@ -528,7 +567,9 @@ export default class Vault extends VaultBase {
 
         for (let i = 0; i < recipients.length; i += 1) {
           const toAddress = TronWeb.address.fromHex(recipients[i]);
-          const amountBN = new BigNumber(amounts[i]._hex);
+          const amountBN = new BigNumber(
+            isTransferSameValue ? amounts[0]._hex : amounts[i]._hex,
+          );
           extraActions.push({
             type: IDecodedTxActionType.TOKEN_TRANSFER,
             direction: await this.buildTxActionDirection({
@@ -674,6 +715,10 @@ export default class Vault extends VaultBase {
     let ParamValues: any[];
     let totalAmountBN = new BigNumber(0);
 
+    const isTransferSameValue = transferInfos.every((info) =>
+      new BigNumber(info.amount).isEqualTo(transferInfo.amount),
+    );
+
     if (isTransferToken) {
       const token = await this.engine.ensureTokenInDB(
         this.networkId,
@@ -683,8 +728,13 @@ export default class Vault extends VaultBase {
         throw new Error(`Token not found: ${transferInfo.token as string}`);
       }
 
-      batchMethod = BatchTransferMethods.disperseTokenSimple;
-      paramTypes = ['address', 'address[]', 'uint256[]'];
+      batchMethod = isTransferSameValue
+        ? BatchTransferMethods.disperseTokenSameValue
+        : BatchTransferMethods.disperseTokenSimple;
+
+      paramTypes = (
+        batchMethod.match(BATCH_TRANSFER_PARAMS_REGEX) as Array<string>
+      )[1].split(',');
       ParamValues = [
         token.tokenIdOnNetwork,
         ...reduce(
@@ -698,9 +748,17 @@ export default class Vault extends VaultBase {
           [[], []],
         ),
       ];
+
+      if (isTransferSameValue) {
+        ParamValues = [ParamValues[0], ParamValues[1], ParamValues[2][0]];
+      }
     } else {
-      batchMethod = BatchTransferMethods.disperseEther;
-      paramTypes = ['address[]', 'uint256[]'];
+      batchMethod = isTransferSameValue
+        ? BatchTransferMethods.disperseEtherSameValue
+        : BatchTransferMethods.disperseEther;
+      paramTypes = (
+        batchMethod.match(BATCH_TRANSFER_PARAMS_REGEX) as Array<string>
+      )[1].split(',');
       ParamValues = reduce(
         transferInfos,
         (result: [string[], number[]], info) => {
@@ -714,13 +772,16 @@ export default class Vault extends VaultBase {
         },
         [[], []],
       );
+
+      if (isTransferSameValue) {
+        ParamValues = [ParamValues[0], ParamValues[1][0]];
+      }
     }
 
     const params = paramTypes.map((type, index) => ({
       type,
       value: ParamValues[index],
     }));
-
     const {
       result: { result },
       transaction,
