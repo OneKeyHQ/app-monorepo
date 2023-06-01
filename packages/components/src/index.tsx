@@ -103,6 +103,7 @@ export { default as useUserDevice } from './Provider/hooks/useUserDevice';
 export { default as MnemonicCard } from './MnemonicCard';
 export { default as RichTooltip } from './RichTooltip';
 export { default as InAppNotification } from './InAppNotification';
+export { default as MotiBox } from './MotiBox';
 
 // only export default components or pure types here
 // the component name should be the same as the file name
