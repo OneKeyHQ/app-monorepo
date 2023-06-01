@@ -7,12 +7,18 @@ import {
   useActiveWalletAccount,
   useAppSelector,
   useNavigation,
+  usePrevious,
 } from '../../../hooks';
-import TokenSelector from '../components/TokenSelector';
-import { TokenSelectorContext } from '../components/TokenSelector/context';
+import TokenSelectorControl from '../components/TokenSelectorControl';
+import { TokenSelectorControlContext } from '../components/TokenSelectorControl/context';
 
 import type { Token } from '../../../store/typings';
-import type { NetworkOption } from '../components/TokenSelector/context';
+import type {
+  NetworkOption,
+  TokenSelectorControlValues,
+} from '../components/TokenSelectorControl/context';
+
+const all = 'all';
 
 const Input = () => {
   const intl = useIntl();
@@ -31,6 +37,7 @@ const Input = () => {
       return undefined;
     },
   );
+  const previousNetworkSelectorId = usePrevious(networkSelectorId);
 
   const onSelect = useCallback(
     (token: Token) => {
@@ -40,34 +47,59 @@ const Input = () => {
     [navigation],
   );
 
-  const networkOptions = useMemo<NetworkOption[]>(() => {
+  const data = useMemo<{
+    actives: NetworkOption[];
+    inactives: NetworkOption[];
+  }>(() => {
     if (!tokenList) {
-      return [];
+      return { actives: [], inactives: [] };
     }
-    return tokenList.map((item) => {
-      const name =
-        item.name.toLowerCase() === 'all'
-          ? intl.formatMessage({ id: 'option__all' })
-          : item.name;
-      return {
-        name,
-        networkId:
-          item.name.toLowerCase() === 'all' ? undefined : item.networkId,
-        logoURI: item.logoURI,
-      };
-    });
-  }, [tokenList, intl]);
+    const items = tokenList
+      .filter((item) => item.name && item.networkId)
+      .map((item) => {
+        const name =
+          item.name.toLowerCase() === all
+            ? intl.formatMessage({ id: 'option__all' })
+            : item.name;
+        const networkId =
+          item.name.toLowerCase() === all ? undefined : item.networkId;
+        return {
+          name,
+          networkId,
+          logoURI: item.logoURI,
+        };
+      });
+    const actives: NetworkOption[] = [];
+    const inactives: NetworkOption[] = [];
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i];
+
+      const otherNetworkId = !networkSelectorId
+        ? previousNetworkSelectorId
+        : networkSelectorId;
+
+      if (!item.networkId || item.networkId === otherNetworkId) {
+        actives.push(item);
+      } else {
+        inactives.push(item);
+      }
+    }
+
+    return { actives, inactives };
+  }, [tokenList, intl, networkSelectorId, previousNetworkSelectorId]);
 
   const value = useMemo(
-    () => ({
-      impl: network?.impl,
-      networkId: networkSelectorId,
-      setNetworkId: onSelectNetworkId,
-      selectedToken: outputToken,
-      accountId: sendingAccount?.id,
-      tokenList,
-      networkOptions,
-    }),
+    () =>
+      ({
+        impl: network?.impl,
+        networkId: networkSelectorId,
+        setNetworkId: onSelectNetworkId,
+        selectedToken: outputToken,
+        accountId: sendingAccount?.id,
+        tokenList,
+        networkOptions: data.actives,
+        otherNetworkOptions: data.inactives,
+      } as TokenSelectorControlValues),
     [
       outputToken,
       networkSelectorId,
@@ -75,7 +107,7 @@ const Input = () => {
       network?.impl,
       sendingAccount?.id,
       tokenList,
-      networkOptions,
+      data,
     ],
   );
 
@@ -87,9 +119,9 @@ const Input = () => {
   }, [networkSelectorId, sendingAccount?.id]);
 
   return (
-    <TokenSelectorContext.Provider value={value}>
-      <TokenSelector onSelect={onSelect} />
-    </TokenSelectorContext.Provider>
+    <TokenSelectorControlContext.Provider value={value}>
+      <TokenSelectorControl onSelect={onSelect} />
+    </TokenSelectorControlContext.Provider>
   );
 };
 
