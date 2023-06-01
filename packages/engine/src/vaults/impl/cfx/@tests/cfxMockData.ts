@@ -38,23 +38,6 @@ const hdAccount1: IUnitTestMockAccount = {
 };
 
 const importedAccount1: IUnitTestMockAccount = {
-  // indexedDB -> accounts
-  account: {
-    address: 'b1c2f16ca9c3b324039dd0881a63ec236f1f339b6220b54ede8347b4b828daa5',
-    coinType: '397',
-    id: 'imported--397--b1c2f16ca9c3b324039dd0881a63ec236f1f339b6220b54ede8347b4b828daa5',
-    name: 'Account #1',
-    path: '',
-    pub: 'ed25519:Cxua8Jtcu4414fr97m1CHqVt7WWFdkca1pFkdtLefD5n',
-    type: 'simple' as any,
-  },
-  // indexedDB -> credentials
-  privateKey:
-    '62ec93894623daf9acf2b59d0517612ffe8e96b70cf4fc8a628aca4fbe7ae3779bf24e68e84a05c1cd64adc698687f40226e96cd3d06a42459fd608606c72d9a7674d391774d2f1431c9da242aed55bb6cb87a801fddaa65a74be6e0568dff3d',
-  password: mockCredentials.password,
-};
-
-const importedAccount2: IUnitTestMockAccount = {
   account: {
     address: '0x1a0e09b453c29ce1cb23f997869ff71c66cf6c7c',
     coinType: '503',
@@ -91,6 +74,5 @@ export default {
   network,
   hdAccount1,
   importedAccount1,
-  importedAccount2,
   watchingAccount1,
 };
