@@ -763,6 +763,10 @@ export default class Vault extends VaultBase {
     return Promise.reject(new InvalidAddress());
   }
 
+  override async validateTokenAddress(address: string): Promise<string> {
+    return this.validateAddress(address);
+  }
+
   override async broadcastTransaction(
     signedTx: ISignedTxPro,
     options?: any,
