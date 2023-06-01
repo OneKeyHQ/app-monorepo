@@ -2,15 +2,15 @@ import { useCallback, useEffect } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
-import { find, map, pick } from 'lodash';
+import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
-import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 
 import { useActiveSideAccount } from '../../../../hooks';
 import useDappApproveAction from '../../../../hooks/useDappApproveAction';
@@ -37,40 +37,6 @@ type RouteProps = RouteProp<
 >;
 
 let closeTimer: any = null;
-
-const getValidUnsignedMessage = (unsignedMessage: IUnsignedMessageEvm) => {
-  try {
-    const { type, message } = unsignedMessage;
-
-    if (
-      type === ETHMessageTypes.TYPED_DATA_V3 ||
-      type === ETHMessageTypes.TYPED_DATA_V4
-    ) {
-      const messageObject: {
-        domain: { chainId: string };
-        types: {
-          EIP712Domain: { name: string; type: string }[];
-          [key: string]: { name: string; type: string }[];
-        };
-        primaryType: string;
-        message: { [key: string]: any };
-      } = JSON.parse(message) ?? {};
-
-      // only show the messages that are declared in the types
-      const primaryTypes = map(
-        messageObject.types[messageObject.primaryType],
-        'name',
-      );
-      const validMessage = pick(messageObject.message, primaryTypes);
-      messageObject.message = validMessage;
-      unsignedMessage.message = JSON.stringify(messageObject);
-    }
-
-    return unsignedMessage;
-  } catch {
-    return unsignedMessage;
-  }
-};
 
 const SignMessageConfirm = () => {
   useOnboardingRequired();
