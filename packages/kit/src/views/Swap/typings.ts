@@ -9,6 +9,7 @@ export enum SwapRoutes {
   Swap = 'Swap',
   Input = 'Input',
   Output = 'Output',
+  OutputCrosschain = 'OutputCrosschain',
   Settings = 'Settings',
   CustomToken = 'CustomToken',
   Transaction = 'Transaction',
@@ -27,12 +28,14 @@ export enum SwapRoutes {
   LimitOrderDetails = 'LimitOrderDetails',
   TransactionSubmitted = 'TransactionSubmitted',
   HardwareContinue = 'HardwareContinue',
+  ChainSelector = 'ChainSelector',
 }
 
 export type SwapRoutesParams = {
   [SwapRoutes.Swap]: undefined;
   [SwapRoutes.Input]: undefined;
   [SwapRoutes.Output]: undefined;
+  [SwapRoutes.OutputCrosschain]: undefined;
   [SwapRoutes.LimitOrderInput]: undefined;
   [SwapRoutes.LimitOrderOutput]: undefined;
   [SwapRoutes.Settings]: undefined;
@@ -75,6 +78,10 @@ export type SwapRoutesParams = {
   [SwapRoutes.LimitOrderDetails]: { orderHash: string };
   [SwapRoutes.TransactionSubmitted]: { orderHash: string };
   [SwapRoutes.HardwareContinue]: undefined;
+  [SwapRoutes.ChainSelector]: {
+    networkIds?: string[];
+    onSelect?: (networkId: string) => void;
+  };
 };
 
 export enum SwapError {
@@ -440,6 +447,7 @@ export type TokenListItem = {
   name: string;
   logoURI: string;
   networkId: string;
+  fullname?: string;
   tokens: Token[];
 };
 

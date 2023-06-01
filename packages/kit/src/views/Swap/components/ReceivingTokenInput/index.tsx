@@ -403,7 +403,6 @@ const TokenInput: FC<TokenInputProps> = ({
           flexDirection="row"
           justifyContent="space-between"
           alignItems="flex-start"
-          mt="1"
         >
           <Pressable
             onPress={() => {
@@ -451,21 +450,18 @@ const TokenInput: FC<TokenInputProps> = ({
             ) : (
               <Box position="absolute" w="full" top="0" right="0">
                 <Box w="full" position="relative">
-                  <Box position="absolute" bottom="7" right={2}>
+                  <Box position="absolute" bottom="26px" right={2}>
                     <Box pointerEvents="none">
-                      <Typography.Caption
-                        color="text-subdued"
-                        numberOfLines={2}
-                      >
+                      <Typography.Body2 color="text-subdued" numberOfLines={2}>
                         <FormatCurrency
                           numbers={[price ?? 0, inputValue ?? 0]}
                           render={(ele) => (
-                            <Typography.Caption ml={3} color="text-subdued">
+                            <Typography.Body2 ml={3} color="text-subdued">
                               {price ? ele : '-'}
-                            </Typography.Caption>
+                            </Typography.Body2>
                           )}
                         />
-                      </Typography.Caption>
+                      </Typography.Body2>
                     </Box>
                   </Box>
                   <NumberInput
@@ -476,7 +472,7 @@ const TokenInput: FC<TokenInputProps> = ({
                     fontSize={24}
                     fontWeight="600"
                     bg="transparent"
-                    color="text-subdued"
+                    // color="text-subdued"
                     _disabled={{ bg: 'transparent' }}
                     _hover={{ bg: 'transparent' }}
                     _focus={{ bg: 'transparent' }}
