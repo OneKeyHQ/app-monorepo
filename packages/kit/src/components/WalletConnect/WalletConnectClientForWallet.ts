@@ -191,6 +191,10 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
     return this.web3walletV2?.core.pairing.disconnect({ topic });
   }
 
+  async getActivePairingsV2() {
+    return Promise.resolve(this.web3walletV2?.core.pairing.getPairings() ?? []);
+  }
+
   async getSessionV2ByTopic({
     topic,
   }: {

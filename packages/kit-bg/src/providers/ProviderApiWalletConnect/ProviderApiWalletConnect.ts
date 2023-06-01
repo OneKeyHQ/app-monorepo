@@ -351,10 +351,92 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
   // V2 ----------------------------------------------
 
   @backgroundMethod()
-  async clearAllStorageDataV2() {
-    // TODO reject all pending proposals
-    // TODO reject all pending requests
-    // TODO disconnect all active pairs
+  async destroyClientV2() {
+    const expirationsKeys = Array.from(
+      this.web3walletV2?.core.expirer.keys ?? [],
+    );
+    if (expirationsKeys?.length) {
+      await Promise.all(
+        expirationsKeys.map((key) => this.web3walletV2?.core.expirer.del(key)),
+      );
+    }
+
+    const proposals = Object.values(
+      this.web3walletV2?.getPendingSessionProposals() ?? {},
+    );
+    if (proposals?.length) {
+      await Promise.all(
+        proposals?.map(async (p) => {
+          const session = await this.web3walletV2?.rejectSession({
+            id: p.id,
+            reason: getSdkError('USER_REJECTED_METHODS', 'Wallet destroy'),
+          });
+          return session;
+        }),
+      );
+    }
+
+    const requests = this.web3walletV2?.getPendingSessionRequests();
+    if (requests?.length) {
+      await Promise.all(
+        requests?.map((r) =>
+          this.rejectSessionRequestV2({
+            request: r as any,
+            error: new Error('Wallet destroy'),
+          }),
+        ),
+      );
+    }
+
+    const { sessions } = await this.getActiveSessionsV2({ saveCache: false });
+    await Promise.all(
+      sessions.map((s) =>
+        this.disconnectV2({ sessionV2: s, clearWalletIfEmptySessions: false }),
+      ),
+    );
+
+    const pairings = await this.getActivePairingsV2();
+    await Promise.all(
+      pairings.map((p) => this.pairDisconnect({ topic: p.topic })),
+    );
+
+    // this.web3walletV2?.core.history.delete();
+
+    const historyItems = Array.from(
+      this.web3walletV2?.core.history.records.values() ?? [],
+    );
+    if (historyItems?.length) {
+      await Promise.all(
+        historyItems.map((item) =>
+          this.web3walletV2?.core.history.delete(item.topic),
+        ),
+      );
+    }
+
+    const messagesKeys = Array.from(
+      this.web3walletV2?.core.relayer.messages.messages.keys() ?? [],
+    );
+    if (messagesKeys?.length) {
+      await Promise.all(
+        messagesKeys.map((key) =>
+          this.web3walletV2?.core.relayer.messages.del(key),
+        ),
+      );
+    }
+
+    // web3walletV2?.core?.crypto?.keychain.keychain.keys()
+    const keychainKeys = Array.from(
+      this.web3walletV2?.core.crypto.keychain.keychain.keys() ?? [],
+    );
+    if (keychainKeys?.length) {
+      await Promise.all(
+        keychainKeys.map((key) =>
+          this.web3walletV2?.core.crypto.keychain.del(key),
+        ),
+      );
+    }
+
+    this.prevActiveSessionsCache = [];
 
     // @ts-ignore
     const historyKey = this.web3walletV2?.core?.history?.storageKey;
@@ -390,9 +472,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       proposalKey,
       sessionKey,
       requestKey,
-    ].forEach((key) => {
-      this.web3walletV2?.core?.storage?.removeItem(key);
-    });
+    ].forEach((key) => this.web3walletV2?.core?.storage?.removeItem(key));
 
     await wait(300);
   }
@@ -420,9 +500,11 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
   async disconnectV2({
     sessionV2,
     topic,
+    clearWalletIfEmptySessions = true,
   }: {
     sessionV2?: SessionTypes.Struct;
     topic?: string;
+    clearWalletIfEmptySessions?: boolean;
   }) {
     let session = sessionV2;
     const topicToDisconnect = topic || sessionV2?.topic;
@@ -459,8 +541,8 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     await wait(300);
     const { sessions: sessionsV2 } =
       await this.backgroundApi.serviceDapp.getWalletConnectSessionV2();
-    if (!sessionsV2?.length) {
-      await this.clearAllStorageDataV2();
+    if (!sessionsV2?.length && clearWalletIfEmptySessions) {
+      await this.destroyClientV2();
     }
 
     return Promise.resolve();
@@ -568,15 +650,9 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
         sessionRequest: request,
       });
 
-      const response = { id, jsonrpc: '2.0', result };
-      this.web3walletV2?.respondSessionRequest({ topic, response });
-    } catch (error) {
-      const response = {
-        id,
-        jsonrpc: '2.0',
-        error: getSdkError('USER_REJECTED', (error as Error)?.message),
-      };
-      this.web3walletV2?.respondSessionRequest({ topic, response });
+      this.resolveSessionRequestV2({ request, result });
+    } catch (error: any) {
+      this.rejectSessionRequestV2({ request, error });
       debugLogger.walletConnect.error(
         'walletConnectV2.responseCallRequest ERROR',
         error,
@@ -584,6 +660,34 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       throw error;
     }
   };
+
+  resolveSessionRequestV2({
+    request,
+    result,
+  }: {
+    request: Web3WalletTypes.SessionRequest;
+    result: any;
+  }) {
+    const { topic, id } = request;
+    const response = { id, jsonrpc: '2.0', result };
+    return this.web3walletV2?.respondSessionRequest({ topic, response });
+  }
+
+  rejectSessionRequestV2({
+    request,
+    error,
+  }: {
+    request: Web3WalletTypes.SessionRequest;
+    error: Error;
+  }) {
+    const { topic, id } = request;
+    const response = {
+      id,
+      jsonrpc: '2.0',
+      error: getSdkError('USER_REJECTED', error?.message),
+    };
+    return this.web3walletV2?.respondSessionRequest({ topic, response });
+  }
 
   handleSessionDeleteV2 = async ({
     id,
