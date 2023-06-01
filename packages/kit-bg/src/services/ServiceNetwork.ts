@@ -550,6 +550,21 @@ class ServiceNetwork extends ServiceBase {
   async getPresetNetworks() {
     return getPresetNetworks();
   }
+
+  @backgroundMethod()
+  async fetchRpcChainId({
+    url,
+    networkId,
+  }: {
+    url: string;
+    networkId: string;
+  }) {
+    const { engine } = this.backgroundApi;
+
+    const vault = await engine.getChainOnlyVault(networkId);
+
+    return vault.fetchRpcChainId(url);
+  }
 }
 
 export default ServiceNetwork;

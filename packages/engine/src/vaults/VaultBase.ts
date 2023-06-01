@@ -273,6 +273,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async getFeePricePerUnit(): Promise<FeePricePerUnit> {
     throw new NotImplemented();
   }
+
+  async fetchRpcChainId(url: string): Promise<string | null> {
+    return null;
+  }
 }
 
 /*
