@@ -62,7 +62,7 @@ export const TokenDisplay: FC<TokenDisplayProps> = ({ token }) => {
           </Typography.Body2>
         </Box>
         <Box ml="1">
-          <Icon size={12} name="ChevronDownSolid" />
+          <Icon size={16} name="ChevronDownSolid" />
         </Box>
       </Box>
     </Box>
