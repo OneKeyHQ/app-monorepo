@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -20,7 +20,7 @@ import {
   useAppSelector,
 } from '../../../hooks/redux';
 import { setStEthRate } from '../../../store/reducers/staking';
-import { formatAmount } from '../../Swap/utils';
+import { formatAmount, multiply } from '../../Swap/utils';
 import { fetchStEthRate } from '../utils';
 
 import type { StakingRoutes, StakingRoutesParams } from '../typing';
@@ -34,8 +34,9 @@ type RouteProps = RouteProp<
 const LidoEthUnstakeRoutes = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { source, onSelector } = route.params;
+  const { source, onSelector, amount } = route.params;
   const { networkId } = useActiveWalletAccount();
+  const [loading, setLoading] = useState(true);
   const rates = useAppSelector((s) => s.staking.stEthRate);
   const stEthRate = useMemo(() => rates?.[networkId], [rates, networkId]);
 
@@ -46,17 +47,19 @@ const LidoEthUnstakeRoutes = () => {
         const res = await fetchStEthRate({
           networkId: activeNetworkId,
           account,
+          amount,
         });
         const instantRate = res?.data?.instantRate;
         if (instantRate) {
           backgroundApiProxy.dispatch(
             setStEthRate({ networkId: activeNetworkId, value: instantRate }),
           );
+          setLoading(false);
         }
       }
     }
     main();
-  }, []);
+  }, [amount]);
 
   return (
     <Modal footer={null} header={intl.formatMessage({ id: 'form__route' })}>
@@ -87,13 +90,13 @@ const LidoEthUnstakeRoutes = () => {
               </Typography.Body2>
             </Box>
           </Box>
-          <Box flexDirection="row">
-            <Typography.Body1Strong mr="1">
-              {intl.formatMessage({ id: 'form__rate' })}
-            </Typography.Body1Strong>
+          <Box flexDirection="column" alignItems="flex-end">
             <Typography.Body1Strong color="text-success">
-              1:1
+              {amount || '0'} ETH
             </Typography.Body1Strong>
+            <Typography.Body2 color="text-subdued">
+              {intl.formatMessage({ id: 'form__you_receive' })}
+            </Typography.Body2>
           </Box>
         </Pressable>
         <Pressable
@@ -111,7 +114,7 @@ const LidoEthUnstakeRoutes = () => {
               w="10"
               h="10"
               mr="3"
-              source={require('@onekeyhq/kit/assets/logo.png')}
+              source={require('@onekeyhq/kit/assets/logo_black.png')}
             />
             <Box flexDirection="column" justifyContent="space-between">
               <Typography.Body1Strong>OneKey Swap</Typography.Body1Strong>
@@ -123,19 +126,27 @@ const LidoEthUnstakeRoutes = () => {
               </Typography.Body2>
             </Box>
           </Box>
-          <Box flexDirection="row" alignItems="center">
-            <Typography.Body1Strong mr="1">
-              {intl.formatMessage({ id: 'form__rate' })}
-            </Typography.Body1Strong>
-            {stEthRate ? (
+          <Box flexDirection="column" alignItems="flex-end">
+            {!amount ? (
               <Typography.Body1Strong color="text-success">
-                1:{formatAmount(stEthRate, 6)}
+                0 ETH
               </Typography.Body1Strong>
             ) : (
-              <Box w="6" h="4" overflow="hidden" borderRadius={12}>
-                <CustomSkeleton />
+              <Box>
+                {stEthRate && !loading ? (
+                  <Typography.Body1Strong color="text-success">
+                    {formatAmount(multiply(stEthRate, amount), 6)} ETH
+                  </Typography.Body1Strong>
+                ) : (
+                  <Box w="6" h="4" overflow="hidden" borderRadius={12}>
+                    <CustomSkeleton />
+                  </Box>
+                )}
               </Box>
             )}
+            <Typography.Body2 color="text-subdued">
+              {intl.formatMessage({ id: 'form__you_receive' })}
+            </Typography.Body2>
           </Box>
         </Pressable>
       </VStack>
