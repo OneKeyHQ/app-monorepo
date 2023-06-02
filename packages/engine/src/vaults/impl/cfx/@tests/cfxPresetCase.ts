@@ -78,6 +78,7 @@ export async function testSignTransaction(
     feeInfoValue,
   });
   const unsignedTx = await vault.buildUnsignedTxFromEncodedTx(encodedTxWithFee);
+  // 签名使用的是 elliptic
   const signedTx = await keyring.signTransaction(unsignedTx, {
     password,
   });
@@ -92,6 +93,7 @@ export async function testSignTransaction(
     digest: signedTx?.digest?.slice(2) || '',
     signature,
   };
+  // TODO: signer.verify 验签不成功，使用 secp256k1 验签
   const isVerified = verifySignature(
     Buffer.from(params.digest, 'hex'),
     signature,
