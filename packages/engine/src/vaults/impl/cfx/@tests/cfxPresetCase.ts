@@ -37,7 +37,9 @@ export async function testPrepareAccounts(
     target: encodeAddress(dbAccount.address, network.id),
     accountIdPrefix: 'external',
     password: prepareOptions.password,
-    privateKey: prepareOptions?.privateKey,
+    privateKey: prepareOptions.privateKey
+      ? Buffer.from(prepareOptions.privateKey, 'hex')
+      : '',
   } as IPrepareAccountsParams);
   expect(accounts[0]).toEqual(dbAccount);
 }
@@ -85,6 +87,7 @@ export async function testSignTransaction(
   const nativeTx = decodeRaw(signedTx.rawTx);
   const signers = await keyring.getSigners(password || '', [fromCFXAddress]);
   const signer = signers[fromCFXAddress];
+  console.error((await signer.getPrvkey()).toString('hex'));
   const rBytes = Buffer.from(nativeTx.r.slice(2) as string, 'hex');
   const sBytes = Buffer.from(nativeTx.s.slice(2) as string, 'hex');
   const signature = Buffer.concat([rBytes, sBytes]);
