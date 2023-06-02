@@ -1,15 +1,13 @@
 import { useCallback } from 'react';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../../../hooks/useAppSelector';
-import { setIncomingUrl } from '../../../../store/reducers/webTabs';
-
 import { gotoSite } from './gotoSite';
+import { incomingUrlObs, webTabsActions } from '../../../../store/observable/webTabs';
+import { useSelector } from '@legendapp/state/react';
 
-const clearIncomingUrl = () => backgroundApiProxy.dispatch(setIncomingUrl(''));
+const clearIncomingUrl = () => webTabsActions.setIncomingUrl('');
 
 export const useIncomingUrl = () => {
-  const incomingUrl = useAppSelector((s) => s.webTabs.incomingUrl);
+  const incomingUrl = useSelector(incomingUrlObs);
   const handleIncomingUrl = useCallback(() => {
     if (incomingUrl) {
       gotoSite({ url: incomingUrl, isNewWindow: true, userTriggered: true });

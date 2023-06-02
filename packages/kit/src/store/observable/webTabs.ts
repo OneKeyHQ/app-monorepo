@@ -1,4 +1,6 @@
-import { createSlice, nanoid } from '@reduxjs/toolkit';
+import { observable } from '@legendapp/state';
+import { persistObservable } from '@legendapp/state/persist';
+import { nanoid } from 'nanoid';
 
 import { ToastManager } from '@onekeyhq/components';
 import { formatMessage } from '@onekeyhq/components/src/Provider';
@@ -11,10 +13,12 @@ import {
 import {
   pauseDappInteraction,
   resumeDappInteraction,
-  webviewRefs,
 } from '../../views/Discover/Explorer/explorerUtils';
 
-import type { PayloadAction } from '@reduxjs/toolkit';
+// TODO move to bootstrap
+import './observable.config';
+
+import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 export interface WebTab {
   id: string;
@@ -22,6 +26,7 @@ export interface WebTab {
   // urlToGo?: string;
   title?: string;
   favicon?: string;
+  thumbnail?: string;
   // isPinned: boolean;
   isCurrent: boolean;
   isBookmarked?: boolean;
@@ -29,15 +34,8 @@ export interface WebTab {
   canGoBack?: boolean;
   canGoForward?: boolean;
   loading?: boolean;
-  refReady?: boolean;
+  ref?: IWebViewWrapperRef;
   timestamp?: number;
-}
-
-export interface WebTabsInitialState {
-  tabs: WebTab[];
-  currentTabId: string;
-  // external url passing to explorer to open
-  incomingUrl: string;
 }
 
 export const homeTab: WebTab = {
@@ -52,11 +50,6 @@ export const homeTab: WebTab = {
   canGoBack: false,
   loading: false,
 };
-const initialState: WebTabsInitialState = {
-  tabs: [homeTab],
-  currentTabId: 'home',
-  incomingUrl: '',
-};
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -65,121 +58,143 @@ const MAX_WEB_TABS = 100;
 export const isTabLimitReached = (tabs: WebTab[]) =>
   hasTabLimits && tabs.length >= MAX_WEB_TABS;
 
-export const webtabsSlice = createSlice({
-  name: 'webTabs',
-  initialState,
-  reducers: {
-    addWebTab: (state, { payload }: PayloadAction<Partial<WebTab>>) => {
-      if (isTabLimitReached(state.tabs)) {
-        ToastManager.show(
-          {
-            title: formatMessage(
-              { id: 'msg__tab_has_reached_the_maximum_limit_of_str' },
-              {
-                0: MAX_WEB_TABS - 1,
-              },
-            ),
-          },
-          {
-            type: 'error',
-          },
-        );
-        return;
-      }
-      if (!payload.id || payload.id === homeTab.id) {
-        payload.id = nanoid();
-      }
-      if (payload.isCurrent) {
-        for (const tab of state.tabs) {
-          tab.isCurrent = false;
-        }
-        state.currentTabId = payload.id;
-      }
-      payload.timestamp = Date.now();
-      state.tabs.push(payload as WebTab);
-    },
-    setWebTabData: (
-      state,
-      { payload }: PayloadAction<Partial<Omit<WebTab, 'isCurrent'>>>,
-    ) => {
-      const tab = state.tabs.find((t) => t.id === payload.id);
-      if (tab) {
-        Object.keys(payload).forEach((key) => {
-          // @ts-ignore
-          const value = payload[key];
-          // @ts-ignore
-          if (value !== undefined && value !== tab[key]) {
-            if (key === 'title' && !value) {
-              return;
-            }
-            // @ts-ignore
-            tab[key] = value;
-            if (key === 'url') {
-              tab.timestamp = Date.now();
-              if (value === homeTab.url && payload.id) {
-                homeResettingFlags[payload.id] = Date.now();
-              }
-              if (!payload.favicon) {
-                try {
-                  tab.favicon = `${new URL(tab.url).origin}/favicon.ico`;
-                  // eslint-disable-next-line no-empty
-                } catch {}
-              }
-            }
-          }
-        });
-        if (tab.url === homeTab.url) {
-          tab.title = homeTab.title;
-        }
-      }
-    },
-    closeWebTab: (state, { payload }: PayloadAction<string>) => {
-      delete webviewRefs[payload];
-      state.tabs = state.tabs.filter((tab, index) => {
-        if (tab.id === payload) {
-          if (tab.isCurrent) {
-            const prev = state.tabs[index - 1];
-            prev.isCurrent = true;
-            state.currentTabId = prev.id;
-          }
-          return false;
-        }
-        return true;
-      });
-      if (state.tabs.length === 1) {
-        showTabGridAnim.value = MIN_OR_HIDE;
-      }
-    },
-    closeAllWebTabs: (state) => {
-      for (const id of Object.getOwnPropertyNames(webviewRefs)) {
-        delete webviewRefs[id];
-      }
-      state.tabs = [homeTab];
-      state.currentTabId = homeTab.id;
-      showTabGridAnim.value = MIN_OR_HIDE;
-    },
-    setCurrentWebTab: (state, { payload }: PayloadAction<string>) => {
-      if (state.currentTabId !== payload) {
-        pauseDappInteraction(state.currentTabId);
-        for (const tab of state.tabs) {
-          tab.isCurrent = tab.id === payload;
-        }
-        state.currentTabId = payload;
-        resumeDappInteraction(payload);
-      }
-    },
-    setIncomingUrl: (state, { payload }: PayloadAction<string>) => {
-      state.incomingUrl = payload;
-    },
-  },
+export const webTabsObs = observable([homeTab]);
+export const incomingUrlObs = observable('');
+// eslint-disable-next-line @typescript-eslint/naming-convention
+let _currentTabId = '';
+export const getCurrentTabId = () => {
+  if (!_currentTabId) {
+    _currentTabId = webTabsObs.peek().find((t) => t.isCurrent)?.id || '';
+  }
+  return _currentTabId;
+};
+
+persistObservable(webTabsObs, {
+  local: 'webTabs',
 });
 
-export const {
-  addWebTab,
-  setWebTabData,
-  closeWebTab,
-  setCurrentWebTab,
-  setIncomingUrl,
-  closeAllWebTabs,
-} = webtabsSlice.actions;
-export default webtabsSlice.reducer;
+export const webTabsActions = {
+  addWebTab: (payload: Partial<WebTab>) => {
+    const tabs = webTabsObs.get();
+    if (isTabLimitReached(tabs)) {
+      ToastManager.show(
+        {
+          title: formatMessage(
+            { id: 'msg__tab_has_reached_the_maximum_limit_of_str' },
+            {
+              0: MAX_WEB_TABS - 1,
+            },
+          ),
+        },
+        {
+          type: 'error',
+        },
+      );
+      return;
+    }
+    if (!payload.id || payload.id === homeTab.id) {
+      payload.id = nanoid();
+    }
+    if (payload.isCurrent) {
+      for (const tab of tabs) {
+        tab.isCurrent = false;
+      }
+      _currentTabId = payload.id;
+    }
+    payload.timestamp = Date.now();
+    tabs.push(payload as WebTab);
+    webTabsObs.set(tabs);
+  },
+  setWebTabData: (payload: Partial<Omit<WebTab, 'isCurrent'>>) => {
+    const tabs = webTabsObs.get();
+    const tab = tabs.find((t) => t.id === payload.id);
+    if (tab) {
+      Object.keys(payload).forEach((key) => {
+        // @ts-ignore
+        const value = payload[key];
+        // @ts-ignore
+        if (value !== undefined && value !== tab[key]) {
+          if (key === 'title' && !value) {
+            return;
+          }
+          // @ts-ignore
+          tab[key] = value;
+          if (key === 'url') {
+            tab.timestamp = Date.now();
+            if (value === homeTab.url && payload.id) {
+              homeResettingFlags[payload.id] = Date.now();
+            }
+            if (!payload.favicon) {
+              try {
+                tab.favicon = `${new URL(tab.url).origin}/favicon.ico`;
+                // eslint-disable-next-line no-empty
+              } catch {}
+            }
+          }
+        }
+      });
+      if (tab.url === homeTab.url) {
+        tab.title = homeTab.title;
+      }
+      webTabsObs.set(tabs);
+    }
+  },
+  closeWebTab: (tabId: string) => {
+    // delete webviewRefs[payload];
+    const tabs = webTabsObs.get();
+    let targetIndex = -1;
+    tabs.some((t, index) => {
+      if (t.id === tabId) {
+        if (t.isCurrent) {
+          const prev = tabs[index - 1];
+          prev.isCurrent = true;
+          _currentTabId = prev.id;
+        }
+        targetIndex = index;
+        return true;
+      }
+      return false;
+    });
+    tabs.splice(targetIndex, 1);
+    if (tabs.length === 1) {
+      showTabGridAnim.value = MIN_OR_HIDE;
+    }
+    webTabsObs.set(tabs);
+  },
+  closeAllWebTabs: () => {
+    // for (const id of Object.getOwnPropertyNames(webviewRefs)) {
+    //   delete webviewRefs[id];
+    // }
+    webTabsObs.set([homeTab]);
+    _currentTabId = homeTab.id;
+    showTabGridAnim.value = MIN_OR_HIDE;
+  },
+  setCurrentWebTab: (tabId: string) => {
+    const currentTabId = getCurrentTabId();
+    if (currentTabId !== tabId) {
+      pauseDappInteraction(currentTabId);
+
+      const webTabs = webTabsObs.get();
+      let previousTabUpdated = false;
+      let nextTabUpdated = false;
+      for (const tab of webTabs) {
+        if (tab.isCurrent) {
+          tab.isCurrent = false;
+          previousTabUpdated = true;
+        } else if (tab.id === tabId) {
+          tab.isCurrent = true;
+          nextTabUpdated = true;
+        }
+        if (previousTabUpdated && nextTabUpdated) {
+          break;
+        }
+      }
+      webTabsObs.set(webTabs);
+      resumeDappInteraction(tabId);
+      _currentTabId = tabId;
+    }
+  },
+  setIncomingUrl: (url: string) => {
+    incomingUrlObs.set(url);
+  },
+};

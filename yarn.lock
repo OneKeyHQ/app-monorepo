@@ -4390,19 +4390,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@legendapp/state@npm:^1.2.3":
-  version: 1.2.3
-  resolution: "@legendapp/state@npm:1.2.3"
+"@legendapp/state@npm:^1.2.6":
+  version: 1.2.6
+  resolution: "@legendapp/state@npm:1.2.6"
   dependencies:
     use-sync-external-store: ^1.2.0
   peerDependencies:
-    "@tanstack/react-query": ^4.14.6
-    next: ^12
+    "@tanstack/react-query": ">=4.14.6"
+    next: ">=12"
     react: ">=16.8"
     react-native: ">=0.61"
-    react-native-mmkv: ^2
+    react-native-mmkv: ">=2"
   peerDependenciesMeta:
     "@tanstack/react-query":
+      optional: true
+    next:
       optional: true
     react:
       optional: true
@@ -4410,7 +4412,7 @@ __metadata:
       optional: true
     react-native-mmkv:
       optional: true
-  checksum: 13291d0a52ebab1853ac6613e6a5d1ca069cc024a0f660b506d20b01d86b496e84baee9081458a688d81c899c5664c7cf109937375af622f800b0fcb45dbae2e
+  checksum: 670da0f34d3cb6a6dcaf626be768399029f690a834c7ea7147283b3e17ad264d5f7c8f2b91585af81aae06c128c708d442fbf50559b84362b96a72df58fcd3f5
   languageName: node
   linkType: hard
 
@@ -5335,7 +5337,7 @@ __metadata:
     "@babel/eslint-parser": ^7.19.1
     "@babel/plugin-proposal-nullish-coalescing-operator": ^7.18.6
     "@babel/preset-react": ^7.18.6
-    "@legendapp/state": ^1.2.3
+    "@legendapp/state": ^1.2.6
     "@onekeyfe/blockchain-libs": 0.0.48
     "@onekeyfe/cross-inpage-provider-core": 1.1.28
     "@onekeyfe/cross-inpage-provider-errors": 1.1.28
@@ -5508,6 +5510,7 @@ __metadata:
     react-native-in-app-review: ^4.3.3
     react-native-keyboard-manager: ^6.5.11-1
     react-native-level-fs: ^3.0.1
+    react-native-mmkv: ^2.8.0
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#feat/support-rn71"
     react-native-pager-view: 6.1.4
     react-native-randombytes: ^3.6.1
@@ -27475,6 +27478,16 @@ __metadata:
     react: ^16.2.0
     react-native: ">=0.50.4"
   checksum: 9f8f7a9ae165e6964719dc16a79d254e1ce7febc9938ebf035f1194f3cda3154eb6c7efd622de1b92b9c01704aad88c0501e64c00a0a2439331c44a039929db4
+  languageName: node
+  linkType: hard
+
+"react-native-mmkv@npm:^2.8.0":
+  version: 2.8.0
+  resolution: "react-native-mmkv@npm:2.8.0"
+  peerDependencies:
+    react: "*"
+    react-native: ">=0.71.0"
+  checksum: 993b486533b00c0b8092ea0b7682428fe704726ec03daf244fbd046bd772e3cfc0aba67b8a9eece31adcb6492c76d838f167eeed877657349a0cae51c8844b8d
   languageName: node
   linkType: hard
 
