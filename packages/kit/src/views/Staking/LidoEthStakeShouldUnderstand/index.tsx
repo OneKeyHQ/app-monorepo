@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,12 +14,19 @@ import {
 } from '@onekeyhq/components';
 import { Body1Strong } from '@onekeyhq/components/src/Typography';
 
-import { useNavigation } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { EthStakingSource, StakingRoutes } from '../typing';
 
+import type { StakingRoutesParams } from '../typing';
+import type { RouteProp } from '@react-navigation/core';
+
+type RouteProps = RouteProp<
+  StakingRoutesParams,
+  StakingRoutes.LidoEthStakeShouldUnderstand
+>;
+
 const TypographyStrong = (text: string) => (
-  <Typography.Body1 color="text-success">{text}</Typography.Body1>
+  <Typography.Body1Strong color="text-success">{text}</Typography.Body1Strong>
 );
 
 const LidoEthStakingContent = () => {
@@ -98,24 +106,44 @@ const LidoEthStakingContent = () => {
           <Box mr="3">
             <Icon name="GiftOutline" />
           </Box>
-          <Body1Strong>
-            {intl.formatMessage(
-              {
-                id: 'form__rewards_are_automatically_credited_to_your_deposit_every_few_days',
-              },
-              { 'a': TypographyStrong },
-            )}
-          </Body1Strong>
+          <Box flex="1">
+            <Body1Strong>
+              {intl.formatMessage(
+                {
+                  id: 'form__rewards_are_automatically_credited_to_your_deposit_every_few_days',
+                },
+                { 'a': TypographyStrong },
+              )}
+            </Body1Strong>
+          </Box>
         </Box>
       </VStack>
       <Collapse
         renderCustomTrigger={(onPress, collapsed) => (
           <Box py="4">
-            <Button size="sm" type="plain" onPress={onPress}>
-              {collapsed
-                ? intl.formatMessage({ id: 'action__learn_more' })
-                : intl.formatMessage({ id: 'action__collapse' })}
-            </Button>
+            {collapsed ? (
+              <Button
+                size="sm"
+                type="plain"
+                rightIconName="ChevronDownMini"
+                iconColor="icon-subdued"
+                textProps={{ color: 'text-subdued' }}
+                onPress={onPress}
+              >
+                {intl.formatMessage({ id: 'action__learn_more' })}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                type="plain"
+                rightIconName="ChevronUpMini"
+                iconColor="icon-subdued"
+                textProps={{ color: 'text-subdued' }}
+                onPress={onPress}
+              >
+                {intl.formatMessage({ id: 'action__collapse' })}
+              </Button>
+            )}
           </Box>
         )}
       >
@@ -172,19 +200,26 @@ const LidoEthStakingContent = () => {
 const LidoEthStaking = () => {
   const intl = useIntl();
   const navigation = useNavigation();
+  const { params } = useRoute<RouteProps>();
   const onPrimaryActionPress = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Staking,
-      params: {
-        screen: StakingRoutes.ETHStake,
-        params: { source: EthStakingSource.Lido },
-      },
-    });
-  }, [navigation]);
+    if (params.readonly) {
+      navigation.goBack();
+    } else {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Staking,
+        params: {
+          screen: StakingRoutes.ETHStake,
+          params: { source: EthStakingSource.Lido },
+        },
+      });
+    }
+  }, [navigation, params]);
   return (
     <Modal
       hideSecondaryAction
-      primaryActionTranslationId="action__lets_go"
+      primaryActionTranslationId={
+        params.readonly ? 'action__i_got_it' : 'action__lets_go'
+      }
       onPrimaryActionPress={onPrimaryActionPress}
       header={`${intl.formatMessage({ id: 'form__staking' })} ETH`}
       scrollViewProps={{
