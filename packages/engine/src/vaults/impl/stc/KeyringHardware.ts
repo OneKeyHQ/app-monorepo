@@ -6,10 +6,6 @@
 import { arrayify } from '@ethersproject/bytes';
 import { starcoin_types, utils } from '@starcoin/starcoin';
 
-import {
-  buildSignedTx,
-  buildUnsignedRawTx,
-} from '@onekeyhq/blockchain-libs/src/provider/chains/stc/provider';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_STC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -18,6 +14,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { OneKeyHardwareError } from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
+
+import { buildSignedTx, buildUnsignedRawTx } from './utils';
 
 import type { DBSimpleAccount } from '../../../types/account';
 import type {

@@ -1,11 +1,19 @@
-import { arrayify } from '@ethersproject/bytes';
-import { bcs, encoding, utils } from '@starcoin/starcoin';
+/* eslint-disable camelcase */
+import { arrayify, hexlify } from '@ethersproject/bytes';
+import {
+  bcs,
+  crypto_hash,
+  encoding,
+  starcoin_types,
+  utils,
+} from '@starcoin/starcoin';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import type { UnsignedTx } from '../../../types/provider';
 import type { Token } from '../../../types/token';
 import type { ISTCExplorerTransaction } from './types';
 
@@ -177,3 +185,76 @@ export function encodeTokenTransferData(
     ),
   );
 }
+
+export const buildSignedTx = (
+  senderPublicKey: string,
+  rawSignature: Buffer,
+  rawTxn: starcoin_types.RawUserTransaction,
+) => {
+  const publicKey = new starcoin_types.Ed25519PublicKey(
+    Buffer.from(senderPublicKey, 'hex'),
+  );
+  const signature = new starcoin_types.Ed25519Signature(rawSignature);
+  const transactionAuthenticatorVariantEd25519 =
+    new starcoin_types.TransactionAuthenticatorVariantEd25519(
+      publicKey,
+      signature,
+    );
+  const signedUserTransaction = new starcoin_types.SignedUserTransaction(
+    rawTxn,
+    transactionAuthenticatorVariantEd25519,
+  );
+  const se = new bcs.BcsSerializer();
+  signedUserTransaction.serialize(se);
+  const txid = crypto_hash
+    .createUserTransactionHasher()
+    .crypto_hash(se.getBytes());
+  const rawTx = hexlify(se.getBytes());
+
+  return { txid, rawTx };
+};
+
+export const buildUnsignedRawTx = (
+  unsignedTx: UnsignedTx,
+  chainId: string,
+): [starcoin_types.RawUserTransaction, Uint8Array] => {
+  const fromAddr = unsignedTx.inputs[0].address;
+  const { scriptFn, data } = unsignedTx.payload;
+
+  const gasLimit = unsignedTx.feeLimit;
+  const gasPrice = unsignedTx.feePricePerUnit;
+  const { nonce } = unsignedTx;
+  const { expirationTime } = unsignedTx.payload;
+
+  if (
+    !fromAddr ||
+    !(scriptFn || data) ||
+    !gasLimit ||
+    !gasPrice ||
+    typeof nonce === 'undefined'
+  ) {
+    throw new Error('invalid unsignedTx');
+  }
+
+  let txPayload: starcoin_types.TransactionPayload;
+  if (scriptFn) {
+    txPayload = scriptFn;
+  } else {
+    txPayload = encoding.bcsDecode(starcoin_types.TransactionPayload, data);
+  }
+
+  const rawTxn = utils.tx.generateRawUserTransaction(
+    fromAddr,
+    txPayload,
+    gasLimit.toNumber(),
+    gasPrice.toNumber(),
+    nonce,
+    expirationTime,
+    Number(chainId),
+  );
+
+  const serializer = new bcs.BcsSerializer();
+  rawTxn.serialize(serializer);
+
+  return [rawTxn, serializer.getBytes()];
+};
