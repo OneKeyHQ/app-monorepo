@@ -1129,6 +1129,8 @@
   "form__created": "তৈরি হয়েছে",
   "form__created_str": "তৈরি করা হয়েছে {0}",
   "form__cross_chain": "ক্রস চেইন",
+  "form__cross_chain_desc": "ক্রস-চেইন",
+  "form__cross_chain_str": "ক্রস-চেইন: {0}",
   "form__cross_chain_swap": "ক্রস-চেইন অদলবদল",
   "form__cross_chain_swap_desc": "আপনি অবাধে {0} সমর্থিত চেইন জুড়ে টোকেন অদলবদল করতে পারেন।",
   "form__crypto": "ক্রিপ্টোকারেন্সি",

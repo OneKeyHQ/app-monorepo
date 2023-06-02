@@ -1129,6 +1129,8 @@
   "form__created": "创建时间",
   "form__created_str": "创建于 {0}",
   "form__cross_chain": "跨链",
+  "form__cross_chain_desc": "跨链",
+  "form__cross_chain_str": "跨链: {0}",
   "form__cross_chain_swap": "跨链兑换",
   "form__cross_chain_swap_desc": "您可以在多达 {0} 个已支持的链上自由兑换代币",
   "form__crypto": "加密货币",

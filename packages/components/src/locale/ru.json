@@ -1129,6 +1129,8 @@
   "form__created": "Созданный",
   "form__created_str": "Создано {0}",
   "form__cross_chain": "Крест цепи",
+  "form__cross_chain_desc": "Кросс-чейн",
+  "form__cross_chain_str": "Кроссчейн: {0}",
   "form__cross_chain_swap": "Межсетевой обмен",
   "form__cross_chain_swap_desc": "Вы можете свободно обменивать токены в более чем {0} поддерживаемых цепочках.",
   "form__crypto": "Криптовалюта",
