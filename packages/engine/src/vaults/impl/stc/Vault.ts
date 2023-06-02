@@ -13,6 +13,7 @@ import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
+  InvalidAddress,
   InvalidTokenAddress,
   NotImplemented,
   OneKeyInternalError,
@@ -42,6 +43,7 @@ import {
   encodeTokenTransferData,
   extractTransactionInfo,
   getAddressHistoryFromExplorer,
+  verifyAddress,
 } from './utils';
 
 import type { DBSimpleAccount } from '../../../types/account';
@@ -319,7 +321,7 @@ export default class Vault extends VaultBase {
 
   async getVerifier(pub: string): Promise<Verifier> {
     const { curve } = await this.getChainInfo();
-    console.log('___curve___', curve)
+    console.log('___curve___', curve);
     return new Verifier(pub, curve as Curve);
   }
 
@@ -636,5 +638,20 @@ export default class Vault extends VaultBase {
       }
     }
     throw new InvalidTokenAddress();
+  }
+
+  override async validateAddress(address: string): Promise<string> {
+    const { normalizedAddress, isValid } = verifyAddress(address);
+    if (!isValid || !normalizedAddress) {
+      throw new InvalidAddress();
+    }
+    return Promise.resolve(normalizedAddress);
+  }
+
+  override async validateWatchingCredential(input: string): Promise<boolean> {
+    // Generic address test, override if needed.
+    return Promise.resolve(
+      this.settings.watchingAccountEnabled && verifyAddress(input).isValid,
+    );
   }
 }

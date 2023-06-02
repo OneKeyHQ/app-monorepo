@@ -6,14 +6,14 @@ import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
 
 import type { DBSimpleAccount } from '../../../types/account';
 import type { IPrepareWatchingAccountsParams } from '../../types';
+import { verifyAddress } from './utils';
 
 export class KeyringWatching extends KeyringWatchingBase {
   override async prepareAccounts(
     params: IPrepareWatchingAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
     const { name, target, accountIdPrefix } = params;
-    const { normalizedAddress, isValid } =
-      await this.engine.providerManager.verifyAddress(this.networkId, target);
+    const { normalizedAddress, isValid } = verifyAddress(target);
     if (!isValid || typeof normalizedAddress === 'undefined') {
       throw new InvalidAddress();
     }

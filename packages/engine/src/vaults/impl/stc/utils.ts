@@ -15,7 +15,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { Verifier } from '../../../proxy';
 
-import type { UnsignedTx } from '../../../types/provider';
+import type { AddressValidation, UnsignedTx } from '../../../types/provider';
 import type { Token } from '../../../types/token';
 import type { ISTCExplorerTransaction } from './types';
 
@@ -278,4 +278,42 @@ export const pubkeyToAddress = async (
     throw new Error('invalid encoding');
   }
   return address;
+};
+
+export const verifyAddress = (address: string): AddressValidation => {
+  if (address.startsWith('stc')) {
+    try {
+      const riv = encoding.decodeReceiptIdentifier(address);
+      return {
+        normalizedAddress: `0x${riv.accountAddress}`,
+        displayAddress: address,
+        isValid: true,
+        encoding: 'bech32',
+      };
+    } catch (error) {
+      // pass
+    }
+  } else {
+    try {
+      const normalizedAddress = address.startsWith('0x')
+        ? address.toLowerCase()
+        : `0x${address.toLowerCase()}`;
+      const accountAddress = encoding.addressToSCS(normalizedAddress);
+      // in order to check invalid address length, because the auto padding 0 at head of address
+      if (encoding.addressFromSCS(accountAddress) === normalizedAddress) {
+        return {
+          normalizedAddress,
+          displayAddress: normalizedAddress,
+          isValid: true,
+          encoding: 'hex',
+        };
+      }
+    } catch (error) {
+      // pass
+    }
+  }
+
+  return {
+    isValid: false,
+  };
 };
