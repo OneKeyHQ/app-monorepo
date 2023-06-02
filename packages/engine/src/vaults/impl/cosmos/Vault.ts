@@ -178,7 +178,7 @@ export default class Vault extends VaultBase {
     )) as DBVariantAccount;
 
     const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
-      this.networkId,
+      networkId,
     );
 
     const address = baseAddressToAddress(
