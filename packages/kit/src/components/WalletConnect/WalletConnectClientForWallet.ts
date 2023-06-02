@@ -1,6 +1,8 @@
 // eslint-disable-next-line import/order
 import './utils/walletConnectV2SdkShims';
+
 import { Core, RELAYER_EVENTS } from '@walletconnect-v2/core';
+import { getSdkError } from '@walletconnect-v2/utils';
 import { Web3Wallet } from '@walletconnect-v2/web3wallet';
 import { merge } from 'lodash';
 import { Linking } from 'react-native';
@@ -29,8 +31,15 @@ import { WalletConnectSessionStorage } from './WalletConnectSessionStorage';
 import type { IWalletConnectRequestOptions } from './types';
 import type { IWalletConnectClientOptions } from './WalletConnectClient';
 import type { ISessionStatusPro } from './WalletConnectClientForDapp';
-import type { SessionTypes } from '@walletconnect-v2/types';
-import type { IWeb3Wallet } from '@walletconnect-v2/web3wallet';
+import type {
+  JsonRpcRecord,
+  PendingRequestTypes,
+  SessionTypes,
+} from '@walletconnect-v2/types';
+import type {
+  IWeb3Wallet,
+  Web3WalletTypes,
+} from '@walletconnect-v2/web3wallet';
 import type {
   IKeyValueStorage,
   KeyValueStorageOptions,
@@ -173,6 +182,7 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
       metadata: WALLET_CONNECT_CLIENT_META,
     });
     this.web3walletV2 = web3walletV2;
+    await this.clearHistoryCacheV2(() => true);
     // web3walletV2.engine.signClient.proposal.
     this.registerEventsV2(this.web3walletV2);
     await this.getActiveSessionsV2();
@@ -183,11 +193,10 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
     if (!this.web3walletV2) {
       throw new Error('web3walletV2 not ready yet');
     }
-    return this.web3walletV2.core.pairing.pair({ uri: params.uri });
+    return this.web3walletV2.pair({ uri: params.uri });
   }
 
-  // TODO rename to disconnectPair
-  async pairDisconnect({ topic }: { topic: string }) {
+  async disconnectPairingV2({ topic }: { topic: string }) {
     return this.web3walletV2?.core.pairing.disconnect({ topic });
   }
 
@@ -365,4 +374,219 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
       await wait(600);
     }
   }
+
+  async clearExpirationsCacheV2() {
+    try {
+      const expirationsKeys = Array.from(
+        this.web3walletV2?.core.expirer.keys ?? [],
+      );
+      if (expirationsKeys?.length) {
+        await Promise.all(
+          expirationsKeys.map((key) =>
+            this.web3walletV2?.core.expirer.del(key),
+          ),
+        );
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async clearRequestsCacheV2(
+    filter: (item: PendingRequestTypes.Struct) => boolean,
+  ) {
+    try {
+      const requests = this.web3walletV2?.getPendingSessionRequests();
+      if (requests?.length) {
+        await Promise.all(
+          requests?.filter(filter).map((r) =>
+            this.rejectSessionRequestV2({
+              request: r as any,
+              error: new Error('Wallet destroy'),
+            }),
+          ),
+        );
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async clearSessionsCacheV2() {
+    try {
+      const { sessions } = await this.getActiveSessionsV2({ saveCache: false });
+      await Promise.all(
+        sessions.map((s) =>
+          this.disconnectV2({
+            sessionV2: s,
+            clearWalletIfEmptySessions: false,
+          }),
+        ),
+      );
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async clearProposalsCacheV2() {
+    try {
+      const proposals = Object.values(
+        this.web3walletV2?.getPendingSessionProposals() ?? {},
+      );
+      if (proposals?.length) {
+        await Promise.all(
+          proposals?.map(async (p) => {
+            const session = await this.web3walletV2?.rejectSession({
+              id: p.id,
+              reason: getSdkError('USER_REJECTED_METHODS', 'Wallet destroy'),
+            });
+            return session;
+          }),
+        );
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async clearPairingsCacheV2() {
+    try {
+      const pairings = await this.getActivePairingsV2();
+      await Promise.all(
+        pairings.map((p) => this.disconnectPairingV2({ topic: p.topic })),
+      );
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async clearHistoryCacheV2(filter: (item: JsonRpcRecord) => boolean) {
+    try {
+      const historyItems = Array.from(
+        this.web3walletV2?.core.history.records.values() ?? [],
+      );
+      if (historyItems?.length) {
+        await Promise.all(
+          historyItems
+            .filter(filter)
+            .map((item) => this.web3walletV2?.core.history.delete(item.topic)),
+        );
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async clearMessagesCacheV2() {
+    try {
+      const messagesKeys = Array.from(
+        this.web3walletV2?.core.relayer.messages.messages.keys() ?? [],
+      );
+      if (messagesKeys?.length) {
+        await Promise.all(
+          messagesKeys.map((key) =>
+            this.web3walletV2?.core.relayer.messages.del(key),
+          ),
+        );
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async clearKeychainsCacheV2() {
+    try {
+      const keychainKeys = Array.from(
+        this.web3walletV2?.core.crypto.keychain.keychain.keys() ?? [],
+      );
+      if (keychainKeys?.length) {
+        await Promise.all(
+          keychainKeys.map((key) =>
+            this.web3walletV2?.core.crypto.keychain.del(key),
+          ),
+        );
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  @backgroundMethod()
+  async clearAllWalletCacheV2() {
+    // **** DO Not remove expirer, because it will clear expired data automatically
+    // await this.clearExpirationsCacheV2();
+
+    await this.clearRequestsCacheV2(() => true);
+    await this.clearSessionsCacheV2();
+    await this.clearProposalsCacheV2();
+    await this.clearPairingsCacheV2();
+    await this.clearHistoryCacheV2(() => true);
+    await this.clearMessagesCacheV2();
+    await this.clearKeychainsCacheV2();
+
+    this.prevActiveSessionsCache = [];
+
+    // @ts-ignore
+    const historyKey = this.web3walletV2?.core?.history?.storageKey;
+    // @ts-ignore
+    const pairingKey = this.web3walletV2?.core?.pairing?.storageKey;
+    // @ts-ignore
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const expirerKey = this.web3walletV2?.core?.expirer?.storageKey;
+    // @ts-ignore
+    const keychainKey = this.web3walletV2?.core?.crypto?.keychain?.storageKey;
+    const subscriberKey =
+      // @ts-ignore
+      this.web3walletV2?.core?.relayer?.subscriber?.storageKey;
+    // @ts-ignore
+    const messagesKey = this.web3walletV2?.core?.relayer?.messages?.storageKey;
+    const proposalKey =
+      // @ts-ignore
+      this.web3walletV2?.engine?.signClient?.proposal?.storageKey;
+    const sessionKey =
+      // @ts-ignore
+      this.web3walletV2?.engine?.signClient?.session?.storageKey;
+    const requestKey =
+      // @ts-ignore
+      this.web3walletV2?.engine?.signClient?.pendingRequest?.storageKey;
+
+    [
+      // **** DO Not remove expirer, because it will clear expired data automatically
+      // expirerKey,
+      historyKey,
+      pairingKey,
+      keychainKey,
+      subscriberKey,
+      messagesKey,
+      proposalKey,
+      sessionKey,
+      requestKey,
+    ]
+      .filter(Boolean)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      .forEach((key) => {
+        // **** keep storage data here, use this.clearXXXX() instead.
+        // this.web3walletV2?.core?.storage?.removeItem(key);
+      });
+
+    await wait(300);
+  }
+
+  abstract rejectSessionRequestV2({
+    request,
+    error,
+  }: {
+    request: Web3WalletTypes.SessionRequest;
+    error: Error;
+  }): Promise<void> | undefined;
+
+  abstract disconnectV2({
+    sessionV2,
+    topic,
+    clearWalletIfEmptySessions = true,
+  }: {
+    sessionV2?: SessionTypes.Struct;
+    topic?: string;
+    clearWalletIfEmptySessions?: boolean;
+  }): Promise<void>;
 }

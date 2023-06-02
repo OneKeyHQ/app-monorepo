@@ -350,133 +350,6 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
 
   // V2 ----------------------------------------------
 
-  @backgroundMethod()
-  async destroyClientV2() {
-    const expirationsKeys = Array.from(
-      this.web3walletV2?.core.expirer.keys ?? [],
-    );
-    if (expirationsKeys?.length) {
-      await Promise.all(
-        expirationsKeys.map((key) => this.web3walletV2?.core.expirer.del(key)),
-      );
-    }
-
-    const proposals = Object.values(
-      this.web3walletV2?.getPendingSessionProposals() ?? {},
-    );
-    if (proposals?.length) {
-      await Promise.all(
-        proposals?.map(async (p) => {
-          const session = await this.web3walletV2?.rejectSession({
-            id: p.id,
-            reason: getSdkError('USER_REJECTED_METHODS', 'Wallet destroy'),
-          });
-          return session;
-        }),
-      );
-    }
-
-    const requests = this.web3walletV2?.getPendingSessionRequests();
-    if (requests?.length) {
-      await Promise.all(
-        requests?.map((r) =>
-          this.rejectSessionRequestV2({
-            request: r as any,
-            error: new Error('Wallet destroy'),
-          }),
-        ),
-      );
-    }
-
-    const { sessions } = await this.getActiveSessionsV2({ saveCache: false });
-    await Promise.all(
-      sessions.map((s) =>
-        this.disconnectV2({ sessionV2: s, clearWalletIfEmptySessions: false }),
-      ),
-    );
-
-    const pairings = await this.getActivePairingsV2();
-    await Promise.all(
-      pairings.map((p) => this.pairDisconnect({ topic: p.topic })),
-    );
-
-    // this.web3walletV2?.core.history.delete();
-
-    const historyItems = Array.from(
-      this.web3walletV2?.core.history.records.values() ?? [],
-    );
-    if (historyItems?.length) {
-      await Promise.all(
-        historyItems.map((item) =>
-          this.web3walletV2?.core.history.delete(item.topic),
-        ),
-      );
-    }
-
-    const messagesKeys = Array.from(
-      this.web3walletV2?.core.relayer.messages.messages.keys() ?? [],
-    );
-    if (messagesKeys?.length) {
-      await Promise.all(
-        messagesKeys.map((key) =>
-          this.web3walletV2?.core.relayer.messages.del(key),
-        ),
-      );
-    }
-
-    // web3walletV2?.core?.crypto?.keychain.keychain.keys()
-    const keychainKeys = Array.from(
-      this.web3walletV2?.core.crypto.keychain.keychain.keys() ?? [],
-    );
-    if (keychainKeys?.length) {
-      await Promise.all(
-        keychainKeys.map((key) =>
-          this.web3walletV2?.core.crypto.keychain.del(key),
-        ),
-      );
-    }
-
-    this.prevActiveSessionsCache = [];
-
-    // @ts-ignore
-    const historyKey = this.web3walletV2?.core?.history?.storageKey;
-    // @ts-ignore
-    const pairingKey = this.web3walletV2?.core?.pairing?.storageKey;
-    // @ts-ignore
-    const expirerKey = this.web3walletV2?.core?.expirer?.storageKey;
-    // @ts-ignore
-    const keychainKey = this.web3walletV2?.core?.crypto?.keychain?.storageKey;
-    const subscriberKey =
-      // @ts-ignore
-      this.web3walletV2?.core?.relayer?.subscriber?.storageKey;
-    // @ts-ignore
-    const messagesKey = this.web3walletV2?.core?.relayer?.messages?.storageKey;
-
-    const proposalKey =
-      // @ts-ignore
-      this.web3walletV2?.engine?.signClient?.proposal?.storageKey;
-    const sessionKey =
-      // @ts-ignore
-      this.web3walletV2?.engine?.signClient?.session?.storageKey;
-    const requestKey =
-      // @ts-ignore
-      this.web3walletV2?.engine?.signClient?.pendingRequest?.storageKey;
-
-    [
-      historyKey,
-      pairingKey,
-      expirerKey,
-      keychainKey,
-      subscriberKey,
-      messagesKey,
-      proposalKey,
-      sessionKey,
-      requestKey,
-    ].forEach((key) => this.web3walletV2?.core?.storage?.removeItem(key));
-
-    await wait(300);
-  }
-
   async getChainIdIntegerV2({
     sessionV2,
     networkImpl,
@@ -497,7 +370,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
   }
 
   @backgroundMethod()
-  async disconnectV2({
+  override async disconnectV2({
     sessionV2,
     topic,
     clearWalletIfEmptySessions = true,
@@ -511,6 +384,9 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     // https://docs.walletconnect.com/2.0/reactnative/web3wallet/wallet-usage#session-disconnect
     if (topicToDisconnect) {
       try {
+        await this.clearRequestsCacheV2(
+          (item) => item.topic === topicToDisconnect,
+        );
         await this.web3walletV2?.disconnectSession({
           topic: topicToDisconnect,
           reason: getSdkError('USER_DISCONNECTED'),
@@ -518,19 +394,29 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       } catch (error) {
         console.error(error);
       }
+      await this.clearHistoryCacheV2(
+        (item) => item.topic === topicToDisconnect,
+      );
     }
 
     if (topicToDisconnect && !session) {
       session = await this.getSessionV2ByTopic({ topic: topicToDisconnect });
     }
     if (session) {
-      // TODO remove all pairs if not active session exists
-      try {
-        await this.pairDisconnect({
-          topic: session.pairingTopic,
-        });
-      } catch (error) {
-        console.error(error);
+      const { pairingTopic } = session;
+      const sessionsInSamePairing = (
+        await this.getActiveSessionsV2()
+      ).sessions.filter((s) => s.pairingTopic === pairingTopic);
+
+      if (!sessionsInSamePairing?.length) {
+        try {
+          await this.disconnectPairingV2({
+            topic: pairingTopic,
+          });
+        } catch (error) {
+          console.error(error);
+        }
+        await this.clearHistoryCacheV2((item) => item.topic === pairingTopic);
       }
 
       await this.removeConnectedAccounts({
@@ -539,10 +425,9 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     }
 
     await wait(300);
-    const { sessions: sessionsV2 } =
-      await this.backgroundApi.serviceDapp.getWalletConnectSessionV2();
+    const { sessions: sessionsV2 } = await this.getActiveSessionsV2();
     if (!sessionsV2?.length && clearWalletIfEmptySessions) {
-      await this.destroyClientV2();
+      await this.clearAllWalletCacheV2();
     }
 
     return Promise.resolve();
@@ -673,7 +558,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
     return this.web3walletV2?.respondSessionRequest({ topic, response });
   }
 
-  rejectSessionRequestV2({
+  override rejectSessionRequestV2({
     request,
     error,
   }: {
