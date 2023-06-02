@@ -566,7 +566,7 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       .forEach((key) => {
         // **** keep storage data here, use this.clearXXXX() instead.
-        // this.web3walletV2?.core?.storage?.removeItem(key);
+        this.web3walletV2?.core?.storage?.removeItem(key);
       });
 
     await wait(300);
