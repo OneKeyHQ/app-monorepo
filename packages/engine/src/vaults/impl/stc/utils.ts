@@ -13,6 +13,8 @@ import BigNumber from 'bignumber.js';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { Verifier } from '../../../proxy';
+
 import type { UnsignedTx } from '../../../types/provider';
 import type { Token } from '../../../types/token';
 import type { ISTCExplorerTransaction } from './types';
@@ -257,4 +259,23 @@ export const buildUnsignedRawTx = (
   rawTxn.serialize(serializer);
 
   return [rawTxn, serializer.getBytes()];
+};
+
+export const pubkeyToAddress = async (
+  pub: string,
+  encodingType = 'hex',
+): Promise<string> => {
+  const verifier = new Verifier(pub, 'ed25519');
+  let address = '';
+  const pubkeyBytes = await verifier.getPubkey();
+  if (encodingType === 'hex') {
+    address = encoding.publicKeyToAddress(pubkeyBytes.toString('hex'));
+  } else if (encodingType === 'bech32') {
+    address = encoding.publicKeyToReceiptIdentifier(
+      pubkeyBytes.toString('hex'),
+    );
+  } else {
+    throw new Error('invalid encoding');
+  }
+  return address;
 };

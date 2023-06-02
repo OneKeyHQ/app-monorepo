@@ -17,7 +17,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
-import { extractResponseError } from '../../../proxy';
+import { Verifier, extractResponseError } from '../../../proxy';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
@@ -315,6 +315,12 @@ export default class Vault extends VaultBase {
         .toFixed();
     }
     return Promise.resolve(encodedTx);
+  }
+
+  async getVerifier(pub: string): Promise<Verifier> {
+    const { curve } = await this.getChainInfo();
+    console.log('___curve___', curve)
+    return new Verifier(pub, curve as Curve);
   }
 
   async buildUnsignedTxFromEncodedTx(

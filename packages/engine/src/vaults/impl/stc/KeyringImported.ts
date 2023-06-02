@@ -9,6 +9,8 @@ import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
+import { pubkeyToAddress } from './utils';
+
 import type { DBSimpleAccount } from '../../../types/account';
 import type { IPrepareImportedAccountsParams } from '../../types';
 
@@ -40,15 +42,7 @@ export class KeyringImported extends KeyringImportedBase {
 
     const pubBuffer = ed25519.publicFromPrivate(privateKey);
     const pub = pubBuffer.toString('hex');
-    const address = await this.engine.providerManager.pubkeyToAddress(
-      this.networkId,
-      {
-        getPubkey: (_compressed?: boolean) => Promise.resolve(pubBuffer),
-        verify: (_digest, _signature) => Promise.resolve(Buffer.from([])),
-      },
-      'hex',
-    );
-
+    const address = await pubkeyToAddress(pub);
     return Promise.resolve([
       {
         id: `imported--${COIN_TYPE}--${pub}`,

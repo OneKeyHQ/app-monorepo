@@ -9,9 +9,12 @@ import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
+
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBSimpleAccount } from '../../../types/account';
 import type { IPrepareSoftwareAccountsParams } from '../../types';
+import Vault from './Vault';
+import { pubkeyToAddress } from './utils';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;
 
@@ -66,14 +69,7 @@ export class KeyringHd extends KeyringHdBase {
         extendedKey: { key: pubkey },
       } = info;
       const pub = pubkey.toString('hex');
-      const address = await this.engine.providerManager.pubkeyToAddress(
-        this.networkId,
-        {
-          getPubkey: (_compressed?: boolean) => Promise.resolve(pubkey),
-          verify: (_digest, _signature) => Promise.resolve(Buffer.from([])),
-        },
-        'hex',
-      );
+      const address = await pubkeyToAddress(pub);
       const name = (names || [])[index] || `STC #${indexes[index] + 1}`;
       ret.push({
         id: `${this.walletId}--${path}`,
