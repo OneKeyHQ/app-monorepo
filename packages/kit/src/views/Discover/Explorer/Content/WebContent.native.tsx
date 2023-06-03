@@ -5,17 +5,16 @@ import { openURL as LinkingOpenUrl } from 'expo-linking';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { WALLET_CONNECT_PROTOCOL_PREFIXES } from '../../../../components/WalletConnect/walletConnectConsts';
 import useBackHandler from '../../../../hooks/useBackHandler';
 import { handleDeepLinkUrl } from '../../../../routes/deepLink';
-import { homeTab, setWebTabData } from '../../../../store/reducers/webTabs';
+import { homeTab, webTabsActions } from '../../../../store/observable/webTabs';
 import { gotoSite } from '../Controller/gotoSite';
 import { onNavigation } from '../Controller/useWebController';
 import { MAX_OR_SHOW, expandAnim } from '../explorerAnimation';
 import { webviewRefs } from '../explorerUtils';
 
-import type { WebTab } from '../../../../store/reducers/webTabs';
+import type { WebTab } from '../../../../store/observable/webTabs';
 import type { WebViewNavigation, WebViewProps } from 'react-native-webview';
 
 const WebContent: FC<WebTab & WebViewProps> = ({
@@ -110,10 +109,9 @@ const WebContent: FC<WebTab & WebViewProps> = ({
         androidLayerType={androidLayerType}
         src={url}
         onWebViewRef={(ref) => {
-          const { dispatch } = backgroundApiProxy;
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
-              dispatch(setWebTabData({ id, refReady: true }));
+              webTabsActions.setWebTabData({ id, refReady: true });
             }
             webviewRefs[id] = ref;
           }

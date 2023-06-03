@@ -1,8 +1,13 @@
 import { useCallback } from 'react';
 
-import { gotoSite } from './gotoSite';
-import { incomingUrlObs, webTabsActions } from '../../../../store/observable/webTabs';
 import { useSelector } from '@legendapp/state/react';
+
+import {
+  incomingUrlObs,
+  webTabsActions,
+} from '../../../../store/observable/webTabs';
+
+import { gotoSite } from './gotoSite';
 
 const clearIncomingUrl = () => webTabsActions.setIncomingUrl('');
 

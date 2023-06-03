@@ -51,7 +51,6 @@ import statusReducer from './reducers/status';
 import swapReducer from './reducers/swap';
 import swapTransactionsReducer from './reducers/swapTransactions';
 import tokensReducer from './reducers/tokens';
-import webTabsReducer from './reducers/webTabs'; // 24.34 MB **** +20 Mb UI components
 
 import type {
   Action,
@@ -82,7 +81,6 @@ const allReducers = combineReducers({
   swap: swapReducer,
   swapTransactions: swapTransactionsReducer,
   tokens: tokensReducer,
-  webTabs: webTabsReducer,
   overview: overviewReducer,
   httpServer: httpServerReducer,
   limitOrder: limitOrderReducer,

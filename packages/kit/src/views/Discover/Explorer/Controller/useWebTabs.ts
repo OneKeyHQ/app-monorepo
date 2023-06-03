@@ -7,8 +7,10 @@ import {
   webTabsObs,
 } from '../../../../store/observable/webTabs';
 
+import type { WebTab } from '../../../../store/observable/webTabs';
+
 export const useWebTabs = (id?: string) => {
-  const tabs = useSelector(webTabsObs);
+  const tabs = useSelector(webTabsObs) as WebTab[];
   const currentTabId = getCurrentTabId();
   const curId = id || currentTabId;
   return useMemo(

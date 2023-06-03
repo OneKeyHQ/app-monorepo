@@ -7,18 +7,13 @@ import { formatMessage } from '@onekeyhq/components/src/Provider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
-  MIN_OR_HIDE,
-  showTabGridAnim,
-} from '../../views/Discover/Explorer/explorerAnimation';
-import {
   pauseDappInteraction,
   resumeDappInteraction,
+  webviewRefs,
 } from '../../views/Discover/Explorer/explorerUtils';
 
 // TODO move to bootstrap
 import './observable.config';
-
-import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 export interface WebTab {
   id: string;
@@ -34,7 +29,7 @@ export interface WebTab {
   canGoBack?: boolean;
   canGoForward?: boolean;
   loading?: boolean;
-  ref?: IWebViewWrapperRef;
+  refReady?: boolean;
   timestamp?: number;
 }
 
@@ -55,7 +50,7 @@ export const homeResettingFlags: Record<string, number> = {};
 
 const hasTabLimits = platformEnv.isNative && !platformEnv.isNativeIOSPad;
 const MAX_WEB_TABS = 100;
-export const isTabLimitReached = (tabs: WebTab[]) =>
+export const isTabLimitReached = (tabs: (WebTab | undefined)[]) =>
   hasTabLimits && tabs.length >= MAX_WEB_TABS;
 
 export const webTabsObs = observable([homeTab]);
@@ -75,7 +70,7 @@ persistObservable(webTabsObs, {
 
 export const webTabsActions = {
   addWebTab: (payload: Partial<WebTab>) => {
-    const tabs = webTabsObs.get();
+    const tabs = [...webTabsObs.get()];
     if (isTabLimitReached(tabs)) {
       ToastManager.show(
         {
@@ -105,9 +100,21 @@ export const webTabsActions = {
     tabs.push(payload as WebTab);
     webTabsObs.set(tabs);
   },
+  addBlankWebTab: () => {
+    webTabsActions.addWebTab({});
+  },
   setWebTabData: (payload: Partial<Omit<WebTab, 'isCurrent'>>) => {
-    const tabs = webTabsObs.get();
-    const tab = tabs.find((t) => t.id === payload.id);
+    const tabs = [...webTabsObs.get()];
+    let tabIndex = -1;
+    const tab = {
+      ...tabs.find((t, i) => {
+        if (t.id === homeTab.id) {
+          tabIndex = i;
+          return true;
+        }
+        return false;
+      }),
+    } as WebTab;
     if (tab) {
       Object.keys(payload).forEach((key) => {
         // @ts-ignore
@@ -122,11 +129,11 @@ export const webTabsActions = {
           if (key === 'url') {
             tab.timestamp = Date.now();
             if (value === homeTab.url && payload.id) {
-              homeResettingFlags[payload.id] = Date.now();
+              homeResettingFlags[payload.id] = tab.timestamp;
             }
             if (!payload.favicon) {
               try {
-                tab.favicon = `${new URL(tab.url).origin}/favicon.ico`;
+                tab.favicon = `${new URL(tab.url ?? '').origin}/favicon.ico`;
                 // eslint-disable-next-line no-empty
               } catch {}
             }
@@ -136,12 +143,13 @@ export const webTabsActions = {
       if (tab.url === homeTab.url) {
         tab.title = homeTab.title;
       }
+      tabs[tabIndex] = tab;
       webTabsObs.set(tabs);
     }
   },
   closeWebTab: (tabId: string) => {
-    // delete webviewRefs[payload];
-    const tabs = webTabsObs.get();
+    delete webviewRefs[tabId];
+    const tabs = [...webTabsObs.get()];
     let targetIndex = -1;
     tabs.some((t, index) => {
       if (t.id === tabId) {
@@ -157,27 +165,32 @@ export const webTabsActions = {
     });
     tabs.splice(targetIndex, 1);
     if (tabs.length === 1) {
-      showTabGridAnim.value = MIN_OR_HIDE;
+      const { showTabGridAnim } =
+        require('../../views/Discover/Explorer/explorerAnimation') as typeof import('../../views/Discover/Explorer/explorerAnimation');
+      showTabGridAnim.value = 0;
     }
     webTabsObs.set(tabs);
   },
   closeAllWebTabs: () => {
-    // for (const id of Object.getOwnPropertyNames(webviewRefs)) {
-    //   delete webviewRefs[id];
-    // }
+    for (const id of Object.getOwnPropertyNames(webviewRefs)) {
+      delete webviewRefs[id];
+    }
     webTabsObs.set([homeTab]);
     _currentTabId = homeTab.id;
-    showTabGridAnim.value = MIN_OR_HIDE;
+
+    const { showTabGridAnim } =
+      require('../../views/Discover/Explorer/explorerAnimation') as typeof import('../../views/Discover/Explorer/explorerAnimation');
+    showTabGridAnim.value = 0;
   },
   setCurrentWebTab: (tabId: string) => {
     const currentTabId = getCurrentTabId();
     if (currentTabId !== tabId) {
       pauseDappInteraction(currentTabId);
 
-      const webTabs = webTabsObs.get();
+      const tabs = [...webTabsObs.get()];
       let previousTabUpdated = false;
       let nextTabUpdated = false;
-      for (const tab of webTabs) {
+      for (const tab of tabs) {
         if (tab.isCurrent) {
           tab.isCurrent = false;
           previousTabUpdated = true;
@@ -189,7 +202,7 @@ export const webTabsActions = {
           break;
         }
       }
-      webTabsObs.set(webTabs);
+      webTabsObs.set(tabs);
       resumeDappInteraction(tabId);
       _currentTabId = tabId;
     }

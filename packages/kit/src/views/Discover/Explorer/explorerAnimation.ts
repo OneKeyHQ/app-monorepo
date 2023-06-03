@@ -3,12 +3,14 @@ import { createRef } from 'react';
 import { makeMutable, runOnJS, withTiming } from 'react-native-reanimated';
 import { captureRef } from 'react-native-view-shot';
 
-import {
-  AppUIEventBusNames,
-  appUIEventBus,
-} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import {
+  getCurrentTabId,
+  webTabsActions,
+} from '../../../store/observable/webTabs';
+
+import { getWebTabs } from './Controller/useWebTabs';
 import { pauseDappInteraction, resumeDappInteraction } from './explorerUtils';
 
 import type { View } from 'react-native';
@@ -50,9 +52,7 @@ const getTabCellLayout = (tabId: string, callback: () => void) => {
 };
 export const showTabGrid = () => {
   pauseDappInteraction();
-  const { appSelector } =
-    require('@onekeyhq/kit/src/store') as typeof import('@onekeyhq/kit/src/store');
-  const { currentTabId, tabs } = appSelector((s) => s.webTabs);
+  const { currentTabId, tabs } = getWebTabs();
   if (platformEnv.isNative && tabViewShotRef.current) {
     captureRef(tabViewShotRef, {
       format: 'jpg',
@@ -60,11 +60,7 @@ export const showTabGrid = () => {
       height: thumbnailWidth * thumbnailRatio,
       quality: 0.6,
     }).then((uri) => {
-      appUIEventBus.emit(
-        AppUIEventBusNames.WebTabThumbnailUpdated,
-        currentTabId,
-        uri,
-      );
+      webTabsActions.setWebTabData({ id: currentTabId, thumbnail: uri });
     });
   }
   getTabCellLayout(currentTabId, () => {
@@ -82,9 +78,7 @@ export const showTabGrid = () => {
 };
 
 export const hideTabGrid = (id?: string) => {
-  const { appSelector } =
-    require('@onekeyhq/kit/src/store') as typeof import('@onekeyhq/kit/src/store');
-  const curId = id || appSelector((s) => s.webTabs.currentTabId);
+  const curId = id || getCurrentTabId();
   getTabCellLayout(curId, () => {
     showTabGridAnim.value = withTiming(MIN_OR_HIDE);
     resumeDappInteraction();
