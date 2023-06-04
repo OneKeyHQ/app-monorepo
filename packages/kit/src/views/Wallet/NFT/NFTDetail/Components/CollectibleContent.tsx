@@ -12,13 +12,12 @@ import {
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import NFTAudio from '../../../../components/NFTAudio';
-import { MemoFallbackElement } from '../../../../components/NFTPlaceholderElement';
-import NFTSVG from '../../../../components/NFTSVG';
-import NFTVideo from '../../../../components/NFTVideo';
-import NFTListImage from '../NFTList/NFTListImage';
-
-import useUniqueToken, { ComponentType } from './useUniqueToken';
+import NFTAudio from '../../../../../components/NFTAudio';
+import { MemoFallbackElement } from '../../../../../components/NFTPlaceholderElement';
+import NFTSVG from '../../../../../components/NFTSVG';
+import NFTVideo from '../../../../../components/NFTVideo';
+import NFTListImage from '../../NFTList/NFTListImage';
+import useUniqueToken, { ComponentType } from '../useUniqueToken';
 
 export type Props = {
   asset: NFTAsset;

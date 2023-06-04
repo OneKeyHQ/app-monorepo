@@ -58,3 +58,7 @@ export type Tool = {
   logoURI: string;
   link: string;
 };
+
+export enum BRCTokenType {
+  BRC20 = 'brc20',
+}

@@ -1,25 +1,25 @@
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
-import type { Collection } from '../../../types/nft';
+import type { NFTListItems } from '../../../types/nft';
 
-export type ISimpleDbEntityNFTData = Record<string, Collection[]>;
+export type ISimpleDbEntityNFTData = Record<string, NFTListItems>;
 
 class SimpleDbEntityNFT extends SimpleDbEntityBase<ISimpleDbEntityNFTData> {
   entityName = 'nft';
 
   override enableCache = false;
 
-  async setNFTs(collections: Collection[], key: string): Promise<void> {
+  async setNFTs(nfts: NFTListItems, key: string): Promise<void> {
     let savaData: ISimpleDbEntityNFTData = {};
     const rawData = await this.getRawData();
     if (rawData) {
       savaData = rawData;
     }
-    savaData[key] = collections;
+    savaData[key] = nfts;
     this.setRawData(savaData);
   }
 
-  async getNFTs(key: string): Promise<Collection[]> {
+  async getNFTs(key: string): Promise<NFTListItems> {
     const rawData = await this.getRawData();
     if (rawData) {
       return rawData[key] ?? [];

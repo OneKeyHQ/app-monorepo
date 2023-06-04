@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import type { ComponentProps, FC } from 'react';
+import type { FC } from 'react';
 
 import { Row } from 'native-base';
 
@@ -20,10 +20,7 @@ import { useTokenPrice } from '../../../../hooks/useTokens';
 
 import NFTListImage from './NFTListImage';
 
-type Props = ComponentProps<typeof Box> & {
-  collectible: Collection;
-  onSelectCollection?: (cols: Collection) => void;
-};
+import type { ListDataType, ListItemComponentType, ListItemType } from './type';
 
 const CountView: FC<{ count: number; size: number }> = ({ count, size }) => (
   <Box
@@ -87,11 +84,25 @@ const SubItemList: FC<SubItemListProps> = ({ width, collectible }) => {
   );
 };
 
-const CollectionCard: FC<Props> = ({
-  onSelectCollection,
-  collectible,
+export function keyExtractor(
+  item: ListItemType<ListDataType>,
+  index: number,
+): string {
+  const data = item.data as Collection;
+  if (data.contractAddress) {
+    return `Collection ${data.contractAddress}`;
+  }
+  if (data.contractName) {
+    return `Collection ${data.contractName}`;
+  }
+  return `Collection ${index}`;
+}
+
+function CollectionCard({
+  onSelect,
+  data: collectible,
   ...rest
-}) => {
+}: ListItemComponentType<Collection>) {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
   const { network } = useActiveWalletAccount();
@@ -122,8 +133,8 @@ const CollectionCard: FC<Props> = ({
         flexDirection="column"
         _hover={{ bg: 'surface-hovered' }}
         onPress={() => {
-          if (onSelectCollection) {
-            onSelectCollection(collectible);
+          if (onSelect) {
+            onSelect(collectible);
           }
         }}
       >
@@ -146,6 +157,6 @@ const CollectionCard: FC<Props> = ({
       </Pressable>
     </Box>
   );
-};
+}
 
 export default memo(CollectionCard);

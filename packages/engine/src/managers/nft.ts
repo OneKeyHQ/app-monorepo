@@ -4,6 +4,8 @@ import axios from 'axios';
 import type {
   Collection,
   NFTAsset,
+  NFTBTCAssetModel,
+  NFTListItems,
   NFTServiceResp,
   NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
@@ -131,7 +133,7 @@ export const getNFTTransactionHistory = async (
     const { data: txMap } = await axios
       .get<NFTServiceResp<TxMapType>>(apiUrl)
       .then((resp) => resp.data);
-    return txMap;
+    return txMap ?? {};
   }
   return {} as TxMapType;
 };
@@ -223,13 +225,23 @@ export function createOutputActionFromNFTTransaction({
   };
 }
 
+export function NFTDataType(networkId: string) {
+  if (networkId === OnekeyNetwork.btc) {
+    return 'btc';
+  }
+  if (networkId === OnekeyNetwork.sol) {
+    return 'sol';
+  }
+  return 'evm';
+}
+
 export async function getLocalNFTs({
   networkId,
   accountId,
 }: {
   networkId: string;
   accountId: string;
-}): Promise<Collection[]> {
+}): Promise<NFTListItems> {
   const key = getNFTListKey(accountId, networkId);
   const items = await simpleDb.nft.getNFTs(key);
   if (items) {
@@ -252,8 +264,14 @@ export async function getAssetFromLocal({
   if (!accountId) {
     return;
   }
-  const collections = await getLocalNFTs({ networkId, accountId });
-  const collection = collections.find(
+  const nfts = await getLocalNFTs({ networkId, accountId });
+  const type = NFTDataType(networkId);
+  if (type === 'btc') {
+    return (nfts as NFTBTCAssetModel[]).find(
+      (item) => item.inscription_id === tokenId,
+    );
+  }
+  const collection = (nfts as Collection[]).find(
     (item) => item.contractAddress === contractAddress,
   );
   return collection?.assets.find((item) => item.tokenId === tokenId);

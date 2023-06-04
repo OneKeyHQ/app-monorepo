@@ -198,7 +198,7 @@ export const GroupedBackupDetails = ({
           key={uuid}
         />
       ))}
-      {utxos?.length && (
+      {utxos?.length ? (
         <GenericBackupItem
           iconName="TagOutline"
           name={intl.formatMessage({
@@ -211,7 +211,7 @@ export const GroupedBackupDetails = ({
             { 0: utxos?.length },
           )}
         />
-      )}
+      ) : null}
     </Box>
   );
 };

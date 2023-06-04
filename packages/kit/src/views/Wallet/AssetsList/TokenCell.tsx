@@ -12,6 +12,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import {
   FormatBalance,
@@ -122,6 +123,9 @@ const TokenCell: FC<TokenCellProps> = ({
     return null;
   }
 
+  const isDisabled =
+    networkId === OnekeyNetwork.btc && token.tokenIdOnNetwork.length > 0;
+
   return (
     <Pressable.Item
       p={4}
@@ -137,6 +141,7 @@ const TokenCell: FC<TokenCellProps> = ({
       w="100%"
       flexDirection="row"
       alignItems="center"
+      isDisabled={isDisabled}
     >
       <Box flex={1}>
         <Token

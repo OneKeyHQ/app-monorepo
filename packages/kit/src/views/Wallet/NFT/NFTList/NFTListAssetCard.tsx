@@ -1,5 +1,4 @@
 import { memo, useMemo } from 'react';
-import type { ComponentProps, FC } from 'react';
 
 import {
   Badge,
@@ -20,12 +19,27 @@ import { convertToMoneyFormat } from '../utils';
 
 import NFTListImage from './NFTListImage';
 
-type Props = ComponentProps<typeof Box> & {
-  asset: NFTAsset;
-  onSelectAsset?: (asset: NFTAsset) => void;
-};
+import type { ListDataType, ListItemComponentType, ListItemType } from './type';
 
-const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
+export function keyExtractor(
+  item: ListItemType<ListDataType>,
+  index: number,
+): string {
+  const data = item.data as NFTAsset;
+  if (data.contractAddress && data.tokenId) {
+    return data.contractAddress + data.tokenId;
+  }
+  if (data.tokenAddress) {
+    return data.tokenAddress;
+  }
+  return `NFTAsset ${index}`;
+}
+
+function NFTListAssetCard({
+  onSelect,
+  data: asset,
+  ...rest
+}: ListItemComponentType<NFTAsset>) {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
   const { network } = useActiveWalletAccount();
@@ -83,8 +97,8 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
         width={cardWidth}
         _hover={{ bg: 'surface-hovered' }}
         onPress={() => {
-          if (onSelectAsset) {
-            onSelectAsset(asset);
+          if (onSelect) {
+            onSelect(asset);
           }
         }}
       >
@@ -119,6 +133,6 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
       </Pressable>
     </Box>
   );
-};
+}
 
 export default memo(NFTListAssetCard);

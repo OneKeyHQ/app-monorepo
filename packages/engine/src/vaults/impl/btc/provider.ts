@@ -2,6 +2,8 @@ import * as bitcoin from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import ECPairFactory from 'ecpair';
 
+import type { AddressValidation } from '@onekeyhq/engine/src/types/provider';
+
 import { Provider as BaseProvider } from '../../utils/btcForkChain/provider';
 import ecc from '../../utils/btcForkChain/provider/nobleSecp256k1Wrapper';
 
@@ -53,6 +55,14 @@ export function tweakSigner(
 }
 
 export default class Provider extends BaseProvider {
+  override verifyAddress(address: string): AddressValidation {
+    return {
+      normalizedAddress: address,
+      displayAddress: address,
+      isValid: true,
+    };
+  }
+
   override async getBitcoinSigner(
     signer: Signer,
     input: PsbtInput,

@@ -195,9 +195,10 @@ const CollectionModal: FC<CollectionModalProps> = () => {
         case ViewTypes.NFTCard:
           return (
             <NFTListAssetCard
-              asset={data as NFTAsset}
+              isAsset
+              data={data as NFTAsset}
               key={index}
-              onSelectAsset={handleSelectAsset}
+              onSelect={handleSelectAsset}
             />
           );
         default:

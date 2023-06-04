@@ -216,10 +216,10 @@ function SendNFTList({
   const fetchData = useCallback(async () => {
     if (account && networkId) {
       const result = await serviceNFT.fetchNFT({
-        accountId: account.address,
+        account,
         networkId,
       });
-      return result;
+      return result?.data;
     }
     return [];
   }, [account, networkId, serviceNFT]);
@@ -229,14 +229,14 @@ function SendNFTList({
       if (account && networkId) {
         const localData = await serviceNFT.getLocalNFTs({
           networkId,
-          accountId: account.address,
+          account,
         });
         if (isMountedRef.current) {
-          updateListData(localData);
+          updateListData(localData?.data as Collection[]);
         }
         const requestData = await fetchData();
         if (isMountedRef.current) {
-          updateListData(requestData);
+          updateListData(requestData as Collection[]);
         }
       }
     })();
