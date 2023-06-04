@@ -116,7 +116,7 @@ export default function UnstakeAmount() {
     const input = amount.trim();
     const amountBN = new BigNumber(input);
     if (
-      minAmountBN.lt(0) &&
+      minAmountBN.gt(0) &&
       input &&
       (amountBN.isNaN() || (amountBN.gt(0) && amountBN.lt(minAmountBN)))
     ) {
@@ -309,6 +309,7 @@ export default function UnstakeAmount() {
         screen: StakingRoutes.LidoEthUnstakeRoutes,
         params: {
           source,
+          amount,
           onSelector: (value) => {
             setSource(value as UnstakeRouteOptionsValue);
             navigation.goBack();
@@ -316,7 +317,7 @@ export default function UnstakeAmount() {
         },
       },
     });
-  }, [source, navigation]);
+  }, [source, navigation, amount]);
 
   const rate = useMemo(() => {
     if (source === 'lido') {
@@ -377,6 +378,7 @@ export default function UnstakeAmount() {
               </Center>
             </Center>
             <Center>
+              <Box h="1" flexShrink="1" />
               <HStack flexDirection="row" alignItems="center" space="3">
                 <Button size="sm" onPress={() => userInput(25)}>
                   25%
@@ -391,6 +393,7 @@ export default function UnstakeAmount() {
                   {intl.formatMessage({ id: 'action__max' })}
                 </Button>
               </HStack>
+              <Box h="1" flexShrink="1" />
               <Box
                 h="8"
                 flexDirection="row"
@@ -456,7 +459,7 @@ export default function UnstakeAmount() {
               h="10"
             >
               <Typography.Body2 color="text-subdued">
-                {intl.formatMessage({ id: 'form__protocol' })}
+                {intl.formatMessage({ id: 'form__route' })}
               </Typography.Body2>
               <Pressable onPress={onPress}>
                 <UnstakeRouteOptions value={source} />

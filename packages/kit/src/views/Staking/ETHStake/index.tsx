@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FC } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
@@ -93,6 +93,13 @@ export default function ETHStaking() {
     source,
     networkId === OnekeyNetwork.goerli,
   );
+
+  useEffect(() => {
+    if (!aprValue) {
+      backgroundApiProxy.serviceStaking.fetchEthAprSma();
+    }
+    // eslint-disable-next-line
+  }, [])
 
   const [amount, setAmount] = useState('');
   const { token: tokenInfo } = useSingleToken(networkId, '');
@@ -347,6 +354,7 @@ export default function ETHStaking() {
               </Center>
             </Center>
             <Center flexGrow="0.5" flexShrink="1" flexDirection="column">
+              <Box h="1" flexShrink="1" />
               <HStack flexDirection="row" alignItems="center" space="3">
                 <Button size="sm" onPress={() => userInput(25)}>
                   25%

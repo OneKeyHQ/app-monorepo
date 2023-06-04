@@ -31,11 +31,11 @@ import { notifyIfRiskToken } from '../../../ManageTokens/helpers/TokenSecurityMo
 import { useTokenPrice, useTokenSearch } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
 import { formatAmount, gt } from '../../utils';
+import { EmptySkeleton, LoadingSkeleton } from '../TokenSkeleton';
 
 import { TokenSelectorControlContext } from './context';
 import { useContextAccountTokens } from './hooks';
 import { Observer } from './Observer';
-import { EmptySkeleton, LoadingSkeleton } from './Skeleton';
 
 import type { ListRenderItem } from 'react-native';
 
