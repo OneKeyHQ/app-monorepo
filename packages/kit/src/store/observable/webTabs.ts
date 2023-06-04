@@ -53,7 +53,7 @@ const MAX_WEB_TABS = 100;
 export const isTabLimitReached = (tabs: (WebTab | undefined)[]) =>
   hasTabLimits && tabs.length >= MAX_WEB_TABS;
 
-export const webTabsObs = observable([homeTab]);
+export const webTabsObs = observable([{ ...homeTab }]);
 export const incomingUrlObs = observable('');
 // eslint-disable-next-line @typescript-eslint/naming-convention
 let _currentTabId = '';
@@ -101,14 +101,14 @@ export const webTabsActions = {
     webTabsObs.set(tabs);
   },
   addBlankWebTab: () => {
-    webTabsActions.addWebTab({});
+    webTabsActions.addWebTab({ ...homeTab });
   },
   setWebTabData: (payload: Partial<Omit<WebTab, 'isCurrent'>>) => {
     const tabs = [...webTabsObs.get()];
     let tabIndex = -1;
     const tab = {
       ...tabs.find((t, i) => {
-        if (t.id === homeTab.id) {
+        if (t.id === payload.id) {
           tabIndex = i;
           return true;
         }
@@ -175,7 +175,7 @@ export const webTabsActions = {
     for (const id of Object.getOwnPropertyNames(webviewRefs)) {
       delete webviewRefs[id];
     }
-    webTabsObs.set([homeTab]);
+    webTabsObs.set([{ ...homeTab }]);
     _currentTabId = homeTab.id;
 
     const { showTabGridAnim } =
@@ -190,12 +190,21 @@ export const webTabsActions = {
       const tabs = [...webTabsObs.get()];
       let previousTabUpdated = false;
       let nextTabUpdated = false;
-      for (const tab of tabs) {
+
+      // eslint-disable-next-line no-plusplus
+      for (let i = 0; i < tabs.length; i++) {
+        const tab = tabs[i];
         if (tab.isCurrent) {
-          tab.isCurrent = false;
+          tabs[i] = {
+            ...tab,
+            isCurrent: false,
+          };
           previousTabUpdated = true;
         } else if (tab.id === tabId) {
-          tab.isCurrent = true;
+          tabs[i] = {
+            ...tab,
+            isCurrent: true,
+          };
           nextTabUpdated = true;
         }
         if (previousTabUpdated && nextTabUpdated) {

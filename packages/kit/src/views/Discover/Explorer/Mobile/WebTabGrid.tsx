@@ -37,13 +37,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    flexGrow: 1,
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    flexWrap: 'wrap',
-    alignItems: 'flex-start',
+    // flexGrow: 1,
+    // flexDirection: 'row',
+    // justifyContent: 'flex-start',
+    // // flexWrap: 'wrap',
+    // alignItems: 'flex-start',
     paddingVertical: WEB_TAB_CELL_GAP,
-    paddingRight: WEB_TAB_CELL_GAP,
+    // paddingRight: WEB_TAB_CELL_GAP,
   },
 });
 const WebTabCard: FC<
@@ -171,6 +171,7 @@ const WebTabGrid = () => {
         },
         animStyle,
       ]}
+      numColumns={2}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.contentContainer}
       data={data}

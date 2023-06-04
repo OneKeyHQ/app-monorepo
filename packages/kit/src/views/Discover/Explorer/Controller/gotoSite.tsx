@@ -71,22 +71,24 @@ export const gotoSite = ({
     const urls = bookmarks?.map((item) => item.url);
     const isBookmarked = urls?.includes(url);
 
+    if (isNewTab) {
+      webTabsActions.addWebTab({
+        title,
+        url: validatedUrl,
+        favicon,
+        isCurrent: true,
+        isBookmarked,
+      });
+    } else {
+      webTabsActions.setWebTabData({
+        id: tabId,
+        url: validatedUrl,
+        title,
+        favicon,
+        isBookmarked,
+      });
+    }
     dispatch(
-      isNewTab
-        ? webTabsActions.addWebTab({
-            title,
-            url: validatedUrl,
-            favicon,
-            isCurrent: true,
-            isBookmarked,
-          })
-        : webTabsActions.setWebTabData({
-            id: tabId,
-            url: validatedUrl,
-            title,
-            favicon,
-            isBookmarked,
-          }),
       dAppId
         ? updateHistory(dAppId)
         : addWebSiteHistory({
