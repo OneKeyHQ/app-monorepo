@@ -1,5 +1,7 @@
 import { SUI_TYPE_ARG, TransactionBlock } from '@mysten/sui.js';
 
+import { normalizeSuiCoinType } from '../utils';
+
 import type {
   CoinStruct,
   JsonRpcProvider,
@@ -27,7 +29,14 @@ export async function getAllCoins(
       break;
     }
 
-    allData.push(...data);
+    for (const item of data) {
+      const normalCoinType = normalizeSuiCoinType(item.coinType);
+      allData.push({
+        ...item,
+        coinType: normalCoinType,
+      });
+    }
+
     cursor = nextCursor;
   } while (cursor);
 
@@ -58,7 +67,11 @@ export async function createCoinSendTransaction({
     tx.transferObjects([tx.gas], tx.pure(to));
     tx.setGasPayment(
       coins
-        .filter((coin) => coin.coinType === coinType)
+        .filter(
+          (coin) =>
+            normalizeSuiCoinType(coin.coinType) ===
+            normalizeSuiCoinType(coinType),
+        )
         .map((coin) => ({
           objectId: coin.coinObjectId,
           digest: coin.digest,
@@ -70,7 +83,8 @@ export async function createCoinSendTransaction({
   }
 
   const [primaryCoin, ...mergeCoins] = coins.filter(
-    (coin) => coin.coinType === coinType,
+    (coin) =>
+      normalizeSuiCoinType(coin.coinType) === normalizeSuiCoinType(coinType),
   );
 
   if (coinType === SUI_TYPE_ARG) {
