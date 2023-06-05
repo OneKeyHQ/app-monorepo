@@ -177,9 +177,10 @@ export class ClientSol extends BaseClient {
   async getTransactionStatuses(
     txids: string[],
   ): Promise<Array<TransactionStatus | undefined>> {
+    //   support maxSupportedTransactionVersion, doc https://docs.solana.com/developing/versioned-transactions
     const calls: Array<any> = txids.map((txid) => [
       RPC_METHODS.GET_TRANSACTION,
-      [txid, PARAMS_ENCODINGS.JSON_PARSED],
+      [txid, { encoding: PARAMS_ENCODINGS.JSON_PARSED, maxSupportedTransactionVersion: 0 }],
     ]);
     const result = [];
     const resp: Array<{ [key: string]: any } | undefined> =

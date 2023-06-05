@@ -32,6 +32,7 @@ import type {
 } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { TransactionStatus } from '../../../types/provider';
 
 import {
   InvalidAddress,
@@ -255,6 +256,13 @@ export default class Vault extends VaultBase {
     }
 
     return ret;
+  }
+
+  override async getTransactionStatuses(
+    txids: Array<string>,
+  ): Promise<Array<TransactionStatus | undefined>> {
+    const client = await this.getClient()
+    return client.getTransactionStatuses(txids)
   }
 
   // Chain only methods
