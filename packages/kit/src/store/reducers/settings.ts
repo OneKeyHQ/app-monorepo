@@ -119,6 +119,7 @@ export type SettingsState = {
   advancedSettings?: {
     useDustUtxo?: boolean;
   };
+  hardwareConnectSrc?: string;
 };
 
 export const defaultPushNotification = {
@@ -193,6 +194,7 @@ const initialState: SettingsState = {
   advancedSettings: {
     useDustUtxo: true,
   },
+  hardwareConnectSrc: undefined,
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -605,6 +607,12 @@ export const settingsSlice = createSlice({
         ...action.payload,
       };
     },
+    setHardwareConnectSrc(
+      state,
+      action: PayloadAction<SettingsState['hardwareConnectSrc']>,
+    ) {
+      state.hardwareConnectSrc = action.payload;
+    },
   },
 });
 
@@ -662,6 +670,7 @@ export const {
   setLeftSidebarCollapsed,
   setEnableETH2Unstake,
   setAdvancedSettings,
+  setHardwareConnectSrc,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;
