@@ -12,7 +12,7 @@ import { gotoSite } from './gotoSite';
 const clearIncomingUrl = () => webTabsActions.setIncomingUrl('');
 
 export const useIncomingUrl = () => {
-  const incomingUrl = useSelector(incomingUrlObs);
+  const incomingUrl = useSelector(() => incomingUrlObs.get());
   const handleIncomingUrl = useCallback(() => {
     if (incomingUrl) {
       gotoSite({ url: incomingUrl, isNewWindow: true, userTriggered: true });
