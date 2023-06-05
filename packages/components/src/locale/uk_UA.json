@@ -1129,6 +1129,8 @@
   "form__created": "Створено",
   "form__created_str": "Створено {0}",
   "form__cross_chain": "Хрестовий ланцюжок",
+  "form__cross_chain_desc": "Перехресний ланцюг",
+  "form__cross_chain_str": "Перехресний ланцюг: {0}",
   "form__cross_chain_swap": "Міжланцюговий обмін",
   "form__cross_chain_swap_desc": "Ви можете вільно міняти токени між більш ніж {0} підтримуваними мережами.",
   "form__crypto": "Криптовалюта",

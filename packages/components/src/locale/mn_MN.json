@@ -1129,6 +1129,8 @@
   "form__created": "Үүсгэсэн",
   "form__created_str": "Үүсгэсэн {0}",
   "form__cross_chain": "Хөндлөн гинж",
+  "form__cross_chain_desc": "Хөндлөн гинж",
+  "form__cross_chain_str": "Хөндлөн гинж: {0}",
   "form__cross_chain_swap": "Cross Chain Swap",
   "form__cross_chain_swap_desc": "Та токенуудыг {0} -с олон дэмжигдсэн сүлжээгээр чөлөөтэй сольж болно.",
   "form__crypto": "Криптовалют",

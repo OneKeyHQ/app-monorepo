@@ -1129,6 +1129,8 @@
   "form__created": "مخلوق",
   "form__created_str": "تم إنشاؤه {0}",
   "form__cross_chain": "عبر سلسلة",
+  "form__cross_chain_desc": "عبر سلسلة",
+  "form__cross_chain_str": "عبر السلاسل: {0}",
   "form__cross_chain_swap": "المبادلة عبر السلاسل",
   "form__cross_chain_swap_desc": "يمكنك تبديل الرموز بحرية عبر أكثر من {0} سلاسل مدعومة.",
   "form__crypto": "عملة مشفرة",

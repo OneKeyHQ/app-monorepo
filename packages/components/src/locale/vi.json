@@ -1129,6 +1129,8 @@
   "form__created": "Tạo",
   "form__created_str": "Đã tạo {0}",
   "form__cross_chain": "Chuỗi chéo",
+  "form__cross_chain_desc": "chuỗi chéo",
+  "form__cross_chain_str": "Chuỗi chéo: {0}",
   "form__cross_chain_swap": "Hoán đổi chuỗi chéo",
   "form__cross_chain_swap_desc": "Bạn có thể tự do hoán đổi mã thông báo trên hơn {0} chuỗi được hỗ trợ.",
   "form__crypto": "tiền điện tử",

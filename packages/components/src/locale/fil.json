@@ -1129,6 +1129,8 @@
   "form__created": "Nilikha",
   "form__created_str": "Nilikha {0}",
   "form__cross_chain": "Cross chain",
+  "form__cross_chain_desc": "Cross-Chain",
+  "form__cross_chain_str": "Cross-Chain: {0}",
   "form__cross_chain_swap": "Cross-Chain Swap",
   "form__cross_chain_swap_desc": "Malaya kang makakapagpalit ng mga token sa higit sa {0} mga suportadong chain.",
   "form__crypto": "Cryptocurrency",

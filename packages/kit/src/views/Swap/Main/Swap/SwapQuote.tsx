@@ -28,7 +28,6 @@ import SwapTooltip from '../../components/SwapTooltip';
 import TransactionFee from '../../components/TransactionFee';
 import TransactionRate from '../../components/TransactionRate';
 import {
-  usePriceImpact,
   useSwapMinimumReceivedAmount,
   useSwapSlippage,
 } from '../../hooks/useSwapUtils';
@@ -292,13 +291,16 @@ const SwapMinimumReceived = () => {
 
 const SwapPriceImpact = () => {
   const intl = useIntl();
-  const priceImpact = usePriceImpact();
-  const value = useMemo(() => {
-    if (priceImpact) {
-      return `-${Number(priceImpact).toFixed(2)}%`;
-    }
-    return '0.01%';
-  }, [priceImpact]);
+  const quote = useAppSelector(s => s.swap.quote);
+  if (!quote) {
+    return null
+  }
+  
+  const num = Number(quote.estimatedPriceImpact);
+  if (num === 0 || Number.isNaN(num)) {
+    return null
+  }
+  const value = `${formatAmount(quote?.estimatedPriceImpact, 4)}%`
   return (
     <Box
       display="flex"
