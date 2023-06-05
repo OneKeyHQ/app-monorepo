@@ -164,8 +164,8 @@ export default class ServiceBatchTransfer extends ServiceBase {
     if (
       pendingTxs &&
       pendingTxs.length > 0 &&
-      vaultSettings.batchTransferApprovalConfirmRequired ===
-        (await this.checkIsBatchTransfer({ networkId, encodedTx }))
+      vaultSettings.batchTransferApprovalConfirmRequired &&
+      (await this.checkIsBatchTransfer({ networkId, encodedTx }))
     ) {
       // Make sure to call the batch sending contract after approves take effect
       let signedTx: ISignedTxPro | null = null;
