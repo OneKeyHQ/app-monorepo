@@ -1129,6 +1129,8 @@
   "form__created": "已創建",
   "form__created_str": "創建於 {0}",
   "form__cross_chain": "跨鏈",
+  "form__cross_chain_desc": "跨鏈",
+  "form__cross_chain_str": "跨鏈: {0}",
   "form__cross_chain_swap": "跨鏈兌換",
   "form__cross_chain_swap_desc": "您可以在多達 {0} 個已支持的鏈上自由兌換代幣",
   "form__crypto": "加密貨幣",

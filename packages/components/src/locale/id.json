@@ -1129,6 +1129,8 @@
   "form__created": "Dibuat",
   "form__created_str": "Dibuat {0}",
   "form__cross_chain": "Rantai silang",
+  "form__cross_chain_desc": "Rantai Lintas",
+  "form__cross_chain_str": "Rantai Lintas: {0}",
   "form__cross_chain_swap": "Pertukaran Lintas Rantai",
   "form__cross_chain_swap_desc": "Anda dapat dengan bebas menukar token di lebih dari {0} rantai yang didukung.",
   "form__crypto": "Mata uang kripto",

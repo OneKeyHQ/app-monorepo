@@ -86,7 +86,7 @@ const NetworkSelector: FC = () => {
               borderRadius="12"
               borderWidth={1}
               borderColor={
-                o.networkId === networkId ? 'interactive-default' : undefined
+                o.networkId === networkId ? 'interactive-default' : 'border-default'
               }
             >
               {o.logoURI ? (

@@ -84,14 +84,14 @@ const OutputCrosschain = () => {
         const networks = inactives.splice(nIndex, 1);
         const option = networks[0];
         if (option) {
-          option.name = `Cross-Chain ${option.name}`;
+          option.name = intl.formatMessage({ id: 'form__cross_chain_str' }, {'0': option.name });
           option.isCrosschain = true;
           actives.push(option);
         }
       }
     } else {
       const option: NetworkOption = {
-        name: 'Cross-Chain',
+        name: intl.formatMessage({ id: 'form__cross_chain_desc' }),
         isCrosschain: true,
         networkId: 'cross-chain',
       };

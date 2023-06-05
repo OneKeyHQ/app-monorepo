@@ -1129,6 +1129,8 @@
   "form__created": "बनाया था",
   "form__created_str": "{0} बनाया गया",
   "form__cross_chain": "क्रॉस चेन",
+  "form__cross_chain_desc": "क्रॉस-चेन",
+  "form__cross_chain_str": "क्रॉस-चेन: {0}",
   "form__cross_chain_swap": "क्रॉस-चेन स्वैप",
   "form__cross_chain_swap_desc": "आप {0} से अधिक समर्थित शृंखलाओं में मुक्त रूप से टोकनों की अदला-बदली कर सकते हैं।",
   "form__crypto": "cryptocurrency",
