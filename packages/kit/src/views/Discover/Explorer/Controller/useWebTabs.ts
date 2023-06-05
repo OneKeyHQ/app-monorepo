@@ -16,7 +16,7 @@ export const useWebTabs = (id?: string) => {
   return useMemo(
     () => ({
       tabs,
-      tab: tabs.find((tab) => tab?.id === curId),
+      tab: tabs.find((tab) => tab?.id === curId) ?? tabs[0],
       currentTabId,
     }),
     [curId, currentTabId, tabs],
