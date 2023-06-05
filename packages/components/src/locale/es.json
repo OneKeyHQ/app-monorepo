@@ -1129,6 +1129,8 @@
   "form__created": "Creado",
   "form__created_str": "Creado {0}",
   "form__cross_chain": "Red cruzada",
+  "form__cross_chain_desc": "cadena cruzada",
+  "form__cross_chain_str": "Cadena cruzada: {0}",
   "form__cross_chain_swap": "Intercambio de cadena cruzada",
   "form__cross_chain_swap_desc": "Puedes intercambiar tokens libremente en más de {0} redes admitidas.",
   "form__crypto": "Criptomoneda",

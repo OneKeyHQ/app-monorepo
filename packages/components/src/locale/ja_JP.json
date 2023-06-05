@@ -1129,6 +1129,8 @@
   "form__created": "作成時間",
   "form__created_str": "{0}に作成された",
   "form__cross_chain": "クロスチェーン",
+  "form__cross_chain_desc": "クロスチェーン",
+  "form__cross_chain_str": "クロスチェーン: {0}",
   "form__cross_chain_swap": "クロスチェーンスワップ",
   "form__cross_chain_swap_desc": "{0}以上の対応されているチェーンの間にトークンを自由にスワップできる。",
   "form__crypto": "暗号通貨",

@@ -45,10 +45,70 @@ type ITriggerSmartContractCall = {
   type: 'TriggerSmartContract';
 };
 
+type IFreezeBalanceV2ContractCall = {
+  parameter: {
+    value: {
+      frozen_balance: number;
+      resource: 'BANDWIDTH' | 'ENERGY';
+    };
+  };
+  type: 'FreezeBalanceV2Contract';
+};
+type IUnfreezeBalanceV2ContractCall = {
+  parameter: {
+    value: {
+      unfreeze_balance: number;
+      resource: 'BANDWIDTH' | 'ENERGY';
+    };
+  };
+  type: 'UnfreezeBalanceV2Contract';
+};
+type IDelegateResourceContractCall = {
+  parameter: {
+    value: {
+      balance: number;
+      receiver_address: string;
+      lock: boolean;
+      resource: 'BANDWIDTH' | 'ENERGY';
+    };
+  };
+  type: 'DelegateResourceContract';
+};
+type IUnDelegateResourceContractCall = {
+  parameter: {
+    value: {
+      balance: number;
+      receiver_address: string;
+      resource: 'BANDWIDTH' | 'ENERGY';
+    };
+  };
+  type: 'UnDelegateResourceContract';
+};
+type IWithdrawBalanceContractCall = {
+  parameter: {
+    value: {
+      owner_address: string;
+    };
+  };
+  type: 'WithdrawBalanceContract';
+};
+type IWithdrawExpireUnfreezeContractCall = {
+  type: 'WithdrawExpireUnfreezeContract';
+};
+
 type IUnsignedTransaction = {
   txID: string;
   raw_data: {
-    contract: Array<ISendTrxCall | ITriggerSmartContractCall>;
+    contract: Array<
+      | ISendTrxCall
+      | ITriggerSmartContractCall
+      | IFreezeBalanceV2ContractCall
+      | IUnfreezeBalanceV2ContractCall
+      | IDelegateResourceContractCall
+      | IUnDelegateResourceContractCall
+      | IWithdrawBalanceContractCall
+      | IWithdrawExpireUnfreezeContractCall
+    >;
     ref_block_bytes: string;
     ref_block_hash: string;
     expiration: number;

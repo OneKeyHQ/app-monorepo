@@ -198,6 +198,7 @@ export const GroupedBackupDetails = ({
           key={uuid}
         />
       ))}
+
       {utxos?.length ? (
         <GenericBackupItem
           iconName="TagOutline"
