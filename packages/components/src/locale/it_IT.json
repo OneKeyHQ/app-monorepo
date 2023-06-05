@@ -1129,6 +1129,8 @@
   "form__created": "Creato",
   "form__created_str": "Creato {0}",
   "form__cross_chain": "Catena incrociata",
+  "form__cross_chain_desc": "Catena incrociata",
+  "form__cross_chain_str": "Catena incrociata: {0}",
   "form__cross_chain_swap": "Scambio a catena incrociata",
   "form__cross_chain_swap_desc": "Puoi scambiare liberamente i token su più di {0} catene supportate.",
   "form__crypto": "Criptovaluta",

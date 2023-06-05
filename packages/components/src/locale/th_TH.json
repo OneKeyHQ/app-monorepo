@@ -1129,6 +1129,8 @@
   "form__created": "สร้าง",
   "form__created_str": "สร้างแล้ว {0}",
   "form__cross_chain": "โซ่ข้าม",
+  "form__cross_chain_desc": "ข้ามโซ่",
+  "form__cross_chain_str": "ครอสเชน: {0}",
   "form__cross_chain_swap": "การแลกเปลี่ยนข้ามสายโซ่",
   "form__cross_chain_swap_desc": "คุณสามารถสลับโทเค็นได้อย่างอิสระในเครือข่ายที่รองรับมากกว่า {0}",
   "form__crypto": "สกุลเงินดิจิทัล",

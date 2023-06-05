@@ -1129,6 +1129,8 @@
   "form__created": "Criada",
   "form__created_str": "Criado {0}",
   "form__cross_chain": "Cadeia cruzada",
+  "form__cross_chain_desc": "cadeia cruzada",
+  "form__cross_chain_str": "Cadeia cruzada: {0}",
   "form__cross_chain_swap": "Troca de Cadeia Cruzada",
   "form__cross_chain_swap_desc": "Você pode trocar tokens livremente em mais de {0} cadeias suportadas.",
   "form__crypto": "Criptomoeda",
