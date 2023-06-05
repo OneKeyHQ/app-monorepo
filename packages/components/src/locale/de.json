@@ -1129,6 +1129,8 @@
   "form__created": "Erstellt",
   "form__created_str": "Erstellt {0}",
   "form__cross_chain": "Kreuzkette",
+  "form__cross_chain_desc": "Cross-Chain",
+  "form__cross_chain_str": "Kettenübergreifend: {0}",
   "form__cross_chain_swap": "Cross-Chain-Swap",
   "form__cross_chain_swap_desc": "Sie können Token frei zwischen mehr als {0} unterstützten Ketten tauschen.",
   "form__crypto": "Kryptowährung",

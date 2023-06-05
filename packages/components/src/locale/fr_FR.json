@@ -1129,6 +1129,8 @@
   "form__created": "Établi",
   "form__created_str": "Créé {0}",
   "form__cross_chain": "Chaîne croisée",
+  "form__cross_chain_desc": "Chaîne croisée",
+  "form__cross_chain_str": "Chaîne croisée : {0}",
   "form__cross_chain_swap": "Échange inter-chaînes",
   "form__cross_chain_swap_desc": "Vous pouvez échanger librement des jetons sur plus de {0} chaînes prises en charge.",
   "form__crypto": "Crypto-monnaie",
