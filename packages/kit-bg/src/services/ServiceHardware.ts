@@ -937,9 +937,22 @@ class ServiceHardware extends ServiceBase {
   }: {
     hardwareConnectSrc?: string;
   }) {
-    const hardwareSDK = await this.getSDKInstance();
-    const connectSrc = generateConnectSrc(hardwareConnectSrc);
-    return hardwareSDK?.updateSettings({ connectSrc });
+    try {
+      const hardwareSDK = await this.getSDKInstance();
+      const connectSrc = generateConnectSrc(hardwareConnectSrc);
+      if (hardwareSDK && hardwareSDK.updateSettings) {
+        const res = await hardwareSDK?.updateSettings({ connectSrc });
+        debugLogger.hardwareSDK.debug(
+          'Switch hardware connect src success',
+          res,
+        );
+      }
+    } catch (e) {
+      debugLogger.hardwareSDK.debug(
+        'Switch hardware connect src setting failed',
+        e,
+      );
+    }
   }
 }
 

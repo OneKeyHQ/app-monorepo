@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { cacheDirectory } from 'expo-file-system';
@@ -8,6 +8,7 @@ import {
   Box,
   Icon,
   Pressable,
+  Select,
   Text,
   ToastManager,
   Typography,
@@ -15,9 +16,16 @@ import {
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import SelectTrigger from '@onekeyhq/kit/src/views/Me/SelectTrigger';
+import {
+  HARDWARE_SDK_IFRAME_SRC_ONEKEYCN,
+  HARDWARE_SDK_IFRAME_SRC_ONEKEYSO,
+} from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useAppSelector } from '../../../hooks';
 import { HomeRoutes } from '../../../routes/routesEnum';
+import { setHardwareConnectSrc } from '../../../store/reducers/settings';
 
 import type { RootRoutes } from '../../../routes/routesEnum';
 import type { HomeRoutesParams, RootRoutesParams } from '../../../routes/types';
@@ -89,14 +97,84 @@ export const FooterAction = () => {
     ToastManager.show({ title: intl.formatMessage({ id: 'msg__copied' }) });
   }, [intl]);
 
+  const { dispatch, serviceHardware } = backgroundApiProxy;
+  const hardwareConnectSrc = useAppSelector(
+    (s) => s.settings.hardwareConnectSrc,
+  );
+
+  const hardwareSDKOptions = useMemo(
+    () => [
+      {
+        label: 'onekey.so',
+        value: HARDWARE_SDK_IFRAME_SRC_ONEKEYSO,
+      },
+      {
+        label: 'onekeycn.com',
+        value: HARDWARE_SDK_IFRAME_SRC_ONEKEYCN,
+      },
+    ],
+    [],
+  );
+
+  const onSetHardwareConnectSrc = useCallback(
+    (value: string) => {
+      dispatch(setHardwareConnectSrc(value));
+      serviceHardware.updateSettings({ hardwareConnectSrc: value });
+    },
+    [dispatch, serviceHardware],
+  );
+
+  const showBridgePortSetting = useMemo(
+    () => platformEnv.isExtension || platformEnv.isWeb,
+    [],
+  );
+
   return (
     <Box w="full" mb="6">
+      <Box pb="2">
+        <Typography.Subheading color="text-subdued">
+          {intl.formatMessage({
+            id: 'form__support__uppercase',
+            defaultMessage: 'SUPPORT',
+          })}
+        </Typography.Subheading>
+      </Box>
       <Box
         borderRadius="12"
         bg="surface-default"
         borderWidth={themeVariant === 'light' ? 1 : undefined}
         borderColor="border-subdued"
       >
+        {showBridgePortSetting ? (
+          <Box w="full">
+            <Select<string>
+              title={intl.formatMessage({
+                id: 'form__bridge_connect_port',
+                defaultMessage: 'Bridge Connect Port',
+              })}
+              isTriggerPlain
+              footer={null}
+              value={hardwareConnectSrc}
+              defaultValue={hardwareConnectSrc}
+              headerShown={false}
+              options={hardwareSDKOptions}
+              dropdownProps={{ width: '64' }}
+              dropdownPosition="right"
+              renderTrigger={({ activeOption }) => (
+                <SelectTrigger<number>
+                  title={intl.formatMessage({
+                    id: 'form__bridge_connect_port',
+                    defaultMessage: 'Bridge Connect Port',
+                  })}
+                  // @ts-expect-error
+                  activeOption={activeOption}
+                  iconName="LinkOutline"
+                />
+              )}
+              onChange={onSetHardwareConnectSrc}
+            />
+          </Box>
+        ) : null}
         <Pressable
           display="flex"
           flexDirection="row"
