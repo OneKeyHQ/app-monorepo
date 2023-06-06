@@ -1,8 +1,14 @@
 import type { FC } from 'react';
 
-import { Box, Pressable, ScrollView, Typography } from '@onekeyhq/components';
+import {
+  Box,
+  HoverContainer,
+  Pressable,
+  ScrollView,
+  Typography,
+} from '@onekeyhq/components';
 
-import { useTranslation } from '../../../../hooks';
+import { useAppSelector, useTranslation } from '../../../../hooks';
 import DAppIcon from '../../DAppIcon';
 import { SectionTitle } from '../TitleView';
 
@@ -23,33 +29,51 @@ const SimpleCardView: FC<SimpleCardViewProps> = ({
   mt,
 }) => {
   const t = useTranslation();
+  const bookmarks = useAppSelector((s) => s.discover.bookmarks);
+  const isFaved = bookmarks?.some((i) => i.url === item.url);
+
   return (
-    <Pressable
-      w="260px"
-      ml="4"
-      borderRadius="12px"
-      alignItems="center"
-      flexDirection="row"
-      onPress={() => {
-        onItemSelect?.(item);
+    <HoverContainer
+      hoverButtonProps={{
+        position: 'absolute',
+        zIndex: 1,
+        right: '4px',
+        bottom: '30px',
+        leftIconName: isFaved ? 'StarSolid' : 'StarOutline',
+        iconSize: 16,
+        pt: 0,
+        pr: 0,
+        pb: 0,
+        pl: 0,
       }}
-      mt={mt}
     >
-      <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
-      <Box flex={1} ml="2">
-        <Typography.Body2Strong numberOfLines={1}>
-          {item.name}
-        </Typography.Body2Strong>
-        <Typography.Caption
-          numberOfLines={1}
-          mt="1"
-          color="text-subdued"
-          overflow="hidden"
-        >
-          {t(item._subtitle) ?? item.subtitle}
-        </Typography.Caption>
-      </Box>
-    </Pressable>
+      <Pressable
+        w="260px"
+        ml="4"
+        borderRadius="12px"
+        alignItems="center"
+        flexDirection="row"
+        onPress={() => {
+          onItemSelect?.(item);
+        }}
+        mt={mt}
+      >
+        <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
+        <Box flex={1} ml="2">
+          <Typography.Body2Strong numberOfLines={1}>
+            {item.name}
+          </Typography.Body2Strong>
+          <Typography.Caption
+            numberOfLines={1}
+            mt="1"
+            color="text-subdued"
+            overflow="hidden"
+          >
+            {t(item._subtitle) ?? item.subtitle}
+          </Typography.Caption>
+        </Box>
+      </Pressable>
+    </HoverContainer>
   );
 };
 
