@@ -331,10 +331,10 @@ const ConnectHardwareModal: FC = () => {
               }
             } else {
               setIsConnectingDeviceId('');
+              deviceUtils.showErrorToast(err, 'action__connection_timeout');
             }
           } else {
             setIsConnectingDeviceId('');
-
             deviceUtils.showErrorToast(err, 'action__connection_timeout');
           }
         });
