@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ComponentProps, FC } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -175,6 +175,21 @@ const Header: FC<TransactionProps & { onPress?: () => void }> = ({
   );
 };
 
+const TransactionText: FC = ({ children }) => {
+  const [width, setWidth] = useState("")
+  const onLayout = useCallback(({
+    nativeEvent: {
+      layout: { width },
+    },
+  }) => {
+    const text = `${Math.floor(width * 0.9)}px`
+    setWidth(text);
+  }, [])
+  return <Box flex='1' onLayout={onLayout}>
+    {width ? <Box width={width}>{children}</Box> : null}
+  </Box>
+}
+
 const InputOutput: FC<TransactionProps> = ({ tx }) => {
   const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
   const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
@@ -195,13 +210,15 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
         alignItems="center"
         justifyContent="space-between"
       >
-        <Box flexDirection="row" alignItems="center">
+        <Box flex={1} flexDirection="row" alignItems="center">
           <TokenIcon size="8" token={tx.tokens?.from.token} />
-          <Box ml="3">
-            <Typography.Body1>
-              {formatAmount(tx.tokens?.from.amount, 4)}
-              {tx.tokens?.from.token?.symbol.toString()}
-            </Typography.Body1>
+          <Box ml="3" flex={1}>
+            <TransactionText>
+              <Typography.Body1 numberOfLines={2} isTruncated>
+                {formatAmount(tx.tokens?.from.amount, 4)}
+                {tx.tokens?.from.token?.symbol.toString()}
+              </Typography.Body1>
+            </TransactionText>
             <Typography.Body2 color="text-subdued">
               {fromNetwork?.name}
             </Typography.Body2>
@@ -244,17 +261,19 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
         alignItems="center"
         justifyContent="space-between"
       >
-        <Box flexDirection="row" alignItems="center">
+        <Box flex={1} flexDirection="row" alignItems="center">
           <TokenIcon size="8" token={tx.tokens?.to.token} />
-          <Box ml="3">
+          <Box ml="3" flex={1}>
             <Box flexDirection="row" alignItems="center">
               {!tx.actualReceived ? (
                 <Typography.Caption mr="1">~</Typography.Caption>
               ) : null}
-              <Typography.Body1>
-                {formatAmount(tx.tokens?.to.amount, 4)}
-                {tx.tokens?.to.token.symbol.toUpperCase()}
-              </Typography.Body1>
+              <TransactionText>
+                <Typography.Body1 numberOfLines={2} isTruncated>
+                  {formatAmount(tx.tokens?.to.amount, 4)}
+                  {tx.tokens?.to.token.symbol.toUpperCase()}
+                </Typography.Body1>
+              </TransactionText>
             </Box>
             <Typography.Body2 color="text-subdued">
               {toNetwork?.name}
@@ -564,9 +583,8 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               label={intl.formatMessage({ id: 'form__actual_received' })}
             >
               <Typography.Body2Strong>
-                {`${formatAmount(tx.actualReceived, 6)} ${
-                  to?.token.symbol.toUpperCase() ?? ''
-                }`}
+                {`${formatAmount(tx.actualReceived, 6)} ${to?.token.symbol.toUpperCase() ?? ''
+                  }`}
               </Typography.Body2Strong>
             </TransactionField>
           ) : null}
@@ -575,9 +593,8 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               label={intl.formatMessage({ id: 'form__network_fee' })}
             >
               <Typography.Body2Strong>
-                {`${formatAmount(tx.networkFee, 8)} ${
-                  network.symbol.toUpperCase() ?? ''
-                }`}
+                {`${formatAmount(tx.networkFee, 8)} ${network.symbol.toUpperCase() ?? ''
+                  }`}
               </Typography.Body2Strong>
             </TransactionField>
           ) : null}
