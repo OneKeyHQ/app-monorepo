@@ -20,13 +20,12 @@ import type {
 import type { Signer, Verifier } from '@onekeyhq/engine/src/types/secret';
 import type { ISdkCfxTransaction } from '@onekeyhq/engine/src/vaults/impl/cfx/sdkCfx';
 import sdkCfx from '@onekeyhq/engine/src/vaults/impl/cfx/sdkCfx';
+import { MessageTypes } from '@onekeyhq/engine/src/vaults/impl/evm/sdk';
 import { check, checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import {
   fromBigIntHex,
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-
-import { MessageTypes } from '../eth/sdk/message';
 
 import { Conflux } from './conflux';
 
