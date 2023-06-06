@@ -30,6 +30,21 @@ import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-ty
 
 const { decodeAddress, encodeAddress } = polkadotSdk;
 
+export interface RequestRpcSend {
+  method: string;
+  params: unknown[];
+}
+
+export interface RequestRpcSubscribe extends RequestRpcSend {
+  type: string;
+}
+
+export interface RequestRpcUnsubscribe {
+  type: string;
+  method: string;
+  id: string;
+}
+
 export interface SignerResult {
   /**
    * @description The id for this request
@@ -314,6 +329,128 @@ class ProviderApiPolkadot extends ProviderApiBase {
       id: request.id ?? 0,
       signature: result ?? '',
     });
+  }
+
+  @providerApiMethod()
+  public async web3RpcSubscribe(
+    request: IJsBridgeMessagePayload,
+    params: RequestRpcSubscribe,
+  ) {
+    debugLogger.providerApi.info('Polkadot web3RpcSubscribe', params);
+
+    const { networkId, accountId } = getActiveWalletAccount();
+
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultDot;
+
+    const { rpcURL } = await this.backgroundApi.engine.getNetwork(networkId);
+    const provider = vault.getNodeProviderCache(rpcURL);
+
+    return provider.subscribe(
+      params.type,
+      params.method,
+      params.params,
+      (error, result) => {
+        const response = {
+          method: 'wallet_events_accountChanged',
+          result: JSON.stringify({
+            error,
+            result,
+          }),
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        this.backgroundApi.sendForProvider(this.providerName).send(response);
+      },
+    );
+  }
+
+  @providerApiMethod()
+  public async web3RpcUnSubscribe(
+    request: IJsBridgeMessagePayload,
+    params: RequestRpcUnsubscribe,
+  ) {
+    debugLogger.providerApi.info('Polkadot web3RpcUnSubscribe', params);
+
+    const { networkId, accountId } = getActiveWalletAccount();
+
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultDot;
+
+    const { rpcURL } = await this.backgroundApi.engine.getNetwork(networkId);
+    const provider = vault.getNodeProviderCache(rpcURL);
+
+    return provider.unsubscribe(params.type, params.method, params.id);
+  }
+
+  @providerApiMethod()
+  public async web3RpcSend(
+    request: IJsBridgeMessagePayload,
+    params: RequestRpcSend,
+  ) {
+    debugLogger.providerApi.info('Polkadot web3RpcSend', params);
+
+    const { networkId, accountId } = getActiveWalletAccount();
+
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultDot;
+
+    const { rpcURL } = await this.backgroundApi.engine.getNetwork(networkId);
+    const provider = vault.getNodeProviderCache(rpcURL);
+
+    return provider.send(params.method, params.params);
+  }
+
+  @providerApiMethod()
+  public async web3RpcListProviders(
+    request: IJsBridgeMessagePayload,
+    params: RequestRpcSend,
+  ) {
+    debugLogger.providerApi.info('Polkadot web3RpcListProviders', params);
+
+    const { networkId, accountId } = getActiveWalletAccount();
+
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultDot;
+
+    const { rpcURL } = await this.backgroundApi.engine.getNetwork(networkId);
+    const provider = vault.getNodeProviderCache(rpcURL);
+
+    return Promise.resolve({
+      // @ts-expect-error
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      rpcURL: provider.start().meta,
+    });
+  }
+
+  @providerApiMethod()
+  public async web3RpcStartProvider(
+    request: IJsBridgeMessagePayload,
+    params: RequestRpcSend,
+  ) {
+    debugLogger.providerApi.info('Polkadot web3RpcStartProvider', params);
+
+    const { networkId, accountId } = getActiveWalletAccount();
+
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultDot;
+
+    const { rpcURL } = await this.backgroundApi.engine.getNetwork(networkId);
+    const provider = vault.getNodeProviderCache(rpcURL);
+
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+    return Promise.resolve(provider.start().meta);
   }
 }
 
