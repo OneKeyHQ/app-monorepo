@@ -1,3 +1,4 @@
+import { getAddress } from '@ethersproject/address';
 import {
   getEncryptionPublicKey,
   decrypt as mmSigUtilDecrypt,
@@ -9,13 +10,17 @@ import {
   toBuffer,
 } from 'ethereumjs-util';
 
-import type { TypedMessage } from '@onekeyhq/engine/src/types/provider';
+import type {
+  AddressValidation,
+  TypedMessage,
+} from '@onekeyhq/engine/src/types/provider';
 import type { Signer } from '@onekeyhq/engine/src/types/secret';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { hashMessage } from './sdk';
 
 import type { MessageTypes } from './sdk';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 export async function mmDecrypt(
   serializedMessage: string,
@@ -53,4 +58,22 @@ export async function ecRecover(
   const publicKey = ecrecover(hashBuffer, v, r, s);
   const hex = addHexPrefix(pubToAddress(publicKey).toString('hex'));
   return Promise.resolve(hex);
+}
+
+export function verifyAddress(address: string): AddressValidation {
+  let isValid = false;
+  let checksumAddress = '';
+
+  try {
+    checksumAddress = getAddress(address);
+    isValid = checksumAddress.length === 42;
+  } catch (error) {
+    debugLogger.common.error(error);
+  }
+
+  return {
+    normalizedAddress: checksumAddress.toLowerCase() || undefined,
+    displayAddress: checksumAddress || undefined,
+    isValid,
+  };
 }

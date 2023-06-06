@@ -41,7 +41,11 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { NotImplemented, OneKeyInternalError } from '../../../errors';
+import {
+  InvalidAddress,
+  NotImplemented,
+  OneKeyInternalError,
+} from '../../../errors';
 import * as covalentApi from '../../../managers/covalent';
 import { getAccountNameInfoByImpl } from '../../../managers/impl';
 import {
@@ -83,6 +87,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { Geth, ethers } from './sdk';
 import settings from './settings';
+import { ecRecover, mmDecrypt, verifyAddress } from './utils';
 
 import type { Account, DBAccount } from '../../../types/account';
 import type { ICovalentHistoryListItem } from '../../../types/covalent';
@@ -129,7 +134,6 @@ import type {
 } from './decoder/decoder';
 import type { IRpcTxEvm } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import { ecRecover, mmDecrypt } from './utils';
 
 const OPTIMISM_NETWORKS: string[] = [
   OnekeyNetwork.optimism,
@@ -835,6 +839,25 @@ export default class Vault extends VaultBase {
     };
   }
 
+  override async addressFromBase(account: DBAccount) {
+    return this.validateAddress(account.address);
+  }
+
+  override async validateWatchingCredential(input: string): Promise<boolean> {
+    // Generic address test, override if needed.
+    return Promise.resolve(
+      this.settings.watchingAccountEnabled && verifyAddress(input).isValid,
+    );
+  }
+
+  override async validateAddress(address: string): Promise<string> {
+    const { normalizedAddress, isValid } = verifyAddress(address);
+    if (!isValid || !normalizedAddress) {
+      throw new InvalidAddress();
+    }
+    return Promise.resolve(normalizedAddress);
+  }
+
   async buildEncodedTxFromApprove(
     approveInfo: IApproveInfo,
     prevNonce?: number,
@@ -911,6 +934,8 @@ export default class Vault extends VaultBase {
     }
     return new multicall.MulticallProvider(provider, { verbose: true });
   }
+
+  override async validateTokenAddress(address: string) {}
 
   override async checkIsUnlimitedAllowance(params: {
     networkId: string;
