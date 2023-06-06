@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -189,9 +189,9 @@ const SwapNetworkFeeEditable = () => {
   const intl = useIntl();
   const fees = useMemo(
     () => [
-      { text: intl.formatMessage({ id: 'form__rocket_rapid' }), value: '2' },
-      { text: intl.formatMessage({ id: 'form__train_fast' }), value: '1' },
-      { text: intl.formatMessage({ id: 'form__car_normal' }), value: '0' },
+      { text: `🚅 ${intl.formatMessage({ id: 'form__high' })}`, value: '2' },
+      { text: `🚕 ${intl.formatMessage({ id: 'form__normal' })}`, value: '1' },
+      { text: `🚴🏻 ${intl.formatMessage({ id: 'form__low' })}`, value: '0' },
     ],
     [intl],
   );
