@@ -9,7 +9,7 @@ import java.io.IOException
  * @Author:         peter Qin
  */
 object NfcConstant {
-    const val DEBUG = true
+    const val DEBUG = false
     const val MNEMONIC = "mnemonics"
     const val MODE = "statusMode"
     const val SELECT_CARD_ID = "select_card_id"

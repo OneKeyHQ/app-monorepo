@@ -115,7 +115,7 @@ object OneKeyLiteCard {
     ): Boolean {
         if (cardState == null) throw NFCExceptions.ConnectionFailException()
 
-        printLog(TAG, "=====>>>> setMnemonic: cardState:${Gson().toJson(cardState)}")
+        printLog(TAG, "--> setMnemonic: cardState:${Gson().toJson(cardState)}")
 
         if (!overwrite) {
             // 不是覆写要验证是否已经已经存有备份

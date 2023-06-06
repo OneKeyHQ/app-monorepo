@@ -138,7 +138,7 @@ class Connection(val isoDep: IsoDep, private val mCommandGenerator: CommandGener
             KeysNativeProvider().getLiteSecureChannelInitParams(Utils.getApp())
         )
         param.cardGroupID = certInfo.subjectID
-        printLog(TAG, "nativeGPCInitialize------------------> :$param")
+        printLog(TAG, "nativeGPCInitialize read param done")
         val initializeStatus = GPChannelNatives.nativeGPCInitialize(param.toString())
         if (initializeStatus != 0) {
             return false
@@ -160,12 +160,12 @@ class Connection(val isoDep: IsoDep, private val mCommandGenerator: CommandGener
 
         printLog(TAG, "3. ---> mutual authenticate begin")
         val authData = GPChannelNatives.nativeGPCBuildMutualAuthData()
-        printLog(TAG, "mutual authenticate data------------------> : $authData")
+        printLog(TAG, "mutual authenticate data")
         val authCommand = mCommandGenerator.generalCommand(
             mCardType, CommandType.VERIFY_AUTH_DATA, hasOpenSafeChannel, authData
         )
         val authRes = authCommand.send(this)
-        printLog(TAG, "3. <--- mutual authenticate end: $authRes")
+        printLog(TAG, "3. <--- mutual authenticate end")
         if (authRes.isEmptyData() || !authRes.isSuccess()) {
             return false
         }
