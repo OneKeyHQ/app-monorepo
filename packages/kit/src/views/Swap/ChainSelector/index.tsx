@@ -83,7 +83,10 @@ const ChainSelector = () => {
       .filter((o) => o.logoURI && o.networkId && o.name && o.name !== 'All');
     const text = searchContent.trim();
     if (text) {
-      result = result.filter((item) => item.name.includes(text));
+      result = result.filter((item) => {
+        const name = item.fullname ? item.fullname: item.name;
+         return name.toLowerCase().includes(text.toLowerCase())
+      });
     }
     return result;
   }, [items, searchContent]);

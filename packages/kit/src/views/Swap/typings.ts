@@ -170,6 +170,7 @@ export type QuoteData = {
   quoterlogo?: string;
   minAmountOut?: string;
   protocolFees?: ProtocolFees;
+  estimatedPriceImpact?: string;
 };
 
 type WrapperTransactionType = 'Withdraw' | 'Deposite';
