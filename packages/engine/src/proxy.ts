@@ -8,7 +8,6 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import BigNumber from 'bignumber.js';
 
 import { ProviderController as BaseProviderController } from '@onekeyhq/blockchain-libs/src/provider';
-import { Geth } from '@onekeyhq/blockchain-libs/src/provider/chains/eth/geth';
 import type {
   BaseClient,
   BaseProvider,
@@ -44,6 +43,7 @@ import { getCurveByImpl } from './managers/impl';
 import { getMetaMaskGasInfo } from './managers/metaMask';
 import { getPresetNetworks } from './presets';
 import { IMPL_MAPPINGS, fillUnsignedTx, fillUnsignedTxObj } from './proxyUtils';
+import { Geth } from './vaults/impl/evm/sdk';
 import { getRpcUrlFromChainInfo } from './vaults/utils/btcForkChain/provider/blockbook';
 
 import type { BlockNativeGasInfo } from './types/blockNative';
