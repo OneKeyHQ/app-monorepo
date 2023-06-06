@@ -84,7 +84,10 @@ const OutputCrosschain = () => {
         const networks = inactives.splice(nIndex, 1);
         const option = networks[0];
         if (option) {
-          option.name = intl.formatMessage({ id: 'form__cross_chain_str' }, {'0': option.name });
+          option.name = intl.formatMessage(
+            { id: 'form__cross_chain_str' },
+            { '0': option.name },
+          );
           option.isCrosschain = true;
           actives.push(option);
         }

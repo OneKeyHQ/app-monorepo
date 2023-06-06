@@ -1,20 +1,14 @@
 import type { FC } from 'react';
-import { useCallback } from 'react';
 
 import { chunk } from 'lodash';
 import { useWindowDimensions } from 'react-native';
 
-import {
-  Box,
-  HoverContainer,
-  Pressable,
-  Typography,
-} from '@onekeyhq/components';
+import { Box, Pressable, Typography } from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useDebounce, useTranslation } from '../../../../hooks';
 import { Chains } from '../../Chains';
 import DAppIcon from '../../DAppIcon';
+import FavContainer from '../../Explorer/FavContainer';
 import { SectionTitle } from '../TitleView';
 
 import type { DAppItemType, SectionDataType } from '../../type';
@@ -31,24 +25,13 @@ const Card: FC<{
   onItemSelect?: (o: DAppItemType) => void;
 }> = ({ item, cardWidth, onItemSelect }) => {
   const t = useTranslation();
-  const toggleFav = useCallback(() => {
-    backgroundApiProxy.serviceDiscover.toggleFavorite(item.url);
-  }, [item.url]);
   return (
-    <HoverContainer
+    <FavContainer
+      url={item.url}
       hoverButtonProps={{
-        // rounded="full"
-        position: 'absolute',
-        zIndex: 1,
         right: '20px',
         top: '20px',
-        leftIconName: 'StarOutline',
         iconSize: 20,
-        pt: 0,
-        pr: 0,
-        pb: 0,
-        pl: 0,
-        onPress: toggleFav,
       }}
     >
       <Box
@@ -97,7 +80,7 @@ const Card: FC<{
           </Typography.Caption>
         </Pressable>
       </Box>
-    </HoverContainer>
+    </FavContainer>
   );
 };
 

@@ -10,7 +10,7 @@ import { Button } from '@onekeyhq/components';
 
 export const AnimatedButton = Animated.createAnimatedComponent(Button);
 
-interface HoverContainerProps {
+export interface HoverContainerProps {
   hoverButtonProps: ComponentProps<typeof Button>;
 }
 const HoverContainer: FC<PropsWithChildren<HoverContainerProps>> = ({

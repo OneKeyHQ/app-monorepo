@@ -1,15 +1,10 @@
 import type { FC } from 'react';
 
-import {
-  Box,
-  HoverContainer,
-  Pressable,
-  ScrollView,
-  Typography,
-} from '@onekeyhq/components';
+import { Box, Pressable, ScrollView, Typography } from '@onekeyhq/components';
 
-import { useAppSelector, useTranslation } from '../../../../hooks';
+import { useTranslation } from '../../../../hooks';
 import DAppIcon from '../../DAppIcon';
+import FavContainer from '../../Explorer/FavContainer';
 import { SectionTitle } from '../TitleView';
 
 import type { DAppItemType, SectionDataType } from '../../type';
@@ -29,22 +24,13 @@ const SimpleCardView: FC<SimpleCardViewProps> = ({
   mt,
 }) => {
   const t = useTranslation();
-  const bookmarks = useAppSelector((s) => s.discover.bookmarks);
-  const isFaved = bookmarks?.some((i) => i.url === item.url);
 
   return (
-    <HoverContainer
+    <FavContainer
+      url={item.url}
       hoverButtonProps={{
-        position: 'absolute',
-        zIndex: 1,
         right: '4px',
         bottom: '30px',
-        leftIconName: isFaved ? 'StarSolid' : 'StarOutline',
-        iconSize: 16,
-        pt: 0,
-        pr: 0,
-        pb: 0,
-        pl: 0,
       }}
     >
       <Pressable
@@ -73,7 +59,7 @@ const SimpleCardView: FC<SimpleCardViewProps> = ({
           </Typography.Caption>
         </Box>
       </Pressable>
-    </HoverContainer>
+    </FavContainer>
   );
 };
 
@@ -82,20 +68,17 @@ type PairCardViewProps = {
   onItemSelect: SectionDataType['onItemSelect'];
 };
 
-const PairCardView: FC<PairCardViewProps> = ({ items, onItemSelect }) => {
-  const itemA = items[0];
-  const itemB = items[1];
-  return (
-    <Box>
-      {itemA ? (
-        <SimpleCardView item={itemA} onItemSelect={onItemSelect} />
-      ) : null}
-      {itemB ? (
-        <SimpleCardView item={itemB} onItemSelect={onItemSelect} mt="5" />
-      ) : null}
-    </Box>
-  );
-};
+const PairCardView: FC<PairCardViewProps> = ({
+  items: [itemA, itemB],
+  onItemSelect,
+}) => (
+  <Box>
+    {itemA ? <SimpleCardView item={itemA} onItemSelect={onItemSelect} /> : null}
+    {itemB ? (
+      <SimpleCardView item={itemB} onItemSelect={onItemSelect} mt="5" />
+    ) : null}
+  </Box>
+);
 
 const group = (items: DAppItemType[]) => {
   const result: DappTypeTuple[] = [];
