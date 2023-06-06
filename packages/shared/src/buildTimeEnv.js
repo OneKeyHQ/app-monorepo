@@ -1,4 +1,5 @@
 // used in babel config so must be commonjs format
+// can only access "process.env" here as it would be shared between buildtime and runtime
 const isJest =
   process.env.JEST_WORKER_ID !== undefined || process.env.NODE_ENV === 'test';
 
