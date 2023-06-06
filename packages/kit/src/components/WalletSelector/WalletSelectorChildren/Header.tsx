@@ -6,6 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useNavigationActions } from '../../../hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { RootRoutes } from '../../../routes/routesEnum';
+import { EOnboardingRoutes } from '../../../views/Onboarding/routes/enums';
 
 type HeaderProps = {
   title?: string;
@@ -35,7 +36,9 @@ const Header: FC<HeaderProps> = ({ title }) => {
         circle
         name="PlusMini"
         onPress={() => {
-          navigation.navigate(RootRoutes.Onboarding);
+          navigation.navigate(RootRoutes.Onboarding, {
+            screen: EOnboardingRoutes.Welcome,
+          });
           setTimeout(() => {
             closeWalletSelector();
           }, 300);
