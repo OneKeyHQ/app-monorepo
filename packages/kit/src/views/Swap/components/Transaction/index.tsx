@@ -50,6 +50,7 @@ import type {
   TransactionStatus,
 } from '../../typings';
 import type { NavigationProp, RouteProp } from '@react-navigation/native';
+import type { LayoutChangeEvent } from 'react-native';
 
 type TransactionProps = {
   tx: TransactionDetails;
@@ -176,19 +177,18 @@ const Header: FC<TransactionProps & { onPress?: () => void }> = ({
 };
 
 const TransactionText: FC = ({ children }) => {
-  const [width, setWidth] = useState("")
-  const onLayout = useCallback(({
-    nativeEvent: {
-      layout: { width },
-    },
-  }) => {
-    const text = `${Math.floor(width * 0.9)}px`
+  const [width, setWidth] = useState('');
+  const onLayout = useCallback((e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    const text = `${Math.floor(w * 0.9)}px`;
     setWidth(text);
-  }, [])
-  return <Box flex='1' onLayout={onLayout}>
-    {width ? <Box width={width}>{children}</Box> : null}
-  </Box>
-}
+  }, []);
+  return (
+    <Box flex="1" onLayout={onLayout}>
+      {width ? <Box width={width}>{children}</Box> : null}
+    </Box>
+  );
+};
 
 const InputOutput: FC<TransactionProps> = ({ tx }) => {
   const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
@@ -583,8 +583,9 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               label={intl.formatMessage({ id: 'form__actual_received' })}
             >
               <Typography.Body2Strong>
-                {`${formatAmount(tx.actualReceived, 6)} ${to?.token.symbol.toUpperCase() ?? ''
-                  }`}
+                {`${formatAmount(tx.actualReceived, 6)} ${
+                  to?.token.symbol.toUpperCase() ?? ''
+                }`}
               </Typography.Body2Strong>
             </TransactionField>
           ) : null}
@@ -593,8 +594,9 @@ const Transaction: FC<TransactionProps & { showViewInBrowser?: boolean }> = ({
               label={intl.formatMessage({ id: 'form__network_fee' })}
             >
               <Typography.Body2Strong>
-                {`${formatAmount(tx.networkFee, 8)} ${network.symbol.toUpperCase() ?? ''
-                  }`}
+                {`${formatAmount(tx.networkFee, 8)} ${
+                  network.symbol.toUpperCase() ?? ''
+                }`}
               </Typography.Body2Strong>
             </TransactionField>
           ) : null}

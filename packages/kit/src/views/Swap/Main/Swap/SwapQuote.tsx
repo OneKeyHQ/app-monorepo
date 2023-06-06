@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -291,16 +291,16 @@ const SwapMinimumReceived = () => {
 
 const SwapPriceImpact = () => {
   const intl = useIntl();
-  const quote = useAppSelector(s => s.swap.quote);
+  const quote = useAppSelector((s) => s.swap.quote);
   if (!quote) {
-    return null
+    return null;
   }
-  
+
   const num = Number(quote.estimatedPriceImpact);
   if (num === 0 || Number.isNaN(num)) {
-    return null
+    return null;
   }
-  const value = `${formatAmount(quote?.estimatedPriceImpact, 4)}%`
+  const value = `${formatAmount(quote?.estimatedPriceImpact, 4)}%`;
   return (
     <Box
       display="flex"
@@ -535,14 +535,14 @@ const SwapAPIIntro = () => {
     <Box mt="2">
       <Divider />
       <Box py="4">
-        <Typography.Caption color="text-subdued">
+        <Typography.Body2 color="text-subdued">
           {intl.formatMessage(
             {
               id: 'content__by_submitting_this_order_you_are_confirming_a_swap_powered_by_str_api',
             },
             { '0': normalizeProviderName(quote.type) },
           )}
-        </Typography.Caption>
+        </Typography.Body2>
       </Box>
     </Box>
   );
@@ -575,9 +575,65 @@ const SwapTransactionRate = () => {
   return null;
 };
 
-const SwapExchangeQuote = () => {
+const SwapMoreQuote = () => {
   const intl = useIntl();
   const showMoreQuoteDetail = useAppSelector((s) => s.swap.showMoreQuoteDetail);
+
+  const onExpand = useCallback(() => {
+    backgroundApiProxy.serviceSwap.setShowMoreQuoteDetail(true);
+  }, []);
+
+  const onCollapse = useCallback(() => {
+    backgroundApiProxy.serviceSwap.setShowMoreQuoteDetail(false);
+  }, []);
+
+  if (showMoreQuoteDetail) {
+    return (
+      <Box>
+        <Box>
+          <Box py="4">
+            <Divider />
+          </Box>
+          <SwapExactAmoutAllowance />
+          <SwapSlippage />
+          <SwapPriceImpact />
+          <SwapProtocalsFees />
+          <SwapOnekeyFee />
+          <SwapArrivalTime />
+        </Box>
+        <Center h="9">
+          <Button
+            iconColor="text-subdued"
+            rightIconName="ChevronUpMini"
+            _text={{ color: 'text-subdued' }}
+            type="plain"
+            key="collapse"
+            onPress={onCollapse}
+          >
+            {intl.formatMessage({ id: 'action__collapse' })}
+          </Button>
+        </Center>
+      </Box>
+    );
+  }
+  return (
+    <Center h="9">
+      <Button
+        iconColor="text-subdued"
+        rightIconName="ChevronDownMini"
+        _text={{ color: 'text-subdued' }}
+        type="plain"
+        key="expand"
+        onPress={onExpand}
+      >
+        {intl.formatMessage({ id: 'action__expand' })}
+      </Button>
+    </Center>
+  );
+};
+
+const SwapExchangeQuote = () => {
+  const intl = useIntl();
   return (
     <Box>
       <SwapTransactionRate />
@@ -606,43 +662,7 @@ const SwapExchangeQuote = () => {
           </SwapLoadingSkeleton>
         </Box>
       </Box>
-      <Center h="9">
-        {!showMoreQuoteDetail ? (
-          <Button
-            iconColor="text-subdued"
-            rightIconName="ChevronDownMini"
-            _text={{ color: 'text-subdued' }}
-            type="plain"
-            onPress={() =>
-              backgroundApiProxy.serviceSwap.setShowMoreQuoteDetail(true)
-            }
-          >
-            {intl.formatMessage({ id: 'action__expand' })}
-          </Button>
-        ) : (
-          <Button
-            iconColor="text-subdued"
-            rightIconName="ChevronUpMini"
-            _text={{ color: 'text-subdued' }}
-            type="plain"
-            onPress={() =>
-              backgroundApiProxy.serviceSwap.setShowMoreQuoteDetail(false)
-            }
-          >
-            {intl.formatMessage({ id: 'action__collapse' })}
-          </Button>
-        )}
-      </Center>
-      {showMoreQuoteDetail ? (
-        <>
-          <SwapExactAmoutAllowance />
-          <SwapSlippage />
-          <SwapPriceImpact />
-          <SwapProtocalsFees />
-          <SwapOnekeyFee />
-          <SwapArrivalTime />
-        </>
-      ) : null}
+      <SwapMoreQuote />
       <SwapAPIIntro />
     </Box>
   );

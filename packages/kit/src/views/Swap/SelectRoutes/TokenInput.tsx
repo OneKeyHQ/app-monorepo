@@ -50,10 +50,10 @@ export const TokenInput: FC<TokenInputProps> = ({
       </Box>
       <Box w="2" />
       {isSmall ? (
-        <Box maxW='24'>
+        <Box maxW="24">
           <Typography.Body2
             numberOfLines={2}
-            lineHeight='xs'
+            lineHeight="xs"
             color={isDisabled ? 'text-disabled' : 'text-default'}
           >
             {text}

@@ -70,7 +70,18 @@ const DesktopHeader = () => {
                   if (isHovered) return 'surface-hovered';
                   return 'transparent';
                 };
-                return <Box bg={toggleButtonBg()} w='10' h='10' justifyContent='center' alignItems='center' borderRadius='full'><Icon name='EllipsisVerticalOutline' size={24}></Icon></Box>
+                return (
+                  <Box
+                    bg={toggleButtonBg()}
+                    w="10"
+                    h="10"
+                    justifyContent="center"
+                    alignItems="center"
+                    borderRadius="full"
+                  >
+                    <Icon name="EllipsisVerticalOutline" size={24} />
+                  </Box>
+                );
               }}
             </Pressable>
           )}

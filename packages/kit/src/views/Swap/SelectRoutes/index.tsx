@@ -113,7 +113,7 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
             <PlaceholderLine minW={1} ml={2} />
           </Box>
         </Box>
-        <Box justifyContent="center" flexDirection="row" px='1'>
+        <Box justifyContent="center" flexDirection="row" px="1">
           <LiquiditySources
             providers={data?.providers}
             isDisabled={isDisabled}
