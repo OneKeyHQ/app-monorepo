@@ -423,7 +423,14 @@ function FeeInfoInputForConfirmLite({
 
   const [hasTooltipOpen, setHasTooltipOpen] = useState(false);
 
-  let totalFeeInNative = feeInfoPayload?.current?.totalNative || '';
+  const totalNativeForDisplay =
+    feeInfoPayload?.current?.totalNativeForDisplay ?? '';
+  let totalFeeInNative = feeInfoPayload?.current?.totalNative ?? '';
+  totalFeeInNative =
+    new BigNumber(totalNativeForDisplay).isNaN() || !isPreset
+      ? totalFeeInNative
+      : totalNativeForDisplay;
+
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   if (encodedTx.totalFeeInNative) {
     // for UTXO model chains fee display

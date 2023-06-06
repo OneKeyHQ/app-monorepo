@@ -1113,7 +1113,6 @@ export default class Vault extends VaultBase {
         ...others,
       },
     });
-
     debugLogger.sendTx.info(
       'buildUnsignedTxFromEncodedTx >>>> fillUnsignedTx',
       unsignedTxInfo,
@@ -1286,6 +1285,10 @@ export default class Vault extends VaultBase {
       gasLimit ?? '0',
     ).toFixed();
 
+    const limitForDisplay = new BigNumber(
+      unsignedTx?.feeLimitForDisplay ?? '0',
+    ).toFixed();
+
     return {
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
@@ -1294,6 +1297,7 @@ export default class Vault extends VaultBase {
 
       eip1559,
       limit,
+      limitForDisplay,
       prices,
       defaultPresetIndex: '1',
 

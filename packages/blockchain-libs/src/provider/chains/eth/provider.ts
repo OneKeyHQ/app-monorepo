@@ -73,7 +73,7 @@ class Provider extends BaseProvider {
 
     const payload = unsignedTx.payload || {};
     const { nonce } = unsignedTx;
-    let { feeLimit } = unsignedTx;
+    let { feeLimit, feeLimitForDisplay } = unsignedTx;
 
     check(typeof nonce === 'number' && nonce >= 0, 'nonce is required');
 
@@ -112,10 +112,12 @@ class Provider extends BaseProvider {
             (await this.geth.then((client) => client.isContract(toAddress))))
             ? estimatedGasLimitBN.multipliedBy(multiplier).integerValue()
             : estimatedGasLimitBN;
+        feeLimitForDisplay = estimatedGasLimitBN;
       }
     }
 
     feeLimit = feeLimit || new BigNumber(21000);
+    feeLimitForDisplay = feeLimitForDisplay || new BigNumber(21000);
 
     let { feePricePerUnit } = unsignedTx;
     if (!feePricePerUnit) {
@@ -133,6 +135,7 @@ class Provider extends BaseProvider {
       outputs: output ? [output] : [],
       nonce,
       feeLimit,
+      feeLimitForDisplay,
       feePricePerUnit,
       payload,
     });
