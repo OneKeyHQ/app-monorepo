@@ -5,14 +5,21 @@ import { HStack, Pressable } from '@onekeyhq/components';
 
 import Column from './Column';
 
+import type { ColorType } from 'native-base/lib/typescript/components/types';
+
 type ListItemProps = {
   onPress?: () => void;
   onLongPress?: () => void;
+  pressedBgColor?: ColorType;
+  hoveredBgColor?: ColorType;
 } & ComponentProps<typeof HStack>;
 
 const ListItem: FC<ListItemProps> = ({
   onLongPress,
   onPress,
+  pressedBgColor,
+  hoveredBgColor,
+  bgColor,
   children,
   ...rest
 }) =>
@@ -28,10 +35,10 @@ const ListItem: FC<ListItemProps> = ({
           borderRadius="xl"
           bgColor={
             isPressed
-              ? 'surface-pressed'
+              ? pressedBgColor ?? 'surface-pressed'
               : isHovered
-              ? 'surface-hovered'
-              : undefined
+              ? hoveredBgColor ?? 'surface-hovered'
+              : bgColor ?? undefined
           }
           {...rest}
         >
