@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import { omit } from 'lodash';
+import { useDebounce } from 'use-debounce';
 
 import {
   Box,
@@ -22,6 +23,7 @@ import type {
   RootRoutesParams,
 } from '@onekeyhq/kit/src/routes/types';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokens, useActiveSideAccount } from '../../../hooks';
@@ -99,29 +101,85 @@ function AssetsList({
     return 16;
   };
 
+  const [startRefresh] = useDebounce(
+    useCallback(() => {
+      const { serviceToken, serviceOverview } = backgroundApiProxy;
+      serviceOverview.startQueryPendingTasks();
+      serviceToken.startRefreshAccountTokens();
+    }, []),
+    1000,
+    {
+      leading: true,
+      trailing: false,
+    },
+  );
+
+  const [stopRefresh] = useDebounce(
+    useCallback(() => {
+      const { serviceToken, serviceOverview } = backgroundApiProxy;
+      serviceOverview.stopQueryPendingTasks();
+      serviceToken.stopRefreshAccountTokens();
+    }, []),
+    1000,
+    {
+      leading: true,
+      trailing: false,
+    },
+  );
+
+  const visibilityStateListener = useCallback(() => {
+    if (document.visibilityState === 'hidden') {
+      stopRefresh();
+    }
+    if (document.visibilityState === 'visible') {
+      startRefresh();
+    }
+  }, [startRefresh, stopRefresh]);
+
   useEffect(() => {
     const { serviceOverview } = backgroundApiProxy;
     serviceOverview.subscribe();
-  }, [networkId, accountId]);
+
+    if (platformEnv.isExtensionUi) {
+      chrome.runtime.connect();
+    }
+  }, [networkId, accountId, startRefresh, stopRefresh]);
 
   useFocusEffect(
     useCallback(() => {
-      const { serviceToken, serviceOverview } = backgroundApiProxy;
-      if (account && network) {
-        serviceToken.fetchAccountTokens({
-          includeTop50TokensQuery: true,
-          networkId: network?.id,
-          accountId: account?.id,
-        });
-
-        serviceOverview.startQueryPendingTasks();
-        serviceToken.startRefreshAccountTokens();
+      const { serviceToken } = backgroundApiProxy;
+      if (!account || !network) {
+        return;
       }
+      serviceToken.fetchAccountTokens({
+        includeTop50TokensQuery: true,
+        networkId: network?.id,
+        accountId: account?.id,
+      });
+
+      startRefresh();
+      if (platformEnv.isRuntimeBrowser) {
+        document.addEventListener('visibilitychange', visibilityStateListener);
+        if (!platformEnv.isDesktop) {
+          window.addEventListener('blur', stopRefresh);
+          window.addEventListener('focus', startRefresh);
+        }
+      }
+
       return () => {
-        serviceOverview.stopQueryPendingTasks();
-        serviceToken.stopRefreshAccountTokens();
+        stopRefresh();
+        if (platformEnv.isRuntimeBrowser) {
+          document.removeEventListener(
+            'visibilitychange',
+            visibilityStateListener,
+          );
+          if (!platformEnv.isDesktop) {
+            window.removeEventListener('blur', stopRefresh);
+            window.removeEventListener('focus', startRefresh);
+          }
+        }
       };
-    }, [account, network]),
+    }, [account, network, visibilityStateListener, startRefresh, stopRefresh]),
   );
 
   const onTokenCellPress = useCallback(
