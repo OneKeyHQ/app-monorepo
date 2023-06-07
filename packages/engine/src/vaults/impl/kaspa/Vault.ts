@@ -486,12 +486,12 @@ export default class Vault extends VaultBase {
           // send and send self
           from = dbAccount.address;
 
-          const filterInputs = inputs.filter(
-            (input) => input.previous_outpoint_address !== dbAccount.address,
+          const filterOutputs = outputs.filter(
+            (output) => output.script_public_key_address !== dbAccount.address,
           );
 
-          if (filterInputs.length > 0) {
-            to = filterInputs[0].previous_outpoint_address;
+          if (filterOutputs.length > 0) {
+            to = filterOutputs[0].script_public_key_address;
           } else {
             to = dbAccount.address;
           }
