@@ -637,7 +637,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     password?: string;
     passwordLoadedCallback?: (isLoaded: boolean) => void;
   }): Promise<IHistoryTx[]> {
-    throw new NotImplemented();
+    throw new NotImplemented('fetchOnChainHistory');
   }
 
   fixAddressCase(address: string): Promise<string> {

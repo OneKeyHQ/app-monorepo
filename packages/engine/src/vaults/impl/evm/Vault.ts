@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, no-param-reassign */
 
+import { StringDecoder } from 'string_decoder';
+
 import { defaultAbiCoder } from '@ethersproject/abi';
 import ERC1155MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC1155.json';
 import ERC20MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC20.json';
@@ -45,10 +47,12 @@ import {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import simpleDb from '../../../dbs/simple/simpleDb';
 import {
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
+  PendingQueueTooLong,
 } from '../../../errors';
 import * as covalentApi from '../../../managers/covalent';
 import { getAccountNameInfoByImpl } from '../../../managers/impl';
@@ -94,6 +98,7 @@ import settings from './settings';
 import { ecRecover, mmDecrypt, verifyAddress } from './utils';
 
 import type { Account, DBAccount } from '../../../types/account';
+import type { CoinInfo } from '../../../types/chain';
 import type { ICovalentHistoryListItem } from '../../../types/covalent';
 import type {
   HistoryEntry,
@@ -129,6 +134,7 @@ import type {
   IRawTx,
   ISetApprovalForAll,
   ISignCredentialOptions,
+  ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -213,6 +219,22 @@ export default class Vault extends VaultBase {
     return chainInfo.implOptions;
   }
 
+  getClientCache = memoizee(async (rpcUrl) => this.getGethClient(rpcUrl), {
+    promise: true,
+    max: 1,
+    maxAge: getTimeDurationMs({ minute: 3 }),
+  });
+
+  async getClient(url?: string) {
+    const rpcURL = await this.getRpcUrl();
+    return this.getClientCache(url ?? rpcURL);
+  }
+
+  getGethClient(url: string) {
+    // client: superagent
+    return new Geth(url);
+  }
+
   override async getEthersProvider() {
     const network = await this.getNetwork();
     const rpcUrl = network.rpcURL;
@@ -227,12 +249,11 @@ export default class Vault extends VaultBase {
     return this._ethersProvider;
   }
 
-  async getJsonRPCClient(): Promise<Geth> {
-    // shared/src/request
-    // client: cross-fetch
-    return (await this.engine.providerManager.getClient(
-      this.networkId,
-    )) as Geth;
+  override async getTransactionStatuses(
+    txids: Array<string>,
+  ): Promise<Array<TransactionStatus | undefined>> {
+    const client = await this.getClient();
+    return client.getTransactionStatuses(txids);
   }
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
@@ -861,6 +882,10 @@ export default class Vault extends VaultBase {
     );
   }
 
+  override async validateTokenAddress(tokenAddress: string): Promise<string> {
+    return Promise.resolve(this.validateAddress(tokenAddress));
+  }
+
   override async validateAddress(address: string): Promise<string> {
     const { normalizedAddress, isValid } = verifyAddress(address);
     if (!isValid || !normalizedAddress) {
@@ -945,8 +970,6 @@ export default class Vault extends VaultBase {
     }
     return new multicall.MulticallProvider(provider, { verbose: true });
   }
-
-  override async validateTokenAddress(address: string) {}
 
   override async checkIsUnlimitedAllowance(params: {
     networkId: string;
@@ -1104,7 +1127,7 @@ export default class Vault extends VaultBase {
   }
 
   async buildUnsignedTx(unsignedTx: UnsignedTx): Promise<UnsignedTx> {
-    const client = await this.getJsonRPCClient();
+    const client = await this.getClient();
     const input = unsignedTx.inputs[0];
     const output = unsignedTx.outputs[0];
 
@@ -1179,6 +1202,54 @@ export default class Vault extends VaultBase {
       feePricePerUnit,
       payload,
     });
+  }
+
+  override async getNextNonce(
+    networkId: string,
+    dbAccount: DBAccount,
+  ): Promise<number> {
+    const client = await this.getClient();
+    const onChainNonce =
+      (await client.getAddresses([dbAccount.address]))[0]?.nonce ?? 0;
+    const historyItems = await this.engine.getHistory(
+      networkId,
+      dbAccount.id,
+      undefined,
+      false,
+    );
+    const maxPendingNonce = await simpleDb.history.getMaxPendingNonce({
+      accountId: this.accountId,
+      networkId,
+    });
+    const pendingNonceList = await simpleDb.history.getPendingNonceList({
+      accountId: this.accountId,
+      networkId,
+    });
+    let nextNonce = Math.max(
+      isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
+      onChainNonce,
+    );
+    if (Number.isNaN(nextNonce)) {
+      nextNonce = onChainNonce;
+    }
+    if (nextNonce > onChainNonce) {
+      for (let i = onChainNonce; i < nextNonce; i += 1) {
+        if (!pendingNonceList.includes(i)) {
+          nextNonce = i;
+          break;
+        }
+      }
+    }
+
+    if (nextNonce < onChainNonce) {
+      nextNonce = onChainNonce;
+    }
+
+    if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {
+      throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
+    }
+
+    return nextNonce;
   }
 
   async buildUnsignedTxFromEncodedTx(
@@ -1345,7 +1416,7 @@ export default class Vault extends VaultBase {
       const data = `0x49948e0e${defaultAbiCoder
         .encode(['bytes'], [txData])
         .slice(2)}`;
-      const client = await this.getJsonRPCClient();
+      const client = await this.getClient();
 
       // RPC: eth_call
       const l1FeeHex = await client.rpc.call('eth_call', [
@@ -1528,7 +1599,7 @@ export default class Vault extends VaultBase {
     const data = `${allowanceMethodID}${defaultAbiCoder
       .encode(['address', 'address'], [dbAccount.address, spenderAddress])
       .slice(2)}`;
-    const client = await this.getJsonRPCClient();
+    const client = await this.getClient();
     const rawAllowanceHex = await client.rpc.call('eth_call', [
       { to: token.tokenIdOnNetwork, data },
       'latest',
@@ -1560,7 +1631,7 @@ export default class Vault extends VaultBase {
         .slice(2)}`;
       calls.push({ to: token.tokenIdOnNetwork, data });
     }
-    const client = await this.getJsonRPCClient();
+    const client = await this.getClient();
     const rawAllowanceHexCallResults = await client.batchEthCall(calls);
 
     return rawAllowanceHexCallResults.map((value) => Number(value));
@@ -1637,7 +1708,7 @@ export default class Vault extends VaultBase {
   }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
-    const client = await this.getJsonRPCClient();
+    const client = await this.getClient();
     try {
       return await client.rpc.call(
         request.method,
@@ -1880,7 +1951,7 @@ export default class Vault extends VaultBase {
       .map((item) => item.decodedTx.txid);
     const chainId = await this.getNetworkChainId();
     const address = await this.getAccountAddress();
-    const client = await this.getJsonRPCClient();
+    const client = await this.getClient();
     /*
     {
       hash1: { covalentTx, alchemyTx, infStoneTx, explorerTx, rpcTx },
@@ -2089,7 +2160,7 @@ export default class Vault extends VaultBase {
     async (address: string): Promise<boolean> => {
       try {
         await this.validateAddress(address);
-        const client = await this.getJsonRPCClient();
+        const client = await this.getClient();
         return await client.isContract(address);
       } catch {
         return Promise.resolve(false);
@@ -2167,7 +2238,7 @@ export default class Vault extends VaultBase {
     url: string,
   ): Promise<IClientEndpointStatus> {
     let result: IClientEndpointStatus | undefined;
-    const client = await this.getJsonRPCClient();
+    const client = await this.getClient();
     const start = performance.now();
     try {
       const res = await client.rpc.batchCall<Array<{ number: string }>>(
@@ -2213,5 +2284,25 @@ export default class Vault extends VaultBase {
   override async fetchRpcChainId(url: string): Promise<string> {
     const chainId = await this.engine.providerManager.getEVMChainId(url);
     return String(chainId);
+  }
+
+  override async getBalances(
+    requests: Array<{ address: string; coin: Partial<CoinInfo> }>,
+  ): Promise<Array<BigNumber | undefined>> {
+    const client = await this.getClient();
+    return client.getBalances(requests);
+  }
+
+  override async broadcastTransaction(
+    signedTx: ISignedTxPro,
+    options?: any,
+  ): Promise<ISignedTxPro> {
+    const client = await this.getClient();
+    const txid = await client.broadcastTransaction(signedTx.rawTx);
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
+    };
   }
 }

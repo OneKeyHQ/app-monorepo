@@ -13,14 +13,18 @@ import {
 import type {
   AddressValidation,
   TypedMessage,
+  UnsignedTx,
 } from '@onekeyhq/engine/src/types/provider';
 import type { Signer } from '@onekeyhq/engine/src/types/secret';
-import { check } from '@onekeyhq/shared/src/utils/assertUtils';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { check, checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { hashMessage } from './sdk';
 
 import type { MessageTypes } from './sdk';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import type { UnsignedTransaction } from '@ethersproject/transactions';
+import BigNumber from 'bignumber.js';
 
 export async function mmDecrypt(
   serializedMessage: string,
@@ -76,4 +80,43 @@ export function verifyAddress(address: string): AddressValidation {
     displayAddress: checksumAddress || undefined,
     isValid,
   };
+}
+
+export function buildEtherUnSignedTx(
+  unsignedTx: UnsignedTx,
+  chainId: string,
+): UnsignedTransaction {
+  const output = unsignedTx.outputs[0];
+  const isERC20Transfer = !!output.tokenAddress;
+  const toAddress = isERC20Transfer ? output.tokenAddress : output.address;
+  const value = isERC20Transfer ? '0x0' : toBigIntHex(output.value);
+  const nonce = checkIsDefined(unsignedTx.nonce);
+
+  const baseTx = {
+    to: toAddress || undefined, // undefined is for deploy contract calls.
+    value,
+    gasLimit: toBigIntHex(checkIsDefined(unsignedTx.feeLimit)),
+    nonce: `0x${nonce.toString(16)}`, // some RPC do not accept nonce as number
+    data: unsignedTx.payload?.data || '0x',
+    chainId: parseInt(checkIsDefined(chainId)),
+  };
+
+  if (unsignedTx.payload?.EIP1559Enabled === true) {
+    Object.assign(baseTx, {
+      type: 2,
+      maxFeePerGas: toBigIntHex(
+        new BigNumber(checkIsDefined(unsignedTx.payload?.maxFeePerGas)),
+      ),
+      maxPriorityFeePerGas: toBigIntHex(
+        new BigNumber(checkIsDefined(unsignedTx.payload?.maxPriorityFeePerGas)),
+      ),
+    });
+  } else {
+    Object.assign(baseTx, {
+      gasPrice: toBigIntHex(checkIsDefined(unsignedTx.feePricePerUnit)),
+    });
+  }
+
+  // @ts-ignore
+  return baseTx;
 }
