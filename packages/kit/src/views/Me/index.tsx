@@ -10,6 +10,7 @@ import { DefaultSection } from './DefaultSection';
 import { DevSettingSection } from './DevSetting';
 import { FooterAction } from './FooterSection';
 import { GenaralSection } from './GenaralSection';
+import { HardwareBridgeSection } from './HardwareBridgeSection';
 import { PushSection } from './PushSection';
 import { SecuritySection } from './SecuritySection';
 import { UtilSection } from './UtilSection';
@@ -32,6 +33,7 @@ export const Me = (options: any) => {
           <PushSection />
           <AdvancedSection />
           <AboutSection />
+          <HardwareBridgeSection />
           <FooterAction />
           {devModeEnable ? <DevSettingSection /> : null}
         </Box>

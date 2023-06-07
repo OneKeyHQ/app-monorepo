@@ -4,6 +4,7 @@ import { toFocusedLazy } from '../../../../../components/LazyRenderWhenFocus';
 import AdvancedSettings from '../../../../../views/AdvancedSettings';
 import ClearCache from '../../../../../views/ClearCache';
 import OnekeyLiteDetail from '../../../../../views/Hardware/OnekeyLite/Detail';
+import HardwareBridgeSettings from '../../../../../views/HardwareBridgeSettings';
 import MeScreen from '../../../../../views/Me';
 import VolumeHaptic from '../../../../../views/Me/GenaralSection/VolumeHaptic';
 import CloudBackup from '../../../../../views/Me/SecuritySection/CloudBackup';
@@ -77,6 +78,10 @@ const config: TabRouteConfig = {
     {
       name: HomeRoutes.AdvancedSettings,
       component: AdvancedSettings,
+    },
+    {
+      name: HomeRoutes.HardwareBridgeSettings,
+      component: HardwareBridgeSettings,
     },
   ],
 };
