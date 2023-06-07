@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 
-import type { FC } from 'react';
-import { useCallback, useEffect } from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -9,18 +9,19 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Box,
+  HStack,
+  Icon,
   IconButton,
   Pressable,
   ToastManager,
   Typography,
-  useThemeValue,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 import { HomeRoutes } from '../../routes/routesEnum';
-import { setSwapPopoverShown } from '../../store/reducers/status';
 import { setMode } from '../../store/reducers/swap';
+import { setTransactionViewed } from '../../store/reducers/swapTransactions';
 
 import { limitOrderNetworkIds } from './config';
 import { useWalletsSwapTransactions } from './hooks/useTransactions';
@@ -30,63 +31,140 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
-const HistoryPopoverButton: FC<{ onPress?: () => void }> = ({ onPress }) => {
-  const intl = useIntl();
-  const borderBottomColor = useThemeValue('surface-success-default');
+const HistoryPendingIndicator = () => {
+  const [len, setLen] = useState(1);
   useEffect(() => {
-    const timer = setTimeout(
-      () => backgroundApiProxy.dispatch(setSwapPopoverShown()),
-      8 * 1000,
+    const timer = setInterval(
+      () => setLen((prev) => (prev >= 3 ? 1 : prev + 1)),
+      1000,
     );
-    return () => {
-      clearTimeout(timer);
-      backgroundApiProxy.dispatch(setSwapPopoverShown());
-    };
+    return () => clearInterval(timer);
   }, []);
+
+  const items = useMemo(() => Array.from({ length: len }, (v, k) => k), [len]);
+
   return (
-    <Box position="relative">
-      <IconButton type="plain" name="ClockOutline" onPress={onPress} />
-      <Box
-        position="absolute"
-        zIndex={1}
-        top="full"
-        right={0}
-        bg="surface-success-default"
-        borderRadius={12}
-        width="56"
-      >
-        <Box
-          style={{
-            width: 0,
-            height: 0,
-            backgroundColor: 'transparent',
-            borderStyle: 'solid',
-            borderLeftWidth: 5,
-            borderRightWidth: 5,
-            borderBottomWidth: 10,
-            borderLeftColor: 'transparent',
-            borderRightColor: 'transparent',
-            borderBottomColor,
-            position: 'absolute',
-            top: -8,
-            right: 14,
-          }}
-        />
-        <Box p="3">
-          <Typography.Body2>
-            {intl.formatMessage({
-              id: 'msg__you_can_find_your_transaction_history_here',
-            })}
-          </Typography.Body2>
-        </Box>
-      </Box>
-    </Box>
+    <HStack w="4">
+      {items.map((item) => (
+        <Typography.CaptionStrong key={item}>.</Typography.CaptionStrong>
+      ))}
+    </HStack>
   );
+};
+
+type HistoryStatusButtonProps = {
+  onPress?: () => void;
+  text: string;
+  iconName: ComponentProps<typeof Icon>['name'];
+  backgroundColor?: ComponentProps<typeof Pressable>['backgroundColor'];
+  borderColor?: ComponentProps<typeof Pressable>['borderColor'];
+  rightSlot?: React.ReactNode;
+};
+
+const HistoryStatusButton: FC<HistoryStatusButtonProps> = ({
+  onPress,
+  text,
+  iconName,
+  backgroundColor,
+  borderColor,
+  rightSlot,
+}) => (
+  <Pressable onPress={onPress}>
+    <Box
+      py="2"
+      px="3"
+      flexDirection="row"
+      alignItems="center"
+      backgroundColor={backgroundColor}
+      borderColor={borderColor}
+      borderRadius={12}
+    >
+      <Box mr="2">
+        <Icon name={iconName} size={16} />
+      </Box>
+      <Typography.CaptionStrong>{text}</Typography.CaptionStrong>
+      {rightSlot ? <Box ml="2">{rightSlot}</Box> : null}
+    </Box>
+  </Pressable>
+);
+
+const HistoryPendingButton: FC<{ onPress?: () => void }> = ({ onPress }) => {
+  const intl = useIntl();
+  const transactions = useWalletsSwapTransactions();
+  const pendings = transactions.filter(
+    (tx) => tx.status === 'pending' && tx.type === 'swap',
+  );
+  return (
+    <HistoryStatusButton
+      onPress={onPress}
+      iconName="ClockOutline"
+      backgroundColor="surface-highlight-default"
+      text={intl.formatMessage(
+        { id: 'msg__str_in_progress' },
+        { '0': pendings.length },
+      )}
+      rightSlot={<HistoryPendingIndicator />}
+    />
+  );
+};
+
+const HistoryDoneButton: FC<{ onPress?: () => void }> = ({ onPress }) => {
+  const intl = useIntl();
+  const transactions = useWalletsSwapTransactions();
+  const completed = transactions.filter(
+    (tx) => tx.status === 'sucesss' && tx.viewed === false,
+  );
+  const failed = transactions.filter(
+    (tx) =>
+      (tx.status === 'failed' || tx.status === 'canceled') &&
+      tx.viewed === false,
+  );
+
+  const onSetTransactionViewed = useCallback(() => {
+    const txs = transactions.filter(
+      (tx) => tx.status !== 'pending' && tx.viewed === false,
+    );
+    backgroundApiProxy.dispatch(
+      setTransactionViewed({ txids: txs.map((o) => o.hash) }),
+    );
+    onPress?.();
+  }, [transactions, onPress]);
+
+  if (failed.length) {
+    return (
+      <HistoryStatusButton
+        iconName="XCircleOutline"
+        onPress={onSetTransactionViewed}
+        text={intl.formatMessage(
+          { id: 'msg__str_swap_failed' },
+          { '0': failed.length },
+        )}
+        backgroundColor="surface-critical-default"
+        borderColor="surface-critical-subdued"
+      />
+    );
+  }
+
+  if (completed.length) {
+    return (
+      <HistoryStatusButton
+        iconName="CheckCircleOutline"
+        onPress={onSetTransactionViewed}
+        text={intl.formatMessage(
+          { id: 'msg__str_swap_done' },
+          { '0': completed.length },
+        )}
+        backgroundColor="surface-success-default"
+        borderColor="surface-success-subdued"
+      />
+    );
+  }
+
+  return <IconButton type="plain" name="ClockOutline" onPress={onPress} />;
 };
 
 const HistoryButton = () => {
   const transactions = useWalletsSwapTransactions();
-  const swapPopoverShown = useAppSelector((s) => s.status.swapPopoverShown);
   const pendings = transactions.filter(
     (tx) => tx.status === 'pending' && tx.type === 'swap',
   );
@@ -94,26 +172,10 @@ const HistoryButton = () => {
   const onPress = useCallback(() => {
     navigation.navigate(HomeRoutes.SwapHistory);
   }, [navigation]);
-  return (
-    <Box position="relative">
-      {!swapPopoverShown && pendings.length > 0 ? (
-        <HistoryPopoverButton onPress={onPress} />
-      ) : (
-        <IconButton type="plain" name="ClockOutline" onPress={onPress} />
-      )}
-      {pendings.length > 0 ? (
-        <Box
-          position="absolute"
-          w="2"
-          h="2"
-          bg="icon-warning"
-          borderRadius="full"
-          top="2"
-          right="2"
-        />
-      ) : null}
-    </Box>
-  );
+  if (pendings.length > 0) {
+    return <HistoryPendingButton onPress={onPress} />;
+  }
+  return <HistoryDoneButton onPress={onPress} />;
 };
 
 export const SwapHeaderButtons = () => <HistoryButton />;
