@@ -171,7 +171,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
 
     const connectedAccounts =
       this.backgroundApi.serviceDapp?.getActiveConnectedAccounts({
-        origin: dappName ?? request.origin ?? '',
+        origin: request.origin ?? dappName ?? '',
         impl: IMPL_DOT,
       });
 
