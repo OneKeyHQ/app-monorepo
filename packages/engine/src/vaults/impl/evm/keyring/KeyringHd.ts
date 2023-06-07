@@ -11,21 +11,37 @@ import {
   getAccountNameInfoByImpl,
   getAccountNameInfoByTemplate,
 } from '../../../../managers/impl';
-import { Signer } from '../../../../proxy';
+import { Signer, Verifier } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
-
-import { buildEtherUnSignedTx } from '../utils';
+import { buildEtherUnSignedTx, pubkeyToAddress } from '../utils';
 
 import type { ExportedSeedCredential } from '../../../../dbs/base';
-import type { DBSimpleAccount, DBVariantAccount } from '../../../../types/account';
+import type {
+  DBSimpleAccount,
+  DBVariantAccount,
+} from '../../../../types/account';
 import type { SignedTx, UnsignedTx } from '../../../../types/provider';
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
 } from '../../../types';
 
+type Curve = 'secp256k1' | 'ed25519';
+
 export class KeyringHd extends KeyringHdBase {
+  async getVerifier(pub: string): Promise<Verifier> {
+    const provider =
+      await this.vault.engine.providerManager.getChainInfoByNetworkId(
+        this.networkId,
+      );
+    if (typeof provider === 'undefined') {
+      throw new OneKeyInternalError('Provider not found.');
+    }
+
+    return new Verifier(pub, provider.curve as Curve);
+  }
+
   override async getSigners(password: string, addresses: Array<string>) {
     const dbAccount = await this.getDbAccount();
 
@@ -80,9 +96,9 @@ export class KeyringHd extends KeyringHdBase {
         extendedKey: { key: pubkey },
       } = info;
       const pub = pubkey.toString('hex');
-      const address = await this.engine.providerManager.addressFromPub(
-        this.networkId,
-        pub,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      const address: string = await pubkeyToAddress(
+        await this.getVerifier(pub),
       );
       const name = (names || [])[index] || `${prefix} #${indexes[index] + 1}`;
       const isLedgerLiveTemplate =

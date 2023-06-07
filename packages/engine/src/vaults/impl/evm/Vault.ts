@@ -520,7 +520,7 @@ export default class Vault extends VaultBase {
           type: IDecodedTxActionType.NATIVE_TRANSFER,
           nativeTransfer: {
             tokenInfo: nativeToken,
-            from: encodedTx.from || decodedTxLegacy.fromAddress,
+            from: encodedTx.from || decodedTxLegacy.froqmAddress,
             to: encodedTx.to,
             amount: valueBn.shiftedBy(-network.decimals).toFixed(),
             amountValue: valueBn.toFixed(),
@@ -1170,8 +1170,6 @@ export default class Vault extends VaultBase {
         const multiplier =
           (await this.getChainInfoImplOptions()).contract_gaslimit_multiplier ||
           1.2;
-        // const multiplier =
-        // this.chainInfo.implOptions.contract_gaslimit_multiplier || 1.2;
 
         feeLimit =
           tokenAddress ||

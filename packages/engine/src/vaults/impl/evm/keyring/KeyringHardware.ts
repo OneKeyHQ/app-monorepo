@@ -15,7 +15,6 @@ import {
 } from '../../../../managers/impl';
 import { AccountType } from '../../../../types/account';
 import { KeyringHardwareBase } from '../../../keyring/KeyringHardwareBase';
-
 import { ethers } from '../sdk/ethers';
 
 import type { DBSimpleAccount } from '../../../../types/account';
