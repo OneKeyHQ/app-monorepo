@@ -6,25 +6,25 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import * as engineUtils from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { OneKeyHardwareError } from '../../../errors';
-import * as OneKeyHardware from '../../../hardware';
-import { slicePathTemplate } from '../../../managers/derivation';
+import { OneKeyHardwareError } from '../../../../errors';
+import * as OneKeyHardware from '../../../../hardware';
+import { slicePathTemplate } from '../../../../managers/derivation';
 import {
   getAccountNameInfoByImpl,
   getAccountNameInfoByTemplate,
-} from '../../../managers/impl';
-import { AccountType } from '../../../types/account';
-import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
+} from '../../../../managers/impl';
+import { AccountType } from '../../../../types/account';
+import { KeyringHardwareBase } from '../../../keyring/KeyringHardwareBase';
 
-import { ethers } from './sdk/ethers';
+import { ethers } from '../sdk/ethers';
 
-import type { DBSimpleAccount } from '../../../types/account';
+import type { DBSimpleAccount } from '../../../../types/account';
 import type {
   IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
-} from '../../types';
-import type { IUnsignedMessageEvm } from './Vault';
+} from '../../../types';
+import type { IUnsignedMessageEvm } from '../Vault';
 
 export class KeyringHardware extends KeyringHardwareBase {
   async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {

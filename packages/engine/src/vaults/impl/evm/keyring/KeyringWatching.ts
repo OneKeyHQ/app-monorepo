@@ -2,16 +2,16 @@ import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_ETH as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { InvalidAddress } from '../../../errors';
-import { AccountType } from '../../../types/account';
-import { KeyringWatchingBase } from '../../keyring/KeyringWatchingBase';
+import { InvalidAddress } from '../../../../errors';
+import { AccountType } from '../../../../types/account';
+import { KeyringWatchingBase } from '../../../keyring/KeyringWatchingBase';
 
-import type { DBSimpleAccount } from '../../../types/account';
+import type { DBSimpleAccount } from '../../../../types/account';
 import type {
   IEncodedTx,
   IPrepareWatchingAccountsParams,
   ISignCredentialOptions,
-} from '../../types';
+} from '../../../types';
 
 export class KeyringWatching extends KeyringWatchingBase {
   // TODO remove

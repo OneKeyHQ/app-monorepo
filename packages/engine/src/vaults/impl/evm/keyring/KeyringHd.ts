@@ -6,24 +6,24 @@ import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
-import { OneKeyInternalError } from '../../../errors';
+import { OneKeyInternalError } from '../../../../errors';
 import {
   getAccountNameInfoByImpl,
   getAccountNameInfoByTemplate,
-} from '../../../managers/impl';
-import { Signer } from '../../../proxy';
-import { AccountType } from '../../../types/account';
-import { KeyringHdBase } from '../../keyring/KeyringHdBase';
+} from '../../../../managers/impl';
+import { Signer } from '../../../../proxy';
+import { AccountType } from '../../../../types/account';
+import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
 
-import { buildEtherUnSignedTx } from './utils';
+import { buildEtherUnSignedTx } from '../utils';
 
-import type { ExportedSeedCredential } from '../../../dbs/base';
-import type { DBSimpleAccount, DBVariantAccount } from '../../../types/account';
-import type { SignedTx, UnsignedTx } from '../../../types/provider';
+import type { ExportedSeedCredential } from '../../../../dbs/base';
+import type { DBSimpleAccount, DBVariantAccount } from '../../../../types/account';
+import type { SignedTx, UnsignedTx } from '../../../../types/provider';
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
-} from '../../types';
+} from '../../../types';
 
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(password: string, addresses: Array<string>) {

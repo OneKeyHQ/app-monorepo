@@ -1,13 +1,13 @@
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import { COINTYPE_ETH as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { OneKeyInternalError } from '../../../errors';
-import { Signer } from '../../../proxy';
-import { AccountType } from '../../../types/account';
-import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
+import { OneKeyInternalError } from '../../../../errors';
+import { Signer } from '../../../../proxy';
+import { AccountType } from '../../../../types/account';
+import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
 
-import type { DBSimpleAccount } from '../../../types/account';
-import type { IPrepareImportedAccountsParams } from '../../types';
+import type { DBSimpleAccount } from '../../../../types/account';
+import type { IPrepareImportedAccountsParams } from '../../../types';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(password: string, addresses: Array<string>) {

@@ -19,7 +19,6 @@ import {
 } from 'lodash';
 import memoizee from 'memoizee';
 
-import type { Provider as EthProvider } from '@onekeyhq/blockchain-libs/src/provider/chains/eth/provider';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type {
@@ -89,13 +88,15 @@ import {
   InfiniteAmountText,
 } from './decoder/decoder';
 import { getTxCount } from './decoder/util';
-import { KeyringHardware } from './KeyringHardware';
-import { KeyringHd } from './KeyringHd';
-import { KeyringImported } from './KeyringImported';
-import { KeyringWatching } from './KeyringWatching';
+import {
+  KeyringHardware,
+  KeyringHd,
+  KeyringImported,
+  KeyringWatching,
+} from './keyring';
 import { Geth, ethers } from './sdk';
 import settings from './settings';
-import { ecRecover, mmDecrypt, verifyAddress } from './utils';
+import { ecRecover, mmDecrypt, mmGetPublicKey, verifyAddress } from './utils';
 
 import type { Account, DBAccount } from '../../../types/account';
 import type { CoinInfo } from '../../../types/chain';
@@ -1545,7 +1546,7 @@ export default class Vault extends VaultBase {
         password,
         [dbAccount.address],
       );
-      return (this.engineProvider as EthProvider).mmGetPublicKey(signer);
+      return mmGetPublicKey(signer);
     }
     throw new NotImplemented(
       'Only software keryings support getting encryption key.',
