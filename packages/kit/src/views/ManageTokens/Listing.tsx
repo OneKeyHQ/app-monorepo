@@ -348,25 +348,19 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
   }, [accountId, hideSmallBalance, hideRiskTokens, intl, item, networkId]);
 
   const onAddToken = useCallback(async () => {
-    const { engine, serviceToken } = backgroundApiProxy;
+    const { serviceToken } = backgroundApiProxy;
     try {
       await checkIfShouldActiveToken();
-      await engine.quickAddToken(
-        accountId,
+      await serviceToken.addAccountToken(
         networkId,
+        accountId,
         item.tokenIdOnNetwork,
-        undefined,
-        { autoDetected: false },
       );
     } catch (e) {
       debugLogger.common.error('add token error', e);
       deviceUtils.showErrorToast(e, 'msg__failed_to_add_token');
       return;
     }
-    await serviceToken.fetchAccountTokens({
-      accountId,
-      networkId,
-    });
     await checkTokenVisible();
     ToastManager.show({
       title: intl.formatMessage({ id: 'msg__token_added' }),

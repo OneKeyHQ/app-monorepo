@@ -6,11 +6,13 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
-import TokenSelector from '../components/TokenSelector';
-import { TokenSelectorContext } from '../components/TokenSelector/context';
+import TokenSelectorControl from '../components/TokenSelectorControl';
+import { TokenSelectorControlContext } from '../components/TokenSelectorControl/context';
 import { useSwapRecipient } from '../hooks/useSwap';
 
-import type { NetworkOption } from '../components/TokenSelector/context';
+import type { NetworkOption } from '../components/TokenSelectorControl/context';
+
+const all = 'all';
 
 const Output = () => {
   const intl = useIntl();
@@ -31,23 +33,70 @@ const Output = () => {
     },
   );
 
-  const networkOptions = useMemo<NetworkOption[]>(() => {
-    if (!tokenList) {
-      return [];
+  const [previousNetworkSelectorId, setPreviousNetworkSelectorId] = useState<
+    string | undefined
+  >(
+    inputToken?.networkId === outputToken?.networkId
+      ? undefined
+      : outputToken?.networkId,
+  );
+
+  useEffect(() => {
+    if (networkSelectorId && networkSelectorId !== inputToken?.networkId) {
+      setPreviousNetworkSelectorId(networkSelectorId);
     }
-    return tokenList.map((item) => {
-      const name =
-        item.name.toLowerCase() === 'all'
-          ? intl.formatMessage({ id: 'option__all' })
-          : item.name;
-      return {
-        name,
-        networkId:
-          item.name.toLowerCase() === 'all' ? undefined : item.networkId,
-        logoURI: item.logoURI,
-      };
+  }, [networkSelectorId, inputToken]);
+
+  const data = useMemo<{
+    actives: NetworkOption[];
+    inactives: NetworkOption[];
+  }>(() => {
+    if (!tokenList) {
+      return { actives: [], inactives: [] };
+    }
+    let items = tokenList
+      .filter((item) => item.name && item.networkId)
+      .map((item) => {
+        const name =
+          item.name.toLowerCase() === all
+            ? intl.formatMessage({ id: 'option__all' })
+            : item.name;
+        const networkId =
+          item.name.toLowerCase() === all ? undefined : item.networkId;
+        return {
+          name,
+          networkId,
+          logoURI: item.logoURI,
+        };
+      }) as NetworkOption[];
+
+    const getScore = (item: NetworkOption): number => {
+      if (!item.networkId) {
+        return -10;
+      }
+      if (item.networkId === inputToken?.networkId) {
+        return -9;
+      }
+      if (
+        previousNetworkSelectorId &&
+        item.networkId === previousNetworkSelectorId
+      ) {
+        return -8;
+      }
+      return 0;
+    };
+
+    items = items.sort((a, b) => {
+      const numA = getScore(a);
+      const numB = getScore(b);
+      return numA - numB;
     });
-  }, [tokenList, intl]);
+    const len = previousNetworkSelectorId ? 3 : 2;
+    const actives: NetworkOption[] = items.slice(0, len);
+    const inactives: NetworkOption[] = items.slice(len);
+
+    return { actives, inactives };
+  }, [tokenList, intl, inputToken, previousNetworkSelectorId]);
 
   const onSelect = useCallback(
     (token: Token) => {
@@ -64,7 +113,8 @@ const Output = () => {
       selectedToken: inputToken,
       accountId: recipient?.accountId,
       tokenList,
-      networkOptions,
+      networkOptions: data.actives,
+      more: data.inactives.length,
     }),
     [
       networkSelectorId,
@@ -72,7 +122,7 @@ const Output = () => {
       inputToken,
       recipient?.accountId,
       tokenList,
-      networkOptions,
+      data,
     ],
   );
 
@@ -84,9 +134,9 @@ const Output = () => {
   }, [networkSelectorId, recipient?.accountId]);
 
   return (
-    <TokenSelectorContext.Provider value={value}>
-      <TokenSelector onSelect={onSelect} />
-    </TokenSelectorContext.Provider>
+    <TokenSelectorControlContext.Provider value={value}>
+      <TokenSelectorControl onSelect={onSelect} />
+    </TokenSelectorControlContext.Provider>
   );
 };
 

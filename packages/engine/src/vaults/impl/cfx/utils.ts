@@ -11,7 +11,7 @@ import { conflux as sdkCfx } from './sdk';
 import { IOnChainTransferType } from './types';
 
 import type { Signer, Verifier } from '../../../proxy';
-import type { IUnsignedTxPro } from '../../types';
+import type { ISignedTxPro, IUnsignedTxPro } from '../../types';
 import type {
   IEncodedTxCfx,
   ISdkCfxContract,
@@ -41,7 +41,7 @@ export async function isCfxNativeTransferType(
 export async function signTransactionWithSigner(
   unsignedTx: IUnsignedTxPro,
   signer: Signer,
-): Promise<SignedTx> {
+): Promise<ISignedTxPro> {
   const unsignedTransaction = new Transaction(
     unsignedTx.encodedTx as IEncodedTxCfx,
   );

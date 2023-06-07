@@ -77,13 +77,13 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   });
 
   const headerHeight = useMemo(() => {
-    let height = 540;
+    let height = 570;
     if (isVerticalLayout) {
       let stakedSupport = isSupportStakedAssets(networkId, tokenId);
       if (!stakedSupport) {
         stakedSupport = isSTETH(networkId, tokenId);
       }
-      height = stakedSupport === true ? 540 : 540 - 88;
+      height = stakedSupport === true ? 570 : 570 - 88;
     } else {
       height = 452;
     }

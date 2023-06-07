@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { encode } from '@conflux-dev/conflux-address-js';
-// import * as rlp from 'js-conflux-sdk/src/util/rlp';
 import lodash from 'lodash';
 import { decode as rlpDecode } from 'rlp';
-import secp256k1V3 from 'secp256k1-v3';
+import { ecdsaRecover, ecdsaVerify, publicKeyConvert } from 'secp256k1';
 
 import { conflux } from '../sdk';
 
@@ -27,12 +26,16 @@ function publicKeyToAddress(_publicKey: Buffer | string) {
   return buffer;
 }
 
-function ecdsaRecover(
+function recover(
   hash: Buffer,
   { r, s, v }: { r: Buffer; s: Buffer; v: number },
 ) {
-  const senderPublic = secp256k1V3.recover(hash, Buffer.concat([r, s]), v);
-  return secp256k1V3.publicKeyConvert(senderPublic, false).slice(1);
+  const senderPublic = ecdsaRecover(
+    new Uint8Array(Buffer.concat([r, s])),
+    v,
+    new Uint8Array(hash),
+  );
+  return Buffer.from(publicKeyConvert(senderPublic, false)).slice(1);
 }
 
 export const encodeAddress = (address: string, networkId: string) =>
@@ -65,7 +68,7 @@ export const decodeRaw = (raw: any) => {
   });
 
   const publicKey = format.publicKey(
-    ecdsaRecover(keccak256(tx.encode(false)), {
+    recover(keccak256(tx.encode(false)), {
       r: format.hexBuffer(tx.r),
       s: format.hexBuffer(tx.s),
       v: format.uInt(tx.v),
@@ -76,4 +79,13 @@ export const decodeRaw = (raw: any) => {
   return tx;
 };
 
-export const verifySignature = secp256k1V3.verify;
+export const verifySignature = (
+  message: Buffer,
+  signature: Buffer,
+  publicKey: Buffer,
+): boolean =>
+  ecdsaVerify(
+    new Uint8Array(signature),
+    new Uint8Array(message),
+    new Uint8Array(publicKey),
+  );

@@ -27,13 +27,13 @@ describe('Conflux KeyringImported Tests', () => {
   });
 
   it('conflux signTransaction', async () => {
-    const { network, importedAccount1 } = cfxMockData;
+    const { network, importedAccount2 } = cfxMockData;
     await testSignTransaction(
       {
         dbNetwork: network,
-        dbAccount: importedAccount1.account,
-        privateKey: importedAccount1.privateKey,
-        password: importedAccount1.password,
+        dbAccount: importedAccount2.account,
+        privateKey: importedAccount2.privateKey,
+        password: importedAccount2.password,
       },
       {
         keyring({ vault }) {

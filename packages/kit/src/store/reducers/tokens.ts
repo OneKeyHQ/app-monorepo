@@ -89,19 +89,25 @@ export const tokensSlice = createSlice({
         state.accountTokens[networkId] = {};
       }
       state.accountTokens[networkId][accountId] = uniqBy(
-        tokens
-          .sort((a) => (a.autoDetected ? 1 : -1))
-          .filter((t, _i, arr) => {
-            if (
-              !t.sendAddress &&
-              arr.some(
-                (token) => token.sendAddress && token.address === t.address,
-              )
-            ) {
-              return false;
-            }
-            return true;
-          }),
+        tokens.filter((t, _i, arr) => {
+          if (
+            !t.sendAddress &&
+            arr.some(
+              (token) => token.sendAddress && token.address === t.address,
+            )
+          ) {
+            return false;
+          }
+          if (
+            t.autoDetected &&
+            arr.some(
+              (token) => !token.autoDetected && token.address === t.address,
+            )
+          ) {
+            return false;
+          }
+          return true;
+        }),
         (t) => `${t.tokenIdOnNetwork}-${t.sendAddress ?? ''}`,
       );
     },

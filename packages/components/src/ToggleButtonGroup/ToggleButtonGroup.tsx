@@ -24,6 +24,10 @@ export interface ToggleButtonProps {
   leftIconSelectedColor?: ThemeToken;
   leftImage?: string;
   leftComponentRender?: () => ReactElement;
+  rightIcon?: ICON_NAMES;
+  rightIconSelectedColor?: ThemeToken;
+  rightImage?: string;
+  rightComponentRender?: () => ReactElement;
 }
 
 interface ToggleButtonGroupProps extends ScrollableButtonGroupProps {
@@ -49,6 +53,9 @@ const ToggleButton: FC<
   leftIcon,
   leftImage,
   leftComponentRender,
+  rightIcon,
+  rightImage,
+  rightComponentRender,
   isCurrent,
   onPress,
   leftIconSize,
@@ -56,10 +63,12 @@ const ToggleButton: FC<
   size,
   maxTextWidth,
   leftIconSelectedColor,
+  rightIconSelectedColor,
 }) => {
   const isSmall = size === 'sm';
   const iconSize = leftIconSize || (isSmall ? '16px' : '20px');
-  const selectedIconColor = leftIconSelectedColor || 'icon-hovered';
+  const leftSelectedIconColor = leftIconSelectedColor || 'icon-hovered';
+  const rightSelectedIconColor = rightIconSelectedColor || 'icon-hovered';
   const iconTextSpace = useMemo(() => {
     let mr = '0px';
     if (text.length > 0) {
@@ -96,7 +105,7 @@ const ToggleButton: FC<
                 {!!leftIcon && (
                   <Icon
                     name={leftIcon}
-                    color={isCurrent ? selectedIconColor : 'icon-default'}
+                    color={isCurrent ? leftSelectedIconColor : 'icon-default'}
                   />
                 )}
                 {!!leftImage && (
@@ -118,6 +127,29 @@ const ToggleButton: FC<
                 {text}
               </Typography.Body2Strong>
             ) : null}
+            {(!!rightIcon || !!rightImage) && (
+              <Center
+                borderRadius="9999px"
+                w={iconSize}
+                h={iconSize}
+                mr={iconTextSpace}
+              >
+                {!!rightIcon && (
+                  <Icon
+                    name={rightIcon}
+                    color={isCurrent ? rightSelectedIconColor : 'icon-default'}
+                  />
+                )}
+                {!!rightImage && (
+                  <NetImage
+                    height={iconSize}
+                    width={iconSize}
+                    src={rightImage}
+                  />
+                )}
+              </Center>
+            )}
+            {rightComponentRender?.()}
           </HStack>
         );
       }}

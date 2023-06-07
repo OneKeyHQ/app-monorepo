@@ -87,7 +87,6 @@ export async function testSignTransaction(
   const nativeTx = decodeRaw(signedTx.rawTx);
   const signers = await keyring.getSigners(password || '', [fromCFXAddress]);
   const signer = signers[fromCFXAddress];
-  console.error((await signer.getPrvkey()).toString('hex'));
   const rBytes = Buffer.from(nativeTx.r.slice(2) as string, 'hex');
   const sBytes = Buffer.from(nativeTx.s.slice(2) as string, 'hex');
   const signature = Buffer.concat([rBytes, sBytes]);
@@ -96,7 +95,8 @@ export async function testSignTransaction(
     digest: signedTx?.digest?.slice(2) || '',
     signature,
   };
-  // TODO: signer.verify 验签不成功，使用 secp256k1 验签
+  // TODO: signer.verifySignature needs to be implemented by secp256k1
+  // const isVerified = signer.verifySignature(params);
   const isVerified = verifySignature(
     Buffer.from(params.digest, 'hex'),
     signature,

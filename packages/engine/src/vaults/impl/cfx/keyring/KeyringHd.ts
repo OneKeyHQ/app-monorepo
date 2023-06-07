@@ -38,7 +38,7 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Unable to get signer.');
     }
 
-    return { [selectedAddress]: new Signer(privateKey, password, 'secp256k1') };
+    return { [selectedAddress]: new Signer(privateKey, password, CURVE_NAME) };
   }
 
   override async prepareAccounts(

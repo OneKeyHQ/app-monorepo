@@ -39,19 +39,38 @@ const hdAccount1: IUnitTestMockAccount = {
 
 const importedAccount1: IUnitTestMockAccount = {
   account: {
-    address: '0x16bcf8f7e2cdbc3e0d19e149e5be60a15c831b62',
+    address: '0x13f705ac6ad451fbab045b933acef7298b88092f',
     coinType: '503',
-    id: 'imported--503--02b09ef8687881bece5d5f61791683c09def2f8a4887ef9179f4a0ac52b961d2a8',
+    id: 'imported--503--03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     name: 'Account #1',
     path: '',
-    pub: '02b09ef8687881bece5d5f61791683c09def2f8a4887ef9179f4a0ac52b961d2a8',
+    pub: '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     type: 'variant' as any,
     addresses: {
-      'cfx--1': 'cfxtest:aann38h16ng52turdhuyx3r8pcuz3a25pjzksumht8',
+      'cfx--1': 'cfxtest:aak9sbrprnmfd87navr3gs0s86y21cakf686z1t5z0',
     },
   },
-  privateKey: '62ec93894623daf9acf2b59d0517612f62ec93894623daf9acf2b59d0517612f',
+  privateKey:
+    '6b4d9dee8a37f4329cbf7db9a137a2ecdc63be8e6caa881ef05b3a3349ef8db9',
   password: mockCredentials.password,
+};
+
+const importedAccount2: IUnitTestMockAccount = {
+  account: {
+    address: '0x13f705ac6ad451fbab045b933acef7298b88092f',
+    coinType: '503',
+    id: 'imported--503--03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
+    name: 'Account #1',
+    path: '',
+    pub: '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
+    type: 'variant' as any,
+    addresses: {
+      'cfx--1': 'cfxtest:aak9sbrprnmfd87navr3gs0s86y21cakf686z1t5z0',
+    },
+  },
+  privateKey:
+    'd8bc093ae2c5759da83340455ef06b0c4231dbc4a6899c4970f923e33b8a666c75529a7352d8c5b8aa5cc4f44d34c72bbb4a9a3c81ce2af765a751ed002181636831d36c7166e733769eb69349a5de4c3e73bafbc6808d81c45500b30b7c6847',
+  password: '12345678',
 };
 
 const watchingAccount1: IUnitTestMockAccount = {
@@ -74,5 +93,6 @@ export default {
   network,
   hdAccount1,
   importedAccount1,
+  importedAccount2,
   watchingAccount1,
 };
