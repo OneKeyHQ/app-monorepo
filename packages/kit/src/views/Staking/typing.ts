@@ -58,11 +58,14 @@ export type StakingRoutesParams = {
     isTestnet: boolean;
     onSelector?: (name: EthStakingSource) => void;
   };
-  [StakingRoutes.LidoEthStakeShouldUnderstand]: {};
+  [StakingRoutes.LidoEthStakeShouldUnderstand]: {
+    readonly?: boolean;
+  };
   [StakingRoutes.LidoEthUnstakeShouldUnderstand]: {};
   [StakingRoutes.LidoEthUnstake]: {};
   [StakingRoutes.LidoEthUnstakeRoutes]: {
     source: string;
+    amount?: string;
     onSelector?: (name: string) => void;
   };
   [StakingRoutes.StakedETHOnLido]: {};

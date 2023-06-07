@@ -32,6 +32,7 @@ import {
 import { addTransaction } from '../../../store/reducers/staking';
 import { formatAmount } from '../../../utils/priceUtils';
 import { formatDecimalZero } from '../../Market/utils';
+import { formatAmountExact, gt } from '../../Swap/utils';
 import PendingTransaction from '../components/PendingTransaction';
 import { useLidoOverview } from '../hooks';
 import { EthStakingSource, StakingRoutes } from '../typing';
@@ -111,7 +112,10 @@ const ClaimAlert = () => {
     return (
       <Alert
         alertType="info"
-        title={`${lidoOverview.withdrawal} ETH ${intl.formatMessage({
+        title={`${formatAmountExact(
+          lidoOverview.withdrawal,
+          4,
+        )} ETH ${intl.formatMessage({
           id: 'form__available_for_claim',
         })}`}
         dismiss={false}
@@ -174,6 +178,18 @@ const ListHeaderComponent = () => {
     });
   }, [navigation]);
 
+  const onLidoEthStakeShouldUnderstand = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Staking,
+      params: {
+        screen: StakingRoutes.LidoEthStakeShouldUnderstand,
+        params: {
+          readonly: true,
+        },
+      },
+    });
+  }, [navigation]);
+
   const onStake = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
@@ -186,9 +202,10 @@ const ListHeaderComponent = () => {
     });
   }, [navigation]);
 
-  const totalAmount = lidoOverview?.balance ?? '0';
-  const totalAmountText = formatAmount(totalAmount, 8);
-  const isApproximate = Number(totalAmountText) !== Number(totalAmount);
+  const totalAmount = lidoOverview?.balance ?? '0.00';
+  const totalAmountText = gt(totalAmount, '0')
+    ? formatAmount(totalAmount, 8)
+    : '0.00';
 
   return (
     <Box>
@@ -205,14 +222,11 @@ const ListHeaderComponent = () => {
           type="plain"
           name="QuestionMarkCircleOutline"
           size="sm"
-          onPress={onUnstake}
+          onPress={onLidoEthStakeShouldUnderstand}
         />
       </Box>
       <Box mt="2">
         <Box flexDirection="row" alignItems="center">
-          {isApproximate ? (
-            <Typography.Caption mr="1">~</Typography.Caption>
-          ) : null}
           <Typography.DisplayXLarge>{`${totalAmountText} ${symbol}`}</Typography.DisplayXLarge>
         </Box>
         <FormatCurrency
@@ -241,7 +255,7 @@ const ListHeaderComponent = () => {
         <Typography.Body2 color="text-subdued">
           {intl.formatMessage({ id: 'form__available_to_stake' })}
         </Typography.Body2>
-        <Typography.Body2 color="text-subdued">
+        <Typography.Body2 color="text-default">
           {formatAmount(balance, 6)} ETH
         </Typography.Body2>
       </Box>
@@ -292,8 +306,8 @@ export default function StakedETHOnLido() {
     ({ item, index }) => (
       <Box
         py="4"
-        px="6"
-        bg="surface-default"
+        // px="6"
+        // bg="surface-default"
         overflow="hidden"
         borderTopRadius={index === 0 ? 12 : undefined}
         borderBottomRadius={nfts && index === nfts.length - 1 ? 12 : undefined}
@@ -323,7 +337,7 @@ export default function StakedETHOnLido() {
               </Typography.Body1Strong>
             </Box>
             <Box w="full" flexDirection="row" justifyContent="space-between">
-              <Typography.Body2>
+              <Typography.Body2 color="text-subdued">
                 {intl.formatMessage(
                   { id: 'form__est_str' },
                   {

@@ -4,21 +4,21 @@ import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_SOL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { OneKeyInternalError } from '../../../errors';
-import { slicePathTemplate } from '../../../managers/derivation';
-import { getAccountNameInfoByTemplate } from '../../../managers/impl';
-import { Signer } from '../../../proxy';
-import { AccountType } from '../../../types/account';
-import { KeyringHdBase } from '../../keyring/KeyringHdBase';
+import { OneKeyInternalError } from '../../../../errors';
+import { slicePathTemplate } from '../../../../managers/derivation';
+import { getAccountNameInfoByTemplate } from '../../../../managers/impl';
+import { Signer } from '../../../../proxy';
+import { AccountType } from '../../../../types/account';
+import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
 
-import { signMessage, signTransaction } from './utils';
+import { signMessage, signTransaction } from '../utils';
 
-import type { ExportedSeedCredential } from '../../../dbs/base';
-import type { DBSimpleAccount } from '../../../types/account';
+import type { ExportedSeedCredential } from '../../../../dbs/base';
+import type { DBSimpleAccount } from '../../../../types/account';
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
-} from '../../types';
+} from '../../../types';
 
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(password: string, addresses: Array<string>) {

@@ -2,7 +2,7 @@
 /* eslint-disable no-nested-ternary */
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import { debounce, pick } from 'lodash';
+import { pick } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -21,7 +21,6 @@ import {
 import { FlatListRef } from '@onekeyhq/components/src/FlatList';
 import type { INetwork } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -30,7 +29,6 @@ import {
   NetworkListEmpty,
   strIncludes,
 } from '../../../../views/ManageNetworks/Listing/NetworkListEmpty';
-import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
 import { AllNetwork } from '../../../Header/AccountSelectorChildren/RightChainSelector';
 import { RpcStatusButton } from '../../RpcStatusButton';
 
@@ -105,55 +103,6 @@ function SideChainSelector({
     [networkImpl, networks, search],
   );
 
-  const isScrolledRef = useRef(false);
-  const isScrollToIndexRetried = useRef(false);
-  const scrollToItem = useCallback(
-    ({ isRetry }: { isRetry?: boolean } = {}) => {
-      if (
-        isScrolledRef.current ||
-        !networks ||
-        !networks.length ||
-        !networkId
-      ) {
-        return;
-      }
-      if (isRetry && isScrollToIndexRetried.current) {
-        return;
-      }
-      if (isRetry) {
-        isScrollToIndexRetried.current = true;
-      }
-
-      /* timeout required:
-    scrollToIndex should be used in conjunction with getItemLayout or onScrollToIndexFailed, otherwise there is no way to know the location of offscreen indices or handle failures.
-     */
-      setTimeout(() => {
-        try {
-          const index = networks.findIndex((item) => item.id === networkId);
-          if (index < 5) {
-            return;
-          }
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-          flatListRef?.current?.scrollToIndex?.({ animated: false, index });
-          isScrolledRef.current = true;
-        } catch (error) {
-          debugLogger.common.error(error);
-        }
-      }, 0);
-    },
-    [networks, networkId],
-  );
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const scrollToItemDebounced = useMemo(
-    () =>
-      debounce(scrollToItem, ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_NETWORK, {
-        leading: false,
-        trailing: true,
-      }),
-    [scrollToItem],
-  );
-
   const renderNetworkItem = useCallback(
     ({
       item,
@@ -198,11 +147,7 @@ function SideChainSelector({
             })()}
             rounded={fullWidthMode ? '12px' : 'full'}
           >
-            <ChainNetworkIcon
-              item={item}
-              isLastItem={isLastItem}
-              onLastItemRender={() => scrollToItem({ isRetry: false })}
-            />
+            <ChainNetworkIcon item={item} isLastItem={isLastItem} />
             {fullWidthMode ? (
               <>
                 <Text
@@ -231,7 +176,6 @@ function SideChainSelector({
       fullWidthMode,
       onPress,
       rpcStatusDisabled,
-      scrollToItem,
       networkId,
       serviceAccountSelector,
     ],
@@ -304,7 +248,6 @@ function SideChainSelector({
       ) : null}
       <KeyboardAvoidingView flex={1}>
         <FlatListRef
-          onScrollToIndexFailed={() => scrollToItem({ isRetry: true })}
           ListEmptyComponent={NetworkListEmpty}
           initialNumToRender={20}
           // TODO auto scroll to active item

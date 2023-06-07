@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import Box from '../../Box';
 import Button from '../../Button';
 import HStack from '../../HStack';
+import MotiBox from '../../MotiBox';
 import Pressable from '../../Pressable';
 
 import Header from './Header/Header';
@@ -137,7 +138,14 @@ const DesktopModal = ({
         />
       </Pressable>
 
-      <MotiView
+      <MotiBox
+        width={modalSizing(size)}
+        height={height}
+        maxHeight={maxHeight}
+        borderRadius="24px"
+        bg="background-default"
+        alignSelf="center"
+        zIndex={1}
         from={{
           opacity: 0,
           // translateY: 24,
@@ -155,83 +163,73 @@ const DesktopModal = ({
         }}
         testID="DesktopModalContentContainer"
       >
-        <Box
-          width={modalSizing(size)}
-          height={height}
-          maxHeight={maxHeight}
-          alignSelf="center"
-          borderRadius="24px"
-          bg="background-default"
-          zIndex={1}
-        >
-          {!!headerShown && (
-            <Header
-              header={header}
-              headerDescription={headerDescription}
-              firstIndex={!navIndex}
-              hideBackButton={hideBackButton}
-              onPressBackButton={() => {
-                if (hideBackButton) {
-                  return;
-                }
-                if (onBackActionPress) {
-                  onBackActionPress();
-                  return;
-                }
-                if (navigation?.canGoBack?.()) {
-                  navigation.goBack();
-                }
-              }}
-              closeable={closeable}
-              onPressCloseButton={close}
-              rightContent={rightContent}
-            />
-          )}
-          {children}
-          {isValidElement(footer) || footer === null ? (
-            footer
-          ) : (
-            <Box
-              borderTopWidth={StyleSheet.hairlineWidth}
-              borderTopColor="divider"
-            >
-              <HStack py="4" px="6" alignItems="center" space="12px">
-                {extraElement && <Box>{extraElement}</Box>}
-                <HStack flex={1} space="12px" justifyContent="flex-end">
-                  {!hideSecondaryAction && (
-                    <Button
-                      onPress={() => {
-                        onSecondaryActionPress?.({ close });
-                        onClose?.();
-                      }}
-                      {...secondaryActionProps}
-                    >
-                      {secondaryActionProps?.children ??
-                        intl.formatMessage({
-                          id: secondaryActionTranslationId ?? 'action__cancel',
-                        })}
-                    </Button>
-                  )}
-                  {!hidePrimaryAction && (
-                    <Button
-                      type="primary"
-                      onPress={() => {
-                        onPrimaryActionPress?.({ onClose, close });
-                      }}
-                      {...primaryActionProps}
-                    >
-                      {primaryActionProps?.children ??
-                        intl.formatMessage({
-                          id: primaryActionTranslationId ?? 'action__ok',
-                        })}
-                    </Button>
-                  )}
-                </HStack>
+        {!!headerShown && (
+          <Header
+            header={header}
+            headerDescription={headerDescription}
+            firstIndex={!navIndex}
+            hideBackButton={hideBackButton}
+            onPressBackButton={() => {
+              if (hideBackButton) {
+                return;
+              }
+              if (onBackActionPress) {
+                onBackActionPress();
+                return;
+              }
+              if (navigation?.canGoBack?.()) {
+                navigation.goBack();
+              }
+            }}
+            closeable={closeable}
+            onPressCloseButton={close}
+            rightContent={rightContent}
+          />
+        )}
+        {children}
+        {isValidElement(footer) || footer === null ? (
+          footer
+        ) : (
+          <Box
+            borderTopWidth={StyleSheet.hairlineWidth}
+            borderTopColor="divider"
+          >
+            <HStack py="4" px="6" alignItems="center" space="12px">
+              {extraElement && <Box>{extraElement}</Box>}
+              <HStack flex={1} space="12px" justifyContent="flex-end">
+                {!hideSecondaryAction && (
+                  <Button
+                    onPress={() => {
+                      onSecondaryActionPress?.({ close });
+                      onClose?.();
+                    }}
+                    {...secondaryActionProps}
+                  >
+                    {secondaryActionProps?.children ??
+                      intl.formatMessage({
+                        id: secondaryActionTranslationId ?? 'action__cancel',
+                      })}
+                  </Button>
+                )}
+                {!hidePrimaryAction && (
+                  <Button
+                    type="primary"
+                    onPress={() => {
+                      onPrimaryActionPress?.({ onClose, close });
+                    }}
+                    {...primaryActionProps}
+                  >
+                    {primaryActionProps?.children ??
+                      intl.formatMessage({
+                        id: primaryActionTranslationId ?? 'action__ok',
+                      })}
+                  </Button>
+                )}
               </HStack>
-            </Box>
-          )}
-        </Box>
-      </MotiView>
+            </HStack>
+          </Box>
+        )}
+      </MotiBox>
     </Box>
   );
 };

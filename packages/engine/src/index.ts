@@ -155,6 +155,7 @@ import type {
   IVaultSettings,
 } from './vaults/types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 
 const updateTokenCache: {
   [networkId: string]: boolean;
@@ -1639,7 +1640,7 @@ class Engine {
     const tokens = await this.getTokens(networkId);
     const localTokens = tokens.filter(
       (token) =>
-        token.name.match(matchPattern) || token.symbol.match(matchPattern),
+        token.name?.match(matchPattern) || token.symbol?.match(matchPattern),
     );
 
     return uniqBy(onlineTokens.concat(localTokens), 'tokenIdOnNetwork');
@@ -1743,9 +1744,18 @@ class Engine {
       accountId,
       networkId,
     });
-    const [signedMessage] = await vault.keyring.signMessage([unsignedMessage], {
-      password,
-    });
+
+    let validUnsignedMessage = unsignedMessage;
+    if (unsignedMessage) {
+      validUnsignedMessage = getValidUnsignedMessage(unsignedMessage);
+    }
+
+    const [signedMessage] = await vault.keyring.signMessage(
+      [validUnsignedMessage],
+      {
+        password,
+      },
+    );
     return signedMessage;
   }
 

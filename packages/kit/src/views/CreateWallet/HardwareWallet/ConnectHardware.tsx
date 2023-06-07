@@ -1,30 +1,28 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Badge,
   Box,
   Center,
-  HStack,
   Icon,
   Image,
+  List,
+  ListItem,
   LottieView,
   Modal,
   ScrollView,
   Spinner,
   ToastManager,
   Typography,
-  VStack,
 } from '@onekeyhq/components';
 import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
-import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { Device } from '@onekeyhq/engine/src/types/device';
@@ -59,6 +57,7 @@ import {
 import { showDialog } from '../../../utils/overlayUtils';
 
 import type { RouteProp } from '@react-navigation/native';
+import type { ListRenderItemInfo } from 'react-native';
 
 type NavigationProps = ModalScreenProps<RootRoutesParams> &
   ModalScreenProps<CreateWalletRoutesParams>;
@@ -330,10 +329,12 @@ const ConnectHardwareModal: FC = () => {
                 );
                 finishConnected(false);
               }
+            } else {
+              setIsConnectingDeviceId('');
+              deviceUtils.showErrorToast(err, 'action__connection_timeout');
             }
           } else {
             setIsConnectingDeviceId('');
-
             deviceUtils.showErrorToast(err, 'action__connection_timeout');
           }
         });
@@ -342,94 +343,112 @@ const ConnectHardwareModal: FC = () => {
     [serviceHardware, navigation, intl, checkBonded],
   );
 
+  const itemSeparatorComponent = useCallback(() => <Box h={2} />, []);
+  const rowRenderer = useCallback(
+    ({ item }: ListRenderItemInfo<SearchDeviceInfo>) => (
+      <ListItem
+        h="64px"
+        px="16px"
+        bgColor="action-secondary-default"
+        pressedBgColor="surface-pressed"
+        hoveredBgColor="surface-hovered"
+        onPress={() => {
+          handleConnectDeviceWithDevice(item);
+        }}
+      >
+        <ListItem.Column
+          image={{
+            source: getDeviceIcon(item.deviceType),
+            width: '24px',
+            height: '36px',
+          }}
+        />
+
+        <ListItem.Column
+          style={{
+            // @ts-ignore
+            userSelect: 'none',
+          }}
+          text={{
+            label: item.name,
+            size: 'sm',
+          }}
+        />
+
+        <ListItem.Column>
+          <Box
+            flex={1}
+            flexDirection="row"
+            alignItems="center"
+            justifyContent="flex-end"
+          >
+            {!!item.useBefore && platformEnv.isNative && (
+              <Badge
+                size="sm"
+                title={intl.formatMessage({
+                  id: 'content__have_been_connected',
+                })}
+                type="success"
+              />
+            )}
+            {isConnectingDeviceId === item.connectId && (
+              <Spinner size="sm" ml={3} />
+            )}
+            <Box ml={3}>
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+            </Box>
+          </Box>
+        </ListItem.Column>
+      </ListItem>
+    ),
+    [handleConnectDeviceWithDevice, intl, isConnectingDeviceId],
+  );
+
   const renderDevices = useCallback(() => {
     if (!devices?.length) return null;
     return (
-      <VStack space={4} w="full">
+      <Box w="full" mt={8}>
         <Typography.Body2 color="text-subdued" textAlign="center">
           {intl.formatMessage({ id: 'modal__looking_for_devices_result' })}
         </Typography.Body2>
-        {devices.map((device, index) => (
-          <PressableItem
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
-            px="16px"
-            py="12px"
-            key={`${index}-${device?.connectId ?? ''}`}
-            bgColor="action-secondary-default"
-            borderRadius="12px"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="border-default"
-            // disabled={!!device.using}
-            onPress={() => {
-              handleConnectDeviceWithDevice(device);
-            }}
-          >
-            <HStack space={3} alignItems="center">
-              {/* TODO: Different type of icon */}
-              <Image
-                source={getDeviceIcon(device.deviceType)}
-                width={6}
-                height={36}
-              />
-              <Typography.Body1>{device.name}</Typography.Body1>
-            </HStack>
-
-            {/* {device.using ? (
-              <HStack alignItems="center">
-                <Badge
-                  size="sm"
-                  title={intl.formatMessage({ id: 'content__existing' })}
-                  type="success"
-                />
-              </HStack>
-            ) : ( */}
-            <HStack space={3} alignItems="center">
-              {!!device.useBefore && platformEnv.isNative && (
-                <Badge
-                  size="sm"
-                  title={intl.formatMessage({
-                    id: 'content__have_been_connected',
-                  })}
-                  type="success"
-                />
-              )}
-              {isConnectingDeviceId === device.connectId && (
-                <Spinner size="sm" />
-              )}
-              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
-            </HStack>
-            {/* )} */}
-          </PressableItem>
-        ))}
-      </VStack>
+        <List
+          my={4}
+          px={2}
+          data={devices}
+          renderItem={rowRenderer}
+          keyExtractor={(item: SearchDeviceInfo) =>
+            `${item.connectId ?? ''}${item.uuid}`
+          }
+          showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={itemSeparatorComponent}
+        />
+      </Box>
     );
-  }, [devices, handleConnectDeviceWithDevice, isConnectingDeviceId, intl]);
+  }, [devices, intl, rowRenderer, itemSeparatorComponent]);
 
   // Mobile Connect Screen
   const renderConnectScreen = () => {
     if (!isSearching) {
       return (
-        <VStack space={8} w="full" alignItems="center">
+        <Box w="full" alignItems="center">
           <Box size="358px">
             <Image size="358px" source={KeepDeviceAroundSource} />
           </Box>
 
-          <VStack space={2} alignItems="center">
+          <Box alignItems="center" mt={8}>
             <Typography.DisplayLarge>
               {intl.formatMessage({ id: 'modal__keep_device_close' })}
             </Typography.DisplayLarge>
-            <Typography.Body1 color="text-subdued" textAlign="center">
+            <Typography.Body1 color="text-subdued" textAlign="center" mt={2}>
               {intl.formatMessage({ id: 'model__keep_device_close_desc' })}
             </Typography.Body1>
-          </VStack>
-        </VStack>
+          </Box>
+        </Box>
       );
     }
     return (
       <ScrollView w="full">
-        <VStack space={12} alignItems="center">
+        <Box alignItems="center">
           <Box w="358px" h="220px" mb={-4}>
             <LottieView
               // eslint-disable-next-line global-require
@@ -439,49 +458,56 @@ const ConnectHardwareModal: FC = () => {
             />
           </Box>
 
-          <VStack space={2} alignItems="center">
+          <Box alignItems="center">
             <Typography.DisplayLarge>
               {intl.formatMessage({ id: 'modal__looking_for_devices' })}
             </Typography.DisplayLarge>
-            <Typography.Body1 color="text-subdued" textAlign="center">
+            <Typography.Body1 color="text-subdued" textAlign="center" mt={2}>
               {intl.formatMessage({ id: 'modal__looking_for_devices_desc' })}
             </Typography.Body1>
-          </VStack>
-
+          </Box>
           {renderDevices()}
-        </VStack>
+        </Box>
       </ScrollView>
     );
   };
 
-  const content = platformEnv.isNative ? (
-    <Center>{renderConnectScreen()}</Center>
-  ) : (
-    <VStack space={8} alignItems="center">
-      <Box>
-        <LottieView
-          // eslint-disable-next-line global-require
-          source={require('@onekeyhq/kit/assets/animations/lottie_connect_onekey_by_usb.json')}
-          autoPlay
-          loop
-        />
-      </Box>
+  const modalHeight = useMemo(() => {
+    if (platformEnv.isNative) return 'auto';
+    if (devices?.length < 1) return 'auto';
 
-      <Typography.DisplayMedium>
-        {intl.formatMessage({ id: 'modal__connect_your_device' })}
-      </Typography.DisplayMedium>
-      {renderDevices()}
-    </VStack>
-  );
+    let height = 350 + (devices?.length ?? 1) * 65;
+    if (height > 500) {
+      height = 500;
+    }
+    return height;
+  }, [devices?.length]);
 
   return (
     <Modal
       scrollViewProps={{
-        children: content,
         contentContainerStyle: {
-          height: '100%',
-          paddingBottom: 24,
+          height: modalHeight,
         },
+        children: platformEnv.isNative ? (
+          <Center>{renderConnectScreen()}</Center>
+        ) : (
+          <Box alignItems="center" h="full">
+            <Box>
+              <LottieView
+                // eslint-disable-next-line global-require
+                source={require('@onekeyhq/kit/assets/animations/lottie_connect_onekey_by_usb.json')}
+                autoPlay
+                loop
+              />
+            </Box>
+
+            <Typography.DisplayMedium marginTop={8}>
+              {intl.formatMessage({ id: 'modal__connect_your_device' })}
+            </Typography.DisplayMedium>
+            {renderDevices()}
+          </Box>
+        ),
       }}
       hidePrimaryAction={!platformEnv.isNative}
       footer={!platformEnv.isNative || isSearching ? null : undefined}
