@@ -40,6 +40,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { isExtensionBackground } from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
 
@@ -64,6 +65,15 @@ export default class ServiceToken extends ServiceBase {
     appEventBus.on(AppEventBusNames.CurrencyChanged, () => {
       this.fetchAccountTokens({ includeTop50TokensQuery: true });
     });
+
+    if (isExtensionBackground) {
+      // https://stackoverflow.com/questions/15798516/is-there-an-event-for-when-a-chrome-extension-popup-is-closed
+      chrome.runtime.onConnect.addListener((port) => {
+        port.onDisconnect.addListener(() => {
+          this.stopRefreshAccountTokens();
+        });
+      });
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -76,6 +86,8 @@ export default class ServiceToken extends ServiceBase {
     this.interval = setInterval(() => {
       this.fetchAccountTokens({ includeTop50TokensQuery: false });
     }, getTimeDurationMs({ seconds: 15 }));
+
+    debugLogger.common.info(`startRefreshAccountTokens`);
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -84,6 +96,7 @@ export default class ServiceToken extends ServiceBase {
   async stopRefreshAccountTokens() {
     clearInterval(this.interval);
     this.interval = null;
+    debugLogger.common.info(`stopRefreshAccountTokens`);
   }
 
   private _refreshTokenBalanceWithMemo = memoizee(
