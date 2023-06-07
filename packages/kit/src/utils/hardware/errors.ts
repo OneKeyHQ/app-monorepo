@@ -101,6 +101,13 @@ export class DeviceNotBonded extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_bluetooth_not_paired_error';
 }
 
+// 设备配对失败
+export class DeviceBondError extends OneKeyHardwareError {
+  override code = HardwareErrorCode.BleDeviceBondError;
+
+  override key: LocaleIds = 'msg__hardware_bluetooth_pairing_failed';
+}
+
 // 设备没有打开蓝牙
 export class NeedBluetoothTurnedOn extends OneKeyHardwareError {
   override code = HardwareErrorCode.BlePermissionError;

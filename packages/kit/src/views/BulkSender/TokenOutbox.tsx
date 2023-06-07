@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Box,
   Button,
   HStack,
@@ -152,8 +153,9 @@ function TokenOutbox(props: Props) {
     showApprovalSelector({
       isUnlimited,
       setIsUnlimited,
+      isAlreadyUnlimited,
     });
-  }, [isUnlimited]);
+  }, [isUnlimited, isAlreadyUnlimited]);
 
   const verifyBulkTransferBeforeConfirm = useCallback(
     (transferInfos: ITransferInfo[], token?: Token) => {
@@ -304,7 +306,6 @@ function TokenOutbox(props: Props) {
   useFocusEffect(
     useCallback(() => {
       if (accountId && networkId) {
-        serviceToken.startRefreshAccountTokens();
         serviceOverview.startQueryPendingTasks();
         serviceToken.fetchAccountTokens({
           accountId,
@@ -312,7 +313,6 @@ function TokenOutbox(props: Props) {
         });
       }
       return () => {
-        serviceToken.stopRefreshAccountTokens();
         serviceOverview.stopQueryPendingTasks();
       };
     }, [accountId, networkId, serviceOverview, serviceToken]),
@@ -405,26 +405,41 @@ function TokenOutbox(props: Props) {
             <Button
               mt={4}
               type="basic"
-              size="xs"
+              size="sm"
               leftIconName="CurrencyDollarSolid"
               onPress={handleOpenAmountEditor}
             >
-              {intl.formatMessage({ id: 'action__edit_amount' })}
+              <Text typography="CaptionStrong">
+                {intl.formatMessage({ id: 'action__edit_amount' })}
+              </Text>
             </Button>
             {!isNative && network?.settings.batchTransferApprovalRequired && (
               <Button
                 mt={4}
                 type="basic"
-                size="xs"
+                size="sm"
                 leftIconName="CurrencyDollarSolid"
                 onPress={handleOpenApprovalSelector}
-                isDisabled={isAlreadyUnlimited}
+                paddingTop={isAlreadyUnlimited ? '4px' : '6px'}
+                paddingBottom={isAlreadyUnlimited ? '4px' : '6px'}
               >
-                {intl.formatMessage({
-                  id: isUnlimited
-                    ? 'action__approval_unlimited'
-                    : 'action__approval_exact_amount',
-                })}
+                <HStack space={2} alignItems="center">
+                  <Text typography="CaptionStrong">
+                    {intl.formatMessage({
+                      id: isUnlimited
+                        ? 'action__approval_unlimited'
+                        : 'action__approval_exact_amount',
+                    })}
+                  </Text>
+                  {isAlreadyUnlimited && (
+                    <Badge
+                      size="sm"
+                      color="text-success"
+                      bgColor="surface-success-default"
+                      title={intl.formatMessage({ id: 'form__approved' })}
+                    />
+                  )}
+                </HStack>
               </Button>
             )}
           </HStack>

@@ -444,7 +444,9 @@ class ServiceHardware extends ServiceBase {
           const deviceExist = bootloaderMode
             ? // bootloader mode does not have connect id for classic
               (response.payload ?? []).length > 0
-            : (response.payload ?? []).find((d) => d.connectId === connectId);
+            : (response.payload ?? []).find(
+                (d) => d.connectId?.toUpperCase() === connectId.toUpperCase(),
+              );
           if (deviceExist) {
             deviceUtils.stopScan();
             resolve(true);
