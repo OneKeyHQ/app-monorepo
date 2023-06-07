@@ -1,0 +1,24 @@
+diff --git a/node_modules/react-native-tab-view/lib/commonjs/SceneView.js b/node_modules/react-native-tab-view/lib/commonjs/SceneView.js
+index 3e4dd38..cd933ff 100644
+--- a/node_modules/react-native-tab-view/lib/commonjs/SceneView.js
++++ b/node_modules/react-native-tab-view/lib/commonjs/SceneView.js
+@@ -57,6 +57,7 @@ function SceneView(_ref) {
+     accessibilityElementsHidden: !focused,
+     importantForAccessibility: focused ? 'auto' : 'no-hide-descendants',
+     style: [styles.route,
++    { maxHeight: focused ? undefined: '100vh' },
+     // If we don't have the layout yet, make the focused screen fill the container
+     // This avoids delay before we are able to render pages side by side
+     layout.width ? {
+diff --git a/node_modules/react-native-tab-view/lib/module/SceneView.js b/node_modules/react-native-tab-view/lib/module/SceneView.js
+index abb6103..9cf4490 100644
+--- a/node_modules/react-native-tab-view/lib/module/SceneView.js
++++ b/node_modules/react-native-tab-view/lib/module/SceneView.js
+@@ -49,6 +49,7 @@ export function SceneView(_ref) {
+     accessibilityElementsHidden: !focused,
+     importantForAccessibility: focused ? 'auto' : 'no-hide-descendants',
+     style: [styles.route,
++    { maxHeight: focused ? undefined: '100vh' },
+     // If we don't have the layout yet, make the focused screen fill the container
+     // This avoids delay before we are able to render pages side by side
+     layout.width ? {

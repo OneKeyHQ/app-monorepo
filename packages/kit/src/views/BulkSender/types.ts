@@ -13,6 +13,7 @@ export enum TokenReceiverEnum {
 
 export enum BulkSenderRoutes {
   TokenSelector = 'TokenSelectorModal',
+  AmountEditor = 'AmountEditorModal',
 }
 
 export enum ReceiverExampleType {
@@ -27,6 +28,9 @@ export type BulkSenderRoutesParams = {
     networkId: string;
     tokens: Token[];
     onTokenSelected: (token: Token) => void;
+  };
+  [BulkSenderRoutes.AmountEditor]: {
+    onAmountChanged: (amount: string) => void;
   };
 };
 

@@ -1,0 +1,28 @@
+diff --git a/node_modules/@expo/webpack-config/webpack/addons/withOptimizations.js b/node_modules/@expo/webpack-config/webpack/addons/withOptimizations.js
+index 136d9ad..a7eca48 100644
+--- a/node_modules/@expo/webpack-config/webpack/addons/withOptimizations.js
++++ b/node_modules/@expo/webpack-config/webpack/addons/withOptimizations.js
+@@ -57,6 +57,7 @@ function withOptimizations(webpackConfig) {
+                         // Pending futher investigation:
+                         // https://github.com/terser-js/terser/issues/120
+                         inline: 2,
++                        drop_console: true,
+                     },
+                     mangle: _isDebugMode
+                         ? false
+diff --git a/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js b/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js
+index 675162c..6d83ee3 100644
+--- a/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js
++++ b/node_modules/@expo/webpack-config/webpack/plugins/ExpoHtmlWebpackPlugin.js
+@@ -68,7 +68,10 @@ class HtmlWebpackPlugin extends html_webpack_plugin_1.default {
+             // https://github.com/kangax/html-minifier#options-quick-reference
+             minify,
+             // The `webpack` require path to the template.
+-            template: locations.template.indexHtml,
++            // add EJS loader for html building
++            template: '!!ejs-loader?esModule=false!' + locations.template.indexHtml,
++            // EJS template parameters
++            templateParameters: locations.template.indexHtmlTemplateParameters || {},
+             meta,
+         });
+         this.platform = env.platform;

@@ -14,8 +14,10 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount } from '../../../hooks';
 import PriceChart from '../../PriceChart/PriceChart';
-import { KeleETHUnstakeBulletin } from '../../Staking/components/KeleETHUnstakeBulletin';
-import StakedAssets from '../../Staking/components/StakedAssets';
+import {
+  ETHRelatedPoolShowControl,
+  EthTopAprShowControl,
+} from '../../Staking/components/StakingEthOptions';
 
 import DeskTopHeader from './DeskTopHeader';
 import MoreMenuButton from './MoreMenuButton';
@@ -86,8 +88,6 @@ const TokenDetailHeader: FC<HeaderProps> = ({
 
   return (
     <Box {...props}>
-      <KeleETHUnstakeBulletin token={token} />
-
       {!isVerticalLayout && (
         <DeskTopHeader
           token={token}
@@ -103,6 +103,7 @@ const TokenDetailHeader: FC<HeaderProps> = ({
             networkId={networkId}
             contract={token.tokenIdOnNetwork}
             coingeckoId={token?.coingeckoId}
+            symbol={token?.symbol}
           />
         </Box>
       )}
@@ -135,10 +136,10 @@ const TokenDetailHeader: FC<HeaderProps> = ({
         </HStack>
       )}
       {isVerticalLayout && (
-        <StakedAssets
-          networkId={token?.networkId}
-          tokenIdOnNetwork={token?.tokenIdOnNetwork}
-        />
+        <Box>
+          <EthTopAprShowControl token={token} />
+          <ETHRelatedPoolShowControl token={token} />
+        </Box>
       )}
     </Box>
   );

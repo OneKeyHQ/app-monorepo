@@ -60,6 +60,7 @@ import {
   deduplicate,
   dryRunTransactionBlock,
   moveCallTxnName,
+  normalizeSuiCoinType,
 } from './utils';
 import { createCoinSendTransaction, getAllCoins } from './utils/Coin';
 import {
@@ -195,7 +196,10 @@ export default class Vault extends VaultBase {
           tokens.forEach((req) => {
             const { tokenAddress } = req;
 
-            const typeTag = tokenAddress ?? SUI_NATIVE_COIN;
+            const typeTag =
+              tokenAddress != null
+                ? normalizeSuiCoinType(tokenAddress)
+                : SUI_NATIVE_COIN;
 
             const apiTypeTag = (tokenAddress ?? SUI_NATIVE_COIN).replace(
               /^0x0*/,
@@ -236,7 +240,7 @@ export default class Vault extends VaultBase {
       tokenAddresses.map(async (tokenAddress) => {
         try {
           const coinInfo = await client.getCoinMetadata({
-            coinType: tokenAddress,
+            coinType: normalizeSuiCoinType(tokenAddress),
           });
 
           if (!coinInfo) return undefined;
@@ -342,7 +346,7 @@ export default class Vault extends VaultBase {
                   throw new OneKeyInternalError('Invalid coin type');
                 token = await this.engine.ensureTokenInDB(
                   this.networkId,
-                  action.coinType,
+                  normalizeSuiCoinType(action.coinType),
                 );
 
                 if (!token) throw new OneKeyInternalError('Invalid coin type');
@@ -491,7 +495,7 @@ export default class Vault extends VaultBase {
       address: sender,
       to: recipient,
       amount: amountValue,
-      coinType: typeArg,
+      coinType: normalizeSuiCoinType(typeArg),
     });
 
     return {

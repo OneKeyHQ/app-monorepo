@@ -1,0 +1,14 @@
+diff --git a/node_modules/react-native-v8/src/v8runtime/V8Inspector.cpp b/node_modules/react-native-v8/src/v8runtime/V8Inspector.cpp
+index b3cd071..6268868 100644
+--- a/node_modules/react-native-v8/src/v8runtime/V8Inspector.cpp
++++ b/node_modules/react-native-v8/src/v8runtime/V8Inspector.cpp
+@@ -150,8 +150,7 @@ InspectorClient::InspectorClient(
+   session_ = inspector_->connect(
+       contextGroupId,
+       channel_.get(),
+-      inspectorNameStringView,
+-      v8_inspector::V8Inspector::kFullyTrusted);
++      inspectorNameStringView);
+   context_.Reset(isolate_, context);
+ 
+   inspector_->contextCreated(v8_inspector::V8ContextInfo(

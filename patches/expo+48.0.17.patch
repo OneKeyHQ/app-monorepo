@@ -1,0 +1,27 @@
+diff --git a/node_modules/expo/bin/cli.js b/node_modules/expo/bin/cli.js
+index 75aad4e..072170c 100755
+--- a/node_modules/expo/bin/cli.js
++++ b/node_modules/expo/bin/cli.js
+@@ -7,14 +7,14 @@ run();
+ 
+ function run() {
+   // Use new local CLI by default.
+-  if (boolish('EXPO_USE_LOCAL_CLI', true)) {
+-    return spawn(require.resolve('@expo/cli'), process.argv.slice(2), { stdio: 'inherit' }).on(
+-      'exit',
+-      (code) => {
+-        process.exit(code);
+-      }
+-    );
+-  }
++  // if (boolish('EXPO_USE_LOCAL_CLI', true)) {
++  //   return spawn(require.resolve('@expo/cli'), process.argv.slice(2), { stdio: 'inherit' }).on(
++  //     'exit',
++  //     (code) => {
++  //       process.exit(code);
++  //     }
++  //   );
++  // }
+ 
+   spawn('expo-cli', process.argv.slice(2), { stdio: 'inherit' })
+     .on('exit', function (code) {

@@ -8,9 +8,7 @@ import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/ac
 import type { CheckParams } from '@onekeyhq/engine/src/managers/goplus';
 import {
   checkSite,
-  fetchSecurityInfo,
   getAddressRiskyItems,
-  getRiskLevel,
   getTokenRiskyItems,
 } from '@onekeyhq/engine/src/managers/goplus';
 import {
@@ -20,9 +18,6 @@ import {
   getBalanceKey,
 } from '@onekeyhq/engine/src/managers/token';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
-import type { GoPlusTokenSecurity } from '@onekeyhq/engine/src/types/goplus';
-import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
-import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
 import {
   setIsPasswordLoadedInVault,
@@ -45,6 +40,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { isExtensionBackground } from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
 
@@ -69,6 +65,15 @@ export default class ServiceToken extends ServiceBase {
     appEventBus.on(AppEventBusNames.CurrencyChanged, () => {
       this.fetchAccountTokens({ includeTop50TokensQuery: true });
     });
+
+    if (isExtensionBackground) {
+      // https://stackoverflow.com/questions/15798516/is-there-an-event-for-when-a-chrome-extension-popup-is-closed
+      chrome.runtime.onConnect.addListener((port) => {
+        port.onDisconnect.addListener(() => {
+          this.stopRefreshAccountTokens();
+        });
+      });
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -81,6 +86,8 @@ export default class ServiceToken extends ServiceBase {
     this.interval = setInterval(() => {
       this.fetchAccountTokens({ includeTop50TokensQuery: false });
     }, getTimeDurationMs({ seconds: 15 }));
+
+    debugLogger.common.info(`startRefreshAccountTokens`);
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -89,6 +96,7 @@ export default class ServiceToken extends ServiceBase {
   async stopRefreshAccountTokens() {
     clearInterval(this.interval);
     this.interval = null;
+    debugLogger.common.info(`stopRefreshAccountTokens`);
   }
 
   private _refreshTokenBalanceWithMemo = memoizee(
@@ -172,11 +180,19 @@ export default class ServiceToken extends ServiceBase {
           };
         }),
       );
+
+      const removedTokens = await simpleDb.token.localTokens.getRemovedTokens(
+        accountId,
+        networkId,
+      );
+
       dispatch(
         setAccountTokens({
           accountId,
           networkId,
-          tokens: accountTokens,
+          tokens: accountTokens.filter(
+            (t) => !removedTokens.includes(t.address ?? ''),
+          ),
         }),
       );
       return accountTokens;
@@ -328,36 +344,33 @@ export default class ServiceToken extends ServiceBase {
     address: string,
     logoURI?: string,
   ): Promise<Token | undefined> {
-    const { engine, appSelector } = this.backgroundApi;
+    const { engine, appSelector, dispatch } = this.backgroundApi;
     if (!address) {
       return;
     }
     const accountTokens = appSelector((s) => s.tokens.accountTokens);
     const tokens = accountTokens[networkId]?.[accountId] ?? ([] as Token[]);
-    const isExists = tokens.find((item) => item.tokenIdOnNetwork === address);
+    const isExists = tokens.find(
+      (item) => item.tokenIdOnNetwork === address && !item.autoDetected,
+    );
     if (isExists) {
       return;
     }
-    const info = await fetchSecurityInfo<GoPlusTokenSecurity>({
-      networkId,
-      address,
-      apiName: GoPlusSupportApis.token_security,
-    });
-    const riskLevel = info ? getRiskLevel(info) : TokenRiskLevel.UNKNOWN;
     const result = await engine.quickAddToken(
       accountId,
       networkId,
       address,
       logoURI,
-      {
-        riskLevel,
-      },
     );
-    await this.fetchAccountTokens({
-      accountId,
-      networkId,
-      includeTop50TokensQuery: false,
-    });
+    if (result) {
+      dispatch(
+        setAccountTokens({
+          networkId,
+          accountId,
+          tokens: [...tokens, result],
+        }),
+      );
+    }
     return result;
   }
 
@@ -427,10 +440,6 @@ export default class ServiceToken extends ServiceBase {
         address: accountAddress,
         xpub,
       })) || [];
-    const removedTokens = await simpleDb.token.localTokens.getRemovedTokens(
-      accountId,
-      networkId,
-    );
     const allAccountTokens: Token[] = [];
     const tokens = await this.batchTokenDetail(
       networkId,
@@ -441,10 +450,7 @@ export default class ServiceToken extends ServiceBase {
       balance,
       sendAddress,
       bestBlockNumber: blockHeight,
-    } of balancesFromApi.filter(
-      (b) =>
-        (+b.balance > 0 || !b.address) && !removedTokens.includes(b.address),
-    )) {
+    } of balancesFromApi.filter((b) => +b.balance > 0 || !b.address)) {
       const token = tokens[address];
       if (token) {
         // only record new token balances
@@ -821,4 +827,35 @@ export default class ServiceToken extends ServiceBase {
       normalizer: (args) => JSON.stringify(args),
     },
   );
+
+  @backgroundMethod()
+  async deleteAccountToken({
+    accountId,
+    networkId,
+    address,
+    tokenId,
+  }: {
+    accountId: string;
+    networkId: string;
+    address: string;
+    tokenId: string;
+  }) {
+    const { dispatch, appSelector, engine } = this.backgroundApi;
+
+    await engine.removeTokenFromAccount(accountId, tokenId);
+
+    const accountTokensInRedux = appSelector(
+      (s) => s.tokens.accountTokens?.[networkId]?.[accountId],
+    );
+
+    dispatch(
+      setAccountTokens({
+        accountId,
+        networkId,
+        tokens: accountTokensInRedux.filter((t) => t.address !== address),
+      }),
+    );
+
+    return Promise.resolve();
+  }
 }

@@ -1,0 +1,22 @@
+diff --git a/node_modules/expo-localization/android/src/main/java/expo/modules/localization/LocalizationModule.kt b/node_modules/expo-localization/android/src/main/java/expo/modules/localization/LocalizationModule.kt
+index 9d07f21..cb06cf2 100644
+--- a/node_modules/expo-localization/android/src/main/java/expo/modules/localization/LocalizationModule.kt
++++ b/node_modules/expo-localization/android/src/main/java/expo/modules/localization/LocalizationModule.kt
+@@ -17,6 +17,7 @@ import expo.modules.kotlin.modules.Module
+ import expo.modules.kotlin.modules.ModuleDefinition
+ import java.text.DecimalFormatSymbols
+ import java.util.*
++import android.content.res.Resources
+ 
+ // EXPO_VERSIONING_NEEDS_EXPOVIEW_R
+ 
+@@ -90,8 +91,7 @@ class LocalizationModule : Module() {
+ 
+   private val locales: List<Locale>
+     get() {
+-      val context = appContext.reactContext ?: return emptyList()
+-      val configuration = context.resources.configuration
++      val configuration = Resources.getSystem().configuration
+       return if (VERSION.SDK_INT > VERSION_CODES.N) {
+         val locales = ArrayList<Locale>()
+         for (i in 0 until configuration.locales.size()) {

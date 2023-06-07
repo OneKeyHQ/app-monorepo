@@ -1,16 +1,27 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { EncodingType, readAsStringAsync } from 'expo-file-system';
+import { useIntl } from 'react-intl';
 import { pickSingle, types } from 'react-native-document-picker';
 import { read, utils } from 'xlsx';
 
-import { Box, Center, Icon, Pressable } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  Icon,
+  Pressable,
+  Spinner,
+  ToastManager,
+} from '@onekeyhq/components';
 
 import { ReceiverErrors } from '../ReceiverEditor/ReceiverErrors';
 import { ReceiverExample } from '../ReceiverExample';
 import { TokenReceiverEnum } from '../types';
 
 import type { TokenReceiver } from '../types';
+
+const MAX_FILE_SIZE = 1024 * 100;
 
 interface Props {
   setReceiverFromOut: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
@@ -27,6 +38,9 @@ function ReceiverUploader(props: Props) {
     setShowFileError,
   } = props;
 
+  const [isUploading, setIsUploading] = useState(false);
+  const intl = useIntl();
+
   const handleUploadFile = useCallback(async () => {
     try {
       const f = await pickSingle({
@@ -42,6 +56,19 @@ function ReceiverUploader(props: Props) {
         setShowFileError(true);
         return;
       }
+      if (f && f.size && new BigNumber(f.size).gt(MAX_FILE_SIZE)) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage(
+              { id: 'msg__please_limit_the_file_size_to_str_or_less' },
+              { '0': `${MAX_FILE_SIZE / 1024}KB` },
+            ),
+          },
+          { type: 'error' },
+        );
+        return;
+      }
+      setIsUploading(true);
       const b64 = await readAsStringAsync(path, {
         encoding: EncodingType.Base64,
       });
@@ -64,14 +91,17 @@ function ReceiverUploader(props: Props) {
       } else {
         setShowFileError(true);
       }
+      setIsUploading(false);
     } catch {
       setShowFileError(true);
+      setIsUploading(false);
     }
-  }, [setIsUploadMode, setReceiverFromOut, setShowFileError]);
+  }, [intl, setIsUploadMode, setReceiverFromOut, setShowFileError]);
 
   return (
     <>
       <Pressable
+        isDisabled={isUploading}
         height="148px"
         onPress={handleUploadFile}
         borderWidth={1}
@@ -80,7 +110,11 @@ function ReceiverUploader(props: Props) {
         backgroundColor="surface-default"
       >
         <Center w="full" h="full">
-          <Icon name="UploadOutline" size={40} color="icon-subdued" />
+          {isUploading ? (
+            <Spinner size="lg" />
+          ) : (
+            <Icon name="UploadOutline" size={40} color="icon-subdued" />
+          )}
         </Center>
       </Pressable>
       <Box mt={3}>

@@ -7,12 +7,15 @@ import {
   HStack,
   Icon,
   Pressable,
+  Text,
   Typography,
   VStack,
 } from '@onekeyhq/components';
+import type { TypographyStyle } from '@onekeyhq/components/src/Typography';
 
 import type { EAccountSelectorMode } from '../../../store/reducers/reducerAccountSelector';
 import type { ColorType } from 'native-base/lib/typescript/components/types';
+import type { MessageDescriptor } from 'react-intl';
 
 export interface ISelectorTriggerSharedProps {
   type?: 'basic' | 'plain'; // basic with outline border
@@ -21,13 +24,16 @@ export interface ISelectorTriggerSharedProps {
 export interface INetworkAccountSelectorTriggerProps
   extends ISelectorTriggerSharedProps {
   mode?: EAccountSelectorMode;
+  iconSize?: number;
+  labelTypography?: TypographyStyle;
 }
 interface IBaseSelectorTriggerProps extends ISelectorTriggerSharedProps {
   onPress?: () => void;
   icon: any;
-  label: any;
-  description?: any;
-  subDescription?: any;
+  label: string | boolean | undefined | { id: MessageDescriptor['id'] };
+  labelTypography?: TypographyStyle;
+  description?: string | boolean;
+  subDescription?: string;
   disabledInteractiveBg?: boolean;
   hasArrow?: boolean;
 }
@@ -36,6 +42,7 @@ function BaseSelectorTrigger({
   bg,
   icon,
   label,
+  labelTypography = 'Body2Strong',
   description,
   subDescription,
   onPress,
@@ -71,7 +78,7 @@ function BaseSelectorTrigger({
             borderColor="border-default"
             {...props}
           >
-            <VStack py={0.5} px={1.5}>
+            <VStack py={0.5} px={!label && !subDescription ? 0.5 : 1.5}>
               <HStack alignItems="center" space={space ?? 0.5}>
                 {icon ? <Center minH={5}>{icon}</Center> : null}
                 {label ? (
@@ -80,9 +87,9 @@ function BaseSelectorTrigger({
                     alignItems="center"
                     {...(type === 'plain' && { pr: 0.5 })}
                   >
-                    <Typography.Body2Strong isTruncated maxW="120px">
+                    <Text typography={labelTypography} isTruncated maxW="120px">
                       {label}
-                    </Typography.Body2Strong>
+                    </Text>
                     {description ? (
                       <Typography.Body2 color="text-subdued" ml="0.5">
                         {description}

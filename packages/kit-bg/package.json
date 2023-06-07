@@ -15,7 +15,6 @@
     "dotbit": "^0.4.1",
     "react-native-restart": "0.0.24",
     "react-native-uuid": "^2.0.1",
-    "react-redux": "^7.2.6",
     "rimraf": "^3.0.2",
     "semver": "^7.3.7",
     "socket.io-client": "^4.5.2"

@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Box,
   Button,
   HStack,
@@ -16,6 +17,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
@@ -29,10 +31,10 @@ import {
   RootRoutes,
   SendModalRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
+import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-import { showAmountEditor } from './AmountEditor';
 import { showApprovalSelector } from './ApprovalSelector';
 import { useValidteReceiver } from './hooks';
 import { ReceiverExample } from './ReceiverExample';
@@ -56,6 +58,7 @@ function TokenOutbox(props: Props) {
   const [isUploadMode, setIsUploadMode] = useState(false);
   const [isBuildingTx, setIsBuildingTx] = useState(false);
   const [isUnlimited, setIsUnlimited] = useState(false);
+  const [isAlreadyUnlimited, setIsAlreadyUnlimited] = useState(false);
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
@@ -64,7 +67,13 @@ function TokenOutbox(props: Props) {
   const loading = useAccountTokenLoading(networkId, accountId);
   const accountTokens = useAccountTokens(networkId, accountId, true);
   const nativeToken = accountTokens.find((token) => token.isNative);
-  const tokens = accountTokens.filter((token) => !token.isNative);
+  const tokens = accountTokens.filter(
+    (token) =>
+      !token.isNative &&
+      (network?.impl === IMPL_TRON
+        ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
+        : true),
+  );
 
   const { serviceBatchTransfer, serviceToken, serviceOverview } =
     backgroundApiProxy;
@@ -129,15 +138,24 @@ function TokenOutbox(props: Props) {
   }, [accountId, handleOnTokenSelected, navigation, networkId, tokens]);
 
   const handleOpenAmountEditor = useCallback(() => {
-    showAmountEditor(handleOnAmountChanged);
-  }, [handleOnAmountChanged]);
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.BulkSender,
+      params: {
+        screen: BulkSenderRoutes.AmountEditor,
+        params: {
+          onAmountChanged: handleOnAmountChanged,
+        },
+      },
+    });
+  }, [handleOnAmountChanged, navigation]);
 
   const handleOpenApprovalSelector = useCallback(() => {
     showApprovalSelector({
       isUnlimited,
       setIsUnlimited,
+      isAlreadyUnlimited,
     });
-  }, [isUnlimited]);
+  }, [isUnlimited, isAlreadyUnlimited]);
 
   const verifyBulkTransferBeforeConfirm = useCallback(
     (transferInfos: ITransferInfo[], token?: Token) => {
@@ -208,10 +226,13 @@ function TokenOutbox(props: Props) {
     }
 
     const maxActionsInTx = network?.settings?.maxActionsInTx || 0;
-    // const maxActionsInTx = 9;
     const transferInfoGroup = [];
-
-    if (maxActionsInTx > 0) {
+    if (
+      maxActionsInTx > 0 &&
+      (network?.settings?.hardwareMaxActionsEnabled
+        ? accountId.startsWith('hw-')
+        : true)
+    ) {
       for (
         let i = 0, len = transferInfos.length;
         i < len;
@@ -272,6 +293,7 @@ function TokenOutbox(props: Props) {
     isValid,
     isValidating,
     navigation,
+    network?.settings?.hardwareMaxActionsEnabled,
     network?.settings?.maxActionsInTx,
     networkId,
     receiver,
@@ -284,7 +306,6 @@ function TokenOutbox(props: Props) {
   useFocusEffect(
     useCallback(() => {
       if (accountId && networkId) {
-        serviceToken.startRefreshAccountTokens();
         serviceOverview.startQueryPendingTasks();
         serviceToken.fetchAccountTokens({
           accountId,
@@ -292,11 +313,40 @@ function TokenOutbox(props: Props) {
         });
       }
       return () => {
-        serviceToken.stopRefreshAccountTokens();
         serviceOverview.stopQueryPendingTasks();
       };
     }, [accountId, networkId, serviceOverview, serviceToken]),
   );
+
+  useEffect(() => {
+    const fetchTokenAllowance = async () => {
+      const contract = batchTransferContractAddress[networkId];
+      if (
+        !isNative &&
+        network?.settings.batchTransferApprovalRequired &&
+        currentToken?.tokenIdOnNetwork &&
+        contract
+      ) {
+        const { isUnlimited: isUnlimitedAllowance } =
+          await serviceBatchTransfer.checkIsUnlimitedAllowance({
+            networkId,
+            owner: accountAddress,
+            spender: contract,
+            token: currentToken?.tokenIdOnNetwork,
+          });
+        setIsUnlimited(isUnlimitedAllowance);
+        setIsAlreadyUnlimited(isUnlimitedAllowance);
+      }
+    };
+    fetchTokenAllowance();
+  }, [
+    accountAddress,
+    currentToken?.tokenIdOnNetwork,
+    isNative,
+    network?.settings.batchTransferApprovalRequired,
+    networkId,
+    serviceBatchTransfer,
+  ]);
 
   useEffect(() => {
     if (accountId && networkId) {
@@ -355,28 +405,43 @@ function TokenOutbox(props: Props) {
             <Button
               mt={4}
               type="basic"
-              size="xs"
+              size="sm"
               leftIconName="CurrencyDollarSolid"
               onPress={handleOpenAmountEditor}
             >
-              {intl.formatMessage({ id: 'action__edit_amount' })}
+              <Text typography="CaptionStrong">
+                {intl.formatMessage({ id: 'action__edit_amount' })}
+              </Text>
             </Button>
-            {!isNative &&
-              network?.settings.batchTokenTransferApprovalRequired && (
-                <Button
-                  mt={4}
-                  type="basic"
-                  size="xs"
-                  leftIconName="CurrencyDollarSolid"
-                  onPress={handleOpenApprovalSelector}
-                >
-                  {intl.formatMessage({
-                    id: isUnlimited
-                      ? 'action__approval_unlimited'
-                      : 'action__approval_exact_amount',
-                  })}
-                </Button>
-              )}
+            {!isNative && network?.settings.batchTransferApprovalRequired && (
+              <Button
+                mt={4}
+                type="basic"
+                size="sm"
+                leftIconName="CurrencyDollarSolid"
+                onPress={handleOpenApprovalSelector}
+                paddingTop={isAlreadyUnlimited ? '4px' : '6px'}
+                paddingBottom={isAlreadyUnlimited ? '4px' : '6px'}
+              >
+                <HStack space={2} alignItems="center">
+                  <Text typography="CaptionStrong">
+                    {intl.formatMessage({
+                      id: isUnlimited
+                        ? 'action__approval_unlimited'
+                        : 'action__approval_exact_amount',
+                    })}
+                  </Text>
+                  {isAlreadyUnlimited && (
+                    <Badge
+                      size="sm"
+                      color="text-success"
+                      bgColor="surface-success-default"
+                      title={intl.formatMessage({ id: 'form__approved' })}
+                    />
+                  )}
+                </HStack>
+              </Button>
+            )}
           </HStack>
           <Box mt={4}>
             <Button

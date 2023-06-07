@@ -1,11 +1,28 @@
+/* eslint-disable @typescript-eslint/ban-types */
+
 export enum StakingRoutes {
   StakingAmount = 'StakingAmount',
-  StakingETHNotes = 'StakingETHNotes',
   StakedETHOnKele = 'StakedETHOnKele',
+  StakedETHOnLido = 'StakedETHOnLido',
   UnstakeAmount = 'UnstakeAmount',
-  UnstakeKeleETHNotes = 'UnstakeKeleETHNotes',
   WithdrawAmount = 'WithdrawAmount',
   Feedback = 'Feedback',
+
+  KeleEthStakeShouldUnderstand = 'KeleEthStakeShouldUnderstand',
+  KeleEthUnstakeShouldUnderstand = 'KeleEthUnstakeShouldUnderstand',
+
+  LidoEthStakeShouldUnderstand = 'LidoEthStakeShouldUnderStand',
+  LidoEthUnstakeShouldUnderstand = 'LidoEthUnstakeShouldUnderStand',
+  LidoEthUnstake = 'LidoEthUnstake',
+  LidoEthUnstakeRoutes = 'LidoEthUnstakeRoutes',
+
+  ETHPoolSelector = 'ETHPoolSelector',
+  ETHStake = 'ETHStake',
+}
+
+export enum EthStakingSource {
+  Kele = 'Kele',
+  Lido = 'Lido',
 }
 
 export type StakingRoutesParams = {
@@ -17,11 +34,11 @@ export type StakingRoutesParams = {
     networkId: string;
     tokenIdOnNetwork?: string;
   };
-  [StakingRoutes.UnstakeKeleETHNotes]: {
+  [StakingRoutes.KeleEthUnstakeShouldUnderstand]: {
     networkId: string;
     readonly?: boolean;
   };
-  [StakingRoutes.StakingETHNotes]: {
+  [StakingRoutes.KeleEthStakeShouldUnderstand]: {
     networkId: string;
     amount: string;
     tokenIdOnNetwork?: string;
@@ -36,6 +53,24 @@ export type StakingRoutesParams = {
   };
   [StakingRoutes.Feedback]: {
     networkId: string;
+  };
+  [StakingRoutes.ETHPoolSelector]: {
+    isTestnet: boolean;
+    onSelector?: (name: EthStakingSource) => void;
+  };
+  [StakingRoutes.LidoEthStakeShouldUnderstand]: {
+    readonly?: boolean;
+  };
+  [StakingRoutes.LidoEthUnstakeShouldUnderstand]: {};
+  [StakingRoutes.LidoEthUnstake]: {};
+  [StakingRoutes.LidoEthUnstakeRoutes]: {
+    source: string;
+    amount?: string;
+    onSelector?: (name: string) => void;
+  };
+  [StakingRoutes.StakedETHOnLido]: {};
+  [StakingRoutes.ETHStake]: {
+    source: EthStakingSource;
   };
 };
 
@@ -125,3 +160,49 @@ export type KeleHttpResponse = {
   message: string;
   data: any;
 };
+
+export type EthStakingApr = {
+  mainnet: {
+    lido: number;
+    kele: number;
+  };
+  testnet: {
+    lido: number;
+    kele: number;
+  };
+};
+
+export interface LidoNFTStatus {
+  isFinalized: boolean;
+  isClaimed: boolean;
+  owner: string;
+  amountOfStETH: string;
+  amountOfShares: string;
+  timestamp: number;
+  stETH: string;
+  requestId: number;
+}
+
+export type LidoOverview = {
+  total?: string;
+  pending?: string;
+  pendingNums?: number;
+  balance?: string;
+  withdrawal?: string;
+  nftsBalance?: string;
+  nfts?: LidoNFTStatus[];
+};
+
+export type TransactionStatus = 'pending' | 'failed' | 'canceled' | 'sucesss';
+export type TransactionType = 'lidoUnstake' | 'lidoStake' | 'lidoClaim';
+
+export interface TransactionDetails {
+  hash: string;
+  networkId: string;
+  accountId: string;
+  type: TransactionType;
+  addedTime: number;
+  confirmedTime?: number;
+  nonce?: number;
+  archive?: boolean;
+}

@@ -9,8 +9,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { appSelector } from '../../../store';
-
 import { pauseDappInteraction, resumeDappInteraction } from './explorerUtils';
 
 import type { View } from 'react-native';
@@ -52,6 +50,8 @@ const getTabCellLayout = (tabId: string, callback: () => void) => {
 };
 export const showTabGrid = () => {
   pauseDappInteraction();
+  const { appSelector } =
+    require('@onekeyhq/kit/src/store') as typeof import('@onekeyhq/kit/src/store');
   const { currentTabId, tabs } = appSelector((s) => s.webTabs);
   if (platformEnv.isNative && tabViewShotRef.current) {
     captureRef(tabViewShotRef, {
@@ -82,6 +82,8 @@ export const showTabGrid = () => {
 };
 
 export const hideTabGrid = (id?: string) => {
+  const { appSelector } =
+    require('@onekeyhq/kit/src/store') as typeof import('@onekeyhq/kit/src/store');
   const curId = id || appSelector((s) => s.webTabs.currentTabId);
   getTabCellLayout(curId, () => {
     showTabGridAnim.value = withTiming(MIN_OR_HIDE);

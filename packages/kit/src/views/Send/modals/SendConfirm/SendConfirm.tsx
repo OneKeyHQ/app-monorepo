@@ -42,6 +42,7 @@ import type {
   ITxConfirmViewPropsHandleConfirm,
   SendAuthenticationParams,
   SendFeedbackReceiptParams,
+  SendFeedbackReceiptType,
 } from '../../types';
 
 function SendConfirm({
@@ -215,7 +216,12 @@ function SendConfirm({
           navigation.navigate(SendModalRoutes.HardwareSwapContinue, params);
         } else if (!routeParams.hideSendFeedbackReceipt) {
           // Sometimes it is necessary to send multiple transactions. So the feedback are not displayed.
-          const type = routeParams.signOnly ? 'Sign' : 'Send';
+          let type: SendFeedbackReceiptType = routeParams.signOnly
+            ? 'Sign'
+            : 'Send';
+          if (tx.pendingTx) {
+            type = 'SendUnconfirmed';
+          }
           const params: SendFeedbackReceiptParams = {
             networkId,
             accountId,

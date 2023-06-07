@@ -139,6 +139,8 @@ export type SignMessageConfirmParams = SendConfirmSharedParams & {
   sourceInfo?: IDappSourceInfo;
   unsignedMessage: IUnsignedMessageEvm;
   onSuccess?: (result: any) => void;
+  hideToast?: boolean;
+  closeImmediately?: boolean;
 };
 export type IWalletConnectExternalAccountInfo = {
   accountInfo?: IBaseExternalAccountInfo;
@@ -166,11 +168,13 @@ export type SendSpecialWarningParams = SendAuthenticationParams & {
   hintMsgParams?: any;
 };
 
+export type SendFeedbackReceiptType = 'Send' | 'Sign' | 'SendUnconfirmed';
+
 export type SendFeedbackReceiptParams = {
   networkId: string;
   accountId: string;
   txid: string;
-  type: 'Send' | 'Sign' | 'SendUnconfirmed';
+  type: SendFeedbackReceiptType;
   closeModal?: () => any;
   onDetail?: (txid: string) => any;
   isSingleTransformMode?: boolean;

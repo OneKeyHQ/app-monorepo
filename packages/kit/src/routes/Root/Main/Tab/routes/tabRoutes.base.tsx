@@ -21,7 +21,7 @@ export const tabRoutesConfigBaseMap: Record<TabRoutes, TabRouteConfigBase> = {
     name: TabRoutes.Home,
     tabBarIcon: (focused) =>
       focused ? 'CreditCardSolid' : 'CreditCardOutline',
-    translationId: 'form__account',
+    translationId: 'wallet__wallet',
     navHeaderType: 'AccountSelector',
   },
   [TabRoutes.Market]: {
@@ -37,7 +37,7 @@ export const tabRoutesConfigBaseMap: Record<TabRoutes, TabRouteConfigBase> = {
     name: TabRoutes.Swap,
     tabBarIcon: (focused) =>
       focused ? 'ArrowsRightLeftOutline' : 'ArrowsRightLeftOutline',
-    translationId: 'title__Swap_Bridge',
+    translationId: 'form__trade',
     hideDesktopNavHeader: true,
     hideMobileNavHeader: true,
   },

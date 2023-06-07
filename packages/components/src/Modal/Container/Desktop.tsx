@@ -2,6 +2,7 @@
 import { isValidElement, useEffect, useMemo } from 'react';
 
 import { useNavigation, useNavigationState } from '@react-navigation/core';
+import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -11,7 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import Box from '../../Box';
 import Button from '../../Button';
 import HStack from '../../HStack';
-import PresenceTransition from '../../PresenceTransition';
+import MotiBox from '../../MotiBox';
 import Pressable from '../../Pressable';
 
 import Header from './Header/Header';
@@ -117,30 +118,35 @@ const DesktopModal = ({
         bottom="0"
         onPress={close}
       >
-        <PresenceTransition
-          as={Box}
-          visible
-          initial={{
+        <MotiView
+          from={{
             opacity: 0,
           }}
           animate={{
             opacity: 1,
-            transition: {
-              duration:
-                enableModalAnimation && !openedModalStack?.length ? 80 : 0,
-            },
           }}
-          // @ts-expect-error
-          w="full"
-          h="full"
-          bg="rgba(0, 0, 0, 0.6)"
+          transition={{
+            type: 'timing',
+            duration:
+              enableModalAnimation && !openedModalStack?.length ? 80 : 0,
+          }}
+          style={{
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          }}
         />
       </Pressable>
 
-      <PresenceTransition
-        as={Box}
-        visible
-        initial={{
+      <MotiBox
+        width={modalSizing(size)}
+        height={height}
+        maxHeight={maxHeight}
+        borderRadius="24px"
+        bg="background-default"
+        alignSelf="center"
+        zIndex={1}
+        from={{
           opacity: 0,
           // translateY: 24,
           scale: 0.95,
@@ -149,18 +155,13 @@ const DesktopModal = ({
           opacity: 1,
           // translateY: 0,
           scale: 1,
+        }}
+        transition={{
+          type: 'timing',
           // TODO show animation when open new Modal in Modal, but not push stack in same Modal
-          transition: { duration: enableModalAnimation ? 100 : 0 },
+          duration: enableModalAnimation ? 100 : 0,
         }}
         testID="DesktopModalContentContainer"
-        // @ts-expect-error
-        width={modalSizing(size)}
-        height={height}
-        maxHeight={maxHeight}
-        alignSelf="center"
-        borderRadius="24px"
-        bg="background-default"
-        zIndex={1}
       >
         {!!headerShown && (
           <Header
@@ -228,7 +229,7 @@ const DesktopModal = ({
             </HStack>
           </Box>
         )}
-      </PresenceTransition>
+      </MotiBox>
     </Box>
   );
 };

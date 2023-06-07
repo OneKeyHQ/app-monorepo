@@ -247,6 +247,7 @@ function BatchTransactionFeeInfo(props: Props) {
                   </Text>
                   <HStack alignItems="center">
                     <FeeSpeedLabel
+                      prices={feeInfoPayload?.info?.prices}
                       index={feePresetIndex}
                       space={2}
                       alignItems="center"
@@ -312,6 +313,7 @@ function BatchTransactionFeeInfo(props: Props) {
               </Text>
               <FeeSpeedLabel
                 index={feePresetIndex}
+                prices={feeInfoPayload?.info?.prices}
                 alignItems="center"
                 space={2}
               />

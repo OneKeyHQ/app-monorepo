@@ -93,13 +93,13 @@ export const AboutSection = () => {
             typography={{ sm: 'Body1Strong', md: 'Body2Strong' }}
             flex={1}
             mx={3}
-            style={[
-              {
+            _web={{
+              style: {
                 // @ts-ignore
                 WebkitUserSelect: 'none',
                 userSelect: 'none',
               },
-            ]}
+            }}
           >
             {intl.formatMessage({
               id: 'form__version',

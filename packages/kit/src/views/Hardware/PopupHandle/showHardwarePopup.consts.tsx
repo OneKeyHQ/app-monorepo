@@ -10,6 +10,7 @@ export type PopupType = 'normal' | 'inputPin' | 'inputPassphrase';
 export const CUSTOM_UI_RESPONSE = {
   // monorepo custom
   CUSTOM_CANCEL: 'ui-custom_cancel',
+  CUSTOM_REQUEST_PIN_ON_DEVICE: 'ui-custom_request_pin_on_device',
   CUSTOM_NEED_ONEKEY_BRIDGE: 'ui-custom_need_onekey_bridge',
   CUSTOM_FORCE_UPGRADE_FIRMWARE: 'ui-custom_force_onekey_bridge',
   CUSTOM_NEED_UPGRADE_FIRMWARE: 'ui-custom_need_upgrade_firmware',

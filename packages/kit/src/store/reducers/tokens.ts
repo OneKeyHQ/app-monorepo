@@ -98,6 +98,14 @@ export const tokensSlice = createSlice({
           ) {
             return false;
           }
+          if (
+            t.autoDetected &&
+            arr.some(
+              (token) => !token.autoDetected && token.address === t.address,
+            )
+          ) {
+            return false;
+          }
           return true;
         }),
         (t) => `${t.tokenIdOnNetwork}-${t.sendAddress ?? ''}`,

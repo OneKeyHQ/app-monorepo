@@ -95,16 +95,15 @@ export function useValidteReceiver({
           }
 
           if (!hasError && token?.decimals) {
-            const minTokenBanance = new BigNumber(1).shiftedBy(-token.decimals);
-            if (amountBN.lt(minTokenBanance) && !amountBN.isZero()) {
+            if (!amountBN.shiftedBy(token.decimals).isInteger()) {
               validateErrors.push({
                 lineNumber: i + 1,
                 message: intl.formatMessage(
                   {
-                    id: 'form__str_minimum_transfer',
+                    id: 'msg__please_limit_the_amount_of_tokens_to_str_decimal_places_or_less',
                   },
                   {
-                    '0': minTokenBanance.toFixed(),
+                    '0': token.decimals,
                   },
                 ),
               });

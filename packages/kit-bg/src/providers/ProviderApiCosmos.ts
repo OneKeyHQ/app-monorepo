@@ -83,10 +83,16 @@ class ProviderApiCosmos extends ProviderApiBase {
       const appNetworkId = this.convertCosmosChainId(networkId);
       if (!appNetworkId) throw new Error('Invalid chainId');
 
-      const network = await this.backgroundApi.engine.getNetwork(appNetworkId);
-      if (!network) return Promise.reject(new Error('Invalid networkId'));
+      let network;
+      try {
+        network = await this.backgroundApi.engine.getNetwork(networkId);
+      } catch (error) {
+        network = undefined;
+      }
+      if (!network) return false;
 
       const key = await this.getKey(request, networkId);
+      if (!key) return false;
 
       if (!this.hasPermissions(request, key.pubKey)) {
         await this.backgroundApi.serviceDapp.openConnectionModal(request, {
@@ -167,11 +173,20 @@ class ProviderApiCosmos extends ProviderApiBase {
     if (!networkId) throw new Error('Invalid chainId');
 
     if (networkImpl !== IMPL_COSMOS) {
+      await this.backgroundApi.serviceDapp.openConnectionModal(request, {
+        networkId: IMPL_COSMOS,
+      });
       return Promise.reject(new Error('Invalid networkId'));
     }
 
-    const network = await this.backgroundApi.engine.getNetwork(networkId);
-    if (!network) return Promise.reject(new Error('Invalid networkId'));
+    let network;
+    try {
+      network = await this.backgroundApi.engine.getNetwork(networkId);
+    } catch (error) {
+      network = undefined;
+    }
+
+    if (!network) return Promise.resolve(undefined);
 
     const vault = (await this.backgroundApi.engine.getVault({
       networkId,

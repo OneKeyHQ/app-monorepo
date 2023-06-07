@@ -1,3 +1,9 @@
+import type {
+  ENetworkStatus,
+  INetworkPriceConfig,
+  INetworkRpcURL,
+} from '@onekeyhq/shared/types';
+
 import type { IVaultSettings } from '../vaults/types';
 import type { HasName } from './base';
 import type { MessageDescriptor } from 'react-intl';
@@ -19,11 +25,12 @@ type PresetNetwork = NetworkBase & {
   shortCode: string;
   isTestnet?: boolean;
   presetRpcURLs: Array<string>;
-  rpcURLs?: Array<Record<string, string>>;
-  prices?: Array<Record<string, any>>;
+  rpcURLs?: INetworkRpcURL[];
+  prices?: INetworkPriceConfig[];
   explorers?: Array<Record<string, any>>;
   extensions?: Record<string, any>;
   clientApi?: Record<string, string>;
+  status: ENetworkStatus;
 };
 
 type DBNetwork = NetworkBase & {
