@@ -3,18 +3,29 @@
 
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
 import { COINTYPE_STC as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
-import { OneKeyInternalError } from '../../../errors';
-import { Signer } from '../../../proxy';
-import { AccountType } from '../../../types/account';
-import { KeyringHdBase } from '../../keyring/KeyringHdBase';
+import { OneKeyInternalError } from '../../../../errors';
+import { Signer } from '../../../../proxy';
+import { AccountType } from '../../../../types/account';
+import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
+import {
+  buildSignedTx,
+  buildUnsignedRawTx,
+  hashRawTx,
+  pubkeyToAddress,
+} from '../utils';
 
-
-import type { ExportedSeedCredential } from '../../../dbs/base';
-import type { DBSimpleAccount } from '../../../types/account';
-import type { IPrepareSoftwareAccountsParams } from '../../types';
-import Vault from './Vault';
-import { pubkeyToAddress } from './utils';
+import type { ExportedSeedCredential } from '../../../../dbs/base';
+import type {
+  DBSimpleAccount,
+  DBVariantAccount,
+} from '../../../../types/account';
+import type { SignedTx, UnsignedTx } from '../../../../types/provider';
+import type {
+  IPrepareSoftwareAccountsParams,
+  ISignCredentialOptions,
+} from '../../../types';
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0'`;
 
@@ -38,6 +49,40 @@ export class KeyringHd extends KeyringHdBase {
     return {
       [dbAccount.address]: new Signer(privateKey, password, 'ed25519'),
     };
+  }
+
+  override async signTransaction(
+    unsignedTx: UnsignedTx,
+    options: ISignCredentialOptions,
+  ): Promise<SignedTx> {
+    const chainId = await this.vault.getNetworkChainId();
+    const {
+      inputs: [{ address: selectedAddress, publicKey: senderPublicKey }],
+    } = unsignedTx;
+    if (typeof unsignedTx.nonce !== 'number' || unsignedTx.nonce <= 0) {
+      unsignedTx.nonce = await this.vault.getNextNonce(
+        (
+          await this.vault.getNetwork()
+        ).id,
+        await this.getDbAccount(),
+      );
+    }
+    const [rawTxn, rawUserTransactionBytes] = buildUnsignedRawTx(
+      unsignedTx,
+      chainId,
+    );
+    const msgBytes = hashRawTx(rawUserTransactionBytes);
+
+    check(
+      typeof senderPublicKey !== 'undefined',
+      'senderPublicKey is required',
+    );
+    const signers = await this.getSigners(options.password || '', [
+      selectedAddress,
+    ]);
+    const signer = signers[selectedAddress];
+    const [signature] = await signer.sign(Buffer.from(msgBytes));
+    return buildSignedTx(senderPublicKey as string, signature, rawTxn);
   }
 
   override async prepareAccounts(

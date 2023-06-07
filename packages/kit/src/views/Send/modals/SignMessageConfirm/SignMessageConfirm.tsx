@@ -10,6 +10,7 @@ import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 
 import { useActiveSideAccount } from '../../../../hooks';
 import useDappApproveAction from '../../../../hooks/useDappApproveAction';
@@ -181,7 +182,7 @@ const SignMessageConfirm = () => {
     },
     onModalClose,
     sourceInfo,
-    unsignedMessage,
+    unsignedMessage: getValidUnsignedMessage(unsignedMessage),
   };
 
   // Dapp blind sign

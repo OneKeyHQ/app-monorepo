@@ -216,7 +216,7 @@ function NFTListContainer() {
   const [collectibles, updateListData] = useState<Collection[]>([]);
 
   const fetchData = async () => {
-    if (account && networkId) {
+    if (account && networkId && isNFTSupport) {
       const result = await serviceNFT.fetchNFT({
         accountId: account.address,
         networkId,
@@ -227,7 +227,7 @@ function NFTListContainer() {
   };
 
   const shouldDoRefresh = useMemo((): boolean => {
-    if (!accountId || !networkId) {
+    if (!accountId || !networkId || !isNFTSupport) {
       return false;
     }
     if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
@@ -240,7 +240,7 @@ function NFTListContainer() {
       return false;
     }
     return true;
-  }, [accountId, homeTabName, isFocused, networkId]);
+  }, [accountId, homeTabName, isFocused, isNFTSupport, networkId]);
 
   const swrKey = 'fetchNFTList';
   const { mutate, isValidating: isLoading } = useSWR(swrKey, fetchData, {
