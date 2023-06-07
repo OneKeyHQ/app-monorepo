@@ -7,7 +7,7 @@ import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import type { ThemeVariant } from '@onekeyhq/components/src/Provider/theme';
 import { getTimeStamp } from '@onekeyhq/kit/src/utils/helper';
 import type { FirmwareType } from '@onekeyhq/kit/src/views/Hardware/UpdateFirmware/Updating';
-import { HARDWARE_SDK_IFRAME_SRC_ONEKEYSO } from '@onekeyhq/shared/src/config/appConfig';
+import { SHORT_ONEKEYSO_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { defaultHapticStatus } from '@onekeyhq/shared/src/haptics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -195,7 +195,7 @@ const initialState: SettingsState = {
   advancedSettings: {
     useDustUtxo: true,
   },
-  hardwareConnectSrc: HARDWARE_SDK_IFRAME_SRC_ONEKEYSO,
+  hardwareConnectSrc: SHORT_ONEKEYSO_URL,
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
