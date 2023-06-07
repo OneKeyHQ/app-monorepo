@@ -1,16 +1,27 @@
 import { useCallback, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { EncodingType, readAsStringAsync } from 'expo-file-system';
+import { useIntl } from 'react-intl';
 import { pickSingle, types } from 'react-native-document-picker';
 import { read, utils } from 'xlsx';
 
-import { Box, Center, Icon, Pressable, Spinner } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  Icon,
+  Pressable,
+  Spinner,
+  ToastManager,
+} from '@onekeyhq/components';
 
 import { ReceiverErrors } from '../ReceiverEditor/ReceiverErrors';
 import { ReceiverExample } from '../ReceiverExample';
 import { TokenReceiverEnum } from '../types';
 
 import type { TokenReceiver } from '../types';
+
+const MAX_FILE_SIZE = 1024 * 100;
 
 interface Props {
   setReceiverFromOut: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
@@ -28,6 +39,7 @@ function ReceiverUploader(props: Props) {
   } = props;
 
   const [isUploading, setIsUploading] = useState(false);
+  const intl = useIntl();
 
   const handleUploadFile = useCallback(async () => {
     try {
@@ -42,6 +54,18 @@ function ReceiverUploader(props: Props) {
       const type = path.split('.').pop();
       if (!['xlsx', 'txt', 'csv', 'xls'].includes(type?.toLowerCase() ?? '')) {
         setShowFileError(true);
+        return;
+      }
+      if (f && f.size && new BigNumber(f.size).gt(MAX_FILE_SIZE)) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage(
+              { id: 'msg__please_limit_the_file_size_to_str_or_less' },
+              { '0': `${MAX_FILE_SIZE / 1024}KB` },
+            ),
+          },
+          { type: 'error' },
+        );
         return;
       }
       setIsUploading(true);
@@ -72,7 +96,7 @@ function ReceiverUploader(props: Props) {
       setShowFileError(true);
       setIsUploading(false);
     }
-  }, [setIsUploadMode, setReceiverFromOut, setShowFileError]);
+  }, [intl, setIsUploadMode, setReceiverFromOut, setShowFileError]);
 
   return (
     <>

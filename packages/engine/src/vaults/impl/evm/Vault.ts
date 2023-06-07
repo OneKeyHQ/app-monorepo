@@ -1022,8 +1022,8 @@ export default class Vault extends VaultBase {
         amountBN
           .dp(
             BigNumber.min(
-              amountBN.decimalPlaces() - 1,
-              network.decimals - 1,
+              amountBN.decimalPlaces() - 2,
+              network.decimals - 2,
             ).toNumber(),
             BigNumber.ROUND_FLOOR,
           )
