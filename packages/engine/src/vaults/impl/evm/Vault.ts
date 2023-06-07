@@ -39,7 +39,11 @@ import {
   UNIQUE_TOKEN_SYMBOLS,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import { check } from '@onekeyhq/shared/src/utils/assertUtils';
+import {
+  fromBigIntHex,
+  toBigIntHex,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 
 import {
   InvalidAddress,
@@ -201,6 +205,13 @@ export default class Vault extends VaultBase {
     watching: KeyringWatching,
     external: KeyringWatching,
   };
+
+  private async getChainInfoImplOptions() {
+    const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
+      this.networkId,
+    );
+    return chainInfo.implOptions;
+  }
 
   override async getEthersProvider() {
     const network = await this.getNetwork();
@@ -1092,6 +1103,84 @@ export default class Vault extends VaultBase {
     };
   }
 
+  async buildUnsignedTx(unsignedTx: UnsignedTx): Promise<UnsignedTx> {
+    const client = await this.getJsonRPCClient();
+    const input = unsignedTx.inputs[0];
+    const output = unsignedTx.outputs[0];
+
+    const payload = unsignedTx.payload || {};
+    const { nonce } = unsignedTx;
+    let { feeLimit } = unsignedTx;
+
+    check(typeof nonce === 'number' && nonce >= 0, 'nonce is required');
+
+    if (input && output) {
+      const fromAddress = input.address;
+      const { tokenAddress } = output;
+      let toAddress = output.address;
+      let value: string = toBigIntHex(output.value);
+      let data: string | undefined;
+
+      if (tokenAddress) {
+        data = `0xa9059cbb${defaultAbiCoder
+          .encode(['address', 'uint256'], [toAddress, value])
+          .slice(2)}`; // method_selector(transfer) + byte32_pad(address) + byte32_pad(value)
+        value = '0x0';
+        toAddress = tokenAddress;
+      } else {
+        data = payload.data;
+      }
+
+      if (typeof data === 'string' && data) {
+        payload.data = data;
+      }
+
+      if (!feeLimit) {
+        const estimatedGasLimit = await client.estimateGasLimit(
+          fromAddress,
+          toAddress,
+          value,
+          data,
+        );
+        const estimatedGasLimitBN = fromBigIntHex(estimatedGasLimit);
+        const multiplier =
+          (await this.getChainInfoImplOptions()).contract_gaslimit_multiplier ||
+          1.2;
+        // const multiplier =
+        // this.chainInfo.implOptions.contract_gaslimit_multiplier || 1.2;
+
+        feeLimit =
+          tokenAddress ||
+          (verifyAddress(toAddress).isValid &&
+            (await client.isContract(toAddress)))
+            ? estimatedGasLimitBN.multipliedBy(multiplier).integerValue()
+            : estimatedGasLimitBN;
+      }
+    }
+
+    feeLimit = feeLimit || new BigNumber(21000);
+
+    let { feePricePerUnit } = unsignedTx;
+    if (!feePricePerUnit) {
+      const feePrice = await client.getFeePricePerUnit();
+      const { normal } = feePrice;
+      feePricePerUnit = normal.price;
+
+      if (normal.payload) {
+        Object.assign(payload, normal.payload);
+      }
+    }
+
+    return Object.assign(unsignedTx, {
+      inputs: input ? [input] : [],
+      outputs: output ? [output] : [],
+      nonce,
+      feeLimit,
+      feePricePerUnit,
+      payload,
+    });
+  }
+
   async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxEvm,
     // TODO feeInfo
@@ -1145,10 +1234,7 @@ export default class Vault extends VaultBase {
       decodeUnsignedTxFeeData(unsignedTxInfo),
     );
 
-    const unsignedTx = await this.engine.providerManager.buildUnsignedTx(
-      this.networkId,
-      unsignedTxInfo,
-    );
+    const unsignedTx = await this.buildUnsignedTx(unsignedTxInfo);
 
     debugLogger.sendTx.info(
       'buildUnsignedTxFromEncodedTx >>>> buildUnsignedTx',
