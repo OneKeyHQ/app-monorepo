@@ -90,7 +90,7 @@ const NetworkSelector: FC = () => {
               }
             >
               {o.logoURI ? (
-                <Box mr="1">
+                <Box w="5" h="5" borderRadius="full" overflow="hidden" mr="1">
                   <NetImage width="20px" height="20px" src={o.logoURI} />
                 </Box>
               ) : null}
