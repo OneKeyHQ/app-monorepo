@@ -72,6 +72,8 @@ export type ModalProps = {
 
   forceDesktop?: boolean;
   enableMobileFooterWrap?: boolean;
+
+  disableTopRadius?: boolean;
 } & HeaderProps;
 
 const defaultProps = {
@@ -112,6 +114,7 @@ const Modal = ({
   modalHeight,
   forceDesktop,
   rightContent,
+  disableTopRadius,
   ...rest
 }: ModalProps) => {
   const { size } = useUserDevice();
@@ -244,7 +247,8 @@ const Modal = ({
                   platformEnv.isExtension ||
                   platformEnv.isDesktop ||
                   platformEnv.isRuntimeBrowser) &&
-                  isVerticalLayout)
+                  isVerticalLayout) ||
+                disableTopRadius
                   ? 0
                   : '24px'
               }
@@ -280,6 +284,7 @@ const Modal = ({
     );
   }, [
     forceDesktop,
+    onLayout,
     onModalClose,
     headerShown,
     header,
@@ -287,9 +292,9 @@ const Modal = ({
     rest,
     modalContent,
     size,
-    onLayout,
     modalHeight,
     isVerticalLayout,
+    disableTopRadius,
   ]);
 
   const triggerNode = useMemo(() => {
