@@ -1151,7 +1151,7 @@ class RealmDB implements DBAPI {
         (d) => d.deviceId === deviceId && d.uuid === deviceUUID,
       );
       const hasExistWallet = wallets.find((w) => {
-        if (!existDevice) return null;
+        if (!existDevice) return undefined;
 
         return (
           w.associatedDevice === existDevice?.id &&
