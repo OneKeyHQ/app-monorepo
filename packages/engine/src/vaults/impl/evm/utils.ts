@@ -1,5 +1,10 @@
 import { getAddress } from '@ethersproject/address';
+import { hexZeroPad, splitSignature } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
+import {
+  type UnsignedTransaction,
+  serialize,
+} from '@ethersproject/transactions';
 import {
   getEncryptionPublicKey,
   decrypt as mmSigUtilDecrypt,
@@ -17,16 +22,15 @@ import type {
   TypedMessage,
   UnsignedTx,
 } from '@onekeyhq/engine/src/types/provider';
-import type { Signer } from '@onekeyhq/engine/src/types/secret';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { check, checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { hashMessage } from './sdk';
 
-import type { Verifier } from '../../../proxy';
+import type { Signer, Verifier } from '../../../proxy';
+import type { ISignedTxPro } from '../../types';
 import type { MessageTypes } from './sdk';
-import type { UnsignedTransaction } from '@ethersproject/transactions';
 
 export async function mmDecrypt(
   serializedMessage: string,
@@ -126,4 +130,26 @@ export function buildEtherUnSignedTx(
 export async function pubkeyToAddress(verifier: Verifier): Promise<string> {
   const pubkey = await verifier.getPubkey(false);
   return `0x${keccak256(pubkey.slice(-64)).slice(-40)}`;
+}
+
+export async function signTransactionWithSigner(
+  unsignedTx: UnsignedTx,
+  signer: Signer,
+  chainId: string,
+): Promise<ISignedTxPro> {
+  const tx = buildEtherUnSignedTx(unsignedTx, chainId);
+  const digest = keccak256(serialize(tx));
+  const [sig, recoveryParam] = await signer.sign(
+    Buffer.from(digest.slice(2), 'hex'),
+  );
+  const [r, s]: [Buffer, Buffer] = [sig.slice(0, 32), sig.slice(32)];
+  const signature = splitSignature({
+    recoveryParam,
+    r: hexZeroPad(`0x${r.toString('hex')}`, 32),
+    s: hexZeroPad(`0x${s.toString('hex')}`, 32),
+  });
+
+  const rawTx: string = serialize(tx, signature);
+  const txid = keccak256(rawTx);
+  return { txid, rawTx, digest };
 }

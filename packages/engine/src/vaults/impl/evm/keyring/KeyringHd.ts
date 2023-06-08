@@ -1,10 +1,5 @@
-import { hexZeroPad, splitSignature } from '@ethersproject/bytes';
-import { keccak256 } from '@ethersproject/keccak256';
-import { serialize } from '@ethersproject/transactions';
-
 import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { batchGetPublicKeys } from '@onekeyhq/engine/src/secret';
-import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { OneKeyInternalError } from '../../../../errors';
 import {
@@ -14,19 +9,17 @@ import {
 import { Signer, Verifier } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
-import { buildEtherUnSignedTx, pubkeyToAddress } from '../utils';
+import { pubkeyToAddress, signTransactionWithSigner } from '../utils';
 
 import type { ExportedSeedCredential } from '../../../../dbs/base';
-import type {
-  DBSimpleAccount,
-  DBVariantAccount,
-} from '../../../../types/account';
-import type { SignedTx, UnsignedTx } from '../../../../types/provider';
+import type { DBSimpleAccount } from '../../../../types/account';
+import type { UnsignedTx } from '../../../../types/provider';
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
   ISignedTxPro,
 } from '../../../types';
+import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
 type Curve = 'secp256k1' | 'ed25519';
 
@@ -132,21 +125,8 @@ export class KeyringHd extends KeyringHdBase {
       options.password || '',
       unsignedTx.inputs.map((input) => input.address),
     );
-    check(fromAddress && signers[fromAddress], 'Signer not found');
-    const tx = buildEtherUnSignedTx(unsignedTx, chainId);
-    const digest = keccak256(serialize(tx));
-    const [sig, recoveryParam] = await signers[fromAddress].sign(
-      Buffer.from(digest.slice(2), 'hex'),
-    );
-    const [r, s]: [Buffer, Buffer] = [sig.slice(0, 32), sig.slice(32)];
-    const signature = splitSignature({
-      recoveryParam,
-      r: hexZeroPad(`0x${r.toString('hex')}`, 32),
-      s: hexZeroPad(`0x${s.toString('hex')}`, 32),
-    });
-
-    const rawTx: string = serialize(tx, signature);
-    const txid = keccak256(rawTx);
-    return { txid, rawTx, digest };
+    const signer = signers[fromAddress];
+    check(fromAddress && signer, 'Signer not found');
+    return signTransactionWithSigner(unsignedTx, signer, chainId);
   }
 }

@@ -1,4 +1,4 @@
-import { importedAccount1, network } from '../@tests/evmMockData';
+import { importedAccount1, importedAccount2, network } from '../@tests/evmMockData';
 
 import { KeyringImported } from './KeyringImported';
 
@@ -29,9 +29,26 @@ describe('EVM KeyringHd Tests', () => {
       {
         dbNetwork: network,
         dbAccount: importedAccount1.account,
-        mnemonic: importedAccount1.mnemonic,
         password: importedAccount1.password,
         privateKey: importedAccount1.privateKey,
+      },
+      {
+        keyring({ vault }) {
+          return new KeyringImported(vault);
+        },
+      },
+    );
+  });
+
+  it('evm signTransaction', async () => {
+    const { testSignTransaction } =
+      require('../@tests/evmPresetCase') as EVMPresetCaseType;
+    await testSignTransaction(
+      {
+        dbNetwork: network,
+        dbAccount: importedAccount2.account,
+        privateKey: importedAccount2.privateKey,
+        password: importedAccount2.password,
       },
       {
         keyring({ vault }) {

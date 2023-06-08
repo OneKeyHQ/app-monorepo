@@ -1,3 +1,6 @@
+import { parse } from '@ethersproject/transactions';
+import { ecdsaRecover, ecdsaVerify, publicKeyConvert } from 'secp256k1';
+
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -5,8 +8,6 @@ import { prepareMockVault } from '../../../../../@tests/prepareMockVault';
 import { getAccountNameInfoByImpl } from '../../../../managers/impl';
 import Vault from '../Vault';
 import VaultHelper from '../VaultHelper';
-
-import { parse } from '@ethersproject/transactions';
 
 import type { IPrepareMockVaultOptions } from '../../../../../@tests/types';
 import type { DBAccount } from '../../../../types/account';
@@ -79,19 +80,18 @@ export async function testSignTransaction(
   const signedTx = await keyring.signTransaction(unsignedTx, {
     password,
   });
-  console.error(signedTx);
   const nativeTx = parse(signedTx.rawTx);
   const signers = await keyring.getSigners(password || '', [dbAccount.address]);
   const signer = signers[dbAccount.address];
   const rBytes = Buffer.from((nativeTx.r || '').slice(2), 'hex');
   const sBytes = Buffer.from((nativeTx.s || '').slice(2), 'hex');
   const signature = Buffer.concat([rBytes, sBytes]);
-  const isVerified = await signer.verifySignature({
-    digest: signedTx.digest || '',
-    publicKey: dbAccount.address || '',
-    signature,
-  });
 
+  const isVerified = ecdsaVerify(
+    new Uint8Array(signature),
+    new Uint8Array(Buffer.from((signedTx.digest || '').slice(2), 'hex')),
+    new Uint8Array(await signer.getPubkey()),
+  );
   expect(isVerified).toBeTruthy();
   await wait(1000);
 }

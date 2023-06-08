@@ -5,10 +5,12 @@ import { OneKeyInternalError } from '../../../../errors';
 import { Signer, Verifier } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
-import { pubkeyToAddress } from '../utils';
+import { buildEtherUnSignedTx, pubkeyToAddress, signTransactionWithSigner } from '../utils';
 
 import type { DBSimpleAccount } from '../../../../types/account';
-import type { IPrepareImportedAccountsParams } from '../../../types';
+import type { IPrepareImportedAccountsParams, ISignCredentialOptions, ISignedTxPro } from '../../../types';
+import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
+import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
 type Curve = 'secp256k1' | 'ed25519';
 
@@ -35,7 +37,6 @@ export class KeyringImported extends KeyringImportedBase {
     }
 
     const [privateKey] = Object.values(await this.getPrivateKeys(password));
-
     return {
       [dbAccount.address]: new Signer(privateKey, password, 'secp256k1'),
     };
@@ -49,7 +50,6 @@ export class KeyringImported extends KeyringImportedBase {
       throw new OneKeyInternalError('Invalid private key.');
     }
     const pub = secp256k1.publicFromPrivate(privateKey).toString('hex');
-    // TODO: remove addressFromPub from proxy.ts
     const address = await pubkeyToAddress(await this.getVerifier(pub));
     return Promise.resolve([
       {
@@ -62,5 +62,20 @@ export class KeyringImported extends KeyringImportedBase {
         address,
       },
     ]);
+  }
+
+  override async signTransaction(
+    unsignedTx: UnsignedTx,
+    options: ISignCredentialOptions,
+  ): Promise<ISignedTxPro> {
+    const chainId = await this.vault.getNetworkChainId();
+    const fromAddress = unsignedTx.inputs[0]?.address;
+    const signers = await this.getSigners(
+      options.password || '',
+      unsignedTx.inputs.map((input) => input.address),
+    );
+    const signer = signers[fromAddress];
+    check(fromAddress && signer, 'Signer not found');
+    return signTransactionWithSigner(unsignedTx, signer, chainId);
   }
 }
