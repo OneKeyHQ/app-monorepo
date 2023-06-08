@@ -38,11 +38,7 @@ export class KeyringWatching extends KeyringWatchingBase {
     params: IPrepareWatchingAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
     const { name, target, accountIdPrefix } = params;
-    const { normalizedAddress, isValid } =
-      await this.engine.providerManager.verifyAddress(this.networkId, target);
-    if (!isValid || typeof normalizedAddress === 'undefined') {
-      throw new InvalidAddress();
-    }
+    const normalizedAddress = await this.vault.validateAddress(target);
 
     return Promise.resolve([
       {

@@ -1,8 +1,10 @@
 import { getAddress } from '@ethersproject/address';
+import { keccak256 } from '@ethersproject/keccak256';
 import {
   getEncryptionPublicKey,
   decrypt as mmSigUtilDecrypt,
 } from '@metamask/eth-sig-util';
+import BigNumber from 'bignumber.js';
 import {
   addHexPrefix,
   ecrecover,
@@ -22,11 +24,9 @@ import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { hashMessage } from './sdk';
 
+import type { Verifier } from '../../../proxy';
 import type { MessageTypes } from './sdk';
 import type { UnsignedTransaction } from '@ethersproject/transactions';
-import BigNumber from 'bignumber.js';
-import { Verifier } from '../../../proxy';
-import { keccak256 } from '@ethersproject/keccak256';
 
 export async function mmDecrypt(
   serializedMessage: string,
@@ -123,9 +123,7 @@ export function buildEtherUnSignedTx(
   return baseTx;
 }
 
-export async function pubkeyToAddress(
-  verifier: Verifier,
-): Promise<string> {
+export async function pubkeyToAddress(verifier: Verifier): Promise<string> {
   const pubkey = await verifier.getPubkey(false);
   return `0x${keccak256(pubkey.slice(-64)).slice(-40)}`;
 }

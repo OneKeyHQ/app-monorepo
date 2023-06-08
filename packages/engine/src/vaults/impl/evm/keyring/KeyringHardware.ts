@@ -6,13 +6,14 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import * as engineUtils from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { OneKeyHardwareError } from '../../../../errors';
+import { OneKeyHardwareError, OneKeyInternalError } from '../../../../errors';
 import * as OneKeyHardware from '../../../../hardware';
 import { slicePathTemplate } from '../../../../managers/derivation';
 import {
   getAccountNameInfoByImpl,
   getAccountNameInfoByTemplate,
 } from '../../../../managers/impl';
+import { Verifier } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringHardwareBase } from '../../../keyring/KeyringHardwareBase';
 import { ethers } from '../sdk/ethers';
@@ -24,8 +25,23 @@ import type {
   ISignCredentialOptions,
 } from '../../../types';
 import type { IUnsignedMessageEvm } from '../Vault';
+import { pubkeyToAddress } from '../utils';
+
+type Curve = 'secp256k1' | 'ed25519';
 
 export class KeyringHardware extends KeyringHardwareBase {
+  async getVerifier(pub: string): Promise<Verifier> {
+    const provider =
+      await this.vault.engine.providerManager.getChainInfoByNetworkId(
+        this.networkId,
+      );
+    if (typeof provider === 'undefined') {
+      throw new OneKeyInternalError('Provider not found.');
+    }
+
+    return new Verifier(pub, provider.curve as Curve);
+  }
+
   async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
     const HardwareSDK = await this.getHardwareSDKInstance();
     const path = await this.getAccountPath();
@@ -130,9 +146,8 @@ export class KeyringHardware extends KeyringHardwareBase {
           ).map(async (item) => ({
             path: item.path,
             info: engineUtils.fixAddressCase({
-              address: await this.engine.providerManager.addressFromPub(
-                this.networkId,
-                item.publicKey,
+              address: await pubkeyToAddress(
+                await this.getVerifier(item.publicKey),
               ),
               impl: IMPL_EVM,
             }),
