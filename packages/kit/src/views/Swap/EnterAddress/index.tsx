@@ -80,9 +80,12 @@ const EnterAddress = () => {
             values.address.trim(),
           );
         } catch {
-          ToastManager.show({
-            title: intl.formatMessage({ id: 'form__address_invalid' }),
-          });
+          ToastManager.show(
+            {
+              title: intl.formatMessage({ id: 'form__address_invalid' }),
+            },
+            { type: 'error' },
+          );
           return;
         }
       }

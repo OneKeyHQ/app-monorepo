@@ -1,9 +1,7 @@
-import { networkList } from '@onekeyfe/network-list';
 import B from 'bignumber.js';
 import { uniq } from 'lodash';
 
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { GoPlusSupportApis } from '../types/goplus';
 import { TokenRiskLevel } from '../types/token';
@@ -372,19 +370,6 @@ export const fetchValidGoPlusChainId = async (
   apiName: GoPlusSupportApis,
   networkId: string,
 ) => fetchData('/token/gp_valid_chain_id', { apiName, networkId }, undefined);
-
-export const getGpChainId = (networkId: string) => {
-  const network = networkList.networks.find((n) => n.id === networkId);
-  if (!network) {
-    return;
-  }
-  if (network.impl === 'evm') {
-    return network.chainId;
-  }
-  if (networkId === OnekeyNetwork.trx) {
-    return 'tron';
-  }
-};
 
 export const getRiskLevel = (info: GoPlusTokenSecurity) => {
   if (isTrustToken(info)) {

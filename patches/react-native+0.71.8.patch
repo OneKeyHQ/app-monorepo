@@ -1,0 +1,13 @@
+diff --git a/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts b/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts
+index b06d1cb..6c2e083 100644
+--- a/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts
++++ b/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts
+@@ -97,7 +97,7 @@ export interface AccessibilityProps
+    * A value indicating whether the accessibility elements contained within
+    * this accessibility element are hidden.
+    */
+-  'aria-hidden'?: boolean | undefined;
++  'aria-hidden'?: boolean | undefined | string;
+ 
+   'aria-live'?: ('polite' | 'assertive' | 'off') | undefined;
+   'aria-modal'?: boolean | undefined;

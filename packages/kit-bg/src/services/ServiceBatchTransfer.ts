@@ -1,14 +1,11 @@
-import ERC1155MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC1155.json';
-import ERC20MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC20.json';
-import ERC721MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
 import BigNumber from 'bignumber.js';
-import { Contract } from 'ethers';
 import { groupBy, keys } from 'lodash';
 
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
+import { HistoryEntryStatus } from '@onekeyhq/engine/src/types/history';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import { InfiniteAmountText } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/decoder';
-import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTxSol } from '@onekeyhq/engine/src/vaults/impl/sol/types';
 import type {
   IEncodedTx,
@@ -16,42 +13,20 @@ import type {
   ISignedTxPro,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
-import lib0xSequenceMulticall from '@onekeyhq/shared/src/asyncModules/lib0xSequenceMulticall';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
-import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_SOL, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 
 const BATCH_SEND_TX_RETRY_MAX = 10;
 const REFRESH_PENDING_TXS_RETRY_MAX = 10;
 
-const ERC721 = ERC721MetadataArtifact.abi;
-const ERC1155 = ERC1155MetadataArtifact.abi;
-const ERC20 = ERC20MetadataArtifact.abi;
-
 @backgroundClass()
 export default class ServiceBatchTransfer extends ServiceBase {
-  @backgroundMethod()
-  async getProvider(networkId: string) {
-    const { engine } = this.backgroundApi;
-    const vault = await engine.getChainOnlyVault(networkId);
-    return vault.getEthersProvider();
-  }
-
-  @backgroundMethod()
-  async getReadProvider(networkId: string) {
-    const multicall = await lib0xSequenceMulticall.getModule();
-    const provider = await this.getProvider(networkId);
-    if (!provider) {
-      return;
-    }
-    return new multicall.MulticallProvider(provider, { verbose: true });
-  }
-
   @backgroundMethod()
   async buildEncodedTxsFromBatchApprove(params: {
     accountId: string;
@@ -65,7 +40,7 @@ export default class ServiceBatchTransfer extends ServiceBase {
     const network = await engine.getNetwork(networkId);
     const vaultSettings = await engine.getVaultSettings(networkId);
 
-    if (!vaultSettings.batchTokenTransferApprovalRequired) {
+    if (!vaultSettings.batchTransferApprovalRequired) {
       return Promise.resolve([]);
     }
 
@@ -189,18 +164,13 @@ export default class ServiceBatchTransfer extends ServiceBase {
     if (
       pendingTxs &&
       pendingTxs.length > 0 &&
-      vaultSettings.batchTokenTransferApprovalRequired &&
-      (encodedTx as IEncodedTxEvm).to ===
-        batchTransferContractAddress[network.id]
+      vaultSettings.batchTransferApprovalConfirmRequired &&
+      (await this.checkIsBatchTransfer({ networkId, encodedTx }))
     ) {
       // Make sure to call the batch sending contract after approves take effect
       let signedTx: ISignedTxPro | null = null;
       const refreshPendingTxs = async () => {
-        const txs = await engine.providerManager.refreshPendingTxs(
-          networkId,
-          pendingTxs,
-        );
-
+        const txs = await this.refreshPendingTxs({ networkId, pendingTxs });
         if (
           Object.keys(txs).length !== pendingTxs.length &&
           refreshPendingTxsRetry < REFRESH_PENDING_TXS_RETRY_MAX
@@ -251,27 +221,10 @@ export default class ServiceBatchTransfer extends ServiceBase {
     token: string;
   }) {
     const { networkId, owner, spender, token } = params;
-    try {
-      const readProvider = await this.getReadProvider(networkId);
-      const contract = new Contract(token, ERC20, readProvider);
-      const res: Promise<string>[] = await contract.functions.allowance(
-        owner,
-        spender,
-      );
-      const allowance = String(await res[0]);
-      const totalSupplyRes: any = await contract.functions.totalSupply();
-      // eslint-disable-next-line
-      const totalSupply = totalSupplyRes?.[0]?.toString?.();
-      return {
-        isUnlimited: new BigNumber(allowance).gt(new BigNumber(totalSupply)),
-        allowance,
-      };
-    } catch (e) {
-      return {
-        isUnlimited: false,
-        allowance: 0,
-      };
-    }
+    const { engine } = this.backgroundApi;
+    const vault = await engine.getChainOnlyVault(networkId);
+
+    return vault.checkIsUnlimitedAllowance({ owner, spender, token });
   }
 
   @backgroundMethod()
@@ -283,20 +236,11 @@ export default class ServiceBatchTransfer extends ServiceBase {
     type?: string;
   }): Promise<boolean> {
     const { networkId, owner, spender, token, type } = params;
-    try {
-      const readProvider = await this.getReadProvider(networkId);
-      const contract = new Contract(
-        token,
-        type === 'erc1155' ? ERC1155 : ERC721,
-        readProvider,
-      );
 
-      const [isApprovedForAll]: boolean[] =
-        await contract.functions.isApprovedForAll(owner, spender);
-      return isApprovedForAll;
-    } catch {
-      return false;
-    }
+    const { engine } = this.backgroundApi;
+    const vault = await engine.getChainOnlyVault(networkId);
+
+    return vault.checkIsApprovedForAll({ owner, spender, token, type });
   }
 
   @backgroundMethod()
@@ -307,5 +251,51 @@ export default class ServiceBatchTransfer extends ServiceBase {
 
     const [status] = await vault.getTransactionStatuses([txid]);
     return status;
+  }
+
+  @backgroundMethod()
+  async checkIsBatchTransfer(params: {
+    networkId: string;
+    encodedTx: IEncodedTx;
+  }) {
+    const { networkId, encodedTx } = params;
+    const { engine } = this.backgroundApi;
+    const vault = await engine.getChainOnlyVault(networkId);
+
+    return vault.checkIsBatchTransfer(encodedTx);
+  }
+
+  @backgroundMethod()
+  async refreshPendingTxs(params: {
+    networkId: string;
+    pendingTxs: Array<{ id: string }>;
+  }): Promise<Record<string, HistoryEntryStatus>> {
+    const { networkId, pendingTxs } = params;
+
+    if (pendingTxs.length === 0) {
+      return {};
+    }
+
+    const { engine } = this.backgroundApi;
+    const vault = await engine.getChainOnlyVault(networkId);
+
+    const ret: Record<string, HistoryEntryStatus> = {};
+    const regex = new RegExp(`^${networkId}${SEPERATOR}`);
+    const updatedStatuses = await vault.getTransactionStatuses(
+      pendingTxs.map((tx) => tx.id.replace(regex, '')),
+    );
+
+    console.log('updatedStatuses', updatedStatuses);
+
+    updatedStatuses.forEach((status, index) => {
+      const { id } = pendingTxs[index];
+      if (status === TransactionStatus.CONFIRM_AND_SUCCESS) {
+        ret[id] = HistoryEntryStatus.SUCCESS;
+      } else if (status === TransactionStatus.CONFIRM_BUT_FAILED) {
+        ret[id] = HistoryEntryStatus.FAILED;
+      }
+    });
+
+    return ret;
   }
 }

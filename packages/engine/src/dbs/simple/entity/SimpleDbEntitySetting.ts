@@ -1,4 +1,3 @@
-import { uniqBy } from 'lodash';
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 export type ISimpleDbEntitySettings = {
@@ -13,7 +12,6 @@ export type ISimpleDbEntitySettings = {
   rpcBatchWhitelists?: {
     url: string;
     type: 'default' | 'custom';
-    createdAt: number;
   }[];
 };
 
@@ -107,24 +105,28 @@ export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySet
     values: ISimpleDbEntitySettings['rpcBatchWhitelists'],
   ) {
     const rawData = await this.getRawData();
-    return this.setRawData({ ...rawData, rpcBatchWhitelists: values });
+    const customWhitelist =
+      rawData?.rpcBatchWhitelists?.filter((t) => t.type === 'custom') ?? [];
+    return this.setRawData({
+      ...rawData,
+      rpcBatchWhitelists: (values ?? []).concat(customWhitelist),
+    });
   }
 
   async addRpcBatchFallbackWhitelistHosts(value: string) {
     const rawData = await this.getRawData();
+    if (rawData?.rpcBatchWhitelists?.find((n) => n.url === value)) {
+      return;
+    }
     return this.setRawData({
       ...rawData,
-      rpcBatchWhitelists: uniqBy(
-        [
-          ...(rawData?.rpcBatchWhitelists ?? []),
-          {
-            url: value,
-            createdAt: Date.now(),
-            type: 'custom',
-          },
-        ],
-        'url',
-      ),
+      rpcBatchWhitelists: [
+        ...(rawData?.rpcBatchWhitelists ?? []),
+        {
+          url: value,
+          type: 'custom',
+        },
+      ],
     });
   }
 
@@ -134,7 +136,7 @@ export class SimpleDbEntitySetting extends SimpleDbEntityBase<ISimpleDbEntitySet
       ...rawData,
       rpcBatchWhitelists:
         rawData?.rpcBatchWhitelists?.filter(
-          (n) => n.url !== value && n.type === 'custom',
+          (n) => n.url !== value || n.type !== 'custom',
         ) ?? [],
     });
   }

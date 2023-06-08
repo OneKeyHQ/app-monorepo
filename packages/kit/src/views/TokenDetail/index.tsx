@@ -13,12 +13,11 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
-import { useTokenSupportStakedAssets } from '@onekeyhq/kit/src/hooks/useTokens';
 
 import { useActiveSideAccount } from '../../hooks';
 import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
 import { useSingleToken } from '../../hooks/useTokens';
-import { useKeleETHUnstakeBulletin } from '../Staking/components/KeleETHUnstakeBulletin';
+import { isSTETH, isSupportStakedAssets } from '../Staking/utils';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
@@ -71,27 +70,25 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   });
 
   const { token } = useSingleToken(networkId, tokenId);
-  const { show } = useKeleETHUnstakeBulletin({ token });
 
   const price = useSimpleTokenPriceValue({
     networkId,
     contractAdress: tokenId,
   });
 
-  const stakedSupport = useTokenSupportStakedAssets(networkId, tokenId);
-
   const headerHeight = useMemo(() => {
-    let height = 512;
+    let height = 570;
     if (isVerticalLayout) {
-      height = stakedSupport === true ? 512 : 512 - 88;
+      let stakedSupport = isSupportStakedAssets(networkId, tokenId);
+      if (!stakedSupport) {
+        stakedSupport = isSTETH(networkId, tokenId);
+      }
+      height = stakedSupport === true ? 570 : 570 - 88;
     } else {
       height = 452;
     }
-    if (show) {
-      height += isVerticalLayout ? 84 : 92;
-    }
     return height;
-  }, [isVerticalLayout, show, stakedSupport]);
+  }, [isVerticalLayout, networkId, tokenId]);
 
   const priceReady = useMemo(() => {
     if (!token) {

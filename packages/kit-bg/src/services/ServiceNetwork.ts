@@ -3,6 +3,10 @@ import { debounce } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { fetchChainList } from '@onekeyhq/engine/src/managers/network';
+import {
+  getPresetNetworks,
+  initNetworkList,
+} from '@onekeyhq/engine/src/presets/network';
 import type {
   AddNetworkParams,
   Network,
@@ -28,12 +32,18 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_EVM,
+  getSupportedImpls,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import NetInfo from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
+import { ENetworkStatus } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
 
@@ -45,6 +55,8 @@ const accountSelectorActions = reducerAccountSelector.actions;
 NetInfo.configure({
   reachabilityShouldRun: () => false,
 });
+
+const rpcUrlSupportBatchCheckTimestampMap: Map<string, number> = new Map();
 
 @backgroundClass()
 class ServiceNetwork extends ServiceBase {
@@ -75,7 +87,7 @@ class ServiceNetwork extends ServiceBase {
   async changeActiveNetwork(
     networkId: NonNullable<GeneralInitialState['activeNetworkId']>,
   ) {
-    const { appSelector, serviceAccount } = this.backgroundApi;
+    const { appSelector, serviceAccount, engine } = this.backgroundApi;
     const { activeWalletId, activeNetworkId, activeAccountId } = appSelector(
       (s) => s.general,
     );
@@ -145,6 +157,7 @@ class ServiceNetwork extends ServiceBase {
     if (shouldDispatch) {
       this.backgroundApi.dispatch(...changeActiveNetworkActions);
     }
+    await engine.updateOnlineTokens(networkId, false);
     return newNetwork;
   }
 
@@ -174,7 +187,8 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async initNetworks() {
     const { engine } = this.backgroundApi;
-    await engine.syncPresetNetworks();
+    await initNetworkList();
+    await this.syncPresetNetworks();
     await this.fetchNetworks();
     return engine.listNetworks(true);
   }
@@ -363,12 +377,6 @@ class ServiceNetwork extends ServiceBase {
     };
     const network = await engine.getNetwork(networkId);
     const url = network.rpcURL;
-    const whitelistHosts =
-      await simpleDb.setting.getRpcBatchFallbackWhitelistHosts();
-
-    const item = whitelistHosts.find((n) => url.includes(n.url));
-    const isRpcInWhitelistHost = !!item;
-
     try {
       if (networkId.startsWith(IMPL_EVM)) {
         const vault = await engine.getChainOnlyVault(networkId);
@@ -378,22 +386,36 @@ class ServiceNetwork extends ServiceBase {
       }
 
       if (networkId.startsWith(IMPL_EVM)) {
+        const whitelistHosts =
+          await simpleDb.setting.getRpcBatchFallbackWhitelistHosts();
+
+        const item = whitelistHosts.find((n) => url.includes(n.url));
+        const isRpcInWhitelistHost = !!item;
+
+        const ts = rpcUrlSupportBatchCheckTimestampMap.get(url);
         if (status.rpcBatchSupported === false && !isRpcInWhitelistHost) {
-          await simpleDb.setting.addRpcBatchFallbackWhitelistHosts(url);
+          if (!ts || Date.now() - ts > getTimeDurationMs({ day: 1 })) {
+            debugLogger.http.info('add rpc to whitelistHosts', url, ts);
+            await simpleDb.setting.addRpcBatchFallbackWhitelistHosts(url);
+          }
+        }
+
+        if (status.rpcBatchSupported !== false) {
+          rpcUrlSupportBatchCheckTimestampMap.set(url, Date.now());
         }
 
         if (
           status.rpcBatchSupported !== false &&
           isRpcInWhitelistHost &&
-          item.type === 'custom' &&
-          Date.now() - item.createdAt > getTimeDurationMs({ day: 1 })
+          item.type === 'custom'
         ) {
+          debugLogger.http.info('remove rpc from whitelistHosts', url, ts);
           await simpleDb.setting.removeRpcBatchFallbackWhitelistHosts(url);
         }
       }
     } catch (error) {
       // pass
-      console.error('measureRpcStatus ERROR', error);
+      debugLogger.http.error('measureRpcStatus ERROR', error);
     }
 
     dispatch(
@@ -404,6 +426,144 @@ class ServiceNetwork extends ServiceBase {
     );
 
     return status;
+  }
+
+  @backgroundMethod()
+  async migrateServerNetworks(networks: IServerNetwork[]) {
+    if (!networks?.length) {
+      return;
+    }
+    await simpleDb.serverNetworks.updateNetworks(networks);
+    await this.initNetworks();
+  }
+
+  async checkDisabledPresetNetworks() {
+    const { engine, appSelector } = this.backgroundApi;
+    const dbNetworks = await engine.dbApi.listNetworks();
+    const presetNetworksList = Object.values(getPresetNetworks());
+    const networksToRemoved = dbNetworks.filter(({ id }) => {
+      const preset = presetNetworksList.find((p) => p.id === id);
+      if (!preset) {
+        return false;
+      }
+      if (preset.status === ENetworkStatus.TRASH) {
+        return true;
+      }
+      return false;
+    });
+
+    const currentNetworkId = appSelector((s) => s.general.activeNetworkId);
+
+    const firstAvailableNetwork = dbNetworks.find(
+      (n) => !networksToRemoved.find((network) => network.id === n.id),
+    );
+
+    for (const n of networksToRemoved) {
+      debugLogger.engine.warn(
+        `[checkDisabledPresetNetworks] remove network: ${n.id}`,
+      );
+      if (currentNetworkId === n.id && firstAvailableNetwork) {
+        debugLogger.engine.warn(
+          `[checkDisabledPresetNetworks] switch network: ${n.id}`,
+        );
+        // TODO: Prompt user that current network is changed
+        await this.changeActiveNetwork(firstAvailableNetwork.id);
+      }
+      await engine.dbApi.deleteNetwork(n.id);
+    }
+  }
+
+  async syncPresetNetworks(): Promise<void> {
+    const { engine } = this.backgroundApi;
+    await this.checkDisabledPresetNetworks();
+    try {
+      const defaultNetworkList: Array<[string, boolean]> = [];
+      const dbNetworks = await engine.dbApi.listNetworks();
+      const dbNetworkMap = Object.fromEntries(
+        dbNetworks.map((dbNetwork) => [dbNetwork.id, dbNetwork.enabled]),
+      );
+
+      const presetNetworksList = Object.values(getPresetNetworks())
+        .filter((n) => n.status !== ENetworkStatus.TRASH)
+        .sort((a, b) => {
+          const aPosition =
+            (a.extensions || {}).position || Number.MAX_SAFE_INTEGER;
+          const bPosition =
+            (b.extensions || {}).position || Number.MAX_SAFE_INTEGER;
+          if (aPosition > bPosition) {
+            return 1;
+          }
+          if (aPosition < bPosition) {
+            return -1;
+          }
+          return a.name > b.name ? 1 : -1;
+        });
+
+      for (const network of presetNetworksList) {
+        if (getSupportedImpls().has(network.impl)) {
+          const existingStatus = dbNetworkMap[network.id];
+          if (typeof existingStatus !== 'undefined') {
+            defaultNetworkList.push([network.id, existingStatus]);
+          } else {
+            await engine.dbApi.addNetwork({
+              id: network.id,
+              name: network.name,
+              impl: network.impl,
+              symbol: network.symbol,
+              logoURI: network.logoURI,
+              enabled: network.enabled,
+              feeSymbol: network.feeSymbol,
+              decimals: network.decimals,
+              feeDecimals: network.feeDecimals,
+              balance2FeeDecimals: network.balance2FeeDecimals,
+              rpcURL: network.presetRpcURLs[0],
+              position: 0,
+            });
+            dbNetworkMap[network.id] = network.enabled;
+            defaultNetworkList.push([network.id, network.enabled]);
+          }
+        }
+      }
+
+      const context = await engine.dbApi.getContext();
+      if (
+        typeof context !== 'undefined' &&
+        context?.networkOrderChanged === true
+      ) {
+        return;
+      }
+
+      const specifiedNetworks = new Set(defaultNetworkList.map(([id]) => id));
+      dbNetworks.forEach((dbNetwork) => {
+        if (!specifiedNetworks.has(dbNetwork.id)) {
+          defaultNetworkList.push([dbNetwork.id, dbNetwork.enabled]);
+        }
+      });
+
+      await engine.dbApi.updateNetworkList(defaultNetworkList, true);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  @backgroundMethod()
+  async getPresetNetworks() {
+    return getPresetNetworks();
+  }
+
+  @backgroundMethod()
+  async fetchRpcChainId({
+    url,
+    networkId,
+  }: {
+    url: string;
+    networkId: string;
+  }) {
+    const { engine } = this.backgroundApi;
+
+    const vault = await engine.getChainOnlyVault(networkId);
+
+    return vault.fetchRpcChainId(url);
   }
 }
 

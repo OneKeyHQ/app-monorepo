@@ -9,6 +9,7 @@ import type {
   BaseProvider,
 } from '@onekeyhq/engine/src/client/BaseClient';
 import type {
+  FeePricePerUnit,
   PartialTokenInfo,
   TransactionStatus,
   UnsignedTx,
@@ -247,6 +248,35 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   ): Promise<AccountNameInfo[]> {
     return Promise.resolve([]);
   }
+
+  async checkIsUnlimitedAllowance(params: {
+    owner: string;
+    spender: string;
+    token: string;
+  }): Promise<{ isUnlimited: boolean; allowance: string | number }> {
+    throw new NotImplemented();
+  }
+
+  async checkIsApprovedForAll(params: {
+    owner: string;
+    spender: string;
+    token: string;
+    type?: string;
+  }): Promise<boolean> {
+    throw new NotImplemented();
+  }
+
+  async checkIsBatchTransfer(encodedTx: IEncodedTx): Promise<boolean> {
+    throw new NotImplemented();
+  }
+
+  async getFeePricePerUnit(): Promise<FeePricePerUnit> {
+    throw new NotImplemented();
+  }
+
+  async fetchRpcChainId(url: string): Promise<string | null> {
+    return null;
+  }
 }
 
 /*
@@ -331,6 +361,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     encodedTx: IEncodedTx,
     signOnly?: boolean,
     specifiedFeeRate?: string,
+    transferCount?: number,
   ): Promise<IFeeInfo>;
 
   // DO NOT override this method

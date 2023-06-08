@@ -1,0 +1,47 @@
+diff --git a/node_modules/metro-runtime/src/polyfills/require.js b/node_modules/metro-runtime/src/polyfills/require.js
+index 7286ec0..367816a 100644
+--- a/node_modules/metro-runtime/src/polyfills/require.js
++++ b/node_modules/metro-runtime/src/polyfills/require.js
+@@ -103,24 +103,24 @@ function metroRequire(moduleId) {
+ 
+   //$FlowFixMe: at this point we know that moduleId is a number
+   const moduleIdReallyIsNumber = moduleId;
+-  if (__DEV__) {
+-    const initializingIndex = initializingModuleIds.indexOf(
+-      moduleIdReallyIsNumber
+-    );
+-    if (initializingIndex !== -1) {
+-      const cycle = initializingModuleIds
+-        .slice(initializingIndex)
+-        .map((id) => (modules[id] ? modules[id].verboseName : "[unknown]"));
+-      if (shouldPrintRequireCycle(cycle)) {
+-        cycle.push(cycle[0]); // We want to print A -> B -> A:
+-        console.warn(
+-          `Require cycle: ${cycle.join(" -> ")}\n\n` +
+-            "Require cycles are allowed, but can result in uninitialized values. " +
+-            "Consider refactoring to remove the need for a cycle."
+-        );
+-      }
+-    }
+-  }
++  // if (__DEV__) {
++  //   const initializingIndex = initializingModuleIds.indexOf(
++  //     moduleIdReallyIsNumber
++  //   );
++  //   if (initializingIndex !== -1) {
++  //     const cycle = initializingModuleIds
++  //       .slice(initializingIndex)
++  //       .map((id) => (modules[id] ? modules[id].verboseName : "[unknown]"));
++  //     if (shouldPrintRequireCycle(cycle)) {
++  //       cycle.push(cycle[0]); // We want to print A -> B -> A:
++  //       console.warn(
++  //         `Require cycle: ${cycle.join(" -> ")}\n\n` +
++  //           "Require cycles are allowed, but can result in uninitialized values. " +
++  //           "Consider refactoring to remove the need for a cycle."
++  //       );
++  //     }
++  //   }
++  // }
+   const module = modules[moduleIdReallyIsNumber];
+   return module && module.isInitialized
+     ? module.publicModule.exports

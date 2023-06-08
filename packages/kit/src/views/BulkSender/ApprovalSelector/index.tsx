@@ -27,12 +27,16 @@ function OptionItem({
   option,
   isChecked,
   onSelected,
+  isAlreadyUnlimited,
 }: {
   option: ApprovalOption;
   isChecked: boolean;
   onSelected: (isUnlimited: boolean) => void;
+  isAlreadyUnlimited: boolean;
 }) {
   const { title, subtitle, content, isUnlimited } = option;
+
+  const intl = useIntl();
 
   return (
     <Pressable
@@ -55,9 +59,27 @@ function OptionItem({
             <HStack space={2}>
               <Text typography="Body1Strong">{title}</Text>
               <Badge title={subtitle} size="sm" />
+              {isAlreadyUnlimited && isChecked && (
+                <Badge
+                  title={intl.formatMessage({ id: 'form__approved' })}
+                  size="sm"
+                  color="text-success"
+                  bgColor="surface-success-default"
+                />
+              )}
             </HStack>
           ) : (
-            <Text typography="Body1Strong">{title}</Text>
+            <HStack space={2}>
+              <Text typography="Body1Strong">{title}</Text>
+              {isAlreadyUnlimited && isChecked && (
+                <Badge
+                  title={intl.formatMessage({ id: 'form__approved' })}
+                  size="sm"
+                  color="text-success"
+                  bgColor="surface-success-default"
+                />
+              )}
+            </HStack>
           )}
           <Text typography="Body2" color="text-subdued" lineHeight="20px">
             {content}
@@ -75,10 +97,12 @@ function ApprovalSelectorBottomSheetModal({
   closeOverlay,
   isUnlimited,
   setIsUnlimited,
+  isAlreadyUnlimited,
 }: {
   closeOverlay: () => void;
   isUnlimited: boolean;
   setIsUnlimited: React.Dispatch<React.SetStateAction<boolean>>;
+  isAlreadyUnlimited: boolean;
 }) {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
@@ -122,6 +146,7 @@ function ApprovalSelectorBottomSheetModal({
             isChecked={isUnlimited === option.isUnlimited}
             option={option}
             onSelected={handleSelectApproval}
+            isAlreadyUnlimited={isAlreadyUnlimited}
           />
         ))}
         <Button type="primary" size="xl" mt={6} onPress={closeOverlay}>
@@ -135,14 +160,17 @@ function ApprovalSelectorBottomSheetModal({
 const showApprovalSelector = ({
   isUnlimited,
   setIsUnlimited,
+  isAlreadyUnlimited,
 }: {
   isUnlimited: boolean;
   setIsUnlimited: React.Dispatch<React.SetStateAction<boolean>>;
+  isAlreadyUnlimited: boolean;
 }) => {
   showOverlay((close) => (
     <ApprovalSelectorBottomSheetModal
       isUnlimited={isUnlimited}
       setIsUnlimited={setIsUnlimited}
+      isAlreadyUnlimited={isAlreadyUnlimited}
       closeOverlay={close}
     />
   ));

@@ -23,12 +23,7 @@ export const AppStatusActiveListener: FC<AppStatusActiveListenerProps> = ({
   useEffect(() => {
     const subscription = AppState.addEventListener('change', onChange);
     return () => {
-      // AppState.addEventListener return subscription object in native, but return empty in web
-      if (subscription) {
-        subscription.remove();
-      } else {
-        AppState.removeEventListener('change', onChange);
-      }
+      subscription.remove();
     };
   }, [onChange]);
   return null;

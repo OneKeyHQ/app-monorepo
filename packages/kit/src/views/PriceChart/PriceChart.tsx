@@ -32,6 +32,7 @@ type NavigationProps = ModalScreenProps<ManageTokenRoutesParams>;
 type PriceChartProps = Omit<PriceApiProps, 'days'> & {
   style?: StyleProp<ViewStyle>;
   coingeckoId?: string;
+  symbol?: string;
 };
 
 const PriceChart: FC<PriceChartProps> = ({
@@ -39,6 +40,7 @@ const PriceChart: FC<PriceChartProps> = ({
   contract,
   networkId,
   style,
+  symbol,
 }) => {
   const [isFetching, setIsFetching] = useState(true);
   const navigation = useNavigation<NavigationProps['navigation']>();
@@ -74,14 +76,14 @@ const PriceChart: FC<PriceChartProps> = ({
             price: p,
             token: {
               coingeckoId,
-              symbol: tokenItem?.symbol,
+              symbol: symbol ?? tokenItem?.symbol,
               logoURI: tokenItem?.logoURI,
             } as TokenDO,
           },
         },
       });
     },
-    [coingeckoId, navigation, tokenItem?.logoURI, tokenItem?.symbol],
+    [coingeckoId, navigation, tokenItem?.logoURI, tokenItem?.symbol, symbol],
   );
 
   const refreshDataOnTimeChange = useCallback(

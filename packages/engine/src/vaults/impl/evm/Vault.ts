@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, no-param-reassign */
 
 import { defaultAbiCoder } from '@ethersproject/abi';
+import ERC1155MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC1155.json';
+import ERC20MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC20.json';
+import ERC721MetadataArtifact from '@openzeppelin/contracts/build/contracts/ERC721.json';
 import BigNumber from 'bignumber.js';
+import { Contract } from 'ethers';
 import {
   difference,
   isNil,
@@ -27,6 +31,7 @@ import type {
   SendConfirmAdvancedSettings,
   SendConfirmPayloadInfo,
 } from '@onekeyhq/kit/src/views/Send/types';
+import lib0xSequenceMulticall from '@onekeyhq/shared/src/asyncModules/lib0xSequenceMulticall';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   COINTYPE_ETC,
@@ -48,6 +53,7 @@ import {
 } from '../../../managers/nft';
 import { batchTransferContractAddress } from '../../../presets/batchTransferContractAddress';
 import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
+import { BatchTransferSelectors } from '../../../types/batchTransfer';
 import { HistoryEntryStatus } from '../../../types/history';
 import { ETHMessageTypes } from '../../../types/message';
 import { TokenRiskLevel } from '../../../types/token';
@@ -60,7 +66,6 @@ import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
 
 import {
-  BatchTransferSelectors,
   Erc1155MethodSelectors,
   Erc20MethodSelectors,
   Erc721MethodSelectors,
@@ -130,6 +135,10 @@ const OPTIMISM_NETWORKS: string[] = [
   OnekeyNetwork.optimism,
   OnekeyNetwork.toptimism,
 ];
+
+const ERC721 = ERC721MetadataArtifact.abi;
+const ERC1155 = ERC1155MetadataArtifact.abi;
+const ERC20 = ERC20MetadataArtifact.abi;
 
 export type IUnsignedMessageEvm = (
   | AptosMessage
@@ -894,6 +903,75 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTxs);
   }
 
+  async getReadProvider() {
+    const multicall = await lib0xSequenceMulticall.getModule();
+    const provider = await this.getEthersProvider();
+    if (!provider) {
+      return;
+    }
+    return new multicall.MulticallProvider(provider, { verbose: true });
+  }
+
+  override async checkIsUnlimitedAllowance(params: {
+    networkId: string;
+    owner: string;
+    spender: string;
+    token: string;
+  }) {
+    const { owner, spender, token } = params;
+    try {
+      const readProvider = await this.getReadProvider();
+      const contract = new Contract(token, ERC20, readProvider);
+      const res: Promise<string>[] = await contract.functions.allowance(
+        owner,
+        spender,
+      );
+      const allowance = String(await res[0]);
+      const totalSupplyRes: any = await contract.functions.totalSupply();
+      // eslint-disable-next-line
+      const totalSupply = totalSupplyRes?.[0]?.toString?.();
+      return {
+        isUnlimited: new BigNumber(allowance).gt(new BigNumber(totalSupply)),
+        allowance,
+      };
+    } catch (e) {
+      return {
+        isUnlimited: false,
+        allowance: 0,
+      };
+    }
+  }
+
+  override async checkIsApprovedForAll(params: {
+    owner: string;
+    spender: string;
+    token: string;
+    type?: string;
+  }): Promise<boolean> {
+    const { owner, spender, token, type } = params;
+
+    try {
+      const readProvider = await this.getReadProvider();
+      const contract = new Contract(
+        token,
+        type === 'erc1155' ? ERC1155 : ERC721,
+        readProvider,
+      );
+
+      const [isApprovedForAll]: boolean[] =
+        await contract.functions.isApprovedForAll(owner, spender);
+      return isApprovedForAll;
+    } catch {
+      return false;
+    }
+  }
+
+  override async checkIsBatchTransfer(encodedTx: IEncodedTxEvm) {
+    return Promise.resolve(
+      encodedTx.to === batchTransferContractAddress[this.networkId],
+    );
+  }
+
   async updateEncodedTx(
     encodedTx: IEncodedTxEvm,
     payload: any,
@@ -933,7 +1011,17 @@ export default class Vault extends VaultBase {
     const amountBN = new BigNumber(amount);
     if (decodedTx.txType === EVMDecodedTxType.NATIVE_TRANSFER) {
       const network = await this.getNetwork();
-      encodedTx.value = toBigIntHex(amountBN.shiftedBy(network.decimals));
+      encodedTx.value = toBigIntHex(
+        amountBN
+          .dp(
+            BigNumber.min(
+              amountBN.decimalPlaces() - 2,
+              network.decimals - 2,
+            ).toNumber(),
+            BigNumber.ROUND_FLOOR,
+          )
+          .shiftedBy(network.decimals),
+      );
     }
     if (decodedTx.txType === EVMDecodedTxType.TOKEN_TRANSFER) {
       const info = decodedTx.info as EVMDecodedItemERC20Transfer;
@@ -2009,5 +2097,10 @@ export default class Vault extends VaultBase {
     }
 
     return result;
+  }
+
+  override async fetchRpcChainId(url: string): Promise<string> {
+    const chainId = await this.engine.providerManager.getEVMChainId(url);
+    return String(chainId);
   }
 }

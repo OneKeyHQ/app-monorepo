@@ -69,7 +69,7 @@ const UnstakingButton: FC<ButtonProps> = ({ ...rest }) => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
-        screen: StakingRoutes.UnstakeKeleETHNotes,
+        screen: StakingRoutes.KeleEthUnstakeShouldUnderstand,
         params: {
           networkId,
         },

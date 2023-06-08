@@ -1,12 +1,13 @@
-import { networkList } from '@onekeyfe/network-list';
 import semver from 'semver';
 
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   getDBAccountTemplate,
   getDefaultAccountNameInfoByImpl,
   getImplByCoinType,
   migrateNextAccountIds,
 } from '@onekeyhq/engine/src/managers/impl';
+import { getPresetNetworks } from '@onekeyhq/engine/src/presets';
 import { setAccountDerivationDbMigrationVersion } from '@onekeyhq/kit/src/store/reducers/settings';
 import { updateAutoSwitchDefaultRpcAtVersion } from '@onekeyhq/kit/src/store/reducers/status';
 import {
@@ -26,6 +27,7 @@ import {
   enabledAccountDynamicNetworkIds,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
 
@@ -89,8 +91,6 @@ export default class ServiceBootstrap extends ServiceBase {
       serviceSwap,
       serviceOnboarding,
       serviceCloudBackup,
-      serviceTranslation,
-      serviceDiscover,
     } = this.backgroundApi;
 
     this.migrateAccountDerivationTable();
@@ -101,26 +101,33 @@ export default class ServiceBootstrap extends ServiceBase {
     serviceAccount.registerEvents();
 
     this.initFetchFiatMoneyRateSchedule();
-    this.switchDefaultRpcToOnekeyRpcNode();
     serviceOnboarding.checkOnboardingStatus();
     serviceCloudBackup.initCloudBackup();
-    // TODO: remove to discover page
-    serviceTranslation.getTranslations();
-    serviceDiscover.getCompactList();
 
     this.fetchAppConfig();
     this.syncUserConfig();
   }
 
   async fetchAppConfig() {
-    const path = '/config/app';
-    const { swapConfig, remoteSettings, vsCurrencies } = await fetchData<{
-      swapConfig?: any;
-      remoteSettings?: any;
-      vsCurrencies?: any;
-    }>(path, {}, {});
+    const updateNetworkTimestamp = await simpleDb.serverNetworks.getTimestamp();
+    const path = `/config/app`;
+    const { swapConfig, remoteSettings, vsCurrencies, networks } =
+      await fetchData<{
+        swapConfig?: any;
+        remoteSettings?: any;
+        vsCurrencies?: any;
+        networks: IServerNetwork[];
+      }>(
+        path,
+        {
+          version: process.env.VERSION ?? '',
+          networkUpdateTimestamp: updateNetworkTimestamp,
+        },
+        {} as any,
+      );
 
-    const { servicePrice, serviceSwap, serviceSetting } = this.backgroundApi;
+    const { servicePrice, serviceSwap, serviceSetting, serviceNetwork } =
+      this.backgroundApi;
 
     if (swapConfig) {
       serviceSwap.initSwapConfig(swapConfig);
@@ -132,6 +139,12 @@ export default class ServiceBootstrap extends ServiceBase {
 
     if (vsCurrencies) {
       servicePrice.updateFiatMoneyMap(vsCurrencies);
+    }
+
+    if (networks) {
+      serviceNetwork.migrateServerNetworks(networks).then(() => {
+        this.switchDefaultRpcToOnekeyRpcNode();
+      });
     }
   }
 
@@ -206,7 +219,7 @@ export default class ServiceBootstrap extends ServiceBase {
     }
     for (const n of networks) {
       const defaultRpc = defaultNetworkRpcs[n.id];
-      const onekeyRpc = networkList.networks
+      const onekeyRpc = Object.values(getPresetNetworks())
         .find((item) => item.id === n.id)
         ?.rpcURLs?.find((rpc) =>
           rpc.url?.startsWith('https://node.onekey.so'),

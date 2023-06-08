@@ -33,8 +33,10 @@ export function closeHardwarePopup() {
     hardwarePopupHolder = null;
   }
 }
+
 let lastParams = '';
 let lastCallTime = 0;
+
 export default async function showHardwarePopup({
   uiRequest,
   payload,
@@ -73,6 +75,33 @@ export default async function showHardwarePopup({
   };
 
   const { UI_RESPONSE } = await CoreSDKLoader();
+
+  if (uiRequest === CUSTOM_UI_RESPONSE.CUSTOM_REQUEST_PIN_ON_DEVICE) {
+    const deviceType = payload?.deviceType ?? 'classic';
+    serviceHardware.sendUiResponse({
+      type: UI_RESPONSE.RECEIVE_PIN,
+      payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
+    });
+
+    popupView = (
+      <RequestPinView
+        deviceType={deviceType}
+        onDeviceInput
+        onCancel={() => {
+          handleCancelPopup();
+        }}
+        onConfirm={(pin) => {
+          serviceHardware?.sendUiResponse({
+            type: UI_RESPONSE.RECEIVE_PIN,
+            payload: pin,
+          });
+          closeHardwarePopup();
+        }}
+        onDeviceInputChange={() => {}}
+      />
+    );
+  }
+
   if (uiRequest === UI_REQUEST.REQUEST_PIN) {
     const deviceType = payload?.deviceType ?? 'classic';
 
@@ -87,7 +116,19 @@ export default async function showHardwarePopup({
         onDeviceInputPin = !payload.supportInputPinOnSoftware;
       }
     }
-    popupType = onDeviceInputPin ? 'normal' : 'inputPin';
+
+    if (onDeviceInputPin) {
+      setTimeout(() => {
+        showHardwarePopup({
+          uiRequest: CUSTOM_UI_RESPONSE.CUSTOM_REQUEST_PIN_ON_DEVICE,
+          payload,
+          content,
+        });
+      });
+      return;
+    }
+
+    popupType = 'inputPin';
 
     popupView = (
       <RequestPinView
@@ -107,9 +148,13 @@ export default async function showHardwarePopup({
           popupType = onDeviceInputPin ? 'normal' : 'inputPin';
           if (!onDeviceInput) return;
 
-          serviceHardware.sendUiResponse({
-            type: UI_RESPONSE.RECEIVE_PIN,
-            payload: '@@ONEKEY_INPUT_PIN_IN_DEVICE',
+          closeHardwarePopup();
+          setTimeout(() => {
+            showHardwarePopup({
+              uiRequest: CUSTOM_UI_RESPONSE.CUSTOM_REQUEST_PIN_ON_DEVICE,
+              payload,
+              content,
+            });
           });
         }}
       />
@@ -132,6 +177,7 @@ export default async function showHardwarePopup({
 
   if (uiRequest === UI_REQUEST.REQUEST_PASSPHRASE_ON_DEVICE) {
     const deviceType = payload?.deviceType ?? 'classic';
+    popupType = 'inputPassphrase';
 
     popupView = (
       <RequestPassphraseOnDeviceView
@@ -160,7 +206,7 @@ export default async function showHardwarePopup({
       });
       closeHardwarePopup();
     };
-    popupType = 'inputPassphrase';
+
     popupView = (
       <EnterPassphraseView
         connectId={payload?.deviceConnectId ?? ''}
@@ -234,7 +280,7 @@ export default async function showHardwarePopup({
     uiRequest === UI_REQUEST.BLUETOOTH_PERMISSION
   ) {
     const checkPermission = () => {
-      if (Platform.Version >= 31) {
+      if ((Platform.Version as number) >= 31) {
         return PermissionsAndroid.check(
           PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
         );
@@ -260,7 +306,7 @@ export default async function showHardwarePopup({
     }
 
     const requestPermission = () => {
-      if (Platform.Version >= 31) {
+      if ((Platform.Version as number) >= 31) {
         return PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
         );
@@ -278,7 +324,7 @@ export default async function showHardwarePopup({
     ) {
       showDialog(
         <PermissionDialog
-          type={Platform.Version >= 31 ? 'bluetooth' : 'location'}
+          type={(Platform.Version as number) >= 31 ? 'bluetooth' : 'location'}
           onClose={() => {
             getAppNavigation()?.goBack();
             closeHardwarePopup();
@@ -312,6 +358,26 @@ export default async function showHardwarePopup({
   const nativeInputContentAlign = platformEnv.isNative ? 'flex-end' : 'center';
   const modalTop = platformEnv.isNativeIOS ? 42 : 10;
 
+  const modalTopStyle = () => {
+    let justifyContent = nativeInputContentAlign;
+    let marginTop = 0;
+
+    if (popupType === 'inputPin') {
+      // bottom
+      justifyContent = nativeInputContentAlign;
+      marginTop = 0;
+    } else {
+      // top
+      justifyContent = 'flex-start';
+      marginTop = modalTop;
+    }
+
+    return {
+      justifyContent,
+      marginTop,
+    };
+  };
+
   setTimeout(() => {
     const modalPopup = (
       <OverlayContainer
@@ -324,20 +390,14 @@ export default async function showHardwarePopup({
         <MotiView
           from={{ opacity: 0 }}
           animate={{ opacity: 1 }}
+          // @ts-expect-error
           style={{
             flex: 1,
-            // passphrase input modal should always be displayed at the top of the page
-            justifyContent:
-              popupType === 'normal' || popupType === 'inputPassphrase'
-                ? 'flex-start'
-                : nativeInputContentAlign,
             alignItems: 'center',
+            top: 0,
             padding: 0,
             margin: 0,
-            top:
-              popupType === 'normal' || popupType === 'inputPassphrase'
-                ? modalTop
-                : 0,
+            ...modalTopStyle(),
           }}
         >
           <CloseBackDrop backgroundColor="#00000066" />

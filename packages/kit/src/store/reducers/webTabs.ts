@@ -5,6 +5,10 @@ import { formatMessage } from '@onekeyhq/components/src/Provider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
+  MIN_OR_HIDE,
+  showTabGridAnim,
+} from '../../views/Discover/Explorer/explorerAnimation';
+import {
   pauseDappInteraction,
   resumeDappInteraction,
   webviewRefs,
@@ -142,6 +146,9 @@ export const webtabsSlice = createSlice({
         }
         return true;
       });
+      if (state.tabs.length === 1) {
+        showTabGridAnim.value = MIN_OR_HIDE;
+      }
     },
     closeAllWebTabs: (state) => {
       for (const id of Object.getOwnPropertyNames(webviewRefs)) {
@@ -149,6 +156,7 @@ export const webtabsSlice = createSlice({
       }
       state.tabs = [homeTab];
       state.currentTabId = homeTab.id;
+      showTabGridAnim.value = MIN_OR_HIDE;
     },
     setCurrentWebTab: (state, { payload }: PayloadAction<string>) => {
       if (state.currentTabId !== payload) {

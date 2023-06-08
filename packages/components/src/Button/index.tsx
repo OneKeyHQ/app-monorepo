@@ -12,7 +12,7 @@ import {
   useState,
 } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { InteractionManager, StyleSheet } from 'react-native';
 
 import { usePrevious } from '@onekeyhq/kit/src/hooks';
 import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
@@ -594,18 +594,20 @@ const OkButton = forwardRef<
     [isMounted],
   );
   const handlePress = useCallback(() => {
-    if (onPromise && typeof isLoading === 'undefined') {
-      setLoading(true);
-      setTimeout(() => {
-        try {
-          onPromise?.().finally(() => setLoading(false));
-        } catch {
-          setLoading(false);
-        }
-      });
-    } else if (onPress) {
-      onPress?.();
-    }
+    InteractionManager.runAfterInteractions(() => {
+      if (onPromise && typeof isLoading === 'undefined') {
+        setLoading(true);
+        setTimeout(() => {
+          try {
+            onPromise?.().finally(() => setLoading(false));
+          } catch {
+            setLoading(false);
+          }
+        });
+      } else if (onPress) {
+        onPress?.();
+      }
+    });
   }, [onPromise, isLoading, onPress, setLoading]);
   useEffect(() => {
     if (

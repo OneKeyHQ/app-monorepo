@@ -26,11 +26,11 @@ import { useTokenBalance } from '../../../../hooks/useTokens';
 import { notifyIfRiskToken } from '../../../ManageTokens/helpers/TokenSecurityModalWrapper';
 import { useTokenPrice, useTokenSearch } from '../../hooks/useSwapTokenUtils';
 import { formatAmount, gt } from '../../utils';
+import { EmptySkeleton, LoadingSkeleton } from '../TokenSkeleton';
 
 import { TokenSelectorContext } from './context';
 import { useContextAccountTokens } from './hooks';
 import { Observer } from './Observer';
-import { EmptySkeleton, LoadingSkeleton } from './Skeleton';
 
 import type { ListRenderItem } from 'react-native';
 

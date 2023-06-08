@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { RootRoutes } from '../routes/routesEnum';
+import { MainRoutes, RootRoutes, TabRoutes } from '../routes/routesEnum';
 import { setHomePageCheckBoarding } from '../store/reducers/data';
 import { setOnBoardingLoadingBehindModal } from '../store/reducers/runtime';
 import { wait } from '../utils/helper';
@@ -49,6 +49,7 @@ export const useOnboardingRequired = (isHomeCheck?: boolean) => {
 
 export function useOnboardingDone() {
   // TODO should set s.status.boardingCompleted=true ?
+  const navigation = useNavigation<NavigationProps['navigation']>();
   const { closeWalletSelector, openRootHome } = useNavigationActions();
   const onboardingDone = useCallback(
     async ({
@@ -62,7 +63,18 @@ export function useOnboardingDone() {
 
       closeWalletSelector();
       await wait(delay);
-      openRootHome();
+      if (platformEnv.isNative) {
+        openRootHome();
+      } else {
+        navigation.goBack();
+        navigation?.navigate(RootRoutes.Main, {
+          screen: MainRoutes.Tab,
+          params: {
+            screen: TabRoutes.Home,
+          },
+        });
+      }
+
       await wait(delay);
       closeExtensionWindowIfOnboardingFinished();
 
@@ -71,7 +83,7 @@ export function useOnboardingDone() {
         backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
       }
     },
-    [closeWalletSelector, openRootHome],
+    [closeWalletSelector, navigation, openRootHome],
   );
   return onboardingDone;
 }

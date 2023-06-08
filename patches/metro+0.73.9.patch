@@ -1,0 +1,13 @@
+diff --git a/node_modules/metro/src/Server.js b/node_modules/metro/src/Server.js
+index 75eb3d1..b570029 100644
+--- a/node_modules/metro/src/Server.js
++++ b/node_modules/metro/src/Server.js
+@@ -995,7 +995,7 @@ class Server {
+           this._config.projectRoot,
+           file !== null && file !== void 0 ? file : ""
+         );
+-        if (collapse || lineNumber == null || urls.has(fileAbsolute)) {
++        if (collapse || lineNumber == null || urls.has(fileAbsolute) || file?.startsWith?.('http')) {
+           continue;
+         }
+         try {

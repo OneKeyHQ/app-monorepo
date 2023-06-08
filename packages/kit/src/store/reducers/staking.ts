@@ -1,13 +1,16 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 import type {
+  EthStakingApr,
   KeleDashboardGlobal,
   KeleIncomeDTO,
   KeleMinerOverview,
   KeleOpHistoryDTO,
   KeleUnstakeOverviewDTO,
   KeleWithdrawOverviewDTO,
+  LidoOverview,
   StakingActivity,
+  TransactionDetails,
 } from '../../views/Staking/typing';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
@@ -27,6 +30,10 @@ export type StakingState = {
   keleIncomes?: Record<string, Record<string, KeleIncomeDTO[]>>;
   kelePendingWithdraw?: Record<string, Record<string, number>>;
   keleOpHistory?: Record<string, Record<string, KeleOpHistoryDTO[]>>;
+  ethStakingApr?: EthStakingApr;
+  lidoOverview?: Record<string, Record<string, LidoOverview | undefined>>;
+  transactions?: Record<string, Record<string, TransactionDetails[]>>;
+  stEthRate?: Record<string, string>;
 };
 
 const initialState: StakingState = {};
@@ -163,6 +170,77 @@ export const stakingSlice = createSlice({
       }
       state.keleOpHistory[accountId][networkId] = items;
     },
+    setETHStakingApr(state, action: PayloadAction<EthStakingApr>) {
+      state.ethStakingApr = action.payload;
+    },
+    setLidoOverview(
+      state,
+      action: PayloadAction<{
+        networkId: string;
+        accountId: string;
+        overview: LidoOverview;
+      }>,
+    ) {
+      if (!state.lidoOverview) {
+        state.lidoOverview = {};
+      }
+      const { networkId, accountId, overview } = action.payload;
+      if (!state.lidoOverview[accountId]) {
+        state.lidoOverview[accountId] = {};
+      }
+      state.lidoOverview[accountId][networkId] = overview;
+    },
+    addTransaction(
+      state,
+      action: PayloadAction<{
+        accountId: string;
+        networkId: string;
+        transaction: TransactionDetails;
+      }>,
+    ) {
+      const { accountId, networkId, transaction } = action.payload;
+      if (!state.transactions) {
+        state.transactions = {};
+      }
+      if (!state.transactions[accountId]) {
+        state.transactions[accountId] = {};
+      }
+      const oldTransactions = state.transactions[accountId][networkId] ?? [];
+      const newTransactions = [transaction, ...oldTransactions];
+      if (newTransactions.length > 30) {
+        newTransactions.length = 30;
+      }
+      state.transactions[accountId][networkId] = newTransactions;
+    },
+    archiveTransaction(
+      state,
+      action: PayloadAction<{
+        accountId: string;
+        networkId: string;
+        txs: string[];
+      }>,
+    ) {
+      if (!state.transactions) {
+        return;
+      }
+      const { accountId, networkId, txs } = action.payload;
+      const transactions = state.transactions[accountId]?.[networkId];
+      transactions.forEach((tx) => {
+        if (txs.includes(tx.hash)) {
+          tx.archive = true;
+        }
+      });
+    },
+    setStEthRate(
+      state,
+      action: PayloadAction<{ networkId: string; value: string }>,
+    ) {
+      if (!state.stEthRate) {
+        state.stEthRate = {};
+      }
+      const { networkId, value } = action.payload;
+      state.stEthRate[networkId] = value;
+    },
   },
 });
 
@@ -176,6 +254,11 @@ export const {
   setKelePendingWithdraw,
   setHideUnstakeBulletin,
   setKeleOpHistory,
+  setETHStakingApr,
+  setLidoOverview,
+  addTransaction,
+  archiveTransaction,
+  setStEthRate,
 } = stakingSlice.actions;
 
 export default stakingSlice.reducer;

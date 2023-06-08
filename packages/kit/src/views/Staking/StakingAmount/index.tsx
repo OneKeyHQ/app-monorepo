@@ -390,7 +390,7 @@ export default function StakingAmount() {
           navigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.Staking,
             params: {
-              screen: StakingRoutes.StakingETHNotes,
+              screen: StakingRoutes.KeleEthStakeShouldUnderstand,
               params: {
                 networkId: tokenInfo.networkId,
                 tokenIdOnNetwork: tokenInfo.tokenIdOnNetwork,

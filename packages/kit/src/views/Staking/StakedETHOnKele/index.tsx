@@ -49,7 +49,9 @@ import type { ListRenderItem } from 'react-native';
 type NavigationProps = ModalScreenProps<StakingRoutesParams>;
 
 function prefixAmount(amount: number) {
-  return Number(amount) > 0 ? `+${Number(amount)}` : amount;
+  return Number(amount) > 0
+    ? `+${formatAmount(amount, 18)}`
+    : formatAmount(amount, 18);
 }
 
 const KeleOverview = () => {
@@ -63,7 +65,7 @@ const KeleOverview = () => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
-        screen: StakingRoutes.UnstakeKeleETHNotes,
+        screen: StakingRoutes.KeleEthUnstakeShouldUnderstand,
         params: {
           networkId,
         },
@@ -221,7 +223,7 @@ const ListHeaderComponent = () => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
-        screen: StakingRoutes.UnstakeKeleETHNotes,
+        screen: StakingRoutes.KeleEthUnstakeShouldUnderstand,
         params: {
           networkId,
           readonly: true,

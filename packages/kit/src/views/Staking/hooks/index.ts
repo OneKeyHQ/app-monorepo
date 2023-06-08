@@ -4,12 +4,18 @@ import { parse } from 'date-fns';
 import { useIntl } from 'react-intl';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../hooks';
-import { isEvmNetworkId } from '../../Swap/utils';
+import { formatAmount, isEvmNetworkId } from '../../Swap/utils';
+import {
+  MainnetLidoContractAddress,
+  TestnetLidoContractAddress,
+} from '../config';
+import { EthStakingSource } from '../typing';
 
-import type { KeleGenericHistory } from '../typing';
+import type { KeleGenericHistory, LidoOverview } from '../typing';
 
 export function useAccountStakingActivity(
   networkId: string,
@@ -125,3 +131,43 @@ export function useKeleHistory(networkId?: string, accountId?: string) {
     return result.sort((a, b) => b.time - a.time);
   }, [incomes, opHistory]);
 }
+
+export const useStakingAprValue = (
+  source: EthStakingSource,
+  isTestnet?: boolean,
+) => {
+  const ethStakingApr = useAppSelector((s) => s.staking.ethStakingApr);
+  if (!ethStakingApr) {
+    return '';
+  }
+  const data = isTestnet ? ethStakingApr?.testnet : ethStakingApr.mainnet;
+  return source === EthStakingSource.Kele
+    ? formatAmount(data.kele, 2)
+    : formatAmount(data.lido, 2);
+};
+
+export const useLidoOverview = (
+  networkId?: string,
+  accountId?: string,
+): LidoOverview | undefined => {
+  const lidoOverview = useAppSelector((s) => s.staking.lidoOverview);
+  const balances = useAppSelector(
+    (s) => s.tokens.accountTokensBalance?.[networkId ?? '']?.[accountId ?? ''],
+  );
+
+  return useMemo(() => {
+    if (!networkId || !accountId) return undefined;
+    const overview = lidoOverview?.[accountId]?.[networkId];
+    const address =
+      networkId === OnekeyNetwork.eth
+        ? MainnetLidoContractAddress
+        : TestnetLidoContractAddress;
+    const stBalance = balances?.[address.toLowerCase()]?.balance;
+
+    return {
+      ...overview,
+      balance: stBalance ?? overview?.balance,
+      nfts: overview?.nfts ?? [],
+    };
+  }, [networkId, accountId, lidoOverview, balances]);
+};

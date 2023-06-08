@@ -61,7 +61,6 @@ export default class ServiceSetting extends ServiceBase {
     await simpleDb.setting.setSwapMaintain(data.swapMaintain);
     await simpleDb.setting.setRpcBatchFallbackWhitelistHosts(
       data.disabledRpcBatchHosts.map((u) => ({
-        createdAt: Date.now(),
         type: 'default',
         url: u,
       })),

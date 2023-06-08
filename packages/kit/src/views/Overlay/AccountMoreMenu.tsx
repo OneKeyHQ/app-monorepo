@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { capitalize } from 'lodash';
+import { useAsync } from 'react-async-hook';
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
@@ -39,7 +40,6 @@ import BaseMenu from './BaseMenu';
 
 import type { IMenu } from './BaseMenu';
 import type { MessageDescriptor } from 'react-intl';
-import { useAsync } from 'react-async-hook';
 
 const NeedActivateAccountImpl = [IMPL_APTOS, IMPL_SUI];
 

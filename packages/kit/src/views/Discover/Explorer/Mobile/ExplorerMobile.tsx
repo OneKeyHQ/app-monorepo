@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Freeze } from 'react-freeze';
 
 import { Box, useSafeAreaInsets } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useNavigation } from '../../../../hooks';
 import { useIsFocusedInTab } from '../../../../hooks/useIsFocusedInTab';
@@ -26,6 +27,8 @@ import type { DiscoverRoutesParams } from '../../type';
 import type { MatchDAppItemType } from '../explorerUtils';
 
 type NavigationProps = ModalScreenProps<DiscoverRoutesParams>;
+
+const showFloatingContainer = platformEnv.isNative;
 
 const ExplorerMobile: FC = () => {
   const { top } = useSafeAreaInsets();
@@ -91,7 +94,7 @@ const ExplorerMobile: FC = () => {
         />
         <WebHomeContainer alwaysOpenNewWindow />
       </Freeze>
-      {showContent && (
+      {showContent && showFloatingContainer && (
         <FloatingContainer
           afterMaximize={() => setShowHome(false)}
           beforeMinimize={beforeMinimize}

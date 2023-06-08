@@ -250,6 +250,7 @@ export default class Vault extends VaultBase {
 
     const encodedTx: IEncodedTxAptos = generateRegisterToken(tokenAddress);
     encodedTx.sender = address;
+    encodedTx.forcePendingTx = true;
 
     const unsignedTx = await this.buildUnsignedTxFromEncodedTx(encodedTx);
     unsignedTx.payload = {
@@ -743,8 +744,20 @@ export default class Vault extends VaultBase {
         rawTx: signedTx.rawTx,
       });
 
-      // wait error or success
-      await waitPendingTransaction(client, txid);
+      let pendingTx = true;
+      try {
+        // wait error or success
+        await waitPendingTransaction(client, txid);
+        pendingTx = false;
+      } catch (error) {
+        if (get(signedTx.encodedTx, 'forcePendingTx', false)) {
+          debugLogger.engine.info('broadcastTransaction wait Pending Error:', {
+            txid,
+            rawTx: signedTx.rawTx,
+          });
+          throw error;
+        }
+      }
 
       debugLogger.engine.info('broadcastTransaction wait Pending END:', {
         txid,
@@ -752,6 +765,7 @@ export default class Vault extends VaultBase {
       });
       return {
         ...signedTx,
+        pendingTx,
         txid,
       };
     } catch (error: any) {

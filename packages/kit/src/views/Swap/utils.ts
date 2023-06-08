@@ -10,10 +10,10 @@ import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { networkIdDontSupportRecipientAddress } from './config';
 import { QuoterType } from './typings';
 
 import type {
@@ -439,22 +439,28 @@ export function recipientMustBeSendingAccount(
   tokenB: Token,
   allowAnotherRecipientAddress?: boolean,
 ) {
-  const networkIdDontSupportRecipientAddress: string[] = [
-    // jupitor
-    OnekeyNetwork.sol,
-    // openocean
-    OnekeyNetwork.okt,
-    OnekeyNetwork.heco,
-    OnekeyNetwork.xdai,
-    OnekeyNetwork.zksyncera,
-    OnekeyNetwork.boba,
-    OnekeyNetwork.cronos,
-  ];
-  return (
+  if (
     tokenA.networkId === tokenB.networkId &&
-    (!allowAnotherRecipientAddress ||
-      networkIdDontSupportRecipientAddress.includes(tokenA.networkId))
-  );
+    networkIdDontSupportRecipientAddress.includes(tokenA.networkId)
+  ) {
+    return true;
+  }
+  const implA = getNetworkIdImpl(tokenA.networkId);
+  const implB = getNetworkIdImpl(tokenB.networkId);
+  return implA === implB && !allowAnotherRecipientAddress;
+}
+
+export function shouldShowAllowRecipientAddressInput(
+  tokenA: Token,
+  tokenB: Token,
+) {
+  const implA = getNetworkIdImpl(tokenA.networkId);
+  const implB = getNetworkIdImpl(tokenB.networkId);
+  let result = implA === implB;
+  if (tokenA.networkId === tokenB.networkId) {
+    result = !networkIdDontSupportRecipientAddress.includes(tokenA.networkId);
+  }
+  return result;
 }
 
 export function getLimitOrderPercent(limitOrder: LimitOrderTransactionDetails) {
@@ -509,4 +515,18 @@ export function createLoggerTimer() {
       ref = {};
     },
   };
+}
+
+export type Task = (nextTask?: () => Promise<void>) => Promise<void>;
+
+export async function combinedTasks(tasks: Task[]) {
+  let index = 0;
+  async function next() {
+    if (index < tasks.length) {
+      const callback = tasks[index];
+      index += 1;
+      await callback(next);
+    }
+  }
+  await next();
 }

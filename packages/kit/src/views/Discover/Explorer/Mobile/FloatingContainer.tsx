@@ -179,7 +179,7 @@ const FloatingContainer: FC<
         >
           <Box flex={1} bg="background-default">
             <Pressable
-              h="48px"
+              h="56px"
               onPress={() => {
                 toggleFloatingWindow({
                   beforeMinimize,
@@ -200,9 +200,7 @@ const FloatingContainer: FC<
             </DelayedFreeze>
           </Box>
         </Animated.View>
-        <DelayedFreeze freeze={!showContent}>
-          <WebTabGrid />
-        </DelayedFreeze>
+        <WebTabGrid key={String(hasTabs)} />
       </Animated.View>
       <ControllerBarMobile />
     </>

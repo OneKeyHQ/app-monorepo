@@ -151,8 +151,8 @@ const OnekeyHardwareHomescreen: FC = () => {
       quality: 1,
     });
 
-    if (!result.cancelled && result.uri) {
-      addImage(result);
+    if (!result.canceled && result.assets[0].uri) {
+      addImage(result.assets[0]);
     }
   }, [addImage]);
 
