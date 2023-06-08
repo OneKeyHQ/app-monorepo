@@ -297,35 +297,9 @@ export const importedAccount2: IUnitTestMockAccount = {
 
 export const watchingAccount1: IUnitTestMockAccount = {
   account: {
-    address: 'ed25519:8wbWQQkeK9NV1qkiQZ95jbj7JNhpeapHafLPw3qsJdqi',
-    coinType: '397',
-    id: 'external--397--ed25519:8wbWQQkeK9NV1qkiQZ95jbj7JNhpeapHafLPw3qsJdqi',
-    name: 'Account #1',
-    path: '',
-    pub: '',
-    type: AccountType.SIMPLE,
-  },
-  password: '',
-};
-
-export const watchingAccount2: IUnitTestMockAccount = {
-  account: {
-    address: 'a-b-c-d-e-f-g-h-i',
-    coinType: '397',
-    id: 'external--397--a-b-c-d-e-f-g-h-i',
-    name: 'Account #1',
-    path: '',
-    pub: '',
-    type: AccountType.SIMPLE,
-  },
-  password: '',
-};
-
-export const watchingAccount3: IUnitTestMockAccount = {
-  account: {
-    address: '7t52o0p34zxf58v2mx8rszraplaapgeqb6xhllv5oy8tt5pzs1pfvpsjhrktg42n',
-    coinType: '397',
-    id: 'external--397--7t52o0p34zxf58v2mx8rszraplaapgeqb6xhllv5oy8tt5pzs1pfvpsjhrktg42n',
+    'address': '0x41936e4dd7a1d71b44c094cc50d6c2666c01433c',
+    'coinType': '60',
+    'id': 'external--60--0x41936e4dd7a1d71b44c094cc50d6c2666c01433c',
     name: 'Account #1',
     path: '',
     pub: '',

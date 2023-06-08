@@ -1,6 +1,5 @@
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_ETH as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { InvalidAddress } from '../../../../errors';
 import { AccountType } from '../../../../types/account';
@@ -14,25 +13,6 @@ import type {
 } from '../../../types';
 
 export class KeyringWatching extends KeyringWatchingBase {
-  // TODO remove
-  override async signTransaction(
-    unsignedTx: UnsignedTx,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
-    const encodedTx: IEncodedTx = unsignedTx.payload?.encodedTx;
-    const dbAccount = await this.getDbAccount();
-    debugLogger.sendTx.info(
-      'KeyringWatching > signTransaction >>>>> ',
-      dbAccount.address,
-      encodedTx,
-    );
-    // TODO create wc connector, and check peerMeta.url, chainId, accounts matched,
-    return Promise.resolve({
-      txid: '1111',
-      rawTx: '11118888',
-    });
-  }
 
   override async prepareAccounts(
     params: IPrepareWatchingAccountsParams,
