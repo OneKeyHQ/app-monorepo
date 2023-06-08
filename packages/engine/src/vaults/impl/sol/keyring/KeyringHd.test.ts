@@ -1,18 +1,20 @@
-import { constants } from 'fs/promises';
-
 import solMockData from '../@tests/solMockData';
 
 import { KeyringHd } from './KeyringHd';
 
 import type { SOLPresetCaseType } from '../@tests/solPresetCase';
+import { getAccountNameInfoByImpl } from '../../../../managers/impl';
+import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
 jest.setTimeout(3 * 60 * 1000);
+
+const solAccountNameInfo = getAccountNameInfoByImpl(IMPL_SOL);
 
 describe('Solana KeyringHd Tests', () => {
   beforeAll(() => {
     jest.mock('../../../../managers/nft.ts', () => ({}));
   });
-  it('solana prepareAccounts', async () => {
+  it('solana prepareAccounts with default coinType', async () => {
     const { testPrepareAccounts } =
       require('../@tests/solPresetCase') as SOLPresetCaseType;
     const { network, hdAccount1 } = solMockData;
@@ -27,6 +29,12 @@ describe('Solana KeyringHd Tests', () => {
         keyring({ vault }) {
           return new KeyringHd(vault);
         },
+      },
+      {
+        accounts: hdAccount1.accounts || [],
+        coinType: solAccountNameInfo.default.coinType,
+        template: solAccountNameInfo.default.template,
+        indexes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
       },
     );
   });

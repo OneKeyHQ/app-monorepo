@@ -10,7 +10,6 @@ import { getAccountNameInfoByTemplate } from '../../../../managers/impl';
 import { Signer } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
-
 import { signMessage, signTransaction } from '../utils';
 
 import type { ExportedSeedCredential } from '../../../../dbs/base';
