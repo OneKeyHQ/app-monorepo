@@ -7,16 +7,18 @@ import Vault from '../Vault';
 import VaultHelper from '../VaultHelper';
 
 import type { IPrepareMockVaultOptions } from '../../../../../@tests/types';
+import type { DBAccount } from '../../../../types/account';
 import type { KeyringBase } from '../../../keyring/KeyringBase';
 import type { KeyringSoftwareBase } from '../../../keyring/KeyringSoftwareBase';
 import type { IPrepareAccountsParams } from '../../../types';
 import type { VaultBase } from '../../../VaultBase';
 
-const nearAccountNameInfo = getAccountNameInfoByImpl(IMPL_EVM);
-const prepareAccountsParams = {
+const evmAccountNameInfo = getAccountNameInfoByImpl(IMPL_EVM);
+const PREPARE_ACCOUNTS_PARAMS = {
   indexes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-  coinType: nearAccountNameInfo.default.coinType,
-  template: nearAccountNameInfo.default.template,
+  coinType: evmAccountNameInfo.default.coinType,
+  template: evmAccountNameInfo.default.template,
+  accounts: [] as DBAccount[],
 };
 
 export async function testPrepareAccounts(
@@ -24,20 +26,31 @@ export async function testPrepareAccounts(
   builder: {
     keyring: (payload: { vault: VaultBase }) => KeyringBase;
   },
+  prepareAccountsParams?: typeof PREPARE_ACCOUNTS_PARAMS,
 ) {
   const { options, dbAccount } = prepareMockVault(prepareOptions);
   const vault = new Vault(options);
   vault.helper = new VaultHelper(options);
   const keyring = builder.keyring({ vault });
-  const accounts = await keyring.prepareAccounts({
+  const accountsParams = {
+    ...PREPARE_ACCOUNTS_PARAMS,
     ...prepareAccountsParams,
+  };
+  const accounts = await keyring.prepareAccounts({
+    ...accountsParams,
     name: dbAccount.name,
     target: dbAccount.address,
     accountIdPrefix: 'external',
     password: prepareOptions.password,
-    privateKey: prepareOptions?.privateKey,
+    privateKey: prepareOptions?.privateKey
+      ? Buffer.from(prepareOptions.privateKey, 'hex')
+      : undefined,
   } as IPrepareAccountsParams);
-  expect(accounts[0]).toEqual(dbAccount);
+  if (accountsParams?.accounts?.length) {
+    expect(accounts).toEqual(accountsParams?.accounts);
+  } else {
+    expect(accounts[0]).toEqual(dbAccount);
+  }
 }
 
 // export async function testSignTransaction(
@@ -83,11 +96,11 @@ export async function testPrepareAccounts(
 //   await wait(1000);
 // }
 
-// const nearAccountNameInfo = getAccountNameInfoByImpl(IMPL_NEAR);
+// const evmAccountNameInfo = getAccountNameInfoByImpl(IMPL_NEAR);
 // const prepareAccountsParams = {
 //   indexes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-//   coinType: nearAccountNameInfo.default.coinType,
-//   template: nearAccountNameInfo.default.template,
+//   coinType: evmAccountNameInfo.default.coinType,
+//   template: evmAccountNameInfo.default.template,
 // };
 export type EVMPresetCaseType = {
   testPrepareAccounts: typeof testPrepareAccounts;

@@ -17,6 +17,7 @@ import { Verifier } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringHardwareBase } from '../../../keyring/KeyringHardwareBase';
 import { ethers } from '../sdk/ethers';
+import { pubkeyToAddress } from '../utils';
 
 import type { DBSimpleAccount } from '../../../../types/account';
 import type {
@@ -25,7 +26,6 @@ import type {
   ISignCredentialOptions,
 } from '../../../types';
 import type { IUnsignedMessageEvm } from '../Vault';
-import { pubkeyToAddress } from '../utils';
 
 type Curve = 'secp256k1' | 'ed25519';
 

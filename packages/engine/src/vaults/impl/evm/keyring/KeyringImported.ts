@@ -5,10 +5,10 @@ import { OneKeyInternalError } from '../../../../errors';
 import { Signer, Verifier } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
+import { pubkeyToAddress } from '../utils';
 
 import type { DBSimpleAccount } from '../../../../types/account';
 import type { IPrepareImportedAccountsParams } from '../../../types';
-import { pubkeyToAddress } from '../utils';
 
 type Curve = 'secp256k1' | 'ed25519';
 

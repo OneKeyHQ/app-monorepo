@@ -1,6 +1,6 @@
-import { hdAccount1, network } from '../@tests/evmMockData';
+import { importedAccount1, network } from '../@tests/evmMockData';
 
-import { KeyringHd } from './KeyringHd';
+import { KeyringImported } from './KeyringImported';
 
 import type { EVMPresetCaseType } from '../@tests/evmPresetCase';
 
@@ -28,13 +28,14 @@ describe('EVM KeyringHd Tests', () => {
     await testPrepareAccounts(
       {
         dbNetwork: network,
-        dbAccount: hdAccount1.account,
-        mnemonic: hdAccount1.mnemonic,
-        password: hdAccount1.password,
+        dbAccount: importedAccount1.account,
+        mnemonic: importedAccount1.mnemonic,
+        password: importedAccount1.password,
+        privateKey: importedAccount1.privateKey,
       },
       {
         keyring({ vault }) {
-          return new KeyringHd(vault);
+          return new KeyringImported(vault);
         },
       },
     );
