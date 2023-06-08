@@ -45,6 +45,7 @@ import type { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import {
@@ -145,10 +146,11 @@ const ConnectHardwareModal: FC = () => {
         ...device,
         using: existHwWallets?.find(
           (w) =>
-            w.connectId === device.connectId && w.deviceId === device.deviceId,
+            equalsIgnoreCase(w.connectId, device.connectId) &&
+            equalsIgnoreCase(w.deviceId, device.deviceId),
         ),
-        useBefore: existHwWallets?.find(
-          (w) => w.connectId === device.connectId,
+        useBefore: existHwWallets?.find((w) =>
+          equalsIgnoreCase(w.connectId, device.connectId),
         ),
       }));
       return convertDevices;
