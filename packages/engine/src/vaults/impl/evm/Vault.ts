@@ -1210,12 +1210,6 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const onChainNonce =
       (await client.getAddresses([dbAccount.address]))[0]?.nonce ?? 0;
-    const historyItems = await this.engine.getHistory(
-      networkId,
-      dbAccount.id,
-      undefined,
-      false,
-    );
     const maxPendingNonce = await simpleDb.history.getMaxPendingNonce({
       accountId: this.accountId,
       networkId,

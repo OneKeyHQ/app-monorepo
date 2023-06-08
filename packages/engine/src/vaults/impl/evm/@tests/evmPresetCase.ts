@@ -6,6 +6,8 @@ import { getAccountNameInfoByImpl } from '../../../../managers/impl';
 import Vault from '../Vault';
 import VaultHelper from '../VaultHelper';
 
+import { parse } from '@ethersproject/transactions';
+
 import type { IPrepareMockVaultOptions } from '../../../../../@tests/types';
 import type { DBAccount } from '../../../../types/account';
 import type { KeyringBase } from '../../../keyring/KeyringBase';
@@ -53,56 +55,48 @@ export async function testPrepareAccounts(
   }
 }
 
-// export async function testSignTransaction(
-//   prepareOptions: IPrepareMockVaultOptions,
-//   builder: {
-//     keyring: (payload: { vault: VaultBase }) => KeyringSoftwareBase;
-//   },
-// ) {
-//   // expect.assertions(2);
+export async function testSignTransaction(
+  prepareOptions: IPrepareMockVaultOptions,
+  builder: {
+    keyring: (payload: { vault: VaultBase }) => KeyringSoftwareBase;
+  },
+) {
+  const { options, dbAccount, password } = prepareMockVault(prepareOptions);
 
-//   const { options, dbAccount, password } = prepareMockVault(prepareOptions);
+  expect(password).toBeTruthy();
 
-//   expect(password).toBeTruthy();
+  const vault = new Vault(options);
+  vault.helper = new VaultHelper(options);
 
-//   const vault = new Vault(options);
-//   vault.helper = new VaultHelper(options);
+  const keyring = builder.keyring({ vault });
 
-//   const keyring = builder.keyring({ vault });
+  const encodedTx = await vault.buildEncodedTxFromTransfer({
+    from: dbAccount.address,
+    to: dbAccount.address,
+    amount: '0.0001',
+  });
+  const unsignedTx = await vault.buildUnsignedTxFromEncodedTx(encodedTx);
+  const signedTx = await keyring.signTransaction(unsignedTx, {
+    password,
+  });
+  console.error(signedTx);
+  const nativeTx = parse(signedTx.rawTx);
+  const signers = await keyring.getSigners(password || '', [dbAccount.address]);
+  const signer = signers[dbAccount.address];
+  const rBytes = Buffer.from((nativeTx.r || '').slice(2), 'hex');
+  const sBytes = Buffer.from((nativeTx.s || '').slice(2), 'hex');
+  const signature = Buffer.concat([rBytes, sBytes]);
+  const isVerified = await signer.verifySignature({
+    digest: signedTx.digest || '',
+    publicKey: dbAccount.address || '',
+    signature,
+  });
 
-//   const encodedTx = await vault.buildEncodedTxFromTransfer({
-//     from: dbAccount.address,
-//     to: dbAccount.address,
-//     amount: '0.0001',
-//   });
-//   const unsignedTx = await vault.buildUnsignedTxFromEncodedTx(encodedTx);
-//   // engine/src/proxy.ts  sign
-//   // TODO return signer from keyring.signTransaction
-//   const signedTx = await keyring.signTransaction(unsignedTx, {
-//     password,
-//   });
-//   console.log(signedTx);
-//   const nativeTx = deserializeSignedTransaction(signedTx.rawTx);
+  expect(isVerified).toBeTruthy();
+  await wait(1000);
+}
 
-//   const signers = await keyring.getSigners(password || '', [dbAccount.address]);
-//   const signer = signers[dbAccount.address];
-//   const isVerified = await signer.verifySignature({
-//     digest: `${signedTx.digest || ''}`,
-//     publicKey: `${dbAccount.address || ''}`,
-//     signature: nativeTx.signature.data,
-//   });
-
-//   expect(isVerified).toBeTruthy();
-//   await wait(1000);
-// }
-
-// const evmAccountNameInfo = getAccountNameInfoByImpl(IMPL_NEAR);
-// const prepareAccountsParams = {
-//   indexes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-//   coinType: evmAccountNameInfo.default.coinType,
-//   template: evmAccountNameInfo.default.template,
-// };
 export type EVMPresetCaseType = {
   testPrepareAccounts: typeof testPrepareAccounts;
-  // testSignTransaction: typeof testSignTransaction;
+  testSignTransaction: typeof testSignTransaction;
 };

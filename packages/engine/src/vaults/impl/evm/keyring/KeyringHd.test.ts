@@ -74,6 +74,24 @@ describe('EVM KeyringHd Tests', () => {
       },
     );
   });
+
+  it('evm testSignTransaction', async () => {
+    const { testSignTransaction } =
+      require('../@tests/evmPresetCase') as EVMPresetCaseType;
+    await testSignTransaction(
+      {
+        dbNetwork: network,
+        dbAccount: hdAccount1.account,
+        mnemonic: hdAccount1.mnemonic,
+        password: hdAccount1.password,
+      },
+      {
+        keyring({ vault }) {
+          return new KeyringHd(vault);
+        },
+      },
+    );
+  });
 });
 
 export {};

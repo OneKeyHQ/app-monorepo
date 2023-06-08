@@ -60,6 +60,7 @@ class JsonRPCRequest {
         response,
       );
     } else if (response.error) {
+      console.error(response.error)
       throw new JsonPRCResponseError('Error JSON PRC response', response);
     } else if (!('result' in response)) {
       throw new ResponseError(

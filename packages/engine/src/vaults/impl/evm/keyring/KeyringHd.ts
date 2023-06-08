@@ -25,6 +25,7 @@ import type { SignedTx, UnsignedTx } from '../../../../types/provider';
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
+  ISignedTxPro,
 } from '../../../types';
 
 type Curve = 'secp256k1' | 'ed25519';
@@ -124,7 +125,7 @@ export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
-  ): Promise<SignedTx> {
+  ): Promise<ISignedTxPro> {
     const chainId = await this.vault.getNetworkChainId();
     const fromAddress = unsignedTx.inputs[0]?.address;
     const signers = await this.getSigners(
@@ -146,6 +147,6 @@ export class KeyringHd extends KeyringHdBase {
 
     const rawTx: string = serialize(tx, signature);
     const txid = keccak256(rawTx);
-    return { txid, rawTx };
+    return { txid, rawTx, digest };
   }
 }
