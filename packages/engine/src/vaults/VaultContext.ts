@@ -1,4 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await, max-classes-per-file */
+import memoizee from 'memoizee';
+
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { IMPL_DOT, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -9,6 +12,7 @@ import {
 } from '../managers/account';
 import { AccountType } from '../types/account';
 
+import type { BaseClient } from '../client/BaseClient';
 import type { Engine } from '../index';
 import type { DBAccount, DBVariantAccount } from '../types/account';
 import type { Network } from '../types/network';
@@ -61,6 +65,12 @@ export class VaultContext extends VaultContextBase {
 
   _dbAccount!: DBAccount;
 
+  getClientCache = memoizee(async (rpcUrl) => this.getSDKClient(rpcUrl), {
+    promise: true,
+    max: 1,
+    maxAge: getTimeDurationMs({ minute: 3 }),
+  });
+
   // TODO resetCache after dbAccount and network DB updated
 
   async getDbAccount(params?: { noCache?: boolean }) {
@@ -110,6 +120,16 @@ export class VaultContext extends VaultContextBase {
 
   async getRpcUrl() {
     return (await this.getNetwork({ cached: false })).rpcURL;
+  }
+
+  // TODO: Need to be modified to an abstract class
+  getSDKClient(url: string): BaseClient {
+    throw new NotImplemented('need to be implemented getSDKClient');
+  }
+
+  async getClient<T extends BaseClient>(url?: string): Promise<T> {
+    const rpcURL = await this.getRpcUrl();
+    return this.getClientCache(url ?? rpcURL) as Promise<T>;
   }
 
   async getClientApi<T>() {

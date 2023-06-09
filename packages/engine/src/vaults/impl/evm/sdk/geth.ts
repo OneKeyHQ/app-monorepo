@@ -48,7 +48,7 @@ function decodeStringCallResult(hexResult: string): string {
   }
 }
 
-class Geth extends BaseClient {
+class GethClient extends BaseClient {
   static readonly __LAST_BLOCK__ = 'latest';
 
   private _mmFee!: MmFee;
@@ -70,7 +70,7 @@ class Geth extends BaseClient {
 
   async getInfo(): Promise<ClientInfo> {
     const latestBlock: any = await this.rpc.call('eth_getBlockByNumber', [
-      Geth.__LAST_BLOCK__,
+      GethClient.__LAST_BLOCK__,
       false,
     ]);
     const bestBlockNumber = parseInt(latestBlock.number, 16);
@@ -84,8 +84,8 @@ class Geth extends BaseClient {
     addresses: Array<string>,
   ): Promise<Array<AddressInfo | undefined>> {
     const calls = addresses.reduce((acc: Array<any>, cur) => {
-      acc.push(['eth_getBalance', [cur, Geth.__LAST_BLOCK__]]);
-      acc.push(['eth_getTransactionCount', [cur, Geth.__LAST_BLOCK__]]);
+      acc.push(['eth_getBalance', [cur, GethClient.__LAST_BLOCK__]]);
+      acc.push(['eth_getTransactionCount', [cur, GethClient.__LAST_BLOCK__]]);
 
       return acc;
     }, []);
@@ -138,10 +138,10 @@ class Geth extends BaseClient {
                   .toLowerCase()
                   .slice(2)}`,
               },
-              Geth.__LAST_BLOCK__,
+              GethClient.__LAST_BLOCK__,
             ],
           ]
-        : ['eth_getBalance', [i.address, Geth.__LAST_BLOCK__]],
+        : ['eth_getBalance', [i.address, GethClient.__LAST_BLOCK__]],
     );
     const resp: Array<string | undefined> = await this.rpc.batchCall(
       calls,
@@ -211,7 +211,7 @@ class Geth extends BaseClient {
     const calls = tokenAddresses.reduce((acc: any, cur) => {
       const item = data
         .map((i) => ({ to: cur, data: i }))
-        .map((i) => ['eth_call', [i, Geth.__LAST_BLOCK__]]);
+        .map((i) => ['eth_call', [i, GethClient.__LAST_BLOCK__]]);
       acc.push(...item);
       return acc;
     }, []);
@@ -366,7 +366,7 @@ class Geth extends BaseClient {
     async (address: string): Promise<boolean> => {
       let code: string = await this.rpc.call('eth_getCode', [
         address,
-        Geth.__LAST_BLOCK__,
+        GethClient.__LAST_BLOCK__,
       ]);
 
       if (code && code.startsWith('0x')) {
@@ -382,9 +382,9 @@ class Geth extends BaseClient {
     calls: Array<{ to: string; data: string }>,
   ): Promise<Array<string>> {
     return this.rpc.batchCall(
-      calls.map((i) => ['eth_call', [i, Geth.__LAST_BLOCK__]]),
+      calls.map((i) => ['eth_call', [i, GethClient.__LAST_BLOCK__]]),
     );
   }
 }
 
-export { Geth };
+export { GethClient };

@@ -3,7 +3,7 @@ import { createDelayPromise } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { ProviderController } from '../../src/provider';
 
 const Provider = jest.fn();
-const Geth = jest.fn();
+const GethClient = jest.fn();
 const Parity = jest.fn();
 
 let controller: ProviderController;
@@ -15,7 +15,7 @@ beforeEach(() => {
 
   controller.requireChainImpl = jest.fn().mockReturnValue({
     Provider,
-    Geth,
+    GethClient,
     Parity,
   });
 });
@@ -24,8 +24,8 @@ test('getClient', async () => {
   const chain = {
     impl: 'eth',
     clients: [
-      { name: 'Geth', args: ['a1', 'a2'] },
-      { name: 'Geth', args: ['b1'] },
+      { name: 'GethClient', args: ['a1', 'a2'] },
+      { name: 'GethClient', args: ['b1'] },
       { name: 'Parity', args: ['c1'] },
     ],
   };
@@ -53,7 +53,7 @@ test('getClient', async () => {
     setChainInfo: jest.fn(),
   };
 
-  Geth.mockReturnValueOnce(geth1).mockReturnValueOnce(geth2);
+  GethClient.mockReturnValueOnce(geth1).mockReturnValueOnce(geth2);
   Parity.mockReturnValueOnce(parity1);
 
   await expect(controller.getClient('eth')).resolves.toBe(parity1);
@@ -70,8 +70,8 @@ test('getClient but no available client', async () => {
   chainSelector.mockReturnValueOnce({
     impl: 'eth',
     clients: [
-      { name: 'Geth', args: ['a1', 'a2'] },
-      { name: 'Geth', args: ['b1'] },
+      { name: 'GethClient', args: ['a1', 'a2'] },
+      { name: 'GethClient', args: ['b1'] },
       { name: 'Parity', args: ['c1'] },
     ],
   });
@@ -96,7 +96,7 @@ test('getClient but no available client', async () => {
     setChainInfo: jest.fn(),
   };
 
-  Geth.mockReturnValueOnce(geth1).mockReturnValueOnce(geth2);
+  GethClient.mockReturnValueOnce(geth1).mockReturnValueOnce(geth2);
   Parity.mockReturnValueOnce(parity1);
 
   await expect(controller.getClient('eth')).rejects.toThrow(

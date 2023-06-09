@@ -43,7 +43,7 @@ import { getCurveByImpl } from './managers/impl';
 import { getMetaMaskGasInfo } from './managers/metaMask';
 import { getPresetNetworks } from './presets';
 import { IMPL_MAPPINGS, fillUnsignedTx, fillUnsignedTxObj } from './proxyUtils';
-import { Geth } from './vaults/impl/evm/sdk';
+import { GethClient } from './vaults/impl/evm/sdk';
 import { getRpcUrlFromChainInfo } from './vaults/utils/btcForkChain/provider/blockbook';
 
 import type { BlockNativeGasInfo } from './types/blockNative';
@@ -305,7 +305,7 @@ class ProviderController extends BaseProviderController {
   }
 
   async getEVMChainId(url: string): Promise<string> {
-    const client = new Geth(url);
+    const client = new GethClient(url);
     return parseInt(await client.rpc.call('eth_chainId', []), 16).toString();
   }
 
@@ -346,7 +346,7 @@ class ProviderController extends BaseProviderController {
           reward,
         }: { baseFeePerGas: Array<string>; reward: Array<Array<string>> } =
           await this.getClient(networkId).then((client) =>
-            (client as Geth).rpc.call('eth_feeHistory', [
+            (client as GethClient).rpc.call('eth_feeHistory', [
               20,
               'latest',
               [5, 25, 60],

@@ -16,7 +16,7 @@ import {
 import { Verifier } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringHardwareBase } from '../../../keyring/KeyringHardwareBase';
-import { ethers } from '../sdk/ethers';
+import { ethers } from '../sdk';
 import { pubkeyToAddress } from '../utils';
 
 import type { DBSimpleAccount } from '../../../../types/account';

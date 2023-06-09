@@ -1,4 +1,4 @@
-import { ethers } from '../sdk/ethers';
+import { ethers } from '../sdk';
 
 import type Vault from '../Vault';
 

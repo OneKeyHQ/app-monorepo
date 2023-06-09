@@ -94,7 +94,7 @@ import {
   KeyringImported,
   KeyringWatching,
 } from './keyring';
-import { Geth, ethers } from './sdk';
+import { GethClient, ethers } from './sdk';
 import settings from './settings';
 import { ecRecover, mmDecrypt, mmGetPublicKey, verifyAddress } from './utils';
 
@@ -220,20 +220,9 @@ export default class Vault extends VaultBase {
     return chainInfo.implOptions;
   }
 
-  getClientCache = memoizee(async (rpcUrl) => this.getGethClient(rpcUrl), {
-    promise: true,
-    max: 1,
-    maxAge: getTimeDurationMs({ minute: 3 }),
-  });
-
-  async getClient(url?: string) {
-    const rpcURL = await this.getRpcUrl();
-    return this.getClientCache(url ?? rpcURL);
-  }
-
-  getGethClient(url: string) {
+  override getSDKClient(url: string) {
     // client: superagent
-    return new Geth(url);
+    return new GethClient(url);
   }
 
   override async getEthersProvider() {
@@ -520,7 +509,7 @@ export default class Vault extends VaultBase {
           type: IDecodedTxActionType.NATIVE_TRANSFER,
           nativeTransfer: {
             tokenInfo: nativeToken,
-            from: encodedTx.from || decodedTxLegacy.froqmAddress,
+            from: encodedTx.from || decodedTxLegacy.fromAddress,
             to: encodedTx.to,
             amount: valueBn.shiftedBy(-network.decimals).toFixed(),
             amountValue: valueBn.toFixed(),
@@ -1128,7 +1117,7 @@ export default class Vault extends VaultBase {
   }
 
   async buildUnsignedTx(unsignedTx: UnsignedTx): Promise<UnsignedTx> {
-    const client = await this.getClient();
+    const client = await this.getClient<GethClient>();
     const input = unsignedTx.inputs[0];
     const output = unsignedTx.outputs[0];
 
@@ -1409,7 +1398,7 @@ export default class Vault extends VaultBase {
       const data = `0x49948e0e${defaultAbiCoder
         .encode(['bytes'], [txData])
         .slice(2)}`;
-      const client = await this.getClient();
+      const client = await this.getClient<GethClient>();
 
       // RPC: eth_call
       const l1FeeHex = await client.rpc.call('eth_call', [
@@ -1592,7 +1581,7 @@ export default class Vault extends VaultBase {
     const data = `${allowanceMethodID}${defaultAbiCoder
       .encode(['address', 'address'], [dbAccount.address, spenderAddress])
       .slice(2)}`;
-    const client = await this.getClient();
+    const client = await this.getClient<GethClient>();
     const rawAllowanceHex = await client.rpc.call('eth_call', [
       { to: token.tokenIdOnNetwork, data },
       'latest',
@@ -1624,7 +1613,7 @@ export default class Vault extends VaultBase {
         .slice(2)}`;
       calls.push({ to: token.tokenIdOnNetwork, data });
     }
-    const client = await this.getClient();
+    const client = await this.getClient<GethClient>();
     const rawAllowanceHexCallResults = await client.batchEthCall(calls);
 
     return rawAllowanceHexCallResults.map((value) => Number(value));
@@ -1701,7 +1690,7 @@ export default class Vault extends VaultBase {
   }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
-    const client = await this.getClient();
+    const client = await this.getClient<GethClient>();
     try {
       return await client.rpc.call(
         request.method,
@@ -1712,8 +1701,8 @@ export default class Vault extends VaultBase {
     }
   }
 
-  override createClientFromURL(url: string): Geth {
-    return new Geth(url);
+  override createClientFromURL(url: string): GethClient {
+    return new GethClient(url);
   }
 
   fetchTokenInfos(
@@ -1944,7 +1933,7 @@ export default class Vault extends VaultBase {
       .map((item) => item.decodedTx.txid);
     const chainId = await this.getNetworkChainId();
     const address = await this.getAccountAddress();
-    const client = await this.getClient();
+    const client = await this.getClient<GethClient>();
     /*
     {
       hash1: { covalentTx, alchemyTx, infStoneTx, explorerTx, rpcTx },
@@ -2153,7 +2142,7 @@ export default class Vault extends VaultBase {
     async (address: string): Promise<boolean> => {
       try {
         await this.validateAddress(address);
-        const client = await this.getClient();
+        const client = await this.getClient<GethClient>();
         return await client.isContract(address);
       } catch {
         return Promise.resolve(false);
@@ -2231,7 +2220,7 @@ export default class Vault extends VaultBase {
     url: string,
   ): Promise<IClientEndpointStatus> {
     let result: IClientEndpointStatus | undefined;
-    const client = await this.getClient();
+    const client = await this.getClient<GethClient>();
     const start = performance.now();
     try {
       const res = await client.rpc.batchCall<Array<{ number: string }>>(

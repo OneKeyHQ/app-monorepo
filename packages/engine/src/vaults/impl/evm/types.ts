@@ -1,4 +1,4 @@
-import type { ethers } from './sdk/ethers';
+import type { ethers } from './sdk';
 import type { IEncodedTxEvm } from './Vault';
 
 export type INativeTxEvm = ethers.Transaction;

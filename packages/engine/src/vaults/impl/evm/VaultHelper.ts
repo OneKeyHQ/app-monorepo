@@ -3,7 +3,7 @@ import { isNil, isString } from 'lodash';
 import { VaultHelperBase } from '../../VaultHelperBase';
 
 import { ethersTxToJson, jsonToEthersTx } from './decoder/util';
-import { ethers } from './sdk/ethers';
+import { ethers } from './sdk';
 
 import type { IEncodedTxEvm } from './Vault';
 

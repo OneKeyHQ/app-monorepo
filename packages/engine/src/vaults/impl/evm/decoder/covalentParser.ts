@@ -1,4 +1,4 @@
-import { ethers } from '../sdk/ethers';
+import { ethers } from '../sdk';
 
 import { EVMTxDecoder, InfiniteAmountText } from './decoder';
 import { parseGasInfo } from './gasParser';
