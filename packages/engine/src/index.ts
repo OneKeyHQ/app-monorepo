@@ -2913,7 +2913,7 @@ class Engine {
     const vault = (await this.getVault({
       accountId,
       networkId,
-    })) as VaultSol;
+    })) as unknown as VaultSol;
     return vault.refreshRecentBlockBash(transaction);
   }
 
