@@ -4,6 +4,7 @@ import CardanoNamiLogo from '@onekeyhq/kit/assets/walletLogo/cardano_nami.png';
 import ConflusFluentLogo from '@onekeyhq/kit/assets/walletLogo/conflux_fluent_wallet.png';
 import CosmosKeplrLogo from '@onekeyhq/kit/assets/walletLogo/cosmos_keplr.png';
 import MetamaskLogo from '@onekeyhq/kit/assets/walletLogo/evm_metamask.png';
+import PolkadotJsLogo from '@onekeyhq/kit/assets/walletLogo/polkadot_polkadot_js.png';
 import SolanaPhantomLogo from '@onekeyhq/kit/assets/walletLogo/solana_phantom.png';
 import StarcoinStarmaskLogo from '@onekeyhq/kit/assets/walletLogo/starcoin_starmask.png';
 import SuiWalletLogo from '@onekeyhq/kit/assets/walletLogo/sui_sui_wallet.png';
@@ -76,5 +77,11 @@ export const CWalletSwitchDefaultConfig: Record<string, WalletSwitchItem> = {
     title: 'Fluent',
     propertyKeys: ['conflux'],
     enable: true,
+  },
+  'POLKADOT-polkadot-js': {
+    logo: PolkadotJsLogo,
+    title: 'Polkadot.js',
+    propertyKeys: ['polkadot-js'],
+    enable: false,
   },
 };

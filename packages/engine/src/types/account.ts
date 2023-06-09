@@ -48,6 +48,7 @@ type DBAccount = DBSimpleAccount | DBUTXOAccount | DBVariantAccount;
 type Account = DBBaseAccount & {
   tokens: Array<Token>;
   address: string;
+  pubKey?: string;
   displayAddress?: string;
   xpub?: string; // for btc fork chain
   customAddresses?: string; // for btc custom address
