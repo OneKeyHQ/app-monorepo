@@ -1,13 +1,19 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 
+import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
+import { Signer } from '@onekeyhq/engine/src/proxy';
+import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
+import { AccountType } from '@onekeyhq/engine/src/types/account';
+import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
+import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import { KeyringImportedBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringImportedBase';
+import type {
+  IPrepareImportedAccountsParams,
+  ISignCredentialOptions,
+  SignedTxResult,
+} from '@onekeyhq/engine/src/vaults/types';
 import { COINTYPE_KASPA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { OneKeyInternalError } from '../../../errors';
-import { Signer } from '../../../proxy';
-import { secp256k1 } from '../../../secret/curves';
-import { AccountType } from '../../../types/account';
-import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
 import {
   addressFromPublicKey,
@@ -16,13 +22,6 @@ import {
 } from './sdk';
 import { signTransaction, toTransaction } from './sdk/transaction';
 
-import type { DBSimpleAccount } from '../../../types/account';
-import type { UnsignedTx } from '../../../types/provider';
-import type {
-  IPrepareImportedAccountsParams,
-  ISignCredentialOptions,
-  SignedTxResult,
-} from '../../types';
 import type { PrivateKey } from '@kaspa/core-lib';
 
 // @ts-ignore

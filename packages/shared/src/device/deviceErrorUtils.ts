@@ -97,6 +97,8 @@ export function convertDeviceError(payload: any): OneKeyHardwareError {
       return new Error.BleLocationServiceError({ message: msg });
     case HardwareErrorCode.BleDeviceNotBonded:
       return new Error.DeviceNotBonded(payload);
+    case HardwareErrorCode.BleDeviceBondError:
+      return new Error.DeviceBondError(payload);
     case HardwareErrorCode.BleWriteCharacteristicError:
       return new Error.BleWriteCharacteristicError(payload);
     case HardwareErrorCode.BleScanError:

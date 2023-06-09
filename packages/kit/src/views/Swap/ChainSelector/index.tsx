@@ -84,8 +84,8 @@ const ChainSelector = () => {
     const text = searchContent.trim();
     if (text) {
       result = result.filter((item) => {
-        const name = item.fullname ? item.fullname: item.name;
-         return name.toLowerCase().includes(text.toLowerCase())
+        const name = item.fullname ? item.fullname : item.name;
+        return name.toLowerCase().includes(text.toLowerCase());
       });
     }
     return result;

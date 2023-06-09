@@ -36,11 +36,13 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   CoreSDKLoader,
+  generateConnectSrc,
   getHardwareSDKInstance,
 } from '@onekeyhq/shared/src/device/hardwareInstance';
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
@@ -78,130 +80,126 @@ class ServiceHardware extends ServiceBase {
     const { enable, preReleaseUpdate } =
       this.backgroundApi.store.getState().settings.devMode || {};
 
+    const { hardwareConnectSrc } = this.backgroundApi.store.getState().settings;
     const isPreRelease = preReleaseUpdate && enable;
 
-    return getHardwareSDKInstance({ isPreRelease: isPreRelease ?? false }).then(
-      async (instance) => {
-        if (!this.registeredEvents) {
-          this.registeredEvents = true;
+    return getHardwareSDKInstance({
+      isPreRelease: isPreRelease ?? false,
+      hardwareConnectSrc,
+    }).then(async (instance) => {
+      if (!this.registeredEvents) {
+        this.registeredEvents = true;
 
-          const {
-            LOG_EVENT,
-            DEVICE,
-            FIRMWARE,
-            FIRMWARE_EVENT,
-            UI_REQUEST,
-            supportInputPinOnSoftware,
-          } = await CoreSDKLoader();
-          instance.on('UI_EVENT', (e) => {
-            const { type, payload } = e;
+        const {
+          LOG_EVENT,
+          DEVICE,
+          FIRMWARE,
+          FIRMWARE_EVENT,
+          UI_REQUEST,
+          supportInputPinOnSoftware,
+        } = await CoreSDKLoader();
+        instance.on('UI_EVENT', (e) => {
+          const { type, payload } = e;
 
-            setTimeout(() => {
-              const {
-                device,
-                type: eventType,
-                passphraseState,
-              } = payload || {};
-              const { deviceType, connectId, deviceId, features } =
-                device || {};
-              const { bootloader_mode: bootLoaderMode } = features || {};
-              const inputPinOnSoftware = supportInputPinOnSoftware(features);
+          setTimeout(() => {
+            const { device, type: eventType, passphraseState } = payload || {};
+            const { deviceType, connectId, deviceId, features } = device || {};
+            const { bootloader_mode: bootLoaderMode } = features || {};
+            const inputPinOnSoftware = supportInputPinOnSoftware(features);
 
-              this.backgroundApi.dispatch(
-                setHardwarePopup({
-                  uiRequest: type,
-                  payload: {
-                    type: eventType,
-                    deviceType,
-                    deviceId,
-                    deviceConnectId: connectId,
-                    deviceBootLoaderMode: !!bootLoaderMode,
-                    passphraseState,
-                    supportInputPinOnSoftware: inputPinOnSoftware.support,
-                  },
-                }),
-              );
-            }, 0);
-          });
+            this.backgroundApi.dispatch(
+              setHardwarePopup({
+                uiRequest: type,
+                payload: {
+                  type: eventType,
+                  deviceType,
+                  deviceId,
+                  deviceConnectId: connectId,
+                  deviceBootLoaderMode: !!bootLoaderMode,
+                  passphraseState,
+                  supportInputPinOnSoftware: inputPinOnSoftware.support,
+                },
+              }),
+            );
+          }, 0);
+        });
 
-          instance.on(LOG_EVENT, (messages: CoreMessage) => {
-            if (Array.isArray(messages?.payload)) {
-              debugLogger.hardwareSDK.info(messages.payload.join(' '));
-            }
-          });
+        instance.on(LOG_EVENT, (messages: CoreMessage) => {
+          if (Array.isArray(messages?.payload)) {
+            debugLogger.hardwareSDK.info(messages.payload.join(' '));
+          }
+        });
 
-          instance.on(
-            DEVICE.FEATURES,
-            async (features: IOneKeyDeviceFeatures) => {
-              if (!features || !features.device_id) return;
+        instance.on(
+          DEVICE.FEATURES,
+          async (features: IOneKeyDeviceFeatures) => {
+            if (!features || !features.device_id) return;
+
+            try {
+              const device =
+                await this.backgroundApi.engine.getHWDeviceByDeviceId(
+                  features.device_id,
+                );
+              if (!device) return;
 
               try {
-                const device =
-                  await this.backgroundApi.engine.getHWDeviceByDeviceId(
-                    features.device_id,
-                  );
-                if (!device) return;
-
-                try {
-                  const wallets = await this.backgroundApi.engine.getWallets();
-                  const wallet = wallets.find(
-                    (w) =>
-                      w.associatedDevice === device.id &&
-                      !isPassphraseWallet(w),
-                  );
-                  if (wallet) {
-                    this.featuresCache[wallet.id] = features;
-                    this.syncDeviceLabel(features, wallet.id);
-                  }
-                } catch {
-                  // ignore
+                const wallets = await this.backgroundApi.engine.getWallets();
+                const wallet = wallets.find(
+                  (w) =>
+                    w.associatedDevice === device.id && !isPassphraseWallet(w),
+                );
+                if (wallet) {
+                  this.featuresCache[wallet.id] = features;
+                  this.syncDeviceLabel(features, wallet.id);
                 }
-
-                this._checkPassphraseEnableStatus(device.id, features);
               } catch {
-                // empty
+                // ignore
               }
-            },
-          );
 
-          instance.on(FIRMWARE_EVENT, (messages: CoreMessage) => {
-            if (messages.type === FIRMWARE.RELEASE_INFO) {
-              this._checkFirmwareUpdate(messages.payload as unknown as any);
+              this._checkPassphraseEnableStatus(device.id, features);
+            } catch {
+              // empty
             }
-            if (messages.type === FIRMWARE.BLE_RELEASE_INFO) {
-              this._checkBleFirmwareUpdate(messages.payload as unknown as any);
-            }
-          });
+          },
+        );
 
-          instance.on(
-            DEVICE.SUPPORT_FEATURES,
-            (features: DeviceSupportFeaturesPayload) => {
-              this._checkDeviceSettings(features);
-            },
-          );
+        instance.on(FIRMWARE_EVENT, (messages: CoreMessage) => {
+          if (messages.type === FIRMWARE.RELEASE_INFO) {
+            this._checkFirmwareUpdate(messages.payload as unknown as any);
+          }
+          if (messages.type === FIRMWARE.BLE_RELEASE_INFO) {
+            this._checkBleFirmwareUpdate(messages.payload as unknown as any);
+          }
+        });
 
-          instance.on(DEVICE.CONNECT, ({ device }: ConnectedEvent) => {
-            if (device.connectId) {
-              this.backgroundApi.dispatch(
-                addConnectedConnectId(device.connectId),
-              );
-            }
-          });
+        instance.on(
+          DEVICE.SUPPORT_FEATURES,
+          (features: DeviceSupportFeaturesPayload) => {
+            this._checkDeviceSettings(features);
+          },
+        );
 
-          instance.on(DEVICE.DISCONNECT, ({ device }: ConnectedEvent) => {
-            if (device.connectId) {
-              this.backgroundApi.dispatch(
-                removeConnectedConnectId(device.connectId),
-              );
-            }
-          });
-          instance.on(UI_REQUEST.PREVIOUS_ADDRESS_RESULT, (payload) => {
-            this.backgroundApi.dispatch(setPreviousAddress(payload));
-          });
-        }
-        return instance;
-      },
-    );
+        instance.on(DEVICE.CONNECT, ({ device }: ConnectedEvent) => {
+          if (device.connectId) {
+            this.backgroundApi.dispatch(
+              addConnectedConnectId(device.connectId),
+            );
+          }
+        });
+
+        instance.on(DEVICE.DISCONNECT, ({ device }: ConnectedEvent) => {
+          if (device.connectId) {
+            this.backgroundApi.dispatch(
+              removeConnectedConnectId(device.connectId),
+            );
+          }
+        });
+        instance.on(UI_REQUEST.PREVIOUS_ADDRESS_RESULT, (payload) => {
+          this.backgroundApi.dispatch(setPreviousAddress(payload));
+        });
+      }
+      return instance;
+    });
   }
 
   /*
@@ -447,7 +445,9 @@ class ServiceHardware extends ServiceBase {
           const deviceExist = bootloaderMode
             ? // bootloader mode does not have connect id for classic
               (response.payload ?? []).length > 0
-            : (response.payload ?? []).find((d) => d.connectId === connectId);
+            : (response.payload ?? []).find((d) =>
+                equalsIgnoreCase(d.connectId, connectId),
+              );
           if (deviceExist) {
             deviceUtils.stopScan();
             resolve(true);
@@ -932,6 +932,30 @@ class ServiceHardware extends ServiceBase {
         }
         return response.payload;
       });
+  }
+
+  @backgroundMethod()
+  async updateSettings({
+    hardwareConnectSrc,
+  }: {
+    hardwareConnectSrc?: string;
+  }) {
+    try {
+      const hardwareSDK = await this.getSDKInstance();
+      const connectSrc = generateConnectSrc(hardwareConnectSrc);
+      if (hardwareSDK && hardwareSDK.updateSettings) {
+        const res = await hardwareSDK?.updateSettings({ connectSrc });
+        debugLogger.hardwareSDK.debug(
+          'Switch hardware connect src success',
+          res,
+        );
+      }
+    } catch (e) {
+      debugLogger.hardwareSDK.debug(
+        'Switch hardware connect src setting failed',
+        e,
+      );
+    }
   }
 }
 

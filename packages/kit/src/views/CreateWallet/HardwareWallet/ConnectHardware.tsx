@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Badge,
@@ -13,6 +12,7 @@ import {
   Icon,
   Image,
   List,
+  ListItem,
   LottieView,
   Modal,
   ScrollView,
@@ -23,7 +23,6 @@ import {
 import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
 import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
-import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { Device } from '@onekeyhq/engine/src/types/device';
@@ -46,6 +45,7 @@ import type { SearchDevice } from '@onekeyhq/kit/src/utils/hardware';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types';
 
 import {
@@ -146,10 +146,11 @@ const ConnectHardwareModal: FC = () => {
         ...device,
         using: existHwWallets?.find(
           (w) =>
-            w.connectId === device.connectId && w.deviceId === device.deviceId,
+            equalsIgnoreCase(w.connectId, device.connectId) &&
+            equalsIgnoreCase(w.deviceId, device.deviceId),
         ),
-        useBefore: existHwWallets?.find(
-          (w) => w.connectId === device.connectId,
+        useBefore: existHwWallets?.find((w) =>
+          equalsIgnoreCase(w.connectId, device.connectId),
         ),
       }));
       return convertDevices;
@@ -330,10 +331,12 @@ const ConnectHardwareModal: FC = () => {
                 );
                 finishConnected(false);
               }
+            } else {
+              setIsConnectingDeviceId('');
+              deviceUtils.showErrorToast(err, 'action__connection_timeout');
             }
           } else {
             setIsConnectingDeviceId('');
-
             deviceUtils.showErrorToast(err, 'action__connection_timeout');
           }
         });
@@ -342,63 +345,63 @@ const ConnectHardwareModal: FC = () => {
     [serviceHardware, navigation, intl, checkBonded],
   );
 
-  const itemSeparatorComponent = useCallback(() => <Box h={4} />, []);
+  const itemSeparatorComponent = useCallback(() => <Box h={2} />, []);
   const rowRenderer = useCallback(
-    ({ index, item }: ListRenderItemInfo<SearchDeviceInfo>) => (
-      <PressableItem
-        flexDirection="row"
-        justifyContent="space-between"
-        alignItems="center"
+    ({ item }: ListRenderItemInfo<SearchDeviceInfo>) => (
+      <ListItem
+        h="64px"
         px="16px"
-        py="12px"
-        key={`${index}-${item.connectId ?? ''}`}
         bgColor="action-secondary-default"
-        borderRadius="12px"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="border-default"
-        // disabled={!!device.using}
+        pressedBgColor="surface-pressed"
+        hoveredBgColor="surface-hovered"
         onPress={() => {
           handleConnectDeviceWithDevice(item);
         }}
       >
-        <Box flexDirection="row" alignItems="center">
-          {/* TODO: Different type of icon */}
-          <Image
-            source={getDeviceIcon(item.deviceType)}
-            width={6}
-            height={36}
-          />
-          <Typography.Body1 ml={3}>{item.name}</Typography.Body1>
-        </Box>
+        <ListItem.Column
+          image={{
+            source: getDeviceIcon(item.deviceType),
+            width: '24px',
+            height: '36px',
+          }}
+        />
 
-        {/* {device.using ? (
-              <HStack alignItems="center">
-                <Badge
-                  size="sm"
-                  title={intl.formatMessage({ id: 'content__existing' })}
-                  type="success"
-                />
-              </HStack>
-            ) : ( */}
-        <Box flexDirection="row" alignItems="center">
-          {!!item.useBefore && platformEnv.isNative && (
-            <Badge
-              size="sm"
-              title={intl.formatMessage({
-                id: 'content__have_been_connected',
-              })}
-              type="success"
-            />
-          )}
-          {isConnectingDeviceId === item.connectId && (
-            <Spinner size="sm" ml={3} />
-          )}
-          <Box ml={3}>
-            <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+        <ListItem.Column
+          style={{
+            // @ts-ignore
+            userSelect: 'none',
+          }}
+          text={{
+            label: item.name,
+            size: 'sm',
+          }}
+        />
+
+        <ListItem.Column>
+          <Box
+            flex={1}
+            flexDirection="row"
+            alignItems="center"
+            justifyContent="flex-end"
+          >
+            {!!item.useBefore && platformEnv.isNative && (
+              <Badge
+                size="sm"
+                title={intl.formatMessage({
+                  id: 'content__have_been_connected',
+                })}
+                type="success"
+              />
+            )}
+            {isConnectingDeviceId === item.connectId && (
+              <Spinner size="sm" ml={3} />
+            )}
+            <Box ml={3}>
+              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
+            </Box>
           </Box>
-        </Box>
-        {/* )} */}
-      </PressableItem>
+        </ListItem.Column>
+      </ListItem>
     ),
     [handleConnectDeviceWithDevice, intl, isConnectingDeviceId],
   );
@@ -411,7 +414,8 @@ const ConnectHardwareModal: FC = () => {
           {intl.formatMessage({ id: 'modal__looking_for_devices_result' })}
         </Typography.Body2>
         <List
-          mt={4}
+          my={4}
+          px={2}
           data={devices}
           renderItem={rowRenderer}
           keyExtractor={(item: SearchDeviceInfo) =>

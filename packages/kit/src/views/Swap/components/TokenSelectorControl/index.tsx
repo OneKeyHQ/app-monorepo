@@ -66,11 +66,13 @@ const NetworkSelector: FC = () => {
               borderRadius="12"
               borderWidth={1}
               borderColor={
-                item.networkId === networkId ? 'interactive-default' : 'border-default'
+                item.networkId === networkId
+                  ? 'interactive-default'
+                  : 'border-default'
               }
             >
               {item.logoURI ? (
-                <Box mr="1">
+                <Box w="5" h="5" borderRadius="full" overflow="hidden" mr="1">
                   <NetImage width="20px" height="20px" src={item.logoURI} />
                 </Box>
               ) : null}
@@ -108,7 +110,7 @@ const NetworkSelector: FC = () => {
               bg="surface-neutral-subdued"
               borderRadius="12"
               borderWidth={1}
-              borderColor='border-default'
+              borderColor="border-default"
             >
               <Typography.Body2Strong>{`${
                 otherNetworkOptions.length
