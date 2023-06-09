@@ -12,6 +12,7 @@ import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/utils/errorUtils';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import showHardwarePopup from '../../views/Hardware/PopupHandle/showHardwarePopup';
@@ -170,8 +171,8 @@ class DeviceUtils {
       }
       retry += 1;
       const bondedDevices = await this.getBondedDevices();
-      const hasBonded = !!bondedDevices.find(
-        (bondedDevice) => bondedDevice.id === connectId,
+      const hasBonded = !!bondedDevices.find((bondedDevice) =>
+        equalsIgnoreCase(bondedDevice.id, connectId),
       );
       if (hasBonded) {
         this.checkBonded = false;

@@ -27,6 +27,7 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import MacPermission from './MacPermission';
 
@@ -139,7 +140,11 @@ const UpdateWarningModal: FC = () => {
       updateTouchResource();
       return;
     }
-    if ((response.payload ?? []).find((d) => d.connectId === connectId)) {
+    if (
+      (response.payload ?? []).find((d) =>
+        equalsIgnoreCase(d.connectId, connectId),
+      )
+    ) {
       setIsInBoardloader(false);
       rebootToBoardloader();
       return;
@@ -156,7 +161,11 @@ const UpdateWarningModal: FC = () => {
         if (!response.success) {
           return;
         }
-        if ((response.payload ?? []).find((d) => d.connectId === connectId)) {
+        if (
+          (response.payload ?? []).find((d) =>
+            equalsIgnoreCase(d.connectId, connectId),
+          )
+        ) {
           deviceUtils.stopScan();
           navigation.replace(HardwareUpdateModalRoutes.HardwareUpdatingModal, {
             device,
