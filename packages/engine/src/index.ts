@@ -37,6 +37,10 @@ import timelinePerfTrace, {
 } from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import {
+  getValidUnsignedMessage,
+  getValidUnsignedMessage,
+} from '@onekeyhq/shared/src/utils/messageUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { DbApi } from './dbs';
@@ -105,6 +109,7 @@ import { Validators } from './validators';
 import { createVaultHelperInstance } from './vaults/factory';
 import { createVaultSettings } from './vaults/factory.createVaultSettings';
 import { getMergedTxs } from './vaults/impl/evm/decoder/history';
+import { GethClient } from './vaults/impl/evm/sdk';
 import { IDecodedTxActionType } from './vaults/types';
 import { VaultFactory } from './vaults/VaultFactory';
 
@@ -155,8 +160,6 @@ import type {
   IVaultSettings,
 } from './vaults/types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
-import { GethClient } from './vaults/impl/evm/sdk';
 
 const updateTokenCache: {
   [networkId: string]: boolean;
@@ -638,6 +641,7 @@ class Engine {
                 coinType: a.coinType,
                 tokens: [],
                 address: a.address,
+                pubKey: get(a, 'pub', ''),
               }
             : this.getVault({ accountId: a.id, networkId }).then((vault) =>
                 vault.getOutputAccount().catch((error) => {
@@ -1176,6 +1180,7 @@ class Engine {
       coinType: dbAccount.coinType,
       tokens: [],
       address: dbAccount.address,
+      pubKey: get(dbAccount, 'pub', ''),
     };
   }
 
