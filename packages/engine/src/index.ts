@@ -156,6 +156,7 @@ import type {
 } from './vaults/types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
+import { GethClient } from './vaults/impl/evm/sdk';
 
 const updateTokenCache: {
   [networkId: string]: boolean;
@@ -2345,7 +2346,7 @@ class Engine {
 
     switch (impl) {
       case IMPL_EVM:
-        chainId = await this.providerManager.getEVMChainId(rpcURL);
+        chainId = await this.getEVMChainId(rpcURL);
         try {
           existingNetwork = await this.getNetwork(`${IMPL_EVM}--${chainId}`);
         } catch (e) {
@@ -2414,7 +2415,7 @@ class Engine {
     switch (impl) {
       case IMPL_EVM: {
         try {
-          networkId = await this.providerManager.getEVMChainId(params.rpcURL);
+          networkId = await this.getEVMChainId(params.rpcURL);
         } catch (e) {
           console.error(e);
         }
@@ -2676,6 +2677,11 @@ class Engine {
 
   getBackupUUID() {
     return this.dbApi.getBackupUUID();
+  }
+
+  async getEVMChainId(url: string): Promise<string> {
+    const client = new GethClient(url);
+    return client.getEVMChainId();
   }
 
   async dumpDataForBackup(password: string): Promise<BackupObject> {

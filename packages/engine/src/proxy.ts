@@ -304,14 +304,6 @@ class ProviderController extends BaseProviderController {
     return super.requireChainImpl(IMPL_MAPPINGS[impl]?.implName || impl);
   }
 
-  /**
-   * @deprecated The method should not be used, call Vault API directly.
-   */
-  async getEVMChainId(url: string): Promise<string> {
-    const client = new GethClient(url);
-    return parseInt(await client.rpc.call('eth_chainId', []), 16).toString();
-  }
-
   addressFromXpub(networkId: string, xpub: Buffer): Promise<string> {
     return this.addressFromPub(networkId, xpub.slice(-33).toString('hex'));
   }
