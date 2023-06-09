@@ -3815,6 +3815,48 @@ export const serverPresetNetworks = [
     'createdAt': '2023-05-31T00:29:24.951Z',
     'updatedAt': '2023-05-31T00:29:24.951Z',
   },
+  {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'lighting',
+    'decimals': 8,
+    'extensions': {
+      'position': 1,
+    },
+    'id': 'lighting--0',
+    'impl': 'lighting',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/btc/btc.png',
+    'name': 'Lighting',
+    'rpcURLs': [
+      {
+        'url': 'https://node.onekey.so/btc',
+      },
+      {
+        'url': 'https://1rpc.io/btc',
+      },
+    ],
+    'shortcode': 'lighting',
+    'shortname': 'Lighting',
+    'symbol': 'sats',
+    'feeMeta': {
+      'code': 'lighting',
+      'decimals': 8,
+      'symbol': 'sats',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'bitcoin',
+        'platform': 'ordinals',
+      },
+    ],
+    'explorers': [],
+    'status': 'LISTED',
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  },
 ] as unknown as IServerNetwork[];
 
 export const OnekeyNetworkUpdatedAt = 1685492989977;
