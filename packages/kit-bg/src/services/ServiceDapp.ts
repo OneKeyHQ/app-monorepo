@@ -38,7 +38,11 @@ import {
   isDappScopeMatchNetwork,
   waitForDataLoaded,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { IMPL_SOL, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_COSMOS,
+  IMPL_SOL,
+  SEPERATOR,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import urlUtils from '@onekeyhq/shared/src/utils/urlUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -135,7 +139,9 @@ class ServiceDapp extends ServiceBase {
             `${item.networkImpl}${SEPERATOR}1`,
           )
         ) {
-          item.address = accountAddress;
+          if (impl !== IMPL_COSMOS) {
+            item.address = accountAddress;
+          }
         }
       });
       return list;

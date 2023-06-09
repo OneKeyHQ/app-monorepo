@@ -36,6 +36,7 @@ import type {
   SYSFirmwareInfo,
 } from '@onekeyhq/kit/src/utils/updates/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import NeedBridgeDialog from '../../../../components/NeedBridgeDialog';
@@ -183,10 +184,10 @@ const UpdateInfoModal: FC = () => {
         findDevice = await engine.getHWDeviceByDeviceId(deviceId);
       } else if (walletId) {
         findDevice = await engine.getHWDeviceByWalletId(walletId);
-      } else if (deviceConnectId) {
+      } else if (deviceConnectId && typeof deviceConnectId === 'string') {
         findDevice =
-          (await engine.getHWDevices()).find(
-            (d) => d.mac === deviceConnectId,
+          (await engine.getHWDevices()).find((d) =>
+            equalsIgnoreCase(d.mac, deviceConnectId),
           ) ?? null;
       }
 

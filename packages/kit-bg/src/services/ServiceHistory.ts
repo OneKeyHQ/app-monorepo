@@ -20,6 +20,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
@@ -106,6 +107,12 @@ class ServiceHistory extends ServiceBase {
       passwordLoadedCallback = (isLoaded: boolean) =>
         this.backgroundApi.dispatch(setIsPasswordLoadedInVault(isLoaded));
     }
+
+    debugLogger.http.info('fetchOnChainHistory', {
+      networkId,
+      accountId,
+      tokenIdOnNetwork,
+    });
 
     return vault.fetchOnChainHistory({
       // TODO limit=50
