@@ -21,6 +21,7 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { IAccount, INetwork } from '@onekeyhq/engine/src/types';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
+import { IMPL_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -238,8 +239,9 @@ const Connection = () => {
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
 
-  const { networkImpl, network, accountAddress, account } =
+  const { networkImpl, network, accountAddress, accountPubKey, account } =
     useActiveWalletAccount();
+
   const { sourceInfo } = useDappParams();
   const { origin, scope, id } = sourceInfo ?? defaultSourceInfo;
   const computedIsRug = useMemo(() => isRug(origin), [origin]);
@@ -354,7 +356,11 @@ const Connection = () => {
         'Wallet or account not selected, you should create or import one.',
       );
     }
-    const address = accountAddress;
+    let address = accountAddress;
+    if (scope === IMPL_COSMOS) {
+      address = accountPubKey;
+    }
+
     let accounts: string | string[] | { accounts: string[] } = [address].filter(
       Boolean,
     );
@@ -379,7 +385,7 @@ const Connection = () => {
       address,
     });
     return accounts;
-  }, [accountAddress, networkImpl, origin, scope]);
+  }, [accountAddress, accountPubKey, networkImpl, origin, scope]);
 
   const dappApprove = useDappApproveAction({
     id,

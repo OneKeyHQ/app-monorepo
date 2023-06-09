@@ -80,6 +80,7 @@ import timelinePerfTrace, {
 } from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
@@ -990,13 +991,16 @@ class ServiceAccount extends ServiceBase {
       this.backgroundApi;
     const devices = await engine.getHWDevices();
     const networkId = appSelector((s) => s.general.activeNetworkId) || '';
-    const wallets: Wallet[] = appSelector((s) => s.runtime.wallets);
+    const wallets: Wallet[] = await engine.dbApi.getWallets({
+      includeAllPassphraseWallet: true,
+    });
 
     const networkImpl = getNetworkIdImpl(networkId);
 
     const existDeviceId = devices.find(
       (device) =>
-        device.mac === connectId && device.deviceId === features.device_id,
+        equalsIgnoreCase(device.mac, connectId) &&
+        equalsIgnoreCase(device.deviceId, features.device_id),
     )?.id;
 
     const useAda = networkImpl === IMPL_ADA;
@@ -1074,7 +1078,7 @@ class ServiceAccount extends ServiceBase {
           const rememberWalletConnectId = appSelector(
             (s) => s.hardware.pendingRememberWalletConnectId,
           );
-          if (rememberWalletConnectId === connectId) {
+          if (equalsIgnoreCase(rememberWalletConnectId, connectId)) {
             if (walletId) actions.push(rememberPassphraseWallet(walletId));
             actions.push(setPendingRememberWalletConnectId(undefined));
           }

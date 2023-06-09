@@ -1,6 +1,10 @@
 import memoizee from 'memoizee';
 
-import { HARDWARE_SDK_IFRAME_SRC } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  HARDWARE_SDK_IFRAME_SRC_ONEKEYCN,
+  HARDWARE_SDK_IFRAME_SRC_ONEKEYSO,
+  HARDWARE_SDK_VERSION,
+} from '@onekeyhq/shared/src/config/appConfig';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -16,8 +20,16 @@ import type {
 let HardwareSDK: CoreApi;
 let HardwareLowLevelSDK: LowLevelCoreApi;
 
+export const generateConnectSrc = (hardwareConnectSrc?: string) => {
+  let connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYSO}/${HARDWARE_SDK_VERSION}/`;
+  if (hardwareConnectSrc && hardwareConnectSrc.indexOf('onekeycn.com') > -1) {
+    connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYCN}/${HARDWARE_SDK_VERSION}/`;
+  }
+  return connectSrc;
+};
+
 export const getHardwareSDKInstance = memoizee(
-  async (params: { isPreRelease: boolean }) =>
+  async (params: { isPreRelease: boolean; hardwareConnectSrc?: string }) =>
     // eslint-disable-next-line no-async-promise-executor
     new Promise<CoreApi>(async (resolve, reject) => {
       if (HardwareSDK) {
@@ -32,7 +44,7 @@ export const getHardwareSDKInstance = memoizee(
       HardwareSDK = await importHardwareSDK();
 
       if (!platformEnv.isNative) {
-        let connectSrc = HARDWARE_SDK_IFRAME_SRC;
+        let connectSrc = generateConnectSrc(params.hardwareConnectSrc);
         if (platformEnv.isDesktop) {
           // @ts-expect-error
           const { sdkConnectSrc } = window.ONEKEY_DESKTOP_GLOBALS ?? {};

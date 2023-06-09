@@ -55,6 +55,7 @@ import {
 import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -178,7 +179,7 @@ export default class Vault extends VaultBase {
     )) as DBVariantAccount;
 
     const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
-      this.networkId,
+      networkId,
     );
 
     const address = baseAddressToAddress(
@@ -938,9 +939,8 @@ export default class Vault extends VaultBase {
       )) ?? [];
 
     const promises = explorerTxs.map(async (tx) => {
-      const historyTxToMerge = localHistory.find(
-        (item) =>
-          item.decodedTx.txid.toUpperCase() === tx.data.txhash.toUpperCase(),
+      const historyTxToMerge = localHistory.find((item) =>
+        equalsIgnoreCase(item.decodedTx.txid, tx.data.txhash),
       );
 
       if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
