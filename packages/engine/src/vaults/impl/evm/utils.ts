@@ -6,13 +6,18 @@ import {
   serialize,
 } from '@ethersproject/transactions';
 import {
+  SignTypedDataVersion,
+  TypedDataUtils,
   getEncryptionPublicKey,
+  legacyToBuffer,
   decrypt as mmSigUtilDecrypt,
+  typedSignatureHash,
 } from '@metamask/eth-sig-util';
 import BigNumber from 'bignumber.js';
 import {
   addHexPrefix,
   ecrecover,
+  hashPersonalMessage,
   pubToAddress,
   toBuffer,
 } from 'ethereumjs-util';
@@ -26,11 +31,47 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { check, checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { hashMessage } from './sdk';
-
 import type { Signer, Verifier } from '../../../proxy';
 import type { ISignedTxPro } from '../../types';
-import type { MessageTypes } from './sdk';
+
+export enum MessageTypes {
+  ETH_SIGN = 0,
+  PERSONAL_SIGN = 1,
+  TYPE_DATA_V1 = 2,
+  TYPE_DATA_V3 = 3,
+  TYPE_DATA_V4 = 4,
+}
+
+const hashMessage = (messageType: MessageTypes, message: string): string => {
+  switch (messageType) {
+    case MessageTypes.ETH_SIGN:
+      return addHexPrefix(message);
+    case MessageTypes.PERSONAL_SIGN:
+      return addHexPrefix(
+        hashPersonalMessage(legacyToBuffer(message)).toString('hex'),
+      );
+    case MessageTypes.TYPE_DATA_V1:
+      return addHexPrefix(typedSignatureHash(JSON.parse(message)));
+    case MessageTypes.TYPE_DATA_V3:
+      return addHexPrefix(
+        TypedDataUtils.eip712Hash(
+          JSON.parse(message),
+          SignTypedDataVersion.V3,
+        ).toString('hex'),
+      );
+    case MessageTypes.TYPE_DATA_V4:
+      return addHexPrefix(
+        TypedDataUtils.eip712Hash(
+          JSON.parse(message),
+          SignTypedDataVersion.V4,
+        ).toString('hex'),
+      );
+
+    default:
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      throw new Error(`Invalid messageType: ${messageType}`);
+  }
+};
 
 export async function mmDecrypt(
   serializedMessage: string,

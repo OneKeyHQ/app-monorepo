@@ -20,7 +20,7 @@ import type {
 import type { Signer, Verifier } from '@onekeyhq/engine/src/types/secret';
 import type { ISdkCfxTransaction } from '@onekeyhq/engine/src/vaults/impl/cfx/sdkCfx';
 import sdkCfx from '@onekeyhq/engine/src/vaults/impl/cfx/sdkCfx';
-import { MessageTypes } from '@onekeyhq/engine/src/vaults/impl/evm/sdk';
+import { MessageTypes } from '@onekeyhq/engine/src/vaults/impl/evm/utils';
 import { check, checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import {
   fromBigIntHex,
