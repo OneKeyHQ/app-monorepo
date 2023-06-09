@@ -200,17 +200,23 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
 
   return (
     <Box flexDirection="row" px={isVertical ? 1 : 0} mx={-3}>
-      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
+      <Pressable
+        flex={iconBoxFlex}
+        mx={3}
+        minW="56px"
+        alignItems="center"
+        isDisabled={wallet?.type === 'watching' || !account}
+        onPress={() => {
+          const { accountId, networkId } = getActiveWalletAccount();
+          sendToken({ accountId, networkId });
+        }}
+      >
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
           name="PaperAirplaneOutline"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
-          onPress={() => {
-            const { accountId, networkId } = getActiveWalletAccount();
-            sendToken({ accountId, networkId });
-          }}
         />
         <Typography.CaptionStrong
           textAlign="center"
@@ -223,23 +229,29 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         >
           {intl.formatMessage({ id: 'action__send' })}
         </Typography.CaptionStrong>
-      </Box>
-      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
+      </Pressable>
+      <Pressable
+        flex={iconBoxFlex}
+        mx={3}
+        minW="56px"
+        alignItems="center"
+        isDisabled={wallet?.type === 'watching' || !account}
+        onPress={() => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Receive,
+            params: {
+              screen: ReceiveTokenModalRoutes.ReceiveToken,
+              params: {},
+            },
+          });
+        }}
+      >
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
           name="QrCodeOutline"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
-          onPress={() => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Receive,
-              params: {
-                screen: ReceiveTokenModalRoutes.ReceiveToken,
-                params: {},
-              },
-            });
-          }}
         />
         <Typography.CaptionStrong
           textAlign="center"
@@ -252,15 +264,21 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         >
           {intl.formatMessage({ id: 'action__receive' })}
         </Typography.CaptionStrong>
-      </Box>
-      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
+      </Pressable>
+      <Pressable
+        flex={iconBoxFlex}
+        mx={3}
+        minW="56px"
+        alignItems="center"
+        isDisabled={wallet?.type === 'watching' || !account}
+        onPress={onSwap}
+      >
         <IconButton
           circle
           size={isSmallView ? 'xl' : 'lg'}
           name="ArrowsRightLeftOutline"
           type="basic"
           isDisabled={wallet?.type === 'watching' || !account}
-          onPress={onSwap}
         />
         <Typography.CaptionStrong
           textAlign="center"
@@ -273,7 +291,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         >
           {intl.formatMessage({ id: 'title__swap' })}
         </Typography.CaptionStrong>
-      </Box>
+      </Pressable>
 
       <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
         <AccountMoreMenu>
