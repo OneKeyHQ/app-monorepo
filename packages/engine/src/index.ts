@@ -28,6 +28,7 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
+  COINTYPE_LIGHTING,
   IMPL_EVM,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -37,6 +38,7 @@ import timelinePerfTrace, {
 } from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { DbApi } from './dbs';
@@ -155,7 +157,6 @@ import type {
   IVaultSettings,
 } from './vaults/types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
-import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 
 const updateTokenCache: {
   [networkId: string]: boolean;
@@ -719,7 +720,7 @@ class Engine {
     );
     const balancesAddress = await Promise.all(
       accounts.map(async (a) => {
-        if (a.type === AccountType.UTXO) {
+        if (a.type === AccountType.UTXO || a.coinType === COINTYPE_LIGHTING) {
           const address = await vault.getFetchBalanceAddress(a);
           return { address };
         }
@@ -902,7 +903,7 @@ class Engine {
 
     const balancesAddress = await Promise.all(
       accounts.map(async (a) => {
-        if (a.type === AccountType.UTXO) {
+        if (a.type === AccountType.UTXO || a.coinType === COINTYPE_LIGHTING) {
           const address = await vault.getFetchBalanceAddress(a);
           return { address };
         }

@@ -1,3 +1,6 @@
+import { sha256 } from '@noble/hashes/sha256';
+import { bytesToHex } from '@noble/hashes/utils';
+
 import { COINTYPE_LIGHTING } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { AccountType } from '../../../types/account';
@@ -10,6 +13,7 @@ import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { Signer } from '../../../proxy';
 import type { DBVariantAccount } from '../../../types/account';
 import type { IPrepareSoftwareAccountsParams } from '../../types';
+import type LightingVault from './Vault';
 
 export class KeyringHd extends KeyringHdBase {
   override getSigners(): Promise<Record<string, Signer>> {
@@ -33,21 +37,31 @@ export class KeyringHd extends KeyringHdBase {
     });
 
     console.log('nativeSegwitAddress', nativeSegwitAccounts);
+    const client = await (this.vault as LightingVault).getClient();
 
     const ret = [];
     for (const account of nativeSegwitAccounts) {
-      const sign = await signature({
-        msgPayload: {
-          type: 'register',
-          pubkey: account.xpub,
+      const accountExist = await client.checkAccountExist(account.address);
+      if (!accountExist) {
+        const hashPubKey = bytesToHex(sha256(account.xpub));
+        const sign = await signature({
+          msgPayload: {
+            type: 'register',
+            pubkey: hashPubKey,
+            address: account.address,
+          },
+          engine: this.engine,
+          path: account.path,
+          password,
+          entropy,
+        });
+        await client.createUser({
+          hashPubKey,
           address: account.address,
-        },
-        engine: this.engine,
-        path: account.path,
-        password,
-        entropy,
-      });
-      console.log('====>sign: ', sign);
+          signature: sign,
+        });
+        console.log('====>sign: ', sign);
+      }
       const path = `m/44'/${COINTYPE_LIGHTING}'/${account.index}`;
       ret.push({
         id: `${this.walletId}--${path}`,
@@ -57,10 +71,13 @@ export class KeyringHd extends KeyringHdBase {
         coinType: COINTYPE_LIGHTING,
         pub: account.xpub,
         address: account.address,
-        addresses: { 'normalized': account.address, realPath: account.path },
+        addresses: {
+          normalizedAddress: account.address,
+          realPath: account.path,
+        },
       });
     }
 
-    console.log('ret ====> :', ret);
+    return ret;
   }
 }
