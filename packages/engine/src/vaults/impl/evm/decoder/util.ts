@@ -1,3 +1,4 @@
+import { AddressInfo } from '../../../../types/provider';
 import { ethers } from '../sdk';
 
 import type Vault from '../Vault';
@@ -25,11 +26,7 @@ const jsonToEthersTx = (json: string): Promise<ethers.Transaction> => {
   /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
 };
 
-const getTxCount = async (address: string, vault: Vault) => {
-  const addressInfos = await vault.engine.providerManager.getAddresses(
-    vault.networkId,
-    [address],
-  );
+const getTxCount = (addressInfos: (AddressInfo | undefined)[]) => {
   let nonce = 0;
   if (!!addressInfos && addressInfos.length > 0) {
     const addressInfo = addressInfos[0];

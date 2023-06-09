@@ -1703,17 +1703,19 @@ export default class Vault extends VaultBase {
     return new GethClient(url);
   }
 
-  fetchTokenInfos(
+  async fetchTokenInfos(
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo | undefined>> {
-    return this.engine.providerManager.getTokenInfos(
-      this.networkId,
-      tokenAddresses,
-    );
+    const client = await this.getClient();
+    return client.getTokenInfos(tokenAddresses);
   }
 
   override async getAccountNonce(): Promise<number | null> {
-    const nonce = await getTxCount(await this.getAccountAddress(), this);
+    const client = await this.getClient();
+    const addressInfos = await client.getAddresses([
+      await this.getAccountAddress(),
+    ]);
+    const nonce = getTxCount(addressInfos);
     return nonce;
   }
 
@@ -1743,7 +1745,9 @@ export default class Vault extends VaultBase {
     const {
       decodedItem: { fromAddress },
     } = pendings[0];
-    const nonce = await getTxCount(fromAddress, this);
+    const client = await this.getClient();
+    const addressInfos = await client.getAddresses([fromAddress]);
+    const nonce = getTxCount(addressInfos);
 
     const updatedStatusMap: Record<string, HistoryEntryStatus> = {};
     updatedStatuses.forEach((status, index) => {
@@ -2262,7 +2266,8 @@ export default class Vault extends VaultBase {
   }
 
   override async fetchRpcChainId(url: string): Promise<string> {
-    const chainId = await this.engine.providerManager.getEVMChainId(url);
+    const client = await this.getClient<GethClient>();
+    const chainId = await client.getEVMChainId();
     return String(chainId);
   }
 

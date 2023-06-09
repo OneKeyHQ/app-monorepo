@@ -385,6 +385,10 @@ class GethClient extends BaseClient {
       calls.map((i) => ['eth_call', [i, GethClient.__LAST_BLOCK__]]),
     );
   }
+
+  async getEVMChainId(): Promise<string> {
+    return parseInt(await this.rpc.call('eth_chainId', []), 16).toString();
+  }
 }
 
 export { GethClient };

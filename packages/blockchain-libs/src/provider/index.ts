@@ -30,6 +30,10 @@ import {
 import type BigNumber from 'bignumber.js';
 
 class MockClient extends SimpleClient {
+
+  /**
+   * @deprecated The method should not be used.
+   */
   broadcastTransaction(rawTx: string, options?: any): Promise<string> {
     console.error(
       'Calling MockClient, please implement method in Vaults directly',
@@ -37,6 +41,9 @@ class MockClient extends SimpleClient {
     return Promise.resolve('');
   }
 
+  /**
+   * @deprecated The method should not be used.
+   */
   getAddress(address: string): Promise<AddressInfo> {
     console.error(
       'Calling MockClient, please implement method in Vaults directly',
@@ -44,6 +51,9 @@ class MockClient extends SimpleClient {
     return Promise.resolve(undefined as any);
   }
 
+  /**
+   * @deprecated The method should not be used.
+   */
   getFeePricePerUnit(): Promise<FeePricePerUnit> {
     console.error(
       'Calling MockClient, please implement method in Vaults directly',
@@ -51,6 +61,9 @@ class MockClient extends SimpleClient {
     return Promise.resolve(undefined as any);
   }
 
+  /**
+   * @deprecated The method should not be used.
+   */
   getInfo(): Promise<ClientInfo> {
     console.error(
       'Calling MockClient, please implement method in Vaults directly',
@@ -58,6 +71,9 @@ class MockClient extends SimpleClient {
     return Promise.resolve(undefined as any);
   }
 
+  /**
+   * @deprecated The method should not be used.
+   */
   getTransactionStatus(txid: string): Promise<TransactionStatus> {
     console.error(
       'Calling MockClient, please implement method in Vaults directly',
@@ -67,6 +83,10 @@ class MockClient extends SimpleClient {
 }
 
 class MockProvider extends BaseProvider {
+
+  /**
+   * @deprecated The method should not be used.
+   */
   buildUnsignedTx(unsignedTx: UnsignedTx): Promise<UnsignedTx> {
     console.error(
       'Calling MockProvider, please implement method in Vaults directly',
@@ -75,6 +95,9 @@ class MockProvider extends BaseProvider {
     return Promise.resolve(undefined as any);
   }
 
+  /**
+   * @deprecated The method should not be used.
+   */
   pubkeyToAddress(verifier: Verifier, encoding?: string): Promise<string> {
     console.error(
       'Calling MockProvider, please implement method in Vaults directly',
@@ -82,6 +105,9 @@ class MockProvider extends BaseProvider {
     return Promise.resolve('');
   }
 
+  /**
+   * @deprecated The method should not be used.
+   */
   signTransaction(
     unsignedTx: UnsignedTx,
     signers: { [p: string]: Signer },
@@ -93,6 +119,9 @@ class MockProvider extends BaseProvider {
     return Promise.resolve(undefined as any);
   }
 
+  /**
+   * @deprecated The method should not be used.
+   */
   verifyAddress(address: string): Promise<AddressValidation> {
     console.error(
       'Calling MockProvider, please implement method in Vaults directly',
@@ -145,7 +174,9 @@ class ProviderController {
     this.chainSelector = chainSelector;
   }
 
-  // TODO legacy getRpcClient
+  /**
+   * @deprecated The method should not be used.
+   */
   async getClient(
     chainCode: string,
     filter?: ClientFilter,
@@ -213,6 +244,9 @@ class ProviderController {
     return client;
   }
 
+  /**
+   * @deprecated The method should not be used.
+   */
   getProvider(chainCode: string): Promise<BaseProvider> {
     const chainInfo = this.chainSelector(chainCode);
     const { Provider } = this.requireChainImpl(chainInfo.impl);
@@ -226,14 +260,23 @@ class ProviderController {
     );
   }
 
+  /**
+   * @deprecated The method should not be used.
+   */
   requireChainImpl(impl: string): any {
     return checkIsDefined(IMPLS[impl]);
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   getInfo(chainCode: string): Promise<ClientInfo> {
     return this.getClient(chainCode).then((client) => client.getInfo());
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   getAddresses(
     chainCode: string,
     address: Array<string>,
@@ -243,6 +286,9 @@ class ProviderController {
     );
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   async getBalances(
     chainCode: string,
     requests: Array<{ address: string; coin: Partial<CoinInfo> }>,
@@ -252,6 +298,9 @@ class ProviderController {
     );
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   getTransactionStatuses(
     chainCode: string,
     txids: Array<string>,
@@ -261,12 +310,18 @@ class ProviderController {
     );
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   getFeePricePerUnit(chainCode: string): Promise<FeePricePerUnit> {
     return this.getClient(chainCode).then((client) =>
       client.getFeePricePerUnit(),
     );
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   broadcastTransaction(
     chainCode: string,
     rawTx: string,
@@ -277,6 +332,9 @@ class ProviderController {
     );
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   getTokenInfos(
     chainCode: string,
     tokenAddresses: Array<string>,
@@ -286,6 +344,9 @@ class ProviderController {
     );
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   getUTXOs(
     chainCode: string,
     address: Array<string>,
@@ -295,6 +356,9 @@ class ProviderController {
     );
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   buildUnsignedTx(
     chainCode: string,
     unsignedTx: UnsignedTx,
@@ -304,6 +368,9 @@ class ProviderController {
     );
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   pubkeyToAddress(
     chainCode: string,
     verifier: Verifier,
@@ -314,6 +381,9 @@ class ProviderController {
     );
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   signTransaction(
     chainCode: string,
     unsignedTx: UnsignedTx,
@@ -324,6 +394,9 @@ class ProviderController {
     );
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   verifyAddress(
     chainCode: string,
     address: string,
@@ -333,6 +406,9 @@ class ProviderController {
     );
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   verifyTokenAddress(
     chainCode: string,
     address: string,
@@ -342,6 +418,9 @@ class ProviderController {
     );
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   signMessage(
     chainCode: string,
     message: TypedMessage,
@@ -353,6 +432,9 @@ class ProviderController {
     );
   }
 
+  /**
+   * @deprecated The method should not be used, call Vault API directly.
+   */
   verifyMessage(
     chainCode: string,
     address: string,
