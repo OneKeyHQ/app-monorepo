@@ -214,9 +214,7 @@ export default class Vault extends VaultBase {
   };
 
   private async getChainInfoImplOptions() {
-    const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
-      this.networkId,
-    );
+    const chainInfo = await this.getChainInfo();
     return chainInfo.implOptions;
   }
 

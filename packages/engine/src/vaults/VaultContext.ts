@@ -17,6 +17,7 @@ import type { Engine } from '../index';
 import type { DBAccount, DBVariantAccount } from '../types/account';
 import type { Network } from '../types/network';
 import type { IVaultFactoryOptions, IVaultOptions } from './types';
+import { fromDBNetworkToChainInfo } from '../proxy';
 
 export class VaultContextBase {
   constructor(options: IVaultFactoryOptions) {
@@ -116,6 +117,12 @@ export class VaultContext extends VaultContextBase {
       this._network = await this.engine.getNetwork(this.networkId);
     }
     return this._network;
+  }
+
+  async getChainInfo() {
+    const network = await this.getNetwork();
+    const dbNetwork = await this.engine.dbApi.getNetwork(network.id);
+    return fromDBNetworkToChainInfo(dbNetwork);
   }
 
   async getRpcUrl() {

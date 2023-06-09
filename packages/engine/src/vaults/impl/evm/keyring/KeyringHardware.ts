@@ -31,15 +31,12 @@ type Curve = 'secp256k1' | 'ed25519';
 
 export class KeyringHardware extends KeyringHardwareBase {
   async getVerifier(pub: string): Promise<Verifier> {
-    const provider =
-      await this.vault.engine.providerManager.getChainInfoByNetworkId(
-        this.networkId,
-      );
-    if (typeof provider === 'undefined') {
+    const chainInfo = await this.vault.getChainInfo();
+    if (typeof chainInfo === 'undefined') {
       throw new OneKeyInternalError('Provider not found.');
     }
 
-    return new Verifier(pub, provider.curve as Curve);
+    return new Verifier(pub, chainInfo.curve as Curve);
   }
 
   async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {

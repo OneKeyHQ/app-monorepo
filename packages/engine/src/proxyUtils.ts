@@ -160,7 +160,7 @@ export const IMPL_MAPPINGS: Record<
   string,
   { implName?: string; defaultClient: string }
 > = {
-  [IMPL_EVM]: { implName: 'eth', defaultClient: 'GethClient' },
+  [IMPL_EVM]: { implName: 'eth', defaultClient: 'Geth' },
   [IMPL_SOL]: { defaultClient: 'Solana' },
   [IMPL_ALGO]: { defaultClient: 'Algod' },
   [IMPL_NEAR]: { defaultClient: 'NearCli' },
