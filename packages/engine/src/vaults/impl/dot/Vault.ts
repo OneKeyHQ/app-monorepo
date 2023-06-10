@@ -279,7 +279,7 @@ export default class Vault extends VaultBase {
     return this.getScanClientCache();
   }
 
-  private async getChainInfo() {
+  override async getChainInfo() {
     return this.engine.providerManager.getChainInfoByNetworkId(this.networkId);
   }
 

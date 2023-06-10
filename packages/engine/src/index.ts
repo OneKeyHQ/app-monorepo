@@ -37,10 +37,7 @@ import timelinePerfTrace, {
 } from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
-import {
-  getValidUnsignedMessage,
-  getValidUnsignedMessage,
-} from '@onekeyhq/shared/src/utils/messageUtils';
+import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import { DbApi } from './dbs';

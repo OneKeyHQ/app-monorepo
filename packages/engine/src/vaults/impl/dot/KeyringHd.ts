@@ -36,7 +36,7 @@ const HARDEN_PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
-  private async getChainInfo() {
+  override async getChainInfo() {
     return this.engine.providerManager.getChainInfoByNetworkId(this.networkId);
   }
 

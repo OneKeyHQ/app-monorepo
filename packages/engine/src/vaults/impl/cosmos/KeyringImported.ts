@@ -23,7 +23,7 @@ import type { IEncodedTxCosmos } from './type';
 
 // @ts-ignore
 export class KeyringImported extends KeyringImportedBase {
-  private async getChainInfo() {
+  override async getChainInfo() {
     return this.engine.providerManager.getChainInfoByNetworkId(this.networkId);
   }
 

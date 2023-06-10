@@ -10,6 +10,7 @@ import {
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
 } from '../managers/account';
+import { fromDBNetworkToChainInfo } from '../proxy';
 import { AccountType } from '../types/account';
 
 import type { BaseClient } from '../client/BaseClient';
@@ -17,7 +18,6 @@ import type { Engine } from '../index';
 import type { DBAccount, DBVariantAccount } from '../types/account';
 import type { Network } from '../types/network';
 import type { IVaultFactoryOptions, IVaultOptions } from './types';
-import { fromDBNetworkToChainInfo } from '../proxy';
 
 export class VaultContextBase {
   constructor(options: IVaultFactoryOptions) {
@@ -66,11 +66,14 @@ export class VaultContext extends VaultContextBase {
 
   _dbAccount!: DBAccount;
 
-  getClientCache = memoizee(async (rpcUrl) => this.getSDKClient(rpcUrl), {
-    promise: true,
-    max: 1,
-    maxAge: getTimeDurationMs({ minute: 3 }),
-  });
+  getClientFromCache = memoizee(
+    async (rpcUrl) => this.getClientFactory(rpcUrl),
+    {
+      promise: true,
+      max: 1,
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
 
   // TODO resetCache after dbAccount and network DB updated
 
@@ -130,13 +133,13 @@ export class VaultContext extends VaultContextBase {
   }
 
   // TODO: Need to be modified to an abstract class
-  getSDKClient(url: string): BaseClient {
+  getClientFactory(url: string): BaseClient {
     throw new NotImplemented('need to be implemented getSDKClient');
   }
 
-  async getClient<T extends BaseClient>(url?: string): Promise<T> {
+  async getSDKClient<T extends BaseClient>(url?: string): Promise<T> {
     const rpcURL = await this.getRpcUrl();
-    return this.getClientCache(url ?? rpcURL) as Promise<T>;
+    return this.getClientFromCache(url ?? rpcURL) as Promise<T>;
   }
 
   async getClientApi<T>() {

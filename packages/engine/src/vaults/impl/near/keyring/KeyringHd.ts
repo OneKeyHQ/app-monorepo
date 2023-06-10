@@ -3,7 +3,7 @@ import type { CurveName } from '@onekeyhq/engine/src/secret';
 import { COINTYPE_NEAR as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../../errors';
-import { Signer } from '../../../../proxy';
+import { Signer, Verifier } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
 import { baseEncode, signTransaction } from '../utils';
@@ -22,16 +22,6 @@ import type {
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 
 export class KeyringHd extends KeyringHdBase {
-  public getVerifier(networkId: string, pub: string): IVerifier {
-    const provider = this.providers[networkId];
-    if (typeof provider === 'undefined') {
-      throw new OneKeyInternalError('Provider not found.');
-    }
-
-    const { curve } = this.providers[networkId].chainInfo;
-    return new Verifier(pub, curve as Curve);
-  }
-
   // TODO define a basePrepareAccounts() in base class
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,

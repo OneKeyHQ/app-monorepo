@@ -135,7 +135,7 @@ export default class Vault extends VaultBase {
     return this.getClientCache(rpcURL);
   }
 
-  private async getChainInfo() {
+  override async getChainInfo() {
     const chainInfo = await this.engine.providerManager.getChainInfoByNetworkId(
       this.networkId,
     );

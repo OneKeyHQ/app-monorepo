@@ -29,7 +29,7 @@ const { bufferToU8a, u8aConcat } = polkadotSdk;
 
 // @ts-ignore
 export class KeyringImported extends KeyringImportedBase {
-  private async getChainInfo() {
+  override async getChainInfo() {
     return this.engine.providerManager.getChainInfoByNetworkId(this.networkId);
   }
 
