@@ -271,7 +271,7 @@ const BitcoinUsedAddressList: FC<IUsedAddressListProps> = ({
       </>
     ),
     [config.showPath],
-  );
+);
   const rowRenderer = useCallback(
     ({ item }: ListRenderItemInfo<BtcForkChainUsedAccount>) => (
       <AccountCell

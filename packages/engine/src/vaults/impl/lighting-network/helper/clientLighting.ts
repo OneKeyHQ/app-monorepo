@@ -1,17 +1,27 @@
-import { sha256 } from '@noble/hashes/sha256';
-import { bytesToHex as toHex } from '@noble/hashes/utils';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 
 import { getFiatEndpoint } from '../../../../endpoint';
 
 import type { IBalanceResponse, ICreateUserResponse } from '../types/account';
-import type { AxiosInstance } from 'axios';
+import type { AxiosError, AxiosInstance, AxiosPromise } from 'axios';
+
+type IExchangeToken = () => Promise<{
+  hashPubKey: string;
+  address: string;
+  signature: string;
+} | null>;
+
+let isRefreshing = false;
+let subscribers: (() => AxiosPromise<any>)[] = [];
 
 class ClientLighting {
   readonly request: AxiosInstance;
 
-  constructor() {
+  exchangeToken?: IExchangeToken;
+
+  constructor(exchangeToken?: IExchangeToken) {
+    this.exchangeToken = exchangeToken;
     this.request = axios.create({
       // baseURL: `${getFiatEndpoint()}/api`,
       baseURL: `http://localhost:9000/api/lighting`,
@@ -24,6 +34,47 @@ class ClientLighting {
       }
       return config;
     });
+
+    this.request.interceptors.response.use(
+      (response) => response,
+      (error: AxiosError) => {
+        const status = error.response ? error.response.status : null;
+        if (status === 401) {
+          if (!isRefreshing) {
+            isRefreshing = true;
+            const originalConfig = error.config;
+            subscribers.push(() => this.request(originalConfig));
+            this.refreshAccessToken()
+              .then(() => {
+                subscribers.forEach((callback) => callback());
+                subscribers = [];
+              })
+              .finally(() => {
+                isRefreshing = false;
+              });
+          }
+          return new Promise((resolve) => {
+            subscribers.push((() => {
+              this.request(error.config).then(resolve);
+            }) as any);
+          });
+        }
+        return Promise.reject(error);
+      },
+    );
+  }
+
+  async refreshAccessToken() {
+    try {
+      const params = await this.exchangeToken?.();
+      if (!params) {
+        throw new Error('no exchange token params');
+      }
+      await this.request.post('/account/auth', { ...params });
+    } catch (e) {
+      console.log('=====>>>exchange token failed: ', e);
+      throw e;
+    }
   }
 
   async checkAccountExist(address: string) {
@@ -53,14 +104,18 @@ class ClientLighting {
   }
 
   async getBalance(address: string) {
-    return this.request
-      .get<IBalanceResponse>('/account/balance', {
-        params: { address },
-      })
-      .then((i) => {
-        const { balance } = i.data;
-        return new BigNumber(balance);
-      });
+    try {
+      return await this.request
+        .get<IBalanceResponse>('/account/balance', {
+          params: { address },
+        })
+        .then((i) => {
+          const { balance } = i.data;
+          return new BigNumber(balance);
+        });
+    } catch (e) {
+      return new BigNumber(1);
+    }
   }
 }
 

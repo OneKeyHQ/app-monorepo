@@ -26,6 +26,8 @@ const settings: IVaultSettings = Object.freeze({
       coinType: COINTYPE_LIGHTING,
     },
   },
+
+  validationRequired: true,
 });
 
 export default settings;
