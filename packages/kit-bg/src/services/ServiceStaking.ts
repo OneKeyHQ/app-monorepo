@@ -50,6 +50,7 @@ import ServiceBase from './ServiceBase';
 
 import type { BigNumber } from '@ethersproject/bignumber';
 import type { AxiosResponse } from 'axios';
+import { GethClient } from '@onekeyhq/engine/src/vaults/impl/evm/sdk';
 
 export interface SerializableTransactionReceipt {
   to: string;
@@ -527,7 +528,7 @@ export default class ServiceStaking extends ServiceBase {
       });
 
     const vault = (await engine.getVault({ networkId, accountId })) as EvmVault;
-    const client = await vault.getJsonRPCClient();
+    const client = await vault.getSDKClient<GethClient>();
 
     const calls = [{ to: nftAddr, data: getWithdrawalRequestsCalldata }];
 
