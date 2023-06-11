@@ -291,16 +291,16 @@ const SwapMinimumReceived = () => {
 
 const SwapPriceImpact = () => {
   const intl = useIntl();
-  const quote = useAppSelector(s => s.swap.quote);
+  const quote = useAppSelector((s) => s.swap.quote);
   if (!quote) {
-    return null
+    return null;
   }
-  
+
   const num = Number(quote.estimatedPriceImpact);
   if (num === 0 || Number.isNaN(num)) {
-    return null
+    return null;
   }
-  const value = `${formatAmount(quote?.estimatedPriceImpact, 4)}%`
+  const value = `${formatAmount(quote?.estimatedPriceImpact, 4)}%`;
   return (
     <Box
       display="flex"

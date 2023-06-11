@@ -4,8 +4,12 @@ import { bytesToHex } from '@noble/hashes/utils';
 import * as necc from '@noble/secp256k1';
 import BigNumber from 'bignumber.js';
 
-import ecc from '../../../utils/btcForkChain/provider/nobleSecp256k1Wrapper';
-import { hexlify, stripHexPrefix } from '../../../utils/hexUtils';
+import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
+import ecc from '@onekeyhq/engine/src/vaults/utils/btcForkChain/provider/nobleSecp256k1Wrapper';
+import {
+  hexlify,
+  stripHexPrefix,
+} from '@onekeyhq/engine/src/vaults/utils/hexUtils';
 
 import { DEFAULT_SEQNUMBER } from './constant';
 import { UnspentOutput } from './types';
@@ -40,6 +44,13 @@ export function toTransaction(tx: IEncodedTxKaspa): Transaction {
   let sendAmount = new BigNumber(value);
   if (tx.hasMaxSend) {
     sendAmount = sendAmount.minus(mass);
+  }
+
+  if (sendAmount.isLessThan(0)) {
+    throw new OneKeyInternalError(
+      'Insufficient Balance.',
+      'msg__insufficient_balance',
+    );
   }
 
   const txn = new Transaction()
