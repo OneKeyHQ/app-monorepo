@@ -1,18 +1,23 @@
 import { Transaction } from '@kaspa/core-lib';
 import { bytesToHex } from '@noble/hashes/utils';
 
+import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
+import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
+import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
+import { AccountType } from '@onekeyhq/engine/src/types/account';
+import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import { KeyringHardwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringHardwareBase';
+import type {
+  IHardwareGetAddressParams,
+  IPrepareHardwareAccountsParams,
+} from '@onekeyhq/engine/src/vaults/types';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
   IMPL_KASPA as COIN_IMPL,
   COINTYPE_KASPA as COIN_TYPE,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-
-import { OneKeyHardwareError } from '../../../errors';
-import { slicePathTemplate } from '../../../managers/derivation';
-import { getAccountNameInfoByImpl } from '../../../managers/impl';
-import { AccountType } from '../../../types/account';
-import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
 import { SignType, publicKeyFromX } from './sdk';
 import {
@@ -21,12 +26,6 @@ import {
   toTransaction,
 } from './sdk/transaction';
 
-import type { DBSimpleAccount } from '../../../types/account';
-import type { SignedTx, UnsignedTx } from '../../../types/provider';
-import type {
-  IHardwareGetAddressParams,
-  IPrepareHardwareAccountsParams,
-} from '../../types';
 import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
 
 // @ts-ignore

@@ -1,3 +1,4 @@
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { RestfulRequest } from '@onekeyhq/shared/src/request/RestfulRequest';
 
 import { getFiatEndpoint } from './endpoint';
@@ -41,6 +42,7 @@ export const getBalancesFromApi = async ({
   if (tokenAddresses?.length) {
     query.contract_addresses = tokenAddresses;
   }
+  debugLogger.http.info('getBalancesFromApi', query);
   return (await req
     .get('/token/balances', query)
     .then((res) => res.json())) as TokenBalancesResponse;

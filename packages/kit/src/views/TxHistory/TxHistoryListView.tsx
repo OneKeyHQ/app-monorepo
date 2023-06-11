@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 
@@ -24,6 +23,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
+import { useVisibilityFocused } from '../../hooks/useVisibilityFocused';
 import { wait } from '../../utils/helper';
 import { useIsAtHomeTab } from '../../utils/routeUtils';
 import { TxListItemView } from '../TxDetail/TxListItemView';
@@ -245,6 +245,8 @@ function TxHistoryListViewComponent({
   const { serviceHistory } = backgroundApiProxy;
   const refreshHistoryTs = useAppSelector((s) => s.refresher.refreshHistoryTs);
 
+  const isFocused = useVisibilityFocused();
+
   const fetchHistoryTx = useCallback(
     async (options: { refresh?: boolean } = {}): Promise<IHistoryTx[]> => {
       const { refresh = true } = options;
@@ -279,7 +281,6 @@ function TxHistoryListViewComponent({
     () => fetchHistoryTx({ refresh: false }),
     [fetchHistoryTx],
   );
-  const isFocused = useIsFocused();
 
   const shouldDoRefresh = useMemo((): boolean => {
     if (!accountId || !networkId) {

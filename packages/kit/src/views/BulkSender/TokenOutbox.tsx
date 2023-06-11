@@ -306,7 +306,6 @@ function TokenOutbox(props: Props) {
   useFocusEffect(
     useCallback(() => {
       if (accountId && networkId) {
-        serviceToken.startRefreshAccountTokens();
         serviceOverview.startQueryPendingTasks();
         serviceToken.fetchAccountTokens({
           accountId,
@@ -314,7 +313,6 @@ function TokenOutbox(props: Props) {
         });
       }
       return () => {
-        serviceToken.stopRefreshAccountTokens();
         serviceOverview.stopQueryPendingTasks();
       };
     }, [accountId, networkId, serviceOverview, serviceToken]),
