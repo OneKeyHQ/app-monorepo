@@ -7,7 +7,10 @@ import memoizee from 'memoizee';
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import type { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import type {
+  FeePricePerUnit,
+  TransactionStatus,
+} from '@onekeyhq/engine/src/types/provider';
 import type {
   IBlockBookTransaction,
   IBtcUTXO,
@@ -641,21 +644,35 @@ export default class VaultBtcFork extends VaultBase {
         ).fee,
     );
 
-    const blockNums = this.getDefaultBlockNums();
     return {
       isBtcForkChain: true,
       limit: (feeLimit ?? new BigNumber(0)).toFixed(), // bytes in BTC
       prices,
       feeList,
-      waitingSeconds: blockNums.map(
-        (numOfBlocks) => numOfBlocks * this.getDefaultBlockTime(),
-      ),
+      waitingSeconds: await this.getTxWaitingSeconds(),
       defaultPresetIndex: '1',
       feeSymbol: 'BTC',
       feeDecimals: network.feeDecimals,
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
       tx: null, // Must be null if network not support feeInTx
+    };
+  }
+
+  override async getTxWaitingSeconds(): Promise<Array<number>> {
+    const blockNums = this.getDefaultBlockNums();
+    return blockNums.map(
+      (numOfBlocks) => numOfBlocks * this.getDefaultBlockTime(),
+    );
+  }
+
+  override async getFeePricePerUnit(): Promise<FeePricePerUnit> {
+    const feeRates = await this.getFeeRate();
+    const prices = feeRates.map((price) => new BigNumber(price));
+
+    return {
+      normal: { price: prices[1] },
+      others: [{ price: prices[0] }, { price: prices[2] }],
     };
   }
 
