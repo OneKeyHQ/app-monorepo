@@ -50,7 +50,7 @@ export const generateNativeSegwitAccounts = async ({
     (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
 
   const ret = [];
-  const index = 0;
+  let index = 0;
   for (const { path, parentFingerPrint, extendedKey } of pubkeyInfos) {
     const xpub = bs58check.encode(
       Buffer.concat([
@@ -82,6 +82,7 @@ export const generateNativeSegwitAccounts = async ({
         address,
       });
     }
+    index += 1;
   }
   return ret;
 };

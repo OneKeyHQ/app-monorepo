@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -83,7 +83,63 @@ const WalletTabs: FC = () => {
 
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
-  const walletTabs = (
+  const walletTabs = useMemo(
+    () => [
+      <Tabs.Tab
+        name={WalletHomeTabEnum.Tokens}
+        label={intl.formatMessage({ id: 'asset__tokens' })}
+      >
+        <>
+          <AssetsList
+            accountId={accountId}
+            networkId={networkId}
+            ListFooterComponent={<Box h={6} />}
+            limitSize={10}
+            renderDefiList
+          />
+          <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
+          <GuideToPushFirstTimeCheck />
+        </>
+      </Tabs.Tab>,
+      network?.settings.hiddenNFTTab ? null : (
+        <Tabs.Tab
+          name={WalletHomeTabEnum.Collectibles}
+          label={intl.formatMessage({ id: 'asset__collectibles' })}
+        >
+          <NFTList />
+        </Tabs.Tab>
+      ),
+      <Tabs.Tab
+        name={WalletHomeTabEnum.History}
+        label={intl.formatMessage({ id: 'transaction__history' })}
+      >
+        <TxHistoryListView
+          accountId={account?.id}
+          networkId={network?.id}
+          isHomeTab
+        />
+      </Tabs.Tab>,
+      network?.settings.hiddenToolTab ? null : (
+        <Tabs.Tab
+          name={WalletHomeTabEnum.Tools}
+          label={intl.formatMessage({ id: 'form__tools' })}
+        >
+          <ToolsPage />
+        </Tabs.Tab>
+      ),
+    ],
+    [
+      accountId,
+      intl,
+      networkId,
+      account?.id,
+      network?.id,
+      network?.settings.hiddenNFTTab,
+      network?.settings.hiddenToolTab,
+    ],
+  );
+
+  const walletTabsContainer = (
     <Tabs.Container
       canOpenDrawer
       initialTabName={homeTabName}
@@ -112,45 +168,7 @@ const WalletTabs: FC = () => {
         flex: 1,
       }}
     >
-      <Tabs.Tab
-        name={WalletHomeTabEnum.Tokens}
-        label={intl.formatMessage({ id: 'asset__tokens' })}
-      >
-        <>
-          <AssetsList
-            accountId={accountId}
-            networkId={networkId}
-            ListFooterComponent={<Box h={6} />}
-            limitSize={10}
-            renderDefiList
-          />
-          <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
-          <GuideToPushFirstTimeCheck />
-        </>
-      </Tabs.Tab>
-      <Tabs.Tab
-        name={WalletHomeTabEnum.Collectibles}
-        label={intl.formatMessage({ id: 'asset__collectibles' })}
-      >
-        <NFTList />
-      </Tabs.Tab>
-      <Tabs.Tab
-        name={WalletHomeTabEnum.History}
-        label={intl.formatMessage({ id: 'transaction__history' })}
-      >
-        <TxHistoryListView
-          accountId={account?.id}
-          networkId={network?.id}
-          isHomeTab
-        />
-        {/* )} */}
-      </Tabs.Tab>
-      <Tabs.Tab
-        name={WalletHomeTabEnum.Tools}
-        label={intl.formatMessage({ id: 'form__tools' })}
-      >
-        <ToolsPage />
-      </Tabs.Tab>
+      {walletTabs.filter(Boolean).map((tab) => tab)}
     </Tabs.Container>
   );
 
@@ -171,12 +189,12 @@ const WalletTabs: FC = () => {
             { '0': network.name },
           )}
         >
-          {() => walletTabs}
+          {() => walletTabsContainer}
         </Protected>
       </Center>
     );
   }
-  return walletTabs;
+  return walletTabsContainer;
 };
 
 export default function Wallet() {

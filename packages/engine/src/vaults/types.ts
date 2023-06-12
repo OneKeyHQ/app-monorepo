@@ -118,6 +118,8 @@ export type IVaultSettings = {
   isBtcForkChain?: boolean;
   nonceEditable?: boolean;
   signOnlyReturnFullTx?: boolean;
+  hiddenNFTTab?: boolean;
+  hiddenToolTab?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;

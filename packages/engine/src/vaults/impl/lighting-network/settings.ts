@@ -28,6 +28,8 @@ const settings: IVaultSettings = Object.freeze({
   },
 
   validationRequired: true,
+  hiddenNFTTab: true,
+  hiddenToolTab: true,
 });
 
 export default settings;
