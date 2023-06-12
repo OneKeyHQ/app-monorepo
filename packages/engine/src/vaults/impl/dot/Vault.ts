@@ -417,6 +417,7 @@ export default class Vault extends VaultBase {
         try {
           // const balances = await client.query.balances.account(address);
           const {
+            // @ts-ignore
             data: { free: previousFree },
             // nonce: previousNonce,
           } = await client.query.system.account(address);
