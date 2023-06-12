@@ -124,6 +124,19 @@ export const swapTransactionsSlice = createSlice({
         }
       });
     },
+    setTransactionViewed(state, action: PayloadAction<{ txids: string[] }>) {
+      const { txids } = action.payload;
+      const accountsTransactions = Object.values(state.transactions);
+      const allTransactions = accountsTransactions.reduce(
+        (result, item) => result.concat(...Object.values(item)),
+        [] as TransactionDetails[],
+      );
+      allTransactions.forEach((item) => {
+        if (txids.includes(item.hash)) {
+          item.viewed = true;
+        }
+      });
+    },
     clearTransactions(state) {
       state.transactions = {};
     },
@@ -274,6 +287,7 @@ export const {
   addTransaction,
   updateTransaction,
   archiveTransaction,
+  setTransactionViewed,
   clearTransactions,
   clearAccountTransactions,
   updateTokenList,
