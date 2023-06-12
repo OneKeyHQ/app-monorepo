@@ -420,7 +420,7 @@ export function isSimpleTx(tx: TransactionDetails) {
   const from = tx.tokens?.from;
   const to = tx.tokens?.to;
   const quoterType = getQuoteType(tx);
-  if (quoterType === QuoterType.swftc) {
+  if (quoterType === QuoterType.swftc || quoterType === QuoterType.jupiter) {
     return false;
   }
   return from?.networkId === to?.networkId;
