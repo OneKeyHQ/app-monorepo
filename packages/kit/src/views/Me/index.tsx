@@ -19,7 +19,7 @@ export const Me = (options: any) => {
   // useHideTabNavigatorHeader();
   const { enable: devModeEnable } = useSettings().devMode || {};
 
-  console.log('me options >>>>', options);
+  console.log('Me screen options >>>>', options);
   const inset = useSafeAreaInsets();
 
   return (
