@@ -4,7 +4,7 @@ import { Freeze } from 'react-freeze';
 import { StyleSheet, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
-import { homeTab } from '../../../../store/reducers/webTabs';
+import { homeTab } from '../../../../store/observable/webTabs';
 import DiscoverHome from '../../Home';
 import WebContent from '../Content/WebContent';
 import { onItemSelect, openMatchDApp } from '../Controller/gotoSite';
