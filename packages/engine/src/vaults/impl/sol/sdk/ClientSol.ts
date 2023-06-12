@@ -179,7 +179,13 @@ export class ClientSol extends BaseClient {
   ): Promise<Array<TransactionStatus | undefined>> {
     const calls: Array<any> = txids.map((txid) => [
       RPC_METHODS.GET_TRANSACTION,
-      [txid, PARAMS_ENCODINGS.JSON_PARSED],
+      [
+        txid,
+        {
+          encoding: PARAMS_ENCODINGS.JSON_PARSED,
+          maxSupportedTransactionVersion: 0,
+        },
+      ],
     ]);
     const result = [];
     const resp: Array<{ [key: string]: any } | undefined> =

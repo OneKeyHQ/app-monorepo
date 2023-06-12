@@ -331,12 +331,14 @@ const TransactionField: FC<TransactionFieldProps> = ({
 
 type ViewInBrowserSelectorItem = {
   label: string;
+  header: string;
   value?: string;
   logoURI?: string;
   url?: string;
 };
 
 type Option = {
+  header: string;
   label: string;
   logoURI: string;
   value: string;
@@ -351,12 +353,14 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
   const options = useMemo(() => {
     let base: Option[] = [
       {
+        header: intl.formatMessage({ id: 'form__from_uppercase' }),
         label: fromNetwork?.shortName ?? '',
         logoURI: fromNetwork?.logoURI ?? '',
         value: tx.hash ?? '',
         url: buildTransactionDetailsUrl(fromNetwork, tx.hash),
       },
       {
+        header: intl.formatMessage({ id: 'form__to_uppercase' }),
         label: toNetwork?.shortName ?? '',
         logoURI: toNetwork?.logoURI ?? '',
         value: tx.destinationTransactionHash ?? '',
@@ -369,6 +373,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
     if (tx.quoterType === 'socket') {
       const socketOption: Option[] = [
         {
+          header: intl.formatMessage({ id: 'form__provider_uppercase' }),
           label: 'Socketscan',
           logoURI: 'https://common.onekey-asset.com/logo/SocketBridge.png',
           value: 'Socketscan',
@@ -378,7 +383,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
       base = socketOption.concat(base);
     }
     return base;
-  }, [tx, fromNetwork, toNetwork]);
+  }, [tx, fromNetwork, toNetwork, intl]);
   const onPress = useCallback((_: any, item: any) => {
     // eslint-disable-next-line
     if (item.url) {
@@ -399,7 +404,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
     <Select
       footer={null}
       title={intl.formatMessage({
-        id: 'title__select_blockchain_browser',
+        id: 'action__view_in_browser',
       })}
       isTriggerPlain
       options={options}
@@ -411,27 +416,35 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
         const token = item as unknown as ViewInBrowserSelectorItem;
         return (
           <Pressable
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
             key={item.value}
-            h="12"
+            py="2"
             px="3"
             onPress={() => onChange?.('', item)}
           >
-            <Box flexDirection="row" alignItems="center">
-              <TokenIcon size="8" token={token} />
-              <Typography.Body1Strong ml={3}>
-                {token.label}
-              </Typography.Body1Strong>
+            <Typography.Subheading mb="3">{token.header}</Typography.Subheading>
+            <Box
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <Box flexDirection="row" alignItems="center">
+                <TokenIcon size="8" token={token} />
+                <Typography.Body1Strong ml={3}>
+                  {token.label}
+                </Typography.Body1Strong>
+              </Box>
+              {!token.value ? (
+                <Typography.Body1 color="text-disabled">
+                  {intl.formatMessage({
+                    id: 'transaction__swap_status_waiting',
+                  })}
+                </Typography.Body1>
+              ) : (
+                <Center w="5" h="5">
+                  <Icon name="ChevronRightMini" size={16} />
+                </Center>
+              )}
             </Box>
-            {!token.value ? (
-              <Typography.Body1 color="text-disabled">
-                {intl.formatMessage({
-                  id: 'transaction__swap_status_waiting',
-                })}
-              </Typography.Body1>
-            ) : null}
           </Pressable>
         );
       }}
