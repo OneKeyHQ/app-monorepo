@@ -100,6 +100,7 @@ export type IActiveWalletAccount = {
   accountId: string;
   networkImpl: string;
   accountAddress: string;
+  accountPubKey: string;
   isCompatibleNetwork: boolean;
 };
 
@@ -130,6 +131,7 @@ export const {
   const networkImpl = activeNetwork?.impl || '';
   const networkId = activeNetworkId || '';
   const accountAddress = activeAccountInfo?.address || '';
+  const accountPubKey = activeAccountInfo?.pubKey || '';
   const accountId = activeAccountId || '';
   const walletId = activeWalletId || '';
 
@@ -155,6 +157,7 @@ export const {
     networkId,
     networkImpl,
     accountAddress,
+    accountPubKey,
     walletId,
     isCompatibleNetwork,
   };
