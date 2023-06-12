@@ -1,4 +1,4 @@
-import type { OneKeyWalletConnector } from '@onekeyhq/kit/src/components/WalletConnect/OneKeyWalletConnector';
+import type { IWalletConnectRequestOptions } from '@onekeyhq/kit/src/components/WalletConnect/types';
 
 import type ProviderApiWalletConnect from './ProviderApiWalletConnect';
 import type { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
@@ -22,20 +22,25 @@ export abstract class WalletConnectRequestProxy {
       request = this.ethereumRequest(connector, payload);
     }
    */
-  async request<T>(connector: OneKeyWalletConnector, data: any): Promise<T> {
+  async request<T>(
+    options: IWalletConnectRequestOptions,
+    data: any,
+  ): Promise<T> {
     const resp = await this.client.backgroundApi.handleProviderMethods<T>({
       scope: this.providerName,
-      origin: this.client.getConnectorOrigin(connector),
+      origin: this.client.getConnectorOrigin(options),
       data,
     });
     return Promise.resolve(resp.result as T);
   }
 
-  abstract connect(connector: OneKeyWalletConnector): Promise<string[]>;
+  abstract connect(options: IWalletConnectRequestOptions): Promise<string[]>;
 
-  abstract getAccounts(connector: OneKeyWalletConnector): Promise<string[]>;
+  abstract getAccounts(
+    options: IWalletConnectRequestOptions,
+  ): Promise<string[]>;
 
   abstract getChainId(
-    connector: OneKeyWalletConnector,
+    options: IWalletConnectRequestOptions,
   ): Promise<number | undefined>;
 }

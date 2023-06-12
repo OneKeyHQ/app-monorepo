@@ -31,6 +31,7 @@ class WebStorage implements AsyncStorageStatic {
 
   isMigrated = false;
 
+  // migrate legacy data from localStorage to indexedDB
   async migrateFromLocalStorage(): Promise<boolean> {
     return this.mutex.runExclusive(async () => {
       if (this.isMigrated) {
