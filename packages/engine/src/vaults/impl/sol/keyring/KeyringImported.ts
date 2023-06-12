@@ -4,18 +4,18 @@ import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_SOL as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { OneKeyInternalError } from '../../../errors';
-import { Signer } from '../../../proxy';
-import { AccountType } from '../../../types/account';
-import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
+import { OneKeyInternalError } from '../../../../errors';
+import { Signer } from '../../../../proxy';
+import { AccountType } from '../../../../types/account';
+import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
 
-import { signMessage, signTransaction } from './utils';
+import { signMessage, signTransaction } from '../utils';
 
-import type { DBSimpleAccount } from '../../../types/account';
+import type { DBSimpleAccount } from '../../../../types/account';
 import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
-} from '../../types';
+} from '../../../types';
 
 export class KeyringImported extends KeyringImportedBase {
   override async prepareAccounts(
