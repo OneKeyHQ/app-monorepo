@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/require-await */
 
+import { batch } from '@legendapp/state';
 import uuid from 'react-native-uuid';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
+import { webTabsActions } from '@onekeyhq/kit/src/store/observable/webTabs';
 import {
   addBookmark,
   cleanOldState,
@@ -17,7 +19,7 @@ import {
   setHomeData,
   updateBookmark,
 } from '@onekeyhq/kit/src/store/reducers/discover';
-import { setWebTabData } from '@onekeyhq/kit/src/store/reducers/webTabs';
+import { getWebTabs } from '@onekeyhq/kit/src/views/Discover/Explorer/Controller/useWebTabs';
 import type { MatchDAppItemType } from '@onekeyhq/kit/src/views/Discover/Explorer/explorerUtils';
 import type {
   BookmarkItem,
@@ -215,16 +217,17 @@ class ServicDiscover extends ServiceBase {
 
   @backgroundMethod()
   async addFavorite(url: string) {
-    const { dispatch, appSelector } = this.backgroundApi;
+    const { dispatch } = this.backgroundApi;
     const bookmarkId = uuid.v4() as string;
-    const tabs = appSelector((s) => s.webTabs.tabs);
+    const { tabs } = getWebTabs();
     const list = tabs.filter((tab) => tab.url === url);
-    const base = addBookmark({ url, id: bookmarkId });
 
-    const actions = list.map((tab) =>
-      setWebTabData({ ...tab, isBookmarked: true }),
-    );
-    dispatch(base, ...actions);
+    dispatch(addBookmark({ url, id: bookmarkId }));
+    batch(() => {
+      list.forEach((tab) =>
+        webTabsActions.setWebTabData({ ...tab, isBookmarked: true }),
+      );
+    });
 
     const urlInfo = await this.getUrlInfo(url);
     if (urlInfo) {
@@ -246,12 +249,14 @@ class ServicDiscover extends ServiceBase {
     const item = bookmarks?.find((o) => o.url === url);
     if (item) {
       const base = removeBookmark(item);
-      const tabs = appSelector((s) => s.webTabs.tabs);
+      const { tabs } = getWebTabs();
       const list = tabs.filter((tab) => tab.url === url);
-      const actions = list.map((tab) =>
-        setWebTabData({ ...tab, isBookmarked: false }),
-      );
-      dispatch(base, ...actions);
+      dispatch(base);
+      batch(() => {
+        list.forEach((tab) =>
+          webTabsActions.setWebTabData({ ...tab, isBookmarked: false }),
+        );
+      });
     }
   }
 
