@@ -41,7 +41,7 @@ const CreateInvoice = () => {
 
   const { networkId, accountId } = route.params ?? {};
   const { network } = useNetwork({ networkId });
-  const { control, formState, trigger, handleSubmit } = useForm<FormValues>({
+  const { control, handleSubmit } = useForm<FormValues>({
     mode: 'onChange',
   });
   const [validateMessage, setvalidateMessage] = useState({
@@ -67,9 +67,12 @@ const CreateInvoice = () => {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Receive,
           params: {
-            screen: ReceiveTokenModalRoutes.CreateInvoice,
+            screen: ReceiveTokenModalRoutes.ReceiveInvoice,
             params: {
               networkId,
+              accountId,
+              paymentRequest: invoice.payment_request,
+              paymentHash: invoice.payment_hash,
             },
           },
         });

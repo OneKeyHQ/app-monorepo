@@ -22,4 +22,10 @@ export type ReceiveTokenRoutesParams = {
     networkId?: string;
     accountId?: string;
   };
+  [ReceiveTokenModalRoutes.ReceiveInvoice]: {
+    networkId?: string;
+    accountId?: string;
+    paymentHash: string;
+    paymentRequest: string;
+  };
 };

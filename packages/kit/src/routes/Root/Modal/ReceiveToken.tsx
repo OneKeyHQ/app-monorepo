@@ -1,5 +1,6 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
+import ReceiveInvoice from '../../../views/LightingNetwork/Receive';
 import CreateInvoice from '../../../views/LightingNetwork/Receive/CreateInvoice';
 import ReceiveToken from '../../../views/ReceiveToken';
 import { ReceiveTokenModalRoutes } from '../../../views/ReceiveToken/types';
@@ -18,6 +19,10 @@ const modalRoutes = [
   {
     name: ReceiveTokenModalRoutes.CreateInvoice,
     component: CreateInvoice,
+  },
+  {
+    name: ReceiveTokenModalRoutes.ReceiveInvoice,
+    component: ReceiveInvoice,
   },
 ];
 
