@@ -1,18 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../../../hooks';
 import {
   homeResettingFlags,
   homeTab,
-  setWebTabData,
-} from '../../../../store/reducers/webTabs';
+  webTabsActions,
+} from '../../../../store/observable/webTabs';
 import { webviewRefs } from '../explorerUtils';
 
 import { gotoSite } from './gotoSite';
-import { getWebTabs } from './useWebTabs';
+import { getWebTabs, useWebTabs } from './useWebTabs';
 import { useWebviewRef } from './useWebviewRef';
 
 import type { OnWebviewNavigation } from '../explorerUtils';
@@ -51,16 +49,14 @@ export const onNavigation: OnWebviewNavigation = ({
     gotoSite({ url, title, favicon, isNewWindow, isInPlace, id: curId });
   }
 
-  backgroundApiProxy.dispatch(
-    setWebTabData({
-      id: curId,
-      title,
-      favicon,
-      canGoBack,
-      canGoForward,
-      loading,
-    }),
-  );
+  webTabsActions.setWebTabData({
+    id: curId,
+    title,
+    favicon,
+    canGoBack,
+    canGoForward,
+    loading,
+  });
 };
 
 export const useWebController = ({
@@ -72,18 +68,15 @@ export const useWebController = ({
       navigationStateChangeEvent?: WebViewNavigation;
     }
   | undefined = {}) => {
-  const { dispatch } = backgroundApiProxy;
-  const { currentTabId, tabs } = useAppSelector((s) => s.webTabs);
+  const { currentTabId, tabs, tab } = useWebTabs(id);
   const curId = id || currentTabId;
   const [innerRef, setInnerRef] = useState(webviewRefs[curId]?.innerRef);
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  const tab = useMemo(() => tabs.find((t) => t.id === curId), [curId, tabs])!;
 
   useEffect(() => {
-    if (tab.refReady) {
+    if (tab?.refReady) {
       setInnerRef(webviewRefs[curId]?.innerRef);
     }
-  }, [curId, tab.refReady]);
+  }, [curId, tab?.refReady]);
 
   const { goBack, goForward, stopLoading, reload } = useWebviewRef({
     // @ts-expect-error
@@ -111,12 +104,10 @@ export const useWebController = ({
       if (canGoBack) {
         goBack();
       } else {
-        dispatch(
-          setWebTabData({
-            ...homeTab,
-            id: curId,
-          }),
-        );
+        webTabsActions.setWebTabData({
+          ...homeTab,
+          id: curId,
+        });
       }
     },
     goForward,

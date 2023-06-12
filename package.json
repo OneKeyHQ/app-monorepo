@@ -58,6 +58,7 @@
     ]
   },
   "dependencies": {
+    "@legendapp/state": "^1.2.7",
     "@onekeyfe/blockchain-libs": "0.0.48",
     "@onekeyfe/cross-inpage-provider-core": "1.1.29",
     "@onekeyfe/cross-inpage-provider-errors": "1.1.29",
@@ -80,7 +81,7 @@
     "axios": "^0.27.2",
     "bitcoinjs-lib": "6.1.0",
     "bitcoinjs-message": "2.2.0",
-    "expo": "^48.0.17",
+    "expo": "^48.0.19",
     "expo-device": "^5.0.0",
     "jsrsasign": "^10.7.1",
     "memoizee": "^0.4.15",
@@ -136,7 +137,6 @@
     "eslint-plugin-react": "^7.31.11",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eth-rpc-errors": "^4.0.3",
-    "expo": "^48.0.17",
     "expo-yarn-workspaces": "^2.1.0",
     "file-loader": "^6.2.0",
     "fs-extra": "^10.0.0",
