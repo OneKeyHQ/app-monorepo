@@ -100,6 +100,11 @@ export default class Vault extends VaultBase {
     return Promise.resolve(account.addresses.normalizedAddress);
   }
 
+  async getCurrentBalanceAddress(): Promise<string> {
+    const account = (await this.getDbAccount()) as DBVariantAccount;
+    return account.addresses.normalizedAddress;
+  }
+
   override async getAccountBalance(
     tokenIds: string[],
     withMain?: boolean,
@@ -136,5 +141,16 @@ export default class Vault extends VaultBase {
       }),
     );
     return result;
+  }
+
+  async createInvoice(
+    amount: string,
+    description?: string,
+    password?: string,
+    passwordLoadedCallback?: (isLoaded: boolean) => void,
+  ) {
+    const client = await this.getClient(password);
+    const address = await this.getCurrentBalanceAddress();
+    return client.createInvoice(address, amount, description);
   }
 }

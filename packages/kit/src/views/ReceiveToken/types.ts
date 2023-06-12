@@ -18,4 +18,8 @@ export type ReceiveTokenRoutesParams = {
     customPath?: string;
     template?: string;
   };
+  [ReceiveTokenModalRoutes.CreateInvoice]: {
+    networkId?: string;
+    accountId?: string;
+  };
 };

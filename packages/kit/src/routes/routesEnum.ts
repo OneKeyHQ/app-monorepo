@@ -204,6 +204,7 @@ export { SendModalRoutes } from '../views/Send/enums';
 
 export enum ReceiveTokenModalRoutes {
   ReceiveToken = 'ReceiveToken',
+  CreateInvoice = 'CreateInvoice',
 }
 
 export enum CreateAccountModalRoutes {

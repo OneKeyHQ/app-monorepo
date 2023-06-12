@@ -3827,7 +3827,7 @@ export const serverPresetNetworks = [
     'impl': 'lighting',
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/btc/btc.png',
-    'name': 'Lighting',
+    'name': 'Lighting Network',
     'rpcURLs': [
       {
         'url': 'https://node.onekey.so/btc',

@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { getFiatEndpoint } from '../../../../endpoint';
 
 import type { IBalanceResponse, ICreateUserResponse } from '../types/account';
+import type { ICretaeInvoiceResponse } from '../types/invoice';
 import type { AxiosError, AxiosInstance, AxiosPromise } from 'axios';
 
 type IExchangeToken = () => Promise<{
@@ -116,6 +117,16 @@ class ClientLighting {
     } catch (e) {
       return new BigNumber(1);
     }
+  }
+
+  async createInvoice(address: string, amount: string, description?: string) {
+    return this.request
+      .post<ICretaeInvoiceResponse>('/invoices/create', {
+        address,
+        amount,
+        description: description || 'OneKey Invoice',
+      })
+      .then((i) => i.data);
   }
 }
 

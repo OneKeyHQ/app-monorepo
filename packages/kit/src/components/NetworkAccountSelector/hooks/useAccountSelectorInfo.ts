@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import type { INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import type { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -85,6 +86,11 @@ export function useAccountSelectorInfo() {
       networkId ? engine.getNetworkSafe(networkId) : Promise.resolve(null),
     [networkId, enabledNetworks],
   );
+  const { result: selectedNetworkSettings } = usePromiseResult(
+    (): Promise<IVaultSettings | null | undefined> =>
+      networkId ? engine.getVaultSettings(networkId) : Promise.resolve(null),
+    [networkId, enabledNetworks],
+  );
 
   const isAccountsGroupEmpty = useMemo(() => {
     if (!accountsGroup?.length) {
@@ -109,6 +115,7 @@ export function useAccountSelectorInfo() {
 
       selectedNetwork, // TODO selectedNetworkLazy
       selectedNetworkId,
+      selectedNetworkSettings,
       selectedWallet, // TODO selectedWalletLazy
       selectedWalletId,
 
@@ -138,6 +145,7 @@ export function useAccountSelectorInfo() {
       isOpen,
       selectedNetwork,
       selectedNetworkId,
+      selectedNetworkSettings,
       selectedWallet,
       selectedWalletId,
       accountsGroup,

@@ -4,6 +4,7 @@ import { useLayoutEffect, useMemo } from 'react';
 
 import { Box, Pressable, Skeleton, Text } from '@onekeyhq/components';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import type { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
 
 import { useActiveWalletAccount, useAppSelector } from '../../../../../hooks';
 import { useNativeTokenBalance } from '../../../../../hooks/useTokens';
@@ -20,6 +21,7 @@ type ListItemProps = {
   wallet: IWallet;
   network: INetwork | null | undefined;
   networkId: string | undefined;
+  networkSettings: IVaultSettings | null | undefined;
   walletId: string | undefined;
   onLastItemRender?: () => void;
 };
@@ -29,6 +31,7 @@ const defaultProps = {} as const;
 const ListItem: FC<ListItemProps> = ({
   account,
   network,
+  networkSettings,
   label,
   address,
   // balance,
@@ -114,10 +117,20 @@ const ListItem: FC<ListItemProps> = ({
               {label}
             </Text>
             <Box flexDirection="row">
-              <Text typography="Body2" color="text-subdued">
-                {address}
-              </Text>
-              <Box w={1} h={1} m={2} bgColor="icon-disabled" rounded="full" />
+              {networkSettings?.hiddenAddress ? null : (
+                <>
+                  <Text typography="Body2" color="text-subdued">
+                    {address}
+                  </Text>
+                  <Box
+                    w={1}
+                    h={1}
+                    m={2}
+                    bgColor="icon-disabled"
+                    rounded="full"
+                  />
+                </>
+              )}
               {nativeBalance ? (
                 <>
                   <Text typography="Body2" color="text-subdued" isTruncated>
