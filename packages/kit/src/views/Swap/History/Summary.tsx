@@ -15,7 +15,7 @@ const PendingTxs = () => {
   const pendings = allTransactions.filter((tx) => tx.status === 'pending');
 
   return pendings.length ? (
-    <Box mt="4">
+    <Box mb="4">
       <Alert
         title={intl.formatMessage(
           {
@@ -55,7 +55,7 @@ const FailedTxs = () => {
   }
   if (confirmedTxs.length === 1) {
     return (
-      <Box mt="4">
+      <Box mb="4">
         <Alert
           title={summaryTx(confirmedTxs[0])}
           alertType="error"
@@ -65,7 +65,7 @@ const FailedTxs = () => {
     );
   }
   return (
-    <Box mt="4">
+    <Box mb="4">
       <Alert
         title={intl.formatMessage(
           {
@@ -83,7 +83,7 @@ const FailedTxs = () => {
 };
 
 const SwapTransactions = () => (
-  <Center px="4">
+  <Center>
     <Box width="full">
       <PendingTxs />
       <FailedTxs />

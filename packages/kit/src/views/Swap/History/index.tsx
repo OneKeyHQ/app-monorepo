@@ -49,9 +49,49 @@ const ListEmptyComponent = () => {
   );
 };
 
+const ListTableHeader = () => {
+  const isSmall = useIsVerticalLayout();
+  const intl = useIntl();
+  return !isSmall ? (
+    <Box flexDirection="row" alignItems="center">
+      <Box flexBasis="18%">
+        <Typography.Subheading color="text-subdued">
+          {intl.formatMessage({ id: 'action__receive' })}
+        </Typography.Subheading>
+      </Box>
+      <Box flexBasis="18%">
+        <Typography.Subheading color="text-subdued">
+          {intl.formatMessage({ id: 'form__pay' })}
+        </Typography.Subheading>
+      </Box>
+      <Box flexBasis="18%">
+        <Typography.Subheading color="text-subdued">
+          {intl.formatMessage({ id: 'Rate' })}
+        </Typography.Subheading>
+      </Box>
+      <Box flexBasis="18%">
+        <Typography.Subheading color="text-subdued">
+          {intl.formatMessage({ id: 'content__created' })}
+        </Typography.Subheading>
+      </Box>
+      <Box flexBasis="18%">
+        <Typography.Subheading color="text-subdued">
+          {intl.formatMessage({ id: 'form__provider_uppercase' })}
+        </Typography.Subheading>
+      </Box>
+      <Box flexBasis="10%">
+        <Typography.Subheading color="text-subdued">
+          {intl.formatMessage({ id: 'form__status' })}
+        </Typography.Subheading>
+      </Box>
+    </Box>
+  ) : null;
+};
+
 const ListHeaderComponent = () => (
   <Box>
     <Summary />
+    <ListTableHeader />
   </Box>
 );
 
@@ -158,47 +198,13 @@ const HistoryLayout: FC = ({ children }) => {
         display="flex"
         justifyContent="space-between"
         flexDirection="row"
-        mb="8"
+        mb="4"
       >
         <Typography.DisplayLarge px="4">
           {intl.formatMessage({ id: 'title__swap_history' })}
         </Typography.DisplayLarge>
         <TrashButton />
       </Box>
-      {!isSmall ? (
-        <Box flexDirection="row" alignItems="center">
-          <Box flexBasis="18%">
-            <Typography.Subheading color="text-subdued">
-              {intl.formatMessage({ id: 'action__receive' })}
-            </Typography.Subheading>
-          </Box>
-          <Box flexBasis="18%">
-            <Typography.Subheading color="text-subdued">
-              {intl.formatMessage({ id: 'form__pay' })}
-            </Typography.Subheading>
-          </Box>
-          <Box flexBasis="18%">
-            <Typography.Subheading color="text-subdued">
-              {intl.formatMessage({ id: 'Rate' })}
-            </Typography.Subheading>
-          </Box>
-          <Box flexBasis="18%">
-            <Typography.Subheading color="text-subdued">
-              {intl.formatMessage({ id: 'content__created' })}
-            </Typography.Subheading>
-          </Box>
-          <Box flexBasis="18%">
-            <Typography.Subheading color="text-subdued">
-              {intl.formatMessage({ id: 'form__provider_uppercase' })}
-            </Typography.Subheading>
-          </Box>
-          <Box flexBasis="10%">
-            <Typography.Subheading color="text-subdued">
-              {intl.formatMessage({ id: 'form__status' })}
-            </Typography.Subheading>
-          </Box>
-        </Box>
-      ) : null}
       {children}
     </Box>
   );
