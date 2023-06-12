@@ -1,0 +1,205 @@
+{
+  "verify_certificate": {
+    "v1": {
+      "area": "none",
+      "command": "802A1810",
+      "ignoreSafeChannel": true,
+      "useSafeChannel": false,
+      "needData": true
+    },
+    "v2": {
+      "area": "none",
+      "command": "802A1810",
+      "ignoreSafeChannel": true,
+      "useSafeChannel": false,
+      "needData": true
+    }
+  },
+  "verify_auth_data": {
+    "v1": {
+      "area": "none",
+      "command": "80821815",
+      "ignoreSafeChannel": true,
+      "useSafeChannel": false,
+      "needData": true
+    },
+    "v2": {
+      "area": "none",
+      "command": "80821815",
+      "ignoreSafeChannel": true,
+      "useSafeChannel": false,
+      "needData": true
+    }
+  },
+  "select_primary_safety": {
+    "v1": {
+      "area": "none",
+      "command": "00A40400",
+      "useSafeChannel": false,
+      "needData": false
+    },
+    "v2": {
+      "area": "none",
+      "command": "00A40400",
+      "ignoreSafeChannel": true,
+      "useSafeChannel": false,
+      "needData": false
+    }
+  },
+  "select_backup_applet": {
+    "v1": {
+      "area": "none",
+      "command": "00A40400",
+      "useSafeChannel": false,
+      "needData": true
+    },
+    "v2": {
+      "area": "none",
+      "command": "00A40400",
+      "ignoreSafeChannel": true,
+      "useSafeChannel": false,
+      "needData": true
+    }
+  },
+  "get_backup_status": {
+    "v1": {
+      "area": "backup",
+      "command": "806A0000",
+      "useSafeChannel": false,
+      "needData": false
+    },
+    "v2": {
+      "area": "backup",
+      "command": "806A0000",
+      "useSafeChannel": false,
+      "needData": false
+    }
+  },
+  "get_pin_status": {
+    "v1": {
+      "area": "master",
+      "command": "80CB8000",
+      "useSafeChannel": false,
+      "needData": true
+    },
+    "v2": {
+      "area": "backup",
+      "command": "80CB8000",
+      "useSafeChannel": false,
+      "needData": true
+    }
+  },
+  "get_serial_number": {
+    "v1": {
+      "area": "master",
+      "command": "80CB8000",
+      "useSafeChannel": false,
+      "needData": true
+    },
+    "v2": {
+      "area": "backup",
+      "command": "80CB8000",
+      "useSafeChannel": false,
+      "useSafeChannelWhenOpen": true,
+      "needData": true
+    }
+  },
+  "get_pin_retry_count": {
+    "v1": {
+      "area": "master",
+      "command": "80CB8000",
+      "useSafeChannel": false,
+      "needData": true
+    },
+    "v2": {
+      "area": "backup",
+      "command": "80CB8000",
+      "useSafeChannel": false,
+      "needData": true
+    }
+  },
+  "reset_card": {
+    "v1": {
+      "area": "master",
+      "command": "80CB8000",
+      "useSafeChannel": true,
+      "needData": true
+    },
+    "v2": {
+      "area": "backup",
+      "command": "80CB8000",
+      "useSafeChannel": true,
+      "needData": true
+    }
+  },
+  "verify_pin": {
+    "v1": {
+      "area": "backup",
+      "command": "80200000",
+      "useSafeChannel": true,
+      "needData": true
+    },
+    "v2": {
+      "area": "backup",
+      "command": "80200000",
+      "useSafeChannel": true,
+      "needData": true
+    }
+  },
+  "setup_new_pin": {
+    "v1": {
+      "area": "master",
+      "command": "80CB8000",
+      "useSafeChannel": true,
+      "needData": true
+    },
+    "v2": {
+      "area": "backup",
+      "command": "80CB8000",
+      "useSafeChannel": true,
+      "needData": true
+    }
+  },
+  "change_pin": {
+    "v1": {
+      "area": "master",
+      "command": "80CB8000",
+      "useSafeChannel": true,
+      "needData": true
+    },
+    "v2": {
+      "area": "backup",
+      "command": "80CB8000",
+      "useSafeChannel": true,
+      "needData": true
+    }
+  },
+  "backup_data": {
+    "v1": {
+      "area": "backup",
+      "command": "803B0000",
+      "useSafeChannel": false,
+      "needData": true
+    },
+    "v2": {
+      "area": "backup",
+      "command": "803B0000",
+      "useSafeChannel": true,
+      "needData": true
+    }
+  },
+  "export_data": {
+    "v1": {
+      "area": "backup",
+      "command": "804B0000",
+      "useSafeChannel": false,
+      "needData": false
+    },
+    "v2": {
+      "area": "backup",
+      "command": "804B0000",
+      "useSafeChannel": true,
+      "needData": false
+    }
+  }
+}

@@ -11,18 +11,18 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { NotImplemented, OneKeyHardwareError } from '../../../errors';
-import { getAccountNameInfoByTemplate } from '../../../managers/impl';
-import { AccountType } from '../../../types/account';
-import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
+import { NotImplemented, OneKeyHardwareError } from '../../../../errors';
+import { getAccountNameInfoByTemplate } from '../../../../managers/impl';
+import { AccountType } from '../../../../types/account';
+import { KeyringHardwareBase } from '../../../keyring/KeyringHardwareBase';
 
-import type { DBSimpleAccount } from '../../../types/account';
+import type { DBSimpleAccount } from '../../../../types/account';
 import type {
   IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
-} from '../../types';
-import type { INativeTxSol } from './types';
+} from '../../../types';
+import type { INativeTxSol } from '../types';
 import type { PublicKey } from '@solana/web3.js';
 
 export class KeyringHardware extends KeyringHardwareBase {

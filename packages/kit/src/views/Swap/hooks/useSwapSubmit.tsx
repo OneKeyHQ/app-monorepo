@@ -150,6 +150,7 @@ const addSwapTransaction = async ({
         percentageFee: quote.percentageFee,
         protocalFees: quote.protocolFees,
         networkFee,
+        viewed: false,
         tokens: {
           from,
           to,

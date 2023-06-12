@@ -4,20 +4,37 @@ import BigNumber from 'bignumber.js';
 import { groupBy } from 'lodash';
 import memoizee from 'memoizee';
 
+import {
+  InvalidAddress,
+  OneKeyInternalError,
+} from '@onekeyhq/engine/src/errors';
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-
-import { InvalidAddress, OneKeyInternalError } from '../../../errors';
-import { decrypt } from '../../../secret/encryptors/aes256';
-import { TransactionStatus } from '../../../types/provider';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import type { KeyringSoftwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringSoftwareBase';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
   IEncodedTxUpdateType,
-} from '../../types';
-import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
-import { VaultBase } from '../../VaultBase';
+} from '@onekeyhq/engine/src/vaults/types';
+import type {
+  IDecodedTx,
+  IDecodedTxActionNativeTransfer,
+  IDecodedTxLegacy,
+  IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
+  IFeeInfo,
+  IFeeInfoUnit,
+  IHistoryTx,
+  ISignedTxPro,
+  ITransferInfo,
+  IUnsignedTxPro,
+} from '@onekeyhq/engine/src/vaults/types';
+import type { TxInput } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import { convertFeeValueToGwei } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -39,21 +56,6 @@ import {
 import { toTransaction } from './sdk/transaction';
 import settings from './settings';
 
-import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
-import type {
-  IDecodedTx,
-  IDecodedTxActionNativeTransfer,
-  IDecodedTxLegacy,
-  IEncodedTxUpdateOptions,
-  IEncodedTxUpdatePayloadTransfer,
-  IFeeInfo,
-  IFeeInfoUnit,
-  IHistoryTx,
-  ISignedTxPro,
-  ITransferInfo,
-  IUnsignedTxPro,
-} from '../../types';
-import type { TxInput } from '../../utils/btcForkChain/types';
 import type { IEncodedTxKaspa } from './types';
 
 // @ts-ignore
