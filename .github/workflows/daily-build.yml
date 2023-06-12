@@ -44,8 +44,10 @@ jobs:
       matrix:
         node-version: [16.x]
 
-    if: ${{ github.event.workflow_run || needs.get-commit-id.outputs.current_id != needs.get-commit-id.outputs.upstream_id }}
     steps:
+      - name: Check condition
+        run: if [ -z "${{ github.event.workflow_run }}" ] && [ "${{ needs.get-commit-id.outputs.current_id }}" = "${{ needs.get-commit-id.outputs.upstream_id }}" ]; then exit 1; fi
+
       - name: 'Setup ENV'
         run: |
           DATE=`date "+%Y%m%d"`
