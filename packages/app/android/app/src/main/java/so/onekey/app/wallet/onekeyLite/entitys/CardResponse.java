@@ -16,7 +16,6 @@ public class CardResponse {
     private int wRet;
 
     public static CardResponse objectFromData(String str) {
-
         return new Gson().fromJson(str, CardResponse.class);
     }
 

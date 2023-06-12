@@ -14,19 +14,19 @@ import kotlinx.coroutines.channels.Channel
 import so.onekey.app.wallet.nfc.NFCExceptions
 import so.onekey.app.wallet.nfc.NfcUtils
 import so.onekey.app.wallet.nfc.broadcast.NfcStatusChangeBroadcastReceiver
-import so.onekey.app.wallet.onekeyLite.OnekeyLiteCard
+import so.onekey.app.wallet.onekeyLite.OneKeyLiteCard
 import so.onekey.app.wallet.onekeyLite.entitys.CardState
 import so.onekey.app.wallet.utils.NfcPermissionUtils
 import so.onekey.app.wallet.utils.Utils
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
-import javax.annotation.Nullable
 
 
 public fun NFCScope(): CoroutineScope = CoroutineScope(SupervisorJob() + NFCDispatcher)
 private val NFCDispatcher = Executors.newFixedThreadPool(1).asCoroutineDispatcher()
 
-class OKLiteManager(private val context: ReactApplicationContext) : ReactContextBaseJavaModule(context), LifecycleEventListener, CoroutineScope by NFCScope() {
+class OKLiteManager(private val context: ReactApplicationContext) :
+    ReactContextBaseJavaModule(context), LifecycleEventListener, CoroutineScope by NFCScope() {
     companion object {
         private val TAG = OKLiteManager::class.simpleName
 
@@ -55,8 +55,9 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
             super.onNewIntent(intent)
             val action = intent?.action
             if ((action == NfcAdapter.ACTION_NDEF_DISCOVERED)
-                    || (action == NfcAdapter.ACTION_TECH_DISCOVERED)
-                    || action == NfcAdapter.ACTION_TAG_DISCOVERED) {
+                || action == NfcAdapter.ACTION_TECH_DISCOVERED
+                || action == NfcAdapter.ACTION_TAG_DISCOVERED
+            ) {
                 val tags = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
                 val isoDep: IsoDep? = IsoDep.get(tags)
                 if (isoDep == null) {
@@ -78,7 +79,7 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
                         if (!mNFCConnectedChannel.isEmpty) {
                             Log.e(TAG, "There is no way to use NFC")
                             mNFCConnectedChannel.receive()
-                            val startRequest = OnekeyLiteCard.initChannelRequest(isoDep)
+                            val startRequest = OneKeyLiteCard.initRequest(isoDep)
                             val dataMap = Arguments.createMap().apply {
                                 putInt("code", -1)
                                 putString("type", "OneKey_Lite")
@@ -112,8 +113,8 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
     override fun initialize() {
         super.initialize()
         Utils.getTopActivity()?.registerReceiver(
-                mNfcStateBroadcastReceiver,
-                NfcStatusChangeBroadcastReceiver.nfcBroadcastReceiverIntentFilter
+            mNfcStateBroadcastReceiver,
+            NfcStatusChangeBroadcastReceiver.nfcBroadcastReceiverIntentFilter
         )
     }
 
@@ -122,7 +123,7 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
             launch(Dispatchers.IO) {
                 if (it !is FragmentActivity) return@launch
                 try {
-                    OnekeyLiteCard.startNfc(it) {
+                    OneKeyLiteCard.startNfc(it) {
                         mNFCState.set(NFCState.Started)
 
                         Log.d(TAG, "NFC starting success")
@@ -138,7 +139,7 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
         Utils.getTopActivity()?.let {
             launch(Dispatchers.IO) {
                 try {
-                    OnekeyLiteCard.stopNfc(it as FragmentActivity)
+                    OneKeyLiteCard.stopNfc(it as FragmentActivity)
                     mNFCState.set(NFCState.Dead)
                     Log.d(TAG, "NFC 已关闭")
                 } catch (e: Exception) {
@@ -151,7 +152,8 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
     override fun onHostDestroy() {
         try {
             Utils.getTopActivity()?.unregisterReceiver(mNfcStateBroadcastReceiver)
-        } catch(ignore: Exception) {}
+        } catch (ignore: Exception) {
+        }
     }
 
     private val mNfcStateBroadcastReceiver by lazy {
@@ -168,7 +170,7 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
                 super.onNfcOn()
                 Utils.getTopActivity()?.let {
                     launch(Dispatchers.IO) {
-                        OnekeyLiteCard.startNfc(it as FragmentActivity) {}
+                        OneKeyLiteCard.startNfc(it as FragmentActivity) {}
                     }
                 }
             }
@@ -183,12 +185,14 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
         }
     }
 
-    private fun sendEvent(reactContext: ReactContext,
-                          eventName: String,
-                          @Nullable params: WritableMap) {
+    private fun sendEvent(
+        reactContext: ReactContext,
+        eventName: String,
+        params: WritableMap
+    ) {
         reactContext
-                .getJSModule(RCTDeviceEventEmitter::class.java)
-                .emit(eventName, params)
+            .getJSModule(RCTDeviceEventEmitter::class.java)
+            .emit(eventName, params)
     }
 
     @Throws(NFCExceptions::class)
@@ -208,7 +212,7 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
             // 取消连接
             releaseDevice()
         } else {
-            val initChannelRequest = OnekeyLiteCard.initChannelRequest(receiveIsoDep)
+            val initChannelRequest = OneKeyLiteCard.initRequest(receiveIsoDep)
 
             mCurrentCardState = initChannelRequest
 
@@ -243,13 +247,9 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
         }
     }
 
-    private fun isTargetDevice(cardId: String): Boolean {
-        return cardId == mCurrentCardState?.serialNum
-    }
-
     private suspend fun <T> handleOperation(
-            callback: Callback,
-            execute: (isoDep: IsoDep) -> T
+        callback: Callback,
+        execute: (isoDep: IsoDep) -> T
     ) {
         val topActivity = Utils.getTopActivity()
         if (topActivity == null) {
@@ -281,7 +281,7 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
             } catch (e: NFCExceptions) {
                 Log.e(TAG, "NFC device execute error", e)
                 callback.invoke(e.createArguments(), null, mCurrentCardState.createArguments())
-            }finally {
+            } finally {
                 releaseDevice()
             }
             return
@@ -321,7 +321,7 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
         Log.d(TAG, "getCardName")
         handleOperation(callback) { isoDep ->
             Log.e(TAG, "getCardName Obtain the device")
-            val cardName = OnekeyLiteCard.getCardName(isoDep)
+            val cardName = OneKeyLiteCard.getCardName(isoDep)
             Log.e(TAG, "getCardName result $cardName")
             cardName
         }
@@ -332,30 +332,31 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
         Log.d(TAG, "getLiteInfo")
         handleOperation(callback) { isoDep ->
             Log.e(TAG, "getLiteInfo Obtain the device")
-            val cardInfo = OnekeyLiteCard.getCardInfo(isoDep)
+            val cardInfo = OneKeyLiteCard.getCardInfo(isoDep)
             Log.e(TAG, "getLiteInfo result $cardInfo")
             cardInfo.createArguments()
         }
     }
 
     @ReactMethod
-    fun setMnemonic(mnemonic: String, pwd: String, overwrite: Boolean, callback: Callback) = launch {
-        Log.d(TAG, "setMnemonic $mnemonic")
-        handleOperation(callback) { isoDep ->
-            Log.e(TAG, "setMnemonic Obtain the device")
-            val isSuccess = OnekeyLiteCard.setMnemonic(mCurrentCardState, isoDep, mnemonic, pwd, overwrite)
-            if (!isSuccess) throw NFCExceptions.ExecFailureException()
-            Log.e(TAG, "setMnemonic result $isSuccess")
-            isSuccess
+    fun setMnemonic(mnemonic: String, pwd: String, overwrite: Boolean, callback: Callback) =
+        launch {
+            handleOperation(callback) { isoDep ->
+                Log.e(TAG, "setMnemonic Obtain the device")
+                val isSuccess =
+                    OneKeyLiteCard.setMnemonic(mCurrentCardState, isoDep, mnemonic, pwd, overwrite)
+                if (!isSuccess) throw NFCExceptions.ExecFailureException()
+                Log.e(TAG, "setMnemonic result success")
+                true
+            }
         }
-    }
 
     @ReactMethod
     fun getMnemonicWithPin(pwd: String, callback: Callback) = launch {
         Log.d(TAG, "getMnemonicWithPin")
         handleOperation(callback) { isoDep ->
             Log.e(TAG, "getMnemonicWithPin Obtain the device")
-            OnekeyLiteCard.getMnemonicWithPin(mCurrentCardState, isoDep, pwd)
+            OneKeyLiteCard.getMnemonicWithPin(mCurrentCardState, isoDep, pwd)
         }
     }
 
@@ -364,7 +365,7 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
         Log.d(TAG, "changePin")
         handleOperation(callback) { isoDep ->
             Log.e(TAG, "changePin Obtain the device")
-            OnekeyLiteCard.changPin(mCurrentCardState, isoDep, oldPwd, newPwd)
+            OneKeyLiteCard.changPin(mCurrentCardState, isoDep, oldPwd, newPwd)
         }
     }
 
@@ -373,10 +374,10 @@ class OKLiteManager(private val context: ReactApplicationContext) : ReactContext
         Log.d(TAG, "reset")
         handleOperation(callback) { isoDep ->
             Log.e(TAG, "reset Obtain the device")
-            val isSuccess = OnekeyLiteCard.reset(isoDep)
+            val isSuccess = OneKeyLiteCard.reset(isoDep)
             if (!isSuccess) throw NFCExceptions.ExecFailureException()
-            Log.e(TAG, "reset result $isSuccess")
-            isSuccess
+            Log.e(TAG, "reset result success")
+            true
         }
     }
 
