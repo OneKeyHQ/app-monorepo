@@ -2,7 +2,13 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Box, Center } from '@onekeyhq/components';
+import {
+  Alert,
+  Box,
+  Center,
+  VStack,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { archiveTransaction } from '../../../store/reducers/swapTransactions';
@@ -15,7 +21,7 @@ const PendingTxs = () => {
   const pendings = allTransactions.filter((tx) => tx.status === 'pending');
 
   return pendings.length ? (
-    <Box mb="4">
+    <Box>
       <Alert
         title={intl.formatMessage(
           {
@@ -55,7 +61,7 @@ const FailedTxs = () => {
   }
   if (confirmedTxs.length === 1) {
     return (
-      <Box mb="4">
+      <Box mt="4">
         <Alert
           title={summaryTx(confirmedTxs[0])}
           alertType="error"
@@ -65,7 +71,7 @@ const FailedTxs = () => {
     );
   }
   return (
-    <Box mb="4">
+    <Box mt="4">
       <Alert
         title={intl.formatMessage(
           {
@@ -82,13 +88,20 @@ const FailedTxs = () => {
   );
 };
 
-const SwapTransactions = () => (
-  <Center>
-    <Box width="full">
-      <PendingTxs />
-      <FailedTxs />
-    </Box>
-  </Center>
-);
+const SwapTransactions = () => {
+  const isSmall = useIsVerticalLayout();
+  return (
+    <Center>
+      <VStack
+        px={isSmall ? '4' : undefined}
+        mb={isSmall ? undefined : '4'}
+        width="full"
+      >
+        <PendingTxs />
+        <FailedTxs />
+      </VStack>
+    </Center>
+  );
+};
 
 export default SwapTransactions;
