@@ -107,12 +107,8 @@ export function SendEditFeeStandardForm({
   const gasItems = useMemo(() => {
     if (!gasList) return [];
 
-    let limit = feeInfoPayload?.info.limit ?? '0';
-    limit = new BigNumber(
-      feeInfoPayload?.info.limitForDisplay as string,
-    ).isNaN()
-      ? limit
-      : feeInfoPayload?.info.limitForDisplay ?? '0';
+    const limit =
+      feeInfoPayload?.info.limitForDisplay ?? feeInfoPayload?.info.limit ?? '0';
 
     const items = gasList.map((gas, index) => {
       const waitingSeconds = (feeInfoPayload?.info as IFeeInfo)

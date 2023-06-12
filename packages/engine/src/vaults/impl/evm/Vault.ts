@@ -1285,9 +1285,9 @@ export default class Vault extends VaultBase {
       gasLimit ?? '0',
     ).toFixed();
 
-    const limitForDisplay = new BigNumber(
-      unsignedTx?.feeLimitForDisplay ?? '0',
-    ).toFixed();
+    const limitForDisplay = !isNil(unsignedTx?.feeLimitForDisplay)
+      ? new BigNumber(unsignedTx?.feeLimitForDisplay).toFixed()
+      : undefined;
 
     return {
       nativeSymbol: network.symbol,

@@ -117,7 +117,7 @@ class Provider extends BaseProvider {
     }
 
     feeLimit = feeLimit || new BigNumber(21000);
-    feeLimitForDisplay = feeLimitForDisplay || new BigNumber(21000);
+    feeLimitForDisplay = feeLimitForDisplay || feeLimit || new BigNumber(21000);
 
     let { feePricePerUnit } = unsignedTx;
     if (!feePricePerUnit) {
