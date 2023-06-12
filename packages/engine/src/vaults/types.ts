@@ -120,6 +120,9 @@ export type IVaultSettings = {
   signOnlyReturnFullTx?: boolean;
   hiddenNFTTab?: boolean;
   hiddenToolTab?: boolean;
+  hiddenAddress?: boolean;
+  hiddenAccountInfoSwapOption?: boolean;
+  hiddenAccountInfoMoreOption?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;

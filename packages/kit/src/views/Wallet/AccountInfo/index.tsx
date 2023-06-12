@@ -61,6 +61,10 @@ const AccountAmountInfo: FC = () => {
   });
 
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
+  const displayAddress = useMemo(
+    () => !network?.settings.hiddenAddress,
+    [network?.settings.hiddenAddress],
+  );
 
   const summedValueComp = useMemo(
     () =>
@@ -107,38 +111,40 @@ const AccountAmountInfo: FC = () => {
   return (
     <Box alignItems="flex-start" flex="1">
       <Box mx="-8px" my="-4px" flexDir="row" alignItems="center">
-        <Tooltip
-          hasArrow
-          placement="top"
-          label={intl.formatMessage({ id: 'action__copy_address' })}
-        >
-          <Pressable
-            flexDirection="row"
-            alignItems="center"
-            py="4px"
-            px="8px"
-            rounded="12px"
-            _hover={{ bg: 'surface-hovered' }}
-            _pressed={{ bg: 'surface-pressed' }}
-            onPress={() => {
-              copyAddress({
-                address: account?.address,
-                displayAddress: account?.displayAddress,
-              });
-            }}
+        {displayAddress ? (
+          <Tooltip
+            hasArrow
+            placement="top"
+            label={intl.formatMessage({ id: 'action__copy_address' })}
           >
-            <Text
-              typography={{ sm: 'Body2', md: 'CaptionStrong' }}
-              mr={2}
-              color="text-subdued"
+            <Pressable
+              flexDirection="row"
+              alignItems="center"
+              py="4px"
+              px="8px"
+              rounded="12px"
+              _hover={{ bg: 'surface-hovered' }}
+              _pressed={{ bg: 'surface-pressed' }}
+              onPress={() => {
+                copyAddress({
+                  address: account?.address,
+                  displayAddress: account?.displayAddress,
+                });
+              }}
             >
-              {shortenAddress(
-                account?.displayAddress ?? account?.address ?? '',
-              )}
-            </Text>
-            <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
-          </Pressable>
-        </Tooltip>
+              <Text
+                typography={{ sm: 'Body2', md: 'CaptionStrong' }}
+                mr={2}
+                color="text-subdued"
+              >
+                {shortenAddress(
+                  account?.displayAddress ?? account?.address ?? '',
+                )}
+              </Text>
+              <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
+            </Pressable>
+          </Tooltip>
+        ) : null}
         {hasAvailable ? (
           <Tooltip
             hasArrow
@@ -253,45 +259,48 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           {intl.formatMessage({ id: 'action__receive' })}
         </Typography.CaptionStrong>
       </Box>
-      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
-        <IconButton
-          circle
-          size={isSmallView ? 'xl' : 'lg'}
-          name="ArrowsRightLeftOutline"
-          type="basic"
-          isDisabled={wallet?.type === 'watching' || !account}
-          onPress={onSwap}
-        />
-        <Typography.CaptionStrong
-          textAlign="center"
-          mt="8px"
-          color={
-            wallet?.type === 'watching' || !account
-              ? 'text-disabled'
-              : 'text-default'
-          }
-        >
-          {intl.formatMessage({ id: 'title__swap' })}
-        </Typography.CaptionStrong>
-      </Box>
-
-      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
-        <AccountMoreMenu>
+      {network?.settings.hiddenAccountInfoSwapOption ? null : (
+        <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
           <IconButton
             circle
             size={isSmallView ? 'xl' : 'lg'}
-            name="EllipsisVerticalOutline"
+            name="ArrowsRightLeftOutline"
             type="basic"
+            isDisabled={wallet?.type === 'watching' || !account}
+            onPress={onSwap}
           />
-        </AccountMoreMenu>
-        <Typography.CaptionStrong
-          textAlign="center"
-          mt="8px"
-          color="text-default"
-        >
-          {intl.formatMessage({ id: 'action__more' })}
-        </Typography.CaptionStrong>
-      </Box>
+          <Typography.CaptionStrong
+            textAlign="center"
+            mt="8px"
+            color={
+              wallet?.type === 'watching' || !account
+                ? 'text-disabled'
+                : 'text-default'
+            }
+          >
+            {intl.formatMessage({ id: 'title__swap' })}
+          </Typography.CaptionStrong>
+        </Box>
+      )}
+      {network?.settings.hiddenAccountInfoMoreOption ? null : (
+        <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
+          <AccountMoreMenu>
+            <IconButton
+              circle
+              size={isSmallView ? 'xl' : 'lg'}
+              name="EllipsisVerticalOutline"
+              type="basic"
+            />
+          </AccountMoreMenu>
+          <Typography.CaptionStrong
+            textAlign="center"
+            mt="8px"
+            color="text-default"
+          >
+            {intl.formatMessage({ id: 'action__more' })}
+          </Typography.CaptionStrong>
+        </Box>
+      )}
     </Box>
   );
 };

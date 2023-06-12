@@ -30,6 +30,9 @@ const settings: IVaultSettings = Object.freeze({
   validationRequired: true,
   hiddenNFTTab: true,
   hiddenToolTab: true,
+  hiddenAddress: true,
+  hiddenAccountInfoSwapOption: true,
+  hiddenAccountInfoMoreOption: true,
 });
 
 export default settings;
