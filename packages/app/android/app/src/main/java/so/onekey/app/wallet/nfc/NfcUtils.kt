@@ -6,10 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.nfc.NfcAdapter
-import android.nfc.tech.IsoDep
-import android.nfc.tech.Ndef
-import android.nfc.tech.NfcF
-import android.nfc.tech.NfcV
+import android.nfc.tech.*
 import android.os.Build
 import android.provider.Settings
 import so.onekey.app.wallet.utils.MiUtil
@@ -42,16 +39,13 @@ object NfcUtils {
 
     private fun getIntentFilters(): Array<IntentFilter> {
         return arrayOf(
-            IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED, "*/*"),
-            IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED),
+            IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED, "*/*"),
         )
     }
 
     private fun getTechLists(): Array<Array<String>> {
         return arrayOf(
-            arrayOf(Ndef::class.java.name),
-            arrayOf(NfcV::class.java.name),
-            arrayOf(NfcF::class.java.name),
+            arrayOf(NfcA::class.java.name),
             arrayOf(IsoDep::class.java.name)
         )
     }
