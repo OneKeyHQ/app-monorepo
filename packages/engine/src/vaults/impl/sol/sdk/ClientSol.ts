@@ -4,15 +4,15 @@ import BigNumber from 'bignumber.js';
 import { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
-import { TransactionStatus } from '../../../types/provider';
+import { TransactionStatus } from '../../../../types/provider';
 
-import type { CoinInfo } from '../../../types/chain';
+import type { CoinInfo } from '../../../../types/chain';
 import type {
   AddressInfo,
   ClientInfo,
   FeePricePerUnit,
   PartialTokenInfo,
-} from '../../../types/provider';
+} from '../../../../types/provider';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum RPC_METHODS {
