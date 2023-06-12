@@ -1,6 +1,6 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import type { OneKeyWalletConnector } from '@onekeyhq/kit/src/components/WalletConnect/OneKeyWalletConnector';
+import type { IWalletConnectRequestOptions } from '@onekeyhq/kit/src/components/WalletConnect/types';
 
 import { WalletConnectRequestProxy } from './WalletConnectRequestProxy';
 
@@ -14,8 +14,8 @@ export class WalletConnectRequestProxyAlgo extends WalletConnectRequestProxy {
       });
     }
    */
-  override async connect(connector: OneKeyWalletConnector) {
-    const accounts = await this.request<string[] | undefined>(connector, {
+  override async connect(options: IWalletConnectRequestOptions) {
+    const accounts = await this.request<string[] | undefined>(options, {
       method: 'connect',
     });
     return accounts || [];
@@ -28,8 +28,8 @@ export class WalletConnectRequestProxyAlgo extends WalletConnectRequestProxy {
         });
       }
    */
-  override async getAccounts(connector: OneKeyWalletConnector) {
-    const accounts = await this.request<string[] | undefined>(connector, {
+  override async getAccounts(options: IWalletConnectRequestOptions) {
+    const accounts = await this.request<string[] | undefined>(options, {
       method: 'accounts',
     });
     return accounts || [];
@@ -44,8 +44,8 @@ export class WalletConnectRequestProxyAlgo extends WalletConnectRequestProxy {
       chainId = res?.chainId;
     }
    */
-  override async getChainId(connector: OneKeyWalletConnector) {
-    const res = await this.request<{ chainId: number } | undefined>(connector, {
+  override async getChainId(options: IWalletConnectRequestOptions) {
+    const res = await this.request<{ chainId: number } | undefined>(options, {
       method: 'getChainId',
     });
     return res?.chainId;

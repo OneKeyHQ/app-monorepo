@@ -1,10 +1,15 @@
 /* eslint-disable max-classes-per-file, @typescript-eslint/no-unused-vars */
+// eslint-disable-next-line import/order
+import './utils/walletConnectV2SdkShims';
 
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
+import { getSdkError } from '@walletconnect-v2/utils';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import { refreshConnectedSites } from '../../store/reducers/refresher';
 
 import { OneKeyWalletConnector } from './OneKeyWalletConnector';
 import {
@@ -12,9 +17,11 @@ import {
   WALLET_CONNECT_CONNECTION_TIMEOUT,
 } from './walletConnectConsts';
 
-import type { WalletService } from './types';
+import type { IWalletConnectRequestOptions, WalletService } from './types';
 import type { WalletConnectSessionStorage } from './WalletConnectSessionStorage';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { ICore, SessionTypes } from '@walletconnect-v2/types';
+import type { IWeb3Wallet } from '@walletconnect-v2/web3wallet';
 import type {
   IClientMeta,
   IWalletConnectOptions,
@@ -64,7 +71,11 @@ export class WalletConnectClientBase extends CrossEventEmitter {
 
   clientMeta!: IClientMeta;
 
-  connector?: OneKeyWalletConnector | null = null;
+  connector?: OneKeyWalletConnector | null = null; // v1 client
+
+  web3walletV2?: IWeb3Wallet; // v2 client
+
+  web3walletV2Core?: ICore; // v2 client core
 
   walletService?: WalletService;
 
@@ -221,8 +232,28 @@ export class WalletConnectClientBase extends CrossEventEmitter {
     // TODO save connector.session to redux for UI auto refresh
   }
 
-  getConnectorOrigin(connector: OneKeyWalletConnector) {
-    const origin = connector?.peerMeta?.url || '';
+  isRequestOptionsV2(options: IWalletConnectRequestOptions) {
+    return Boolean(
+      options.proposal || options.sessionRequest || options.sessionV2,
+    );
+  }
+
+  // TODO rename to getPeerClientOrigin
+  getConnectorOrigin(options: IWalletConnectRequestOptions) {
+    if (this.isRequestOptionsV2(options)) {
+      return this.getConnectorOriginV2(options);
+    }
+    const origin = options?.connector?.peerMeta?.url || '';
+    return origin;
+  }
+
+  getConnectorOriginV2(options: IWalletConnectRequestOptions) {
+    const origin =
+      options?.sessionV2?.peer?.metadata?.url ||
+      options?.proposal?.params?.proposer?.metadata?.url ||
+      options?.sessionRequest?.context?.verified?.origin ||
+      '';
+    // return '';
     return origin;
   }
 
