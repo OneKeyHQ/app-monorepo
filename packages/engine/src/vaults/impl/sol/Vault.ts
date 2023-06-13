@@ -63,6 +63,7 @@ import settings from './settings';
 import type { DBSimpleAccount } from '../../../types/account';
 import type { AccountNameInfo } from '../../../types/network';
 import type { NFTTransaction } from '../../../types/nft';
+import type { TransactionStatus } from '../../../types/provider';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IApproveInfo,
@@ -258,6 +259,12 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only methods
+  override async getTransactionStatuses(
+    txids: Array<string>,
+  ): Promise<Array<TransactionStatus | undefined>> {
+    const client = await this.getClient();
+    return client.getTransactionStatuses(txids);
+  }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     const client = await this.getClient();

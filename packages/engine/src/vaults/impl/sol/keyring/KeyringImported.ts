@@ -8,7 +8,6 @@ import { OneKeyInternalError } from '../../../../errors';
 import { Signer } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
-
 import { signMessage, signTransaction } from '../utils';
 
 import type { DBSimpleAccount } from '../../../../types/account';
