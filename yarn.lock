@@ -5358,6 +5358,7 @@ __metadata:
     babel-loader: 8.3.0
     babel-plugin-import: ^1.13.5
     babel-plugin-inline-import: ^3.0.0
+    babel-plugin-transform-define: ^2.1.2
     babel-plugin-transform-inline-environment-variables: ^0.4.3
     bitcoinjs-lib: 6.1.0
     bitcoinjs-message: 2.2.0
@@ -11750,6 +11751,16 @@ __metadata:
   version: 7.0.0-beta.0
   resolution: "babel-plugin-syntax-trailing-function-commas@npm:7.0.0-beta.0"
   checksum: e37509156ca945dd9e4b82c66dd74f2d842ad917bd280cb5aa67960942300cd065eeac476d2514bdcdedec071277a358f6d517c31d9f9244d9bbc3619a8ecf8a
+  languageName: node
+  linkType: hard
+
+"babel-plugin-transform-define@npm:^2.1.2":
+  version: 2.1.2
+  resolution: "babel-plugin-transform-define@npm:2.1.2"
+  dependencies:
+    lodash: ^4.17.11
+    traverse: 0.6.6
+  checksum: ccfc000e5b7a9f02ac67b8450c8bff94b29969363666e01524828556dfe330d5112a6aa61bbd97acd4716ce0f22e65503e736ff5abd8a34379ad996cffbe16cd
   languageName: node
   linkType: hard
 
@@ -23352,7 +23363,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:>=3.5 <5, lodash@npm:^4.14.2, lodash@npm:^4.17.10, lodash@npm:^4.17.13, lodash@npm:^4.17.14, lodash@npm:^4.17.15, lodash@npm:^4.17.19, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:^4.17.4, lodash@npm:^4.17.5, lodash@npm:^4.7.0":
+"lodash@npm:>=3.5 <5, lodash@npm:^4.14.2, lodash@npm:^4.17.10, lodash@npm:^4.17.11, lodash@npm:^4.17.13, lodash@npm:^4.17.14, lodash@npm:^4.17.15, lodash@npm:^4.17.19, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:^4.17.4, lodash@npm:^4.17.5, lodash@npm:^4.7.0":
   version: 4.17.21
   resolution: "lodash@npm:4.17.21"
   checksum: eb835a2e51d381e561e508ce932ea50a8e5a68f4ebdd771ea240d3048244a8d13658acbd502cd4829768c56f2e16bdd4340b9ea141297d472517b83868e677f7
@@ -31912,7 +31923,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"traverse@npm:~0.6.6":
+"traverse@npm:0.6.6, traverse@npm:~0.6.6":
   version: 0.6.6
   resolution: "traverse@npm:0.6.6"
   checksum: e2afa72f11efa9ba31ed763d2d9d2aa244612f22015d16c0ea3ba5f6ca8bf071de87f8108b721885cce06ea4a36ef4605d9228c67e431d9015ea4685cb364420
