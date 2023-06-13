@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
 
-import { homeTab } from '../../../../store/reducers/webTabs';
+import { homeTab } from '../../../../store/observable/webTabs';
 import DAppIcon from '../../DAppIcon';
 import { useDiscoverHistory } from '../../hooks';
 import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';

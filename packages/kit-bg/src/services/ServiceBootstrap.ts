@@ -106,6 +106,7 @@ export default class ServiceBootstrap extends ServiceBase {
 
     this.fetchAppConfig();
     this.syncUserConfig();
+    this.backgroundApi.walletConnect.initWeb3WalletV2(1000);
   }
 
   async fetchAppConfig() {

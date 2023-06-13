@@ -180,6 +180,13 @@ function normalizeConfig({
     });
   }
 
+  // support mjs
+  config.module.rules.push({
+    test: /\.mjs$/,
+    include: /node_modules/,
+    type: 'javascript/auto',
+  });
+
   // let file-loader skip handle wasm files
   config.module.rules.forEach((rule) => {
     (rule.oneOf || []).forEach((oneOf) => {
