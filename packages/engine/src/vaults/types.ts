@@ -124,6 +124,8 @@ export type IVaultSettings = {
   hiddenAddress?: boolean;
   hiddenAccountInfoSwapOption?: boolean;
   hiddenAccountInfoMoreOption?: boolean;
+  hiddenFeeOnTxDetail?: boolean;
+  displayMemo?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;

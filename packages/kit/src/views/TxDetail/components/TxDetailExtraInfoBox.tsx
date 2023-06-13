@@ -11,6 +11,7 @@ import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import { IMPL_LIGHTING } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { useClipboard } from '../../../hooks/useClipboard';
 import { useNetwork } from '../../../hooks/useNetwork';
@@ -86,15 +87,17 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
       content: `${new BigNumber(decodedTx.nonce).toFixed()}`,
     });
   }
-  details.push({
-    title: intl.formatMessage({ id: 'content__fee' }),
-    content:
-      feeInput ||
-      getFeeInNativeText({
-        network,
-        decodedTx,
-      }),
-  });
+  if (!network?.settings.hiddenFeeOnTxDetail) {
+    details.push({
+      title: intl.formatMessage({ id: 'content__fee' }),
+      content:
+        feeInput ||
+        getFeeInNativeText({
+          network,
+          decodedTx,
+        }),
+    });
+  }
   if (
     checkIsValidHistoryTxId({
       txid: decodedTx.txid,
@@ -161,6 +164,8 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
       }
     });
   }
+
+  if (!details.length) return null;
 
   return <TxDetailActionBox details={details} />;
 }

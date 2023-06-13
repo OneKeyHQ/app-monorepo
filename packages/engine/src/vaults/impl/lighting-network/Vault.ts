@@ -36,7 +36,7 @@ import type {
   DBAccount,
   DBVariantAccount,
 } from '../../../types/account';
-import type { IDecodedTxLegacy } from '../../types';
+import type { IDecodedTxLegacy, IFeeInfo } from '../../types';
 import type { IEncodedTxLighting } from './types';
 
 // @ts-ignore
@@ -138,6 +138,23 @@ export default class Vault extends VaultBase {
     },
   );
 
+  override async fetchFeeInfo(
+    encodedTx: IEncodedTxLighting,
+  ): Promise<IFeeInfo> {
+    const network = await this.engine.getNetwork(this.networkId);
+    return {
+      customDisabled: true,
+      limit: new BigNumber(encodedTx.fee ?? '0').toFixed(),
+      prices: ['1'],
+      defaultPresetIndex: '0',
+      feeSymbol: network.feeSymbol,
+      feeDecimals: network.feeDecimals,
+      nativeSymbol: network.symbol,
+      nativeDecimals: network.decimals,
+      tx: null,
+    };
+  }
+
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxLighting> {
@@ -169,6 +186,7 @@ export default class Vault extends VaultBase {
       created: `${Date.now()}`,
       nonce,
       description: description?.data as string,
+      fee: 0,
     };
   }
 
@@ -179,6 +197,12 @@ export default class Vault extends VaultBase {
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const token = await this.engine.getNativeTokenInfo(this.networkId);
+    let extraInfo = null;
+    if (encodedTx.description) {
+      extraInfo = {
+        memo: encodedTx.description,
+      };
+    }
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: dbAccount.name,
@@ -203,7 +227,7 @@ export default class Vault extends VaultBase {
       accountId: this.accountId,
       encodedTx,
       payload,
-      extraInfo: null,
+      extraInfo,
     };
 
     return decodedTx;

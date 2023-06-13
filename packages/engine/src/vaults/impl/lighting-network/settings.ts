@@ -1,3 +1,4 @@
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import {
   COINTYPE_LIGHTING,
   INDEX_PLACEHOLDER,
@@ -33,6 +34,17 @@ const settings: IVaultSettings = Object.freeze({
   hiddenAddress: true,
   hiddenAccountInfoSwapOption: true,
   hiddenAccountInfoMoreOption: true,
+  hiddenFeeOnTxDetail: true,
+  displayMemo: true,
+
+  txExtraInfo: [
+    {
+      key: 'memo',
+      title: 'content__description' as LocaleIds,
+      canCopy: false,
+      isShorten: false,
+    },
+  ],
 });
 
 export default settings;

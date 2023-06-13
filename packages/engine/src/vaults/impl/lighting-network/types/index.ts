@@ -5,4 +5,5 @@ export type IEncodedTxLighting = {
   created: string;
   nonce: number;
   description?: string;
+  fee: number;
 };
