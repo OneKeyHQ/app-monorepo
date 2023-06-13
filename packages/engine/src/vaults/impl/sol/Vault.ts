@@ -21,7 +21,7 @@ import {
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isArray, isEmpty, omit } from 'lodash';
+import { isArray, isEmpty, isNil, omit } from 'lodash';
 import memoizee from 'memoizee';
 
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
@@ -31,12 +31,15 @@ import type {
   PartialTokenInfo,
 } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
+import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import simpleDb from '../../../dbs/simple/simpleDb';
 import {
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
+  PendingQueueTooLong,
 } from '../../../errors';
 import { getAccountNameInfoByImpl } from '../../../managers/impl';
 import {
@@ -60,7 +63,7 @@ import {
 import { ClientSol } from './sdk';
 import settings from './settings';
 
-import type { DBSimpleAccount } from '../../../types/account';
+import type { DBAccount, DBSimpleAccount } from '../../../types/account';
 import type { AccountNameInfo } from '../../../types/network';
 import type { NFTTransaction } from '../../../types/nft';
 import type { TransactionStatus } from '../../../types/provider';
@@ -278,6 +281,58 @@ export default class Vault extends VaultBase {
     }
   }
 
+  override async getNextNonce(
+    networkId: string,
+    dbAccount: DBAccount,
+  ): Promise<number> {
+    // TODO move to Vault.getOnChainNextNonce
+    const client = await this.getClient();
+    const onChainNonce =
+      (await client.getAddresses([dbAccount.address]))[0]?.nonce ?? 0;
+
+    // TODO: Although 100 history items should be enough to cover all the
+    // pending transactions, we need to find a more reliable way.
+    const historyItems = await this.engine.getHistory(
+      networkId,
+      dbAccount.id,
+      undefined,
+      false,
+    );
+    const maxPendingNonce = await simpleDb.history.getMaxPendingNonce({
+      accountId: this.accountId,
+      networkId,
+    });
+    const pendingNonceList = await simpleDb.history.getPendingNonceList({
+      accountId: this.accountId,
+      networkId,
+    });
+    let nextNonce = Math.max(
+      isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
+      onChainNonce,
+    );
+    if (Number.isNaN(nextNonce)) {
+      nextNonce = onChainNonce;
+    }
+    if (nextNonce > onChainNonce) {
+      for (let i = onChainNonce; i < nextNonce; i += 1) {
+        if (!pendingNonceList.includes(i)) {
+          nextNonce = i;
+          break;
+        }
+      }
+    }
+
+    if (nextNonce < onChainNonce) {
+      nextNonce = onChainNonce;
+    }
+
+    if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {
+      throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
+    }
+
+    return nextNonce;
+  }
+
   override async getBalances(
     requests: Array<{ address: string; tokenAddress?: string }>,
   ): Promise<(BigNumber | undefined)[]> {
@@ -313,6 +368,10 @@ export default class Vault extends VaultBase {
       // pass
     }
     return Promise.reject(new InvalidAddress());
+  }
+
+  override async validateTokenAddress(address: string): Promise<string> {
+    return this.validateAddress(address);
   }
 
   override validateImportedCredential(input: string): Promise<boolean> {
