@@ -7,7 +7,7 @@ import { Select, ToastManager } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { homeTab, setWebTabData } from '../../../../store/reducers/webTabs';
+import { homeTab, webTabsActions } from '../../../../store/observable/webTabs';
 import { openUrlExternal } from '../../../../utils/openUrl';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { useWebController } from '../Controller/useWebController';
@@ -98,9 +98,7 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
           }),
           value: () => {
             stopLoading();
-            backgroundApiProxy.dispatch(
-              setWebTabData({ ...homeTab, id: currentTab.id }),
-            );
+            webTabsActions.setWebTabData({ ...homeTab, id: currentTab.id });
           },
           iconProps: { name: 'HomeOutline' },
         },
