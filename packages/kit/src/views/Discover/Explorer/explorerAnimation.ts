@@ -41,7 +41,6 @@ const getTabCellLayout = (tabId: string, callback: () => void) => {
   const tabCell = tabGridRefs[tabId];
   if (tabCell) {
     tabCell.measure((x, y, width, height, pageX, pageY) => {
-      console.log(x, y, width, height, pageX, pageY);
       targetPreviewX.value = pageX;
       targetPreviewY.value = pageY;
       targetPreviewWidth.value = width;
