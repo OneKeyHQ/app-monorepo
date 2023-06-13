@@ -577,12 +577,13 @@ Button.displayName = 'Button';
 
 type OkButtonProps = {
   onPromise?: () => Promise<any>;
+  runAfterInteractions?: boolean;
 };
 
 const OkButton = forwardRef<
   typeof Button,
   ComponentProps<typeof Button> & OkButtonProps
->(({ onPress, onPromise, isLoading, ...props }, ref) => {
+>(({ onPress, onPromise, isLoading, runAfterInteractions, ...props }, ref) => {
   const [loading, innerSetLoading] = useState(isLoading);
   // Handling when isLoading and onPromise are present at the same time
   const prevLoadingState = usePrevious<boolean | undefined>(loading);
@@ -594,7 +595,7 @@ const OkButton = forwardRef<
     [isMounted],
   );
   const handlePress = useCallback(() => {
-    InteractionManager.runAfterInteractions(() => {
+    const handler = () => {
       if (onPromise && typeof isLoading === 'undefined') {
         setLoading(true);
         setTimeout(() => {
@@ -607,8 +608,14 @@ const OkButton = forwardRef<
       } else if (onPress) {
         onPress?.();
       }
-    });
-  }, [onPromise, isLoading, onPress, setLoading]);
+    };
+    if (runAfterInteractions) {
+      InteractionManager.runAfterInteractions(handler);
+    } else {
+      handler();
+    }
+  }, [onPromise, isLoading, onPress, setLoading, runAfterInteractions]);
+
   useEffect(() => {
     if (
       typeof isLoading !== 'undefined' ||
