@@ -14,6 +14,7 @@ import type {
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { IMPL_LIGHTING } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressInput from '../../../components/AddressInput';
@@ -90,6 +91,7 @@ function PreSendAddress() {
       : (reset as ITransferInfo);
   const { isNFT } = transferInfo;
   const { account, network } = useActiveSideAccount(routeParams);
+  const isLightingNetwork = network?.impl === IMPL_LIGHTING;
   const useFormReturn = useForm<FormValues>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
@@ -572,11 +574,16 @@ function PreSendAddress() {
               >
                 <AddressInput
                   // TODO different max length in network
-                  maxLength={103}
+                  maxLength={isLightingNetwork ? 999 : 103}
                   networkId={networkId}
                   // numberOfLines={10}
                   h={{ base: 120, md: 120 }}
-                  plugins={['contact', 'paste', 'scan']}
+                  plugins={
+                    isLightingNetwork
+                      ? ['paste', 'scan']
+                      : ['contact', 'paste', 'scan']
+                  }
+                  placeholder={isLightingNetwork ? 'Enter Invoice' : undefined}
                 />
               </Form.Item>
               {DestinationTagForm}

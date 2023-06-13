@@ -29,6 +29,7 @@ import type { INativeTxEvm } from './impl/evm/types';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
 import type { IEncodedTxFil } from './impl/fil/types';
 import type { IEncodedTxKaspa } from './impl/kaspa/types';
+import type { IEncodedTxLighting } from './impl/lighting-network/types';
 import type {
   IDecodedTxExtraNear,
   IEncodedTxNear,
@@ -220,7 +221,8 @@ export type IEncodedTx =
   | IEncodedTxFil
   | IEncodedTxDot
   | IEncodedTxXmr
-  | IEncodedTxKaspa;
+  | IEncodedTxKaspa
+  | IEncodedTxLighting;
 
 export type INativeTx =
   | INativeTxEvm

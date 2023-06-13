@@ -4,7 +4,10 @@ import BigNumber from 'bignumber.js';
 import { getFiatEndpoint } from '../../../../endpoint';
 
 import type { IBalanceResponse, ICreateUserResponse } from '../types/account';
-import type { ICretaeInvoiceResponse } from '../types/invoice';
+import type {
+  ICretaeInvoiceResponse,
+  IInvoiceDecodedResponse,
+} from '../types/invoice';
 import type { AxiosError, AxiosInstance, AxiosPromise } from 'axios';
 
 type IExchangeToken = () => Promise<{
@@ -127,6 +130,22 @@ class ClientLighting {
         description: description || 'OneKey Invoice',
       })
       .then((i) => i.data);
+  }
+
+  async decodedInvoice(invoice: string) {
+    return this.request
+      .get<IInvoiceDecodedResponse>('/invoices/decoded', {
+        params: { invoice },
+      })
+      .then((i) => i.data);
+  }
+
+  async getNextNonce(address: string) {
+    return this.request
+      .get<number>('/payments/getNonce', {
+        params: { address },
+      })
+      .then((i) => i.data + 1);
   }
 }
 

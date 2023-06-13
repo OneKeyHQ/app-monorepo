@@ -2,11 +2,24 @@
 
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
+import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
-import { WrongPassword } from '../../../errors';
+import {
+  InsufficientBalance,
+  InvalidAddress,
+  WrongPassword,
+} from '../../../errors';
+import {
+  type IDecodedTx,
+  IDecodedTxActionType,
+  IDecodedTxDirection,
+  IDecodedTxStatus,
+  type IEncodedTx,
+  type ITransferInfo,
+} from '../../types';
 import { VaultBase } from '../../VaultBase';
 
 import ClientLighting from './helper/clientLighting';
@@ -23,7 +36,8 @@ import type {
   DBAccount,
   DBVariantAccount,
 } from '../../../types/account';
-import type BigNumber from 'bignumber.js';
+import type { IDecodedTxLegacy } from '../../types';
+import type { IEncodedTxLighting } from './types';
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -103,6 +117,100 @@ export default class Vault extends VaultBase {
   async getCurrentBalanceAddress(): Promise<string> {
     const account = (await this.getDbAccount()) as DBVariantAccount;
     return account.addresses.normalizedAddress;
+  }
+
+  override async validateAddress(address: string): Promise<string> {
+    try {
+      await this._decodedInvoceCache(address);
+      return address;
+    } catch (e) {
+      throw new InvalidAddress();
+    }
+  }
+
+  _decodedInvoceCache = memoizee(
+    async (invoice: string) => {
+      const client = await this.getClient();
+      return client.decodedInvoice(invoice);
+    },
+    {
+      maxAge: getTimeDurationMs({ seconds: 30 }),
+    },
+  );
+
+  override async buildEncodedTxFromTransfer(
+    transferInfo: ITransferInfo,
+  ): Promise<IEncodedTxLighting> {
+    console.log('====>: ', transferInfo);
+    const invoice = await this._decodedInvoceCache(transferInfo.to);
+    console.log('====> invoice: ', invoice);
+    const balanceAddress = await this.getCurrentBalanceAddress();
+    const balance = await this.getBalances([{ address: balanceAddress }]);
+    const balanceBN = new BigNumber(balance[0] || '0');
+    const amount = invoice.millisatoshis
+      ? new BigNumber(invoice.millisatoshis).dividedBy(1000)
+      : new BigNumber(invoice.satoshis ?? '0');
+    // if (balanceBN.isLessThan(amount)) {
+    //   throw new InsufficientBalance();
+    // }
+    // if (!invoice.paymentRequest) {
+    //   throw new Error('Invalid invoice');
+    // }
+
+    const client = await this.getClient();
+    const nonce = await client.getNextNonce(balanceAddress);
+    const description = invoice.tags.find(
+      (tag) => tag.tagName === 'description',
+    );
+    return {
+      invoice: invoice.paymentRequest,
+      amount: amount.toFixed(),
+      expired: `${invoice.timeExpireDate ?? ''}`,
+      created: `${Date.now()}`,
+      nonce,
+      description: description?.data as string,
+    };
+  }
+
+  override async decodeTx(
+    encodedTx: IEncodedTxLighting,
+    payload?: any,
+  ): Promise<IDecodedTx> {
+    const network = await this.engine.getNetwork(this.networkId);
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const token = await this.engine.getNativeTokenInfo(this.networkId);
+    const decodedTx: IDecodedTx = {
+      txid: '',
+      owner: dbAccount.name,
+      signer: '',
+      nonce: 0,
+      actions: [
+        {
+          type: IDecodedTxActionType.NATIVE_TRANSFER,
+          nativeTransfer: {
+            tokenInfo: token,
+            from: dbAccount.name,
+            to: '',
+            amount: new BigNumber(encodedTx.amount).toFixed(),
+            amountValue: encodedTx.amount,
+            extraInfo: null,
+          },
+          direction: IDecodedTxDirection.OUT,
+        },
+      ],
+      status: IDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      encodedTx,
+      payload,
+      extraInfo: null,
+    };
+
+    return decodedTx;
+  }
+
+  decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
+    return Promise.resolve({} as IDecodedTxLegacy);
   }
 
   override async getAccountBalance(

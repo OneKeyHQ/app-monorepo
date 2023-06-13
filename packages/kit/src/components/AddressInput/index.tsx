@@ -29,6 +29,7 @@ type AddressInputProps = ComponentProps<typeof Textarea> & {
   onChange?: (address: string) => void;
   onChangeAddressName?: (address: string) => void;
   plugins?: AddressInputPlugin[];
+  placeholder?: string;
 };
 
 const AddressInput: FC<AddressInputProps> = ({
@@ -37,6 +38,7 @@ const AddressInput: FC<AddressInputProps> = ({
   onChangeAddressName,
   plugins = ['paste', 'scan'],
   networkId,
+  placeholder,
   ...rest
 }) => {
   const intl = useIntl();
@@ -111,9 +113,12 @@ const AddressInput: FC<AddressInputProps> = ({
         w="full"
         value={value}
         onChangeText={onChange}
-        placeholder={intl.formatMessage({
-          id: 'form__address_and_domain_placeholder',
-        })}
+        placeholder={
+          placeholder ||
+          intl.formatMessage({
+            id: 'form__address_and_domain_placeholder',
+          })
+        }
         borderWidth="0"
         onFocus={() => {
           setFocus(true);
