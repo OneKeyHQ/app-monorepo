@@ -38,13 +38,19 @@ export const getThumbnailRatio = () => thumbnailRatio;
 export const thumbnailWidth = 340;
 
 const getTabCellLayout = (tabId: string, callback: () => void) => {
-  tabGridRefs[tabId]?.measure((x, y, width, height, pageX, pageY) => {
-    targetPreviewX.value = pageX;
-    targetPreviewY.value = pageY;
-    targetPreviewWidth.value = width;
-    targetPreviewHeight.value = height;
+  const tabCell = tabGridRefs[tabId];
+  if (tabCell) {
+    tabCell.measure((x, y, width, height, pageX, pageY) => {
+      console.log(x, y, width, height, pageX, pageY);
+      targetPreviewX.value = pageX;
+      targetPreviewY.value = pageY;
+      targetPreviewWidth.value = width;
+      targetPreviewHeight.value = height;
+      callback();
+    });
+  } else {
     callback();
-  });
+  }
 };
 
 export const showTabGrid = () => {
