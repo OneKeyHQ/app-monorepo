@@ -2,19 +2,20 @@ import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
 import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { OneKeyInternalError } from '../../../errors';
-import { Signer } from '../../../proxy';
-import { AccountType } from '../../../types/account';
-import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
+import { OneKeyInternalError } from '../../../../errors';
+import { Signer, Verifier } from '../../../../proxy';
+import { AccountType } from '../../../../types/account';
+import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
+import { pubkeyToAddress, signTransactionWithSigner } from '../utils';
 
-import { signTransactionWithSigner } from './utils';
+import { CURVE_NAME } from './constant';
 
-import type { DBVariantAccount } from '../../../types/account';
+import type { DBVariantAccount } from '../../../../types/account';
 import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
   IUnsignedTxPro,
-} from '../../types';
+} from '../../../types';
 
 export class KeyringImported extends KeyringImportedBase {
   override async getSigners(password: string, addresses: Array<string>) {
@@ -29,7 +30,7 @@ export class KeyringImported extends KeyringImportedBase {
 
     const [privateKey] = Object.values(await this.getPrivateKeys(password));
 
-    return { [selectedAddress]: new Signer(privateKey, password, 'secp256k1') };
+    return { [selectedAddress]: new Signer(privateKey, password, CURVE_NAME) };
   }
 
   override async prepareAccounts(
@@ -41,9 +42,10 @@ export class KeyringImported extends KeyringImportedBase {
     }
     const pub = secp256k1.publicFromPrivate(privateKey).toString('hex');
     // TODO: remove addressFromPub & addressToBase from proxy.ts
-    const addressOnNetwork = await this.engine.providerManager.addressFromPub(
-      this.networkId,
-      pub,
+    const chainId = await this.vault.getNetworkChainId();
+    const addressOnNetwork = await pubkeyToAddress(
+      new Verifier(pub, CURVE_NAME),
+      chainId,
     );
     const baseAddress = await this.vault.addressToBase(addressOnNetwork);
     return Promise.resolve([
