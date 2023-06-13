@@ -84,7 +84,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
 
   const { amount, symbol, from, to, isOut } = getTxActionTransferInfo(props);
 
-  const details: ITxActionElementDetail[] = [
+  const details: (ITxActionElementDetail | null)[] = [
     {
       title: intl.formatMessage({ id: 'content__from' }),
       content: getTxActionElementAddressWithSecurityInfo({
@@ -99,18 +99,22 @@ export function TxActionTransfer(props: ITxActionCardProps) {
         isShorten: from !== 'unknown',
       }),
     },
-    {
-      title: intl.formatMessage({ id: 'content__to' }),
-      content: getTxActionElementAddressWithSecurityInfo({
-        address:
-          to === 'unknown' ? intl.formatMessage({ id: 'form__unknown' }) : to,
-        networkId: network?.id,
-        withSecurityInfo: isOut,
-        amount,
-        isCopy: to !== 'unknown',
-        isShorten: to !== 'unknown',
-      }),
-    },
+    to && to.length > 0
+      ? {
+          title: intl.formatMessage({ id: 'content__to' }),
+          content: getTxActionElementAddressWithSecurityInfo({
+            address:
+              to === 'unknown'
+                ? intl.formatMessage({ id: 'form__unknown' })
+                : to,
+            networkId: network?.id,
+            withSecurityInfo: isOut,
+            amount,
+            isCopy: to !== 'unknown',
+            isShorten: to !== 'unknown',
+          }),
+        }
+      : null,
   ];
 
   return (
