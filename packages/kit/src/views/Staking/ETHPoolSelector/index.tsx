@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import { Modal, VStack } from '@onekeyhq/components';
 
@@ -15,6 +16,7 @@ import type { RouteProp } from '@react-navigation/core';
 type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.ETHPoolSelector>;
 
 const ETHPool = () => {
+  const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { isTestnet } = route.params;
   const ethStakingApr = useAppSelector((s) => s.staking.ethStakingApr);
@@ -38,7 +40,10 @@ const ETHPool = () => {
   }, [isTestnet, ethStakingApr]);
 
   return (
-    <Modal header="ETH Pool" footer={null}>
+    <Modal
+      header={intl.formatMessage({ id: 'form__str_pools' }, { '0': 'ETH' })}
+      footer={null}
+    >
       <VStack space={4}>
         {items.map((o) => (
           <Options

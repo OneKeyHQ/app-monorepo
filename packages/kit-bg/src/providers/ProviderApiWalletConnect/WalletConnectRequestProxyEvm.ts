@@ -1,6 +1,6 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import type { OneKeyWalletConnector } from '@onekeyhq/kit/src/components/WalletConnect/OneKeyWalletConnector';
+import type { IWalletConnectRequestOptions } from '@onekeyhq/kit/src/components/WalletConnect/types';
 
 import { WalletConnectRequestProxy } from './WalletConnectRequestProxy';
 
@@ -13,8 +13,8 @@ export class WalletConnectRequestProxyEvm extends WalletConnectRequestProxy {
         method: 'eth_requestAccounts',
       });
    */
-  override async connect(connector: OneKeyWalletConnector) {
-    const accounts = await this.request<string[] | undefined>(connector, {
+  override async connect(options: IWalletConnectRequestOptions) {
+    const accounts = await this.request<string[] | undefined>(options, {
       method: 'eth_requestAccounts',
     });
     return accounts || [];
@@ -26,8 +26,8 @@ export class WalletConnectRequestProxyEvm extends WalletConnectRequestProxy {
           method: 'eth_accounts',
         });
    */
-  override async getAccounts(connector: OneKeyWalletConnector) {
-    const accounts = await this.request<string[] | undefined>(connector, {
+  override async getAccounts(options: IWalletConnectRequestOptions) {
+    const accounts = await this.request<string[] | undefined>(options, {
       method: 'eth_accounts',
     });
     return accounts || [];
@@ -40,8 +40,8 @@ export class WalletConnectRequestProxyEvm extends WalletConnectRequestProxy {
         10,
       );
    */
-  override async getChainId(connector: OneKeyWalletConnector) {
-    const netVersionStr = await this.request<string | undefined>(connector, {
+  override async getChainId(options: IWalletConnectRequestOptions) {
+    const netVersionStr = await this.request<string | undefined>(options, {
       method: 'net_version',
     });
     return parseInt(netVersionStr ?? '0', 10);

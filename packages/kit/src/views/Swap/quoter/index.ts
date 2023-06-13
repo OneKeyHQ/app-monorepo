@@ -119,6 +119,7 @@ type FetchQuoteHttpResult = {
   percentageFee?: string;
   minAmountOut?: string;
   protocolFees?: ProtocolFees;
+  estimatedPriceImpact?: string;
 };
 
 type FetchQuoteHttpLimit = {
@@ -289,6 +290,7 @@ export class SwapQuoter {
         ),
         minAmountOut: fetchQuote.minAmountOut,
         protocolFees: fetchQuote.protocolFees,
+        estimatedPriceImpact: fetchQuote.estimatedPriceImpact,
       };
 
       if (data.allowanceTarget && spendersAllowance) {

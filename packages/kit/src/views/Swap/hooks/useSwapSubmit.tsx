@@ -60,6 +60,7 @@ import type {
   TransactionToken,
 } from '../typings';
 import type { Task } from '../utils';
+import type { SendSuccessCallback } from './useSwapSend';
 
 type IConvertToSwapInfoOptions = {
   swapQuote: QuoteData;
@@ -149,6 +150,7 @@ const addSwapTransaction = async ({
         percentageFee: quote.percentageFee,
         protocalFees: quote.protocolFees,
         networkFee,
+        viewed: false,
         tokens: {
           from,
           to,
@@ -250,6 +252,7 @@ type SwapSubmitInputParams = {
   params?: FetchQuoteParams;
   quote?: QuoteData;
   recipient?: Recipient;
+  onSuccess?: SendSuccessCallback;
   setProgressStatus?: (status: ProgressStatus) => void;
   openProgressStatus?: () => void;
   closeProgressStatus?: () => void;
@@ -264,6 +267,7 @@ export const useSwapSubmit = () => {
       params,
       quote,
       recipient,
+      onSuccess,
       setProgressStatus,
       openProgressStatus,
       closeProgressStatus,
@@ -559,6 +563,7 @@ export const useSwapSubmit = () => {
             recipient,
           });
           appUIEventBus.emit(AppUIEventBusNames.SwapCompleted);
+          onSuccess?.({ result: swapResult, decodedTx });
         },
         onFail: () => {
           appUIEventBus.emit(AppUIEventBusNames.SwapError);

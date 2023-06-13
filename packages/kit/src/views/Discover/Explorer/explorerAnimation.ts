@@ -1,16 +1,10 @@
 import { createRef } from 'react';
 
 import { makeMutable, runOnJS, withTiming } from 'react-native-reanimated';
-import { captureRef } from 'react-native-view-shot';
 
-import {
-  AppUIEventBusNames,
-  appUIEventBus,
-} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getCurrentTabId } from '../../../store/observable/webTabs';
 
-import { appSelector } from '../../../store';
-
+import { getWebTabs } from './Controller/useWebTabs';
 import { pauseDappInteraction, resumeDappInteraction } from './explorerUtils';
 
 import type { View } from 'react-native';
@@ -40,7 +34,9 @@ let thumbnailRatio = 0.8;
 export const setThumbnailRatio = (ratio: number) => {
   thumbnailRatio = ratio;
 };
-const thumbnailWidth = 340;
+export const getThumbnailRatio = () => thumbnailRatio;
+export const thumbnailWidth = 340;
+
 const getTabCellLayout = (tabId: string, callback: () => void) => {
   tabGridRefs[tabId]?.measure((x, y, width, height, pageX, pageY) => {
     targetPreviewX.value = pageX;
@@ -50,23 +46,10 @@ const getTabCellLayout = (tabId: string, callback: () => void) => {
     callback();
   });
 };
+
 export const showTabGrid = () => {
   pauseDappInteraction();
-  const { currentTabId, tabs } = appSelector((s) => s.webTabs);
-  if (platformEnv.isNative && tabViewShotRef.current) {
-    captureRef(tabViewShotRef, {
-      format: 'jpg',
-      width: thumbnailWidth,
-      height: thumbnailWidth * thumbnailRatio,
-      quality: 0.6,
-    }).then((uri) => {
-      appUIEventBus.emit(
-        AppUIEventBusNames.WebTabThumbnailUpdated,
-        currentTabId,
-        uri,
-      );
-    });
-  }
+  const { currentTabId, tabs } = getWebTabs();
   getTabCellLayout(currentTabId, () => {
     showTabGridAnim.value = withTiming(MAX_OR_SHOW);
     setTimeout(() => {
@@ -82,7 +65,7 @@ export const showTabGrid = () => {
 };
 
 export const hideTabGrid = (id?: string) => {
-  const curId = id || appSelector((s) => s.webTabs.currentTabId);
+  const curId = id || getCurrentTabId();
   getTabCellLayout(curId, () => {
     showTabGridAnim.value = withTiming(MIN_OR_HIDE);
     resumeDappInteraction();

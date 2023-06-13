@@ -348,25 +348,19 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
   }, [accountId, hideSmallBalance, hideRiskTokens, intl, item, networkId]);
 
   const onAddToken = useCallback(async () => {
-    const { engine, serviceToken } = backgroundApiProxy;
+    const { serviceToken } = backgroundApiProxy;
     try {
       await checkIfShouldActiveToken();
-      await engine.quickAddToken(
-        accountId,
+      await serviceToken.addAccountToken(
         networkId,
+        accountId,
         item.tokenIdOnNetwork,
-        undefined,
-        { autoDetected: false },
       );
     } catch (e) {
       debugLogger.common.error('add token error', e);
       deviceUtils.showErrorToast(e, 'msg__failed_to_add_token');
       return;
     }
-    await serviceToken.fetchAccountTokens({
-      accountId,
-      networkId,
-    });
     await checkTokenVisible();
     ToastManager.show({
       title: intl.formatMessage({ id: 'msg__token_added' }),
@@ -570,17 +564,19 @@ export const Listing: FC = () => {
             primaryActionProps: {
               type: 'destructive',
               onPromise: async () => {
-                if (accountId && token) {
-                  await backgroundApiProxy.engine.removeTokenFromAccount(
-                    accountId,
-                    token.id,
-                  );
+                if (!accountId || !token) {
+                  return;
                 }
-                await backgroundApiProxy.serviceToken.fetchAccountTokens({
-                  accountId,
-                  networkId,
-                });
-                closeOverlay();
+                return backgroundApiProxy.serviceToken
+                  .deleteAccountToken({
+                    accountId,
+                    networkId,
+                    tokenId: token.id,
+                    address: token.address ?? '',
+                  })
+                  .finally(() => {
+                    closeOverlay();
+                  });
               },
             },
           }}

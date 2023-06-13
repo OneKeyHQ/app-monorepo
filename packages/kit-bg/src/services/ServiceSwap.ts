@@ -17,6 +17,7 @@ import {
   resetState,
   resetTypedValue,
   setInputToken,
+  setMode,
   setOutputToken,
   setProgressStatus,
   setQuote,
@@ -729,7 +730,11 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async buyToken(token: Token) {
-    const { engine } = this.backgroundApi;
+    const { engine, appSelector, dispatch } = this.backgroundApi;
+    const mode = appSelector((s) => s.swap.mode);
+    if (mode !== 'swap') {
+      dispatch(setMode('swap'));
+    }
     const paymentToken = await this.getPaymentToken(token);
     this.clearState();
     this.setOutputToken(token);
@@ -745,7 +750,11 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async sellToken(token: Token) {
-    const { engine } = this.backgroundApi;
+    const { engine, appSelector, dispatch } = this.backgroundApi;
+    const mode = appSelector((s) => s.swap.mode);
+    if (mode !== 'swap') {
+      dispatch(setMode('swap'));
+    }
     const paymentToken = await this.getPaymentToken(token);
     this.clearState();
     this.setInputToken(token);

@@ -209,6 +209,7 @@ const OnekeyHardwareVerifyDetail: FC<HardwareVerifyDetail> = ({ walletId }) => {
           <Center flex="1" alignSelf="center" mt={-6}>
             <Box w={200} h={200} ml={5}>
               <LottieView
+                resizeMode="cover"
                 source={require('@onekeyhq/kit/assets/animations/lottie_searching.json')}
                 autoPlay
                 loop

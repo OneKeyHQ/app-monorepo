@@ -29,15 +29,17 @@ import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
 import type { HardwareUpdateRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/HardwareUpdate';
 import { HardwareUpdateModalRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
+import { showDialog, showOverlay } from '@onekeyhq/kit/src/utils/overlayUtils';
 import type {
   BLEFirmwareInfo,
   IResourceUpdateInfo,
   SYSFirmwareInfo,
 } from '@onekeyhq/kit/src/utils/updates/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import NeedBridgeDialog from '../../../../components/NeedBridgeDialog';
 import { deviceUtils } from '../../../../utils/hardware';
 import { openUrlExternal } from '../../../../utils/openUrl';
 
@@ -182,10 +184,10 @@ const UpdateInfoModal: FC = () => {
         findDevice = await engine.getHWDeviceByDeviceId(deviceId);
       } else if (walletId) {
         findDevice = await engine.getHWDeviceByWalletId(walletId);
-      } else if (deviceConnectId) {
+      } else if (deviceConnectId && typeof deviceConnectId === 'string') {
         findDevice =
-          (await engine.getHWDevices()).find(
-            (d) => d.mac === deviceConnectId,
+          (await engine.getHWDevices()).find((d) =>
+            equalsIgnoreCase(d.mac, deviceConnectId),
           ) ?? null;
       }
 
@@ -263,9 +265,29 @@ const UpdateInfoModal: FC = () => {
               connectId,
               firmware.version.join('.'),
             );
-          console.log('shouldUpdateBootloader ====> ', shouldUpdateBootloader);
           setShouldUpdateBootloader(!!shouldUpdateBootloader?.shouldUpdate);
         }
+
+        if (!platformEnv.isNative) {
+          const shouldUpdateBridge = await serviceHardware.checkBridgeRelease(
+            connectId,
+            firmware.version.join('.'),
+          );
+
+          if (shouldUpdateBridge?.shouldUpdate) {
+            navigation.goBack();
+            setTimeout(() => {
+              showDialog(
+                <NeedBridgeDialog
+                  update
+                  version={shouldUpdateBridge.releaseVersion ?? ''}
+                />,
+              );
+            }, 200);
+            return;
+          }
+        }
+
         setSysFirmware(firmware);
         setResourceUpdateInfo(resourceInfo);
         setIsLoading(false);

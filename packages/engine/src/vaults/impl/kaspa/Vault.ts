@@ -4,20 +4,37 @@ import BigNumber from 'bignumber.js';
 import { groupBy } from 'lodash';
 import memoizee from 'memoizee';
 
+import {
+  InvalidAddress,
+  OneKeyInternalError,
+} from '@onekeyhq/engine/src/errors';
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-
-import { InvalidAddress, OneKeyInternalError } from '../../../errors';
-import { decrypt } from '../../../secret/encryptors/aes256';
-import { TransactionStatus } from '../../../types/provider';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
+import type { KeyringSoftwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringSoftwareBase';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
   IEncodedTxUpdateType,
-} from '../../types';
-import { convertFeeValueToGwei } from '../../utils/feeInfoUtils';
-import { VaultBase } from '../../VaultBase';
+} from '@onekeyhq/engine/src/vaults/types';
+import type {
+  IDecodedTx,
+  IDecodedTxActionNativeTransfer,
+  IDecodedTxLegacy,
+  IEncodedTxUpdateOptions,
+  IEncodedTxUpdatePayloadTransfer,
+  IFeeInfo,
+  IFeeInfoUnit,
+  IHistoryTx,
+  ISignedTxPro,
+  ITransferInfo,
+  IUnsignedTxPro,
+} from '@onekeyhq/engine/src/vaults/types';
+import type { TxInput } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import { convertFeeValueToGwei } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -39,21 +56,6 @@ import {
 import { toTransaction } from './sdk/transaction';
 import settings from './settings';
 
-import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
-import type {
-  IDecodedTx,
-  IDecodedTxActionNativeTransfer,
-  IDecodedTxLegacy,
-  IEncodedTxUpdateOptions,
-  IEncodedTxUpdatePayloadTransfer,
-  IFeeInfo,
-  IFeeInfoUnit,
-  IHistoryTx,
-  ISignedTxPro,
-  ITransferInfo,
-  IUnsignedTxPro,
-} from '../../types';
-import type { TxInput } from '../../utils/btcForkChain/types';
 import type { IEncodedTxKaspa } from './types';
 
 // @ts-ignore
@@ -151,17 +153,22 @@ export default class Vault extends VaultBase {
 
     const confirmUtxos = await queryConfirmUTXOs(client, from);
 
+    const { mass: preMass } = selectUTXOs(confirmUtxos, parseInt(amountValue));
+
     const { utxoIds, utxos, mass } = selectUTXOs(
       confirmUtxos,
-      parseInt(amountValue),
+      parseInt(amountValue) + preMass,
     );
 
     const limit = specifiedFeeLimit ?? mass.toString();
 
-    const hasMaxSend = utxos
-      .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
-      .shiftedBy(-network.decimals)
-      .lte(amount);
+    let hasMaxSend = false;
+    if (utxos.length === confirmUtxos.length) {
+      hasMaxSend = utxos
+        .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
+        .shiftedBy(-network.decimals)
+        .lte(amount);
+    }
 
     return {
       utxoIds,
@@ -486,12 +493,12 @@ export default class Vault extends VaultBase {
           // send and send self
           from = dbAccount.address;
 
-          const filterInputs = inputs.filter(
-            (input) => input.previous_outpoint_address !== dbAccount.address,
+          const filterOutputs = outputs.filter(
+            (output) => output.script_public_key_address !== dbAccount.address,
           );
 
-          if (filterInputs.length > 0) {
-            to = filterInputs[0].previous_outpoint_address;
+          if (filterOutputs.length > 0) {
+            to = filterOutputs[0].script_public_key_address;
           } else {
             to = dbAccount.address;
           }

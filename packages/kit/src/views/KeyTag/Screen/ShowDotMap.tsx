@@ -8,6 +8,7 @@ import {
   Box,
   Button,
   Center,
+  Modal,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -66,11 +67,7 @@ const TopMidCompoment = ({
       alignItems="center"
     >
       {wallet ? (
-        <WalletAvatarPro
-          size={platformEnv.isNative ? 'lg' : 'sm'}
-          wallet={wallet}
-          devicesStatus={undefined}
-        />
+        <WalletAvatarPro size="sm" wallet={wallet} devicesStatus={undefined} />
       ) : null}
       <Box ml={wallet ? 3 : 0} flexDirection="column">
         {wallet ? (
@@ -134,23 +131,37 @@ const ShowDotMap: FC = () => {
     headerShadowVisible: false,
   });
   return (
-    <LayoutContainer backButton={false}>
-      <Box flex="1">
-        <Box
-          mt={platformEnv.isNativeIOS ? -12 : 0}
-          flexDirection={isVertical ? 'column' : 'row'}
-        >
-          {keyTagData?.length && keyTagData.length > 12 ? (
-            <>
-              <KeyTagMatrix keyTagData={keyTagData.slice(0, 12)} />
-              <KeyTagMatrix keyTagData={keyTagData.slice(12)} startIndex={13} />
-            </>
-          ) : (
-            <KeyTagMatrix keyTagData={keyTagData} />
-          )}
-        </Box>
-      </Box>
-    </LayoutContainer>
+    <Modal
+      hidePrimaryAction
+      hideSecondaryAction
+      fullMobile
+      headerShown={false}
+      disableTopRadius
+      scrollViewProps={{
+        children: (
+          <LayoutContainer backButton={false}>
+            <Box flex="1">
+              <Box
+                mt={platformEnv.isNativeIOS ? -12 : 0}
+                flexDirection={isVertical ? 'column' : 'row'}
+              >
+                {keyTagData?.length && keyTagData.length > 12 ? (
+                  <>
+                    <KeyTagMatrix keyTagData={keyTagData.slice(0, 12)} />
+                    <KeyTagMatrix
+                      keyTagData={keyTagData.slice(12)}
+                      startIndex={13}
+                    />
+                  </>
+                ) : (
+                  <KeyTagMatrix keyTagData={keyTagData} />
+                )}
+              </Box>
+            </Box>
+          </LayoutContainer>
+        ),
+      }}
+    />
   );
 };
 

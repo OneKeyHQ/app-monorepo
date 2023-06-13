@@ -65,7 +65,7 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
     rpcURL = rpcURL || presetNetwork.presetRpcURLs[0];
     if (presetNetwork.impl === IMPL_ALGO) {
       const urlGroup = (presetNetwork.rpcURLs || [])[0];
-      algoIndexerURL = (urlGroup || {}).indexer;
+      algoIndexerURL = (urlGroup || {}).indexer ?? '';
     }
   }
 

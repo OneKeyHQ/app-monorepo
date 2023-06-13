@@ -105,14 +105,15 @@ const mockProvider = {
   Provider: MockProvider,
   Client: MockClient,
 };
+
 const IMPLS: { [key: string]: any } = {
   algo: mockProvider,
   ada: mockProvider,
   cosmos: mockProvider,
-  cfx: require('./chains/cfx'),
+  cfx: mockProvider,
   eth: require('./chains/eth'),
-  near: require('./chains/near'),
-  sol: require('./chains/sol'),
+  near: mockProvider,
+  sol: mockProvider,
   stc: require('./chains/stc'),
   btc: mockProvider,
   tbtc: mockProvider,

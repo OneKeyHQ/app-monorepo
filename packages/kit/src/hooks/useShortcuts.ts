@@ -4,13 +4,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ExplorerShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { TabRoutes } from '../routes/routesEnum';
-import { appSelector } from '../store';
+import { webTabsActions } from '../store/observable/webTabs';
 import { isAtAppRootTab } from '../utils/routeUtils';
-import {
-  dAddNewWebTab,
-  dCloseWebTab,
-  dSetCurrentWebTab,
-} from '../views/Discover/Explorer/explorerActions';
+import { getWebTabs } from '../views/Discover/Explorer/Controller/useWebTabs';
 import { getWebviewWrapperRef } from '../views/Discover/Explorer/explorerUtils';
 
 export const useShortcuts = platformEnv.isDesktop
@@ -20,13 +16,15 @@ export const useShortcuts = platformEnv.isDesktop
           const isFocusedInDiscoverTab = isAtAppRootTab(TabRoutes.Discover);
           if (isFocusedInDiscoverTab) {
             if (data === ExplorerShortcutEvents.NewTab) {
-              dAddNewWebTab({ isCurrent: false });
+              webTabsActions.addWebTab({ isCurrent: false });
             } else if (data === ExplorerShortcutEvents.NewTabAndFocus) {
-              dAddNewWebTab();
+              webTabsActions.addBlankWebTab();
             } else if (data === ExplorerShortcutEvents.JumpToNextTab) {
-              const tabs = appSelector((s) => s.webTabs.tabs);
+              const { tabs } = getWebTabs();
               const curTabIndex = tabs.findIndex((tab) => tab.isCurrent);
-              dSetCurrentWebTab(tabs[(curTabIndex + 1) % tabs.length].id);
+              webTabsActions.setCurrentWebTab(
+                tabs[(curTabIndex + 1) % tabs.length].id,
+              );
             } else if (data === ExplorerShortcutEvents.GobackHistory) {
               try {
                 // @ts-ignore
@@ -45,9 +43,9 @@ export const useShortcuts = platformEnv.isDesktop
               data === ExplorerShortcutEvents.CloseTab ||
               data === ExplorerShortcutEvents.CloseTabOnWinOrLinux
             ) {
-              const tabs = appSelector((s) => s.webTabs.tabs);
+              const { tabs } = getWebTabs();
               if (tabs.length > 1) {
-                dCloseWebTab(tabs[tabs.length - 1].id);
+                webTabsActions.closeWebTab(tabs[tabs.length - 1].id);
               } else {
                 window.desktopApi.quitApp();
               }

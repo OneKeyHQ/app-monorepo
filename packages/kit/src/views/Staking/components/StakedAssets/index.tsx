@@ -1,9 +1,9 @@
 import type { FC } from 'react';
 
 import { Box } from '@onekeyhq/components';
-import { useTokenSupportStakedAssets } from '@onekeyhq/kit/src/hooks/useTokens';
 
 import { useActiveWalletAccount } from '../../../../hooks';
+import { isSupportStakedAssets } from '../../utils';
 
 import ETHAsset from './ETHAsset';
 
@@ -18,10 +18,7 @@ const StakedAssets: FC<StakedAssetsProps> = ({
 }) => {
   const { accountId } = useActiveWalletAccount();
   let children: JSX.Element | undefined;
-  const statedSupport = useTokenSupportStakedAssets(
-    networkId,
-    tokenIdOnNetwork,
-  );
+  const statedSupport = isSupportStakedAssets(networkId, tokenIdOnNetwork);
   if (networkId && statedSupport) {
     children = <ETHAsset networkId={networkId} accountId={accountId} />;
   }

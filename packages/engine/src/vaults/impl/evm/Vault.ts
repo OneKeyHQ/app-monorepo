@@ -1011,7 +1011,17 @@ export default class Vault extends VaultBase {
     const amountBN = new BigNumber(amount);
     if (decodedTx.txType === EVMDecodedTxType.NATIVE_TRANSFER) {
       const network = await this.getNetwork();
-      encodedTx.value = toBigIntHex(amountBN.shiftedBy(network.decimals));
+      encodedTx.value = toBigIntHex(
+        amountBN
+          .dp(
+            BigNumber.min(
+              amountBN.decimalPlaces() - 2,
+              network.decimals - 2,
+            ).toNumber(),
+            BigNumber.ROUND_FLOOR,
+          )
+          .shiftedBy(network.decimals),
+      );
     }
     if (decodedTx.txType === EVMDecodedTxType.TOKEN_TRANSFER) {
       const info = decodedTx.info as EVMDecodedItemERC20Transfer;
@@ -2087,5 +2097,10 @@ export default class Vault extends VaultBase {
     }
 
     return result;
+  }
+
+  override async fetchRpcChainId(url: string): Promise<string> {
+    const chainId = await this.engine.providerManager.getEVMChainId(url);
+    return String(chainId);
   }
 }

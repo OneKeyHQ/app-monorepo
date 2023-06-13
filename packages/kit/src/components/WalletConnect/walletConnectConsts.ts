@@ -15,6 +15,7 @@ export const WALLET_CONNECT_WALLETS_LIST =
 export const WALLET_CONNECT_BRIDGE = 'https://walletconnectbridge.onekey.so'; // OneKey self-host bridge
 export const WALLET_CONNECT_PROTOCOL = 'wc';
 export const WALLET_CONNECT_VERSION = 1;
+export const WALLET_CONNECT_V2_PROJECT_ID = '5e21f5018bfdeb78af03187a432a301d';
 
 //  timeout 20s
 export const WALLET_CONNECT_CONNECTION_TIMEOUT = getTimeDurationMs({
@@ -69,6 +70,7 @@ if (platformEnv.isExtension) {
 }
 
 export const WALLET_CONNECT_CLIENT_META = {
+  name: `OneKey ${platformNameShort}`,
   description: 'Connect with OneKey',
   // wallet-connect identify different dapps by url
   url: `https://${platformName}.onekey.so`,
@@ -77,7 +79,6 @@ export const WALLET_CONNECT_CLIENT_META = {
     'https://www.onekey.so/favicon.ico',
     // 'https://example.walletconnect.org/favicon.ico'
   ],
-  name: `OneKey ${platformNameShort}`,
 };
 
 export const WALLET_CONNECT_WALLET_NAMES = {

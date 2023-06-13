@@ -2,7 +2,7 @@
 /* eslint max-classes-per-file: "off" */
 
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { get, isNil } from 'lodash';
 
 import type {
   BaseClient,
@@ -273,6 +273,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async getFeePricePerUnit(): Promise<FeePricePerUnit> {
     throw new NotImplemented();
   }
+
+  async fetchRpcChainId(url: string): Promise<string | null> {
+    return null;
+  }
 }
 
 /*
@@ -461,6 +465,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       tokens: [],
       address: dbAccount.address,
       template: dbAccount.template,
+      pubKey: get(dbAccount, 'pub', ''),
     };
   }
 

@@ -26,7 +26,10 @@ import memoizee from 'memoizee';
 
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import type {
+  FeePricePerUnit,
+  PartialTokenInfo,
+} from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -48,16 +51,19 @@ import {
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
-import { ClientSol } from './ClientSol';
-import { KeyringHardware } from './KeyringHardware';
-import { KeyringHd } from './KeyringHd';
-import { KeyringImported } from './KeyringImported';
-import { KeyringWatching } from './KeyringWatching';
+import {
+  KeyringHardware,
+  KeyringHd,
+  KeyringImported,
+  KeyringWatching,
+} from './keyring';
+import { ClientSol } from './sdk';
 import settings from './settings';
 
 import type { DBSimpleAccount } from '../../../types/account';
 import type { AccountNameInfo } from '../../../types/network';
 import type { NFTTransaction } from '../../../types/nft';
+import type { TransactionStatus } from '../../../types/provider';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IApproveInfo,
@@ -253,6 +259,12 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only methods
+  override async getTransactionStatuses(
+    txids: Array<string>,
+  ): Promise<Array<TransactionStatus | undefined>> {
+    const client = await this.getClient();
+    return client.getTransactionStatuses(txids);
+  }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     const client = await this.getClient();
@@ -285,13 +297,11 @@ export default class Vault extends VaultBase {
     },
   );
 
-  override fetchTokenInfos(
+  override async fetchTokenInfos(
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo | undefined>> {
-    return this.engine.providerManager.getTokenInfos(
-      this.networkId,
-      tokenAddresses,
-    );
+    const client = await this.getClient();
+    return client.getTokenInfos(tokenAddresses);
   }
 
   override validateAddress(address: string): Promise<string> {
@@ -666,6 +676,7 @@ export default class Vault extends VaultBase {
     const maxRetryTimes = 8;
     let retryTime = 0;
     let lastRpcErrorMessage = '';
+    const client = await this.getClient();
 
     const doBroadcast = async () => {
       try {
@@ -676,12 +687,24 @@ export default class Vault extends VaultBase {
               preflightCommitment: 'confirmed',
             }
           : {};
-        const result = await super.broadcastTransaction(
-          signedTx,
+        debugLogger.engine.info('broadcastTransaction START:', {
+          rawTx: signedTx.rawTx,
+        });
+        const txid = await client.broadcastTransaction(
+          signedTx.rawTx,
           options || {},
         );
-        return result;
+        debugLogger.engine.info('broadcastTransaction END:', {
+          txid,
+          rawTx: signedTx.rawTx,
+        });
+        return {
+          ...signedTx,
+          txid,
+          encodedTx: signedTx.encodedTx,
+        };
       } catch (error) {
+        debugLogger.engine.error('broadcastTransaction error:', error);
         // @ts-ignore
         const rpcErrorData = error?.data as
           | {
@@ -743,6 +766,11 @@ export default class Vault extends VaultBase {
       },
       encodedTx,
     };
+  }
+
+  override async getFeePricePerUnit(): Promise<FeePricePerUnit> {
+    const client = await this.getClient();
+    return client.getFeePricePerUnit();
   }
 
   override async fetchFeeInfo(encodedTx: IEncodedTx): Promise<IFeeInfo> {

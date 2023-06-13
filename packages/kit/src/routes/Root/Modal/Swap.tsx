@@ -1,6 +1,7 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
 import CustomToken from '../../../views/ManageTokens/CustomToken';
+import ChainSelector from '../../../views/Swap/ChainSelector';
 import EnterAddress from '../../../views/Swap/EnterAddress';
 import HardwareContinue from '../../../views/Swap/HardwareContinue';
 import Input from '../../../views/Swap/Input';
@@ -8,6 +9,7 @@ import LimitOrderDetails from '../../../views/Swap/LimitOrderDetails';
 import LimitOrderInput from '../../../views/Swap/LimitOrderInput';
 import LimitOrderOutput from '../../../views/Swap/LimitOrderOutput';
 import Output from '../../../views/Swap/Output';
+import OutputCrosschain from '../../../views/Swap/OutputCrosschain';
 import PickAccount from '../../../views/Swap/PickAccount';
 import PickRecipient from '../../../views/Swap/PickRecipient';
 import SelectRoutes from '../../../views/Swap/SelectRoutes';
@@ -108,6 +110,14 @@ const modalRoutes = [
   {
     name: SwapRoutes.HardwareContinue,
     component: HardwareContinue,
+  },
+  {
+    name: SwapRoutes.ChainSelector,
+    component: ChainSelector,
+  },
+  {
+    name: SwapRoutes.OutputCrosschain,
+    component: OutputCrosschain,
   },
 ];
 

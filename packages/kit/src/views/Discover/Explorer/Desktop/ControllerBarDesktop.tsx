@@ -8,7 +8,7 @@ import { HStack, IconButton, Input, Pressable } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { NetworkAccountSelectorTriggerDesktop } from '../../../../components/NetworkAccountSelector';
-import { homeTab } from '../../../../store/reducers/webTabs';
+import { homeTab } from '../../../../store/observable/webTabs';
 import { gotoSite, openMatchDApp } from '../Controller/gotoSite';
 import { useWebController } from '../Controller/useWebController';
 import SearchView from '../Search/SearchView';

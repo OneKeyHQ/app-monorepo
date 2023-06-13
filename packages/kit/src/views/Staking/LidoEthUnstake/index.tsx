@@ -10,6 +10,7 @@ import {
   Button,
   Center,
   HStack,
+  Hidden,
   Icon,
   Image,
   Modal,
@@ -21,11 +22,12 @@ import {
 } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AutoSizeText } from '../../../components/AutoSizeText';
-import { useActiveWalletAccount } from '../../../hooks';
+import { FormatCurrency } from '../../../components/Format';
+import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
+import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { addTransaction } from '../../../store/reducers/staking';
 import { formatAmount } from '../../../utils/priceUtils';
@@ -79,9 +81,11 @@ export default function UnstakeAmount() {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { account, networkId } = useActiveWalletAccount();
+  const mainPrice = useSimpleTokenPriceValue({ networkId });
   const lidoOverview = useLidoOverview(networkId, account?.id);
   const balance = lidoOverview?.balance ?? '0';
-  const tokenSymbol = networkId === OnekeyNetwork.eth ? 'ETH' : 'TETH';
+  const tokenSymbol = 'stETH';
+  const stEthRate = useAppSelector((s) => s.staking.stEthRate);
   const [source, setSource] = useState<UnstakeRouteOptionsValue>('lido');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -106,14 +110,33 @@ export default function UnstakeAmount() {
     return undefined;
   }, [amount, intl, balance, tokenSymbol]);
 
+  const minAmountErrMsg = useMemo(() => {
+    const minAmountBN =
+      source === 'lido' ? new BigNumber(0.0000001) : new BigNumber(0.000000001); // lido 100gwei limit
+    const input = amount.trim();
+    const amountBN = new BigNumber(input);
+    if (
+      minAmountBN.gt(0) &&
+      input &&
+      (amountBN.isNaN() || (amountBN.gt(0) && amountBN.lt(minAmountBN)))
+    ) {
+      return `${intl.formatMessage({
+        id: 'form__min_amount',
+      })} ${minAmountBN.toFixed()} ${tokenSymbol}`;
+    }
+  }, [amount, intl, tokenSymbol, source]);
+
   const userInput = useCallback(
     (percent: number) => {
       const bn = new BigNumber(balance);
       if (bn.lte(0)) {
         return;
       }
-      const value = bn.multipliedBy(percent).dividedBy(100);
-      setAmount(formatAmount(value, 8));
+      const text =
+        percent >= 100
+          ? balance
+          : formatAmount(bn.multipliedBy(percent).dividedBy(100), 8);
+      setAmount(text);
     },
     [balance],
   );
@@ -125,9 +148,40 @@ export default function UnstakeAmount() {
         account,
         typedValue: amount,
       });
-      await swapSubmit({ params, quote, recipient: account });
+      await swapSubmit({
+        params,
+        quote,
+        recipient: account,
+        // eslint-disable-next-line @typescript-eslint/require-await
+        onSuccess: async ({ result, decodedTx }) => {
+          backgroundApiProxy.dispatch(
+            addTransaction({
+              accountId: account.id,
+              networkId,
+              transaction: {
+                hash: result.txid,
+                accountId: account.id,
+                networkId,
+                type: 'lidoUnstake',
+                nonce: decodedTx?.nonce,
+                addedTime: Date.now(),
+              },
+            }),
+          );
+          navigation.replace(RootRoutes.Modal, {
+            screen: ModalRoutes.Staking,
+            params: {
+              screen: StakingRoutes.StakedETHOnLido,
+              params: {},
+            },
+          });
+          ToastManager.show({
+            title: intl.formatMessage({ id: 'msg__success' }),
+          });
+        },
+      });
     }
-  }, [networkId, account, amount, swapSubmit]);
+  }, [networkId, account, amount, swapSubmit, navigation, intl]);
 
   const onUnstakeByLido = useCallback(async () => {
     if (!account) {
@@ -167,6 +221,7 @@ export default function UnstakeAmount() {
             type: 4,
             message,
           },
+          closeImmediately: true,
           onSuccess: async (signature: string) => {
             const r = `0x${signature.substring(2).substring(0, 64)}`;
             const s = `0x${signature.substring(2).substring(64, 128)}`;
@@ -199,6 +254,9 @@ export default function UnstakeAmount() {
                     feeInfoUseFeeInTx: false,
                     encodedTx,
                     onSuccess(tx, data) {
+                      ToastManager.show({
+                        title: intl.formatMessage({ id: 'msg__success' }),
+                      });
                       backgroundApiProxy.dispatch(
                         addTransaction({
                           accountId: account.id,
@@ -213,11 +271,18 @@ export default function UnstakeAmount() {
                           },
                         }),
                       );
+                      navigation.replace(RootRoutes.Modal, {
+                        screen: ModalRoutes.Staking,
+                        params: {
+                          screen: StakingRoutes.StakedETHOnLido,
+                          params: {},
+                        },
+                      });
                     },
                   },
                 },
               });
-            }, 700);
+            }, 10);
           },
         },
       },
@@ -225,15 +290,15 @@ export default function UnstakeAmount() {
   }, [networkId, account, amount, navigation, intl]);
 
   const onPrimaryActionPress = useCallback(async () => {
-    if (source === 'onekey') {
-      try {
-        setLoading(true);
+    try {
+      setLoading(true);
+      if (source === 'onekey') {
         await onUnstakeBySwap();
-      } finally {
-        setLoading(false);
+      } else {
+        await onUnstakeByLido();
       }
-    } else {
-      await onUnstakeByLido();
+    } finally {
+      setLoading(false);
     }
   }, [source, onUnstakeBySwap, onUnstakeByLido]);
 
@@ -244,6 +309,7 @@ export default function UnstakeAmount() {
         screen: StakingRoutes.LidoEthUnstakeRoutes,
         params: {
           source,
+          amount,
           onSelector: (value) => {
             setSource(value as UnstakeRouteOptionsValue);
             navigation.goBack();
@@ -251,7 +317,14 @@ export default function UnstakeAmount() {
         },
       },
     });
-  }, [source, navigation]);
+  }, [source, navigation, amount]);
+
+  const rate = useMemo(() => {
+    if (source === 'lido') {
+      return;
+    }
+    return stEthRate?.[networkId];
+  }, [source, stEthRate, networkId]);
 
   return (
     <Modal
@@ -287,8 +360,25 @@ export default function UnstakeAmount() {
                   placeholder="0"
                 />
               </Center>
+              <Center>
+                {minAmountErrMsg ? (
+                  <Typography.Body1Strong color="text-critical">
+                    {minAmountErrMsg}
+                  </Typography.Body1Strong>
+                ) : (
+                  <FormatCurrency
+                    numbers={[mainPrice ?? 0, amount ?? 0]}
+                    render={(ele) => (
+                      <Typography.Body2 color="text-subdued">
+                        {mainPrice ? ele : '$ 0'}
+                      </Typography.Body2>
+                    )}
+                  />
+                )}
+              </Center>
             </Center>
             <Center>
+              <Box h="1" flexShrink="1" />
               <HStack flexDirection="row" alignItems="center" space="3">
                 <Button size="sm" onPress={() => userInput(25)}>
                   25%
@@ -303,6 +393,7 @@ export default function UnstakeAmount() {
                   {intl.formatMessage({ id: 'action__max' })}
                 </Button>
               </HStack>
+              <Box h="1" flexShrink="1" />
               <Box
                 h="8"
                 flexDirection="row"
@@ -315,12 +406,12 @@ export default function UnstakeAmount() {
                 <Typography.Body2Strong
                   color={errorMsg && amount ? 'text-critical' : 'text-default'}
                 >
-                  {balance ?? ''} {tokenSymbol}
+                  {formatAmount(balance ?? '', 6)} {tokenSymbol}
                 </Typography.Body2Strong>
               </Box>
             </Center>
           </Center>
-          <VStack space="1">
+          <VStack>
             <Box
               flexDirection="row"
               justifyContent="space-between"
@@ -328,7 +419,47 @@ export default function UnstakeAmount() {
               h="10"
             >
               <Typography.Body2 color="text-subdued">
-                {intl.formatMessage({ id: 'form__protocol' })}
+                {intl.formatMessage({ id: 'form__est_arrival_time' })}
+              </Typography.Body2>
+              <Typography.Body2Strong>
+                {source === 'lido'
+                  ? intl
+                      .formatMessage(
+                        { id: 'form__str_day' },
+                        { '0': '~ 1 - 3' },
+                      )
+                      .toLowerCase()
+                  : intl.formatMessage(
+                      { id: 'content__str_minutes_plural' },
+                      { '0': '~ 1-5' },
+                    )}
+              </Typography.Body2Strong>
+            </Box>
+            <Hidden>
+              {rate ? (
+                <Box
+                  flexDirection="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  h="10"
+                >
+                  <Typography.Body2 color="text-subdued">
+                    {intl.formatMessage({ id: 'form__est_receipt' })}
+                  </Typography.Body2>
+                  <Typography.Body2Strong>
+                    {new BigNumber(rate).multipliedBy(amount).toFixed()}ETH
+                  </Typography.Body2Strong>
+                </Box>
+              ) : null}
+            </Hidden>
+            <Box
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              h="10"
+            >
+              <Typography.Body2 color="text-subdued">
+                {intl.formatMessage({ id: 'form__route' })}
               </Typography.Body2>
               <Pressable onPress={onPress}>
                 <UnstakeRouteOptions value={source} />

@@ -9,7 +9,7 @@ import {
   TestnetLidoContractAddress,
 } from './config';
 
-import type { BuildTransactionParams, FetchQuoteParams } from '../Swap/typings';
+import type { FetchQuoteParams } from '../Swap/typings';
 
 export const isSupportStakedAssets = (
   networkId?: string,
@@ -54,8 +54,10 @@ export const isSTETH = (networkId?: string, tokenIdOnNetwork?: string) => {
 export async function fetchStEthRate(params: {
   networkId: string;
   account: Account;
+  amount?: string;
 }) {
-  const { networkId, account } = params;
+  const { networkId, account, amount } = params;
+  const typedValue = amount || '0.1';
   const nativeToken = await backgroundApiProxy.engine.getNativeTokenInfo(
     networkId,
   );
@@ -69,7 +71,7 @@ export async function fetchStEthRate(params: {
     tokenOut: nativeToken,
     tokenIn: stETH,
     slippagePercentage: '1',
-    typedValue: '1',
+    typedValue,
     independentField: 'INPUT',
     activeAccount: account,
     receivingAddress: account.address,

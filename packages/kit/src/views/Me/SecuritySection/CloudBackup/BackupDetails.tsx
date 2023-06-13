@@ -33,7 +33,6 @@ import { useAppSelector, useData } from '../../../../hooks/redux';
 import useImportBackupPasswordModal from '../../../../hooks/useImportBackupPasswordModal';
 import useLocalAuthenticationModal from '../../../../hooks/useLocalAuthenticationModal';
 import { useOnboardingDone } from '../../../../hooks/useOnboardingRequired';
-import { RootRoutes } from '../../../../routes/routesEnum';
 import { showOverlay } from '../../../../utils/overlayUtils';
 
 import BackupIcon from './BackupIcon';
@@ -41,7 +40,7 @@ import BackupSummary from './BackupSummary';
 import { showUpgrateDialog } from './UpgrateDialog';
 import Wrapper from './Wrapper';
 
-import type { HomeRoutes } from '../../../../routes/routesEnum';
+import type { HomeRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import type {
   HomeRoutesParams,
   RootRoutesParams,
@@ -198,7 +197,8 @@ export const GroupedBackupDetails = ({
           key={uuid}
         />
       ))}
-      {utxos?.length && (
+
+      {utxos?.length ? (
         <GenericBackupItem
           iconName="TagOutline"
           name={intl.formatMessage({
@@ -211,7 +211,7 @@ export const GroupedBackupDetails = ({
             { 0: utxos?.length },
           )}
         />
-      )}
+      ) : null}
     </Box>
   );
 };
@@ -357,7 +357,7 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
     if (onboarding) {
       await onboardingDone({ delay: 200 });
     } else {
-      navigation.navigate(RootRoutes.Main);
+      navigation.popToTop();
     }
   }, [intl, onboarding, onboardingDone, navigation]);
 

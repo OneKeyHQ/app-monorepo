@@ -78,7 +78,7 @@ function BaseSelectorTrigger({
             borderColor="border-default"
             {...props}
           >
-            <VStack py={0.5} px={1.5}>
+            <VStack py={0.5} px={!label && !subDescription ? 0.5 : 1.5}>
               <HStack alignItems="center" space={space ?? 0.5}>
                 {icon ? <Center minH={5}>{icon}</Center> : null}
                 {label ? (

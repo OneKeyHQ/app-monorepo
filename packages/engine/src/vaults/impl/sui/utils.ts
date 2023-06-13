@@ -6,6 +6,7 @@ import {
   TransactionBlock,
   fromB64,
   messageWithIntent,
+  normalizeSuiAddress,
 } from '@mysten/sui.js';
 import { blake2b } from '@noble/hashes/blake2b';
 
@@ -97,4 +98,20 @@ export async function dryRunTransactionBlock(input: {
   return input.provider.dryRunTransactionBlock({
     transactionBlock: dryRunTxBytes,
   });
+}
+
+export function normalizeSuiCoinType(coinType: string): string {
+  if (coinType !== SUI_TYPE_ARG) {
+    const [normalAddress, module, name] = coinType.split('::');
+    if (module && name) {
+      try {
+        return `${normalizeSuiAddress(
+          normalAddress,
+        ).toLowerCase()}::${module}::${name}`;
+      } catch {
+        // pass
+      }
+    }
+  }
+  return coinType;
 }

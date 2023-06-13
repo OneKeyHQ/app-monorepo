@@ -5,8 +5,6 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
-import { get } from 'lodash';
-import memoizee from 'memoizee';
 
 import type { BroadcastMode } from '@onekeyhq/engine/src/vaults/impl/cosmos/NodeClient';
 import type { StdSignDoc } from '@onekeyhq/engine/src/vaults/impl/cosmos/sdk/amino/types';
@@ -25,9 +23,11 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { queue } from './HandleQueue';
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
@@ -49,7 +49,12 @@ class ProviderApiCosmos extends ProviderApiBase {
         networkId = chainId;
       }
 
-      const params = await this.getKey({ origin }, networkId);
+      let params;
+      try {
+        params = await this.getKey({ origin }, networkId);
+      } catch (error) {
+        // ignore
+      }
       const result = {
         method: 'wallet_events_accountChanged',
         params,
@@ -76,46 +81,48 @@ class ProviderApiCosmos extends ProviderApiBase {
     throw web3Errors.rpc.methodNotSupported();
   }
 
-  private _enable = memoizee(
-    async (request: IJsBridgeMessagePayload, params: string[]) => {
-      const networkId = typeof params === 'string' ? params : params[0];
+  private _enable = async (
+    request: IJsBridgeMessagePayload,
+    params: string[],
+  ) => {
+    const networkId = typeof params === 'string' ? params : params[0];
 
-      const appNetworkId = this.convertCosmosChainId(networkId);
-      if (!appNetworkId) throw new Error('Invalid chainId');
+    const appNetworkId = this.convertCosmosChainId(networkId);
+    if (!appNetworkId) throw new Error('Invalid chainId');
 
-      const network = await this.backgroundApi.engine.getNetwork(appNetworkId);
-      if (!network) return Promise.reject(new Error('Invalid networkId'));
+    let network;
+    try {
+      network = await this.backgroundApi.engine.getNetwork(appNetworkId);
+    } catch (error) {
+      network = undefined;
+    }
+    if (!network) return false;
 
-      const key = await this.getKey(request, networkId);
+    const key = await this.getKey(request, networkId);
+    if (!key) return false;
 
-      if (!this.hasPermissions(request, key.pubKey)) {
-        await this.backgroundApi.serviceDapp.openConnectionModal(request, {
-          networkId: appNetworkId,
-        });
-      }
+    if (!this.hasPermissions(request, key.pubKey)) {
+      await this.backgroundApi.serviceDapp.openConnectionModal(request, {
+        networkId: appNetworkId,
+      });
+    }
 
-      return true;
-    },
-    {
-      promise: true,
-      max: 1,
-      normalizer: (
-        args: [request: IJsBridgeMessagePayload, params: string[]],
-      ) => {
-        const type = get(args[0], 'data.method', '');
-        const method = get(args[0], 'type', '');
-        const scope = get(args[0], 'scope', '');
-
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        return `${args?.[0]?.origin ?? ''}--${scope}--${type}--${method}`;
-      },
-    },
-  );
+    return true;
+  };
 
   @providerApiMethod()
   public async enable(request: IJsBridgeMessagePayload, params: string[]) {
     debugLogger.providerApi.info('cosmos enable', request, params);
-    return this._enable(request, params);
+    return new Promise((resolve, reject) => {
+      queue.enqueue(async () => {
+        try {
+          const result = await this._enable(request, params);
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
   }
 
   @providerApiMethod()
@@ -139,7 +146,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     return `cosmos--${networkId.toLowerCase()}`;
   }
 
-  private hasPermissions(request: IJsBridgeMessagePayload, address: string) {
+  private hasPermissions(request: IJsBridgeMessagePayload, pubKey: string) {
     const connectedAccounts =
       this.backgroundApi.serviceDapp?.getActiveConnectedAccounts({
         origin: request.origin as string,
@@ -151,7 +158,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     }
 
     const addresses = connectedAccounts.map((account) => account.address);
-    if (!addresses.includes(address)) {
+    if (!addresses.includes(pubKey)) {
       return false;
     }
 
@@ -161,20 +168,30 @@ class ProviderApiCosmos extends ProviderApiBase {
   @providerApiMethod()
   public async getKey(request: IJsBridgeMessagePayload, params: string) {
     debugLogger.providerApi.info('cosmos account', params);
+
     const { networkImpl, accountId } = getActiveWalletAccount();
 
     const networkId = this.convertCosmosChainId(params);
     if (!networkId) throw new Error('Invalid chainId');
 
     if (networkImpl !== IMPL_COSMOS) {
+      await this.backgroundApi.serviceDapp.openConnectionModal(request, {
+        networkId: IMPL_COSMOS,
+      });
       return Promise.reject(new Error('Invalid networkId'));
     }
 
-    const network = await this.backgroundApi.engine.getNetwork(networkId);
-    if (!network) return Promise.reject(new Error('Invalid networkId'));
+    let network;
+    try {
+      network = await this.backgroundApi.engine.getNetwork(networkId);
+    } catch (error) {
+      network = undefined;
+    }
+
+    if (!network) return Promise.resolve(undefined);
 
     const vault = (await this.backgroundApi.engine.getVault({
-      networkId,
+      networkId: OnekeyNetwork.cosmoshub,
       accountId,
     })) as VaultCosmos;
 

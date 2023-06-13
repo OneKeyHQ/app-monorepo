@@ -4,6 +4,7 @@ import RNRestart from 'react-native-restart';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { switchTestEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import { webTabsActions } from '@onekeyhq/kit/src/store/observable/webTabs';
 import {
   passwordSet,
   release,
@@ -205,6 +206,7 @@ class ServiceApp extends ServiceBase {
       await serviceNotification.syncPushNotificationConfig('reset');
     }
     await persistor.purge();
+    webTabsActions.closeAllWebTabs();
     await engine.resetApp();
     if (platformEnv.isRuntimeBrowser) {
       window.localStorage.clear();
@@ -291,10 +293,7 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async initApp() {
     const {
-      dispatch,
       engine,
-      serviceAccount,
-      serviceNetwork,
       appSelector,
       serviceBootstrap,
       serviceSetting,
@@ -323,12 +322,27 @@ class ServiceApp extends ServiceBase {
 
     await serviceBootstrap.preBootstrap();
 
+    const activeIds = await this.initActiveIds();
+
+    serviceSwap.initSwap();
+    serviceCloudBackup.loginIfNeeded(false);
+
+    if (activeIds.activeNetworkId) {
+      engine.updateOnlineTokens(activeIds.activeNetworkId, false);
+    }
+
+    serviceBootstrap.bootstrap();
+    this._appInited = true;
+  }
+
+  @backgroundMethod()
+  async initActiveIds() {
+    const { engine, dispatch, serviceAccount, serviceNetwork } =
+      this.backgroundApi;
     const networks = await serviceNetwork.initNetworks();
     const wallets = await serviceAccount.initWallets();
     const activeNetworkId = serviceNetwork.initCheckingNetwork(networks);
     const activeWalletId = serviceAccount.initCheckingWallet(wallets);
-    serviceSwap.initSwap();
-    serviceCloudBackup.loginIfNeeded(false);
     const accounts = await serviceAccount.reloadAccountsByWalletIdNetworkId(
       activeWalletId,
       activeNetworkId,
@@ -339,15 +353,14 @@ class ServiceApp extends ServiceBase {
       engine.updateOnlineTokens(activeNetworkId, false);
     }
 
-    dispatch(
-      setActiveIds({
-        activeAccountId,
-        activeWalletId,
-        activeNetworkId,
-      }),
-    );
-    serviceBootstrap.bootstrap();
-    this._appInited = true;
+    const activeIds = {
+      activeAccountId,
+      activeWalletId,
+      activeNetworkId,
+    };
+
+    dispatch(setActiveIds(activeIds));
+    return activeIds;
   }
 
   @backgroundMethod()

@@ -115,8 +115,11 @@ export default function UnstakeAmount() {
       if (bn.lte(0)) {
         return;
       }
-      const value = bn.multipliedBy(percent).dividedBy(100);
-      setAmount(formatAmount(value, 8));
+      const text =
+        percent >= 100
+          ? balance
+          : formatAmount(bn.multipliedBy(percent).dividedBy(100), 8);
+      setAmount(text);
     },
     [balance],
   );

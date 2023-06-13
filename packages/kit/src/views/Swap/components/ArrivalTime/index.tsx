@@ -8,11 +8,13 @@ import { Text } from '@onekeyhq/components';
 type ArrivalTimeProps = {
   value?: number;
   typography?: ComponentProps<typeof Text>['typography'];
+  color?: ComponentProps<typeof Text>['color'];
 };
 
 export const ArrivalTime: FC<ArrivalTimeProps> = ({
   value,
   typography = 'Caption',
+  color = 'text-subdued',
 }) => {
   const intl = useIntl();
   const text = useMemo(() => {
@@ -35,7 +37,7 @@ export const ArrivalTime: FC<ArrivalTimeProps> = ({
     );
   }, [value, intl]);
   return (
-    <Text typography={typography} color="text-subdued">
+    <Text typography={typography} color={color}>
       &lt;{text}
     </Text>
   );

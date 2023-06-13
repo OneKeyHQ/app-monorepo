@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { useFocusEffect, useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { omit } from 'lodash';
+import { useDebounce } from 'use-debounce';
 
 import {
   Box,
@@ -23,11 +24,15 @@ import type {
 } from '@onekeyhq/kit/src/routes/types';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokens, useActiveSideAccount } from '../../../hooks';
+import { useStatus } from '../../../hooks/redux';
 import { useAccountTokenLoading } from '../../../hooks/useTokens';
+import { useVisibilityFocused } from '../../../hooks/useVisibilityFocused';
 import { OverviewDefiThumbnal } from '../../Overview/Thumbnail';
+import { WalletHomeTabEnum } from '../type';
 
 import AssetsListHeader from './AssetsListHeader';
 import { EmptyListOfAccount } from './EmptyList';
@@ -114,30 +119,55 @@ function AssetsList({
     return 16;
   };
 
+  const [startRefresh] = useDebounce(
+    useCallback(() => {
+      const { serviceToken, serviceOverview } = backgroundApiProxy;
+      serviceOverview.startQueryPendingTasks();
+      serviceToken.startRefreshAccountTokens();
+    }, []),
+    1000,
+    {
+      leading: true,
+      trailing: false,
+    },
+  );
+
+  const [stopRefresh] = useDebounce(
+    useCallback(() => {
+      const { serviceToken, serviceOverview } = backgroundApiProxy;
+      serviceOverview.stopQueryPendingTasks();
+      serviceToken.stopRefreshAccountTokens();
+    }, []),
+    1000,
+    {
+      leading: true,
+      trailing: false,
+    },
+  );
+
   useEffect(() => {
     const { serviceOverview } = backgroundApiProxy;
     serviceOverview.subscribe();
-  }, [networkId, accountId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      const { serviceToken, serviceOverview } = backgroundApiProxy;
-      if (account && network) {
-        serviceToken.fetchAccountTokens({
-          includeTop50TokensQuery: true,
-          networkId: network?.id,
-          accountId: account?.id,
-        });
+    if (platformEnv.isExtensionUi) {
+      chrome.runtime.connect();
+    }
+  }, [networkId, accountId, startRefresh, stopRefresh]);
 
-        serviceOverview.startQueryPendingTasks();
-        serviceToken.startRefreshAccountTokens();
+  const { homeTabName } = useStatus();
+
+  const isFocused = useVisibilityFocused();
+
+  useEffect(() => {
+    if (isFocused && homeTabName === WalletHomeTabEnum.Tokens) {
+      if (!account || !network) {
+        return;
       }
-      return () => {
-        serviceOverview.stopQueryPendingTasks();
-        serviceToken.stopRefreshAccountTokens();
-      };
-    }, [account, network]),
-  );
+      startRefresh();
+    } else {
+      stopRefresh();
+    }
+  }, [isFocused, startRefresh, stopRefresh, account, network, homeTabName]);
 
   const onTokenCellPress = useCallback(
     (item: Token) => {

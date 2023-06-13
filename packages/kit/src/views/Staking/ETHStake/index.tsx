@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FC } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
@@ -16,6 +16,7 @@ import {
   Modal,
   Pressable,
   Text,
+  ToastManager,
   Typography,
 } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -93,6 +94,13 @@ export default function ETHStaking() {
     networkId === OnekeyNetwork.goerli,
   );
 
+  useEffect(() => {
+    if (!aprValue) {
+      backgroundApiProxy.serviceStaking.fetchEthAprSma();
+    }
+    // eslint-disable-next-line
+  }, [])
+
   const [amount, setAmount] = useState('');
   const { token: tokenInfo } = useSingleToken(networkId, '');
 
@@ -121,10 +129,10 @@ export default function ETHStaking() {
   }, [amount, intl, tokenBalance, tokenInfo]);
 
   const minAmountErrMsg = useMemo(() => {
-    if (source !== EthStakingSource.Kele) {
-      return;
-    }
-    const minAmountBN = new BigNumber('0.01');
+    const minAmountBN =
+      source === EthStakingSource.Kele
+        ? new BigNumber('0.01')
+        : new BigNumber('0.0000001');
     const minAmountRequired = !minAmountBN.isNaN() && minAmountBN.gt('0');
     const symbol = tokenInfo?.symbol ?? '';
     if (minAmountRequired) {
@@ -147,8 +155,11 @@ export default function ETHStaking() {
       if (bn.lte(0)) {
         return;
       }
-      const value = bn.multipliedBy(percent).dividedBy(100);
-      setAmount(formatAmount(value, 8));
+      const text =
+        percent >= 100
+          ? tokenBalance
+          : formatAmount(bn.multipliedBy(percent).dividedBy(100), 8);
+      setAmount(text);
     },
     [tokenBalance],
   );
@@ -265,12 +276,31 @@ export default function ETHStaking() {
                 );
                 // add stETH to user tokens list
               }
+              ToastManager.show({
+                title: intl.formatMessage({ id: 'msg__success' }),
+              });
+              navigation.replace(RootRoutes.Modal, {
+                screen: ModalRoutes.Staking,
+                params: {
+                  screen: StakingRoutes.StakedETHOnLido,
+                  params: {},
+                },
+              });
             },
           },
         },
       });
     },
-    [source, account, tokenInfo, networkId, accountId, amount, navigation],
+    [
+      source,
+      account,
+      tokenInfo,
+      networkId,
+      accountId,
+      amount,
+      navigation,
+      intl,
+    ],
   );
 
   return (
@@ -324,6 +354,7 @@ export default function ETHStaking() {
               </Center>
             </Center>
             <Center flexGrow="0.5" flexShrink="1" flexDirection="column">
+              <Box h="1" flexShrink="1" />
               <HStack flexDirection="row" alignItems="center" space="3">
                 <Button size="sm" onPress={() => userInput(25)}>
                   25%
@@ -351,7 +382,8 @@ export default function ETHStaking() {
                 <Typography.Body2Strong
                   color={errorMsg && amount ? 'text-critical' : 'text-default'}
                 >
-                  {tokenBalance ?? ''} {tokenInfo?.symbol.toUpperCase()}
+                  {formatAmount(tokenBalance ?? '', 6)}{' '}
+                  {tokenInfo?.symbol.toUpperCase()}
                 </Typography.Body2Strong>
               </Box>
             </Center>

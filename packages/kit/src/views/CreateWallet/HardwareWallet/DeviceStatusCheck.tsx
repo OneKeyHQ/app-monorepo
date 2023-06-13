@@ -115,7 +115,7 @@ const DeviceStatusCheckModal: FC = () => {
         backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(true));
         await wait(600);
 
-        navigation.navigate(RootRoutes.Onboarding, {
+        navigation.replace(RootRoutes.Onboarding, {
           screen: EOnboardingRoutes.BehindTheScene,
           params: {
             password: '',

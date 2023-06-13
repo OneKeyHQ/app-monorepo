@@ -10,7 +10,7 @@ import {
   handleDisplayPassphraseWallet,
 } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+// import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   AccountAlreadyExists,
@@ -163,32 +163,34 @@ class RealmDB implements DBAPI {
           });
         }
         this.realm = realm;
-        if (
-          platformEnv.isDev &&
-          platformEnv.isNative &&
-          // @ts-ignore
-          !global.$$realmPluginInited
-        ) {
-          const RootSiblingsManager = (
-            require('react-native-root-siblings') as typeof import('react-native-root-siblings')
-          ).default;
-          const RealmPlugin = require('realm-flipper-plugin-device').default;
-          // const { PortalEntry } =
-          //   require('@onekeyhq/kit/src/views/Overlay/RootPortal') as typeof import('@onekeyhq/kit/src/views/Overlay/RootPortal');
-          // const { FULLWINDOW_OVERLAY_PORTAL } =
-          //   require('@onekeyhq/kit/src/utils/overlayUtils') as typeof import('@onekeyhq/kit/src/utils/overlayUtils');
-          // eslint-disable-next-line no-new
-          new RootSiblingsManager(
-            (
-              // <PortalEntry target={FULLWINDOW_OVERLAY_PORTAL}>
-              <RealmPlugin realms={[realm]} />
-              // </PortalEntry>
-            ),
-          );
-          // console.log('realm plugin inited');
-          // @ts-ignore
-          global.$$realmPluginInited = true;
-        }
+
+        // TODO: enable realm plugin when migrate to hermes
+        // if (
+        //   platformEnv.isDev &&
+        //   platformEnv.isNative &&
+        //   // @ts-ignore
+        //   !global.$$realmPluginInited
+        // ) {
+        //   const RootSiblingsManager = (
+        //     require('react-native-root-siblings') as typeof import('react-native-root-siblings')
+        //   ).default;
+        //   const RealmPlugin = require('realm-flipper-plugin-device').default;
+        //   // const { PortalEntry } =
+        //   //   require('@onekeyhq/kit/src/views/Overlay/RootPortal') as typeof import('@onekeyhq/kit/src/views/Overlay/RootPortal');
+        //   // const { FULLWINDOW_OVERLAY_PORTAL } =
+        //   //   require('@onekeyhq/kit/src/utils/overlayUtils') as typeof import('@onekeyhq/kit/src/utils/overlayUtils');
+        //   // eslint-disable-next-line no-new
+        //   new RootSiblingsManager(
+        //     (
+        //       // <PortalEntry target={FULLWINDOW_OVERLAY_PORTAL}>
+        //       <RealmPlugin realms={[realm]} />
+        //       // </PortalEntry>
+        //     ),
+        //   );
+        //   // console.log('realm plugin inited');
+        //   // @ts-ignore
+        //   global.$$realmPluginInited = true;
+        // }
       })
       .catch((error: any) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -1149,7 +1151,7 @@ class RealmDB implements DBAPI {
         (d) => d.deviceId === deviceId && d.uuid === deviceUUID,
       );
       const hasExistWallet = wallets.find((w) => {
-        if (!existDevice) return null;
+        if (!existDevice) return undefined;
 
         return (
           w.associatedDevice === existDevice?.id &&

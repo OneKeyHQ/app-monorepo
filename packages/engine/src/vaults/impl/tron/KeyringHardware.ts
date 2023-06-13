@@ -37,28 +37,107 @@ export class KeyringHardware extends KeyringHardwareBase {
     } = encodedTx.raw_data;
 
     let contractCall: TronTransactionContract | undefined;
-    if (encodedTx.raw_data.contract[0].type === 'TransferContract') {
-      const { amount, to_address: toAddressHex } =
-        encodedTx.raw_data.contract[0].parameter.value;
-      contractCall = {
-        transferContract: {
-          amount,
-          toAddress: TronWeb.address.fromHex(toAddressHex),
-        },
-      };
-    } else if (encodedTx.raw_data.contract[0].type === 'TriggerSmartContract') {
-      const {
-        contract_address: contractAddressHex,
-        call_value: callValue,
-        data,
-      } = encodedTx.raw_data.contract[0].parameter.value;
-      contractCall = {
-        triggerSmartContract: {
-          contractAddress: TronWeb.address.fromHex(contractAddressHex),
+    switch (encodedTx.raw_data.contract[0].type) {
+      case 'TransferContract': {
+        const { amount, to_address: toAddressHex } =
+          encodedTx.raw_data.contract[0].parameter.value;
+        contractCall = {
+          transferContract: {
+            amount,
+            toAddress: TronWeb.address.fromHex(toAddressHex),
+          },
+        };
+        break;
+      }
+      case 'TriggerSmartContract': {
+        const {
+          contract_address: contractAddressHex,
+          call_value: callValue,
           data,
-          callValue,
-        },
-      };
+        } = encodedTx.raw_data.contract[0].parameter.value;
+        contractCall = {
+          triggerSmartContract: {
+            contractAddress: TronWeb.address.fromHex(contractAddressHex),
+            data,
+            callValue,
+          },
+        };
+        break;
+      }
+      case 'FreezeBalanceV2Contract': {
+        const { frozen_balance: frozenBalance, resource = 'BANDWIDTH' } =
+          encodedTx.raw_data.contract[0].parameter.value;
+        contractCall = {
+          freezeBalanceV2Contract: {
+            frozenBalance,
+            ...(resource === 'BANDWIDTH' ? null : { resource: 1 }),
+          },
+        };
+
+        break;
+      }
+      case 'UnfreezeBalanceV2Contract': {
+        const { unfreeze_balance: unfreezeBalance, resource = 'BANDWIDTH' } =
+          encodedTx.raw_data.contract[0].parameter.value;
+        contractCall = {
+          unfreezeBalanceV2Contract: {
+            unfreezeBalance,
+            ...(resource === 'BANDWIDTH' ? null : { resource: 1 }),
+          },
+        };
+        break;
+      }
+
+      case 'DelegateResourceContract': {
+        const {
+          receiver_address: receiverAddress,
+          resource = 'BANDWIDTH',
+          balance,
+          lock,
+        } = encodedTx.raw_data.contract[0].parameter.value;
+        contractCall = {
+          delegateResourceContract: {
+            balance,
+            receiverAddress: TronWeb.address.fromHex(receiverAddress),
+            ...(lock ? { lock } : null),
+            ...(resource === 'BANDWIDTH' ? null : { resource: 1 }),
+          },
+        };
+
+        break;
+      }
+      case 'UnDelegateResourceContract': {
+        const {
+          receiver_address: receiverAddress,
+          resource = 'BANDWIDTH',
+          balance,
+        } = encodedTx.raw_data.contract[0].parameter.value;
+        contractCall = {
+          unDelegateResourceContract: {
+            balance,
+            receiverAddress: TronWeb.address.fromHex(receiverAddress),
+            ...(resource === 'BANDWIDTH' ? null : { resource: 1 }),
+          },
+        };
+        break;
+      }
+      case 'WithdrawBalanceContract': {
+        const { owner_address: ownerAddress } =
+          encodedTx.raw_data.contract[0].parameter.value;
+        contractCall = {
+          withdrawBalanceContract: {
+            ownerAddress: TronWeb.address.fromHex(ownerAddress),
+          },
+        };
+        break;
+      }
+      case 'WithdrawExpireUnfreezeContract': {
+        contractCall = {
+          withdrawExpireUnfreezeContract: undefined,
+        };
+        break;
+      }
+      default:
     }
 
     if (typeof contractCall === 'undefined') {

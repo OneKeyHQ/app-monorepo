@@ -8,6 +8,7 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { useNetwork } from '../../../../hooks';
 
@@ -17,6 +18,8 @@ type TokenDisplayProps = {
 
 export const TokenDisplay: FC<TokenDisplayProps> = ({ token }) => {
   const { network } = useNetwork({ networkId: token.networkId });
+  const networkName =
+    network?.id === OnekeyNetwork.goerli ? 'Ethereum Testnet' : network?.name;
   return (
     <Box flexDirection="row" alignItems="center">
       <Box position="relative">
@@ -55,11 +58,11 @@ export const TokenDisplay: FC<TokenDisplayProps> = ({ token }) => {
             {token.symbol}
           </Typography.DisplayLarge>
           <Typography.Body2 color="text-subdued">
-            {network?.name ?? '-'}
+            {networkName ?? '-'}
           </Typography.Body2>
         </Box>
         <Box ml="1">
-          <Icon size={12} name="ChevronDownSolid" />
+          <Icon size={16} name="ChevronDownSolid" />
         </Box>
       </Box>
     </Box>

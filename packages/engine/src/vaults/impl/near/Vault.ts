@@ -4,38 +4,32 @@ import BigNumber from 'bignumber.js';
 import { last } from 'lodash';
 import memoizee from 'memoizee';
 
-import { NearCli } from '@onekeyhq/blockchain-libs/src/provider/chains/near';
-import type { Provider as NearProvider } from '@onekeyhq/blockchain-libs/src/provider/chains/near';
-import type { NearAccessKey } from '@onekeyhq/blockchain-libs/src/provider/chains/near/nearcli';
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
-  NotImplemented,
+  InvalidAddress,
   OneKeyInternalError,
   WatchedAccountTradeError,
 } from '../../../errors';
-import { extractResponseError, fillUnsignedTx } from '../../../proxy';
-import { TxStatus } from '../../../types/covalent';
+import { extractResponseError } from '../../../proxy';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
   IDecodedTxStatus,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
-import {
-  EVMDecodedItem,
-  EVMDecodedItemERC20Transfer,
-  EVMDecodedTxType,
-} from '../evm/decoder/types';
 
-import { KeyringHardware } from './KeyringHardware';
-import { KeyringHd } from './KeyringHd';
-import { KeyringImported } from './KeyringImported';
-import { KeyringWatching } from './KeyringWatching';
+import {
+  KeyringHardware,
+  KeyringHd,
+  KeyringImported,
+  KeyringWatching,
+} from './keyring';
+import { NearCli } from './sdk';
 import settings from './settings';
 import {
   BN,
@@ -50,6 +44,7 @@ import {
   nearApiJs,
   parseJsonFromRawResponse,
   serializeTransaction,
+  verifyNearAddress,
 } from './utils';
 
 import type { DBVariantAccount } from '../../../types/account';
@@ -65,10 +60,11 @@ import type {
   IEncodedTxUpdatePayloadTransfer,
   IFeeInfo,
   IFeeInfoUnit,
+  ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
-import type { INearAccountStorageBalance } from './types';
+import type { INearAccountStorageBalance, NearAccessKey } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 // TODO extends evm/Vault
@@ -126,7 +122,6 @@ export default class Vault extends VaultBase {
 
   // TODO rename to prop get client();
   async _getNearCli(): Promise<NearCli> {
-    // const nearCli2 = await (this.engineProvider as NearProvider).nearCli;
     const { rpcURL } = await this.getNetwork();
     const nearCli = await this._createNearCli(rpcURL, this.networkId);
     return nearCli;
@@ -185,36 +180,6 @@ export default class Vault extends VaultBase {
     feeInfoValue: IFeeInfoUnit;
   }): Promise<any> {
     return Promise.resolve(params.encodedTx);
-  }
-
-  getActionInfo(nativeTx: nearApiJs.transactions.Transaction) {
-    let txAction = nativeTx.actions.length === 1 ? nativeTx.actions[0] : null;
-    const isNativeTransfer = txAction && txAction?.enum === 'transfer';
-    const defaultResult = {
-      txType: EVMDecodedTxType.NATIVE_TRANSFER,
-      actionInfo: txAction?.transfer,
-    };
-    if (isNativeTransfer) {
-      return defaultResult;
-    }
-    const testIsTokenTransfer = (
-      action: nearApiJs.transactions.Action | null,
-    ) =>
-      action &&
-      action.enum === 'functionCall' &&
-      action?.functionCall?.methodName === 'ft_transfer';
-    let isTokenTransfer = testIsTokenTransfer(txAction);
-    if (!isTokenTransfer) {
-      txAction = nativeTx.actions.length === 2 ? nativeTx.actions[1] : null;
-    }
-    isTokenTransfer = testIsTokenTransfer(txAction);
-    if (isTokenTransfer) {
-      return {
-        txType: EVMDecodedTxType.TOKEN_TRANSFER,
-        actionInfo: txAction?.functionCall,
-      };
-    }
-    return defaultResult;
   }
 
   async nativeTxActionToEncodedTxAction(
@@ -767,5 +732,58 @@ export default class Vault extends VaultBase {
       privateKey = decodedPrivateKey.slice(0, 32);
     }
     return Promise.resolve(privateKey);
+  }
+
+  override async getTransactionStatuses(
+    txIds: Array<string>,
+  ): Promise<Array<TransactionStatus | undefined>> {
+    const cli: NearCli = await this._getNearCli();
+    const transactionStatuses = await Promise.all(
+      txIds.map((txId) =>
+        cli
+          .getTransactionStatus(txId)
+          .then((transactionStatus) => transactionStatus)
+          .catch(() => TransactionStatus.PENDING),
+      ),
+    );
+    return transactionStatuses;
+  }
+
+  override validateWatchingCredential(input: string): Promise<boolean> {
+    return Promise.resolve(
+      this.settings.watchingAccountEnabled && verifyNearAddress(input).isValid,
+    );
+  }
+
+  override async validateAddress(address: string): Promise<string> {
+    const result = verifyNearAddress(address);
+    if (result.isValid) {
+      return Promise.resolve(result.normalizedAddress || address);
+    }
+    return Promise.reject(new InvalidAddress());
+  }
+
+  override async validateTokenAddress(address: string): Promise<string> {
+    return this.validateAddress(address);
+  }
+
+  override async broadcastTransaction(
+    signedTx: ISignedTxPro,
+    options?: any,
+  ): Promise<ISignedTxPro> {
+    debugLogger.engine.info('broadcastTransaction START:', {
+      rawTx: signedTx.rawTx,
+    });
+    const cli = await this._getNearCli();
+    const txid = await cli.broadcastTransaction(signedTx.rawTx);
+    debugLogger.engine.info('broadcastTransaction END:', {
+      txid,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
+    };
   }
 }
