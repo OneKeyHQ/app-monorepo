@@ -25,6 +25,7 @@ import {
 import dappColourPNG from '../../../../../assets/dapp_colour.png';
 import { useAppSelector, useTranslation } from '../../../../hooks';
 import DAppIcon from '../../DAppIcon';
+import FavContainer from '../../Explorer/FavContainer';
 import { useCategoryDapps } from '../../hooks';
 import { DiscoverContext } from '../context';
 
@@ -124,25 +125,33 @@ const DappsContainerItem: FC<{ item: DAppItemType }> = ({ item }) => {
   const { onItemSelect } = useContext(DiscoverContext);
   const t = useTranslation();
   return (
-    <Pressable
-      flexDirection="row"
-      px="4"
-      pb="4"
-      alignItems="center"
-      onPress={() => onItemSelect?.(item)}
+    <FavContainer
+      url={item.url}
+      hoverButtonProps={{
+        right: '20px',
+        top: '4px',
+      }}
     >
-      <Box mr={3}>
-        <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
-      </Box>
-      <Box flex={1}>
-        <Typography.Body2Strong numberOfLines={1}>
-          {item.name}
-        </Typography.Body2Strong>
-        <Typography.Caption numberOfLines={1} color="text-subdued">
-          {t(item._subtitle) ?? item.subtitle}
-        </Typography.Caption>
-      </Box>
-    </Pressable>
+      <Pressable
+        flexDirection="row"
+        px="4"
+        pb="4"
+        alignItems="center"
+        onPress={() => onItemSelect?.(item)}
+      >
+        <Box mr={3}>
+          <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
+        </Box>
+        <Box flex={1}>
+          <Typography.Body2Strong numberOfLines={1}>
+            {item.name}
+          </Typography.Body2Strong>
+          <Typography.Caption numberOfLines={1} color="text-subdued">
+            {t(item._subtitle) ?? item.subtitle}
+          </Typography.Caption>
+        </Box>
+      </Pressable>
+    </FavContainer>
   );
 };
 
