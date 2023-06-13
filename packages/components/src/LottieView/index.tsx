@@ -13,10 +13,11 @@ type LottieViewProps = Omit<LottieWebProps, 'animationData'> & {
   source: LottieWebProps['animationData'] | LottieNativeProps['source'];
   style?: LottieNativeProps['style'];
   autoPlay?: boolean;
+  resizeMode?: 'cover' | 'contain' | 'center';
 };
 
 const LottieView = forwardRef<typeof AnimatedLottieView, LottieViewProps>(
-  ({ source, autoPlay, loop, ...props }, ref) => {
+  ({ source, autoPlay, loop, resizeMode, ...props }, ref) => {
     const animationRef = useRef<AnimatedLottieView | null>();
 
     const appStateRef = useRef(AppState.currentState);
@@ -67,6 +68,7 @@ const LottieView = forwardRef<typeof AnimatedLottieView, LottieViewProps>(
 
     return (
       <AnimatedLottieView
+        resizeMode={resizeMode}
         source={source as LottieNativeProps['source']}
         autoPlay={autoPlay}
         loop={!!loop}
