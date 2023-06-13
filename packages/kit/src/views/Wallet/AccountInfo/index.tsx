@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { TouchableWithoutFeedback } from 'react-native';
 
 import {
   Box,
@@ -177,6 +178,21 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const { sendToken } = useNavigationActions();
   const iconBoxFlex = isVertical ? 1 : 0;
 
+  const onSendToken = useCallback(() => {
+    const { accountId, networkId } = getActiveWalletAccount();
+    sendToken({ accountId, networkId });
+  }, [sendToken]);
+
+  const onReceive = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Receive,
+      params: {
+        screen: ReceiveTokenModalRoutes.ReceiveToken,
+        params: {},
+      },
+    });
+  }, [navigation]);
+
   const onSwap = useCallback(async () => {
     const token = await backgroundApiProxy.engine.getNativeTokenInfo(
       network?.id ?? '',
@@ -206,18 +222,18 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         minW="56px"
         alignItems="center"
         isDisabled={wallet?.type === 'watching' || !account}
-        onPress={() => {
-          const { accountId, networkId } = getActiveWalletAccount();
-          sendToken({ accountId, networkId });
-        }}
+        onPress={onSendToken}
       >
-        <IconButton
-          circle
-          size={isSmallView ? 'xl' : 'lg'}
-          name="PaperAirplaneOutline"
-          type="basic"
-          isDisabled={wallet?.type === 'watching' || !account}
-        />
+        <TouchableWithoutFeedback>
+          <IconButton
+            circle
+            size={isSmallView ? 'xl' : 'lg'}
+            name="PaperAirplaneOutline"
+            type="basic"
+            isDisabled={wallet?.type === 'watching' || !account}
+            onPress={onSendToken}
+          />
+        </TouchableWithoutFeedback>
         <Typography.CaptionStrong
           textAlign="center"
           mt="8px"
@@ -236,23 +252,18 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         minW="56px"
         alignItems="center"
         isDisabled={wallet?.type === 'watching' || !account}
-        onPress={() => {
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.Receive,
-            params: {
-              screen: ReceiveTokenModalRoutes.ReceiveToken,
-              params: {},
-            },
-          });
-        }}
+        onPress={onReceive}
       >
-        <IconButton
-          circle
-          size={isSmallView ? 'xl' : 'lg'}
-          name="QrCodeOutline"
-          type="basic"
-          isDisabled={wallet?.type === 'watching' || !account}
-        />
+        <TouchableWithoutFeedback>
+          <IconButton
+            circle
+            size={isSmallView ? 'xl' : 'lg'}
+            name="QrCodeOutline"
+            type="basic"
+            isDisabled={wallet?.type === 'watching' || !account}
+            onPress={onReceive}
+          />
+        </TouchableWithoutFeedback>
         <Typography.CaptionStrong
           textAlign="center"
           mt="8px"
@@ -273,13 +284,16 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         isDisabled={wallet?.type === 'watching' || !account}
         onPress={onSwap}
       >
-        <IconButton
-          circle
-          size={isSmallView ? 'xl' : 'lg'}
-          name="ArrowsRightLeftOutline"
-          type="basic"
-          isDisabled={wallet?.type === 'watching' || !account}
-        />
+        <TouchableWithoutFeedback>
+          <IconButton
+            circle
+            size={isSmallView ? 'xl' : 'lg'}
+            name="ArrowsRightLeftOutline"
+            type="basic"
+            isDisabled={wallet?.type === 'watching' || !account}
+            onPress={onSwap}
+          />
+        </TouchableWithoutFeedback>
         <Typography.CaptionStrong
           textAlign="center"
           mt="8px"
