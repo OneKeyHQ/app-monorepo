@@ -8,6 +8,7 @@ import { Box, Pressable, Typography } from '@onekeyhq/components';
 import { useDebounce, useTranslation } from '../../../../hooks';
 import { Chains } from '../../Chains';
 import DAppIcon from '../../DAppIcon';
+import FavContainer from '../../Explorer/FavContainer';
 import { SectionTitle } from '../TitleView';
 
 import type { DAppItemType, SectionDataType } from '../../type';
@@ -18,62 +19,83 @@ type RowProps = {
   onItemSelect?: (o: DAppItemType) => void;
 };
 
-const Row: FC<RowProps> = ({ items, cardWidth, onItemSelect }) => {
+const Card: FC<{
+  item: DAppItemType;
+  cardWidth: number;
+  onItemSelect?: (o: DAppItemType) => void;
+}> = ({ item, cardWidth, onItemSelect }) => {
   const t = useTranslation();
   return (
-    <Box flexDirection="row" alignItems="center">
-      {items.map((item) => (
-        <Box
-          key={item._id}
-          width={cardWidth}
-          maxWidth={cardWidth}
-          minWidth={cardWidth}
-          height={156}
-          paddingX="2"
-          justifyContent="center"
-          alignItems="center"
+    <FavContainer
+      url={item.url}
+      hoverButtonProps={{
+        right: '20px',
+        top: '20px',
+        iconSize: 20,
+      }}
+    >
+      <Box
+        width={cardWidth}
+        maxWidth={cardWidth}
+        minWidth={cardWidth}
+        height={156}
+        paddingX="2"
+        justifyContent="center"
+        alignItems="center"
+      >
+        <Pressable
+          bgColor="surface-default"
+          flexDirection="column"
+          borderRadius="12px"
+          padding="4"
+          width={cardWidth - 16}
+          height={144}
+          borderWidth={1}
+          _hover={{ bgColor: 'surface-hovered' }}
+          borderColor="border-subdued"
+          onPress={() => {
+            onItemSelect?.(item);
+          }}
         >
-          <Pressable
-            bgColor="surface-default"
-            flexDirection="column"
-            borderRadius="12px"
-            padding="4"
-            width={cardWidth - 16}
-            height={144}
-            borderWidth={1}
-            _hover={{ bgColor: 'surface-hovered' }}
-            borderColor="border-subdued"
-            onPress={() => {
-              onItemSelect?.(item);
-            }}
-          >
-            <Box flexDirection="row">
-              <DAppIcon
-                size={48}
-                url={item.logoURL}
-                networkIds={item.networkIds}
-              />
-              <Box ml="3" flex="1">
-                <Typography.Body2Strong numberOfLines={1} mb="1" flex="1">
-                  {item.name}
-                </Typography.Body2Strong>
-                <Chains networkIds={item.networkIds} />
-              </Box>
+          <Box flexDirection="row">
+            <DAppIcon
+              size={48}
+              url={item.logoURL}
+              networkIds={item.networkIds}
+            />
+            <Box ml="3" flex="1">
+              <Typography.Body2Strong numberOfLines={1} mb="1" flex="1">
+                {item.name}
+              </Typography.Body2Strong>
+              <Chains networkIds={item.networkIds} />
             </Box>
-            <Typography.Caption
-              mt="3"
-              numberOfLines={2}
-              textAlign="left"
-              color="text-subdued"
-            >
-              {t(item._subtitle) ?? item.subtitle}
-            </Typography.Caption>
-          </Pressable>
-        </Box>
-      ))}
-    </Box>
+          </Box>
+          <Typography.Caption
+            mt="3"
+            numberOfLines={2}
+            textAlign="left"
+            color="text-subdued"
+          >
+            {t(item._subtitle) ?? item.subtitle}
+          </Typography.Caption>
+        </Pressable>
+      </Box>
+    </FavContainer>
   );
 };
+
+const Row: FC<RowProps> = ({ items, cardWidth, onItemSelect }) => (
+  <Box flexDirection="row" alignItems="center">
+    {items.map((item) => (
+      <Card
+        key={item._id}
+        item={item}
+        cardWidth={cardWidth}
+        onItemSelect={onItemSelect}
+      />
+    ))}
+  </Box>
+);
 
 type SectionsProps = {
   width: number;
