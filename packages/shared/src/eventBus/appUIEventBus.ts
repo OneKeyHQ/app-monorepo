@@ -21,7 +21,6 @@ enum AppUIEventBusNames {
   Migrate = 'Migrate',
   RevokeRefresh = 'RevokeRefresh',
   HardwareCancel = 'HardwareCancel',
-  WebTabThumbnailUpdated = 'WebTabThumbnailUpdated',
 }
 
 if (isExtensionBackground) {

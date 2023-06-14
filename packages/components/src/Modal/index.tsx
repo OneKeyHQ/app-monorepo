@@ -74,6 +74,7 @@ export type ModalProps = {
   enableMobileFooterWrap?: boolean;
 
   disableTopRadius?: boolean;
+  fullMobile?: boolean;
 } & HeaderProps;
 
 const defaultProps = {
@@ -115,6 +116,7 @@ const Modal = ({
   forceDesktop,
   rightContent,
   disableTopRadius,
+  fullMobile,
   ...rest
 }: ModalProps) => {
   const { size } = useUserDevice();
@@ -230,7 +232,8 @@ const Modal = ({
           Why `platformEnv.isNativeIOS` ?
           We want to use the native modal component in iPad which screen width might bigger then NORMAL breakpoint
         */
-        platformEnv.isNativeIOS
+        platformEnv.isNativeIOS ||
+        fullMobile
       ) {
         return (
           <Box flex={1} alignItems="flex-end" w="100%" flexDirection="row">
@@ -294,6 +297,7 @@ const Modal = ({
     rest,
     modalContent,
     size,
+    fullMobile,
     modalHeight,
     isVerticalLayout,
     disableTopRadius,

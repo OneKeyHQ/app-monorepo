@@ -13,7 +13,6 @@
   "dependencies": {
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
-    "expo": "^48.0.17",
     "firebase": "^9.8.2"
   },
   "private": true

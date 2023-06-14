@@ -316,6 +316,7 @@ export interface TransactionDetails {
   type: TransactionType;
   status: TransactionStatus;
   archive?: boolean;
+  viewed?: boolean;
   quoterType?: QuoterType;
   quoterLogo?: string;
   approval?: { tokenAddress: string; spender: string; token: Token };

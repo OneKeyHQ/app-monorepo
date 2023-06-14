@@ -198,6 +198,7 @@ export enum ModalRoutes {
   Market = 'Market',
   ClearCache = 'ClearCache',
   CoinControl = 'CoinControl',
+  GasPanel = 'GasPanel',
 }
 
 export { SendModalRoutes } from '../views/Send/enums';

@@ -1,3 +1,6 @@
+// eslint-disable-next-line import/order
+import './utils/walletConnectV2SdkShims';
+
 import {
   ERROR_QRCODE_MODAL_NOT_PROVIDED,
   ERROR_QRCODE_MODAL_USER_CLOSED,
@@ -32,6 +35,7 @@ import type {
 } from '@walletconnect/types';
 
 export type ISessionStatusPro = ISessionStatus & {
+  networkImpl?: string;
   peerId?: string | null;
   peerMeta?: IClientMeta | null;
 };

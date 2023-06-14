@@ -278,6 +278,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async fetchRpcChainId(url: string): Promise<string | null> {
     return null;
   }
+
+  async getTxWaitingSeconds(): Promise<Array<number>> {
+    return [];
+  }
 }
 
 /*

@@ -44,11 +44,18 @@ const parseConnectionsSite = (connections: DappSiteConnection[]) => {
   const resultConnections: DappSiteConnection[] = [];
   const exitMap = new Map();
   for (const c of parsedConnections) {
-    const connectionStr = c.site.origin + c.address + c.networkImpl;
-    if (!exitMap.has(connectionStr)) {
-      c.site.hostname = new URL(c.site.origin).hostname;
-      resultConnections.push(c);
-      exitMap.set(connectionStr, 1);
+    if (c.site.origin) {
+      const connectionStr = c.site.origin + c.address + c.networkImpl;
+      if (!exitMap.has(connectionStr)) {
+        try {
+          c.site.hostname = new URL(c.site.origin).hostname;
+        } catch (error) {
+          console.error(error);
+          c.site.hostname = '';
+        }
+        resultConnections.push(c);
+        exitMap.set(connectionStr, 1);
+      }
     }
   }
   return resultConnections.sort((c1, c2) =>
@@ -129,7 +136,7 @@ function ConnectedSiteItemAddress({ item }: { item: DappSiteConnection }) {
 
   return (
     <Typography.Body2 color="text-subdued" numberOfLines={1}>
-      {`${shortenAddress(address)}· ${showNetworkLabel(item.networkImpl)}`}
+      {`${shortenAddress(address)} · ${showNetworkLabel(item.networkImpl)}`}
     </Typography.Body2>
   );
 }
@@ -155,8 +162,11 @@ export default function ConnectedSites() {
             primaryActionProps: {
               type: 'destructive',
               onPromise: async () => {
-                await disconnect();
-                closeOverlay();
+                try {
+                  await disconnect();
+                } finally {
+                  closeOverlay();
+                }
               },
             },
             wrap: true,
@@ -219,9 +229,14 @@ export default function ConnectedSites() {
               circle
               onPress={() => {
                 openDeleteDialog(item.site.origin, async () => {
-                  await backgroundApiProxy.serviceDapp.cancellConnectedSite(
-                    item,
-                  );
+                  try {
+                    await backgroundApiProxy.serviceDapp.cancellConnectedSite(
+                      item,
+                    );
+                  } catch (error) {
+                    console.error('cancellConnectedSite ERROR: ', error);
+                    throw error;
+                  }
                 });
               }}
             />
@@ -252,7 +267,7 @@ export default function ConnectedSites() {
       footer={null}
       flatListProps={{
         // use function to avoid Header re-render
-        ListHeaderComponent,
+        ListHeaderComponent, // show WalletConnect alive sessions here
         data: parsedConnections,
         // @ts-ignore
         renderItem,
