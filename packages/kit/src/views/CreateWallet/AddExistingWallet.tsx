@@ -241,11 +241,13 @@ function useAddExistingWallet({
           );
           onAddWatchingDone();
           onboardingDone({ showOnBoardingLoading: true });
-        } catch (e) {
+        } catch (e: any) {
           const errorKey = (e as { key: LocaleIds }).key;
           ToastManager.show(
             {
-              title: intl.formatMessage({ id: errorKey }),
+              title: errorKey
+                ? intl.formatMessage({ id: errorKey })
+                : (e as Error)?.message,
             },
             { type: 'error' },
           );
@@ -635,9 +637,10 @@ function AddExistingWalletView(
                       OnekeyNetwork.btc,
                       text,
                     );
-                    return intl.formatMessage({
-                      id: 'form__address_btc_as_wachted_account',
-                    });
+                    return true;
+                    // return intl.formatMessage({
+                    //   id: 'form__address_btc_as_wachted_account',
+                    // });
                   } catch {
                     // pass
                   }

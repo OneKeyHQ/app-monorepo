@@ -252,7 +252,7 @@ class Provider {
   }
 
   getAccount(params: GetAccountParams, addressEncoding?: AddressEncodings) {
-    const usedXpub = this.getEncodingXpub(params, addressEncoding);
+    const usedXpub = this.getEncodingXpub({ params, addressEncoding });
 
     let requestParams = {};
     switch (params.type) {
@@ -305,10 +305,21 @@ class Provider {
     );
   }
 
-  private getEncodingXpub(
-    params: GetAccountParams,
-    addressEncoding?: AddressEncodings,
-  ) {
+  private getEncodingXpub({
+    params,
+    addressEncoding,
+    safeGet,
+  }: {
+    params: GetAccountParams;
+    addressEncoding?: AddressEncodings;
+    safeGet?: boolean;
+  }) {
+    if (!params.xpub) {
+      if (safeGet) {
+        return '';
+      }
+      throw new Error('getEncodingXpub ERROR: xpub is required');
+    }
     let encoding = addressEncoding;
     if (
       isTaprootXpubSegwit(params.xpub) ||
@@ -355,7 +366,7 @@ class Provider {
     symbol: string,
     decimals: number,
   ) {
-    const usedXpub = this.getEncodingXpub(params);
+    const usedXpub = this.getEncodingXpub({ params, safeGet: true });
     return this.blockbook.then((client) =>
       client.getHistory(network, address, usedXpub, symbol, decimals),
     );

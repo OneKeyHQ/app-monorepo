@@ -213,6 +213,9 @@ export default class VaultBtcFork extends VaultBase {
   }
 
   override async validateWatchingCredential(input: string): Promise<boolean> {
+    if (!input) {
+      return Promise.resolve(false);
+    }
     const xpubReg = this.getXpubReg();
     let ret = false;
     try {
@@ -223,6 +226,21 @@ export default class VaultBtcFork extends VaultBase {
     } catch {
       // ignore
     }
+
+    if (!ret) {
+      console.error(
+        `BTCfork validateWatchingCredential ERROR: not valid xpub:${input}`,
+      );
+      try {
+        ret = Boolean(await this.validateAddress(input));
+      } catch (error) {
+        ret = false;
+        console.error(
+          `BTCfork validateWatchingCredential ERROR: not valid address:${input}`,
+        );
+      }
+    }
+
     return Promise.resolve(ret);
   }
 
@@ -293,10 +311,15 @@ export default class VaultBtcFork extends VaultBase {
     }
     const account = (await this.getDbAccount()) as DBUTXOAccount;
     const xpub = this.getAccountXpub(account);
-    if (!xpub) {
-      return [new BigNumber('0'), ...ret];
+
+    let mainBalance: BigNumber | undefined = new BigNumber('0');
+    if (xpub) {
+      [mainBalance] = await this.getBalances([{ address: xpub }]);
+    } else if (account.address) {
+      [mainBalance] = await this.getBalancesByAddress([
+        { address: account.address },
+      ]);
     }
-    const [mainBalance] = await this.getBalances([{ address: xpub }]);
     return [mainBalance].concat(ret);
   }
 

@@ -259,15 +259,29 @@ class BlockBook {
     symbol: string,
     decimals: number,
   ): Promise<any> {
-    return this.backendRequest
-      .post('/history', {
-        network,
-        address,
-        xpub,
-        symbol,
-        decimals,
-      })
-      .then((i) => i.data);
+    if (address && !xpub) {
+      return this.request
+        .get(`/api/v2/address/${address}`, {
+          params: {
+            details: 'txs',
+            pageSize: 50,
+          },
+        })
+        .then((i) => i.data);
+    }
+
+    return (
+      this.backendRequest
+        // TODO support address query
+        .post('/history', {
+          network,
+          address,
+          xpub: xpub || undefined,
+          symbol,
+          decimals,
+        })
+        .then((i) => i.data)
+    );
   }
 }
 
