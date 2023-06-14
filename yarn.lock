@@ -2458,9 +2458,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@expo/cli@npm:0.7.1":
-  version: 0.7.1
-  resolution: "@expo/cli@npm:0.7.1"
+"@expo/cli@npm:0.7.3":
+  version: 0.7.3
+  resolution: "@expo/cli@npm:0.7.3"
   dependencies:
     "@babel/runtime": ^7.20.0
     "@expo/code-signing-certificates": 0.0.5
@@ -2525,7 +2525,7 @@ __metadata:
     ws: ^8.12.1
   bin:
     expo-internal: build/bin/cli
-  checksum: 5b84f3ad6c57fa9c64a0edd99558ada7fca8556d6137213df141b90cd4c93b3605dafce1a72cb11f0448857c220c7be63cde295a2cb13d99ba1f122ea362da05
+  checksum: f1b03efbec0dc534ccf96bfee5c63f2f16e039730a6e07ea25f74222fef70bb169f57b0fb25c5fb2640a04c3f755cdeca280cbe1058d6723d46af01cd180a00b
   languageName: node
   linkType: hard
 
@@ -4390,6 +4390,32 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@legendapp/state@npm:^1.2.7":
+  version: 1.2.7
+  resolution: "@legendapp/state@npm:1.2.7"
+  dependencies:
+    use-sync-external-store: ^1.2.0
+  peerDependencies:
+    "@tanstack/react-query": ">=4.14.6"
+    next: ">=12"
+    react: ">=16.8"
+    react-native: ">=0.61"
+    react-native-mmkv: ">=2"
+  peerDependenciesMeta:
+    "@tanstack/react-query":
+      optional: true
+    next:
+      optional: true
+    react:
+      optional: true
+    react-native:
+      optional: true
+    react-native-mmkv:
+      optional: true
+  checksum: 1cdd5a67e0b8ba6d92b1d7f19bf64a8ed15871df989da4c0960731a096ab485fdc1d03b6731a2bcf61572204a6b9437df59d7da7c98e954cef9a747dfeba5798
+  languageName: node
+  linkType: hard
+
 "@leichtgewicht/ip-codec@npm:^2.0.1":
   version: 2.0.4
   resolution: "@leichtgewicht/ip-codec@npm:2.0.4"
@@ -5311,6 +5337,7 @@ __metadata:
     "@babel/eslint-parser": ^7.19.1
     "@babel/plugin-proposal-nullish-coalescing-operator": ^7.18.6
     "@babel/preset-react": ^7.18.6
+    "@legendapp/state": ^1.2.7
     "@onekeyfe/blockchain-libs": 0.0.48
     "@onekeyfe/cross-inpage-provider-core": 1.1.29
     "@onekeyfe/cross-inpage-provider-errors": 1.1.29
@@ -5350,6 +5377,7 @@ __metadata:
     babel-loader: 8.3.0
     babel-plugin-import: ^1.13.5
     babel-plugin-inline-import: ^3.0.0
+    babel-plugin-transform-define: ^2.1.2
     babel-plugin-transform-inline-environment-variables: ^0.4.3
     bitcoinjs-lib: 6.1.0
     bitcoinjs-message: 2.2.0
@@ -5373,7 +5401,7 @@ __metadata:
     eslint-plugin-react: ^7.31.11
     eslint-plugin-react-hooks: ^4.6.0
     eth-rpc-errors: ^4.0.3
-    expo: ^48.0.17
+    expo: ^48.0.19
     expo-device: ^5.0.0
     expo-yarn-workspaces: ^2.1.0
     file-loader: ^6.2.0
@@ -5454,7 +5482,6 @@ __metadata:
     "@walletconnect/utils": ^1.8.0
     asyncstorage-down: ^4.2.0
     buffer: ^6.0.3
-    expo: ^48.0.17
     expo-clipboard: ^4.1.2
     expo-device: ^5.2.1
     expo-haptics: ^12.2.1
@@ -5492,10 +5519,11 @@ __metadata:
     react-native-in-app-review: ^4.3.3
     react-native-keyboard-manager: ^6.5.11-1
     react-native-level-fs: ^3.0.1
+    react-native-mmkv: ^2.8.0
     react-native-nested-scroll-view: "https://github.com/OneKeyHQ/react-native-nested-scroll-view.git#feat/support-rn71"
     react-native-pager-view: 6.1.4
     react-native-randombytes: ^3.6.1
-    react-native-reanimated: ^3.1.0
+    react-native-reanimated: 3.1.0
     react-native-restart: 0.0.27
     react-native-safe-area-context: ^4.5.3
     react-native-screens: ^3.19.0
@@ -5573,7 +5601,6 @@ __metadata:
     electron-store: ^8.1.0
     electron-updater: ^5.2.1
     esbuild: ^0.15.11
-    expo: ^48.0.17
     glob: ^7.2.0
     keytar: ^7.9.0
     node-fetch: ^2.6.7
@@ -5701,7 +5728,6 @@ __metadata:
     dequal: ^2.0.3
     dotbit: ^0.4.1
     eth-chains: ^1.0.0
-    expo: ^48.0.17
     expo-application: ^5.1.1
     expo-av: ^13.2.1
     expo-barcode-scanner: ^12.3.2
@@ -5766,7 +5792,6 @@ __metadata:
     "@onekeyhq/components": "*"
     "@onekeyhq/engine": "*"
     "@onekeyhq/kit": "*"
-    expo: ^48.0.17
     firebase: ^9.8.2
     react-router-dom: ^6.3.0
   languageName: unknown
@@ -5778,7 +5803,6 @@ __metadata:
   dependencies:
     "@onekeyhq/components": "*"
     "@onekeyhq/kit": "*"
-    expo: ^48.0.17
     firebase: ^9.8.2
   languageName: unknown
   linkType: soft
@@ -11748,6 +11772,16 @@ __metadata:
   version: 7.0.0-beta.0
   resolution: "babel-plugin-syntax-trailing-function-commas@npm:7.0.0-beta.0"
   checksum: e37509156ca945dd9e4b82c66dd74f2d842ad917bd280cb5aa67960942300cd065eeac476d2514bdcdedec071277a358f6d517c31d9f9244d9bbc3619a8ecf8a
+  languageName: node
+  linkType: hard
+
+"babel-plugin-transform-define@npm:^2.1.2":
+  version: 2.1.2
+  resolution: "babel-plugin-transform-define@npm:2.1.2"
+  dependencies:
+    lodash: ^4.17.11
+    traverse: 0.6.6
+  checksum: ccfc000e5b7a9f02ac67b8450c8bff94b29969363666e01524828556dfe330d5112a6aa61bbd97acd4716ce0f22e65503e736ff5abd8a34379ad996cffbe16cd
   languageName: node
   linkType: hard
 
@@ -17862,12 +17896,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo@npm:^48.0.17":
-  version: 48.0.17
-  resolution: "expo@npm:48.0.17"
+"expo@npm:^48.0.19":
+  version: 48.0.19
+  resolution: "expo@npm:48.0.19"
   dependencies:
     "@babel/runtime": ^7.20.0
-    "@expo/cli": 0.7.1
+    "@expo/cli": 0.7.3
     "@expo/config": 8.0.2
     "@expo/config-plugins": 6.0.2
     "@expo/vector-icons": ^13.0.0
@@ -17890,7 +17924,7 @@ __metadata:
     uuid: ^3.4.0
   bin:
     expo: bin/cli.js
-  checksum: 560aaa0da139560d84fea92bce9bc3aa0c32e157b7676f1c80ee3bece43226fe1f44fe41837b91d00a4107a0cf5291f0e042d5f9ca1591d723dbf5a96a168df3
+  checksum: a5d79e6e3b82081c4d2b5a30109010b91639f8808479579fd829e00e35aa1943417c27d6d5b650f9998aab636f298d68cfa6d989d247aa380a6aa00fe26fa40b
   languageName: node
   linkType: hard
 
@@ -23338,7 +23372,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:>=3.5 <5, lodash@npm:^4.14.2, lodash@npm:^4.17.10, lodash@npm:^4.17.13, lodash@npm:^4.17.14, lodash@npm:^4.17.15, lodash@npm:^4.17.19, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:^4.17.4, lodash@npm:^4.17.5, lodash@npm:^4.7.0":
+"lodash@npm:>=3.5 <5, lodash@npm:^4.14.2, lodash@npm:^4.17.10, lodash@npm:^4.17.11, lodash@npm:^4.17.13, lodash@npm:^4.17.14, lodash@npm:^4.17.15, lodash@npm:^4.17.19, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:^4.17.4, lodash@npm:^4.17.5, lodash@npm:^4.7.0":
   version: 4.17.21
   resolution: "lodash@npm:4.17.21"
   checksum: eb835a2e51d381e561e508ce932ea50a8e5a68f4ebdd771ea240d3048244a8d13658acbd502cd4829768c56f2e16bdd4340b9ea141297d472517b83868e677f7
@@ -28093,6 +28127,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-mmkv@npm:^2.8.0":
+  version: 2.8.0
+  resolution: "react-native-mmkv@npm:2.8.0"
+  peerDependencies:
+    react: "*"
+    react-native: ">=0.71.0"
+  checksum: 993b486533b00c0b8092ea0b7682428fe704726ec03daf244fbd046bd772e3cfc0aba67b8a9eece31adcb6492c76d838f167eeed877657349a0cae51c8844b8d
+  languageName: node
+  linkType: hard
+
 "react-native-modalize@npm:^2.1.1":
   version: 2.1.1
   resolution: "react-native-modalize@npm:2.1.1"
@@ -28142,7 +28186,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-reanimated@npm:^3":
+"react-native-reanimated@npm:3.1.0":
   version: 3.1.0
   resolution: "react-native-reanimated@npm:3.1.0"
   dependencies:
@@ -31867,7 +31911,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"traverse@npm:~0.6.6":
+"traverse@npm:0.6.6, traverse@npm:~0.6.6":
   version: 0.6.6
   resolution: "traverse@npm:0.6.6"
   checksum: e2afa72f11efa9ba31ed763d2d9d2aa244612f22015d16c0ea3ba5f6ca8bf071de87f8108b721885cce06ea4a36ef4605d9228c67e431d9015ea4685cb364420

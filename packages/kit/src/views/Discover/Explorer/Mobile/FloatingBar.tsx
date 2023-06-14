@@ -83,7 +83,7 @@ const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
           color="text-subdued"
           numberOfLines={1}
         >
-          {tab?.url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')}
+          {tab?.url?.replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')}
         </Typography.Body2>
         <NetworkAccountSelectorTriggerMobile
           bg="surface-neutral-default"

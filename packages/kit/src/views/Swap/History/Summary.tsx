@@ -1,28 +1,38 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Box, Center } from '@onekeyhq/components';
+import {
+  Alert,
+  Box,
+  Center,
+  VStack,
+  useIsVerticalLayout,
+} from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { archiveTransaction } from '../../../store/reducers/swapTransactions';
 import { useSummaryTx } from '../hooks/useSwapUtils';
 import { useWalletsSwapTransactions } from '../hooks/useTransactions';
 
-const PendingTxs = () => {
-  const intl = useIntl();
-  const allTransactions = useWalletsSwapTransactions();
-  const pendings = allTransactions.filter((tx) => tx.status === 'pending');
+import type { TransactionDetails } from '../typings';
 
-  return pendings.length ? (
-    <Box mt="4">
+type PendingTxsProps = {
+  txs: TransactionDetails[];
+};
+
+const PendingTxs: FC<PendingTxsProps> = ({ txs }) => {
+  const intl = useIntl();
+  return txs?.length ? (
+    <Box>
       <Alert
         title={intl.formatMessage(
           {
             id: 'content__str_transactions_in_progress',
           },
           {
-            'content__str_transactions_in_progress': pendings.length,
+            'content__str_transactions_in_progress': txs?.length,
           },
         )}
         dismiss={false}
@@ -32,15 +42,15 @@ const PendingTxs = () => {
   ) : null;
 };
 
-const FailedTxs = () => {
+type FailedTxsProps = {
+  txs: TransactionDetails[];
+};
+
+const FailedTxs: FC<FailedTxsProps> = ({ txs }) => {
   const intl = useIntl();
   const summaryTx = useSummaryTx();
-  const allTransactions = useWalletsSwapTransactions();
-  const confirmedTxs = allTransactions.filter(
-    (tx) => tx.status === 'failed' && !tx.archive,
-  );
   const onDismiss = useCallback(() => {
-    confirmedTxs.forEach((tx) => {
+    txs.forEach((tx) => {
       backgroundApiProxy.dispatch(
         archiveTransaction({
           accountId: tx.accountId,
@@ -49,15 +59,15 @@ const FailedTxs = () => {
         }),
       );
     });
-  }, [confirmedTxs]);
-  if (confirmedTxs.length === 0) {
+  }, [txs]);
+  if (txs.length === 0) {
     return null;
   }
-  if (confirmedTxs.length === 1) {
+  if (txs.length === 1) {
     return (
-      <Box mt="4">
+      <Box>
         <Alert
-          title={summaryTx(confirmedTxs[0])}
+          title={summaryTx(txs[0])}
           alertType="error"
           onDismiss={onDismiss}
         />
@@ -65,14 +75,14 @@ const FailedTxs = () => {
     );
   }
   return (
-    <Box mt="4">
+    <Box>
       <Alert
         title={intl.formatMessage(
           {
             id: 'content__str_transactions_failed',
           },
           {
-            '0': confirmedTxs.length,
+            '0': txs.length,
           },
         )}
         alertType="error"
@@ -82,13 +92,33 @@ const FailedTxs = () => {
   );
 };
 
-const SwapTransactions = () => (
-  <Center px="4">
-    <Box width="full">
-      <PendingTxs />
-      <FailedTxs />
-    </Box>
-  </Center>
-);
+const SwapTransactions = () => {
+  const isSmall = useIsVerticalLayout();
+  const allTransactions = useWalletsSwapTransactions();
+  const pendings = useMemo(
+    () => allTransactions.filter((tx) => tx.status === 'pending'),
+    [allTransactions],
+  );
+  const failedTxs = useMemo(
+    () => allTransactions.filter((tx) => tx.status === 'failed' && !tx.archive),
+    [allTransactions],
+  );
+  if (pendings.length === 0 && failedTxs.length === 0) {
+    return null;
+  }
+  return (
+    <Center>
+      <VStack
+        px={isSmall ? '4' : undefined}
+        mb={isSmall ? undefined : '4'}
+        width="full"
+        space={4}
+      >
+        {pendings.length ? <PendingTxs txs={pendings} /> : null}
+        {failedTxs.length ? <FailedTxs txs={failedTxs} /> : null}
+      </VStack>
+    </Center>
+  );
+};
 
 export default SwapTransactions;

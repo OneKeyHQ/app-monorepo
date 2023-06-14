@@ -4,6 +4,7 @@ import { Box, Pressable, ScrollView, Typography } from '@onekeyhq/components';
 
 import { useTranslation } from '../../../../hooks';
 import DAppIcon from '../../DAppIcon';
+import FavContainer from '../../Explorer/FavContainer';
 import { SectionTitle } from '../TitleView';
 
 import type { DAppItemType, SectionDataType } from '../../type';
@@ -23,33 +24,42 @@ const SimpleCardView: FC<SimpleCardViewProps> = ({
   mt,
 }) => {
   const t = useTranslation();
+
   return (
-    <Pressable
-      w="260px"
-      ml="4"
-      borderRadius="12px"
-      alignItems="center"
-      flexDirection="row"
-      onPress={() => {
-        onItemSelect?.(item);
+    <FavContainer
+      url={item.url}
+      hoverButtonProps={{
+        right: '4px',
+        bottom: '30px',
       }}
-      mt={mt}
     >
-      <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
-      <Box flex={1} ml="2">
-        <Typography.Body2Strong numberOfLines={1}>
-          {item.name}
-        </Typography.Body2Strong>
-        <Typography.Caption
-          numberOfLines={1}
-          mt="1"
-          color="text-subdued"
-          overflow="hidden"
-        >
-          {t(item._subtitle) ?? item.subtitle}
-        </Typography.Caption>
-      </Box>
-    </Pressable>
+      <Pressable
+        w="260px"
+        ml="4"
+        borderRadius="12px"
+        alignItems="center"
+        flexDirection="row"
+        onPress={() => {
+          onItemSelect?.(item);
+        }}
+        mt={mt}
+      >
+        <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
+        <Box flex={1} ml="2">
+          <Typography.Body2Strong numberOfLines={1}>
+            {item.name}
+          </Typography.Body2Strong>
+          <Typography.Caption
+            numberOfLines={1}
+            mt="1"
+            color="text-subdued"
+            overflow="hidden"
+          >
+            {t(item._subtitle) ?? item.subtitle}
+          </Typography.Caption>
+        </Box>
+      </Pressable>
+    </FavContainer>
   );
 };
 
@@ -58,20 +68,17 @@ type PairCardViewProps = {
   onItemSelect: SectionDataType['onItemSelect'];
 };
 
-const PairCardView: FC<PairCardViewProps> = ({ items, onItemSelect }) => {
-  const itemA = items[0];
-  const itemB = items[1];
-  return (
-    <Box>
-      {itemA ? (
-        <SimpleCardView item={itemA} onItemSelect={onItemSelect} />
-      ) : null}
-      {itemB ? (
-        <SimpleCardView item={itemB} onItemSelect={onItemSelect} mt="5" />
-      ) : null}
-    </Box>
-  );
-};
+const PairCardView: FC<PairCardViewProps> = ({
+  items: [itemA, itemB],
+  onItemSelect,
+}) => (
+  <Box>
+    {itemA ? <SimpleCardView item={itemA} onItemSelect={onItemSelect} /> : null}
+    {itemB ? (
+      <SimpleCardView item={itemB} onItemSelect={onItemSelect} mt="5" />
+    ) : null}
+  </Box>
+);
 
 const group = (items: DAppItemType[]) => {
   const result: DappTypeTuple[] = [];

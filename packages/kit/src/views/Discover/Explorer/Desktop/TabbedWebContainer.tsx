@@ -6,7 +6,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Box } from '@onekeyhq/components';
 
-import { homeTab } from '../../../../store/reducers/webTabs';
+import { homeTab } from '../../../../store/observable/webTabs';
 import DiscoverHome from '../../Home';
 import WebContent from '../Content/WebContent';
 import { onItemSelect, openMatchDApp } from '../Controller/gotoSite';
