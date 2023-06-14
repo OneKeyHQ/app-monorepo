@@ -312,7 +312,7 @@ export default class VaultBtcFork extends VaultBase {
     const account = (await this.getDbAccount()) as DBUTXOAccount;
     const xpub = this.getAccountXpub(account);
 
-    let mainBalance: BigNumber | undefined = new BigNumber('0');
+    let mainBalance: BigNumber | undefined; // do not set 0 as default here
     if (xpub) {
       [mainBalance] = await this.getBalances([{ address: xpub }]);
     } else if (account.address) {
