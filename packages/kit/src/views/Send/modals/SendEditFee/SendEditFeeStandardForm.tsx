@@ -26,6 +26,7 @@ const presetItemStyle = {
   paddingBottom: '4px',
   alignItems: 'center',
   height: '64px',
+  bg: 'transparent',
 };
 
 const customItemStyle = {

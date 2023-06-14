@@ -49,6 +49,7 @@ import {
 import { dappClearSiteConnection } from '../../store/reducers/dapp';
 import { refreshWebviewGlobalKey } from '../../store/reducers/status';
 import { openUrlByWebview } from '../../utils/openUrl';
+import { GasPanelRoutes } from '../GasPanel/types';
 
 import type { GalleryParams } from '../../routes/Root/Gallery';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -654,6 +655,22 @@ export const Debug = () => {
               }}
             >
               <Typography.Body1>Batch create wallets</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() => {
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.GasPanel,
+                  params: {
+                    screen: GasPanelRoutes.GasPanelModal,
+                    params: {
+                      networkId: network?.id ?? '',
+                    },
+                  },
+                });
+              }}
+            >
+              <Typography.Body1>Open Gas Panel</Typography.Body1>
             </Pressable>
           </VStack>
         </Box>
