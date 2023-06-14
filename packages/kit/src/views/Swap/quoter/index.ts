@@ -119,7 +119,7 @@ type FetchQuoteHttpResult = {
   percentageFee?: string;
   minAmountOut?: string;
   protocolFees?: ProtocolFees;
-  estimatedPriceImpact?: string
+  estimatedPriceImpact?: string;
 };
 
 type FetchQuoteHttpLimit = {
@@ -218,7 +218,7 @@ export class SwapQuoter {
     urlParams.quoterType = '0x';
     const serverEndPont =
       await backgroundApiProxy.serviceSwap.getServerEndPoint();
-    const url = `${serverEndPont}/swap/v2/quote`;
+    const url = `${serverEndPont}/exchange/quote`;
     const res = await this.httpClient.get(url, { params: urlParams });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const response = res.data?.data as FetchQuoteHttpResponse | undefined;
@@ -290,7 +290,7 @@ export class SwapQuoter {
         ),
         minAmountOut: fetchQuote.minAmountOut,
         protocolFees: fetchQuote.protocolFees,
-        estimatedPriceImpact: fetchQuote.estimatedPriceImpact
+        estimatedPriceImpact: fetchQuote.estimatedPriceImpact,
       };
 
       if (data.allowanceTarget && spendersAllowance) {
@@ -327,7 +327,7 @@ export class SwapQuoter {
 
     const serverEndPont =
       await backgroundApiProxy.serviceSwap.getServerEndPoint();
-    const url = `${serverEndPont}/swap/v2/quote`;
+    const url = `${serverEndPont}/exchange/quote`;
 
     const res = await this.httpClient.get(url, { params: urlParams });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -350,7 +350,7 @@ export class SwapQuoter {
 
     const serverEndPont =
       await backgroundApiProxy.serviceSwap.getServerEndPoint();
-    const url = `${serverEndPont}/swap/quote_all`;
+    const url = `${serverEndPont}/exchange/quote_all`;
 
     const res = await this.httpClient.get(url, { params: urlParams });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -407,7 +407,7 @@ export class SwapQuoter {
     urlParams.disableValidate = Boolean(params.disableValidate);
     const serverEndPont =
       await backgroundApiProxy.serviceSwap.getServerEndPoint();
-    const url = `${serverEndPont}/swap/build_tx`;
+    const url = `${serverEndPont}/exchange/build_tx`;
 
     const res = await this.httpClient.post(url, urlParams);
     const requestId = this.parseRequestId(res);

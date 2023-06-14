@@ -10,9 +10,9 @@ import { isEmpty, isNil, omitBy } from 'lodash';
 import memoizee from 'memoizee';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import {
   fromBigIntHex,
@@ -21,6 +21,7 @@ import {
 
 import {
   InvalidAddress,
+  InvalidTokenAddress,
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
@@ -39,11 +40,13 @@ import {
 } from '../../utils/feeInfoUtils';
 import { VaultBase } from '../../VaultBase';
 
-import { KeyringHardware } from './KeyringHardware';
-import { KeyringHd } from './KeyringHd';
-import { KeyringImported } from './KeyringImported';
-import { KeyringWatching } from './KeyringWatching';
-import sdkCfx from './sdkCfx';
+import {
+  KeyringHardware,
+  KeyringHd,
+  KeyringImported,
+  KeyringWatching,
+} from './keyring';
+import { conflux as sdkCfx } from './sdk';
 import settings from './settings';
 import { IOnChainTransferType } from './types';
 import {
@@ -71,9 +74,11 @@ import type {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
+  ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
+import type { AddressValidation } from '../../utils/btcForkChain/types';
 import type { IEncodedTxCfx, ITxOnChainHistoryResp } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -379,6 +384,16 @@ export default class Vault extends VaultBase {
     return Promise.resolve(unsignedTx);
   }
 
+  async verifyAddress(address: string): Promise<AddressValidation> {
+    const isValid = confluxAddress.isValidCfxAddress(address);
+
+    return Promise.resolve({
+      normalizedAddress: isValid ? address.toLowerCase() : undefined,
+      displayAddress: isValid ? address.toLowerCase() : undefined,
+      isValid,
+    });
+  }
+
   async fetchFeeInfo(encodedTx: any): Promise<IFeeInfo> {
     const { gas, gasLimit } = encodedTx;
 
@@ -447,6 +462,22 @@ export default class Vault extends VaultBase {
     );
   }
 
+  override async validateWatchingCredential(address: string): Promise<boolean> {
+    // Generic address test, override if needed.
+    return Promise.resolve(
+      this.settings.watchingAccountEnabled &&
+        (await this.verifyAddress(address)).isValid,
+    );
+  }
+
+  override async validateTokenAddress(address: string): Promise<string> {
+    const { normalizedAddress, isValid } = await this.verifyAddress(address);
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidTokenAddress();
+    }
+    return Promise.resolve(normalizedAddress);
+  }
+
   override async getOutputAccount(): Promise<Account> {
     const dbAccount = (await this.getDbAccount({
       noCache: true,
@@ -505,8 +536,7 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string): Promise<string> {
-    const isValid = confluxAddress.isValidCfxAddress(address);
-    const normalizedAddress = isValid ? address.toLowerCase() : undefined;
+    const { isValid, normalizedAddress } = await this.verifyAddress(address);
 
     if (!isValid || typeof normalizedAddress === 'undefined') {
       throw new InvalidAddress();
@@ -810,6 +840,26 @@ export default class Vault extends VaultBase {
       this.networkId,
       tokenAddresses,
     );
+  }
+
+  override async broadcastTransaction(
+    signedTx: ISignedTxPro,
+    options?: any,
+  ): Promise<ISignedTxPro> {
+    debugLogger.engine.info('broadcastTransaction START:', {
+      rawTx: signedTx.rawTx,
+    });
+    const client = await this.getClient();
+    const txid = await client.sendRawTransaction(signedTx.rawTx);
+    debugLogger.engine.info('broadcastTransaction END:', {
+      txid,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
+    };
   }
 }
 

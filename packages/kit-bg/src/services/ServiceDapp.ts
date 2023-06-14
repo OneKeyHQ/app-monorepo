@@ -38,7 +38,11 @@ import {
   isDappScopeMatchNetwork,
   waitForDataLoaded,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { IMPL_SOL, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_COSMOS,
+  IMPL_SOL,
+  SEPERATOR,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import urlUtils from '@onekeyhq/shared/src/utils/urlUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -49,6 +53,7 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import type { SessionTypes } from '@walletconnect-v2/types';
 
 type CommonRequestParams = {
   request: IJsBridgeMessagePayload;
@@ -108,6 +113,9 @@ class ServiceDapp extends ServiceBase {
       // TODO unlock status check
       //   return [];
     }
+    if (!origin) {
+      return [];
+    }
     const accounts = connections
       .filter(
         (item) => {
@@ -135,7 +143,9 @@ class ServiceDapp extends ServiceBase {
             `${item.networkImpl}${SEPERATOR}1`,
           )
         ) {
-          item.address = accountAddress;
+          if (impl !== IMPL_COSMOS) {
+            item.address = accountAddress;
+          }
         }
       });
       return list;
@@ -144,8 +154,12 @@ class ServiceDapp extends ServiceBase {
   }
 
   @backgroundMethod()
-  saveConnectedAccounts(payload: DappSiteConnectionSavePayload) {
+  async saveConnectedAccounts(payload: DappSiteConnectionSavePayload) {
+    if (!payload?.site?.origin) {
+      throw new Error('saveConnectedAccounts ERROR: origin is empty');
+    }
     this.backgroundApi.dispatch(dappSaveSiteConnection(payload));
+    return Promise.resolve();
   }
 
   @backgroundMethod()
@@ -164,6 +178,7 @@ class ServiceDapp extends ServiceBase {
       this.backgroundApi.walletConnect.connector.peerMeta?.url ===
         payload.site.origin
     ) {
+      // disconnect WalletConnect V1 session
       this.backgroundApi.walletConnect.disconnect();
     }
     this.removeConnectedAccounts({
@@ -184,6 +199,20 @@ class ServiceDapp extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
+  async getWalletConnectSessionV2(): Promise<{
+    sessions: SessionTypes.Struct[];
+  }> {
+    let sessions: SessionTypes.Struct[] = [];
+    if (this?.backgroundApi?.walletConnect?.web3walletV2) {
+      const res = await this.backgroundApi.walletConnect.getActiveSessionsV2();
+      sessions = res.sessions ?? [];
+    }
+    return Promise.resolve({
+      sessions,
+    });
+  }
+
   // TODO to decorator @permissionRequired()
   authorizedRequired(request: IJsBridgeMessagePayload) {
     if (!this.isDappAuthorized(request)) {
@@ -195,13 +224,16 @@ class ServiceDapp extends ServiceBase {
     if (!request.scope) {
       return false;
     }
+    if (!request.origin) {
+      return false;
+    }
     const impl = getNetworkImplFromDappScope(request.scope);
     if (!impl) {
       return false;
     }
     const accounts = this.backgroundApi.serviceDapp?.getActiveConnectedAccounts(
       {
-        origin: request.origin as string,
+        origin: request.origin,
         impl,
       },
     );

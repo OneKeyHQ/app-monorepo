@@ -1084,7 +1084,7 @@ export const serverPresetNetworks = [
     'name': 'Astar',
     'rpcURLs': [
       {
-        'url': 'wss://wss.astar.network',
+        'url': 'wss://rpc.astar.network',
       },
       {
         'url': 'wss://1rpc.io/astr',

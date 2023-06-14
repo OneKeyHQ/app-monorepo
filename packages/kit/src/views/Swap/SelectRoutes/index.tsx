@@ -103,26 +103,24 @@ const RouteOption: FC<RouteOptionProps> = ({ response, index }) => {
         alignItems="center"
         w="full"
       >
-        <Box flex="2" flexDirection="row">
+        <Box flex="1" flexDirection="row">
           <TokenInput
             token={inputToken}
             amount={data?.sellAmount}
             isDisabled={isDisabled}
           />
           <Box flex="1">
-            <PlaceholderLine ml={2} />
+            <PlaceholderLine minW={1} ml={2} />
           </Box>
         </Box>
-        <Box flex="1" justifyContent="center" flexDirection="row">
-          <PlaceholderLine mr={2} />
+        <Box justifyContent="center" flexDirection="row" px="1">
           <LiquiditySources
             providers={data?.providers}
             isDisabled={isDisabled}
           />
-          <PlaceholderLine ml={2} />
         </Box>
-        <Box flex="2" flexDirection="row">
-          <PlaceholderLine mr={2} />
+        <Box flex="1" flexDirection="row">
+          <PlaceholderLine minW={1} mr={2} />
           <TokenInput
             token={outputToken}
             amount={buyAmount}

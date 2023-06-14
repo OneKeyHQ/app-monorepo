@@ -27,7 +27,6 @@ import Protected, { ValidationFields } from '../../components/Protected';
 import { useHtmlPreloadSplashLogoRemove } from '../../hooks/useHtmlPreloadSplashLogoRemove';
 import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 import { setHomeTabName } from '../../store/reducers/status';
-import OfflineView from '../Offline';
 import { GuideToPushFirstTimeCheck } from '../PushNotification/GuideToPushFirstTime';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
@@ -36,6 +35,7 @@ import AccountInfo, {
   FIXED_VERTICAL_HEADER_HEIGHT,
 } from './AccountInfo';
 import AssetsList from './AssetsList';
+import { BottomView } from './BottomView';
 import NFTList from './NFT/NFTList';
 import ToolsPage from './Tools';
 import { HomeTabIndex, HomeTabOrder, WalletHomeTabEnum } from './type';
@@ -208,7 +208,7 @@ export default function Wallet() {
           <WalletTabs />
         </IdentityAssertion>
       </Box>
-      <OfflineView />
+      <BottomView />
     </>
   );
 }

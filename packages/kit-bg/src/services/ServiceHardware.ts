@@ -42,6 +42,7 @@ import {
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
 import ServiceBase from './ServiceBase';
@@ -444,8 +445,8 @@ class ServiceHardware extends ServiceBase {
           const deviceExist = bootloaderMode
             ? // bootloader mode does not have connect id for classic
               (response.payload ?? []).length > 0
-            : (response.payload ?? []).find(
-                (d) => d.connectId?.toUpperCase() === connectId.toUpperCase(),
+            : (response.payload ?? []).find((d) =>
+                equalsIgnoreCase(d.connectId, connectId),
               );
           if (deviceExist) {
             deviceUtils.stopScan();

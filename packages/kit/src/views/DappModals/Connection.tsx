@@ -21,6 +21,7 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { IAccount, INetwork } from '@onekeyhq/engine/src/types';
 import Logo from '@onekeyhq/kit/assets/logo_round.png';
+import { IMPL_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -238,8 +239,9 @@ const Connection = () => {
   const [rugConfirmDialogVisible, setRugConfirmDialogVisible] = useState(false);
   const intl = useIntl();
 
-  const { networkImpl, network, accountAddress, account } =
+  const { networkImpl, network, accountAddress, accountPubKey, account } =
     useActiveWalletAccount();
+
   const { sourceInfo } = useDappParams();
   const { origin, scope, id } = sourceInfo ?? defaultSourceInfo;
   const computedIsRug = useMemo(() => isRug(origin), [origin]);
@@ -265,13 +267,11 @@ const Connection = () => {
     if (isClosedDone.current) {
       return;
     }
-    // **** close preloading Modal on Extension
-    if (platformEnv.isExtensionUi) {
-      if (isWalletConnectPreloading) {
-        if (closeDappConnectionPreloadingTs) {
-          isClosedDone.current = true;
-          closeModal();
-        }
+    // **** close preloading Modal
+    if (isWalletConnectPreloading) {
+      if (closeDappConnectionPreloadingTs) {
+        isClosedDone.current = true;
+        closeModal();
       }
     }
   }, [
@@ -305,9 +305,6 @@ const Connection = () => {
   );
   useEffect(() => {
     if (walletConnectUri) {
-      if (walletConnectUriInfo?.v2) {
-        ToastManager.show({ title: 'WalletConnect V2 not supported yet.' });
-      }
       if (refreshKey) {
         setWalletConnectError('');
       }
@@ -346,7 +343,7 @@ const Connection = () => {
   ]);
 
   // TODO move to DappService
-  const getResolveData = useCallback(() => {
+  const getResolveDataAsync = useCallback(async () => {
     // throw web3Errors.provider.unauthorized();
     // throw new Error('Testing: some error occur in approval.');
     if (!networkImpl || !accountAddress) {
@@ -354,7 +351,11 @@ const Connection = () => {
         'Wallet or account not selected, you should create or import one.',
       );
     }
-    const address = accountAddress;
+    let address = accountAddress;
+    if (scope === IMPL_COSMOS) {
+      address = accountPubKey;
+    }
+
     let accounts: string | string[] | { accounts: string[] } = [address].filter(
       Boolean,
     );
@@ -371,7 +372,7 @@ const Connection = () => {
       accounts = address;
     }
 
-    backgroundApiProxy.serviceDapp.saveConnectedAccounts({
+    await backgroundApiProxy.serviceDapp.saveConnectedAccounts({
       site: {
         origin,
       },
@@ -379,7 +380,7 @@ const Connection = () => {
       address,
     });
     return accounts;
-  }, [accountAddress, networkImpl, origin, scope]);
+  }, [accountAddress, accountPubKey, networkImpl, origin, scope]);
 
   const dappApprove = useDappApproveAction({
     id,
@@ -409,17 +410,29 @@ const Connection = () => {
         headerDescription={
           isWalletConnectPreloading ? 'WalletConnect' : network?.shortName ?? ''
         }
+        primaryActionProps={{
+          isDisabled: !origin,
+        }}
         hidePrimaryAction={isWalletConnectPreloading || !account?.id}
         hideSecondaryAction
         primaryActionTranslationId="action__confirm"
         secondaryActionTranslationId="action__cancel"
         onPrimaryActionPress={async ({ close }) => {
-          if (!computedIsRug) {
-            const result = getResolveData();
-            return dappApprove.resolve({ close, result });
+          try {
+            if (!computedIsRug) {
+              const result = await getResolveDataAsync();
+              return await dappApprove.resolve({ close, result });
+            }
+            // Do confirm before approve
+            setRugConfirmDialogVisible(true);
+          } catch (error) {
+            const e = error as Error | undefined;
+            console.error(error);
+            ToastManager.show(
+              { title: e?.message || 'Confirm Connection failed.' },
+              { type: 'error' },
+            );
           }
-          // Do confirm before approve
-          setRugConfirmDialogVisible(true);
         }}
         onSecondaryActionPress={({ close }) => {
           dappApprove.reject();

@@ -1,6 +1,6 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import type { OneKeyWalletConnector } from '@onekeyhq/kit/src/components/WalletConnect/OneKeyWalletConnector';
+import type { IWalletConnectRequestOptions } from '@onekeyhq/kit/src/components/WalletConnect/types';
 
 import { WalletConnectRequestProxy } from './WalletConnectRequestProxy';
 
@@ -16,8 +16,8 @@ export class WalletConnectRequestProxyAptos extends WalletConnectRequestProxy {
       result = [address];
     }
    */
-  override async connect(connector: OneKeyWalletConnector) {
-    const res = await this.request<{ address: string } | undefined>(connector, {
+  override async connect(options: IWalletConnectRequestOptions) {
+    const res = await this.request<{ address: string } | undefined>(options, {
       method: 'connect',
     });
     return [res?.address].filter(Boolean);
@@ -32,8 +32,8 @@ export class WalletConnectRequestProxyAptos extends WalletConnectRequestProxy {
         accounts = [address];
       }
    */
-  override async getAccounts(connector: OneKeyWalletConnector) {
-    const res = await this.request<{ address: string } | undefined>(connector, {
+  override async getAccounts(options: IWalletConnectRequestOptions) {
+    const res = await this.request<{ address: string } | undefined>(options, {
       method: 'account',
     });
     return [res?.address].filter(Boolean);
@@ -48,8 +48,8 @@ export class WalletConnectRequestProxyAptos extends WalletConnectRequestProxy {
       chainId = res?.chainId;
     }
    */
-  override async getChainId(connector: OneKeyWalletConnector) {
-    const res = await this.request<{ chainId: number } | undefined>(connector, {
+  override async getChainId(options: IWalletConnectRequestOptions) {
+    const res = await this.request<{ chainId: number } | undefined>(options, {
       method: 'getChainId',
     });
     return res?.chainId;

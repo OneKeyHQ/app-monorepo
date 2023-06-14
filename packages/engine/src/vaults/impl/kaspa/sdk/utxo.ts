@@ -1,5 +1,7 @@
 import { BigNumber } from 'bignumber.js';
 
+import { InsufficientBalance } from '../../../../errors';
+
 import { CONFIRMATION_COUNT } from './constant';
 import { UnspentOutput } from './types';
 
@@ -83,7 +85,7 @@ export function selectUTXOs(
   }
 
   if (totalVal < txAmount)
-    throw new Error(
+    throw new InsufficientBalance(
       `Insufficient balance - need: ${txAmount} KAS, available: ${txAmount} KAS`,
     );
 

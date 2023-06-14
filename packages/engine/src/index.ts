@@ -638,6 +638,7 @@ class Engine {
                 coinType: a.coinType,
                 tokens: [],
                 address: a.address,
+                pubKey: get(a, 'pub', ''),
               }
             : this.getVault({ accountId: a.id, networkId }).then((vault) =>
                 vault.getOutputAccount().catch((error) => {
@@ -1176,6 +1177,7 @@ class Engine {
       coinType: dbAccount.coinType,
       tokens: [],
       address: dbAccount.address,
+      pubKey: get(dbAccount, 'pub', ''),
     };
   }
 

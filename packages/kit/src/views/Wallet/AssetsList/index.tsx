@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { useFocusEffect, useNavigation } from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import { omit } from 'lodash';
 import { useDebounce } from 'use-debounce';
 
@@ -28,6 +28,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokens, useActiveSideAccount } from '../../../hooks';
 import { useAccountTokenLoading } from '../../../hooks/useTokens';
+import { useVisibilityFocused } from '../../../hooks/useVisibilityFocused';
 import { OverviewDefiThumbnal } from '../../Overview/Thumbnail';
 
 import AssetsListHeader from './AssetsListHeader';
@@ -127,15 +128,6 @@ function AssetsList({
     },
   );
 
-  const visibilityStateListener = useCallback(() => {
-    if (document.visibilityState === 'hidden') {
-      stopRefresh();
-    }
-    if (document.visibilityState === 'visible') {
-      startRefresh();
-    }
-  }, [startRefresh, stopRefresh]);
-
   useEffect(() => {
     const { serviceOverview } = backgroundApiProxy;
     serviceOverview.subscribe();
@@ -145,42 +137,22 @@ function AssetsList({
     }
   }, [networkId, accountId, startRefresh, stopRefresh]);
 
-  useFocusEffect(
-    useCallback(() => {
-      const { serviceToken } = backgroundApiProxy;
-      if (!account || !network) {
+  const isFocused = useVisibilityFocused();
+
+  useEffect(() => {
+    if (isFocused) {
+      if (!accountId || !networkId) {
         return;
       }
-      serviceToken.fetchAccountTokens({
-        includeTop50TokensQuery: true,
-        networkId: network?.id,
-        accountId: account?.id,
+      backgroundApiProxy.serviceToken.fetchAccountTokens({
+        networkId,
+        accountId,
       });
-
       startRefresh();
-      if (platformEnv.isRuntimeBrowser) {
-        document.addEventListener('visibilitychange', visibilityStateListener);
-        if (!platformEnv.isDesktop) {
-          window.addEventListener('blur', stopRefresh);
-          window.addEventListener('focus', startRefresh);
-        }
-      }
-
-      return () => {
-        stopRefresh();
-        if (platformEnv.isRuntimeBrowser) {
-          document.removeEventListener(
-            'visibilitychange',
-            visibilityStateListener,
-          );
-          if (!platformEnv.isDesktop) {
-            window.removeEventListener('blur', stopRefresh);
-            window.removeEventListener('focus', startRefresh);
-          }
-        }
-      };
-    }, [account, network, visibilityStateListener, startRefresh, stopRefresh]),
-  );
+    } else {
+      stopRefresh();
+    }
+  }, [isFocused, startRefresh, stopRefresh, accountId, networkId]);
 
   const onTokenCellPress = useCallback(
     (item: Token) => {

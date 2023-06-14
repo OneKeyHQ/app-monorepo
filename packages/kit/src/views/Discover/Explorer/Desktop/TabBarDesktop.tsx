@@ -13,14 +13,10 @@ import {
   getShortcutsMap,
 } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
-import { useAppSelector } from '../../../../hooks';
-import {
-  dAddNewBlankWebTab,
-  dCloseWebTab,
-  dSetCurrentWebTab,
-} from '../explorerActions';
+import { webTabsActions } from '../../../../store/observable/webTabs';
+import { useWebTabs } from '../Controller/useWebTabs';
 
-import type { WebTab } from '../../../../store/reducers/webTabs';
+import type { WebTab } from '../../../../store/observable/webTabs';
 import type { LayoutChangeEvent } from 'react-native';
 import type Animated from 'react-native-reanimated';
 
@@ -31,10 +27,10 @@ const Tab: FC<
   }
 > = ({ isCurrent, id, title, onLayout, favicon }) => {
   const setCurrentTab = useCallback(() => {
-    dSetCurrentWebTab(id);
+    webTabsActions.setCurrentWebTab(id);
   }, [id]);
   const closeTab = useCallback(() => {
-    dCloseWebTab(id);
+    webTabsActions.closeWebTab(id);
   }, [id]);
   return id === 'home' ? (
     <Button
@@ -104,13 +100,13 @@ const AddTabButton = () => (
       borderRadius={0}
       type="plain"
       leftIconName="PlusMini"
-      onPress={dAddNewBlankWebTab}
+      onPress={webTabsActions.addBlankWebTab}
     />
   </ShortcutsTooltip>
 );
 
 const TabBarDesktop: FC = () => {
-  const tabs = useAppSelector((s) => s.webTabs.tabs);
+  const { tabs } = useWebTabs();
   const tabsExceptHome = useMemo(() => tabs.slice(1), [tabs]);
   const ref = useRef<Animated.ScrollView>(null);
   useEffect(() => {
