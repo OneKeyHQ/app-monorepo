@@ -3819,7 +3819,7 @@ export const serverPresetNetworks = [
     'balance2FeeDecimals': 0,
     'chainId': '0',
     'code': 'lighting',
-    'decimals': 8,
+    'decimals': 1,
     'extensions': {
       'position': 1,
     },
@@ -3841,7 +3841,7 @@ export const serverPresetNetworks = [
     'symbol': 'sats',
     'feeMeta': {
       'code': 'lighting',
-      'decimals': 8,
+      'decimals': 1,
       'symbol': 'sats',
     },
     'defaultEnabled': true,

@@ -6,12 +6,14 @@ import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
   InsufficientBalance,
   InvalidAddress,
   WrongPassword,
 } from '../../../errors';
+import { TransactionStatus } from '../../../types/provider';
 import {
   type IDecodedTx,
   IDecodedTxActionType,
@@ -29,6 +31,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
+import { PaymentStatusEnum } from './types/payments';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type {
@@ -36,8 +39,17 @@ import type {
   DBAccount,
   DBVariantAccount,
 } from '../../../types/account';
-import type { IDecodedTxLegacy, IFeeInfo } from '../../types';
+import type {
+  IDecodedTxLegacy,
+  IEncodedTxUpdateOptions,
+  IFeeInfo,
+  IFeeInfoUnit,
+  IHistoryTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '../../types';
 import type { IEncodedTxLighting } from './types';
+import type { IHistoryItem } from './types/invoice';
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -179,8 +191,12 @@ export default class Vault extends VaultBase {
     const description = invoice.tags.find(
       (tag) => tag.tagName === 'description',
     );
+    const paymentHash = invoice.tags.find(
+      (tag) => tag.tagName === 'payment_hash',
+    );
     return {
       invoice: invoice.paymentRequest,
+      paymentHash: paymentHash?.data as string,
       amount: amount.toFixed(),
       expired: `${invoice.timeExpireDate ?? ''}`,
       created: `${Date.now()}`,
@@ -188,6 +204,30 @@ export default class Vault extends VaultBase {
       description: description?.data as string,
       fee: 0,
     };
+  }
+
+  override updateEncodedTx(
+    encodedTx: IEncodedTxLighting,
+  ): Promise<IEncodedTxLighting> {
+    return Promise.resolve(encodedTx);
+  }
+
+  override attachFeeInfoToEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfoValue: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    return Promise.resolve(params.encodedTx);
+  }
+
+  override async buildUnsignedTxFromEncodedTx(
+    encodedTx: IEncodedTx,
+  ): Promise<IUnsignedTxPro> {
+    return Promise.resolve({
+      inputs: [],
+      outputs: [],
+      payload: { encodedTx },
+      encodedTx,
+    });
   }
 
   override async decodeTx(
@@ -237,6 +277,78 @@ export default class Vault extends VaultBase {
     return Promise.resolve({} as IDecodedTxLegacy);
   }
 
+  override async fetchOnChainHistory(options: {
+    tokenIdOnNetwork?: string | undefined;
+    localHistory?: IHistoryTx[] | undefined;
+    password?: string | undefined;
+    passwordLoadedCallback?: ((isLoaded: boolean) => void) | undefined;
+  }): Promise<IHistoryTx[]> {
+    const address = await this.getCurrentBalanceAddress();
+    const { decimals, symbol } = await this.engine.getNetwork(this.networkId);
+    const token = await this.engine.getNativeTokenInfo(this.networkId);
+    const client = await this.getClient(
+      options.password,
+      options.passwordLoadedCallback,
+    );
+    const txs = await client.fetchHistory(address);
+    const promises = txs.map((txInfo) => {
+      try {
+        const { txid, owner, signer, nonce, actions, fee, status } = txInfo;
+        const historyTxToMerge = options.localHistory?.find(
+          (item) => item.decodedTx.txid === txid,
+        );
+        if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+          // No need to update.
+          return null;
+        }
+
+        const amount = new BigNumber(txInfo.amount)
+          .shiftedBy(-decimals)
+          .toFixed();
+        const amountValue = `${txInfo.amount}`;
+
+        const decodedTx: IDecodedTx = {
+          txid,
+          owner,
+          signer,
+          nonce,
+          actions: [
+            {
+              ...actions[0],
+              nativeTransfer: {
+                tokenInfo: token,
+                from: '',
+                to: '',
+                amount,
+                amountValue,
+                extraInfo: null,
+              },
+            },
+          ],
+          status,
+          networkId: this.networkId,
+          accountId: this.accountId,
+          extraInfo: null,
+          totalFeeInNative: new BigNumber(fee).shiftedBy(-decimals).toFixed(),
+        };
+        decodedTx.updatedAt = new Date(txInfo.expires_at).getTime();
+        decodedTx.createdAt =
+          historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
+        decodedTx.isFinal =
+          decodedTx.status === IDecodedTxStatus.Confirmed ||
+          decodedTx.status === IDecodedTxStatus.Failed;
+        return this.buildHistoryTx({
+          decodedTx,
+          historyTxToMerge,
+        });
+      } catch (e) {
+        console.error(e);
+        return Promise.resolve(null);
+      }
+    });
+    return (await Promise.all(promises)).filter(Boolean);
+  }
+
   override async getAccountBalance(
     tokenIds: string[],
     withMain?: boolean,
@@ -284,5 +396,79 @@ export default class Vault extends VaultBase {
     const client = await this.getClient(password);
     const address = await this.getCurrentBalanceAddress();
     return client.createInvoice(address, amount, description);
+  }
+
+  override async broadcastTransaction(
+    signedTx: ISignedTxPro,
+    options?: any,
+  ): Promise<ISignedTxPro> {
+    debugLogger.engine.info('broadcastTransaction START:', {
+      rawTx: signedTx.rawTx,
+    });
+    console.log('===> options: ', options);
+    let result;
+    try {
+      const client = await this.getClient();
+      const { invoice, amount, expired, created, nonce } =
+        signedTx.encodedTx as IEncodedTxLighting;
+      const address = await this.getCurrentBalanceAddress();
+      result = await client.paymentBolt11({
+        address,
+        invoice,
+        amount,
+        expired,
+        created: Number(created),
+        nonce,
+        signature: signedTx.rawTx,
+      });
+    } catch (err) {
+      debugLogger.sendTx.info('broadcastTransaction ERROR:', err);
+      throw err;
+    }
+
+    debugLogger.engine.info('broadcastTransaction END:', {
+      txid: signedTx.txid,
+      rawTx: signedTx.rawTx,
+      result,
+    });
+
+    return {
+      ...signedTx,
+      ...result,
+      encodedTx: signedTx.encodedTx,
+    };
+  }
+
+  override async getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
+    console.log('===>>>txids: ', txids);
+    const address = await this.getCurrentBalanceAddress();
+    return Promise.all(
+      txids.map(async (txid) => {
+        const client = await this.getClient();
+        const nonce = txid.split('--');
+        if (Number.isNaN(Number(nonce))) {
+          return TransactionStatus.NOT_FOUND;
+        }
+        const response = await client.checkBolt11({
+          address,
+          nonce: Number(nonce),
+        });
+        if (response.status === PaymentStatusEnum.NOT_FOUND_ORDER) {
+          return TransactionStatus.NOT_FOUND;
+        }
+        if (response.status === PaymentStatusEnum.SUCCESS) {
+          return TransactionStatus.CONFIRM_AND_SUCCESS;
+        }
+        if (response.status === PaymentStatusEnum.PENDING) {
+          return TransactionStatus.PENDING;
+        }
+        if (response.status === PaymentStatusEnum.FAILED) {
+          return TransactionStatus.CONFIRM_BUT_FAILED;
+        }
+        return TransactionStatus.NOT_FOUND;
+      }),
+    );
   }
 }

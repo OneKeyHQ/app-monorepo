@@ -1,3 +1,9 @@
+import type {
+  IDecodedTxActionType,
+  IDecodedTxDirection,
+  IDecodedTxStatus,
+} from '../../../types';
+
 export type ICreateInvoiceParams = {
   amount: number;
   description?: string;
@@ -119,4 +125,18 @@ export declare type PaymentRequestObject = {
 
 export type IInvoiceDecodedResponse = PaymentRequestObject & {
   tagsObject: TagsObject;
+};
+
+export type IHistoryItem = InvoiceType & {
+  txid: string;
+  owner: string;
+  signer: string;
+  nonce: any;
+  actions: {
+    type: IDecodedTxActionType;
+    direction: IDecodedTxDirection;
+  }[];
+  fee: number;
+  status: IDecodedTxStatus;
+  origin_status: string;
 };

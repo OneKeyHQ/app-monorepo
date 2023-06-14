@@ -2,6 +2,7 @@ import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 
 import { COINTYPE_LIGHTING } from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
@@ -12,7 +13,13 @@ import { signature } from './helper/signature';
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { Signer } from '../../../proxy';
 import type { DBVariantAccount } from '../../../types/account';
-import type { IPrepareSoftwareAccountsParams } from '../../types';
+import type {
+  IPrepareSoftwareAccountsParams,
+  ISignCredentialOptions,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '../../types';
+import type { IEncodedTxLighting } from './types';
 import type LightingVault from './Vault';
 
 export class KeyringHd extends KeyringHdBase {
@@ -79,5 +86,37 @@ export class KeyringHd extends KeyringHdBase {
     }
 
     return ret;
+  }
+
+  override async signTransaction(
+    unsignedTx: IUnsignedTxPro,
+    options: ISignCredentialOptions,
+  ): Promise<ISignedTxPro> {
+    debugLogger.sendTx.info('signTransaction result', unsignedTx);
+    const { password } = options;
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const { entropy } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      password ?? '',
+    )) as ExportedSeedCredential;
+    const { invoice, expired, created, nonce, paymentHash } =
+      unsignedTx.encodedTx as IEncodedTxLighting;
+    const sign = await signature({
+      msgPayload: {
+        type: 'transfer',
+        invoice,
+        expired,
+        created: Number(created),
+        nonce,
+      },
+      engine: this.engine,
+      path: dbAccount.addresses.realPath,
+      password: password ?? '',
+      entropy,
+    });
+    return {
+      txid: `${paymentHash}--${nonce}`,
+      rawTx: sign,
+    };
   }
 }

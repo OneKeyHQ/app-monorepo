@@ -6,8 +6,13 @@ import { getFiatEndpoint } from '../../../../endpoint';
 import type { IBalanceResponse, ICreateUserResponse } from '../types/account';
 import type {
   ICretaeInvoiceResponse,
+  IHistoryItem,
   IInvoiceDecodedResponse,
 } from '../types/invoice';
+import type {
+  ICheckPaymentResponse,
+  IPaymentBolt11Params,
+} from '../types/payments';
 import type { AxiosError, AxiosInstance, AxiosPromise } from 'axios';
 
 type IExchangeToken = () => Promise<{
@@ -146,6 +151,29 @@ class ClientLighting {
         params: { address },
       })
       .then((i) => i.data + 1);
+  }
+
+  async paymentBolt11(params: IPaymentBolt11Params) {
+    return this.request
+      .post<{ paymentRequest: string; nonce: number }>(
+        '/payments/bolt11',
+        params,
+      )
+      .then((i) => i.data);
+  }
+
+  async checkBolt11({ address, nonce }: { address: string; nonce: number }) {
+    return this.request
+      .get<ICheckPaymentResponse>('/payments/checkBolt11', {
+        params: { address, nonce },
+      })
+      .then((i) => i.data);
+  }
+
+  async fetchHistory(address: string): Promise<IHistoryItem[]> {
+    return this.request
+      .get<IHistoryItem[]>('/invoices/history', { params: { address } })
+      .then((i) => i.data);
   }
 }
 
