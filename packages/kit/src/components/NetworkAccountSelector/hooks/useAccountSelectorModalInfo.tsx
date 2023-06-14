@@ -4,7 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import reducerAccountSelector from '../../../store/reducers/reducerAccountSelector';
-import { ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { ACCOUNT_SELECTOR_IS_OPEN_REFRESH_DELAY } from '../consts';
 
 import { useAccountSelectorInfo } from './useAccountSelectorInfo';
 

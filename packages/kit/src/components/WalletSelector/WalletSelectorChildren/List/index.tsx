@@ -17,7 +17,7 @@ import type { IWallet } from '@onekeyhq/engine/src/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveWalletAccount } from '../../../../hooks/redux';
-import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_WALLET } from '../../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_WALLET } from '../../../NetworkAccountSelector/consts';
 import { useDeviceStatusOfHardwareWallet } from '../../../NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import {
   EWalletDataSectionType,

@@ -25,11 +25,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../../../hooks';
+import { FAKE_ALL_NETWORK_CONFIG } from '../../../../views/ManageNetworks/constants';
 import {
   NetworkListEmpty,
   strIncludes,
 } from '../../../../views/ManageNetworks/Listing/NetworkListEmpty';
-import { AllNetwork } from '../../../Header/AccountSelectorChildren/RightChainSelector';
 import { RpcStatusButton } from '../../RpcStatusButton';
 
 import { NetWorkDisabledInfo } from './NetworkDisabledInfo';
@@ -85,23 +85,23 @@ function SideChainSelector({
   const networks = selectableNetworks ?? enabledNetworks;
   const networkId = selectedNetworkId ?? selectedNetworkIdinAccountInfo;
 
-  const data = useMemo(
-    () =>
-      networks.filter((d: INetwork) => {
-        if (networkImpl && d.impl !== networkImpl) {
-          return false;
-        }
-        for (const v of Object.values(
-          pick(d, 'name', 'shortName', 'id', 'symbol'),
-        )) {
-          if (strIncludes(String(v), search)) {
-            return true;
-          }
-        }
+  const data = useMemo(() => {
+    const memo = networks.filter((d: INetwork) => {
+      if (networkImpl && d.impl !== networkImpl) {
         return false;
-      }),
-    [networkImpl, networks, search],
-  );
+      }
+      for (const v of Object.values(
+        pick(d, 'name', 'shortName', 'id', 'symbol'),
+      )) {
+        if (strIncludes(String(v), search)) {
+          return true;
+        }
+      }
+      return false;
+    });
+    memo.unshift(FAKE_ALL_NETWORK_CONFIG);
+    return memo;
+  }, [networkImpl, networks, search]);
 
   const renderNetworkItem = useCallback(
     ({
@@ -119,7 +119,7 @@ function SideChainSelector({
         _disabled={{ opacity: 0.5 }}
         disabled={isDisabled}
         onPress={() => {
-          const id = (item.id === AllNetwork ? '' : item.id) || '';
+          const id = item.id || '';
           serviceAccountSelector.updateSelectedNetwork(id);
           onPress?.({ networkId: id });
         }}
