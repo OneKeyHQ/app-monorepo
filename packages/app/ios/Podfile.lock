@@ -639,7 +639,7 @@ PODS:
     - React-Core
   - RNGestureHandler (2.10.1):
     - React-Core
-  - RNReanimated (3.1.0):
+  - RNReanimated (3.3.0):
     - DoubleConversion
     - FBLazyVector
     - FBReactNativeSpec
@@ -1172,7 +1172,7 @@ SPEC CHECKSUMS:
   RNFBPerf: b85b621a4d15905847e8627a6aa67ad894e8e166
   RNFS: 4ac0f0ea233904cb798630b3c077808c06931688
   RNGestureHandler: 42ec7c28dd02d540ed6c9159c57a98ff016492dc
-  RNReanimated: 7afddd5ab0590339f3e83d7bb52f43a73443b862
+  RNReanimated: 77fbf24fd94c940c82ceb67f6d4571db3d2c04fe
   RNScreens: ea4cd3a853063cda19a4e3c28d2e52180c80f4eb
   RNShare: d82e10f6b7677f4b0048c23709bd04098d5aee6c
   RNSVG: 53c661b76829783cdaf9b7a57258f3d3b4c28315
