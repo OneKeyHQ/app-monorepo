@@ -97,7 +97,7 @@ export function useFeeInfoPayload({
           eip1559: true,
           price1559: priceInfo as EIP1559Fee,
           limit: info.limit,
-          limitForDisplay: info.limitForDisplay,
+          limitForDisplay: info.limitForDisplay ?? info.limit,
         };
       }
 
@@ -115,7 +115,7 @@ export function useFeeInfoPayload({
         eip1559: false,
         price: priceInfo as string,
         limit: info.limit,
-        limitForDisplay: info.limitForDisplay,
+        limitForDisplay: info.limitForDisplay ?? info.limit,
       };
     },
     [],
