@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { first, last } from 'lodash';
 import { Slider } from 'native-base';
 import { useIntl } from 'react-intl';
+import { Slider as NativeSlider, Platform } from 'react-native';
 
 import {
   Alert,
@@ -476,41 +477,54 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                 }}
               />
               <Box flex={1} pr={2}>
-                <Slider
-                  width="100%"
-                  minValue={1}
-                  maxValue={100}
-                  accessibilityLabel={intl.formatMessage({
-                    id: 'form__priority_fee_booster',
-                  })}
-                  step={1}
-                  value={priorityBooster}
-                  onChange={handleBoosterOnChange}
-                >
-                  <Slider.Track bg="surface-neutral-default" height="4px">
-                    <Slider.FilledTrack bg="interactive-default" height="4px" />
-                  </Slider.Track>
-                  <Tooltip
-                    label={`${priorityBooster}x`}
-                    placement="top"
-                    hasArrow
+                {Platform.OS === 'ios' ? (
+                  <NativeSlider
+                    minimumValue={1}
+                    maximumValue={100}
+                    step={1}
+                    value={priorityBooster}
+                    onValueChange={handleBoosterOnChange}
+                  />
+                ) : (
+                  <Slider
+                    width="100%"
+                    minValue={1}
+                    maxValue={100}
+                    accessibilityLabel={intl.formatMessage({
+                      id: 'form__priority_fee_booster',
+                    })}
+                    step={1}
+                    value={priorityBooster}
+                    onChange={handleBoosterOnChange}
                   >
-                    <Slider.Thumb
-                      style={{ position: 'absolute' }}
-                      borderWidth={0}
-                      bg="transparent"
-                    >
-                      <Box
-                        borderRadius="full"
-                        borderColor="icon-default"
-                        width="16px"
-                        height="16px"
-                        borderWidth="3px"
-                        bg="surface-neutral-default"
+                    <Slider.Track bg="surface-neutral-default" height="4px">
+                      <Slider.FilledTrack
+                        bg="interactive-default"
+                        height="4px"
                       />
-                    </Slider.Thumb>
-                  </Tooltip>
-                </Slider>
+                    </Slider.Track>
+                    <Tooltip
+                      label={`${priorityBooster}x`}
+                      placement="top"
+                      hasArrow
+                    >
+                      <Slider.Thumb
+                        style={{ position: 'absolute' }}
+                        borderWidth={0}
+                        bg="transparent"
+                      >
+                        <Box
+                          borderRadius="full"
+                          borderColor="icon-default"
+                          width="16px"
+                          height="16px"
+                          borderWidth="3px"
+                          bg="surface-neutral-default"
+                        />
+                      </Slider.Thumb>
+                    </Tooltip>
+                  </Slider>
+                )}
               </Box>
             </HStack>
           </>
