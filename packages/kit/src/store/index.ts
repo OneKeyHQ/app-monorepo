@@ -51,7 +51,6 @@ import statusReducer from './reducers/status';
 import swapReducer from './reducers/swap';
 import swapTransactionsReducer from './reducers/swapTransactions';
 import tokensReducer from './reducers/tokens';
-import webTabsReducer from './reducers/webTabs'; // 24.34 MB **** +20 Mb UI components
 
 import type {
   Action,
@@ -82,7 +81,6 @@ const allReducers = combineReducers({
   swap: swapReducer,
   swapTransactions: swapTransactionsReducer,
   tokens: tokensReducer,
-  webTabs: webTabsReducer,
   overview: overviewReducer,
   httpServer: httpServerReducer,
   limitOrder: limitOrderReducer,
@@ -111,7 +109,6 @@ function rootReducer(reducers: Reducer, initialState = {}): any {
 const persistConfig = {
   key: 'ONEKEY_WALLET',
   version: 2,
-  // AsyncStorage not working in ext background (localStorage not available)
   storage: platformEnv.isExtensionUi ? mockStorage : appStorage,
   whitelist: persistWhiteList,
   throttle: platformEnv.isExtension ? 1000 : 0, // default=0

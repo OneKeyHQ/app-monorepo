@@ -12,24 +12,23 @@ import { COINTYPE_CFX as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineCon
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { NotImplemented, OneKeyHardwareError } from '../../../errors';
-import { AccountType } from '../../../types/account';
-import { ETHMessageTypes } from '../../../types/message';
-import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
+import { NotImplemented, OneKeyHardwareError } from '../../../../errors';
+import { AccountType } from '../../../../types/account';
+import { ETHMessageTypes } from '../../../../types/message';
+import { KeyringHardwareBase } from '../../../keyring/KeyringHardwareBase';
+import { conflux as sdkCfx } from '../sdk';
 
-import sdk from './sdkCfx';
-
-import type { DBVariantAccount } from '../../../types/account';
-import type { ETHMessage } from '../../../types/message';
+import type { DBVariantAccount } from '../../../../types/account';
+import type { ETHMessage } from '../../../../types/message';
 import type {
   IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignCredentialOptions,
   IUnsignedTxPro,
-} from '../../types';
-import type { IEncodedTxCfx } from './types';
+} from '../../../types';
+import type { IEncodedTxCfx } from '../types';
 
-const { Transaction, address: confluxAddress } = sdk;
+const { Transaction, address: confluxAddress } = sdkCfx;
 
 const PATH_PREFIX = `m/44'/${COIN_TYPE}'/0'/0`;
 

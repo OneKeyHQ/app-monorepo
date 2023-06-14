@@ -81,13 +81,25 @@ export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
       )
       .toFixed(decimal);
 
+    const minForDisplay = new BigNumber(feeValue.limitForDisplay as string)
+      .times(
+        new BigNumber(priceInfo.baseFee).plus(priceInfo.maxPriorityFeePerGas),
+      )
+      .toFixed(decimal);
+
     // MAX: maxFeePerGas * limit
     const max = new BigNumber(limit as string)
+      .times(priceInfo.gasPrice || priceInfo.maxFeePerGas)
+      .toFixed(decimal);
+
+    const maxForDisplay = new BigNumber(feeValue.limitForDisplay as string)
       .times(priceInfo.gasPrice || priceInfo.maxFeePerGas)
       .toFixed(decimal);
     return {
       min: nanToZeroString(min),
       max: nanToZeroString(max),
+      minForDisplay: nanToZeroString(minForDisplay),
+      maxForDisplay: nanToZeroString(maxForDisplay),
     };
   }
 
@@ -98,14 +110,22 @@ export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
     return {
       min: nanToZeroString(fee),
       max: nanToZeroString(fee),
+      minForDisplay: nanToZeroString(fee),
+      maxForDisplay: nanToZeroString(fee),
     };
   }
 
   const max = new BigNumber(limit as string)
     .times(feeValue.price as string)
     .toFixed();
+
+  const maxForDisplay = new BigNumber(feeValue.limitForDisplay as string)
+    .times(feeValue.price as string)
+    .toFixed();
   return {
     min: nanToZeroString(max),
     max: nanToZeroString(max),
+    minForDisplay: nanToZeroString(maxForDisplay),
+    maxForDisplay: nanToZeroString(maxForDisplay),
   };
 }

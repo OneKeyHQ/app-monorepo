@@ -1,3 +1,12 @@
+import {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  getChainFromAccount,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  getChainsFromNamespace,
+  isValidChainId,
+  parseChainId,
+  parseUri,
+} from '@walletconnect-v2/utils';
 import { Linking, Platform } from 'react-native';
 
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
@@ -16,6 +25,12 @@ import unlockUtils from '../../AppLock/unlockUtils';
 import { ONEKEY_APP_DEEP_LINK } from '../walletConnectConsts';
 
 import type { WalletService } from '../types';
+import type { ISessionStatusPro } from '../WalletConnectClientForDapp';
+import type {
+  EngineTypes,
+  ProposalTypes,
+  SessionTypes,
+} from '@walletconnect-v2/types';
 import type { IClientMeta } from '@walletconnect/types';
 
 let connectionRedirectUrl = '';
@@ -260,14 +275,19 @@ function getWalletConnectUriInfo({ uri }: { uri: string }) {
     return null;
   }
 
+  const parsed: EngineTypes.UriParameters = parseUri(uri);
+
   const { searchParams } = uriInfo;
-  let v1: { bridge: string; key: string } | undefined;
-  if (uri.includes('@1')) {
+  let v1:
+    | { bridge: string; key: string; parsed: EngineTypes.UriParameters }
+    | undefined;
+  if (uri.includes('@1') || parsed.version === 1) {
     const bridge = searchParams.get('bridge') || '';
     const key = searchParams.get('key') || '';
     v1 = {
       bridge,
       key,
+      parsed,
     };
   }
 
@@ -275,14 +295,16 @@ function getWalletConnectUriInfo({ uri }: { uri: string }) {
     | {
         relayProtocol: string;
         symKey: string;
+        parsed: EngineTypes.UriParameters;
       }
     | undefined;
-  if (uri.includes('@2')) {
+  if (uri.includes('@2') || parsed.version === 2) {
     const relayProtocol = searchParams.get('relay-protocol') || '';
     const symKey = searchParams.get('symKey') || '';
     v2 = {
       relayProtocol,
       symKey,
+      parsed,
     };
   }
 
@@ -293,8 +315,121 @@ function getWalletConnectUriInfo({ uri }: { uri: string }) {
   };
 }
 
+function isWalletConnectV2({ uri }: { uri: string }): boolean {
+  const info = getWalletConnectUriInfo({ uri });
+  return Boolean(info && info.v2 && info.v2?.parsed?.version === 2);
+}
+
 function buildOneKeyWalletConnectDeepLinkUrl({ uri }: { uri: string }) {
   return `${ONEKEY_APP_DEEP_LINK}/wc?uri=${encodeURIComponent(uri || '')}`;
+}
+
+function isEvmNamespaceV2(namespace?: string) {
+  return namespace === 'eip155';
+}
+
+function getChainIdFromNamespaceChainV2({ chain }: { chain: string }): {
+  namespace?: string;
+  chainId?: string;
+} {
+  if (isValidChainId(chain)) {
+    const { namespace, reference } = parseChainId(chain);
+    return { namespace, chainId: reference };
+  }
+  return { namespace: undefined, chainId: undefined };
+}
+
+function convertToSessionNamespacesV2({
+  sessionStatus,
+  requiredNamespaces,
+  onError,
+}: {
+  sessionStatus: ISessionStatusPro;
+  requiredNamespaces: ProposalTypes.RequiredNamespaces;
+  onError?: (e: Error) => void;
+}) {
+  /* https://docs.walletconnect.com/2.0/specs/clients/sign/namespaces#proposal-namespace
+    requiredNamespaces: {
+      eip155: {
+        chains: ['eip155:1'],
+        events: ['chainChanged', 'accountsChanged'],
+        methods: ["eth_sendTransaction", "eth_signTransaction"]
+      },
+      "eip155:10": {
+        "events": ["accountsChanged", "chainChanged"]
+        "methods": ["get_balance"],
+      },
+      "cosmos": {
+          ...
+      }
+    }
+   */
+  // TODO EVM only
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { chainId, accounts, networkImpl } = sessionStatus;
+  if (!networkImpl) {
+    throw new Error('convertToSessionNamespacesV2 ERROR: networkImpl is empty');
+  }
+  const namespaces: SessionTypes.Namespaces = {};
+  let hasNonEvmChain = false;
+  let hasEvmChain = false;
+  Object.keys(requiredNamespaces).forEach((key) => {
+    if (key !== 'eip155' && !key.startsWith('eip155:')) {
+      hasNonEvmChain = true;
+      namespaces[key] = {
+        accounts: [], // TODO empty accounts is NOT allowed
+        chains: key.includes(':') ? [key] : requiredNamespaces[key].chains,
+        methods: requiredNamespaces[key].methods,
+        events: requiredNamespaces[key].events,
+      };
+      const error = new Error(
+        'OneKey WalletConnect ERROR: EVM chain supported only',
+      );
+      onError?.(error);
+      throw error;
+      // eslint-disable-next-line no-unreachable
+      return;
+    }
+    const accountsInNs: string[] = [];
+    requiredNamespaces[key].chains?.forEach((chain) => {
+      // TODO check chainId and accounts matched
+      accounts.forEach((acc) => accountsInNs.push(`${chain}:${acc}`));
+    });
+    namespaces[key] = {
+      // TODO add sessionStatus.chainId to accounts and chains
+      accounts: accountsInNs,
+      chains: key.includes(':') ? [key] : requiredNamespaces[key].chains,
+      methods: requiredNamespaces[key].methods,
+      events: requiredNamespaces[key].events,
+    };
+    hasEvmChain = true;
+  });
+
+  if (hasNonEvmChain && !hasEvmChain) {
+    // throw new Error(
+    //   'OneKey WalletConnectV2 Non-EVM chain not supported yet.',
+    // );
+  }
+
+  /*
+     {
+       "sessionNamespaces": {
+         "eip155:1": {...}
+         "eip155": {
+           "accounts": [
+             "eip155:1:0xab16a96d359ec26a11e2c2b3d8f8b8942d5bfcdb",
+             "eip155:1:0x25caCa7f7Bf3A77b1738A8c98A666dd9e4C69A0C",
+             "eip155:1:0x2Fe1cC9b1DCe6E8e16C48bc6A7ABbAB3d10DA954",
+             "eip155:1:0xEA674fdDe714fd979de3EdF0F56AA9716B898ec8",
+             "eip155:1:0xEB2F31B0224222D774541BfF89A221e7eb15a17E"
+           ],
+           "methods": ["eth_sign"],
+           "events": ["accountsChanged"]
+         }
+       }
+     }
+     */
+  return { namespaces };
 }
 
 export default {
@@ -304,4 +439,8 @@ export default {
   dappOpenWalletApp,
   openConnectToDappModal,
   buildOneKeyWalletConnectDeepLinkUrl,
+  isWalletConnectV2,
+  convertToSessionNamespacesV2,
+  getChainIdFromNamespaceChainV2,
+  isEvmNamespaceV2,
 };
