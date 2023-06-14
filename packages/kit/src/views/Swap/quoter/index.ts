@@ -179,6 +179,11 @@ export class SwapQuoter {
     if (!sellAmount || !tokenIn) {
       return;
     }
+    if (!order.platformAddr) {
+      throw new Error(
+        'failed to build transaction due to invalid platformAddr',
+      );
+    }
     const depositCoinAmt = new BigNumber(sellAmount)
       .shiftedBy(-tokenIn.decimals)
       .toFixed();
@@ -413,6 +418,10 @@ export class SwapQuoter {
     const requestId = this.parseRequestId(res);
 
     const data = res.data as BuildTransactionHttpResponse;
+
+    if (data.errMsg) {
+      throw new Error(data.errMsg);
+    }
 
     if (data?.transaction) {
       if (typeof data.transaction === 'object') {
