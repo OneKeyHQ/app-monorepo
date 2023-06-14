@@ -89,6 +89,8 @@ const CoinControlModal = createLazyComponent(() => import('./CoinControl'));
 
 const ClearCacheModal = createLazyComponent(() => import('./ClearCache'));
 
+const GasPanelModal = createLazyComponent(() => import('./GasPanel'));
+
 const modalStackScreenList = [
   {
     name: ModalRoutes.CreateAccount,
@@ -238,6 +240,7 @@ const modalStackScreenList = [
   { name: ModalRoutes.Market, component: Market },
   { name: ModalRoutes.ClearCache, component: ClearCacheModal },
   { name: ModalRoutes.CoinControl, component: CoinControlModal },
+  { name: ModalRoutes.GasPanel, component: GasPanelModal },
 ];
 
 const ModalStack = createStackNavigator<ModalRoutesParams>();
