@@ -36,9 +36,10 @@ import AccountInfo, {
 } from './AccountInfo';
 import AssetsList from './AssetsList';
 import { BottomView } from './BottomView';
+import { generateHomeTabIndexMap, getHomeTabNameByIndex } from './helper';
 import NFTList from './NFT/NFTList';
 import ToolsPage from './Tools';
-import { HomeTabIndex, HomeTabOrder, WalletHomeTabEnum } from './type';
+import { WalletHomeTabEnum } from './type';
 
 const AccountHeader = () => <AccountInfo />;
 // const AccountHeader = () => null;
@@ -47,9 +48,6 @@ const AccountHeader = () => <AccountInfo />;
 const WalletTabs: FC = () => {
   const intl = useIntl();
   const ref = useRef<ForwardRefHandle>(null);
-  const defaultIndexRef = useRef<number>(
-    HomeTabIndex[getStatus().homeTabName as WalletHomeTabEnum] ?? 0,
-  );
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
   const { homeTabName } = useStatus();
@@ -57,12 +55,29 @@ const WalletTabs: FC = () => {
     useActiveWalletAccount();
   const [refreshing, setRefreshing] = useState(false);
 
-  const onIndexChange = useCallback((index: number) => {
-    backgroundApiProxy.dispatch(setHomeTabName(HomeTabOrder[index]));
-  }, []);
+  const HomeTabIndexMap = useMemo(
+    () => generateHomeTabIndexMap(network),
+    [network],
+  );
+  const defaultIndexRef = useRef<number>(
+    HomeTabIndexMap[getStatus().homeTabName as WalletHomeTabEnum] ?? 0,
+  );
+  const onIndexChange = useCallback(
+    (index: number) => {
+      backgroundApiProxy.dispatch(
+        setHomeTabName(
+          getHomeTabNameByIndex({
+            network,
+            index,
+          }),
+        ),
+      );
+    },
+    [network],
+  );
 
   useEffect(() => {
-    const idx = HomeTabIndex[homeTabName as WalletHomeTabEnum];
+    const idx = HomeTabIndexMap[homeTabName as WalletHomeTabEnum];
     if (typeof idx !== 'number' || idx === defaultIndexRef.current) {
       return;
     }
@@ -72,7 +87,7 @@ const WalletTabs: FC = () => {
     ref.current?.setPageIndex?.(idx);
     onIndexChange(idx);
     defaultIndexRef.current = idx;
-  }, [homeTabName, onIndexChange]);
+  }, [homeTabName, onIndexChange, HomeTabIndexMap]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
