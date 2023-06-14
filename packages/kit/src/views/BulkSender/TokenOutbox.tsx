@@ -431,7 +431,7 @@ function TokenOutbox(props: Props) {
                         : 'action__approval_exact_amount',
                     })}
                   </Text>
-                  {isAlreadyUnlimited && (
+                  {isAlreadyUnlimited && isUnlimited && (
                     <Badge
                       size="sm"
                       color="text-success"

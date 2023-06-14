@@ -128,6 +128,20 @@ export default class ServiceBatchTransfer extends ServiceBase {
               }),
             ];
           }
+        } else if (!isUnlimited) {
+          const amount = transferInfos.reduce(
+            (result, info) => result.plus(info.amount),
+            new BigNumber(0),
+          );
+          encodedApproveTxs = [
+            await engine.buildEncodedTxFromApprove({
+              networkId,
+              accountId,
+              token: transferInfo.token as string,
+              amount: amount.toFixed(),
+              spender: contract,
+            }),
+          ];
         }
       }
     }
