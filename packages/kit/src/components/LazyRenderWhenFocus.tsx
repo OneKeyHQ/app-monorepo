@@ -94,7 +94,7 @@ export function toFocusedLazy(
   CmpClass: any,
   lazyProps?: ILazyRenderWhenFocusProps,
 ) {
-  if (platformEnv.isNativeIOS) {
+  if (!platformEnv.isNativeAndroid) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return CmpClass;
   }
