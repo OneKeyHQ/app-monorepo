@@ -140,3 +140,10 @@ export type IHistoryItem = InvoiceType & {
   status: IDecodedTxStatus;
   origin_status: string;
 };
+
+export enum InvoiceStatusEnum {
+  StateSettled = 'settled',
+  StateInitialized = 'initialized',
+  StateOpen = 'open',
+  StateError = 'error',
+}

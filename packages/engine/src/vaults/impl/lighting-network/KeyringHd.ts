@@ -43,7 +43,6 @@ export class KeyringHd extends KeyringHdBase {
       names,
     });
 
-    console.log('nativeSegwitAddress', nativeSegwitAccounts);
     const client = await (this.vault as LightingVault).getClient();
 
     const ret = [];
@@ -67,7 +66,6 @@ export class KeyringHd extends KeyringHdBase {
           address: account.address,
           signature: sign,
         });
-        console.log('====>sign: ', sign);
       }
       const path = `m/44'/${COINTYPE_LIGHTING}'/${account.index}`;
       ret.push({
@@ -115,7 +113,7 @@ export class KeyringHd extends KeyringHdBase {
       entropy,
     });
     return {
-      txid: `${paymentHash}--${nonce}`,
+      txid: paymentHash,
       rawTx: sign,
     };
   }

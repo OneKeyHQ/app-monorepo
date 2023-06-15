@@ -8,6 +8,7 @@ import type {
   ICretaeInvoiceResponse,
   IHistoryItem,
   IInvoiceDecodedResponse,
+  InvoiceType,
 } from '../types/invoice';
 import type {
   ICheckPaymentResponse,
@@ -141,6 +142,17 @@ class ClientLighting {
     return this.request
       .get<IInvoiceDecodedResponse>('/invoices/decoded', {
         params: { invoice },
+      })
+      .then((i) => i.data);
+  }
+
+  async specialInvoice(address: string, paymentHash: string) {
+    return this.request
+      .get<InvoiceType>('/invoices/invoice', {
+        params: {
+          address,
+          paymentHash,
+        },
       })
       .then((i) => i.data);
   }

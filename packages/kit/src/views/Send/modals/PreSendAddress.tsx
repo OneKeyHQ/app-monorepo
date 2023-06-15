@@ -14,7 +14,6 @@ import {
 } from '@onekeyhq/components';
 import type { GoPlusAddressSecurity } from '@onekeyhq/engine/src/types/goplus';
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
-import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTxLighting } from '@onekeyhq/engine/src/vaults/impl/lighting-network/types';

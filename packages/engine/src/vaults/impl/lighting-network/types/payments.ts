@@ -11,7 +11,9 @@ export type IPaymentBolt11Params = {
 export type ICheckPaymentResponse = {
   success: boolean;
   status: PaymentStatusEnum;
-  data?: any;
+  data?: {
+    message: string;
+  };
 };
 
 export enum PaymentStatusEnum {

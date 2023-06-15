@@ -25,6 +25,7 @@ import {
 import { VaultBase } from '../../VaultBase';
 
 import ClientLighting from './helper/clientLighting';
+import { getInvoiceTransactionStatus } from './helper/invoice';
 import { signature } from './helper/signature';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -50,7 +51,8 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IEncodedTxLighting } from './types';
-import type { IHistoryItem } from './types/invoice';
+import type { IHistoryItem, InvoiceStatusEnum } from './types/invoice';
+import type { AxiosError } from 'axios';
 
 // @ts-ignore
 export default class Vault extends VaultBase {
@@ -439,6 +441,7 @@ export default class Vault extends VaultBase {
         nonce,
         signature: signedTx.rawTx,
       });
+      await this.pollBolt11Status(address, nonce);
     } catch (err) {
       debugLogger.sendTx.info('broadcastTransaction ERROR:', err);
       throw err;
@@ -457,6 +460,36 @@ export default class Vault extends VaultBase {
     };
   }
 
+  private async pollBolt11Status(address: string, nonce: number) {
+    // eslint-disable-next-line no-async-promise-executor
+    return new Promise(async (resolve, reject) => {
+      const client = await this.getClient();
+      const intervalId = setInterval(async () => {
+        try {
+          const response = await client.checkBolt11({
+            address,
+            nonce: Number(nonce),
+          });
+
+          if (response.status === PaymentStatusEnum.NOT_FOUND_ORDER) {
+            return;
+          }
+          if (response.status === PaymentStatusEnum.SUCCESS) {
+            clearInterval(intervalId);
+            resolve(TransactionStatus.CONFIRM_AND_SUCCESS);
+          }
+          if (response.status === PaymentStatusEnum.FAILED) {
+            clearInterval(intervalId);
+            reject(new Error(response.data?.message));
+          }
+        } catch (e) {
+          clearInterval(intervalId);
+          reject(e);
+        }
+      }, 3000);
+    });
+  }
+
   override async getTransactionStatuses(
     txids: string[],
   ): Promise<(TransactionStatus | undefined)[]> {
@@ -465,27 +498,18 @@ export default class Vault extends VaultBase {
     return Promise.all(
       txids.map(async (txid) => {
         const client = await this.getClient();
-        const nonce = txid.split('--');
-        if (Number.isNaN(Number(nonce))) {
-          return TransactionStatus.NOT_FOUND;
-        }
-        const response = await client.checkBolt11({
-          address,
-          nonce: Number(nonce),
-        });
-        if (response.status === PaymentStatusEnum.NOT_FOUND_ORDER) {
-          return TransactionStatus.NOT_FOUND;
-        }
-        if (response.status === PaymentStatusEnum.SUCCESS) {
-          return TransactionStatus.CONFIRM_AND_SUCCESS;
-        }
-        if (response.status === PaymentStatusEnum.PENDING) {
+        try {
+          const response = await client.specialInvoice(address, txid);
+          return getInvoiceTransactionStatus(
+            response.status as InvoiceStatusEnum,
+          );
+        } catch (e: any) {
+          const error = e as AxiosError<{ message: string }>;
+          if (error?.response?.data.message === 'Bad arguments') {
+            return TransactionStatus.CONFIRM_BUT_FAILED;
+          }
           return TransactionStatus.PENDING;
         }
-        if (response.status === PaymentStatusEnum.FAILED) {
-          return TransactionStatus.CONFIRM_BUT_FAILED;
-        }
-        return TransactionStatus.NOT_FOUND;
       }),
     );
   }
