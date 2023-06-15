@@ -566,7 +566,9 @@ function PreSendAddress() {
             setvalidateMessage({
               warningMessage: '',
               successMessage: intl.formatMessage({
-                id: 'form__enter_recipient_address_valid',
+                id: isLightingNetwork
+                  ? 'msg__valid_payment_request'
+                  : 'form__enter_recipient_address_valid',
               }),
               errorMessage: '',
             });
@@ -583,6 +585,7 @@ function PreSendAddress() {
       isValidNameServiceName,
       networkId,
       resolvedAddress,
+      isLightingNetwork,
     ],
   );
 
@@ -663,7 +666,11 @@ function PreSendAddress() {
                       ? ['paste', 'scan']
                       : ['contact', 'paste', 'scan']
                   }
-                  placeholder={isLightingNetwork ? 'Enter Invoice' : undefined}
+                  placeholder={
+                    isLightingNetwork
+                      ? intl.formatMessage({ id: 'content__enter_invoice' })
+                      : undefined
+                  }
                 />
               </Form.Item>
               {DestinationTagForm}

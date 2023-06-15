@@ -258,6 +258,10 @@ export class InvalidTransferValue extends OneKeyError {
   }
 }
 
+export class InvalidLightingPaymentRequest extends OneKeyError {
+  override key = 'msg__invalid_lightning_payment_request';
+}
+
 export class TransferValueTooSmall extends OneKeyError {
   override key = 'msg__amount_too_small';
 

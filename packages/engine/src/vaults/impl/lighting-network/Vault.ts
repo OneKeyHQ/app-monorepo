@@ -10,7 +10,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
   InsufficientBalance,
-  InvalidAddress,
+  InvalidLightingPaymentRequest,
   WrongPassword,
 } from '../../../errors';
 import { TransactionStatus } from '../../../types/provider';
@@ -36,14 +36,15 @@ import { PaymentStatusEnum } from './types/payments';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type {
-  Account,
+  AccountCredentialType,
   DBAccount,
   DBVariantAccount,
 } from '../../../types/account';
+import type { PartialTokenInfo } from '../../../types/provider';
 import type {
+  IApproveInfo,
   IDecodedTxAction,
   IDecodedTxLegacy,
-  IEncodedTxUpdateOptions,
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
@@ -54,7 +55,6 @@ import type { IEncodedTxLighting } from './types';
 import type { IHistoryItem, InvoiceStatusEnum } from './types/invoice';
 import type { AxiosError } from 'axios';
 
-// @ts-ignore
 export default class Vault extends VaultBase {
   keyringMap = {
     hd: KeyringHd,
@@ -139,7 +139,7 @@ export default class Vault extends VaultBase {
       await this._decodedInvoceCache(address);
       return address;
     } catch (e) {
-      throw new InvalidAddress();
+      throw new InvalidLightingPaymentRequest();
     }
   }
 
@@ -173,10 +173,32 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxLighting> {
-    console.log('====>: ', transferInfo);
-    const invoice = await this._decodedInvoceCache(transferInfo.to);
-    console.log('====> invoice: ', invoice);
+    const client = await this.getClient();
     const balanceAddress = await this.getCurrentBalanceAddress();
+
+    const invoice = await this._decodedInvoceCache(transferInfo.to);
+
+    const paymentHash = invoice.tags.find(
+      (tag) => tag.tagName === 'payment_hash',
+    );
+    if (paymentHash?.data) {
+      try {
+        const existInvoice = await client.specialInvoice(
+          balanceAddress,
+          paymentHash.data as string,
+        );
+        if (existInvoice.is_paid) {
+          throw new Error('Invoice already paid');
+        }
+      } catch (e: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (e.message === 'Invoice already paid') {
+          throw e;
+        }
+        // pass
+      }
+    }
+
     const balance = await this.getBalances([{ address: balanceAddress }]);
     const balanceBN = new BigNumber(balance[0] || '0');
     const amount = invoice.millisatoshis
@@ -186,16 +208,12 @@ export default class Vault extends VaultBase {
       throw new InsufficientBalance();
     }
     if (!invoice.paymentRequest) {
-      throw new Error('Invalid invoice');
+      throw new InvalidLightingPaymentRequest();
     }
 
-    const client = await this.getClient();
     const nonce = await client.getNextNonce(balanceAddress);
     const description = invoice.tags.find(
       (tag) => tag.tagName === 'description',
-    );
-    const paymentHash = invoice.tags.find(
-      (tag) => tag.tagName === 'payment_hash',
     );
     return {
       invoice: invoice.paymentRequest,
@@ -512,5 +530,31 @@ export default class Vault extends VaultBase {
         }
       }),
     );
+  }
+
+  override buildEncodedTxFromApprove(
+    approveInfo: IApproveInfo,
+  ): Promise<IEncodedTx> {
+    throw new Error('Method not implemented.');
+  }
+
+  override updateEncodedTxTokenApprove(
+    encodedTx: IEncodedTx,
+    amount: string,
+  ): Promise<IEncodedTx> {
+    throw new Error('Method not implemented.');
+  }
+
+  override getExportedCredential(
+    password: string,
+    credentialType: AccountCredentialType,
+  ): Promise<string> {
+    throw new Error('Method not implemented.');
+  }
+
+  override fetchTokenInfos(
+    tokenAddresses: string[],
+  ): Promise<(PartialTokenInfo | undefined)[]> {
+    throw new Error('Method not implemented.');
   }
 }
