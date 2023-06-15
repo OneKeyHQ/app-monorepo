@@ -4,11 +4,20 @@ import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Box, Form, Token, Typography, useForm } from '@onekeyhq/components';
+import {
+  Box,
+  Form,
+  ToastManager,
+  Token,
+  Typography,
+  useForm,
+} from '@onekeyhq/components';
 import type { GoPlusAddressSecurity } from '@onekeyhq/engine/src/types/goplus';
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
+import type { IEncodedTxLighting } from '@onekeyhq/engine/src/vaults/impl/lighting-network/types';
 import type {
   INFTInfo,
   ITransferInfo,
@@ -327,6 +336,76 @@ function PreSendAddress() {
     [navigation, nftInfo, transferInfo, transferInfos, closeModal],
   );
 
+  const lightingNetworkSendConfirm = useCallback(
+    async (toVal: string) => {
+      try {
+        setIsLoadingAssets(true);
+        const encodedTx = await engine.buildEncodedTxFromTransfer({
+          networkId,
+          accountId,
+          transferInfo: {
+            ...transferInfo,
+            to: toVal,
+          },
+        });
+
+        navigation.navigate(SendModalRoutes.SendConfirm, {
+          accountId,
+          networkId,
+          encodedTx,
+          feeInfoUseFeeInTx: false,
+          feeInfoEditable: true,
+          backRouteName: SendModalRoutes.PreSendAddress,
+          // @ts-expect-error
+          payload: {
+            payloadType: 'Transfer',
+            account,
+            network,
+            token: {
+              ...tokenInfo,
+              sendAddress: transferInfo.sendAddress,
+              idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
+            },
+            to: toVal,
+            value: (encodedTx as IEncodedTxLighting).amount,
+            isMax: false,
+          },
+        });
+      } catch (e: any) {
+        const { key: errorKey = '' } = e;
+        if (errorKey === 'form__amount_invalid') {
+          ToastManager.show(
+            {
+              title: intl.formatMessage(
+                { id: 'form__amount_invalid' },
+                { 0: tokenInfo?.symbol ?? '' },
+              ),
+            },
+            { type: 'error' },
+          );
+        } else {
+          ToastManager.show(
+            { title: typeof e === 'string' ? e : (e as Error).message },
+            { type: 'error' },
+          );
+        }
+      } finally {
+        setIsLoadingAssets(false);
+      }
+    },
+    [
+      accountId,
+      engine,
+      intl,
+      navigation,
+      networkId,
+      tokenInfo,
+      transferInfo,
+      account,
+      network,
+    ],
+  );
+
   const onSubmit = useCallback(
     (values: FormValues) => {
       const toVal = resolvedAddress || values.to;
@@ -335,6 +414,8 @@ function PreSendAddress() {
       }
       if (isNFT) {
         nftSendConfirm(toVal);
+      } else if (isLightingNetwork) {
+        lightingNetworkSendConfirm(toVal);
       } else {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
