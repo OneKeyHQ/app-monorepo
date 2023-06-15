@@ -29,6 +29,13 @@ import { buildTransactionDetailsUrl } from '../../../../hooks/useOpenBlockBrowse
 import { openUrlExternal } from '../../../../utils/openUrl';
 import { useTransactionsAccount } from '../../hooks/useTransactions';
 import {
+  QuoterType,
+  type SwapRoutes,
+  type SwapRoutesParams,
+  type TransactionDetails,
+  type TransactionStatus,
+} from '../../typings';
+import {
   calculateProtocalsFee,
   formatAmount,
   gt,
@@ -43,12 +50,6 @@ import TransactionRate from '../TransactionRate';
 import { HashMoreMenu } from './HashMoreMenus';
 import { AccountMoreMenus, ReceiptMoreMenus } from './MoreMenus';
 
-import type {
-  SwapRoutes,
-  SwapRoutesParams,
-  TransactionDetails,
-  TransactionStatus,
-} from '../../typings';
 import type { NavigationProp, RouteProp } from '@react-navigation/native';
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -492,6 +493,22 @@ const ViewInBrowser: FC<ViewInBrowserProps> = ({ tx }) => {
 type TransactionOneKeyFeesProps = { tx: TransactionDetails };
 const TransactionOneKeyFees: FC<TransactionOneKeyFeesProps> = ({ tx }) => {
   const from = tx.tokens?.from;
+  const to = tx.tokens?.to;
+  let feeText = '';
+  if (tx.percentageFee) {
+    if (tx.quoterType === QuoterType.jupiter && to) {
+      feeText = `${formatAmount(
+        multiply(tx.percentageFee, to.amount),
+        8,
+      )}${to.token.symbol.toUpperCase()}`;
+    } else if (from) {
+      feeText = `${formatAmount(
+        multiply(tx.percentageFee, from.amount),
+        8,
+      )}${from.token.symbol.toUpperCase()}`;
+    }
+  }
+
   return (
     <Box flexDirection="row" alignItems="center">
       <TransactionFee
@@ -500,11 +517,8 @@ const TransactionOneKeyFees: FC<TransactionOneKeyFeesProps> = ({ tx }) => {
         typography="Body2Strong"
         color="text-default"
       />
-      {from && tx.percentageFee ? (
-        <Typography.Body2Strong>{`(${formatAmount(
-          multiply(tx.percentageFee, from.amount),
-          8,
-        )}${from.token.symbol.toUpperCase()})`}</Typography.Body2Strong>
+      {feeText ? (
+        <Typography.Body2Strong>({feeText})</Typography.Body2Strong>
       ) : null}
     </Box>
   );
