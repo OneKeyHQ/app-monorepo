@@ -75,6 +75,9 @@ const IMPL_LIGHTNING = 'lightning';
 // So, the coin type would be 8 + 12 + 9 + 7 + 8 + 20 + 14 + 9 + 14 + 7.
 const COINTYPE_LIGHTNING = '81297820149147';
 
+const IMPL_ALLNETWORKS = 'all';
+const COINTYPE_ALLNETWORKS = '0000';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
@@ -98,6 +101,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_XMR,
   IMPL_KASPA,
   IMPL_LIGHTNING,
+  IMPL_ALLNETWORKS,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -123,6 +127,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_XMR,
   IMPL_KASPA,
   IMPL_LIGHTNING,
+  IMPL_ALLNETWORKS,
 ]);
 
 export const HISTORY_CONSTS = {
@@ -200,6 +205,8 @@ export {
   COINTYPE_KASPA,
   IMPL_LIGHTNING,
   COINTYPE_LIGHTNING,
+  IMPL_ALLNETWORKS,
+  COINTYPE_ALLNETWORKS,
   getSupportedImpls,
 };
 

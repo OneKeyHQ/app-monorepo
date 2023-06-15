@@ -19,10 +19,11 @@ import { useAppSelector } from './useAppSelector';
 import type { StatusState } from '../store/reducers/status';
 
 export { useAppSelector };
-export type ISelectorBuilder = (
+export type ISelectorBuilder<T> = (
   selector: typeof useAppSelector,
   helpers: {
     useMemo: typeof useMemo;
+    options?: T;
   },
 ) => unknown;
 
@@ -34,14 +35,15 @@ function mockUseMemo<T>(
   return factory();
 }
 
-export function makeSelector<T>(builder: ISelectorBuilder) {
+export function makeSelector<T, P = undefined>(builder: ISelectorBuilder<P>) {
   return {
     // hooks for UI
-    use: (): T => builder(useAppSelector, { useMemo }) as T,
+    use: (options?: P): T => builder(useAppSelector, { useMemo, options }) as T,
     // getter for Background
-    get: (): T =>
+    get: (options?: P): T =>
       builder(appSelector, {
         useMemo: mockUseMemo,
+        options,
       }) as T,
   };
 }

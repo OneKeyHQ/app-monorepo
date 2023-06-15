@@ -1,6 +1,7 @@
 import type { IServerNetwork } from '../../types';
+import { FAKE_ALL_NETWORK } from './fakeAllNetwork';
 
-export const serverPresetNetworks = [
+const serverPresetNetworks = [
   {
     'balance2FeeDecimals': 6,
     'chainId': '0',
@@ -3863,5 +3864,9 @@ export const serverPresetNetworks = [
     'updatedAt': '2023-06-14T00:29:24.951Z',
   },
 ] as unknown as IServerNetwork[];
+
+serverPresetNetworks.unshift(FAKE_ALL_NETWORK);
+
+export { serverPresetNetworks };
 
 export const OnekeyNetworkUpdatedAt = 1685492989977;

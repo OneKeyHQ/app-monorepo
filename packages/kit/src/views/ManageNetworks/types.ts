@@ -20,6 +20,7 @@ export type ManageNetworkRoutesParams = {
         customDisabled?: boolean;
         rpcStatusDisabled?: boolean;
         selectedNetworkId?: string;
+        allowSelectAllNetworks?: boolean;
       };
   [ManageNetworkModalRoutes.Listing]: { onEdited?: () => void } | undefined;
   [ManageNetworkModalRoutes.AddNetwork]: {

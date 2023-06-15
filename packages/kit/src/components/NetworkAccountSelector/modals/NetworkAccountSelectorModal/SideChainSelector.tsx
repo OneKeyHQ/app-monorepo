@@ -21,11 +21,11 @@ import {
 import { FlatListRef } from '@onekeyhq/components/src/FlatList';
 import type { INetwork } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
+import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeAllNetwork';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useManageNetworks } from '../../../../hooks';
-import { FAKE_ALL_NETWORK_CONFIG } from '../../../../views/ManageNetworks/constants';
 import {
   NetworkListEmpty,
   strIncludes,
@@ -64,6 +64,7 @@ function SideChainSelector({
   rpcStatusDisabled,
   selectedNetworkId,
   selectableNetworks,
+  allowSelectAllNetworks = false,
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
   onPress?: (payload: { networkId: string }) => void;
@@ -72,12 +73,15 @@ function SideChainSelector({
   selectedNetworkId?: string;
   selectableNetworks?: INetwork[];
   rpcStatusDisabled?: boolean;
+  allowSelectAllNetworks?: boolean;
 }) {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const { serviceAccountSelector } = backgroundApiProxy;
-  const { enabledNetworks } = useManageNetworks();
+  const { enabledNetworks } = useManageNetworks({
+    allowSelectAllNetworks: true,
+  });
   const { selectedNetworkId: selectedNetworkIdinAccountInfo, activeWallet } =
     accountSelectorInfo;
   const flatListRef = useRef<any>(null);
@@ -90,18 +94,24 @@ function SideChainSelector({
       if (networkImpl && d.impl !== networkImpl) {
         return false;
       }
-      for (const v of Object.values(
-        pick(d, 'name', 'shortName', 'id', 'symbol'),
-      )) {
-        if (strIncludes(String(v), search)) {
-          return true;
-        }
+      if (!allowSelectAllNetworks && d.id === FAKE_ALL_NETWORK.id) {
+        return false;
       }
-      return false;
+      if (search) {
+        for (const v of Object.values(
+          pick(d, 'name', 'shortName', 'id', 'symbol'),
+        )) {
+          if (strIncludes(String(v), search)) {
+            return true;
+          }
+        }
+        return false;
+      }
+      return true;
     });
-    memo.unshift(FAKE_ALL_NETWORK_CONFIG);
     return memo;
-  }, [networkImpl, networks, search]);
+  }, [networkImpl, networks, search, allowSelectAllNetworks]);
+
 
   const renderNetworkItem = useCallback(
     ({

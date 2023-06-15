@@ -40,6 +40,7 @@ function NetworkSelectorModal() {
     sortDisabled,
     customDisabled,
     rpcStatusDisabled,
+    allowSelectAllNetworks,
   } = params;
 
   const { accountSelectorInfo, shouldShowModal } =
@@ -99,6 +100,7 @@ function NetworkSelectorModal() {
             accountSelectorInfo={accountSelectorInfo}
             selectedNetworkId={selectedNetworkId}
             selectableNetworks={selectableNetworks}
+            allowSelectAllNetworks={allowSelectAllNetworks}
             onPress={async ({ networkId }) => {
               if (onSelected) {
                 onSelected(networkId);
