@@ -525,6 +525,7 @@
   "content__enter": "يدخل",
   "content__enter_bootloader_mode": "ادخل إلى وضع Bootloader",
   "content__enter_current_password_before_resetting_it": "أدخل كلمة المرور الحالية قبل إعادة تعيينها",
+  "content__enter_invoice": "أدخل الفاتورة",
   "content__enter_link": "أدخل الارتباط",
   "content__enter_onekey_lite_pin_to_continue": "أدخل رقم التعريف الشخصي OneKey Lite للمتابعة",
   "content__enter_pin_in_app": "أدخل رقم التعريف الشخصي في التطبيق",
@@ -799,6 +800,7 @@
   "content__support_malicious_contract_detection_on_8_chains": "دعم الكشف عن العقود الضارة في 8 سلاسل.",
   "content__supported_wallets": "دعم OneKey و Ledger و Trezor والمحافظ الأخرى.",
   "content__switch_price_mark_to_str": "تبديل علامة السعر إلى {0}",
+  "content__the_address_above_is_a_taproot_address_to_receive_your_inscription": "العنوان أعلاه هو عنوان الجذر لتلقي النقش الخاص بك",
   "content__the_contract_detection_isnt_perfect_yet_so_some_of_them_may_slip_through_the_cracks": "اكتشاف العقد ليس مثاليًا بعد ، لذلك قد ينزلق البعض منهم عبر الفجوات. إذا رأيت أي محتوى غير صحيح أثناء التحقق من البدل ، فيرجى إخبارنا في خادم DISCORD الخاص بنا.",
   "content__the_current_statistical_content_only_includes": "يتضمن المحتوى الإحصائي الحالي فقط الرموز المميزة على سلسلة {0} و NFTs على {0} ، المزيد من السلاسل قريبًا.",
   "content__the_current_statistical_content_only_includes_the_assets": "يتضمن المحتوى الإحصائي الحالي الأصول الموجودة على شبكة {0} فقط ، وسيتوفر قريبًا المزيد من الشبكات.",
@@ -1027,6 +1029,7 @@
   "form__allow_this_site_to_uppercase": "السماح لهذا الموقع بـ:",
   "form__allowance": "الإذن",
   "form__always": "دائماً",
+  "form__amount": "كمية",
   "form__amount__uppercase": "كمية",
   "form__amount_above_required_reserve": "المبلغ أعلى من الاحتياطي المطلوب {amount} {unit}",
   "form__amount_invalid": "رصيد {0} غير كافٍ",
@@ -1151,6 +1154,8 @@
   "form__default": "تقصير",
   "form__default_currency": "العملة الافتراضية",
   "form__default_str": "الافتراضي: {0}",
+  "form__description__optional": "وصف (اختياري)",
+  "form__description__uppercase": "وصف",
   "form__designated_recipient": "المستلم المعين",
   "form__designated_recipient_desc": "يمكنك اختيار حساب آخر لاستلام المبادلة.",
   "form__destination_tag_placeholder": "علامة / مذكرة (اختياري)",
@@ -1279,6 +1284,13 @@
   "form__incorrect_dotmap": "Dotmap غير صحيح",
   "form__information__uppercase": "معلومة",
   "form__inscribe_nft": "تسجيل NFT",
+  "form__inscribe_order_id": "رقم التعريف الخاص بالطلب",
+  "form__inscribe_preview": "معاينة النقش",
+  "form__inscribing_fee": "رسوم التسجيل",
+  "form__inscription_file_preview": "معاينة ملف",
+  "form__inscription_file_size": "حجم الملف",
+  "form__inscription_owner": "مالك",
+  "form__inscription_value": "قيمة",
   "form__inscriptions__uppercase": "النقوش",
   "form__instant_transfer": "نقل فوري",
   "form__jump_to_the_next_open_tab": "انتقل إلى علامة التبويب المفتوحة التالية",
@@ -1427,6 +1439,7 @@
   "form__pausable_transfer_desc": "يمكن لمالك العقد التوقف عن التداول في أي وقت ، وبعد ذلك يمكن فقط لمن لديهم سلطة معينة البيع.",
   "form__pay": "يدفع",
   "form__payment_address": "عنوان الدفع",
+  "form__payment_hash": "تجزئة الدفع",
   "form__payment_info__uppercase": "معلومات الدفع",
   "form__pending_tx": "معلق Tx",
   "form__performance": "أداء",
@@ -1525,7 +1538,6 @@
   "form__send_tokens": "إرسال الرموز",
   "form__sent": "لقد ارسلت",
   "form__service_fee": "رسوم الخدمة",
-  "form__service_provider_address": "عنوان مزود الخدمة",
   "form__set_range": "مجموعة مجموعة",
   "form__show_all": "عرض الكل",
   "form__show_in_menu_bar": "إظهار في شريط القوائم",
@@ -2043,6 +2055,7 @@
   "msg__insufficient_balance": "رصيد غير كاف",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "عنوان خاطئ! لا يمكن إرسال الأصول الترتيبية إلا إلى عناوين Taproot",
   "msg__invalid_file_format": "تنسيق ملف غير صالح",
+  "msg__invalid_lightning_payment_request": "طلب دفع البرق غير صالح",
   "msg__invalid_link_or_network_error": "ارتباط غير صالح أو خطأ في الشبكة",
   "msg__invalid_private_key": "مفتاح خاص غير صالح",
   "msg__invalid_rbf_tx_pay_a_higher_fee_and_retry": "معاملة استبدال برسوم غير صالحة ، ادفع رسومًا أعلى وأعد المحاولة",
@@ -2191,6 +2204,7 @@
   "msg__using_latest_release": "أنت تستخدم أحدث إصدار! 🎉",
   "msg__utxo_is_frozen_you_can_find_it_in_frozen_tab": "UTXO متجمد ، يمكنك العثور عليه في علامة التبويب \"Frozen\".",
   "msg__utxo_is_unfrozen_you_can_find_it_in_availabel_tab": "تم إلغاء تجميد UTXO ، يمكنك العثور عليه في علامة التبويب \"متاح\".",
+  "msg__valid_payment_request": "طلب دفع صالح",
   "msg__verification_failure": "فشل التحقق",
   "msg__wallet_already_exist": "المحفظة موجودة بالفعل.",
   "msg__wallet_already_exist_activated_automatically": "المحفظة {0} موجودة بالفعل وتم تبديلها تلقائيًا.",
