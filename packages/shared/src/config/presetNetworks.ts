@@ -3815,6 +3815,44 @@ export const serverPresetNetworks = [
     'createdAt': '2023-05-31T00:29:24.951Z',
     'updatedAt': '2023-05-31T00:29:24.951Z',
   },
+  {
+    'balance2FeeDecimals': 9,
+    'chainId': '51178',
+    'code': 'topsideprealpha',
+    'decimals': 18,
+    'id': 'evm--51178',
+    'impl': 'evm',
+    'isTestnet': true,
+    'logoURI':
+      'https://onekey-asset.com/assets/topsideprealpha/topsideprealpha.png',
+    'name': 'Opside Testnet Pre-Alpha Network',
+    'rpcURLs': [
+      {
+        'url': 'https://pre-alpha-us-http-geth.opside.network',
+      },
+    ],
+    'shortcode': 'topsideprealpha',
+    'shortname': 'TOpsidePreAlpha',
+    'symbol': 'IDE',
+    'feeMeta': {
+      'code': 'topsideprealpha',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://pre-alpha.opside.info/address/{address}',
+        'block': 'https://pre-alpha.opside.info/block/{block}',
+        'name': 'https://pre-alpha.opside.info/',
+        'transaction': 'https://pre-alpha.opside.info/tx/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2023-06-14T00:29:24.951Z',
+    'updatedAt': '2023-06-14T00:29:24.951Z',
+  },
 ] as unknown as IServerNetwork[];
 
 export const OnekeyNetworkUpdatedAt = 1685492989977;
