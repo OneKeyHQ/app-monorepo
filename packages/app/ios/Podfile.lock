@@ -28,7 +28,7 @@ PODS:
     - React-Core
   - EXNotifications (0.18.1):
     - ExpoModulesCore
-  - Expo (48.0.17):
+  - Expo (48.0.19):
     - ExpoModulesCore
   - ExpoBlur (12.3.1):
     - ExpoModulesCore
@@ -639,7 +639,7 @@ PODS:
     - React-Core
   - RNGestureHandler (2.10.1):
     - React-Core
-  - RNReanimated (3.1.0):
+  - RNReanimated (3.3.0):
     - DoubleConversion
     - FBLazyVector
     - FBReactNativeSpec
@@ -1060,7 +1060,7 @@ SPEC CHECKSUMS:
   EXLocation: 0d7331f0385de210c677313a6a1512099b455347
   EXMediaLibrary: 2e91d1eb14df5c6af1ddfe183a8c8ee7eaf557d8
   EXNotifications: dd628737af60fc8cc62dccebacd326b0fbbc0dcb
-  Expo: d351b4546895fb99ae4e5a1bc39df770ab9dc7d1
+  Expo: 8448e3a2aa1b295f029c81551e1ab6d986517fdb
   ExpoBlur: 83186055c9c5c7ea564d04c6ed766ef7896889ed
   ExpoClipboard: 872ae8ea230649404705b7cc09a155531e74b7bb
   ExpoDevice: 516146e17529c3eae3f5c2c09e826efc9ffc6938
@@ -1172,7 +1172,7 @@ SPEC CHECKSUMS:
   RNFBPerf: b85b621a4d15905847e8627a6aa67ad894e8e166
   RNFS: 4ac0f0ea233904cb798630b3c077808c06931688
   RNGestureHandler: 42ec7c28dd02d540ed6c9159c57a98ff016492dc
-  RNReanimated: 7afddd5ab0590339f3e83d7bb52f43a73443b862
+  RNReanimated: 77fbf24fd94c940c82ceb67f6d4571db3d2c04fe
   RNScreens: ea4cd3a853063cda19a4e3c28d2e52180c80f4eb
   RNShare: d82e10f6b7677f4b0048c23709bd04098d5aee6c
   RNSVG: 53c661b76829783cdaf9b7a57258f3d3b4c28315

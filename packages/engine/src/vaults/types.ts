@@ -270,6 +270,7 @@ export type IFeeInfoUnit = {
   price?: string; // in GWEI
   price1559?: EIP1559Fee;
   limit?: string;
+  limitForDisplay?: string;
   limitUsed?: string;
   similarToPreset?: string;
   waitingSeconds?: number;
@@ -281,6 +282,7 @@ export type IFeeInfoUnit = {
 export type IFeeInfo = {
   // TODO merge (limit, prices, EIP1559Fee) to single field
   limit?: string; // calculated gasLimit of encodedTx
+  limitForDisplay?: string;
   prices: Array<IFeeInfoPrice>; // preset gasPrices: normal, fast, rapid
   defaultPresetIndex: string; // '0' | '1' | '2';
   waitingSeconds?: Array<number>; // waiting time for different prices
@@ -317,6 +319,8 @@ export type IFeeInfoPayload = {
   current: {
     total: string; // total fee in Gwei
     totalNative: string; // total fee in ETH
+    totalForDisplay?: string;
+    totalNativeForDisplay?: string;
     value: IFeeInfoUnit;
     // as an estimated min fee for unapproved batch transfer
     minTotal?: string;

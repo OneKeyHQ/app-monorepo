@@ -27,11 +27,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokens, useActiveSideAccount } from '../../../hooks';
-import { useStatus } from '../../../hooks/redux';
 import { useAccountTokenLoading } from '../../../hooks/useTokens';
 import { useVisibilityFocused } from '../../../hooks/useVisibilityFocused';
 import { OverviewDefiThumbnal } from '../../Overview/Thumbnail';
-import { WalletHomeTabEnum } from '../type';
 
 import AssetsListHeader from './AssetsListHeader';
 import { EmptyListOfAccount } from './EmptyList';
@@ -139,20 +137,22 @@ function AssetsList({
     }
   }, [networkId, accountId, startRefresh, stopRefresh]);
 
-  const { homeTabName } = useStatus();
-
   const isFocused = useVisibilityFocused();
 
   useEffect(() => {
-    if (isFocused && homeTabName === WalletHomeTabEnum.Tokens) {
-      if (!account || !network) {
+    if (isFocused) {
+      if (!accountId || !networkId) {
         return;
       }
+      backgroundApiProxy.serviceToken.fetchAccountTokens({
+        networkId,
+        accountId,
+      });
       startRefresh();
     } else {
       stopRefresh();
     }
-  }, [isFocused, startRefresh, stopRefresh, account, network, homeTabName]);
+  }, [isFocused, startRefresh, stopRefresh, accountId, networkId]);
 
   const onTokenCellPress = useCallback(
     (item: Token) => {

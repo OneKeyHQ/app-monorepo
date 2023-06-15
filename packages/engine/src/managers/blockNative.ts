@@ -51,6 +51,7 @@ const getBlockNativeGasInfo = async ({
           maxPriorityFeePerGas: new BigNumber(
             price.maxPriorityFeePerGas,
           ).toFixed(),
+          price: new BigNumber(price.price).toFixed(),
         });
       }
     }
