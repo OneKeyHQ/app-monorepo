@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/require-await, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 
+import { ToastManager } from '@onekeyhq/components';
 import type { ISwftcCoin } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntitySwap';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
@@ -726,6 +727,16 @@ export default class ServiceSwap extends ServiceBase {
     const { networkId } = token;
     const paymentToken = payments?.[networkId] ?? defaultPayment;
     return paymentToken;
+  }
+
+  @backgroundMethod()
+  async tokenIsSupported(token: Token) {
+    const { appSelector } = this.backgroundApi;
+    const tokenList = appSelector((s) => s.swapTransactions.tokenList);
+    const networkIds = (tokenList ?? [])
+      ?.map((o) => o.networkId)
+      .filter((networkId) => networkId !== 'All');
+    return networkIds.includes(token.networkId);
   }
 
   @backgroundMethod()
