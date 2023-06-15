@@ -46,6 +46,7 @@ type DataItem = {
   description: LocaleIds;
   link?: string;
   tag?: LocaleIds;
+  intlDisabled?: boolean;
 };
 
 const data: DataItem[] = [
@@ -141,6 +142,7 @@ const ToolsPage: FC = () => {
         title: t.title,
         description: t.desc,
         link: t.link,
+        intlDisabled: true,
       })),
     );
   }, [
@@ -274,7 +276,9 @@ const ToolsPage: FC = () => {
                   isTruncated
                   maxW="200px"
                 >
-                  {intl.formatMessage({ id: item.title })}
+                  {item.intlDisabled
+                    ? item.title
+                    : intl.formatMessage({ id: item.title })}
                 </Typography.Body1Strong>
                 {item.tag ? (
                   <Badge
@@ -291,7 +295,9 @@ const ToolsPage: FC = () => {
                 isTruncated
                 color="text-subdued"
               >
-                {intl.formatMessage({ id: item.description })}
+                {item.intlDisabled
+                  ? item.description
+                  : intl.formatMessage({ id: item.description })}
               </Typography.Body2>
             </VStack>
           </Pressable>
