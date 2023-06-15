@@ -126,6 +126,8 @@ export type IVaultSettings = {
   hiddenAccountInfoMoreOption?: boolean;
   hiddenFeeOnTxDetail?: boolean;
   displayMemo?: boolean;
+  hideFromToFieldIfValueEmpty?: boolean;
+  displayFullAddress?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;

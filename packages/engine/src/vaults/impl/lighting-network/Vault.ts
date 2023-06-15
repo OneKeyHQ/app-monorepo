@@ -40,6 +40,7 @@ import type {
   DBVariantAccount,
 } from '../../../types/account';
 import type {
+  IDecodedTxAction,
   IDecodedTxLegacy,
   IEncodedTxUpdateOptions,
   IFeeInfo,
@@ -179,12 +180,12 @@ export default class Vault extends VaultBase {
     const amount = invoice.millisatoshis
       ? new BigNumber(invoice.millisatoshis).dividedBy(1000)
       : new BigNumber(invoice.satoshis ?? '0');
-    // if (balanceBN.isLessThan(amount)) {
-    //   throw new InsufficientBalance();
-    // }
-    // if (!invoice.paymentRequest) {
-    //   throw new Error('Invalid invoice');
-    // }
+    if (balanceBN.isLessThan(amount)) {
+      throw new InsufficientBalance();
+    }
+    if (!invoice.paymentRequest) {
+      throw new Error('Invalid invoice');
+    }
 
     const client = await this.getClient();
     const nonce = await client.getNextNonce(balanceAddress);
@@ -283,7 +284,8 @@ export default class Vault extends VaultBase {
     password?: string | undefined;
     passwordLoadedCallback?: ((isLoaded: boolean) => void) | undefined;
   }): Promise<IHistoryTx[]> {
-    const address = await this.getCurrentBalanceAddress();
+    const account = (await this.getDbAccount()) as DBVariantAccount;
+    const address = account.addresses.normalizedAddress;
     const { decimals, symbol } = await this.engine.getNetwork(this.networkId);
     const token = await this.engine.getNativeTokenInfo(this.networkId);
     const client = await this.getClient(
@@ -306,19 +308,23 @@ export default class Vault extends VaultBase {
           .shiftedBy(-decimals)
           .toFixed();
         const amountValue = `${txInfo.amount}`;
+        const { direction, type } = actions[0];
+        const from = direction === IDecodedTxDirection.IN ? '' : account.name;
+        const to = direction === IDecodedTxDirection.IN ? account.name : '';
 
         const decodedTx: IDecodedTx = {
           txid,
-          owner,
+          owner: account.name,
           signer,
           nonce,
           actions: [
             {
-              ...actions[0],
+              type,
+              direction,
               nativeTransfer: {
                 tokenInfo: token,
-                from: '',
-                to: '',
+                from,
+                to,
                 amount,
                 amountValue,
                 extraInfo: null,
@@ -328,7 +334,9 @@ export default class Vault extends VaultBase {
           status,
           networkId: this.networkId,
           accountId: this.accountId,
-          extraInfo: null,
+          extraInfo: {
+            memo: txInfo.description,
+          },
           totalFeeInNative: new BigNumber(fee).shiftedBy(-decimals).toFixed(),
         };
         decodedTx.updatedAt = new Date(txInfo.expires_at).getTime();
@@ -347,6 +355,16 @@ export default class Vault extends VaultBase {
       }
     });
     return (await Promise.all(promises)).filter(Boolean);
+  }
+
+  override async fixActionDirection({
+    action,
+    accountAddress,
+  }: {
+    action: IDecodedTxAction;
+    accountAddress: string;
+  }): Promise<IDecodedTxAction> {
+    return action;
   }
 
   override async getAccountBalance(
