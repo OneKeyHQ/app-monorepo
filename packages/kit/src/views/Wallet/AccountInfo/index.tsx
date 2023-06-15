@@ -33,6 +33,7 @@ import {
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import type { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
+import { IMPL_LIGHTING } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountValues, useNavigationActions } from '../../../hooks';
@@ -191,6 +192,19 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   }, [sendToken]);
 
   const onReceive = useCallback(() => {
+    if (network?.impl === IMPL_LIGHTING) {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Receive,
+        params: {
+          screen: ReceiveTokenModalRoutes.CreateInvoice,
+          params: {
+            networkId: network.id,
+            accountId: account?.id,
+          },
+        },
+      });
+      return;
+    }
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Receive,
       params: {
@@ -198,7 +212,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
         params: {},
       },
     });
-  }, [navigation]);
+  }, [navigation, account, network]);
 
   const onSwap = useCallback(async () => {
     const token = await backgroundApiProxy.engine.getNativeTokenInfo(
