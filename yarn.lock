@@ -5705,7 +5705,7 @@ __metadata:
     expo-keep-awake: ~12.0.1
     expo-linear-gradient: ~12.1.2
     expo-linking: ^4.0.1
-    expo-local-authentication: ^13.3.0
+    expo-local-authentication: 13.3.0
     expo-localization: ^14.1.1
     expo-notifications: ~0.18.1
     expo-secure-store: ^12.1.1
@@ -17160,14 +17160,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-local-authentication@npm:^13.3.0":
-  version: 13.4.0
-  resolution: "expo-local-authentication@npm:13.4.0"
+"expo-local-authentication@npm:13.3.0":
+  version: 13.3.0
+  resolution: "expo-local-authentication@npm:13.3.0"
   dependencies:
     invariant: ^2.2.4
   peerDependencies:
     expo: "*"
-  checksum: b4c0c3ed9216b9ae3bc567a9d92e46a68533461615fbd5a81744879b644ec40e7ba21e28ebde8f33995718f1f35f8b42ae3b55ed1fb4017611440d6c5fff01cd
+  checksum: 5526dbb211b25d0e50700658d2afb55c564c47136096bf8835f891f1e97b79c3a9e30cef41f988b4ca163be6d7b16515331baecc7e54d928186566bb40660b41
   languageName: node
   linkType: hard
 

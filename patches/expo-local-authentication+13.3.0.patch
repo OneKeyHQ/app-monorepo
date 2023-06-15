@@ -1,0 +1,17 @@
+diff --git a/node_modules/expo-local-authentication/android/src/main/java/expo/modules/localauthentication/LocalAuthenticationModule.kt b/node_modules/expo-local-authentication/android/src/main/java/expo/modules/localauthentication/LocalAuthenticationModule.kt
+index 9980dfa..1ad2f72 100644
+--- a/node_modules/expo-local-authentication/android/src/main/java/expo/modules/localauthentication/LocalAuthenticationModule.kt
++++ b/node_modules/expo-local-authentication/android/src/main/java/expo/modules/localauthentication/LocalAuthenticationModule.kt
+@@ -122,6 +122,12 @@ class LocalAuthenticationModule(context: Context) : ExportedModule(context), Act
+ 
+   @ExpoMethod
+   fun hasHardwareAsync(promise: Promise) {
++    val manufacturer = Build.MANUFACTURER
++    if(manufacturer.equals("samsung", ignoreCase = true)) {
++      promise.resolve(false)
++      return
++    }
++
+     val result = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+     promise.resolve(result != BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE)
+   }
