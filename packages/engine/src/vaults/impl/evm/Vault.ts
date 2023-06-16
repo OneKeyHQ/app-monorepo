@@ -628,6 +628,9 @@ export default class Vault extends VaultBase {
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxEvm> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const network = await this.getNetwork();
     const isTransferToken = Boolean(transferInfo.token);
     const isTransferNativeToken = !isTransferToken;
