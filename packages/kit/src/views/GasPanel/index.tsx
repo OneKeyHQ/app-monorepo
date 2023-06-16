@@ -72,7 +72,6 @@ function GasPanel() {
       setIsGasInfoInit(true);
       timer = setTimeout(() => fetchGasInfo(), REFRESH_GAS_INFO_INTERVAL);
       setLeftSeconds(REFRESH_GAS_INFO_INTERVAL / 1000);
-      console.log(timer);
     };
     fetchGasInfo();
     return () => {
