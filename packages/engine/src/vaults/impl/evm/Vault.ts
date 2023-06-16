@@ -690,11 +690,14 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async buildEncodedTxFromBatchTransfer(
-    transferInfos: ITransferInfo[],
-    prevNonce?: number,
-    isDeflationary?: boolean,
-  ): Promise<IEncodedTxEvm> {
+  override async buildEncodedTxFromBatchTransfer({
+    transferInfos,
+    prevNonce,
+  }: {
+    transferInfos: ITransferInfo[];
+    prevNonce?: number;
+    isDeflationary?: boolean;
+  }): Promise<IEncodedTxEvm> {
     const network = await this.getNetwork();
     const dbAccount = await this.getDbAccount();
     const transferInfo = transferInfos[0];

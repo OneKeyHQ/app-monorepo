@@ -2103,11 +2103,11 @@ class Engine {
     isDeflationary?: boolean;
   }) {
     const vault = await this.getVault({ networkId, accountId });
-    const result = await vault.buildEncodedTxFromBatchTransfer(
+    const result = await vault.buildEncodedTxFromBatchTransfer({
       transferInfos,
       prevNonce,
       isDeflationary,
-    );
+    });
     debugLogger.sendTx.info(
       'buildEncodedTxFromBatchTransfer: ',
       transferInfos,

@@ -571,9 +571,11 @@ export default class Vault extends VaultBase {
     return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
   }
 
-  override async buildEncodedTxFromBatchTransfer(
-    transferInfos: ITransferInfo[],
-  ): Promise<IEncodedTx> {
+  override async buildEncodedTxFromBatchTransfer({
+    transferInfos,
+  }: {
+    transferInfos: ITransferInfo[];
+  }): Promise<IEncodedTx> {
     let retryTime = 0;
     let lastRpcErrorMessage = '';
     const maxRetryTimes = 5;
