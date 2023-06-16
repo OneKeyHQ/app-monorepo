@@ -418,13 +418,14 @@ export default class Vault extends VaultBase {
     password?: string,
     passwordLoadedCallback?: (isLoaded: boolean) => void,
   ): Promise<(BigNumber | undefined)[]> {
-    const result = await Promise.all(
-      requests.map(async ({ address }) => {
-        const client = await this.getClient(password);
-        return client.getBalance(address);
-      }),
+    const client = await this.getClient(password);
+    const balances = await client.batchGetBalance(
+      requests.map((i) => i.address),
     );
-    return result;
+    return requests.map((item) => {
+      const balance = balances.find((i) => i.address === item.address);
+      return new BigNumber(balance?.balance ?? 0);
+    });
   }
 
   async createInvoice(

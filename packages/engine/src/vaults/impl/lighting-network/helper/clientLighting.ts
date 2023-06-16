@@ -6,7 +6,11 @@ import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
 import { getFiatEndpoint } from '../../../../endpoint';
 
-import type { IBalanceResponse, ICreateUserResponse } from '../types/account';
+import type {
+  IBalanceResponse,
+  IBatchBalanceResponse,
+  ICreateUserResponse,
+} from '../types/account';
 import type {
   ICretaeInvoiceResponse,
   IHistoryItem,
@@ -116,18 +120,13 @@ class ClientLighting {
       .then((i) => i.data);
   }
 
-  async getBalance(address: string) {
+  async batchGetBalance(addresses: string[]) {
     try {
       return await this.request
-        .get<IBalanceResponse>('/account/balance', {
-          params: { address },
-        })
-        .then((i) => {
-          const { balance } = i.data;
-          return new BigNumber(balance);
-        });
+        .post<IBatchBalanceResponse[]>('/account/balance', { addresses })
+        .then((i) => i.data);
     } catch (e) {
-      return new BigNumber(1);
+      return [];
     }
   }
 

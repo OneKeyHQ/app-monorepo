@@ -19,3 +19,8 @@ export type IBalanceResponse = {
   currency: string;
   unit: string;
 };
+
+export type IBatchBalanceResponse = {
+  balance: number;
+  address: string;
+};
