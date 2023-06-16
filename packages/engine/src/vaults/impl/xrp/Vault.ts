@@ -221,6 +221,9 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxXrp> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { to, amount } = transferInfo;
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
 

@@ -239,6 +239,9 @@ export default class Vault extends VaultBase {
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxSTC> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { from, to, amount, token: tokenAddress } = transferInfo;
     if (typeof tokenAddress !== 'undefined' && tokenAddress.length > 0) {
       const token = await this.engine.ensureTokenInDB(

@@ -397,6 +397,9 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxADA> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { to, amount, token: tokenAddress } = transferInfo;
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const { decimals, feeDecimals } = await this.engine.getNetwork(
