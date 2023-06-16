@@ -160,7 +160,7 @@ function SideChainSelector({
                 </Text>
                 {item.id === networkId && !isDisabled ? (
                   <>
-                    {!rpcStatusDisabled && (
+                    {!rpcStatusDisabled && !item.settings.rpcStatusDisabled && (
                       <RpcStatusButton networkId={item.id} />
                     )}
                     <Icon color="interactive-default" name="CheckCircleSolid" />

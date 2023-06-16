@@ -38,6 +38,7 @@ const settings: IVaultSettings = Object.freeze({
   displayMemo: true,
   hideFromToFieldIfValueEmpty: true,
   displayFullAddress: true,
+  rpcStatusDisabled: true,
 
   txExtraInfo: [
     {

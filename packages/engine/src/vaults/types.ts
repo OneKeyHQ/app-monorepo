@@ -119,6 +119,7 @@ export type IVaultSettings = {
   isBtcForkChain?: boolean;
   nonceEditable?: boolean;
   signOnlyReturnFullTx?: boolean;
+
   hiddenNFTTab?: boolean;
   hiddenToolTab?: boolean;
   hiddenAddress?: boolean;
@@ -128,6 +129,7 @@ export type IVaultSettings = {
   displayMemo?: boolean;
   hideFromToFieldIfValueEmpty?: boolean;
   displayFullAddress?: boolean;
+  rpcStatusDisabled?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
