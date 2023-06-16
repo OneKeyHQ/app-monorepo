@@ -370,8 +370,15 @@ export default class Vault extends VaultBase {
     return Promise.reject(new InvalidAddress());
   }
 
-  override async validateTokenAddress(address: string): Promise<string> {
-    return this.validateAddress(address);
+  override validateTokenAddress(address: string): Promise<string> {
+    try {
+      // eslint-disable-next-line no-new
+      new PublicKey(address);
+      return Promise.resolve(address);
+    } catch {
+      // pass
+    }
+    return Promise.reject(new InvalidAddress());
   }
 
   override validateImportedCredential(input: string): Promise<boolean> {
