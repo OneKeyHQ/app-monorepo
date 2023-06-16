@@ -330,6 +330,9 @@ export default class Vault extends VaultBase {
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<string> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     // TODO check dbAccount address match transferInfo.from
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
 

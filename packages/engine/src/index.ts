@@ -2070,6 +2070,9 @@ class Engine {
     };
     transferInfoNew.amount = transferInfoNew.amount || '0';
     // throw new Error('build encodedtx error test');
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const vault = await this.getVault({ networkId, accountId });
     const result = await vault.buildEncodedTxFromTransfer(transferInfoNew);
     debugLogger.sendTx.info(

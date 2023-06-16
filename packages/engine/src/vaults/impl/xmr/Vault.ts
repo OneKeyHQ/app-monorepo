@@ -222,6 +222,9 @@ export default class Vault extends VaultBase {
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxXmr> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const network = await this.getNetwork();
 
     return {

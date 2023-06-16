@@ -618,6 +618,9 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTx> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { from, to, amount, token: tokenAddress } = transferInfo;
     const tronWeb = await this.getClient();
 
