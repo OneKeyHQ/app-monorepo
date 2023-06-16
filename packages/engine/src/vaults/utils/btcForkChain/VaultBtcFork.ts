@@ -860,29 +860,50 @@ export default class VaultBtcFork extends VaultBase {
         const { direction, utxoFrom, utxoTo, from, to, amount, amountValue } =
           tx;
 
+        const utxoToWithoutMine = utxoTo?.filter((utxo) => !utxo.isMine);
+        const actions =
+          utxoToWithoutMine && utxoToWithoutMine.length
+            ? utxoToWithoutMine
+                .filter((utxo) => !utxo.isMine)
+                .map((utxo) => ({
+                  type: IDecodedTxActionType.NATIVE_TRANSFER,
+                  direction,
+                  nativeTransfer: {
+                    tokenInfo: token,
+                    utxoFrom,
+                    utxoTo,
+                    from,
+                    to: utxo.address,
+                    amount: utxo.balance,
+                    amountValue: utxo.balanceValue,
+                    extraInfo: null,
+                  },
+                }))
+            : [
+                {
+                  type: IDecodedTxActionType.NATIVE_TRANSFER,
+                  direction,
+                  nativeTransfer: {
+                    tokenInfo: token,
+                    utxoFrom,
+                    utxoTo,
+                    from,
+                    // For out transaction, use first address as to.
+                    // For in or self transaction, use first owned address as to.
+                    to,
+                    amount,
+                    amountValue,
+                    extraInfo: null,
+                  },
+                },
+              ];
+
         const decodedTx: IDecodedTx = {
           txid: tx.txid,
           owner: dbAccount.address,
           signer: dbAccount.address,
           nonce: 0,
-          actions: [
-            {
-              type: IDecodedTxActionType.NATIVE_TRANSFER,
-              direction,
-              nativeTransfer: {
-                tokenInfo: token,
-                utxoFrom,
-                utxoTo,
-                from,
-                // For out transaction, use first address as to.
-                // For in or self transaction, use first owned address as to.
-                to,
-                amount,
-                amountValue,
-                extraInfo: null,
-              },
-            },
-          ],
+          actions,
           status:
             (tx.confirmations ?? 0) > 0
               ? IDecodedTxStatus.Confirmed
