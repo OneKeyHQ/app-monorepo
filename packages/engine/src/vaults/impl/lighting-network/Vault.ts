@@ -11,6 +11,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import {
   InsufficientBalance,
   InvalidLightingPaymentRequest,
+  InvoiceAlreadPaid,
+  NoRouteFoundError,
   WrongPassword,
 } from '../../../errors';
 import { TransactionStatus } from '../../../types/provider';
@@ -188,11 +190,11 @@ export default class Vault extends VaultBase {
           paymentHash.data as string,
         );
         if (existInvoice.is_paid) {
-          throw new Error('Invoice already paid');
+          throw new InvoiceAlreadPaid();
         }
       } catch (e: any) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (e.message === 'Invoice already paid') {
+        const { key: errorKey = '' } = e;
+        if (errorKey === 'msg__invoice_is_already_paid') {
           throw e;
         }
         // pass
@@ -498,7 +500,14 @@ export default class Vault extends VaultBase {
           }
           if (response.status === PaymentStatusEnum.FAILED) {
             clearInterval(intervalId);
-            reject(new Error(response.data?.message));
+            const errorMessage = response?.data?.message;
+            if (errorMessage === 'Invoice already paid') {
+              reject(new InvoiceAlreadPaid());
+            } else if (errorMessage === 'no_route') {
+              reject(new NoRouteFoundError());
+            } else {
+              reject(new Error(response.data?.message));
+            }
           }
         } catch (e) {
           clearInterval(intervalId);

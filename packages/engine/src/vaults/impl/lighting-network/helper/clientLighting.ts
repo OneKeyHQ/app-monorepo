@@ -1,5 +1,8 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
+import memoizee from 'memoizee';
+
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
 import { getFiatEndpoint } from '../../../../endpoint';
 
@@ -146,16 +149,21 @@ class ClientLighting {
       .then((i) => i.data);
   }
 
-  async specialInvoice(address: string, paymentHash: string) {
-    return this.request
-      .get<InvoiceType>('/invoices/invoice', {
-        params: {
-          address,
-          paymentHash,
-        },
-      })
-      .then((i) => i.data);
-  }
+  specialInvoice = memoizee(
+    async (address: string, paymentHash: string) =>
+      this.request
+        .get<InvoiceType>('/invoices/invoice', {
+          params: {
+            address,
+            paymentHash,
+          },
+        })
+        .then((i) => i.data),
+    {
+      promise: true,
+      maxAge: getTimeDurationMs({ seconds: 1 }),
+    },
+  );
 
   async getNextNonce(address: string) {
     return this.request

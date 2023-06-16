@@ -382,6 +382,13 @@ function PreSendAddress() {
             },
             { type: 'error' },
           );
+        } else if (errorKey) {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({ id: errorKey }),
+            },
+            { type: 'error' },
+          );
         } else {
           ToastManager.show(
             { title: typeof e === 'string' ? e : (e as Error).message },

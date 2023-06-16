@@ -258,10 +258,6 @@ export class InvalidTransferValue extends OneKeyError {
   }
 }
 
-export class InvalidLightingPaymentRequest extends OneKeyError {
-  override key = 'msg__invalid_lightning_payment_request';
-}
-
 export class TransferValueTooSmall extends OneKeyError {
   override key = 'msg__amount_too_small';
 
@@ -359,4 +355,17 @@ export class OneKeyWalletConnectModalCloseError extends OneKeyError {
 
 export class FailedToEstimatedGasError extends OneKeyError {
   override key = 'msg__estimated_gas_failure';
+}
+
+// Lighting Network ----------------------------------------------
+export class InvalidLightingPaymentRequest extends OneKeyError {
+  override key = 'msg__invalid_lightning_payment_request';
+}
+
+export class InvoiceAlreadPaid extends OneKeyError {
+  override key = 'msg__invoice_is_already_paid';
+}
+
+export class NoRouteFoundError extends OneKeyError {
+  override key = 'msg__no_route_found';
 }
