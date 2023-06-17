@@ -1,5 +1,6 @@
-import type { IServerNetwork } from '../../types';
 import { FAKE_ALL_NETWORK } from './fakeAllNetwork';
+
+import type { IServerNetwork } from '../../types';
 
 const serverPresetNetworks = [
   {

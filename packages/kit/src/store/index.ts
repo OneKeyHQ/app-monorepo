@@ -28,6 +28,7 @@ import appStorage, {
 
 import middlewares from './middlewares';
 import { persistWhiteList } from './persistWhiteList';
+import allNetworksReducer from './reducers/allNetworks';
 import autoUpdateReducer from './reducers/autoUpdater';
 import cloudBackupReducer from './reducers/cloudBackup';
 import contactsReducer from './reducers/contacts';
@@ -84,6 +85,7 @@ const allReducers = combineReducers({
   overview: overviewReducer,
   httpServer: httpServerReducer,
   limitOrder: limitOrderReducer,
+  allNetworks: allNetworksReducer,
 });
 
 function rootReducer(reducers: Reducer, initialState = {}): any {

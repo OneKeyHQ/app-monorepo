@@ -1,5 +1,6 @@
-import { IServerNetwork } from '../../types';
 import debugLogger from '../logger/debugLogger';
+
+import type { IServerNetwork } from '../../types';
 
 const allNetwork = {
   id: 'all--0',

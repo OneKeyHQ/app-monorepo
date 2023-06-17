@@ -19,9 +19,9 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { FlatListRef } from '@onekeyhq/components/src/FlatList';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { INetwork } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
-import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeAllNetwork';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -94,7 +94,7 @@ function SideChainSelector({
       if (networkImpl && d.impl !== networkImpl) {
         return false;
       }
-      if (!allowSelectAllNetworks && d.id === FAKE_ALL_NETWORK.id) {
+      if (!allowSelectAllNetworks && isAllNetworks(d.id)) {
         return false;
       }
       if (search) {
@@ -111,7 +111,6 @@ function SideChainSelector({
     });
     return memo;
   }, [networkImpl, networks, search, allowSelectAllNetworks]);
-
 
   const renderNetworkItem = useCallback(
     ({
@@ -166,9 +165,13 @@ function SideChainSelector({
                   isTruncated
                   numberOfLines={1}
                 >
-                  {item.name}
+                  {isAllNetworks(item.id)
+                    ? intl.formatMessage({ id: 'form__all_networks' })
+                    : item.name}
                 </Text>
-                {item.id === networkId && !isDisabled ? (
+                {item.id === networkId &&
+                !isDisabled &&
+                !isAllNetworks(item.id) ? (
                   <>
                     {!rpcStatusDisabled && !item.settings.rpcStatusDisabled && (
                       <RpcStatusButton networkId={item.id} />
@@ -188,6 +191,7 @@ function SideChainSelector({
       rpcStatusDisabled,
       networkId,
       serviceAccountSelector,
+      intl,
     ],
   );
 

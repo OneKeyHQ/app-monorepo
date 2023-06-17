@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-types */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,11 +11,13 @@ import {
   Searchbar,
   Typography,
 } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
 import { LazyDisplayView } from '../../../LazyDisplayView';
 import { useAccountSelectorModalInfo } from '../../hooks/useAccountSelectorModalInfo';
 
 import AccountList from './AccountList';
+import AllNetworksAccountList from './AllNetworksAccountList';
 import Header from './Header';
 import { NetWorkExtraInfo } from './NetworkExtraInfo';
 import SideChainSelector from './SideChainSelector';
@@ -37,7 +38,10 @@ function LazyDisplayContentView({
   return (
     <Box flex={1} flexDirection="row">
       {showSideChainSelector ? (
-        <SideChainSelector accountSelectorInfo={accountSelectorInfo} />
+        <SideChainSelector
+          accountSelectorInfo={accountSelectorInfo}
+          allowSelectAllNetworks
+        />
       ) : null}
       <Box alignSelf="stretch" flex={1}>
         <Header
@@ -53,14 +57,23 @@ function LazyDisplayContentView({
           />
         </Box>
         <ScrollView>
-          <AccountList
-            accountSelectorInfo={accountSelectorInfo}
-            searchValue={search}
-          />
-          <NetWorkExtraInfo
-            accountId={accountSelectorInfo.activeAccount?.id}
-            networkId={accountSelectorInfo.selectedNetworkId}
-          />
+          {isAllNetworks(accountSelectorInfo?.selectedNetworkId) ? (
+            <AllNetworksAccountList
+              accountSelectorInfo={accountSelectorInfo}
+              searchValue={search}
+            />
+          ) : (
+            <>
+              <AccountList
+                accountSelectorInfo={accountSelectorInfo}
+                searchValue={search}
+              />
+              <NetWorkExtraInfo
+                accountId={accountSelectorInfo.activeAccount?.id}
+                networkId={accountSelectorInfo.selectedNetworkId}
+              />
+            </>
+          )}
         </ScrollView>
       </Box>
     </Box>
@@ -75,6 +88,13 @@ function NetworkAccountSelectorModal() {
 
   const { accountSelectorInfo, shouldShowModal } =
     useAccountSelectorModalInfo();
+
+  const networkName = useMemo(() => {
+    if (isAllNetworks(accountSelectorInfo?.selectedNetworkId)) {
+      return intl.formatMessage({ id: 'form__all_networks' });
+    }
+    return accountSelectorInfo?.selectedNetwork?.name || '-';
+  }, [accountSelectorInfo, intl]);
 
   if (!shouldShowModal) {
     return null;
@@ -105,7 +125,7 @@ function NetworkAccountSelectorModal() {
             />
           ) : null}
           <Typography.Caption color="text-subdued">
-            {accountSelectorInfo?.selectedNetwork?.name || '-'}
+            {networkName}
           </Typography.Caption>
         </Pressable>
       }

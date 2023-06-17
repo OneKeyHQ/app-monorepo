@@ -1,9 +1,9 @@
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { INetwork } from '@onekeyhq/engine/src/types';
 import { CHAINS_DISPLAYED_IN_DEV } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { makeSelector } from './redux';
-import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeAllNetwork';
 
 export type IManageNetworks = {
   allNetworks: INetwork[];
@@ -24,11 +24,8 @@ export const { use: useManageNetworks, get: getManageNetworks } = makeSelector<
   const [allNetworks, enabledNetworks] = useMemo(() => {
     const chainsToHide = devModeEnable ? [] : CHAINS_DISPLAYED_IN_DEV;
 
-    let all = networks.filter((network) => {
-      if (
-        !options?.allowSelectAllNetworks &&
-        network.id === FAKE_ALL_NETWORK.id
-      ) {
+    const all = networks.filter((network) => {
+      if (!options?.allowSelectAllNetworks && isAllNetworks(network.id)) {
         return false;
       }
       return (
@@ -37,7 +34,7 @@ export const { use: useManageNetworks, get: getManageNetworks } = makeSelector<
       );
     });
     if (options?.allowSelectAllNetworks) {
-      all.sort((a) => (a.id === FAKE_ALL_NETWORK.id ? -1 : 1));
+      all.sort((a) => (isAllNetworks(a.id) ? -1 : 1));
     }
     const enabled = all.filter((network) => network.enabled);
     return [all, enabled];

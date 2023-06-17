@@ -22,6 +22,7 @@ import showDerivationPathBottomSheetModal from '../modals/NetworkAccountSelector
 
 import type { ModalScreenProps, RootRoutesParams } from '../../../routes/types';
 import type { IDerivationOption } from './useDerivationPath';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
@@ -67,7 +68,17 @@ export function useCreateAccountInWallet({
     let isCreateAccountSupported = false;
     let showCreateAccountMenu = false;
     let isAddressDerivationSupported = true;
-    if (network?.id) {
+    if (!network?.id) {
+      // AllNetwork
+      isCreateAccountSupported = true;
+      showCreateAccountMenu = false;
+      isAddressDerivationSupported = true;
+    } else if (isAllNetworks(network.id)) {
+      isCreateAccountSupported = false;
+      showCreateAccountMenu = false;
+      isAddressDerivationSupported = true;
+    }else {
+
       if (
         activeWallet?.type === 'external' &&
         vaultSettings?.externalAccountEnabled
@@ -104,11 +115,6 @@ export function useCreateAccountInWallet({
       if (vaultSettings?.addressDerivationDisabled) {
         isAddressDerivationSupported = false;
       }
-    } else {
-      // AllNetwork
-      isCreateAccountSupported = true;
-      showCreateAccountMenu = false;
-      isAddressDerivationSupported = true;
     }
 
     return {

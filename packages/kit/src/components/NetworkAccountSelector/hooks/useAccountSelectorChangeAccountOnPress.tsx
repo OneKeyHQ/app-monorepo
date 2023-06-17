@@ -16,6 +16,7 @@ import {
   RootRoutes,
   SendModalRoutes,
 } from '../../../routes/routesEnum';
+import { selectAllNetworksAccount } from '../../../store/reducers/allNetworks';
 import reducerAccountSelector, {
   EAccountSelectorMode,
 } from '../../../store/reducers/reducerAccountSelector';
@@ -98,5 +99,55 @@ export function useAccountSelectorChangeAccountOnPress() {
     [closeModal, closeWalletSelector, isVertical, navigation],
   );
 
-  return { onPressChangeAccount };
+  const onPressChangeAccountForAllNetwork = useCallback(
+    async ({
+      accountIndex,
+      networkId,
+      walletId,
+    }: {
+      accountIndex: number;
+      networkId?: string;
+      walletId?: string;
+    }) => {
+      const { dispatch, serviceNetwork, serviceAccountSelector } =
+        backgroundApiProxy;
+
+      closeModal();
+      closeWalletSelector();
+      await wait(0);
+
+      const dispatchs: any[] = [updateIsRefreshDisabled(true)];
+
+      try {
+        if (isVertical) {
+          await wait(ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY);
+        }
+        if (networkId) {
+          await serviceNetwork.changeActiveNetwork(networkId);
+        }
+        if (typeof accountIndex === 'number') {
+          dispatchs.push(
+            selectAllNetworksAccount({
+              accountIndex,
+              walletId,
+            }),
+          );
+        }
+        await serviceAccountSelector.setSelectedWalletToActive();
+        appUIEventBus.emit(AppUIEventBusNames.AccountChanged);
+      } catch (error) {
+        debugLogger.common.error(
+          'onPressChangeAccountForAllNetwork ERROR: ',
+          error,
+        );
+      } finally {
+        await wait(100);
+      }
+
+      dispatch(...dispatchs, updateIsRefreshDisabled(false));
+    },
+    [closeModal, closeWalletSelector, isVertical],
+  );
+
+  return { onPressChangeAccount, onPressChangeAccountForAllNetwork };
 }

@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
 import {
   useActiveWalletAccount,
@@ -27,44 +28,70 @@ const AccountSelectorTrigger: FC<AccountSelectorTriggerProps> = ({
   bg,
   mode,
 }) => {
-  const { account } = useActiveWalletAccount();
+  const { account, networkId } = useActiveWalletAccount();
   const { openAccountSelector } = useNavigationActions();
   const activeExternalWalletName = useAppSelector(
     (s) => s.general.activeExternalWalletName,
   );
 
+  const { accountIndex } = useAppSelector((s) => s.allNetworks);
+
   const intl = useIntl();
-  const activeOption = useMemo(
+
+  const allNetworkAccountInfo = useMemo(
     () => ({
+      label:
+        typeof accountIndex !== 'undefined'
+          ? `Account #${accountIndex + 1}`
+          : intl.formatMessage({ id: 'empty__no_account_title' }),
+      description: '',
+      value: accountIndex,
+    }),
+    [intl, accountIndex],
+  );
+
+  const activeOption = useMemo(() => {
+    if (isAllNetworks(networkId)) {
+      return allNetworkAccountInfo;
+    }
+    return {
       label:
         account?.name || intl.formatMessage({ id: 'empty__no_account_title' }),
       description:
         (account?.displayAddress || account?.address || '').slice(-4) || '',
       value: account?.id,
-    }),
-    [
-      account?.displayAddress,
-      account?.address,
-      account?.id,
-      account?.name,
-      intl,
-    ],
-  );
+    };
+  }, [
+    account?.displayAddress,
+    account?.address,
+    account?.id,
+    account?.name,
+    intl,
+    networkId,
+    allNetworkAccountInfo,
+  ]);
   const isVertical = useIsVerticalLayout();
+
+  const icon = useMemo(() => {
+    if (isVertical) {
+      return null;
+    }
+    if (!account?.id) {
+      return null;
+    }
+    return (
+      <ExternalAccountImg
+        accountId={account?.id}
+        walletName={activeExternalWalletName}
+      />
+    );
+  }, [isVertical, account, activeExternalWalletName]);
 
   return (
     <BaseSelectorTrigger
       type={type}
       bg={bg}
-      icon={
-        // eslint-disable-next-line no-nested-ternary
-        isVertical ? null : account?.id ? (
-          <ExternalAccountImg
-            accountId={account?.id}
-            walletName={activeExternalWalletName}
-          />
-        ) : null
-      }
+      icon={icon}
       label={activeOption.label}
       description={showAddress && activeOption.description}
       onPress={() => {

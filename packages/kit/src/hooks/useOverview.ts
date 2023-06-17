@@ -66,3 +66,14 @@ export const useAccountValues = (props: {
     },
   );
 };
+
+export const useAllNetworkAccountValue = ({
+  accountIndex,
+}: {
+  accountIndex?: number;
+}): string | undefined => {
+  if (typeof accountIndex === 'undefined') {
+    return undefined;
+  }
+  return '0';
+};
