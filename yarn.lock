@@ -4371,29 +4371,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@legendapp/state@npm:^1.2.7":
-  version: 1.2.7
-  resolution: "@legendapp/state@npm:1.2.7"
+"@legendapp/state@npm:^1.2.9":
+  version: 1.2.9
+  resolution: "@legendapp/state@npm:1.2.9"
   dependencies:
     use-sync-external-store: ^1.2.0
-  peerDependencies:
-    "@tanstack/react-query": ">=4.14.6"
-    next: ">=12"
-    react: ">=16.8"
-    react-native: ">=0.61"
-    react-native-mmkv: ">=2"
-  peerDependenciesMeta:
-    "@tanstack/react-query":
-      optional: true
-    next:
-      optional: true
-    react:
-      optional: true
-    react-native:
-      optional: true
-    react-native-mmkv:
-      optional: true
-  checksum: 1cdd5a67e0b8ba6d92b1d7f19bf64a8ed15871df989da4c0960731a096ab485fdc1d03b6731a2bcf61572204a6b9437df59d7da7c98e954cef9a747dfeba5798
+  checksum: 23f8665ead4f44877b321e394b01fd216cf70b820a308b4bfaf4e80add7ef3adf2bfc643662618c469c8b53da8fb34f4b15cec610d01a043ae079ec313d43272
   languageName: node
   linkType: hard
 
@@ -5318,7 +5301,7 @@ __metadata:
     "@babel/eslint-parser": ^7.19.1
     "@babel/plugin-proposal-nullish-coalescing-operator": ^7.18.6
     "@babel/preset-react": ^7.18.6
-    "@legendapp/state": ^1.2.7
+    "@legendapp/state": ^1.2.9
     "@onekeyfe/blockchain-libs": 0.0.48
     "@onekeyfe/cross-inpage-provider-core": 1.1.30
     "@onekeyfe/cross-inpage-provider-errors": 1.1.30
@@ -5571,6 +5554,7 @@ __metadata:
     "@types/electron-localshortcut": ^3.1.0
     "@types/node-fetch": ^2.6.1
     adm-zip: ^0.5.10
+    cross-env: ^7.0.3
     electron: 19.1.8
     electron-builder: 22.14.13
     electron-config: ^2.0.0
@@ -5657,6 +5641,7 @@ __metadata:
     babel-plugin-dynamic-import-webpack: ^1.1.0
     babel-plugin-transform-dynamic-imports-to-static-imports: ^1.0.0
     cheerio: ^1.0.0-rc.12
+    cross-env: ^7.0.3
     next: ^11.1.2
     next-compose-plugins: ^2.2.0
     next-transpile-modules: ^8.0.0
