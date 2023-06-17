@@ -5687,7 +5687,7 @@ __metadata:
     dequal: ^2.0.3
     dotbit: ^0.4.1
     eth-chains: ^1.0.0
-    expo-application: ^5.1.1
+    expo-application: ~5.1.1
     expo-av: ^13.2.1
     expo-barcode-scanner: ^12.3.2
     expo-blur: ~12.3.0
@@ -5935,13 +5935,13 @@ __metadata:
   linkType: hard
 
 "@polkadot/networks@npm:^12.2.2":
-  version: 12.3.1
-  resolution: "@polkadot/networks@npm:12.3.1"
+  version: 12.3.2
+  resolution: "@polkadot/networks@npm:12.3.2"
   dependencies:
-    "@polkadot/util": 12.3.1
+    "@polkadot/util": 12.3.2
     "@substrate/ss58-registry": ^1.40.0
     tslib: ^2.5.3
-  checksum: 734ea213dc3fc8f15f9cb7da375f9cdac447b29e1f446cab557f23f8553e188da5f2ca0de61fd48fe629cd6b57c2f6b80462091914539ca46f656ec49f61b678
+  checksum: 54d5aa2a90b761a200bf0cf492f1c53cbbd555067f9486542997097640b0813e46675837e83225cee8ab4e816bcae12cdc046f07b5869930ab1e694b1e6e3cec
   languageName: node
   linkType: hard
 
@@ -17458,15 +17458,6 @@ __metadata:
     jest-message-util: ^29.3.1
     jest-util: ^29.3.1
   checksum: e9588c2a430b558b9a3dc72d4ad05f36b047cb477bc6a7bb9cfeef7614fe7e5edbab424c2c0ce82739ee21ecbbbd24596259528209f84cd72500cc612d910d30
-  languageName: node
-  linkType: hard
-
-"expo-application@npm:^5.1.1":
-  version: 5.2.0
-  resolution: "expo-application@npm:5.2.0"
-  peerDependencies:
-    expo: "*"
-  checksum: c3b905a591949a26e825727217cc3916dfd121a9ac902d3e6ba3b85f3a1d775ab1197f9b68b367861897db27b14dc6548692fd590fefa35607b25d1a6a172892
   languageName: node
   linkType: hard
 
