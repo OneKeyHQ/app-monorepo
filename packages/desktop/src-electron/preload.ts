@@ -46,7 +46,7 @@ export type DesktopAPI = {
   focus: () => void;
   openPrefs: (prefType: PrefType) => void;
   toggleMaximizeWindow: () => void;
-  onAppState: (cb: (state: 'active' | 'background') => void) => () => void;
+  onAppState: (cb: (state: 'active' | 'background' | 'blur') => void) => () => void;
   canPromptTouchID: () => boolean;
   promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
   secureSetItemAsync: (key: string, value: string) => Promise<void>;
