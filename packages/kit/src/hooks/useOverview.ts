@@ -75,5 +75,6 @@ export const useAllNetworkAccountValue = ({
   if (typeof accountIndex === 'undefined') {
     return undefined;
   }
+  // TODO: real account values
   return '0';
 };
