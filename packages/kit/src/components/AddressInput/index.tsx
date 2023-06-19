@@ -29,6 +29,7 @@ type AddressInputProps = ComponentProps<typeof Textarea> & {
   onChange?: (address: string) => void;
   onChangeAddressName?: (address: string) => void;
   plugins?: AddressInputPlugin[];
+  contactExcludeWalletAccount?: boolean;
 };
 
 const AddressInput: FC<AddressInputProps> = ({
@@ -37,6 +38,7 @@ const AddressInput: FC<AddressInputProps> = ({
   onChangeAddressName,
   plugins = ['paste', 'scan'],
   networkId,
+  contactExcludeWalletAccount,
   ...rest
 }) => {
   const intl = useIntl();
@@ -83,6 +85,7 @@ const AddressInput: FC<AddressInputProps> = ({
         screen: AddressBookRoutes.PickAddressRoute,
         params: {
           networkId,
+          contactExcludeWalletAccount,
           onSelected: ({ address, name }) => {
             onChangeValue?.(address, false);
             if (name) {
@@ -92,7 +95,13 @@ const AddressInput: FC<AddressInputProps> = ({
         },
       },
     });
-  }, [navigation, onChangeValue, networkId, onChangeAddressName]);
+  }, [
+    navigation,
+    onChangeValue,
+    networkId,
+    onChangeAddressName,
+    contactExcludeWalletAccount,
+  ]);
 
   const onBlur = useCallback(() => {
     setFocus(false);

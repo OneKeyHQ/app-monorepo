@@ -264,6 +264,7 @@ const MyWallet = () => {
 
 const PickAddress = () => {
   const intl = useIntl();
+  const route = useRoute<RouteProps>();
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const navigation = useNavigation<NavigationProps>();
   const onPrimaryPress = useCallback(() => {
@@ -287,14 +288,16 @@ const PickAddress = () => {
       staticChildrenProps={{ flex: 1, py: 6 }}
     >
       <Box mb="6" px={{ base: 4, md: 6 }}>
-        <SegmentedControl
-          values={[
-            intl.formatMessage({ id: 'title__address_book' }),
-            intl.formatMessage({ id: 'form__my_wallet' }),
-          ]}
-          selectedIndex={selectedIndex}
-          onChange={setSelectedIndex}
-        />
+        {!route.params?.contactExcludeWalletAccount ? (
+          <SegmentedControl
+            values={[
+              intl.formatMessage({ id: 'title__address_book' }),
+              intl.formatMessage({ id: 'form__my_wallet' }),
+            ]}
+            selectedIndex={selectedIndex}
+            onChange={setSelectedIndex}
+          />
+        ) : null}
       </Box>
       <Box flex="1">{selectedIndex === 0 ? addressbook : wallet}</Box>
     </Modal>
