@@ -377,8 +377,15 @@ export default class Vault extends VaultBase {
     return Promise.reject(new InvalidAddress());
   }
 
-  override async validateTokenAddress(address: string): Promise<string> {
-    return this.validateAddress(address);
+  override validateTokenAddress(address: string): Promise<string> {
+    try {
+      // eslint-disable-next-line no-new
+      new PublicKey(address);
+      return Promise.resolve(address);
+    } catch {
+      // pass
+    }
+    return Promise.reject(new InvalidAddress());
   }
 
   override validateImportedCredential(input: string): Promise<boolean> {
@@ -497,6 +504,9 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTx> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { from, to, amount, token: tokenAddress, sendAddress } = transferInfo;
     const network = await this.getNetwork();
     const client = await this.getClient();

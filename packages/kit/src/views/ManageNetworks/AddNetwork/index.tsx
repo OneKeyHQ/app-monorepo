@@ -404,6 +404,7 @@ export const AddNetwork: FC<NetworkAddViewProps> = () => {
                     mt={6}
                     type="outline"
                     onPress={onShowRemoveModal}
+                    shadow={undefined}
                   >
                     {intl.formatMessage({ id: 'action__remove' })}
                   </IconButton>

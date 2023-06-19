@@ -49,8 +49,7 @@
   },
   "scripts": {
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
-    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
-    "clean": "rimraf node_modules"
+    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
   "devDependencies": {
     "@react-navigation/devtools": "^6.0.18",
