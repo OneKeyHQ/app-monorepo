@@ -420,6 +420,9 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxAlgo> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { from, to, amount, token: assetId } = transferInfo;
 
     const token = await this.engine.ensureTokenInDB(

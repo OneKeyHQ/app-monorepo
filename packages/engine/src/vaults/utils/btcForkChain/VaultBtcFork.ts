@@ -451,6 +451,9 @@ export default class VaultBtcFork extends VaultBase {
     transferInfo: ITransferInfo,
     specifiedFeeRate?: string,
   ): Promise<IEncodedTxBtc> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { to, amount } = transferInfo;
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
