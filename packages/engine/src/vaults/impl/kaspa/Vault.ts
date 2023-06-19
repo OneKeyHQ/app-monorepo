@@ -133,6 +133,9 @@ export default class Vault extends VaultBase {
     transferInfo: ITransferInfo,
     specifiedFeeLimit?: string,
   ): Promise<IEncodedTxKaspa> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { to, amount, token: tokenAddress } = transferInfo;
     if (tokenAddress)
       throw new OneKeyInternalError('Kaspa does not support token transfer');
