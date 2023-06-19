@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/engine/src/managers/token';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import {
   setIsPasswordLoadedInVault,
   setTools,
@@ -74,6 +75,7 @@ export default class ServiceToken extends ServiceBase {
         });
       });
     }
+    this.fetchAccountTokens();
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -83,9 +85,17 @@ export default class ServiceToken extends ServiceBase {
     if (this.interval) {
       return;
     }
+    const { appSelector } = this.backgroundApi;
+    const { activeWalletId } = appSelector((s) => s.general);
+    const duration =
+      activeWalletId === WALLET_TYPE_WATCHING
+        ? getTimeDurationMs({ minute: 1 })
+        : getTimeDurationMs({
+            seconds: 15,
+          });
     this.interval = setInterval(() => {
       this.fetchAccountTokens({ includeTop50TokensQuery: false });
-    }, getTimeDurationMs({ seconds: 15 }));
+    }, duration);
 
     debugLogger.common.info(`startRefreshAccountTokens`);
   }
