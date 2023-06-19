@@ -487,10 +487,15 @@ export default class VaultBtcFork extends VaultBase {
       );
     }
 
-    const max = allUtxosWithoutFrozen
+    const allUtxoAmount = allUtxosWithoutFrozen
       .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
-      .shiftedBy(-network.decimals)
-      .lte(amount);
+      .shiftedBy(-network.decimals);
+
+    if (allUtxoAmount.lt(amount)) {
+      throw new InsufficientBalance();
+    }
+
+    const max = allUtxoAmount.lte(amount);
 
     const inputsForCoinSelect = utxos.map(
       ({ txid, vout, value, address, path }) => ({
@@ -503,7 +508,7 @@ export default class VaultBtcFork extends VaultBase {
     );
     const outputsForCoinSelect = [
       max
-        ? { address: to }
+        ? { address: to, isMax: true }
         : {
             address: to,
             value: parseInt(
@@ -534,16 +539,21 @@ export default class VaultBtcFork extends VaultBase {
         txid: txId,
         value: value.toString(),
       })),
-      outputs: outputs.map(({ value, address }) => ({
-        address: address || dbAccount.address, // change amount
-        value: value.toString(),
-        payload: address
-          ? undefined
-          : {
-              isCharge: true,
-              bip44Path: getBIP44Path(dbAccount, dbAccount.address),
-            },
-      })),
+      outputs: outputs.map(({ value, address }) => {
+        if (!address && !dbAccount.address) {
+          throw new Error('Invalid change address');
+        }
+        return {
+          address: address || dbAccount.address, // change amount
+          value: value.toString(),
+          payload: address
+            ? undefined
+            : {
+                isCharge: true,
+                bip44Path: getBIP44Path(dbAccount, dbAccount.address),
+              },
+        };
+      }),
       totalFee,
       totalFeeInNative,
       transferInfo,
