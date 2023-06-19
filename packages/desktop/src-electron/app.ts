@@ -370,6 +370,7 @@ function createMainWindow() {
   });
 
   browserWindow.on('blur', () => {
+    browserWindow.webContents.send('appState', 'blur');
     unregisterShortcuts();
   });
 
