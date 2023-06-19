@@ -114,7 +114,7 @@ const IMPLS: { [key: string]: any } = {
   eth: require('./chains/eth'),
   near: mockProvider,
   sol: mockProvider,
-  stc: require('./chains/stc'),
+  stc: mockProvider,
   btc: mockProvider,
   tbtc: mockProvider,
   bch: mockProvider,

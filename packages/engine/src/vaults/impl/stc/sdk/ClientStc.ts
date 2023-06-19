@@ -5,14 +5,14 @@ import BigNumber from 'bignumber.js';
 import { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
-import { TransactionStatus } from '../../../types/provider';
+import { TransactionStatus } from '../../../../types/provider';
 
-import type { CoinInfo } from '../../../types/chain';
+import type { CoinInfo } from '../../../../types/chain';
 import type {
   AddressInfo,
   ClientInfo,
   FeePricePerUnit,
-} from '../../../types/provider';
+} from '../../../../types/provider';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 type estimateResult = {
@@ -21,6 +21,14 @@ type estimateResult = {
 };
 
 const DEFAULT_GAS_LIMIT = 127845;
+
+export {
+  encoding,
+  starcoin_types as StarcoinTypes,
+  utils,
+  bcs,
+  crypto_hash as CryptoHash,
+} from '@starcoin/starcoin';
 
 export class ClientStc extends BaseClient {
   readonly rpc: JsonRPCRequest;
