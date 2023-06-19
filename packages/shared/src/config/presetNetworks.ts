@@ -328,28 +328,10 @@ export const serverPresetNetworks = [
     ],
     'explorers': [
       {
-        'address': 'https://btc.com/{address}',
-        'block': 'https://btc.com/{block}',
-        'name': 'https://btc.com/',
-        'transaction': 'https://btc.com/{transaction}',
-      },
-      {
-        'address': 'https://explorer.poolin.com/address/{address}',
-        'block': 'https://explorer.poolin.com/block/{block}',
-        'name': 'https://explorer.poolin.com/',
-        'transaction': 'https://explorer.poolin.com/tx/{transaction}',
-      },
-      {
-        'address': 'https://blockchain.com/btc/address/{address}',
-        'block': 'https://blockchain.com/btc/block/{block}',
-        'name': 'https://blockchain.com/btc/',
-        'transaction': 'https://blockchain.com/btc/tx/{transaction}',
-      },
-      {
-        'address': 'https://www.oklink.com/btc/address/{address}',
-        'block': 'https://www.oklink.com/btc/block/{block}',
-        'name': 'https://www.oklink.com/btc/',
-        'transaction': 'https://www.oklink.com/btc/tx/{transaction}',
+        'address': 'https://mempool.space/address/{address}',
+        'block': 'https://mempool.space/block/{block}',
+        'name': 'https://mempool.space/',
+        'transaction': 'https://mempool.space/tx/{transaction}',
       },
     ],
     'status': 'LISTED',
@@ -3600,25 +3582,10 @@ export const serverPresetNetworks = [
     'priceConfigs': [],
     'explorers': [
       {
-        'address': 'https://live.blockcypher.com/btc-testnet/address/{address}',
-        'block': 'https://live.blockcypher.com/btc-testnet/block/{block}',
-        'name': 'https://live.blockcypher.com/btc-testnet/',
-        'transaction':
-          'https://live.blockcypher.com/btc-testnet/tx/{transaction}',
-      },
-      {
-        'address': 'https://www.blockchain.com/btc-testnet/address/{address}',
-        'block': 'https://www.blockchain.com/btc-testnet/block/{block}',
-        'name': 'https://www.blockchain.com/btc-testnet/',
-        'transaction':
-          'https://www.blockchain.com/btc-testnet/tx/{transaction}',
-      },
-      {
-        'address': 'https://bitpay.com/insight/#/BTC/testnet/address/{address}',
-        'block': 'https://bitpay.com/insight/#/BTC/testnet/block/{block}',
-        'name': 'https://bitpay.com/insight/#/BTC/testnet/',
-        'transaction':
-          'https://bitpay.com/insight/#/BTC/testnet/tx/{transaction}',
+        'address': 'https://mempool.space/testnet/address/{address}',
+        'block': 'https://mempool.space/testnet/block/{block}',
+        'name': 'https://mempool.space/testnet/',
+        'transaction': 'https://mempool.space/testnet/tx/{transaction}',
       },
     ],
     'status': 'LISTED',
