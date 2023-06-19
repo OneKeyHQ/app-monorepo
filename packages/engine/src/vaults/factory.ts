@@ -14,6 +14,7 @@ import {
   IMPL_KASPA,
   IMPL_LTC,
   IMPL_NEAR,
+  IMPL_NEXA,
   IMPL_SOL,
   IMPL_STC,
   IMPL_SUI,
@@ -46,6 +47,7 @@ import VaultHelperFil from './impl/fil/VaultHelper';
 import VaultHelperKaspa from './impl/kaspa/VaultHelper';
 import VaultHelperLtc from './impl/ltc/VaultHelper';
 import VaultHelperNear from './impl/near/VaultHelper';
+import VaultHelperNexa from './impl/nexa/VaultHelper';
 import VauleHelperSol from './impl/sol/VaultHelper';
 import VaultHelperStc from './impl/stc/VaultHelper';
 import VaultHelperSui from './impl/sui/VaultHelper';
@@ -126,6 +128,10 @@ export async function createVaultHelperInstance(
   if (impl === IMPL_KASPA) {
     return new VaultHelperKaspa(options);
   }
+  if (impl === IMPL_NEXA) {
+    return new VaultHelperNexa(options);
+  }
+
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
   );
@@ -250,6 +256,10 @@ export async function createVaultInstance(options: IVaultOptions) {
   if (network.impl === IMPL_KASPA) {
     const VaultKaspa = (await import('./impl/kaspa/Vault')).default;
     vault = new VaultKaspa(options);
+  }
+  if (network.impl === IMPL_NEXA) {
+    const VaultNexa = (await import('./impl/nexa/Vault')).default;
+    vault = new VaultNexa(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

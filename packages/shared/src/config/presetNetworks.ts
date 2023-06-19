@@ -3853,6 +3853,43 @@ export const serverPresetNetworks = [
     'createdAt': '2023-06-14T00:29:24.951Z',
     'updatedAt': '2023-06-14T00:29:24.951Z',
   },
+  {
+    'balance2FeeDecimals': 0,
+    'chainId': 'mainnet',
+    'code': 'nexa',
+    'decimals': 8,
+    'id': 'nexa--mainnet',
+    'impl': 'nexa',
+    'isTestnet': true,
+    'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+    'name': 'Nexa Testnet',
+    'rpcURLs': [
+      {
+        'url': 'wss://testnet-explorer.nexa.org:30004',
+      },
+    ],
+    'shortcode': 'nexatest',
+    'shortname': 'NexaTest',
+    'symbol': 'nexa',
+    'feeMeta': {
+      'code': 'nexa',
+      'decimals': 8,
+      'symbol': 'nexa',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://pre-alpha.opside.info/address/{address}',
+        'block': 'https://pre-alpha.opside.info/block/{block}',
+        'name': 'https://pre-alpha.opside.info/',
+        'transaction': 'https://pre-alpha.opside.info/tx/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2023-06-19T00:29:24.951Z',
+    'updatedAt': '2023-06-19T00:29:24.951Z',
+  },
 ] as unknown as IServerNetwork[];
 
 export const OnekeyNetworkUpdatedAt = 1685492989977;

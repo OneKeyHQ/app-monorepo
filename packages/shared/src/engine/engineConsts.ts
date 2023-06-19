@@ -69,6 +69,9 @@ const COINTYPE_XMR = '128';
 const IMPL_KASPA = 'kaspa';
 const COINTYPE_KASPA = '111111';
 
+const IMPL_NEXA = 'nexa';
+const COINTYPE_NEXA = '29223';
+
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
   IMPL_NEAR,
@@ -91,6 +94,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_DOT,
   IMPL_XMR,
   IMPL_KASPA,
+  IMPL_NEXA,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -190,6 +194,8 @@ export {
   COINTYPE_XMR,
   IMPL_KASPA,
   COINTYPE_KASPA,
+  IMPL_NEXA,
+  COINTYPE_NEXA,
   getSupportedImpls,
 };
 
