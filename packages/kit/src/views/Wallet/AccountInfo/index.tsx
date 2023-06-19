@@ -13,6 +13,7 @@ import {
   Pressable,
   Skeleton,
   Text,
+  ToastManager,
   Tooltip,
   Typography,
   useIsVerticalLayout,
@@ -33,6 +34,7 @@ import {
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import type { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountValues, useNavigationActions } from '../../../hooks';
@@ -194,10 +196,24 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   }, [navigation]);
 
   const onSwap = useCallback(async () => {
-    const token = await backgroundApiProxy.engine.getNativeTokenInfo(
+    let token = await backgroundApiProxy.engine.getNativeTokenInfo(
       network?.id ?? '',
     );
     if (token) {
+      const supported = await backgroundApiProxy.serviceSwap.tokenIsSupported(
+        token,
+      );
+      if (!supported) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage({ id: 'msg__wrong_network_desc' }),
+          },
+          { type: 'default' },
+        );
+        token = await backgroundApiProxy.engine.getNativeTokenInfo(
+          OnekeyNetwork.eth,
+        );
+      }
       backgroundApiProxy.serviceSwap.sellToken(token);
       if (account) {
         backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
@@ -212,7 +228,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
       }
     }
     navigation.getParent()?.navigate(TabRoutes.Swap);
-  }, [network, account, navigation]);
+  }, [network, account, navigation, intl]);
 
   return (
     <Box flexDirection="row" px={isVertical ? 1 : 0} mx={-3}>

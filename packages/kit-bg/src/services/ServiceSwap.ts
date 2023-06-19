@@ -729,6 +729,16 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async tokenIsSupported(token: Token) {
+    const { appSelector } = this.backgroundApi;
+    const tokenList = appSelector((s) => s.swapTransactions.tokenList);
+    const networkIds = (tokenList ?? [])
+      ?.map((o) => o.networkId)
+      .filter((networkId) => networkId !== 'All');
+    return networkIds.includes(token.networkId);
+  }
+
+  @backgroundMethod()
   async buyToken(token: Token) {
     const { engine, appSelector, dispatch } = this.backgroundApi;
     const mode = appSelector((s) => s.swap.mode);

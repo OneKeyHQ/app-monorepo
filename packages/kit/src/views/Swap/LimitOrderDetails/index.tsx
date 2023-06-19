@@ -27,7 +27,7 @@ import {
   useCancelLimitOrderCallback,
 } from '../hooks/useLimitOrder';
 import {
-  formatAmount,
+  formatAmountExact,
   getLimitOrderPercent,
   getTokenAmountValue,
 } from '../utils';
@@ -47,10 +47,10 @@ type InputOuputProps = {
 
 const InputOuput: FC<InputOuputProps> = ({ limitOrder }: InputOuputProps) => {
   const { network } = useNetwork({ networkId: limitOrder.networkId });
-  const tokenInValueString = formatAmount(
+  const tokenInValueString = formatAmountExact(
     getTokenAmountValue(limitOrder.tokenIn, limitOrder.tokenInValue),
   );
-  const tokenOutValueString = formatAmount(
+  const tokenOutValueString = formatAmountExact(
     getTokenAmountValue(limitOrder.tokenOut, limitOrder.tokenOutValue),
   );
   return (
