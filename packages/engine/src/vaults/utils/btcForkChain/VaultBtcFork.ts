@@ -348,16 +348,21 @@ export default class VaultBtcFork extends VaultBase {
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxBtc> {
     const network = await this.engine.getNetwork(this.networkId);
-    const feeRate = params.feeInfoValue.feeRate
-      ? new BigNumber(params.feeInfoValue.feeRate)
+    const { encodedTx, feeInfoValue } = params;
+    const feeRate = feeInfoValue.feeRate
+      ? new BigNumber(feeInfoValue.feeRate)
           .shiftedBy(-network.feeDecimals)
           .toFixed()
-      : params.feeInfoValue.price;
+      : feeInfoValue.price;
+
     if (typeof feeRate === 'string') {
-      return this.buildEncodedTxFromTransfer(
-        params.encodedTx.transferInfo,
-        feeRate,
-      );
+      if (encodedTx.transferInfos) {
+        return this.buildEncodedTxFromBatchTransfer({
+          transferInfos: encodedTx.transferInfos,
+          specifiedFeeRate: feeRate,
+        });
+      }
+      return this.buildEncodedTxFromTransfer(encodedTx.transferInfo, feeRate);
     }
     return Promise.resolve(params.encodedTx);
   }
@@ -396,18 +401,19 @@ export default class VaultBtcFork extends VaultBase {
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const token = await this.engine.getNativeTokenInfo(this.networkId);
-    const nativeTransfer: IDecodedTxActionNativeTransfer = {
-      tokenInfo: token,
-      utxoFrom: inputs.map((input) => ({
-        address: input.address,
-        balance: new BigNumber(input.value)
-          .shiftedBy(-network.decimals)
-          .toFixed(),
-        balanceValue: input.value,
-        symbol: network.symbol,
-        isMine: true,
-      })),
-      utxoTo: outputs.map((output) => ({
+
+    const utxoFrom = inputs.map((input) => ({
+      address: input.address,
+      balance: new BigNumber(input.value)
+        .shiftedBy(-network.decimals)
+        .toFixed(),
+      balanceValue: input.value,
+      symbol: network.symbol,
+      isMine: true,
+    }));
+    const utxoTo = outputs
+      .filter((output) => !output.payload?.isCharge)
+      .map((output) => ({
         address: output.address,
         balance: new BigNumber(output.value)
           .shiftedBy(-network.decimals)
@@ -415,30 +421,32 @@ export default class VaultBtcFork extends VaultBase {
         balanceValue: output.value,
         symbol: network.symbol,
         isMine: output.address === dbAccount.address,
-      })),
-      from: dbAccount.address,
-      to: outputs[0].address,
-      amount: new BigNumber(outputs[0].value)
-        .shiftedBy(-network.decimals)
-        .toFixed(),
-      amountValue: outputs[0].value,
-      extraInfo: null,
-    };
+      }));
+
+    const actions = utxoTo.map((utxo) => ({
+      type: IDecodedTxActionType.NATIVE_TRANSFER,
+      direction:
+        outputs[0].address === dbAccount.address
+          ? IDecodedTxDirection.OUT
+          : IDecodedTxDirection.SELF,
+      utxoFrom,
+      utxoTo,
+      nativeTransfer: {
+        tokenInfo: token,
+        from: dbAccount.address,
+        to: utxo.address,
+        amount: utxo.balance,
+        amountValue: utxo.balanceValue,
+        extraInfo: null,
+      },
+    }));
+
     return {
       txid: '',
       owner: dbAccount.address,
       signer: dbAccount.address,
       nonce: 0,
-      actions: [
-        {
-          type: IDecodedTxActionType.NATIVE_TRANSFER,
-          direction:
-            outputs[0].address === dbAccount.address
-              ? IDecodedTxDirection.OUT
-              : IDecodedTxDirection.SELF,
-          nativeTransfer,
-        },
-      ],
+      actions,
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -454,72 +462,20 @@ export default class VaultBtcFork extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('Invalid transferInfo.to params');
     }
-    const { to, amount } = transferInfo;
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    let utxos = await this.collectUTXOs();
 
-    // Select the slowest fee rate as default, otherwise the UTXO selection
-    // would be failed.
-    // SpecifiedFeeRate is from UI layer and is in BTC/byte, convert it to sats/byte
-    const feeRate =
-      typeof specifiedFeeRate !== 'undefined'
-        ? new BigNumber(specifiedFeeRate)
-            .shiftedBy(network.feeDecimals)
-            .toFixed()
-        : (await this.getFeeRate())[1];
-
-    // Coin Control
-    const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub, utxos);
-    const allUtxosWithoutFrozen = utxos.filter(
-      (utxo) =>
-        frozenUtxos.findIndex(
-          (frozenUtxo) => frozenUtxo.id === getUtxoId(this.networkId, utxo),
-        ) < 0,
-    );
-    utxos = allUtxosWithoutFrozen;
-    if (
-      Array.isArray(transferInfo.selectedUtxos) &&
-      transferInfo.selectedUtxos.length
-    ) {
-      utxos = utxos.filter((utxo) =>
-        (transferInfo.selectedUtxos ?? []).includes(getUtxoUniqueKey(utxo)),
-      );
-    }
-
-    const max = allUtxosWithoutFrozen
-      .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
-      .shiftedBy(-network.decimals)
-      .lte(amount);
-
-    const inputsForCoinSelect = utxos.map(
-      ({ txid, vout, value, address, path }) => ({
-        txId: txid,
-        vout,
-        value: parseInt(value),
-        address,
-        path,
-      }),
-    );
-    const outputsForCoinSelect = [
-      max
-        ? { address: to }
-        : {
-            address: to,
-            value: parseInt(
-              new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
-            ),
-          },
-    ];
     const {
       inputs,
       outputs,
       fee,
-    }: {
-      inputs: IUTXOInput[];
-      outputs: IUTXOOutput[];
-      fee: number;
-    } = coinSelect(inputsForCoinSelect, outputsForCoinSelect, feeRate);
+      inputsForCoinSelect,
+      outputsForCoinSelect,
+      feeRate,
+    } = await this.buildTransferParamsWithCoinSelector({
+      transferInfos: [transferInfo],
+      specifiedFeeRate,
+    });
 
     if (!inputs || !outputs) {
       throw new InsufficientBalance('Failed to select UTXOs');
@@ -547,6 +503,62 @@ export default class VaultBtcFork extends VaultBase {
       totalFee,
       totalFeeInNative,
       transferInfo,
+      feeRate,
+      inputsForCoinSelect,
+      outputsForCoinSelect,
+    };
+  }
+
+  override async buildEncodedTxFromBatchTransfer({
+    transferInfos,
+    specifiedFeeRate,
+  }: {
+    transferInfos: ITransferInfo[];
+    specifiedFeeRate?: string;
+  }): Promise<IEncodedTxBtc> {
+    const transferInfo = transferInfos[0];
+    const network = await this.engine.getNetwork(this.networkId);
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+
+    const {
+      inputs,
+      outputs,
+      fee,
+      inputsForCoinSelect,
+      outputsForCoinSelect,
+      feeRate,
+    } = await this.buildTransferParamsWithCoinSelector({
+      transferInfos,
+      specifiedFeeRate,
+    });
+
+    if (!inputs || !outputs) {
+      throw new InsufficientBalance('Failed to select UTXOs');
+    }
+    const totalFee = fee.toString();
+    const totalFeeInNative = new BigNumber(totalFee)
+      .shiftedBy(-1 * network.feeDecimals)
+      .toFixed();
+    return {
+      inputs: inputs.map(({ txId, value, ...keep }) => ({
+        ...keep,
+        txid: txId,
+        value: value.toString(),
+      })),
+      outputs: outputs.map(({ value, address }) => ({
+        address: address || dbAccount.address, // change amount
+        value: value.toString(),
+        payload: address
+          ? undefined
+          : {
+              isCharge: true,
+              bip44Path: getBIP44Path(dbAccount, dbAccount.address),
+            },
+      })),
+      totalFee,
+      totalFeeInNative,
+      transferInfo,
+      transferInfos,
       feeRate,
       inputsForCoinSelect,
       outputsForCoinSelect,
@@ -640,11 +652,13 @@ export default class VaultBtcFork extends VaultBase {
     );
     const feeList = prices.map(
       (price) =>
-        coinSelect(
-          encodedTx.inputsForCoinSelect,
-          encodedTx.outputsForCoinSelect,
-          new BigNumber(price).shiftedBy(network.feeDecimals).toFixed(),
-        ).fee,
+        coinSelect({
+          inputsForCoinSelect: encodedTx.inputsForCoinSelect,
+          outputsForCoinSelect: encodedTx.outputsForCoinSelect,
+          feeRate: new BigNumber(price)
+            .shiftedBy(network.feeDecimals)
+            .toFixed(),
+        }).fee,
     );
 
     return {
@@ -747,29 +761,50 @@ export default class VaultBtcFork extends VaultBase {
         const { direction, utxoFrom, utxoTo, from, to, amount, amountValue } =
           tx;
 
+        const utxoToWithoutMine = utxoTo?.filter((utxo) => !utxo.isMine);
+        const actions =
+          utxoToWithoutMine && utxoToWithoutMine.length
+            ? utxoToWithoutMine
+                .filter((utxo) => !utxo.isMine)
+                .map((utxo) => ({
+                  type: IDecodedTxActionType.NATIVE_TRANSFER,
+                  direction,
+                  nativeTransfer: {
+                    tokenInfo: token,
+                    utxoFrom,
+                    utxoTo,
+                    from,
+                    to: utxo.address,
+                    amount: utxo.balance,
+                    amountValue: utxo.balanceValue,
+                    extraInfo: null,
+                  },
+                }))
+            : [
+                {
+                  type: IDecodedTxActionType.NATIVE_TRANSFER,
+                  direction,
+                  nativeTransfer: {
+                    tokenInfo: token,
+                    utxoFrom,
+                    utxoTo,
+                    from,
+                    // For out transaction, use first address as to.
+                    // For in or self transaction, use first owned address as to.
+                    to,
+                    amount,
+                    amountValue,
+                    extraInfo: null,
+                  },
+                },
+              ];
+
         const decodedTx: IDecodedTx = {
           txid: tx.txid,
           owner: dbAccount.address,
           signer: dbAccount.address,
           nonce: 0,
-          actions: [
-            {
-              type: IDecodedTxActionType.NATIVE_TRANSFER,
-              direction,
-              nativeTransfer: {
-                tokenInfo: token,
-                utxoFrom,
-                utxoTo,
-                from,
-                // For out transaction, use first address as to.
-                // For in or self transaction, use first owned address as to.
-                to,
-                amount,
-                amountValue,
-                extraInfo: null,
-              },
-            },
-          ],
+          actions,
           status:
             (tx.confirmations ?? 0) > 0
               ? IDecodedTxStatus.Confirmed
@@ -964,6 +999,109 @@ export default class VaultBtcFork extends VaultBase {
     );
     const frozenUtxos = archivedUtxos.filter((utxo) => utxo.frozen);
     return frozenUtxos.concat(dustUtxos);
+  }
+
+  private async buildTransferParamsWithCoinSelector({
+    transferInfos,
+    specifiedFeeRate,
+  }: {
+    transferInfos: ITransferInfo[];
+    specifiedFeeRate?: string;
+  }) {
+    const isBatchTransfer = transferInfos.length > 1;
+    const network = await this.engine.getNetwork(this.networkId);
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    let utxos = await this.collectUTXOs();
+
+    // Select the slowest fee rate as default, otherwise the UTXO selection
+    // would be failed.
+    // SpecifiedFeeRate is from UI layer and is in BTC/byte, convert it to sats/byte
+    const feeRate =
+      typeof specifiedFeeRate !== 'undefined'
+        ? new BigNumber(specifiedFeeRate)
+            .shiftedBy(network.feeDecimals)
+            .toFixed()
+        : (await this.getFeeRate())[1];
+
+    // Coin Control
+    const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub, utxos);
+    const allUtxosWithoutFrozen = utxos.filter(
+      (utxo) =>
+        frozenUtxos.findIndex(
+          (frozenUtxo) => frozenUtxo.id === getUtxoId(this.networkId, utxo),
+        ) < 0,
+    );
+    utxos = allUtxosWithoutFrozen;
+
+    const allSelectedUtxos = transferInfos.reduce((acc: string[], info) => {
+      if (Array.isArray(info.selectedUtxos) && info.selectedUtxos.length) {
+        acc.push(...info.selectedUtxos);
+      }
+      return acc;
+    }, []);
+
+    if (Array.isArray(allSelectedUtxos) && allSelectedUtxos.length) {
+      utxos = utxos.filter((utxo) =>
+        (allSelectedUtxos ?? []).includes(getUtxoUniqueKey(utxo)),
+      );
+    }
+
+    const inputsForCoinSelect = utxos.map(
+      ({ txid, vout, value, address, path }) => ({
+        txId: txid,
+        vout,
+        value: parseInt(value),
+        address,
+        path,
+      }),
+    );
+
+    let outputsForCoinSelect = [];
+
+    if (isBatchTransfer) {
+      outputsForCoinSelect = transferInfos.map(({ to, amount }) => ({
+        address: to,
+        value: parseInt(
+          new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
+        ),
+      }));
+    } else {
+      const transferInfo = transferInfos[0];
+      const { to, amount } = transferInfo;
+      const max = allUtxosWithoutFrozen
+        .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
+        .shiftedBy(-network.decimals)
+        .lte(transferInfo.amount);
+      outputsForCoinSelect = [
+        max
+          ? { address: to }
+          : {
+              address: to,
+              value: parseInt(
+                new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
+              ),
+            },
+      ];
+    }
+
+    const {
+      inputs,
+      outputs,
+      fee,
+    }: {
+      inputs: IUTXOInput[];
+      outputs: IUTXOOutput[];
+      fee: number;
+    } = coinSelect({ inputsForCoinSelect, outputsForCoinSelect, feeRate });
+    debugger;
+    return {
+      inputs,
+      outputs,
+      fee,
+      inputsForCoinSelect,
+      outputsForCoinSelect,
+      feeRate,
+    };
   }
 
   override async getFrozenBalance(): Promise<number> {

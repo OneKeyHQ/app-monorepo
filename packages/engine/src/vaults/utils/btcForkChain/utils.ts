@@ -87,11 +87,15 @@ export function getTaprootXpub(xpubSegwit: string) {
   return xpubSegwit;
 }
 
-export const coinSelect = (
-  inputsForCoinSelect: IEncodedTxBtc['inputsForCoinSelect'],
-  outputsForCoinSelect: IEncodedTxBtc['outputsForCoinSelect'],
-  feeRate: string,
-) => {
+export const coinSelect = ({
+  inputsForCoinSelect,
+  outputsForCoinSelect,
+  feeRate,
+}: {
+  inputsForCoinSelect: IEncodedTxBtc['inputsForCoinSelect'];
+  outputsForCoinSelect: IEncodedTxBtc['outputsForCoinSelect'];
+  feeRate: string;
+}) => {
   const max = outputsForCoinSelect.every((i) => typeof i.value === 'undefined');
   const unspentSelectFn = max ? coinSelectSplit : coinSelectFn;
   const {
