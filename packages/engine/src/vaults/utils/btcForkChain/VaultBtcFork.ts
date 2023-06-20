@@ -540,11 +540,13 @@ export default class VaultBtcFork extends VaultBase {
         value: value.toString(),
       })),
       outputs: outputs.map(({ value, address }) => {
-        if (!address && !dbAccount.address) {
+        // If there is no address, it should be set to the change address.
+        const addressOrChangeAddress = address || dbAccount.address;
+        if (!addressOrChangeAddress) {
           throw new Error('Invalid change address');
         }
         return {
-          address: address || dbAccount.address, // change amount
+          address: addressOrChangeAddress,
           value: value.toString(),
           payload: address
             ? undefined

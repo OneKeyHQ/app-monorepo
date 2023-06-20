@@ -94,20 +94,21 @@ export const coinSelect = (
 ) => {
   const max = outputsForCoinSelect.some((o) => o.isMax);
 
-  if (!max) {
-    // valid amount
-    const validAmount = outputsForCoinSelect.every(
-      (o) => typeof o.value === 'number' && !Number.isNaN(o.value),
-    );
-    if (!validAmount) {
-      throw new Error('Invalid amount in outputs');
+  // valid amount
+  const validAmount = outputsForCoinSelect.every((o) => {
+    if (o.isMax) {
+      return typeof o.value === 'undefined';
     }
+    return typeof o.value === 'number' && !Number.isNaN(o.value);
+  });
+  if (!validAmount) {
+    throw new Error('Invalid amount in outputs');
   }
 
   // remove ixMax field
   const finalOutputs = outputsForCoinSelect.map((o) => ({
     address: o.address,
-    value: o.value,
+    value: o.isMax ? undefined : o.value,
   }));
   const unspentSelectFn = max ? coinSelectSplit : coinSelectFn;
   const {
