@@ -18,7 +18,9 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { IKeyringMapKey } from '../../VaultBase';
+import type BigNumber from 'bignumber.js';
 
+// eslint-disable-next-line
 const FakeClass = class {} as any;
 
 export default class Vault extends VaultBase {
@@ -114,6 +116,15 @@ export default class Vault extends VaultBase {
     password: string,
     credentialType: AccountCredentialType,
   ): Promise<string> {
+    throw new NotImplemented();
+  }
+
+  override async getAccountBalance(
+    tokenIds: Array<string>,
+    withMain = true,
+    password?: string,
+    passwordLoadedCallback?: (isLoaded: boolean) => void,
+  ): Promise<(BigNumber | undefined)[]> {
     throw new NotImplemented();
   }
 }

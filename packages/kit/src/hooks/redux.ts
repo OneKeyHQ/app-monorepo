@@ -2,7 +2,12 @@ import type { DependencyList } from 'react';
 import { useMemo } from 'react';
 
 import { ToastManager } from '@onekeyhq/components';
-import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
+import {
+  allNetworksAccountRegex,
+  generateFakeAllnetworksAccount,
+  isAccountCompatibleWithNetwork,
+} from '@onekeyhq/engine/src/managers/account';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -109,10 +114,20 @@ export type IActiveWalletAccount = {
 export const {
   use: useActiveWalletAccountOrigin,
   get: getActiveWalletAccount,
-} = makeSelector<IActiveWalletAccount>((selector) => {
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+} = makeSelector<IActiveWalletAccount>((selector, { useMemo }) => {
   const { activeAccountId, activeWalletId, activeNetworkId } = selector(
     (s) => s.general,
   );
+  const allNetworksAccountInfo = useMemo(() => {
+    if (!isAllNetworks(activeNetworkId)) {
+      return;
+    }
+    if (!allNetworksAccountRegex.test(activeAccountId ?? '')) {
+      return;
+    }
+    return generateFakeAllnetworksAccount({ accountId: activeAccountId });
+  }, [activeAccountId, activeNetworkId]);
 
   // TODO init runtime data from background
   const { wallets, networks, accounts } = selector((s) => s.runtime);
@@ -124,9 +139,20 @@ export const {
 
   const activeWallet =
     wallets.find((wallet) => wallet.id === activeWalletId) ?? null;
-  const activeAccountInfo = activeWallet
-    ? accounts.find((account) => account.id === activeAccountId) ?? null
-    : null;
+  const activeAccountInfo = useMemo(() => {
+    if (isAllNetworks(activeNetworkId)) {
+      return allNetworksAccountInfo;
+    }
+    return activeWallet
+      ? accounts.find((account) => account.id === activeAccountId) ?? null
+      : null;
+  }, [
+    activeAccountId,
+    activeNetworkId,
+    allNetworksAccountInfo,
+    accounts,
+    activeWallet,
+  ]);
   const activeNetwork =
     networks.find((network) => network.id === activeNetworkId) ?? null;
 

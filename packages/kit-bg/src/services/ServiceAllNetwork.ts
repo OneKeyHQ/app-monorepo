@@ -1,4 +1,6 @@
+import { generateFakeAllnetworksAccount } from '@onekeyhq/engine/src/managers/account';
 import { isWalletCompatibleAllNetworks } from '@onekeyhq/engine/src/managers/wallet';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import {
   backgroundClass,
   backgroundMethod,
@@ -60,11 +62,21 @@ export default class ServiceAllNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  getAllNetworkAccounts({
+  async getAllNetworksFakeAccounts({
     walletId,
-    accountIndex,
   }: {
     walletId: string;
-    accountIndex: number;
-  }) {}
+  }): Promise<Account[]> {
+    const index = await this.getAllNetworkAccountIndex({
+      walletId,
+    });
+    if (index === -1) {
+      return [];
+    }
+    return new Array(index + 1).fill(1).map((_, i) =>
+      generateFakeAllnetworksAccount({
+        accountId: `${walletId}--${i}`,
+      }),
+    );
+  }
 }

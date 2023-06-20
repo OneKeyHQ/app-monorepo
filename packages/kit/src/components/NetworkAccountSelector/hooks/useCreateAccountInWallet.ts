@@ -3,6 +3,7 @@ import { useCallback, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import type { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
@@ -22,7 +23,6 @@ import showDerivationPathBottomSheetModal from '../modals/NetworkAccountSelector
 
 import type { ModalScreenProps, RootRoutesParams } from '../../../routes/types';
 import type { IDerivationOption } from './useDerivationPath';
-import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 type NavigationProps = ModalScreenProps<RootRoutesParams>;
@@ -77,8 +77,7 @@ export function useCreateAccountInWallet({
       isCreateAccountSupported = false;
       showCreateAccountMenu = false;
       isAddressDerivationSupported = true;
-    }else {
-
+    } else {
       if (
         activeWallet?.type === 'external' &&
         vaultSettings?.externalAccountEnabled

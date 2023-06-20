@@ -1,3 +1,5 @@
+import { ok } from 'assert';
+
 import { isEmpty } from 'lodash';
 
 import {
@@ -16,9 +18,11 @@ import {
 } from '../types/wallet';
 
 import { isCoinTypeCompatibleWithImpl } from './impl';
-import { parseNetworkId } from './network';
+import { isAllNetworks, parseNetworkId } from './network';
 
 import type { Account } from '../types/account';
+
+export const allNetworksAccountRegex = /h[dw]-\d+--(\d+)/;
 
 function getCoinTypeFromAccountId(accountId: string): string {
   if (
@@ -65,6 +69,9 @@ function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
   if (!networkId || !accountId) {
     return false;
   }
+  if (isAllNetworks(networkId) && allNetworksAccountRegex.test(accountId)) {
+    return true;
+  }
   const coinType = getCoinTypeFromAccountId(accountId);
   const { impl } = parseNetworkId(networkId);
   if (!impl) {
@@ -82,9 +89,33 @@ function isAccountWithAddress(account: Account) {
   return !isEmpty(account.address);
 }
 
+function generateFakeAllnetworksAccount({
+  accountId,
+}: {
+  accountId?: string | null;
+}) {
+  const match = accountId?.match(allNetworksAccountRegex);
+
+  const index = Number.parseInt(match?.[1] ?? '');
+
+  ok(!Number.isNaN(index), 'invalid accountId');
+
+  return {
+    id: accountId,
+    index,
+    name: `Account #${index + 1}`,
+    type: AccountType.FAKE,
+    coinType: '',
+    path: '',
+    tokens: [],
+    address: `${index}`,
+  } as Account;
+}
+
 export {
   getWalletIdFromAccountId,
   getWalletTypeFromAccountId,
   isAccountCompatibleWithNetwork,
   isAccountWithAddress,
+  generateFakeAllnetworksAccount,
 };

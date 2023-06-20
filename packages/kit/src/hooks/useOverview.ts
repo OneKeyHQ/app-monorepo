@@ -8,7 +8,6 @@ import { useNFTPrice } from './useManegeTokenPrice';
 import { useAccountTokenValues, useCurrentFiatValue } from './useTokens';
 
 export type OverviewAssetType = 'defis' | 'tokens' | 'nfts';
-
 export const useAccountValues = (props: {
   networkId: string;
   accountId: string;
@@ -65,16 +64,4 @@ export const useAccountValues = (props: {
       value24h: new B(0),
     },
   );
-};
-
-export const useAllNetworkAccountValue = ({
-  accountIndex,
-}: {
-  accountIndex?: number;
-}): string | undefined => {
-  if (typeof accountIndex === 'undefined') {
-    return undefined;
-  }
-  // TODO: real account values
-  return '0';
 };

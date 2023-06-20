@@ -34,42 +34,25 @@ const AccountSelectorTrigger: FC<AccountSelectorTriggerProps> = ({
     (s) => s.general.activeExternalWalletName,
   );
 
-  const { accountIndex } = useAppSelector((s) => s.allNetworks);
-
   const intl = useIntl();
 
-  const allNetworkAccountInfo = useMemo(
+  const activeOption = useMemo(
     () => ({
-      label:
-        typeof accountIndex !== 'undefined'
-          ? `Account #${accountIndex + 1}`
-          : intl.formatMessage({ id: 'empty__no_account_title' }),
-      description: '',
-      value: accountIndex,
-    }),
-    [intl, accountIndex],
-  );
-
-  const activeOption = useMemo(() => {
-    if (isAllNetworks(networkId)) {
-      return allNetworkAccountInfo;
-    }
-    return {
       label:
         account?.name || intl.formatMessage({ id: 'empty__no_account_title' }),
       description:
         (account?.displayAddress || account?.address || '').slice(-4) || '',
       value: account?.id,
-    };
-  }, [
-    account?.displayAddress,
-    account?.address,
-    account?.id,
-    account?.name,
-    intl,
-    networkId,
-    allNetworkAccountInfo,
-  ]);
+    }),
+    [
+      account?.displayAddress,
+      account?.address,
+      account?.id,
+      account?.name,
+      intl,
+      networkId,
+    ],
+  );
   const isVertical = useIsVerticalLayout();
 
   const icon = useMemo(() => {

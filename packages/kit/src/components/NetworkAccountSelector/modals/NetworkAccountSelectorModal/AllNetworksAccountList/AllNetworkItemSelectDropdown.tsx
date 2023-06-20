@@ -41,10 +41,10 @@ const AccountItemMenu: FC<
 };
 
 function AllNetworksAccountItemSelectDropdown({
-  accountIndex,
+  accountId,
   walletId,
 }: {
-  accountIndex: number;
+  accountId: string;
   walletId: string;
 }) {
   const handleChange = useCallback((value: string) => {

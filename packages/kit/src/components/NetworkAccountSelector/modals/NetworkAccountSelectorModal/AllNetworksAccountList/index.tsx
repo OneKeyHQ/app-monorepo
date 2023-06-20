@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Empty, List, useSafeAreaInsets } from '@onekeyhq/components';
 
-import { useAppSelector, useDebounce } from '../../../../../hooks';
+import { useActiveWalletAccount, useDebounce } from '../../../../../hooks';
 import { useAllNetworksAccountsData } from '../../../hooks/useAccountSelectorSectionData';
 
 import AllNetworksListItem from './AllNetworksListItem';
@@ -23,12 +23,12 @@ function AllNetwroksAccountList({
   const terms = useDebounce(searchValue, 500);
   const intl = useIntl();
 
-  const accountIndex = useAppSelector((s) => s.allNetworks.accountIndex);
-
   const { isOpenDelay } = accountSelectorInfo;
   const { data } = useAllNetworksAccountsData({
     accountSelectorInfo,
   });
+
+  const { accountId: activeAccountId } = useActiveWalletAccount();
 
   const dataSource = useMemo(
     () => data.filter((item) => item.name.toLowerCase().includes(terms)),
@@ -47,19 +47,20 @@ function AllNetwroksAccountList({
       initialNumToRender={20}
       m={0}
       data={dataSource}
-      keyExtractor={(item) => item.name}
+      keyExtractor={(item) => item.id}
       renderItem={({
         item,
       }: {
         item: {
+          id: string;
           name: string;
           index: number;
         };
       }) => (
         <AllNetworksListItem
           label={item.name}
-          isActive={item.index === accountIndex}
-          accountIndex={item.index}
+          isActive={item.id === activeAccountId}
+          accountId={item.id}
           networkId={accountSelectorInfo.selectedNetworkId ?? ''}
           walletId={accountSelectorInfo.selectedWalletId ?? ''}
         />

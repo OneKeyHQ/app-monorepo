@@ -231,6 +231,17 @@ class ServiceOverview extends ServiceBase {
       data?: T;
     }>(`/overview/query/${scanType}`, body, {}, 'POST');
   }
+
+  @backgroundMethod()
+  async fetchAccountOverview({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    return Promise.resolve({ a: 1 });
+  }
 }
 
 export default ServiceOverview;

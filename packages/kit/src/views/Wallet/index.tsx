@@ -97,6 +97,13 @@ const WalletTabs: FC = () => {
     });
   }, []);
 
+  useEffect(() => {
+    backgroundApiProxy.serviceOverview.fetchAccountOverview({
+      networkId,
+      accountId,
+    });
+  }, [networkId, accountId]);
+
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
   const walletTabs = useMemo(

@@ -4,7 +4,8 @@ import * as React from 'react';
 
 import { Box, Pressable, Text } from '@onekeyhq/components';
 
-import { useAllNetworkAccountValue } from '../../../../../hooks';
+import { useAppSelector } from '../../../../../hooks';
+import { useAllNetworkAccountValue } from '../../../../../hooks/useAllNetwoks';
 import { useAccountSelectorChangeAccountOnPress } from '../../../hooks/useAccountSelectorChangeAccountOnPress';
 
 import { AllNetworksAccountItemSelectDropdown } from './AllNetworkItemSelectDropdown';
@@ -12,7 +13,7 @@ import { AllNetworksAccountItemSelectDropdown } from './AllNetworkItemSelectDrop
 type ListItemProps = {
   label?: string;
   isActive?: boolean;
-  accountIndex: number;
+  accountId: string;
   walletId: string;
   networkId: string;
 };
@@ -22,23 +23,27 @@ const defaultProps = {} as const;
 const AllNetworksListItem: FC<ListItemProps> = ({
   label,
   isActive,
-  accountIndex,
+  accountId,
   walletId,
   networkId,
 }) => {
-  const { onPressChangeAccountForAllNetwork } =
-    useAccountSelectorChangeAccountOnPress();
+  const accountSelectorMode = useAppSelector(
+    (s) => s.accountSelector.accountSelectorMode,
+  );
+
+  const { onPressChangeAccount } = useAccountSelectorChangeAccountOnPress();
 
   const value = useAllNetworkAccountValue({
-    accountIndex,
+    accountId,
   });
   return (
     <Pressable
       onPress={() => {
-        onPressChangeAccountForAllNetwork({
-          accountIndex,
+        onPressChangeAccount({
+          accountId,
           networkId,
           walletId,
+          accountSelectorMode,
         });
       }}
     >
@@ -70,7 +75,7 @@ const AllNetworksListItem: FC<ListItemProps> = ({
             </Box>
           </Box>
           <AllNetworksAccountItemSelectDropdown
-            accountIndex={accountIndex}
+            accountId={accountId}
             walletId={walletId}
           />
         </Box>

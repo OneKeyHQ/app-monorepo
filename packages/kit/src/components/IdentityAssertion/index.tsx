@@ -5,13 +5,11 @@ import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Button, Empty, ToastManager } from '@onekeyhq/components';
-import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { appSelector } from '../../store';
 import {
   NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
   useCreateAccountInWallet,
@@ -52,7 +50,6 @@ const IdentityAssertion: FC<{ checkCompatibleNetwork?: boolean }> = ({
     network,
     wallet,
   } = useActiveWalletAccount();
-  const accountIndex = appSelector((s) => s.allNetworks.accountIndex);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { createAccount, isCreateAccountSupported } = useCreateAccountInWallet({
     walletId,
@@ -60,10 +57,9 @@ const IdentityAssertion: FC<{ checkCompatibleNetwork?: boolean }> = ({
   });
 
   const hasNoWallet = !walletId;
-  const isAllNetworkMode =
-    isAllNetworks(networkId) && typeof accountIndex === 'number';
   const isAccountCompatibleNetwork =
-    !!accountId && (checkCompatibleNetwork ? !isCompatibleNetwork : true);
+    !!accountId && (checkCompatibleNetwork ? isCompatibleNetwork : true);
+
   if (hasNoWallet) {
     return (
       <Box
@@ -98,7 +94,7 @@ const IdentityAssertion: FC<{ checkCompatibleNetwork?: boolean }> = ({
       </Box>
     );
   }
-  if (!isAllNetworkMode && !isAccountCompatibleNetwork) {
+  if (!isAccountCompatibleNetwork) {
     return (
       <Box
         testID="IdentityAssertion-noAccount"

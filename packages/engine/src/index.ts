@@ -51,6 +51,7 @@ import {
   OneKeyInternalError,
 } from './errors';
 import {
+  generateFakeAllnetworksAccount,
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
   isAccountWithAddress,
@@ -79,6 +80,7 @@ import {
 import {
   fromDBNetworkToNetwork,
   getEVMNetworkToCreate,
+  isAllNetworks,
   parseNetworkId,
 } from './managers/network';
 import {
@@ -676,6 +678,9 @@ class Engine {
 
   @backgroundMethod()
   async getAccount(accountId: string, networkId: string): Promise<Account> {
+    if (isAllNetworks(networkId)) {
+      return generateFakeAllnetworksAccount({ accountId });
+    }
     // Get account by id. Raise an error if account doesn't exist.
     // Token ids are included.
     const vault = await this.getVault({ accountId, networkId });
