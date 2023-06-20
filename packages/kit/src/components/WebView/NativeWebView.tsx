@@ -13,6 +13,7 @@ import { WebView } from 'react-native-webview';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { openUrlExternal } from '../../utils/openUrl';
+import { checkGoogleOauthUrl } from '../../utils/uriUtils';
 
 import ErrorView from './ErrorView';
 
@@ -89,8 +90,7 @@ const NativeWebView = forwardRef(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, no-unsafe-optional-chaining
       const { url } = syntheticEvent?.nativeEvent;
       try {
-        const uri = new URL(url);
-        if (uri?.origin === 'https://accounts.google.com') {
+        if (checkGoogleOauthUrl({ url })) {
           openUrlExternal(url);
           webviewRef.current?.stopLoading();
         }

@@ -18,6 +18,7 @@ import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUti
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { checkGoogleOauthUrl } from '../../utils/uriUtils';
 
 import ErrorView from './ErrorView';
 
@@ -84,8 +85,7 @@ const DesktopWebView = forwardRef(
       try {
         const checkGoogleOauth = (checkUrl: string) => {
           try {
-            const checkUri = new URL(checkUrl);
-            if (checkUri?.origin === 'https://accounts.google.com') {
+            if (checkGoogleOauthUrl({ url: checkUrl })) {
               const originUA = electronWebView.getUserAgent();
               const updatedUserAgent = originUA.replace(
                 / Electron\/[\d.]+/,
