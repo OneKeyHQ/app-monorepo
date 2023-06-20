@@ -114,7 +114,7 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({ tx }) => {
               size="8"
             />
           </Box>
-          <Box>
+          <Box flex="1">
             <Typography.Body1Strong>
               {formatTokenAmount({
                 token: tx.tokens?.to.token,
