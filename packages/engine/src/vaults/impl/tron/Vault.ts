@@ -696,9 +696,11 @@ export default class Vault extends VaultBase {
     }
   }
 
-  override async buildEncodedTxFromBatchTransfer(
-    transferInfos: ITransferInfo[],
-  ): Promise<IEncodedTxTron> {
+  override async buildEncodedTxFromBatchTransfer({
+    transferInfos,
+  }: {
+    transferInfos: ITransferInfo[];
+  }): Promise<IEncodedTxTron> {
     const tronWeb = await this.getClient();
     const network = await this.getNetwork();
     const dbAccount = await this.getDbAccount();

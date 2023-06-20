@@ -78,6 +78,7 @@ export type IEncodedTxBtc = {
     value?: number;
   }[];
   transferInfo: ITransferInfo;
+  transferInfos?: ITransferInfo[];
 };
 
 export type UTXO = {
