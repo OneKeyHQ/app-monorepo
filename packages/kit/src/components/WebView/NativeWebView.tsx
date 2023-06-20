@@ -12,6 +12,8 @@ import { WebView } from 'react-native-webview';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import { openUrlExternal } from '../../utils/openUrl';
+
 import ErrorView from './ErrorView';
 
 import type { InpageProviderWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
@@ -83,6 +85,20 @@ const NativeWebView = forwardRef(
       return wrapper;
     });
 
+    const webViewOnLoadStart = useCallback((syntheticEvent) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, no-unsafe-optional-chaining
+      const { url } = syntheticEvent?.nativeEvent;
+      try {
+        const uri = new URL(url);
+        if (uri?.origin === 'https://accounts.google.com') {
+          openUrlExternal(url);
+          webviewRef.current?.stopLoading();
+        }
+      } catch (error) {
+        debugLogger.webview.error('onLoadStart', error);
+      }
+    }, []);
+
     return (
       <WebView
         style={styles.container}
@@ -104,6 +120,7 @@ const NativeWebView = forwardRef(
         mediaPlaybackRequiresUserAction
         source={{ uri: src }}
         onMessage={webviewOnMessage}
+        onLoadStart={webViewOnLoadStart}
         renderError={(
           errorDomain: string | undefined,
           errorCode: number,

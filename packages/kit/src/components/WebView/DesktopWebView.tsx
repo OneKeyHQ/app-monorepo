@@ -15,6 +15,7 @@ import { JsBridgeDesktopHost } from '@onekeyfe/onekey-cross-webview';
 import { Freeze } from 'react-freeze';
 
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
@@ -26,6 +27,12 @@ import type {
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { LoadURLOptions } from 'electron';
+
+interface IElectronWebViewExt extends IElectronWebView {
+  stop: () => void;
+  setUserAgent: (userAgent: string) => void;
+  getUserAgent: () => string;
+}
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -62,7 +69,7 @@ const DesktopWebView = forwardRef(
     ref: any,
   ) => {
     const [isWebviewReady, setIsWebviewReady] = useState(false);
-    const webviewRef = useRef<IElectronWebView | null>(null);
+    const webviewRef = useRef<IElectronWebViewExt | null>(null);
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
 
     const [desktopLoadError, setDesktopLoadError] = useState(false);
@@ -75,6 +82,22 @@ const DesktopWebView = forwardRef(
       }
 
       try {
+        const checkGoogleOauth = (checkUrl: string) => {
+          try {
+            const checkUri = new URL(checkUrl);
+            if (checkUri?.origin === 'https://accounts.google.com') {
+              const originUA = electronWebView.getUserAgent();
+              const updatedUserAgent = originUA.replace(
+                / Electron\/[\d.]+/,
+                '',
+              );
+              electronWebView.setUserAgent(updatedUserAgent);
+            }
+          } catch (e) {
+            debugLogger.webview.error('handleNavigation', e);
+          }
+        };
+
         const handleMessage = (event: any) => {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           if (event.errorCode !== -3) {
@@ -89,6 +112,7 @@ const DesktopWebView = forwardRef(
 
         const handleNavigation = ({
           isMainFrame,
+          url,
         }: {
           url: string;
           isInPlace: boolean;
@@ -97,6 +121,7 @@ const DesktopWebView = forwardRef(
           if (isMainFrame) {
             setDesktopLoadError(false);
           }
+          checkGoogleOauth(url);
         };
 
         electronWebView.addEventListener('did-fail-load', handleMessage);
@@ -105,6 +130,7 @@ const DesktopWebView = forwardRef(
           'did-start-navigation',
           handleNavigation,
         );
+
         return () => {
           electronWebView.removeEventListener('did-fail-load', handleMessage);
 
@@ -162,7 +188,7 @@ const DesktopWebView = forwardRef(
     });
 
     const initWebviewByRef = useCallback(($ref: any) => {
-      webviewRef.current = $ref as IElectronWebView;
+      webviewRef.current = $ref as IElectronWebViewExt;
       setIsWebviewReady(true);
     }, []);
 
