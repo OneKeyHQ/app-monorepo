@@ -27,9 +27,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokens, useActiveSideAccount } from '../../../hooks';
+import { useStatus } from '../../../hooks/redux';
 import { useAccountTokenLoading } from '../../../hooks/useTokens';
 import { useVisibilityFocused } from '../../../hooks/useVisibilityFocused';
 import { OverviewDefiThumbnal } from '../../Overview/Thumbnail';
+import { WalletHomeTabEnum } from '../type';
 
 import AssetsListHeader from './AssetsListHeader';
 import { EmptyListOfAccount } from './EmptyList';
@@ -73,6 +75,7 @@ function AssetsList({
   networkId,
   renderDefiList,
 }: IAssetsListProps) {
+  const { homeTabName, isUnlock } = useStatus();
   const isVerticalLayout = useIsVerticalLayout();
   const loading = useAccountTokenLoading(networkId, accountId);
   const accountTokensWithoutLimit = useAccountTokens(
@@ -135,24 +138,36 @@ function AssetsList({
     if (platformEnv.isExtensionUi) {
       chrome.runtime.connect();
     }
-  }, [networkId, accountId, startRefresh, stopRefresh]);
+  }, []);
 
   const isFocused = useVisibilityFocused();
 
+  const shouldRefreshBalances = useMemo(() => {
+    if (!isUnlock) {
+      return false;
+    }
+    if (!isFocused || !accountId || !networkId) {
+      return false;
+    }
+    if (homeTabName && homeTabName !== WalletHomeTabEnum.Tokens) {
+      return false;
+    }
+    return true;
+  }, [isFocused, accountId, networkId, homeTabName, isUnlock]);
+
   useEffect(() => {
-    if (isFocused) {
-      if (!accountId || !networkId) {
-        return;
-      }
-      backgroundApiProxy.serviceToken.fetchAccountTokens({
-        networkId,
-        accountId,
-      });
+    if (shouldRefreshBalances) {
       startRefresh();
     } else {
       stopRefresh();
     }
-  }, [isFocused, startRefresh, stopRefresh, accountId, networkId]);
+  }, [shouldRefreshBalances, startRefresh, stopRefresh]);
+
+  useEffect(() => {
+    if (isFocused && isUnlock) {
+      backgroundApiProxy.serviceToken.fetchAccountTokens();
+    }
+  }, [isFocused, isUnlock]);
 
   const onTokenCellPress = useCallback(
     (item: Token) => {
