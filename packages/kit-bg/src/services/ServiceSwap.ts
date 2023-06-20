@@ -470,7 +470,7 @@ export default class ServiceSwap extends ServiceBase {
     }
 
     const inactiveWallets = wallets.filter(
-      (wallet) => wallet.id !== activeAccountId,
+      (wallet) => wallet.id !== activeWalletId,
     );
     if (inactiveWallets.length === 0) {
       return;
