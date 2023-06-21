@@ -52,7 +52,7 @@ const WalletTabs: FC = () => {
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
   const { homeTabName } = useStatus();
-  const { wallet, account, network, accountId, networkId } =
+  const { wallet, account, network, accountId, networkId, walletId } =
     useActiveWalletAccount();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -101,8 +101,9 @@ const WalletTabs: FC = () => {
     backgroundApiProxy.serviceOverview.fetchAccountOverview({
       networkId,
       accountId,
+      walletId,
     });
-  }, [networkId, accountId]);
+  }, [networkId, accountId, walletId]);
 
   const timer = useRef<ReturnType<typeof setTimeout>>();
 

@@ -49,9 +49,9 @@ type NavigationProps = NativeStackNavigationProp<
 
 export type IAssetsListProps = Omit<FlatListProps, 'data' | 'renderItem'> & {
   onTokenPress?:
-    | null
-    | ((event: { token: SimplifiedToken }) => void)
-    | undefined;
+  | null
+  | ((event: { token: SimplifiedToken }) => void)
+  | undefined;
   singleton?: boolean;
   hidePriceInfo?: boolean;
   showRoundTop?: boolean;
@@ -133,7 +133,7 @@ function AssetsList({
 
   useEffect(() => {
     const { serviceOverview } = backgroundApiProxy;
-    serviceOverview.subscribe();
+    // serviceOverview.subscribe();
   }, [accountId, networkId]);
 
   useEffect(() => {
@@ -263,23 +263,23 @@ function AssetsList({
         loading
           ? null
           : ListHeaderComponent ?? (
-              <AssetsListHeader
-                innerHeaderBorderColor={
-                  flatStyle ? 'transparent' : 'border-subdued'
-                }
-                showTokenCount={limitSize !== undefined}
-                showOuterHeader={limitSize !== undefined}
-                showInnerHeader={accountTokens.length > 0}
-                showInnerHeaderRoundTop={!flatStyle}
-              />
-            )
+            <AssetsListHeader
+              innerHeaderBorderColor={
+                flatStyle ? 'transparent' : 'border-subdued'
+              }
+              showTokenCount={limitSize !== undefined}
+              showOuterHeader={limitSize !== undefined}
+              showInnerHeader={accountTokens.length > 0}
+              showInnerHeaderRoundTop={!flatStyle}
+            />
+          )
       }
       ItemSeparatorComponent={Divider}
       ListEmptyComponent={
         loading
           ? AssetsListSkeleton
           : // eslint-disable-next-line react/no-unstable-nested-components
-            () => <EmptyListOfAccount network={network} accountId={accountId} />
+          () => <EmptyListOfAccount network={network} accountId={accountId} />
       }
       ListFooterComponent={footer}
       keyExtractor={(_item: SimplifiedToken) =>

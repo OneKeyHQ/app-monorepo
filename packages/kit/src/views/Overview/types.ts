@@ -11,7 +11,7 @@ export interface IBaseOverviewErrorInfo {
 
 export interface IOverviewScanTaskInfo
   extends IBaseOverviewQuery,
-    IBaseOverviewErrorInfo {
+  IBaseOverviewErrorInfo {
   scanTypes?: IOverviewScanTaskType[]; // defaults to ['token']
   id?: string;
   status?: 'pending' | 'processing' | 'done';
@@ -25,7 +25,7 @@ export interface IOverviewScanTaskInfo
 
 export type IOverviewScanTaskItem = Pick<
   IOverviewScanTaskInfo,
-  'networkId' | 'address' | 'scanTypes'
+  'networkId' | 'address' | 'scanTypes' | 'xpub'
 >;
 
 export type EOverviewServiceNames = string;
@@ -133,7 +133,7 @@ export enum OverviewDeFiPoolType {
 
 export interface IOverviewDeFiPortfolioItem
   extends IBaseOverviewQuery,
-    IOverviewDeFiProtocolInfo {
+  IOverviewDeFiProtocolInfo {
   // TODO rename serviceCode
   buildByService: EOverviewServiceNames;
 
@@ -173,7 +173,7 @@ export interface IOverviewDeFiPortfolioItem
 }
 export interface IOverviewDeFiPortfolio
   extends IBaseOverviewQuery,
-    IBaseOverviewErrorInfo {
+  IBaseOverviewErrorInfo {
   pools: IOverviewDeFiPortfolioItem[];
   $rawServiceResult?: any;
   $scanStartTime?: string;

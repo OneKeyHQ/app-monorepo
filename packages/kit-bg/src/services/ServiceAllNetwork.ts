@@ -1,11 +1,19 @@
-import { generateFakeAllnetworksAccount } from '@onekeyhq/engine/src/managers/account';
+import {
+  allNetworksAccountRegex,
+  generateFakeAllnetworksAccount,
+} from '@onekeyhq/engine/src/managers/account';
+import { getPath } from '@onekeyhq/engine/src/managers/derivation';
 import { isWalletCompatibleAllNetworks } from '@onekeyhq/engine/src/managers/wallet';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { INDEX_PLACEHOLDER } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_EVM,
+  IMPL_SOL,
+  INDEX_PLACEHOLDER,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ServiceBase from './ServiceBase';
 
@@ -78,5 +86,89 @@ export default class ServiceAllNetwork extends ServiceBase {
         accountId: `${walletId}--${i}`,
       }),
     );
+  }
+
+  compareAccountPath({
+    path,
+    template,
+    impl,
+    accountIndex,
+  }: {
+    path: string;
+    template?: string;
+    impl: string;
+    accountIndex?: number;
+  }) {
+    if (!template || typeof accountIndex !== 'number') {
+      return false;
+    }
+    let p: string;
+    if ([IMPL_EVM, IMPL_SOL].includes(impl)) {
+      p = template.replace(INDEX_PLACEHOLDER, accountIndex.toString());
+    } else {
+      const [purpose, coinType] = template
+        .split('/')
+        .slice(1)
+        .map((m) => m.replace("'", ''));
+      p = getPath(purpose, coinType, accountIndex);
+    }
+    return p === path;
+  }
+
+  @backgroundMethod()
+  async getAllNetworksWalletAccounts({
+    accountId,
+    accountIndex,
+    walletId,
+  }: {
+    accountId?: string;
+    accountIndex?: number;
+    walletId: string;
+  }) {
+    const networkAccountsMap: Record<string, Account[]> = {};
+    if (!isWalletCompatibleAllNetworks(walletId)) {
+      return networkAccountsMap;
+    }
+    let index: number | undefined;
+    if (typeof accountIndex === 'number') {
+      index = accountIndex;
+    } else if (typeof accountId === 'string') {
+      const match = accountId.match(allNetworksAccountRegex);
+      if (match) {
+        index = Number.parseInt(match[1]);
+      }
+    }
+
+    if (typeof index !== 'number' || Number.isNaN(index)) {
+      return networkAccountsMap;
+    }
+
+    const { engine, appSelector } = this.backgroundApi;
+    const wallet = await engine.getWallet(walletId);
+    if (!wallet) {
+      return networkAccountsMap;
+    }
+    const networks = appSelector((s) => s.runtime.networks);
+
+    for (const n of networks.filter(
+      (item) => item.enabled && !item.isTestnet,
+    )) {
+      const accounts = await engine.getAccounts(wallet.accounts, n.id);
+      const filteredAccoutns = accounts.filter((a) => {
+        if (!a.template) {
+          return false;
+        }
+        return this.compareAccountPath({
+          path: a.path,
+          template: a.template,
+          impl: n.impl,
+          accountIndex: index,
+        });
+      });
+      if (filteredAccoutns?.length) {
+        networkAccountsMap[n.id] = filteredAccoutns;
+      }
+    }
+    return networkAccountsMap;
   }
 }

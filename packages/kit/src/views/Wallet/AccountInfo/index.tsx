@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+  import type { FC } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDragZoneBox';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
 import {
   getActiveWalletAccount,
@@ -39,6 +40,7 @@ import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountValues, useNavigationActions } from '../../../hooks';
+import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { calculateGains } from '../../../utils/priceUtils';
@@ -51,25 +53,118 @@ type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
 export const FIXED_VERTICAL_HEADER_HEIGHT = 238;
 export const FIXED_HORIZONTAL_HEDER_HEIGHT = 152;
 
-const AccountAmountInfo: FC = () => {
+const SectionCopyAddress: FC = () => {
   const intl = useIntl();
-
-  const { account, wallet, networkId, accountId, network } =
+  const { account, networkId, wallet, walletId, accountId, network } =
     useActiveWalletAccount();
-
   const { copyAddress } = useCopyAddress({ wallet });
 
-  const accountAllValues = useAccountValues({
-    networkId,
+  const networkAccountsMap = useAllNetworksWalletAccounts({
+    walletId,
     accountId,
   });
-
-  const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
 
   const displayAddress = useMemo(
     () => !network?.settings.hiddenAddress,
     [network?.settings.hiddenAddress],
   );
+
+  if (isAllNetworks(networkId)) {
+    return (
+      <Pressable
+        flexDirection="row"
+        alignItems="center"
+        py="4px"
+        px="8px"
+        rounded="12px"
+        _hover={{ bg: 'surface-hovered' }}
+        _pressed={{ bg: 'surface-pressed' }}
+        onPress={console.log}
+      >
+        <Text typography="Body2Strong" mr={2} color="text-subdued">
+          {intl.formatMessage(
+            { id: 'form__all_networks_str' },
+            {
+              0: Object.values(networkAccountsMap).length,
+            },
+          )}
+        </Text>
+        <Icon name="ChevronDownMini" color="icon-subdued" size={16} />
+      </Pressable>
+    );
+  }
+  if(!displayAddress){
+    return null;
+  }
+  return (
+    <Tooltip
+      hasArrow
+      placement="top"
+      label={intl.formatMessage({ id: 'action__copy_address' })}
+    >
+      <Pressable
+        flexDirection="row"
+        alignItems="center"
+        py="4px"
+        px="8px"
+        rounded="12px"
+        _hover={{ bg: 'surface-hovered' }}
+        _pressed={{ bg: 'surface-pressed' }}
+        onPress={() => {
+          copyAddress({
+            address: account?.address,
+            displayAddress: account?.displayAddress,
+          });
+        }}
+      >
+        <Text
+          typography={{ sm: 'Body2', md: 'CaptionStrong' }}
+          mr={2}
+          color="text-subdued"
+        >
+          {shortenAddress(account?.displayAddress ?? account?.address ?? '')}
+        </Text>
+        <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
+      </Pressable>
+    </Tooltip>
+  );
+};
+
+const SectionOpenBlockBrowser = () => {
+  const intl = useIntl();
+  const { account, network } = useActiveWalletAccount();
+  const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
+  if (!hasAvailable) {
+    return null;
+  }
+  return (
+    <Tooltip
+      hasArrow
+      placement="top"
+      label={intl.formatMessage({ id: 'form__blockchain_browser' })}
+    >
+      <Pressable
+        p={1}
+        rounded="full"
+        _hover={{ bg: 'surface-hovered' }}
+        _pressed={{ bg: 'surface-pressed' }}
+        onPress={() => openAddressDetails(account?.address)}
+      >
+        <Icon name="GlobeAltOutline" color="icon-subdued" size={16} />
+      </Pressable>
+    </Tooltip>
+  );
+};
+
+const AccountAmountInfo: FC = () => {
+  const intl = useIntl();
+
+  const { networkId, accountId } = useActiveWalletAccount();
+
+  const accountAllValues = useAccountValues({
+    networkId,
+    accountId,
+  });
 
   const summedValueComp = useMemo(
     () =>
@@ -116,57 +211,8 @@ const AccountAmountInfo: FC = () => {
   return (
     <Box alignItems="flex-start" flex="1">
       <Box mx="-8px" my="-4px" flexDir="row" alignItems="center">
-        {displayAddress ? (
-          <Tooltip
-            hasArrow
-            placement="top"
-            label={intl.formatMessage({ id: 'action__copy_address' })}
-          >
-            <Pressable
-              flexDirection="row"
-              alignItems="center"
-              py="4px"
-              px="8px"
-              rounded="12px"
-              _hover={{ bg: 'surface-hovered' }}
-              _pressed={{ bg: 'surface-pressed' }}
-              onPress={() => {
-                copyAddress({
-                  address: account?.address,
-                  displayAddress: account?.displayAddress,
-                });
-              }}
-            >
-              <Text
-                typography={{ sm: 'Body2', md: 'CaptionStrong' }}
-                mr={2}
-                color="text-subdued"
-              >
-                {shortenAddress(
-                  account?.displayAddress ?? account?.address ?? '',
-                )}
-              </Text>
-              <Icon name="Square2StackOutline" color="icon-subdued" size={16} />
-            </Pressable>
-          </Tooltip>
-        ) : null}
-        {hasAvailable ? (
-          <Tooltip
-            hasArrow
-            placement="top"
-            label={intl.formatMessage({ id: 'form__blockchain_browser' })}
-          >
-            <Pressable
-              p={1}
-              rounded="full"
-              _hover={{ bg: 'surface-hovered' }}
-              _pressed={{ bg: 'surface-pressed' }}
-              onPress={() => openAddressDetails(account?.address)}
-            >
-              <Icon name="GlobeAltOutline" color="icon-subdued" size={16} />
-            </Pressable>
-          </Tooltip>
-        ) : null}
+        <SectionCopyAddress />
+        <SectionOpenBlockBrowser />
       </Box>
       <Box flexDirection="row" alignItems="center" mt={1} w="full">
         {summedValueComp}
