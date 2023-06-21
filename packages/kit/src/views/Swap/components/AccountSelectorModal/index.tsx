@@ -52,15 +52,16 @@ const WalletSelectDropdown: FC<WalletSelectDropdownProps> = ({
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const { wallets } = useRuntime();
-  const data = useMemo(
-    () =>
-      wallets.map((wallet) => ({
+  const data = useMemo(() => {
+    const items = wallets
+      .filter((o) => o.type !== 'watching')
+      .map((wallet) => ({
         label: getWalletName({ wallet, intl }) || '-',
         value: wallet.id,
         wallet,
-      })),
-    [wallets, intl],
-  );
+      }));
+    return items;
+  }, [wallets, intl]);
 
   return (
     <Box pb={2}>
