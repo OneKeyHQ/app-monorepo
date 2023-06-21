@@ -79,6 +79,7 @@ export type IEncodedTxBtc = {
     isMax?: boolean;
   }[];
   transferInfo: ITransferInfo;
+  transferInfos?: ITransferInfo[];
 };
 
 export type UTXO = {

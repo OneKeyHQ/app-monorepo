@@ -70,13 +70,13 @@ function GasList(props: Props) {
       feeList: network?.settings.isBtcForkChain
         ? prices.map(
             (price) =>
-              coinSelect(
-                btcMockInputs,
-                btcMockOutputs,
-                new BigNumber(price as string)
+              coinSelect({
+                inputsForCoinSelect: btcMockInputs,
+                outputsForCoinSelect: btcMockOutputs,
+                feeRate: new BigNumber(price as string)
                   .shiftedBy(network.feeDecimals)
                   .toFixed(),
-              ).fee,
+              }).fee,
           )
         : [],
     };
