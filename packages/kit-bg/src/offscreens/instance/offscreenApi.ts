@@ -1,7 +1,6 @@
 /* eslint-disable new-cap */
-import memoizee from 'memoizee';
-
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import type { IBackgroundApiInternalCallMessage } from '../../IBackgroundApi';
 import type { IOffscreenApi } from './IOffscreenApi';

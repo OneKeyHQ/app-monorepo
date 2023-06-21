@@ -15,7 +15,6 @@ import {
   reduce,
   toLower,
 } from 'lodash';
-import memoizee from 'memoizee';
 
 import { Geth } from '@onekeyhq/blockchain-libs/src/provider/chains/eth/geth';
 import type { Provider as EthProvider } from '@onekeyhq/blockchain-libs/src/provider/chains/eth/provider';
@@ -40,6 +39,7 @@ import {
   UNIQUE_TOKEN_SYMBOLS,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
@@ -415,7 +415,6 @@ export default class Vault extends VaultBase {
     {
       promise: true,
       primitive: true,
-      normalizer: (...args) => JSON.stringify(args),
       max: 1,
       maxAge: getTimeDurationMs({ minute: 3 }),
     },

@@ -7,13 +7,13 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, omitBy } from 'lodash';
-import memoizee from 'memoizee';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   fromBigIntHex,
   toBigIntHex,

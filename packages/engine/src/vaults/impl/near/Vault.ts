@@ -2,13 +2,13 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { last } from 'lodash';
-import memoizee from 'memoizee';
 
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
   InvalidAddress,
@@ -546,19 +546,6 @@ export default class Vault extends VaultBase {
       primitive: true,
       max: 1,
       maxAge: 1000 * 30,
-      normalizer(
-        args: Parameters<
-          ({
-            address,
-            tokenAddress,
-          }: {
-            tokenAddress: string;
-            address: string;
-          }) => Promise<boolean>
-        >,
-      ): string {
-        return JSON.stringify(args);
-      },
     },
   );
 
