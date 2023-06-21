@@ -3855,10 +3855,10 @@ export const serverPresetNetworks = [
   },
   {
     'balance2FeeDecimals': 0,
-    'chainId': 'mainnet',
+    'chainId': 'testnet',
     'code': 'nexa',
     'decimals': 8,
-    'id': 'nexa--mainnet',
+    'id': 'nexa--testnet',
     'impl': 'nexa',
     'isTestnet': true,
     'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',

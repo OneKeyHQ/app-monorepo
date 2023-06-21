@@ -5398,6 +5398,7 @@ __metadata:
     lint-staged: ^11.2.6
     memoizee: ^0.4.15
     mime-types: ^2.1.35
+    nexaaddrjs: ^1.1.2
     node-notifier: ^10.0.0
     patch-package: ^7.0.0
     prettier: ^2.8.1
@@ -24869,6 +24870,15 @@ __metadata:
   version: 2.0.1
   resolution: "nested-error-stacks@npm:2.0.1"
   checksum: 8430d7d80ad69b1add2992ee2992a363db6c1a26a54740963bc99a004c5acb1d2a67049397062eab2caa3a312b4da89a0b85de3bdf82d7d472a6baa166311fe6
+  languageName: node
+  linkType: hard
+
+"nexaaddrjs@npm:^1.1.2":
+  version: 1.1.2
+  resolution: "nexaaddrjs@npm:1.1.2"
+  dependencies:
+    big-integer: 1.6.36
+  checksum: 2b50b9619e87c6e66d04aea7500a6f280da577db51ba6862263e0678214fcfed7c1ca5b26ec0290644e9bafd8c39dfe8c3154852b335030f5ebd5c2628899b90
   languageName: node
   linkType: hard
 

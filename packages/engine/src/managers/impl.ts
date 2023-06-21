@@ -16,6 +16,7 @@ import {
   COINTYPE_KASPA,
   COINTYPE_LTC,
   COINTYPE_NEAR,
+  COINTYPE_NEXA,
   COINTYPE_SOL,
   COINTYPE_STC,
   COINTYPE_SUI,
@@ -37,6 +38,7 @@ import {
   IMPL_KASPA,
   IMPL_LTC,
   IMPL_NEAR,
+  IMPL_NEXA,
   IMPL_SOL,
   IMPL_STC,
   IMPL_SUI,
@@ -81,6 +83,7 @@ const implToCoinTypes: Partial<Record<string, string | string[]>> = {
   [IMPL_DOT]: COINTYPE_DOT,
   [IMPL_XMR]: COINTYPE_XMR,
   [IMPL_KASPA]: COINTYPE_KASPA,
+  [IMPL_NEXA]: COINTYPE_NEXA,
 };
 
 const coinTypeToImpl: Record<string, string> = Object.fromEntries(
@@ -139,6 +142,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_DOGE]: Curve.SECP256K1,
   [IMPL_LTC]: Curve.SECP256K1,
   [IMPL_BCH]: Curve.SECP256K1,
+  [IMPL_NEXA]: Curve.SECP256K1,
   [IMPL_XRP]: Curve.SECP256K1,
   [IMPL_COSMOS]: Curve.SECP256K1,
   [IMPL_ADA]: Curve.ED25519,

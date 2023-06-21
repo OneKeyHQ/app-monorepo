@@ -95,6 +95,32 @@ const bch = {
   forkId: 0x00,
 };
 
+const nexa = {
+  messagePrefix: '\x18Nexa Signed Message:\n',
+  bech32: '',
+  bip32: {
+    public: 0x42696720,
+    private: 0x426c6b73,
+  },
+  pubKeyHash: 0x19,
+  scriptHash: 0x23,
+  wif: 0x80,
+  forkId: 0x40,
+};
+
+const tnexa = {
+  messagePrefix: '\x18Nexa Signed Message:\n',
+  bech32: '',
+  bip32: {
+    public: 0x043587cf,
+    private: 0x04358394,
+  },
+  pubKeyHash: 0x6f,
+  scriptHash: 0xc4,
+  wif: 0x80,
+  forkId: 0x40,
+};
+
 const doge = {
   messagePrefix: '\x19Dogecoin Signed Message:\n',
   bech32: '',
@@ -179,6 +205,8 @@ const extendedNetworks: Record<string, BitcoinJS.Network> = {
   nmc,
   vtc,
   dash,
+  nexa,
+  'nexa--testnet': tnexa,
 };
 
 const getNetwork = (chainCode: string): Network => {
