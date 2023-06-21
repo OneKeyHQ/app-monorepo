@@ -94,18 +94,19 @@ async function openExpandTab(
 }
 
 async function openStandaloneWindow(routeInfo: OpenUrlRouteInfo) {
-  const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo)
+  const url = buildExtRouteUrl('ui-standalone-window.html', routeInfo);
   let left = 0;
   let top = 0;
   // debugger
   try {
-    // eslint-disable-next-line
+    /* eslint-disable */
     const lastFocused = await browser.windows.getLastFocused();
     // Position window in top right corner of lastFocused window.
     if (lastFocused && lastFocused.top && lastFocused.left && lastFocused.width) {
       top = lastFocused.top;
       left = lastFocused.left + (lastFocused.width - UI_HTML_DEFAULT_MIN_WIDTH);
-    }   
+    }
+    /* eslint-enable */
   } catch (_) {
     // The following properties are more than likely 0, due to being
     // opened from the background chrome process for the extension that
@@ -123,7 +124,7 @@ async function openStandaloneWindow(routeInfo: OpenUrlRouteInfo) {
     // check useAutoRedirectToRoute()
     url,
     top,
-    left
+    left,
   });
 }
 
