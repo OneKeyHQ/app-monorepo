@@ -31,8 +31,15 @@ export class Nexa extends SimpleClient {
     throw new Error('Method not implemented.');
   }
 
-  override getInfo(): Promise<ClientInfo> {
-    throw new Error('Method not implemented.');
+  override async getInfo(): Promise<ClientInfo> {
+    const info = await this.rpc.call<{
+      height: number;
+      hex: string;
+    }>('blockchain.headers.tip');
+    return {
+      bestBlockNumber: info.height,
+      isReady: true,
+    };
   }
 
   override getFeePricePerUnit(): Promise<FeePricePerUnit> {
@@ -48,8 +55,6 @@ export class Nexa extends SimpleClient {
       confirmed: number;
       unconfirmed: number;
     }>('blockchain.address.get_balance', [address]);
-    const a = new BigNumber(balanceInfo.confirmed);
-    console.log(a);
     return new BigNumber(balanceInfo.confirmed);
   }
 }

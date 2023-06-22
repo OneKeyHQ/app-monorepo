@@ -114,7 +114,6 @@ import memoizee from 'memoizee';
 import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import { COINTYPE_NEXA } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { BaseClient } from '../../../client/BaseClient';
 import { VaultBase } from '../../VaultBase';
 
 import {
@@ -127,7 +126,9 @@ import Provider from './provider';
 import { Nexa } from './sdk';
 import settings from './settings';
 
+import type { BaseClient } from '../../../client/BaseClient';
 import type BigNumber from 'bignumber.js';
+import { IClientEndpointStatus } from '../../types';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -140,12 +141,13 @@ export default class Vault extends VaultBase {
 
   override settings = settings;
 
+  override createClientFromURL(url: string): BaseClient {
+    return new Nexa(url);
+  }
+
   createSDKClient = memoizee(
     async (rpcUrl: string, networkId: string) => {
-      // TODO add timeout params
-      // TODO replace in ProviderController.getClient()
-      // client: cross-fetch
-      const sdkClient = new Nexa(rpcUrl);
+      const sdkClient = this.createClientFromURL(rpcUrl) as Nexa;
       const chainInfo =
         await this.engine.providerManager.getChainInfoByNetworkId(networkId);
       // TODO move to base, setChainInfo like what ProviderController.getClient() do
@@ -170,14 +172,13 @@ export default class Vault extends VaultBase {
     return this.createSDKClient(rpcURL, this.networkId);
   }
 
-  // override async getBalances(
-  //   requests: { address: string; tokenAddress?: string | undefined }[],
-  // ): Promise<(BigNumber | undefined)[]> {
-  //   const rpcURL = await this.getRpcUrl();
-  //   const chainId = await this.getNetworkChainId();
-  //   const client = await this.getSDKClient();
-  //   return client.getBalances(requests);
-  // }
+  override async getClientEndpointStatus(): Promise<IClientEndpointStatus> {
+    const client = await this.getSDKClient();
+    const start = performance.now();
+    const latestBlock = (await client.getInfo()).bestBlockNumber;
+    return { responseTime: Math.floor(performance.now() - start), latestBlock };
+  }
+
   override async getBalances(
     requests: Array<{ address: string; tokenAddress?: string }>,
   ): Promise<Array<BigNumber | undefined>> {
