@@ -108,20 +108,29 @@
 //     throw new Error('Method not implemented.');
 //   }
 // }
+
+import memoizee from 'memoizee';
+
 import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import { COINTYPE_NEXA } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { KeyringHardware } from './KeyringHardware';
-import { KeyringHd } from './KeyringHd';
-import { KeyringImported } from './KeyringImported';
-import { KeyringWatching } from './KeyringWatching';
+import { BaseClient } from '../../../client/BaseClient';
+import { VaultBase } from '../../VaultBase';
+
+import {
+  KeyringHardware,
+  KeyringHd,
+  KeyringImported,
+  KeyringWatching,
+} from './keyring';
 import Provider from './provider';
+import { Nexa } from './sdk';
 import settings from './settings';
 
-export default class Vault extends VaultBtcFork {
-  override providerClass = Provider;
+import type BigNumber from 'bignumber.js';
 
-  override keyringMap = {
+export default class Vault extends VaultBase {
+  keyringMap = {
     hd: KeyringHd,
     hw: KeyringHardware,
     imported: KeyringImported,
@@ -131,31 +140,54 @@ export default class Vault extends VaultBtcFork {
 
   override settings = settings;
 
-  override getDefaultPurpose() {
-    return 44;
+  createSDKClient = memoizee(
+    async (rpcUrl: string, networkId: string) => {
+      // TODO add timeout params
+      // TODO replace in ProviderController.getClient()
+      // client: cross-fetch
+      const sdkClient = new Nexa(rpcUrl);
+      const chainInfo =
+        await this.engine.providerManager.getChainInfoByNetworkId(networkId);
+      // TODO move to base, setChainInfo like what ProviderController.getClient() do
+      sdkClient.setChainInfo(chainInfo);
+      return sdkClient;
+    },
+    {
+      promise: true,
+      primitive: true,
+      normalizer(
+        args: Parameters<(rpcUrl: string, networkId: string) => Promise<Nexa>>,
+      ): string {
+        return `${args[0]}:${args[1]}`;
+      },
+      max: 1,
+      maxAge: 1000 * 60 * 15,
+    },
+  );
+
+  async getSDKClient(): Promise<Nexa> {
+    const { rpcURL } = await this.getNetwork();
+    return this.createSDKClient(rpcURL, this.networkId);
   }
 
-  override getCoinName() {
-    return 'nexatest';
-  }
-
-  override getCoinType() {
-    return COINTYPE_NEXA;
-  }
-
-  override getXprvReg() {
-    return /^([x]prv)/;
-  }
-
-  override getXpubReg() {
-    return /^([x]pub)/;
-  }
-
-  override getDefaultBlockNums(): number[] {
-    return [25, 5, 1];
-  }
-
-  override getDefaultBlockTime(): number {
-    return 600;
+  // override async getBalances(
+  //   requests: { address: string; tokenAddress?: string | undefined }[],
+  // ): Promise<(BigNumber | undefined)[]> {
+  //   const rpcURL = await this.getRpcUrl();
+  //   const chainId = await this.getNetworkChainId();
+  //   const client = await this.getSDKClient();
+  //   return client.getBalances(requests);
+  // }
+  override async getBalances(
+    requests: Array<{ address: string; tokenAddress?: string }>,
+  ): Promise<Array<BigNumber | undefined>> {
+    // Abstract requests
+    const client = await this.getSDKClient();
+    return client.getBalances(
+      requests.map(({ address, tokenAddress }) => ({
+        address,
+        coin: { ...(typeof tokenAddress === 'string' ? { tokenAddress } : {}) },
+      })),
+    );
   }
 }

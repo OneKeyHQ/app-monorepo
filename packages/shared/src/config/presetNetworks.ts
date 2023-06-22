@@ -3857,7 +3857,7 @@ export const serverPresetNetworks = [
     'balance2FeeDecimals': 0,
     'chainId': 'testnet',
     'code': 'nexa',
-    'decimals': 8,
+    'decimals': 2,
     'id': 'nexa--testnet',
     'impl': 'nexa',
     'isTestnet': true,
@@ -3873,7 +3873,7 @@ export const serverPresetNetworks = [
     'symbol': 'nexa',
     'feeMeta': {
       'code': 'nexa',
-      'decimals': 8,
+      'decimals': 2,
       'symbol': 'nexa',
     },
     'defaultEnabled': false,
