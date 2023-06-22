@@ -5,7 +5,6 @@
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 import { cloneDeep, get, uniqBy } from 'lodash';
-import memoizee from 'memoizee';
 import natsort from 'natsort';
 import RNRestart from 'react-native-restart';
 
@@ -36,6 +35,7 @@ import timelinePerfTrace, {
   ETimelinePerfNames,
 } from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
@@ -1276,9 +1276,8 @@ class Engine {
     {
       promise: true,
       primitive: true,
-      max: 500,
+      max: 200,
       maxAge: 1000 * 60 * 10,
-      normalizer: (args) => JSON.stringify(args),
     },
   );
 
@@ -1475,7 +1474,6 @@ class Engine {
       primitive: true,
       max: 200,
       maxAge: 1000 * 60 * 10,
-      normalizer: (args) => JSON.stringify(args),
     },
   );
 
@@ -2394,7 +2392,6 @@ class Engine {
       primitive: true,
       max: 1,
       maxAge: 1000 * 50,
-      normalizer: (args) => JSON.stringify(args),
     },
   );
 

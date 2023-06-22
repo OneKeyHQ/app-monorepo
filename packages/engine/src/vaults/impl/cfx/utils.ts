@@ -1,9 +1,9 @@
 import { encode as toCfxAddress } from '@conflux-dev/conflux-address-js';
 import { hexZeroPad } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
-import memoizee from 'memoizee';
 
 import type { SignedTx } from '@onekeyhq/engine/src/types/provider';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { IDecodedTxActionType, IDecodedTxStatus } from '../../types';
 

@@ -2,7 +2,6 @@
 
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
-import memoizee from 'memoizee';
 
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -26,6 +25,7 @@ import {
   IMPL_BTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
   getUtxoId,

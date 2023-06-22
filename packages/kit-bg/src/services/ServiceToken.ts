@@ -1,6 +1,5 @@
 import BigNumber from 'bignumber.js';
 import { debounce, isEmpty, uniq, xor } from 'lodash';
-import memoizee from 'memoizee';
 
 import { getBalancesFromApi } from '@onekeyhq/engine/src/apiProxyUtils';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -42,6 +41,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { isExtensionBackground } from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -212,7 +212,6 @@ export default class ServiceToken extends ServiceBase {
       primitive: true,
       max: 50,
       maxAge: getTimeDurationMs({ seconds: 1 }),
-      normalizer: (args) => JSON.stringify(args),
     },
   );
 
@@ -399,7 +398,6 @@ export default class ServiceToken extends ServiceBase {
     primitive: true,
     max: 500,
     maxAge: getTimeDurationMs({ day: 1 }),
-    normalizer: (args) => JSON.stringify(args),
   });
 
   @backgroundMethod()
@@ -834,7 +832,6 @@ export default class ServiceToken extends ServiceBase {
     {
       promise: true,
       maxAge: getTimeDurationMs({ seconds: 10 }),
-      normalizer: (args) => JSON.stringify(args),
     },
   );
 
