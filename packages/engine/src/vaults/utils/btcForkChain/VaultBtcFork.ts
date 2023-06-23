@@ -462,51 +462,10 @@ export default class VaultBtcFork extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('Invalid transferInfo.to params');
     }
-    const network = await this.engine.getNetwork(this.networkId);
-    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-
-    const {
-      inputs,
-      outputs,
-      fee,
-      inputsForCoinSelect,
-      outputsForCoinSelect,
-      feeRate,
-    } = await this.buildTransferParamsWithCoinSelector({
+    return this.buildEncodedTxFromBatchTransfer({
       transferInfos: [transferInfo],
       specifiedFeeRate,
     });
-
-    if (!inputs || !outputs) {
-      throw new InsufficientBalance('Failed to select UTXOs');
-    }
-    const totalFee = fee.toString();
-    const totalFeeInNative = new BigNumber(totalFee)
-      .shiftedBy(-1 * network.feeDecimals)
-      .toFixed();
-    return {
-      inputs: inputs.map(({ txId, value, ...keep }) => ({
-        ...keep,
-        txid: txId,
-        value: value.toString(),
-      })),
-      outputs: outputs.map(({ value, address }) => ({
-        address: address || dbAccount.address, // change amount
-        value: value.toString(),
-        payload: address
-          ? undefined
-          : {
-              isCharge: true,
-              bip44Path: getBIP44Path(dbAccount, dbAccount.address),
-            },
-      })),
-      totalFee,
-      totalFeeInNative,
-      transferInfo,
-      feeRate,
-      inputsForCoinSelect,
-      outputsForCoinSelect,
-    };
   }
 
   override async buildEncodedTxFromBatchTransfer({
