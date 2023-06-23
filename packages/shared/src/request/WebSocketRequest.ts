@@ -31,15 +31,22 @@ class WebSocketRequest {
 
   readonly timeout: number;
 
-  readonly socket: WebSocket;
+  readonly expiredTimeout: number;
+
+  private expiredTimerId!: NodeJS.Timeout;
 
   callbackMap = new Map<string, (result: any) => void>();
 
-  //   readonly headers: Record<string, string>;
+  socket?: WebSocket;
 
-  constructor(url: string, timeout = 30000) {
+  constructor(url: string, timeout = 30000, expiredTimeout = 60 * 1000) {
     this.url = url;
     this.timeout = timeout;
+    this.expiredTimeout = expiredTimeout;
+    this.establishConnection();
+  }
+
+  private establishConnection() {
     const protocol = document.location.protocol === 'http:' ? 'ws:' : 'wss:';
     const wsuri = `${protocol}//${document.location.host}/nexa_ws`;
     this.socket = new WebSocket(wsuri);
@@ -60,6 +67,13 @@ class WebSocketRequest {
     this.socket.onerror = (error) => {
       console.error(error);
     };
+  }
+
+  private closeConnection() {
+    if (this.socket) {
+      this.socket.close();
+      this.socket = undefined;
+    }
   }
 
   private async getIsRpcBatchDisabled(url: string): Promise<boolean> {
@@ -89,30 +103,29 @@ class WebSocketRequest {
     return Promise.resolve(response.result as T);
   }
 
+  refreshConnectionStatus() {
+    if (!this.socket) {
+      this.establishConnection();
+    }
+    clearTimeout(this.expiredTimerId);
+    this.expiredTimerId = setTimeout(() => {
+      this.closeConnection();
+    }, this.expiredTimeout);
+  }
+
   async call<T>(
     method: string,
     params?: JsonRpcParams,
     timeout?: number,
   ): Promise<T> {
-    // const signal = timeoutSignal(timeout || this.timeout) as any;
-    // const response = await fetch(this.url, {
-    //   headers: this.assembleHeaders(headers),
-    //   method: 'POST',
-    //   body: JSON.stringify(normalizePayload(method, params)),
-    //   signal,
-    // });
-
-    // if (!response.ok) {
-    //   throw new ResponseError(`Wrong response<${response.status}>`, response);
-    // }
-
-    // const jsonResponse: any = await response.json();
-    // return JsonRPCRequest.parseRPCResponse(jsonResponse);
+    this.refreshConnectionStatus();
     return new Promise((resolve) => {
       const id = generateUUID();
       this.callbackMap.set(id, resolve);
       const requestParams = normalizePayload(method, params, id);
-      this.socket.send(`${JSON.stringify(requestParams)}\n`);
+      if (this.socket) {
+        this.socket.send(`${JSON.stringify(requestParams)}\n`);
+      }
     });
   }
 
