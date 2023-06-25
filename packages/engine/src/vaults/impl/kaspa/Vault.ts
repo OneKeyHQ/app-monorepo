@@ -156,11 +156,9 @@ export default class Vault extends VaultBase {
 
     const confirmUtxos = await queryConfirmUTXOs(client, from);
 
-    const { mass: preMass } = selectUTXOs(confirmUtxos, parseInt(amountValue));
-
-    const { utxoIds, utxos, mass } = selectUTXOs(
+    let { utxoIds, utxos, mass } = selectUTXOs(
       confirmUtxos,
-      parseInt(amountValue) + preMass,
+      parseInt(amountValue),
     );
 
     const limit = specifiedFeeLimit ?? mass.toString();
@@ -171,6 +169,22 @@ export default class Vault extends VaultBase {
         .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
         .shiftedBy(-network.decimals)
         .lte(amount);
+    }
+
+    if (
+      !hasMaxSend &&
+      utxos
+        .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
+        .shiftedBy(-network.decimals)
+        .lte(amount)
+    ) {
+      const newSelectUtxo = selectUTXOs(
+        confirmUtxos,
+        parseInt(amountValue) + mass,
+      );
+      utxoIds = newSelectUtxo.utxoIds;
+      utxos = newSelectUtxo.utxos;
+      mass = newSelectUtxo.mass;
     }
 
     return {
