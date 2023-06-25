@@ -110,19 +110,19 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({ tx }) => {
         <Box flexDirection="row" alignItems="center" flexBasis="18%">
           <Box mr="4">
             <TokenIcon
-              token={{ logoURI: tx.tokens?.from.token.logoURI }}
+              token={{ logoURI: tx.tokens?.to.token.logoURI }}
               size="8"
             />
           </Box>
-          <Box>
+          <Box flex="1">
             <Typography.Body1Strong>
               {formatTokenAmount({
-                token: tx.tokens?.from.token,
-                amount: tx.tokens?.from.amount,
+                token: tx.tokens?.to.token,
+                amount: tx.tokens?.to.amount,
               })}
             </Typography.Body1Strong>
             <Typography.Body2 color="text-subdued">
-              {fromNetwork?.shortName}
+              {toNetwork?.shortName}
             </Typography.Body2>
           </Box>
         </Box>
@@ -136,14 +136,14 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({ tx }) => {
                 <Box flex="1">
                   <Typography.Body1Strong isTruncated>
                     {formatTokenAmount({
-                      token: tx.tokens?.to.token,
-                      amount: tx.tokens?.to.amount,
+                      token: tx.tokens?.from.token,
+                      amount: tx.tokens?.from.amount,
                     })}
                   </Typography.Body1Strong>
                 </Box>
               </Box>
               <Typography.Body2 color="text-subdued">
-                {toNetwork?.shortName}
+                {fromNetwork?.shortName}
               </Typography.Body2>
             </Box>
           </Box>

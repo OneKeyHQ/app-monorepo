@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import BigNumber from 'bignumber.js';
-import memoizee from 'memoizee';
 import * as XRPL from 'xrpl';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
   InvalidAddress,

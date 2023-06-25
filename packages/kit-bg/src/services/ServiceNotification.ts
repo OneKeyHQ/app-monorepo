@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import JPush from 'jpush-react-native';
 import { pick } from 'lodash';
-import memoizee from 'memoizee';
 import { Dimensions } from 'react-native';
 
 import type {
@@ -54,6 +53,7 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { initJpush } from '@onekeyhq/shared/src/notification';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -496,7 +496,6 @@ export default class ServiceNotification extends ServiceBase {
       primitive: true,
       max: 200,
       maxAge: getTimeDurationMs({ hour: 1 }),
-      normalizer: (...args) => JSON.stringify(args),
     },
   );
 }

@@ -92,7 +92,7 @@ export default class ServicePrice extends ServiceBase {
       const updatedAt = price?.[`updatedAt--${vsCurrency}`];
       if (
         updatedAt &&
-        price[vsCurrency] &&
+        typeof price[vsCurrency] !== 'undefined' &&
         now - updatedAt <= PRICE_EXPIRED_TIME
       ) {
         cachePrices[key] = price;

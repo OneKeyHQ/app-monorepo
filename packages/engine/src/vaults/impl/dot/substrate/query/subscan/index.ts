@@ -1,8 +1,9 @@
 import axios from 'axios';
-import memoizee from 'memoizee';
+import stringify from 'fast-json-stable-stringify';
 
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { getChainIdFromNetworkId } from '@onekeyhq/engine/src/managers/network';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { BaseDotClient } from '../BaseDotClient';
 
@@ -57,7 +58,7 @@ export class SubScanClient extends BaseDotClient {
       max: 10,
       normalizer: (args: [networkId: string, url: string, data: any]) => {
         const [networkId, url, data] = args;
-        return `${networkId}-${url}-${JSON.stringify(data)}`;
+        return `${networkId}-${url}-${stringify(data)}`;
       },
       maxAge: CACHE_DEFAULT_EXPIRATION_TIME,
     },

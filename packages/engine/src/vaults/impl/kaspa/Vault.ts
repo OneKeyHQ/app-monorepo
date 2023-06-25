@@ -2,7 +2,6 @@
 import { hexToBytes } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
 import { groupBy } from 'lodash';
-import memoizee from 'memoizee';
 
 import {
   InvalidAddress,
@@ -35,6 +34,7 @@ import type { TxInput } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/typ
 import { convertFeeValueToGwei } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';

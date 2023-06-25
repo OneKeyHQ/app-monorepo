@@ -11,7 +11,6 @@ import {
 } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
 import { get, groupBy, isEmpty, isNil } from 'lodash';
-import memoizee from 'memoizee';
 
 import {
   InvalidAddress,
@@ -56,6 +55,7 @@ import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { formatBalanceDisplay } from '@onekeyhq/kit/src/components/Format';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';

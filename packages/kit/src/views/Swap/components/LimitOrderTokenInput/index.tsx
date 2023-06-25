@@ -58,7 +58,7 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
       params: {
-        screen: SwapRoutes.PickAccount,
+        screen: SwapRoutes.SelectSendingAccount,
         params: {
           networkId: token?.networkId,
           onSelected: (acc) => {
