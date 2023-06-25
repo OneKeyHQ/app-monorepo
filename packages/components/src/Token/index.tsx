@@ -103,15 +103,12 @@ export const TokenVerifiedIcon: FC<{
   const navigation = useAppNavigation();
 
   const icon = useMemo(() => {
+    if (token?.isNative) {
+      return (
+        <Badge title={intl.formatMessage({ id: 'content__coin' })} size="sm" />
+      );
+    }
     if (!token?.riskLevel) {
-      if (token?.isNative) {
-        return (
-          <Badge
-            title={intl.formatMessage({ id: 'content__coin' })}
-            size="sm"
-          />
-        );
-      }
       return null;
     }
     if (token?.riskLevel > TokenRiskLevel.VERIFIED) {
