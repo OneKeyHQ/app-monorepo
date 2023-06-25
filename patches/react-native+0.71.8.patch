@@ -71,3 +71,22 @@ index b06d1cb..6c2e083 100644
  
    'aria-live'?: ('polite' | 'assertive' | 'off') | undefined;
    'aria-modal'?: boolean | undefined;
+diff --git a/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp b/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp
+index bbc6065..8d98c31 100644
+--- a/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp
++++ b/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp
+@@ -398,6 +398,14 @@ JSCRuntime::JSCRuntime(JSGlobalContextRef ctx)
+ {
+ }
+ 
++#ifndef NDEBUG
++#ifdef TARGET_OS_MAC
++  if (__builtin_available(macOS 13.3, iOS 16.4, tvOS 16.4, *)) {
++    JSGlobalContextSetInspectable(ctx_, true);
++  }
++#endif
++#endif
++
+ JSCRuntime::~JSCRuntime() {
+   // On shutting down and cleaning up: when JSC is actually torn down,
+   // it calls JSC::Heap::lastChanceToFinalize internally which
