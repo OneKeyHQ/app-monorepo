@@ -1,9 +1,12 @@
-import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
+import { throttle } from 'lodash';
+
+import {
+  isAllNetworks,
+  parseNetworkId,
+} from '@onekeyhq/engine/src/managers/network';
+import { caseSensitiveImpls } from '@onekeyhq/engine/src/managers/token';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import type {
-  IOverviewScanTaskItem,
-  IOverviewScanTaskType,
-} from '@onekeyhq/kit/src/views/Overview/types';
+import type { IOverviewScanTaskItem } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -27,6 +30,7 @@ class ServiceOverview extends ServiceBase {
     if (this.interval) {
       return;
     }
+    debugLogger.common.info('startQueryPendingTasks');
     this.interval = setInterval(() => {
       this.queryPendingTasks();
     }, getTimeDurationMs({ seconds: 15 }));
@@ -38,26 +42,33 @@ class ServiceOverview extends ServiceBase {
   async stopQueryPendingTasks() {
     clearInterval(this.interval);
     this.interval = null;
+    debugLogger.common.info('stopQueryPendingTasks');
   }
 
-  // TODO: implement it
   @backgroundMethod()
-  async queryPendingTasks() { }
-
-  @backgroundMethod()
-  async query<T>(
-    scanType: IOverviewScanTaskType,
-    body: {
-      buildByService?: string;
-      tasks: IOverviewScanTaskItem[];
-    },
-  ) {
-    return fetchData<{
-      status?: {
-        pending: Omit<IOverviewScanTaskItem, 'taskType'>[];
-      };
-      data?: T;
-    }>(`/overview/query/${scanType}`, body, {}, 'POST');
+  async queryPendingTasks() {
+    const { pendingTaskMap } = this;
+    if (!pendingTaskMap.size) {
+      return;
+    }
+    const results = await fetchData<any>(
+      '/overview/query/all',
+      {
+        tasks: [...pendingTaskMap.values()],
+      },
+      {},
+      'POST',
+    );
+    const keys = this.pendingTaskMap.keys();
+    const { pending } = results;
+    for (const taskId of keys) {
+      if (!pending.find((p: any) => p.taskId === taskId)) {
+        this.pendingTaskMap.delete(taskId);
+      }
+    }
+    if (!this.pendingTaskMap.size) {
+      this.stopQueryPendingTasks();
+    }
   }
 
   getTaksId({
@@ -71,7 +82,12 @@ class ServiceOverview extends ServiceBase {
     xpub?: string;
     scanType: string;
   }) {
-    return `${networkId}--${address}--${xpub ?? ''}--${scanType}`;
+    let accountAddress = address;
+    const { impl } = parseNetworkId(networkId);
+    if (impl && !caseSensitiveImpls.has(impl)) {
+      accountAddress = (accountAddress || '').toLowerCase();
+    }
+    return `${scanType}___${networkId}___${accountAddress}___${xpub ?? ''}`;
   }
 
   filterNewScanTasks(tasks: IOverviewScanTaskItem[]) {
@@ -197,6 +213,49 @@ class ServiceOverview extends ServiceBase {
       this.addPendingTasks(tasks);
     }
     return res;
+  }
+
+  refreshAccountWithThrottle = throttle(
+    async ({
+      networkId,
+      accountId,
+    }: {
+      networkId: string;
+      accountId: string;
+    }) => {
+      const { engine, serviceToken, appSelector } = this.backgroundApi;
+
+      engine.clearPriceCache();
+      await serviceToken.fetchAccountTokens({
+        accountId,
+        networkId,
+        forceReloadTokens: true,
+        includeTop50TokensQuery: true,
+      });
+
+      await this.fetchAccountOverview({
+        networkId,
+        accountId,
+        walletId: appSelector((s) => s.general.activeWalletId) ?? '',
+        scanTypes: ['defi'],
+      });
+    },
+    getTimeDurationMs({ seconds: 5 }),
+  );
+
+  @bindThis()
+  @backgroundMethod()
+  async refreshCurrentAccount() {
+    const { appSelector } = this.backgroundApi;
+
+    const { activeAccountId: accountId, activeNetworkId: networkId } =
+      appSelector((s) => s.general);
+
+    if (!accountId || !networkId) {
+      return;
+    }
+
+    return this.refreshAccountWithThrottle({ networkId, accountId });
   }
 }
 

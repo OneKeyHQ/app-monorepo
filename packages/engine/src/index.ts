@@ -1531,7 +1531,7 @@ class Engine {
     }
     if (typeof accountId !== 'undefined') {
       if (withMain) {
-        if (!tokens.find((t) => t.isNative)) {
+        if (!tokens.find((t) => t.isNative) && !isAllNetworks(networkId)) {
           tokens.unshift(await this.generateNativeTokenByNetworkId(networkId));
         }
         return tokens;
