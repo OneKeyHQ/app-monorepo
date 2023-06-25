@@ -114,6 +114,7 @@ import memoizee from 'memoizee';
 import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import { COINTYPE_NEXA } from '@onekeyhq/shared/src/engine/engineConsts';
 
+import { InvalidAddress } from '../../../errors';
 import { VaultBase } from '../../VaultBase';
 
 import {
@@ -125,10 +126,11 @@ import {
 import Provider from './provider';
 import { Nexa } from './sdk';
 import settings from './settings';
+import { verifyNexaAddress } from './utils';
 
 import type { BaseClient } from '../../../client/BaseClient';
+import type { IClientEndpointStatus } from '../../types';
 import type BigNumber from 'bignumber.js';
-import { IClientEndpointStatus } from '../../types';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -177,6 +179,14 @@ export default class Vault extends VaultBase {
     const start = performance.now();
     const latestBlock = (await client.getInfo()).bestBlockNumber;
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
+  }
+
+  override async validateAddress(address: string): Promise<string> {
+    const { isValid, normalizedAddress } = verifyNexaAddress(address);
+    if (isValid) {
+      return Promise.resolve(normalizedAddress || address);
+    }
+    return Promise.reject(new InvalidAddress());
   }
 
   override async getBalances(
