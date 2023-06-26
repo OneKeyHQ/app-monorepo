@@ -22,6 +22,7 @@ export const SECP256K1_PUBLIC_KEY_SIZE = 33;
 
 export const DEFAULT_GAS_BUDGET_FOR_PAY = 150;
 export const DEFAULT_GAS_BUDGET_FOR_STAKE = 10000;
+export const GAS_SAFE_OVERHEAD = 1000;
 export const GAS_TYPE_ARG = '0x2::sui::SUI';
 export const GAS_SYMBOL = 'SUI';
 export const DEFAULT_NFT_TRANSFER_GAS_FEE = 450;

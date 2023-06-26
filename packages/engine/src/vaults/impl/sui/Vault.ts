@@ -54,6 +54,7 @@ import { parseTransferObjects } from './parses/Transaction';
 import { OneKeyJsonRpcProvider } from './provider/OnekeyJsonRpcProvider';
 import settings from './settings';
 import {
+  GAS_SAFE_OVERHEAD,
   GAS_TYPE_ARG,
   SUI_NATIVE_COIN,
   computeGasBudget,
@@ -659,13 +660,20 @@ export default class Vault extends VaultBase {
         const storageCost = simulationTx.gasUsed?.storageCost || '0';
         const storageRebate = simulationTx.gasUsed?.storageRebate || '0';
 
-        let gasUsed = new BigNumber(computationCost)
+        const safeOverhead = new BigNumber(GAS_SAFE_OVERHEAD).multipliedBy(1);
+
+        const baseComputationCostWithOverhead = new BigNumber(
+          computationCost,
+        ).plus(safeOverhead);
+
+        const gasBudget = baseComputationCostWithOverhead
           .plus(storageCost)
           .minus(storageRebate);
 
-        if (gasUsed.isLessThan(0)) {
-          gasUsed = new BigNumber('0');
-        }
+        // Set the budget to max(computation, computation + storage - rebate)
+        const gasUsed = gasBudget.gt(baseComputationCostWithOverhead)
+          ? gasBudget
+          : baseComputationCostWithOverhead;
 
         // Only onekey max send can pass, other cases must be simulated successfully
         if (gasUsed.isEqualTo(0)) {
@@ -673,7 +681,7 @@ export default class Vault extends VaultBase {
           throw new OneKeyError();
         }
 
-        limit = gasUsed.multipliedBy(1.2).toFixed();
+        limit = gasUsed.multipliedBy(1.1).toFixed();
       } else {
         throw new OneKeyError();
       }
