@@ -8,6 +8,7 @@ import { read, utils } from 'xlsx';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useNetworkSimple } from '../../hooks';
 
 import { BulkSenderTypeEnum } from './types';
 
@@ -68,6 +69,7 @@ export function useValidteReceiver({
   const [isValidating, setIsValidating] = useState(true);
   const [errors, setErrors] = useState<ReceiverError[]>([]);
   const intl = useIntl();
+  const network = useNetworkSimple(networkId);
 
   useEffect(() => {
     (async () => {
@@ -127,13 +129,39 @@ export function useValidteReceiver({
               hasError = true;
             }
           }
+          if (!hasError) {
+            if (network?.settings.minTransferAmount) {
+              const minTransferAmountBN = new BigNumber(
+                network.settings.minTransferAmount,
+              );
+              if (amountBN.lt(minTransferAmountBN)) {
+                validateErrors.push({
+                  lineNumber: i + 1,
+                  message: intl.formatMessage(
+                    { id: 'form__str_minimum_transfer' },
+                    { 0: minTransferAmountBN.toFixed(), 1: token?.symbol },
+                  ),
+                });
+                hasError = true;
+              }
+            }
+          }
         }
+
         setIsValidating(false);
         setIsValid(validateErrors.length === 0);
         setErrors(validateErrors);
       }
     })();
-  }, [intl, networkId, receiver, token?.decimals, type]);
+  }, [
+    intl,
+    network?.settings.minTransferAmount,
+    networkId,
+    receiver,
+    token?.decimals,
+    token?.symbol,
+    type,
+  ]);
 
   return {
     isValid,

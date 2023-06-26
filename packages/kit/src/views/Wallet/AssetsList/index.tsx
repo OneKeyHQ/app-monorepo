@@ -134,7 +134,9 @@ function AssetsList({
   useEffect(() => {
     const { serviceOverview } = backgroundApiProxy;
     serviceOverview.subscribe();
+  }, [accountId, networkId]);
 
+  useEffect(() => {
     if (platformEnv.isExtensionUi) {
       chrome.runtime.connect();
     }

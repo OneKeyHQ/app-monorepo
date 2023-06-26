@@ -2,7 +2,6 @@
 
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
-import memoizee from 'memoizee';
 
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -26,6 +25,7 @@ import {
   IMPL_BTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
   getUtxoId,
@@ -462,58 +462,10 @@ export default class VaultBtcFork extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('Invalid transferInfo.to params');
     }
-    const network = await this.engine.getNetwork(this.networkId);
-    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-
-    const {
-      inputs,
-      outputs,
-      fee,
-      inputsForCoinSelect,
-      outputsForCoinSelect,
-      feeRate,
-    } = await this.buildTransferParamsWithCoinSelector({
+    return this.buildEncodedTxFromBatchTransfer({
       transferInfos: [transferInfo],
       specifiedFeeRate,
     });
-
-    if (!inputs || !outputs) {
-      throw new InsufficientBalance('Failed to select UTXOs');
-    }
-    const totalFee = fee.toString();
-    const totalFeeInNative = new BigNumber(totalFee)
-      .shiftedBy(-1 * network.feeDecimals)
-      .toFixed();
-    return {
-      inputs: inputs.map(({ txId, value, ...keep }) => ({
-        ...keep,
-        txid: txId,
-        value: value.toString(),
-      })),
-      outputs: outputs.map(({ value, address }) => {
-        // If there is no address, it should be set to the change address.
-        const addressOrChangeAddress = address || dbAccount.address;
-        if (!addressOrChangeAddress) {
-          throw new Error('Invalid change address');
-        }
-        return {
-          address: addressOrChangeAddress,
-          value: value.toString(),
-          payload: address
-            ? undefined
-            : {
-                isCharge: true,
-                bip44Path: getBIP44Path(dbAccount, dbAccount.address),
-              },
-        };
-      }),
-      totalFee,
-      totalFeeInNative,
-      transferInfo,
-      feeRate,
-      inputsForCoinSelect,
-      outputsForCoinSelect,
-    };
   }
 
   override async buildEncodedTxFromBatchTransfer({

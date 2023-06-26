@@ -1,5 +1,4 @@
 import BigNumber from 'bignumber.js';
-import memoizee from 'memoizee';
 
 import { getUtxoId } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -11,6 +10,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -196,7 +196,6 @@ export default class ServiceUtxos extends ServiceBase {
     {
       promise: true,
       maxAge: getTimeDurationMs({ seconds: 30 }),
-      normalizer: (...args) => JSON.stringify(args),
     },
   );
 

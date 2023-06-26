@@ -5368,6 +5368,7 @@ __metadata:
     expo: ^48.0.19
     expo-device: ^5.0.0
     expo-yarn-workspaces: ^2.1.0
+    fast-json-stable-stringify: ^2.1.0
     file-loader: ^6.2.0
     fs-extra: ^10.0.0
     globalthis: ^1.0.2
