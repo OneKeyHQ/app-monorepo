@@ -96,7 +96,25 @@ export const coinSelect = ({
   outputsForCoinSelect: IEncodedTxBtc['outputsForCoinSelect'];
   feeRate: string;
 }) => {
-  const max = outputsForCoinSelect.every((i) => typeof i.value === 'undefined');
+  const max = outputsForCoinSelect.some((o) => o.isMax);
+
+  // valid amount
+  const validAmount = outputsForCoinSelect.every((o) => {
+    if (o.isMax) {
+      return typeof o.value === 'undefined';
+    }
+    return typeof o.value === 'number' && !Number.isNaN(o.value);
+  });
+  if (!validAmount) {
+    throw new Error('Invalid amount in outputs');
+  }
+
+  // remove ixMax field
+  const finalOutputs = outputsForCoinSelect.map((o) => ({
+    address: o.address,
+    value: o.isMax ? undefined : o.value,
+  }));
+
   const unspentSelectFn = max ? coinSelectSplit : coinSelectFn;
   const {
     inputs,
@@ -107,10 +125,6 @@ export const coinSelect = ({
     outputs: IUTXOOutput[];
     fee: number;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  } = unspentSelectFn(
-    inputsForCoinSelect,
-    outputsForCoinSelect,
-    parseInt(feeRate),
-  );
+  } = unspentSelectFn(inputsForCoinSelect, finalOutputs, parseInt(feeRate));
   return { inputs, outputs, fee };
 };
