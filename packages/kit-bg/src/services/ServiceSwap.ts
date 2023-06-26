@@ -462,21 +462,22 @@ export default class ServiceSwap extends ServiceBase {
       return data;
     }
 
-    const inactiveWallets = wallets.filter(
-      (wallet) => wallet.id !== activeWalletId,
-    );
-    if (inactiveWallets.length === 0) {
-      return;
-    }
+    // dont search inactive wallets
+    // const inactiveWallets = wallets.filter(
+    //   (wallet) => wallet.id !== activeWalletId,
+    // );
+    // if (inactiveWallets.length === 0) {
+    //   return;
+    // }
 
-    for (let i = 0; i < inactiveWallets.length; i += 1) {
-      const wallet = inactiveWallets[i];
-      const items = await engine.getAccounts(wallet.accounts, network.id);
-      if (items.length > 0) {
-        dispatch(setSendingAccount(items[0]));
-        return;
-      }
-    }
+    // for (let i = 0; i < inactiveWallets.length; i += 1) {
+    //   const wallet = inactiveWallets[i];
+    //   const items = await engine.getAccounts(wallet.accounts, network.id);
+    //   if (items.length > 0) {
+    //     dispatch(setSendingAccount(items[0]));
+    //     return;
+    //   }
+    // }
 
     dispatch(setSendingAccount(null));
   }
