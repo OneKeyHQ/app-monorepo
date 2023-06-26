@@ -69,6 +69,7 @@ export enum HomeRoutes {
   PushNotificationManageAccountDynamic = 'PushNotificationManageAccountDynamic',
   ClearCache = 'ClearCache',
   AdvancedSettings = 'AdvancedSettings',
+  DappModeSettings = 'DappModeSettings',
   HardwareBridgeSettings = 'HardwareBridgeSettings',
 
   // **** Discover Tab

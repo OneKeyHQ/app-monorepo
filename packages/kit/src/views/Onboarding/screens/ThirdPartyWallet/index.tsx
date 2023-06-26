@@ -46,6 +46,7 @@ const ThirdPartyWallet = () => {
         </Center>
       )}
 
+
       <Box flexDir="row" flexWrap="wrap" m="-4px" minH="10px">
         <ConnectWalletListView
           onConnectResult={async (result) => {

@@ -1,11 +1,11 @@
+import store from '../../../../../store';
+import type { TabRouteConfigBase } from '../../../../types';
 import { TabRoutes } from '../../../../routesEnum';
 
-import type { TabRouteConfigBase } from '../../../../types';
-
 export const tabRoutesOrders = [
-  TabRoutes.Swap,
   TabRoutes.Home,
   TabRoutes.Market,
+  TabRoutes.Swap,
   TabRoutes.NFT,
   TabRoutes.Discover,
   TabRoutes.Me,
@@ -14,7 +14,18 @@ if (process.env.NODE_ENV !== 'production') {
   tabRoutesOrders.push(TabRoutes.Developer);
 }
 
+const useDappMode = store.getState().settings.dappModeSettings?.useDappMode;
+
+if (useDappMode) {
+  const index = tabRoutesOrders.indexOf(TabRoutes.Swap);
+  tabRoutesOrders.unshift(tabRoutesOrders.splice(index, 1)[0]);
+} else {
+  const index = tabRoutesOrders.indexOf(TabRoutes.Home);
+  tabRoutesOrders.unshift(tabRoutesOrders.splice(index, 1)[0]);
+}
+
 export const swapAndMarketRoutes = [TabRoutes.Swap, TabRoutes.Market];
+
 
 export const tabRoutesConfigBaseMap: Record<TabRoutes, TabRouteConfigBase> = {
   [TabRoutes.Home]: {
