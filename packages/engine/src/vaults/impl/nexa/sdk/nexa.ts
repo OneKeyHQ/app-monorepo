@@ -11,6 +11,7 @@ import type {
   FeePricePerUnit,
   TransactionStatus,
 } from '../../../../types/provider';
+import type { IListUXTO } from '../types';
 
 export class Nexa extends SimpleClient {
   readonly rpc: WebSocketRequest;
@@ -46,8 +47,11 @@ export class Nexa extends SimpleClient {
     throw new Error('Method not implemented.');
   }
 
-  override broadcastTransaction(rawTx: string, options?: any): Promise<string> {
-    throw new Error('Method not implemented.');
+  override async broadcastTransaction(
+    rawTx: string,
+    options?: any,
+  ): Promise<string> {
+    return this.rpc.call<string>('blockchain.transaction.broadcast', [rawTx]);
   }
 
   override async getBalance(address: string): Promise<BigNumber> {
@@ -56,5 +60,11 @@ export class Nexa extends SimpleClient {
       unconfirmed: number;
     }>('blockchain.address.get_balance', [address]);
     return new BigNumber(balanceInfo.confirmed);
+  }
+
+  async getNexaUTXOs(address: string): Promise<IListUXTO[]> {
+    return this.rpc.call<IListUXTO[]>('blockchain.address.listunspent', [
+      address,
+    ]);
   }
 }
