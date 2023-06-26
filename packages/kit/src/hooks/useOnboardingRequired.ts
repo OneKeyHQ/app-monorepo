@@ -37,10 +37,19 @@ export const useOnboardingRequired = (isHomeCheck?: boolean) => {
         if (isHomeCheck) {
           backgroundApiProxy.dispatch(setHomePageCheckBoarding());
         }
-        navigation.replace(RootRoutes.Onboarding, {
-          screen: EOnboardingRoutes.Welcome,
-          params: { disableAnimation: !!isHomeCheck },
-        });
+        if (platformEnv.isWeb) {
+          navigation?.navigate(RootRoutes.Main, {
+            screen: MainRoutes.Tab,
+            params: {
+              screen: TabRoutes.Swap,
+            },
+          });
+        } else {
+          navigation.replace(RootRoutes.Onboarding, {
+            screen: EOnboardingRoutes.Welcome,
+            params: { disableAnimation: !!isHomeCheck },
+          });
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

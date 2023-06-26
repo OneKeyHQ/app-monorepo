@@ -3,9 +3,9 @@ import { TabRoutes } from '../../../../routesEnum';
 import type { TabRouteConfigBase } from '../../../../types';
 
 export const tabRoutesOrders = [
+  TabRoutes.Swap,
   TabRoutes.Home,
   TabRoutes.Market,
-  TabRoutes.Swap,
   TabRoutes.NFT,
   TabRoutes.Discover,
   TabRoutes.Me,
