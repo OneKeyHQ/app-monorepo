@@ -5,8 +5,13 @@ import {
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
 import { caseSensitiveImpls } from '@onekeyhq/engine/src/managers/token';
+import { setAllNetworksPortfolio } from '@onekeyhq/kit/src/store/reducers/allNetworks';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
-import type { IOverviewScanTaskItem } from '@onekeyhq/kit/src/views/Overview/types';
+import type {
+  IOverviewQueryTaskItem,
+  IOverviewScanTaskItem,
+  OverviewAllNetworksPortfolioRes,
+} from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -17,71 +22,94 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
+import type { IServiceBaseProps } from './ServiceBase';
+
 @backgroundClass()
 class ServiceOverview extends ServiceBase {
   private interval: any;
 
-  private pendingTaskMap: Map<string, IOverviewScanTaskItem> = new Map();
+  private pendingTaskMap: Map<string, IOverviewQueryTaskItem> = new Map();
+
+  constructor(props: IServiceBaseProps) {
+    super(props);
+    this.interval = setInterval(() => {
+      this.queryPendingTasks();
+      // TODO: change thids to 15s
+    }, getTimeDurationMs({ seconds: 3 }));
+  }
 
   // eslint-disable-next-line @typescript-eslint/require-await
   @bindThis()
   @backgroundMethod()
   async startQueryPendingTasks() {
-    if (this.interval) {
-      return;
-    }
-    debugLogger.common.info('startQueryPendingTasks');
-    this.interval = setInterval(() => {
-      this.queryPendingTasks();
-    }, getTimeDurationMs({ seconds: 15 }));
+    // if (this.interval) {
+    //   return;
+    // }
+    // debugLogger.common.info('startQueryPendingTasks');
+    // this.interval = setInterval(() => {
+    //   this.queryPendingTasks();
+    //   // TODO: change thids to 15s
+    // }, getTimeDurationMs({ seconds: 3 }));
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
   @bindThis()
   @backgroundMethod()
   async stopQueryPendingTasks() {
-    clearInterval(this.interval);
-    this.interval = null;
-    debugLogger.common.info('stopQueryPendingTasks');
+    // clearInterval(this.interval);
+    // this.interval = null;
+    // debugLogger.common.info('stopQueryPendingTasks');
   }
 
   @backgroundMethod()
   async queryPendingTasks() {
-    const { pendingTaskMap } = this;
-    if (!pendingTaskMap.size) {
+    const { appSelector, dispatch } = this.backgroundApi;
+    const { activeNetworkId: networkId = '', activeAccountId: accountId = '' } =
+      appSelector((s) => s.general);
+    if (!networkId || !accountId) {
       return;
     }
-    const results = await fetchData<any>(
+    const dispatchKey = `${networkId}___${accountId}`;
+    const pendingTasksForCurrentNetwork = Array.from(
+      this.pendingTaskMap.values(),
+    ).filter((n) => n.key === dispatchKey);
+
+    if (!pendingTasksForCurrentNetwork?.length) {
+      return [];
+    }
+
+    const results = await fetchData<
+      OverviewAllNetworksPortfolioRes & {
+        pending: IOverviewScanTaskItem[];
+      }
+    >(
       '/overview/query/all',
       {
-        tasks: [...pendingTaskMap.values()],
+        tasks: [...pendingTasksForCurrentNetwork],
       },
-      {},
+      {
+        pending: [],
+        tokens: [],
+        defis: [],
+        nfts: [],
+      },
       'POST',
     );
-    const keys = this.pendingTaskMap.keys();
     const { pending } = results;
-    for (const taskId of keys) {
-      if (!pending.find((p: any) => p.taskId === taskId)) {
-        this.pendingTaskMap.delete(taskId);
+    if (!pending?.length) {
+      for (const task of pendingTasksForCurrentNetwork) {
+        this.pendingTaskMap.delete(this.getTaksId(task));
       }
     }
-    if (!this.pendingTaskMap.size) {
-      this.stopQueryPendingTasks();
-    }
+    dispatch(
+      setAllNetworksPortfolio({
+        key: dispatchKey,
+        data: results,
+      }),
+    );
   }
 
-  getTaksId({
-    networkId,
-    address,
-    xpub,
-    scanType,
-  }: {
-    networkId: string;
-    address: string;
-    xpub?: string;
-    scanType: string;
-  }) {
+  getTaksId({ networkId, address, xpub, scanType }: IOverviewQueryTaskItem) {
     let accountAddress = address;
     const { impl } = parseNetworkId(networkId);
     if (impl && !caseSensitiveImpls.has(impl)) {
@@ -109,10 +137,11 @@ class ServiceOverview extends ServiceBase {
       .filter((t) => t.scanTypes.length > 0);
   }
 
-  addPendingTasks(tasks: IOverviewScanTaskItem[]) {
+  addPendingTasks(tasks: IOverviewScanTaskItem[], key?: string) {
     for (const s of tasks) {
       for (const scanType of s.scanTypes ?? []) {
         const singleTask = {
+          key,
           networkId: s.networkId,
           address: s.address,
           xpub: s.xpub,
@@ -161,12 +190,12 @@ class ServiceOverview extends ServiceBase {
 
     const tasks: IOverviewScanTaskItem[] = [];
 
-    for (const [k, accounts] of Object.entries(networkAccountsMap)) {
+    for (const [nid, accounts] of Object.entries(networkAccountsMap)) {
       for (const account of accounts) {
         const { address, xpub } =
-          await serviceAccount.getAcccountAddressWithXpub(account.id, k);
+          await serviceAccount.getAcccountAddressWithXpub(account.id, nid);
         tasks.push({
-          networkId: k,
+          networkId: nid,
           address,
           xpub,
           scanTypes,
@@ -210,7 +239,7 @@ class ServiceOverview extends ServiceBase {
       'POST',
     );
     if (res.tasks) {
-      this.addPendingTasks(tasks);
+      this.addPendingTasks(tasks, `${networkId}___${accountId}`);
     }
     return res;
   }

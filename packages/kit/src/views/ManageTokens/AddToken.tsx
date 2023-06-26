@@ -310,7 +310,9 @@ function AddTokenModal() {
   } = useActiveWalletAccount();
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
-  const accountTokens = useAccountTokens(activeNetwork?.id, activeAccount?.id);
+  const accountTokens = useAccountTokens({
+networkId: activeNetwork?.id, accountId: activeAccount?.id
+  });
   const navigation = useNavigation<NavigationProps>();
   const token = useRouteParams();
   const queryInfo = useDappParams();

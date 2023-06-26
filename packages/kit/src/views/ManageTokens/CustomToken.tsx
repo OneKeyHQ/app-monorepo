@@ -59,7 +59,9 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const activeNetwork = useNetworkSimple(networkId ?? null, defaultNetwork);
   const isSmallScreen = useIsVerticalLayout();
 
-  const accountTokens = useAccountTokens(activeNetwork?.id, activeAccount?.id);
+  const accountTokens = useAccountTokens({
+    networkId: activeNetwork?.id, accountId: activeAccount?.id
+  });
 
   const helpTip = intl.formatMessage({
     id: 'form__searching_token',

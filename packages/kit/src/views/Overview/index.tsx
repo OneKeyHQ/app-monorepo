@@ -29,14 +29,15 @@ const OverviewDefiListComponent: FC = () => {
   const isVertical = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
   const [page, setPage] = useState(0);
-  const { networkId, address } = route.params;
+  const { networkId, accountId } = route.params;
 
   const loadMore = useCallback(() => {
     setPage((p) => p + 1);
   }, []);
 
   const defis = useAppSelector(
-    (s) => s.overview.defi?.[`${networkId}--${address}`] ?? [],
+    (s) =>
+      s.allNetworks?.portfolios?.[`${networkId}___${accountId}`].defis ?? [],
   );
 
   useLayoutEffect(() => {

@@ -265,7 +265,9 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation<NavigationProps>();
   const { walletId, accountId, networkId } = useActiveWalletAccount();
-  const accountTokens = useAccountTokens(networkId, accountId);
+  const accountTokens = useAccountTokens({
+networkId, accountId
+  });
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
 
@@ -479,7 +481,9 @@ export const ListingModal: FC<ListingModalProps> = ({
     accountId,
     networkId,
   } = useActiveWalletAccount();
-  const accountTokens = useAccountTokens(networkId, accountId);
+  const accountTokens = useAccountTokens({
+networkId, accountId
+  });
   const networkTokens = useNetworkTokens(networkId);
   const headerTokens = useMemo(
     () => accountTokens.filter((i) => i.tokenIdOnNetwork && !i.autoDetected),

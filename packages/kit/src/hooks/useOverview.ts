@@ -7,6 +7,8 @@ import { useAppSelector } from './useAppSelector';
 import { useNFTPrice } from './useManegeTokenPrice';
 import { useAccountTokenValues, useCurrentFiatValue } from './useTokens';
 
+import type { OverviewAllNetworksPortfolioRes } from '../views/Overview/types';
+
 export type OverviewAssetType = 'defis' | 'tokens' | 'nfts';
 export const useAccountValues = (props: {
   networkId: string;
@@ -64,4 +66,21 @@ export const useAccountValues = (props: {
       value24h: new B(0),
     },
   );
+};
+
+export const usePortfolios = <T extends keyof OverviewAllNetworksPortfolioRes>({
+  networkId,
+  accountId,
+  type,
+}: {
+  networkId: string;
+  accountId: string;
+  type: T;
+}) => {
+  const data = useAppSelector(
+    (s) =>
+      s.allNetworks.portfolios[`${networkId}___${accountId}`]?.[type] ?? [],
+  );
+
+  return data;
 };

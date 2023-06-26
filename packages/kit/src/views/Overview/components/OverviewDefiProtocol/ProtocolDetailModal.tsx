@@ -43,7 +43,7 @@ const OverviewProtocolDetail: FC = () => {
     fallback: close,
   });
 
-  const { networkId, address, protocolId, accountId, poolCode } = route.params;
+  const { networkId, protocolId, accountId, poolCode } = route.params;
 
   const currentFiatValue = useCurrentFiatValue();
 
@@ -53,7 +53,7 @@ const OverviewProtocolDetail: FC = () => {
   }).value;
 
   const protocol = useAppSelector((s) =>
-    s.overview.defi?.[`${networkId}--${address}`]?.find(
+    s.allNetworks.portfolios?.[`${networkId}___${accountId}`]?.defis?.find(
       (item) => item._id.protocolId === protocolId,
     ),
   );

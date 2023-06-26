@@ -1,34 +1,37 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+import type { OverviewAllNetworksPortfolioRes } from '../../views/Overview/types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 export interface AllNetworksState {
-  walletId: string | undefined;
-  accountIndex: number | undefined;
+  portfolios: Record<string, OverviewAllNetworksPortfolioRes>;
 }
 
 const initialState: AllNetworksState = {
-  walletId: undefined,
-  accountIndex: undefined,
+  portfolios: {},
 };
 
 export const allNetworkSlice = createSlice({
   name: 'allNetworks',
   initialState,
   reducers: {
-    selectAllNetworksAccount(
+    setAllNetworksPortfolio(
       state,
       action: PayloadAction<{
-        accountIndex?: number;
-        walletId?: string;
+        // networkId__accountId
+        key: string;
+        data: OverviewAllNetworksPortfolioRes;
       }>,
     ) {
-      state.walletId = action.payload.walletId;
-      state.accountIndex = action.payload.accountIndex;
+      const { data, key } = action.payload;
+      if (!state.portfolios) {
+        state.portfolios = {};
+      }
+      state.portfolios[key] = data;
     },
   },
 });
 
-export const { selectAllNetworksAccount } = allNetworkSlice.actions;
+export const { setAllNetworksPortfolio } = allNetworkSlice.actions;
 
 export default allNetworkSlice.reducer;

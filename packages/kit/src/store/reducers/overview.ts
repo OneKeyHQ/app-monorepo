@@ -21,6 +21,18 @@ type InitialState = {
     // id = networkId + address
     [id: string]: OverviewDefiRes[];
   };
+  portfolio: {
+    // id = networkId + isAllNetworks ? accountIndex : address
+    [id: string]: {
+      tokens: {
+
+      }[],
+      defis: {
+
+      }[],
+      nfts: {}[]
+    }
+  };
   totalDefiValues?: {
     // id = networkId + address
     [id: string]: TotalValues;

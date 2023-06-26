@@ -462,7 +462,7 @@ export default class ServiceToken extends ServiceBase {
       balance,
       sendAddress,
       bestBlockNumber: blockHeight,
-    } of balancesFromApi.filter((b) => +b.balance > 0 || !b.address)) {
+    } of balancesFromApi) {
       const token = tokens[address];
       if (token) {
         // only record new token balances
@@ -746,98 +746,6 @@ export default class ServiceToken extends ServiceBase {
 
     return vault.getMinDepositAmount();
   }
-
-  @backgroundMethod()
-  async fetchTokenDetailAmount(props: {
-    networkId: string;
-    accountId: string;
-    tokenId: string;
-    sendAddress?: string;
-  }): Promise<string> {
-    return this._fetchTokenDetailAmountMemo(props);
-  }
-
-  _fetchTokenDetailAmountMemo = memoizee(
-    async (props: {
-      networkId: string;
-      accountId: string;
-      tokenId: string;
-      sendAddress?: string;
-    }) => {
-      const { networkId, accountId, tokenId, sendAddress } = props;
-      const { engine, appSelector } = this.backgroundApi;
-
-      const token = await engine.findToken({
-        networkId,
-        tokenIdOnNetwork: tokenId,
-      });
-      return new Promise<string>((resolve) => {
-        const account = appSelector((s) =>
-          s.runtime.accounts?.find((n) => n.id === accountId),
-        );
-        const { balance: accountAmount } = appSelector((s) => {
-          const accountTokensBalance =
-            s.tokens.accountTokensBalance[networkId]?.[accountId] ?? {};
-          return (
-            accountTokensBalance[
-              getBalanceKey({
-                ...token,
-                sendAddress,
-              })
-            ] ?? {
-              balance: '0',
-            }
-          );
-        });
-        const minerOverview = appSelector(
-          (s) =>
-            s.staking.keleMinerOverviews?.[accountId ?? '']?.[networkId ?? ''],
-        );
-        const stakingAmount = minerOverview?.amount?.total_amount ?? 0;
-
-        const defiTokenAmount = appSelector((s) => {
-          const defis =
-            s.overview.defi?.[`${networkId}--${account?.address ?? ''}`];
-          if (!defis) {
-            return new BigNumber(0);
-          }
-          return defis.reduce((protocolSum, obj) => {
-            const poolTokens = obj.pools.reduce((poolTypeSum, [, items]) => {
-              const tokensValues = items.reduce(
-                (allTokenSum, { supplyTokens, rewardTokens }) => {
-                  const supplyTokenSum = supplyTokens
-                    .filter((t) => t.tokenAddress === tokenId)
-                    .reduce(
-                      (tokenSum, sToken) =>
-                        tokenSum.plus(sToken.balanceParsed ?? 0),
-                      new BigNumber(0),
-                    );
-                  const rewardTokenSum = rewardTokens
-                    .filter((t) => t.tokenAddress === tokenId)
-                    .reduce(
-                      (tokenSum, rToken) =>
-                        tokenSum.plus(rToken.balanceParsed ?? 0),
-                      new BigNumber(0),
-                    );
-                  return allTokenSum.plus(supplyTokenSum).plus(rewardTokenSum);
-                },
-                new BigNumber(0),
-              );
-              return poolTypeSum.plus(tokensValues);
-            }, new BigNumber(0));
-            return protocolSum.plus(poolTokens);
-          }, new BigNumber(0));
-        });
-        resolve(
-          defiTokenAmount.plus(stakingAmount).plus(accountAmount).toFixed(),
-        );
-      });
-    },
-    {
-      promise: true,
-      maxAge: getTimeDurationMs({ seconds: 10 }),
-    },
-  );
 
   @backgroundMethod()
   async deleteAccountToken({

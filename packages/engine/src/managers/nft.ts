@@ -20,12 +20,15 @@ import {
 } from '../vaults/impl/evm/decoder/abi';
 import { IDecodedTxActionType, IDecodedTxDirection } from '../vaults/types';
 
+import { isAllNetworks } from './network';
+
 export function getNFTListKey(accountId: string, networkId: string) {
   return `${accountId.toLowerCase()}-${networkId}`.toLowerCase();
 }
 
 export const isCollectibleSupportedChainId = (networkId?: string) => {
   if (!networkId) return false;
+  if (isAllNetworks(networkId)) return true;
   if (NFTChainMap[networkId]) return true;
   return false;
 };

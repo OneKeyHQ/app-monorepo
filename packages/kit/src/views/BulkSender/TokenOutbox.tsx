@@ -65,7 +65,9 @@ function TokenOutbox(props: Props) {
   const { network } = useNetwork({ networkId });
 
   const loading = useAccountTokenLoading(networkId, accountId);
-  const accountTokens = useAccountTokens(networkId, accountId, true);
+  const accountTokens = useAccountTokens({
+networkId, accountId, useFilter: true
+  });
   const nativeToken = accountTokens.find((token) => token.isNative);
   const tokens = accountTokens.filter(
     (token) =>

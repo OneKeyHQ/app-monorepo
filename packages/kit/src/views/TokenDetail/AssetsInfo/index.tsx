@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -14,13 +14,13 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   FormatBalance,
   FormatCurrencyNumber,
 } from '../../../components/Format';
 import { useActiveSideAccount, useAppSelector } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
+import { useTokenPositionInfo } from '../../../hooks/useTokens';
 
 import DefiCell from './Cells/DefiCell';
 import KeleStakingCell from './Cells/KeleStakingCell';
@@ -44,12 +44,9 @@ const DefiListWithToken: FC<Props> = ({
   tokenId,
   token,
 }) => {
-  const { account } = useActiveSideAccount({
-    accountId,
-    networkId,
-  });
   const defis = useAppSelector(
-    (s) => s.overview.defi?.[`${networkId}--${account?.address ?? ''}`] ?? [],
+    (s) =>
+      s.allNetworks?.portfolios?.[`${networkId}___${accountId}`].defis ?? [],
   );
 
   const genateList = useCallback(
@@ -103,21 +100,13 @@ const AssetsInfo: FC<Props> = ({
     accountId,
     networkId,
   });
-  const [totalAmount, updateTotalAmount] = useState<string>('0');
 
-  const { serviceToken } = backgroundApiProxy;
-  useEffect(() => {
-    serviceToken
-      .fetchTokenDetailAmount({
-        accountId,
-        networkId,
-        tokenId,
-        sendAddress,
-      })
-      .then((amount) => {
-        updateTotalAmount(amount);
-      });
-  }, [accountId, networkId, sendAddress, serviceToken, tokenId]);
+  const totalAmount = useTokenPositionInfo({
+    networkId,
+    accountId,
+    address: tokenId,
+    sendAddress,
+  });
 
   const listData = useMemo(
     () => [{ type: 'token' }, { type: 'keleStaking' }, { type: 'lidoStaking' }],
@@ -267,6 +256,7 @@ const AssetsInfo: FC<Props> = ({
       ListFooterComponent={ListFooterComponent}
       data={listData}
       renderItem={renderItem}
+      keyExtractor={(item) => item.type}
     />
   );
 };

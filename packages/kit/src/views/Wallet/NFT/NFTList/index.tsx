@@ -27,7 +27,7 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useIsMounted } from '../../../../hooks/useIsMounted';
+import { usePortfolios } from '../../../../hooks';
 import { CollectiblesModalRoutes } from '../../../../routes/routesEnum';
 import { WalletHomeTabEnum } from '../../type';
 
@@ -99,7 +99,17 @@ const NFTList: FC<NFTListProps> = ({
     : Math.min(MAX_PAGE_CONTAINER_WIDTH, screenWidth - 224);
   const numColumns = isSmallScreen ? 2 : Math.floor(pageWidth / (177 + MARGIN));
   const allAssets = useMemo(
-    () => collectibles.map((collection) => collection.assets).flat(),
+    () =>
+      collectibles
+        .map(
+          (collection) =>
+            collection.assets?.map((a) => ({
+              ...a,
+              networkId: collection.networkId,
+              accountAddress: collection.accountAddress,
+            })) ?? [],
+        )
+        .flat(),
     [collectibles],
   );
 
@@ -210,21 +220,24 @@ function NFTListContainer() {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isNFTSupport = isCollectibleSupportedChainId(networkId);
   const { serviceNFT } = backgroundApiProxy;
-  const isMountedRef = useIsMounted();
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isFocused = useIsFocused();
-  const [collectibles, updateListData] = useState<Collection[]>([]);
+  const collectibles = usePortfolios({
+    networkId,
+    accountId,
+    type: 'nfts',
+  });
 
-  const fetchData = async () => {
-    if (account && networkId && isNFTSupport) {
+  const fetchData = useCallback(async () => {
+    if (accountId && networkId && isNFTSupport) {
       const result = await serviceNFT.fetchNFT({
-        accountId: account.address,
+        accountId,
         networkId,
       });
       return result;
     }
     return [];
-  };
+  }, [networkId, accountId, isNFTSupport, serviceNFT]);
 
   const shouldDoRefresh = useMemo((): boolean => {
     if (!accountId || !networkId || !isNFTSupport) {
@@ -251,26 +264,7 @@ function NFTListContainer() {
     isPaused() {
       return !shouldDoRefresh;
     },
-    onSuccess(data) {
-      if (isMountedRef.current) {
-        updateListData(data);
-      }
-    },
   });
-
-  useEffect(() => {
-    (async () => {
-      if (account && networkId) {
-        const localData = await serviceNFT.getLocalNFTs({
-          networkId,
-          accountId: account.address,
-        });
-        if (isMountedRef.current) {
-          updateListData(localData);
-        }
-      }
-    })();
-  }, [account, isMountedRef, networkId, serviceNFT]);
 
   useEffect(() => {
     if (shouldDoRefresh) {

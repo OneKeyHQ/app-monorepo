@@ -32,7 +32,9 @@ export function useContextAccountTokens(
   accountId?: string,
 ) {
   const presetTokens = useContextTokenList(networkId);
-  const accountTokens = useAccountTokens(networkId, accountId);
+  const accountTokens = useAccountTokens({
+networkId, accountId
+  });
   const balances = useCachedBalances(networkId, accountId);
 
   const prices = useAppSelector((s) => s.tokens.tokenPriceMap);

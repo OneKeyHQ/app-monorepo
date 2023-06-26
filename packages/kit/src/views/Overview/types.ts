@@ -1,3 +1,6 @@
+import type { Collection } from '@onekeyhq/engine/src/types/nft';
+import type { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
+
 export interface IBaseOverviewQuery {
   networkId: string;
   address: string; // accountAddress
@@ -11,7 +14,7 @@ export interface IBaseOverviewErrorInfo {
 
 export interface IOverviewScanTaskInfo
   extends IBaseOverviewQuery,
-  IBaseOverviewErrorInfo {
+    IBaseOverviewErrorInfo {
   scanTypes?: IOverviewScanTaskType[]; // defaults to ['token']
   id?: string;
   status?: 'pending' | 'processing' | 'done';
@@ -26,7 +29,17 @@ export interface IOverviewScanTaskInfo
 export type IOverviewScanTaskItem = Pick<
   IOverviewScanTaskInfo,
   'networkId' | 'address' | 'scanTypes' | 'xpub'
->;
+> & {
+  key?: string;
+};
+
+export type IOverviewQueryTaskItem = Pick<
+  IOverviewScanTaskInfo,
+  'networkId' | 'address' | 'xpub'
+> & {
+  key?: string;
+  scanType: IOverviewScanTaskType;
+};
 
 export type EOverviewServiceNames = string;
 export type IOverviewScanTaskType = 'token' | 'defi' | 'nfts';
@@ -133,7 +146,7 @@ export enum OverviewDeFiPoolType {
 
 export interface IOverviewDeFiPortfolioItem
   extends IBaseOverviewQuery,
-  IOverviewDeFiProtocolInfo {
+    IOverviewDeFiProtocolInfo {
   // TODO rename serviceCode
   buildByService: EOverviewServiceNames;
 
@@ -173,7 +186,7 @@ export interface IOverviewDeFiPortfolioItem
 }
 export interface IOverviewDeFiPortfolio
   extends IBaseOverviewQuery,
-  IBaseOverviewErrorInfo {
+    IBaseOverviewErrorInfo {
   pools: IOverviewDeFiPortfolioItem[];
   $rawServiceResult?: any;
   $scanStartTime?: string;
@@ -237,3 +250,38 @@ export type OverviewModalRoutesParams = {
     poolCode?: string;
   };
 };
+
+export interface OverviewAllNetworksPortfolioRes {
+  tokens: Token[];
+  nfts: Collection[];
+  defis: OverviewDefiRes[];
+}
+
+interface Token {
+  name: string;
+  symbol: string;
+  coingeckoId: string;
+  balance: string;
+  price?: number;
+  price24h?: number;
+  value?: string;
+  value24h?: string;
+  logoURI?: string;
+}
+
+export interface IAccountToken {
+  name: string;
+  symbol: string;
+  address?: string;
+  logoURI?: string;
+  balance: string;
+  usdValue: string;
+  value: string;
+  value24h: string;
+  price: number;
+  price24h: number;
+  isNative?: boolean;
+  riskLevel?: TokenRiskLevel;
+  sendAddress?: string;
+  key: string;
+}

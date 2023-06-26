@@ -149,8 +149,10 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
   const fiat = useCurrentFiatValue();
 
   const defis = useAppSelector(
-    (s) => s.overview.defi?.[`${networkId}--${address}`] ?? [],
+    (s) => s.allNetworks.portfolios[`${networkId}___${accountId}`]?.defis ?? [],
   );
+
+  console.log(defis);
 
   const allDefiValues = useMemo(
     () =>
@@ -168,9 +170,9 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
   const handlePressHeader = useCallback(() => {
     navigation.navigate(HomeRoutes.OverviewDefiListScreen, {
       networkId,
-      address,
+      accountId,
     });
-  }, [navigation, networkId, address]);
+  }, [navigation, networkId, accountId]);
 
   if (!defis.length) {
     return null;

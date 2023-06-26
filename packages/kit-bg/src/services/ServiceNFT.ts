@@ -37,30 +37,6 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getUserNFTAssets({
-    accountId,
-    networkId,
-    ignoreError = true,
-  }: {
-    accountId: string;
-    networkId: string;
-    ignoreError?: boolean;
-  }) {
-    const apiUrl = `${this.baseUrl}/v2/list?address=${accountId}&chain=${networkId}`;
-    const { data, success } = await this.client
-      .get<NFTServiceResp<Collection[]>>(apiUrl)
-      .then((resp) => resp.data)
-      .catch(() => ({ success: false, data: [] }));
-    if (!success) {
-      if (ignoreError) {
-        return [];
-      }
-      throw new OneKeyInternalError('data load error');
-    }
-    return data;
-  }
-
-  @backgroundMethod()
   async fetchAsset(params: {
     chain: string;
     contractAddress?: string;
@@ -366,23 +342,6 @@ class ServiceNFT extends ServiceBase {
   }
 
   @backgroundMethod()
-  async saveNFTs({
-    networkId,
-    accountId,
-    items,
-  }: {
-    networkId: string;
-    accountId: string;
-    items: Collection[];
-  }) {
-    if (!items) {
-      return;
-    }
-    const key = getNFTListKey(accountId, networkId);
-    return simpleDb.nft.setNFTs(items, key);
-  }
-
-  @backgroundMethod()
   async batchLocalCollection({
     networkId,
     accountId,
@@ -420,42 +379,43 @@ class ServiceNFT extends ServiceBase {
   async fetchNFT({
     accountId,
     networkId,
-    ignoreError = true,
   }: {
     accountId: string;
     networkId: string;
-    ignoreError?: boolean;
   }) {
-    const collections = await this.getUserNFTAssets({
+    const { appSelector, serviceOverview } = this.backgroundApi;
+    const walletId = appSelector((s) => s.general.activeWalletId);
+    await serviceOverview.fetchAccountOverview({
       accountId,
       networkId,
-      ignoreError,
+      walletId: walletId ?? '',
+      scanTypes: ['nfts'],
     });
-    const { dispatch } = this.backgroundApi;
+    // const { dispatch } = this.backgroundApi;
 
-    const floorPrice = 0;
-    let lastSalePrice = 0;
-    const items = collections.map((collection) => {
-      let totalPrice = 0;
-      collection.assets = collection.assets.map((asset) => {
-        asset.collection.floorPrice = collection.floorPrice;
-        totalPrice += asset.latestTradePrice ?? 0;
-        return asset;
-      });
-      collection.totalPrice = totalPrice;
-      lastSalePrice += totalPrice;
-      return collection;
-    });
-
-    dispatch(
-      setNFTPrice({
-        networkId,
-        accountId,
-        price: { 'floorPrice': floorPrice, 'lastSalePrice': lastSalePrice },
-      }),
-    );
-    this.saveNFTs({ networkId, accountId, items });
-    return items;
+    // const floorPrice = 0;
+    // let lastSalePrice = 0;
+    // const items = collections.map((collection) => {
+    //   let totalPrice = 0;
+    //   collection.assets = collection.assets.map((asset) => {
+    //     asset.collection.floorPrice = collection.floorPrice;
+    //     totalPrice += asset.latestTradePrice ?? 0;
+    //     return asset;
+    //   });
+    //   collection.totalPrice = totalPrice;
+    //   lastSalePrice += totalPrice;
+    //   return collection;
+    // });
+    //
+    // dispatch(
+    //   setNFTPrice({
+    //     networkId,
+    //     accountId,
+    //     price: { 'floorPrice': floorPrice, 'lastSalePrice': lastSalePrice },
+    //   }),
+    // );
+    // this.saveNFTs({ networkId, accountId, items });
+    // return items;
   }
 
   @backgroundMethod()

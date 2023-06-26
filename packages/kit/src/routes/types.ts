@@ -167,7 +167,7 @@ export type HomeRoutesParams = {
   [HomeRoutes.NFTPNLScreen]: undefined;
   [HomeRoutes.OverviewDefiListScreen]: {
     networkId: string;
-    address: string;
+    accountId: string;
   };
   [HomeRoutes.WalletSwitch]: undefined;
   [HomeRoutes.BulkSender]: undefined;

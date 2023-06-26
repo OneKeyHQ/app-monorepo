@@ -4,17 +4,21 @@ import type { ComponentProps, FC } from 'react';
 import {
   Badge,
   Box,
+  HStack,
   Pressable,
   Text,
+  Token,
   useIsVerticalLayout,
   useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
+import { useManageNetworks } from '../../../../hooks';
 import { useTokenPrice } from '../../../../hooks/useTokens';
 import { convertToMoneyFormat } from '../utils';
 
@@ -29,6 +33,7 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
   const { network } = useActiveWalletAccount();
+  const { allNetworks } = useManageNetworks();
   const symbolPrice = useTokenPrice({
     networkId: network?.id ?? '',
     tokenIdOnNetwork: '',
@@ -50,6 +55,13 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
 
   const price = symbolPrice ?? 0;
   const value = price * (latestTradePrice ?? 0);
+
+  const networkIcon = useMemo(() => {
+    if (!isAllNetworks(network?.id)) {
+      return undefined;
+    }
+    return allNetworks.find((n) => n.id === asset.networkId)?.logoURI;
+  }, [asset, allNetworks, network?.id]);
 
   const AmountTag = useMemo(() => {
     if (
@@ -96,15 +108,20 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
           />
           {AmountTag}
         </Box>
+        <HStack mt={`${padding}px`} w="100%">
+          <Text flex={1} typography="Body2" height="20px" numberOfLines={1}>
+            {asset.name ?? asset.collection.contractName ?? ''}
+          </Text>
+          {networkIcon ? (
+            <Token
+              size={4}
+              token={{
+                logoURI: networkIcon,
+              }}
+            />
+          ) : null}
+        </HStack>
 
-        <Text
-          typography="Body2"
-          height="20px"
-          mt={`${padding}px`}
-          numberOfLines={1}
-        >
-          {asset.name ?? asset.collection.contractName ?? ''}
-        </Text>
         {latestTradePrice ? (
           <Text typography="Body2" height="20px" color="text-subdued">
             <FormatCurrencyNumber

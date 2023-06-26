@@ -66,7 +66,11 @@ const ListHeader: FC<{
   const iconInnerWidth = isVerticalLayout ? 12 : 16;
   const iconBorderRadius = isVerticalLayout ? '12px' : '16px';
 
-  const accountTokens = useAccountTokens(networkId, account?.id, true);
+  const accountTokens = useAccountTokens({
+    networkId,
+    accountId: account?.id,
+    useFilter: true,
+  });
 
   const tokenCountOrAddToken = useMemo(
     () =>

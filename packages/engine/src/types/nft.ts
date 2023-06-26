@@ -32,6 +32,8 @@ export type CollectionAttribute = {
 };
 
 export type Collection = {
+  networkId?: string;
+  accountAddress?: string;
   contractAddress?: string;
   contractName?: string;
   description?: string;
@@ -60,6 +62,8 @@ export type Collection = {
 };
 
 export type NFTAsset = {
+  networkId?: string;
+  accountAddress?: string;
   tokenAddress?: string; // sol
   contractAddress?: string; // evm
   contractName?: string;
