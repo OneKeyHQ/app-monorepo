@@ -1502,7 +1502,7 @@ class ServiceAccount extends ServiceBase {
       const xpub = await vault.getFetchBalanceAddress(account);
       return { xpub, address: account.address };
     }
-    // TODO: Lighting account
+    // TODO: Lightning account
     if (account.type === AccountType.VARIANT) {
       const address = await vault.addressFromBase(account);
       return { address };

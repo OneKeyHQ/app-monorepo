@@ -3785,16 +3785,16 @@ export const serverPresetNetworks = [
   {
     'balance2FeeDecimals': 0,
     'chainId': '0',
-    'code': 'lighting',
+    'code': 'lightning',
     'decimals': 0,
     'extensions': {
       'position': 1,
     },
-    'id': 'lighting--0',
-    'impl': 'lighting',
+    'id': 'lightning--0',
+    'impl': 'lightning',
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/btc/btc.png',
-    'name': 'Lighting Network',
+    'name': 'Lightning Network',
     'rpcURLs': [
       {
         'url': 'https://node.onekey.so/btc',
@@ -3803,11 +3803,11 @@ export const serverPresetNetworks = [
         'url': 'https://1rpc.io/btc',
       },
     ],
-    'shortcode': 'lighting',
-    'shortname': 'Lighting',
+    'shortcode': 'lightning',
+    'shortname': 'Lightning',
     'symbol': 'sats',
     'feeMeta': {
-      'code': 'lighting',
+      'code': 'lightning',
       'decimals': 0,
       'symbol': 'sats',
     },

@@ -357,8 +357,8 @@ export class FailedToEstimatedGasError extends OneKeyError {
   override key = 'msg__estimated_gas_failure';
 }
 
-// Lighting Network ----------------------------------------------
-export class InvalidLightingPaymentRequest extends OneKeyError {
+// Lightning Network ----------------------------------------------
+export class InvalidLightningPaymentRequest extends OneKeyError {
   override key = 'msg__invalid_lightning_payment_request';
 }
 

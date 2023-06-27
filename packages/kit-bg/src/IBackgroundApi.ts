@@ -25,7 +25,7 @@ import type ServiceGas from './services/ServiceGas';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
 import type ServiceHTTP from './services/ServiceHTTP';
-import type ServiceLightingNetwork from './services/ServiceLightingNetwork';
+import type ServiceLightningNetwork from './services/ServiceLightningNetwork';
 import type ServiceLimitOrder from './services/ServiceLimitOrder';
 import type ServiceMarket from './services/ServiceMarket';
 import type ServiceMigrate from './services/ServiceMigrate';
@@ -122,6 +122,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceLimitOrder: ServiceLimitOrder;
   serviceUtxos: ServiceUtxos;
   serviceContract: ServiceContract;
-  serviceLightingNetwork: ServiceLightingNetwork;
+  serviceLightningNetwork: ServiceLightningNetwork;
   serviceGas: ServiceGas;
 }

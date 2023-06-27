@@ -32,7 +32,7 @@ type IExchangeToken = () => Promise<{
 let isRefreshing = false;
 let subscribers: (() => AxiosPromise<any>)[] = [];
 
-class ClientLighting {
+class ClientLightning {
   readonly request: AxiosInstance;
 
   exchangeToken?: IExchangeToken;
@@ -41,7 +41,7 @@ class ClientLighting {
     this.exchangeToken = exchangeToken;
     this.request = axios.create({
       // baseURL: `${getFiatEndpoint()}/api`,
-      baseURL: `http://localhost:9000/api/lighting`,
+      baseURL: `http://localhost:9000/api/lightning`,
       timeout: 20000,
     });
 
@@ -196,4 +196,4 @@ class ClientLighting {
   }
 }
 
-export default ClientLighting;
+export default ClientLightning;

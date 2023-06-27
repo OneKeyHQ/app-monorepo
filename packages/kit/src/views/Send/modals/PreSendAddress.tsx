@@ -16,7 +16,7 @@ import type { GoPlusAddressSecurity } from '@onekeyhq/engine/src/types/goplus';
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
-import type { IEncodedTxLighting } from '@onekeyhq/engine/src/vaults/impl/lighting-network/types';
+import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
 import type {
   INFTInfo,
   ITransferInfo,
@@ -99,7 +99,7 @@ function PreSendAddress() {
       : (reset as ITransferInfo);
   const { isNFT } = transferInfo;
   const { account, network } = useActiveSideAccount(routeParams);
-  const isLightingNetwork = network?.impl === IMPL_LIGHTING;
+  const isLightningNetwork = network?.impl === IMPL_LIGHTING;
   const useFormReturn = useForm<FormValues>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
@@ -335,7 +335,7 @@ function PreSendAddress() {
     [navigation, nftInfo, transferInfo, transferInfos, closeModal],
   );
 
-  const lightingNetworkSendConfirm = useCallback(
+  const lightningNetworkSendConfirm = useCallback(
     async (toVal: string) => {
       try {
         setIsLoadingAssets(true);
@@ -366,7 +366,7 @@ function PreSendAddress() {
               idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
             },
             to: toVal,
-            value: (encodedTx as IEncodedTxLighting).amount,
+            value: (encodedTx as IEncodedTxLightning).amount,
             isMax: false,
           },
         });
@@ -420,8 +420,8 @@ function PreSendAddress() {
       }
       if (isNFT) {
         nftSendConfirm(toVal);
-      } else if (isLightingNetwork) {
-        lightingNetworkSendConfirm(toVal);
+      } else if (isLightningNetwork) {
+        lightningNetworkSendConfirm(toVal);
       } else {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
@@ -573,7 +573,7 @@ function PreSendAddress() {
             setvalidateMessage({
               warningMessage: '',
               successMessage: intl.formatMessage({
-                id: isLightingNetwork
+                id: isLightningNetwork
                   ? 'msg__valid_payment_request'
                   : 'form__enter_recipient_address_valid',
               }),
@@ -592,7 +592,7 @@ function PreSendAddress() {
       isValidNameServiceName,
       networkId,
       resolvedAddress,
-      isLightingNetwork,
+      isLightningNetwork,
     ],
   );
 
@@ -664,17 +664,17 @@ function PreSendAddress() {
               >
                 <AddressInput
                   // TODO different max length in network
-                  maxLength={isLightingNetwork ? 999 : 103}
+                  maxLength={isLightningNetwork ? 999 : 103}
                   networkId={networkId}
                   // numberOfLines={10}
                   h={{ base: 120, md: 120 }}
                   plugins={
-                    isLightingNetwork
+                    isLightningNetwork
                       ? ['paste', 'scan']
                       : ['contact', 'paste', 'scan']
                   }
                   placeholder={
-                    isLightingNetwork
+                    isLightningNetwork
                       ? intl.formatMessage({ id: 'content__enter_invoice' })
                       : undefined
                   }

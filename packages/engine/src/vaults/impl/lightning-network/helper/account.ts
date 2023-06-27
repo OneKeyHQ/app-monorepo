@@ -71,7 +71,7 @@ export const generateNativeSegwitAccounts = async ({
       [firstAddressRelPath],
       addressEncoding,
     );
-    const prefix = 'Lighting';
+    const prefix = 'Lightning';
     const name = (names || [])[index] || `${prefix} #${usedIndexes[index] + 1}`;
     if (!ignoreFirst || index > 0) {
       ret.push({

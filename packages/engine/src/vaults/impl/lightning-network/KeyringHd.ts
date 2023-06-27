@@ -19,8 +19,8 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '../../types';
-import type { IEncodedTxLighting } from './types';
-import type LightingVault from './Vault';
+import type { IEncodedTxLightning } from './types';
+import type LightningVault from './Vault';
 
 export class KeyringHd extends KeyringHdBase {
   override getSigners(): Promise<Record<string, Signer>> {
@@ -43,7 +43,7 @@ export class KeyringHd extends KeyringHdBase {
       names,
     });
 
-    const client = await (this.vault as LightingVault).getClient();
+    const client = await (this.vault as LightningVault).getClient();
 
     const ret = [];
     for (const account of nativeSegwitAccounts) {
@@ -98,7 +98,7 @@ export class KeyringHd extends KeyringHdBase {
       password ?? '',
     )) as ExportedSeedCredential;
     const { invoice, expired, created, nonce, paymentHash } =
-      unsignedTx.encodedTx as IEncodedTxLighting;
+      unsignedTx.encodedTx as IEncodedTxLightning;
     const sign = await signature({
       msgPayload: {
         type: 'transfer',

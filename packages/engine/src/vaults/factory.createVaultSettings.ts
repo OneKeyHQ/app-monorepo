@@ -105,7 +105,7 @@ export function createVaultSettings(options: {
     return require('./impl/kaspa/settings').default as IVaultSettings;
   }
   if (impl === IMPL_LIGHTING) {
-    return require('./impl/lighting-network/settings')
+    return require('./impl/lightning-network/settings')
       .default as IVaultSettings;
   }
   throw new OneKeyInternalError(

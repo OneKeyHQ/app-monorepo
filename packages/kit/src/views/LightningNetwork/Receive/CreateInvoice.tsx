@@ -57,7 +57,7 @@ const CreateInvoice = () => {
       setIsLoading(true);
       try {
         const invoice =
-          await backgroundApiProxy.serviceLightingNetwork.createInvoice({
+          await backgroundApiProxy.serviceLightningNetwork.createInvoice({
             networkId,
             accountId,
             amount: values.amount,

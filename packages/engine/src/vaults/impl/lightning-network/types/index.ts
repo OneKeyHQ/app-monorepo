@@ -1,4 +1,4 @@
-export type IEncodedTxLighting = {
+export type IEncodedTxLightning = {
   invoice: string;
   paymentHash: string;
   amount: string;

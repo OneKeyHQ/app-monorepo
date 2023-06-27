@@ -26,7 +26,7 @@ const AccountSelectorWalletMenu: FC<
   const { walletId, networkId } = props;
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { network } = useNetwork({ networkId });
-  const isLightingNetwork = useMemo(
+  const isLightningNetwork = useMemo(
     () => network?.impl === IMPL_LIGHTING,
     [network?.impl],
   );
@@ -103,13 +103,13 @@ const AccountSelectorWalletMenu: FC<
         onPress: onPressCreateAccount,
         icon: 'PlusMini',
       },
-      !isLightingNetwork && {
+      !isLightningNetwork && {
         id: 'action__manage_account',
         onPress: onPressManageAccount,
         icon: 'SquaresPlusMini',
       },
-      !isLightingNetwork && (() => <Divider my={1} />),
-      !isLightingNetwork && {
+      !isLightningNetwork && (() => <Divider my={1} />),
+      !isLightningNetwork && {
         id: 'title__bulk_copy_addresses',
         onPress: onPressBulkCopyAddresses,
         icon: 'Square2StackOutline',
@@ -119,7 +119,7 @@ const AccountSelectorWalletMenu: FC<
       onPressCreateAccount,
       onPressManageAccount,
       onPressBulkCopyAddresses,
-      isLightingNetwork,
+      isLightningNetwork,
     ],
   );
 

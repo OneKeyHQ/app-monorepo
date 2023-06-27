@@ -10,7 +10,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import {
   InsufficientBalance,
-  InvalidLightingPaymentRequest,
+  InvalidLightningPaymentRequest,
   InvoiceAlreadPaid,
   NoRouteFoundError,
   WrongPassword,
@@ -26,7 +26,7 @@ import {
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
-import ClientLighting from './helper/clientLighting';
+import ClientLightning from './helper/clientLightning';
 import { getInvoiceTransactionStatus } from './helper/invoice';
 import { signature } from './helper/signature';
 import { KeyringHardware } from './KeyringHardware';
@@ -53,7 +53,7 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '../../types';
-import type { IEncodedTxLighting } from './types';
+import type { IEncodedTxLightning } from './types';
 import type { IHistoryItem, InvoiceStatusEnum } from './types/invoice';
 import type { AxiosError } from 'axios';
 
@@ -78,7 +78,7 @@ export default class Vault extends VaultBase {
   // client: axios
   private getClientCache = memoizee(
     (password?: string, passwordLoadedCallback?: (isLoaded: boolean) => void) =>
-      new ClientLighting(async () =>
+      new ClientLightning(async () =>
         this.exchangeToken(password, passwordLoadedCallback),
       ),
     {
@@ -141,7 +141,7 @@ export default class Vault extends VaultBase {
       await this._decodedInvoceCache(address);
       return address;
     } catch (e) {
-      throw new InvalidLightingPaymentRequest();
+      throw new InvalidLightningPaymentRequest();
     }
   }
 
@@ -156,7 +156,7 @@ export default class Vault extends VaultBase {
   );
 
   override async fetchFeeInfo(
-    encodedTx: IEncodedTxLighting,
+    encodedTx: IEncodedTxLightning,
   ): Promise<IFeeInfo> {
     const network = await this.engine.getNetwork(this.networkId);
     return {
@@ -174,7 +174,7 @@ export default class Vault extends VaultBase {
 
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
-  ): Promise<IEncodedTxLighting> {
+  ): Promise<IEncodedTxLightning> {
     const client = await this.getClient();
     const balanceAddress = await this.getCurrentBalanceAddress();
 
@@ -210,7 +210,7 @@ export default class Vault extends VaultBase {
       throw new InsufficientBalance();
     }
     if (!invoice.paymentRequest) {
-      throw new InvalidLightingPaymentRequest();
+      throw new InvalidLightningPaymentRequest();
     }
 
     const nonce = await client.getNextNonce(balanceAddress);
@@ -230,8 +230,8 @@ export default class Vault extends VaultBase {
   }
 
   override updateEncodedTx(
-    encodedTx: IEncodedTxLighting,
-  ): Promise<IEncodedTxLighting> {
+    encodedTx: IEncodedTxLightning,
+  ): Promise<IEncodedTxLightning> {
     return Promise.resolve(encodedTx);
   }
 
@@ -254,7 +254,7 @@ export default class Vault extends VaultBase {
   }
 
   override async decodeTx(
-    encodedTx: IEncodedTxLighting,
+    encodedTx: IEncodedTxLightning,
     payload?: any,
   ): Promise<IDecodedTx> {
     const network = await this.engine.getNetwork(this.networkId);
@@ -451,7 +451,7 @@ export default class Vault extends VaultBase {
     try {
       const client = await this.getClient();
       const { invoice, amount, expired, created, nonce } =
-        signedTx.encodedTx as IEncodedTxLighting;
+        signedTx.encodedTx as IEncodedTxLightning;
       const address = await this.getCurrentBalanceAddress();
       result = await client.paymentBolt11({
         address,

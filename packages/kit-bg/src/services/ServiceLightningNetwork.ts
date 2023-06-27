@@ -1,4 +1,4 @@
-import type VaultLighting from '@onekeyhq/engine/src/vaults/impl/lighting-network/Vault';
+import type VaultLightning from '@onekeyhq/engine/src/vaults/impl/lightning-network/Vault';
 import { setIsPasswordLoadedInVault } from '@onekeyhq/kit/src/store/reducers/data';
 import {
   backgroundClass,
@@ -8,7 +8,7 @@ import {
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
-export default class ServiceLightingNetwork extends ServiceBase {
+export default class ServiceLightningNetwork extends ServiceBase {
   @backgroundMethod()
   async createInvoice({
     networkId,
@@ -29,7 +29,7 @@ export default class ServiceLightingNetwork extends ServiceBase {
     const password = await servicePassword.getPassword();
     const passwordLoadedCallback = (isLoaded: boolean) =>
       dispatch(setIsPasswordLoadedInVault(isLoaded));
-    const invoice = (vault as VaultLighting).createInvoice(
+    const invoice = (vault as VaultLightning).createInvoice(
       amount,
       description,
       password,

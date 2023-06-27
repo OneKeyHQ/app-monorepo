@@ -21,7 +21,7 @@ const settings: IVaultSettings = Object.freeze({
 
   accountNameInfo: {
     default: {
-      prefix: 'Lighting',
+      prefix: 'Lightning',
       category: `44'/${COINTYPE_LIGHTING}'`,
       template: `m/44'/${COINTYPE_LIGHTING}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_LIGHTING,

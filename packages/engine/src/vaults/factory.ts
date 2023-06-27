@@ -45,7 +45,7 @@ import VaultHelperDot from './impl/dot/VaultHelper';
 import VaultHelperEvm from './impl/evm/VaultHelper';
 import VaultHelperFil from './impl/fil/VaultHelper';
 import VaultHelperKaspa from './impl/kaspa/VaultHelper';
-import VaultHelperLighting from './impl/lighting-network/VaultHelper';
+import VaultHelperLightning from './impl/lightning-network/VaultHelper';
 import VaultHelperLtc from './impl/ltc/VaultHelper';
 import VaultHelperNear from './impl/near/VaultHelper';
 import VauleHelperSol from './impl/sol/VaultHelper';
@@ -129,7 +129,7 @@ export async function createVaultHelperInstance(
     return new VaultHelperKaspa(options);
   }
   if (impl === IMPL_LIGHTING) {
-    return new VaultHelperLighting(options);
+    return new VaultHelperLightning(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -257,9 +257,9 @@ export async function createVaultInstance(options: IVaultOptions) {
     vault = new VaultKaspa(options);
   }
   if (network.impl === IMPL_LIGHTING) {
-    const VaultLighting = (await import('./impl/lighting-network/Vault'))
+    const VaultLightning = (await import('./impl/lightning-network/Vault'))
       .default;
-    vault = new VaultLighting(options);
+    vault = new VaultLightning(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

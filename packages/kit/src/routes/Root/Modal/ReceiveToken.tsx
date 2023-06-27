@@ -1,7 +1,7 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
 
-import ReceiveInvoice from '../../../views/LightingNetwork/Receive';
-import CreateInvoice from '../../../views/LightingNetwork/Receive/CreateInvoice';
+import ReceiveInvoice from '../../../views/LightningNetwork/Receive';
+import CreateInvoice from '../../../views/LightningNetwork/Receive/CreateInvoice';
 import ReceiveToken from '../../../views/ReceiveToken';
 import { ReceiveTokenModalRoutes } from '../../../views/ReceiveToken/types';
 

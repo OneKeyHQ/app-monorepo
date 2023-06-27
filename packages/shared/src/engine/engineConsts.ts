@@ -69,8 +69,8 @@ const COINTYPE_XMR = '128';
 const IMPL_KASPA = 'kaspa';
 const COINTYPE_KASPA = '111111';
 
-const IMPL_LIGHTING = 'lighting';
-const COINTYPE_LIGHTING = 'lighting';
+const IMPL_LIGHTING = 'lightning';
+const COINTYPE_LIGHTING = 'lightning';
 
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
