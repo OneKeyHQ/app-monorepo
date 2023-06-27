@@ -9,7 +9,7 @@ import { CloseBackDrop } from '@onekeyhq/components/src/Select';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NeedBridgeDialog from '@onekeyhq/kit/src/components/NeedBridgeDialog';
 import PermissionDialog from '@onekeyhq/kit/src/components/PermissionDialog/PermissionDialog';
-import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
+// import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -297,7 +297,7 @@ export default async function showHardwarePopup({
         <PermissionDialog
           type="bluetooth"
           onClose={() => {
-            getAppNavigation().goBack();
+            // getAppNavigation().goBack();
             closeHardwarePopup();
           }}
         />,
@@ -326,7 +326,7 @@ export default async function showHardwarePopup({
         <PermissionDialog
           type={(Platform.Version as number) >= 31 ? 'bluetooth' : 'location'}
           onClose={() => {
-            getAppNavigation()?.goBack();
+            // getAppNavigation()?.goBack();
             closeHardwarePopup();
           }}
         />,
@@ -342,7 +342,7 @@ export default async function showHardwarePopup({
       <PermissionDialog
         type="locationService"
         onClose={() => {
-          getAppNavigation()?.goBack();
+          // getAppNavigation()?.goBack();
           closeHardwarePopup();
         }}
       />,
