@@ -2,7 +2,7 @@
 //  OKLiteCommandModal.m
 //  OneKeyWallet
 //
-//  Created by 林雷钦 on 2023/6/27.
+//  Created by linleiqin on 2023/6/27.
 //
 
 #import "OKLiteCommandModal.h"

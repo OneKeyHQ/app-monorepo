@@ -1,8 +1,8 @@
 //
 //  RNEventManager.m
-//  exponfcdemo
+//  OneKeyWallet
 //
-//  Created by 林雷钦 on 2021/11/8.
+//  Created by linleiqin on 2021/11/8.
 //
 
 #import "OKLiteManager.h"

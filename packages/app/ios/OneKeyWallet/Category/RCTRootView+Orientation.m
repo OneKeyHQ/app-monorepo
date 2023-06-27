@@ -2,7 +2,7 @@
 //  RCTRootView+Orientation.m
 //  OneKeyWallet
 //
-//  Created by 林雷钦 on 2022/7/14.
+//  Created by linleiqin on 2022/7/14.
 //
 
 #import "RCTRootView+Orientation.h"

@@ -2,7 +2,7 @@
 //  SplashScreenManager.m
 //  OneKeyWallet
 //
-//  Created by 林雷钦 on 2022/5/5.
+//  Created by linleiqin on 2022/5/5.
 //
 
 #import "SplashScreenManager.h"
