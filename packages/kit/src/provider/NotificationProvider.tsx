@@ -81,7 +81,7 @@ const NotificationProvider: FC<{
     const listener = AppState.addEventListener('change', (state) => {
       if (!['background', 'inactive'].includes(state)) {
         serviceNotification.clearBadge();
-        checkPermission();
+        // checkPermission();
       }
     });
     if (pushNotification?.pushEnable) {
