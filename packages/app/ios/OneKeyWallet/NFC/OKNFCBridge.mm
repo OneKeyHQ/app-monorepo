@@ -36,7 +36,6 @@
 
     NSString *hexStr = [NSString stringWithCString:c_apdu encoding:NSUTF8StringEncoding];
     NSData *APDUData = [hexStr dataFromHexString];
-    NSLog(@"buildAPDU = %@",hexStr);
     NFCISO7816APDU *apdu = [[NFCISO7816APDU alloc] initWithData:APDUData];
     return apdu;
 }
@@ -83,8 +82,6 @@
         return NO;
     }
 
-    printf("Response code: %d\n", wRet);
-    printf("Decrypted response data: %s\n", pDecResp);
     JUB_FreeMemory(pDecResp);
 
     return YES;
