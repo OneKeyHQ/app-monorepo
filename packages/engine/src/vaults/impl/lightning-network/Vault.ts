@@ -91,6 +91,9 @@ export default class Vault extends VaultBase {
     passwordLoadedCallback?: (isLoaded: boolean) => void,
   ) {
     try {
+      if (!password) {
+        throw new Error('No Password');
+      }
       const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
       const address = dbAccount.addresses.normalizedAddress;
       const hashPubKey = bytesToHex(sha256(dbAccount.pub));

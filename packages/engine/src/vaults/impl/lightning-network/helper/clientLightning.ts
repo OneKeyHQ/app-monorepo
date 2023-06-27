@@ -40,16 +40,8 @@ class ClientLightning {
   constructor(exchangeToken?: IExchangeToken) {
     this.exchangeToken = exchangeToken;
     this.request = axios.create({
-      // baseURL: `${getFiatEndpoint()}/api`,
-      baseURL: `http://localhost:9000/api/lightning`,
+      baseURL: `${getFiatEndpoint()}/api`,
       timeout: 20000,
-    });
-
-    this.request.interceptors.request.use((config) => {
-      if (config.headers) {
-        config.headers['XXX-LN'] = '1';
-      }
-      return config;
     });
 
     this.request.interceptors.response.use(
