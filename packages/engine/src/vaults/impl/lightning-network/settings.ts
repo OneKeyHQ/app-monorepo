@@ -1,6 +1,6 @@
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import {
-  COINTYPE_LIGHTING,
+  COINTYPE_LIGHTNING,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -22,9 +22,9 @@ const settings: IVaultSettings = Object.freeze({
   accountNameInfo: {
     default: {
       prefix: 'Lightning',
-      category: `44'/${COINTYPE_LIGHTING}'`,
-      template: `m/44'/${COINTYPE_LIGHTING}'/${INDEX_PLACEHOLDER}'/0/0`,
-      coinType: COINTYPE_LIGHTING,
+      category: `44'/${COINTYPE_LIGHTNING}'`,
+      template: `m/44'/${COINTYPE_LIGHTNING}'/${INDEX_PLACEHOLDER}'/0/0`,
+      coinType: COINTYPE_LIGHTNING,
     },
   },
 

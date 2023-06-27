@@ -1,7 +1,7 @@
 import { isEmpty } from 'lodash';
 
 import {
-  COINTYPE_LIGHTING,
+  COINTYPE_LIGHTNING,
   SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -76,7 +76,7 @@ function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
 function isAccountWithAddress(account: Account) {
   if (
     account.type !== AccountType.VARIANT ||
-    account.coinType === COINTYPE_LIGHTING
+    account.coinType === COINTYPE_LIGHTNING
   )
     return true;
   return !isEmpty(account.address);

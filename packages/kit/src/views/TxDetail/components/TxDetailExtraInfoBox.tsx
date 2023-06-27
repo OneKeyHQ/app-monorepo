@@ -11,7 +11,7 @@ import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
-import { IMPL_LIGHTING } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { useClipboard } from '../../../hooks/useClipboard';
 import { useNetwork } from '../../../hooks/useNetwork';

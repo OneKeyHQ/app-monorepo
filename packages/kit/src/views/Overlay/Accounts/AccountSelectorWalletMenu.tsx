@@ -4,7 +4,7 @@ import { useCallback, useMemo } from 'react';
 import { Divider } from '@onekeyhq/components';
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { IMPL_LIGHTING } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useCreateAccountInWallet } from '../../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
@@ -27,7 +27,7 @@ const AccountSelectorWalletMenu: FC<
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { network } = useNetwork({ networkId });
   const isLightningNetwork = useMemo(
-    () => network?.impl === IMPL_LIGHTING,
+    () => network?.impl === IMPL_LIGHTNING,
     [network?.impl],
   );
 

@@ -1,7 +1,7 @@
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 
-import { COINTYPE_LIGHTING } from '@onekeyhq/shared/src/engine/engineConsts';
+import { COINTYPE_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { AccountType } from '../../../types/account';
@@ -67,13 +67,13 @@ export class KeyringHd extends KeyringHdBase {
           signature: sign,
         });
       }
-      const path = `m/44'/${COINTYPE_LIGHTING}'/${account.index}`;
+      const path = `m/44'/${COINTYPE_LIGHTNING}'/${account.index}`;
       ret.push({
         id: `${this.walletId}--${path}`,
         name: account.name,
         type: AccountType.VARIANT,
         path,
-        coinType: COINTYPE_LIGHTING,
+        coinType: COINTYPE_LIGHTNING,
         pub: account.xpub,
         address: account.address,
         addresses: {

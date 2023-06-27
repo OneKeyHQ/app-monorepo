@@ -12,7 +12,7 @@ import {
   IMPL_EVM,
   IMPL_FIL,
   IMPL_KASPA,
-  IMPL_LIGHTING,
+  IMPL_LIGHTNING,
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
@@ -128,7 +128,7 @@ export async function createVaultHelperInstance(
   if (impl === IMPL_KASPA) {
     return new VaultHelperKaspa(options);
   }
-  if (impl === IMPL_LIGHTING) {
+  if (impl === IMPL_LIGHTNING) {
     return new VaultHelperLightning(options);
   }
   throw new OneKeyInternalError(
@@ -256,7 +256,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     const VaultKaspa = (await import('./impl/kaspa/Vault')).default;
     vault = new VaultKaspa(options);
   }
-  if (network.impl === IMPL_LIGHTING) {
+  if (network.impl === IMPL_LIGHTNING) {
     const VaultLightning = (await import('./impl/lightning-network/Vault'))
       .default;
     vault = new VaultLightning(options);

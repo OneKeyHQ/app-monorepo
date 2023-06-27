@@ -69,8 +69,8 @@ const COINTYPE_XMR = '128';
 const IMPL_KASPA = 'kaspa';
 const COINTYPE_KASPA = '111111';
 
-const IMPL_LIGHTING = 'lightning';
-const COINTYPE_LIGHTING = 'lightning';
+const IMPL_LIGHTNING = 'lightning';
+const COINTYPE_LIGHTNING = 'lightning';
 
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
@@ -94,7 +94,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_DOT,
   IMPL_XMR,
   IMPL_KASPA,
-  IMPL_LIGHTING,
+  IMPL_LIGHTNING,
 ]);
 
 const PRODUCTION_IMPLS = new Set([
@@ -119,7 +119,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_DOT,
   IMPL_XMR,
   IMPL_KASPA,
-  IMPL_LIGHTING,
+  IMPL_LIGHTNING,
 ]);
 
 export const HISTORY_CONSTS = {
@@ -195,8 +195,8 @@ export {
   COINTYPE_XMR,
   IMPL_KASPA,
   COINTYPE_KASPA,
-  IMPL_LIGHTING,
-  COINTYPE_LIGHTING,
+  IMPL_LIGHTNING,
+  COINTYPE_LIGHTNING,
   getSupportedImpls,
 };
 

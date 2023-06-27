@@ -35,7 +35,7 @@ import {
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import type { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import { IMPL_LIGHTING } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountValues, useNavigationActions } from '../../../hooks';
@@ -194,7 +194,7 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   }, [sendToken]);
 
   const onReceive = useCallback(() => {
-    if (network?.impl === IMPL_LIGHTING) {
+    if (network?.impl === IMPL_LIGHTNING) {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Receive,
         params: {

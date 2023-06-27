@@ -8,7 +8,7 @@ import type {
   IBaseMenuOptions,
   IMenu,
 } from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
-import { IMPL_LIGHTING } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../../hooks';
@@ -116,7 +116,7 @@ function AccountItemSelectDropdown({
         (i) => i.id === network.id,
       )?.settings;
       setShowAllUsedAddressOption(networkSettings?.isBtcForkChain ?? false);
-      setShowCopyAddressOption(network.impl !== IMPL_LIGHTING);
+      setShowCopyAddressOption(network.impl !== IMPL_LIGHTNING);
     }
   }, [network, networks]);
 
