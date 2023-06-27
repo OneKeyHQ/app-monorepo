@@ -391,7 +391,10 @@ class Connection(val isoDep: IsoDep, private val mCommandGenerator: CommandGener
             mCardType, CommandType.EXPORT_DATA, hasOpenSafeChannel
         )
         val res = command.send(this)
-        printLog(TAG, "<--- exportData end: $res area:${mCommandArea}")
+        printLog(
+            TAG,
+            "<--- exportData end: ${res.getCode()} emptyData:${res.isEmptyData()} area:${mCommandArea}"
+        )
 
         if (res.isEmptyData() || !res.isSuccess()) {
             return null
