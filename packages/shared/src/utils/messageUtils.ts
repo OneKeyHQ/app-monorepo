@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 import { TYPED_MESSAGE_SCHEMA, typedSignatureHash } from 'eth-sig-util';
 import { addHexPrefix, isHexString, isValidAddress } from 'ethereumjs-util';
 import { validate } from 'jsonschema';
-import { toString } from 'lodash';
 
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
@@ -24,18 +23,20 @@ function isValidHexAddress(
   return isValidAddress(addressToCheck);
 }
 
-function validateAddress(address: string, propertyName: string) {
+function validateAddress(address: string | undefined, propertyName: string) {
   if (!address || typeof address !== 'string' || !isValidHexAddress(address)) {
     throw new Error(
-      `Invalid "${propertyName}" address: ${address} must be a valid string.`,
+      `Invalid "${propertyName}" address: ${String(
+        address,
+      )} must be a valid string.`,
     );
   }
 }
 
 export function validateSignMessageData(unsignedMessage: IUnsignedMessageEvm) {
-  const { payload } = unsignedMessage;
-  let message = '';
-  let from = '';
+  const { payload = {} } = unsignedMessage;
+  let message;
+  let from;
 
   if (unsignedMessage.type === ETHMessageTypes.PERSONAL_SIGN) {
     [message, from] = payload as [string, string];
@@ -45,7 +46,7 @@ export function validateSignMessageData(unsignedMessage: IUnsignedMessageEvm) {
   validateAddress(from, 'from');
   if (!message || typeof message !== 'string') {
     throw new OneKeyError(
-      `Invalid message "data": ${toString(message)} must be a valid string.`,
+      `Invalid message: ${String(message)} must be a valid string.`,
     );
   }
 }
@@ -53,7 +54,7 @@ export function validateSignMessageData(unsignedMessage: IUnsignedMessageEvm) {
 export function validateTypedSignMessageDataV1(
   unsignedMessage: IUnsignedMessageEvm,
 ) {
-  const { payload } = unsignedMessage;
+  const { payload = [] } = unsignedMessage;
   const [message, from] = payload as [
     Array<{ name: string; type: string; value: string }>,
     string,
@@ -62,7 +63,7 @@ export function validateTypedSignMessageDataV1(
 
   if (!message || !Array.isArray(message)) {
     throw new OneKeyError(
-      `Invalid message "data": ${toString(message)} must be a valid array.`,
+      `Invalid message: ${String(message)} must be a valid array.`,
     );
   }
 
@@ -78,8 +79,8 @@ export function validateTypedSignMessageDataV3V4(
   unsignedMessage: IUnsignedMessageEvm,
   currentChainId: string | undefined,
 ) {
-  const { payload, message } = unsignedMessage;
-  const [from] = payload as [string];
+  const { payload = [] } = unsignedMessage;
+  const [from, message] = payload as [string, string];
   let messageObject: {
     domain: { chainId: string };
     types: { EIP712Domain: { name: string; type: string }[] };
@@ -87,21 +88,27 @@ export function validateTypedSignMessageDataV3V4(
 
   validateAddress(from, 'from');
 
-  if (!message || typeof message !== 'string') {
-    throw new OneKeyError(
-      `Invalid message "data": ${toString(message)} must be a valid string.`,
-    );
+  if (
+    !message ||
+    Array.isArray(message) ||
+    (typeof message !== 'object' && typeof message !== 'string')
+  ) {
+    throw new Error(`Invalid message: Must be a valid string or object.`);
   }
-  try {
-    messageObject = JSON.parse(message);
-  } catch (e) {
-    throw new OneKeyError('Data must be passed as a valid JSON string.');
+
+  if (typeof message === 'object') {
+    messageObject = message;
+  } else {
+    try {
+      messageObject = JSON.parse(message);
+    } catch (e) {
+      throw new Error('Message data must be passed as a valid JSON string.');
+    }
   }
+
   const validation = validate(messageObject, TYPED_MESSAGE_SCHEMA);
   if (validation.errors.length > 0) {
-    throw new OneKeyError(
-      'Data must conform to EIP-712 schema. See https://git.io/fNtcx.',
-    );
+    throw new OneKeyError('Message Data must conform to EIP-712 schema.');
   }
 
   if (!currentChainId) {
@@ -241,7 +248,7 @@ export function getValidUnsignedMessage(unsignedMessage: IUnsignedMessageEvm) {
       type === ETHMessageTypes.TYPED_DATA_V3 ||
       type === ETHMessageTypes.TYPED_DATA_V4
     ) {
-      const messageObject: {
+      let messageObject: {
         domain: { chainId: string };
         types: {
           EIP712Domain: { name: string; type: string }[];
@@ -249,7 +256,13 @@ export function getValidUnsignedMessage(unsignedMessage: IUnsignedMessageEvm) {
         };
         primaryType: string;
         message: { [key: string]: any };
-      } = JSON.parse(message) ?? {};
+      };
+
+      if (typeof message === 'object') {
+        messageObject = message;
+      } else {
+        messageObject = JSON.parse(message);
+      }
 
       const sanitizedMessage = sanitizeMessage(
         messageObject.message,
