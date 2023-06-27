@@ -22,7 +22,6 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
 import { isArray, isEmpty, isNil, omit } from 'lodash';
-import memoizee from 'memoizee';
 
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
@@ -33,6 +32,7 @@ import type {
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import simpleDb from '../../../dbs/simple/simpleDb';
 import {
@@ -370,8 +370,15 @@ export default class Vault extends VaultBase {
     return Promise.reject(new InvalidAddress());
   }
 
-  override async validateTokenAddress(address: string): Promise<string> {
-    return this.validateAddress(address);
+  override validateTokenAddress(address: string): Promise<string> {
+    try {
+      // eslint-disable-next-line no-new
+      new PublicKey(address);
+      return Promise.resolve(address);
+    } catch {
+      // pass
+    }
+    return Promise.reject(new InvalidAddress());
   }
 
   override validateImportedCredential(input: string): Promise<boolean> {
@@ -490,6 +497,9 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTx> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { from, to, amount, token: tokenAddress, sendAddress } = transferInfo;
     const network = await this.getNetwork();
     const client = await this.getClient();
@@ -561,9 +571,11 @@ export default class Vault extends VaultBase {
     return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
   }
 
-  override async buildEncodedTxFromBatchTransfer(
-    transferInfos: ITransferInfo[],
-  ): Promise<IEncodedTx> {
+  override async buildEncodedTxFromBatchTransfer({
+    transferInfos,
+  }: {
+    transferInfos: ITransferInfo[];
+  }): Promise<IEncodedTx> {
     let retryTime = 0;
     let lastRpcErrorMessage = '';
     const maxRetryTimes = 5;

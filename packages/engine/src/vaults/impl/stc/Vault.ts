@@ -5,19 +5,28 @@
 
 import BigNumber from 'bignumber.js';
 import Decimal from 'decimal.js';
-import memoizee from 'memoizee';
+import { isNil } from 'lodash';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import type {
+  FeePricePerUnit,
+  PartialTokenInfo,
+  TransactionStatus,
+} from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
+import simpleDb from '../../../dbs/simple/simpleDb';
 import {
+  InvalidAddress,
   InvalidTokenAddress,
   NotImplemented,
   OneKeyInternalError,
+  PendingQueueTooLong,
 } from '../../../errors';
-import { extractResponseError } from '../../../proxy';
+import { Verifier, extractResponseError } from '../../../proxy';
 import {
   IDecodedTxActionType,
   IDecodedTxDirection,
@@ -31,20 +40,24 @@ import {
 import { VaultBase } from '../../VaultBase';
 import { EVMDecodedTxType } from '../evm/decoder/types';
 
-import { ClientStc } from './ClientStc';
-import { KeyringHardware } from './KeyringHardware';
-import { KeyringHd } from './KeyringHd';
-import { KeyringImported } from './KeyringImported';
-import { KeyringWatching } from './KeyringWatching';
+import {
+  KeyringHardware,
+  KeyringHd,
+  KeyringImported,
+  KeyringWatching,
+} from './keyring';
+import { ClientStc, StarcoinTypes, encoding, utils } from './sdk';
 import settings from './settings';
 import {
+  buildUnsignedTx,
   decodeTransactionPayload,
   encodeTokenTransferData,
   extractTransactionInfo,
   getAddressHistoryFromExplorer,
+  verifyAddress,
 } from './utils';
 
-import type { DBSimpleAccount } from '../../../types/account';
+import type { DBAccount, DBSimpleAccount } from '../../../types/account';
 import type { Token } from '../../../types/token';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
@@ -59,6 +72,7 @@ import type {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
+  ISignedTxPro,
   ITransferInfo,
   IUnsignedTxPro,
 } from '../../types';
@@ -239,6 +253,9 @@ export default class Vault extends VaultBase {
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxSTC> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { from, to, amount, token: tokenAddress } = transferInfo;
     if (typeof tokenAddress !== 'undefined' && tokenAddress.length > 0) {
       const token = await this.engine.ensureTokenInDB(
@@ -283,6 +300,13 @@ export default class Vault extends VaultBase {
     },
   );
 
+  override async getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
+    const client = await this.getJsonRPCClient();
+    return client.getTransactionStatuses(txids);
+  }
+
   override async getBalances(
     requests: Array<{ address: string; tokenAddress?: string }>,
   ): Promise<(BigNumber | undefined)[]> {
@@ -317,20 +341,66 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTx);
   }
 
+  override async getNextNonce(
+    networkId: string,
+    dbAccount: DBAccount,
+  ): Promise<number> {
+    const client = await this.getJsonRPCClient();
+    const [addressInfo] = await client.getAddresses([dbAccount.address]);
+    const onChainNonce = addressInfo?.nonce ?? 0;
+    const maxPendingNonce = await simpleDb.history.getMaxPendingNonce({
+      accountId: this.accountId,
+      networkId,
+    });
+    const pendingNonceList = await simpleDb.history.getPendingNonceList({
+      accountId: this.accountId,
+      networkId,
+    });
+    let nextNonce = Math.max(
+      isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
+      onChainNonce,
+    );
+    if (Number.isNaN(nextNonce)) {
+      nextNonce = onChainNonce;
+    }
+    if (nextNonce > onChainNonce) {
+      for (let i = onChainNonce; i < nextNonce; i += 1) {
+        if (!pendingNonceList.includes(i)) {
+          nextNonce = i;
+          break;
+        }
+      }
+    }
+
+    if (nextNonce < onChainNonce) {
+      nextNonce = onChainNonce;
+    }
+
+    if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {
+      throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
+    }
+
+    return nextNonce;
+  }
+
+  override async addressFromBase(account: DBAccount) {
+    return this.validateAddress(account.address);
+  }
+
   async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxSTC,
   ): Promise<IUnsignedTxPro> {
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const network = await this.getNetwork();
+    const chainId = await this.getNetworkChainId();
     const value = new BigNumber(encodedTx.value);
-
+    const client = await this.getJsonRPCClient();
     const { nonce } = encodedTx;
     const nonceBN = new BigNumber(nonce ?? 'NaN');
     const nextNonce: number = !nonceBN.isNaN()
       ? nonceBN.toNumber()
       : await this.getNextNonce(network.id, dbAccount);
-    const unsignedTx = await this.engine.providerManager.buildUnsignedTx(
-      this.networkId,
+    const unsignedTx = await buildUnsignedTx(
       {
         inputs: [
           { address: dbAccount.address, value, publicKey: dbAccount.pub },
@@ -352,6 +422,8 @@ export default class Vault extends VaultBase {
             }
           : {}),
       },
+      client,
+      chainId,
     );
 
     debugLogger.sendTx.info(
@@ -360,6 +432,11 @@ export default class Vault extends VaultBase {
     );
 
     return { ...unsignedTx, encodedTx };
+  }
+
+  override async getFeePricePerUnit(): Promise<FeePricePerUnit> {
+    const client = await this.getJsonRPCClient();
+    return client.getFeePricePerUnit();
   }
 
   async fetchFeeInfo(encodedTx: IEncodedTxSTC): Promise<IFeeInfo> {
@@ -630,5 +707,40 @@ export default class Vault extends VaultBase {
       }
     }
     throw new InvalidTokenAddress();
+  }
+
+  override async validateAddress(address: string): Promise<string> {
+    const { normalizedAddress, isValid } = verifyAddress(address);
+    if (!isValid || !normalizedAddress) {
+      throw new InvalidAddress();
+    }
+    return Promise.resolve(normalizedAddress);
+  }
+
+  override async validateWatchingCredential(input: string): Promise<boolean> {
+    // Generic address test, override if needed.
+    return Promise.resolve(
+      this.settings.watchingAccountEnabled && verifyAddress(input).isValid,
+    );
+  }
+
+  override async broadcastTransaction(
+    signedTx: ISignedTxPro,
+    options?: any,
+  ): Promise<ISignedTxPro> {
+    debugLogger.engine.info('broadcastTransaction START:', {
+      rawTx: signedTx.rawTx,
+    });
+    const client = await this.getJsonRPCClient();
+    const txid = await client.broadcastTransaction(signedTx.rawTx);
+    debugLogger.engine.info('broadcastTransaction END:', {
+      txid,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
+    };
   }
 }

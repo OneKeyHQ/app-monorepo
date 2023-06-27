@@ -98,6 +98,57 @@ function BulkSender() {
     });
   }, [navigation, headerLeft, headerRight]);
 
+  const bulkSenderTabs = useMemo(() => {
+    if (network?.settings.tokenEnabled) {
+      return (
+        <>
+          <Tabs.Tab
+            name={BulkSenderTypeEnum.NativeToken}
+            label={nativeToken?.symbol ?? ''}
+          >
+            <TokenOutbox
+              accountId={accountId}
+              networkId={networkId}
+              accountAddress={accountAddress}
+              type={BulkSenderTypeEnum.NativeToken}
+            />
+          </Tabs.Tab>
+          <Tabs.Tab
+            name={BulkSenderTypeEnum.Token}
+            label={intl.formatMessage({ id: 'form__token' })}
+          >
+            <TokenOutbox
+              accountId={accountId}
+              networkId={networkId}
+              accountAddress={accountAddress}
+              type={BulkSenderTypeEnum.Token}
+            />
+          </Tabs.Tab>
+        </>
+      );
+    }
+    return (
+      <Tabs.Tab
+        name={BulkSenderTypeEnum.NativeToken}
+        label={nativeToken?.symbol ?? ''}
+      >
+        <TokenOutbox
+          accountId={accountId}
+          networkId={networkId}
+          accountAddress={accountAddress}
+          type={BulkSenderTypeEnum.NativeToken}
+        />
+      </Tabs.Tab>
+    );
+  }, [
+    accountAddress,
+    accountId,
+    intl,
+    nativeToken?.symbol,
+    network?.settings.tokenEnabled,
+    networkId,
+  ]);
+
   if (!isSupported) return <NotSupported networkId={networkId} />;
 
   return (
@@ -119,28 +170,7 @@ function BulkSender() {
       // scrollEnabled={false}
       disableRefresh
     >
-      <Tabs.Tab
-        name={BulkSenderTypeEnum.NativeToken}
-        label={nativeToken?.symbol ?? ''}
-      >
-        <TokenOutbox
-          accountId={accountId}
-          networkId={networkId}
-          accountAddress={accountAddress}
-          type={BulkSenderTypeEnum.NativeToken}
-        />
-      </Tabs.Tab>
-      <Tabs.Tab
-        name={BulkSenderTypeEnum.Token}
-        label={intl.formatMessage({ id: 'form__token' })}
-      >
-        <TokenOutbox
-          accountId={accountId}
-          networkId={networkId}
-          accountAddress={accountAddress}
-          type={BulkSenderTypeEnum.Token}
-        />
-      </Tabs.Tab>
+      {bulkSenderTabs}
     </Tabs.Container>
   );
 }

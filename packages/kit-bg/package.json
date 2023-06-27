@@ -17,8 +17,7 @@
   },
   "scripts": {
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
-    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
-    "clean": "rimraf node_modules"
+    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
   "devDependencies": {
     "@types/d3-scale": "^4.0.2",

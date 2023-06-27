@@ -5,7 +5,6 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { find, map, reduce, uniq } from 'lodash';
-import memoizee from 'memoizee';
 import TronWeb from 'tronweb';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
@@ -14,6 +13,7 @@ import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { toBigIntHex } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { fromBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import {
@@ -618,6 +618,9 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTx> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { from, to, amount, token: tokenAddress } = transferInfo;
     const tronWeb = await this.getClient();
 
@@ -693,9 +696,11 @@ export default class Vault extends VaultBase {
     }
   }
 
-  override async buildEncodedTxFromBatchTransfer(
-    transferInfos: ITransferInfo[],
-  ): Promise<IEncodedTxTron> {
+  override async buildEncodedTxFromBatchTransfer({
+    transferInfos,
+  }: {
+    transferInfos: ITransferInfo[];
+  }): Promise<IEncodedTxTron> {
     const tronWeb = await this.getClient();
     const network = await this.getNetwork();
     const dbAccount = await this.getDbAccount();

@@ -11,7 +11,6 @@ import {
 } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
 import { get, groupBy, isEmpty, isNil } from 'lodash';
-import memoizee from 'memoizee';
 
 import {
   InvalidAddress,
@@ -56,6 +55,7 @@ import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { formatBalanceDisplay } from '@onekeyhq/kit/src/components/Format';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -435,6 +435,9 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxDot> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { to, amount, token: tokenAddress } = transferInfo;
     const { address: from } = await this.getDbAccount();
 

@@ -3,7 +3,6 @@
 
 import BigNumber from 'bignumber.js';
 import { isUndefined } from 'lodash';
-import memoizee from 'memoizee';
 
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
@@ -14,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
   InsufficientBalance,
@@ -397,6 +397,9 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxADA> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { to, amount, token: tokenAddress } = transferInfo;
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const { decimals, feeDecimals } = await this.engine.getNetwork(

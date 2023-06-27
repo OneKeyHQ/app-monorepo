@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 
@@ -19,29 +19,46 @@ export const useVisibilityFocused = () => {
     }
   }, [onFocus, onBlur]);
 
+  const onChange = useCallback(
+    (state: 'active' | 'background' | 'blur') => {
+      if (state === 'active') {
+        onFocus();
+      } else {
+        onBlur();
+      }
+    },
+    [onFocus, onBlur],
+  );
+
+  useEffect(() => {
+    let remove: () => void;
+    if (platformEnv.isDesktop) {
+      remove = window.desktopApi.onAppState(onChange);
+    }
+    return () => {
+      remove?.();
+    };
+  }, [onChange]);
+
   useFocusEffect(
     useCallback(() => {
       onFocus();
 
-      if (platformEnv.isRuntimeBrowser) {
+      if (platformEnv.isRuntimeBrowser && !platformEnv.isDesktop) {
         document.addEventListener('visibilitychange', visibilityStateListener);
-        if (!platformEnv.isDesktop) {
-          window.addEventListener('blur', onBlur);
-          window.addEventListener('focus', onFocus);
-        }
+        window.addEventListener('blur', onBlur);
+        window.addEventListener('focus', onFocus);
       }
 
       return () => {
         onBlur();
-        if (platformEnv.isRuntimeBrowser) {
+        if (platformEnv.isRuntimeBrowser && !platformEnv.isDesktop) {
           document.removeEventListener(
             'visibilitychange',
             visibilityStateListener,
           );
-          if (!platformEnv.isDesktop) {
-            window.removeEventListener('blur', onBlur);
-            window.removeEventListener('focus', onFocus);
-          }
+          window.removeEventListener('blur', onBlur);
+          window.removeEventListener('focus', onFocus);
         }
       };
     }, [visibilityStateListener, onBlur, onFocus]),

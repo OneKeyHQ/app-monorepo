@@ -32,12 +32,13 @@ export const SwapPlugins: FC<SwapTokenPluginsProps> = ({
       await backgroundApiProxy.serviceSwap.buyToken(token);
       const timer = setTimeout(() => {
         const sendingAccount = appSelector((s) => s.swap.sendingAccount);
+        const currentToken = appSelector((s) => s.swap.inputToken);
         const { account } = getActiveWalletAccount();
         if (
           account &&
           account.id !== sendingAccount?.id &&
-          inputToken &&
-          isAccountCompatibleWithNetwork(account.id, inputToken.networkId)
+          currentToken &&
+          isAccountCompatibleWithNetwork(account.id, currentToken.networkId)
         ) {
           backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
         }

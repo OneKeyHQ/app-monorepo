@@ -1,6 +1,5 @@
 import BigNumber from 'bignumber.js';
 import { debounce, isEmpty, uniq, xor } from 'lodash';
-import memoizee from 'memoizee';
 
 import { getBalancesFromApi } from '@onekeyhq/engine/src/apiProxyUtils';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -19,6 +18,7 @@ import {
 } from '@onekeyhq/engine/src/managers/token';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import {
   setIsPasswordLoadedInVault,
   setTools,
@@ -42,6 +42,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { isExtensionBackground } from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -75,6 +76,7 @@ export default class ServiceToken extends ServiceBase {
         });
       });
     }
+    this.fetchAccountTokens();
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -84,9 +86,17 @@ export default class ServiceToken extends ServiceBase {
     if (this.interval) {
       return;
     }
+    const { appSelector } = this.backgroundApi;
+    const { activeWalletId } = appSelector((s) => s.general);
+    const duration =
+      activeWalletId === WALLET_TYPE_WATCHING
+        ? getTimeDurationMs({ minute: 1 })
+        : getTimeDurationMs({
+            seconds: 15,
+          });
     this.interval = setInterval(() => {
       this.fetchAccountTokens({ includeTop50TokensQuery: false });
-    }, getTimeDurationMs({ seconds: 15 }));
+    }, duration);
 
     debugLogger.common.info(`startRefreshAccountTokens`);
   }
@@ -203,7 +213,6 @@ export default class ServiceToken extends ServiceBase {
       primitive: true,
       max: 50,
       maxAge: getTimeDurationMs({ seconds: 1 }),
-      normalizer: (args) => JSON.stringify(args),
     },
   );
 
@@ -390,7 +399,6 @@ export default class ServiceToken extends ServiceBase {
     primitive: true,
     max: 500,
     maxAge: getTimeDurationMs({ day: 1 }),
-    normalizer: (args) => JSON.stringify(args),
   });
 
   @backgroundMethod()
@@ -825,7 +833,6 @@ export default class ServiceToken extends ServiceBase {
     {
       promise: true,
       maxAge: getTimeDurationMs({ seconds: 10 }),
-      normalizer: (args) => JSON.stringify(args),
     },
   );
 
