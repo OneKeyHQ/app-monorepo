@@ -16,6 +16,7 @@ const settings: IVaultSettings = Object.freeze({
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  minGasLimit: 10,
   minTransferAmount: '0.00000546',
 
   isUTXOModel: true,

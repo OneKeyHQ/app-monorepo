@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
-import { Transaction } from 'nexcore-lib';
+import { Networks, PrivateKey, Transaction } from 'nexcore-lib';
 
 import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import { COINTYPE_NEXA } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -227,15 +227,27 @@ export default class Vault extends VaultBase {
   ): Promise<IFeeInfo> {
     const network = await this.getNetwork();
     const client = await this.getSDKClient();
+    const dbAccount = await this.getDbAccount();
+    Networks.defaultNetwork = Networks.get('nexatest');
+    const transaction = new Transaction()
+      .from(encodedTx.inputs)
+      // p2pkt: 1
+      .to(
+        encodedTx.outputs[0].address,
+        Number(encodedTx.outputs[0].fee) * 100,
+        1,
+      )
+      .change(encodedTx.inputs[0].address);
+    // .lockUntilBlockHeight(nonce.height + 10)
+    const estimateSize = transaction._estimateSize();
+    const feeInfo = String(await client.estimateFee(estimateSize));
     return {
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
       feeSymbol: network.feeSymbol,
       feeDecimals: network.feeDecimals,
-      limit: '10',
-      prices: [
-        new BigNumber('10'.toString()).shiftedBy(-network.decimals).toFixed(),
-      ],
+      limit: new BigNumber(feeInfo.toString()).shiftedBy(-network.decimals).toFixed(),
+      prices: ['1'],
       defaultPresetIndex: '1',
       tx: null,
     };

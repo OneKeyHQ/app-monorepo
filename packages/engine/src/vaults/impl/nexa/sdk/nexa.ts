@@ -70,6 +70,10 @@ export class Nexa extends SimpleClient {
     ]);
   }
 
+  async estimateFee(size: number): Promise<number> {
+    return this.rpc.call<number>('blockchain.estimatefee', [size]);
+  }
+
   async getNexaUTXOs(address: string): Promise<IListUXTO[]> {
     return this.rpc.call<IListUXTO[]>('blockchain.address.listunspent', [
       address,
