@@ -1,5 +1,4 @@
 import type VaultLightning from '@onekeyhq/engine/src/vaults/impl/lightning-network/Vault';
-import { setIsPasswordLoadedInVault } from '@onekeyhq/kit/src/store/reducers/data';
 import {
   backgroundClass,
   backgroundMethod,
@@ -9,6 +8,23 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 export default class ServiceLightningNetwork extends ServiceBase {
+  @backgroundMethod()
+  async refreshToken({
+    networkId,
+    accountId,
+    password,
+  }: {
+    networkId: string;
+    accountId: string;
+    password: string;
+  }) {
+    const vault = await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    });
+    await (vault as VaultLightning).exchangeToken(password);
+  }
+
   @backgroundMethod()
   async createInvoice({
     networkId,
@@ -21,19 +37,13 @@ export default class ServiceLightningNetwork extends ServiceBase {
     amount: string;
     description?: string;
   }) {
-    const { dispatch, engine, servicePassword } = this.backgroundApi;
-    const vault = await engine.getVault({
+    const vault = await this.backgroundApi.engine.getVault({
       networkId,
       accountId,
     });
-    const password = await servicePassword.getPassword();
-    const passwordLoadedCallback = (isLoaded: boolean) =>
-      dispatch(setIsPasswordLoadedInVault(isLoaded));
     const invoice = (vault as VaultLightning).createInvoice(
       amount,
       description,
-      password,
-      passwordLoadedCallback,
     );
     return invoice;
   }

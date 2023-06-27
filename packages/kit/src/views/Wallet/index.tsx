@@ -16,6 +16,7 @@ import {
   useActiveWalletAccount,
   useStatus,
 } from '@onekeyhq/kit/src/hooks/redux';
+import RefreshLightningNetworkToken from '@onekeyhq/kit/src/views/LightningNetwork/RefreshLightningNetworkToken';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -204,7 +205,16 @@ const WalletTabs: FC = () => {
             { '0': network.name },
           )}
         >
-          {() => walletTabsContainer}
+          {(password) => (
+            <>
+              <RefreshLightningNetworkToken
+                accountId={accountId}
+                password={password}
+                networkId={network.id}
+              />
+              {walletTabsContainer}
+            </>
+          )}
         </Protected>
       </Center>
     );

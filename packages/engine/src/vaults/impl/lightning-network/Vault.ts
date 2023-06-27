@@ -13,7 +13,6 @@ import {
   InvalidLightningPaymentRequest,
   InvoiceAlreadPaid,
   NoRouteFoundError,
-  WrongPassword,
 } from '../../../errors';
 import { TransactionStatus } from '../../../types/provider';
 import {
@@ -68,28 +67,16 @@ export default class Vault extends VaultBase {
 
   settings = settings;
 
-  async getClient(
-    password?: string,
-    passwordLoadedCallback?: (isLoaded: boolean) => void,
-  ) {
-    return this.getClientCache(password, passwordLoadedCallback);
+  async getClient() {
+    return this.getClientCache();
   }
 
   // client: axios
-  private getClientCache = memoizee(
-    (password?: string, passwordLoadedCallback?: (isLoaded: boolean) => void) =>
-      new ClientLightning(async () =>
-        this.exchangeToken(password, passwordLoadedCallback),
-      ),
-    {
-      maxAge: getTimeDurationMs({ minute: 3 }),
-    },
-  );
+  private getClientCache = memoizee(() => new ClientLightning(), {
+    maxAge: getTimeDurationMs({ minute: 3 }),
+  });
 
-  private async exchangeToken(
-    password?: string,
-    passwordLoadedCallback?: (isLoaded: boolean) => void,
-  ) {
+  async exchangeToken(password: string) {
     try {
       if (!password) {
         throw new Error('No Password');
@@ -112,16 +99,14 @@ export default class Vault extends VaultBase {
         password: password ?? '',
         entropy,
       });
-      passwordLoadedCallback?.(true);
-      return {
+      const client = await this.getClient();
+      await client.refreshAccessToken({
         hashPubKey,
         address,
         signature: sign,
-      };
+      });
     } catch (e) {
-      if (e instanceof WrongPassword) {
-        passwordLoadedCallback?.(false);
-      }
+      debugLogger.common.info('exchangeToken error', e);
       throw e;
     }
   }
@@ -198,6 +183,9 @@ export default class Vault extends VaultBase {
       } catch (e: any) {
         const { key: errorKey = '' } = e;
         if (errorKey === 'msg__invoice_is_already_paid') {
+          throw e;
+        }
+        if (errorKey === 'Bad Auth') {
           throw e;
         }
         // pass
@@ -306,17 +294,12 @@ export default class Vault extends VaultBase {
   override async fetchOnChainHistory(options: {
     tokenIdOnNetwork?: string | undefined;
     localHistory?: IHistoryTx[] | undefined;
-    password?: string | undefined;
-    passwordLoadedCallback?: ((isLoaded: boolean) => void) | undefined;
   }): Promise<IHistoryTx[]> {
     const account = (await this.getDbAccount()) as DBVariantAccount;
     const address = account.addresses.normalizedAddress;
     const { decimals, symbol } = await this.engine.getNetwork(this.networkId);
     const token = await this.engine.getNativeTokenInfo(this.networkId);
-    const client = await this.getClient(
-      options.password,
-      options.passwordLoadedCallback,
-    );
+    const client = await this.getClient();
     const txs = await client.fetchHistory(address);
     const promises = txs.map((txInfo) => {
       try {
@@ -395,8 +378,6 @@ export default class Vault extends VaultBase {
   override async getAccountBalance(
     tokenIds: string[],
     withMain?: boolean,
-    password?: string,
-    passwordLoadedCallback?: (isLoaded: boolean) => void,
   ): Promise<(BigNumber | undefined)[]> {
     // No token support on BTC.
     const ret = tokenIds.map((id) => undefined);
@@ -404,24 +385,18 @@ export default class Vault extends VaultBase {
       return ret;
     }
     const account = (await this.getDbAccount()) as DBVariantAccount;
-    const [mainBalance] = await this.getBalances(
-      [
-        {
-          address: account.addresses.normalizedAddress,
-        },
-      ],
-      password,
-      passwordLoadedCallback,
-    );
+    const [mainBalance] = await this.getBalances([
+      {
+        address: account.addresses.normalizedAddress,
+      },
+    ]);
     return [mainBalance].concat(ret);
   }
 
   override async getBalances(
     requests: { address: string; tokenAddress?: string | undefined }[],
-    password?: string,
-    passwordLoadedCallback?: (isLoaded: boolean) => void,
   ): Promise<(BigNumber | undefined)[]> {
-    const client = await this.getClient(password);
+    const client = await this.getClient();
     const balances = await client.batchGetBalance(
       requests.map((i) => i.address),
     );
@@ -431,13 +406,8 @@ export default class Vault extends VaultBase {
     });
   }
 
-  async createInvoice(
-    amount: string,
-    description?: string,
-    password?: string,
-    passwordLoadedCallback?: (isLoaded: boolean) => void,
-  ) {
-    const client = await this.getClient(password);
+  async createInvoice(amount: string, description?: string) {
+    const client = await this.getClient();
     const address = await this.getCurrentBalanceAddress();
     return client.createInvoice(address, amount, description);
   }

@@ -1,13 +1,12 @@
 import axios from 'axios';
-import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
 import { getFiatEndpoint } from '../../../../endpoint';
+import { BadAuthError } from '../../../../errors';
 
 import type {
-  IBalanceResponse,
   IBatchBalanceResponse,
   ICreateUserResponse,
 } from '../types/account';
@@ -21,26 +20,15 @@ import type {
   ICheckPaymentResponse,
   IPaymentBolt11Params,
 } from '../types/payments';
-import type { AxiosError, AxiosInstance, AxiosPromise } from 'axios';
-
-type IExchangeToken = () => Promise<{
-  hashPubKey: string;
-  address: string;
-  signature: string;
-} | null>;
-
-let isRefreshing = false;
-let subscribers: (() => AxiosPromise<any>)[] = [];
+import type { AxiosError, AxiosInstance } from 'axios';
 
 class ClientLightning {
   readonly request: AxiosInstance;
 
-  exchangeToken?: IExchangeToken;
-
-  constructor(exchangeToken?: IExchangeToken) {
-    this.exchangeToken = exchangeToken;
+  constructor() {
     this.request = axios.create({
-      baseURL: `${getFiatEndpoint()}/api`,
+      // baseURL: `${getFiatEndpoint()}/api`,
+      baseURL: `http://localhost:9000/api/lightning`,
       timeout: 20000,
     });
 
@@ -49,37 +37,31 @@ class ClientLightning {
       (error: AxiosError) => {
         const status = error.response ? error.response.status : null;
         if (status === 401) {
-          if (!isRefreshing) {
-            isRefreshing = true;
-            const originalConfig = error.config;
-            subscribers.push(() => this.request(originalConfig));
-            this.refreshAccessToken()
-              .then(() => {
-                subscribers.forEach((callback) => callback());
-                subscribers = [];
-              })
-              .finally(() => {
-                isRefreshing = false;
-              });
-          }
-          return new Promise((resolve) => {
-            subscribers.push((() => {
-              this.request(error.config).then(resolve);
-            }) as any);
-          });
+          return Promise.reject(new BadAuthError());
         }
         return Promise.reject(error);
       },
     );
   }
 
-  async refreshAccessToken() {
+  async refreshAccessToken({
+    hashPubKey,
+    address,
+    signature,
+  }: {
+    hashPubKey: string;
+    address: string;
+    signature: string;
+  }) {
     try {
-      const params = await this.exchangeToken?.();
-      if (!params) {
-        throw new Error('no exchange token params');
+      if (!hashPubKey || !address || !signature) {
+        throw new Error('Invalid exchange token params');
       }
-      await this.request.post('/account/auth', { ...params });
+      await this.request.post('/account/auth', {
+        hashPubKey,
+        address,
+        signature,
+      });
     } catch (e) {
       console.log('=====>>>exchange token failed: ', e);
       throw e;

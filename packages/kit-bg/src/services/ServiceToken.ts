@@ -266,7 +266,10 @@ export default class ServiceToken extends ServiceBase {
     try {
       const balancesAddress = await Promise.all(
         dbAccounts.map(async (a) => {
-          if (a.type === AccountType.UTXO || a.coinType === COINTYPE_LIGHTNING) {
+          if (
+            a.type === AccountType.UTXO ||
+            a.coinType === COINTYPE_LIGHTNING
+          ) {
             const address = await vault.getFetchBalanceAddress(a);
             return { address, accountId: a.id };
           }

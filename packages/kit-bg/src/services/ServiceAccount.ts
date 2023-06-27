@@ -1504,6 +1504,10 @@ class ServiceAccount extends ServiceBase {
     }
     // TODO: Lightning account
     if (account.type === AccountType.VARIANT) {
+      if (networkId === OnekeyNetwork.lightning) {
+        const address = await vault.getFetchBalanceAddress(account);
+        return { address };
+      }
       const address = await vault.addressFromBase(account);
       return { address };
     }

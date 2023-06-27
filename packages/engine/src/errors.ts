@@ -369,3 +369,7 @@ export class InvoiceAlreadPaid extends OneKeyError {
 export class NoRouteFoundError extends OneKeyError {
   override key = 'msg__no_route_found';
 }
+
+export class BadAuthError extends OneKeyError {
+  override key = 'Bad Auth';
+}

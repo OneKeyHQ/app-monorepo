@@ -1067,7 +1067,6 @@ export default class VaultBtcFork extends VaultBase {
       outputs: IUTXOOutput[];
       fee: number;
     } = coinSelect({ inputsForCoinSelect, outputsForCoinSelect, feeRate });
-    debugger;
     return {
       inputs,
       outputs,
