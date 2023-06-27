@@ -89,7 +89,7 @@ export class KeyringHd extends KeyringHdBase {
       .sign(privateKey, crypto.Signature.SIGHASH_NEXA_ALL);
     const tx = transaction.toJSON();
     return {
-      txid: tx.idem,
+      txid: tx.hash,
       rawTx: transaction.serialize(),
       encodedTx,
     };

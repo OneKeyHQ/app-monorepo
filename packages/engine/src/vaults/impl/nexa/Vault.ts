@@ -251,11 +251,8 @@ export default class Vault extends VaultBase {
     options?: any,
   ): Promise<ISignedTxPro> {
     const client = await this.getSDKClient();
-    const txid = await client.broadcastTransaction(signedTx.rawTx);
-    return {
-      ...signedTx,
-      txid,
-    };
+    await client.broadcastTransaction(signedTx.rawTx);
+    return signedTx;
   }
 
   override async fetchOnChainHistory(options: {
