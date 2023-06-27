@@ -35,7 +35,7 @@ import { verifyNexaAddress } from './utils';
 import type { BaseClient } from '../../../client/BaseClient';
 import type { AccountCredentialType, DBAccount } from '../../../types/account';
 import type { PartialTokenInfo } from '../../../types/provider';
-import type { IDecodedTxLegacy, ISignedTxPro } from '../../types';
+import type { IDecodedTxLegacy, IHistoryTx, ISignedTxPro } from '../../types';
 import type { EVMDecodedItem } from '../evm/decoder/types';
 import type { IEncodedTxNexa } from './types';
 
@@ -252,5 +252,10 @@ export default class Vault extends VaultBase {
       txid,
       ...signedTx,
     };
+  }
+
+  override fetchOnChainHistory(options: { tokenIdOnNetwork?: string | undefined; localHistory?: IHistoryTx[] | undefined; password?: string | undefined; passwordLoadedCallback?: ((isLoaded: boolean) => void) | undefined; }): Promise<IHistoryTx[]> {
+    console.log(options)
+    throw new Error('Method not implemented.');
   }
 }

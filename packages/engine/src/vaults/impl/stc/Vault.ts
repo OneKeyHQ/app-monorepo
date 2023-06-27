@@ -6,13 +6,17 @@
 import BigNumber from 'bignumber.js';
 import Decimal from 'decimal.js';
 import { isNil } from 'lodash';
-import memoizee from 'memoizee';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import type {
+  FeePricePerUnit,
+  PartialTokenInfo,
+  TransactionStatus,
+} from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import simpleDb from '../../../dbs/simple/simpleDb';
 import {
@@ -296,6 +300,13 @@ export default class Vault extends VaultBase {
     },
   );
 
+  override async getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
+    const client = await this.getJsonRPCClient();
+    return client.getTransactionStatuses(txids);
+  }
+
   override async getBalances(
     requests: Array<{ address: string; tokenAddress?: string }>,
   ): Promise<(BigNumber | undefined)[]> {
@@ -421,6 +432,11 @@ export default class Vault extends VaultBase {
     );
 
     return { ...unsignedTx, encodedTx };
+  }
+
+  override async getFeePricePerUnit(): Promise<FeePricePerUnit> {
+    const client = await this.getJsonRPCClient();
+    return client.getFeePricePerUnit();
   }
 
   async fetchFeeInfo(encodedTx: IEncodedTxSTC): Promise<IFeeInfo> {

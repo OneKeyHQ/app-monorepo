@@ -465,6 +465,7 @@
   "content__click_below_to_copy": "انقر أدناه للنسخ",
   "content__click_here_to_switch_node": "انقر هنا لتبديل العقدة",
   "content__click_on_show_private_key": "انقر فوق إظهار المفتاح الخاص",
+  "content__coin": "رمز أصلي",
   "content__collection": "مجموعة",
   "content__completed_lowercase": "منجز",
   "content__conenct_hardware_wallet_desc": "OneKey Touch أو Classic أو Mini",
@@ -525,6 +526,7 @@
   "content__enter": "يدخل",
   "content__enter_bootloader_mode": "ادخل إلى وضع Bootloader",
   "content__enter_current_password_before_resetting_it": "أدخل كلمة المرور الحالية قبل إعادة تعيينها",
+  "content__enter_invoice": "أدخل الفاتورة",
   "content__enter_link": "أدخل الارتباط",
   "content__enter_onekey_lite_pin_to_continue": "أدخل رقم التعريف الشخصي OneKey Lite للمتابعة",
   "content__enter_pin_in_app": "أدخل رقم التعريف الشخصي في التطبيق",
@@ -665,6 +667,7 @@
   "content__native_metamask_tutorials_3": "انقر فوق الأمان والخصوصية",
   "content__native_metamask_tutorials_4": "انقر فوق كشف عبارة الاسترداد السرية",
   "content__native_metamask_tutorials_5": "انسخ والصق عبارة الاسترداد في الحقل الموجود على اليسار.",
+  "content__network_fee_for_inscription_genesis_tx": "رسوم الشبكة لمعاملة نشأة التسجيل.",
   "content__nft_collector_desc": "أنت جامع متمرس يجد دائمًا قيمة من وجهات نظر مختلفة.",
   "content__nft_market_will_boom_or_bust_that_s_a_question": "سوق NFT سوف تزدهر أو تفلس؟ هذا سؤال.\n يبدو أن لديك تحفظات على سوق NFT.",
   "content__nft_profit_and_loss": "NFT - الربح والخسارة",
@@ -760,6 +763,7 @@
   "content__set_a_pin_code": "قم بتعيين رمز PIN",
   "content__set_a_pin_code_desc": "قم بتعيين رمز PIN بنفسك ، والذي يشبه رمز السحب الخاص ببطاقة مصرفية.",
   "content__set_receiving_address": "حدد عنوان الاستلام",
+  "content__set_the_value_of_the_utxo_stored_in_this_inscription": "قم بتعيين قيمة UTXO المخزنة في هذا النقش.",
   "content__share_revoke_1": "هذه الأداة يمكن أن تنقذ الأصول الخاصة بك من الخطر! قم بحماية الأصول الخاصة بك عن طريق فحص وإلغاء بدلات الاحتيال أو العقود المخترقة. ⬇️\nhttps://revoke.gg",
   "content__share_revoke_2": "قم بحماية الرموز المميزة الخاصة بك عن طريق إلغاء البدلات والأذونات التي منحتها لـ dApps في الماضي. جرب هذه الأداة للتحقق من موافقات الرمز المميز الخاص بك. إنه مجاني ومفتوح المصدر ، تم تطويره بواسطة OneKey. 👍 \n\n https://revoke.gg",
   "content__share_revoke_3": "إدارة مخصصات الرمز المميز الخاصة بك وحماية نفسك من عمليات الاحتيال. متوفر على أكثر من 30 شبكة blockchain.\n جربه الآن 👇\n https://revoke.gg",
@@ -799,6 +803,7 @@
   "content__support_malicious_contract_detection_on_8_chains": "دعم الكشف عن العقود الضارة في 8 سلاسل.",
   "content__supported_wallets": "دعم OneKey و Ledger و Trezor والمحافظ الأخرى.",
   "content__switch_price_mark_to_str": "تبديل علامة السعر إلى {0}",
+  "content__the_address_above_is_a_taproot_address_to_receive_your_inscription": "العنوان أعلاه هو عنوان الجذر لتلقي النقش الخاص بك",
   "content__the_contract_detection_isnt_perfect_yet_so_some_of_them_may_slip_through_the_cracks": "اكتشاف العقد ليس مثاليًا بعد ، لذلك قد ينزلق البعض منهم عبر الفجوات. إذا رأيت أي محتوى غير صحيح أثناء التحقق من البدل ، فيرجى إخبارنا في خادم DISCORD الخاص بنا.",
   "content__the_current_statistical_content_only_includes": "يتضمن المحتوى الإحصائي الحالي فقط الرموز المميزة على سلسلة {0} و NFTs على {0} ، المزيد من السلاسل قريبًا.",
   "content__the_current_statistical_content_only_includes_the_assets": "يتضمن المحتوى الإحصائي الحالي الأصول الموجودة على شبكة {0} فقط ، وسيتوفر قريبًا المزيد من الشبكات.",
@@ -1027,6 +1032,7 @@
   "form__allow_this_site_to_uppercase": "السماح لهذا الموقع بـ:",
   "form__allowance": "الإذن",
   "form__always": "دائماً",
+  "form__amount": "كمية",
   "form__amount__uppercase": "كمية",
   "form__amount_above_required_reserve": "المبلغ أعلى من الاحتياطي المطلوب {amount} {unit}",
   "form__amount_invalid": "رصيد {0} غير كافٍ",
@@ -1151,6 +1157,8 @@
   "form__default": "تقصير",
   "form__default_currency": "العملة الافتراضية",
   "form__default_str": "الافتراضي: {0}",
+  "form__description__optional": "وصف (اختياري)",
+  "form__description__uppercase": "وصف",
   "form__designated_recipient": "المستلم المعين",
   "form__designated_recipient_desc": "يمكنك اختيار حساب آخر لاستلام المبادلة.",
   "form__destination_tag_placeholder": "علامة / مذكرة (اختياري)",
@@ -1223,6 +1231,7 @@
   "form__from_str": "من {0}",
   "form__from_uppercase": "من",
   "form__front": "الجانب الامامي",
+  "form__frozen_balance": "الرصيد المجمد",
   "form__fully_diluted_value": "القيمة المخففة بالكامل",
   "form__gas_fee_prediction": "توقع رسوم الغاز",
   "form__gas_fee_settings": "إعدادات رسوم الغاز",
@@ -1279,6 +1288,13 @@
   "form__incorrect_dotmap": "Dotmap غير صحيح",
   "form__information__uppercase": "معلومة",
   "form__inscribe_nft": "تسجيل NFT",
+  "form__inscribe_order_id": "رقم التعريف الخاص بالطلب",
+  "form__inscribe_preview": "معاينة النقش",
+  "form__inscribing_fee": "رسوم التسجيل",
+  "form__inscription_file_preview": "معاينة ملف",
+  "form__inscription_file_size": "حجم الملف",
+  "form__inscription_owner": "مالك",
+  "form__inscription_value": "قيمة",
   "form__inscriptions__uppercase": "النقوش",
   "form__instant_transfer": "نقل فوري",
   "form__jump_to_the_next_open_tab": "انتقل إلى علامة التبويب المفتوحة التالية",
@@ -1427,6 +1443,7 @@
   "form__pausable_transfer_desc": "يمكن لمالك العقد التوقف عن التداول في أي وقت ، وبعد ذلك يمكن فقط لمن لديهم سلطة معينة البيع.",
   "form__pay": "يدفع",
   "form__payment_address": "عنوان الدفع",
+  "form__payment_hash": "تجزئة الدفع",
   "form__payment_info__uppercase": "معلومات الدفع",
   "form__pending_tx": "معلق Tx",
   "form__performance": "أداء",
@@ -1525,7 +1542,6 @@
   "form__send_tokens": "إرسال الرموز",
   "form__sent": "لقد ارسلت",
   "form__service_fee": "رسوم الخدمة",
-  "form__service_provider_address": "عنوان مزود الخدمة",
   "form__set_range": "مجموعة مجموعة",
   "form__show_all": "عرض الكل",
   "form__show_in_menu_bar": "إظهار في شريط القوائم",
@@ -2043,11 +2059,13 @@
   "msg__insufficient_balance": "رصيد غير كاف",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "عنوان خاطئ! لا يمكن إرسال الأصول الترتيبية إلا إلى عناوين Taproot",
   "msg__invalid_file_format": "تنسيق ملف غير صالح",
+  "msg__invalid_lightning_payment_request": "طلب دفع البرق غير صالح",
   "msg__invalid_link_or_network_error": "ارتباط غير صالح أو خطأ في الشبكة",
   "msg__invalid_private_key": "مفتاح خاص غير صالح",
   "msg__invalid_rbf_tx_pay_a_higher_fee_and_retry": "معاملة استبدال برسوم غير صالحة ، ادفع رسومًا أعلى وأعد المحاولة",
   "msg__invalid_tx_that_nonce_is_higher_than_default": "معاملة غير صالحة ، nonce أعلى من القيمة الافتراضية",
   "msg__invalid_word": "كلمة غير صحيحة",
+  "msg__invoice_is_already_paid": "تم دفع الفاتورة بالفعل",
   "msg__keep_device_charged_during_update_or_may_cause_malfunction": "احتفظ بجهازك مشحونًا أثناء التحديث ، وإلا فقد يتسبب ذلك في حدوث خلل لا رجعة فيه",
   "msg__label_name_can_be_up_to_15_characters": "يمكن أن يصل اسم التصنيف إلى 15 حرفًا",
   "msg__limit_price_is_str_lower_than_the_current_market_price": "السعر المحدد أقل {0} من السوق.",
@@ -2068,6 +2086,7 @@
   "msg__network_reset": "إعادة تعيين الشبكة",
   "msg__nfc_reader_usage_description": "استخدم NFC لإجراء نسخ احتياطي باستخدام OneKey Lite.",
   "msg__no_data_available": "لا تتوافر بيانات",
+  "msg__no_route_found": "لم يتم العثور على مسار",
   "msg__nonce_has_been_used_and_may_cause_this_transaction_to_fail": "تم استخدام Nonce وقد يتسبب في فشل هذه المعاملة.",
   "msg__nonce_is_higher_means_the_tx_will_queued_until_tx_before_are_confirmed": "Nonce أعلى ، فهذا يعني أنه سيتم وضع المعاملة في قائمة الانتظار حتى يتم تأكيد المعاملات الموجودة أمامها.",
   "msg__nonce_used_this_will_generate_a_rbf_tx": "تم استخدام nonce ، سيؤدي ذلك إلى استبداله بمعاملة الرسوم. ادفع رسومًا أعلى لضمان إمكانية استبدال المعاملة المستهدفة.",
@@ -2125,6 +2144,7 @@
   "msg__str_has_been_added_but_is_hidden": "تمت إضافة {0} ولكنه مخفي",
   "msg__str_has_been_added_but_is_hidden_desc": "قد يكون {0} رمزًا محفوفًا بالمخاطر وتحتاج إلى إيقاف تشغيل \"إخفاء الرموز المميزة المحفوفة بالمخاطر\" لعرضه.",
   "msg__str_in_progress": "{0} قيد التقدم",
+  "msg__str_insufficient_balance_to_pay_for_gas_fee": "{0} رصيد غير كاف لدفع رسوم الغاز.",
   "msg__str_is_a_risky_token_be_careful": "❗ {0} هو رمز محفوف بالمخاطر ، انتبه!",
   "msg__str_is_an_attention_token_be_careful": "⚠️ {0} هو رمز يجب توخي الحذر منه!",
   "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{0} مطلوب لرسوم الشبكة.\n يكلف {0} كرسوم شبكة في {1} . اشحن {0} إلى حسابك لإجراء المعاملات.",
@@ -2159,6 +2179,7 @@
   "msg__this_is_a_transaction_for_cancellation_desc": "سيتم إلغاء المعاملة الأصلية.",
   "msg__this_is_an_accelerated_transaction": "هذه معاملة معجلة️.",
   "msg__this_is_an_accelerated_transaction_desc": "سيتم استبدال المعاملة الأصلية.",
+  "msg__this_is_the_local_token_of_str_mainnet": "هذا هو الحديث الأصلي عن الشبكة الرئيسية {0} .",
   "msg__this_is_the_native_token_of_the_mainnet": "❇️️ هذا هو الرمز الأصلي للشبكة الرئيسية",
   "msg__this_site_is_identified_as_a_scam": "تم تحديد هذا الموقع على أنه عملية احتيال ، فلا تدخل إليه بأي حال من الأحوال",
   "msg__this_token_has_been_added": "تمت إضافة هذا الرمز المميز بالفعل.",
@@ -2191,6 +2212,7 @@
   "msg__using_latest_release": "أنت تستخدم أحدث إصدار! 🎉",
   "msg__utxo_is_frozen_you_can_find_it_in_frozen_tab": "UTXO متجمد ، يمكنك العثور عليه في علامة التبويب \"Frozen\".",
   "msg__utxo_is_unfrozen_you_can_find_it_in_availabel_tab": "تم إلغاء تجميد UTXO ، يمكنك العثور عليه في علامة التبويب \"متاح\".",
+  "msg__valid_payment_request": "طلب دفع صالح",
   "msg__verification_failure": "فشل التحقق",
   "msg__wallet_already_exist": "المحفظة موجودة بالفعل.",
   "msg__wallet_already_exist_activated_automatically": "المحفظة {0} موجودة بالفعل وتم تبديلها تلقائيًا.",
