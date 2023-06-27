@@ -5,11 +5,13 @@ import { Transaction } from 'nexcore-lib';
 import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import { COINTYPE_NEXA } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { InvalidAddress } from '../../../errors';
+import { InvalidAddress, OneKeyInternalError } from '../../../errors';
 import {
   type IApproveInfo,
   type IClientEndpointStatus,
   type IDecodedTx,
+  IDecodedTxActionType,
+  IDecodedTxDirection,
   IDecodedTxStatus,
   type IEncodedTx,
   type IEncodedTxUpdateOptions,
@@ -39,7 +41,13 @@ import type {
   DBSimpleAccount,
 } from '../../../types/account';
 import type { PartialTokenInfo } from '../../../types/provider';
-import type { IDecodedTxLegacy, IHistoryTx, ISignedTxPro } from '../../types';
+import type { Token } from '../../../types/token';
+import type {
+  IDecodedTxAction,
+  IDecodedTxLegacy,
+  IHistoryTx,
+  ISignedTxPro,
+} from '../../types';
 import type { EVMDecodedItem } from '../evm/decoder/types';
 import type { IEncodedTxNexa } from './types';
 
@@ -274,16 +282,86 @@ export default class Vault extends VaultBase {
     );
     return (
       await Promise.all(
-        onChainHistories.map(
-          (history) =>
-            new Promise((resolve) => {
-              const localHistory = localHistories.find((item) => {
-                console.log(item.decodedTx.txid, history.tx_hash);
-                return item.decodedTx.txid === history.tx_hash;
-              });
-              console.log(localHistory);
-            }),
-        ),
+        onChainHistories.map(async (history) => {
+          const historyTxToMerge = localHistories.find(
+            (item) => item.decodedTx.txid === history.tx_hash,
+          );
+          if (historyTxToMerge && !historyTxToMerge.decodedTx.isFinal) {
+            console.log(historyTxToMerge, history);
+            const tx = await client.getTransaction(history.tx_hash);
+
+            let action: IDecodedTxAction = {
+              type: IDecodedTxActionType.UNKNOWN,
+            };
+            const amountValue = tx.vin.reduce(
+              (acc, cur) => acc + cur.value_satoshi,
+              0,
+            );
+            const from = dbAccount.address;
+            const to = dbAccount.address;
+            const tokenAddress = dbAccount.address;
+            if (amountValue && tokenAddress) {
+              let direction = IDecodedTxDirection.IN;
+              if (from === dbAccount.address) {
+                direction =
+                  to === dbAccount.address
+                    ? IDecodedTxDirection.SELF
+                    : IDecodedTxDirection.OUT;
+              }
+              const actionType = IDecodedTxActionType.TOKEN_TRANSFER;
+              const token: Token | undefined =
+                await this.engine.getNativeTokenInfo(this.networkId);
+              const actionKey = 'tokenTransfer';
+
+              action = {
+                type: actionType,
+                direction,
+                [actionKey]: {
+                  tokenInfo: token,
+                  from,
+                  to,
+                  amount: new BigNumber(amountValue)
+                    .shiftedBy(-token.decimals)
+                    .toFixed(),
+                  amountValue: amountValue.toString(),
+                  extraInfo: null,
+                },
+              };
+            }
+            const decodedTx: IDecodedTx = {
+              txid: history.tx_hash,
+              owner: dbAccount.address,
+              signer: dbAccount.address,
+              nonce: 0,
+              actions: [action],
+              status: tx.confirmations
+                ? IDecodedTxStatus.Confirmed
+                : IDecodedTxStatus.Pending,
+              networkId: this.networkId,
+              accountId: this.accountId,
+              encodedTx: {
+                from: dbAccount.address,
+                to: '',
+                value: '',
+                data: tx.hex,
+              },
+              extraInfo: null,
+              totalFeeInNative: new BigNumber(
+                tx.vout.reduce((acc, cur) => acc + cur.value_satoshi, 0),
+              )
+                .shiftedBy(-decimals)
+                .toFixed(),
+            };
+            decodedTx.updatedAt = tx.time;
+            decodedTx.createdAt =
+              historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
+            decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+            return this.buildHistoryTx({
+              decodedTx,
+              historyTxToMerge,
+            });
+          }
+        }),
       )
     ).filter(Boolean);
   }

@@ -29,3 +29,57 @@ export type INexaHistoryItem = {
   height: number;
   tx_hash: string;
 };
+
+export interface INexaTransaction {
+  blockhash: string;
+  blocktime: number;
+  confirmations: number;
+  fee: number;
+  fee_satoshi: number;
+  hash: string;
+  height: number;
+  hex: string;
+  locktime: number;
+  size: number;
+  time: number;
+  txid: string;
+  txidem: string;
+  version: number;
+  vin: INexaTransactionVin[];
+  vout: INexaTransactionVout[];
+}
+
+export interface INexaTransactionVin {
+  coinbase: any;
+  outpoint: string;
+  scriptSig: {
+    asm: string;
+    hex: string;
+  };
+  sequence: number;
+  value: number;
+  value_coin: number;
+  value_satoshi: number;
+}
+
+export interface INexaTransactionVout {
+  n: number;
+  scriptPubKey: INexaTransactionScriptPubKey;
+  type: number;
+  value: number;
+  value_coin: number;
+  value_satoshi: number;
+}
+
+export interface INexaTransactionScriptPubKey {
+  addresses: any[];
+  argsHash: string;
+  asm: string;
+  group: any;
+  groupAuthority: number;
+  groupQuantity: any;
+  hex: string;
+  scriptHash: string;
+  token_id_hex: any;
+  type: string;
+}

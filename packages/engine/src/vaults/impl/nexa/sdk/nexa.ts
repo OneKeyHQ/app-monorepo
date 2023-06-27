@@ -11,7 +11,7 @@ import type {
   FeePricePerUnit,
   TransactionStatus,
 } from '../../../../types/provider';
-import type { IListUXTO, INexaHistoryItem } from '../types';
+import type { IListUXTO, INexaHistoryItem, INexaTransaction } from '../types';
 
 export class Nexa extends SimpleClient {
   readonly rpc: WebSocketRequest;
@@ -61,6 +61,13 @@ export class Nexa extends SimpleClient {
       unconfirmed: number;
     }>('blockchain.address.get_balance', [address]);
     return new BigNumber(balanceInfo.confirmed);
+  }
+
+  async getTransaction(txHash: string): Promise<INexaTransaction> {
+    return this.rpc.call<INexaTransaction>('blockchain.transaction.get', [
+      txHash,
+      true,
+    ]);
   }
 
   async getNexaUTXOs(address: string): Promise<IListUXTO[]> {
