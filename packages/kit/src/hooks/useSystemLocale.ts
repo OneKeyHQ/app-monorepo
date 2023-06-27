@@ -1,21 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 
-import { AppState } from 'react-native';
+import { useAppStateChange } from '@onekeyhq/kit/src/hooks/useAppStateChange';
 
 import { getDefaultLocale } from '../utils/locale';
 
-import type { AppStateStatus } from 'react-native';
-
 export function useSystemLocale() {
-  const appState = useRef(AppState.currentState);
   const [locale, setLocale] = useState<string>(getDefaultLocale());
-  useEffect(() => {
-    AppState.addEventListener('change', (nextState: AppStateStatus) => {
-      if (appState.current === 'background' && nextState === 'active') {
-        setLocale(getDefaultLocale());
-      }
-      appState.current = nextState;
-    });
+  const onChange = useCallback(() => {
+    setLocale(getDefaultLocale());
   }, []);
+  useAppStateChange(onChange);
   return locale;
 }

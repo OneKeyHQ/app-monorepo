@@ -2,7 +2,7 @@ import type { LegacyRef } from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 import AnimatedLottieView from 'lottie-react-native';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import type { LottieComponentProps as LottieWebProps } from 'lottie-react';
 import type { AnimatedLottieViewProps as LottieNativeProps } from 'lottie-react-native';
@@ -35,7 +35,7 @@ const LottieView = forwardRef<typeof AnimatedLottieView, LottieViewProps>(
         appStateRef.current = nextAppState;
       };
       const subscription = AppState.addEventListener(
-        'change',
+        Platform.OS === 'android' ? 'focus' : 'change',
         handleStateChange,
       );
       return () => {

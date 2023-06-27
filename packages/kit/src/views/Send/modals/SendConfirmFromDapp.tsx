@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { StackActions, useNavigation } from '@react-navigation/native';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { getActiveWalletAccount } from '../../../hooks/redux';
 import useDappParams from '../../../hooks/useDappParams';
@@ -38,16 +38,19 @@ export function SendConfirmFromDapp() {
       return;
     }
     // OK-16560: navigate when app in background would cause modal render in wrong size
-    const appStateListener = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        setTimeout(() => {
-          if (pendingAction.current) {
-            navigation.dispatch(pendingAction.current);
-            pendingAction.current = undefined;
-          }
-        });
-      }
-    });
+    const appStateListener = AppState.addEventListener(
+      Platform.OS === 'android' ? 'focus' : 'change',
+      (state) => {
+        if (state === 'active') {
+          setTimeout(() => {
+            if (pendingAction.current) {
+              navigation.dispatch(pendingAction.current);
+              pendingAction.current = undefined;
+            }
+          });
+        }
+      },
+    );
     let action: any;
     // TODO get network and account from dapp connections
     const { networkId, accountId } = getActiveWalletAccount();
