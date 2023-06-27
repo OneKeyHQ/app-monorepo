@@ -33,7 +33,11 @@ import settings from './settings';
 import { verifyNexaAddress } from './utils';
 
 import type { BaseClient } from '../../../client/BaseClient';
-import type { AccountCredentialType, DBAccount } from '../../../types/account';
+import type {
+  AccountCredentialType,
+  DBAccount,
+  DBSimpleAccount,
+} from '../../../types/account';
 import type { PartialTokenInfo } from '../../../types/provider';
 import type { IDecodedTxLegacy, IHistoryTx, ISignedTxPro } from '../../types';
 import type { EVMDecodedItem } from '../evm/decoder/types';
@@ -249,13 +253,41 @@ export default class Vault extends VaultBase {
     const client = await this.getSDKClient();
     const txid = await client.broadcastTransaction(signedTx.rawTx);
     return {
-      txid,
       ...signedTx,
+      txid,
     };
   }
 
-  override fetchOnChainHistory(options: { tokenIdOnNetwork?: string | undefined; localHistory?: IHistoryTx[] | undefined; password?: string | undefined; passwordLoadedCallback?: ((isLoaded: boolean) => void) | undefined; }): Promise<IHistoryTx[]> {
-    console.log(options)
-    throw new Error('Method not implemented.');
+  override async fetchOnChainHistory(options: {
+    tokenIdOnNetwork?: string | undefined;
+    localHistory?: IHistoryTx[] | undefined;
+    password?: string | undefined;
+    passwordLoadedCallback?: ((isLoaded: boolean) => void) | undefined;
+  }): Promise<IHistoryTx[]> {
+    const { tokenIdOnNetwork, localHistory: localHistories = [] } = options;
+    if (tokenIdOnNetwork) {
+      return Promise.resolve([]);
+    }
+
+    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
+    const { decimals } = await this.engine.getNetwork(this.networkId);
+    const client = await this.getSDKClient();
+    const onChainHistories = await client.getHistoryByAddress(
+      dbAccount.address,
+    );
+    return (
+      await Promise.all(
+        onChainHistories.map(
+          (history) =>
+            new Promise((resolve) => {
+              const localHistory = localHistories.find((item) => {
+                console.log(item.decodedTx.txid, history.tx_hash);
+                return item.decodedTx.txid === history.tx_hash;
+              });
+              console.log(localHistory);
+            }),
+        ),
+      )
+    ).filter(Boolean);
   }
 }

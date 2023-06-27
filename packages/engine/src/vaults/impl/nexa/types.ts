@@ -24,3 +24,8 @@ export type IListUXTO = {
   tx_pos: number;
   value: number;
 };
+
+export type INexaHistoryItem = {
+  height: number;
+  tx_hash: string;
+};

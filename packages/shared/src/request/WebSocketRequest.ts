@@ -26,7 +26,11 @@ function normalizePayload(
   };
 }
 
-class WebSocketRequest {
+const socketsMap = new Map<string, WebSocket>();
+
+const callbackMap = new Map<string, (result: any) => void>();
+
+export class WebSocketRequest {
   readonly url: string;
 
   readonly timeout: number;
@@ -35,10 +39,6 @@ class WebSocketRequest {
 
   private expiredTimerId!: NodeJS.Timeout;
 
-  callbackMap = new Map<string, (result: any) => void>();
-
-  socket?: WebSocket;
-
   constructor(url: string, timeout = 30000, expiredTimeout = 60 * 1000) {
     this.url = url;
     this.timeout = timeout;
@@ -46,41 +46,43 @@ class WebSocketRequest {
     this.establishConnection();
   }
 
-  private establishConnection() {
+  private establishConnection(): Promise<WebSocket> {
+    const socket = socketsMap.get(this.url);
+    if (socket) {
+      return Promise.resolve(socket);
+    }
     const protocol = document.location.protocol === 'http:' ? 'ws:' : 'wss:';
     const wsuri = `${protocol}//${document.location.host}/nexa_ws`;
-    this.socket = new WebSocket(wsuri);
-    this.socket.onopen = () => {
-      console.log(`WebSocket onopen: ${wsuri} connected`);
-    };
-
-    this.socket.onmessage = (message) => {
-      console.log('WebSocket onmessage:', message.data);
-
-      const { id, result } = JSON.parse(message.data) as {
-        id: string;
-        result: any;
+    const newSocket = new WebSocket(wsuri);
+    socketsMap.set(this.url, newSocket);
+    return new Promise((resolve) => {
+      newSocket.onopen = () => {
+        console.log(`WebSocket onopen: ${wsuri} connected`);
+        resolve(newSocket);
       };
-      this.callbackMap.get(id)?.(result);
-      this.callbackMap.delete(id);
-    };
-    this.socket.onerror = (error) => {
-      console.error(error);
-    };
+
+      newSocket.onmessage = (message) => {
+        console.log('WebSocket onmessage:', message.data);
+
+        const { id, result } = JSON.parse(message.data) as {
+          id: string;
+          result: any;
+        };
+        callbackMap.get(id)?.(result);
+        callbackMap.delete(id);
+      };
+      newSocket.onerror = (error: unknown) => {
+        console.error(error);
+      };
+    });
   }
 
   private closeConnection() {
-    if (this.socket) {
-      this.socket.close();
-      this.socket = undefined;
+    const socket = socketsMap.get(this.url);
+    if (socket) {
+      socket.close();
+      socketsMap.delete(this.url);
     }
-  }
-
-  private async getIsRpcBatchDisabled(url: string): Promise<boolean> {
-    const whitelistHosts =
-      await simpleDb.setting.getRpcBatchFallbackWhitelistHosts();
-
-    return !!whitelistHosts.find((n) => url.includes(n.url));
   }
 
   private static parseRPCResponse<T>(
@@ -103,14 +105,13 @@ class WebSocketRequest {
     return Promise.resolve(response.result as T);
   }
 
-  refreshConnectionStatus() {
-    if (!this.socket) {
-      this.establishConnection();
-    }
+  async refreshConnectionStatus(): Promise<WebSocket> {
+    const socket = await this.establishConnection();
     clearTimeout(this.expiredTimerId);
     this.expiredTimerId = setTimeout(() => {
       this.closeConnection();
     }, this.expiredTimeout);
+    return socket;
   }
 
   async call<T>(
@@ -118,16 +119,14 @@ class WebSocketRequest {
     params?: JsonRpcParams,
     timeout?: number,
   ): Promise<T> {
-    this.refreshConnectionStatus();
+    const socket = await this.refreshConnectionStatus();
     return new Promise((resolve) => {
       const id = generateUUID();
-      this.callbackMap.set(id, resolve);
+      callbackMap.set(id, resolve);
       const requestParams = normalizePayload(method, params, id);
-      if (this.socket) {
-        this.socket.send(`${JSON.stringify(requestParams)}\n`);
+      if (socket) {
+        socket.send(`${JSON.stringify(requestParams)}\n`);
       }
     });
   }
 }
-
-export { WebSocketRequest };

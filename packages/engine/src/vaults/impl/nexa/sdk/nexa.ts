@@ -11,7 +11,7 @@ import type {
   FeePricePerUnit,
   TransactionStatus,
 } from '../../../../types/provider';
-import type { IListUXTO } from '../types';
+import type { IListUXTO, INexaHistoryItem } from '../types';
 
 export class Nexa extends SimpleClient {
   readonly rpc: WebSocketRequest;
@@ -51,6 +51,7 @@ export class Nexa extends SimpleClient {
     rawTx: string,
     options?: any,
   ): Promise<string> {
+    // Totally different from that the response string is not txid but txidm.
     return this.rpc.call<string>('blockchain.transaction.broadcast', [rawTx]);
   }
 
@@ -64,6 +65,12 @@ export class Nexa extends SimpleClient {
 
   async getNexaUTXOs(address: string): Promise<IListUXTO[]> {
     return this.rpc.call<IListUXTO[]>('blockchain.address.listunspent', [
+      address,
+    ]);
+  }
+
+  async getHistoryByAddress(address: string): Promise<INexaHistoryItem[]> {
+    return this.rpc.call<INexaHistoryItem[]>('blockchain.address.get_history', [
       address,
     ]);
   }
