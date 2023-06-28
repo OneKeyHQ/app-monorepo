@@ -87,6 +87,7 @@ function SendConfirm({
     networkId,
   });
 
+
   useDisableNavigationAnimation({
     condition: !!routeParams.autoConfirmAfterFeeSaved,
   });
@@ -97,7 +98,7 @@ function SendConfirm({
     sendConfirmParams: routeParams,
     networkImpl,
     address: account?.address || '',
-    selectedUtxos: advancedSettings.selectedUtxos,
+    advancedSettings,
   });
 
   const { decodedTx } = useDecodedTx({

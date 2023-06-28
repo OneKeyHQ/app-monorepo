@@ -138,6 +138,7 @@ export type IVaultSettings = {
   displayFullAddress?: boolean;
   rpcStatusDisabled?: boolean;
   useSimpleTipForSpecialCheckEncodedTx?: boolean;
+  hexDataEditable?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -280,6 +281,7 @@ export enum IEncodedTxUpdateType {
   speedUp = 'speedUp',
   cancel = 'cancel',
   advancedSettings = 'advancedSettings',
+  customData = 'customData',
 }
 
 export type IEncodedTxUpdateOptions = {
@@ -622,6 +624,8 @@ export type IDecodedTx = {
   totalFeeInNative?: string;
 
   interactInfo?: IDecodedTxInteractInfo;
+
+  data?: string;
 
   // TODO use nativeTx & decodedTx in frontend UI render
   extraInfo:

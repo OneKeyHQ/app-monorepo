@@ -26,6 +26,29 @@ function removeFeeInfoInTx(encodedTx: IEncodedTxEvm) {
   return encodedTx;
 }
 
+async function updateCustomHexDataInTx({
+  accountId,
+  networkId,
+  encodedTx,
+  currentHexData,
+}: {
+  accountId: string;
+  networkId: string;
+  encodedTx: IEncodedTx;
+  currentHexData?: string;
+}) {
+  const updatedTx = await backgroundApiProxy.engine.updateEncodedTx({
+    networkId,
+    accountId,
+    encodedTx,
+    payload: currentHexData,
+    options: {
+      type: IEncodedTxUpdateType.customData,
+    },
+  });
+  return updatedTx;
+}
+
 // TODO move to Vault / Service
 export async function prepareSendConfirmEncodedTx({
   networkId,
@@ -35,6 +58,7 @@ export async function prepareSendConfirmEncodedTx({
   sendConfirmParams,
   address,
   selectedUtxos,
+  currentHexData,
 }: {
   networkId?: string;
   accountId?: string;
@@ -43,10 +67,12 @@ export async function prepareSendConfirmEncodedTx({
   sendConfirmParams: SendConfirmParams | BatchSendConfirmParams;
   address: string;
   selectedUtxos?: string[];
+  currentHexData?: string;
 }): Promise<IEncodedTx> {
   if (!encodedTx) {
     throw new Error('prepareEncodedTx encodedTx should NOT be null');
   }
+
   if (networkImpl === IMPL_EVM) {
     const encodedTxEvm = encodedTx as IEncodedTxEvm;
     // routeParams is not editable, so should create new one
@@ -73,6 +99,21 @@ export async function prepareSendConfirmEncodedTx({
       //
     }
 
+    if (accountId && networkId) {
+      const vaultSetting = await backgroundApiProxy.engine.getVaultSettings(
+        networkId,
+      );
+
+      if (vaultSetting.hexDataEditable) {
+        tx = (await updateCustomHexDataInTx({
+          accountId,
+          networkId,
+          encodedTx: tx,
+          currentHexData,
+        })) as IEncodedTxEvm;
+      }
+    }
+
     return Promise.resolve(tx);
   }
 
@@ -80,6 +121,19 @@ export async function prepareSendConfirmEncodedTx({
     const vaultSetting = await backgroundApiProxy.engine.getVaultSettings(
       networkId,
     );
+    if (vaultSetting.hexDataEditable) {
+      if (!accountId) {
+        return Promise.resolve(encodedTx);
+      }
+      const updatedTx = await updateCustomHexDataInTx({
+        accountId,
+        networkId,
+        encodedTx,
+        currentHexData,
+      });
+      return updatedTx;
+    }
+
     if (vaultSetting.isBtcForkChain) {
       const encodedTxBtc = encodedTx as IEncodedTxBtc;
       if (!accountId) {

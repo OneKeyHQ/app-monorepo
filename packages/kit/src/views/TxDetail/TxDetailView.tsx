@@ -7,6 +7,7 @@ import { TxInteractInfo } from './components/TxInteractInfo';
 import { getReplacedTxAlertTextKeys } from './elements/TxActionElementReplacedTxText';
 import { TxActionsListView } from './TxActionsListView';
 import { TxDetailContextProvider } from './TxDetailContext';
+import { TxDetailAdvanceInfoBox } from './components/TxDetailAdvanceInfoBox';
 
 import type { ITxActionListViewProps } from './types';
 
@@ -61,6 +62,7 @@ export function TxDetailView(props: ITxActionListViewProps) {
       >
         <>
           <TxDetailExtraInfoBox {...props} />
+          <TxDetailAdvanceInfoBox {...props} />
           {advancedSettingsForm}
           {isMultipleActions ? <Box h={6} /> : <Box h={8} />}
           <TxActionsListView {...props} transformType="T1" space={6} />

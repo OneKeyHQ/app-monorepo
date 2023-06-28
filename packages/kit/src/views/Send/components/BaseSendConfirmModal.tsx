@@ -78,11 +78,11 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
   const editableNonceStatus = useMemo(() => {
     if (network?.settings.nonceEditable && advancedSettings?.currentNonce) {
       const currentNonceBN = new BigNumber(advancedSettings.currentNonce);
-      const originNonceBN = new BigNumber(advancedSettings.originNonce);
-      if (currentNonceBN.isLessThan(originNonceBN)) {
+      const originalNonceBN = new BigNumber(advancedSettings.originalNonce);
+      if (currentNonceBN.isLessThan(originalNonceBN)) {
         return EditableNonceStatusEnum.Less;
       }
-      if (currentNonceBN.isGreaterThan(originNonceBN)) {
+      if (currentNonceBN.isGreaterThan(originalNonceBN)) {
         return EditableNonceStatusEnum.Greater;
       }
 

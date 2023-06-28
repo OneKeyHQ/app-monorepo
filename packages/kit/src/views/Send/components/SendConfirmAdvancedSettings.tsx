@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { memo, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { isNil } from 'lodash';
 
 import {
   Button,
@@ -14,6 +16,7 @@ import {
 
 import { useNetworkSimple } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
+import { isHexString } from '../../../utils/helper';
 
 import CoinControlAdvancedSetting from './CoinControlAdvancedSetting';
 import { LabelWithTooltip } from './LableWithTooltip';
@@ -31,6 +34,7 @@ type Props = {
 
 type AdvancedSettingsForm = {
   nonce: string;
+  hexData: string;
 };
 
 function SendConfirmAdvancedSettingsMemo(props: Props) {
@@ -43,13 +47,16 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
     isLoadingAdvancedSettings,
   } = props;
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  const originNonce = String(encodedTx.nonce ?? advancedSettings?.originNonce);
+  const originalNonce = String(
+    encodedTx.nonce ?? advancedSettings?.originalNonce,
+  );
+  const originalHexData = encodedTx.data;
 
   const network = useNetworkSimple(networkId);
 
   const nonceEditable = network?.settings?.nonceEditable;
   const isBtcForkChain = network?.settings?.isBtcForkChain;
+  const hexDataEditable = network?.settings?.hexDataEditable;
 
   const intl = useIntl();
 
@@ -65,15 +72,16 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
   });
 
   const currentNonce = formValues?.nonce;
+  const currentHexData = formValues?.hexData;
 
   const isLessNonce = new BigNumber(currentNonce ?? 0).isLessThan(
-    new BigNumber(originNonce),
+    new BigNumber(originalNonce),
   );
 
   const { onBlur } = register('nonce', {
     onBlur: () => {
       if (!currentNonce) {
-        setValue('nonce', originNonce);
+        setValue('nonce', originalNonce);
       }
     },
   });
@@ -86,8 +94,8 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
   const advanceSettings = useMemo(() => {
     const settings = [];
 
-    if (nonceEditable && originNonce !== '') {
-      const isEditNonceDisabled = originNonce === currentNonce;
+    if (nonceEditable && originalNonce !== '') {
+      const isEditNonceDisabled = originalNonce === currentNonce;
       settings.push(
         <Form.Item
           name="nonce"
@@ -106,7 +114,7 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
               id: 'form__current_str',
             },
             {
-              '0': originNonce,
+              '0': originalNonce,
             },
           )}
         >
@@ -123,7 +131,7 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
                 isLoading={isLoadingAdvancedSettings}
                 type="plain"
                 isDisabled={isEditNonceDisabled || isLoadingAdvancedSettings}
-                onPress={() => setValue('nonce', originNonce)}
+                onPress={() => setValue('nonce', originalNonce)}
               >
                 <Text
                   color={isEditNonceDisabled ? 'text-subdued' : 'text-default'}
@@ -132,6 +140,40 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
                 </Text>
               </Button>
             }
+          />
+        </Form.Item>,
+      );
+    }
+
+    if (hexDataEditable) {
+      const isEditHexDataDisabled =
+        originalHexData && originalHexData !== '' && originalHexData !== '0x';
+      settings.push(
+        <Form.Item
+          name="hexData"
+          label={
+            <LabelWithTooltip
+              labelId="form__hex_data"
+              tooltipId="form__hex_data_question_mark"
+            />
+          }
+          control={control}
+          rules={{
+            validate: (value) => {
+              if (!value) return true;
+
+              if (!isHexString(value)) {
+                return intl.formatMessage({
+                  id: 'msg__invalid_hex_data',
+                });
+              }
+            },
+          }}
+        >
+          <Form.Textarea
+            bgColor="action-secondary-default"
+            isDisabled={isEditHexDataDisabled}
+            marginBottom="1px"
           />
         </Form.Item>,
       );
@@ -163,32 +205,41 @@ function SendConfirmAdvancedSettingsMemo(props: Props) {
 
     return settings;
   }, [
-    accountId,
-    network,
-    encodedTx,
     nonceEditable,
-    originNonce,
+    originalNonce,
+    hexDataEditable,
     isBtcForkChain,
     currentNonce,
-    intl,
     control,
+    intl,
     isLessNonce,
     isLoadingAdvancedSettings,
-    isCoinControlChecked,
     onBlur,
     setValue,
+    originalHexData,
+    network,
+    accountId,
+    encodedTx,
+    isCoinControlChecked,
     setAdvancedSettings,
   ]);
 
   useEffect(() => {
-    setValue('nonce', originNonce);
-  }, [originNonce, setValue]);
+    setValue('nonce', originalNonce);
+    setValue('hexData', originalHexData);
+  }, [originalHexData, originalNonce, setValue]);
 
   useEffect(() => {
-    if (currentNonce) {
+    if (!isNil(currentNonce)) {
       setAdvancedSettings((prev) => ({ ...prev, currentNonce }));
     }
   }, [currentNonce, setAdvancedSettings]);
+
+  useEffect(() => {
+    if (!isNil(currentHexData)) {
+      setAdvancedSettings((prev) => ({ ...prev, currentHexData }));
+    }
+  }, [currentHexData, setAdvancedSettings]);
 
   if (advanceSettings && advanceSettings.length > 0) {
     return (
