@@ -34,7 +34,7 @@ function validateAddress(address: string | undefined, propertyName: string) {
 }
 
 export function validateSignMessageData(unsignedMessage: IUnsignedMessageEvm) {
-  const { payload = {} } = unsignedMessage;
+  const { payload = [] } = unsignedMessage;
   let message;
   let from;
 
