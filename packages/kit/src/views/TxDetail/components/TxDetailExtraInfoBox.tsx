@@ -66,25 +66,13 @@ function checkIsValidHistoryTxId({
 
 // TODO rename ExtraInfoBox
 export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
-  const { decodedTx, historyTx, feeInput, isSendConfirm, isHistoryDetail } =
-    props;
+  const { decodedTx, historyTx, feeInput, isHistoryDetail } = props;
   const { network } = useNetwork({ networkId: decodedTx.networkId });
   const details: ITxActionElementDetail[] = [];
   const intl = useIntl();
   const { copyText } = useClipboard();
   const clickTimes = useRef(0);
 
-  if (
-    decodedTx.status === IDecodedTxStatus.Pending &&
-    decodedTx.nonce &&
-    decodedTx.nonce >= 0 &&
-    !isSendConfirm
-  ) {
-    details.push({
-      title: 'Nonce',
-      content: `${new BigNumber(decodedTx.nonce).toFixed()}`,
-    });
-  }
   if (!network?.settings.hiddenFeeOnTxDetail || isHistoryDetail) {
     details.push({
       title: intl.formatMessage({ id: 'content__fee' }),
@@ -165,5 +153,5 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
 
   if (!details.length) return null;
 
-  return <TxDetailActionBox details={details} />;
+  return <TxDetailActionBox details={details} showContentDivider />;
 }

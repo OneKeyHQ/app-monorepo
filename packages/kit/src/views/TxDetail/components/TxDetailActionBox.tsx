@@ -15,6 +15,7 @@ export function TxDetailActionBox(props: ITxActionCardViewProps) {
     content,
     details,
     showTitleDivider,
+    showContentDivider,
     isSingleTransformMode,
   } = props;
 
@@ -50,13 +51,16 @@ export function TxDetailActionBox(props: ITxActionCardViewProps) {
     <>
       {content}
       <VStack space={4}>
-        {(details ?? [])
-          .filter(Boolean)
-          .map((detail, index) =>
-            !isNil(detail) ? (
+        {(details ?? []).filter(Boolean).map((detail, index) =>
+          !isNil(detail) ? (
+            <>
               <TxActionElementDetailCell key={index} {...detail} />
-            ) : null,
-          )}
+              {showContentDivider && index !== (details?.length ?? 0) - 1 && (
+                <Divider />
+              )}
+            </>
+          ) : null,
+        )}
       </VStack>
     </>
   );

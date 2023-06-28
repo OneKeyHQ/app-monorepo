@@ -68,6 +68,7 @@ export type ITxActionCardViewProps = {
   details?: Array<ITxActionElementDetail | undefined | null>;
   isSingleTransformMode?: boolean;
   showTitleDivider?: boolean;
+  showContentDivider?: boolean;
 };
 
 export type ITxActionListViewProps = {

@@ -78,7 +78,7 @@ function TxDetailAdvanceInfoBox(props: ITxActionListViewProps) {
         }
       >
         <Box mt={6}>
-          <TxDetailActionBox details={details} />
+          <TxDetailActionBox details={details} showContentDivider />
         </Box>
       </Collapse>
     );
