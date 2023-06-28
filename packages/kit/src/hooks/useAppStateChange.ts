@@ -1,13 +1,11 @@
 import { useEffect, useRef } from 'react';
 
-import { AppState } from 'react-native';
+import { AppState, DeviceEventEmitter } from 'react-native';
 
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { AppStateStatus } from 'react-native';
-
-const listenerEvent = 'change';
+import type { AppStateStatus, NativeEventSubscription } from 'react-native';
 
 export const isFromBackgroundToForeground = (
   currentState: AppStateStatus,
@@ -28,9 +26,11 @@ export const useAppStateChange = (
     unFilter?: boolean;
   },
 ) => {
-  const appState = useRef(AppState.currentState);
+  const appState = useRef<AppStateStatus>(AppState.currentState);
   useEffect(() => {
-    const listener = AppState.addEventListener(listenerEvent, (nextState) => {
+    let listener: NativeEventSubscription | undefined;
+
+    const onCall = (nextState: AppStateStatus) => {
       debugLogger.common.debug(
         `AppState changed callback trigger from: ${appState.current} , to: ${nextState}`,
       );
@@ -41,7 +41,13 @@ export const useAppStateChange = (
         onHandler?.(nextState);
       }
       appState.current = nextState;
-    });
+    };
+
+    if (platformEnv.isNativeIOS) {
+      listener = AppState.addEventListener('change', onCall);
+    } else if (platformEnv.isNativeAndroid) {
+      listener = DeviceEventEmitter.addListener('android_lifecycle', onCall);
+    }
 
     return () => {
       listener?.remove?.();
