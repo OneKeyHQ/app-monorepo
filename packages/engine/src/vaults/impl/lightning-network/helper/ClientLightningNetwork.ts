@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
@@ -7,6 +8,7 @@ import { getFiatEndpoint } from '../../../../endpoint';
 import { BadAuthError } from '../../../../errors';
 
 import type {
+  IAuthResponse,
   IBatchBalanceResponse,
   ICreateUserResponse,
 } from '../types/account';
@@ -27,7 +29,7 @@ class ClientLightning {
 
   constructor() {
     this.request = axios.create({
-      baseURL: `${getFiatEndpoint()}/api/lightning`,
+      baseURL: `${getFiatEndpoint()}/lightning`,
       timeout: 20000,
     });
 
@@ -41,6 +43,16 @@ class ClientLightning {
         return Promise.reject(error);
       },
     );
+  }
+
+  private async getAuthorization(address: string) {
+    const authorization = await simpleDb.utxoAccounts.getLndAccessToken(
+      address,
+    );
+    if (authorization && authorization.length) {
+      return `Bearer ${authorization}`;
+    }
+    return '';
   }
 
   async refreshAccessToken({
@@ -58,12 +70,14 @@ class ClientLightning {
       if (!hashPubKey || !address || !signature) {
         throw new Error('Invalid exchange token params');
       }
-      await this.request.post('/account/auth', {
-        hashPubKey,
-        address,
-        signature,
-        timestamp,
-      });
+      return await this.request
+        .post<IAuthResponse>('/account/auth', {
+          hashPubKey,
+          address,
+          signature,
+          timestamp,
+        })
+        .then((i) => i.data);
     } catch (e) {
       console.log('=====>>>exchange token failed: ', e);
       throw e;
@@ -108,11 +122,19 @@ class ClientLightning {
 
   async createInvoice(address: string, amount: string, description?: string) {
     return this.request
-      .post<ICretaeInvoiceResponse>('/invoices/create', {
-        address,
-        amount,
-        description: description || 'OneKey Invoice',
-      })
+      .post<ICretaeInvoiceResponse>(
+        '/invoices/create',
+        {
+          address,
+          amount,
+          description: description || 'OneKey Invoice',
+        },
+        {
+          headers: {
+            Authorization: await this.getAuthorization(address),
+          },
+        },
+      )
       .then((i) => i.data);
   }
 
@@ -131,6 +153,9 @@ class ClientLightning {
           params: {
             address,
             paymentHash,
+          },
+          headers: {
+            Authorization: await this.getAuthorization(address),
           },
         })
         .then((i) => i.data),
@@ -153,6 +178,11 @@ class ClientLightning {
       .post<{ paymentRequest: string; nonce: number }>(
         '/payments/bolt11',
         params,
+        {
+          headers: {
+            Authorization: await this.getAuthorization(params.address),
+          },
+        },
       )
       .then((i) => i.data);
   }
@@ -167,7 +197,12 @@ class ClientLightning {
 
   async fetchHistory(address: string): Promise<IHistoryItem[]> {
     return this.request
-      .get<IHistoryItem[]>('/invoices/history', { params: { address } })
+      .get<IHistoryItem[]>('/invoices/history', {
+        params: { address },
+        headers: {
+          Authorization: await this.getAuthorization(address),
+        },
+      })
       .then((i) => i.data);
   }
 }

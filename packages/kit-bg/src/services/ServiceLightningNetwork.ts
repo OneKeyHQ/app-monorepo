@@ -1,3 +1,4 @@
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import type VaultLightning from '@onekeyhq/engine/src/vaults/impl/lightning-network/Vault';
 import {
   backgroundClass,
@@ -22,7 +23,13 @@ export default class ServiceLightningNetwork extends ServiceBase {
       networkId,
       accountId,
     });
-    await (vault as VaultLightning).exchangeToken(password);
+    const res = await (vault as VaultLightning).exchangeToken(password);
+    const address = await (vault as VaultLightning).getCurrentBalanceAddress();
+    await simpleDb.utxoAccounts.updateLndToken(
+      address,
+      res.access_token,
+      res.refresh_token,
+    );
   }
 
   @backgroundMethod()

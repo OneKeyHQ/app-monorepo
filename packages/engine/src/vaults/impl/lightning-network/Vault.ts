@@ -102,7 +102,7 @@ export default class Vault extends VaultBase {
         entropy,
       });
       const client = await this.getClient();
-      await client.refreshAccessToken({
+      return await client.refreshAccessToken({
         hashPubKey,
         address,
         signature: sign,

@@ -8,6 +8,8 @@ import type { IBtcUTXO } from '../../../vaults/utils/btcForkChain/types';
 
 export type ISimpleDbEntityUtxoData = {
   utxos: CoinControlItem[];
+  lndAccessTokenMap?: Record<string, string>;
+  lndRefreshTokenMap?: Record<string, string>;
 };
 
 export const getUtxoUniqueKey = (utxo: IBtcUTXO) => `${utxo.txid}_${utxo.vout}`;
@@ -38,7 +40,7 @@ class SimpleDbEntityUtxoAccounts extends SimpleDbEntityBase<ISimpleDbEntityUtxoD
         key: getUtxoUniqueKey(utxo),
       },
     ];
-    return this.setRawData({ utxos: newItems });
+    return this.setRawData({ ...rawData, utxos: newItems });
   }
 
   // query
@@ -70,7 +72,7 @@ class SimpleDbEntityUtxoAccounts extends SimpleDbEntityBase<ISimpleDbEntityUtxoD
       }
       return item;
     });
-    return this.setRawData({ utxos: newItems });
+    return this.setRawData({ ...rawData, utxos: newItems });
   }
 
   // delete
@@ -78,7 +80,7 @@ class SimpleDbEntityUtxoAccounts extends SimpleDbEntityBase<ISimpleDbEntityUtxoD
     const rawData = await this.getRawData();
     const items = rawData?.utxos ?? [];
     const newItems = items.filter((item) => !ids.includes(item.id));
-    return this.setRawData({ utxos: newItems });
+    return this.setRawData({ ...rawData, utxos: newItems });
   }
 
   async insertRestoreData(data: CoinControlItem[]) {
@@ -106,7 +108,37 @@ class SimpleDbEntityUtxoAccounts extends SimpleDbEntityBase<ISimpleDbEntityUtxoD
     );
     const newItemsUnique = Object.values(newItemsMap);
 
-    return this.setRawData({ utxos: newItemsUnique });
+    return this.setRawData({ ...rawData, utxos: newItemsUnique });
+  }
+
+  async updateLndToken(
+    address: string,
+    lndAccessToken: string,
+    lndRefreshToken: string,
+  ) {
+    const rawData = await this.getRawData();
+    return this.setRawData({
+      ...rawData,
+      utxos: rawData?.utxos ?? [],
+      lndAccessTokenMap: {
+        ...(rawData?.lndAccessTokenMap ?? {}),
+        [address]: lndAccessToken,
+      },
+      lndRefreshTokenMap: {
+        ...(rawData?.lndRefreshTokenMap ?? {}),
+        [address]: lndRefreshToken,
+      },
+    });
+  }
+
+  async getLndAccessToken(address: string) {
+    const rawData = await this.getRawData();
+    return rawData?.lndAccessTokenMap?.[address];
+  }
+
+  async getLndRefreshToken(address: string) {
+    const rawData = await this.getRawData();
+    return rawData?.lndRefreshTokenMap?.[address];
   }
 }
 
