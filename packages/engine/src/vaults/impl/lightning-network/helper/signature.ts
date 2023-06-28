@@ -3,6 +3,12 @@ import { getProvider } from './account';
 import type { Engine } from '../../../..';
 
 type RegisterMsgType = { type: 'register'; pubkey: string; address: string };
+type AuthMsgType = {
+  type: 'auth';
+  pubkey: string;
+  address: string;
+  timestamp: number;
+};
 type PaymentBolt11MsgType = {
   type: 'transfer';
   invoice: string;
@@ -11,7 +17,7 @@ type PaymentBolt11MsgType = {
   nonce: number;
 };
 
-type UnionMsgType = RegisterMsgType | PaymentBolt11MsgType;
+type UnionMsgType = RegisterMsgType | AuthMsgType | PaymentBolt11MsgType;
 
 const generateMessage = (msgPayload: UnionMsgType) => {
   if (msgPayload.type === 'register') {
@@ -19,6 +25,14 @@ const generateMessage = (msgPayload: UnionMsgType) => {
       type: 'register',
       pubkey: msgPayload.pubkey,
       address: msgPayload.address,
+    };
+  }
+  if (msgPayload.type === 'auth') {
+    return {
+      type: 'auth',
+      pubkey: msgPayload.pubkey,
+      address: msgPayload.address,
+      timestamp: msgPayload.timestamp,
     };
   }
   if (msgPayload.type === 'transfer') {

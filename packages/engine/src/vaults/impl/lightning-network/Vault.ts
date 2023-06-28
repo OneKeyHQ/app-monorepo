@@ -88,11 +88,13 @@ export default class Vault extends VaultBase {
         this.walletId,
         password ?? '',
       )) as ExportedSeedCredential;
+      const timestamp = Date.now();
       const sign = await signature({
         msgPayload: {
-          type: 'register',
+          type: 'auth',
           pubkey: hashPubKey,
           address,
+          timestamp,
         },
         engine: this.engine,
         path: dbAccount.addresses.realPath,
@@ -104,6 +106,7 @@ export default class Vault extends VaultBase {
         hashPubKey,
         address,
         signature: sign,
+        timestamp,
       });
     } catch (e) {
       debugLogger.common.info('exchangeToken error', e);

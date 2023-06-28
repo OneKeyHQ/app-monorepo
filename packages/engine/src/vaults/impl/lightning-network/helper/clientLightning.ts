@@ -48,10 +48,12 @@ class ClientLightning {
     hashPubKey,
     address,
     signature,
+    timestamp,
   }: {
     hashPubKey: string;
     address: string;
     signature: string;
+    timestamp: number;
   }) {
     try {
       if (!hashPubKey || !address || !signature) {
@@ -61,6 +63,7 @@ class ClientLightning {
         hashPubKey,
         address,
         signature,
+        timestamp,
       });
     } catch (e) {
       console.log('=====>>>exchange token failed: ', e);
