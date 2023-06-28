@@ -1,11 +1,11 @@
 import * as Linking from 'expo-linking';
 import { isString } from 'lodash';
-import memoizee from 'memoizee';
 
 import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/src-electron/app';
 import type { DesktopAPI } from '@onekeyhq/desktop/src-electron/preload';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import walletConnectUtils from '../components/WalletConnect/utils/walletConnectUtils';
 import {

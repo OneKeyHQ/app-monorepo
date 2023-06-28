@@ -35,23 +35,19 @@ const RadioBox: FC<RadioBoxProps> = ({
   const [isFocused, setFocused] = useState(false);
 
   let brColor = 'border-default';
+  let bgColor = 'transparent';
   if (isChecked) {
     if (isDisabled) {
       brColor = 'action-primary-activate-disabled';
     } else {
       brColor = 'action-primary-default';
     }
+    bgColor = 'surface-selected';
   } else if (isDisabled) {
+    bgColor = 'surface-disabled';
     brColor = 'border-disabled';
   } else {
     brColor = 'border-default';
-  }
-
-  let bgColor = 'action-secondary-default';
-  if (isDisabled) {
-    bgColor = 'action-secondary-disabled';
-  } else {
-    bgColor = 'action-secondary-default';
   }
 
   return (

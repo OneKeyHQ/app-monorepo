@@ -12,12 +12,12 @@ import { ethers } from '@onekeyfe/blockchain-libs';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, isObject } from 'lodash';
-import memoizee from 'memoizee';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { InvalidAddress, OneKeyInternalError } from '../../../errors';
 import { isAccountCompatibleWithNetwork } from '../../../managers/account';

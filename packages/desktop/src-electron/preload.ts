@@ -34,6 +34,9 @@ export type PrefType =
   | 'notification'
   | 'locationService'
   | 'localNetwork';
+
+export type IDesktopAppState = 'active' | 'background' | 'blur';
+
 export type DesktopAPI = {
   on: (channel: string, func: (...args: any[]) => any) => void;
   hello: string;
@@ -46,7 +49,7 @@ export type DesktopAPI = {
   focus: () => void;
   openPrefs: (prefType: PrefType) => void;
   toggleMaximizeWindow: () => void;
-  onAppState: (cb: (state: 'active' | 'background') => void) => () => void;
+  onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   canPromptTouchID: () => boolean;
   promptTouchID: (msg: string) => Promise<{ success: boolean; error?: string }>;
   secureSetItemAsync: (key: string, value: string) => Promise<void>;

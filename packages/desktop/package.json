@@ -44,6 +44,7 @@
     "@types/adm-zip": "^0",
     "@types/electron-localshortcut": "^3.1.0",
     "@types/node-fetch": "^2.6.1",
+    "cross-env": "^7.0.3",
     "electron": "19.1.8",
     "electron-builder": "22.14.13",
     "electron-notarize": "^1.1.1",

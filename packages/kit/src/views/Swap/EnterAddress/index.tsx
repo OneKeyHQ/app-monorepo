@@ -27,7 +27,9 @@ const EnterAddress = () => {
 
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
-  const { onSelected, networkId } = route.params ?? {};
+  const { onSelected, networkId, contactExcludeWalletAccount } =
+    route.params ?? {};
+
   const {
     control,
     watch,
@@ -151,7 +153,8 @@ const EnterAddress = () => {
         <AddressInput
           networkId={networkId}
           onChangeAddressName={(name) => setValue('name', name)}
-          plugins={['paste', 'scan']}
+          contactExcludeWalletAccount={contactExcludeWalletAccount}
+          plugins={['paste', 'scan', 'contact']}
         />
       </Form.Item>
     </Modal>

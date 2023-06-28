@@ -3,7 +3,6 @@ import { hexToBytes } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
 import { getTime } from 'date-fns';
 import { get, isEmpty, isNil } from 'lodash';
-import memoizee from 'memoizee';
 
 import {
   InvalidAddress,
@@ -55,6 +54,7 @@ import {
 import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { KeyringHardware } from './KeyringHardware';
