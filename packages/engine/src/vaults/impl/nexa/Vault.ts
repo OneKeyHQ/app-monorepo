@@ -246,7 +246,9 @@ export default class Vault extends VaultBase {
       nativeDecimals: network.decimals,
       feeSymbol: network.feeSymbol,
       feeDecimals: network.feeDecimals,
-      limit: new BigNumber(feeInfo.toString()).shiftedBy(-network.decimals).toFixed(),
+      limit: new BigNumber(feeInfo.toString())
+        .shiftedBy(-network.decimals)
+        .toFixed(),
       prices: ['1'],
       defaultPresetIndex: '1',
       tx: null,
@@ -300,8 +302,6 @@ export default class Vault extends VaultBase {
           );
           if (historyTxToMerge && !historyTxToMerge.decodedTx.isFinal) {
             const tx = await client.getTransaction(history.tx_hash);
-            const fromNexaAddress = tx.inputs[0].script.toAddress().toNexaAddress
-            const toNexaAddress = tx.outputs[0].script.toAddress().toNexaAddress
             let action: IDecodedTxAction = {
               type: IDecodedTxActionType.UNKNOWN,
             };
@@ -309,8 +309,8 @@ export default class Vault extends VaultBase {
               (acc, cur) => acc + cur.value_satoshi,
               0,
             );
-            const from = fromNexaAddress;
-            const to = toNexaAddress;
+            const from = tx.inputs[0].script.toAddress().toNexaAddress;
+            const to = tx.outputs[0].script.toAddress().toNexaAddress;
             const tokenAddress = dbAccount.address;
             if (amountValue && tokenAddress) {
               let direction = IDecodedTxDirection.IN;
