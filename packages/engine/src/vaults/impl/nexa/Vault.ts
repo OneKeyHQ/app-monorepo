@@ -316,8 +316,9 @@ export default class Vault extends VaultBase {
               (acc, cur) => acc + cur.value_satoshi,
               0,
             );
-            const from = tx.inputs[0].script.toAddress().toNexaAddress;
-            const to = tx.outputs[0].script.toAddress().toNexaAddress;
+            const from =
+              tx.inputs[0].script.toAddress('nexatest').toNexaAddress;
+            const to = tx.outputs[0].script.toAddress('nexatest').toNexaAddress;
             const tokenAddress = dbAccount.address;
             if (amountValue && tokenAddress) {
               let direction = IDecodedTxDirection.IN;
