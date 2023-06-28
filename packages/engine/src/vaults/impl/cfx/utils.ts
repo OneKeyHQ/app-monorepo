@@ -21,7 +21,7 @@ import type {
 const { Transaction } = sdkCfx;
 const getCodeCache = memoizee(
   async (to: string, client: ISdkConflux) => client.getCode(to),
-  { promise: true },
+  { promise: true, normalizer: ([to]) => to },
 );
 
 export async function isCfxNativeTransferType(
