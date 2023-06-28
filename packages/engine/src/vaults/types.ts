@@ -538,6 +538,7 @@ export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
   decimals: number;
   name: string;
   symbol: string;
+  networkId: string;
 };
 export type IDecodedTxActionEvmInfo = {
   from: string;

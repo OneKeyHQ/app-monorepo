@@ -10,6 +10,7 @@ import { TxActionsListView } from './TxActionsListView';
 import { TxDetailContextProvider } from './TxDetailContext';
 
 import type { ITxActionListViewProps } from './types';
+import { TxTopInfoBox } from './components/TxDetailTopInfoBox';
 
 export function TxDetailView(props: ITxActionListViewProps) {
   const {
@@ -46,14 +47,6 @@ export function TxDetailView(props: ITxActionListViewProps) {
       {/*   </Box> */}
       {/* ) : null} */}
 
-      <TxInteractInfo
-        origin={
-          decodedTx?.interactInfo?.url ??
-          sendConfirmParamsParsed?.sourceInfo?.origin ??
-          ''
-        }
-        networkId={decodedTx?.networkId ?? ''}
-      />
       <TxDetailContextProvider
         isMultipleActions={isMultipleActions}
         isHistoryDetail={isHistoryDetail}
@@ -61,6 +54,15 @@ export function TxDetailView(props: ITxActionListViewProps) {
         sendConfirmParamsParsed={sendConfirmParamsParsed}
       >
         <>
+          <TxTopInfoBox {...props} />
+          <TxInteractInfo
+            origin={
+              decodedTx?.interactInfo?.url ??
+              sendConfirmParamsParsed?.sourceInfo?.origin ??
+              ''
+            }
+            networkId={decodedTx?.networkId ?? ''}
+          />
           <TxDetailExtraInfoBox {...props} />
           <TxDetailAdvanceInfoBox {...props} />
           {advancedSettingsForm}
