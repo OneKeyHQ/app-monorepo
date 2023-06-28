@@ -19,7 +19,7 @@ class ServicTranslation extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getTranslations() {
+  private async getTranslations() {
     const url = `${this.baseUrl}/all`;
     const res = await this.client.get(url);
     const data = res.data as Record<string, Record<string, string>>;
