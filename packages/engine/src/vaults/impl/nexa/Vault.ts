@@ -100,6 +100,13 @@ export default class Vault extends VaultBase {
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
   }
 
+  override async validateWatchingCredential(input: string): Promise<boolean> {
+    // Generic address test, override if needed.
+    return Promise.resolve(
+      this.settings.watchingAccountEnabled && verifyNexaAddress(input).isValid,
+    );
+  }
+
   override async validateAddress(address: string): Promise<string> {
     const { isValid, normalizedAddress } = verifyNexaAddress(address);
     if (isValid) {

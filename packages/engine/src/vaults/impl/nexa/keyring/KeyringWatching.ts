@@ -1,3 +1,33 @@
-import { KeyringWatching as KeyringWatchingBtcFork } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/KeyringWatching';
+import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
-export class KeyringWatching extends KeyringWatchingBtcFork {}
+import { InvalidAddress } from '../../../../errors';
+import { AccountType } from '../../../../types/account';
+import { KeyringWatchingBase } from '../../../keyring/KeyringWatchingBase';
+import { verifyNexaAddress } from '../utils';
+
+import type { DBSimpleAccount } from '../../../../types/account';
+import type { IPrepareWatchingAccountsParams } from '../../../types';
+
+export class KeyringWatching extends KeyringWatchingBase {
+  override async prepareAccounts(
+    params: IPrepareWatchingAccountsParams,
+  ): Promise<Array<DBSimpleAccount>> {
+    const { name, target: address, accountIdPrefix } = params;
+    const { normalizedAddress, isValid } = verifyNexaAddress(address);
+    if (!isValid || typeof normalizedAddress === 'undefined') {
+      throw new InvalidAddress();
+    }
+
+    return Promise.resolve([
+      {
+        id: `${accountIdPrefix}--${COIN_TYPE}--${address}`,
+        name: name || '',
+        type: AccountType.SIMPLE,
+        path: '',
+        coinType: COIN_TYPE,
+        pub: '', // TODO: only address is supported for now.
+        address: normalizedAddress,
+      },
+    ]);
+  }
+}
