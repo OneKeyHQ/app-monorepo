@@ -301,7 +301,8 @@ export default class Vault extends VaultBase {
           if (historyTxToMerge && !historyTxToMerge.decodedTx.isFinal) {
             console.log(historyTxToMerge, history);
             const tx = await client.getTransaction(history.tx_hash);
-
+            const fromNexaAddress = tx.inputs[0].script.toAddress().toNexaAddress
+            const toNexaAddress = tx.outputs[0].script.toAddress().toNexaAddress
             let action: IDecodedTxAction = {
               type: IDecodedTxActionType.UNKNOWN,
             };
