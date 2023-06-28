@@ -152,8 +152,6 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
     (s) => s.allNetworks.portfolios[`${networkId}___${accountId}`]?.defis ?? [],
   );
 
-  console.log(defis);
-
   const allDefiValues = useMemo(
     () =>
       defis

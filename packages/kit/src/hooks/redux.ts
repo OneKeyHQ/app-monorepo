@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/engine/src/managers/account';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HW,
@@ -222,7 +223,12 @@ export const useGetWalletDetail = (walletId: string | null) => {
   return wallet;
 };
 
-export const useTools = (networkId?: string) =>
-  useAppSelector((s) => s.data.tools).filter(
-    (item) => item.networkId === networkId,
-  );
+export const useTools = (networkId?: string) => {
+  const tools = useAppSelector((s) => s.data.tools ?? []);
+  return useMemo(() => {
+    if (isAllNetworks(networkId)) {
+      return tools;
+    }
+    return tools.filter((item) => item.networkId === networkId);
+  }, [tools, networkId]);
+};

@@ -4,6 +4,7 @@ import { NetworkAccountSelectorModal } from '../../../components/NetworkAccountS
 import { NetworkSelectorModal } from '../../../components/NetworkAccountSelector/modals/NetworkSelectorModal/NetworkSelectorModal';
 import { AddNetwork } from '../../../views/ManageNetworks/AddNetwork';
 import { AddNetworkConfirm } from '../../../views/ManageNetworks/AddNetwork/AddNetworkConfirm';
+import { AllNetworksNetworkSelectorModal } from '../../../views/ManageNetworks/AllNetworks/NetworksSelectorModal';
 import { CustomNetwork } from '../../../views/ManageNetworks/CustomNetwork';
 import { Listing } from '../../../views/ManageNetworks/Listing';
 import { SortableView } from '../../../views/ManageNetworks/Listing/SortableView';
@@ -70,6 +71,10 @@ const modalRoutes = [
   {
     name: ManageNetworkModalRoutes.SwitchRpc,
     component: SwitchRpcModal,
+  },
+  {
+    name: ManageNetworkModalRoutes.AllNetworksNetworkSelector,
+    component: AllNetworksNetworkSelectorModal,
   },
 ];
 

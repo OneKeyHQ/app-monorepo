@@ -1,6 +1,8 @@
 import type { INetwork } from '@onekeyhq/engine/src/types';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import type {
   AddEVMNetworkParams,
+  Network,
   SwitchRpcParams,
 } from '@onekeyhq/engine/src/types/network';
 
@@ -65,4 +67,16 @@ export type ManageNetworkRoutesParams = {
   [ManageNetworkModalRoutes.QuickAdd]: undefined;
 
   [ManageNetworkModalRoutes.Sort]: undefined;
+
+  [ManageNetworkModalRoutes.AllNetworksNetworkSelector]: {
+    title: string;
+    walletId: string;
+    accountId: string;
+    filter?: (params: {
+      network?: Network | null;
+      account?: Account | null;
+    }) => boolean;
+    onConfirm?: (params: { network: Network; account: Account }) => unknown;
+    onCancel?: () => unknown;
+  };
 };
