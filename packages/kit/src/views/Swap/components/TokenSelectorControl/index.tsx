@@ -16,21 +16,18 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
-import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
-import { FormatCurrency } from '../../../../components/Format';
 import {
   useDebounce,
   useNavigation,
   useNetworkSimple,
 } from '../../../../hooks';
-import { useTokenBalance } from '../../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { notifyIfRiskToken } from '../../../ManageTokens/helpers/TokenSecurityModalWrapper';
-import { useTokenPrice, useTokenSearch } from '../../hooks/useSwapTokenUtils';
+import { useTokenSearch } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
-import { formatAmount, gt } from '../../utils';
+import { TokenMoreMenu } from '../TokenSelectorUtilComponent';
 import { EmptySkeleton, LoadingSkeleton } from '../TokenSkeleton';
 
 import { TokenSelectorControlContext } from './context';
@@ -185,47 +182,6 @@ const ListEmptyComponent: FC<ListEmptyComponentProps> = ({
   ) : null;
 };
 
-type ExtraInfoProps = {
-  token?: Token;
-  isSearchMode?: boolean;
-};
-
-const ExtraInfo: FC<ExtraInfoProps> = ({ token, isSearchMode }) => {
-  const { accountId } = useContext(TokenSelectorControlContext);
-  const isCompatible = isAccountCompatibleWithNetwork(
-    accountId ?? '',
-    token?.networkId ?? '',
-  );
-
-  const balance = useTokenBalance({
-    networkId: token?.networkId ?? '',
-    accountId: accountId ?? '',
-    token,
-  });
-  const price = useTokenPrice(token);
-
-  if (!isSearchMode && isCompatible && gt(balance, 0)) {
-    return (
-      <Box alignItems="flex-end">
-        <Typography.Heading fontSize={16} lineHeight={24}>
-          {formatAmount(balance, 6)}
-        </Typography.Heading>
-        <Typography.Caption color="text-subdued" numberOfLines={2}>
-          <FormatCurrency
-            numbers={[price ?? 0, balance ?? 0]}
-            render={(ele) => (
-              <Typography.Caption ml={3} color="text-subdued">
-                {price ? ele : '-'}
-              </Typography.Caption>
-            )}
-          />
-        </Typography.Caption>
-      </Box>
-    );
-  }
-  return <Icon name="ChevronRightMini" size={20} color="icon-subdued" />;
-};
-
 type ListRenderTokenProps = {
   token: Token;
   onSelect?: (item: Token) => void;
@@ -237,7 +193,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
   onSelect,
   isSearchMode,
 }) => {
-  const { selectedToken } = useContext(TokenSelectorControlContext);
+  const { selectedToken, accountId } = useContext(TokenSelectorControlContext);
 
   const tokenNetwork = useNetworkSimple(token.networkId);
 
@@ -281,9 +237,13 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({
         showTokenVerifiedIcon
         name={token.symbol}
         description={description}
-        nameProps={{ numberOfLines: 2 }}
+        nameProps={{ numberOfLines: 2, maxW: '24' }}
       />
-      <ExtraInfo token={token} isSearchMode={isSearchMode} />
+      <TokenMoreMenu
+        token={token}
+        accountId={accountId}
+        isSearchMode={isSearchMode}
+      />
     </Pressable>
   );
 };
