@@ -299,7 +299,6 @@ export default class Vault extends VaultBase {
             (item) => item.decodedTx.txid === history.tx_hash,
           );
           if (historyTxToMerge && !historyTxToMerge.decodedTx.isFinal) {
-            console.log(historyTxToMerge, history);
             const tx = await client.getTransaction(history.tx_hash);
             const fromNexaAddress = tx.inputs[0].script.toAddress().toNexaAddress
             const toNexaAddress = tx.outputs[0].script.toAddress().toNexaAddress
@@ -310,8 +309,8 @@ export default class Vault extends VaultBase {
               (acc, cur) => acc + cur.value_satoshi,
               0,
             );
-            const from = dbAccount.address;
-            const to = dbAccount.address;
+            const from = fromNexaAddress;
+            const to = toNexaAddress;
             const tokenAddress = dbAccount.address;
             if (amountValue && tokenAddress) {
               let direction = IDecodedTxDirection.IN;
