@@ -9,16 +9,14 @@ import {
   IconButton,
   Text,
 } from '@onekeyhq/components';
-import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 
 import { TxDetailActionBox } from './TxDetailActionBox';
-
-import type { ITxActionElementDetail, ITxActionListViewProps } from '../types';
-import { TxDetailHashMoreMenu } from './TxDetailHashMoreMenu';
 import { TxDetailHexDataMoreMenu } from './TxDetailHexDataMoreMenu';
 
+import type { ITxActionElementDetail, ITxActionListViewProps } from '../types';
+
 function TxDetailAdvanceInfoBox(props: ITxActionListViewProps) {
-  const { decodedTx, historyTx, feeInput, isSendConfirm } = props;
+  const { decodedTx, isSendConfirm } = props;
 
   const intl = useIntl();
 

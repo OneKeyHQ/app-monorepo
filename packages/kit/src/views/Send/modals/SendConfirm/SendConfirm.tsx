@@ -87,7 +87,6 @@ function SendConfirm({
     networkId,
   });
 
-
   useDisableNavigationAnimation({
     condition: !!routeParams.autoConfirmAfterFeeSaved,
   });

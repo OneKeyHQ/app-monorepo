@@ -2,8 +2,8 @@
 import { memo, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Button,

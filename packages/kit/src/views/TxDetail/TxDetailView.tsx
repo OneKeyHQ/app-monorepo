@@ -2,12 +2,12 @@ import { useIntl } from 'react-intl';
 
 import { Alert, Box } from '@onekeyhq/components';
 
+import { TxDetailAdvanceInfoBox } from './components/TxDetailAdvanceInfoBox';
 import { TxDetailExtraInfoBox } from './components/TxDetailExtraInfoBox';
 import { TxInteractInfo } from './components/TxInteractInfo';
 import { getReplacedTxAlertTextKeys } from './elements/TxActionElementReplacedTxText';
 import { TxActionsListView } from './TxActionsListView';
 import { TxDetailContextProvider } from './TxDetailContext';
-import { TxDetailAdvanceInfoBox } from './components/TxDetailAdvanceInfoBox';
 
 import type { ITxActionListViewProps } from './types';
 
