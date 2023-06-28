@@ -3,10 +3,10 @@
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
-import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
   InsufficientBalance,
@@ -25,7 +25,7 @@ import {
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
-import ClientLightning from './helper/clientLightning';
+import ClientLightning from './helper/ClientLightningNetwork';
 import { getInvoiceTransactionStatus } from './helper/invoice';
 import { signature } from './helper/signature';
 import { KeyringHardware } from './KeyringHardware';

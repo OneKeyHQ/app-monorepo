@@ -1,7 +1,7 @@
 import axios from 'axios';
-import memoizee from 'memoizee';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { getFiatEndpoint } from '../../../../endpoint';
 import { BadAuthError } from '../../../../errors';
@@ -27,8 +27,7 @@ class ClientLightning {
 
   constructor() {
     this.request = axios.create({
-      // baseURL: `${getFiatEndpoint()}/api`,
-      baseURL: `http://localhost:9000/api/lightning`,
+      baseURL: `${getFiatEndpoint()}/api/lightning`,
       timeout: 20000,
     });
 
