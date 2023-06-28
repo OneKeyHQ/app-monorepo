@@ -15,6 +15,7 @@ export interface ScanResult {
   type: ScanResultCategory;
   data: string;
   // possibleNetworks?: string[];
+  hideMoreMenu?: boolean;
 }
 
 export enum ScanQrcodeRoutes {

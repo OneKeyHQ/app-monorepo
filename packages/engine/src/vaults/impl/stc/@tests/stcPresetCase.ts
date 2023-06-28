@@ -59,8 +59,7 @@ export async function testSignTransaction(
     keyring: (payload: { vault: VaultBase }) => KeyringSoftwareBase;
   },
 ) {
-  const { options, dbAccount, password, network } =
-    prepareMockVault(prepareOptions);
+  const { options, dbAccount, password } = prepareMockVault(prepareOptions);
 
   expect(password).toBeTruthy();
 
@@ -87,7 +86,7 @@ export async function testSignTransaction(
   });
   const unsignedTx = await vault.buildUnsignedTxFromEncodedTx(encodedTxWithFee);
   // 签名使用的是 elliptic
-  const { txid, rawTx, signature } = await keyring.signTransaction(unsignedTx, {
+  const { rawTx, signature } = await keyring.signTransaction(unsignedTx, {
     password,
   });
   const bytes = arrayify(rawTx);
