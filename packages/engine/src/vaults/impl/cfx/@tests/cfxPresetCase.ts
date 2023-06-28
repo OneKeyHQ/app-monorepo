@@ -11,7 +11,7 @@ import { decodeRaw, encodeAddress, verifySignature } from './utils';
 import type { IPrepareMockVaultOptions } from '../../../../../@tests/types';
 import type { KeyringBase } from '../../../keyring/KeyringBase';
 import type { KeyringSoftwareBase } from '../../../keyring/KeyringSoftwareBase';
-import type { IPrepareAccountsParams, IUnsignedTxPro } from '../../../types';
+import type { IPrepareAccountsParams } from '../../../types';
 import type { VaultBase } from '../../../VaultBase';
 
 const cfxAccountNameInfo = getAccountNameInfoByImpl(IMPL_CFX);
