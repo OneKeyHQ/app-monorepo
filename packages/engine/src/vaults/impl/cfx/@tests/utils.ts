@@ -2,7 +2,11 @@
 import { encode } from '@conflux-dev/conflux-address-js';
 import lodash from 'lodash';
 import { decode as rlpDecode } from 'rlp';
-import { ecdsaRecover, ecdsaVerify, publicKeyConvert } from 'secp256k1';
+import secp256k1, {
+  ecdsaRecover,
+  ecdsaVerify,
+  publicKeyConvert,
+} from 'secp256k1';
 
 import { conflux } from '../sdk';
 
@@ -30,11 +34,18 @@ function recover(
   hash: Buffer,
   { r, s, v }: { r: Buffer; s: Buffer; v: number },
 ) {
-  const senderPublic = ecdsaRecover(
-    new Uint8Array(Buffer.concat([r, s])),
-    v,
-    new Uint8Array(hash),
-  );
+  let senderPublic: any;
+  // compatible with both secp256k1 v3 and v4 version
+  if (ecdsaRecover) {
+    senderPublic = ecdsaRecover(
+      new Uint8Array(Buffer.concat([r, s])),
+      v,
+      new Uint8Array(hash),
+    );
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    senderPublic = (secp256k1 as any).recover(hash, Buffer.concat([r, s]), v);
+  }
   return Buffer.from(publicKeyConvert(senderPublic, false)).slice(1);
 }
 
@@ -83,9 +94,15 @@ export const verifySignature = (
   message: Buffer,
   signature: Buffer,
   publicKey: Buffer,
-): boolean =>
-  ecdsaVerify(
-    new Uint8Array(signature),
-    new Uint8Array(message),
-    new Uint8Array(publicKey),
-  );
+): boolean => {
+  // compatible with both secp256k1 v3 and v4 version
+  if (ecdsaVerify) {
+    return ecdsaVerify(
+      new Uint8Array(signature),
+      new Uint8Array(message),
+      new Uint8Array(publicKey),
+    );
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+  return (secp256k1 as any).verify(message, signature, publicKey);
+};
