@@ -45,7 +45,8 @@
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge {
  #ifdef DEBUG
-    return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index"];
+  NSURL *rootUrl = [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index"];
+  return [NSURL URLWithString: [rootUrl.absoluteString stringByAppendingString:@"&inlineSourceMap=true"]];
  #else
     return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
  #endif

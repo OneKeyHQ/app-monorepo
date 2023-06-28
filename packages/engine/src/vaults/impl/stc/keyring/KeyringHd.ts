@@ -17,10 +17,7 @@ import {
 } from '../utils';
 
 import type { ExportedSeedCredential } from '../../../../dbs/base';
-import type {
-  DBSimpleAccount,
-  DBVariantAccount,
-} from '../../../../types/account';
+import type { DBSimpleAccount } from '../../../../types/account';
 import type { SignedTx, UnsignedTx } from '../../../../types/provider';
 import type {
   IPrepareSoftwareAccountsParams,
