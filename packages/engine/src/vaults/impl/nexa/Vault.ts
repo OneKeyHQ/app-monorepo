@@ -312,14 +312,23 @@ export default class Vault extends VaultBase {
             let action: IDecodedTxAction = {
               type: IDecodedTxActionType.UNKNOWN,
             };
-            const amountValue = tx.vin.reduce(
-              (acc, cur) => acc + cur.value_satoshi,
-              0,
-            );
-            const from =
-              tx.inputs[0].script.toAddress('nexatest').toNexaAddress;
-            const to = tx.outputs[0].script.toAddress('nexatest').toNexaAddress;
+            const theTransaction = new Transaction(tx.hex);
+            const from = theTransaction.inputs[0].script
+              .toAddress('nexatest')
+              .toNexaAddress();
+            const to = theTransaction.outputs[0].script
+              .toAddress('nexatest')
+              .toNexaAddress();
             const tokenAddress = dbAccount.address;
+            const amountValue = theTransaction.outputs.reduce((acc, cur) => {
+              if (
+                cur.script.toAddress('nexatest').toNexaAddress() !==
+                tokenAddress
+              ) {
+                return acc + cur.satoshis;
+              }
+              return acc;
+            }, 0);
             if (amountValue && tokenAddress) {
               let direction = IDecodedTxDirection.IN;
               if (from === dbAccount.address) {
@@ -328,6 +337,7 @@ export default class Vault extends VaultBase {
                     ? IDecodedTxDirection.SELF
                     : IDecodedTxDirection.OUT;
               }
+
               const actionType = IDecodedTxActionType.TOKEN_TRANSFER;
               const token: Token | undefined =
                 await this.engine.getNativeTokenInfo(this.networkId);
