@@ -638,6 +638,10 @@ class Engine {
                 coinType: a.coinType,
                 tokens: [],
                 address: a.address,
+                addresses:
+                  a.coinType === COINTYPE_LIGHTNING
+                    ? JSON.stringify(get(a, 'addresses', {}))
+                    : undefined,
                 pubKey: get(a, 'pub', ''),
               }
             : this.getVault({ accountId: a.id, networkId }).then((vault) =>

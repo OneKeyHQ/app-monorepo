@@ -37,6 +37,7 @@ import { PaymentStatusEnum } from './types/payments';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type {
+  Account,
   AccountCredentialType,
   DBAccount,
   DBVariantAccount,
@@ -126,6 +127,11 @@ export default class Vault extends VaultBase {
   async getCurrentBalanceAddress(): Promise<string> {
     const account = (await this.getDbAccount()) as DBVariantAccount;
     return account.addresses.normalizedAddress;
+  }
+
+  async getHashAddress(): Promise<string> {
+    const account = (await this.getDbAccount()) as DBVariantAccount;
+    return account.addresses.hashAddress;
   }
 
   override async validateAddress(address: string): Promise<string> {
@@ -254,6 +260,7 @@ export default class Vault extends VaultBase {
   ): Promise<IDecodedTx> {
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
+    const hashAddress = await this.getHashAddress();
     const token = await this.engine.getNativeTokenInfo(this.networkId);
     let extraInfo = null;
     if (encodedTx.description) {
@@ -271,7 +278,7 @@ export default class Vault extends VaultBase {
           type: IDecodedTxActionType.NATIVE_TRANSFER,
           nativeTransfer: {
             tokenInfo: token,
-            from: dbAccount.name,
+            from: hashAddress,
             to: '',
             amount: new BigNumber(encodedTx.amount).toFixed(),
             amountValue: encodedTx.amount,
@@ -301,6 +308,7 @@ export default class Vault extends VaultBase {
   }): Promise<IHistoryTx[]> {
     const account = (await this.getDbAccount()) as DBVariantAccount;
     const address = account.addresses.normalizedAddress;
+    const { hashAddress } = account.addresses;
     const { decimals, symbol } = await this.engine.getNetwork(this.networkId);
     const token = await this.engine.getNativeTokenInfo(this.networkId);
     const client = await this.getClient();
@@ -321,8 +329,8 @@ export default class Vault extends VaultBase {
           .toFixed();
         const amountValue = `${txInfo.amount}`;
         const { direction, type } = actions[0];
-        const from = direction === IDecodedTxDirection.IN ? '' : account.name;
-        const to = direction === IDecodedTxDirection.IN ? account.name : '';
+        const from = direction === IDecodedTxDirection.IN ? '' : hashAddress;
+        const to = direction === IDecodedTxDirection.IN ? hashAddress : '';
 
         const decodedTx: IDecodedTx = {
           txid,
