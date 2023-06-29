@@ -5,7 +5,7 @@
   "build": {
     "base": {
       "android": {
-        "image": "ubuntu-20.04-jdk-11-ndk-r21e",
+        "image": "ubuntu-22.04-jdk-11-ndk-r21e",
         "ndk": "23.1.7779620",
         "env": {
           "PLATFORM": "android",
@@ -13,7 +13,7 @@
         }
       },
       "ios": {
-        "image": "macos-monterey-12.6-xcode-14.2",
+        "image": "macos-ventura-13.3-xcode-14.3",
         "resourceClass": "m1-medium",
         "env": {
           "PLATFORM": "ios"
