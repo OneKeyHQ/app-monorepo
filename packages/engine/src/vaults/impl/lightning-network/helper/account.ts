@@ -9,7 +9,7 @@ import { getAccountDefaultByPurpose } from '../../../utils/btcForkChain/utils';
 
 import type { Engine } from '../../../..';
 
-export const getProvider = async (engine: Engine) => {
+export const getBtcProvider = async (engine: Engine) => {
   const chainInfo = await engine.providerManager.getChainInfoByNetworkId(
     'btc--0',
   );
@@ -30,7 +30,7 @@ export const generateNativeSegwitAccounts = async ({
   indexes: number[];
   names?: string[];
 }) => {
-  const provider = await getProvider(engine);
+  const provider = await getBtcProvider(engine);
   const { network } = provider;
   const { addressEncoding } = getAccountDefaultByPurpose(84, 'BTC');
   console.log('=====>>>>> : ', provider);

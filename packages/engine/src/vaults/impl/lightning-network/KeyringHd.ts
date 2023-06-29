@@ -8,7 +8,7 @@ import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
 import { generateNativeSegwitAccounts } from './helper/account';
-import { signature } from './helper/signature';
+import { LightningScenario, signature } from './helper/signature';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { Signer } from '../../../proxy';
@@ -52,6 +52,7 @@ export class KeyringHd extends KeyringHdBase {
         const hashPubKey = bytesToHex(sha256(account.xpub));
         const sign = await signature({
           msgPayload: {
+            scenario: LightningScenario,
             type: 'register',
             pubkey: hashPubKey,
             address: account.address,
@@ -101,7 +102,9 @@ export class KeyringHd extends KeyringHdBase {
       unsignedTx.encodedTx as IEncodedTxLightning;
     const sign = await signature({
       msgPayload: {
+        scenario: LightningScenario,
         type: 'transfer',
+        paymentHash,
         invoice,
         expired,
         created: Number(created),

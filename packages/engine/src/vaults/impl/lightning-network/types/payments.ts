@@ -1,6 +1,7 @@
 export type IPaymentBolt11Params = {
   address: string;
   invoice: string;
+  paymentHash: string;
   amount: string;
   expired: string;
   created: number;

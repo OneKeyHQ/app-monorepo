@@ -27,7 +27,7 @@ import { VaultBase } from '../../VaultBase';
 
 import ClientLightning from './helper/ClientLightningNetwork';
 import { getInvoiceTransactionStatus } from './helper/invoice';
-import { signature } from './helper/signature';
+import { LightningScenario, signature } from './helper/signature';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -91,6 +91,7 @@ export default class Vault extends VaultBase {
       const timestamp = Date.now();
       const sign = await signature({
         msgPayload: {
+          scenario: LightningScenario,
           type: 'auth',
           pubkey: hashPubKey,
           address,
@@ -216,7 +217,7 @@ export default class Vault extends VaultBase {
       paymentHash: paymentHash?.data as string,
       amount: amount.toFixed(),
       expired: `${invoice.timeExpireDate ?? ''}`,
-      created: `${Date.now()}`,
+      created: `${Math.floor(Date.now() / 1000)}`,
       nonce,
       description: description?.data as string,
       fee: 0,
@@ -426,12 +427,13 @@ export default class Vault extends VaultBase {
     let result;
     try {
       const client = await this.getClient();
-      const { invoice, amount, expired, created, nonce } =
+      const { invoice, amount, expired, created, nonce, paymentHash } =
         signedTx.encodedTx as IEncodedTxLightning;
       const address = await this.getCurrentBalanceAddress();
       result = await client.paymentBolt11({
         address,
         invoice,
+        paymentHash,
         amount,
         expired,
         created: Number(created),

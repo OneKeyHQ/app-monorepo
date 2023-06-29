@@ -70,7 +70,10 @@ const IMPL_KASPA = 'kaspa';
 const COINTYPE_KASPA = '111111';
 
 const IMPL_LIGHTNING = 'lightning';
-const COINTYPE_LIGHTNING = 'lightning';
+// To determine the coin type, we first assign numerical values to each letter based on their position in the alphabet.
+// For example, "L" is assigned a value of 12, "I" is assigned a value of 9, "G" is assigned a value of 7, and so on.
+// So, the coin type would be 8 + 12 + 9 + 7 + 8 + 20 + 14 + 9 + 14 + 7.
+const COINTYPE_LIGHTNING = '81297820149147';
 
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
