@@ -31,6 +31,7 @@ import type {
   IUnsignedTxPro,
 } from '../../../types';
 import type BTCForkVault from '../../../utils/btcForkChain/VaultBtcFork';
+import { publickeyToAddress } from '../utils';
 
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(password: string, addresses: Array<string>) {
@@ -109,11 +110,6 @@ export class KeyringHd extends KeyringHdBase {
       password,
     )) as ExportedSeedCredential;
 
-    const vault = this.vault as unknown as BTCForkVault;
-    const defaultPurpose = vault.getDefaultPurpose();
-    const coinName = vault.getCoinName();
-    const impl = await this.getNetworkImpl();
-    const { prefix: namePrefix } = getAccountNameInfoByTemplate(impl, template);
     const { pathPrefix } = slicePathTemplate(template);
     const pubkeyInfos = batchGetPublicKeys(
       curve,
@@ -126,7 +122,6 @@ export class KeyringHd extends KeyringHdBase {
     if (pubkeyInfos.length !== indexes.length) {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
-    const prefix = coinName;
     const ret = [];
     let index = 0;
     const isChange = false;
@@ -139,6 +134,9 @@ export class KeyringHd extends KeyringHdBase {
       const name =
         (names || [])[index] || `${accountNamePrefix} #${indexes[index] + 1}`;
       const addressRelPath = `${isChange ? '1' : '0'}/${addressIndex}`;
+      const chainId = await this.vault.getNetworkChainId();
+      publickeyToAddress(pubkey, chainId);
+      console.error(address, chainId);
       const encodeAddress = new PublicKey(address, {
         network: 'nexatest',
       })
