@@ -50,7 +50,7 @@ const SelectSendingAccount = () => {
         },
       },
     });
-  }, [navigation, networkId]);
+  }, [navigation, networkId, route.params]);
 
   return (
     <AccountSelectorModal
