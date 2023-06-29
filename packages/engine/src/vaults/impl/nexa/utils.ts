@@ -1,13 +1,17 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { InvalidAddressError } from 'bchaddrjs';
-import bs58check from 'bs58check';
-import { decode, encode } from 'nexaaddrjs';
 
 import { hash160 } from '../../../secret/hash';
 
-import { Opcode, bufferToScripChunk, scriptChunksToBuffer } from './sdk';
+import {
+  NexaAddressType,
+  Opcode,
+  bufferToScripChunk,
+  decode,
+  encode,
+  scriptChunksToBuffer,
+} from './sdk';
 
-import type { Verifier } from '../../../proxy';
 
 export function verifyNexaAddress(address: string) {
   try {
@@ -60,13 +64,6 @@ function getNetworkInfo(chanid: string): {
   return chanid === 'testnet' ? NETWORKS.testnet : NETWORKS.mainnet;
 }
 
-enum NexaAddressType {
-  PayToPublicKeyHash = 'P2PKH',
-  PayToScriptHash = 'SCRIPT',
-  PayToScriptTemplate = 'TEMPLATE',
-  GroupedPayToPublicKeyTemplate = 'GROUP',
-}
-
 export function publickeyToAddress(
   publicKey: Buffer,
   chainId: string,
@@ -88,6 +85,8 @@ export function publickeyToAddress(
     hashBuffer = scriptChunksToBuffer([
       bufferToScripChunk(scriptChunksToBuffer(chunks)),
     ]);
+  } else {
+    throw new InvalidAddressError();
   }
   return encode(network.prefix, type, hashBuffer);
 }
