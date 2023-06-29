@@ -228,7 +228,11 @@ class Provider extends BaseProvider {
       finalMessage = message.message;
     }
 
-    const messageHash = hashMessage(message.type as MessageTypes, finalMessage);
+    const messageHash = hashMessage({
+      messageType: message.type as MessageTypes,
+      message: finalMessage,
+    });
+    debugger;
     const [sig, recId] = await signer.sign(ethUtil.toBuffer(messageHash));
     return ethUtil.addHexPrefix(
       Buffer.concat([sig, Buffer.from([recId + 27])]).toString('hex'),
@@ -245,10 +249,10 @@ class Provider extends BaseProvider {
   };
 
   async ecRecover(message: TypedMessage, signature: string): Promise<string> {
-    const messageHash = hashMessage(
-      message.type as MessageTypes,
-      message.message,
-    );
+    const messageHash = hashMessage({
+      messageType: message.type as MessageTypes,
+      message: message.message,
+    });
     const hashBuffer = ethUtil.toBuffer(messageHash);
     const sigBuffer = ethUtil.toBuffer(signature);
     check(hashBuffer.length === 32, 'Invalid message hash length');
