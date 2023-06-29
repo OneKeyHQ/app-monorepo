@@ -395,10 +395,4 @@ export default class Vault extends VaultBase {
       )
     ).filter(Boolean);
   }
-
-  async getCoinNetworkInfo() {
-    const client = await this.getSDKClient();
-    const chanid = await this.getNetworkChainId();
-    return client.getNetworkInfo(chanid);
-  }
 }

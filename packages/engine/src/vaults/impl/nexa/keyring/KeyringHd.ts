@@ -135,13 +135,7 @@ export class KeyringHd extends KeyringHdBase {
         (names || [])[index] || `${accountNamePrefix} #${indexes[index] + 1}`;
       const addressRelPath = `${isChange ? '1' : '0'}/${addressIndex}`;
       const chainId = await this.vault.getNetworkChainId();
-      publickeyToAddress(pubkey, chainId);
-      console.error(address, chainId);
-      const encodeAddress = new PublicKey(address, {
-        network: 'nexatest',
-      })
-        .toAddress()
-        .toNexaAddress();
+      const encodeAddress = publickeyToAddress(pubkey, chainId);
       ret.push({
         id: `${this.walletId}--${path}`,
         name,

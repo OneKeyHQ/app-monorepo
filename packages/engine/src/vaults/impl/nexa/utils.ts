@@ -3,6 +3,10 @@ import { InvalidAddressError } from 'bchaddrjs';
 import bs58check from 'bs58check';
 import { decode, encode } from 'nexaaddrjs';
 
+import { hash160 } from '../../../secret/hash';
+
+import { Opcode, bufferToScripChunk, scriptChunksToBuffer } from './sdk';
+
 import type { Verifier } from '../../../proxy';
 
 export function verifyNexaAddress(address: string) {
@@ -56,7 +60,34 @@ function getNetworkInfo(chanid: string): {
   return chanid === 'testnet' ? NETWORKS.testnet : NETWORKS.mainnet;
 }
 
-export function publickeyToAddress(publicKey, chanid) {
-  const network = getNetworkInfo(chanid);
-  console.error(network);
+enum NexaAddressType {
+  PayToPublicKeyHash = 'P2PKH',
+  PayToScriptHash = 'SCRIPT',
+  PayToScriptTemplate = 'TEMPLATE',
+  GroupedPayToPublicKeyTemplate = 'GROUP',
+}
+
+export function publickeyToAddress(
+  publicKey: Buffer,
+  chainId: string,
+  type: NexaAddressType = NexaAddressType.PayToScriptTemplate,
+): string {
+  const network = getNetworkInfo(chainId);
+  let hashBuffer: Buffer;
+  if (type === NexaAddressType.PayToPublicKeyHash) {
+    hashBuffer = hash160(publicKey);
+  } else if (type === NexaAddressType.PayToScriptTemplate) {
+    const templateChunk = bufferToScripChunk(publicKey);
+    const scriptBuffer = scriptChunksToBuffer([templateChunk]);
+    const constraintHash = hash160(scriptBuffer);
+    const chunks = [
+      { opcodenum: Opcode.OP_FALSE },
+      { opcodenum: Opcode.OP_1 },
+      bufferToScripChunk(constraintHash),
+    ];
+    hashBuffer = scriptChunksToBuffer([
+      bufferToScripChunk(scriptChunksToBuffer(chunks)),
+    ]);
+  }
+  return encode(network.prefix, type, hashBuffer);
 }
