@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import dayjs from 'dayjs';
 import { useIntl } from 'react-intl';
 
@@ -9,20 +10,28 @@ import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import txFailedIcon from '@onekeyhq/kit/assets/transaction/status/tx_failed.png';
 import txPendingIcon from '@onekeyhq/kit/assets/transaction/status/tx_pending.png';
 import txSuccessedIcon from '@onekeyhq/kit/assets/transaction/status/tx_successed.png';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
+import { TabRoutes } from '../../../routes/routesEnum';
 import BaseMenu from '../../Overlay/BaseMenu';
 import { getTxStatusInfo } from '../utils/utilsTxDetail';
 
+import type { TabRoutesParams } from '../../../routes/types';
 import type { IBaseMenuOptions } from '../../Overlay/BaseMenu';
 import type { ITxActionListViewProps } from '../types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ImageURISource } from 'react-native';
 
 type Props = ITxActionListViewProps & {
   tokensInTx: Token[];
 };
 
+type NavigationProps = NativeStackNavigationProp<TabRoutesParams>;
+
 function TxDetailStatusInfoBox(props: Props) {
   const { decodedTx, isSendConfirm, tokensInTx } = props;
+
+  const navigation = useNavigation<NavigationProps>();
 
   const intl = useIntl();
 
@@ -40,13 +49,21 @@ function TxDetailStatusInfoBox(props: Props) {
     return txFailedIcon as ImageURISource;
   }, [decodedTx.status]);
 
+  const handleToSwapOnPress = useCallback(
+    (token: Token) => {
+      backgroundApiProxy.serviceSwap.sellToken(token);
+      navigation.navigate(TabRoutes.Swap);
+    },
+    [navigation],
+  );
+
   const swapOptions = useMemo(() => {
     const baseOptions: IBaseMenuOptions = tokensInTx.map((token) => ({
       textValue: token?.symbol ?? '',
-      onPress: () => alert('hello'),
+      onPress: () => handleToSwapOnPress(token),
     }));
     return baseOptions;
-  }, [tokensInTx]);
+  }, [handleToSwapOnPress, tokensInTx]);
 
   if (isSendConfirm) return null;
 
@@ -69,7 +86,11 @@ function TxDetailStatusInfoBox(props: Props) {
           </Box>
         </HStack>
         {tokensInTx.length === 1 && (
-          <Button size="sm" type="outline">
+          <Button
+            size="sm"
+            type="basic"
+            onPress={() => handleToSwapOnPress(tokensInTx[0])}
+          >
             {intl.formatMessage({ id: 'title__swap' })}
           </Button>
         )}
