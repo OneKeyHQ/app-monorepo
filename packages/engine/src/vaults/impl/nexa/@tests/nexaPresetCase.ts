@@ -57,8 +57,8 @@ export async function testSignTransaction(
 
   const encodedTx = await vault.buildEncodedTxFromTransfer({
     from: dbAccount.address,
-    to: dbAccount.address,
-    amount: '100',
+    to: 'nexatest:nqtsq5g5wud2fr7l32as0mfzms3hwnz7dxvsc2h8szatr5p8',
+    amount: '50',
   });
   const unsignedTx = await vault.buildUnsignedTxFromEncodedTx(encodedTx);
   // engine/src/proxy.ts  sign

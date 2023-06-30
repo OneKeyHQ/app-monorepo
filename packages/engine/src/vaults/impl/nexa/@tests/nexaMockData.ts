@@ -12,7 +12,7 @@ const network: DBNetwork = {
   feeDecimals: 2,
   feeSymbol: 'NEXA',
   id: 'nexa--testnet',
-  impl: 'near',
+  impl: 'nexa',
   logoURI: 'https://onekey-asset.com/assets/nexa/nexa.png',
   name: 'Nexa Testnet',
   position: 33,

@@ -6,7 +6,6 @@ import {
   crypto,
 } from 'nexcore-lib';
 
-import { KeyringHd as KeyringHdBtcFork } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/KeyringHd';
 import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../../errors';
@@ -33,6 +32,7 @@ import type {
 import type BTCForkVault from '../../../utils/btcForkChain/VaultBtcFork';
 import { publickeyToAddress } from '../utils';
 
+const curve = 'secp256k1';
 export class KeyringHd extends KeyringHdBase {
   override async getSigners(password: string, addresses: Array<string>) {
     const dbAccount = await this.getDbAccount();
@@ -51,7 +51,7 @@ export class KeyringHd extends KeyringHdBase {
     }
 
     return {
-      [dbAccount.address]: new Signer(privateKey, password, 'ed25519'),
+      [dbAccount.address]: new Signer(privateKey, password, curve),
     };
   }
 
@@ -99,7 +99,6 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
   ): Promise<DBUTXOAccount[]> {
-    const curve: CurveName = 'secp256k1';
     const accountNamePrefix = 'NEAR';
     const hardened = true;
 
@@ -130,7 +129,6 @@ export class KeyringHd extends KeyringHdBase {
         path,
         extendedKey: { key: pubkey },
       } = info;
-      const address = pubkey.toString('hex');
       const name =
         (names || [])[index] || `${accountNamePrefix} #${indexes[index] + 1}`;
       const addressRelPath = `${isChange ? '1' : '0'}/${addressIndex}`;
