@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -57,6 +57,11 @@ function TxDetailAddTokenBox(props: Props) {
     setIsAddingTokens(false);
   }, [accountId, intl, isAddingTokens, networkId, tokensNotInList]);
 
+  const tokensNotInListSymbol = useMemo(
+    () => tokensNotInList.map((t) => t.symbol).join(', '),
+    [tokensNotInList],
+  );
+
   useEffect(() => {
     const getTokensNotInList = () => {
       const tokens: Token[] = [];
@@ -81,7 +86,10 @@ function TxDetailAddTokenBox(props: Props) {
   return (
     <Box mb={6}>
       <Alert
-        title="Add x to your token list"
+        title={intl.formatMessage(
+          { id: 'msg__add_str_to_your_token_list' },
+          { 0: tokensNotInListSymbol },
+        )}
         alertType="info"
         dismiss={false}
         action={
