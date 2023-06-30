@@ -27,6 +27,7 @@ import { SendConfirmErrorBoundary } from './SendConfirmErrorBoundary';
 import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
 
 import type { ITxConfirmViewProps } from '../types';
+import { isHexString } from '../../../utils/helper';
 
 // TODO rename SendConfirmModalBase
 export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
@@ -137,6 +138,17 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     feeInfoPayload?.selected.preset,
     feeInfoPayload?.selected.type,
   ]);
+
+  const isInvalideHexData = useMemo(() => {
+    if (
+      advancedSettings?.currentHexData &&
+      !isHexString(advancedSettings?.currentHexData)
+    ) {
+      return true;
+    }
+
+    return false;
+  }, [advancedSettings?.currentHexData]);
 
   const confirmAction = useCallback(
     async ({ close, onClose }) => {
@@ -274,6 +286,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
       primaryActionProps={{
         isDisabled:
           isWatching ||
+          isInvalideHexData ||
           balanceInsufficient ||
           isAccountNotMatched ||
           feeInfoLoading ||
