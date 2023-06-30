@@ -9,6 +9,7 @@ import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 import { TxDetailStatusInfoBox } from './TxDetailStatusInfoBox';
 
 import type { ITxActionListViewProps } from '../types';
+import { TxDetailAddTokenBox } from './TxDetailAddTokenBox';
 
 function TxTopInfoBox(props: ITxActionListViewProps) {
   const { decodedTx, isSendConfirm } = props;
@@ -57,7 +58,7 @@ function TxTopInfoBox(props: ITxActionListViewProps) {
       if (tokensInfo.length > 0) {
         tokensInfo
           .filter((token) => !isNil(token))
-          .forEach((token) => (tokens[token!.id] = token!));
+          .forEach((token) => (tokens[token!.tokenIdOnNetwork] = token!));
       }
     });
     return Object.values(tokens);
@@ -68,6 +69,7 @@ function TxTopInfoBox(props: ITxActionListViewProps) {
   return (
     <Box mb={6}>
       <TxDetailStatusInfoBox tokensInTx={tokensInTx} {...props} />
+      <TxDetailAddTokenBox tokensInTx={tokensInTx} {...props} />
       <Divider />
     </Box>
   );
