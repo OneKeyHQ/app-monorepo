@@ -23,7 +23,7 @@ import {
   FormatCurrencyNumber,
 } from '../../../../components/Format';
 import { useNavigation } from '../../../../hooks';
-import { useSimpleTokenPriceValue } from '../../../../hooks/useManegeTokenPrice';
+import { useSimpleTokenPriceValue } from '../../../../hooks/useTokens';
 import { useTokenSupportStakedAssets } from '../../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import {

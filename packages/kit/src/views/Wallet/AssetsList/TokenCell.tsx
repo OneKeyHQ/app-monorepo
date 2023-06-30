@@ -54,7 +54,9 @@ const TokenCell: FC<TokenCellProps> = ({
 
   const { gainTextBg, percentageGain, gainTextColor } = calculateGains({
     price,
-    basePrice: new BigNumber(price).multipliedBy(1 - price24h / 100).toNumber(),
+    basePrice: new BigNumber(price)
+      .multipliedBy(1 - (price24h ?? 0) / 100)
+      .toNumber(),
   });
 
   const decimal =
@@ -134,7 +136,7 @@ const TokenCell: FC<TokenCellProps> = ({
             <Skeleton shape="Body2" />
           ) : (
             <Typography.Body2Strong>
-              <FormatCurrencyNumber value={+(price || 0)} />
+              <FormatCurrencyNumber value={0} convertValue={+(price || 0)} />
             </Typography.Body2Strong>
           )}
         </Box>
@@ -143,7 +145,7 @@ const TokenCell: FC<TokenCellProps> = ({
         {tokenValue !== undefined ? (
           <>
             <Typography.Body2Strong w="100%" textAlign="right">
-              <FormatCurrencyNumber value={tokenValue} />
+              <FormatCurrencyNumber value={0} convertValue={tokenValue} />
             </Typography.Body2Strong>
             <Box
               mt="4px"

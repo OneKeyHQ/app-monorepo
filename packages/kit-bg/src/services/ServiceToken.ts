@@ -29,6 +29,7 @@ import {
   setAccountTokensBalances,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import type { ITokenDetailInfo } from '@onekeyhq/kit/src/views/ManageTokens/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -776,5 +777,23 @@ export default class ServiceToken extends ServiceBase {
     );
 
     return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async fetchTokenDetailInfo(params: {
+    coingeckoId?: string;
+    networkId?: string;
+    tokenAddress?: string;
+  }): Promise<ITokenDetailInfo> {
+    const data = await fetchData<
+      | (Omit<ITokenDetailInfo, 'tokens'> & {
+          tokens: ServerToken[];
+        })
+      | undefined
+    >('/token/detailInfo', params, undefined);
+    return {
+      ...data,
+      tokens: data?.tokens.map((t) => formatServerToken(t)) ?? [],
+    };
   }
 }

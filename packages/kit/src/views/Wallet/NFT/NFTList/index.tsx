@@ -27,7 +27,7 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { usePortfolios } from '../../../../hooks';
+import { useAccountPortfolios } from '../../../../hooks';
 import { CollectiblesModalRoutes } from '../../../../routes/routesEnum';
 import { WalletHomeTabEnum } from '../../type';
 
@@ -222,7 +222,7 @@ function NFTListContainer() {
   const { serviceNFT } = backgroundApiProxy;
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isFocused = useIsFocused();
-  const collectibles = usePortfolios({
+  const { data: collectibles } = useAccountPortfolios({
     networkId,
     accountId,
     type: 'nfts',

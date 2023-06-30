@@ -1,11 +1,12 @@
 import { throttle } from 'lodash';
 
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   isAllNetworks,
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
 import { caseSensitiveImpls } from '@onekeyhq/engine/src/managers/token';
-import { setAllNetworksPortfolio } from '@onekeyhq/kit/src/store/reducers/allNetworks';
+import { serOverviewPortfolioUpdatedAt } from '@onekeyhq/kit/src/store/reducers/overview';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type {
   IOverviewQueryTaskItem,
@@ -75,7 +76,7 @@ class ServiceOverview extends ServiceBase {
     ).filter((n) => n.key === dispatchKey);
 
     if (!pendingTasksForCurrentNetwork?.length) {
-      return [];
+      return;
     }
 
     const results = await fetchData<
@@ -101,10 +102,16 @@ class ServiceOverview extends ServiceBase {
         this.pendingTaskMap.delete(this.getTaksId(task));
       }
     }
+    await simpleDb.accountPortfolios.setAllNetworksPortfolio({
+      key: dispatchKey,
+      data: results,
+    });
     dispatch(
-      setAllNetworksPortfolio({
+      serOverviewPortfolioUpdatedAt({
         key: dispatchKey,
-        data: results,
+        data: {
+          updatedAt: Date.now(),
+        },
       }),
     );
   }
@@ -202,7 +209,6 @@ class ServiceOverview extends ServiceBase {
         });
       }
     }
-
     return this.filterNewScanTasks(tasks);
   }
 

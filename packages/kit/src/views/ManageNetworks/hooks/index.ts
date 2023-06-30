@@ -4,10 +4,14 @@ import { uniq } from 'lodash';
 
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 import { networkIsPreset } from '@onekeyhq/engine/src/presets';
+import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../../hooks';
+import { useAppSelector, useManageNetworks } from '../../../hooks';
+import { getManageNetworks } from '../../../hooks/useManageNetworks';
 import { getTimeDurationMs } from '../../../utils/helper';
+import { showAllNetworksAccountDerivationsSelector } from '../../Overlay/Accounts/AllNetworksSelectAccountDerivations';
 
 import type { IRpcStatus } from '../../../store/reducers/status';
 
@@ -145,4 +149,40 @@ export const useRpcMeasureStatus = (networkId?: string) => {
     (s) => s.status.rpcStatus?.[networkId ?? activeNetworkId ?? ''],
   );
   return useMemo(() => getRpcMeasureStatus(status), [status]);
+};
+
+export const allNetworksSelectAccount = ({
+  networkId,
+  accounts,
+}: {
+  networkId: string;
+  accounts: Account[];
+}): Promise<{ network: Network; account: Account } | undefined> => {
+  const { allNetworks } = getManageNetworks();
+
+  const network = allNetworks.find((n) => n.id === networkId);
+  return new Promise((resolve) => {
+    if (!network) {
+      return resolve(undefined);
+    }
+    if (!accounts.length) {
+      return resolve(undefined);
+    }
+    if (accounts.length === 1) {
+      return resolve({
+        network,
+        account: accounts[0],
+      });
+    }
+    showAllNetworksAccountDerivationsSelector({
+      network,
+      accounts,
+      onConfirm: (a) => {
+        resolve({
+          network,
+          account: a,
+        });
+      },
+    });
+  });
 };

@@ -25,7 +25,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { WatchAssetParameters } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAccountTokens, useAccountTokensBalance } from '../../hooks';
+import { useAccountTokensOnChain, useAccountTokensBalance } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
@@ -310,9 +310,10 @@ function AddTokenModal() {
   } = useActiveWalletAccount();
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
-  const accountTokens = useAccountTokens({
-networkId: activeNetwork?.id, accountId: activeAccount?.id
-  });
+  const accountTokens = useAccountTokensOnChain(
+    activeNetwork?.id,
+    activeAccount?.id,
+  );
   const navigation = useNavigation<NavigationProps>();
   const token = useRouteParams();
   const queryInfo = useDappParams();

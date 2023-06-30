@@ -1,7 +1,6 @@
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import type { FC } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,34 +13,26 @@ import {
 } from '@onekeyhq/components';
 import type { ButtonSize, ButtonType } from '@onekeyhq/components/src/Button';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
-import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
-import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/types';
+import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useNavigation } from '../../../hooks';
+import { useActiveSideAccount } from '../../../hooks/useActiveSideAccount';
+import { useTokenSupportStakedAssets } from '../../../hooks/useTokens';
 import {
   ModalRoutes,
   ReceiveTokenModalRoutes,
   RootRoutes,
   SendModalRoutes,
-} from '@onekeyhq/kit/src/routes/routesEnum';
-import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount } from '../../../hooks';
-import { useTokenSupportStakedAssets } from '../../../hooks/useTokens';
+} from '../../../routes/routesEnum';
 import { useMarketTokenItem } from '../../Market/hooks/useMarketToken';
 import { EthStakingSource, StakingRoutes } from '../../Staking/typing';
+import { TokenDetailContext } from '../context';
 
 import MoreMenuButton from './MoreMenuButton';
 
 type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams>;
-
-export type Props = {
-  accountId: string;
-  networkId: string;
-  token: TokenDO | null | undefined;
-  priceReady?: boolean;
-  sendAddress?: string;
-};
 
 export const FavoritedButton: FC<{
   coingeckoId?: string;
@@ -98,17 +89,19 @@ export const FavoritedButton: FC<{
   );
 };
 
-const DeskTopHeader: FC<Props> = ({
-  token,
-  sendAddress,
-  accountId,
-  networkId,
-}) => {
-  const { wallet, network } = useActiveSideAccount({ networkId, accountId });
+const DeskTopHeader: FC = () => {
+  const context = useContext(TokenDetailContext);
+  const { networkId, accountId, sendAddress, coingeckoId } =
+    context?.routeParams ?? {};
+  const { name, symbol, logoURI, defaultToken } = context?.detailInfo ?? {};
+  const { wallet } = useActiveSideAccount({
+    networkId: networkId ?? '',
+    accountId: accountId ?? '',
+  });
   const navigation = useNavigation<NavigationProps['navigation']>();
   const stakedSupport = useTokenSupportStakedAssets(
-    token?.networkId,
-    token?.tokenIdOnNetwork,
+    defaultToken?.networkId,
+    defaultToken?.tokenIdOnNetwork,
   );
 
   const renderAccountAmountInfo = useMemo(
@@ -117,15 +110,13 @@ const DeskTopHeader: FC<Props> = ({
         <Token
           size={8}
           showTokenVerifiedIcon
-          token={{ ...token, logoURI: token?.logoURI || network?.logoURI }}
+          token={{ name, symbol, logoURI }}
         />
-        <Typography.Heading>
-          {token?.tokenIdOnNetwork ? token?.symbol : network?.symbol}
-        </Typography.Heading>
-        <TokenVerifiedIcon size={24} token={token || {}} />
+        <Typography.Heading>{symbol}</Typography.Heading>
+        {/* <TokenVerifiedIcon size={24} token={token || {}} /> */}
       </HStack>
     ),
-    [token, network?.logoURI, network?.symbol],
+    [name, symbol, logoURI],
   );
 
   const accountOption = useMemo(
@@ -141,12 +132,12 @@ const DeskTopHeader: FC<Props> = ({
               params: {
                 screen: SendModalRoutes.PreSendAddress,
                 params: {
-                  accountId,
-                  networkId,
+                  accountId: accountId ?? '',
+                  networkId: accountId ?? '',
                   from: '',
                   to: '',
                   amount: '',
-                  token: token?.tokenIdOnNetwork ?? '',
+                  token: defaultToken?.address ?? '',
                   tokenSendAddress: sendAddress,
                 },
               },
@@ -175,7 +166,7 @@ const DeskTopHeader: FC<Props> = ({
             name="ArchiveBoxArrowDownOutline"
             isDisabled={wallet?.type === 'watching'}
             onPress={() => {
-              if (token && stakedSupport) {
+              if (defaultToken && stakedSupport) {
                 navigation.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Staking,
                   params: {
@@ -190,23 +181,24 @@ const DeskTopHeader: FC<Props> = ({
           />
         ) : null}
 
-        <FavoritedButton coingeckoId={token?.coingeckoId} circle />
+        <FavoritedButton coingeckoId={coingeckoId} circle />
         <MoreMenuButton
-          token={token}
+          token={defaultToken}
           sendAddress={sendAddress}
-          accountId={accountId}
-          networkId={networkId}
+          accountId={accountId ?? ''}
+          networkId={networkId ?? ''}
         />
       </HStack>
     ),
     [
       wallet?.type,
       stakedSupport,
-      token,
+      defaultToken,
       navigation,
       accountId,
       networkId,
       sendAddress,
+      coingeckoId,
     ],
   );
 

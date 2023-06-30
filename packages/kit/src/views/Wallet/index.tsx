@@ -116,6 +116,7 @@ const WalletTabs: FC = () => {
     >
       <>
         <AssetsList
+          walletId={walletId}
           accountId={accountId}
           networkId={networkId}
           ListFooterComponent={<Box h={6} />}

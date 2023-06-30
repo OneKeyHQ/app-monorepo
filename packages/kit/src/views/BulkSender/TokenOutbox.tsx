@@ -21,11 +21,12 @@ import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batch
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
-import { useAccountTokens, useNetwork } from '@onekeyhq/kit/src/hooks';
 import {
-  useAccountTokenLoading,
+  useAccountTokensOnChain,
+  useNetwork,
   useTokenBalance,
-} from '@onekeyhq/kit/src/hooks/useTokens';
+} from '@onekeyhq/kit/src/hooks';
+import { useAccountTokenLoading } from '@onekeyhq/kit/src/hooks/useTokens';
 import {
   ModalRoutes,
   RootRoutes,
@@ -65,9 +66,11 @@ function TokenOutbox(props: Props) {
   const { network } = useNetwork({ networkId });
 
   const loading = useAccountTokenLoading(networkId, accountId);
-  const accountTokens = useAccountTokens({
-networkId, accountId, useFilter: true
-  });
+  const accountTokens = useAccountTokensOnChain(
+    networkId,
+    accountId,
+    true,
+  );
   const nativeToken = accountTokens.find((token) => token.isNative);
   const tokens = accountTokens.filter(
     (token) =>

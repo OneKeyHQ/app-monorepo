@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 
 import { FormatCurrencyNumber } from '../../../components/Format';
-import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
+import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
 import { getTokenValue } from '../../../utils/priceUtils';
 
 import type { TokenBalanceValue } from '../../../store/reducers/tokens';

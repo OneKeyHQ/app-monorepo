@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -12,15 +12,18 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 
 import {
   FormatBalance,
   FormatCurrencyNumber,
 } from '../../../components/Format';
-import { useActiveSideAccount, useAppSelector } from '../../../hooks';
-import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
-import { useTokenPositionInfo } from '../../../hooks/useTokens';
+import {
+  useAccountPortfolios,
+  useActiveSideAccount,
+  useTokenPositionInfo,
+} from '../../../hooks';
+import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
+import { TokenDetailContext } from '../context';
 
 import DefiCell from './Cells/DefiCell';
 import KeleStakingCell from './Cells/KeleStakingCell';
@@ -29,25 +32,15 @@ import TokenCell from './Cells/TokenCell';
 
 import type { ListRenderItem } from 'react-native';
 
-type Props = {
-  priceReady?: boolean;
-  sendAddress?: string;
-  tokenId: string;
-  accountId: string;
-  networkId: string;
-  token: TokenDO | undefined;
-};
-
-const DefiListWithToken: FC<Props> = ({
-  networkId,
-  accountId,
-  tokenId,
-  token,
-}) => {
-  const defis = useAppSelector(
-    (s) =>
-      s.allNetworks?.portfolios?.[`${networkId}___${accountId}`].defis ?? [],
-  );
+const DefiListWithToken: FC = () => {
+  const context = useContext(TokenDetailContext);
+  const { networkId, accountId, tokenAddress } = context?.routeParams ?? {};
+  const { defaultToken } = context?.detailInfo ?? {};
+  const { data: defis } = useAccountPortfolios({
+    networkId: networkId ?? '',
+    accountId: accountId ?? '',
+    type: 'defis',
+  });
 
   const genateList = useCallback(
     () =>
@@ -57,54 +50,61 @@ const DefiListWithToken: FC<Props> = ({
             .filter(
               ({ supplyTokens, rewardTokens }) =>
                 supplyTokens.filter(
-                  ({ tokenAddress }) => tokenAddress === tokenId,
+                  ({ tokenAddress: address }) => tokenAddress === address,
                 ).length > 0 ||
                 rewardTokens.filter(
-                  ({ tokenAddress }) => tokenAddress === tokenId,
+                  ({ tokenAddress: address }) => tokenAddress === address,
                 ).length > 0,
             )
             .map((item, index) => (
               <DefiCell
                 protocolId={protocol._id.protocolId}
-                token={token}
+                token={defaultToken}
                 key={`${protocol.protocolName}${item.poolType}${index}`}
                 item={item}
-                tokenId={tokenId}
+                tokenId={defaultToken?.address ?? ''}
               />
             )),
         ),
       ),
-    [defis, token, tokenId],
+    [defis, defaultToken, tokenAddress],
   );
 
   return <VStack>{genateList()}</VStack>;
 };
 
-const AssetsInfo: FC<Props> = ({
-  tokenId,
-  sendAddress,
-  accountId,
-  networkId,
-  token,
-}) => {
+const AssetsInfo: FC = () => {
   const intl = useIntl();
+  const context = useContext(TokenDetailContext);
+
+  const {
+    walletId,
+    accountId,
+    networkId,
+    tokenAddress,
+    coingeckoId,
+    sendAddress,
+  } = context?.routeParams ?? {};
+  const { defaultToken, symbol } = context?.detailInfo ?? {};
   const isVerticalLayout = useIsVerticalLayout();
 
   const price =
     useSimpleTokenPriceValue({
       networkId,
-      contractAdress: tokenId,
+      contractAdress: defaultToken?.address,
     }) ?? 0;
 
   const { network } = useActiveSideAccount({
-    accountId,
-    networkId,
+    accountId: accountId ?? '',
+    networkId: networkId ?? '',
   });
 
   const totalAmount = useTokenPositionInfo({
-    networkId,
-    accountId,
-    address: tokenId,
+    walletId: walletId ?? '',
+    networkId: networkId ?? '',
+    accountId: accountId ?? '',
+    tokenAddress: tokenAddress ?? '',
+    coingeckoId,
     sendAddress,
   });
 
@@ -119,26 +119,28 @@ const AssetsInfo: FC<Props> = ({
         return (
           <TokenCell
             sendAddress={sendAddress}
-            tokenId={tokenId}
-            token={token}
+            tokenId={defaultToken?.address ?? ''}
+            token={defaultToken}
           />
         );
       }
       if (item.type === 'keleStaking') {
         return (
           <KeleStakingCell
-            tokenId={tokenId}
-            networkId={networkId}
-            token={token}
+            tokenId={defaultToken?.address ?? ''}
+            networkId={networkId ?? ''}
+            token={defaultToken}
           />
         );
       }
       if (item.type === 'lidoStaking') {
-        return <LidoStakingCell token={token} sendAddress={sendAddress} />;
+        return (
+          <LidoStakingCell token={defaultToken} sendAddress={sendAddress} />
+        );
       }
       return <Box />;
     },
-    [sendAddress, token, tokenId, networkId],
+    [sendAddress, networkId, defaultToken],
   );
 
   const ListHeaderComponent = useMemo(
@@ -149,10 +151,10 @@ const AssetsInfo: FC<Props> = ({
         </Typography.Heading>
         <FormatBalance
           balance={totalAmount}
-          suffix={token?.symbol}
+          suffix={symbol}
           formatOptions={{
             fixed:
-              (token?.tokenIdOnNetwork
+              (defaultToken?.address
                 ? network?.tokenDisplayDecimals
                 : network?.nativeDisplayDecimals) ?? 4,
           }}
@@ -227,23 +229,13 @@ const AssetsInfo: FC<Props> = ({
       network?.nativeDisplayDecimals,
       network?.tokenDisplayDecimals,
       price,
-      token?.symbol,
-      token?.tokenIdOnNetwork,
       totalAmount,
+      symbol,
+      defaultToken,
     ],
   );
 
-  const ListFooterComponent = useMemo(
-    () => (
-      <DefiListWithToken
-        token={token}
-        tokenId={tokenId}
-        accountId={accountId}
-        networkId={networkId}
-      />
-    ),
-    [accountId, networkId, token, tokenId],
-  );
+  const ListFooterComponent = useMemo(() => <DefiListWithToken />, []);
 
   return (
     <Tabs.FlatList

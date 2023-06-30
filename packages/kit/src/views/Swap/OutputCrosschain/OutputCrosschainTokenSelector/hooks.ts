@@ -6,7 +6,7 @@ import { isEmpty } from 'lodash';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
-import { useAccountTokens, useAppSelector } from '../../../../hooks';
+import { useAccountTokensOnChain, useAppSelector } from '../../../../hooks';
 import { useCachedBalances } from '../../hooks/useSwapTokenUtils';
 import { formatAmount } from '../../utils';
 
@@ -32,9 +32,10 @@ export function useContextAccountTokens(
   accountId?: string,
 ) {
   const presetTokens = useContextTokenList(networkId);
-  const accountTokens = useAccountTokens({
-networkId, accountId
-  });
+  const accountTokens = useAccountTokensOnChain(
+    networkId,
+    accountId,
+  );
   const balances = useCachedBalances(networkId, accountId);
 
   const prices = useAppSelector((s) => s.tokens.tokenPriceMap);

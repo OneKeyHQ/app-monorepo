@@ -14,6 +14,7 @@ import {
   IMPL_SOL,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
@@ -125,6 +126,13 @@ export default class ServiceAllNetwork extends ServiceBase {
     accountIndex?: number;
     walletId: string;
   }) {
+    try {
+      await this.backgroundApi.serviceApp.waitForAppInited({
+        logName: 'ServiceAllNetwork.getAllNetworksWalletAccounts',
+      });
+    } catch (error) {
+      debugLogger.notification.error(error);
+    }
     const networkAccountsMap: Record<string, Account[]> = {};
     if (!isWalletCompatibleAllNetworks(walletId)) {
       return networkAccountsMap;

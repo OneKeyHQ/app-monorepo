@@ -8,18 +8,6 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-export const useAllNetworkAccountValue = ({
-  accountId,
-}: {
-  accountId?: string;
-}): string | undefined => {
-  if (typeof accountId === 'undefined') {
-    return undefined;
-  }
-  // TODO: real account values
-  return '0';
-};
-
 export const useAllNetworkAccountInfo = ({
   accountId,
 }: {

@@ -243,7 +243,6 @@ const ToolsPage: FC = () => {
         params: {
           screen: ManageNetworkModalRoutes.AllNetworksNetworkSelector,
           params: {
-            title: intl.formatMessage({ id: 'form__select_network' }),
             walletId,
             accountId,
             filter: item.filter,
@@ -265,7 +264,7 @@ const ToolsPage: FC = () => {
         },
       });
     },
-    [navigation, accountId, walletId, handlePress, network, account, intl],
+    [navigation, accountId, walletId, handlePress, network, account],
   );
 
   const getItemPaddingx = useCallback(

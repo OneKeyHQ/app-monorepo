@@ -8,6 +8,13 @@ import type {
   IMenu,
 } from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 
+import { useNavigation } from '../../../../../hooks';
+import {
+  ManageNetworkModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../../../routes/routesEnum';
+
 const AccountItemMenu: FC<
   IMenu & {
     onChange: (value: string) => void;
@@ -28,9 +35,9 @@ const AccountItemMenu: FC<
         icon: 'Square2StackOutline',
       },
       {
-        id: 'action__rename',
-        onPress: () => onPress('rename'),
-        icon: 'TagOutline',
+        id: 'action__view_details',
+        onPress: () => onPress('detail'),
+        icon: 'DocumentOutline',
       },
       () => <Divider my={1} />,
     ],
@@ -47,16 +54,40 @@ function AllNetworksAccountItemSelectDropdown({
   accountId: string;
   walletId: string;
 }) {
-  const handleChange = useCallback((value: string) => {
-    switch (value) {
-      case 'detail':
-        console.log('detail');
-        break;
-      default:
-        console.log('detail');
-        break;
-    }
-  }, []);
+  const navigation = useNavigation();
+  const handleChange = useCallback(
+    (value: string) => {
+      switch (value) {
+        case 'copy':
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.ManageNetwork,
+            params: {
+              screen: ManageNetworkModalRoutes.AllNetworksAccountsDetail,
+              params: {
+                walletId,
+                accountId,
+              },
+            },
+          });
+          break;
+        case 'detail':
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.ManageNetwork,
+            params: {
+              screen: ManageNetworkModalRoutes.AllNetworksNetworkSelector,
+              params: {
+                walletId,
+                accountId,
+              },
+            },
+          });
+          break;
+        default:
+          break;
+      }
+    },
+    [accountId, walletId, navigation],
+  );
 
   return (
     <AccountItemMenu onChange={handleChange}>

@@ -4,8 +4,8 @@ import * as React from 'react';
 
 import { Box, Pressable, Text } from '@onekeyhq/components';
 
-import { useAppSelector } from '../../../../../hooks';
-import { useAllNetworkAccountValue } from '../../../../../hooks/useAllNetwoks';
+import { useAccountValues, useAppSelector } from '../../../../../hooks';
+import { FormatCurrencyNumber } from '../../../../Format';
 import { useAccountSelectorChangeAccountOnPress } from '../../../hooks/useAccountSelectorChangeAccountOnPress';
 
 import { AllNetworksAccountItemSelectDropdown } from './AllNetworkItemSelectDropdown';
@@ -33,7 +33,8 @@ const AllNetworksListItem: FC<ListItemProps> = ({
 
   const { onPressChangeAccount } = useAccountSelectorChangeAccountOnPress();
 
-  const value = useAllNetworkAccountValue({
+  const accountAllValues = useAccountValues({
+    networkId,
     accountId,
   });
   return (
@@ -70,7 +71,14 @@ const AllNetworksListItem: FC<ListItemProps> = ({
             </Text>
             <Box flexDirection="row">
               <Text typography="Body2" color="text-subdued">
-                {value || 'N/A'}
+                {accountAllValues?.value?.isNaN() ? (
+                  'N/A'
+                ) : (
+                  <FormatCurrencyNumber
+                    value={0}
+                    convertValue={accountAllValues?.value?.toNumber()}
+                  />
+                )}
               </Text>
             </Box>
           </Box>

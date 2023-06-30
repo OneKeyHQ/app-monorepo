@@ -40,8 +40,9 @@ const AccountSelectorTrigger: FC<AccountSelectorTriggerProps> = ({
     () => ({
       label:
         account?.name || intl.formatMessage({ id: 'empty__no_account_title' }),
-      description:
-        (account?.displayAddress || account?.address || '').slice(-4) || '',
+      description: isAllNetworks(networkId)
+        ? ''
+        : (account?.displayAddress || account?.address || '').slice(-4) || '',
       value: account?.id,
     }),
     [

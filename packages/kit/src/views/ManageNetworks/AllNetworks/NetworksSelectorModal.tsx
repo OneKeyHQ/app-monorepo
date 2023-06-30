@@ -10,6 +10,7 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import { useManageNetworks } from '../../../hooks';
 import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
+import { showAllNetworksAccountDerivationsSelector } from '../../Overlay/Accounts/AllNetworksSelectAccountDerivations';
 
 import type {
   ManageNetworkModalRoutes,
@@ -31,7 +32,6 @@ function AllNetworksNetworkSelectorModal() {
   const { allNetworks } = useManageNetworks();
 
   const {
-    title,
     walletId,
     accountId,
     filter = () => true,
@@ -52,7 +52,17 @@ function AllNetworksNetworkSelectorModal() {
         });
         closeModal?.();
       } else {
-        // TODO: multi address
+        showAllNetworksAccountDerivationsSelector({
+          network,
+          accounts,
+          onConfirm: (account) => {
+            onConfirm?.({
+              network,
+              account,
+            });
+            closeModal?.();
+          },
+        });
       }
     },
     [closeModal, onConfirm],
@@ -102,7 +112,7 @@ function AllNetworksNetworkSelectorModal() {
 
   return (
     <Modal
-      header={title}
+      header={intl.formatMessage({ id: 'form__select_network' })}
       footer={null}
       height="560px"
       style={{ padding: 0 }}

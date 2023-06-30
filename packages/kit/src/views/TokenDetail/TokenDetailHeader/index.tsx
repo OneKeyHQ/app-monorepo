@@ -1,11 +1,10 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useContext } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Button, HStack, useIsVerticalLayout } from '@onekeyhq/components';
-import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/types';
 import type { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { TabRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
@@ -13,11 +12,12 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount } from '../../../hooks';
-import PriceChart from '../../PriceChart/PriceChart';
+import MarketPriceChart from '../../Market/Components/MarketDetail/MarketPriceChart';
 import {
   ETHRelatedPoolShowControl,
   EthTopAprShowControl,
 } from '../../Staking/components/StakingEthOptions';
+import { TokenDetailContext } from '../context';
 
 import DeskTopHeader from './DeskTopHeader';
 import MoreMenuButton from './MoreMenuButton';
@@ -37,32 +37,27 @@ export enum TabEnum {
   History = 'History',
   Info = 'Info',
 }
-export type HeaderProps = {
-  accountId: string;
-  networkId: string;
-  token: TokenDO | undefined;
-  priceReady?: boolean;
-  sendAddress?: string;
-} & ComponentProps<typeof Box>;
+export type HeaderProps = ComponentProps<typeof Box>;
 
-const TokenDetailHeader: FC<HeaderProps> = ({
-  accountId,
-  networkId,
-  token,
-  sendAddress,
-  priceReady,
-  ...props
-}) => {
+const TokenDetailHeader: FC<HeaderProps> = (props) => {
   const isVerticalLayout = useIsVerticalLayout();
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const context = useContext(TokenDetailContext);
+
+  const { networkId, coingeckoId, accountId, sendAddress } =
+    context?.routeParams ?? {};
+
+  const { tokens, defaultToken } = context?.detailInfo ?? {};
+
   const { network, account } = useActiveSideAccount({
-    accountId,
-    networkId,
+    accountId: accountId ?? '',
+    networkId: networkId ?? '',
   });
   const onSwap = useCallback(
     async (type: 'buy' | 'sell') => {
-      if (token) {
+      if (tokens?.length) {
+        const token = tokens[0];
         if (type === 'buy') {
           backgroundApiProxy.serviceSwap.buyToken(token);
         } else {
@@ -83,30 +78,15 @@ const TokenDetailHeader: FC<HeaderProps> = ({
       }
       navigation.getParent()?.navigate(TabRoutes.Swap);
     },
-    [network, account, navigation, token],
+    [network, account, navigation, tokens],
   );
 
   return (
     <Box {...props}>
-      {!isVerticalLayout && (
-        <DeskTopHeader
-          token={token}
-          sendAddress={sendAddress}
-          priceReady={priceReady}
-          networkId={networkId}
-          accountId={accountId}
-        />
-      )}
-      {token && (
-        <Box mt={{ base: '16px', md: 0 }}>
-          <PriceChart
-            networkId={networkId}
-            contract={token.tokenIdOnNetwork}
-            coingeckoId={token?.coingeckoId}
-            symbol={token?.symbol}
-          />
-        </Box>
-      )}
+      {!isVerticalLayout && <DeskTopHeader />}
+      <Box mt={{ base: '16px', md: 0 }}>
+        <MarketPriceChart coingeckoId={coingeckoId ?? ''} />
+      </Box>
       {isVerticalLayout && (
         <HStack space="8px" mt="24px">
           <Button
@@ -128,17 +108,17 @@ const TokenDetailHeader: FC<HeaderProps> = ({
             {intl.formatMessage({ id: 'Market__sell' })}
           </Button>
           <MoreMenuButton
-            token={token}
+            token={defaultToken}
             sendAddress={sendAddress}
-            accountId={accountId}
-            networkId={networkId}
+            accountId={accountId ?? ''}
+            networkId={networkId ?? ''}
           />
         </HStack>
       )}
       {isVerticalLayout && (
         <Box>
-          <EthTopAprShowControl token={token} />
-          <ETHRelatedPoolShowControl token={token} />
+          <EthTopAprShowControl token={defaultToken} />
+          <ETHRelatedPoolShowControl token={defaultToken} />
         </Box>
       )}
     </Box>

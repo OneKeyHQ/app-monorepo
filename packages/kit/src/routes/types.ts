@@ -108,9 +108,11 @@ export type MainRoutesParams = {
 };
 export type HomeRoutesParams = {
   [HomeRoutes.ScreenTokenDetail]: {
-    accountId: string;
+    walletId: string;
     networkId: string;
-    tokenId: string; // tokenIdOnNetwork
+    accountId: string;
+    coingeckoId?: string;
+    tokenAddress?: string;
     sendAddress?: string;
     historyFilter?: (item: any) => boolean;
   };

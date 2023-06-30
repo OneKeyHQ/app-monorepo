@@ -277,11 +277,13 @@ export interface IAccountToken {
   balance: string;
   usdValue: string;
   value: string;
-  value24h: string;
+  value24h?: string;
   price: number;
-  price24h: number;
+  price24h?: number;
   isNative?: boolean;
   riskLevel?: TokenRiskLevel;
   sendAddress?: string;
   key: string;
+  coingeckoId?: string;
+  autoDetected?: boolean;
 }

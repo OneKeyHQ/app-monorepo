@@ -15,6 +15,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import {
   HomeRoutes,
@@ -29,12 +30,12 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrencyNumber } from '../../../components/Format';
 import {
+  useAccountTokenValues,
   useAccountTokens,
   useAccountValues,
   useNavigation,
 } from '../../../hooks';
 import { useActiveWalletAccount } from '../../../hooks/redux';
-import { useAccountTokenValues } from '../../../hooks/useTokens';
 import { ManageTokenModalRoutes } from '../../../routes/routesEnum';
 import { showHomeBalanceSettings } from '../../Overlay/HomeBalanceSettings';
 import { OverviewBadge } from '../../Overview/components/OverviewBadge';
@@ -85,7 +86,8 @@ const ListHeader: FC<{
           <Icon name="ChevronRightMini" color="icon-subdued" />
         </>
       ) : (
-        tokenEnabled && (
+        tokenEnabled &&
+        !isAllNetworks(networkId) && (
           <IconButton
             size="sm"
             borderRadius={17}
@@ -100,7 +102,7 @@ const ListHeader: FC<{
           />
         )
       ),
-    [accountTokens.length, navigation, showTokenCount, tokenEnabled],
+    [accountTokens.length, navigation, showTokenCount, tokenEnabled, networkId],
   );
   const Container = showTokenCount ? Pressable.Item : Box;
 
@@ -181,7 +183,10 @@ const ListHeader: FC<{
               {accountTokensValue.isNaN() ? (
                 ' '
               ) : (
-                <FormatCurrencyNumber decimals={2} value={accountTokensValue} />
+                <FormatCurrencyNumber
+                  value={0}
+                  convertValue={accountTokensValue}
+                />
               )}
             </Text>
           </Box>
@@ -197,7 +202,10 @@ const ListHeader: FC<{
             {Number.isNaN(accountTokensValue) ? (
               ' '
             ) : (
-              <FormatCurrencyNumber decimals={2} value={accountTokensValue} />
+              <FormatCurrencyNumber
+                value={0}
+                convertValue={accountTokensValue}
+              />
             )}
           </Text>
         ) : (
@@ -242,7 +250,6 @@ const AssetsListHeader: FC<{
   innerHeaderBorderColor,
 }) => {
   const intl = useIntl();
-  const isVertical = useIsVerticalLayout();
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation<NavigationProps>();
   const { network, wallet } = useActiveWalletAccount();
@@ -264,8 +271,8 @@ const AssetsListHeader: FC<{
   }, []);
 
   const refreshButton = useMemo(() => {
-    if (isVertical) {
-      return;
+    if (isAllNetworks(network?.id)) {
+      return null;
     }
     return (
       <Box alignItems="center" justifyContent="center" w="8" h="8" mr="3">
@@ -282,7 +289,7 @@ const AssetsListHeader: FC<{
         )}
       </Box>
     );
-  }, [isVertical, refreshing, refresh]);
+  }, [refreshing, refresh, network?.id]);
 
   return (
     <>
@@ -299,21 +306,25 @@ const AssetsListHeader: FC<{
           {tokenEnabled && (
             <HStack alignItems="center" justifyContent="flex-end">
               {refreshButton}
+              {isAllNetworks(network?.id) ? null : (
+                <IconButton
+                  onPress={() =>
+                    navigation.navigate(RootRoutes.Modal, {
+                      screen: ModalRoutes.ManageToken,
+                      params: { screen: ManageTokenModalRoutes.Listing },
+                    })
+                  }
+                  size="sm"
+                  name="PlusMini"
+                  type="plain"
+                  ml="auto"
+                  mr={3}
+                />
+              )}
               <IconButton
-                onPress={() =>
-                  navigation.navigate(RootRoutes.Modal, {
-                    screen: ModalRoutes.ManageToken,
-                    params: { screen: ManageTokenModalRoutes.Listing },
-                  })
-                }
-                size="sm"
-                name="PlusMini"
-                type="plain"
-                ml="auto"
-                mr={3}
-              />
-              <IconButton
-                onPress={showHomeBalanceSettings}
+                onPress={() => {
+                  showHomeBalanceSettings({ networkId: network?.id });
+                }}
                 size="sm"
                 name="Cog8ToothMini"
                 type="plain"

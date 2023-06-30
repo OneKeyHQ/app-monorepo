@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/kit/src/hooks/redux';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useNFTPrice } from '../../../../hooks/useManegeTokenPrice';
+import { useNFTValues } from '../../../../hooks';
 // import { showSelectNFTPriceType } from '../../../Overlay/SelectNFTPriceType';
 
 type NFTListHeaderProps = {
@@ -33,8 +33,8 @@ const NFTListHeader = ({
   const { themeVariant } = useTheme();
   const { account, network } = useActiveWalletAccount();
 
-  const totalPrice = useNFTPrice({
-    accountId: account?.address,
+  const totalPrice = useNFTValues({
+    accountId: account?.id,
     networkId: network?.id,
   });
   const disPlayPriceType = useAppSelector((s) => s.nft.disPlayPriceType);

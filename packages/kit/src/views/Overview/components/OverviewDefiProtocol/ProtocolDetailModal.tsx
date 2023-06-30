@@ -18,7 +18,7 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useAccountValues, useAppSelector } from '../../../../hooks';
+import { useAccountPortfolios, useAccountValues } from '../../../../hooks';
 import { useNavigationBack } from '../../../../hooks/useAppNavigation';
 import { useCurrentFiatValue } from '../../../../hooks/useTokens';
 import { OverviewBadge } from '../OverviewBadge';
@@ -52,10 +52,15 @@ const OverviewProtocolDetail: FC = () => {
     accountId,
   }).value;
 
-  const protocol = useAppSelector((s) =>
-    s.allNetworks.portfolios?.[`${networkId}___${accountId}`]?.defis?.find(
-      (item) => item._id.protocolId === protocolId,
-    ),
+  const { data: defis } = useAccountPortfolios({
+    networkId,
+    accountId,
+    type: 'defis',
+  });
+
+  const protocol = useMemo(
+    () => defis?.find((item) => item._id.protocolId === protocolId),
+    [defis, protocolId],
   );
 
   const rate = useMemo(

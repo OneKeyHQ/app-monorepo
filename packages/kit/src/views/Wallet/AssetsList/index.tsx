@@ -19,8 +19,9 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAccountTokens, useActiveSideAccount } from '../../../hooks';
+import { useActiveSideAccount } from '../../../hooks';
 import { useStatus } from '../../../hooks/redux';
+import { useAccountTokens } from '../../../hooks/useOverview';
 import { useAccountTokenLoading } from '../../../hooks/useTokens';
 import { useVisibilityFocused } from '../../../hooks/useVisibilityFocused';
 import { OverviewDefiThumbnal } from '../../Overview/Thumbnail';
@@ -50,6 +51,7 @@ export type IAssetsListProps = Omit<FlatListProps, 'data' | 'renderItem'> & {
   accountId: string;
   networkId: string;
   renderDefiList?: boolean;
+  walletId: string;
 };
 function AssetsList({
   showRoundTop,
@@ -62,6 +64,7 @@ function AssetsList({
   flatStyle,
   accountId,
   networkId,
+  walletId,
   renderDefiList,
 }: IAssetsListProps) {
   const { homeTabName, isUnlock } = useStatus();
@@ -158,6 +161,7 @@ function AssetsList({
 
   const onTokenCellPress = useCallback(
     (item: IAccountToken) => {
+      console.log(item);
       if (onTokenPress) {
         onTokenPress({ token: item });
         return;
@@ -168,14 +172,16 @@ function AssetsList({
         : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
 
       navigation.navigate(HomeRoutes.ScreenTokenDetail, {
+        walletId: walletId ?? '',
         accountId: account?.id ?? '',
         networkId: networkId ?? '',
-        tokenId: item.address ?? '',
+        tokenId: item.address ?? 'main',
+        coingeckoId: item.coingeckoId,
         sendAddress: item.sendAddress,
         historyFilter: filter,
       });
     },
-    [account?.id, networkId, navigation, onTokenPress],
+    [account?.id, networkId, navigation, onTokenPress, walletId],
   );
 
   if (!accountTokens?.length) {

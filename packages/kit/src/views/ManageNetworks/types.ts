@@ -5,6 +5,7 @@ import type {
   Network,
   SwitchRpcParams,
 } from '@onekeyhq/engine/src/types/network';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import { ManageNetworkModalRoutes } from '../../routes/routesEnum';
 
@@ -69,7 +70,6 @@ export type ManageNetworkRoutesParams = {
   [ManageNetworkModalRoutes.Sort]: undefined;
 
   [ManageNetworkModalRoutes.AllNetworksNetworkSelector]: {
-    title: string;
     walletId: string;
     accountId: string;
     filter?: (params: {
@@ -79,4 +79,14 @@ export type ManageNetworkRoutesParams = {
     onConfirm?: (params: { network: Network; account: Account }) => unknown;
     onCancel?: () => unknown;
   };
+  [ManageNetworkModalRoutes.AllNetworksAccountsDetail]: {
+    walletId: string;
+    accountId: string;
+  };
+  [ManageNetworkModalRoutes.AllNetworksShowAccountFullAddress]: {
+    network: Network;
+    account: Account;
+    wallet: Wallet;
+  };
+  [ManageNetworkModalRoutes.AllNetworksSupportedNetworks]: undefined;
 };

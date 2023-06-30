@@ -1,5 +1,6 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { SimpleDbEntityAccountPortfolios } from './entity/SimpleDbEntityAccountPortfolios';
 import { SimpleDbEntityHistory } from './entity/SimpleDbEntityHistory';
 import { SimpleDbEntityLastActivity } from './entity/SimpleDbEntityLastActivity';
 import { SimpleDbEntityMarket } from './entity/SimpleDbEntityMarket';
@@ -34,6 +35,8 @@ class SimpleDb {
   utxoAccounts = new SimpleDbEntityUtxoAccounts();
 
   serverNetworks = new SimpleDbEntityServerNetworks();
+
+  accountPortfolios = new SimpleDbEntityAccountPortfolios();
 }
 
 // eslint-disable-next-line import/no-mutable-exports

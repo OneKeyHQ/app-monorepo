@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/kit/src/hooks/redux';
 import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/types';
 import {
+  ManageNetworkModalRoutes,
   ModalRoutes,
   ReceiveTokenModalRoutes,
   RootRoutes,
@@ -41,6 +42,7 @@ import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountValues, useNavigationActions } from '../../../hooks';
 import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { calculateGains } from '../../../utils/priceUtils';
@@ -55,7 +57,8 @@ export const FIXED_HORIZONTAL_HEDER_HEIGHT = 152;
 
 const SectionCopyAddress: FC = () => {
   const intl = useIntl();
-  const { account, networkId, wallet, walletId, accountId, network } =
+  const navigation = useAppNavigation();
+  const { account, networkId, network, wallet, walletId, accountId } =
     useActiveWalletAccount();
   const { copyAddress } = useCopyAddress({ wallet });
 
@@ -68,6 +71,19 @@ const SectionCopyAddress: FC = () => {
     () => !network?.settings.hiddenAddress,
     [network?.settings.hiddenAddress],
   );
+  
+  const toAllNetworksAccountsDetail = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.ManageNetwork,
+      params: {
+        screen: ManageNetworkModalRoutes.AllNetworksAccountsDetail,
+        params: {
+          walletId,
+          accountId,
+        },
+      },
+    });
+  }, [walletId, accountId, navigation]);
 
   if (isAllNetworks(networkId)) {
     return (
@@ -79,7 +95,7 @@ const SectionCopyAddress: FC = () => {
         rounded="12px"
         _hover={{ bg: 'surface-hovered' }}
         _pressed={{ bg: 'surface-pressed' }}
-        onPress={console.log}
+        onPress={toAllNetworksAccountsDetail}
       >
         <Text typography="Body2Strong" mr={2} color="text-subdued">
           {intl.formatMessage(
@@ -173,7 +189,11 @@ const AccountAmountInfo: FC = () => {
       ) : (
         <HStack flex="1" alignItems="center">
           <Typography.Display2XLarge numberOfLines={2} isTruncated>
-            <FormatCurrencyNumber decimals={2} value={accountAllValues.value} />
+            <FormatCurrencyNumber
+              decimals={2}
+              value={0}
+              convertValue={accountAllValues.value}
+            />
           </Typography.Display2XLarge>
           <IconButton
             name="ChevronDownMini"
@@ -281,6 +301,8 @@ const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           OnekeyNetwork.eth,
         );
       }
+    }
+    if (token) {
       backgroundApiProxy.serviceSwap.sellToken(token);
       if (account) {
         backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);

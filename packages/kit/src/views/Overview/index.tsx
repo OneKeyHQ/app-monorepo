@@ -5,7 +5,7 @@ import { useRoute } from '@react-navigation/core';
 
 import { List, useIsVerticalLayout } from '@onekeyhq/components';
 
-import { useAppSelector, useNavigation } from '../../hooks';
+import { useAccountPortfolios, useNavigation } from '../../hooks';
 
 import { OverviewDefiProtocol } from './components/OverviewDefiProtocol';
 
@@ -35,10 +35,11 @@ const OverviewDefiListComponent: FC = () => {
     setPage((p) => p + 1);
   }, []);
 
-  const defis = useAppSelector(
-    (s) =>
-      s.allNetworks?.portfolios?.[`${networkId}___${accountId}`].defis ?? [],
-  );
+  const { data: defis } = useAccountPortfolios({
+    networkId,
+    accountId,
+    type: 'defis',
+  });
 
   useLayoutEffect(() => {
     navigation.setOptions({

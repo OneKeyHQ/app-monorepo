@@ -33,7 +33,7 @@ import {
 } from '../../../components/Format';
 import { useActiveWalletAccount, useNetworkSimple } from '../../../hooks';
 import { useSettings } from '../../../hooks/redux';
-import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
+import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
 import {
   useSingleToken,
   useTokenBalanceWithoutFrozen,
