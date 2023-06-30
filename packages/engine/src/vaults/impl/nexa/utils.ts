@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import { getPublicKey, schnorr } from '@noble/secp256k1';
 import { InvalidAddressError } from 'bchaddrjs';
+import BN from 'bn.js';
 
-import { hash160 } from '../../../secret/hash';
+import { hash160, sha256 } from '../../../secret/hash';
 
 import {
   NexaAddressType,
@@ -9,9 +11,17 @@ import {
   bufferToScripChunk,
   decode,
   encode,
+  readVarLengthBuffer,
   scriptChunksToBuffer,
+  varintBufNum,
+  writeUInt32LE,
+  writeUInt64LEBN,
+  writeUInt8,
 } from './sdk';
 
+import type { Signer } from '../../../proxy';
+import type { ISignedTxPro, IUnsignedTxPro } from '../../types';
+import type { IEncodedTxNexa } from './types';
 
 export function verifyNexaAddress(address: string) {
   try {
@@ -64,6 +74,11 @@ function getNetworkInfo(chanid: string): {
   return chanid === 'testnet' ? NETWORKS.testnet : NETWORKS.mainnet;
 }
 
+function converToScriptPushBuffer(key: Buffer): Buffer {
+  const templateChunk = bufferToScripChunk(key);
+  return scriptChunksToBuffer([templateChunk]);
+}
+
 export function publickeyToAddress(
   publicKey: Buffer,
   chainId: string,
@@ -89,4 +104,139 @@ export function publickeyToAddress(
     throw new InvalidAddressError();
   }
   return encode(network.prefix, type, hashBuffer);
+}
+
+enum NexaSignature {
+  SIGHASH_NEXA_ALL = 0x00,
+  SIGHASH_ALL = 0x01,
+  SIGHASH_NONE = 0x02,
+  SIGHASH_SINGLE = 0x03,
+  SIGHASH_FORKID = 0x40,
+  SIGHASH_ANYONECANPAY = 0x80,
+}
+
+function reverseBuffer(buffer: Buffer): Buffer {
+  const { length } = buffer;
+  const reversed = Buffer.alloc(length);
+  for (let i = 0; i < length; i += 1) {
+    reversed[i] = buffer[length - i - 1];
+  }
+  return reversed;
+}
+
+function sha256sha256(buffer: Buffer): Buffer {
+  return sha256(sha256(buffer));
+}
+
+const MAXINT = 0xffffffff;
+const DEFAULT_SEQNUMBER = MAXINT;
+const FEE_PER_KB = 1000 * 3;
+const CHANGE_OUTPUT_MAX_SIZE = 1 + 8 + 1 + 23;
+
+function estimateFee(encodedTx: IEncodedTxNexa, available: number): number {
+  let estimatedSize = 4 + 1; // locktime + version
+  estimatedSize += encodedTx.inputs.length < 253 ? 1 : 3;
+  encodedTx.inputs.forEach((input) => {
+    // type + outpoint + scriptlen + script + sequence + amount
+    estimatedSize += 1 + 32 + 1 + 100 + 4 + 8;
+  });
+  encodedTx.outputs.forEach((output) => {
+    const { hash } = decode(output.address);
+    const bfr = readVarLengthBuffer(Buffer.from(hash));
+    estimatedSize += converToScriptPushBuffer(bfr).length + 1 + 8 + 1;
+  });
+  // const feeRate = this._feePerByte || (this._feePerKb || Transaction.FEE_PER_KB) / 1000
+  const feeRate = FEE_PER_KB / 1000;
+  const feeWithChange = Math.ceil(
+    estimatedSize * feeRate + CHANGE_OUTPUT_MAX_SIZE * feeRate,
+  );
+  return feeWithChange;
+}
+// signed by 'schnorr'
+export async function signEncodedTx(
+  unsignedTx: IUnsignedTxPro,
+  signer: Signer,
+): Promise<ISignedTxPro> {
+  const privateKey = await signer.getPrvkey();
+  const publicKey = Buffer.from(getPublicKey(privateKey, true));
+  const scriptPushPublicKey = converToScriptPushBuffer(publicKey);
+  const signHash = hash160(scriptPushPublicKey);
+  console.error('signHash', signHash.toString('hex'));
+  const signatures = [];
+
+  const { encodedTx } = unsignedTx;
+  const { inputs, outputs } = encodedTx as IEncodedTxNexa;
+
+  const prevoutsBuffer = Buffer.concat(
+    inputs.map((input) =>
+      Buffer.concat([
+        writeUInt8(0),
+        reverseBuffer(Buffer.from(input.txId, 'hex')),
+      ]),
+    ),
+  );
+  const prevoutsHash = sha256sha256(prevoutsBuffer);
+  console.log('hashPrevoutsHash', prevoutsHash.toString('hex'));
+
+  const sequenceNumberBuffer = Buffer.concat(
+    inputs.map((input) =>
+      writeUInt32LE(input.sequenceNumber || DEFAULT_SEQNUMBER),
+    ),
+  );
+  const sequenceNumberHash = sha256sha256(sequenceNumberBuffer);
+  console.log('sequenceNumberHash', sequenceNumberHash.toString('hex'));
+
+  const inputAmountBuffer = Buffer.concat(
+    inputs.map((input) => writeUInt64LEBN(new BN(input.satoshis))),
+  );
+  const inputAmountHash = sha256sha256(inputAmountBuffer);
+  console.log('inputAmountHash', inputAmountHash.toString('hex'));
+
+  const inputAmount = inputs.reduce((acc, input) => acc + input.satoshis, 0);
+  const outputAmount = outputs.reduce(
+    (acc, output) => acc + Number(output.fee),
+    0,
+  );
+  const available = inputAmount - outputAmount * 100;
+  const fee = estimateFee(encodedTx as IEncodedTxNexa, available);
+  // change address
+  outputs.push({
+    address: inputs[0].address,
+    fee: String((available - fee) / 100),
+    outType: 1,
+  });
+
+  const outputBuffer = Buffer.concat(
+    outputs.map((output) => {
+      const { hash } = decode(output.address);
+      const bfr = readVarLengthBuffer(Buffer.from(hash));
+      const scriptBuffer = converToScriptPushBuffer(bfr);
+      return Buffer.concat([
+        // 1: p2pkt outType
+        writeUInt8(1),
+        writeUInt64LEBN(new BN(Number(output.fee) * 100)),
+        varintBufNum(bfr.length),
+        bfr,
+      ]);
+    }),
+  );
+  const outputHash = sha256sha256(outputBuffer);
+  const inputSignatures = inputs.map((input, index) =>
+    // const signature = schnorr.sign('', privateKey, 'little');
+    ({
+      publicKey: publicKey.toString('hex'),
+      prevTxId: input.txId,
+      outputIndex: input.outputIndex,
+      inputIndex: index,
+      // signature,
+      sigtype: NexaSignature.SIGHASH_NEXA_ALL,
+    }),
+  );
+
+  console.error(inputSignatures);
+  return {
+    txid: '',
+    rawTx: '',
+    encodedTx: unsignedTx.encodedTx,
+  };
 }

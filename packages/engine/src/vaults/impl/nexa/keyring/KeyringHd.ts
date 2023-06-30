@@ -19,6 +19,7 @@ import { batchGetPublicKeys } from '../../../../secret';
 import { AccountType, type DBAccount } from '../../../../types/account';
 import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
 import { AddressEncodings } from '../../../utils/btcForkChain/types';
+import { publickeyToAddress, signEncodedTx } from '../utils';
 
 import type { ExportedSeedCredential } from '../../../../dbs/base';
 import type { CurveName } from '../../../../secret';
@@ -30,7 +31,7 @@ import type {
   IUnsignedTxPro,
 } from '../../../types';
 import type BTCForkVault from '../../../utils/btcForkChain/VaultBtcFork';
-import { publickeyToAddress } from '../utils';
+import { IEncodedTxNexa } from '../types';
 
 const curve = 'secp256k1';
 export class KeyringHd extends KeyringHdBase {
@@ -73,6 +74,9 @@ export class KeyringHd extends KeyringHdBase {
     const signer = await this.getSigner(options, {
       address: dbAccount.address,
     });
+    const result = await signEncodedTx(unsignedTx, signer);
+    console.error('txId', result, (await signer.getPrvkey()).toString('hex'));
+    console.error(encodedTx.inputs,  encodedTx.outputs[0].address,)
     Networks.defaultNetwork = Networks.get('nexatest');
     const privateKey = new PrivateKey(
       (await signer.getPrvkey()).toString('hex'),

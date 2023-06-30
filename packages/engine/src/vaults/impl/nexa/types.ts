@@ -6,6 +6,7 @@ export type IEncodedTxNexa = {
     txId: string;
     satoshis: number;
     outputIndex: number;
+    sequenceNumber?: number;
   }>;
   outputs: Array<{
     address: string;

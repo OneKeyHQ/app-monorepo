@@ -1,3 +1,6 @@
+/* eslint-disable no-bitwise */
+import BN from 'bn.js';
+
 export enum Opcode {
   OP_FALSE = 0,
   OP_0 = 0,
@@ -190,7 +193,7 @@ export function bufferToScripChunk(buffer: Buffer) {
   };
 }
 
-function writeUInt8(n: number) {
+export function writeUInt8(n: number) {
   const buf = Buffer.alloc(1);
   buf.writeUInt8(n, 0);
   return buf;
@@ -202,9 +205,35 @@ function writeUInt16LE(n: number) {
   return buf;
 }
 
-function writeUInt32LE(n: number) {
+export function writeUInt32LE(n: number) {
   const buf = Buffer.alloc(4);
-  buf.writeInt32LE(n, 0);
+  buf.writeUInt32LE(n, 0);
+  return buf;
+}
+
+export function writeUInt64LEBN(bigNumber: BN) {
+  return bigNumber.toBuffer('le', 8);
+}
+
+export function varintBufNum(n: number) {
+  let buf: Buffer;
+  if (n < 253) {
+    buf = Buffer.alloc(1);
+    buf.writeUInt8(n, 0);
+  } else if (n < 0x10000) {
+    buf = Buffer.alloc(1 + 2);
+    buf.writeUInt8(253, 0);
+    buf.writeUInt16LE(n, 1);
+  } else if (n < 0x100000000) {
+    buf = Buffer.alloc(1 + 4);
+    buf.writeUInt8(254, 0);
+    buf.writeUInt32LE(n, 1);
+  } else {
+    buf = Buffer.alloc(1 + 8);
+    buf.writeUInt8(255, 0);
+    buf.writeInt32LE(n & -1, 1);
+    buf.writeUInt32LE(Math.floor(n / 0x100000000), 5);
+  }
   return buf;
 }
 
@@ -231,9 +260,9 @@ export function scriptChunksToBuffer(
       if (opcodenum === Opcode.OP_PUSHDATA1) {
         chunkBuffer = writeUInt8(opcodenum);
       } else if (opcodenum === Opcode.OP_PUSHDATA2) {
-        chunkBuffer = writeUInt16LE(chunk.len);
+        chunkBuffer = writeUInt16LE(chunk.len || 0);
       } else if (opcodenum === Opcode.OP_PUSHDATA4) {
-        chunkBuffer = writeUInt32LE(chunk.len);
+        chunkBuffer = writeUInt32LE(chunk.len || 0);
       }
       if (chunkBuffer) {
         buffersArray.push(chunkBuffer);
@@ -244,4 +273,74 @@ export function scriptChunksToBuffer(
     }
   }
   return Buffer.concat(buffersArray, bufferLength);
+}
+
+function readUInt64LEBN(
+  buffer: Buffer,
+  position: number,
+): {
+  bn: BN;
+  position: number;
+} {
+  const second = buffer.readUInt32LE(position);
+  const first = buffer.readUInt32LE(position + 4);
+  const combined = first * 0x100000000 + second;
+  // Instantiating an instance of BN with a number is faster than with an
+  // array or string. However, the maximum safe number for a double precision
+  // floating point is 2 ^ 52 - 1 (0x1fffffffffffff), thus we can safely use
+  // non-floating point numbers less than this amount (52 bits). And in the case
+  // that the number is larger, we can instatiate an instance of BN by passing
+  // an array from the buffer (slower) and specifying the endianness.
+  let bn;
+  if (combined <= 0x1fffffffffffff) {
+    bn = new BN(combined);
+  } else {
+    const data = Array.prototype.slice.call(buffer, position, position + 8);
+    bn = new BN(data, 10, 'le');
+  }
+  return {
+    bn,
+    position: position + 8,
+  };
+}
+
+function readVarintNum(buffer: Buffer): { position: number; length: number } {
+  let position = 0;
+  let length = buffer.readUInt8();
+  position += 1;
+  switch (length) {
+    case 0xfd:
+      length = buffer.readUInt16LE();
+      position += 2;
+      break;
+    case 0xfe:
+      length = buffer.readUInt32LE();
+      position += 4;
+      break;
+    case 0xff:
+      {
+        const { bn, position: newPosition } = readUInt64LEBN(buffer, position);
+        const n = bn.toNumber();
+        position = newPosition;
+        if (n <= 2 ** 53) {
+          length = n;
+        } else {
+          throw new Error(
+            'number too large to retain precision - use readVarintBN',
+          );
+        }
+      }
+      break;
+    default:
+      break;
+  }
+  return {
+    position,
+    length,
+  };
+}
+
+export function readVarLengthBuffer(buffer: Buffer): Buffer {
+  const { position, length } = readVarintNum(buffer);
+  return buffer.slice(position, length + position);
 }
