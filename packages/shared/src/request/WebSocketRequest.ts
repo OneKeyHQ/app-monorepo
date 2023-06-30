@@ -46,24 +46,48 @@ export class WebSocketRequest {
     this.establishConnection();
   }
 
+  private waitForSocketConnection(socket: WebSocket, callback: () => void) {
+    setTimeout(() => {
+      if (socket.readyState === 1 && callback) {
+        callback();
+      } else {
+        this.waitForSocketConnection(socket, callback);
+      }
+    }, 5); // wait 5 milisecond for the connection...
+  }
+
+  private readySocketConnection(socket: WebSocket): Promise<WebSocket> {
+    return new Promise((resolve) => {
+      this.waitForSocketConnection(socket, () => {
+        resolve(socket);
+      });
+    });
+  }
+
   private establishConnection(): Promise<WebSocket> {
     const socket = socketsMap.get(this.url);
     if (socket) {
-      return Promise.resolve(socket);
+      if (socket.readyState === 1) {
+        return Promise.resolve(socket);
+      }
+      return this.readySocketConnection(socket);
     }
-    const protocol = document.location.protocol === 'http:' ? 'ws:' : 'wss:';
-    const wsuri = `${protocol}//${document.location.host}/nexa_ws`;
+    const wsuri =
+      typeof document === 'undefined'
+        ? this.url
+        : `${document.location.protocol === 'http:' ? 'ws:' : 'wss:'}//${
+            document.location.host
+          }/nexa_ws`;
     const newSocket = new WebSocket(wsuri);
     socketsMap.set(this.url, newSocket);
     return new Promise((resolve) => {
       newSocket.onopen = () => {
-        console.log(`WebSocket onopen: ${wsuri} connected`);
-        resolve(newSocket);
+        this.waitForSocketConnection(newSocket, () => {
+          resolve(newSocket);
+        });
       };
 
       newSocket.onmessage = (message) => {
-        console.log('WebSocket onmessage:', message.data);
-
         const { id, result } = JSON.parse(message.data) as {
           id: string;
           result: any;

@@ -3,7 +3,6 @@ import { IMPL_NEXA } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { prepareMockVault } from '../../../../../@tests/prepareMockVault';
 import { getAccountNameInfoByImpl } from '../../../../managers/impl';
-import { deserializeSignedTransaction } from '../utils';
 import Vault from '../Vault';
 import VaultHelper from '../VaultHelper';
 
@@ -12,48 +11,6 @@ import type { KeyringBase } from '../../../keyring/KeyringBase';
 import type { KeyringSoftwareBase } from '../../../keyring/KeyringSoftwareBase';
 import type { IPrepareAccountsParams } from '../../../types';
 import type { VaultBase } from '../../../VaultBase';
-
-// export async function testSignTransaction(
-//   prepareOptions: IPrepareMockVaultOptions,
-//   builder: {
-//     keyring: (payload: { vault: VaultBase }) => KeyringSoftwareBase;
-//   },
-// ) {
-// expect.assertions(2);
-
-// const { options, dbAccount, password } = prepareMockVault(prepareOptions);
-
-// expect(password).toBeTruthy();
-
-// const vault = new Vault(options);
-// vault.helper = new VaultHelper(options);
-
-// const keyring = builder.keyring({ vault });
-
-// const encodedTx = await vault.buildEncodedTxFromTransfer({
-//   from: dbAccount.address,
-//   to: dbAccount.address,
-//   amount: '0.0001',
-// });
-// const unsignedTx = await vault.buildUnsignedTxFromEncodedTx(encodedTx);
-// // engine/src/proxy.ts  sign
-// // TODO return signer from keyring.signTransaction
-// const signedTx = await keyring.signTransaction(unsignedTx, {
-//   password,
-// });
-// const nativeTx = deserializeSignedTransaction(signedTx.rawTx);
-
-// const signers = await keyring.getSigners(password || '', [dbAccount.address]);
-// const signer = signers[dbAccount.address];
-// const isVerified = await signer.verifySignature({
-//   digest: `${signedTx.digest || ''}`,
-//   publicKey: `${dbAccount.address || ''}`,
-//   signature: nativeTx.signature.data,
-// });
-
-// expect(isVerified).toBeTruthy();
-// await wait(1000);
-// }
 
 const nearAccountNameInfo = getAccountNameInfoByImpl(IMPL_NEXA);
 const prepareAccountsParams = {
@@ -81,4 +38,44 @@ export async function testPrepareAccounts(
     privateKey: prepareOptions?.privateKey,
   } as IPrepareAccountsParams);
   expect(accounts[0]).toEqual(dbAccount);
+}
+
+export async function testSignTransaction(
+  prepareOptions: IPrepareMockVaultOptions,
+  builder: {
+    keyring: (payload: { vault: VaultBase }) => KeyringSoftwareBase;
+  },
+) {
+  const { options, dbAccount, password } = prepareMockVault(prepareOptions);
+
+  expect(password).toBeTruthy();
+
+  const vault = new Vault(options);
+  vault.helper = new VaultHelper(options);
+
+  const keyring = builder.keyring({ vault });
+
+  const encodedTx = await vault.buildEncodedTxFromTransfer({
+    from: dbAccount.address,
+    to: dbAccount.address,
+    amount: '100',
+  });
+  const unsignedTx = await vault.buildUnsignedTxFromEncodedTx(encodedTx);
+  // engine/src/proxy.ts  sign
+  // TODO return signer from keyring.signTransaction
+  const signedTx = await keyring.signTransaction(unsignedTx, {
+    password,
+  });
+  console.error(signedTx);
+  // const nativeTx = deserializeSignedTransaction(signedTx.rawTx);
+
+  // const signers = await keyring.getSigners(password || '', [dbAccount.address]);
+  // const signer = signers[dbAccount.address];
+  // const isVerified = await signer.verifySignature({
+  //   digest: `${signedTx.digest || ''}`,
+  //   publicKey: `${dbAccount.address || ''}`,
+  //   signature: nativeTx.signature.data,
+  // });
+  // expect(isVerified).toBeTruthy();
+  await wait(1000);
 }
