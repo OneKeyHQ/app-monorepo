@@ -13,6 +13,7 @@ import {
   ListItem,
   Pressable,
   Skeleton,
+  Text,
   ToastManager,
   Token,
   Typography,
@@ -128,13 +129,13 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                 <HStack
                   alignItems="center"
                   justifyContent="center"
-                  w={tag.minW}
+                  w={!tag.isSearch ? tag.minW : undefined}
                 >
                   {!marketTokenItem ? (
                     <Skeleton shape="Avatar" size={20} />
                   ) : (
                     <Pressable
-                      p={1}
+                      p={tag.isSearch ? 0 : 1}
                       flexDirection="row"
                       alignItems="center"
                       rounded="full"
@@ -180,9 +181,11 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                             : 'icon-subdued'
                         }
                       />
-                      <Typography.Body2Strong ml={0.5}>
-                        {marketTokenItem.serialNumber ?? '-'}
-                      </Typography.Body2Strong>
+                      {!tag.isSearch && (
+                        <Typography.Body2Strong ml={0.5}>
+                          {marketTokenItem.serialNumber ?? '-'}
+                        </Typography.Body2Strong>
+                      )}
                     </Pressable>
                   )}
                 </HStack>
@@ -209,9 +212,13 @@ const MarketTokenCell: FC<MarketTokenCellProps> = ({
                   )}
                   <Box>
                     {marketTokenItem && marketTokenItem.symbol !== undefined ? (
-                      <Typography.Body1Strong>
+                      <Text
+                        typography={
+                          tag.isSearch ? 'Body2Strong' : 'Body1Strong'
+                        }
+                      >
                         {marketTokenItem.symbol}
-                      </Typography.Body1Strong>
+                      </Text>
                     ) : (
                       <Skeleton shape="Body2" />
                     )}
