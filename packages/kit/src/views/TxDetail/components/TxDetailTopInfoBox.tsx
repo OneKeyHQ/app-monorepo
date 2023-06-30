@@ -1,15 +1,16 @@
 import { useMemo } from 'react';
 
-import { Box, Divider } from '@onekeyhq/components';
 import { isNil } from 'lodash';
+
+import { Box, Divider } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IDecodedTxActionTokenActivate } from '@onekeyhq/engine/src/vaults/types';
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
 
+import { TxDetailAddTokenBox } from './TxDetailAddTokenBox';
 import { TxDetailStatusInfoBox } from './TxDetailStatusInfoBox';
 
 import type { ITxActionListViewProps } from '../types';
-import { TxDetailAddTokenBox } from './TxDetailAddTokenBox';
 
 function TxTopInfoBox(props: ITxActionListViewProps) {
   const { decodedTx, isSendConfirm } = props;

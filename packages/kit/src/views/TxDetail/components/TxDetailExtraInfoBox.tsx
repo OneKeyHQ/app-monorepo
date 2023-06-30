@@ -2,7 +2,7 @@ import { useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { IconButton, Pressable } from '@onekeyhq/components';
+import { Box, IconButton, Pressable, Text } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
 import {
@@ -66,7 +66,8 @@ function checkIsValidHistoryTxId({
 
 // TODO rename ExtraInfoBox
 export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
-  const { decodedTx, historyTx, feeInput, isHistoryDetail } = props;
+  const { decodedTx, historyTx, feeInput, isHistoryDetail, isSendConfirm } =
+    props;
   const { network } = useNetwork({ networkId: decodedTx.networkId });
   const details: ITxActionElementDetail[] = [];
   const intl = useIntl();
@@ -153,5 +154,19 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
 
   if (!details.length) return null;
 
-  return <TxDetailActionBox details={details} showContentDivider />;
+  return (
+    <Box>
+      {isSendConfirm ? null : (
+        <Text
+          typography="Subheading"
+          textTransform="uppercase"
+          mb={3}
+          color="text-subdued"
+        >
+          {intl.formatMessage({ id: 'content__details' })}
+        </Text>
+      )}
+      <TxDetailActionBox details={details} showContentDivider />
+    </Box>
+  );
 }

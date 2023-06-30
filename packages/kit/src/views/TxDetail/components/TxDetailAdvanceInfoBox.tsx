@@ -81,6 +81,16 @@ function TxDetailAdvanceInfoBox(props: ITxActionListViewProps) {
       }
     >
       <Box mt={6}>
+        {isSendConfirm ? null : (
+          <Text
+            typography="Subheading"
+            textTransform="uppercase"
+            mb={3}
+            color="text-subdued"
+          >
+            {intl.formatMessage({ id: 'action__advance' })}
+          </Text>
+        )}
         <TxDetailActionBox details={details} showContentDivider />
       </Box>
     </Collapse>

@@ -1,16 +1,16 @@
 import { useIntl } from 'react-intl';
 
-import { Alert, Box } from '@onekeyhq/components';
+import { Alert, Box, Text } from '@onekeyhq/components';
 
 import { TxDetailAdvanceInfoBox } from './components/TxDetailAdvanceInfoBox';
 import { TxDetailExtraInfoBox } from './components/TxDetailExtraInfoBox';
+import { TxTopInfoBox } from './components/TxDetailTopInfoBox';
 import { TxInteractInfo } from './components/TxInteractInfo';
 import { getReplacedTxAlertTextKeys } from './elements/TxActionElementReplacedTxText';
 import { TxActionsListView } from './TxActionsListView';
 import { TxDetailContextProvider } from './TxDetailContext';
 
 import type { ITxActionListViewProps } from './types';
-import { TxTopInfoBox } from './components/TxDetailTopInfoBox';
 
 export function TxDetailView(props: ITxActionListViewProps) {
   const {
@@ -67,7 +67,19 @@ export function TxDetailView(props: ITxActionListViewProps) {
           <TxDetailAdvanceInfoBox {...props} />
           {advancedSettingsForm}
           {isMultipleActions ? <Box h={6} /> : <Box h={8} />}
-          <TxActionsListView {...props} transformType="T1" space={6} />
+          <Box>
+            {isSendConfirm ? null : (
+              <Text
+                typography="Subheading"
+                textTransform="uppercase"
+                mb={3}
+                color="text-subdued"
+              >
+                {intl.formatMessage({ id: 'form__transaction' })}
+              </Text>
+            )}
+            <TxActionsListView {...props} transformType="T1" space={6} />
+          </Box>
         </>
       </TxDetailContextProvider>
     </>
