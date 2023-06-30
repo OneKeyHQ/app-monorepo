@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { memo, useCallback, useEffect } from 'react';
 
-import { AppState, NativeModules } from 'react-native';
+import { NativeModules } from 'react-native';
 
 import type { NotificationExtra } from '@onekeyhq/engine/src/managers/notification';
 import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
@@ -14,6 +14,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import PermissionDialog from '../components/PermissionDialog/PermissionDialog';
+import { useAppStateChange } from '../hooks/useAppStateChange';
 import { setPushNotificationConfig } from '../store/reducers/settings';
 import { showDialog } from '../utils/overlayUtils';
 
@@ -75,27 +76,29 @@ const NotificationProvider: FC<{
     }
   }, [serviceNotification, launchNotification]);
 
+  const onChange = useCallback(
+    (state) => {
+      if (!['background', 'inactive'].includes(state)) {
+        serviceNotification.clearBadge();
+        // checkPermission();
+      }
+    },
+    [serviceNotification],
+  );
+
   // checkPermission and init
   useEffect(() => {
     serviceNotification.clearBadge();
-    const listener = AppState.addEventListener('change', (state) => {
-      if (!['background', 'inactive'].includes(state)) {
-        serviceNotification.clearBadge();
-        checkPermission();
-      }
-    });
     if (pushNotification?.pushEnable) {
       checkPermissionAndInitJpush();
     }
-    return () => {
-      listener.remove();
-    };
   }, [
     serviceNotification,
-    checkPermission,
     pushNotification?.pushEnable,
     checkPermissionAndInitJpush,
   ]);
+
+  useAppStateChange(onChange, { unFilter: true });
 
   return null;
 };

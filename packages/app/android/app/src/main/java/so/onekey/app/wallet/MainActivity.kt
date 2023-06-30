@@ -7,9 +7,14 @@ import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactActivityDelegate
 import expo.modules.ReactActivityDelegateWrapper
+import so.onekey.app.wallet.utils.sendEvent
 
 
 class MainActivity : ReactActivity() {
+
+    companion object {
+        private const val ANDROID_LIFECYCLE_EVENT = "android_lifecycle"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Set the theme to AppTheme BEFORE onCreate to support
@@ -17,6 +22,27 @@ class MainActivity : ReactActivity() {
         // This is required for expo-splash-screen.
         setTheme(R.style.AppTheme)
         super.onCreate(null)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        reactInstanceManager.currentReactContext?.let {
+            sendEvent(it, ANDROID_LIFECYCLE_EVENT, "active")
+        }
+    }
+
+    override fun onRestart() {
+        super.onRestart()
+        reactInstanceManager.currentReactContext?.let {
+            sendEvent(it, ANDROID_LIFECYCLE_EVENT, "inactive")
+        }
+    }
+
+    override fun onStop() {
+        reactInstanceManager.currentReactContext?.let {
+            sendEvent(it, ANDROID_LIFECYCLE_EVENT, "background")
+        }
+        super.onStop()
     }
 
     /**
