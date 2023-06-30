@@ -19,6 +19,7 @@ import {
   useNativeToken,
   useTokenBalanceWithoutFrozen,
 } from '../../../hooks';
+import { isHexString } from '../../../utils/helper';
 import { EditableNonceStatusEnum } from '../types';
 
 import { BaseSendModal } from './BaseSendModal';
@@ -27,7 +28,6 @@ import { SendConfirmErrorBoundary } from './SendConfirmErrorBoundary';
 import { SendConfirmErrorsAlert } from './SendConfirmErrorsAlert';
 
 import type { ITxConfirmViewProps } from '../types';
-import { isHexString } from '../../../utils/helper';
 
 // TODO rename SendConfirmModalBase
 export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
@@ -139,7 +139,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     feeInfoPayload?.selected.type,
   ]);
 
-  const isInvalideHexData = useMemo(() => {
+  const isInvalidHexData = useMemo(() => {
     if (
       advancedSettings?.currentHexData &&
       !isHexString(advancedSettings?.currentHexData)
@@ -286,7 +286,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
       primaryActionProps={{
         isDisabled:
           isWatching ||
-          isInvalideHexData ||
+          isInvalidHexData ||
           balanceInsufficient ||
           isAccountNotMatched ||
           feeInfoLoading ||
