@@ -173,6 +173,7 @@ export type HomeRoutesParams = {
   [HomeRoutes.BulkSender]: undefined;
   [HomeRoutes.ClearCache]: undefined;
   [HomeRoutes.AdvancedSettings]: undefined;
+  [HomeRoutes.DappModeSettings]: undefined;
   [HomeRoutes.HardwareBridgeSettings]: undefined;
 };
 /** HomeStack */

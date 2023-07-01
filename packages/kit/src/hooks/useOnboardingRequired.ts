@@ -27,6 +27,8 @@ export function closeExtensionWindowIfOnboardingFinished() {
 export const useOnboardingRequired = (isHomeCheck?: boolean) => {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
+  const useDappMode =
+    useAppSelector((s) => s.settings.dappModeSettings?.useDappMode) ?? true;
   const homePageCheckBoarding = useAppSelector(
     (s) => s.data.homePageCheckBoarding,
   );
@@ -37,10 +39,19 @@ export const useOnboardingRequired = (isHomeCheck?: boolean) => {
         if (isHomeCheck) {
           backgroundApiProxy.dispatch(setHomePageCheckBoarding());
         }
-        navigation.replace(RootRoutes.Onboarding, {
-          screen: EOnboardingRoutes.Welcome,
-          params: { disableAnimation: !!isHomeCheck },
-        });
+        if (useDappMode) {
+          navigation?.navigate(RootRoutes.Main, {
+            screen: MainRoutes.Tab,
+            params: {
+              screen: TabRoutes.Swap,
+            },
+          });
+        } else {
+          navigation.replace(RootRoutes.Onboarding, {
+            screen: EOnboardingRoutes.Welcome,
+            params: { disableAnimation: !!isHomeCheck },
+          });
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

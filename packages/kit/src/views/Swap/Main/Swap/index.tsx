@@ -11,12 +11,20 @@ import {
   canShowAppReview,
   openAppReview,
 } from '../../../../utils/openAppReview';
+import { ConnectWalletButton } from '../Buttons/connect';
 import { SwapMainButton } from '../Buttons/swap';
 import { PaddingControl } from '../PaddingControl';
 
 import { SwapAlert } from './SwapAlert';
 import { SwapContent } from './SwapContent';
 import { SwapQuote } from './SwapQuote';
+
+
+import {
+  getActiveWalletAccount,
+} from '@onekeyhq/kit/src/hooks/redux';
+
+
 
 export function SwapMain() {
   useEffect(() => {
@@ -41,6 +49,7 @@ export function SwapMain() {
           <SwapMainButton />
         </Box>
         <SwapQuote />
+        {!getActiveWalletAccount().accountId && <ConnectWalletButton />}
       </PaddingControl>
     </Box>
   );

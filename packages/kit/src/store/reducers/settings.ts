@@ -120,6 +120,9 @@ export type SettingsState = {
   advancedSettings?: {
     useDustUtxo?: boolean;
   };
+  dappModeSettings?: {
+    useDappMode?: boolean;
+  };
   hardwareConnectSrc?: string;
   gasPanelEIP1559Enabled?: boolean;
 };
@@ -195,6 +198,9 @@ const initialState: SettingsState = {
   },
   advancedSettings: {
     useDustUtxo: true,
+  },
+  dappModeSettings: {
+    useDappMode: true,
   },
   hardwareConnectSrc: SHORT_ONEKEYSO_URL,
   gasPanelEIP1559Enabled: true,
@@ -610,6 +616,16 @@ export const settingsSlice = createSlice({
         ...action.payload,
       };
     },
+    setDappModeSettings(
+      state,
+      action: PayloadAction<SettingsState['dappModeSettings']>,
+    ) {
+      const prevSettings = state.dappModeSettings ?? {};
+      state.dappModeSettings = {
+        ...prevSettings,
+        ...action.payload,
+      };
+    },
     setHardwareConnectSrc(
       state,
       action: PayloadAction<SettingsState['hardwareConnectSrc']>,
@@ -676,6 +692,7 @@ export const {
   setLeftSidebarCollapsed,
   setEnableETH2Unstake,
   setAdvancedSettings,
+  setDappModeSettings,
   setHardwareConnectSrc,
   setGasPanelEIP1559Enabled,
 } = settingsSlice.actions;

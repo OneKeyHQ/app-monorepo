@@ -2,6 +2,7 @@ import { withTabLayout } from '@onekeyhq/components/src/Layout/withTabLayout';
 
 import { toFocusedLazy } from '../../../../../components/LazyRenderWhenFocus';
 import AdvancedSettings from '../../../../../views/AdvancedSettings';
+import DappModeSettings from '../../../../../views/DappModeSettings';
 import ClearCache from '../../../../../views/ClearCache';
 import OnekeyLiteDetail from '../../../../../views/Hardware/OnekeyLite/Detail';
 import HardwareBridgeSettings from '../../../../../views/HardwareBridgeSettings';
@@ -78,6 +79,10 @@ const config: TabRouteConfig = {
     {
       name: HomeRoutes.AdvancedSettings,
       component: AdvancedSettings,
+    },
+    {
+      name: HomeRoutes.DappModeSettings,
+      component: DappModeSettings,
     },
     {
       name: HomeRoutes.HardwareBridgeSettings,

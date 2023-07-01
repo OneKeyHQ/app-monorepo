@@ -1,4 +1,5 @@
 import type { FC, ReactNode } from 'react';
+import { useAppSelector } from '../../hooks';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
@@ -113,6 +114,9 @@ const Layout: FC<LayoutProps> = ({
     return visible ?? context?.visible ?? isFocus;
   }, [context?.visible, isClosing, isFocus, visible]);
 
+  const useDappMode =
+    useAppSelector((s) => s.settings.dappModeSettings?.useDappMode) ?? true;
+
   return (
     <LayoutScrollView>
       {showCloseButton ? (
@@ -160,7 +164,7 @@ const Layout: FC<LayoutProps> = ({
           minH={isSmallHeight ? '560px' : '640px'}
           flexGrow={{ base: fullHeight ? 1 : undefined, sm: 0 }}
         >
-          {backButton ? (
+          {!useDappMode && backButton ? (
             <IconButton
               alignSelf="flex-start"
               ml={-2}
