@@ -99,35 +99,7 @@ function BulkSender() {
   }, [navigation, headerLeft, headerRight]);
 
   const bulkSenderTabs = useMemo(() => {
-    if (network?.settings.tokenEnabled) {
-      return (
-        <>
-          <Tabs.Tab
-            name={BulkSenderTypeEnum.NativeToken}
-            label={nativeToken?.symbol ?? ''}
-          >
-            <TokenOutbox
-              accountId={accountId}
-              networkId={networkId}
-              accountAddress={accountAddress}
-              type={BulkSenderTypeEnum.NativeToken}
-            />
-          </Tabs.Tab>
-          <Tabs.Tab
-            name={BulkSenderTypeEnum.Token}
-            label={intl.formatMessage({ id: 'form__token' })}
-          >
-            <TokenOutbox
-              accountId={accountId}
-              networkId={networkId}
-              accountAddress={accountAddress}
-              type={BulkSenderTypeEnum.Token}
-            />
-          </Tabs.Tab>
-        </>
-      );
-    }
-    return (
+    const tabs = [
       <Tabs.Tab
         name={BulkSenderTypeEnum.NativeToken}
         label={nativeToken?.symbol ?? ''}
@@ -138,8 +110,25 @@ function BulkSender() {
           accountAddress={accountAddress}
           type={BulkSenderTypeEnum.NativeToken}
         />
-      </Tabs.Tab>
-    );
+      </Tabs.Tab>,
+    ];
+
+    if (network?.settings.tokenEnabled) {
+      tabs.push(
+        <Tabs.Tab
+          name={BulkSenderTypeEnum.Token}
+          label={intl.formatMessage({ id: 'form__token' })}
+        >
+          <TokenOutbox
+            accountId={accountId}
+            networkId={networkId}
+            accountAddress={accountAddress}
+            type={BulkSenderTypeEnum.Token}
+          />
+        </Tabs.Tab>,
+      );
+    }
+    return tabs;
   }, [
     accountAddress,
     accountId,
