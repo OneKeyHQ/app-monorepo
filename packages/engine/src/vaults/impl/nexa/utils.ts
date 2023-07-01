@@ -162,7 +162,6 @@ export async function signEncodedTx(
   const scriptPushPublicKey = converToScriptPushBuffer(publicKey);
   const signHash = hash160(scriptPushPublicKey);
   console.error('signHash', signHash.toString('hex'));
-  const signatures = [];
 
   const { encodedTx } = unsignedTx;
   const { inputs, outputs } = encodedTx as IEncodedTxNexa;
@@ -210,7 +209,6 @@ export async function signEncodedTx(
     outputs.map((output) => {
       const { hash } = decode(output.address);
       const bfr = readVarLengthBuffer(Buffer.from(hash));
-      const scriptBuffer = converToScriptPushBuffer(bfr);
       return Buffer.concat([
         // 1: p2pkt outType
         writeUInt8(1),
@@ -221,17 +219,46 @@ export async function signEncodedTx(
     }),
   );
   const outputHash = sha256sha256(outputBuffer);
-  const inputSignatures = inputs.map((input, index) =>
-    // const signature = schnorr.sign('', privateKey, 'little');
-    ({
-      publicKey: publicKey.toString('hex'),
-      prevTxId: input.txId,
-      outputIndex: input.outputIndex,
-      inputIndex: index,
-      // signature,
-      sigtype: NexaSignature.SIGHASH_NEXA_ALL,
-    }),
+  const subScriptBuffer = scriptChunksToBuffer([
+    {
+      opcodenum: Opcode.OP_FROMALTSTACK,
+    },
+    {
+      opcodenum: Opcode.OP_CHECKSIGVERIFY,
+    },
+  ]);
+  console.log('subScriptBuffer', subScriptBuffer.toString('hex'));
+  const signatureBuffer = Buffer.concat([
+    // transaction.version
+    writeUInt8(0),
+    prevoutsHash,
+    inputAmountHash,
+    sequenceNumberHash,
+    varintBufNum(subScriptBuffer.length),
+    subScriptBuffer,
+    outputHash,
+    // transaction.nLockTime
+    writeUInt32LE(0),
+    // sighashType
+    writeUInt8(0),
+  ]);
+
+  const ret = reverseBuffer(sha256sha256(signatureBuffer));
+  console.log('sighashForNexa--ret', ret.toString('hex'));
+  const signature = await schnorr.sign(
+    new Uint8Array(reverseBuffer(ret)),
+    // new Uint8Array(privateKey),
+    '55a8021920dcc897b189bd8c1bd40205c977dd2068b880fc94f984eaf3db40ef',
   );
+  console.log('signature', Buffer.from(signature).toString('hex'));
+  const inputSignatures = inputs.map((input, index) => ({
+    publicKey: publicKey.toString('hex'),
+    prevTxId: input.txId,
+    outputIndex: input.outputIndex,
+    inputIndex: index,
+    // signature,
+    sigtype: NexaSignature.SIGHASH_NEXA_ALL,
+  }));
 
   console.error(inputSignatures);
   return {
