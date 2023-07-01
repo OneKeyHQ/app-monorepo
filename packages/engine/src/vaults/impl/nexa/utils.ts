@@ -200,18 +200,24 @@ export async function signEncodedTx(
     outType: 1,
   });
 
+  const outputSignatures = outputs.map((output) => ({
+    address: output.address,
+    satoshi: Number(output.fee) * 100,
+    outType: 1,
+    scriptBuffer: getScriptBufferFromScriptTemplateOut(output.address),
+  }));
+
   const outputBuffer = Buffer.concat(
     // scriptBuffer
-    outputs.map((output) => {
-      const bfr = getScriptBufferFromScriptTemplateOut(output.address);
-      return Buffer.concat([
+    outputSignatures.map((output) =>
+      Buffer.concat([
         // 1: p2pkt outType
-        writeUInt8(1),
-        writeUInt64LEBN(new BN(Number(output.fee) * 100)),
-        varintBufNum(bfr.length),
-        bfr,
-      ]);
-    }),
+        writeUInt8(output.outType),
+        writeUInt64LEBN(new BN(output.satoshi)),
+        varintBufNum(output.scriptBuffer.length),
+        output.scriptBuffer,
+      ]),
+    ),
   );
   const outputHash = sha256sha256(outputBuffer);
   const subScriptBuffer = scriptChunksToBuffer([
