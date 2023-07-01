@@ -63,6 +63,7 @@ export type ITxActionElementDetail = {
 export type ITxActionCardViewProps = {
   title?: JSX.Element;
   subTitle?: JSX.Element;
+  desc?: JSX.Element;
   icon?: JSX.Element;
   content?: JSX.Element;
   details?: Array<ITxActionElementDetail | undefined | null>;

@@ -17,7 +17,6 @@ import { useDisableNavigationAnimation } from '../../../../hooks/useDisableNavig
 import { useOnboardingRequired } from '../../../../hooks/useOnboardingRequired';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { BulkSenderTypeEnum } from '../../../BulkSender/types';
-import { BatchTxsItemView } from '../../../TxDetail/BatchTxsItemView';
 import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModalBase';
 import { BatchSendTokenInfo } from '../../components/BatchSendTokenInfo';
 import { BatchTransactionFeeInfo } from '../../components/BatchTransactionFeeInfo';
@@ -38,6 +37,7 @@ import type {
   SendFeedbackReceiptParams,
 } from '../../types';
 import type { useBatchSendConfirmRouteParamsParsed } from '../../utils/useBatchSendConfirmRouteParamsParsed';
+import { TxDetailView } from '../../../TxDetail/TxDetailView';
 
 interface Props {
   batchSendConfirmParamsParsed: ReturnType<
@@ -308,8 +308,9 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
   }, [decodedTxs, intl, transactionCount]);
 
   sharedProps.children = isSingleTransformMode ? (
-    <BatchTxsItemView
+    <TxDetailView
       isSendConfirm
+      isBatchSendConfirm
       isSingleTransformMode={isSingleTransformMode}
       decodedTx={decodedTx}
     />
@@ -324,8 +325,9 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
         sections={getGroupTransactionsData()}
         renderItem={({ item }: { item: IDecodedTx }) => (
           <ListItem key={item.txid}>
-            <BatchTxsItemView
+            <TxDetailView
               isSendConfirm
+              isBatchSendConfirm
               isSingleTransformMode={isSingleTransformMode}
               decodedTx={item}
             />

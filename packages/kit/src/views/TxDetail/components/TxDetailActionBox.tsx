@@ -1,6 +1,17 @@
-import { isNil } from 'lodash';
+import { useCallback } from 'react';
 
-import { Box, Collapse, Divider, HStack, VStack } from '@onekeyhq/components';
+import { isNil } from 'lodash';
+import { MotiView } from 'moti';
+
+import {
+  Box,
+  Collapse,
+  Divider,
+  HStack,
+  Icon,
+  Pressable,
+  VStack,
+} from '@onekeyhq/components';
 
 import { TxActionElementDetailCell } from '../elements/TxActionElementDetailCell';
 import { useTxDetailContext } from '../TxDetailContext';
@@ -11,6 +22,7 @@ export function TxDetailActionBox(props: ITxActionCardViewProps) {
   const {
     title,
     subTitle,
+    desc,
     icon,
     content,
     details,
@@ -37,14 +49,21 @@ export function TxDetailActionBox(props: ITxActionCardViewProps) {
     </>
   );
 
-  const titleViewForCollapse = (
-    <HStack p={2} space={2} alignItems="center">
-      {icon}
-      <VStack flex={1}>
-        {title}
-        {subTitle}
-      </VStack>
-    </HStack>
+  const titleViewForCollapse = useCallback(
+    (collapsed?: boolean) =>
+      title ? (
+        <HStack p={2} space={2} alignItems="center" flex={1}>
+          {icon}
+          <VStack flex={1}>
+            <HStack alignItems="baseline" space={2}>
+              {title}
+              {collapsed ? desc : null}
+            </HStack>
+            {subTitle}
+          </VStack>
+        </HStack>
+      ) : null,
+    [desc, icon, subTitle, title],
   );
 
   const contentView = (
@@ -65,11 +84,25 @@ export function TxDetailActionBox(props: ITxActionCardViewProps) {
     </>
   );
 
-  if (isCollapse) {
+  if (isCollapse && title) {
     return (
       <Collapse
         arrowPosition="right"
-        trigger={titleViewForCollapse}
+        renderCustomTrigger={(onPress, collapsed) => (
+          <Pressable
+            onPress={onPress}
+            p="8px"
+            _hover={{ bgColor: 'surface-hovered' }}
+            _pressed={{ bgColor: 'surface-pressed' }}
+          >
+            <HStack alignItems="center" justifyContent="space-between">
+              {titleViewForCollapse(collapsed)}
+              <MotiView animate={{ rotate: collapsed ? '0deg' : '90deg' }}>
+                <Icon name="ChevronRightMini" size={20} color="icon-subdued" />
+              </MotiView>
+            </HStack>
+          </Pressable>
+        )}
         triggerWrapperProps={{
           borderRadius: 0,
         }}

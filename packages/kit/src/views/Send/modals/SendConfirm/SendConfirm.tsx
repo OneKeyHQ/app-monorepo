@@ -389,6 +389,7 @@ function SendConfirm({
     <TxDetailView
       sendConfirmParamsParsed={sendConfirmParamsParsed}
       isSendConfirm
+      isSingleTransformMode
       decodedTx={decodedTx}
       feeInput={feeInput}
       advancedSettingsForm={advancedSettingsForm}

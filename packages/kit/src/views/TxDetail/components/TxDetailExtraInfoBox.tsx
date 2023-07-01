@@ -66,8 +66,14 @@ function checkIsValidHistoryTxId({
 
 // TODO rename ExtraInfoBox
 export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
-  const { decodedTx, historyTx, feeInput, isHistoryDetail, isSendConfirm } =
-    props;
+  const {
+    decodedTx,
+    historyTx,
+    feeInput,
+    isBatchSendConfirm,
+    isSendConfirm,
+    isHistoryDetail,
+  } = props;
   const { network } = useNetwork({ networkId: decodedTx.networkId });
   const details: ITxActionElementDetail[] = [];
   const intl = useIntl();
@@ -153,6 +159,7 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
   }
 
   if (!details.length) return null;
+  if (isBatchSendConfirm) return null;
 
   return (
     <Box>

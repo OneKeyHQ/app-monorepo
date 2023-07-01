@@ -6,7 +6,7 @@ import { Alert, Box, Spinner, ToastManager } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
-import { useAccountTokens, useActiveWalletAccount } from '../../../hooks';
+import { useActiveWalletAccount } from '../../../hooks';
 
 import type { ITxActionListViewProps } from '../types';
 
@@ -19,11 +19,10 @@ function TxDetailAddTokenBox(props: Props) {
   const { tokensInTx } = props;
 
   const [tokensNotInList, setTokensNotInList] = useState<Token[]>([]);
+  const [accountTokens, setAccountTokens] = useState<Token[]>([]);
   const [isAddingTokens, setIsAddingTokens] = useState(false);
 
   const { accountId, networkId } = useActiveWalletAccount();
-
-  const accountTokens = useAccountTokens(networkId, accountId);
 
   const handleAddToken = useCallback(async () => {
     if (isAddingTokens) return;
@@ -42,15 +41,17 @@ function TxDetailAddTokenBox(props: Props) {
     }
 
     if (addTokenSuccessed) {
+      const tokens = await backgroundApiProxy.engine.getTokens(
+        networkId,
+        accountId,
+      );
+      setAccountTokens(tokens);
+
       ToastManager.show({
         title: intl.formatMessage({
           id: 'msg__token_added',
           defaultMessage: 'Token Added',
         }),
-      });
-      await backgroundApiProxy.serviceToken.fetchAccountTokens({
-        accountId,
-        networkId,
       });
     }
 
@@ -63,8 +64,20 @@ function TxDetailAddTokenBox(props: Props) {
   );
 
   useEffect(() => {
+    const fetchAccountTokens = async () => {
+      const tokens = await backgroundApiProxy.engine.getTokens(
+        networkId,
+        accountId,
+      );
+      setAccountTokens(tokens);
+    };
+    fetchAccountTokens();
+  }, [accountId, networkId]);
+
+  useEffect(() => {
     const getTokensNotInList = () => {
       const tokens: Token[] = [];
+
       for (let i = 0, len = tokensInTx.length; i < len; i += 1) {
         const tokenInfo = tokensInTx[i];
         const isOwned = accountTokens.some(
@@ -79,7 +92,7 @@ function TxDetailAddTokenBox(props: Props) {
       setTokensNotInList(tokens);
     };
     getTokensNotInList();
-  }, [tokensInTx, accountTokens]);
+  }, [tokensInTx, setTokensNotInList, accountTokens]);
 
   if (!tokensNotInList || tokensNotInList.length === 0) return null;
 

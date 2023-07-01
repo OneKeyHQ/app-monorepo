@@ -1,6 +1,12 @@
+import { useCallback } from 'react';
+
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Alert, Box, Text } from '@onekeyhq/components';
+import { Alert, Box, Container, Text } from '@onekeyhq/components';
+
+import { useNetworkSimple } from '../../hooks';
+import { MAX_ACTIONS_DISPLAY_IN_CONFIRM } from '../Send/constants';
 
 import { TxDetailAdvanceInfoBox } from './components/TxDetailAdvanceInfoBox';
 import { TxDetailExtraInfoBox } from './components/TxDetailExtraInfoBox';
@@ -9,6 +15,8 @@ import { TxInteractInfo } from './components/TxInteractInfo';
 import { getReplacedTxAlertTextKeys } from './elements/TxActionElementReplacedTxText';
 import { TxActionsListView } from './TxActionsListView';
 import { TxDetailContextProvider } from './TxDetailContext';
+import { getTxActionMeta } from './utils/getTxActionMeta';
+import { getDisplayedActions } from './utils/utilsTxDetail';
 
 import type { ITxActionListViewProps } from './types';
 
@@ -18,14 +26,90 @@ export function TxDetailView(props: ITxActionListViewProps) {
     decodedTx,
     isHistoryDetail,
     isSendConfirm,
+    isBatchSendConfirm,
     sendConfirmParamsParsed,
     advancedSettingsForm,
+    transferAmount,
+    transformType = 'T1',
+    isSingleTransformMode,
   } = props;
   const replacedTxTextKeys = getReplacedTxAlertTextKeys({ historyTx });
+  const network = useNetworkSimple(decodedTx.networkId);
   const intl = useIntl();
-  // const actions = getDisplayedActions({ decodedTx });
-  // const isMultipleActions = actions.length > 1;
-  const isMultipleActions = true;
+
+  const displayedActions = getDisplayedActions({ decodedTx });
+
+  const isMultipleActions = displayedActions.length > 1;
+
+  const renderMultiActionsItem = useCallback(() => {
+    const actions = [];
+    const actionCount = displayedActions.length;
+    for (
+      let i = 0,
+        len = BigNumber.min(
+          actionCount,
+          MAX_ACTIONS_DISPLAY_IN_CONFIRM,
+        ).toNumber();
+      i < len;
+      i += 1
+    ) {
+      const action = displayedActions[i];
+      const metaInfo = getTxActionMeta({
+        action,
+        decodedTx,
+        intl,
+        historyTx: undefined,
+      });
+      metaInfo.meta.transferAmount = transferAmount;
+
+      const { meta, components } = metaInfo;
+      const TxActionComponent = components[transformType];
+
+      actions.push(
+        <Container.Item
+          wrap={
+            <TxActionComponent
+              {...metaInfo.props}
+              meta={meta}
+              network={network}
+            />
+          }
+          hidePadding
+          key={i}
+        />,
+      );
+    }
+
+    if (actionCount > MAX_ACTIONS_DISPLAY_IN_CONFIRM) {
+      actions.push(
+        <Text
+          typography="Body2Strong"
+          color="text-subdued"
+          paddingY={4}
+          textAlign="center"
+        >
+          {intl.formatMessage(
+            { id: 'action__str_more_actions' },
+            { count: actionCount - MAX_ACTIONS_DISPLAY_IN_CONFIRM },
+          )}
+        </Text>,
+      );
+    }
+
+    return actions;
+  }, [
+    decodedTx,
+    displayedActions,
+    intl,
+    network,
+    transferAmount,
+    transformType,
+  ]);
+
+  const shouldCollapseActions = isHistoryDetail
+    ? isMultipleActions
+    : !isSingleTransformMode || isMultipleActions;
+
   return (
     <>
       {replacedTxTextKeys && replacedTxTextKeys.length ? (
@@ -38,20 +122,13 @@ export function TxDetailView(props: ITxActionListViewProps) {
         </Box>
       ) : null}
 
-      {/* {isMultipleActions ? ( */}
-      {/*   <Box testID="TxDetailTopHeader" mb={6}> */}
-      {/*     <TxDetailTopHeader */}
-      {/*       showSubTitle={!!isHistoryDetail} */}
-      {/*       decodedTx={decodedTx} */}
-      {/*     /> */}
-      {/*   </Box> */}
-      {/* ) : null} */}
-
       <TxDetailContextProvider
-        isMultipleActions={isMultipleActions}
+        isMultipleActions
         isHistoryDetail={isHistoryDetail}
         isSendConfirm={isSendConfirm}
         sendConfirmParamsParsed={sendConfirmParamsParsed}
+        isCollapse={shouldCollapseActions}
+        isBatchSendConfirm={isBatchSendConfirm}
       >
         <>
           <TxTopInfoBox {...props} />
@@ -66,8 +143,8 @@ export function TxDetailView(props: ITxActionListViewProps) {
           <TxDetailExtraInfoBox {...props} />
           <TxDetailAdvanceInfoBox {...props} />
           {advancedSettingsForm}
-          {isMultipleActions ? <Box h={6} /> : <Box h={8} />}
-          <Box>
+
+          <Box mt={isSingleTransformMode || isHistoryDetail ? 6 : 0} flex={1}>
             {isSendConfirm ? null : (
               <Text
                 typography="Subheading"
@@ -78,7 +155,19 @@ export function TxDetailView(props: ITxActionListViewProps) {
                 {intl.formatMessage({ id: 'form__transaction' })}
               </Text>
             )}
-            <TxActionsListView {...props} transformType="T1" space={6} />
+
+            {shouldCollapseActions ? (
+              <Container.Box
+                p="0"
+                borderWidth={1}
+                borderColor="border-subdued"
+                flex={1}
+              >
+                {renderMultiActionsItem()}
+              </Container.Box>
+            ) : (
+              <TxActionsListView {...props} transformType="T1" space={6} />
+            )}
           </Box>
         </>
       </TxDetailContextProvider>

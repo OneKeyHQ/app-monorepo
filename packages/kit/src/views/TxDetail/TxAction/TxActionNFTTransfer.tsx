@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { HStack, Icon, ListItem, Text } from '@onekeyhq/components';
+import { Icon, ListItem, Text } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import type { IDecodedTxAction } from '@onekeyhq/engine/src/vaults/types';
 import {
@@ -25,11 +25,7 @@ import {
   TxActionAmountMetaDataWithDirection,
   TxActionElementAmountNormal,
 } from '../elements/TxActionElementAmount';
-import {
-  TxActionElementTitleHeading,
-  TxActionElementTitleNormal,
-} from '../elements/TxActionElementTitle';
-import { useTxDetailContext } from '../TxDetailContext';
+import { TxActionElementTitleHeading } from '../elements/TxActionElementTitle';
 
 import type {
   ITxActionCardProps,
@@ -165,8 +161,6 @@ export function TxActionNFTTransfer(props: ITxActionCardProps) {
   const { meta, network } = props;
   const intl = useIntl();
   const { symbol, send, receive, isOut, asset } = getTxActionNFTInfo(props);
-  const detailContext = useTxDetailContext();
-  const isCollapse = detailContext?.context.isCollapse;
   const navigation = useNavigation();
 
   const details: ITxActionElementDetail[] = [
@@ -188,24 +182,19 @@ export function TxActionNFTTransfer(props: ITxActionCardProps) {
     },
   ];
 
-  let titleView = <TxActionElementTitleHeading titleInfo={meta?.titleInfo} />;
+  const titleView = <TxActionElementTitleHeading titleInfo={meta?.titleInfo} />;
 
-  if (isCollapse) {
-    titleView = (
-      <HStack space={2} alignItems="center" flex={1}>
-        <TxActionElementTitleNormal titleInfo={meta?.titleInfo} />
-        <Text
-          typography="Body1Strong"
-          color="text-subdued"
-          flexWrap="nowrap"
-          ellipsizeMode="middle"
-          numberOfLines={1}
-        >
-          {symbol}
-        </Text>
-      </HStack>
-    );
-  }
+  const descView = (
+    <Text
+      typography="Body2Strong"
+      color="text-subdued"
+      flexWrap="nowrap"
+      ellipsizeMode="middle"
+      numberOfLines={1}
+    >
+      {symbol}
+    </Text>
+  );
 
   return (
     <TxDetailActionBox
@@ -215,6 +204,7 @@ export function TxActionNFTTransfer(props: ITxActionCardProps) {
         ) : undefined
       }
       title={titleView}
+      desc={descView}
       content={
         <ListItem
           px={0}
