@@ -17,6 +17,7 @@ import { useDisableNavigationAnimation } from '../../../../hooks/useDisableNavig
 import { useOnboardingRequired } from '../../../../hooks/useOnboardingRequired';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { BulkSenderTypeEnum } from '../../../BulkSender/types';
+import { TxDetailView } from '../../../TxDetail/TxDetailView';
 import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModalBase';
 import { BatchSendTokenInfo } from '../../components/BatchSendTokenInfo';
 import { BatchTransactionFeeInfo } from '../../components/BatchTransactionFeeInfo';
@@ -37,7 +38,6 @@ import type {
   SendFeedbackReceiptParams,
 } from '../../types';
 import type { useBatchSendConfirmRouteParamsParsed } from '../../utils/useBatchSendConfirmRouteParamsParsed';
-import { TxDetailView } from '../../../TxDetail/TxDetailView';
 
 interface Props {
   batchSendConfirmParamsParsed: ReturnType<
