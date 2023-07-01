@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { getPublicKey, schnorr } from '@noble/secp256k1';
+import { schnorr } from '@noble/secp256k1';
 import { InvalidAddressError } from 'bchaddrjs';
 import BN from 'bn.js';
 
@@ -158,7 +158,7 @@ export async function signEncodedTx(
   signer: Signer,
 ): Promise<ISignedTxPro> {
   const privateKey = await signer.getPrvkey();
-  const publicKey = Buffer.from(getPublicKey(privateKey, true));
+  const publicKey = await signer.getPubkey(true);
   const scriptPushPublicKey = converToScriptPushBuffer(publicKey);
   const signHash = hash160(scriptPushPublicKey);
   console.error('signHash', signHash.toString('hex'));
@@ -242,13 +242,16 @@ export async function signEncodedTx(
     // sighashType
     writeUInt8(0),
   ]);
-
   const ret = reverseBuffer(sha256sha256(signatureBuffer));
+  console.log('sighashForNexa--privateKey', privateKey.toString('hex'));
   console.log('sighashForNexa--ret', ret.toString('hex'));
+  // console.log(
+  //   'sighashForNexa--ret--reverseBuffer',
+  //   reverseBuffer(ret).toString('hex'),
+  // );
   const signature = await schnorr.sign(
-    new Uint8Array(reverseBuffer(ret)),
-    // new Uint8Array(privateKey),
-    '55a8021920dcc897b189bd8c1bd40205c977dd2068b880fc94f984eaf3db40ef',
+    reverseBuffer(ret).toString('hex'),
+    privateKey.toString('hex'),
   );
   console.log('signature', Buffer.from(signature).toString('hex'));
   const inputSignatures = inputs.map((input, index) => ({
