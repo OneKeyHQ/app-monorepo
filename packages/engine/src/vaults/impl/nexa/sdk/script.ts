@@ -1,6 +1,8 @@
 /* eslint-disable no-bitwise */
 import BN from 'bn.js';
 
+import { decode } from './address';
+
 export enum Opcode {
   OP_FALSE = 0,
   OP_0 = 0,
@@ -340,7 +342,13 @@ function readVarintNum(buffer: Buffer): { position: number; length: number } {
   };
 }
 
-export function readVarLengthBuffer(buffer: Buffer): Buffer {
+function readVarLengthBuffer(buffer: Buffer): Buffer {
   const { position, length } = readVarintNum(buffer);
   return buffer.slice(position, length + position);
+}
+
+export function getScriptBufferFromScriptTemplateOut(address: string) {
+  const { hash } = decode(address);
+  // buildScriptTemplateOut: scriptBuffer
+  return readVarLengthBuffer(Buffer.from(hash));
 }

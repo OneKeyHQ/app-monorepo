@@ -11,8 +11,10 @@ import {
   bufferToScripChunk,
   decode,
   encode,
-  readVarLengthBuffer,
+  getScriptBufferFromScriptTemplateOut,
+  reverseBuffer,
   scriptChunksToBuffer,
+  sign,
   varintBufNum,
   writeUInt32LE,
   writeUInt64LEBN,
@@ -115,15 +117,6 @@ enum NexaSignature {
   SIGHASH_ANYONECANPAY = 0x80,
 }
 
-function reverseBuffer(buffer: Buffer): Buffer {
-  const { length } = buffer;
-  const reversed = Buffer.alloc(length);
-  for (let i = 0; i < length; i += 1) {
-    reversed[i] = buffer[length - i - 1];
-  }
-  return reversed;
-}
-
 function sha256sha256(buffer: Buffer): Buffer {
   return sha256(sha256(buffer));
 }
@@ -141,8 +134,7 @@ function estimateFee(encodedTx: IEncodedTxNexa, available: number): number {
     estimatedSize += 1 + 32 + 1 + 100 + 4 + 8;
   });
   encodedTx.outputs.forEach((output) => {
-    const { hash } = decode(output.address);
-    const bfr = readVarLengthBuffer(Buffer.from(hash));
+    const bfr = getScriptBufferFromScriptTemplateOut(output.address);
     estimatedSize += converToScriptPushBuffer(bfr).length + 1 + 8 + 1;
   });
   // const feeRate = this._feePerByte || (this._feePerKb || Transaction.FEE_PER_KB) / 1000
@@ -191,7 +183,10 @@ export async function signEncodedTx(
   const inputAmountHash = sha256sha256(inputAmountBuffer);
   console.log('inputAmountHash', inputAmountHash.toString('hex'));
 
-  const inputAmount = inputs.reduce((acc, input) => acc + input.satoshis, 0);
+  const inputAmount: number = inputs.reduce(
+    (acc, input) => acc + input.satoshis,
+    0,
+  );
   const outputAmount = outputs.reduce(
     (acc, output) => acc + Number(output.fee),
     0,
@@ -206,9 +201,9 @@ export async function signEncodedTx(
   });
 
   const outputBuffer = Buffer.concat(
+    // scriptBuffer
     outputs.map((output) => {
-      const { hash } = decode(output.address);
-      const bfr = readVarLengthBuffer(Buffer.from(hash));
+      const bfr = getScriptBufferFromScriptTemplateOut(output.address);
       return Buffer.concat([
         // 1: p2pkt outType
         writeUInt8(1),
@@ -245,23 +240,18 @@ export async function signEncodedTx(
   const ret = reverseBuffer(sha256sha256(signatureBuffer));
   console.log('sighashForNexa--privateKey', privateKey.toString('hex'));
   console.log('sighashForNexa--ret', ret.toString('hex'));
-  // console.log(
-  //   'sighashForNexa--ret--reverseBuffer',
-  //   reverseBuffer(ret).toString('hex'),
-  // );
-  const signature = await schnorr.sign(
-    reverseBuffer(ret).toString('hex'),
-    privateKey.toString('hex'),
-  );
+  const signature = sign(privateKey, ret);
   console.log('signature', Buffer.from(signature).toString('hex'));
   const inputSignatures = inputs.map((input, index) => ({
     publicKey: publicKey.toString('hex'),
     prevTxId: input.txId,
     outputIndex: input.outputIndex,
     inputIndex: index,
-    // signature,
+    signature,
     sigtype: NexaSignature.SIGHASH_NEXA_ALL,
   }));
+
+  // const txid = buildTxid(inputSignatures);
 
   console.error(inputSignatures);
   return {
