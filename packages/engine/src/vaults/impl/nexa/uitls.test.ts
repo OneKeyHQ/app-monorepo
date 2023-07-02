@@ -55,7 +55,7 @@ describe('Nexa Utils Tests', () => {
                 'outType': 1,
               },
             ],
-            'totalFee': '50',
+            'totalFee': undefined,
             'transferInfo': {
               'from':
                 'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
@@ -107,7 +107,7 @@ describe('Nexa Utils Tests', () => {
               'outType': 1,
             },
           ],
-          'totalFee': '50',
+          'totalFee': undefined,
           'transferInfo': {
             'from': 'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
             'to': 'nexatest:nqtsq5g5wud2fr7l32as0mfzms3hwnz7dxvsc2h8szatr5p8',
@@ -176,7 +176,7 @@ describe('Nexa Utils Tests', () => {
                 'outType': 1,
               },
             ],
-            'totalFee': '50',
+            'totalFee': undefined,
             'transferInfo': {
               'from':
                 'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
@@ -212,7 +212,7 @@ describe('Nexa Utils Tests', () => {
               'outType': 1,
             },
           ],
-          'totalFee': '50',
+          'totalFee': undefined,
           'transferInfo': {
             'from': 'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
             'to': 'nexatest:nqtsq5g5wud2fr7l32as0mfzms3hwnz7dxvsc2h8szatr5p8',

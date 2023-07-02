@@ -14,7 +14,7 @@ export type IEncodedTxNexa = {
     fee: string;
     outType: number;
   }>;
-  totalFee: string;
+  totalFee?: string;
   totalFeeInNative?: string;
   transferInfo?: ITransferInfo;
 };

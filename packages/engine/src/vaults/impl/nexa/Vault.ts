@@ -244,10 +244,8 @@ export default class Vault extends VaultBase {
       nativeDecimals: network.decimals,
       feeSymbol: network.feeSymbol,
       feeDecimals: network.feeDecimals,
-      limit: new BigNumber(feeInfo.toString())
-        .shiftedBy(-network.decimals)
-        .toFixed(),
-      prices: ['1'],
+      limit: new BigNumber(feeInfo.toString()).toFixed(),
+      prices: [new BigNumber(1).shiftedBy(-network.decimals).toFixed()],
       defaultPresetIndex: '1',
       tx: null,
     };

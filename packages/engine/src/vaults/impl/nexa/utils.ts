@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { schnorr } from '@noble/secp256k1';
 import { InvalidAddressError } from 'bchaddrjs';
 import BN from 'bn.js';
 
@@ -269,7 +268,7 @@ export async function signEncodedTx(
   const scriptPushPublicKey = converToScriptPushBuffer(publicKey);
   const signHash = hash160(scriptPushPublicKey);
   const { encodedTx } = unsignedTx;
-  const { inputs, outputs } = encodedTx as IEncodedTxNexa;
+  const { inputs, outputs, totalFee } = encodedTx as IEncodedTxNexa;
   const newOutputs = outputs.slice();
   const prevoutsBuffer = Buffer.concat(
     inputs.map((input) =>
@@ -302,7 +301,10 @@ export async function signEncodedTx(
     0,
   );
   const available = inputAmount - outputAmount * 100;
-  const fee = estimateFee(encodedTx as IEncodedTxNexa);
+
+  const fee = totalFee
+    ? Number(totalFee) * 100
+    : estimateFee(encodedTx as IEncodedTxNexa);
 
   // change address
   newOutputs.push({
