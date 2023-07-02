@@ -59,7 +59,7 @@ export class KeyringHd extends KeyringHdBase {
     const signer = await this.getSigner(options, {
       address: dbAccount.address,
     });
-    const { encodedTx } = unsignedTx;
+    // const { encodedTx } = unsignedTx;
     // const privateKey = new PrivateKey(
     //   (await signer.getPrvkey()).toString('hex'),
     // );

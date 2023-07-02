@@ -1,4 +1,4 @@
-import { Networks, PrivateKey, Transaction, crypto } from 'nexcore-lib';
+// import { Networks, PrivateKey, Transaction, crypto } from 'nexcore-lib';
 
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -81,31 +81,8 @@ export class KeyringImported extends KeyringImportedBase {
     const dbAccount = await this.getDbAccount();
 
     const signer = await this.getSigner(options, dbAccount);
-    Networks.defaultNetwork = Networks.get('nexatest');
-    const privateKey = new PrivateKey(
-      (await signer.getPrvkey()).toString('hex'),
-    );
-    const transaction = new Transaction()
-      .from(encodedTx.inputs)
-      // p2pkt: 1
-      .to(
-        encodedTx.outputs[0].address,
-        Number(encodedTx.outputs[0].fee) * 100,
-        1,
-      )
-      .change(dbAccount.address)
-      // .lockUntilBlockHeight(nonce.height + 10)
-      .sign(privateKey, crypto.Signature.SIGHASH_NEXA_ALL);
-    const tx = transaction.toJSON();
-    const obj = {
-      txid: tx.hash,
-      rawTx: transaction.serialize(),
-      encodedTx,
-    };
     const result = await signEncodedTx(unsignedTx, signer, dbAccount);
-    console.log(result.rawTx === obj.rawTx);
     return result;
-    // return signEncodedTx(unsignedTx, signer);
   }
 
   override signMessage(messages: any[], options: ISignCredentialOptions): any {

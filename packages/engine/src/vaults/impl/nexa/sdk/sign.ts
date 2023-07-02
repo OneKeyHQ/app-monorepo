@@ -72,12 +72,12 @@ function isSquare(x: BN): boolean {
   );
   const x0 = new BN(x);
   const base = x0.toRed(BN.red(p));
-  const res = base.redPow(p.sub(BN.One).div(new BN(2))).fromRed(); // refactor to BN arithmetic operations
+  const res = base.redPow(p.sub(new BN(1)).div(new BN(2))).fromRed(); // refactor to BN arithmetic operations
   return res.eq(new BN(1));
 }
 
 function hasSquare(point: curve.base.BasePoint): boolean {
-  return point.isInfinity() && isSquare(new BN(point.getY().toArray()));
+  return !point.isInfinity() && isSquare(new BN(point.getY().toArray()));
 }
 
 function getrBuffer(r: BN): Buffer {

@@ -24,9 +24,9 @@ import {
 import { type IEncodedTxNexa, NexaSignature } from './types';
 
 import type { Signer } from '../../../proxy';
+import type { DBAccount } from '../../../types/account';
 import type { ISignedTxPro, IUnsignedTxPro } from '../../types';
 import type { INexaInputSignature, INexaOutputSignature } from './types';
-import { DBAccount } from '../../../types/account';
 
 export function verifyNexaAddress(address: string) {
   try {
@@ -203,7 +203,6 @@ function buildRawTx(
     ),
   );
   const outputIdem = Buffer.concat(outputSignatures.map(buildOutputIdem));
-
   const idemBuffer = Buffer.concat([
     // Transaction version
     writeUInt8(0),
@@ -263,10 +262,9 @@ export async function signEncodedTx(
   const publicKey = await signer.getPubkey(true);
   const scriptPushPublicKey = converToScriptPushBuffer(publicKey);
   const signHash = hash160(scriptPushPublicKey);
-
   const { encodedTx } = unsignedTx;
   const { inputs, outputs } = encodedTx as IEncodedTxNexa;
-
+  const newOutputs = outputs.slice();
   const prevoutsBuffer = Buffer.concat(
     inputs.map((input) =>
       Buffer.concat([
@@ -293,7 +291,7 @@ export async function signEncodedTx(
     (acc, input) => acc + input.satoshis,
     0,
   );
-  const outputAmount = outputs.reduce(
+  const outputAmount = newOutputs.reduce(
     (acc, output) => acc + Number(output.fee),
     0,
   );
@@ -301,13 +299,13 @@ export async function signEncodedTx(
   const fee = estimateFee(encodedTx as IEncodedTxNexa, available);
 
   // change address
-  outputs.push({
+  newOutputs.push({
     address: dbAccount.address,
     fee: String((available - fee) / 100),
     outType: 1,
   });
 
-  const outputSignatures: INexaOutputSignature[] = outputs.map((output) => ({
+  const outputSignatures: INexaOutputSignature[] = newOutputs.map((output) => ({
     address: output.address,
     satoshi: new BN(Number(output.fee) * 100),
     outType: 1,
