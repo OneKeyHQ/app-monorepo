@@ -271,7 +271,7 @@ export async function signEncodedTx(
   const scriptPushPublicKey = convertScriptToPushBuffer(publicKey);
   const signHash = hash160(scriptPushPublicKey);
   const { encodedTx } = unsignedTx;
-  const { inputs, outputs, totalFee } = encodedTx as IEncodedTxNexa;
+  const { inputs, outputs, gas } = encodedTx as IEncodedTxNexa;
   const newOutputs = outputs.slice();
   const prevoutsBuffer = Buffer.concat(
     inputs.map((input) =>
@@ -305,9 +305,7 @@ export async function signEncodedTx(
   );
   const available = inputAmount - outputAmount * 100;
 
-  const fee = totalFee
-    ? Number(totalFee) * 100
-    : estimateFee(encodedTx as IEncodedTxNexa);
+  const fee = gas ? Number(gas) : estimateFee(encodedTx as IEncodedTxNexa);
 
   // change address
   newOutputs.push({

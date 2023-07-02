@@ -127,16 +127,20 @@ export default class Vault extends VaultBase {
     );
   }
 
-  override attachFeeInfoToEncodedTx(params: {
+  override async attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTxNexa;
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTx> {
     console.log(params);
     const { limit, price } = params.feeInfoValue;
     if (limit && price) {
-      params.encodedTx.totalFee = String(Number(limit) * Number(price));
+      const network = await this.getNetwork();
+      params.encodedTx.gas = new BigNumber(limit)
+        .multipliedBy(price)
+        .multipliedBy(new BigNumber(10).pow(network.decimals))
+        .toFixed();
     }
-    return Promise.resolve(params.encodedTx);
+    return params.encodedTx;
   }
 
   override async decodeTx(
@@ -193,7 +197,6 @@ export default class Vault extends VaultBase {
           outType: 1,
         },
       ],
-      totalFee: transferInfo.amount,
       transferInfo,
     };
   }
