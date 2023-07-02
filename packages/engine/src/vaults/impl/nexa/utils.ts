@@ -206,11 +206,11 @@ function buildTxid(
 
   const satisfierHash = sha256sha256(satisfierBuffer);
   console.error('satisfierHash---', satisfierHash.toString('hex'));
-  const idHash = reverseBuffer(
+  const txIdHash = reverseBuffer(
     sha256sha256(Buffer.concat([idemHash, satisfierHash])),
   ).toString('hex');
-  console.error('idHash---', idHash);
-  return idHash;
+  console.error('txIdHash---', txIdHash);
+  return txIdHash;
 }
 
 // signed by 'schnorr'
@@ -331,9 +331,8 @@ export async function signEncodedTx(
 
   const txid = buildTxid(inputSignatures, outputSignatures);
 
-  console.error(inputSignatures);
   return {
-    txid: '',
+    txid,
     rawTx: '',
     encodedTx: unsignedTx.encodedTx,
   };
