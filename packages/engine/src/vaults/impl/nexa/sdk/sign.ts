@@ -8,11 +8,12 @@ import type { curve } from 'elliptic';
 const EC = elliptic.ec;
 const ec = new EC('secp256k1');
 
-export function reverseBuffer(buffer: Buffer): Buffer {
-  const { length } = buffer;
+export function reverseBuffer(buffer: Buffer | string): Buffer {
+  const buf = typeof buffer === 'string' ? Buffer.from(buffer, 'hex') : buffer;
+  const { length } = buf;
   const reversed = Buffer.alloc(length);
   for (let i = 0; i < length; i += 1) {
-    reversed[i] = buffer[length - i - 1];
+    reversed[i] = buf[length - i - 1];
   }
   return reversed;
 }

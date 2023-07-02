@@ -213,6 +213,12 @@ export function writeUInt32LE(n: number) {
   return buf;
 }
 
+export function writeInt32LE(n: number) {
+  const buf = Buffer.alloc(4);
+  buf.writeInt32LE(n, 0);
+  return buf;
+}
+
 export function writeUInt64LEBN(bigNumber: BN) {
   return bigNumber.toBuffer('le', 8);
 }

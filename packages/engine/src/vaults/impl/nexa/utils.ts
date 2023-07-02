@@ -16,14 +16,16 @@ import {
   scriptChunksToBuffer,
   sign,
   varintBufNum,
+  writeInt32LE,
   writeUInt32LE,
   writeUInt64LEBN,
   writeUInt8,
 } from './sdk';
+import { type IEncodedTxNexa, NexaSignature } from './types';
 
 import type { Signer } from '../../../proxy';
 import type { ISignedTxPro, IUnsignedTxPro } from '../../types';
-import type { IEncodedTxNexa } from './types';
+import type { INexaInputSignature, INexaOutputSignature } from './types';
 
 export function verifyNexaAddress(address: string) {
   try {
@@ -108,15 +110,6 @@ export function publickeyToAddress(
   return encode(network.prefix, type, hashBuffer);
 }
 
-enum NexaSignature {
-  SIGHASH_NEXA_ALL = 0x00,
-  SIGHASH_ALL = 0x01,
-  SIGHASH_NONE = 0x02,
-  SIGHASH_SINGLE = 0x03,
-  SIGHASH_FORKID = 0x40,
-  SIGHASH_ANYONECANPAY = 0x80,
-}
-
 function sha256sha256(buffer: Buffer): Buffer {
   return sha256(sha256(buffer));
 }
@@ -144,6 +137,82 @@ function estimateFee(encodedTx: IEncodedTxNexa, available: number): number {
   );
   return feeWithChange;
 }
+
+function buildInputScriptBuffer(publicKey: Buffer, signature: Buffer) {
+  const scriptBuffer = scriptChunksToBuffer([
+    bufferToScripChunk(scriptChunksToBuffer([bufferToScripChunk(publicKey)])),
+    bufferToScripChunk(signature),
+  ]);
+  return scriptBuffer;
+}
+
+function buildInputIdem({
+  sigtype,
+  prevTxId,
+  scriptBuffer,
+  sequenceNumber,
+  amount,
+}: INexaInputSignature): Buffer {
+  return Buffer.concat([
+    writeUInt8(sigtype),
+    reverseBuffer(prevTxId),
+    writeUInt32LE(sequenceNumber),
+    writeUInt64LEBN(amount),
+  ]);
+}
+
+function buildOutputIdem({
+  outType,
+  satoshi,
+  scriptBuffer,
+}: INexaOutputSignature): Buffer {
+  return Buffer.concat([
+    writeUInt8(outType),
+    writeUInt64LEBN(satoshi),
+    varintBufNum(scriptBuffer.length),
+    scriptBuffer,
+  ]);
+}
+
+function buildTxid(
+  inputSignatures: INexaInputSignature[],
+  outputSignatures: INexaOutputSignature[],
+  nLockTime = 0,
+): string {
+  // build input Idem buffer
+  const inputIdem = Buffer.concat(inputSignatures.map(buildInputIdem));
+  const outputIdem = Buffer.concat(outputSignatures.map(buildOutputIdem));
+
+  const idemBuffer = Buffer.concat([
+    // Transaction version
+    writeUInt8(0),
+    varintBufNum(inputSignatures.length),
+    inputIdem,
+    varintBufNum(outputSignatures.length),
+    outputIdem,
+    writeUInt32LE(nLockTime),
+  ]);
+  const idemHash = sha256sha256(idemBuffer);
+  console.error('idemHash---', idemHash.toString('hex'));
+
+  const satisfierBuffer = Buffer.concat([
+    writeInt32LE(inputSignatures.length),
+    Buffer.concat(
+      inputSignatures.map(({ scriptBuffer }) =>
+        Buffer.concat([scriptBuffer, writeUInt8(Opcode.OP_INVALIDOPCODE)]),
+      ),
+    ),
+  ]);
+
+  const satisfierHash = sha256sha256(satisfierBuffer);
+  console.error('satisfierHash---', satisfierHash.toString('hex'));
+  const idHash = reverseBuffer(
+    sha256sha256(Buffer.concat([idemHash, satisfierHash])),
+  ).toString('hex');
+  console.error('idHash---', idHash);
+  return idHash;
+}
+
 // signed by 'schnorr'
 export async function signEncodedTx(
   unsignedTx: IUnsignedTxPro,
@@ -200,9 +269,9 @@ export async function signEncodedTx(
     outType: 1,
   });
 
-  const outputSignatures = outputs.map((output) => ({
+  const outputSignatures: INexaOutputSignature[] = outputs.map((output) => ({
     address: output.address,
-    satoshi: Number(output.fee) * 100,
+    satoshi: new BN(Number(output.fee) * 100),
     outType: 1,
     scriptBuffer: getScriptBufferFromScriptTemplateOut(output.address),
   }));
@@ -248,16 +317,19 @@ export async function signEncodedTx(
   console.log('sighashForNexa--ret', ret.toString('hex'));
   const signature = sign(privateKey, ret);
   console.log('signature', Buffer.from(signature).toString('hex'));
-  const inputSignatures = inputs.map((input, index) => ({
-    publicKey: publicKey.toString('hex'),
+  const inputSignatures: INexaInputSignature[] = inputs.map((input, index) => ({
+    publicKey,
     prevTxId: input.txId,
     outputIndex: input.outputIndex,
     inputIndex: index,
     signature,
+    sequenceNumber: input.sequenceNumber || DEFAULT_SEQNUMBER,
+    amount: new BN(input.satoshis),
     sigtype: NexaSignature.SIGHASH_NEXA_ALL,
+    scriptBuffer: buildInputScriptBuffer(publicKey, signature),
   }));
 
-  // const txid = buildTxid(inputSignatures);
+  const txid = buildTxid(inputSignatures, outputSignatures);
 
   console.error(inputSignatures);
   return {
