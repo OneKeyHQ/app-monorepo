@@ -7,7 +7,7 @@ import { OneKeyInternalError } from '../../../../errors';
 import { Signer } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
-import { publickeyToAddress } from '../utils';
+import { publickeyToAddress, signEncodedTx } from '../utils';
 
 import type { DBSimpleAccount } from '../../../../types/account';
 import type {
@@ -77,32 +77,32 @@ export class KeyringImported extends KeyringImportedBase {
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<ISignedTxPro> {
-    const { encodedTx } = unsignedTx;
     const dbAccount = await this.getDbAccount();
 
     const signer = await this.getSigner(options, dbAccount);
     console.log('__privateKey', (await signer.getPrvkey()).toString('hex'));
-    Networks.defaultNetwork = Networks.get('nexatest');
-    const privateKey = new PrivateKey(
-      (await signer.getPrvkey()).toString('hex'),
-    );
-    const transaction = new Transaction()
-      .from(encodedTx.inputs)
-      // p2pkt: 1
-      .to(
-        encodedTx.outputs[0].address,
-        Number(encodedTx.outputs[0].fee) * 100,
-        1,
-      )
-      .change(encodedTx.inputs[0].address)
-      // .lockUntilBlockHeight(nonce.height + 10)
-      .sign(privateKey, crypto.Signature.SIGHASH_NEXA_ALL);
-    const tx = transaction.toJSON();
-    return {
-      txid: tx.hash,
-      rawTx: transaction.serialize(),
-      encodedTx,
-    };
+    // Networks.defaultNetwork = Networks.get('nexatest');
+    // const privateKey = new PrivateKey(
+    //   (await signer.getPrvkey()).toString('hex'),
+    // );
+    // const transaction = new Transaction()
+    //   .from(encodedTx.inputs)
+    //   // p2pkt: 1
+    //   .to(
+    //     encodedTx.outputs[0].address,
+    //     Number(encodedTx.outputs[0].fee) * 100,
+    //     1,
+    //   )
+    //   .change(encodedTx.inputs[0].address)
+    //   // .lockUntilBlockHeight(nonce.height + 10)
+    //   .sign(privateKey, crypto.Signature.SIGHASH_NEXA_ALL);
+    // const tx = transaction.toJSON();
+    // return {
+    //   txid: tx.hash,
+    //   rawTx: transaction.serialize(),
+    //   encodedTx,
+    // };
+    return signEncodedTx(unsignedTx, signer);
   }
 
   override signMessage(messages: any[], options: ISignCredentialOptions): any {

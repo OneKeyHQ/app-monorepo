@@ -314,15 +314,15 @@ function readUInt64LEBN(
 
 function readVarintNum(buffer: Buffer): { position: number; length: number } {
   let position = 0;
-  let length = buffer.readUInt8();
+  let length = buffer.readUInt8(0);
   position += 1;
   switch (length) {
     case 0xfd:
-      length = buffer.readUInt16LE();
+      length = buffer.readUInt16LE(0);
       position += 2;
       break;
     case 0xfe:
-      length = buffer.readUInt32LE();
+      length = buffer.readUInt32LE(0);
       position += 4;
       break;
     case 0xff:

@@ -69,7 +69,6 @@ export async function testSignTransaction(
   const signedTx = await keyring.signTransaction(unsignedTx, {
     password,
   });
-  // const transaction = new Transaction(signedTx.rawTx);
 
   const signers = await keyring.getSigners(password || '', [dbAccount.address]);
   const signer = signers[dbAccount.address];

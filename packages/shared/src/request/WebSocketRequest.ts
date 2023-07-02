@@ -30,6 +30,15 @@ const socketsMap = new Map<string, WebSocket>();
 
 const callbackMap = new Map<string, (result: any) => void>();
 
+interface IJsonRpcResponse {
+  error?: {
+    code: number;
+    message: string;
+  };
+  result?: unknown;
+  id: string;
+}
+
 export class WebSocketRequest {
   readonly url: string;
 
@@ -88,7 +97,7 @@ export class WebSocketRequest {
       };
 
       newSocket.onmessage = (message) => {
-        const { id, result } = JSON.parse(message.data) as {
+        const { id, result } = this.parseRPCResponse(message.data) as {
           id: string;
           result: any;
         };
@@ -109,24 +118,21 @@ export class WebSocketRequest {
     }
   }
 
-  private static parseRPCResponse<T>(
-    response: IJsonRpcResponsePro<T>,
-  ): Promise<T> {
-    if (typeof response !== 'object') {
+  parseRPCResponse(message: string): IJsonRpcResponse {
+    let response: IJsonRpcResponse;
+    try {
+      response = JSON.parse(message) as IJsonRpcResponse;
+    } catch {
       throw new ResponseError(
-        'Invalid JSON RPC response, typeof response should be an object',
-        response,
-      );
-    } else if (response.error) {
-      throw new JsonPRCResponseError('Error JSON PRC response', response);
-    } else if (!('result' in response)) {
-      throw new ResponseError(
-        'Invalid JSON RPC response, result not found',
-        response,
+        `Invalid JSON RPC response, result not found: ${message}`,
       );
     }
-
-    return Promise.resolve(response.result as T);
+    if (response.error) {
+      throw new JsonPRCResponseError(
+        `Error JSON PRC response ${response.error.code}: ${response.error.message}`,
+      );
+    }
+    return response;
   }
 
   async refreshConnectionStatus(): Promise<WebSocket> {

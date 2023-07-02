@@ -61,7 +61,6 @@ export class KeyringHd extends KeyringHdBase {
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<ISignedTxPro> {
-    const { encodedTx } = unsignedTx;
     const dbAccount = await this.getDbAccount();
     const signer = await this.getSigner(options, {
       address: dbAccount.address,
