@@ -1,5 +1,3 @@
-// import { Networks, PrivateKey, Transaction, crypto } from 'nexcore-lib';
-
 import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -77,9 +75,7 @@ export class KeyringImported extends KeyringImportedBase {
     unsignedTx: IUnsignedTxPro,
     options: ISignCredentialOptions,
   ): Promise<ISignedTxPro> {
-    const { encodedTx } = unsignedTx;
     const dbAccount = await this.getDbAccount();
-
     const signer = await this.getSigner(options, dbAccount);
     const result = await signEncodedTx(unsignedTx, signer, dbAccount);
     return result;

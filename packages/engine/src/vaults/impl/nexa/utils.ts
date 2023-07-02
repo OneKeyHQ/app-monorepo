@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { InvalidAddressError } from 'bchaddrjs';
 import BN from 'bn.js';
 
+import { InvalidAddress } from '../../../errors';
 import { hash160, sha256 } from '../../../secret/hash';
 
 import {
@@ -105,7 +105,7 @@ export function publickeyToAddress(
       bufferToScripChunk(scriptChunksToBuffer(chunks)),
     ]);
   } else {
-    throw new InvalidAddressError();
+    throw new InvalidAddress();
   }
   return encode(network.prefix, type, hashBuffer);
 }

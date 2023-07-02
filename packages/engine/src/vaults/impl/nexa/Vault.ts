@@ -1,11 +1,8 @@
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
-import { Networks, Transaction } from 'nexcore-lib';
+import { Transaction } from 'nexcore-lib';
 
-import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
-import { COINTYPE_NEXA } from '@onekeyhq/shared/src/engine/engineConsts';
-
-import { InvalidAddress, OneKeyInternalError } from '../../../errors';
+import { InvalidAddress } from '../../../errors';
 import {
   type IApproveInfo,
   type IClientEndpointStatus,

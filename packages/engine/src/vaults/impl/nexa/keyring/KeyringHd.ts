@@ -1,5 +1,3 @@
-// import { Networks, PrivateKey, Transaction, crypto } from 'nexcore-lib';
-
 import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../../errors';
@@ -59,29 +57,7 @@ export class KeyringHd extends KeyringHdBase {
     const signer = await this.getSigner(options, {
       address: dbAccount.address,
     });
-    // const { encodedTx } = unsignedTx;
-    // const privateKey = new PrivateKey(
-    //   (await signer.getPrvkey()).toString('hex'),
-    // );
-    // const transaction = new Transaction()
-    //   .from(encodedTx.inputs)
-    //   // p2pkt: 1
-    //   .to(
-    //     encodedTx.outputs[0].address,
-    //     Number(encodedTx.outputs[0].fee) * 100,
-    //     1,
-    //   )
-    //   .change(dbAccount.address)
-    //   // .lockUntilBlockHeight(nonce.height + 10)
-    //   .sign(privateKey, crypto.Signature.SIGHASH_NEXA_ALL);
-    // const tx = transaction.toJSON();
-    // const obj = {
-    //   txid: tx.hash,
-    //   rawTx: transaction.serialize(),
-    //   encodedTx,
-    // };
     const result = await signEncodedTx(unsignedTx, signer, dbAccount);
-    // console.log(obj.rawTx === result.rawTx);
     return result;
   }
 
