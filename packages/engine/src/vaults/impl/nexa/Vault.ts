@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
-import { Networks, PrivateKey, Transaction } from 'nexcore-lib';
+import { Networks, Transaction } from 'nexcore-lib';
 
 import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import { COINTYPE_NEXA } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -29,7 +29,6 @@ import {
   KeyringImported,
   KeyringWatching,
 } from './keyring';
-import Provider from './provider';
 import { Nexa } from './sdk';
 import settings from './settings';
 import { verifyNexaAddress } from './utils';

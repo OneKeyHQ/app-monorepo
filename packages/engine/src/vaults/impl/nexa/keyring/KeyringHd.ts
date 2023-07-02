@@ -1,11 +1,3 @@
-import {
-  Networks,
-  PrivateKey,
-  PublicKey,
-  Transaction,
-  crypto,
-} from 'nexcore-lib';
-
 import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../../errors';
