@@ -30,7 +30,6 @@ export default class Provider extends BaseProvider {
       pubkey,
       network: this.network,
     };
-    console.log(this.network);
     switch (encoding) {
       case AddressEncodings.P2PKH:
         const address = new PublicKey(Buffer.from(pubkey).toString('hex'), {

@@ -365,6 +365,8 @@ export async function signEncodedTx(
   return {
     txid,
     rawTx: rawTx.toString('hex'),
-    encodedTx: unsignedTx.encodedTx,
+    signature: signature.toString('hex'),
+    digest: ret.toString('hex'),
+    encodedTx,
   };
 }
