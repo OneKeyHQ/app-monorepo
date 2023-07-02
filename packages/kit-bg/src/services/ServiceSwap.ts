@@ -218,7 +218,7 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setSendingAccountSimple(account: Account) {
+  async setSendingAccountSimple(account: Account | null) {
     const { dispatch } = this.backgroundApi;
     dispatch(setSendingAccount(account));
   }
@@ -446,6 +446,11 @@ export default class ServiceSwap extends ServiceBase {
       if (!activeWallet || !activeNetwork) {
         return;
       }
+    }
+
+    if (activeWallet.type === 'watching') {
+      dispatch(setSendingAccount(null));
+      return;
     }
 
     const accounts = await engine.getAccounts(
