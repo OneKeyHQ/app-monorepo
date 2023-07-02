@@ -152,41 +152,46 @@ export function verify(
   const s = getBN(signature.slice(32));
 
   const hashbuf = reverseBuffer(digest);
-  if (publicKey[0] === 0x02) {
-    const xbuf = publicKey.slice(1);
-    const x = getBN(xbuf);
+
+  const xbuf = publicKey.slice(1);
+  const x = getBN(xbuf);
+  // publicKey[0] === 0x02
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+  let P: curve.base.BasePoint = ec.curve.pointFromX(x, false);
+
+  if (publicKey[0] === 0x03) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    const P: curve.base.BasePoint = ec.curve.pointFromX(x);
+    P = ec.curve.pointFromX(x, true);
+  }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const G: curve.base.BasePoint = ec.curve.g as curve.base.BasePoint;
-
-    if (P.isInfinity()) {
-      return true;
-    }
-    const p = new BN(
-      'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F',
-      'hex',
-    );
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    const n = new BN(ec.curve.n.toArray());
-    if (r.gte(p) || s.gte(n)) {
-      // ("Failed >= condition")
-      return true;
-    }
-    const Br = getrBuffer(r);
-    const Bp = pointToCompressed(P);
-    const hash = sha256(Buffer.concat([Br, Bp, hashbuf]));
-    // const e = BN.fromBuffer(hash, 'big').umod(n);
-    const e = new BN(hash, 'be').umod(n);
-    const sG = G.mul(s as any);
-    const eP = P.mul(n.sub(e as any) as any);
-    const R = sG.add(eP);
-
-    if (R.isInfinity() || !hasSquare(R) || !R.getX().eq(r as any)) {
-      return true;
-    }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const G: curve.base.BasePoint = ec.curve.g as curve.base.BasePoint;
+  if (P.isInfinity()) {
+    return true;
+  }
+  const p = new BN(
+    'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F',
+    'hex',
+  );
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+  const n = new BN(ec.curve.n.toArray());
+  if (r.gte(p) || s.gte(n)) {
+    // ("Failed >= condition")
     return false;
   }
-  return false;
+  const Br = getrBuffer(r);
+  const Bp = pointToCompressed(P);
+  const hash = sha256(Buffer.concat([Br, Bp, hashbuf]));
+
+  // const e = BN.fromBuffer(hash, 'big').umod(n);
+  const e = new BN(hash, 'be').umod(n);
+  const sG = G.mul(s as any);
+  const eP = P.mul(n.sub(e as any) as any);
+  const R = sG.add(eP);
+
+  if (R.isInfinity() || !hasSquare(R) || !R.getX().eq(r as any)) {
+    return false;
+  }
+
+  return true;
 }

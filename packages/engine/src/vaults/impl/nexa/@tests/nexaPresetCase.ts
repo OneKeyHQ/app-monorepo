@@ -73,12 +73,6 @@ export async function testSignTransaction(
   const signers = await keyring.getSigners(password || '', [dbAccount.address]);
   const signer = signers[dbAccount.address];
   const publicKey = await signer.getPubkey(true);
-  console.error(
-    '--verify--',
-    publicKey.toString('hex'),
-    signedTx.digest,
-    signedTx.signature,
-  );
   expect(
     verify(
       publicKey,
