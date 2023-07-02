@@ -1,10 +1,10 @@
 const fse = require('fs-extra');
-const fs = require('fs');
+// const fs = require('fs');
 const lodash = require('lodash');
 const childProcess = require('child_process');
 const path = require('path');
-const util = require('util');
-const replicator = require('console-feed/lib/Transform');
+// const util = require('util');
+const jsonComplete = require('json-complete');
 const manifest = require('../src/manifest');
 
 // TODO move to developmentConsts.js
@@ -67,10 +67,8 @@ function writePreviewWebpackConfigJson(webpackConfig, filename) {
     fse.writeJsonSync(filename, webpackConfig, { spaces: 2 });
   } catch (error) {
     console.error(error);
-    console.log(
-      '>>>>>>>> Fallback to console-feed replicator.Encode() <<<<<<<<<',
-    );
-    fse.writeJsonSync(filename, replicator.Encode(webpackConfig), {
+    console.log('>>>>>>>> Fallback to jsonComplete.encode <<<<<<<<<');
+    fse.writeJsonSync(filename, jsonComplete.encode(webpackConfig), {
       spaces: 2,
     });
   } finally {
