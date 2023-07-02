@@ -1,4 +1,4 @@
-import { signEncodedTx } from './utils';
+import { decodeScriptBufferToNexaAddress, signEncodedTx } from './utils';
 
 import type { Signer } from '../../../proxy';
 import type { DBAccount } from '../../../types/account';
@@ -246,6 +246,21 @@ describe('Nexa Utils Tests', () => {
     expect(signedTx.rawTx).toBe(
       '00020088fc7dd0105e299cf5f6c44325a3da3960c66c73caf1fcec281716379e13258e64222103560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c3140ec76707ee9a316e2fddd8c7393f0981a42977b46278fc121556a84d6234c18aa36117960312df325249f144ad1c35c71af72822477e3e61ca2bbab1635f142b3ffffffffc231f205000000000038c8db756947f0bd6ad5af213936e56fb72b601c4f005b957f304c298bed29ec64222103560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c3140ec76707ee9a316e2fddd8c7393f0981a42977b46278fc121556a84d6234c18aa36117960312df325249f144ad1c35c71af72822477e3e61ca2bbab1635f142b3ffffffffe8030000000000000201881300000000000017005114771aa48fdf8abb07ed22dc23774c5e69990c2ae701db1df2050000000017005114ff8684eb63672e395b27643759a34f01f4c6930100000000',
     );
+  });
+
+  it('Nexa Utils decodeScriptHexToNexaAddress #1', () => {
+    const hex =
+      '222103560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c3140302394d39bae3e8b1fe05df664113901ec516dc29a30e5eb913219f70a2ed61d8e7ee53cfedbd30953f4919956edce5710dbfaf5f95c9dc3f6322e7bb17057ff';
+    expect(
+      decodeScriptBufferToNexaAddress(Buffer.from(hex, 'hex'), 'nexatest'),
+    ).toBe('nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv');
+  });
+
+  it('Nexa Utils decodeScriptHexToNexaAddress #2', () => {
+    const hex = '005114345209375631d693fca3865141cc6de052e11797';
+    expect(
+      decodeScriptBufferToNexaAddress(Buffer.from(hex, 'hex'), 'nexatest'),
+    ).toBe('nexatest:nqtsq5g5x3fqjd6kx8tf8l9rseg5rnrdupfwz9uhauzga026');
   });
 });
 

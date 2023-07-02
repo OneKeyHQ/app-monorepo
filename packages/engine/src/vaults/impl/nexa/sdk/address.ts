@@ -96,7 +96,7 @@ function toUint5Array(data: Buffer) {
   return convertBits(data, 8, 5);
 }
 
-function fromUint5Array(data) {
+function fromUint5Array(data: Buffer) {
   return convertBits(data, 5, 8, true);
 }
 

@@ -174,7 +174,13 @@ export enum Opcode {
   OP_RESERVED4 = 207,
 }
 
-export function bufferToScripChunk(buffer: Buffer) {
+export interface INexaScriptChunk {
+  buf?: Buffer;
+  opcodenum: Opcode;
+  len?: number;
+}
+
+export function bufferToScripChunk(buffer: Buffer): INexaScriptChunk {
   let opcodenum;
   const len = buffer.length;
   if (len >= 0 && len < Opcode.OP_PUSHDATA1) {
@@ -189,7 +195,7 @@ export function bufferToScripChunk(buffer: Buffer) {
     throw new Error("You can't push that much data");
   }
   return {
-    buffer,
+    buf: buffer,
     len,
     opcodenum,
   };
@@ -245,22 +251,16 @@ export function varintBufNum(n: number) {
   return buf;
 }
 
-export function scriptChunksToBuffer(
-  chunks: {
-    buffer?: Buffer;
-    len?: number;
-    opcodenum: Opcode;
-  }[],
-) {
+export function scriptChunksToBuffer(chunks: INexaScriptChunk[]) {
   const buffersArray = [];
   let bufferLength = 0;
   for (let i = 0; i < chunks.length; i += 1) {
     const chunk = chunks[i];
-    const { opcodenum, buffer } = chunk;
+    const { opcodenum, buf } = chunk;
     const opcodenumBuffer = writeUInt8(opcodenum);
     buffersArray.push(opcodenumBuffer);
     bufferLength += opcodenumBuffer.length;
-    if (buffer) {
+    if (buf) {
       let chunkBuffer;
       //   if (opcodenum < Opcode.OP_PUSHDATA1) {
       //      do nothing
@@ -276,8 +276,8 @@ export function scriptChunksToBuffer(
         buffersArray.push(chunkBuffer);
         bufferLength += chunkBuffer.length;
       }
-      buffersArray.push(buffer);
-      bufferLength += buffer.length;
+      buffersArray.push(buf);
+      bufferLength += buf.length;
     }
   }
   return Buffer.concat(buffersArray, bufferLength);
@@ -357,4 +357,85 @@ export function getScriptBufferFromScriptTemplateOut(address: string) {
   const { hash } = decode(address);
   // buildScriptTemplateOut: scriptBuffer
   return readVarLengthBuffer(Buffer.from(hash));
+}
+
+export function decodeScriptBufferToScriptChunks(buffer: Buffer) {
+  let i = 0;
+  const chunks: INexaScriptChunk[] = [];
+  while (i < buffer.length) {
+    const opcodenum = buffer.readUint8(i);
+    i += 1;
+    let len = 0;
+    if (opcodenum > 0 && opcodenum < Opcode.OP_PUSHDATA1) {
+      len = opcodenum;
+      chunks.push({
+        buf: buffer.slice(i, i + len),
+        len,
+        opcodenum,
+      });
+    } else if (opcodenum === Opcode.OP_PUSHDATA1) {
+      len = buffer.readUint8(i);
+      i += 1;
+      chunks.push({
+        buf: buffer.slice(i, i + len),
+        len,
+        opcodenum,
+      });
+    } else if (opcodenum === Opcode.OP_PUSHDATA2) {
+      len = buffer.readUInt16LE(i);
+      i += 2;
+      chunks.push({
+        buf: buffer.slice(i, i + len),
+        len,
+        opcodenum,
+      });
+    } else if (opcodenum === Opcode.OP_PUSHDATA4) {
+      len = buffer.readUInt32LE(i);
+      i += 4;
+      chunks.push({
+        buf: buffer.slice(i, i + len),
+        len,
+        opcodenum,
+      });
+    } else {
+      chunks.push({
+        opcodenum,
+      });
+    }
+    i += len;
+  }
+  return chunks;
+}
+
+export function isPublicKeyTemplateIn(chunks: INexaScriptChunk[]) {
+  if (chunks.length === 2) {
+    const pubkeyPushBuf = chunks[0].buf;
+    const signatureBuf = chunks[1].buf;
+    if (
+      signatureBuf &&
+      signatureBuf.length === 64 &&
+      pubkeyPushBuf &&
+      pubkeyPushBuf.length === 34
+    ) {
+      const pubkeyBuf = decodeScriptBufferToScriptChunks(pubkeyPushBuf)[0].buf;
+      if (
+        pubkeyBuf &&
+        pubkeyBuf.length === 33 &&
+        (pubkeyBuf[0] === 0x03 || pubkeyBuf[0] === 0x02)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+export function isPublicKeyTemplateOut(chunks: INexaScriptChunk[]) {
+  return !!(
+    chunks.length === 3 &&
+    chunks[0].opcodenum === Opcode.OP_FALSE &&
+    chunks[1].opcodenum === Opcode.OP_1 &&
+    chunks[2].buf &&
+    chunks[2].buf.length === 20
+  );
 }

@@ -5384,7 +5384,6 @@ __metadata:
     lint-staged: ^11.2.6
     memoizee: ^0.4.15
     mime-types: ^2.1.35
-    nexcore-lib: ^1.1.1
     node-notifier: ^10.0.0
     patch-package: ^7.0.0
     prettier: ^2.8.1
@@ -11980,7 +11979,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bech32@npm:=2.0.0, bech32@npm:^2.0.0":
+"bech32@npm:^2.0.0":
   version: 2.0.0
   resolution: "bech32@npm:2.0.0"
   checksum: fa15acb270b59aa496734a01f9155677b478987b773bf701f465858bf1606c6a970085babd43d71ce61895f1baa594cb41a2cd1394bd2c6698f03cc2d811300e
@@ -12007,13 +12006,6 @@ __metadata:
   version: 5.2.2
   resolution: "big.js@npm:5.2.2"
   checksum: b89b6e8419b097a8fb4ed2399a1931a68c612bce3cfd5ca8c214b2d017531191070f990598de2fc6f3f993d91c0f08aa82697717f6b3b8732c9731866d233c9e
-  languageName: node
-  linkType: hard
-
-"bigi@npm:^1.1.0, bigi@npm:^1.4.2":
-  version: 1.4.2
-  resolution: "bigi@npm:1.4.2"
-  checksum: 82b5ed2c779b2065a269fd8233c39e26bef9e5b129ca1b66579d056de1f5e2627850ac42bd952c477b28560f216760709bf486078299efe617b1898c8ea70306
   languageName: node
   linkType: hard
 
@@ -12054,19 +12046,6 @@ __metadata:
   dependencies:
     file-uri-to-path: 1.0.0
   checksum: 65b6b48095717c2e6105a021a7da4ea435aa8d3d3cd085cb9e85bcb6e5773cf318c4745c3f7c504412855940b585bdf9b918236612a1c7a7942491de176f1ae7
-  languageName: node
-  linkType: hard
-
-"bip-schnorr@npm:=0.6.4":
-  version: 0.6.4
-  resolution: "bip-schnorr@npm:0.6.4"
-  dependencies:
-    bigi: ^1.4.2
-    ecurve: ^1.0.6
-    js-sha256: ^0.9.0
-    randombytes: ^2.1.0
-    safe-buffer: ^5.2.1
-  checksum: c5b2f97924854bee5cb64e5b357a6d315678c1fbdf3879475d0bcdbf9d32a776158e5700de7e9c05ac11fdd55e2257f14d0b8864c25acb585f8b371feaad11f8
   languageName: node
   linkType: hard
 
@@ -15847,16 +15826,6 @@ __metadata:
     typeforce: ^1.18.0
     wif: ^2.0.6
   checksum: 4cd4a8e04d6af12b237f7bacf9ddab3791cb45c3fd46d3c0b26569f2eeeb916b6da9fe859ee65c103007bde5e80f302e3e21e3c7d5a6924f2ba72f7034d475b1
-  languageName: node
-  linkType: hard
-
-"ecurve@npm:^1.0.6":
-  version: 1.0.6
-  resolution: "ecurve@npm:1.0.6"
-  dependencies:
-    bigi: ^1.1.0
-    safe-buffer: ^5.0.1
-  checksum: 11185533d4d204f3b419df2c3ff2123187cc30c098d792c7f139f0c02a11a84181de185c2b18501d505242f1f1a6d27f693ff4ea5e8b9348fc27bae509dda618
   languageName: node
   linkType: hard
 
@@ -24897,32 +24866,6 @@ __metadata:
   version: 2.0.1
   resolution: "nested-error-stacks@npm:2.0.1"
   checksum: 8430d7d80ad69b1add2992ee2992a363db6c1a26a54740963bc99a004c5acb1d2a67049397062eab2caa3a312b4da89a0b85de3bdf82d7d472a6baa166311fe6
-  languageName: node
-  linkType: hard
-
-"nexaaddrjs@npm:^1.1.2":
-  version: 1.1.2
-  resolution: "nexaaddrjs@npm:1.1.2"
-  dependencies:
-    big-integer: 1.6.36
-  checksum: 2b50b9619e87c6e66d04aea7500a6f280da577db51ba6862263e0678214fcfed7c1ca5b26ec0290644e9bafd8c39dfe8c3154852b335030f5ebd5c2628899b90
-  languageName: node
-  linkType: hard
-
-"nexcore-lib@npm:^1.1.1":
-  version: 1.1.1
-  resolution: "nexcore-lib@npm:1.1.1"
-  dependencies:
-    bech32: =2.0.0
-    bip-schnorr: =0.6.4
-    bn.js: =4.11.8
-    bs58: ^4.0.1
-    buffer-compare: =1.1.1
-    elliptic: ^6.5.4
-    inherits: =2.0.1
-    lodash: ^4.17.21
-    nexaaddrjs: ^1.1.2
-  checksum: a710307dfc0a3dbbd711566bfdd0a330713a8b689b7f410234e23ca8a48510e198f0ddcfc8f54d965d8ded8a7cb8319a233ba33a29a6fddc084d30ec453a4459
   languageName: node
   linkType: hard
 

@@ -9,8 +9,11 @@ import {
   Opcode,
   bufferToScripChunk,
   decode,
+  decodeScriptBufferToScriptChunks,
   encode,
   getScriptBufferFromScriptTemplateOut,
+  isPublicKeyTemplateIn,
+  isPublicKeyTemplateOut,
   reverseBuffer,
   scriptChunksToBuffer,
   sign,
@@ -65,7 +68,7 @@ const NETWORKS = {
   },
 };
 
-function getNetworkInfo(chanid: string): {
+export function getNexaNetworkInfo(chanid: string): {
   name: string;
   prefix: string;
   pubkeyhash: number;
@@ -78,7 +81,7 @@ function getNetworkInfo(chanid: string): {
   return chanid === 'testnet' ? NETWORKS.testnet : NETWORKS.mainnet;
 }
 
-function converToScriptPushBuffer(key: Buffer): Buffer {
+function convertScriptToPushBuffer(key: Buffer): Buffer {
   const templateChunk = bufferToScripChunk(key);
   return scriptChunksToBuffer([templateChunk]);
 }
@@ -88,7 +91,7 @@ export function publickeyToAddress(
   chainId: string,
   type: NexaAddressType = NexaAddressType.PayToScriptTemplate,
 ): string {
-  const network = getNetworkInfo(chainId);
+  const network = getNexaNetworkInfo(chainId);
   let hashBuffer: Buffer;
   if (type === NexaAddressType.PayToPublicKeyHash) {
     hashBuffer = hash160(publicKey);
@@ -128,7 +131,7 @@ export function estimateSize(encodedTx: IEncodedTxNexa) {
   });
   encodedTx.outputs.forEach((output) => {
     const bfr = getScriptBufferFromScriptTemplateOut(output.address);
-    estimatedSize += converToScriptPushBuffer(bfr).length + 1 + 8 + 1;
+    estimatedSize += convertScriptToPushBuffer(bfr).length + 1 + 8 + 1;
   });
   return estimatedSize;
 }
@@ -265,7 +268,7 @@ export async function signEncodedTx(
 ): Promise<ISignedTxPro> {
   const privateKey = await signer.getPrvkey();
   const publicKey = await signer.getPubkey(true);
-  const scriptPushPublicKey = converToScriptPushBuffer(publicKey);
+  const scriptPushPublicKey = convertScriptToPushBuffer(publicKey);
   const signHash = hash160(scriptPushPublicKey);
   const { encodedTx } = unsignedTx;
   const { inputs, outputs, totalFee } = encodedTx as IEncodedTxNexa;
@@ -378,4 +381,41 @@ export async function signEncodedTx(
     digest: ret.toString('hex'),
     encodedTx,
   };
+}
+
+export function decodeScriptBufferToNexaAddress(
+  buffer: Buffer,
+  prefix: string,
+) {
+  const chunks = decodeScriptBufferToScriptChunks(buffer);
+  console.log(isPublicKeyTemplateIn(chunks));
+  // lib/script/script.js 1364L
+  if (isPublicKeyTemplateIn(chunks) && chunks[0].buf) {
+    const constraintHash = hash160(chunks[0].buf);
+    const scriptTemplate = scriptChunksToBuffer([
+      {
+        opcodenum: Opcode.OP_FALSE,
+      },
+      {
+        opcodenum: Opcode.OP_1,
+      },
+      bufferToScripChunk(constraintHash),
+    ]);
+    const hashBuffer = convertScriptToPushBuffer(scriptTemplate);
+    return encode(prefix, NexaAddressType.PayToScriptTemplate, hashBuffer);
+  }
+  if (isPublicKeyTemplateOut(chunks) && chunks[2].buf) {
+    const scriptTemplate = scriptChunksToBuffer([
+      {
+        opcodenum: Opcode.OP_FALSE,
+      },
+      {
+        opcodenum: Opcode.OP_1,
+      },
+      bufferToScripChunk(chunks[2].buf),
+    ]);
+    const hashBuffer = convertScriptToPushBuffer(scriptTemplate);
+    return encode(prefix, NexaAddressType.PayToScriptTemplate, hashBuffer);
+  }
+  return '';
 }

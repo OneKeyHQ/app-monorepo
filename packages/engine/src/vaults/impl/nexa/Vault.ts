@@ -1,6 +1,5 @@
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
-import { Transaction } from 'nexcore-lib';
 
 import { InvalidAddress } from '../../../errors';
 import {
@@ -27,7 +26,12 @@ import {
 } from './keyring';
 import { Nexa } from './sdk';
 import settings from './settings';
-import { estimateSize, verifyNexaAddress } from './utils';
+import {
+  decodeScriptBufferToNexaAddress,
+  estimateSize,
+  getNexaNetworkInfo,
+  verifyNexaAddress,
+} from './utils';
 
 import type { BaseClient } from '../../../client/BaseClient';
 import type {
@@ -298,20 +302,27 @@ export default class Vault extends VaultBase {
             let action: IDecodedTxAction = {
               type: IDecodedTxActionType.UNKNOWN,
             };
-            const theTransaction = new Transaction(tx.hex);
-            const from = theTransaction.inputs[0].script
-              .toAddress('nexatest')
-              .toNexaAddress();
-            const to = theTransaction.outputs[0].script
-              .toAddress('nexatest')
-              .toNexaAddress();
+
+            const chainId = await this.getNetworkChainId();
+            const network = getNexaNetworkInfo(chainId);
+            const from = decodeScriptBufferToNexaAddress(
+              Buffer.from(tx.vin[0].scriptSig.hex, 'hex'),
+              network.prefix,
+            );
+            const to = decodeScriptBufferToNexaAddress(
+              Buffer.from(tx.vout[0].scriptPubKey.hex, 'hex'),
+              network.prefix,
+            );
+
             const tokenAddress = dbAccount.address;
-            const amountValue = theTransaction.outputs.reduce((acc, cur) => {
+            const amountValue = tx.vout.reduce((acc, cur) => {
               if (
-                cur.script.toAddress('nexatest').toNexaAddress() !==
-                tokenAddress
+                decodeScriptBufferToNexaAddress(
+                  Buffer.from(cur.scriptPubKey.hex, 'hex'),
+                  network.prefix,
+                ) !== tokenAddress
               ) {
-                return acc + cur.satoshis;
+                return acc + cur.value_satoshi;
               }
               return acc;
             }, 0);
