@@ -234,9 +234,7 @@ function buildTxid(
   //   writeUInt32LE(nLockTime),
   // ]);
   const idemBuffer = buildRawTx(inputSignatures, outputSignatures, nLockTime);
-  console.error('idemBuffer---', idemBuffer.toString('hex'));
   const idemHash = sha256sha256(idemBuffer);
-  console.error('idemHash---', idemHash.toString('hex'));
 
   const satisfierBuffer = Buffer.concat([
     writeInt32LE(inputSignatures.length),
@@ -248,11 +246,9 @@ function buildTxid(
   ]);
 
   const satisfierHash = sha256sha256(satisfierBuffer);
-  console.error('satisfierHash---', satisfierHash.toString('hex'));
   const txIdHash = reverseBuffer(
     sha256sha256(Buffer.concat([idemHash, satisfierHash])),
   ).toString('hex');
-  console.error('txIdHash---', txIdHash);
   return txIdHash;
 }
 
@@ -265,7 +261,6 @@ export async function signEncodedTx(
   const publicKey = await signer.getPubkey(true);
   const scriptPushPublicKey = converToScriptPushBuffer(publicKey);
   const signHash = hash160(scriptPushPublicKey);
-  console.error('signHash', signHash.toString('hex'));
 
   const { encodedTx } = unsignedTx;
   const { inputs, outputs } = encodedTx as IEncodedTxNexa;
@@ -279,7 +274,6 @@ export async function signEncodedTx(
     ),
   );
   const prevoutsHash = sha256sha256(prevoutsBuffer);
-  console.log('hashPrevoutsHash', prevoutsHash.toString('hex'));
 
   const sequenceNumberBuffer = Buffer.concat(
     inputs.map((input) =>
@@ -287,13 +281,11 @@ export async function signEncodedTx(
     ),
   );
   const sequenceNumberHash = sha256sha256(sequenceNumberBuffer);
-  console.log('sequenceNumberHash', sequenceNumberHash.toString('hex'));
 
   const inputAmountBuffer = Buffer.concat(
     inputs.map((input) => writeUInt64LEBN(new BN(input.satoshis))),
   );
   const inputAmountHash = sha256sha256(inputAmountBuffer);
-  console.log('inputAmountHash', inputAmountHash.toString('hex'));
 
   const inputAmount: number = inputs.reduce(
     (acc, input) => acc + input.satoshis,
@@ -340,7 +332,6 @@ export async function signEncodedTx(
       opcodenum: Opcode.OP_CHECKSIGVERIFY,
     },
   ]);
-  console.log('subScriptBuffer', subScriptBuffer.toString('hex'));
   const signatureBuffer = Buffer.concat([
     // transaction.version
     writeUInt8(0),
@@ -356,10 +347,7 @@ export async function signEncodedTx(
     writeUInt8(0),
   ]);
   const ret = reverseBuffer(sha256sha256(signatureBuffer));
-  console.log('sighashForNexa--privateKey', privateKey.toString('hex'));
-  console.log('sighashForNexa--ret', ret.toString('hex'));
   const signature = sign(privateKey, ret);
-  console.log('signature', Buffer.from(signature).toString('hex'));
   const inputSignatures: INexaInputSignature[] = inputs.map((input, index) => ({
     publicKey,
     prevTxId: input.txId,

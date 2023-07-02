@@ -62,7 +62,6 @@ function nonceFunctionRFC6979(privkey: Buffer, msgbuf: Buffer): BN {
     K = hmacSHA256(K, Buffer.concat([V, Buffer.from('00', 'hex')]));
     V = hmacSHA256(K, V);
   }
-  console.log('nonceFunctionRFC6979-k', k);
   return k;
 }
 
@@ -127,7 +126,6 @@ function findSignature(d: BN, e: BN) {
     ),
   );
 
-  console.error('findSignature--e0', e0);
   const s = e0.mul(d).add(k).mod(n);
   return {
     r,
@@ -137,10 +135,7 @@ function findSignature(d: BN, e: BN) {
 
 export function sign(privateKey: Buffer, digest: Buffer): Buffer {
   const privateKeyBN = getBN(privateKey);
-  console.error('Schnorr.prototype.sign-d', privateKeyBN);
   const digestBN = getBN(digest, true);
-  console.error('Schnorr.prototype.sign-hashbuf-e', digestBN);
   const { r, s } = findSignature(privateKeyBN, digestBN);
-  console.error('Schnorr.prototype.sign-obj', r, s);
   return Buffer.concat([r.toBuffer('be', 32), s.toBuffer('be', 32)]);
 }
