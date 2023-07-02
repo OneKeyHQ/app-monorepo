@@ -120,10 +120,10 @@ const DEFAULT_SEQNUMBER = MAXINT;
 const FEE_PER_KB = 1000 * 3;
 const CHANGE_OUTPUT_MAX_SIZE = 1 + 8 + 1 + 23;
 
-function estimateFee(encodedTx: IEncodedTxNexa, available: number): number {
+export function estimateSize(encodedTx: IEncodedTxNexa) {
   let estimatedSize = 4 + 1; // locktime + version
   estimatedSize += encodedTx.inputs.length < 253 ? 1 : 3;
-  encodedTx.inputs.forEach((input) => {
+  encodedTx.inputs.forEach(() => {
     // type + outpoint + scriptlen + script + sequence + amount
     estimatedSize += 1 + 32 + 1 + 100 + 4 + 8;
   });
@@ -131,10 +131,16 @@ function estimateFee(encodedTx: IEncodedTxNexa, available: number): number {
     const bfr = getScriptBufferFromScriptTemplateOut(output.address);
     estimatedSize += converToScriptPushBuffer(bfr).length + 1 + 8 + 1;
   });
-  // const feeRate = this._feePerByte || (this._feePerKb || Transaction.FEE_PER_KB) / 1000
-  const feeRate = FEE_PER_KB / 1000;
+  return estimatedSize;
+}
+
+function estimateFee(
+  encodedTx: IEncodedTxNexa,
+  feeRate = FEE_PER_KB / 1000,
+): number {
+  const size = estimateSize(encodedTx);
   const feeWithChange = Math.ceil(
-    estimatedSize * feeRate + CHANGE_OUTPUT_MAX_SIZE * feeRate,
+    size * feeRate + CHANGE_OUTPUT_MAX_SIZE * feeRate,
   );
   return feeWithChange;
 }
@@ -296,7 +302,7 @@ export async function signEncodedTx(
     0,
   );
   const available = inputAmount - outputAmount * 100;
-  const fee = estimateFee(encodedTx as IEncodedTxNexa, available);
+  const fee = estimateFee(encodedTx as IEncodedTxNexa);
 
   // change address
   newOutputs.push({

@@ -21,7 +21,6 @@ import {
   type IUnsignedTxPro,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
-import { decodedTxToLegacy } from '../near/utils';
 
 import {
   KeyringHardware,
@@ -31,7 +30,7 @@ import {
 } from './keyring';
 import { Nexa } from './sdk';
 import settings from './settings';
-import { verifyNexaAddress } from './utils';
+import { estimateSize, verifyNexaAddress } from './utils';
 
 import type { BaseClient } from '../../../client/BaseClient';
 import type {
@@ -128,9 +127,14 @@ export default class Vault extends VaultBase {
   }
 
   override attachFeeInfoToEncodedTx(params: {
-    encodedTx: IEncodedTx;
+    encodedTx: IEncodedTxNexa;
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTx> {
+    console.log(params);
+    const { limit, price } = params.feeInfoValue;
+    if (limit && price) {
+      params.encodedTx.totalFee = String(Number(limit) * Number(price));
+    }
     return Promise.resolve(params.encodedTx);
   }
 
@@ -226,27 +230,15 @@ export default class Vault extends VaultBase {
   }
 
   override async fetchFeeInfo(
-    encodedTx: IEncodedTx,
+    encodedTx: IEncodedTxNexa,
     signOnly?: boolean | undefined,
     specifiedFeeRate?: string | undefined,
     transferCount?: number | undefined,
   ): Promise<IFeeInfo> {
     const network = await this.getNetwork();
     const client = await this.getSDKClient();
-    const dbAccount = await this.getDbAccount();
-    Networks.defaultNetwork = Networks.get('nexatest');
-    const transaction = new Transaction()
-      .from(encodedTx.inputs)
-      // p2pkt: 1
-      .to(
-        encodedTx.outputs[0].address,
-        Number(encodedTx.outputs[0].fee) * 100,
-        1,
-      )
-      .change(encodedTx.inputs[0].address);
-    // .lockUntilBlockHeight(nonce.height + 10)
-    const estimateSize = transaction._estimateSize();
-    const feeInfo = String(await client.estimateFee(estimateSize));
+    const estimateSizedSize = estimateSize(encodedTx);
+    const feeInfo = await client.estimateFee(estimateSizedSize);
     return {
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
