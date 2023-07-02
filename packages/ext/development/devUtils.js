@@ -4,7 +4,8 @@ const lodash = require('lodash');
 const childProcess = require('child_process');
 const path = require('path');
 // const util = require('util');
-const jsonComplete = require('json-complete');
+const stringify = require('json-stringify-safe');
+const prettier = require('prettier');
 const manifest = require('../src/manifest');
 
 // TODO move to developmentConsts.js
@@ -63,17 +64,10 @@ function writePreviewWebpackConfigJson(webpackConfig, filename) {
     // return `[ Function ${this.name}() ] ${this.toString()} `;
     return `[ Function ${this.name}() ]`;
   };
-  try {
-    fse.writeJsonSync(filename, webpackConfig, { spaces: 2 });
-  } catch (error) {
-    console.error(error);
-    console.log('>>>>>>>> Fallback to jsonComplete.encode <<<<<<<<<');
-    fse.writeJsonSync(filename, jsonComplete.encode(webpackConfig), {
-      spaces: 2,
-    });
-  } finally {
-    // noop
-  }
+  fse.writeFileSync(
+    filename,
+    prettier.format(stringify(webpackConfig), { parser: 'json' }),
+  );
   // fs.writeFileSync(filename, util.inspect(webpackConfig), {
   //   encoding: 'utf-8',
   // });
