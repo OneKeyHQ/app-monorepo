@@ -1,22 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import B from 'bignumber.js';
+import { pick } from 'lodash';
 import natsort from 'natsort';
+import { useIntl } from 'react-intl';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
+import KeleLogoPNG from '@onekeyhq/kit/assets/staking/kele_pool.png';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { getPreBaseValue } from '../utils/priceUtils';
 
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
-import { useFrozenBalance, useTokenPrice } from './useTokens';
+import { useFrozenBalance, useSingleToken, useTokenPrice } from './useTokens';
 
+import type { ITokenDetailInfo } from '../views/ManageTokens/types';
 import type {
   IAccountToken,
+  IOverviewTokenDetailListItem,
   OverviewAllNetworksPortfolioRes,
 } from '../views/Overview/types';
 
@@ -88,20 +95,22 @@ const filterAccountTokens = <T>({
 export const useAccountPortfolios = <
   T extends keyof OverviewAllNetworksPortfolioRes,
 >({
-  networkId,
-  accountId,
+  networkId = '',
+  accountId = '',
   type,
 }: {
-  networkId?: string;
-  accountId?: string;
+  networkId?: string | null;
+  accountId?: string | null;
   type: T;
 }) => {
   const [state, setState] = useState<{
     data: OverviewAllNetworksPortfolioRes[T];
     updatedAt?: number;
+    loading: boolean;
   }>({
     data: [],
     updatedAt: undefined,
+    loading: true,
   });
   const updateInfo = useAppSelector(
     (s) =>
@@ -110,10 +119,11 @@ export const useAccountPortfolios = <
 
   const fetchData = useCallback(async () => {
     const res = await simpleDb.accountPortfolios.getPortfolio({
-      networkId,
-      accountId,
+      networkId: networkId ?? '',
+      accountId: accountId ?? '',
     });
     setState({
+      loading: false,
       data: res[type] || [],
       updatedAt: updateInfo?.updatedAt,
     });
@@ -227,6 +237,7 @@ export function useAccountTokens({
           coingeckoId: t.coingeckoId,
           sendAddress: undefined,
           autoDetected: false,
+          tokens: t.tokens ?? [],
         }))
       : accountTokensOnChain.slice(0, limitSize).map((t) => {
           const info = {
@@ -246,6 +257,16 @@ export function useAccountTokens({
             coingeckoId: t.coingeckoId,
             sendAddress: t.sendAddress,
             autoDetected: t.autoDetected,
+            tokens: [
+              {
+                networkId: t.networkId,
+                address: t.address ?? '',
+                balance: t.balance,
+                decimals: t.decimals,
+                riskLevel: t.riskLevel ?? TokenRiskLevel.UNKNOWN,
+                value: t.value,
+              },
+            ],
           };
           return info;
         });
@@ -455,88 +476,225 @@ export const useTokenBalanceWithoutFrozen = ({
 };
 
 export const useTokenPositionInfo = ({
-  walletId,
-  accountId,
-  networkId,
+  accountId = '',
+  networkId = '',
+  walletId = '',
   tokenAddress,
   sendAddress,
   coingeckoId,
 }: {
-  walletId: string;
-  accountId: string;
-  networkId: string;
-  tokenAddress: string;
+  walletId?: string;
+  accountId?: string;
+  networkId?: string;
+  tokenAddress?: string;
   sendAddress?: string;
   coingeckoId?: string;
 }) => {
+  const intl = useIntl();
   const { data: defis } = useAccountPortfolios({
     accountId,
     networkId,
     type: 'defis',
   });
 
-  const accountTokenBalance = useTokenBalance({
+  const accountTokens = useAccountTokens({
     networkId,
     accountId,
-    token: {
-      address: tokenAddress,
-      sendAddress,
-      coingeckoId,
-    },
+    useFilter: false,
   });
-  const allNetworksAccountInfo = useAllNetworksWalletAccounts({
-    accountId,
+
+  const allNetworksAccountsMap = useAllNetworksWalletAccounts({
     walletId,
+    accountId,
   });
+
   const minerOverview = useAppSelector((s) => s.staking.keleMinerOverviews);
 
-  const stakingAmount = useMemo(() => {
-    if (!isAllNetworks(networkId)) {
-      return minerOverview?.[accountId]?.[networkId]?.amount?.total_amount ?? 0;
-    }
-    let total = new B(0);
-    for (const [nid, accounts] of Object.entries(allNetworksAccountInfo)) {
-      for (const account of accounts) {
-        const amount =
-          minerOverview?.[account?.id]?.[nid]?.amount?.total_amount ?? 0;
-        total = total.plus(amount);
+  const getStakingAmountInfo = useCallback(
+    ({
+      networkId: nid,
+      accountId: aid,
+    }: {
+      networkId: string;
+      accountId: string;
+    }) => {
+      let total = new B(0);
+      if (!minerOverview) return;
+      if (coingeckoId !== 'ethereum' || tokenAddress) {
+        return;
       }
-    }
-    return total;
-  }, [networkId, accountId, allNetworksAccountInfo, minerOverview]);
 
-  const defiTokenAmount = useMemo(() => {
-    if (!defis?.length) {
-      return new B(0);
-    }
-    return defis.reduce((protocolSum, obj) => {
-      const poolTokens = obj.pools.reduce((poolTypeSum, [, items]) => {
-        const tokensValues = items.reduce(
-          (allTokenSum, { supplyTokens, rewardTokens }) => {
-            const supplyTokenSum = supplyTokens
-              .filter((t) => t.tokenAddress === tokenAddress)
-              .reduce(
-                (tokenSum, sToken) => tokenSum.plus(sToken.balanceParsed ?? 0),
-                new B(0),
-              );
-            const rewardTokenSum = rewardTokens
-              .filter((t) => t.tokenAddress === tokenAddress)
-              .reduce(
-                (tokenSum, rToken) => tokenSum.plus(rToken.balanceParsed ?? 0),
-                new B(0),
-              );
-            return allTokenSum.plus(supplyTokenSum).plus(rewardTokenSum);
-          },
-          new B(0),
-        );
-        return poolTypeSum.plus(tokensValues);
-      }, new B(0));
-      return protocolSum.plus(poolTokens);
-    }, new B(0));
-  }, [defis, tokenAddress]);
+      if (isAllNetworks(nid)) {
+        for (const a of allNetworksAccountsMap[OnekeyNetwork.eth] ?? []) {
+          total = total.plus(
+            getStakingAmountInfo({
+              networkId: OnekeyNetwork.eth,
+              accountId: a.id,
+            })?.total ?? 0,
+          );
+        }
+      } else {
+        const current = minerOverview?.[aid]?.[nid];
+        total = total
+          .plus(current?.amount?.total_amount ?? 0)
+          .plus(current.amount.withdrawable ?? 0);
+      }
 
-  return defiTokenAmount
-    .plus(stakingAmount)
-    .plus(accountTokenBalance)
-    .toFixed();
+      return {
+        total,
+        networkId: nid,
+      };
+    },
+    [minerOverview, allNetworksAccountsMap, coingeckoId, tokenAddress],
+  );
+
+  const keleStakingInfo = useMemo(() => {
+    const { total = new B(0), networkId: nid } =
+      getStakingAmountInfo({
+        networkId,
+        accountId,
+      }) ?? {};
+    return {
+      name: 'Kelepool',
+      logoURI: KeleLogoPNG,
+      address: '',
+      sendAddress: undefined,
+      type: intl.formatMessage({ id: 'form__staking' }),
+      balance: total,
+      networkId: nid,
+    };
+  }, [getStakingAmountInfo, intl, accountId, networkId]);
+
+  return useMemo(() => {
+    let balance = new B(0);
+    const items: IOverviewTokenDetailListItem[] = [];
+    accountTokens.forEach((t) => {
+      if (
+        isAllNetworks(networkId)
+          ? coingeckoId === t.coingeckoId
+          : t.address === tokenAddress && t.sendAddress === sendAddress
+      ) {
+        t.tokens?.forEach((item) => {
+          items.push({
+            name: t.name,
+            address: t.address,
+            symbol: t.symbol,
+            logoURI: t.logoURI ?? '',
+            type: 'Token',
+            balance: item.balance,
+            networkId: item.networkId,
+          });
+        });
+        balance = balance.plus(t.balance);
+      }
+    });
+
+    defis.forEach((d) => {
+      d.pools.forEach((p) => {
+        p[1].forEach((item) => {
+          [...item.supplyTokens, ...item.rewardTokens].forEach((t) => {
+            if (
+              isAllNetworks(networkId)
+                ? coingeckoId === t.coingeckoId
+                : t.tokenAddress === tokenAddress
+            ) {
+              items.push({
+                name: d.protocolName,
+                symbol: t.symbol ?? '',
+                address: t.tokenAddress,
+                logoURI: d.protocolIcon,
+                type: p[0],
+                balance: t.balanceParsed ?? '0',
+                networkId: d._id.networkId,
+              });
+              balance = balance.plus(t.balanceParsed ?? 0);
+            }
+          });
+        });
+      });
+    });
+
+    const { balance: stakingBalance, networkId: stakingNetworkId } =
+      keleStakingInfo ?? {};
+
+    if (stakingBalance?.gt(0) && stakingNetworkId) {
+      balance = balance.plus(keleStakingInfo.balance);
+      items.push({
+        name: 'Kelepool',
+        symbol: 'ETH',
+        address: '',
+        logoURI: KeleLogoPNG,
+        type: intl.formatMessage({ id: 'form__staking' }),
+        balance: stakingBalance.toFixed(),
+        networkId: stakingNetworkId,
+      });
+    }
+
+    // console.log(balance, items, accountTokens);
+
+    return {
+      balance,
+      items,
+      // defaultNetworkId,
+      // items: Object.entries(groupBy(items, 'networkId')).map(([nid, data]) => {
+      //   const network = allNetworks?.find((n) => n.id === nid);
+      //   return {
+      //     network,
+      //     data,
+      //   };
+      // }),
+    };
+  }, [
+    sendAddress,
+    intl,
+    accountTokens,
+    coingeckoId,
+    tokenAddress,
+    networkId,
+    defis,
+    keleStakingInfo,
+  ]);
+};
+
+export const useTokenDetailInfo = ({
+  coingeckoId,
+  networkId,
+  tokenAddress,
+}: {
+  coingeckoId?: string;
+  networkId?: string;
+  tokenAddress?: string;
+}) => {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<ITokenDetailInfo | undefined>();
+  const { token, loading: tokenLoading } = useSingleToken(
+    networkId ?? '',
+    tokenAddress ?? '',
+  );
+
+  useEffect(() => {
+    setLoading(true);
+    backgroundApiProxy.serviceToken
+      .fetchTokenDetailInfo({ coingeckoId, networkId, tokenAddress })
+      .then((res) => setData(res))
+      .finally(() => setLoading(false));
+  }, [coingeckoId, networkId, tokenAddress]);
+
+  return useMemo(() => {
+    const { defaultChain } = data ?? {};
+    const tokens = data?.tokens || (token ? [token] : []);
+    const defaultToken =
+      tokens?.find(
+        (t) =>
+          t.impl === defaultChain?.impl && t.chainId === defaultChain?.chainId,
+      ) ?? tokens?.[0];
+
+    return {
+      ...pick(token, 'name', 'symbol', 'logoURI'),
+      ...data,
+      loading: loading || tokenLoading,
+      tokens,
+      defaultToken,
+    };
+  }, [data, token, loading, tokenLoading]);
 };

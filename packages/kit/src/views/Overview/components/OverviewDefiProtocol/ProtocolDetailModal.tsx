@@ -11,6 +11,7 @@ import {
   Box,
   HStack,
   Modal,
+  Spinner,
   Token,
   Typography,
   useIsVerticalLayout,
@@ -52,7 +53,7 @@ const OverviewProtocolDetail: FC = () => {
     accountId,
   }).value;
 
-  const { data: defis } = useAccountPortfolios({
+  const { data: defis, loading } = useAccountPortfolios({
     networkId,
     accountId,
     type: 'defis',
@@ -117,6 +118,20 @@ const OverviewProtocolDetail: FC = () => {
   }, [isVertical, protocol, rate, poolCode]);
 
   const open = useOpenProtocolUrl(protocol);
+
+  if (loading) {
+    return (
+      <Modal
+        size="2xl"
+        hidePrimaryAction
+        hideSecondaryAction
+        footer={null}
+        staticChildrenProps={{
+          children: <Spinner />,
+        }}
+      />
+    );
+  }
 
   if (!protocol) {
     goBack();

@@ -46,6 +46,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { calculateGains } from '../../../utils/priceUtils';
+import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
 import AccountMoreMenu from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
 
@@ -249,38 +250,61 @@ type AccountOptionProps = { isSmallView: boolean };
 const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { wallet, account, network } = useActiveWalletAccount();
+  const { wallet, account, network, walletId, networkId, accountId } =
+    useActiveWalletAccount();
   const isVertical = useIsVerticalLayout();
   const { sendToken } = useNavigationActions();
   const iconBoxFlex = isVertical ? 1 : 0;
 
+  const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
+    networkId,
+    walletId,
+    accountId,
+    filter: () => true,
+  });
+
   const onSendToken = useCallback(() => {
-    const { accountId, networkId } = getActiveWalletAccount();
-    sendToken({ accountId, networkId });
-  }, [sendToken]);
+    selectNetworkAccount().then(({ network: n, account: a }) => {
+      if (!n || !a) {
+        sendToken({ accountId: a?.id, networkId: n?.id });
+      }
+    });
+  }, [sendToken, selectNetworkAccount]);
 
   const onReceive = useCallback(() => {
-    if (network?.impl === IMPL_LIGHTNING) {
+    selectNetworkAccount().then(({ network: n, account: a }) => {
+      if (!n || !a) {
+        return;
+      }
+      if (n?.impl === IMPL_LIGHTNING) {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Receive,
+          params: {
+            screen: ReceiveTokenModalRoutes.CreateInvoice,
+            params: {
+              networkId: n.id,
+              accountId: a?.id,
+            },
+          },
+        });
+        return;
+      }
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Receive,
         params: {
-          screen: ReceiveTokenModalRoutes.CreateInvoice,
+          screen: ReceiveTokenModalRoutes.ReceiveToken,
           params: {
-            networkId: network.id,
-            accountId: account?.id,
+            address: a.address,
+            displayAddress: a.displayAddress,
+            wallet,
+            network: n,
+            account: a,
+            template: a.template,
           },
         },
       });
-      return;
-    }
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Receive,
-      params: {
-        screen: ReceiveTokenModalRoutes.ReceiveToken,
-        params: {},
-      },
     });
-  }, [navigation, account, network]);
+  }, [navigation, wallet, selectNetworkAccount]);
 
   const onSwap = useCallback(async () => {
     let token = await backgroundApiProxy.engine.getNativeTokenInfo(

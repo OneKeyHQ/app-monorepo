@@ -2,11 +2,15 @@ import type { FC } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
 
 import B from 'bignumber.js';
+import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Box,
+  HStack,
   ListItem,
+  Token,
   Typography,
   VStack,
   useIsVerticalLayout,
@@ -17,238 +21,242 @@ import {
   FormatBalance,
   FormatCurrencyNumber,
 } from '../../../components/Format';
-import {
-  useAccountPortfolios,
-  useActiveSideAccount,
-  useTokenPositionInfo,
-} from '../../../hooks';
-import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
+import { useManageNetworks, useTokenPositionInfo } from '../../../hooks';
 import { TokenDetailContext } from '../context';
 
-import DefiCell from './Cells/DefiCell';
-import KeleStakingCell from './Cells/KeleStakingCell';
-import LidoStakingCell from './Cells/LidoStakingCell';
-import TokenCell from './Cells/TokenCell';
-
+import type { IOverviewTokenDetailListItem } from '../../Overview/types';
 import type { ListRenderItem } from 'react-native';
-
-const DefiListWithToken: FC = () => {
-  const context = useContext(TokenDetailContext);
-  const { networkId, accountId, tokenAddress } = context?.routeParams ?? {};
-  const { defaultToken } = context?.detailInfo ?? {};
-  const { data: defis } = useAccountPortfolios({
-    networkId: networkId ?? '',
-    accountId: accountId ?? '',
-    type: 'defis',
-  });
-
-  const genateList = useCallback(
-    () =>
-      defis.map((protocol) =>
-        protocol.pools.map(([, items]) =>
-          items
-            .filter(
-              ({ supplyTokens, rewardTokens }) =>
-                supplyTokens.filter(
-                  ({ tokenAddress: address }) => tokenAddress === address,
-                ).length > 0 ||
-                rewardTokens.filter(
-                  ({ tokenAddress: address }) => tokenAddress === address,
-                ).length > 0,
-            )
-            .map((item, index) => (
-              <DefiCell
-                protocolId={protocol._id.protocolId}
-                token={defaultToken}
-                key={`${protocol.protocolName}${item.poolType}${index}`}
-                item={item}
-                tokenId={defaultToken?.address ?? ''}
-              />
-            )),
-        ),
-      ),
-    [defis, defaultToken, tokenAddress],
-  );
-
-  return <VStack>{genateList()}</VStack>;
-};
 
 const AssetsInfo: FC = () => {
   const intl = useIntl();
+  const { allNetworks } = useManageNetworks();
   const context = useContext(TokenDetailContext);
 
   const {
-    walletId,
-    accountId,
-    networkId,
-    tokenAddress,
+    networkId = '',
+    accountId = '',
+    walletId = '',
     coingeckoId,
-    sendAddress,
+    tokenAddress,
+    price,
   } = context?.routeParams ?? {};
-  const { defaultToken, symbol } = context?.detailInfo ?? {};
   const isVerticalLayout = useIsVerticalLayout();
 
-  const price =
-    useSimpleTokenPriceValue({
-      networkId,
-      contractAdress: defaultToken?.address,
-    }) ?? 0;
-
-  const { network } = useActiveSideAccount({
-    accountId: accountId ?? '',
-    networkId: networkId ?? '',
-  });
-
-  const totalAmount = useTokenPositionInfo({
-    walletId: walletId ?? '',
-    networkId: networkId ?? '',
-    accountId: accountId ?? '',
-    tokenAddress: tokenAddress ?? '',
+  const { items } = useTokenPositionInfo({
+    accountId,
+    networkId,
+    walletId,
+    tokenAddress,
     coingeckoId,
-    sendAddress,
   });
 
-  const listData = useMemo(
-    () => [{ type: 'token' }, { type: 'keleStaking' }, { type: 'lidoStaking' }],
-    [],
+  const sections = useMemo(
+    () =>
+      Object.entries(groupBy(items, 'networkId')).map(([nid, data]) => {
+        const network = allNetworks?.find((n) => n.id === nid);
+        return {
+          network,
+          data,
+        };
+      }),
+    [items, allNetworks],
   );
 
-  const renderItem: ListRenderItem<{ type: string }> = useCallback(
-    ({ item }) => {
-      if (item.type === 'token') {
-        return (
-          <TokenCell
-            sendAddress={sendAddress}
-            tokenId={defaultToken?.address ?? ''}
-            token={defaultToken}
-          />
-        );
+  const renderSectionHeader = useCallback(
+    ({ section: { network, data } }: { section: typeof sections[0] }) => {
+      if (!network) {
+        return null;
       }
-      if (item.type === 'keleStaking') {
-        return (
-          <KeleStakingCell
-            tokenId={defaultToken?.address ?? ''}
-            networkId={networkId ?? ''}
-            token={defaultToken}
-          />
-        );
-      }
-      if (item.type === 'lidoStaking') {
-        return (
-          <LidoStakingCell token={defaultToken} sendAddress={sendAddress} />
-        );
-      }
-      return <Box />;
-    },
-    [sendAddress, networkId, defaultToken],
-  );
-
-  const ListHeaderComponent = useMemo(
-    () => (
-      <>
-        <Typography.Heading mt="24px">
-          {intl.formatMessage({ id: 'content__balance' })}
-        </Typography.Heading>
-        <FormatBalance
-          balance={totalAmount}
-          suffix={symbol}
-          formatOptions={{
-            fixed:
-              (defaultToken?.address
-                ? network?.tokenDisplayDecimals
-                : network?.nativeDisplayDecimals) ?? 4,
-          }}
-          render={(ele) => (
-            <Typography.DisplayXLarge>{ele}</Typography.DisplayXLarge>
-          )}
-        />
-
-        <Typography.Body2 mt="4px" mb="24px" color="text-subdued">
-          <FormatCurrencyNumber value={new B(totalAmount).times(price)} />
-        </Typography.Body2>
-        {!isVerticalLayout ? (
-          <ListItem py={4} mx="-8px">
-            <ListItem.Column
-              flex={3}
-              text={{
-                label: intl.formatMessage({
-                  id: 'form__position_uppercase',
-                }),
-                labelProps: {
-                  typography: 'Subheading',
-                  color: 'text-subdued',
-                },
+      return (
+        <VStack mt="6">
+          <HStack>
+            <Token
+              size="5"
+              showInfo
+              token={{
+                name: network?.name?.toUpperCase(),
+                logoURI: network?.logoURI,
               }}
             />
+            <Badge ml="3" size="sm" title={String(data?.length ?? 0)} />
+          </HStack>
+
+          <>
+            {!isVerticalLayout ? (
+              <ListItem py={4} mx="-8px">
+                <ListItem.Column
+                  flex={3}
+                  text={{
+                    label: intl.formatMessage({
+                      id: 'form__position_uppercase',
+                    }),
+                    labelProps: {
+                      typography: 'Subheading',
+                      color: 'text-subdued',
+                    },
+                  }}
+                />
+                <ListItem.Column
+                  flex={1}
+                  text={{
+                    label: intl.formatMessage({
+                      id: 'content__type',
+                    }),
+                    labelProps: {
+                      typography: 'Subheading',
+                      color: 'text-subdued',
+                      textAlign: 'right',
+                    },
+                  }}
+                />
+                <ListItem.Column
+                  flex={2.5}
+                  text={{
+                    label: intl.formatMessage({
+                      id: 'content__balance',
+                    }),
+                    labelProps: {
+                      typography: 'Subheading',
+                      color: 'text-subdued',
+                      textAlign: 'right',
+                    },
+                  }}
+                />
+                <ListItem.Column
+                  flex={2.5}
+                  text={{
+                    label: intl.formatMessage({
+                      id: 'form__value_uppercase',
+                    }),
+                    labelProps: {
+                      typography: 'Subheading',
+                      color: 'text-subdued',
+                      textAlign: 'right',
+                    },
+                  }}
+                />
+              </ListItem>
+            ) : null}
+          </>
+        </VStack>
+      );
+    },
+    [isVerticalLayout, intl],
+  );
+
+  const renderItem: ListRenderItem<IOverviewTokenDetailListItem> = useCallback(
+    ({ item }) => {
+      const token = {
+        name: item.name,
+        logoURI: item.logoURI,
+      };
+
+      const value = new B(item.balance ?? 0).multipliedBy(price ?? 0);
+
+      const formatedBalance = (
+        <FormatBalance
+          balance={item.balance}
+          suffix={item?.symbol}
+          formatOptions={{
+            fixed: 6,
+          }}
+        />
+      );
+      if (isVerticalLayout) {
+        return (
+          <ListItem mx="-8px">
+            <ListItem.Column>
+              <Token
+                flex="1"
+                size="40px"
+                showInfo
+                token={token}
+                showExtra={false}
+                description={formatedBalance}
+                infoBoxProps={{ flex: 1 }}
+              />
+            </ListItem.Column>
             <ListItem.Column
               flex={1}
+              alignItems="flex-end"
               text={{
-                label: intl.formatMessage({
-                  id: 'content__type',
-                }),
-                labelProps: {
-                  typography: 'Subheading',
-                  color: 'text-subdued',
-                  textAlign: 'right',
-                },
-              }}
-            />
-            <ListItem.Column
-              flex={2.5}
-              text={{
-                label: intl.formatMessage({
-                  id: 'content__balance',
-                }),
-                labelProps: {
-                  typography: 'Subheading',
-                  color: 'text-subdued',
-                  textAlign: 'right',
-                },
-              }}
-            />
-            <ListItem.Column
-              flex={2.5}
-              text={{
-                label: intl.formatMessage({
-                  id: 'form__value_uppercase',
-                }),
-                labelProps: {
-                  typography: 'Subheading',
-                  color: 'text-subdued',
-                  textAlign: 'right',
-                },
+                label: (
+                  <Typography.Body1Strong>
+                    <FormatCurrencyNumber value={0} convertValue={value} />
+                  </Typography.Body1Strong>
+                ),
+                description: (
+                  <Box>
+                    <Badge size="sm" type="info" title={item.type} />
+                  </Box>
+                ),
               }}
             />
           </ListItem>
-        ) : null}
-      </>
-    ),
-    [
-      intl,
-      isVerticalLayout,
-      network?.nativeDisplayDecimals,
-      network?.tokenDisplayDecimals,
-      price,
-      totalAmount,
-      symbol,
-      defaultToken,
-    ],
+        );
+      }
+      return (
+        <>
+          <Box borderBottomWidth={1} borderColor="divider" />
+          <ListItem mx="-8px" py={4}>
+            <Token
+              flex={3}
+              size="32px"
+              showInfo
+              showDescription={false}
+              token={token}
+              showExtra={false}
+              infoBoxProps={{ flex: 1 }}
+            />
+            <Box flex={1} flexDirection="row" justifyContent="flex-end">
+              <Badge
+                size="sm"
+                type="info"
+                title={intl.formatMessage({ id: 'form__token' })}
+              />
+            </Box>
+            <ListItem.Column
+              flex={2.5}
+              text={{
+                label: (
+                  <Typography.Body1Strong textAlign="right">
+                    {formatedBalance}
+                  </Typography.Body1Strong>
+                ),
+              }}
+            />
+            <ListItem.Column
+              flex={2.5}
+              text={{
+                label: (
+                  <Typography.Body1Strong textAlign="right">
+                    <FormatCurrencyNumber value={0} convertValue={value} />
+                  </Typography.Body1Strong>
+                ),
+              }}
+            />
+          </ListItem>
+        </>
+      );
+    },
+    [intl, isVerticalLayout, price],
   );
 
-  const ListFooterComponent = useMemo(() => <DefiListWithToken />, []);
-
   return (
-    <Tabs.FlatList
+    <Tabs.SectionList
       contentContainerStyle={{
         width: '100%',
         alignSelf: 'center',
         paddingHorizontal: isVerticalLayout ? 16 : 32,
       }}
-      ListHeaderComponent={ListHeaderComponent}
-      ListFooterComponent={ListFooterComponent}
-      data={listData}
+      renderSectionHeader={renderSectionHeader}
+      sections={sections}
       renderItem={renderItem}
-      keyExtractor={(item) => item.type}
+      keyExtractor={(item) =>
+        `${item.networkId}__${item.name}__${item.balance}__${
+          item.address ?? ''
+        }`
+      }
     />
   );
 };

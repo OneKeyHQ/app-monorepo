@@ -261,6 +261,8 @@ const NFTDetailModal: FC = () => {
     }
   }, [asset, device, intl, serviceHardware, network]);
 
+  console.log(asset);
+
   const sendNFTWithAmount = useCallback(
     (amount: string) => {
       const { accountId, networkId } = getActiveWalletAccount();

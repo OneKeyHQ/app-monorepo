@@ -3,17 +3,30 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { uniq } from 'lodash';
 
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { networkIsPreset } from '@onekeyhq/engine/src/presets';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAppSelector, useManageNetworks } from '../../../hooks';
-import { getManageNetworks } from '../../../hooks/useManageNetworks';
+import {
+  useAccount,
+  useAppSelector,
+  useNavigation,
+  useNetwork,
+} from '../../../hooks';
+import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
+import {
+  getManageNetworks,
+  useManageNetworks,
+} from '../../../hooks/useManageNetworks';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { getTimeDurationMs } from '../../../utils/helper';
 import { showAllNetworksAccountDerivationsSelector } from '../../Overlay/Accounts/AllNetworksSelectAccountDerivations';
+import { ManageNetworkModalRoutes } from '../types';
 
 import type { IRpcStatus } from '../../../store/reducers/status';
+import type { ManageNetworkRoutesParams } from '../types';
 
 export const RpcSpeed = {
   Fast: {
@@ -185,4 +198,107 @@ export const allNetworksSelectAccount = ({
       },
     });
   });
+};
+
+export const useAllNetworksSelectNetworkAccount = ({
+  walletId,
+  accountId,
+  networkId,
+  filter,
+}: {
+  walletId: string;
+  accountId: string;
+  networkId: string;
+  filter: ManageNetworkRoutesParams[ManageNetworkModalRoutes.AllNetworksNetworkSelector]['filter'];
+}): (() => Promise<{
+  network: Network;
+  account: Account;
+}>) => {
+  const { allNetworks } = useManageNetworks();
+  const { network } = useNetwork({ networkId });
+  const { account } = useAccount({
+    networkId,
+    accountId,
+  });
+  const networkAccounts = useAllNetworksWalletAccounts({
+    accountId,
+    walletId,
+  });
+  const navigation = useNavigation();
+
+  const filteredNetworks = useMemo(
+    () =>
+      allNetworks
+        .map((item) => {
+          const accounts = (networkAccounts[item.id] ?? []).filter(
+            (a) => !filter || filter({ network: item, account: a }),
+          );
+          return {
+            ...item,
+            accounts,
+          };
+        })
+        .filter((item) => {
+          const { accounts } = item;
+          if (!accounts.length) return false;
+          if (filter && !filter({ network: item, account: accounts[0] }))
+            return false;
+          return true;
+        }),
+    [allNetworks, filter, networkAccounts],
+  );
+
+  const select = useCallback(
+    () =>
+      new Promise<{
+        network: Network;
+        account: Account;
+      }>((resolve) => {
+        if (!isAllNetworks(networkId)) {
+          if (network && account) {
+            resolve({
+              network,
+              account,
+            });
+          }
+        } else if (
+          filteredNetworks.length === 1 &&
+          filteredNetworks?.[0]?.accounts?.length === 1
+        ) {
+          resolve({
+            network: filteredNetworks[0],
+            account: filteredNetworks[0].accounts[0],
+          });
+        } else {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.ManageNetwork,
+            params: {
+              screen: ManageNetworkModalRoutes.AllNetworksNetworkSelector,
+              params: {
+                filter,
+                walletId,
+                accountId,
+                onConfirm: (params) => {
+                  if (params) {
+                    resolve(params);
+                  }
+                },
+              },
+            },
+          });
+        }
+      }),
+    [
+      navigation,
+      accountId,
+      walletId,
+      filter,
+      network,
+      account,
+      networkId,
+      filteredNetworks,
+    ],
+  );
+
+  return select;
 };

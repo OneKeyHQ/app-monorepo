@@ -112,6 +112,9 @@ const TokenCell: FC<TokenCellProps> = ({
       borderRadius={borderRadius}
       borderWidth={1}
       borderColor={borderColor}
+      borderLeftColor="border-subdued"
+      borderRightColor="border-subdued"
+      borderBottomColor="border-subdued"
       borderTopWidth={borderTopWidth}
       borderBottomWidth={borderBottomWidth}
       onPress={() => handlePress(token)}

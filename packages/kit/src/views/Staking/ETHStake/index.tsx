@@ -26,11 +26,13 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatCurrency } from '../../../components/Format';
-import { useActiveWalletAccount } from '../../../hooks';
+import {
+  useActiveWalletAccount,
+  useTokenBalanceWithoutFrozen,
+} from '../../../hooks';
 import {
   useSimpleTokenPriceValue,
   useSingleToken,
-  useTokenBalanceWithoutFrozen,
 } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { appSelector } from '../../../store';

@@ -104,6 +104,11 @@ export interface IOverviewDeFiPoolTokenBalance extends ITokenInfo {
 
   value?: string;
   value24h: string;
+
+  coingeckoId?: string;
+
+  riskLevel: TokenRiskLevel;
+  decimals: number;
 }
 
 export interface IAccountTokens extends IBaseOverviewQuery {
@@ -252,12 +257,12 @@ export type OverviewModalRoutesParams = {
 };
 
 export interface OverviewAllNetworksPortfolioRes {
-  tokens: Token[];
+  tokens: IOverviewAllNetworksToken[];
   nfts: Collection[];
   defis: OverviewDefiRes[];
 }
 
-interface Token {
+export interface IOverviewAllNetworksToken {
   name: string;
   symbol: string;
   coingeckoId: string;
@@ -267,6 +272,20 @@ interface Token {
   value?: string;
   value24h?: string;
   logoURI?: string;
+  defaultChain: {
+    impl: string;
+    chainId: string;
+  };
+  tokens: {
+    networkId: string;
+    accountAddress?: string;
+    address: string;
+    xpub?: string;
+    balance: string;
+    decimals: number;
+    riskLevel: TokenRiskLevel;
+    value: string;
+  }[];
 }
 
 export interface IAccountToken {
@@ -286,4 +305,15 @@ export interface IAccountToken {
   key: string;
   coingeckoId?: string;
   autoDetected?: boolean;
+  tokens: IOverviewAllNetworksToken['tokens'];
 }
+
+export type IOverviewTokenDetailListItem = {
+  name: string;
+  symbol: string;
+  address?: string;
+  logoURI: string;
+  type: string;
+  balance: string;
+  networkId: string;
+};

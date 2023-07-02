@@ -13,8 +13,6 @@ import { appSelector } from '../store';
 
 import { useAppSelector } from './useAppSelector';
 
-import type { ITokenDetailInfo } from '../views/ManageTokens/types';
-
 export const useSingleToken = (networkId: string, address: string) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<Token>();
@@ -187,49 +185,6 @@ export const useCurrentFiatValue = () => {
   );
   const fiatMap = useAppSelector((s) => s.fiatMoney.map);
   return fiatMap?.[selectedFiatMoneySymbol]?.value || 0;
-};
-
-export const useTokenDetailInfo = ({
-  coingeckoId,
-  networkId,
-  tokenAddress,
-}: {
-  coingeckoId?: string;
-  networkId?: string;
-  tokenAddress?: string;
-}) => {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<ITokenDetailInfo | undefined>();
-  const { token, loading: tokenLoading } = useSingleToken(
-    networkId ?? '',
-    tokenAddress ?? '',
-  );
-
-  useEffect(() => {
-    setLoading(true);
-    backgroundApiProxy.serviceToken
-      .fetchTokenDetailInfo({ coingeckoId, networkId, tokenAddress })
-      .then((res) => setData(res))
-      .finally(() => setLoading(false));
-  }, [coingeckoId, networkId, tokenAddress]);
-
-  return useMemo(() => {
-    const { defaultChain } = data ?? {};
-    const tokens = data?.tokens || (token ? [token] : []);
-    const defaultToken =
-      tokens?.find(
-        (t) =>
-          t.impl === defaultChain?.impl && t.chainId === defaultChain?.chainId,
-      ) ?? tokens?.[0];
-
-    return {
-      ...pick(token, 'name', 'symbol', 'logoURI'),
-      ...data,
-      loading: loading || tokenLoading,
-      tokens,
-      defaultToken,
-    };
-  }, [data, token, loading, tokenLoading]);
 };
 
 export const useSimpleTokenPriceValue = ({

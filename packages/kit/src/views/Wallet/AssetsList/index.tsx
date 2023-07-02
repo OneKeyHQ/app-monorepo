@@ -4,11 +4,10 @@ import { useNavigation } from '@react-navigation/core';
 import { omit } from 'lodash';
 import { useDebounce } from 'use-debounce';
 
-import { Box, useUserDevice } from '@onekeyhq/components';
+import { Box, VStack, useUserDevice } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
-import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
-import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type {
@@ -115,15 +114,6 @@ function AssetsList({
     },
   );
 
-  // useEffect(() => {
-  //   const { serviceOverview } = backgroundApiProxy;
-  //   serviceOverview.fetchAccountOverview({
-  //     networkId,
-  //     accountId,
-  //
-  //   });
-  // }, [accountId, networkId]);
-
   useEffect(() => {
     if (platformEnv.isExtensionUi) {
       chrome.runtime.connect();
@@ -154,22 +144,21 @@ function AssetsList({
   }, [shouldRefreshBalances, startRefresh, stopRefresh]);
 
   useEffect(() => {
-    if (isFocused && isUnlock) {
+    if (isFocused && isUnlock && !isAllNetworks(networkId)) {
       backgroundApiProxy.serviceToken.fetchAccountTokens();
     }
-  }, [isFocused, isUnlock]);
+  }, [isFocused, isUnlock, networkId]);
 
   const onTokenCellPress = useCallback(
     (item: IAccountToken) => {
-      console.log(item);
       if (onTokenPress) {
         onTokenPress({ token: item });
         return;
       }
       // TODO: make it work with multi chains.
-      const filter = item.address
-        ? undefined
-        : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
+      // const filter = item.address
+      //   ? undefined
+      //   : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
 
       navigation.navigate(HomeRoutes.ScreenTokenDetail, {
         walletId: walletId ?? '',
@@ -178,19 +167,90 @@ function AssetsList({
         tokenId: item.address ?? 'main',
         coingeckoId: item.coingeckoId,
         sendAddress: item.sendAddress,
-        historyFilter: filter,
+        tokenAddress: item.address,
+        // historyFilter: filter,
+        price: item.price,
+        symbol: item.symbol,
+        name: item.name,
+        logoURI: item.logoURI,
       });
     },
     [account?.id, networkId, navigation, onTokenPress, walletId],
   );
 
-  if (!accountTokens?.length) {
-    return loading ? (
-      <AssetsListSkeleton />
-    ) : (
-      <EmptyListOfAccount network={network} accountId={accountId} />
+  const content = useMemo(() => {
+    if (!accountTokens?.length) {
+      return loading ? (
+        <AssetsListSkeleton />
+      ) : (
+        <EmptyListOfAccount network={network} accountId={accountId} />
+      );
+    }
+    return (
+      <VStack>
+        {loading
+          ? null
+          : ListHeaderComponent ?? (
+              <AssetsListHeader
+                innerHeaderBorderColor={
+                  flatStyle ? 'transparent' : 'border-subdued'
+                }
+                showTokenCount={limitSize !== undefined}
+                showOuterHeader={limitSize !== undefined}
+                showInnerHeader={accountTokens.length > 0}
+                showInnerHeaderRoundTop={!flatStyle}
+              />
+            )}
+        {accountTokens.map((item, index) => (
+          <TokenCell
+            accountId={accountId}
+            hidePriceInfo={hidePriceInfo}
+            bg={flatStyle ? 'transparent' : 'surface-default'}
+            borderTopRadius={
+              !flatStyle && showRoundTop && index === 0 ? '12px' : 0
+            }
+            borderRadius={
+              // eslint-disable-next-line no-unsafe-optional-chaining
+              !flatStyle && index === accountTokens?.length - 1 ? '12px' : '0px'
+            }
+            borderTopWidth={1}
+            // eslint-disable-next-line no-unsafe-optional-chaining
+            borderBottomWidth={index === accountTokens?.length - 1 ? 1 : 0}
+            borderColor="divider"
+            onPress={onTokenCellPress}
+            {...omit(item, 'source')}
+            networkId={networkId}
+          />
+        ))}
+        <Box>
+          {ListFooterComponent}
+          {renderDefiList ? (
+            <OverviewDefiThumbnal
+              networkId={networkId}
+              accountId={accountId}
+              address={account?.address ?? ''}
+              limitSize={limitSize}
+            />
+          ) : null}
+        </Box>
+      </VStack>
     );
-  }
+  }, [
+    onTokenCellPress,
+    showRoundTop,
+    renderDefiList,
+    networkId,
+    network,
+    ListFooterComponent,
+    ListHeaderComponent,
+    account,
+    accountId,
+    accountTokens,
+    flatStyle,
+    hidePriceInfo,
+    limitSize,
+    loading,
+  ]);
 
   return (
     <Tabs.ScrollView
@@ -209,51 +269,7 @@ function AssetsList({
       ]}
       showsVerticalScrollIndicator={false}
     >
-      {loading
-        ? null
-        : ListHeaderComponent ?? (
-            <AssetsListHeader
-              innerHeaderBorderColor={
-                flatStyle ? 'transparent' : 'border-subdued'
-              }
-              showTokenCount={limitSize !== undefined}
-              showOuterHeader={limitSize !== undefined}
-              showInnerHeader={accountTokens.length > 0}
-              showInnerHeaderRoundTop={!flatStyle}
-            />
-          )}
-      {accountTokens.map((item, index) => (
-        <TokenCell
-          accountId={accountId}
-          hidePriceInfo={hidePriceInfo}
-          bg={flatStyle ? 'transparent' : 'surface-default'}
-          borderTopRadius={
-            !flatStyle && showRoundTop && index === 0 ? '12px' : 0
-          }
-          borderRadius={
-            // eslint-disable-next-line no-unsafe-optional-chaining
-            !flatStyle && index === accountTokens?.length - 1 ? '12px' : '0px'
-          }
-          borderTopWidth={1}
-          // eslint-disable-next-line no-unsafe-optional-chaining
-          borderBottomWidth={index === accountTokens?.length - 1 ? 1 : 0}
-          borderColor="border-subdued"
-          onPress={onTokenCellPress}
-          {...omit(item, 'source')}
-          networkId={networkId}
-        />
-      ))}
-      <Box>
-        {ListFooterComponent}
-        {renderDefiList ? (
-          <OverviewDefiThumbnal
-            networkId={networkId}
-            accountId={accountId}
-            address={account?.address ?? ''}
-            limitSize={limitSize}
-          />
-        ) : null}
-      </Box>
+      {content}
     </Tabs.ScrollView>
   );
 }

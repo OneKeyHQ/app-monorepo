@@ -10,6 +10,7 @@ import {
   getAddressRiskyItems,
   getTokenRiskyItems,
 } from '@onekeyhq/engine/src/managers/goplus';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import {
   fetchTokenSource,
   fetchTools,
@@ -62,11 +63,11 @@ export default class ServiceToken extends ServiceBase {
   registerEvents() {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     appEventBus.on(AppEventBusNames.NetworkChanged, () => {
-      this.fetchAccountTokens({ includeTop50TokensQuery: true });
+      this.refreshAccountTokens({ includeTop50TokensQuery: true });
     });
     // eslint-disable-next-line @typescript-eslint/unbound-method
     appEventBus.on(AppEventBusNames.CurrencyChanged, () => {
-      this.fetchAccountTokens({ includeTop50TokensQuery: true });
+      this.refreshAccountTokens({ includeTop50TokensQuery: true });
     });
 
     if (isExtensionBackground) {
@@ -77,7 +78,17 @@ export default class ServiceToken extends ServiceBase {
         });
       });
     }
-    this.fetchAccountTokens();
+    this.refreshAccountTokens();
+  }
+
+  @backgroundMethod()
+  refreshAccountTokens(options: Partial<IFetchAccountTokensParams> = {}) {
+    const { appSelector } = this.backgroundApi;
+    const { activeNetworkId } = appSelector((s) => s.general);
+    if (!activeNetworkId || isAllNetworks(activeNetworkId)) {
+      return;
+    }
+    this.fetchAccountTokens(options);
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await

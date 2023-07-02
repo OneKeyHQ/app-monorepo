@@ -108,6 +108,10 @@ export type MainRoutesParams = {
 };
 export type HomeRoutesParams = {
   [HomeRoutes.ScreenTokenDetail]: {
+    price?: number;
+    logoURI?: string;
+    symbol?: string;
+    name?: string;
     walletId: string;
     networkId: string;
     accountId: string;
