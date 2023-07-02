@@ -77,9 +77,9 @@ const importedAccount2: IUnitTestMockAccount = {
 
 const watchingAccount1: IUnitTestMockAccount = {
   account: {
-    address: 'ed25519:8wbWQQkeK9NV1qkiQZ95jbj7JNhpeapHafLPw3qsJdqi',
-    coinType: '397',
-    id: 'external--397--ed25519:8wbWQQkeK9NV1qkiQZ95jbj7JNhpeapHafLPw3qsJdqi',
+    address: 'nexatest:nqtsq5g5s9cd8fsl9d9a7jhsuzsw7u9exztnnz8n9un89t0k',
+    'coinType': '29223',
+    'id': 'external--29223--nexatest:nqtsq5g5s9cd8fsl9d9a7jhsuzsw7u9exztnnz8n9un89t0k',
     name: 'Account #1',
     path: '',
     pub: '',
@@ -90,22 +90,9 @@ const watchingAccount1: IUnitTestMockAccount = {
 
 const watchingAccount2: IUnitTestMockAccount = {
   account: {
-    address: 'a-b-c-d-e-f-g-h-i',
+    address: 'nexatest:fmza0ttf3pnv5zpg8e2q8lr3t2cesrrv9xdk395r5g5qsqtn',
     coinType: '397',
-    id: 'external--397--a-b-c-d-e-f-g-h-i',
-    name: 'Account #1',
-    path: '',
-    pub: '',
-    type: AccountType.SIMPLE,
-  },
-  password: '',
-};
-
-const watchingAccount3: IUnitTestMockAccount = {
-  account: {
-    address: '7t52o0p34zxf58v2mx8rszraplaapgeqb6xhllv5oy8tt5pzs1pfvpsjhrktg42n',
-    coinType: '397',
-    id: 'external--397--7t52o0p34zxf58v2mx8rszraplaapgeqb6xhllv5oy8tt5pzs1pfvpsjhrktg42n',
+    id: 'external--397--ed25519:8wbWQQkeK9NV1qkiQZ95jbj7JNhpeapHafLPw3qsJdqi',
     name: 'Account #1',
     path: '',
     pub: '',
@@ -121,5 +108,4 @@ export default {
   importedAccount2,
   watchingAccount1,
   watchingAccount2,
-  watchingAccount3,
 };
