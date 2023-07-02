@@ -388,7 +388,6 @@ export function decodeScriptBufferToNexaAddress(
   prefix: string,
 ) {
   const chunks = decodeScriptBufferToScriptChunks(buffer);
-  console.log(isPublicKeyTemplateIn(chunks));
   // lib/script/script.js 1364L
   if (isPublicKeyTemplateIn(chunks) && chunks[0].buf) {
     const constraintHash = hash160(chunks[0].buf);
