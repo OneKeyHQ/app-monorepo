@@ -1,7 +1,7 @@
 import mockCredentials from '../../../../../@tests/mockCredentials';
+import { AccountType } from '../../../../types/account';
 
 import type { IUnitTestMockAccount } from '../../../../../@tests/types';
-import { AccountType } from '../../../../types/account';
 import type { DBNetwork } from '../../../../types/network';
 
 // indexedDB -> networks
@@ -17,7 +17,7 @@ const network: DBNetwork = {
   name: 'Nexa Testnet',
   position: 33,
   rpcURL: 'wss://testnet-explorer.nexa.org:30004',
-  symbol: 'NEAR',
+  symbol: 'NEXA',
 };
 
 const hdAccount1: IUnitTestMockAccount = {
@@ -45,31 +45,33 @@ const hdAccount1: IUnitTestMockAccount = {
 const importedAccount1: IUnitTestMockAccount = {
   // indexedDB -> accounts
   account: {
-    address: 'b1c2f16ca9c3b324039dd0881a63ec236f1f339b6220b54ede8347b4b828daa5',
-    coinType: '397',
-    id: 'imported--397--b1c2f16ca9c3b324039dd0881a63ec236f1f339b6220b54ede8347b4b828daa5',
+    'address': 'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
+    'coinType': '29223',
+    'id': 'imported--29223--nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
     name: 'Account #1',
     path: '',
-    pub: 'ed25519:Cxua8Jtcu4414fr97m1CHqVt7WWFdkca1pFkdtLefD5n',
-    type: 'simple' as any,
+    pub: '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
+    type: AccountType.SIMPLE,
   },
   // indexedDB -> credentials
   privateKey:
-    '62ec93894623daf9acf2b59d0517612ffe8e96b70cf4fc8a628aca4fbe7ae3779bf24e68e84a05c1cd64adc698687f40226e96cd3d06a42459fd608606c72d9a7674d391774d2f1431c9da242aed55bb6cb87a801fddaa65a74be6e0568dff3d',
+    '6b4d9dee8a37f4329cbf7db9a137a2ecdc63be8e6caa881ef05b3a3349ef8db9',
   password: mockCredentials.password,
 };
 
 const importedAccount2: IUnitTestMockAccount = {
   account: {
-    address: '75fe307718a061f3b371c9777ad194ac485fde853d600a8e802ce748e5012361',
-    coinType: '397',
-    id: 'imported--397--75fe307718a061f3b371c9777ad194ac485fde853d600a8e802ce748e5012361',
+    'address': 'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
+    'coinType': '29223',
+    'id': 'imported--29223--nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
     name: 'Account #1',
     path: '',
-    pub: 'ed25519:8wbWQQkeK9NV1qkiQZ95jbj7JNhpeapHafLPw3qsJdqi',
-    type: 'simple' as any,
+    pub: '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
+    type: AccountType.SIMPLE,
   },
-  privateKey: '62ec93894623daf9acf2b59d0517612f',
+  // indexedDB -> credentials
+  privateKey:
+    '6b4d9dee8a37f4329cbf7db9a137a2ecdc63be8e6caa881ef05b3a3349ef8db9',
   password: mockCredentials.password,
 };
 
@@ -81,7 +83,7 @@ const watchingAccount1: IUnitTestMockAccount = {
     name: 'Account #1',
     path: '',
     pub: '',
-    type: 'simple' as any,
+    type: AccountType.SIMPLE,
   },
   password: '',
 };
@@ -94,7 +96,7 @@ const watchingAccount2: IUnitTestMockAccount = {
     name: 'Account #1',
     path: '',
     pub: '',
-    type: 'simple' as any,
+    type: AccountType.SIMPLE,
   },
   password: '',
 };
@@ -107,7 +109,7 @@ const watchingAccount3: IUnitTestMockAccount = {
     name: 'Account #1',
     path: '',
     pub: '',
-    type: 'simple' as any,
+    type: AccountType.SIMPLE,
   },
   password: '',
 };

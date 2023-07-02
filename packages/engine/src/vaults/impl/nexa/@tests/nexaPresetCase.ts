@@ -36,7 +36,9 @@ export async function testPrepareAccounts(
     target: dbAccount.address,
     accountIdPrefix: 'external',
     password: prepareOptions.password,
-    privateKey: prepareOptions?.privateKey,
+    privateKey: prepareOptions?.privateKey
+      ? Buffer.from(prepareOptions.privateKey, 'hex')
+      : undefined,
   } as IPrepareAccountsParams);
   expect(accounts[0]).toEqual(dbAccount);
 }

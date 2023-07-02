@@ -1,18 +1,13 @@
-import {
-  Networks,
-  PrivateKey,
-  PublicKey,
-  Transaction,
-  crypto,
-} from 'nexcore-lib';
+import { Networks, PrivateKey, Transaction, crypto } from 'nexcore-lib';
 
-import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
+import { secp256k1 } from '@onekeyhq/engine/src/secret/curves';
 import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../../errors';
 import { Signer } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
+import { publickeyToAddress } from '../utils';
 
 import type { DBSimpleAccount } from '../../../../types/account';
 import type {
@@ -22,6 +17,7 @@ import type {
   IUnsignedTxPro,
 } from '../../../types';
 
+const curve = 'secp256k1';
 export class KeyringImported extends KeyringImportedBase {
   override async prepareAccounts(
     params: IPrepareImportedAccountsParams,
@@ -30,9 +26,10 @@ export class KeyringImported extends KeyringImportedBase {
     if (privateKey.length !== 32) {
       throw new OneKeyInternalError('Invalid private key.');
     }
-    Networks.defaultNetwork = Networks.get('nexatest');
-    const prvKey = new PrivateKey(privateKey.toString('hex'));
-    const address = prvKey.toAddress().toNexaAddress();
+
+    const chainId = await this.vault.getNetworkChainId();
+    const pub = secp256k1.publicFromPrivate(privateKey);
+    const address = publickeyToAddress(pub, chainId);
     return Promise.resolve([
       {
         id: `imported--${COIN_TYPE}--${address}`,
@@ -40,7 +37,7 @@ export class KeyringImported extends KeyringImportedBase {
         type: AccountType.SIMPLE,
         path: '',
         coinType: COIN_TYPE,
-        pub: prvKey.publicKey.toString(),
+        pub: pub.toString('hex'),
         address,
       },
     ]);
@@ -63,7 +60,7 @@ export class KeyringImported extends KeyringImportedBase {
     }
 
     return {
-      [dbAccount.address]: new Signer(privateKey, password, 'ed25519'),
+      [dbAccount.address]: new Signer(privateKey, password, curve),
     };
   }
 
@@ -84,7 +81,7 @@ export class KeyringImported extends KeyringImportedBase {
     const dbAccount = await this.getDbAccount();
 
     const signer = await this.getSigner(options, dbAccount);
-
+    console.log('__privateKey', (await signer.getPrvkey()).toString('hex'));
     Networks.defaultNetwork = Networks.get('nexatest');
     const privateKey = new PrivateKey(
       (await signer.getPrvkey()).toString('hex'),
