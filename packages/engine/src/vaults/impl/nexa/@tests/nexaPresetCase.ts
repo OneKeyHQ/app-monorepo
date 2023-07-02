@@ -73,22 +73,19 @@ export async function testSignTransaction(
 
   const signers = await keyring.getSigners(password || '', [dbAccount.address]);
   const signer = signers[dbAccount.address];
-  const publickKey = await signer.getPubkey(true);
-
+  const publicKey = await signer.getPubkey(true);
+  console.error(
+    '--verify--',
+    publicKey.toString('hex'),
+    signedTx.digest,
+    signedTx.signature,
+  );
   expect(
     verify(
-      publickKey,
+      publicKey,
       Buffer.from(signedTx.digest || '', 'hex'),
       Buffer.from(signedTx.signature || '', 'hex'),
     ),
   ).toBeTruthy();
-  // const signers = await keyring.getSigners(password || '', [dbAccount.address]);
-  // const signer = signers[dbAccount.address];
-  // const isVerified = await signer.verifySignature({
-  //   digest: `${signedTx.digest || ''}`,
-  //   publicKey: `${dbAccount.address || ''}`,
-  //   signature: nativeTx.signature.data,
-  // });
-  // expect(isVerified).toBeTruthy();
   await wait(1000);
 }

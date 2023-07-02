@@ -26,22 +26,22 @@ describe('Nexa KeyringImported Tests', () => {
     );
   });
 
-  // it('Nexa hd sign tx', async () => {
-  //   const { network, hdAccount1 } = nexaMockData;
-  //   await testSignTransaction(
-  //     {
-  //       dbNetwork: network,
-  //       dbAccount: hdAccount1.account,
-  //       mnemonic: hdAccount1.mnemonic,
-  //       password: hdAccount1.password,
-  //     },
-  //     {
-  //       keyring({ vault }) {
-  //         return new KeyringHd(vault);
-  //       },
-  //     },
-  //   );
-  // });
+  it('Nexa hd sign tx', async () => {
+    const { network, importedAccount2 } = nexaMockData;
+    await testSignTransaction(
+      {
+        dbNetwork: network,
+        dbAccount: importedAccount2.account,
+        privateKey: importedAccount2.privateKey,
+        password: importedAccount2.password,
+      },
+      {
+        keyring({ vault }) {
+          return new KeyringImported(vault);
+        },
+      },
+    );
+  });
 });
 
 export {};

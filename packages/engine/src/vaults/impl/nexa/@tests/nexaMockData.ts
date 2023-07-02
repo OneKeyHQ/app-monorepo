@@ -71,8 +71,8 @@ const importedAccount2: IUnitTestMockAccount = {
   },
   // indexedDB -> credentials
   privateKey:
-    '6b4d9dee8a37f4329cbf7db9a137a2ecdc63be8e6caa881ef05b3a3349ef8db9',
-  password: mockCredentials.password,
+    'b848990d04878c4bbdcb671f45ed02807bcb4b200bfab2d636cb088e921b483fb01e7b872377c5b6dd582f0ca5d16ae5e4565163607df61ec5b5c96cbde8f4bb892865e079c0c4d64f29e5ba8b6a8d80317c1c7a97cf476a7459d24aa80d2a0f',
+  password: '12345678',
 };
 
 const watchingAccount1: IUnitTestMockAccount = {
