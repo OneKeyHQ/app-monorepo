@@ -146,10 +146,26 @@ function buildInputScriptBuffer(publicKey: Buffer, signature: Buffer) {
   return scriptBuffer;
 }
 
-function buildInputIdem({
+function buildInputIdemWithSignature({
   sigtype,
   prevTxId,
   scriptBuffer,
+  sequenceNumber,
+  amount,
+}: INexaInputSignature): Buffer {
+  return Buffer.concat([
+    writeUInt8(sigtype),
+    reverseBuffer(prevTxId),
+    varintBufNum(scriptBuffer.length),
+    scriptBuffer,
+    writeUInt32LE(sequenceNumber),
+    writeUInt64LEBN(amount),
+  ]);
+}
+
+function buildInputIdem({
+  sigtype,
+  prevTxId,
   sequenceNumber,
   amount,
 }: INexaInputSignature): Buffer {
@@ -174,13 +190,17 @@ function buildOutputIdem({
   ]);
 }
 
-function buildTxid(
+function buildRawTx(
   inputSignatures: INexaInputSignature[],
   outputSignatures: INexaOutputSignature[],
   nLockTime = 0,
-): string {
-  // build input Idem buffer
-  const inputIdem = Buffer.concat(inputSignatures.map(buildInputIdem));
+  isSignature = false,
+) {
+  const inputIdem = Buffer.concat(
+    inputSignatures.map(
+      isSignature ? buildInputIdemWithSignature : buildInputIdem,
+    ),
+  );
   const outputIdem = Buffer.concat(outputSignatures.map(buildOutputIdem));
 
   const idemBuffer = Buffer.concat([
@@ -192,6 +212,29 @@ function buildTxid(
     outputIdem,
     writeUInt32LE(nLockTime),
   ]);
+  return idemBuffer;
+}
+
+function buildTxid(
+  inputSignatures: INexaInputSignature[],
+  outputSignatures: INexaOutputSignature[],
+  nLockTime = 0,
+): string {
+  // build input Idem buffer
+  // const inputIdem = Buffer.concat(inputSignatures.map(buildInputIdem));
+  // const outputIdem = Buffer.concat(outputSignatures.map(buildOutputIdem));
+
+  // const idemBuffer = Buffer.concat([
+  //   // Transaction version
+  //   writeUInt8(0),
+  //   varintBufNum(inputSignatures.length),
+  //   inputIdem,
+  //   varintBufNum(outputSignatures.length),
+  //   outputIdem,
+  //   writeUInt32LE(nLockTime),
+  // ]);
+  const idemBuffer = buildRawTx(inputSignatures, outputSignatures, nLockTime);
+  console.error('idemBuffer---', idemBuffer.toString('hex'));
   const idemHash = sha256sha256(idemBuffer);
   console.error('idemHash---', idemHash.toString('hex'));
 
@@ -330,10 +373,10 @@ export async function signEncodedTx(
   }));
 
   const txid = buildTxid(inputSignatures, outputSignatures);
-
+  const rawTx = buildRawTx(inputSignatures, outputSignatures, 0, true);
   return {
     txid,
-    rawTx: '',
+    rawTx: rawTx.toString('hex'),
     encodedTx: unsignedTx.encodedTx,
   };
 }
