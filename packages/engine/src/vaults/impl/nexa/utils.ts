@@ -26,6 +26,7 @@ import { type IEncodedTxNexa, NexaSignature } from './types';
 import type { Signer } from '../../../proxy';
 import type { ISignedTxPro, IUnsignedTxPro } from '../../types';
 import type { INexaInputSignature, INexaOutputSignature } from './types';
+import { DBAccount } from '../../../types/account';
 
 export function verifyNexaAddress(address: string) {
   try {
@@ -256,6 +257,7 @@ function buildTxid(
 export async function signEncodedTx(
   unsignedTx: IUnsignedTxPro,
   signer: Signer,
+  dbAccount: DBAccount,
 ): Promise<ISignedTxPro> {
   const privateKey = await signer.getPrvkey();
   const publicKey = await signer.getPubkey(true);
@@ -297,9 +299,10 @@ export async function signEncodedTx(
   );
   const available = inputAmount - outputAmount * 100;
   const fee = estimateFee(encodedTx as IEncodedTxNexa, available);
+
   // change address
   outputs.push({
-    address: inputs[0].address,
+    address: dbAccount.address,
     fee: String((available - fee) / 100),
     outType: 1,
   });

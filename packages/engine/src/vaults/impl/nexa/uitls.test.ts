@@ -1,6 +1,7 @@
 import { signEncodedTx } from './utils';
 
 import type { Signer } from '../../../proxy';
+import { DBAccount } from '../../../types/account';
 
 jest.setTimeout(3 * 60 * 1000);
 
@@ -130,6 +131,9 @@ describe('Nexa Utils Tests', () => {
             ),
           ),
       } as unknown as Signer,
+      {
+        address: 'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
+      } as unknown as DBAccount,
     );
     expect(signedTx.txid).toBe(
       '1e04ea46dbbddf5291df961bf02f4d9158e0e90421379165c6a0b5fe897b9f33',
