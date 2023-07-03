@@ -269,7 +269,7 @@ export async function signEncodedTx(
   const privateKey = await signer.getPrvkey();
   const publicKey = await signer.getPubkey(true);
   const scriptPushPublicKey = convertScriptToPushBuffer(publicKey);
-  const signHash = hash160(scriptPushPublicKey);
+  // const signHash = hash160(scriptPushPublicKey);
   const { encodedTx } = unsignedTx;
   const { inputs, outputs, gas } = encodedTx as IEncodedTxNexa;
   const newOutputs = outputs.slice();
@@ -295,22 +295,22 @@ export async function signEncodedTx(
   );
   const inputAmountHash = sha256sha256(inputAmountBuffer);
 
-  const inputAmount: number = inputs.reduce(
-    (acc, input) => acc + Number(input.satoshis),
-    0,
+  const inputAmount: BN = inputs.reduce(
+    (acc, input) => acc.add(new BN(input.satoshis)),
+    new BN(0),
   );
-  const outputAmount: number = newOutputs.reduce(
-    (acc, output) => acc + Number(output.satoshis),
-    0,
+  const outputAmount: BN = newOutputs.reduce(
+    (acc, output) => acc.add(new BN(output.satoshis)),
+    new BN(0),
   );
-  const available = inputAmount - outputAmount;
+  const available = inputAmount.sub(outputAmount);
 
-  const fee = gas ? Number(gas) : estimateFee(encodedTx as IEncodedTxNexa);
+  const fee = new BN(gas || estimateFee(encodedTx as IEncodedTxNexa));
 
   // change address
   newOutputs.push({
     address: dbAccount.address,
-    satoshis: String(available - fee),
+    satoshis: available.sub(fee).toString(),
     outType: 1,
   });
 
