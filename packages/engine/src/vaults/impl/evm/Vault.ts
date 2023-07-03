@@ -633,7 +633,7 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const isTransferToken = Boolean(transferInfo.token);
     const isTransferNativeToken = !isTransferToken;
-    const { amount, tokenId, isNFT, type } = transferInfo;
+    const { amount, nftTokenId, isNFT, nftType } = transferInfo;
 
     let amountBN = new BigNumber(amount);
     if (amountBN.isNaN()) {
@@ -642,12 +642,12 @@ export default class Vault extends VaultBase {
 
     // erc20/erc721/erc1155 token transfer
     if (isTransferToken) {
-      if (isNFT && type && tokenId) {
+      if (isNFT && nftType && nftTokenId) {
         const data = buildEncodeDataWithABI({
-          type,
+          type: nftType,
           from: transferInfo.from,
           to: transferInfo.to,
-          id: tokenId,
+          id: nftTokenId,
           amount: amountBN.toFixed(),
         });
         return {
@@ -701,7 +701,7 @@ export default class Vault extends VaultBase {
     const dbAccount = await this.getDbAccount();
     const transferInfo = transferInfos[0];
     const isTransferToken = Boolean(transferInfo.token);
-    const { tokenId, isNFT, type } = transferInfo;
+    const { nftTokenId, isNFT, nftType } = transferInfo;
     const nextNonce: number =
       prevNonce !== undefined
         ? prevNonce + 1
@@ -721,7 +721,7 @@ export default class Vault extends VaultBase {
     let totalAmountBN = new BigNumber(0);
 
     if (isTransferToken) {
-      if (isNFT && type && tokenId) {
+      if (isNFT && nftType && nftTokenId) {
         batchMethod = BatchTransferSelectors.disperseNFT;
         paramTypes = ['address', 'address[]', 'uint256[]', 'uint256[]'];
         ParamValues = [
@@ -730,10 +730,10 @@ export default class Vault extends VaultBase {
             transferInfos,
             (result: [string[], string[], string[]], info) => {
               result[0].push(info.token || '');
-              result[1].push(info.tokenId || '');
+              result[1].push(info.nftTokenId || '');
               result[2].push(
                 new BigNumber(
-                  info.type === 'erc1155' ? info.amount : 0,
+                  info.nftType === 'erc1155' ? info.amount : 0,
                 ).toFixed(),
               );
               return result;

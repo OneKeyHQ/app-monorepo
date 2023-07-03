@@ -3,6 +3,7 @@ import axios from 'axios';
 
 import type {
   Collection,
+  IErcNftType,
   NFTAsset,
   NFTServiceResp,
   NFTTransaction,
@@ -137,7 +138,7 @@ export const getNFTTransactionHistory = async (
 };
 
 export function buildEncodeDataWithABI(param: {
-  type: string;
+  type: IErcNftType;
   from: string;
   to: string;
   id: string;

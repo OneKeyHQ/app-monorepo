@@ -1,22 +1,16 @@
 import { Buffer } from 'buffer';
 
+import {
+  bytesToHex as bytesToHex0,
+  hexToBytes,
+  utf8ToBytes,
+} from '@noble/hashes/utils';
 import { isString } from 'lodash';
 
 function toBuffer(
   data: Buffer | Uint8Array | string,
   // encoding of string data
-  encoding:
-    | 'hex'
-    | 'utf8'
-    | 'base64'
-    | 'ascii'
-    | 'utf-8'
-    | 'utf16le'
-    | 'ucs2'
-    | 'ucs-2'
-    | 'base64url'
-    | 'latin1'
-    | 'binary' = 'hex',
+  encoding: BufferEncoding = 'hex',
 ): Buffer {
   if (isString(data)) {
     // buffer from hex string in default
@@ -28,6 +22,27 @@ function toBuffer(
   return data;
 }
 
+function textToHex(text: string, encoding: BufferEncoding = 'utf8'): string {
+  return toBuffer(text, encoding || 'utf8').toString('hex');
+}
+
+function hexToText(hex: string, encoding: BufferEncoding = 'utf8'): string {
+  return toBuffer(hex, 'hex').toString(encoding || 'utf8');
+}
+
+function bytesToHex(bytes: Buffer | Uint8Array | string): string {
+  // input maybe hex string
+  if (isString(bytes)) {
+    return bytes;
+  }
+  return bytesToHex0(toBuffer(bytes));
+}
+
 export default {
   toBuffer,
+  bytesToHex,
+  hexToBytes,
+  textToHex,
+  hexToText,
+  utf8ToBytes,
 };

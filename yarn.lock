@@ -1679,6 +1679,27 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@cmdcode/buff-utils@npm:1.7.4":
+  version: 1.7.4
+  resolution: "@cmdcode/buff-utils@npm:1.7.4"
+  checksum: 00533217bb50e3d495f37a161a8e2e431b29a04246a21ae340bb68f7ba05a6e35d6f4c0f547d34aa82a17dbe4a1bba46d4604f3f6d1e5a69370cad26b83879dd
+  languageName: node
+  linkType: hard
+
+"@cmdcode/crypto-utils@npm:1.9.5":
+  version: 1.9.5
+  resolution: "@cmdcode/crypto-utils@npm:1.9.5"
+  checksum: 989a5f744e4ef34cfc84a2871a8fd8749cb7b03fc117d9f3b3bd432f1458e33925567053e966f30a3326e44d4ce0c677dd4875be975cb38d6c0883bc1d849349
+  languageName: node
+  linkType: hard
+
+"@cmdcode/tapscript@npm:1.2.9":
+  version: 1.2.9
+  resolution: "@cmdcode/tapscript@npm:1.2.9"
+  checksum: 2755f8df4c033f3d43acf748f4190476d40cf914a368cf32dab030ed0e9dc3f351d733e8f16d1be6ece273982681ee434888dfb81c3c390eee51c00014744c03
+  languageName: node
+  linkType: hard
+
 "@cnakazawa/watch@npm:^1.0.3":
   version: 1.0.4
   resolution: "@cnakazawa/watch@npm:1.0.4"
@@ -5179,6 +5200,9 @@ __metadata:
     "@babel/eslint-parser": ^7.19.1
     "@babel/plugin-proposal-nullish-coalescing-operator": ^7.18.6
     "@babel/preset-react": ^7.18.6
+    "@cmdcode/buff-utils": 1.7.4
+    "@cmdcode/crypto-utils": 1.9.5
+    "@cmdcode/tapscript": 1.2.9
     "@legendapp/state": ^1.2.9
     "@onekeyfe/blockchain-libs": 0.0.48
     "@onekeyfe/cross-inpage-provider-core": 1.1.30

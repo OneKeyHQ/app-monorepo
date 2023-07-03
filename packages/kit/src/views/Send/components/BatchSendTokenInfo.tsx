@@ -63,7 +63,7 @@ function BatchSendTokenInfo(props: Props) {
     networkId,
     token: {
       ...token,
-      sendAddress: transferInfo.sendAddress,
+      sendAddress: transferInfo.tokenSendAddress,
     },
     fallback: '0',
   });

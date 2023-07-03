@@ -101,7 +101,7 @@ export default class ServiceUtxos extends ServiceBase {
         (vault.settings.dust ?? vault.settings.minTransferAmount) || 0,
       ).shiftedBy(network.decimals);
 
-      let utxos = (await vault.collectUTXOs()) as ICoinControlListItem[];
+      let { utxos } = (await vault.collectUTXOsInfo());
 
       const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
         networkId,

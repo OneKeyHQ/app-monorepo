@@ -196,7 +196,7 @@ function TokenOutbox(props: Props) {
         to: receiver[i].Address,
         amount: receiver[i].Amount,
         token: token?.tokenIdOnNetwork,
-        sendAddress: token?.sendAddress,
+        tokenSendAddress: token?.sendAddress,
       });
     }
 

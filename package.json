@@ -58,6 +58,9 @@
     ]
   },
   "dependencies": {
+    "@cmdcode/buff-utils": "1.7.4",
+    "@cmdcode/crypto-utils": "1.9.5",
+    "@cmdcode/tapscript": "1.2.9",
     "@legendapp/state": "^1.2.9",
     "@onekeyfe/blockchain-libs": "0.0.48",
     "@onekeyfe/cross-inpage-provider-core": "1.1.30",
