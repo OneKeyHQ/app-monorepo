@@ -39,7 +39,7 @@ import type {
   DBAccount,
   DBSimpleAccount,
 } from '../../../types/account';
-import type { PartialTokenInfo } from '../../../types/provider';
+import type { PartialTokenInfo, TransactionStatus } from '../../../types/provider';
 import type { Token } from '../../../types/token';
 import type {
   IDecodedTxAction,
@@ -137,7 +137,7 @@ export default class Vault extends VaultBase {
       const network = await this.getNetwork();
       params.encodedTx.gas = new BigNumber(limit)
         .multipliedBy(price)
-        .multipliedBy(new BigNumber(10).pow(network.decimals))
+        .shiftedBy(network.decimals)
         .toFixed();
     }
     return params.encodedTx;
@@ -231,6 +231,11 @@ export default class Vault extends VaultBase {
       payload: { encodedTx },
       encodedTx,
     });
+  }
+
+  override async getTransactionStatuses(txids: string[]): Promise<(TransactionStatus | undefined)[]> {
+    const client = await this.getSDKClient();
+    return client.getTransactionStatuses(txids);
   }
 
   override async fetchFeeInfo(

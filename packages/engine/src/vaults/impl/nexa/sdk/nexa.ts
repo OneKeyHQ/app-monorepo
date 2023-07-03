@@ -3,13 +3,12 @@ import BigNumber from 'bignumber.js';
 import { WebSocketRequest } from '@onekeyhq/shared/src/request/WebSocketRequest';
 
 import { SimpleClient } from '../../../../client/BaseClient';
+import { TransactionStatus } from '../../../../types/provider';
 
-import type { CoinInfo } from '../../../../types/chain';
 import type {
   AddressInfo,
   ClientInfo,
   FeePricePerUnit,
-  TransactionStatus,
 } from '../../../../types/provider';
 import type { IListUXTO, INexaHistoryItem, INexaTransaction } from '../types';
 
@@ -25,10 +24,6 @@ export class Nexa extends SimpleClient {
   }
 
   override getAddress(address: string): Promise<AddressInfo> {
-    throw new Error('Method not implemented.');
-  }
-
-  override getTransactionStatus(txid: string): Promise<TransactionStatus> {
     throw new Error('Method not implemented.');
   }
 
@@ -84,5 +79,20 @@ export class Nexa extends SimpleClient {
     return this.rpc.call<INexaHistoryItem[]>('blockchain.address.get_history', [
       address,
     ]);
+  }
+
+  override async getTransactionStatus(
+    txid: string,
+  ): Promise<TransactionStatus> {
+    const tx = await this.getTransaction(txid);
+    return tx.confirmations > 0
+      ? TransactionStatus.CONFIRM_AND_SUCCESS
+      : TransactionStatus.PENDING;
+  }
+
+  override getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
+    return Promise.all(txids.map((txid) => this.getTransactionStatus(txid)));
   }
 }
