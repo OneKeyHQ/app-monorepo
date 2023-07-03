@@ -153,7 +153,7 @@ function GasOverview(props: Props) {
 
   return (
     <Box {...rest}>
-      <Text fontSize={40} textAlign="center">
+      <Text fontSize={56} textAlign="center">
         {gasLevelInfo.label}
       </Text>
       <Text typography="DisplayMedium" textAlign="center">
