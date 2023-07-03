@@ -23,7 +23,7 @@ const network: DBNetwork = {
 const hdAccount1: IUnitTestMockAccount = {
   // indexedDB -> accounts
   account: {
-    'name': 'NEAR #1',
+    'name': 'NEXA #1',
     'address': 'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
     'addresses': {
       '0/0': 'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',

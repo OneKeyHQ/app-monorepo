@@ -13,11 +13,11 @@ import type { KeyringSoftwareBase } from '../../../keyring/KeyringSoftwareBase';
 import type { IPrepareAccountsParams } from '../../../types';
 import type { VaultBase } from '../../../VaultBase';
 
-const nearAccountNameInfo = getAccountNameInfoByImpl(IMPL_NEXA);
+const nexaAccountNameInfo = getAccountNameInfoByImpl(IMPL_NEXA);
 const prepareAccountsParams = {
   indexes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-  coinType: nearAccountNameInfo.default.coinType,
-  template: nearAccountNameInfo.default.template,
+  coinType: nexaAccountNameInfo.default.coinType,
+  template: nexaAccountNameInfo.default.template,
 };
 
 export async function testPrepareAccounts(

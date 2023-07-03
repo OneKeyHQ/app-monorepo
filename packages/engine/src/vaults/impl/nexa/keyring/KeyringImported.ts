@@ -45,7 +45,7 @@ export class KeyringImported extends KeyringImportedBase {
     const dbAccount = await this.getDbAccount();
 
     if (addresses.length !== 1) {
-      throw new OneKeyInternalError('NEAR signers number should be 1.');
+      throw new OneKeyInternalError('NEXA signers number should be 1.');
     } else if (addresses[0] !== dbAccount.address) {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
