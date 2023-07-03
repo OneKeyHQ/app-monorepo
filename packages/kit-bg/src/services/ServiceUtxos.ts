@@ -101,7 +101,7 @@ export default class ServiceUtxos extends ServiceBase {
         (vault.settings.dust ?? vault.settings.minTransferAmount) || 0,
       ).shiftedBy(network.decimals);
 
-      let { utxos } = (await vault.collectUTXOsInfo());
+      const { utxos: btcUtxos } = await vault.collectUTXOsInfo();
 
       const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
         networkId,
@@ -117,19 +117,20 @@ export default class ServiceUtxos extends ServiceBase {
         compareFunction = compareByLabel;
       }
 
-      utxos = utxos
+      const utxos: ICoinControlListItem[] = btcUtxos
         .map((utxo) => {
           const archivedUtxo = archivedUtxos.find(
             (item) => item.id === getUtxoId(networkId, utxo),
           );
+          const coinControlItem: ICoinControlListItem = {
+            height: NaN, // TODO height is optional?
+            ...utxo,
+          };
           if (archivedUtxo) {
-            return {
-              ...utxo,
-              label: archivedUtxo.label,
-              frozen: archivedUtxo.frozen,
-            };
+            coinControlItem.label = archivedUtxo.label;
+            coinControlItem.frozen = archivedUtxo.frozen;
           }
-          return utxo;
+          return coinControlItem;
         })
         .sort(compareFunction);
 

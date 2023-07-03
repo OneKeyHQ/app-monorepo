@@ -15,7 +15,6 @@ import type {
   UTXO,
   UnsignedTx,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { isTaprootXpubSegwit, isWatchAccountTaprootSegwit } from '../utils';
 
