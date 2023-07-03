@@ -5,6 +5,10 @@ import { useIntl } from 'react-intl';
 
 import { CheckBox, Dialog, ToastManager } from '@onekeyhq/components';
 import type { OnCloseCallback } from '@onekeyhq/components/src/Dialog/components/FooterButton';
+import {
+  AppUIEventBusNames,
+  appUIEventBus,
+} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 import timelinePerfTrace, {
   ETimelinePerfNames,
 } from '@onekeyhq/shared/src/perf/timelinePerfTrace';
@@ -146,6 +150,7 @@ const ManagerWalletDeleteDialog: FC<ManagerWalletDeleteDialogProps> = ({
                   { 0: wallet.name },
                 ),
               });
+              appUIEventBus.emit(AppUIEventBusNames.RemoveWallet, wallet);
               onClose?.();
               setTimeout(() => {
                 closeWalletSelector();
