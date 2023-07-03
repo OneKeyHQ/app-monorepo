@@ -80,7 +80,7 @@ export class WebSocketRequest {
     let wsURL = this.url;
     // this code snippet won't be present in the production environment.
     if (process.env.NODE_ENV === 'development') {
-      // Proxy by Webpack 
+      // Proxy by Webpack Dev Server
       // packages/web/webpack.config.js 37L
       if (
         platformEnv.isDev &&
