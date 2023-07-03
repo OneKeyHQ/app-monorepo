@@ -1,6 +1,8 @@
 /* eslint-disable no-bitwise */
+import { Buffer } from 'buffer';
+
 import BN from 'bn.js';
-import { Buffer } from 'buffer'
+
 import { decode } from './address';
 
 export enum Opcode {
@@ -364,7 +366,7 @@ export function decodeScriptBufferToScriptChunks(buffer: Buffer) {
   const chunks: INexaScriptChunk[] = [];
   // a wrired bug that in sometimes readUInt8 function is missing on buffer in browser environment.
   // so i bind Buffer.prototype.readUInt8 into buffer.
-  const readUint8 = Buffer.prototype.readUInt8.bind(buffer)
+  const readUint8 = Buffer.prototype.readUInt8.bind(buffer);
   while (i < buffer.length) {
     const opcodenum = readUint8(i);
     i += 1;

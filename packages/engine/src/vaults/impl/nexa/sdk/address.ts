@@ -172,7 +172,7 @@ export function decode(address: string) {
   const pieces = address.toLowerCase().split(':');
   const prefix = pieces[0];
   const payload = base32Decode(pieces[1]);
-  const payloadData = fromUint5Array(payload.subarray(0, -8));
+  const payloadData = fromUint5Array(Buffer.from(payload.subarray(0, -8)));
   const versionByte = payloadData[0];
   const hash = payloadData.subarray(1);
   // no length limits in nexa: validate(getHashSize(versionByte) === hash.length * 8, 'Invalid hash size: ' + address + '.');

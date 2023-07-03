@@ -268,7 +268,7 @@ export async function signEncodedTx(
 ): Promise<ISignedTxPro> {
   const privateKey = await signer.getPrvkey();
   const publicKey = await signer.getPubkey(true);
-  const scriptPushPublicKey = convertScriptToPushBuffer(publicKey);
+  // const scriptPushPublicKey = convertScriptToPushBuffer(publicKey);
   // const signHash = hash160(scriptPushPublicKey);
   const { encodedTx } = unsignedTx;
   const { inputs, outputs, gas } = encodedTx as IEncodedTxNexa;
