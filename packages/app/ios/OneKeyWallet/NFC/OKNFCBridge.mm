@@ -165,7 +165,7 @@
     shareInfo.cardGroupID = subjectID;
 
     // initParams.json -> sk
-    char *sk = (char *)"B66BE8CB7512A6DFF741839EE8C5092D6987A5D7790E93B52EBB16FCD4EAD7AA";
+    char *sk = (char *)[[NFCConfig envFor:@"NFCSK"] UTF8String];
 
     rv = JUB_GPC_Initialize(shareInfo, [NFCConfig envFor:@"LITE_CERT"].UTF8String, sk);
 
