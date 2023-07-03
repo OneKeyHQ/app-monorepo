@@ -1,5 +1,8 @@
 import { hdAccount1, network } from '../@tests/stcMockData';
-import { testPrepareAccounts, testSignTransaction } from '../@tests/stcPresetCase';
+import {
+  testPrepareAccounts,
+  testSignTransaction,
+} from '../@tests/stcPresetCase';
 
 import { KeyringHd } from './KeyringHd';
 
