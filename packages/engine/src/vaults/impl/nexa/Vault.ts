@@ -376,13 +376,11 @@ export default class Vault extends VaultBase {
                 data: tx.hex,
               },
               extraInfo: null,
-              totalFeeInNative: new BigNumber(
-                tx.vout.reduce((acc, cur) => acc + cur.value_satoshi, 0),
-              )
+              totalFeeInNative: new BigNumber(tx.fee_satoshi)
                 .shiftedBy(-decimals)
                 .toFixed(),
             };
-            decodedTx.updatedAt = tx.time;
+            decodedTx.updatedAt = tx.time ? tx.time * 1000 : Date.now();
             decodedTx.createdAt =
               historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
             decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
