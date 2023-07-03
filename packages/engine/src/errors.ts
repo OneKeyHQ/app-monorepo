@@ -371,5 +371,5 @@ export class NoRouteFoundError extends OneKeyError {
 }
 
 export class BadAuthError extends OneKeyError {
-  override key = 'Bad Auth';
+  override key = 'msg__authentication_failed_verify_again';
 }

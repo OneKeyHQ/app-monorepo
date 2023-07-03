@@ -195,7 +195,7 @@ export default class Vault extends VaultBase {
         if (errorKey === 'msg__invoice_is_already_paid') {
           throw e;
         }
-        if (errorKey === 'Bad Auth') {
+        if (errorKey === 'msg__authentication_failed_verify_again') {
           throw e;
         }
         // pass
@@ -438,16 +438,18 @@ export default class Vault extends VaultBase {
       const { invoice, amount, expired, created, nonce, paymentHash } =
         signedTx.encodedTx as IEncodedTxLightning;
       const address = await this.getCurrentBalanceAddress();
-      result = await client.paymentBolt11({
+      result = await client.paymentBolt11(
+        {
+          invoice,
+          paymentHash,
+          amount,
+          expired,
+          created: Number(created),
+          nonce,
+          signature: signedTx.rawTx,
+        },
         address,
-        invoice,
-        paymentHash,
-        amount,
-        expired,
-        created: Number(created),
-        nonce,
-        signature: signedTx.rawTx,
-      });
+      );
       await this.pollBolt11Status(address, nonce);
     } catch (err) {
       debugLogger.sendTx.info('broadcastTransaction ERROR:', err);

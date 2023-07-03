@@ -125,7 +125,6 @@ class ClientLightning {
       .post<ICretaeInvoiceResponse>(
         '/invoices/create',
         {
-          address,
           amount,
           description: description || 'OneKey Invoice',
         },
@@ -151,7 +150,6 @@ class ClientLightning {
       this.request
         .get<InvoiceType>('/invoices/invoice', {
           params: {
-            address,
             paymentHash,
           },
           headers: {
@@ -168,19 +166,21 @@ class ClientLightning {
   async getNextNonce(address: string) {
     return this.request
       .get<number>('/payments/getNonce', {
-        params: { address },
+        headers: {
+          Authorization: await this.getAuthorization(address),
+        },
       })
       .then((i) => i.data + 1);
   }
 
-  async paymentBolt11(params: IPaymentBolt11Params) {
+  async paymentBolt11(params: IPaymentBolt11Params, address: string) {
     return this.request
       .post<{ paymentRequest: string; nonce: number }>(
         '/payments/bolt11',
         params,
         {
           headers: {
-            Authorization: await this.getAuthorization(params.address),
+            Authorization: await this.getAuthorization(address),
           },
         },
       )
@@ -190,7 +190,10 @@ class ClientLightning {
   async checkBolt11({ address, nonce }: { address: string; nonce: number }) {
     return this.request
       .get<ICheckPaymentResponse>('/payments/checkBolt11', {
-        params: { address, nonce },
+        params: { nonce },
+        headers: {
+          Authorization: await this.getAuthorization(address),
+        },
       })
       .then((i) => i.data);
   }
@@ -198,7 +201,6 @@ class ClientLightning {
   async fetchHistory(address: string): Promise<IHistoryItem[]> {
     return this.request
       .get<IHistoryItem[]>('/invoices/history', {
-        params: { address },
         headers: {
           Authorization: await this.getAuthorization(address),
         },
