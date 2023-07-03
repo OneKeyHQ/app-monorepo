@@ -12,9 +12,7 @@ import {
   useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
-import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
@@ -32,13 +30,7 @@ type Props = ComponentProps<typeof Box> & {
 const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
-  const { network } = useActiveWalletAccount();
   const { allNetworks } = useManageNetworks();
-  const symbolPrice = useTokenPrice({
-    networkId: network?.id ?? '',
-    tokenIdOnNetwork: '',
-    vsCurrency: 'usd',
-  });
 
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
@@ -53,15 +45,18 @@ const NFTListAssetCard: FC<Props> = ({ onSelectAsset, asset, ...rest }) => {
   const { themeVariant } = useTheme();
   const { latestTradePrice } = asset;
 
+  const symbolPrice = useTokenPrice({
+    networkId: asset.networkId ?? '',
+    tokenIdOnNetwork: '',
+    vsCurrency: 'usd',
+  });
   const price = symbolPrice ?? 0;
   const value = price * (latestTradePrice ?? 0);
 
-  const networkIcon = useMemo(() => {
-    if (!isAllNetworks(network?.id)) {
-      return undefined;
-    }
-    return allNetworks.find((n) => n.id === asset.networkId)?.logoURI;
-  }, [asset, allNetworks, network?.id]);
+  const networkIcon = useMemo(
+    () => allNetworks.find((n) => n.id === asset.networkId)?.logoURI,
+    [asset, allNetworks],
+  );
 
   const AmountTag = useMemo(() => {
     if (

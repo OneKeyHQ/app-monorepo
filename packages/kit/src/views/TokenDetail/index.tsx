@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useLayoutEffect, useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -15,6 +15,7 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
 import { useTokenPositionInfo } from '../../hooks';
+import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
 import AssetsInfo from './AssetsInfo';
@@ -27,7 +28,7 @@ import type { HomeRoutes } from '../../routes/routesEnum';
 import type { HomeRoutesParams } from '../../routes/types';
 import type { RouteProp } from '@react-navigation/core';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-// import type { LayoutChangeEvent } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 
 export type TokenDetailViewProps = NativeStackScreenProps<
   HomeRoutesParams,
@@ -44,7 +45,7 @@ export enum TabEnum {
 
 const TokenDetail: FC<TokenDetailViewProps> = () => {
   const intl = useIntl();
-  // const [showSwapPanel, setShowSwapPanel] = useState(false);
+  const [showSwapPanel, setShowSwapPanel] = useState(false);
   const isVerticalLayout = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
@@ -120,14 +121,14 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     });
   }, [headerRight, headerTitle, navigation]);
 
-  // const onLayout = useCallback((event: LayoutChangeEvent) => {
-  //   const {
-  //     nativeEvent: {
-  //       layout: { width },
-  //     },
-  //   } = event;
-  //   setShowSwapPanel(width > 1280);
-  // }, []);
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    const {
+      nativeEvent: {
+        layout: { width },
+      },
+    } = event;
+    setShowSwapPanel(width > 1280);
+  }, []);
 
   const contextValue = useMemo(
     () => ({
@@ -139,11 +140,7 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
 
   return (
     <TokenDetailContext.Provider value={contextValue}>
-      <HStack
-        flex={1}
-        justifyContent="center"
-        // onLayout={onLayout}
-      >
+      <HStack flex={1} justifyContent="center" onLayout={onLayout}>
         <Tabs.Container
           disableRefresh
           renderHeader={() => <TokenDetailHeader />}
@@ -177,15 +174,14 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
             <MarketInfo coingeckoId={coingeckoId} />
           </Tabs.Tab>
         </Tabs.Container>
-        {/* TODO: implement swap */}
-        {/* {!isVerticalLayout && showSwapPanel && !isAllNetworks(networkId) ? ( */}
-        {/*   <Box width="360px" mt="6" mr="8"> */}
-        {/*     <SwapPlugins */}
-        {/*       tokenId={defaultToken?.address ?? 'main'} */}
-        {/*       networkId={networkId} */}
-        {/*     /> */}
-        {/*   </Box> */}
-        {/* ) : null} */}
+        {!isVerticalLayout && showSwapPanel && !isAllNetworks(networkId) ? (
+          <Box width="360px" mt="6" mr="8">
+            <SwapPlugins
+              tokenId={tokenAddress ?? 'main'}
+              networkId={networkId}
+            />
+          </Box>
+        ) : null}
       </HStack>
     </TokenDetailContext.Provider>
   );

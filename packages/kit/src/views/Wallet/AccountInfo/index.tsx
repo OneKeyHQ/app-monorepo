@@ -1,9 +1,7 @@
-  import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import type { FC } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { TouchableWithoutFeedback } from 'react-native';
 
 import {
   Box,
@@ -13,7 +11,6 @@ import {
   Pressable,
   Skeleton,
   Text,
-  ToastManager,
   Tooltip,
   Typography,
   useIsVerticalLayout,
@@ -22,36 +19,23 @@ import { DesktopDragZoneAbsoluteBar } from '@onekeyhq/components/src/DesktopDrag
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { FormatCurrencyNumber } from '@onekeyhq/kit/src/components/Format';
-import {
-  getActiveWalletAccount,
-  useActiveWalletAccount,
-} from '@onekeyhq/kit/src/hooks/redux';
-import type { ReceiveTokenRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/types';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import {
   ManageNetworkModalRoutes,
   ModalRoutes,
-  ReceiveTokenModalRoutes,
   RootRoutes,
-  TabRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
-import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import type { SendRoutesParams } from '@onekeyhq/kit/src/views/Send/types';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAccountValues, useNavigationActions } from '../../../hooks';
+import { useAccountValues, useOverviewPendingTasks } from '../../../hooks';
 import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { calculateGains } from '../../../utils/priceUtils';
-import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
-import AccountMoreMenu from '../../Overlay/AccountMoreMenu';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
 
-type NavigationProps = ModalScreenProps<ReceiveTokenRoutesParams> &
-  ModalScreenProps<SendRoutesParams>;
+import { AccountOption } from './AccountOption';
 
 export const FIXED_VERTICAL_HEADER_HEIGHT = 238;
 export const FIXED_HORIZONTAL_HEDER_HEIGHT = 152;
@@ -183,6 +167,13 @@ const AccountAmountInfo: FC = () => {
     accountId,
   });
 
+  const { updateTips, tasks } = useOverviewPendingTasks({
+    networkId,
+    accountId,
+  });
+
+  const [showPercentage, setShowPercentage] = useState(false);
+
   const summedValueComp = useMemo(
     () =>
       accountAllValues.value.isNaN() ? (
@@ -208,6 +199,13 @@ const AccountAmountInfo: FC = () => {
     [accountAllValues],
   );
 
+  const onPressUpdate = useCallback(() => {
+    if (tasks.length > 0) {
+      return;
+    }
+    backgroundApiProxy.serviceOverview.refreshCurrentAccount();
+  }, [tasks]);
+
   const changedValueComp = useMemo(() => {
     const { gainNumber, percentageGain, gainTextColor } = calculateGains({
       basePrice: accountAllValues.value24h.toNumber(),
@@ -217,17 +215,42 @@ const AccountAmountInfo: FC = () => {
     return accountAllValues.value.isNaN() ? (
       <Skeleton shape="Body1" />
     ) : (
-      <>
-        <Typography.Body1Strong color={gainTextColor} mr="4px">
-          {percentageGain}
-        </Typography.Body1Strong>
-        <Typography.Body1Strong color="text-subdued">
-          (<FormatCurrencyNumber value={Math.abs(gainNumber)} decimals={2} />)
-          {` ${intl.formatMessage({ id: 'content__today' })}`}
-        </Typography.Body1Strong>
-      </>
+      <HStack alignItems="center">
+        <Pressable
+          onPress={() => {
+            setShowPercentage(!showPercentage);
+          }}
+        >
+          <Typography.Body2Strong color={gainTextColor} mr="4px">
+            {showPercentage ? (
+              percentageGain
+            ) : (
+              <>
+                {gainNumber > 0 ? '+' : '-'}
+                <FormatCurrencyNumber
+                  value={Math.abs(gainNumber)}
+                  decimals={2}
+                />
+              </>
+            )}
+          </Typography.Body2Strong>
+        </Pressable>
+        <Typography.Body2Strong color="text-subdued" ml="1">
+          {intl.formatMessage({ id: 'content__today' })}
+        </Typography.Body2Strong>
+        {updateTips ? (
+          <>
+            <Box size="1" bg="icon-subdued" borderRadius="999px" mx="2" />
+            <Pressable onPress={onPressUpdate}>
+              <Typography.Body2 color="text-subdued">
+                {updateTips}
+              </Typography.Body2>
+            </Pressable>
+          </>
+        ) : null}
+      </HStack>
     );
-  }, [intl, accountAllValues]);
+  }, [intl, accountAllValues, updateTips, onPressUpdate, showPercentage]);
 
   return (
     <Box alignItems="flex-start" flex="1">
@@ -241,222 +264,6 @@ const AccountAmountInfo: FC = () => {
       <Box flexDirection="row" mt={1}>
         {changedValueComp}
       </Box>
-    </Box>
-  );
-};
-
-type AccountOptionProps = { isSmallView: boolean };
-
-const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
-  const intl = useIntl();
-  const navigation = useNavigation<NavigationProps['navigation']>();
-  const { wallet, account, network, walletId, networkId, accountId } =
-    useActiveWalletAccount();
-  const isVertical = useIsVerticalLayout();
-  const { sendToken } = useNavigationActions();
-  const iconBoxFlex = isVertical ? 1 : 0;
-
-  const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
-    networkId,
-    walletId,
-    accountId,
-    filter: () => true,
-  });
-
-  const onSendToken = useCallback(() => {
-    selectNetworkAccount().then(({ network: n, account: a }) => {
-      if (!n || !a) {
-        sendToken({ accountId: a?.id, networkId: n?.id });
-      }
-    });
-  }, [sendToken, selectNetworkAccount]);
-
-  const onReceive = useCallback(() => {
-    selectNetworkAccount().then(({ network: n, account: a }) => {
-      if (!n || !a) {
-        return;
-      }
-      if (n?.impl === IMPL_LIGHTNING) {
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.Receive,
-          params: {
-            screen: ReceiveTokenModalRoutes.CreateInvoice,
-            params: {
-              networkId: n.id,
-              accountId: a?.id,
-            },
-          },
-        });
-        return;
-      }
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.Receive,
-        params: {
-          screen: ReceiveTokenModalRoutes.ReceiveToken,
-          params: {
-            address: a.address,
-            displayAddress: a.displayAddress,
-            wallet,
-            network: n,
-            account: a,
-            template: a.template,
-          },
-        },
-      });
-    });
-  }, [navigation, wallet, selectNetworkAccount]);
-
-  const onSwap = useCallback(async () => {
-    let token = await backgroundApiProxy.engine.getNativeTokenInfo(
-      network?.id ?? '',
-    );
-    if (token) {
-      const supported = await backgroundApiProxy.serviceSwap.tokenIsSupported(
-        token,
-      );
-      if (!supported) {
-        ToastManager.show(
-          {
-            title: intl.formatMessage({ id: 'msg__wrong_network_desc' }),
-          },
-          { type: 'default' },
-        );
-        token = await backgroundApiProxy.engine.getNativeTokenInfo(
-          OnekeyNetwork.eth,
-        );
-      }
-    }
-    if (token) {
-      backgroundApiProxy.serviceSwap.sellToken(token);
-      if (account) {
-        backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
-        const paymentToken =
-          await backgroundApiProxy.serviceSwap.getPaymentToken(token);
-        if (paymentToken?.networkId === network?.id) {
-          backgroundApiProxy.serviceSwap.setRecipientToAccount(
-            account,
-            network,
-          );
-        }
-      }
-    }
-    navigation.getParent()?.navigate(TabRoutes.Swap);
-  }, [network, account, navigation, intl]);
-
-  return (
-    <Box flexDirection="row" px={isVertical ? 1 : 0} mx={-3}>
-      <Pressable
-        flex={iconBoxFlex}
-        mx={3}
-        minW="56px"
-        alignItems="center"
-        isDisabled={wallet?.type === 'watching' || !account}
-        onPress={onSendToken}
-      >
-        <TouchableWithoutFeedback>
-          <IconButton
-            circle
-            size={isSmallView ? 'xl' : 'lg'}
-            name="PaperAirplaneOutline"
-            type="basic"
-            isDisabled={wallet?.type === 'watching' || !account}
-            onPress={onSendToken}
-          />
-        </TouchableWithoutFeedback>
-        <Typography.CaptionStrong
-          textAlign="center"
-          mt="8px"
-          color={
-            wallet?.type === 'watching' || !account
-              ? 'text-disabled'
-              : 'text-default'
-          }
-        >
-          {intl.formatMessage({ id: 'action__send' })}
-        </Typography.CaptionStrong>
-      </Pressable>
-      <Pressable
-        flex={iconBoxFlex}
-        mx={3}
-        minW="56px"
-        alignItems="center"
-        isDisabled={wallet?.type === 'watching' || !account}
-        onPress={onReceive}
-      >
-        <TouchableWithoutFeedback>
-          <IconButton
-            circle
-            size={isSmallView ? 'xl' : 'lg'}
-            name="QrCodeOutline"
-            type="basic"
-            isDisabled={wallet?.type === 'watching' || !account}
-            onPress={onReceive}
-          />
-        </TouchableWithoutFeedback>
-        <Typography.CaptionStrong
-          textAlign="center"
-          mt="8px"
-          color={
-            wallet?.type === 'watching' || !account
-              ? 'text-disabled'
-              : 'text-default'
-          }
-        >
-          {intl.formatMessage({ id: 'action__receive' })}
-        </Typography.CaptionStrong>
-      </Pressable>
-      {network?.settings.hiddenAccountInfoSwapOption ? null : (
-        <Pressable
-          flex={iconBoxFlex}
-          mx={3}
-          minW="56px"
-          alignItems="center"
-          isDisabled={wallet?.type === 'watching' || !account}
-          onPress={onSwap}
-        >
-          <TouchableWithoutFeedback>
-            <IconButton
-              circle
-              size={isSmallView ? 'xl' : 'lg'}
-              name="ArrowsRightLeftOutline"
-              type="basic"
-              isDisabled={wallet?.type === 'watching' || !account}
-              onPress={onSwap}
-            />
-          </TouchableWithoutFeedback>
-          <Typography.CaptionStrong
-            textAlign="center"
-            mt="8px"
-            color={
-              wallet?.type === 'watching' || !account
-                ? 'text-disabled'
-                : 'text-default'
-            }
-          >
-            {intl.formatMessage({ id: 'title__swap' })}
-          </Typography.CaptionStrong>
-        </Pressable>
-      )}
-
-      {network?.settings.hiddenAccountInfoMoreOption ? null : (
-        <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
-          <AccountMoreMenu>
-            <IconButton
-              circle
-              size={isSmallView ? 'xl' : 'lg'}
-              name="EllipsisVerticalOutline"
-              type="basic"
-            />
-          </AccountMoreMenu>
-          <Typography.CaptionStrong
-            textAlign="center"
-            mt="8px"
-            color="text-default"
-          >
-            {intl.formatMessage({ id: 'action__more' })}
-          </Typography.CaptionStrong>
-        </Box>
-      )}
     </Box>
   );
 };

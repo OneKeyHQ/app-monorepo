@@ -6,6 +6,7 @@ import {
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
 import { caseSensitiveImpls } from '@onekeyhq/engine/src/managers/token';
+import { setNFTPrice } from '@onekeyhq/kit/src/store/reducers/nft';
 import { serOverviewPortfolioUpdatedAt } from '@onekeyhq/kit/src/store/reducers/overview';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type {
@@ -23,61 +24,74 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
-import type { IServiceBaseProps } from './ServiceBase';
-
 @backgroundClass()
 class ServiceOverview extends ServiceBase {
   private interval: any;
 
   private pendingTaskMap: Map<string, IOverviewQueryTaskItem> = new Map();
 
-  constructor(props: IServiceBaseProps) {
-    super(props);
-    this.interval = setInterval(() => {
-      this.queryPendingTasks();
-      // TODO: change thids to 15s
-    }, getTimeDurationMs({ seconds: 3 }));
-  }
-
   // eslint-disable-next-line @typescript-eslint/require-await
   @bindThis()
   @backgroundMethod()
   async startQueryPendingTasks() {
-    // if (this.interval) {
-    //   return;
-    // }
-    // debugLogger.common.info('startQueryPendingTasks');
-    // this.interval = setInterval(() => {
-    //   this.queryPendingTasks();
-    //   // TODO: change thids to 15s
-    // }, getTimeDurationMs({ seconds: 3 }));
+    if (this.interval) {
+      return;
+    }
+    debugLogger.common.info('startQueryPendingTasks');
+    this.interval = setInterval(() => {
+      this.queryPendingTasks();
+    }, getTimeDurationMs({ seconds: 15 }));
+    this.queryPendingTasks();
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
   @bindThis()
   @backgroundMethod()
   async stopQueryPendingTasks() {
-    // clearInterval(this.interval);
-    // this.interval = null;
-    // debugLogger.common.info('stopQueryPendingTasks');
+    clearInterval(this.interval);
+    this.interval = null;
+    debugLogger.common.info('stopQueryPendingTasks');
+  }
+
+  @backgroundMethod()
+  async getPenddingTasksByNetworkId({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<IOverviewQueryTaskItem[]> {
+    if (!networkId || !accountId) {
+      return Promise.resolve([]);
+    }
+    const dispatchKey = `${networkId}___${accountId}`;
+    return Promise.resolve(
+      Array.from(this.pendingTaskMap.values()).filter(
+        (n) => n.key === dispatchKey,
+      ),
+    );
   }
 
   @backgroundMethod()
   async queryPendingTasks() {
-    const { appSelector, dispatch } = this.backgroundApi;
+    const { dispatch, appSelector } = this.backgroundApi;
+
     const { activeNetworkId: networkId = '', activeAccountId: accountId = '' } =
       appSelector((s) => s.general);
     if (!networkId || !accountId) {
       return;
     }
-    const dispatchKey = `${networkId}___${accountId}`;
-    const pendingTasksForCurrentNetwork = Array.from(
-      this.pendingTaskMap.values(),
-    ).filter((n) => n.key === dispatchKey);
+    const pendingTasksForCurrentNetwork =
+      await this.getPenddingTasksByNetworkId({
+        networkId,
+        accountId,
+      });
 
     if (!pendingTasksForCurrentNetwork?.length) {
       return;
     }
+
+    const dispatchKey = `${networkId}___${accountId}`;
 
     const results = await fetchData<
       OverviewAllNetworksPortfolioRes & {
@@ -102,11 +116,38 @@ class ServiceOverview extends ServiceBase {
         this.pendingTaskMap.delete(this.getTaksId(task));
       }
     }
+    const dispatchActions = [];
+    if (results.nfts?.length) {
+      let lastSalePrice = 0;
+      const floorPrice = 0; // Not used
+      results.nfts = results.nfts.map((item) => {
+        let totalPrice = 0;
+        item.assets =
+          item.assets?.map((asset) => {
+            asset.collection.floorPrice = item.floorPrice;
+            totalPrice += asset.latestTradePrice ?? 0;
+            asset.networkId = item.networkId;
+            asset.accountAddress = item.accountAddress;
+            return asset;
+          }) ?? [];
+        item.totalPrice = totalPrice;
+        lastSalePrice += totalPrice;
+        return item;
+      });
+      dispatchActions.push(
+        setNFTPrice({
+          networkId,
+          accountId,
+          price: { floorPrice, lastSalePrice },
+        }),
+      );
+    }
     await simpleDb.accountPortfolios.setAllNetworksPortfolio({
       key: dispatchKey,
       data: results,
     });
     dispatch(
+      ...dispatchActions,
       serOverviewPortfolioUpdatedAt({
         key: dispatchKey,
         data: {
@@ -254,11 +295,25 @@ class ServiceOverview extends ServiceBase {
     async ({
       networkId,
       accountId,
+      walletId,
     }: {
       networkId: string;
       accountId: string;
+      walletId: string | null;
     }) => {
-      const { engine, serviceToken, appSelector } = this.backgroundApi;
+      const { engine, serviceToken } = this.backgroundApi;
+      if (!networkId || !accountId || !walletId) {
+        return;
+      }
+      if (isAllNetworks(networkId)) {
+        await this.fetchAccountOverview({
+          networkId,
+          accountId,
+          walletId,
+          scanTypes: ['defi', 'nfts', 'token'],
+        });
+        return;
+      }
 
       engine.clearPriceCache();
       await serviceToken.fetchAccountTokens({
@@ -271,8 +326,8 @@ class ServiceOverview extends ServiceBase {
       await this.fetchAccountOverview({
         networkId,
         accountId,
-        walletId: appSelector((s) => s.general.activeWalletId) ?? '',
-        scanTypes: ['defi'],
+        walletId,
+        scanTypes: ['defi', 'nfts'],
       });
     },
     getTimeDurationMs({ seconds: 5 }),
@@ -283,14 +338,17 @@ class ServiceOverview extends ServiceBase {
   async refreshCurrentAccount() {
     const { appSelector } = this.backgroundApi;
 
-    const { activeAccountId: accountId, activeNetworkId: networkId } =
-      appSelector((s) => s.general);
+    const {
+      activeAccountId: accountId,
+      activeNetworkId: networkId,
+      activeWalletId: walletId,
+    } = appSelector((s) => s.general);
 
     if (!accountId || !networkId) {
       return;
     }
 
-    return this.refreshAccountWithThrottle({ networkId, accountId });
+    return this.refreshAccountWithThrottle({ networkId, accountId, walletId });
   }
 }
 

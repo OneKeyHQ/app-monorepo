@@ -21,9 +21,15 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../components/Format';
-import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
-import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
-import { useNativeToken, useTokenBalance } from '../../../hooks/useTokens';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+  useTokenBalance,
+} from '../../../hooks';
+import {
+  useNativeToken,
+  useSimpleTokenPriceValue,
+} from '../../../hooks/useTokens';
 import {
   ModalRoutes,
   RootRoutes,

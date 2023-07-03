@@ -15,11 +15,11 @@ import {
   useSettings,
   useTokenBalanceWithoutFrozen,
 } from '../../hooks';
+import { useSimpleTokenPriceValue } from '../../hooks/useTokens';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 import { formatDecimalZero } from '../../views/Market/utils';
 
 import type { Token } from '../../store/typings';
-import { useSimpleTokenPriceValue } from '../../hooks/useTokens';
 
 export type FormatOptions = {
   /** 向左偏移的位数，用于 decimal 的处理 */

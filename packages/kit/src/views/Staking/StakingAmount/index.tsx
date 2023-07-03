@@ -31,12 +31,15 @@ import {
   FormatCurrencyToken,
   formatBalanceDisplay,
 } from '../../../components/Format';
-import { useActiveWalletAccount, useNetworkSimple } from '../../../hooks';
-import { useSettings } from '../../../hooks/redux';
-import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
 import {
-  useSingleToken,
+  useActiveWalletAccount,
+  useNetworkSimple,
   useTokenBalanceWithoutFrozen,
+} from '../../../hooks';
+import { useSettings } from '../../../hooks/redux';
+import {
+  useSimpleTokenPriceValue,
+  useSingleToken,
 } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { wait } from '../../../utils/helper';

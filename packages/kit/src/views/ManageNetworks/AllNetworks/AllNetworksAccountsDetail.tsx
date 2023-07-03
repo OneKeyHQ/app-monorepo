@@ -117,9 +117,8 @@ export const AllNetworksAccountsDetail: FC = () => {
   );
 
   const getMenus = useCallback(
-    (params: { networkId: string; accounts: Account[] }) => {
-      const hanldePress = () => {};
-      return [
+    (params: { networkId: string; accounts: Account[] }) =>
+      [
         {
           id: 'action__view_account',
           onPress: async ({
@@ -199,8 +198,7 @@ export const AllNetworksAccountsDetail: FC = () => {
             }
           });
         },
-      }));
-    },
+      })),
     [navigation, wallet],
   );
 

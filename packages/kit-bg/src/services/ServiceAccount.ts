@@ -1413,7 +1413,13 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountByAddress({ address }: { address: string }) {
+  async getAccountByAddress({
+    address,
+    networkId,
+  }: {
+    address: string;
+    networkId?: string;
+  }) {
     const { engine } = this.backgroundApi;
     const displayPassphraseWalletIdList =
       this.getDisplayPassphraseWalletIdList();
@@ -1425,7 +1431,12 @@ class ServiceAccount extends ServiceBase {
       const accounts = await engine.getAccounts(wallet.accounts);
       const target = accounts.find((item) => item.address === address);
       if (target) {
-        return target;
+        if (!networkId) {
+          return target;
+        }
+        if (isAccountCompatibleWithNetwork(target?.id, networkId)) {
+          return target;
+        }
       }
     }
   }

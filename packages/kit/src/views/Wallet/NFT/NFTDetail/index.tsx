@@ -36,10 +36,7 @@ import { getContentWithAsset } from '@onekeyhq/engine/src/managers/nft';
 import type { Device } from '@onekeyhq/engine/src/types/device';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
-import {
-  getActiveWalletAccount,
-  useActiveWalletAccount,
-} from '@onekeyhq/kit/src/hooks/redux';
+import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import type { CollectiblesRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Collectibles';
 import { ModalRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
@@ -154,13 +151,7 @@ const NFTDetailModal: FC = () => {
         }
       }
     })();
-  }, [
-    outerAsset.contractAddress,
-    outerAsset.tokenAddress,
-    outerAsset.tokenId,
-    network.id,
-    serviceNFT,
-  ]);
+  }, [outerAsset, network.id, serviceNFT]);
 
   const isEVM = network.impl === IMPL_EVM;
   const [collection, updateCollection] = useState<Collection>();
@@ -261,17 +252,26 @@ const NFTDetailModal: FC = () => {
     }
   }, [asset, device, intl, serviceHardware, network]);
 
-  console.log(asset);
-
   const sendNFTWithAmount = useCallback(
-    (amount: string) => {
-      const { accountId, networkId } = getActiveWalletAccount();
+    async (amount: string) => {
+      const { networkId, accountAddress } = outerAsset ?? {};
+      if (!networkId || !accountAddress) {
+        return;
+      }
+      const account =
+        await backgroundApiProxy.serviceAccount.getAccountByAddress({
+          networkId,
+          address: accountAddress ?? '',
+        });
+      if (!account) {
+        return;
+      }
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
           screen: SendModalRoutes.PreSendAddress,
           params: {
-            accountId,
+            accountId: account?.id,
             networkId,
             isNFT: true,
             from: '',
@@ -285,14 +285,7 @@ const NFTDetailModal: FC = () => {
         },
       });
     },
-    [
-      asset.contractAddress,
-      asset.ercType,
-      asset.tokenAddress,
-      asset.tokenId,
-      modalClose,
-      navigation,
-    ],
+    [asset, outerAsset, modalClose, navigation],
   );
 
   const goToCollectionDetail = useCollectionDetail();

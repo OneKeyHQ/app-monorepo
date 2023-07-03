@@ -9,8 +9,10 @@ import type {
 import { IEncodedTxUpdateType } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount } from '../../../../hooks';
-import { useTokenBalanceWithoutFrozen } from '../../../../hooks/useTokens';
+import {
+  useActiveSideAccount,
+  useTokenBalanceWithoutFrozen,
+} from '../../../../hooks';
 import { TxDetailView } from '../../../TxDetail/TxDetailView';
 import { BaseSendConfirmModal } from '../../components/BaseSendConfirmModal';
 

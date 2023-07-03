@@ -9,7 +9,6 @@ import {
 } from '@onekeyhq/engine/src/managers/account';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
-import type { Network } from '@onekeyhq/engine/src/types/network';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HW,

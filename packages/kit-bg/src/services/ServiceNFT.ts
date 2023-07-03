@@ -1,4 +1,3 @@
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import * as nft from '@onekeyhq/engine/src/managers/nft';
@@ -14,7 +13,6 @@ import type {
   NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
 import {
-  setNFTPrice,
   setNFTPriceType,
   setNFTSymbolPrice,
 } from '@onekeyhq/kit/src/store/reducers/nft';
@@ -25,10 +23,6 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import ServiceBase from './ServiceBase';
-
-function getNFTListKey(accountId: string, networkId: string) {
-  return `${accountId.toLowerCase()}-${networkId}`.toLowerCase();
-}
 
 @backgroundClass()
 class ServiceNFT extends ServiceBase {
@@ -391,31 +385,6 @@ class ServiceNFT extends ServiceBase {
       walletId: walletId ?? '',
       scanTypes: ['nfts'],
     });
-    // const { dispatch } = this.backgroundApi;
-
-    // const floorPrice = 0;
-    // let lastSalePrice = 0;
-    // const items = collections.map((collection) => {
-    //   let totalPrice = 0;
-    //   collection.assets = collection.assets.map((asset) => {
-    //     asset.collection.floorPrice = collection.floorPrice;
-    //     totalPrice += asset.latestTradePrice ?? 0;
-    //     return asset;
-    //   });
-    //   collection.totalPrice = totalPrice;
-    //   lastSalePrice += totalPrice;
-    //   return collection;
-    // });
-    //
-    // dispatch(
-    //   setNFTPrice({
-    //     networkId,
-    //     accountId,
-    //     price: { 'floorPrice': floorPrice, 'lastSalePrice': lastSalePrice },
-    //   }),
-    // );
-    // this.saveNFTs({ networkId, accountId, items });
-    // return items;
   }
 
   @backgroundMethod()

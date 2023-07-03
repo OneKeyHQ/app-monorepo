@@ -9,6 +9,7 @@ import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSettings } from '../../hooks';
+import { useSimpleTokenPriceValue } from '../../hooks/useTokens';
 import {
   ManageTokenModalRoutes,
   ModalRoutes,
@@ -25,7 +26,6 @@ import type { ModalScreenProps } from '../../routes/types';
 import type { ManageTokenRoutesParams } from '../ManageTokens/types';
 import type { MarketApiData, PriceApiProps } from './chartService';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { useSimpleTokenPriceValue } from '../../hooks/useTokens';
 
 type NavigationProps = ModalScreenProps<ManageTokenRoutesParams>;
 

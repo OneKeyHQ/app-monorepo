@@ -82,6 +82,7 @@ function SideChainSelector({
   const { enabledNetworks } = useManageNetworks({
     allowSelectAllNetworks: true,
   });
+
   const { selectedNetworkId: selectedNetworkIdinAccountInfo, activeWallet } =
     accountSelectorInfo;
   const flatListRef = useRef<any>(null);

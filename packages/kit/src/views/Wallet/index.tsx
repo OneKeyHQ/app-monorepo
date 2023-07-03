@@ -99,11 +99,7 @@ const WalletTabs: FC = () => {
   }, []);
 
   useEffect(() => {
-    backgroundApiProxy.serviceOverview.fetchAccountOverview({
-      networkId,
-      accountId,
-      walletId,
-    });
+    backgroundApiProxy.serviceOverview.refreshCurrentAccount();
   }, [networkId, accountId, walletId]);
 
   const timer = useRef<ReturnType<typeof setTimeout>>();

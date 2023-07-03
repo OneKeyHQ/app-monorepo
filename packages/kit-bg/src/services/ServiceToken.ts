@@ -107,7 +107,7 @@ export default class ServiceToken extends ServiceBase {
             seconds: 15,
           });
     this.interval = setInterval(() => {
-      this.fetchAccountTokens({ includeTop50TokensQuery: false });
+      this.refreshAccountTokens({ includeTop50TokensQuery: false });
     }, duration);
 
     debugLogger.common.info(`startRefreshAccountTokens`);

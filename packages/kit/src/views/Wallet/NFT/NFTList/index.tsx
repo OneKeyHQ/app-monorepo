@@ -27,7 +27,7 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useAccountPortfolios } from '../../../../hooks';
+import { useAccountPortfolios, useManageNetworks } from '../../../../hooks';
 import { CollectiblesModalRoutes } from '../../../../routes/routesEnum';
 import { WalletHomeTabEnum } from '../../type';
 
@@ -216,7 +216,8 @@ const NFTList: FC<NFTListProps> = ({
 type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 function NFTListContainer() {
-  const { account, networkId, accountId, network } = useActiveWalletAccount();
+  const { allNetworks } = useManageNetworks();
+  const { account, networkId, accountId } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const isNFTSupport = isCollectibleSupportedChainId(networkId);
   const { serviceNFT } = backgroundApiProxy;
@@ -274,6 +275,7 @@ function NFTListContainer() {
 
   const handleSelectAsset = useCallback(
     (asset: NFTAsset) => {
+      const network = allNetworks.find((n) => n.id === asset.networkId);
       if (!network) return;
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,
@@ -287,12 +289,13 @@ function NFTListContainer() {
         },
       });
     },
-    [navigation, network],
+    [navigation, allNetworks],
   );
 
   // Open Collection modal
   const handleSelectCollectible = useCallback(
     (collectible: Collection) => {
+      const network = allNetworks.find((n) => n.id === collectible.networkId);
       if (!account || !network) return;
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Collectibles,
@@ -305,7 +308,7 @@ function NFTListContainer() {
         },
       });
     },
-    [account, navigation, network],
+    [account, navigation, allNetworks],
   );
 
   return (

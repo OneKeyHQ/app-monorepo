@@ -22,7 +22,6 @@ import {
   useDebounce,
   useNavigation,
   useNetworkSimple,
-  useTokenBalance,
 } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { notifyIfRiskToken } from '../../../ManageTokens/helpers/TokenSecurityModalWrapper';

@@ -25,8 +25,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatCurrency } from '../../../components/Format';
 import { useActiveWalletAccount, useNavigation } from '../../../hooks';
-import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
-import { useSingleToken } from '../../../hooks/useTokens';
+import {
+  useSimpleTokenPriceValue,
+  useSingleToken,
+} from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { formatAmount } from '../../../utils/priceUtils';
 import { SendModalRoutes } from '../../Send/types';

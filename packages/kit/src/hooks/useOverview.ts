@@ -14,6 +14,7 @@ import KeleLogoPNG from '@onekeyhq/kit/assets/staking/kele_pool.png';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { getTimeDurationMs } from '../utils/helper';
 import { getPreBaseValue } from '../utils/priceUtils';
 
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
@@ -23,6 +24,7 @@ import { useFrozenBalance, useSingleToken, useTokenPrice } from './useTokens';
 import type { ITokenDetailInfo } from '../views/ManageTokens/types';
 import type {
   IAccountToken,
+  IOverviewQueryTaskItem,
   IOverviewTokenDetailListItem,
   OverviewAllNetworksPortfolioRes,
 } from '../views/Overview/types';
@@ -321,31 +323,13 @@ export const useNFTValues = ({
     tokenIdOnNetwork: '',
     vsCurrency: 'usd',
   });
-  const { data: collections } = useAccountPortfolios({
-    networkId,
-    accountId,
-    type: 'nfts',
-  });
-  const nftPrice = useMemo(() => {
-    const floorPrice = 0;
-    let lastSalePrice = 0;
-    collections.forEach((collection) => {
-      let totalPrice = 0;
-      collection.assets = collection.assets.map((asset) => {
-        asset.collection.floorPrice = collection.floorPrice;
-        totalPrice += asset.latestTradePrice ?? 0;
-        return asset;
-      });
-      collection.totalPrice = totalPrice;
-      lastSalePrice += totalPrice;
-      return collection;
-    });
 
-    return { 'floorPrice': floorPrice, 'lastSalePrice': lastSalePrice };
-  }, [collections]);
+  const nftPrice = useAppSelector(
+    (s) => s.nft.nftPrice?.[accountId ?? '']?.[networkId ?? ''],
+  );
 
   const amount = useMemo(
-    () => nftPrice[disPlayPriceType] ?? 0,
+    () => nftPrice?.[disPlayPriceType] ?? 0,
     [nftPrice, disPlayPriceType],
   );
 
@@ -630,19 +614,9 @@ export const useTokenPositionInfo = ({
       });
     }
 
-    // console.log(balance, items, accountTokens);
-
     return {
       balance,
       items,
-      // defaultNetworkId,
-      // items: Object.entries(groupBy(items, 'networkId')).map(([nid, data]) => {
-      //   const network = allNetworks?.find((n) => n.id === nid);
-      //   return {
-      //     network,
-      //     data,
-      //   };
-      // }),
     };
   }, [
     sendAddress,
@@ -697,4 +671,105 @@ export const useTokenDetailInfo = ({
       defaultToken,
     };
   }, [data, token, loading, tokenLoading]);
+};
+
+export const useOverviewPendingTasks = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) => {
+  const intl = useIntl();
+  const [tasks, setTasks] = useState<IOverviewQueryTaskItem[]>([]);
+  const updatedAt = useAppSelector(
+    (s) => s.overview.portfolios[`${networkId}___${accountId}`]?.updatedAt,
+  );
+  const fetch = useCallback(() => {
+    backgroundApiProxy.serviceOverview
+      .getPenddingTasksByNetworkId({
+        networkId,
+        accountId,
+      })
+      .then((res) => setTasks(res));
+  }, [networkId, accountId]);
+
+  const updateTips = useMemo(() => {
+    let assetType = '';
+    if (tasks?.length) {
+      assetType =
+        tasks.find((t) => ['token', 'defi', 'nfts'].includes(t.scanType))
+          ?.scanType ?? '';
+    }
+    if (assetType) {
+      return (
+        {
+          'token': intl.formatMessage({ id: 'content__updating_token_assets' }),
+          'defi': intl.formatMessage({ id: 'content__updating_defi_assets' }),
+          'nfts': intl.formatMessage({ id: 'content__updating_nft_assets' }),
+        }[assetType] ?? ''
+      );
+    }
+    const duration = Date.now() - updatedAt;
+    if (
+      duration <
+      getTimeDurationMs({
+        minute: 2,
+      })
+    ) {
+      return intl.formatMessage({
+        id: 'form__updated_just_now',
+      });
+    }
+    if (
+      duration <
+      getTimeDurationMs({
+        hour: 1,
+      })
+    ) {
+      return intl.formatMessage(
+        {
+          id: 'form__updated_str_ago',
+        },
+        {
+          0: `${Math.floor(duration / 1000 / 60)} m`,
+        },
+      );
+    }
+    if (
+      duration >
+      getTimeDurationMs({
+        hour: 1,
+      })
+    ) {
+      return intl.formatMessage(
+        {
+          id: 'form__updated_str_ago',
+        },
+        {
+          0: `${Math.floor(duration / 1000 / 60 / 60)} h`,
+        },
+      );
+    }
+  }, [tasks, updatedAt, intl]);
+
+  useEffect(() => {
+    fetch();
+    const interval = setInterval(
+      fetch,
+      getTimeDurationMs({
+        seconds: 30,
+      }),
+    );
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [fetch, updatedAt]);
+
+  return {
+    tasks,
+    fetch,
+    updateTips,
+  };
 };
