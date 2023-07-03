@@ -31,6 +31,7 @@ import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatBalanceTokenOfAccount } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import {
+  useFrozenBalance,
   useSingleToken,
   useTokenBalance,
   useTokenBalanceWithoutFrozen,
@@ -143,6 +144,12 @@ function PreSendAmount() {
       sendAddress: transferInfo.sendAddress,
     },
     fallback: '0',
+  });
+
+  const frozenBalance = useFrozenBalance({
+    networkId,
+    accountId,
+    tokenId: tokenInfo?.tokenIdOnNetwork || 'main',
   });
 
   const originalTokenBalance = useTokenBalance({
@@ -429,6 +436,15 @@ function PreSendAmount() {
                   )}
                 />
               </Box>
+              {new BigNumber(frozenBalance ?? '0').isGreaterThan(0) ? (
+                <Typography.Caption color="text-subdued" mt={2}>
+                  {`${intl.formatMessage({
+                    id: 'form__frozen_balance',
+                  })}: ${new BigNumber(frozenBalance ?? '0').toFixed()} ${
+                    tokenInfo?.symbol ?? ''
+                  }`}
+                </Typography.Caption>
+              ) : null}
             </Box>
             <Button
               onPress={() => {
