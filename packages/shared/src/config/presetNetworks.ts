@@ -3822,6 +3822,43 @@ export const serverPresetNetworks = [
   },
   {
     'balance2FeeDecimals': 0,
+    'chainId': 'mainnet',
+    'code': 'nexa',
+    'decimals': 2,
+    'id': 'nexa--mainnet',
+    'impl': 'nexa',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/nexa/nexa.png',
+    'name': 'Nexa',
+    'rpcURLs': [
+      {
+        'url': 'wss://electrum.nexa.org:20004',
+      },
+    ],
+    'shortcode': 'nexa',
+    'shortname': 'Nexa',
+    'symbol': 'nexa',
+    'feeMeta': {
+      'code': 'nexa',
+      'decimals': 2,
+      'symbol': 'nexa',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://explorer.nexa.org/block-height/{address}',
+        'block': 'https://explorer.nexa.org/block-height/{block}',
+        'name': 'https://explorer.nexa.org',
+        'transaction': 'https://explorer.nexa.org/txid/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2023-06-19T00:29:24.951Z',
+    'updatedAt': '2023-06-19T00:29:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
     'chainId': 'testnet',
     'code': 'nexa',
     'decimals': 2,
@@ -3832,7 +3869,7 @@ export const serverPresetNetworks = [
     'name': 'Nexa Testnet',
     'rpcURLs': [
       {
-        'url': 'wss://testnet-explorer.nexa.org:30004',
+        'url': 'wss://testnet-explorer.nexa.org:30004/nexa_ws',
       },
     ],
     'shortcode': 'nexatest',
@@ -3847,10 +3884,10 @@ export const serverPresetNetworks = [
     'priceConfigs': [],
     'explorers': [
       {
-        'address': 'https://pre-alpha.opside.info/address/{address}',
-        'block': 'https://pre-alpha.opside.info/block/{block}',
-        'name': 'https://pre-alpha.opside.info/',
-        'transaction': 'https://pre-alpha.opside.info/tx/{transaction}',
+        'address': 'https://testnet-explorer.nexa.org/block-height/{address}',
+        'block': 'https://testnet-explorer.nexa.org/block-height/{block}',
+        'name': 'https://testnet-explorer.nexa.org',
+        'transaction': 'testnet-https://explorer.nexa.org/txid/{transaction}',
       },
     ],
     'status': 'LISTED',

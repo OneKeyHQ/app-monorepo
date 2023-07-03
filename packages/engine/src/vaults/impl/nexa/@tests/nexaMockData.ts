@@ -16,7 +16,7 @@ const network: DBNetwork = {
   logoURI: 'https://onekey-asset.com/assets/nexa/nexa.png',
   name: 'Nexa Testnet',
   position: 33,
-  rpcURL: 'wss://testnet-explorer.nexa.org:30004',
+  rpcURL: 'wss://testnet-explorer.nexa.org:30004/nexa_ws',
   symbol: 'NEXA',
 };
 

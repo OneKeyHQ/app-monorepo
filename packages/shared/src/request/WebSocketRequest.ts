@@ -1,13 +1,9 @@
-import fetch from 'cross-fetch';
-import timeoutSignal from 'timeout-signal';
-
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-import type { IJsonRpcResponsePro } from '@onekeyhq/engine/src/types';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import {
   JsonPRCResponseError,
   ResponseError,
 } from '@onekeyhq/shared/src/errors/request-errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -81,13 +77,24 @@ export class WebSocketRequest {
       }
       return this.readySocketConnection(socket);
     }
-    const wsuri =
-      typeof document === 'undefined'
-        ? this.url
-        : `${document.location.protocol === 'http:' ? 'ws:' : 'wss:'}//${
-            document.location.host
-          }/nexa_ws`;
-    const newSocket = new WebSocket(wsuri);
+    let wsURL = this.url;
+    // this code snippet won't be present in the production environment.
+    if (process.env.NODE_ENV === 'development') {
+      // Proxy by Webpack 
+      // packages/web/webpack.config.js 37L
+      if (
+        platformEnv.isDev &&
+        platformEnv.isWeb &&
+        typeof document !== 'undefined'
+      ) {
+        // Proxy by Webpack Dev Server
+        const url = new URL(this.url);
+        url.host = window.location.host;
+        url.protocol = window.location.protocol === 'http:' ? 'ws:' : 'wss:';
+        wsURL = url.href;
+      }
+    }
+    const newSocket = new WebSocket(wsURL);
     socketsMap.set(this.url, newSocket);
     return new Promise((resolve) => {
       newSocket.onopen = () => {
