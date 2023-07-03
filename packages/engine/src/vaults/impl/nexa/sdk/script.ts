@@ -364,9 +364,11 @@ export function getScriptBufferFromScriptTemplateOut(address: string) {
 export function decodeScriptBufferToScriptChunks(buffer: Buffer) {
   let i = 0;
   const chunks: INexaScriptChunk[] = [];
-  // a wrired bug that in sometimes readUInt8 function is missing on buffer in browser environment.
-  // so i bind Buffer.prototype.readUInt8 into buffer.
-  const readUint8 = Buffer.prototype.readUInt8.bind(buffer);
+  // The readUInt8 function of the buffer always throws a not found error in the browser,
+  // so I had to manually bind it.
+  const readUint8: typeof buffer.readUInt8 =
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+    Buffer.prototype.readUInt8.bind(buffer);
   while (i < buffer.length) {
     const opcodenum = readUint8(i);
     i += 1;
