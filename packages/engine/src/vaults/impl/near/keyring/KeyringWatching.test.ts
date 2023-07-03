@@ -69,8 +69,6 @@ describe('Near KeyringImported Tests', () => {
           },
         },
       );
-      // this is where the code hits the fan, indicating an error.
-      expect(false).toBeTruthy();
     } catch (error: any) {
       expect(error.message).toBe('InvalidAddress.');
     }

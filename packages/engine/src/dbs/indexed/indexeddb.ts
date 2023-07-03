@@ -1754,7 +1754,7 @@ class IndexedDBApi implements DBAPI {
                   walletStore.put(wallet);
                   transaction
                     .objectStore(ACCOUNT_STORE_NAME)
-                    .put(account).onsuccess = (_aevent) => {
+                    .add(account).onsuccess = (_aevent) => {
                     ret = account;
                   };
                 };

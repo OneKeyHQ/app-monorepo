@@ -5,7 +5,6 @@ import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import {
   COINTYPE_BCH,
   COINTYPE_DOGE,
-  COINTYPE_NEXA,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -205,9 +204,7 @@ export class KeyringHd extends KeyringHdBase {
       const customAddresses = isCustomAddress
         ? { [addressRelPath]: address }
         : undefined;
-      const prefix = [COINTYPE_DOGE, COINTYPE_BCH, COINTYPE_NEXA].includes(
-        COIN_TYPE,
-      )
+      const prefix = [COINTYPE_DOGE, COINTYPE_BCH].includes(COIN_TYPE)
         ? coinName
         : namePrefix;
       const name =

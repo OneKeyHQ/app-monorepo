@@ -79,7 +79,6 @@
     "@web3-react/url": "8.0.25-beta.0",
     "asmcrypto.js": "2.3.2",
     "axios": "^0.27.2",
-    "base32-encode": "^2.0.0",
     "bitcoinjs-lib": "6.1.0",
     "bitcoinjs-message": "2.2.0",
     "expo": "^48.0.19",
