@@ -5197,6 +5197,7 @@ __metadata:
     "@starcoin/starcoin": 2.1.5
     "@types/chrome": ^0.0.161
     "@types/jest": ^29.2.3
+    "@types/json-stringify-safe": ^5
     "@types/jsrsasign": ^10
     "@types/memoizee": ^0.4.8
     "@types/mime-types": ^2.1.1
@@ -5257,7 +5258,7 @@ __metadata:
     jest-environment-jsdom: ^29.3.1
     jest-expo: ^47.0.1
     jest-html-reporter: ^3.7.0
-    json-complete: ^2.0.1
+    json-stringify-safe: ^5.0.1
     jsrsasign: ^10.7.1
     lint-staged: ^11.2.6
     memoizee: ^0.4.15
@@ -8716,6 +8717,13 @@ __metadata:
   version: 7.0.11
   resolution: "@types/json-schema@npm:7.0.11"
   checksum: 527bddfe62db9012fccd7627794bd4c71beb77601861055d87e3ee464f2217c85fca7a4b56ae677478367bbd248dbde13553312b7d4dbc702a2f2bbf60c4018d
+  languageName: node
+  linkType: hard
+
+"@types/json-stringify-safe@npm:^5":
+  version: 5.0.0
+  resolution: "@types/json-stringify-safe@npm:5.0.0"
+  checksum: 2822c9341119f53ded3b98b9686199bf13f9ff25ebeeab409ceb02167c2d5872455bdad2a2fcc0d88bd71b35696bf63d3378c7b9ab0e3f09ebbf9775e46cefdd
   languageName: node
   linkType: hard
 
@@ -22122,13 +22130,6 @@ __metadata:
   version: 3.0.1
   resolution: "json-buffer@npm:3.0.1"
   checksum: 9026b03edc2847eefa2e37646c579300a1f3a4586cfb62bf857832b60c852042d0d6ae55d1afb8926163fa54c2b01d83ae24705f34990348bdac6273a29d4581
-  languageName: node
-  linkType: hard
-
-"json-complete@npm:^2.0.1":
-  version: 2.0.1
-  resolution: "json-complete@npm:2.0.1"
-  checksum: b96269a916b85298416ea44fef3a93b5c8fccecfe51c5e3b2f2c1c280f7c897545127e801ae13ef00944968b8f461bf85fad8b591c8fdd6747d263193b34ecf6
   languageName: node
   linkType: hard
 
