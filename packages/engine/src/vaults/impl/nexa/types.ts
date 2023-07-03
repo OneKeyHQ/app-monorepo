@@ -5,13 +5,13 @@ export type IEncodedTxNexa = {
   inputs: Array<{
     address: string;
     txId: string;
-    satoshis: number;
+    satoshis: string;
     outputIndex: number;
     sequenceNumber?: number;
   }>;
   outputs: Array<{
     address: string;
-    fee: string;
+    satoshis: string;
     outType: number;
   }>;
   gas?: string;

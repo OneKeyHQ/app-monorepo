@@ -296,27 +296,27 @@ export async function signEncodedTx(
   const inputAmountHash = sha256sha256(inputAmountBuffer);
 
   const inputAmount: number = inputs.reduce(
-    (acc, input) => acc + input.satoshis,
+    (acc, input) => acc + Number(input.satoshis),
     0,
   );
-  const outputAmount = newOutputs.reduce(
-    (acc, output) => acc + Number(output.fee),
+  const outputAmount: number = newOutputs.reduce(
+    (acc, output) => acc + Number(output.satoshis),
     0,
   );
-  const available = inputAmount - outputAmount * 100;
+  const available = inputAmount - outputAmount;
 
   const fee = gas ? Number(gas) : estimateFee(encodedTx as IEncodedTxNexa);
 
   // change address
   newOutputs.push({
     address: dbAccount.address,
-    fee: String((available - fee) / 100),
+    satoshis: String(available - fee),
     outType: 1,
   });
 
   const outputSignatures: INexaOutputSignature[] = newOutputs.map((output) => ({
     address: output.address,
-    satoshi: new BN(Number(output.fee) * 100),
+    satoshi: new BN(output.satoshis),
     outType: 1,
     scriptBuffer: getScriptBufferFromScriptTemplateOut(output.address),
   }));

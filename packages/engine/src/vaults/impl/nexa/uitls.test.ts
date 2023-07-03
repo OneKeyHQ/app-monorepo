@@ -11,66 +11,14 @@ describe('Nexa Utils Tests', () => {
       {
         'inputs': [],
         'outputs': [],
-        'payload': {
-          'encodedTx': {
-            'inputs': [
-              {
-                'txId':
-                  'b33f172176b8e901c36f060bdaf332087924aaeddb2e4b483c9b74edc53cc078',
-                'outputIndex': 0,
-                'satoshis': 10000,
-                'address':
-                  'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
-              },
-              {
-                'txId':
-                  'a1164e3713a8c6fd794a289680b075181c4284b9da8c8c0b9ae864bbcf9b8458',
-                'outputIndex': 0,
-                'satoshis': 50000,
-                'address':
-                  'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
-              },
-              {
-                'txId':
-                  '86e221c03aa9e7b95b58ef0c7938c5dbcaa6ae736f3f41deb968cffbcaa427ba',
-                'outputIndex': 0,
-                'satoshis': 5000,
-                'address':
-                  'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
-              },
-              {
-                'txId':
-                  '0ec395ff9213bd4726b91d682246177ccbc99f7459eafac6b69fc8a22c744539',
-                'outputIndex': 0,
-                'satoshis': 50000,
-                'address':
-                  'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
-              },
-            ],
-            'outputs': [
-              {
-                'address':
-                  'nexatest:nqtsq5g5wud2fr7l32as0mfzms3hwnz7dxvsc2h8szatr5p8',
-                'fee': '50',
-                'outType': 1,
-              },
-            ],
-            'gas': undefined,
-            'transferInfo': {
-              'from':
-                'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
-              'to': 'nexatest:nqtsq5g5wud2fr7l32as0mfzms3hwnz7dxvsc2h8szatr5p8',
-              'amount': '50',
-            },
-          },
-        },
+        'payload': {},
         'encodedTx': {
           'inputs': [
             {
               'txId':
                 'b33f172176b8e901c36f060bdaf332087924aaeddb2e4b483c9b74edc53cc078',
               'outputIndex': 0,
-              'satoshis': 10000,
+              'satoshis': '10000',
               'address':
                 'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
             },
@@ -78,7 +26,7 @@ describe('Nexa Utils Tests', () => {
               'txId':
                 'a1164e3713a8c6fd794a289680b075181c4284b9da8c8c0b9ae864bbcf9b8458',
               'outputIndex': 0,
-              'satoshis': 50000,
+              'satoshis': '50000',
               'address':
                 'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
             },
@@ -86,7 +34,7 @@ describe('Nexa Utils Tests', () => {
               'txId':
                 '86e221c03aa9e7b95b58ef0c7938c5dbcaa6ae736f3f41deb968cffbcaa427ba',
               'outputIndex': 0,
-              'satoshis': 5000,
+              'satoshis': '5000',
               'address':
                 'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
             },
@@ -94,7 +42,7 @@ describe('Nexa Utils Tests', () => {
               'txId':
                 '0ec395ff9213bd4726b91d682246177ccbc99f7459eafac6b69fc8a22c744539',
               'outputIndex': 0,
-              'satoshis': 50000,
+              'satoshis': '50000',
               'address':
                 'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
             },
@@ -103,7 +51,7 @@ describe('Nexa Utils Tests', () => {
             {
               'address':
                 'nexatest:nqtsq5g5wud2fr7l32as0mfzms3hwnz7dxvsc2h8szatr5p8',
-              'fee': '50',
+              'satoshis': '5000',
               'outType': 1,
             },
           ],
@@ -148,50 +96,14 @@ describe('Nexa Utils Tests', () => {
       {
         'inputs': [],
         'outputs': [],
-        'payload': {
-          'encodedTx': {
-            'inputs': [
-              {
-                'txId':
-                  '8e25139e37161728ecfcf1ca736cc66039daa32543c4f6f59c295e10d07dfc88',
-                'outputIndex': 1,
-                'satoshis': 99758530,
-                'address':
-                  'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
-              },
-              {
-                'txId':
-                  'ec29ed8b294c307f955b004f1c602bb76fe5363921afd56abdf0476975dbc838',
-                'outputIndex': 0,
-                'satoshis': 1000,
-                'address':
-                  'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
-              },
-            ],
-            'outputs': [
-              {
-                'address':
-                  'nexatest:nqtsq5g5wud2fr7l32as0mfzms3hwnz7dxvsc2h8szatr5p8',
-                'fee': '50',
-                'outType': 1,
-              },
-            ],
-            'gas': undefined,
-            'transferInfo': {
-              'from':
-                'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
-              'to': 'nexatest:nqtsq5g5wud2fr7l32as0mfzms3hwnz7dxvsc2h8szatr5p8',
-              'amount': '50',
-            },
-          },
-        },
+        'payload': {},
         'encodedTx': {
           'inputs': [
             {
               'txId':
                 '8e25139e37161728ecfcf1ca736cc66039daa32543c4f6f59c295e10d07dfc88',
               'outputIndex': 1,
-              'satoshis': 99758530,
+              'satoshis': '99758530',
               'address':
                 'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
             },
@@ -199,7 +111,7 @@ describe('Nexa Utils Tests', () => {
               'txId':
                 'ec29ed8b294c307f955b004f1c602bb76fe5363921afd56abdf0476975dbc838',
               'outputIndex': 0,
-              'satoshis': 1000,
+              'satoshis': '1000',
               'address':
                 'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
             },
@@ -208,7 +120,7 @@ describe('Nexa Utils Tests', () => {
             {
               'address':
                 'nexatest:nqtsq5g5wud2fr7l32as0mfzms3hwnz7dxvsc2h8szatr5p8',
-              'fee': '50',
+              'satoshis': '5000',
               'outType': 1,
             },
           ],

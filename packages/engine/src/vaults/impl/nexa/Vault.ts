@@ -39,7 +39,10 @@ import type {
   DBAccount,
   DBSimpleAccount,
 } from '../../../types/account';
-import type { PartialTokenInfo, TransactionStatus } from '../../../types/provider';
+import type {
+  PartialTokenInfo,
+  TransactionStatus,
+} from '../../../types/provider';
 import type { Token } from '../../../types/token';
 import type {
   IDecodedTxAction,
@@ -183,17 +186,22 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxNexa> {
     const client = await this.getSDKClient();
     const utxos = await client.getNexaUTXOs(transferInfo.from);
+    const network = await this.getNetwork();
     return {
       inputs: utxos.map((utxo) => ({
-        'txId': utxo.outpoint_hash,
-        'outputIndex': utxo.tx_pos,
-        'satoshis': utxo.value,
-        'address': transferInfo.from,
+        txId: utxo.outpoint_hash,
+        outputIndex: utxo.tx_pos,
+        satoshis: new BigNumber(utxo.value)
+          .shiftedBy(network.decimals)
+          .toFixed(),
+        address: transferInfo.from,
       })),
       outputs: [
         {
           address: transferInfo.to,
-          fee: transferInfo.amount,
+          satoshis: new BigNumber(transferInfo.amount)
+            .shiftedBy(network.decimals)
+            .toFixed(),
           outType: 1,
         },
       ],
@@ -233,7 +241,9 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override async getTransactionStatuses(txids: string[]): Promise<(TransactionStatus | undefined)[]> {
+  override async getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
     const client = await this.getSDKClient();
     return client.getTransactionStatuses(txids);
   }
