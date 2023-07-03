@@ -88,7 +88,7 @@ const NotableCollection = () => {
   useEffect(() => {
     (async () => {
       const data = await serviceNFT.getMarketCollection();
-      updateListData(data);
+      updateListData(data ?? []);
     })();
   }, [serviceNFT]);
 

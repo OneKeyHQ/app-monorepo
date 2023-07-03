@@ -28,6 +28,7 @@ import type {
   Transfer,
   TransferEvent,
 } from '../types/covalent';
+import type { NFTAsset } from '../types/nft';
 import type { Token } from '../types/token';
 import type { IEncodedTxEvm } from '../vaults/impl/evm/Vault';
 import type { IDecodedTx, IDecodedTxAction } from '../vaults/types';
@@ -695,7 +696,7 @@ async function createOutputActionFromCovalentLogEvent({
           type: IDecodedTxActionType.NFT_TRANSFER,
           hidden: !(from === address || to === address),
           nftTransfer: {
-            asset,
+            asset: asset as NFTAsset,
             amount,
             send: from,
             receive: to,

@@ -130,7 +130,7 @@ function PreSendAddress() {
             tokenId: nftTokenId,
             local: true,
           });
-          updateNFTInfo(asset);
+          updateNFTInfo(asset as NFTAsset);
         }
       }
     })();
@@ -259,7 +259,7 @@ function PreSendAddress() {
             local: true,
           });
           nftInfos.push({
-            asset: asset || ({} as NFTAsset),
+            asset: (asset || {}) as NFTAsset,
             amount: transferInfo.amount,
             from: account.address,
             to: toVal,

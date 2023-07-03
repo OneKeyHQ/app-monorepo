@@ -552,7 +552,7 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
         const data = await serviceNFT.getPNLData({
           address: text,
         });
-        const parseData = parsePNLData(data);
+        const parseData = parsePNLData(data ?? []);
         allData.current = parseData;
         pnlDataMap[text] = parseData;
         updateTotalPNLData(parseData);
