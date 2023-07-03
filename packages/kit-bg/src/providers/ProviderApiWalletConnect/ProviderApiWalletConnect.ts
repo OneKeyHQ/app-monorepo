@@ -461,8 +461,10 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       // TODO save to DB?
       console.log('WalletConnectV2 session_proposal APPROVE: ', session);
 
-      // TODO
-      // this.redirectToDapp({ })
+      if (session) {
+        // TODO redirectToDapp for V2 handler
+        // this.redirectToDapp({ })
+      }
     } catch (error) {
       const session = await this.web3walletV2?.rejectSession({
         id: proposal.id,
@@ -529,6 +531,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
 
       // TODO sessionV2 accounts and peer accounts matched check
 
+      // handleSessionRequest will call this.redirectToDapp()
       const result = await this.handleSessionRequest({
         networkImpl,
         payload: params.request,
