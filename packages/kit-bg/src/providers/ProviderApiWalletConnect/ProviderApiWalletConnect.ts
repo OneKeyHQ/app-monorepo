@@ -329,11 +329,18 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
                   optionalNamespaces: sessionV2.optionalNamespaces,
                 });
 
-              // Do NOT await this method, it may block forever
-              this.web3walletV2.updateSession({
-                topic: sessionV2.topic,
-                namespaces,
-              });
+              try {
+                // Do NOT await this method, it may block forever
+                this.web3walletV2.updateSession({
+                  topic: sessionV2.topic,
+                  namespaces,
+                });
+              } catch (error) {
+                // const e = error as Error | undefined;
+                console.error('web3walletV2.updateSession ERROR: ', error);
+              } finally {
+                // noop
+              }
 
               // https://docs.walletconnect.com/2.0/web/web3wallet/wallet-usage#emit-session-events
               const eip155ChainId = `eip155:${chainId}`;
