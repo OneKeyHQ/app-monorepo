@@ -1,5 +1,8 @@
 import { useEffect } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ToastManager } from '@onekeyhq/components';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -14,6 +17,7 @@ export default function RefreshLightningNetworkToken({
   accountId: string;
   password: string;
 }) {
+  const intl = useIntl();
   useEffect(() => {
     if (networkId !== OnekeyNetwork.lightning) {
       return;
@@ -27,10 +31,20 @@ export default function RefreshLightningNetworkToken({
       .then(() => {
         debugLogger.common.info('refresh lightning network token success');
       })
-      .catch(() => {
-        debugLogger.common.info('refresh lightning network token failed');
+      .catch((e) => {
+        ToastManager.show(
+          {
+            title: intl.formatMessage({
+              id: 'msg__authentication_failed_verify_again',
+            }),
+          },
+          {
+            type: 'error',
+          },
+        );
+        debugLogger.common.info('refresh lightning network token failed: ', e);
       });
     debugLogger.common.info('should refresh lightning network token');
-  }, [password, networkId, accountId]);
+  }, [password, networkId, accountId, intl]);
   return null;
 }

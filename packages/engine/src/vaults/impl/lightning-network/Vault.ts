@@ -27,7 +27,7 @@ import { VaultBase } from '../../VaultBase';
 
 import ClientLightning from './helper/ClientLightningNetwork';
 import { getInvoiceTransactionStatus } from './helper/invoice';
-import { LightningScenario, signature } from './helper/signature';
+import { signature } from './helper/signature';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -89,11 +89,15 @@ export default class Vault extends VaultBase {
         this.walletId,
         password ?? '',
       )) as ExportedSeedCredential;
+      const client = await this.getClient();
+      const signTemplate = await client.fetchSignTemplate(address, 'auth');
+      if (signTemplate.type !== 'auth') {
+        throw new Error('Invalid auth sign template');
+      }
       const timestamp = Date.now();
       const sign = await signature({
         msgPayload: {
-          scenario: LightningScenario,
-          type: 'auth',
+          ...signTemplate,
           pubkey: hashPubKey,
           address,
           timestamp,
@@ -103,12 +107,12 @@ export default class Vault extends VaultBase {
         password: password ?? '',
         entropy,
       });
-      const client = await this.getClient();
       return await client.refreshAccessToken({
         hashPubKey,
         address,
         signature: sign,
         timestamp,
+        randomSeed: signTemplate.randomSeed,
       });
     } catch (e) {
       debugLogger.common.info('exchangeToken error', e);
@@ -214,7 +218,6 @@ export default class Vault extends VaultBase {
       throw new InvalidLightningPaymentRequest();
     }
 
-    const nonce = await client.getNextNonce(balanceAddress);
     const description = invoice.tags.find(
       (tag) => tag.tagName === 'description',
     );
@@ -224,7 +227,6 @@ export default class Vault extends VaultBase {
       amount: amount.toFixed(),
       expired: `${invoice.timeExpireDate ?? ''}`,
       created: `${Math.floor(Date.now() / 1000)}`,
-      nonce,
       description: description?.data as string,
       fee: 0,
     };
@@ -435,9 +437,15 @@ export default class Vault extends VaultBase {
     let result;
     try {
       const client = await this.getClient();
-      const { invoice, amount, expired, created, nonce, paymentHash } =
+      const { invoice, amount, expired, created, paymentHash } =
         signedTx.encodedTx as IEncodedTxLightning;
       const address = await this.getCurrentBalanceAddress();
+      if (
+        typeof signedTx.nonce !== 'number' ||
+        typeof signedTx.randomSeed !== 'number'
+      ) {
+        throw new Error('Invalid nonce or randomSeed');
+      }
       result = await client.paymentBolt11(
         {
           invoice,
@@ -445,12 +453,13 @@ export default class Vault extends VaultBase {
           amount,
           expired,
           created: Number(created),
-          nonce,
           signature: signedTx.rawTx,
+          nonce: signedTx.nonce,
+          randomSeed: signedTx.randomSeed,
         },
         address,
       );
-      await this.pollBolt11Status(address, nonce);
+      await this.pollBolt11Status(address, signedTx.nonce);
     } catch (err) {
       debugLogger.sendTx.info('broadcastTransaction ERROR:', err);
       throw err;

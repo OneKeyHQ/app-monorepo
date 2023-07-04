@@ -22,6 +22,7 @@ import type {
   ICheckPaymentResponse,
   IPaymentBolt11Params,
 } from '../types/payments';
+import type { UnionMsgType } from './signature';
 import type { AxiosError, AxiosInstance } from 'axios';
 
 class ClientLightning {
@@ -60,11 +61,13 @@ class ClientLightning {
     address,
     signature,
     timestamp,
+    randomSeed,
   }: {
     hashPubKey: string;
     address: string;
     signature: string;
     timestamp: number;
+    randomSeed: number;
   }) {
     try {
       if (!hashPubKey || !address || !signature) {
@@ -76,6 +79,7 @@ class ClientLightning {
           address,
           signature,
           timestamp,
+          randomSeed,
         })
         .then((i) => i.data);
     } catch (e) {
@@ -96,16 +100,19 @@ class ClientLightning {
     hashPubKey,
     address,
     signature,
+    randomSeed,
   }: {
     hashPubKey: string;
     address: string;
     signature: string;
+    randomSeed: number;
   }) {
     return this.request
       .post<ICreateUserResponse>('/account/users', {
         hashPubKey,
         address,
         signature,
+        randomSeed,
       })
       .then((i) => i.data);
   }
@@ -201,6 +208,20 @@ class ClientLightning {
   async fetchHistory(address: string): Promise<IHistoryItem[]> {
     return this.request
       .get<IHistoryItem[]>('/invoices/history', {
+        headers: {
+          Authorization: await this.getAuthorization(address),
+        },
+      })
+      .then((i) => i.data);
+  }
+
+  async fetchSignTemplate(
+    address: string,
+    signType: 'register' | 'auth' | 'transfer',
+  ) {
+    return this.request
+      .get<UnionMsgType>('/account/getSignTemplate', {
+        params: { address, signType },
         headers: {
           Authorization: await this.getAuthorization(address),
         },

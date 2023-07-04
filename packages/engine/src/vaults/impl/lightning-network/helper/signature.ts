@@ -1,5 +1,7 @@
 import stringify from 'fast-json-stable-stringify';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 import { getBtcProvider } from './account';
 
 import type { Engine } from '../../../..';
@@ -11,6 +13,7 @@ type RegisterMsgType = {
   type: 'register';
   pubkey: string;
   address: string;
+  randomSeed: number;
 };
 type AuthMsgType = {
   scenario: typeof LightningScenario;
@@ -18,6 +21,7 @@ type AuthMsgType = {
   pubkey: string;
   address: string;
   timestamp: number;
+  randomSeed: number;
 };
 type PaymentBolt11MsgType = {
   scenario: typeof LightningScenario;
@@ -27,41 +31,10 @@ type PaymentBolt11MsgType = {
   expired: string;
   created: number;
   nonce: number;
+  randomSeed: number;
 };
 
-type UnionMsgType = RegisterMsgType | AuthMsgType | PaymentBolt11MsgType;
-
-const generateMessage = (msgPayload: UnionMsgType) => {
-  if (msgPayload.type === 'register') {
-    return {
-      scenario: LightningScenario,
-      type: 'register',
-      pubkey: msgPayload.pubkey,
-      address: msgPayload.address,
-    };
-  }
-  if (msgPayload.type === 'auth') {
-    return {
-      scenario: LightningScenario,
-      type: 'auth',
-      pubkey: msgPayload.pubkey,
-      address: msgPayload.address,
-      timestamp: msgPayload.timestamp,
-    };
-  }
-  if (msgPayload.type === 'transfer') {
-    return {
-      scenario: LightningScenario,
-      type: 'transfer',
-      invoice: msgPayload.invoice,
-      paymentHash: msgPayload.paymentHash,
-      expired: msgPayload.expired,
-      created: msgPayload.created,
-      nonce: msgPayload.nonce,
-    };
-  }
-  return {};
-};
+export type UnionMsgType = RegisterMsgType | AuthMsgType | PaymentBolt11MsgType;
 
 export const signature = async ({
   msgPayload,
@@ -76,13 +49,17 @@ export const signature = async ({
   password: string;
   entropy: Buffer;
 }) => {
-  const message = generateMessage(msgPayload);
   const provider = await getBtcProvider(engine);
   const result = provider.signMessage(
     password,
     entropy,
     `${path}/0/0`,
-    stringify(message),
+    stringify(msgPayload),
+  );
+  debugLogger.common.debug(
+    `Lightning Signature, msgPayload: ${stringify(
+      msgPayload,
+    )}, path: ${path}, result: ${result.toString('hex')}`,
   );
   return result.toString('hex');
 };

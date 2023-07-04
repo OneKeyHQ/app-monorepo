@@ -6,6 +6,7 @@ export type IPaymentBolt11Params = {
   created: number;
   nonce: number;
   signature: string;
+  randomSeed: number;
 };
 
 export type ICheckPaymentResponse = {

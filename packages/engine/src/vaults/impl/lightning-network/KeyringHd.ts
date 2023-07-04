@@ -9,7 +9,7 @@ import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
 import { generateNativeSegwitAccounts } from './helper/account';
-import { LightningScenario, signature } from './helper/signature';
+import { signature } from './helper/signature';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { Signer } from '../../../proxy';
@@ -51,10 +51,16 @@ export class KeyringHd extends KeyringHdBase {
       const accountExist = await client.checkAccountExist(account.address);
       if (!accountExist) {
         const hashPubKey = bytesToHex(sha256(account.xpub));
+        const signTemplate = await client.fetchSignTemplate(
+          account.address,
+          'register',
+        );
+        if (signTemplate.type !== 'register') {
+          throw new Error('Wrong signature type');
+        }
         const sign = await signature({
           msgPayload: {
-            scenario: LightningScenario,
-            type: 'register',
+            ...signTemplate,
             pubkey: hashPubKey,
             address: account.address,
           },
@@ -67,6 +73,7 @@ export class KeyringHd extends KeyringHdBase {
           hashPubKey,
           address: account.address,
           signature: sign,
+          randomSeed: signTemplate.randomSeed,
         });
       }
       const path = `m/44'/${COINTYPE_LIGHTNING}'/${account.index}`;
@@ -100,17 +107,25 @@ export class KeyringHd extends KeyringHdBase {
       this.walletId,
       password ?? '',
     )) as ExportedSeedCredential;
-    const { invoice, expired, created, nonce, paymentHash } =
+    const { invoice, expired, created, paymentHash } =
       unsignedTx.encodedTx as IEncodedTxLightning;
+    const client = await (this.vault as LightningVault).getClient();
+    const signTemplate = await client.fetchSignTemplate(
+      dbAccount.addresses.normalizedAddress,
+      'transfer',
+    );
+    if (signTemplate.type !== 'transfer') {
+      throw new Error('Wrong transfer signature type');
+    }
     const sign = await signature({
       msgPayload: {
-        scenario: LightningScenario,
-        type: 'transfer',
+        ...signTemplate,
         paymentHash,
         invoice,
         expired,
         created: Number(created),
-        nonce,
+        nonce: signTemplate.nonce,
+        randomSeed: signTemplate.randomSeed,
       },
       engine: this.engine,
       path: dbAccount.addresses.realPath,
@@ -120,6 +135,8 @@ export class KeyringHd extends KeyringHdBase {
     return {
       txid: paymentHash,
       rawTx: sign,
+      nonce: signTemplate.nonce,
+      randomSeed: signTemplate.randomSeed,
     };
   }
 }

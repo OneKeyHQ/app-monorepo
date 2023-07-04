@@ -3788,12 +3788,12 @@ export const serverPresetNetworks = [
     'code': 'lightning',
     'decimals': 0,
     'extensions': {
-      'position': 1,
+      'position': 2,
     },
     'id': 'lightning--0',
     'impl': 'lightning',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/btc/btc.png',
+    'logoURI': 'https://onekey-asset.com/assets/lnd/lnd.png',
     'name': 'Lightning Network',
     'rpcURLs': [
       {
