@@ -1045,10 +1045,7 @@ export default class VaultBtcFork extends VaultBase {
       const max = allUtxoAmount.lte(amount);
       outputsForCoinSelect = [
         max
-          ? ({ address: to, ixMax: true } as {
-              address: string;
-              isMax?: boolean;
-            })
+          ? { address: to, isMax: true }
           : {
               address: to,
               value: parseInt(
