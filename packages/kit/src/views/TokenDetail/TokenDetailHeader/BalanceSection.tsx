@@ -4,7 +4,7 @@ import { useContext } from 'react';
 import B from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Typography } from '@onekeyhq/components';
+import { Box, Typography } from '@onekeyhq/components';
 
 import {
   FormatBalance,
@@ -35,7 +35,7 @@ export const BalanceSection: FC = () => {
   });
 
   return (
-    <>
+    <Box>
       <Typography.Heading>
         {intl.formatMessage({ id: 'content__balance' })}
       </Typography.Heading>
@@ -55,6 +55,6 @@ export const BalanceSection: FC = () => {
           value={new B(positionInfo?.balance ?? 0).times(price ?? 0)}
         />
       </Typography.Body2>
-    </>
+    </Box>
   );
 };

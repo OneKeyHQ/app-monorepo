@@ -1,5 +1,3 @@
-import debugLogger from '../logger/debugLogger';
-
 import type { IServerNetwork } from '../../types';
 
 const allNetwork = {
@@ -26,17 +24,7 @@ const allNetwork = {
   shortcode: 'allnetworks',
   extensions: {},
   clientApi: {},
-  logoURI: require('../../../app/assets/all-networks.png'),
+  logoURI: 'https://common.onekey-asset.com/chain/all.png',
 } as unknown as IServerNetwork;
 
-export const FAKE_ALL_NETWORK = new Proxy(allNetwork, {
-  get: (target, method) => {
-    const data = target[method as keyof typeof allNetwork];
-    if (typeof data === 'undefined') {
-      debugLogger.common.error(
-        `Error reading allNetwork props: ${String(method)}`,
-      );
-    }
-    return data;
-  },
-});
+export const FAKE_ALL_NETWORK = allNetwork;

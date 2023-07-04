@@ -309,7 +309,7 @@ export const ButtonsSection: FC = () => {
   }, [handlePress, isVerticalLayout, onBuy, onSell, onSwap, onReceive, onSend]);
 
   return (
-    <>
+    <Box>
       <HStack justifyContent="space-between">
         {!isVerticalLayout && (
           <Token
@@ -357,6 +357,6 @@ export const ButtonsSection: FC = () => {
           <ETHRelatedPoolShowControl token={ethereumNativeToken} />
         </Box>
       )}
-    </>
+    </Box>
   );
 };
