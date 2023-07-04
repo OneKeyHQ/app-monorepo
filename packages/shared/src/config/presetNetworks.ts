@@ -3887,7 +3887,7 @@ export const serverPresetNetworks = [
         'address': 'https://testnet-explorer.nexa.org/block-height/{address}',
         'block': 'https://testnet-explorer.nexa.org/block-height/{block}',
         'name': 'https://testnet-explorer.nexa.org',
-        'transaction': 'testnet-https://explorer.nexa.org/txid/{transaction}',
+        'transaction': 'https://testnet-explorer.nexa.org/txid/{transaction}',
       },
     ],
     'status': 'LISTED',
