@@ -356,8 +356,12 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
                 topic: sessionV2.topic,
                 event: {
                   name: 'chainChanged',
-                  data: [chainId],
-                  // data: accounts, // accounts or chainId?
+                  // https://docs.walletconnect.com/2.0/web/web3wallet/wallet-usage#emit-session-events
+                  // https://github.com/WalletConnect/web-examples/blob/main/wallets/react-wallet-eip155/src/pages/session.tsx#L47
+                  // https://github.com/WalletConnect/web-examples/blob/main/wallets/react-web3wallet/src/pages/session.tsx#L54
+                  // https://github.com/WalletConnect/WalletConnectFlutterV2/blob/master/README.md?plain=1#L242
+                  // https://github.com/WalletConnect/se-sdk/blob/main/src/controllers/engine.ts#L277
+                  data: chainId, // accounts or chainId or [chainId] or any string?
                 },
                 chainId: eip155ChainId,
               });
