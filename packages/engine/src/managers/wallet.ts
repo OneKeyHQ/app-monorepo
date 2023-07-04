@@ -15,6 +15,9 @@ function walletCanBeRemoved(walletId: string): boolean {
 }
 
 function isWalletCompatibleAllNetworks(walletId?: string | null): boolean {
+  if (!walletId) {
+    return false;
+  }
   return walletIsHD(walletId) || walletIsHW(walletId);
 }
 

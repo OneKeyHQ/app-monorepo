@@ -164,7 +164,6 @@ function AssetsList({
         walletId: walletId ?? '',
         accountId: account?.id ?? '',
         networkId: networkId ?? '',
-        tokenId: item.address ?? 'main',
         coingeckoId: item.coingeckoId,
         sendAddress: item.sendAddress,
         tokenAddress: item.address,

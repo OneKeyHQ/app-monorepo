@@ -18,10 +18,11 @@ export type FullTokenListProps = NativeStackScreenProps<
 
 const FullTokenList: FC<FullTokenListProps> = () => {
   const { bottom } = useSafeAreaInsets();
-  const { accountId, networkId } = useActiveWalletAccount();
+  const { accountId, networkId, walletId } = useActiveWalletAccount();
 
   return (
     <AssetsList
+      walletId={walletId}
       accountId={accountId}
       networkId={networkId}
       flatStyle

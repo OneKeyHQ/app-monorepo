@@ -1454,7 +1454,7 @@ class Engine {
 
   async generateNativeTokenByNetworkId(networkId: string) {
     if (isAllNetworks(networkId)) {
-      return undefined;
+      throw new Error('Cannot generate native token for all networks.');
     }
     const network = await this.getNetwork(networkId);
     const { impl, chainId } = parseNetworkId(networkId);

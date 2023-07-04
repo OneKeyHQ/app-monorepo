@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Empty, useIsVerticalLayout } from '@onekeyhq/components';
 
+import { useActiveWalletAccount } from '../../../hooks';
 import { notifyIfRiskToken } from '../../ManageTokens/helpers/TokenSecurityModalWrapper';
 import AssetsList from '../../Wallet/AssetsList';
 import SendNFTList from '../../Wallet/NFT/SendNFTList';
@@ -33,6 +34,8 @@ function PreSendTokenScreen() {
   const { accountId, networkId } = transferInfo;
   useReloadAccountBalance({ accountId, networkId });
 
+  const { walletId } = useActiveWalletAccount();
+
   const padding = isSmallScreen ? '16px' : '24px';
   const emptyView = useMemo(
     () => (
@@ -50,6 +53,7 @@ function PreSendTokenScreen() {
     if (accountId) {
       return (
         <AssetsList
+          walletId={walletId}
           accountId={accountId}
           networkId={networkId}
           showRoundTop
@@ -72,7 +76,7 @@ function PreSendTokenScreen() {
                 },
                 transferInfo,
                 {
-                  token: token.tokenIdOnNetwork,
+                  token: token.address,
                   sendAddress: token.sendAddress,
                   to: undefined,
                   accountId,
@@ -86,7 +90,7 @@ function PreSendTokenScreen() {
       );
     }
     return emptyView;
-  }, [accountId, emptyView, navigation, networkId, transferInfo]);
+  }, [accountId, emptyView, navigation, networkId, transferInfo, walletId]);
 
   const sendNftsTabViewComponent = useCallback(
     () =>
