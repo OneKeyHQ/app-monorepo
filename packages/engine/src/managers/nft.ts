@@ -2,6 +2,7 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import axios from 'axios';
 
 import type {
+  BTCTransactionsModel,
   Collection,
   IErcNftType,
   NFTAsset,
@@ -123,7 +124,11 @@ export const getNFTSymbolPrice = async (networkId: string) => {
   return price;
 };
 
-type TxMapType = Record<string, NFTTransaction[]>;
+export type TxMapType = Record<
+  string,
+  NFTTransaction[] | BTCTransactionsModel[]
+>;
+
 export const getNFTTransactionHistory = async (
   accountId?: string,
   networkId?: string,
@@ -137,6 +142,18 @@ export const getNFTTransactionHistory = async (
     return txMap ?? {};
   }
   return {} as TxMapType;
+};
+
+export const getBRC20TransactionHistory = async (
+  accountId: string,
+  tokenAddress: string,
+): Promise<TxMapType> => {
+  const endpoint = getFiatEndpoint();
+  const apiUrl = `${endpoint}/NFT/transactions/brc20?address=${accountId}&tokenAddress=${tokenAddress}`;
+  const { data: txMap } = await axios
+    .get<NFTServiceResp<TxMapType>>(apiUrl)
+    .then((resp) => resp.data);
+  return txMap ?? {};
 };
 
 export function buildEncodeDataWithABI(param: {
@@ -330,5 +347,23 @@ export async function getAsset(params: {
   });
   if (resp) {
     return resp;
+  }
+}
+
+export type BRC20TextProps = {
+  p: string;
+  op: 'deploy' | 'mint' | 'transfer' | string;
+  tick: string;
+  amt?: string;
+  lim?: string; // deploy
+  max?: string; // deploy
+};
+
+export function parseTextProps(content: string) {
+  try {
+    const json = JSON.parse(content) as BRC20TextProps;
+    return json;
+  } catch (error) {
+    console.log('parse InscriptionText error = ', error);
   }
 }

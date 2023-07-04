@@ -159,7 +159,7 @@ function SOLAssetDetailContent({
             to: '',
             amount,
             token: asset.tokenAddress,
-            tokenId: asset.tokenAddress,
+            nftTokenId: asset.tokenAddress,
             closeModal: modalClose,
           },
         },

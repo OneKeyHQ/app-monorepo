@@ -199,6 +199,7 @@ export enum ModalRoutes {
   ClearCache = 'ClearCache',
   CoinControl = 'CoinControl',
   GasPanel = 'GasPanel',
+  Inscribe = 'Inscribe',
 }
 
 export { SendModalRoutes } from '../views/Send/enums';
@@ -376,4 +377,12 @@ export enum ClearCacheModalRoutes {
 
 export enum CoinControlModalRoutes {
   CoinControlModal = 'CoinControlModal',
+}
+
+export enum InscribeModalRoutes {
+  InscribeModal = 'InscribeModal',
+  ReceiveAddress = 'ReceiveAddress',
+  CreateOrder = 'CreateOrder',
+  OrderList = 'OrderList',
+  OrderDetail = 'OrderDetail',
 }

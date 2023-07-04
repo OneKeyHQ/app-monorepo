@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import {
   Box,
@@ -8,7 +8,9 @@ import {
   useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
+import { parseTextProps } from '@onekeyhq/engine/src/managers/nft';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
+import { BRCTokenType } from '@onekeyhq/engine/src/types/token';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import NFTBTCContent from './NFTBTCContent';
@@ -39,6 +41,21 @@ function NFTBTCAssetCard({
     ? Math.floor((pageWidth - MARGIN * 3) / 2)
     : 177;
   const { themeVariant } = useTheme();
+  const title = useMemo(() => {
+    const props = parseTextProps(asset.content);
+    if (
+      props?.p === BRCTokenType.BRC20 &&
+      props.amt &&
+      props?.amt?.length > 0 &&
+      props?.tick?.length > 0
+    ) {
+      return `${props.amt} ${props.tick}`;
+    }
+    if (asset.inscription_number > 0) {
+      return `Inscription #${asset.inscription_number}`;
+    }
+    return '';
+  }, [asset.content, asset.inscription_number]);
 
   return (
     <Box mb="16px" {...rest}>
@@ -59,18 +76,14 @@ function NFTBTCAssetCard({
         }}
       >
         <NFTBTCContent size={cardWidth - 2 * padding} asset={asset} />
-        {asset.inscription_number > 0 ? (
-          <Text
-            typography="Body2"
-            height="20px"
-            mt={`${padding}px`}
-            numberOfLines={1}
-          >
-            {`Inscription #${asset.inscription_number}`}
-          </Text>
-        ) : (
-          <Box height="20px" />
-        )}
+        <Text
+          typography="Body2"
+          height="20px"
+          mt={`${padding}px`}
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
       </Pressable>
     </Box>
   );

@@ -6,6 +6,11 @@ import {
   getTxActionFunctionCallInfo,
 } from '../TxAction/TxActionFunctionCall';
 import {
+  TxActionNFTInscription,
+  TxActionNFTInscriptionT0,
+  getTxActionInscriptionInfo,
+} from '../TxAction/TxActionNFTInscription';
+import {
   TxActionNFTTrade,
   TxActionNFTTradeT0,
 } from '../TxAction/TxActionNFTTrade';
@@ -169,6 +174,18 @@ export function getTxActionMeta(
       T0: TxActionFunctionCallT0,
       T1: TxActionFunctionCall,
       T2: TxActionFunctionCall,
+    };
+  }
+  if (
+    action.type === IDecodedTxActionType.NFT_TRANSFER_BTC ||
+    action.type === IDecodedTxActionType.NFT_INSCRIPTION
+  ) {
+    const info = getTxActionInscriptionInfo(props);
+    titleInfo = info.titleInfo;
+    components = {
+      T0: TxActionNFTInscriptionT0,
+      T1: TxActionNFTInscription,
+      T2: TxActionNFTInscription,
     };
   }
   return {

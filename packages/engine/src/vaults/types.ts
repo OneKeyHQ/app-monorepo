@@ -7,7 +7,12 @@ import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 import type { Engine } from '../index';
 import type { AccountCredential } from '../types/account';
 import type { AccountNameInfo, EIP1559Fee } from '../types/network';
-import type { IErcNftType, NFTAsset } from '../types/nft';
+import type {
+  IErcNftType,
+  INFTAsset,
+  NFTAsset,
+  NFTBTCAssetModel,
+} from '../types/nft';
 import type { Token } from '../types/token';
 import type {
   WALLET_TYPE_EXTERNAL,
@@ -119,6 +124,7 @@ export type IVaultSettings = {
   isBtcForkChain?: boolean;
   nonceEditable?: boolean;
   signOnlyReturnFullTx?: boolean;
+  sendNFTEnable?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -201,7 +207,7 @@ export type IStakeInfo = {
 };
 
 export type INFTInfo = {
-  asset: NFTAsset;
+  asset: INFTAsset;
   amount: string;
   from: string;
   to: string;
@@ -443,6 +449,14 @@ export enum IDecodedTxActionType {
   NFT_MINT = 'NFT_MINT',
   NFT_SALE = 'NFT_SALE',
   NFT_BURN = 'NFT_BURN',
+  // Inscription
+  NFT_TRANSFER_BTC = 'NFT_TRANSFER_BTC',
+  NFT_INSCRIPTION = 'NFT_INSCRIPTION',
+
+  // // BRC20
+  // TOKEN_BRC20_TRANSFER = 'TOKEN_BRC20_TRANSFER',
+  // TOKEN_BRC20_DEPLOY = 'TOKEN_BRC20_DEPLOY',
+  // TOKEN_BRC20_MINT = 'TOKEN_BRC20_MINT',
 
   // Swap
   INTERNAL_SWAP = 'INTERNAL_SWAP',
@@ -527,6 +541,19 @@ export type IDecodedTxActionNFTTrade = IDecodedTxActionNFTBase & {
   tradeSymbolAddress?: string | null;
 };
 
+export type IDecodedTxActionInscription = IDecodedTxActionBase & {
+  asset: NFTBTCAssetModel;
+  send: string;
+  receive: string;
+};
+
+export type IDecodedTxActionBRC20 = IDecodedTxActionBase & {
+  token: Token;
+  send: string;
+  receive: string;
+  amount: string;
+};
+
 export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & ISwapInfo;
 export type IDecodedTxActionInternalStake = IDecodedTxActionBase & IStakeInfo;
 // other Unknown Action
@@ -548,6 +575,9 @@ export type IDecodedTxAction = {
   // nft
   nftTransfer?: IDecodedTxActionNFTBase;
   nftTrade?: IDecodedTxActionNFTTrade;
+  // inscription
+  inscriptionInfo?: IDecodedTxActionInscription;
+  brc20Info?: IDecodedTxActionBRC20;
 };
 
 export type IDecodedTx = {

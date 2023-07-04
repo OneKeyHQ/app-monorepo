@@ -509,10 +509,10 @@ const NPLDetail: FC<{ accountAddress: string; ens?: string }> = ({
         setLoading(false);
         return;
       }
-      const data = await serviceNFT.batchAsset({
+      const data = (await serviceNFT.batchAsset({
         chain: selectNetwork?.id,
         items: batchParams,
-      });
+      })) as NFTAsset[];
 
       if (data) {
         const nftMap: Record<string, NFTAsset | undefined> = {};

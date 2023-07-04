@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,15 +13,30 @@ import {
   Typography,
   VStack,
 } from '@onekeyhq/components';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 
-import { useActiveWalletAccount } from '../../../../../../hooks/redux';
+import {
+  getActiveWalletAccount,
+  useActiveWalletAccount,
+} from '../../../../../../hooks/redux';
 import useFormatDate from '../../../../../../hooks/useFormatDate';
+import {
+  ModalRoutes,
+  RootRoutes,
+  SendModalRoutes,
+} from '../../../../../../routes/routesEnum';
+import { openUrl } from '../../../../../../utils/openUrl';
 import { DetailItem } from '../DetailItem';
+
+import type { CollectiblesRoutesParams } from '../../../../../../routes/Root/Modal/Collectibles';
+import type { ModalScreenProps } from '../../../../../../routes/types';
+
+type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 function BTCAssetDetailContent({
   asset: outerAsset,
@@ -34,12 +50,42 @@ function BTCAssetDetailContent({
   const intl = useIntl();
   const { format } = useFormatDate();
 
-  const { wallet } = useActiveWalletAccount();
+  const { wallet, accountAddress } = useActiveWalletAccount();
+  const navigation = useNavigation<NavigationProps['navigation']>();
+  const modalClose = useModalClose();
 
   const [asset, updateAsset] = useState(outerAsset);
-  const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
+  const isDisabled =
+    wallet?.type === WALLET_TYPE_WATCHING && asset.owner !== accountAddress;
 
-  const sendAction = () => {};
+  console.log('accountAddress = ', accountAddress);
+  console.log('asset = ', asset);
+
+  const sendAction = useCallback(() => {
+    const { accountId, networkId } = getActiveWalletAccount();
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Send,
+      params: {
+        screen: SendModalRoutes.PreSendAddress,
+        params: {
+          accountId,
+          networkId,
+          isNFT: true,
+          from: '',
+          to: '',
+          amount: '0',
+          nftTokenId: asset.inscription_id,
+          nftInscription: {
+            address: asset.owner,
+            inscriptionId: asset.inscription_id,
+            output: asset.output,
+            location: asset.location,
+          },
+          closeModal: modalClose,
+        },
+      },
+    });
+  }, [asset, modalClose, navigation]);
 
   return (
     <VStack space="24px" mb="50px">
@@ -56,7 +102,7 @@ function BTCAssetDetailContent({
         <HStack space="16px">
           <Button
             type="primary"
-            isDisabled
+            isDisabled={isDisabled}
             width="full"
             size="lg"
             leftIconName="ArrowUpMini"
@@ -109,12 +155,12 @@ function BTCAssetDetailContent({
             />
           )}
 
-          {!!asset.content_length && (
+          {/* {!!asset.content_length && (
             <DetailItem
               title={intl.formatMessage({ id: 'form__ordinal_size' })}
               value={`${asset.content_length} bytes`}
             />
-          )}
+          )} */}
 
           {!!asset.output_value_sat && (
             <DetailItem
@@ -124,33 +170,50 @@ function BTCAssetDetailContent({
           )}
           {!!asset.timestamp && (
             <DetailItem
+              onPress={() => {
+                openUrl(
+                  `https://ordinals.com/inscription/${asset.inscription_id}`,
+                );
+              }}
               title={intl.formatMessage({
                 id: 'form__ordinal_inscription_date',
               })}
+              icon="ArrowTopRightOnSquareOutline"
               value={format(
                 new Date(Number(asset.timestamp) * 1000),
                 'MMM d, yyyy, HH:mm',
               )}
             />
           )}
-          {!!asset.location && (
+          {/* {!!asset.location && (
             <DetailItem
               title={intl.formatMessage({
                 id: 'form__ordinal_location',
               })}
-              icon="ArrowTopRightOnSquareOutline"
+              icon="Square2StackMini"
               value={shortenAddress(asset.location, 6)}
+              onPress={() => {
+                copyToClipboard(asset.location ?? '');
+                ToastManager.show({
+                  title: intl.formatMessage({ id: 'msg__copied' }),
+                });
+              }}
             />
-          )}
-          {!!asset.genesis_transaction_hash && (
+          )} */}
+          {/* {!!asset.genesis_transaction_hash && (
             <DetailItem
+              onPress={() => {
+                openUrl(
+                  `https://ordinals.com/tx/${asset.genesis_transaction_hash}`,
+                );
+              }}
               title={intl.formatMessage({
                 id: 'form__ordinal_genesis_tx',
               })}
               icon="ArrowTopRightOnSquareOutline"
               value={shortenAddress(asset.genesis_transaction_hash, 6)}
             />
-          )}
+          )} */}
         </VStack>
       </Box>
     </VStack>

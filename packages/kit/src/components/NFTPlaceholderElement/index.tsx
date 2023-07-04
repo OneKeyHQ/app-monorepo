@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import type { ComponentProps, FC } from 'react';
 import { memo } from 'react';
 
 import { Box, Center, Icon, Image, NetImage } from '@onekeyhq/components';
@@ -9,7 +9,7 @@ type Props = {
   contentType?: string | null;
   size: number;
   logoUrl?: string | null;
-};
+} & ComponentProps<typeof Box>;
 const FallbackElement: FC<Props> = ({ ...props }) => {
   const { contentType, size, logoUrl } = props;
   const logoSize = size * (72 / 155);

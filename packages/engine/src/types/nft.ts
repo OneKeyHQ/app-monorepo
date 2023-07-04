@@ -167,6 +167,28 @@ export type NFTTransaction = {
   contractTokenId?: string;
 };
 
+export interface BTCTransactionsModel {
+  tx_hash: string;
+  block_hash: string;
+  inscription_id: string;
+  output: string;
+  location: string;
+  send: string;
+  receive: string;
+  event_type: string;
+  timestamp: string;
+  tx_index: number;
+  block_number: number;
+  fee: number;
+  input_value: number;
+  input_value_sat: number;
+  output_value: number;
+  output_value_sat: number;
+  offset: number;
+
+  asset?: NFTBTCAssetModel;
+}
+
 export type NFTMarketCapCollection = {
   contract_address?: string;
   contract_name?: string;
@@ -279,3 +301,9 @@ export type NFTAssetMeta =
       data: NFTBTCAssetModel[];
       type: NFTAssetType.BTC;
     };
+
+interface NFTAssetInterface {
+  EVM: NFTAsset;
+  SOL: NFTAsset;
+  BTC: NFTBTCAssetModel;
+}

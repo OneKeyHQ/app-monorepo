@@ -469,7 +469,7 @@ export default class Vault extends VaultBase {
         actions.push({
           type: IDecodedTxActionType.NFT_TRANSFER,
           nftTransfer: {
-            asset: info.asset,
+            asset: info.asset as NFTAsset,
             amount: info.amount,
             send: info.from,
             receive: info.to,
@@ -1051,7 +1051,7 @@ export default class Vault extends VaultBase {
         return Promise.resolve(null);
       }
 
-      const nftTxs = nftMap[txid];
+      const nftTxs = nftMap[txid] as NFTTransaction[];
 
       if (
         transferItem &&

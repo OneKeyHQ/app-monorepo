@@ -351,7 +351,7 @@ export default class Vault extends VaultBase {
                 address,
               }),
               nftTransfer: await this.buildNFTTransferAcion({
-                asset: asset as NFTAsset,
+                asset,
                 amount: new BigNumber(amounts[i].toString()).toFixed(),
                 from: encodedTx.from,
                 to: recipient,
@@ -1533,7 +1533,7 @@ export default class Vault extends VaultBase {
 
   async buildNFTTransferAcion(nftInfo: INFTInfo) {
     return Promise.resolve({
-      asset: nftInfo.asset,
+      asset: nftInfo.asset as NFTAsset,
       amount: nftInfo.amount,
       send: nftInfo.from,
       receive: nftInfo.to,
@@ -1907,7 +1907,7 @@ export default class Vault extends VaultBase {
         if (!decodedTx) {
           return null;
         }
-        const nftTxs = nftMap[hash];
+        const nftTxs = nftMap[hash] as NFTTransaction[];
         decodedTx = await this.mergeDecodedTx({
           decodedTx,
           encodedTx,

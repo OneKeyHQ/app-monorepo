@@ -2,6 +2,7 @@ import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { cloneDeep, isNil, maxBy } from 'lodash';
 
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   getGetblockEndpoint,
   getMempoolEndpoint,
@@ -55,6 +56,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -447,12 +449,14 @@ export default class ServiceInscribe extends ServiceBase {
         categoryType: inscription.content.categoryType,
         name: inscription.content.name,
       };
-      console.log(
-        'saveInscriptionHistory to simpleDB (max 50 counts) >>>>>  ',
-        historyItem,
-      );
+      simpleDb.inscribe.savaItem(historyItem);
     }
     return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async getOrderHistoryList() {
+    return simpleDb.inscribe.getItems();
   }
 
   async signAndSendAllInscribeTxs({
@@ -781,7 +785,7 @@ export default class ServiceInscribe extends ServiceBase {
       contents.push({
         categoryType: 'file',
         name: filename || '',
-        hex: data,
+        hex: bufferUtils.textToHex(data),
         mimetype,
         sha256: '',
         previewText: filename || mimetype,
@@ -816,6 +820,7 @@ export default class ServiceInscribe extends ServiceBase {
     return vault as VaultBtcFork;
   }
 
+  @backgroundMethod()
   async checkValidTaprootAddress({ address }: { address: string }) {
     await this.getBitcoinNetworkMap();
     const btcVault = await this.getActiveBtcVault();

@@ -6,6 +6,7 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type {
   Collection,
   CollectionAttribute,
+  INFTAsset,
   MarketPlace,
   NFTAsset,
   NFTAssetMeta,
@@ -315,11 +316,11 @@ class ServiceNFT extends ServiceBase {
   }) {
     const apiUrl = `${this.baseUrl}/batchAsset`;
     const { data, success } = await this.client
-      .post<NFTServiceResp<NFTAsset[]>>(apiUrl, params)
+      .post<NFTServiceResp<INFTAsset[]>>(apiUrl, params)
       .then((resp) => resp.data)
       .catch(() => ({
         success: false,
-        data: [] as NFTAsset[],
+        data: [] as INFTAsset[],
       }));
 
     if (!success) {
