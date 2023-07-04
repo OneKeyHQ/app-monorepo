@@ -80,12 +80,12 @@ function EVMAssetDetailContent({
   useEffect(() => {
     (async () => {
       if (network.id) {
-        const data = await serviceNFT.fetchAsset({
+        const data = (await serviceNFT.fetchAsset({
           chain: network.id,
           contractAddress: outerAsset.contractAddress,
           tokenId: outerAsset.tokenId as string,
           showAttribute: true,
-        });
+        })) as NFTAsset;
         if (data) {
           updateAsset(data);
         }

@@ -70,10 +70,10 @@ function SOLAssetDetailContent({
     (async () => {
       if (network.id) {
         if (network.id === OnekeyNetwork.sol) {
-          const data = await serviceNFT.fetchAsset({
+          const data = (await serviceNFT.fetchAsset({
             chain: network.id,
             tokenId: outerAsset.tokenAddress as string,
-          });
+          })) as NFTAsset;
           if (data) {
             updateAsset(data);
           }

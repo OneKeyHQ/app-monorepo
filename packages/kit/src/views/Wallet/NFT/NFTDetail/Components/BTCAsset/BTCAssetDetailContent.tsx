@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -20,6 +20,7 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 
+import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
 import {
   getActiveWalletAccount,
   useActiveWalletAccount,
@@ -40,7 +41,7 @@ type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 function BTCAssetDetailContent({
   asset: outerAsset,
-
+  network,
   isOwner,
 }: {
   asset: NFTBTCAssetModel;
@@ -49,6 +50,7 @@ function BTCAssetDetailContent({
 }) {
   const intl = useIntl();
   const { format } = useFormatDate();
+  const { serviceNFT } = backgroundApiProxy;
 
   const { wallet, accountAddress } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
@@ -57,9 +59,6 @@ function BTCAssetDetailContent({
   const [asset, updateAsset] = useState(outerAsset);
   const isDisabled =
     wallet?.type === WALLET_TYPE_WATCHING && asset.owner !== accountAddress;
-
-  console.log('accountAddress = ', accountAddress);
-  console.log('asset = ', asset);
 
   const sendAction = useCallback(() => {
     const { accountId, networkId } = getActiveWalletAccount();
@@ -86,6 +85,20 @@ function BTCAssetDetailContent({
       },
     });
   }, [asset, modalClose, navigation]);
+
+  useEffect(() => {
+    (async () => {
+      if (network.id) {
+        const data = (await serviceNFT.fetchAsset({
+          chain: network.id,
+          tokenId: outerAsset.inscription_id,
+        })) as NFTBTCAssetModel;
+        if (data) {
+          updateAsset(data);
+        }
+      }
+    })();
+  }, [network.id, outerAsset.inscription_id, serviceNFT]);
 
   return (
     <VStack space="24px" mb="50px">

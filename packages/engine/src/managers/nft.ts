@@ -5,6 +5,7 @@ import type {
   BTCTransactionsModel,
   Collection,
   IErcNftType,
+  INFTAsset,
   NFTAsset,
   NFTBTCAssetModel,
   NFTListItems,
@@ -319,7 +320,7 @@ export async function fetchAsset({
     }
   }
   const { data, success } = await axios
-    .get<NFTServiceResp<NFTAsset | undefined>>(apiUrl)
+    .get<NFTServiceResp<INFTAsset | undefined>>(apiUrl)
     .then((resp) => resp.data)
     .catch(() => ({ success: false, data: undefined }));
   if (!success) {
