@@ -328,15 +328,39 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
                   requiredNamespaces: sessionV2.requiredNamespaces,
                   optionalNamespaces: sessionV2.optionalNamespaces,
                 });
-              // TODO should emit session events?
-              // https://docs.walletconnect.com/2.0/web/web3wallet/wallet-usage#emit-session-events
+
               // Do NOT await this method, it may block forever
               this.web3walletV2.updateSession({
                 topic: sessionV2.topic,
                 namespaces,
               });
+
+              // https://docs.walletconnect.com/2.0/web/web3wallet/wallet-usage#emit-session-events
+              const eip155ChainId = `eip155:${chainId}`;
+              await this.web3walletV2.emitSessionEvent({
+                topic: sessionV2.topic,
+                event: {
+                  name: 'accountsChanged',
+                  data: accounts,
+                },
+                chainId: eip155ChainId,
+              });
+              await this.web3walletV2.emitSessionEvent({
+                topic: sessionV2.topic,
+                event: {
+                  name: 'chainChanged',
+                  data: [chainId],
+                  // data: accounts, // accounts or chainId?
+                },
+                chainId: eip155ChainId,
+              });
+
               console.log(
                 `WalletConnect: notify session changed, updateSession done`,
+                {
+                  eip155ChainId,
+                  accounts,
+                },
               );
             }
           } else {

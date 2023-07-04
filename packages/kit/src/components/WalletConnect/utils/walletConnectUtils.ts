@@ -354,7 +354,7 @@ function mergeSessionNamespace({
     return ns2;
   }
   const mergeArrayItems = (a?: any[], b?: any[]): any[] =>
-    uniq([...(a || []), ...(b || [])]);
+    uniq([...(a || []), ...(b || [])]).filter(Boolean);
   return {
     chains: mergeArrayItems(ns1.chains, ns2.chains),
     accounts: mergeArrayItems(ns1.accounts, ns2.accounts),
@@ -399,52 +399,54 @@ function convertToSessionNamespacesV2({
   const namespaces: SessionTypes.Namespaces = {};
   let hasNonEvmChain = false;
   let hasEvmChain = false;
-  const processDappAskedNamespaces = (
+  const processDappRequestNamespaces = (
     dappNamespaces: ProposalTypes.RequiredNamespaces,
+    isRequired = true,
   ) => {
     Object.keys(dappNamespaces).forEach((key) => {
       if (key !== 'eip155' && !key.startsWith('eip155:')) {
         hasNonEvmChain = true;
-        namespaces[key] = {
-          accounts: [], // TODO empty accounts is NOT allowed
+        if (isRequired) {
+          namespaces[key] = {
+            accounts: [], // TODO empty accounts is NOT allowed
+            chains: key.includes(':') ? [key] : dappNamespaces[key].chains,
+            methods: dappNamespaces[key].methods,
+            events: dappNamespaces[key].events,
+          };
+          const error = new Error(
+            'OneKey WalletConnect ERROR: EVM chain supported only',
+          );
+          onError?.(error);
+          throw error;
+        }
+      } else {
+        const accountsInNs: string[] = [];
+        dappNamespaces[key].chains?.forEach((chain) => {
+          // TODO check chainId and accounts matched
+          // TODO check chain supports?
+          accounts.forEach((acc) => accountsInNs.push(`${chain}:${acc}`));
+        });
+        const namespaceItem: SessionTypes.Namespace = {
+          // TODO add sessionStatus.chainId to accounts and chains
+          accounts: accountsInNs,
           chains: key.includes(':') ? [key] : dappNamespaces[key].chains,
           methods: dappNamespaces[key].methods,
           events: dappNamespaces[key].events,
         };
-        const error = new Error(
-          'OneKey WalletConnect ERROR: EVM chain supported only',
-        );
-        onError?.(error);
-        throw error;
-        // eslint-disable-next-line no-unreachable
-        return;
+        namespaces[key] = mergeSessionNamespace({
+          ns1: namespaces[key],
+          ns2: namespaceItem,
+        });
+        hasEvmChain = true;
       }
-      const accountsInNs: string[] = [];
-      dappNamespaces[key].chains?.forEach((chain) => {
-        // TODO check chainId and accounts matched
-        // TODO check chain supports?
-        accounts.forEach((acc) => accountsInNs.push(`${chain}:${acc}`));
-      });
-      const namespaceItem: SessionTypes.Namespace = {
-        // TODO add sessionStatus.chainId to accounts and chains
-        accounts: accountsInNs,
-        chains: key.includes(':') ? [key] : dappNamespaces[key].chains,
-        methods: dappNamespaces[key].methods,
-        events: dappNamespaces[key].events,
-      };
-      namespaces[key] = mergeSessionNamespace({
-        ns1: namespaces[key],
-        ns2: namespaceItem,
-      });
-      hasEvmChain = true;
     });
   };
 
   if (requiredNamespaces) {
-    processDappAskedNamespaces(requiredNamespaces);
+    processDappRequestNamespaces(requiredNamespaces, true);
   }
   if (optionalNamespaces) {
-    processDappAskedNamespaces(optionalNamespaces);
+    processDappRequestNamespaces(optionalNamespaces, false);
   }
 
   if (hasNonEvmChain && !hasEvmChain) {
