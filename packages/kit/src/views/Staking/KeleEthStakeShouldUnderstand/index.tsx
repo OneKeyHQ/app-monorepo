@@ -4,7 +4,15 @@ import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
+import {
+  Box,
+  Center,
+  Image,
+  Modal,
+  ToastManager,
+  Typography,
+} from '@onekeyhq/components';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ETHLogoPNG from '../../../../assets/staking/eth_staking.png';
@@ -50,12 +58,22 @@ export default function StakingETHNotes() {
       const value = new BigNumber(params.amount)
         .shiftedBy(tokenInfo.decimals)
         .toFixed(0);
+      let encodedTx: IEncodedTxEvm | undefined;
+      try {
+        const data =
+          await backgroundApiProxy.serviceStaking.buildTxForStakingETHtoKele({
+            value,
+            networkId: params.networkId,
+          });
+        encodedTx = {
+          ...data,
+          from: account.address,
+        };
+      } catch (e) {
+        ToastManager.show({ title: (e as Error).message }, { type: 'error' });
+        return;
+      }
 
-      const encodedTx =
-        await backgroundApiProxy.serviceStaking.buildTxForStakingETHtoKele({
-          value,
-          networkId: params.networkId,
-        });
       onClose();
       const { networkId, accountId } = getActiveWalletAccount();
       navigation.navigate(RootRoutes.Modal, {
@@ -75,20 +93,20 @@ export default function StakingETHNotes() {
             },
             feeInfoEditable: true,
             feeInfoUseFeeInTx: false,
-            encodedTx: { ...encodedTx, from: account?.address },
+            encodedTx,
             onSuccess: (tx, data) => {
-              backgroundApiProxy.serviceStaking.setAccountStakingActivity({
-                networkId: params.networkId,
-                accountId: account.id,
-                data: {
-                  nonce: data?.decodedTx?.nonce,
-                  oldValue: minerOverview?.amount?.total_amount,
-                  txid: tx.txid,
-                  amount: params.amount,
-                  createdAt: Date.now(),
-                  type: 'kele',
-                },
-              });
+              // backgroundApiProxy.serviceStaking.setAccountStakingActivity({
+              //   networkId: params.networkId,
+              //   accountId: account.id,
+              //   data: {
+              //     nonce: data?.decodedTx?.nonce,
+              //     oldValue: minerOverview?.amount?.total_amount,
+              //     txid: tx.txid,
+              //     amount: params.amount,
+              //     createdAt: Date.now(),
+              //     type: 'kele',
+              //   },
+              // });
             },
           },
         },

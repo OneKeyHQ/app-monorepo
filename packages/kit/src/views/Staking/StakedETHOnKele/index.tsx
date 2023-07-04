@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import type { FC } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -17,7 +17,6 @@ import {
   IconButton,
   Modal,
   Typography,
-  VStack,
 } from '@onekeyhq/components';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
@@ -28,15 +27,16 @@ import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
 import { useNativeToken, useTokenBalance } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { formatAmount } from '../../../utils/priceUtils';
+import { PendingKeleTransaction } from '../components/PendingTransaction';
 import {
   useIntlMinutes,
+  useKeleDashboardInfo,
   useKeleHistory,
   useKeleMinerOverview,
   useKeleUnstakeOverview,
-  useKeleWithdrawOverview,
   usePendingWithdraw,
 } from '../hooks';
-import { StakingRoutes } from '../typing';
+import { EthStakingSource, StakingRoutes } from '../typing';
 
 import type {
   KeleGenericHistory,
@@ -58,9 +58,7 @@ const KeleOverview = () => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { networkId, accountId } = useActiveWalletAccount();
-  const unstakeOverview = useKeleUnstakeOverview(networkId, accountId);
-  const withdrawOverview = useKeleWithdrawOverview(networkId, accountId);
-  const enableETH2Unstake = useAppSelector((s) => s.settings.enableETH2Unstake);
+  const minerOverview = useKeleMinerOverview(networkId, accountId);
   const onUnstake = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
@@ -100,12 +98,12 @@ const KeleOverview = () => {
         </Typography.Caption>
         <Box mb="2" mt="1" flexDirection="row" alignItems="center">
           <Typography.Body1>
-            {formatAmount(unstakeOverview?.retail_staked ?? '0', 8)}
+            {formatAmount(minerOverview?.amount.retail_staked ?? '0', 8)}
           </Typography.Body1>
           <Typography.Body1> ETH</Typography.Body1>
         </Box>
         <Box flexDirection="row">
-          <Button size="xs" onPress={onUnstake} isDisabled={!enableETH2Unstake}>
+          <Button size="xs" onPress={onUnstake}>
             {intl.formatMessage({ id: 'action_unstake' })}
           </Button>
         </Box>
@@ -124,16 +122,12 @@ const KeleOverview = () => {
         </Typography.Caption>
         <Box mb="2" mt="1" flexDirection="row" alignItems="center">
           <Typography.Body1>
-            {formatAmount(withdrawOverview?.balance ?? '0', 8)}
+            {formatAmount(minerOverview?.amount.withdrawable ?? '0', 8)}
           </Typography.Body1>
           <Typography.Body1> ETH</Typography.Body1>
         </Box>
         <Box flexDirection="row">
-          <Button
-            size="xs"
-            onPress={onWithdraw}
-            isDisabled={!enableETH2Unstake}
-          >
+          <Button size="xs" onPress={onWithdraw}>
             {intl.formatMessage({ id: 'action__withdraw' })}
           </Button>
         </Box>
@@ -165,18 +159,20 @@ const UnstakePendingAlert = () => {
   }, [networkId, accountId, retailUnstaking]);
 
   return retailUnstaking ? (
-    <Alert
-      dismiss={false}
-      alertType="info"
-      title={intl.formatMessage(
-        { id: 'msg__unstaking_in_progress_str' },
-        { '0': `${formatAmount(retailUnstaking, 8)} ETH ` },
-      )}
-      description={intl.formatMessage(
-        { id: 'msg__unstaking_in_progress_str_desc' },
-        { '0': ` ${minutes}` },
-      )}
-    />
+    <Box mb="2">
+      <Alert
+        dismiss={false}
+        alertType="info"
+        title={intl.formatMessage(
+          { id: 'msg__unstaking_in_progress_str' },
+          { '0': `${formatAmount(retailUnstaking, 8)} ETH ` },
+        )}
+        description={intl.formatMessage(
+          { id: 'msg__unstaking_in_progress_str_desc' },
+          { '0': ` ${minutes}` },
+        )}
+      />
+    </Box>
   ) : null;
 };
 
@@ -196,14 +192,52 @@ const WithdrawPendingAlert = () => {
     }
   }, [networkId, accountId, accountPendingWithdraw]);
   return accountPendingWithdraw ? (
-    <Alert
-      dismiss={false}
-      alertType="info"
-      title={intl.formatMessage(
-        { id: 'msg__withdraw_in_progress_str' },
-        { '0': `${formatAmount(accountPendingWithdraw, 8)} ETH` },
-      )}
-    />
+    <Box mb="2">
+      <Alert
+        dismiss={false}
+        alertType="info"
+        title={intl.formatMessage(
+          { id: 'msg__withdraw_in_progress_str' },
+          { '0': `${formatAmount(accountPendingWithdraw, 8)} ETH` },
+        )}
+      />
+    </Box>
+  ) : null;
+};
+
+const PendingStakeContent = () => {
+  const intl = useIntl();
+  const { networkId, accountId } = useActiveWalletAccount();
+  const transactions = useAppSelector((s) => s.staking.keleTransactions);
+  const txs = useMemo(() => {
+    if (!transactions) {
+      return [];
+    }
+    const items = transactions[accountId]?.[networkId] ?? [];
+    return items.filter((item) => !item.archive && item.type === 'KeleStake');
+  }, [transactions, networkId, accountId]);
+
+  const total = txs.reduce(
+    (result, item) => result + Number(item.amount ?? 0),
+    0,
+  );
+
+  return total > 0 ? (
+    <Box mb="2">
+      <Alert
+        alertType="info"
+        title={intl.formatMessage(
+          {
+            id: 'msg__str_is_staking_in_progress',
+          },
+          { '0': `${total} ETH` },
+        )}
+        dismiss={false}
+      />
+      {txs.map((tx) => (
+        <PendingKeleTransaction tx={tx} key={tx.hash} />
+      ))}
+    </Box>
   ) : null;
 };
 
@@ -215,10 +249,7 @@ const ListHeaderComponent = () => {
   const balance = useTokenBalance({ networkId, accountId, token: nativeToken });
   const navigation = useNavigation<NavigationProps['navigation']>();
   const mainPrice = useSimpleTokenPriceValue({ networkId });
-  const keleDashboardGlobal = useAppSelector(
-    (s) => s.staking.keleDashboardGlobal,
-  );
-
+  const keleDashboardInfo = useKeleDashboardInfo(networkId);
   const onUnstake = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
@@ -236,13 +267,13 @@ const ListHeaderComponent = () => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
-        screen: StakingRoutes.StakingAmount,
+        screen: StakingRoutes.ETHStake,
         params: {
-          networkId,
+          source: EthStakingSource.Kele,
         },
       },
     });
-  }, [navigation, networkId]);
+  }, [navigation]);
 
   const totalAmount =
     Number(minerOverview?.amount?.total_amount ?? 0) +
@@ -299,7 +330,7 @@ const ListHeaderComponent = () => {
         </Typography.Body2>
       </Box>
       <KeleOverview />
-      <VStack space="2" mt="2">
+      <Box mt="2">
         {stakingAmount ? (
           <Box
             p="4"
@@ -307,6 +338,7 @@ const ListHeaderComponent = () => {
             bg="surface-default"
             flexDirection="row"
             alignItems="center"
+            mb="2"
           >
             <Center
               w="10"
@@ -330,10 +362,9 @@ const ListHeaderComponent = () => {
                   {
                     '0': 'ETH',
                     '1':
-                      keleDashboardGlobal?.validator_alive_predicted_hour ??
-                      '24',
+                      keleDashboardInfo?.validator_alive_predicted_hour ?? '24',
                     '3': `${(
-                      keleDashboardGlobal?.retail_deposit_far ?? 32
+                      keleDashboardInfo?.retail_deposit_far ?? 32
                     ).toFixed(2)} ETH`,
                   },
                 )}
@@ -343,7 +374,8 @@ const ListHeaderComponent = () => {
         ) : null}
         <UnstakePendingAlert />
         <WithdrawPendingAlert />
-      </VStack>
+        <PendingStakeContent />
+      </Box>
       <Box my="2">
         <Typography.Heading>
           {intl.formatMessage({ id: 'form__reward_history' })}
@@ -388,23 +420,20 @@ const OpHistory: FC<{ item: KeleOpHistoryDTO }> = ({ item }) => {
   const intl = useIntl();
   const { networkId } = useActiveWalletAccount();
   const mainPrice = useSimpleTokenPriceValue({ networkId });
-  const opType = item.op_type;
+  const opType = Number(item.op_type);
   let title = intl.formatMessage({ id: 'action__stake' });
   let status = '';
-  if ([0, 1].includes(opType)) {
+  if (opType === 1) {
     title = intl.formatMessage({ id: 'form__staking' });
-    status = intl.formatMessage({ id: 'transaction__pending' });
-  } else if ([2].includes(opType)) {
-    title = intl.formatMessage({ id: 'form__staking' });
-  } else if ([3, 4].includes(opType)) {
+    if (item.remain_time) {
+      status = intl.formatMessage({ id: 'transaction__pending' });
+    }
+  } else if (opType === 2) {
     title = intl.formatMessage({ id: 'form__unstaking' });
-    status = intl.formatMessage({ id: 'transaction__pending' });
-  } else if ([5].includes(opType)) {
-    title = intl.formatMessage({ id: 'form__unstaking' });
-  } else if ([6].includes(opType)) {
-    title = intl.formatMessage({ id: 'action__withdraw' });
-    status = intl.formatMessage({ id: 'transaction__pending' });
-  } else if ([7, 8].includes(opType)) {
+    if (item.remain_time) {
+      status = intl.formatMessage({ id: 'transaction__pending' });
+    }
+  } else if (opType === 3 || opType === 4) {
     title = intl.formatMessage({ id: 'action__withdraw' });
   }
 

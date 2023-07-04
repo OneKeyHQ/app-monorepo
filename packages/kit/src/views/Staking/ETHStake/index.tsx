@@ -15,6 +15,7 @@ import {
   Image,
   Modal,
   Pressable,
+  RichTooltip,
   Text,
   ToastManager,
   Typography,
@@ -34,12 +35,15 @@ import {
 } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { appSelector } from '../../../store';
-import { addTransaction } from '../../../store/reducers/staking';
+import {
+  addKeleTransaction,
+  addTransaction,
+} from '../../../store/reducers/staking';
 import { formatAmount } from '../../../utils/priceUtils';
 import { SendModalRoutes } from '../../Send/types';
 import { StakingKeyboard } from '../components/StakingKeyboard';
 import { useStakingAprValue } from '../hooks';
-import { EthStakingSource, StakingRoutes } from '../typing';
+import { EthStakingSource, KeleStakingMode, StakingRoutes } from '../typing';
 
 import type { StakingRoutesParams } from '../typing';
 import type { RouteProp } from '@react-navigation/core';
@@ -81,6 +85,37 @@ const StakingProvderOptions: FC<StakingProvderOptionsProps> = ({ source }) => {
   );
 };
 
+type KeleStakingModeProps = {
+  mode: KeleStakingMode;
+};
+
+type TxData = {
+  data: string;
+  to: string;
+  value: string;
+};
+
+const KeleStakingModeComponent: FC<KeleStakingModeProps> = ({ mode }) => {
+  const intl = useIntl();
+  return mode === KeleStakingMode.fast ? (
+    <Box flexDirection="row" alignItems="center">
+      <Typography.Body1Strong mr="2">🚅</Typography.Body1Strong>
+      <Typography.Body2Strong>
+        {intl.formatMessage({ id: 'content__fast' })}
+      </Typography.Body2Strong>
+      <Icon name="ChevronRightMini" />
+    </Box>
+  ) : (
+    <Box flexDirection="row" alignItems="center">
+      <Typography.Body1Strong mr="2">🚕</Typography.Body1Strong>
+      <Typography.Body2Strong>
+        {intl.formatMessage({ id: 'content__normal' })}
+      </Typography.Body2Strong>
+      <Icon name="ChevronRightMini" />
+    </Box>
+  );
+};
+
 export default function ETHStaking() {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
@@ -88,6 +123,8 @@ export default function ETHStaking() {
   const { account, accountId, networkId } = useActiveWalletAccount();
   const mainPrice = useSimpleTokenPriceValue({ networkId });
   const [source, setSource] = useState(route.params.source);
+  const [mode, setMode] = useState(KeleStakingMode.fast);
+  const [loading, setLoading] = useState(false);
 
   const aprValue = useStakingAprValue(
     source,
@@ -164,7 +201,7 @@ export default function ETHStaking() {
     [tokenBalance],
   );
 
-  const onPress = useCallback(() => {
+  const onChangeStakingProvider = useCallback(() => {
     navigation.push(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
@@ -185,6 +222,28 @@ export default function ETHStaking() {
     });
   }, [navigation, networkId]);
 
+  const onChangeStakingMode = useCallback(() => {
+    navigation.push(RootRoutes.Modal, {
+      screen: ModalRoutes.Staking,
+      params: {
+        screen: StakingRoutes.KeleStakingModeSelector,
+        params: {
+          mode,
+          isTestnet: networkId === OnekeyNetwork.goerli,
+          onSelector: (s) => {
+            setMode(s);
+            const parent = navigation.getParent();
+            if (parent) {
+              parent.goBack();
+            } else {
+              navigation.goBack();
+            }
+          },
+        },
+      },
+    });
+  }, [navigation, networkId, mode]);
+
   const onPrimaryActionPress = useCallback(
     async ({ onClose }: { onClose?: () => void }) => {
       if (!account || !tokenInfo) {
@@ -196,26 +255,52 @@ export default function ETHStaking() {
         .toFixed(0);
 
       let encodedTx: IEncodedTxEvm | undefined;
-      if (source === EthStakingSource.Kele) {
-        const data =
-          await backgroundApiProxy.serviceStaking.buildTxForStakingETHtoKele({
-            value,
-            networkId,
-          });
+      let txdata: TxData | undefined;
+      try {
+        setLoading(true);
+        if (source === EthStakingSource.Kele) {
+          if (mode === KeleStakingMode.fast) {
+            txdata =
+              await backgroundApiProxy.serviceStaking.buildTxForFastStakingETHtoKele(
+                {
+                  value,
+                  networkId,
+                },
+              );
+          } else {
+            txdata =
+              await backgroundApiProxy.serviceStaking.buildTxForStakingETHtoKele(
+                {
+                  value,
+                  networkId,
+                },
+              );
+          }
+        } else {
+          txdata =
+            await backgroundApiProxy.serviceStaking.buildTxForStakingETHtoLido({
+              value,
+              networkId,
+            });
+        }
+      } catch (e) {
+        ToastManager.show({ title: (e as Error).message }, { type: 'error' });
+        return;
+      } finally {
+        setLoading(false);
+      }
+      if (txdata) {
         encodedTx = {
-          ...data,
+          ...txdata,
           from: account.address,
         };
-      } else {
-        const data =
-          await backgroundApiProxy.serviceStaking.buildTxForStakingETHtoLido({
-            value,
-            networkId,
-          });
-        encodedTx = {
-          ...data,
-          from: account.address,
-        };
+      }
+      if (!encodedTx) {
+        ToastManager.show(
+          { title: 'Failed to build encodedTx data' },
+          { type: 'error' },
+        );
+        return;
       }
       onClose?.();
       navigation.navigate(RootRoutes.Modal, {
@@ -238,23 +323,21 @@ export default function ETHStaking() {
             encodedTx: { ...encodedTx, from: account?.address },
             onSuccess: (tx, data) => {
               if (source === EthStakingSource.Kele) {
-                const keleMinerOverviews = appSelector(
-                  (s) => s.staking.keleMinerOverviews,
+                backgroundApiProxy.dispatch(
+                  addKeleTransaction({
+                    accountId: account.id,
+                    networkId,
+                    transaction: {
+                      hash: tx.txid,
+                      accountId: account.id,
+                      networkId,
+                      type: 'KeleStake',
+                      amount,
+                      nonce: data?.decodedTx?.nonce,
+                      addedTime: Date.now(),
+                    },
+                  }),
                 );
-                const minerOverview =
-                  keleMinerOverviews?.[accountId]?.[networkId];
-                backgroundApiProxy.serviceStaking.setAccountStakingActivity({
-                  networkId,
-                  accountId: account.id,
-                  data: {
-                    nonce: data?.decodedTx?.nonce,
-                    oldValue: minerOverview?.amount?.total_amount,
-                    txid: tx.txid,
-                    amount,
-                    createdAt: Date.now(),
-                    type: 'kele',
-                  },
-                });
               } else {
                 backgroundApiProxy.serviceStaking.addStEthToUserAccount({
                   networkId,
@@ -279,13 +362,7 @@ export default function ETHStaking() {
               ToastManager.show({
                 title: intl.formatMessage({ id: 'msg__success' }),
               });
-              navigation.replace(RootRoutes.Modal, {
-                screen: ModalRoutes.Staking,
-                params: {
-                  screen: StakingRoutes.StakedETHOnLido,
-                  params: {},
-                },
-              });
+              navigation.goBack();
             },
           },
         },
@@ -300,6 +377,7 @@ export default function ETHStaking() {
       amount,
       navigation,
       intl,
+      mode,
     ],
   );
 
@@ -312,6 +390,7 @@ export default function ETHStaking() {
       primaryActionTranslationId="action__stake"
       hideSecondaryAction
       primaryActionProps={{
+        isLoading: loading,
         isDisabled:
           !!errorMsg || !!minAmountErrMsg || new BigNumber(amount).lte(0),
       }}
@@ -416,10 +495,50 @@ export default function ETHStaking() {
                 <Typography.Body2 color="text-subdued">
                   {intl.formatMessage({ id: 'form__protocol' })}
                 </Typography.Body2>
-                <Pressable onPress={onPress}>
+                <Pressable onPress={onChangeStakingProvider}>
                   <StakingProvderOptions source={source} />
                 </Pressable>
               </Box>
+              {source === EthStakingSource.Kele ? (
+                <Box
+                  flexDirection="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  h="10"
+                >
+                  <Box flexDirection="row" alignItems="center">
+                    <Typography.Body2 color="text-subdued">
+                      {intl.formatMessage({ id: 'content__mode' })}
+                    </Typography.Body2>
+                    <Box ml="2">
+                      <RichTooltip
+                        // eslint-disable-next-line
+                        trigger={({ ...props }) => (
+                          <Pressable {...props}>
+                            <Icon
+                              name="QuestionMarkCircleOutline"
+                              size={16}
+                              color="icon-subdued"
+                            />
+                          </Pressable>
+                        )}
+                        bodyProps={{
+                          children: (
+                            <Text>
+                              {intl.formatMessage({
+                                id: 'msg__send_tokens_to_the_system_s_financing_address',
+                              })}
+                            </Text>
+                          ),
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                  <Pressable onPress={onChangeStakingMode}>
+                    <KeleStakingModeComponent mode={mode} />
+                  </Pressable>
+                </Box>
+              ) : null}
             </Box>
           </Center>
         </Box>

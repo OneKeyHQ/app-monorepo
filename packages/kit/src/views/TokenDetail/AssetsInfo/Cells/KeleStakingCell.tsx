@@ -27,7 +27,7 @@ import { useSimpleTokenPriceValue } from '../../../../hooks/useManegeTokenPrice'
 import { useTokenSupportStakedAssets } from '../../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import {
-  useAccountStakingActivity,
+  // useAccountStakingActivity,
   useKeleMinerOverview,
 } from '../../../Staking/hooks';
 import { StakingRoutes } from '../../../Staking/typing';
@@ -176,7 +176,6 @@ const StakingCell: FC<Props> = ({ token, tokenId }) => {
     });
   }, [navigation, networkId]);
 
-  const activeStakingActivity = useAccountStakingActivity(networkId, accountId);
   const price =
     useSimpleTokenPriceValue({
       networkId,
@@ -194,7 +193,7 @@ const StakingCell: FC<Props> = ({ token, tokenId }) => {
     }
   }, [accountId, networkId, serviceStaking, stakedSupport, tokenId]);
 
-  if (!stakedSupport || (amount === 0 && !activeStakingActivity)) {
+  if (!stakedSupport || amount === 0) {
     return null;
   }
   const props = {

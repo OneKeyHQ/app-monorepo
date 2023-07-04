@@ -2,17 +2,28 @@ import type { FC } from 'react';
 import { useEffect } from 'react';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { archiveTransaction } from '../../../../store/reducers/staking';
+import {
+  archiveKeleTransaction,
+  archiveTransaction,
+} from '../../../../store/reducers/staking';
 
-import type { TransactionDetails } from '../../typing';
+import type { Transaction } from '../../typing';
+
+type SchedulerProps = {
+  tx: Transaction;
+  onFinish?: (params: { stop: () => void }) => void;
+};
 
 export class Scheduler {
   private timer?: ReturnType<typeof setTimeout>;
 
-  public tx: TransactionDetails;
+  public tx: Transaction;
 
-  constructor(tx: TransactionDetails) {
-    this.tx = tx;
+  private onFinish?: (params: { stop: () => void }) => void;
+
+  constructor(props: SchedulerProps) {
+    this.tx = props.tx;
+    this.onFinish = props.onFinish;
   }
 
   run() {
@@ -36,13 +47,12 @@ export class Scheduler {
 
   private getMs() {
     const { addedTime } = this.tx;
-    const base = 10 * 1000;
     const now = Date.now();
     const spent = now - addedTime;
-    return spent <= 1000 * 60 * 60 ? base : 5 * 60 * 1000;
+    return spent <= 1000 * 60 * 60 ? 20 * 1000 : 5 * 60 * 1000;
   }
 
-  async queryTransactionProgress(tx: TransactionDetails) {
+  async queryTransactionProgress(tx: Transaction) {
     const { networkId, accountId, nonce } = tx;
     if (nonce !== undefined) {
       const status =
@@ -61,7 +71,22 @@ export class Scheduler {
     if (progressRes) {
       const { status } = progressRes;
       if (status && status !== 'pending') {
-        this.stop();
+        this.onFinish?.({ stop: () => this.stop() });
+      }
+    }
+  }
+}
+
+type PendingTransactionProps = {
+  tx: Transaction;
+};
+
+export const PendingLidoTransaction: FC<PendingTransactionProps> = ({ tx }) => {
+  useEffect(() => {
+    const scheduler = new Scheduler({
+      tx,
+      onFinish: ({ stop }) => {
+        stop();
         backgroundApiProxy.dispatch(
           archiveTransaction({
             accountId: tx.accountId,
@@ -73,17 +98,8 @@ export class Scheduler {
           accountId: tx.accountId,
           networkId: tx.networkId,
         });
-      }
-    }
-  }
-}
-
-type PendingTransactionProps = {
-  tx: TransactionDetails;
-};
-const PendingTransaction: FC<PendingTransactionProps> = ({ tx }) => {
-  useEffect(() => {
-    const scheduler = new Scheduler(tx);
+      },
+    });
     scheduler.run();
     return () => {
       scheduler.stop();
@@ -93,4 +109,42 @@ const PendingTransaction: FC<PendingTransactionProps> = ({ tx }) => {
   return null;
 };
 
-export default PendingTransaction;
+export const PendingKeleTransaction: FC<PendingTransactionProps> = ({ tx }) => {
+  useEffect(() => {
+    const scheduler = new Scheduler({
+      tx,
+      onFinish: async ({ stop }) => {
+        const historys =
+          await backgroundApiProxy.serviceStaking.fetchKeleOpHistory({
+            networkId: tx.networkId,
+            accountId: tx.accountId,
+          });
+        const item = historys?.find(
+          (o) => o.transaction_id.toLowerCase() === tx.hash.toLowerCase(),
+        );
+        const now = Date.now();
+        const day = 24 * 60 * 60 * 1000;
+        if (item || now - tx.addedTime > day) {
+          stop();
+          backgroundApiProxy.dispatch(
+            archiveKeleTransaction({
+              accountId: tx.accountId,
+              networkId: tx.networkId,
+              txs: [tx.hash],
+            }),
+          );
+          backgroundApiProxy.serviceStaking.fetchMinerOverview({
+            networkId: tx.networkId,
+            accountId: tx.accountId,
+          });
+        }
+      },
+    });
+    scheduler.run();
+    return () => {
+      scheduler.stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
+};
