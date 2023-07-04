@@ -1,6 +1,8 @@
 import type { FC } from 'react';
 import { memo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Box,
   Center,
@@ -8,11 +10,13 @@ import {
   Icon,
   Pressable,
   Skeleton,
+  ToastManager,
   Token,
   Typography,
 } from '@onekeyhq/components';
 import type { MarketTokenItem } from '@onekeyhq/kit/src/store/reducers/market';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useMarketTokenItem } from '../../hooks/useMarketToken';
 
 const MarketSearchTokenDestopCell: FC<{
@@ -23,6 +27,7 @@ const MarketSearchTokenDestopCell: FC<{
     coingeckoId: marketTokenId,
     isList: true,
   });
+  const intl = useIntl();
   return (
     <Pressable
       onPress={() => {
@@ -43,6 +48,46 @@ const MarketSearchTokenDestopCell: FC<{
         >
           {marketTokenItem ? (
             <HStack space={3} alignItems="center" justifyContent="center">
+              <Pressable
+                p={1}
+                flexDirection="row"
+                alignItems="center"
+                rounded="full"
+                _hover={{ bgColor: 'surface-hovered' }}
+                _pressed={{ bgColor: 'surface-pressed' }}
+                onPress={() => {
+                  if (marketTokenItem.favorited) {
+                    backgroundApiProxy.serviceMarket.cancelMarketFavoriteToken(
+                      marketTokenItem.coingeckoId,
+                    );
+                    ToastManager.show({
+                      title: intl.formatMessage({
+                        id: 'msg__removed',
+                      }),
+                    });
+                  } else {
+                    backgroundApiProxy.serviceMarket.saveMarketFavoriteTokens([
+                      {
+                        coingeckoId: marketTokenItem.coingeckoId,
+                        symbol: marketTokenItem.symbol,
+                      },
+                    ]);
+                    ToastManager.show({
+                      title: intl.formatMessage({
+                        id: 'msg__added_to_favorites',
+                      }),
+                    });
+                  }
+                }}
+              >
+                <Icon
+                  name={marketTokenItem.favorited ? 'StarSolid' : 'StarOutline'}
+                  size={20}
+                  color={
+                    marketTokenItem.favorited ? 'icon-warning' : 'icon-subdued'
+                  }
+                />
+              </Pressable>
               {marketTokenItem.logoURI ? (
                 <Token
                   size={8}
