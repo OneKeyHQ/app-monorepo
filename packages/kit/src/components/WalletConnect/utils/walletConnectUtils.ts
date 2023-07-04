@@ -7,6 +7,7 @@ import {
   parseChainId,
   parseUri,
 } from '@walletconnect-v2/utils';
+import { uniq } from 'lodash';
 import { Linking, Platform } from 'react-native';
 
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
@@ -339,13 +340,38 @@ function getChainIdFromNamespaceChainV2({ chain }: { chain: string }): {
   return { namespace: undefined, chainId: undefined };
 }
 
+function mergeSessionNamespace({
+  ns1,
+  ns2,
+}: {
+  ns1: SessionTypes.Namespace;
+  ns2: SessionTypes.Namespace;
+}): SessionTypes.Namespace {
+  if (!ns2) {
+    return ns1;
+  }
+  if (!ns1) {
+    return ns2;
+  }
+  const mergeArrayItems = (a?: any[], b?: any[]): any[] =>
+    uniq([...(a || []), ...(b || [])]);
+  return {
+    chains: mergeArrayItems(ns1.chains, ns2.chains),
+    accounts: mergeArrayItems(ns1.accounts, ns2.accounts),
+    methods: mergeArrayItems(ns1.methods, ns2.methods),
+    events: mergeArrayItems(ns1.events, ns2.events),
+  };
+}
+
 function convertToSessionNamespacesV2({
   sessionStatus,
   requiredNamespaces,
+  optionalNamespaces,
   onError,
 }: {
   sessionStatus: ISessionStatusPro;
   requiredNamespaces: ProposalTypes.RequiredNamespaces;
+  optionalNamespaces: ProposalTypes.OptionalNamespaces | undefined;
   onError?: (e: Error) => void;
 }) {
   /* https://docs.walletconnect.com/2.0/specs/clients/sign/namespaces#proposal-namespace
@@ -373,37 +399,53 @@ function convertToSessionNamespacesV2({
   const namespaces: SessionTypes.Namespaces = {};
   let hasNonEvmChain = false;
   let hasEvmChain = false;
-  Object.keys(requiredNamespaces).forEach((key) => {
-    if (key !== 'eip155' && !key.startsWith('eip155:')) {
-      hasNonEvmChain = true;
-      namespaces[key] = {
-        accounts: [], // TODO empty accounts is NOT allowed
-        chains: key.includes(':') ? [key] : requiredNamespaces[key].chains,
-        methods: requiredNamespaces[key].methods,
-        events: requiredNamespaces[key].events,
+  const processDappAskedNamespaces = (
+    dappNamespaces: ProposalTypes.RequiredNamespaces,
+  ) => {
+    Object.keys(dappNamespaces).forEach((key) => {
+      if (key !== 'eip155' && !key.startsWith('eip155:')) {
+        hasNonEvmChain = true;
+        namespaces[key] = {
+          accounts: [], // TODO empty accounts is NOT allowed
+          chains: key.includes(':') ? [key] : dappNamespaces[key].chains,
+          methods: dappNamespaces[key].methods,
+          events: dappNamespaces[key].events,
+        };
+        const error = new Error(
+          'OneKey WalletConnect ERROR: EVM chain supported only',
+        );
+        onError?.(error);
+        throw error;
+        // eslint-disable-next-line no-unreachable
+        return;
+      }
+      const accountsInNs: string[] = [];
+      dappNamespaces[key].chains?.forEach((chain) => {
+        // TODO check chainId and accounts matched
+        // TODO check chain supports?
+        accounts.forEach((acc) => accountsInNs.push(`${chain}:${acc}`));
+      });
+      const namespaceItem: SessionTypes.Namespace = {
+        // TODO add sessionStatus.chainId to accounts and chains
+        accounts: accountsInNs,
+        chains: key.includes(':') ? [key] : dappNamespaces[key].chains,
+        methods: dappNamespaces[key].methods,
+        events: dappNamespaces[key].events,
       };
-      const error = new Error(
-        'OneKey WalletConnect ERROR: EVM chain supported only',
-      );
-      onError?.(error);
-      throw error;
-      // eslint-disable-next-line no-unreachable
-      return;
-    }
-    const accountsInNs: string[] = [];
-    requiredNamespaces[key].chains?.forEach((chain) => {
-      // TODO check chainId and accounts matched
-      accounts.forEach((acc) => accountsInNs.push(`${chain}:${acc}`));
+      namespaces[key] = mergeSessionNamespace({
+        ns1: namespaces[key],
+        ns2: namespaceItem,
+      });
+      hasEvmChain = true;
     });
-    namespaces[key] = {
-      // TODO add sessionStatus.chainId to accounts and chains
-      accounts: accountsInNs,
-      chains: key.includes(':') ? [key] : requiredNamespaces[key].chains,
-      methods: requiredNamespaces[key].methods,
-      events: requiredNamespaces[key].events,
-    };
-    hasEvmChain = true;
-  });
+  };
+
+  if (requiredNamespaces) {
+    processDappAskedNamespaces(requiredNamespaces);
+  }
+  if (optionalNamespaces) {
+    processDappAskedNamespaces(optionalNamespaces);
+  }
 
   if (hasNonEvmChain && !hasEvmChain) {
     // throw new Error(

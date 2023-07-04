@@ -306,6 +306,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       if (this.web3walletV2) {
         const { sessions } = await this.getActiveSessionsV2();
         for (const sessionV2 of sessions) {
+          const peerUrl = sessionV2?.peer?.metadata?.url;
           const networkImpl = IMPL_EVM;
           const requestProxy = this.getRequestProxy({ networkImpl });
           const accounts = await requestProxy.getAccounts({
@@ -325,20 +326,29 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
                     accounts,
                   },
                   requiredNamespaces: sessionV2.requiredNamespaces,
+                  optionalNamespaces: sessionV2.optionalNamespaces,
                 });
               // TODO should emit session events?
               // https://docs.walletconnect.com/2.0/web/web3wallet/wallet-usage#emit-session-events
-              await this.web3walletV2.updateSession({
+              // Do NOT await this method, it may block forever
+              this.web3walletV2.updateSession({
                 topic: sessionV2.topic,
                 namespaces,
               });
+              console.log(
+                `WalletConnect: notify session changed, updateSession done`,
+              );
             }
           } else {
             await this.disconnectV2({ sessionV2 });
           }
+          console.log(
+            `WalletConnect: notify session changed, peerUrl=${peerUrl}`,
+          );
         }
       }
 
+      await wait(800);
       this.refreshConnectedSites();
     },
     800,
@@ -443,6 +453,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       const { namespaces } = walletConnectUtils.convertToSessionNamespacesV2({
         sessionStatus,
         requiredNamespaces: proposal.params.requiredNamespaces,
+        optionalNamespaces: proposal.params.optionalNamespaces,
         onError: (error) => {
           this.backgroundApi.dispatch(
             backgroundShowToast({
