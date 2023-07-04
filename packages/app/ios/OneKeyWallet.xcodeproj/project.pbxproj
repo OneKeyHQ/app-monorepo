@@ -771,15 +771,23 @@
 				ENABLE_BITCODE = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphonesimulator*]" = (
+					"*/NFC/OKNFCLiteDefine.h",
 					"*/NFC/OKNFCBridge.h",
 					"*/NFC/OKNFCBridge.mm",
-					"*/NFC/OKNFCLite.h",
-					"*/NFC/OKNFCLite.m",
 					"*/RNBridge/OKLiteManager.h",
 					"*/RNBridge/OKLiteManager.m",
-					"*/RNBridge/RNLiteCallBackManager.h",
-					"*/RNBridge/RNLiteCallBackManager.m",
 					"*/Frameworks/GPChannelSDKCore.framework",
+					"*/NFC/OKNFTLite/OKLiteProtocol.h",
+					"*/NFC/OKNFTLite/OKLiteV1.h",
+					"*/NFC/OKNFTLite/OKLiteV1.m",
+					"*/NFC/OKNFTLite/OKLiteV2.h",
+					"*/NFC/OKNFTLite/OKLiteV2.m",
+					"*/NFC/OKNFTLite/OKNFCManager.h",
+					"*/NFC/OKNFTLite/OKNFCManager.m",
+					"*/NFC/OKLiteCommand/OKLiteCommandModal.h",
+					"*/NFC/OKLiteCommand/OKLiteCommandModal.m",
+					"*/NFC/OKLiteCommand/OKLiteCommandTool.h",
+					"*/NFC/OKLiteCommand/OKLiteCommandTool.m",
 				);
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -978,7 +986,7 @@
 				INFOPLIST_FILE = ServiceExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ServiceExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -1014,7 +1022,7 @@
 				INFOPLIST_FILE = ServiceExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ServiceExtension;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
 				MTL_FAST_MATH = YES;
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
