@@ -1,4 +1,9 @@
-import { decodeScriptBufferToNexaAddress, signEncodedTx } from './utils';
+import { reverseBuffer, sign } from './sdk';
+import {
+  decodeScriptBufferToNexaAddress,
+  sha256sha256,
+  signEncodedTx,
+} from './utils';
 
 import type { Signer } from '../../../proxy';
 import type { DBAccount } from '../../../types/account';
@@ -173,6 +178,33 @@ describe('Nexa Utils Tests', () => {
     expect(
       decodeScriptBufferToNexaAddress(Buffer.from(hex, 'hex'), 'nexatest'),
     ).toBe('nexatest:nqtsq5g5x3fqjd6kx8tf8l9rseg5rnrdupfwz9uhauzga026');
+  });
+
+  it('Nexa Utils Sgin Transaction', () => {
+    const privateKey =
+      '91632aaa4de97d24c58ff234aa371c7a7c8363808a73fa9189cb5ee3d55a0cd3';
+    const digest =
+      'ae11c0c8f2576bd05fcde9d0d1f78f0fdaf679476d499c8cd366b81b476350fc';
+    expect(
+      sign(Buffer.from(privateKey, 'hex'), Buffer.from(digest, 'hex')).toString(
+        'hex',
+      ),
+    ).toBe(
+      '393e482f116e5d7a1343ff48b1e9fedb7ad48d8fb4fc926d73c2b9766084c0491a86cb26b34da6827daf3a3f03f0250f46e2813392b7e0d1feadbeeecc78a6c0',
+    );
+  });
+
+  it('Nexa Utils Sgin Transaction With signatureBuffer', () => {
+    const privateKey =
+      '91632aaa4de97d24c58ff234aa371c7a7c8363808a73fa9189cb5ee3d55a0cd3';
+    const signatureBuffer =
+      '006907059db8bb0c87e295c0bfe3619455484a9c2b13faea2ba6daace8b743d32918fe568a8c5de81c57cf295e9b31ec9b15289631e304cc73b4e60a720fc4a9e5752adad0a7b9ceca853768aebb6965eca126a62965f698a0c1bc43d83db632ad026cadf4e5fc9d566e3d75acc1004b9ddf43dd7006c1470124ac894d7b3f9b44ea9a780000000000';
+    const digest = reverseBuffer(
+      sha256sha256(Buffer.from(signatureBuffer, 'hex')),
+    );
+    expect(sign(Buffer.from(privateKey, 'hex'), digest).toString('hex')).toBe(
+      '78aba6cb5841f1c67f523d05149ebfde0b5f8fc3b17b989de070936aa3c01cc04301779b0ec2306e6e2ddaa85b2c7b9814309d41b2c8530fc3eaed927d179473',
+    );
   });
 });
 

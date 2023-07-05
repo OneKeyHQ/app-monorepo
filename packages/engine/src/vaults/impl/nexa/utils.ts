@@ -113,7 +113,7 @@ export function publickeyToAddress(
   return encode(network.prefix, type, hashBuffer);
 }
 
-function sha256sha256(buffer: Buffer): Buffer {
+export function sha256sha256(buffer: Buffer): Buffer {
   return sha256(sha256(buffer));
 }
 
