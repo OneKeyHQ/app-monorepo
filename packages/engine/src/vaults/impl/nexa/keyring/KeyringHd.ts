@@ -65,7 +65,6 @@ export class KeyringHd extends KeyringHdBase {
     params: IPrepareSoftwareAccountsParams,
   ): Promise<DBUTXOAccount[]> {
     const accountNamePrefix = 'NEXA';
-    const hardened = true;
 
     const { password, indexes, names, template } = params;
     const addressIndex = 0;
@@ -80,7 +79,7 @@ export class KeyringHd extends KeyringHdBase {
       seed,
       password,
       pathPrefix,
-      indexes.map((index) => `${index}${hardened ? "'" : ''}`),
+      indexes.map((index) => `${index}`),
     );
 
     if (pubkeyInfos.length !== indexes.length) {
