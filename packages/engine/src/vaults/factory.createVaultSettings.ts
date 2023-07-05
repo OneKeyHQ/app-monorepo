@@ -107,6 +107,7 @@ export function createVaultSettings(options: {
   }
   if (impl === IMPL_NEXA) {
     return require('./impl/nexa/settings').default as IVaultSettings;
+  }
   if (impl === IMPL_LIGHTNING) {
     return require('./impl/lightning-network/settings')
       .default as IVaultSettings;

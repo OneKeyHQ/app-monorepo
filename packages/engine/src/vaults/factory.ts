@@ -264,6 +264,7 @@ export async function createVaultInstance(options: IVaultOptions) {
   if (network.impl === IMPL_NEXA) {
     const VaultNexa = (await import('./impl/nexa/Vault')).default;
     vault = new VaultNexa(options);
+  }
   if (network.impl === IMPL_LIGHTNING) {
     const VaultLightning = (await import('./impl/lightning-network/Vault'))
       .default;
