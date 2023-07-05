@@ -3837,7 +3837,7 @@ export const serverPresetNetworks = [
     ],
     'shortcode': 'nexa',
     'shortname': 'Nexa',
-    'symbol': 'nexa',
+    'symbol': 'NEX',
     'feeMeta': {
       'code': 'nexa',
       'decimals': 2,
@@ -3874,7 +3874,7 @@ export const serverPresetNetworks = [
     ],
     'shortcode': 'nexatest',
     'shortname': 'NexaTest',
-    'symbol': 'NEXATEST',
+    'symbol': 'NEX',
     'feeMeta': {
       'code': 'nexatest',
       'decimals': 2,
