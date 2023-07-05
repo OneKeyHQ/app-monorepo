@@ -30,6 +30,7 @@ import {
   decodeScriptBufferToNexaAddress,
   estimateSize,
   getNexaNetworkInfo,
+  publickeyToAddress,
   verifyNexaAddress,
 } from './utils';
 
@@ -66,6 +67,14 @@ export default class Vault extends VaultBase {
 
   override createClientFromURL(url: string): BaseClient {
     return new Nexa(url);
+  }
+
+  override async addressFromBase(account: DBAccount): Promise<string> {
+    if (account.address.startsWith('nexa')) {
+      return account.address;
+    }
+    const chainId = await this.getNetworkChainId();
+    return publickeyToAddress(Buffer.from(account.address, 'hex'), chainId);
   }
 
   createSDKClient = memoizee(
