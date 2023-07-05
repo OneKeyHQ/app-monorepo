@@ -102,10 +102,6 @@ export default class Vault extends VaultBtcFork {
     return Promise.resolve([]);
   }
 
-  override async validateTokenAddress(address: string): Promise<string> {
-    return Promise.resolve(address);
-  }
-
   override async getUserNFTAssets({
     serviceData,
   }: {

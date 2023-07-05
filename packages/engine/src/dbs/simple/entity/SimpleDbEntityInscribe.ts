@@ -9,6 +9,8 @@ export type ISimpleDbEntityInscribeData = {
 export class SimpleDbEntityInscribe extends SimpleDbEntityBase<ISimpleDbEntityInscribeData> {
   entityName = 'Inscribe';
 
+  override enableCache = false;
+
   async savaItem(data: IInscriptionHistory): Promise<void> {
     const rawData = await this.getRawData();
     const orderLists = rawData?.orderLists ?? [];
