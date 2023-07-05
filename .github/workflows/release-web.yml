@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HOST_PATH: '${{ github.event.repository.name }}/${{ github.sha }}/'
-      PUBLIC_URL: 'https://web.onekey-asset.com/${{ github.event.repository.name }}/${{ github.sha }}/'
+      PUBLIC_URL: 'https://asset.onekey-asset.com/${{ github.event.repository.name }}/${{ github.sha }}/'
       TEST_ENDPOINT: app.onekeytest.com
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
