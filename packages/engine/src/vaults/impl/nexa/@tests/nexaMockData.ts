@@ -24,17 +24,17 @@ const hdAccount1: IUnitTestMockAccount = {
   // indexedDB -> accounts
   account: {
     'name': 'NEXA #1',
-    'address': 'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
+    'address': 'nexatest:nqtsq5g5sf9lpff96p5ts8mzxjuzk9ads7xm48c386p5w6t6',
     'addresses': {
-      '0/0': 'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
+      '0/0': 'nexatest:nqtsq5g5sf9lpff96p5ts8mzxjuzk9ads7xm48c386p5w6t6',
     },
     'coinType': '29223',
     'customAddresses': {
-      '0/0': 'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
+      '0/0': 'nexatest:nqtsq5g5sf9lpff96p5ts8mzxjuzk9ads7xm48c386p5w6t6',
     },
-    'id': "hd-19--m/44'/29223'/0'/0'/0'",
-    'path': "m/44'/29223'/0'/0'/0'",
-    'template': "m/44'/29223'/0'/0'/$$INDEX$$'",
+    'id': "hd-19--m/44'/29223'/0'/0/0",
+    'path': "m/44'/29223'/0'/0/0",
+    'template': "m/44'/29223'/0'/0/$$INDEX$$",
     'type': AccountType.UTXO,
     'xpub': '',
   },
