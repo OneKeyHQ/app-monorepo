@@ -22,7 +22,7 @@ import type {
 } from '@onekeyhq/kit/src/store/reducers/market';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
-import { buildAddressDetailsUrl } from '../../../../hooks/useOpenBlockBrowser';
+import useOpenBlockBrowser from '../../../../hooks/useOpenBlockBrowser';
 import { useCurrencyUnit } from '../../../Me/GenaralSection/CurrencySelect/hooks';
 import { defaultMenuOffset } from '../../../Overlay/BaseMenu';
 import { GridLayout, useGridBoxStyle } from '../../hooks/useMarketLayout';
@@ -66,6 +66,7 @@ const ExplorerAction = ({
     });
   }, [explorer.contractAddress, intl]);
   const { network } = useNetwork({ networkId: explorer.networkId });
+  const { openAddressDetails } = useOpenBlockBrowser(network);
   const renderExplorerComponent = useCallback(
     (triggerProps) => (
       <MarketInfoExplorer
@@ -87,15 +88,13 @@ const ExplorerAction = ({
       <Menu.CustomItem onPress={copyAction} icon="DocumentDuplicateMini">
         {intl.formatMessage({ id: 'action__copy_address' })}
       </Menu.CustomItem>
-      {explorer?.networkId ? (
+      {explorer?.networkId &&
+      !network?.settings?.hiddenBlockBrowserTokenDetailLink ? (
         <Menu.CustomItem
           onPress={() => {
-            openUrl(
-              buildAddressDetailsUrl(network, explorer.contractAddress ?? ''),
+            openAddressDetails(
+              explorer.contractAddress ?? '',
               intl.formatMessage({ id: 'form__explorers' }),
-              {
-                modalMode: true,
-              },
             );
           }}
           icon="ArrowTopRightOnSquareMini"
