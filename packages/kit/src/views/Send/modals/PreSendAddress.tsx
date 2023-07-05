@@ -362,7 +362,7 @@ function PreSendAddress() {
             network,
             token: {
               ...tokenInfo,
-              sendAddress: transferInfo.sendAddress,
+              sendAddress: transferInfo.tokenSendAddress,
               idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
             },
             to: toVal,
