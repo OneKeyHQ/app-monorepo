@@ -191,9 +191,7 @@ export default class Vault extends VaultBase {
       inputs: utxos.map((utxo) => ({
         txId: utxo.outpoint_hash,
         outputIndex: utxo.tx_pos,
-        satoshis: new BigNumber(utxo.value)
-          .shiftedBy(network.decimals)
-          .toFixed(),
+        satoshis: new BigNumber(utxo.value).toFixed(),
         address: transferInfo.from,
       })),
       outputs: [
