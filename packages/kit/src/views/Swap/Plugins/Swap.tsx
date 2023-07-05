@@ -33,8 +33,10 @@ export const SwapPlugins: FC<SwapTokenPluginsProps> = ({
       const timer = setTimeout(() => {
         const sendingAccount = appSelector((s) => s.swap.sendingAccount);
         const currentToken = appSelector((s) => s.swap.inputToken);
-        const { account } = getActiveWalletAccount();
-        if (
+        const { account, wallet } = getActiveWalletAccount();
+        if (wallet?.type === 'watching') {
+          backgroundApiProxy.serviceSwap.setSendingAccountSimple(null);
+        } else if (
           account &&
           account.id !== sendingAccount?.id &&
           currentToken &&
