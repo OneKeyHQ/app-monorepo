@@ -3847,7 +3847,7 @@ export const serverPresetNetworks = [
     'priceConfigs': [],
     'explorers': [
       {
-        'address': 'https://explorer.nexa.org/block-height/{address}',
+        'address': 'https://explorer.nexa.org/address/{address}',
         'block': 'https://explorer.nexa.org/block-height/{block}',
         'name': 'https://explorer.nexa.org',
         'transaction': 'https://explorer.nexa.org/txid/{transaction}',
@@ -3884,7 +3884,7 @@ export const serverPresetNetworks = [
     'priceConfigs': [],
     'explorers': [
       {
-        'address': 'https://testnet-explorer.nexa.org/block-height/{address}',
+        'address': 'https://testnet-explorer.nexa.org/address/{address}',
         'block': 'https://testnet-explorer.nexa.org/block-height/{block}',
         'name': 'https://testnet-explorer.nexa.org',
         'transaction': 'https://testnet-explorer.nexa.org/txid/{transaction}',

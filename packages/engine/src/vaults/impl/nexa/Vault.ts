@@ -207,6 +207,10 @@ export default class Vault extends VaultBase {
     };
   }
 
+  override getDisplayAddress(address: string): Promise<string> {
+    return Promise.resolve('11');
+  }
+
   override buildEncodedTxFromApprove(
     approveInfo: IApproveInfo,
   ): Promise<IEncodedTx> {
