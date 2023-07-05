@@ -52,7 +52,7 @@ type FooterProps = {
 
 const MAX_PAGE_CONTAINER_WIDTH = 992;
 
-const Footer: FC<FooterProps> = ({
+export const NFTLoadingView: FC<FooterProps> = ({
   numColumns,
   margin,
   cardWidth,
@@ -326,7 +326,7 @@ const AssetsList = ({
 
   const FooterView = useMemo(
     () => (
-      <Footer
+      <NFTLoadingView
         numColumns={numColumns}
         cardWidth={cardWidth}
         margin={margin}

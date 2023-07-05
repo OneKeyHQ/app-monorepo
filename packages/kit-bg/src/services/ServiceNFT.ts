@@ -1,17 +1,22 @@
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import * as nft from '@onekeyhq/engine/src/managers/nft';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import type {
   Collection,
   CollectionAttribute,
+  INFTAsset,
   MarketPlace,
   NFTAsset,
+  NFTAssetMeta,
+  NFTListItems,
   NFTMarketCapCollection,
   NFTMarketRanking,
   NFTPNL,
   NFTServiceResp,
   NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
+import { NFTAssetType } from '@onekeyhq/engine/src/types/nft';
 import {
   setNFTPriceType,
   setNFTSymbolPrice,
@@ -23,6 +28,8 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import ServiceBase from './ServiceBase';
+import { getNFTListKey } from '@onekeyhq/engine/src/managers/nft';
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 
 @backgroundClass()
 class ServiceNFT extends ServiceBase {
@@ -278,11 +285,11 @@ class ServiceNFT extends ServiceBase {
   }) {
     const apiUrl = `${this.baseUrl}/batchAsset`;
     const { data, success } = await this.client
-      .post<NFTServiceResp<NFTAsset[]>>(apiUrl, params)
+      .post<NFTServiceResp<INFTAsset[]>>(apiUrl, params)
       .then((resp) => resp.data)
       .catch(() => ({
         success: false,
-        data: [] as NFTAsset[],
+        data: [] as INFTAsset[],
       }));
 
     if (!success) {
@@ -338,35 +345,18 @@ class ServiceNFT extends ServiceBase {
   @backgroundMethod()
   async batchLocalCollection({
     networkId,
-    accountId,
-    contractAddressList,
+    account,
   }: {
     networkId: string;
-    accountId: string;
-    contractAddressList: string[]; // sol:use contractName
-  }) {
-    const collections = await this.getLocalNFTs({ networkId, accountId });
-    const collectionMap: Record<string, Collection> = {};
-    contractAddressList.forEach((address) => {
-      const collection = collections.find((item) => {
-        if (networkId === OnekeyNetwork.sol) {
-          return item.contractName === address;
-        }
-        return item.contractAddress && item.contractAddress === address;
-      });
-      if (collection) {
-        collectionMap[address] = collection;
-      }
-    });
-    return collectionMap;
-  }
-
-  @backgroundMethod()
-  async getLocalNFTs(params: {
-    networkId: string;
-    accountId: string;
-  }): Promise<Collection[]> {
-    return nft.getLocalNFTs(params);
+    account: Account;
+  }): Promise<NFTAssetMeta | undefined> {
+    const key = getNFTListKey(account.address, networkId);
+    const items = await simpleDb.nft.getNFTs(key);
+    if (items) {
+      const { engine } = this.backgroundApi;
+      const vault = await engine.getVault({ networkId, accountId: account.id });
+      return vault.getUserNFTAssets({ serviceData: items });
+    }
   }
 
   @backgroundMethod()

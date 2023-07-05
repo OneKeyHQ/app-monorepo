@@ -9,6 +9,7 @@ export const NFTChainMap: Record<string, string> = {
   [OnekeyNetwork.arbitrum]: 'arbitrum',
   [OnekeyNetwork.sol]: 'sol',
   [OnekeyNetwork.avalanche]: 'avalanche',
+  [OnekeyNetwork.btc]: 'btc',
 };
 
 export type IErcNftType = 'erc721' | 'erc1155';
@@ -20,7 +21,7 @@ export type Traits = {
 
 export type NFTServiceResp<T> = {
   success?: boolean;
-  data: T;
+  data?: T;
 };
 
 export type CollectionAttribute = {
@@ -61,7 +62,27 @@ export type Collection = {
   } | null;
 };
 
-export type NFTAsset = {
+export enum NFTAssetType {
+  EVM = 'EVM',
+  BTC = 'BTC',
+  SOL = 'SOL',
+}
+
+export interface NFTAssetBase {
+  type: NFTAssetType;
+}
+
+export type ValueOf<T> = T[keyof T];
+
+interface NFTAssetInterface {
+  EVM: NFTAsset;
+  SOL: NFTAsset;
+  BTC: NFTBTCAssetModel;
+}
+
+export type INFTAsset = ValueOf<NFTAssetInterface>;
+
+export interface NFTAsset extends NFTAssetBase {
   networkId?: string;
   accountAddress?: string;
   tokenAddress?: string; // sol
@@ -99,7 +120,31 @@ export type NFTAsset = {
     floorPrice?: number;
     openseaVerified?: boolean;
   };
-};
+}
+
+export interface NFTBTCAssetModel extends NFTAssetBase {
+  networkId?: string;
+  accountAddress?: string;
+  inscription_id: string;
+  inscription_number: number;
+  tx_hash: string;
+  content: string;
+  content_length: number;
+  content_type: string;
+  timestamp: string;
+  output: string;
+  owner: string;
+  output_value_sat: number;
+  genesis_transaction_hash: string;
+  location: string;
+  // block_number: number;
+  // minter: string;
+  // mint_value: number;
+  // mint_value_sat: number;
+  // mint_offset: number;
+  // output_value: number;
+  // own_timestamp: string;
+}
 
 export type NFTTransaction = {
   hash: string;
@@ -127,6 +172,28 @@ export type NFTTransaction = {
   tokenAddress?: string;
   contractTokenId?: string;
 };
+
+export interface BTCTransactionsModel {
+  tx_hash: string;
+  block_hash: string;
+  inscription_id: string;
+  output: string;
+  location: string;
+  send: string;
+  receive: string;
+  event_type: string;
+  timestamp: string;
+  tx_index: number;
+  block_number: number;
+  fee: number;
+  input_value: number;
+  input_value_sat: number;
+  output_value: number;
+  output_value_sat: number;
+  offset: number;
+
+  asset?: NFTBTCAssetModel;
+}
 
 export type NFTMarketCapCollection = {
   contract_address?: string;
@@ -224,3 +291,25 @@ export type MarketPlace = {
   logoUrl?: string;
   networks: Record<string, { handlingFee?: string }>;
 };
+
+export type NFTListItems = Collection[] | NFTBTCAssetModel[];
+
+export type NFTAssetMeta =
+  | {
+      data: Collection[];
+      type: NFTAssetType.EVM;
+    }
+  | {
+      data: Collection[];
+      type: NFTAssetType.SOL;
+    }
+  | {
+      data: NFTBTCAssetModel[];
+      type: NFTAssetType.BTC;
+    };
+
+interface NFTAssetInterface {
+  EVM: NFTAsset;
+  SOL: NFTAsset;
+  BTC: NFTBTCAssetModel;
+}

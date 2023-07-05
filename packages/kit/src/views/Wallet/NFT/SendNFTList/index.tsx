@@ -12,6 +12,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -197,6 +198,7 @@ function SendNFTList({
     network &&
       (batchTransferContractAddress[network.id] || network.impl === IMPL_SOL),
   );
+  const isNFTSupport = isCollectibleSupportedChainId(networkId);
 
   const { data: collectibles } = useAccountPortfolios({
     networkId,

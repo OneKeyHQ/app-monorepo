@@ -19,6 +19,7 @@ import { useNFTValues } from '../../../../hooks';
 // import { showSelectNFTPriceType } from '../../../Overlay/SelectNFTPriceType';
 
 type NFTListHeaderProps = {
+  expandEnable: boolean;
   expand: boolean;
   isNFTSupport?: boolean;
   onPress: () => void;
@@ -26,6 +27,7 @@ type NFTListHeaderProps = {
 
 const NFTListHeader = ({
   expand,
+  expandEnable,
   onPress,
   isNFTSupport,
 }: NFTListHeaderProps) => {
@@ -92,13 +94,15 @@ const NFTListHeader = ({
         <Typography.Heading>
           {intl.formatMessage({ id: 'title__assets' })}
         </Typography.Heading>
-        <IconButton
-          name={expand ? 'ArrowsPointingInMini' : 'ArrowsPointingOutMini'}
-          size="sm"
-          circle
-          type="plain"
-          onPress={onPress}
-        />
+        {expandEnable ? (
+          <IconButton
+            name={expand ? 'ArrowsPointingInMini' : 'ArrowsPointingOutMini'}
+            size="sm"
+            circle
+            type="plain"
+            onPress={onPress}
+          />
+        ) : null}
       </HStack>
     </Box>
   );

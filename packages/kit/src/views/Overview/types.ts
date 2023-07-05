@@ -1,4 +1,7 @@
-import type { Collection } from '@onekeyhq/engine/src/types/nft';
+import type {
+  Collection,
+  NFTBTCAssetModel,
+} from '@onekeyhq/engine/src/types/nft';
 import type { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 
 export interface IBaseOverviewQuery {
@@ -258,7 +261,7 @@ export type OverviewModalRoutesParams = {
 
 export interface OverviewAllNetworksPortfolioRes {
   tokens: IOverviewAllNetworksToken[];
-  nfts: Collection[];
+  nfts: (Collection | NFTBTCAssetModel)[];
   defis: OverviewDefiRes[];
 }
 

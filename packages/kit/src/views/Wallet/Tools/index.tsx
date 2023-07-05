@@ -1,7 +1,8 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -25,18 +26,20 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import {
   HomeRoutes,
+  InscribeModalRoutes,
   MainRoutes,
   ManageNetworkModalRoutes,
   ModalRoutes,
   RootRoutes,
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_BTC, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks';
 import { useTools } from '../../../hooks/redux';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { getManageNetworks } from '../../../hooks/useManageNetworks';
 import { buildAddressDetailsUrl } from '../../../hooks/useOpenBlockBrowser';
 import { openUrl } from '../../../utils/openUrl';
@@ -108,39 +111,72 @@ const data: DataItem[] = [
     description: 'empty__pnl',
     filter: ({ network }) => network?.impl === IMPL_EVM,
   },
+  {
+    key: 'inscribe',
+    icon: {
+      name: 'SparklesSolid',
+      color: 'decorative-icon-one',
+    },
+    iconBg: 'decorative-surface-one',
+    title: 'title__inscribe',
+    description: 'title__inscribe_desc',
+    filter: ({ network }) => network?.impl === IMPL_BTC,
+  },
 ];
 
 const ToolsPage: FC = () => {
   const intl = useIntl();
-  const { network, account, accountAddress, walletId, accountId } =
+  const { network, account, accountAddress, walletId, accountId, networkId } =
     useActiveWalletAccount();
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation();
 
+  const appNavigation = useAppNavigation();
+  const [inscribeEnable, setInscribeEnable] = useState(false);
   const tools = useTools(network?.id);
+  const { serviceInscribe } = backgroundApiProxy;
+
+  useEffect(() => {
+    if (accountAddress?.length > 0 && !isAllNetworks(networkId)) {
+      serviceInscribe
+        .checkValidTaprootAddress({ address: accountAddress })
+        .then((result) => setInscribeEnable(result))
+        .catch(() => setInscribeEnable(false));
+    }
+  }, [accountAddress, networkId, serviceInscribe]);
 
   const items = useMemo(() => {
-    let allItems = data;
+    let allItems = data.filter((n) => {
+      if (n.key === 'inscribe' && !inscribeEnable) {
+        return false;
+      }
+      return true;
+    });
     if (!isAllNetworks(network?.id)) {
       allItems = allItems.filter(
         (n) => n.filter?.({ network, account }) ?? true,
       );
     }
     return allItems.concat(
-      tools.map((t) => ({
-        key: t.title,
-        icon: {
-          uri: t.logoURI,
-        } as any,
-        iconBg: undefined,
-        title: t.title,
-        description: t.desc,
-        link: t.link,
-        intlDisabled: true,
-        filter: ({ network: n }) => n?.id === network?.id,
-      })),
+      Object.values(groupBy(tools, 'key'))
+        .filter((ts) => ts.length > 0)
+        .map((ts) => {
+          const t = ts[0];
+          return {
+            key: t.title,
+            icon: {
+              uri: t.logoURI,
+            } as any,
+            iconBg: undefined,
+            title: t.title,
+            description: t.desc,
+            link: t.link,
+            intlDisabled: true,
+            filter: ({ network: n }) => ts.some((i) => i.networkId === n?.id),
+          };
+        }),
     );
-  }, [account, network, tools]);
+  }, [account, network, tools, inscribeEnable]);
 
   const params = useMemo(
     () => ({
@@ -207,6 +243,16 @@ const ToolsPage: FC = () => {
             },
           });
         }
+      } else if (key === 'inscribe') {
+        if (network?.id) {
+          appNavigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Inscribe,
+            params: {
+              screen: InscribeModalRoutes.InscribeModal,
+              params: { networkId: network?.id, accountId },
+            },
+          });
+        }
       } else {
         const item = tools?.find((t) => t.title === key);
         if (item) {
@@ -221,7 +267,7 @@ const ToolsPage: FC = () => {
         }
       }
     },
-    [tools, navigation, intl, params],
+    [tools, navigation, intl, params, accountId, appNavigation, network?.id],
   );
 
   const onItemPress = useCallback(
@@ -233,7 +279,7 @@ const ToolsPage: FC = () => {
           account,
         });
       }
-      const item = data.find((n) => n.key === key);
+      const item = items.find((n) => n.key === key);
       if (!item) {
         return;
       }
@@ -250,10 +296,12 @@ const ToolsPage: FC = () => {
               network: selectedNetwork,
               account: selectedAccount,
             }) => {
-              await serviceNetwork.changeActiveNetwork(selectedNetwork?.id);
-              await serviceAccount.changeActiveAccountByAccountId(
-                selectedAccount?.id,
-              );
+              if (key === 'revoke' || key === 'bulkSender') {
+                await serviceNetwork.changeActiveNetwork(selectedNetwork?.id);
+                await serviceAccount.changeActiveAccountByAccountId(
+                  selectedAccount?.id,
+                );
+              }
               handlePress({
                 key,
                 network: selectedNetwork,
@@ -264,7 +312,7 @@ const ToolsPage: FC = () => {
         },
       });
     },
-    [navigation, accountId, walletId, handlePress, network, account],
+    [navigation, accountId, walletId, handlePress, network, account, items],
   );
 
   const getItemPaddingx = useCallback(

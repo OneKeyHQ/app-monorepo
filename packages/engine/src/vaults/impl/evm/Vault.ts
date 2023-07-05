@@ -56,6 +56,7 @@ import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
 import { BatchTransferSelectors } from '../../../types/batchTransfer';
 import { HistoryEntryStatus } from '../../../types/history';
 import { ETHMessageTypes } from '../../../types/message';
+import { NFTAssetType } from '../../../types/nft';
 import { TokenRiskLevel } from '../../../types/token';
 import {
   IDecodedTxActionType,
@@ -101,7 +102,13 @@ import type {
   EIP1559Fee,
   Network,
 } from '../../../types/network';
-import type { NFTTransaction } from '../../../types/nft';
+import type {
+  Collection,
+  NFTAsset,
+  NFTAssetMeta,
+  NFTListItems,
+  NFTTransaction,
+} from '../../../types/nft';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IApproveInfo,
@@ -540,7 +547,7 @@ export default class Vault extends VaultBase {
             from,
             to,
             amount: new BigNumber(amount).toFixed(),
-            asset,
+            asset: asset as NFTAsset,
           };
         }
       }
@@ -1526,7 +1533,7 @@ export default class Vault extends VaultBase {
 
   async buildNFTTransferAcion(nftInfo: INFTInfo) {
     return Promise.resolve({
-      asset: nftInfo.asset,
+      asset: nftInfo.asset as NFTAsset,
       amount: nftInfo.amount,
       send: nftInfo.from,
       receive: nftInfo.to,
@@ -1900,7 +1907,7 @@ export default class Vault extends VaultBase {
         if (!decodedTx) {
           return null;
         }
-        const nftTxs = nftMap[hash];
+        const nftTxs = nftMap[hash] as NFTTransaction[];
         decodedTx = await this.mergeDecodedTx({
           decodedTx,
           encodedTx,
@@ -2111,5 +2118,16 @@ export default class Vault extends VaultBase {
   override async fetchRpcChainId(url: string): Promise<string> {
     const chainId = await this.engine.providerManager.getEVMChainId(url);
     return String(chainId);
+  }
+
+  override async getUserNFTAssets({
+    serviceData,
+  }: {
+    serviceData: NFTListItems;
+  }): Promise<NFTAssetMeta | undefined> {
+    return Promise.resolve({
+      type: NFTAssetType.EVM,
+      data: serviceData as Collection[],
+    });
   }
 }
