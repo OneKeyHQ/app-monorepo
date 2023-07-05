@@ -3,6 +3,7 @@
 
 import BigNumber from 'bignumber.js';
 import { get, isNil } from 'lodash';
+import uuidLib from 'react-native-uuid';
 
 import type {
   BaseClient,
@@ -39,6 +40,7 @@ import type {
 } from '../types/account';
 import type { HistoryEntry, HistoryEntryStatus } from '../types/history';
 import type { AccountNameInfo, Network } from '../types/network';
+import type { NFTAssetMeta, NFTListItems } from '../types/nft';
 import type { WalletType } from '../types/wallet';
 import type { ethers } from './impl/evm/sdk/ethers';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
@@ -301,6 +303,8 @@ TODO
   - merge tokenInfo
  */
 export abstract class VaultBase extends VaultBaseChainOnly {
+  uuid: string = uuidLib.v4().toString();
+
   keyring!: KeyringBase;
 
   helper!: VaultHelperBase;
@@ -769,5 +773,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async getAllUsedAddress(): Promise<BtcForkChainUsedAccount[]> {
     return Promise.resolve([]);
+  }
+
+  async getUserNFTAssets({
+    serviceData,
+  }: {
+    serviceData: NFTListItems;
+  }): Promise<NFTAssetMeta | undefined> {
+    return Promise.resolve(undefined);
   }
 }

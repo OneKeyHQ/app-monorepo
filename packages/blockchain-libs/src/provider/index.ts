@@ -134,6 +134,7 @@ const IMPLS: { [key: string]: any } = {
   tron: mockProvider,
   kaspa: mockProvider,
   nexa: mockProvider,
+  lightning: mockProvider,
 };
 
 class ProviderController {

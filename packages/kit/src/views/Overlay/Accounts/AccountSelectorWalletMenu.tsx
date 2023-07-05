@@ -4,10 +4,11 @@ import { useCallback, useMemo } from 'react';
 import { Divider } from '@onekeyhq/components';
 import type { CreateAccountRoutesParams } from '@onekeyhq/kit/src/routes';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useCreateAccountInWallet } from '../../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
-import { useNavigation } from '../../../hooks';
+import { useNavigation, useNetwork } from '../../../hooks';
 import {
   CreateAccountModalRoutes,
   ModalRoutes,
@@ -24,6 +25,11 @@ const AccountSelectorWalletMenu: FC<
 > = (props) => {
   const { walletId, networkId } = props;
   const navigation = useNavigation<NavigationProps['navigation']>();
+  const { network } = useNetwork({ networkId });
+  const isLightningNetwork = useMemo(
+    () => network?.impl === IMPL_LIGHTNING,
+    [network?.impl],
+  );
 
   const { createAccount } = useCreateAccountInWallet({
     networkId,
@@ -97,19 +103,24 @@ const AccountSelectorWalletMenu: FC<
         onPress: onPressCreateAccount,
         icon: 'PlusMini',
       },
-      {
+      !isLightningNetwork && {
         id: 'action__manage_account',
         onPress: onPressManageAccount,
         icon: 'SquaresPlusMini',
       },
-      () => <Divider my={1} />,
-      {
+      !isLightningNetwork && (() => <Divider my={1} />),
+      !isLightningNetwork && {
         id: 'title__bulk_copy_addresses',
         onPress: onPressBulkCopyAddresses,
         icon: 'Square2StackOutline',
       },
     ],
-    [onPressCreateAccount, onPressManageAccount, onPressBulkCopyAddresses],
+    [
+      onPressCreateAccount,
+      onPressManageAccount,
+      onPressBulkCopyAddresses,
+      isLightningNetwork,
+    ],
   );
 
   return (

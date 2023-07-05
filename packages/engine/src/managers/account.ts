@@ -1,6 +1,9 @@
 import { isEmpty } from 'lodash';
 
-import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_LIGHTNING,
+  SEPERATOR,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../errors';
 import { AccountType } from '../types/account';
@@ -71,7 +74,11 @@ function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
 }
 
 function isAccountWithAddress(account: Account) {
-  if (account.type !== AccountType.VARIANT) return true;
+  if (
+    account.type !== AccountType.VARIANT ||
+    account.coinType === COINTYPE_LIGHTNING
+  )
+    return true;
   return !isEmpty(account.address);
 }
 

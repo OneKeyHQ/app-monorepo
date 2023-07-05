@@ -107,7 +107,7 @@ function GasPanel() {
       scrollViewProps={{
         children: isGasInfoInit ? (
           <>
-            <HStack justifyContent="space-between">
+            <HStack justifyContent="space-between" alignItems="center">
               <NetworkSelector
                 selectedNetworkId={selectedNetworkId}
                 setSelectedNetworkId={setSelectedNetworkId}
@@ -121,24 +121,27 @@ function GasPanel() {
                   }}
                   isChecked={isEIP1559Enabled}
                   label="EIP 1559"
+                  size="mini"
                 />
               ) : null}
             </HStack>
             {supportedNetworksSettings[selectedNetworkId].supportOverview ? (
               <GasOverview
+                mt={8}
                 gasInfo={gasInfo}
                 isEIP1559Enabled={isEIP1559Enabled}
                 selectedNetworkId={selectedNetworkId}
               />
             ) : null}
             <GasList
+              mt={6}
               gasInfo={gasInfo}
               isEIP1559Enabled={isEIP1559Enabled}
               selectedNetworkId={selectedNetworkId}
             />
             {gasInfo ? (
               <GasRefreshTip
-                mt={10}
+                mt={12}
                 leftSeconds={leftSeconds}
                 setLeftSeconds={setLeftSeconds}
               />

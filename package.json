@@ -58,6 +58,9 @@
     ]
   },
   "dependencies": {
+    "@cmdcode/buff-utils": "1.7.4",
+    "@cmdcode/crypto-utils": "1.9.5",
+    "@cmdcode/tapscript": "1.2.9",
     "@legendapp/state": "^1.2.9",
     "@onekeyfe/blockchain-libs": "0.0.48",
     "@onekeyfe/cross-inpage-provider-core": "1.1.30",
@@ -214,7 +217,6 @@
     "util": "^0.12.5",
     "react-native-reanimated": "3.3.0",
     "@mysten/wallet-standard": "^0.5.5",
-    "secp256k1": "^4",
     "react-native-web@0.18.10": "patch:react-native-web@npm%3A0.18.10#./.yarn/patches/react-native-web-npm-0.18.10-f9d1f2dee1.patch",
     "expo-device@^4.3.0": "patch:expo-device@npm%3A4.3.0#./.yarn/patches/expo-device-npm-4.3.0-6bf71e0966.patch",
     "@metamask/eth-sig-util@^4.0.1": "patch:@metamask/eth-sig-util@npm%3A4.0.1#./.yarn/patches/@metamask-eth-sig-util-npm-4.0.1-27d55ec43e.patch",

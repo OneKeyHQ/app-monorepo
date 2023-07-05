@@ -36,4 +36,9 @@ export default class ServiceBase {
     const result = await getActiveWalletAccount();
     return Promise.resolve(result);
   }
+
+  async getActiveVault() {
+    const { networkId, accountId } = await this.getActiveWalletAccount();
+    return this.backgroundApi.engine.getVault({ networkId, accountId });
+  }
 }

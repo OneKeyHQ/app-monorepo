@@ -52,6 +52,7 @@ type Account = DBBaseAccount & {
   displayAddress?: string;
   xpub?: string; // for btc fork chain
   customAddresses?: string; // for btc custom address
+  addresses?: string; // for lightning network
 };
 
 type ImportableHDAccount = {

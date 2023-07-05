@@ -12,6 +12,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -202,6 +203,7 @@ function SendNFTList({
     network &&
       (batchTransferContractAddress[network.id] || network.impl === IMPL_SOL),
   );
+  const isNFTSupport = isCollectibleSupportedChainId(networkId);
 
   const allAssets = useMemo(
     () =>
@@ -214,29 +216,40 @@ function SendNFTList({
   const { serviceNFT } = backgroundApiProxy;
   const isMountedRef = useIsMounted();
   const fetchData = useCallback(async () => {
-    if (account && networkId) {
+    if (
+      account &&
+      networkId &&
+      network?.settings.sendNFTEnable &&
+      isNFTSupport
+    ) {
       const result = await serviceNFT.fetchNFT({
-        accountId: account.address,
+        account,
         networkId,
       });
-      return result;
+      return result?.data;
     }
     return [];
-  }, [account, networkId, serviceNFT]);
+  }, [
+    account,
+    isNFTSupport,
+    network?.settings.sendNFTEnable,
+    networkId,
+    serviceNFT,
+  ]);
 
   useEffect(() => {
     (async () => {
       if (account && networkId) {
         const localData = await serviceNFT.getLocalNFTs({
           networkId,
-          accountId: account.address,
+          account,
         });
         if (isMountedRef.current) {
-          updateListData(localData);
+          updateListData(localData?.data as Collection[]);
         }
         const requestData = await fetchData();
         if (isMountedRef.current) {
-          updateListData(requestData);
+          updateListData(requestData as Collection[]);
         }
       }
     })();

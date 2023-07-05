@@ -356,3 +356,20 @@ export class OneKeyWalletConnectModalCloseError extends OneKeyError {
 export class FailedToEstimatedGasError extends OneKeyError {
   override key = 'msg__estimated_gas_failure';
 }
+
+// Lightning Network ----------------------------------------------
+export class InvalidLightningPaymentRequest extends OneKeyError {
+  override key = 'msg__invalid_lightning_payment_request';
+}
+
+export class InvoiceAlreadPaid extends OneKeyError {
+  override key = 'msg__invoice_is_already_paid';
+}
+
+export class NoRouteFoundError extends OneKeyError {
+  override key = 'msg__no_route_found';
+}
+
+export class BadAuthError extends OneKeyError {
+  override key = 'msg__authentication_failed_verify_again';
+}

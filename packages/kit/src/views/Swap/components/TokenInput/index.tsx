@@ -17,12 +17,7 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../../components/Format';
-import { useCreateAccountInWallet } from '../../../../components/NetworkAccountSelector/hooks/useCreateAccountInWallet';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useNavigation,
-} from '../../../../hooks';
+import { useAppSelector, useNavigation } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setSendingAccount } from '../../../../store/reducers/swap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
@@ -53,7 +48,6 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
 }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { walletId } = useActiveWalletAccount();
 
   const onPickAccount = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -69,29 +63,6 @@ const TokenInputSendingAccount: FC<TokenAccountProps> = ({
       },
     });
   }, [token, navigation]);
-
-  const { createAccount } = useCreateAccountInWallet({
-    networkId: token?.networkId,
-    walletId,
-  });
-
-  if (account === null) {
-    return (
-      <Pressable onPress={createAccount}>
-        <Box
-          py="1"
-          px="2"
-          flexDirection="row"
-          bg="surface-neutral-subdued"
-          borderRadius="12"
-        >
-          <Typography.CaptionStrong color="text-default">
-            {intl.formatMessage({ id: 'action__create_account' })}
-          </Typography.CaptionStrong>
-        </Box>
-      </Pressable>
-    );
-  }
 
   return (
     <Pressable

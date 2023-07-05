@@ -140,7 +140,9 @@ export default class Vault extends VaultBase {
         if (isTrc10) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           const tokenInfo: ITRC10Detail = resp.data.data?.[0];
-          if (tokenInfo) {
+          const { total } = resp.data;
+          // invalidate trc10 tokenid will return total greater than 1
+          if (tokenInfo && total === 1) {
             return {
               name: tokenInfo.name,
               symbol: tokenInfo.abbr,

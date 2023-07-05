@@ -3783,6 +3783,48 @@ export const serverPresetNetworks = [
     'updatedAt': '2023-05-31T00:29:24.951Z',
   },
   {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'lightning',
+    'decimals': 0,
+    'extensions': {
+      'position': 2,
+    },
+    'id': 'lightning--0',
+    'impl': 'lightning',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/lnd/lnd.png',
+    'name': 'Lightning Network',
+    'rpcURLs': [
+      {
+        'url': 'https://node.onekey.so/btc',
+      },
+      {
+        'url': 'https://1rpc.io/btc',
+      },
+    ],
+    'shortcode': 'lightning',
+    'shortname': 'Lightning',
+    'symbol': 'sats',
+    'feeMeta': {
+      'code': 'lightning',
+      'decimals': 0,
+      'symbol': 'sats',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'bitcoin',
+        'platform': 'ordinals',
+      },
+    ],
+    'explorers': [],
+    'status': 'LISTED',
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  },
+  {
     'balance2FeeDecimals': 9,
     'chainId': '51178',
     'code': 'topsideprealpha',
