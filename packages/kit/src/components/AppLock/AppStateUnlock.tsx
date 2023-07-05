@@ -16,6 +16,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -28,7 +29,6 @@ import { wait } from '../../utils/helper';
 import { showSplashScreen } from '../../views/Overlay/showSplashScreen';
 
 import AppStateUnlockButton from './AppStateUnlockButton';
-import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 
 const ForgetPasswordButton = () => {
   const intl = useIntl();

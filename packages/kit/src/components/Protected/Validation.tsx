@@ -14,13 +14,13 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks/redux';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { hasHardwareSupported } from '../../utils/localAuthentication';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
-import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 
 type FieldValues = { password: string };
 
