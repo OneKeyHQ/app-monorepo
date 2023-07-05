@@ -1,4 +1,3 @@
-// @ts-expect-error
 import coinselectUtils from 'coinselect/utils';
 
 import type { IEncodedTxBtc } from '../types';

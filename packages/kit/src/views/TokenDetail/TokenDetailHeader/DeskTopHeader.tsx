@@ -147,7 +147,7 @@ const DeskTopHeader: FC<Props> = ({
                   to: '',
                   amount: '',
                   token: token?.tokenIdOnNetwork ?? '',
-                  sendAddress,
+                  tokenSendAddress: sendAddress,
                 },
               },
             });

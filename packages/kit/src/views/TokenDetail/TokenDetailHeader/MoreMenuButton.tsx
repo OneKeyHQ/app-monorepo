@@ -78,7 +78,7 @@ const MoreMenuButton: FC<Props> = ({
           to: '',
           amount: '',
           token: token?.tokenIdOnNetwork ?? '',
-          sendAddress,
+          tokenSendAddress: sendAddress,
         },
       },
     });

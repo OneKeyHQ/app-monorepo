@@ -12,6 +12,7 @@ enum AppUIEventBusNames {
   LimitOrderCompleted = 'LimitOrderCompleted',
   LimitOrderError = 'LimitOrderError',
   RemoveAccount = 'RemoveAccount',
+  RemoveWallet = 'RemoveWallet',
   Unlocked = 'Unlocked',
   StoreInitedFromPersistor = 'StoreInitedFromPersistor',
   AccountChanged = 'AccountChanged',

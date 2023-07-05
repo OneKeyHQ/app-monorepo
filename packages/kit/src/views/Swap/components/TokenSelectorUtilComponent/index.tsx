@@ -131,36 +131,29 @@ type TokenMoreMenuProps = {
   accountId?: string;
 };
 
-export const TokenMoreMenu: FC<TokenMoreMenuProps> = ({
-  accountId,
-  token,
-  isSearchMode,
-}) => {
+export const TokenMoreMenu: FC<TokenMoreMenuProps> = ({ accountId, token }) => {
   const isCompatible = isAccountCompatibleWithNetwork(
     accountId ?? '',
     token?.networkId ?? '',
   );
 
-  if (!isSearchMode) {
-    return (
-      <Box flexDirection="row">
-        {isCompatible ? (
-          <TokenBalanceAndValue accountId={accountId} token={token} />
-        ) : null}
-        <TokenItemMenu token={token}>
-          <IconButton
-            w="10"
-            h="10"
-            name="EllipsisVerticalMini"
-            type="plain"
-            ml="1"
-            circle
-            hitSlop={8}
-            isDisabled={!token?.tokenIdOnNetwork}
-          />
-        </TokenItemMenu>
-      </Box>
-    );
-  }
-  return <Icon name="ChevronRightMini" size={20} color="icon-subdued" />;
+  return (
+    <Box flexDirection="row">
+      {isCompatible ? (
+        <TokenBalanceAndValue accountId={accountId} token={token} />
+      ) : null}
+      <TokenItemMenu token={token}>
+        <IconButton
+          w="10"
+          h="10"
+          name="EllipsisVerticalMini"
+          type="plain"
+          ml="1"
+          circle
+          hitSlop={8}
+          isDisabled={!token?.tokenIdOnNetwork}
+        />
+      </TokenItemMenu>
+    </Box>
+  );
 };

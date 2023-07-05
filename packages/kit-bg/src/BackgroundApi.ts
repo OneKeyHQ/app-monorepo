@@ -425,5 +425,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceGas', { value });
     return value;
   }
+
+  get serviceInscribe() {
+    const ServiceInscribe =
+      require('./services/ServiceInscribe') as typeof import('./services/ServiceInscribe');
+    const value = new ServiceInscribe.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceInscribe', { value });
+    return value;
+  }
 }
 export default BackgroundApi;
