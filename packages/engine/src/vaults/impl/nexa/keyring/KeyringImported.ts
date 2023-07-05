@@ -7,7 +7,7 @@ import { AccountType } from '../../../../types/account';
 import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
 import { publickeyToAddress, signEncodedTx } from '../utils';
 
-import type { DBSimpleAccount } from '../../../../types/account';
+import type { DBVariantAccount } from '../../../../types/account';
 import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
@@ -19,7 +19,7 @@ const curve = 'secp256k1';
 export class KeyringImported extends KeyringImportedBase {
   override async prepareAccounts(
     params: IPrepareImportedAccountsParams,
-  ): Promise<Array<DBSimpleAccount>> {
+  ): Promise<Array<DBVariantAccount>> {
     const { name, privateKey } = params;
     if (privateKey.length !== 32) {
       throw new OneKeyInternalError('Invalid private key.');
@@ -27,16 +27,18 @@ export class KeyringImported extends KeyringImportedBase {
 
     const chainId = await this.vault.getNetworkChainId();
     const pub = secp256k1.publicFromPrivate(privateKey);
-    const address = publickeyToAddress(pub, chainId);
+    const pubHex = pub.toString('hex');
+    const encodeAddress = publickeyToAddress(pub, chainId);
     return Promise.resolve([
       {
-        id: `imported--${COIN_TYPE}--${address}`,
+        id: `imported--${COIN_TYPE}--${pubHex}`,
         name: name || '',
-        type: AccountType.SIMPLE,
+        type: AccountType.VARIANT,
         path: '',
         coinType: COIN_TYPE,
-        pub: pub.toString('hex'),
-        address,
+        pub: pubHex,
+        address: pubHex,
+        addresses: { [this.networkId]: encodeAddress },
       },
     ]);
   }

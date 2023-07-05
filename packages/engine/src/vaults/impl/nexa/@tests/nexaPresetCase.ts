@@ -1,9 +1,10 @@
 import { wait } from '@onekeyhq/kit/src/utils/helper';
-import { IMPL_NEXA } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_NEXA, SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { prepareMockVault } from '../../../../../@tests/prepareMockVault';
 import { getAccountNameInfoByImpl } from '../../../../managers/impl';
 import { verify } from '../sdk';
+import { publickeyToAddress } from '../utils';
 import Vault from '../Vault';
 import VaultHelper from '../VaultHelper';
 
@@ -49,7 +50,8 @@ export async function testSignTransaction(
     keyring: (payload: { vault: VaultBase }) => KeyringSoftwareBase;
   },
 ) {
-  const { options, dbAccount, password } = prepareMockVault(prepareOptions);
+  const { options, dbAccount, password, network } =
+    prepareMockVault(prepareOptions);
 
   expect(password).toBeTruthy();
 
@@ -57,9 +59,13 @@ export async function testSignTransaction(
   vault.helper = new VaultHelper(options);
 
   const keyring = builder.keyring({ vault });
-
+  const chainId = network.id.split(SEPERATOR).pop() || 'testnet';
+  const encodeAddress = publickeyToAddress(
+    Buffer.from(dbAccount.address, 'hex'),
+    chainId,
+  );
   const encodedTx = await vault.buildEncodedTxFromTransfer({
-    from: dbAccount.address,
+    from: encodeAddress,
     to: 'nexatest:nqtsq5g5wud2fr7l32as0mfzms3hwnz7dxvsc2h8szatr5p8',
     amount: '50',
   });
@@ -70,8 +76,8 @@ export async function testSignTransaction(
     password,
   });
 
-  const signers = await keyring.getSigners(password || '', [dbAccount.address]);
-  const signer = signers[dbAccount.address];
+  const signers = await keyring.getSigners(password || '', [encodeAddress]);
+  const signer = signers[encodeAddress];
   const publicKey = await signer.getPubkey(true);
   expect(
     verify(

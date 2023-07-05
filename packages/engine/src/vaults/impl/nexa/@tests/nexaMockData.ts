@@ -10,7 +10,7 @@ const network: DBNetwork = {
   decimals: 2,
   enabled: true,
   feeDecimals: 2,
-  feeSymbol: 'NEXA',
+  feeSymbol: 'TNEX',
   id: 'nexa--testnet',
   impl: 'nexa',
   logoURI: 'https://onekey-asset.com/assets/nexa/nexa.png',
@@ -24,19 +24,18 @@ const hdAccount1: IUnitTestMockAccount = {
   // indexedDB -> accounts
   account: {
     'name': 'NEXA #1',
-    'address': 'nexatest:nqtsq5g5sf9lpff96p5ts8mzxjuzk9ads7xm48c386p5w6t6',
+    'address':
+      '02e3027885ce1ed1d21300158ce8f60649e280e2a8f746e9cea6858a3331021d8a',
     'addresses': {
-      '0/0': 'nexatest:nqtsq5g5sf9lpff96p5ts8mzxjuzk9ads7xm48c386p5w6t6',
+      'nexa--testnet':
+        'nexatest:nqtsq5g5sf9lpff96p5ts8mzxjuzk9ads7xm48c386p5w6t6',
     },
+    'pub': '',
     'coinType': '29223',
-    'customAddresses': {
-      '0/0': 'nexatest:nqtsq5g5sf9lpff96p5ts8mzxjuzk9ads7xm48c386p5w6t6',
-    },
     'id': "hd-19--m/44'/29223'/0'/0/0",
     'path': "m/44'/29223'/0'/0/0",
     'template': "m/44'/29223'/0'/0/$$INDEX$$",
-    'type': AccountType.UTXO,
-    'xpub': '',
+    'type': AccountType.VARIANT,
   },
   mnemonic: mockCredentials.mnemonic1,
   password: mockCredentials.password,
@@ -45,13 +44,18 @@ const hdAccount1: IUnitTestMockAccount = {
 const importedAccount1: IUnitTestMockAccount = {
   // indexedDB -> accounts
   account: {
-    'address': 'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
+    'address':
+      '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
+    'addresses': {
+      'nexa--testnet':
+        'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
+    },
     'coinType': '29223',
-    'id': 'imported--29223--nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
+    'id': 'imported--29223--03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     name: 'Account #1',
     path: '',
     pub: '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
-    type: AccountType.SIMPLE,
+    type: AccountType.VARIANT,
   },
   // indexedDB -> credentials
   privateKey:
@@ -61,13 +65,18 @@ const importedAccount1: IUnitTestMockAccount = {
 
 const importedAccount2: IUnitTestMockAccount = {
   account: {
-    'address': 'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
+    'address':
+      '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
+    'addresses': {
+      'nexa--testnet':
+        'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
+    },
     'coinType': '29223',
-    'id': 'imported--29223--nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
+    'id': 'imported--29223--03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     name: 'Account #1',
     path: '',
     pub: '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
-    type: AccountType.SIMPLE,
+    type: AccountType.VARIANT,
   },
   // indexedDB -> credentials
   privateKey:

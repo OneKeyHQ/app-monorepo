@@ -143,7 +143,6 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxNexa;
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTx> {
-    console.log(params);
     const { limit, price } = params.feeInfoValue;
     if (limit && price) {
       const network = await this.getNetwork();
