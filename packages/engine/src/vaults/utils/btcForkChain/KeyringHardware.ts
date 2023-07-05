@@ -10,12 +10,9 @@ import {
   COINTYPE_BCH,
   COINTYPE_DOGE,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import {
-  NotImplemented,
-  OneKeyHardwareError,
-  OneKeyInternalError,
-} from '../../../errors';
+import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
 import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
@@ -24,6 +21,7 @@ import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { getAccountDefaultByPurpose } from './utils';
 
 import type { DBUTXOAccount } from '../../../types/account';
+import type { IUnsignedMessageEvm } from '../../impl/evm/Vault';
 import type {
   IGetAddressParams,
   IPrepareAccountByAddressIndexParams,
@@ -400,7 +398,27 @@ export class KeyringHardware extends KeyringHardwareBase {
     }));
   }
 
-  signMessage(): Promise<string[]> {
-    throw new NotImplemented();
+  async signMessage(messages: IUnsignedMessageEvm[]): Promise<string[]> {
+    debugLogger.common.info('BTCFork signMessage', messages);
+    const coinName = (this.vault as unknown as BTCForkVault).getCoinName();
+    const dbAccount = await this.getDbAccount();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    await this.getHardwareSDKInstance();
+    const result = await Promise.all(
+      messages.map(async (payload: IUnsignedMessageEvm) => {
+        const response = await HardwareSDK.btcSignMessage(connectId, deviceId, {
+          ...passphraseState,
+          path: `${dbAccount.path}/0/0`,
+          coin: coinName,
+          messageHex: Buffer.from(payload.message).toString('hex'),
+        });
+        if (!response.success) {
+          throw convertDeviceError(response.payload);
+        }
+        return response.payload;
+      }),
+    );
+    return result.map((ret) => ret.signature);
   }
 }

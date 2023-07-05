@@ -58,6 +58,7 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   COINTYPE_ETH,
+  COINTYPE_LIGHTNING,
   IMPL_ADA,
   IMPL_CFX,
   IMPL_COSMOS,
@@ -1363,10 +1364,18 @@ class ServiceAccount extends ServiceBase {
     }
     const findNameLabelByAccountIds = async (accountIds: string[]) => {
       const accounts = await this.backgroundApi.engine.getAccounts(accountIds);
-      const name = find(
-        accounts,
-        (a) => a.address.toLowerCase() === address.toLowerCase(),
-      )?.name;
+      const name = find(accounts, (a) => {
+        if (a.coinType === COINTYPE_LIGHTNING) {
+          const addresses =
+            a.addresses && !!a.addresses.length ? JSON.parse(a.addresses) : {};
+          return (
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            ((addresses?.hashAddress || '') as string).toLowerCase() ===
+            address.toLowerCase()
+          );
+        }
+        return a.address.toLowerCase() === address.toLowerCase();
+      })?.name;
       const label = name ?? '';
       if (label && address) {
         this.addressLabelCache[cacheKey] = label;
@@ -1502,7 +1511,12 @@ class ServiceAccount extends ServiceBase {
       const xpub = await vault.getFetchBalanceAddress(account);
       return { xpub, address: account.address };
     }
+    // TODO: Lightning account
     if (account.type === AccountType.VARIANT) {
+      if (networkId === OnekeyNetwork.lightning) {
+        const address = await vault.getFetchBalanceAddress(account);
+        return { address };
+      }
       const address = await vault.addressFromBase(account);
       return { address };
     }

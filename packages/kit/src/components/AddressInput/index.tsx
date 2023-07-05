@@ -126,7 +126,7 @@ const AddressInput: FC<AddressInputProps> = ({
           value={value}
           onChangeText={onChange}
           placeholder={
-            placeholder ??
+            placeholder ||
             intl.formatMessage({
               id: 'form__address_and_domain_placeholder',
             })
@@ -138,7 +138,6 @@ const AddressInput: FC<AddressInputProps> = ({
           {...rest}
           onBlur={onBlur}
         />
-
         <Divider />
         <Box display="flex" flexDirection="row" bg="action-secondary-default">
           {plugins.includes('paste') && platformEnv.canGetClipboard ? (

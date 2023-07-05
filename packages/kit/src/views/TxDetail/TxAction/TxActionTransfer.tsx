@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -84,33 +86,59 @@ export function TxActionTransfer(props: ITxActionCardProps) {
 
   const { amount, symbol, from, to, isOut } = getTxActionTransferInfo(props);
 
-  const details: ITxActionElementDetail[] = [
-    {
-      title: intl.formatMessage({ id: 'content__from' }),
-      content: getTxActionElementAddressWithSecurityInfo({
-        address:
-          from === 'unknown'
-            ? intl.formatMessage({ id: 'form__unknown' })
-            : from,
-        networkId: network?.id,
-        withSecurityInfo: !isOut,
-        amount,
-        isCopy: from !== 'unknown',
-        isShorten: from !== 'unknown',
-      }),
-    },
-    {
-      title: intl.formatMessage({ id: 'content__to' }),
-      content: getTxActionElementAddressWithSecurityInfo({
-        address:
-          to === 'unknown' ? intl.formatMessage({ id: 'form__unknown' }) : to,
-        networkId: network?.id,
-        withSecurityInfo: isOut,
-        amount,
-        isCopy: to !== 'unknown',
-        isShorten: to !== 'unknown',
-      }),
-    },
+  const displayFromLabel = useMemo(() => {
+    if (
+      network?.settings.hideFromToFieldIfValueEmpty &&
+      (!from || !from.length)
+    ) {
+      return false;
+    }
+    return true;
+  }, [from, network?.settings.hideFromToFieldIfValueEmpty]);
+  const displayToLabel = useMemo(() => {
+    if (network?.settings.hideFromToFieldIfValueEmpty && (!to || !to.length)) {
+      return false;
+    }
+    return true;
+  }, [to, network?.settings.hideFromToFieldIfValueEmpty]);
+
+  const details: (ITxActionElementDetail | null)[] = [
+    displayFromLabel
+      ? {
+          title: intl.formatMessage({ id: 'content__from' }),
+          content: getTxActionElementAddressWithSecurityInfo({
+            address:
+              from === 'unknown'
+                ? intl.formatMessage({ id: 'form__unknown' })
+                : from,
+            networkId: network?.id,
+            withSecurityInfo: !isOut,
+            amount,
+            isCopy: from !== 'unknown',
+            isShorten: network?.settings.displayFullAddress
+              ? false
+              : from !== 'unknown',
+          }),
+        }
+      : null,
+    displayToLabel
+      ? {
+          title: intl.formatMessage({ id: 'content__to' }),
+          content: getTxActionElementAddressWithSecurityInfo({
+            address:
+              to === 'unknown'
+                ? intl.formatMessage({ id: 'form__unknown' })
+                : to,
+            networkId: network?.id,
+            withSecurityInfo: isOut,
+            amount,
+            isCopy: to !== 'unknown',
+            isShorten: network?.settings.displayFullAddress
+              ? false
+              : to !== 'unknown',
+          }),
+        }
+      : null,
   ];
 
   return (

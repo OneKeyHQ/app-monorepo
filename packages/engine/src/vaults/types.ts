@@ -34,6 +34,7 @@ import type { INativeTxEvm } from './impl/evm/types';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
 import type { IEncodedTxFil } from './impl/fil/types';
 import type { IEncodedTxKaspa } from './impl/kaspa/types';
+import type { IEncodedTxLightning } from './impl/lightning-network/types';
 import type {
   IDecodedTxExtraNear,
   IEncodedTxNear,
@@ -125,6 +126,17 @@ export type IVaultSettings = {
   nonceEditable?: boolean;
   signOnlyReturnFullTx?: boolean;
   sendNFTEnable?: boolean;
+
+  hiddenNFTTab?: boolean;
+  hiddenToolTab?: boolean;
+  hiddenAddress?: boolean;
+  hiddenAccountInfoSwapOption?: boolean;
+  hiddenAccountInfoMoreOption?: boolean;
+  hiddenFeeOnTxDetail?: boolean;
+  displayMemo?: boolean;
+  hideFromToFieldIfValueEmpty?: boolean;
+  displayFullAddress?: boolean;
+  rpcStatusDisabled?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -231,7 +243,8 @@ export type IEncodedTx =
   | IEncodedTxFil
   | IEncodedTxDot
   | IEncodedTxXmr
-  | IEncodedTxKaspa;
+  | IEncodedTxKaspa
+  | IEncodedTxLightning;
 
 export type INativeTx =
   | INativeTxEvm
@@ -254,6 +267,9 @@ export type SignedTxResult = {
   digest?: string; // hex string
   txKey?: string; // hex string for Monero
   pendingTx?: boolean; // It is used for Aptos to wait for the chain to get the transaction state
+  // for lightning network
+  nonce?: number;
+  randomSeed?: number;
 } & SignedTx;
 
 // EncodedTx Update ----------------------------------------------

@@ -27,6 +27,7 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
+  COINTYPE_LIGHTNING,
   IMPL_EVM,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -637,6 +638,10 @@ class Engine {
                 coinType: a.coinType,
                 tokens: [],
                 address: a.address,
+                addresses:
+                  a.coinType === COINTYPE_LIGHTNING
+                    ? JSON.stringify(get(a, 'addresses', {}))
+                    : undefined,
                 pubKey: get(a, 'pub', ''),
               }
             : this.getVaultWithoutCache({ accountId: a.id, networkId }).then(
@@ -721,7 +726,7 @@ class Engine {
     );
     const balancesAddress = await Promise.all(
       accounts.map(async (a) => {
-        if (a.type === AccountType.UTXO) {
+        if (a.type === AccountType.UTXO || a.coinType === COINTYPE_LIGHTNING) {
           const address = await vault.getFetchBalanceAddress(a);
           return { address };
         }
@@ -904,7 +909,7 @@ class Engine {
 
     const balancesAddress = await Promise.all(
       accounts.map(async (a) => {
-        if (a.type === AccountType.UTXO) {
+        if (a.type === AccountType.UTXO || a.coinType === COINTYPE_LIGHTNING) {
           const address = await vault.getFetchBalanceAddress(a);
           return { address };
         }

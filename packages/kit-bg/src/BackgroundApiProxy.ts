@@ -28,6 +28,7 @@ import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
 import type ServiceHTTP from './services/ServiceHTTP';
 import type ServiceInscribe from './services/ServiceInscribe';
+import type ServiceLightningNetwork from './services/ServiceLightningNetwork';
 import type ServiceLimitOrder from './services/ServiceLimitOrder';
 import type ServiceMarket from './services/ServiceMarket';
 import type ServiceMigrate from './services/ServiceMigrate';
@@ -189,6 +190,10 @@ class BackgroundApiProxy
   serviceContract = this._createProxyService(
     'serviceContract',
   ) as ServiceContract;
+
+  serviceLightningNetwork = this._createProxyService(
+    'serviceLightningNetwork',
+  ) as ServiceLightningNetwork;
 
   serviceGas = this._createProxyService('serviceGas') as ServiceGas;
 
