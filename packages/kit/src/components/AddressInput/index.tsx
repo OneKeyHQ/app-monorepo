@@ -29,8 +29,9 @@ type AddressInputProps = ComponentProps<typeof Textarea> & {
   onChange?: (address: string) => void;
   onChangeAddressName?: (address: string) => void;
   plugins?: AddressInputPlugin[];
-  placeholder?: string;
   contactExcludeWalletAccount?: boolean;
+  placeholder?: string;
+  description?: string;
 };
 
 const AddressInput: FC<AddressInputProps> = ({
@@ -39,8 +40,9 @@ const AddressInput: FC<AddressInputProps> = ({
   onChangeAddressName,
   plugins = ['paste', 'scan'],
   networkId,
-  placeholder,
   contactExcludeWalletAccount,
+  placeholder,
+  description,
   ...rest
 }) => {
   const intl = useIntl();
@@ -109,81 +111,87 @@ const AddressInput: FC<AddressInputProps> = ({
     setFocus(false);
   }, []);
   return (
-    <Box
-      w="full"
-      borderRadius={12}
-      overflow="hidden"
-      borderWidth="1"
-      borderColor={isFocus ? 'focused-default' : 'border-default'}
-    >
-      <Textarea
-        trimValue
-        borderRadius={0}
+    <Box>
+      <Box
         w="full"
-        value={value}
-        onChangeText={onChange}
-        placeholder={
-          placeholder ||
-          intl.formatMessage({
-            id: 'form__address_and_domain_placeholder',
-          })
-        }
-        borderWidth="0"
-        onFocus={() => {
-          setFocus(true);
-        }}
-        {...rest}
-        onBlur={onBlur}
-      />
-
-      <Divider />
-      <Box display="flex" flexDirection="row" bg="action-secondary-default">
-        {plugins.includes('paste') && platformEnv.canGetClipboard ? (
-          <Pressable
-            flex="1"
-            justifyContent="center"
-            alignItems="center"
-            py="3"
-            onPress={onPaste}
-            flexDirection="row"
-          >
-            <Icon size={20} name="ClipboardMini" />
-            <Typography.Body2 ml="3">
-              {intl.formatMessage({ id: 'action__paste' })}
-            </Typography.Body2>
-          </Pressable>
-        ) : null}
-        {plugins.includes('contact') ? (
-          <Pressable
-            flex="1"
-            justifyContent="center"
-            alignItems="center"
-            py="3"
-            onPress={onContacts}
-            flexDirection="row"
-          >
-            <Icon size={20} name="BookOpenMini" />
-            <Typography.Body2 ml="3">
-              {intl.formatMessage({ id: 'action__contact' })}
-            </Typography.Body2>
-          </Pressable>
-        ) : null}
-        {plugins.includes('scan') ? (
-          <Pressable
-            flex="1"
-            justifyContent="center"
-            alignItems="center"
-            py="3"
-            onPress={onScan}
-            flexDirection="row"
-          >
-            <Icon size={20} name="ViewfinderCircleMini" />
-            <Typography.Body2 ml="3">
-              {intl.formatMessage({ id: 'action__scan' })}
-            </Typography.Body2>
-          </Pressable>
-        ) : null}
+        borderRadius={12}
+        overflow="hidden"
+        borderWidth="1"
+        borderColor={isFocus ? 'focused-default' : 'border-default'}
+      >
+        <Textarea
+          trimValue
+          borderRadius={0}
+          w="full"
+          value={value}
+          onChangeText={onChange}
+          placeholder={
+            placeholder ||
+            intl.formatMessage({
+              id: 'form__address_and_domain_placeholder',
+            })
+          }
+          borderWidth="0"
+          onFocus={() => {
+            setFocus(true);
+          }}
+          {...rest}
+          onBlur={onBlur}
+        />
+        <Divider />
+        <Box display="flex" flexDirection="row" bg="action-secondary-default">
+          {plugins.includes('paste') && platformEnv.canGetClipboard ? (
+            <Pressable
+              flex="1"
+              justifyContent="center"
+              alignItems="center"
+              py="3"
+              onPress={onPaste}
+              flexDirection="row"
+            >
+              <Icon size={20} name="ClipboardMini" />
+              <Typography.Body2 ml="3">
+                {intl.formatMessage({ id: 'action__paste' })}
+              </Typography.Body2>
+            </Pressable>
+          ) : null}
+          {plugins.includes('contact') ? (
+            <Pressable
+              flex="1"
+              justifyContent="center"
+              alignItems="center"
+              py="3"
+              onPress={onContacts}
+              flexDirection="row"
+            >
+              <Icon size={20} name="BookOpenMini" />
+              <Typography.Body2 ml="3">
+                {intl.formatMessage({ id: 'action__contact' })}
+              </Typography.Body2>
+            </Pressable>
+          ) : null}
+          {plugins.includes('scan') ? (
+            <Pressable
+              flex="1"
+              justifyContent="center"
+              alignItems="center"
+              py="3"
+              onPress={onScan}
+              flexDirection="row"
+            >
+              <Icon size={20} name="ViewfinderCircleMini" />
+              <Typography.Body2 ml="3">
+                {intl.formatMessage({ id: 'action__scan' })}
+              </Typography.Body2>
+            </Pressable>
+          ) : null}
+        </Box>
       </Box>
+      {description && (
+        <Typography.Body2 mt="8px" color="text-subdued">
+          {description}
+        </Typography.Body2>
+      )}
     </Box>
   );
 };

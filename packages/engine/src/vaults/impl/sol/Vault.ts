@@ -47,6 +47,7 @@ import {
   getNFTTransactionHistory,
 } from '../../../managers/nft';
 import { extractResponseError } from '../../../proxy';
+import { NFTAssetType } from '../../../types/nft';
 import {
   IDecodedTxActionType,
   IDecodedTxStatus,
@@ -65,7 +66,13 @@ import settings from './settings';
 
 import type { DBAccount, DBSimpleAccount } from '../../../types/account';
 import type { AccountNameInfo } from '../../../types/network';
-import type { NFTTransaction } from '../../../types/nft';
+import type {
+  Collection,
+  NFTAsset,
+  NFTAssetMeta,
+  NFTListItems,
+  NFTTransaction,
+} from '../../../types/nft';
 import type { TransactionStatus } from '../../../types/provider';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
@@ -462,7 +469,7 @@ export default class Vault extends VaultBase {
         actions.push({
           type: IDecodedTxActionType.NFT_TRANSFER,
           nftTransfer: {
-            asset: info.asset,
+            asset: info.asset as NFTAsset,
             amount: info.amount,
             send: info.from,
             receive: info.to,
@@ -1044,7 +1051,7 @@ export default class Vault extends VaultBase {
         return Promise.resolve(null);
       }
 
-      const nftTxs = nftMap[txid];
+      const nftTxs = nftMap[txid] as NFTTransaction[];
 
       if (
         transferItem &&
@@ -1123,5 +1130,16 @@ export default class Vault extends VaultBase {
 
   override async canAutoCreateNextAccount(password: string): Promise<boolean> {
     return Promise.resolve(true);
+  }
+
+  override async getUserNFTAssets({
+    serviceData,
+  }: {
+    serviceData: NFTListItems;
+  }): Promise<NFTAssetMeta | undefined> {
+    return Promise.resolve({
+      type: NFTAssetType.SOL,
+      data: serviceData as Collection[],
+    });
   }
 }

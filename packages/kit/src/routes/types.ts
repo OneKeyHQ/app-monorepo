@@ -85,6 +85,7 @@ export type ModalRoutesParams = {
   [ModalRoutes.ClearCache]: NavigatorScreenParams<SubModalRoutesParams.ClearCacheModalRoutesParams>;
   [ModalRoutes.CoinControl]: NavigatorScreenParams<SubModalRoutesParams.CoinControlRoutesParams>;
   [ModalRoutes.GasPanel]: NavigatorScreenParams<SubModalRoutesParams.GasPanelRoutesParams>;
+  [ModalRoutes.Inscribe]: NavigatorScreenParams<SubModalRoutesParams.InscribeModalRoutesParams>;
 };
 /** Modal */
 

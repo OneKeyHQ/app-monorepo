@@ -14,7 +14,7 @@ import {
 } from '@onekeyhq/components';
 import type { GoPlusAddressSecurity } from '@onekeyhq/engine/src/types/goplus';
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
-import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { INFTAsset, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTxLightning } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types';
 import type {
@@ -35,8 +35,8 @@ import { useSingleToken } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { BulkSenderTypeEnum } from '../../BulkSender/types';
 import { GoPlusSecurityItems } from '../../ManageTokens/components/GoPlusAlertItems';
-import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import { BaseSendModal } from '../components/BaseSendModal';
+import NFTView from '../components/NFTView';
 import { SendModalRoutes } from '../types';
 
 import type { ModalScreenProps } from '../../../routes/types';
@@ -51,33 +51,6 @@ type FormValues = {
   to: string;
   destinationTag?: string;
 };
-
-function NFTView({ asset, total }: { asset?: NFTAsset; total: number }) {
-  const intl = useIntl();
-
-  if (asset) {
-    return (
-      <Box flexDirection="row" alignItems="center">
-        <NFTListImage asset={asset} borderRadius="6px" size={40} />
-        <Typography.Body1Strong ml={3} numberOfLines={2} flex={1}>
-          {total === 1 && (asset.name ?? asset.contractName)}
-
-          {total > 1 &&
-            intl.formatMessage(
-              {
-                id: 'content__str_and_others_int_nfts',
-              },
-              {
-                firstNFT: asset.name ?? asset.contractName,
-                otherNFTs: total - 1,
-              },
-            )}
-        </Typography.Body1Strong>
-      </Box>
-    );
-  }
-  return <Box size="40px" />;
-}
 
 function PreSendAddress() {
   const intl = useIntl();
@@ -126,7 +99,7 @@ function PreSendAddress() {
     transferInfo.token ?? '',
   );
 
-  const [nftInfo, updateNFTInfo] = useState<NFTAsset>();
+  const [nftInfo, updateNFTInfo] = useState<INFTAsset>();
   useEffect(() => {
     (async () => {
       if (isNFT) {
@@ -269,7 +242,7 @@ function PreSendAddress() {
             local: true,
           });
           nftInfos.push({
-            asset: asset || ({} as NFTAsset),
+            asset: (asset || {}) as NFTAsset,
             amount: transferInfo.amount,
             from: account.address,
             to: toVal,
@@ -299,11 +272,13 @@ function PreSendAddress() {
           },
         });
       } else {
+        setIsLoadingAssets(true);
         encodedTx = await engine.buildEncodedTxFromTransfer({
           networkId,
           accountId,
           transferInfo,
         });
+        setIsLoadingAssets(false);
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
