@@ -32,7 +32,7 @@ import type { INexaInputSignature, INexaOutputSignature } from './types';
 
 export function verifyNexaAddress(address: string) {
   try {
-    const result = decode(address);
+    decode(address);
     return {
       isValid: true,
       normalizedAddress: address,
