@@ -450,6 +450,7 @@ class ServiceDapp extends ServiceBase {
             // debugLogger.dappApprove.error(web3Errors.provider.unauthorized());
             error = web3Errors.provider.unauthorized();
           }
+          // do not add delay here, it will cause _openModalByRouteParamsDebounced not working
           reject(error);
         }
       } else {

@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/core';
 import fetch from 'cross-fetch';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
+import uuidLib from 'react-native-uuid';
 
 import {
   Box,
@@ -20,6 +21,8 @@ import {
 import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
+import { INSCRIPTION_PADDING_SATS_VALUES } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/consts';
+import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   getActiveWalletAccount,
@@ -71,8 +74,9 @@ export const Debug = () => {
   const webviewKey = useAppSelector((s) => s.status.webviewGlobalKey);
   console.log('Developer Debug page render >>>>>>>');
   const { width, height } = useWindowDimensions();
-  const { network, account, wallet } = useActiveWalletAccount();
   const { serviceAccount, engine } = backgroundApiProxy;
+  const { network, account, wallet, networkId, accountId, accountAddress } =
+    useActiveWalletAccount();
   const navigationActions = useNavigationActions();
 
   const pressableProps = {
@@ -94,19 +98,15 @@ export const Debug = () => {
   }, [navigation, intl]);
 
   const handleApproveToken = useCallback(
-    async ({
-      networkId,
-      accountId,
-      token,
-      spender,
-      amount,
-    }: {
+    async (params: {
       networkId: string;
       accountId: string;
       token: string;
       amount: string;
       spender: string;
     }) => {
+      // eslint-disable-next-line @typescript-eslint/no-shadow
+      const { networkId, accountId, token, amount, spender } = params;
       const encodedApproveTx =
         await backgroundApiProxy.engine.buildEncodedTxFromApprove({
           amount,
@@ -141,7 +141,6 @@ export const Debug = () => {
 
   const handleBatchTransfer = useCallback(
     async (token?: string) => {
-      const { networkId, accountId, accountAddress } = getActiveWalletAccount();
       let transferInfos;
       if (token) {
         transferInfos = [
@@ -205,7 +204,14 @@ export const Debug = () => {
         },
       });
     },
-    [engine, handleApproveToken, navigation],
+    [
+      accountAddress,
+      accountId,
+      networkId,
+      engine,
+      handleApproveToken,
+      navigation,
+    ],
   );
 
   return (
@@ -394,7 +400,6 @@ export const Debug = () => {
             <Pressable
               {...pressableProps}
               onPress={() => {
-                const { networkId, accountId } = getActiveWalletAccount();
                 navigationRoot.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Send,
                   params: {
@@ -427,7 +432,6 @@ export const Debug = () => {
                var p = {"method":"eth_sendTransaction","params":[{"gas":"0xbf01","from":"0x76f3f64cb3cd19debee51436df630a342b736c24","to":"0xc748673057861a797275cd8a068abb95a902e8de","value": "0xa3b5840f4000","data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}],"jsonrpc":"2.0"};
                await window.ethereum.request(p);
                  */
-                const { networkId, accountId } = getActiveWalletAccount();
                 navigationRoot.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Send,
                   params: {
@@ -488,7 +492,6 @@ export const Debug = () => {
                 const randomValue = `0x${Math.floor(
                   Math.random() * 10 ** 15,
                 ).toString(16)}`;
-                const { networkId, accountId } = getActiveWalletAccount();
                 navigationRoot.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Send,
                   params: {
@@ -535,8 +538,6 @@ export const Debug = () => {
                var p = {"method":"eth_sendTransaction","params":[{"gas":"0xbf01","from":"0x76f3f64cb3cd19debee51436df630a342b736c24","to":"0xc748673057861a797275cd8a068abb95a902e8de","value": "0xa3b5840f4000","data":"0x095ea7b3000000000000000000000000def1c0ded9bec7f1a1670819833240f027b25effffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}],"jsonrpc":"2.0"};
                await window.ethereum.request(p);
                  */
-                const { networkId, accountId, accountAddress } =
-                  getActiveWalletAccount();
                 navigationRoot.navigate(RootRoutes.Modal, {
                   screen: ModalRoutes.Send,
                   params: {
@@ -591,6 +592,151 @@ export const Debug = () => {
               onPress={() => navigationActions.openDrawer()}
             >
               <Typography.Body1>Open Drawer</Typography.Body1>
+            </Pressable>
+
+            <Pressable
+              {...pressableProps}
+              onPress={async () => {
+                /*
+                var contents = [
+                  {
+                    'name': 'hello-7777777777.sats',
+                    'hex':
+                      '7b2270223a22736e73222c226f70223a22726567222c226e616d65223a2268656c6c6f2d373737373737373737372e73617473227d',
+                    'mimetype': 'text/plain;charset=utf-8',
+                    'sha256': '',
+                  },
+                ];
+                await $backgroundApiProxy.backgroundApi.serviceInscribe.createInscribeOrder(
+                  {
+                    toAddress:
+                      'tb1pqwuk8d57rvnw2e2xmxn6glhsl0hfz4e6rjzmazucafumnwpmss7qlawtpc',
+                    contents,
+                    feeRate: 1,
+                    uuid: 'c07c01cd-3bef-42a5-904b-93e7d7330854',
+                    globalPaddingSats: 546,
+                  },
+                );
+                 */
+                const { serviceInscribe } = backgroundApiProxy;
+                const contents =
+                  await serviceInscribe.createInscriptionContents({
+                    domains: ['hello-666-888.sats'],
+                    // texts: ['iuuu'],
+                  });
+                console.log('Inscribe contents >>>>> : ', contents);
+                const feeRates = await serviceInscribe.fetchFeeRates();
+                console.log(
+                  'createInscribeOrder: ',
+                  new Date().toLocaleString(),
+                );
+                const order = await serviceInscribe.createInscribeOrder({
+                  toAddress:
+                    'tb1pqwuk8d57rvnw2e2xmxn6glhsl0hfz4e6rjzmazucafumnwpmss7qlawtpc',
+                  contents,
+                  feeRate: feeRates.halfHourFee,
+                  globalPaddingSats: INSCRIPTION_PADDING_SATS_VALUES.default,
+                });
+                console.log(
+                  'createInscribeOrder: done',
+                  new Date().toLocaleString(),
+                );
+                console.log('Inscribe order >>>>> : ', order);
+                console.log(
+                  `Please funding ${order.fundingValue} sats (${order.fundingValueNative} BTC) to the address ${order.fundingAddress}`,
+                );
+
+                const fundingEncodedTx =
+                  await serviceInscribe.buildInscribeCommitEncodedTx({
+                    to: order.fundingAddress,
+                    amount: order.fundingValueNative,
+                  });
+
+                const submitOrder = async (commitSignedTx?: ISignedTxPro) => {
+                  const result = await serviceInscribe.submitInscribeOrder({
+                    order,
+                    commitSignedTx,
+                  });
+
+                  console.log('inscribe done, check txid or errors: ', result);
+                  result.txids.forEach((txid) => {
+                    console.log(`https://mempool.space/testnet/tx/${txid}`);
+                  });
+                };
+
+                if (fundingEncodedTx) {
+                  // TODO not allowed use coin control
+                  // TODO force accumulative coin select
+                  navigation.navigate(RootRoutes.Modal, {
+                    screen: ModalRoutes.Send,
+                    params: {
+                      screen: SendModalRoutes.SendConfirm,
+                      params: {
+                        accountId,
+                        networkId,
+                        signOnly: true,
+                        feeInfoEditable: true,
+                        feeInfoUseFeeInTx: false,
+                        encodedTx: fundingEncodedTx,
+                        onSuccess: async (commitSignedTx, data) => {
+                          await submitOrder(commitSignedTx);
+                        },
+                      },
+                    },
+                  });
+                } else {
+                  await submitOrder();
+                }
+              }}
+            >
+              <Typography.Body1>Inscribe New</Typography.Body1>
+            </Pressable>
+
+            <Pressable
+              {...pressableProps}
+              onPress={async () => {
+                const tx = await engine.buildEncodedTxFromTransfer({
+                  networkId,
+                  accountId,
+                  transferInfo: {
+                    from: accountAddress,
+                    to: 'tb1pyq43gj9kprlfq6zpr2yg2yyg6sxlt4reemqpu2jkhs55073xh5qs8s0le4',
+                    isNFT: true,
+                    amount: '0',
+                    coinControlDisabled: true,
+                    nftInscription: {
+                      address:
+                        'tb1pyjkjq93n0zvenjlyy5gp3euk4jeza3w35mu2rpe6m33k8czd0e7s3ha8st',
+                      inscriptionId: `2705af2ce6aad76f0878a05bf73fa438de3966a22beb669616a8e538de9edb34i0`,
+                      output: `2705af2ce6aad76f0878a05bf73fa438de3966a22beb669616a8e538de9edb34:0`,
+                      location: `2705af2ce6aad76f0878a05bf73fa438de3966a22beb669616a8e538de9edb34:0:0`,
+                    },
+                  },
+                });
+
+                navigation.navigate(RootRoutes.Modal, {
+                  screen: ModalRoutes.Send,
+                  params: {
+                    screen: SendModalRoutes.SendConfirm,
+                    params: {
+                      accountId,
+                      networkId,
+                      feeInfoEditable: true,
+                      feeInfoUseFeeInTx: false,
+                      encodedTx: tx,
+                      onSuccess: (signedTx, data) => {
+                        console.log(
+                          'testBuildSendInscriptionEncodedTx done',
+                          signedTx,
+                          data,
+                        );
+                      },
+                    },
+                  },
+                });
+              }}
+            >
+              <Typography.Body1>Send inscription</Typography.Body1>
             </Pressable>
 
             <Pressable

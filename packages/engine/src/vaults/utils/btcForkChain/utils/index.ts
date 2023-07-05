@@ -1,14 +1,14 @@
-// @ts-expect-error
-import coinSelectFn from 'coinselect';
-// @ts-expect-error
-import coinSelectSplit from 'coinselect/split';
+import * as BitcoinJS from 'bitcoinjs-lib';
 
-import { NotImplemented } from '../../../errors';
+import { NotImplemented } from '../../../../errors';
+import { Tx } from '../../../impl/btc/inscribe/sdk';
+import { AddressEncodings } from '../types';
 
-import { AddressEncodings } from './types';
+import type { DBUTXOAccount } from '../../../../types/account';
+import type { Networks } from '@cmdcode/tapscript';
 
-import type { DBUTXOAccount } from '../../../types/account';
-import type { IEncodedTxBtc, IUTXOInput, IUTXOOutput } from './types';
+export * from './tapRootAccountUtils';
+export * from './coinSelectUtils';
 
 type IAccountDefault = {
   namePrefix: string;
@@ -87,44 +87,10 @@ export function getTaprootXpub(xpubSegwit: string) {
   return xpubSegwit;
 }
 
-export const coinSelect = ({
-  inputsForCoinSelect,
-  outputsForCoinSelect,
-  feeRate,
-}: {
-  inputsForCoinSelect: IEncodedTxBtc['inputsForCoinSelect'];
-  outputsForCoinSelect: IEncodedTxBtc['outputsForCoinSelect'];
-  feeRate: string;
-}) => {
-  const max = outputsForCoinSelect.some((o) => o.isMax);
-
-  // valid amount
-  const validAmount = outputsForCoinSelect.every((o) => {
-    if (o.isMax) {
-      return typeof o.value === 'undefined';
-    }
-    return typeof o.value === 'number' && !Number.isNaN(o.value);
-  });
-  if (!validAmount) {
-    throw new Error('Invalid amount in outputs');
-  }
-
-  // remove ixMax field
-  const finalOutputs = outputsForCoinSelect.map((o) => ({
-    address: o.address,
-    value: o.isMax ? undefined : o.value,
-  }));
-
-  const unspentSelectFn = max ? coinSelectSplit : coinSelectFn;
-  const {
-    inputs,
-    outputs,
-    fee,
-  }: {
-    inputs: IUTXOInput[];
-    outputs: IUTXOOutput[];
-    fee: number;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  } = unspentSelectFn(inputsForCoinSelect, finalOutputs, parseInt(feeRate));
-  return { inputs, outputs, fee };
-};
+// eslint-disable-next-line  @typescript-eslint/no-unused-vars
+export function decodeBtcRawTx(rawTx: string, network?: Networks) {
+  const tx2 = BitcoinJS.Transaction.fromHex(rawTx);
+  const txid = tx2.getId();
+  const tx = Tx.decode(rawTx);
+  return { tx, txid };
+}

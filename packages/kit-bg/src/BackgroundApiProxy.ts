@@ -27,6 +27,7 @@ import type ServiceGas from './services/ServiceGas';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
 import type ServiceHTTP from './services/ServiceHTTP';
+import type ServiceInscribe from './services/ServiceInscribe';
 import type ServiceLightningNetwork from './services/ServiceLightningNetwork';
 import type ServiceLimitOrder from './services/ServiceLimitOrder';
 import type ServiceMarket from './services/ServiceMarket';
@@ -181,6 +182,10 @@ class BackgroundApiProxy
   ) as ServiceLimitOrder;
 
   serviceUtxos = this._createProxyService('serviceUtxos') as ServiceUtxos;
+
+  serviceInscribe = this._createProxyService(
+    'serviceInscribe',
+  ) as ServiceInscribe;
 
   serviceContract = this._createProxyService(
     'serviceContract',

@@ -7,7 +7,7 @@ import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 import type { Engine } from '../index';
 import type { AccountCredential } from '../types/account';
 import type { AccountNameInfo, EIP1559Fee } from '../types/network';
-import type { NFTAsset } from '../types/nft';
+import type { IErcNftType, NFTAsset } from '../types/nft';
 import type { Token } from '../types/token';
 import type {
   WALLET_TYPE_EXTERNAL,
@@ -41,6 +41,7 @@ import type { IEncodedTxSUI } from './impl/sui/types';
 import type { IEncodedTxTron } from './impl/tron/types';
 import type { IDecodedTxExtraXmr, IEncodedTxXmr } from './impl/xmr/types';
 import type { IEncodedTxXrp } from './impl/xrp/types';
+import type { ICoinSelectAlgorithm } from './utils/btcForkChain/utils';
 
 // Options ----------------------------------------------
 export type IVaultSubNetworkSettings = {
@@ -144,19 +145,28 @@ export type ISignCredentialOptions = {
 };
 
 // Internal txInfo ----------------------------------------------
+export type ITransferInfoNftInscription = {
+  // BTC NFT inscription
+  inscriptionId: string;
+  address: string;
+  output: string;
+  location: string;
+};
 export type ITransferInfo = {
   from: string;
   to: string;
   amount: string;
   token?: string; // tokenIdOnNetwork
-  // for sol
-  sendAddress?: string;
+  tokenSendAddress?: string; // for sol
   isNFT?: boolean;
-  tokenId?: string; // NFT token id
-  type?: string; // NFT standard: erc721/erc1155
+  nftTokenId?: string; // NFT token id, btc utxo txid & vout
+  nftType?: IErcNftType; // NFT standard: erc721/erc1155
+  nftInscription?: ITransferInfoNftInscription;
   destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
   keepAlive?: boolean; // Polkadot chain keep alive
   selectedUtxos?: string[]; // coin control
+  coinControlDisabled?: boolean;
+  coinSelectAlgorithm?: ICoinSelectAlgorithm;
 };
 export type IApproveInfo = {
   from: string; // token owner

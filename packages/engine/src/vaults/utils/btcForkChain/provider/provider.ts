@@ -5,16 +5,17 @@ import * as BitcoinJS from 'bitcoinjs-lib';
 import bitcoinMessage from 'bitcoinjs-message';
 import bs58check from 'bs58check';
 import { ECPairFactory } from 'ecpair';
-import memoziee from 'memoizee';
 
 import {
   CKDPub,
   mnemonicFromEntropy,
   verify,
 } from '@onekeyhq/engine/src/secret';
+import { AddressEncodings } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import type {
   AddressValidation,
   ChainInfo,
+  ICollectUTXOsOptions,
   SignedTx,
   Signer,
   TransactionMixin,
@@ -22,7 +23,6 @@ import type {
   UTXO,
   UnsignedTx,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
-import { AddressEncodings } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
 import { isTaprootXpubSegwit, isWatchAccountTaprootSegwit } from '../utils';
 
@@ -177,6 +177,7 @@ class Provider {
     };
 
     const cache = new Map();
+    // const leaf = null;
     for (const path of relativePaths) {
       let extendedKey = startExtendedKey;
       let relPath = '';
@@ -197,6 +198,7 @@ class Provider {
         cache.set(relPath, extendedKey);
       }
 
+      // const pubkey = taproot && inscribe ? fixedPublickey : extendedKey.key;
       let { address } = this.pubkeyToPayment(extendedKey.key, encoding);
       if (typeof address === 'string' && address.length > 0) {
         address = this.encodeAddress(address);
@@ -487,15 +489,9 @@ class Provider {
     );
   }
 
-  getUTXOs = memoziee(
-    async (xpub: string) =>
-      this.blockbook.then((client) => client.getUTXOs(xpub)),
-    {
-      promise: true,
-      max: 1,
-      maxAge: 1000 * 30,
-    },
-  );
+  async getUTXOs(xpub: string, options: ICollectUTXOsOptions = {}) {
+    return this.blockbook.then((client) => client.getUTXOs(xpub, options));
+  }
 
   getPsbt() {
     return new BitcoinJS.Psbt({ network: this.network });

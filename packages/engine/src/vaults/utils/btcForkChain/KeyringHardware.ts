@@ -36,7 +36,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
     const coinName = (this.vault as unknown as BTCForkVault).getCoinName();
     const addresses = unsignedTx.inputs.map((input) => input.address);
-    const utxos = await (this.vault as unknown as BTCForkVault).collectUTXOs();
+    const { utxos } = await (
+      this.vault as unknown as BTCForkVault
+    ).collectUTXOsInfo();
 
     const signers: Record<string, string> = {};
     for (const utxo of utxos) {
