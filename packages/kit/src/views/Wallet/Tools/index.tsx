@@ -102,10 +102,8 @@ const data: DataItem[] = [
     filter: ({ network, account }) =>
       !!account &&
       !account?.id.startsWith('watching-') &&
-      !!network?.settings?.supportBatchTransfer &&
-      (network.settings.nativeSupportBatchTransfer
-        ? true
-        : !!batchTransferContractAddress[network.id]),
+      network?.settings?.supportBatchTransfer &&
+      network?.settings?.supportBatchTransfer.length > 0,
   },
   {
     key: 'explorer',

@@ -26,25 +26,29 @@ import { NotSupported } from './NotSupported';
 import { TokenOutbox } from './TokenOutbox';
 import { BulkSenderTypeEnum } from './types';
 
-const emptyHeader = () => <Text />;
+import { ModelSelector } from './ModeSelector';
+
 function BulkSender() {
   const intl = useIntl();
-  const goBack = useNavigationBack();
   const navigation = useNavigation();
   const isVertical = useIsVerticalLayout();
-  const [tabbarBgColor] = useThemeValue(['background-default']);
 
-  const { accountId, networkId, accountAddress, network } =
-    useActiveWalletAccount();
+  const { accountId, networkId, network } = useActiveWalletAccount();
 
-  const isSupported =
-    network?.enabled &&
-    network?.settings.supportBatchTransfer &&
-    (network?.settings.nativeSupportBatchTransfer
+  const isSupportedOneToMany = !!(
+    network?.settings.supportBatchTransferOneToMany &&
+    (network?.settings.nativeSupportBatchTransferOneToMany
       ? true
-      : batchTransferContractAddress[networkId]);
-
-  const nativeToken = useNativeToken(networkId);
+      : batchTransferContractAddress[networkId])
+  );
+  const isSupportedManyToMany =
+    !!network?.settings.supportBatchTransferManyToMany;
+  const isSupportedManyToOne =
+    !!network?.settings.supportBatchTransferManyToOne;
+  const isSupported = !!(
+    network?.enabled &&
+    (isSupportedOneToMany || isSupportedManyToMany || isSupportedManyToOne)
+  );
 
   const { connectAndCreateExternalAccount } =
     useConnectAndCreateExternalAccount({
@@ -62,24 +66,6 @@ function BulkSender() {
     );
   }, [intl, connectAndCreateExternalAccount, accountId]);
 
-  const headerLeft = useCallback(
-    ({ tintColor }) => (
-      <HStack alignItems="center">
-        <NavigationHeaderBackButton
-          tintColor={tintColor}
-          onPress={goBack}
-          canGoBack
-        />
-        {!isVertical && (
-          <Text typography="Heading" color="text-default">
-            Bulk Send
-          </Text>
-        )}
-      </HStack>
-    ),
-    [goBack, isVertical],
-  );
-
   const headerRight = useCallback(() => {
     if (!accountId) {
       return walletConnectButton;
@@ -96,71 +82,16 @@ function BulkSender() {
       title: '',
       headerRight,
     });
-  }, [navigation, headerLeft, headerRight]);
-
-  const bulkSenderTabs = useMemo(() => {
-    const tabs = [
-      <Tabs.Tab
-        name={BulkSenderTypeEnum.NativeToken}
-        label={nativeToken?.symbol ?? ''}
-      >
-        <TokenOutbox
-          accountId={accountId}
-          networkId={networkId}
-          accountAddress={accountAddress}
-          type={BulkSenderTypeEnum.NativeToken}
-        />
-      </Tabs.Tab>,
-    ];
-
-    if (network?.settings.tokenEnabled) {
-      tabs.push(
-        <Tabs.Tab
-          name={BulkSenderTypeEnum.Token}
-          label={intl.formatMessage({ id: 'form__token' })}
-        >
-          <TokenOutbox
-            accountId={accountId}
-            networkId={networkId}
-            accountAddress={accountAddress}
-            type={BulkSenderTypeEnum.Token}
-          />
-        </Tabs.Tab>,
-      );
-    }
-    return tabs;
-  }, [
-    accountAddress,
-    accountId,
-    intl,
-    nativeToken?.symbol,
-    network?.settings.tokenEnabled,
-    networkId,
-  ]);
+  }, [navigation, headerRight]);
 
   if (!isSupported) return <NotSupported networkId={networkId} />;
 
   return (
-    <Tabs.Container
-      headerContainerStyle={{
-        width: '100%',
-        maxWidth: 768,
-      }}
-      containerStyle={{
-        width: '100%',
-        maxWidth: 768,
-        marginHorizontal: 'auto',
-        backgroundColor: tabbarBgColor,
-        alignSelf: 'center',
-        flex: 1,
-      }}
-      renderHeader={emptyHeader}
-      headerHeight={isVertical ? 0 : 30}
-      // scrollEnabled={false}
-      disableRefresh
-    >
-      {bulkSenderTabs}
-    </Tabs.Container>
+    <ModelSelector
+      isSupportedOneToMany={isSupportedOneToMany}
+      isSupportedManyToOne={isSupportedManyToOne}
+      isSupportedManyToMany={isSupportedManyToMany}
+    />
   );
 }
 

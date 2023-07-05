@@ -18,8 +18,8 @@ const settings: IVaultSettings = Object.freeze({
   watchingAccountEnabled: true,
 
   isUTXOModel: false,
-  supportBatchTransfer: true,
-  nativeSupportBatchTransfer: true,
+  supportBatchTransferOneToMany: true,
+  nativeSupportBatchTransferOneToMany: true,
   maxActionsInTx: 8,
   sendNFTEnable: true,
   accountNameInfo: {

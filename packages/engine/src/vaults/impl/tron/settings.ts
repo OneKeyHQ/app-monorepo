@@ -19,7 +19,7 @@ const settings: IVaultSettings = Object.freeze({
   isUTXOModel: false,
 
   cannotSendToSelf: true,
-  supportBatchTransfer: true,
+  supportBatchTransferOneToMany: true,
   batchTransferApprovalRequired: true,
   maxActionsInTx: 8,
   hardwareMaxActionsEnabled: true,

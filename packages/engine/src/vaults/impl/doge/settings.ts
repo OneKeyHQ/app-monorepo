@@ -21,8 +21,8 @@ const settings: IVaultSettings = Object.freeze({
   dust: '0.0099999',
 
   isUTXOModel: true,
-  supportBatchTransfer: true,
-  nativeSupportBatchTransfer: true,
+  supportBatchTransferOneToMany: true,
+  nativeSupportBatchTransferOneToMany: true,
 
   accountNameInfo: {
     default: {

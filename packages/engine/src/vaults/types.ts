@@ -121,8 +121,10 @@ export type IVaultSettings = {
   };
 
   supportFilterScam?: boolean;
-  supportBatchTransfer?: boolean;
-  nativeSupportBatchTransfer?: boolean;
+  supportBatchTransferOneToMany?: boolean;
+  nativeSupportBatchTransferOneToMany?: boolean;
+  supportBatchTransferManyToOne?: boolean;
+  supportBatchTransferManyToMany?: boolean;
   supportDeflationary?: boolean;
   batchTransferApprovalRequired?: boolean;
   batchTransferApprovalConfirmRequired?: boolean;

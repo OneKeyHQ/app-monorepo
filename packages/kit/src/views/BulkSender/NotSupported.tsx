@@ -26,8 +26,8 @@ function NotSupported({ networkId }: { networkId: string }) {
   const networkSupported = allNetworks.filter(
     (n) =>
       n.enabled &&
-      n?.settings.supportBatchTransfer &&
-      (n?.settings.nativeSupportBatchTransfer
+      n?.settings.supportBatchTransferOneToMany &&
+      (n?.settings.nativeSupportBatchTransferOneToMany
         ? true
         : batchTransferContractAddress[n.id]),
   );

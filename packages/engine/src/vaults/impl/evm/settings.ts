@@ -29,7 +29,9 @@ const settings: IVaultSettings = Object.freeze({
 
   supportDeflationary: true,
   supportFilterScam: true,
-  supportBatchTransfer: true,
+  supportBatchTransferOneToMany: true,
+  supportBatchTransferManyToMany: true,
+  supportBatchTransferManyToOne: true,
   batchTransferApprovalRequired: true,
   batchTransferApprovalConfirmRequired: true,
 

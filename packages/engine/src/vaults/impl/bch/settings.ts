@@ -20,8 +20,8 @@ const settings: IVaultSettings = Object.freeze({
   minTransferAmount: '0.00000546',
 
   isUTXOModel: true,
-  supportBatchTransfer: true,
-  nativeSupportBatchTransfer: true,
+  supportBatchTransferOneToMany: true,
+  nativeSupportBatchTransferOneToMany: true,
 
   accountNameInfo: {
     default: {
