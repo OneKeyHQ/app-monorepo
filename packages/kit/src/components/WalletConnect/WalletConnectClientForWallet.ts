@@ -134,14 +134,17 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
         error0,
       );
 
-      const doReconnect = () => {
+      const doReconnect = async () => {
         if (this.web3walletV2) {
           this.unregisterEventsV2(this.web3walletV2);
         }
         try {
-          core?.relayer?.provider?.connection?.close();
+          await core?.relayer?.provider?.connection?.close();
         } catch (error) {
-          console.error(error);
+          console.error(
+            'WalletConnect V2 doReconnect close connection ERROR: ',
+            error,
+          );
         }
         this.web3walletV2Core = undefined;
         this.web3walletV2 = undefined;
