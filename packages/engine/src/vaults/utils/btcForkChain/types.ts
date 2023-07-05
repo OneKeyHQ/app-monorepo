@@ -49,6 +49,7 @@ export type IBtcUTXO = {
   value: string;
   address: string;
   path: string;
+  forceSelect?: boolean;
 };
 
 export type IBtcUTXOInfo = {

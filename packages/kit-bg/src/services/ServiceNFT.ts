@@ -2,17 +2,22 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import * as nft from '@onekeyhq/engine/src/managers/nft';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import type {
   Collection,
   CollectionAttribute,
+  INFTAsset,
   MarketPlace,
   NFTAsset,
+  NFTAssetMeta,
+  NFTListItems,
   NFTMarketCapCollection,
   NFTMarketRanking,
   NFTPNL,
   NFTServiceResp,
   NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
+import { NFTAssetType } from '@onekeyhq/engine/src/types/nft';
 import {
   setNFTPrice,
   setNFTPriceType,
@@ -38,26 +43,29 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   async getUserNFTAssets({
-    accountId,
+    account,
     networkId,
     ignoreError = true,
   }: {
-    accountId: string;
+    account: Account;
     networkId: string;
     ignoreError?: boolean;
-  }) {
-    const apiUrl = `${this.baseUrl}/v2/list?address=${accountId}&chain=${networkId}`;
-    const { data, success } = await this.client
-      .get<NFTServiceResp<Collection[]>>(apiUrl)
+  }): Promise<NFTAssetMeta | undefined> {
+    const apiUrl = `${this.baseUrl}/v2/list?address=${account.address}&chain=${networkId}`;
+    const { data: nfts, success } = await this.client
+      .get<NFTServiceResp<NFTListItems>>(apiUrl)
       .then((resp) => resp.data)
-      .catch(() => ({ success: false, data: [] }));
-    if (!success) {
+      .catch(() => ({ success: false, data: undefined }));
+
+    if (!success || typeof nfts === 'undefined') {
       if (ignoreError) {
-        return [];
+        return undefined;
       }
       throw new OneKeyInternalError('data load error');
     }
-    return data;
+    const { engine } = this.backgroundApi;
+    const vault = await engine.getVault({ networkId, accountId: account.id });
+    return vault.getUserNFTAssets({ serviceData: nfts });
   }
 
   @backgroundMethod()
@@ -308,11 +316,11 @@ class ServiceNFT extends ServiceBase {
   }) {
     const apiUrl = `${this.baseUrl}/batchAsset`;
     const { data, success } = await this.client
-      .post<NFTServiceResp<NFTAsset[]>>(apiUrl, params)
+      .post<NFTServiceResp<INFTAsset[]>>(apiUrl, params)
       .then((resp) => resp.data)
       .catch(() => ({
         success: false,
-        data: [] as NFTAsset[],
+        data: [] as INFTAsset[],
       }));
 
     if (!success) {
@@ -368,94 +376,91 @@ class ServiceNFT extends ServiceBase {
   @backgroundMethod()
   async saveNFTs({
     networkId,
-    accountId,
+    address,
     items,
   }: {
     networkId: string;
-    accountId: string;
-    items: Collection[];
+    address: string;
+    items: NFTListItems;
   }) {
     if (!items) {
       return;
     }
-    const key = getNFTListKey(accountId, networkId);
+    const key = getNFTListKey(address, networkId);
     return simpleDb.nft.setNFTs(items, key);
   }
 
   @backgroundMethod()
-  async batchLocalCollection({
+  async getLocalNFTs({
     networkId,
-    accountId,
-    contractAddressList,
+    account,
   }: {
     networkId: string;
-    accountId: string;
-    contractAddressList: string[]; // sol:use contractName
-  }) {
-    const collections = await this.getLocalNFTs({ networkId, accountId });
-    const collectionMap: Record<string, Collection> = {};
-    contractAddressList.forEach((address) => {
-      const collection = collections.find((item) => {
-        if (networkId === OnekeyNetwork.sol) {
-          return item.contractName === address;
-        }
-        return item.contractAddress && item.contractAddress === address;
-      });
-      if (collection) {
-        collectionMap[address] = collection;
-      }
-    });
-    return collectionMap;
-  }
-
-  @backgroundMethod()
-  async getLocalNFTs(params: {
-    networkId: string;
-    accountId: string;
-  }): Promise<Collection[]> {
-    return nft.getLocalNFTs(params);
+    account: Account;
+  }): Promise<NFTAssetMeta | undefined> {
+    const key = getNFTListKey(account.address, networkId);
+    const items = await simpleDb.nft.getNFTs(key);
+    if (items) {
+      const { engine } = this.backgroundApi;
+      const vault = await engine.getVault({ networkId, accountId: account.id });
+      return vault.getUserNFTAssets({ serviceData: items });
+    }
   }
 
   @backgroundMethod()
   async fetchNFT({
-    accountId,
+    account,
     networkId,
     ignoreError = true,
   }: {
-    accountId: string;
+    account: Account;
     networkId: string;
     ignoreError?: boolean;
-  }) {
-    const collections = await this.getUserNFTAssets({
-      accountId,
+  }): Promise<NFTAssetMeta | undefined> {
+    const { dispatch } = this.backgroundApi;
+
+    const serviceData = await this.getUserNFTAssets({
+      account,
       networkId,
       ignoreError,
     });
-    const { dispatch } = this.backgroundApi;
 
-    const floorPrice = 0;
-    let lastSalePrice = 0;
-    const items = collections.map((collection) => {
-      let totalPrice = 0;
-      collection.assets = collection.assets.map((asset) => {
-        asset.collection.floorPrice = collection.floorPrice;
-        totalPrice += asset.latestTradePrice ?? 0;
-        return asset;
+    if (typeof serviceData !== 'undefined') {
+      const { data: nfts, type } = serviceData;
+      if (type === NFTAssetType.BTC) {
+        this.saveNFTs({ networkId, address: account.address, items: nfts });
+        return {
+          type,
+          data: nfts,
+        };
+      }
+      const floorPrice = 0;
+      let lastSalePrice = 0;
+
+      const items = nfts.map((collection) => {
+        let totalPrice = 0;
+        collection.assets = collection.assets.map((asset) => {
+          asset.collection.floorPrice = collection.floorPrice;
+          totalPrice += asset.latestTradePrice ?? 0;
+          return asset;
+        });
+        collection.totalPrice = totalPrice;
+        lastSalePrice += totalPrice;
+        return collection;
       });
-      collection.totalPrice = totalPrice;
-      lastSalePrice += totalPrice;
-      return collection;
-    });
 
-    dispatch(
-      setNFTPrice({
-        networkId,
-        accountId,
-        price: { 'floorPrice': floorPrice, 'lastSalePrice': lastSalePrice },
-      }),
-    );
-    this.saveNFTs({ networkId, accountId, items });
-    return items;
+      dispatch(
+        setNFTPrice({
+          networkId,
+          accountId: account.address,
+          price: { 'floorPrice': floorPrice, 'lastSalePrice': lastSalePrice },
+        }),
+      );
+      return {
+        type,
+        data: items,
+      };
+    }
   }
 
   @backgroundMethod()

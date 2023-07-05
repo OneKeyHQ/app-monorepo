@@ -1,3 +1,14 @@
+import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
+
+import { getAppNavigation } from '../../../hooks/useAppNavigation';
+import {
+  CollectiblesModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../routes/routesEnum';
+
 export function convertToMoneyFormat(number: string) {
   const absValue = Math.abs(Number(number));
   const units = [
@@ -14,3 +25,53 @@ export function convertToMoneyFormat(number: string) {
   }
   return absValue.toString();
 }
+
+function navigateToNFTCollection({
+  account,
+  network,
+  collection,
+}: {
+  account: Account;
+  network: Network;
+  collection: Collection;
+}) {
+  const navigation = getAppNavigation();
+  if (!account || !network) return;
+  navigation.navigate(RootRoutes.Modal, {
+    screen: ModalRoutes.Collectibles,
+    params: {
+      screen: CollectiblesModalRoutes.CollectionModal,
+      params: {
+        collectible: collection,
+        network,
+      },
+    },
+  });
+}
+
+function navigateToNFTDetail({
+  account,
+  network,
+  asset,
+}: {
+  account: Account;
+  network: Network;
+  asset: NFTAsset;
+}) {
+  const navigation = getAppNavigation();
+  if (!account || !network) return;
+  if (!network) return;
+  navigation.navigate(RootRoutes.Modal, {
+    screen: ModalRoutes.Collectibles,
+    params: {
+      screen: CollectiblesModalRoutes.NFTDetailModal,
+      params: {
+        asset,
+        network,
+        isOwner: true,
+      },
+    },
+  });
+}
+
+export { navigateToNFTCollection, navigateToNFTDetail };

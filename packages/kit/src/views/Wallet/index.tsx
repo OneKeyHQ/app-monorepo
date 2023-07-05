@@ -122,7 +122,7 @@ const WalletTabs: FC = () => {
           name={WalletHomeTabEnum.Collectibles}
           label={intl.formatMessage({ id: 'asset__collectibles' })}
         >
-          <NFTList />
+          <NFTList accountId={accountId} networkId={networkId} />
         </Tabs.Tab>
       ),
       <Tabs.Tab
