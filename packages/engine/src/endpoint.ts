@@ -3,7 +3,7 @@ const endpointsMap: Record<
   { prd: string; test: string }
 > = {
   fiat: {
-    prd: 'http://localhost:9000/api',
+    prd: 'https://api.onekeycn.com/api',
     test: 'https://api-sandbox.onekeytest.com/api',
     // test: 'http://127.0.0.1:9000/api',
   },

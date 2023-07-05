@@ -1547,10 +1547,12 @@ class ServiceAccount extends ServiceBase {
     const wallets = appSelector((s) => s.runtime.wallets);
     const accounts = (
       await engine.getAccounts(wallets.map((w) => w.accounts).flat())
-    ).map((n) => ({
-      ...pick(n, 'address', 'coinType', 'id', 'name', 'path', 'type'),
-      walletType: getWalletTypeFromAccountId(n.id),
-    }));
+    )
+      .map((n) => ({
+        ...pick(n, 'address', 'coinType', 'id', 'name', 'path', 'type'),
+        walletType: getWalletTypeFromAccountId(n.id),
+      }))
+      .filter((a) => !!a.address);
 
     return accounts;
   }

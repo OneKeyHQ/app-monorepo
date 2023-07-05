@@ -108,7 +108,7 @@ function generateFakeAllnetworksAccount({
     coinType: '',
     path: '',
     tokens: [],
-    address: `${index}`,
+    address: '',
   } as Account;
 }
 

@@ -126,7 +126,7 @@ export const useAccountPortfolios = <
     });
     setState({
       loading: false,
-      data: res[type] || [],
+      data: res?.[type] || [],
       updatedAt: updateInfo?.updatedAt,
     });
   }, [accountId, networkId, type, updateInfo?.updatedAt]);
