@@ -12,6 +12,7 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import type { IGasInfo } from '@onekeyhq/engine/src/types/gas';
+import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type { IFeeInfo } from '@onekeyhq/engine/src/vaults/types';
 import { estimateTxSize } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/provider/vsize';
 import { coinSelect } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
@@ -32,15 +33,27 @@ type Props = {
 } & ComponentProps<typeof Box>;
 
 const presetItemStyle = {
-  marginTop: 2,
-  paddingLeft: '16px',
-  paddingRight: '16px',
+  marginTop: 4,
+  paddingLeft: '0px',
+  paddingRight: '0px',
   paddingTop: '4px',
   paddingBottom: '4px',
   alignItems: 'center',
   height: '48px',
   bgColor: 'transparent',
 };
+
+function getPrice(price: string | EIP1559Fee, isEIP1559Enabled: boolean) {
+  if (isEIP1559Enabled) {
+    return price;
+  }
+
+  if (typeof price === 'object') {
+    return price.gasPrice ?? price.price;
+  }
+
+  return price;
+}
 
 function GasList(props: Props) {
   const { selectedNetworkId, gasInfo, isEIP1559Enabled, ...rest } = props;
@@ -82,6 +95,7 @@ function GasList(props: Props) {
             .filter(Boolean)
         : [],
     };
+
     const items = prices.map((price, index) => ({
       value: index.toString(),
       title: (
@@ -94,11 +108,7 @@ function GasList(props: Props) {
             <SendEditFeeOverview
               accountId=""
               networkId={selectedNetworkId}
-              price={
-                !isEIP1559Enabled && typeof price === 'object'
-                  ? price.gasPrice ?? price.price
-                  : price
-              }
+              price={getPrice(price, isEIP1559Enabled)}
               feeInfo={feeInfo}
               limit={limit}
               currencyProps={{ typography: 'Body1', textAlign: 'right' }}
@@ -112,11 +122,7 @@ function GasList(props: Props) {
           <FeeSpeedTip
             index={index}
             isEIP1559={isEIP1559Enabled}
-            price={
-              !isEIP1559Enabled && typeof price === 'object'
-                ? price.gasPrice ?? price.price
-                : price
-            }
+            price={getPrice(price, isEIP1559Enabled)}
             limit={limit}
             feeInfo={feeInfo}
           />
@@ -141,7 +147,12 @@ function GasList(props: Props) {
   return (
     <Box {...rest}>
       {gasInfo ? (
-        <RadioFee padding="0px" items={gasItems} name="standard fee group" />
+        <RadioFee
+          mt={2}
+          padding="0px"
+          items={gasItems}
+          name="standard fee group"
+        />
       ) : (
         <Center w="full" py={16}>
           <Spinner size="lg" />
