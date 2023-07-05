@@ -20,6 +20,7 @@ import { useAppSelector } from '../../hooks/redux';
 import { useFormOnChangeDebounced } from '../../hooks/useFormOnChangeDebounced';
 import { hasHardwareSupported } from '../../utils/localAuthentication';
 import LocalAuthenticationButton from '../LocalAuthenticationButton';
+import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 
 type FieldValues = { password: string };
 
@@ -56,7 +57,9 @@ const Validation: FC<ValidationProps> = ({
   });
   const onSubmit = handleSubmit(async (values: FieldValues) => {
     const isOk = await backgroundApiProxy.serviceApp.verifyPassword(
-      values.password,
+      encodeSensitiveText({
+        text: values.password,
+      }),
     );
     if (isOk) {
       onOk?.(values.password, false);
