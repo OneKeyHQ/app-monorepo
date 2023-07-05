@@ -18,12 +18,21 @@ export enum EMarketCellData {
 
 export const ListHeadTagsForSearch: ListHeadTagType[] = [
   {
+    id: EMarketCellData.CollectionStar,
+    minW: '52px',
+    textAlign: 'center',
+    showVerticalLayout: true,
+    showNorMalDevice: true,
+    isSearch: true,
+  },
+  {
     id: EMarketCellData.TokenInfo,
     title: 'form__name_uppercase',
     minW: '100px',
     textAlign: 'left',
     showVerticalLayout: true,
     showNorMalDevice: true,
+    isSearch: true,
   },
   {
     id: EMarketCellData.TokenPrice,
@@ -32,6 +41,7 @@ export const ListHeadTagsForSearch: ListHeadTagType[] = [
     textAlign: 'right',
     showVerticalLayout: true,
     showNorMalDevice: true,
+    isSearch: true,
   },
   {
     id: EMarketCellData.Token24hChange,
@@ -40,6 +50,7 @@ export const ListHeadTagsForSearch: ListHeadTagType[] = [
     textAlign: 'right',
     showVerticalLayout: true,
     showNorMalDevice: true,
+    isSearch: true,
   },
 ];
 
