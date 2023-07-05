@@ -214,12 +214,14 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
         <Box flex={1} flexDirection="row" alignItems="center">
           <TokenIcon size="8" token={tx.tokens?.from.token} />
           <Box ml="3" flex={1}>
-            <TransactionText>
-              <Typography.Body1 numberOfLines={2} isTruncated>
-                {formatAmount(tx.tokens?.from.amount, 4)}
-                {tx.tokens?.from.token?.symbol.toString()}
-              </Typography.Body1>
-            </TransactionText>
+            <Box flexDirection="row" alignItems="center">
+              <TransactionText>
+                <Typography.Body1 numberOfLines={2} isTruncated>
+                  {formatAmount(tx.tokens?.from.amount, 4)}
+                  {tx.tokens?.from.token?.symbol.toString()}
+                </Typography.Body1>
+              </TransactionText>
+            </Box>
             <Typography.Body2 color="text-subdued">
               {fromNetwork?.name}
             </Typography.Body2>
