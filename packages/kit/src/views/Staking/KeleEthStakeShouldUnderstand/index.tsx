@@ -21,7 +21,6 @@ import { useActiveWalletAccount, useNativeToken } from '../../../hooks';
 import { getActiveWalletAccount } from '../../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { SendModalRoutes } from '../../Send/types';
-import { useKeleMinerOverview } from '../hooks';
 
 import type { StakingRoutes, StakingRoutesParams } from '../typing';
 import type { RouteProp } from '@react-navigation/core';
@@ -36,7 +35,6 @@ export default function StakingETHNotes() {
   const navigation = useNavigation();
   const { params } = useRoute<RouteProps>();
   const { account } = useActiveWalletAccount();
-  const minerOverview = useKeleMinerOverview(params.networkId, account?.id);
   const tokenInfo = useNativeToken(params.networkId);
   const onClose = useCallback(() => {
     const parent = navigation.getParent();
@@ -94,20 +92,6 @@ export default function StakingETHNotes() {
             feeInfoEditable: true,
             feeInfoUseFeeInTx: false,
             encodedTx,
-            onSuccess: (tx, data) => {
-              // backgroundApiProxy.serviceStaking.setAccountStakingActivity({
-              //   networkId: params.networkId,
-              //   accountId: account.id,
-              //   data: {
-              //     nonce: data?.decodedTx?.nonce,
-              //     oldValue: minerOverview?.amount?.total_amount,
-              //     txid: tx.txid,
-              //     amount: params.amount,
-              //     createdAt: Date.now(),
-              //     type: 'kele',
-              //   },
-              // });
-            },
           },
         },
       });
@@ -117,7 +101,6 @@ export default function StakingETHNotes() {
     params.networkId,
     params.amount,
     navigation,
-    minerOverview?.amount?.total_amount,
     tokenInfo,
     onClose,
   ]);

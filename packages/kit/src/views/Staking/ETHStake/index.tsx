@@ -34,7 +34,6 @@ import {
   useTokenBalanceWithoutFrozen,
 } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
-import { appSelector } from '../../../store';
 import {
   addKeleTransaction,
   addTransaction,
