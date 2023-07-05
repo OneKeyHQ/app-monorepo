@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -14,9 +14,11 @@ import {
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
+import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAccountPortfolios, useNetwork } from '../../../../hooks';
 import {
   ModalRoutes,
@@ -200,11 +202,29 @@ function SendNFTList({
   );
   const isNFTSupport = isCollectibleSupportedChainId(networkId);
 
-  const { data: collectibles } = useAccountPortfolios({
+  const fetchData = useCallback(async () => {
+    if (
+      accountId &&
+      networkId &&
+      isNFTSupport &&
+      network?.settings.sendNFTEnable
+    ) {
+      await backgroundApiProxy.serviceNFT.fetchNFT({
+        accountId,
+        networkId,
+      });
+    }
+  }, [accountId, isNFTSupport, networkId, network]);
+
+  const collectibles = useAccountPortfolios({
     networkId,
     accountId,
     type: 'nfts',
-  });
+  }).data as Collection[];
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const allAssets = useMemo(
     () =>

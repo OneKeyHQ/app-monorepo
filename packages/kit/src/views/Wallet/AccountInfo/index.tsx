@@ -56,7 +56,7 @@ const SectionCopyAddress: FC = () => {
     () => !network?.settings.hiddenAddress,
     [network?.settings.hiddenAddress],
   );
-  
+
   const toAllNetworksAccountsDetail = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.ManageNetwork,
@@ -94,7 +94,7 @@ const SectionCopyAddress: FC = () => {
       </Pressable>
     );
   }
-  if(!displayAddress){
+  if (!displayAddress) {
     return null;
   }
   return (

@@ -38,7 +38,7 @@ class SimpleDb {
   serverNetworks = new SimpleDbEntityServerNetworks();
 
   accountPortfolios = new SimpleDbEntityAccountPortfolios();
-  
+
   inscribe = new SimpleDbEntityInscribe();
 }
 

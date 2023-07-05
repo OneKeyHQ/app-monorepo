@@ -443,8 +443,9 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceInscribe', { value });
+    return value;
   }
-  
+
   get serviceAllNetwork() {
     const ServiceAllNetwork =
       require('./services/ServiceAllNetwork') as typeof import('./services/ServiceAllNetwork');

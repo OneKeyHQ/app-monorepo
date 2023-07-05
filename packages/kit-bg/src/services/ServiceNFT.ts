@@ -1,6 +1,8 @@
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import * as nft from '@onekeyhq/engine/src/managers/nft';
+import { getNFTListKey } from '@onekeyhq/engine/src/managers/nft';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type {
   Collection,
@@ -9,14 +11,12 @@ import type {
   MarketPlace,
   NFTAsset,
   NFTAssetMeta,
-  NFTListItems,
   NFTMarketCapCollection,
   NFTMarketRanking,
   NFTPNL,
   NFTServiceResp,
   NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
-import { NFTAssetType } from '@onekeyhq/engine/src/types/nft';
 import {
   setNFTPriceType,
   setNFTSymbolPrice,
@@ -28,8 +28,6 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import ServiceBase from './ServiceBase';
-import { getNFTListKey } from '@onekeyhq/engine/src/managers/nft';
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 
 @backgroundClass()
 class ServiceNFT extends ServiceBase {

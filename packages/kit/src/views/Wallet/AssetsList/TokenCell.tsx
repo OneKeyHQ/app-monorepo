@@ -104,8 +104,7 @@ const TokenCell: FC<TokenCellProps> = ({
     return null;
   }
 
-  const isDisabled =
-    networkId === OnekeyNetwork.btc && !!token.address;
+  const isDisabled = networkId === OnekeyNetwork.btc && !!token.address;
 
   return (
     <Pressable.Item

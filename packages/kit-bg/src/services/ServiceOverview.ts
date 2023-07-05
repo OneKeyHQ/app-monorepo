@@ -6,6 +6,7 @@ import {
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
 import { caseSensitiveImpls } from '@onekeyhq/engine/src/managers/token';
+import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { setNFTPrice } from '@onekeyhq/kit/src/store/reducers/nft';
 import { serOverviewPortfolioUpdatedAt } from '@onekeyhq/kit/src/store/reducers/overview';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
@@ -20,6 +21,7 @@ import {
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
@@ -117,10 +119,10 @@ class ServiceOverview extends ServiceBase {
       }
     }
     const dispatchActions = [];
-    if (results.nfts?.length) {
+    if (results.nfts?.length && networkId !== OnekeyNetwork.btc) {
       let lastSalePrice = 0;
       const floorPrice = 0; // Not used
-      results.nfts = results.nfts.map((item) => {
+      results.nfts = (results.nfts as Collection[]).map((item) => {
         let totalPrice = 0;
         item.assets =
           item.assets?.map((asset) => {
