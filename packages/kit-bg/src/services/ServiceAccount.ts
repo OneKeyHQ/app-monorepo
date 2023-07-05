@@ -64,6 +64,7 @@ import {
   IMPL_COSMOS,
   IMPL_DOT,
   IMPL_FIL,
+  IMPL_NEXA,
   IMPL_XMR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
@@ -101,6 +102,7 @@ const REFRESH_ACCOUNT_IMPL = [
   IMPL_CFX,
   IMPL_DOT,
   IMPL_XMR,
+  IMPL_NEXA,
 ];
 
 @backgroundClass()
