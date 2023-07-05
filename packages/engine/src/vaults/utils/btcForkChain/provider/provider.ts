@@ -1,8 +1,16 @@
 import BigNumber from 'bignumber.js';
+import { BIP32Factory } from 'bip32';
+import { mnemonicToSeedSync } from 'bip39';
 import * as BitcoinJS from 'bitcoinjs-lib';
+import bitcoinMessage from 'bitcoinjs-message';
 import bs58check from 'bs58check';
+import { ECPairFactory } from 'ecpair';
 
-import { CKDPub, verify } from '@onekeyhq/engine/src/secret';
+import {
+  CKDPub,
+  mnemonicFromEntropy,
+  verify,
+} from '@onekeyhq/engine/src/secret';
 import { AddressEncodings } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import type {
   AddressValidation,
@@ -26,6 +34,11 @@ import { PLACEHOLDER_VSIZE, estimateTxSize, loadOPReturn } from './vsize';
 import type { Network } from './networks';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
+
+// @ts-expect-error
+const bip32 = BIP32Factory(ecc);
+// @ts-expect-error
+const ECPair = ECPairFactory(ecc);
 
 type GetAccountParams =
   | {
@@ -683,6 +696,27 @@ class Provider {
     return this.blockbook.then((client) =>
       client.getTransactionStatuses(txids),
     );
+  }
+
+  signMessage(
+    password: string,
+    entropy: Buffer,
+    path: string,
+    message: string,
+  ) {
+    const mnemonic = mnemonicFromEntropy(entropy, password);
+    const seed = mnemonicToSeedSync(mnemonic);
+    const root = bip32.fromSeed(seed);
+    const node = root.derivePath(path);
+    const keyPair = ECPair.fromWIF(node.toWIF());
+    const signature = bitcoinMessage.sign(
+      message,
+      // @ts-expect-error
+      keyPair.privateKey,
+      keyPair.compressed,
+      { segwitType: 'p2wpkh' },
+    );
+    return signature;
   }
 }
 

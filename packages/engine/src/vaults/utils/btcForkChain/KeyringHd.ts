@@ -20,6 +20,7 @@ import { getAccountDefaultByPurpose } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBUTXOAccount } from '../../../types/account';
+import type { IUnsignedMessageEvm } from '../../impl/evm/Vault';
 import type {
   IPrepareAccountByAddressIndexParams,
   IPrepareSoftwareAccountsParams,
@@ -284,5 +285,27 @@ export class KeyringHd extends KeyringHdBase {
       isCustomAddress: true,
     });
     return ret;
+  }
+
+  override async signMessage(
+    messages: IUnsignedMessageEvm[],
+    options: ISignCredentialOptions,
+  ): Promise<string[]> {
+    debugLogger.common.info('BTCFork signMessage', messages);
+    const { password = '' } = options;
+    const { entropy } = (await this.engine.dbApi.getCredential(
+      this.walletId,
+      password,
+    )) as ExportedSeedCredential;
+
+    const dbAccount = await this.getDbAccount();
+    const path = `${dbAccount.path}/0/0`;
+    const provider = await (
+      this.vault as unknown as BTCForkVault
+    ).getProvider();
+    const result = messages.map((payload: IUnsignedMessageEvm) =>
+      provider.signMessage(password, entropy, path, payload.message),
+    );
+    return result.map((i) => i.toString('hex'));
   }
 }

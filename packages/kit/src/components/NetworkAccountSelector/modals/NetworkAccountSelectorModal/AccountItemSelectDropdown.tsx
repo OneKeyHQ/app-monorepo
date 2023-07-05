@@ -8,6 +8,7 @@ import type {
   IBaseMenuOptions,
   IMenu,
 } from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
+import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../../../hooks';
@@ -28,8 +29,14 @@ const AccountItemMenu: FC<
   IMenu & {
     onChange: (value: string) => void;
     showAllUsedAddressOption: boolean;
+    showCopyAddressOption: boolean;
   }
-> = ({ onChange, showAllUsedAddressOption, ...props }) => {
+> = ({
+  onChange,
+  showAllUsedAddressOption,
+  showCopyAddressOption,
+  ...props
+}) => {
   const onPress = useCallback(
     (value: string) => {
       onChange?.(value);
@@ -39,7 +46,7 @@ const AccountItemMenu: FC<
 
   const options = useMemo<IBaseMenuOptions>(
     () => [
-      {
+      showCopyAddressOption && {
         id: 'action__copy_address',
         onPress: () => onPress('copy'),
         icon: 'Square2StackOutline',
@@ -101,6 +108,7 @@ function AccountItemSelectDropdown({
 
   const [showAllUsedAddressOption, setShowAllUsedAddressOption] =
     useState(false);
+  const [showCopyAddressOption, setShowCopyAddressOption] = useState(false);
 
   useEffect(() => {
     if (network?.id) {
@@ -108,6 +116,7 @@ function AccountItemSelectDropdown({
         (i) => i.id === network.id,
       )?.settings;
       setShowAllUsedAddressOption(networkSettings?.isBtcForkChain ?? false);
+      setShowCopyAddressOption(network.impl !== IMPL_LIGHTNING);
     }
   }, [network, networks]);
 
@@ -204,6 +213,7 @@ function AccountItemSelectDropdown({
       <AccountItemMenu
         onChange={handleChange}
         showAllUsedAddressOption={showAllUsedAddressOption}
+        showCopyAddressOption={showCopyAddressOption}
       >
         <IconButton
           name="EllipsisVerticalMini"

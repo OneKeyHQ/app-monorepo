@@ -68,7 +68,8 @@ function checkIsValidHistoryTxId({
 
 // TODO rename ExtraInfoBox
 export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
-  const { decodedTx, historyTx, feeInput, isSendConfirm } = props;
+  const { decodedTx, historyTx, feeInput, isSendConfirm, isHistoryDetail } =
+    props;
   const { network } = useNetwork({ networkId: decodedTx.networkId });
   const details: ITxActionElementDetail[] = [];
   const intl = useIntl();
@@ -86,15 +87,17 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
       content: `${new BigNumber(decodedTx.nonce).toFixed()}`,
     });
   }
-  details.push({
-    title: intl.formatMessage({ id: 'content__fee' }),
-    content:
-      feeInput ||
-      getFeeInNativeText({
-        network,
-        decodedTx,
-      }),
-  });
+  if (!network?.settings.hiddenFeeOnTxDetail || isHistoryDetail) {
+    details.push({
+      title: intl.formatMessage({ id: 'content__fee' }),
+      content:
+        feeInput ||
+        getFeeInNativeText({
+          network,
+          decodedTx,
+        }),
+    });
+  }
   if (
     checkIsValidHistoryTxId({
       txid: decodedTx.txid,
@@ -161,6 +164,8 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
       }
     });
   }
+
+  if (!details.length) return null;
 
   return <TxDetailActionBox details={details} />;
 }
