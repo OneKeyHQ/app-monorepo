@@ -28,6 +28,7 @@ import { wait } from '../../utils/helper';
 import { showSplashScreen } from '../../views/Overlay/showSplashScreen';
 
 import AppStateUnlockButton from './AppStateUnlockButton';
+import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 
 const ForgetPasswordButton = () => {
   const intl = useIntl();
@@ -114,7 +115,7 @@ export const AppStateUnlock = () => {
   }, []);
 
   const onUnlock = useCallback(async () => {
-    const isOk = await doUnlockAction(password);
+    const isOk = await doUnlockAction(encodeSensitiveText({ text: password }));
     if (isOk) {
       if (platformEnv.isNativeAndroid) {
         Keyboard.dismiss();
