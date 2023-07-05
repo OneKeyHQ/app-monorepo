@@ -51,6 +51,14 @@ export type Token = HasName & {
   riskLevel?: TokenRiskLevel;
 };
 
+export type IAccountTokenData = Token & {
+  price: number;
+  balance: string;
+  value: string;
+  usdValue: string;
+  value24h: string;
+};
+
 export type Tool = {
   networkId: string;
   title: LocaleIds;

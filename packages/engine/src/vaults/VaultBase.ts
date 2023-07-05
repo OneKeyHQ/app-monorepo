@@ -3,6 +3,7 @@
 
 import BigNumber from 'bignumber.js';
 import { get, isNil } from 'lodash';
+import uuidLib from 'react-native-uuid';
 
 import type {
   BaseClient,
@@ -301,6 +302,8 @@ TODO
   - merge tokenInfo
  */
 export abstract class VaultBase extends VaultBaseChainOnly {
+  uuid: string = uuidLib.v4().toString();
+
   keyring!: KeyringBase;
 
   helper!: VaultHelperBase;

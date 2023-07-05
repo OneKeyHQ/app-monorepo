@@ -11,7 +11,7 @@ export const NFTChainMap: Record<string, string> = {
   [OnekeyNetwork.avalanche]: 'avalanche',
 };
 
-export type ERCType = 'erc721' | 'erc1155';
+export type IErcNftType = 'erc721' | 'erc1155';
 
 export type Traits = {
   traitType: string;
@@ -65,7 +65,7 @@ export type NFTAsset = {
   contractName?: string;
   contractTokenId?: string;
   tokenId?: string; // evm
-  ercType?: string;
+  ercType?: IErcNftType;
   amount?: string;
   owner: string;
   tokenUri: string | null;

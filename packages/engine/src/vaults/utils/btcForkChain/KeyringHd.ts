@@ -5,6 +5,7 @@ import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import {
   COINTYPE_BCH,
   COINTYPE_DOGE,
+  IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -53,7 +54,9 @@ export class KeyringHd extends KeyringHdBase {
     addresses: Array<string>,
   ): Promise<Record<string, Signer>> {
     const relPathToAddresses: Record<string, string> = {};
-    const utxos = await (this.vault as unknown as BTCForkVault).collectUTXOs();
+    const { utxos } = await (
+      this.vault as unknown as BTCForkVault
+    ).collectUTXOsInfo();
     for (const utxo of utxos) {
       const { address, path } = utxo;
       if (addresses.includes(address)) {
@@ -70,8 +73,28 @@ export class KeyringHd extends KeyringHdBase {
     const privateKeys = await this.getPrivateKeys(password, relPaths);
     const ret: Record<string, Signer> = {};
     for (const [path, privateKey] of Object.entries(privateKeys)) {
-      const address = relPathToAddresses[path];
-      ret[address] = new Signer(privateKey, password, 'secp256k1');
+      let address = relPathToAddresses[path];
+
+      // fix blockbook utxo path to match local account path
+      if ((await this.getNetworkImpl()) === IMPL_TBTC) {
+        if (!address) {
+          const fixedPath = path.replace(`m/86'/0'/`, `m/86'/1'/`);
+          address = relPathToAddresses[fixedPath];
+        }
+        if (!address) {
+          const fixedPath = path.replace(`m/86'/1'/`, `m/86'/0'/`);
+          address = relPathToAddresses[fixedPath];
+        }
+      }
+
+      const signer = new Signer(privateKey, password, 'secp256k1');
+
+      // TODO generate address from privateKey, and check if matched with utxo address
+      const addressFromPrivateKey = address;
+      if (addressFromPrivateKey !== address) {
+        throw new Error('addressFromPrivateKey and utxoAddress not matched');
+      }
+      ret[address] = signer;
     }
     return ret;
   }

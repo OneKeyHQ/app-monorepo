@@ -2,11 +2,16 @@ import * as bitcoin from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import ECPairFactory from 'ecpair';
 
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+
 import { Provider as BaseProvider } from '../../utils/btcForkChain/provider';
 import ecc from '../../utils/btcForkChain/provider/nobleSecp256k1Wrapper';
 
 import type { Network } from '../../utils/btcForkChain/provider/networks';
-import type { Signer } from '../../utils/btcForkChain/types';
+import type {
+  ICollectUTXOsOptions,
+  Signer,
+} from '../../utils/btcForkChain/types';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { Signer as BitcoinSigner } from 'bitcoinjs-lib';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
@@ -53,6 +58,22 @@ export function tweakSigner(
 }
 
 export default class Provider extends BaseProvider {
+  override getUTXOs = memoizee(
+    async (xpub: string, options: ICollectUTXOsOptions = {}) =>
+      this.blockbook.then((client) =>
+        client.getUTXOsFromBackendApi({
+          xpub,
+          impl: this.chainInfo.impl,
+          options,
+        }),
+      ),
+    {
+      promise: true,
+      max: 1,
+      maxAge: 1000 * 30,
+    },
+  );
+
   override async getBitcoinSigner(
     signer: Signer,
     input: PsbtInput,

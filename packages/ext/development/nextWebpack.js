@@ -44,6 +44,7 @@ function nextWebpack(
       test: /\.(png|jpg|jpeg|gif|webp|ico|bmp|svg)$/i,
        */
       nextWithTM,
+      // ----------------------------------------------
       /* support react-native web building
       test: /\.html$/,
       test: /\.(mjs|[jt]sx?)$/,

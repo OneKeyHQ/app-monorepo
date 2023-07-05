@@ -120,14 +120,14 @@ function PreSendAddress() {
   useEffect(() => {
     (async () => {
       if (isNFT) {
-        const { tokenId } = transferInfo;
-        if (tokenId) {
+        const { nftTokenId } = transferInfo;
+        if (nftTokenId) {
           const contractAddress = transferInfo.token;
           const asset = await serviceNFT.getAsset({
             accountId: account?.address ?? '',
             networkId,
             contractAddress,
-            tokenId,
+            tokenId: nftTokenId,
             local: true,
           });
           updateNFTInfo(asset);
@@ -135,7 +135,7 @@ function PreSendAddress() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transferInfo.tokenId, transferInfo.token]);
+  }, [transferInfo.nftTokenId, transferInfo.token]);
 
   const [validateMessage, setvalidateMessage] = useState({
     warningMessage: '',
@@ -255,7 +255,7 @@ function PreSendAddress() {
             accountId: account?.address ?? '',
             networkId,
             contractAddress: transferInfos[i].token,
-            tokenId: transferInfos[i].tokenId ?? '',
+            tokenId: transferInfos[i].nftTokenId ?? '',
             local: true,
           });
           nftInfos.push({
