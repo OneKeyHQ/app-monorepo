@@ -172,6 +172,7 @@ function normalizeConfig({ platform, config }) {
     ['@babel/plugin-proposal-private-property-in-object', { 'loose': true }],
     ['@babel/plugin-proposal-export-namespace-from'],
     ['@babel/plugin-proposal-nullish-coalescing-operator'],
+    ['@babel/plugin-proposal-class-static-block'],
     moduleResolver && ['module-resolver', moduleResolver],
   ].filter(Boolean);
 

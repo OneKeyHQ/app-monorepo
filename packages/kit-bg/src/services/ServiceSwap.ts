@@ -8,6 +8,7 @@ import { formatServerToken } from '@onekeyhq/engine/src/managers/token';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
@@ -218,7 +219,7 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setSendingAccountSimple(account: Account) {
+  async setSendingAccountSimple(account: Account | null) {
     const { dispatch } = this.backgroundApi;
     dispatch(setSendingAccount(account));
   }
@@ -413,6 +414,25 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async handleWalletRemove(wallet: Wallet) {
+    if (wallet && wallet.accounts.length > 0) {
+      const { appSelector, dispatch } = this.backgroundApi;
+      const sendingAccount = appSelector((s) => s.swap.sendingAccount);
+      if (sendingAccount && wallet.accounts.includes(sendingAccount?.id)) {
+        dispatch(setSendingAccount(undefined));
+      }
+      const recipient = appSelector((s) => s.swap.recipient);
+      if (
+        recipient &&
+        recipient.accountId &&
+        wallet.accounts.includes(recipient.accountId)
+      ) {
+        dispatch(setRecipient(undefined));
+      }
+    }
+  }
+
+  @backgroundMethod()
   async setSendingAccountByNetwork(
     network?: Network,
   ): Promise<Account | undefined> {
@@ -446,6 +466,11 @@ export default class ServiceSwap extends ServiceBase {
       if (!activeWallet || !activeNetwork) {
         return;
       }
+    }
+
+    if (activeWallet.type === 'watching') {
+      dispatch(setSendingAccount(null));
+      return;
     }
 
     const accounts = await engine.getAccounts(

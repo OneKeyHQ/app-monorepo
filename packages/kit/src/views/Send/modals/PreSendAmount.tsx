@@ -141,7 +141,7 @@ function PreSendAmount() {
     accountId,
     token: {
       ...tokenInfo,
-      sendAddress: transferInfo.sendAddress,
+      sendAddress: transferInfo.tokenSendAddress,
     },
     fallback: '0',
   });
@@ -157,7 +157,7 @@ function PreSendAmount() {
     accountId,
     token: {
       ...tokenInfo,
-      sendAddress: transferInfo.sendAddress,
+      sendAddress: transferInfo.tokenSendAddress,
     },
     fallback: '0',
   });
@@ -340,7 +340,7 @@ function PreSendAmount() {
               network,
               token: {
                 ...tokenInfo,
-                sendAddress: transferInfo.sendAddress,
+                sendAddress: transferInfo.tokenSendAddress,
                 idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
               },
               to: transferInfo.to,
@@ -423,7 +423,7 @@ function PreSendAmount() {
                     id: tokenInfo?.id ?? '',
                     name: tokenInfo?.name ?? '',
                     ...(tokenInfo || {}),
-                    sendAddress: transferInfo.sendAddress,
+                    sendAddress: transferInfo.tokenSendAddress,
                   }}
                   render={(ele) => (
                     <Typography.Body1Strong

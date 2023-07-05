@@ -81,16 +81,18 @@ function GasList(props: Props) {
       nativeDecimals: network.decimals,
       isBtcForkChain: network.settings.isBtcForkChain,
       feeList: network?.settings.isBtcForkChain
-        ? prices.map(
-            (price) =>
-              coinSelect({
-                inputsForCoinSelect: btcMockInputs,
-                outputsForCoinSelect: btcMockOutputs,
-                feeRate: new BigNumber(price as string)
-                  .shiftedBy(network.feeDecimals)
-                  .toFixed(),
-              }).fee,
-          )
+        ? prices
+            .map(
+              (price) =>
+                coinSelect({
+                  inputsForCoinSelect: btcMockInputs,
+                  outputsForCoinSelect: btcMockOutputs,
+                  feeRate: new BigNumber(price as string)
+                    .shiftedBy(network.feeDecimals)
+                    .toFixed(),
+                }).fee,
+            )
+            .filter(Boolean)
         : [],
     };
 

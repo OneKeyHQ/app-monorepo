@@ -6,7 +6,10 @@ import natsort from 'natsort';
 import { useAsync } from 'react-async-hook';
 
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
-import type { Token } from '@onekeyhq/engine/src/types/token';
+import type {
+  IAccountTokenData,
+  Token,
+} from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
@@ -81,7 +84,7 @@ export function useAccountTokens(
   networkId = '',
   accountId = '',
   useFilter = false,
-) {
+): Array<IAccountTokenData> {
   const {
     hideRiskTokens,
     hideSmallBalance,
@@ -98,7 +101,7 @@ export function useAccountTokens(
   );
   const prices = useAppSelector((s) => s.tokens.tokenPriceMap ?? {});
 
-  const valueTokens = tokens
+  const valueTokens: IAccountTokenData[] = tokens
     .map((t) => {
       const priceInfo =
         prices[`${networkId}${t.address ? '-' : ''}${t.address ?? ''}`];
@@ -112,7 +115,7 @@ export function useAccountTokens(
           vsCurrency: selectedFiatMoneySymbol,
         })[selectedFiatMoneySymbol] ?? 0,
       );
-      const info = {
+      const info: IAccountTokenData = {
         ...t,
         price,
         balance,

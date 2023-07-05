@@ -500,7 +500,13 @@ export default class Vault extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('Invalid transferInfo.to params');
     }
-    const { from, to, amount, token: tokenAddress, sendAddress } = transferInfo;
+    const {
+      from,
+      to,
+      amount,
+      token: tokenAddress,
+      tokenSendAddress,
+    } = transferInfo;
     const network = await this.getNetwork();
     const client = await this.getClient();
     const token = await this.engine.ensureTokenInDB(
@@ -543,8 +549,8 @@ export default class Vault extends VaultBase {
         );
       }
 
-      const source = sendAddress
-        ? new PublicKey(sendAddress)
+      const source = tokenSendAddress
+        ? new PublicKey(tokenSendAddress)
         : await getAssociatedTokenAddress(mint, feePayer);
       nativeTx.add(
         createTransferCheckedInstruction(
@@ -619,7 +625,12 @@ export default class Vault extends VaultBase {
     nativeTx.feePayer = feePayer;
 
     for (let i = 0; i < transferInfos.length; i += 1) {
-      const { token: tokenAddress, amount, to, sendAddress } = transferInfos[i];
+      const {
+        token: tokenAddress,
+        amount,
+        to,
+        tokenSendAddress,
+      } = transferInfos[i];
       const receiver = new PublicKey(to || firstReceiver);
 
       const token = await this.engine.ensureTokenInDB(
@@ -655,8 +666,8 @@ export default class Vault extends VaultBase {
           );
         }
 
-        const source = sendAddress
-          ? new PublicKey(sendAddress)
+        const source = tokenSendAddress
+          ? new PublicKey(tokenSendAddress)
           : await getAssociatedTokenAddress(mint, feePayer);
         nativeTx.add(
           createTransferCheckedInstruction(
