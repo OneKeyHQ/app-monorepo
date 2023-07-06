@@ -1,6 +1,6 @@
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
-import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
+import type { Collection, INFTAsset } from '@onekeyhq/engine/src/types/nft';
 
 import { getAppNavigation } from '../../../hooks/useAppNavigation';
 import {
@@ -56,7 +56,7 @@ function navigateToNFTDetail({
 }: {
   account: Account;
   network: Network;
-  asset: NFTAsset;
+  asset: INFTAsset;
 }) {
   const navigation = getAppNavigation();
   if (!account || !network) return;

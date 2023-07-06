@@ -101,15 +101,4 @@ export default class Vault extends VaultBtcFork {
     }
     return Promise.resolve([]);
   }
-
-  override async getUserNFTAssets({
-    serviceData,
-  }: {
-    serviceData: NFTListItems;
-  }): Promise<NFTAssetMeta | undefined> {
-    return Promise.resolve({
-      type: NFTAssetType.BTC,
-      data: serviceData as NFTBTCAssetModel[],
-    });
-  }
 }
