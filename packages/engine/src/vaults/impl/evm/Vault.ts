@@ -405,7 +405,6 @@ export default class Vault extends VaultBase {
       owner: address,
       signer: encodedTx.from || address,
       nonce: new BigNumber(encodedTx.nonce ?? 0).toNumber(),
-      data: decodedTxLegacy.data,
       actions: [...extraActions],
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,

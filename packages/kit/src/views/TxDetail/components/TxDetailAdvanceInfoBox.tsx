@@ -9,6 +9,7 @@ import {
   IconButton,
   Text,
 } from '@onekeyhq/components';
+import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 
 import { TxDetailActionBox } from './TxDetailActionBox';
 import { TxDetailHexDataMoreMenu } from './TxDetailHexDataMoreMenu';
@@ -29,12 +30,12 @@ function TxDetailAdvanceInfoBox(props: ITxActionListViewProps) {
     });
   }
 
-  if (decodedTx.data) {
+  if ((decodedTx.encodedTx as IEncodedTxEvm)?.data) {
     details.push({
       title: intl.formatMessage({ id: 'form__hex_data' }),
       content: (
         <Text numberOfLines={1} typography="Body2Strong">
-          {decodedTx.data}
+          {(decodedTx.encodedTx as IEncodedTxEvm)?.data}
         </Text>
       ),
       extra: (

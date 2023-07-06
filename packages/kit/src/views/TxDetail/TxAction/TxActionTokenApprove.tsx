@@ -75,7 +75,7 @@ export function getTxActionTokenApproveInfo(props: ITxActionCardProps) {
 }
 
 export function TxActionTokenApprove(props: ITxActionCardProps) {
-  const { action, decodedTx, meta, network } = props;
+  const { action, decodedTx, meta, network, isShortenAddress = false } = props;
   const { accountId, networkId } = decodedTx;
   const navigation = useNavigation<NavigationProps>();
   const intl = useIntl();
@@ -152,7 +152,10 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
     {
       title: intl.formatMessage({ id: 'content__token_approve_owner' }),
       content: (
-        <TxActionElementAddressNormal address={tokenApprove?.owner ?? ''} />
+        <TxActionElementAddressNormal
+          address={tokenApprove?.owner ?? ''}
+          isShorten={isShortenAddress}
+        />
       ),
     },
     {
@@ -161,6 +164,7 @@ export function TxActionTokenApprove(props: ITxActionCardProps) {
         address: tokenApprove?.spender || '',
         networkId: network?.id,
         withSecurityInfo: true,
+        isShorten: isShortenAddress,
       }),
     },
   ].filter(Boolean);

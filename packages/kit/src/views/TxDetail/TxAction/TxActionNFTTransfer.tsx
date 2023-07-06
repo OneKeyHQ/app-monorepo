@@ -158,7 +158,7 @@ export function getTxActionNFTInfo(props: ITxActionCardProps) {
 }
 
 export function TxActionNFTTransfer(props: ITxActionCardProps) {
-  const { meta, network } = props;
+  const { meta, network, isShortenAddress = false } = props;
   const intl = useIntl();
   const { symbol, send, receive, isOut, asset } = getTxActionNFTInfo(props);
   const navigation = useNavigation();
@@ -170,6 +170,7 @@ export function TxActionNFTTransfer(props: ITxActionCardProps) {
         address: send,
         networkId: network?.id,
         withSecurityInfo: !isOut,
+        isShorten: isShortenAddress,
       }),
     },
     {
@@ -178,6 +179,7 @@ export function TxActionNFTTransfer(props: ITxActionCardProps) {
         address: receive,
         networkId: network?.id,
         withSecurityInfo: isOut,
+        isShorten: isShortenAddress,
       }),
     },
   ];

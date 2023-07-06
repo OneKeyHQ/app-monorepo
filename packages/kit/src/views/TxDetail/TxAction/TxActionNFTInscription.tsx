@@ -107,7 +107,7 @@ export function getTxActionInscriptionInfo(props: ITxActionCardProps) {
 }
 
 export function TxActionNFTInscription(props: ITxActionCardProps) {
-  const { action, meta, network } = props;
+  const { action, meta, network, isShortenAddress = false } = props;
   const intl = useIntl();
   const { send, receive, isOut, asset } = getTxActionInscriptionInfo(props);
   const navigation = useNavigation();
@@ -119,6 +119,7 @@ export function TxActionNFTInscription(props: ITxActionCardProps) {
         address: send,
         networkId: network?.id,
         withSecurityInfo: !isOut,
+        isShorten: isShortenAddress,
       }),
     },
     {
@@ -127,6 +128,7 @@ export function TxActionNFTInscription(props: ITxActionCardProps) {
         address: receive,
         networkId: network?.id,
         withSecurityInfo: isOut,
+        isShorten: isShortenAddress,
       }),
     },
   ];

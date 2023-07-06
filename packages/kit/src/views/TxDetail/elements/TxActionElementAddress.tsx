@@ -1,16 +1,33 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Divider, HStack, Icon, Text, VStack } from '@onekeyhq/components';
+import {
+  Divider,
+  HStack,
+  Icon,
+  IconButton,
+  Text,
+  VStack,
+} from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useNetwork } from '../../../hooks';
 import { useClipboard } from '../../../hooks/useClipboard';
+import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { GoPlusSecurityItems } from '../../ManageTokens/components/GoPlusAlertItems';
 import { useAddressSecurityInfo } from '../../ManageTokens/hooks';
 import { showAddressPoisoningScamAlert } from '../../Overlay/AddressPoisoningScamAlert';
+import BaseMenu from '../../Overlay/BaseMenu';
 
-import { TxActionElementPressable } from './TxActionElementPressable';
+import type { IBaseMenuOptions, IMenu } from '../../Overlay/BaseMenu';
+
+interface AddressMoreMenuProps extends IMenu {
+  address: string;
+  networkId?: string;
+  isCopy?: boolean;
+  amount?: string;
+}
 
 export function useAddressLabel({ address }: { address: string }) {
   const [label, setLabel] = useState('');
@@ -25,6 +42,41 @@ export function useAddressLabel({ address }: { address: string }) {
     })();
   }, [address]);
   return label;
+}
+
+function TxActionElementAddressMoreMenu(props: AddressMoreMenuProps) {
+  const { networkId, address, amount, isCopy, ...rest } = props;
+  const { network } = useNetwork({ networkId });
+  const openBlockBrowser = useOpenBlockBrowser(network);
+  const { copyText } = useClipboard();
+  const handleCopyText = useCallback(
+    (addressToCopy: string) => {
+      if (amount === '0') {
+        showAddressPoisoningScamAlert(address);
+      } else {
+        copyText(addressToCopy);
+      }
+    },
+    [address, amount, copyText],
+  );
+
+  const options = useMemo(() => {
+    const baseOptions: IBaseMenuOptions = [
+      isCopy && {
+        id: 'action__copy_address',
+        onPress: () => handleCopyText(address),
+      },
+      openBlockBrowser.hasAvailable && {
+        id: 'action__view_in_browser',
+        onPress: () => openBlockBrowser.openAddressDetails(address),
+      },
+    ];
+    return baseOptions.filter(Boolean);
+  }, [address, handleCopyText, isCopy, openBlockBrowser]);
+
+  if (options.length === 0) return null;
+
+  return <BaseMenu options={options} {...rest} />;
 }
 
 export function TxActionElementAddress(
@@ -55,57 +107,44 @@ export function TxActionElementAddress(
     networkId ?? '',
     shouldCheckSecurity ? address : '',
   );
-  const { copyText } = useClipboard();
+
   const label = useAddressLabel({ address });
   let text = isShorten ? shortenAddress(address) : address;
   if (label && isLabelShow) {
     text = `${label}(${address.slice(-4)})`;
   }
 
-  const handleCopyText = useCallback(
-    (addressToCopy: string) => {
-      if (amount === '0') {
-        showAddressPoisoningScamAlert(address);
-      } else {
-        copyText(addressToCopy);
-      }
-    },
-    [address, amount, copyText],
-  );
-
   return (
     <VStack flex={flex}>
-      <TxActionElementPressable
-        onPress={
-          isCopy
-            ? () => {
-                handleCopyText(address);
-              }
-            : undefined
-        }
-        icon={
-          isCopy ? <Icon name="Square2StackOutline" size={20} /> : undefined
-        }
-      >
-        <HStack alignItems="center">
-          {securityInfo?.length ? (
-            <Icon
-              name="ShieldExclamationMini"
-              size={20}
-              color="icon-critical"
-            />
-          ) : null}
-          <Text
-            ml={securityInfo?.length ? 1 : 0}
-            isTruncated
-            maxW="300px"
-            {...others}
-            color={securityInfo?.length ? 'text-critical' : 'text-default'}
-          >
-            {text}
-          </Text>
-        </HStack>
-      </TxActionElementPressable>
+      <HStack alignItems="flex-start" space={1}>
+        {securityInfo?.length ? (
+          <Icon name="ShieldExclamationMini" size={20} color="icon-critical" />
+        ) : null}
+        <Text
+          ml={securityInfo?.length ? 1 : 0}
+          isTruncated
+          numberOfLines={2}
+          flex={1}
+          {...others}
+          color={securityInfo?.length ? 'text-critical' : 'text-default'}
+        >
+          {text}
+        </Text>
+        <TxActionElementAddressMoreMenu
+          networkId={networkId}
+          address={address}
+          amount={amount}
+          isCopy={isCopy}
+        >
+          <IconButton
+            circle
+            mt="-6px"
+            type="plain"
+            iconSize={18}
+            name="EllipsisVerticalOutline"
+          />
+        </TxActionElementAddressMoreMenu>
+      </HStack>
       {shouldCheckSecurity && !loading && securityInfo?.length ? (
         <VStack mt="2">
           <GoPlusSecurityItems items={securityInfo ?? []} />
@@ -156,6 +195,7 @@ export function getTxActionElementAddressWithSecurityInfo({
     <TxActionElementAddress
       typography={typography}
       address={address}
+      networkId={networkId}
       amount={amount}
       isCopy={isCopy}
       isShorten={isShorten}

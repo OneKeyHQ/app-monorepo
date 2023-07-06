@@ -626,8 +626,6 @@ export type IDecodedTx = {
 
   interactInfo?: IDecodedTxInteractInfo;
 
-  data?: string;
-
   // TODO use nativeTx & decodedTx in frontend UI render
   extraInfo:
     | IDecodedTxExtraNear

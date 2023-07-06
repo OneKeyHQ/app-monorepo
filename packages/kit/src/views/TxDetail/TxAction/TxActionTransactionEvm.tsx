@@ -14,7 +14,8 @@ import {
 import type { ITxActionCardProps, ITxActionElementDetail } from '../types';
 
 export function TxActionTransactionEvm(props: ITxActionCardProps) {
-  const { decodedTx, action, meta, network } = props;
+  const { decodedTx, action, meta, network, isShortenAddress = false } = props;
+
   const encodedTx =
     (decodedTx.encodedTx as IEncodedTxEvm | undefined) || action.evmInfo;
   const intl = useIntl();
@@ -27,6 +28,7 @@ export function TxActionTransactionEvm(props: ITxActionCardProps) {
             address: encodedTx.from || '',
             networkId: network?.id,
             withSecurityInfo: false,
+            isShorten: isShortenAddress,
           }),
         }
       : null,
@@ -37,6 +39,7 @@ export function TxActionTransactionEvm(props: ITxActionCardProps) {
             address: encodedTx.to || '',
             networkId: network?.id,
             withSecurityInfo: true,
+            isShorten: isShortenAddress,
           }),
         }
       : null,

@@ -43,6 +43,7 @@ export type ITxActionCardProps = {
   meta?: ITxActionMeta;
   intl: IntlShape;
   network?: Network | null;
+  isShortenAddress?: boolean;
 };
 
 export type ITxActionAmountProps = ComponentProps<typeof Text> & {

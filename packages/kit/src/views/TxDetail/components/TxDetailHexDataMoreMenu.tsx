@@ -21,7 +21,6 @@ export const TxDetailHexDataMoreMenu: FC<Props> = (props) => {
         id: 'action__copy',
         onPress: () =>
           copyText((decodedTx.encodedTx as IEncodedTxEvm)?.data ?? ''),
-        icon: 'Square2StackOutline',
       },
     ];
     return baseOptions;
