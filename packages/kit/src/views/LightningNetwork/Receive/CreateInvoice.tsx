@@ -202,10 +202,10 @@ const CreateInvoice = () => {
               formControlProps={{ width: 'full' }}
               rules={{
                 maxLength: {
-                  value: 60,
+                  value: 40,
                   message: intl.formatMessage(
                     { id: 'msg_description_can_be_up_to_int_characters' },
-                    { 0: '60' },
+                    { 0: '40' },
                   ),
                 },
               }}
