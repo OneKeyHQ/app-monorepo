@@ -156,6 +156,9 @@ export function useNavigationActions() {
         OnekeyNetwork.btc,
         OnekeyNetwork.doge,
         OnekeyNetwork.ltc,
+        OnekeyNetwork.bch,
+        OnekeyNetwork.lightning,
+        OnekeyNetwork.tbtc,
       ];
       if (skipSelectTokenNetwork.includes(networkId)) {
         navigation.navigate(RootRoutes.Modal, {
