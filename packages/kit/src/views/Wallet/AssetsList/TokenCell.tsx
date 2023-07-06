@@ -11,32 +11,28 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import {
   FormatBalance,
   FormatCurrencyNumber,
 } from '../../../components/Format';
-import { useActiveSideAccount, useAppSelector } from '../../../hooks';
-import {
-  useSimpleTokenPriceInfo,
-  useSimpleTokenPriceValue,
-} from '../../../hooks/useManegeTokenPrice';
-import { useTokenBalance } from '../../../hooks/useTokens';
-import { calculateGains, getPreBaseValue } from '../../../utils/priceUtils';
+import { useActiveSideAccount } from '../../../hooks';
+import { calculateGains } from '../../../utils/priceUtils';
 
-type TokenCellProps = TokenType & {
+import type { IAccountToken } from '../../Overview/types';
+
+type TokenCellProps = IAccountToken & {
   borderTopRadius?: string | number;
   borderRadius?: string | number;
   borderTopWidth?: string | number;
   borderBottomWidth?: string | number;
   hidePriceInfo?: boolean;
-  onPress?: (token: TokenType) => void;
+  onPress?: (token: IAccountToken) => void;
   bg?: string;
   borderColor?: string;
   accountId: string;
   networkId: string;
-  tokenIdOnNetwork: string;
   sendAddress?: string;
   autoDetected?: boolean;
 };
@@ -53,29 +49,15 @@ const TokenCell: FC<TokenCellProps> = ({
   ...token
 }) => {
   const isVerticalLayout = useIsVerticalLayout();
-  const { networkId } = token;
-  const balance = useTokenBalance({
-    accountId,
-    networkId,
-    token,
-    fallback: '0',
-  });
+  const { networkId, balance, price, price24h } = token;
   const { network } = useActiveSideAccount({ accountId, networkId });
-  const tokenId = token?.tokenIdOnNetwork || 'main';
-  const priceInfo = useSimpleTokenPriceInfo({
-    contractAdress: token?.tokenIdOnNetwork,
-    networkId,
-  });
-  const price = useSimpleTokenPriceValue({
-    contractAdress: token?.tokenIdOnNetwork,
-    networkId,
-  });
-  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
-  const basePrice = getPreBaseValue({ priceInfo, vsCurrency });
+  const tokenId = token?.address || 'main';
 
-  const { percentageGain, gainTextBg, gainTextColor } = calculateGains({
-    basePrice: basePrice[vsCurrency],
+  const { gainTextBg, percentageGain, gainTextColor } = calculateGains({
     price,
+    basePrice: new BigNumber(price)
+      .multipliedBy(1 - (price24h ?? 0) / 100)
+      .toNumber(),
   });
 
   const decimal =
@@ -109,7 +91,7 @@ const TokenCell: FC<TokenCellProps> = ({
   }, [balance, decimal, token?.symbol]);
 
   const handlePress = useCallback(
-    (t: TokenType) => {
+    (t: IAccountToken) => {
       onPress?.({
         ...t,
         sendAddress: token?.sendAddress,
@@ -122,6 +104,8 @@ const TokenCell: FC<TokenCellProps> = ({
     return null;
   }
 
+  const isDisabled = networkId === OnekeyNetwork.btc && !!token.address;
+
   return (
     <Pressable.Item
       p={4}
@@ -131,12 +115,16 @@ const TokenCell: FC<TokenCellProps> = ({
       borderRadius={borderRadius}
       borderWidth={1}
       borderColor={borderColor}
+      borderLeftColor="border-subdued"
+      borderRightColor="border-subdued"
+      borderBottomColor="border-subdued"
       borderTopWidth={borderTopWidth}
       borderBottomWidth={borderBottomWidth}
       onPress={() => handlePress(token)}
       w="100%"
       flexDirection="row"
       alignItems="center"
+      isDisabled={isDisabled}
     >
       <Box flex={1}>
         <Token
@@ -155,7 +143,7 @@ const TokenCell: FC<TokenCellProps> = ({
             <Skeleton shape="Body2" />
           ) : (
             <Typography.Body2Strong>
-              <FormatCurrencyNumber value={+(price || 0)} />
+              <FormatCurrencyNumber value={0} convertValue={+(price || 0)} />
             </Typography.Body2Strong>
           )}
         </Box>
@@ -164,7 +152,7 @@ const TokenCell: FC<TokenCellProps> = ({
         {tokenValue !== undefined ? (
           <>
             <Typography.Body2Strong w="100%" textAlign="right">
-              <FormatCurrencyNumber value={tokenValue} />
+              <FormatCurrencyNumber value={0} convertValue={tokenValue} />
             </Typography.Body2Strong>
             <Box
               mt="4px"

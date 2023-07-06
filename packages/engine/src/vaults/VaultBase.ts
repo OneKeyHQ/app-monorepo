@@ -40,6 +40,7 @@ import type {
 } from '../types/account';
 import type { HistoryEntry, HistoryEntryStatus } from '../types/history';
 import type { AccountNameInfo, Network } from '../types/network';
+import type { NFTAssetMeta, NFTListItems } from '../types/nft';
 import type { WalletType } from '../types/wallet';
 import type { ethers } from './impl/evm/sdk/ethers';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
@@ -281,6 +282,14 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
   async getTxWaitingSeconds(): Promise<Array<number>> {
     return [];
+  }
+
+  async getUserNFTAssets({
+    serviceData,
+  }: {
+    serviceData: NFTListItems;
+  }): Promise<NFTAssetMeta | undefined> {
+    return Promise.resolve(undefined);
   }
 }
 

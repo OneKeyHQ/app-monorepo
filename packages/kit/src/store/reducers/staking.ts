@@ -6,21 +6,23 @@ import type {
   KeleIncomeDTO,
   KeleMinerOverview,
   KeleOpHistoryDTO,
+  KeleTransactionDetails,
   KeleUnstakeOverviewDTO,
   KeleWithdrawOverviewDTO,
   LidoOverview,
-  StakingActivity,
+  // StakingActivity,
   TransactionDetails,
 } from '../../views/Staking/typing';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 export type StakingState = {
-  hideUnstakeBulletin?: boolean;
+  // hideUnstakeBulletin?: boolean;
+  keleNetworkDashboardGlobal?: Record<string, KeleDashboardGlobal>;
   keleDashboardGlobal?: KeleDashboardGlobal;
-  stakingActivities?: Record<
-    string,
-    Record<string, StakingActivity | undefined>
-  >;
+  // stakingActivities?: Record<
+  //   string,
+  //   Record<string, StakingActivity | undefined>
+  // >;
   keleUnstakeOverviews?: Record<string, Record<string, KeleUnstakeOverviewDTO>>;
   keleWithdrawOverviews?: Record<
     string,
@@ -33,6 +35,7 @@ export type StakingState = {
   ethStakingApr?: EthStakingApr;
   lidoOverview?: Record<string, Record<string, LidoOverview | undefined>>;
   transactions?: Record<string, Record<string, TransactionDetails[]>>;
+  keleTransactions?: Record<string, Record<string, KeleTransactionDetails[]>>;
   stEthRate?: Record<string, string>;
 };
 
@@ -42,26 +45,39 @@ export const stakingSlice = createSlice({
   name: 'staking',
   initialState,
   reducers: {
-    setAccountStakingActivity(
+    // setAccountStakingActivity(
+    //   state,
+    //   action: PayloadAction<{
+    //     networkId: string;
+    //     accountId: string;
+    //     data?: StakingActivity;
+    //   }>,
+    // ) {
+    //   const { networkId, accountId, data } = action.payload;
+    //   if (!state.stakingActivities) {
+    //     state.stakingActivities = {};
+    //   }
+    //   if (!state.stakingActivities?.[accountId]) {
+    //     state.stakingActivities[accountId] = {};
+    //   }
+    //   state.stakingActivities[accountId][networkId] = data;
+    // },
+    setKeleNetworkDashboardGlobal(
       state,
       action: PayloadAction<{
         networkId: string;
-        accountId: string;
-        data?: StakingActivity;
+        dashboard: KeleDashboardGlobal;
       }>,
     ) {
-      const { networkId, accountId, data } = action.payload;
-      if (!state.stakingActivities) {
-        state.stakingActivities = {};
+      const { networkId, dashboard } = action.payload;
+      if (!state.keleNetworkDashboardGlobal) {
+        state.keleNetworkDashboardGlobal = {};
       }
-      if (!state.stakingActivities?.[accountId]) {
-        state.stakingActivities[accountId] = {};
-      }
-      state.stakingActivities[accountId][networkId] = data;
+      state.keleNetworkDashboardGlobal[networkId] = dashboard;
     },
-    setKeleDashboardGlobal(state, action: PayloadAction<KeleDashboardGlobal>) {
-      state.keleDashboardGlobal = action.payload;
-    },
+    // setKeleDashboardGlobal(state, action: PayloadAction<KeleDashboardGlobal>) {
+    //   state.keleDashboardGlobal = action.payload;
+    // },
     setKeleUnstakeOverview(
       state,
       action: PayloadAction<{
@@ -150,9 +166,9 @@ export const stakingSlice = createSlice({
       }
       state.kelePendingWithdraw[accountId][networkId] = amount;
     },
-    setHideUnstakeBulletin(state, action: PayloadAction<boolean>) {
-      state.hideUnstakeBulletin = action.payload;
-    },
+    // setHideUnstakeBulletin(state, action: PayloadAction<boolean>) {
+    //   state.hideUnstakeBulletin = action.payload;
+    // },
     setKeleOpHistory(
       state,
       action: PayloadAction<{
@@ -231,6 +247,48 @@ export const stakingSlice = createSlice({
         }
       });
     },
+    addKeleTransaction(
+      state,
+      action: PayloadAction<{
+        accountId: string;
+        networkId: string;
+        transaction: KeleTransactionDetails;
+      }>,
+    ) {
+      const { accountId, networkId, transaction } = action.payload;
+      if (!state.keleTransactions) {
+        state.keleTransactions = {};
+      }
+      if (!state.keleTransactions[accountId]) {
+        state.keleTransactions[accountId] = {};
+      }
+      const oldTransactions =
+        state.keleTransactions[accountId][networkId] ?? [];
+      const newTransactions = [transaction, ...oldTransactions];
+      if (newTransactions.length > 30) {
+        newTransactions.length = 30;
+      }
+      state.keleTransactions[accountId][networkId] = newTransactions;
+    },
+    archiveKeleTransaction(
+      state,
+      action: PayloadAction<{
+        accountId: string;
+        networkId: string;
+        txs: string[];
+      }>,
+    ) {
+      if (!state.keleTransactions) {
+        return;
+      }
+      const { accountId, networkId, txs } = action.payload;
+      const transactions = state.keleTransactions[accountId]?.[networkId];
+      transactions.forEach((tx) => {
+        if (txs.includes(tx.hash)) {
+          tx.archive = true;
+        }
+      });
+    },
     setStEthRate(
       state,
       action: PayloadAction<{ networkId: string; value: string }>,
@@ -245,19 +303,22 @@ export const stakingSlice = createSlice({
 });
 
 export const {
-  setAccountStakingActivity,
-  setKeleDashboardGlobal,
+  // setAccountStakingActivity,
+  // setKeleDashboardGlobal,
+  setKeleNetworkDashboardGlobal,
   setKeleUnstakeOverview,
   setKeleWithdrawOverview,
   setKeleMinerOverviews,
   setKeleIncomes,
   setKelePendingWithdraw,
-  setHideUnstakeBulletin,
+  // setHideUnstakeBulletin,
   setKeleOpHistory,
   setETHStakingApr,
   setLidoOverview,
   addTransaction,
+  addKeleTransaction,
   archiveTransaction,
+  archiveKeleTransaction,
   setStEthRate,
 } = stakingSlice.actions;
 

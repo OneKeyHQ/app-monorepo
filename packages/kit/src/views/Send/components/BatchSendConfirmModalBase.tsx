@@ -20,11 +20,11 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useActiveSideAccount } from '../../../hooks';
 import {
-  useNativeToken,
+  useActiveSideAccount,
   useTokenBalanceWithoutFrozen,
-} from '../../../hooks/useTokens';
+} from '../../../hooks';
+import { useNativeToken } from '../../../hooks/useTokens';
 
 import { BaseSendModal } from './BaseSendModal';
 import { SendConfirmErrorBoundary } from './SendConfirmErrorBoundary';

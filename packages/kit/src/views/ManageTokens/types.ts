@@ -3,6 +3,18 @@ import type { Token, TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 
 import type { ManageTokenModalRoutes } from '../../routes/routesEnum';
 
+export type ITokenDetailInfo = {
+  name?: string;
+  symbol?: string;
+  logoURI?: string;
+  defaultChain?: {
+    impl: string;
+    chainId: string;
+  };
+  tokens?: Token[];
+  price?: number;
+};
+
 export type ManageTokenRoutesParams = {
   [ManageTokenModalRoutes.Listing]: undefined;
   [ManageTokenModalRoutes.AddToken]:

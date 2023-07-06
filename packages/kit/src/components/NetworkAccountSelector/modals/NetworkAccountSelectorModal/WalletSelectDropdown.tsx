@@ -13,7 +13,13 @@ import {
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
+import { isWalletCompatibleAllNetworks } from '@onekeyhq/engine/src/managers/wallet';
 import type { IWallet } from '@onekeyhq/engine/src/types';
+import {
+  WALLET_TYPE_HD,
+  WALLET_TYPE_HW,
+} from '@onekeyhq/engine/src/types/wallet';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -79,15 +85,33 @@ export function WalletSelectDropdown({
   >([]);
   const isMounted = useIsMounted();
 
+  const filteredWallets = useMemo(() => {
+    if (isAllNetworks(selectedNetworkId)) {
+      return wallets.filter(
+        (w) => w.type === WALLET_TYPE_HD || w.type === WALLET_TYPE_HW,
+      );
+    }
+    return wallets;
+  }, [selectedNetworkId, wallets]);
+
   useEffect(() => {
     if (isMounted.current && isOpenDelay && isOpen) {
       buildData({
-        wallets,
+        wallets: filteredWallets,
         setData,
         intl,
       });
     }
-  }, [intl, isOpenDelay, isOpen, wallets, isMounted]);
+  }, [intl, isOpenDelay, isOpen, filteredWallets, isMounted]);
+
+  useEffect(() => {
+    if (
+      isAllNetworks(selectedNetworkId) &&
+      !isWalletCompatibleAllNetworks(selectedWalletId)
+    ) {
+      backgroundApiProxy.serviceAllNetwork.switchWalletToCompatibleAllNetworks();
+    }
+  }, [selectedWalletId, selectedNetworkId]);
 
   const isPreloadingCreate = useMemo(
     () =>

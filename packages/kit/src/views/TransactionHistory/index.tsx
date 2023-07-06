@@ -21,7 +21,7 @@ const TransactionHistory: FC = () => {
 
   const intl = useIntl();
 
-  const { tokenId, historyFilter } = route.params;
+  const { tokenAddress, historyFilter } = route.params;
 
   const { accountId, networkId } = useActiveWalletAccount();
 
@@ -35,7 +35,7 @@ const TransactionHistory: FC = () => {
     <HistoricalRecords
       accountId={accountId}
       networkId={networkId}
-      tokenId={tokenId}
+      tokenId={tokenAddress}
       historyFilter={historyFilter}
       hiddenHeader
     />

@@ -14,4 +14,17 @@ function walletCanBeRemoved(walletId: string): boolean {
   return walletIsHD(walletId) || walletIsHW(walletId);
 }
 
-export { walletIsHD, walletIsHW, walletIsImported, walletCanBeRemoved };
+function isWalletCompatibleAllNetworks(walletId?: string | null): boolean {
+  if (!walletId) {
+    return false;
+  }
+  return walletIsHD(walletId) || walletIsHW(walletId);
+}
+
+export {
+  walletIsHD,
+  walletIsHW,
+  walletIsImported,
+  walletCanBeRemoved,
+  isWalletCompatibleAllNetworks,
+};

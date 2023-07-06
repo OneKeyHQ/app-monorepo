@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  Icon,
   IconButton,
   ToastManager,
   Typography,
@@ -20,9 +19,12 @@ import type {
 import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 
 import { FormatCurrency } from '../../../../components/Format';
-import { useNavigation, useNetworkSimple } from '../../../../hooks';
+import {
+  useNavigation,
+  useNetworkSimple,
+  useTokenBalance,
+} from '../../../../hooks';
 import useOpenBlockBrowser from '../../../../hooks/useOpenBlockBrowser';
-import { useTokenBalance } from '../../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import {
   ScanQrcodeRoutes,

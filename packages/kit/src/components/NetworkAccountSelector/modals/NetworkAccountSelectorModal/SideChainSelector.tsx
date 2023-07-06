@@ -19,6 +19,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { FlatListRef } from '@onekeyhq/components/src/FlatList';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { INetwork } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -29,7 +30,6 @@ import {
   NetworkListEmpty,
   strIncludes,
 } from '../../../../views/ManageNetworks/Listing/NetworkListEmpty';
-import { AllNetwork } from '../../../Header/AccountSelectorChildren/RightChainSelector';
 import { RpcStatusButton } from '../../RpcStatusButton';
 
 import { NetWorkDisabledInfo } from './NetworkDisabledInfo';
@@ -64,6 +64,7 @@ function SideChainSelector({
   rpcStatusDisabled,
   selectedNetworkId,
   selectableNetworks,
+  allowSelectAllNetworks = false,
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
   onPress?: (payload: { networkId: string }) => void;
@@ -72,12 +73,16 @@ function SideChainSelector({
   selectedNetworkId?: string;
   selectableNetworks?: INetwork[];
   rpcStatusDisabled?: boolean;
+  allowSelectAllNetworks?: boolean;
 }) {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const { serviceAccountSelector } = backgroundApiProxy;
-  const { enabledNetworks } = useManageNetworks();
+  const { enabledNetworks } = useManageNetworks({
+    allowSelectAllNetworks: true,
+  });
+
   const { selectedNetworkId: selectedNetworkIdinAccountInfo, activeWallet } =
     accountSelectorInfo;
   const flatListRef = useRef<any>(null);
@@ -85,12 +90,15 @@ function SideChainSelector({
   const networks = selectableNetworks ?? enabledNetworks;
   const networkId = selectedNetworkId ?? selectedNetworkIdinAccountInfo;
 
-  const data = useMemo(
-    () =>
-      networks.filter((d: INetwork) => {
-        if (networkImpl && d.impl !== networkImpl) {
-          return false;
-        }
+  const data = useMemo(() => {
+    const memo = networks.filter((d: INetwork) => {
+      if (networkImpl && d.impl !== networkImpl) {
+        return false;
+      }
+      if (!allowSelectAllNetworks && isAllNetworks(d.id)) {
+        return false;
+      }
+      if (search) {
         for (const v of Object.values(
           pick(d, 'name', 'shortName', 'id', 'symbol'),
         )) {
@@ -99,9 +107,11 @@ function SideChainSelector({
           }
         }
         return false;
-      }),
-    [networkImpl, networks, search],
-  );
+      }
+      return true;
+    });
+    return memo;
+  }, [networkImpl, networks, search, allowSelectAllNetworks]);
 
   const renderNetworkItem = useCallback(
     ({
@@ -119,7 +129,7 @@ function SideChainSelector({
         _disabled={{ opacity: 0.5 }}
         disabled={isDisabled}
         onPress={() => {
-          const id = (item.id === AllNetwork ? '' : item.id) || '';
+          const id = item.id || '';
           serviceAccountSelector.updateSelectedNetwork(id);
           onPress?.({ networkId: id });
         }}
@@ -156,9 +166,13 @@ function SideChainSelector({
                   isTruncated
                   numberOfLines={1}
                 >
-                  {item.name}
+                  {isAllNetworks(item.id)
+                    ? intl.formatMessage({ id: 'form__all_networks' })
+                    : item.name}
                 </Text>
-                {item.id === networkId && !isDisabled ? (
+                {item.id === networkId &&
+                !isDisabled &&
+                !isAllNetworks(item.id) ? (
                   <>
                     {!rpcStatusDisabled && !item.settings.rpcStatusDisabled && (
                       <RpcStatusButton networkId={item.id} />
@@ -178,6 +192,7 @@ function SideChainSelector({
       rpcStatusDisabled,
       networkId,
       serviceAccountSelector,
+      intl,
     ],
   );
 

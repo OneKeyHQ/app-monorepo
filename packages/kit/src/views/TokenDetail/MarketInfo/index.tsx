@@ -10,13 +10,13 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
+import { isValidCoingeckoId } from '@onekeyhq/engine/src/managers/token';
 
 import { MarketDetailComponent } from '../../Market/Components/MarketDetail/MarketDetailComponent';
 import { useMarketDetail } from '../../Market/hooks/useMarketDetail';
 
 type Props = {
-  token: TokenDO | undefined;
+  coingeckoId?: string;
 };
 
 const Detail: FC<{ coingeckoId: string }> = ({ coingeckoId }) => {
@@ -41,11 +41,11 @@ const Detail: FC<{ coingeckoId: string }> = ({ coingeckoId }) => {
   );
 };
 
-const Header: FC<Props> = ({ token }) => {
+const Header: FC<Props> = ({ coingeckoId }) => {
   const intl = useIntl();
 
-  if (token && token.coingeckoId && token.coingeckoId.length > 0) {
-    return <Detail coingeckoId={token?.coingeckoId} />;
+  if (coingeckoId && isValidCoingeckoId(coingeckoId)) {
+    return <Detail coingeckoId={coingeckoId} />;
   }
   return (
     <Box py="24px" flexDirection="column" alignItems="center">
@@ -60,12 +60,12 @@ const Header: FC<Props> = ({ token }) => {
   );
 };
 
-const MarketInfo: FC<Props> = ({ token }) => {
+const MarketInfo: FC<Props> = ({ coingeckoId }) => {
   const isVerticalLayout = useIsVerticalLayout();
 
   const ListHeaderComponent = useCallback(
-    () => <Header token={token} />,
-    [token],
+    () => <Header coingeckoId={coingeckoId} />,
+    [coingeckoId],
   );
 
   return (

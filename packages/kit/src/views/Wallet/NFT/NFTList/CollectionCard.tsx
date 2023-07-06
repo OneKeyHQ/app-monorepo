@@ -1,29 +1,30 @@
-import { memo } from 'react';
-import type { ComponentProps, FC } from 'react';
+import { memo, useMemo } from 'react';
+import type { FC } from 'react';
 
 import { Row } from 'native-base';
 
 import {
   Box,
   Center,
+  HStack,
   Text,
+  Token,
   useIsVerticalLayout,
   useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
+import { useManageNetworks } from '../../../../hooks';
 import { useTokenPrice } from '../../../../hooks/useTokens';
 
 import NFTListImage from './NFTListImage';
 
-type Props = ComponentProps<typeof Box> & {
-  collectible: Collection;
-  onSelectCollection?: (cols: Collection) => void;
-};
+import type { ListDataType, ListItemComponentType, ListItemType } from './type';
 
 const CountView: FC<{ count: number; size: number }> = ({ count, size }) => (
   <Box
@@ -87,14 +88,36 @@ const SubItemList: FC<SubItemListProps> = ({ width, collectible }) => {
   );
 };
 
-const CollectionCard: FC<Props> = ({
-  onSelectCollection,
-  collectible,
+export function keyExtractor(
+  item: ListItemType<ListDataType>,
+  index: number,
+): string {
+  const data = item.data as Collection;
+  if (data.contractAddress) {
+    return `Collection ${data.contractAddress}`;
+  }
+  if (data.contractName) {
+    return `Collection ${data.contractName}`;
+  }
+  return `Collection ${index}`;
+}
+
+function CollectionCard({
+  onSelect,
+  data: collectible,
   ...rest
-}) => {
+}: ListItemComponentType<Collection>) {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
   const { network } = useActiveWalletAccount();
+  const { allNetworks } = useManageNetworks();
+
+  const networkIcon = useMemo(() => {
+    if (!isAllNetworks(network?.id)) {
+      return undefined;
+    }
+    return allNetworks.find((n) => n.id === collectible.networkId)?.logoURI;
+  }, [collectible, allNetworks, network?.id]);
 
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
@@ -122,20 +145,25 @@ const CollectionCard: FC<Props> = ({
         flexDirection="column"
         _hover={{ bg: 'surface-hovered' }}
         onPress={() => {
-          if (onSelectCollection) {
-            onSelectCollection(collectible);
+          if (onSelect) {
+            onSelect(collectible);
           }
         }}
       >
         <SubItemList collectible={collectible} width={contentSize} />
-        <Text
-          typography="Body2"
-          height="20px"
-          mt={`${padding}px`}
-          numberOfLines={1}
-        >
-          {collectible.contractName}
-        </Text>
+        <HStack mt={`${padding}px`}>
+          <Text typography="Body2" height="20px" numberOfLines={1} flex={1}>
+            {collectible.contractName}
+          </Text>
+          {networkIcon ? (
+            <Token
+              size={4}
+              token={{
+                logoURI: networkIcon,
+              }}
+            />
+          ) : null}
+        </HStack>
         <Text typography="Body2" height="20px" color="text-subdued">
           <FormatCurrencyNumber
             value={0}
@@ -146,6 +174,6 @@ const CollectionCard: FC<Props> = ({
       </Pressable>
     </Box>
   );
-};
+}
 
 export default memo(CollectionCard);

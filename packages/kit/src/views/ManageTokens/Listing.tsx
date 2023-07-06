@@ -27,13 +27,14 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../components/Format';
 import {
-  useAccountTokens,
+  useAccountTokensOnChain,
   useActiveWalletAccount,
   useAppSelector,
   useDebounce,
   useNetworkTokens,
+  useTokenBalance,
 } from '../../hooks';
-import { useSingleToken, useTokenBalance } from '../../hooks/useTokens';
+import { useSingleToken } from '../../hooks/useTokens';
 import { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import { deviceUtils } from '../../utils/hardware';
 import { showOverlay } from '../../utils/overlayUtils';
@@ -44,7 +45,6 @@ import { showManageTokenListingTip } from '../Overlay/MangeTokenListing';
 import { notifyIfRiskToken } from './helpers/TokenSecurityModalWrapper';
 import { useSearchTokens } from './hooks';
 
-import type { SimplifiedToken } from '../../store/reducers/tokens';
 import type { ManageTokenRoutesParams } from './types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ListRenderItem } from 'react-native';
@@ -56,12 +56,12 @@ type NavigationProps = NativeStackNavigationProp<
 
 const isValidateAddr = (addr: string) => addr.length === 42;
 
-const HeaderTokenItem: FC<
-  SimplifiedToken & Pick<HeaderTokensProps, 'onDelete'>
-> = (item) => {
-  const { tokenIdOnNetwork, onDelete } = item;
+const HeaderTokenItem: FC<Token & Pick<HeaderTokensProps, 'onDelete'>> = (
+  item,
+) => {
+  const { address, onDelete } = item;
   const { networkId, accountId } = useActiveWalletAccount();
-  const { token } = useSingleToken(networkId, tokenIdOnNetwork);
+  const { token } = useSingleToken(networkId, address ?? '');
 
   const balance = useTokenBalance({
     accountId,
@@ -124,7 +124,7 @@ const HeaderTokenItem: FC<
 };
 
 type HeaderTokensProps = {
-  tokens: SimplifiedToken[];
+  tokens: Token[];
   showTopsLabel?: boolean;
   onDelete?: (token: Token) => void;
 };
@@ -150,7 +150,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
               <HeaderTokenItem
                 {...item}
                 onDelete={onDelete}
-                key={item.tokenIdOnNetwork}
+                key={item.address ?? ''}
               />
             ))}
           </Box>
@@ -170,7 +170,7 @@ const HeaderTokens: FC<HeaderTokensProps> = ({
 
 type HeaderProps = {
   showTopsLabel: boolean;
-  tokens: SimplifiedToken[];
+  tokens: Token[];
   keyword: string;
   onChange: (keyword: string) => void;
   onDelete?: (token: Token) => void;
@@ -265,12 +265,12 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation<NavigationProps>();
   const { walletId, accountId, networkId } = useActiveWalletAccount();
-  const accountTokens = useAccountTokens(networkId, accountId);
+  const accountTokens = useAccountTokensOnChain(networkId, accountId);
   const hideSmallBalance = useAppSelector((s) => s.settings.hideSmallBalance);
   const hideRiskTokens = useAppSelector((s) => s.settings.hideRiskTokens);
 
   const isOwned = accountTokens.some(
-    (t) => item.tokenIdOnNetwork === t.tokenIdOnNetwork && !t.autoDetected,
+    (t) => item.tokenIdOnNetwork === t.address && !t.autoDetected,
   );
 
   const checkIfShouldActiveToken = useCallback(async () => {
@@ -342,7 +342,7 @@ const ListRenderToken: FC<ListRenderTokenProps> = ({ item }) => {
       primaryActionTranslationId: 'action__show_it',
       onPrimaryActionPress: () => {
         close?.();
-        showHomeBalanceSettings();
+        showHomeBalanceSettings({ networkId });
       },
     });
   }, [accountId, hideSmallBalance, hideRiskTokens, intl, item, networkId]);
@@ -479,10 +479,10 @@ export const ListingModal: FC<ListingModalProps> = ({
     accountId,
     networkId,
   } = useActiveWalletAccount();
-  const accountTokens = useAccountTokens(networkId, accountId);
+  const accountTokens = useAccountTokensOnChain(networkId, accountId);
   const networkTokens = useNetworkTokens(networkId);
   const headerTokens = useMemo(
-    () => accountTokens.filter((i) => i.tokenIdOnNetwork && !i.autoDetected),
+    () => accountTokens.filter((i) => i.address && !i.autoDetected),
     [accountTokens],
   );
   const [keyword, setKeyword] = useState<string>('');

@@ -5,6 +5,7 @@ import ETHStake from '../../../views/Staking/ETHStake';
 import Feedback from '../../../views/Staking/Feedback';
 import KeleEthStakeShouldUnderstand from '../../../views/Staking/KeleEthStakeShouldUnderstand';
 import KeleEthUnstakeShouldUnderstand from '../../../views/Staking/KeleEthUnstakeShouldUnderstand';
+import KeleStakingModeSelector from '../../../views/Staking/KeleStakingModeSelector';
 import LidoEthStakeShouldUnderStand from '../../../views/Staking/LidoEthStakeShouldUnderstand';
 import LidoEthUnstake from '../../../views/Staking/LidoEthUnstake';
 import LidoEthUnstakeRoutes from '../../../views/Staking/LidoEthUnstakeRoutes';
@@ -79,6 +80,10 @@ const modalRoutes = [
   {
     name: StakingRoutes.LidoEthUnstakeRoutes,
     component: LidoEthUnstakeRoutes,
+  },
+  {
+    name: StakingRoutes.KeleStakingModeSelector,
+    component: KeleStakingModeSelector,
   },
 ];
 

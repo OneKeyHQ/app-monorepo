@@ -62,7 +62,7 @@ export function TxHistoryListViewHeader(props: {
   refresh?: () => void;
 }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { isEmpty, refresh, networkId } = props;
+  const { refresh, networkId } = props;
   const txDetailContext = useTxHistoryContext();
 
   return (

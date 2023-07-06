@@ -21,8 +21,11 @@ import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/ac
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { FormatCurrency } from '../../../../components/Format';
-import { useDebounce, useNetworkSimple } from '../../../../hooks';
-import { useTokenBalance } from '../../../../hooks/useTokens';
+import {
+  useDebounce,
+  useNetworkSimple,
+  useTokenBalance,
+} from '../../../../hooks';
 import { notifyIfRiskToken } from '../../../ManageTokens/helpers/TokenSecurityModalWrapper';
 import { useTokenPrice, useTokenSearch } from '../../hooks/useSwapTokenUtils';
 import { formatAmount, gt } from '../../utils';

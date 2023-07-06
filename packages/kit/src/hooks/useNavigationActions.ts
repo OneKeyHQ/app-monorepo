@@ -51,9 +51,11 @@ export function useNavigationActions() {
     ({
       mode,
       networkImpl,
+      allowSelectAllNetworks,
     }: {
       mode?: EAccountSelectorMode;
       networkImpl?: string;
+      allowSelectAllNetworks?: boolean;
     }) => {
       dispatch(updateAccountSelectorMode(mode || EAccountSelectorMode.Wallet));
       navigation.navigate(RootRoutes.Modal, {
@@ -62,6 +64,7 @@ export function useNavigationActions() {
           screen: ManageNetworkModalRoutes.NetworkSelector,
           params: {
             networkImpl,
+            allowSelectAllNetworks,
           },
         },
       });
