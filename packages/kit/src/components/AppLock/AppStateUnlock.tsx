@@ -16,6 +16,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -114,7 +115,7 @@ export const AppStateUnlock = () => {
   }, []);
 
   const onUnlock = useCallback(async () => {
-    const isOk = await doUnlockAction(password);
+    const isOk = await doUnlockAction(encodeSensitiveText({ text: password }));
     if (isOk) {
       if (platformEnv.isNativeAndroid) {
         Keyboard.dismiss();

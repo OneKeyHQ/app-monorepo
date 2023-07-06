@@ -633,6 +633,7 @@ export type IDecodedTx = {
     | null;
 
   encodedTx?: IEncodedTx;
+  // used for speed up double check if encodedTx modified by some bugs
   encodedTxEncrypted?: string;
   payload?: any;
 
