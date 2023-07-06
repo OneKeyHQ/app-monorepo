@@ -506,7 +506,7 @@ export default class Vault extends VaultBase {
           if (response.status === PaymentStatusEnum.FAILED) {
             clearInterval(intervalId);
             const errorMessage = response?.data?.message;
-            if (errorMessage === 'Invoice already paid') {
+            if (errorMessage?.toLowerCase() === 'invoice is already paid') {
               reject(new InvoiceAlreadPaid());
             } else if (errorMessage === 'no_route') {
               reject(new NoRouteFoundError());
