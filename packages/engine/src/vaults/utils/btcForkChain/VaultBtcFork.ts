@@ -49,6 +49,12 @@ import {
 } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { getNFTTransactionHistory } from '../../../managers/nft';
+import {
+  type BTCTransactionsModel,
+  NFTAssetType,
+  type NFTBTCAssetModel,
+  type NFTListItems,
+} from '../../../types/nft';
 import { INSCRIPTION_PADDING_SATS_VALUES } from '../../impl/btc/inscribe/consts';
 import { EVMDecodedTxType } from '../../impl/evm/decoder/types';
 import {
@@ -74,10 +80,7 @@ import type {
   BtcForkChainUsedAccount,
   DBUTXOAccount,
 } from '../../../types/account';
-import type {
-  BTCTransactionsModel,
-  NFTBTCAssetModel,
-} from '../../../types/nft';
+import type { NFTAssetMeta } from '../../../types/nft';
 import type {
   CoinControlItem,
   ICoinControlListItem,
@@ -1310,5 +1313,16 @@ export default class VaultBtcFork extends VaultBase {
     return Promise.resolve(
       frozenBalance.shiftedBy(-network.decimals).toNumber(),
     );
+  }
+
+  override async getUserNFTAssets({
+    serviceData,
+  }: {
+    serviceData: NFTListItems;
+  }): Promise<NFTAssetMeta | undefined> {
+    return Promise.resolve({
+      type: NFTAssetType.BTC,
+      data: serviceData as NFTBTCAssetModel[],
+    });
   }
 }
