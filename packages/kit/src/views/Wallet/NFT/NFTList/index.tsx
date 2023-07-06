@@ -272,8 +272,6 @@ function NFTListContainer({
 
   const handleSelect = useCallback(
     (data: ListDataType, type: NFTCardType) => {
-      console.log('type = ', type);
-
       if (!account || !network) return;
       switch (type) {
         case NFTCardType.EVMCollection:

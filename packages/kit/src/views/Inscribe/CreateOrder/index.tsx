@@ -157,7 +157,7 @@ const CreateOrder: FC = () => {
                   networkId,
                   accountId,
                   txid: result.txids[0],
-                  type: 'Sign',
+                  type: 'Send',
                   closeModal: () => {
                     setTimeout(() => {
                       closeModal();

@@ -6,7 +6,6 @@ import {
 
 import { getDefaultPurpose } from '../../../managers/derivation';
 import { getAccountNameInfoByImpl } from '../../../managers/impl';
-import { NFTAssetType } from '../../../types/nft';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -17,11 +16,6 @@ import settings from './settings';
 
 import type { DBUTXOAccount } from '../../../types/account';
 import type { AccountNameInfo } from '../../../types/network';
-import type {
-  NFTAssetMeta,
-  NFTBTCAssetModel,
-  NFTListItems,
-} from '../../../types/nft';
 
 export default class Vault extends VaultBtcFork {
   override providerClass = Provider;
@@ -100,16 +94,5 @@ export default class Vault extends VaultBtcFork {
       return Promise.resolve([accountNameInfo.BIP86, accountNameInfo.BIP44]);
     }
     return Promise.resolve([]);
-  }
-
-  override async getUserNFTAssets({
-    serviceData,
-  }: {
-    serviceData: NFTListItems;
-  }): Promise<NFTAssetMeta | undefined> {
-    return Promise.resolve({
-      type: NFTAssetType.BTC,
-      data: serviceData as NFTBTCAssetModel[],
-    });
   }
 }
