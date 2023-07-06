@@ -30,7 +30,7 @@ type AccountOptionProps = { isSmallView: boolean };
 export const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { wallet, account, network, walletId, networkId, accountId } =
+  const { wallet, account, walletId, networkId, accountId } =
     useActiveWalletAccount();
   const isVertical = useIsVerticalLayout();
   const { sendToken } = useNavigationActions();
@@ -46,8 +46,9 @@ export const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const onSendToken = useCallback(() => {
     selectNetworkAccount().then(({ network: n, account: a }) => {
       if (!n || !a) {
-        sendToken({ accountId: a?.id, networkId: n?.id });
+        return;
       }
+      sendToken({ accountId: a?.id, networkId: n?.id });
     });
   }, [sendToken, selectNetworkAccount]);
 
@@ -73,42 +74,44 @@ export const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
     });
   }, [navigation, wallet, selectNetworkAccount]);
 
-  const onSwap = useCallback(async () => {
-    let token = await backgroundApiProxy.engine.getNativeTokenInfo(
-      network?.id ?? '',
-    );
-    if (token) {
-      const supported = await backgroundApiProxy.serviceSwap.tokenIsSupported(
-        token,
-      );
-      if (!supported) {
-        ToastManager.show(
-          {
-            title: intl.formatMessage({ id: 'msg__wrong_network_desc' }),
-          },
-          { type: 'default' },
-        );
-        token = await backgroundApiProxy.engine.getNativeTokenInfo(
-          OnekeyNetwork.eth,
-        );
+  const onSwap = useCallback(() => {
+    selectNetworkAccount().then(async ({ network: n, account: a }) => {
+      if (!n || !a) {
+        return;
       }
-    }
-    if (token) {
-      backgroundApiProxy.serviceSwap.sellToken(token);
-      if (account) {
-        backgroundApiProxy.serviceSwap.setSendingAccountSimple(account);
-        const paymentToken =
-          await backgroundApiProxy.serviceSwap.getPaymentToken(token);
-        if (paymentToken?.networkId === network?.id) {
-          backgroundApiProxy.serviceSwap.setRecipientToAccount(
-            account,
-            network,
+      let token = await backgroundApiProxy.engine.getNativeTokenInfo(
+        n?.id ?? '',
+      );
+      if (token) {
+        const supported = await backgroundApiProxy.serviceSwap.tokenIsSupported(
+          token,
+        );
+        if (!supported) {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({ id: 'msg__wrong_network_desc' }),
+            },
+            { type: 'default' },
+          );
+          token = await backgroundApiProxy.engine.getNativeTokenInfo(
+            OnekeyNetwork.eth,
           );
         }
       }
-    }
-    navigation.getParent()?.navigate(TabRoutes.Swap);
-  }, [network, account, navigation, intl]);
+      if (token) {
+        backgroundApiProxy.serviceSwap.sellToken(token);
+        if (a) {
+          backgroundApiProxy.serviceSwap.setSendingAccountSimple(a);
+          const paymentToken =
+            await backgroundApiProxy.serviceSwap.getPaymentToken(token);
+          if (paymentToken?.networkId === n?.id) {
+            backgroundApiProxy.serviceSwap.setRecipientToAccount(a, n);
+          }
+        }
+      }
+      navigation.getParent()?.navigate(TabRoutes.Swap);
+    });
+  }, [navigation, intl, selectNetworkAccount]);
 
   return (
     <Box flexDirection="row" px={isVertical ? 1 : 0} mx={-3}>

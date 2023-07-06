@@ -28,7 +28,6 @@ import {
   HomeRoutes,
   InscribeModalRoutes,
   MainRoutes,
-  ManageNetworkModalRoutes,
   ModalRoutes,
   RootRoutes,
   TabRoutes,
@@ -47,6 +46,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { getManageNetworks } from '../../../hooks/useManageNetworks';
 import { buildAddressDetailsUrl } from '../../../hooks/useOpenBlockBrowser';
 import { openUrl } from '../../../utils/openUrl';
+import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
 import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
 
 import type { ImageSourcePropType } from 'react-native';
@@ -141,6 +141,12 @@ const ToolsPage: FC = () => {
   const tools = useTools(network?.id);
   const { serviceInscribe } = backgroundApiProxy;
 
+  const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
+    networkId,
+    walletId,
+    accountId,
+  });
+
   useEffect(() => {
     if (accountAddress?.length > 0 && !isAllNetworks(networkId)) {
       serviceInscribe
@@ -163,11 +169,12 @@ const ToolsPage: FC = () => {
       );
     }
     return allItems.concat(
-      Object.values(groupBy(tools, 'key'))
+      Object.values(groupBy(tools, 'networkId'))
         .filter((ts) => ts.length > 0)
         .map((ts) => {
           const t = ts[0];
           return {
+            ts,
             key: t.title,
             icon: {
               uri: t.logoURI,
@@ -182,14 +189,6 @@ const ToolsPage: FC = () => {
         }),
     );
   }, [account, network, tools, inscribeEnable]);
-
-  const params = useMemo(
-    () => ({
-      address: accountAddress,
-      networkId: network?.id,
-    }),
-    [accountAddress, network],
-  );
 
   const handlePress = useCallback(
     ({
@@ -249,17 +248,24 @@ const ToolsPage: FC = () => {
           });
         }
       } else if (key === 'inscribe') {
-        if (network?.id) {
+        if (selectedNetwork?.id && selectedAccount) {
           appNavigation.navigate(RootRoutes.Modal, {
             screen: ModalRoutes.Inscribe,
             params: {
               screen: InscribeModalRoutes.InscribeModal,
-              params: { networkId: network?.id, accountId },
+              params: {
+                networkId: selectedNetwork?.id,
+                accountId: selectedAccount?.id,
+              },
             },
           });
         }
       } else {
         const item = tools?.find((t) => t.title === key);
+        const params = {
+          address: selectedAccount?.address ?? '',
+          networkId: selectedNetwork?.id,
+        };
         if (item) {
           // inject params
           const url = item?.link?.replace(
@@ -272,7 +278,7 @@ const ToolsPage: FC = () => {
         }
       }
     },
-    [tools, navigation, intl, params, accountId, appNavigation, network?.id],
+    [tools, navigation, intl, appNavigation],
   );
 
   const onItemPress = useCallback(
@@ -288,36 +294,24 @@ const ToolsPage: FC = () => {
       if (!item) {
         return;
       }
-      const { serviceNetwork, serviceAccount } = backgroundApiProxy;
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.ManageNetwork,
-        params: {
-          screen: ManageNetworkModalRoutes.AllNetworksNetworkSelector,
-          params: {
-            walletId,
-            accountId,
-            filter: item.filter,
-            onConfirm: async ({
-              network: selectedNetwork,
-              account: selectedAccount,
-            }) => {
-              if (key === 'revoke' || key === 'bulkSender') {
-                await serviceNetwork.changeActiveNetwork(selectedNetwork?.id);
-                await serviceAccount.changeActiveAccountByAccountId(
-                  selectedAccount?.id,
-                );
-              }
-              handlePress({
-                key,
-                network: selectedNetwork,
-                account: selectedAccount,
-              });
-            },
-          },
+      selectNetworkAccount(item.filter).then(
+        async ({ network: selectedNetwork, account: selectedAccount }) => {
+          if (key === 'revoke' || key === 'bulkSender') {
+            const { serviceNetwork, serviceAccount } = backgroundApiProxy;
+            await serviceNetwork.changeActiveNetwork(selectedNetwork?.id);
+            await serviceAccount.changeActiveAccountByAccountId(
+              selectedAccount?.id,
+            );
+          }
+          handlePress({
+            key,
+            network: selectedNetwork,
+            account: selectedAccount,
+          });
         },
-      });
+      );
     },
-    [navigation, accountId, walletId, handlePress, network, account, items],
+    [handlePress, network, account, items, selectNetworkAccount],
   );
 
   const getItemPaddingx = useCallback(

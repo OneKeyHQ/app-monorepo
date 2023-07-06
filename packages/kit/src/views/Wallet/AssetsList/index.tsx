@@ -4,7 +4,13 @@ import { useNavigation } from '@react-navigation/core';
 import { omit } from 'lodash';
 import { useDebounce } from 'use-debounce';
 
-import { Box, VStack, useUserDevice } from '@onekeyhq/components';
+import {
+  Box,
+  Divider,
+  FlatList,
+  useIsVerticalLayout,
+  useUserDevice,
+} from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
@@ -65,7 +71,9 @@ function AssetsList({
   networkId,
   walletId,
   renderDefiList,
+  singleton,
 }: IAssetsListProps) {
+  const isVerticalLayout = useIsVerticalLayout();
   const { homeTabName, isUnlock } = useStatus();
   const loading = useAccountTokenLoading(networkId, accountId);
   const accountTokens = useAccountTokens({
@@ -142,10 +150,10 @@ function AssetsList({
   }, [shouldRefreshBalances, startRefresh, stopRefresh]);
 
   useEffect(() => {
-    if (isFocused && isUnlock && !isAllNetworks(networkId)) {
-      backgroundApiProxy.serviceToken.fetchAccountTokens();
+    if (isFocused && isUnlock) {
+      backgroundApiProxy.serviceToken.refreshAccountTokens();
     }
-  }, [isFocused, isUnlock, networkId]);
+  }, [isFocused, isUnlock]);
 
   const onTokenCellPress = useCallback(
     (item: IAccountToken) => {
@@ -175,82 +183,57 @@ function AssetsList({
     [account?.id, networkId, navigation, onTokenPress, walletId],
   );
 
-  const content = useMemo(() => {
-    if (!accountTokens?.length) {
-      return loading ? (
-        <AssetsListSkeleton />
-      ) : (
-        <EmptyListOfAccount network={network} accountId={accountId} />
-      );
-    }
-    return (
-      <VStack>
-        {loading
-          ? null
-          : ListHeaderComponent ?? (
-              <AssetsListHeader
-                innerHeaderBorderColor={
-                  flatStyle ? 'transparent' : 'border-subdued'
-                }
-                showTokenCount={limitSize !== undefined}
-                showOuterHeader={limitSize !== undefined}
-                showInnerHeader={accountTokens.length > 0}
-                showInnerHeaderRoundTop={!flatStyle}
-              />
-            )}
-        {accountTokens.map((item, index) => (
-          <TokenCell
+  const Container = singleton ? FlatList : Tabs.FlatList;
+
+  const renderListItem: FlatListProps<IAccountToken>['renderItem'] = ({
+    item,
+    index,
+  }) => (
+    <TokenCell
+      accountId={accountId}
+      hidePriceInfo={hidePriceInfo}
+      bg={flatStyle ? 'transparent' : 'surface-default'}
+      borderTopRadius={!flatStyle && showRoundTop && index === 0 ? '12px' : 0}
+      borderRadius={
+        // eslint-disable-next-line no-unsafe-optional-chaining
+        !flatStyle && index === accountTokens?.length - 1 ? '12px' : '0px'
+      }
+      borderTopWidth={!flatStyle && showRoundTop && index === 0 ? 1 : 0}
+      // eslint-disable-next-line no-unsafe-optional-chaining
+      borderBottomWidth={index === accountTokens?.length - 1 ? 1 : 0}
+      borderColor={flatStyle ? 'transparent' : 'border-subdued'}
+      onPress={onTokenCellPress}
+      {...omit(item, 'source')}
+      networkId={networkId}
+    />
+  );
+
+  const footer = useMemo(
+    () => (
+      <Box>
+        {ListFooterComponent}
+        {renderDefiList ? (
+          <OverviewDefiThumbnal
             accountId={accountId}
-            hidePriceInfo={hidePriceInfo}
-            bg={flatStyle ? 'transparent' : 'surface-default'}
-            borderTopRadius={
-              !flatStyle && showRoundTop && index === 0 ? '12px' : 0
-            }
-            borderRadius={
-              // eslint-disable-next-line no-unsafe-optional-chaining
-              !flatStyle && index === accountTokens?.length - 1 ? '12px' : '0px'
-            }
-            borderTopWidth={1}
-            // eslint-disable-next-line no-unsafe-optional-chaining
-            borderBottomWidth={index === accountTokens?.length - 1 ? 1 : 0}
-            borderColor="divider"
-            onPress={onTokenCellPress}
-            {...omit(item, 'source')}
             networkId={networkId}
+            address={account?.address ?? ''}
+            limitSize={limitSize}
           />
-        ))}
-        <Box>
-          {ListFooterComponent}
-          {renderDefiList ? (
-            <OverviewDefiThumbnal
-              networkId={networkId}
-              accountId={accountId}
-              address={account?.address ?? ''}
-              limitSize={limitSize}
-            />
-          ) : null}
-        </Box>
-      </VStack>
-    );
-  }, [
-    onTokenCellPress,
-    showRoundTop,
-    renderDefiList,
-    networkId,
-    network,
-    ListFooterComponent,
-    ListHeaderComponent,
-    account,
-    accountId,
-    accountTokens,
-    flatStyle,
-    hidePriceInfo,
-    limitSize,
-    loading,
-  ]);
+        ) : null}
+      </Box>
+    ),
+    [
+      ListFooterComponent,
+      networkId,
+      accountId,
+      account?.address,
+      renderDefiList,
+      limitSize,
+    ],
+  );
 
   return (
-    <Tabs.ScrollView
+    <Container
       style={{
         maxWidth: MAX_PAGE_CONTAINER_WIDTH,
         width: '100%',
@@ -264,10 +247,35 @@ function AssetsList({
         },
         contentContainerStyle,
       ]}
+      data={accountTokens}
+      renderItem={renderListItem}
+      ListHeaderComponent={
+        loading
+          ? null
+          : ListHeaderComponent ?? (
+              <AssetsListHeader
+                innerHeaderBorderColor={
+                  flatStyle ? 'transparent' : 'border-subdued'
+                }
+                showTokenCount={limitSize !== undefined}
+                showOuterHeader={limitSize !== undefined}
+                showInnerHeader={accountTokens.length > 0}
+                showInnerHeaderRoundTop={!flatStyle}
+              />
+            )
+      }
+      ItemSeparatorComponent={Divider}
+      ListEmptyComponent={
+        loading
+          ? AssetsListSkeleton
+          : // eslint-disable-next-line react/no-unstable-nested-components
+            () => <EmptyListOfAccount network={network} accountId={accountId} />
+      }
+      ListFooterComponent={footer}
+      keyExtractor={(item: IAccountToken) => item.key}
+      extraData={isVerticalLayout}
       showsVerticalScrollIndicator={false}
-    >
-      {content}
-    </Tabs.ScrollView>
+    />
   );
 }
 
