@@ -11,6 +11,7 @@ import {
   Box,
   HStack,
   Modal,
+  Spinner,
   Token,
   Typography,
   useIsVerticalLayout,
@@ -18,7 +19,7 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useAccountValues, useAppSelector } from '../../../../hooks';
+import { useAccountPortfolios, useAccountValues } from '../../../../hooks';
 import { useNavigationBack } from '../../../../hooks/useAppNavigation';
 import { useCurrentFiatValue } from '../../../../hooks/useTokens';
 import { OverviewBadge } from '../OverviewBadge';
@@ -43,7 +44,7 @@ const OverviewProtocolDetail: FC = () => {
     fallback: close,
   });
 
-  const { networkId, address, protocolId, accountId, poolCode } = route.params;
+  const { networkId, protocolId, accountId, poolCode } = route.params;
 
   const currentFiatValue = useCurrentFiatValue();
 
@@ -52,10 +53,15 @@ const OverviewProtocolDetail: FC = () => {
     accountId,
   }).value;
 
-  const protocol = useAppSelector((s) =>
-    s.overview.defi?.[`${networkId}--${address}`]?.find(
-      (item) => item._id.protocolId === protocolId,
-    ),
+  const { data: defis, loading } = useAccountPortfolios({
+    networkId,
+    accountId,
+    type: 'defis',
+  });
+
+  const protocol = useMemo(
+    () => defis?.find((item) => item._id.protocolId === protocolId),
+    [defis, protocolId],
   );
 
   const rate = useMemo(
@@ -112,6 +118,20 @@ const OverviewProtocolDetail: FC = () => {
   }, [isVertical, protocol, rate, poolCode]);
 
   const open = useOpenProtocolUrl(protocol);
+
+  if (loading) {
+    return (
+      <Modal
+        size="2xl"
+        hidePrimaryAction
+        hideSecondaryAction
+        footer={null}
+        staticChildrenProps={{
+          children: <Spinner />,
+        }}
+      />
+    );
+  }
 
   if (!protocol) {
     goBack();

@@ -8,6 +8,7 @@ import { useIntl } from 'react-intl';
 import type { ICON_NAMES } from '@onekeyhq/components';
 import { ToastManager } from '@onekeyhq/components';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import {
   IMPL_APTOS,
@@ -78,6 +79,10 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
   useEffect(() => {
     (async () => {
       if (!network) return false;
+
+      if (isAllNetworks(network?.id)) {
+        return false;
+      }
 
       const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
         network.id,
@@ -204,6 +209,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       },
       // TODO Connected Sites
       walletType !== 'watching' &&
+        !isAllNetworks(network?.id) &&
         !platformEnv.isAppleStoreEnv && {
           id: 'action__buy_crypto',
           onPress: () => {
@@ -223,6 +229,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
           icon: 'PlusMini',
         },
       walletType !== 'watching' &&
+        !isAllNetworks(network?.id) &&
         !platformEnv.isAppleStoreEnv && {
           id: 'action__sell_crypto',
           onPress: () => {
@@ -250,7 +257,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
           });
         },
       },
-      {
+      !isAllNetworks(network?.id) && {
         id: 'action__copy_address',
         onPress: () => {
           setTimeout(() => {
@@ -308,6 +315,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       copyAddress,
     ],
   );
+
   return (
     <BaseMenu
       w={220}

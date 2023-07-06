@@ -31,11 +31,10 @@ import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatBalanceTokenOfAccount } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import {
-  useFrozenBalance,
-  useSingleToken,
   useTokenBalance,
   useTokenBalanceWithoutFrozen,
-} from '../../../hooks/useTokens';
+} from '../../../hooks/useOverview';
+import { useFrozenBalance, useSingleToken } from '../../../hooks/useTokens';
 import { wait } from '../../../utils/helper';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { PreSendAmountAlert } from '../components/PreSendAmountAlert';

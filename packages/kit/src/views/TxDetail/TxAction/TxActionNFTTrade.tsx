@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
 import { FormatCurrencyNumber } from '../../../components/Format';
-import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
+import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
 import NFTListImage from '../../Wallet/NFT/NFTList/NFTListImage';
 import {
   TxListActionBox,

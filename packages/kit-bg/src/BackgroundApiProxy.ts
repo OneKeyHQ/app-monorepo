@@ -12,6 +12,7 @@ import type { ProviderApiWalletConnect } from './providers/ProviderApiWalletConn
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceAccountSelector from './services/ServiceAccountSelector';
 import type ServiceAddressbook from './services/ServiceAddressbook';
+import type ServiceAllNetwork from './services/ServiceAllNetwork';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceBatchTransfer from './services/ServiceBatchTransfer';
 import type ServiceBootstrap from './services/ServiceBootstrap';
@@ -196,6 +197,10 @@ class BackgroundApiProxy
   ) as ServiceLightningNetwork;
 
   serviceGas = this._createProxyService('serviceGas') as ServiceGas;
+
+  serviceAllNetwork = this._createProxyService(
+    'serviceAllNetwork',
+  ) as ServiceAllNetwork;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

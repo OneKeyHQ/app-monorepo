@@ -10,10 +10,6 @@ import {
 } from '@onekeyhq/components';
 import type { IWallet } from '@onekeyhq/engine/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY,
-  WALLET_SELECTOR_DESKTOP_ACTION_DELAY_AFTER_CLOSE,
-} from '@onekeyhq/kit/src/components/Header/AccountSelectorChildren/accountSelectorConsts';
 import type { IHardwareDeviceStatusMap } from '@onekeyhq/kit/src/components/NetworkAccountSelector/hooks/useDeviceStatusOfHardwareWallet';
 import type { DeviceState } from '@onekeyhq/kit/src/components/WalletSelector/WalletAvatar';
 import {
@@ -29,6 +25,10 @@ import reducerAccountSelector from '@onekeyhq/kit/src/store/reducers/reducerAcco
 import { wait } from '@onekeyhq/kit/src/utils/helper';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import {
+  ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY,
+  WALLET_SELECTOR_DESKTOP_ACTION_DELAY_AFTER_CLOSE,
+} from '../../../NetworkAccountSelector/consts';
 import { WalletItemSelectDropdown } from '../WalletItemSelectDropdown';
 
 import type { IWalletDataBase } from './index';
@@ -171,8 +171,6 @@ function ListItem({
     wallet,
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const numberOfAccounts = wallet.accounts.length;
   const isSelected = walletId === wallet.id;
   const circular = !isSelected;
 

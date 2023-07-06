@@ -6,7 +6,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokensBalance, useThrottle } from '../../../hooks';
-import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
+import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
 import { appSelector } from '../../../store';
 
 type TokenSearchRef = {

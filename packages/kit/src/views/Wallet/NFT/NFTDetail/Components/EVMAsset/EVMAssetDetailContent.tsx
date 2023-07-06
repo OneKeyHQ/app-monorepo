@@ -24,7 +24,6 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { getContentWithAsset } from '@onekeyhq/engine/src/managers/nft';
-import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Collection, NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import { NFTAssetType } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
@@ -34,10 +33,8 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import {
-  getActiveWalletAccount,
-  useActiveWalletAccount,
-} from '../../../../../../hooks/redux';
+import { useNetwork } from '../../../../../../hooks';
+import { useActiveWalletAccount } from '../../../../../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../../../../../routes/routesEnum';
 import { deviceUtils } from '../../../../../../utils/hardware';
 import CollectionLogo from '../../../../../NFTMarket/CollectionLogo';
@@ -55,11 +52,9 @@ type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 function EVMAssetDetailContent({
   asset: outerAsset,
-  network,
   isOwner,
 }: {
   asset: NFTAsset;
-  network: Network;
   isOwner: boolean;
 }) {
   const intl = useIntl();
@@ -72,6 +67,10 @@ function EVMAssetDetailContent({
   const [asset, updateAsset] = useState(outerAsset);
   const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
 
+  const networkId = outerAsset.networkId ?? '';
+
+  const { network } = useNetwork({ networkId });
+
   const [menuLoading, setMenuLoading] = useState(false);
   const { device, showMenu } = useDeviceMenu({ wallet, asset });
 
@@ -79,9 +78,9 @@ function EVMAssetDetailContent({
 
   useEffect(() => {
     (async () => {
-      if (network.id) {
+      if (networkId) {
         const data = (await serviceNFT.fetchAsset({
-          chain: network.id,
+          chain: networkId,
           contractAddress: outerAsset.contractAddress,
           tokenId: outerAsset.tokenId as string,
           showAttribute: true,
@@ -94,15 +93,15 @@ function EVMAssetDetailContent({
     return () => {
       hardwareCancelFlagRef.current = true;
     };
-  }, [outerAsset.contractAddress, outerAsset.tokenId, network.id, serviceNFT]);
+  }, [outerAsset.contractAddress, outerAsset.tokenId, networkId, serviceNFT]);
 
   const isEVM = asset.type === NFTAssetType.EVM;
   const [collection, updateCollection] = useState<Collection>();
   useEffect(() => {
     (async () => {
-      if (network.id && isEVM) {
+      if (networkId && isEVM) {
         const data = await serviceNFT.getCollection({
-          chain: network.id,
+          chain: networkId,
           contractAddress: outerAsset.contractAddress as string,
         });
         if (data) {
@@ -110,7 +109,7 @@ function EVMAssetDetailContent({
         }
       }
     })();
-  }, [outerAsset.contractAddress, network.id, serviceNFT, isEVM]);
+  }, [outerAsset.contractAddress, networkId, serviceNFT, isEVM]);
 
   const onCollectToTouch = useCallback(async () => {
     let uri;
@@ -131,7 +130,7 @@ function EVMAssetDetailContent({
             ? asset.name
             : `#${asset.tokenId as string}`,
         subheader: asset.description ?? '',
-        network: network.name,
+        network: network?.name ?? '',
         owner: asset.owner,
       });
       debugLogger.hardwareSDK.info('should upload: ', uploadResParams);
@@ -166,14 +165,25 @@ function EVMAssetDetailContent({
   }, [asset, device, intl, serviceHardware, network]);
 
   const sendNFTWithAmount = useCallback(
-    (amount: string) => {
-      const { accountId, networkId } = getActiveWalletAccount();
+    async (amount: string) => {
+      const { accountAddress } = outerAsset ?? {};
+      if (!networkId || !accountAddress) {
+        return;
+      }
+      const account =
+        await backgroundApiProxy.serviceAccount.getAccountByAddress({
+          networkId,
+          address: accountAddress ?? '',
+        });
+      if (!account) {
+        return;
+      }
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
           screen: SendModalRoutes.PreSendAddress,
           params: {
-            accountId,
+            accountId: account?.id,
             networkId,
             isNFT: true,
             from: '',
@@ -193,6 +203,8 @@ function EVMAssetDetailContent({
       asset.tokenId,
       modalClose,
       navigation,
+      networkId,
+      outerAsset,
     ],
   );
 
@@ -254,7 +266,7 @@ function EVMAssetDetailContent({
       </Box>
 
       {/* Collection */}
-      {isEVM && (
+      {isEVM && !!network && (
         <Pressable
           onPress={() => {
             goToCollectionDetail({

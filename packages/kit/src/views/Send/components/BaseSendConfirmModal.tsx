@@ -14,8 +14,11 @@ import { isWatchingAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount, useNativeToken } from '../../../hooks';
-import { useTokenBalanceWithoutFrozen } from '../../../hooks/useTokens';
+import {
+  useActiveSideAccount,
+  useNativeToken,
+  useTokenBalanceWithoutFrozen,
+} from '../../../hooks';
 import { EditableNonceStatusEnum } from '../types';
 
 import { BaseSendModal } from './BaseSendModal';

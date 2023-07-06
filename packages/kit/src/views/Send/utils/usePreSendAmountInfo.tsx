@@ -12,7 +12,7 @@ import {
   formatBalanceDisplay,
 } from '../../../components/Format';
 import { useSettings } from '../../../hooks';
-import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
+import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
 
 export function usePreSendAmountInfo({
   tokenInfo,

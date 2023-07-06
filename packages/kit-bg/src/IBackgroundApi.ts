@@ -10,6 +10,7 @@ import type { ProviderApiWalletConnect } from './providers/ProviderApiWalletConn
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceAccountSelector from './services/ServiceAccountSelector';
 import type ServiceAddressbook from './services/ServiceAddressbook';
+import type ServiceAllNetwork from './services/ServiceAllNetwork';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceBatchTransfer from './services/ServiceBatchTransfer';
 import type ServiceBootstrap from './services/ServiceBootstrap';
@@ -126,4 +127,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceLightningNetwork: ServiceLightningNetwork;
   serviceGas: ServiceGas;
   serviceInscribe: ServiceInscribe;
+  serviceAllNetwork: ServiceAllNetwork;
 }

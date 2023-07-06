@@ -1,6 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-import type { AccountGroup } from '../../components/Header/AccountSelectorChildren/RightAccountSection/ItemSection';
+import type { AccountGroup } from '../../components/NetworkAccountSelector/types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 export enum EAccountSelectorMode {

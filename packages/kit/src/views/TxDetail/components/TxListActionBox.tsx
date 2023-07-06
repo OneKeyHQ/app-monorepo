@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react';
 
-import { Box, HStack, Text } from '@onekeyhq/components';
+import { Box, HStack, Text, Token } from '@onekeyhq/components';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import { TxActionElementIconLarge } from '../elements/TxActionElementIcon';
 import { TxActionElementTitleNormal } from '../elements/TxActionElementTitle';
@@ -21,6 +22,7 @@ export type ITxListActionBoxProps = {
 
   // v3.13 for defualt token icon
   symbol?: string;
+  network?: Network | null;
 };
 export function TxListActionBoxTitleText(props: ComponentProps<typeof Text>) {
   return <Text typography="Body1Strong" {...props} />;
@@ -57,6 +59,7 @@ export function TxListActionBox(props: ITxListActionBoxProps) {
     subTitle,
     footer,
     symbol,
+    network,
   } = props;
   const titleView = fallbackTextComponent(title, TxListActionBoxTitleText) ?? (
     <TxActionElementTitleNormal titleInfo={titleInfo} />
@@ -93,12 +96,21 @@ export function TxListActionBox(props: ITxListActionBoxProps) {
               flexDirection="row"
               justifyContent="space-between"
             >
-              <Box
+              <HStack
                 testID="TxListActionBox-subTitleView"
                 flex={hasExtraView ? undefined : 1}
+                alignItems="center"
               >
+                {network?.logoURI ? (
+                  <Token
+                    token={{ logoURI: network?.logoURI }}
+                    showInfo={false}
+                    size={4}
+                    mr="2px"
+                  />
+                ) : null}
                 {subTitleView}
-              </Box>
+              </HStack>
               {hasExtraView && (
                 <Box testID="TxListActionBox-extraView" flex={1}>
                   {extraView}
