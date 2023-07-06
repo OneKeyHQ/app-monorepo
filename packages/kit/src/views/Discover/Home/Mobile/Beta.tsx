@@ -103,7 +103,7 @@ const ListHeaderHistories = () => {
         alignItems="center"
         onPress={() => onItemSelectHistory(item)}
       >
-        <Image w="10" h="10" src={logoURL} borderRadius={12} mb="1.5" />
+        <DAppIcon size={48} url={logoURL} borderRadius={12} mb="1.5" />
         <Typography.Caption w="12" numberOfLines={1} textAlign="center">
           {name ?? 'Unknown'}
         </Typography.Caption>
