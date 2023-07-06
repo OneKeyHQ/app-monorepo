@@ -140,7 +140,14 @@ export default class Vault extends VaultBase {
 
   override async validateAddress(address: string): Promise<string> {
     try {
-      await this._decodedInvoceCache(address);
+      const invoice = await this._decodedInvoceCache(address);
+      if (
+        (invoice.millisatoshis && +invoice.millisatoshis <= 0) ||
+        (invoice.satoshis && +invoice.satoshis <= 0) ||
+        (!invoice.millisatoshis && !invoice.satoshis)
+      ) {
+        throw new Error('Invalid amount');
+      }
       return address;
     } catch (e) {
       throw new InvalidLightningPaymentRequest();

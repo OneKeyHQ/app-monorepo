@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,9 +13,10 @@ import {
   useForm,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { FormatCurrencyTokenOfAccount } from '@onekeyhq/kit/src/components/Format';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigation, useNetwork } from '../../../hooks';
+import { useNativeToken, useNavigation, useNetwork } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { ReceiveTokenModalRoutes } from '../../ReceiveToken/types';
 
@@ -41,12 +43,15 @@ const CreateInvoice = () => {
 
   const { networkId, accountId } = route.params ?? {};
   const { network } = useNetwork({ networkId });
-  const { control, handleSubmit } = useForm<FormValues>({
+  const { control, handleSubmit, watch } = useForm<FormValues>({
     mode: 'onChange',
   });
+  const amountValue = watch('amount');
   const [validateMessage, setvalidateMessage] = useState({
     errorMessage: '',
   });
+
+  const nativeToken = useNativeToken(networkId);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -63,7 +68,6 @@ const CreateInvoice = () => {
             amount: values.amount,
             description: values.description,
           });
-        console.log('===> invoice: ', invoice);
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Receive,
           params: {
@@ -138,7 +142,9 @@ const CreateInvoice = () => {
         children: (
           <Form>
             <Form.Item
-              label={intl.formatMessage({ id: 'content__amount' })}
+              label={`${intl.formatMessage({
+                id: 'content__amount',
+              })}(${intl.formatMessage({ id: 'form__sats__units' })})`}
               control={control}
               errorMessage={validateMessage.errorMessage}
               name="amount"
@@ -173,19 +179,44 @@ const CreateInvoice = () => {
               <Form.Input
                 type="number"
                 size={isVerticalLayout ? 'xl' : 'default'}
+                placeholder={intl.formatMessage({ id: 'form__enter_amount' })}
+                rightCustomElement={
+                  <FormatCurrencyTokenOfAccount
+                    accountId={accountId ?? ''}
+                    networkId={network?.id ?? ''}
+                    token={nativeToken}
+                    value={new BigNumber(amountValue)}
+                    render={(ele) => (
+                      <Text px={4} typography="Button1" color="text-subdued">
+                        ~{ele}
+                      </Text>
+                    )}
+                  />
+                }
               />
             </Form.Item>
             <Form.Item
-              label={intl.formatMessage({ id: 'content__description' })}
+              label={intl.formatMessage({ id: 'form__description__optional' })}
               control={control}
               name="description"
               formControlProps={{ width: 'full' }}
-              rules={{}}
+              rules={{
+                maxLength: {
+                  value: 60,
+                  message: intl.formatMessage(
+                    { id: 'msg_description_can_be_up_to_int_characters' },
+                    { 0: '60' },
+                  ),
+                },
+              }}
               defaultValue=""
             >
               <Form.Textarea
                 size={isVerticalLayout ? 'xl' : 'default'}
                 totalLines={isVerticalLayout ? 3 : 5}
+                placeholder={intl.formatMessage({
+                  id: 'form__a_message_to_the_payer',
+                })}
               />
             </Form.Item>
           </Form>
