@@ -6,7 +6,6 @@ import {
 
 import { getDefaultPurpose } from '../../../managers/derivation';
 import { getAccountNameInfoByImpl } from '../../../managers/impl';
-import { NFTAssetType } from '../../../types/nft';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -17,11 +16,6 @@ import settings from './settings';
 
 import type { DBUTXOAccount } from '../../../types/account';
 import type { AccountNameInfo } from '../../../types/network';
-import type {
-  NFTAssetMeta,
-  NFTBTCAssetModel,
-  NFTListItems,
-} from '../../../types/nft';
 
 export default class Vault extends VaultBtcFork {
   override providerClass = Provider;
