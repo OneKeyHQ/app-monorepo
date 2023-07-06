@@ -9,6 +9,8 @@ import { TransactionStatus } from '@onekeyhq/engine/src/vaults/utils/btcForkChai
 import type {
   ChainInfo,
   IBtcUTXO,
+  IBtcUTXOInfo,
+  ICollectUTXOsOptions,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -135,10 +137,43 @@ class BlockBook {
       });
   }
 
-  getUTXOs(xpub: string) {
-    return this.request
+  async getUTXOs(
+    xpub: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    options: ICollectUTXOsOptions = {},
+  ): Promise<IBtcUTXOInfo> {
+    const utxos = await this.request
       .get(`/api/v2/utxo/${xpub}`)
       .then((res) => res.data as unknown as Array<IBtcUTXO>);
+    return {
+      utxos,
+      utxosFiltered: utxos,
+      totalInscriptionValue: '0',
+    };
+  }
+
+  async getUTXOsFromBackendApi({
+    xpub,
+    impl,
+    options,
+  }: {
+    xpub: string;
+    impl: string;
+    options: ICollectUTXOsOptions;
+  }): Promise<IBtcUTXOInfo> {
+    const res = await this.backendRequest.get<IBtcUTXOInfo>(
+      `/${impl}/api/v2/utxo_info/`,
+      {
+        params: {
+          xpub,
+          ...options,
+          forceSelectUtxos: JSON.stringify(options.forceSelectUtxos || []),
+          // return utxo without inscriptions
+          checkInscription: true,
+        },
+      },
+    );
+    return res.data;
   }
 
   async getRawTransaction(txid: string): Promise<string> {

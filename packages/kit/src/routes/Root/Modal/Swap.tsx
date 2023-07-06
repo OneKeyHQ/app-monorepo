@@ -12,7 +12,9 @@ import Output from '../../../views/Swap/Output';
 import OutputCrosschain from '../../../views/Swap/OutputCrosschain';
 import PickAccount from '../../../views/Swap/PickAccount';
 import PickRecipient from '../../../views/Swap/PickRecipient';
+import SelectRecipient from '../../../views/Swap/SelectRecipient';
 import SelectRoutes from '../../../views/Swap/SelectRoutes';
+import SelectSendingAccount from '../../../views/Swap/SelectSendingAccount';
 import Settings from '../../../views/Swap/Settings';
 import Share from '../../../views/Swap/Share';
 import Slippage from '../../../views/Swap/Slippage';
@@ -118,6 +120,14 @@ const modalRoutes = [
   {
     name: SwapRoutes.OutputCrosschain,
     component: OutputCrosschain,
+  },
+  {
+    name: SwapRoutes.SelectSendingAccount,
+    component: SelectSendingAccount,
+  },
+  {
+    name: SwapRoutes.SelectRecipient,
+    component: SelectRecipient,
   },
 ];
 

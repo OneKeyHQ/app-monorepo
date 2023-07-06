@@ -151,7 +151,7 @@ export function waitPendingTransaction(
       if (right) {
         // ignore transaction not found
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-        if (error.code !== -32000) {
+        if (error.code !== -32000 && error.code !== -32602) {
           return Promise.reject(new OneKeyError(error));
         }
       }

@@ -328,28 +328,10 @@ export const serverPresetNetworks = [
     ],
     'explorers': [
       {
-        'address': 'https://btc.com/{address}',
-        'block': 'https://btc.com/{block}',
-        'name': 'https://btc.com/',
-        'transaction': 'https://btc.com/{transaction}',
-      },
-      {
-        'address': 'https://explorer.poolin.com/address/{address}',
-        'block': 'https://explorer.poolin.com/block/{block}',
-        'name': 'https://explorer.poolin.com/',
-        'transaction': 'https://explorer.poolin.com/tx/{transaction}',
-      },
-      {
-        'address': 'https://blockchain.com/btc/address/{address}',
-        'block': 'https://blockchain.com/btc/block/{block}',
-        'name': 'https://blockchain.com/btc/',
-        'transaction': 'https://blockchain.com/btc/tx/{transaction}',
-      },
-      {
-        'address': 'https://www.oklink.com/btc/address/{address}',
-        'block': 'https://www.oklink.com/btc/block/{block}',
-        'name': 'https://www.oklink.com/btc/',
-        'transaction': 'https://www.oklink.com/btc/tx/{transaction}',
+        'address': 'https://mempool.space/address/{address}',
+        'block': 'https://mempool.space/block/{block}',
+        'name': 'https://mempool.space/',
+        'transaction': 'https://mempool.space/tx/{transaction}',
       },
     ],
     'status': 'LISTED',
@@ -3600,25 +3582,10 @@ export const serverPresetNetworks = [
     'priceConfigs': [],
     'explorers': [
       {
-        'address': 'https://live.blockcypher.com/btc-testnet/address/{address}',
-        'block': 'https://live.blockcypher.com/btc-testnet/block/{block}',
-        'name': 'https://live.blockcypher.com/btc-testnet/',
-        'transaction':
-          'https://live.blockcypher.com/btc-testnet/tx/{transaction}',
-      },
-      {
-        'address': 'https://www.blockchain.com/btc-testnet/address/{address}',
-        'block': 'https://www.blockchain.com/btc-testnet/block/{block}',
-        'name': 'https://www.blockchain.com/btc-testnet/',
-        'transaction':
-          'https://www.blockchain.com/btc-testnet/tx/{transaction}',
-      },
-      {
-        'address': 'https://bitpay.com/insight/#/BTC/testnet/address/{address}',
-        'block': 'https://bitpay.com/insight/#/BTC/testnet/block/{block}',
-        'name': 'https://bitpay.com/insight/#/BTC/testnet/',
-        'transaction':
-          'https://bitpay.com/insight/#/BTC/testnet/tx/{transaction}',
+        'address': 'https://mempool.space/testnet/address/{address}',
+        'block': 'https://mempool.space/testnet/block/{block}',
+        'name': 'https://mempool.space/testnet/',
+        'transaction': 'https://mempool.space/testnet/tx/{transaction}',
       },
     ],
     'status': 'LISTED',
@@ -3814,6 +3781,86 @@ export const serverPresetNetworks = [
     'status': 'LISTED',
     'createdAt': '2023-05-31T00:29:24.951Z',
     'updatedAt': '2023-05-31T00:29:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'lightning',
+    'decimals': 0,
+    'extensions': {
+      'position': 2,
+    },
+    'id': 'lightning--0',
+    'impl': 'lightning',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/lnd/lnd.png',
+    'name': 'Lightning Network',
+    'rpcURLs': [
+      {
+        'url': 'https://node.onekey.so/btc',
+      },
+      {
+        'url': 'https://1rpc.io/btc',
+      },
+    ],
+    'shortcode': 'lightning',
+    'shortname': 'Lightning',
+    'symbol': 'sats',
+    'feeMeta': {
+      'code': 'lightning',
+      'decimals': 0,
+      'symbol': 'sats',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'bitcoin',
+        'platform': 'ordinals',
+      },
+    ],
+    'explorers': [],
+    'status': 'LISTED',
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 9,
+    'chainId': '51178',
+    'code': 'topsideprealpha',
+    'decimals': 18,
+    'id': 'evm--51178',
+    'impl': 'evm',
+    'isTestnet': true,
+    'logoURI':
+      'https://onekey-asset.com/assets/topsideprealpha/topsideprealpha.png',
+    'name': 'Opside Testnet Pre-Alpha Network',
+    'rpcURLs': [
+      {
+        'url': 'https://pre-alpha-us-http-geth.opside.network',
+      },
+    ],
+    'shortcode': 'topsideprealpha',
+    'shortname': 'TOpsidePreAlpha',
+    'symbol': 'IDE',
+    'feeMeta': {
+      'code': 'topsideprealpha',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://pre-alpha.opside.info/address/{address}',
+        'block': 'https://pre-alpha.opside.info/block/{block}',
+        'name': 'https://pre-alpha.opside.info/',
+        'transaction': 'https://pre-alpha.opside.info/tx/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2023-06-14T00:29:24.951Z',
+    'updatedAt': '2023-06-14T00:29:24.951Z',
   },
 ] as unknown as IServerNetwork[];
 

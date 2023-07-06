@@ -61,8 +61,7 @@ export async function testSignTransaction(
     keyring: (payload: { vault: VaultBase }) => KeyringSoftwareBase;
   },
 ) {
-  const { options, dbAccount, password, network } =
-    prepareMockVault(prepareOptions);
+  const { options, dbAccount, password } = prepareMockVault(prepareOptions);
 
   expect(password).toBeTruthy();
 

@@ -2,8 +2,13 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import axios from 'axios';
 
 import type {
+  BTCTransactionsModel,
   Collection,
+  IErcNftType,
+  INFTAsset,
   NFTAsset,
+  NFTBTCAssetModel,
+  NFTListItems,
   NFTServiceResp,
   NFTTransaction,
 } from '@onekeyhq/engine/src/types/nft';
@@ -120,7 +125,11 @@ export const getNFTSymbolPrice = async (networkId: string) => {
   return price;
 };
 
-type TxMapType = Record<string, NFTTransaction[]>;
+export type TxMapType = Record<
+  string,
+  NFTTransaction[] | BTCTransactionsModel[]
+>;
+
 export const getNFTTransactionHistory = async (
   accountId?: string,
   networkId?: string,
@@ -131,13 +140,25 @@ export const getNFTTransactionHistory = async (
     const { data: txMap } = await axios
       .get<NFTServiceResp<TxMapType>>(apiUrl)
       .then((resp) => resp.data);
-    return txMap;
+    return txMap ?? {};
   }
   return {} as TxMapType;
 };
 
+export const getBRC20TransactionHistory = async (
+  accountId: string,
+  tokenAddress: string,
+): Promise<TxMapType> => {
+  const endpoint = getFiatEndpoint();
+  const apiUrl = `${endpoint}/NFT/transactions/brc20?address=${accountId}&tokenAddress=${tokenAddress}`;
+  const { data: txMap } = await axios
+    .get<NFTServiceResp<TxMapType>>(apiUrl)
+    .then((resp) => resp.data);
+  return txMap ?? {};
+};
+
 export function buildEncodeDataWithABI(param: {
-  type: string;
+  type: IErcNftType;
   from: string;
   to: string;
   id: string;
@@ -223,13 +244,23 @@ export function createOutputActionFromNFTTransaction({
   };
 }
 
+export function NFTDataType(networkId: string) {
+  if (networkId === OnekeyNetwork.btc) {
+    return 'btc';
+  }
+  if (networkId === OnekeyNetwork.sol) {
+    return 'sol';
+  }
+  return 'evm';
+}
+
 export async function getLocalNFTs({
   networkId,
   accountId,
 }: {
   networkId: string;
   accountId: string;
-}): Promise<Collection[]> {
+}): Promise<NFTListItems> {
   const key = getNFTListKey(accountId, networkId);
   const items = await simpleDb.nft.getNFTs(key);
   if (items) {
@@ -252,8 +283,14 @@ export async function getAssetFromLocal({
   if (!accountId) {
     return;
   }
-  const collections = await getLocalNFTs({ networkId, accountId });
-  const collection = collections.find(
+  const nfts = await getLocalNFTs({ networkId, accountId });
+  const type = NFTDataType(networkId);
+  if (type === 'btc') {
+    return (nfts as NFTBTCAssetModel[]).find(
+      (item) => item.inscription_id === tokenId,
+    );
+  }
+  const collection = (nfts as Collection[]).find(
     (item) => item.contractAddress === contractAddress,
   );
   return collection?.assets.find((item) => item.tokenId === tokenId);
@@ -283,7 +320,7 @@ export async function fetchAsset({
     }
   }
   const { data, success } = await axios
-    .get<NFTServiceResp<NFTAsset | undefined>>(apiUrl)
+    .get<NFTServiceResp<INFTAsset | undefined>>(apiUrl)
     .then((resp) => resp.data)
     .catch(() => ({ success: false, data: undefined }));
   if (!success) {
@@ -311,5 +348,23 @@ export async function getAsset(params: {
   });
   if (resp) {
     return resp;
+  }
+}
+
+export type BRC20TextProps = {
+  p: string;
+  op: 'deploy' | 'mint' | 'transfer' | string;
+  tick: string;
+  amt?: string;
+  lim?: string; // deploy
+  max?: string; // deploy
+};
+
+export function parseTextProps(content: string) {
+  try {
+    const json = JSON.parse(content) as BRC20TextProps;
+    return json;
+  } catch (error) {
+    console.log('parse InscriptionText error = ', error);
   }
 }

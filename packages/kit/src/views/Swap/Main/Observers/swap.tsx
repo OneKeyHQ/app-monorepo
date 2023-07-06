@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import {
   AppUIEventBusNames,
   appUIEventBus,
@@ -13,6 +14,19 @@ import { doQuote } from '../../doQuote';
 import { useSwapQuoteRequestParams } from '../../hooks/useSwap';
 import { SwapError } from '../../typings';
 import { stringifyTokens } from '../../utils';
+
+const WalletObserver = () => {
+  useEffect(() => {
+    const fn = (wallet: Wallet) => {
+      backgroundApiProxy.serviceSwap.handleWalletRemove(wallet);
+    };
+    appUIEventBus.on(AppUIEventBusNames.RemoveWallet, fn);
+    return function () {
+      appUIEventBus.off(AppUIEventBusNames.RemoveWallet, fn);
+    };
+  }, []);
+  return null;
+};
 
 const AccountsObserver = () => {
   useEffect(() => {
@@ -123,6 +137,7 @@ const SwapParamsObserver = () => {
 
 export const SwapObserver = () => (
   <>
+    <WalletObserver />
     <AccountsObserver />
     <UserSelectedQuoterObserver />
     <NetworkStatusObserver />

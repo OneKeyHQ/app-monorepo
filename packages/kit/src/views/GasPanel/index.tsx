@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -8,6 +8,8 @@ import type { IGasInfo } from '@onekeyhq/engine/src/types/gas';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useSettings } from '../../hooks';
+import { setGasPanelEIP1559Enabled } from '../../store/reducers/settings';
 
 import { supportedNetworks, supportedNetworksSettings } from './config';
 import { GasList } from './GasList';
@@ -38,6 +40,7 @@ function GasPanel() {
   const [leftSeconds, setLeftSeconds] = useState(
     REFRESH_GAS_INFO_INTERVAL / 1000,
   );
+  const settings = useSettings();
 
   const { serviceGas } = backgroundApiProxy;
 
@@ -52,7 +55,11 @@ function GasPanel() {
     return false;
   }, [gasInfo]);
 
-  const [isEIP1559Enabled, setIsEIP1559Enabled] = useState(true);
+  const isEIP1559Enabled = settings?.gasPanelEIP1559Enabled ?? true;
+
+  const setIsEIP1559Enabled = useCallback((isEnabled) => {
+    backgroundApiProxy.dispatch(setGasPanelEIP1559Enabled(isEnabled));
+  }, []);
 
   useEffect(() => {
     setGasInfo(null);
@@ -72,7 +79,6 @@ function GasPanel() {
       setIsGasInfoInit(true);
       timer = setTimeout(() => fetchGasInfo(), REFRESH_GAS_INFO_INTERVAL);
       setLeftSeconds(REFRESH_GAS_INFO_INTERVAL / 1000);
-      console.log(timer);
     };
     fetchGasInfo();
     return () => {
@@ -88,10 +94,6 @@ function GasPanel() {
     }
   }, [networkId]);
 
-  useEffect(() => {
-    setIsEIP1559Enabled(isEIP1559);
-  }, [isEIP1559]);
-
   return (
     <Modal
       header={intl.formatMessage({ id: 'content__gas_fee' })}
@@ -105,7 +107,7 @@ function GasPanel() {
       scrollViewProps={{
         children: isGasInfoInit ? (
           <>
-            <HStack justifyContent="space-between">
+            <HStack justifyContent="space-between" alignItems="center">
               <NetworkSelector
                 selectedNetworkId={selectedNetworkId}
                 setSelectedNetworkId={setSelectedNetworkId}
@@ -119,24 +121,27 @@ function GasPanel() {
                   }}
                   isChecked={isEIP1559Enabled}
                   label="EIP 1559"
+                  size="mini"
                 />
               ) : null}
             </HStack>
             {supportedNetworksSettings[selectedNetworkId].supportOverview ? (
               <GasOverview
+                mt={8}
                 gasInfo={gasInfo}
                 isEIP1559Enabled={isEIP1559Enabled}
                 selectedNetworkId={selectedNetworkId}
               />
             ) : null}
             <GasList
+              mt={6}
               gasInfo={gasInfo}
               isEIP1559Enabled={isEIP1559Enabled}
               selectedNetworkId={selectedNetworkId}
             />
             {gasInfo ? (
               <GasRefreshTip
-                mt={10}
+                mt={12}
                 leftSeconds={leftSeconds}
                 setLeftSeconds={setLeftSeconds}
               />

@@ -62,6 +62,7 @@ export function isSerializable(obj: any) {
   }
 
   if (!isPlainObject(obj) && !isArray(obj)) {
+    // like regex, date
     return false;
   }
 

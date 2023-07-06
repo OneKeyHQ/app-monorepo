@@ -1,5 +1,5 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -20,7 +20,12 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
-import { HomeRoutes, RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import {
+  HomeRoutes,
+  InscribeModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '@onekeyhq/kit/src/routes/routesEnum';
 import type {
   HomeRoutesParams,
   RootRoutesParams,
@@ -31,6 +36,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks';
 import { useTools } from '../../../hooks/redux';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
 import { openUrl } from '../../../utils/openUrl';
 import { useIsVerticalOrMiddleLayout } from '../../Revoke/hooks';
@@ -46,6 +52,7 @@ type DataItem = {
   description: LocaleIds;
   link?: string;
   tag?: LocaleIds;
+  intlDisabled?: boolean;
 };
 
 const data: DataItem[] = [
@@ -89,6 +96,16 @@ const data: DataItem[] = [
     title: 'content__nft_profit_and_loss',
     description: 'empty__pnl',
   },
+  {
+    key: 'inscribe',
+    icon: {
+      name: 'SparklesSolid',
+      color: 'decorative-icon-one',
+    },
+    iconBg: 'decorative-surface-one',
+    title: 'title__inscribe',
+    description: 'title__inscribe_desc',
+  },
 ];
 
 type NavigationProps = NativeStackNavigationProp<
@@ -100,13 +117,24 @@ type NavigationProps = NativeStackNavigationProp<
 
 const ToolsPage: FC = () => {
   const intl = useIntl();
-  const { network, accountAddress } = useActiveWalletAccount();
+  const { network, accountAddress, accountId, networkId } =
+    useActiveWalletAccount();
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation<NavigationProps>();
-
+  const appNavigation = useAppNavigation();
+  const [inscribeEnable, setInscribeEnable] = useState(false);
   const tools = useTools(network?.id);
-
+  const { serviceInscribe } = backgroundApiProxy;
   const { openAddressDetails, hasAvailable } = useOpenBlockBrowser(network);
+
+  useEffect(() => {
+    if (accountAddress?.length > 0) {
+      serviceInscribe
+        .checkValidTaprootAddress({ address: accountAddress })
+        .then((result) => setInscribeEnable(result))
+        .catch(() => setInscribeEnable(false));
+    }
+  }, [accountAddress, networkId, serviceInscribe]);
 
   const items = useMemo(() => {
     let allItems = data;
@@ -131,6 +159,10 @@ const ToolsPage: FC = () => {
       allItems = allItems.filter((n) => n.key !== 'bulkSender');
     }
 
+    if (!inscribeEnable) {
+      allItems = allItems.filter((n) => n.key !== 'inscribe');
+    }
+
     return allItems.concat(
       tools.map((t) => ({
         key: t.title,
@@ -141,6 +173,7 @@ const ToolsPage: FC = () => {
         title: t.title,
         description: t.desc,
         link: t.link,
+        intlDisabled: true,
       })),
     );
   }, [
@@ -149,6 +182,7 @@ const ToolsPage: FC = () => {
     network?.impl,
     network?.settings.supportBatchTransfer,
     network?.id,
+    inscribeEnable,
     tools,
   ]);
 
@@ -182,6 +216,16 @@ const ToolsPage: FC = () => {
         } else {
           navigation.navigate(HomeRoutes.BulkSender);
         }
+      } else if (key === 'inscribe') {
+        if (network?.id) {
+          appNavigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Inscribe,
+            params: {
+              screen: InscribeModalRoutes.InscribeModal,
+              params: { networkId: network?.id, accountId },
+            },
+          });
+        }
       } else {
         const item = tools?.find((t) => t.title === key);
         if (item) {
@@ -196,7 +240,17 @@ const ToolsPage: FC = () => {
         }
       }
     },
-    [tools, navigation, openAddressDetails, accountAddress, intl, params],
+    [
+      navigation,
+      openAddressDetails,
+      accountAddress,
+      intl,
+      network?.id,
+      appNavigation,
+      accountId,
+      tools,
+      params,
+    ],
   );
 
   const getItemPaddingx = useCallback(
@@ -274,7 +328,9 @@ const ToolsPage: FC = () => {
                   isTruncated
                   maxW="200px"
                 >
-                  {intl.formatMessage({ id: item.title })}
+                  {item.intlDisabled
+                    ? item.title
+                    : intl.formatMessage({ id: item.title })}
                 </Typography.Body1Strong>
                 {item.tag ? (
                   <Badge
@@ -291,7 +347,9 @@ const ToolsPage: FC = () => {
                 isTruncated
                 color="text-subdued"
               >
-                {intl.formatMessage({ id: item.description })}
+                {item.intlDisabled
+                  ? item.description
+                  : intl.formatMessage({ id: item.description })}
               </Typography.Body2>
             </VStack>
           </Pressable>

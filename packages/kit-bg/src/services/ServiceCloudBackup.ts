@@ -1,6 +1,5 @@
 import { deviceName, osName } from 'expo-device';
 import { debounce } from 'lodash';
-import memoizee from 'memoizee';
 import uuid from 'react-native-uuid';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -44,6 +43,7 @@ import type {
   IBackupItemSummary,
   PublicBackupData,
 } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from './ServiceBase';
 

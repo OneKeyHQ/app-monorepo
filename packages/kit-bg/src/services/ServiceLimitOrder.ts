@@ -34,7 +34,6 @@ import type {
 } from '@onekeyhq/kit/src/views/Swap/typings';
 import {
   div,
-  formatAmount,
   formatAmountExact,
   getChainIdFromNetworkId,
   getTokenAmountString,
@@ -480,7 +479,7 @@ class ServiceLimitOrder extends ServiceBase {
         new Date(response.metaData.createdAt).getTime() / 1000,
       ),
       expiredIn: Number(response.order.expiry),
-      rate: formatAmount(div(tokenOutValue, tokenInValue)),
+      rate: formatAmountExact(div(tokenOutValue, tokenInValue)),
     };
     return details;
   }

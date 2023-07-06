@@ -12,6 +12,7 @@ import {
   Pressable,
   Switch,
   Text,
+  ToastManager,
   VStack,
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -47,6 +48,8 @@ const CoinControlAdvancedSetting: FC<Props> = ({
     [encodedTx.inputs],
   );
 
+  const canCoinControl = !encodedTx?.transferInfo?.coinControlDisabled;
+
   const amount = useMemo(() => {
     const sumAmount = encodedTx.inputs.reduce(
       (sum, input) => sum.plus(input.value),
@@ -67,12 +70,25 @@ const CoinControlAdvancedSetting: FC<Props> = ({
           encodedTx,
           onConfirm: (selectedUtxos) => {
             navigation.goBack();
-            onSelectedUtxos(selectedUtxos);
+            if (canCoinControl) {
+              onSelectedUtxos(selectedUtxos);
+            } else {
+              ToastManager.show({
+                title: 'CoinControl is disabled for this transaction',
+              });
+            }
           },
         },
       },
     });
-  }, [navigation, network.id, accountId, encodedTx, onSelectedUtxos]);
+  }, [
+    navigation,
+    network.id,
+    accountId,
+    encodedTx,
+    canCoinControl,
+    onSelectedUtxos,
+  ]);
 
   return (
     <VStack
@@ -88,7 +104,15 @@ const CoinControlAdvancedSetting: FC<Props> = ({
         <Switch
           labelType="false"
           isChecked={isChecked}
-          onToggle={onToggleCoinControl}
+          onToggle={() => {
+            if (canCoinControl) {
+              onToggleCoinControl();
+            } else {
+              ToastManager.show({
+                title: 'CoinControl is disabled for this transaction',
+              });
+            }
+          }}
         />
       </HStack>
       <Divider my={4} />

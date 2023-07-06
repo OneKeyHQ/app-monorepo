@@ -53,7 +53,7 @@ open class HomePageLayout @JvmOverloads constructor(
     private val mPageChangeCallback = object : OnPageChangeCallback() {
         override fun onPageSelected(position: Int) {
             super.onPageSelected(position)
-            if (mTabProps.isNotEmpty() && position < mTabProps.size) {
+            if (mTabProps.isNotEmpty() && position >= 0 && position < mTabProps.size) {
                 onReceiveNativeEvent(position, mTabProps[position])
             }
         }

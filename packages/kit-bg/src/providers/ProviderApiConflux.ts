@@ -2,7 +2,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
-import memoizee from 'memoizee';
 
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import type { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
@@ -16,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_CFX } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import ProviderApiBase from './ProviderApiBase';

@@ -76,7 +76,11 @@ const RecoveryWallet = () => {
           valueTextForMnemonic={enableListenInput ? valueText : undefined}
         />
       </Layout>
-      <Drawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
+      <Drawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        mode={mode}
+      />
       {platformEnv.isNative && mode === 'mnemonic' && (
         <KeyboardAvoidingView
           behavior={platformEnv.isNativeIOS ? 'position' : 'height'}

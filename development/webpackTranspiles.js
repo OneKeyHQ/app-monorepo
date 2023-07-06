@@ -2,6 +2,14 @@ const developmentConsts = require('./developmentConsts');
 
 const sharedTranspile = [];
 
+const taprootModules = [
+  '@cmdcode/buff-utils',
+  '@cmdcode/tapscript',
+  '@cmdcode/tapscript/dist/main.cjs',
+  '@cmdcode/crypto-utils',
+  '@cmdcode/crypto-utils/dist/main.cjs',
+];
+
 const walletConnectModules = [
   '@walletconnect/time',
   '@walletconnect/utils',
@@ -25,22 +33,6 @@ const walletConnectModules = [
   '@stablelib/x25519',
 ];
 
-const webModuleTranspile = [
-  ...sharedTranspile,
-  ...walletConnectModules,
-  'moti',
-  '@gorhom',
-  '@mysten/sui.js',
-  'superstruct',
-  '@noble/curves',
-  '@polkadot',
-  '@solana/web3.js',
-  '@kaspa/core-lib',
-  '@zondax/izari-filecoin',
-  '@onekeyhq',
-  'timeout-signal',
-];
-
 const substrateModules = ['@substrate/txwrapper-core'];
 
 const polkadotModules = [
@@ -55,11 +47,29 @@ const polkadotModules = [
   '@polkadot/keyring',
 ];
 
+const webModuleTranspile = [
+  ...sharedTranspile,
+  ...walletConnectModules,
+  ...taprootModules,
+  'moti',
+  '@gorhom',
+  '@mysten/sui.js',
+  'superstruct',
+  '@noble/curves',
+  '@polkadot',
+  '@solana/web3.js',
+  '@kaspa/core-lib',
+  '@zondax/izari-filecoin',
+  '@onekeyhq',
+  'timeout-signal',
+];
+
 const extModuleTranspile = [
   ...sharedTranspile,
   ...substrateModules,
   ...polkadotModules,
   ...walletConnectModules,
+  ...taprootModules,
   '@onekeyhq/blockchain-libs',
   '@onekeyhq/components',
   '@onekeyhq/kit',

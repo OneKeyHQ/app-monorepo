@@ -49,17 +49,38 @@ export type IBtcUTXO = {
   value: string;
   address: string;
   path: string;
+  forceSelect?: boolean;
 };
 
-export type ICoinSelectUTXO = {
+export type IBtcUTXOInfo = {
+  utxos: IBtcUTXO[];
+  utxosFiltered: IBtcUTXO[];
+  totalInscriptionValue: string;
+  frozenValue?: string;
+};
+
+export type ICollectUTXOsOptions = {
+  checkInscription?: boolean;
+  forceSelectUtxos?: ICoinSelectUTXOLite[];
+};
+
+export type ICoinSelectUTXOLite = {
   txId: string;
+  vout: number;
+  address: string;
+};
+export type ICoinSelectUTXO = {
+  txId: string; // TODO txId or txid?
   vout: number;
   value: number;
   address: string;
   path: string;
+  forceSelect?: boolean;
 };
 
-export type IUTXOInput = Omit<IBtcUTXO, 'txid'> & { txId: string };
+export type IUTXOInput = Omit<IBtcUTXO, 'txid'> & {
+  txId: string;
+};
 export type IUTXOOutput = { address: string; value: number };
 
 export type IEncodedTxBtc = {
@@ -69,15 +90,17 @@ export type IEncodedTxBtc = {
     value: string;
     payload?: { isCharge?: boolean; bip44Path?: string };
   }[];
+  feeRate: string;
   totalFee: string;
   totalFeeInNative: string;
-  feeRate: string;
   inputsForCoinSelect: ICoinSelectUTXO[];
   outputsForCoinSelect: {
     address: string;
     value?: number;
+    isMax?: boolean;
   }[];
   transferInfo: ITransferInfo;
+  transferInfos?: ITransferInfo[];
 };
 
 export type UTXO = {

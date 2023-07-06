@@ -72,6 +72,7 @@ function nanToZeroString(value: string | number | unknown) {
 
 export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
   const limit = feeValue.limitUsed || feeValue.limit;
+  const limitForDisplay = feeValue.limitForDisplay ?? limit;
   if (feeValue.eip1559) {
     // MIN: (baseFee + maxPriorityFeePerGas) * limit
     const priceInfo = feeValue.price1559 as EIP1559Fee;
@@ -81,7 +82,7 @@ export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
       )
       .toFixed(decimal);
 
-    const minForDisplay = new BigNumber(feeValue.limitForDisplay as string)
+    const minForDisplay = new BigNumber(limitForDisplay as string)
       .times(
         new BigNumber(priceInfo.baseFee).plus(priceInfo.maxPriorityFeePerGas),
       )
@@ -92,7 +93,7 @@ export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
       .times(priceInfo.gasPrice || priceInfo.maxFeePerGas)
       .toFixed(decimal);
 
-    const maxForDisplay = new BigNumber(feeValue.limitForDisplay as string)
+    const maxForDisplay = new BigNumber(limitForDisplay as string)
       .times(priceInfo.gasPrice || priceInfo.maxFeePerGas)
       .toFixed(decimal);
     return {
@@ -119,9 +120,10 @@ export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
     .times(feeValue.price as string)
     .toFixed();
 
-  const maxForDisplay = new BigNumber(feeValue.limitForDisplay as string)
+  const maxForDisplay = new BigNumber(limitForDisplay as string)
     .times(feeValue.price as string)
     .toFixed();
+
   return {
     min: nanToZeroString(max),
     max: nanToZeroString(max),

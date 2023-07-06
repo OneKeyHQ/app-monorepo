@@ -12,6 +12,7 @@ import {
   IMPL_EVM,
   IMPL_FIL,
   IMPL_KASPA,
+  IMPL_LIGHTNING,
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
@@ -102,6 +103,10 @@ export function createVaultSettings(options: {
   }
   if (impl === IMPL_KASPA) {
     return require('./impl/kaspa/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_LIGHTNING) {
+    return require('./impl/lightning-network/settings')
+      .default as IVaultSettings;
   }
   throw new OneKeyInternalError(
     `VaultSettings not found for: networkId=${options.networkId ?? ''}, impl=${

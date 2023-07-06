@@ -22,6 +22,7 @@ export type AddressBookRoutesParams = {
   [AddressBookRoutes.PickAddressRoute]:
     | {
         networkId?: string;
+        contactExcludeWalletAccount?: boolean;
         onSelected?: (data: { address: string; name?: string }) => void;
       }
     | undefined;

@@ -5,7 +5,6 @@
 import BigNumber from 'bignumber.js';
 import * as bip39 from 'bip39';
 import { cloneDeep, get, uniqBy } from 'lodash';
-import memoizee from 'memoizee';
 import natsort from 'natsort';
 import RNRestart from 'react-native-restart';
 
@@ -28,6 +27,7 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import {
+  COINTYPE_LIGHTNING,
   IMPL_EVM,
   getSupportedImpls,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -36,6 +36,7 @@ import timelinePerfTrace, {
   ETimelinePerfNames,
 } from '@onekeyhq/shared/src/perf/timelinePerfTrace';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
@@ -637,30 +638,35 @@ class Engine {
                 coinType: a.coinType,
                 tokens: [],
                 address: a.address,
+                addresses:
+                  a.coinType === COINTYPE_LIGHTNING
+                    ? JSON.stringify(get(a, 'addresses', {}))
+                    : undefined,
                 pubKey: get(a, 'pub', ''),
               }
-            : this.getVault({ accountId: a.id, networkId }).then((vault) =>
-                vault.getOutputAccount().catch((error) => {
-                  if (a.type === AccountType.SIMPLE) {
-                    vault
-                      .validateAddress(a.address)
-                      .then((address) => {
-                        if (!address) {
+            : this.getVaultWithoutCache({ accountId: a.id, networkId }).then(
+                (vault) =>
+                  vault.getOutputAccount().catch((error) => {
+                    if (a.type === AccountType.SIMPLE) {
+                      vault
+                        .validateAddress(a.address)
+                        .then((address) => {
+                          if (!address) {
+                            setTimeout(() => {
+                              this.removeAccount(a.id, '', networkId, true);
+                              checkActiveWallet();
+                            }, 100);
+                          }
+                        })
+                        .catch(() => {
                           setTimeout(() => {
                             this.removeAccount(a.id, '', networkId, true);
                             checkActiveWallet();
                           }, 100);
-                        }
-                      })
-                      .catch(() => {
-                        setTimeout(() => {
-                          this.removeAccount(a.id, '', networkId, true);
-                          checkActiveWallet();
-                        }, 100);
-                      });
-                  }
-                  throw error;
-                }),
+                        });
+                    }
+                    throw error;
+                  }),
               ),
         ),
     );
@@ -720,7 +726,7 @@ class Engine {
     );
     const balancesAddress = await Promise.all(
       accounts.map(async (a) => {
-        if (a.type === AccountType.UTXO) {
+        if (a.type === AccountType.UTXO || a.coinType === COINTYPE_LIGHTNING) {
           const address = await vault.getFetchBalanceAddress(a);
           return { address };
         }
@@ -903,7 +909,7 @@ class Engine {
 
     const balancesAddress = await Promise.all(
       accounts.map(async (a) => {
-        if (a.type === AccountType.UTXO) {
+        if (a.type === AccountType.UTXO || a.coinType === COINTYPE_LIGHTNING) {
           const address = await vault.getFetchBalanceAddress(a);
           return { address };
         }
@@ -1276,9 +1282,8 @@ class Engine {
     {
       promise: true,
       primitive: true,
-      max: 500,
+      max: 200,
       maxAge: 1000 * 60 * 10,
-      normalizer: (args) => JSON.stringify(args),
     },
   );
 
@@ -1475,7 +1480,6 @@ class Engine {
       primitive: true,
       max: 200,
       maxAge: 1000 * 60 * 10,
-      normalizer: (args) => JSON.stringify(args),
     },
   );
 
@@ -2070,6 +2074,9 @@ class Engine {
     };
     transferInfoNew.amount = transferInfoNew.amount || '0';
     // throw new Error('build encodedtx error test');
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const vault = await this.getVault({ networkId, accountId });
     const result = await vault.buildEncodedTxFromTransfer(transferInfoNew);
     debugLogger.sendTx.info(
@@ -2100,11 +2107,11 @@ class Engine {
     isDeflationary?: boolean;
   }) {
     const vault = await this.getVault({ networkId, accountId });
-    const result = await vault.buildEncodedTxFromBatchTransfer(
+    const result = await vault.buildEncodedTxFromBatchTransfer({
       transferInfos,
       prevNonce,
       isDeflationary,
-    );
+    });
     debugLogger.sendTx.info(
       'buildEncodedTxFromBatchTransfer: ',
       transferInfos,
@@ -2155,6 +2162,15 @@ class Engine {
     const network = await this.getNetwork(options.networkId);
     const { rpcURL } = network;
     return this.vaultFactory.getVault({ ...options, rpcURL });
+  }
+
+  async getVaultWithoutCache(options: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const network = await this.getNetwork(options.networkId);
+    const { rpcURL } = network;
+    return this.vaultFactory._getVaultWithoutCache({ ...options, rpcURL });
   }
 
   @backgroundMethod()
@@ -2391,7 +2407,6 @@ class Engine {
       primitive: true,
       max: 1,
       maxAge: 1000 * 50,
-      normalizer: (args) => JSON.stringify(args),
     },
   );
 

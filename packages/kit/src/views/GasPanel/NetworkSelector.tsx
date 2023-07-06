@@ -61,7 +61,7 @@ function NetworkSelector(props: Props) {
         <Pressable accessibilityLabel="More options menu" {...triggerProps}>
           <HStack alignItems="center" space={3}>
             <Token size={6} {...activeOption.tokenProps} />
-            {selectedNetwork?.name}
+            <Text typography="Body1">{selectedNetwork?.name}</Text>
             <Icon size={20} name="ChevronDownMini" color="icon-subdued" />
           </HStack>
         </Pressable>

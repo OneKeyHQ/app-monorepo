@@ -306,6 +306,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       if (this.web3walletV2) {
         const { sessions } = await this.getActiveSessionsV2();
         for (const sessionV2 of sessions) {
+          const peerUrl = sessionV2?.peer?.metadata?.url;
           const networkImpl = IMPL_EVM;
           const requestProxy = this.getRequestProxy({ networkImpl });
           const accounts = await requestProxy.getAccounts({
@@ -325,20 +326,64 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
                     accounts,
                   },
                   requiredNamespaces: sessionV2.requiredNamespaces,
+                  optionalNamespaces: sessionV2.optionalNamespaces,
                 });
-              // TODO should emit session events?
+
+              // Do NOT await this method, it may block forever
+              this.web3walletV2
+                .updateSession({
+                  topic: sessionV2.topic,
+                  namespaces,
+                })
+                ?.catch((err) => {
+                  console.error(
+                    'web3walletV2.updateSession catch ERROR: ',
+                    err,
+                  );
+                });
+
               // https://docs.walletconnect.com/2.0/web/web3wallet/wallet-usage#emit-session-events
-              await this.web3walletV2.updateSession({
+              const eip155ChainId = `eip155:${chainId}`;
+              await this.web3walletV2.emitSessionEvent({
                 topic: sessionV2.topic,
-                namespaces,
+                event: {
+                  name: 'accountsChanged',
+                  data: accounts,
+                },
+                chainId: eip155ChainId,
               });
+              await this.web3walletV2.emitSessionEvent({
+                topic: sessionV2.topic,
+                event: {
+                  name: 'chainChanged',
+                  // https://docs.walletconnect.com/2.0/web/web3wallet/wallet-usage#emit-session-events
+                  // https://github.com/WalletConnect/web-examples/blob/main/wallets/react-wallet-eip155/src/pages/session.tsx#L47
+                  // https://github.com/WalletConnect/web-examples/blob/main/wallets/react-web3wallet/src/pages/session.tsx#L54
+                  // https://github.com/WalletConnect/WalletConnectFlutterV2/blob/master/README.md?plain=1#L242
+                  // https://github.com/WalletConnect/se-sdk/blob/main/src/controllers/engine.ts#L277
+                  data: chainId, // accounts or chainId or [chainId] or any string?
+                },
+                chainId: eip155ChainId,
+              });
+
+              console.log(
+                `WalletConnect: notify session changed, updateSession done`,
+                {
+                  eip155ChainId,
+                  accounts,
+                },
+              );
             }
           } else {
             await this.disconnectV2({ sessionV2 });
           }
+          console.log(
+            `WalletConnect: notify session changed, peerUrl=${peerUrl}`,
+          );
         }
       }
 
+      await wait(800);
       this.refreshConnectedSites();
     },
     800,
@@ -443,6 +488,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       const { namespaces } = walletConnectUtils.convertToSessionNamespacesV2({
         sessionStatus,
         requiredNamespaces: proposal.params.requiredNamespaces,
+        optionalNamespaces: proposal.params.optionalNamespaces,
         onError: (error) => {
           this.backgroundApi.dispatch(
             backgroundShowToast({
@@ -461,8 +507,10 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
       // TODO save to DB?
       console.log('WalletConnectV2 session_proposal APPROVE: ', session);
 
-      // TODO
-      // this.redirectToDapp({ })
+      if (session) {
+        // TODO redirectToDapp for V2 handler
+        // this.redirectToDapp({ })
+      }
     } catch (error) {
       const session = await this.web3walletV2?.rejectSession({
         id: proposal.id,
@@ -529,6 +577,7 @@ class ProviderApiWalletConnect extends WalletConnectClientForWallet {
 
       // TODO sessionV2 accounts and peer accounts matched check
 
+      // handleSessionRequest will call this.redirectToDapp()
       const result = await this.handleSessionRequest({
         networkImpl,
         payload: params.request,

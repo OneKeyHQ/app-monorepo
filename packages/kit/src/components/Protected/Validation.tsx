@@ -148,6 +148,7 @@ const Validation: FC<ValidationProps> = ({
             type="primary"
             size="xl"
             onPress={onSubmitThrottle}
+            runAfterInteractions
           >
             {intl.formatMessage({
               id: 'action__continue',

@@ -75,6 +75,7 @@ function AssetsList({
   networkId,
   renderDefiList,
 }: IAssetsListProps) {
+  const { homeTabName, isUnlock } = useStatus();
   const isVerticalLayout = useIsVerticalLayout();
   const loading = useAccountTokenLoading(networkId, accountId);
   const accountTokensWithoutLimit = useAccountTokens(
@@ -133,26 +134,42 @@ function AssetsList({
   useEffect(() => {
     const { serviceOverview } = backgroundApiProxy;
     serviceOverview.subscribe();
+  }, [accountId, networkId]);
 
+  useEffect(() => {
     if (platformEnv.isExtensionUi) {
       chrome.runtime.connect();
     }
-  }, [networkId, accountId, startRefresh, stopRefresh]);
-
-  const { homeTabName } = useStatus();
+  }, []);
 
   const isFocused = useVisibilityFocused();
 
+  const shouldRefreshBalances = useMemo(() => {
+    if (!isUnlock) {
+      return false;
+    }
+    if (!isFocused || !accountId || !networkId) {
+      return false;
+    }
+    if (homeTabName && homeTabName !== WalletHomeTabEnum.Tokens) {
+      return false;
+    }
+    return true;
+  }, [isFocused, accountId, networkId, homeTabName, isUnlock]);
+
   useEffect(() => {
-    if (isFocused && homeTabName === WalletHomeTabEnum.Tokens) {
-      if (!account || !network) {
-        return;
-      }
+    if (shouldRefreshBalances) {
       startRefresh();
     } else {
       stopRefresh();
     }
-  }, [isFocused, startRefresh, stopRefresh, account, network, homeTabName]);
+  }, [shouldRefreshBalances, startRefresh, stopRefresh]);
+
+  useEffect(() => {
+    if (isFocused && isUnlock) {
+      backgroundApiProxy.serviceToken.fetchAccountTokens();
+    }
+  }, [isFocused, isUnlock]);
 
   const onTokenCellPress = useCallback(
     (item: Token) => {

@@ -15,7 +15,6 @@ import {
   reduce,
   toLower,
 } from 'lodash';
-import memoizee from 'memoizee';
 
 import { Geth } from '@onekeyhq/blockchain-libs/src/provider/chains/eth/geth';
 import type { Provider as EthProvider } from '@onekeyhq/blockchain-libs/src/provider/chains/eth/provider';
@@ -40,6 +39,7 @@ import {
   UNIQUE_TOKEN_SYMBOLS,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
@@ -56,6 +56,7 @@ import { extractResponseError, fillUnsignedTxObj } from '../../../proxy';
 import { BatchTransferSelectors } from '../../../types/batchTransfer';
 import { HistoryEntryStatus } from '../../../types/history';
 import { ETHMessageTypes } from '../../../types/message';
+import { NFTAssetType } from '../../../types/nft';
 import { TokenRiskLevel } from '../../../types/token';
 import {
   IDecodedTxActionType,
@@ -101,7 +102,13 @@ import type {
   EIP1559Fee,
   Network,
 } from '../../../types/network';
-import type { NFTTransaction } from '../../../types/nft';
+import type {
+  Collection,
+  NFTAsset,
+  NFTAssetMeta,
+  NFTListItems,
+  NFTTransaction,
+} from '../../../types/nft';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IApproveInfo,
@@ -415,7 +422,6 @@ export default class Vault extends VaultBase {
     {
       promise: true,
       primitive: true,
-      normalizer: (...args) => JSON.stringify(args),
       max: 1,
       maxAge: getTimeDurationMs({ minute: 3 }),
     },
@@ -541,7 +547,7 @@ export default class Vault extends VaultBase {
             from,
             to,
             amount: new BigNumber(amount).toFixed(),
-            asset,
+            asset: asset as NFTAsset,
           };
         }
       }
@@ -628,10 +634,13 @@ export default class Vault extends VaultBase {
   async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxEvm> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const network = await this.getNetwork();
     const isTransferToken = Boolean(transferInfo.token);
     const isTransferNativeToken = !isTransferToken;
-    const { amount, tokenId, isNFT, type } = transferInfo;
+    const { amount, nftTokenId, isNFT, nftType } = transferInfo;
 
     let amountBN = new BigNumber(amount);
     if (amountBN.isNaN()) {
@@ -640,12 +649,12 @@ export default class Vault extends VaultBase {
 
     // erc20/erc721/erc1155 token transfer
     if (isTransferToken) {
-      if (isNFT && type && tokenId) {
+      if (isNFT && nftType && nftTokenId) {
         const data = buildEncodeDataWithABI({
-          type,
+          type: nftType,
           from: transferInfo.from,
           to: transferInfo.to,
-          id: tokenId,
+          id: nftTokenId,
           amount: amountBN.toFixed(),
         });
         return {
@@ -687,16 +696,19 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async buildEncodedTxFromBatchTransfer(
-    transferInfos: ITransferInfo[],
-    prevNonce?: number,
-    isDeflationary?: boolean,
-  ): Promise<IEncodedTxEvm> {
+  override async buildEncodedTxFromBatchTransfer({
+    transferInfos,
+    prevNonce,
+  }: {
+    transferInfos: ITransferInfo[];
+    prevNonce?: number;
+    isDeflationary?: boolean;
+  }): Promise<IEncodedTxEvm> {
     const network = await this.getNetwork();
     const dbAccount = await this.getDbAccount();
     const transferInfo = transferInfos[0];
     const isTransferToken = Boolean(transferInfo.token);
-    const { tokenId, isNFT, type } = transferInfo;
+    const { nftTokenId, isNFT, nftType } = transferInfo;
     const nextNonce: number =
       prevNonce !== undefined
         ? prevNonce + 1
@@ -716,7 +728,7 @@ export default class Vault extends VaultBase {
     let totalAmountBN = new BigNumber(0);
 
     if (isTransferToken) {
-      if (isNFT && type && tokenId) {
+      if (isNFT && nftType && nftTokenId) {
         batchMethod = BatchTransferSelectors.disperseNFT;
         paramTypes = ['address', 'address[]', 'uint256[]', 'uint256[]'];
         ParamValues = [
@@ -725,10 +737,10 @@ export default class Vault extends VaultBase {
             transferInfos,
             (result: [string[], string[], string[]], info) => {
               result[0].push(info.token || '');
-              result[1].push(info.tokenId || '');
+              result[1].push(info.nftTokenId || '');
               result[2].push(
                 new BigNumber(
-                  info.type === 'erc1155' ? info.amount : 0,
+                  info.nftType === 'erc1155' ? info.amount : 0,
                 ).toFixed(),
               );
               return result;
@@ -1521,7 +1533,7 @@ export default class Vault extends VaultBase {
 
   async buildNFTTransferAcion(nftInfo: INFTInfo) {
     return Promise.resolve({
-      asset: nftInfo.asset,
+      asset: nftInfo.asset as NFTAsset,
       amount: nftInfo.amount,
       send: nftInfo.from,
       receive: nftInfo.to,
@@ -1895,7 +1907,7 @@ export default class Vault extends VaultBase {
         if (!decodedTx) {
           return null;
         }
-        const nftTxs = nftMap[hash];
+        const nftTxs = nftMap[hash] as NFTTransaction[];
         decodedTx = await this.mergeDecodedTx({
           decodedTx,
           encodedTx,
@@ -2106,5 +2118,16 @@ export default class Vault extends VaultBase {
   override async fetchRpcChainId(url: string): Promise<string> {
     const chainId = await this.engine.providerManager.getEVMChainId(url);
     return String(chainId);
+  }
+
+  override async getUserNFTAssets({
+    serviceData,
+  }: {
+    serviceData: NFTListItems;
+  }): Promise<NFTAssetMeta | undefined> {
+    return Promise.resolve({
+      type: NFTAssetType.EVM,
+      data: serviceData as Collection[],
+    });
   }
 }

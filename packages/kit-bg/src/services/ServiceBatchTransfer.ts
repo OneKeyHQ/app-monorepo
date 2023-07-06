@@ -55,12 +55,12 @@ export default class ServiceBatchTransfer extends ServiceBase {
     }
 
     const transferInfo = transferInfos[0];
-    const { tokenId, isNFT, type } = transferInfo;
+    const { nftTokenId, isNFT, nftType } = transferInfo;
     const isTransferToken = Boolean(transferInfo.token);
 
     if (isTransferToken) {
       // mutiple NFTs to one address
-      if (isNFT && tokenId && type) {
+      if (isNFT && nftTokenId && nftType) {
         let approveInfos: ISetApprovalForAll[] = keys(
           groupBy(transferInfos, 'token'),
         ).map((token) => ({

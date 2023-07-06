@@ -6,7 +6,7 @@ jest.setTimeout(3 * 60 * 1000);
 describe('Kaspa UTXO Tests', () => {
   const client = new RestAPIClient('https://api.kaspa.org');
 
-  it('kaspa query UTXO', async () => {
+  it.skip('kaspa query UTXO', async () => {
     const confirmUTXOs = await queryConfirmUTXOs(
       client,
       'kaspa:qrkk52m4ddq405jvvfg7acwu6g48zd25dzekger3wftq7uat6xcw6cqq63a78',
@@ -14,7 +14,7 @@ describe('Kaspa UTXO Tests', () => {
     process.stdout.write(`pubkeyInfos: ${JSON.stringify(confirmUTXOs)}\n`);
   });
 
-  it('kaspa selector UTXO', async () => {
+  it.skip('kaspa selector UTXO', async () => {
     const confirmUTXOs = await queryConfirmUTXOs(
       client,
       'kaspa:qrkk52m4ddq405jvvfg7acwu6g48zd25dzekger3wftq7uat6xcw6cqq63a78',

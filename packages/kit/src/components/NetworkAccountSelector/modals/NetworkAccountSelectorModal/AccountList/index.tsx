@@ -197,6 +197,7 @@ function AccountList({
   const {
     selectedNetworkId,
     selectedNetwork,
+    selectedNetworkSettings,
     preloadingCreateAccount,
     isOpenDelay,
   } = accountSelectorInfo;
@@ -411,6 +412,7 @@ function AccountList({
             wallet={section?.wallet}
             network={selectedNetwork}
             networkId={selectedNetworkId}
+            networkSettings={selectedNetworkSettings}
             walletId={section?.wallet?.id}
             label={item.name}
             address={shortenAddress(item.displayAddress || item.address)}

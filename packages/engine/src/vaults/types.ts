@@ -7,7 +7,12 @@ import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 import type { Engine } from '../index';
 import type { AccountCredential } from '../types/account';
 import type { AccountNameInfo, EIP1559Fee } from '../types/network';
-import type { NFTAsset } from '../types/nft';
+import type {
+  IErcNftType,
+  INFTAsset,
+  NFTAsset,
+  NFTBTCAssetModel,
+} from '../types/nft';
 import type { Token } from '../types/token';
 import type {
   WALLET_TYPE_EXTERNAL,
@@ -29,6 +34,7 @@ import type { INativeTxEvm } from './impl/evm/types';
 import type { IEncodedTxEvm } from './impl/evm/Vault';
 import type { IEncodedTxFil } from './impl/fil/types';
 import type { IEncodedTxKaspa } from './impl/kaspa/types';
+import type { IEncodedTxLightning } from './impl/lightning-network/types';
 import type {
   IDecodedTxExtraNear,
   IEncodedTxNear,
@@ -40,6 +46,7 @@ import type { IEncodedTxSUI } from './impl/sui/types';
 import type { IEncodedTxTron } from './impl/tron/types';
 import type { IDecodedTxExtraXmr, IEncodedTxXmr } from './impl/xmr/types';
 import type { IEncodedTxXrp } from './impl/xrp/types';
+import type { ICoinSelectAlgorithm } from './utils/btcForkChain/utils';
 
 // Options ----------------------------------------------
 export type IVaultSubNetworkSettings = {
@@ -118,6 +125,18 @@ export type IVaultSettings = {
   isBtcForkChain?: boolean;
   nonceEditable?: boolean;
   signOnlyReturnFullTx?: boolean;
+  sendNFTEnable?: boolean;
+
+  hiddenNFTTab?: boolean;
+  hiddenToolTab?: boolean;
+  hiddenAddress?: boolean;
+  hiddenAccountInfoSwapOption?: boolean;
+  hiddenAccountInfoMoreOption?: boolean;
+  hiddenFeeOnTxDetail?: boolean;
+  displayMemo?: boolean;
+  hideFromToFieldIfValueEmpty?: boolean;
+  displayFullAddress?: boolean;
+  rpcStatusDisabled?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -132,19 +151,28 @@ export type ISignCredentialOptions = {
 };
 
 // Internal txInfo ----------------------------------------------
+export type ITransferInfoNftInscription = {
+  // BTC NFT inscription
+  inscriptionId: string;
+  address: string;
+  output: string;
+  location: string;
+};
 export type ITransferInfo = {
   from: string;
   to: string;
   amount: string;
   token?: string; // tokenIdOnNetwork
-  // for sol
-  sendAddress?: string;
+  tokenSendAddress?: string; // for sol
   isNFT?: boolean;
-  tokenId?: string; // NFT token id
-  type?: string; // NFT standard: erc721/erc1155
+  nftTokenId?: string; // NFT token id, btc utxo txid & vout
+  nftType?: IErcNftType; // NFT standard: erc721/erc1155
+  nftInscription?: ITransferInfoNftInscription;
   destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
   keepAlive?: boolean; // Polkadot chain keep alive
   selectedUtxos?: string[]; // coin control
+  coinControlDisabled?: boolean;
+  coinSelectAlgorithm?: ICoinSelectAlgorithm;
 };
 export type IApproveInfo = {
   from: string; // token owner
@@ -191,7 +219,7 @@ export type IStakeInfo = {
 };
 
 export type INFTInfo = {
-  asset: NFTAsset;
+  asset: INFTAsset;
   amount: string;
   from: string;
   to: string;
@@ -215,7 +243,8 @@ export type IEncodedTx =
   | IEncodedTxFil
   | IEncodedTxDot
   | IEncodedTxXmr
-  | IEncodedTxKaspa;
+  | IEncodedTxKaspa
+  | IEncodedTxLightning;
 
 export type INativeTx =
   | INativeTxEvm
@@ -238,6 +267,9 @@ export type SignedTxResult = {
   digest?: string; // hex string
   txKey?: string; // hex string for Monero
   pendingTx?: boolean; // It is used for Aptos to wait for the chain to get the transaction state
+  // for lightning network
+  nonce?: number;
+  randomSeed?: number;
 } & SignedTx;
 
 // EncodedTx Update ----------------------------------------------
@@ -433,6 +465,14 @@ export enum IDecodedTxActionType {
   NFT_MINT = 'NFT_MINT',
   NFT_SALE = 'NFT_SALE',
   NFT_BURN = 'NFT_BURN',
+  // Inscription
+  NFT_TRANSFER_BTC = 'NFT_TRANSFER_BTC',
+  NFT_INSCRIPTION = 'NFT_INSCRIPTION',
+
+  // // BRC20
+  // TOKEN_BRC20_TRANSFER = 'TOKEN_BRC20_TRANSFER',
+  // TOKEN_BRC20_DEPLOY = 'TOKEN_BRC20_DEPLOY',
+  // TOKEN_BRC20_MINT = 'TOKEN_BRC20_MINT',
 
   // Swap
   INTERNAL_SWAP = 'INTERNAL_SWAP',
@@ -517,6 +557,19 @@ export type IDecodedTxActionNFTTrade = IDecodedTxActionNFTBase & {
   tradeSymbolAddress?: string | null;
 };
 
+export type IDecodedTxActionInscription = IDecodedTxActionBase & {
+  asset: NFTBTCAssetModel;
+  send: string;
+  receive: string;
+};
+
+export type IDecodedTxActionBRC20 = IDecodedTxActionBase & {
+  token: Token;
+  send: string;
+  receive: string;
+  amount: string;
+};
+
 export type IDecodedTxActionInternalSwap = IDecodedTxActionBase & ISwapInfo;
 export type IDecodedTxActionInternalStake = IDecodedTxActionBase & IStakeInfo;
 // other Unknown Action
@@ -538,6 +591,9 @@ export type IDecodedTxAction = {
   // nft
   nftTransfer?: IDecodedTxActionNFTBase;
   nftTrade?: IDecodedTxActionNFTTrade;
+  // inscription
+  inscriptionInfo?: IDecodedTxActionInscription;
+  brc20Info?: IDecodedTxActionBRC20;
 };
 
 export type IDecodedTx = {

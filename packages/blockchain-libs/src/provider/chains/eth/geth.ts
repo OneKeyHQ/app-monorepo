@@ -2,7 +2,6 @@
 
 import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
-import memoizee from 'memoizee';
 
 import { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import type { CoinInfo } from '@onekeyhq/engine/src/types/chain';
@@ -16,6 +15,7 @@ import type {
 } from '@onekeyhq/engine/src/types/provider';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { fromBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { MmFee } from './mm-fee';

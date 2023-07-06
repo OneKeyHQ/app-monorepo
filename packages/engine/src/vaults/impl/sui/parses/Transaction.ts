@@ -39,20 +39,23 @@ export async function parseTransactionGasPayment(params: {
     })) ?? [];
 
   for (const paymentObject of paymentObjects) {
-    const regex = /<([^>]+)>/;
-    const match = paymentObject.details.type.match(regex);
+    if (paymentObject.status !== 'VersionNotFound') {
+      const regex = /<([^>]+)>/;
 
-    if (match) {
-      const extracted = match[1];
-      if (paymentObject.details.type.startsWith('0x2::coin::Coin<')) {
-        const value = gasAmounts.get(extracted) ?? BigInt(0);
-        gasAmounts.set(
-          extracted,
-          value + BigInt(paymentObject.details.content.fields.balance),
-        );
+      const match = paymentObject.details.type.match(regex);
+
+      if (match) {
+        const extracted = match[1];
+        if (paymentObject.details.type.startsWith('0x2::coin::Coin<')) {
+          const value = gasAmounts.get(extracted) ?? BigInt(0);
+          gasAmounts.set(
+            extracted,
+            value + BigInt(paymentObject.details.content.fields.balance),
+          );
+        }
+      } else {
+        // Not supported at present
       }
-    } else {
-      // Not supported at present
     }
   }
 
@@ -87,13 +90,15 @@ async function parseTransactionSplitCoinsInput(
         },
       });
 
-      const regex = /<([^>]+)>/;
-      const match = paymentObject?.details.type.match(regex);
+      if (paymentObject?.status !== 'VersionNotFound') {
+        const regex = /<([^>]+)>/;
+        const match = paymentObject?.details.type.match(regex);
 
-      if (match) {
-        const extracted = match[1];
-        if (paymentObject?.details.type.startsWith('0x2::coin::Coin<')) {
-          coin = extracted;
+        if (match) {
+          const extracted = match[1];
+          if (paymentObject?.details.type.startsWith('0x2::coin::Coin<')) {
+            coin = extracted;
+          }
         }
       }
     }

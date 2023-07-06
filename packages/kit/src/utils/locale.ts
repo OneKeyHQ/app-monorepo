@@ -1,8 +1,8 @@
 import { locale as LocalizationLocale } from 'expo-localization';
-import memoizee from 'memoizee';
 
 import type { LocaleSymbol } from '@onekeyhq/components/src/locale';
 import { LOCALES_OPTION } from '@onekeyhq/components/src/locale';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 const locales = LOCALES_OPTION.map((locale) => locale.value);
 

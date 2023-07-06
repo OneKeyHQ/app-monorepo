@@ -2,7 +2,6 @@
 
 import BN from 'bignumber.js';
 import { add, sum } from 'lodash';
-import memoizee from 'memoizee';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -45,6 +44,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from './ServiceBase';
 

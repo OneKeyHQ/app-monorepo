@@ -33,6 +33,12 @@ import { useAppSelector, useData } from '../../../../hooks/redux';
 import useImportBackupPasswordModal from '../../../../hooks/useImportBackupPasswordModal';
 import useLocalAuthenticationModal from '../../../../hooks/useLocalAuthenticationModal';
 import { useOnboardingDone } from '../../../../hooks/useOnboardingRequired';
+import {
+  type HomeRoutes,
+  MainRoutes,
+  RootRoutes,
+  TabRoutes,
+} from '../../../../routes/routesEnum';
 import { showOverlay } from '../../../../utils/overlayUtils';
 
 import BackupIcon from './BackupIcon';
@@ -40,7 +46,6 @@ import BackupSummary from './BackupSummary';
 import { showUpgrateDialog } from './UpgrateDialog';
 import Wrapper from './Wrapper';
 
-import type { HomeRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import type {
   HomeRoutesParams,
   RootRoutesParams,
@@ -357,7 +362,12 @@ const BackupDetails: FC<{ onboarding: boolean }> = ({ onboarding = false }) => {
     if (onboarding) {
       await onboardingDone({ delay: 200 });
     } else {
-      navigation.popToTop();
+      navigation?.navigate(RootRoutes.Main, {
+        screen: MainRoutes.Tab,
+        params: {
+          screen: TabRoutes.Home,
+        },
+      });
     }
   }, [intl, onboarding, onboardingDone, navigation]);
 

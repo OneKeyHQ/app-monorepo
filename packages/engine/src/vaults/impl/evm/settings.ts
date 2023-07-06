@@ -34,7 +34,7 @@ const settings: IVaultSettings = Object.freeze({
   batchTransferApprovalConfirmRequired: true,
 
   nonceEditable: true,
-
+  sendNFTEnable: true,
   accountNameInfo: {
     default: {
       prefix: 'EVM',

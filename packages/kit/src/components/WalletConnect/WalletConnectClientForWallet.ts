@@ -102,12 +102,16 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
       database: ':memory:',
       table: 'walletconnect.db',
     };
+
     // import KeyValueStorage from '@walletconnect/keyvaluestorage';
-    const storage: IKeyValueStorage | undefined = platformEnv.isRuntimeBrowser
-      ? // browser env should use default storage, otherwise it will cause error:
-        //      cannot convert null or undefined to object
-        undefined
-      : (appStorage as any);
+    // browser & native env should use default storage, otherwise it will cause error:
+    //      cannot convert null or undefined to object
+    //      @walletconnect/keyvaluestorage will handle json parse/stringify
+    let storage: IKeyValueStorage | undefined;
+    if (platformEnv.isManifestV3 && platformEnv.isExtension) {
+      storage = appStorage as any;
+    }
+
     // storage = new KeyValueStorage({ ...CORE_STORAGE_OPTIONS, ...opts?.storageOptions });
     // TODO shared singleton Core instance for wallet and dapp?
     const core = new Core({
@@ -130,14 +134,17 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
         error0,
       );
 
-      const doReconnect = () => {
+      const doReconnect = async () => {
         if (this.web3walletV2) {
           this.unregisterEventsV2(this.web3walletV2);
         }
         try {
-          core?.relayer?.provider?.connection?.close();
+          await core?.relayer?.provider?.connection?.close();
         } catch (error) {
-          console.error(error);
+          console.error(
+            'WalletConnect V2 doReconnect close connection ERROR: ',
+            error,
+          );
         }
         this.web3walletV2Core = undefined;
         this.web3walletV2 = undefined;

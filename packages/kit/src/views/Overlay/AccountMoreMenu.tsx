@@ -23,6 +23,7 @@ import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import { useCopyAddress } from '../../hooks/useCopyAddress';
 import { useIsMounted } from '../../hooks/useIsMounted';
 import { buildAddressDetailsUrl } from '../../hooks/useOpenBlockBrowser';
+import { useIsDevModeEnabled } from '../../hooks/useSettingsDevMode';
 import {
   CoinControlModalRoutes,
   FiatPayModalRoutes,
@@ -31,6 +32,7 @@ import {
 } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
 import { openUrl } from '../../utils/openUrl';
+import { GasPanelRoutes } from '../GasPanel/types';
 import {
   checkAccountCanSubscribe,
   useEnabledAccountDynamicAccounts,
@@ -54,6 +56,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
   const [needActivateAccount, setNeedActivateAccount] =
     useState<boolean>(false);
   const isMounted = useIsMounted();
+  const isDevMode = useIsDevModeEnabled();
 
   const enabledNotification = useMemo(
     () =>
@@ -269,23 +272,39 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
         onPress: onPressCoinControl,
         icon: 'CircleStackOutline',
       },
+      isDevMode && {
+        id: 'content__gas_fee',
+        onPress: () => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.GasPanel,
+            params: {
+              screen: GasPanelRoutes.GasPanelModal,
+              params: {
+                networkId: network?.id ?? '',
+              },
+            },
+          });
+        },
+        icon: 'GasIllus',
+      },
       // TODO Share
     ],
     [
       needActivateAccount,
       walletType,
       explorerUrl,
-      explorerName,
       showSubscriptionIcon,
-      showCoinControl,
       enabledNotification,
       onChangeAccountSubscribe,
-      onPressCoinControl,
       accountSubscriptionIcon,
+      showCoinControl,
+      onPressCoinControl,
+      isDevMode,
       account,
       network,
       navigation,
       accountId,
+      explorerName,
       copyAddress,
     ],
   );

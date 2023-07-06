@@ -61,7 +61,7 @@ const TokenInputReceivingAddress: FC = () => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Swap,
       params: {
-        screen: SwapRoutes.PickRecipient,
+        screen: SwapRoutes.SelectRecipient,
         params: {
           networkId: outputTokenNetwork?.id,
           onSelected: ({
@@ -322,7 +322,7 @@ const SendToAnotherAddress = () => {
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Swap,
         params: {
-          screen: SwapRoutes.PickRecipient,
+          screen: SwapRoutes.SelectRecipient,
           params: {
             networkId: outputToken?.networkId,
             onSelected: ({

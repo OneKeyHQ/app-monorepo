@@ -2,7 +2,7 @@
 
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
-import memoizee from 'memoizee';
+import { differenceBy, isNil } from 'lodash';
 
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -14,6 +14,9 @@ import type {
 import type {
   IBlockBookTransaction,
   IBtcUTXO,
+  ICoinSelectUTXO,
+  ICoinSelectUTXOLite,
+  ICollectUTXOsOptions,
   IEncodedTxBtc,
   IUTXOInput,
   IUTXOOutput,
@@ -21,11 +24,13 @@ import type {
   TxInput,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import { appSelector } from '@onekeyhq/kit/src/store';
+import type { SendConfirmPayloadInfo } from '@onekeyhq/kit/src/views/Send/types';
 import {
   COINTYPE_BTC,
   IMPL_BTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
   getUtxoId,
@@ -43,6 +48,8 @@ import {
   getLastAccountId,
 } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
+import { getNFTTransactionHistory } from '../../../managers/nft';
+import { INSCRIPTION_PADDING_SATS_VALUES } from '../../impl/btc/inscribe/consts';
 import { EVMDecodedTxType } from '../../impl/evm/decoder/types';
 import {
   IDecodedTxActionType,
@@ -54,7 +61,12 @@ import { VaultBase } from '../../VaultBase';
 
 import { Provider } from './provider';
 import { BlockBook, getRpcUrlFromChainInfo } from './provider/blockbook';
-import { coinSelect, getAccountDefaultByPurpose, getBIP44Path } from './utils';
+import {
+  coinSelect,
+  coinSelectForOrdinal,
+  getAccountDefaultByPurpose,
+  getBIP44Path,
+} from './utils';
 
 import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
 import type {
@@ -62,6 +74,10 @@ import type {
   BtcForkChainUsedAccount,
   DBUTXOAccount,
 } from '../../../types/account';
+import type {
+  BTCTransactionsModel,
+  NFTBTCAssetModel,
+} from '../../../types/nft';
 import type {
   CoinControlItem,
   ICoinControlListItem,
@@ -79,12 +95,15 @@ import type {
   IFeeInfo,
   IFeeInfoUnit,
   IHistoryTx,
+  INFTInfo,
   ISignedTxPro,
   ITransferInfo,
+  ITransferInfoNftInscription,
   IUnsignedTxPro,
   IVaultSettings,
 } from '../../types';
 import type { IKeyringMapKey } from '../../VaultBase';
+import type { ICoinSelectAlgorithm } from './utils';
 
 export default class VaultBtcFork extends VaultBase {
   keyringMap = {} as Record<IKeyringMapKey, typeof KeyringBaseMock>;
@@ -348,66 +367,78 @@ export default class VaultBtcFork extends VaultBase {
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxBtc> {
     const network = await this.engine.getNetwork(this.networkId);
-    const feeRate = params.feeInfoValue.feeRate
-      ? new BigNumber(params.feeInfoValue.feeRate)
+    const { encodedTx, feeInfoValue } = params;
+    const feeRate = feeInfoValue.feeRate
+      ? new BigNumber(feeInfoValue.feeRate)
           .shiftedBy(-network.feeDecimals)
           .toFixed()
-      : params.feeInfoValue.price;
+      : feeInfoValue.price;
+
     if (typeof feeRate === 'string') {
-      return this.buildEncodedTxFromTransfer(
-        params.encodedTx.transferInfo,
-        feeRate,
-      );
+      if (encodedTx.transferInfos) {
+        return this.buildEncodedTxFromBatchTransfer({
+          transferInfos: encodedTx.transferInfos,
+          specifiedFeeRate: feeRate,
+        });
+      }
+      return this.buildEncodedTxFromTransfer(encodedTx.transferInfo, feeRate);
     }
     return Promise.resolve(params.encodedTx);
   }
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
-    const { type, nativeTransfer } = decodedTx.actions[0];
-    if (
-      type !== IDecodedTxActionType.NATIVE_TRANSFER ||
-      typeof nativeTransfer === 'undefined'
-    ) {
-      // shouldn't happen.
-      throw new OneKeyInternalError('Incorrect decodedTx.');
+    const { type, nativeTransfer, inscriptionInfo } = decodedTx.actions[0];
+    if (type === IDecodedTxActionType.NATIVE_TRANSFER && nativeTransfer) {
+      return Promise.resolve({
+        txType: EVMDecodedTxType.NATIVE_TRANSFER,
+        symbol: 'UNKNOWN',
+        amount: nativeTransfer.amount,
+        value: nativeTransfer.amountValue,
+        fromAddress: nativeTransfer.from,
+        toAddress: nativeTransfer.to,
+        data: '',
+        totalFeeInNative: decodedTx.totalFeeInNative,
+        total: BigNumber.sum
+          .apply(
+            null,
+            (nativeTransfer.utxoFrom || []).map(
+              ({ balanceValue }) => balanceValue,
+            ),
+          )
+          .toFixed(),
+      } as IDecodedTxLegacy);
     }
-    return Promise.resolve({
-      txType: EVMDecodedTxType.NATIVE_TRANSFER,
-      symbol: 'UNKNOWN',
-      amount: nativeTransfer.amount,
-      value: nativeTransfer.amountValue,
-      fromAddress: nativeTransfer.from,
-      toAddress: nativeTransfer.to,
-      data: '',
-      totalFeeInNative: decodedTx.totalFeeInNative,
-      total: BigNumber.sum
-        .apply(
-          null,
-          (nativeTransfer.utxoFrom || []).map(
-            ({ balanceValue }) => balanceValue,
-          ),
-        )
-        .toFixed(),
-    } as IDecodedTxLegacy);
+    return Promise.resolve({} as IDecodedTxLegacy);
   }
 
-  async decodeTx(encodedTx: IEncodedTxBtc, payload?: any): Promise<IDecodedTx> {
-    const { inputs, outputs } = encodedTx;
+  async decodeTx(
+    encodedTx: IEncodedTxBtc,
+    payload?: SendConfirmPayloadInfo,
+  ): Promise<IDecodedTx> {
+    const { inputs, outputs, transferInfo } = encodedTx;
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const token = await this.engine.getNativeTokenInfo(this.networkId);
-    const nativeTransfer: IDecodedTxActionNativeTransfer = {
-      tokenInfo: token,
-      utxoFrom: inputs.map((input) => ({
-        address: input.address,
-        balance: new BigNumber(input.value)
-          .shiftedBy(-network.decimals)
-          .toFixed(),
-        balanceValue: input.value,
-        symbol: network.symbol,
-        isMine: true,
-      })),
-      utxoTo: outputs.map((output) => ({
+    let nftInfo: INFTInfo | null = null;
+    if (payload?.nftInfo) {
+      nftInfo = payload?.nftInfo;
+    }
+    const ordUtxo = transferInfo.isNFT
+      ? inputs.find((item) => Boolean(item.forceSelect))
+      : undefined;
+
+    const utxoFrom = inputs.map((input) => ({
+      address: input.address,
+      balance: new BigNumber(input.value)
+        .shiftedBy(-network.decimals)
+        .toFixed(),
+      balanceValue: input.value,
+      symbol: network.symbol,
+      isMine: true,
+    }));
+    const utxoTo = outputs
+      .filter((output) => !output.payload?.isCharge)
+      .map((output) => ({
         address: output.address,
         balance: new BigNumber(output.value)
           .shiftedBy(-network.decimals)
@@ -415,30 +446,48 @@ export default class VaultBtcFork extends VaultBase {
         balanceValue: output.value,
         symbol: network.symbol,
         isMine: output.address === dbAccount.address,
-      })),
-      from: dbAccount.address,
-      to: outputs[0].address,
-      amount: new BigNumber(outputs[0].value)
-        .shiftedBy(-network.decimals)
-        .toFixed(),
-      amountValue: outputs[0].value,
-      extraInfo: null,
-    };
+      }));
+
+    let actions: IDecodedTxAction[] = [];
+    if (ordUtxo && nftInfo) {
+      actions = [
+        {
+          type: IDecodedTxActionType.NFT_TRANSFER_BTC,
+          direction: IDecodedTxDirection.OUT,
+          inscriptionInfo: {
+            send: nftInfo.from,
+            receive: nftInfo?.to,
+            asset: nftInfo?.asset as NFTBTCAssetModel,
+            extraInfo: null,
+          },
+        },
+      ];
+    } else {
+      actions = utxoTo.map((utxo) => ({
+        type: IDecodedTxActionType.NATIVE_TRANSFER,
+        direction:
+          outputs[0].address === dbAccount.address
+            ? IDecodedTxDirection.OUT
+            : IDecodedTxDirection.SELF,
+        utxoFrom,
+        utxoTo,
+        nativeTransfer: {
+          tokenInfo: token,
+          from: dbAccount.address,
+          to: utxo.address,
+          amount: utxo.balance,
+          amountValue: utxo.balanceValue,
+          extraInfo: null,
+        },
+      }));
+    }
+
     return {
       txid: '',
       owner: dbAccount.address,
       signer: dbAccount.address,
       nonce: 0,
-      actions: [
-        {
-          type: IDecodedTxActionType.NATIVE_TRANSFER,
-          direction:
-            outputs[0].address === dbAccount.address
-              ? IDecodedTxDirection.OUT
-              : IDecodedTxDirection.SELF,
-          nativeTransfer,
-        },
-      ],
+      actions,
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -451,74 +500,39 @@ export default class VaultBtcFork extends VaultBase {
     transferInfo: ITransferInfo,
     specifiedFeeRate?: string,
   ): Promise<IEncodedTxBtc> {
-    const { to, amount } = transferInfo;
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
+    return this.buildEncodedTxFromBatchTransfer({
+      transferInfos: [transferInfo],
+      specifiedFeeRate,
+    });
+  }
+
+  override async buildEncodedTxFromBatchTransfer({
+    transferInfos,
+    specifiedFeeRate,
+  }: {
+    transferInfos: ITransferInfo[];
+    specifiedFeeRate?: string;
+  }): Promise<IEncodedTxBtc> {
+    const transferInfo = transferInfos[0];
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
-    let utxos = await this.collectUTXOs();
 
-    // Select the slowest fee rate as default, otherwise the UTXO selection
-    // would be failed.
-    // SpecifiedFeeRate is from UI layer and is in BTC/byte, convert it to sats/byte
-    const feeRate =
-      typeof specifiedFeeRate !== 'undefined'
-        ? new BigNumber(specifiedFeeRate)
-            .shiftedBy(network.feeDecimals)
-            .toFixed()
-        : (await this.getFeeRate())[1];
-
-    // Coin Control
-    const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub, utxos);
-    const allUtxosWithoutFrozen = utxos.filter(
-      (utxo) =>
-        frozenUtxos.findIndex(
-          (frozenUtxo) => frozenUtxo.id === getUtxoId(this.networkId, utxo),
-        ) < 0,
-    );
-    utxos = allUtxosWithoutFrozen;
-    if (
-      Array.isArray(transferInfo.selectedUtxos) &&
-      transferInfo.selectedUtxos.length
-    ) {
-      utxos = utxos.filter((utxo) =>
-        (transferInfo.selectedUtxos ?? []).includes(getUtxoUniqueKey(utxo)),
-      );
-    }
-
-    const max = allUtxosWithoutFrozen
-      .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
-      .shiftedBy(-network.decimals)
-      .lte(amount);
-
-    const inputsForCoinSelect = utxos.map(
-      ({ txid, vout, value, address, path }) => ({
-        txId: txid,
-        vout,
-        value: parseInt(value),
-        address,
-        path,
-      }),
-    );
-    const outputsForCoinSelect = [
-      max
-        ? { address: to }
-        : {
-            address: to,
-            value: parseInt(
-              new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
-            ),
-          },
-    ];
     const {
       inputs,
       outputs,
       fee,
-    }: {
-      inputs: IUTXOInput[];
-      outputs: IUTXOOutput[];
-      fee: number;
-    } = coinSelect(inputsForCoinSelect, outputsForCoinSelect, feeRate);
+      inputsForCoinSelect,
+      outputsForCoinSelect,
+      feeRate,
+    } = await this.buildTransferParamsWithCoinSelector({
+      transferInfos,
+      specifiedFeeRate,
+    });
 
-    if (!inputs || !outputs) {
+    if (!inputs || !outputs || isNil(fee)) {
       throw new InsufficientBalance('Failed to select UTXOs');
     }
     const totalFee = fee.toString();
@@ -527,23 +541,41 @@ export default class VaultBtcFork extends VaultBase {
       .toFixed();
     return {
       inputs: inputs.map(({ txId, value, ...keep }) => ({
+        address: '',
+        path: '',
         ...keep,
         txid: txId,
         value: value.toString(),
       })),
-      outputs: outputs.map(({ value, address }) => ({
-        address: address || dbAccount.address, // change amount
-        value: value.toString(),
-        payload: address
-          ? undefined
-          : {
-              isCharge: true,
-              bip44Path: getBIP44Path(dbAccount, dbAccount.address),
-            },
-      })),
+      outputs: outputs.map(({ value, address }) => {
+        // If there is no address, it should be set to the change address.
+        const addressOrChangeAddress = address || dbAccount.address;
+        if (!addressOrChangeAddress) {
+          throw new Error(
+            'buildEncodedTxFromBatchTransfer ERROR: Invalid change address',
+          );
+        }
+        const valueText = value?.toString();
+        if (!valueText || new BigNumber(valueText).lte(0)) {
+          throw new Error(
+            'buildEncodedTxFromBatchTransfer ERROR: Invalid value',
+          );
+        }
+        return {
+          address: addressOrChangeAddress,
+          value: valueText,
+          payload: address
+            ? undefined
+            : {
+                isCharge: true,
+                bip44Path: getBIP44Path(dbAccount, dbAccount.address),
+              },
+        };
+      }),
       totalFee,
       totalFeeInNative,
       transferInfo,
+      transferInfos,
       feeRate,
       inputsForCoinSelect,
       outputsForCoinSelect,
@@ -635,14 +667,18 @@ export default class VaultBtcFork extends VaultBase {
     const prices = feeRates.map((price) =>
       new BigNumber(price).shiftedBy(-network.feeDecimals).toFixed(),
     );
-    const feeList = prices.map(
-      (price) =>
-        coinSelect(
-          encodedTx.inputsForCoinSelect,
-          encodedTx.outputsForCoinSelect,
-          new BigNumber(price).shiftedBy(network.feeDecimals).toFixed(),
-        ).fee,
-    );
+    const feeList = prices
+      .map(
+        (price) =>
+          coinSelect({
+            inputsForCoinSelect: encodedTx.inputsForCoinSelect,
+            outputsForCoinSelect: encodedTx.outputsForCoinSelect,
+            feeRate: new BigNumber(price)
+              .shiftedBy(network.feeDecimals)
+              .toFixed(),
+          }).fee,
+      )
+      .filter(Boolean);
 
     return {
       isBtcForkChain: true,
@@ -700,11 +736,66 @@ export default class VaultBtcFork extends VaultBase {
     return (await this.getProvider()).getTransactionStatuses(txids);
   }
 
+  buildActionsFromBTCTransaction({
+    transaction,
+    address,
+  }: {
+    transaction: BTCTransactionsModel;
+    address: string;
+  }): IDecodedTxAction[] {
+    let type: IDecodedTxActionType = IDecodedTxActionType.UNKNOWN;
+    const { send, receive, event_type: eventType, asset } = transaction;
+    if (!asset) {
+      return [];
+    }
+    const defaultData = {
+      send,
+      receive,
+      asset,
+      extraInfo: null,
+    };
+    if (eventType === 'Transfer') {
+      type = IDecodedTxActionType.NFT_TRANSFER_BTC;
+    } else if (eventType === 'Mint') {
+      type = IDecodedTxActionType.NFT_INSCRIPTION;
+    }
+    const inscriptionAction = {
+      type,
+      hidden: !(send === address || receive === address),
+      direction: IDecodedTxDirection.IN,
+      extraInfo: null,
+      inscriptionInfo: defaultData,
+    };
+
+    return [inscriptionAction];
+  }
+
+  mergeNFTTransaction({
+    nftTxs,
+    nativeActions,
+    address,
+  }: {
+    address: string;
+    nftTxs: BTCTransactionsModel[];
+    nativeActions: IDecodedTxAction[];
+  }): IDecodedTxAction[] {
+    const nftActions = nftTxs
+      ?.map((transaction) =>
+        this.buildActionsFromBTCTransaction({
+          transaction,
+          address,
+        }),
+      )
+      .flat()
+      .filter(Boolean);
+    return nftActions?.length > 0 ? nftActions : nativeActions;
+  }
+
   override async fetchOnChainHistory(options: {
     tokenIdOnNetwork?: string;
     localHistory?: IHistoryTx[];
   }): Promise<IHistoryTx[]> {
-    const { localHistory = [] } = options;
+    const { localHistory = [], tokenIdOnNetwork } = options;
 
     const provider = await this.getProvider();
     const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
@@ -731,6 +822,11 @@ export default class VaultBtcFork extends VaultBase {
       console.error(e);
     }
 
+    const nftMap = await getNFTTransactionHistory(
+      dbAccount.address,
+      this.networkId,
+    );
+
     const promises = txs.map((tx) => {
       try {
         const historyTxToMerge = localHistory.find(
@@ -744,29 +840,57 @@ export default class VaultBtcFork extends VaultBase {
         const { direction, utxoFrom, utxoTo, from, to, amount, amountValue } =
           tx;
 
+        const utxoToWithoutMine = utxoTo?.filter((utxo) => !utxo.isMine);
+        const actions =
+          utxoToWithoutMine && utxoToWithoutMine.length
+            ? utxoToWithoutMine
+                .filter((utxo) => !utxo.isMine)
+                .map((utxo) => ({
+                  type: IDecodedTxActionType.NATIVE_TRANSFER,
+                  direction,
+                  nativeTransfer: {
+                    tokenInfo: token,
+                    utxoFrom,
+                    utxoTo,
+                    from,
+                    to: utxo.address,
+                    amount: utxo.balance,
+                    amountValue: utxo.balanceValue,
+                    extraInfo: null,
+                  },
+                }))
+            : [
+                {
+                  type: IDecodedTxActionType.NATIVE_TRANSFER,
+                  direction,
+                  nativeTransfer: {
+                    tokenInfo: token,
+                    utxoFrom,
+                    utxoTo,
+                    from,
+                    // For out transaction, use first address as to.
+                    // For in or self transaction, use first owned address as to.
+                    to,
+                    amount,
+                    amountValue,
+                    extraInfo: null,
+                  },
+                },
+              ];
+
+        const nftTxs = nftMap[tx.txid] as BTCTransactionsModel[];
+        const mergeNFTActions = this.mergeNFTTransaction({
+          nftTxs,
+          nativeActions: actions,
+          address: dbAccount.address,
+        });
+
         const decodedTx: IDecodedTx = {
           txid: tx.txid,
           owner: dbAccount.address,
           signer: dbAccount.address,
           nonce: 0,
-          actions: [
-            {
-              type: IDecodedTxActionType.NATIVE_TRANSFER,
-              direction,
-              nativeTransfer: {
-                tokenInfo: token,
-                utxoFrom,
-                utxoTo,
-                from,
-                // For out transaction, use first address as to.
-                // For in or self transaction, use first owned address as to.
-                to,
-                amount,
-                amountValue,
-                extraInfo: null,
-              },
-            },
-          ],
+          actions: mergeNFTActions,
           status:
             (tx.confirmations ?? 0) > 0
               ? IDecodedTxStatus.Confirmed
@@ -818,12 +942,16 @@ export default class VaultBtcFork extends VaultBase {
     return action;
   }
 
-  collectUTXOs = memoizee(
-    async () => {
+  collectUTXOsInfo = memoizee(
+    async (options: ICollectUTXOsOptions = {}) => {
       const provider = await this.getProvider();
       const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
       try {
-        return await provider.getUTXOs(this.getAccountXpub(dbAccount));
+        const utxosInfo = await provider.getUTXOs(
+          this.getAccountXpub(dbAccount),
+          options,
+        );
+        return utxosInfo;
       } catch (e) {
         console.error(e);
         throw new OneKeyInternalError('Failed to get UTXOs of the account.');
@@ -831,7 +959,7 @@ export default class VaultBtcFork extends VaultBase {
     },
     {
       promise: true,
-      max: 1,
+      max: 4,
       maxAge: 1000 * 30,
     },
   );
@@ -880,7 +1008,12 @@ export default class VaultBtcFork extends VaultBase {
   }
 
   override async getPrivateKeyByCredential(credential: string) {
-    return Promise.resolve(bs58check.decode(credential));
+    // xpub format:
+    const result = bs58check.decode(credential);
+
+    // hex format:
+    // const result = '';
+    return Promise.resolve(result);
   }
 
   override async getAllUsedAddress(): Promise<BtcForkChainUsedAccount[]> {
@@ -963,8 +1096,198 @@ export default class VaultBtcFork extends VaultBase {
     return frozenUtxos.concat(dustUtxos);
   }
 
+  private async buildTransferParamsWithCoinSelector({
+    transferInfos,
+    specifiedFeeRate,
+  }: {
+    transferInfos: ITransferInfo[];
+    specifiedFeeRate?: string;
+  }) {
+    if (!transferInfos.length) {
+      throw new Error(
+        'buildTransferParamsWithCoinSelector ERROR: transferInfos is required',
+      );
+    }
+    const isBatchTransfer = transferInfos.length > 1;
+    const isNftTransfer = Boolean(
+      transferInfos.find((item) => item.isNFT || item.nftInscription),
+    );
+    const forceSelectUtxos: ICoinSelectUTXOLite[] = [];
+    if (isNftTransfer) {
+      if (isBatchTransfer) {
+        throw new Error('BTC nft transfer is not supported in batch transfer');
+      }
+      const { nftInscription } = transferInfos[0];
+      if (!nftInscription) {
+        throw new Error('nftInscription is required for nft transfer');
+      }
+      const { output, address } = nftInscription;
+      const [txId, vout] = output.split(':');
+      if (!txId || !vout || !address) {
+        throw new Error('invalid nftInscription output');
+      }
+      const voutNum = parseInt(vout, 10);
+      if (Number.isNaN(voutNum)) {
+        throw new Error('invalid nftInscription output: vout');
+      }
+      forceSelectUtxos.push({
+        txId,
+        vout: voutNum,
+        address,
+      });
+    }
+    const network = await this.engine.getNetwork(this.networkId);
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
+    let { utxos } = await this.collectUTXOsInfo(
+      forceSelectUtxos.length
+        ? {
+            forceSelectUtxos,
+          }
+        : undefined,
+    );
+
+    // Select the slowest fee rate as default, otherwise the UTXO selection
+    // would be failed.
+    // SpecifiedFeeRate is from UI layer and is in BTC/byte, convert it to sats/byte
+    const feeRate =
+      typeof specifiedFeeRate !== 'undefined'
+        ? new BigNumber(specifiedFeeRate)
+            .shiftedBy(network.feeDecimals)
+            .toFixed()
+        : (await this.getFeeRate())[1];
+
+    // Coin Control
+    const frozenUtxos = await this.getFrozenUtxos(dbAccount.xpub, utxos);
+    const allUtxosWithoutFrozen = utxos.filter(
+      (utxo) =>
+        frozenUtxos.findIndex(
+          (frozenUtxo) => frozenUtxo.id === getUtxoId(this.networkId, utxo),
+        ) < 0,
+    );
+    utxos = allUtxosWithoutFrozen;
+
+    const allSelectedUtxos = transferInfos.reduce((acc: string[], info) => {
+      if (Array.isArray(info.selectedUtxos) && info.selectedUtxos.length) {
+        acc.push(...info.selectedUtxos);
+      }
+      return acc;
+    }, []);
+
+    if (Array.isArray(allSelectedUtxos) && allSelectedUtxos.length) {
+      utxos = utxos.filter((utxo) =>
+        (allSelectedUtxos ?? []).includes(getUtxoUniqueKey(utxo)),
+      );
+    }
+
+    const inputsForCoinSelect: ICoinSelectUTXO[] = utxos.map(
+      ({ txid, vout, value, address, path }) => ({
+        txId: txid,
+        vout,
+        value: parseInt(value),
+        address,
+        path,
+      }),
+    );
+    let outputsForCoinSelect: IEncodedTxBtc['outputsForCoinSelect'] = [];
+
+    if (isBatchTransfer) {
+      outputsForCoinSelect = transferInfos.map(({ to, amount }) => {
+        if (isNftTransfer) {
+          throw new Error(
+            'NFT Inscription transfer can only be single transfer',
+          );
+        }
+        return {
+          address: to,
+          value: parseInt(
+            new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
+          ),
+        };
+      });
+    } else {
+      const transferInfo = transferInfos[0];
+      const { to, amount } = transferInfo;
+
+      const allUtxoAmount = allUtxosWithoutFrozen
+        .reduce((v, { value }) => v.plus(value), new BigNumber('0'))
+        .shiftedBy(-network.decimals);
+
+      if (allUtxoAmount.lt(amount)) {
+        throw new InsufficientBalance();
+      }
+
+      let max = allUtxoAmount.lte(amount);
+
+      let value = parseInt(
+        new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
+      );
+
+      if (isNftTransfer) {
+        // coinControl is not allowed in NFT transfer
+        transferInfo.coinControlDisabled = true;
+        // nft transfer should never be max transfer
+        max = false;
+        // value should be 546
+        value = INSCRIPTION_PADDING_SATS_VALUES.default;
+        let founded: ICoinSelectUTXO | undefined;
+        for (const u of inputsForCoinSelect) {
+          const matchedUtxo = forceSelectUtxos.find(
+            (item) =>
+              item.address === u.address &&
+              item.txId === u.txId &&
+              item.vout === u.vout,
+          );
+          if (matchedUtxo) {
+            u.forceSelect = true;
+            founded = u;
+            break;
+          }
+        }
+        if (!founded) {
+          throw new Error('nftInscription output not found in utxos');
+        }
+      }
+
+      outputsForCoinSelect = [
+        max
+          ? { address: to, isMax: true }
+          : {
+              address: to,
+              value,
+            },
+      ];
+    }
+
+    const algorithm: ICoinSelectAlgorithm | undefined = !isBatchTransfer
+      ? transferInfos[0].coinSelectAlgorithm
+      : undefined;
+    if (!isBatchTransfer && outputsForCoinSelect.length > 1) {
+      throw new Error('single transfer should only have one output');
+    }
+    const { inputs, outputs, fee } = isNftTransfer
+      ? coinSelectForOrdinal({
+          inputsForCoinSelect,
+          outputsForCoinSelect,
+          feeRate,
+        })
+      : coinSelect({
+          inputsForCoinSelect,
+          outputsForCoinSelect,
+          feeRate,
+          algorithm,
+        });
+    return {
+      inputs,
+      outputs,
+      fee,
+      inputsForCoinSelect,
+      outputsForCoinSelect,
+      feeRate,
+    };
+  }
+
   override async getFrozenBalance(): Promise<number> {
-    const utxos = await this.collectUTXOs();
+    const { utxos, frozenValue } = await this.collectUTXOsInfo();
     const [dbAccount, network] = await Promise.all([
       this.getDbAccount() as Promise<DBUTXOAccount>,
       this.getNetwork(),
@@ -977,10 +1300,13 @@ export default class VaultBtcFork extends VaultBase {
       ),
     );
     // use bignumber to calculate sum allFrozenUtxo value
-    const frozenBalance = allFrozenUtxo.reduce(
+    let frozenBalance = allFrozenUtxo.reduce(
       (sum, utxo) => sum.plus(utxo.value),
       new BigNumber(0),
     );
+    if (frozenValue) {
+      frozenBalance = frozenBalance.plus(frozenValue);
+    }
     return Promise.resolve(
       frozenBalance.shiftedBy(-network.decimals).toNumber(),
     );

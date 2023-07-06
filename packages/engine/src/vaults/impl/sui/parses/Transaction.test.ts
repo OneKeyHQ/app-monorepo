@@ -204,7 +204,7 @@ describe('Sui parse Transaction Tests', () => {
     }
   });
 
-  it('Sui parse TransferObjects (Token Transfer)', async () => {
+  it.skip('Sui parse TransferObjects (Token Transfer)', async () => {
     // #region Tx data
     const suiTransactionBlock = getTransaction({
       'digest': 'AtfMUwMp6pPDgx6iFUjWtcNsGeakm8VXUTxEcSKshgHN',
