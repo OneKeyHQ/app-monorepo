@@ -538,6 +538,7 @@
   "content__entry_price": "سعر الدخول",
   "content__equivalent_to_str_btc": "يعادل {0} BTC",
   "content__estimated": "مُقدَّر",
+  "content__estimated_time": "الوقت المقدر",
   "content__ether_price": "سعر الأثير",
   "content__eventually_str_jpegs_are_still_in_your_wallet": "أخيرًا ، {0} صور JPEG لا تزال في محفظتك",
   "content__every_time_we_find_the_best_prices": "نجد دائمًا أفضل السيولة والأسعار من الموردين. يتضمن كل عرض أسعار 1٪ رسوم لمساعدة OneKey على تقديم خدمة أفضل لك.",
@@ -990,6 +991,7 @@
   "form__7d_low": "7d منخفض",
   "form__Watchlist": "قائمة المراقبة",
   "form___7d_volume": "حجم 7D",
+  "form__a_message_to_the_payer": "رسالة إلى الدافع",
   "form__about_uppercase": "حول",
   "form__above_str": "فوق {0}",
   "form__accelerated_transaction": "🚀 المعاملات المعجلة",
@@ -1191,6 +1193,7 @@
   "form__enter_address": "أدخل العنوان",
   "form__enter_address_ens_name": "العنوان ، المجال ، أو أي اضطراب الشخصية الانفصامية",
   "form__enter_address_name": "أدخل اسم العنوان",
+  "form__enter_amount": "أدخل المبلغ",
   "form__enter_or_paste_contract_address": "أدخل أو الصق عنوان العقد",
   "form__enter_recipient_address": "أدخل عنوان المستلم",
   "form__enter_recipient_address_valid": "عنوان صالح",
@@ -1541,6 +1544,7 @@
   "form__rpc_url_wrong_format": "يتطلب عنوان URL البادئة http أو https أو wss.",
   "form__rule_at_least_int_digits": "على الأقل {0} من الأحرف",
   "form__s_request_history": "طلب التاريخ",
+  "form__sats__units": "يجلس",
   "form__se_version": "إصدار SE",
   "form__search": "بحث",
   "form__search_currency_unit_or_name": "ابحث عن وحدة العملة أو الاسم",
@@ -2164,6 +2168,7 @@
   "msg__restored_str": "تمت استعادة \" {0} \"",
   "msg__rpc_or_network_error": "RPC أو خطأ في الشبكة",
   "msg__rpc_or_network_error_desc": "لا يزال بإمكانك محاولة تحديد الرسوم مع العرف.",
+  "msg__send_tokens_to_the_system_s_financing_address": "في الوضع السريع ، يتم إرسال الرموز المميزة الخاصة بك إلى عنوان النظام ويتم تحويلها تلقائيًا إلى حساب المستخدم الخاص بك. إذا كان العنوان لا يحتوي على رصيد كافٍ ، فسيتم تخزين المبلغ المتبقي في رصيدك القابل للسحب ويمكن سحبه في أي وقت.",
   "msg__sent": "💸 تم إرسال {assets}",
   "msg__sent_a_nft": "💸 أرسل NFT",
   "msg__sent_desc": "إلى {address}",
@@ -2262,6 +2267,7 @@
   "msg__your_trade_may_fail_due_to_small_slippage": "قد تفشل تجارتك بسبب انزلاق بسيط.",
   "msg__your_transaction_may_be_frontrun": "قد تكون معاملتك في المقدمة",
   "msg__your_transaction_may_fail": "قد تفشل معاملتك",
+  "msg_description_can_be_up_to_int_characters": "يمكن أن يصل الوصف إلى {0} من الأحرف",
   "msg_insufficient_gas_fee": "رسوم الغاز غير كافية",
   "network__network": "شبكة",
   "network__networks": "الشبكات",
