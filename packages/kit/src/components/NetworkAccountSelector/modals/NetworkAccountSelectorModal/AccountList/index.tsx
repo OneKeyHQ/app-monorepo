@@ -22,9 +22,9 @@ import type { IAccount } from '@onekeyhq/engine/src/types';
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { useDebounce, useNetwork } from '../../../../../hooks';
 import { useActiveWalletAccount } from '../../../../../hooks/redux';
-import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_ACCOUNT } from '../../../../Header/AccountSelectorChildren/accountSelectorConsts';
-import { AccountSectionLoadingSkeleton } from '../../../../Header/AccountSelectorChildren/RightAccountSection';
 import { scrollToSectionItem } from '../../../../WalletSelector';
+import { AccountSectionLoadingSkeleton } from '../../../AccountSectionLoadingSkeleton';
+import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_ACCOUNT } from '../../../consts';
 import {
   isListAccountsSingleWalletMode,
   useAccountSelectorSectionData,

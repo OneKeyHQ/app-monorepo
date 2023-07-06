@@ -10,6 +10,7 @@ export const NFTChainMap: Record<string, string> = {
   [OnekeyNetwork.sol]: 'sol',
   [OnekeyNetwork.avalanche]: 'avalanche',
   [OnekeyNetwork.btc]: 'btc',
+  [OnekeyNetwork.tbtc]: 'tbtc',
 };
 
 export type IErcNftType = 'erc721' | 'erc1155';
@@ -33,6 +34,8 @@ export type CollectionAttribute = {
 };
 
 export type Collection = {
+  networkId?: string;
+  accountAddress?: string;
   contractAddress?: string;
   contractName?: string;
   description?: string;
@@ -81,6 +84,8 @@ interface NFTAssetInterface {
 export type INFTAsset = ValueOf<NFTAssetInterface>;
 
 export interface NFTAsset extends NFTAssetBase {
+  networkId?: string;
+  accountAddress?: string;
   tokenAddress?: string; // sol
   contractAddress?: string; // evm
   contractName?: string;
@@ -119,6 +124,8 @@ export interface NFTAsset extends NFTAssetBase {
 }
 
 export interface NFTBTCAssetModel extends NFTAssetBase {
+  networkId?: string;
+  accountAddress?: string;
   inscription_id: string;
   inscription_number: number;
   tx_hash: string;

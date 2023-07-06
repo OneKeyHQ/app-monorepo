@@ -16,13 +16,17 @@ import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import type { NFTAssetMeta } from '@onekeyhq/engine/src/types/nft';
-import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+} from '@onekeyhq/kit/src/hooks/redux';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount } from '../../../../hooks';
-import { useIsMounted } from '../../../../hooks/useIsMounted';
+import { useAccountPortfolios } from '../../../../hooks';
 import { WalletHomeTabEnum } from '../../type';
 import { navigateToNFTCollection, navigateToNFTDetail } from '../utils';
 
@@ -34,11 +38,12 @@ import { NFTCardType } from './type';
 import type { ListDataType, ListItemType } from './type';
 
 type NFTListProps = {
-  listData: NFTAssetMeta | undefined;
+  listData: NFTAssetMeta[];
   onSelect: (data: ListDataType, cardType: NFTCardType) => void;
   fetchData?: () => void;
   isNFTSupport?: boolean;
   isLoading?: boolean;
+  networkId?: string;
 };
 
 const EmptyView: FC<
@@ -80,6 +85,7 @@ const NFTList: FC<NFTListProps> = ({
   isNFTSupport,
   isLoading,
   onSelect,
+  networkId,
 }) => {
   const [expand, setExpand] = useState(false);
 
@@ -91,46 +97,46 @@ const NFTList: FC<NFTListProps> = ({
     : Math.min(MAX_PAGE_CONTAINER_WIDTH, screenWidth - 224);
   const numColumns = isSmallScreen ? 2 : Math.floor(pageWidth / (177 + MARGIN));
 
-  const {
-    Component: ListItem,
-    expandEnable,
-    cardType,
-    keyExtractor,
-  } = getNFTListComponent({
-    expand,
-    type: listData?.type,
-  });
   const listItems = useMemo(() => {
-    if (listData && listData.data.length && listData.type) {
-      let array: ListItemType<ListDataType>[] = [];
-      listData.data.forEach((item) => {
-        const { items } = getNFTListMeta({
+    let array: ListItemType<ListDataType>[] = [];
+    listData.forEach(({ type, data }) => {
+      data.forEach((item) => {
+        const items = getNFTListMeta({
           data: item,
-          type: listData.type,
+          type,
           expand,
         });
         array = array.concat(items as any[]);
       });
-      return array;
-    }
-    return [];
+    });
+    return array;
   }, [listData, expand]);
 
   const renderItem = useCallback<
     NonNullable<FlatListProps<ListItemType<ListDataType>>['renderItem']>
   >(
-    ({ item }) => (
-      <ListItem
-        {...item}
-        onSelect={(data) => {
-          if (onSelect) {
-            onSelect(data, cardType);
-          }
-        }}
-        mr="16px"
-      />
-    ),
-    [ListItem, cardType, onSelect],
+    ({ item }) => {
+      const { type, ...props } = item;
+      if (!type) {
+        return null;
+      }
+      const { Component, cardType } = getNFTListComponent({
+        expand,
+        type,
+      });
+      return (
+        <Component
+          {...props}
+          onSelect={(data) => {
+            if (onSelect) {
+              onSelect(data, cardType);
+            }
+          }}
+          mr="16px"
+        />
+      );
+    },
+    [onSelect, expand],
   );
 
   const flatListKey =
@@ -159,7 +165,7 @@ const NFTList: FC<NFTListProps> = ({
       numColumns,
       ListHeaderComponent: (
         <NFTListHeader
-          expandEnable={expandEnable}
+          expandEnable={networkId !== OnekeyNetwork.btc}
           isNFTSupport={isNFTSupport}
           expand={expand}
           onPress={() => {
@@ -167,7 +173,11 @@ const NFTList: FC<NFTListProps> = ({
           }}
         />
       ),
-      keyExtractor,
+      keyExtractor: (item: ListItemType<ListDataType>, index: number) =>
+        getNFTListComponent({
+          expand,
+          type: item.type,
+        }).keyExtractor(item, index),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -177,9 +187,7 @@ const NFTList: FC<NFTListProps> = ({
       isNFTSupport,
       isLoading,
       numColumns,
-      expandEnable,
       expand,
-      keyExtractor,
     ],
   );
 
@@ -189,34 +197,43 @@ const NFTList: FC<NFTListProps> = ({
   );
 };
 
-function NFTListContainer({
-  accountId,
-  networkId,
-}: {
-  networkId: string;
-  accountId: string;
-}) {
-  const { network, account } = useActiveSideAccount({
-    accountId,
-    networkId,
-  });
+function NFTListContainer() {
+  const { account, network, accountId, networkId } = useActiveWalletAccount();
 
   const isNFTSupport = isCollectibleSupportedChainId(networkId);
   const { serviceNFT } = backgroundApiProxy;
-  const isMountedRef = useIsMounted();
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isFocused = useIsFocused();
-  const [listData, updateListData] = useState<NFTAssetMeta>();
 
-  const fetchData = async () => {
-    if (account && networkId && isNFTSupport) {
+  const [listData, updateListData] = useState<NFTAssetMeta[]>([]);
+
+  const { updatedAt } = useAccountPortfolios({
+    networkId,
+    accountId,
+    type: 'nfts',
+  });
+
+  useEffect(() => {
+    backgroundApiProxy.serviceNFT
+      .getNftListWithAssetType({
+        networkId,
+        accountId,
+      })
+      .then((res) => updateListData(res))
+      .catch((e) => {
+        debugLogger.common.error('getNftListWithAssetType Error', e);
+      });
+  }, [updatedAt, networkId, accountId]);
+
+  const fetchData = useCallback(async () => {
+    if (accountId && networkId && isNFTSupport) {
       const result = await serviceNFT.fetchNFT({
-        account,
+        accountId,
         networkId,
       });
       return result;
     }
-  };
+  }, [accountId, isNFTSupport, networkId, serviceNFT]);
 
   const shouldDoRefresh = useMemo((): boolean => {
     if (!accountId || !networkId || !isNFTSupport) {
@@ -243,26 +260,7 @@ function NFTListContainer({
     isPaused() {
       return !shouldDoRefresh;
     },
-    onSuccess(data) {
-      if (isMountedRef.current) {
-        updateListData(data);
-      }
-    },
   });
-
-  useEffect(() => {
-    (async () => {
-      if (account && networkId) {
-        const localData = await serviceNFT.getLocalNFTs({
-          networkId,
-          account,
-        });
-        if (isMountedRef.current) {
-          updateListData(localData);
-        }
-      }
-    })();
-  }, [account, isMountedRef, networkId, serviceNFT]);
 
   useEffect(() => {
     if (shouldDoRefresh) {
@@ -272,8 +270,6 @@ function NFTListContainer({
 
   const handleSelect = useCallback(
     (data: ListDataType, type: NFTCardType) => {
-      console.log('type = ', type);
-
       if (!account || !network) return;
       switch (type) {
         case NFTCardType.EVMCollection:

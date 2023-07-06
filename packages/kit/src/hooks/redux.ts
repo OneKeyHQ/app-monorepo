@@ -2,7 +2,12 @@ import type { DependencyList } from 'react';
 import { useMemo } from 'react';
 
 import { ToastManager } from '@onekeyhq/components';
-import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
+import {
+  allNetworksAccountRegex,
+  generateFakeAllnetworksAccount,
+  isAccountCompatibleWithNetwork,
+} from '@onekeyhq/engine/src/managers/account';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
 import {
   WALLET_TYPE_EXTERNAL,
@@ -19,10 +24,11 @@ import { useAppSelector } from './useAppSelector';
 import type { StatusState } from '../store/reducers/status';
 
 export { useAppSelector };
-export type ISelectorBuilder = (
+export type ISelectorBuilder<T> = (
   selector: typeof useAppSelector,
   helpers: {
     useMemo: typeof useMemo;
+    options?: T;
   },
 ) => unknown;
 
@@ -34,14 +40,15 @@ function mockUseMemo<T>(
   return factory();
 }
 
-export function makeSelector<T>(builder: ISelectorBuilder) {
+export function makeSelector<T, P = undefined>(builder: ISelectorBuilder<P>) {
   return {
     // hooks for UI
-    use: (): T => builder(useAppSelector, { useMemo }) as T,
+    use: (options?: P): T => builder(useAppSelector, { useMemo, options }) as T,
     // getter for Background
-    get: (): T =>
+    get: (options?: P): T =>
       builder(appSelector, {
         useMemo: mockUseMemo,
+        options,
       }) as T,
   };
 }
@@ -107,10 +114,20 @@ export type IActiveWalletAccount = {
 export const {
   use: useActiveWalletAccountOrigin,
   get: getActiveWalletAccount,
-} = makeSelector<IActiveWalletAccount>((selector) => {
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+} = makeSelector<IActiveWalletAccount>((selector, { useMemo }) => {
   const { activeAccountId, activeWalletId, activeNetworkId } = selector(
     (s) => s.general,
   );
+  const allNetworksAccountInfo = useMemo(() => {
+    if (!isAllNetworks(activeNetworkId)) {
+      return;
+    }
+    if (!allNetworksAccountRegex.test(activeAccountId ?? '')) {
+      return;
+    }
+    return generateFakeAllnetworksAccount({ accountId: activeAccountId });
+  }, [activeAccountId, activeNetworkId]);
 
   // TODO init runtime data from background
   const { wallets, networks, accounts } = selector((s) => s.runtime);
@@ -122,9 +139,20 @@ export const {
 
   const activeWallet =
     wallets.find((wallet) => wallet.id === activeWalletId) ?? null;
-  const activeAccountInfo = activeWallet
-    ? accounts.find((account) => account.id === activeAccountId) ?? null
-    : null;
+  const activeAccountInfo = useMemo(() => {
+    if (isAllNetworks(activeNetworkId)) {
+      return allNetworksAccountInfo;
+    }
+    return activeWallet
+      ? accounts.find((account) => account.id === activeAccountId) ?? null
+      : null;
+  }, [
+    activeAccountId,
+    activeNetworkId,
+    allNetworksAccountInfo,
+    accounts,
+    activeWallet,
+  ]);
   const activeNetwork =
     networks.find((network) => network.id === activeNetworkId) ?? null;
 
@@ -194,7 +222,12 @@ export const useGetWalletDetail = (walletId: string | null) => {
   return wallet;
 };
 
-export const useTools = (networkId?: string) =>
-  useAppSelector((s) => s.data.tools).filter(
-    (item) => item.networkId === networkId,
-  );
+export const useTools = (networkId?: string) => {
+  const tools = useAppSelector((s) => s.data.tools ?? []);
+  return useMemo(() => {
+    if (isAllNetworks(networkId)) {
+      return tools;
+    }
+    return tools.filter((item) => item.networkId === networkId);
+  }, [tools, networkId]);
+};

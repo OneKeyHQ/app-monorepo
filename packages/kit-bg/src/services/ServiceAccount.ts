@@ -14,6 +14,7 @@ import {
 import {
   generateNetworkIdByChainId,
   getCoinTypeFromNetworkId,
+  isAllNetworks,
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
@@ -226,6 +227,12 @@ class ServiceAccount extends ServiceBase {
     { noDispatch } = { noDispatch: false },
   ) {
     if (!walletId || !networkId) return;
+    const { serviceAllNetwork } = this.backgroundApi;
+    if (isAllNetworks(networkId)) {
+      return serviceAllNetwork.getAllNetworksFakeAccounts({
+        walletId,
+      });
+    }
     const { engine, dispatch } = this.backgroundApi;
     const wallet = await engine.getWallet(walletId);
     const accountIds = wallet.accounts;
@@ -1406,7 +1413,13 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountByAddress({ address }: { address: string }) {
+  async getAccountByAddress({
+    address,
+    networkId,
+  }: {
+    address: string;
+    networkId?: string;
+  }) {
     const { engine } = this.backgroundApi;
     const displayPassphraseWalletIdList =
       this.getDisplayPassphraseWalletIdList();
@@ -1418,7 +1431,12 @@ class ServiceAccount extends ServiceBase {
       const accounts = await engine.getAccounts(wallet.accounts);
       const target = accounts.find((item) => item.address === address);
       if (target) {
-        return target;
+        if (!networkId) {
+          return target;
+        }
+        if (isAccountCompatibleWithNetwork(target?.id, networkId)) {
+          return target;
+        }
       }
     }
   }
@@ -1529,10 +1547,12 @@ class ServiceAccount extends ServiceBase {
     const wallets = appSelector((s) => s.runtime.wallets);
     const accounts = (
       await engine.getAccounts(wallets.map((w) => w.accounts).flat())
-    ).map((n) => ({
-      ...pick(n, 'address', 'coinType', 'id', 'name', 'path', 'type'),
-      walletType: getWalletTypeFromAccountId(n.id),
-    }));
+    )
+      .map((n) => ({
+        ...pick(n, 'address', 'coinType', 'id', 'name', 'path', 'type'),
+        walletType: getWalletTypeFromAccountId(n.id),
+      }))
+      .filter((a) => !!a.address);
 
     return accounts;
   }

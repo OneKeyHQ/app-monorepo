@@ -1,6 +1,8 @@
 import { Box, Text } from '@onekeyhq/components';
 import { parseTextProps } from '@onekeyhq/engine/src/managers/nft';
 
+import InscriptionUnknow from './InscriptionUnknow';
+
 import type { InscriptionContentProps } from '../type';
 
 function prettyJson(content: string) {
@@ -14,7 +16,7 @@ function prettyJson(content: string) {
 function InscriptionText({ asset, ...props }: InscriptionContentProps) {
   const parseContent = parseTextProps(asset.content);
   if (!parseContent) {
-    return null;
+    return <InscriptionUnknow asset={asset} {...props} />;
   }
   return (
     <Box
@@ -39,7 +41,7 @@ function InscriptionText({ asset, ...props }: InscriptionContentProps) {
 function InscriptionLarge({ asset, ...props }: InscriptionContentProps) {
   const parseContent = parseTextProps(asset.content);
   if (!parseContent) {
-    return null;
+    return <InscriptionUnknow asset={asset} {...props} />;
   }
   return (
     <Box

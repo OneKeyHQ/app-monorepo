@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
 import {
   useActiveWalletAccount,
@@ -27,19 +28,21 @@ const AccountSelectorTrigger: FC<AccountSelectorTriggerProps> = ({
   bg,
   mode,
 }) => {
-  const { account } = useActiveWalletAccount();
+  const { account, networkId } = useActiveWalletAccount();
   const { openAccountSelector } = useNavigationActions();
   const activeExternalWalletName = useAppSelector(
     (s) => s.general.activeExternalWalletName,
   );
 
   const intl = useIntl();
+
   const activeOption = useMemo(
     () => ({
       label:
         account?.name || intl.formatMessage({ id: 'empty__no_account_title' }),
-      description:
-        (account?.displayAddress || account?.address || '').slice(-4) || '',
+      description: isAllNetworks(networkId)
+        ? ''
+        : (account?.displayAddress || account?.address || '').slice(-4) || '',
       value: account?.id,
     }),
     [
@@ -48,23 +51,31 @@ const AccountSelectorTrigger: FC<AccountSelectorTriggerProps> = ({
       account?.id,
       account?.name,
       intl,
+      networkId,
     ],
   );
   const isVertical = useIsVerticalLayout();
+
+  const icon = useMemo(() => {
+    if (isVertical) {
+      return null;
+    }
+    if (!account?.id) {
+      return null;
+    }
+    return (
+      <ExternalAccountImg
+        accountId={account?.id}
+        walletName={activeExternalWalletName}
+      />
+    );
+  }, [isVertical, account, activeExternalWalletName]);
 
   return (
     <BaseSelectorTrigger
       type={type}
       bg={bg}
-      icon={
-        // eslint-disable-next-line no-nested-ternary
-        isVertical ? null : account?.id ? (
-          <ExternalAccountImg
-            accountId={account?.id}
-            walletName={activeExternalWalletName}
-          />
-        ) : null
-      }
+      icon={icon}
       label={activeOption.label}
       description={showAddress && activeOption.description}
       onPress={() => {

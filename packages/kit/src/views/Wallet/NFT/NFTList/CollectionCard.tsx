@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import type { FC } from 'react';
 
 import { Row } from 'native-base';
@@ -6,16 +6,20 @@ import { Row } from 'native-base';
 import {
   Box,
   Center,
+  HStack,
   Text,
+  Token,
   useIsVerticalLayout,
   useTheme,
   useUserDevice,
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
+import { useManageNetworks } from '../../../../hooks';
 import { useTokenPrice } from '../../../../hooks/useTokens';
 
 import NFTListImage from './NFTListImage';
@@ -106,6 +110,14 @@ function CollectionCard({
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
   const { network } = useActiveWalletAccount();
+  const { allNetworks } = useManageNetworks();
+
+  const networkIcon = useMemo(() => {
+    if (!isAllNetworks(network?.id)) {
+      return undefined;
+    }
+    return allNetworks.find((n) => n.id === collectible.networkId)?.logoURI;
+  }, [collectible, allNetworks, network?.id]);
 
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
@@ -139,14 +151,19 @@ function CollectionCard({
         }}
       >
         <SubItemList collectible={collectible} width={contentSize} />
-        <Text
-          typography="Body2"
-          height="20px"
-          mt={`${padding}px`}
-          numberOfLines={1}
-        >
-          {collectible.contractName}
-        </Text>
+        <HStack mt={`${padding}px`}>
+          <Text typography="Body2" height="20px" numberOfLines={1} flex={1}>
+            {collectible.contractName}
+          </Text>
+          {networkIcon ? (
+            <Token
+              size={4}
+              token={{
+                logoURI: networkIcon,
+              }}
+            />
+          ) : null}
+        </HStack>
         <Text typography="Body2" height="20px" color="text-subdued">
           <FormatCurrencyNumber
             value={0}

@@ -8,7 +8,6 @@ export { default as useNavigation } from './useNavigation';
 export { useAppSelector } from './useAppSelector';
 export { useActiveWalletAccount, useSettings } from './redux';
 export {
-  useAccountTokens,
   useAccountTokensBalance,
   useNetworkTokens,
   useNativeToken,

@@ -75,7 +75,7 @@ const AccountItemMenu: FC<
         variant: 'desctructive',
       },
     ],
-    [onPress, showAllUsedAddressOption],
+    [onPress, showAllUsedAddressOption, showCopyAddressOption],
   );
 
   return (

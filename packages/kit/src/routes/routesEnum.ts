@@ -244,6 +244,10 @@ export enum ManageNetworkModalRoutes {
   QuickAdd = 'QuickAdd',
   Sort = 'Sort',
   SwitchRpc = 'SwitchRpc',
+  AllNetworksNetworkSelector = 'AllNetworksNetworkSelector',
+  AllNetworksAccountsDetail = 'AllNetworksAccountsDetail',
+  AllNetworksShowAccountFullAddress = 'AllNetworksShowAccountFullAddress',
+  AllNetworksSupportedNetworks = 'AllNetworksSupportedNetworks',
 }
 
 export enum CreateWalletModalRoutes {

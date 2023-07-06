@@ -8,7 +8,7 @@ import HomeMoreMenu from '@onekeyhq/kit/src/views/Overlay/HomeMoreMenu';
 const headerLeft = () => <WalletSelectorTrigger />;
 const headerRight = () => (
   <HStack space={3} alignItems="center">
-    <NetworkAccountSelectorTriggerMobile />
+    <NetworkAccountSelectorTriggerMobile allowSelectAllNetworks />
     <HomeMoreMenu>
       <IconButton
         name="EllipsisVerticalOutline"

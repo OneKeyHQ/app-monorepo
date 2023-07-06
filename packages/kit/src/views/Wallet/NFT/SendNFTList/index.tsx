@@ -19,8 +19,7 @@ import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount, useNetwork } from '../../../../hooks';
-import { useIsMounted } from '../../../../hooks/useIsMounted';
+import { useAccountPortfolios, useNetwork } from '../../../../hooks';
 import {
   ModalRoutes,
   RootRoutes,
@@ -195,15 +194,37 @@ function SendNFTList({
   accountId: string;
   networkId: string;
 }) {
-  const [collectibles, updateListData] = useState<Collection[]>([]);
   const intl = useIntl();
-  const { account } = useActiveSideAccount({ accountId, networkId });
   const { network } = useNetwork({ networkId });
   const multiSelect = Boolean(
     network &&
       (batchTransferContractAddress[network.id] || network.impl === IMPL_SOL),
   );
   const isNFTSupport = isCollectibleSupportedChainId(networkId);
+
+  const fetchData = useCallback(async () => {
+    if (
+      accountId &&
+      networkId &&
+      isNFTSupport &&
+      network?.settings.sendNFTEnable
+    ) {
+      await backgroundApiProxy.serviceNFT.fetchNFT({
+        accountId,
+        networkId,
+      });
+    }
+  }, [accountId, isNFTSupport, networkId, network]);
+
+  const collectibles = useAccountPortfolios({
+    networkId,
+    accountId,
+    type: 'nfts',
+  }).data as Collection[];
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const allAssets = useMemo(
     () =>
@@ -213,47 +234,6 @@ function SendNFTList({
         .map((item) => ({ ...item, selected: false, selectAmount: '0' })),
     [collectibles],
   );
-  const { serviceNFT } = backgroundApiProxy;
-  const isMountedRef = useIsMounted();
-  const fetchData = useCallback(async () => {
-    if (
-      account &&
-      networkId &&
-      network?.settings.sendNFTEnable &&
-      isNFTSupport
-    ) {
-      const result = await serviceNFT.fetchNFT({
-        account,
-        networkId,
-      });
-      return result?.data;
-    }
-    return [];
-  }, [
-    account,
-    isNFTSupport,
-    network?.settings.sendNFTEnable,
-    networkId,
-    serviceNFT,
-  ]);
-
-  useEffect(() => {
-    (async () => {
-      if (account && networkId) {
-        const localData = await serviceNFT.getLocalNFTs({
-          networkId,
-          account,
-        });
-        if (isMountedRef.current) {
-          updateListData(localData?.data as Collection[]);
-        }
-        const requestData = await fetchData();
-        if (isMountedRef.current) {
-          updateListData(requestData as Collection[]);
-        }
-      }
-    })();
-  }, [account, fetchData, isMountedRef, networkId, serviceNFT]);
 
   return allAssets.length > 0 ? (
     <SendNFTContentProvider listData={allAssets} multiSelect={multiSelect}>

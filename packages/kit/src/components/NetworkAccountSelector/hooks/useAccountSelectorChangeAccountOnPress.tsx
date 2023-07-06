@@ -20,7 +20,7 @@ import reducerAccountSelector, {
   EAccountSelectorMode,
 } from '../../../store/reducers/reducerAccountSelector';
 import { wait } from '../../../utils/helper';
-import { ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY } from '../../Header/AccountSelectorChildren/accountSelectorConsts';
+import { ACCOUNT_SELECTOR_CHANGE_ACCOUNT_CLOSE_DRAWER_DELAY } from '../consts';
 
 const { updateIsRefreshDisabled } = reducerAccountSelector.actions;
 
