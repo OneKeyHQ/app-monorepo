@@ -14,6 +14,7 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks/redux';
@@ -56,7 +57,9 @@ const Validation: FC<ValidationProps> = ({
   });
   const onSubmit = handleSubmit(async (values: FieldValues) => {
     const isOk = await backgroundApiProxy.serviceApp.verifyPassword(
-      values.password,
+      encodeSensitiveText({
+        text: values.password,
+      }),
     );
     if (isOk) {
       onOk?.(values.password, false);

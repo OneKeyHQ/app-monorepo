@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Center, Spinner } from '@onekeyhq/components';
+import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -63,7 +64,11 @@ const Session: FC<SessionProps> = ({
   const onSubmit = useCallback(
     async (text: string, isLocalAuthentication?: boolean) => {
       setVerifiedPwd(true);
-      await backgroundApiProxy.servicePassword.savePassword(text);
+      await backgroundApiProxy.servicePassword.savePassword(
+        encodeSensitiveText({
+          text,
+        }),
+      );
       onOk?.(text, isLocalAuthentication);
     },
     [onOk],
