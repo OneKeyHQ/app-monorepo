@@ -52,7 +52,7 @@ async function initNetworkList() {
       const network = formatServerNetworkToPresetNetwork(s);
       record[network.id] = network;
     } catch (error) {
-      debugLogger.common.error(`[initNetworkList] error`, s);
+      debugLogger.common.error(`[initNetworkList] error`, s, error);
     }
   });
   presetNetworks = record;

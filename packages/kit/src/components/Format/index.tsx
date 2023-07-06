@@ -13,9 +13,9 @@ import {
   useActiveWalletAccount,
   useAppSelector,
   useSettings,
+  useTokenBalanceWithoutFrozen,
 } from '../../hooks';
-import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
-import { useTokenBalanceWithoutFrozen } from '../../hooks/useTokens';
+import { useSimpleTokenPriceValue } from '../../hooks/useTokens';
 import { getSuggestedDecimals } from '../../utils/priceUtils';
 import { formatDecimalZero } from '../../views/Market/utils';
 

@@ -27,7 +27,7 @@ export function LayoutHeaderDesktop({
   const headerRight = useCallback(
     () => (
       <HStack space={2} alignItems="center">
-        <NetworkAccountSelectorTriggerDesktop />
+        <NetworkAccountSelectorTriggerDesktop allowSelectAllNetworks />
         <Box>
           <HomeMoreMenu>
             <IconButton

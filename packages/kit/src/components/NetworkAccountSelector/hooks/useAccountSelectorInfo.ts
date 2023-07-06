@@ -17,7 +17,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY,
   ACCOUNT_SELECTOR_IS_OPEN_VISIBLE_DELAY,
-} from '../../Header/AccountSelectorChildren/accountSelectorConsts';
+} from '../consts';
 
 import { useDeviceStatusOfHardwareWallet } from './useDeviceStatusOfHardwareWallet';
 
@@ -97,6 +97,7 @@ export function useAccountSelectorInfo() {
       return true;
     }
     let dataLen = 0;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
     accountsGroup.forEach((acc) => (dataLen += acc?.data?.length || 0));
     return dataLen <= 0;
   }, [accountsGroup]);

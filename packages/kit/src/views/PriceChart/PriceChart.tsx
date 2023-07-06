@@ -9,7 +9,7 @@ import type { Token as TokenDO } from '@onekeyhq/engine/src/types/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSettings } from '../../hooks';
-import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
+import { useSimpleTokenPriceValue } from '../../hooks/useTokens';
 import {
   ManageTokenModalRoutes,
   ModalRoutes,

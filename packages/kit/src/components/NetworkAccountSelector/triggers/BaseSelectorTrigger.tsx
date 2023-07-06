@@ -26,6 +26,7 @@ export interface INetworkAccountSelectorTriggerProps
   mode?: EAccountSelectorMode;
   iconSize?: number;
   labelTypography?: TypographyStyle;
+  allowSelectAllNetworks?: boolean;
 }
 interface IBaseSelectorTriggerProps extends ISelectorTriggerSharedProps {
   onPress?: () => void;

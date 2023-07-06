@@ -17,8 +17,11 @@ import {
 } from '@onekeyhq/components';
 
 import { FormatCurrencyNumber } from '../../components/Format';
-import { useAccountValues, useAppSelector, useNavigation } from '../../hooks';
-import { useCurrentFiatValue } from '../../hooks/useTokens';
+import {
+  useAccountPortfolios,
+  useAccountValues,
+  useNavigation,
+} from '../../hooks';
 import { HomeRoutes, ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
 import { OverviewBadge } from './components/OverviewBadge';
@@ -79,7 +82,7 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
           />
         )}
         <Text typography={{ sm: 'DisplayLarge', md: 'Heading' }}>
-          <FormatCurrencyNumber value={value} />
+          <FormatCurrencyNumber value={0} convertValue={value} />
         </Text>
       </>
     ),
@@ -146,18 +149,15 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
 
-  const fiat = useCurrentFiatValue();
-
-  const defis = useAppSelector(
-    (s) => s.overview.defi?.[`${networkId}--${address}`] ?? [],
-  );
+  const { data: defis } = useAccountPortfolios({
+    networkId,
+    accountId,
+    type: 'defis',
+  });
 
   const allDefiValues = useMemo(
-    () =>
-      defis
-        .reduce((sum, next) => sum.plus(next.protocolValue), new B(0))
-        .multipliedBy(fiat),
-    [defis, fiat],
+    () => defis.reduce((sum, next) => sum.plus(next.protocolValue), new B(0)),
+    [defis],
   );
 
   const accountAllValue = useAccountValues({
@@ -168,9 +168,9 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
   const handlePressHeader = useCallback(() => {
     navigation.navigate(HomeRoutes.OverviewDefiListScreen, {
       networkId,
-      address,
+      accountId,
     });
-  }, [navigation, networkId, address]);
+  }, [navigation, networkId, accountId]);
 
   if (!defis.length) {
     return null;

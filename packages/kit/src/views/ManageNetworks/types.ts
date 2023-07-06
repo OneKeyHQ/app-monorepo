@@ -1,8 +1,11 @@
 import type { INetwork } from '@onekeyhq/engine/src/types';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import type {
   AddEVMNetworkParams,
+  Network,
   SwitchRpcParams,
 } from '@onekeyhq/engine/src/types/network';
+import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import { ManageNetworkModalRoutes } from '../../routes/routesEnum';
 
@@ -20,6 +23,7 @@ export type ManageNetworkRoutesParams = {
         customDisabled?: boolean;
         rpcStatusDisabled?: boolean;
         selectedNetworkId?: string;
+        allowSelectAllNetworks?: boolean;
       };
   [ManageNetworkModalRoutes.Listing]: { onEdited?: () => void } | undefined;
   [ManageNetworkModalRoutes.AddNetwork]: {
@@ -64,4 +68,25 @@ export type ManageNetworkRoutesParams = {
   [ManageNetworkModalRoutes.QuickAdd]: undefined;
 
   [ManageNetworkModalRoutes.Sort]: undefined;
+
+  [ManageNetworkModalRoutes.AllNetworksNetworkSelector]: {
+    walletId: string;
+    accountId: string;
+    filter?: (params: {
+      network?: Network | null;
+      account?: Account | null;
+    }) => boolean;
+    onConfirm?: (params: { network: Network; account: Account }) => unknown;
+    onCancel?: () => unknown;
+  };
+  [ManageNetworkModalRoutes.AllNetworksAccountsDetail]: {
+    walletId: string;
+    accountId: string;
+  };
+  [ManageNetworkModalRoutes.AllNetworksShowAccountFullAddress]: {
+    network: Network;
+    account: Account;
+    wallet: Wallet;
+  };
+  [ManageNetworkModalRoutes.AllNetworksSupportedNetworks]: undefined;
 };

@@ -11,4 +11,5 @@ export const persistWhiteList = [
   'cloudBackup',
   'staking',
   'webTabs',
+  'allNetworks',
 ];

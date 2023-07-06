@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { debounce } from 'lodash';
 
@@ -18,6 +18,50 @@ export type INetworkAccountSelectorAccountListSectionData = {
   data: IAccount[];
   derivationInfo?: AccountNameInfo | null;
   collapsed: boolean;
+};
+
+export type IAllNetworkFakeAccountListData = {
+  id: string;
+  index: number;
+  name: string;
+};
+
+export const useAllNetworksAccountsData = ({
+  accountSelectorInfo,
+}: {
+  accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
+}) => {
+  const [data, setData] = useState<IAllNetworkFakeAccountListData[]>([]);
+
+  const refresh = useCallback(async () => {
+    const { selectedNetworkId, selectedWalletId } = accountSelectorInfo ?? {};
+    if (!selectedNetworkId || !selectedWalletId) {
+      setData([]);
+      return;
+    }
+    const index =
+      await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccountIndex({
+        walletId: accountSelectorInfo?.selectedWalletId ?? '',
+      });
+
+    if (index === -1) {
+      setData([]);
+      return;
+    }
+    setData(
+      new Array(index + 1).fill(1).map((_, i) => ({
+        id: `${selectedWalletId}--${i}`,
+        index: i,
+        name: `Account #${i + 1}`,
+      })),
+    );
+  }, [accountSelectorInfo]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { data, refresh };
 };
 
 // TODO $isLastItem in multiple wallet mode optimize

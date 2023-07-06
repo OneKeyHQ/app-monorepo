@@ -1,11 +1,19 @@
-import { debounce, pick, throttle, uniqBy } from 'lodash';
+import { throttle } from 'lodash';
 
-import { setOverviewPortfolioDefi } from '@onekeyhq/kit/src/store/reducers/overview';
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
+import {
+  isAllNetworks,
+  parseNetworkId,
+} from '@onekeyhq/engine/src/managers/network';
+import { caseSensitiveImpls } from '@onekeyhq/engine/src/managers/token';
+import type { Collection } from '@onekeyhq/engine/src/types/nft';
+import { setNFTPrice } from '@onekeyhq/kit/src/store/reducers/nft';
+import { serOverviewPortfolioUpdatedAt } from '@onekeyhq/kit/src/store/reducers/overview';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type {
+  IOverviewQueryTaskItem,
   IOverviewScanTaskItem,
-  IOverviewScanTaskType,
-  OverviewDefiRes,
+  OverviewAllNetworksPortfolioRes,
 } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
@@ -13,6 +21,7 @@ import {
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
@@ -21,7 +30,7 @@ import ServiceBase from './ServiceBase';
 class ServiceOverview extends ServiceBase {
   private interval: any;
 
-  private pendingTasks: IOverviewScanTaskItem[] = [];
+  private pendingTaskMap: Map<string, IOverviewQueryTaskItem> = new Map();
 
   // eslint-disable-next-line @typescript-eslint/require-await
   @bindThis()
@@ -30,9 +39,11 @@ class ServiceOverview extends ServiceBase {
     if (this.interval) {
       return;
     }
+    debugLogger.common.info('startQueryPendingTasks');
     this.interval = setInterval(() => {
       this.queryPendingTasks();
     }, getTimeDurationMs({ seconds: 15 }));
+    this.queryPendingTasks();
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -41,152 +52,270 @@ class ServiceOverview extends ServiceBase {
   async stopQueryPendingTasks() {
     clearInterval(this.interval);
     this.interval = null;
+    debugLogger.common.info('stopQueryPendingTasks');
   }
 
-  subscribeDebounced = debounce(
-    async () => {
-      const { appSelector, serviceAccount } = this.backgroundApi;
-      const {
-        activeAccountId,
-        activeNetworkId: networkId,
-        activeWalletId,
-      } = appSelector((s) => s.general);
-      if (!activeWalletId || !activeAccountId) {
-        return;
-      }
-
-      const account = await serviceAccount.getAccount({
-        walletId: activeWalletId || '',
-        accountId: activeAccountId || '',
-      });
-      if (!account || !networkId) {
-        return;
-      }
-      const { address } = account;
-      if (
-        this.pendingTasks.some(
-          (t) => t.networkId === networkId && t.address === address,
-        )
-      ) {
-        return;
-      }
-      const task: IOverviewScanTaskItem = {
-        networkId,
-        address,
-        scanTypes: ['defi'],
-      };
-      debugLogger.overview.info('subscribe overview task=', task);
-      const res = await fetchData<{
-        tasks?: IOverviewScanTaskItem[];
-      }>(
-        '/overview/subscribe',
-        {
-          tasks: [task],
-        },
-        {},
-        'POST',
-      );
-      if (res.tasks) {
-        this.pendingTasks.push(task);
-      }
-      return res;
-    },
-    getTimeDurationMs({ seconds: 5 }),
-    {
-      leading: false,
-      trailing: true,
-    },
-  );
-
-  @bindThis()
   @backgroundMethod()
-  async subscribe() {
-    return this.subscribeDebounced();
+  async getPenddingTasksByNetworkId({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<IOverviewQueryTaskItem[]> {
+    if (!networkId || !accountId) {
+      return Promise.resolve([]);
+    }
+    const dispatchKey = `${networkId}___${accountId}`;
+    return Promise.resolve(
+      Array.from(this.pendingTaskMap.values()).filter(
+        (n) => n.key === dispatchKey,
+      ),
+    );
   }
 
   @backgroundMethod()
   async queryPendingTasks() {
-    const { pendingTasks } = this;
-    if (!pendingTasks.length) {
+    const { dispatch, appSelector } = this.backgroundApi;
+
+    const { activeNetworkId: networkId = '', activeAccountId: accountId = '' } =
+      appSelector((s) => s.general);
+    if (!networkId || !accountId) {
       return;
     }
-    let newPendingTasks: IOverviewScanTaskItem[] = [];
-    for (const taskType of [
-      'defi',
-      'token',
-      'nfts',
-    ] as IOverviewScanTaskType[]) {
-      const tasks = uniqBy(
-        pendingTasks.filter((t) => t.scanTypes?.includes(taskType)),
-        (n) => `${n.networkId}--${n.address}`,
-      );
-      try {
-        if (taskType === 'defi') {
-          newPendingTasks = newPendingTasks.concat(
-            await this.queryOverviewDefis(tasks),
-          );
-        }
-        // TODO: tokens nfts histories
-      } catch (e) {
-        debugLogger.overview.info('query pending task error, error=', e, tasks);
+    const pendingTasksForCurrentNetwork =
+      await this.getPenddingTasksByNetworkId({
+        networkId,
+        accountId,
+      });
+
+    if (!pendingTasksForCurrentNetwork?.length) {
+      return;
+    }
+
+    const dispatchKey = `${networkId}___${accountId}`;
+
+    const results = await fetchData<
+      OverviewAllNetworksPortfolioRes & {
+        pending: IOverviewScanTaskItem[];
+      }
+    >(
+      '/overview/query/all',
+      {
+        tasks: [...pendingTasksForCurrentNetwork],
+      },
+      {
+        pending: [],
+        tokens: [],
+        defis: [],
+        nfts: [],
+      },
+      'POST',
+    );
+    const { pending } = results;
+    if (!pending?.length) {
+      for (const task of pendingTasksForCurrentNetwork) {
+        this.pendingTaskMap.delete(this.getTaksId(task));
       }
     }
-    this.pendingTasks = newPendingTasks;
+    const dispatchActions = [];
+    if (results.nfts?.length && networkId !== OnekeyNetwork.btc) {
+      let lastSalePrice = 0;
+      const floorPrice = 0; // Not used
+      results.nfts = (results.nfts as Collection[]).map((item) => {
+        let totalPrice = 0;
+        item.assets =
+          item.assets?.map((asset) => {
+            asset.collection.floorPrice = item.floorPrice;
+            totalPrice += asset.latestTradePrice ?? 0;
+            asset.networkId = item.networkId;
+            asset.accountAddress = item.accountAddress;
+            return asset;
+          }) ?? [];
+        item.totalPrice = totalPrice;
+        lastSalePrice += totalPrice;
+        return item;
+      });
+      dispatchActions.push(
+        setNFTPrice({
+          networkId,
+          accountId,
+          price: { floorPrice, lastSalePrice },
+        }),
+      );
+    }
+    await simpleDb.accountPortfolios.setAllNetworksPortfolio({
+      key: dispatchKey,
+      data: results,
+    });
+    dispatch(
+      ...dispatchActions,
+      serOverviewPortfolioUpdatedAt({
+        key: dispatchKey,
+        data: {
+          updatedAt: Date.now(),
+        },
+      }),
+    );
   }
 
-  async queryOverviewDefis(tasks: IOverviewScanTaskItem[]) {
-    const buildByService = this.backgroundApi.appSelector(
-      (s) => s.settings.devMode?.defiBuildService,
-    );
-    const body = {
-      tasks: tasks.map((t) => pick(t, 'networkId', 'address')),
-    };
-    if (buildByService && buildByService !== 'all') {
-      Object.assign(body, {
-        buildByService,
+  getTaksId({ networkId, address, xpub, scanType }: IOverviewQueryTaskItem) {
+    let accountAddress = address;
+    const { impl } = parseNetworkId(networkId);
+    if (impl && !caseSensitiveImpls.has(impl)) {
+      accountAddress = (accountAddress || '').toLowerCase();
+    }
+    return `${scanType}___${networkId}___${accountAddress}___${xpub ?? ''}`;
+  }
+
+  filterNewScanTasks(tasks: IOverviewScanTaskItem[]) {
+    return tasks
+      .map((t) => ({
+        ...t,
+        scanTypes: (t.scanTypes ?? []).filter(
+          (s) =>
+            !this.pendingTaskMap.has(
+              this.getTaksId({
+                networkId: t.networkId,
+                address: t.address,
+                xpub: t.xpub,
+                scanType: s,
+              }),
+            ),
+        ),
+      }))
+      .filter((t) => t.scanTypes.length > 0);
+  }
+
+  addPendingTasks(tasks: IOverviewScanTaskItem[], key?: string) {
+    for (const s of tasks) {
+      for (const scanType of s.scanTypes ?? []) {
+        const singleTask = {
+          key,
+          networkId: s.networkId,
+          address: s.address,
+          xpub: s.xpub,
+          scanType,
+        };
+        this.pendingTaskMap.set(this.getTaksId(singleTask), singleTask);
+      }
+    }
+  }
+
+  async buildOverviewScanTasks({
+    networkId,
+    accountId,
+    walletId,
+    scanTypes = ['defi', 'token', 'nfts'],
+  }: {
+    networkId: string;
+    accountId: string;
+    walletId?: string;
+    scanTypes: IOverviewScanTaskItem['scanTypes'];
+  }): Promise<IOverviewScanTaskItem[]> {
+    const { serviceAccount, serviceAllNetwork } = this.backgroundApi;
+    if (!isAllNetworks(networkId)) {
+      const { address, xpub } = await serviceAccount.getAcccountAddressWithXpub(
+        accountId,
+        networkId,
+      );
+      return this.filterNewScanTasks([
+        {
+          networkId,
+          address,
+          xpub,
+          scanTypes,
+        },
+      ]);
+    }
+    if (!walletId) {
+      return [];
+    }
+
+    const networkAccountsMap =
+      await serviceAllNetwork.getAllNetworksWalletAccounts({
+        accountId,
+        walletId,
       });
-    }
-    const res = await this.query<OverviewDefiRes[]>('defi', body);
-    const { dispatch, appSelector } = this.backgroundApi;
-    const data = tasks.map((t) => ({
-      networkId: t.networkId,
-      address: t.address,
-      data:
-        res.data?.filter(
-          (d) => d._id.networkId === t.networkId && d._id.address === t.address,
-        ) ?? [],
-    }));
-    const pendingTasks =
-      res.status?.pending.map((n) => ({
-        ...n,
-        scanTypes: ['defi'] as IOverviewScanTaskType[],
-      })) ?? [];
 
-    const savedDefiList = appSelector((s) => {
-      const defis = s.overview.defi;
-      return tasks
-        .map((t) => defis?.[`${t.networkId}--${t.address}`])
-        .flat()
-        .filter((n) => !!n);
+    const tasks: IOverviewScanTaskItem[] = [];
+
+    for (const [nid, accounts] of Object.entries(networkAccountsMap)) {
+      for (const account of accounts) {
+        const { address, xpub } =
+          await serviceAccount.getAcccountAddressWithXpub(account.id, nid);
+        tasks.push({
+          networkId: nid,
+          address,
+          xpub,
+          scanTypes,
+        });
+      }
+    }
+    return this.filterNewScanTasks(tasks);
+  }
+
+  @backgroundMethod()
+  async fetchAccountOverview({
+    networkId,
+    accountId,
+    walletId,
+    scanTypes,
+  }: {
+    networkId: string;
+    accountId: string;
+    walletId?: string;
+    scanTypes?: IOverviewScanTaskItem['scanTypes'];
+  }) {
+    const tasks = await this.buildOverviewScanTasks({
+      networkId,
+      accountId,
+      walletId,
+      scanTypes,
     });
-
-    if (!pendingTasks.length || !savedDefiList?.length) {
-      dispatch(...data.map(setOverviewPortfolioDefi));
-      debugLogger.overview.info('fetch defis done', data);
+    if (!tasks.length) {
+      return;
     }
-
-    return pendingTasks;
+    debugLogger.overview.info('subscribe overview tasks=', tasks);
+    const res = await fetchData<{
+      tasks?: IOverviewScanTaskItem[];
+    }>(
+      '/overview/subscribe',
+      {
+        tasks,
+      },
+      {},
+      'POST',
+    );
+    if (res.tasks) {
+      this.addPendingTasks(tasks, `${networkId}___${accountId}`);
+    }
+    return res;
   }
 
   refreshAccountWithThrottle = throttle(
     async ({
       networkId,
       accountId,
+      walletId,
     }: {
       networkId: string;
       accountId: string;
+      walletId: string | null;
     }) => {
       const { engine, serviceToken } = this.backgroundApi;
+      if (!networkId || !accountId || !walletId) {
+        return;
+      }
+      if (isAllNetworks(networkId)) {
+        await this.fetchAccountOverview({
+          networkId,
+          accountId,
+          walletId,
+          scanTypes: ['defi', 'nfts', 'token'],
+        });
+        return;
+      }
 
       engine.clearPriceCache();
       await serviceToken.fetchAccountTokens({
@@ -196,7 +325,12 @@ class ServiceOverview extends ServiceBase {
         includeTop50TokensQuery: true,
       });
 
-      await this.subscribe();
+      await this.fetchAccountOverview({
+        networkId,
+        accountId,
+        walletId,
+        scanTypes: ['defi', 'nfts'],
+      });
     },
     getTimeDurationMs({ seconds: 5 }),
   );
@@ -206,30 +340,17 @@ class ServiceOverview extends ServiceBase {
   async refreshCurrentAccount() {
     const { appSelector } = this.backgroundApi;
 
-    const { activeAccountId: accountId, activeNetworkId: networkId } =
-      appSelector((s) => s.general);
+    const {
+      activeAccountId: accountId,
+      activeNetworkId: networkId,
+      activeWalletId: walletId,
+    } = appSelector((s) => s.general);
 
     if (!accountId || !networkId) {
       return;
     }
 
-    return this.refreshAccountWithThrottle({ networkId, accountId });
-  }
-
-  @backgroundMethod()
-  async query<T>(
-    scanType: IOverviewScanTaskType,
-    body: {
-      buildByService?: string;
-      tasks: IOverviewScanTaskItem[];
-    },
-  ) {
-    return fetchData<{
-      status?: {
-        pending: Omit<IOverviewScanTaskItem, 'taskType'>[];
-      };
-      data?: T;
-    }>(`/overview/query/${scanType}`, body, {}, 'POST');
+    return this.refreshAccountWithThrottle({ networkId, accountId, walletId });
   }
 }
 

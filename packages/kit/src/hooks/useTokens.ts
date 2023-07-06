@@ -1,23 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import B from 'bignumber.js';
 import { pick } from 'lodash';
-import natsort from 'natsort';
 import { useAsync } from 'react-async-hook';
 
-import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
-import type {
-  IAccountTokenData,
-  Token,
-} from '@onekeyhq/engine/src/types/token';
-import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { appSelector } from '../store';
-import { getPreBaseValue } from '../utils/priceUtils';
 
 import { useAppSelector } from './useAppSelector';
 
@@ -46,6 +38,7 @@ export const useSingleToken = (networkId: string, address: string) => {
     token,
   };
 };
+
 export function useNativeToken(networkId?: string): Token | undefined {
   const { token } = useSingleToken(networkId ?? '', '');
   return token;
@@ -78,113 +71,6 @@ export function useAccountTokensBalance(
     }
     return balances[networkId]?.[accountId] ?? {};
   }, [networkId, accountId, balances]);
-}
-
-export function useAccountTokens(
-  networkId = '',
-  accountId = '',
-  useFilter = false,
-): Array<IAccountTokenData> {
-  const {
-    hideRiskTokens,
-    hideSmallBalance,
-    putMainTokenOnTop,
-    selectedFiatMoneySymbol,
-  } = useAppSelector((s) => s.settings);
-  const fiatMap = useAppSelector((s) => s.fiatMoney.map);
-  const fiat = fiatMap[selectedFiatMoneySymbol]?.value || 0;
-  const tokens = useAppSelector(
-    (s) => s.tokens.accountTokens?.[networkId]?.[accountId] ?? [],
-  );
-  const balances = useAppSelector(
-    (s) => s.tokens.accountTokensBalance?.[networkId]?.[accountId] ?? [],
-  );
-  const prices = useAppSelector((s) => s.tokens.tokenPriceMap ?? {});
-
-  const valueTokens: IAccountTokenData[] = tokens
-    .map((t) => {
-      const priceInfo =
-        prices[`${networkId}${t.address ? '-' : ''}${t.address ?? ''}`];
-      const price = priceInfo?.[selectedFiatMoneySymbol] ?? 0;
-      const balance = balances[getBalanceKey(t)]?.balance ?? '0';
-      const value = new B(price).multipliedBy(balance);
-      const usdValue = fiat === 0 ? 0 : value.div(fiat);
-      const value24h = new B(balance).multipliedBy(
-        getPreBaseValue({
-          priceInfo,
-          vsCurrency: selectedFiatMoneySymbol,
-        })[selectedFiatMoneySymbol] ?? 0,
-      );
-      const info: IAccountTokenData = {
-        ...t,
-        price,
-        balance,
-        value: value.toString(),
-        usdValue: usdValue.toString(),
-        value24h: value24h.toString(),
-      };
-      return info;
-    })
-    .sort(
-      (a, b) =>
-        // By value
-        new B(b.value).comparedTo(a.value) ||
-        // By price
-        new B(b.price).comparedTo(a.price) ||
-        // By native token
-        (b.isNative ? 1 : 0) ||
-        (a.isNative ? -1 : 0) ||
-        // By name
-        natsort({ insensitive: true })(a.name, b.name),
-    );
-
-  if (!useFilter) {
-    return valueTokens;
-  }
-
-  const filteredTokens = valueTokens.filter((t) => {
-    if (hideSmallBalance && new B(t.usdValue).isLessThan(1)) {
-      return false;
-    }
-    if (hideRiskTokens && t.riskLevel && t.riskLevel > TokenRiskLevel.WARN) {
-      return false;
-    }
-    if (putMainTokenOnTop && (t.isNative || !t.address)) {
-      return false;
-    }
-    return true;
-  });
-  if (!putMainTokenOnTop) {
-    return filteredTokens;
-  }
-  const nativeToken = valueTokens.find(
-    (t) => t.isNative || !t.tokenIdOnNetwork,
-  );
-  if (nativeToken) {
-    return [nativeToken, ...filteredTokens];
-  }
-  return filteredTokens;
-}
-
-export function useAccountTokenValues(
-  networkId: string,
-  accountId: string,
-  useFilter = true,
-) {
-  const accountTokens = useAccountTokens(networkId, accountId, useFilter);
-
-  return useMemo(() => {
-    let value = new B(0);
-    let value24h = new B(0);
-    for (const t of accountTokens) {
-      value = value.plus(t.value);
-      value24h = value24h.plus(t.value24h);
-    }
-    return {
-      value,
-      value24h,
-    };
-  }, [accountTokens]);
 }
 
 export function useAccountTokenLoading(networkId: string, accountId: string) {
@@ -274,52 +160,6 @@ export const useFrozenBalance = ({
   );
 };
 
-export const useTokenBalance = ({
-  networkId,
-  accountId,
-  token,
-  fallback = '0',
-}: {
-  networkId: string;
-  accountId: string;
-  token?: Partial<Token> | null;
-  fallback?: string;
-}) => {
-  const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
-  return (
-    balances?.[networkId]?.[accountId]?.[getBalanceKey(token)]?.balance ??
-    fallback
-  );
-};
-
-export const useTokenBalanceWithoutFrozen = ({
-  networkId,
-  accountId,
-  token,
-  fallback = '0',
-}: {
-  networkId: string;
-  accountId: string;
-  token?: Partial<Token> | null;
-  fallback?: string;
-}) => {
-  const balance = useTokenBalance({ networkId, accountId, token, fallback });
-  const frozenBalance = useFrozenBalance({
-    networkId,
-    accountId,
-    tokenId: token?.tokenIdOnNetwork || 'main',
-  });
-
-  return useMemo(() => {
-    if (frozenBalance < 0) return '0';
-    const realBalance = new B(balance).minus(frozenBalance);
-    if (realBalance.isGreaterThan(0)) {
-      return realBalance.toFixed();
-    }
-    return '0';
-  }, [balance, frozenBalance]);
-};
-
 export const useTokenPrice = ({
   networkId,
   tokenIdOnNetwork,
@@ -345,4 +185,21 @@ export const useCurrentFiatValue = () => {
   );
   const fiatMap = useAppSelector((s) => s.fiatMoney.map);
   return fiatMap?.[selectedFiatMoneySymbol]?.value || 0;
+};
+
+export const useSimpleTokenPriceValue = ({
+  networkId,
+  contractAdress,
+}: {
+  networkId?: string;
+  contractAdress?: string;
+}) => {
+  const vsCurrency = useAppSelector((s) => s.settings.selectedFiatMoneySymbol);
+  const price = useTokenPrice({
+    networkId: networkId ?? '',
+    tokenIdOnNetwork: contractAdress ?? '',
+    vsCurrency,
+  });
+
+  return price;
 };

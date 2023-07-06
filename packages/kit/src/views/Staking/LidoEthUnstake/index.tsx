@@ -27,7 +27,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatCurrency } from '../../../components/Format';
 import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
-import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
+import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { addTransaction } from '../../../store/reducers/staking';
 import { formatAmount } from '../../../utils/priceUtils';

@@ -51,6 +51,7 @@ import {
   OneKeyInternalError,
 } from './errors';
 import {
+  generateFakeAllnetworksAccount,
   getWalletIdFromAccountId,
   isAccountCompatibleWithNetwork,
   isAccountWithAddress,
@@ -79,6 +80,7 @@ import {
 import {
   fromDBNetworkToNetwork,
   getEVMNetworkToCreate,
+  isAllNetworks,
   parseNetworkId,
 } from './managers/network';
 import {
@@ -676,6 +678,9 @@ class Engine {
 
   @backgroundMethod()
   async getAccount(accountId: string, networkId: string): Promise<Account> {
+    if (isAllNetworks(networkId)) {
+      return generateFakeAllnetworksAccount({ accountId });
+    }
     // Get account by id. Raise an error if account doesn't exist.
     // Token ids are included.
     const vault = await this.getVault({ accountId, networkId });
@@ -1448,6 +1453,9 @@ class Engine {
   }
 
   async generateNativeTokenByNetworkId(networkId: string) {
+    if (isAllNetworks(networkId)) {
+      throw new Error('Cannot generate native token for all networks.');
+    }
     const network = await this.getNetwork(networkId);
     const { impl, chainId } = parseNetworkId(networkId);
     return {
@@ -1526,7 +1534,7 @@ class Engine {
     }
     if (typeof accountId !== 'undefined') {
       if (withMain) {
-        if (!tokens.find((t) => t.isNative)) {
+        if (!tokens.find((t) => t.isNative) && !isAllNetworks(networkId)) {
           tokens.unshift(await this.generateNativeTokenByNetworkId(networkId));
         }
         return tokens;

@@ -16,15 +16,12 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import {
-  getActiveWalletAccount,
-  useActiveWalletAccount,
-} from '../../../../../../hooks/redux';
+import { useNetwork } from '../../../../../../hooks';
+import { useActiveWalletAccount } from '../../../../../../hooks/redux';
 import useFormatDate from '../../../../../../hooks/useFormatDate';
 import {
   ModalRoutes,
@@ -41,33 +38,48 @@ type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 function BTCAssetDetailContent({
   asset: outerAsset,
-  network,
   isOwner,
 }: {
   asset: NFTBTCAssetModel;
-  network: Network;
   isOwner: boolean;
 }) {
   const intl = useIntl();
   const { format } = useFormatDate();
   const { serviceNFT } = backgroundApiProxy;
 
-  const { wallet, accountAddress } = useActiveWalletAccount();
+  const { network } = useNetwork({
+    networkId: outerAsset?.networkId ?? '',
+  });
+
+  const { wallet } = useActiveWalletAccount();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const modalClose = useModalClose();
 
   const [asset, updateAsset] = useState(outerAsset);
   const isDisabled =
-    wallet?.type === WALLET_TYPE_WATCHING && asset.owner !== accountAddress;
+    wallet?.type === WALLET_TYPE_WATCHING &&
+    asset.owner !== outerAsset.accountAddress;
 
-  const sendAction = useCallback(() => {
-    const { accountId, networkId } = getActiveWalletAccount();
+  const sendAction = useCallback(async () => {
+    const { accountAddress, networkId } = outerAsset ?? {};
+    if (!networkId || !accountAddress) {
+      return;
+    }
+    const account = await backgroundApiProxy.serviceAccount.getAccountByAddress(
+      {
+        networkId,
+        address: accountAddress ?? '',
+      },
+    );
+    if (!account) {
+      return;
+    }
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Send,
       params: {
         screen: SendModalRoutes.PreSendAddress,
         params: {
-          accountId,
+          accountId: account?.id,
           networkId,
           isNFT: true,
           from: '',
@@ -84,11 +96,11 @@ function BTCAssetDetailContent({
         },
       },
     });
-  }, [asset, modalClose, navigation]);
+  }, [asset, modalClose, navigation, outerAsset]);
 
   useEffect(() => {
     (async () => {
-      if (network.id) {
+      if (network?.id) {
         const data = (await serviceNFT.fetchAsset({
           chain: network.id,
           tokenId: outerAsset.inscription_id,
@@ -98,7 +110,7 @@ function BTCAssetDetailContent({
         }
       }
     })();
-  }, [network.id, outerAsset.inscription_id, serviceNFT]);
+  }, [network?.id, outerAsset.inscription_id, serviceNFT]);
 
   return (
     <VStack space="24px" mb="50px">

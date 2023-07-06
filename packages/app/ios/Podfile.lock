@@ -2,7 +2,7 @@ PODS:
   - boost (1.76.0)
   - CocoaAsyncSocket (7.6.5)
   - DoubleConversion (1.1.6)
-  - EXApplication (5.2.0):
+  - EXApplication (5.1.1):
     - ExpoModulesCore
   - EXAV (13.3.0):
     - ExpoModulesCore
@@ -1050,7 +1050,7 @@ SPEC CHECKSUMS:
   boost: 57d2868c099736d80fcd648bf211b4431e51a558
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   DoubleConversion: 5189b271737e1565bdce30deb4a08d647e3f5f54
-  EXApplication: 45c662ace096520d412e8f2c956482c8ffac1436
+  EXApplication: d8f53a7eee90a870a75656280e8d4b85726ea903
   EXAV: c661e742e2ee1986f5a6a030b48d9d3a3507d2f0
   EXBarCodeScanner: 28ad66f3f57c8ae00f988956835ab472688643ca
   EXConstants: 29269f841ed8786d483b753021953264ac04818f
@@ -1185,4 +1185,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 378641444e16b53374eb08f9204e4c8f404b5843
 
-COCOAPODS: 1.11.3
+COCOAPODS: 1.12.0

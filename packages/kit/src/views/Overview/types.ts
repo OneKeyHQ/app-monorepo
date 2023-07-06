@@ -1,3 +1,9 @@
+import type {
+  Collection,
+  NFTBTCAssetModel,
+} from '@onekeyhq/engine/src/types/nft';
+import type { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
+
 export interface IBaseOverviewQuery {
   networkId: string;
   address: string; // accountAddress
@@ -25,8 +31,18 @@ export interface IOverviewScanTaskInfo
 
 export type IOverviewScanTaskItem = Pick<
   IOverviewScanTaskInfo,
-  'networkId' | 'address' | 'scanTypes'
->;
+  'networkId' | 'address' | 'scanTypes' | 'xpub'
+> & {
+  key?: string;
+};
+
+export type IOverviewQueryTaskItem = Pick<
+  IOverviewScanTaskInfo,
+  'networkId' | 'address' | 'xpub'
+> & {
+  key?: string;
+  scanType: IOverviewScanTaskType;
+};
 
 export type EOverviewServiceNames = string;
 export type IOverviewScanTaskType = 'token' | 'defi' | 'nfts';
@@ -91,6 +107,11 @@ export interface IOverviewDeFiPoolTokenBalance extends ITokenInfo {
 
   value?: string;
   value24h: string;
+
+  coingeckoId?: string;
+
+  riskLevel: TokenRiskLevel;
+  decimals: number;
 }
 
 export interface IAccountTokens extends IBaseOverviewQuery {
@@ -236,4 +257,66 @@ export type OverviewModalRoutesParams = {
     accountId: string;
     poolCode?: string;
   };
+};
+
+export interface OverviewAllNetworksPortfolioRes {
+  tokens: IOverviewAllNetworksToken[];
+  nfts: (Collection | NFTBTCAssetModel)[];
+  defis: OverviewDefiRes[];
+}
+
+export interface IOverviewAllNetworksToken {
+  name: string;
+  symbol: string;
+  coingeckoId: string;
+  balance: string;
+  price?: number;
+  price24h?: number;
+  value?: string;
+  value24h?: string;
+  logoURI?: string;
+  defaultChain: {
+    impl: string;
+    chainId: string;
+  };
+  tokens: {
+    networkId: string;
+    accountAddress?: string;
+    address: string;
+    xpub?: string;
+    balance: string;
+    decimals: number;
+    riskLevel: TokenRiskLevel;
+    value: string;
+  }[];
+}
+
+export interface IAccountToken {
+  name: string;
+  symbol: string;
+  address?: string;
+  logoURI?: string;
+  balance: string;
+  usdValue: string;
+  value: string;
+  value24h?: string;
+  price: number;
+  price24h?: number;
+  isNative?: boolean;
+  riskLevel?: TokenRiskLevel;
+  sendAddress?: string;
+  key: string;
+  coingeckoId?: string;
+  autoDetected?: boolean;
+  tokens: IOverviewAllNetworksToken['tokens'];
+}
+
+export type IOverviewTokenDetailListItem = {
+  name: string;
+  symbol: string;
+  address?: string;
+  logoURI: string;
+  type: string;
+  balance: string;
+  networkId: string;
 };

@@ -4,6 +4,7 @@ import type { Box } from '@onekeyhq/components';
 import type {
   Collection,
   NFTAsset,
+  NFTAssetType,
   NFTBTCAssetModel,
 } from '@onekeyhq/engine/src/types/nft';
 
@@ -20,6 +21,8 @@ export enum NFTCardType {
 export type ListItemType<T> = {
   data: T;
   isAsset: boolean;
+  type?: NFTAssetType;
+  key?: string;
 };
 
 export type ListItemComponentType<T> = ComponentProps<typeof Box> &
