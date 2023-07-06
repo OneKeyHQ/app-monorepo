@@ -782,5 +782,4 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async getAllUsedAddress(): Promise<BtcForkChainUsedAccount[]> {
     return Promise.resolve([]);
   }
-
 }

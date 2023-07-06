@@ -51,6 +51,15 @@ class ServiceOverview extends ServiceBase {
     }, getTimeDurationMs({ seconds: 15 }));
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
+  @bindThis()
+  @backgroundMethod()
+  async stopQueryPendingTasks() {
+    clearInterval(this.interval);
+    this.interval = null;
+    debugLogger.common.info('stopQueryPendingTasks');
+  }
+
   @backgroundMethod()
   async getPenddingTasksByNetworkId({
     networkId,
