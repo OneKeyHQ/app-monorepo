@@ -26,10 +26,8 @@ function NotSupported({ networkId }: { networkId: string }) {
   const networkSupported = allNetworks.filter(
     (n) =>
       n.enabled &&
-      n?.settings.supportBatchTransferOneToMany &&
-      (n?.settings.nativeSupportBatchTransferOneToMany
-        ? true
-        : batchTransferContractAddress[n.id]),
+      n?.settings.supportBatchTransfer &&
+      n.settings.supportBatchTransfer.length > 0,
   );
 
   const handleSelecteNetwork = useCallback(

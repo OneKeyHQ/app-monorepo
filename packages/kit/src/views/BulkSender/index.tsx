@@ -1,53 +1,62 @@
-import { useCallback, useLayoutEffect, useMemo } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { HeaderBackButton as NavigationHeaderBackButton } from '@react-navigation/elements';
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
   Button,
   HStack,
+  IconButton,
   Text,
   useIsVerticalLayout,
-  useThemeValue,
 } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
-import { useNativeToken } from '@onekeyhq/kit/src/hooks';
+import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
+import { BulkSenderModeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
 import { useActiveWalletAccount } from '../../hooks';
-import { useNavigationBack } from '../../hooks/useAppNavigation';
+import { navigationShortcuts } from '../../routes/navigationShortcuts';
+import { HomeRoutes } from '../../routes/routesEnum';
 import { useConnectAndCreateExternalAccount } from '../ExternalAccount/useConnectAndCreateExternalAccount';
 
-import { NotSupported } from './NotSupported';
-import { TokenOutbox } from './TokenOutbox';
-import { BulkSenderTypeEnum } from './types';
-
 import { ModelSelector } from './ModeSelector';
+import { NotSupported } from './NotSupported';
+
+import type { HomeRoutesParams } from '../../routes/types';
+import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.BulkSender>;
+type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 function BulkSender() {
   const intl = useIntl();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProps>();
   const isVertical = useIsVerticalLayout();
+  const route = useRoute<RouteProps>();
+
+  const [selectedMode, setSelectedMode] = useState<
+    BulkSenderModeEnum | undefined
+  >();
+
+  const routeParams = route.params;
+  const mode = routeParams?.mode;
 
   const { accountId, networkId, network } = useActiveWalletAccount();
 
-  const isSupportedOneToMany = !!(
-    network?.settings.supportBatchTransferOneToMany &&
-    (network?.settings.nativeSupportBatchTransferOneToMany
-      ? true
-      : batchTransferContractAddress[networkId])
-  );
-  const isSupportedManyToMany =
-    !!network?.settings.supportBatchTransferManyToMany;
-  const isSupportedManyToOne =
-    !!network?.settings.supportBatchTransferManyToOne;
   const isSupported = !!(
     network?.enabled &&
-    (isSupportedOneToMany || isSupportedManyToMany || isSupportedManyToOne)
+    network.settings?.supportBatchTransfer &&
+    network.settings.supportBatchTransfer.length > 0
   );
 
   const { connectAndCreateExternalAccount } =
@@ -66,6 +75,54 @@ function BulkSender() {
     );
   }, [intl, connectAndCreateExternalAccount, accountId]);
 
+  const title = useMemo(() => {
+    let desc = '';
+    if (mode === BulkSenderModeEnum.OneToMany) {
+      desc = 'form__one_to_many';
+    } else if (mode === BulkSenderModeEnum.ManyToOne) {
+      desc = 'form__many_to_one';
+    } else if (mode === BulkSenderModeEnum.ManyToMany) {
+      desc = 'form__many_to_many';
+    }
+
+    if (desc)
+      return `${intl.formatMessage({
+        id: 'title__bulksender',
+      })} - ${intl.formatMessage({ id: desc })}`;
+
+    return intl.formatMessage({ id: 'title__bulksender' });
+  }, [intl, mode]);
+
+  const headerLeft = useCallback(
+    () => (
+      <HStack alignItems="center">
+        <Box ml="-6px" mr="8px">
+          <IconButton
+            type="plain"
+            size="lg"
+            name={isVertical ? 'ArrowLeftOutline' : 'ArrowSmallLeftOutline'}
+            onPress={() => {
+              if (mode) {
+                navigation.navigate(HomeRoutes.BulkSender);
+              } else if (navigation?.canGoBack()) {
+                navigation?.goBack();
+              } else {
+                navigationShortcuts.navigateToHome();
+              }
+            }}
+            circle
+          />
+        </Box>
+        {!isVertical && (
+          <Text typography="Heading" color="text-default">
+            {title}
+          </Text>
+        )}
+      </HStack>
+    ),
+    [isVertical, mode, navigation],
+  );
+
   const headerRight = useCallback(() => {
     if (!accountId) {
       return walletConnectButton;
@@ -79,20 +136,22 @@ function BulkSender() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: '',
-      headerRight,
+      headerShown: true,
+      title: isVertical ? title : undefined,
+      // eslint-disable-next-line react/no-unstable-nested-components
+      header: () => (
+        <NavHeader headerRight={headerRight} headerLeft={headerLeft} />
+      ),
     });
-  }, [navigation, headerRight]);
+  }, [headerLeft, headerRight, intl, isVertical, navigation]);
 
   if (!isSupported) return <NotSupported networkId={networkId} />;
 
-  return (
-    <ModelSelector
-      isSupportedOneToMany={isSupportedOneToMany}
-      isSupportedManyToOne={isSupportedManyToOne}
-      isSupportedManyToMany={isSupportedManyToMany}
-    />
-  );
+  if (mode) {
+    return <Text>hello</Text>;
+  }
+
+  return <ModelSelector networkId={networkId} />;
 }
 
 export default BulkSender;

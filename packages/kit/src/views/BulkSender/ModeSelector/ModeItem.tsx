@@ -10,16 +10,22 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { BulkSenderModeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 
-import { BulkSenderModeEnum } from '../types';
+import { useNavigation } from '../../../hooks';
+import { HomeRoutes } from '../../../routes/routesEnum';
 
 import GroupIcon from './GroupIcon';
 
+import type { HomeRoutesParams } from '../../../routes/types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MessageDescriptor } from 'react-intl';
 
 type Props = {
   mode: BulkSenderModeEnum;
 } & ComponentProps<typeof Pressable>;
+
+type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
 
 function AddressElement({ elementText }: { elementText: string }) {
   return (
@@ -117,6 +123,7 @@ function ModeItem(props: Props) {
   const { mode, ...rest } = props;
   const isVertical = useIsVerticalLayout();
   const intl = useIntl();
+  const navigation = useNavigation<NavigationProps>();
 
   const modeInfo = getModeInfo(mode);
 
@@ -134,6 +141,7 @@ function ModeItem(props: Props) {
       borderColor="border-subdued"
       borderWidth={1}
       borderRadius="12px"
+      onPress={() => navigation.navigate(HomeRoutes.BulkSender, { mode })}
       {...rest}
     >
       {isVertical ? (

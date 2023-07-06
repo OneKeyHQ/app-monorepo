@@ -15,3 +15,9 @@ export enum BatchTransferSelectors {
   disperseEtherSameValue = '0xc263a3e4',
   disperseTokenSameValue = '0x17546c6c',
 }
+
+export enum BulkSenderModeEnum {
+  OneToMany = 'OneToMany',
+  ManyToMany = 'ManyToMany',
+  ManyToOne = 'ManyToOne',
+}

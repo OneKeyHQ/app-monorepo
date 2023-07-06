@@ -4,6 +4,8 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
+import { BulkSenderModeEnum } from '../../../types/batchTransfer';
+
 import type { AccountNameInfo } from '../../../types/network';
 import type { IVaultSettings } from '../../types';
 
@@ -27,11 +29,13 @@ const settings: IVaultSettings = Object.freeze({
     },
   },
 
-  supportDeflationary: true,
   supportFilterScam: true,
-  supportBatchTransferOneToMany: true,
-  supportBatchTransferManyToMany: true,
-  supportBatchTransferManyToOne: true,
+  supportBatchTransfer: [
+    BulkSenderModeEnum.OneToMany,
+    BulkSenderModeEnum.ManyToMany,
+    BulkSenderModeEnum.ManyToOne,
+  ],
+
   batchTransferApprovalRequired: true,
   batchTransferApprovalConfirmRequired: true,
 

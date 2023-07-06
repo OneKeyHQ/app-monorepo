@@ -3,6 +3,8 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
+import { BulkSenderModeEnum } from '../../../types/batchTransfer';
+
 import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = Object.freeze({
@@ -19,7 +21,7 @@ const settings: IVaultSettings = Object.freeze({
   isUTXOModel: false,
 
   cannotSendToSelf: true,
-  supportBatchTransferOneToMany: true,
+  supportBatchTransfer: [BulkSenderModeEnum.OneToMany],
   batchTransferApprovalRequired: true,
   maxActionsInTx: 8,
   hardwareMaxActionsEnabled: true,

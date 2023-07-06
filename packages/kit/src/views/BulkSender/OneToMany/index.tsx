@@ -138,8 +138,6 @@ function BulkSender() {
     networkId,
   ]);
 
-  if (!isSupported) return <NotSupported networkId={networkId} />;
-
   return (
     <Tabs.Container
       headerContainerStyle={{

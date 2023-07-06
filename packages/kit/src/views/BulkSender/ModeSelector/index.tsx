@@ -1,20 +1,19 @@
 import { useMemo } from 'react';
 
 import {
+  Center,
   HStack,
   VStack,
   useIsVerticalLayout,
-  Center,
 } from '@onekeyhq/components';
+import { BulkSenderModeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 
-import { BulkSenderModeEnum } from '../types';
+import { useNetworkSimple } from '../../../hooks';
 
 import { ModeItem } from './ModeItem';
 
 type Props = {
-  isSupportedOneToMany: boolean;
-  isSupportedManyToMany: boolean;
-  isSupportedManyToOne: boolean;
+  networkId: string;
 };
 
 const modeItemCommonStyle = {};
@@ -33,35 +32,24 @@ const modeItemInHorizontalLayoutStyle = {
 };
 
 function ModelSelector(props: Props) {
-  const { isSupportedManyToMany, isSupportedManyToOne, isSupportedOneToMany } =
-    props;
+  const { networkId } = props;
+
+  const network = useNetworkSimple(networkId);
 
   const isVertical = useIsVerticalLayout();
 
-  const modes = useMemo(
-    () =>
-      [
-        isSupportedOneToMany && BulkSenderModeEnum.OneToMany,
-        isSupportedManyToMany && BulkSenderModeEnum.ManyToMany,
-        isSupportedManyToOne && BulkSenderModeEnum.ManyToOne,
-      ]
-        .filter((mode) => !!mode)
-        .map((mode) => (
-          <ModeItem
-            mode={mode as BulkSenderModeEnum}
-            {...(isVertical
-              ? modeItemInVerticalLayoutStyle
-              : modeItemInHorizontalLayoutStyle)}
-          />
-        )),
+  const modes = useMemo(() => {
+    const supportedModes = network?.settings.supportBatchTransfer ?? [];
 
-    [
-      isSupportedManyToMany,
-      isSupportedManyToOne,
-      isSupportedOneToMany,
-      isVertical,
-    ],
-  );
+    return supportedModes.map((mode) => (
+      <ModeItem
+        mode={mode}
+        {...(isVertical
+          ? modeItemInVerticalLayoutStyle
+          : modeItemInHorizontalLayoutStyle)}
+      />
+    ));
+  }, [isVertical, network?.settings.supportBatchTransfer]);
 
   return isVertical ? (
     <VStack space={3} padding={4}>

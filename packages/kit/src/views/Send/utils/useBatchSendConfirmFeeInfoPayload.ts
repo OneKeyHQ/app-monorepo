@@ -139,7 +139,7 @@ export function useBatchSendConfirmFeeInfoPayload({
           });
         } catch (error: any) {
           if (
-            !network?.settings.nativeSupportBatchTransferOneToMany &&
+            !network?.settings.nativeSupportBatchTransfer &&
             (await backgroundApiProxy.serviceBatchTransfer.checkIsBatchTransfer(
               {
                 networkId,

@@ -1,11 +1,5 @@
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
-export enum BulkSenderModeEnum {
-  OneToMany = 'OneToMany',
-  ManyToMany = 'ManyToMany',
-  ManyToOne = 'ManyToOne',
-}
-
 export enum BulkSenderTypeEnum {
   NativeToken = 'NativeToken',
   Token = 'Token',

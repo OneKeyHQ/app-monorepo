@@ -6,6 +6,7 @@ import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import type { Engine } from '../index';
 import type { AccountCredential } from '../types/account';
+import type { BulkSenderModeEnum } from '../types/batchTransfer';
 import type { AccountNameInfo, EIP1559Fee } from '../types/network';
 import type {
   IErcNftType,
@@ -121,14 +122,13 @@ export type IVaultSettings = {
   };
 
   supportFilterScam?: boolean;
-  supportBatchTransferOneToMany?: boolean;
-  nativeSupportBatchTransferOneToMany?: boolean;
-  supportBatchTransferManyToOne?: boolean;
-  supportBatchTransferManyToMany?: boolean;
-  supportDeflationary?: boolean;
+
+  supportBatchTransfer?: BulkSenderModeEnum[];
+  nativeSupportBatchTransfer?: boolean;
   batchTransferApprovalRequired?: boolean;
   batchTransferApprovalConfirmRequired?: boolean;
   maxActionsInTx?: number;
+
   hardwareMaxActionsEnabled?: boolean;
   transactionIdPattern?: string;
   isBtcForkChain?: boolean;
