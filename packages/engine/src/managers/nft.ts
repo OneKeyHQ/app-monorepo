@@ -248,7 +248,7 @@ export function createOutputActionFromNFTTransaction({
 }
 
 export function NFTDataType(networkId: string) {
-  if (networkId === OnekeyNetwork.btc) {
+  if (networkId === OnekeyNetwork.btc || networkId === OnekeyNetwork.tbtc) {
     return 'btc';
   }
   if (networkId === OnekeyNetwork.sol) {

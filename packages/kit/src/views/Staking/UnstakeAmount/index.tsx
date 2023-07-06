@@ -23,7 +23,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatCurrency } from '../../../components/Format';
 import { useActiveWalletAccount } from '../../../hooks';
-import { useAppSelector } from '../../../hooks/redux';
 import {
   useSimpleTokenPriceValue,
   useSingleToken,
@@ -33,6 +32,7 @@ import { formatAmount } from '../../../utils/priceUtils';
 import { SendModalRoutes } from '../../Send/types';
 import {
   useIntlMinutes,
+  useKeleDashboardInfo,
   useKeleMinerOverview,
   useKeleUnstakeOverview,
 } from '../hooks';
@@ -52,15 +52,13 @@ export default function UnstakeAmount() {
   const route = useRoute<RouteProps>();
   const { networkId, tokenIdOnNetwork } = route.params;
   const { account, accountId } = useActiveWalletAccount();
-  const keleDashboardGlobal = useAppSelector(
-    (s) => s.staking.keleDashboardGlobal,
-  );
+  const keleDashboardInfo = useKeleDashboardInfo(networkId);
   const minerOverview = useKeleMinerOverview(networkId, accountId);
   const keleUnstakeOverview = useKeleUnstakeOverview(networkId, accountId);
   const mainPrice = useSimpleTokenPriceValue({ networkId });
   const shortScreen = height < 768;
   const balance = minerOverview?.amount.retail_staked ?? '0';
-  const retailMinAmount = keleDashboardGlobal?.retail_min_amount ?? '0';
+  const retailMinAmount = keleDashboardInfo?.retail_min_amount ?? '0';
   const sec = keleUnstakeOverview?.estimate_use_sec ?? 60;
   const intlMinutes = useIntlMinutes(Math.floor(sec / 60));
 

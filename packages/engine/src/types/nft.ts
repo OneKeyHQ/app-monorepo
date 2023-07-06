@@ -10,6 +10,7 @@ export const NFTChainMap: Record<string, string> = {
   [OnekeyNetwork.sol]: 'sol',
   [OnekeyNetwork.avalanche]: 'avalanche',
   [OnekeyNetwork.btc]: 'btc',
+  [OnekeyNetwork.tbtc]: 'tbtc',
 };
 
 export type IErcNftType = 'erc721' | 'erc1155';

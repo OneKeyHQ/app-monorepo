@@ -39,7 +39,7 @@ import { addTransaction } from '../../../store/reducers/staking';
 import { formatAmount } from '../../../utils/priceUtils';
 import { formatDecimalZero } from '../../Market/utils';
 import { formatAmountExact, gt } from '../../Swap/utils';
-import PendingTransaction from '../components/PendingTransaction';
+import { PendingLidoTransaction } from '../components/PendingTransaction';
 import { useLidoOverview } from '../hooks';
 import { EthStakingSource, StakingRoutes } from '../typing';
 
@@ -158,7 +158,7 @@ const PendingTransactionAlert = () => {
         dismiss={false}
       />
       {txs.map((tx) => (
-        <PendingTransaction tx={tx} key={tx.hash} />
+        <PendingLidoTransaction tx={tx} key={tx.hash} />
       ))}
     </Box>
   ) : null;

@@ -116,7 +116,7 @@ const SecondaryContent: FC<SecondaryContentProps> = ({
         description: 'content__what_is_watch_only_account_desc',
       },
     ];
-  }, [mode]);
+  }, [mode, intl, navigation]);
 
   // todo 根据mode 判断 词条选择
   return (
