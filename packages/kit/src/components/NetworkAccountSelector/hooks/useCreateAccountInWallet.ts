@@ -3,6 +3,7 @@ import { useCallback, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 import type { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
@@ -67,7 +68,16 @@ export function useCreateAccountInWallet({
     let isCreateAccountSupported = false;
     let showCreateAccountMenu = false;
     let isAddressDerivationSupported = true;
-    if (network?.id) {
+    if (!network?.id) {
+      // AllNetwork
+      isCreateAccountSupported = true;
+      showCreateAccountMenu = false;
+      isAddressDerivationSupported = true;
+    } else if (isAllNetworks(network.id)) {
+      isCreateAccountSupported = false;
+      showCreateAccountMenu = false;
+      isAddressDerivationSupported = true;
+    } else {
       if (
         activeWallet?.type === 'external' &&
         vaultSettings?.externalAccountEnabled
@@ -104,11 +114,6 @@ export function useCreateAccountInWallet({
       if (vaultSettings?.addressDerivationDisabled) {
         isAddressDerivationSupported = false;
       }
-    } else {
-      // AllNetwork
-      isCreateAccountSupported = true;
-      showCreateAccountMenu = false;
-      isAddressDerivationSupported = true;
     }
 
     return {

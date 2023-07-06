@@ -158,7 +158,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
 
 export function TxActionTransferT0(props: ITxActionCardProps) {
   const intl = useIntl();
-  const { action, meta, decodedTx, historyTx } = props;
+  const { action, meta, decodedTx, historyTx, network } = props;
   const { accountId, networkId } = decodedTx;
   const { amount, symbol, from, to, isOut, displayDecimals } =
     getTxActionTransferInfo(props);
@@ -171,8 +171,10 @@ export function TxActionTransferT0(props: ITxActionCardProps) {
     subTitle === 'unknown'
       ? intl.formatMessage({ id: 'form__unknown' })
       : shortenAddress(subTitle);
+
   return (
     <TxListActionBox
+      network={network}
       footer={statusBar}
       symbol={symbol}
       iconInfo={meta?.iconInfo}

@@ -7,6 +7,8 @@ enum AccountType {
   SIMPLE = 'simple',
   UTXO = 'utxo',
   VARIANT = 'variant',
+  // used for allNetworks
+  FAKE = 'FAKE',
 }
 // TODO: ACCOUNT_TYPE_MULVARIANT for cosmos/polkadot
 

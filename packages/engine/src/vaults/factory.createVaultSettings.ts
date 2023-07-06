@@ -2,6 +2,7 @@
 import {
   IMPL_ADA,
   IMPL_ALGO,
+  IMPL_ALLNETWORKS,
   IMPL_APTOS,
   IMPL_BCH,
   IMPL_BTC,
@@ -111,6 +112,9 @@ export function createVaultSettings(options: {
   if (impl === IMPL_LIGHTNING) {
     return require('./impl/lightning-network/settings')
       .default as IVaultSettings;
+  }
+  if (impl === IMPL_ALLNETWORKS) {
+    return require('./impl/allnetworks/settings').default as IVaultSettings;
   }
   throw new OneKeyInternalError(
     `VaultSettings not found for: networkId=${options.networkId ?? ''}, impl=${

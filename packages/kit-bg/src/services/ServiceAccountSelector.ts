@@ -3,8 +3,8 @@ import { debounce } from 'lodash';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import type { INetwork, IWallet } from '@onekeyhq/engine/src/types';
-import { ACCOUNT_SELECTOR_REFRESH_DEBOUNCE } from '@onekeyhq/kit/src/components/Header/AccountSelectorChildren/accountSelectorConsts';
-import type { AccountGroup } from '@onekeyhq/kit/src/components/Header/AccountSelectorChildren/RightAccountSection/ItemSection';
+import { ACCOUNT_SELECTOR_REFRESH_DEBOUNCE } from '@onekeyhq/kit/src/components/NetworkAccountSelector/consts';
+import type { AccountGroup } from '@onekeyhq/kit/src/components/NetworkAccountSelector/types';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { getManageNetworks } from '@onekeyhq/kit/src/hooks/useManageNetworks';
 import reducerAccountSelector from '@onekeyhq/kit/src/store/reducers/reducerAccountSelector';

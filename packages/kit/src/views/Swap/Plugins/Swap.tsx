@@ -49,6 +49,10 @@ export const SwapPlugins: FC<SwapTokenPluginsProps> = ({
     }
     main();
   }, [tokenId, networkId]);
+
+  if (!tokenId) {
+    return null;
+  }
   return (
     <>
       <SwapMain />

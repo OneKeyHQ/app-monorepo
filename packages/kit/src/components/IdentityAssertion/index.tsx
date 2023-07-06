@@ -56,7 +56,11 @@ const IdentityAssertion: FC<{ checkCompatibleNetwork?: boolean }> = ({
     networkId,
   });
 
-  if (!walletId) {
+  const hasNoWallet = !walletId;
+  const isAccountCompatibleNetwork =
+    !!accountId && (checkCompatibleNetwork ? isCompatibleNetwork : true);
+
+  if (hasNoWallet) {
     return (
       <Box
         testID="IdentityAssertion-noWallet"
@@ -90,7 +94,7 @@ const IdentityAssertion: FC<{ checkCompatibleNetwork?: boolean }> = ({
       </Box>
     );
   }
-  if (!accountId || (checkCompatibleNetwork && !isCompatibleNetwork)) {
+  if (!isAccountCompatibleNetwork) {
     return (
       <Box
         testID="IdentityAssertion-noAccount"

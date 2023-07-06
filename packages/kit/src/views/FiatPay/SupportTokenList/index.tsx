@@ -25,8 +25,7 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatBalance } from '../../../components/Format';
-import { useActiveSideAccount } from '../../../hooks';
-import { useTokenBalance } from '../../../hooks/useTokens';
+import { useActiveSideAccount, useTokenBalance } from '../../../hooks';
 import { FiatPayModalRoutes } from '../../../routes/routesEnum';
 import { useFiatPayTokens } from '../../ManageTokens/hooks';
 

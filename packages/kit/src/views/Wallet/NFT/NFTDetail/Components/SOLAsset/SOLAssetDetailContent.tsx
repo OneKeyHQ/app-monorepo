@@ -18,7 +18,6 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { getContentWithAsset } from '@onekeyhq/engine/src/managers/nft';
-import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { NFTAsset } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import { generateUploadNFTParams } from '@onekeyhq/kit/src/utils/hardware/nftUtils';
@@ -27,10 +26,8 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
-import {
-  getActiveWalletAccount,
-  useActiveWalletAccount,
-} from '../../../../../../hooks/redux';
+import { useNetwork } from '../../../../../../hooks';
+import { useActiveWalletAccount } from '../../../../../../hooks/redux';
 import { ModalRoutes, RootRoutes } from '../../../../../../routes/routesEnum';
 import { deviceUtils } from '../../../../../../utils/hardware';
 import { SendModalRoutes } from '../../../../../Send/enums';
@@ -45,11 +42,9 @@ type NavigationProps = ModalScreenProps<CollectiblesRoutesParams>;
 
 function SOLAssetDetailContent({
   asset: outerAsset,
-  network,
   isOwner,
 }: {
   asset: NFTAsset;
-  network: Network;
   isOwner: boolean;
 }) {
   const intl = useIntl();
@@ -61,6 +56,10 @@ function SOLAssetDetailContent({
   const [asset, updateAsset] = useState(outerAsset);
   const isDisabled = wallet?.type === WALLET_TYPE_WATCHING;
 
+  const { network } = useNetwork({
+    networkId: outerAsset?.networkId ?? '',
+  });
+
   const [menuLoading, setMenuLoading] = useState(false);
   const { device, showMenu } = useDeviceMenu({ wallet, asset });
 
@@ -68,7 +67,7 @@ function SOLAssetDetailContent({
 
   useEffect(() => {
     (async () => {
-      if (network.id) {
+      if (network?.id) {
         if (network.id === OnekeyNetwork.sol) {
           const data = (await serviceNFT.fetchAsset({
             chain: network.id,
@@ -87,7 +86,7 @@ function SOLAssetDetailContent({
     outerAsset.contractAddress,
     outerAsset.tokenAddress,
     outerAsset.tokenId,
-    network.id,
+    network?.id,
     serviceNFT,
   ]);
 
@@ -110,7 +109,7 @@ function SOLAssetDetailContent({
             ? asset.name
             : `#${asset.tokenId as string}`,
         subheader: asset.description ?? '',
-        network: network.name,
+        network: network?.name ?? '',
         owner: asset.owner,
       });
       debugLogger.hardwareSDK.info('should upload: ', uploadResParams);
@@ -145,14 +144,25 @@ function SOLAssetDetailContent({
   }, [asset, device, intl, serviceHardware, network]);
 
   const sendNFTWithAmount = useCallback(
-    (amount: string) => {
-      const { accountId, networkId } = getActiveWalletAccount();
+    async (amount: string) => {
+      const { accountAddress, networkId } = outerAsset ?? {};
+      if (!networkId || !accountAddress) {
+        return;
+      }
+      const account =
+        await backgroundApiProxy.serviceAccount.getAccountByAddress({
+          networkId,
+          address: accountAddress ?? '',
+        });
+      if (!account) {
+        return;
+      }
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
           screen: SendModalRoutes.PreSendAddress,
           params: {
-            accountId,
+            accountId: account?.id,
             networkId,
             isNFT: true,
             from: '',
@@ -165,7 +175,7 @@ function SOLAssetDetailContent({
         },
       });
     },
-    [asset.tokenAddress, modalClose, navigation],
+    [asset.tokenAddress, modalClose, navigation, outerAsset],
   );
 
   return (

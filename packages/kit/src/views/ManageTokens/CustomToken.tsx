@@ -16,7 +16,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
-  useAccountTokens,
+  useAccountTokensOnChain,
   useActiveWalletAccount,
   useDebounce,
   useNetworkSimple,
@@ -59,7 +59,10 @@ export const AddCustomToken: FC<NavigationProps> = ({ route }) => {
   const activeNetwork = useNetworkSimple(networkId ?? null, defaultNetwork);
   const isSmallScreen = useIsVerticalLayout();
 
-  const accountTokens = useAccountTokens(activeNetwork?.id, activeAccount?.id);
+  const accountTokens = useAccountTokensOnChain(
+    activeNetwork?.id,
+    activeAccount?.id,
+  );
 
   const helpTip = intl.formatMessage({
     id: 'form__searching_token',

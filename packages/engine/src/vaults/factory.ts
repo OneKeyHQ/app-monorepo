@@ -2,6 +2,7 @@
 import {
   IMPL_ADA,
   IMPL_ALGO,
+  IMPL_ALLNETWORKS,
   IMPL_APTOS,
   IMPL_BCH,
   IMPL_BTC,
@@ -36,6 +37,7 @@ import {
 import { createVaultSettings } from './factory.createVaultSettings';
 import VaultHelperAda from './impl/ada/VaultHelper';
 import VaultHelperAlgo from './impl/algo/VaultHelper';
+import VaultHelperAllNetworks from './impl/allnetworks/VaultHelper';
 import VaultHelperAptos from './impl/apt/VaultHelper';
 import VaultHelperBch from './impl/bch/VaultHelper';
 import VaultHelperBtc from './impl/btc/VaultHelper';
@@ -135,6 +137,9 @@ export async function createVaultHelperInstance(
   }
   if (impl === IMPL_LIGHTNING) {
     return new VaultHelperLightning(options);
+  }
+  if (impl === IMPL_ALLNETWORKS) {
+    return new VaultHelperAllNetworks(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -269,6 +274,10 @@ export async function createVaultInstance(options: IVaultOptions) {
     const VaultLightning = (await import('./impl/lightning-network/Vault'))
       .default;
     vault = new VaultLightning(options);
+  }
+  if (network.impl === IMPL_ALLNETWORKS) {
+    const VaultAllNetworks = (await import('./impl/allnetworks/Vault')).default;
+    vault = new VaultAllNetworks(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(
