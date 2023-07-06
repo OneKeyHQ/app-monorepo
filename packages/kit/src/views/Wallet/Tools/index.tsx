@@ -33,7 +33,11 @@ import {
   RootRoutes,
   TabRoutes,
 } from '@onekeyhq/kit/src/routes/routesEnum';
-import { IMPL_BTC, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_BTC,
+  IMPL_EVM,
+  IMPL_TBTC,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -120,7 +124,8 @@ const data: DataItem[] = [
     iconBg: 'decorative-surface-one',
     title: 'title__inscribe',
     description: 'title__inscribe_desc',
-    filter: ({ network }) => network?.impl === IMPL_BTC,
+    filter: ({ network }) =>
+      [IMPL_BTC, IMPL_TBTC].includes(network?.impl ?? ''),
   },
 ];
 

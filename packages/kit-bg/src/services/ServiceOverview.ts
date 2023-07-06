@@ -26,16 +26,22 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
+import type { IServiceBaseProps } from './ServiceBase';
+
 @backgroundClass()
 class ServiceOverview extends ServiceBase {
   private interval: any;
 
   private pendingTaskMap: Map<string, IOverviewQueryTaskItem> = new Map();
 
-  // eslint-disable-next-line @typescript-eslint/require-await
+  constructor(props: IServiceBaseProps) {
+    super(props);
+    this.startQueryPendingTasks();
+  }
+
   @bindThis()
   @backgroundMethod()
-  async startQueryPendingTasks() {
+  startQueryPendingTasks() {
     if (this.interval) {
       return;
     }
@@ -43,16 +49,6 @@ class ServiceOverview extends ServiceBase {
     this.interval = setInterval(() => {
       this.queryPendingTasks();
     }, getTimeDurationMs({ seconds: 15 }));
-    this.queryPendingTasks();
-  }
-
-  // eslint-disable-next-line @typescript-eslint/require-await
-  @bindThis()
-  @backgroundMethod()
-  async stopQueryPendingTasks() {
-    clearInterval(this.interval);
-    this.interval = null;
-    debugLogger.common.info('stopQueryPendingTasks');
   }
 
   @backgroundMethod()
