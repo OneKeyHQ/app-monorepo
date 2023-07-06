@@ -5323,6 +5323,7 @@ __metadata:
     "@onekeyhq/kit": "*"
     "@react-native-async-storage/async-storage": ^1.18.1
     "@react-native-community/netinfo": ^9.3.10
+    "@react-native-community/slider": ^4.4.2
     "@react-native-firebase/analytics": ^14
     "@react-native-firebase/app": ^14
     "@react-native-firebase/crashlytics": ^14
@@ -6991,6 +6992,13 @@ __metadata:
   peerDependencies:
     react-native: ">=0.59"
   checksum: b3d79a61de0b08d6174616facda21cdac35a07a8d63b7d1830212862eef208c204dec90d74b29e85a6e60adc89ea5b7adf19c612c39073cc8ad4050440b1085b
+  languageName: node
+  linkType: hard
+
+"@react-native-community/slider@npm:^4.4.2":
+  version: 4.4.2
+  resolution: "@react-native-community/slider@npm:4.4.2"
+  checksum: 1ae613f594a8ea9d7243b3125d26b36aab4e4c2dd9eba1bf66c4f31878e74fae055cd35a1babc46b262240885bb61fa321610417bb2a6d9f77a330136ff33293
   languageName: node
   linkType: hard
 
