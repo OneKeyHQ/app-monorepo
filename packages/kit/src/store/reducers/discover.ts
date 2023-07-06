@@ -39,6 +39,8 @@ type InitialState = {
   // enableIOSDappSearch?: boolean;
   // showFullLayout?: boolean;
   showBookmark?: boolean;
+
+  networkPrices?: Record<string, string>;
 };
 
 const initialState: InitialState = {
@@ -295,6 +297,16 @@ export const discoverSlice = createSlice({
     setFavoritesMigrated(state) {
       state.favoritesMigrated = true;
     },
+    setNetworkPrice(
+      state,
+      action: PayloadAction<{ networkId: string; price: string }>,
+    ) {
+      const { payload } = action;
+      if (!state.networkPrices) {
+        state.networkPrices = {};
+      }
+      state.networkPrices[payload.networkId] = payload.price;
+    },
   },
 });
 
@@ -325,6 +337,7 @@ export const {
   updateBookmark,
   resetBookmarks,
   setFavoritesMigrated,
+  setNetworkPrice,
 } = discoverSlice.actions;
 
 export default discoverSlice.reducer;
