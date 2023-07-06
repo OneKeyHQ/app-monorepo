@@ -59,6 +59,7 @@ function TxTopInfoBox(props: ITxActionListViewProps) {
       if (tokensInfo.length > 0) {
         tokensInfo
           .filter((token) => !isNil(token))
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
           .forEach((token) => (tokens[token!.tokenIdOnNetwork] = token!));
       }
     });
