@@ -17,14 +17,14 @@ import { EthStakingSource } from '../typing';
 
 import type { KeleGenericHistory, LidoOverview } from '../typing';
 
-export function useAccountStakingActivity(
-  networkId: string,
-  accountId: string,
-) {
-  return useAppSelector(
-    (s) => s.staking.stakingActivities?.[accountId]?.[networkId],
-  );
-}
+// export function useAccountStakingActivity(
+//   networkId: string,
+//   accountId: string,
+// ) {
+//   return useAppSelector(
+//     (s) => s.staking.stakingActivities?.[accountId]?.[networkId],
+//   );
+// }
 
 export function useKeleUnstakeOverview(networkId: string, accountId: string) {
   useEffect(() => {
@@ -63,6 +63,12 @@ export function useKeleWithdrawOverview(networkId: string, accountId: string) {
 export function useKeleMinerOverview(networkId?: string, accountId?: string) {
   return useAppSelector(
     (s) => s.staking.keleMinerOverviews?.[accountId ?? '']?.[networkId ?? ''],
+  );
+}
+
+export function useKeleDashboardInfo(networkId?: string) {
+  return useAppSelector(
+    (s) => s.staking.keleNetworkDashboardGlobal?.[networkId ?? ''],
   );
 }
 

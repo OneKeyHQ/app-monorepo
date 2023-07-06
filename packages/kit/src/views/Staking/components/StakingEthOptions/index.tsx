@@ -48,11 +48,13 @@ export const Options: FC<OptionsProps> = ({
   >
     <Box flexDirection="row" alignItems="center">
       <Box mr="3" position="relative">
-        <Image
-          w="10"
-          h="10"
-          source={require('@onekeyhq/kit/assets/staking/eth_logo.png')}
-        />
+        <Box w="10" h="10" borderRadius="full" overflow="hidden">
+          <Image
+            w="10"
+            h="10"
+            source={require('@onekeyhq/kit/assets/staking/eth_logo.png')}
+          />
+        </Box>
         <Box
           w="5"
           h="5"
