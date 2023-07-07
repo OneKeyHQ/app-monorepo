@@ -209,11 +209,8 @@ export const useAllNetworksSelectNetworkAccount = ({
   walletId: string;
   accountId: string;
   networkId: string;
-  filter: ManageNetworkRoutesParams[ManageNetworkModalRoutes.AllNetworksNetworkSelector]['filter'];
-}): (() => Promise<{
-  network: Network;
-  account: Account;
-}>) => {
+  filter?: ManageNetworkRoutesParams[ManageNetworkModalRoutes.AllNetworksNetworkSelector]['filter'];
+}) => {
   const { allNetworks } = useManageNetworks();
   const { network } = useNetwork({ networkId });
   const { account } = useAccount({

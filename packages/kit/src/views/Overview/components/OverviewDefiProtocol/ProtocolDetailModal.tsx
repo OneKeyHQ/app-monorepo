@@ -22,6 +22,7 @@ import { FormatCurrencyNumber } from '../../../../components/Format';
 import { useAccountPortfolios, useAccountValues } from '../../../../hooks';
 import { useNavigationBack } from '../../../../hooks/useAppNavigation';
 import { useCurrentFiatValue } from '../../../../hooks/useTokens';
+import { EOverviewScanTaskType } from '../../types';
 import { OverviewBadge } from '../OverviewBadge';
 
 import type {
@@ -56,7 +57,7 @@ const OverviewProtocolDetail: FC = () => {
   const { data: defis, loading } = useAccountPortfolios({
     networkId,
     accountId,
-    type: 'defis',
+    type: EOverviewScanTaskType.defi,
   });
 
   const protocol = useMemo(

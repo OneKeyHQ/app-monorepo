@@ -24,6 +24,7 @@ import {
   setNFTPriceType,
   setNFTSymbolPrice,
 } from '@onekeyhq/kit/src/store/reducers/nft';
+import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -374,7 +375,7 @@ class ServiceNFT extends ServiceBase {
       accountId,
       networkId,
       walletId: walletId ?? '',
-      scanTypes: ['nfts'],
+      scanTypes: [EOverviewScanTaskType.nfts],
     });
   }
 
@@ -431,10 +432,12 @@ class ServiceNFT extends ServiceBase {
     if (!networkId || !accountId) {
       return [];
     }
-    const { nfts } = await simpleDb.accountPortfolios.getPortfolio({
+    const nftPortfolio = await simpleDb.accountPortfolios.getPortfolio({
       networkId,
       accountId,
     });
+
+    const nfts = nftPortfolio?.[EOverviewScanTaskType.nfts] ?? [];
 
     const { engine } = this.backgroundApi;
 
