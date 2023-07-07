@@ -13,12 +13,14 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   useActiveWalletAccount,
   useNavigation,
   useNavigationActions,
+  useNetwork,
 } from '../../../hooks';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
 import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
@@ -35,6 +37,7 @@ export const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const isVertical = useIsVerticalLayout();
   const { sendToken } = useNavigationActions();
   const iconBoxFlex = isVertical ? 1 : 0;
+  const { network } = useNetwork({ networkId });
 
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
     networkId,
@@ -55,6 +58,19 @@ export const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
   const onReceive = useCallback(() => {
     selectNetworkAccount().then(({ network: n, account: a }) => {
       if (!n || !a) {
+        return;
+      }
+      if (n?.impl === IMPL_LIGHTNING) {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Receive,
+          params: {
+            screen: ReceiveTokenModalRoutes.CreateInvoice,
+            params: {
+              networkId: n.id,
+              accountId: a?.id,
+            },
+          },
+        });
         return;
       }
       navigation.navigate(RootRoutes.Modal, {
@@ -175,54 +191,58 @@ export const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
           {intl.formatMessage({ id: 'action__receive' })}
         </Typography.CaptionStrong>
       </Pressable>
-      <Pressable
-        flex={iconBoxFlex}
-        mx={3}
-        minW="56px"
-        alignItems="center"
-        isDisabled={wallet?.type === 'watching' || !account}
-        onPress={onSwap}
-      >
-        <TouchableWithoutFeedback>
-          <IconButton
-            circle
-            size={isSmallView ? 'xl' : 'lg'}
-            name="ArrowsRightLeftOutline"
-            type="basic"
-            isDisabled={wallet?.type === 'watching' || !account}
-            onPress={onSwap}
-          />
-        </TouchableWithoutFeedback>
-        <Typography.CaptionStrong
-          textAlign="center"
-          mt="8px"
-          color={
-            wallet?.type === 'watching' || !account
-              ? 'text-disabled'
-              : 'text-default'
-          }
+      {network?.settings.hiddenAccountInfoSwapOption ? null : (
+        <Pressable
+          flex={iconBoxFlex}
+          mx={3}
+          minW="56px"
+          alignItems="center"
+          isDisabled={wallet?.type === 'watching' || !account}
+          onPress={onSwap}
         >
-          {intl.formatMessage({ id: 'title__swap' })}
-        </Typography.CaptionStrong>
-      </Pressable>
+          <TouchableWithoutFeedback>
+            <IconButton
+              circle
+              size={isSmallView ? 'xl' : 'lg'}
+              name="ArrowsRightLeftOutline"
+              type="basic"
+              isDisabled={wallet?.type === 'watching' || !account}
+              onPress={onSwap}
+            />
+          </TouchableWithoutFeedback>
+          <Typography.CaptionStrong
+            textAlign="center"
+            mt="8px"
+            color={
+              wallet?.type === 'watching' || !account
+                ? 'text-disabled'
+                : 'text-default'
+            }
+          >
+            {intl.formatMessage({ id: 'title__swap' })}
+          </Typography.CaptionStrong>
+        </Pressable>
+      )}
 
-      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
-        <AccountMoreMenu>
-          <IconButton
-            circle
-            size={isSmallView ? 'xl' : 'lg'}
-            name="EllipsisVerticalOutline"
-            type="basic"
-          />
-        </AccountMoreMenu>
-        <Typography.CaptionStrong
-          textAlign="center"
-          mt="8px"
-          color="text-default"
-        >
-          {intl.formatMessage({ id: 'action__more' })}
-        </Typography.CaptionStrong>
-      </Box>
+      {network?.settings.hiddenAccountInfoMoreOption ? null : (
+        <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
+          <AccountMoreMenu>
+            <IconButton
+              circle
+              size={isSmallView ? 'xl' : 'lg'}
+              name="EllipsisVerticalOutline"
+              type="basic"
+            />
+          </AccountMoreMenu>
+          <Typography.CaptionStrong
+            textAlign="center"
+            mt="8px"
+            color="text-default"
+          >
+            {intl.formatMessage({ id: 'action__more' })}
+          </Typography.CaptionStrong>
+        </Box>
+      )}
     </Box>
   );
 };
