@@ -90,8 +90,7 @@ function AssetsList({
 
   const [startRefresh] = useDebounce(
     useCallback(() => {
-      const { serviceToken, serviceOverview } = backgroundApiProxy;
-      serviceOverview.startQueryPendingTasks();
+      const { serviceToken } = backgroundApiProxy;
       serviceToken.startRefreshAccountTokens();
     }, []),
     1000,
@@ -103,8 +102,7 @@ function AssetsList({
 
   const [stopRefresh] = useDebounce(
     useCallback(() => {
-      const { serviceToken, serviceOverview } = backgroundApiProxy;
-      serviceOverview.stopQueryPendingTasks();
+      const { serviceToken } = backgroundApiProxy;
       serviceToken.stopRefreshAccountTokens();
     }, []),
     1000,
