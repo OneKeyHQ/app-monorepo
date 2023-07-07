@@ -52,6 +52,7 @@ export function TxActionTransactionEvm(props: ITxActionCardProps) {
               numberOfLines={1}
               isShorten={false}
               flex={1}
+              isCopy={false}
             />
           ),
         }

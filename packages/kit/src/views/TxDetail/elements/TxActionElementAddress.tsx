@@ -1,21 +1,14 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import {
-  Divider,
-  HStack,
-  Icon,
-  IconButton,
-  Text,
-  VStack,
-} from '@onekeyhq/components';
+import { HStack, IconButton, Text, VStack } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AddressLabel } from '../../../components/AddressLabel';
 import { useNetwork } from '../../../hooks';
 import { useClipboard } from '../../../hooks/useClipboard';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
-import { GoPlusSecurityItems } from '../../ManageTokens/components/GoPlusAlertItems';
 import { useAddressSecurityInfo } from '../../ManageTokens/hooks';
 import { showAddressPoisoningScamAlert } from '../../Overlay/AddressPoisoningScamAlert';
 import BaseMenu from '../../Overlay/BaseMenu';
@@ -102,8 +95,8 @@ export function TxActionElementAddress(
     amount,
     ...others
   } = props;
-  const shouldCheckSecurity = checkSecurity && networkId;
-  const { loading, data: securityInfo } = useAddressSecurityInfo(
+  const shouldCheckSecurity = !!(checkSecurity && networkId);
+  const { data: securityInfo } = useAddressSecurityInfo(
     networkId ?? '',
     shouldCheckSecurity ? address : '',
   );
@@ -117,19 +110,23 @@ export function TxActionElementAddress(
   return (
     <VStack flex={flex}>
       <HStack alignItems="flex-start" space={1}>
-        {securityInfo?.length ? (
-          <Icon name="ShieldExclamationMini" size={20} color="icon-critical" />
-        ) : null}
-        <Text
-          ml={securityInfo?.length ? 1 : 0}
-          isTruncated
-          numberOfLines={2}
-          flex={1}
-          {...others}
-          color={securityInfo?.length ? 'text-critical' : 'text-default'}
-        >
-          {text}
-        </Text>
+        <VStack space={1} flex={1}>
+          <Text
+            ml={securityInfo?.length ? 1 : 0}
+            isTruncated
+            numberOfLines={2}
+            {...others}
+            color={securityInfo?.length ? 'text-critical' : 'text-default'}
+          >
+            {text}
+          </Text>
+          <AddressLabel
+            address={address}
+            networkId={networkId}
+            securityInfo={securityInfo}
+            shouldCheckSecurity={shouldCheckSecurity}
+          />
+        </VStack>
         <TxActionElementAddressMoreMenu
           networkId={networkId}
           address={address}
@@ -145,12 +142,6 @@ export function TxActionElementAddress(
           />
         </TxActionElementAddressMoreMenu>
       </HStack>
-      {shouldCheckSecurity && !loading && securityInfo?.length ? (
-        <VStack mt="2">
-          <GoPlusSecurityItems items={securityInfo ?? []} />
-          <Divider mt="2" />
-        </VStack>
-      ) : null}
     </VStack>
   );
 }
