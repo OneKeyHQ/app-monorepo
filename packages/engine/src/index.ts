@@ -18,7 +18,10 @@ import {
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { appSelector } from '@onekeyhq/kit/src/store';
 import type { TokenChartData } from '@onekeyhq/kit/src/store/reducers/tokens';
-import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
+import {
+  generateUUID,
+  getTimeDurationMs,
+} from '@onekeyhq/kit/src/utils/helper';
 import type { SendConfirmPayload } from '@onekeyhq/kit/src/views/Send/types';
 import {
   backgroundClass,
@@ -1562,32 +1565,46 @@ class Engine {
     );
   }
 
+  private _upateOnlineTokensWithMemo = memoizee(
+    async (networkId: string, forceReloadTokens = false): Promise<void> => {
+      const fetched = updateTokenCache[networkId];
+      if (!forceReloadTokens && fetched) {
+        return;
+      }
+      const { impl, chainId } = parseNetworkId(networkId);
+      if (!impl || !chainId) {
+        return;
+      }
+      try {
+        const tokens = await fetchOnlineTokens({
+          impl,
+          chainId,
+          includeNativeToken: 1,
+        });
+        if (tokens.length) {
+          await simpleDb.token.updateTokens(impl, chainId, tokens);
+        }
+      } catch (error) {
+        debugLogger.engine.error(`updateOnlineTokens error`, error);
+      }
+      updateTokenCache[networkId] = true;
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 10,
+      maxAge: getTimeDurationMs({ seconds: 10 }),
+      normalizer: ([networkId, foreceReloadTokens]) =>
+        `${networkId}-${String(foreceReloadTokens)}`,
+    },
+  );
+
   @backgroundMethod()
   async updateOnlineTokens(
     networkId: string,
     forceReloadTokens = false,
   ): Promise<void> {
-    const fetched = updateTokenCache[networkId];
-    if (!forceReloadTokens && fetched) {
-      return;
-    }
-    const { impl, chainId } = parseNetworkId(networkId);
-    if (!impl || !chainId) {
-      return;
-    }
-    try {
-      const tokens = await fetchOnlineTokens({
-        impl,
-        chainId,
-        includeNativeToken: 1,
-      });
-      if (tokens.length) {
-        await simpleDb.token.updateTokens(impl, chainId, tokens);
-      }
-    } catch (error) {
-      debugLogger.engine.error(`updateOnlineTokens error`, error);
-    }
-    updateTokenCache[networkId] = true;
+    return this._upateOnlineTokensWithMemo(networkId, forceReloadTokens);
   }
 
   @backgroundMethod()

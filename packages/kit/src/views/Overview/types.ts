@@ -18,7 +18,7 @@ export interface IBaseOverviewErrorInfo {
 export interface IOverviewScanTaskInfo
   extends IBaseOverviewQuery,
     IBaseOverviewErrorInfo {
-  scanTypes?: IOverviewScanTaskType[]; // defaults to ['token']
+  scanTypes?: EOverviewScanTaskType[]; // defaults to ['token']
   id?: string;
   status?: 'pending' | 'processing' | 'done';
   isFromQueueing?: boolean;
@@ -41,11 +41,15 @@ export type IOverviewQueryTaskItem = Pick<
   'networkId' | 'address' | 'xpub'
 > & {
   key?: string;
-  scanType: IOverviewScanTaskType;
+  scanType: EOverviewScanTaskType;
 };
 
 export type EOverviewServiceNames = string;
-export type IOverviewScanTaskType = 'token' | 'defi' | 'nfts';
+export enum EOverviewScanTaskType {
+  'token' = 'token',
+  'defi' = 'defi',
+  'nfts' = 'nfts',
+}
 export interface IOverviewScanTaskPayload {
   tasks: IOverviewScanTaskInfo[];
   getNetworkTokens: (options: { networkId: string }) => Promise<ITokenInfo[]>;
@@ -260,9 +264,9 @@ export type OverviewModalRoutesParams = {
 };
 
 export interface OverviewAllNetworksPortfolioRes {
-  tokens: IOverviewAllNetworksToken[];
-  nfts: (Collection | NFTBTCAssetModel)[];
-  defis: OverviewDefiRes[];
+  [EOverviewScanTaskType.token]: IOverviewAllNetworksToken[];
+  [EOverviewScanTaskType.nfts]: (Collection | NFTBTCAssetModel)[];
+  [EOverviewScanTaskType.defi]: OverviewDefiRes[];
 }
 
 export interface IOverviewAllNetworksToken {

@@ -1,4 +1,9 @@
-import type { OverviewAllNetworksPortfolioRes } from '@onekeyhq/kit/src/views/Overview/types';
+import { pick } from 'lodash';
+
+import type {
+  EOverviewScanTaskType,
+  OverviewAllNetworksPortfolioRes,
+} from '@onekeyhq/kit/src/views/Overview/types';
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
@@ -18,9 +23,11 @@ export class SimpleDbEntityAccountPortfolios extends SimpleDbEntityBase<ISimpleD
   async setAllNetworksPortfolio({
     key,
     data,
+    scanTypes,
   }: {
     key: string;
     data: OverviewAllNetworksPortfolioRes;
+    scanTypes: EOverviewScanTaskType[];
   }) {
     const res = await this.getData();
 
@@ -28,7 +35,10 @@ export class SimpleDbEntityAccountPortfolios extends SimpleDbEntityBase<ISimpleD
       ...res,
       portfolios: {
         ...(res.portfolios ?? {}),
-        [key]: data,
+        [key]: {
+          ...res.portfolios?.[key],
+          ...pick(data, ...scanTypes),
+        },
       },
     });
   }

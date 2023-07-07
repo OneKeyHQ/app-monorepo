@@ -31,6 +31,7 @@ import useFormatDate from '../../hooks/useFormatDate';
 import { useVisibilityFocused } from '../../hooks/useVisibilityFocused';
 import { wait } from '../../utils/helper';
 import { useIsAtHomeTab } from '../../utils/routeUtils';
+import { EOverviewScanTaskType } from '../Overview/types';
 import { TxListItemView } from '../TxDetail/TxListItemView';
 import { WalletHomeTabEnum } from '../Wallet/type';
 
@@ -257,7 +258,7 @@ function TxHistoryListViewComponent({
   const { data: allNetworksTokens } = useAccountPortfolios({
     networkId,
     accountId,
-    type: 'tokens',
+    type: EOverviewScanTaskType.token,
   });
 
   const fetchOnChainHistory = useCallback(
@@ -292,7 +293,8 @@ function TxHistoryListViewComponent({
       const txList = await serviceHistory.getLocalHistory({
         networkId: nid,
         accountId: aid,
-        tokenIdOnNetwork: tokenAddress || '',
+        tokenIdOnNetwork:
+          tokenAddress === '' ? tokenAddress : tokenAddress || undefined,
         limit: HISTORY_CONSTS.DISPLAY_TX_LIMIT,
       });
       return txList;

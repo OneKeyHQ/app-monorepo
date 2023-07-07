@@ -25,7 +25,7 @@ import {
 import { HomeRoutes, ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
 import { OverviewBadge } from './components/OverviewBadge';
-import { OverviewModalRoutes } from './types';
+import { EOverviewScanTaskType, OverviewModalRoutes } from './types';
 
 import type { HomeRoutesParams, RootRoutesParams } from '../../routes/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -152,7 +152,7 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
   const { data: defis } = useAccountPortfolios({
     networkId,
     accountId,
-    type: 'defis',
+    type: EOverviewScanTaskType.defi,
   });
 
   const allDefiValues = useMemo(
