@@ -96,7 +96,7 @@ const CreateInvoice = () => {
         }
         setvalidateMessage({
           errorMessage: intl.formatMessage({
-            id: 'form__address_invalid',
+            id: 'form__create_invoice_failed',
           }),
         });
         return false;

@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 
 import { Box, Empty, useIsVerticalLayout } from '@onekeyhq/components';
 
-import { useActiveWalletAccount } from '../../../hooks';
+import { useActiveSideAccount } from '../../../hooks';
 import { notifyIfRiskToken } from '../../ManageTokens/helpers/TokenSecurityModalWrapper';
 import AssetsList from '../../Wallet/AssetsList';
 import SendNFTList from '../../Wallet/NFT/SendNFTList';
@@ -34,7 +34,10 @@ function PreSendTokenScreen() {
   const { accountId, networkId } = transferInfo;
   useReloadAccountBalance({ accountId, networkId });
 
-  const { walletId } = useActiveWalletAccount();
+  const { walletId } = useActiveSideAccount({
+    accountId,
+    networkId,
+  });
 
   const padding = isSmallScreen ? '16px' : '24px';
   const emptyView = useMemo(

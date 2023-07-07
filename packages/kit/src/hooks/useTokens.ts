@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { pick } from 'lodash';
 import { useAsync } from 'react-async-hook';
 
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
@@ -75,10 +76,12 @@ export function useAccountTokensBalance(
 
 export function useAccountTokenLoading(networkId: string, accountId: string) {
   const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
-  return useMemo(
-    () => typeof accountTokens[networkId]?.[accountId] === 'undefined',
-    [networkId, accountId, accountTokens],
-  );
+  return useMemo(() => {
+    if (isAllNetworks(networkId)) {
+      return false;
+    }
+    return typeof accountTokens[networkId]?.[accountId] === 'undefined';
+  }, [networkId, accountId, accountTokens]);
 }
 
 export const useNativeTokenBalance = (

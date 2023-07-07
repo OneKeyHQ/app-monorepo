@@ -7,6 +7,7 @@ import type {
   IEncodedTxUpdatePayloadTransfer,
 } from '@onekeyhq/engine/src/vaults/types';
 import { IEncodedTxUpdateType } from '@onekeyhq/engine/src/vaults/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import {
@@ -71,7 +72,8 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
       if (
         type === 'NATIVE_TRANSFER' &&
         typeof nativeTransfer !== 'undefined' &&
-        typeof nativeTransfer.utxoFrom !== 'undefined'
+        (typeof nativeTransfer.utxoFrom !== 'undefined' ||
+          nativeTransfer.tokenInfo.networkId === OnekeyNetwork.lightning)
       ) {
         // For UTXO model, the decodedTx is updated with the new transfer amount.
         // Use this instead of depending the incorrect feeInfoPayload results.

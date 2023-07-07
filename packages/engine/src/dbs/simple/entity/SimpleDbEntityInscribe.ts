@@ -1,9 +1,13 @@
+import type { Networks } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 import type { IInscriptionHistory } from '../../../vaults/impl/btc/inscribe/types';
 
 export type ISimpleDbEntityInscribeData = {
-  orderLists: IInscriptionHistory[];
+  orderListsMainNet?: IInscriptionHistory[];
+  orderListsTestNet?: IInscriptionHistory[];
 };
 
 export class SimpleDbEntityInscribe extends SimpleDbEntityBase<ISimpleDbEntityInscribeData> {
@@ -11,14 +15,32 @@ export class SimpleDbEntityInscribe extends SimpleDbEntityBase<ISimpleDbEntityIn
 
   override enableCache = false;
 
-  async savaItem(data: IInscriptionHistory): Promise<void> {
+  async savaItem(data: IInscriptionHistory, network: Networks): Promise<void> {
     const rawData = await this.getRawData();
-    const orderLists = rawData?.orderLists ?? [];
-    this.setRawData({ ...rawData, orderLists: orderLists.concat(data) });
+    if (network === 'main') {
+      const orderListsMainNet = rawData?.orderListsMainNet ?? [];
+      this.setRawData({
+        ...rawData,
+        orderListsMainNet: [data].concat(orderListsMainNet),
+      });
+    }
+    if (network === 'testnet') {
+      const orderListsTestNet = rawData?.orderListsTestNet ?? [];
+      this.setRawData({
+        ...rawData,
+        orderListsTestNet: [data].concat(orderListsTestNet),
+      });
+    }
   }
 
-  async getItems(): Promise<IInscriptionHistory[]> {
+  async getItems(networkId: string): Promise<IInscriptionHistory[]> {
     const rawData = await this.getRawData();
-    return rawData?.orderLists ?? [];
+    if (networkId === OnekeyNetwork.btc) {
+      return rawData?.orderListsMainNet ?? [];
+    }
+    if (networkId === OnekeyNetwork.tbtc) {
+      return rawData?.orderListsTestNet ?? [];
+    }
+    return [];
   }
 }
