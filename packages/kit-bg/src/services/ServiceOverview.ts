@@ -15,6 +15,7 @@ import type {
   IOverviewScanTaskItem,
   OverviewAllNetworksPortfolioRes,
 } from '@onekeyhq/kit/src/views/Overview/types';
+import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -26,16 +27,22 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
+import type { IServiceBaseProps } from './ServiceBase';
+
 @backgroundClass()
 class ServiceOverview extends ServiceBase {
   private interval: any;
 
   private pendingTaskMap: Map<string, IOverviewQueryTaskItem> = new Map();
 
-  // eslint-disable-next-line @typescript-eslint/require-await
+  constructor(props: IServiceBaseProps) {
+    super(props);
+    this.startQueryPendingTasks();
+  }
+
   @bindThis()
   @backgroundMethod()
-  async startQueryPendingTasks() {
+  startQueryPendingTasks() {
     if (this.interval) {
       return;
     }
@@ -43,7 +50,6 @@ class ServiceOverview extends ServiceBase {
     this.interval = setInterval(() => {
       this.queryPendingTasks();
     }, getTimeDurationMs({ seconds: 15 }));
-    this.queryPendingTasks();
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -106,16 +112,18 @@ class ServiceOverview extends ServiceBase {
       },
       {
         pending: [],
-        tokens: [],
-        defis: [],
-        nfts: [],
+        [EOverviewScanTaskType.token]: [],
+        [EOverviewScanTaskType.defi]: [],
+        [EOverviewScanTaskType.nfts]: [],
       },
       'POST',
     );
+    const resolvedScanTypes: Set<EOverviewScanTaskType> = new Set();
     const { pending } = results;
     if (!pending?.length) {
       for (const task of pendingTasksForCurrentNetwork) {
         this.pendingTaskMap.delete(this.getTaksId(task));
+        resolvedScanTypes.add(task.scanType);
       }
     }
     const dispatchActions = [];
@@ -147,6 +155,7 @@ class ServiceOverview extends ServiceBase {
     await simpleDb.accountPortfolios.setAllNetworksPortfolio({
       key: dispatchKey,
       data: results,
+      scanTypes: Array.from(resolvedScanTypes),
     });
     dispatch(
       ...dispatchActions,
@@ -206,7 +215,11 @@ class ServiceOverview extends ServiceBase {
     networkId,
     accountId,
     walletId,
-    scanTypes = ['defi', 'token', 'nfts'],
+    scanTypes = [
+      EOverviewScanTaskType.defi,
+      EOverviewScanTaskType.token,
+      EOverviewScanTaskType.nfts,
+    ],
   }: {
     networkId: string;
     accountId: string;
@@ -307,29 +320,24 @@ class ServiceOverview extends ServiceBase {
       if (!networkId || !accountId || !walletId) {
         return;
       }
-      if (isAllNetworks(networkId)) {
-        await this.fetchAccountOverview({
-          networkId,
+      if (!isAllNetworks(networkId)) {
+        engine.clearPriceCache();
+        await serviceToken.fetchAccountTokens({
           accountId,
-          walletId,
-          scanTypes: ['defi', 'nfts', 'token'],
+          networkId,
+          forceReloadTokens: true,
+          includeTop50TokensQuery: true,
         });
-        return;
       }
-
-      engine.clearPriceCache();
-      await serviceToken.fetchAccountTokens({
-        accountId,
-        networkId,
-        forceReloadTokens: true,
-        includeTop50TokensQuery: true,
-      });
-
       await this.fetchAccountOverview({
         networkId,
         accountId,
         walletId,
-        scanTypes: ['defi', 'nfts'],
+        scanTypes: [
+          EOverviewScanTaskType.defi,
+          EOverviewScanTaskType.token,
+          EOverviewScanTaskType.nfts,
+        ],
       });
     },
     getTimeDurationMs({ seconds: 5 }),

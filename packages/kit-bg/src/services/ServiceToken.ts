@@ -24,6 +24,7 @@ import {
   setIsPasswordLoadedInVault,
   setTools,
 } from '@onekeyhq/kit/src/store/reducers/data';
+import { serOverviewPortfolioUpdatedAt } from '@onekeyhq/kit/src/store/reducers/overview';
 import type { TokenBalanceValue } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
   setAccountTokens,
@@ -78,17 +79,20 @@ export default class ServiceToken extends ServiceBase {
         });
       });
     }
-    this.refreshAccountTokens();
   }
 
   @backgroundMethod()
   refreshAccountTokens(options: Partial<IFetchAccountTokensParams> = {}) {
     const { appSelector } = this.backgroundApi;
-    const { activeNetworkId } = appSelector((s) => s.general);
-    if (!activeNetworkId || isAllNetworks(activeNetworkId)) {
+    const { activeNetworkId, activeAccountId } = appSelector((s) => s.general);
+    if (!activeNetworkId || !activeAccountId) {
       return;
     }
-    this.fetchAccountTokens(options);
+    this.fetchAccountTokens({
+      ...options,
+      accountId: activeAccountId,
+      networkId: activeNetworkId,
+    });
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -217,6 +221,12 @@ export default class ServiceToken extends ServiceBase {
             (t) => !removedTokens.includes(t.address ?? ''),
           ),
         }),
+        serOverviewPortfolioUpdatedAt({
+          key: `${networkId}___${accountId}`,
+          data: {
+            updatedAt: Date.now(),
+          },
+        }),
       );
       return accountTokens;
     },
@@ -225,17 +235,14 @@ export default class ServiceToken extends ServiceBase {
       primitive: true,
       max: 50,
       maxAge: getTimeDurationMs({ seconds: 1 }),
+      normalizer: ([p]) => `${p.accountId}-${p.networkId}`,
     },
   );
 
   @bindThis()
   @backgroundMethod()
-  async fetchAccountTokens(options: Partial<IFetchAccountTokensParams> = {}) {
-    const { appSelector } = this.backgroundApi;
-    const { activeAccountId, activeNetworkId } = appSelector((s) => s.general);
-
-    const accountId = options.accountId || activeAccountId || '';
-    const networkId = options.networkId || activeNetworkId || '';
+  async fetchAccountTokens(options: IFetchAccountTokensParams) {
+    const { accountId, networkId } = options;
 
     if (!accountId || !networkId) {
       return [];
@@ -243,11 +250,10 @@ export default class ServiceToken extends ServiceBase {
     if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
       return [];
     }
-    return this._refreshTokenBalanceWithMemo({
-      accountId,
-      networkId,
-      ...options,
-    });
+    if (isAllNetworks(networkId)) {
+      return [];
+    }
+    return this._refreshTokenBalanceWithMemo(options);
   }
 
   async _batchFetchAccountBalances({

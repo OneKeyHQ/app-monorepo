@@ -31,12 +31,7 @@ function AllNetworksNetworkSelectorModal() {
 
   const { allNetworks } = useManageNetworks();
 
-  const {
-    walletId,
-    accountId,
-    filter = () => true,
-    onConfirm,
-  } = route?.params ?? {};
+  const { walletId, accountId, filter, onConfirm } = route?.params ?? {};
 
   const networkAccounts = useAllNetworksWalletAccounts({
     accountId,
@@ -45,7 +40,7 @@ function AllNetworksNetworkSelectorModal() {
 
   const handlePress = useCallback(
     ({ network, accounts }: { network: Network; accounts: Account[] }) => {
-      if (accounts.length === 1) {
+      if (accounts.length <= 1) {
         onConfirm?.({
           network,
           account: accounts[0],
@@ -70,11 +65,16 @@ function AllNetworksNetworkSelectorModal() {
 
   const renderItem: ListRenderItem<Network> = useCallback(
     ({ item, index }) => {
-      const accounts = (networkAccounts[item.id] ?? []).filter((a) =>
-        filter({ network: item, account: a }),
-      );
-      if (!accounts.length) return null;
-      if (!filter({ network: item, account: accounts[0] })) return null;
+      let accounts = networkAccounts[item.id] ?? [];
+      if (typeof filter === 'function') {
+        if (accounts.length) {
+          accounts = (networkAccounts[item.id] ?? []).filter((a) =>
+            filter({ network: item, account: a }),
+          );
+          if (!accounts.length) return null;
+        }
+        if (!filter({ network: item, account: accounts[0] })) return null;
+      }
       return (
         <Pressable
           onPress={() => {

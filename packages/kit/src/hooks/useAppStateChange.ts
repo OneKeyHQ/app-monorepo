@@ -11,13 +11,13 @@ export const isFromBackgroundToForeground = (
   currentState: AppStateStatus,
   nextAppState: AppStateStatus,
 ) => {
-  if (platformEnv.isNative) {
+  if (platformEnv.isNativeAndroid) {
     return !!(
       /inactive|background/.exec(currentState) && nextAppState === 'active'
     );
   }
 
-  return false;
+  return currentState === 'background' && nextAppState === 'active';
 };
 
 export const useAppStateChange = (
@@ -43,10 +43,10 @@ export const useAppStateChange = (
       appState.current = nextState;
     };
 
-    if (platformEnv.isNativeIOS) {
-      listener = AppState.addEventListener('change', onCall);
-    } else if (platformEnv.isNativeAndroid) {
+    if (platformEnv.isNativeAndroid) {
       listener = DeviceEventEmitter.addListener('android_lifecycle', onCall);
+    } else {
+      listener = AppState.addEventListener('change', onCall);
     }
 
     return () => {

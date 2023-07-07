@@ -1,3 +1,5 @@
+import { groupBy } from 'lodash';
+
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
@@ -11,6 +13,7 @@ import type {
   MarketPlace,
   NFTAsset,
   NFTAssetMeta,
+  NFTListItems,
   NFTMarketCapCollection,
   NFTMarketRanking,
   NFTPNL,
@@ -21,6 +24,7 @@ import {
   setNFTPriceType,
   setNFTSymbolPrice,
 } from '@onekeyhq/kit/src/store/reducers/nft';
+import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -371,7 +375,7 @@ class ServiceNFT extends ServiceBase {
       accountId,
       networkId,
       walletId: walletId ?? '',
-      scanTypes: ['nfts'],
+      scanTypes: [EOverviewScanTaskType.nfts],
     });
   }
 
@@ -415,6 +419,36 @@ class ServiceNFT extends ServiceBase {
   updatePriceType(priceType: 'floorPrice' | 'lastSalePrice') {
     const { dispatch } = this.backgroundApi;
     dispatch(setNFTPriceType(priceType));
+  }
+
+  @backgroundMethod()
+  async getNftListWithAssetType({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<NFTAssetMeta[]> {
+    if (!networkId || !accountId) {
+      return [];
+    }
+    const nftPortfolio = await simpleDb.accountPortfolios.getPortfolio({
+      networkId,
+      accountId,
+    });
+
+    const nfts = nftPortfolio?.[EOverviewScanTaskType.nfts] ?? [];
+
+    const { engine } = this.backgroundApi;
+
+    const results = await Promise.all(
+      Object.entries(groupBy(nfts, 'networkId')).map(async ([key, list]) => {
+        const vault = await engine.getChainOnlyVault(key);
+        return vault.getUserNFTAssets({ serviceData: list as NFTListItems });
+      }),
+    );
+
+    return results.filter(Boolean);
   }
 }
 

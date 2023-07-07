@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import { Text } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 
+import { useNetwork } from '../../../../../hooks';
 import { openUrl } from '../../../../../utils/openUrl';
 import { MONERO_GUI_URL } from '../../../consts';
 
@@ -32,4 +33,21 @@ function XmrDisabledInfo() {
   );
 }
 
-export { XmrDisabledInfo };
+function HardwareDisabledInfo({ networkId }: { networkId: string }) {
+  const intl = useIntl();
+  const { network } = useNetwork({ networkId });
+  return (
+    <Text typography="Body1">
+      {intl.formatMessage(
+        {
+          id: 'content__str_chain_is_unsupprted',
+        },
+        {
+          0: network?.name,
+        },
+      )}
+    </Text>
+  );
+}
+
+export { XmrDisabledInfo, HardwareDisabledInfo };

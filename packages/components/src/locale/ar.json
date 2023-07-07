@@ -630,6 +630,7 @@
   "content__it_cannot_move_funds_without_your_permission": "لا يمكن نقل الأموال دون إذنك.",
   "content__items": "العناصر",
   "content__just_a_moment": "لحظة واحدة",
+  "content__keep_the_latest_int_inscribing_orders_only": "احتفظ بأحدث {0} أوامر التسجيل فقط",
   "content__keyboard_shortcut": "اختصار لوحة المفاتيح",
   "content__keychain": "سلسلة مفاتيح",
   "content__keychain_desc": "يتم تخزين مفاتيح إعادة الإعادة الخاصة بك بشكل آمن على هذا الجهاز باستخدام Apple Keychain. إذا حذفت التطبيق وأعدت تثبيته ، فلا يزال بإمكانك الوصول إلى حساباتك.",
@@ -991,6 +992,7 @@
   "form__7d_low": "7d منخفض",
   "form__Watchlist": "قائمة المراقبة",
   "form___7d_volume": "حجم 7D",
+  "form__a_message_to_the_payer": "رسالة إلى الدافع",
   "form__about_uppercase": "حول",
   "form__above_str": "فوق {0}",
   "form__accelerated_transaction": "🚀 المعاملات المعجلة",
@@ -1149,6 +1151,7 @@
   "form__contract_data": "بيانات العقد",
   "form__create_delete_accounts": "إنشاء / حذف الحسابات",
   "form__create_delete_wallets": "إنشاء / حذف محافظ",
+  "form__create_invoice_failed": "فشل إنشاء فاتورة",
   "form__create_transactions": "إنشاء المعاملات",
   "form__created": "مخلوق",
   "form__created_str": "تم إنشاؤه {0}",
@@ -1192,6 +1195,7 @@
   "form__enter_address": "أدخل العنوان",
   "form__enter_address_ens_name": "العنوان ، المجال ، أو أي اضطراب الشخصية الانفصامية",
   "form__enter_address_name": "أدخل اسم العنوان",
+  "form__enter_amount": "أدخل المبلغ",
   "form__enter_or_paste_contract_address": "أدخل أو الصق عنوان العقد",
   "form__enter_recipient_address": "أدخل عنوان المستلم",
   "form__enter_recipient_address_valid": "عنوان صالح",
@@ -1542,6 +1546,7 @@
   "form__rpc_url_wrong_format": "يتطلب عنوان URL البادئة http أو https أو wss.",
   "form__rule_at_least_int_digits": "على الأقل {0} من الأحرف",
   "form__s_request_history": "طلب التاريخ",
+  "form__sats__units": "يجلس",
   "form__se_version": "إصدار SE",
   "form__search": "بحث",
   "form__search_currency_unit_or_name": "ابحث عن وحدة العملة أو الاسم",
@@ -1679,6 +1684,7 @@
   "form__transaction": "عملية",
   "form__transaction_hash": "تجزئة الصفقة",
   "form__transaction_history": "تاريخ المعاملات",
+  "form__transaction_id": "رقم المعاملة",
   "form__transfer_amount": "مبلغ التحويل",
   "form__transferable": "قابلة للتحويل",
   "form__transferable_colon": "قابلة للتحويل:",
@@ -1968,6 +1974,7 @@
   "msg__cannot_import_existing_wallet": "لا يمكن استيراد المحافظ الموجودة.",
   "msg__change_saved": "تم حفظ التغيير!",
   "msg__cleared": "مسح",
+  "msg__coin_control_is_disabled_for_this_tx": "تم تعطيل التحكم في العملة لهذه المعاملة",
   "msg__coming_soon": "قريبا",
   "msg__connect_and_switch": "متصل ومبدّل تلقائيًا",
   "msg__contract_executed": "🤖 تنفيذ العقد",
@@ -2202,6 +2209,7 @@
   "msg__the_content_format_of_the_upload_file_is_incorrect": "تنسيق محتوى الملف الذي تم تحميله غير صحيح. راجع المثال لتعديل الملف المراد تحميله.",
   "msg__the_current_version_is_the_latest": "👏 الإصدار الحالي هو الأحدث",
   "msg__the_disk_path_was_not_found": "لم يتم العثور على مسار القرص",
+  "msg__the_invoice_amount_cannot_be_0": "لا يمكن أن يكون مبلغ الفاتورة 0",
   "msg__the_recipient_address_is_a_contract_address": "عنوان المستلم هو عنوان عقد ، وقد يؤدي التحويل إلى هذا العنوان إلى خسارة الأصول.",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "سيكون الرصيد القابل للإنفاق في السلسلة 0 عندما يكون التحويل قيد التنفيذ. عادةً ما يستغرق الأمر 20 دقيقة حتى يصبح الرصيد قابلاً للإنفاق.",
   "msg__there_are_str_requests_waiting_for_confirmation_currently": "هناك {0} من الطلبات في انتظار التأكيد حاليًا.",
@@ -2264,6 +2272,7 @@
   "msg__your_trade_may_fail_due_to_small_slippage": "قد تفشل تجارتك بسبب انزلاق بسيط.",
   "msg__your_transaction_may_be_frontrun": "قد تكون معاملتك في المقدمة",
   "msg__your_transaction_may_fail": "قد تفشل معاملتك",
+  "msg_description_can_be_up_to_int_characters": "يمكن أن يصل الوصف إلى {0} من الأحرف",
   "msg_insufficient_gas_fee": "رسوم الغاز غير كافية",
   "network__network": "شبكة",
   "network__networks": "الشبكات",

@@ -8,6 +8,7 @@ import { List, useIsVerticalLayout } from '@onekeyhq/components';
 import { useAccountPortfolios, useNavigation } from '../../hooks';
 
 import { OverviewDefiProtocol } from './components/OverviewDefiProtocol';
+import { EOverviewScanTaskType } from './types';
 
 import type { HomeRoutes } from '../../routes/routesEnum';
 import type { HomeRoutesParams } from '../../routes/types';
@@ -38,7 +39,7 @@ const OverviewDefiListComponent: FC = () => {
   const { data: defis } = useAccountPortfolios({
     networkId,
     accountId,
-    type: 'defis',
+    type: EOverviewScanTaskType.defi,
   });
 
   useLayoutEffect(() => {

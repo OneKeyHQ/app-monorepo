@@ -283,6 +283,14 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async getTxWaitingSeconds(): Promise<Array<number>> {
     return [];
   }
+
+  async getUserNFTAssets({
+    serviceData,
+  }: {
+    serviceData: NFTListItems;
+  }): Promise<NFTAssetMeta | undefined> {
+    return Promise.resolve(undefined);
+  }
 }
 
 /*
@@ -773,13 +781,5 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async getAllUsedAddress(): Promise<BtcForkChainUsedAccount[]> {
     return Promise.resolve([]);
-  }
-
-  async getUserNFTAssets({
-    serviceData,
-  }: {
-    serviceData: NFTListItems;
-  }): Promise<NFTAssetMeta | undefined> {
-    return Promise.resolve(undefined);
   }
 }

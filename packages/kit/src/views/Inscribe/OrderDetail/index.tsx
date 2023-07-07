@@ -1,10 +1,14 @@
-import type { FC } from 'react';
+import { type FC, useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Modal, Text, VStack } from '@onekeyhq/components';
+import { Modal, Pressable, Text, VStack } from '@onekeyhq/components';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
+
+import { useActiveWalletAccount } from '../../../hooks/redux';
+import { buildTransactionDetailsUrl } from '../../../hooks/useOpenBlockBrowser';
+import { openUrlExternal } from '../../../utils/openUrl';
 
 import type { InscribeModalRoutes } from '../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/core';
@@ -21,6 +25,11 @@ const OrderDetail: FC = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
   const { orderHistory } = route?.params || {};
+  const { network } = useActiveWalletAccount();
+  const onOpenTx = useCallback(() => {
+    const url = buildTransactionDetailsUrl(network, orderHistory.txid);
+    openUrlExternal(url);
+  }, [network, orderHistory.txid]);
 
   return (
     <Modal
@@ -45,11 +54,13 @@ const OrderDetail: FC = () => {
           borderColor="border-subdued"
         >
           <Text typography="Body2Strong" color="text-subdued">
-            {intl.formatMessage({ id: 'form__inscribe_order_id' })}
+            TXID
           </Text>
-          <Text typography="Body1Strong" color="text-subdued">
-            {orderHistory.from}
-          </Text>
+          <Pressable onPress={onOpenTx}>
+            <Text typography="Body1Strong" color="text-subdued">
+              {orderHistory.txid}
+            </Text>
+          </Pressable>
         </VStack>
       </VStack>
 

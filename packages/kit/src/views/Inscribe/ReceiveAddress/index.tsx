@@ -9,6 +9,7 @@ import { Box, Form, Modal, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import AddressInput from '../../../components/AddressInput';
 import { InscribeModalRoutes } from '../../../routes/routesEnum';
@@ -104,7 +105,9 @@ const ReceiveAddress: FC = () => {
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__inscribe' })}
-      headerDescription="asd"
+      headerDescription={`Bitcoin${
+        networkId === OnekeyNetwork.tbtc ? ' Testnet' : ''
+      }`}
       height="640px"
       primaryActionTranslationId="action__next"
       hideSecondaryAction

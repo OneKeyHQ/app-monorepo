@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import type { FC } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
-import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import useSWR from 'swr';
 
@@ -23,18 +22,16 @@ import {
 } from '@onekeyhq/kit/src/hooks/redux';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAccountPortfolios } from '../../../../hooks';
+import { EOverviewScanTaskType } from '../../../Overview/types';
 import { WalletHomeTabEnum } from '../../type';
 import { navigateToNFTCollection, navigateToNFTDetail } from '../utils';
 
-import {
-  getCardTypeByNetworkId,
-  getNFTListComponent,
-  getNFTListMeta,
-} from './getNFTListMeta';
+import { getNFTListComponent, getNFTListMeta } from './getNFTListMeta';
 import { NFTListContentProvider } from './NFTListContent';
 import NFTListHeader from './NFTListHeader';
 import { NFTCardType } from './type';
@@ -209,20 +206,25 @@ function NFTListContainer() {
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const isFocused = useIsFocused();
 
-  const { data: nfts } = useAccountPortfolios({
+  const [listData, updateListData] = useState<NFTAssetMeta[]>([]);
+
+  const { updatedAt } = useAccountPortfolios({
     networkId,
     accountId,
-    type: 'nfts',
+    type: EOverviewScanTaskType.nfts,
   });
 
-  const listData = useMemo(
-    () =>
-      Object.entries(groupBy(nfts, 'networkId')).map(([key, list]) => ({
-        type: getCardTypeByNetworkId(key),
-        data: list,
-      })),
-    [nfts],
-  );
+  useEffect(() => {
+    backgroundApiProxy.serviceNFT
+      .getNftListWithAssetType({
+        networkId,
+        accountId,
+      })
+      .then((res) => updateListData(res))
+      .catch((e) => {
+        debugLogger.common.error('getNftListWithAssetType Error', e);
+      });
+  }, [updatedAt, networkId, accountId]);
 
   const fetchData = useCallback(async () => {
     if (accountId && networkId && isNFTSupport) {
@@ -296,7 +298,7 @@ function NFTListContainer() {
   return (
     <NFTListContentProvider>
       <NFTList
-        listData={listData as NFTAssetMeta[]}
+        listData={listData}
         onSelect={handleSelect}
         fetchData={mutate}
         isNFTSupport={isNFTSupport}
