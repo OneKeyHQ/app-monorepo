@@ -27,6 +27,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useAccountPortfolios } from '../../../../hooks';
+import { EOverviewScanTaskType } from '../../../Overview/types';
 import { WalletHomeTabEnum } from '../../type';
 import { navigateToNFTCollection, navigateToNFTDetail } from '../utils';
 
@@ -210,7 +211,7 @@ function NFTListContainer() {
   const { updatedAt } = useAccountPortfolios({
     networkId,
     accountId,
-    type: 'nfts',
+    type: EOverviewScanTaskType.nfts,
   });
 
   useEffect(() => {

@@ -25,6 +25,7 @@ import {
   RootRoutes,
   SendModalRoutes,
 } from '../../../../routes/routesEnum';
+import { EOverviewScanTaskType } from '../../../Overview/types';
 
 import SelectNFTCard from './SelectNFTCard';
 import { SendNFTContentProvider, useSendNFTContent } from './SendNFTContent';
@@ -219,7 +220,7 @@ function SendNFTList({
   const collectibles = useAccountPortfolios({
     networkId,
     accountId,
-    type: 'nfts',
+    type: EOverviewScanTaskType.nfts,
   }).data as Collection[];
 
   useEffect(() => {
