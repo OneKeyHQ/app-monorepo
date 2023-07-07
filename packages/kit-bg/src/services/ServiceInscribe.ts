@@ -434,7 +434,7 @@ export default class ServiceInscribe extends ServiceBase {
         continue;
       }
       const from = inscription.addressInfo.address;
-      const { toAddress: to } = order;
+      const { toAddress: to, network } = order;
       const txid = txids[i + offset];
       const historyItem: IInscriptionHistory = {
         createdAt: Date.now(),
@@ -448,14 +448,20 @@ export default class ServiceInscribe extends ServiceBase {
         categoryType: inscription.content.categoryType,
         name: inscription.content.name,
       };
-      simpleDb.inscribe.savaItem(historyItem);
+      simpleDb.inscribe.savaItem(historyItem, network);
     }
     return Promise.resolve();
   }
 
   @backgroundMethod()
-  async getOrderHistoryList() {
-    return simpleDb.inscribe.getItems();
+  async getOrderHistoryList(networkId: string) {
+    const orderList = await simpleDb.inscribe.getItems(networkId);
+    return orderList.sort((a, b) => {
+      if (a.createdAt > b.createdAt) {
+        return -1;
+      }
+      return 1;
+    });
   }
 
   async signAndSendAllInscribeTxs({

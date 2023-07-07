@@ -23,6 +23,7 @@ import { INSCRIPTION_PADDING_SATS_VALUES } from '@onekeyhq/engine/src/vaults/imp
 import type { IInscriptionsOrder } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/types';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatBalanceTokenOfAccount } from '../../../components/Format';
@@ -99,7 +100,7 @@ const CreateOrder: FC = () => {
   useEffect(() => {
     if (isFirst.current) {
       isFirst.current = false;
-      refreshData();
+      refreshData(INSCRIPTION_PADDING_SATS_VALUES.default);
     }
   }, [refreshData]);
 
@@ -128,6 +129,8 @@ const CreateOrder: FC = () => {
           to: data.fundingAddress,
           amount: data.fundingValueNative,
         });
+
+      closeModal();
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
@@ -212,12 +215,12 @@ const CreateOrder: FC = () => {
     tokenInfo,
   ]);
 
-  console.log('isButtonLoading = ', isButtonLoading);
-
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__inscribe' })}
-      headerDescription="Bitcoin"
+      headerDescription={`Bitcoin${
+        networkId === OnekeyNetwork.tbtc ? ' Testnet' : ''
+      }`}
       height="640px"
       primaryActionTranslationId="action__next"
       primaryActionProps={{
@@ -339,10 +342,14 @@ const CreateOrder: FC = () => {
                 })}
               />
             </Box>
-            {loading || order === undefined ? (
+            {loading ||
+            order === undefined ||
+            order.fundingValue === undefined ? (
               <Skeleton shape="Subheading" />
             ) : (
-              <Text typography="Body1">{`${order?.fundingValue} sats`}</Text>
+              <Text typography="Body1">{`${
+                order.fundingValue - sat
+              } sats`}</Text>
             )}
           </Box>
         </Box>

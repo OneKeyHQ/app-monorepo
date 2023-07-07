@@ -15,6 +15,7 @@ import {
 import type { IInscriptionContent } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/types';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { InscribeModalRoutes } from '../../../routes/routesEnum';
@@ -80,11 +81,12 @@ const CreateContent: FC = () => {
     }
 
     if (selectIndex === 1) {
-      if (text.length > 0) {
+      const trimText = text.trim();
+      if (trimText.length > 0) {
         contents = await serviceInscribe.createInscriptionContents({
-          texts: [text],
+          texts: [trimText],
         });
-        Object.assign(routeParams, { size: text.length, contents });
+        Object.assign(routeParams, { size: trimText.length, contents });
       }
     }
     if (contents?.length > 0) {
@@ -104,15 +106,17 @@ const CreateContent: FC = () => {
     if (selectIndex === 0 && file) {
       return false;
     }
-    if (selectIndex === 1 && text.length > 0) {
+    if (selectIndex === 1 && text.trim().length > 0) {
       return false;
     }
     return true;
-  }, [file, selectIndex, text.length]);
+  }, [file, selectIndex, text]);
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__inscribe' })}
-      headerDescription="Bitcoin"
+      headerDescription={`Bitcoin${
+        networkId === OnekeyNetwork.tbtc ? ' Testnet' : ''
+      }`}
       rightContent={rightContent}
       height="640px"
       primaryActionTranslationId="action__next"
@@ -153,7 +157,9 @@ const CreateContent: FC = () => {
           />
         )}
 
-        {file?.data && <FileDescription file={file} />}
+        {selectIndex === 0 && file?.data ? (
+          <FileDescription file={file} />
+        ) : null}
         <Text typography="Caption" color="text-subdued" mt="12px">
           {intl.formatMessage({
             id: 'content__ordinal_support_jpg_webp_png_gif_txt_mp3_mp4_and_more',
