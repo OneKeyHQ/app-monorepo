@@ -36,6 +36,7 @@ function InscribeUploader(props: Props) {
         if (data) {
           setFileFromOut({
             data,
+            dataLength: data.length,
             name: file.name,
             size: file.size,
             type: file.type,

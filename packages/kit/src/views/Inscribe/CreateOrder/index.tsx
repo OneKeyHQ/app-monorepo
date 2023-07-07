@@ -21,6 +21,7 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import { INSCRIPTION_PADDING_SATS_VALUES } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/consts';
 import type { IInscriptionsOrder } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/types';
+import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
@@ -130,75 +131,81 @@ const CreateOrder: FC = () => {
           amount: data.fundingValueNative,
         });
 
-      closeModal();
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.Send,
-        params: {
-          screen: SendModalRoutes.SendConfirm,
-          params: {
-            accountId,
+      const submitOrder = async (commitSignedTx?: ISignedTxPro) => {
+        const result = await serviceInscribe.submitInscribeOrder({
+          order,
+          commitSignedTx,
+        });
+        if (result.errors.length > 0) {
+          ToastManager.show(
+            {
+              title: result.errors[0].message,
+            },
+            { type: 'error' },
+          );
+        } else if (result.txids.length > 0) {
+          const params: SendFeedbackReceiptParams = {
             networkId,
-            signOnly: true,
-            feeInfoEditable: true,
-            feeInfoUseFeeInTx: false,
-            hideSendFeedbackReceipt: true,
-            encodedTx: fundingEncodedTx,
-            onSuccess: async (commitSignedTx) => {
-              const result = await serviceInscribe.submitInscribeOrder({
-                order,
-                commitSignedTx,
-              });
-              if (result.errors.length > 0) {
-                ToastManager.show(
-                  {
-                    title: result.errors[0].message,
-                  },
-                  { type: 'error' },
-                );
-              } else if (result.txids.length > 0) {
-                const params: SendFeedbackReceiptParams = {
-                  networkId,
-                  accountId,
-                  txid: result.txids[0],
-                  type: 'Send',
-                  closeModal: () => {
-                    setTimeout(() => {
-                      closeModal();
-                      setClose(true);
-                    }, 500);
-                  },
-                  isSingleTransformMode: true,
-                };
-                navigation.navigate(RootRoutes.Modal, {
-                  screen: ModalRoutes.Send,
-                  params: {
-                    screen: SendModalRoutes.SendFeedbackReceipt,
-                    params,
-                  },
-                });
-              }
+            accountId,
+            txid: result.txids[0],
+            type: 'Send',
+            closeModal: () => {
+              setTimeout(() => {
+                closeModal();
+                setClose(true);
+              }, 500);
+            },
+            isSingleTransformMode: true,
+          };
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Send,
+            params: {
+              screen: SendModalRoutes.SendFeedbackReceipt,
+              params,
+            },
+          });
+        }
+      };
+
+      closeModal();
+      if (!fundingEncodedTx) {
+        await submitOrder();
+      } else {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Send,
+          params: {
+            screen: SendModalRoutes.SendConfirm,
+            params: {
+              accountId,
+              networkId,
+              signOnly: true,
+              feeInfoEditable: true,
+              feeInfoUseFeeInTx: false,
+              hideSendFeedbackReceipt: true,
+              encodedTx: fundingEncodedTx,
+              onSuccess: async (commitSignedTx) => {
+                await submitOrder(commitSignedTx);
+              },
             },
           },
-        },
-      });
+        });
+      }
       setButtonLoading(false);
     } catch (error: any) {
+      console.error(error);
       setButtonLoading(false);
 
       const { key, message } = error;
-      if (key === 'form__amount_invalid') {
-        ToastManager.show(
-          {
-            title:
-              key === 'form__amount_invalid'
-                ? intl.formatMessage({ id: 'msg__insufficient_balance' })
-                : message,
-          },
-          { type: 'error' },
-        );
-      }
+      ToastManager.show(
+        {
+          title:
+            key === 'form__amount_invalid'
+              ? intl.formatMessage({ id: 'msg__insufficient_balance' })
+              : message,
+        },
+        { type: 'error' },
+      );
     }
-
     //
   }, [
     account,

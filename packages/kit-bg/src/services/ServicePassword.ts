@@ -38,23 +38,41 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  encryptByInstanceId(data: string): Promise<string> {
+  encryptByInstanceId(
+    input: string,
+    {
+      inputEncoding = 'utf-8',
+      outputEncoding = 'hex',
+    }: {
+      inputEncoding?: BufferEncoding;
+      outputEncoding?: BufferEncoding;
+    } = {},
+  ): Promise<string> {
     const { appSelector } = this.backgroundApi;
     const { instanceId } = appSelector((s) => s.settings);
-    const text = encrypt(instanceId, Buffer.from(data, 'utf-8'), {
+    const output = encrypt(instanceId, Buffer.from(input, inputEncoding), {
       skipSafeCheck: true,
-    }).toString('hex');
-    return Promise.resolve(text);
+    }).toString(outputEncoding);
+    return Promise.resolve(output);
   }
 
   @backgroundMethod()
-  decryptByInstanceId(text: string): Promise<string> {
+  decryptByInstanceId(
+    input: string,
+    {
+      inputEncoding = 'hex',
+      outputEncoding = 'utf-8',
+    }: {
+      inputEncoding?: BufferEncoding;
+      outputEncoding?: BufferEncoding;
+    } = {},
+  ): Promise<string> {
     const { appSelector } = this.backgroundApi;
     const { instanceId } = appSelector((s) => s.settings);
-    const data = decrypt(instanceId, Buffer.from(text, 'hex'), {
+    const output = decrypt(instanceId, Buffer.from(input, inputEncoding), {
       skipSafeCheck: true,
-    }).toString('utf-8');
-    return Promise.resolve(data);
+    }).toString(outputEncoding);
+    return Promise.resolve(output);
   }
 
   async getData(ttl?: number): Promise<string | undefined> {

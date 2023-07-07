@@ -38,6 +38,10 @@ function bytesToHex(bytes: Buffer | Uint8Array | string): string {
   return bytesToHex0(toBuffer(bytes));
 }
 
+function bytesToUtf8(bytes: Buffer | Uint8Array): string {
+  return toBuffer(bytes).toString('utf8');
+}
+
 export default {
   toBuffer,
   bytesToHex,
@@ -45,4 +49,5 @@ export default {
   textToHex,
   hexToText,
   utf8ToBytes,
+  bytesToUtf8,
 };

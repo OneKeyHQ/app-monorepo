@@ -1,3 +1,4 @@
+import { Script } from '@cmdcode/tapscript';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { cloneDeep, isNil, maxBy } from 'lodash';
@@ -7,10 +8,6 @@ import {
   getGetblockEndpoint,
   getMempoolEndpoint,
 } from '@onekeyhq/engine/src/endpoint';
-import {
-  decrypt,
-  encrypt,
-} from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import {
   INSCRIBE_ACCOUNT_STORAGE_KEY,
   INSCRIPTION_PADDING_SATS_VALUES,
@@ -603,18 +600,21 @@ export default class ServiceInscribe extends ServiceBase {
   prepareInscribePrivateKey = memoizee(
     async () => {
       try {
-        const { appSelector } = this.backgroundApi;
-        const instanceId = appSelector((s) => s.settings.instanceId);
         let key = await appStorage.getItem(INSCRIBE_ACCOUNT_STORAGE_KEY);
         if (!key) {
           const privateKeyBytes = secp256k1SchnorrSdk.utils.randomPrivateKey();
-          const privateKeyEncrypted = encrypt(
-            instanceId,
-            Buffer.from(privateKeyBytes),
-          );
+          const privateKeyEncryptedHex =
+            await this.backgroundApi.servicePassword.encryptByInstanceId(
+              bufferUtils.bytesToHex(privateKeyBytes),
+              {
+                inputEncoding: 'hex',
+                outputEncoding: 'hex',
+              },
+            );
+
           await appStorage.setItem(
             INSCRIBE_ACCOUNT_STORAGE_KEY,
-            bufferUtils.bytesToHex(privateKeyEncrypted),
+            privateKeyEncryptedHex,
           );
         }
         key = await appStorage.getItem(INSCRIBE_ACCOUNT_STORAGE_KEY);
@@ -623,11 +623,12 @@ export default class ServiceInscribe extends ServiceBase {
             'prepareInscribePrivateKey: read key from storage failed ',
           );
         }
-        const privateKeyBytes = decrypt(
-          instanceId,
-          Buffer.from(bufferUtils.hexToBytes(key)),
-        );
-        return bufferUtils.bytesToHex(privateKeyBytes);
+        const privateKeyHex =
+          await this.backgroundApi.servicePassword.decryptByInstanceId(key, {
+            inputEncoding: 'hex',
+            outputEncoding: 'hex',
+          });
+        return privateKeyHex;
       } catch (error) {
         await appStorage.removeItem(INSCRIBE_ACCOUNT_STORAGE_KEY);
         throw new Error('prepareInscribePrivateKey ERROR:  clear storage');
@@ -684,7 +685,6 @@ export default class ServiceInscribe extends ServiceBase {
     const ec = new TextEncoder();
     const data = bufferUtils.hexToBytes(content.hex);
     const mimetype = ec.encode(content.mimetype);
-    const dataLength = data.length;
     const script = [
       bufferUtils.bytesToHex(inscribeAccount.publicKeyBytes),
       'OP_CHECKSIG',
@@ -698,6 +698,10 @@ export default class ServiceInscribe extends ServiceBase {
       'OP_ENDIF',
     ];
 
+    const scriptBytes = Script.encode(script);
+    const scriptLength = scriptBytes.length;
+    const dataLength = data.length;
+
     const addressInfo = inscribeAccount.createAddressInfo({
       script,
     });
@@ -708,16 +712,19 @@ export default class ServiceInscribe extends ServiceBase {
     // @ts-ignore
     delete contentLite?.sha256;
 
-    return Promise.resolve({
+    const result: IInscriptionPayload = {
       addressInfo,
       script,
       content: contentLite,
       dataLength,
+      scriptLength,
       txsize: 0,
       fee: 0,
       paddingSats,
       toAddressScriptPubKey,
-    } as IInscriptionPayload);
+    };
+
+    return Promise.resolve(result);
   }
 
   // ----------------------------------------------
@@ -844,7 +851,7 @@ export default class ServiceInscribe extends ServiceBase {
   }: {
     to: string;
     amount: string;
-  }): Promise<IEncodedTxBtc | undefined> {
+  }): Promise<IEncodedTxBtc | null> {
     const btcVault = await this.getActiveBtcVault();
     const { network } = await this.getActiveWalletAccount();
     const address = await btcVault.getAccountAddress();
@@ -852,7 +859,7 @@ export default class ServiceInscribe extends ServiceBase {
     if (utxoInfo && utxoInfo.amt && network) {
       const amountValue = convertFeeNativeToValue({ value: amount, network });
       if (new BigNumber(utxoInfo.amt).gte(amountValue)) {
-        return undefined;
+        return null;
       }
     }
     const encodedTx = await btcVault.buildEncodedTxFromTransfer({
@@ -909,15 +916,17 @@ export default class ServiceInscribe extends ServiceBase {
         paddingSats,
         toAddressScriptPubKey,
       });
-      const { dataLength } = payload;
+      const { dataLength, scriptLength } = payload;
+      const contentSize = Math.max(dataLength, scriptLength);
+      // const contentSize = dataLength;
 
-      let txsize = 600 + Math.floor(dataLength / 4);
+      let txsize = 600 + Math.floor(contentSize / 4);
       if (!content.sha256) {
         // TODO why
-        baseSize = Math.floor(dataLength / 4) * i;
-        txsize = 200 + Math.floor(dataLength / 4);
+        baseSize = Math.floor(contentSize / 4) * i;
+        txsize = 200 + Math.floor(contentSize / 4);
       }
-      console.log('TXSIZE', txsize);
+      console.log('TXSIZE', { txsize, dataLength, scriptLength, contentSize });
       // TODO use BigNumber
       const fee = feeRate * txsize;
       totalInscriptionsFee += fee;
