@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
+
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
 import { InvalidAddress } from '../../../errors';
@@ -211,10 +212,6 @@ export default class Vault extends VaultBase {
       ],
       transferInfo,
     };
-  }
-
-  override getDisplayAddress(address: string): Promise<string> {
-    return Promise.resolve('11');
   }
 
   override buildEncodedTxFromApprove(
