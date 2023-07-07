@@ -293,7 +293,8 @@ function TxHistoryListViewComponent({
       const txList = await serviceHistory.getLocalHistory({
         networkId: nid,
         accountId: aid,
-        tokenIdOnNetwork: tokenAddress || '',
+        tokenIdOnNetwork:
+          tokenAddress === '' ? tokenAddress : tokenAddress || undefined,
         limit: HISTORY_CONSTS.DISPLAY_TX_LIMIT,
       });
       return txList;
