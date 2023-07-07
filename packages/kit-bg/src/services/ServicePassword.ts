@@ -2,6 +2,7 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   decrypt,
   encrypt,
+  getBgSensitiveTextEncodeKey,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -129,5 +130,10 @@ export default class ServicePassword extends ServiceBase {
     }
     const isOk = await this.verifyPassword(data);
     return isOk ? data : undefined;
+  }
+
+  @backgroundMethod()
+  async getBgSensitiveTextEncodeKey(): Promise<string> {
+    return Promise.resolve(getBgSensitiveTextEncodeKey());
   }
 }

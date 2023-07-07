@@ -64,9 +64,12 @@ const Session: FC<SessionProps> = ({
   const onSubmit = useCallback(
     async (text: string, isLocalAuthentication?: boolean) => {
       setVerifiedPwd(true);
+      const key =
+        await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey();
       await backgroundApiProxy.servicePassword.savePassword(
         encodeSensitiveText({
           text,
+          key,
         }),
       );
       onOk?.(text, isLocalAuthentication);

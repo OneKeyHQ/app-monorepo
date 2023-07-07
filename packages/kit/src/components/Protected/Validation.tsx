@@ -56,8 +56,11 @@ const Validation: FC<ValidationProps> = ({
     clearErrorIfEmpty: true,
   });
   const onSubmit = handleSubmit(async (values: FieldValues) => {
+    const key =
+      await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey();
     const encodedPassword = encodeSensitiveText({
       text: values.password,
+      key,
     });
     const isOk = await backgroundApiProxy.serviceApp.verifyPassword(
       encodedPassword,
