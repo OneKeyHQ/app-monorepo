@@ -100,7 +100,7 @@ function decrypt(
 function checkKeyPassedOnExtUi(key?: string) {
   if (platformEnv.isExtensionUi && !key) {
     throw new Error(
-      'Please pass key by: await backgroundApiProxy.servicePassword.checkKeyOnExtUi()',
+      'Please get and pass key by:  await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey()',
     );
   }
 }
