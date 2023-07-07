@@ -1,6 +1,6 @@
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
-import { XmrDisabledInfo } from './XmrDisabledInfo';
+import { HardwareDisabledInfo, XmrDisabledInfo } from './XmrDisabledInfo';
 
 export function NetWorkDisabledInfo({
   networkId,
@@ -10,6 +10,10 @@ export function NetWorkDisabledInfo({
 }) {
   if (networkId === OnekeyNetwork.xmr) {
     return <XmrDisabledInfo />;
+  }
+
+  if (networkId === OnekeyNetwork.lightning) {
+    return <HardwareDisabledInfo networkId={networkId} />;
   }
 
   return null;
