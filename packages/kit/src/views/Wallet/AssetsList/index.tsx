@@ -13,7 +13,6 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
-import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type {

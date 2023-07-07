@@ -15,6 +15,7 @@ import type {
   IOverviewScanTaskItem,
   OverviewAllNetworksPortfolioRes,
 } from '@onekeyhq/kit/src/views/Overview/types';
+import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -111,16 +112,18 @@ class ServiceOverview extends ServiceBase {
       },
       {
         pending: [],
-        tokens: [],
-        defis: [],
-        nfts: [],
+        [EOverviewScanTaskType.token]: [],
+        [EOverviewScanTaskType.defi]: [],
+        [EOverviewScanTaskType.nfts]: [],
       },
       'POST',
     );
+    const resolvedScanTypes: Set<EOverviewScanTaskType> = new Set();
     const { pending } = results;
     if (!pending?.length) {
       for (const task of pendingTasksForCurrentNetwork) {
         this.pendingTaskMap.delete(this.getTaksId(task));
+        resolvedScanTypes.add(task.scanType);
       }
     }
     const dispatchActions = [];
@@ -152,6 +155,7 @@ class ServiceOverview extends ServiceBase {
     await simpleDb.accountPortfolios.setAllNetworksPortfolio({
       key: dispatchKey,
       data: results,
+      scanTypes: Array.from(resolvedScanTypes),
     });
     dispatch(
       ...dispatchActions,
@@ -211,7 +215,11 @@ class ServiceOverview extends ServiceBase {
     networkId,
     accountId,
     walletId,
-    scanTypes = ['defi', 'token', 'nfts'],
+    scanTypes = [
+      EOverviewScanTaskType.defi,
+      EOverviewScanTaskType.token,
+      EOverviewScanTaskType.nfts,
+    ],
   }: {
     networkId: string;
     accountId: string;
@@ -312,29 +320,24 @@ class ServiceOverview extends ServiceBase {
       if (!networkId || !accountId || !walletId) {
         return;
       }
-      if (isAllNetworks(networkId)) {
-        await this.fetchAccountOverview({
-          networkId,
+      if (!isAllNetworks(networkId)) {
+        engine.clearPriceCache();
+        await serviceToken.fetchAccountTokens({
           accountId,
-          walletId,
-          scanTypes: ['defi', 'nfts', 'token'],
+          networkId,
+          forceReloadTokens: true,
+          includeTop50TokensQuery: true,
         });
-        return;
       }
-
-      engine.clearPriceCache();
-      await serviceToken.fetchAccountTokens({
-        accountId,
-        networkId,
-        forceReloadTokens: true,
-        includeTop50TokensQuery: true,
-      });
-
       await this.fetchAccountOverview({
         networkId,
         accountId,
         walletId,
-        scanTypes: ['defi', 'nfts'],
+        scanTypes: [
+          EOverviewScanTaskType.defi,
+          EOverviewScanTaskType.token,
+          EOverviewScanTaskType.nfts,
+        ],
       });
     },
     getTimeDurationMs({ seconds: 5 }),
