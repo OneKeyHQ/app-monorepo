@@ -15,6 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import * as errors from './errors';
 import { OneKeyValidatorError, OneKeyValidatorTip } from './errors';
 import * as limits from './limits';
+import { decodeSensitiveText } from './secret/encryptors/aes256';
 import { UserInputCategory } from './types/credential';
 import { WALLET_TYPE_HD, WALLET_TYPE_HW } from './types/wallet';
 
@@ -181,7 +182,7 @@ class Validators {
 
   @backgroundMethod()
   async validatePasswordStrength(password: string): Promise<string> {
-    const p = password || '';
+    const p = password ? decodeSensitiveText({ encodedText: password }) : '';
     if (p.length >= 8 && p.length <= 128) {
       return Promise.resolve(password);
     }
