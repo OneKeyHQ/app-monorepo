@@ -185,35 +185,10 @@ export default class Vault extends VaultBase {
     const paymentHash = invoice.tags.find(
       (tag) => tag.tagName === 'payment_hash',
     );
-    if (paymentHash?.data) {
-      try {
-        const existInvoice = await client.specialInvoice(
-          balanceAddress,
-          paymentHash.data as string,
-        );
-        if (existInvoice.is_paid) {
-          throw new InvoiceAlreadPaid();
-        }
-      } catch (e: any) {
-        const { key: errorKey = '' } = e;
-        if (errorKey === 'msg__invoice_is_already_paid') {
-          throw e;
-        }
-        if (errorKey === 'msg__authentication_failed_verify_again') {
-          throw e;
-        }
-        // pass
-      }
-    }
 
-    const balance = await this.getBalances([{ address: balanceAddress }]);
-    const balanceBN = new BigNumber(balance[0] || '0');
     const amount = invoice.millisatoshis
       ? new BigNumber(invoice.millisatoshis).dividedBy(1000)
       : new BigNumber(invoice.satoshis ?? '0');
-    if (balanceBN.isLessThan(amount)) {
-      throw new InsufficientBalance();
-    }
     if (!invoice.paymentRequest) {
       throw new InvalidLightningPaymentRequest();
     }
@@ -499,7 +474,7 @@ export default class Vault extends VaultBase {
           if (response.status === PaymentStatusEnum.FAILED) {
             clearInterval(intervalId);
             const errorMessage = response?.data?.message;
-            if (errorMessage === 'Invoice already paid') {
+            if (errorMessage?.toLowerCase() === 'invoice is already paid') {
               reject(new InvoiceAlreadPaid());
             } else if (errorMessage === 'no_route') {
               reject(new NoRouteFoundError());
@@ -563,5 +538,72 @@ export default class Vault extends VaultBase {
     tokenAddresses: string[],
   ): Promise<(PartialTokenInfo | undefined)[]> {
     throw new Error('Method not implemented.');
+  }
+
+  override async specialCheckEncodedTx(
+    encodedTx: IEncodedTxLightning,
+  ): Promise<{
+    success: boolean;
+    key?: string | undefined;
+    params?: Record<string, any> | undefined;
+  }> {
+    const { invoice: payreq, amount } = encodedTx;
+    const invoice = await this._decodedInvoceCache(payreq);
+    if (
+      (invoice.millisatoshis && +invoice.millisatoshis <= 0) ||
+      (invoice.satoshis && +invoice.satoshis <= 0) ||
+      (!invoice.millisatoshis && !invoice.satoshis)
+    ) {
+      return Promise.resolve({
+        success: false,
+        key: 'msg__the_invoice_amount_cannot_be_0',
+        params: {
+          0: 'stas',
+        },
+      });
+    }
+
+    const balanceAddress = await this.getCurrentBalanceAddress();
+    const balance = await this.getBalances([{ address: balanceAddress }]);
+    const balanceBN = new BigNumber(balance[0] || '0');
+    if (balanceBN.isLessThan(new BigNumber(amount))) {
+      return Promise.resolve({
+        success: false,
+        key: 'form__amount_invalid',
+        params: {
+          0: 'stas',
+        },
+      });
+    }
+
+    const paymentHash = invoice.tags.find(
+      (tag) => tag.tagName === 'payment_hash',
+    );
+    if (paymentHash?.data) {
+      try {
+        const client = await this.getClient();
+        const existInvoice = await client.specialInvoice(
+          balanceAddress,
+          paymentHash.data as string,
+        );
+        if (existInvoice.is_paid) {
+          throw new InvoiceAlreadPaid();
+        }
+      } catch (e: any) {
+        const { key: errorKey = '' } = e;
+        if (
+          errorKey === 'msg__invoice_is_already_paid' ||
+          errorKey === 'msg__authentication_failed_verify_again'
+        ) {
+          return Promise.resolve({
+            success: false,
+            key: errorKey,
+          });
+        }
+        // pass
+      }
+    }
+
+    return Promise.resolve({ success: true });
   }
 }

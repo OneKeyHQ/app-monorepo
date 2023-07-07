@@ -10,6 +10,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
+import { useActiveWalletAccount } from '../../../hooks';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { InscribeModalRoutes } from '../../../routes/routesEnum';
 
@@ -22,6 +23,7 @@ const OrderList: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const { formatDate } = useFormatDate();
+  const { networkId } = useActiveWalletAccount();
 
   const { serviceInscribe } = backgroundApiProxy;
 
@@ -29,11 +31,9 @@ const OrderList: FC = () => {
 
   useEffect(() => {
     serviceInscribe
-      .getOrderHistoryList()
-      .then((data) => updateListData([...data, ...data]));
-  }, [serviceInscribe]);
-
-  console.log('listData = ', listData);
+      .getOrderHistoryList(networkId)
+      .then((data) => updateListData([...data]));
+  }, [networkId, serviceInscribe]);
 
   const onPress = useCallback(
     (item: IInscriptionHistory) => {

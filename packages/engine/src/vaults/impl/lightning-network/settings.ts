@@ -39,6 +39,7 @@ const settings: IVaultSettings = Object.freeze({
   hideFromToFieldIfValueEmpty: true,
   displayFullAddress: true,
   rpcStatusDisabled: true,
+  useSimpleTipForSpecialCheckEncodedTx: true,
 
   txExtraInfo: [
     {
