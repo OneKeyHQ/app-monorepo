@@ -554,7 +554,13 @@ export default class Vault extends VaultBase {
       (invoice.satoshis && +invoice.satoshis <= 0) ||
       (!invoice.millisatoshis && !invoice.satoshis)
     ) {
-      throw new Error('Invalid amount');
+      return Promise.resolve({
+        success: false,
+        key: 'msg__the_invoice_amount_cannot_be_0',
+        params: {
+          0: 'stas',
+        },
+      });
     }
 
     const balanceAddress = await this.getCurrentBalanceAddress();
