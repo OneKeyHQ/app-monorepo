@@ -53,6 +53,7 @@ import type {
 } from '../../types';
 import type { EVMDecodedItem } from '../evm/decoder/types';
 import type { IEncodedTxNexa } from './types';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -92,7 +93,7 @@ export default class Vault extends VaultBase {
         return `${args[0]}:${args[1]}`;
       },
       max: 1,
-      maxAge: 1000 * 60 * 15,
+      maxAge: getTimeDurationMs({ seconds: 15 }),
     },
   );
 

@@ -198,12 +198,15 @@ describe('Nexa Utils Tests', () => {
     const privateKey =
       '91632aaa4de97d24c58ff234aa371c7a7c8363808a73fa9189cb5ee3d55a0cd3';
     const signatureBuffer =
-      '006907059db8bb0c87e295c0bfe3619455484a9c2b13faea2ba6daace8b743d32918fe568a8c5de81c57cf295e9b31ec9b15289631e304cc73b4e60a720fc4a9e5752adad0a7b9ceca853768aebb6965eca126a62965f698a0c1bc43d83db632ad026cadf4e5fc9d566e3d75acc1004b9ddf43dd7006c1470124ac894d7b3f9b44ea9a780000000000';
+      '0094d3de9aa564a4fa760a6b16c76a0a15b724c38b39a7249215e397ed1bbf07d40084af2da0940d66153580ce18b185ac78ca4237d3ccaec3dfb32f4fd4134fb63bb13029ce7b1f559ef5e747fcac439f1455a2ec7c5f09b72290795e70665044026cad7049e07c205ae2c4f11bae23b1ead0de47bd52031fdc875e74b590e784c9228a0000000000';
     const digest = reverseBuffer(
       sha256sha256(Buffer.from(signatureBuffer, 'hex')),
     );
+    expect(digest.toString('hex')).toBe(
+      '4d5b22a9f75b0452e51cedd11285a8561f2351cb8f04a6b25a31d1f1e91717fe',
+    );
     expect(sign(Buffer.from(privateKey, 'hex'), digest).toString('hex')).toBe(
-      '78aba6cb5841f1c67f523d05149ebfde0b5f8fc3b17b989de070936aa3c01cc04301779b0ec2306e6e2ddaa85b2c7b9814309d41b2c8530fc3eaed927d179473',
+      '7e5edff03500cec509bf55c4983560de8f794a88ae3539f7804cf2c34cad39d73ef115cf8d8cfa25ec841b38c123c19740a971a7de188319eaac5c4db897ce51',
     );
   });
 });
