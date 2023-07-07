@@ -75,6 +75,7 @@ import {
 } from './utils';
 
 import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
+import type { TxMapType } from '../../../managers/nft';
 import type {
   Account,
   BtcForkChainUsedAccount,
@@ -825,10 +826,15 @@ export default class VaultBtcFork extends VaultBase {
       console.error(e);
     }
 
-    const nftMap = await getNFTTransactionHistory(
-      dbAccount.address,
-      this.networkId,
-    );
+    let nftMap: TxMapType = {};
+    try {
+      nftMap = await getNFTTransactionHistory(
+        dbAccount.address,
+        this.networkId,
+      );
+    } catch (e) {
+      console.error(e);
+    }
 
     const promises = txs.map((tx) => {
       try {
