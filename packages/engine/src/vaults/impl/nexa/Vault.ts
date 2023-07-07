@@ -70,9 +70,6 @@ export default class Vault extends VaultBase {
   }
 
   override async addressFromBase(account: DBAccount): Promise<string> {
-    if (account.address.startsWith('nexa')) {
-      return account.address;
-    }
     const chainId = await this.getNetworkChainId();
     return publickeyToAddress(Buffer.from(account.address, 'hex'), chainId);
   }
