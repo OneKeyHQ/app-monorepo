@@ -179,18 +179,16 @@ function BTCAssetDetailContent({
               value={asset.content_type}
             />
           )}
-
-          {/* {!!asset.content_length && (
-            <DetailItem
-              title={intl.formatMessage({ id: 'form__ordinal_size' })}
-              value={`${asset.content_length} bytes`}
-            />
-          )} */}
-
           {!!asset.output_value_sat && (
             <DetailItem
               title={intl.formatMessage({ id: 'form__ordinal_value' })}
               value={`${asset.output_value_sat} sats`}
+            />
+          )}
+          {!!asset.content_length && (
+            <DetailItem
+              title={intl.formatMessage({ id: 'form__ordinal_size' })}
+              value={`${asset.content_length} bytes`}
             />
           )}
           {!!asset.timestamp && (
