@@ -1,5 +1,8 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ToastManager } from '@onekeyhq/components';
 import type {
   IFeeInfoUnit,
   ISignedTxPro,
@@ -12,7 +15,7 @@ import { ENABLED_DAPP_SCOPE } from '@onekeyhq/shared/src/background/backgroundUt
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useWalletConnectPrepareConnection } from '../../../../components/WalletConnect/useWalletConnectPrepareConnection';
-import { useActiveSideAccount } from '../../../../hooks';
+import { useActiveSideAccount, useNetwork } from '../../../../hooks';
 import { useDecodedTx } from '../../../../hooks/useDecodedTx';
 import { useDisableNavigationAnimation } from '../../../../hooks/useDisableNavigationAnimation';
 import { useOnboardingRequired } from '../../../../hooks/useOnboardingRequired';
@@ -50,6 +53,7 @@ function SendConfirm({
 }: {
   sendConfirmParamsParsed: ReturnType<typeof useSendConfirmRouteParamsParsed>;
 }) {
+  const intl = useIntl();
   useOnboardingRequired();
   const { engine, serviceHistory, serviceToken } = backgroundApiProxy;
 
@@ -71,6 +75,7 @@ function SendConfirm({
     ignoreFetchFeeCalling,
   } = sendConfirmParamsParsed;
   useReloadAccountBalance({ networkId, accountId });
+  const { network } = useNetwork({ networkId });
 
   const {
     isLoading: isLoadingAdvancedSettings,
@@ -273,6 +278,25 @@ function SendConfirm({
           SendModalRoutes.SendAuthentication,
           nextRouteParams,
         );
+      }
+
+      if (network?.settings.useSimpleTipForSpecialCheckEncodedTx) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage(
+              {
+                id: result.key as any,
+              },
+              {
+                ...(result.params ?? {}),
+              },
+            ),
+          },
+          {
+            type: 'error',
+          },
+        );
+        return;
       }
 
       return navigation[nextRouteAction](SendModalRoutes.SendSpecialWarning, {
