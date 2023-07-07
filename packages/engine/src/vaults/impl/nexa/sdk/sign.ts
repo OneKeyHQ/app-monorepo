@@ -135,7 +135,7 @@ function findSignature(d: BN, e: BN) {
 
 export function sign(privateKey: Buffer, digest: Buffer): Buffer {
   const privateKeyBN = getBN(privateKey);
-  const digestBN = getBN(digest, true);
+  const digestBN = getBN(digest);
   const { r, s } = findSignature(privateKeyBN, digestBN);
   return Buffer.concat([r.toBuffer('be', 32), s.toBuffer('be', 32)]);
 }
@@ -151,7 +151,7 @@ export function verify(
   const r = getBN(signature.slice(0, 32));
   const s = getBN(signature.slice(32));
 
-  const hashbuf = reverseBuffer(digest);
+  const hashbuf = digest;
 
   const xbuf = publicKey.slice(1);
   const x = getBN(xbuf);

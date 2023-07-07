@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
 import { InvalidAddress } from '../../../errors';
 import {
@@ -53,7 +54,6 @@ import type {
 } from '../../types';
 import type { EVMDecodedItem } from '../evm/decoder/types';
 import type { IEncodedTxNexa } from './types';
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -362,8 +362,9 @@ export default class Vault extends VaultBase {
               }
 
               const actionType = IDecodedTxActionType.TOKEN_TRANSFER;
-              const token: Token | undefined =
-                await this.engine.getNativeTokenInfo(this.networkId);
+              const token: Token = await this.engine.getNativeTokenInfo(
+                this.networkId,
+              );
               const actionKey = 'tokenTransfer';
 
               action = {

@@ -356,7 +356,7 @@ export async function signEncodedTx(
     // sighashType
     writeUInt8(0),
   ]);
-  const ret = reverseBuffer(sha256sha256(signatureBuffer));
+  const ret = sha256sha256(signatureBuffer);
   const signature = sign(privateKey, ret);
   const inputSignatures: INexaInputSignature[] = inputs.map((input, index) => ({
     publicKey,
