@@ -16,6 +16,7 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { getTimeDurationMs } from '../utils/helper';
 import { getPreBaseValue } from '../utils/priceUtils';
+import { EOverviewScanTaskType } from '../views/Overview/types';
 
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
@@ -28,8 +29,6 @@ import type {
   IOverviewTokenDetailListItem,
   OverviewAllNetworksPortfolioRes,
 } from '../views/Overview/types';
-
-export type OverviewAssetType = 'defis' | 'tokens' | 'nfts';
 
 type IAccountTokenOnChain = Token & {
   price: number;
@@ -211,7 +210,7 @@ export function useAccountTokens({
   const { data: allNetworksTokens } = useAccountPortfolios({
     networkId,
     accountId,
-    type: 'tokens',
+    type: EOverviewScanTaskType.token,
   });
 
   const accountTokensOnChain = useAccountTokensOnChain(
@@ -346,7 +345,7 @@ export const useAccountValues = (props: {
   const { data: defis } = useAccountPortfolios({
     networkId,
     accountId,
-    type: 'defis',
+    type: EOverviewScanTaskType.defi,
   });
 
   const defiValues = useMemo(
@@ -412,7 +411,7 @@ export const useTokenBalance = ({
   const { data: tokens } = useAccountPortfolios({
     accountId,
     networkId,
-    type: 'tokens',
+    type: EOverviewScanTaskType.token,
   });
 
   const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
@@ -478,7 +477,7 @@ export const useTokenPositionInfo = ({
   const { data: defis } = useAccountPortfolios({
     accountId,
     networkId,
-    type: 'defis',
+    type: EOverviewScanTaskType.defi,
   });
 
   const accountTokens = useAccountTokens({
@@ -698,15 +697,26 @@ export const useOverviewPendingTasks = ({
     let assetType = '';
     if (tasks?.length) {
       assetType =
-        tasks.find((t) => ['token', 'defi', 'nfts'].includes(t.scanType))
-          ?.scanType ?? '';
+        tasks.find((t) =>
+          [
+            EOverviewScanTaskType.token,
+            EOverviewScanTaskType.defi,
+            EOverviewScanTaskType.nfts,
+          ].includes(t.scanType),
+        )?.scanType ?? '';
     }
     if (assetType) {
       return (
         {
-          'token': intl.formatMessage({ id: 'content__updating_token_assets' }),
-          'defi': intl.formatMessage({ id: 'content__updating_defi_assets' }),
-          'nfts': intl.formatMessage({ id: 'content__updating_nft_assets' }),
+          [EOverviewScanTaskType.token]: intl.formatMessage({
+            id: 'content__updating_token_assets',
+          }),
+          [EOverviewScanTaskType.defi]: intl.formatMessage({
+            id: 'content__updating_defi_assets',
+          }),
+          [EOverviewScanTaskType.nfts]: intl.formatMessage({
+            id: 'content__updating_nft_assets',
+          }),
         }[assetType] ?? ''
       );
     }
