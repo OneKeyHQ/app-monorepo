@@ -137,6 +137,7 @@ export type IVaultSettings = {
   hideFromToFieldIfValueEmpty?: boolean;
   displayFullAddress?: boolean;
   rpcStatusDisabled?: boolean;
+  useSimpleTipForSpecialCheckEncodedTx?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
