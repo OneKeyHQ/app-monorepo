@@ -88,8 +88,6 @@ export function TxActionFunctionCall(props: ITxActionCardProps) {
     },
   ];
 
-  return null;
-
   return (
     <TxDetailActionBoxAutoTransform
       decodedTx={decodedTx}
@@ -107,8 +105,6 @@ export function TxActionFunctionCallT0(props: ITxActionCardProps) {
   const statusBar = (
     <TxStatusBarInList decodedTx={decodedTx} historyTx={historyTx} />
   );
-
-  return null;
   return (
     <TxListActionBox
       footer={statusBar}

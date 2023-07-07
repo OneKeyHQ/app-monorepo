@@ -6,13 +6,23 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AddressLabel } from '../../../components/AddressLabel';
-import { useNetwork } from '../../../hooks';
+import { useNavigation, useNetwork } from '../../../hooks';
 import { useClipboard } from '../../../hooks/useClipboard';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
+import {
+  MainRoutes,
+  ModalRoutes,
+  RootRoutes,
+  TabRoutes,
+} from '../../../routes/routesEnum';
+import { setHomeTabName } from '../../../store/reducers/status';
+import { AddressBookRoutes } from '../../AddressBook/routes';
 import { useAddressSecurityInfo } from '../../ManageTokens/hooks';
 import { showAddressPoisoningScamAlert } from '../../Overlay/AddressPoisoningScamAlert';
 import BaseMenu from '../../Overlay/BaseMenu';
+import { WalletHomeTabEnum } from '../../Wallet/type';
 
+import type { Contact } from '../../../store/reducers/contacts';
 import type { IBaseMenuOptions, IMenu } from '../../Overlay/BaseMenu';
 
 interface AddressMoreMenuProps extends IMenu {
@@ -20,6 +30,8 @@ interface AddressMoreMenuProps extends IMenu {
   networkId?: string;
   isCopy?: boolean;
   amount?: string;
+  isAccount?: boolean;
+  contact?: Contact;
 }
 
 export function useAddressLabel({ address }: { address: string }) {
@@ -37,11 +49,28 @@ export function useAddressLabel({ address }: { address: string }) {
   return label;
 }
 
+export function useAddressBookItem({ address }: { address: string }) {
+  const [addressBookItem, setAddressBookItem] = useState<Contact>();
+  useEffect(() => {
+    (async () => {
+      const contract = await backgroundApiProxy.serviceAddressbook.getItem({
+        address,
+      });
+      if (contract) {
+        setAddressBookItem(contract);
+      }
+    })();
+  }, [address]);
+  return addressBookItem;
+}
+
 function TxActionElementAddressMoreMenu(props: AddressMoreMenuProps) {
-  const { networkId, address, amount, isCopy, ...rest } = props;
+  const { networkId, address, amount, isCopy, isAccount, contact, ...rest } =
+    props;
   const { network } = useNetwork({ networkId });
   const openBlockBrowser = useOpenBlockBrowser(network);
   const { copyText } = useClipboard();
+  const navigation = useNavigation();
   const handleCopyText = useCallback(
     (addressToCopy: string) => {
       if (amount === '0') {
@@ -59,13 +88,61 @@ function TxActionElementAddressMoreMenu(props: AddressMoreMenuProps) {
         id: 'action__copy_address',
         onPress: () => handleCopyText(address),
       },
+      isAccount && {
+        id: 'action__view_account',
+        onPress: async () => {
+          const account =
+            await backgroundApiProxy.serviceAccount.getAccountByAddress({
+              address,
+              networkId,
+            });
+          await backgroundApiProxy.serviceAccount.changeActiveAccountByAccountId(
+            account?.id ?? '',
+          );
+          backgroundApiProxy.dispatch(setHomeTabName(WalletHomeTabEnum.Tokens));
+          navigation?.navigate(RootRoutes.Main, {
+            screen: MainRoutes.Tab,
+            params: {
+              screen: TabRoutes.Home,
+            },
+          });
+        },
+      },
+      !!contact && {
+        id: 'action__edit',
+        onPress: () => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.AddressBook,
+            params: {
+              screen: AddressBookRoutes.EditAddressRoute,
+              params: {
+                uuid: contact.id,
+                defaultValues: {
+                  name: contact.name,
+                  address: contact.address,
+                  networkId: contact.networkId,
+                },
+              },
+            },
+          });
+        },
+      },
       openBlockBrowser.hasAvailable && {
         id: 'action__view_in_browser',
         onPress: () => openBlockBrowser.openAddressDetails(address),
       },
     ];
     return baseOptions.filter(Boolean);
-  }, [address, handleCopyText, isCopy, openBlockBrowser]);
+  }, [
+    address,
+    handleCopyText,
+    isAccount,
+    contact,
+    isCopy,
+    navigation,
+    networkId,
+    openBlockBrowser,
+  ]);
 
   if (options.length === 0) return null;
 
@@ -102,6 +179,7 @@ export function TxActionElementAddress(
   );
 
   const label = useAddressLabel({ address });
+  const contact = useAddressBookItem({ address });
   let text = isShorten ? shortenAddress(address) : address;
   if (label && isLabelShow) {
     text = `${label}(${address.slice(-4)})`;
@@ -121,10 +199,14 @@ export function TxActionElementAddress(
             {text}
           </Text>
           <AddressLabel
+            mt={-1}
             address={address}
             networkId={networkId}
             securityInfo={securityInfo}
             shouldCheckSecurity={shouldCheckSecurity}
+            isAccount={!!label}
+            isAddressBook={!!contact}
+            labelStyle={{ mt: 1 }}
           />
         </VStack>
         <TxActionElementAddressMoreMenu
@@ -132,6 +214,8 @@ export function TxActionElementAddress(
           address={address}
           amount={amount}
           isCopy={isCopy}
+          isAccount={!!label}
+          contact={contact}
         >
           <IconButton
             circle
