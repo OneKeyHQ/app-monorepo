@@ -8,7 +8,12 @@ import {
 import { caseSensitiveImpls } from '@onekeyhq/engine/src/managers/token';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { setNFTPrice } from '@onekeyhq/kit/src/store/reducers/nft';
-import { serOverviewPortfolioUpdatedAt } from '@onekeyhq/kit/src/store/reducers/overview';
+import type { IOverviewPortfolio } from '@onekeyhq/kit/src/store/reducers/overview';
+import {
+  addOverviewPendingTasks,
+  removeOverviewPendingTasks,
+  setOverviewPortfolioUpdatedAt,
+} from '@onekeyhq/kit/src/store/reducers/overview';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import type {
   IOverviewQueryTaskItem,
@@ -33,7 +38,9 @@ import type { IServiceBaseProps } from './ServiceBase';
 class ServiceOverview extends ServiceBase {
   private interval: any;
 
-  private pendingTaskMap: Map<string, IOverviewQueryTaskItem> = new Map();
+  get pendingTaskMap() {
+    return this.backgroundApi.appSelector((s) => s.overview.tasks);
+  }
 
   constructor(props: IServiceBaseProps) {
     super(props);
@@ -74,9 +81,7 @@ class ServiceOverview extends ServiceBase {
     }
     const dispatchKey = `${networkId}___${accountId}`;
     return Promise.resolve(
-      Array.from(this.pendingTaskMap.values()).filter(
-        (n) => n.key === dispatchKey,
-      ),
+      Object.values(this.pendingTaskMap).filter((n) => n.key === dispatchKey),
     );
   }
 
@@ -120,14 +125,24 @@ class ServiceOverview extends ServiceBase {
     );
     const resolvedScanTypes: Set<EOverviewScanTaskType> = new Set();
     const { pending } = results;
+    const dispatchActions = [];
     if (!pending?.length) {
-      for (const task of pendingTasksForCurrentNetwork) {
-        this.pendingTaskMap.delete(this.getTaksId(task));
-        resolvedScanTypes.add(task.scanType);
+      const taskIdsWillRemove = pendingTasksForCurrentNetwork.map((t) => {
+        resolvedScanTypes.add(t.scanType);
+        return this.getTaksId(t);
+      });
+      if (taskIdsWillRemove?.length) {
+        dispatchActions.push(
+          removeOverviewPendingTasks({
+            ids: taskIdsWillRemove,
+          }),
+        );
       }
     }
-    const dispatchActions = [];
-    if (results.nfts?.length && networkId !== OnekeyNetwork.btc) {
+    if (
+      results.nfts?.length &&
+      ![OnekeyNetwork.btc, OnekeyNetwork.tbtc].includes(networkId)
+    ) {
       let lastSalePrice = 0;
       const floorPrice = 0; // Not used
       results.nfts = (results.nfts as Collection[]).map((item) => {
@@ -159,7 +174,7 @@ class ServiceOverview extends ServiceBase {
     });
     dispatch(
       ...dispatchActions,
-      serOverviewPortfolioUpdatedAt({
+      setOverviewPortfolioUpdatedAt({
         key: dispatchKey,
         data: {
           updatedAt: Date.now(),
@@ -183,20 +198,23 @@ class ServiceOverview extends ServiceBase {
         ...t,
         scanTypes: (t.scanTypes ?? []).filter(
           (s) =>
-            !this.pendingTaskMap.has(
+            !this.pendingTaskMap[
               this.getTaksId({
                 networkId: t.networkId,
                 address: t.address,
                 xpub: t.xpub,
                 scanType: s,
-              }),
-            ),
+              })
+            ],
         ),
       }))
       .filter((t) => t.scanTypes.length > 0);
   }
 
+  @bindThis()
   addPendingTasks(tasks: IOverviewScanTaskItem[], key?: string) {
+    const { dispatch } = this.backgroundApi;
+    const pending: IOverviewPortfolio['tasks'] = {};
     for (const s of tasks) {
       for (const scanType of s.scanTypes ?? []) {
         const singleTask = {
@@ -206,9 +224,14 @@ class ServiceOverview extends ServiceBase {
           xpub: s.xpub,
           scanType,
         };
-        this.pendingTaskMap.set(this.getTaksId(singleTask), singleTask);
+        pending[this.getTaksId(singleTask)] = singleTask;
       }
     }
+    dispatch(
+      addOverviewPendingTasks({
+        data: pending,
+      }),
+    );
   }
 
   async buildOverviewScanTasks({
@@ -359,6 +382,20 @@ class ServiceOverview extends ServiceBase {
     }
 
     return this.refreshAccountWithThrottle({ networkId, accountId, walletId });
+  }
+
+  @backgroundMethod()
+  async getAccountPortfolio({
+    accountId,
+    networkId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<OverviewAllNetworksPortfolioRes> {
+    return simpleDb.accountPortfolios.getPortfolio({
+      networkId,
+      accountId,
+    });
   }
 }
 

@@ -1,5 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
+import { omit } from 'lodash';
 
+import type { IOverviewQueryTaskItem } from '../../views/Overview/types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
 export interface IPortfolioUpdatedAt {
@@ -7,34 +9,66 @@ export interface IPortfolioUpdatedAt {
 }
 
 export interface IOverviewPortfolio {
-  portfolios: Record<string, IPortfolioUpdatedAt>;
+  tasks: Record<string, IOverviewQueryTaskItem>;
+  updatedTimeMap: Record<string, IPortfolioUpdatedAt>;
 }
 
 const initialState: IOverviewPortfolio = {
-  portfolios: {},
+  tasks: {},
+  updatedTimeMap: {},
 };
 
 export const overviewSlice = createSlice({
   name: 'overview',
   initialState,
   reducers: {
-    serOverviewPortfolioUpdatedAt(
+    setOverviewPortfolioUpdatedAt(
       state,
       action: PayloadAction<{
-        // networkId__accountId
         key: string;
         data: IPortfolioUpdatedAt;
       }>,
     ) {
       const { data, key } = action.payload;
-      if (!state.portfolios) {
-        state.portfolios = {};
+      if (!state.updatedTimeMap) {
+        state.updatedTimeMap = {};
       }
-      state.portfolios[key] = data;
+      state.updatedTimeMap[key] = data;
+    },
+    addOverviewPendingTasks(
+      state,
+      action: PayloadAction<{
+        data: IOverviewPortfolio['tasks'];
+      }>,
+    ) {
+      const { data } = action.payload;
+      if (!state.tasks) {
+        state.tasks = {};
+      }
+      state.tasks = {
+        ...state.tasks,
+        ...data,
+      };
+    },
+    removeOverviewPendingTasks(
+      state,
+      action: PayloadAction<{
+        ids: string[];
+      }>,
+    ) {
+      const { ids = [] } = action.payload;
+      if (!state.tasks) {
+        return;
+      }
+      state.tasks = omit(state.tasks, ...ids);
     },
   },
 });
 
-export const { serOverviewPortfolioUpdatedAt } = overviewSlice.actions;
+export const {
+  addOverviewPendingTasks,
+  removeOverviewPendingTasks,
+  setOverviewPortfolioUpdatedAt,
+} = overviewSlice.actions;
 
 export default overviewSlice.reducer;
