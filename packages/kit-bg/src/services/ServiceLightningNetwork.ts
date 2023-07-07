@@ -9,6 +9,12 @@ import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 export default class ServiceLightningNetwork extends ServiceBase {
+  private previousRequestTokenAccountId = '';
+
+  private previousRequestTokenTimestamp: number | null = null;
+
+  private isFetchingToken = false;
+
   @backgroundMethod()
   async refreshToken({
     networkId,
@@ -19,17 +25,35 @@ export default class ServiceLightningNetwork extends ServiceBase {
     accountId: string;
     password: string;
   }) {
-    const vault = await this.backgroundApi.engine.getVault({
-      networkId,
-      accountId,
-    });
-    const res = await (vault as VaultLightning).exchangeToken(password);
-    const address = await (vault as VaultLightning).getCurrentBalanceAddress();
-    await simpleDb.utxoAccounts.updateLndToken(
-      address,
-      res.access_token,
-      res.refresh_token,
-    );
+    if (
+      (this.previousRequestTokenAccountId === accountId &&
+        this.previousRequestTokenTimestamp &&
+        Date.now() - this.previousRequestTokenTimestamp < 10000) ||
+      this.isFetchingToken
+    ) {
+      // Prevent frequent token fetching during  rerender
+      return;
+    }
+    try {
+      this.isFetchingToken = true;
+      const vault = await this.backgroundApi.engine.getVault({
+        networkId,
+        accountId,
+      });
+      const res = await (vault as VaultLightning).exchangeToken(password);
+      const address = await (
+        vault as VaultLightning
+      ).getCurrentBalanceAddress();
+      await simpleDb.utxoAccounts.updateLndToken(
+        address,
+        res.access_token,
+        res.refresh_token,
+      );
+      this.previousRequestTokenAccountId = accountId;
+      this.previousRequestTokenTimestamp = Date.now();
+    } finally {
+      this.isFetchingToken = false;
+    }
   }
 
   @backgroundMethod()
