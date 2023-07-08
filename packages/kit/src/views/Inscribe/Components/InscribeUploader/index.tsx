@@ -2,12 +2,15 @@ import { useDropzone } from 'react-dropzone';
 import { useIntl } from 'react-intl';
 
 import { Center, Icon, Text, useThemeValue } from '@onekeyhq/components';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { fileToBuffer, fileToDataUrl } from '../../../../utils/hardware/homescreens';
+import {
+  fileToBuffer,
+  fileToDataUrl,
+} from '../../../../utils/hardware/homescreens';
 import { InscribeFilePreview } from '../InscribeFilePreview';
 
 import type { Props } from './type';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 function InscribeUploader(props: Props) {
   const { file: fileFromOut, setFileFromOut } = props;
