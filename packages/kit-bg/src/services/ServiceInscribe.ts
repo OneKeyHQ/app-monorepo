@@ -790,7 +790,7 @@ export default class ServiceInscribe extends ServiceBase {
       contents.push({
         categoryType: 'file',
         name: filename || '',
-        hex: bufferUtils.textToHex(data),
+        hex: data,
         mimetype,
         sha256: '',
         previewText: filename || mimetype,
