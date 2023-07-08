@@ -232,7 +232,7 @@ class Provider extends BaseProvider {
       messageType: message.type as MessageTypes,
       message: finalMessage,
     });
-    debugger;
+
     const [sig, recId] = await signer.sign(ethUtil.toBuffer(messageHash));
     return ethUtil.addHexPrefix(
       Buffer.concat([sig, Buffer.from([recId + 27])]).toString('hex'),
