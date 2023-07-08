@@ -34,15 +34,15 @@ import {
 } from '@onekeyhq/kit/src/routes/routesEnum';
 import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
-import { showApprovalSelector } from './ApprovalSelector';
-import { useValidteReceiver } from './hooks';
-import { ReceiverExample } from './ReceiverExample';
-import { ReceiverInput } from './ReceiverInput';
-import { BulkSenderRoutes, BulkSenderTypeEnum } from './types';
+import { showApprovalSelector } from '../ApprovalSelector';
+import { useValidteReceiver } from '../hooks';
+import { ReceiverExample } from '../ReceiverExample';
+import { ReceiverInput } from '../ReceiverInput';
+import { BulkSenderRoutes, BulkSenderTypeEnum } from '../types';
 
-import type { TokenReceiver } from './types';
+import type { TokenReceiver } from '../types';
 
 interface Props {
   accountId: string;

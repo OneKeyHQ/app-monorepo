@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-} from 'react';
+import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
@@ -30,10 +24,12 @@ import { useConnectAndCreateExternalAccount } from '../ExternalAccount/useConnec
 
 import { ModelSelector } from './ModeSelector';
 import { NotSupported } from './NotSupported';
+import { BulkSenderTabs } from './BulkSenderTabs';
 
 import type { HomeRoutesParams } from '../../routes/types';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { MessageDescriptor } from 'react-intl';
 
 type RouteProps = RouteProp<HomeRoutesParams, HomeRoutes.BulkSender>;
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
@@ -44,20 +40,26 @@ function BulkSender() {
   const isVertical = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
 
-  const [selectedMode, setSelectedMode] = useState<
-    BulkSenderModeEnum | undefined
-  >();
-
   const routeParams = route.params;
   const mode = routeParams?.mode;
 
   const { accountId, networkId, network } = useActiveWalletAccount();
+
+  let selectedMode = mode;
 
   const isSupported = !!(
     network?.enabled &&
     network.settings?.supportBatchTransfer &&
     network.settings.supportBatchTransfer.length > 0
   );
+
+  if (
+    network?.enabled &&
+    network.settings?.supportBatchTransfer &&
+    network.settings.supportBatchTransfer.length === 1
+  ) {
+    [selectedMode] = network.settings.supportBatchTransfer;
+  }
 
   const { connectAndCreateExternalAccount } =
     useConnectAndCreateExternalAccount({
@@ -76,7 +78,7 @@ function BulkSender() {
   }, [intl, connectAndCreateExternalAccount, accountId]);
 
   const title = useMemo(() => {
-    let desc = '';
+    let desc: MessageDescriptor['id'];
     if (mode === BulkSenderModeEnum.OneToMany) {
       desc = 'form__one_to_many';
     } else if (mode === BulkSenderModeEnum.ManyToOne) {
@@ -120,7 +122,7 @@ function BulkSender() {
         )}
       </HStack>
     ),
-    [isVertical, mode, navigation],
+    [isVertical, mode, navigation, title],
   );
 
   const headerRight = useCallback(() => {
@@ -143,12 +145,12 @@ function BulkSender() {
         <NavHeader headerRight={headerRight} headerLeft={headerLeft} />
       ),
     });
-  }, [headerLeft, headerRight, intl, isVertical, navigation]);
+  }, [headerLeft, headerRight, intl, isVertical, navigation, title]);
 
   if (!isSupported) return <NotSupported networkId={networkId} />;
 
-  if (mode) {
-    return <Text>hello</Text>;
+  if (selectedMode) {
+    return <BulkSenderTabs mode={selectedMode} />;
   }
 
   return <ModelSelector networkId={networkId} />;
