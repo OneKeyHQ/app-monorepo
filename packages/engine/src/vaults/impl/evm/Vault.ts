@@ -616,7 +616,6 @@ export default class Vault extends VaultBase {
       owner: address,
       signer: decodedTxLegacy.fromAddress,
       nonce: decodedTxLegacy.nonce || 0,
-      data: decodedTxLegacy.data,
       actions: [action, extraNativeTransferAction].filter(Boolean),
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
