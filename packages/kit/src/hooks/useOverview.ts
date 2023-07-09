@@ -496,7 +496,7 @@ export const useTokenPositionInfo = ({
     useFilter: false,
   });
 
-  const allNetworksAccountsMap = useAllNetworksWalletAccounts({
+  const { data: allNetworksAccountsMap } = useAllNetworksWalletAccounts({
     walletId,
     accountId,
   });

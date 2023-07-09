@@ -216,7 +216,7 @@ export const useAllNetworksSelectNetworkAccount = ({
     networkId,
     accountId,
   });
-  const networkAccounts = useAllNetworksWalletAccounts({
+  const { data: networkAccounts } = useAllNetworksWalletAccounts({
     accountId,
     walletId,
   });
