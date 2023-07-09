@@ -56,6 +56,7 @@ export type IInscriptionPayload = {
   addressInfo: ITaprootAddressInfoInscription;
   script: ScriptData;
   dataLength: number;
+  scriptLength: number;
   content: IInscriptionContentLite;
   txsize: number;
   fee: number; // TODO use string?
