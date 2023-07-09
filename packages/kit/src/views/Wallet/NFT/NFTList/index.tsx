@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import { RenderTracker } from '@onekeyhq/components/src/RenderTracker';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import type { NFTAssetMeta } from '@onekeyhq/engine/src/types/nft';
@@ -126,15 +127,17 @@ const NFTList: FC<NFTListProps> = ({
         type,
       });
       return (
-        <Component
-          {...props}
-          onSelect={(data) => {
-            if (onSelect) {
-              onSelect(data, cardType);
-            }
-          }}
-          mr="16px"
-        />
+        <RenderTracker>
+          <Component
+            {...props}
+            onSelect={(data) => {
+              if (onSelect) {
+                onSelect(data, cardType);
+              }
+            }}
+            mr="16px"
+          />
+        </RenderTracker>
       );
     },
     [onSelect, expand],

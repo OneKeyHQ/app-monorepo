@@ -101,3 +101,51 @@ textarea {
 .walletconnect-modal__base {
   max-width: 400px !important;
 }
+
+.animated-bg {
+  position: relative;
+}
+
+.animated-bg:before {
+  content: "";
+  position: absolute;
+  z-index: 999999;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  animation: colorFade 1s forwards;
+}
+
+@keyframes colorFade {
+  from {
+    background-color: green;
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+.animated-bg0 {
+  position: relative;
+}
+
+.animated-bg0:before {
+  content: "";
+  position: absolute;
+  z-index: 999999;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  animation: colorFade0 1s forwards;
+}
+
+@keyframes colorFade0 {
+  from {
+    background-color: red;
+  }
+  to {
+    background-color: transparent;
+  }
+}
