@@ -19,10 +19,9 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigation, useTokenDetailInfo, useWallet } from '../../../hooks';
+import { useNavigation, useWallet } from '../../../hooks';
 import {
   FiatPayModalRoutes,
   MainRoutes,
@@ -68,14 +67,13 @@ const ButtonItem = ({
 }) => {
   const isVertical = useIsVerticalLayout();
   const content = useMemo(() => {
-    const iconBoxFlex = isVertical ? 1 : 0;
     let ele = (
-      <Box flex={iconBoxFlex} mx={3} minW="56px" alignItems="center">
+      <Box mx={isVertical ? 0 : 3}>
         {typeof onPress === 'function' ? (
           <TouchableWithoutFeedback>
             <IconButton
               circle
-              size={isVertical ? 'xl' : 'lg'}
+              size={isVertical ? 'lg' : 'sm'}
               name={icon}
               type="basic"
               isDisabled={isDisabled}
@@ -84,15 +82,15 @@ const ButtonItem = ({
           </TouchableWithoutFeedback>
         ) : (
           <Box
-            size={isVertical ? '50px' : '42px'}
+            p={isVertical ? 2 : 1.5}
             alignItems="center"
             justifyContent="center"
             borderWidth="1px"
-            borderRadius="50%"
+            borderRadius="999px"
             borderColor="border-default"
             bg="action-secondary-default"
           >
-            <Icon name={icon} size={24} />
+            <Icon name={icon} size={isVertical ? 24 : 20} />
           </Box>
         )}
         <Typography.CaptionStrong
@@ -128,26 +126,15 @@ export const ButtonsSection: FC = () => {
     sendAddress,
     symbol,
     logoURI,
-    tokenAddress,
-    coingeckoId,
   } = context?.routeParams ?? {};
 
-  const { items } = context?.detailInfo ?? {};
+  const { items } = context?.positionInfo ?? {};
 
-  const { tokens, loading } = useTokenDetailInfo({
-    coingeckoId,
-    networkId,
-    tokenAddress,
-  });
+  const { tokens, loading, ethereumNativeToken } = context?.detailInfo ?? {};
 
   const { wallet } = useWallet({
     walletId,
   });
-
-  const ethereumNativeToken = tokens?.find(
-    (n) =>
-      n.impl === IMPL_EVM && n.chainId === '1' && (n.isNative || !n.address),
-  );
 
   const filter = useCallback(
     ({ network }: { network?: Network | null }) =>
@@ -354,18 +341,17 @@ export const ButtonsSection: FC = () => {
           w={isVerticalLayout ? '100%' : undefined}
         >
           {buttons.map((item) => (
-            <Box key={item.id}>
-              <ButtonItem
-                onPress={() => {
-                  handlePress(item);
-                }}
-                icon={item.icon}
-                text={intl.formatMessage({
-                  id: item.id,
-                })}
-                isDisabled={loading}
-              />
-            </Box>
+            <ButtonItem
+              key={item.id}
+              onPress={() => {
+                handlePress(item);
+              }}
+              icon={item.icon}
+              text={intl.formatMessage({
+                id: item.id,
+              })}
+              isDisabled={loading}
+            />
           ))}
           <BaseMenu ml="26px" options={options}>
             <Pressable>

@@ -11,6 +11,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import KeleLogoPNG from '@onekeyhq/kit/assets/staking/kele_pool.png';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { getTimeDurationMs } from '../utils/helper';
@@ -671,12 +672,18 @@ export const useTokenDetailInfo = ({
           t.impl === defaultChain?.impl && t.chainId === defaultChain?.chainId,
       ) ?? tokens?.[0];
 
+    const ethereumNativeToken = tokens?.find(
+      (n) =>
+        n.impl === IMPL_EVM && n.chainId === '1' && (n.isNative || !n.address),
+    );
+
     return {
       ...pick(token, 'name', 'symbol', 'logoURI'),
       ...data,
       loading: loading || tokenLoading,
       tokens,
       defaultToken,
+      ethereumNativeToken,
     };
   }, [data, token, loading, tokenLoading]);
 };
