@@ -172,8 +172,19 @@ const WalletTabs: FC = () => {
 
   useEffect(() => {
     const idx = getHomeTabIndex();
-    ref.current?.setPageIndex?.(idx);
-    onIndexChange(idx);
+
+    const setIndex = (index: number) => {
+      ref.current?.setPageIndex?.(index);
+      onIndexChange(index);
+    };
+
+    if (platformEnv.isNativeIOS) {
+      setTimeout(() => {
+        setIndex(idx);
+      });
+    } else {
+      setIndex(idx);
+    }
   }, [homeTabName, onIndexChange, getHomeTabIndex]);
 
   const onRefresh = useCallback(() => {
