@@ -1,6 +1,7 @@
 export type InscribeFile = {
   type: string;
   data: string;
+  dataLength?: number;
   size: number;
   name: string;
 };

@@ -115,7 +115,11 @@ export const AppStateUnlock = () => {
   }, []);
 
   const onUnlock = useCallback(async () => {
-    const isOk = await doUnlockAction(encodeSensitiveText({ text: password }));
+    const key =
+      await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey();
+    const isOk = await doUnlockAction(
+      encodeSensitiveText({ key, text: password }),
+    );
     if (isOk) {
       if (platformEnv.isNativeAndroid) {
         Keyboard.dismiss();
