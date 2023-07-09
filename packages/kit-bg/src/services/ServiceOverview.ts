@@ -107,22 +107,21 @@ class ServiceOverview extends ServiceBase {
     const dispatchKey = `${networkId}___${accountId}`;
 
     const results = await fetchData<
-      OverviewAllNetworksPortfolioRes & {
-        pending: IOverviewScanTaskItem[];
-      }
+      | (OverviewAllNetworksPortfolioRes & {
+          pending: IOverviewScanTaskItem[];
+        })
+      | null
     >(
       '/overview/query/all',
       {
         tasks: [...pendingTasksForCurrentNetwork],
       },
-      {
-        pending: [],
-        [EOverviewScanTaskType.token]: [],
-        [EOverviewScanTaskType.defi]: [],
-        [EOverviewScanTaskType.nfts]: [],
-      },
+      null,
       'POST',
     );
+    if (!results) {
+      return;
+    }
     const resolvedScanTypes: Set<EOverviewScanTaskType> = new Set();
     const { pending } = results;
     const dispatchActions = [];

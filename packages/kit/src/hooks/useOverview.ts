@@ -113,7 +113,7 @@ export const useAccountPortfolios = <
   });
   const updateInfo = useAppSelector(
     (s) =>
-      s.overview.updatedTimeMap[`${networkId ?? ''}___${accountId ?? ''}`] ??
+      s.overview.updatedTimeMap?.[`${networkId ?? ''}___${accountId ?? ''}`] ??
       {},
   );
 
@@ -690,11 +690,12 @@ export const useOverviewPendingTasks = ({
 }) => {
   const intl = useIntl();
   const updatedAt = useAppSelector(
-    (s) => s.overview.updatedTimeMap[`${networkId}___${accountId}`]?.updatedAt,
+    (s) =>
+      s.overview.updatedTimeMap?.[`${networkId}___${accountId}`]?.updatedAt,
   );
 
   const tasks = useAppSelector((s) => {
-    const data = Object.values(s.overview.tasks);
+    const data = Object.values(s.overview.tasks || {});
     return data.filter((t) => t.key === `${networkId}___${accountId}`);
   });
 
