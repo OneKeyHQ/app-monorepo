@@ -2,15 +2,15 @@ import type { ComponentType, FC, ReactElement } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-let lastClassName = 'animated-bg';
+const css1 = 'debug-render-tracker-animated-bg';
+const css2 = 'debug-render-tracker-animated-bg0';
+let lastClassName = css1;
 
-function RenderTracker(props: { children: ReactElement }): ReactElement {
+function DebugRenderTracker(props: { children: ReactElement }): ReactElement {
   const { children } = props;
   if (process.env.NODE_ENV !== 'production') {
     if (platformEnv.isRuntimeBrowser) {
-      lastClassName =
-        lastClassName === 'animated-bg' ? 'animated-bg0' : 'animated-bg';
-
+      lastClassName = lastClassName === css1 ? css2 : css1;
       return <div className={lastClassName}>{children}</div>;
     }
   }
@@ -18,15 +18,15 @@ function RenderTracker(props: { children: ReactElement }): ReactElement {
   return children;
 }
 
-const withRenderTracker = <P extends object>(
+const withDebugRenderTracker = <P extends object>(
   WrappedComponent: ComponentType<P>,
 ) => {
   const WithRenderTracker: FC<P> = (props) => (
-    <RenderTracker>
+    <DebugRenderTracker>
       <WrappedComponent {...props} />
-    </RenderTracker>
+    </DebugRenderTracker>
   );
 
   return WithRenderTracker;
 };
-export { withRenderTracker, RenderTracker };
+export { withDebugRenderTracker, DebugRenderTracker };

@@ -10,6 +10,7 @@ import {
   VStack,
   useTheme,
 } from '@onekeyhq/components';
+import { withDebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
 import type { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -28,7 +29,7 @@ import { getTxStatusInfo } from './utils/utilsTxDetail';
 
 import type { HistoryListViewNavigationProp } from './components/TxResendButtons';
 
-function TxListItemView(props: {
+function TxListItemViewCmp(props: {
   historyTx: IHistoryTx;
   isFirst: boolean;
   isLast: boolean;
@@ -147,5 +148,7 @@ function TxListItemView(props: {
     </Pressable.Item>
   );
 }
+
+const TxListItemView = withDebugRenderTracker(TxListItemViewCmp);
 
 export { TxListItemView };

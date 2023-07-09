@@ -12,8 +12,8 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import { DebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
-import { RenderTracker } from '@onekeyhq/components/src/RenderTracker';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import type { NFTAssetMeta } from '@onekeyhq/engine/src/types/nft';
@@ -127,7 +127,7 @@ const NFTList: FC<NFTListProps> = ({
         type,
       });
       return (
-        <RenderTracker>
+        <DebugRenderTracker>
           <Component
             {...props}
             onSelect={(data) => {
@@ -137,7 +137,7 @@ const NFTList: FC<NFTListProps> = ({
             }}
             mr="16px"
           />
-        </RenderTracker>
+        </DebugRenderTracker>
       );
     },
     [onSelect, expand],
