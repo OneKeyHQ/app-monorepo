@@ -3,6 +3,10 @@ import BigNumber from 'bignumber.js';
 import type { EIP1559Fee, Network } from '../../types/network';
 import type { IFeeInfo, IFeeInfoUnit } from '../types';
 
+function nilError(message: string): number {
+  throw new Error(message);
+}
+
 // onChainValue -> GWEI
 export function convertFeeValueToGwei({
   value,
@@ -11,7 +15,12 @@ export function convertFeeValueToGwei({
   value: string;
   network: Network;
 }) {
-  return new BigNumber(value).shiftedBy(-network.feeDecimals ?? 0).toFixed();
+  return new BigNumber(value)
+    .shiftedBy(
+      -network.feeDecimals ??
+        nilError('convertFeeValueToGwei ERROR: network.feeDecimals missing'),
+    )
+    .toFixed();
 }
 
 // GWEI -> onChainValue
@@ -22,7 +31,12 @@ export function convertFeeGweiToValue({
   value: string;
   network: Network;
 }) {
-  return new BigNumber(value).shiftedBy(network.feeDecimals ?? 0).toFixed();
+  return new BigNumber(value)
+    .shiftedBy(
+      network.feeDecimals ??
+        nilError('convertFeeGweiToValue ERROR: network.feeDecimals missing'),
+    )
+    .toFixed();
 }
 
 // onChainValue -> nativeAmount
@@ -33,7 +47,12 @@ export function convertFeeValueToNative({
   value: string;
   network: Network;
 }) {
-  return new BigNumber(value).shiftedBy(-network.decimals ?? 0).toFixed();
+  return new BigNumber(value)
+    .shiftedBy(
+      -network.decimals ??
+        nilError('convertFeeValueToNative ERROR: network.decimals missing'),
+    )
+    .toFixed();
 }
 
 // nativeAmount -> onChainValue
@@ -44,7 +63,12 @@ export function convertFeeNativeToValue({
   value: string;
   network: Network;
 }) {
-  return new BigNumber(value).shiftedBy(network.decimals ?? 0).toFixed();
+  return new BigNumber(value)
+    .shiftedBy(
+      network.decimals ??
+        nilError('convertFeeNativeToValue ERROR: network.decimals missing'),
+    )
+    .toFixed();
 }
 
 export function calculateTotalFeeNative({
@@ -58,8 +82,16 @@ export function calculateTotalFeeNative({
 }) {
   return new BigNumber(amount)
     .plus(info.baseFeeValue ?? 0)
-    .shiftedBy(info.feeDecimals ?? 0) // GWEI -> onChainValue
-    .shiftedBy(-(info.nativeDecimals ?? 0)) // onChainValue -> nativeAmount
+    .shiftedBy(
+      info.feeDecimals ??
+        nilError('calculateTotalFeeNative ERROR: info.feeDecimals missing'),
+    ) // GWEI -> onChainValue
+    .shiftedBy(
+      -(
+        info.nativeDecimals ??
+        nilError('calculateTotalFeeNative ERROR: info.nativeDecimals missing')
+      ),
+    ) // onChainValue -> nativeAmount
     .toFixed(decimal);
 }
 
