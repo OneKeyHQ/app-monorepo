@@ -56,6 +56,7 @@ export type PreSendParams = {
   accountId: string;
   closeModal?: () => any;
   transferInfos?: ITransferInfo[];
+  validateAddress?: (networkId: string, address: string) => Promise<void>;
 } & ITransferInfo;
 
 export type TransferSendParamsPayload = SendConfirmPayloadBase & {
@@ -134,6 +135,7 @@ export type SendConfirmParams = SendConfirmSharedParams & {
   signOnly?: boolean;
   ignoreFetchFeeCalling?: boolean;
   hideSendFeedbackReceipt?: boolean;
+  hideAdvancedSetting?: boolean;
 };
 export type SignMessageConfirmParams = SendConfirmSharedParams & {
   sourceInfo?: IDappSourceInfo;

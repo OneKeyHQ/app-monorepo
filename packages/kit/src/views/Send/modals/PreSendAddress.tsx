@@ -71,8 +71,14 @@ function PreSendAddress() {
     useState<MessageDescriptor['id']>();
   const { serviceNFT, serviceBatchTransfer, engine } = backgroundApiProxy;
   const routeParams = useMemo(() => ({ ...route.params }), [route.params]);
-  const { transferInfos, accountId, networkId, closeModal, ...reset } =
-    routeParams;
+  const {
+    validateAddress,
+    transferInfos,
+    accountId,
+    networkId,
+    closeModal,
+    ...reset
+  } = routeParams;
   const transferInfo =
     transferInfos && transferInfos.length > 0
       ? transferInfos[0]
@@ -503,6 +509,7 @@ function PreSendAddress() {
             networkId,
             accountId,
           });
+          await validateAddress?.(networkId, toAddress);
         } catch (error0: any) {
           setIsValidatingAddress(false);
           if (isValidNameServiceName && !resolvedAddress) return undefined;
@@ -561,12 +568,13 @@ function PreSendAddress() {
       }, 0);
     },
     [
-      accountId,
-      intl,
-      isContractAddressCheck,
-      isValidNameServiceName,
-      networkId,
       resolvedAddress,
+      isContractAddressCheck,
+      networkId,
+      accountId,
+      validateAddress,
+      isValidNameServiceName,
+      intl,
       isLightningNetwork,
     ],
   );

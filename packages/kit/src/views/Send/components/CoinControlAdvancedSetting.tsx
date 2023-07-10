@@ -74,7 +74,9 @@ const CoinControlAdvancedSetting: FC<Props> = ({
               onSelectedUtxos(selectedUtxos);
             } else {
               ToastManager.show({
-                title: 'CoinControl is disabled for this transaction',
+                title: intl.formatMessage({
+                  id: 'msg__coin_control_is_disabled_for_this_tx',
+                }),
               });
             }
           },
@@ -88,6 +90,7 @@ const CoinControlAdvancedSetting: FC<Props> = ({
     encodedTx,
     canCoinControl,
     onSelectedUtxos,
+    intl,
   ]);
 
   return (
@@ -109,7 +112,9 @@ const CoinControlAdvancedSetting: FC<Props> = ({
               onToggleCoinControl();
             } else {
               ToastManager.show({
-                title: 'CoinControl is disabled for this transaction',
+                title: intl.formatMessage({
+                  id: 'msg__coin_control_is_disabled_for_this_tx',
+                }),
               });
             }
           }}
