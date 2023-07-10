@@ -1,11 +1,12 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import NativeSlider from '@react-native-community/slider';
 import BigNumber from 'bignumber.js';
 import { first, last } from 'lodash';
 import { Slider } from 'native-base';
 import { useIntl } from 'react-intl';
-import { Slider as NativeSlider, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 import {
   Alert,
@@ -378,7 +379,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
             />
           </Form.Item>
         )}
-        {isEIP1559Fee && (
+        {true && (
           <>
             <Form.Item
               label={
@@ -479,6 +480,9 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
               <Box flex={1} pr={2}>
                 {Platform.OS === 'ios' ? (
                   <NativeSlider
+                    thumbTintColor="#85D34C"
+                    minimumTrackTintColor="#85D34C"
+                    maximumTrackTintColor="#85D34C"
                     minimumValue={1}
                     maximumValue={100}
                     step={1}
