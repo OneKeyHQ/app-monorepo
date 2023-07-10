@@ -208,6 +208,11 @@ export default class ServiceInscribe extends ServiceBase {
     const txids = await client.batchCall<string[]>(
       txs.map((rawTx) => ['sendrawtransaction', [rawTx]]),
     );
+    // broadcast orphan transaction:
+    //    {code: -25, message: "bad-txns-inputs-missingorspent"}
+    // const txids = await client.batchCall<string[]>(
+    //   [txs[1]].map((rawTx) => ['sendrawtransaction', [rawTx]]),
+    // );
     return txids;
 
     // const decodedTx = decodeBtcRawTx(rawTx);
@@ -938,8 +943,16 @@ export default class ServiceInscribe extends ServiceBase {
       if (!content.sha256) {
         // TODO why
         baseSize = Math.floor(contentSize / 4) * i;
-        txsize = 200 + Math.floor(contentSize / 4);
+        txsize = 300 + Math.floor(contentSize / 4); // 300, 200 ?
       }
+      /*
+      // min relay fee not met, 13753 < 13766
+
+      fetch("https://node.onekeytest.com/getblock-btc-mainnet", {
+        "body": "[{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getmempoolinfo\",\"params\":[]}]",
+        "method": "POST",
+      });
+       */
       console.log('TXSIZE', { txsize, dataLength, scriptLength, contentSize });
       // TODO use BigNumber
       const fee = feeRate * txsize;
