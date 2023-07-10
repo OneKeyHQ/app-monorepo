@@ -260,6 +260,52 @@ function buildTxid(
   return txIdHash;
 }
 
+const buildSignatures = (encodedTx: IEncodedTxNexa, dbAccount: DBAccount) => {
+  const { inputs, outputs, gas } = encodedTx;
+  const newOutputs = outputs.slice();
+  const inputAmount: BN = inputs.reduce(
+    (acc, input) => acc.add(new BN(input.satoshis)),
+    new BN(0),
+  );
+  const outputAmount: BN = newOutputs.reduce(
+    (acc, output) => acc.add(new BN(output.satoshis)),
+    new BN(0),
+  );
+  const available = inputAmount.sub(outputAmount);
+
+  const fee = new BN(gas || estimateFee(encodedTx));
+
+  // change address
+  newOutputs.push({
+    address: dbAccount.address,
+    satoshis: available.sub(fee).toString(),
+    outType: 1,
+  });
+
+  const outputSignatures = newOutputs.map((output) => ({
+    address: output.address,
+    satoshi: new BN(output.satoshis),
+    outType: 1,
+    scriptBuffer: getScriptBufferFromScriptTemplateOut(output.address),
+  }));
+
+  return {
+    outputSignatures,
+    inputSignatures: inputs.map((input, index) => ({
+      prevTxId: input.txId,
+      outputIndex: input.outputIndex,
+      inputIndex: index,
+      sequenceNumber: input.sequenceNumber || DEFAULT_SEQNUMBER,
+      amount: new BN(input.satoshis),
+      sigtype: NexaSignature.SIGHASH_NEXA_ALL,
+    })),
+  };
+};
+
+const buildSignatureBuffer = () => {
+  
+}
+
 // signed by 'schnorr'
 export async function signEncodedTx(
   unsignedTx: IUnsignedTxPro,
@@ -268,11 +314,9 @@ export async function signEncodedTx(
 ): Promise<ISignedTxPro> {
   const privateKey = await signer.getPrvkey();
   const publicKey = await signer.getPubkey(true);
-  // const scriptPushPublicKey = convertScriptToPushBuffer(publicKey);
-  // const signHash = hash160(scriptPushPublicKey);
   const { encodedTx } = unsignedTx;
-  const { inputs, outputs, gas } = encodedTx as IEncodedTxNexa;
-  const newOutputs = outputs.slice();
+
+  const { inputs } = encodedTx as IEncodedTxNexa;
   const prevoutsBuffer = Buffer.concat(
     inputs.map((input) =>
       Buffer.concat([
@@ -295,31 +339,10 @@ export async function signEncodedTx(
   );
   const inputAmountHash = sha256sha256(inputAmountBuffer);
 
-  const inputAmount: BN = inputs.reduce(
-    (acc, input) => acc.add(new BN(input.satoshis)),
-    new BN(0),
+  const { outputSignatures, inputSignatures: inputSigs } = buildSignatures(
+    encodedTx as IEncodedTxNexa,
+    dbAccount,
   );
-  const outputAmount: BN = newOutputs.reduce(
-    (acc, output) => acc.add(new BN(output.satoshis)),
-    new BN(0),
-  );
-  const available = inputAmount.sub(outputAmount);
-
-  const fee = new BN(gas || estimateFee(encodedTx as IEncodedTxNexa));
-
-  // change address
-  newOutputs.push({
-    address: dbAccount.address,
-    satoshis: available.sub(fee).toString(),
-    outType: 1,
-  });
-
-  const outputSignatures: INexaOutputSignature[] = newOutputs.map((output) => ({
-    address: output.address,
-    satoshi: new BN(output.satoshis),
-    outType: 1,
-    scriptBuffer: getScriptBufferFromScriptTemplateOut(output.address),
-  }));
 
   const outputBuffer = Buffer.concat(
     // scriptBuffer
@@ -358,15 +381,10 @@ export async function signEncodedTx(
   ]);
   const ret = sha256sha256(signatureBuffer);
   const signature = sign(privateKey, ret);
-  const inputSignatures: INexaInputSignature[] = inputs.map((input, index) => ({
+  const inputSignatures: INexaInputSignature[] = inputSigs.map((inputSig) => ({
+    ...inputSig,
     publicKey,
-    prevTxId: input.txId,
-    outputIndex: input.outputIndex,
-    inputIndex: index,
     signature,
-    sequenceNumber: input.sequenceNumber || DEFAULT_SEQNUMBER,
-    amount: new BN(input.satoshis),
-    sigtype: NexaSignature.SIGHASH_NEXA_ALL,
     scriptBuffer: buildInputScriptBuffer(publicKey, signature),
   }));
 

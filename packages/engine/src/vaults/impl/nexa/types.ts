@@ -110,6 +110,6 @@ export interface INexaInputSignature {
 export interface INexaOutputSignature {
   address: string;
   satoshi: BN;
-  outType: 1;
+  outType: number;
   scriptBuffer: Buffer;
 }
