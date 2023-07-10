@@ -63,8 +63,8 @@ const TokenItemMenu: FC<
     openAddressDetails(token?.tokenIdOnNetwork ?? '');
   }, [openAddressDetails, token]);
 
-  const options = useMemo<IBaseMenuOptions>(
-    () => [
+  const options = useMemo<IBaseMenuOptions>(() => {
+    const menus: IBaseMenuOptions = [
       {
         id: 'action__copy_address',
         onPress: onCopy,
@@ -75,14 +75,23 @@ const TokenItemMenu: FC<
         onPress: onShowFullAddress,
         icon: 'MagnifyingGlassPlusOutline',
       },
-      {
+    ];
+
+    if (!network?.settings.hiddenBlockBrowserTokenDetailLink) {
+      menus.push({
         id: 'action__view_in_browser',
         onPress: onViewDetail,
         icon: 'ArrowTopRightOnSquareOutline',
-      },
-    ],
-    [onCopy, onShowFullAddress, onViewDetail],
-  );
+      });
+    }
+
+    return menus;
+  }, [
+    network?.settings.hiddenBlockBrowserTokenDetailLink,
+    onCopy,
+    onShowFullAddress,
+    onViewDetail,
+  ]);
 
   return <BaseMenu options={options} {...props} />;
 };
