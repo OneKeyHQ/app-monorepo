@@ -1,4 +1,3 @@
-import { Transaction } from '@kaspa/core-lib';
 import { bytesToHex } from '@noble/hashes/utils';
 
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
@@ -6,28 +5,30 @@ import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
-import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { KeyringHardwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringHardwareBase';
 import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
+  ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
-  IMPL_KASPA as COIN_IMPL,
-  COINTYPE_KASPA as COIN_TYPE,
+  IMPL_NEXA as COIN_IMPL,
+  COINTYPE_NEXA as COIN_TYPE,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 // import { publicKeyFromX } from './sdk';
+import { type IEncodedTxNexa } from '../types';
 import {
-  SignatureType,
-  SigningMethodType,
-  toTransaction,
-} from './sdk/transaction';
+  buildInputScriptBuffer,
+  buildRawTx,
+  buildSignatures,
+  buildTxid,
+} from '../utils';
 
-import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
-import { signEncodedTx } from '../utils';
+import type { INexaInputSignature } from '../types';
 
 const SIGN_TYPE = 'Schnorr';
 
@@ -49,7 +50,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     let addressesResponse;
     try {
-      addressesResponse = await HardwareSDK.kaspaGetAddress(
+      addressesResponse = await HardwareSDK.nexaGetAddress(
         connectId,
         deviceId,
         {
@@ -97,7 +98,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const chainId = await this.getNetworkChainId();
 
-    const response = await HardwareSDK.kaspaGetAddress(connectId, deviceId, {
+    const response = await HardwareSDK.nexaGetAddress(connectId, deviceId, {
       path: params.path,
       showOnOneKey: params.showOnOneKey,
       prefix: chainId,
@@ -119,7 +120,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const chainId = await this.getNetworkChainId();
 
-    const response = await HardwareSDK.kaspaGetAddress(connectId, deviceId, {
+    const response = await HardwareSDK.nexaGetAddress(connectId, deviceId, {
       ...passphraseState,
       bundle: params.map(({ path, showOnOneKey }) => ({
         path,
@@ -138,92 +139,75 @@ export class KeyringHardware extends KeyringHardwareBase {
     }));
   }
 
-  async signTransaction(unsignedTx: UnsignedTx): Promise<SignedTx> {
+  async signTransaction(unsignedTx: UnsignedTx): Promise<ISignedTxPro> {
     debugLogger.common.info('signTransaction', unsignedTx);
     const dbAccount = await this.getDbAccount();
 
     const chainId = await this.getNetworkChainId();
 
-    const result = await signEncodedTx(unsignedTx, {
+    const { encodedTx } = unsignedTx.payload;
+    const { inputSignatures, outputSignatures } = buildSignatures(
+      encodedTx as IEncodedTxNexa,
+      dbAccount,
+    );
+    const unSignTx = {
+      version: 0,
+      inputs: inputSignatures.map((input) => ({
+        path: dbAccount.path,
+        prevTxId: input.prevTxId,
+        outputIndex: input.outputIndex,
+        sequenceNumber: input.sequenceNumber,
+        output: {
+          satoshis: input.amount.toString(),
+          script: bytesToHex(Buffer.alloc(0)),
+        },
+        sigOpCount: 1,
+      })),
+      outpus: outputSignatures.map((output) => ({
+        satoshis: output.satoshi.toString(),
+        script: bytesToHex(output.scriptBuffer),
+        scriptVersion: 0,
+      })),
+      lockTime: 0,
+      sigOpCount: 1,
+      scheme: SIGN_TYPE,
+      prefix: chainId,
+    };
 
-    }, dbAccount);
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
 
-    // const txn = toTransaction(unsignedTx.payload.encodedTx);
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const response = await HardwareSDK.nexaSignTransaction(
+      connectId,
+      deviceId,
+      {
+        ...unSignTx,
+        ...passphraseState,
+      },
+    );
 
-    // const unSignTx: KaspaSignTransactionParams = {
-    //   version: txn.version,
-    //   inputs: txn.inputs.map((input) => ({
-    //     path: dbAccount.path,
-    //     prevTxId: input.prevTxId.toString('hex'),
-    //     outputIndex: input.outputIndex,
-    //     sequenceNumber: input.sequenceNumber.toString(),
-    //     output: {
-    //       satoshis: input?.output?.satoshis.toString() ?? '',
-    //       script: bytesToHex(
-    //         input?.output?.script?.toBuffer() ?? Buffer.alloc(0),
-    //       ),
-    //     },
-    //     sigOpCount: input?.output?.script?.getSignatureOperationsCount() ?? 1,
-    //   })),
-    //   outputs: txn.outputs.map((output) => ({
-    //     satoshis: output.satoshis.toString(),
-    //     script: bytesToHex(output.script.toBuffer()),
-    //     scriptVersion: 0,
-    //   })),
-    //   lockTime: txn.nLockTime.toString(),
-    //   sigHashType: SignatureType.SIGHASH_ALL,
-    //   sigOpCount: 1,
-    //   scheme: SIGN_TYPE,
-    //   prefix: chainId,
-    // };
+    if (response.success) {
+      const { signatures, publicKey } = response.payload;
 
-    // const { connectId, deviceId } = await this.getHardwareInfo();
-    // const passphraseState = await this.getWalletPassphraseState();
+      const inputSigs: INexaInputSignature[] = inputSignatures.map(
+        (inputSig) => ({
+          ...inputSig,
+          publicKey,
+          signature: signatures,
+          scriptBuffer: buildInputScriptBuffer(publicKey, signatures),
+        }),
+      );
 
-    // const HardwareSDK = await this.getHardwareSDKInstance();
-    // const response = await HardwareSDK.kaspaSignTransaction(
-    //   connectId,
-    //   deviceId,
-    //   {
-    //     ...unSignTx,
-    //     ...passphraseState,
-    //   },
-    // );
+      const txid = buildTxid(inputSigs, outputSignatures);
+      const rawTx = buildRawTx(inputSigs, outputSignatures, 0, true);
 
-    // if (response.success) {
-    //   const signatures = response.payload;
-
-    //   for (const signature of signatures) {
-    //     const input = txn.inputs[signature.index];
-    //     // @ts-expect-error
-    //     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    //     const publicKeyBuf = input?.output?.script?.getPublicKey();
-    //     const publicKey = publicKeyFromX(true, bytesToHex(publicKeyBuf));
-
-    //     // @ts-expect-error
-    //     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    //     txn.inputs[signature.index].addSignature(
-    //       txn,
-    //       // @ts-expect-error
-    //       new Transaction.Signature({
-    //         publicKey,
-    //         prevTxId: input.prevTxId,
-    //         outputIndex: input.outputIndex,
-    //         inputIndex: signature.index,
-    //         signature: signature.signature,
-    //         sigtype: SignatureType.SIGHASH_ALL,
-    //       }),
-    //       SigningMethodType.Schnorr,
-    //     );
-    //   }
-
-    //   const rawTx = bytesToHex(txn.toBuffer());
-
-    //   return {
-    //     txid: '',
-    //     rawTx,
-    //   };
-    // }
+      return {
+        txid,
+        rawTx: rawTx.toString('hex'),
+        encodedTx,
+      };
+    }
 
     throw convertDeviceError(response.payload);
   }

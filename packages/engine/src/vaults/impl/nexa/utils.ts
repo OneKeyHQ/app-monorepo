@@ -147,7 +147,7 @@ function estimateFee(
   return feeWithChange;
 }
 
-function buildInputScriptBuffer(publicKey: Buffer, signature: Buffer) {
+export function buildInputScriptBuffer(publicKey: Buffer, signature: Buffer) {
   const scriptBuffer = scriptChunksToBuffer([
     bufferToScripChunk(scriptChunksToBuffer([bufferToScripChunk(publicKey)])),
     bufferToScripChunk(signature),
@@ -199,7 +199,7 @@ function buildOutputIdem({
   ]);
 }
 
-function buildRawTx(
+export function buildRawTx(
   inputSignatures: INexaInputSignature[],
   outputSignatures: INexaOutputSignature[],
   nLockTime = 0,
@@ -223,7 +223,7 @@ function buildRawTx(
   return idemBuffer;
 }
 
-function buildTxid(
+export function buildTxid(
   inputSignatures: INexaInputSignature[],
   outputSignatures: INexaOutputSignature[],
   nLockTime = 0,
@@ -260,7 +260,10 @@ function buildTxid(
   return txIdHash;
 }
 
-export const buildSignatures = (encodedTx: IEncodedTxNexa, dbAccount: DBAccount) => {
+export const buildSignatures = (
+  encodedTx: IEncodedTxNexa,
+  dbAccount: DBAccount,
+) => {
   const { inputs, outputs, gas } = encodedTx;
   const newOutputs = outputs.slice();
   const inputAmount: BN = inputs.reduce(
