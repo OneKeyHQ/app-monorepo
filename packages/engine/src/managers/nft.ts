@@ -14,6 +14,7 @@ import type {
 } from '@onekeyhq/engine/src/types/nft';
 import { NFTChainMap } from '@onekeyhq/engine/src/types/nft';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import simpleDb from '../dbs/simple/simpleDb';
@@ -264,10 +265,13 @@ export async function getLocalNFTs({
   networkId: string;
   accountId: string;
 }): Promise<NFTListItems> {
-  const key = getNFTListKey(accountId, networkId);
-  const items = await simpleDb.nft.getNFTs(key);
-  if (items) {
-    return items;
+  const res = await simpleDb.accountPortfolios.getPortfolio({
+    networkId: networkId ?? '',
+    accountId: accountId ?? '',
+  });
+  const nfts = res?.[EOverviewScanTaskType.nfts] || [];
+  if (nfts) {
+    return nfts as NFTListItems;
   }
   return [];
 }
