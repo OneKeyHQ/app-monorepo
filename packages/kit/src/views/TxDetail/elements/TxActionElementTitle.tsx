@@ -21,7 +21,11 @@ export function TxActionElementTitle(
   if (!title) {
     return null;
   }
-  return <Text {...others}>{title || ''}</Text>;
+  return (
+    <Text whiteSpace="nowrap" {...others}>
+      {title || ''}
+    </Text>
+  );
 }
 
 export function TxActionElementTitleHeading(

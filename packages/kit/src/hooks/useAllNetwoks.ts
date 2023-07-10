@@ -27,11 +27,13 @@ export const useAllNetworksWalletAccounts = ({
   walletId: string;
   accountId: string;
 }) => {
+  const [loading, setLoading] = useState(false);
   const [networkAccountsMap, setNetworkAccountMap] = useState<
     Record<string, Account[]>
   >({});
 
   useEffect(() => {
+    setLoading(true);
     backgroundApiProxy.serviceAllNetwork
       .getAllNetworksWalletAccounts({
         walletId,
@@ -39,8 +41,14 @@ export const useAllNetworksWalletAccounts = ({
       })
       .then((map) => {
         setNetworkAccountMap(map);
+      })
+      .finally(() => {
+        setLoading(false);
       });
   }, [walletId, accountId]);
 
-  return networkAccountsMap;
+  return {
+    loading,
+    data: networkAccountsMap,
+  };
 };

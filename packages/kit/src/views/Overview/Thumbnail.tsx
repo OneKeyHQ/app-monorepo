@@ -223,8 +223,10 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
             infoBoxProps={{ flex: 1 }}
             token={{
               logoURI: item.protocolIcon,
+              networkId: item._id.networkId,
               name: item.protocolName,
             }}
+            showNetworkIcon
           />
           {isVertical ? null : (
             <Typography.Body2Strong flex="1" numberOfLines={2} isTruncated>

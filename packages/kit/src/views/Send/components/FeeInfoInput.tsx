@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { TouchableOpacity } from 'react-native';
 
@@ -25,7 +26,6 @@ import { useNetworkFeeInfoEditable } from '../utils/useNetworkFeeInfoEditable';
 
 import { FeeSpeedLabel } from './FeeSpeedLabel';
 import { FeeSpeedTime } from './FeeSpeedTime';
-import { TxTitleDetailView } from './TxTitleDetailView';
 
 import type {
   IFeeInfoInputProps,
@@ -60,6 +60,46 @@ function PressableWrapper({
   return <>{children}</>;
 }
 
+function useDisableEditFeeUniversal({
+  feeInfoInputEditable,
+  feeInfoInputLoading,
+  sendConfirmParams,
+  encodedTx,
+  feeInfoPayload,
+  networkId,
+}: {
+  feeInfoInputLoading?: boolean;
+  feeInfoInputEditable?: boolean;
+  sendConfirmParams: SendConfirmParams;
+  encodedTx: any;
+  feeInfoPayload: IFeeInfoPayload | null;
+  networkId: string;
+}) {
+  const networkFeeInfoEditable = useNetworkFeeInfoEditable({ networkId });
+
+  const signOnlyDisabled = useMemo(() => {
+    let shouldDisabled = sendConfirmParams.signOnly;
+    if (
+      !isNil(sendConfirmParams.feeInfoEditable) &&
+      sendConfirmParams.feeInfoEditable
+    ) {
+      shouldDisabled = false;
+    }
+    return shouldDisabled;
+  }, [sendConfirmParams.feeInfoEditable, sendConfirmParams.signOnly]);
+
+  const disabled =
+    feeInfoInputLoading ||
+    !feeInfoInputEditable ||
+    !networkFeeInfoEditable ||
+    !encodedTx ||
+    !feeInfoPayload ||
+    signOnlyDisabled ||
+    feeInfoPayload?.info?.disableEditFee;
+
+  return disabled;
+}
+
 function FeeInfoInput({
   networkId,
   accountId,
@@ -74,15 +114,19 @@ function FeeInfoInput({
   const navigation = useNavigation<NavigationProps>();
   const route = useRoute<RouteProps>();
 
-  const disabled =
-    loading ||
-    !editable ||
-    !encodedTx ||
-    sendConfirmParams.signOnly ||
-    feeInfoPayload?.info?.disableEditFee;
+  const disabled = useDisableEditFeeUniversal({
+    sendConfirmParams,
+    feeInfoPayload,
+    feeInfoInputEditable: editable,
+    feeInfoInputLoading: loading,
+    encodedTx,
+    networkId,
+  });
+
   const navigateToEdit = useCallback(
     ({ replace = false }: { replace?: boolean } = {}) => {
       if (disabled) {
+        console.error('FeeInfoInput is disabled');
         return;
       }
       if (replace) {
@@ -146,257 +190,11 @@ function FeeInfoInput({
   );
 }
 
-const FeeInfoInputContainer = memo((props: IFeeInfoInputProps) => {
-  const networkFeeInfoEditable = useNetworkFeeInfoEditable({
-    networkId: props.networkId,
-  });
-  const editable = networkFeeInfoEditable && props.editable;
-  return <FeeInfoInput {...props} editable={editable} />;
-});
+const FeeInfoInputContainer = memo((props: IFeeInfoInputProps) => (
+  // noop
+  <FeeInfoInput {...props} />
+));
 FeeInfoInputContainer.displayName = 'FeeInfoInputContainer';
-
-function FeeInfoInputForTransfer({
-  encodedTx,
-  feeInfoPayload,
-  loading,
-  editable,
-  sendConfirmParams,
-  networkId,
-  accountId,
-}: {
-  encodedTx: any;
-  feeInfoPayload: IFeeInfoPayload | null;
-  loading: boolean;
-  editable?: boolean;
-  sendConfirmParams: SendConfirmParams;
-  networkId: string;
-  accountId: string;
-}) {
-  const intl = useIntl();
-  const isPreset = feeInfoPayload?.selected?.type === 'preset';
-  const showFirstTimeHint = useRef(true);
-  const networkFeeInfoEditable = useNetworkFeeInfoEditable({ networkId });
-
-  const icon: ReactElement | null = useMemo(() => {
-    if (!encodedTx) {
-      return null;
-    }
-    if (loading) {
-      return <Spinner size="sm" />;
-    }
-    if (feeInfoPayload && editable && networkFeeInfoEditable) {
-      return <Icon size={20} name="PencilMini" />;
-    }
-    return null;
-  }, [editable, encodedTx, feeInfoPayload, loading, networkFeeInfoEditable]);
-
-  const title = useMemo(() => {
-    if (!encodedTx || !feeInfoPayload) {
-      return null;
-    }
-    const totalNative = feeInfoPayload?.current?.totalNative ?? '0';
-
-    const typography = {
-      sm: 'Body1Strong',
-      md: 'Body2Strong',
-    } as any;
-
-    if (isPreset) {
-      return (
-        <Text typography={typography}>
-          <FeeSpeedLabel index={feeInfoPayload?.selected?.preset} space={1} />{' '}
-          <FormatCurrencyNativeOfAccount
-            networkId={networkId}
-            accountId={accountId}
-            value={totalNative}
-            render={(ele) => <>(~ {ele})</>}
-          />
-        </Text>
-      );
-    }
-    // TODO fallback to native value if fiat price is null
-    return (
-      <Text typography={typography}>
-        <FormatCurrencyNativeOfAccount
-          networkId={networkId}
-          accountId={accountId}
-          value={totalNative}
-          render={(ele) => <>{ele}</>}
-        />
-      </Text>
-    );
-  }, [accountId, encodedTx, feeInfoPayload, isPreset, networkId]);
-
-  const subTitle = useMemo(() => {
-    if (!isPreset || !encodedTx || !feeInfoPayload) {
-      return null;
-    }
-    let feeSpeedTime = '';
-    if (feeInfoPayload?.selected?.type === 'preset') {
-      if (feeInfoPayload?.selected?.preset === '0')
-        feeSpeedTime = intl.formatMessage({
-          id: 'content__maybe_in_30s',
-        });
-      if (feeInfoPayload?.selected?.preset === '1')
-        feeSpeedTime = intl.formatMessage({
-          id: 'content__likely_less_than_15s',
-        });
-      if (feeInfoPayload?.selected?.preset === '2')
-        feeSpeedTime = intl.formatMessage({
-          id: 'content__very_likely_less_than_15s',
-        });
-    }
-
-    return (
-      <Text color="text-subdued" flex={1}>
-        {feeSpeedTime}
-      </Text>
-    );
-  }, [encodedTx, feeInfoPayload, intl, isPreset]);
-
-  const loadingView = useMemo(
-    () => (
-      <Text color="text-subdued" flex={1}>
-        {intl.formatMessage({ id: 'content__calculate_fee' })}
-      </Text>
-    ),
-    [intl],
-  );
-
-  const hint = useMemo(() => {
-    let text = '';
-    if (!feeInfoPayload && showFirstTimeHint.current) {
-      showFirstTimeHint.current = false;
-      text = intl.formatMessage({ id: 'content__calculate_fee' });
-    }
-    if (text) {
-      return (
-        <Text color="text-subdued" flex={1}>
-          {text}
-        </Text>
-      );
-    }
-    if (!title && !subTitle) {
-      return loadingView;
-    }
-    return null;
-  }, [feeInfoPayload, intl, loadingView, title, subTitle]);
-
-  const renderChildren = useCallback(
-    ({ isHovered }) => (
-      // fee TODO encodedTxRef.current -> bg -> unsignedTx -> gasLimit -> feeInfo
-      <Box
-        justifyContent="space-between"
-        alignItems="center"
-        flexDirection="row"
-        bgColor={isHovered ? 'surface-hovered' : 'surface-default'}
-        borderColor="border-default"
-        borderWidth="1px"
-        borderRadius="12px"
-        paddingX="12px"
-        paddingY="8px"
-      >
-        <Box flex={1}>
-          {loading ? (
-            loadingView
-          ) : (
-            <>
-              {title}
-              {subTitle}
-              {hint}
-            </>
-          )}
-        </Box>
-        {icon}
-      </Box>
-    ),
-    [hint, icon, loading, loadingView, subTitle, title],
-  );
-  return (
-    <FeeInfoInputContainer
-      networkId={networkId}
-      accountId={accountId}
-      sendConfirmParams={sendConfirmParams}
-      editable={editable}
-      encodedTx={encodedTx}
-      feeInfoPayload={feeInfoPayload}
-      loading={loading}
-      renderChildren={renderChildren}
-    />
-  );
-}
-
-function FeeInfoInputForConfirm({
-  encodedTx,
-  feeInfoPayload,
-  loading,
-  editable,
-  sendConfirmParams,
-  networkId,
-  accountId,
-}: {
-  encodedTx: any;
-  feeInfoPayload: IFeeInfoPayload | null;
-  loading?: boolean;
-  editable?: boolean;
-  sendConfirmParams: SendConfirmParams;
-  networkId: string;
-  accountId: string;
-}) {
-  const intl = useIntl();
-  const networkFeeInfoEditable = useNetworkFeeInfoEditable({ networkId });
-
-  const renderChildren = useCallback(
-    ({ isHovered }) => {
-      let totalFeeInNative = feeInfoPayload?.current?.totalNative || '-';
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (encodedTx.totalFeeInNative) {
-        // for UTXO model chains fee display
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        totalFeeInNative = encodedTx.totalFeeInNative;
-      }
-      return (
-        <TxTitleDetailView
-          isHovered={isHovered}
-          arrow={
-            editable && networkFeeInfoEditable && !loading && !!feeInfoPayload
-          }
-          title={`${intl.formatMessage({
-            id: 'content__fee',
-          })}(${intl.formatMessage({ id: 'content__estimated' })})`}
-          detail={
-            loading ? (
-              <Spinner />
-            ) : (
-              `${totalFeeInNative} ${feeInfoPayload?.info?.nativeSymbol || ''}`
-            )
-          }
-        />
-      );
-    },
-    [
-      editable,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      encodedTx.totalFeeInNative, // for UTXO model chains fee display
-      feeInfoPayload,
-      intl,
-      loading,
-      networkFeeInfoEditable,
-    ],
-  );
-  return (
-    <FeeInfoInputContainer
-      networkId={networkId}
-      accountId={accountId}
-      sendConfirmParams={sendConfirmParams}
-      editable={editable}
-      encodedTx={encodedTx}
-      feeInfoPayload={feeInfoPayload}
-      loading={loading}
-      renderChildren={renderChildren}
-    />
-  );
-}
 
 function FeeInfoInputForConfirmLite({
   encodedTx,
@@ -419,7 +217,6 @@ function FeeInfoInputForConfirmLite({
 }) {
   const intl = useIntl();
   const isPreset = feeInfoPayload?.selected?.type === 'preset';
-  const networkFeeInfoEditable = useNetworkFeeInfoEditable({ networkId });
 
   const [hasTooltipOpen, setHasTooltipOpen] = useState(false);
 
@@ -438,7 +235,15 @@ function FeeInfoInputForConfirmLite({
     totalFeeInNative = encodedTx.totalFeeInNative;
   }
 
-  const feeInfoEditable = feeInfoPayload && editable && networkFeeInfoEditable;
+  const feeInfoDisabled = useDisableEditFeeUniversal({
+    feeInfoInputLoading: loading,
+    feeInfoInputEditable: editable,
+    feeInfoPayload,
+    networkId,
+    encodedTx,
+    sendConfirmParams,
+  });
+  const feeInfoEditable = !feeInfoDisabled;
 
   const title = useMemo(() => {
     if (!encodedTx || !feeInfoPayload) {
@@ -455,7 +260,12 @@ function FeeInfoInputForConfirmLite({
       : custom?.waitingSeconds;
     return (
       <HStack alignItems="center">
-        <HStack flex={1} space={2} alignItems="center">
+        <HStack
+          testID="FeeInfoInputForConfirmLite-ContentTitle-0"
+          flex={1}
+          space={2}
+          alignItems="center"
+        >
           <FeeSpeedLabel
             prices={feeInfoPayload?.info?.prices}
             isCustom={!isPreset}
@@ -471,7 +281,11 @@ function FeeInfoInputForConfirmLite({
           />
         </HStack>
         {feeInfoEditable && (
-          <Icon name="ChevronRightMini" color="icon-subdued" />
+          <Icon
+            testID="FeeInfoInputForConfirmLite-ChevronRightMini-Icon"
+            name="ChevronRightMini"
+            color="icon-subdued"
+          />
         )}
       </HStack>
     );
@@ -687,6 +501,4 @@ export {
   FeeInfoInputContainer,
   FeeInfoInputForConfirmLite,
   FeeInfoInputForSpeedUpOrCancel,
-  FeeInfoInputForTransfer, // TODO legacy component
-  FeeInfoInputForConfirm, // TODO legacy component
 };

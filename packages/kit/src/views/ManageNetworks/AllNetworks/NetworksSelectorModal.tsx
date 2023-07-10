@@ -3,7 +3,14 @@ import { useCallback } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Badge, HStack, Modal, Pressable, Token } from '@onekeyhq/components';
+import {
+  Badge,
+  HStack,
+  Modal,
+  Pressable,
+  Spinner,
+  Token,
+} from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -33,7 +40,7 @@ function AllNetworksNetworkSelectorModal() {
 
   const { walletId, accountId, filter, onConfirm } = route?.params ?? {};
 
-  const networkAccounts = useAllNetworksWalletAccounts({
+  const { data: networkAccounts, loading } = useAllNetworksWalletAccounts({
     accountId,
     walletId,
   });
@@ -110,6 +117,8 @@ function AllNetworksNetworkSelectorModal() {
     [intl, networkAccounts, filter, handlePress],
   );
 
+  const empty = loading ? <Spinner size="lg" /> : null;
+
   return (
     <Modal
       header={intl.formatMessage({ id: 'form__select_network' })}
@@ -118,12 +127,13 @@ function AllNetworksNetworkSelectorModal() {
       style={{ padding: 0 }}
       flatListProps={{
         style: { padding: 0 },
-        data: allNetworks,
+        data: loading ? [] : allNetworks,
         // eslint-disable-next-line
         // @ts-ignore
         renderItem,
         keyExtractor: (item) => (item as Network).id,
         showsVerticalScrollIndicator: false,
+        ListEmptyComponent: empty,
       }}
     />
   );

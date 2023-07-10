@@ -139,6 +139,9 @@ export type IVaultSettings = {
   displayFullAddress?: boolean;
   rpcStatusDisabled?: boolean;
   useSimpleTipForSpecialCheckEncodedTx?: boolean;
+  hexDataEditable?: boolean;
+
+  hiddenBlockBrowserTokenDetailLink?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;
@@ -282,6 +285,7 @@ export enum IEncodedTxUpdateType {
   speedUp = 'speedUp',
   cancel = 'cancel',
   advancedSettings = 'advancedSettings',
+  customData = 'customData',
 }
 
 export type IEncodedTxUpdateOptions = {
@@ -538,6 +542,7 @@ export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
   decimals: number;
   name: string;
   symbol: string;
+  networkId: string;
 };
 export type IDecodedTxActionEvmInfo = {
   from: string;

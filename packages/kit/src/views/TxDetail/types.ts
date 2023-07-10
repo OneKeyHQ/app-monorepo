@@ -43,6 +43,7 @@ export type ITxActionCardProps = {
   meta?: ITxActionMeta;
   intl: IntlShape;
   network?: Network | null;
+  isShortenAddress?: boolean;
 };
 
 export type ITxActionAmountProps = ComponentProps<typeof Text> & {
@@ -63,11 +64,13 @@ export type ITxActionElementDetail = {
 export type ITxActionCardViewProps = {
   title?: JSX.Element;
   subTitle?: JSX.Element;
+  desc?: JSX.Element;
   icon?: JSX.Element;
   content?: JSX.Element;
   details?: Array<ITxActionElementDetail | undefined | null>;
   isSingleTransformMode?: boolean;
   showTitleDivider?: boolean;
+  showContentDivider?: boolean;
 };
 
 export type ITxActionListViewProps = {

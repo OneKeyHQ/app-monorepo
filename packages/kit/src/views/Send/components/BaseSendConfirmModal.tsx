@@ -19,6 +19,7 @@ import {
   useNativeToken,
   useTokenBalanceWithoutFrozen,
 } from '../../../hooks';
+import { isHexString } from '../../../utils/helper';
 import { EditableNonceStatusEnum } from '../types';
 
 import { BaseSendModal } from './BaseSendModal';
@@ -78,11 +79,11 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
   const editableNonceStatus = useMemo(() => {
     if (network?.settings.nonceEditable && advancedSettings?.currentNonce) {
       const currentNonceBN = new BigNumber(advancedSettings.currentNonce);
-      const originNonceBN = new BigNumber(advancedSettings.originNonce);
-      if (currentNonceBN.isLessThan(originNonceBN)) {
+      const originalNonceBN = new BigNumber(advancedSettings.originalNonce);
+      if (currentNonceBN.isLessThan(originalNonceBN)) {
         return EditableNonceStatusEnum.Less;
       }
-      if (currentNonceBN.isGreaterThan(originNonceBN)) {
+      if (currentNonceBN.isGreaterThan(originalNonceBN)) {
         return EditableNonceStatusEnum.Greater;
       }
 
@@ -137,6 +138,17 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
     feeInfoPayload?.selected.preset,
     feeInfoPayload?.selected.type,
   ]);
+
+  const isInvalidHexData = useMemo(() => {
+    if (
+      advancedSettings?.currentHexData &&
+      !isHexString(advancedSettings?.currentHexData)
+    ) {
+      return true;
+    }
+
+    return false;
+  }, [advancedSettings?.currentHexData]);
 
   const confirmAction = useCallback(
     async ({ close, onClose }) => {
@@ -274,6 +286,7 @@ export function BaseSendConfirmModal(props: ITxConfirmViewProps) {
       primaryActionProps={{
         isDisabled:
           isWatching ||
+          isInvalidHexData ||
           balanceInsufficient ||
           isAccountNotMatched ||
           feeInfoLoading ||
