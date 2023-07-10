@@ -25,6 +25,7 @@ import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatBalanceTokenOfAccount } from '../../../components/Format';
@@ -49,19 +50,33 @@ type RouteProps = RouteProp<
   InscribeModalRoutes.CreateOrder
 >;
 
-const TipWithLabel: FC<{ label: string }> = ({ label }) => (
-  <Tooltip label={label} placement="top">
-    <Pressable
-      borderRadius="full"
-      p="2px"
-      position="relative"
-      _hover={{ bg: 'surface-hovered' }}
-      _pressed={{ bg: 'surface-pressed' }}
+const TipWithLabel: FC<{ label: string }> = ({ label }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <Tooltip
+      label={label}
+      placement="top"
+      hasArrow
+      isOpen={platformEnv.isNative ? isOpen : undefined}
     >
-      <Icon name="InformationCircleMini" size={20} color="icon-subdued" />
-    </Pressable>
-  </Tooltip>
-);
+      <Pressable
+        onPressIn={() => {
+          setIsOpen(true);
+        }}
+        onPressOut={() => {
+          setIsOpen(false);
+        }}
+        borderRadius="full"
+        p="2px"
+        position="relative"
+        _hover={{ bg: 'surface-hovered' }}
+        _pressed={{ bg: 'surface-pressed' }}
+      >
+        <Icon name="InformationCircleMini" size={20} color="icon-subdued" />
+      </Pressable>
+    </Tooltip>
+  );
+};
 
 const CreateOrder: FC = () => {
   const intl = useIntl();
@@ -182,6 +197,7 @@ const CreateOrder: FC = () => {
               feeInfoEditable: true,
               feeInfoUseFeeInTx: false,
               hideSendFeedbackReceipt: true,
+              hideAdvancedSetting: true,
               encodedTx: fundingEncodedTx,
               onSuccess: async (commitSignedTx) => {
                 await submitOrder(commitSignedTx);
@@ -253,7 +269,7 @@ const CreateOrder: FC = () => {
             borderRadius="12px"
             mt="8px"
           >
-            <Text typography="Body2Mono" color="text-subdued">
+            <Text typography="Body2Mono" color="text-subdued" numberOfLines={4}>
               {contents[0].previewText}
             </Text>
           </Box>
@@ -281,7 +297,10 @@ const CreateOrder: FC = () => {
             accessibilityLabel="fee"
             step={1}
             value={sat}
-            onChange={setSat}
+            onChange={(value) => {
+              setLoading(true);
+              setSat(value);
+            }}
             onChangeEnd={(value) => {
               setSat(value);
               refreshData(value);

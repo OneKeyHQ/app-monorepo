@@ -1801,7 +1801,7 @@
   "modal__bootloader_update": "Mise à jour du chargeur de démarrage",
   "modal__calculator": "Calculatrice",
   "modal__camera_access_not_granted": "Accès à la caméra non autorisé",
-  "modal__camera_access_not_granted_desc": "Allez dans Paramètres pour activer l'accès à la caméra.",
+  "modal__camera_access_not_granted_desc": "OneKey nécessite un accès à la caméra pour la numérisation du code QR. Pour utiliser cette fonctionnalité, vous devez accéder aux paramètres et activer les autorisations de la caméra.",
   "modal__charts": "Graphiques",
   "modal__check_firmware_update_failure": "Échec de la vérification de la mise à jour du micrologiciel",
   "modal__check_firmware_update_failure_desc": "Redémarrez l'appareil et cliquez sur Réessayer, ou vérifiez si la mise à jour a réussi sur l'appareil.",

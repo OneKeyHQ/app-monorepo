@@ -1,9 +1,10 @@
 export type InscribeFile = {
   type: string;
-  data: string;
   dataLength?: number;
-  size: number;
-  name: string;
+  size?: number;
+  name?: string | null;
+  dataForUI?: string;
+  dataForAPI?: string;
 };
 
 export interface Props {
@@ -11,4 +12,6 @@ export interface Props {
   setFileFromOut: React.Dispatch<
     React.SetStateAction<InscribeFile | undefined>
   >;
+  error?: string;
+  setError: React.Dispatch<React.SetStateAction<string>>;
 }

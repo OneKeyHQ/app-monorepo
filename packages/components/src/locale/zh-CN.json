@@ -1801,7 +1801,7 @@
   "modal__bootloader_update": "固件引导程序更新",
   "modal__calculator": "计算器",
   "modal__camera_access_not_granted": "未获得摄像头访问权限",
-  "modal__camera_access_not_granted_desc": "请到设置中打开摄像头权限。",
+  "modal__camera_access_not_granted_desc": "OneKey 需要相机访问权限才能扫描二维码。要使用此功能，您需要转到「设置」并打开相机权限。",
   "modal__charts": "图表",
   "modal__check_firmware_update_failure": "检查固件升级失败",
   "modal__check_firmware_update_failure_desc": "重新启动设备并点击重试，或者检查设备上的更新是否成功。",

@@ -1801,7 +1801,7 @@
   "modal__bootloader_update": "Оновлення завантажувача",
   "modal__calculator": "Калькулятор",
   "modal__camera_access_not_granted": "Доступ до камери не надано",
-  "modal__camera_access_not_granted_desc": "Перейдіть у налаштування, щоб увімкнути доступ до камери.",
+  "modal__camera_access_not_granted_desc": "OneKey вимагає доступу до камери для сканування QR-коду. Щоб скористатися цією функцією, потрібно перейти в налаштування та ввімкнути дозволи камери.",
   "modal__charts": "Діаграми",
   "modal__check_firmware_update_failure": "Не вдалося перевірити оновлення мікропрограми",
   "modal__check_firmware_update_failure_desc": "Перезапустіть пристрій і натисніть «Повторити», або перевірте, чи успішно оновлено на пристрої.",
