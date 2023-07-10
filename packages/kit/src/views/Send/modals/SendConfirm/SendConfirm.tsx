@@ -340,7 +340,7 @@ function SendConfirm({
     />
   );
 
-  const advancedSettingsForm = (
+  const advancedSettingsForm = !routeParams.hideAdvancedSetting ? (
     <SendConfirmAdvancedSettings
       accountId={accountId}
       networkId={networkId}
@@ -349,7 +349,7 @@ function SendConfirm({
       setAdvancedSettings={setAdvancedSettings}
       isLoadingAdvancedSettings={isLoadingAdvancedSettings}
     />
-  );
+  ) : undefined;
 
   const sharedProps: ITxConfirmViewProps = {
     accountId,

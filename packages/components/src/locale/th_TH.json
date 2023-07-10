@@ -1801,7 +1801,7 @@
   "modal__bootloader_update": "อัพเดต Bootloader",
   "modal__calculator": "เครื่องคิดเลข",
   "modal__camera_access_not_granted": "ไม่อนุญาตให้เข้าถึงกล้อง",
-  "modal__camera_access_not_granted_desc": "ไปที่การตั้งค่าเพื่อเปิดการเข้าถึงกล้อง",
+  "modal__camera_access_not_granted_desc": "OneKey ต้องการการเข้าถึงกล้องสำหรับการสแกนรหัส QR หากต้องการใช้คุณสมบัตินี้ คุณต้องไปที่การตั้งค่าและเปิดการอนุญาตกล้อง",
   "modal__charts": "ชาร์ต",
   "modal__check_firmware_update_failure": "ไม่สามารถตรวจสอบการอัพเกรดเฟิร์มแวร์ได้",
   "modal__check_firmware_update_failure_desc": "รีสตาร์ทอุปกรณ์แล้วคลิกลองอีกครั้ง หรือตรวจสอบว่าการอัปเดตบนอุปกรณ์สำเร็จหรือไม่",

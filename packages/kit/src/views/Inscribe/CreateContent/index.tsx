@@ -43,7 +43,7 @@ const CreateContent: FC = () => {
   const { networkId, accountId } = route?.params || {};
   const [file, setFileFromOut] = useState<InscribeFile>();
   const [text, setText] = useState<string>('');
-  // const [showFileError, setShowFileError] = useState(false);
+  const [error, setError] = useState('');
   const { serviceInscribe } = backgroundApiProxy;
 
   const rightContent = useMemo(
@@ -70,10 +70,14 @@ const CreateContent: FC = () => {
         size: 0,
       };
     if (selectIndex === 0) {
-      if (file) {
+      if (file?.dataForAPI && file?.name) {
         contents = await serviceInscribe.createInscriptionContents({
           files: [
-            { data: file?.data, filename: file?.name, mimetype: file?.type },
+            {
+              data: file?.dataForAPI,
+              filename: file?.name,
+              mimetype: file?.type,
+            },
           ],
         });
         Object.assign(routeParams, { size: file.size, contents });
@@ -103,14 +107,14 @@ const CreateContent: FC = () => {
   ]);
 
   const primaryDisable = useMemo(() => {
-    if (selectIndex === 0 && file) {
+    if (selectIndex === 0 && file && error.length === 0) {
       return false;
     }
     if (selectIndex === 1 && text.trim().length > 0) {
       return false;
     }
     return true;
-  }, [file, selectIndex, text]);
+  }, [error.length, file, selectIndex, text]);
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__inscribe' })}
@@ -146,7 +150,7 @@ const CreateContent: FC = () => {
           <InscribeUploader
             file={file}
             setFileFromOut={setFileFromOut}
-            // setShowFileError={setShowFileError}
+            setError={setError}
           />
         ) : (
           <Textarea
@@ -157,8 +161,13 @@ const CreateContent: FC = () => {
           />
         )}
 
-        {selectIndex === 0 && file?.data ? (
-          <FileDescription file={file} />
+        {selectIndex === 0 && (file?.dataForUI || error.length > 0) ? (
+          <FileDescription file={file} error={error} />
+        ) : null}
+        {selectIndex === 0 && error.length > 0 ? (
+          <Text mt="12px" typography="Caption" color="text-critical">
+            {error}
+          </Text>
         ) : null}
         <Text typography="Caption" color="text-subdued" mt="12px">
           {intl.formatMessage({

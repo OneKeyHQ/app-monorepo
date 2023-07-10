@@ -1801,7 +1801,7 @@
   "modal__bootloader_update": "বুটলোডার আপডেট",
   "modal__calculator": "ক্যালকুলেটর",
   "modal__camera_access_not_granted": "ক্যামেরা অ্যাক্সেস দেওয়া হয়নি",
-  "modal__camera_access_not_granted_desc": "ক্যামেরা অ্যাক্সেস চালু করতে সেটিংসে যান।",
+  "modal__camera_access_not_granted_desc": "QR কোড স্ক্যান করার জন্য OneKey-এর ক্যামেরা অ্যাক্সেস প্রয়োজন। এই বৈশিষ্ট্যটি ব্যবহার করতে আপনাকে সেটিংসে যেতে হবে এবং ক্যামেরা অনুমতিগুলি চালু করতে হবে।",
   "modal__charts": "চার্ট",
   "modal__check_firmware_update_failure": "ফার্মওয়্যার আপগ্রেড পরীক্ষা করতে ব্যর্থ হয়েছে৷",
   "modal__check_firmware_update_failure_desc": "ডিভাইসটি পুনঃশুরু করুন এবং পুনরায় চেষ্টা করুন ক্লিক করুন, অথবা আপডেটটি ডিভাইসে সফল কিনা তা পরীক্ষা করুন।",

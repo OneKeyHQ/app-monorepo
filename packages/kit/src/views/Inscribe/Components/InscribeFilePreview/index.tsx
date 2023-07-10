@@ -7,9 +7,6 @@ import { formatBytes } from '../../../../utils/hardware/homescreens';
 import type { InscribeFile } from '../InscribeUploader/type';
 
 export const InscribeFilePreview: FC<{ file: InscribeFile }> = ({ file }) => {
-  console.log('file = ', file);
-  console.log('file = ', file.type);
-
   if (file.type.includes('image/png') || file.type.includes('image/jpeg')) {
     return (
       <Box w="full" h="full">
@@ -18,7 +15,7 @@ export const InscribeFilePreview: FC<{ file: InscribeFile }> = ({ file }) => {
           resizeMode="cover"
           width={366}
           height={148}
-          source={{ uri: file.data }}
+          source={{ uri: file.dataForUI }}
         />
       </Box>
     );
@@ -33,7 +30,7 @@ export const InscribeFilePreview: FC<{ file: InscribeFile }> = ({ file }) => {
       >
         {file.name}
       </Text>
-      <Text typography="Caption">{formatBytes(file.size)}</Text>
+      {file.size && <Text typography="Caption">{formatBytes(file.size)}</Text>}
     </Center>
   );
 };

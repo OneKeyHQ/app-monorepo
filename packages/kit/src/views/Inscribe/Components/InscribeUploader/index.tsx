@@ -1,21 +1,31 @@
+import { useState } from 'react';
+
 import { useDropzone } from 'react-dropzone';
 import { useIntl } from 'react-intl';
 
-import { Center, Icon, Text, useThemeValue } from '@onekeyhq/components';
+import {
+  Center,
+  Icon,
+  Spinner,
+  Text,
+  useThemeValue,
+} from '@onekeyhq/components';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import {
   fileToBuffer,
   fileToDataUrl,
 } from '../../../../utils/hardware/homescreens';
+import { checkFileSize } from '../../CreateContent/util';
 import { InscribeFilePreview } from '../InscribeFilePreview';
 
 import type { Props } from './type';
 
 function InscribeUploader(props: Props) {
-  const { file: fileFromOut, setFileFromOut } = props;
+  const { file: fileFromOut, setFileFromOut, setError } = props;
   const [uploaderBg, uploaderBorderColor, uploaderActiveBorderColor] =
     useThemeValue(['surface-default', 'border-default', 'interactive-default']);
+  const [isLoading, setLoading] = useState(false);
 
   const intl = useIntl();
 
@@ -24,30 +34,57 @@ function InscribeUploader(props: Props) {
     accept: {
       'text/plain': ['.txt'],
       'image/png': ['.png', '.PNG'],
-      // 'image/gif': ['.gif'],
+      'image/gif': ['.gif'],
       'image/jpeg': ['.jpeg', '.jpg'],
       'application/json': ['.json'],
-      // 'audio/mpeg': ['.mp3'],
-      // 'video/mp4': ['.mp4'],
-      // 'image/webp': ['.webp'],
+      'audio/mpeg': ['.mp3'],
+      'video/mp4': ['.mp4'],
+      'image/webp': ['.webp'],
     },
     onDropAccepted: async (files) => {
       try {
         const file = files[0] as File;
-        // const data = await RNFS.readFile(file., 'base64');
+        setFileFromOut(undefined);
+        setError('');
+        setLoading(true);
 
         const data = await fileToBuffer(file);
-        const dataHex = bufferUtils.bytesToHex(data);
+        if (!checkFileSize(data.length)) {
+          setError(
+            intl.formatMessage(
+              { id: 'msg__file_size_should_less_than_str' },
+              { 0: '380KB' },
+            ),
+          );
+          if (file.type !== 'image') {
+            setFileFromOut({
+              dataForUI: '',
+              dataForAPI: '',
+              dataLength: data.length,
+              name: file.name,
+              size: file.size,
+              type: file.type,
+            });
+            setLoading(false);
+            return;
+          }
+        }
+        const dataForUI = await fileToDataUrl(file);
+
+        const dataForAPI = bufferUtils.bytesToHex(data);
         if (data) {
           setFileFromOut({
-            data: dataHex,
+            dataForAPI,
+            dataForUI,
             dataLength: data.length,
             name: file.name,
             size: file.size,
             type: file.type,
           });
+          setLoading(false);
         }
       } catch (e) {
+        setLoading(false);
         console.log('e = ', e);
       }
     },
@@ -56,42 +93,41 @@ function InscribeUploader(props: Props) {
   });
 
   return (
-    <>
-      <div
-        {...getRootProps()}
-        style={{
-          cursor: 'pointer',
-          background: uploaderBg,
-          borderWidth: 1,
-          borderStyle: 'solid',
-          borderRadius: '12px',
-          height: '148px',
-          overflow: 'hidden',
-          borderColor: isDragAccept
-            ? uploaderActiveBorderColor
-            : uploaderBorderColor,
-        }}
-      >
-        <input {...getInputProps()} />
-
-        {!fileFromOut ? (
-          <Center w="full" h="full">
-            <Icon name="ArrowUpTrayOutline" size={36} />
-            <Text fontSize={14} mt="20px">
-              {intl.formatMessage({ id: 'form__drag_or_drop_file_to_import' })}
-            </Text>
-          </Center>
-        ) : (
-          <InscribeFilePreview file={fileFromOut} />
-        )}
-      </div>
-      {/* <Box mt={3}>
-        <ReceiverErrors receiverErrors={[]} showFileError={showFileError} />
-      </Box>
-      <Box mt={4}>
-        <ReceiverExample />
-      </Box> */}
-    </>
+    <div
+      {...getRootProps()}
+      style={{
+        cursor: 'pointer',
+        background: uploaderBg,
+        borderWidth: 1,
+        borderStyle: 'solid',
+        borderRadius: '12px',
+        height: '148px',
+        overflow: 'hidden',
+        borderColor: isDragAccept
+          ? uploaderActiveBorderColor
+          : uploaderBorderColor,
+      }}
+    >
+      <input {...getInputProps()} />
+      {!fileFromOut ? (
+        <Center w="full" h="full">
+          {isLoading ? (
+            <Spinner size="lg" />
+          ) : (
+            <>
+              <Icon name="ArrowUpTrayOutline" size={36} />
+              <Text fontSize={14} mt="20px">
+                {intl.formatMessage({
+                  id: 'form__drag_or_drop_file_to_import',
+                })}
+              </Text>
+            </>
+          )}
+        </Center>
+      ) : (
+        <InscribeFilePreview file={fileFromOut} />
+      )}
+    </div>
   );
 }
 

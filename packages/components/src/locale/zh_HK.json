@@ -1801,7 +1801,7 @@
   "modal__bootloader_update": "固件引導程序更新",
   "modal__calculator": "計算器",
   "modal__camera_access_not_granted": "未授予相機訪問權限",
-  "modal__camera_access_not_granted_desc": "轉到設定以打開相機訪問權限。",
+  "modal__camera_access_not_granted_desc": "OneKey 需要相機訪問權限才能掃描二維碼。要使用此功能，您需要轉到「設置」並打開相機權限。",
   "modal__charts": "圖表",
   "modal__check_firmware_update_failure": "檢查固件升級失敗",
   "modal__check_firmware_update_failure_desc": "重啟設備並點擊重試，或者查看設備是否更新成功。",
