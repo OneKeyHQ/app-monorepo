@@ -114,7 +114,7 @@ function PreSendAddress() {
         if (nftTokenId) {
           const contractAddress = transferInfo.token;
           const asset = await serviceNFT.getAsset({
-            accountId: account?.address ?? '',
+            accountId: account?.id ?? '',
             networkId,
             contractAddress,
             tokenId: nftTokenId,

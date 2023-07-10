@@ -504,7 +504,13 @@ export default class Vault extends VaultBase {
         let to = '';
         if (receiverExistsOutput && !senderExistsInput) {
           // receive
-          from = inputs[0].previous_outpoint_address;
+          try {
+            from = inputs[0].previous_outpoint_address;
+          } catch (e) {
+            // mint miner
+            from = 'kaspa:00000000';
+          }
+
           to = dbAccount.address;
         } else if (senderExistsInput && receiverExistsOutput) {
           // send and send self
@@ -577,10 +583,14 @@ export default class Vault extends VaultBase {
             new BigNumber(0),
           );
 
-          nativeFee = inputAmount
-            .minus(outputAmount)
-            .shiftedBy(-decimals)
-            .toFixed();
+          if (inputAmount.isLessThanOrEqualTo(0)) {
+            nativeFee = '0';
+          } else {
+            nativeFee = inputAmount
+              .minus(outputAmount)
+              .shiftedBy(-decimals)
+              .toFixed();
+          }
         } catch {
           nativeFee = new BigNumber(tx.mass).shiftedBy(-decimals).toFixed();
         }

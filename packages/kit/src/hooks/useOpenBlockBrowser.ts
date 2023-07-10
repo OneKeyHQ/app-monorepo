@@ -35,6 +35,9 @@ export function buildTransactionDetailsUrl(
   return fixedUrl.replace('{transaction}', txId);
 }
 
+/**
+ * Priority use useOpenBlockBrowser
+ */
 export function buildAddressDetailsUrl(
   network: Network | null | undefined,
   address: string | null | undefined,
@@ -47,7 +50,7 @@ export function buildAddressDetailsUrl(
   return fixedUrl.replace('{address}', address);
 }
 
-export function buildBlockDetailsUrl(
+function buildBlockDetailsUrl(
   network: Network | null | undefined,
   block: string | null | undefined,
 ) {
