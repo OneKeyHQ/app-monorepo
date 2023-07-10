@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Box,
   Form,
   ToastManager,
@@ -26,6 +27,7 @@ import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressInput from '../../../components/AddressInput';
+import { AddressLabel } from '../../../components/AddressLabel';
 import NameServiceResolver, {
   useNameServiceStatus,
 } from '../../../components/NameServiceResolver';
@@ -34,7 +36,6 @@ import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounce
 import { useSingleToken } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { BulkSenderTypeEnum } from '../../BulkSender/types';
-import { GoPlusSecurityItems } from '../../ManageTokens/components/GoPlusAlertItems';
 import { BaseSendModal } from '../components/BaseSendModal';
 import NFTView from '../components/NFTView';
 import { SendModalRoutes } from '../types';
@@ -42,6 +43,7 @@ import { SendModalRoutes } from '../types';
 import type { ModalScreenProps } from '../../../routes/types';
 import type { SendRoutesParams } from '../types';
 import type { RouteProp } from '@react-navigation/core';
+import type { MessageDescriptor } from 'react-intl';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
@@ -62,6 +64,11 @@ function PreSendAddress() {
   const [isLoadingAssets, setIsLoadingAssets] = useState(false);
   const [isValidatingAddress, setIsValidatingAddress] = useState(false);
   const [displayDestinationTag, setDisplayDestinationTag] = useState(false);
+  const [isAddressBook, setIsAddressBook] = useState(false);
+  const [isContractAddress, setIsContractAddress] = useState(false);
+  const [isValidAddress, setIsValidAddress] = useState(false);
+  const [validAddressMessage, setValidAddressMessage] =
+    useState<MessageDescriptor['id']>();
   const { serviceNFT, serviceBatchTransfer, engine } = backgroundApiProxy;
   const routeParams = useMemo(() => ({ ...route.params }), [route.params]);
   const { transferInfos, accountId, networkId, closeModal, ...reset } =
@@ -121,8 +128,6 @@ function PreSendAddress() {
   }, [transferInfo.nftTokenId, transferInfo.token]);
 
   const [validateMessage, setvalidateMessage] = useState({
-    warningMessage: '',
-    successMessage: '',
     errorMessage: '',
   });
 
@@ -160,13 +165,13 @@ function PreSendAddress() {
     (address: string) =>
       makeTimeoutPromise({
         asyncFunc: async () => {
-          const isContractAddress =
+          const isContractAddressResp =
             await backgroundApiProxy.validator.isContractAddress(
               networkId,
               address,
             );
 
-          return isContractAddress;
+          return isContractAddressResp;
         },
         timeout: 600,
         timeoutResult: false,
@@ -474,11 +479,13 @@ function PreSendAddress() {
       }
       timer.current = setTimeout(async () => {
         const toAddress = resolvedAddress || value || '';
+        setIsValidAddress(false);
         setvalidateMessage({
-          warningMessage: '',
           errorMessage: '',
-          successMessage: '',
         });
+        setIsAddressBook(false);
+        setIsContractAddress(false);
+        setSecurityItems([]);
         if (!toAddress) {
           return undefined;
           // return intl.formatMessage({
@@ -500,10 +507,11 @@ function PreSendAddress() {
           setIsValidatingAddress(false);
           if (isValidNameServiceName && !resolvedAddress) return undefined;
           const { key, info } = error0;
+          setIsValidAddress(false);
+          setIsAddressBook(false);
+          setIsContractAddress(false);
           if (key) {
             setvalidateMessage({
-              warningMessage: '',
-              successMessage: '',
               errorMessage: intl.formatMessage(
                 {
                   id: key,
@@ -514,51 +522,43 @@ function PreSendAddress() {
             return false;
           }
           setvalidateMessage({
-            warningMessage: '',
-            successMessage: '',
             errorMessage: intl.formatMessage({
               id: 'form__address_invalid',
             }),
           });
           return false;
         }
-        const isContractAddress = await isContractAddressCheck(toAddress);
-        if (isContractAddress) {
+        const isContractAddressResp = await isContractAddressCheck(toAddress);
+        if (isContractAddressResp) {
           setvalidateMessage({
-            warningMessage: intl.formatMessage({
-              id: 'msg__the_recipient_address_is_a_contract_address',
-            }),
-            successMessage: '',
             errorMessage: '',
           });
+          setIsValidAddress(true);
+          setIsContractAddress(true);
         } else {
           const addressbookItem =
             await backgroundApiProxy.serviceAddressbook.getItem({
               address: toAddress,
             });
           if (addressbookItem) {
+            setIsValidAddress(true);
+            setIsAddressBook(true);
             setvalidateMessage({
-              warningMessage: '',
-              successMessage: `${intl.formatMessage({
-                id: 'title__address_book',
-              })}:${addressbookItem.name}`,
               errorMessage: '',
             });
           } else {
+            setIsValidAddress(true);
+            if (isLightningNetwork) {
+              setValidAddressMessage('msg__valid_payment_request');
+            }
             setvalidateMessage({
-              warningMessage: '',
-              successMessage: intl.formatMessage({
-                id: isLightningNetwork
-                  ? 'msg__valid_payment_request'
-                  : 'form__enter_recipient_address_valid',
-              }),
               errorMessage: '',
             });
           }
         }
         setIsValidatingAddress(false);
         return true;
-      }, 100);
+      }, 0);
     },
     [
       accountId,
@@ -622,10 +622,7 @@ function PreSendAddress() {
               )}
               <Form.Item
                 control={control}
-                warningMessage={validateMessage.warningMessage}
-                successMessage={validateMessage.successMessage}
                 errorMessage={validateMessage.errorMessage}
-                isValidating={isValidatingAddress}
                 name="to"
                 formControlProps={{ width: 'full' }}
                 helpText={helpTextOfNameServiceResolver}
@@ -657,7 +654,45 @@ function PreSendAddress() {
               </Form.Item>
               {DestinationTagForm}
             </Form>
-            <GoPlusSecurityItems items={securityItems} />
+            {!validateMessage.errorMessage && (
+              <AddressLabel
+                mt={1}
+                shouldCheckSecurity
+                securityInfo={securityItems}
+                networkId={networkId}
+                address={resolvedAddress || formValues?.to || ''}
+                isAddressBook={isAddressBook}
+                isContractAddress={isContractAddress}
+                isValidAddress={isValidAddress}
+                validAddressMessage={validAddressMessage}
+                showValidAddressLabel
+                isLoading={
+                  isLoading || isValidatingAddress || formState.isValidating
+                }
+                labelStyle={{ mt: 1 }}
+              />
+            )}
+            {isContractAddress && (
+              <Alert
+                alertType="info"
+                title={intl.formatMessage({
+                  id: 'msg__the_recipient_address_is_a_contract_address',
+                })}
+                dismiss={false}
+                containerProps={{ mt: 4 }}
+              />
+            )}
+
+            {securityItems.length > 0 && (
+              <Alert
+                alertType="warn"
+                title={intl.formatMessage({
+                  id: 'msg__the_recipient_address_is_a_scam_address',
+                })}
+                dismiss={false}
+                containerProps={{ mt: 4 }}
+              />
+            )}
           </Box>
         ),
       }}

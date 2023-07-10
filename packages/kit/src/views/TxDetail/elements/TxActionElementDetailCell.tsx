@@ -32,7 +32,7 @@ export function TxActionElementDetailCell(props: ITxActionElementDetail) {
     return (
       <Box>
         <HStack justifyContent="space-between" alignItems="center">
-          <Box>
+          <Box flex={1}>
             {titleView}
             {contentView}
           </Box>

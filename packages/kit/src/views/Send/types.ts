@@ -378,8 +378,9 @@ export type BatchSendConfirmOnSuccessData = {
 };
 
 export type SendConfirmAdvancedSettings = {
-  originNonce: string;
+  originalNonce: string;
   currentNonce: string;
+  currentHexData: string;
   isCoinControlChecked: boolean;
   selectedUtxos: string[];
 };

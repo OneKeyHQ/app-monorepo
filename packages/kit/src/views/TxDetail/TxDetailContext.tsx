@@ -5,6 +5,7 @@ import type { useSendConfirmRouteParamsParsed } from '../Send/utils/useSendConfi
 
 export type ITxDetailContextData = {
   isSendConfirm?: boolean;
+  isBatchSendConfirm?: boolean;
   isHistoryDetail?: boolean;
   isMultipleActions?: boolean;
   sendConfirmParamsParsed?: ReturnType<typeof useSendConfirmRouteParamsParsed>;
