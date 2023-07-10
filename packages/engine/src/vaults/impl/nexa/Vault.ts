@@ -158,19 +158,36 @@ export default class Vault extends VaultBase {
     payload?: any,
   ): Promise<IDecodedTx> {
     const address = await this.getAccountAddress();
-    const network = await this.getNetwork();
 
+    const amountValue = encodedTx.outputs.reduce(
+      (acc, cur) => acc.plus(new BigNumber(cur.satoshis)),
+      new BigNumber(0),
+    );
+
+    const token: Token = await this.engine.getNativeTokenInfo(this.networkId);
+    const action = {
+      type: IDecodedTxActionType.TOKEN_TRANSFER,
+      direction: IDecodedTxDirection.OUT,
+      tokenTransfer: {
+        tokenInfo: token,
+        from: address,
+        to: encodedTx.outputs[0].address,
+        amount: amountValue.shiftedBy(-token.decimals).toFixed(),
+        amountValue: amountValue.toString(),
+        extraInfo: null,
+      },
+    };
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: address,
-      signer: encodedTx.inputs[0].address || address,
+      signer: address,
       networkId: this.networkId,
       accountId: this.accountId,
       encodedTx,
       payload,
       extraInfo: null,
       nonce: 0,
-      actions: [],
+      actions: [action],
       status: IDecodedTxStatus.Pending,
     };
 
@@ -345,10 +362,10 @@ export default class Vault extends VaultBase {
                   network.prefix,
                 ) !== tokenAddress
               ) {
-                return acc + cur.value_satoshi;
+                return acc.plus(new BigNumber(cur.value_satoshi));
               }
               return acc;
-            }, 0);
+            }, new BigNumber(0));
             if (amountValue && tokenAddress) {
               let direction = IDecodedTxDirection.IN;
               if (from === dbAccount.address) {
@@ -371,9 +388,7 @@ export default class Vault extends VaultBase {
                   tokenInfo: token,
                   from,
                   to,
-                  amount: new BigNumber(amountValue)
-                    .shiftedBy(-token.decimals)
-                    .toFixed(),
+                  amount: amountValue.shiftedBy(-token.decimals).toFixed(),
                   amountValue: amountValue.toString(),
                   extraInfo: null,
                 },
