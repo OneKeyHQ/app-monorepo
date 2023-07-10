@@ -4,7 +4,6 @@ import { uniq } from 'lodash';
 
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
-import { networkIsPreset } from '@onekeyhq/engine/src/presets';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
@@ -109,7 +108,7 @@ export const useRPCUrls = (networkId?: string) => {
         await serviceNetwork.getPresetRpcEndpoints(networkId);
       const customUrls = await serviceNetwork.getCustomRpcUrls(networkId);
       setDefaultRpc(defaultRpcURL);
-      if (networkIsPreset(networkId)) {
+      if (await serviceNetwork.networkIsPreset(networkId)) {
         setCustom(customUrls ?? []);
         setPreset(urls);
       } else {
@@ -217,7 +216,7 @@ export const useAllNetworksSelectNetworkAccount = ({
     networkId,
     accountId,
   });
-  const networkAccounts = useAllNetworksWalletAccounts({
+  const { data: networkAccounts } = useAllNetworksWalletAccounts({
     accountId,
     walletId,
   });

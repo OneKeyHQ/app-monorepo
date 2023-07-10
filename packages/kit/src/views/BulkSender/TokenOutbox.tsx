@@ -22,11 +22,11 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 import {
+  useAccountTokenLoading,
   useAccountTokensOnChain,
   useNetwork,
   useTokenBalance,
 } from '@onekeyhq/kit/src/hooks';
-import { useAccountTokenLoading } from '@onekeyhq/kit/src/hooks/useTokens';
 import {
   ModalRoutes,
   RootRoutes,
