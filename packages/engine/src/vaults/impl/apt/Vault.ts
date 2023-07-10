@@ -919,7 +919,7 @@ export default class Vault extends VaultBase {
             tokenActivate: {
               ...tokenInfo,
               tokenAddress: coinType,
-
+              networkId: this.networkId,
               extraInfo: null,
             },
           };

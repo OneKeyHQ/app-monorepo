@@ -161,6 +161,7 @@ export type IEncodedTxEvm = {
   to: string;
   value: string;
   data?: string;
+  customData?: string;
   nonce?: number | string; // rpc use 0x string
 
   gas?: string; // alias for gasLimit
@@ -1001,6 +1002,18 @@ export default class Vault extends VaultBase {
       return this.updateEncodedTxAdvancedSettings(encodedTx, payload);
     }
 
+    if (options.type === IEncodedTxUpdateType.customData) {
+      return this.updateEncodedTxCustomData(encodedTx, payload);
+    }
+
+    return Promise.resolve(encodedTx);
+  }
+
+  async updateEncodedTxCustomData(
+    encodedTx: IEncodedTxEvm,
+    customData: string,
+  ) {
+    encodedTx.customData = customData;
     return Promise.resolve(encodedTx);
   }
 
@@ -1011,6 +1024,15 @@ export default class Vault extends VaultBase {
     if (this.settings.nonceEditable && payload.currentNonce) {
       encodedTx.nonce = payload.currentNonce;
     }
+    if (
+      this.settings.hexDataEditable &&
+      !isNil(payload.currentHexData) &&
+      (!encodedTx.data || encodedTx.data === '0x') &&
+      encodedTx.data !== payload.currentHexData
+    ) {
+      encodedTx.data = payload.currentHexData;
+    }
+
     return Promise.resolve(encodedTx);
   }
 
@@ -1089,6 +1111,7 @@ export default class Vault extends VaultBase {
       to,
       value,
       data,
+      customData,
       gas,
       gasLimit,
       gasPrice,
@@ -1115,6 +1138,7 @@ export default class Vault extends VaultBase {
       valueOnChain: value,
       extra: {
         data,
+        customData,
         feeLimit: !isNil(gasLimitFinal)
           ? new BigNumber(gasLimitFinal)
           : undefined,

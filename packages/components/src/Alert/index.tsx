@@ -1,5 +1,5 @@
 import type { ComponentProps, FC, ReactNode } from 'react';
-import { useState } from 'react';
+import { isValidElement, useMemo, useState } from 'react';
 
 import { Box } from 'native-base';
 import { StyleSheet } from 'react-native';
@@ -21,7 +21,7 @@ export type AlertProps = {
   alertType: AlertType;
   dismiss?: boolean;
   onDismiss?: () => void;
-  action?: string;
+  action?: string | JSX.Element;
   onAction?: () => void;
   customIconName?: ICON_NAMES;
   containerProps?: ComponentProps<typeof Box>;
@@ -106,6 +106,28 @@ const Alert: FC<AlertProps> = ({
   const bgColor = useThemeValue(alertTypeProps.bgColor);
   const [display, setDisplay] = useState(true);
 
+  const alertAction = useMemo(() => {
+    if (!action) {
+      return null;
+    }
+    if (isValidElement(action)) {
+      return action;
+    }
+    return (
+      <Pressable
+        onPress={onAction}
+        ml="8px"
+        py="6px"
+        px="12px"
+        rounded="12px"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor={alertTypeProps.actionBorderColor}
+      >
+        <Typography.Button2>{action}</Typography.Button2>
+      </Pressable>
+    );
+  }, [action, alertTypeProps.actionBorderColor, onAction]);
+
   return display ? (
     <Box
       flexDirection="row"
@@ -135,19 +157,7 @@ const Alert: FC<AlertProps> = ({
           ) : null}
         </Box>
       </Box>
-      {action ? (
-        <Pressable
-          onPress={onAction}
-          ml="8px"
-          py="6px"
-          px="12px"
-          rounded="12px"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor={alertTypeProps.actionBorderColor}
-        >
-          <Typography.Button2>{action}</Typography.Button2>
-        </Pressable>
-      ) : null}
+      {alertAction}
       {dismiss ? (
         <Pressable
           onPress={() => {

@@ -6,7 +6,7 @@ import type {
 
 import {
   TxActionElementAmountLarge,
-  TxActionElementAmountNormal,
+  TxActionElementAmountSmall,
 } from '../elements/TxActionElementAmount';
 import {
   TxActionElementIconLarge,
@@ -47,15 +47,16 @@ export function TxDetailActionBoxAutoTransform(
     iconInfo,
     title,
     titleInfo,
+    desc,
     ...others
   } = props;
   const detailContext = useTxDetailContext();
   const isMultipleActions = detailContext?.context?.isMultipleActions;
   const isHistoryDetail = detailContext?.context?.isHistoryDetail;
   const isSingleTransformMode = !isMultipleActions;
-  const isCollapse = detailContext?.context?.isCollapse;
 
   let amountView;
+  let descView = desc;
   if (amountInfo) {
     amountView = (
       <TxActionElementAmountLarge
@@ -65,16 +66,16 @@ export function TxDetailActionBoxAutoTransform(
         mb={4}
       />
     );
-    if (isCollapse) {
-      amountView = (
-        <TxActionElementAmountNormal
-          direction={amountInfo.direction}
-          amount={amountInfo.amount}
-          symbol={amountInfo.symbol}
-          color="text-subdued"
-        />
-      );
-    }
+    descView = (
+      <TxActionElementAmountSmall
+        direction={amountInfo.direction}
+        amount={amountInfo.amount}
+        symbol={amountInfo.symbol}
+        decimals={8}
+        color="text-subdued"
+        typography="Body2Strong"
+      />
+    );
   }
 
   let iconView = icon;
@@ -117,6 +118,7 @@ export function TxDetailActionBoxAutoTransform(
       icon={iconView}
       title={titleView}
       subTitle={subTitleView}
+      desc={descView}
       isSingleTransformMode={isSingleTransformMode}
       showTitleDivider={!isSingleTransformMode}
     />

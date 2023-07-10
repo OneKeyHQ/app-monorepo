@@ -82,7 +82,7 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
 
 export function TxActionTransfer(props: ITxActionCardProps) {
   const intl = useIntl();
-  const { action, meta, decodedTx, network } = props;
+  const { action, meta, decodedTx, network, isShortenAddress = false } = props;
 
   const { amount, symbol, from, to, isOut } = getTxActionTransferInfo(props);
 
@@ -115,9 +115,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
             withSecurityInfo: !isOut,
             amount,
             isCopy: from !== 'unknown',
-            isShorten: network?.settings.displayFullAddress
-              ? false
-              : from !== 'unknown',
+            isShorten: isShortenAddress,
           }),
         }
       : null,
@@ -133,9 +131,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
             withSecurityInfo: isOut,
             amount,
             isCopy: to !== 'unknown',
-            isShorten: network?.settings.displayFullAddress
-              ? false
-              : to !== 'unknown',
+            isShorten: isShortenAddress,
           }),
         }
       : null,

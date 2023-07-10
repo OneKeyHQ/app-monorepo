@@ -35,6 +35,8 @@ const settings: IVaultSettings = Object.freeze({
 
   nonceEditable: true,
   sendNFTEnable: true,
+  hexDataEditable: true,
+
   accountNameInfo: {
     default: {
       prefix: 'EVM',
