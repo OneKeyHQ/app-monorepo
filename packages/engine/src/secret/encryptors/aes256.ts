@@ -105,6 +105,10 @@ function checkKeyPassedOnExtUi(key?: string) {
   }
 }
 
+function isEncodedSensitiveText(text: string) {
+  return text.startsWith(ENCODE_TEXT_PREFIX);
+}
+
 function decodeSensitiveText({
   encodedText,
   key,
@@ -114,7 +118,7 @@ function decodeSensitiveText({
 }) {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
-  if (encodedText.startsWith(ENCODE_TEXT_PREFIX)) {
+  if (isEncodedSensitiveText(encodedText)) {
     const text = decrypt(
       theKey,
       Buffer.from(encodedText.slice(ENCODE_TEXT_PREFIX.length), 'hex'),
@@ -128,7 +132,7 @@ function encodeSensitiveText({ text, key }: { text: string; key?: string }) {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
   // text is already encoded
-  if (text.startsWith(ENCODE_TEXT_PREFIX)) {
+  if (isEncodedSensitiveText(text)) {
     if (!platformEnv.isExtensionUi) {
       // try to decode it to verify if encode by same key
       decodeSensitiveText({ encodedText: text });
@@ -153,5 +157,6 @@ export {
   decrypt,
   encodeSensitiveText,
   decodeSensitiveText,
+  isEncodedSensitiveText,
   getBgSensitiveTextEncodeKey,
 };
