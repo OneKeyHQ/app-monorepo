@@ -34,6 +34,9 @@ const ENCODE_TEXT_PREFIX =
   'SENSITIVE_ENCODE::AE7EADC1-CDA0-45FA-A340-E93BEDDEA21E::';
 
 function decodePassword({ password }: { password: string }) {
+  if (platformEnv.isExtensionUi) {
+    throw new Error('decodePassword can NOT be called from UI');
+  }
   // do nothing if password is encodeKey, but not a real password
   if (password.startsWith(encodeKeyPrefix)) {
     return password;
@@ -105,6 +108,10 @@ function checkKeyPassedOnExtUi(key?: string) {
   }
 }
 
+function isEncodedSensitiveText(text: string) {
+  return text.startsWith(ENCODE_TEXT_PREFIX);
+}
+
 function decodeSensitiveText({
   encodedText,
   key,
@@ -114,7 +121,7 @@ function decodeSensitiveText({
 }) {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
-  if (encodedText.startsWith(ENCODE_TEXT_PREFIX)) {
+  if (isEncodedSensitiveText(encodedText)) {
     const text = decrypt(
       theKey,
       Buffer.from(encodedText.slice(ENCODE_TEXT_PREFIX.length), 'hex'),
@@ -128,7 +135,7 @@ function encodeSensitiveText({ text, key }: { text: string; key?: string }) {
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
   // text is already encoded
-  if (text.startsWith(ENCODE_TEXT_PREFIX)) {
+  if (isEncodedSensitiveText(text)) {
     if (!platformEnv.isExtensionUi) {
       // try to decode it to verify if encode by same key
       decodeSensitiveText({ encodedText: text });
@@ -151,7 +158,9 @@ function getBgSensitiveTextEncodeKey() {
 export {
   encrypt,
   decrypt,
+  decodePassword,
   encodeSensitiveText,
   decodeSensitiveText,
+  isEncodedSensitiveText,
   getBgSensitiveTextEncodeKey,
 };

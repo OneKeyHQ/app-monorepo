@@ -16,6 +16,7 @@ import {
   useForm,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -49,11 +50,17 @@ const EnterPassword: FC<EnterPasswordProps> = ({ onNext }) => {
   });
   const onSubmit = useCallback(
     async (values: FieldValues) => {
+      const key =
+        await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey();
+      const encodedPassword = encodeSensitiveText({
+        text: values.password,
+        key,
+      });
       const isOK = await backgroundApiProxy.engine.verifyMasterPassword(
-        values.password,
+        encodedPassword,
       );
       if (isOK) {
-        onNext?.(values.password);
+        onNext?.(encodedPassword);
       } else {
         setError('password', {
           message: intl.formatMessage({
@@ -160,11 +167,17 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
 
   const onSubmit = useCallback(
     async (values: PasswordsFieldValues) => {
+      const key =
+        await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey();
+      const encodedPassword = encodeSensitiveText({
+        text: values.password,
+        key,
+      });
       try {
         addAttention();
         await backgroundApiProxy.serviceApp.updatePassword(
           oldPassword,
-          values.password,
+          encodedPassword,
         );
       } catch (e) {
         const errorKey = (e as { key: LocaleIds }).key;
@@ -174,10 +187,10 @@ const SetNewPassword: FC<{ oldPassword: string }> = ({ oldPassword }) => {
 
       if (values.withEnableAuthentication) {
         dispatch(setEnableLocalAuthentication(true));
-        savePassword(values.password);
+        savePassword(encodedPassword);
       }
       if (enableLocalAuthentication) {
-        savePassword(values.password);
+        savePassword(encodedPassword);
       }
       // if oldPassword is empty. set password
       if (!oldPassword) {
