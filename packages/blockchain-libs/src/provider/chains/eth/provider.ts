@@ -100,7 +100,13 @@ class Provider extends BaseProvider {
 
       if (!feeLimit) {
         const estimatedGasLimit = await this.geth.then((client) =>
-          client.estimateGasLimit(fromAddress, toAddress, value, data),
+          client.estimateGasLimit({
+            fromAddress,
+            toAddress,
+            value,
+            data,
+            customData: payload.customData,
+          }),
         );
         const estimatedGasLimitBN = fromBigIntHex(estimatedGasLimit);
         const multiplier =
