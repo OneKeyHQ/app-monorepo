@@ -162,7 +162,7 @@ export function FormItem<TFieldValues extends FieldValues = FieldValues>({
                 mb={label ? 1 : 0}
               >
                 {!!label && (
-                  <FormControl.Label mb={0}>
+                  <FormControl.Label mb={0} mt={0}>
                     {typeof label === 'string' ? (
                       <Typography.Body2Strong>{label}</Typography.Body2Strong>
                     ) : (

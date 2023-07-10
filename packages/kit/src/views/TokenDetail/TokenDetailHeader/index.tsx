@@ -29,7 +29,7 @@ const TokenDetailHeader: FC = () => {
     );
   }, [isVertical]);
   return (
-    <VStack px="4" space="6" bg="background-default">
+    <VStack px={isVertical ? 4 : 8} space="6" bg="background-default">
       {content}
     </VStack>
   );

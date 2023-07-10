@@ -20,6 +20,7 @@ const settings: IVaultSettings = Object.freeze({
   activateTokenRequired: true,
 
   feeInfoEditable: true,
+  hiddenBlockBrowserTokenDetailLink: true,
   minGasLimit: 1000,
 
   accountNameInfo: {

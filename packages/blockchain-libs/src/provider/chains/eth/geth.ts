@@ -345,18 +345,25 @@ class Geth extends BaseClient {
   }
 
   estimateGasLimit = memoizee(
-    async (
-      fromAddress: string,
-      toAddress: string,
-      value: string,
-      data?: string,
-    ): Promise<string> =>
+    async ({
+      fromAddress,
+      toAddress,
+      value,
+      data,
+      customData,
+    }: {
+      fromAddress: string;
+      toAddress: string;
+      value: string;
+      data?: string;
+      customData?: string;
+    }): Promise<string> =>
       this.rpc.call('eth_estimateGas', [
         {
           from: fromAddress,
           to: toAddress || undefined, // undefined is for deploy contract calls.
           value,
-          data: data || '0x',
+          data: customData || data || '0x',
         },
       ]),
     { promise: true, primitive: true, maxAge: 1000 * 10, max: 10 },

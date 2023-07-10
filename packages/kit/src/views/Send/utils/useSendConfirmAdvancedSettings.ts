@@ -14,8 +14,9 @@ function useSendConfirmAdvancedSettings({
   const [isLoading, setIsLoading] = useState(false);
   const [advancedSettings, setAdvancedSettings] =
     useState<SendConfirmAdvancedSettings>({
+      currentHexData: '',
       currentNonce: '',
-      originNonce: '',
+      originalNonce: '',
       isCoinControlChecked: false,
       selectedUtxos: [],
     });
@@ -31,7 +32,7 @@ function useSendConfirmAdvancedSettings({
       setAdvancedSettings((prev) => ({
         ...prev,
         currentNonce: String(nextNonce),
-        originNonce: String(nextNonce),
+        originalNonce: String(nextNonce),
       }));
       setIsLoading(false);
     };

@@ -14,7 +14,7 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
-import { useTokenPositionInfo } from '../../hooks';
+import { useTokenDetailInfo, useTokenPositionInfo } from '../../hooks';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
@@ -62,7 +62,13 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     logoURI,
   } = route.params;
 
-  const detailInfo = useTokenPositionInfo({
+  const detailInfo = useTokenDetailInfo({
+    networkId,
+    tokenAddress,
+    coingeckoId,
+  });
+
+  const positionInfo = useTokenPositionInfo({
     coingeckoId,
     networkId,
     tokenAddress,
@@ -71,20 +77,13 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     walletId,
   });
 
-  // const headerHeight = useMemo(() => {
-  //   let height = 520;
-  //   if (isVerticalLayout) {
-  //     let stakedSupport = isSupportStakedAssets(networkId, tokenId);
-  //     if (!stakedSupport) {
-  //       stakedSupport = isSTETH(networkId, tokenId);
-  //     }
-  //     height = stakedSupport === true ? 570 : 570 - 88;
-  //     height = 570;
-  //   } else {
-  //     height = 452;
-  //   }
-  //   return height;
-  // }, [isVerticalLayout]);
+  const headerHeight = useMemo(() => {
+    let height = 529;
+    if (detailInfo?.ethereumNativeToken && !isAllNetworks(networkId)) {
+      height += 132;
+    }
+    return height;
+  }, [networkId, detailInfo?.ethereumNativeToken]);
 
   const headerTitle = useCallback(() => {
     if (!isVerticalLayout) {
@@ -134,17 +133,19 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     () => ({
       routeParams: route.params,
       detailInfo,
+      positionInfo,
     }),
-    [route.params, detailInfo],
+    [route.params, detailInfo, positionInfo],
   );
 
   return (
     <TokenDetailContext.Provider value={contextValue}>
       <HStack flex={1} justifyContent="center" onLayout={onLayout}>
         <Tabs.Container
+          key={String(headerHeight)}
           disableRefresh
           renderHeader={() => <TokenDetailHeader />}
-          headerHeight={521}
+          headerHeight={headerHeight}
           containerStyle={{
             maxWidth: 1088, // 1024+32*2
             flex: 1,

@@ -24,7 +24,7 @@ import {
   setIsPasswordLoadedInVault,
   setTools,
 } from '@onekeyhq/kit/src/store/reducers/data';
-import { serOverviewPortfolioUpdatedAt } from '@onekeyhq/kit/src/store/reducers/overview';
+import { setOverviewPortfolioUpdatedAt } from '@onekeyhq/kit/src/store/reducers/overview';
 import type { TokenBalanceValue } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
   setAccountTokens,
@@ -221,7 +221,7 @@ export default class ServiceToken extends ServiceBase {
             (t) => !removedTokens.includes(t.address ?? ''),
           ),
         }),
-        serOverviewPortfolioUpdatedAt({
+        setOverviewPortfolioUpdatedAt({
           key: `${networkId}___${accountId}`,
           data: {
             updatedAt: Date.now(),

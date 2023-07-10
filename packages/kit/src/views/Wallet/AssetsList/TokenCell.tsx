@@ -11,6 +11,7 @@ import {
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { withDebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import {
@@ -177,4 +178,4 @@ const TokenCell: FC<TokenCellProps> = ({
 };
 TokenCell.displayName = 'TokenCell';
 
-export default memo(TokenCell);
+export default memo(withDebugRenderTracker(TokenCell));

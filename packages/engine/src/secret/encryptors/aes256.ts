@@ -4,6 +4,7 @@ import { AES_CBC, Pbkdf2HmacSha256 } from 'asmcrypto.js';
 
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import { IncorrectPassword } from '@onekeyhq/shared/src/errors/common-errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { sha256 } from '../hash';
 
@@ -33,6 +34,9 @@ const ENCODE_TEXT_PREFIX =
   'SENSITIVE_ENCODE::AE7EADC1-CDA0-45FA-A340-E93BEDDEA21E::';
 
 function decodePassword({ password }: { password: string }) {
+  if (platformEnv.isExtensionUi) {
+    throw new Error('decodePassword can NOT be called from UI');
+  }
   // do nothing if password is encodeKey, but not a real password
   if (password.startsWith(encodeKeyPrefix)) {
     return password;
@@ -96,10 +100,30 @@ function decrypt(
   }
 }
 
-function decodeSensitiveText({ encodedText }: { encodedText: string }) {
-  if (encodedText.startsWith(ENCODE_TEXT_PREFIX)) {
+function checkKeyPassedOnExtUi(key?: string) {
+  if (platformEnv.isExtensionUi && !key) {
+    throw new Error(
+      'Please get and pass key by:  await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey()',
+    );
+  }
+}
+
+function isEncodedSensitiveText(text: string) {
+  return text.startsWith(ENCODE_TEXT_PREFIX);
+}
+
+function decodeSensitiveText({
+  encodedText,
+  key,
+}: {
+  encodedText: string;
+  key?: string;
+}) {
+  checkKeyPassedOnExtUi(key);
+  const theKey = key || encodeKey;
+  if (isEncodedSensitiveText(encodedText)) {
     const text = decrypt(
-      encodeKey,
+      theKey,
       Buffer.from(encodedText.slice(ENCODE_TEXT_PREFIX.length), 'hex'),
     ).toString('utf-8');
     return text;
@@ -107,17 +131,36 @@ function decodeSensitiveText({ encodedText }: { encodedText: string }) {
   throw new Error('Not correct encoded text');
 }
 
-function encodeSensitiveText({ text }: { text: string }) {
+function encodeSensitiveText({ text, key }: { text: string; key?: string }) {
+  checkKeyPassedOnExtUi(key);
+  const theKey = key || encodeKey;
   // text is already encoded
-  if (text.startsWith(ENCODE_TEXT_PREFIX)) {
-    // try to decode it to verify if encode by same key
-    decodeSensitiveText({ encodedText: text });
+  if (isEncodedSensitiveText(text)) {
+    if (!platformEnv.isExtensionUi) {
+      // try to decode it to verify if encode by same key
+      decodeSensitiveText({ encodedText: text });
+    }
     return text;
   }
-  const encoded = encrypt(encodeKey, Buffer.from(text, 'utf-8')).toString(
-    'hex',
-  );
+  const encoded = encrypt(theKey, Buffer.from(text, 'utf-8')).toString('hex');
   return `${ENCODE_TEXT_PREFIX}${encoded}`;
 }
 
-export { encrypt, decrypt, encodeSensitiveText, decodeSensitiveText };
+function getBgSensitiveTextEncodeKey() {
+  if (platformEnv.isExtensionUi) {
+    throw new Error(
+      'Please use: await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey()',
+    );
+  }
+  return encodeKey;
+}
+
+export {
+  encrypt,
+  decrypt,
+  decodePassword,
+  encodeSensitiveText,
+  decodeSensitiveText,
+  isEncodedSensitiveText,
+  getBgSensitiveTextEncodeKey,
+};

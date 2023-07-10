@@ -5,13 +5,13 @@ import { pick } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 
-import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import KeleLogoPNG from '@onekeyhq/kit/assets/staking/kele_pool.png';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { getTimeDurationMs } from '../utils/helper';
@@ -25,7 +25,6 @@ import { useFrozenBalance, useSingleToken, useTokenPrice } from './useTokens';
 import type { ITokenDetailInfo } from '../views/ManageTokens/types';
 import type {
   IAccountToken,
-  IOverviewQueryTaskItem,
   IOverviewTokenDetailListItem,
   OverviewAllNetworksPortfolioRes,
 } from '../views/Overview/types';
@@ -115,11 +114,12 @@ export const useAccountPortfolios = <
   });
   const updateInfo = useAppSelector(
     (s) =>
-      s.overview.portfolios[`${networkId ?? ''}___${accountId ?? ''}`] ?? {},
+      s.overview.updatedTimeMap?.[`${networkId ?? ''}___${accountId ?? ''}`] ??
+      {},
   );
 
   const fetchData = useCallback(async () => {
-    const res = await simpleDb.accountPortfolios.getPortfolio({
+    const res = await backgroundApiProxy.serviceOverview.getAccountPortfolio({
       networkId: networkId ?? '',
       accountId: accountId ?? '',
     });
@@ -207,7 +207,7 @@ export function useAccountTokens({
   const { hideRiskTokens, hideSmallBalance, putMainTokenOnTop } =
     useAppSelector((s) => s.settings);
 
-  const { data: allNetworksTokens } = useAccountPortfolios({
+  const { data: allNetworksTokens, loading } = useAccountPortfolios({
     networkId,
     accountId,
     type: EOverviewScanTaskType.token,
@@ -275,13 +275,23 @@ export function useAccountTokens({
     return accountTokens;
   }, [networkId, allNetworksTokens, limitSize, accountTokensOnChain]);
 
-  return filterAccountTokens<IAccountToken[]>({
-    tokens: valueTokens,
-    useFilter,
-    hideRiskTokens,
-    hideSmallBalance,
-    putMainTokenOnTop,
-  });
+  if (loading) {
+    return {
+      loading,
+      data: [],
+    };
+  }
+
+  return {
+    loading: false,
+    data: filterAccountTokens<IAccountToken[]>({
+      tokens: valueTokens,
+      useFilter,
+      hideRiskTokens,
+      hideSmallBalance,
+      putMainTokenOnTop,
+    }),
+  };
 }
 
 export function useAccountTokenValues(
@@ -289,7 +299,7 @@ export function useAccountTokenValues(
   accountId: string,
   useFilter = true,
 ) {
-  const accountTokens = useAccountTokens({
+  const { data: accountTokens } = useAccountTokens({
     networkId,
     accountId,
     useFilter,
@@ -480,13 +490,13 @@ export const useTokenPositionInfo = ({
     type: EOverviewScanTaskType.defi,
   });
 
-  const accountTokens = useAccountTokens({
+  const { data: accountTokens } = useAccountTokens({
     networkId,
     accountId,
     useFilter: false,
   });
 
-  const allNetworksAccountsMap = useAllNetworksWalletAccounts({
+  const { data: allNetworksAccountsMap } = useAllNetworksWalletAccounts({
     walletId,
     accountId,
   });
@@ -662,12 +672,18 @@ export const useTokenDetailInfo = ({
           t.impl === defaultChain?.impl && t.chainId === defaultChain?.chainId,
       ) ?? tokens?.[0];
 
+    const ethereumNativeToken = tokens?.find(
+      (n) =>
+        n.impl === IMPL_EVM && n.chainId === '1' && (n.isNative || !n.address),
+    );
+
     return {
       ...pick(token, 'name', 'symbol', 'logoURI'),
       ...data,
       loading: loading || tokenLoading,
       tokens,
       defaultToken,
+      ethereumNativeToken,
     };
   }, [data, token, loading, tokenLoading]);
 };
@@ -680,18 +696,15 @@ export const useOverviewPendingTasks = ({
   accountId: string;
 }) => {
   const intl = useIntl();
-  const [tasks, setTasks] = useState<IOverviewQueryTaskItem[]>([]);
   const updatedAt = useAppSelector(
-    (s) => s.overview.portfolios[`${networkId}___${accountId}`]?.updatedAt,
+    (s) =>
+      s.overview.updatedTimeMap?.[`${networkId}___${accountId}`]?.updatedAt,
   );
-  const fetch = useCallback(() => {
-    backgroundApiProxy.serviceOverview
-      .getPenddingTasksByNetworkId({
-        networkId,
-        accountId,
-      })
-      .then((res) => setTasks(res));
-  }, [networkId, accountId]);
+
+  const tasks = useAppSelector((s) => {
+    const data = Object.values(s.overview.tasks || {});
+    return data.filter((t) => t.key === `${networkId}___${accountId}`);
+  });
 
   const updateTips = useMemo(() => {
     let assetType = '';
@@ -763,23 +776,24 @@ export const useOverviewPendingTasks = ({
     }
   }, [tasks, updatedAt, intl]);
 
-  useEffect(() => {
-    fetch();
-    const interval = setInterval(
-      fetch,
-      getTimeDurationMs({
-        seconds: 30,
-      }),
-    );
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [fetch, updatedAt]);
-
   return {
     tasks,
-    fetch,
+    updatedAt,
     updateTips,
   };
 };
+
+export function useAccountTokenLoading(networkId: string, accountId: string) {
+  const pendingTasks = useOverviewPendingTasks({ networkId, accountId });
+  const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
+  return useMemo(() => {
+    if (isAllNetworks(networkId)) {
+      const { tasks, updatedAt } = pendingTasks;
+      return (
+        tasks?.filter((t) => t.scanType === EOverviewScanTaskType.token)
+          .length > 0 || typeof updatedAt === 'undefined'
+      );
+    }
+    return typeof accountTokens[networkId]?.[accountId] === 'undefined';
+  }, [networkId, accountId, accountTokens, pendingTasks]);
+}

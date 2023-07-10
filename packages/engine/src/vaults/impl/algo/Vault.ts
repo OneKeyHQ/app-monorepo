@@ -360,6 +360,7 @@ export default class Vault extends VaultBase {
               name: token.name,
               symbol: token.symbol,
               extraInfo: null,
+              networkId: this.networkId,
             },
           };
         } else {
@@ -725,7 +726,7 @@ export default class Vault extends VaultBase {
                 decimals: token.decimals,
                 name: token.name,
                 symbol: token.symbol,
-
+                networkId: this.networkId,
                 extraInfo: null,
               },
             };

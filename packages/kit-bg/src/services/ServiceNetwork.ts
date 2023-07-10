@@ -6,6 +6,7 @@ import { fetchChainList } from '@onekeyhq/engine/src/managers/network';
 import {
   getPresetNetworks,
   initNetworkList,
+  networkIsPreset,
 } from '@onekeyhq/engine/src/presets/network';
 import type {
   AddNetworkParams,
@@ -561,6 +562,11 @@ class ServiceNetwork extends ServiceBase {
     const vault = await engine.getChainOnlyVault(networkId);
 
     return vault.fetchRpcChainId(url);
+  }
+
+  @backgroundMethod()
+  async networkIsPreset(networkId: string) {
+    return networkIsPreset(networkId);
   }
 }
 

@@ -1,7 +1,6 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { capitalize } from 'lodash';
 import { useAsync } from 'react-async-hook';
 import { useIntl } from 'react-intl';
 
@@ -23,7 +22,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import { useCopyAddress } from '../../hooks/useCopyAddress';
 import { useIsMounted } from '../../hooks/useIsMounted';
-import { buildAddressDetailsUrl } from '../../hooks/useOpenBlockBrowser';
+import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
 import { useIsDevModeEnabled } from '../../hooks/useSettingsDevMode';
 import {
   CoinControlModalRoutes,
@@ -32,7 +31,6 @@ import {
   RootRoutes,
 } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
-import { openUrl } from '../../utils/openUrl';
 import { GasPanelRoutes } from '../GasPanel/types';
 import {
   checkAccountCanSubscribe,
@@ -50,6 +48,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { network, account, wallet, accountId } = useActiveWalletAccount();
+  const { openAddressDetails } = useOpenBlockBrowser(network);
   const { copyAddress } = useCopyAddress({ wallet });
   const { serviceNotification, dispatch } = backgroundApiProxy;
   const { enabledAccounts, loading, refresh } =
@@ -175,16 +174,6 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
 
   const walletType = wallet?.type;
 
-  const explorerUrl = buildAddressDetailsUrl(network, account?.address);
-  const explorerName = useMemo(() => {
-    try {
-      const hostnameArray = new URL(explorerUrl).hostname.split('.');
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      return capitalize(hostnameArray.at(-2));
-    } catch (e) {
-      return 'Explorer';
-    }
-  }, [explorerUrl]);
   const options: (
     | {
         id: MessageDescriptor['id'];
@@ -248,13 +237,11 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
           },
           icon: 'BanknotesMini',
         },
-      !!explorerUrl && {
+      !!account?.address && {
         id: 'action__view_in_explorer',
         icon: 'GlobeAltMini',
         onPress: () => {
-          openUrl(explorerUrl, explorerName, {
-            modalMode: true,
-          });
+          openAddressDetails(account?.address);
         },
       },
       !isAllNetworks(network?.id) && {
@@ -299,7 +286,6 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     [
       needActivateAccount,
       walletType,
-      explorerUrl,
       showSubscriptionIcon,
       enabledNotification,
       onChangeAccountSubscribe,
@@ -311,8 +297,8 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       network,
       navigation,
       accountId,
-      explorerName,
       copyAddress,
+      openAddressDetails,
     ],
   );
 

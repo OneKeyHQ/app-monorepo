@@ -3,13 +3,13 @@ import type { IVaultSettings } from '../../types';
 const settings: IVaultSettings = Object.freeze({
   feeInfoEditable: false,
   privateKeyExportEnabled: false,
-  tokenEnabled: true,
+  tokenEnabled: false,
   txCanBeReplaced: false,
 
   importedAccountEnabled: false,
   watchingAccountEnabled: false,
   externalAccountEnabled: false,
-  hardwareAccountEnabled: false,
+  hardwareAccountEnabled: true,
 
   isUTXOModel: false,
   activateTokenRequired: false,
