@@ -16,7 +16,6 @@ import { useActiveSideAccount } from '../../../../hooks';
 import { useDisableNavigationAnimation } from '../../../../hooks/useDisableNavigationAnimation';
 import { useOnboardingRequired } from '../../../../hooks/useOnboardingRequired';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
-import { BulkSenderTypeEnum } from '../../../BulkSender/types';
 import { TxDetailView } from '../../../TxDetail/TxDetailView';
 import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModalBase';
 import { BatchSendTokenInfo } from '../../components/BatchSendTokenInfo';
@@ -59,7 +58,6 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     feeInfoUseFeeInTx,
     feeInfoEditable,
     transferCount,
-    transferType,
   } = batchSendConfirmParamsParsed;
   const intl = useIntl();
   useOnboardingRequired();
@@ -242,16 +240,13 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
 
   const isWaitingTxReady = !decodedTx || !encodedTx;
 
-  const tokenTransferInfo =
-    transferType === BulkSenderTypeEnum.NativeToken ||
-    transferType === BulkSenderTypeEnum.Token ? (
-      <BatchSendTokenInfo
-        accountId={accountId}
-        networkId={networkId}
-        type={transferType}
-        payloadInfo={payloadInfo}
-      />
-    ) : null;
+  const tokenTransferInfo = (
+    <BatchSendTokenInfo
+      accountId={accountId}
+      networkId={networkId}
+      payloadInfo={payloadInfo}
+    />
+  );
 
   const sharedProps: IBatchTxsConfirmViewProps = {
     accountId,

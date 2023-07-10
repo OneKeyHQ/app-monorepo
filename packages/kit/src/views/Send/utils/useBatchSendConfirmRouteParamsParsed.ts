@@ -31,7 +31,6 @@ export function useBatchSendConfirmRouteParamsParsed() {
     networkId,
     accountId,
     transferCount,
-    transferType,
   } = routeParams;
   const isFromDapp = !!routeParams.sourceInfo;
   const feeInfoEditable: boolean = routeParams.feeInfoEditable ?? true;
@@ -70,7 +69,6 @@ export function useBatchSendConfirmRouteParamsParsed() {
     networkId,
     accountId,
     transferCount,
-    transferType,
     dappApprove,
     onModalClose: onClose,
     encodedTxs,

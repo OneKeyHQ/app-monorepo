@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Button,
   HStack,
   Icon,
   Pressable,
@@ -23,7 +24,6 @@ function ReceiverInput(props: ReceiverInputParams) {
     receiverFromOut,
     setReceiverFromOut,
     setReceiver,
-    type,
     receiverErrors,
     isUploadMode,
     setIsUploadMode,
@@ -38,39 +38,27 @@ function ReceiverInput(props: ReceiverInputParams) {
 
   return (
     <>
-      <HStack
-        justifyContent="space-between"
-        alignItems="center"
-        mb={isVertical ? 7 : 8}
-      >
+      <HStack justifyContent="space-between" alignItems="center" mb="10px">
         <Text fontSize={18} typography="Heading">
           {intl.formatMessage({ id: 'form__receiver_address_amount' })}
         </Text>
-        <Pressable
-          _hover={{
-            backgroundColor: 'transparent',
-          }}
-          color="text-subdued"
-          onPress={() => setIsUploadMode(!isUploadMode)}
-        >
-          {({ isHovered }) => (
-            <HStack alignItems="center" space="5px">
-              <Icon
-                size={16}
-                name={isUploadMode ? 'PencilOutline' : 'UploadOutline'}
-                color={isHovered ? 'text-default' : 'text-subdued'}
-              />
-              <Text
-                color={isHovered ? 'text-default' : 'text-subdued'}
-                fontSize={16}
-              >
-                {intl.formatMessage({
-                  id: isUploadMode ? 'action__edit' : 'action__upload',
-                })}
-              </Text>
-            </HStack>
-          )}
-        </Pressable>
+        <HStack>
+          <Button
+            type="plain"
+            leftIconName="ArrowUpTrayMini"
+            onPress={() => setIsUploadMode(!isUploadMode)}
+          >
+            {intl.formatMessage({
+              id: isUploadMode ? 'action__edit' : 'action__upload',
+            })}
+          </Button>
+          <Button type="plain" leftIconName="UserCircleOutline">
+            {intl.formatMessage({ id: 'form__account' })}
+          </Button>
+          <Button type="plain" leftIconName="BookOpenOutline">
+            {intl.formatMessage({ id: 'title__contacts' })}
+          </Button>
+        </HStack>
       </HStack>
       <Box display={isUploadMode ? 'flex' : 'none'}>
         <ReceiverUploader
@@ -87,7 +75,6 @@ function ReceiverInput(props: ReceiverInputParams) {
           setReceiver={setReceiver}
           receiverFromOut={receiverFromOut}
           setReceiverFromOut={setReceiverFromOut}
-          type={type}
           receiverErrors={receiverErrors}
           showFileError={showFileError}
           setShowFileError={setShowFileError}

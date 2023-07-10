@@ -58,7 +58,6 @@ export type ReceiverInputParams = {
   receiverFromOut: TokenReceiver[];
   setReceiverFromOut: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
   setReceiver: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
-  type: BulkSenderTypeEnum;
   receiverErrors: ReceiverError[];
   isUploadMode: boolean;
   setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;

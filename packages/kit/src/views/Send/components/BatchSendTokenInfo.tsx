@@ -6,13 +6,11 @@ import { Box, Divider, HStack, Text } from '@onekeyhq/components';
 import { useTokenBalance } from '../../../hooks';
 import { useNativeToken, useSingleToken } from '../../../hooks/useTokens';
 
-import type { BulkSenderTypeEnum } from '../../BulkSender/types';
 import type { BatchSendConfirmPayloadInfo } from '../types';
 
 type Props = {
   accountId: string;
   networkId: string;
-  type: BulkSenderTypeEnum;
   payloadInfo?: BatchSendConfirmPayloadInfo;
 };
 
@@ -70,6 +68,8 @@ function BatchSendTokenInfo(props: Props) {
     token: nativeToken,
     fallback: '0',
   });
+
+  if (!transferInfo || transferInfo.isNFT) return null;
 
   return (
     <Box

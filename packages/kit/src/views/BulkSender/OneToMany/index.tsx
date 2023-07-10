@@ -16,7 +16,6 @@ import {
   Token as TokenComponent,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
@@ -35,24 +34,25 @@ import {
 import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-
 import { showApprovalSelector } from '../ApprovalSelector';
 import { useValidteReceiver } from '../hooks';
 import { ReceiverExample } from '../ReceiverExample';
 import { ReceiverInput } from '../ReceiverInput';
-import { BulkSenderRoutes, BulkSenderTypeEnum } from '../types';
+import { TxSettingPanel } from '../TxSetting/TxSettingPanel';
+import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
+import { BulkSenderRoutes } from '../types';
 
 import type { TokenReceiver } from '../types';
+import { TokenIcon } from '@onekeyhq/components/src/Token';
 
 interface Props {
   accountId: string;
   networkId: string;
   accountAddress: string;
-  type: BulkSenderTypeEnum;
 }
 
-function TokenOutbox(props: Props) {
-  const { accountId, networkId, accountAddress, type } = props;
+function OneToMany(props: Props) {
+  const { accountId, networkId, accountAddress } = props;
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [receiver, setReceiver] = useState<TokenReceiver[]>([]);
   const [receiverFromOut, setReceiverFromOut] = useState<TokenReceiver[]>([]);
@@ -67,21 +67,18 @@ function TokenOutbox(props: Props) {
 
   const loading = useAccountTokenLoading(networkId, accountId);
   const accountTokens = useAccountTokensOnChain(networkId, accountId, true);
-  const nativeToken = accountTokens.find((token) => token.isNative);
-  const tokens = accountTokens.filter(
-    (token) =>
-      !token.isNative &&
-      (network?.impl === IMPL_TRON
-        ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
-        : true),
+  const tokens = accountTokens.filter((token) =>
+    network?.impl === IMPL_TRON
+      ? !new BigNumber(token.tokenIdOnNetwork).isInteger()
+      : true,
   );
 
   const { serviceBatchTransfer, serviceToken, serviceOverview } =
     backgroundApiProxy;
 
-  const isNative = type === BulkSenderTypeEnum.NativeToken;
-  const initialToken = isNative ? nativeToken : tokens[0];
+  const initialToken = tokens[0];
   const currentToken = selectedToken || initialToken;
+  const { isNative } = currentToken;
 
   const tokenBalnace = useTokenBalance({
     accountId,
@@ -103,7 +100,6 @@ function TokenOutbox(props: Props) {
   const { isValid, isValidating, errors } = useValidteReceiver({
     networkId,
     receiver,
-    type,
     token: selectedToken || initialToken,
   });
 
@@ -310,7 +306,6 @@ function TokenOutbox(props: Props) {
     receiver,
     selectedToken,
     serviceBatchTransfer,
-    type,
     verifyBulkTransferBeforeConfirm,
   ]);
 
@@ -366,118 +361,87 @@ function TokenOutbox(props: Props) {
   }, [accountId, networkId]);
 
   return (
-    <Tabs.ScrollView>
-      <Box paddingX={isVertical ? 4 : 0} paddingY={5}>
-        <Pressable.Item
-          disabled={loading || isNative}
-          px={4}
-          py={2}
-          borderColor="border-default"
-          borderWidth={1}
-          borderRadius={12}
+    <Box>
+      <TxSettingPanel>
+        <TxSettingTrigger
+          header={intl.formatMessage({ id: 'form__token' })}
+          title={currentToken.symbol}
+          desc={intl.formatMessage(
+            { id: 'content__balance_str' },
+            { 0: tokenBalnace },
+          )}
+          icon={<TokenIcon size={10} token={currentToken} />}
           onPress={handleOpenTokenSelector}
-        >
-          <HStack alignItems="center">
-            <TokenComponent
-              flex={1}
-              size={8}
-              showInfo
-              showTokenVerifiedIcon={false}
-              token={selectedToken || initialToken}
-              name={selectedToken?.name || initialToken?.name}
-              showExtra={false}
-              description={formatedBalance}
-            />
-            {!isNative && (
-              <Icon name="ChevronRightMini" color="icon-subdued" size={20} />
-            )}
-          </HStack>
-        </Pressable.Item>
-        <Box mt={6}>
-          <ReceiverInput
-            accountId={accountId}
-            networkId={networkId}
-            setReceiver={setReceiver}
-            receiverFromOut={receiverFromOut}
-            setReceiverFromOut={setReceiverFromOut}
-            receiverErrors={errors}
-            type={type}
-            isUploadMode={isUploadMode}
-            setIsUploadMode={setIsUploadMode}
-          />
-        </Box>
-        <Box display={isUploadMode ? 'none' : 'flex'}>
-          <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
-            {intl.formatMessage({
-              id: 'content__deflationary_token_transfers_are_not_supported_at_this_moment',
+        />
+        {!isNative && network?.settings.batchTransferApprovalRequired && (
+          <TxSettingTrigger
+            header={intl.formatMessage({ id: 'form__allowance' })}
+            title={intl.formatMessage({
+              id: isUnlimited ? 'form__unlimited' : 'form__exact_amount',
             })}
-          </Text>
-          <HStack space={4} alignItems="center" flexWrap="wrap">
-            <Button
-              mt={4}
-              type="basic"
-              size="sm"
-              leftIconName="CurrencyDollarSolid"
-              onPress={handleOpenAmountEditor}
-            >
-              <Text typography="CaptionStrong">
-                {intl.formatMessage({ id: 'action__edit_amount' })}
-              </Text>
-            </Button>
-            {!isNative && network?.settings.batchTransferApprovalRequired && (
-              <Button
-                mt={4}
-                type="basic"
-                size="sm"
-                leftIconName="CurrencyDollarSolid"
-                onPress={handleOpenApprovalSelector}
-                paddingTop={isAlreadyUnlimited ? '4px' : '6px'}
-                paddingBottom={isAlreadyUnlimited ? '4px' : '6px'}
-              >
-                <HStack space={2} alignItems="center">
-                  <Text typography="CaptionStrong">
-                    {intl.formatMessage({
-                      id: isUnlimited
-                        ? 'action__approval_unlimited'
-                        : 'action__approval_exact_amount',
-                    })}
-                  </Text>
-                  {isAlreadyUnlimited && isUnlimited && (
-                    <Badge
-                      size="sm"
-                      color="text-success"
-                      bgColor="surface-success-default"
-                      title={intl.formatMessage({ id: 'form__approved' })}
-                    />
-                  )}
-                </HStack>
-              </Button>
-            )}
-          </HStack>
-          <Box mt={4}>
-            <Button
-              isLoading={isValidating || isBuildingTx}
-              isDisabled={
-                isValidating ||
-                !isValid ||
-                receiver.length === 0 ||
-                isBuildingTx
-              }
-              type="primary"
-              size="xl"
-              maxW={isVertical ? 'full' : '280px'}
-              onPress={handlePreviewTransfer}
-            >
-              {intl.formatMessage({ id: 'action__preview' })}
-            </Button>
-          </Box>
-          <Box mt={4}>
-            <ReceiverExample />
-          </Box>
+            desc={
+              isAlreadyUnlimited &&
+              isUnlimited && (
+                <Text typography="Body2" color="text-success">
+                  {intl.formatMessage({ id: 'form__approved' })}
+                </Text>
+              )
+            }
+            onPress={handleOpenApprovalSelector}
+          />
+        )}
+      </TxSettingPanel>
+      <Box mt={8}>
+        <ReceiverInput
+          accountId={accountId}
+          networkId={networkId}
+          setReceiver={setReceiver}
+          receiverFromOut={receiverFromOut}
+          setReceiverFromOut={setReceiverFromOut}
+          receiverErrors={errors}
+          isUploadMode={isUploadMode}
+          setIsUploadMode={setIsUploadMode}
+        />
+      </Box>
+      <Box display={isUploadMode ? 'none' : 'flex'}>
+        <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
+          {intl.formatMessage({
+            id: 'content__deflationary_token_transfers_are_not_supported_at_this_moment',
+          })}
+        </Text>
+        <HStack space={4} alignItems="center" flexWrap="wrap">
+          <Button
+            mt={4}
+            type="basic"
+            size="sm"
+            leftIconName="CurrencyDollarSolid"
+            onPress={handleOpenAmountEditor}
+          >
+            <Text typography="CaptionStrong">
+              {intl.formatMessage({ id: 'action__edit_amount' })}
+            </Text>
+          </Button>
+        </HStack>
+        <Box mt={4}>
+          <Button
+            isLoading={isValidating || isBuildingTx}
+            isDisabled={
+              isValidating || !isValid || receiver.length === 0 || isBuildingTx
+            }
+            type="primary"
+            size="xl"
+            maxW={isVertical ? 'full' : '280px'}
+            onPress={handlePreviewTransfer}
+          >
+            {intl.formatMessage({ id: 'action__preview' })}
+          </Button>
+        </Box>
+        <Box mt={4}>
+          <ReceiverExample />
         </Box>
       </Box>
-    </Tabs.ScrollView>
+    </Box>
   );
 }
 
-export { TokenOutbox };
+export { OneToMany };

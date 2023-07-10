@@ -9,6 +9,7 @@ import {
   Button,
   HStack,
   IconButton,
+  ScrollView,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -22,9 +23,11 @@ import { navigationShortcuts } from '../../routes/navigationShortcuts';
 import { HomeRoutes } from '../../routes/routesEnum';
 import { useConnectAndCreateExternalAccount } from '../ExternalAccount/useConnectAndCreateExternalAccount';
 
+import { ManyToMany } from './ManyToMany';
+import { ManyToOne } from './ManyToOne';
 import { ModelSelector } from './ModeSelector';
 import { NotSupported } from './NotSupported';
-import { BulkSenderTabs } from './BulkSenderTabs';
+import { OneToMany } from './OneToMany';
 
 import type { HomeRoutesParams } from '../../routes/types';
 import type { RouteProp } from '@react-navigation/native';
@@ -43,7 +46,8 @@ function BulkSender() {
   const routeParams = route.params;
   const mode = routeParams?.mode;
 
-  const { accountId, networkId, network } = useActiveWalletAccount();
+  const { accountId, networkId, network, accountAddress } =
+    useActiveWalletAccount();
 
   let selectedMode = mode;
 
@@ -76,6 +80,24 @@ function BulkSender() {
       </Button>
     );
   }, [intl, connectAndCreateExternalAccount, accountId]);
+
+  const renderBulkSenderPanel = useCallback(() => {
+    if (selectedMode === BulkSenderModeEnum.OneToMany) {
+      return (
+        <OneToMany
+          accountId={accountId}
+          networkId={networkId}
+          accountAddress={accountAddress}
+        />
+      );
+    }
+    if (selectedMode === BulkSenderModeEnum.ManyToOne) {
+      return <ManyToOne />;
+    }
+    if (selectedMode === BulkSenderModeEnum.ManyToMany) {
+      return <ManyToMany />;
+    }
+  }, [accountAddress, accountId, networkId, selectedMode]);
 
   const title = useMemo(() => {
     let desc: MessageDescriptor['id'];
@@ -150,7 +172,13 @@ function BulkSender() {
   if (!isSupported) return <NotSupported networkId={networkId} />;
 
   if (selectedMode) {
-    return <BulkSenderTabs mode={selectedMode} />;
+    return (
+      <ScrollView contentContainerStyle={{ alignItems: 'center' }}>
+        <Box maxW="1350px" paddingY={5} paddingX={isVertical ? 4 : 0}>
+          {renderBulkSenderPanel()}
+        </Box>
+      </ScrollView>
+    );
   }
 
   return <ModelSelector networkId={networkId} />;

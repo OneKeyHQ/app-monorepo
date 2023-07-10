@@ -131,8 +131,6 @@ function ModeItem(props: Props) {
 
   const { title, desc, mark } = modeInfo;
 
-  console.log(modeInfo);
-
   return (
     <Pressable
       bg="surface-default"

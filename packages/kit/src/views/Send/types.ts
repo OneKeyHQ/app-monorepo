@@ -364,7 +364,6 @@ export type BatchSendConfirmParams = BatchSendConfirmShared & {
   feeInfoUseFeeInTx: boolean;
   feeInfoEditable: boolean;
   transferCount: number;
-  transferType: BulkSenderTypeEnum;
   skipSaveHistory?: boolean;
 };
 

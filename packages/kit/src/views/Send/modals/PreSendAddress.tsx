@@ -303,7 +303,6 @@ function PreSendAddress() {
                 nftInfos,
               },
               transferCount: transferInfos.length,
-              transferType: BulkSenderTypeEnum.NFT,
               onModalClose: closeModal,
             },
           },

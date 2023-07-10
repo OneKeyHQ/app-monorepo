@@ -24,7 +24,6 @@ function ReceiverEditor(props: Props) {
     receiverFromOut,
     setReceiverFromOut,
     setReceiver,
-    type,
     receiverErrors,
     showFileError,
     setShowFileError,
@@ -48,8 +47,8 @@ function ReceiverEditor(props: Props) {
   });
 
   useEffect(() => {
-    setReceiver(decodeReceiver(receiverStringDebounce, type));
-  }, [receiverStringDebounce, setReceiver, type]);
+    setReceiver(decodeReceiver(receiverStringDebounce));
+  }, [receiverStringDebounce, setReceiver]);
 
   useEffect(() => {
     if (receiverFromOut.length > 0) {

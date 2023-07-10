@@ -2,7 +2,7 @@ import { trim } from 'lodash';
 
 import { openUrlExternal } from '../../utils/openUrl';
 
-import { BulkSenderTypeEnum, ReceiverExampleType } from './types';
+import { ReceiverExampleType } from './types';
 
 import type { TokenReceiver } from './types';
 
@@ -32,10 +32,7 @@ export function encodeReceiverWithLineNumber(receiverString: string): string {
   return linesWithNumber.join('\n');
 }
 
-export function decodeReceiver<T>(
-  receiverString: string,
-  type: BulkSenderTypeEnum,
-): T[] {
+export function decodeReceiver<T>(receiverString: string): T[] {
   const receiver: T[] = [];
 
   if (receiverString === '') return [];
@@ -44,12 +41,10 @@ export function decodeReceiver<T>(
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
     const receiverData = line.split(',');
-    if (type === BulkSenderTypeEnum.Token || BulkSenderTypeEnum.NativeToken) {
-      receiver.push({
-        Address: trim(receiverData[0]),
-        Amount: trim(receiverData[1]),
-      } as T);
-    }
+    receiver.push({
+      Address: trim(receiverData[0]),
+      Amount: trim(receiverData[1]),
+    } as T);
   }
 
   return receiver;
