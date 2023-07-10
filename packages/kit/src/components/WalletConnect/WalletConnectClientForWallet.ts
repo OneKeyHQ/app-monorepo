@@ -106,7 +106,7 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
     // import KeyValueStorage from '@walletconnect/keyvaluestorage';
     // browser & native env should use default storage, otherwise it will cause error:
     //      cannot convert null or undefined to object
-    //      @walletconnect/keyvaluestorage will handle json parse/stringify
+    //      @walletconnect/keyvaluestorage will handle json parse/stringify before setItem & getItem
     let storage: IKeyValueStorage | undefined;
     if (platformEnv.isManifestV3 && platformEnv.isExtension) {
       storage = appStorage as any;
