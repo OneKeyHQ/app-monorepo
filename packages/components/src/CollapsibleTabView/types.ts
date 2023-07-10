@@ -15,4 +15,7 @@ export interface CollapsibleContainerProps {
   headerContainerStyle?: StyleProp<ViewStyle>;
   canOpenDrawer?: boolean;
   children?: JSX.Element | JSX.Element[];
+
+  // Android only
+  onStartChange?: () => void;
 }

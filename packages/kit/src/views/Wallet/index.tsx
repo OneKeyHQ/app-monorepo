@@ -55,6 +55,8 @@ const WalletTabs: FC = () => {
   const { enabledNetworks } = useManageNetworks();
   const [refreshing, setRefreshing] = useState(false);
 
+  const timer = useRef<ReturnType<typeof setTimeout>>();
+
   const tokensTab = useMemo(
     () => (
       <Tabs.Tab
@@ -167,12 +169,19 @@ const WalletTabs: FC = () => {
 
   const onIndexChange = useCallback(
     (index: number) => {
-      backgroundApiProxy.dispatch(setHomeTabName(getHomeTabNameByIndex(index)));
+      // Android animation redux causes ui stuttering
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => {
+        backgroundApiProxy.dispatch(
+          setHomeTabName(getHomeTabNameByIndex(index)),
+        );
+      }, 500);
     },
     [getHomeTabNameByIndex],
   );
 
   useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     const idx = getHomeTabIndex();
 
     const setIndex = (index: number) => {
@@ -187,6 +196,10 @@ const WalletTabs: FC = () => {
     } else {
       setIndex(idx);
     }
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
   }, [homeTabName, onIndexChange, getHomeTabIndex]);
 
   const onRefresh = useCallback(() => {
@@ -216,6 +229,9 @@ const WalletTabs: FC = () => {
       onRefresh={onRefresh}
       onIndexChange={(index: number) => {
         onIndexChange(index);
+      }}
+      onStartChange={() => {
+        if (timer.current) clearTimeout(timer.current);
       }}
       renderHeader={AccountHeader}
       headerHeight={
