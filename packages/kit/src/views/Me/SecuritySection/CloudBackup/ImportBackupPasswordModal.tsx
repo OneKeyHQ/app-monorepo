@@ -14,9 +14,12 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
 import type { ImportBackupPasswordRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/ImportBackupPassword';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
+
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 
 import type { ImportBackupPasswordModalRoutes } from '../../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/core';
@@ -55,7 +58,13 @@ const ImportBackupPasswordModal: FC = () => {
 
   const onSubmit = useCallback(
     async (values: FieldValues) => {
-      const result = await withPassword(values.password);
+      const key =
+        await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey();
+      const encodedPassword = encodeSensitiveText({
+        text: values.password,
+        key,
+      });
+      const result = await withPassword(encodedPassword);
       if (result === RestoreResult.SUCCESS) {
         onSuccess();
       } else if (result === RestoreResult.WRONG_PASSWORD) {

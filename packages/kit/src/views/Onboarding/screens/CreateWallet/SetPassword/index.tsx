@@ -86,31 +86,38 @@ function RedirectToRecoveryPhrase({
   const navigation = useNavigation<NavigationProps>();
 
   useEffect(() => {
-    (async function () {
-      if (importedMnemonic) {
+    function importedMnemonicFunc(mnemonic: string) {
+      const t = setTimeout(() => {
         showDialog(
           <RecoveryPhraseDialog
             onNext={() => {
               navigation.replace(EOnboardingRoutes.BehindTheScene, {
                 password,
-                mnemonic: importedMnemonic,
+                mnemonic,
                 withEnableAuthentication,
               });
             }}
           />,
         );
-        return;
-      }
+      }, 600);
+      return () => clearTimeout(t);
+    }
+    async function generateMnemonicFunc() {
       const mnemonic = await backgroundApiProxy.engine.generateMnemonic();
-
-      // return;
       await wait(600);
       navigation.replace(EOnboardingRoutes.RecoveryPhrase, {
         password,
         mnemonic,
         withEnableAuthentication,
       });
-    })();
+    }
+    function main() {
+      if (importedMnemonic) {
+        return importedMnemonicFunc(importedMnemonic);
+      }
+      generateMnemonicFunc();
+    }
+    return main();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
