@@ -87,7 +87,7 @@ const AddressBar: FC<{ onSearch: () => void }> = ({ onSearch }) => {
         </Typography.Body2>
         <NetworkAccountSelectorTriggerMobile
           bg="surface-neutral-default"
-          type="plain"
+          type="basic"
           labelTypography="CaptionStrong"
           iconSize={5}
         />
