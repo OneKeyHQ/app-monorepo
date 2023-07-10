@@ -2,12 +2,14 @@ import type { FC } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { TouchableWithoutFeedback } from 'react-native';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
 import {
   Box,
   HStack,
   Icon,
+  IconButton,
   Pressable,
   Token,
   Typography,
@@ -17,10 +19,9 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigation, useTokenDetailInfo, useWallet } from '../../../hooks';
+import { useNavigation, useWallet } from '../../../hooks';
 import {
   FiatPayModalRoutes,
   MainRoutes,
@@ -57,36 +58,49 @@ const ButtonItem = ({
   icon,
   text,
   onPress,
+  isDisabled,
 }: {
   icon: ICON_NAMES;
   text: string;
   onPress?: () => unknown;
+  isDisabled?: boolean;
 }) => {
   const isVertical = useIsVerticalLayout();
   const content = useMemo(() => {
-    const size = isVertical ? '42px' : '34px';
     let ele = (
-      <>
-        <Box
-          bg="action-secondary-default"
-          borderWidth="1px"
-          borderRadius="999px"
-          borderColor="border-default"
-          alignItems="center"
-          justifyContent="center"
-          size={size}
-        >
-          <Icon name={icon} size={isVertical ? 24 : 20} />
-        </Box>
+      <Box mx={isVertical ? 0 : 3}>
+        {typeof onPress === 'function' ? (
+          <TouchableWithoutFeedback>
+            <IconButton
+              circle
+              size={isVertical ? 'lg' : 'sm'}
+              name={icon}
+              type="basic"
+              isDisabled={isDisabled}
+              onPress={onPress}
+            />
+          </TouchableWithoutFeedback>
+        ) : (
+          <Box
+            p={isVertical ? 2 : 1.5}
+            alignItems="center"
+            justifyContent="center"
+            borderWidth="1px"
+            borderRadius="999px"
+            borderColor="border-default"
+            bg="action-secondary-default"
+          >
+            <Icon name={icon} size={isVertical ? 24 : 20} />
+          </Box>
+        )}
         <Typography.CaptionStrong
-          mt="2"
-          color="text-default"
           textAlign="center"
-          w={size}
+          mt="8px"
+          color={isDisabled ? 'text-disabled' : 'text-default'}
         >
           {text}
         </Typography.CaptionStrong>
-      </>
+      </Box>
     );
 
     if (typeof onPress === 'function') {
@@ -94,7 +108,7 @@ const ButtonItem = ({
     }
 
     return ele;
-  }, [icon, isVertical, text, onPress]);
+  }, [icon, isVertical, text, onPress, isDisabled]);
 
   return content;
 };
@@ -112,26 +126,15 @@ export const ButtonsSection: FC = () => {
     sendAddress,
     symbol,
     logoURI,
-    tokenAddress,
-    coingeckoId,
   } = context?.routeParams ?? {};
 
-  const { items } = context?.detailInfo ?? {};
+  const { items } = context?.positionInfo ?? {};
 
-  const { tokens } = useTokenDetailInfo({
-    coingeckoId,
-    networkId,
-    tokenAddress,
-  });
+  const { tokens, loading, ethereumNativeToken } = context?.detailInfo ?? {};
 
   const { wallet } = useWallet({
     walletId,
   });
-
-  const ethereumNativeToken = tokens?.find(
-    (n) =>
-      n.impl === IMPL_EVM && n.chainId === '1' && (n.isNative || !n.address),
-  );
 
   const filter = useCallback(
     ({ network }: { network?: Network | null }) =>
@@ -295,7 +298,9 @@ export const ButtonsSection: FC = () => {
         onPress: onSell,
         icon: 'BanknotesMini',
       },
-    ].filter((item) => !item.visible || item?.visible?.()) as IButtonItem[];
+    ]
+      .map((t) => ({ ...t, isDisabled: loading }))
+      .filter((item) => !item.visible || item?.visible?.()) as IButtonItem[];
     const showSize = isVerticalLayout ? 4 : 3;
     return {
       buttons: list.slice(0, showSize),
@@ -306,7 +311,16 @@ export const ButtonsSection: FC = () => {
         },
       })),
     };
-  }, [handlePress, isVerticalLayout, onBuy, onSell, onSwap, onReceive, onSend]);
+  }, [
+    loading,
+    handlePress,
+    isVerticalLayout,
+    onBuy,
+    onSell,
+    onSwap,
+    onReceive,
+    onSend,
+  ]);
 
   return (
     <Box>
@@ -324,20 +338,20 @@ export const ButtonsSection: FC = () => {
         )}
         <HStack
           justifyContent="space-between"
-          w={isVerticalLayout ? '100%' : '256px'}
+          w={isVerticalLayout ? '100%' : undefined}
         >
           {buttons.map((item) => (
-            <Box key={item.id}>
-              <ButtonItem
-                onPress={() => {
-                  handlePress(item);
-                }}
-                icon={item.icon}
-                text={intl.formatMessage({
-                  id: item.id,
-                })}
-              />
-            </Box>
+            <ButtonItem
+              key={item.id}
+              onPress={() => {
+                handlePress(item);
+              }}
+              icon={item.icon}
+              text={intl.formatMessage({
+                id: item.id,
+              })}
+              isDisabled={loading}
+            />
           ))}
           <BaseMenu ml="26px" options={options}>
             <Pressable>
@@ -346,6 +360,7 @@ export const ButtonsSection: FC = () => {
                 text={intl.formatMessage({
                   id: 'action__more',
                 })}
+                isDisabled={loading}
               />
             </Pressable>
           </BaseMenu>

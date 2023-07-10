@@ -47,7 +47,7 @@ const SectionCopyAddress: FC = () => {
     useActiveWalletAccount();
   const { copyAddress } = useCopyAddress({ wallet });
 
-  const networkAccountsMap = useAllNetworksWalletAccounts({
+  const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     walletId,
     accountId,
   });

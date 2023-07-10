@@ -22,7 +22,7 @@ import { isAllNetworks, parseNetworkId } from './network';
 
 import type { Account } from '../types/account';
 
-export const allNetworksAccountRegex = /h[dw]-\d+--(\d+)/;
+export const allNetworksAccountRegex = /h[dw]-[\d\w-]+--(\d+)/;
 
 function getCoinTypeFromAccountId(accountId: string): string {
   if (

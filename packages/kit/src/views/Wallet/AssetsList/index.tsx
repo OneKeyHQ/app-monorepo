@@ -25,8 +25,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveSideAccount } from '../../../hooks';
 import { useStatus } from '../../../hooks/redux';
-import { useAccountTokens } from '../../../hooks/useOverview';
-import { useAccountTokenLoading } from '../../../hooks/useTokens';
+import {
+  useAccountTokenLoading,
+  useAccountTokens,
+} from '../../../hooks/useOverview';
 import { useVisibilityFocused } from '../../../hooks/useVisibilityFocused';
 import { OverviewDefiThumbnal } from '../../Overview/Thumbnail';
 import { WalletHomeTabEnum } from '../type';
@@ -74,18 +76,21 @@ function AssetsList({
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
   const { homeTabName, isUnlock } = useStatus();
-  const loading = useAccountTokenLoading(networkId, accountId);
-  const accountTokens = useAccountTokens({
-    networkId,
-    accountId,
-    useFilter: true,
-    limitSize,
-  });
+  const chainAccountTokenLoading = useAccountTokenLoading(networkId, accountId);
+  const { data: accountTokens, loading: allNetworksAccountTokensLoading } =
+    useAccountTokens({
+      networkId,
+      accountId,
+      useFilter: true,
+      limitSize,
+    });
 
   const { account, network } = useActiveSideAccount({
     accountId,
     networkId,
   });
+
+  const loading = chainAccountTokenLoading || allNetworksAccountTokensLoading;
 
   const navigation = useNavigation<NavigationProps>();
 
@@ -249,7 +254,7 @@ function AssetsList({
       data={accountTokens}
       renderItem={renderListItem}
       ListHeaderComponent={
-        loading
+        !accountTokens?.length
           ? null
           : ListHeaderComponent ?? (
               <AssetsListHeader
