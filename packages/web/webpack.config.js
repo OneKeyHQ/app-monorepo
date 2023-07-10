@@ -33,14 +33,6 @@ module.exports = async function (env, argv) {
     config.devtool = false;
   }
 
-  if (config.devServer) {
-    config.devServer.proxy = config.devServer.proxy || {};
-    config.devServer.proxy['/nexa_ws'] = {
-      target: 'wss://testnet-explorer.nexa.org:30004',
-      changeOrigin: true,
-      ws: true,
-    };
-  }
   devUtils.writePreviewWebpackConfigJson(config, 'webpack.config.preview.json');
   return config;
 };
