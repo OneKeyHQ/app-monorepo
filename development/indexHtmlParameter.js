@@ -14,6 +14,8 @@ function createEjsParams({ filename = '', platform = '', browser = '' }) {
     platform,
     browser,
     htmlHeadPreloadCode,
+    // enable react native tracker
+    rrt: process.env.RRT,
   };
 }
 
