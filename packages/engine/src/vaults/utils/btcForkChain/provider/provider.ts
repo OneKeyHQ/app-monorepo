@@ -421,6 +421,12 @@ class Provider {
         ) {
           encoding = AddressEncodings.P2WPKH;
         } else if (
+          decoded.version === 0x00 &&
+          decoded.prefix === this.network.bech32 &&
+          decoded.data.length === 32
+        ) {
+          encoding = AddressEncodings.P2WSH;
+        } else if (
           decoded.version === 0x01 &&
           decoded.prefix === this.network.bech32 &&
           decoded.data.length === 32

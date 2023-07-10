@@ -2,7 +2,7 @@
 
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
-import { differenceBy, isNil } from 'lodash';
+import { isNil } from 'lodash';
 
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -18,8 +18,6 @@ import type {
   ICoinSelectUTXOLite,
   ICollectUTXOsOptions,
   IEncodedTxBtc,
-  IUTXOInput,
-  IUTXOOutput,
   PartialTokenInfo,
   TxInput,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
@@ -92,7 +90,6 @@ import type {
   IApproveInfo,
   IDecodedTx,
   IDecodedTxAction,
-  IDecodedTxActionNativeTransfer,
   IDecodedTxLegacy,
   IEncodedTx,
   IEncodedTxUpdateOptions,
@@ -102,7 +99,6 @@ import type {
   INFTInfo,
   ISignedTxPro,
   ITransferInfo,
-  ITransferInfoNftInscription,
   IUnsignedTxPro,
   IVaultSettings,
 } from '../../types';
@@ -986,13 +982,27 @@ export default class VaultBtcFork extends VaultBase {
               .then((feeRate) => new BigNumber(feeRate).toFixed(0)),
           ),
         );
-        return fees.sort((a, b) => {
-          const aBN = new BigNumber(a);
-          const bBN = new BigNumber(b);
-          if (aBN.gt(bBN)) return 1;
-          if (aBN.lt(bBN)) return -1;
-          return 0;
-        });
+        // Replace the negative number in the processing fee with the nearest element in the array
+        const negativeIndex = fees.findIndex((val) => new BigNumber(val).lt(0));
+        if (negativeIndex >= 0) {
+          let positiveIndex = negativeIndex;
+          while (
+            positiveIndex < fees.length - 1 &&
+            new BigNumber(fees[positiveIndex]).lt(0)
+          ) {
+            positiveIndex += 1;
+          }
+          while (
+            positiveIndex > 0 &&
+            new BigNumber(fees[positiveIndex]).lt(0)
+          ) {
+            positiveIndex -= 1;
+          }
+          fees.splice(negativeIndex, 1, fees[positiveIndex]);
+        }
+        return fees.sort((a, b) =>
+          new BigNumber(a).comparedTo(new BigNumber(b)),
+        );
       } catch (e) {
         console.error(e);
         throw new OneKeyInternalError('Failed to get fee rates.');
