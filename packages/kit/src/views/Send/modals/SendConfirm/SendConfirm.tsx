@@ -97,7 +97,7 @@ function SendConfirm({
     sendConfirmParams: routeParams,
     networkImpl,
     address: account?.address || '',
-    selectedUtxos: advancedSettings.selectedUtxos,
+    advancedSettings,
   });
 
   const { decodedTx } = useDecodedTx({
@@ -389,6 +389,7 @@ function SendConfirm({
     <TxDetailView
       sendConfirmParamsParsed={sendConfirmParamsParsed}
       isSendConfirm
+      isSingleTransformMode
       decodedTx={decodedTx}
       feeInput={feeInput}
       advancedSettingsForm={advancedSettingsForm}

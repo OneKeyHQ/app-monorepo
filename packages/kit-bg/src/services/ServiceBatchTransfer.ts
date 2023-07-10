@@ -299,8 +299,6 @@ export default class ServiceBatchTransfer extends ServiceBase {
       pendingTxs.map((tx) => tx.id.replace(regex, '')),
     );
 
-    console.log('updatedStatuses', updatedStatuses);
-
     updatedStatuses.forEach((status, index) => {
       const { id } = pendingTxs[index];
       if (status === TransactionStatus.CONFIRM_AND_SUCCESS) {
