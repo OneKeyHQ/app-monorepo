@@ -9,6 +9,7 @@ function InscriptionImage({ size, asset, ...props }: InscriptionContentProps) {
       overflow="hidden"
       justifyContent="center"
       alignItems="center"
+      size={size}
       {...props}
     >
       <Image size={size} source={{ uri: asset.content }} />

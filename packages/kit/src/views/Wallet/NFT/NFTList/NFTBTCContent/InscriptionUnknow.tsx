@@ -13,7 +13,12 @@ function InscriptionUnknow({ size, asset, ...props }: InscriptionContentProps) {
       bgColor="background-default"
       {...props}
     >
-      <Text width={size} typography="Body1Strong" numberOfLines={0}>
+      <Text
+        textAlign="center"
+        width={size}
+        typography="Body1Strong"
+        numberOfLines={0}
+      >
         {asset.content_type}
       </Text>
     </Box>

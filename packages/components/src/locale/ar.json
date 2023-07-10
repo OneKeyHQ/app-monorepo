@@ -1801,7 +1801,7 @@
   "modal__bootloader_update": "تحديث محمل الإقلاع",
   "modal__calculator": "آلة حاسبة",
   "modal__camera_access_not_granted": "لم يتم منح الوصول إلى الكاميرا",
-  "modal__camera_access_not_granted_desc": "انتقل إلى \"الإعدادات\" لتشغيل الوصول إلى الكاميرا.",
+  "modal__camera_access_not_granted_desc": "يتطلب OneKey الوصول إلى الكاميرا لمسح رمز الاستجابة السريعة. لاستخدام هذه الميزة ، عليك الانتقال إلى \"الإعدادات\" وتشغيل أذونات الكاميرا.",
   "modal__charts": "الرسوم البيانية",
   "modal__check_firmware_update_failure": "فشل التحقق من ترقية البرنامج الثابت",
   "modal__check_firmware_update_failure_desc": "أعد تشغيل الجهاز وانقر فوق إعادة المحاولة، أو تحقق مما إذا كان التحديث ناجحا على الجهاز أم لا.",
