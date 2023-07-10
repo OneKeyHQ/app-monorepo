@@ -742,6 +742,7 @@ export default class ServiceInscribe extends ServiceBase {
   }): Promise<IInscriptionContent[]> {
     const contents: IInscriptionContent[] = [];
     const previewTextSize = 200;
+    const maxBytesSize = 380 * 1000;
 
     const buildTextContent = ({
       name,
@@ -757,9 +758,16 @@ export default class ServiceInscribe extends ServiceBase {
       if (previewText.length < text.length) {
         previewText += '...';
       }
+      const hex = bufferUtils.textToHex(text);
+      const buffer = bufferUtils.hexToBytes(hex);
+      if (buffer.length > maxBytesSize) {
+        throw new Error(
+          `createInscriptionContents ERROR: Text too long, ${buffer.length}>${maxBytesSize}`,
+        );
+      }
       return {
         name: name || '',
-        hex: bufferUtils.textToHex(text),
+        hex,
         mimetype,
         sha256: '',
         previewText,
@@ -794,6 +802,12 @@ export default class ServiceInscribe extends ServiceBase {
 
     for (const file of files) {
       const { mimetype, data, filename } = file;
+      const buffer = bufferUtils.hexToBytes(data);
+      if (buffer.length > maxBytesSize) {
+        throw new Error(
+          `createInscriptionContents ERROR: File too large, ${buffer.length}>${maxBytesSize}`,
+        );
+      }
       contents.push({
         categoryType: 'file',
         name: filename || '',
