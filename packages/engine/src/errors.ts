@@ -373,3 +373,8 @@ export class NoRouteFoundError extends OneKeyError {
 export class BadAuthError extends OneKeyError {
   override key = 'msg__authentication_failed_verify_again';
 }
+
+export class TaprootAddressError extends OneKeyError {
+  override key =
+    'msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address';
+}
