@@ -34,6 +34,9 @@ const ENCODE_TEXT_PREFIX =
   'SENSITIVE_ENCODE::AE7EADC1-CDA0-45FA-A340-E93BEDDEA21E::';
 
 function decodePassword({ password }: { password: string }) {
+  if (platformEnv.isExtensionUi) {
+    throw new Error('decodePassword can NOT be called from UI');
+  }
   // do nothing if password is encodeKey, but not a real password
   if (password.startsWith(encodeKeyPrefix)) {
     return password;
@@ -155,6 +158,7 @@ function getBgSensitiveTextEncodeKey() {
 export {
   encrypt,
   decrypt,
+  decodePassword,
   encodeSensitiveText,
   decodeSensitiveText,
   isEncodedSensitiveText,

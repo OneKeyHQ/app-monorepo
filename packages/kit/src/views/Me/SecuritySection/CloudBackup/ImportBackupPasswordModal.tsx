@@ -14,14 +14,15 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
 import type { ImportBackupPasswordRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/ImportBackupPassword';
 import { RestoreResult } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.enums';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+
 import type { ImportBackupPasswordModalRoutes } from '../../../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/core';
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 
 type RouteProps = RouteProp<
   ImportBackupPasswordRoutesParams,

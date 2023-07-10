@@ -16,6 +16,7 @@ import * as errors from './errors';
 import { OneKeyValidatorError, OneKeyValidatorTip } from './errors';
 import * as limits from './limits';
 import {
+  decodePassword,
   decodeSensitiveText,
   isEncodedSensitiveText,
 } from './secret/encryptors/aes256';
@@ -185,10 +186,7 @@ class Validators {
 
   @backgroundMethod()
   async validatePasswordStrength(password: string): Promise<string> {
-    if (!isEncodedSensitiveText(password)) {
-      throw new Error('Password is not encoded, do NOT pass raw password');
-    }
-    const p = password ? decodeSensitiveText({ encodedText: password }) : '';
+    const p = decodePassword({ password });
     if (p.length >= 8 && p.length <= 128) {
       return Promise.resolve(password);
     }
