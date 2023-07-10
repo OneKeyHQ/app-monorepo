@@ -73,7 +73,7 @@ class Provider extends BaseProvider {
 
     const payload = unsignedTx.payload || {};
     const { nonce } = unsignedTx;
-    let { feeLimit } = unsignedTx;
+    let { feeLimit, feeLimitForDisplay } = unsignedTx;
 
     check(typeof nonce === 'number' && nonce >= 0, 'nonce is required');
 
@@ -100,7 +100,13 @@ class Provider extends BaseProvider {
 
       if (!feeLimit) {
         const estimatedGasLimit = await this.geth.then((client) =>
-          client.estimateGasLimit(fromAddress, toAddress, value, data),
+          client.estimateGasLimit({
+            fromAddress,
+            toAddress,
+            value,
+            data,
+            customData: payload.customData,
+          }),
         );
         const estimatedGasLimitBN = fromBigIntHex(estimatedGasLimit);
         const multiplier =
@@ -112,10 +118,12 @@ class Provider extends BaseProvider {
             (await this.geth.then((client) => client.isContract(toAddress))))
             ? estimatedGasLimitBN.multipliedBy(multiplier).integerValue()
             : estimatedGasLimitBN;
+        feeLimitForDisplay = estimatedGasLimitBN;
       }
     }
 
     feeLimit = feeLimit || new BigNumber(21000);
+    feeLimitForDisplay = feeLimitForDisplay || feeLimit || new BigNumber(21000);
 
     let { feePricePerUnit } = unsignedTx;
     if (!feePricePerUnit) {
@@ -133,6 +141,7 @@ class Provider extends BaseProvider {
       outputs: output ? [output] : [],
       nonce,
       feeLimit,
+      feeLimitForDisplay,
       feePricePerUnit,
       payload,
     });
@@ -225,7 +234,11 @@ class Provider extends BaseProvider {
       finalMessage = message.message;
     }
 
-    const messageHash = hashMessage(message.type as MessageTypes, finalMessage);
+    const messageHash = hashMessage({
+      messageType: message.type as MessageTypes,
+      message: finalMessage,
+    });
+
     const [sig, recId] = await signer.sign(ethUtil.toBuffer(messageHash));
     return ethUtil.addHexPrefix(
       Buffer.concat([sig, Buffer.from([recId + 27])]).toString('hex'),
@@ -242,10 +255,10 @@ class Provider extends BaseProvider {
   };
 
   async ecRecover(message: TypedMessage, signature: string): Promise<string> {
-    const messageHash = hashMessage(
-      message.type as MessageTypes,
-      message.message,
-    );
+    const messageHash = hashMessage({
+      messageType: message.type as MessageTypes,
+      message: message.message,
+    });
     const hashBuffer = ethUtil.toBuffer(messageHash);
     const sigBuffer = ethUtil.toBuffer(signature);
     check(hashBuffer.length === 32, 'Invalid message hash length');

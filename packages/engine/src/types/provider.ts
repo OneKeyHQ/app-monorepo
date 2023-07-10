@@ -88,6 +88,7 @@ export type UnsignedTx = {
   type?: string;
   nonce?: number;
   feeLimit?: BigNumber;
+  feeLimitForDisplay?: BigNumber;
   feePricePerUnit?: BigNumber;
   payload: { [key: string]: any };
   tokensChangedTo?: { [key: string]: string };

@@ -25,14 +25,13 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { WatchAssetParameters } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAccountTokens, useAccountTokensBalance } from '../../hooks';
+import { useAccountTokensBalance, useAccountTokensOnChain } from '../../hooks';
 import { useActiveWalletAccount } from '../../hooks/redux';
 import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
-import { buildAddressDetailsUrl } from '../../hooks/useOpenBlockBrowser';
+import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
 import { ManageTokenModalRoutes } from '../../routes/routesEnum';
 import { wait } from '../../utils/helper';
-import { openUrl } from '../../utils/openUrl';
 import { SiteSection } from '../ManageNetworks/components/SiteSection';
 import { defaultMenuOffset } from '../Overlay/BaseMenu';
 
@@ -95,6 +94,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
     networkId,
     accountId,
   } = useActiveWalletAccount();
+  const { openAddressDetails } = useOpenBlockBrowser(activeNetwork);
 
   const balances = useAccountTokensBalance(networkId, accountId);
   const intl = useIntl();
@@ -128,14 +128,8 @@ function ViewTokenModal(props: IViewTokenModalProps) {
   }, [address, intl]);
 
   const openExplorerAction = useCallback(() => {
-    openUrl(
-      buildAddressDetailsUrl(activeNetwork, address ?? ''),
-      intl.formatMessage({ id: 'form__explorers' }),
-      {
-        modalMode: true,
-      },
-    );
-  }, [intl, address, activeNetwork]);
+    openAddressDetails(address, intl.formatMessage({ id: 'form__explorers' }));
+  }, [intl, address, openAddressDetails]);
 
   const items: ListItem[] = useMemo(() => {
     const data = [
@@ -168,12 +162,14 @@ function ViewTokenModal(props: IViewTokenModalProps) {
             <Menu.CustomItem onPress={copyAction} icon="DocumentDuplicateMini">
               {intl.formatMessage({ id: 'action__copy_address' })}
             </Menu.CustomItem>
-            <Menu.CustomItem
-              onPress={openExplorerAction}
-              icon="ArrowTopRightOnSquareMini"
-            >
-              {intl.formatMessage({ id: 'action__view_in_browser' })}
-            </Menu.CustomItem>
+            {!activeNetwork?.settings?.hiddenBlockBrowserTokenDetailLink && (
+              <Menu.CustomItem
+                onPress={openExplorerAction}
+                icon="ArrowTopRightOnSquareMini"
+              >
+                {intl.formatMessage({ id: 'action__view_in_browser' })}
+              </Menu.CustomItem>
+            )}
           </Menu>
         ),
       },
@@ -206,6 +202,7 @@ function ViewTokenModal(props: IViewTokenModalProps) {
     balances,
     intl,
     token,
+    activeNetwork?.settings?.hiddenBlockBrowserTokenDetailLink,
     copyAction,
     menuTrigger,
     openExplorerAction,
@@ -310,7 +307,10 @@ function AddTokenModal() {
   } = useActiveWalletAccount();
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
-  const accountTokens = useAccountTokens(activeNetwork?.id, activeAccount?.id);
+  const accountTokens = useAccountTokensOnChain(
+    activeNetwork?.id,
+    activeAccount?.id,
+  );
   const navigation = useNavigation<NavigationProps>();
   const token = useRouteParams();
   const queryInfo = useDappParams();

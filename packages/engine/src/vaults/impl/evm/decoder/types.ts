@@ -1,5 +1,6 @@
 import type { TxStatus } from '../../../../types/covalent';
 import type { Network } from '../../../../types/network';
+import type { IErcNftType } from '../../../../types/nft';
 import type { Token } from '../../../../types/token';
 import type { ethers } from '../sdk/ethers';
 
@@ -66,7 +67,7 @@ interface EVMDecodedItemInternalStake {
 
 interface EVMBaseDecodedItem {
   txType: EVMDecodedTxType;
-  protocol?: 'erc20' | 'erc721' | 'erc1155';
+  protocol?: 'erc20' | IErcNftType;
   mainSource: 'raw' | 'ethersTx' | 'covalent';
   raw?: string;
 

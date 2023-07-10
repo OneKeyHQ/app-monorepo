@@ -14,13 +14,13 @@ import {
   Token as TokenIcon,
   Typography,
   useIsVerticalLayout,
-  useTheme,
 } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { useNetworkSimple } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import SwappingVia from '../components/SwappingVia';
+import TransactionRate from '../components/TransactionRate';
 import { SwapRoutes } from '../typings';
 import { formatAmount } from '../utils';
 
@@ -69,18 +69,12 @@ const HistoryItemStatus: FC<HistoryItemStatusProps> = ({ status }) => {
 };
 
 export type HistoryItemProps = {
-  isFirst?: boolean;
-  isLast?: boolean;
   tx: TransactionDetails;
 };
 
-const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
-  isFirst,
-  isLast,
-  tx,
-}) => {
-  const { themeVariant } = useTheme();
+const HistoryItemHorizontalView: FC<HistoryItemProps> = ({ tx }) => {
   const navigation = useNavigation();
+
   const fromNetworkId = tx.tokens?.from.networkId;
   const toNetworkId = tx.tokens?.to.networkId;
   const fromNetwork = useNetworkSimple(fromNetworkId);
@@ -105,53 +99,35 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
     [],
   );
   return (
-    <Box px="4">
+    <Box>
       <Pressable
-        bg="surface-default"
-        p="4"
+        // bg="surface-default"
+        py="4"
         onPress={onPress}
-        borderTopRadius={isFirst ? '12' : undefined}
-        borderBottomRadius={isLast ? '12' : undefined}
-        borderLeftWidth={0.5}
-        borderRightWidth={0.5}
-        borderTopWidth={isFirst ? '0.5' : undefined}
-        borderBottomWidth={isLast ? '0.5' : undefined}
-        borderColor={
-          themeVariant === 'light' ? 'border-subdued' : 'transparent'
-        }
         flexDirection="row"
         alignItems="center"
       >
-        <Box flexDirection="row" alignItems="center" flexBasis="30%">
+        <Box flexDirection="row" alignItems="center" flexBasis="18%">
           <Box mr="4">
             <TokenIcon
-              token={{ logoURI: tx.tokens?.from.token.logoURI }}
+              token={{ logoURI: tx.tokens?.to.token.logoURI }}
               size="8"
             />
           </Box>
-          <Box>
+          <Box flex="1">
             <Typography.Body1Strong>
               {formatTokenAmount({
-                token: tx.tokens?.from.token,
-                amount: tx.tokens?.from.amount,
+                token: tx.tokens?.to.token,
+                amount: tx.tokens?.to.amount,
               })}
             </Typography.Body1Strong>
             <Typography.Body2 color="text-subdued">
-              {fromNetwork?.shortName}
+              {toNetwork?.shortName}
             </Typography.Body2>
           </Box>
         </Box>
-        <Box flexDirection="row" alignItems="center" flexBasis="35%">
-          <Center h="4" w="8" my="1">
-            <Icon name="ArrowRightMini" size={16} />
-          </Center>
+        <Box flexDirection="row" alignItems="center" flexBasis="18%">
           <Box flexDirection="row" alignItems="center" flex="1">
-            <Box mr="4">
-              <TokenIcon
-                token={{ logoURI: tx.tokens?.to.token.logoURI }}
-                size="8"
-              />
-            </Box>
             <Box flex="1">
               <Box flexDirection="row" alignItems="center">
                 {!tx.actualReceived ? (
@@ -160,20 +136,39 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
                 <Box flex="1">
                   <Typography.Body1Strong isTruncated>
                     {formatTokenAmount({
-                      token: tx.tokens?.to.token,
-                      amount: tx.tokens?.to.amount,
+                      token: tx.tokens?.from.token,
+                      amount: tx.tokens?.from.amount,
                     })}
                   </Typography.Body1Strong>
                 </Box>
               </Box>
               <Typography.Body2 color="text-subdued">
-                {toNetwork?.shortName}
+                {fromNetwork?.shortName}
               </Typography.Body2>
             </Box>
           </Box>
         </Box>
+        <Box flexBasis="18%">
+          <TransactionRate
+            tokenA={tx.tokens?.from.token}
+            tokenB={tx.tokens?.to.token}
+            rate={tx.tokens?.rate}
+            hideIcon
+          />
+        </Box>
         <Box
-          flexBasis="20%"
+          flexBasis="18%"
+          alignItems="center"
+          justifyContent="flex-start"
+          flexDirection="row"
+          px="1"
+        >
+          <Typography.Body2 color="text-subdued" ml="3" isTruncated>
+            {dateFormat(tx.addedTime, 'yyyy/MM/dd HH:mm:ss')}
+          </Typography.Body2>
+        </Box>
+        <Box
+          flexBasis="18%"
           alignItems="center"
           justifyContent="flex-start"
           flexDirection="row"
@@ -189,26 +184,16 @@ const HistoryItemHorizontalView: FC<HistoryItemProps> = ({
           flexDirection="row"
           justifyContent="space-between"
           alignItems="center"
-          flex="1"
+          flexBasis="10%"
         >
           <HistoryItemStatus status={tx.status} />
-          <Box flex={1} flexDirection="row" justifyContent="flex-end">
-            <Typography.Body2 color="text-subdued" ml="3" isTruncated>
-              {dateFormat(tx.addedTime, 'HH:mm')}
-            </Typography.Body2>
-          </Box>
         </Box>
       </Pressable>
     </Box>
   );
 };
 
-const HistoryItemVerticalView: FC<HistoryItemProps> = ({
-  isFirst,
-  isLast,
-  tx,
-}) => {
-  const { themeVariant } = useTheme();
+const HistoryItemVerticalView: FC<HistoryItemProps> = ({ tx }) => {
   const navigation = useNavigation();
   const fromNetworkId = tx.tokens?.from.networkId;
   const toNetworkId = tx.tokens?.to.networkId;
@@ -236,20 +221,7 @@ const HistoryItemVerticalView: FC<HistoryItemProps> = ({
 
   return (
     <Box px="4">
-      <Pressable
-        bg="surface-default"
-        p="4"
-        onPress={onPress}
-        borderTopRadius={isFirst ? '12' : undefined}
-        borderBottomRadius={isLast ? '12' : undefined}
-        borderLeftWidth={0.5}
-        borderRightWidth={0.5}
-        borderTopWidth={isFirst ? '0.5' : undefined}
-        borderBottomWidth={isLast ? '0.5' : undefined}
-        borderColor={
-          themeVariant === 'light' ? 'border-subdued' : 'transparent'
-        }
-      >
+      <Pressable p="4" onPress={onPress}>
         <Box flexDirection="row" width="full">
           <Box mr="4">
             <TokenIcon
@@ -308,7 +280,7 @@ const HistoryItemVerticalView: FC<HistoryItemProps> = ({
               fontWeight={500}
             />
             <Typography.Body2 color="text-subdued" ml="3" fontWeight={500}>
-              {dateFormat(tx.addedTime, 'HH:mm')}
+              {dateFormat(tx.addedTime, 'MM/dd HH:mm')}
             </Typography.Body2>
           </Box>
           <HistoryItemStatus status={tx.status} />

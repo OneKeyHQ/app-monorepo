@@ -7,6 +7,8 @@ enum AccountType {
   SIMPLE = 'simple',
   UTXO = 'utxo',
   VARIANT = 'variant',
+  // used for allNetworks
+  FAKE = 'FAKE',
 }
 // TODO: ACCOUNT_TYPE_MULVARIANT for cosmos/polkadot
 
@@ -52,6 +54,7 @@ type Account = DBBaseAccount & {
   displayAddress?: string;
   xpub?: string; // for btc fork chain
   customAddresses?: string; // for btc custom address
+  addresses?: string; // for lightning network
 };
 
 type ImportableHDAccount = {

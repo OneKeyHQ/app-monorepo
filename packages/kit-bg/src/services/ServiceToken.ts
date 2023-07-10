@@ -1,6 +1,5 @@
 import BigNumber from 'bignumber.js';
 import { debounce, isEmpty, uniq, xor } from 'lodash';
-import memoizee from 'memoizee';
 
 import { getBalancesFromApi } from '@onekeyhq/engine/src/apiProxyUtils';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -11,6 +10,7 @@ import {
   getAddressRiskyItems,
   getTokenRiskyItems,
 } from '@onekeyhq/engine/src/managers/goplus';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import {
   fetchTokenSource,
   fetchTools,
@@ -19,28 +19,33 @@ import {
 } from '@onekeyhq/engine/src/managers/token';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { ServerToken, Token } from '@onekeyhq/engine/src/types/token';
+import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
 import {
   setIsPasswordLoadedInVault,
   setTools,
 } from '@onekeyhq/kit/src/store/reducers/data';
+import { setOverviewPortfolioUpdatedAt } from '@onekeyhq/kit/src/store/reducers/overview';
 import type { TokenBalanceValue } from '@onekeyhq/kit/src/store/reducers/tokens';
 import {
   setAccountTokens,
   setAccountTokensBalances,
 } from '@onekeyhq/kit/src/store/reducers/tokens';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import type { ITokenDetailInfo } from '@onekeyhq/kit/src/views/ManageTokens/types';
 import {
   backgroundClass,
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { COINTYPE_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   AppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { isExtensionBackground } from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -59,11 +64,11 @@ export default class ServiceToken extends ServiceBase {
   registerEvents() {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     appEventBus.on(AppEventBusNames.NetworkChanged, () => {
-      this.fetchAccountTokens({ includeTop50TokensQuery: true });
+      this.refreshAccountTokens({ includeTop50TokensQuery: true });
     });
     // eslint-disable-next-line @typescript-eslint/unbound-method
     appEventBus.on(AppEventBusNames.CurrencyChanged, () => {
-      this.fetchAccountTokens({ includeTop50TokensQuery: true });
+      this.refreshAccountTokens({ includeTop50TokensQuery: true });
     });
 
     if (isExtensionBackground) {
@@ -76,6 +81,20 @@ export default class ServiceToken extends ServiceBase {
     }
   }
 
+  @backgroundMethod()
+  refreshAccountTokens(options: Partial<IFetchAccountTokensParams> = {}) {
+    const { appSelector } = this.backgroundApi;
+    const { activeNetworkId, activeAccountId } = appSelector((s) => s.general);
+    if (!activeNetworkId || !activeAccountId) {
+      return;
+    }
+    this.fetchAccountTokens({
+      ...options,
+      accountId: activeAccountId,
+      networkId: activeNetworkId,
+    });
+  }
+
   // eslint-disable-next-line @typescript-eslint/require-await
   @bindThis()
   @backgroundMethod()
@@ -83,9 +102,17 @@ export default class ServiceToken extends ServiceBase {
     if (this.interval) {
       return;
     }
+    const { appSelector } = this.backgroundApi;
+    const { activeWalletId } = appSelector((s) => s.general);
+    const duration =
+      activeWalletId === WALLET_TYPE_WATCHING
+        ? getTimeDurationMs({ minute: 1 })
+        : getTimeDurationMs({
+            seconds: 15,
+          });
     this.interval = setInterval(() => {
-      this.fetchAccountTokens({ includeTop50TokensQuery: false });
-    }, getTimeDurationMs({ seconds: 15 }));
+      this.refreshAccountTokens({ includeTop50TokensQuery: false });
+    }, duration);
 
     debugLogger.common.info(`startRefreshAccountTokens`);
   }
@@ -194,6 +221,12 @@ export default class ServiceToken extends ServiceBase {
             (t) => !removedTokens.includes(t.address ?? ''),
           ),
         }),
+        setOverviewPortfolioUpdatedAt({
+          key: `${networkId}___${accountId}`,
+          data: {
+            updatedAt: Date.now(),
+          },
+        }),
       );
       return accountTokens;
     },
@@ -202,18 +235,14 @@ export default class ServiceToken extends ServiceBase {
       primitive: true,
       max: 50,
       maxAge: getTimeDurationMs({ seconds: 1 }),
-      normalizer: (args) => JSON.stringify(args),
+      normalizer: ([p]) => `${p.accountId}-${p.networkId}`,
     },
   );
 
   @bindThis()
   @backgroundMethod()
-  async fetchAccountTokens(options: Partial<IFetchAccountTokensParams> = {}) {
-    const { appSelector } = this.backgroundApi;
-    const { activeAccountId, activeNetworkId } = appSelector((s) => s.general);
-
-    const accountId = options.accountId || activeAccountId || '';
-    const networkId = options.networkId || activeNetworkId || '';
+  async fetchAccountTokens(options: IFetchAccountTokensParams) {
+    const { accountId, networkId } = options;
 
     if (!accountId || !networkId) {
       return [];
@@ -221,11 +250,10 @@ export default class ServiceToken extends ServiceBase {
     if (!isAccountCompatibleWithNetwork(accountId, networkId)) {
       return [];
     }
-    return this._refreshTokenBalanceWithMemo({
-      accountId,
-      networkId,
-      ...options,
-    });
+    if (isAllNetworks(networkId)) {
+      return [];
+    }
+    return this._refreshTokenBalanceWithMemo(options);
   }
 
   async _batchFetchAccountBalances({
@@ -256,7 +284,10 @@ export default class ServiceToken extends ServiceBase {
     try {
       const balancesAddress = await Promise.all(
         dbAccounts.map(async (a) => {
-          if (a.type === AccountType.UTXO) {
+          if (
+            a.type === AccountType.UTXO ||
+            a.coinType === COINTYPE_LIGHTNING
+          ) {
             const address = await vault.getFetchBalanceAddress(a);
             return { address, accountId: a.id };
           }
@@ -389,7 +420,6 @@ export default class ServiceToken extends ServiceBase {
     primitive: true,
     max: 500,
     maxAge: getTimeDurationMs({ day: 1 }),
-    normalizer: (args) => JSON.stringify(args),
   });
 
   @backgroundMethod()
@@ -450,7 +480,7 @@ export default class ServiceToken extends ServiceBase {
       balance,
       sendAddress,
       bestBlockNumber: blockHeight,
-    } of balancesFromApi.filter((b) => +b.balance > 0 || !b.address)) {
+    } of balancesFromApi) {
       const token = tokens[address];
       if (token) {
         // only record new token balances
@@ -736,99 +766,6 @@ export default class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchTokenDetailAmount(props: {
-    networkId: string;
-    accountId: string;
-    tokenId: string;
-    sendAddress?: string;
-  }): Promise<string> {
-    return this._fetchTokenDetailAmountMemo(props);
-  }
-
-  _fetchTokenDetailAmountMemo = memoizee(
-    async (props: {
-      networkId: string;
-      accountId: string;
-      tokenId: string;
-      sendAddress?: string;
-    }) => {
-      const { networkId, accountId, tokenId, sendAddress } = props;
-      const { engine, appSelector } = this.backgroundApi;
-
-      const token = await engine.findToken({
-        networkId,
-        tokenIdOnNetwork: tokenId,
-      });
-      return new Promise<string>((resolve) => {
-        const account = appSelector((s) =>
-          s.runtime.accounts?.find((n) => n.id === accountId),
-        );
-        const { balance: accountAmount } = appSelector((s) => {
-          const accountTokensBalance =
-            s.tokens.accountTokensBalance[networkId]?.[accountId] ?? {};
-          return (
-            accountTokensBalance[
-              getBalanceKey({
-                ...token,
-                sendAddress,
-              })
-            ] ?? {
-              balance: '0',
-            }
-          );
-        });
-        const minerOverview = appSelector(
-          (s) =>
-            s.staking.keleMinerOverviews?.[accountId ?? '']?.[networkId ?? ''],
-        );
-        const stakingAmount = minerOverview?.amount?.total_amount ?? 0;
-
-        const defiTokenAmount = appSelector((s) => {
-          const defis =
-            s.overview.defi?.[`${networkId}--${account?.address ?? ''}`];
-          if (!defis) {
-            return new BigNumber(0);
-          }
-          return defis.reduce((protocolSum, obj) => {
-            const poolTokens = obj.pools.reduce((poolTypeSum, [, items]) => {
-              const tokensValues = items.reduce(
-                (allTokenSum, { supplyTokens, rewardTokens }) => {
-                  const supplyTokenSum = supplyTokens
-                    .filter((t) => t.tokenAddress === tokenId)
-                    .reduce(
-                      (tokenSum, sToken) =>
-                        tokenSum.plus(sToken.balanceParsed ?? 0),
-                      new BigNumber(0),
-                    );
-                  const rewardTokenSum = rewardTokens
-                    .filter((t) => t.tokenAddress === tokenId)
-                    .reduce(
-                      (tokenSum, rToken) =>
-                        tokenSum.plus(rToken.balanceParsed ?? 0),
-                      new BigNumber(0),
-                    );
-                  return allTokenSum.plus(supplyTokenSum).plus(rewardTokenSum);
-                },
-                new BigNumber(0),
-              );
-              return poolTypeSum.plus(tokensValues);
-            }, new BigNumber(0));
-            return protocolSum.plus(poolTokens);
-          }, new BigNumber(0));
-        });
-        resolve(
-          defiTokenAmount.plus(stakingAmount).plus(accountAmount).toFixed(),
-        );
-      });
-    },
-    {
-      promise: true,
-      maxAge: getTimeDurationMs({ seconds: 10 }),
-      normalizer: (args) => JSON.stringify(args),
-    },
-  );
-
-  @backgroundMethod()
   async deleteAccountToken({
     accountId,
     networkId,
@@ -857,5 +794,23 @@ export default class ServiceToken extends ServiceBase {
     );
 
     return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async fetchTokenDetailInfo(params: {
+    coingeckoId?: string;
+    networkId?: string;
+    tokenAddress?: string;
+  }): Promise<ITokenDetailInfo> {
+    const data = await fetchData<
+      | (Omit<ITokenDetailInfo, 'tokens'> & {
+          tokens: ServerToken[];
+        })
+      | undefined
+    >('/token/detailInfo', params, undefined);
+    return {
+      ...data,
+      tokens: data?.tokens.map((t) => formatServerToken(t)) ?? [],
+    };
   }
 }

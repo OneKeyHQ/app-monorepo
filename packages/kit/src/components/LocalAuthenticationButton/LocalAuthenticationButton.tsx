@@ -23,6 +23,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
   const intl = useIntl();
   const [isLoading, setLoading] = useState(false);
   const loading = useRef(false);
+  const lasttime = useRef(0);
 
   const authenticationType = useAppSelector((s) => s.status.authenticationType);
   const handOperatedLock = useAppSelector((s) => s.data.handOperatedLock);
@@ -75,6 +76,14 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const onActive = useCallback(() => {
+    const now = Date.now();
+    if (now - lasttime.current > 1000) {
+      lasttime.current = now;
+      onLocalAuthenticate();
+    }
+  }, [onLocalAuthenticate]);
+
   return (
     <>
       <IconButton
@@ -87,7 +96,7 @@ const LocalAuthenticationButton: FC<LocalAuthenticationButtonProps> = ({
         }
         onPress={onLocalAuthenticate}
       />
-      <AppStatusActiveListener onActive={onLocalAuthenticate} />
+      <AppStatusActiveListener onActive={onActive} />
     </>
   );
 };

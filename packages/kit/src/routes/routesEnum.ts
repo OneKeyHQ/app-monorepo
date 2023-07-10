@@ -198,12 +198,16 @@ export enum ModalRoutes {
   Market = 'Market',
   ClearCache = 'ClearCache',
   CoinControl = 'CoinControl',
+  GasPanel = 'GasPanel',
+  Inscribe = 'Inscribe',
 }
 
 export { SendModalRoutes } from '../views/Send/enums';
 
 export enum ReceiveTokenModalRoutes {
   ReceiveToken = 'ReceiveToken',
+  CreateInvoice = 'CreateInvoice',
+  ReceiveInvoice = 'ReceiveInvoice',
 }
 
 export enum CreateAccountModalRoutes {
@@ -240,6 +244,10 @@ export enum ManageNetworkModalRoutes {
   QuickAdd = 'QuickAdd',
   Sort = 'Sort',
   SwitchRpc = 'SwitchRpc',
+  AllNetworksNetworkSelector = 'AllNetworksNetworkSelector',
+  AllNetworksAccountsDetail = 'AllNetworksAccountsDetail',
+  AllNetworksShowAccountFullAddress = 'AllNetworksShowAccountFullAddress',
+  AllNetworksSupportedNetworks = 'AllNetworksSupportedNetworks',
 }
 
 export enum CreateWalletModalRoutes {
@@ -375,4 +383,12 @@ export enum ClearCacheModalRoutes {
 
 export enum CoinControlModalRoutes {
   CoinControlModal = 'CoinControlModal',
+}
+
+export enum InscribeModalRoutes {
+  InscribeModal = 'InscribeModal',
+  ReceiveAddress = 'ReceiveAddress',
+  CreateOrder = 'CreateOrder',
+  OrderList = 'OrderList',
+  OrderDetail = 'OrderDetail',
 }

@@ -21,9 +21,15 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../components/Format';
-import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
-import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
-import { useNativeToken, useTokenBalance } from '../../../hooks/useTokens';
+import {
+  useActiveWalletAccount,
+  useAppSelector,
+  useTokenBalance,
+} from '../../../hooks';
+import {
+  useNativeToken,
+  useSimpleTokenPriceValue,
+} from '../../../hooks/useTokens';
 import {
   ModalRoutes,
   RootRoutes,
@@ -33,7 +39,7 @@ import { addTransaction } from '../../../store/reducers/staking';
 import { formatAmount } from '../../../utils/priceUtils';
 import { formatDecimalZero } from '../../Market/utils';
 import { formatAmountExact, gt } from '../../Swap/utils';
-import PendingTransaction from '../components/PendingTransaction';
+import { PendingLidoTransaction } from '../components/PendingTransaction';
 import { useLidoOverview } from '../hooks';
 import { EthStakingSource, StakingRoutes } from '../typing';
 
@@ -152,7 +158,7 @@ const PendingTransactionAlert = () => {
         dismiss={false}
       />
       {txs.map((tx) => (
-        <PendingTransaction tx={tx} key={tx.hash} />
+        <PendingLidoTransaction tx={tx} key={tx.hash} />
       ))}
     </Box>
   ) : null;

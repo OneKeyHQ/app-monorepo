@@ -11,7 +11,14 @@ import type { INetworkAccountSelectorTriggerProps } from './BaseSelectorTrigger'
 
 const NetworkAccountSelectorTrigger: FC<
   INetworkAccountSelectorTriggerProps
-> = ({ type = 'plain', bg, mode, iconSize, labelTypography }) => {
+> = ({
+  type = 'plain',
+  bg,
+  mode,
+  iconSize,
+  labelTypography,
+  allowSelectAllNetworks,
+}) => {
   const { wallet } = useActiveWalletAccount();
   const isVerticalLayout = useIsVerticalLayout();
 
@@ -27,6 +34,7 @@ const NetworkAccountSelectorTrigger: FC<
         bg={bg}
         mode={mode}
         showName={!isVerticalLayout}
+        allowSelectAllNetworks={allowSelectAllNetworks}
       />
       <AccountSelectorTrigger
         type={type}

@@ -22,6 +22,7 @@ const NetworkSelectorTrigger: FC<NetworkSelectorTriggerProps> = ({
   bg,
   mode,
   iconSize = 6,
+  allowSelectAllNetworks,
 }) => {
   const { network } = useActiveWalletAccount();
   const { openNetworkSelector } = useNavigationActions();
@@ -67,7 +68,7 @@ const NetworkSelectorTrigger: FC<NetworkSelectorTriggerProps> = ({
       }
       label={showName && activeOption.label}
       onPress={() => {
-        openNetworkSelector({ mode });
+        openNetworkSelector({ mode, allowSelectAllNetworks });
       }}
     />
   );

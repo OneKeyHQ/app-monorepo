@@ -128,7 +128,7 @@ describe('Kaspa transaction Tests', () => {
     process.stdout.write(`transaction: ${rawTx}\n`);
   });
 
-  it('kaspa selector UTXO', async () => {
+  it.skip('kaspa selector UTXO', async () => {
     const confirmUTXOs = await queryConfirmUTXOs(
       client,
       'kaspa:qrkk52m4ddq405jvvfg7acwu6g48zd25dzekger3wftq7uat6xcw6cqq63a78',

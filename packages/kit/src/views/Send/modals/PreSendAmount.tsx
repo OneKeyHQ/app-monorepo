@@ -31,10 +31,10 @@ import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatBalanceTokenOfAccount } from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import {
-  useSingleToken,
   useTokenBalance,
   useTokenBalanceWithoutFrozen,
-} from '../../../hooks/useTokens';
+} from '../../../hooks/useOverview';
+import { useFrozenBalance, useSingleToken } from '../../../hooks/useTokens';
 import { wait } from '../../../utils/helper';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { PreSendAmountAlert } from '../components/PreSendAmountAlert';
@@ -140,9 +140,15 @@ function PreSendAmount() {
     accountId,
     token: {
       ...tokenInfo,
-      sendAddress: transferInfo.sendAddress,
+      sendAddress: transferInfo.tokenSendAddress,
     },
     fallback: '0',
+  });
+
+  const frozenBalance = useFrozenBalance({
+    networkId,
+    accountId,
+    tokenId: tokenInfo?.tokenIdOnNetwork || 'main',
   });
 
   const originalTokenBalance = useTokenBalance({
@@ -150,7 +156,7 @@ function PreSendAmount() {
     accountId,
     token: {
       ...tokenInfo,
-      sendAddress: transferInfo.sendAddress,
+      sendAddress: transferInfo.tokenSendAddress,
     },
     fallback: '0',
   });
@@ -333,7 +339,7 @@ function PreSendAmount() {
               network,
               token: {
                 ...tokenInfo,
-                sendAddress: transferInfo.sendAddress,
+                sendAddress: transferInfo.tokenSendAddress,
                 idOnNetwork: tokenInfo?.tokenIdOnNetwork ?? '',
               },
               to: transferInfo.to,
@@ -416,7 +422,7 @@ function PreSendAmount() {
                     id: tokenInfo?.id ?? '',
                     name: tokenInfo?.name ?? '',
                     ...(tokenInfo || {}),
-                    sendAddress: transferInfo.sendAddress,
+                    sendAddress: transferInfo.tokenSendAddress,
                   }}
                   render={(ele) => (
                     <Typography.Body1Strong
@@ -429,6 +435,15 @@ function PreSendAmount() {
                   )}
                 />
               </Box>
+              {new BigNumber(frozenBalance ?? '0').isGreaterThan(0) ? (
+                <Typography.Caption color="text-subdued" mt={2}>
+                  {`${intl.formatMessage({
+                    id: 'form__frozen_balance',
+                  })}: ${new BigNumber(frozenBalance ?? '0').toFixed()} ${
+                    tokenInfo?.symbol ?? ''
+                  }`}
+                </Typography.Caption>
+              ) : null}
             </Box>
             <Button
               onPress={() => {

@@ -21,9 +21,6 @@ export type IDistributionChannel =
   | 'native-ios-pad'
   | 'native-ios-pad-store';
 
-const { NODE_ENV } = process.env;
-const { JEST_WORKER_ID } = process.env;
-
 export type IPlatformEnv = {
   isNewRouteMode: boolean;
 
@@ -102,19 +99,29 @@ export type IPlatformEnv = {
   isAppleStoreEnv?: boolean;
 };
 
-const isJest = JEST_WORKER_ID !== undefined || NODE_ENV === 'test';
-
-const isDev = process.env.NODE_ENV !== 'production';
-const isProduction = process.env.NODE_ENV === 'production';
-
-const isWeb = process.env.ONEKEY_PLATFORM === 'web';
-const isWebEmbed = process.env.ONEKEY_PLATFORM === 'webEmbed';
-const isDesktop = process.env.ONEKEY_PLATFORM === 'desktop';
-const isExtension = process.env.ONEKEY_PLATFORM === 'ext';
-const isNative = process.env.ONEKEY_PLATFORM === 'app';
-
-const isExtChrome = process.env.EXT_CHANNEL === 'chrome';
-const isExtFirefox = process.env.EXT_CHANNEL === 'firefox';
+const {
+  isJest,
+  isDev,
+  isProduction,
+  isWeb,
+  isWebEmbed,
+  isDesktop,
+  isExtension,
+  isNative,
+  isExtChrome,
+  isExtFirefox,
+}: {
+  isJest: boolean;
+  isDev: boolean;
+  isProduction: boolean;
+  isWeb: boolean;
+  isWebEmbed: boolean;
+  isDesktop: boolean;
+  isExtension: boolean;
+  isNative: boolean;
+  isExtChrome: boolean;
+  isExtFirefox: boolean;
+} = require('./buildTimeEnv.js');
 
 const isDesktopMac = isDesktop && window?.desktopApi?.platform === 'darwin';
 const isDesktopMacArm64 = isDesktopMac && window?.desktopApi?.arch === 'arm64';
@@ -279,9 +286,6 @@ const platformEnv: IPlatformEnv = {
 
   version: process.env.VERSION,
   buildNumber: process.env.BUILD_NUMBER,
-
-  NODE_ENV,
-  JEST_WORKER_ID,
 
   isJest,
 

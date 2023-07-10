@@ -77,6 +77,19 @@ function normalizeConfig({ platform, config }) {
     return `@onekeyhq/components/src/${name}`;
   };
 
+  const {
+    isJest,
+    isDev,
+    isProduction,
+    isWeb,
+    isWebEmbed,
+    isDesktop,
+    isExtension,
+    isNative,
+    isExtChrome,
+    isExtFirefox,
+  } = require('../packages/shared/src/buildTimeEnv');
+
   config.plugins = [
     ...(config.plugins || []),
     [
@@ -88,6 +101,23 @@ function normalizeConfig({ platform, config }) {
         'include': envExposedToClient.buildEnvExposedToClientDangerously({
           platform,
         }),
+      },
+    ],
+    [
+      'transform-define',
+      {
+        // override runtime env with buildtime env
+        // so it can do more tree shaking
+        'platformEnv.isJest': isJest,
+        'platformEnv.isDev': isDev,
+        'platformEnv.isProduction': isProduction,
+        'platformEnv.isWeb': isWeb,
+        'platformEnv.isWebEmbed': isWebEmbed,
+        'platformEnv.isDesktop': isDesktop,
+        'platformEnv.isExtension': isExtension,
+        'platformEnv.isNative': isNative,
+        'platformEnv.isExtChrome': isExtChrome,
+        'platformEnv.isExtFirefox': isExtFirefox,
       },
     ],
     /*
@@ -142,6 +172,7 @@ function normalizeConfig({ platform, config }) {
     ['@babel/plugin-proposal-private-property-in-object', { 'loose': true }],
     ['@babel/plugin-proposal-export-namespace-from'],
     ['@babel/plugin-proposal-nullish-coalescing-operator'],
+    ['@babel/plugin-proposal-class-static-block'],
     moduleResolver && ['module-resolver', moduleResolver],
   ].filter(Boolean);
 

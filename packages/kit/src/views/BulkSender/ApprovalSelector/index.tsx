@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -59,7 +59,7 @@ function OptionItem({
             <HStack space={2}>
               <Text typography="Body1Strong">{title}</Text>
               <Badge title={subtitle} size="sm" />
-              {isAlreadyUnlimited && isChecked && (
+              {isAlreadyUnlimited && isUnlimited && (
                 <Badge
                   title={intl.formatMessage({ id: 'form__approved' })}
                   size="sm"
@@ -71,7 +71,7 @@ function OptionItem({
           ) : (
             <HStack space={2}>
               <Text typography="Body1Strong">{title}</Text>
-              {isAlreadyUnlimited && isChecked && (
+              {isAlreadyUnlimited && isUnlimited && (
                 <Badge
                   title={intl.formatMessage({ id: 'form__approved' })}
                   size="sm"
@@ -106,6 +106,7 @@ function ApprovalSelectorBottomSheetModal({
 }) {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
+  const [isUnlimitedChecked, setIsUnlimitedChecked] = useState(isUnlimited);
 
   const approvalOptions: ApprovalOption[] = [
     {
@@ -125,13 +126,9 @@ function ApprovalSelectorBottomSheetModal({
     },
   ];
 
-  const handleSelectApproval = useCallback(
-    (u: boolean) => {
-      setIsUnlimited(u);
-      closeOverlay();
-    },
-    [closeOverlay, setIsUnlimited],
-  );
+  const handleSelectApproval = useCallback((u: boolean) => {
+    setIsUnlimitedChecked(u);
+  }, []);
 
   return (
     <BottomSheetModal
@@ -143,13 +140,21 @@ function ApprovalSelectorBottomSheetModal({
         {approvalOptions.map((option) => (
           <OptionItem
             key={option.title}
-            isChecked={isUnlimited === option.isUnlimited}
+            isChecked={isUnlimitedChecked === option.isUnlimited}
             option={option}
             onSelected={handleSelectApproval}
             isAlreadyUnlimited={isAlreadyUnlimited}
           />
         ))}
-        <Button type="primary" size="xl" mt={6} onPress={closeOverlay}>
+        <Button
+          type="primary"
+          size="xl"
+          mt={6}
+          onPress={() => {
+            setIsUnlimited(isUnlimitedChecked);
+            closeOverlay();
+          }}
+        >
           {intl.formatMessage({ id: 'action__done' })}
         </Button>
       </Box>

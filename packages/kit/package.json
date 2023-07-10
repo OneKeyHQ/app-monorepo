@@ -13,8 +13,7 @@
     "dequal": "^2.0.3",
     "dotbit": "^0.4.1",
     "eth-chains": "^1.0.0",
-    "expo": "^48.0.17",
-    "expo-application": "^5.1.1",
+    "expo-application": "~5.1.1",
     "expo-av": "^13.2.1",
     "expo-barcode-scanner": "^12.3.2",
     "expo-blur": "~12.3.0",
@@ -32,19 +31,16 @@
     "expo-secure-store": "^12.1.1",
     "fuse.js": "^6.5.3",
     "lightweight-charts": "^3.8.0",
-    "moti": "^0.25.3",
+    "mime": "^3.0.0",
     "react-async-hook": "^4.0.0",
     "react-freeze": "^1.0.3",
     "react-intl": "^5.21.2",
     "react-native-animated-splash-screen": "^2.0.5",
     "react-native-camera-kit": "14.0.0-beta2",
-    "react-native-root-siblings": "^4.1.1",
     "react-native-uuid": "^2.0.1",
     "react-redux": "^8.0.5",
     "redux-logger": "^3.0.6",
     "redux-persist": "^6.0.0",
-    "rimraf": "^4.1.2",
-    "semver": "^7.3.8",
     "socket.io-client": "^4.5.4",
     "swr": "^2.1.5",
     "url-parse": "^1.5.10",
@@ -54,13 +50,13 @@
   },
   "scripts": {
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
-    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
-    "clean": "rimraf node_modules"
+    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
   "devDependencies": {
     "@react-navigation/devtools": "^6.0.18",
     "@types/d3-scale": "^4.0.3",
     "@types/d3-shape": "^3.1.1",
+    "@types/mime": "^3",
     "@types/socket.io-client": "^3.0.0"
   }
 }

@@ -3,13 +3,13 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import BigNumber from 'bignumber.js';
-import memoizee from 'memoizee';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
   InvalidAddress,
@@ -360,6 +360,7 @@ export default class Vault extends VaultBase {
               name: token.name,
               symbol: token.symbol,
               extraInfo: null,
+              networkId: this.networkId,
             },
           };
         } else {
@@ -420,6 +421,9 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxAlgo> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { from, to, amount, token: assetId } = transferInfo;
 
     const token = await this.engine.ensureTokenInDB(
@@ -722,7 +726,7 @@ export default class Vault extends VaultBase {
                 decimals: token.decimals,
                 name: token.name,
                 symbol: token.symbol,
-
+                networkId: this.networkId,
                 extraInfo: null,
               },
             };

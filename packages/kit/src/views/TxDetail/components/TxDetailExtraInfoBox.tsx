@@ -1,12 +1,10 @@
 import { useRef } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { IconButton, Pressable } from '@onekeyhq/components';
+import { Box, IconButton, Pressable, Text } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { IDecodedTx } from '@onekeyhq/engine/src/vaults/types';
-import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
@@ -68,33 +66,31 @@ function checkIsValidHistoryTxId({
 
 // TODO rename ExtraInfoBox
 export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
-  const { decodedTx, historyTx, feeInput, isSendConfirm } = props;
+  const {
+    decodedTx,
+    historyTx,
+    feeInput,
+    isBatchSendConfirm,
+    isSendConfirm,
+    isHistoryDetail,
+  } = props;
   const { network } = useNetwork({ networkId: decodedTx.networkId });
   const details: ITxActionElementDetail[] = [];
   const intl = useIntl();
   const { copyText } = useClipboard();
   const clickTimes = useRef(0);
 
-  if (
-    decodedTx.status === IDecodedTxStatus.Pending &&
-    decodedTx.nonce &&
-    decodedTx.nonce >= 0 &&
-    !isSendConfirm
-  ) {
+  if (!network?.settings.hiddenFeeOnTxDetail || isHistoryDetail) {
     details.push({
-      title: 'Nonce',
-      content: `${new BigNumber(decodedTx.nonce).toFixed()}`,
+      title: intl.formatMessage({ id: 'content__fee' }),
+      content:
+        feeInput ||
+        getFeeInNativeText({
+          network,
+          decodedTx,
+        }),
     });
   }
-  details.push({
-    title: intl.formatMessage({ id: 'content__fee' }),
-    content:
-      feeInput ||
-      getFeeInNativeText({
-        network,
-        decodedTx,
-      }),
-  });
   if (
     checkIsValidHistoryTxId({
       txid: decodedTx.txid,
@@ -162,5 +158,22 @@ export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
     });
   }
 
-  return <TxDetailActionBox details={details} />;
+  if (!details.length) return null;
+  if (isBatchSendConfirm) return null;
+
+  return (
+    <Box>
+      {isSendConfirm ? null : (
+        <Text
+          typography="Subheading"
+          textTransform="uppercase"
+          mb={3}
+          color="text-subdued"
+        >
+          {intl.formatMessage({ id: 'content__details' })}
+        </Text>
+      )}
+      <TxDetailActionBox details={details} showContentDivider />
+    </Box>
+  );
 }

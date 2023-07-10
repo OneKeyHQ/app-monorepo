@@ -1,18 +1,16 @@
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { appSelector } from '../../../../store';
+import { webTabsActions } from '../../../../store/observable/webTabs';
 import {
   addWebSiteHistory,
   setDappHistory,
   setUserBrowserHistory,
   updateHistory,
 } from '../../../../store/reducers/discover';
-import {
-  addWebTab,
-  closeWebTab,
-  setWebTabData,
-} from '../../../../store/reducers/webTabs';
 import { openUrl } from '../../../../utils/openUrl';
 import { crossWebviewLoadUrl, validateUrl, webHandler } from '../explorerUtils';
+
+import { getWebTabs } from './useWebTabs';
 
 import type { DAppItemType, WebSiteHistory } from '../../type';
 import type { MatchDAppItemType } from '../explorerUtils';
@@ -34,9 +32,9 @@ export const gotoSite = ({
   userTriggered?: boolean;
 }) => {
   const {
-    webTabs: { tabs, currentTabId },
     discover: { bookmarks },
   } = appSelector((s) => s);
+  const { tabs, currentTabId } = getWebTabs();
   const curId = id || currentTabId;
   const tab = tabs.find((t) => t.id === curId);
   const { dispatch } = backgroundApiProxy;
@@ -73,22 +71,24 @@ export const gotoSite = ({
     const urls = bookmarks?.map((item) => item.url);
     const isBookmarked = urls?.includes(url);
 
+    if (isNewTab) {
+      webTabsActions.addWebTab({
+        title,
+        url: validatedUrl,
+        favicon,
+        isCurrent: true,
+        isBookmarked,
+      });
+    } else {
+      webTabsActions.setWebTabData({
+        id: tabId,
+        url: validatedUrl,
+        title,
+        favicon,
+        isBookmarked,
+      });
+    }
     dispatch(
-      isNewTab
-        ? addWebTab({
-            title,
-            url: validatedUrl,
-            favicon,
-            isCurrent: true,
-            isBookmarked,
-          })
-        : setWebTabData({
-            id: tabId,
-            url: validatedUrl,
-            title,
-            favicon,
-            isBookmarked,
-          }),
       dAppId
         ? updateHistory(dAppId)
         : addWebSiteHistory({
@@ -107,7 +107,7 @@ export const gotoSite = ({
     if (isDeepLink) {
       if (webHandler === 'tabbedWebview') {
         setTimeout(() => {
-          dispatch(closeWebTab(tabId));
+          webTabsActions.closeWebTab(tabId);
         }, 1000);
       }
     }

@@ -36,10 +36,8 @@
     "electron-log": "^4.4.8",
     "electron-store": "^8.1.0",
     "electron-updater": "^5.2.1",
-    "expo": "^48.0.17",
     "keytar": "^7.9.0",
-    "node-fetch": "^2.6.7",
-    "rimraf": "^3.0.2"
+    "node-fetch": "^2.6.7"
   },
   "devDependencies": {
     "@electron/remote": "^2.0.1",
@@ -51,6 +49,7 @@
     "electron-builder": "22.14.13",
     "electron-notarize": "^1.1.1",
     "esbuild": "^0.15.11",
-    "glob": "^7.2.0"
+    "glob": "^7.2.0",
+    "rimraf": "^3"
   }
 }

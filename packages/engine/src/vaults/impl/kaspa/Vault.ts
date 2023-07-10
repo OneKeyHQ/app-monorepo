@@ -2,7 +2,6 @@
 import { hexToBytes } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
 import { groupBy } from 'lodash';
-import memoizee from 'memoizee';
 
 import {
   InvalidAddress,
@@ -35,6 +34,7 @@ import type { TxInput } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/typ
 import { convertFeeValueToGwei } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -133,6 +133,9 @@ export default class Vault extends VaultBase {
     transferInfo: ITransferInfo,
     specifiedFeeLimit?: string,
   ): Promise<IEncodedTxKaspa> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     const { to, amount, token: tokenAddress } = transferInfo;
     if (tokenAddress)
       throw new OneKeyInternalError('Kaspa does not support token transfer');
@@ -153,17 +156,36 @@ export default class Vault extends VaultBase {
 
     const confirmUtxos = await queryConfirmUTXOs(client, from);
 
-    const { utxoIds, utxos, mass } = selectUTXOs(
+    let { utxoIds, utxos, mass } = selectUTXOs(
       confirmUtxos,
       parseInt(amountValue),
     );
 
     const limit = specifiedFeeLimit ?? mass.toString();
 
-    const hasMaxSend = utxos
-      .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
-      .shiftedBy(-network.decimals)
-      .lte(amount);
+    let hasMaxSend = false;
+    if (utxos.length === confirmUtxos.length) {
+      hasMaxSend = utxos
+        .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
+        .shiftedBy(-network.decimals)
+        .lte(amount);
+    }
+
+    if (
+      !hasMaxSend &&
+      utxos
+        .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
+        .shiftedBy(-network.decimals)
+        .lte(amount)
+    ) {
+      const newSelectUtxo = selectUTXOs(
+        confirmUtxos,
+        parseInt(amountValue) + mass,
+      );
+      utxoIds = newSelectUtxo.utxoIds;
+      utxos = newSelectUtxo.utxos;
+      mass = newSelectUtxo.mass;
+    }
 
     return {
       utxoIds,
@@ -482,7 +504,13 @@ export default class Vault extends VaultBase {
         let to = '';
         if (receiverExistsOutput && !senderExistsInput) {
           // receive
-          from = inputs[0].previous_outpoint_address;
+          try {
+            from = inputs[0].previous_outpoint_address;
+          } catch (e) {
+            // mint miner
+            from = 'kaspa:00000000';
+          }
+
           to = dbAccount.address;
         } else if (senderExistsInput && receiverExistsOutput) {
           // send and send self
@@ -555,10 +583,14 @@ export default class Vault extends VaultBase {
             new BigNumber(0),
           );
 
-          nativeFee = inputAmount
-            .minus(outputAmount)
-            .shiftedBy(-decimals)
-            .toFixed();
+          if (inputAmount.isLessThanOrEqualTo(0)) {
+            nativeFee = '0';
+          } else {
+            nativeFee = inputAmount
+              .minus(outputAmount)
+              .shiftedBy(-decimals)
+              .toFixed();
+          }
         } catch {
           nativeFee = new BigNumber(tx.mass).shiftedBy(-decimals).toFixed();
         }

@@ -179,6 +179,11 @@ export class SwapQuoter {
     if (!sellAmount || !tokenIn) {
       return;
     }
+    if (!order.platformAddr) {
+      throw new Error(
+        'failed to build transaction due to invalid platformAddr',
+      );
+    }
     const depositCoinAmt = new BigNumber(sellAmount)
       .shiftedBy(-tokenIn.decimals)
       .toFixed();
@@ -218,7 +223,7 @@ export class SwapQuoter {
     urlParams.quoterType = '0x';
     const serverEndPont =
       await backgroundApiProxy.serviceSwap.getServerEndPoint();
-    const url = `${serverEndPont}/swap/v2/quote`;
+    const url = `${serverEndPont}/exchange/quote`;
     const res = await this.httpClient.get(url, { params: urlParams });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const response = res.data?.data as FetchQuoteHttpResponse | undefined;
@@ -327,7 +332,7 @@ export class SwapQuoter {
 
     const serverEndPont =
       await backgroundApiProxy.serviceSwap.getServerEndPoint();
-    const url = `${serverEndPont}/swap/v2/quote`;
+    const url = `${serverEndPont}/exchange/quote`;
 
     const res = await this.httpClient.get(url, { params: urlParams });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -350,7 +355,7 @@ export class SwapQuoter {
 
     const serverEndPont =
       await backgroundApiProxy.serviceSwap.getServerEndPoint();
-    const url = `${serverEndPont}/swap/quote_all`;
+    const url = `${serverEndPont}/exchange/quote_all`;
 
     const res = await this.httpClient.get(url, { params: urlParams });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -407,12 +412,16 @@ export class SwapQuoter {
     urlParams.disableValidate = Boolean(params.disableValidate);
     const serverEndPont =
       await backgroundApiProxy.serviceSwap.getServerEndPoint();
-    const url = `${serverEndPont}/swap/build_tx`;
+    const url = `${serverEndPont}/exchange/build_tx`;
 
     const res = await this.httpClient.post(url, urlParams);
     const requestId = this.parseRequestId(res);
 
     const data = res.data as BuildTransactionHttpResponse;
+
+    if (data.errMsg) {
+      throw new Error(data.errMsg);
+    }
 
     if (data?.transaction) {
       if (typeof data.transaction === 'object') {
@@ -571,7 +580,13 @@ export class SwapQuoter {
       networkId,
       {
         method: 'getTransaction',
-        params: [txid, 'json'],
+        params: [
+          txid,
+          {
+            encoding: 'jsonParsed',
+            maxSupportedTransactionVersion: 0,
+          },
+        ],
       },
     )) as SOLSerializableTransactionReceipt | undefined;
     if (receipt) {

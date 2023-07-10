@@ -150,6 +150,7 @@ const addSwapTransaction = async ({
         percentageFee: quote.percentageFee,
         protocalFees: quote.protocolFees,
         networkFee,
+        viewed: false,
         tokens: {
           from,
           to,
@@ -353,9 +354,15 @@ export const useSwapSubmit = () => {
     const balance = new BigNumber(balanceStr ?? '0');
 
     if (balance.isZero()) {
+      const nativeToken = await backgroundApiProxy.engine.getNativeTokenInfo(
+        fromNetworkId,
+      );
       ToastManager.show(
         {
-          title: intl.formatMessage({ id: 'msg_insufficient_gas_fee' }),
+          title: intl.formatMessage(
+            { id: 'msg__str_insufficient_balance_to_pay_for_gas_fee' },
+            { '0': nativeToken.symbol.toUpperCase() },
+          ),
         },
         { type: 'error' },
       );

@@ -134,6 +134,7 @@ const ShowDotMap: FC = () => {
     <Modal
       hidePrimaryAction
       hideSecondaryAction
+      fullMobile
       headerShown={false}
       disableTopRadius
       scrollViewProps={{

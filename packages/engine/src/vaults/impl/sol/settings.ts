@@ -21,7 +21,7 @@ const settings: IVaultSettings = Object.freeze({
   supportBatchTransfer: true,
   nativeSupportBatchTransfer: true,
   maxActionsInTx: 8,
-
+  sendNFTEnable: true,
   accountNameInfo: {
     default: {
       prefix: 'SOL',

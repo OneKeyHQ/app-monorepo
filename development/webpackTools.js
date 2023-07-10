@@ -42,6 +42,7 @@ function createDefaultResolveExtensions() {
     '.ts',
     '.tsx',
     '.mjs',
+    '.cjs',
     '.js',
     '.jsx',
     '.json',
@@ -180,12 +181,45 @@ function normalizeConfig({
     });
   }
 
+  // support mjs
+  config.module.rules.push({
+    test: /\.mjs$/,
+    include: /node_modules/,
+    type: 'javascript/auto',
+  });
+
+  const normalizeModuleRule = (rule) => {
+    if (!rule) {
+      return;
+    }
+    if (
+      rule.loader &&
+      rule.loader.indexOf('file-loader') >= 0 &&
+      rule.exclude
+    ) {
+      rule.exclude.push(/\.wasm$/);
+      rule.exclude.push(/\.cjs$/);
+      rule.exclude.push(
+        /\.custom-file-loader-exclude-extensions-from-webpack-tools$/,
+      );
+    }
+    if (rule.test && rule.test.toString() === '/\\.(mjs|[jt]sx?)$/') {
+      // add *.cjs support
+      // /\.(cjs|mjs|[jt]sx?)$/
+      rule.test = /\.(cjs|mjs|[jt]sx?)$/;
+    }
+    if (rule.test && rule.test.toString() === '/\\.+(js|jsx|mjs|ts|tsx)$/') {
+      // add *.cjs support
+      // /\.+(cjs|js|jsx|mjs|ts|tsx)$/
+      rule.test = /\.+(cjs|js|jsx|mjs|ts|tsx)$/;
+    }
+  };
+
   // let file-loader skip handle wasm files
   config.module.rules.forEach((rule) => {
+    normalizeModuleRule(rule);
     (rule.oneOf || []).forEach((oneOf) => {
-      if (oneOf.loader && oneOf.loader.indexOf('file-loader') >= 0) {
-        oneOf.exclude.push(/\.wasm$/);
-      }
+      normalizeModuleRule(oneOf);
     });
   });
 

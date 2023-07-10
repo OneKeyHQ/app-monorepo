@@ -1,38 +1,19 @@
-import { useCallback, useEffect, useRef } from 'react';
-
-import { AppState } from 'react-native';
+import { useCallback } from 'react';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks/redux';
+import { useAppStateChange } from '../../hooks/useAppStateChange';
 
 import { AppLockBypass } from './AppLockBypass';
 
-import type { AppStateStatus } from 'react-native';
-
 const NativeUpdator = () => {
-  const appState = useRef(AppState.currentState);
-  const onChange = useCallback((nextState: AppStateStatus) => {
+  const onChange = useCallback(() => {
     if (AppLockBypass.Singleton.isOK()) {
       return;
     }
-    if (appState.current === 'background' && nextState === 'active') {
-      backgroundApiProxy.serviceApp.checkLockStatus();
-    }
-    appState.current = nextState;
+    backgroundApiProxy.serviceApp.checkLockStatus();
   }, []);
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', onChange);
-    return () => {
-      // AppState.addEventListener return subscription object in native, but return empty in web
-      if (subscription) {
-        subscription.remove();
-      } else {
-        // @ts-ignore
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        AppState.removeEventListener('change', onChange);
-      }
-    };
-  }, [onChange]);
+  useAppStateChange(onChange);
   return null;
 };
 

@@ -332,7 +332,26 @@ export default class ServiceNameResolver extends ServiceBase {
   async resolveUnstoppableDomains(
     name: string,
   ): Promise<ResolverNameList | null | string> {
-    const resolution = new Resolution();
+    const resolution = new Resolution({
+      sourceConfig: {
+        uns: {
+          locations: {
+            Layer1: {
+              url: 'https://node.onekey.so/eth',
+              network: 'mainnet',
+            },
+            Layer2: {
+              url: 'https://node.onekey.so/polygon',
+              network: 'polygon-mainnet',
+            },
+          },
+        },
+        zns: {
+          url: 'https://api.zilliqa.com',
+          network: 'mainnet',
+        },
+      },
+    });
     let names: ResolverNames[] = [];
     try {
       const records = await resolution.records(name, this.UDSupportKeys);

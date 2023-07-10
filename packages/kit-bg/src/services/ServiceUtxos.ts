@@ -1,5 +1,4 @@
 import BigNumber from 'bignumber.js';
-import memoizee from 'memoizee';
 
 import { getUtxoId } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -11,6 +10,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -101,7 +101,7 @@ export default class ServiceUtxos extends ServiceBase {
         (vault.settings.dust ?? vault.settings.minTransferAmount) || 0,
       ).shiftedBy(network.decimals);
 
-      let utxos = (await vault.collectUTXOs()) as ICoinControlListItem[];
+      const { utxos: btcUtxos } = await vault.collectUTXOsInfo();
 
       const archivedUtxos = await simpleDb.utxoAccounts.getCoinControlList(
         networkId,
@@ -117,19 +117,20 @@ export default class ServiceUtxos extends ServiceBase {
         compareFunction = compareByLabel;
       }
 
-      utxos = utxos
+      const utxos: ICoinControlListItem[] = btcUtxos
         .map((utxo) => {
           const archivedUtxo = archivedUtxos.find(
             (item) => item.id === getUtxoId(networkId, utxo),
           );
+          const coinControlItem: ICoinControlListItem = {
+            height: NaN, // TODO height is optional?
+            ...utxo,
+          };
           if (archivedUtxo) {
-            return {
-              ...utxo,
-              label: archivedUtxo.label,
-              frozen: archivedUtxo.frozen,
-            };
+            coinControlItem.label = archivedUtxo.label;
+            coinControlItem.frozen = archivedUtxo.frozen;
           }
-          return utxo;
+          return coinControlItem;
         })
         .sort(compareFunction);
 
@@ -196,7 +197,6 @@ export default class ServiceUtxos extends ServiceBase {
     {
       promise: true,
       maxAge: getTimeDurationMs({ seconds: 30 }),
-      normalizer: (...args) => JSON.stringify(args),
     },
   );
 

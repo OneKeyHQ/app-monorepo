@@ -4,8 +4,8 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
+import stringify from 'fast-json-stable-stringify';
 import { get } from 'lodash';
-import memoizee from 'memoizee';
 import uuid from 'react-native-uuid';
 
 // import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
@@ -37,6 +37,7 @@ import type {
   SwitchEthereumChainParameter,
   WatchAssetParameters,
 } from '@onekeyhq/shared/src/providerApis/ProviderApiEthereum/ProviderApiEthereum.types';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -774,7 +775,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       string,
     ]): string {
       const p = request?.data ?? [params, address, ...others];
-      return JSON.stringify(p);
+      return stringify(p);
     },
   });
 
@@ -825,7 +826,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       SwitchEthereumChainParameter,
     ]): string {
       const p = request?.data ?? [params];
-      return JSON.stringify(p);
+      return stringify(p);
     },
   });
 

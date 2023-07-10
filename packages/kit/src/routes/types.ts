@@ -84,6 +84,8 @@ export type ModalRoutesParams = {
   [ModalRoutes.BulkSender]: NavigatorScreenParams<SubModalRoutesParams.BulkSenderRoutesParams>;
   [ModalRoutes.ClearCache]: NavigatorScreenParams<SubModalRoutesParams.ClearCacheModalRoutesParams>;
   [ModalRoutes.CoinControl]: NavigatorScreenParams<SubModalRoutesParams.CoinControlRoutesParams>;
+  [ModalRoutes.GasPanel]: NavigatorScreenParams<SubModalRoutesParams.GasPanelRoutesParams>;
+  [ModalRoutes.Inscribe]: NavigatorScreenParams<SubModalRoutesParams.InscribeModalRoutesParams>;
 };
 /** Modal */
 
@@ -107,9 +109,15 @@ export type MainRoutesParams = {
 };
 export type HomeRoutesParams = {
   [HomeRoutes.ScreenTokenDetail]: {
-    accountId: string;
+    price?: number;
+    logoURI?: string;
+    symbol?: string;
+    name?: string;
+    walletId: string;
     networkId: string;
-    tokenId: string; // tokenIdOnNetwork
+    accountId: string;
+    coingeckoId?: string;
+    tokenAddress?: string;
     sendAddress?: string;
     historyFilter?: (item: any) => boolean;
   };
@@ -166,7 +174,7 @@ export type HomeRoutesParams = {
   [HomeRoutes.NFTPNLScreen]: undefined;
   [HomeRoutes.OverviewDefiListScreen]: {
     networkId: string;
-    address: string;
+    accountId: string;
   };
   [HomeRoutes.WalletSwitch]: undefined;
   [HomeRoutes.BulkSender]: undefined;

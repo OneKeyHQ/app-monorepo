@@ -8,7 +8,6 @@ import {
 } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { format as dateFormat } from 'date-fns';
 import { useIntl } from 'react-intl';
 
 import {
@@ -16,21 +15,20 @@ import {
   Dialog,
   Divider,
   Empty,
+  FlatList,
   IconButton,
-  SectionList,
   Typography,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useFormatDate from '../../../hooks/useFormatDate';
 import { useWalletsSwapTransactions } from '../hooks/useTransactions';
 
 import { HistoryItem } from './HistoryItem';
 import Summary from './Summary';
 
 import type { TransactionDetails } from '../typings';
-import type { SectionListData, SectionListRenderItem } from 'react-native';
+import type { ListRenderItem } from 'react-native';
 
 const ItemSeparatorComponent = () => (
   <Box mx="4">
@@ -51,72 +49,75 @@ const ListEmptyComponent = () => {
   );
 };
 
-type TransactionSection = {
-  title: string;
-  data: TransactionDetails[];
+const ListTableHeader = () => {
+  const isSmall = useIsVerticalLayout();
+  const intl = useIntl();
+  return !isSmall ? (
+    <Box flexDirection="row" alignItems="center">
+      <Box flexBasis="18%">
+        <Typography.Subheading color="text-subdued">
+          {intl.formatMessage({ id: 'action__receive' })}
+        </Typography.Subheading>
+      </Box>
+      <Box flexBasis="18%">
+        <Typography.Subheading color="text-subdued">
+          {intl.formatMessage({ id: 'form__pay' })}
+        </Typography.Subheading>
+      </Box>
+      <Box flexBasis="18%">
+        <Typography.Subheading color="text-subdued">
+          {intl.formatMessage({ id: 'Rate' })}
+        </Typography.Subheading>
+      </Box>
+      <Box flexBasis="18%">
+        <Typography.Subheading color="text-subdued">
+          {intl.formatMessage({ id: 'content__created' })}
+        </Typography.Subheading>
+      </Box>
+      <Box flexBasis="18%">
+        <Typography.Subheading color="text-subdued">
+          {intl.formatMessage({ id: 'form__provider_uppercase' })}
+        </Typography.Subheading>
+      </Box>
+      <Box flexBasis="10%">
+        <Typography.Subheading color="text-subdued">
+          {intl.formatMessage({ id: 'form__status' })}
+        </Typography.Subheading>
+      </Box>
+    </Box>
+  ) : null;
 };
 
-function timestamp(value: number) {
-  const date = new Date(value);
-  return `${dateFormat(date, 'yyyy-MM-dd')}`;
-}
+const ListHeaderComponent = () => (
+  <Box>
+    <Summary />
+    <ListTableHeader />
+  </Box>
+);
 
 const HistorySectionList = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { format } = useFormatDate();
   const transactions = useWalletsSwapTransactions();
-  const sections = useMemo(() => {
-    const result: Record<string, TransactionDetails[]> = {};
-    for (let i = 0; i < transactions.length; i += 1) {
-      const tx = transactions[i];
-      const title = timestamp(tx.addedTime);
-      if (!result[title]) {
-        result[title] = [];
-      }
-      result[title].push(tx);
-    }
-    return Object.entries(result).map(([title, data]) => ({ title, data }));
-  }, [transactions]);
+  const items = useMemo(() => transactions, [transactions]);
   useEffect(() => {
     navigation.setOptions({
       title: intl.formatMessage({ id: 'transaction__history' }),
     });
   }, [navigation, intl]);
 
-  const renderItem: SectionListRenderItem<
-    TransactionDetails,
-    TransactionSection
-  > = useCallback(
-    ({ index, section, item }) => (
-      <HistoryItem
-        isFirst={index === 0}
-        isLast={index === section.data.length - 1}
-        tx={item}
-      />
-    ),
+  const renderItem: ListRenderItem<TransactionDetails> = useCallback(
+    ({ item }) => <HistoryItem tx={item} />,
     [],
   );
 
-  const renderSectionHeader = useCallback(
-    (item: {
-      section: SectionListData<TransactionDetails, TransactionSection>;
-    }) => (
-      <Typography.Subheading p="4" color="text-subdued">
-        {format(new Date(item.section.title), 'LLL dd yyyy')}
-      </Typography.Subheading>
-    ),
-    [format],
-  );
-
   return (
-    <SectionList
-      sections={sections}
-      renderSectionHeader={renderSectionHeader}
+    <FlatList
+      data={items}
       renderItem={renderItem}
       ItemSeparatorComponent={ItemSeparatorComponent}
       ListFooterComponent={ListFooterComponent}
-      ListHeaderComponent={Summary}
+      ListHeaderComponent={ListHeaderComponent}
       ListEmptyComponent={ListEmptyComponent}
     />
   );
@@ -197,7 +198,7 @@ const HistoryLayout: FC = ({ children }) => {
         display="flex"
         justifyContent="space-between"
         flexDirection="row"
-        mb="8"
+        mb="4"
       >
         <Typography.DisplayLarge px="4">
           {intl.formatMessage({ id: 'title__swap_history' })}

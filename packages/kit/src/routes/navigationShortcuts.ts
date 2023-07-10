@@ -18,10 +18,12 @@ function navigateToTokenDetail({
   accountId,
   networkId,
   tokenId,
+  walletId,
 }: {
   accountId: string;
   networkId: string;
   tokenId: string; // tokenIdOnNetwork
+  walletId: string;
 }) {
   const navigation = getAppNavigation();
   navigation?.navigate(RootRoutes.Main, {
@@ -31,9 +33,10 @@ function navigateToTokenDetail({
       params: {
         screen: HomeRoutes.ScreenTokenDetail,
         params: {
+          walletId,
           accountId,
           networkId,
-          tokenId,
+          tokenAddress: tokenId,
         },
       },
     },

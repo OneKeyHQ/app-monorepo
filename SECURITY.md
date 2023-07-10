@@ -1,4 +1,4 @@
-🙏 Please report bug directly to dev@onekey.so
+🙏 Please report bug directly to dev@onekey.so or just shoot it straight to our official page on [BugRap](https://bugrap.io/bounties/OneKey), where our pros got it covered.
 
 ---
 

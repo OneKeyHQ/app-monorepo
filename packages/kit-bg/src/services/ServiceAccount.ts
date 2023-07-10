@@ -14,6 +14,7 @@ import {
 import {
   generateNetworkIdByChainId,
   getCoinTypeFromNetworkId,
+  isAllNetworks,
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
@@ -58,6 +59,7 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   COINTYPE_ETH,
+  COINTYPE_LIGHTNING,
   IMPL_ADA,
   IMPL_CFX,
   IMPL_COSMOS,
@@ -225,6 +227,12 @@ class ServiceAccount extends ServiceBase {
     { noDispatch } = { noDispatch: false },
   ) {
     if (!walletId || !networkId) return;
+    const { serviceAllNetwork } = this.backgroundApi;
+    if (isAllNetworks(networkId)) {
+      return serviceAllNetwork.getAllNetworksFakeAccounts({
+        walletId,
+      });
+    }
     const { engine, dispatch } = this.backgroundApi;
     const wallet = await engine.getWallet(walletId);
     const accountIds = wallet.accounts;
@@ -1363,10 +1371,18 @@ class ServiceAccount extends ServiceBase {
     }
     const findNameLabelByAccountIds = async (accountIds: string[]) => {
       const accounts = await this.backgroundApi.engine.getAccounts(accountIds);
-      const name = find(
-        accounts,
-        (a) => a.address.toLowerCase() === address.toLowerCase(),
-      )?.name;
+      const name = find(accounts, (a) => {
+        if (a.coinType === COINTYPE_LIGHTNING) {
+          const addresses =
+            a.addresses && !!a.addresses.length ? JSON.parse(a.addresses) : {};
+          return (
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            ((addresses?.hashAddress || '') as string).toLowerCase() ===
+            address.toLowerCase()
+          );
+        }
+        return a.address.toLowerCase() === address.toLowerCase();
+      })?.name;
       const label = name ?? '';
       if (label && address) {
         this.addressLabelCache[cacheKey] = label;
@@ -1397,7 +1413,13 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAccountByAddress({ address }: { address: string }) {
+  async getAccountByAddress({
+    address,
+    networkId,
+  }: {
+    address: string;
+    networkId?: string;
+  }) {
     const { engine } = this.backgroundApi;
     const displayPassphraseWalletIdList =
       this.getDisplayPassphraseWalletIdList();
@@ -1409,7 +1431,12 @@ class ServiceAccount extends ServiceBase {
       const accounts = await engine.getAccounts(wallet.accounts);
       const target = accounts.find((item) => item.address === address);
       if (target) {
-        return target;
+        if (!networkId) {
+          return target;
+        }
+        if (isAccountCompatibleWithNetwork(target?.id, networkId)) {
+          return target;
+        }
       }
     }
   }
@@ -1502,7 +1529,12 @@ class ServiceAccount extends ServiceBase {
       const xpub = await vault.getFetchBalanceAddress(account);
       return { xpub, address: account.address };
     }
+    // TODO: Lightning account
     if (account.type === AccountType.VARIANT) {
+      if (networkId === OnekeyNetwork.lightning) {
+        const address = await vault.getFetchBalanceAddress(account);
+        return { address };
+      }
       const address = await vault.addressFromBase(account);
       return { address };
     }
@@ -1515,10 +1547,12 @@ class ServiceAccount extends ServiceBase {
     const wallets = appSelector((s) => s.runtime.wallets);
     const accounts = (
       await engine.getAccounts(wallets.map((w) => w.accounts).flat())
-    ).map((n) => ({
-      ...pick(n, 'address', 'coinType', 'id', 'name', 'path', 'type'),
-      walletType: getWalletTypeFromAccountId(n.id),
-    }));
+    )
+      .map((n) => ({
+        ...pick(n, 'address', 'coinType', 'id', 'name', 'path', 'type'),
+        walletType: getWalletTypeFromAccountId(n.id),
+      }))
+      .filter((a) => !!a.address);
 
     return accounts;
   }

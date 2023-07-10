@@ -4,7 +4,7 @@ import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
 
 import { prepareSendConfirmEncodedTx } from './prepareSendConfirmEncodedTx';
 
-import type { SendConfirmParams } from '../types';
+import type { SendConfirmAdvancedSettings, SendConfirmParams } from '../types';
 
 export function useSendConfirmEncodedTx({
   networkId,
@@ -12,14 +12,14 @@ export function useSendConfirmEncodedTx({
   sendConfirmParams,
   networkImpl,
   address,
-  selectedUtxos,
+  advancedSettings,
 }: {
   networkId: string;
   accountId: string;
   networkImpl: string;
   sendConfirmParams: SendConfirmParams; // routeParams
   address: string;
-  selectedUtxos?: string[];
+  advancedSettings: SendConfirmAdvancedSettings;
 }): { encodedTx: IEncodedTx | null } {
   const [encodedTx, setEncodedTx] = useState<IEncodedTx | null>(null);
   useEffect(() => {
@@ -31,7 +31,8 @@ export function useSendConfirmEncodedTx({
       sendConfirmParams,
       networkImpl,
       address,
-      selectedUtxos,
+      selectedUtxos: advancedSettings.selectedUtxos,
+      currentHexData: advancedSettings.currentHexData,
     }).then(setEncodedTx);
   }, [
     address,
@@ -40,7 +41,8 @@ export function useSendConfirmEncodedTx({
     sendConfirmParams.encodedTx,
     networkId,
     accountId,
-    selectedUtxos,
+    advancedSettings.currentHexData,
+    advancedSettings.selectedUtxos,
   ]);
   return { encodedTx };
 }

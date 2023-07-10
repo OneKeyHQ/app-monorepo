@@ -3,6 +3,10 @@ import BigNumber from 'bignumber.js';
 import type { EIP1559Fee, Network } from '../../types/network';
 import type { IFeeInfo, IFeeInfoUnit } from '../types';
 
+function nilError(message: string): number {
+  throw new Error(message);
+}
+
 // onChainValue -> GWEI
 export function convertFeeValueToGwei({
   value,
@@ -11,7 +15,12 @@ export function convertFeeValueToGwei({
   value: string;
   network: Network;
 }) {
-  return new BigNumber(value).shiftedBy(-network.feeDecimals ?? 0).toFixed();
+  return new BigNumber(value)
+    .shiftedBy(
+      -network.feeDecimals ??
+        nilError('convertFeeValueToGwei ERROR: network.feeDecimals missing'),
+    )
+    .toFixed();
 }
 
 // GWEI -> onChainValue
@@ -22,7 +31,12 @@ export function convertFeeGweiToValue({
   value: string;
   network: Network;
 }) {
-  return new BigNumber(value).shiftedBy(network.feeDecimals ?? 0).toFixed();
+  return new BigNumber(value)
+    .shiftedBy(
+      network.feeDecimals ??
+        nilError('convertFeeGweiToValue ERROR: network.feeDecimals missing'),
+    )
+    .toFixed();
 }
 
 // onChainValue -> nativeAmount
@@ -33,7 +47,12 @@ export function convertFeeValueToNative({
   value: string;
   network: Network;
 }) {
-  return new BigNumber(value).shiftedBy(-network.decimals ?? 0).toFixed();
+  return new BigNumber(value)
+    .shiftedBy(
+      -network.decimals ??
+        nilError('convertFeeValueToNative ERROR: network.decimals missing'),
+    )
+    .toFixed();
 }
 
 // nativeAmount -> onChainValue
@@ -44,7 +63,12 @@ export function convertFeeNativeToValue({
   value: string;
   network: Network;
 }) {
-  return new BigNumber(value).shiftedBy(network.decimals ?? 0).toFixed();
+  return new BigNumber(value)
+    .shiftedBy(
+      network.decimals ??
+        nilError('convertFeeNativeToValue ERROR: network.decimals missing'),
+    )
+    .toFixed();
 }
 
 export function calculateTotalFeeNative({
@@ -58,8 +82,16 @@ export function calculateTotalFeeNative({
 }) {
   return new BigNumber(amount)
     .plus(info.baseFeeValue ?? 0)
-    .shiftedBy(info.feeDecimals ?? 0) // GWEI -> onChainValue
-    .shiftedBy(-(info.nativeDecimals ?? 0)) // onChainValue -> nativeAmount
+    .shiftedBy(
+      info.feeDecimals ??
+        nilError('calculateTotalFeeNative ERROR: info.feeDecimals missing'),
+    ) // GWEI -> onChainValue
+    .shiftedBy(
+      -(
+        info.nativeDecimals ??
+        nilError('calculateTotalFeeNative ERROR: info.nativeDecimals missing')
+      ),
+    ) // onChainValue -> nativeAmount
     .toFixed(decimal);
 }
 
@@ -72,6 +104,7 @@ function nanToZeroString(value: string | number | unknown) {
 
 export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
   const limit = feeValue.limitUsed || feeValue.limit;
+  const limitForDisplay = feeValue.limitForDisplay ?? limit;
   if (feeValue.eip1559) {
     // MIN: (baseFee + maxPriorityFeePerGas) * limit
     const priceInfo = feeValue.price1559 as EIP1559Fee;
@@ -81,13 +114,25 @@ export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
       )
       .toFixed(decimal);
 
+    const minForDisplay = new BigNumber(limitForDisplay as string)
+      .times(
+        new BigNumber(priceInfo.baseFee).plus(priceInfo.maxPriorityFeePerGas),
+      )
+      .toFixed(decimal);
+
     // MAX: maxFeePerGas * limit
     const max = new BigNumber(limit as string)
+      .times(priceInfo.gasPrice || priceInfo.maxFeePerGas)
+      .toFixed(decimal);
+
+    const maxForDisplay = new BigNumber(limitForDisplay as string)
       .times(priceInfo.gasPrice || priceInfo.maxFeePerGas)
       .toFixed(decimal);
     return {
       min: nanToZeroString(min),
       max: nanToZeroString(max),
+      minForDisplay: nanToZeroString(minForDisplay),
+      maxForDisplay: nanToZeroString(maxForDisplay),
     };
   }
 
@@ -98,14 +143,23 @@ export function calculateTotalFeeRange(feeValue: IFeeInfoUnit, decimal = 8) {
     return {
       min: nanToZeroString(fee),
       max: nanToZeroString(fee),
+      minForDisplay: nanToZeroString(fee),
+      maxForDisplay: nanToZeroString(fee),
     };
   }
 
   const max = new BigNumber(limit as string)
     .times(feeValue.price as string)
     .toFixed();
+
+  const maxForDisplay = new BigNumber(limitForDisplay as string)
+    .times(feeValue.price as string)
+    .toFixed();
+
   return {
     min: nanToZeroString(max),
     max: nanToZeroString(max),
+    minForDisplay: nanToZeroString(maxForDisplay),
+    maxForDisplay: nanToZeroString(maxForDisplay),
   };
 }

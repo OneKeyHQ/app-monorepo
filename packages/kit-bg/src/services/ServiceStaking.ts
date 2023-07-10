@@ -2,17 +2,16 @@
 
 import BN from 'bignumber.js';
 import { add, sum } from 'lodash';
-import memoizee from 'memoizee';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type EvmVault from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import {
-  setAccountStakingActivity,
+  // setAccountStakingActivity,
   setETHStakingApr,
-  setKeleDashboardGlobal,
   setKeleIncomes,
   setKeleMinerOverviews,
+  setKeleNetworkDashboardGlobal,
   setKeleOpHistory,
   setKelePendingWithdraw,
   setKeleUnstakeOverview,
@@ -37,7 +36,6 @@ import type {
   KeleUnstakeOverviewDTO,
   KeleWithdrawOverviewDTO,
   LidoNFTStatus,
-  StakingActivity,
 } from '@onekeyhq/kit/src/views/Staking/typing';
 import { plus } from '@onekeyhq/kit/src/views/Swap/utils';
 import {
@@ -45,6 +43,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -65,6 +64,15 @@ export interface SerializableTransactionReceipt {
   status?: string;
 }
 
+type FastStakeResponse = {
+  fund_addr: string;
+  stake_fee: string;
+  init_max_eth: string;
+  fast_stake_balance: string;
+  fast_unstake_balance: string;
+  fast_stake_pending: string;
+};
+
 @backgroundClass()
 export default class ServiceStaking extends ServiceBase {
   transactionReceipts: Record<
@@ -74,6 +82,7 @@ export default class ServiceStaking extends ServiceBase {
 
   getKeleBaseUrl(networkId: string) {
     const base = getFiatEndpoint();
+    // const base = 'http://127.0.0.1:9000/api';
     if (networkId === OnekeyNetwork.eth) {
       return `${base}/keleMainnet`;
     }
@@ -141,6 +150,36 @@ export default class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async buildTxForFastStakingETHtoKele(params: {
+    value: string;
+    networkId: string;
+  }) {
+    const { engine } = this.backgroundApi;
+    const baseUrl = this.getKeleBaseUrl(params.networkId);
+    const url = `${baseUrl}/fast/stake`;
+    const res = await this.client.get(url);
+    const data = res.data as { code: number; data: FastStakeResponse };
+    if (Number(data.code) !== 0 || !data.data) {
+      throw new Error('Failed to build kele pool fast stake transaction');
+    }
+    const network = await engine.getNetwork(params.networkId);
+    const bn = new BN(data.data.fast_stake_balance).shiftedBy(network.decimals);
+    if (bn.lt(params.value)) {
+      throw new Error(
+        `The Max fast stake amount is ${data.data.fast_stake_balance}`,
+      );
+    }
+    const fundAddr = data.data.fund_addr;
+    await engine.validator.validateAddress(params.networkId, fundAddr);
+
+    return {
+      to: fundAddr,
+      value: params.value,
+      data: '0x',
+    };
+  }
+
+  @backgroundMethod()
   async buildTxForStakingETHtoLido(params: {
     value: string;
     networkId: string;
@@ -154,19 +193,19 @@ export default class ServiceStaking extends ServiceBase {
     };
   }
 
-  @backgroundMethod()
-  async setAccountStakingActivity({
-    networkId,
-    accountId,
-    data,
-  }: {
-    networkId: string;
-    accountId: string;
-    data: StakingActivity | undefined;
-  }) {
-    const { dispatch } = this.backgroundApi;
-    dispatch(setAccountStakingActivity({ networkId, accountId, data }));
-  }
+  // @backgroundMethod()
+  // async setAccountStakingActivity({
+  //   networkId,
+  //   accountId,
+  //   data,
+  // }: {
+  //   networkId: string;
+  //   accountId: string;
+  //   data: StakingActivity | undefined;
+  // }) {
+  //   const { dispatch } = this.backgroundApi;
+  //   dispatch(setAccountStakingActivity({ networkId, accountId, data }));
+  // }
 
   @backgroundMethod()
   async fetchKeleIncomeHistory(params: {
@@ -195,7 +234,12 @@ export default class ServiceStaking extends ServiceBase {
     const res = await this.client.get(url);
     if (this.isValidRes(res)) {
       const result = res.data.data as KeleDashboardGlobal;
-      dispatch(setKeleDashboardGlobal(result));
+      dispatch(
+        setKeleNetworkDashboardGlobal({
+          networkId: params.networkId,
+          dashboard: result,
+        }),
+      );
     }
   }
 
@@ -284,15 +328,15 @@ export default class ServiceStaking extends ServiceBase {
     const { engine } = this.backgroundApi;
     const baseUrl = this.getKeleBaseUrl(params.networkId);
     const account = await engine.getAccount(accountId, networkId);
-    const url = `${baseUrl}/op/history`;
+    const url = `${baseUrl}/op/v4/history`;
     const res = await this.client.get(url, {
       params: {
         address: account.address,
-        opType: params.opType,
+        op_type: params.opType,
       },
     });
     if (this.isValidRes(res)) {
-      const historyItems = res.data.data as KeleOpHistoryDTO[];
+      const historyItems = res.data?.data?.data as KeleOpHistoryDTO[];
       return historyItems;
     }
   }
@@ -308,6 +352,7 @@ export default class ServiceStaking extends ServiceBase {
     });
     if (items && Array.isArray(items)) {
       dispatch(setKeleOpHistory({ accountId, networkId, items }));
+      return items;
     }
   }
 

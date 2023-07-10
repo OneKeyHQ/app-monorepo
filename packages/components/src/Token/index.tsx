@@ -15,6 +15,7 @@ import type { Token as IToken } from '@onekeyhq/engine/src/types/token';
 import { TokenRiskLevel } from '@onekeyhq/engine/src/types/token';
 import { useNetwork } from '@onekeyhq/kit/src/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { getManageNetworks } from '@onekeyhq/kit/src/hooks/useManageNetworks';
 import {
   ManageTokenModalRoutes,
   ModalRoutes,
@@ -23,6 +24,7 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import Badge from '../Badge';
 import Icon from '../Icon';
 import Image from '../Image';
 import Pressable from '../Pressable';
@@ -101,10 +103,12 @@ export const TokenVerifiedIcon: FC<{
   const navigation = useAppNavigation();
 
   const icon = useMemo(() => {
+    if (token?.isNative) {
+      return (
+        <Badge title={intl.formatMessage({ id: 'content__coin' })} size="sm" />
+      );
+    }
     if (!token?.riskLevel) {
-      if (token?.isNative) {
-        return <Icon size={size} name="BadgeCheckMini" color="icon-success" />;
-      }
       return null;
     }
     if (token?.riskLevel > TokenRiskLevel.VERIFIED) {
@@ -114,15 +118,29 @@ export const TokenVerifiedIcon: FC<{
       return <Icon size={size} name="BadgeCheckMini" color="icon-success" />;
     }
     return null;
-  }, [token, size]);
+  }, [token, size, intl]);
 
   const toVerifiedTokenPage = useCallback(() => {
     if (token?.isNative) {
+      const networks = getManageNetworks().allNetworks;
+      const networkName = networks.find(
+        (n) => n.id === `${token.impl ?? ''}--${token.chainId ?? ''}`,
+      )?.name;
+      const title = networkName
+        ? intl.formatMessage(
+            {
+              id: 'msg__this_is_the_local_token_of_str_mainnet',
+            },
+            {
+              0: networkName,
+            },
+          )
+        : intl.formatMessage({
+            id: 'msg__this_is_the_native_token_of_the_mainnet',
+          });
       ToastManager.show(
         {
-          title: intl.formatMessage({
-            id: 'msg__this_is_the_native_token_of_the_mainnet',
-          }),
+          title,
         },
         {
           type: 'default',

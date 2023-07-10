@@ -15,6 +15,7 @@ type TransactionRateProps = {
   rate?: number | string;
   typography?: TypographyStyle;
   color?: ComponentProps<typeof Text>['color'];
+  hideIcon?: boolean;
 };
 
 const formatRateAmount = (amount: string | number) => {
@@ -31,6 +32,7 @@ const TransactionRate: FC<TransactionRateProps> = ({
   rate,
   typography = 'Body2',
   color = 'text-default',
+  hideIcon,
 }) => {
   const [isSwitched, setSwitched] = useState(false);
   if (!tokenA || !tokenB || !rate) {
@@ -64,7 +66,9 @@ const TransactionRate: FC<TransactionRateProps> = ({
       >
         {title}
       </Text>
-      <Icon size={16} name="ArrowsRightLeftMini" color="icon-subdued" />
+      {!hideIcon ? (
+        <Icon size={16} name="ArrowsRightLeftMini" color="icon-subdued" />
+      ) : null}
     </Pressable>
   );
 };

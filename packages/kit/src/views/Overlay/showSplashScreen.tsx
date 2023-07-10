@@ -1,5 +1,6 @@
-import { Image, Keyboard, View } from 'react-native';
+import { Image, Keyboard } from 'react-native';
 
+import { Box } from '@onekeyhq/components';
 import splashImage from '@onekeyhq/kit/assets/splash.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -8,7 +9,12 @@ import { showOverlay } from '../../utils/overlayUtils';
 export const showSplashScreen = () => {
   Keyboard.dismiss();
   showOverlay(() => (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <Box
+      flex={1}
+      justifyContent="center"
+      alignItems="center"
+      bg="background-default"
+    >
       <Image
         style={{
           height: '100%',
@@ -17,6 +23,6 @@ export const showSplashScreen = () => {
         }}
         source={splashImage}
       />
-    </View>
+    </Box>
   ));
 };

@@ -4,6 +4,7 @@ import RNRestart from 'react-native-restart';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import { switchTestEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
+import { webTabsActions } from '@onekeyhq/kit/src/store/observable/webTabs';
 import {
   passwordSet,
   release,
@@ -205,6 +206,7 @@ class ServiceApp extends ServiceBase {
       await serviceNotification.syncPushNotificationConfig('reset');
     }
     await persistor.purge();
+    webTabsActions.closeAllWebTabs();
     await engine.resetApp();
     if (platformEnv.isRuntimeBrowser) {
       window.localStorage.clear();

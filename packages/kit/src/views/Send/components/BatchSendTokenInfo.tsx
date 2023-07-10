@@ -3,11 +3,8 @@ import { useIntl } from 'react-intl';
 
 import { Box, Divider, HStack, Text } from '@onekeyhq/components';
 
-import {
-  useNativeToken,
-  useSingleToken,
-  useTokenBalance,
-} from '../../../hooks/useTokens';
+import { useTokenBalance } from '../../../hooks';
+import { useNativeToken, useSingleToken } from '../../../hooks/useTokens';
 
 import type { BulkSenderTypeEnum } from '../../BulkSender/types';
 import type { BatchSendConfirmPayloadInfo } from '../types';
@@ -63,7 +60,7 @@ function BatchSendTokenInfo(props: Props) {
     networkId,
     token: {
       ...token,
-      sendAddress: transferInfo.sendAddress,
+      sendAddress: transferInfo.tokenSendAddress,
     },
     fallback: '0',
   });

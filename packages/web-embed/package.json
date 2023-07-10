@@ -13,7 +13,6 @@
     "@onekeyhq/components": "*",
     "@onekeyhq/engine": "*",
     "@onekeyhq/kit": "*",
-    "expo": "^48.0.17",
     "firebase": "^9.8.2",
     "react-router-dom": "^6.3.0"
   },

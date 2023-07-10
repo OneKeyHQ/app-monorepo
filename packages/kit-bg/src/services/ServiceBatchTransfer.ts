@@ -55,12 +55,12 @@ export default class ServiceBatchTransfer extends ServiceBase {
     }
 
     const transferInfo = transferInfos[0];
-    const { tokenId, isNFT, type } = transferInfo;
+    const { nftTokenId, isNFT, nftType } = transferInfo;
     const isTransferToken = Boolean(transferInfo.token);
 
     if (isTransferToken) {
       // mutiple NFTs to one address
-      if (isNFT && tokenId && type) {
+      if (isNFT && nftTokenId && nftType) {
         let approveInfos: ISetApprovalForAll[] = keys(
           groupBy(transferInfos, 'token'),
         ).map((token) => ({
@@ -128,6 +128,20 @@ export default class ServiceBatchTransfer extends ServiceBase {
               }),
             ];
           }
+        } else if (!isUnlimited) {
+          const amount = transferInfos.reduce(
+            (result, info) => result.plus(info.amount),
+            new BigNumber(0),
+          );
+          encodedApproveTxs = [
+            await engine.buildEncodedTxFromApprove({
+              networkId,
+              accountId,
+              token: transferInfo.token as string,
+              amount: amount.toFixed(),
+              spender: contract,
+            }),
+          ];
         }
       }
     }
@@ -284,8 +298,6 @@ export default class ServiceBatchTransfer extends ServiceBase {
     const updatedStatuses = await vault.getTransactionStatuses(
       pendingTxs.map((tx) => tx.id.replace(regex, '')),
     );
-
-    console.log('updatedStatuses', updatedStatuses);
 
     updatedStatuses.forEach((status, index) => {
       const { id } = pendingTxs[index];

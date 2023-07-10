@@ -415,5 +415,45 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceContract', { value });
     return value;
   }
+
+  get serviceLightningNetwork() {
+    const ServiceLightningNetwork =
+      require('./services/ServiceLightningNetwork') as typeof import('./services/ServiceLightningNetwork');
+    const value = new ServiceLightningNetwork.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceLightningNetwork', { value });
+    return value;
+  }
+
+  get serviceGas() {
+    const ServiceGas =
+      require('./services/ServiceGas') as typeof import('./services/ServiceGas');
+    const value = new ServiceGas.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceGas', { value });
+    return value;
+  }
+
+  get serviceInscribe() {
+    const ServiceInscribe =
+      require('./services/ServiceInscribe') as typeof import('./services/ServiceInscribe');
+    const value = new ServiceInscribe.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceInscribe', { value });
+    return value;
+  }
+
+  get serviceAllNetwork() {
+    const ServiceAllNetwork =
+      require('./services/ServiceAllNetwork') as typeof import('./services/ServiceAllNetwork');
+    const value = new ServiceAllNetwork.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceAllNetwork', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

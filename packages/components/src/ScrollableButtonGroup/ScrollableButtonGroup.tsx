@@ -182,6 +182,7 @@ const ScrollableButtonGroup = forwardRef<
           ref={scrollRef}
           onLayout={({
             nativeEvent: {
+              // @ts-expect-error
               layout: { width },
             },
           }) => {

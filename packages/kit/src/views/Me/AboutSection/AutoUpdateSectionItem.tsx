@@ -200,7 +200,7 @@ const AutoUpdateSectionItem: FC = () => {
     progress.percent,
   ]);
 
-  return (
+  return !platformEnv.isAppleStoreEnv ? (
     <>
       {Content}
       {platformEnv.supportAutoUpdate && (
@@ -231,7 +231,7 @@ const AutoUpdateSectionItem: FC = () => {
         </Pressable>
       )}
     </>
-  );
+  ) : null;
 };
 
 export default AutoUpdateSectionItem;

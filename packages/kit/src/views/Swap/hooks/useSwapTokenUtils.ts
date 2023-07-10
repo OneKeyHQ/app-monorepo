@@ -6,13 +6,32 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountTokensBalance, useThrottle } from '../../../hooks';
-import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
+import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
+import { appSelector } from '../../../store';
 
 type TokenSearchRef = {
   keyword: string;
   count: number;
   networkId?: string | null;
 };
+
+function searchPrepare(
+  keyword: string,
+  networkId?: string | null,
+): {
+  combined: boolean;
+  symbol: string;
+  networkName: string;
+} {
+  if (networkId) {
+    return { combined: false, symbol: '', networkName: '' };
+  }
+  const segments = keyword.split(' ').filter((o) => Boolean(o));
+  if (segments.length === 2) {
+    return { combined: true, symbol: segments[0], networkName: segments[1] };
+  }
+  return { combined: false, symbol: '', networkName: '' };
+}
 
 export const useTokenSearch = (keyword: string, networkId?: string | null) => {
   const [loading, setLoading] = useState(false);
@@ -22,25 +41,51 @@ export const useTokenSearch = (keyword: string, networkId?: string | null) => {
   useEffect(() => {
     ref.current.keyword = keyword;
     ref.current.networkId = networkId;
-    async function search(pKeyword: string, pNetworkId?: string | null) {
-      if (pKeyword.length === 0) {
+    async function search(
+      keywordToSearch: string,
+      networkIdToSearch?: string | null,
+    ) {
+      if (keywordToSearch.length === 0) {
         setResult(undefined);
         return;
       }
       setLoading(true);
       setResult([]);
       let tokens: Token[] = [];
+
       try {
         ref.current.count += 1;
-        tokens = await backgroundApiProxy.serviceSwap.searchTokens({
-          networkId: pNetworkId ?? undefined,
-          keyword,
-        });
-        if (
-          pKeyword === ref.current.keyword &&
-          pNetworkId === ref.current.networkId
-        ) {
-          setResult(tokens);
+        const prepare = searchPrepare(keywordToSearch, networkIdToSearch);
+        if (prepare.combined) {
+          tokens = await backgroundApiProxy.serviceSwap.searchTokens({
+            keyword: prepare.symbol,
+          });
+          const networks = appSelector((s) => s.runtime.networks);
+          const matchedNetworkIds = networks
+            .filter((o) =>
+              o.name.toLowerCase().includes(prepare.networkName.toLowerCase()),
+            )
+            .map((i) => i.id);
+
+          const networksSet = new Set(matchedNetworkIds);
+          tokens = tokens.filter((o) => networksSet.has(o.networkId));
+          if (
+            keywordToSearch === ref.current.keyword &&
+            networkIdToSearch === ref.current.networkId
+          ) {
+            setResult(tokens);
+          }
+        } else {
+          tokens = await backgroundApiProxy.serviceSwap.searchTokens({
+            networkId: networkIdToSearch ?? undefined,
+            keyword,
+          });
+          if (
+            keywordToSearch === ref.current.keyword &&
+            networkIdToSearch === ref.current.networkId
+          ) {
+            setResult(tokens);
+          }
         }
       } finally {
         ref.current.count -= 1;

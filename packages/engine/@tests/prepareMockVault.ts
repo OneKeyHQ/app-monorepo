@@ -9,6 +9,7 @@ import { createVaultSettings } from '../src/vaults/factory.createVaultSettings';
 import type { Engine } from '../src';
 import type { ExportedCredential } from '../src/dbs/base';
 import type { DBNetwork, Network } from '../src/types/network';
+import type { Token } from '../src/types/token';
 import type { IPrepareMockVaultOptions } from './types';
 
 export function prepareMockVault({
@@ -50,6 +51,28 @@ export function prepareMockVault({
   const engine: Engine = {
     async getNetwork(): Promise<Network> {
       return Promise.resolve(network);
+    },
+    async ensureTokenInDB(): Promise<Token | undefined> {
+      return Promise.resolve({
+        '_id': '63455df060ad34cc8f4c23d5',
+        'name': dbNetwork.name,
+        'address': '',
+        'symbol': dbNetwork.symbol,
+        'decimals': dbNetwork.decimals,
+        'logoURI': dbNetwork.logoURI,
+        'coingeckoId': '',
+        'status': 'LISTED',
+        'impl': dbNetwork.impl,
+        'chainId': dbNetwork.id.split('--').pop(),
+        'checked': true,
+        'isNative': true,
+        'addToIndex': true,
+        'source': '',
+        'riskLevel': 0,
+        'id': dbNetwork.id,
+        'networkId': dbNetwork.id,
+        'tokenIdOnNetwork': '',
+      });
     },
     // @ts-ignore
     providerManager: {

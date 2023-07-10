@@ -1,4 +1,4 @@
-require('react-native-reanimated/lib/commonjs/reanimated2/jestUtils').setUpTests();
+require('react-native-reanimated').setUpTests();
 
 class LocalStorageMock {
   constructor() {

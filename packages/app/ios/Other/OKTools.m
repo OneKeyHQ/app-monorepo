@@ -2,7 +2,7 @@
 //  OKTools.m
 //  OneKeyWallet
 //
-//  Created by 林雷钦 on 2022/3/1.
+//  Created by linleiqin on 2022/3/1.
 //
 
 #import "OKTools.h"

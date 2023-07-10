@@ -6,6 +6,7 @@ import { fetchChainList } from '@onekeyhq/engine/src/managers/network';
 import {
   getPresetNetworks,
   initNetworkList,
+  networkIsPreset,
 } from '@onekeyhq/engine/src/presets/network';
 import type {
   AddNetworkParams,
@@ -134,18 +135,15 @@ class ServiceNetwork extends ServiceBase {
         activeWalletId,
         networkId,
       );
-      const firstAccount = accounts && accounts[0];
-      // TODO cache last active account of network, NOT hardcode to firstAccount
-      if (firstAccount || forceRefreshAccount) {
-        await serviceAccount.changeActiveAccount({
-          accountId: firstAccount?.id ?? null,
-          walletId: activeWalletId,
-          extraActions: [...changeActiveNetworkActions], // dispatch batch actions
-          // as reloadAccountsByWalletIdNetworkId() has been called before
-          shouldReloadAccountsWhenWalletChanged: false,
-        });
-        shouldDispatch = false;
-      }
+      const firstAccount = accounts?.[0] ?? null;
+      await serviceAccount.changeActiveAccount({
+        accountId: firstAccount?.id ?? null,
+        walletId: activeWalletId,
+        extraActions: [...changeActiveNetworkActions], // dispatch batch actions
+        // as reloadAccountsByWalletIdNetworkId() has been called before
+        shouldReloadAccountsWhenWalletChanged: false,
+      });
+      shouldDispatch = false;
     }
     // Refresh the list of accounts only, without switching activeAccount
     if (shouldReloadAccountList) {
@@ -564,6 +562,11 @@ class ServiceNetwork extends ServiceBase {
     const vault = await engine.getChainOnlyVault(networkId);
 
     return vault.fetchRpcChainId(url);
+  }
+
+  @backgroundMethod()
+  async networkIsPreset(networkId: string) {
+    return networkIsPreset(networkId);
   }
 }
 

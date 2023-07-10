@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import type { FC } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { useFocusEffect } from '@react-navigation/native';
@@ -22,7 +22,10 @@ import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { getActiveWalletAccount } from '../../../hooks/redux';
-import { getManageNetworks } from '../../../hooks/useManageNetworks';
+import {
+  getManageNetworks,
+  useManageNetworks,
+} from '../../../hooks/useManageNetworks';
 import { ManageNetworkModalRoutes } from '../../../routes/routesEnum';
 
 import { NetworkListEmpty, strIncludes } from './NetworkListEmpty';
@@ -103,9 +106,7 @@ const NetworkItem: FC<{
 export const Listing: FC = () => {
   const intl = useIntl();
   const isSmallScreen = useIsVerticalLayout();
-  const [allNetworks, setAllNetworks] = useState(
-    getManageNetworks().allNetworks,
-  );
+  const { allNetworks } = useManageNetworks();
   const [search, setSearch] = useState('');
   const navigation = useNavigation<NavigationProps>();
   const [activeNetwork, setActiveNetwork] = useState(
@@ -115,6 +116,10 @@ export const Listing: FC = () => {
   const allNetworkRefList = useRef<[string, boolean][]>(
     getManageNetworks().allNetworks.map((n) => [n.id, n.enabled]),
   );
+
+  useEffect(() => {
+    allNetworkRefList.current = allNetworks.map((n) => [n.id, n.enabled]);
+  }, [allNetworks]);
 
   const data = useMemo(
     () =>
@@ -154,7 +159,6 @@ export const Listing: FC = () => {
   useFocusEffect(
     useCallback(() => {
       setSearch('');
-      setAllNetworks(getManageNetworks().allNetworks);
       setActiveNetwork(getActiveWalletAccount().network);
     }, []),
   );

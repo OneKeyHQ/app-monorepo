@@ -1,9 +1,10 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useRef } from 'react';
 
+import type { IDesktopAppState } from '@onekeyhq/desktop/src-electron/preload';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-type Status = 'active' | 'background';
+type Status = IDesktopAppState;
 
 type AppStatusActiveListenerProps = { onActive: () => void };
 

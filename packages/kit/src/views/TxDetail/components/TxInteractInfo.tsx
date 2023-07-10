@@ -20,7 +20,7 @@ export const TxInteractInfo: FC<{ origin: string; networkId: string }> = ({
     return null;
   }
   return (
-    <Box bg="surface-default" borderRadius={12} p={4} mb="6">
+    <Box bg="surface-default" borderRadius={12} p={4} mb={6}>
       <DappSecurityView
         hostname={parsed.hostname}
         origin={parsed.origin}

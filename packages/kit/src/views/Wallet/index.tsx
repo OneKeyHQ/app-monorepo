@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,13 +11,13 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import {
-  getStatus,
   useActiveWalletAccount,
   useStatus,
 } from '@onekeyhq/kit/src/hooks/redux';
+import RefreshLightningNetworkToken from '@onekeyhq/kit/src/views/LightningNetwork/RefreshLightningNetworkToken';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -27,7 +27,6 @@ import Protected, { ValidationFields } from '../../components/Protected';
 import { useHtmlPreloadSplashLogoRemove } from '../../hooks/useHtmlPreloadSplashLogoRemove';
 import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 import { setHomeTabName } from '../../store/reducers/status';
-import OfflineView from '../Offline';
 import { GuideToPushFirstTimeCheck } from '../PushNotification/GuideToPushFirstTime';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
@@ -36,43 +35,157 @@ import AccountInfo, {
   FIXED_VERTICAL_HEADER_HEIGHT,
 } from './AccountInfo';
 import AssetsList from './AssetsList';
+import { BottomView } from './BottomView';
 import NFTList from './NFT/NFTList';
 import ToolsPage from './Tools';
-import { HomeTabIndex, HomeTabOrder, WalletHomeTabEnum } from './type';
+import { WalletHomeTabEnum } from './type';
 
 const AccountHeader = () => <AccountInfo />;
-// const AccountHeader = () => null;
 
 // HomeTabs
 const WalletTabs: FC = () => {
   const intl = useIntl();
   const ref = useRef<ForwardRefHandle>(null);
-  const defaultIndexRef = useRef<number>(
-    HomeTabIndex[getStatus().homeTabName as WalletHomeTabEnum] ?? 0,
-  );
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
   const { homeTabName } = useStatus();
-  const { wallet, account, network, accountId, networkId } =
+  const { wallet, network, accountId, networkId, walletId } =
     useActiveWalletAccount();
   const [refreshing, setRefreshing] = useState(false);
 
-  const onIndexChange = useCallback((index: number) => {
-    backgroundApiProxy.dispatch(setHomeTabName(HomeTabOrder[index]));
-  }, []);
+  const tokensTab = useMemo(
+    () => (
+      <Tabs.Tab
+        name={WalletHomeTabEnum.Tokens}
+        label={intl.formatMessage({ id: 'asset__tokens' })}
+        key={WalletHomeTabEnum.Tokens}
+      >
+        <>
+          <AssetsList
+            walletId={walletId}
+            accountId={accountId}
+            networkId={networkId}
+            ListFooterComponent={<Box h={6} />}
+            limitSize={10}
+            renderDefiList
+          />
+          <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
+          <GuideToPushFirstTimeCheck />
+        </>
+      </Tabs.Tab>
+    ),
+    [accountId, intl, networkId, walletId],
+  );
+
+  const nftTab = useMemo(
+    () => (
+      <Tabs.Tab
+        name={WalletHomeTabEnum.Collectibles}
+        label={intl.formatMessage({ id: 'asset__collectibles' })}
+        key={WalletHomeTabEnum.Collectibles}
+      >
+        <NFTList />
+      </Tabs.Tab>
+    ),
+    [intl],
+  );
+
+  const historyTab = useMemo(
+    () => (
+      <Tabs.Tab
+        name={WalletHomeTabEnum.History}
+        label={intl.formatMessage({ id: 'transaction__history' })}
+        key={WalletHomeTabEnum.History}
+      >
+        <TxHistoryListView
+          accountId={accountId}
+          networkId={networkId}
+          isHomeTab
+        />
+      </Tabs.Tab>
+    ),
+    [accountId, networkId, intl],
+  );
+
+  const toolsTab = useMemo(
+    () => (
+      <Tabs.Tab
+        name={WalletHomeTabEnum.Tools}
+        label={intl.formatMessage({ id: 'form__tools' })}
+        key={WalletHomeTabEnum.Tools}
+      >
+        <ToolsPage />
+      </Tabs.Tab>
+    ),
+    [intl],
+  );
+
+  const usedTabs = useMemo(() => {
+    const defaultTabs = [
+      {
+        name: WalletHomeTabEnum.Tokens,
+        tab: tokensTab,
+      },
+      {
+        name: WalletHomeTabEnum.Collectibles,
+        tab: nftTab,
+      },
+      {
+        name: WalletHomeTabEnum.History,
+        tab: historyTab,
+      },
+      {
+        name: WalletHomeTabEnum.Tools,
+        tab: toolsTab,
+      },
+    ];
+    return defaultTabs.filter((t) => {
+      if (t.name === WalletHomeTabEnum.Collectibles) {
+        return !network?.settings.hiddenNFTTab;
+      }
+      if (t.name === WalletHomeTabEnum.History) {
+        return !isAllNetworks(networkId);
+      }
+      if (t.name === WalletHomeTabEnum.Tools) {
+        return !network?.settings?.hiddenToolTab;
+      }
+      return true;
+    });
+  }, [network?.settings, networkId, tokensTab, nftTab, historyTab, toolsTab]);
+
+  const getHomeTabNameByIndex = useCallback(
+    (index: number) => usedTabs[index]?.name,
+    [usedTabs],
+  );
+
+  const getHomeTabIndex = useCallback(
+    () => usedTabs.findIndex((tab) => tab.name === homeTabName),
+    [usedTabs, homeTabName],
+  );
+
+  const onIndexChange = useCallback(
+    (index: number) => {
+      backgroundApiProxy.dispatch(setHomeTabName(getHomeTabNameByIndex(index)));
+    },
+    [getHomeTabNameByIndex],
+  );
 
   useEffect(() => {
-    const idx = HomeTabIndex[homeTabName as WalletHomeTabEnum];
-    if (typeof idx !== 'number' || idx === defaultIndexRef.current) {
-      return;
+    const idx = getHomeTabIndex();
+
+    const setIndex = (index: number) => {
+      ref.current?.setPageIndex?.(index);
+      onIndexChange(index);
+    };
+
+    if (platformEnv.isNativeIOS) {
+      setTimeout(() => {
+        setIndex(idx);
+      });
+    } else {
+      setIndex(idx);
     }
-    debugLogger.common.info(
-      `switch wallet tab index, old=${defaultIndexRef.current}, new=${idx}`,
-    );
-    ref.current?.setPageIndex?.(idx);
-    onIndexChange(idx);
-    defaultIndexRef.current = idx;
-  }, [homeTabName, onIndexChange]);
+  }, [homeTabName, onIndexChange, getHomeTabIndex]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -81,20 +194,20 @@ const WalletTabs: FC = () => {
     });
   }, []);
 
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    backgroundApiProxy.serviceOverview.refreshCurrentAccount();
+  }, [networkId, accountId, walletId]);
 
-  const walletTabs = (
+  const tabContents = usedTabs.map((t) => t.tab);
+
+  const walletTabsContainer = (
     <Tabs.Container
       canOpenDrawer
       initialTabName={homeTabName}
       refreshing={refreshing}
       onRefresh={onRefresh}
       onIndexChange={(index: number) => {
-        defaultIndexRef.current = index;
-        clearTimeout(timer.current);
-        timer.current = setTimeout(() => {
-          onIndexChange(defaultIndexRef.current);
-        }, 1500);
+        onIndexChange(index);
       }}
       renderHeader={AccountHeader}
       headerHeight={
@@ -112,45 +225,7 @@ const WalletTabs: FC = () => {
         flex: 1,
       }}
     >
-      <Tabs.Tab
-        name={WalletHomeTabEnum.Tokens}
-        label={intl.formatMessage({ id: 'asset__tokens' })}
-      >
-        <>
-          <AssetsList
-            accountId={accountId}
-            networkId={networkId}
-            ListFooterComponent={<Box h={6} />}
-            limitSize={10}
-            renderDefiList
-          />
-          <OneKeyPerfTraceLog name="App RootTabHome AssetsList render" />
-          <GuideToPushFirstTimeCheck />
-        </>
-      </Tabs.Tab>
-      <Tabs.Tab
-        name={WalletHomeTabEnum.Collectibles}
-        label={intl.formatMessage({ id: 'asset__collectibles' })}
-      >
-        <NFTList />
-      </Tabs.Tab>
-      <Tabs.Tab
-        name={WalletHomeTabEnum.History}
-        label={intl.formatMessage({ id: 'transaction__history' })}
-      >
-        <TxHistoryListView
-          accountId={account?.id}
-          networkId={network?.id}
-          isHomeTab
-        />
-        {/* )} */}
-      </Tabs.Tab>
-      <Tabs.Tab
-        name={WalletHomeTabEnum.Tools}
-        label={intl.formatMessage({ id: 'form__tools' })}
-      >
-        <ToolsPage />
-      </Tabs.Tab>
+      {tabContents.filter(Boolean).map((tab) => tab)}
     </Tabs.Container>
   );
 
@@ -171,12 +246,21 @@ const WalletTabs: FC = () => {
             { '0': network.name },
           )}
         >
-          {() => walletTabs}
+          {(password) => (
+            <>
+              <RefreshLightningNetworkToken
+                accountId={accountId}
+                password={password}
+                networkId={network.id}
+              />
+              {walletTabsContainer}
+            </>
+          )}
         </Protected>
       </Center>
     );
   }
-  return walletTabs;
+  return walletTabsContainer;
 };
 
 export default function Wallet() {
@@ -190,7 +274,7 @@ export default function Wallet() {
           <WalletTabs />
         </IdentityAssertion>
       </Box>
-      <OfflineView />
+      <BottomView />
     </>
   );
 }

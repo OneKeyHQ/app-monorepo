@@ -1,80 +1,74 @@
 import { createSlice } from '@reduxjs/toolkit';
-import B from 'bignumber.js';
-import { set } from 'lodash';
+import { omit } from 'lodash';
 
-import type { OverviewDefiRes } from '../../views/Overview/types';
+import type { IOverviewQueryTaskItem } from '../../views/Overview/types';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
-type TotalValues = {
-  value: string;
-  value24h: string;
+export interface IPortfolioUpdatedAt {
+  updatedAt: number;
+}
+
+export interface IOverviewPortfolio {
+  tasks: Record<string, IOverviewQueryTaskItem>;
+  updatedTimeMap: Record<string, IPortfolioUpdatedAt>;
+}
+
+const initialState: IOverviewPortfolio = {
+  tasks: {},
+  updatedTimeMap: {},
 };
 
-type InitialState = {
-  // token: {
-  //   [id: string]: Token[]
-  // },
-  // nft: {
-  //   [id: string]: NFT[]
-  // }
-  defi?: {
-    // id = networkId + address
-    [id: string]: OverviewDefiRes[];
-  };
-  totalDefiValues?: {
-    // id = networkId + address
-    [id: string]: TotalValues;
-  };
-};
-
-const initialState: InitialState = {
-  defi: {},
-  totalDefiValues: {},
-};
-
-type OverviewPayloadDefi = {
-  networkId: string;
-  address: string;
-  data: OverviewDefiRes[];
-};
-
-export const OverviewSlice = createSlice({
+export const overviewSlice = createSlice({
   name: 'overview',
   initialState,
   reducers: {
-    setOverviewPortfolioDefi(
+    setOverviewPortfolioUpdatedAt(
       state,
-      action: PayloadAction<OverviewPayloadDefi>,
+      action: PayloadAction<{
+        key: string;
+        data: IPortfolioUpdatedAt;
+      }>,
     ) {
-      const { networkId, address, data } = action.payload;
-      const id = `${networkId}--${address}`;
-      state.defi = set(
-        {
-          ...state.defi,
-        },
-        id,
-        data,
-      );
-      let totalValue = new B(0);
-      let totalValue24h = new B(0);
-      for (const d of data) {
-        totalValue = totalValue.plus(d.protocolValue);
-        totalValue24h = totalValue24h.plus(d.protocolValue24h);
+      const { data, key } = action.payload;
+      if (!state.updatedTimeMap) {
+        state.updatedTimeMap = {};
       }
-      state.totalDefiValues = set(
-        {
-          ...state.totalDefiValues,
-        },
-        id,
-        {
-          value: totalValue.toString(),
-          value24h: totalValue24h.toString(),
-        },
-      );
+      state.updatedTimeMap[key] = data;
+    },
+    addOverviewPendingTasks(
+      state,
+      action: PayloadAction<{
+        data: IOverviewPortfolio['tasks'];
+      }>,
+    ) {
+      const { data } = action.payload;
+      if (!state.tasks) {
+        state.tasks = {};
+      }
+      state.tasks = {
+        ...state.tasks,
+        ...data,
+      };
+    },
+    removeOverviewPendingTasks(
+      state,
+      action: PayloadAction<{
+        ids: string[];
+      }>,
+    ) {
+      const { ids = [] } = action.payload;
+      if (!state.tasks) {
+        return;
+      }
+      state.tasks = omit(state.tasks, ...ids);
     },
   },
 });
 
-export const { setOverviewPortfolioDefi } = OverviewSlice.actions;
+export const {
+  addOverviewPendingTasks,
+  removeOverviewPendingTasks,
+  setOverviewPortfolioUpdatedAt,
+} = overviewSlice.actions;
 
-export default OverviewSlice.reducer;
+export default overviewSlice.reducer;

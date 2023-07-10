@@ -118,9 +118,9 @@ if (process.env.NODE_ENV !== 'production') {
 export function getWebviewWrapperRef(id?: string) {
   let tabId = id;
   if (!tabId) {
-    const { appSelector } =
-      require('../../../store') as typeof import('../../../store');
-    tabId = appSelector((s) => s.webTabs.currentTabId);
+    const { getCurrentTabId } =
+      require('../../../store/observable/webTabs') as typeof import('../../../store/observable/webTabs');
+    tabId = getCurrentTabId();
   }
   const ref = tabId ? webviewRefs[tabId] : null;
   return ref ?? null;

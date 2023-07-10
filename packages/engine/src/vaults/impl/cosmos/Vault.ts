@@ -3,7 +3,6 @@ import { hexToBytes } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
 import { getTime } from 'date-fns';
 import { get, isEmpty, isNil } from 'lodash';
-import memoizee from 'memoizee';
 
 import {
   InvalidAddress,
@@ -53,8 +52,10 @@ import {
   stripHexPrefix,
 } from '@onekeyhq/engine/src/vaults/utils/hexUtils';
 import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/device/hardwareInstance';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -96,6 +97,7 @@ import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 const GAS_STEP_MULTIPLIER = 10000;
 const GAS_ADJUSTMENT: Record<string, string> = {
   // [OnekeyNetwork.terra]: '2',
+  [OnekeyNetwork.juno]: '1.2',
   default: '1.3',
 };
 const GAS_PRICE = ['0.01', '0.025', '0.04'];
@@ -589,6 +591,9 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxCosmos> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
     let { to, amount, token: tokenAddress } = transferInfo;
     const { address: from } = await this.getDbAccount();
     const chainInfo = await this.getChainInfo();

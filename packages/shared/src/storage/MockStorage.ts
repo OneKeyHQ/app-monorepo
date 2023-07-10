@@ -1,6 +1,8 @@
 /* eslint-disable  @typescript-eslint/no-unused-vars */
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
 
+// ExtensionUi redux-persist use MockStorage to do nothing
+// redux-persist actual storage logic is running at Ext background
 class MockStorage implements AsyncStorageStatic {
   getItem(): Promise<string | null> {
     return Promise.resolve(null);

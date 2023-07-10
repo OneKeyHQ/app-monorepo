@@ -12,6 +12,7 @@ enum AppUIEventBusNames {
   LimitOrderCompleted = 'LimitOrderCompleted',
   LimitOrderError = 'LimitOrderError',
   RemoveAccount = 'RemoveAccount',
+  RemoveWallet = 'RemoveWallet',
   Unlocked = 'Unlocked',
   StoreInitedFromPersistor = 'StoreInitedFromPersistor',
   AccountChanged = 'AccountChanged',
@@ -21,7 +22,6 @@ enum AppUIEventBusNames {
   Migrate = 'Migrate',
   RevokeRefresh = 'RevokeRefresh',
   HardwareCancel = 'HardwareCancel',
-  WebTabThumbnailUpdated = 'WebTabThumbnailUpdated',
 }
 
 if (isExtensionBackground) {

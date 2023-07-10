@@ -2,7 +2,7 @@ PODS:
   - boost (1.76.0)
   - CocoaAsyncSocket (7.6.5)
   - DoubleConversion (1.1.6)
-  - EXApplication (5.2.0):
+  - EXApplication (5.1.1):
     - ExpoModulesCore
   - EXAV (13.3.0):
     - ExpoModulesCore
@@ -28,7 +28,7 @@ PODS:
     - React-Core
   - EXNotifications (0.18.1):
     - ExpoModulesCore
-  - Expo (48.0.17):
+  - Expo (48.0.19):
     - ExpoModulesCore
   - ExpoBlur (12.3.1):
     - ExpoModulesCore
@@ -242,6 +242,9 @@ PODS:
   - lottie-react-native (5.1.6):
     - lottie-ios (~> 3.4.0)
     - React-Core
+  - MMKV (1.2.16):
+    - MMKVCore (~> 1.2.16)
+  - MMKVCore (1.2.16)
   - MultiplatformBleAdapter (0.1.9)
   - nanopb (2.30908.0):
     - nanopb/decode (= 2.30908.0)
@@ -496,6 +499,9 @@ PODS:
     - React-Core
   - react-native-in-app-review (4.3.3):
     - React-Core
+  - react-native-mmkv (2.8.0):
+    - MMKV (>= 1.2.13)
+    - React-Core
   - react-native-netinfo (9.3.10):
     - React-Core
   - react-native-pager-view (6.1.4):
@@ -633,7 +639,7 @@ PODS:
     - React-Core
   - RNGestureHandler (2.10.1):
     - React-Core
-  - RNReanimated (3.1.0):
+  - RNReanimated (3.3.0):
     - DoubleConversion
     - FBLazyVector
     - FBReactNativeSpec
@@ -766,6 +772,7 @@ DEPENDENCIES:
   - react-native-flipper-performance-plugin (from `../../../node_modules/react-native-flipper-performance-plugin`)
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - react-native-in-app-review (from `../../../node_modules/react-native-in-app-review`)
+  - react-native-mmkv (from `../../../node_modules/react-native-mmkv`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
   - react-native-pager-view (from `../../../node_modules/react-native-pager-view`)
   - react-native-randombytes (from `../../../node_modules/react-native-randombytes`)
@@ -837,6 +844,8 @@ SPEC REPOS:
     - libevent
     - libwebp
     - lottie-ios
+    - MMKV
+    - MMKVCore
     - MultiplatformBleAdapter
     - nanopb
     - OpenSSL-Universal
@@ -958,6 +967,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-get-random-values"
   react-native-in-app-review:
     :path: "../../../node_modules/react-native-in-app-review"
+  react-native-mmkv:
+    :path: "../../../node_modules/react-native-mmkv"
   react-native-netinfo:
     :path: "../../../node_modules/@react-native-community/netinfo"
   react-native-pager-view:
@@ -1039,7 +1050,7 @@ SPEC CHECKSUMS:
   boost: 57d2868c099736d80fcd648bf211b4431e51a558
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   DoubleConversion: 5189b271737e1565bdce30deb4a08d647e3f5f54
-  EXApplication: 45c662ace096520d412e8f2c956482c8ffac1436
+  EXApplication: d8f53a7eee90a870a75656280e8d4b85726ea903
   EXAV: c661e742e2ee1986f5a6a030b48d9d3a3507d2f0
   EXBarCodeScanner: 28ad66f3f57c8ae00f988956835ab472688643ca
   EXConstants: 29269f841ed8786d483b753021953264ac04818f
@@ -1049,7 +1060,7 @@ SPEC CHECKSUMS:
   EXLocation: 0d7331f0385de210c677313a6a1512099b455347
   EXMediaLibrary: 2e91d1eb14df5c6af1ddfe183a8c8ee7eaf557d8
   EXNotifications: dd628737af60fc8cc62dccebacd326b0fbbc0dcb
-  Expo: d351b4546895fb99ae4e5a1bc39df770ab9dc7d1
+  Expo: 8448e3a2aa1b295f029c81551e1ab6d986517fdb
   ExpoBlur: 83186055c9c5c7ea564d04c6ed766ef7896889ed
   ExpoClipboard: 872ae8ea230649404705b7cc09a155531e74b7bb
   ExpoDevice: 516146e17529c3eae3f5c2c09e826efc9ffc6938
@@ -1098,6 +1109,8 @@ SPEC CHECKSUMS:
   libwebp: f62cb61d0a484ba548448a4bd52aabf150ff6eef
   lottie-ios: 8f97d3271e155c2d688875c29cd3c74908aef5f8
   lottie-react-native: 8f9d4be452e23f6e5ca0fdc11669dc99ab52be81
+  MMKV: 784471ce430a2e2d16afef9053d63fab1b357d9e
+  MMKVCore: 9cfef4c48c6c46f66226fc2e4634d78490206a48
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
   nanopb: a0ba3315591a9ae0a16a309ee504766e90db0c96
   OpenSSL-Universal: ebc357f1e6bc71fa463ccb2fe676756aff50e88c
@@ -1125,6 +1138,7 @@ SPEC CHECKSUMS:
   react-native-flipper-performance-plugin: 42ec5017abd26e7c5a1f527f2db92c14a90cabdb
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
   react-native-in-app-review: db8bb167a5f238e7ceca5c242d6b36ce8c4404a4
+  react-native-mmkv: 7da5e18e55c04a9af9a7e0ab9792a1e8d33765a1
   react-native-netinfo: ccbe1085dffd16592791d550189772e13bf479e2
   react-native-pager-view: b58cb9e9f42f64e50cab3040815772c1d119a2e2
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
@@ -1158,7 +1172,7 @@ SPEC CHECKSUMS:
   RNFBPerf: b85b621a4d15905847e8627a6aa67ad894e8e166
   RNFS: 4ac0f0ea233904cb798630b3c077808c06931688
   RNGestureHandler: 42ec7c28dd02d540ed6c9159c57a98ff016492dc
-  RNReanimated: 7afddd5ab0590339f3e83d7bb52f43a73443b862
+  RNReanimated: 77fbf24fd94c940c82ceb67f6d4571db3d2c04fe
   RNScreens: ea4cd3a853063cda19a4e3c28d2e52180c80f4eb
   RNShare: d82e10f6b7677f4b0048c23709bd04098d5aee6c
   RNSVG: 53c661b76829783cdaf9b7a57258f3d3b4c28315
@@ -1171,4 +1185,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 378641444e16b53374eb08f9204e4c8f404b5843
 
-COCOAPODS: 1.11.3
+COCOAPODS: 1.12.1

@@ -105,15 +105,16 @@ const mockProvider = {
   Provider: MockProvider,
   Client: MockClient,
 };
+
 const IMPLS: { [key: string]: any } = {
   algo: mockProvider,
   ada: mockProvider,
   cosmos: mockProvider,
-  cfx: require('./chains/cfx'),
+  cfx: mockProvider,
   eth: require('./chains/eth'),
   near: mockProvider,
-  sol: require('./chains/sol'),
-  stc: require('./chains/stc'),
+  sol: mockProvider,
+  stc: mockProvider,
   btc: mockProvider,
   tbtc: mockProvider,
   bch: mockProvider,
@@ -132,6 +133,7 @@ const IMPLS: { [key: string]: any } = {
   fil: mockProvider,
   tron: mockProvider,
   kaspa: mockProvider,
+  lightning: mockProvider,
 };
 
 class ProviderController {

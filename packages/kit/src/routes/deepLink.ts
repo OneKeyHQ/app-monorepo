@@ -1,11 +1,11 @@
 import * as Linking from 'expo-linking';
 import { isString } from 'lodash';
-import memoizee from 'memoizee';
 
 import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/src-electron/app';
 import type { DesktopAPI } from '@onekeyhq/desktop/src-electron/preload';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import walletConnectUtils from '../components/WalletConnect/utils/walletConnectUtils';
 import {
@@ -50,7 +50,7 @@ const processDeepLinkUrl = memoizee(
       //  - packages/app/app.json
 
       // ** ios UniversalLink
-      // https://app.onekey.so/wc/connect/wc?uri=wc%3Aeb16df1f-1d3b-4018-9d18-28ef610cc1a4%401%3Fbridge%3Dhttps%253A%252F%252Fj.bridge.walletconnect.org%26key%3D0037246aefb211f98a8386d4bf7fd2a5344960bf98cb39c57fb312a098f2eb77
+      //        https://app.onekey.so/wc/connect/wc?uri=wc%3Aeb16df1f-1d3b-4018-9d18-28ef610cc1a4%401%3Fbridge%3Dhttps%253A%252F%252Fj.bridge.walletconnect.org%26key%3D0037246aefb211f98a8386d4bf7fd2a5344960bf98cb39c57fb312a098f2eb77
       if (
         hostname === 'app.onekey.so' &&
         path === WalletConnectUniversalLinkPath
@@ -61,6 +61,7 @@ const processDeepLinkUrl = memoizee(
       }
 
       // ** ios/android/desktop DeepLink
+      //        onekey-wallet://wc
       // onekey-wallet://wc?uri=wc%3Afa75a793-a3fb-48e4-8629-8f1f034ec6eb%401%3Fbridge%3Dhttps%253A%252F%252Fy.bridge.walletconnect.org%26key%3D9e97f71a32b4e629cb60106295dca54d733d124da480b4031d0d848b678fd610/
       if (
         scheme === ONEKEY_APP_DEEP_LINK ||
@@ -77,12 +78,18 @@ const processDeepLinkUrl = memoizee(
       }
 
       // ** WalletConnect uri DeepLink
+      //        wc:
       // wc:c157eb01-8262-40e4-963e-7ebee47d0eac@1?bridge=https%3A%2F%2F7.bridge.walletconnect.org&key=881d859aa3ae028e284dd03e3be1d09c486329a400509a39c85246813808956b
       if (
         scheme === WALLET_CONNECT_DEEP_LINK ||
         scheme === WALLET_CONNECT_DEEP_LINK_NAME
       ) {
+        // V1
         if (queryParams?.bridge && queryParams?.key) {
+          wcUri = url;
+        }
+        // V2
+        if (queryParams?.['relay-protocol'] && queryParams?.symKey) {
           wcUri = url;
         }
       }

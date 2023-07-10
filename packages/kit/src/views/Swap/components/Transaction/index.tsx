@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ComponentProps, FC } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -29,6 +29,13 @@ import { buildTransactionDetailsUrl } from '../../../../hooks/useOpenBlockBrowse
 import { openUrlExternal } from '../../../../utils/openUrl';
 import { useTransactionsAccount } from '../../hooks/useTransactions';
 import {
+  QuoterType,
+  type SwapRoutes,
+  type SwapRoutesParams,
+  type TransactionDetails,
+  type TransactionStatus,
+} from '../../typings';
+import {
   calculateProtocalsFee,
   formatAmount,
   gt,
@@ -43,13 +50,8 @@ import TransactionRate from '../TransactionRate';
 import { HashMoreMenu } from './HashMoreMenus';
 import { AccountMoreMenus, ReceiptMoreMenus } from './MoreMenus';
 
-import type {
-  SwapRoutes,
-  SwapRoutesParams,
-  TransactionDetails,
-  TransactionStatus,
-} from '../../typings';
 import type { NavigationProp, RouteProp } from '@react-navigation/native';
+import type { LayoutChangeEvent } from 'react-native';
 
 type TransactionProps = {
   tx: TransactionDetails;
@@ -175,6 +177,20 @@ const Header: FC<TransactionProps & { onPress?: () => void }> = ({
   );
 };
 
+const TransactionText: FC = ({ children }) => {
+  const [width, setWidth] = useState('');
+  const onLayout = useCallback((e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    const text = `${Math.floor(w * 0.9)}px`;
+    setWidth(text);
+  }, []);
+  return (
+    <Box flex="1" onLayout={onLayout}>
+      {width ? <Box width={width}>{children}</Box> : null}
+    </Box>
+  );
+};
+
 const InputOutput: FC<TransactionProps> = ({ tx }) => {
   const fromNetwork = useNetworkSimple(tx.tokens?.from.networkId);
   const toNetwork = useNetworkSimple(tx.tokens?.to.networkId);
@@ -195,13 +211,17 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
         alignItems="center"
         justifyContent="space-between"
       >
-        <Box flexDirection="row" alignItems="center">
+        <Box flex={1} flexDirection="row" alignItems="center">
           <TokenIcon size="8" token={tx.tokens?.from.token} />
-          <Box ml="3">
-            <Typography.Body1>
-              {formatAmount(tx.tokens?.from.amount, 4)}
-              {tx.tokens?.from.token?.symbol.toString()}
-            </Typography.Body1>
+          <Box ml="3" flex={1}>
+            <Box flexDirection="row" alignItems="center">
+              <TransactionText>
+                <Typography.Body1 numberOfLines={2} isTruncated>
+                  {formatAmount(tx.tokens?.from.amount, 4)}
+                  {tx.tokens?.from.token?.symbol.toString()}
+                </Typography.Body1>
+              </TransactionText>
+            </Box>
             <Typography.Body2 color="text-subdued">
               {fromNetwork?.name}
             </Typography.Body2>
@@ -244,17 +264,19 @@ const InputOutput: FC<TransactionProps> = ({ tx }) => {
         alignItems="center"
         justifyContent="space-between"
       >
-        <Box flexDirection="row" alignItems="center">
+        <Box flex={1} flexDirection="row" alignItems="center">
           <TokenIcon size="8" token={tx.tokens?.to.token} />
-          <Box ml="3">
+          <Box ml="3" flex={1}>
             <Box flexDirection="row" alignItems="center">
               {!tx.actualReceived ? (
                 <Typography.Caption mr="1">~</Typography.Caption>
               ) : null}
-              <Typography.Body1>
-                {formatAmount(tx.tokens?.to.amount, 4)}
-                {tx.tokens?.to.token.symbol.toUpperCase()}
-              </Typography.Body1>
+              <TransactionText>
+                <Typography.Body1 numberOfLines={2} isTruncated>
+                  {formatAmount(tx.tokens?.to.amount, 4)}
+                  {tx.tokens?.to.token.symbol.toUpperCase()}
+                </Typography.Body1>
+              </TransactionText>
             </Box>
             <Typography.Body2 color="text-subdued">
               {toNetwork?.name}
@@ -312,12 +334,14 @@ const TransactionField: FC<TransactionFieldProps> = ({
 
 type ViewInBrowserSelectorItem = {
   label: string;
+  header: string;
   value?: string;
   logoURI?: string;
   url?: string;
 };
 
 type Option = {
+  header: string;
   label: string;
   logoURI: string;
   value: string;
@@ -332,12 +356,14 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
   const options = useMemo(() => {
     let base: Option[] = [
       {
+        header: intl.formatMessage({ id: 'form__from_uppercase' }),
         label: fromNetwork?.shortName ?? '',
         logoURI: fromNetwork?.logoURI ?? '',
         value: tx.hash ?? '',
         url: buildTransactionDetailsUrl(fromNetwork, tx.hash),
       },
       {
+        header: intl.formatMessage({ id: 'form__to_uppercase' }),
         label: toNetwork?.shortName ?? '',
         logoURI: toNetwork?.logoURI ?? '',
         value: tx.destinationTransactionHash ?? '',
@@ -350,6 +376,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
     if (tx.quoterType === 'socket') {
       const socketOption: Option[] = [
         {
+          header: intl.formatMessage({ id: 'form__provider_uppercase' }),
           label: 'Socketscan',
           logoURI: 'https://common.onekey-asset.com/logo/SocketBridge.png',
           value: 'Socketscan',
@@ -359,7 +386,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
       base = socketOption.concat(base);
     }
     return base;
-  }, [tx, fromNetwork, toNetwork]);
+  }, [tx, fromNetwork, toNetwork, intl]);
   const onPress = useCallback((_: any, item: any) => {
     // eslint-disable-next-line
     if (item.url) {
@@ -380,7 +407,7 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
     <Select
       footer={null}
       title={intl.formatMessage({
-        id: 'title__select_blockchain_browser',
+        id: 'action__view_in_browser',
       })}
       isTriggerPlain
       options={options}
@@ -392,27 +419,35 @@ const ViewInBrowserSelector: FC<ViewInBrowserSelectorProps> = ({ tx }) => {
         const token = item as unknown as ViewInBrowserSelectorItem;
         return (
           <Pressable
-            flexDirection="row"
-            justifyContent="space-between"
-            alignItems="center"
             key={item.value}
-            h="12"
+            py="2"
             px="3"
             onPress={() => onChange?.('', item)}
           >
-            <Box flexDirection="row" alignItems="center">
-              <TokenIcon size="8" token={token} />
-              <Typography.Body1Strong ml={3}>
-                {token.label}
-              </Typography.Body1Strong>
+            <Typography.Subheading mb="3">{token.header}</Typography.Subheading>
+            <Box
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <Box flexDirection="row" alignItems="center">
+                <TokenIcon size="8" token={token} />
+                <Typography.Body1Strong ml={3}>
+                  {token.label}
+                </Typography.Body1Strong>
+              </Box>
+              {!token.value ? (
+                <Typography.Body1 color="text-disabled">
+                  {intl.formatMessage({
+                    id: 'transaction__swap_status_waiting',
+                  })}
+                </Typography.Body1>
+              ) : (
+                <Center w="5" h="5">
+                  <Icon name="ChevronRightMini" size={16} />
+                </Center>
+              )}
             </Box>
-            {!token.value ? (
-              <Typography.Body1 color="text-disabled">
-                {intl.formatMessage({
-                  id: 'transaction__swap_status_waiting',
-                })}
-              </Typography.Body1>
-            ) : null}
           </Pressable>
         );
       }}
@@ -460,6 +495,22 @@ const ViewInBrowser: FC<ViewInBrowserProps> = ({ tx }) => {
 type TransactionOneKeyFeesProps = { tx: TransactionDetails };
 const TransactionOneKeyFees: FC<TransactionOneKeyFeesProps> = ({ tx }) => {
   const from = tx.tokens?.from;
+  const to = tx.tokens?.to;
+  let feeText = '';
+  if (tx.percentageFee) {
+    if (tx.quoterType === QuoterType.jupiter && to) {
+      feeText = `${formatAmount(
+        multiply(tx.percentageFee, to.amount),
+        8,
+      )}${to.token.symbol.toUpperCase()}`;
+    } else if (from) {
+      feeText = `${formatAmount(
+        multiply(tx.percentageFee, from.amount),
+        8,
+      )}${from.token.symbol.toUpperCase()}`;
+    }
+  }
+
   return (
     <Box flexDirection="row" alignItems="center">
       <TransactionFee
@@ -468,11 +519,8 @@ const TransactionOneKeyFees: FC<TransactionOneKeyFeesProps> = ({ tx }) => {
         typography="Body2Strong"
         color="text-default"
       />
-      {from && tx.percentageFee ? (
-        <Typography.Body2Strong>{`(${formatAmount(
-          multiply(tx.percentageFee, from.amount),
-          8,
-        )}${from.token.symbol.toUpperCase()})`}</Typography.Body2Strong>
+      {feeText ? (
+        <Typography.Body2Strong>({feeText})</Typography.Body2Strong>
       ) : null}
     </Box>
   );

@@ -12,6 +12,7 @@ import type { ProviderApiWalletConnect } from './providers/ProviderApiWalletConn
 import type ServiceAccount from './services/ServiceAccount';
 import type ServiceAccountSelector from './services/ServiceAccountSelector';
 import type ServiceAddressbook from './services/ServiceAddressbook';
+import type ServiceAllNetwork from './services/ServiceAllNetwork';
 import type ServiceApp from './services/ServiceApp';
 import type ServiceBatchTransfer from './services/ServiceBatchTransfer';
 import type ServiceBootstrap from './services/ServiceBootstrap';
@@ -23,9 +24,12 @@ import type ServiceDerivationPath from './services/ServiceDerivationPath';
 import type ServiceDiscover from './services/ServiceDiscover';
 import type ServiceExternalAccount from './services/ServiceExternalAccount';
 import type ServiceFiatPay from './services/ServiceFiatPay';
+import type ServiceGas from './services/ServiceGas';
 import type ServiceHardware from './services/ServiceHardware';
 import type ServiceHistory from './services/ServiceHistory';
 import type ServiceHTTP from './services/ServiceHTTP';
+import type ServiceInscribe from './services/ServiceInscribe';
+import type ServiceLightningNetwork from './services/ServiceLightningNetwork';
 import type ServiceLimitOrder from './services/ServiceLimitOrder';
 import type ServiceMarket from './services/ServiceMarket';
 import type ServiceMigrate from './services/ServiceMigrate';
@@ -180,9 +184,23 @@ class BackgroundApiProxy
 
   serviceUtxos = this._createProxyService('serviceUtxos') as ServiceUtxos;
 
+  serviceInscribe = this._createProxyService(
+    'serviceInscribe',
+  ) as ServiceInscribe;
+
   serviceContract = this._createProxyService(
     'serviceContract',
   ) as ServiceContract;
+
+  serviceLightningNetwork = this._createProxyService(
+    'serviceLightningNetwork',
+  ) as ServiceLightningNetwork;
+
+  serviceGas = this._createProxyService('serviceGas') as ServiceGas;
+
+  serviceAllNetwork = this._createProxyService(
+    'serviceAllNetwork',
+  ) as ServiceAllNetwork;
 
   _createProxyService(name = 'ROOT') {
     if (this._serviceCreatedNames[name]) {

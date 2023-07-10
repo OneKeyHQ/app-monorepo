@@ -2,6 +2,7 @@ import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   decrypt,
   encrypt,
+  getBgSensitiveTextEncodeKey,
 } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { generateUUID } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -29,30 +30,50 @@ export default class ServicePassword extends ServiceBase {
 
   async setData(password: string): Promise<string> {
     const key = this.getRandomString();
-    const data = encrypt(key, Buffer.from(password, 'utf-8')).toString('hex');
+    const data = encrypt(key, Buffer.from(password, 'utf-8'), {
+      skipSafeCheck: true,
+    }).toString('hex');
     await simpleDb.pwkey.setRawData({ key });
     this.data = data;
     return data;
   }
 
   @backgroundMethod()
-  encryptByInstanceId(data: string): Promise<string> {
+  encryptByInstanceId(
+    input: string,
+    {
+      inputEncoding = 'utf-8',
+      outputEncoding = 'hex',
+    }: {
+      inputEncoding?: BufferEncoding;
+      outputEncoding?: BufferEncoding;
+    } = {},
+  ): Promise<string> {
     const { appSelector } = this.backgroundApi;
     const { instanceId } = appSelector((s) => s.settings);
-    const text = encrypt(instanceId, Buffer.from(data, 'utf-8')).toString(
-      'hex',
-    );
-    return Promise.resolve(text);
+    const output = encrypt(instanceId, Buffer.from(input, inputEncoding), {
+      skipSafeCheck: true,
+    }).toString(outputEncoding);
+    return Promise.resolve(output);
   }
 
   @backgroundMethod()
-  decryptByInstanceId(text: string): Promise<string> {
+  decryptByInstanceId(
+    input: string,
+    {
+      inputEncoding = 'hex',
+      outputEncoding = 'utf-8',
+    }: {
+      inputEncoding?: BufferEncoding;
+      outputEncoding?: BufferEncoding;
+    } = {},
+  ): Promise<string> {
     const { appSelector } = this.backgroundApi;
     const { instanceId } = appSelector((s) => s.settings);
-    const data = decrypt(instanceId, Buffer.from(text, 'hex')).toString(
-      'utf-8',
-    );
-    return Promise.resolve(data);
+    const output = decrypt(instanceId, Buffer.from(input, inputEncoding), {
+      skipSafeCheck: true,
+    }).toString(outputEncoding);
+    return Promise.resolve(output);
   }
 
   async getData(ttl?: number): Promise<string | undefined> {
@@ -66,9 +87,9 @@ export default class ServicePassword extends ServiceBase {
     }
     let data: string | undefined;
     try {
-      data = decrypt(keyData.key, Buffer.from(this.data, 'hex')).toString(
-        'utf-8',
-      );
+      data = decrypt(keyData.key, Buffer.from(this.data, 'hex'), {
+        skipSafeCheck: true,
+      }).toString('utf-8');
     } catch {
       return undefined;
     }
@@ -109,5 +130,10 @@ export default class ServicePassword extends ServiceBase {
     }
     const isOk = await this.verifyPassword(data);
     return isOk ? data : undefined;
+  }
+
+  @backgroundMethod()
+  async getBgSensitiveTextEncodeKey(): Promise<string> {
+    return Promise.resolve(getBgSensitiveTextEncodeKey());
   }
 }

@@ -74,6 +74,7 @@ export type ModalProps = {
   enableMobileFooterWrap?: boolean;
 
   disableTopRadius?: boolean;
+  fullMobile?: boolean;
 } & HeaderProps;
 
 const defaultProps = {
@@ -115,6 +116,7 @@ const Modal = ({
   forceDesktop,
   rightContent,
   disableTopRadius,
+  fullMobile,
   ...rest
 }: ModalProps) => {
   const { size } = useUserDevice();
@@ -134,19 +136,8 @@ const Modal = ({
   }, [isVerticalLayout]);
 
   const modalContent = useMemo(() => {
-    let content = (
-      <Box
-        // eslint-disable-next-line no-nested-ternary
-        pt={`${headerShown ? (header ? bodyPadding : 0) : bodyPadding}px`}
-        pb={`${bodyPadding}px`}
-        px={`${bodyPadding}px`}
-        flex="1"
-      >
-        {rest.children}
-      </Box>
-    );
     if (sectionListProps) {
-      content = (
+      return (
         <SectionList
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
@@ -158,8 +149,9 @@ const Modal = ({
           {...sectionListProps}
         />
       );
-    } else if (flatListProps) {
-      content = (
+    }
+    if (flatListProps) {
+      return (
         <FlatList
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{
@@ -171,8 +163,9 @@ const Modal = ({
           {...flatListProps}
         />
       );
-    } else if (scrollViewProps) {
-      content = (
+    }
+    if (scrollViewProps) {
+      return (
         <ScrollView
           testID="Modal-ScrollView-Container"
           keyboardShouldPersistTaps="handled"
@@ -186,8 +179,9 @@ const Modal = ({
           }}
         />
       );
-    } else if (sortableListProps) {
-      content = (
+    }
+    if (sortableListProps) {
+      return (
         <Box flex="1">
           <Box h="full">
             <SortableList.Container
@@ -202,11 +196,21 @@ const Modal = ({
           </Box>
         </Box>
       );
-    } else if (staticChildrenProps) {
-      content = <Box {...staticChildrenProps}>{rest.children}</Box>;
     }
-
-    return content;
+    if (staticChildrenProps) {
+      return <Box {...staticChildrenProps}>{rest.children}</Box>;
+    }
+    return (
+      <Box
+        // eslint-disable-next-line no-nested-ternary
+        pt={`${headerShown ? (header ? bodyPadding : 0) : bodyPadding}px`}
+        pb={`${bodyPadding}px`}
+        px={`${bodyPadding}px`}
+        flex="1"
+      >
+        {rest.children}
+      </Box>
+    );
   }, [
     headerShown,
     header,
@@ -228,7 +232,8 @@ const Modal = ({
           Why `platformEnv.isNativeIOS` ?
           We want to use the native modal component in iPad which screen width might bigger then NORMAL breakpoint
         */
-        platformEnv.isNativeIOS
+        platformEnv.isNativeIOS ||
+        fullMobile
       ) {
         return (
           <Box flex={1} alignItems="flex-end" w="100%" flexDirection="row">
@@ -292,6 +297,7 @@ const Modal = ({
     rest,
     modalContent,
     size,
+    fullMobile,
     modalHeight,
     isVerticalLayout,
     disableTopRadius,

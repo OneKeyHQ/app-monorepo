@@ -1,13 +1,13 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { capitalize } from 'lodash';
 import { useAsync } from 'react-async-hook';
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
 import { ToastManager } from '@onekeyhq/components';
 import { isCoinTypeCompatibleWithImpl } from '@onekeyhq/engine/src/managers/impl';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { AccountDynamicItem } from '@onekeyhq/engine/src/managers/notification';
 import {
   IMPL_APTOS,
@@ -22,7 +22,8 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount, useNavigation } from '../../hooks';
 import { useCopyAddress } from '../../hooks/useCopyAddress';
 import { useIsMounted } from '../../hooks/useIsMounted';
-import { buildAddressDetailsUrl } from '../../hooks/useOpenBlockBrowser';
+import useOpenBlockBrowser from '../../hooks/useOpenBlockBrowser';
+import { useIsDevModeEnabled } from '../../hooks/useSettingsDevMode';
 import {
   CoinControlModalRoutes,
   FiatPayModalRoutes,
@@ -30,7 +31,7 @@ import {
   RootRoutes,
 } from '../../routes/routesEnum';
 import { setPushNotificationConfig } from '../../store/reducers/settings';
-import { openUrl } from '../../utils/openUrl';
+import { GasPanelRoutes } from '../GasPanel/types';
 import {
   checkAccountCanSubscribe,
   useEnabledAccountDynamicAccounts,
@@ -47,6 +48,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
   const intl = useIntl();
   const navigation = useNavigation();
   const { network, account, wallet, accountId } = useActiveWalletAccount();
+  const { openAddressDetails } = useOpenBlockBrowser(network);
   const { copyAddress } = useCopyAddress({ wallet });
   const { serviceNotification, dispatch } = backgroundApiProxy;
   const { enabledAccounts, loading, refresh } =
@@ -54,6 +56,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
   const [needActivateAccount, setNeedActivateAccount] =
     useState<boolean>(false);
   const isMounted = useIsMounted();
+  const isDevMode = useIsDevModeEnabled();
 
   const enabledNotification = useMemo(
     () =>
@@ -75,6 +78,10 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
   useEffect(() => {
     (async () => {
       if (!network) return false;
+
+      if (isAllNetworks(network?.id)) {
+        return false;
+      }
 
       const vaultSettings = await backgroundApiProxy.engine.getVaultSettings(
         network.id,
@@ -167,16 +174,6 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
 
   const walletType = wallet?.type;
 
-  const explorerUrl = buildAddressDetailsUrl(network, account?.address);
-  const explorerName = useMemo(() => {
-    try {
-      const hostnameArray = new URL(explorerUrl).hostname.split('.');
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      return capitalize(hostnameArray.at(-2));
-    } catch (e) {
-      return 'Explorer';
-    }
-  }, [explorerUrl]);
   const options: (
     | {
         id: MessageDescriptor['id'];
@@ -201,6 +198,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
       },
       // TODO Connected Sites
       walletType !== 'watching' &&
+        !isAllNetworks(network?.id) &&
         !platformEnv.isAppleStoreEnv && {
           id: 'action__buy_crypto',
           onPress: () => {
@@ -220,6 +218,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
           icon: 'PlusMini',
         },
       walletType !== 'watching' &&
+        !isAllNetworks(network?.id) &&
         !platformEnv.isAppleStoreEnv && {
           id: 'action__sell_crypto',
           onPress: () => {
@@ -238,16 +237,14 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
           },
           icon: 'BanknotesMini',
         },
-      !!explorerUrl && {
+      !!account?.address && {
         id: 'action__view_in_explorer',
         icon: 'GlobeAltMini',
         onPress: () => {
-          openUrl(explorerUrl, explorerName, {
-            modalMode: true,
-          });
+          openAddressDetails(account?.address);
         },
       },
-      {
+      !isAllNetworks(network?.id) && {
         id: 'action__copy_address',
         onPress: () => {
           setTimeout(() => {
@@ -269,26 +266,42 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
         onPress: onPressCoinControl,
         icon: 'CircleStackOutline',
       },
+      isDevMode && {
+        id: 'content__gas_fee',
+        onPress: () => {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.GasPanel,
+            params: {
+              screen: GasPanelRoutes.GasPanelModal,
+              params: {
+                networkId: network?.id ?? '',
+              },
+            },
+          });
+        },
+        icon: 'GasIllus',
+      },
       // TODO Share
     ],
     [
       needActivateAccount,
       walletType,
-      explorerUrl,
-      explorerName,
       showSubscriptionIcon,
-      showCoinControl,
       enabledNotification,
       onChangeAccountSubscribe,
-      onPressCoinControl,
       accountSubscriptionIcon,
+      showCoinControl,
+      onPressCoinControl,
+      isDevMode,
       account,
       network,
       navigation,
       accountId,
       copyAddress,
+      openAddressDetails,
     ],
   );
+
   return (
     <BaseMenu
       w={220}

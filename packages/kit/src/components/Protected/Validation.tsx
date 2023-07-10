@@ -14,6 +14,7 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks/redux';
@@ -55,11 +56,17 @@ const Validation: FC<ValidationProps> = ({
     clearErrorIfEmpty: true,
   });
   const onSubmit = handleSubmit(async (values: FieldValues) => {
+    const key =
+      await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey();
+    const encodedPassword = encodeSensitiveText({
+      text: values.password,
+      key,
+    });
     const isOk = await backgroundApiProxy.serviceApp.verifyPassword(
-      values.password,
+      encodedPassword,
     );
     if (isOk) {
-      onOk?.(values.password, false);
+      onOk?.(encodedPassword, false);
     } else {
       setError('password', {
         message: intl.formatMessage({ id: 'msg__wrong_password' }),
@@ -148,6 +155,7 @@ const Validation: FC<ValidationProps> = ({
             type="primary"
             size="xl"
             onPress={onSubmitThrottle}
+            runAfterInteractions
           >
             {intl.formatMessage({
               id: 'action__continue',

@@ -21,19 +21,25 @@ import {
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isArray, isEmpty, omit } from 'lodash';
-import memoizee from 'memoizee';
+import { isArray, isEmpty, isNil, omit } from 'lodash';
 
 import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
+import type {
+  FeePricePerUnit,
+  PartialTokenInfo,
+} from '@onekeyhq/engine/src/types/provider';
 import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
+import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
+import simpleDb from '../../../dbs/simple/simpleDb';
 import {
   InvalidAddress,
   NotImplemented,
   OneKeyInternalError,
+  PendingQueueTooLong,
 } from '../../../errors';
 import { getAccountNameInfoByImpl } from '../../../managers/impl';
 import {
@@ -41,6 +47,7 @@ import {
   getNFTTransactionHistory,
 } from '../../../managers/nft';
 import { extractResponseError } from '../../../proxy';
+import { NFTAssetType } from '../../../types/nft';
 import {
   IDecodedTxActionType,
   IDecodedTxStatus,
@@ -48,16 +55,25 @@ import {
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
 
-import { ClientSol } from './ClientSol';
-import { KeyringHardware } from './KeyringHardware';
-import { KeyringHd } from './KeyringHd';
-import { KeyringImported } from './KeyringImported';
-import { KeyringWatching } from './KeyringWatching';
+import {
+  KeyringHardware,
+  KeyringHd,
+  KeyringImported,
+  KeyringWatching,
+} from './keyring';
+import { ClientSol } from './sdk';
 import settings from './settings';
 
-import type { DBSimpleAccount } from '../../../types/account';
+import type { DBAccount, DBSimpleAccount } from '../../../types/account';
 import type { AccountNameInfo } from '../../../types/network';
-import type { NFTTransaction } from '../../../types/nft';
+import type {
+  Collection,
+  NFTAsset,
+  NFTAssetMeta,
+  NFTListItems,
+  NFTTransaction,
+} from '../../../types/nft';
+import type { TransactionStatus } from '../../../types/provider';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IApproveInfo,
@@ -253,6 +269,12 @@ export default class Vault extends VaultBase {
   }
 
   // Chain only methods
+  override async getTransactionStatuses(
+    txids: Array<string>,
+  ): Promise<Array<TransactionStatus | undefined>> {
+    const client = await this.getClient();
+    return client.getTransactionStatuses(txids);
+  }
 
   override async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
     const client = await this.getClient();
@@ -264,6 +286,58 @@ export default class Vault extends VaultBase {
     } catch (e) {
       throw extractResponseError(e);
     }
+  }
+
+  override async getNextNonce(
+    networkId: string,
+    dbAccount: DBAccount,
+  ): Promise<number> {
+    // TODO move to Vault.getOnChainNextNonce
+    const client = await this.getClient();
+    const onChainNonce =
+      (await client.getAddresses([dbAccount.address]))[0]?.nonce ?? 0;
+
+    // TODO: Although 100 history items should be enough to cover all the
+    // pending transactions, we need to find a more reliable way.
+    const historyItems = await this.engine.getHistory(
+      networkId,
+      dbAccount.id,
+      undefined,
+      false,
+    );
+    const maxPendingNonce = await simpleDb.history.getMaxPendingNonce({
+      accountId: this.accountId,
+      networkId,
+    });
+    const pendingNonceList = await simpleDb.history.getPendingNonceList({
+      accountId: this.accountId,
+      networkId,
+    });
+    let nextNonce = Math.max(
+      isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
+      onChainNonce,
+    );
+    if (Number.isNaN(nextNonce)) {
+      nextNonce = onChainNonce;
+    }
+    if (nextNonce > onChainNonce) {
+      for (let i = onChainNonce; i < nextNonce; i += 1) {
+        if (!pendingNonceList.includes(i)) {
+          nextNonce = i;
+          break;
+        }
+      }
+    }
+
+    if (nextNonce < onChainNonce) {
+      nextNonce = onChainNonce;
+    }
+
+    if (nextNonce - onChainNonce >= HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH) {
+      throw new PendingQueueTooLong(HISTORY_CONSTS.PENDING_QUEUE_MAX_LENGTH);
+    }
+
+    return nextNonce;
   }
 
   override async getBalances(
@@ -285,13 +359,11 @@ export default class Vault extends VaultBase {
     },
   );
 
-  override fetchTokenInfos(
+  override async fetchTokenInfos(
     tokenAddresses: string[],
   ): Promise<Array<PartialTokenInfo | undefined>> {
-    return this.engine.providerManager.getTokenInfos(
-      this.networkId,
-      tokenAddresses,
-    );
+    const client = await this.getClient();
+    return client.getTokenInfos(tokenAddresses);
   }
 
   override validateAddress(address: string): Promise<string> {
@@ -299,6 +371,17 @@ export default class Vault extends VaultBase {
       if (PublicKey.isOnCurve(address)) {
         return Promise.resolve(address);
       }
+    } catch {
+      // pass
+    }
+    return Promise.reject(new InvalidAddress());
+  }
+
+  override validateTokenAddress(address: string): Promise<string> {
+    try {
+      // eslint-disable-next-line no-new
+      new PublicKey(address);
+      return Promise.resolve(address);
     } catch {
       // pass
     }
@@ -386,7 +469,7 @@ export default class Vault extends VaultBase {
         actions.push({
           type: IDecodedTxActionType.NFT_TRANSFER,
           nftTransfer: {
-            asset: info.asset,
+            asset: info.asset as NFTAsset,
             amount: info.amount,
             send: info.from,
             receive: info.to,
@@ -421,7 +504,16 @@ export default class Vault extends VaultBase {
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTx> {
-    const { from, to, amount, token: tokenAddress, sendAddress } = transferInfo;
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
+    const {
+      from,
+      to,
+      amount,
+      token: tokenAddress,
+      tokenSendAddress,
+    } = transferInfo;
     const network = await this.getNetwork();
     const client = await this.getClient();
     const token = await this.engine.ensureTokenInDB(
@@ -464,8 +556,8 @@ export default class Vault extends VaultBase {
         );
       }
 
-      const source = sendAddress
-        ? new PublicKey(sendAddress)
+      const source = tokenSendAddress
+        ? new PublicKey(tokenSendAddress)
         : await getAssociatedTokenAddress(mint, feePayer);
       nativeTx.add(
         createTransferCheckedInstruction(
@@ -492,9 +584,11 @@ export default class Vault extends VaultBase {
     return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
   }
 
-  override async buildEncodedTxFromBatchTransfer(
-    transferInfos: ITransferInfo[],
-  ): Promise<IEncodedTx> {
+  override async buildEncodedTxFromBatchTransfer({
+    transferInfos,
+  }: {
+    transferInfos: ITransferInfo[];
+  }): Promise<IEncodedTx> {
     let retryTime = 0;
     let lastRpcErrorMessage = '';
     const maxRetryTimes = 5;
@@ -538,7 +632,12 @@ export default class Vault extends VaultBase {
     nativeTx.feePayer = feePayer;
 
     for (let i = 0; i < transferInfos.length; i += 1) {
-      const { token: tokenAddress, amount, to, sendAddress } = transferInfos[i];
+      const {
+        token: tokenAddress,
+        amount,
+        to,
+        tokenSendAddress,
+      } = transferInfos[i];
       const receiver = new PublicKey(to || firstReceiver);
 
       const token = await this.engine.ensureTokenInDB(
@@ -574,8 +673,8 @@ export default class Vault extends VaultBase {
           );
         }
 
-        const source = sendAddress
-          ? new PublicKey(sendAddress)
+        const source = tokenSendAddress
+          ? new PublicKey(tokenSendAddress)
           : await getAssociatedTokenAddress(mint, feePayer);
         nativeTx.add(
           createTransferCheckedInstruction(
@@ -666,6 +765,7 @@ export default class Vault extends VaultBase {
     const maxRetryTimes = 8;
     let retryTime = 0;
     let lastRpcErrorMessage = '';
+    const client = await this.getClient();
 
     const doBroadcast = async () => {
       try {
@@ -676,12 +776,24 @@ export default class Vault extends VaultBase {
               preflightCommitment: 'confirmed',
             }
           : {};
-        const result = await super.broadcastTransaction(
-          signedTx,
+        debugLogger.engine.info('broadcastTransaction START:', {
+          rawTx: signedTx.rawTx,
+        });
+        const txid = await client.broadcastTransaction(
+          signedTx.rawTx,
           options || {},
         );
-        return result;
+        debugLogger.engine.info('broadcastTransaction END:', {
+          txid,
+          rawTx: signedTx.rawTx,
+        });
+        return {
+          ...signedTx,
+          txid,
+          encodedTx: signedTx.encodedTx,
+        };
       } catch (error) {
+        debugLogger.engine.error('broadcastTransaction error:', error);
         // @ts-ignore
         const rpcErrorData = error?.data as
           | {
@@ -743,6 +855,11 @@ export default class Vault extends VaultBase {
       },
       encodedTx,
     };
+  }
+
+  override async getFeePricePerUnit(): Promise<FeePricePerUnit> {
+    const client = await this.getClient();
+    return client.getFeePricePerUnit();
   }
 
   override async fetchFeeInfo(encodedTx: IEncodedTx): Promise<IFeeInfo> {
@@ -934,7 +1051,7 @@ export default class Vault extends VaultBase {
         return Promise.resolve(null);
       }
 
-      const nftTxs = nftMap[txid];
+      const nftTxs = nftMap[txid] as NFTTransaction[];
 
       if (
         transferItem &&
@@ -1013,5 +1130,16 @@ export default class Vault extends VaultBase {
 
   override async canAutoCreateNextAccount(password: string): Promise<boolean> {
     return Promise.resolve(true);
+  }
+
+  override async getUserNFTAssets({
+    serviceData,
+  }: {
+    serviceData: NFTListItems;
+  }): Promise<NFTAssetMeta | undefined> {
+    return Promise.resolve({
+      type: NFTAssetType.SOL,
+      data: serviceData as Collection[],
+    });
   }
 }

@@ -1,0 +1,26 @@
+diff --git a/node_modules/@walletconnect/jsonrpc-ws-connection/dist/cjs/ws.js b/node_modules/@walletconnect/jsonrpc-ws-connection/dist/cjs/ws.js
+index 22a5103..50a2eea 100644
+--- a/node_modules/@walletconnect/jsonrpc-ws-connection/dist/cjs/ws.js
++++ b/node_modules/@walletconnect/jsonrpc-ws-connection/dist/cjs/ws.js
+@@ -15,7 +15,7 @@ const resolveWebSocketImplementation = () => {
+     }
+     return require("ws");
+ };
+-const isBrowser = () => typeof window !== "undefined";
++const isBrowser = () => typeof window !== "undefined" || (typeof serviceWorker !== "undefined" && serviceWorker instanceof ServiceWorker);
+ const WS = resolveWebSocketImplementation();
+ class WsConnection {
+     constructor(url) {
+diff --git a/node_modules/@walletconnect/jsonrpc-ws-connection/dist/esm/ws.js b/node_modules/@walletconnect/jsonrpc-ws-connection/dist/esm/ws.js
+index b5bdb0e..7a6d1d5 100644
+--- a/node_modules/@walletconnect/jsonrpc-ws-connection/dist/esm/ws.js
++++ b/node_modules/@walletconnect/jsonrpc-ws-connection/dist/esm/ws.js
+@@ -11,7 +11,7 @@ const resolveWebSocketImplementation = () => {
+     }
+     return require("ws");
+ };
+-const isBrowser = () => typeof window !== "undefined";
++const isBrowser = () => typeof window !== "undefined" || (typeof serviceWorker !== "undefined" && serviceWorker instanceof ServiceWorker);
+ const WS = resolveWebSocketImplementation();
+ export class WsConnection {
+     constructor(url) {

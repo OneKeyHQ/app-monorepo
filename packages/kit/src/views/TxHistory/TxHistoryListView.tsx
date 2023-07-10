@@ -15,17 +15,23 @@ import {
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 import { IDecodedTxStatus } from '@onekeyhq/engine/src/vaults/types';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../hooks';
+import {
+  useAccountPortfolios,
+  useActiveWalletAccount,
+  useAppSelector,
+} from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
 import { useVisibilityFocused } from '../../hooks/useVisibilityFocused';
 import { wait } from '../../utils/helper';
 import { useIsAtHomeTab } from '../../utils/routeUtils';
+import { EOverviewScanTaskType } from '../Overview/types';
 import { TxListItemView } from '../TxDetail/TxListItemView';
 import { WalletHomeTabEnum } from '../Wallet/type';
 
@@ -241,25 +247,42 @@ function TxHistoryListViewComponent({
   const [historyListData, setHistoryListData] = useState<IHistoryTx[]>([]);
   const txDetailContext = useTxHistoryContext();
 
+  const { walletId } = useActiveWalletAccount();
+
   const isAtHomeTabOfHistory = useIsAtHomeTab(WalletHomeTabEnum.History);
   const { serviceHistory } = backgroundApiProxy;
   const refreshHistoryTs = useAppSelector((s) => s.refresher.refreshHistoryTs);
 
   const isFocused = useVisibilityFocused();
 
-  const fetchHistoryTx = useCallback(
-    async (options: { refresh?: boolean } = {}): Promise<IHistoryTx[]> => {
-      const { refresh = true } = options;
-      if (!accountId || !networkId) {
+  const { data: allNetworksTokens } = useAccountPortfolios({
+    networkId,
+    accountId,
+    type: EOverviewScanTaskType.token,
+  });
+
+  const fetchOnChainHistory = useCallback(
+    async ({
+      networkId: nid,
+      accountId: aid,
+      refresh,
+      tokenAddress,
+    }: {
+      networkId?: string;
+      accountId?: string;
+      tokenAddress?: string;
+      refresh?: boolean;
+    }) => {
+      if (!aid || !nid) {
         return Promise.resolve([]);
       }
       if (refresh) {
         try {
           // split refresh and getLocal
           await serviceHistory.refreshHistory({
-            networkId,
-            accountId,
-            tokenIdOnNetwork: tokenId,
+            networkId: nid,
+            accountId: aid,
+            tokenIdOnNetwork: tokenAddress,
           });
         } catch (err) {
           debugLogger.common.error(err);
@@ -268,15 +291,102 @@ function TxHistoryListViewComponent({
       }
 
       const txList = await serviceHistory.getLocalHistory({
-        networkId,
-        accountId,
-        tokenIdOnNetwork: tokenId === '' ? tokenId : tokenId || undefined,
+        networkId: nid,
+        accountId: aid,
+        tokenIdOnNetwork:
+          tokenAddress === '' ? tokenAddress : tokenAddress || undefined,
         limit: HISTORY_CONSTS.DISPLAY_TX_LIMIT,
       });
       return txList;
     },
-    [accountId, networkId, serviceHistory, tokenId],
+    [serviceHistory],
   );
+
+  const fetchAllNetworksHistory = useCallback(
+    async ({
+      accountId: aid,
+      refresh,
+      coingeckoId,
+    }: {
+      accountId?: string;
+      coingeckoId?: string;
+      refresh?: boolean;
+    }) => {
+      const result: IHistoryTx[] = [];
+      const allNetworksAccontsMap =
+        await backgroundApiProxy.serviceAllNetwork.getAllNetworksWalletAccounts(
+          {
+            walletId,
+            accountId: aid,
+          },
+        );
+      const tokens =
+        allNetworksTokens.find((t) => t.coingeckoId === coingeckoId)?.tokens ??
+        [];
+      for (const token of tokens) {
+        if (!token) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        const {
+          networkId: onChainNetworkId,
+          address: tokenAddress,
+          accountAddress,
+        } = token;
+        if (!onChainNetworkId || !accountAddress) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        const account = allNetworksAccontsMap[onChainNetworkId].find(
+          (a) => a.address === accountAddress,
+        );
+
+        if (!account) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        const txList = await fetchOnChainHistory({
+          networkId: onChainNetworkId,
+          accountId: account.id,
+          tokenAddress,
+          refresh,
+        });
+        result.push(...txList);
+      }
+      return result;
+    },
+    [allNetworksTokens, fetchOnChainHistory, walletId],
+  );
+
+  const fetchHistoryTx = useCallback(
+    async (options: { refresh?: boolean } = {}): Promise<IHistoryTx[]> => {
+      const { refresh = true } = options;
+      if (!networkId || !accountId) {
+        return [];
+      }
+      if (isAllNetworks(networkId)) {
+        return fetchAllNetworksHistory({
+          accountId,
+          coingeckoId: tokenId,
+          refresh,
+        });
+      }
+      return fetchOnChainHistory({
+        networkId,
+        accountId,
+        tokenAddress: tokenId,
+        refresh,
+      });
+    },
+    [
+      accountId,
+      networkId,
+      tokenId,
+      fetchOnChainHistory,
+      fetchAllNetworksHistory,
+    ],
+  );
+
   const getLocalHistory = useCallback(
     () => fetchHistoryTx({ refresh: false }),
     [fetchHistoryTx],
@@ -384,7 +494,11 @@ function TxHistoryListViewComponent({
     <TxHistoryListSectionsMemo
       accountId={accountId}
       networkId={networkId}
-      data={historyListData}
+      data={historyListData.sort((a, b) => {
+        const ta = a.decodedTx.updatedAt || a.decodedTx.createdAt || 0;
+        const tb = b.decodedTx.updatedAt || b.decodedTx.createdAt || 0;
+        return tb - ta;
+      })}
       SectionListComponent={SectionListComponent}
     />
   );

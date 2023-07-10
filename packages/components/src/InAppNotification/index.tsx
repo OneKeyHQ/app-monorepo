@@ -3,10 +3,9 @@ import type { FC, ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AnimatePresence, MotiView } from 'moti';
-import { MotiPressable } from 'moti/interactions';
 import { useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
+import {
   runOnJS,
   useAnimatedStyle,
   useDerivedValue,
@@ -14,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import Box from '../Box';
-import Button from '../Button';
+import HoverContainer, { AnimatedButton } from '../HoverContainer';
 import NetImage from '../NetImage';
 import useIsVerticalLayout from '../Provider/hooks/useIsVerticalLayout';
 import useSafeAreaInsets from '../Provider/hooks/useSafeAreaInsets';
@@ -27,7 +26,6 @@ const MAX_WIDTH = 374;
 const DISMISS_DISTANCE = 5;
 const VELOCITY_THRESHOLD = 20;
 
-const AnimatedButton = Animated.createAnimatedComponent(Button);
 export interface InAppNotificationProps {
   title: string;
   subtitle?: string;
@@ -64,14 +62,6 @@ const InAppNotification: FC<InAppNotificationProps> = ({
   const { width: screenW } = useWindowDimensions();
   const [visible, setVisible] = useState(true);
   const isPositionedBottom = useIsVerticalLayout();
-  const isHovered = useSharedValue(false);
-  const showCloseButtonStyle = useAnimatedStyle(
-    () => ({
-      display: isHovered.value ? 'flex' : 'none',
-      opacity: isHovered.value ? 1 : 0,
-    }),
-    [],
-  );
   const startTransY = isPositionedBottom ? 100 + bottom : -(100 + top);
   const exitDirection = useSharedValue(-1);
 
@@ -190,7 +180,22 @@ const InAppNotification: FC<InAppNotificationProps> = ({
               zIndex: 9999,
             }}
           >
-            <MotiPressable hoveredValue={isHovered}>
+            <HoverContainer
+              hoverButtonProps={{
+                rounded: 'full',
+                position: 'absolute',
+                zIndex: 1,
+                right: '4px',
+                top: '-4px',
+                leftIconName: 'XCircleMini',
+                iconSize: 16,
+                pt: 0,
+                pr: 0,
+                pb: 0,
+                pl: 0,
+                onPress: onClose,
+              }}
+            >
               <Box
                 w={screenW - 32}
                 maxW={isPositionedBottom ? undefined : `${MAX_WIDTH}px`}
@@ -229,23 +234,8 @@ const InAppNotification: FC<InAppNotificationProps> = ({
                     </AnimatedButton>
                   )}
                 </Box>
-                <AnimatedButton
-                  style={showCloseButtonStyle}
-                  rounded="full"
-                  position="absolute"
-                  zIndex={1}
-                  right="4px"
-                  top="-4px"
-                  leftIconName="XCircleMini"
-                  iconSize={16}
-                  pt={0}
-                  pr={0}
-                  pb={0}
-                  pl={0}
-                  onPress={onClose}
-                />
               </Box>
-            </MotiPressable>
+            </HoverContainer>
           </MotiView>
         </GestureDetector>
       )}

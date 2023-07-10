@@ -17,14 +17,10 @@ import {
   Typography,
   useThemeValue,
 } from '@onekeyhq/components';
-import {
-  AppUIEventBusNames,
-  appUIEventBus,
-} from '@onekeyhq/shared/src/eventBus/appUIEventBus';
 
 import useBackHandler from '../../../../hooks/useBackHandler';
+import { webTabsActions } from '../../../../store/observable/webTabs';
 import { useWebTabs } from '../Controller/useWebTabs';
-import { dCloseWebTab, dSetCurrentWebTab } from '../explorerActions';
 import {
   MIN_OR_HIDE,
   WEB_TAB_CELL_GAP,
@@ -34,117 +30,97 @@ import {
   tabGridScrollY,
 } from '../explorerAnimation';
 
-import type { WebTab } from '../../../../store/reducers/webTabs';
+import type { WebTab } from '../../../../store/observable/webTabs';
 
 const styles = StyleSheet.create({
   image: {
     flex: 1,
   },
   contentContainer: {
-    flexGrow: 1,
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    flexWrap: 'wrap',
-    alignItems: 'flex-start',
+    // flexGrow: 1,
+    // flexDirection: 'row',
+    // justifyContent: 'flex-start',
+    // // flexWrap: 'wrap',
+    // alignItems: 'flex-start',
     paddingVertical: WEB_TAB_CELL_GAP,
-    paddingRight: WEB_TAB_CELL_GAP,
+    // paddingRight: WEB_TAB_CELL_GAP,
   },
 });
 const WebTabCard: FC<
   WebTab & {
     width: number;
   }
-> = ({ width, isCurrent, title, favicon, id }) => {
-  const [thumbnail, setThumbnail] = useState('');
-  useEffect(() => {
-    const updateThumbnail = (tabId: string, url: string) => {
-      if (tabId === id) {
-        setThumbnail(url);
+> = ({ width, isCurrent, title, favicon, id, thumbnail }) => (
+  <Pressable
+    w={width}
+    h={width}
+    borderRadius="12px"
+    borderWidth="1px"
+    borderColor={isCurrent ? 'interactive-default' : 'border-subdued'}
+    overflow="hidden"
+    ml={`${WEB_TAB_CELL_GAP}px`}
+    mt={`${WEB_TAB_CELL_GAP}px`}
+    onPress={() => {
+      if (!isCurrent) {
+        webTabsActions.setCurrentWebTab(id);
       }
-    };
-    appUIEventBus.on(
-      AppUIEventBusNames.WebTabThumbnailUpdated,
-      updateThumbnail,
-    );
-    return () => {
-      appUIEventBus.removeListener(
-        AppUIEventBusNames.WebTabThumbnailUpdated,
-        updateThumbnail,
-      );
-    };
-  }, [id]);
-  return (
-    <Pressable
-      w={width}
-      h={width}
-      borderRadius="12px"
-      borderWidth="1px"
-      borderColor={isCurrent ? 'interactive-default' : 'border-subdued'}
-      overflow="hidden"
-      ml={`${WEB_TAB_CELL_GAP}px`}
-      mt={`${WEB_TAB_CELL_GAP}px`}
-      onPress={() => {
-        if (!isCurrent) {
-          dSetCurrentWebTab(id);
-        }
-        hideTabGrid(id);
+      hideTabGrid(id);
+    }}
+  >
+    <Box
+      flex={1}
+      collapsable={false}
+      ref={(ref) => {
+        // @ts-ignore
+        tabGridRefs[id] = ref;
       }}
     >
       <Box
-        flex={1}
-        collapsable={false}
-        ref={(ref) => {
-          // @ts-ignore
-          tabGridRefs[id] = ref;
-        }}
+        bg="surface-default"
+        px="9px"
+        h="32px"
+        w="full"
+        borderTopLeftRadius="12px"
+        borderTopRightRadius="12px"
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="space-between"
       >
-        <Box
-          bg="surface-default"
-          px="9px"
-          h="32px"
-          w="full"
-          borderTopLeftRadius="12px"
-          borderTopRightRadius="12px"
-          flexDirection="row"
-          alignItems="center"
-          justifyContent="space-between"
+        <NetImage
+          key={favicon}
+          width="18px"
+          height="18px"
+          borderRadius="4px"
+          src={favicon}
+        />
+        <Typography.CaptionStrong
+          color="text-default"
+          flex={1}
+          textAlign="left"
+          numberOfLines={1}
+          mx="4px"
         >
-          <NetImage
-            key={favicon}
-            width="18px"
-            height="18px"
-            borderRadius="4px"
-            src={favicon}
-          />
-          <Typography.CaptionStrong
-            color="text-default"
-            flex={1}
-            textAlign="left"
-            numberOfLines={1}
-            mx="4px"
-          >
-            {title}
-          </Typography.CaptionStrong>
-          <IconButton
-            size="sm"
-            type="plain"
-            name="XMarkMini"
-            onPress={() => {
-              dCloseWebTab(id);
-            }}
-          />
-        </Box>
-        {!!thumbnail && (
-          <Image
-            style={styles.image}
-            resizeMode="cover"
-            source={{ uri: thumbnail }}
-          />
-        )}
+          {title}
+        </Typography.CaptionStrong>
+        <IconButton
+          size="sm"
+          type="plain"
+          name="XMarkMini"
+          onPress={() => {
+            webTabsActions.closeWebTab(id);
+          }}
+        />
       </Box>
-    </Pressable>
-  );
-};
+      {!!thumbnail && (
+        <Image
+          style={styles.image}
+          resizeMode="cover"
+          source={{ uri: thumbnail }}
+        />
+      )}
+    </Box>
+  </Pressable>
+);
 const WebTabGrid = () => {
   const { tabs } = useWebTabs();
   const { width } = useWindowDimensions();
@@ -175,7 +151,7 @@ const WebTabGrid = () => {
   const data = useMemo(() => tabs.slice(1), [tabs]);
   const renderItem = useCallback(
     ({ item: tab }: { item: WebTab }) => (
-      <WebTabCard key={tab.id} {...tab} width={cellWidth} />
+      <WebTabCard {...tab} width={cellWidth} />
     ),
     [cellWidth],
   );
@@ -195,6 +171,7 @@ const WebTabGrid = () => {
         },
         animStyle,
       ]}
+      numColumns={2}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.contentContainer}
       data={data}

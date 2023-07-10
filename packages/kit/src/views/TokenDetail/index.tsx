@@ -12,19 +12,17 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
-import { TokenVerifiedIcon } from '@onekeyhq/components/src/Token';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
-import { useActiveSideAccount } from '../../hooks';
-import { useSimpleTokenPriceValue } from '../../hooks/useManegeTokenPrice';
-import { useSingleToken } from '../../hooks/useTokens';
-import { isSTETH, isSupportStakedAssets } from '../Staking/utils';
+import { useTokenDetailInfo, useTokenPositionInfo } from '../../hooks';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
 import { TxHistoryListView } from '../TxHistory/TxHistoryListView';
 
 import AssetsInfo from './AssetsInfo';
+import { TokenDetailContext } from './context';
 import MarketInfo from './MarketInfo';
 import TokenDetailHeader from './TokenDetailHeader';
-import { FavoritedButton } from './TokenDetailHeader/DeskTopHeader';
+import { FavoritedButton } from './TokenDetailHeader/Header';
 
 import type { HomeRoutes } from '../../routes/routesEnum';
 import type { HomeRoutesParams } from '../../routes/types';
@@ -45,16 +43,6 @@ export enum TabEnum {
   Info = 'Info',
 }
 
-const SwapPanel = () => {
-  const route = useRoute<RouteProps>();
-  const { tokenId, networkId } = route.params;
-  return (
-    <Box width="360px" mt="6" mr="8">
-      <SwapPlugins tokenId={tokenId} networkId={networkId} />
-    </Box>
-  );
-};
-
 const TokenDetail: FC<TokenDetailViewProps> = () => {
   const intl = useIntl();
   const [showSwapPanel, setShowSwapPanel] = useState(false);
@@ -62,40 +50,40 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   const route = useRoute<RouteProps>();
   const navigation = useNavigation();
 
-  const { accountId, networkId, tokenId, sendAddress } = route.params;
-
-  const { network: activeNetwork } = useActiveSideAccount({
-    accountId,
+  const {
+    walletId,
+    coingeckoId,
     networkId,
+    tokenAddress,
+    accountId,
+    sendAddress,
+    symbol,
+    name,
+    logoURI,
+  } = route.params;
+
+  const detailInfo = useTokenDetailInfo({
+    networkId,
+    tokenAddress,
+    coingeckoId,
   });
 
-  const { token } = useSingleToken(networkId, tokenId);
-
-  const price = useSimpleTokenPriceValue({
+  const positionInfo = useTokenPositionInfo({
+    coingeckoId,
     networkId,
-    contractAdress: tokenId,
+    tokenAddress,
+    accountId,
+    sendAddress,
+    walletId,
   });
 
   const headerHeight = useMemo(() => {
-    let height = 570;
-    if (isVerticalLayout) {
-      let stakedSupport = isSupportStakedAssets(networkId, tokenId);
-      if (!stakedSupport) {
-        stakedSupport = isSTETH(networkId, tokenId);
-      }
-      height = stakedSupport === true ? 570 : 570 - 88;
-    } else {
-      height = 452;
+    let height = 529;
+    if (detailInfo?.ethereumNativeToken && !isAllNetworks(networkId)) {
+      height += 132;
     }
     return height;
-  }, [isVerticalLayout, networkId, tokenId]);
-
-  const priceReady = useMemo(() => {
-    if (!token) {
-      return false;
-    }
-    return !!price;
-  }, [price, token]);
+  }, [networkId, detailInfo?.ethereumNativeToken]);
 
   const headerTitle = useCallback(() => {
     if (!isVerticalLayout) {
@@ -107,30 +95,22 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
           size="24px"
           showTokenVerifiedIcon
           token={{
-            ...token,
-            logoURI: token?.logoURI || activeNetwork?.logoURI,
+            symbol,
+            name,
+            logoURI,
           }}
         />
-        <Typography.Heading>
-          {token?.tokenIdOnNetwork ? token?.symbol : activeNetwork?.symbol}
-        </Typography.Heading>
-        <TokenVerifiedIcon size={24} token={token || {}} />
+        <Typography.Heading>{symbol}</Typography.Heading>
       </HStack>
     );
-  }, [activeNetwork?.logoURI, activeNetwork?.symbol, isVerticalLayout, token]);
+  }, [isVerticalLayout, symbol, name, logoURI]);
 
   const headerRight = useCallback(() => {
     if (!isVerticalLayout) {
       return null;
     }
-    return (
-      <FavoritedButton
-        coingeckoId={token?.coingeckoId}
-        type="plain"
-        size="xl"
-      />
-    );
-  }, [isVerticalLayout, token]);
+    return <FavoritedButton coingeckoId={coingeckoId} type="plain" size="xl" />;
+  }, [isVerticalLayout, coingeckoId]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -149,59 +129,62 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     setShowSwapPanel(width > 1280);
   }, []);
 
+  const contextValue = useMemo(
+    () => ({
+      routeParams: route.params,
+      detailInfo,
+      positionInfo,
+    }),
+    [route.params, detailInfo, positionInfo],
+  );
+
   return (
-    <HStack flex={1} justifyContent="center" onLayout={onLayout}>
-      <Tabs.Container
-        disableRefresh
-        renderHeader={() => (
-          <TokenDetailHeader
-            accountId={accountId}
-            networkId={networkId}
-            token={token}
-            priceReady={priceReady}
-            paddingX={{ base: '16px', md: '32px' }}
-            bgColor="background-default"
-          />
-        )}
-        headerHeight={headerHeight}
-        containerStyle={{
-          maxWidth: 1088, // 1024+32*2
-          flex: 1,
-        }}
-      >
-        <Tabs.Tab
-          name={TabEnum.Assets}
-          label={intl.formatMessage({ id: 'content__asset' })}
+    <TokenDetailContext.Provider value={contextValue}>
+      <HStack flex={1} justifyContent="center" onLayout={onLayout}>
+        <Tabs.Container
+          key={String(headerHeight)}
+          disableRefresh
+          renderHeader={() => <TokenDetailHeader />}
+          headerHeight={headerHeight}
+          containerStyle={{
+            maxWidth: 1088, // 1024+32*2
+            flex: 1,
+          }}
         >
-          <AssetsInfo
-            token={token}
-            tokenId={tokenId}
-            accountId={accountId}
-            networkId={networkId}
-            priceReady={priceReady}
-            sendAddress={sendAddress}
-          />
-        </Tabs.Tab>
-        <Tabs.Tab
-          name={TabEnum.History}
-          label={intl.formatMessage({ id: 'transaction__history' })}
-        >
-          <TxHistoryListView
-            accountId={accountId}
-            networkId={networkId}
-            tokenId={tokenId}
-            tabComponent
-          />
-        </Tabs.Tab>
-        <Tabs.Tab
-          name={TabEnum.Info}
-          label={intl.formatMessage({ id: 'content__info' })}
-        >
-          <MarketInfo token={token} />
-        </Tabs.Tab>
-      </Tabs.Container>
-      {!isVerticalLayout && showSwapPanel ? <SwapPanel /> : null}
-    </HStack>
+          <Tabs.Tab
+            name={TabEnum.Assets}
+            label={intl.formatMessage({ id: 'content__asset' })}
+          >
+            <AssetsInfo />
+          </Tabs.Tab>
+          <Tabs.Tab
+            name={TabEnum.History}
+            label={intl.formatMessage({ id: 'transaction__history' })}
+          >
+            <TxHistoryListView
+              accountId={accountId}
+              networkId={networkId}
+              tokenId={isAllNetworks(networkId) ? coingeckoId : tokenAddress}
+              tabComponent
+            />
+          </Tabs.Tab>
+          <Tabs.Tab
+            name={TabEnum.Info}
+            label={intl.formatMessage({ id: 'content__info' })}
+          >
+            <MarketInfo coingeckoId={coingeckoId} />
+          </Tabs.Tab>
+        </Tabs.Container>
+        {!isVerticalLayout && showSwapPanel && !isAllNetworks(networkId) ? (
+          <Box width="360px" mt="6" mr="8">
+            <SwapPlugins
+              tokenId={tokenAddress ?? 'main'}
+              networkId={networkId}
+            />
+          </Box>
+        ) : null}
+      </HStack>
+    </TokenDetailContext.Provider>
   );
 };
 export default TokenDetail;

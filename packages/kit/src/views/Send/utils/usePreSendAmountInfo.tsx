@@ -12,7 +12,7 @@ import {
   formatBalanceDisplay,
 } from '../../../components/Format';
 import { useSettings } from '../../../hooks';
-import { useSimpleTokenPriceValue } from '../../../hooks/useManegeTokenPrice';
+import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
 
 export function usePreSendAmountInfo({
   tokenInfo,
@@ -41,7 +41,10 @@ export function usePreSendAmountInfo({
   const amountInputDecimals = tokenInfo?.decimals ?? 18;
 
   const validAmountRegex = useMemo(() => {
-    const pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,${amountInputDecimals}})?$`;
+    let pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,${amountInputDecimals}})?$`;
+    if (amountInputDecimals === 0) {
+      pattern = '^(0|([1-9][0-9]*))?$';
+    }
     return new RegExp(pattern);
   }, [amountInputDecimals]);
 
@@ -55,7 +58,10 @@ export function usePreSendAmountInfo({
   const fiatModeDecimal = selectedFiatMoneySymbol === 'btc' ? 8 : 2;
   const textInputDecimals = isFiatMode ? fiatModeDecimal : amountInputDecimals;
   const validTextRegex = useMemo(() => {
-    const pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,${textInputDecimals}})?$`;
+    let pattern = `^(0|([1-9][0-9]*))?\\.?([0-9]{1,${textInputDecimals}})?$`;
+    if (textInputDecimals === 0) {
+      pattern = '^(0|([1-9][0-9]*))?$';
+    }
     return new RegExp(pattern);
   }, [textInputDecimals]);
 

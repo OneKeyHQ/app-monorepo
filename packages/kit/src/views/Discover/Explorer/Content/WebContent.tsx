@@ -3,11 +3,10 @@ import { useMemo } from 'react';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { setWebTabData } from '../../../../store/reducers/webTabs';
+import { webTabsActions } from '../../../../store/observable/webTabs';
 import { webviewRefs } from '../explorerUtils';
 
-import type { WebTab } from '../../../../store/reducers/webTabs';
+import type { WebTab } from '../../../../store/observable/webTabs';
 import type { WebViewProps } from 'react-native-webview';
 
 const WebContent: FC<WebTab & WebViewProps> = ({ id, url }) => {
@@ -17,10 +16,9 @@ const WebContent: FC<WebTab & WebViewProps> = ({ id, url }) => {
         id={id}
         src={url}
         onWebViewRef={(ref) => {
-          const { dispatch } = backgroundApiProxy;
           if (ref && ref.innerRef) {
             if (!webviewRefs[id]) {
-              dispatch(setWebTabData({ id, refReady: true }));
+              webTabsActions.setWebTabData({ id, refReady: true });
             }
             webviewRefs[id] = ref;
           }

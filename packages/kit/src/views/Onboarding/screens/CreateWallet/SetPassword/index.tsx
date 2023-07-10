@@ -5,14 +5,16 @@ import { type RouteProp, useRoute } from '@react-navigation/native';
 import { type StackNavigationProp } from '@react-navigation/stack';
 import { useIntl } from 'react-intl';
 
-import { Center, Spinner } from '@onekeyhq/components';
+import { Center, Dialog, Spinner } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import Protected, {
   ValidationFields,
 } from '../../../../../components/Protected';
 import { useData } from '../../../../../hooks/redux';
+import useAppNavigation from '../../../../../hooks/useAppNavigation';
 import { wait } from '../../../../../utils/helper';
+import { showDialog } from '../../../../../utils/overlayUtils';
 import Layout from '../../../Layout';
 import { EOnboardingRoutes } from '../../../routes/enums';
 import { type IOnboardingRoutesParams } from '../../../routes/types';
@@ -28,6 +30,50 @@ type RouteProps = RouteProp<
   EOnboardingRoutes.SetPassword
 >;
 
+function RecoveryPhraseDialog({
+  onNext,
+  onClose,
+}: {
+  onNext?: () => void;
+  onClose?: () => void;
+}) {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+
+  return (
+    <Dialog
+      visible
+      contentProps={{
+        iconType: 'info',
+        title: intl.formatMessage({
+          id: 'modal__youre_importing_a_hot_wallet',
+        }),
+        content: intl.formatMessage({
+          id: 'modal__youre_importing_a_hot_wallet_desc',
+        }),
+      }}
+      footerButtonProps={{
+        secondaryActionProps: {
+          size: 'xl',
+        },
+        primaryActionProps: {
+          size: 'xl',
+          type: 'primary',
+          children: intl.formatMessage({ id: 'action__confirm' }),
+        },
+        onPrimaryActionPress: () => {
+          onClose?.();
+          onNext?.();
+        },
+        onSecondaryActionPress() {
+          onClose?.();
+          navigation.goBack();
+        },
+      }}
+    />
+  );
+}
+
 function RedirectToRecoveryPhrase({
   password,
   withEnableAuthentication,
@@ -40,25 +86,38 @@ function RedirectToRecoveryPhrase({
   const navigation = useNavigation<NavigationProps>();
 
   useEffect(() => {
-    (async function () {
+    function importedMnemonicFunc(mnemonic: string) {
+      const t = setTimeout(() => {
+        showDialog(
+          <RecoveryPhraseDialog
+            onNext={() => {
+              navigation.replace(EOnboardingRoutes.BehindTheScene, {
+                password,
+                mnemonic,
+                withEnableAuthentication,
+              });
+            }}
+          />,
+        );
+      }, 600);
+      return () => clearTimeout(t);
+    }
+    async function generateMnemonicFunc() {
+      const mnemonic = await backgroundApiProxy.engine.generateMnemonic();
+      await wait(600);
+      navigation.replace(EOnboardingRoutes.RecoveryPhrase, {
+        password,
+        mnemonic,
+        withEnableAuthentication,
+      });
+    }
+    function main() {
       if (importedMnemonic) {
-        navigation.replace(EOnboardingRoutes.BehindTheScene, {
-          password,
-          mnemonic: importedMnemonic,
-          withEnableAuthentication,
-        });
-      } else {
-        const mnemonic = await backgroundApiProxy.engine.generateMnemonic();
-
-        // return;
-        await wait(600);
-        navigation.replace(EOnboardingRoutes.RecoveryPhrase, {
-          password,
-          mnemonic,
-          withEnableAuthentication,
-        });
+        return importedMnemonicFunc(importedMnemonic);
       }
-    })();
+      generateMnemonicFunc();
+    }
+    return main();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -26,13 +26,12 @@
   },
   "devDependencies": {
     "@types/qrcode": "^1.4.2",
-    "rimraf": "^4.1.2"
+    "rimraf": "^3"
   },
   "scripts": {
     "build:icons": "rm -rf src/Icon/react && npx @svgr/cli@6.3.1 --config-file .svgrrc.json -d src/Icon/react svg && node src/Icon/script.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
     "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
-    "fetch:locale": "rimraf ./src/locale/*.json && npx lokalise-client fetch",
-    "clean": "rimraf node_modules"
+    "fetch:locale": "rimraf ./src/locale/*.json && npx lokalise-client fetch"
   }
 }

@@ -126,6 +126,7 @@ type EIP1559Fee = {
   gasPriceValue?: string;
 
   confidence?: number;
+  price?: string;
 };
 
 // metamask

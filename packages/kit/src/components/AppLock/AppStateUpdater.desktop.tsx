@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+import type { IDesktopAppState } from '@onekeyhq/desktop/src-electron/preload';
+
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector } from '../../hooks/redux';
 
 import { AppLockBypass } from './AppLockBypass';
 
-type Status = 'active' | 'background';
+type Status = IDesktopAppState;
 
 const DesktopUpdator = () => {
   const appState = useRef<Status>();

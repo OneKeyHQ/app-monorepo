@@ -2,6 +2,7 @@
 import {
   IMPL_ADA,
   IMPL_ALGO,
+  IMPL_ALLNETWORKS,
   IMPL_APTOS,
   IMPL_BCH,
   IMPL_BTC,
@@ -12,6 +13,7 @@ import {
   IMPL_EVM,
   IMPL_FIL,
   IMPL_KASPA,
+  IMPL_LIGHTNING,
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
@@ -34,6 +36,7 @@ import {
 import { createVaultSettings } from './factory.createVaultSettings';
 import VaultHelperAda from './impl/ada/VaultHelper';
 import VaultHelperAlgo from './impl/algo/VaultHelper';
+import VaultHelperAllNetworks from './impl/allnetworks/VaultHelper';
 import VaultHelperAptos from './impl/apt/VaultHelper';
 import VaultHelperBch from './impl/bch/VaultHelper';
 import VaultHelperBtc from './impl/btc/VaultHelper';
@@ -44,6 +47,7 @@ import VaultHelperDot from './impl/dot/VaultHelper';
 import VaultHelperEvm from './impl/evm/VaultHelper';
 import VaultHelperFil from './impl/fil/VaultHelper';
 import VaultHelperKaspa from './impl/kaspa/VaultHelper';
+import VaultHelperLightning from './impl/lightning-network/VaultHelper';
 import VaultHelperLtc from './impl/ltc/VaultHelper';
 import VaultHelperNear from './impl/near/VaultHelper';
 import VauleHelperSol from './impl/sol/VaultHelper';
@@ -125,6 +129,12 @@ export async function createVaultHelperInstance(
   }
   if (impl === IMPL_KASPA) {
     return new VaultHelperKaspa(options);
+  }
+  if (impl === IMPL_LIGHTNING) {
+    return new VaultHelperLightning(options);
+  }
+  if (impl === IMPL_ALLNETWORKS) {
+    return new VaultHelperAllNetworks(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -250,6 +260,15 @@ export async function createVaultInstance(options: IVaultOptions) {
   if (network.impl === IMPL_KASPA) {
     const VaultKaspa = (await import('./impl/kaspa/Vault')).default;
     vault = new VaultKaspa(options);
+  }
+  if (network.impl === IMPL_LIGHTNING) {
+    const VaultLightning = (await import('./impl/lightning-network/Vault'))
+      .default;
+    vault = new VaultLightning(options);
+  }
+  if (network.impl === IMPL_ALLNETWORKS) {
+    const VaultAllNetworks = (await import('./impl/allnetworks/Vault')).default;
+    vault = new VaultAllNetworks(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

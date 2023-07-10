@@ -29,6 +29,7 @@ const RadioFee: FC<RadioFeeProps> = ({ items, ...props }) => {
           alignItems="center"
           mt={3}
           key={value}
+          borderWidth={0}
           {...rest}
         >
           {typeof title === 'string' ? (

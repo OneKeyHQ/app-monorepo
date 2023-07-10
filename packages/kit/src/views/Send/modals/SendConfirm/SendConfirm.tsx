@@ -1,5 +1,8 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ToastManager } from '@onekeyhq/components';
 import type {
   IFeeInfoUnit,
   ISignedTxPro,
@@ -12,7 +15,7 @@ import { ENABLED_DAPP_SCOPE } from '@onekeyhq/shared/src/background/backgroundUt
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useWalletConnectPrepareConnection } from '../../../../components/WalletConnect/useWalletConnectPrepareConnection';
-import { useActiveSideAccount } from '../../../../hooks';
+import { useActiveSideAccount, useNetwork } from '../../../../hooks';
 import { useDecodedTx } from '../../../../hooks/useDecodedTx';
 import { useDisableNavigationAnimation } from '../../../../hooks/useDisableNavigationAnimation';
 import { useOnboardingRequired } from '../../../../hooks/useOnboardingRequired';
@@ -50,6 +53,7 @@ function SendConfirm({
 }: {
   sendConfirmParamsParsed: ReturnType<typeof useSendConfirmRouteParamsParsed>;
 }) {
+  const intl = useIntl();
   useOnboardingRequired();
   const { engine, serviceHistory, serviceToken } = backgroundApiProxy;
 
@@ -71,6 +75,7 @@ function SendConfirm({
     ignoreFetchFeeCalling,
   } = sendConfirmParamsParsed;
   useReloadAccountBalance({ networkId, accountId });
+  const { network } = useNetwork({ networkId });
 
   const {
     isLoading: isLoadingAdvancedSettings,
@@ -92,7 +97,7 @@ function SendConfirm({
     sendConfirmParams: routeParams,
     networkImpl,
     address: account?.address || '',
-    selectedUtxos: advancedSettings.selectedUtxos,
+    advancedSettings,
   });
 
   const { decodedTx } = useDecodedTx({
@@ -275,6 +280,25 @@ function SendConfirm({
         );
       }
 
+      if (network?.settings.useSimpleTipForSpecialCheckEncodedTx) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage(
+              {
+                id: result.key as any,
+              },
+              {
+                ...(result.params ?? {}),
+              },
+            ),
+          },
+          {
+            type: 'error',
+          },
+        );
+        return;
+      }
+
       return navigation[nextRouteAction](SendModalRoutes.SendSpecialWarning, {
         ...nextRouteParams,
         hintMsgKey: result.key ?? '',
@@ -288,16 +312,18 @@ function SendConfirm({
       networkId,
       accountId,
       advancedSettings,
-      serviceHistory,
       routeParams,
       walletId,
       onModalClose,
+      network?.settings.useSimpleTipForSpecialCheckEncodedTx,
       navigation,
       dappApprove,
       serviceToken,
       payloadInfo?.swapInfo,
       wallet?.type,
+      serviceHistory,
       resendActionInfo,
+      intl,
     ],
   );
 
@@ -314,7 +340,7 @@ function SendConfirm({
     />
   );
 
-  const advancedSettingsForm = (
+  const advancedSettingsForm = !routeParams.hideAdvancedSetting ? (
     <SendConfirmAdvancedSettings
       accountId={accountId}
       networkId={networkId}
@@ -323,7 +349,7 @@ function SendConfirm({
       setAdvancedSettings={setAdvancedSettings}
       isLoadingAdvancedSettings={isLoadingAdvancedSettings}
     />
-  );
+  ) : undefined;
 
   const sharedProps: ITxConfirmViewProps = {
     accountId,
@@ -365,6 +391,7 @@ function SendConfirm({
     <TxDetailView
       sendConfirmParamsParsed={sendConfirmParamsParsed}
       isSendConfirm
+      isSingleTransformMode
       decodedTx={decodedTx}
       feeInput={feeInput}
       advancedSettingsForm={advancedSettingsForm}

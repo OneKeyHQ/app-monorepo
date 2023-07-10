@@ -60,7 +60,12 @@ class JsonRPCRequest {
         response,
       );
     } else if (response.error) {
-      throw new JsonPRCResponseError('Error JSON PRC response', response);
+      let message = 'Error JSON PRC response';
+      const error = response.error as { message?: string };
+      if (error?.message && typeof error?.message === 'string') {
+        message = `Error JSON PRC response: ${error?.message}`;
+      }
+      throw new JsonPRCResponseError(message, response);
     } else if (!('result' in response)) {
       throw new ResponseError(
         'Invalid JSON RPC response, result not found',

@@ -98,6 +98,46 @@ function BulkSender() {
     });
   }, [navigation, headerLeft, headerRight]);
 
+  const bulkSenderTabs = useMemo(() => {
+    const tabs = [
+      <Tabs.Tab
+        name={BulkSenderTypeEnum.NativeToken}
+        label={nativeToken?.symbol ?? ''}
+      >
+        <TokenOutbox
+          accountId={accountId}
+          networkId={networkId}
+          accountAddress={accountAddress}
+          type={BulkSenderTypeEnum.NativeToken}
+        />
+      </Tabs.Tab>,
+    ];
+
+    if (network?.settings.tokenEnabled) {
+      tabs.push(
+        <Tabs.Tab
+          name={BulkSenderTypeEnum.Token}
+          label={intl.formatMessage({ id: 'form__token' })}
+        >
+          <TokenOutbox
+            accountId={accountId}
+            networkId={networkId}
+            accountAddress={accountAddress}
+            type={BulkSenderTypeEnum.Token}
+          />
+        </Tabs.Tab>,
+      );
+    }
+    return tabs;
+  }, [
+    accountAddress,
+    accountId,
+    intl,
+    nativeToken?.symbol,
+    network?.settings.tokenEnabled,
+    networkId,
+  ]);
+
   if (!isSupported) return <NotSupported networkId={networkId} />;
 
   return (
@@ -119,28 +159,7 @@ function BulkSender() {
       // scrollEnabled={false}
       disableRefresh
     >
-      <Tabs.Tab
-        name={BulkSenderTypeEnum.NativeToken}
-        label={nativeToken?.symbol ?? ''}
-      >
-        <TokenOutbox
-          accountId={accountId}
-          networkId={networkId}
-          accountAddress={accountAddress}
-          type={BulkSenderTypeEnum.NativeToken}
-        />
-      </Tabs.Tab>
-      <Tabs.Tab
-        name={BulkSenderTypeEnum.Token}
-        label={intl.formatMessage({ id: 'form__token' })}
-      >
-        <TokenOutbox
-          accountId={accountId}
-          networkId={networkId}
-          accountAddress={accountAddress}
-          type={BulkSenderTypeEnum.Token}
-        />
-      </Tabs.Tab>
+      {bulkSenderTabs}
     </Tabs.Container>
   );
 }

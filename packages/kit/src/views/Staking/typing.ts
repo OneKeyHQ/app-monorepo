@@ -17,12 +17,18 @@ export enum StakingRoutes {
   LidoEthUnstakeRoutes = 'LidoEthUnstakeRoutes',
 
   ETHPoolSelector = 'ETHPoolSelector',
+  KeleStakingModeSelector = 'KeleStakingModeSelector',
   ETHStake = 'ETHStake',
 }
 
 export enum EthStakingSource {
   Kele = 'Kele',
   Lido = 'Lido',
+}
+
+export enum KeleStakingMode {
+  normal = 'normal',
+  fast = 'fast',
 }
 
 export type StakingRoutesParams = {
@@ -57,6 +63,11 @@ export type StakingRoutesParams = {
   [StakingRoutes.ETHPoolSelector]: {
     isTestnet: boolean;
     onSelector?: (name: EthStakingSource) => void;
+  };
+  [StakingRoutes.KeleStakingModeSelector]: {
+    isTestnet: boolean;
+    mode: KeleStakingMode;
+    onSelector?: (name: KeleStakingMode) => void;
   };
   [StakingRoutes.LidoEthStakeShouldUnderstand]: {
     readonly?: boolean;
@@ -146,6 +157,7 @@ export type KeleOpHistoryDTO = {
   amount: number;
   op_type: number;
   history_time: string;
+  remain_time: number;
 };
 
 export type KeleGenericHistory = {
@@ -196,11 +208,33 @@ export type LidoOverview = {
 export type TransactionStatus = 'pending' | 'failed' | 'canceled' | 'sucesss';
 export type TransactionType = 'lidoUnstake' | 'lidoStake' | 'lidoClaim';
 
+export interface Transaction {
+  hash: string;
+  networkId: string;
+  accountId: string;
+  addedTime: number;
+  nonce?: number;
+}
+
 export interface TransactionDetails {
   hash: string;
   networkId: string;
   accountId: string;
   type: TransactionType;
+  addedTime: number;
+  confirmedTime?: number;
+  nonce?: number;
+  archive?: boolean;
+}
+
+export type KeleTransactionType = 'KeleStake' | 'KeleFastStake';
+
+export interface KeleTransactionDetails {
+  hash: string;
+  networkId: string;
+  accountId: string;
+  type: KeleTransactionType;
+  amount: string;
   addedTime: number;
   confirmedTime?: number;
   nonce?: number;

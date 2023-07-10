@@ -21,18 +21,16 @@ import {
 import useFloatingBottomTabBarHeight from '@onekeyhq/components/src/Layout/BottomTabs/utils/useBottomTabBarHeight';
 import PressableItem from '@onekeyhq/components/src/Pressable/PressableItem';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { TabRoutes } from '../../../../routes/routesEnum';
 import {
-  closeAllWebTabs,
   homeTab,
   isTabLimitReached,
-} from '../../../../store/reducers/webTabs';
+  webTabsActions,
+} from '../../../../store/observable/webTabs';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { OverlayPanel } from '../../../Overlay/OverlayPanel';
 import { PortalEntry } from '../../../Overlay/RootPortal';
 import { useWebController } from '../Controller/useWebController';
-import { dAddNewBlankWebTab } from '../explorerActions';
 import {
   MAX_OR_SHOW,
   MIN_OR_HIDE,
@@ -51,7 +49,6 @@ export const ControllerBarMobile: FC = () => {
 
   const bgColor = useThemeValue('surface-subdued');
   const { canGoForward } = currentTab;
-  const { dispatch } = backgroundApiProxy;
 
   const reachedTabLimit = isTabLimitReached(tabs);
 
@@ -96,7 +93,7 @@ export const ControllerBarMobile: FC = () => {
         flex={1}
         type="plain"
         disabled={reachedTabLimit}
-        onPress={dAddNewBlankWebTab}
+        onPress={webTabsActions.addBlankWebTab}
         iconSize={26}
         name="PlusCircleMini"
       />
@@ -147,7 +144,7 @@ export const ControllerBarMobile: FC = () => {
           borderRadius="12px"
           onPress={() => {
             closeOverlay();
-            dispatch(closeAllWebTabs());
+            webTabsActions.closeAllWebTabs();
           }}
         >
           <Icon color="text-critical" size={24} name="XMarkMini" />
@@ -159,7 +156,7 @@ export const ControllerBarMobile: FC = () => {
         </PressableItem>
       </OverlayPanel>
     ));
-  }, [dispatch, intl]);
+  }, [intl]);
 
   const tabController = (
     <Animated.View
@@ -188,7 +185,7 @@ export const ControllerBarMobile: FC = () => {
         flex={1}
         type="plain"
         disabled={reachedTabLimit}
-        onPress={dAddNewBlankWebTab}
+        onPress={webTabsActions.addBlankWebTab}
         iconSize={26}
         name="PlusCircleMini"
       />

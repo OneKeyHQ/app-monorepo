@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import { Box, HStack, RadioFee, VStack } from '@onekeyhq/components';
 import type {
   IFeeInfo,
@@ -69,6 +71,11 @@ export function SendEditFeeStandardForm({
     } else {
       price = feeInfoPayload?.info?.prices[Number(value)];
       limit = feeInfoPayload?.info.limit ?? '0';
+      limit = new BigNumber(
+        feeInfoPayload?.info.limitForDisplay as string,
+      ).isNaN()
+        ? limit
+        : feeInfoPayload?.info.limitForDisplay ?? '0';
     }
 
     return (
@@ -100,6 +107,9 @@ export function SendEditFeeStandardForm({
   const gasItems = useMemo(() => {
     if (!gasList) return [];
 
+    const limit =
+      feeInfoPayload?.info.limitForDisplay ?? feeInfoPayload?.info.limit ?? '0';
+
     const items = gasList.map((gas, index) => {
       const waitingSeconds = (feeInfoPayload?.info as IFeeInfo)
         .waitingSeconds?.[index];
@@ -123,7 +133,7 @@ export function SendEditFeeStandardForm({
                 networkId={networkId}
                 price={gas}
                 feeInfo={feeInfoPayload?.info}
-                limit={feeInfoPayload?.info.limit ?? '0'}
+                limit={limit}
                 currencyProps={{ typography: 'Body1', textAlign: 'right' }}
                 onlyCurrency
               />

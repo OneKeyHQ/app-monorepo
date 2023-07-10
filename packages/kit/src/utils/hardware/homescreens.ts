@@ -86,6 +86,28 @@ export const fileToDataUrl = (file: File): Promise<string> => {
   });
 };
 
+export const fileToBuffer = (file: File): Promise<Buffer> => {
+  const reader = new FileReader();
+  return new Promise((resolve, reject) => {
+    reader.onerror = (err) => {
+      reject(err);
+    };
+    reader.onload = (e) => {
+      const arrayBuffer = e?.target?.result;
+      if (arrayBuffer && typeof arrayBuffer !== 'string') {
+        const buffer = Buffer.from(arrayBuffer);
+        return resolve(buffer);
+      }
+      reject(
+        new Error(
+          'FileReader readAsArrayBuffer failed, reader.result is not valid ArrayBuffer',
+        ),
+      );
+    };
+    reader.readAsArrayBuffer(file);
+  });
+};
+
 const dataUrlToImage = (dataUrl: string): Promise<HTMLImageElement> => {
   const image = new Image();
   return new Promise((resolve, reject) => {

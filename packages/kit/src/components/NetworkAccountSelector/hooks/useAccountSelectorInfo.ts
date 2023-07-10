@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { useIsVerticalLayout } from '@onekeyhq/components';
 import type { INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import type { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -16,7 +17,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   ACCOUNT_SELECTOR_EMPTY_VIEW_SHOW_DELAY,
   ACCOUNT_SELECTOR_IS_OPEN_VISIBLE_DELAY,
-} from '../../Header/AccountSelectorChildren/accountSelectorConsts';
+} from '../consts';
 
 import { useDeviceStatusOfHardwareWallet } from './useDeviceStatusOfHardwareWallet';
 
@@ -85,12 +86,18 @@ export function useAccountSelectorInfo() {
       networkId ? engine.getNetworkSafe(networkId) : Promise.resolve(null),
     [networkId, enabledNetworks],
   );
+  const { result: selectedNetworkSettings } = usePromiseResult(
+    (): Promise<IVaultSettings | null | undefined> =>
+      networkId ? engine.getVaultSettings(networkId) : Promise.resolve(null),
+    [networkId, enabledNetworks],
+  );
 
   const isAccountsGroupEmpty = useMemo(() => {
     if (!accountsGroup?.length) {
       return true;
     }
     let dataLen = 0;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
     accountsGroup.forEach((acc) => (dataLen += acc?.data?.length || 0));
     return dataLen <= 0;
   }, [accountsGroup]);
@@ -109,6 +116,7 @@ export function useAccountSelectorInfo() {
 
       selectedNetwork, // TODO selectedNetworkLazy
       selectedNetworkId,
+      selectedNetworkSettings,
       selectedWallet, // TODO selectedWalletLazy
       selectedWalletId,
 
@@ -138,6 +146,7 @@ export function useAccountSelectorInfo() {
       isOpen,
       selectedNetwork,
       selectedNetworkId,
+      selectedNetworkSettings,
       selectedWallet,
       selectedWalletId,
       accountsGroup,

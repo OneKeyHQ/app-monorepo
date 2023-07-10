@@ -15,10 +15,11 @@ import {
 } from '@onekeyhq/kit/src/hooks/redux';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useNFTPrice } from '../../../../hooks/useManegeTokenPrice';
+import { useNFTValues } from '../../../../hooks';
 // import { showSelectNFTPriceType } from '../../../Overlay/SelectNFTPriceType';
 
 type NFTListHeaderProps = {
+  expandEnable: boolean;
   expand: boolean;
   isNFTSupport?: boolean;
   onPress: () => void;
@@ -26,6 +27,7 @@ type NFTListHeaderProps = {
 
 const NFTListHeader = ({
   expand,
+  expandEnable,
   onPress,
   isNFTSupport,
 }: NFTListHeaderProps) => {
@@ -33,8 +35,8 @@ const NFTListHeader = ({
   const { themeVariant } = useTheme();
   const { account, network } = useActiveWalletAccount();
 
-  const totalPrice = useNFTPrice({
-    accountId: account?.address,
+  const totalPrice = useNFTValues({
+    accountId: account?.id,
     networkId: network?.id,
   });
   const disPlayPriceType = useAppSelector((s) => s.nft.disPlayPriceType);
@@ -92,13 +94,15 @@ const NFTListHeader = ({
         <Typography.Heading>
           {intl.formatMessage({ id: 'title__assets' })}
         </Typography.Heading>
-        <IconButton
-          name={expand ? 'ArrowsPointingInMini' : 'ArrowsPointingOutMini'}
-          size="sm"
-          circle
-          type="plain"
-          onPress={onPress}
-        />
+        {expandEnable ? (
+          <IconButton
+            name={expand ? 'ArrowsPointingInMini' : 'ArrowsPointingOutMini'}
+            size="sm"
+            circle
+            type="plain"
+            onPress={onPress}
+          />
+        ) : null}
       </HStack>
     </Box>
   );

@@ -1,10 +1,10 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { isUndefined } from 'lodash';
-import memoizee from 'memoizee';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { OneKeyInternalError } from '../../../../errors';
 
@@ -215,7 +215,6 @@ class ClientAda {
     {
       promise: true,
       maxAge: getTimeDurationMs({ minute: 1 }),
-      normalizer: (...args) => JSON.stringify(args),
     },
   );
 

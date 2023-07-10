@@ -34,6 +34,8 @@ const settings: IVaultSettings = Object.freeze({
   batchTransferApprovalConfirmRequired: true,
 
   nonceEditable: true,
+  sendNFTEnable: true,
+  hexDataEditable: true,
 
   accountNameInfo: {
     default: {

@@ -18,6 +18,8 @@ export enum SwapRoutes {
   SwftcHelp = 'SwftcHelp',
   PickRecipient = 'PickRecipient',
   PickAccount = 'PickAccount',
+  SelectSendingAccount = 'SelectSendingAccount',
+  SelectRecipient = 'SelectRecipient',
   EnterAddress = 'EnterAddress',
   Welcome = 'Welcome',
   SelectRoutes = 'SelectRoutes',
@@ -47,7 +49,23 @@ export type SwapRoutesParams = {
         onSelected?: (acc: Account) => void;
       }
     | undefined;
+  [SwapRoutes.SelectSendingAccount]:
+    | {
+        networkId?: string;
+        onSelected?: (acc: Account) => void;
+      }
+    | undefined;
   [SwapRoutes.PickRecipient]:
+    | {
+        networkId?: string;
+        onSelected?: (data: {
+          address: string;
+          name?: string;
+          accountId?: string;
+        }) => void;
+      }
+    | undefined;
+  [SwapRoutes.SelectRecipient]:
     | {
         networkId?: string;
         onSelected?: (data: {
@@ -60,6 +78,7 @@ export type SwapRoutesParams = {
   [SwapRoutes.EnterAddress]:
     | {
         networkId?: string;
+        contactExcludeWalletAccount?: boolean;
         onSelected?: (data: { address: string; name?: string }) => void;
       }
     | undefined;
@@ -316,6 +335,7 @@ export interface TransactionDetails {
   type: TransactionType;
   status: TransactionStatus;
   archive?: boolean;
+  viewed?: boolean;
   quoterType?: QuoterType;
   quoterLogo?: string;
   approval?: { tokenAddress: string; spender: string; token: Token };

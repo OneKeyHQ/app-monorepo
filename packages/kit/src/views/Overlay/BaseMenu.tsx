@@ -11,17 +11,21 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMenuProps } from 'native-base';
 import type { MessageDescriptor } from 'react-intl';
 
-interface ValidOption {
-  id: MessageDescriptor['id'];
-  intlValues?: Record<string | number, string>;
+type ValidOption = {
   onPress?: () => void;
   icon?: ICON_NAMES;
+  intlValues?: Record<string | number, string>;
   closeOnSelect?: boolean;
   extraChildren?: ReactNode;
   isDisabled?: boolean;
   variant?: 'desctructive' | 'highlight';
   value?: string | number;
-}
+} & (
+  | { textValue: string }
+  | {
+      id: MessageDescriptor['id'];
+    }
+);
 
 type SingleOption = false | undefined | (() => ReactElement) | ValidOption;
 
@@ -71,17 +75,15 @@ const BaseMenu: FC<IBaseMenu> = ({
 }) => {
   const intl = useIntl();
   const renderSingleOption = useCallback(
-    (
-      {
+    (validOption: ValidOption, index: number) => {
+      const {
         onPress,
-        id,
-        intlValues,
         closeOnSelect = true,
         value,
+        intlValues,
         ...menuItemProps
-      }: ValidOption,
-      index: number,
-    ) => {
+      } = validOption;
+
       if (value !== undefined) {
         return (
           <Menu.ItemOption
@@ -95,12 +97,14 @@ const BaseMenu: FC<IBaseMenu> = ({
               }
             }}
           >
-            {intl.formatMessage(
-              {
-                id,
-              },
-              intlValues,
-            )}
+            {'textValue' in validOption
+              ? validOption.textValue
+              : intl.formatMessage(
+                  {
+                    id: validOption.id,
+                  },
+                  intlValues,
+                )}
           </Menu.ItemOption>
         );
       }
@@ -115,12 +119,14 @@ const BaseMenu: FC<IBaseMenu> = ({
             }
           }}
         >
-          {intl.formatMessage(
-            {
-              id,
-            },
-            intlValues,
-          )}
+          {'textValue' in validOption
+            ? validOption.textValue
+            : intl.formatMessage(
+                {
+                  id: validOption.id,
+                },
+                intlValues,
+              )}
         </Menu.CustomItem>
       );
     },

@@ -173,6 +173,7 @@ const ModifyWalletNameViewModal: FC = () => {
             type="primary"
             size="xl"
             isLoading={isLoading}
+            runAfterInteractions
             onPress={onSubmit}
           >
             {intl.formatMessage({

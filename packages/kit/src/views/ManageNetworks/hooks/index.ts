@@ -3,13 +3,29 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { uniq } from 'lodash';
 
 import type { ThemeToken } from '@onekeyhq/components/src/Provider/theme';
-import { networkIsPreset } from '@onekeyhq/engine/src/presets';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
+import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { Network } from '@onekeyhq/engine/src/types/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../../hooks';
+import {
+  useAccount,
+  useAppSelector,
+  useNavigation,
+  useNetwork,
+} from '../../../hooks';
+import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
+import {
+  getManageNetworks,
+  useManageNetworks,
+} from '../../../hooks/useManageNetworks';
+import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { getTimeDurationMs } from '../../../utils/helper';
+import { showAllNetworksAccountDerivationsSelector } from '../../Overlay/Accounts/AllNetworksSelectAccountDerivations';
+import { ManageNetworkModalRoutes } from '../types';
 
 import type { IRpcStatus } from '../../../store/reducers/status';
+import type { ManageNetworkRoutesParams } from '../types';
 
 export const RpcSpeed = {
   Fast: {
@@ -92,7 +108,7 @@ export const useRPCUrls = (networkId?: string) => {
         await serviceNetwork.getPresetRpcEndpoints(networkId);
       const customUrls = await serviceNetwork.getCustomRpcUrls(networkId);
       setDefaultRpc(defaultRpcURL);
-      if (networkIsPreset(networkId)) {
+      if (await serviceNetwork.networkIsPreset(networkId)) {
         setCustom(customUrls ?? []);
         setPreset(urls);
       } else {
@@ -145,4 +161,140 @@ export const useRpcMeasureStatus = (networkId?: string) => {
     (s) => s.status.rpcStatus?.[networkId ?? activeNetworkId ?? ''],
   );
   return useMemo(() => getRpcMeasureStatus(status), [status]);
+};
+
+export const allNetworksSelectAccount = ({
+  networkId,
+  accounts,
+}: {
+  networkId: string;
+  accounts: Account[];
+}): Promise<{ network: Network; account: Account } | undefined> => {
+  const { allNetworks } = getManageNetworks();
+
+  const network = allNetworks.find((n) => n.id === networkId);
+  return new Promise((resolve) => {
+    if (!network) {
+      return resolve(undefined);
+    }
+    if (!accounts.length) {
+      return resolve(undefined);
+    }
+    if (accounts.length === 1) {
+      return resolve({
+        network,
+        account: accounts[0],
+      });
+    }
+    showAllNetworksAccountDerivationsSelector({
+      network,
+      accounts,
+      onConfirm: (a) => {
+        resolve({
+          network,
+          account: a,
+        });
+      },
+    });
+  });
+};
+
+export const useAllNetworksSelectNetworkAccount = ({
+  walletId,
+  accountId,
+  networkId,
+  filter: defaultFilter = () => true,
+}: {
+  walletId: string;
+  accountId: string;
+  networkId: string;
+  filter?: ManageNetworkRoutesParams[ManageNetworkModalRoutes.AllNetworksNetworkSelector]['filter'];
+}) => {
+  const { allNetworks } = useManageNetworks();
+  const { network } = useNetwork({ networkId });
+  const { account } = useAccount({
+    networkId,
+    accountId,
+  });
+  const { data: networkAccounts } = useAllNetworksWalletAccounts({
+    accountId,
+    walletId,
+  });
+  const navigation = useNavigation();
+
+  const select = useCallback(
+    (
+      filter?: ManageNetworkRoutesParams[ManageNetworkModalRoutes.AllNetworksNetworkSelector]['filter'],
+    ) =>
+      new Promise<{
+        network: Network;
+        account: Account;
+      }>((resolve) => {
+        if (!isAllNetworks(networkId)) {
+          if (network && account) {
+            resolve({
+              network,
+              account,
+            });
+          }
+          return;
+        }
+        const f = filter ?? defaultFilter;
+        const filteredNetworks = allNetworks
+          .map((item) => {
+            const accounts = (networkAccounts[item.id] ?? []).filter(
+              (a) => !f || f({ network: item, account: a }),
+            );
+            return {
+              ...item,
+              accounts,
+            };
+          })
+          .filter((item) => {
+            const { accounts } = item;
+            if (!accounts.length) return false;
+            if (f && !f({ network: item, account: accounts[0] })) return false;
+            return true;
+          });
+        if (
+          filteredNetworks.length === 1 &&
+          filteredNetworks?.[0]?.accounts?.length === 1
+        ) {
+          resolve({
+            network: filteredNetworks[0],
+            account: filteredNetworks[0].accounts[0],
+          });
+        } else {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.ManageNetwork,
+            params: {
+              screen: ManageNetworkModalRoutes.AllNetworksNetworkSelector,
+              params: {
+                filter: f,
+                walletId,
+                accountId,
+                onConfirm: (params) => {
+                  if (params) {
+                    resolve(params);
+                  }
+                },
+              },
+            },
+          });
+        }
+      }),
+    [
+      networkAccounts,
+      allNetworks,
+      navigation,
+      accountId,
+      walletId,
+      defaultFilter,
+      network,
+      account,
+      networkId,
+    ],
+  );
+
+  return select;
 };

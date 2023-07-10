@@ -5,9 +5,10 @@ import { useRoute } from '@react-navigation/core';
 
 import { List, useIsVerticalLayout } from '@onekeyhq/components';
 
-import { useAppSelector, useNavigation } from '../../hooks';
+import { useAccountPortfolios, useNavigation } from '../../hooks';
 
 import { OverviewDefiProtocol } from './components/OverviewDefiProtocol';
+import { EOverviewScanTaskType } from './types';
 
 import type { HomeRoutes } from '../../routes/routesEnum';
 import type { HomeRoutesParams } from '../../routes/types';
@@ -29,15 +30,17 @@ const OverviewDefiListComponent: FC = () => {
   const isVertical = useIsVerticalLayout();
   const route = useRoute<RouteProps>();
   const [page, setPage] = useState(0);
-  const { networkId, address } = route.params;
+  const { networkId, accountId } = route.params;
 
   const loadMore = useCallback(() => {
     setPage((p) => p + 1);
   }, []);
 
-  const defis = useAppSelector(
-    (s) => s.overview.defi?.[`${networkId}--${address}`] ?? [],
-  );
+  const { data: defis } = useAccountPortfolios({
+    networkId,
+    accountId,
+    type: EOverviewScanTaskType.defi,
+  });
 
   useLayoutEffect(() => {
     navigation.setOptions({

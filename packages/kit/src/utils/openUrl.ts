@@ -3,10 +3,9 @@ import { openURL as LinkingOpenURL } from 'expo-linking';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { getAppNavigation } from '../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../routes/routesEnum';
-import { setIncomingUrl } from '../store/reducers/webTabs';
+import { webTabsActions } from '../store/observable/webTabs';
 
 export const openUrlByWebview = (
   url: string,
@@ -44,7 +43,7 @@ export const openUrl = (
 export const openDapp = (url: string) => {
   if (platformEnv.isNative || platformEnv.isDesktop) {
     const navigation = getAppNavigation();
-    backgroundApiProxy.dispatch(setIncomingUrl(url));
+    webTabsActions.setIncomingUrl(url);
 
     navigation?.dispatch(TabActions.jumpTo(TabRoutes.Discover, {}));
   } else {

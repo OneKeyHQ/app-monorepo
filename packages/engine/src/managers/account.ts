@@ -1,6 +1,11 @@
+import { ok } from 'assert';
+
 import { isEmpty } from 'lodash';
 
-import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_LIGHTNING,
+  SEPERATOR,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../errors';
 import { AccountType } from '../types/account';
@@ -13,9 +18,11 @@ import {
 } from '../types/wallet';
 
 import { isCoinTypeCompatibleWithImpl } from './impl';
-import { parseNetworkId } from './network';
+import { isAllNetworks, parseNetworkId } from './network';
 
 import type { Account } from '../types/account';
+
+export const allNetworksAccountRegex = /h[dw]-[\d\w-]+--(\d+)/;
 
 function getCoinTypeFromAccountId(accountId: string): string {
   if (
@@ -62,6 +69,9 @@ function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
   if (!networkId || !accountId) {
     return false;
   }
+  if (isAllNetworks(networkId) && allNetworksAccountRegex.test(accountId)) {
+    return true;
+  }
   const coinType = getCoinTypeFromAccountId(accountId);
   const { impl } = parseNetworkId(networkId);
   if (!impl) {
@@ -71,8 +81,35 @@ function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
 }
 
 function isAccountWithAddress(account: Account) {
-  if (account.type !== AccountType.VARIANT) return true;
+  if (
+    account.type !== AccountType.VARIANT ||
+    account.coinType === COINTYPE_LIGHTNING
+  )
+    return true;
   return !isEmpty(account.address);
+}
+
+function generateFakeAllnetworksAccount({
+  accountId,
+}: {
+  accountId?: string | null;
+}) {
+  const match = accountId?.match(allNetworksAccountRegex);
+
+  const index = Number.parseInt(match?.[1] ?? '');
+
+  ok(!Number.isNaN(index), 'invalid accountId');
+
+  return {
+    id: accountId,
+    index,
+    name: `Account #${index + 1}`,
+    type: AccountType.FAKE,
+    coinType: '',
+    path: '',
+    tokens: [],
+    address: '',
+  } as Account;
 }
 
 export {
@@ -80,4 +117,5 @@ export {
   getWalletTypeFromAccountId,
   isAccountCompatibleWithNetwork,
   isAccountWithAddress,
+  generateFakeAllnetworksAccount,
 };

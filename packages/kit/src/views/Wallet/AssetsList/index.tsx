@@ -13,9 +13,6 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
-import type { Token } from '@onekeyhq/engine/src/types/token';
-import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
-import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import type { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type {
@@ -26,9 +23,12 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAccountTokens, useActiveSideAccount } from '../../../hooks';
+import { useActiveSideAccount } from '../../../hooks';
 import { useStatus } from '../../../hooks/redux';
-import { useAccountTokenLoading } from '../../../hooks/useTokens';
+import {
+  useAccountTokenLoading,
+  useAccountTokens,
+} from '../../../hooks/useOverview';
 import { useVisibilityFocused } from '../../../hooks/useVisibilityFocused';
 import { OverviewDefiThumbnal } from '../../Overview/Thumbnail';
 import { WalletHomeTabEnum } from '../type';
@@ -38,7 +38,7 @@ import { EmptyListOfAccount } from './EmptyList';
 import AssetsListSkeleton from './Skeleton';
 import TokenCell from './TokenCell';
 
-import type { SimplifiedToken } from '../../../store/reducers/tokens';
+import type { IAccountToken } from '../../Overview/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -48,10 +48,7 @@ type NavigationProps = NativeStackNavigationProp<
   NativeStackNavigationProp<HomeRoutesParams, HomeRoutes.ScreenTokenDetail>;
 
 export type IAssetsListProps = Omit<FlatListProps, 'data' | 'renderItem'> & {
-  onTokenPress?:
-    | null
-    | ((event: { token: SimplifiedToken }) => void)
-    | undefined;
+  onTokenPress?: null | ((event: { token: IAccountToken }) => void) | undefined;
   singleton?: boolean;
   hidePriceInfo?: boolean;
   showRoundTop?: boolean;
@@ -60,10 +57,10 @@ export type IAssetsListProps = Omit<FlatListProps, 'data' | 'renderItem'> & {
   accountId: string;
   networkId: string;
   renderDefiList?: boolean;
+  walletId: string;
 };
 function AssetsList({
   showRoundTop,
-  singleton,
   hidePriceInfo,
   ListHeaderComponent,
   ListFooterComponent,
@@ -73,28 +70,27 @@ function AssetsList({
   flatStyle,
   accountId,
   networkId,
+  walletId,
   renderDefiList,
+  singleton,
 }: IAssetsListProps) {
   const isVerticalLayout = useIsVerticalLayout();
-  const loading = useAccountTokenLoading(networkId, accountId);
-  const accountTokensWithoutLimit = useAccountTokens(
-    networkId,
-    accountId,
-    true,
-  );
-
-  const accountTokens = useMemo(
-    () =>
-      limitSize
-        ? accountTokensWithoutLimit.slice(0, limitSize)
-        : accountTokensWithoutLimit,
-    [accountTokensWithoutLimit, limitSize],
-  );
+  const { homeTabName, isUnlock } = useStatus();
+  const chainAccountTokenLoading = useAccountTokenLoading(networkId, accountId);
+  const { data: accountTokens, loading: allNetworksAccountTokensLoading } =
+    useAccountTokens({
+      networkId,
+      accountId,
+      useFilter: true,
+      limitSize,
+    });
 
   const { account, network } = useActiveSideAccount({
     accountId,
     networkId,
   });
+
+  const loading = chainAccountTokenLoading || allNetworksAccountTokensLoading;
 
   const navigation = useNavigation<NavigationProps>();
 
@@ -106,8 +102,7 @@ function AssetsList({
 
   const [startRefresh] = useDebounce(
     useCallback(() => {
-      const { serviceToken, serviceOverview } = backgroundApiProxy;
-      serviceOverview.startQueryPendingTasks();
+      const { serviceToken } = backgroundApiProxy;
       serviceToken.startRefreshAccountTokens();
     }, []),
     1000,
@@ -119,8 +114,7 @@ function AssetsList({
 
   const [stopRefresh] = useDebounce(
     useCallback(() => {
-      const { serviceToken, serviceOverview } = backgroundApiProxy;
-      serviceOverview.stopQueryPendingTasks();
+      const { serviceToken } = backgroundApiProxy;
       serviceToken.stopRefreshAccountTokens();
     }, []),
     1000,
@@ -131,52 +125,71 @@ function AssetsList({
   );
 
   useEffect(() => {
-    const { serviceOverview } = backgroundApiProxy;
-    serviceOverview.subscribe();
-
     if (platformEnv.isExtensionUi) {
       chrome.runtime.connect();
     }
-  }, [networkId, accountId, startRefresh, stopRefresh]);
-
-  const { homeTabName } = useStatus();
+  }, []);
 
   const isFocused = useVisibilityFocused();
 
+  const shouldRefreshBalances = useMemo(() => {
+    if (!isUnlock) {
+      return false;
+    }
+    if (!isFocused || !accountId || !networkId) {
+      return false;
+    }
+    if (homeTabName && homeTabName !== WalletHomeTabEnum.Tokens) {
+      return false;
+    }
+    return true;
+  }, [isFocused, accountId, networkId, homeTabName, isUnlock]);
+
   useEffect(() => {
-    if (isFocused && homeTabName === WalletHomeTabEnum.Tokens) {
-      if (!account || !network) {
-        return;
-      }
+    if (shouldRefreshBalances) {
       startRefresh();
     } else {
       stopRefresh();
     }
-  }, [isFocused, startRefresh, stopRefresh, account, network, homeTabName]);
+  }, [shouldRefreshBalances, startRefresh, stopRefresh]);
+
+  useEffect(() => {
+    if (isFocused && isUnlock) {
+      backgroundApiProxy.serviceToken.refreshAccountTokens();
+    }
+  }, [isFocused, isUnlock]);
 
   const onTokenCellPress = useCallback(
-    (item: Token) => {
+    (item: IAccountToken) => {
       if (onTokenPress) {
         onTokenPress({ token: item });
         return;
       }
       // TODO: make it work with multi chains.
-      const filter = item.tokenIdOnNetwork
-        ? undefined
-        : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
+      // const filter = item.address
+      //   ? undefined
+      //   : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
 
       navigation.navigate(HomeRoutes.ScreenTokenDetail, {
+        walletId: walletId ?? '',
         accountId: account?.id ?? '',
         networkId: networkId ?? '',
-        tokenId: item.tokenIdOnNetwork ?? '',
+        coingeckoId: item.coingeckoId,
         sendAddress: item.sendAddress,
-        historyFilter: filter,
+        tokenAddress: item.address,
+        // historyFilter: filter,
+        price: item.price,
+        symbol: item.symbol,
+        name: item.name,
+        logoURI: item.logoURI,
       });
     },
-    [account?.id, networkId, navigation, onTokenPress],
+    [account?.id, networkId, navigation, onTokenPress, walletId],
   );
 
-  const renderListItem: FlatListProps<Token>['renderItem'] = ({
+  const Container = singleton ? FlatList : Tabs.FlatList;
+
+  const renderListItem: FlatListProps<IAccountToken>['renderItem'] = ({
     item,
     index,
   }) => (
@@ -199,16 +212,14 @@ function AssetsList({
     />
   );
 
-  const Container = singleton ? FlatList : Tabs.FlatList;
-
   const footer = useMemo(
     () => (
       <Box>
         {ListFooterComponent}
         {renderDefiList ? (
           <OverviewDefiThumbnal
-            networkId={networkId}
             accountId={accountId}
+            networkId={networkId}
             address={account?.address ?? ''}
             limitSize={limitSize}
           />
@@ -240,10 +251,10 @@ function AssetsList({
         },
         contentContainerStyle,
       ]}
-      data={accountTokens.slice(0, limitSize)}
+      data={accountTokens}
       renderItem={renderListItem}
       ListHeaderComponent={
-        loading
+        !accountTokens?.length
           ? null
           : ListHeaderComponent ?? (
               <AssetsListHeader
@@ -265,9 +276,7 @@ function AssetsList({
             () => <EmptyListOfAccount network={network} accountId={accountId} />
       }
       ListFooterComponent={footer}
-      keyExtractor={(_item: SimplifiedToken) =>
-        `${_item.tokenIdOnNetwork}--${_item.sendAddress ?? ''}`
-      }
+      keyExtractor={(item: IAccountToken) => item.key}
       extraData={isVerticalLayout}
       showsVerticalScrollIndicator={false}
     />

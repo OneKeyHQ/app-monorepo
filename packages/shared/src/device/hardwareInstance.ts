@@ -1,5 +1,3 @@
-import memoizee from 'memoizee';
-
 import {
   HARDWARE_SDK_IFRAME_SRC_ONEKEYCN,
   HARDWARE_SDK_IFRAME_SRC_ONEKEYSO,
@@ -7,6 +5,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { importHardwareSDK, importHardwareSDKLowLevel } from './sdk-loader';
 

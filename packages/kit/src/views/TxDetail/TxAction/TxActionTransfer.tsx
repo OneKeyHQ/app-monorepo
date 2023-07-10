@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { shortenAddress } from '@onekeyhq/components/src/utils';
@@ -80,37 +82,59 @@ export function getTxActionTransferInfo(props: ITxActionCardProps) {
 
 export function TxActionTransfer(props: ITxActionCardProps) {
   const intl = useIntl();
-  const { action, meta, decodedTx, network } = props;
+  const { action, meta, decodedTx, network, isShortenAddress = false } = props;
 
   const { amount, symbol, from, to, isOut } = getTxActionTransferInfo(props);
 
-  const details: ITxActionElementDetail[] = [
-    {
-      title: intl.formatMessage({ id: 'content__from' }),
-      content: getTxActionElementAddressWithSecurityInfo({
-        address:
-          from === 'unknown'
-            ? intl.formatMessage({ id: 'form__unknown' })
-            : from,
-        networkId: network?.id,
-        withSecurityInfo: !isOut,
-        amount,
-        isCopy: from !== 'unknown',
-        isShorten: from !== 'unknown',
-      }),
-    },
-    {
-      title: intl.formatMessage({ id: 'content__to' }),
-      content: getTxActionElementAddressWithSecurityInfo({
-        address:
-          to === 'unknown' ? intl.formatMessage({ id: 'form__unknown' }) : to,
-        networkId: network?.id,
-        withSecurityInfo: isOut,
-        amount,
-        isCopy: to !== 'unknown',
-        isShorten: to !== 'unknown',
-      }),
-    },
+  const displayFromLabel = useMemo(() => {
+    if (
+      network?.settings.hideFromToFieldIfValueEmpty &&
+      (!from || !from.length)
+    ) {
+      return false;
+    }
+    return true;
+  }, [from, network?.settings.hideFromToFieldIfValueEmpty]);
+  const displayToLabel = useMemo(() => {
+    if (network?.settings.hideFromToFieldIfValueEmpty && (!to || !to.length)) {
+      return false;
+    }
+    return true;
+  }, [to, network?.settings.hideFromToFieldIfValueEmpty]);
+
+  const details: (ITxActionElementDetail | null)[] = [
+    displayFromLabel
+      ? {
+          title: intl.formatMessage({ id: 'content__from' }),
+          content: getTxActionElementAddressWithSecurityInfo({
+            address:
+              from === 'unknown'
+                ? intl.formatMessage({ id: 'form__unknown' })
+                : from,
+            networkId: network?.id,
+            withSecurityInfo: !isOut,
+            amount,
+            isCopy: from !== 'unknown',
+            isShorten: isShortenAddress,
+          }),
+        }
+      : null,
+    displayToLabel
+      ? {
+          title: intl.formatMessage({ id: 'content__to' }),
+          content: getTxActionElementAddressWithSecurityInfo({
+            address:
+              to === 'unknown'
+                ? intl.formatMessage({ id: 'form__unknown' })
+                : to,
+            networkId: network?.id,
+            withSecurityInfo: isOut,
+            amount,
+            isCopy: to !== 'unknown',
+            isShorten: isShortenAddress,
+          }),
+        }
+      : null,
   ];
 
   return (
@@ -130,7 +154,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
 
 export function TxActionTransferT0(props: ITxActionCardProps) {
   const intl = useIntl();
-  const { action, meta, decodedTx, historyTx } = props;
+  const { action, meta, decodedTx, historyTx, network } = props;
   const { accountId, networkId } = decodedTx;
   const { amount, symbol, from, to, isOut, displayDecimals } =
     getTxActionTransferInfo(props);
@@ -143,8 +167,10 @@ export function TxActionTransferT0(props: ITxActionCardProps) {
     subTitle === 'unknown'
       ? intl.formatMessage({ id: 'form__unknown' })
       : shortenAddress(subTitle);
+
   return (
     <TxListActionBox
+      network={network}
       footer={statusBar}
       symbol={symbol}
       iconInfo={meta?.iconInfo}

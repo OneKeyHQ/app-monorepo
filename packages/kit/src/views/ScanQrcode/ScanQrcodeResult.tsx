@@ -82,7 +82,7 @@ const ScanQrcodeResult = () => {
   const { bottom } = useSafeAreaInsets();
   const isVertical = useIsVerticalLayout();
   const route = useRoute<ScanQrcodeResultRouteProp>();
-  const { data } = route.params;
+  const { data, hideMoreMenu } = route.params;
 
   const handleCopyInfoOnPress = useCallback(() => {
     copyToClipboard(data);
@@ -115,19 +115,21 @@ const ScanQrcodeResult = () => {
             >
               {intl.formatMessage({ id: 'action__copy' })}
             </Button>
-            <ScanQrcodeResultMoreMenu
-              data={data}
-              placement="top left"
-              width="280px"
-            >
-              <Button
-                size={isVertical ? 'xl' : 'base'}
-                leftIconName="EllipsisVerticalOutline"
-                flex={isVertical ? 1 : undefined}
+            {!hideMoreMenu ? (
+              <ScanQrcodeResultMoreMenu
+                data={data}
+                placement="top left"
+                width="280px"
               >
-                {intl.formatMessage({ id: 'action__more _options' })}
-              </Button>
-            </ScanQrcodeResultMoreMenu>
+                <Button
+                  size={isVertical ? 'xl' : 'base'}
+                  leftIconName="EllipsisVerticalOutline"
+                  flex={isVertical ? 1 : undefined}
+                >
+                  {intl.formatMessage({ id: 'action__more _options' })}
+                </Button>
+              </ScanQrcodeResultMoreMenu>
+            ) : null}
           </HStack>
         </Box>
       }

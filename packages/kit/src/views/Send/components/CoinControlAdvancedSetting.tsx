@@ -12,6 +12,7 @@ import {
   Pressable,
   Switch,
   Text,
+  ToastManager,
   VStack,
 } from '@onekeyhq/components';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -47,6 +48,8 @@ const CoinControlAdvancedSetting: FC<Props> = ({
     [encodedTx.inputs],
   );
 
+  const canCoinControl = !encodedTx?.transferInfo?.coinControlDisabled;
+
   const amount = useMemo(() => {
     const sumAmount = encodedTx.inputs.reduce(
       (sum, input) => sum.plus(input.value),
@@ -67,12 +70,28 @@ const CoinControlAdvancedSetting: FC<Props> = ({
           encodedTx,
           onConfirm: (selectedUtxos) => {
             navigation.goBack();
-            onSelectedUtxos(selectedUtxos);
+            if (canCoinControl) {
+              onSelectedUtxos(selectedUtxos);
+            } else {
+              ToastManager.show({
+                title: intl.formatMessage({
+                  id: 'msg__coin_control_is_disabled_for_this_tx',
+                }),
+              });
+            }
           },
         },
       },
     });
-  }, [navigation, network.id, accountId, encodedTx, onSelectedUtxos]);
+  }, [
+    navigation,
+    network.id,
+    accountId,
+    encodedTx,
+    canCoinControl,
+    onSelectedUtxos,
+    intl,
+  ]);
 
   return (
     <VStack
@@ -88,7 +107,17 @@ const CoinControlAdvancedSetting: FC<Props> = ({
         <Switch
           labelType="false"
           isChecked={isChecked}
-          onToggle={onToggleCoinControl}
+          onToggle={() => {
+            if (canCoinControl) {
+              onToggleCoinControl();
+            } else {
+              ToastManager.show({
+                title: intl.formatMessage({
+                  id: 'msg__coin_control_is_disabled_for_this_tx',
+                }),
+              });
+            }
+          }}
         />
       </HStack>
       <Divider my={4} />

@@ -2,7 +2,7 @@
 //  UIColor+Hex.h
 //  OneKeyWallet
 //
-//  Created by 林雷钦 on 2022/7/22.
+//  Created by linleiqin on 2022/7/22.
 //
 
 #import <UIKit/UIKit.h>

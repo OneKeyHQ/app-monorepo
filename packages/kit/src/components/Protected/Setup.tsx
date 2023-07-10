@@ -12,6 +12,7 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import { encodeSensitiveText } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAppSelector, useLocalAuthentication } from '../../hooks';
@@ -72,10 +73,16 @@ const Setup: FC<SetupProps> = ({
         );
         return;
       }
+      const key =
+        await backgroundApiProxy.servicePassword.getBgSensitiveTextEncodeKey();
+      const encodedPassword = encodeSensitiveText({
+        text: values.password,
+        key,
+      });
       if (boardingCompleted && !skipSavePassword) {
-        await backgroundApiProxy.serviceApp.updatePassword('', values.password);
+        await backgroundApiProxy.serviceApp.updatePassword('', encodedPassword);
       }
-      onOk?.(values.password, values.withEnableAuthentication);
+      onOk?.(encodedPassword, values.withEnableAuthentication);
     },
     [boardingCompleted, skipSavePassword, onOk, intl],
   );

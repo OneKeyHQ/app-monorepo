@@ -24,7 +24,7 @@ import {
 } from '../../hooks/useLimitOrder';
 import { SwapRoutes } from '../../typings';
 import {
-  formatAmount,
+  formatAmountExact,
   getLimitOrderPercent,
   getTokenAmountValue,
 } from '../../utils';
@@ -88,10 +88,10 @@ const SimpleView: FC<{ order: LimitOrderTransactionDetails }> = ({ order }) => {
     remainingFillable,
     canceled,
   } = order;
-  const tokenInValueString = formatAmount(
+  const tokenInValueString = formatAmountExact(
     getTokenAmountValue(tokenIn, tokenInValue),
   );
-  const tokenOutValueString = formatAmount(
+  const tokenOutValueString = formatAmountExact(
     getTokenAmountValue(tokenOut, tokenOutValue),
   );
   const text = `${tokenInValueString} ${tokenIn.symbol.toUpperCase()} → ${tokenOutValueString} ${tokenOut.symbol.toUpperCase()}`;
@@ -187,10 +187,10 @@ const FullView: FC<{ order: LimitOrderTransactionDetails }> = ({ order }) => {
   } = order;
   const intl = useIntl();
   const showDetails = useShowLimitOrderDetails(order);
-  const tokenInValueString = formatAmount(
+  const tokenInValueString = formatAmountExact(
     getTokenAmountValue(tokenIn, tokenInValue),
   );
-  const tokenOutValueString = formatAmount(
+  const tokenOutValueString = formatAmountExact(
     getTokenAmountValue(tokenOut, tokenOutValue),
   );
   const { formatDate } = useFormatDate();

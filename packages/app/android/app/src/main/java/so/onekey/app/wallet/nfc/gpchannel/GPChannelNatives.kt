@@ -14,10 +14,12 @@ object GPChannelNatives {
     external fun nativeGPCBuildMutualAuthData(): String
     external fun nativeGPCOpenSecureChannel(response: String?): Int
     external fun nativeGPCBuildAPDU(
-            cla: Long, ins: Long, p1: Long, p2: Long, data: String?): String
+        cla: Long, ins: Long, p1: Long, p2: Long, data: String = ""
+    ): String
 
     external fun nativeGPCBuildSafeAPDU(
-            cla: Long, ins: Long, p1: Long, p2: Long, data: String?): String
+        cla: Long, ins: Long, p1: Long, p2: Long, data: String = ""
+    ): String
 
     external fun nativeGPCParseSafeAPDUResponse(response: String?): String
     external fun nativeGPCParseAPDUResponse(response: String?): String

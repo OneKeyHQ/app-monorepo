@@ -121,6 +121,7 @@ export type SettingsState = {
     useDustUtxo?: boolean;
   };
   hardwareConnectSrc?: string;
+  gasPanelEIP1559Enabled?: boolean;
 };
 
 export const defaultPushNotification = {
@@ -196,6 +197,7 @@ const initialState: SettingsState = {
     useDustUtxo: true,
   },
   hardwareConnectSrc: SHORT_ONEKEYSO_URL,
+  gasPanelEIP1559Enabled: true,
 };
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
@@ -614,6 +616,9 @@ export const settingsSlice = createSlice({
     ) {
       state.hardwareConnectSrc = action.payload;
     },
+    setGasPanelEIP1559Enabled(state, action: PayloadAction<boolean>) {
+      state.gasPanelEIP1559Enabled = action.payload;
+    },
   },
 });
 
@@ -672,6 +677,7 @@ export const {
   setEnableETH2Unstake,
   setAdvancedSettings,
   setHardwareConnectSrc,
+  setGasPanelEIP1559Enabled,
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

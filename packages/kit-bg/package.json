@@ -11,18 +11,13 @@
     "@siddomains/sidjs": "^0.1.22",
     "@types/url-parse": "^1.4.8",
     "@unstoppabledomains/resolution": "^8.3.3",
-    "date-fns": "^2.27.0",
     "dotbit": "^0.4.1",
-    "react-native-restart": "0.0.24",
     "react-native-uuid": "^2.0.1",
-    "rimraf": "^3.0.2",
-    "semver": "^7.3.7",
     "socket.io-client": "^4.5.2"
   },
   "scripts": {
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx",
-    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix",
-    "clean": "rimraf node_modules"
+    "lint:fix": "tsc --noEmit && eslint . --ext .ts,.tsx --fix"
   },
   "devDependencies": {
     "@types/d3-scale": "^4.0.2",

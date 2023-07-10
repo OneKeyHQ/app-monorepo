@@ -6,7 +6,8 @@ import { ScrollView } from 'react-native-gesture-handler';
 import {
   Box,
   Center,
-  IconButton,
+  Icon,
+  Pressable,
   Select,
   Token,
   Typography,
@@ -62,15 +63,27 @@ const DesktopHeader = () => {
           ]}
           dropdownProps={{ width: '40' }}
           dropdownPosition="right"
-          renderTrigger={() => (
-            <IconButton
-              name="EllipsisVerticalOutline"
-              type="plain"
-              size="lg"
-              pointerEvents="none"
-              circle
-              m={-2}
-            />
+          renderTrigger={({ onPress }) => (
+            <Pressable onPress={onPress}>
+              {({ isHovered }) => {
+                const toggleButtonBg = () => {
+                  if (isHovered) return 'surface-hovered';
+                  return 'transparent';
+                };
+                return (
+                  <Box
+                    bg={toggleButtonBg()}
+                    w="10"
+                    h="10"
+                    justifyContent="center"
+                    alignItems="center"
+                    borderRadius="full"
+                  >
+                    <Icon name="EllipsisVerticalOutline" size={24} />
+                  </Box>
+                );
+              }}
+            </Pressable>
           )}
         />
       </Box>

@@ -74,3 +74,19 @@ export function getSvgContent(data: string) {
   }
   return data;
 }
+
+function getOriginFromUrl({ url }: { url: string }): string {
+  try {
+    const urlInfo = new URL(url);
+    const { origin } = urlInfo;
+    return origin || '';
+  } catch (error) {
+    console.error(error);
+  }
+  return '';
+}
+
+export function checkGoogleOauthUrl({ url }: { url: string }): boolean {
+  const origin = getOriginFromUrl({ url });
+  return origin === 'https://accounts.google.com';
+}

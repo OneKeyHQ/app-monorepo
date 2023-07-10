@@ -29,7 +29,6 @@ import so.onekey.app.wallet.utils.Utils;
 import io.csie.kudo.reactnative.v8.executor.V8ExecutorFactory;
 
 public class MainApplication extends Application implements ReactApplication {
-  
   private final ReactNativeHost mReactNativeHost = new ReactNativeHostWrapper(
     this,
     new DefaultReactNativeHost(this) {
@@ -72,7 +71,6 @@ public class MainApplication extends Application implements ReactApplication {
                 getUseDeveloperSupport());
       }
     }
-    
   );
 
   @Override
@@ -82,7 +80,7 @@ public class MainApplication extends Application implements ReactApplication {
 
   /**
    * 摆脱魅族系统的夜间模式「自动反色」系统
-   *
+   * <p>
    * 1. 表示由系统处理（默认）
    * 2. 表示禁止针对该view在夜间模式下进行颜色处理
    * 3. 表示夜间模式下直接针对该 view 进行反色处理
@@ -114,7 +112,7 @@ public class MainApplication extends Application implements ReactApplication {
     }
     ReactNativeFlipper.initializeFlipper(this, getReactNativeHost().getReactInstanceManager());
     ApplicationLifecycleDispatcher.onApplicationCreate(this);
-    
+
     if (BuildConfig.DEBUG) {
       WebView.setWebContentsDebuggingEnabled(true);
     }
