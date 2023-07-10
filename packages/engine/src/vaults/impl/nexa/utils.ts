@@ -260,7 +260,7 @@ function buildTxid(
   return txIdHash;
 }
 
-const buildSignatures = (encodedTx: IEncodedTxNexa, dbAccount: DBAccount) => {
+export const buildSignatures = (encodedTx: IEncodedTxNexa, dbAccount: DBAccount) => {
   const { inputs, outputs, gas } = encodedTx;
   const newOutputs = outputs.slice();
   const inputAmount: BN = inputs.reduce(
@@ -301,10 +301,6 @@ const buildSignatures = (encodedTx: IEncodedTxNexa, dbAccount: DBAccount) => {
     })),
   };
 };
-
-const buildSignatureBuffer = () => {
-  
-}
 
 // signed by 'schnorr'
 export async function signEncodedTx(
