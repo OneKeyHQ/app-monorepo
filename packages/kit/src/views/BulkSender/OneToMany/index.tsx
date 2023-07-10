@@ -5,23 +5,19 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Box,
   Button,
   HStack,
-  Icon,
-  Pressable,
   Text,
   ToastManager,
-  Token as TokenComponent,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { TokenIcon } from '@onekeyhq/components/src/Token';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 import {
-  useAccountTokenLoading,
   useAccountTokensOnChain,
   useNetwork,
   useTokenBalance,
@@ -43,7 +39,6 @@ import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
 import { BulkSenderRoutes } from '../types';
 
 import type { TokenReceiver } from '../types';
-import { TokenIcon } from '@onekeyhq/components/src/Token';
 
 interface Props {
   accountId: string;
@@ -65,7 +60,6 @@ function OneToMany(props: Props) {
   const navigation = useNavigation();
   const { network } = useNetwork({ networkId });
 
-  const loading = useAccountTokenLoading(networkId, accountId);
   const accountTokens = useAccountTokensOnChain(networkId, accountId, true);
   const tokens = accountTokens.filter((token) =>
     network?.impl === IMPL_TRON
@@ -78,7 +72,7 @@ function OneToMany(props: Props) {
 
   const initialToken = tokens[0];
   const currentToken = selectedToken || initialToken;
-  const { isNative } = currentToken;
+  const isNative = currentToken?.isNative;
 
   const tokenBalnace = useTokenBalance({
     accountId,
@@ -86,21 +80,11 @@ function OneToMany(props: Props) {
     token: currentToken,
     fallback: '0',
   });
-  const formatedBalance = useMemo(
-    () =>
-      intl.formatMessage(
-        { id: 'content__balance_str' },
-        {
-          0: `${tokenBalnace} ${currentToken?.symbol ?? ''}`,
-        },
-      ),
-    [currentToken?.symbol, intl, tokenBalnace],
-  );
 
   const { isValid, isValidating, errors } = useValidteReceiver({
     networkId,
     receiver,
-    token: selectedToken || initialToken,
+    token: currentToken,
   });
 
   const handleOnTokenSelected = useCallback((token: Token) => {
@@ -365,7 +349,7 @@ function OneToMany(props: Props) {
       <TxSettingPanel>
         <TxSettingTrigger
           header={intl.formatMessage({ id: 'form__token' })}
-          title={currentToken.symbol}
+          title={currentToken?.symbol}
           desc={intl.formatMessage(
             { id: 'content__balance_str' },
             { 0: tokenBalnace },
@@ -395,6 +379,7 @@ function OneToMany(props: Props) {
         <ReceiverInput
           accountId={accountId}
           networkId={networkId}
+          token={currentToken}
           setReceiver={setReceiver}
           receiverFromOut={receiverFromOut}
           setReceiverFromOut={setReceiverFromOut}

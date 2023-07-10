@@ -14,7 +14,10 @@ import { ReceiverErrors } from './ReceiverErrors';
 
 import type { ReceiverInputParams, TokenReceiver } from '../types';
 
-type Props = Omit<ReceiverInputParams, 'isUploadMode' | 'setIsUploadMode'> & {
+type Props = Omit<
+  ReceiverInputParams,
+  'isUploadMode' | 'setIsUploadMode' | 'token'
+> & {
   showFileError: boolean;
   setShowFileError: React.Dispatch<React.SetStateAction<boolean>>;
 };

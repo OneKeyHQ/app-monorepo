@@ -3,11 +3,17 @@ import type { FC } from 'react';
 import { useLayoutEffect, useMemo } from 'react';
 
 import { Box, Pressable, Skeleton, Text } from '@onekeyhq/components';
+import CheckBox from '@onekeyhq/components/src/CheckBox/CheckBox';
+import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IVaultSettings } from '@onekeyhq/engine/src/vaults/types';
 
-import { useActiveWalletAccount, useAppSelector } from '../../../../../hooks';
-import { useNativeTokenBalance } from '../../../../../hooks/useTokens';
+import {
+  useAccountTokensBalance,
+  useActiveWalletAccount,
+  useAppSelector,
+} from '../../../../../hooks';
 import { formatAmount } from '../../../../../utils/priceUtils';
 import ExternalAccountImg from '../../../../../views/ExternalAccount/components/ExternalAccountImg';
 import { useAccountSelectorChangeAccountOnPress } from '../../../hooks/useAccountSelectorChangeAccountOnPress';
@@ -24,6 +30,13 @@ type ListItemProps = {
   networkSettings: IVaultSettings | null | undefined;
   walletId: string | undefined;
   onLastItemRender?: () => void;
+  tokenShowBalance?: Token;
+  singleSelect?: boolean;
+  multiSelect?: boolean;
+  hideAccountActions?: boolean;
+  selectedAccounts?: string[];
+  setSelectedAccounts?: (selectedAccounts: string[]) => void;
+  onAccountsSelected?: (selectedAccounts: string[]) => void;
 };
 
 const defaultProps = {} as const;
@@ -38,13 +51,30 @@ const ListItem: FC<ListItemProps> = ({
   networkId,
   walletId,
   wallet,
+  tokenShowBalance,
+  singleSelect,
+  multiSelect,
+  hideAccountActions,
+  selectedAccounts,
+  setSelectedAccounts,
+  onAccountsSelected,
   onLastItemRender,
 }) => {
   const accountSelectorMode = useAppSelector(
     (s) => s.accountSelector.accountSelectorMode,
   );
 
-  const nativeBalance = useNativeTokenBalance(network?.id, account.id);
+  const closeModal = useModalClose();
+
+  const balances = useAccountTokensBalance(network?.id, account?.id);
+  const tokenBalance = useMemo(() => {
+    if (tokenShowBalance && !tokenShowBalance.isNative) {
+      return balances[tokenShowBalance.tokenIdOnNetwork]?.balance ?? '0';
+    }
+    return balances?.main?.balance ?? '0';
+  }, [balances, tokenShowBalance]);
+
+  const isChecked = selectedAccounts?.includes(account.address);
 
   // @ts-ignore
   const isLastItem = account?.$isLastItem;
@@ -64,10 +94,12 @@ const ListItem: FC<ListItemProps> = ({
   );
   const isActive = useMemo(
     () =>
+      !multiSelect &&
       activeWalletId === walletId &&
       activeAccountId === account.id &&
       activeNetworkId === networkId,
     [
+      multiSelect,
       activeWalletId,
       walletId,
       activeAccountId,
@@ -81,14 +113,31 @@ const ListItem: FC<ListItemProps> = ({
 
   return (
     <Pressable
-      onPress={() =>
-        onPressChangeAccount({
-          accountId: account?.id,
-          networkId,
-          walletId,
-          accountSelectorMode,
-        })
-      }
+      onPress={() => {
+        if (multiSelect) {
+          if (isChecked) {
+            setSelectedAccounts?.(
+              selectedAccounts?.filter((item) => item !== account.address) ??
+                [],
+            );
+          } else {
+            setSelectedAccounts?.([
+              ...(selectedAccounts || []),
+              account.address,
+            ]);
+          }
+        } else if (singleSelect) {
+          closeModal();
+          onAccountsSelected?.([account.address]);
+        } else {
+          onPressChangeAccount({
+            accountId: account?.id,
+            networkId,
+            walletId,
+            accountSelectorMode,
+          });
+        }
+      }}
     >
       {({ isHovered, isPressed }) => (
         <Box
@@ -131,13 +180,15 @@ const ListItem: FC<ListItemProps> = ({
                   />
                 </>
               )}
-              {nativeBalance ? (
+              {tokenBalance ? (
                 <>
                   <Text typography="Body2" color="text-subdued" isTruncated>
-                    {formatAmount(nativeBalance, 6)}
+                    {formatAmount(tokenBalance, 6)}
                   </Text>
                   <Text typography="Body2" color="text-subdued" ml="2px">
-                    {network?.symbol.toUpperCase()}
+                    {tokenShowBalance
+                      ? tokenShowBalance?.symbol.toUpperCase()
+                      : network?.symbol.toUpperCase()}
                   </Text>
                 </>
               ) : (
@@ -145,12 +196,24 @@ const ListItem: FC<ListItemProps> = ({
               )}
             </Box>
           </Box>
-          <AccountItemSelectDropdown
-            // key={account?.id}
-            wallet={wallet}
-            account={account}
-            network={network}
-          />
+          {multiSelect ? (
+            <CheckBox
+              isChecked={isChecked}
+              containerStyle={{ mr: 0 }}
+              checkBoxProps={{
+                accessibilityLabel: account.address,
+                size: 'sm',
+              }}
+            />
+          ) : null}
+          {!hideAccountActions ? (
+            <AccountItemSelectDropdown
+              // key={account?.id}
+              wallet={wallet}
+              account={account}
+              network={network}
+            />
+          ) : null}
         </Box>
       )}
     </Pressable>

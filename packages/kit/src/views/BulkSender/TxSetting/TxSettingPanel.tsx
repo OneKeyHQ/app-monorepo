@@ -1,6 +1,5 @@
-import { useIntl } from 'react-intl';
-
 import { isArray } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Box,

@@ -55,6 +55,7 @@ export type ReceiverError = {
 export type ReceiverInputParams = {
   accountId: string;
   networkId: string;
+  token: Token;
   receiverFromOut: TokenReceiver[];
   setReceiverFromOut: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
   setReceiver: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;

@@ -13,7 +13,7 @@ import type { ReceiverInputParams } from '../types';
 type Props = Omit<ReceiverInputParams, 'isUploadMode' | 'setIsUploadMode'>;
 
 function ReceiverEditor(props: Props) {
-  const { receiverFromOut, setReceiver, type, receiverErrors } = props;
+  const { receiverFromOut, setReceiver, receiverErrors } = props;
 
   const [receiverString, setReceiverString] = useState('');
 
@@ -22,8 +22,8 @@ function ReceiverEditor(props: Props) {
   });
 
   useEffect(() => {
-    setReceiver(decodeReceiver(receiverStringDebounce, type));
-  }, [receiverStringDebounce, setReceiver, type]);
+    setReceiver(decodeReceiver(receiverStringDebounce));
+  }, [receiverStringDebounce, setReceiver]);
 
   useEffect(() => {
     if (receiverFromOut.length > 0) {

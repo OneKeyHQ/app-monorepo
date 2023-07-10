@@ -1,26 +1,37 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
   Box,
   Button,
   HStack,
-  Icon,
-  Pressable,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import {
+  ManageNetworkModalRoutes,
+  ModalRoutes,
+  RootRoutes,
+} from '../../../routes/routesEnum';
+import reducerAccountSelector, {
+  EAccountSelectorMode,
+} from '../../../store/reducers/reducerAccountSelector';
 import { ReceiverEditor } from '../ReceiverEditor';
 import { ReceiverUploader } from '../ReceiverUploader';
 
 import type { ReceiverInputParams } from '../types';
 
+const { updateAccountSelectorMode } = reducerAccountSelector.actions;
+
 function ReceiverInput(props: ReceiverInputParams) {
   const {
     accountId,
     networkId,
+    token,
     receiverFromOut,
     setReceiverFromOut,
     setReceiver,
@@ -31,6 +42,28 @@ function ReceiverInput(props: ReceiverInputParams) {
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const [showFileError, setShowFileError] = useState(false);
+  const navigation = useNavigation();
+
+  const { dispatch } = backgroundApiProxy;
+
+  const handleSelectAccountsOnPress = useCallback(() => {
+    dispatch(updateAccountSelectorMode(EAccountSelectorMode.Wallet));
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.ManageNetwork,
+      params: {
+        screen: ManageNetworkModalRoutes.NetworkAccountSelector,
+        params: {
+          hideAllNetworks: true,
+          hideSideChain: true,
+          hideSearchBar: true,
+          hideCreateAccount: true,
+          hideAccountActions: true,
+          multiSelect: true,
+          tokenShowBalance: token,
+        },
+      },
+    });
+  }, [dispatch, navigation, token]);
 
   useEffect(() => {
     setShowFileError(false);
@@ -52,7 +85,11 @@ function ReceiverInput(props: ReceiverInputParams) {
               id: isUploadMode ? 'action__edit' : 'action__upload',
             })}
           </Button>
-          <Button type="plain" leftIconName="UserCircleOutline">
+          <Button
+            type="plain"
+            leftIconName="UserCircleOutline"
+            onPress={handleSelectAccountsOnPress}
+          >
             {intl.formatMessage({ id: 'form__account' })}
           </Button>
           <Button type="plain" leftIconName="BookOpenOutline">
