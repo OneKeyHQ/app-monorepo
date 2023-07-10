@@ -2,8 +2,12 @@ import { useDropzone } from 'react-dropzone';
 import { useIntl } from 'react-intl';
 
 import { Center, Icon, Text, useThemeValue } from '@onekeyhq/components';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { fileToDataUrl } from '../../../../utils/hardware/homescreens';
+import {
+  fileToBuffer,
+  fileToDataUrl,
+} from '../../../../utils/hardware/homescreens';
 import { InscribeFilePreview } from '../InscribeFilePreview';
 
 import type { Props } from './type';
@@ -32,10 +36,11 @@ function InscribeUploader(props: Props) {
         const file = files[0] as File;
         // const data = await RNFS.readFile(file., 'base64');
 
-        const data = await fileToDataUrl(file);
+        const data = await fileToBuffer(file);
+        const dataHex = bufferUtils.bytesToHex(data);
         if (data) {
           setFileFromOut({
-            data,
+            data: dataHex,
             dataLength: data.length,
             name: file.name,
             size: file.size,
