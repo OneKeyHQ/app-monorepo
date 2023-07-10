@@ -52,7 +52,7 @@ export const AllNetworksAccountsDetail: FC = () => {
   const route = useRoute<RouteProps>();
 
   const { walletId, accountId } = route?.params ?? {};
-  const allNetworksAccountsMap = useAllNetworksWalletAccounts({
+  const { data: allNetworksAccountsMap } = useAllNetworksWalletAccounts({
     walletId,
     accountId,
   });
