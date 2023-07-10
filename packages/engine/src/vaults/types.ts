@@ -139,6 +139,8 @@ export type IVaultSettings = {
   rpcStatusDisabled?: boolean;
   useSimpleTipForSpecialCheckEncodedTx?: boolean;
   hexDataEditable?: boolean;
+
+  hiddenBlockBrowserTokenDetailLink?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;

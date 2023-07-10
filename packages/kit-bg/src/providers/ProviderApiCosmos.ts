@@ -51,7 +51,7 @@ class ProviderApiCosmos extends ProviderApiBase {
 
       let params;
       try {
-        params = await this.getKey({ origin }, networkId);
+        params = await this._getKey({ origin }, networkId);
       } catch (error) {
         // ignore
       }
@@ -98,12 +98,12 @@ class ProviderApiCosmos extends ProviderApiBase {
     }
     if (!network) return false;
 
-    const key = await this.getKey(request, networkId);
+    const key = await this._getKey(request, networkId);
     if (!key) return false;
 
     if (!this.hasPermissions(request, key.pubKey)) {
       await this.backgroundApi.serviceDapp.openConnectionModal(request, {
-        networkId: appNetworkId,
+        networkId: IMPL_COSMOS,
       });
     }
 
@@ -138,7 +138,7 @@ class ProviderApiCosmos extends ProviderApiBase {
         .getActiveConnectedAccounts({ origin, impl: IMPL_COSMOS })
         .map(({ address }) => address),
     });
-    debugLogger.providerApi.info('aptos disconnect', origin);
+    debugLogger.providerApi.info('cosmos disconnect', origin);
   }
 
   private convertCosmosChainId(networkId: string | undefined | null) {
@@ -165,10 +165,10 @@ class ProviderApiCosmos extends ProviderApiBase {
     return true;
   }
 
-  @providerApiMethod()
-  public async getKey(request: IJsBridgeMessagePayload, params: string) {
-    debugLogger.providerApi.info('cosmos account', params);
-
+  private _getKey = async (
+    request: IJsBridgeMessagePayload,
+    params: string,
+  ) => {
     const { networkImpl, accountId } = getActiveWalletAccount();
 
     const networkId = this.convertCosmosChainId(params);
@@ -198,6 +198,35 @@ class ProviderApiCosmos extends ProviderApiBase {
     const account = await vault.getKey(networkId, accountId);
 
     return Promise.resolve(account);
+  };
+
+  @providerApiMethod()
+  public async getKey(request: IJsBridgeMessagePayload, params: string) {
+    debugLogger.providerApi.info('cosmos getKey account', request, params);
+    return new Promise((resolve, reject) => {
+      queue.enqueue(async () => {
+        try {
+          const result = await this._getKey(request, params);
+
+          if (!result) {
+            reject(new Error('No account found'));
+          } else {
+            if (!this.hasPermissions(request, result.pubKey)) {
+              await this.backgroundApi.serviceDapp.openConnectionModal(
+                request,
+                {
+                  networkId: IMPL_COSMOS,
+                },
+              );
+            }
+
+            resolve(result);
+          }
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
   }
 
   @providerApiMethod()

@@ -15,7 +15,7 @@
       "ios": {
         "image": "macos-ventura-13.3-xcode-14.3",
         "resourceClass": "m1-medium",
-        "env": {
+        "env": { 
           "PLATFORM": "ios"
         }
       }
