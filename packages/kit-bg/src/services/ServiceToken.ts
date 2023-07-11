@@ -701,13 +701,17 @@ export default class ServiceToken extends ServiceBase {
       .concat(tokenIds || [])
       .filter(Boolean);
 
-    [rpcBalances] = await this.getAccountBalanceFromRpc(
-      networkId,
-      accountId,
-      tokensToGet,
-      withMain,
-      tokensMap,
-    );
+    try {
+      [rpcBalances] = await this.getAccountBalanceFromRpc(
+        networkId,
+        accountId,
+        tokensToGet,
+        withMain,
+        tokensMap,
+      );
+    } catch (e) {
+      debugLogger.http.error(`getAccountBalanceFromRpc Error`, e);
+    }
     const balances: Record<string, TokenBalanceValue> = {};
     for (const k of Object.keys({
       ...serverBalances,

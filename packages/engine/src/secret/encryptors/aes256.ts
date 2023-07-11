@@ -34,15 +34,15 @@ const ENCODE_TEXT_PREFIX =
   'SENSITIVE_ENCODE::AE7EADC1-CDA0-45FA-A340-E93BEDDEA21E::';
 
 function decodePassword({ password }: { password: string }) {
-  if (platformEnv.isExtensionUi) {
-    throw new Error('decodePassword can NOT be called from UI');
-  }
   // do nothing if password is encodeKey, but not a real password
   if (password.startsWith(encodeKeyPrefix)) {
     return password;
   }
   // decode password if it is encoded
   if (password.startsWith(ENCODE_TEXT_PREFIX)) {
+    if (platformEnv.isExtensionUi) {
+      throw new Error('decodePassword can NOT be called from UI');
+    }
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     return decodeSensitiveText({ encodedText: password });
   }
