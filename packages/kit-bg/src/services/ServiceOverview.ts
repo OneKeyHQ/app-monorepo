@@ -125,18 +125,19 @@ class ServiceOverview extends ServiceBase {
     const resolvedScanTypes: Set<EOverviewScanTaskType> = new Set();
     const { pending } = results;
     const dispatchActions = [];
-    if (!pending?.length) {
-      const taskIdsWillRemove = pendingTasksForCurrentNetwork.map((t) => {
-        resolvedScanTypes.add(t.scanType);
-        return this.getTaksId(t);
-      });
-      if (taskIdsWillRemove?.length) {
-        dispatchActions.push(
-          removeOverviewPendingTasks({
-            ids: taskIdsWillRemove,
-          }),
-        );
-      }
+    if (pending?.length) {
+      return;
+    }
+    const taskIdsWillRemove = pendingTasksForCurrentNetwork.map((t) => {
+      resolvedScanTypes.add(t.scanType);
+      return this.getTaksId(t);
+    });
+    if (taskIdsWillRemove?.length) {
+      dispatchActions.push(
+        removeOverviewPendingTasks({
+          ids: taskIdsWillRemove,
+        }),
+      );
     }
     const { data, actions } = await this.processNftPriceActions({
       networkId,
