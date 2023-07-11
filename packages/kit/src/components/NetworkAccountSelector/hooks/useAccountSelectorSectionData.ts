@@ -49,11 +49,14 @@ export const useAllNetworksAccountsData = ({
       return;
     }
     setData(
-      new Array(index + 1).fill(1).map((_, i) => ({
-        id: `${selectedWalletId}--${i}`,
-        index: i,
-        name: `Account #${i + 1}`,
-      })),
+      new Array(index + 1)
+        .slice(0, 3)
+        .fill(1)
+        .map((_, i) => ({
+          id: `${selectedWalletId}--${i}`,
+          index: i,
+          name: `Account #${i + 1}`,
+        })),
     );
   }, [accountSelectorInfo]);
 
