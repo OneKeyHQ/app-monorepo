@@ -327,13 +327,10 @@ export const useNFTValues = ({
   accountId?: string;
   networkId?: string;
 }) => {
-  const { walletId } = useActiveSideAccount({
-    networkId: networkId ?? '',
-    accountId: accountId ?? '',
-  });
+  const { activeWalletId: walletId } = useAppSelector((s) => s.general);
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
-    walletId,
+    walletId: walletId ?? '',
     accountId: accountId ?? '',
   });
 
