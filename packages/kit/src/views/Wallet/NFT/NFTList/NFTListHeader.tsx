@@ -2,13 +2,7 @@ import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  HStack,
-  IconButton,
-  Typography,
-  useTheme,
-} from '@onekeyhq/components';
+import { Box, HStack, Typography, useTheme } from '@onekeyhq/components';
 import {
   useActiveWalletAccount,
   useAppSelector,
@@ -19,18 +13,10 @@ import { useNFTValues } from '../../../../hooks';
 // import { showSelectNFTPriceType } from '../../../Overlay/SelectNFTPriceType';
 
 type NFTListHeaderProps = {
-  expandEnable: boolean;
-  expand: boolean;
   isNFTSupport?: boolean;
-  onPress: () => void;
 };
 
-const NFTListHeader = ({
-  expand,
-  expandEnable,
-  onPress,
-  isNFTSupport,
-}: NFTListHeaderProps) => {
+const NFTListHeader = ({ isNFTSupport }: NFTListHeaderProps) => {
   const intl = useIntl();
   const { themeVariant } = useTheme();
   const { account, network } = useActiveWalletAccount();
@@ -94,15 +80,15 @@ const NFTListHeader = ({
         <Typography.Heading>
           {intl.formatMessage({ id: 'title__assets' })}
         </Typography.Heading>
-        {expandEnable ? (
-          <IconButton
-            name={expand ? 'ArrowsPointingInMini' : 'ArrowsPointingOutMini'}
-            size="sm"
-            circle
-            type="plain"
-            onPress={onPress}
-          />
-        ) : null}
+        {/* {expandEnable ? ( */}
+        {/*   <IconButton */}
+        {/*     name={expand ? 'ArrowsPointingInMini' : 'ArrowsPointingOutMini'} */}
+        {/*     size="sm" */}
+        {/*     circle */}
+        {/*     type="plain" */}
+        {/*     onPress={onPress} */}
+        {/*   /> */}
+        {/* ) : null} */}
       </HStack>
     </Box>
   );

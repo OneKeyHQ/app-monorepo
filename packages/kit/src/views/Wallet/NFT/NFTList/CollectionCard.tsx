@@ -16,7 +16,6 @@ import {
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
-import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
 import { useManageNetworks } from '../../../../hooks';
@@ -48,7 +47,7 @@ type SubItemListProps = {
 
 const SubItemList: FC<SubItemListProps> = ({ width, collectible }) => {
   const subItemSize = (width - 9) / 2;
-  const filterAssets = collectible.assets.filter((item, index) => index < 4);
+  const filterAssets = collectible.assets.filter((_item, index) => index < 4);
   if (filterAssets.length === 1) {
     return (
       <NFTListImage
@@ -109,15 +108,14 @@ function CollectionCard({
 }: ListItemComponentType<Collection>) {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
-  const { network } = useActiveWalletAccount();
   const { allNetworks } = useManageNetworks();
 
   const networkIcon = useMemo(() => {
-    if (!isAllNetworks(network?.id)) {
+    if (!isAllNetworks(collectible.networkId)) {
       return undefined;
     }
     return allNetworks.find((n) => n.id === collectible.networkId)?.logoURI;
-  }, [collectible, allNetworks, network?.id]);
+  }, [collectible, allNetworks]);
 
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
@@ -127,7 +125,7 @@ function CollectionCard({
   const { themeVariant } = useTheme();
   const contentSize = width - 2 * padding;
   const price = useTokenPrice({
-    networkId: network?.id ?? '',
+    networkId: collectible.networkId ?? '',
     tokenIdOnNetwork: '',
     vsCurrency: 'usd',
   });
