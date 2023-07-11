@@ -391,5 +391,5 @@ export class InscribeFileTooLargeError extends OneKeyError {
 }
 
 export class UtxoNotFoundError extends OneKeyError {
-  override key = 'msg__nft_has_been_sent_and_not_confirmed';
+  override key = 'msg__nft_does_not_exist';
 }

@@ -330,7 +330,7 @@ function PreSendAddress() {
           });
         } catch (error: any) {
           const { key: errorKey = '' } = error;
-          if (errorKey === 'msg__nft_has_been_sent_and_not_confirmed') {
+          if (errorKey === 'msg__nft_does_not_exist') {
             ToastManager.show(
               {
                 title: intl.formatMessage({ id: errorKey }),
