@@ -5,28 +5,28 @@ import { useIntl } from 'react-intl';
 
 import { HStack, Icon, Text } from '@onekeyhq/components';
 
-import type { ReceiverError } from '../types';
+import type { TraderError } from '../types';
 
 const MAX_ERROR_DISPLAY = 3;
 
 interface Props {
-  receiverErrors: ReceiverError[];
+  traderErrors: TraderError[];
   showFileError: boolean;
 }
 
-function ReceiverErrors(props: Props) {
-  const { receiverErrors, showFileError } = props;
+function TraderErrors(props: Props) {
+  const { traderErrors, showFileError } = props;
   const intl = useIntl();
 
   const receiverErrorsDisplayed = useMemo(() => {
     const result = [];
-    const errorCount = receiverErrors.length;
+    const errorCount = traderErrors.length;
     for (
       let i = 0, len = BigNumber.min(errorCount, MAX_ERROR_DISPLAY).toNumber();
       i < len;
       i += 1
     ) {
-      const error = receiverErrors[i];
+      const error = traderErrors[i];
       result.push(
         <HStack space="10px" alignItems="center" key={error.lineNumber}>
           <Icon
@@ -68,7 +68,7 @@ function ReceiverErrors(props: Props) {
       );
     }
     return result;
-  }, [receiverErrors, intl]);
+  }, [traderErrors, intl]);
 
   return (
     <>
@@ -91,4 +91,4 @@ function ReceiverErrors(props: Props) {
   );
 }
 
-export { ReceiverErrors };
+export { TraderErrors };

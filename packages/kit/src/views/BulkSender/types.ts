@@ -1,12 +1,12 @@
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
-export enum BulkSenderTypeEnum {
-  NativeToken = 'NativeToken',
-  Token = 'Token',
-  NFT = 'NFT',
+export enum BulkTypeEnum {
+  OneToMany = 'OneToMany',
+  ManyToMany = 'ManyToMany',
+  ManyToOne = 'ManyToOne',
 }
 
-export enum TokenReceiverEnum {
+export enum TokenTraderEnum {
   Address = 'Address',
   Amount = 'Amount',
 }
@@ -16,10 +16,17 @@ export enum BulkSenderRoutes {
   AmountEditor = 'AmountEditorModal',
 }
 
-export enum ReceiverExampleType {
+export enum TraderExampleType {
   TXT = 'TXT',
   CSV = 'CSV',
   Excel = 'Excel',
+}
+
+export enum AmountTypeEnum {
+  All = 'All',
+  Custom = 'Custom',
+  Random = 'Random',
+  Fixed = 'Fixed',
 }
 
 export type BulkSenderRoutesParams = {
@@ -30,36 +37,56 @@ export type BulkSenderRoutesParams = {
     onTokenSelected: (token: Token) => void;
   };
   [BulkSenderRoutes.AmountEditor]: {
-    onAmountChanged: (amount: string) => void;
+    networkId: string;
+    bulkType: BulkTypeEnum;
+    amount: string[];
+    amountType: AmountTypeEnum;
+    token: Token;
+    onAmountChanged: ({
+      amount,
+      amountType,
+    }: {
+      amount: string[];
+      amountType: AmountTypeEnum;
+    }) => void;
   };
 };
 
-export type TokenReceiver = {
+export type TokenTrader = {
   Address: string;
-  Amount: string;
+  Amount?: string;
   LinerNumber?: number;
 };
 
-export type NFTReceiver = {
+export type NFTTrader = {
   Address: string;
   Amount: string;
   TokenId: string;
   LinerNumber?: number;
 };
 
-export type ReceiverError = {
+export type TraderError = {
   lineNumber: number;
   message: string;
 };
 
-export type ReceiverInputParams = {
+export type TraderInputParams = {
+  header: string;
   accountId: string;
   networkId: string;
   token: Token;
-  receiverFromOut: TokenReceiver[];
-  setReceiverFromOut: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
-  setReceiver: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
-  receiverErrors: ReceiverError[];
+  amount: string[];
+  amountType: AmountTypeEnum;
+  traderFromOut: TokenTrader[];
+  setTraderFromOut: React.Dispatch<React.SetStateAction<TokenTrader[]>>;
+  setTrader: React.Dispatch<React.SetStateAction<TokenTrader[]>>;
+  traderErrors: TraderError[];
   isUploadMode: boolean;
   setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+export type AmountEditorValues = {
+  amount: string;
+  maxAmount: string;
+  minAmount: string;
 };

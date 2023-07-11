@@ -7,36 +7,40 @@ import { Box, Center, Icon, Text } from '@onekeyhq/components';
 import { useDebounce } from '../../../hooks';
 import { useDropUpload } from '../hooks';
 import { TextareaWithLineNumber } from '../TextareaWithLineNumber';
-import { TokenReceiverEnum } from '../types';
-import { decodeReceiver, encodeReceiver } from '../utils';
+import { AmountTypeEnum, TokenTraderEnum } from '../types';
+import { decodeTrader, encodeTrader } from '../utils';
 
-import { ReceiverErrors } from './ReceiverErrors';
+import { TraderErrors } from './TraderErrors';
 
-import type { ReceiverInputParams, TokenReceiver } from '../types';
+import type { TokenTrader, TraderInputParams } from '../types';
 
 type Props = Omit<
-  ReceiverInputParams,
-  'isUploadMode' | 'setIsUploadMode' | 'token'
+  TraderInputParams,
+  'isUploadMode' | 'setIsUploadMode' | 'token' | 'header'
 > & {
   showFileError: boolean;
   setShowFileError: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
-function ReceiverEditor(props: Props) {
+function TraderEditor(props: Props) {
   const {
-    receiverFromOut,
-    setReceiverFromOut,
-    setReceiver,
-    receiverErrors,
+    traderFromOut,
+    setTraderFromOut,
+    setTrader,
+    traderErrors,
     showFileError,
     setShowFileError,
+    amountType,
   } = props;
 
   const intl = useIntl();
 
-  const [receiverString, setReceiverString] = useState('');
-  const { isDragAccept, data, getRootProps } = useDropUpload<TokenReceiver>({
-    header: [TokenReceiverEnum.Address, TokenReceiverEnum.Amount],
+  const [traderString, setTraderString] = useState('');
+  const { isDragAccept, data, getRootProps } = useDropUpload<TokenTrader>({
+    header:
+      amountType === AmountTypeEnum.Custom
+        ? [TokenTraderEnum.Address, TokenTraderEnum.Amount]
+        : [TokenTraderEnum.Address],
     noClick: true,
     onDrop(acceptedFiles, fileRejections) {
       if (fileRejections.length > 0) {
@@ -45,34 +49,39 @@ function ReceiverEditor(props: Props) {
     },
   });
 
-  const receiverStringDebounce = useDebounce(receiverString, 500, {
+  const receiverStringDebounce = useDebounce(traderString, 500, {
     leading: true,
   });
 
   useEffect(() => {
-    setReceiver(decodeReceiver(receiverStringDebounce));
-  }, [receiverStringDebounce, setReceiver]);
+    const receiver = decodeTrader<TokenTrader>(
+      receiverStringDebounce,
+      amountType,
+    );
+    setTrader(receiver);
+    setTraderFromOut(receiver);
+  }, [amountType, receiverStringDebounce, setTrader, setTraderFromOut]);
 
   useEffect(() => {
-    if (receiverFromOut.length > 0) {
-      setReceiverString(encodeReceiver(receiverFromOut));
+    if (traderFromOut.length > 0) {
+      setTraderString(encodeTrader(traderFromOut, amountType));
     }
-  }, [receiverFromOut]);
+  }, [amountType, traderFromOut]);
 
   useEffect(() => {
     if (data && data[0] && data[0].Address && data[0].Amount) {
       setShowFileError(false);
-      setReceiverFromOut(
+      setTraderFromOut(
         data.filter(
           (item) =>
-            item.Address !== TokenReceiverEnum.Address &&
-            item.Amount !== TokenReceiverEnum.Amount,
+            item.Address !== TokenTraderEnum.Address &&
+            item.Amount !== TokenTraderEnum.Amount,
         ),
       );
     } else if (data && data[0]) {
       setShowFileError(true);
     }
-  }, [data, intl, setReceiverFromOut, setShowFileError]);
+  }, [data, intl, setTraderFromOut, setShowFileError]);
 
   return (
     <Box>
@@ -81,8 +90,8 @@ function ReceiverEditor(props: Props) {
         {...getRootProps()}
       >
         <TextareaWithLineNumber
-          receiverString={receiverString}
-          setReceiverString={setReceiverString}
+          traderString={traderString}
+          setTraderString={setTraderString}
         />
 
         {isDragAccept && (
@@ -116,8 +125,8 @@ function ReceiverEditor(props: Props) {
         )}
       </div>
       <Box mt={3}>
-        <ReceiverErrors
-          receiverErrors={receiverErrors}
+        <TraderErrors
+          traderErrors={traderErrors}
           showFileError={showFileError}
         />
       </Box>
@@ -125,4 +134,4 @@ function ReceiverEditor(props: Props) {
   );
 }
 
-export { ReceiverEditor };
+export { TraderEditor };

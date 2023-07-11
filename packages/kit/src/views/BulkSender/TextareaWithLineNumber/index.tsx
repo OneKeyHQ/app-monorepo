@@ -5,22 +5,21 @@ import { useIntl } from 'react-intl';
 import { Box, Textarea } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { encodeReceiverWithLineNumber } from '../utils';
+import { encodeTraderWithLineNumber } from '../utils';
 
 type Props = {
-  receiverString: string;
-  setReceiverString: React.Dispatch<React.SetStateAction<string>>;
+  traderString: string;
+  setTraderString: React.Dispatch<React.SetStateAction<string>>;
 };
 
 function TextareaWithLineNumber(props: Props) {
   const textAreaRef = useRef<HTMLTextAreaElement>();
   const textAreaLineNumberRef = useRef<HTMLTextAreaElement>();
-  const { receiverString, setReceiverString } = props;
+  const { traderString, setTraderString } = props;
 
   const intl = useIntl();
 
-  const receiverStringWithLineNumber =
-    encodeReceiverWithLineNumber(receiverString);
+  const traderStringWithLineNumber = encodeTraderWithLineNumber(traderString);
 
   const handleTextareaOnScroll = useCallback(() => {
     (textAreaLineNumberRef.current as HTMLTextAreaElement)?.scrollTo({
@@ -45,20 +44,20 @@ function TextareaWithLineNumber(props: Props) {
         onScroll={handleTextareaOnScroll}
         bgColor="transparent"
         bg="transparent"
-        value={receiverString}
+        value={traderString}
         pl="46px"
         h="240px"
         margin="1px"
         shadow="none"
         fontFamily={platformEnv.isNativeIOS ? 'Menlo' : 'monospace'}
-        onChangeText={(text) => setReceiverString(text)}
+        onChangeText={(text) => setTraderString(text)}
       />
       <Textarea
         // @ts-ignore
         ref={textAreaLineNumberRef}
         borderColor="transparent"
         color="text-disabled"
-        value={receiverStringWithLineNumber}
+        value={traderStringWithLineNumber}
         h="240px"
         fontFamily="monospace"
         position="absolute"

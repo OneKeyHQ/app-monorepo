@@ -10,7 +10,9 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNetworkSimple } from '../../hooks';
 
-import type { ReceiverError, TokenReceiver } from './types';
+import { BulkTypeEnum } from './types';
+
+import type { TokenTrader, TraderError } from './types';
 import type { DropzoneOptions } from 'react-dropzone';
 
 export function useDropUpload<T>(
@@ -52,56 +54,77 @@ export function useDropUpload<T>(
   };
 }
 
-export function useValidteReceiver({
+export function useValidteTrader({
   networkId,
-  receiver,
+  trader,
   token,
+  bulkType,
 }: {
   networkId: string;
-  receiver: TokenReceiver[];
+  trader: TokenTrader[];
   token: Token | null | undefined;
+  bulkType: BulkTypeEnum;
 }) {
   const [isValid, setIsValid] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
-  const [errors, setErrors] = useState<ReceiverError[]>([]);
+  const [errors, setErrors] = useState<TraderError[]>([]);
   const intl = useIntl();
   const network = useNetworkSimple(networkId);
 
   useEffect(() => {
     (async () => {
-      const validateErrors: ReceiverError[] = [];
+      const validateErrors: TraderError[] = [];
       setIsValidating(true);
-      for (let i = 0; i < receiver.length; i += 1) {
-        const { Address, Amount } = receiver[i];
+      for (let i = 0; i < trader.length; i += 1) {
+        const { Address, Amount } = trader[i];
         let hasError = false;
-
-        const amountBN = new BigNumber(Amount);
-        if (!hasError) {
-          if (amountBN.isNaN() || amountBN.isNegative()) {
-            validateErrors.push({
-              lineNumber: i + 1,
-              message: intl.formatMessage({
-                id: 'form__modify_the_line_with_the_correct_format',
-              }),
-            });
-            hasError = true;
+        if (bulkType === BulkTypeEnum.OneToMany) {
+          const amountBN = new BigNumber(Amount ?? 0);
+          if (!hasError) {
+            if (amountBN.isNaN() || amountBN.isNegative()) {
+              validateErrors.push({
+                lineNumber: i + 1,
+                message: intl.formatMessage({
+                  id: 'form__modify_the_line_with_the_correct_format',
+                }),
+              });
+              hasError = true;
+            }
           }
-        }
 
-        if (!hasError && token?.decimals) {
-          if (!amountBN.shiftedBy(token.decimals).isInteger()) {
-            validateErrors.push({
-              lineNumber: i + 1,
-              message: intl.formatMessage(
-                {
-                  id: 'msg__please_limit_the_amount_of_tokens_to_str_decimal_places_or_less',
-                },
-                {
-                  '0': token.decimals,
-                },
-              ),
-            });
-            hasError = true;
+          if (!hasError && token?.decimals) {
+            if (!amountBN.shiftedBy(token.decimals).isInteger()) {
+              validateErrors.push({
+                lineNumber: i + 1,
+                message: intl.formatMessage(
+                  {
+                    id: 'msg__please_limit_the_amount_of_tokens_to_str_decimal_places_or_less',
+                  },
+                  {
+                    '0': token.decimals,
+                  },
+                ),
+              });
+              hasError = true;
+            }
+          }
+
+          if (!hasError) {
+            if (network?.settings.minTransferAmount) {
+              const minTransferAmountBN = new BigNumber(
+                network.settings.minTransferAmount,
+              );
+              if (amountBN.lt(minTransferAmountBN)) {
+                validateErrors.push({
+                  lineNumber: i + 1,
+                  message: intl.formatMessage(
+                    { id: 'form__str_minimum_transfer' },
+                    { 0: minTransferAmountBN.toFixed(), 1: token?.symbol },
+                  ),
+                });
+                hasError = true;
+              }
+            }
           }
         }
 
@@ -121,23 +144,6 @@ export function useValidteReceiver({
             hasError = true;
           }
         }
-        if (!hasError) {
-          if (network?.settings.minTransferAmount) {
-            const minTransferAmountBN = new BigNumber(
-              network.settings.minTransferAmount,
-            );
-            if (amountBN.lt(minTransferAmountBN)) {
-              validateErrors.push({
-                lineNumber: i + 1,
-                message: intl.formatMessage(
-                  { id: 'form__str_minimum_transfer' },
-                  { 0: minTransferAmountBN.toFixed(), 1: token?.symbol },
-                ),
-              });
-              hasError = true;
-            }
-          }
-        }
       }
 
       setIsValidating(false);
@@ -145,12 +151,13 @@ export function useValidteReceiver({
       setErrors(validateErrors);
     })();
   }, [
+    bulkType,
     intl,
     network?.settings.minTransferAmount,
     networkId,
-    receiver,
     token?.decimals,
     token?.symbol,
+    trader,
   ]);
 
   return {

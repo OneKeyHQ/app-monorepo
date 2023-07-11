@@ -15,28 +15,24 @@ import {
   ToastManager,
 } from '@onekeyhq/components';
 
-import { ReceiverErrors } from '../ReceiverEditor/ReceiverErrors';
-import { ReceiverExample } from '../ReceiverExample';
-import { TokenReceiverEnum } from '../types';
+import { TraderErrors } from '../TraderEditor/TraderErrors';
+import { TraderExample } from '../TraderExample';
+import { TokenTraderEnum } from '../types';
 
-import type { TokenReceiver } from '../types';
+import type { TokenTrader } from '../types';
 
 const MAX_FILE_SIZE = 1024 * 100;
 
 interface Props {
-  setReceiverFromOut: React.Dispatch<React.SetStateAction<TokenReceiver[]>>;
+  setTraderFromOut: React.Dispatch<React.SetStateAction<TokenTrader[]>>;
   setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
   showFileError: boolean;
   setShowFileError: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-function ReceiverUploader(props: Props) {
-  const {
-    setReceiverFromOut,
-    setIsUploadMode,
-    showFileError,
-    setShowFileError,
-  } = props;
+function TraderUploader(props: Props) {
+  const { setTraderFromOut, setIsUploadMode, showFileError, setShowFileError } =
+    props;
 
   const [isUploading, setIsUploading] = useState(false);
   const intl = useIntl();
@@ -74,16 +70,16 @@ function ReceiverUploader(props: Props) {
       });
       const wb = read(b64, { raw: true, type: 'base64' });
 
-      const data = utils.sheet_to_json<TokenReceiver>(
+      const data = utils.sheet_to_json<TokenTrader>(
         wb.Sheets[wb.SheetNames[0]],
-        { header: [TokenReceiverEnum.Address, TokenReceiverEnum.Amount] },
+        { header: [TokenTraderEnum.Address, TokenTraderEnum.Amount] },
       );
       if (data && data[0] && data[0].Address && data[0].Amount) {
-        setReceiverFromOut(
+        setTraderFromOut(
           data.filter(
             (item) =>
-              item.Address !== TokenReceiverEnum.Address &&
-              item.Amount !== TokenReceiverEnum.Amount,
+              item.Address !== TokenTraderEnum.Address &&
+              item.Amount !== TokenTraderEnum.Amount,
           ),
         );
         setShowFileError(false);
@@ -96,7 +92,7 @@ function ReceiverUploader(props: Props) {
       setShowFileError(true);
       setIsUploading(false);
     }
-  }, [intl, setIsUploadMode, setReceiverFromOut, setShowFileError]);
+  }, [intl, setIsUploadMode, setTraderFromOut, setShowFileError]);
 
   return (
     <>
@@ -118,13 +114,13 @@ function ReceiverUploader(props: Props) {
         </Center>
       </Pressable>
       <Box mt={3}>
-        <ReceiverErrors receiverErrors={[]} showFileError={showFileError} />
+        <TraderErrors traderErrors={[]} showFileError={showFileError} />
       </Box>
       <Box mt={4}>
-        <ReceiverExample />
+        <TraderExample />
       </Box>
     </>
   );
 }
 
-export { ReceiverUploader };
+export { TraderUploader };

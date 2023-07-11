@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
-  HStack,
   Text,
   ToastManager,
   useIsVerticalLayout,
@@ -30,15 +29,17 @@ import {
 import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AmountEditorTrigger } from '../AmountEditor/AmountEditorTrigger';
 import { showApprovalSelector } from '../ApprovalSelector';
-import { useValidteReceiver } from '../hooks';
-import { ReceiverExample } from '../ReceiverExample';
-import { ReceiverInput } from '../ReceiverInput';
+import { amountDefaultTypeMap } from '../constants';
+import { useValidteTrader } from '../hooks';
+import { TraderExample } from '../TraderExample';
+import { TraderInput } from '../TraderInput';
 import { TxSettingPanel } from '../TxSetting/TxSettingPanel';
 import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
-import { BulkSenderRoutes } from '../types';
+import { AmountTypeEnum, BulkSenderRoutes, BulkTypeEnum } from '../types';
 
-import type { TokenReceiver } from '../types';
+import type { TokenTrader } from '../types';
 
 interface Props {
   accountId: string;
@@ -46,15 +47,24 @@ interface Props {
   accountAddress: string;
 }
 
+const bulkType = BulkTypeEnum.OneToMany;
+
 function OneToMany(props: Props) {
   const { accountId, networkId, accountAddress } = props;
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
-  const [receiver, setReceiver] = useState<TokenReceiver[]>([]);
-  const [receiverFromOut, setReceiverFromOut] = useState<TokenReceiver[]>([]);
+  const [receiver, setReceiver] = useState<TokenTrader[]>([]);
+  const [receiverFromOut, setReceiverFromOut] = useState<TokenTrader[]>([]);
   const [isUploadMode, setIsUploadMode] = useState(false);
   const [isBuildingTx, setIsBuildingTx] = useState(false);
   const [isUnlimited, setIsUnlimited] = useState(false);
   const [isAlreadyUnlimited, setIsAlreadyUnlimited] = useState(false);
+  const [isfetchingAllowance, setIsFetchingAllowance] = useState(false);
+
+  const [amountType, setAmountType] = useState<AmountTypeEnum>(
+    amountDefaultTypeMap[bulkType] ?? AmountTypeEnum.Fixed,
+  );
+  const [amount, setAmount] = useState<string[]>(['0']);
+
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
@@ -70,7 +80,7 @@ function OneToMany(props: Props) {
   const { serviceBatchTransfer, serviceToken, serviceOverview } =
     backgroundApiProxy;
 
-  const initialToken = tokens[0];
+  const initialToken = tokens.find((token) => token.isNative) ?? tokens[0];
   const currentToken = selectedToken || initialToken;
   const isNative = currentToken?.isNative;
 
@@ -81,10 +91,11 @@ function OneToMany(props: Props) {
     fallback: '0',
   });
 
-  const { isValid, isValidating, errors } = useValidteReceiver({
+  const { isValid, isValidating, errors } = useValidteTrader({
     networkId,
-    receiver,
+    trader: receiver,
     token: currentToken,
+    bulkType,
   });
 
   const handleOnTokenSelected = useCallback((token: Token) => {
@@ -92,15 +103,32 @@ function OneToMany(props: Props) {
   }, []);
 
   const handleOnAmountChanged = useCallback(
-    (amount: string) => {
-      const receiverWithChangedAmount = receiver.map((item) => ({
-        ...item,
-        Amount: amount,
-      }));
+    ({
+      amount: amountFromEditor,
+      amountType: amountTypeFromEditor,
+    }: {
+      amount: string[];
+      amountType: AmountTypeEnum;
+    }) => {
+      let receiverWithChangedAmount = [];
+
+      if (amountTypeFromEditor === AmountTypeEnum.Custom) {
+        receiverWithChangedAmount = receiver.map((item) => ({
+          ...item,
+          Amount: amountFromEditor[0] ?? '0',
+        }));
+      } else {
+        receiverWithChangedAmount = receiver.map((item) => ({
+          ...item,
+        }));
+      }
+
+      setAmount(amountFromEditor);
+      setAmountType(amountTypeFromEditor);
 
       setReceiverFromOut(receiverWithChangedAmount);
     },
-    [receiver, setReceiverFromOut],
+    [receiver],
   );
 
   const handleOpenTokenSelector = useCallback(() => {
@@ -117,18 +145,6 @@ function OneToMany(props: Props) {
       },
     });
   }, [accountId, handleOnTokenSelected, navigation, networkId, tokens]);
-
-  const handleOpenAmountEditor = useCallback(() => {
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.BulkSender,
-      params: {
-        screen: BulkSenderRoutes.AmountEditor,
-        params: {
-          onAmountChanged: handleOnAmountChanged,
-        },
-      },
-    });
-  }, [handleOnAmountChanged, navigation]);
 
   const handleOpenApprovalSelector = useCallback(() => {
     showApprovalSelector({
@@ -317,15 +333,21 @@ function OneToMany(props: Props) {
         currentToken?.tokenIdOnNetwork &&
         contract
       ) {
-        const { isUnlimited: isUnlimitedAllowance } =
-          await serviceBatchTransfer.checkIsUnlimitedAllowance({
-            networkId,
-            owner: accountAddress,
-            spender: contract,
-            token: currentToken?.tokenIdOnNetwork,
-          });
-        setIsUnlimited(isUnlimitedAllowance);
-        setIsAlreadyUnlimited(isUnlimitedAllowance);
+        try {
+          setIsFetchingAllowance(true);
+          const { isUnlimited: isUnlimitedAllowance } =
+            await serviceBatchTransfer.checkIsUnlimitedAllowance({
+              networkId,
+              owner: accountAddress,
+              spender: contract,
+              token: currentToken?.tokenIdOnNetwork,
+            });
+          setIsUnlimited(isUnlimitedAllowance);
+          setIsAlreadyUnlimited(isUnlimitedAllowance);
+          setIsFetchingAllowance(false);
+        } catch {
+          setIsFetchingAllowance(false);
+        }
       }
     };
     fetchTokenAllowance();
@@ -349,7 +371,7 @@ function OneToMany(props: Props) {
       <TxSettingPanel>
         <TxSettingTrigger
           header={intl.formatMessage({ id: 'form__token' })}
-          title={currentToken?.symbol}
+          title={currentToken?.symbol ?? ''}
           desc={intl.formatMessage(
             { id: 'content__balance_str' },
             { 0: tokenBalnace },
@@ -357,18 +379,29 @@ function OneToMany(props: Props) {
           icon={<TokenIcon size={10} token={currentToken} />}
           onPress={handleOpenTokenSelector}
         />
+        <AmountEditorTrigger
+          token={currentToken}
+          handleOnAmountChanged={handleOnAmountChanged}
+          transferCount={receiver.length}
+          amount={amount}
+          amountType={amountType}
+          bulkType={bulkType}
+          networkId={network?.id ?? ''}
+        />
         {!isNative && network?.settings.batchTransferApprovalRequired && (
           <TxSettingTrigger
+            isLoading={isfetchingAllowance}
             header={intl.formatMessage({ id: 'form__allowance' })}
             title={intl.formatMessage({
               id: isUnlimited ? 'form__unlimited' : 'form__exact_amount',
             })}
             desc={
-              isAlreadyUnlimited &&
-              isUnlimited && (
+              isAlreadyUnlimited && isUnlimited ? (
                 <Text typography="Body2" color="text-success">
                   {intl.formatMessage({ id: 'form__approved' })}
                 </Text>
+              ) : (
+                'To Be Approved'
               )
             }
             onPress={handleOpenApprovalSelector}
@@ -376,14 +409,21 @@ function OneToMany(props: Props) {
         )}
       </TxSettingPanel>
       <Box mt={8}>
-        <ReceiverInput
+        <TraderInput
+          header={
+            amountType === AmountTypeEnum.Custom
+              ? 'Receiptent Address, Amount'
+              : 'Receiptent'
+          }
           accountId={accountId}
           networkId={networkId}
           token={currentToken}
-          setReceiver={setReceiver}
-          receiverFromOut={receiverFromOut}
-          setReceiverFromOut={setReceiverFromOut}
-          receiverErrors={errors}
+          amount={amount}
+          amountType={amountType}
+          setTrader={setReceiver}
+          traderFromOut={receiverFromOut}
+          setTraderFromOut={setReceiverFromOut}
+          traderErrors={errors}
           isUploadMode={isUploadMode}
           setIsUploadMode={setIsUploadMode}
         />
@@ -394,24 +434,15 @@ function OneToMany(props: Props) {
             id: 'content__deflationary_token_transfers_are_not_supported_at_this_moment',
           })}
         </Text>
-        <HStack space={4} alignItems="center" flexWrap="wrap">
-          <Button
-            mt={4}
-            type="basic"
-            size="sm"
-            leftIconName="CurrencyDollarSolid"
-            onPress={handleOpenAmountEditor}
-          >
-            <Text typography="CaptionStrong">
-              {intl.formatMessage({ id: 'action__edit_amount' })}
-            </Text>
-          </Button>
-        </HStack>
         <Box mt={4}>
           <Button
             isLoading={isValidating || isBuildingTx}
             isDisabled={
-              isValidating || !isValid || receiver.length === 0 || isBuildingTx
+              isValidating ||
+              !isValid ||
+              receiver.length === 0 ||
+              isBuildingTx ||
+              isfetchingAllowance
             }
             type="primary"
             size="xl"
@@ -422,7 +453,7 @@ function OneToMany(props: Props) {
           </Button>
         </Box>
         <Box mt={4}>
-          <ReceiverExample />
+          <TraderExample />
         </Box>
       </Box>
     </Box>

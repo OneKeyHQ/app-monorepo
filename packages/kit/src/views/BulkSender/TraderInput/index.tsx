@@ -11,31 +11,28 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   ManageNetworkModalRoutes,
   ModalRoutes,
   RootRoutes,
 } from '../../../routes/routesEnum';
-import reducerAccountSelector, {
-  EAccountSelectorMode,
-} from '../../../store/reducers/reducerAccountSelector';
-import { ReceiverEditor } from '../ReceiverEditor';
-import { ReceiverUploader } from '../ReceiverUploader';
+import { AddressBookRoutes } from '../../AddressBook/routes';
+import { TraderEditor } from '../TraderEditor';
+import { TraderUploader } from '../TraderUploader';
+import { AmountTypeEnum, type TraderInputParams } from '../types';
 
-import type { ReceiverInputParams } from '../types';
-
-const { updateAccountSelectorMode } = reducerAccountSelector.actions;
-
-function ReceiverInput(props: ReceiverInputParams) {
+function TraderInput(props: TraderInputParams) {
   const {
+    header,
     accountId,
     networkId,
+    amount,
+    amountType,
     token,
-    receiverFromOut,
-    setReceiverFromOut,
-    setReceiver,
-    receiverErrors,
+    traderFromOut,
+    setTraderFromOut,
+    setTrader,
+    traderErrors,
     isUploadMode,
     setIsUploadMode,
   } = props;
@@ -44,10 +41,8 @@ function ReceiverInput(props: ReceiverInputParams) {
   const [showFileError, setShowFileError] = useState(false);
   const navigation = useNavigation();
 
-  const { dispatch } = backgroundApiProxy;
-
   const handleSelectAccountsOnPress = useCallback(() => {
-    dispatch(updateAccountSelectorMode(EAccountSelectorMode.Wallet));
+    setIsUploadMode(false);
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.ManageNetwork,
       params: {
@@ -60,10 +55,66 @@ function ReceiverInput(props: ReceiverInputParams) {
           hideAccountActions: true,
           multiSelect: true,
           tokenShowBalance: token,
+          onAccountsSelected: (addresses) => {
+            setIsUploadMode(false);
+            setTraderFromOut((prev) => [
+              ...prev,
+              ...addresses.map((address) =>
+                amountType === AmountTypeEnum.Custom
+                  ? {
+                      Address: address,
+                      Amount: amount[0],
+                    }
+                  : {
+                      Address: address,
+                    },
+              ),
+            ]);
+          },
         },
       },
     });
-  }, [dispatch, navigation, token]);
+  }, [
+    amount,
+    amountType,
+    navigation,
+    setIsUploadMode,
+    setTraderFromOut,
+    token,
+  ]);
+
+  const handleSelectContactOnPress = useCallback(() => {
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.AddressBook,
+      params: {
+        screen: AddressBookRoutes.PickAddressRoute,
+        params: {
+          networkId,
+          onSelected: ({ address }) => {
+            setIsUploadMode(false);
+            setTraderFromOut((prev) => [
+              ...prev,
+              amountType === AmountTypeEnum.Custom
+                ? {
+                    Address: address,
+                    Amount: amount[0],
+                  }
+                : {
+                    Address: address,
+                  },
+            ]);
+          },
+        },
+      },
+    });
+  }, [
+    amount,
+    amountType,
+    navigation,
+    networkId,
+    setIsUploadMode,
+    setTraderFromOut,
+  ]);
 
   useEffect(() => {
     setShowFileError(false);
@@ -73,7 +124,7 @@ function ReceiverInput(props: ReceiverInputParams) {
     <>
       <HStack justifyContent="space-between" alignItems="center" mb="10px">
         <Text fontSize={18} typography="Heading">
-          {intl.formatMessage({ id: 'form__receiver_address_amount' })}
+          {header}
         </Text>
         <HStack>
           <Button
@@ -92,27 +143,33 @@ function ReceiverInput(props: ReceiverInputParams) {
           >
             {intl.formatMessage({ id: 'form__account' })}
           </Button>
-          <Button type="plain" leftIconName="BookOpenOutline">
+          <Button
+            type="plain"
+            leftIconName="BookOpenOutline"
+            onPress={handleSelectContactOnPress}
+          >
             {intl.formatMessage({ id: 'title__contacts' })}
           </Button>
         </HStack>
       </HStack>
       <Box display={isUploadMode ? 'flex' : 'none'}>
-        <ReceiverUploader
+        <TraderUploader
           showFileError={showFileError}
           setShowFileError={setShowFileError}
-          setReceiverFromOut={setReceiverFromOut}
+          setTraderFromOut={setTraderFromOut}
           setIsUploadMode={setIsUploadMode}
         />
       </Box>
       <Box display={isUploadMode ? 'none' : 'flex'}>
-        <ReceiverEditor
+        <TraderEditor
+          amount={amount}
+          amountType={amountType}
           accountId={accountId}
           networkId={networkId}
-          setReceiver={setReceiver}
-          receiverFromOut={receiverFromOut}
-          setReceiverFromOut={setReceiverFromOut}
-          receiverErrors={receiverErrors}
+          setTrader={setTrader}
+          traderFromOut={traderFromOut}
+          setTraderFromOut={setTraderFromOut}
+          traderErrors={traderErrors}
           showFileError={showFileError}
           setShowFileError={setShowFileError}
         />
@@ -126,4 +183,4 @@ function ReceiverInput(props: ReceiverInputParams) {
   );
 }
 
-export { ReceiverInput };
+export { TraderInput };
