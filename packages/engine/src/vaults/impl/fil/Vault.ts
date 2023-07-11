@@ -8,9 +8,9 @@ import {
 } from '@glif/filecoin-address';
 import { Message } from '@glif/filecoin-message';
 import LotusRpcEngine from '@glif/filecoin-rpc-client';
-import { ethers } from '@onekeyfe/blockchain-libs';
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
+import { ethers } from 'ethers';
 import { isEmpty, isNil, isObject } from 'lodash';
 
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';

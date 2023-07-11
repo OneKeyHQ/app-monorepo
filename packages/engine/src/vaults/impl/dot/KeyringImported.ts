@@ -1,11 +1,12 @@
 import { bytesToHex } from '@noble/hashes/utils';
-import { ed25519 } from '@onekeyfe/blockchain-libs/dist/secret/curves';
 
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { Signer } from '@onekeyhq/engine/src/proxy';
+import { ed25519 } from '@onekeyhq/engine/src/secret/curves';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { CommonMessage } from '@onekeyhq/engine/src/types/message';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { KeyringImportedBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringImportedBase';
 import type {
   IPrepareImportedAccountsParams,
@@ -20,10 +21,6 @@ import polkadotSdk from './sdk/polkadotSdk';
 
 import type { DotImplOptions } from './types';
 import type Vault from './Vault';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const { bufferToU8a, u8aConcat } = polkadotSdk;
 

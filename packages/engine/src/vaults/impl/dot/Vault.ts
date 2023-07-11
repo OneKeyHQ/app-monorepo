@@ -1,7 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
-import { bytesToHex } from '@noble/hashes/utils';
-import { decrypt } from '@onekeyfe/blockchain-libs/dist/secret/encryptors/aes256';
-import { TransactionStatus } from '@onekeyfe/blockchain-libs/dist/types/provider';
 import {
   construct,
   createMetadata,
@@ -10,8 +7,10 @@ import {
   methods,
 } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
-import { get, groupBy, isEmpty, isNil } from 'lodash';
+import { groupBy, isEmpty, isNil } from 'lodash';
 
+import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
+import { decrypt } from '@onekeyhq/engine/src/dbs/base';
 import {
   InvalidAddress,
   InvalidTransferValue,
@@ -22,6 +21,7 @@ import type {
   DBAccount,
   DBVariantAccount,
 } from '@onekeyhq/engine/src/types/account';
+import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { KeyringSoftwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringSoftwareBase';
 import type {
@@ -66,24 +66,16 @@ import polkadotSdk from './sdk/polkadotSdk';
 import { EXTRINSIC_VERSION } from './sdk/polkadotSdkTypes';
 import settings from './settings';
 import { SubScanClient } from './substrate/query/subscan';
-import {
-  getTransactionType,
-  getTransactionTypeFromTxInfo,
-  getTransactionTypeV2,
-} from './utils';
+import { getTransactionTypeFromTxInfo, getTransactionTypeV2 } from './utils';
 
 import type {
   BlockHash,
   IApiPromise,
-  IHttpProvider,
-  IWsProvider,
   Metadata,
   ProviderInterface,
   RuntimeVersion,
 } from './sdk/polkadotSdkTypes';
-import type { ExtrinsicParam } from './substrate/query/subscan/type';
 import type { DotImplOptions, IEncodedTxDot } from './types';
-import type { BaseClient } from '@onekeyfe/blockchain-libs/dist/provider/abc';
 import type { BaseTxInfo, TypeRegistry } from '@substrate/txwrapper-polkadot';
 
 const {
