@@ -105,6 +105,36 @@ function normalizeConfig({
       isDev ? new ReactRefreshWebpackPlugin({ overlay: false }) : null,
     ].filter(Boolean);
 
+    // add devServer proxy
+    if (config.devServer) {
+      const logScript = `console.log('react-render-tracker is disabled')`;
+      config.devServer.proxy = config.devServer.proxy || {};
+      config.devServer.proxy[
+        '/react-render-tracker@0.7.3/dist/react-render-tracker.js'
+      ] = {
+        target: 'https://unpkg.com',
+        changeOrigin: true,
+        logLevel: 'debug',
+        onProxyRes: async (proxyRes, req, res) => {
+          if (req.headers.cookie.includes('rrt=1')) {
+            proxyRes.headers['Cache-Control'] =
+              'no-store, no-cache, must-revalidate, proxy-revalidate';
+            proxyRes.headers.Expires = '0';
+          } else {
+            res.setHeader(
+              'Cache-Control',
+              'no-store, no-cache, must-revalidate, proxy-revalidate',
+            );
+            res.setHeader('Content-Type', 'text/javascript');
+            res.setHeader('Age', '0');
+            res.setHeader('Expires', '0');
+            res.write(logScript);
+            res.end();
+          }
+        },
+      };
+    }
+
     if (process.env.ENABLE_ANALYZER) {
       const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
       config.plugins.push(

@@ -8,14 +8,13 @@ function createEjsParams({ filename = '', platform = '', browser = '' }) {
       encoding: 'utf-8',
     },
   );
-
   return {
     filename,
     platform,
     browser,
     htmlHeadPreloadCode,
     // enable react native tracker
-    rrt: process.env.RRT,
+    isDev: process.env.NODE_ENV === 'development',
   };
 }
 
