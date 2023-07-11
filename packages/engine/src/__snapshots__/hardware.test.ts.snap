@@ -1,0 +1,33 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ethereumSignMessage ETH_SIGN should hash message 1`] = `"0x879a053d4800c6354e76c7985a865d2922c82fb5b3f4577b2fe08b998954f2e0"`;
+
+exports[`ethereumSignMessage PERSONAL_SIGN should hash message 1`] = `"0x4578616d706c652060706572736f6e616c5f7369676e60206d657373616765"`;
+
+exports[`ethereumSignMessage TYPE_DATA_V4 should hash data when given extraneous types 1`] = `"15d2c54cdaa22a6a3a8dbd89086b2ffcf0853857db9bcf1541765a8f769a63ba"`;
+
+exports[`ethereumSignMessage TYPE_DATA_V4 should hash data with a custom data type array 1`] = `"ac26cc7aa2cb9a8a445fae4e48b33f978b558da9b16e26381c53814d3317f541"`;
+
+exports[`ethereumSignMessage TYPE_DATA_V4 should hash data with a custom type property set to null 1`] = `"fdecfae63c304f6fc7795188607e3838f5bf6798e47f147efdb2c71fcec1335e"`;
+
+exports[`ethereumSignMessage TYPE_DATA_V4 should hash data with a custom type property set to undefined 1`] = `"fdecfae63c304f6fc7795188607e3838f5bf6798e47f147efdb2c71fcec1335e"`;
+
+exports[`ethereumSignMessage TYPE_DATA_V4 should hash data with a dynamic property set to null 1`] = `"d2a1810699ec28c0c42814956e9f333a82abe619c42a5610e568c2c4c21af66e"`;
+
+exports[`ethereumSignMessage TYPE_DATA_V4 should hash data with a recursive data type 1`] = `"098a3fdba6dae9a89a220b7adbe1f38cf5d2aeabd94657aea65bb8aeef44f02e"`;
+
+exports[`ethereumSignMessage TYPE_DATA_V4 should hash data with custom type 1`] = `"c52c0ee5d84264471806290a3f2c4cecfc5490626bf912d01f240d7a274b371e"`;
+
+exports[`ethereumSignMessage TYPED_DATA_V3 should hash data when given extraneous types 1`] = `"15d2c54cdaa22a6a3a8dbd89086b2ffcf0853857db9bcf1541765a8f769a63ba"`;
+
+exports[`ethereumSignMessage TYPED_DATA_V3 should hash data with a custom type property set to undefined 1`] = `"adb6678488e67a64751a5e102fb22d40eae1eaa02809c52458562c9158bcf2c9"`;
+
+exports[`ethereumSignMessage TYPED_DATA_V3 should hash data with a dynamic property set to null 1`] = `"d2a1810699ec28c0c42814956e9f333a82abe619c42a5610e568c2c4c21af66e"`;
+
+exports[`ethereumSignMessage TYPED_DATA_V3 should hash data with a dynamic property set to undefined 1`] = `"8c6273864d5942235f90965f11c0a66344a02be03ae4961c4bdc9b9db849463e"`;
+
+exports[`ethereumSignMessage TYPED_DATA_V3 should hash data with a recursive data type 1`] = `"08fafba26ad35ef7eb49050d251805e1e6b873bd4a096bfd11ad0d3a276161c0"`;
+
+exports[`ethereumSignMessage TYPED_DATA_V3 should hash data with an atomic property set to undefined 1`] = `"b95cd7bb59592ce59cdba3b1c9c42c8dcd68fc8a59bd26f12f9a13805e34af16"`;
+
+exports[`ethereumSignMessage TYPED_DATA_V3 should hash data with custom type 1`] = `"c52c0ee5d84264471806290a3f2c4cecfc5490626bf912d01f240d7a274b371e"`;

@@ -16,8 +16,10 @@ import {
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import { TaprootAddressError } from '@onekeyhq/engine/src/errors';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/engine/src/types/wallet';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../../../../hooks';
@@ -45,7 +47,7 @@ function BTCAssetDetailContent({
 }) {
   const intl = useIntl();
   const { format } = useFormatDate();
-  const { serviceNFT } = backgroundApiProxy;
+  const { serviceNFT, serviceInscribe } = backgroundApiProxy;
 
   const { network } = useNetwork({
     networkId: outerAsset?.networkId ?? '',
@@ -74,6 +76,13 @@ function BTCAssetDetailContent({
     if (!account) {
       return;
     }
+    const validateAddress = async (address: string) => {
+      try {
+        await serviceInscribe.checkValidTaprootAddress({ address });
+      } catch (error) {
+        throw new TaprootAddressError();
+      }
+    };
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Send,
       params: {
@@ -86,6 +95,9 @@ function BTCAssetDetailContent({
           to: '',
           amount: '0',
           nftTokenId: asset.inscription_id,
+          validateAddress: async (_, address) => {
+            await validateAddress(address);
+          },
           nftInscription: {
             address: asset.owner,
             inscriptionId: asset.inscription_id,
@@ -96,7 +108,16 @@ function BTCAssetDetailContent({
         },
       },
     });
-  }, [asset, modalClose, navigation, outerAsset]);
+  }, [
+    asset.inscription_id,
+    asset.location,
+    asset.output,
+    asset.owner,
+    modalClose,
+    navigation,
+    outerAsset,
+    serviceInscribe,
+  ]);
 
   useEffect(() => {
     (async () => {
@@ -194,9 +215,11 @@ function BTCAssetDetailContent({
           {!!asset.timestamp && (
             <DetailItem
               onPress={() => {
-                openUrl(
-                  `https://ordinals.com/inscription/${asset.inscription_id}`,
-                );
+                const isMainNet = network?.id === OnekeyNetwork.btc;
+                const host = isMainNet
+                  ? 'https://ordinals.com'
+                  : 'http://ordinals-testnet.onekeytest.com';
+                openUrl(`${host}/inscription/${asset.inscription_id}`);
               }}
               title={intl.formatMessage({
                 id: 'form__ordinal_inscription_date',

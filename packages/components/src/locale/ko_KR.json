@@ -1801,7 +1801,7 @@
   "modal__bootloader_update": "부트로더 업데이트",
   "modal__calculator": "계산자",
   "modal__camera_access_not_granted": "카메라 액세스 권한이 부여되지 않음",
-  "modal__camera_access_not_granted_desc": "설정으로 이동하여 카메라 액세스를 켭니다.",
+  "modal__camera_access_not_granted_desc": "OneKey는 QR 코드 스캔을 위해 카메라 액세스가 필요합니다. 이 기능을 사용하려면 설정으로 이동하여 카메라 권한을 켜야 합니다.",
   "modal__charts": "차트",
   "modal__check_firmware_update_failure": "펌웨어 업그레이드를 확인하지 못했습니다.",
   "modal__check_firmware_update_failure_desc": "장치를 다시 시작하고 다시 시도를 클릭하거나 장치에서 업데이트가 성공했는지 확인합니다.",

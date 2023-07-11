@@ -208,6 +208,11 @@ export default class ServiceInscribe extends ServiceBase {
     const txids = await client.batchCall<string[]>(
       txs.map((rawTx) => ['sendrawtransaction', [rawTx]]),
     );
+    // broadcast orphan transaction:
+    //    {code: -25, message: "bad-txns-inputs-missingorspent"}
+    // const txids = await client.batchCall<string[]>(
+    //   [txs[1]].map((rawTx) => ['sendrawtransaction', [rawTx]]),
+    // );
     return txids;
 
     // const decodedTx = decodeBtcRawTx(rawTx);
@@ -742,6 +747,7 @@ export default class ServiceInscribe extends ServiceBase {
   }): Promise<IInscriptionContent[]> {
     const contents: IInscriptionContent[] = [];
     const previewTextSize = 200;
+    const maxBytesSize = 380 * 1000;
 
     const buildTextContent = ({
       name,
@@ -757,9 +763,16 @@ export default class ServiceInscribe extends ServiceBase {
       if (previewText.length < text.length) {
         previewText += '...';
       }
+      const hex = bufferUtils.textToHex(text);
+      const buffer = bufferUtils.hexToBytes(hex);
+      if (buffer.length > maxBytesSize) {
+        throw new Error(
+          `createInscriptionContents ERROR: Text too long, ${buffer.length}>${maxBytesSize}`,
+        );
+      }
       return {
         name: name || '',
-        hex: bufferUtils.textToHex(text),
+        hex,
         mimetype,
         sha256: '',
         previewText,
@@ -794,6 +807,12 @@ export default class ServiceInscribe extends ServiceBase {
 
     for (const file of files) {
       const { mimetype, data, filename } = file;
+      const buffer = bufferUtils.hexToBytes(data);
+      if (buffer.length > maxBytesSize) {
+        throw new Error(
+          `createInscriptionContents ERROR: File too large, ${buffer.length}>${maxBytesSize}`,
+        );
+      }
       contents.push({
         categoryType: 'file',
         name: filename || '',
@@ -924,8 +943,16 @@ export default class ServiceInscribe extends ServiceBase {
       if (!content.sha256) {
         // TODO why
         baseSize = Math.floor(contentSize / 4) * i;
-        txsize = 200 + Math.floor(contentSize / 4);
+        txsize = 300 + Math.floor(contentSize / 4); // 300, 200 ?
       }
+      /*
+      // min relay fee not met, 13753 < 13766
+
+      fetch("https://node.onekeytest.com/getblock-btc-mainnet", {
+        "body": "[{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getmempoolinfo\",\"params\":[]}]",
+        "method": "POST",
+      });
+       */
       console.log('TXSIZE', { txsize, dataLength, scriptLength, contentSize });
       // TODO use BigNumber
       const fee = feeRate * txsize;

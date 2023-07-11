@@ -6,9 +6,11 @@ import { formatBytes } from '../../../utils/hardware/homescreens';
 
 import type { InscribeFile } from '../Components/InscribeUploader/type';
 
-const FileDescription: FC<{ file?: InscribeFile; optimize?: boolean }> = ({
-  file,
-}) => {
+const FileDescription: FC<{
+  file?: InscribeFile;
+  optimize?: boolean;
+  error: string;
+}> = ({ file }) => {
   if (!file) {
     return null;
   }
@@ -21,10 +23,7 @@ const FileDescription: FC<{ file?: InscribeFile; optimize?: boolean }> = ({
           {file.type.toUpperCase()}
         </Text>
       </HStack>
-      <Text typography="Caption">
-        {formatBytes(file.size)}
-        {/* 59.23 KB 12.39 KB • 79.08% Saved */}
-      </Text>
+      {file.size && <Text typography="Caption">{formatBytes(file.size)}</Text>}
     </HStack>
   );
 };

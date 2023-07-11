@@ -18,9 +18,10 @@ import { getTimeDurationMs } from '../utils/helper';
 import { getPreBaseValue } from '../utils/priceUtils';
 import { EOverviewScanTaskType } from '../views/Overview/types';
 
+import { useActiveSideAccount } from './useActiveSideAccount';
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
-import { useFrozenBalance, useSingleToken, useTokenPrice } from './useTokens';
+import { useFrozenBalance, useSingleToken } from './useTokens';
 
 import type { ITokenDetailInfo } from '../views/ManageTokens/types';
 import type {
@@ -207,7 +208,7 @@ export function useAccountTokens({
   const { hideRiskTokens, hideSmallBalance, putMainTokenOnTop } =
     useAppSelector((s) => s.settings);
 
-  const { data: allNetworksTokens, loading } = useAccountPortfolios({
+  const { data: allNetworksTokens = [], loading } = useAccountPortfolios({
     networkId,
     accountId,
     type: EOverviewScanTaskType.token,
@@ -326,23 +327,50 @@ export const useNFTValues = ({
   accountId?: string;
   networkId?: string;
 }) => {
-  const { disPlayPriceType } = useAppSelector((s) => s.nft);
-  const symbolPrice = useTokenPrice({
+  const { walletId } = useActiveSideAccount({
     networkId: networkId ?? '',
-    tokenIdOnNetwork: '',
-    vsCurrency: 'usd',
+    accountId: accountId ?? '',
   });
 
-  const nftPrice = useAppSelector(
-    (s) => s.nft.nftPrice?.[accountId ?? '']?.[networkId ?? ''],
-  );
+  const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
+    walletId,
+    accountId: accountId ?? '',
+  });
 
-  const amount = useMemo(
-    () => nftPrice?.[disPlayPriceType] ?? 0,
-    [nftPrice, disPlayPriceType],
-  );
+  const nftPrices = useAppSelector((s) => s.nft.nftPrice);
 
-  return symbolPrice * amount;
+  const { disPlayPriceType } = useAppSelector((s) => s.nft);
+
+  const prices = useAppSelector((s) => s.tokens.tokenPriceMap);
+
+  const value = useMemo(() => {
+    let total = 0;
+
+    if (!isAllNetworks(networkId)) {
+      const v =
+        nftPrices[accountId ?? '']?.[networkId ?? '']?.[disPlayPriceType] ?? 0;
+      const p = prices?.[networkId ?? '']?.usd ?? 0;
+      return p * v;
+    }
+
+    for (const [nid, accounts] of Object.entries(networkAccountsMap)) {
+      const p = prices?.[nid]?.usd ?? 0;
+      for (const a of accounts) {
+        const nftPrice = nftPrices?.[a.id]?.[nid]?.[disPlayPriceType] ?? 0;
+        total += nftPrice * p;
+      }
+    }
+
+    return total;
+  }, [
+    disPlayPriceType,
+    networkAccountsMap,
+    nftPrices,
+    prices,
+    accountId,
+    networkId,
+  ]);
+  return value;
 };
 
 export const useAccountValues = (props: {
