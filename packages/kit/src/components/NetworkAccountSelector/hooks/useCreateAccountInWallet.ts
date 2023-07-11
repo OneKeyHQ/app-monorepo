@@ -148,6 +148,7 @@ export function useCreateAccountInWallet({
             : quickCreateAccountInfo?.template ?? '',
         );
       } catch (e) {
+        console.error(e);
         deviceUtils.showErrorToast(e);
       } finally {
         if (navigation.getParent()) {

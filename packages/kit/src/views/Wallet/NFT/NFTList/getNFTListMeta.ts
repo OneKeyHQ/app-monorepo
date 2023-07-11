@@ -27,7 +27,6 @@ import type { ListDataType, ListItemComponentType, ListItemType } from './type';
 export type INFTListProps = {
   data: NFTBTCAssetModel | Collection;
   type?: NFTAssetType;
-  expand: boolean;
 };
 
 export type INFTListMeta = Collection | NFTAsset;
@@ -61,23 +60,18 @@ function keyExtractorWithCardType(
   }
 }
 
-export function getNFTListComponent(
-  props: Pick<INFTListProps, 'type' | 'expand'>,
-): {
+export function getNFTListComponent(props: Pick<INFTListProps, 'type'>): {
   cardType: NFTCardType;
   expandEnable: boolean;
   Component: ReturnType<typeof ComponentWithCardType>;
   keyExtractor: ReturnType<typeof keyExtractorWithCardType>;
 } {
-  const { type, expand } = props;
+  const { type } = props;
   let expandEnable = true;
   let cardType: NFTCardType = NFTCardType.EVMCollection;
   if (type === NFTAssetType.BTC) {
     cardType = NFTCardType.BTCAsset;
     expandEnable = false;
-  }
-  if (expand) {
-    cardType = NFTCardType.EVMAsset;
   }
   return {
     Component: ComponentWithCardType(cardType),
@@ -103,20 +97,12 @@ export const getCardTypeByNetworkId = (
 };
 
 export function getNFTListMeta(props: INFTListProps): IGetNFTMetaReturn {
-  const { data, type, expand } = props;
+  const { data, type } = props;
   if (!type) {
     return [];
   }
   if (type === NFTAssetType.BTC) {
     return [{ data, isAsset: true, type }];
-  }
-  const collection = data as Collection;
-  if (expand) {
-    return collection.assets.map((item) => ({
-      data: item,
-      isAsset: true,
-      type,
-    }));
   }
   return [{ data, isAsset: false, type }];
 }
