@@ -8,6 +8,7 @@ function createEjsParams({ filename = '', platform = '', browser = '' }) {
       encoding: 'utf-8',
     },
   );
+
   return {
     filename,
     platform,

@@ -120,6 +120,7 @@ function normalizeConfig({
             proxyRes.headers['Cache-Control'] =
               'no-store, no-cache, must-revalidate, proxy-revalidate';
             proxyRes.headers.Expires = '0';
+            proxyRes.headers.Age = '0';
           } else {
             res.setHeader(
               'Cache-Control',
