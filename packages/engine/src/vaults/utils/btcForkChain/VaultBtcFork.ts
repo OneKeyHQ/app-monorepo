@@ -40,6 +40,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
   PreviousAccountIsEmpty,
+  UtxoNotFoundError,
 } from '../../../errors';
 import {
   getDefaultPurpose,
@@ -1263,7 +1264,7 @@ export default class VaultBtcFork extends VaultBase {
           }
         }
         if (!founded) {
-          throw new Error('nftInscription output not found in utxos');
+          throw new UtxoNotFoundError();
         }
       }
 

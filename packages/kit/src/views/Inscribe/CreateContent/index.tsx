@@ -11,6 +11,7 @@ import {
   SegmentedControl,
   Text,
   Textarea,
+  ToastManager,
 } from '@onekeyhq/components';
 import type { IInscriptionContent } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/types';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
@@ -71,26 +72,42 @@ const CreateContent: FC = () => {
       };
     if (selectIndex === 0) {
       if (file?.dataForAPI && file?.name) {
-        contents = await serviceInscribe.createInscriptionContents({
-          files: [
-            {
-              data: file?.dataForAPI,
-              filename: file?.name,
-              mimetype: file?.type,
-            },
-          ],
-        });
-        Object.assign(routeParams, { size: file.size, contents });
+        try {
+          contents = await serviceInscribe.createInscriptionContents({
+            files: [
+              {
+                data: file?.dataForAPI,
+                filename: file?.name,
+                mimetype: file?.type,
+              },
+            ],
+          });
+          Object.assign(routeParams, { size: file.size, contents });
+        } catch (e) {
+          console.log('error = ', e);
+        }
       }
     }
 
     if (selectIndex === 1) {
       const trimText = text.trim();
       if (trimText.length > 0) {
-        contents = await serviceInscribe.createInscriptionContents({
-          texts: [trimText],
-        });
-        Object.assign(routeParams, { size: trimText.length, contents });
+        try {
+          contents = await serviceInscribe.createInscriptionContents({
+            texts: [trimText],
+          });
+          Object.assign(routeParams, { size: trimText.length, contents });
+        } catch (e: any) {
+          const { key: errorKey = '', info } = e;
+          if (errorKey === 'msg__file_size_should_less_than_str') {
+            ToastManager.show(
+              {
+                title: intl.formatMessage({ id: errorKey }, info),
+              },
+              { type: 'error' },
+            );
+          }
+        }
       }
     }
     if (contents?.length > 0) {
@@ -98,7 +115,11 @@ const CreateContent: FC = () => {
     }
   }, [
     accountId,
-    file,
+    file?.dataForAPI,
+    file?.name,
+    file?.size,
+    file?.type,
+    intl,
     navigation,
     networkId,
     selectIndex,
@@ -158,6 +179,7 @@ const CreateContent: FC = () => {
             h="148px"
             value={text}
             onChangeText={setText}
+            placeholder={intl.formatMessage({ id: 'form__type_here' })}
           />
         )}
 

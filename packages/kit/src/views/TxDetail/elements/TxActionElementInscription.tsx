@@ -4,6 +4,7 @@ import { Image, Text, VStack } from '@onekeyhq/components';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import type { IDecodedTxDirection } from '@onekeyhq/engine/src/vaults/types';
 import OrdinalLogo from '@onekeyhq/kit/assets/Ordinal.png';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import {
   InscriptionContentType,
@@ -15,7 +16,10 @@ import { TxActionElementPressable } from './TxActionElementPressable';
 
 function TxActionElementInscription(props: { asset: NFTBTCAssetModel }) {
   const { asset } = props;
-  if (asset?.content_type.startsWith(InscriptionContentType.Text)) {
+  if (
+    asset?.content_type.startsWith(InscriptionContentType.Text) ||
+    asset.networkId === OnekeyNetwork.tbtc
+  ) {
     return <Image source={OrdinalLogo} size="40px" />;
   }
   const { Component } = getBTCListComponent({
