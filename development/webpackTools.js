@@ -116,7 +116,7 @@ function normalizeConfig({
         changeOrigin: true,
         logLevel: 'debug',
         onProxyRes: async (proxyRes, req, res) => {
-          if (req.headers.cookie.includes('rrt=1')) {
+          if (req.headers && req.headers.cookie && req.headers.cookie.includes('rrt=1')) {
             proxyRes.headers['Cache-Control'] =
               'no-store, no-cache, must-revalidate, proxy-revalidate';
             proxyRes.headers.Expires = '0';
