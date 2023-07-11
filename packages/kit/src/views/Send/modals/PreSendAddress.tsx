@@ -201,10 +201,21 @@ function PreSendAddress() {
       setDisplayDestinationTag(vaultSettings?.withDestinationTag ?? false);
     })();
   }, [networkId]);
-
+  //
   const nftSendConfirm = useCallback(
     async (toVal: string) => {
-      if (!account || !network || !nftInfo) {
+      if (!account || !network) {
+        return;
+      }
+      if (!nftInfo) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage({
+              id: 'msg__unknown_error',
+            }),
+          },
+          { type: 'error' },
+        );
         return;
       }
 
@@ -283,38 +294,52 @@ function PreSendAddress() {
           },
         });
       } else {
-        setIsLoadingAssets(true);
-        encodedTx = await engine.buildEncodedTxFromTransfer({
-          networkId,
-          accountId,
-          transferInfo,
-        });
-        setIsLoadingAssets(false);
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.Send,
-          params: {
-            screen: SendModalRoutes.SendConfirm,
+        try {
+          setIsLoadingAssets(true);
+
+          encodedTx = await engine.buildEncodedTxFromTransfer({
+            networkId,
+            accountId,
+            transferInfo,
+          });
+          setIsLoadingAssets(false);
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Send,
             params: {
-              ...transferInfo,
-              networkId,
-              accountId,
-              encodedTx,
-              feeInfoUseFeeInTx: false,
-              feeInfoEditable: true,
-              backRouteName: SendModalRoutes.PreSendAddress,
-              payloadInfo: {
-                type: 'Transfer',
-                nftInfo: {
-                  asset: nftInfo,
-                  amount: transferInfo.amount,
-                  from: account.address,
-                  to: toVal,
+              screen: SendModalRoutes.SendConfirm,
+              params: {
+                ...transferInfo,
+                networkId,
+                accountId,
+                encodedTx,
+                feeInfoUseFeeInTx: false,
+                feeInfoEditable: true,
+                backRouteName: SendModalRoutes.PreSendAddress,
+                payloadInfo: {
+                  type: 'Transfer',
+                  nftInfo: {
+                    asset: nftInfo,
+                    amount: transferInfo.amount,
+                    from: account.address,
+                    to: toVal,
+                  },
                 },
+                onModalClose: closeModal,
               },
-              onModalClose: closeModal,
             },
-          },
-        });
+          });
+        } catch (error: any) {
+          const { key: errorKey = '' } = error;
+          if (errorKey === 'msg__nft_has_been_sent_and_not_confirmed') {
+            ToastManager.show(
+              {
+                title: intl.formatMessage({ id: errorKey }),
+              },
+              { type: 'error' },
+            );
+          }
+          setIsLoadingAssets(false);
+        }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

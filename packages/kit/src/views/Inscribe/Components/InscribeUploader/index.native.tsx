@@ -16,6 +16,7 @@ import {
   Pressable,
   Spinner,
   Text,
+  ToastManager,
 } from '@onekeyhq/components';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -101,10 +102,27 @@ function InscribeUploader(props: Props) {
       const base64 = await readAsStringAsync(file.uri, {
         encoding: EncodingType.Base64,
       });
+
       const data = Buffer.from(base64, 'base64');
+      let { fileName } = file;
+      if (!fileName) {
+        fileName = file.uri.split('/').pop();
+      }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const type = mime.getType(file.fileName as string);
+      const type = mime.getType(fileName as string);
       if (type) {
+        if (data.length === 0) {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({
+                id: 'msg__text_file_cannot_be_blank',
+              }),
+            },
+            { type: 'error' },
+          );
+          setLoading(false);
+          return;
+        }
         if (!checkFileSize(data.length)) {
           setError(
             intl.formatMessage(
@@ -117,8 +135,8 @@ function InscribeUploader(props: Props) {
               dataForUI: '',
               dataForAPI: '',
               dataLength: data.length,
-              name: file.fileName,
-              size: file.fileSize,
+              name: fileName,
+              size: file.fileSize || data.length,
               type,
             });
             setLoading(false);
@@ -128,13 +146,13 @@ function InscribeUploader(props: Props) {
         const dataForAPI = bufferUtils.bytesToHex(data);
 
         const dataForUI = getStandardFileBase64(base64, type);
-        if (dataForAPI && dataForUI && file.fileName && file.fileSize) {
+        if (dataForAPI && dataForUI && fileName) {
           setFileFromOut({
             dataForUI,
             dataForAPI,
             dataLength: data.length,
-            name: file.fileName,
-            size: file.fileSize,
+            name: fileName,
+            size: file.fileSize || data.length,
             type,
           });
           setLoading(false);
@@ -173,6 +191,18 @@ function InscribeUploader(props: Props) {
 
       const data = Buffer.from(base64, 'base64');
       if (file.size && file.type) {
+        if (data.length === 0) {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({
+                id: 'msg__text_file_cannot_be_blank',
+              }),
+            },
+            { type: 'error' },
+          );
+          setLoading(false);
+          return;
+        }
         if (!checkFileSize(data.length)) {
           setError(
             intl.formatMessage(
