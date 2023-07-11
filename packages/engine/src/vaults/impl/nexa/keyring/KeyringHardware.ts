@@ -26,6 +26,7 @@ import {
   buildRawTx,
   buildSignatures,
   buildTxid,
+  getNexaPrefix,
 } from '../utils';
 
 import type { INexaInputSignature } from '../types';
@@ -57,7 +58,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           bundle: paths.map((path) => ({
             path,
             showOnOneKey,
-            prefix: chainId,
+            prefix: getNexaPrefix(chainId),
             scheme: SIGN_TYPE,
           })),
           ...passphraseState,

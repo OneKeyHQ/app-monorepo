@@ -81,6 +81,10 @@ export function getNexaNetworkInfo(chanid: string): {
   return chanid === 'testnet' ? NETWORKS.testnet : NETWORKS.mainnet;
 }
 
+export function getNexaPrefix(chanid: string): string {
+  return getNexaNetworkInfo(chanid).prefix;
+}
+
 function convertScriptToPushBuffer(key: Buffer): Buffer {
   const templateChunk = bufferToScripChunk(key);
   return scriptChunksToBuffer([templateChunk]);
