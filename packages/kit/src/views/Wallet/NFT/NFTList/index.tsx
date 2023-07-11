@@ -8,6 +8,9 @@ import useSWR from 'swr';
 import {
   Box,
   Empty,
+  HStack,
+  IconButton,
+  VStack,
   useIsVerticalLayout,
   useUserDevice,
 } from '@onekeyhq/components';
@@ -22,7 +25,6 @@ import {
   useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -87,9 +89,10 @@ const NFTList: FC<NFTListProps> = ({
   isNFTSupport,
   isLoading,
   onSelect,
-  networkId,
 }) => {
-  const [expand, setExpand] = useState(false);
+  const intl = useIntl();
+  const isVertical = useIsVerticalLayout();
+  const [page, setPage] = useState(1);
 
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
@@ -99,6 +102,8 @@ const NFTList: FC<NFTListProps> = ({
     : Math.min(MAX_PAGE_CONTAINER_WIDTH, screenWidth - 224);
   const numColumns = isSmallScreen ? 2 : Math.floor(pageWidth / (177 + MARGIN));
 
+  const pageSize = 50;
+
   const listItems = useMemo(() => {
     let array: ListItemType<ListDataType>[] = [];
     listData.forEach(({ type, data }) => {
@@ -106,13 +111,20 @@ const NFTList: FC<NFTListProps> = ({
         const items = getNFTListMeta({
           data: item,
           type,
-          expand,
         });
         array = array.concat(items as any[]);
       });
     });
     return array;
-  }, [listData, expand]);
+  }, [listData]);
+
+  const { data: collections, hasMore } = useMemo(() => {
+    const list = listItems.slice(0, page * pageSize);
+    return {
+      data: list,
+      hasMore: list.length < listItems.length,
+    };
+  }, [listItems, page]);
 
   const renderItem = useCallback<
     NonNullable<FlatListProps<ListItemType<ListDataType>>['renderItem']>
@@ -123,7 +135,6 @@ const NFTList: FC<NFTListProps> = ({
         return null;
       }
       const { Component, cardType } = getNFTListComponent({
-        expand,
         type,
       });
       return (
@@ -140,64 +151,65 @@ const NFTList: FC<NFTListProps> = ({
         </DebugRenderTracker>
       );
     },
-    [onSelect, expand],
+    [onSelect],
   );
+
+  const handleLoadMore = useCallback(() => {
+    setPage((prev) => prev + 1);
+  }, []);
 
   const flatListKey =
     platformEnv.isNative && !platformEnv.isNativeIOSPad
       ? undefined
       : `NFTList${numColumns}`;
-  const sharedProps = useMemo(
-    () => ({
-      contentContainerStyle: {
+
+  const loadMore = useMemo(() => {
+    const button = hasMore ? (
+      <HStack justifyContent="center">
+        <IconButton
+          name="ChevronDownMini"
+          w={isVertical ? 'full' : '130px'}
+          onPress={handleLoadMore}
+        >
+          {intl.formatMessage({ id: 'action__load_more' })}
+        </IconButton>
+      </HStack>
+    ) : null;
+    return (
+      <VStack pr="4">
+        {button}
+        <Box h="24px" w="full" />
+      </VStack>
+    );
+  }, [intl, isVertical, handleLoadMore, hasMore]);
+
+  return (
+    <Tabs.FlatList
+      contentContainerStyle={{
         paddingLeft: 16,
         paddingBottom: listItems.length ? 16 : 0,
         marginTop: 24,
-      },
-      key: flatListKey,
-      data: listItems,
-      renderItem,
-      ListFooterComponent: <Box h="24px" w="full" />,
-      showsVerticalScrollIndicator: false,
-      ListEmptyComponent: (
+      }}
+      key={flatListKey}
+      data={collections}
+      renderItem={renderItem}
+      ListFooterComponent={loadMore}
+      showsVerticalScrollIndicator={false}
+      ListEmptyComponent={
         <MemoEmpty
           fetchData={fetchData}
           isNFTSupport={isNFTSupport}
           isLoading={isLoading}
         />
-      ),
-      numColumns,
-      ListHeaderComponent: (
-        <NFTListHeader
-          expandEnable={networkId !== OnekeyNetwork.btc}
-          isNFTSupport={isNFTSupport}
-          expand={expand}
-          onPress={() => {
-            setExpand((prev) => !prev);
-          }}
-        />
-      ),
-      keyExtractor: (item: ListItemType<ListDataType>, index: number) =>
+      }
+      numColumns={numColumns}
+      ListHeaderComponent={<NFTListHeader isNFTSupport={isNFTSupport} />}
+      keyExtractor={(item: ListItemType<ListDataType>, index: number) =>
         getNFTListComponent({
-          expand,
           type: item.type,
-        }).keyExtractor(item, index),
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      listItems,
-      renderItem,
-      fetchData,
-      isNFTSupport,
-      isLoading,
-      numColumns,
-      expand,
-    ],
-  );
-
-  return (
-    // @ts-ignore
-    <Tabs.FlatList {...sharedProps} />
+        }).keyExtractor(item, index)
+      }
+    />
   );
 };
 
