@@ -5,12 +5,11 @@ import { useDropzone } from 'react-dropzone';
 import { useIntl } from 'react-intl';
 import { read, utils } from 'xlsx';
 
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNetworkSimple } from '../../hooks';
-
-import { BulkTypeEnum } from './types';
 
 import type { TokenTrader, TraderError } from './types';
 import type { DropzoneOptions } from 'react-dropzone';
