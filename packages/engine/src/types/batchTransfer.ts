@@ -16,7 +16,7 @@ export enum BatchTransferSelectors {
   disperseTokenSameValue = '0x17546c6c',
 }
 
-export enum BulkSenderModeEnum {
+export enum BulkTypeEnum {
   OneToMany = 'OneToMany',
   ManyToMany = 'ManyToMany',
   ManyToOne = 'ManyToOne',

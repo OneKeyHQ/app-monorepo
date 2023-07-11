@@ -11,7 +11,6 @@ import {
   Token,
   Tooltip,
 } from '@onekeyhq/components';
-import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { INetwork } from '@onekeyhq/engine/src/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';

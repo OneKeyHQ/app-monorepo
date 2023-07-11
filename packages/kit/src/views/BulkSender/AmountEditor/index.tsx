@@ -12,6 +12,7 @@ import {
   Text,
   useForm,
 } from '@onekeyhq/components';
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 
 import { useNetworkSimple } from '../../../hooks';
 import { amountEditorTypeMap } from '../constants';
@@ -19,7 +20,6 @@ import {
   AmountTypeEnum,
   type BulkSenderRoutes,
   type BulkSenderRoutesParams,
-  BulkTypeEnum,
 } from '../types';
 
 import type { AmountEditorValues } from '../types';

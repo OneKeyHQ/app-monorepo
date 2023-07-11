@@ -6,7 +6,6 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { BulkSenderModeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 
 import { useNetworkSimple } from '../../../hooks';
 

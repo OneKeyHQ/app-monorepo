@@ -1,5 +1,4 @@
 import { isArray } from 'lodash';
-import { useIntl } from 'react-intl';
 
 import {
   Box,
@@ -16,7 +15,6 @@ type Props = {
 
 function TxSettingPanel(props: Props) {
   const { children } = props;
-  const intl = useIntl();
   const isVertical = useIsVerticalLayout();
 
   // TODO: replace entry

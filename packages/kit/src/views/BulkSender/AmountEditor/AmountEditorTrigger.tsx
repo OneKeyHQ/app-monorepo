@@ -4,13 +4,12 @@ import { useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
 import { AmountTypeEnum, BulkSenderRoutes } from '../types';
-
-import type { BulkTypeEnum } from '../types';
 
 type Props = {
   token: Token;

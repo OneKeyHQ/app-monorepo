@@ -1,10 +1,5 @@
+import type { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Token } from '@onekeyhq/engine/src/types/token';
-
-export enum BulkTypeEnum {
-  OneToMany = 'OneToMany',
-  ManyToMany = 'ManyToMany',
-  ManyToOne = 'ManyToOne',
-}
 
 export enum TokenTraderEnum {
   Address = 'Address',

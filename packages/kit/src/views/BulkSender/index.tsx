@@ -14,7 +14,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import NavHeader from '@onekeyhq/components/src/NavHeader/NavHeader';
-import { BulkSenderModeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkAccountSelectorTrigger } from '../../components/NetworkAccountSelector';
@@ -23,8 +23,7 @@ import { navigationShortcuts } from '../../routes/navigationShortcuts';
 import { HomeRoutes } from '../../routes/routesEnum';
 import { useConnectAndCreateExternalAccount } from '../ExternalAccount/useConnectAndCreateExternalAccount';
 
-import { ManyToMany } from './ManyToMany';
-import { ManyToOne } from './ManyToOne';
+import { ManyToN } from './ManyToN';
 import { ModelSelector } from './ModeSelector';
 import { NotSupported } from './NotSupported';
 import { OneToMany } from './OneToMany';
@@ -82,7 +81,7 @@ function BulkSender() {
   }, [intl, connectAndCreateExternalAccount, accountId]);
 
   const renderBulkSenderPanel = useCallback(() => {
-    if (selectedMode === BulkSenderModeEnum.OneToMany) {
+    if (selectedMode === BulkTypeEnum.OneToMany) {
       return (
         <OneToMany
           accountId={accountId}
@@ -91,21 +90,35 @@ function BulkSender() {
         />
       );
     }
-    if (selectedMode === BulkSenderModeEnum.ManyToOne) {
-      return <ManyToOne />;
+    if (selectedMode === BulkTypeEnum.ManyToOne) {
+      return (
+        <ManyToN
+          accountId={accountId}
+          networkId={networkId}
+          accountAddress={accountAddress}
+          bulkType={BulkTypeEnum.ManyToOne}
+        />
+      );
     }
-    if (selectedMode === BulkSenderModeEnum.ManyToMany) {
-      return <ManyToMany />;
+    if (selectedMode === BulkTypeEnum.ManyToMany) {
+      return (
+        <ManyToN
+          accountId={accountId}
+          networkId={networkId}
+          accountAddress={accountAddress}
+          bulkType={BulkTypeEnum.ManyToMany}
+        />
+      );
     }
   }, [accountAddress, accountId, networkId, selectedMode]);
 
   const title = useMemo(() => {
     let desc: MessageDescriptor['id'];
-    if (mode === BulkSenderModeEnum.OneToMany) {
+    if (mode === BulkTypeEnum.OneToMany) {
       desc = 'form__one_to_many';
-    } else if (mode === BulkSenderModeEnum.ManyToOne) {
+    } else if (mode === BulkTypeEnum.ManyToOne) {
       desc = 'form__many_to_one';
-    } else if (mode === BulkSenderModeEnum.ManyToMany) {
+    } else if (mode === BulkTypeEnum.ManyToMany) {
       desc = 'form__many_to_many';
     }
 

@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { TokenIcon } from '@onekeyhq/components/src/Token';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
-import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
+import type { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
@@ -46,12 +46,11 @@ interface Props {
   accountId: string;
   networkId: string;
   accountAddress: string;
+  bulkType: BulkTypeEnum;
 }
 
-const bulkType = BulkTypeEnum.OneToMany;
-
-function OneToMany(props: Props) {
-  const { accountId, networkId, accountAddress } = props;
+function ManyToN(props: Props) {
+  const { accountId, networkId, accountAddress, bulkType } = props;
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [receiver, setReceiver] = useState<TokenTrader[]>([]);
   const [receiverFromOut, setReceiverFromOut] = useState<TokenTrader[]>([]);
@@ -181,120 +180,114 @@ function OneToMany(props: Props) {
   );
 
   const handlePreviewTransfer = useCallback(async () => {
-    try {
-      if (receiver.length === 0 || isValidating || isBuildingTx || !isValid)
-        return;
-      const transferInfos: ITransferInfo[] = [];
-      let prevNonce;
+    if (receiver.length === 0 || isValidating || isBuildingTx || !isValid)
+      return;
+    const transferInfos: ITransferInfo[] = [];
+    let prevNonce;
 
-      setIsBuildingTx(true);
-      const token = selectedToken || initialToken;
-      for (let i = 0; i < receiver.length; i += 1) {
-        transferInfos.push({
-          from: accountAddress,
-          to: receiver[i].Address,
-          amount: receiver[i].Amount,
-          token: token?.tokenIdOnNetwork,
-          tokenSendAddress: token?.sendAddress,
-        });
+    setIsBuildingTx(true);
+    const token = selectedToken || initialToken;
+    for (let i = 0; i < receiver.length; i += 1) {
+      transferInfos.push({
+        from: accountAddress,
+        to: receiver[i].Address,
+        amount:
+          amountType === AmountTypeEnum.Custom
+            ? (receiver[i].Amount as string)
+            : amount[0],
+        token: token?.tokenIdOnNetwork,
+        tokenSendAddress: token?.sendAddress,
+      });
+    }
+
+    const verified = verifyBulkTransferBeforeConfirm(transferInfos, token);
+
+    if (!verified) {
+      setIsBuildingTx(false);
+      return;
+    }
+
+    const encodedApproveTxs =
+      await serviceBatchTransfer.buildEncodedTxsFromBatchApprove({
+        networkId,
+        accountId,
+        transferInfos,
+        isUnlimited,
+      });
+
+    const prevTx = encodedApproveTxs[encodedApproveTxs.length - 1];
+
+    if (prevTx) {
+      prevNonce = (prevTx as IEncodedTxEvm).nonce;
+      prevNonce =
+        prevNonce !== undefined
+          ? new BigNumber(prevNonce).toNumber()
+          : prevNonce;
+    }
+
+    const maxActionsInTx = network?.settings?.maxActionsInTx || 0;
+    const transferInfoGroup = [];
+    if (
+      maxActionsInTx > 0 &&
+      (network?.settings?.hardwareMaxActionsEnabled
+        ? accountId.startsWith('hw-')
+        : true)
+    ) {
+      for (
+        let i = 0, len = transferInfos.length;
+        i < len;
+        i += maxActionsInTx
+      ) {
+        transferInfoGroup.push(transferInfos.slice(i, i + maxActionsInTx));
       }
+    } else {
+      transferInfoGroup.push(transferInfos);
+    }
 
-      const verified = verifyBulkTransferBeforeConfirm(transferInfos, token);
+    const encodedTxs = [];
 
-      if (!verified) {
-        setIsBuildingTx(false);
-        return;
-      }
-
-      const encodedApproveTxs =
-        await serviceBatchTransfer.buildEncodedTxsFromBatchApprove({
+    for (let i = 0, len = transferInfoGroup.length; i < len; i += 1) {
+      // @ts-ignore
+      const encodedTx =
+        await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
           networkId,
           accountId,
-          transferInfos,
-          isUnlimited,
+          transferInfos: transferInfoGroup[i],
+          prevNonce,
         });
+      prevNonce = (encodedTx as IEncodedTxEvm).nonce;
+      prevNonce =
+        prevNonce !== undefined
+          ? new BigNumber(prevNonce).toNumber()
+          : prevNonce;
+      encodedTxs.push(encodedTx);
+    }
 
-      const prevTx = encodedApproveTxs[encodedApproveTxs.length - 1];
+    setIsBuildingTx(false);
 
-      if (prevTx) {
-        prevNonce = (prevTx as IEncodedTxEvm).nonce;
-        prevNonce =
-          prevNonce !== undefined
-            ? new BigNumber(prevNonce).toNumber()
-            : prevNonce;
-      }
-
-      const maxActionsInTx = network?.settings?.maxActionsInTx || 0;
-      const transferInfoGroup = [];
-      if (
-        maxActionsInTx > 0 &&
-        (network?.settings?.hardwareMaxActionsEnabled
-          ? accountId.startsWith('hw-')
-          : true)
-      ) {
-        for (
-          let i = 0, len = transferInfos.length;
-          i < len;
-          i += maxActionsInTx
-        ) {
-          transferInfoGroup.push(transferInfos.slice(i, i + maxActionsInTx));
-        }
-      } else {
-        transferInfoGroup.push(transferInfos);
-      }
-
-      const encodedTxs = [];
-
-      for (let i = 0, len = transferInfoGroup.length; i < len; i += 1) {
-        // @ts-ignore
-        const encodedTx =
-          await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
-            networkId,
-            accountId,
-            transferInfos: transferInfoGroup[i],
-            prevNonce,
-          });
-        prevNonce = (encodedTx as IEncodedTxEvm).nonce;
-        prevNonce =
-          prevNonce !== undefined
-            ? new BigNumber(prevNonce).toNumber()
-            : prevNonce;
-        encodedTxs.push(encodedTx);
-      }
-
-      setIsBuildingTx(false);
-
-      navigation.navigate(RootRoutes.Modal, {
-        screen: ModalRoutes.Send,
+    navigation.navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.Send,
+      params: {
+        screen: SendModalRoutes.BatchSendConfirm,
         params: {
-          screen: SendModalRoutes.BatchSendConfirm,
-          params: {
-            networkId,
-            accountId,
-            feeInfoUseFeeInTx: false,
-            feeInfoEditable: true,
-            encodedTxs: [...encodedApproveTxs, ...encodedTxs],
-            transferCount: transferInfos.length,
-            transferType: type,
-            payloadInfo: {
-              type: 'Transfer',
-              transferInfos,
-            },
+          networkId,
+          accountId,
+          feeInfoUseFeeInTx: false,
+          feeInfoEditable: true,
+          encodedTxs: [...encodedApproveTxs, ...encodedTxs],
+          transferCount: transferInfos.length,
+          payloadInfo: {
+            type: 'Transfer',
+            transferInfos,
           },
         },
-      });
-    } catch (error) {
-      setIsBuildingTx(false);
-      ToastManager.show(
-        {
-          title: typeof error === 'string' ? error : (error as Error).message,
-        },
-        { type: 'error' },
-      );
-    }
+      },
+    });
   }, [
     accountAddress,
     accountId,
+    amount,
+    amountType,
     initialToken,
     isBuildingTx,
     isUnlimited,
@@ -461,4 +454,4 @@ function OneToMany(props: Props) {
   );
 }
 
-export { OneToMany };
+export { ManyToN };

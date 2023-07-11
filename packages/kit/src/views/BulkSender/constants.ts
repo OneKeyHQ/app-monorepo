@@ -1,4 +1,6 @@
-import { AmountTypeEnum, BulkTypeEnum } from './types';
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
+
+import { AmountTypeEnum } from './types';
 
 export const amountDefaultTypeMap = {
   [BulkTypeEnum.OneToMany]: AmountTypeEnum.Fixed,

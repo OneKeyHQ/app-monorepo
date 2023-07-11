@@ -10,7 +10,7 @@ import {
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
-import { BulkSenderModeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 
 import { useNavigation } from '../../../hooks';
 import { HomeRoutes } from '../../../routes/routesEnum';
@@ -22,7 +22,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MessageDescriptor } from 'react-intl';
 
 type Props = {
-  mode: BulkSenderModeEnum;
+  mode: BulkTypeEnum;
 } & ComponentProps<typeof Pressable>;
 
 type NavigationProps = NativeStackNavigationProp<HomeRoutesParams>;
@@ -92,24 +92,24 @@ function ManyToOne() {
   );
 }
 
-function getModeInfo(mode: BulkSenderModeEnum): null | {
+function getModeInfo(mode: BulkTypeEnum): null | {
   title: MessageDescriptor['id'];
   desc: MessageDescriptor['id'];
   mark: React.ReactNode;
 } {
-  if (mode === BulkSenderModeEnum.OneToMany)
+  if (mode === BulkTypeEnum.OneToMany)
     return {
       title: 'form__one_to_many',
       desc: 'form__one_to_many_desc',
       mark: <OneToMany />,
     };
-  if (mode === BulkSenderModeEnum.ManyToOne)
+  if (mode === BulkTypeEnum.ManyToOne)
     return {
       title: 'form__many_to_one',
       desc: 'form__many_to_one_desc',
       mark: <ManyToOne />,
     };
-  if (mode === BulkSenderModeEnum.ManyToMany)
+  if (mode === BulkTypeEnum.ManyToMany)
     return {
       title: 'form__many_to_many',
       desc: 'form__many_to_many_desc',

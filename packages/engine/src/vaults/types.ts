@@ -6,7 +6,7 @@ import type { QuoteData } from '@onekeyhq/kit/src/views/Swap/typings';
 
 import type { Engine } from '../index';
 import type { AccountCredential } from '../types/account';
-import type { BulkSenderModeEnum } from '../types/batchTransfer';
+import type { BulkTypeEnum } from '../types/batchTransfer';
 import type { AccountNameInfo, EIP1559Fee } from '../types/network';
 import type {
   IErcNftType,
@@ -123,7 +123,7 @@ export type IVaultSettings = {
 
   supportFilterScam?: boolean;
 
-  supportBatchTransfer?: BulkSenderModeEnum[];
+  supportBatchTransfer?: BulkTypeEnum[];
   nativeSupportBatchTransfer?: boolean;
   batchTransferApprovalRequired?: boolean;
   batchTransferApprovalConfirmRequired?: boolean;

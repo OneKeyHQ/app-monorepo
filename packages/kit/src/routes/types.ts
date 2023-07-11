@@ -6,7 +6,7 @@ import type { ComponentType, FC } from 'react';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import type { HeaderTitleProps } from '@onekeyhq/components/src/NavHeader/HeaderTitle';
 import type { PriceAlertItem } from '@onekeyhq/engine/src/managers/notification';
-import type { BulkSenderModeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
+import type { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import type { DAppItemType } from '@onekeyhq/kit/src/views/Discover/type';
@@ -175,7 +175,7 @@ export type HomeRoutesParams = {
   [HomeRoutes.WalletSwitch]: undefined;
   [HomeRoutes.BulkSender]:
     | {
-        mode: BulkSenderModeEnum;
+        mode: BulkTypeEnum;
       }
     | undefined;
   [HomeRoutes.ClearCache]: undefined;

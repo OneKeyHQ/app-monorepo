@@ -3,7 +3,7 @@ import {
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import { BulkSenderModeEnum } from '../../../types/batchTransfer';
+import { BulkTypeEnum } from '../../../types/batchTransfer';
 
 import type { AccountNameInfo } from '../../../types/network';
 import type { IVaultSettings } from '../../types';
@@ -20,7 +20,7 @@ const settings: IVaultSettings = Object.freeze({
   watchingAccountEnabled: true,
 
   isUTXOModel: false,
-  supportBatchTransfer: [BulkSenderModeEnum.OneToMany],
+  supportBatchTransfer: [BulkTypeEnum.OneToMany],
   nativeSupportBatchTransfer: true,
   maxActionsInTx: 8,
   sendNFTEnable: true,
