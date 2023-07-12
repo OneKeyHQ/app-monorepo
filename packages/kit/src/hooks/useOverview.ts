@@ -5,6 +5,7 @@ import { pick } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 
+import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -18,7 +19,6 @@ import { getTimeDurationMs } from '../utils/helper';
 import { getPreBaseValue } from '../utils/priceUtils';
 import { EOverviewScanTaskType } from '../views/Overview/types';
 
-import { useActiveSideAccount } from './useActiveSideAccount';
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
 import { useFrozenBalance, useSingleToken } from './useTokens';
@@ -119,7 +119,25 @@ export const useAccountPortfolios = <
       {},
   );
 
+  const walletId = useMemo(
+    () => getWalletIdFromAccountId(accountId ?? ''),
+    [accountId],
+  );
+
+  const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
+    walletId,
+    accountId: accountId ?? '',
+  });
+
   const fetchData = useCallback(async () => {
+    if (isAllNetworks(networkId) && !Object.keys(networkAccountsMap)?.length) {
+      setState({
+        loading: false,
+        data: [],
+        updatedAt: updateInfo?.updatedAt,
+      });
+      return;
+    }
     const res = await backgroundApiProxy.serviceOverview.getAccountPortfolio({
       networkId: networkId ?? '',
       accountId: accountId ?? '',
@@ -129,7 +147,7 @@ export const useAccountPortfolios = <
       data: res?.[type] || [],
       updatedAt: updateInfo?.updatedAt,
     });
-  }, [accountId, networkId, type, updateInfo?.updatedAt]);
+  }, [accountId, networkId, type, networkAccountsMap, updateInfo?.updatedAt]);
 
   useEffect(() => {
     fetchData();
@@ -327,7 +345,10 @@ export const useNFTValues = ({
   accountId?: string;
   networkId?: string;
 }) => {
-  const { activeWalletId: walletId } = useAppSelector((s) => s.general);
+  const walletId = useMemo(
+    () => getWalletIdFromAccountId(accountId ?? ''),
+    [accountId],
+  );
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     walletId: walletId ?? '',
@@ -811,14 +832,23 @@ export const useOverviewPendingTasks = ({
 export function useAccountTokenLoading(networkId: string, accountId: string) {
   const pendingTasks = useOverviewPendingTasks({ networkId, accountId });
   const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
+
+  const { data } = useAllNetworksWalletAccounts({
+    walletId: getWalletIdFromAccountId(accountId),
+    accountId: accountId ?? '',
+  });
+
   return useMemo(() => {
     if (isAllNetworks(networkId)) {
       const { tasks, updatedAt } = pendingTasks;
+      if (!Object.keys(data).length) {
+        return false;
+      }
       return (
         tasks?.filter((t) => t.scanType === EOverviewScanTaskType.token)
           .length > 0 || typeof updatedAt === 'undefined'
       );
     }
     return typeof accountTokens[networkId]?.[accountId] === 'undefined';
-  }, [networkId, accountId, accountTokens, pendingTasks]);
+  }, [networkId, accountId, accountTokens, pendingTasks, data]);
 }

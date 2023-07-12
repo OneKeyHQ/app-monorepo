@@ -43,7 +43,7 @@ export const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
     networkId,
     walletId,
     accountId,
-    filter: () => true,
+    filter: ({ network: n, account: a }) => !!n && !!a,
   });
 
   const onSendToken = useCallback(() => {
