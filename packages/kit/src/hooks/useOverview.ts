@@ -5,7 +5,6 @@ import { pick } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 
-import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -19,6 +18,7 @@ import { getTimeDurationMs } from '../utils/helper';
 import { getPreBaseValue } from '../utils/priceUtils';
 import { EOverviewScanTaskType } from '../views/Overview/types';
 
+import { useWalletIdFromAccountIdWithFallback } from './useAccount';
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
 import { useFrozenBalance, useSingleToken } from './useTokens';
@@ -119,10 +119,7 @@ export const useAccountPortfolios = <
       {},
   );
 
-  const walletId = useMemo(
-    () => getWalletIdFromAccountId(accountId ?? ''),
-    [accountId],
-  );
+  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     walletId,
@@ -345,10 +342,7 @@ export const useNFTValues = ({
   accountId?: string;
   networkId?: string;
 }) => {
-  const walletId = useMemo(
-    () => getWalletIdFromAccountId(accountId ?? ''),
-    [accountId],
-  );
+  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     walletId: walletId ?? '',
@@ -833,8 +827,10 @@ export function useAccountTokenLoading(networkId: string, accountId: string) {
   const pendingTasks = useOverviewPendingTasks({ networkId, accountId });
   const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
 
+  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
+
   const { data } = useAllNetworksWalletAccounts({
-    walletId: getWalletIdFromAccountId(accountId),
+    walletId,
     accountId: accountId ?? '',
   });
 
