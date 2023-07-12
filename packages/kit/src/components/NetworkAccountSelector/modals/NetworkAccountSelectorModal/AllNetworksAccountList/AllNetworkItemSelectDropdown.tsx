@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import { Divider, IconButton } from '@onekeyhq/components';
+import { IconButton } from '@onekeyhq/components';
 import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 import type {
   IBaseMenuOptions,
@@ -39,7 +39,6 @@ const AccountItemMenu: FC<
         onPress: () => onPress('detail'),
         icon: 'DocumentOutline',
       },
-      () => <Divider my={1} />,
     ],
     [onPress],
   );

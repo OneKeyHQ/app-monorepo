@@ -253,7 +253,7 @@ class ServiceAccount extends ServiceBase {
     shouldUpdateWallets?: boolean;
     skipIfSameWallet?: boolean;
   }) {
-    const { dispatch, engine, serviceAccount, appSelector } =
+    const { dispatch, engine, serviceAccount, appSelector, serviceAllNetwork } =
       this.backgroundApi;
     if (!walletId) {
       return;
@@ -270,16 +270,25 @@ class ServiceAccount extends ServiceBase {
 
     let accountId: string | null = null;
     if (wallet && activeNetworkId && wallet.accounts.length > 0) {
-      const accountsInWalletAndNetwork = await engine.getAccounts(
-        wallet.accounts,
-        activeNetworkId,
-      );
-      accountId = accountsInWalletAndNetwork?.[0]?.id ?? null;
-      if (
-        skipIfSameWallet &&
-        accountsInWalletAndNetwork.find((item) => item.id === activeAccountId)
-      ) {
-        return;
+      if (isAllNetworks(activeNetworkId)) {
+        const accounts = await serviceAllNetwork.getAllNetworksFakeAccounts({
+          walletId,
+        });
+        if (!accountId) {
+          accountId = accounts?.[0]?.id;
+        }
+      } else {
+        const accountsInWalletAndNetwork = await engine.getAccounts(
+          wallet.accounts,
+          activeNetworkId,
+        );
+        accountId = accountsInWalletAndNetwork?.[0]?.id ?? null;
+        if (
+          skipIfSameWallet &&
+          accountsInWalletAndNetwork.find((item) => item.id === activeAccountId)
+        ) {
+          return;
+        }
       }
     }
     await serviceAccount.changeActiveAccount({
