@@ -46,15 +46,18 @@ export function useAccount({
   };
 }
 
-export const useWalletIdFromAccountId = (accountId?: string | null): string =>
+export const useWalletIdFromAccountIdWithFallback = (
+  accountId?: string | null,
+  fallback = '',
+): string =>
   useMemo(() => {
     if (!accountId) {
-      return '';
+      return fallback;
     }
     try {
       return getWalletIdFromAccountId(accountId);
     } catch (error) {
       debugLogger.common.error('useWalletIdFromAccountId', error);
-      return '';
+      return fallback;
     }
-  }, [accountId]);
+  }, [accountId, fallback]);

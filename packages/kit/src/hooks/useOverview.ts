@@ -18,7 +18,7 @@ import { getTimeDurationMs } from '../utils/helper';
 import { getPreBaseValue } from '../utils/priceUtils';
 import { EOverviewScanTaskType } from '../views/Overview/types';
 
-import { useWalletIdFromAccountId } from './useAccount';
+import { useWalletIdFromAccountIdWithFallback } from './useAccount';
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
 import { useFrozenBalance, useSingleToken } from './useTokens';
@@ -119,7 +119,7 @@ export const useAccountPortfolios = <
       {},
   );
 
-  const walletId = useWalletIdFromAccountId(accountId);
+  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     walletId,
@@ -342,7 +342,7 @@ export const useNFTValues = ({
   accountId?: string;
   networkId?: string;
 }) => {
-  const walletId = useWalletIdFromAccountId(accountId);
+  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     walletId: walletId ?? '',
@@ -827,7 +827,7 @@ export function useAccountTokenLoading(networkId: string, accountId: string) {
   const pendingTasks = useOverviewPendingTasks({ networkId, accountId });
   const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
 
-  const walletId = useWalletIdFromAccountId(accountId);
+  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
 
   const { data } = useAllNetworksWalletAccounts({
     walletId,
