@@ -264,10 +264,7 @@ export function buildTxid(
   return txIdHash;
 }
 
-export const buildSignatures = (
-  encodedTx: IEncodedTxNexa,
-  dbAccount: DBAccount,
-) => {
+function buildSignatures(encodedTx: IEncodedTxNexa, dbAccount: DBAccount) {
   const { inputs, outputs, gas } = encodedTx;
   const newOutputs = outputs.slice();
   const inputAmount: BN = inputs.reduce(
@@ -307,19 +304,13 @@ export const buildSignatures = (
       sigtype: NexaSignature.SIGHASH_NEXA_ALL,
     })),
   };
-};
+}
 
-// signed by 'schnorr'
-export async function signEncodedTx(
-  unsignedTx: IUnsignedTxPro,
-  signer: Signer,
+export function buildSignatureBuffer(
+  encodedTx: IEncodedTxNexa,
   dbAccount: DBAccount,
-): Promise<ISignedTxPro> {
-  const privateKey = await signer.getPrvkey();
-  const publicKey = await signer.getPubkey(true);
-  const { encodedTx } = unsignedTx;
-
-  const { inputs } = encodedTx as IEncodedTxNexa;
+) {
+  const { inputs } = encodedTx;
   const prevoutsBuffer = Buffer.concat(
     inputs.map((input) =>
       Buffer.concat([
@@ -342,8 +333,8 @@ export async function signEncodedTx(
   );
   const inputAmountHash = sha256sha256(inputAmountBuffer);
 
-  const { outputSignatures, inputSignatures: inputSigs } = buildSignatures(
-    encodedTx as IEncodedTxNexa,
+  const { outputSignatures, inputSignatures } = buildSignatures(
+    encodedTx,
     dbAccount,
   );
 
@@ -382,6 +373,27 @@ export async function signEncodedTx(
     // sighashType
     writeUInt8(0),
   ]);
+  return {
+    signatureBuffer,
+    inputSignatures,
+    outputSignatures,
+  };
+}
+
+// signed by 'schnorr'
+export async function signEncodedTx(
+  unsignedTx: IUnsignedTxPro,
+  signer: Signer,
+  dbAccount: DBAccount,
+): Promise<ISignedTxPro> {
+  const encodedTx = unsignedTx.encodedTx as IEncodedTxNexa;
+  const privateKey = await signer.getPrvkey();
+  const publicKey = await signer.getPubkey(true);
+  const {
+    outputSignatures,
+    inputSignatures: inputSigs,
+    signatureBuffer,
+  } = buildSignatureBuffer(encodedTx, dbAccount);
   const ret = sha256sha256(signatureBuffer);
   const signature = sign(privateKey, ret);
   const inputSignatures: INexaInputSignature[] = inputSigs.map((inputSig) => ({

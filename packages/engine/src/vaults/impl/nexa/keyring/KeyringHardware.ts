@@ -1,10 +1,11 @@
-import { bytesToHex } from '@noble/hashes/utils';
-
 import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
-import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
+import type {
+  DBSimpleAccount,
+  DBVariantAccount,
+} from '@onekeyhq/engine/src/types/account';
 import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { KeyringHardwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringHardwareBase';
 import type {
@@ -19,12 +20,11 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-// import { publicKeyFromX } from './sdk';
-import { type IEncodedTxNexa } from '../types';
+import { type IEncodedTxNexa, NexaSignature } from '../types';
 import {
   buildInputScriptBuffer,
   buildRawTx,
-  buildSignatures,
+  buildSignatureBuffer,
   buildTxid,
   getNexaPrefix,
 } from '../utils';
@@ -73,19 +73,21 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw convertDeviceError(addressesResponse.payload);
     }
 
-    const ret: DBSimpleAccount[] = [];
+    const ret: DBVariantAccount[] = [];
     let index = 0;
     for (const addressInfo of addressesResponse.payload) {
-      const { address, path } = addressInfo;
+      const { address, path, pub } = addressInfo;
       const name = (names || [])[index] || `${prefix} #${indexes[index] + 1}`;
       ret.push({
         id: `${this.walletId}--${path}`,
         name,
-        type: AccountType.SIMPLE,
+        type: AccountType.VARIANT,
         path,
         coinType: COIN_TYPE,
-        pub: '',
-        address,
+        pub,
+        address: pub,
+        addresses: { [this.networkId]: address },
+        template,
       });
       index += 1;
     }
@@ -142,38 +144,39 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   async signTransaction(unsignedTx: UnsignedTx): Promise<ISignedTxPro> {
     debugLogger.common.info('signTransaction', unsignedTx);
-    const dbAccount = await this.getDbAccount();
+    const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
 
     const chainId = await this.getNetworkChainId();
 
     const { encodedTx } = unsignedTx.payload;
-    const { inputSignatures, outputSignatures } = buildSignatures(
-      encodedTx as IEncodedTxNexa,
-      dbAccount,
-    );
-    const unSignTx = {
-      version: 0,
-      inputs: inputSignatures.map((input) => ({
-        path: dbAccount.path,
-        prevTxId: input.prevTxId,
-        outputIndex: input.outputIndex,
-        sequenceNumber: input.sequenceNumber,
-        output: {
-          satoshis: input.amount.toString(),
-          script: bytesToHex(Buffer.alloc(0)),
-        },
-        sigOpCount: 1,
-      })),
-      outpus: outputSignatures.map((output) => ({
-        satoshis: output.satoshi.toString(),
-        script: bytesToHex(output.scriptBuffer),
-        scriptVersion: 0,
-      })),
-      lockTime: 0,
-      sigOpCount: 1,
-      scheme: SIGN_TYPE,
-      prefix: chainId,
-    };
+    const { inputSignatures, outputSignatures, signatureBuffer } =
+      buildSignatureBuffer(encodedTx as IEncodedTxNexa, dbAccount);
+    // const unSignTx = {
+    //   version: 0,
+    //   inputs: inputSignatures.map((input) => ({
+    //     path: dbAccount.path,
+    //     prevTxId: input.prevTxId,
+    //     outputIndex: input.outputIndex,
+    //     sequenceNumber: input.sequenceNumber,
+    //     output: {
+    //       satoshis: input.amount.toString(),
+    //       script: bytesToHex(Buffer.alloc(0)),
+    //     },
+    //     sigOpCount: 1,
+    //   })),
+    //   outputs: outputSignatures.map((output) => ({
+    //     satoshis: output.satoshi.toString(),
+    //     script: bytesToHex(output.scriptBuffer),
+    //     scriptVersion: 0,
+    //   })),
+    //   // packages/core/src/api/nexa/helpers/SignatureType.ts
+    //   // SignatureType.SIGHASH_ALL
+    //   sigHashType: 0x00,
+    //   lockTime: 0,
+    //   sigOpCount: 1,
+    //   scheme: SIGN_TYPE,
+    //   prefix: chainId,
+    // };
 
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
@@ -183,20 +186,27 @@ export class KeyringHardware extends KeyringHardwareBase {
       connectId,
       deviceId,
       {
-        ...unSignTx,
         ...passphraseState,
+        inputPath: dbAccount.path,
+        inputCount: inputSignatures.length,
+        prefix: getNexaPrefix(chainId),
+        message: signatureBuffer.toString('hex'),
       },
     );
 
     if (response.success) {
-      const { signatures, publicKey } = response.payload;
-
+      console.log(
+        'packages/engine/src/vaults/impl/nexa/keyring/KeyringHardware.ts',
+        response,
+      );
+      const signature = Buffer.from(response.payload.message.signature, 'hex');
+      const publicKey = Buffer.from(dbAccount.pub, 'hex');
       const inputSigs: INexaInputSignature[] = inputSignatures.map(
         (inputSig) => ({
           ...inputSig,
           publicKey,
-          signature: signatures,
-          scriptBuffer: buildInputScriptBuffer(publicKey, signatures),
+          signature,
+          scriptBuffer: buildInputScriptBuffer(publicKey, signature),
         }),
       );
 
