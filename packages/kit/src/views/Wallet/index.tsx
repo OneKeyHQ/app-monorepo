@@ -14,7 +14,7 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import {
   useActiveWalletAccount,
-  useStatus,
+  useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
 import RefreshLightningNetworkToken from '@onekeyhq/kit/src/views/LightningNetwork/RefreshLightningNetworkToken';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
@@ -49,7 +49,7 @@ const WalletTabs: FC = () => {
   const ref = useRef<ForwardRefHandle>(null);
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
-  const { homeTabName } = useStatus();
+  const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const { wallet, network, accountId, networkId, walletId } =
     useActiveWalletAccount();
   const { enabledNetworks } = useManageNetworks();
@@ -163,8 +163,9 @@ const WalletTabs: FC = () => {
   );
 
   const getHomeTabIndex = useCallback(
-    () => usedTabs.findIndex((tab) => tab.name === homeTabName),
-    [usedTabs, homeTabName],
+    (tabName: string | undefined) =>
+      usedTabs.findIndex((tab) => tab.name === tabName),
+    [usedTabs],
   );
 
   const onIndexChange = useCallback(
@@ -182,13 +183,13 @@ const WalletTabs: FC = () => {
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout> | undefined;
-    const idx = getHomeTabIndex();
 
     const setIndex = (index: number) => {
       ref.current?.setPageIndex?.(index);
       onIndexChange(index);
     };
 
+    const idx = getHomeTabIndex(homeTabName);
     if (platformEnv.isNativeIOS) {
       setTimeout(() => {
         setIndex(idx);
@@ -219,7 +220,7 @@ const WalletTabs: FC = () => {
     }
   }, [onRefresh, enabledNetworks, networkId]);
 
-  const tabContents = usedTabs.map((t) => t.tab);
+  const tabContents = useMemo(() => usedTabs.map((t) => t.tab), [usedTabs]);
 
   const walletTabsContainer = (
     <Tabs.Container
