@@ -18,7 +18,7 @@ import { useAppSelector, useNavigation } from '../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { formatAmount } from '../../../../utils/priceUtils';
 import { EthStakingSource, StakingRoutes } from '../../typing';
-import { isSTETH, isSupportStakedAssets } from '../../utils';
+import { isSTETH, isSupportStakingType } from '../../utils';
 
 import type { ImageSourcePropType } from 'react-native';
 
@@ -84,10 +84,11 @@ export const Options: FC<OptionsProps> = ({
 );
 
 type EthAprOptionProps = {
-  isTestnet?: boolean;
+  networkId: string;
+  accountId: string;
 };
 
-const EthAprOption: FC<EthAprOptionProps> = ({ isTestnet }) => {
+const EthAprOption: FC<EthAprOptionProps> = ({ networkId, accountId }) => {
   const navigation = useNavigation();
   const intl = useIntl();
   useEffect(() => {
@@ -98,7 +99,10 @@ const EthAprOption: FC<EthAprOptionProps> = ({ isTestnet }) => {
 
   const topApr = useMemo(() => {
     if (!ethStakingApr) return undefined;
-    const items = isTestnet ? ethStakingApr.testnet : ethStakingApr.mainnet;
+    const items =
+      networkId === OnekeyNetwork.eth
+        ? ethStakingApr.mainnet
+        : ethStakingApr.testnet;
     return items.kele > items.lido
       ? {
           name: 'Kele • Ethereum',
@@ -110,7 +114,7 @@ const EthAprOption: FC<EthAprOptionProps> = ({ isTestnet }) => {
           value: `${formatAmount(items.lido, 2)}%`,
           logo: require('@onekeyhq/kit/assets/staking/lido_pool.png'),
         };
-  }, [ethStakingApr, isTestnet]);
+  }, [ethStakingApr, networkId]);
 
   const onNext = useCallback(
     (isKele?: boolean) => {
@@ -119,7 +123,7 @@ const EthAprOption: FC<EthAprOptionProps> = ({ isTestnet }) => {
           screen: ModalRoutes.Staking,
           params: {
             screen: StakingRoutes.ETHStake,
-            params: { source: EthStakingSource.Kele },
+            params: { source: EthStakingSource.Kele, accountId, networkId },
           },
         });
       } else {
@@ -127,12 +131,15 @@ const EthAprOption: FC<EthAprOptionProps> = ({ isTestnet }) => {
           screen: ModalRoutes.Staking,
           params: {
             screen: StakingRoutes.LidoEthStakeShouldUnderstand,
-            params: {},
+            params: {
+              accountId,
+              networkId,
+            },
           },
         });
       }
     },
-    [navigation],
+    [navigation, networkId, accountId],
   );
 
   const onViewApr = useCallback(() => {
@@ -152,7 +159,8 @@ const EthAprOption: FC<EthAprOptionProps> = ({ isTestnet }) => {
       params: {
         screen: StakingRoutes.ETHPoolSelector,
         params: {
-          isTestnet: Boolean(isTestnet),
+          networkId,
+          accountId,
           onSelector: (source) => {
             if (source === EthStakingSource.Kele) {
               onNext(true);
@@ -163,7 +171,7 @@ const EthAprOption: FC<EthAprOptionProps> = ({ isTestnet }) => {
         },
       },
     });
-  }, [navigation, isTestnet, onNext]);
+  }, [navigation, networkId, accountId, onNext]);
 
   if (!topApr) {
     return null;
@@ -201,29 +209,35 @@ const EthAprOption: FC<EthAprOptionProps> = ({ isTestnet }) => {
   );
 };
 
-const RelatedPool: FC<EthAprOptionProps> = ({ isTestnet }) => {
+const RelatedPool: FC<EthAprOptionProps> = ({ networkId, accountId }) => {
   const intl = useIntl();
   const navigation = useNavigation();
   const ethStakingApr = useAppSelector((s) => s.staking.ethStakingApr);
   const lidoApr = useMemo(() => {
     if (!ethStakingApr) return undefined;
-    const items = isTestnet ? ethStakingApr.testnet : ethStakingApr.mainnet;
+    const items =
+      networkId === OnekeyNetwork.eth
+        ? ethStakingApr.mainnet
+        : ethStakingApr.testnet;
     return {
       name: 'Lido • Ethereum',
       value: `${formatAmount(items.lido, 2)}%`,
       logo: require('@onekeyhq/kit/assets/staking/lido_pool.png'),
     };
-  }, [ethStakingApr, isTestnet]);
+  }, [ethStakingApr, networkId]);
 
   const onPress = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
         screen: StakingRoutes.LidoEthStakeShouldUnderstand,
-        params: {},
+        params: {
+          networkId,
+          accountId,
+        },
       },
     });
-  }, [navigation]);
+  }, [navigation, accountId, networkId]);
 
   return (
     <Box>
@@ -262,16 +276,18 @@ const RelatedPool: FC<EthAprOptionProps> = ({ isTestnet }) => {
 };
 
 export const EthTopAprShowControl: FC<{ token?: Token }> = ({ token }) => {
-  const isTestnet = token?.networkId === OnekeyNetwork.goerli;
-  const isSupport = isSupportStakedAssets(
-    token?.networkId,
-    token?.tokenIdOnNetwork,
-  );
-  return isSupport ? <EthAprOption isTestnet={isTestnet} /> : null;
+  const isSupport = isSupportStakingType({
+    networkId: token?.networkId,
+    tokenIdOnNetwork: token?.tokenIdOnNetwork,
+  });
+  return isSupport ? (
+    <EthAprOption networkId={token?.networkId ?? ''} accountId="" />
+  ) : null;
 };
 
 export const ETHRelatedPoolShowControl: FC<{ token?: Token }> = ({ token }) => {
-  const isTestnet = token?.networkId === OnekeyNetwork.goerli;
   const stETH = isSTETH(token?.networkId, token?.tokenIdOnNetwork);
-  return stETH ? <RelatedPool isTestnet={isTestnet} /> : null;
+  return stETH ? (
+    <RelatedPool networkId={token?.networkId ?? ''} accountId="" />
+  ) : null;
 };

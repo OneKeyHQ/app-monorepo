@@ -24,7 +24,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatCurrency } from '../../../components/Format';
-import { useActiveWalletAccount, useNavigation } from '../../../hooks';
+import { useAccount, useNavigation } from '../../../hooks';
 import {
   useSimpleTokenPriceValue,
   useSingleToken,
@@ -47,8 +47,8 @@ export default function WithdrawAmount() {
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
   const { height } = useWindowDimensions();
-  const { networkId, tokenIdOnNetwork } = route.params;
-  const { accountId, account } = useActiveWalletAccount();
+  const { networkId, tokenIdOnNetwork, accountId } = route.params;
+  const { account } = useAccount({ accountId, networkId });
   const withdrawalOverview = useKeleWithdrawOverview(networkId, accountId);
 
   const mainPrice = useSimpleTokenPriceValue({ networkId });
@@ -136,11 +136,15 @@ export default function WithdrawAmount() {
         isDisabled:
           !!errorMsg || !!minAmountErrMsg || new BigNumber(amount).lte(0),
       }}
-      onPrimaryActionPress={() => {
-        if (!account || !tokenInfo) {
+      onPrimaryActionPress={async () => {
+        if (!accountId || !tokenInfo) {
           return;
         }
-        const message = { token: 'eth', amount, address: account.address };
+        const acc = await backgroundApiProxy.engine.getAccount(
+          accountId,
+          networkId,
+        );
+        const message = { token: 'eth', amount, address: acc.address };
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Send,
           params: {
@@ -154,7 +158,7 @@ export default function WithdrawAmount() {
               },
               onSuccess: async () => {
                 const res = await backgroundApiProxy.serviceStaking.withdraw({
-                  accountId: account.id,
+                  accountId,
                   networkId,
                   amount,
                 });
@@ -172,6 +176,7 @@ export default function WithdrawAmount() {
                       screen: StakingRoutes.Feedback,
                       params: {
                         networkId,
+                        accountId,
                       },
                     },
                   });

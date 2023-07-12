@@ -1,12 +1,15 @@
 import { useCallback } from 'react';
 
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
 
-import { useNavigation } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { StakingRoutes } from '../typing';
+
+import type { StakingRoutesParams } from '../typing';
+import type { RouteProp } from '@react-navigation/core';
 
 const LidoEthUnstakeShouldUnderstandContent = () => {
   const intl = useIntl();
@@ -97,18 +100,27 @@ const LidoEthUnstakeShouldUnderstandContent = () => {
   );
 };
 
+type RouteProps = RouteProp<
+  StakingRoutesParams,
+  StakingRoutes.LidoEthUnstakeShouldUnderstand
+>;
+
 const LidoEthUnstakeShouldUnderstand = () => {
   const intl = useIntl();
+  const route = useRoute<RouteProps>();
   const navigation = useNavigation();
   const onPrimaryActionPress = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
       params: {
         screen: StakingRoutes.LidoEthUnstake,
-        params: {},
+        params: {
+          accountId: route.params.accountId,
+          networkId: route.params.networkId,
+        },
       },
     });
-  }, [navigation]);
+  }, [navigation, route.params]);
   return (
     <Modal
       hideSecondaryAction

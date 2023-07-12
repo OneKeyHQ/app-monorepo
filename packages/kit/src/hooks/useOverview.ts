@@ -563,7 +563,7 @@ export const useTokenPositionInfo = ({
         const current = minerOverview?.[aid]?.[nid];
         total = total
           .plus(current?.amount?.total_amount ?? 0)
-          .plus(current.amount.withdrawable ?? 0);
+          .plus(current?.amount.withdrawable ?? 0);
       }
 
       return {
@@ -642,7 +642,6 @@ export const useTokenPositionInfo = ({
 
     const { balance: stakingBalance, networkId: stakingNetworkId } =
       keleStakingInfo ?? {};
-
     if (stakingBalance?.gt(0) && stakingNetworkId) {
       balance = balance.plus(keleStakingInfo.balance);
       items.push({
@@ -710,7 +709,9 @@ export const useTokenDetailInfo = ({
 
     const ethereumNativeToken = tokens?.find(
       (n) =>
-        n.impl === IMPL_EVM && n.chainId === '1' && (n.isNative || !n.address),
+        n.impl === IMPL_EVM &&
+        (n.chainId === '1' || n.chainId === '5') &&
+        (n.isNative || !n.address),
     );
 
     return {
