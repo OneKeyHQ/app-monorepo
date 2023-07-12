@@ -102,7 +102,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const response = await HardwareSDK.nexaGetAddress(connectId, deviceId, {
       path: params.path,
       showOnOneKey: params.showOnOneKey,
-      prefix: chainId,
+      prefix: getNexaPrefix(chainId),
       scheme: SIGN_TYPE,
       ...passphraseState,
     });
@@ -126,7 +126,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       bundle: params.map(({ path, showOnOneKey }) => ({
         path,
         showOnOneKey: !!showOnOneKey,
-        prefix: chainId,
+        prefix: getNexaPrefix(chainId),
         scheme: SIGN_TYPE,
       })),
     });
