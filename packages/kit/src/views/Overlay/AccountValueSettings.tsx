@@ -3,14 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Badge,
-  Box,
-  Icon,
-  Skeleton,
-  Switch,
-  Typography,
-} from '@onekeyhq/components';
+import { Box, Icon, Skeleton, Switch, Typography } from '@onekeyhq/components';
 import type { IBalanceDetails } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -61,7 +54,7 @@ function AccountBalanceDetailsRow({
 }
 
 function AccountBalanceDetailsPanel() {
-  const intl = useIntl();
+  // const intl = useIntl();
   const { accountId, networkId } = useActiveWalletAccount();
   const [balanceDetails, setBalanceDetails] = useState<
     IBalanceDetails | undefined
