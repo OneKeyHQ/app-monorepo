@@ -7,6 +7,8 @@ import coinSelectSplit from 'coinselect/split';
 import coinSelectUtils from 'coinselect/utils';
 import { isNil } from 'lodash';
 
+import { InsufficientBalance } from '../../../../errors';
+
 import type { IEncodedTxBtc, IUTXOInput, IUTXOOutput } from '../types';
 import type {
   ICoinSelectInput,
@@ -99,6 +101,8 @@ export function accumulativePro(
         return { fee: feeRate * (bytesAccum + utxoBytes) };
 
       if (!utxo.forceSelect) {
+        // **** dust utxo 546 sats won't select in default,
+        //      it may cost more tx fee, but supply less value
         // eslint-disable-next-line no-continue
         continue;
       }
@@ -247,8 +251,8 @@ export function coinSelectForOrdinal(
     // which broke the ordinal indexer searching
     false,
   );
-  if (result.inputs?.length === 0) {
-    throw new Error('coinSelectForOrdinal ERROR: No inputs found');
+  if (result.inputs?.length === 0 || !result.inputs) {
+    throw new InsufficientBalance('Failed to select UTXOs for inscription');
   }
   const ordUtxo = inputsForCoinSelect.find((item) => Boolean(item.forceSelect));
   const matchedOrdUtxo = result.inputs?.find(

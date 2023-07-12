@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import type { RouteProp } from '@react-navigation/core';
 import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import type { MessageDescriptor } from 'react-intl';
 import { useIntl } from 'react-intl';
 
 import {
@@ -31,19 +33,21 @@ import { AddressLabel } from '../../../components/AddressLabel';
 import NameServiceResolver, {
   useNameServiceStatus,
 } from '../../../components/NameServiceResolver';
-import { useActiveSideAccount } from '../../../hooks';
+import { useActiveSideAccount, useNativeToken } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import { useSingleToken } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { BulkSenderTypeEnum } from '../../BulkSender/types';
 import { BaseSendModal } from '../components/BaseSendModal';
 import NFTView from '../components/NFTView';
+import type { SendRoutesParams } from '../types';
 import { SendModalRoutes } from '../types';
 
 import type { ModalScreenProps } from '../../../routes/types';
-import type { SendRoutesParams } from '../types';
-import type { RouteProp } from '@react-navigation/core';
-import type { MessageDescriptor } from 'react-intl';
+import {
+  OneKeyError,
+  OneKeyErrorClassNames,
+} from '@onekeyhq/engine/src/errors';
 
 type NavigationProps = ModalScreenProps<SendRoutesParams>;
 
@@ -111,6 +115,7 @@ function PreSendAddress() {
     networkId,
     transferInfo.token ?? '',
   );
+  const nativeToken = useNativeToken(networkId);
 
   const [nftInfo, updateNFTInfo] = useState<INFTAsset>();
   useEffect(() => {
@@ -329,15 +334,35 @@ function PreSendAddress() {
             },
           });
         } catch (error: any) {
-          const { key: errorKey = '' } = error;
-          if (errorKey === 'msg__nft_does_not_exist') {
+          console.error('nftSendConfirm ERROR: ', error);
+
+          const { key: errorKey = '', className } = error as OneKeyError;
+          if (errorKey) {
+            let data = {};
+            if (
+              errorKey === 'form__amount_invalid' &&
+              className ===
+                OneKeyErrorClassNames.OneKeyErrorInsufficientNativeBalance
+            ) {
+              data = {
+                0: nativeToken?.symbol || '',
+              };
+            }
             ToastManager.show(
               {
-                title: intl.formatMessage({ id: errorKey }),
+                title: intl.formatMessage({ id: errorKey as any }, data),
+              },
+              { type: 'error' },
+            );
+          } else {
+            ToastManager.show(
+              {
+                title: (error as Error)?.message || 'ERROR',
               },
               { type: 'error' },
             );
           }
+
           setIsLoadingAssets(false);
         }
       }
@@ -382,6 +407,8 @@ function PreSendAddress() {
           },
         });
       } catch (e: any) {
+        console.error('lightningNetworkSendConfirm ERROR: ', e);
+
         const { key: errorKey = '' } = e;
         if (errorKey === 'form__amount_invalid') {
           ToastManager.show(
@@ -536,6 +563,8 @@ function PreSendAddress() {
           });
           await validateAddress?.(networkId, toAddress);
         } catch (error0: any) {
+          console.error('PreSendAddress validateHandle ERROR: ', error0);
+
           setIsValidatingAddress(false);
           if (isValidNameServiceName && !resolvedAddress) return undefined;
           const { key, info } = error0;
