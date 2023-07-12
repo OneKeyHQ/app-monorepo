@@ -6,6 +6,7 @@ import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
+import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { KeyringHardwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringHardwareBase';
 import type {
   IHardwareGetAddressParams,
@@ -25,10 +26,6 @@ import polkadotSdk from './sdk/polkadotSdk';
 
 import type { DotImplOptions } from './types';
 import type Vault from './Vault';
-import type {
-  SignedTx,
-  UnsignedTx,
-} from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const HARDEN_PATH_PREFIX = `m/44'/${COIN_TYPE}'`;
 const { u8aConcat } = polkadotSdk;
