@@ -187,10 +187,13 @@ export class KeyringHardware extends KeyringHardwareBase {
       deviceId,
       {
         ...passphraseState,
-        inputPath: dbAccount.path,
-        inputCount: inputSignatures.length,
-        prefix: getNexaPrefix(chainId),
-        message: signatureBuffer.toString('hex'),
+        inputs: [
+          {
+            path: dbAccount.path,
+            prefix: getNexaPrefix(chainId),
+            message: signatureBuffer.toString('hex'),
+          },
+        ],
       },
     );
 
@@ -199,15 +202,18 @@ export class KeyringHardware extends KeyringHardwareBase {
         'packages/engine/src/vaults/impl/nexa/keyring/KeyringHardware.ts',
         response,
       );
-      const signature = Buffer.from(response.payload.message.signature, 'hex');
+      const nexaSignatures = response.payload;
       const publicKey = Buffer.from(dbAccount.pub, 'hex');
       const inputSigs: INexaInputSignature[] = inputSignatures.map(
-        (inputSig) => ({
-          ...inputSig,
-          publicKey,
-          signature,
-          scriptBuffer: buildInputScriptBuffer(publicKey, signature),
-        }),
+        (inputSig, index) => {
+          const signature = Buffer.from(nexaSignatures[index].signature, 'hex');
+          return {
+            ...inputSig,
+            publicKey,
+            signature,
+            scriptBuffer: buildInputScriptBuffer(publicKey, signature),
+          };
+        },
       );
 
       const txid = buildTxid(inputSigs, outputSignatures);
