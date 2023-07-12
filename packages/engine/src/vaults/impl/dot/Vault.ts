@@ -10,13 +10,13 @@ import BigNumber from 'bignumber.js';
 import { groupBy, isEmpty, isNil } from 'lodash';
 
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
-import { decrypt } from '@onekeyhq/engine/src/dbs/base';
 import {
   InvalidAddress,
   InvalidTransferValue,
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/engine/src/errors';
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type {
   DBAccount,
   DBVariantAccount,

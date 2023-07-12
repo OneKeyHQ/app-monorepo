@@ -1,11 +1,11 @@
 import { bytesToHex } from '@noble/hashes/utils';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
-import { encrypt } from '@onekeyhq/engine/src/dbs/base';
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import { Signer } from '@onekeyhq/engine/src/proxy';
 import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
+import { encrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { CommonMessage } from '@onekeyhq/engine/src/types/message';
