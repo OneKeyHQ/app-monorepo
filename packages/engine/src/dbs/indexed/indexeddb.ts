@@ -7,6 +7,10 @@ import { isNil } from 'lodash';
 import RNUUID from 'react-native-uuid';
 
 import {
+  decrypt,
+  encrypt,
+} from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import {
   filterPassphraseWallet,
   handleDisplayPassphraseWallet,
 } from '@onekeyhq/shared/src/engine/engineUtils';
@@ -48,8 +52,6 @@ import {
   DEFAULT_VERIFY_STRING,
   MAIN_CONTEXT,
   checkPassword,
-  decrypt,
-  encrypt,
 } from '../base';
 
 import type {
