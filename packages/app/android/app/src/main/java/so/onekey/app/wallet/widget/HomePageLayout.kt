@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.util.AttributeSet
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -56,6 +57,7 @@ open class HomePageLayout @JvmOverloads constructor(
 
         override fun onPageSelected(position: Int) {
             super.onPageSelected(position)
+
             if (mTabProps.isNotEmpty() && position >= 0 && position < mTabProps.size) {
                 currentPosition = position
             }
@@ -66,7 +68,7 @@ open class HomePageLayout @JvmOverloads constructor(
                 it.isEnabled =
                     if (state == ViewPager2.SCROLL_STATE_IDLE) mRefreshEnabled && mAppBarExtended else false
             }
-            if (state == ViewPager2.SCROLL_STATE_IDLE && currentPosition >= 0 && currentPosition < mTabProps.size) {
+            if ((state == ViewPager2.SCROLL_STATE_IDLE || state == ViewPager2.SCROLL_STATE_SETTLING) && currentPosition >= 0 && currentPosition < mTabProps.size) {
                 sendChangeTabsNativeEvent(currentPosition, mTabProps[currentPosition])
             }
 
