@@ -257,11 +257,20 @@ export function coinSelectForOrdinal(
       item.vout === ordUtxo?.vout &&
       new BigNumber(item.value).eq(ordUtxo?.value),
   );
-  if (!matchedOrdUtxo || !ordUtxo) {
-    throw new Error('coinSelectForOrdinal ERROR: No ordinal inputs found');
+  if (!ordUtxo) {
+    throw new Error('coinSelectForOrdinal ERROR: No ordUtxo inputs found');
   }
+  if (!matchedOrdUtxo) {
+    throw new Error(
+      'coinSelectForOrdinal ERROR: No matchedOrdUtxo inputs found',
+    );
+  }
+  let ordUtxoCount = 0;
   result.inputs?.forEach((item, index) => {
     const isOrd = Boolean(item.forceSelect);
+    if (isOrd) {
+      ordUtxoCount += 1;
+    }
     if (!isOrd && index === 0) {
       throw new Error(
         'coinSelectForOrdinal ERROR: Ordinal utxo should be first',
@@ -269,10 +278,15 @@ export function coinSelectForOrdinal(
     }
     if (isOrd && index > 0) {
       throw new Error(
-        'coinSelectForOrdinal ERROR: multiple ordinal utxo found',
+        'coinSelectForOrdinal ERROR: multiple ordinal utxo not allowed',
       );
     }
   });
+  if (ordUtxoCount > 1) {
+    throw new Error(
+      'coinSelectForOrdinal ERROR: multiple ordinal utxo not allowed....',
+    );
+  }
 
   // TODO check output value between 10000 and 546
   // TODO check input including inscriptions utxo
