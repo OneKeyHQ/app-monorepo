@@ -1,25 +1,46 @@
+import { debounce } from 'lodash';
+
 import {
   allNetworksAccountRegex,
   generateFakeAllnetworksAccount,
 } from '@onekeyhq/engine/src/managers/account';
 import { getPath } from '@onekeyhq/engine/src/managers/derivation';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isWalletCompatibleAllNetworks } from '@onekeyhq/engine/src/managers/wallet';
 import type { Account } from '@onekeyhq/engine/src/types/account';
+import { setAllNetworksAccountsMap } from '@onekeyhq/kit/src/store/reducers/overview';
 import {
   backgroundClass,
   backgroundMethod,
+  bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   IMPL_EVM,
   IMPL_SOL,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  AppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 export default class ServiceAllNetwork extends ServiceBase {
+  @bindThis()
+  registerEvents() {
+    appEventBus.on(AppEventBusNames.NetworkChanged, () => {
+      this.refreshCurrentAllNetworksAccountMap();
+    });
+    appEventBus.on(AppEventBusNames.CurrencyChanged, () => {
+      this.refreshCurrentAllNetworksAccountMap();
+    });
+
+    this.refreshCurrentAllNetworksAccountMap();
+  }
+
   @backgroundMethod()
   async switchWalletToCompatibleAllNetworks() {
     const { appSelector, serviceAccountSelector } = this.backgroundApi;
@@ -125,17 +146,15 @@ export default class ServiceAllNetwork extends ServiceBase {
     accountId?: string;
     accountIndex?: number;
     walletId: string;
-  }) {
-    try {
-      await this.backgroundApi.serviceApp.waitForAppInited({
-        logName: 'ServiceAllNetwork.getAllNetworksWalletAccounts',
-      });
-    } catch (error) {
-      debugLogger.notification.error(error);
+  }): Promise<Record<string, Account[]>> {
+    const { engine, appSelector, dispatch } = this.backgroundApi;
+    const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
+    if (!isAllNetworks(activeNetworkId)) {
+      return {};
     }
     const networkAccountsMap: Record<string, Account[]> = {};
     if (!isWalletCompatibleAllNetworks(walletId)) {
-      return networkAccountsMap;
+      return {};
     }
     let index: number | undefined;
     if (typeof accountIndex === 'number') {
@@ -148,21 +167,18 @@ export default class ServiceAllNetwork extends ServiceBase {
     }
 
     if (typeof index !== 'number' || Number.isNaN(index)) {
-      return networkAccountsMap;
+      return {};
     }
 
-    const { engine, appSelector } = this.backgroundApi;
     const wallet = await engine.getWallet(walletId);
     if (!wallet) {
-      return networkAccountsMap;
+      return {};
     }
-    const networks = appSelector(
-      (s) =>
-        s.runtime.networks?.filter((n) => !n.settings.validationRequired) ?? [],
-    );
+    const networks = appSelector((s) => s.runtime.networks ?? []);
 
     for (const n of networks.filter(
-      (item) => item.enabled && !item.isTestnet,
+      (item) =>
+        item.enabled && !item.isTestnet && !item.settings.validationRequired,
     )) {
       const accounts = await engine.getAccounts(wallet.accounts, n.id);
       const filteredAccoutns = accounts.filter((a) => {
@@ -180,6 +196,44 @@ export default class ServiceAllNetwork extends ServiceBase {
         networkAccountsMap[n.id] = filteredAccoutns;
       }
     }
+    dispatch(
+      setAllNetworksAccountsMap({
+        walletId,
+        data: networkAccountsMap,
+      }),
+    );
     return networkAccountsMap;
+  }
+
+  _refreshCurrentAllNetworksAccountMapWithDebounce = debounce(
+    async () => {
+      const { appSelector } = this.backgroundApi;
+      try {
+        await this.backgroundApi.serviceApp.waitForAppInited({
+          logName: 'ServiceAllNetwork.getAllNetworksWalletAccounts',
+        });
+      } catch (error) {
+        debugLogger.common.error(error);
+      }
+      const { activeWalletId: walletId, activeAccountId: accountId } =
+        appSelector((s) => s.general);
+      if (!walletId || !accountId) {
+        return;
+      }
+      return this.getAllNetworksWalletAccounts({
+        walletId,
+        accountId,
+      });
+    },
+    600,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
+  @backgroundMethod()
+  refreshCurrentAllNetworksAccountMap() {
+    return this._refreshCurrentAllNetworksAccountMapWithDebounce();
   }
 }

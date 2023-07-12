@@ -253,6 +253,10 @@ function TxHistoryListViewComponent({
   const { serviceHistory } = backgroundApiProxy;
   const refreshHistoryTs = useAppSelector((s) => s.refresher.refreshHistoryTs);
 
+  const allNetworksAccontsMap = useAppSelector(
+    (s) => s.overview.allNetworksAccountsMap?.[walletId] ?? {},
+  );
+
   const isFocused = useVisibilityFocused();
 
   const { data: allNetworksTokens } = useAccountPortfolios({
@@ -313,13 +317,6 @@ function TxHistoryListViewComponent({
       refresh?: boolean;
     }) => {
       const result: IHistoryTx[] = [];
-      const allNetworksAccontsMap =
-        await backgroundApiProxy.serviceAllNetwork.getAllNetworksWalletAccounts(
-          {
-            walletId,
-            accountId: aid,
-          },
-        );
       const tokens =
         allNetworksTokens.find((t) => t.coingeckoId === coingeckoId)?.tokens ??
         [];
@@ -355,7 +352,7 @@ function TxHistoryListViewComponent({
       }
       return result;
     },
-    [allNetworksTokens, fetchOnChainHistory, walletId],
+    [allNetworksTokens, fetchOnChainHistory, walletId, allNetworksAccontsMap],
   );
 
   const fetchHistoryTx = useCallback(

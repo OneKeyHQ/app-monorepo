@@ -36,12 +36,11 @@ function AllNetworksNetworkSelectorModal() {
   const closeModal = useModalClose();
   const route = useRoute<RouteProps>();
 
-  const { allNetworks } = useManageNetworks();
+  const { enabledNetworks } = useManageNetworks();
 
-  const { walletId, accountId, filter, onConfirm } = route?.params ?? {};
+  const { walletId, filter, onConfirm } = route?.params ?? {};
 
-  const { data: networkAccounts, loading } = useAllNetworksWalletAccounts({
-    accountId,
+  const { data: networkAccounts } = useAllNetworksWalletAccounts({
     walletId,
   });
 
@@ -126,8 +125,6 @@ function AllNetworksNetworkSelectorModal() {
     [intl, networkAccounts, filter, handlePress],
   );
 
-  const empty = loading ? <Spinner size="lg" /> : null;
-
   return (
     <Modal
       header={intl.formatMessage({ id: 'form__select_network' })}
@@ -135,13 +132,12 @@ function AllNetworksNetworkSelectorModal() {
       height="560px"
     >
       <List
-        data={allNetworks}
+        data={enabledNetworks}
         contentContainerStyle={{
-          flex: allNetworks?.length ? undefined : 1,
+          flex: enabledNetworks?.length ? undefined : 1,
         }}
         renderItem={renderItem}
         keyExtractor={(item: Network) => item.id}
-        ListEmptyComponent={empty}
       />
     </Modal>
   );

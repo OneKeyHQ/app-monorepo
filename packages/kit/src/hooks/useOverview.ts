@@ -123,7 +123,6 @@ export const useAccountPortfolios = <
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     walletId,
-    accountId: accountId ?? '',
   });
 
   const fetchData = useCallback(async () => {
@@ -346,7 +345,6 @@ export const useNFTValues = ({
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     walletId: walletId ?? '',
-    accountId: accountId ?? '',
   });
 
   const nftPrices = useAppSelector((s) => s.nft.nftPrice);
@@ -538,7 +536,6 @@ export const useTokenPositionInfo = ({
 
   const { data: allNetworksAccountsMap } = useAllNetworksWalletAccounts({
     walletId,
-    accountId,
   });
 
   const minerOverview = useAppSelector((s) => s.staking.keleMinerOverviews);
@@ -831,7 +828,6 @@ export function useAccountTokenLoading(networkId: string, accountId: string) {
 
   const { data } = useAllNetworksWalletAccounts({
     walletId,
-    accountId: accountId ?? '',
   });
 
   return useMemo(() => {

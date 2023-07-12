@@ -139,7 +139,7 @@ class ServiceOverview extends ServiceBase {
         }),
       );
     }
-    const { data, actions } = await this.processNftPriceActions({
+    const { data, actions } = this.processNftPriceActions({
       networkId,
       accountId,
       results,
@@ -161,7 +161,7 @@ class ServiceOverview extends ServiceBase {
     );
   }
 
-  async processNftPriceActions({
+  processNftPriceActions({
     networkId,
     results,
     accountId,
@@ -170,18 +170,15 @@ class ServiceOverview extends ServiceBase {
     results: OverviewAllNetworksPortfolioRes;
     accountId: string;
   }) {
+    const { appSelector } = this.backgroundApi;
     let networkAccountsMap: Record<string, Account[]> = {};
     if (isAllNetworks(networkId)) {
       const walletId = this.backgroundApi.appSelector(
         (s) => s.general.activeWalletId,
       );
-      networkAccountsMap =
-        await this.backgroundApi.serviceAllNetwork.getAllNetworksWalletAccounts(
-          {
-            walletId: walletId ?? '',
-            accountId,
-          },
-        );
+      networkAccountsMap = appSelector(
+        (s) => s.overview.allNetworksAccountsMap?.[walletId ?? ''] ?? {},
+      );
     }
     const pricesMap: Record<
       string,
@@ -300,7 +297,7 @@ class ServiceOverview extends ServiceBase {
     walletId?: string;
     scanTypes: IOverviewScanTaskItem['scanTypes'];
   }): Promise<IOverviewScanTaskItem[]> {
-    const { serviceAccount, serviceAllNetwork } = this.backgroundApi;
+    const { serviceAccount, appSelector } = this.backgroundApi;
     if (!isAllNetworks(networkId)) {
       const { address, xpub } = await serviceAccount.getAcccountAddressWithXpub(
         accountId,
@@ -319,11 +316,9 @@ class ServiceOverview extends ServiceBase {
       return [];
     }
 
-    const networkAccountsMap =
-      await serviceAllNetwork.getAllNetworksWalletAccounts({
-        accountId,
-        walletId,
-      });
+    const networkAccountsMap = appSelector(
+      (s) => s.overview.allNetworksAccountsMap?.[walletId] ?? {},
+    );
 
     const tasks: IOverviewScanTaskItem[] = [];
 

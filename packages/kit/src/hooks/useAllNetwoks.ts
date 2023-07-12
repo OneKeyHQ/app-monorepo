@@ -1,14 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import {
   allNetworksAccountRegex,
   generateFakeAllnetworksAccount,
 } from '@onekeyhq/engine/src/managers/account';
-import type { Account } from '@onekeyhq/engine/src/types/account';
 
-import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-
-import { useManageNetworks } from './useManageNetworks';
+import { useAppSelector } from './useAppSelector';
 
 export const useAllNetworkAccountInfo = ({
   accountId,
@@ -24,34 +21,14 @@ export const useAllNetworkAccountInfo = ({
 
 export const useAllNetworksWalletAccounts = ({
   walletId,
-  accountId,
 }: {
   walletId: string;
-  accountId: string;
 }) => {
-  const [loading, setLoading] = useState(false);
-  const { enabledNetworks } = useManageNetworks();
-  const [networkAccountsMap, setNetworkAccountMap] = useState<
-    Record<string, Account[]>
-  >({});
+  const map = useAppSelector((s) => s.overview.allNetworksAccountsMap);
 
-  useEffect(() => {
-    setLoading(true);
-    backgroundApiProxy.serviceAllNetwork
-      .getAllNetworksWalletAccounts({
-        walletId,
-        accountId,
-      })
-      .then((map) => {
-        setNetworkAccountMap(map);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [walletId, accountId, enabledNetworks]);
+  const data = useMemo(() => map?.[walletId] ?? {}, [map, walletId]);
 
   return {
-    loading,
-    data: networkAccountsMap,
+    data,
   };
 };

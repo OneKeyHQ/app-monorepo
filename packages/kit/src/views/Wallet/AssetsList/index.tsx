@@ -236,6 +236,8 @@ function AssetsList({
     ],
   );
 
+  console.log(loading);
+
   return (
     <Container
       style={{
