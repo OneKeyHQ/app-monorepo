@@ -5256,6 +5256,7 @@ __metadata:
     react-native-web: ~0.18.11
     react-refresh: ^0.14.0
     react-test-renderer: 18.1.0
+    react-use-cookie: ^1.4.0
     rimraf: ^3
     superstruct: ^1
     timeout-signal: 2.0.0
@@ -28284,6 +28285,15 @@ __metadata:
   peerDependencies:
     react: ^18.1.0
   checksum: 401a0020ff39ebdb37e015197ab11ceb13ddb7004716b7fb6304b169f20d6b0c4d0e14aaa0da139ce2b1eb14088cf370b5771b30fee52f16d6b682b5332c5781
+  languageName: node
+  linkType: hard
+
+"react-use-cookie@npm:^1.4.0":
+  version: 1.4.0
+  resolution: "react-use-cookie@npm:1.4.0"
+  peerDependencies:
+    react: ">=16.8"
+  checksum: 79e4494ab60858e7e6cbdbe5d55e8968f9d66100b6914de759c6db18b894d4c137976b91551bfc0226eec44101c06751fe9091ac30a0e24f480a00d5a3f6f595
   languageName: node
   linkType: hard
 

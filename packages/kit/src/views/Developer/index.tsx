@@ -6,6 +6,7 @@ import fetch from 'cross-fetch';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 import uuidLib from 'react-native-uuid';
+import useCookie from 'react-use-cookie';
 
 import {
   Box,
@@ -213,6 +214,8 @@ export const Debug = () => {
       navigation,
     ],
   );
+
+  const [rrtStatus, changeRRTStatus] = useCookie('rrt', '0');
 
   return (
     <ScrollView px={4} py={{ base: 6, md: 8 }} bg="background-default">
@@ -817,6 +820,19 @@ export const Debug = () => {
               }}
             >
               <Typography.Body1>Open Gas Panel</Typography.Body1>
+            </Pressable>
+            <Pressable
+              {...pressableProps}
+              onPress={() => {
+                changeRRTStatus(rrtStatus === '1' ? '0' : '1');
+                window.location.reload();
+              }}
+            >
+              <Typography.Body1>
+                {rrtStatus === '1'
+                  ? 'Disabled react-render-tracker'
+                  : 'Enabled react-render-tracker'}
+              </Typography.Body1>
             </Pressable>
           </VStack>
         </Box>
