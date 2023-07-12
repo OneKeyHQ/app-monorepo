@@ -217,7 +217,7 @@ export const useAllNetworksSelectNetworkAccount = ({
     accountId,
   });
   const { data: networkAccounts } = useAllNetworksWalletAccounts({
-    walletId,
+    accountId,
   });
   const navigation = useNavigation();
 

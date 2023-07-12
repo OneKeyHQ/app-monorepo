@@ -147,7 +147,7 @@ const ToolsPage: FC = () => {
   const { serviceInscribe } = backgroundApiProxy;
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
-    walletId,
+    accountId,
   });
 
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({

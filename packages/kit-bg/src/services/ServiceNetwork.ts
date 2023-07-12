@@ -179,15 +179,17 @@ class ServiceNetwork extends ServiceBase {
   async updateNetworks(networks: [string, boolean][]) {
     const { engine, dispatch } = this.backgroundApi;
     const res = await engine.updateNetworkList(networks);
+    this.notifyChainChanged();
     dispatch(updateNetworks(res));
   }
 
   @backgroundMethod()
   async initNetworks() {
-    const { engine } = this.backgroundApi;
+    const { engine, serviceAllNetwork } = this.backgroundApi;
     await initNetworkList();
     await this.syncPresetNetworks();
     await this.fetchNetworks();
+    await serviceAllNetwork.refreshCurrentAllNetworksAccountMap();
     return engine.listNetworks(true);
   }
 

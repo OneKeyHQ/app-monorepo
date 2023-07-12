@@ -5,10 +5,12 @@ import {
   generateFakeAllnetworksAccount,
 } from '@onekeyhq/engine/src/managers/account';
 import { getPath } from '@onekeyhq/engine/src/managers/derivation';
-import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isWalletCompatibleAllNetworks } from '@onekeyhq/engine/src/managers/wallet';
 import type { Account } from '@onekeyhq/engine/src/types/account';
-import { setAllNetworksAccountsMap } from '@onekeyhq/kit/src/store/reducers/overview';
+import {
+  removeOverviewPendingTasks,
+  setAllNetworksAccountsMap,
+} from '@onekeyhq/kit/src/store/reducers/overview';
 import {
   backgroundClass,
   backgroundMethod,
@@ -37,8 +39,6 @@ export default class ServiceAllNetwork extends ServiceBase {
     appEventBus.on(AppEventBusNames.CurrencyChanged, () => {
       this.refreshCurrentAllNetworksAccountMap();
     });
-
-    this.refreshCurrentAllNetworksAccountMap();
   }
 
   @backgroundMethod()
@@ -142,16 +142,15 @@ export default class ServiceAllNetwork extends ServiceBase {
     accountId,
     accountIndex,
     walletId,
+    refreshCurrentAccount = true,
   }: {
     accountId?: string;
     accountIndex?: number;
     walletId: string;
+    refreshCurrentAccount?: boolean;
   }): Promise<Record<string, Account[]>> {
-    const { engine, appSelector, dispatch } = this.backgroundApi;
-    const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
-    if (!isAllNetworks(activeNetworkId)) {
-      return {};
-    }
+    const { engine, appSelector, dispatch, serviceOverview } =
+      this.backgroundApi;
     const networkAccountsMap: Record<string, Account[]> = {};
     if (!isWalletCompatibleAllNetworks(walletId)) {
       return {};
@@ -196,12 +195,32 @@ export default class ServiceAllNetwork extends ServiceBase {
         networkAccountsMap[n.id] = filteredAccoutns;
       }
     }
+    const activeAccountId = accountId ?? `${walletId}--${index}`;
     dispatch(
       setAllNetworksAccountsMap({
-        walletId,
+        accountId: activeAccountId,
         data: networkAccountsMap,
       }),
     );
+
+    if (!refreshCurrentAccount) {
+      return networkAccountsMap;
+    }
+    const pendingTasks = appSelector((s) => s.overview.tasks ?? {});
+
+    const taskIdsToRemove = Object.entries(pendingTasks)
+      .filter(([, t]) => !t.key?.endsWith(activeAccountId))
+      .map(([id]) => id);
+
+    if (taskIdsToRemove?.length) {
+      dispatch(
+        removeOverviewPendingTasks({
+          ids: taskIdsToRemove,
+        }),
+      );
+    }
+
+    serviceOverview.refreshCurrentAccount();
     return networkAccountsMap;
   }
 
@@ -220,10 +239,11 @@ export default class ServiceAllNetwork extends ServiceBase {
       if (!walletId || !accountId) {
         return;
       }
-      return this.getAllNetworksWalletAccounts({
+      const res = await this.getAllNetworksWalletAccounts({
         walletId,
         accountId,
       });
+      return res;
     },
     600,
     {

@@ -20,13 +20,13 @@ export const useAllNetworkAccountInfo = ({
   }, [accountId]);
 
 export const useAllNetworksWalletAccounts = ({
-  walletId,
+  accountId,
 }: {
-  walletId: string;
+  accountId?: string | null;
 }) => {
   const map = useAppSelector((s) => s.overview.allNetworksAccountsMap);
 
-  const data = useMemo(() => map?.[walletId] ?? {}, [map, walletId]);
+  const data = useMemo(() => map?.[accountId || ''] ?? {}, [map, accountId]);
 
   return {
     data,

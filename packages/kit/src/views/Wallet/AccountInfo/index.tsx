@@ -48,7 +48,7 @@ const SectionCopyAddress: FC = () => {
   const { copyAddress } = useCopyAddress({ wallet });
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
-    walletId,
+    accountId,
   });
 
   const displayAddress = useMemo(

@@ -91,6 +91,7 @@ class ServiceOverview extends ServiceBase {
 
     const { activeNetworkId: networkId = '', activeAccountId: accountId = '' } =
       appSelector((s) => s.general);
+
     if (!networkId || !accountId) {
       return;
     }
@@ -173,11 +174,8 @@ class ServiceOverview extends ServiceBase {
     const { appSelector } = this.backgroundApi;
     let networkAccountsMap: Record<string, Account[]> = {};
     if (isAllNetworks(networkId)) {
-      const walletId = this.backgroundApi.appSelector(
-        (s) => s.general.activeWalletId,
-      );
       networkAccountsMap = appSelector(
-        (s) => s.overview.allNetworksAccountsMap?.[walletId ?? ''] ?? {},
+        (s) => s.overview.allNetworksAccountsMap?.[accountId ?? ''] ?? {},
       );
     }
     const pricesMap: Record<
@@ -317,7 +315,7 @@ class ServiceOverview extends ServiceBase {
     }
 
     const networkAccountsMap = appSelector(
-      (s) => s.overview.allNetworksAccountsMap?.[walletId] ?? {},
+      (s) => s.overview.allNetworksAccountsMap?.[accountId] ?? {},
     );
 
     const tasks: IOverviewScanTaskItem[] = [];

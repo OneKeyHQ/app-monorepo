@@ -254,7 +254,7 @@ function TxHistoryListViewComponent({
   const refreshHistoryTs = useAppSelector((s) => s.refresher.refreshHistoryTs);
 
   const allNetworksAccontsMap = useAppSelector(
-    (s) => s.overview.allNetworksAccountsMap?.[walletId] ?? {},
+    (s) => s.overview.allNetworksAccountsMap?.[accountId || ''] ?? {},
   );
 
   const isFocused = useVisibilityFocused();

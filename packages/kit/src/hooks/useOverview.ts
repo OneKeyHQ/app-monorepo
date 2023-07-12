@@ -18,7 +18,6 @@ import { getTimeDurationMs } from '../utils/helper';
 import { getPreBaseValue } from '../utils/priceUtils';
 import { EOverviewScanTaskType } from '../views/Overview/types';
 
-import { useWalletIdFromAccountIdWithFallback } from './useAccount';
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
 import { useFrozenBalance, useSingleToken } from './useTokens';
@@ -119,10 +118,8 @@ export const useAccountPortfolios = <
       {},
   );
 
-  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
-
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
-    walletId,
+    accountId,
   });
 
   const fetchData = useCallback(async () => {
@@ -341,10 +338,8 @@ export const useNFTValues = ({
   accountId?: string;
   networkId?: string;
 }) => {
-  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
-
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
-    walletId: walletId ?? '',
+    accountId,
   });
 
   const nftPrices = useAppSelector((s) => s.nft.nftPrice);
@@ -509,7 +504,6 @@ export const useTokenBalanceWithoutFrozen = ({
 export const useTokenPositionInfo = ({
   accountId = '',
   networkId = '',
-  walletId = '',
   tokenAddress,
   sendAddress,
   coingeckoId,
@@ -535,8 +529,10 @@ export const useTokenPositionInfo = ({
   });
 
   const { data: allNetworksAccountsMap } = useAllNetworksWalletAccounts({
-    walletId,
+    accountId,
   });
+
+  // TODO: fetch minerOverview
 
   const minerOverview = useAppSelector((s) => s.staking.keleMinerOverviews);
 
@@ -824,10 +820,8 @@ export function useAccountTokenLoading(networkId: string, accountId: string) {
   const pendingTasks = useOverviewPendingTasks({ networkId, accountId });
   const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
 
-  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
-
   const { data } = useAllNetworksWalletAccounts({
-    walletId,
+    accountId,
   });
 
   return useMemo(() => {

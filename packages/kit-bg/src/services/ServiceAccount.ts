@@ -1329,6 +1329,7 @@ class ServiceAccount extends ServiceBase {
       dispatch,
       serviceCloudBackup,
       serviceNotification,
+      serviceAllNetwork,
     } = this.backgroundApi;
     const account = await this.getAccount({
       walletId,
@@ -1358,6 +1359,9 @@ class ServiceAccount extends ServiceBase {
     dispatch(...actions, setRefreshTS());
     if (!walletId.startsWith('hw')) {
       serviceCloudBackup.requestBackup();
+    }
+    if (isAllNetworks(networkId)) {
+      serviceAllNetwork.refreshCurrentAllNetworksAccountMap();
     }
   }
 
