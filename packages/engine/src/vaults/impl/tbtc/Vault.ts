@@ -70,4 +70,8 @@ export default class Vault extends VaultBtc {
     }
     return Promise.resolve([]);
   }
+
+  override async canAutoCreateNextAccount(password: string): Promise<boolean> {
+    return Promise.resolve(false);
+  }
 }
