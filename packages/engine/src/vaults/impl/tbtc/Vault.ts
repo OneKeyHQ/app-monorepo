@@ -71,6 +71,7 @@ export default class Vault extends VaultBtc {
     return Promise.resolve([]);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   override async canAutoCreateNextAccount(password: string): Promise<boolean> {
     return Promise.resolve(false);
   }
