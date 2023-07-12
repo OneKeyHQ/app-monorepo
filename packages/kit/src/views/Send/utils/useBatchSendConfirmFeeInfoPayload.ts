@@ -19,6 +19,7 @@ import type {
 import {
   calculateTotalFeeNative,
   calculateTotalFeeRange,
+  getSelectedFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -43,6 +44,7 @@ export function useBatchSendConfirmFeeInfoPayload({
   signOnly,
   forBatchSend,
   transferCount,
+  feeInfoReuseable,
 }: {
   encodedTxs: IEncodedTx[];
   decodedTxs: IDecodedTx[];
@@ -54,6 +56,7 @@ export function useBatchSendConfirmFeeInfoPayload({
   signOnly?: boolean;
   forBatchSend?: boolean;
   transferCount: number;
+  feeInfoReuseable?: boolean;
 }) {
   const isFocused = useIsFocused();
   const { network } = useActiveSideAccount({ accountId, networkId });
@@ -73,28 +76,6 @@ export function useBatchSendConfirmFeeInfoPayload({
   const feeInfoSelectedInRouteParams = (
     route.params as { feeInfoSelected?: IFeeInfoSelected }
   )?.feeInfoSelected;
-  const getSelectedFeeInfoUnit = useCallback(
-    ({
-      info,
-      index,
-    }: {
-      info: IFeeInfo;
-      index: string | number;
-    }): IFeeInfoUnit => {
-      const indexNum = parseInt(index as string, 10);
-      const priceIndex =
-        indexNum > info.prices.length - 1 ? info.prices.length - 1 : indexNum;
-      const priceInfo = info.prices[priceIndex];
-      return {
-        eip1559: info.eip1559,
-        limit: info.limit,
-        ...(info.eip1559
-          ? { price1559: priceInfo as EIP1559Fee }
-          : { price: priceInfo as string }),
-      };
-    },
-    [],
-  );
 
   const fetchFeeInfo = useCallback(
     async (
@@ -124,6 +105,11 @@ export function useBatchSendConfirmFeeInfoPayload({
       };
       let minInfoUnit: IFeeInfoUnit | null = null;
       let shouldFetch = !feeInfoSelected || feeInfoSelected?.type === 'preset';
+
+      if (feeInfoStandard && feeInfoReuseable) {
+        info = feeInfoStandard.info;
+      }
+
       if (fetchAnyway) {
         shouldFetch = true;
       }
@@ -324,6 +310,7 @@ export function useBatchSendConfirmFeeInfoPayload({
       feeInfoSelectedInRouteParams,
       network,
       defaultFeePresetIndex,
+      feeInfoReuseable,
       fetchAnyway,
       useFeeInTx,
       forBatchSend,
@@ -333,7 +320,6 @@ export function useBatchSendConfirmFeeInfoPayload({
       networkId,
       signOnly,
       transferCount,
-      getSelectedFeeInfoUnit,
     ],
   );
 

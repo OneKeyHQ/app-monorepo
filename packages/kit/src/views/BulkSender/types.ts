@@ -24,6 +24,11 @@ export enum AmountTypeEnum {
   Fixed = 'Fixed',
 }
 
+export enum TraderTypeEnum {
+  Sender = 'Sender',
+  Receiver = 'Receiver',
+}
+
 export type BulkSenderRoutesParams = {
   [BulkSenderRoutes.TokenSelector]: {
     accountId: string;
@@ -61,7 +66,7 @@ export type NFTTrader = {
 };
 
 export type TraderError = {
-  lineNumber: number;
+  lineNumber?: number;
   message: string;
 };
 

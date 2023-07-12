@@ -38,7 +38,7 @@ import { TraderExample } from '../TraderExample';
 import { TraderInput } from '../TraderInput';
 import { TxSettingPanel } from '../TxSetting/TxSettingPanel';
 import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
-import { AmountTypeEnum, BulkSenderRoutes } from '../types';
+import { AmountTypeEnum, BulkSenderRoutes, TraderTypeEnum } from '../types';
 
 import type { TokenTrader } from '../types';
 
@@ -97,6 +97,8 @@ function OneToMany(props: Props) {
     trader: receiver,
     token: currentToken,
     bulkType,
+    traderType: TraderTypeEnum.Receiver,
+    amountType,
   });
 
   const handleOnTokenSelected = useCallback((token: Token) => {
@@ -281,6 +283,7 @@ function OneToMany(props: Props) {
               transferInfos,
             },
           },
+          bulkType,
         },
       });
     } catch (error) {
@@ -429,6 +432,12 @@ function OneToMany(props: Props) {
           setIsUploadMode={setIsUploadMode}
         />
       </Box>
+      <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
+        {intl.formatMessage({
+          id: 'form__each_line_should_include_the_address_and_the_amount_seperated_by_commas',
+        })}
+      </Text>
+
       <Box display={isUploadMode ? 'none' : 'flex'}>
         <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
           {intl.formatMessage({

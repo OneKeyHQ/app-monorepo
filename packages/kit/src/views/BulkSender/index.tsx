@@ -186,8 +186,13 @@ function BulkSender() {
 
   if (selectedMode) {
     return (
-      <ScrollView contentContainerStyle={{ alignItems: 'center' }}>
-        <Box maxW="1350px" paddingY={5} paddingX={isVertical ? 4 : 0}>
+      <ScrollView
+        contentContainerStyle={{
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <Box width="768px" paddingY={5} paddingX={isVertical ? 4 : 0}>
           {renderBulkSenderPanel()}
         </Box>
       </ScrollView>

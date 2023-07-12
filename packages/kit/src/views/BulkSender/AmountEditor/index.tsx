@@ -88,7 +88,7 @@ function AmountEditor() {
       });
     } else {
       onAmountChanged({
-        amount: [amount],
+        amount: [amount, amount],
         amountType,
       });
     }
@@ -212,7 +212,7 @@ function AmountEditor() {
           <Form.Item
             name="maxAmount"
             control={control}
-            defaultValue={amountFromOut[0]}
+            defaultValue={amountFromOut[1]}
             label="Maximum Amount"
             rules={{
               required: true,

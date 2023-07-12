@@ -28,23 +28,19 @@ function TraderErrors(props: Props) {
     ) {
       const error = traderErrors[i];
       result.push(
-        <HStack space="10px" alignItems="center" key={error.lineNumber}>
+        <HStack space="10px" alignItems="center" key={i}>
           <Icon
             name="InformationCircleOutline"
             size={12}
             color="icon-warning"
           />
-          <Text
-            typography="Caption"
-            key={error.lineNumber}
-            color="text-warning"
-            fontSize={12}
-          >
-            {intl.formatMessage(
-              { id: 'form__line_str' },
-              { 0: error.lineNumber },
-            )}
-            : {error.message}
+          <Text typography="Caption" color="text-warning" fontSize={12}>
+            {error.lineNumber
+              ? `${intl.formatMessage(
+                  { id: 'form__line_str' },
+                  { 0: error.lineNumber },
+                )}: ${error.message}`
+              : error.message}
           </Text>
         </HStack>,
       );

@@ -13,8 +13,11 @@ import {
   Text,
   ToastManager,
 } from '@onekeyhq/components';
-import type { OneKeyError } from '@onekeyhq/engine/src/errors';
-import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
+import {
+  OneKeyError,
+  OneKeyErrorClassNames,
+} from '@onekeyhq/engine/src/errors';
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import type {
   IEncodedTx,
@@ -38,6 +41,7 @@ import { BatchSendState } from '../enums';
 import { useBatchSendConfirmDecodedTxs } from '../utils/useBatchSendConfirmDecodedTxs';
 
 import type {
+  BatchSendConfirmPayloadInfo,
   ISendAuthenticationModalTitleInfo,
   SendConfirmPayloadInfo,
   SendModalRoutes,
@@ -89,8 +93,11 @@ function SendProgress({
     backRouteName,
     sourceInfo,
     signOnly = false,
+    bulkType,
   } = route.params;
-  const payload = payloadInfo || route.params.payload;
+  const payload = payloadInfo as BatchSendConfirmPayloadInfo;
+
+  const { senderAccounts } = payload;
 
   const interactInfo = useInteractWithInfo({ sourceInfo });
   const isExternal = useMemo(
@@ -137,7 +144,18 @@ function SendProgress({
       debugLogger.sendTx.info('Authentication sendTx:', route.params);
 
       let signedTx = null;
+      let senderAccountId;
       const encodedTx = encodedTxs[i];
+
+      if (bulkType === BulkTypeEnum.ManyToMany || BulkTypeEnum.ManyToOne) {
+        senderAccountId = senderAccounts?.[i];
+      } else {
+        senderAccountId = accountId;
+      }
+
+      if (!senderAccountId) {
+        throw new OneKeyError('Can not get sender account id.');
+      }
 
       if (isExternal) {
         signedTx = await sendTxForExternalAccount(encodedTx);
@@ -146,7 +164,7 @@ function SendProgress({
           await backgroundApiProxy.serviceBatchTransfer.signAndSendEncodedTx({
             password,
             networkId,
-            accountId,
+            accountId: senderAccountId,
             encodedTx,
             signOnly,
             pendingTxs: map(result, (tx) => ({
@@ -159,14 +177,14 @@ function SendProgress({
       if (signedTx) {
         await backgroundApiProxy.serviceHistory.saveSendConfirmHistory({
           networkId,
-          accountId,
+          accountId: senderAccountId,
           data: {
             signedTx,
             encodedTx: encodedTxs[i],
             decodedTx: (
               await backgroundApiProxy.engine.decodeTx({
                 networkId,
-                accountId,
+                accountId: senderAccountId,
                 encodedTx: encodedTxs[i],
                 payload,
                 interactInfo,
@@ -212,12 +230,14 @@ function SendProgress({
     encodedTxs,
     waitUntilInProgress,
     route.params,
+    bulkType,
     isExternal,
     network?.impl,
+    senderAccounts,
+    accountId,
     sendTxForExternalAccount,
     password,
     networkId,
-    accountId,
     signOnly,
     payload,
     interactInfo,
@@ -264,6 +284,7 @@ function SendProgress({
           txPayload = undefined;
         }
         onSuccess?.(result, {
+          senderAccounts,
           signedTxs,
           encodedTxs: submitEncodedTxs,
           decodedTxs: isEmpty(submitEncodedTxs)
@@ -339,17 +360,18 @@ function SendProgress({
       onFail?.(error);
     }
   }, [
-    accountId,
-    backRouteName,
     encodedTxs,
-    interactInfo,
-    intl,
-    navigation,
-    networkId,
-    onSuccess,
-    onFail,
-    payload,
     sendTxs,
+    payload,
+    onSuccess,
+    senderAccounts,
+    networkId,
+    accountId,
+    interactInfo,
+    backRouteName,
+    onFail,
+    navigation,
+    intl,
   ]);
 
   useEffect(

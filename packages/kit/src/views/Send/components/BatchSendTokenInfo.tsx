@@ -1,17 +1,25 @@
+import { useMemo } from 'react';
+
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Box, Divider, HStack, Text } from '@onekeyhq/components';
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
+import type { IFeeInfoPayload } from '@onekeyhq/engine/src/vaults/types';
 
 import { useTokenBalance } from '../../../hooks';
 import { useNativeToken, useSingleToken } from '../../../hooks/useTokens';
+import { AmountTypeEnum } from '../../BulkSender/types';
 
 import type { BatchSendConfirmPayloadInfo } from '../types';
 
 type Props = {
   accountId: string;
   networkId: string;
+  bulkType: BulkTypeEnum;
+  amountType?: AmountTypeEnum;
   payloadInfo?: BatchSendConfirmPayloadInfo;
+  feeInfoPayloads?: IFeeInfoPayload[];
 };
 
 function TokenInfoBlock({
@@ -34,7 +42,14 @@ function TokenInfoBlock({
 }
 
 function BatchSendTokenInfo(props: Props) {
-  const { accountId, networkId, payloadInfo } = props;
+  const {
+    accountId,
+    networkId,
+    payloadInfo,
+    bulkType,
+    amountType,
+    feeInfoPayloads,
+  } = props;
 
   const intl = useIntl();
 
@@ -45,8 +60,20 @@ function BatchSendTokenInfo(props: Props) {
   let amountBN = new BigNumber(0);
   const addresses = new Set();
 
+  const isManyToN = useMemo(
+    () =>
+      bulkType === BulkTypeEnum.ManyToMany ||
+      bulkType === BulkTypeEnum.ManyToOne,
+    [bulkType],
+  );
+
   for (let i = 0; i < transferInfos.length; i += 1) {
     amountBN = amountBN.plus(transferInfos[i].amount);
+
+    if (amountType === AmountTypeEnum.All && isManyToN) {
+      amountBN = amountBN.minus(feeInfoPayloads?.[i]?.current.totalNative ?? 0);
+    }
+
     addresses.add(transferInfos[i].to.toLowerCase());
   }
 
@@ -87,26 +114,37 @@ function BatchSendTokenInfo(props: Props) {
         />
         <TokenInfoBlock
           title={intl.formatMessage({ id: 'form__transfer_amount' })}
-          content={`${amountBN.toFixed()} ${token?.symbol ?? ''}`}
+          content={`${
+            amountType === AmountTypeEnum.All ||
+            amountType === AmountTypeEnum.Random
+              ? '~'
+              : ''
+          }${amountBN.toFixed()} ${token?.symbol ?? ''}`}
         />
       </HStack>
-      <Divider />
-      <HStack paddingY={4} space={2}>
-        {!token?.isNative && (
-          <TokenInfoBlock
-            title={intl.formatMessage({ id: 'form__token_balance' })}
-            content={`${tokenBalance ?? 0} ${token?.symbol ?? ''}`}
-          />
-        )}
+      {bulkType === BulkTypeEnum.OneToMany ? (
+        <>
+          <Divider />
+          <HStack paddingY={4} space={2}>
+            {!token?.isNative && (
+              <TokenInfoBlock
+                title={intl.formatMessage({ id: 'form__token_balance' })}
+                content={`${tokenBalance ?? 0} ${token?.symbol ?? ''}`}
+              />
+            )}
 
-        <TokenInfoBlock
-          title={intl.formatMessage(
-            { id: 'form__str_balance' },
-            { symbol: nativeToken?.symbol },
-          )}
-          content={`${nativeTokenBalance ?? 0} ${nativeToken?.symbol ?? ''}`}
-        />
-      </HStack>
+            <TokenInfoBlock
+              title={intl.formatMessage(
+                { id: 'form__str_balance' },
+                { symbol: nativeToken?.symbol },
+              )}
+              content={`${nativeTokenBalance ?? 0} ${
+                nativeToken?.symbol ?? ''
+              }`}
+            />
+          </HStack>
+        </>
+      ) : null}
     </Box>
   );
 }

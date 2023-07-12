@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -12,15 +12,14 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { TokenIcon } from '@onekeyhq/components/src/Token';
-import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
-import type { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 import {
   useAccountTokensOnChain,
+  useAppSelector,
   useNetwork,
-  useTokenBalance,
 } from '@onekeyhq/kit/src/hooks';
 import {
   ModalRoutes,
@@ -31,16 +30,18 @@ import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AmountEditorTrigger } from '../AmountEditor/AmountEditorTrigger';
-import { showApprovalSelector } from '../ApprovalSelector';
 import { amountDefaultTypeMap } from '../constants';
 import { useValidteTrader } from '../hooks';
 import { TraderExample } from '../TraderExample';
 import { TraderInput } from '../TraderInput';
 import { TxSettingPanel } from '../TxSetting/TxSettingPanel';
 import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
-import { AmountTypeEnum, BulkSenderRoutes } from '../types';
+import { AmountTypeEnum, BulkSenderRoutes, TraderTypeEnum } from '../types';
 
-import type { TokenTrader } from '../types';
+import { getTransferAmount, verifyBulkTransferBeforeConfirm } from './utils';
+
+import type { TokenTrader, TraderError } from '../types';
+import { Account } from '@onekeyhq/engine/src/types/account';
 
 interface Props {
   accountId: string;
@@ -50,25 +51,31 @@ interface Props {
 }
 
 function ManyToN(props: Props) {
-  const { accountId, networkId, accountAddress, bulkType } = props;
+  const { accountId, networkId, bulkType } = props;
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
+  const [sender, setSender] = useState<TokenTrader[]>([]);
+  const [senderFromOut, setSenderFromOut] = useState<TokenTrader[]>([]);
   const [receiver, setReceiver] = useState<TokenTrader[]>([]);
   const [receiverFromOut, setReceiverFromOut] = useState<TokenTrader[]>([]);
-  const [isUploadMode, setIsUploadMode] = useState(false);
+  const [isUploadSenderMode, setIsUploadSenderMode] = useState(false);
+  const [isUploadReceiverMode, setIsUploadReceiverMode] = useState(false);
   const [isBuildingTx, setIsBuildingTx] = useState(false);
-  const [isUnlimited, setIsUnlimited] = useState(false);
-  const [isAlreadyUnlimited, setIsAlreadyUnlimited] = useState(false);
-  const [isfetchingAllowance, setIsFetchingAllowance] = useState(false);
+  const [verifySenderErrors, setVerifySenderErrors] = useState<TraderError[]>(
+    [],
+  );
+
+  const [feePresetIndex, setFeePresetIndex] = useState('1');
 
   const [amountType, setAmountType] = useState<AmountTypeEnum>(
     amountDefaultTypeMap[bulkType] ?? AmountTypeEnum.Fixed,
   );
-  const [amount, setAmount] = useState<string[]>(['0']);
+  const [amount, setAmount] = useState<string[]>(['0', '1']);
 
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
   const { network } = useNetwork({ networkId });
+  const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
 
   const accountTokens = useAccountTokensOnChain(networkId, accountId, true);
   const tokens = accountTokens.filter((token) =>
@@ -84,19 +91,51 @@ function ManyToN(props: Props) {
   const currentToken = selectedToken || initialToken;
   const isNative = currentToken?.isNative;
 
-  const tokenBalnace = useTokenBalance({
-    accountId,
+  const {
+    isValid: isValidSender,
+    isValidating: isValidatingSender,
+    errors: senderErrors,
+  } = useValidteTrader({
     networkId,
+    trader: sender,
     token: currentToken,
-    fallback: '0',
+    bulkType,
+    traderType: TraderTypeEnum.Sender,
+    amountType,
   });
 
-  const { isValid, isValidating, errors } = useValidteTrader({
+  const {
+    isValid: isValidReceiver,
+    isValidating: isValidatingReceiver,
+    errors: receiverErrors,
+  } = useValidteTrader({
     networkId,
     trader: receiver,
     token: currentToken,
     bulkType,
+    traderType: TraderTypeEnum.Receiver,
+    amountType,
   });
+
+  const isDisabled = useMemo(
+    () =>
+      receiver.length === 0 ||
+      sender.length === 0 ||
+      isValidatingReceiver ||
+      isValidatingSender ||
+      isBuildingTx ||
+      !isValidReceiver ||
+      !isValidSender,
+    [
+      receiver,
+      sender,
+      isValidatingReceiver,
+      isValidatingSender,
+      isBuildingTx,
+      isValidReceiver,
+      isValidSender,
+    ],
+  );
 
   const handleOnTokenSelected = useCallback((token: Token) => {
     setSelectedToken(token);
@@ -146,120 +185,61 @@ function ManyToN(props: Props) {
     });
   }, [accountId, handleOnTokenSelected, navigation, networkId, tokens]);
 
-  const handleOpenApprovalSelector = useCallback(() => {
-    showApprovalSelector({
-      isUnlimited,
-      setIsUnlimited,
-      isAlreadyUnlimited,
-    });
-  }, [isUnlimited, isAlreadyUnlimited]);
-
-  const verifyBulkTransferBeforeConfirm = useCallback(
-    (transferInfos: ITransferInfo[], token?: Token) => {
-      const totalAmount = transferInfos.reduce(
-        (sum, next) => sum.plus(next.amount),
-        new BigNumber(0),
-      );
-
-      if (totalAmount.gt(tokenBalnace)) {
-        ToastManager.show(
-          {
-            title: intl.formatMessage(
-              { id: 'form__amount_invalid' },
-              { '0': token?.symbol },
-            ),
-          },
-          { type: 'error' },
-        );
-        return false;
-      }
-
-      return true;
-    },
-    [tokenBalnace, intl],
-  );
-
   const handlePreviewTransfer = useCallback(async () => {
-    if (receiver.length === 0 || isValidating || isBuildingTx || !isValid)
-      return;
+    if (isDisabled) return;
     const transferInfos: ITransferInfo[] = [];
-    let prevNonce;
 
     setIsBuildingTx(true);
-    const token = selectedToken || initialToken;
-    for (let i = 0; i < receiver.length; i += 1) {
-      transferInfos.push({
-        from: accountAddress,
-        to: receiver[i].Address,
-        amount:
-          amountType === AmountTypeEnum.Custom
-            ? (receiver[i].Amount as string)
-            : amount[0],
-        token: token?.tokenIdOnNetwork,
-        tokenSendAddress: token?.sendAddress,
+
+    const { isVerified, errors, senderAccounts } =
+      await verifyBulkTransferBeforeConfirm({
+        networkId,
+        sender,
+        receiver,
+        amount,
+        amountType,
+        bulkType,
+        token: currentToken,
+        balances,
+        feePresetIndex,
       });
-    }
 
-    const verified = verifyBulkTransferBeforeConfirm(transferInfos, token);
-
-    if (!verified) {
+    if (!isVerified) {
       setIsBuildingTx(false);
+      setVerifySenderErrors(errors ?? []);
       return;
     }
 
-    const encodedApproveTxs =
-      await serviceBatchTransfer.buildEncodedTxsFromBatchApprove({
-        networkId,
-        accountId,
-        transferInfos,
-        isUnlimited,
+    for (let i = 0; i < sender.length; i += 1) {
+      transferInfos.push({
+        from: sender[i].Address,
+        to:
+          bulkType === BulkTypeEnum.ManyToOne
+            ? receiver[0].Address
+            : receiver[i].Address,
+        amount: await getTransferAmount({
+          networkId,
+          amount,
+          amountType,
+          token: currentToken,
+          senderItem: sender[i],
+          balances,
+        }),
+        token: currentToken?.tokenIdOnNetwork,
+        tokenSendAddress: currentToken?.sendAddress,
       });
-
-    const prevTx = encodedApproveTxs[encodedApproveTxs.length - 1];
-
-    if (prevTx) {
-      prevNonce = (prevTx as IEncodedTxEvm).nonce;
-      prevNonce =
-        prevNonce !== undefined
-          ? new BigNumber(prevNonce).toNumber()
-          : prevNonce;
-    }
-
-    const maxActionsInTx = network?.settings?.maxActionsInTx || 0;
-    const transferInfoGroup = [];
-    if (
-      maxActionsInTx > 0 &&
-      (network?.settings?.hardwareMaxActionsEnabled
-        ? accountId.startsWith('hw-')
-        : true)
-    ) {
-      for (
-        let i = 0, len = transferInfos.length;
-        i < len;
-        i += maxActionsInTx
-      ) {
-        transferInfoGroup.push(transferInfos.slice(i, i + maxActionsInTx));
-      }
-    } else {
-      transferInfoGroup.push(transferInfos);
     }
 
     const encodedTxs = [];
 
-    for (let i = 0, len = transferInfoGroup.length; i < len; i += 1) {
+    for (let i = 0, len = transferInfos.length; i < len; i += 1) {
       // @ts-ignore
       const encodedTx =
-        await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
+        await backgroundApiProxy.engine.buildEncodedTxFromTransfer({
           networkId,
           accountId,
-          transferInfos: transferInfoGroup[i],
-          prevNonce,
+          transferInfo: transferInfos[i],
         });
-      prevNonce = (encodedTx as IEncodedTxEvm).nonce;
-      prevNonce =
-        prevNonce !== undefined
-          ? new BigNumber(prevNonce).toNumber()
-          : prevNonce;
       encodedTxs.push(encodedTx);
     }
 
@@ -274,33 +254,33 @@ function ManyToN(props: Props) {
           accountId,
           feeInfoUseFeeInTx: false,
           feeInfoEditable: true,
-          encodedTxs: [...encodedApproveTxs, ...encodedTxs],
+          feeInfoReuseable: true,
+          encodedTxs,
           transferCount: transferInfos.length,
           payloadInfo: {
             type: 'Transfer',
             transferInfos,
+            senderAccounts,
+            tokenInfo: currentToken,
           },
+          bulkType,
+          amountType,
         },
       },
     });
   }, [
-    accountAddress,
     accountId,
     amount,
     amountType,
-    initialToken,
-    isBuildingTx,
-    isUnlimited,
-    isValid,
-    isValidating,
+    balances,
+    bulkType,
+    currentToken,
+    feePresetIndex,
+    isDisabled,
     navigation,
-    network?.settings?.hardwareMaxActionsEnabled,
-    network?.settings?.maxActionsInTx,
     networkId,
     receiver,
-    selectedToken,
-    serviceBatchTransfer,
-    verifyBulkTransferBeforeConfirm,
+    sender,
   ]);
 
   useFocusEffect(
@@ -319,46 +299,18 @@ function ManyToN(props: Props) {
   );
 
   useEffect(() => {
-    const fetchTokenAllowance = async () => {
-      const contract = batchTransferContractAddress[networkId];
-      if (
-        !isNative &&
-        network?.settings.batchTransferApprovalRequired &&
-        currentToken?.tokenIdOnNetwork &&
-        contract
-      ) {
-        try {
-          setIsFetchingAllowance(true);
-          const { isUnlimited: isUnlimitedAllowance } =
-            await serviceBatchTransfer.checkIsUnlimitedAllowance({
-              networkId,
-              owner: accountAddress,
-              spender: contract,
-              token: currentToken?.tokenIdOnNetwork,
-            });
-          setIsUnlimited(isUnlimitedAllowance);
-          setIsAlreadyUnlimited(isUnlimitedAllowance);
-          setIsFetchingAllowance(false);
-        } catch {
-          setIsFetchingAllowance(false);
-        }
-      }
-    };
-    fetchTokenAllowance();
-  }, [
-    accountAddress,
-    currentToken?.tokenIdOnNetwork,
-    isNative,
-    network?.settings.batchTransferApprovalRequired,
-    networkId,
-    serviceBatchTransfer,
-  ]);
-
-  useEffect(() => {
     if (accountId && networkId) {
       setSelectedToken(null);
     }
   }, [accountId, networkId]);
+
+  const transferCount = useMemo(() => {
+    if (bulkType === BulkTypeEnum.ManyToOne) {
+      return sender.length;
+    }
+
+    return BigNumber.min(sender.length, receiver.length).toNumber();
+  }, [bulkType, receiver.length, sender.length]);
 
   return (
     <Box>
@@ -366,49 +318,44 @@ function ManyToN(props: Props) {
         <TxSettingTrigger
           header={intl.formatMessage({ id: 'form__token' })}
           title={currentToken?.symbol ?? ''}
-          desc={intl.formatMessage(
-            { id: 'content__balance_str' },
-            { 0: tokenBalnace },
-          )}
           icon={<TokenIcon size={10} token={currentToken} />}
           onPress={handleOpenTokenSelector}
         />
         <AmountEditorTrigger
           token={currentToken}
           handleOnAmountChanged={handleOnAmountChanged}
-          transferCount={receiver.length}
+          transferCount={transferCount}
           amount={amount}
           amountType={amountType}
           bulkType={bulkType}
           networkId={network?.id ?? ''}
         />
-        {!isNative && network?.settings.batchTransferApprovalRequired && (
-          <TxSettingTrigger
-            isLoading={isfetchingAllowance}
-            header={intl.formatMessage({ id: 'form__allowance' })}
-            title={intl.formatMessage({
-              id: isUnlimited ? 'form__unlimited' : 'form__exact_amount',
-            })}
-            desc={
-              isAlreadyUnlimited && isUnlimited ? (
-                <Text typography="Body2" color="text-success">
-                  {intl.formatMessage({ id: 'form__approved' })}
-                </Text>
-              ) : (
-                'To Be Approved'
-              )
-            }
-            onPress={handleOpenApprovalSelector}
-          />
-        )}
       </TxSettingPanel>
       <Box mt={8}>
         <TraderInput
           header={
             amountType === AmountTypeEnum.Custom
-              ? 'Receiptent Address, Amount'
-              : 'Receiptent'
+              ? 'Sender Address, Amount'
+              : 'Sender'
           }
+          accountId={accountId}
+          networkId={networkId}
+          token={currentToken}
+          amount={amount}
+          amountType={amountType}
+          setTrader={setSender}
+          traderFromOut={senderFromOut}
+          setTraderFromOut={setSenderFromOut}
+          traderErrors={
+            senderErrors.length > 0 ? senderErrors : verifySenderErrors
+          }
+          isUploadMode={isUploadSenderMode}
+          setIsUploadMode={setIsUploadSenderMode}
+        />
+      </Box>
+      <Box mt={8}>
+        <TraderInput
+          header="Receiptent"
           accountId={accountId}
           networkId={networkId}
           token={currentToken}
@@ -417,27 +364,25 @@ function ManyToN(props: Props) {
           setTrader={setReceiver}
           traderFromOut={receiverFromOut}
           setTraderFromOut={setReceiverFromOut}
-          traderErrors={errors}
-          isUploadMode={isUploadMode}
-          setIsUploadMode={setIsUploadMode}
+          traderErrors={receiverErrors}
+          isUploadMode={isUploadReceiverMode}
+          setIsUploadMode={setIsUploadReceiverMode}
         />
       </Box>
-      <Box display={isUploadMode ? 'none' : 'flex'}>
-        <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
-          {intl.formatMessage({
-            id: 'content__deflationary_token_transfers_are_not_supported_at_this_moment',
-          })}
-        </Text>
+      <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
+        {intl.formatMessage({
+          id: 'form__each_line_should_include_the_address_and_the_amount_seperated_by_commas',
+        })}
+      </Text>
+      <Box
+        display={isUploadSenderMode || isUploadReceiverMode ? 'none' : 'flex'}
+      >
         <Box mt={4}>
           <Button
-            isLoading={isValidating || isBuildingTx}
-            isDisabled={
-              isValidating ||
-              !isValid ||
-              receiver.length === 0 ||
-              isBuildingTx ||
-              isfetchingAllowance
+            isLoading={
+              isValidatingSender || isValidatingReceiver || isBuildingTx
             }
+            isDisabled={isDisabled}
             type="primary"
             size="xl"
             maxW={isVertical ? 'full' : '280px'}

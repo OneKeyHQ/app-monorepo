@@ -3,7 +3,9 @@ import type { ReactElement } from 'react';
 import type { ModalProps } from '@onekeyhq/components/src/Modal';
 import type { IBaseExternalAccountInfo } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityWalletConnect';
 import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Network } from '@onekeyhq/engine/src/types/network';
+import type { Token } from '@onekeyhq/engine/src/types/token';
 import type { IUnsignedMessageEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
   LNURLAuthServiceResponse,
@@ -31,7 +33,7 @@ import type { WalletService } from '../../components/WalletConnect/types';
 import type { WalletConnectClientForDapp } from '../../components/WalletConnect/WalletConnectClientForDapp';
 import type { CollectiblesRoutesParams } from '../../routes/Root/Modal/Collectibles';
 import type { CollectiblesModalRoutes } from '../../routes/routesEnum';
-import type { BulkSenderTypeEnum } from '../BulkSender/types';
+import type { AmountTypeEnum } from '../BulkSender/types';
 import type { InjectedConnectorInfo } from '../ExternalAccount/injectedConnectors';
 import type { SwapQuoteTx } from '../Swap/typings';
 import type { IWalletConnectSession } from '@walletconnect/types';
@@ -337,6 +339,8 @@ export type BatchSendConfirmPayloadInfo = {
   swapInfos?: ISwapInfo[];
   stakeInfos?: IStakeInfo[];
   nftInfos?: INFTInfo[];
+  senderAccounts?: string[];
+  tokenInfo?: Token;
 };
 
 export type BatchSendConfirmShared = {
@@ -363,8 +367,11 @@ export type BatchSendConfirmParams = BatchSendConfirmShared & {
   signOnly?: boolean;
   feeInfoUseFeeInTx: boolean;
   feeInfoEditable: boolean;
+  feeInfoReuseable?: boolean;
   transferCount: number;
   skipSaveHistory?: boolean;
+  bulkType: BulkTypeEnum;
+  amountType?: AmountTypeEnum;
 };
 
 export type IBatchTxsConfirmViewPropsHandleConfirm = ({
@@ -423,6 +430,7 @@ export type BatchSendConfirmOnSuccessData = {
   signedTxs?: ISignedTxPro[];
   encodedTxs?: IEncodedTx[];
   decodedTxs?: IDecodedTx[];
+  senderAccounts?: string[];
 };
 
 export type SendConfirmAdvancedSettings = {

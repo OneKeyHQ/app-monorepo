@@ -38,9 +38,6 @@ function TextareaWithLineNumber(props: Props) {
       <Textarea
         // @ts-ignore
         ref={textAreaRef}
-        placeholder={intl.formatMessage({
-          id: 'form__receiver_address_amount',
-        })}
         onScroll={handleTextareaOnScroll}
         bgColor="transparent"
         bg="transparent"

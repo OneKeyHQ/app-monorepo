@@ -174,11 +174,6 @@ function TraderInput(props: TraderInputParams) {
           setShowFileError={setShowFileError}
         />
       </Box>
-      <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
-        {intl.formatMessage({
-          id: 'form__each_line_should_include_the_address_and_the_amount_seperated_by_commas',
-        })}
-      </Text>
     </>
   );
 }

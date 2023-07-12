@@ -1,13 +1,16 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { GroupingList, ListItem, Text } from '@onekeyhq/components';
-import type {
-  IDecodedTx,
-  ISignedTxPro,
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
+import {
+  type IDecodedTx,
+  type IEncodedTxUpdatePayloadTransfer,
+  IEncodedTxUpdateType,
+  type ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
@@ -16,6 +19,7 @@ import { useActiveSideAccount } from '../../../../hooks';
 import { useDisableNavigationAnimation } from '../../../../hooks/useDisableNavigationAnimation';
 import { useOnboardingRequired } from '../../../../hooks/useOnboardingRequired';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
+import { AmountTypeEnum } from '../../../BulkSender/types';
 import { TxDetailView } from '../../../TxDetail/TxDetailView';
 import { BatchSendConfirmModalBase } from '../../components/BatchSendConfirmModalBase';
 import { BatchSendTokenInfo } from '../../components/BatchSendTokenInfo';
@@ -29,6 +33,7 @@ import {
   useBatchSendConfirmFeeInfoPayload,
 } from '../../utils/useBatchSendConfirmFeeInfoPayload';
 import { useReloadAccountBalance } from '../../utils/useReloadAccountBalance';
+import { getTransferAmountToUpdate } from '../../utils/useTransferAmountToUpdate';
 
 import type {
   BatchSendProgressParams,
@@ -57,8 +62,14 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     accountId,
     feeInfoUseFeeInTx,
     feeInfoEditable,
+    feeInfoReuseable,
     transferCount,
   } = batchSendConfirmParamsParsed;
+
+  const { bulkType, amountType } = routeParams;
+  const tokenInfo = payloadInfo?.tokenInfo;
+  const transferInfos = payloadInfo?.transferInfos;
+
   const intl = useIntl();
   useOnboardingRequired();
   useReloadAccountBalance({ networkId, accountId });
@@ -103,6 +114,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     decodedTxs,
     useFeeInTx: feeInfoUseFeeInTx,
     pollingInterval: feeInfoEditable ? FEE_INFO_POLLING_INTERVAL : 0,
+    feeInfoReuseable,
     signOnly: routeParams.signOnly,
     forBatchSend: true,
     transferCount,
@@ -111,6 +123,37 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     accountId,
     networkId,
   });
+
+  const isManyToN = useMemo(
+    () =>
+      bulkType === BulkTypeEnum.ManyToMany ||
+      bulkType === BulkTypeEnum.ManyToOne,
+    [bulkType],
+  );
+
+  const isNativeMaxSend = useMemo(
+    () => tokenInfo?.isNative && amountType === AmountTypeEnum.All && isManyToN,
+    [amountType, isManyToN, tokenInfo?.isNative],
+  );
+
+  const transfersAmountToUpdate = useMemo(
+    () =>
+      decodedTxs.map((tx, index) => {
+        if (!transferInfos) return '0';
+
+        if (isNativeMaxSend) {
+          return getTransferAmountToUpdate({
+            decodedTx: tx,
+            balance: transferInfos[index].amount,
+            amount: transferInfos[index].amount,
+            totalNativeGasFee: feeInfoPayloads[index]?.current.totalNative,
+          });
+        }
+        return transferInfos[index].amount;
+      }),
+    [decodedTxs, feeInfoPayloads, isNativeMaxSend, transferInfos],
+  );
+
   const handleConfirm = useCallback<IBatchTxsConfirmViewPropsHandleConfirm>(
     // eslint-disable-next-line @typescript-eslint/no-shadow
     async ({ close, encodedTxs }) => {
@@ -141,10 +184,21 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
         txs: ISignedTxPro[],
         data,
       ) => {
-        serviceToken.fetchAccountTokens({
-          accountId,
-          networkId,
-        });
+        if (isManyToN) {
+          Promise.all(
+            (data?.senderAccounts ?? []).map((senderAccountId) =>
+              serviceToken.fetchAccountTokens({
+                accountId: senderAccountId,
+                networkId,
+              }),
+            ),
+          );
+        } else {
+          serviceToken.fetchAccountTokens({
+            accountId,
+            networkId,
+          });
+        }
 
         if (routeParams.signOnly) {
           await dappApprove.resolve({ result: map(txs, 'rawTx') });
@@ -211,6 +265,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       engine,
       feeInfoEditable,
       feeInfoPayloads,
+      isManyToN,
       isSingleTransformMode,
       navigation,
       networkId,
@@ -245,6 +300,9 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       accountId={accountId}
       networkId={networkId}
       payloadInfo={payloadInfo}
+      bulkType={bulkType}
+      amountType={amountType}
+      feeInfoPayloads={feeInfoPayloads}
     />
   );
 
@@ -295,12 +353,17 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
             i + 1
           }`.toUpperCase(),
         },
-        data: [decodedTxs[i]],
+        data: [
+          {
+            decodedTx: decodedTxs[i],
+            transferAmountToUpdate: transfersAmountToUpdate[i],
+          },
+        ],
       });
     }
 
     return groupTransactionsData;
-  }, [decodedTxs, intl, transactionCount]);
+  }, [decodedTxs, intl, transactionCount, transfersAmountToUpdate]);
 
   sharedProps.children = isSingleTransformMode ? (
     <TxDetailView
@@ -308,6 +371,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       isBatchSendConfirm
       isSingleTransformMode={isSingleTransformMode}
       decodedTx={decodedTx}
+      transferAmount={transfersAmountToUpdate[0]}
     />
   ) : (
     <>
@@ -318,13 +382,21 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
           })} (${encodedTxs.length})`,
         }}
         sections={getGroupTransactionsData()}
-        renderItem={({ item }: { item: IDecodedTx }) => (
-          <ListItem key={item.txid}>
+        renderItem={({
+          item,
+        }: {
+          item: {
+            decodedTx: IDecodedTx;
+            transferAmountToUpdate: string;
+          };
+        }) => (
+          <ListItem key={item.decodedTx.txid}>
             <TxDetailView
               isSendConfirm
               isBatchSendConfirm
               isSingleTransformMode={isSingleTransformMode}
-              decodedTx={item}
+              decodedTx={item.decodedTx}
+              transferAmount={item.transferAmountToUpdate}
             />
           </ListItem>
         )}
@@ -345,7 +417,37 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     </>
   );
 
-  return <BatchSendConfirmModalBase {...sharedProps} />;
+  return (
+    <BatchSendConfirmModalBase
+      updateEncodedTxsBeforeConfirm={async (txs) => {
+        if (!!transferInfos && isNativeMaxSend) {
+          return Promise.all(
+            txs.map((tx, index) =>
+              (async () => {
+                const updatePayload: IEncodedTxUpdatePayloadTransfer = {
+                  amount: transfersAmountToUpdate[index],
+                  totalBalance: transferInfos[index]?.amount,
+                  feeInfo: feeInfoPayloads[index]?.info,
+                };
+                const newTx = await backgroundApiProxy.engine.updateEncodedTx({
+                  networkId,
+                  accountId,
+                  encodedTx: tx,
+                  payload: updatePayload,
+                  options: {
+                    type: IEncodedTxUpdateType.transfer,
+                  },
+                });
+                return Promise.resolve(newTx);
+              })(),
+            ),
+          );
+        }
+        return Promise.resolve(txs);
+      }}
+      {...sharedProps}
+    />
+  );
 }
 
 export { BatchSendConfirm };

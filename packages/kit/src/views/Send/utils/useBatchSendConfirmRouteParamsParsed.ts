@@ -35,6 +35,7 @@ export function useBatchSendConfirmRouteParamsParsed() {
   const isFromDapp = !!routeParams.sourceInfo;
   const feeInfoEditable: boolean = routeParams.feeInfoEditable ?? true;
   const feeInfoUseFeeInTx: boolean = routeParams.feeInfoUseFeeInTx ?? false;
+  const feeInfoReuseable: boolean = routeParams.feeInfoReuseable ?? false;
   const isSpeedUpOrCancel: boolean =
     routeParams.resendActionInfo?.type === 'cancel' ||
     routeParams.resendActionInfo?.type === 'speedUp';
@@ -79,11 +80,11 @@ export function useBatchSendConfirmRouteParamsParsed() {
     isFromDapp,
     feeInfoEditable,
     feeInfoUseFeeInTx,
+    feeInfoReuseable,
     isSpeedUpOrCancel,
     payload,
     payloadInfo: routeParams.payloadInfo,
     resendActionInfo,
     isInternalSwapTx,
-    isTransferTypeTx: false,
   };
 }

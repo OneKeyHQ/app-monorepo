@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import type { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
+import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { GoPlusAddressSecurity } from '@onekeyhq/engine/src/types/goplus';
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
 import type { INFTAsset, NFTAsset } from '@onekeyhq/engine/src/types/nft';
@@ -304,6 +305,7 @@ function PreSendAddress() {
               },
               transferCount: transferInfos.length,
               onModalClose: closeModal,
+              bulkType: BulkTypeEnum.OneToMany,
             },
           },
         });
