@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import {
   COINTYPE_BTC,
@@ -16,6 +18,7 @@ import settings from './settings';
 
 import type { DBUTXOAccount } from '../../../types/account';
 import type { AccountNameInfo } from '../../../types/network';
+import type { IBalanceDetails } from '../../types';
 
 export default class Vault extends VaultBtcFork {
   override providerClass = Provider;

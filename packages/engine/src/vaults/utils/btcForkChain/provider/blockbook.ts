@@ -147,8 +147,6 @@ class BlockBook {
       .then((res) => res.data as unknown as Array<IBtcUTXO>);
     return {
       utxos,
-      utxosFiltered: utxos,
-      totalInscriptionValue: '0',
     };
   }
 

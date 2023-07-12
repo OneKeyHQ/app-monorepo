@@ -2,7 +2,7 @@
 
 import BigNumber from 'bignumber.js';
 import bs58check from 'bs58check';
-import { isNil } from 'lodash';
+import { isFunction, isNil } from 'lodash';
 
 import type { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
@@ -63,6 +63,7 @@ import {
   IEncodedTxUpdateType,
 } from '../../types';
 import { VaultBase } from '../../VaultBase';
+import { convertFeeValueToNative } from '../feeInfoUtils';
 
 import { Provider } from './provider';
 import { BlockBook, getRpcUrlFromChainInfo } from './provider/blockbook';
@@ -89,6 +90,7 @@ import type { KeyringBaseMock } from '../../keyring/KeyringBase';
 import type { KeyringHdBase } from '../../keyring/KeyringHdBase';
 import type {
   IApproveInfo,
+  IBalanceDetails,
   IDecodedTx,
   IDecodedTxAction,
   IDecodedTxLegacy,
@@ -957,6 +959,20 @@ export default class VaultBtcFork extends VaultBase {
           this.getAccountXpub(dbAccount),
           options,
         );
+        if (utxosInfo.ordQueryStatus === 'ERROR') {
+          // @ts-ignore
+          if (isFunction(provider.getUTXOs.clear)) {
+            try {
+              // @ts-ignore
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+              provider.getUTXOs.clear();
+            } catch (error) {
+              // console.error(error);
+            } finally {
+              // noop
+            }
+          }
+        }
         return utxosInfo;
       } catch (e) {
         console.error(e);
@@ -1307,7 +1323,19 @@ export default class VaultBtcFork extends VaultBase {
   }
 
   override async getFrozenBalance(): Promise<number> {
-    const { utxos, frozenValue } = await this.collectUTXOsInfo();
+    const result = await this.fetchBalanceDetails();
+    if (result && !isNil(result?.unavailable)) {
+      return new BigNumber(result.unavailable).toNumber();
+    }
+    throw new Error('getFrozenBalance ERROR');
+  }
+
+  override async fetchBalanceDetails(): Promise<IBalanceDetails | undefined> {
+    const { utxos, valueDetails, ordQueryStatus } =
+      await this.collectUTXOsInfo();
+    if (ordQueryStatus === 'ERROR') {
+      this.collectUTXOsInfo.clear();
+    }
     const [dbAccount, network] = await Promise.all([
       this.getDbAccount() as Promise<DBUTXOAccount>,
       this.getNetwork(),
@@ -1320,16 +1348,73 @@ export default class VaultBtcFork extends VaultBase {
       ),
     );
     // use bignumber to calculate sum allFrozenUtxo value
-    let frozenBalance = allFrozenUtxo.reduce(
+    const frozenBalance = allFrozenUtxo.reduce(
       (sum, utxo) => sum.plus(utxo.value),
       new BigNumber(0),
     );
-    if (frozenValue) {
-      frozenBalance = frozenBalance.plus(frozenValue);
+    let unavailableValue = frozenBalance;
+    if (valueDetails?.unavailableValue) {
+      unavailableValue = unavailableValue.plus(valueDetails?.unavailableValue);
     }
-    return Promise.resolve(
-      frozenBalance.shiftedBy(-network.decimals).toNumber(),
+
+    const unavailableOfLocalFrozen = convertFeeValueToNative({
+      value: frozenBalance,
+      network,
+    });
+    const unavailable = convertFeeValueToNative({
+      value: unavailableValue,
+      network,
+    });
+    const totalBalance = utxos.reduce(
+      (sum, utxo) => sum.plus(utxo.value),
+      new BigNumber(0),
     );
+    const total = convertFeeValueToNative({
+      value: valueDetails?.totalValue ?? totalBalance,
+      network,
+    });
+    const available = new BigNumber(total).minus(unavailable).toFixed();
+
+    let unavailableOfUnconfirmed: string | undefined;
+    let unavailableOfInscription: string | undefined; // BTC Inscription value
+    let unavailableOfUnchecked: string | undefined; // BTC not verified value by ordinals
+
+    if (valueDetails) {
+      const {
+        unavailableValueOfUnchecked,
+        unavailableValueOfUnconfirmed,
+        unavailableValueOfInscription,
+      } = valueDetails;
+      const isNonZeroBalance = (v: string) => v && new BigNumber(v).gt(0);
+      if (isNonZeroBalance(unavailableValueOfUnchecked))
+        unavailableOfUnchecked = convertFeeValueToNative({
+          value: unavailableValueOfUnchecked,
+          network,
+        });
+      if (isNonZeroBalance(unavailableValueOfUnconfirmed))
+        unavailableOfUnconfirmed = convertFeeValueToNative({
+          value: unavailableValueOfUnconfirmed,
+          network,
+        });
+      if (isNonZeroBalance(unavailableValueOfInscription))
+        unavailableOfInscription = convertFeeValueToNative({
+          value: unavailableValueOfInscription,
+          network,
+        });
+    }
+
+    const result: IBalanceDetails = {
+      errorMessage:
+        ordQueryStatus === 'ERROR' ? 'Ordinal 服务异常，请刷新后重试' : '',
+      total,
+      available,
+      unavailable,
+      unavailableOfLocalFrozen,
+      unavailableOfInscription,
+      unavailableOfUnconfirmed,
+      unavailableOfUnchecked,
+    };
+    return Promise.resolve(result);
   }
 
   override async getUserNFTAssets({

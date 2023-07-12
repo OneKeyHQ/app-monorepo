@@ -1,4 +1,4 @@
-import VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
+import VaultBtc from '@onekeyhq/engine/src/vaults/impl/btc/Vault';
 import {
   COINTYPE_TBTC,
   IMPL_TBTC,
@@ -16,7 +16,7 @@ import settings from './settings';
 import type { DBUTXOAccount } from '../../../types/account';
 import type { AccountNameInfo } from '../../../types/network';
 
-export default class Vault extends VaultBtcFork {
+export default class Vault extends VaultBtc {
   override providerClass = Provider;
 
   override keyringMap = {
