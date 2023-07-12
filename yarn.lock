@@ -1712,7 +1712,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@conflux-dev/conflux-address-js@npm:^1.3.11, @conflux-dev/conflux-address-js@npm:^1.3.13, @conflux-dev/conflux-address-js@npm:^1.3.16":
+"@conflux-dev/conflux-address-js@npm:^1.3.13, @conflux-dev/conflux-address-js@npm:^1.3.16":
   version: 1.3.16
   resolution: "@conflux-dev/conflux-address-js@npm:1.3.16"
   dependencies:
@@ -4690,43 +4690,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/blockchain-libs@npm:0.0.48":
-  version: 0.0.48
-  resolution: "@onekeyfe/blockchain-libs@npm:0.0.48"
-  dependencies:
-    "@conflux-dev/conflux-address-js": ^1.3.11
-    "@metamask/eth-sig-util": ^4.0.1
-    "@solana/spl-token": ^0.1.8
-    "@solana/web3.js": ^1.29.2
-    "@starcoin/starcoin": ^2.1.5
-    algo-msgpack-with-bigint: ^2.1.1
-    asmcrypto.js: ^2.3.2
-    bchaddrjs: ^0.5.2
-    bech32: ^1.1.4
-    bignumber.js: ^9.0.1
-    bip39: ^3.0.4
-    bitcoinjs-lib: ^6.0.1
-    bitcoinjs-message: ^2.2.0
-    bs58: ^4.0.1
-    bs58check: ^2.1.2
-    cosmjs-types: ^0.4.0
-    cross-fetch: ^3.1.4
-    elliptic: ^6.5.4
-    ethereumjs-util: ^7.1.4
-    ethers: ^5.6.0
-    hi-base32: ^0.5.1
-    js-conflux-sdk: ^1.7.1
-    js-sha512: ^0.8.0
-    memoizee: ^0.4.15
-    timeout-signal: ^1.1.0
-    tweetnacl: ^1.0.3
-    whatwg-url: ^7.0.0
-  peerDependencies:
-    "@onekeyfe/js-sdk": "*"
-  checksum: b4bb7f5632ffcfc1db8e5cc0afab6a9e90656f49018f81950a495b4be1895107cce3364315f2da90ee6989fada1d50da25da544f6d76b46dd0064fefa2df5efe
-  languageName: node
-  linkType: hard
-
 "@onekeyfe/cardano-coin-selection-asmjs@npm:1.1.0":
   version: 1.1.0
   resolution: "@onekeyfe/cardano-coin-selection-asmjs@npm:1.1.0"
@@ -5204,7 +5167,6 @@ __metadata:
     "@cmdcode/crypto-utils": 1.9.5
     "@cmdcode/tapscript": 1.2.9
     "@legendapp/state": ^1.2.9
-    "@onekeyfe/blockchain-libs": 0.0.48
     "@onekeyfe/cross-inpage-provider-core": 1.1.30
     "@onekeyfe/cross-inpage-provider-errors": 1.1.30
     "@onekeyfe/cross-inpage-provider-injected": 1.1.30
@@ -5294,6 +5256,7 @@ __metadata:
     react-native-web: ~0.18.11
     react-refresh: ^0.14.0
     react-test-renderer: 18.1.0
+    react-use-cookie: ^1.4.0
     rimraf: ^3
     superstruct: ^1
     timeout-signal: 2.0.0
@@ -8225,7 +8188,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@starcoin/starcoin@npm:2.1.5, @starcoin/starcoin@npm:^2.1.5":
+"@starcoin/starcoin@npm:2.1.5":
   version: 2.1.5
   resolution: "@starcoin/starcoin@npm:2.1.5"
   dependencies:
@@ -11123,7 +11086,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"asmcrypto.js@npm:2.3.2, asmcrypto.js@npm:^2.3.2":
+"asmcrypto.js@npm:2.3.2":
   version: 2.3.2
   resolution: "asmcrypto.js@npm:2.3.2"
   checksum: d61722be99d51c9a09093166412354845fb6ba278374b0cccfb33b18ad9edd26019ced171ae286b1d55c57edd8702fe87d2eec096f20fb2080ee52f8ba4b995e
@@ -12010,7 +11973,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bitcoinjs-lib@npm:6.1.0, bitcoinjs-lib@npm:^6.0.1":
+"bitcoinjs-lib@npm:6.1.0":
   version: 6.1.0
   resolution: "bitcoinjs-lib@npm:6.1.0"
   dependencies:
@@ -14082,16 +14045,6 @@ __metadata:
     path-type: ^4.0.0
     yaml: ^1.10.0
   checksum: c53bf7befc1591b2651a22414a5e786cd5f2eeaa87f3678a3d49d6069835a9d8d1aef223728e98aa8fec9a95bf831120d245096db12abe019fecb51f5696c96f
-  languageName: node
-  linkType: hard
-
-"cosmjs-types@npm:^0.4.0":
-  version: 0.4.1
-  resolution: "cosmjs-types@npm:0.4.1"
-  dependencies:
-    long: ^4.0.0
-    protobufjs: ~6.11.2
-  checksum: 7921026bb7f1fef70a6d3c3cbfc71d6af21616d532e5cd9f2af15b94c53f98f8d76da65a8fd60f930df2a9ff4eebed1bb3f49baa3eac7117981fbc8f45259005
   languageName: node
   linkType: hard
 
@@ -17122,7 +17075,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ethers@npm:^5.4.4, ethers@npm:^5.5.2, ethers@npm:^5.6.0, ethers@npm:^5.6.9, ethers@npm:^5.7.2":
+"ethers@npm:^5.4.4, ethers@npm:^5.5.2, ethers@npm:^5.6.9, ethers@npm:^5.7.2":
   version: 5.7.2
   resolution: "ethers@npm:5.7.2"
   dependencies:
@@ -28335,6 +28288,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-use-cookie@npm:^1.4.0":
+  version: 1.4.0
+  resolution: "react-use-cookie@npm:1.4.0"
+  peerDependencies:
+    react: ">=16.8"
+  checksum: 79e4494ab60858e7e6cbdbe5d55e8968f9d66100b6914de759c6db18b894d4c137976b91551bfc0226eec44101c06751fe9091ac30a0e24f480a00d5a3f6f595
+  languageName: node
+  linkType: hard
+
 "react@npm:18.2.0":
   version: 18.2.0
   resolution: "react@npm:18.2.0"
@@ -31445,15 +31407,6 @@ __metadata:
   version: 2.0.0
   resolution: "timeout-signal@npm:2.0.0"
   checksum: 0e3a6fb7ce4912e890475fe268888dd31068814ed096b264b3748d57f5a63a323fa1a5c4ba3d7da4529fb5031ed1a69bf8edfe5fb709bd3eec79d72f9ee51cc9
-  languageName: node
-  linkType: hard
-
-"timeout-signal@npm:^1.1.0":
-  version: 1.1.0
-  resolution: "timeout-signal@npm:1.1.0"
-  dependencies:
-    abort-controller: ^3.0.0
-  checksum: c5d4287a2fa4ac4fd1f9a8d35970c9654ce71c286b991d5deac58e40632ed6a3cc36ac7a35e8530c690668bf058050a68bea714180616e3552212f31a82b1767
   languageName: node
   linkType: hard
 

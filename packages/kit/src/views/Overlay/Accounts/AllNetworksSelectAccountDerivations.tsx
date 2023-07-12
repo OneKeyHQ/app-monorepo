@@ -27,19 +27,25 @@ const AccountDerivationsSelector: FC<Props> = ({
         network?.settings?.accountNameInfo ?? {},
       )?.find?.((n) => n.template === a.template)?.label;
       return (
-        <Pressable
+        <Pressable.Item
           key={a.id}
-          mb="4"
           onPress={() => {
             onConfirm(a);
             onClose?.();
           }}
+          px="6px"
+          py={2}
+          mx={0}
+          my={0}
+          overflow="hidden"
+          borderRadius="xl"
+          borderWidth={0}
         >
           <Typography.Body1Strong mb="1">
             {shortenAddress(a.address)}
           </Typography.Body1Strong>
           <Typography.Body2>{accountInfoName}</Typography.Body2>
-        </Pressable>
+        </Pressable.Item>
       );
     })}
   </VStack>

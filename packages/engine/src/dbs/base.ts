@@ -1,10 +1,7 @@
 import { Buffer } from 'buffer';
 
 import type { RevealableSeed } from '@onekeyhq/engine/src/secret';
-import {
-  decrypt,
-  encrypt,
-} from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import type { Avatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 
@@ -302,8 +299,6 @@ export type {
 export {
   checkPassword,
   DEFAULT_VERIFY_STRING,
-  encrypt,
-  decrypt,
   MAIN_CONTEXT,
   generateKeypair,
   rsaDecrypt,

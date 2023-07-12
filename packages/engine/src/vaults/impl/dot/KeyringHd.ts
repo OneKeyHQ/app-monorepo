@@ -1,14 +1,15 @@
 import { bytesToHex } from '@noble/hashes/utils';
-import { mnemonicFromEntropy } from '@onekeyfe/blockchain-libs/dist/secret';
 
 import type { ExportedSeedCredential } from '@onekeyhq/engine/src/dbs/base';
-import { encrypt } from '@onekeyhq/engine/src/dbs/base';
 import { OneKeyInternalError } from '@onekeyhq/engine/src/errors';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import { Signer } from '@onekeyhq/engine/src/proxy';
+import { mnemonicFromEntropy } from '@onekeyhq/engine/src/secret';
+import { encrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { DBVariantAccount } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { CommonMessage } from '@onekeyhq/engine/src/types/message';
+import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { KeyringHdBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringHdBase';
 import type {
   IPrepareSoftwareAccountsParams,
@@ -28,7 +29,6 @@ import { derivationHdLedger } from './utils';
 
 import type { DotImplOptions } from './types';
 import type Vault from './Vault';
-import type { UnsignedTx } from '@onekeyfe/blockchain-libs/dist/types/provider';
 
 const { bufferToU8a, u8aConcat } = polkadotSdk;
 

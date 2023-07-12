@@ -156,7 +156,10 @@ export default class ServiceAllNetwork extends ServiceBase {
     if (!wallet) {
       return networkAccountsMap;
     }
-    const networks = appSelector((s) => s.runtime.networks);
+    const networks = appSelector(
+      (s) =>
+        s.runtime.networks?.filter((n) => !n.settings.validationRequired) ?? [],
+    );
 
     for (const n of networks.filter(
       (item) => item.enabled && !item.isTestnet,

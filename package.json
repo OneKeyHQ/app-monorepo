@@ -62,7 +62,6 @@
     "@cmdcode/crypto-utils": "1.9.5",
     "@cmdcode/tapscript": "1.2.9",
     "@legendapp/state": "^1.2.9",
-    "@onekeyfe/blockchain-libs": "0.0.48",
     "@onekeyfe/cross-inpage-provider-core": "1.1.30",
     "@onekeyfe/cross-inpage-provider-errors": "1.1.30",
     "@onekeyfe/cross-inpage-provider-injected": "1.1.30",
@@ -93,6 +92,7 @@
     "react-dom": "18.2.0",
     "react-native": "0.71.8",
     "react-native-web": "~0.18.11",
+    "react-use-cookie": "^1.4.0",
     "superstruct": "^1",
     "timeout-signal": "2.0.0"
   },
