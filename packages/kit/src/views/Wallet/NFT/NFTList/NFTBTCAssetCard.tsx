@@ -41,7 +41,7 @@ function NFTBTCAssetCard({
   });
 
   const networkIcon = useMemo(() => {
-    if (isAllNetworks(activeNetworkId)) {
+    if (!isAllNetworks(activeNetworkId)) {
       return null;
     }
     return network?.logoURI;
