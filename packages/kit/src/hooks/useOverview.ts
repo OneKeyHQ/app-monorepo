@@ -18,7 +18,6 @@ import { getTimeDurationMs } from '../utils/helper';
 import { getPreBaseValue } from '../utils/priceUtils';
 import { EOverviewScanTaskType } from '../views/Overview/types';
 
-import { useWalletIdFromAccountIdWithFallback } from './useAccount';
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
 import { useFrozenBalance, useSingleToken } from './useTokens';
@@ -119,11 +118,8 @@ export const useAccountPortfolios = <
       {},
   );
 
-  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
-
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
-    walletId,
-    accountId: accountId ?? '',
+    accountId,
   });
 
   const fetchData = useCallback(async () => {
@@ -342,11 +338,8 @@ export const useNFTValues = ({
   accountId?: string;
   networkId?: string;
 }) => {
-  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
-
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
-    walletId: walletId ?? '',
-    accountId: accountId ?? '',
+    accountId,
   });
 
   const nftPrices = useAppSelector((s) => s.nft.nftPrice);
@@ -511,7 +504,6 @@ export const useTokenBalanceWithoutFrozen = ({
 export const useTokenPositionInfo = ({
   accountId = '',
   networkId = '',
-  walletId = '',
   tokenAddress,
   sendAddress,
   coingeckoId,
@@ -537,9 +529,10 @@ export const useTokenPositionInfo = ({
   });
 
   const { data: allNetworksAccountsMap } = useAllNetworksWalletAccounts({
-    walletId,
     accountId,
   });
+
+  // TODO: fetch minerOverview
 
   const minerOverview = useAppSelector((s) => s.staking.keleMinerOverviews);
 
@@ -705,7 +698,10 @@ export const useTokenDetailInfo = ({
 
   return useMemo(() => {
     const { defaultChain } = data ?? {};
-    const tokens = data?.tokens || (token ? [token] : []);
+    const tokens = data?.tokens ?? [];
+    if (!tokens.length && token) {
+      tokens.push(token);
+    }
     const defaultToken =
       tokens?.find(
         (t) =>
@@ -747,31 +743,10 @@ export const useOverviewPendingTasks = ({
   });
 
   const updateTips = useMemo(() => {
-    let assetType = '';
     if (tasks?.length) {
-      assetType =
-        tasks.find((t) =>
-          [
-            EOverviewScanTaskType.token,
-            EOverviewScanTaskType.defi,
-            EOverviewScanTaskType.nfts,
-          ].includes(t.scanType),
-        )?.scanType ?? '';
-    }
-    if (assetType) {
-      return (
-        {
-          [EOverviewScanTaskType.token]: intl.formatMessage({
-            id: 'content__updating_token_assets',
-          }),
-          [EOverviewScanTaskType.defi]: intl.formatMessage({
-            id: 'content__updating_defi_assets',
-          }),
-          [EOverviewScanTaskType.nfts]: intl.formatMessage({
-            id: 'content__updating_nft_assets',
-          }),
-        }[assetType] ?? ''
-      );
+      return intl.formatMessage({
+        id: 'content__updating_assets',
+      });
     }
     const duration = Date.now() - updatedAt;
     if (
@@ -827,11 +802,8 @@ export function useAccountTokenLoading(networkId: string, accountId: string) {
   const pendingTasks = useOverviewPendingTasks({ networkId, accountId });
   const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
 
-  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
-
   const { data } = useAllNetworksWalletAccounts({
-    walletId,
-    accountId: accountId ?? '',
+    accountId,
   });
 
   return useMemo(() => {

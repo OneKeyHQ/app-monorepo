@@ -44,6 +44,7 @@ export const useAllNetworksAccountsData = ({
       setData([]);
       return;
     }
+
     const accounts = new Array(index + 1)
       .slice(0, 3)
       .fill(1)
@@ -52,11 +53,13 @@ export const useAllNetworksAccountsData = ({
           accountId: `${selectedWalletId}--${i}`,
         }),
       );
+
     const networksAccountMapList = await Promise.all(
       accounts.map((account) =>
-        backgroundApiProxy.serviceAllNetwork.getAllNetworksWalletAccounts({
+        backgroundApiProxy.serviceAllNetwork.generateAllNetworksWalletAccounts({
           accountId: account?.id,
           walletId: accountSelectorInfo?.selectedWalletId ?? '',
+          refreshCurrentAccount: false,
         }),
       ),
     );
