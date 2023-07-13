@@ -146,9 +146,10 @@ function SendButton({
     isNFT: true,
     amount: item.selectAmount ?? '1',
     token: item.contractAddress ?? item.tokenAddress,
-    tokenId: item.tokenId ?? item.tokenAddress,
-    type: item.ercType,
+    nftTokenId: item.tokenId ?? item.tokenAddress,
+    nftType: item.ercType,
   }));
+
   const sendAction = () => {
     const params: PreSendParams = {
       ...transferInfos[0],

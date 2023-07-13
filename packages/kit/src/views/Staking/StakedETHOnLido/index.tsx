@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -21,11 +21,7 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../components/Format';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useTokenBalance,
-} from '../../../hooks';
+import { useAppSelector, useTokenBalance } from '../../../hooks';
 import {
   useNativeToken,
   useSimpleTokenPriceValue,
@@ -44,9 +40,15 @@ import { useLidoOverview } from '../hooks';
 import { EthStakingSource, StakingRoutes } from '../typing';
 
 import type { LidoNFTStatus, StakingRoutesParams } from '../typing';
+import type { RouteProp } from '@react-navigation/core';
 import type { ListRenderItem } from 'react-native';
 
 type NavigationProps = ModalScreenProps<StakingRoutesParams>;
+
+type RouteProps = RouteProp<
+  StakingRoutesParams,
+  StakingRoutes.LidoEthUnstakeShouldUnderstand
+>;
 
 const formatstETHNum = (value: string) => {
   const bn = new BigNumber(value);
@@ -59,10 +61,11 @@ const formatstETHNum = (value: string) => {
 const ClaimAlert = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { networkId, account } = useActiveWalletAccount();
-  const lidoOverview = useLidoOverview(networkId, account?.id);
+  const route = useRoute<RouteProps>();
+  const { networkId, accountId } = route.params;
+  const lidoOverview = useLidoOverview(networkId, accountId);
   const onPress = useCallback(async () => {
-    if (!lidoOverview || !account) {
+    if (!lidoOverview || !accountId) {
       return;
     }
     const items = lidoOverview.nfts ?? [];
@@ -73,6 +76,10 @@ const ClaimAlert = () => {
         requestIds: requests,
         networkId,
       });
+    const account = await backgroundApiProxy.engine.getAccount(
+      accountId,
+      networkId,
+    );
     const encodedTx: IEncodedTxEvm = {
       ...claimTx,
       from: account.address,
@@ -106,7 +113,7 @@ const ClaimAlert = () => {
         },
       },
     });
-  }, [navigation, lidoOverview, account, networkId]);
+  }, [navigation, lidoOverview, networkId, accountId]);
 
   if (
     lidoOverview &&
@@ -135,7 +142,8 @@ const ClaimAlert = () => {
 
 const PendingTransactionAlert = () => {
   const intl = useIntl();
-  const { networkId, accountId } = useActiveWalletAccount();
+  const route = useRoute<RouteProps>();
+  const { networkId, accountId } = route.params;
   const transactions = useAppSelector((s) => s.staking.transactions);
   const txs = useMemo(() => {
     if (!transactions) {
@@ -166,7 +174,8 @@ const PendingTransactionAlert = () => {
 
 const ListHeaderComponent = () => {
   const intl = useIntl();
-  const { networkId, accountId } = useActiveWalletAccount();
+  const route = useRoute<RouteProps>();
+  const { networkId, accountId } = route.params;
   const symbol = 'stETH';
   const lidoOverview = useLidoOverview(networkId, accountId);
   const nativeToken = useNativeToken(networkId);
@@ -179,10 +188,13 @@ const ListHeaderComponent = () => {
       screen: ModalRoutes.Staking,
       params: {
         screen: StakingRoutes.LidoEthUnstakeShouldUnderstand,
-        params: {},
+        params: {
+          networkId,
+          accountId,
+        },
       },
     });
-  }, [navigation]);
+  }, [navigation, networkId, accountId]);
 
   const onLidoEthStakeShouldUnderstand = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -191,10 +203,12 @@ const ListHeaderComponent = () => {
         screen: StakingRoutes.LidoEthStakeShouldUnderstand,
         params: {
           readonly: true,
+          networkId,
+          accountId,
         },
       },
     });
-  }, [navigation]);
+  }, [navigation, networkId, accountId]);
 
   const onStake = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -202,11 +216,13 @@ const ListHeaderComponent = () => {
       params: {
         screen: StakingRoutes.ETHStake,
         params: {
+          networkId,
+          accountId,
           source: EthStakingSource.Lido,
         },
       },
     });
-  }, [navigation]);
+  }, [navigation, networkId, accountId]);
 
   const totalAmount = lidoOverview?.balance ?? '0.00';
   const totalAmountText = gt(totalAmount, '0')
@@ -289,7 +305,8 @@ const ListEmptyComponent = () => {
 
 export default function StakedETHOnLido() {
   const intl = useIntl();
-  const { networkId, accountId } = useActiveWalletAccount();
+  const route = useRoute<RouteProps>();
+  const { networkId, accountId } = route.params;
   useEffect(() => {
     backgroundApiProxy.serviceStaking.fetchLidoOverview({
       networkId,
