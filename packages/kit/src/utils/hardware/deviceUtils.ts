@@ -244,6 +244,11 @@ class DeviceUtils {
   }
 
   showErrorToast(error: any, defKey?: LocaleIds): boolean {
+    debugLogger.common.info(
+      'record showErrorToast handle error:',
+      toPlainErrorObject(error),
+    );
+
     try {
       const { className, key, code, info } = error || {};
 
