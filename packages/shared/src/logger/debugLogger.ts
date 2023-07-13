@@ -135,6 +135,7 @@ export enum LoggerNames {
   onekeyLite = 'onekeyLite',
   overview = 'overview',
   native = 'native',
+  staking = 'staking',
 }
 
 export type LoggerEntity = {
@@ -190,6 +191,7 @@ const debugLogger: Record<
   [LoggerNames.onekeyLite]: Cache.createLogger(LoggerNames.onekeyLite),
   [LoggerNames.overview]: Cache.createLogger(LoggerNames.overview),
   [LoggerNames.native]: Cache.createLogger(LoggerNames.native),
+  [LoggerNames.staking]: Cache.createLogger(LoggerNames.staking),
 };
 
 if (platformEnv.isDev) {

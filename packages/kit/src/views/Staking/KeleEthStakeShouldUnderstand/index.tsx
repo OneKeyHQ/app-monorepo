@@ -17,8 +17,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ETHLogoPNG from '../../../../assets/staking/eth_staking.png';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveWalletAccount, useNativeToken } from '../../../hooks';
-import { getActiveWalletAccount } from '../../../hooks/redux';
+import { useNativeToken } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { SendModalRoutes } from '../../Send/types';
 
@@ -33,9 +32,10 @@ type RouteProps = RouteProp<
 export default function StakingETHNotes() {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { params } = useRoute<RouteProps>();
-  const { account } = useActiveWalletAccount();
-  const tokenInfo = useNativeToken(params.networkId);
+  const {
+    params: { accountId, networkId, amount },
+  } = useRoute<RouteProps>();
+  const tokenInfo = useNativeToken(networkId);
   const onClose = useCallback(() => {
     const parent = navigation.getParent();
     if (parent?.canGoBack()) {
@@ -43,17 +43,21 @@ export default function StakingETHNotes() {
     }
   }, [navigation]);
   const onSubmit = useCallback(async () => {
+    const account = await backgroundApiProxy.engine.getAccount(
+      accountId,
+      networkId,
+    );
     if (account && tokenInfo) {
       try {
         await backgroundApiProxy.serviceStaking.registerOnKele({
           payeeAddr: account.address,
-          networdId: params.networkId,
+          networkId,
         });
       } catch {
         debugLogger.common.error('registerOnKele failed');
       }
 
-      const value = new BigNumber(params.amount)
+      const value = new BigNumber(amount)
         .shiftedBy(tokenInfo.decimals)
         .toFixed(0);
       let encodedTx: IEncodedTxEvm | undefined;
@@ -61,7 +65,7 @@ export default function StakingETHNotes() {
         const data =
           await backgroundApiProxy.serviceStaking.buildTxForStakingETHtoKele({
             value,
-            networkId: params.networkId,
+            networkId,
           });
         encodedTx = {
           ...data,
@@ -73,7 +77,6 @@ export default function StakingETHNotes() {
       }
 
       onClose();
-      const { networkId, accountId } = getActiveWalletAccount();
       navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.Send,
         params: {
@@ -85,7 +88,7 @@ export default function StakingETHNotes() {
               type: 'InternalStake',
               stakeInfo: {
                 tokenInfo,
-                amount: params.amount,
+                amount,
                 accountAddress: account.address,
               },
             },
@@ -96,14 +99,7 @@ export default function StakingETHNotes() {
         },
       });
     }
-  }, [
-    account,
-    params.networkId,
-    params.amount,
-    navigation,
-    tokenInfo,
-    onClose,
-  ]);
+  }, [networkId, amount, accountId, navigation, tokenInfo, onClose]);
   return (
     <Modal
       hideSecondaryAction
