@@ -13,6 +13,7 @@ export enum OneKeyErrorClassNames {
   OneKeyAbortError = 'OneKeyAbortError',
   OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
   OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
+  OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
 }
 
 export type IOneKeyErrorInfo = Record<string | number, string | number>;
@@ -37,7 +38,7 @@ export class OneKeyError<T = Error> extends Web3RpcError<T> {
 
   info: IOneKeyErrorInfo;
 
-  key = 'onekey_error';
+  key: LocaleIds | string = 'onekey_error';
 
   constructor(message?: string, info?: IOneKeyErrorInfo) {
     super(-99999, message || 'Unknown onekey internal error.');
@@ -267,7 +268,11 @@ export class TransferValueTooSmall extends OneKeyError {
   }
 }
 
+// **** only for Native Token  InsufficientBalance
 export class InsufficientBalance extends OneKeyError {
+  override className =
+    OneKeyErrorClassNames.OneKeyErrorInsufficientNativeBalance;
+
   // For situations that utxo selection failed.
   override key = 'form__amount_invalid';
 }

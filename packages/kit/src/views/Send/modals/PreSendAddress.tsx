@@ -13,6 +13,8 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import type { OneKeyError } from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { GoPlusAddressSecurity } from '@onekeyhq/engine/src/types/goplus';
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
 import type { INFTAsset, NFTAsset } from '@onekeyhq/engine/src/types/nft';
@@ -31,7 +33,7 @@ import { AddressLabel } from '../../../components/AddressLabel';
 import NameServiceResolver, {
   useNameServiceStatus,
 } from '../../../components/NameServiceResolver';
-import { useActiveSideAccount } from '../../../hooks';
+import { useActiveSideAccount, useNativeToken } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import { useSingleToken } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
@@ -111,6 +113,7 @@ function PreSendAddress() {
     networkId,
     transferInfo.token ?? '',
   );
+  const nativeToken = useNativeToken(networkId);
 
   const [nftInfo, updateNFTInfo] = useState<INFTAsset>();
   useEffect(() => {
@@ -329,21 +332,35 @@ function PreSendAddress() {
             },
           });
         } catch (error: any) {
-          console.error('nftSendConfirm error = ', error);
+          console.error('nftSendConfirm ERROR: ', error);
 
-          const { key: errorKey = '', message } = error;
-          let title = message;
-          if (errorKey === 'msg__nft_does_not_exist') {
-            title = intl.formatMessage({ id: errorKey });
-          }
-          if (title) {
+          const { key: errorKey = '', className } = error as OneKeyError;
+          if (errorKey) {
+            let data = {};
+            if (
+              errorKey === 'form__amount_invalid' &&
+              className ===
+                OneKeyErrorClassNames.OneKeyErrorInsufficientNativeBalance
+            ) {
+              data = {
+                0: nativeToken?.symbol || '',
+              };
+            }
             ToastManager.show(
               {
-                title,
+                title: intl.formatMessage({ id: errorKey as any }, data),
+              },
+              { type: 'error' },
+            );
+          } else {
+            ToastManager.show(
+              {
+                title: (error as Error)?.message || 'ERROR',
               },
               { type: 'error' },
             );
           }
+
           setIsLoadingAssets(false);
         }
       }
@@ -388,6 +405,8 @@ function PreSendAddress() {
           },
         });
       } catch (e: any) {
+        console.error('lightningNetworkSendConfirm ERROR: ', e);
+
         const { key: errorKey = '' } = e;
         if (errorKey === 'form__amount_invalid') {
           ToastManager.show(
@@ -542,6 +561,8 @@ function PreSendAddress() {
           });
           await validateAddress?.(networkId, toAddress);
         } catch (error0: any) {
+          console.error('PreSendAddress validateHandle ERROR: ', error0);
+
           setIsValidatingAddress(false);
           if (isValidNameServiceName && !resolvedAddress) return undefined;
           const { key, info } = error0;
