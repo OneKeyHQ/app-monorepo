@@ -378,3 +378,18 @@ export class TaprootAddressError extends OneKeyError {
   override key =
     'msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address';
 }
+
+export class InscribeFileTooLargeError extends OneKeyError {
+  override key = 'msg__file_size_should_less_than_str';
+
+  constructor(key?: LocaleIds) {
+    super('', { '0': '380KB' });
+    if (key) {
+      this.key = key;
+    }
+  }
+}
+
+export class UtxoNotFoundError extends OneKeyError {
+  override key = 'msg__nft_does_not_exist';
+}

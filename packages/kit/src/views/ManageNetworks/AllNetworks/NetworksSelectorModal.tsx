@@ -5,9 +5,9 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  HStack,
+  List,
+  ListItem,
   Modal,
-  Pressable,
   Spinner,
   Token,
 } from '@onekeyhq/components';
@@ -71,7 +71,7 @@ function AllNetworksNetworkSelectorModal() {
   );
 
   const renderItem: ListRenderItem<Network> = useCallback(
-    ({ item, index }) => {
+    ({ item }) => {
       let accounts = networkAccounts[item.id] ?? [];
       if (typeof filter === 'function') {
         if (accounts.length) {
@@ -83,7 +83,8 @@ function AllNetworksNetworkSelectorModal() {
         if (!filter({ network: item, account: accounts[0] })) return null;
       }
       return (
-        <Pressable
+        <ListItem
+          flex="1"
           onPress={() => {
             handlePress({
               network: item,
@@ -91,12 +92,20 @@ function AllNetworksNetworkSelectorModal() {
             });
           }}
         >
-          <HStack px="4" py="3" pt={index === 0 ? 0 : 3}>
+          <ListItem.Column>
             <Token
-              size="8"
-              token={{ name: item.shortName, logoURI: item.logoURI }}
-              showInfo
+              size={8}
+              token={{
+                logoURI: item.logoURI,
+              }}
             />
+          </ListItem.Column>
+          <ListItem.Column
+            text={{
+              label: item.name,
+            }}
+          />
+          <ListItem.Column>
             {accounts.length > 1 ? (
               <Badge
                 type="default"
@@ -110,8 +119,8 @@ function AllNetworksNetworkSelectorModal() {
                 )}
               />
             ) : null}
-          </HStack>
-        </Pressable>
+          </ListItem.Column>
+        </ListItem>
       );
     },
     [intl, networkAccounts, filter, handlePress],
@@ -124,18 +133,17 @@ function AllNetworksNetworkSelectorModal() {
       header={intl.formatMessage({ id: 'form__select_network' })}
       footer={null}
       height="560px"
-      style={{ padding: 0 }}
-      flatListProps={{
-        style: { padding: 0 },
-        data: loading ? [] : allNetworks,
-        // eslint-disable-next-line
-        // @ts-ignore
-        renderItem,
-        keyExtractor: (item) => (item as Network).id,
-        showsVerticalScrollIndicator: false,
-        ListEmptyComponent: empty,
-      }}
-    />
+    >
+      <List
+        data={allNetworks}
+        contentContainerStyle={{
+          flex: allNetworks?.length ? undefined : 1,
+        }}
+        renderItem={renderItem}
+        keyExtractor={(item: Network) => item.id}
+        ListEmptyComponent={empty}
+      />
+    </Modal>
   );
 }
 

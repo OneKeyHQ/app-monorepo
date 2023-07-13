@@ -18,9 +18,10 @@ import { getTimeDurationMs } from '../utils/helper';
 import { getPreBaseValue } from '../utils/priceUtils';
 import { EOverviewScanTaskType } from '../views/Overview/types';
 
+import { useWalletIdFromAccountIdWithFallback } from './useAccount';
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
-import { useFrozenBalance, useSingleToken, useTokenPrice } from './useTokens';
+import { useFrozenBalance, useSingleToken } from './useTokens';
 
 import type { ITokenDetailInfo } from '../views/ManageTokens/types';
 import type {
@@ -118,7 +119,22 @@ export const useAccountPortfolios = <
       {},
   );
 
+  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
+
+  const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
+    walletId,
+    accountId: accountId ?? '',
+  });
+
   const fetchData = useCallback(async () => {
+    if (isAllNetworks(networkId) && !Object.keys(networkAccountsMap)?.length) {
+      setState({
+        loading: false,
+        data: [],
+        updatedAt: updateInfo?.updatedAt,
+      });
+      return;
+    }
     const res = await backgroundApiProxy.serviceOverview.getAccountPortfolio({
       networkId: networkId ?? '',
       accountId: accountId ?? '',
@@ -128,7 +144,7 @@ export const useAccountPortfolios = <
       data: res?.[type] || [],
       updatedAt: updateInfo?.updatedAt,
     });
-  }, [accountId, networkId, type, updateInfo?.updatedAt]);
+  }, [accountId, networkId, type, networkAccountsMap, updateInfo?.updatedAt]);
 
   useEffect(() => {
     fetchData();
@@ -207,7 +223,7 @@ export function useAccountTokens({
   const { hideRiskTokens, hideSmallBalance, putMainTokenOnTop } =
     useAppSelector((s) => s.settings);
 
-  const { data: allNetworksTokens, loading } = useAccountPortfolios({
+  const { data: allNetworksTokens = [], loading } = useAccountPortfolios({
     networkId,
     accountId,
     type: EOverviewScanTaskType.token,
@@ -326,23 +342,47 @@ export const useNFTValues = ({
   accountId?: string;
   networkId?: string;
 }) => {
-  const { disPlayPriceType } = useAppSelector((s) => s.nft);
-  const symbolPrice = useTokenPrice({
-    networkId: networkId ?? '',
-    tokenIdOnNetwork: '',
-    vsCurrency: 'usd',
+  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
+
+  const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
+    walletId: walletId ?? '',
+    accountId: accountId ?? '',
   });
 
-  const nftPrice = useAppSelector(
-    (s) => s.nft.nftPrice?.[accountId ?? '']?.[networkId ?? ''],
-  );
+  const nftPrices = useAppSelector((s) => s.nft.nftPrice);
 
-  const amount = useMemo(
-    () => nftPrice?.[disPlayPriceType] ?? 0,
-    [nftPrice, disPlayPriceType],
-  );
+  const { disPlayPriceType } = useAppSelector((s) => s.nft);
 
-  return symbolPrice * amount;
+  const prices = useAppSelector((s) => s.tokens.tokenPriceMap);
+
+  const value = useMemo(() => {
+    let total = 0;
+
+    if (!isAllNetworks(networkId)) {
+      const v =
+        nftPrices[accountId ?? '']?.[networkId ?? '']?.[disPlayPriceType] ?? 0;
+      const p = prices?.[networkId ?? '']?.usd ?? 0;
+      return p * v;
+    }
+
+    for (const [nid, accounts] of Object.entries(networkAccountsMap)) {
+      const p = prices?.[nid]?.usd ?? 0;
+      for (const a of accounts) {
+        const nftPrice = nftPrices?.[a.id]?.[nid]?.[disPlayPriceType] ?? 0;
+        total += nftPrice * p;
+      }
+    }
+
+    return total;
+  }, [
+    disPlayPriceType,
+    networkAccountsMap,
+    nftPrices,
+    prices,
+    accountId,
+    networkId,
+  ]);
+  return value;
 };
 
 export const useAccountValues = (props: {
@@ -786,14 +826,25 @@ export const useOverviewPendingTasks = ({
 export function useAccountTokenLoading(networkId: string, accountId: string) {
   const pendingTasks = useOverviewPendingTasks({ networkId, accountId });
   const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
+
+  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
+
+  const { data } = useAllNetworksWalletAccounts({
+    walletId,
+    accountId: accountId ?? '',
+  });
+
   return useMemo(() => {
     if (isAllNetworks(networkId)) {
       const { tasks, updatedAt } = pendingTasks;
+      if (!Object.keys(data).length) {
+        return false;
+      }
       return (
         tasks?.filter((t) => t.scanType === EOverviewScanTaskType.token)
           .length > 0 || typeof updatedAt === 'undefined'
       );
     }
     return typeof accountTokens[networkId]?.[accountId] === 'undefined';
-  }, [networkId, accountId, accountTokens, pendingTasks]);
+  }, [networkId, accountId, accountTokens, pendingTasks, data]);
 }

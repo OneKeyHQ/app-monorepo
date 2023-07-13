@@ -3,7 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { debounce } from 'lodash';
 
+import { generateFakeAllnetworksAccount } from '@onekeyhq/engine/src/managers/account';
 import type { IAccount, IWallet } from '@onekeyhq/engine/src/types';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { AccountNameInfo } from '@onekeyhq/engine/src/types/network';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -20,18 +22,12 @@ export type INetworkAccountSelectorAccountListSectionData = {
   collapsed: boolean;
 };
 
-export type IAllNetworkFakeAccountListData = {
-  id: string;
-  index: number;
-  name: string;
-};
-
 export const useAllNetworksAccountsData = ({
   accountSelectorInfo,
 }: {
   accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
 }) => {
-  const [data, setData] = useState<IAllNetworkFakeAccountListData[]>([]);
+  const [data, setData] = useState<Account[]>([]);
 
   const refresh = useCallback(async () => {
     const { selectedNetworkId, selectedWalletId } = accountSelectorInfo ?? {};
@@ -48,12 +44,26 @@ export const useAllNetworksAccountsData = ({
       setData([]);
       return;
     }
+    const accounts = new Array(index + 1)
+      .slice(0, 3)
+      .fill(1)
+      .map((_, i) =>
+        generateFakeAllnetworksAccount({
+          accountId: `${selectedWalletId}--${i}`,
+        }),
+      );
+    const networksAccountMapList = await Promise.all(
+      accounts.map((account) =>
+        backgroundApiProxy.serviceAllNetwork.getAllNetworksWalletAccounts({
+          accountId: account?.id,
+          walletId: accountSelectorInfo?.selectedWalletId ?? '',
+        }),
+      ),
+    );
     setData(
-      new Array(index + 1).fill(1).map((_, i) => ({
-        id: `${selectedWalletId}--${i}`,
-        index: i,
-        name: `Account #${i + 1}`,
-      })),
+      accounts.filter(
+        (_a, i) => Object.keys(networksAccountMapList[i])?.length > 0,
+      ),
     );
   }, [accountSelectorInfo]);
 

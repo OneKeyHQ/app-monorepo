@@ -6,6 +6,7 @@ import {
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
 import { caseSensitiveImpls } from '@onekeyhq/engine/src/managers/token';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 import { setNFTPrice } from '@onekeyhq/kit/src/store/reducers/nft';
 import type { IOverviewPortfolio } from '@onekeyhq/kit/src/store/reducers/overview';
@@ -27,7 +28,6 @@ import {
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import ServiceBase from './ServiceBase';
@@ -125,50 +125,29 @@ class ServiceOverview extends ServiceBase {
     const resolvedScanTypes: Set<EOverviewScanTaskType> = new Set();
     const { pending } = results;
     const dispatchActions = [];
-    if (!pending?.length) {
-      const taskIdsWillRemove = pendingTasksForCurrentNetwork.map((t) => {
-        resolvedScanTypes.add(t.scanType);
-        return this.getTaksId(t);
-      });
-      if (taskIdsWillRemove?.length) {
-        dispatchActions.push(
-          removeOverviewPendingTasks({
-            ids: taskIdsWillRemove,
-          }),
-        );
-      }
+    if (pending?.length) {
+      return;
     }
-    if (
-      results.nfts?.length &&
-      ![OnekeyNetwork.btc, OnekeyNetwork.tbtc].includes(networkId)
-    ) {
-      let lastSalePrice = 0;
-      const floorPrice = 0; // Not used
-      results.nfts = (results.nfts as Collection[]).map((item) => {
-        let totalPrice = 0;
-        item.assets =
-          item.assets?.map((asset) => {
-            asset.collection.floorPrice = item.floorPrice;
-            totalPrice += asset.latestTradePrice ?? 0;
-            asset.networkId = item.networkId;
-            asset.accountAddress = item.accountAddress;
-            return asset;
-          }) ?? [];
-        item.totalPrice = totalPrice;
-        lastSalePrice += totalPrice;
-        return item;
-      });
+    const taskIdsWillRemove = pendingTasksForCurrentNetwork.map((t) => {
+      resolvedScanTypes.add(t.scanType);
+      return this.getTaksId(t);
+    });
+    if (taskIdsWillRemove?.length) {
       dispatchActions.push(
-        setNFTPrice({
-          networkId,
-          accountId,
-          price: { floorPrice, lastSalePrice },
+        removeOverviewPendingTasks({
+          ids: taskIdsWillRemove,
         }),
       );
     }
+    const { data, actions } = await this.processNftPriceActions({
+      networkId,
+      accountId,
+      results,
+    });
+    dispatchActions.push(...actions.map((a) => setNFTPrice(a)));
     await simpleDb.accountPortfolios.setAllNetworksPortfolio({
       key: dispatchKey,
-      data: results,
+      data,
       scanTypes: Array.from(resolvedScanTypes),
     });
     dispatch(
@@ -180,6 +159,79 @@ class ServiceOverview extends ServiceBase {
         },
       }),
     );
+  }
+
+  async processNftPriceActions({
+    networkId,
+    results,
+    accountId,
+  }: {
+    networkId: string;
+    results: OverviewAllNetworksPortfolioRes;
+    accountId: string;
+  }) {
+    let networkAccountsMap: Record<string, Account[]> = {};
+    if (isAllNetworks(networkId)) {
+      const walletId = this.backgroundApi.appSelector(
+        (s) => s.general.activeWalletId,
+      );
+      networkAccountsMap =
+        await this.backgroundApi.serviceAllNetwork.getAllNetworksWalletAccounts(
+          {
+            walletId: walletId ?? '',
+            accountId,
+          },
+        );
+    }
+    const pricesMap: Record<
+      string,
+      {
+        floorPrice: number;
+        lastSalePrice: number;
+      }
+    > = {};
+    results.nfts = ((results.nfts || []) as Collection[]).map((item) => {
+      let totalPrice = 0;
+      item.assets =
+        item.assets?.map((asset) => {
+          asset.collection.floorPrice = item.floorPrice;
+          totalPrice += asset.latestTradePrice ?? 0;
+          asset.networkId = item.networkId;
+          asset.accountAddress = item.accountAddress;
+          return asset;
+        }) ?? [];
+      item.totalPrice = totalPrice;
+      const activeAccountId = isAllNetworks(networkId)
+        ? networkAccountsMap[item.networkId ?? '']?.find(
+            (a) => a.address === item.accountAddress,
+          )?.id
+        : accountId;
+      const key = `${item.networkId ?? ''}___${activeAccountId ?? ''}`;
+      if (!pricesMap[key]) {
+        pricesMap[key] = {
+          floorPrice: 0,
+          lastSalePrice: 0,
+        };
+      }
+      pricesMap[key].lastSalePrice += totalPrice;
+      return item;
+    });
+    return {
+      data: results,
+      actions: Object.entries(pricesMap)
+        .map(([k, price]) => {
+          const [nid, aid] = k.split('___');
+          if (!nid || !aid) {
+            return null;
+          }
+          return {
+            networkId: nid,
+            accountId: aid,
+            price,
+          };
+        })
+        .filter(Boolean),
+    };
   }
 
   getTaksId({ networkId, address, xpub, scanType }: IOverviewQueryTaskItem) {

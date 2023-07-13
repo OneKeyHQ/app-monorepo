@@ -1,16 +1,45 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useIntl } from 'react-intl';
 
-import { Box, Button, Center, Icon, Typography } from '@onekeyhq/components';
+import {
+  Box,
+  Button,
+  Center,
+  Empty,
+  Icon,
+  Typography,
+} from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { INetwork } from '@onekeyhq/engine/src/types';
 
-import { useActiveWalletAccount, useNavigation } from '../../../hooks';
+import { useNavigation, useNavigationActions } from '../../../hooks';
 import {
   FiatPayModalRoutes,
   ManageTokenModalRoutes,
   ModalRoutes,
   RootRoutes,
 } from '../../../routes/routesEnum';
+
+export const AllNetworksEmpty = () => {
+  const intl = useIntl();
+
+  const { openAccountSelector } = useNavigationActions();
+  return (
+    <Empty
+      emoji="💳"
+      title={intl.formatMessage({ id: 'empty__no_included_network' })}
+      subTitle={intl.formatMessage({
+        id: 'empty__no_included_network_desc',
+      })}
+      flex={1}
+      actionTitle={intl.formatMessage({ id: 'action__switch_account' })}
+      handleAction={() => {
+        openAccountSelector({});
+      }}
+      mt={8}
+    />
+  );
+};
 
 function EmptyListOfAccount({
   network,
@@ -21,6 +50,10 @@ function EmptyListOfAccount({
 }) {
   const intl = useIntl();
   const navigation = useNavigation();
+
+  if (isAllNetworks(network?.id)) {
+    return <AllNetworksEmpty />;
+  }
 
   return (
     <Box flexDirection="row" justifyContent="space-between">
@@ -105,11 +138,4 @@ function EmptyListOfAccount({
   );
 }
 
-function EmptyList() {
-  const { network, accountId } = useActiveWalletAccount();
-
-  return <EmptyListOfAccount network={network} accountId={accountId} />;
-}
-
 export { EmptyListOfAccount };
-export default EmptyList;

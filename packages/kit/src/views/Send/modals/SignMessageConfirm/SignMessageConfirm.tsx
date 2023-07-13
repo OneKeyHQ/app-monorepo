@@ -1,16 +1,18 @@
 import { useCallback, useEffect } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
-import BigNumber from 'bignumber.js';
-import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { ToastManager } from '@onekeyhq/components';
-import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { parseNetworkId } from '@onekeyhq/engine/src/managers/network';
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
+import {
+  getValidUnsignedMessage,
+  validateSignMessageData,
+  validateTypedSignMessageDataV1,
+  validateTypedSignMessageDataV3V4,
+} from '@onekeyhq/shared/src/utils/messageUtils';
 
 import { useActiveSideAccount } from '../../../../hooks';
 import useDappApproveAction from '../../../../hooks/useDappApproveAction';
@@ -76,42 +78,22 @@ const SignMessageConfirm = () => {
 
       try {
         if (
+          msg.type === ETHMessageTypes.ETH_SIGN ||
+          msg.type === ETHMessageTypes.PERSONAL_SIGN
+        ) {
+          validateSignMessageData(msg);
+        }
+        if (msg.type === ETHMessageTypes.TYPED_DATA_V1) {
+          validateTypedSignMessageDataV1(msg);
+        }
+        if (
           msg.type === ETHMessageTypes.TYPED_DATA_V3 ||
           msg.type === ETHMessageTypes.TYPED_DATA_V4
         ) {
-          const messageObject: {
-            domain: { chainId: string };
-            types: { EIP712Domain: { name: string; type: string }[] };
-          } = JSON.parse(msg.message) ?? {};
-
-          if (
-            find(messageObject?.types?.EIP712Domain, {
-              name: 'chainId',
-              type: 'uint256',
-            })
-          ) {
-            const activeChainIdBN = new BigNumber(
-              parseNetworkId(networkId).chainId ?? 0,
-            );
-
-            const chainId = messageObject?.domain?.chainId;
-
-            if (!chainId) {
-              dappApprove?.reject({
-                error: new OneKeyError(
-                  'missing value for field chainId of type uint256',
-                ),
-              });
-            }
-
-            if (!activeChainIdBN.isEqualTo(chainId)) {
-              dappApprove?.reject({
-                error: new OneKeyError(
-                  `Provided chainId "${chainId}" must match the active chainId "${activeChainIdBN.toFixed()}"`,
-                ),
-              });
-            }
-          }
+          validateTypedSignMessageDataV3V4(
+            msg,
+            parseNetworkId(networkId).chainId,
+          );
         }
       } catch (e: any) {
         dappApprove?.reject({ error: e });

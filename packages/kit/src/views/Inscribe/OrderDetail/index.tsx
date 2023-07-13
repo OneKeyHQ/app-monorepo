@@ -3,7 +3,13 @@ import { type FC, useCallback } from 'react';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Modal, Pressable, Text, VStack } from '@onekeyhq/components';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  VStack,
+} from '@onekeyhq/components';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 
 import { useActiveWalletAccount } from '../../../hooks/redux';
@@ -41,72 +47,74 @@ const OrderDetail: FC = () => {
         padding: '16px',
       }}
     >
-      <VStack space="12px">
-        <Text typography="Subheading" color="text-subdued">
-          {intl.formatMessage({ id: 'form__payment_info__uppercase' })}
-        </Text>
-        <VStack
-          space="4px"
-          padding="16px"
-          bgColor="surface-default"
-          borderRadius="12px"
-          borderWidth="1px"
-          borderColor="border-subdued"
-        >
-          <Text typography="Body2Strong" color="text-subdued">
-            TXID
+      <ScrollView>
+        <VStack space="12px">
+          <Text typography="Subheading" color="text-subdued">
+            {intl.formatMessage({ id: 'form__payment_info__uppercase' })}
           </Text>
-          <Pressable onPress={onOpenTx}>
-            <Text typography="Body1Strong" color="text-subdued">
-              {orderHistory.txid}
+          <VStack
+            space="4px"
+            padding="16px"
+            bgColor="surface-default"
+            borderRadius="12px"
+            borderWidth="1px"
+            borderColor="border-subdued"
+          >
+            <Text typography="Body2Strong" color="text-subdued">
+              TXID
             </Text>
-          </Pressable>
+            <Pressable onPress={onOpenTx}>
+              <Text typography="Body1Strong" color="text-subdued">
+                {orderHistory.txid}
+              </Text>
+            </Pressable>
+          </VStack>
         </VStack>
-      </VStack>
 
-      <VStack space="12px" mt="24px">
-        <Text typography="Subheading" color="text-subdued">
-          {intl.formatMessage({ id: 'form__receive__uppercase' })}
-        </Text>
-        <VStack
-          space="4px"
-          padding="16px"
-          bgColor="surface-default"
-          borderRadius="12px"
-          borderWidth="1px"
-          borderColor="border-subdued"
-        >
-          <Text typography="Body2Strong" color="text-subdued">
-            {intl.formatMessage({ id: 'form__receive_address' })}
+        <VStack space="12px" mt="24px">
+          <Text typography="Subheading" color="text-subdued">
+            {intl.formatMessage({ id: 'form__receive__uppercase' })}
           </Text>
-          <Text typography="Body1Strong" color="text-subdued">
-            {orderHistory.to}
+          <VStack
+            space="4px"
+            padding="16px"
+            bgColor="surface-default"
+            borderRadius="12px"
+            borderWidth="1px"
+            borderColor="border-subdued"
+          >
+            <Text typography="Body2Strong" color="text-subdued">
+              {intl.formatMessage({ id: 'form__receive_address' })}
+            </Text>
+            <Text typography="Body1Strong" color="text-subdued">
+              {orderHistory.to}
+            </Text>
+          </VStack>
+          <Text typography="Caption" color="text-subdued">
+            {intl.formatMessage({
+              id: 'content__the_address_above_is_a_taproot_address_to_receive_your_inscription',
+            })}
           </Text>
         </VStack>
-        <Text typography="Caption" color="text-subdued">
-          {intl.formatMessage({
-            id: 'content__the_address_above_is_a_taproot_address_to_receive_your_inscription',
-          })}
-        </Text>
-      </VStack>
 
-      <VStack space="12px" mt="24px">
-        <Text typography="Subheading" color="text-subdued">
-          {intl.formatMessage({ id: 'form__inscriptions__uppercase' })}
-        </Text>
-        <VStack
-          space="4px"
-          padding="16px"
-          bgColor="surface-default"
-          borderRadius="12px"
-          borderWidth="1px"
-          borderColor="border-subdued"
-        >
-          <Text typography="Body1Strong" color="text-subdued">
-            {orderHistory.previewText}
+        <VStack space="12px" mt="24px">
+          <Text typography="Subheading" color="text-subdued">
+            {intl.formatMessage({ id: 'form__inscriptions__uppercase' })}
           </Text>
+          <VStack
+            space="4px"
+            padding="16px"
+            bgColor="surface-default"
+            borderRadius="12px"
+            borderWidth="1px"
+            borderColor="border-subdued"
+          >
+            <Text typography="Body1Strong" color="text-subdued">
+              {orderHistory.previewText}
+            </Text>
+          </VStack>
         </VStack>
-      </VStack>
+      </ScrollView>
     </Modal>
   );
 };

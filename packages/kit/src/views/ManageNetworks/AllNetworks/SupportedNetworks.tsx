@@ -39,7 +39,10 @@ function AllNetworksSupportedNetworks() {
             <Typography.Body1>
               {intl.formatMessage({ id: 'title__str_supported_networks_desc' })}
             </Typography.Body1>
-            {chunk(allNetworks, 3).map((networks, i) => (
+            {chunk(
+              allNetworks.filter((n) => !n.settings.validationRequired),
+              3,
+            ).map((networks, i) => (
               <HStack key={String(i)} justifyContent="space-between">
                 {networks.map((n) => (
                   <VStack
