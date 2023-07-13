@@ -3,13 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Button,
-  HStack,
-  Text,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+import { Box, Button, HStack, Text } from '@onekeyhq/components';
 
 import {
   ManageNetworkModalRoutes,
@@ -29,15 +23,17 @@ function TraderInput(props: TraderInputParams) {
     amount,
     amountType,
     token,
+    trader,
     traderFromOut,
     setTraderFromOut,
     setTrader,
     traderErrors,
     isUploadMode,
+    isSingleMode,
     setIsUploadMode,
+    withAmount,
   } = props;
   const intl = useIntl();
-  const isVertical = useIsVerticalLayout();
   const [showFileError, setShowFileError] = useState(false);
   const navigation = useNavigation();
 
@@ -53,23 +49,32 @@ function TraderInput(props: TraderInputParams) {
           hideSearchBar: true,
           hideCreateAccount: true,
           hideAccountActions: true,
-          multiSelect: true,
           tokenShowBalance: token,
+          multiSelect: !isSingleMode,
+          singleSelect: isSingleMode,
           onAccountsSelected: (addresses) => {
             setIsUploadMode(false);
-            setTraderFromOut((prev) => [
-              ...prev,
-              ...addresses.map((address) =>
-                amountType === AmountTypeEnum.Custom
-                  ? {
-                      Address: address,
-                      Amount: amount[0],
-                    }
-                  : {
-                      Address: address,
-                    },
-              ),
-            ]);
+            if (isSingleMode) {
+              setTraderFromOut([
+                {
+                  Address: addresses[0],
+                },
+              ]);
+            } else {
+              setTraderFromOut([
+                ...trader,
+                ...addresses.map((address) =>
+                  amountType === AmountTypeEnum.Custom && withAmount
+                    ? {
+                        Address: address,
+                        Amount: amount[0],
+                      }
+                    : {
+                        Address: address,
+                      },
+                ),
+              ]);
+            }
           },
         },
       },
@@ -77,10 +82,13 @@ function TraderInput(props: TraderInputParams) {
   }, [
     amount,
     amountType,
+    isSingleMode,
     navigation,
     setIsUploadMode,
     setTraderFromOut,
     token,
+    trader,
+    withAmount,
   ]);
 
   const handleSelectContactOnPress = useCallback(() => {
@@ -92,17 +100,25 @@ function TraderInput(props: TraderInputParams) {
           networkId,
           onSelected: ({ address }) => {
             setIsUploadMode(false);
-            setTraderFromOut((prev) => [
-              ...prev,
-              amountType === AmountTypeEnum.Custom
-                ? {
-                    Address: address,
-                    Amount: amount[0],
-                  }
-                : {
-                    Address: address,
-                  },
-            ]);
+            if (isSingleMode) {
+              setTraderFromOut([
+                {
+                  Address: address,
+                },
+              ]);
+            } else {
+              setTraderFromOut([
+                ...trader,
+                amountType === AmountTypeEnum.Custom && withAmount
+                  ? {
+                      Address: address,
+                      Amount: amount[0],
+                    }
+                  : {
+                      Address: address,
+                    },
+              ]);
+            }
           },
         },
       },
@@ -110,10 +126,13 @@ function TraderInput(props: TraderInputParams) {
   }, [
     amount,
     amountType,
+    isSingleMode,
     navigation,
     networkId,
     setIsUploadMode,
     setTraderFromOut,
+    trader,
+    withAmount,
   ]);
 
   useEffect(() => {
@@ -167,11 +186,14 @@ function TraderInput(props: TraderInputParams) {
           accountId={accountId}
           networkId={networkId}
           setTrader={setTrader}
+          trader={trader}
           traderFromOut={traderFromOut}
           setTraderFromOut={setTraderFromOut}
           traderErrors={traderErrors}
           showFileError={showFileError}
           setShowFileError={setShowFileError}
+          isSingleMode={isSingleMode}
+          withAmount={withAmount}
         />
       </Box>
     </>

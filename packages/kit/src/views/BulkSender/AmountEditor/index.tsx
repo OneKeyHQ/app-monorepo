@@ -52,10 +52,10 @@ function AmountEditor() {
   const network = useNetworkSimple(networkId);
 
   const useFormReturn = useForm<AmountEditorValues>({
-    mode: 'onBlur',
+    mode: 'onChange',
     reValidateMode: 'onBlur',
   });
-  const { control, formState, getValues } = useFormReturn;
+  const { control, formState, getValues, trigger: triggerForm } = useFormReturn;
 
   const isConfirmDisabeld = useMemo(() => {
     const amountType = amountEditorTypeMap[bulkType][amountTypeIndex];
@@ -65,7 +65,7 @@ function AmountEditor() {
     }
 
     if (amountType === AmountTypeEnum.Random) {
-      return !!formState.errors.minAmount && !!formState.errors.maxAmount;
+      return !!formState.errors.minAmount || !!formState.errors.maxAmount;
     }
 
     return false;
@@ -83,19 +83,19 @@ function AmountEditor() {
 
     if (amountType === AmountTypeEnum.Random) {
       onAmountChanged({
-        amount: [minAmount, maxAmount],
+        amount: [minAmount || '0', maxAmount || '1'],
         amountType,
       });
     } else {
       onAmountChanged({
-        amount: [amount, amount],
+        amount: [amount || '0'],
         amountType,
       });
     }
   }, [amountTypeIndex, bulkType, getValues, onAmountChanged]);
 
   const validateAmount = useCallback(
-    (value) => {
+    (value, type?: 'min' | 'max') => {
       const amountBN = new BigNumber(value);
       if (amountBN.isNegative()) {
         return intl.formatMessage({ id: 'msg__enter_a_number' });
@@ -123,8 +123,26 @@ function AmountEditor() {
           );
         }
       }
+
+      if (type === 'min') {
+        const maxValue = getValues('maxAmount');
+        if (new BigNumber(maxValue).isLessThanOrEqualTo(value)) {
+          return 'min value must be less than max value';
+        }
+      } else if (type === 'max') {
+        const minValue = getValues('minAmount');
+        if (new BigNumber(minValue).isGreaterThanOrEqualTo(value)) {
+          return 'max value must be greater than min value';
+        }
+      }
     },
-    [intl, network?.settings.minTransferAmount, token.decimals, token?.symbol],
+    [
+      getValues,
+      intl,
+      network?.settings.minTransferAmount,
+      token.decimals,
+      token?.symbol,
+    ],
   );
 
   const amountTypes = useMemo(
@@ -141,15 +159,10 @@ function AmountEditor() {
 
   const customAmountDesc = useMemo(
     () => (
-      <>
-        <Text>
-          Customise transfer amount by adding the amount after the address (use
-          commas to split).
-        </Text>
-        <Text mt={5} color="text-subdued">
-          E.g.: 0x97a535f9825DcF3AA709FB2FdddE8d776e4Ebfc3, 1.1
-        </Text>
-      </>
+      <Text>
+        Customise transfer amount by adding the amount after the address (use
+        commas to split). E.g.: 0x97a535f9825DcF3AA709FB2FdddE8d776e4Ebfc3, 1.1
+      </Text>
     ),
     [],
   );
@@ -157,26 +170,24 @@ function AmountEditor() {
   const renderAmountEditorDetail = useCallback(() => {
     if (amountTypeIndex === 0) {
       return (
-        <Form>
-          <Form.Item
-            name="amount"
-            control={control}
-            defaultValue={amountFromOut[0]}
-            label={intl.formatMessage({ id: 'form__amount' })}
-            rules={{
-              required: true,
-              validate: (value) => validateAmount(value),
-            }}
-          >
-            <Form.NumberInput
-              rightCustomElement={
-                <Text paddingRight={2} typography="Body1">
-                  {token?.symbol}
-                </Text>
-              }
-            />
-          </Form.Item>
-        </Form>
+        <Form.Item
+          name="amount"
+          control={control}
+          defaultValue={amountFromOut[0] || '0'}
+          label={intl.formatMessage({ id: 'form__amount' })}
+          rules={{
+            required: true,
+            validate: (value) => validateAmount(value),
+          }}
+        >
+          <Form.NumberInput
+            rightCustomElement={
+              <Text paddingRight={2} typography="Body1">
+                {token?.symbol}
+              </Text>
+            }
+          />
+        </Form.Item>
       );
     }
 
@@ -190,15 +201,15 @@ function AmountEditor() {
         bulkType === BulkTypeEnum.ManyToOne)
     ) {
       return (
-        <Form>
+        <>
           <Form.Item
             name="minAmount"
             control={control}
-            defaultValue={amountFromOut[0]}
+            defaultValue={amountFromOut[0] || '0'}
             label="Minimum Amount"
             rules={{
               required: true,
-              validate: (value) => validateAmount(value),
+              validate: (value) => validateAmount(value, 'min'),
             }}
           >
             <Form.NumberInput
@@ -212,11 +223,11 @@ function AmountEditor() {
           <Form.Item
             name="maxAmount"
             control={control}
-            defaultValue={amountFromOut[1]}
+            defaultValue={amountFromOut[1] || '1'}
             label="Maximum Amount"
             rules={{
               required: true,
-              validate: (value) => validateAmount(value),
+              validate: (value) => validateAmount(value, 'max'),
             }}
           >
             <Form.NumberInput
@@ -227,7 +238,7 @@ function AmountEditor() {
               }
             />
           </Form.Item>
-        </Form>
+        </>
       );
     }
 
@@ -268,13 +279,16 @@ function AmountEditor() {
       <Box flex={1}>
         <SegmentedControl
           selectedIndex={amountTypeIndex}
-          onChange={setAmountTypeIndex}
+          onChange={(index) => {
+            triggerForm();
+            setAmountTypeIndex(index);
+          }}
           values={amountTypes}
           tabStyle={{
             width: '120px',
           }}
         />
-        <Box mt={5}>{renderAmountEditorDetail()}</Box>
+        <Form mt={5}>{renderAmountEditorDetail()}</Form>
       </Box>
     </Modal>
   );

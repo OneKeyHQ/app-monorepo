@@ -4,17 +4,10 @@ import { useFocusEffect, useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Button,
-  Text,
-  ToastManager,
-  useIsVerticalLayout,
-} from '@onekeyhq/components';
+import { Box, Button, Text, useIsVerticalLayout } from '@onekeyhq/components';
 import { TokenIcon } from '@onekeyhq/components/src/Token';
 import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Token } from '@onekeyhq/engine/src/types/token';
-import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { ITransferInfo } from '@onekeyhq/engine/src/vaults/types';
 import {
   useAccountTokensOnChain,
@@ -36,12 +29,11 @@ import { TraderExample } from '../TraderExample';
 import { TraderInput } from '../TraderInput';
 import { TxSettingPanel } from '../TxSetting/TxSettingPanel';
 import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
-import { AmountTypeEnum, BulkSenderRoutes, TraderTypeEnum } from '../types';
+import { AmountTypeEnum, BulkSenderRoutes } from '../types';
 
 import { getTransferAmount, verifyBulkTransferBeforeConfirm } from './utils';
 
 import type { TokenTrader, TraderError } from '../types';
-import { Account } from '@onekeyhq/engine/src/types/account';
 
 interface Props {
   accountId: string;
@@ -84,12 +76,10 @@ function ManyToN(props: Props) {
       : true,
   );
 
-  const { serviceBatchTransfer, serviceToken, serviceOverview } =
-    backgroundApiProxy;
+  const { serviceToken, serviceOverview } = backgroundApiProxy;
 
   const initialToken = tokens.find((token) => token.isNative) ?? tokens[0];
   const currentToken = selectedToken || initialToken;
-  const isNative = currentToken?.isNative;
 
   const {
     isValid: isValidSender,
@@ -99,9 +89,7 @@ function ManyToN(props: Props) {
     networkId,
     trader: sender,
     token: currentToken,
-    bulkType,
-    traderType: TraderTypeEnum.Sender,
-    amountType,
+    shouldValidateAmount: amountType === AmountTypeEnum.Custom,
   });
 
   const {
@@ -112,9 +100,7 @@ function ManyToN(props: Props) {
     networkId,
     trader: receiver,
     token: currentToken,
-    bulkType,
-    traderType: TraderTypeEnum.Receiver,
-    amountType,
+    shouldValidateAmount: false,
   });
 
   const isDisabled = useMemo(
@@ -149,15 +135,15 @@ function ManyToN(props: Props) {
       amount: string[];
       amountType: AmountTypeEnum;
     }) => {
-      let receiverWithChangedAmount = [];
+      let senderWithChangedAmount = [];
 
       if (amountTypeFromEditor === AmountTypeEnum.Custom) {
-        receiverWithChangedAmount = receiver.map((item) => ({
+        senderWithChangedAmount = sender.map((item) => ({
           ...item,
           Amount: amountFromEditor[0] ?? '0',
         }));
       } else {
-        receiverWithChangedAmount = receiver.map((item) => ({
+        senderWithChangedAmount = sender.map((item) => ({
           ...item,
         }));
       }
@@ -165,9 +151,9 @@ function ManyToN(props: Props) {
       setAmount(amountFromEditor);
       setAmountType(amountTypeFromEditor);
 
-      setReceiverFromOut(receiverWithChangedAmount);
+      setSenderFromOut(senderWithChangedAmount);
     },
-    [receiver],
+    [sender],
   );
 
   const handleOpenTokenSelector = useCallback(() => {
@@ -338,11 +324,13 @@ function ManyToN(props: Props) {
               ? 'Sender Address, Amount'
               : 'Sender'
           }
+          withAmount
           accountId={accountId}
           networkId={networkId}
           token={currentToken}
           amount={amount}
           amountType={amountType}
+          trader={sender}
           setTrader={setSender}
           traderFromOut={senderFromOut}
           setTraderFromOut={setSenderFromOut}
@@ -356,11 +344,13 @@ function ManyToN(props: Props) {
       <Box mt={8}>
         <TraderInput
           header="Receiptent"
+          isSingleMode={bulkType === BulkTypeEnum.ManyToOne}
           accountId={accountId}
           networkId={networkId}
           token={currentToken}
           amount={amount}
           amountType={amountType}
+          trader={receiver}
           setTrader={setReceiver}
           traderFromOut={receiverFromOut}
           setTraderFromOut={setReceiverFromOut}

@@ -2,7 +2,7 @@ import { trim } from 'lodash';
 
 import { openUrlExternal } from '../../utils/openUrl';
 
-import { AmountTypeEnum, TraderExampleType } from './types';
+import { TraderExampleType } from './types';
 
 import type { TokenTrader } from './types';
 
@@ -13,12 +13,15 @@ const RECEIVER_EXAMPLE_URL_CSV =
 const RECEIVER_EXAMPLE_URL_TXT =
   'https://onekey-devops.s3.ap-southeast-1.amazonaws.com/send_ERC20.txt';
 
-export function encodeTrader(
-  trader: TokenTrader[],
-  amountType: AmountTypeEnum,
-): string {
+export function encodeTrader({
+  trader,
+  withAmount,
+}: {
+  trader: TokenTrader[];
+  withAmount: boolean;
+}): string {
   const count = trader.length;
-  if (amountType === AmountTypeEnum.Custom) {
+  if (withAmount) {
     return trader.reduce(
       (acc, cur, index) =>
         `${acc}${[cur.Address, cur.Amount].join(',')}${
@@ -43,10 +46,13 @@ export function encodeTraderWithLineNumber(traderString: string): string {
   return linesWithNumber.join('\n');
 }
 
-export function decodeTrader<T>(
-  traderString: string,
-  amountType: AmountTypeEnum,
-): T[] {
+export function decodeTrader<T>({
+  traderString,
+  withAmount,
+}: {
+  traderString: string;
+  withAmount: boolean;
+}): T[] {
   const trader: T[] = [];
 
   if (traderString === '') return [];
@@ -54,7 +60,7 @@ export function decodeTrader<T>(
   const lines = traderString.split('\n');
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
-    if (amountType === AmountTypeEnum.Custom) {
+    if (withAmount) {
       const traderData = line.split(',');
       trader.push({
         Address: trim(traderData[0]),

@@ -5,13 +5,10 @@ import { useDropzone } from 'react-dropzone';
 import { useIntl } from 'react-intl';
 import { read, utils } from 'xlsx';
 
-import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNetworkSimple } from '../../hooks';
-
-import { AmountTypeEnum, TraderTypeEnum } from './types';
 
 import type { TokenTrader, TraderError } from './types';
 import type { DropzoneOptions } from 'react-dropzone';
@@ -59,16 +56,12 @@ export function useValidteTrader({
   networkId,
   trader,
   token,
-  bulkType,
-  traderType,
-  amountType,
+  shouldValidateAmount,
 }: {
   networkId: string;
   trader: TokenTrader[];
   token: Token | null | undefined;
-  bulkType: BulkTypeEnum;
-  traderType: TraderTypeEnum;
-  amountType: AmountTypeEnum;
+  shouldValidateAmount: boolean;
 }) {
   const [isValid, setIsValid] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
@@ -83,15 +76,7 @@ export function useValidteTrader({
       for (let i = 0; i < trader.length; i += 1) {
         const { Address, Amount } = trader[i];
         let hasError = false;
-        if (
-          amountType === AmountTypeEnum.Custom &&
-          ((bulkType === BulkTypeEnum.OneToMany &&
-            traderType === TraderTypeEnum.Receiver) ||
-            (bulkType === BulkTypeEnum.ManyToOne &&
-              traderType === TraderTypeEnum.Sender) ||
-            (bulkType === BulkTypeEnum.ManyToMany &&
-              traderType === TraderTypeEnum.Sender))
-        ) {
+        if (shouldValidateAmount) {
           const amountBN = new BigNumber(Amount ?? 0);
           if (!hasError) {
             if (amountBN.isNaN() || amountBN.isNegative()) {
@@ -164,15 +149,13 @@ export function useValidteTrader({
       setErrors(validateErrors);
     })();
   }, [
-    amountType,
-    bulkType,
     intl,
     network?.settings.minTransferAmount,
     networkId,
+    shouldValidateAmount,
     token?.decimals,
     token?.symbol,
     trader,
-    traderType,
   ]);
 
   return {

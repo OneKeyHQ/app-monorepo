@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Box, Center, Icon, Text } from '@onekeyhq/components';
+import { Box, Center, Icon, Input, Text } from '@onekeyhq/components';
 
 import { useDebounce } from '../../../hooks';
 import { useDropUpload } from '../hooks';
@@ -31,6 +31,8 @@ function TraderEditor(props: Props) {
     showFileError,
     setShowFileError,
     amountType,
+    isSingleMode,
+    withAmount,
   } = props;
 
   const intl = useIntl();
@@ -49,24 +51,46 @@ function TraderEditor(props: Props) {
     },
   });
 
-  const receiverStringDebounce = useDebounce(traderString, 500, {
+  const traderStringDebounce = useDebounce(traderString, 500, {
     leading: true,
   });
 
   useEffect(() => {
-    const receiver = decodeTrader<TokenTrader>(
-      receiverStringDebounce,
-      amountType,
-    );
-    setTrader(receiver);
-    setTraderFromOut(receiver);
-  }, [amountType, receiverStringDebounce, setTrader, setTraderFromOut]);
+    const trader = decodeTrader<TokenTrader>({
+      traderString: traderStringDebounce,
+      withAmount: !!(
+        !isSingleMode &&
+        amountType === AmountTypeEnum.Custom &&
+        withAmount
+      ),
+    });
+
+    console.log('trader', trader);
+
+    setTrader(trader);
+  }, [
+    amountType,
+    traderStringDebounce,
+    setTrader,
+    setTraderFromOut,
+    isSingleMode,
+    withAmount,
+  ]);
 
   useEffect(() => {
     if (traderFromOut.length > 0) {
-      setTraderString(encodeTrader(traderFromOut, amountType));
+      setTraderString(
+        encodeTrader({
+          trader: traderFromOut,
+          withAmount: !!(
+            !isSingleMode &&
+            amountType === AmountTypeEnum.Custom &&
+            withAmount
+          ),
+        }),
+      );
     }
-  }, [amountType, traderFromOut]);
+  }, [amountType, isSingleMode, traderFromOut, withAmount]);
 
   useEffect(() => {
     if (data && data[0] && data[0].Address && data[0].Amount) {
@@ -89,11 +113,18 @@ function TraderEditor(props: Props) {
         style={{ width: '100%', height: '100%', position: 'relative' }}
         {...getRootProps()}
       >
-        <TextareaWithLineNumber
-          traderString={traderString}
-          setTraderString={setTraderString}
-        />
-
+        {isSingleMode ? (
+          <Input
+            w="100%"
+            value={traderString}
+            onChangeText={(text) => setTraderString(text)}
+          />
+        ) : (
+          <TextareaWithLineNumber
+            traderString={traderString}
+            setTraderString={setTraderString}
+          />
+        )}
         {isDragAccept && (
           <Center
             flex="1"

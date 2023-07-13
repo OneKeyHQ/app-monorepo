@@ -77,11 +77,14 @@ export type TraderInputParams = {
   token: Token;
   amount: string[];
   amountType: AmountTypeEnum;
+  trader: TokenTrader[];
   traderFromOut: TokenTrader[];
   setTraderFromOut: React.Dispatch<React.SetStateAction<TokenTrader[]>>;
   setTrader: React.Dispatch<React.SetStateAction<TokenTrader[]>>;
   traderErrors: TraderError[];
   isUploadMode: boolean;
+  isSingleMode?: boolean;
+  withAmount?: boolean;
   setIsUploadMode: React.Dispatch<React.SetStateAction<boolean>>;
 };
 

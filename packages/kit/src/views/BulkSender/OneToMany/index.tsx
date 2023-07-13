@@ -38,7 +38,7 @@ import { TraderExample } from '../TraderExample';
 import { TraderInput } from '../TraderInput';
 import { TxSettingPanel } from '../TxSetting/TxSettingPanel';
 import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
-import { AmountTypeEnum, BulkSenderRoutes, TraderTypeEnum } from '../types';
+import { AmountTypeEnum, BulkSenderRoutes } from '../types';
 
 import type { TokenTrader } from '../types';
 
@@ -96,9 +96,7 @@ function OneToMany(props: Props) {
     networkId,
     trader: receiver,
     token: currentToken,
-    bulkType,
-    traderType: TraderTypeEnum.Receiver,
-    amountType,
+    shouldValidateAmount: amountType === AmountTypeEnum.Custom,
   });
 
   const handleOnTokenSelected = useCallback((token: Token) => {
@@ -419,11 +417,13 @@ function OneToMany(props: Props) {
               ? 'Receiptent Address, Amount'
               : 'Receiptent'
           }
+          withAmount
           accountId={accountId}
           networkId={networkId}
           token={currentToken}
           amount={amount}
           amountType={amountType}
+          trader={receiver}
           setTrader={setReceiver}
           traderFromOut={receiverFromOut}
           setTraderFromOut={setReceiverFromOut}
