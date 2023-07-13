@@ -120,7 +120,7 @@ function PreSendAddress() {
         if (nftTokenId) {
           const contractAddress = transferInfo.token;
           const asset = await serviceNFT.getAsset({
-            accountId: account?.id ?? '',
+            accountId,
             networkId,
             contractAddress,
             tokenId: nftTokenId,
@@ -211,7 +211,7 @@ function PreSendAddress() {
         ToastManager.show(
           {
             title: intl.formatMessage({
-              id: 'msg__unknown_error',
+              id: 'msg__nft_does_not_exist',
             }),
           },
           { type: 'error' },
@@ -329,11 +329,17 @@ function PreSendAddress() {
             },
           });
         } catch (error: any) {
-          const { key: errorKey = '' } = error;
+          console.error('nftSendConfirm error = ', error);
+
+          const { key: errorKey = '', message } = error;
+          let title = message;
           if (errorKey === 'msg__nft_does_not_exist') {
+            title = intl.formatMessage({ id: errorKey });
+          }
+          if (title) {
             ToastManager.show(
               {
-                title: intl.formatMessage({ id: errorKey }),
+                title,
               },
               { type: 'error' },
             );
