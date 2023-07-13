@@ -22,7 +22,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatCurrency } from '../../../components/Format';
-import { useActiveWalletAccount } from '../../../hooks';
 import {
   useSimpleTokenPriceValue,
   useSingleToken,
@@ -50,8 +49,7 @@ export default function UnstakeAmount() {
   const { height } = useWindowDimensions();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
-  const { networkId, tokenIdOnNetwork } = route.params;
-  const { account, accountId } = useActiveWalletAccount();
+  const { networkId, tokenIdOnNetwork, accountId } = route.params;
   const keleDashboardInfo = useKeleDashboardInfo(networkId);
   const minerOverview = useKeleMinerOverview(networkId, accountId);
   const keleUnstakeOverview = useKeleUnstakeOverview(networkId, accountId);
@@ -137,10 +135,14 @@ export default function UnstakeAmount() {
         isDisabled:
           !!errorMsg || !!minAmountErrMsg || new BigNumber(amount).lte(0),
       }}
-      onPrimaryActionPress={() => {
-        if (!account || !tokenInfo) {
+      onPrimaryActionPress={async () => {
+        if (!accountId || !tokenInfo) {
           return;
         }
+        const account = await backgroundApiProxy.engine.getAccount(
+          accountId,
+          networkId,
+        );
         const amountToSend = amount;
 
         const apiParams = {
@@ -192,6 +194,7 @@ export default function UnstakeAmount() {
                       screen: StakingRoutes.Feedback,
                       params: {
                         networkId,
+                        accountId,
                       },
                     },
                   });

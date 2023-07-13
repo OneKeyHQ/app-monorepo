@@ -34,12 +34,13 @@ export default function KeleEthUnstakeShouldUnderstand() {
         params: {
           screen: StakingRoutes.UnstakeAmount,
           params: {
+            accountId: params.accountId,
             networkId: params.networkId,
           },
         },
       });
     }
-  }, [navigation, params.networkId, params.readonly]);
+  }, [navigation, params]);
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__unstake_eth' })}

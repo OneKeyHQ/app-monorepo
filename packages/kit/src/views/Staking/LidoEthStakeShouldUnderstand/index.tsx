@@ -209,7 +209,11 @@ const LidoEthStaking = () => {
         screen: ModalRoutes.Staking,
         params: {
           screen: StakingRoutes.ETHStake,
-          params: { source: EthStakingSource.Lido },
+          params: {
+            accountId: params.networkId,
+            networkId: params.networkId,
+            source: EthStakingSource.Lido,
+          },
         },
       });
     }

@@ -1,4 +1,7 @@
+import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
 import type { Account } from '@onekeyhq/engine/src/types/account';
+import type { ManageNetworkModalRoutes } from '@onekeyhq/kit/src/views/ManageNetworks/types';
+import { type ManageNetworkRoutesParams } from '@onekeyhq/kit/src/views/ManageNetworks/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -11,14 +14,82 @@ import {
 
 import type { FetchQuoteParams } from '../Swap/typings';
 
-export const isSupportStakedAssets = (
-  networkId?: string,
-  tokenIdOnNetwork?: string,
-): boolean => {
-  const networkIds = [OnekeyNetwork.eth, OnekeyNetwork.goerli] as string[];
-  const result =
-    networkId && networkIds.includes(networkId) && !tokenIdOnNetwork;
-  return Boolean(result);
+const assembleTokenAddress = (params: {
+  networkId?: string;
+  tokenIdOnNetwork?: string;
+}) => {
+  const { tokenIdOnNetwork, networkId } = params;
+  if (networkId) {
+    return tokenIdOnNetwork
+      ? `${networkId}--${tokenIdOnNetwork}`
+      : `${networkId}`;
+  }
+  return '';
+};
+
+const tokensSupportETHStake: string[] = [
+  OnekeyNetwork.eth,
+  OnekeyNetwork.goerli,
+];
+
+const tokenSupportMaticStake: string[] = [];
+
+export enum StakingTypes {
+  eth = 'eth',
+  matic = 'matic',
+}
+
+export const coingeckoId2StakingTypes: Record<
+  string,
+  StakingTypes | undefined
+> = {
+  ethereum: StakingTypes.eth,
+};
+
+const stakingType2NetworkIds: Record<string, string[] | undefined> = {
+  [StakingTypes.eth]: [OnekeyNetwork.eth, OnekeyNetwork.goerli],
+  [StakingTypes.matic]: [OnekeyNetwork.eth, OnekeyNetwork.goerli],
+};
+
+export const getStakeSelectNetworkAccountFilter: (
+  stakingType: string | string,
+) =>
+  | ManageNetworkRoutesParams[ManageNetworkModalRoutes.AllNetworksNetworkSelector]['filter']
+  | undefined = (stakingType: string) => {
+  const networkIds = stakingType2NetworkIds[stakingType];
+  if (!networkIds || networkIds.length === 0) {
+    return undefined;
+  }
+  return ({ network }) => !!network && networkIds.includes(network.id);
+};
+
+export const isAccountCompatibleWithStakingTypes = (
+  accountId: string,
+  type: string,
+) => {
+  const networkIds = stakingType2NetworkIds[type];
+  if (!networkIds || networkIds.length === 0) {
+    return false;
+  }
+  return networkIds.some((networkId) =>
+    isAccountCompatibleWithNetwork(accountId, networkId),
+  );
+};
+
+export const isSupportStakingType = ({
+  networkId,
+  tokenIdOnNetwork,
+}: {
+  networkId?: string;
+  tokenIdOnNetwork?: string;
+}): StakingTypes | undefined => {
+  const address = assembleTokenAddress({ networkId, tokenIdOnNetwork });
+  if (tokensSupportETHStake.includes(address)) {
+    return StakingTypes.eth;
+  }
+  if (tokenSupportMaticStake.includes(address)) {
+    return StakingTypes.matic;
+  }
 };
 
 export const getLidoTokenEvmAddress = (

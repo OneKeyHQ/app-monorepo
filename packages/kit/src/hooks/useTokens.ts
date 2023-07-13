@@ -5,7 +5,6 @@ import { useAsync } from 'react-async-hook';
 
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks/redux';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -90,21 +89,6 @@ export function useNetworkTokens(networkId?: string) {
 
   return tokens ?? [];
 }
-
-export const useTokenSupportStakedAssets = (
-  networkId?: string,
-  tokenIdOnNetwork?: string,
-) => {
-  const { networkId: activeNet } = useActiveWalletAccount();
-  return useMemo(
-    () =>
-      !tokenIdOnNetwork &&
-      activeNet === networkId &&
-      (networkId === OnekeyNetwork.eth || networkId === OnekeyNetwork.goerli),
-
-    [activeNet, networkId, tokenIdOnNetwork],
-  );
-};
 
 export const useFrozenBalance = ({
   networkId,
