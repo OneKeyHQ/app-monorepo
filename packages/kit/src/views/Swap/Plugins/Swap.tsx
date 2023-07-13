@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { useEffect } from 'react';
 
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { getActiveWalletAccount } from '../../../hooks/redux';
@@ -21,6 +22,9 @@ export const SwapPlugins: FC<SwapTokenPluginsProps> = ({
 }) => {
   useEffect(() => {
     async function main() {
+      if (isAllNetworks(networkId)) {
+        return;
+      }
       const token = await backgroundApiProxy.engine.ensureTokenInDB(
         networkId,
         tokenId,
@@ -49,10 +53,6 @@ export const SwapPlugins: FC<SwapTokenPluginsProps> = ({
     }
     main();
   }, [tokenId, networkId]);
-
-  if (!tokenId) {
-    return null;
-  }
   return (
     <>
       <SwapMain />

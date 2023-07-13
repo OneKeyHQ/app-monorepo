@@ -57,58 +57,22 @@ export function useHistoryHostMap(): Record<string, WebSiteHistory> {
 }
 
 export function useUserBrowserHistories(): MatchDAppItemType[] {
-  const [dapps, setDapps] = useState<Record<string, DAppItemType>>({});
-  const hostMap = useHistoryHostMap();
   const userBrowserHistories = useAppSelector(
     (s) => s.discover.userBrowserHistories,
   );
-
-  const dappsIds = useMemo(() => {
+  return useMemo(() => {
     if (!userBrowserHistories) {
       return [];
     }
-    return userBrowserHistories
-      .filter((s) => s.dappId)
-      .map((o) => o.dappId) as string[];
+    return userBrowserHistories.map((item) => ({
+      id: item.url,
+      webSite: {
+        url: item.url,
+        title: item.title,
+        favicon: item.logoUrl,
+      },
+    }));
   }, [userBrowserHistories]);
-
-  useEffect(() => {
-    if (dappsIds && dappsIds.length) {
-      backgroundApiProxy.serviceDiscover
-        .getDappsByIds(dappsIds)
-        .then((itemDapps) => {
-          setDapps(
-            itemDapps.reduce((result, item) => {
-              result[item._id] = item;
-              return result;
-            }, {} as Record<string, DAppItemType>),
-          );
-        });
-    }
-  }, [dappsIds]);
-
-  return useMemo<MatchDAppItemType[]>(() => {
-    if (!userBrowserHistories) {
-      return [];
-    }
-    return userBrowserHistories.map((item) => {
-      const { dappId, url } = item;
-      if (dappId && dapps[dappId]) {
-        const dapp = dapps[dappId];
-        return { id: dapp._id, dapp };
-      }
-      const { host } = new URL(url);
-      const website = hostMap[host];
-      return {
-        id: url,
-        webSite: {
-          url,
-          title: item.title ?? website?.title,
-          favicon: item.logoUrl ?? website.favicon,
-        },
-      };
-    });
-  }, [userBrowserHistories, dapps, hostMap]);
 }
 
 export function useDiscoverHistory(): MatchDAppItemType[] {

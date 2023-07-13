@@ -28,10 +28,11 @@ const TransactionFeedback = () => {
         screen: StakingRoutes.StakedETHOnKele,
         params: {
           networkId: route.params.networkId,
+          accountId: route.params.accountId,
         },
       },
     });
-  }, [navigation, route.params.networkId]);
+  }, [navigation, route.params]);
 
   return (
     <Modal

@@ -24,7 +24,7 @@ import useClickDocumentClose from '@onekeyhq/components/src/hooks/useClickDocume
 import { useDropdownPosition } from '@onekeyhq/components/src/hooks/useDropdownPosition';
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
 
-import DAppIcon from '../../DAppIcon';
+import DAppIcon from '../../components/DAppIcon';
 import { useDiscoverHistory } from '../../hooks';
 import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';
 

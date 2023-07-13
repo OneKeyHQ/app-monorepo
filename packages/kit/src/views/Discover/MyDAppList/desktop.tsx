@@ -19,7 +19,7 @@ import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import { useTranslation } from '../../../hooks';
 import FavListMenu from '../../Overlay/Discover/FavListMenu';
 import { Chains } from '../Chains';
-import DAppIcon from '../DAppIcon';
+import DAppIcon from '../components/DAppIcon';
 import { useDiscoverFavorites, useUserBrowserHistories } from '../hooks';
 
 import { MyDAppListContext } from './context';
