@@ -56,6 +56,9 @@ export const overviewSlice = createSlice({
         ...data,
       };
     },
+    clearOverviewPendingTasks(state) {
+      state.tasks = {};
+    },
     removeOverviewPendingTasks(
       state,
       action: PayloadAction<{
@@ -79,7 +82,6 @@ export const overviewSlice = createSlice({
       if (!state.allNetworksAccountsMap) {
         state.allNetworksAccountsMap = {};
       }
-      console.log('setAllNetworksAccountsMap');
       state.allNetworksAccountsMap[accountId] = data;
     },
   },
@@ -90,6 +92,7 @@ export const {
   removeOverviewPendingTasks,
   setOverviewPortfolioUpdatedAt,
   setAllNetworksAccountsMap,
+  clearOverviewPendingTasks,
 } = overviewSlice.actions;
 
 export default overviewSlice.reducer;

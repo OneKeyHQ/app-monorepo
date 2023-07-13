@@ -56,7 +56,7 @@ class ServiceOverview extends ServiceBase {
     debugLogger.common.info('startQueryPendingTasks');
     this.interval = setInterval(() => {
       this.queryPendingTasks();
-    }, getTimeDurationMs({ seconds: 15 }));
+    }, getTimeDurationMs({ seconds: 3 }));
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -109,7 +109,7 @@ class ServiceOverview extends ServiceBase {
 
     const results = await fetchData<
       | (OverviewAllNetworksPortfolioRes & {
-          pending: IOverviewScanTaskItem[];
+          pending: IOverviewQueryTaskItem[];
         })
       | null
     >(
@@ -123,34 +123,42 @@ class ServiceOverview extends ServiceBase {
     if (!results) {
       return;
     }
-    const resolvedScanTypes: Set<EOverviewScanTaskType> = new Set();
     const { pending } = results;
     const dispatchActions = [];
-    if (pending?.length) {
-      return;
+    for (const scanType of [
+      EOverviewScanTaskType.token,
+      EOverviewScanTaskType.nfts,
+      EOverviewScanTaskType.defi,
+    ]) {
+      if (!pending.find((p) => p.scanType === scanType)) {
+        const { data, actions } = this.processNftPriceActions({
+          networkId,
+          accountId,
+          results,
+        });
+        dispatchActions.push(...actions.map((a) => setNFTPrice(a)));
+        await simpleDb.accountPortfolios.setAllNetworksPortfolio({
+          key: dispatchKey,
+          data,
+          scanTypes: Array.from([scanType]),
+        });
+      }
     }
-    const taskIdsWillRemove = pendingTasksForCurrentNetwork.map((t) => {
-      resolvedScanTypes.add(t.scanType);
-      return this.getTaksId(t);
-    });
-    if (taskIdsWillRemove?.length) {
-      dispatchActions.push(
-        removeOverviewPendingTasks({
-          ids: taskIdsWillRemove,
-        }),
-      );
+
+    if (!pending?.length) {
+      const taskIdsWillRemove = pendingTasksForCurrentNetwork
+        .map((t) => this.getTaksId(t))
+        .filter((id) => !pending.find((p) => p.id === id));
+
+      if (taskIdsWillRemove?.length) {
+        dispatchActions.push(
+          removeOverviewPendingTasks({
+            ids: taskIdsWillRemove,
+          }),
+        );
+      }
     }
-    const { data, actions } = this.processNftPriceActions({
-      networkId,
-      accountId,
-      results,
-    });
-    dispatchActions.push(...actions.map((a) => setNFTPrice(a)));
-    await simpleDb.accountPortfolios.setAllNetworksPortfolio({
-      key: dispatchKey,
-      data,
-      scanTypes: Array.from(resolvedScanTypes),
-    });
+
     dispatch(
       ...dispatchActions,
       setOverviewPortfolioUpdatedAt({
@@ -246,6 +254,7 @@ class ServiceOverview extends ServiceBase {
           (s) =>
             !this.pendingTaskMap[
               this.getTaksId({
+                id: '',
                 networkId: t.networkId,
                 address: t.address,
                 xpub: t.xpub,
@@ -264,6 +273,7 @@ class ServiceOverview extends ServiceBase {
     for (const s of tasks) {
       for (const scanType of s.scanTypes ?? []) {
         const singleTask = {
+          id: '',
           key,
           networkId: s.networkId,
           address: s.address,

@@ -5,10 +5,11 @@ import {
   generateFakeAllnetworksAccount,
 } from '@onekeyhq/engine/src/managers/account';
 import { getPath } from '@onekeyhq/engine/src/managers/derivation';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isWalletCompatibleAllNetworks } from '@onekeyhq/engine/src/managers/wallet';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import {
-  removeOverviewPendingTasks,
+  clearOverviewPendingTasks,
   setAllNetworksAccountsMap,
 } from '@onekeyhq/kit/src/store/reducers/overview';
 import {
@@ -36,9 +37,10 @@ export default class ServiceAllNetwork extends ServiceBase {
     appEventBus.on(AppEventBusNames.NetworkChanged, () => {
       this.refreshCurrentAllNetworksAccountMap();
     });
-    appEventBus.on(AppEventBusNames.CurrencyChanged, () => {
+    appEventBus.on(AppEventBusNames.AccountChanged, () => {
       this.refreshCurrentAllNetworksAccountMap();
     });
+    this.refreshCurrentAllNetworksAccountMap();
   }
 
   @backgroundMethod()
@@ -196,7 +198,9 @@ export default class ServiceAllNetwork extends ServiceBase {
       }
     }
     const activeAccountId = accountId ?? `${walletId}--${index}`;
+    console.log('clearOverviewPendingTasks');
     dispatch(
+      clearOverviewPendingTasks(),
       setAllNetworksAccountsMap({
         accountId: activeAccountId,
         data: networkAccountsMap,
@@ -206,21 +210,9 @@ export default class ServiceAllNetwork extends ServiceBase {
     if (!refreshCurrentAccount) {
       return networkAccountsMap;
     }
-    const pendingTasks = appSelector((s) => s.overview.tasks ?? {});
+    console.log('refreshCurrentAccount');
 
-    const taskIdsToRemove = Object.entries(pendingTasks)
-      .filter(([, t]) => !t.key?.endsWith(activeAccountId))
-      .map(([id]) => id);
-
-    if (taskIdsToRemove?.length) {
-      dispatch(
-        removeOverviewPendingTasks({
-          ids: taskIdsToRemove,
-        }),
-      );
-    }
-
-    serviceOverview.refreshCurrentAccount();
+    await serviceOverview.refreshCurrentAccount();
     return networkAccountsMap;
   }
 
@@ -234,9 +226,15 @@ export default class ServiceAllNetwork extends ServiceBase {
       } catch (error) {
         debugLogger.common.error(error);
       }
-      const { activeWalletId: walletId, activeAccountId: accountId } =
-        appSelector((s) => s.general);
+      const {
+        activeWalletId: walletId,
+        activeAccountId: accountId,
+        activeNetworkId,
+      } = appSelector((s) => s.general);
       if (!walletId || !accountId) {
+        return;
+      }
+      if (!isAllNetworks(activeNetworkId)) {
         return;
       }
       const res = await this.getAllNetworksWalletAccounts({

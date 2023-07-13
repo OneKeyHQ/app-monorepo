@@ -698,7 +698,10 @@ export const useTokenDetailInfo = ({
 
   return useMemo(() => {
     const { defaultChain } = data ?? {};
-    const tokens = data?.tokens || (token ? [token] : []);
+    const tokens = data?.tokens ?? [];
+    if (!tokens.length && token) {
+      tokens.push(token);
+    }
     const defaultToken =
       tokens?.find(
         (t) =>
@@ -740,31 +743,10 @@ export const useOverviewPendingTasks = ({
   });
 
   const updateTips = useMemo(() => {
-    let assetType = '';
     if (tasks?.length) {
-      assetType =
-        tasks.find((t) =>
-          [
-            EOverviewScanTaskType.token,
-            EOverviewScanTaskType.defi,
-            EOverviewScanTaskType.nfts,
-          ].includes(t.scanType),
-        )?.scanType ?? '';
-    }
-    if (assetType) {
-      return (
-        {
-          [EOverviewScanTaskType.token]: intl.formatMessage({
-            id: 'content__updating_token_assets',
-          }),
-          [EOverviewScanTaskType.defi]: intl.formatMessage({
-            id: 'content__updating_defi_assets',
-          }),
-          [EOverviewScanTaskType.nfts]: intl.formatMessage({
-            id: 'content__updating_nft_assets',
-          }),
-        }[assetType] ?? ''
-      );
+      return intl.formatMessage({
+        id: 'content__updating_assets',
+      });
     }
     const duration = Date.now() - updatedAt;
     if (
