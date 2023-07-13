@@ -56,7 +56,7 @@ export const useAllNetworksAccountsData = ({
 
     const networksAccountMapList = await Promise.all(
       accounts.map((account) =>
-        backgroundApiProxy.serviceAllNetwork.getAllNetworksWalletAccounts({
+        backgroundApiProxy.serviceAllNetwork.generateAllNetworksWalletAccounts({
           accountId: account?.id,
           walletId: accountSelectorInfo?.selectedWalletId ?? '',
           refreshCurrentAccount: false,

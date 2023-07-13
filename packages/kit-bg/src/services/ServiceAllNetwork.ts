@@ -140,7 +140,7 @@ export default class ServiceAllNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllNetworksWalletAccounts({
+  async generateAllNetworksWalletAccounts({
     accountId,
     accountIndex,
     walletId,
@@ -198,7 +198,6 @@ export default class ServiceAllNetwork extends ServiceBase {
       }
     }
     const activeAccountId = accountId ?? `${walletId}--${index}`;
-    console.log('clearOverviewPendingTasks');
     dispatch(
       clearOverviewPendingTasks(),
       setAllNetworksAccountsMap({
@@ -210,7 +209,6 @@ export default class ServiceAllNetwork extends ServiceBase {
     if (!refreshCurrentAccount) {
       return networkAccountsMap;
     }
-    console.log('refreshCurrentAccount');
 
     await serviceOverview.refreshCurrentAccount();
     return networkAccountsMap;
@@ -221,7 +219,7 @@ export default class ServiceAllNetwork extends ServiceBase {
       const { appSelector } = this.backgroundApi;
       try {
         await this.backgroundApi.serviceApp.waitForAppInited({
-          logName: 'ServiceAllNetwork.getAllNetworksWalletAccounts',
+          logName: 'ServiceAllNetwork.refreshCurrentAllNetworksAccountMap',
         });
       } catch (error) {
         debugLogger.common.error(error);
@@ -237,7 +235,7 @@ export default class ServiceAllNetwork extends ServiceBase {
       if (!isAllNetworks(activeNetworkId)) {
         return;
       }
-      const res = await this.getAllNetworksWalletAccounts({
+      const res = await this.generateAllNetworksWalletAccounts({
         walletId,
         accountId,
       });

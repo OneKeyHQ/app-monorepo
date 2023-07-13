@@ -22,11 +22,7 @@ import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import {
-  useAccountPortfolios,
-  useActiveWalletAccount,
-  useAppSelector,
-} from '../../hooks';
+import { useAccountPortfolios, useAppSelector } from '../../hooks';
 import useFormatDate from '../../hooks/useFormatDate';
 import { useVisibilityFocused } from '../../hooks/useVisibilityFocused';
 import { wait } from '../../utils/helper';
@@ -247,8 +243,6 @@ function TxHistoryListViewComponent({
   const [historyListData, setHistoryListData] = useState<IHistoryTx[]>([]);
   const txDetailContext = useTxHistoryContext();
 
-  const { walletId } = useActiveWalletAccount();
-
   const isAtHomeTabOfHistory = useIsAtHomeTab(WalletHomeTabEnum.History);
   const { serviceHistory } = backgroundApiProxy;
   const refreshHistoryTs = useAppSelector((s) => s.refresher.refreshHistoryTs);
@@ -308,7 +302,6 @@ function TxHistoryListViewComponent({
 
   const fetchAllNetworksHistory = useCallback(
     async ({
-      accountId: aid,
       refresh,
       coingeckoId,
     }: {
@@ -352,7 +345,7 @@ function TxHistoryListViewComponent({
       }
       return result;
     },
-    [allNetworksTokens, fetchOnChainHistory, walletId, allNetworksAccontsMap],
+    [allNetworksTokens, fetchOnChainHistory, allNetworksAccontsMap],
   );
 
   const fetchHistoryTx = useCallback(

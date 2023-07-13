@@ -417,7 +417,7 @@ class ServiceOverview extends ServiceBase {
         ],
       });
     },
-    getTimeDurationMs({ seconds: 5 }),
+    getTimeDurationMs({ seconds: 15 }),
   );
 
   @bindThis()

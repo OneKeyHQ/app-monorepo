@@ -3,14 +3,7 @@ import { useCallback } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  Badge,
-  List,
-  ListItem,
-  Modal,
-  Spinner,
-  Token,
-} from '@onekeyhq/components';
+import { Badge, List, ListItem, Modal, Token } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
