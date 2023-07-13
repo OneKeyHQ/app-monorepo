@@ -59,20 +59,11 @@ function NFTBTCAssetCard({
     : 177;
   const { themeVariant } = useTheme();
   const title = useMemo(() => {
-    const props = parseTextProps(asset.content);
-    if (
-      props?.p === BRCTokenType.BRC20 &&
-      props.amt &&
-      props?.amt?.length > 0 &&
-      props?.tick?.length > 0
-    ) {
-      return `${props.amt} ${props.tick}`;
-    }
     if (asset.inscription_number > 0) {
-      return `Inscription #${asset.inscription_number}`;
+      return `#${asset.inscription_number}`;
     }
     return '';
-  }, [asset.content, asset.inscription_number]);
+  }, [asset.inscription_number]);
 
   return (
     <Box mb="16px" {...rest}>

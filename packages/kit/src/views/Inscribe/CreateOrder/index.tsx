@@ -171,11 +171,6 @@ const CreateOrder: FC = () => {
               accountId,
               txid: result.txids[0],
               type: 'Send',
-              closeModal: () => {
-                setTimeout(() => {
-                  closeModal();
-                }, 500);
-              },
               isSingleTransformMode: true,
             };
             navigation.navigate(RootRoutes.Modal, {

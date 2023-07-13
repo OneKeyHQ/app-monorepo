@@ -68,5 +68,5 @@ export type Tool = {
 };
 
 export enum BRCTokenType {
-  BRC20 = 'brc20',
+  BRC20 = 'brc-20',
 }
