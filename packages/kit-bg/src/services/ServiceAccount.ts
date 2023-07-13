@@ -59,13 +59,13 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   COINTYPE_ETH,
-  COINTYPE_LIGHTNING,
   IMPL_ADA,
   IMPL_CFX,
   IMPL_COSMOS,
   IMPL_DOT,
   IMPL_FIL,
   IMPL_XMR,
+  isLightningNetwork,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   isHardwareWallet,
@@ -1372,7 +1372,7 @@ class ServiceAccount extends ServiceBase {
     const findNameLabelByAccountIds = async (accountIds: string[]) => {
       const accounts = await this.backgroundApi.engine.getAccounts(accountIds);
       const name = find(accounts, (a) => {
-        if (a.coinType === COINTYPE_LIGHTNING) {
+        if (isLightningNetwork(a.coinType)) {
           const addresses =
             a.addresses && !!a.addresses.length ? JSON.parse(a.addresses) : {};
           return (
@@ -1531,7 +1531,9 @@ class ServiceAccount extends ServiceBase {
     }
     // TODO: Lightning account
     if (account.type === AccountType.VARIANT) {
-      if (networkId === OnekeyNetwork.lightning) {
+      if (
+        [OnekeyNetwork.lightning, OnekeyNetwork.tlightning].includes(networkId)
+      ) {
         const address = await vault.getFetchBalanceAddress(account);
         return { address };
       }

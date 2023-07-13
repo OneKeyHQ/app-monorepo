@@ -69,13 +69,17 @@ export default class Vault extends VaultBase {
   settings = settings;
 
   async getClient() {
-    return this.getClientCache();
+    const network = await this.getNetwork();
+    return this.getClientCache(network.isTestnet);
   }
 
   // client: axios
-  private getClientCache = memoizee(() => new ClientLightning(), {
-    maxAge: getTimeDurationMs({ minute: 3 }),
-  });
+  private getClientCache = memoizee(
+    (isTestnet: boolean) => new ClientLightning(isTestnet),
+    {
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
 
   async exchangeToken(password: string) {
     try {
@@ -85,6 +89,7 @@ export default class Vault extends VaultBase {
       const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
       const address = dbAccount.addresses.normalizedAddress;
       const hashPubKey = bytesToHex(sha256(dbAccount.pub));
+      const network = await this.getNetwork();
       const { entropy } = (await this.engine.dbApi.getCredential(
         this.walletId,
         password ?? '',
@@ -106,6 +111,7 @@ export default class Vault extends VaultBase {
         path: dbAccount.addresses.realPath,
         password: password ?? '',
         entropy,
+        isTestnet: network.isTestnet,
       });
       return await client.refreshAccessToken({
         hashPubKey,
