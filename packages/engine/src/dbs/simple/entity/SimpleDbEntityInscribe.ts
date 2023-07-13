@@ -21,14 +21,14 @@ export class SimpleDbEntityInscribe extends SimpleDbEntityBase<ISimpleDbEntityIn
       const orderListsMainNet = rawData?.orderListsMainNet ?? [];
       this.setRawData({
         ...rawData,
-        orderListsMainNet: [data].concat(orderListsMainNet),
+        orderListsMainNet: [data].concat(orderListsMainNet).slice(0, 50),
       });
     }
     if (network === 'testnet') {
       const orderListsTestNet = rawData?.orderListsTestNet ?? [];
       this.setRawData({
         ...rawData,
-        orderListsTestNet: [data].concat(orderListsTestNet),
+        orderListsTestNet: [data].concat(orderListsTestNet).slice(0, 50),
       });
     }
   }

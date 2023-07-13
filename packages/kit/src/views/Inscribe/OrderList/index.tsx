@@ -56,7 +56,7 @@ const OrderList: FC = () => {
         <ListItem.Column
           flex={1}
           text={{
-            label: item.to,
+            label: item.txid,
             labelProps: {
               numberOfLines: 2,
               typography: 'Body2Mono',

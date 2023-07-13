@@ -53,11 +53,24 @@ export type IBtcUTXO = {
   forceSelect?: boolean;
 };
 
+export type IOrdinalQueryStatus =
+  | 'ERROR'
+  | 'NO_QUERY'
+  | 'FULL_QUERY'
+  | 'PARTIAL_QUERY';
+
 export type IBtcUTXOInfo = {
   utxos: IBtcUTXO[];
-  utxosFiltered: IBtcUTXO[];
-  totalInscriptionValue: string;
-  frozenValue?: string;
+  ordQueryStatus?: IOrdinalQueryStatus;
+  valueDetails?: {
+    totalValue: string;
+    availableValue: string;
+    unavailableValue: string;
+
+    unavailableValueOfInscription: string;
+    unavailableValueOfUnconfirmed: string;
+    unavailableValueOfUnchecked: string;
+  };
 };
 
 export type ICollectUTXOsOptions = {
