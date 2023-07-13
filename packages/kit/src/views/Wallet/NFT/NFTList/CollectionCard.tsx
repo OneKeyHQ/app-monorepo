@@ -18,7 +18,7 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
 
 import { FormatCurrencyNumber } from '../../../../components/Format';
-import { useManageNetworks } from '../../../../hooks';
+import { useActiveWalletAccount, useNetwork } from '../../../../hooks';
 import { useTokenPrice } from '../../../../hooks/useTokens';
 
 import NFTListImage from './NFTListImage';
@@ -108,14 +108,17 @@ function CollectionCard({
 }: ListItemComponentType<Collection>) {
   const isSmallScreen = useIsVerticalLayout();
   const { screenWidth } = useUserDevice();
-  const { allNetworks } = useManageNetworks();
+  const { networkId: activeNetworkId } = useActiveWalletAccount();
+  const { network } = useNetwork({
+    networkId: collectible.networkId,
+  });
 
   const networkIcon = useMemo(() => {
-    if (!isAllNetworks(collectible.networkId)) {
+    if (!isAllNetworks(activeNetworkId)) {
       return undefined;
     }
-    return allNetworks.find((n) => n.id === collectible.networkId)?.logoURI;
-  }, [collectible, allNetworks]);
+    return network?.logoURI;
+  }, [network, activeNetworkId]);
 
   const MARGIN = isSmallScreen ? 16 : 20;
   const padding = isSmallScreen ? 8 : 12;
@@ -149,7 +152,7 @@ function CollectionCard({
         }}
       >
         <SubItemList collectible={collectible} width={contentSize} />
-        <HStack mt={`${padding}px`}>
+        <HStack mt={`${padding}px`} justifyContent="space-between">
           <Text typography="Body2" height="20px" numberOfLines={1} flex={1}>
             {collectible.contractName}
           </Text>

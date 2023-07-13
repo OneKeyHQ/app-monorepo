@@ -1429,23 +1429,32 @@ class ServiceAccount extends ServiceBase {
     address: string;
     networkId?: string;
   }) {
-    const { engine } = this.backgroundApi;
-    const displayPassphraseWalletIdList =
-      this.getDisplayPassphraseWalletIdList();
-    const wallets = await engine.getWallets({
-      displayPassphraseWalletIds: displayPassphraseWalletIdList,
-    });
-    for (let i = 0; i < wallets.length; i += 1) {
-      const wallet = wallets[i];
-      const accounts = await engine.getAccounts(wallet.accounts);
-      const target = accounts.find((item) => item.address === address);
+    const { engine, appSelector } = this.backgroundApi;
+    const { activeWalletId } = appSelector((s) => s.general);
+    const { wallets, accounts } = appSelector((s) => s.runtime);
+    const findMatchAccount = (list: Account[]): Account | undefined => {
+      const a = list.find((item) => item.address === address);
+      if (!a) {
+        return undefined;
+      }
+      if (!networkId) {
+        return a;
+      }
+      if (isAccountCompatibleWithNetwork(a?.id, networkId)) {
+        return a;
+      }
+    };
+    // find from active wallet accounts
+    const account = findMatchAccount(accounts);
+    if (account) {
+      return account;
+    }
+    // find from another wallets accounts
+    for (const wallet of wallets.filter((w) => w.id !== activeWalletId)) {
+      const accountsOfWallet = await engine.getAccounts(wallet.accounts);
+      const target = findMatchAccount(accountsOfWallet);
       if (target) {
-        if (!networkId) {
-          return target;
-        }
-        if (isAccountCompatibleWithNetwork(target?.id, networkId)) {
-          return target;
-        }
+        return target;
       }
     }
   }

@@ -170,9 +170,9 @@ export const allNetworksSelectAccount = ({
   networkId: string;
   accounts: Account[];
 }): Promise<{ network: Network; account: Account } | undefined> => {
-  const { allNetworks } = getManageNetworks();
+  const { enabledNetworks } = getManageNetworks();
 
-  const network = allNetworks.find((n) => n.id === networkId);
+  const network = enabledNetworks.find((n) => n.id === networkId);
   return new Promise((resolve) => {
     if (!network) {
       return resolve(undefined);
@@ -218,7 +218,6 @@ export const useAllNetworksSelectNetworkAccount = ({
   });
   const { data: networkAccounts } = useAllNetworksWalletAccounts({
     accountId,
-    walletId,
   });
   const navigation = useNavigation();
 

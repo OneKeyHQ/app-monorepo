@@ -91,6 +91,7 @@ export default class ServiceBootstrap extends ServiceBase {
       serviceSwap,
       serviceOnboarding,
       serviceCloudBackup,
+      serviceAllNetwork,
     } = this.backgroundApi;
 
     this.migrateAccountDerivationTable();
@@ -99,6 +100,7 @@ export default class ServiceBootstrap extends ServiceBase {
     serviceNetwork.registerEvents();
     serviceSwap.registerEvents();
     serviceAccount.registerEvents();
+    serviceAllNetwork.registerEvents();
 
     this.initFetchFiatMoneyRateSchedule();
     serviceOnboarding.checkOnboardingStatus();

@@ -1,4 +1,4 @@
-import { throttle } from 'lodash';
+import { debounce } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
@@ -91,6 +91,7 @@ class ServiceOverview extends ServiceBase {
 
     const { activeNetworkId: networkId = '', activeAccountId: accountId = '' } =
       appSelector((s) => s.general);
+
     if (!networkId || !accountId) {
       return;
     }
@@ -108,7 +109,7 @@ class ServiceOverview extends ServiceBase {
 
     const results = await fetchData<
       | (OverviewAllNetworksPortfolioRes & {
-          pending: IOverviewScanTaskItem[];
+          pending: IOverviewQueryTaskItem[];
         })
       | null
     >(
@@ -122,34 +123,42 @@ class ServiceOverview extends ServiceBase {
     if (!results) {
       return;
     }
-    const resolvedScanTypes: Set<EOverviewScanTaskType> = new Set();
     const { pending } = results;
     const dispatchActions = [];
-    if (pending?.length) {
-      return;
+    for (const scanType of [
+      EOverviewScanTaskType.token,
+      EOverviewScanTaskType.nfts,
+      EOverviewScanTaskType.defi,
+    ]) {
+      if (!pending.find((p) => p.scanType === scanType)) {
+        const { data, actions } = this.processNftPriceActions({
+          networkId,
+          accountId,
+          results,
+        });
+        dispatchActions.push(...actions.map((a) => setNFTPrice(a)));
+        await simpleDb.accountPortfolios.setAllNetworksPortfolio({
+          key: dispatchKey,
+          data,
+          scanTypes: Array.from([scanType]),
+        });
+      }
     }
-    const taskIdsWillRemove = pendingTasksForCurrentNetwork.map((t) => {
-      resolvedScanTypes.add(t.scanType);
-      return this.getTaksId(t);
-    });
-    if (taskIdsWillRemove?.length) {
-      dispatchActions.push(
-        removeOverviewPendingTasks({
-          ids: taskIdsWillRemove,
-        }),
-      );
+
+    if (!pending?.length) {
+      const taskIdsWillRemove = pendingTasksForCurrentNetwork
+        .map((t) => this.getTaksId(t))
+        .filter((id) => !pending.find((p) => p.id === id));
+
+      if (taskIdsWillRemove?.length) {
+        dispatchActions.push(
+          removeOverviewPendingTasks({
+            ids: taskIdsWillRemove,
+          }),
+        );
+      }
     }
-    const { data, actions } = await this.processNftPriceActions({
-      networkId,
-      accountId,
-      results,
-    });
-    dispatchActions.push(...actions.map((a) => setNFTPrice(a)));
-    await simpleDb.accountPortfolios.setAllNetworksPortfolio({
-      key: dispatchKey,
-      data,
-      scanTypes: Array.from(resolvedScanTypes),
-    });
+
     dispatch(
       ...dispatchActions,
       setOverviewPortfolioUpdatedAt({
@@ -161,7 +170,7 @@ class ServiceOverview extends ServiceBase {
     );
   }
 
-  async processNftPriceActions({
+  processNftPriceActions({
     networkId,
     results,
     accountId,
@@ -170,18 +179,12 @@ class ServiceOverview extends ServiceBase {
     results: OverviewAllNetworksPortfolioRes;
     accountId: string;
   }) {
+    const { appSelector } = this.backgroundApi;
     let networkAccountsMap: Record<string, Account[]> = {};
     if (isAllNetworks(networkId)) {
-      const walletId = this.backgroundApi.appSelector(
-        (s) => s.general.activeWalletId,
+      networkAccountsMap = appSelector(
+        (s) => s.overview.allNetworksAccountsMap?.[accountId ?? ''] ?? {},
       );
-      networkAccountsMap =
-        await this.backgroundApi.serviceAllNetwork.getAllNetworksWalletAccounts(
-          {
-            walletId: walletId ?? '',
-            accountId,
-          },
-        );
     }
     const pricesMap: Record<
       string,
@@ -251,6 +254,7 @@ class ServiceOverview extends ServiceBase {
           (s) =>
             !this.pendingTaskMap[
               this.getTaksId({
+                id: '',
                 networkId: t.networkId,
                 address: t.address,
                 xpub: t.xpub,
@@ -269,6 +273,7 @@ class ServiceOverview extends ServiceBase {
     for (const s of tasks) {
       for (const scanType of s.scanTypes ?? []) {
         const singleTask = {
+          id: '',
           key,
           networkId: s.networkId,
           address: s.address,
@@ -300,7 +305,7 @@ class ServiceOverview extends ServiceBase {
     walletId?: string;
     scanTypes: IOverviewScanTaskItem['scanTypes'];
   }): Promise<IOverviewScanTaskItem[]> {
-    const { serviceAccount, serviceAllNetwork } = this.backgroundApi;
+    const { serviceAccount, appSelector } = this.backgroundApi;
     if (!isAllNetworks(networkId)) {
       const { address, xpub } = await serviceAccount.getAcccountAddressWithXpub(
         accountId,
@@ -319,11 +324,9 @@ class ServiceOverview extends ServiceBase {
       return [];
     }
 
-    const networkAccountsMap =
-      await serviceAllNetwork.getAllNetworksWalletAccounts({
-        accountId,
-        walletId,
-      });
+    const networkAccountsMap = appSelector(
+      (s) => s.overview.allNetworksAccountsMap?.[accountId] ?? {},
+    );
 
     const tasks: IOverviewScanTaskItem[] = [];
 
@@ -380,59 +383,67 @@ class ServiceOverview extends ServiceBase {
     return res;
   }
 
-  refreshAccountWithThrottle = throttle(
-    async ({
+  @backgroundMethod()
+  async refreshAccountAssets({
+    networkId,
+    accountId,
+    walletId,
+  }: {
+    networkId: string;
+    accountId: string;
+    walletId: string | null;
+  }) {
+    const { engine, serviceToken } = this.backgroundApi;
+    if (!networkId || !accountId || !walletId) {
+      return;
+    }
+    if (!isAllNetworks(networkId)) {
+      engine.clearPriceCache();
+      await serviceToken.fetchAccountTokens({
+        accountId,
+        networkId,
+        forceReloadTokens: true,
+        includeTop50TokensQuery: true,
+      });
+    }
+    await this.fetchAccountOverview({
       networkId,
       accountId,
       walletId,
-    }: {
-      networkId: string;
-      accountId: string;
-      walletId: string | null;
-    }) => {
-      const { engine, serviceToken } = this.backgroundApi;
-      if (!networkId || !accountId || !walletId) {
+      scanTypes: [
+        EOverviewScanTaskType.defi,
+        EOverviewScanTaskType.token,
+        EOverviewScanTaskType.nfts,
+      ],
+    });
+  }
+
+  refreshCurrentAccountWithDebounce = debounce(
+    async () => {
+      const { appSelector } = this.backgroundApi;
+
+      const {
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        activeWalletId: walletId,
+      } = appSelector((s) => s.general);
+
+      if (!accountId || !networkId) {
         return;
       }
-      if (!isAllNetworks(networkId)) {
-        engine.clearPriceCache();
-        await serviceToken.fetchAccountTokens({
-          accountId,
-          networkId,
-          forceReloadTokens: true,
-          includeTop50TokensQuery: true,
-        });
-      }
-      await this.fetchAccountOverview({
-        networkId,
-        accountId,
-        walletId,
-        scanTypes: [
-          EOverviewScanTaskType.defi,
-          EOverviewScanTaskType.token,
-          EOverviewScanTaskType.nfts,
-        ],
-      });
+
+      return this.refreshAccountAssets({ networkId, accountId, walletId });
     },
     getTimeDurationMs({ seconds: 5 }),
+    {
+      leading: true,
+      trailing: true,
+    },
   );
 
-  @bindThis()
   @backgroundMethod()
-  async refreshCurrentAccount() {
-    const { appSelector } = this.backgroundApi;
-
-    const {
-      activeAccountId: accountId,
-      activeNetworkId: networkId,
-      activeWalletId: walletId,
-    } = appSelector((s) => s.general);
-
-    if (!accountId || !networkId) {
-      return;
-    }
-
-    return this.refreshAccountWithThrottle({ networkId, accountId, walletId });
+  refreshCurrentAccount() {
+    return this.refreshCurrentAccountWithDebounce();
   }
 
   @backgroundMethod()
