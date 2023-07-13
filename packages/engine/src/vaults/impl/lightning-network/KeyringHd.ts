@@ -82,7 +82,7 @@ export class KeyringHd extends KeyringHdBase {
           randomSeed: signTemplate.randomSeed,
         });
       }
-      const CoinType = network.isTestnet
+      const CoinType: string = network.isTestnet
         ? COINTYPE_LIGHTNING_TESTNET
         : COINTYPE_LIGHTNING;
       const path = `m/44'/${CoinType}'/${account.index}`;

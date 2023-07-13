@@ -80,7 +80,7 @@ export const generateNativeSegwitAccounts = async ({
       [firstAddressRelPath],
       addressEncoding,
     );
-    const prefix = isTestnet ? 'LightningTestnet' : 'Lightning';
+    const prefix = isTestnet ? 'TLightning' : 'Lightning';
     const name = (names || [])[index] || `${prefix} #${usedIndexes[index] + 1}`;
     if (!ignoreFirst || index > 0) {
       ret.push({
