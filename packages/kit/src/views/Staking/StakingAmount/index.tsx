@@ -31,11 +31,7 @@ import {
   FormatCurrencyToken,
   formatBalanceDisplay,
 } from '../../../components/Format';
-import {
-  useActiveWalletAccount,
-  useNetworkSimple,
-  useTokenBalanceWithoutFrozen,
-} from '../../../hooks';
+import { useNetworkSimple, useTokenBalanceWithoutFrozen } from '../../../hooks';
 import { useSettings } from '../../../hooks/redux';
 import {
   useSimpleTokenPriceValue,
@@ -282,9 +278,8 @@ export default function StakingAmount() {
   const shortScreen = height < 768;
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
-  const { networkId, tokenIdOnNetwork } = route.params;
+  const { networkId, tokenIdOnNetwork, accountId } = route.params;
   const [amount, setAmount] = useState('');
-  const { account, accountId } = useActiveWalletAccount();
   const network = useNetworkSimple(networkId);
 
   const { token: tokenInfo } = useSingleToken(
@@ -382,7 +377,7 @@ export default function StakingAmount() {
         isLoading,
       }}
       onPrimaryActionPress={async () => {
-        if (!account || !network || !tokenInfo) {
+        if (!network || !tokenInfo) {
           return;
         }
         const amountToSend = isFiatMode ? amount : text;
@@ -396,6 +391,7 @@ export default function StakingAmount() {
               screen: StakingRoutes.KeleEthStakeShouldUnderstand,
               params: {
                 networkId: tokenInfo.networkId,
+                accountId,
                 tokenIdOnNetwork: tokenInfo.tokenIdOnNetwork,
                 amount: amountToSend,
               },

@@ -17,14 +17,14 @@ import { SCREEN_SIZE } from '@onekeyhq/components/src/Provider/device';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useTokenSupportStakedAssets } from '../../hooks/useTokens';
 import {
   FiatPayModalRoutes,
   ModalRoutes,
   RootRoutes,
   TabRoutes,
 } from '../../routes/routesEnum';
-import { StakingRoutes } from '../Staking/typing';
+import { coingeckoId2StakingTypes } from '../Staking/utils';
+import { MarketStakeButton } from '../Staking/Widgets/MarketStakingButton';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
 
 import MarketDetailContent from './Components/MarketDetail/MarketDetailContent';
@@ -95,20 +95,6 @@ const SwapButton = ({ onPress }: { onPress: () => void }) => (
       ml={4}
       type="basic"
       name="ArrowsRightLeftMini"
-      size="base"
-      circle
-      iconColor="icon-default"
-      onPress={onPress}
-    />
-  </Box>
-);
-
-const StakeButton = ({ onPress }: { onPress: () => void }) => (
-  <Box>
-    <IconButton
-      ml={4}
-      type="basic"
-      name="InboxArrowDownMini"
       size="base"
       circle
       iconColor="icon-default"
@@ -199,10 +185,8 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
     setShow(width > 1280);
   }, []);
 
-  const stakedSupport = useTokenSupportStakedAssets(
-    token?.networkId,
-    token?.tokenIdOnNetwork,
-  );
+  const stakingType = coingeckoId2StakingTypes[marketTokenId];
+
   if (isVertical) {
     return children ?? null;
   }
@@ -241,22 +225,8 @@ const MarketDetailLayout: FC<MarketDetailLayoutProps> = ({
                   }}
                 />
               ) : null}
-              {stakedSupport ? (
-                <StakeButton
-                  onPress={() => {
-                    if (token && stakedSupport) {
-                      navigation.navigate(RootRoutes.Modal, {
-                        screen: ModalRoutes.Staking,
-                        params: {
-                          screen: StakingRoutes.StakingAmount,
-                          params: {
-                            networkId: token.networkId,
-                          },
-                        },
-                      });
-                    }
-                  }}
-                />
+              {stakingType ? (
+                <MarketStakeButton stakingType={stakingType} />
               ) : null}
               {signedUrl.length > 0 && !platformEnv.isAppleStoreEnv ? (
                 <PurchaseButton

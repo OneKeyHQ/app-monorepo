@@ -4,10 +4,11 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Modal, VStack } from '@onekeyhq/components';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { useAppSelector } from '../../../hooks';
 import { formatAmount } from '../../../utils/priceUtils';
-import { Options } from '../components/StakingEthOptions';
+import { Options } from '../components/EthereumUtilsComponent';
 import { EthStakingSource } from '../typing';
 
 import type { StakingRoutes, StakingRoutesParams } from '../typing';
@@ -18,13 +19,16 @@ type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.ETHPoolSelector>;
 const ETHPool = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { isTestnet } = route.params;
+  const { networkId } = route.params;
   const ethStakingApr = useAppSelector((s) => s.staking.ethStakingApr);
   const items = useMemo(() => {
     if (!ethStakingApr) {
       return [];
     }
-    const data = isTestnet ? ethStakingApr.testnet : ethStakingApr.mainnet;
+    const data =
+      networkId === OnekeyNetwork.goerli
+        ? ethStakingApr.testnet
+        : ethStakingApr.mainnet;
     return [
       {
         name: EthStakingSource.Kele,
@@ -37,7 +41,7 @@ const ETHPool = () => {
         logo: require('@onekeyhq/kit/assets/staking/lido_pool.png'),
       },
     ];
-  }, [isTestnet, ethStakingApr]);
+  }, [networkId, ethStakingApr]);
 
   return (
     <Modal

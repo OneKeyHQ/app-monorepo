@@ -34,54 +34,77 @@ export enum KeleStakingMode {
 export type StakingRoutesParams = {
   [StakingRoutes.StakingAmount]: {
     networkId: string;
+    accountId: string;
     tokenIdOnNetwork?: string;
   };
   [StakingRoutes.UnstakeAmount]: {
     networkId: string;
+    accountId: string;
     tokenIdOnNetwork?: string;
   };
   [StakingRoutes.KeleEthUnstakeShouldUnderstand]: {
     networkId: string;
+    accountId: string;
     readonly?: boolean;
   };
   [StakingRoutes.KeleEthStakeShouldUnderstand]: {
     networkId: string;
+    accountId: string;
     amount: string;
     tokenIdOnNetwork?: string;
   };
   [StakingRoutes.StakedETHOnKele]: {
     networkId: string;
+    accountId: string;
     tokenIdOnNetwork?: string;
   };
   [StakingRoutes.WithdrawAmount]: {
     networkId: string;
+    accountId: string;
     tokenIdOnNetwork?: string;
   };
   [StakingRoutes.Feedback]: {
     networkId: string;
+    accountId: string;
   };
   [StakingRoutes.ETHPoolSelector]: {
-    isTestnet: boolean;
+    networkId: string;
+    accountId: string;
     onSelector?: (name: EthStakingSource) => void;
   };
   [StakingRoutes.KeleStakingModeSelector]: {
-    isTestnet: boolean;
+    networkId: string;
     mode: KeleStakingMode;
     onSelector?: (name: KeleStakingMode) => void;
   };
   [StakingRoutes.LidoEthStakeShouldUnderstand]: {
+    networkId: string;
+    accountId: string;
     readonly?: boolean;
   };
-  [StakingRoutes.LidoEthUnstakeShouldUnderstand]: {};
-  [StakingRoutes.LidoEthUnstake]: {};
+  [StakingRoutes.LidoEthUnstakeShouldUnderstand]: {
+    networkId: string;
+    accountId: string;
+  };
+  [StakingRoutes.LidoEthUnstake]: {
+    networkId: string;
+    accountId: string;
+  };
   [StakingRoutes.LidoEthUnstakeRoutes]: {
+    networkId: string;
+    accountId: string;
     source: string;
     amount?: string;
     onSelector?: (name: string) => void;
   };
-  [StakingRoutes.StakedETHOnLido]: {};
+  [StakingRoutes.StakedETHOnLido]: {
+    networkId: string;
+    accountId: string;
+  };
   [StakingRoutes.ETHStake]: {
-    source: EthStakingSource;
+    networkId: string;
+    accountId: string;
+    source?: EthStakingSource;
   };
 };
 
