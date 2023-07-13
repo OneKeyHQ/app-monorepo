@@ -817,4 +817,23 @@ export default class ServiceToken extends ServiceBase {
       tokens: data?.tokens.map((t) => formatServerToken(t)) ?? [],
     };
   }
+
+  @backgroundMethod()
+  async fetchBalanceDetails({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    });
+    let password: string | undefined;
+    if (vault.settings.validationRequired) {
+      password = await this.backgroundApi.servicePassword.getPassword();
+    }
+    return vault.fetchBalanceDetails({ password });
+  }
 }

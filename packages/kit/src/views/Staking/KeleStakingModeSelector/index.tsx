@@ -12,7 +12,6 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import Pressable from '@onekeyhq/components/src/Pressable/Pressable';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useKeleDashboardInfo } from '../hooks';
@@ -29,8 +28,7 @@ type RouteProps = RouteProp<
 const KeleStakingModeSelector = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
-  const { isTestnet, mode, onSelector } = route.params;
-  const networkId = isTestnet ? OnekeyNetwork.goerli : OnekeyNetwork.eth;
+  const { networkId, mode, onSelector } = route.params;
   const keleDashboardInfo = useKeleDashboardInfo(networkId);
   const hours = Number(
     keleDashboardInfo?.validator_alive_predicted_hour ?? '24',

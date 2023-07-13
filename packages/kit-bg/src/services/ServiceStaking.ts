@@ -127,8 +127,8 @@ export default class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async registerOnKele(params: { payeeAddr: string; networdId: string }) {
-    const baseUrl = this.getKeleBaseUrl(params.networdId);
+  async registerOnKele(params: { payeeAddr: string; networkId: string }) {
+    const baseUrl = this.getKeleBaseUrl(params.networkId);
     const url = `${baseUrl}/user/v2/anonymouslogin`;
     await this.client.post(url, {
       payee_addr: params.payeeAddr,

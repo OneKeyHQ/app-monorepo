@@ -33,10 +33,8 @@ import {
 import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
 import BaseMenu from '../../Overlay/BaseMenu';
 import { SendModalRoutes } from '../../Send/enums';
-import {
-  ETHRelatedPoolShowControl,
-  EthTopAprShowControl,
-} from '../../Staking/components/StakingEthOptions';
+import { EthereumTopYields } from '../../Staking/Widgets/EthereumTopYields';
+import { LidoStTokenYields } from '../../Staking/Widgets/LidoStTokenYields';
 import { TokenDetailContext } from '../context';
 
 import type { MessageDescriptor } from 'react-intl';
@@ -366,12 +364,12 @@ export const ButtonsSection: FC = () => {
           </BaseMenu>
         </HStack>
       </HStack>
-      {ethereumNativeToken && !isAllNetworks(networkId) && (
+      {ethereumNativeToken && !isAllNetworks(networkId) ? (
         <Box>
-          <EthTopAprShowControl token={ethereumNativeToken} />
-          <ETHRelatedPoolShowControl token={ethereumNativeToken} />
+          <EthereumTopYields token={ethereumNativeToken} />
+          <LidoStTokenYields token={ethereumNativeToken} />
         </Box>
-      )}
+      ) : null}
     </Box>
   );
 };
