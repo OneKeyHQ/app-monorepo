@@ -63,9 +63,12 @@ export const gotoSite = ({
           url: validatedUrl,
           dappId: dAppId,
           title,
-          logoUrl: favicon,
         }),
       );
+      backgroundApiProxy.serviceDiscover.updateUserBrowserHistoryLogo({
+        dappId: dAppId,
+        url: validatedUrl,
+      });
     }
 
     const urls = bookmarks?.map((item) => item.url);
@@ -129,41 +132,7 @@ export const openMatchDApp = ({
       userTriggered: true,
     });
   }
-
   if (dapp) {
-    // const {
-    //   webTabs: { tabs, currentTabId },
-    //   discover: { firstRemindDAPP },
-    // } = appSelector((s) => s);
-    // const tab = tabs.find((t) => t.id === currentTabId);
-
-    // if (dapp.url !== tab?.url && firstRemindDAPP) {
-    //   const { dispatch } = backgroundApiProxy;
-    //   let dappOpenConfirm: ((confirm: boolean) => void) | undefined;
-    //   showDialog({
-    //     render: (
-    //       <DappOpenHintDialog
-    //         onVisibilityChange={() => {
-    //           dappOpenConfirm = undefined;
-    //         }}
-    //         onConfirm={() => {
-    //           dappOpenConfirm?.(true);
-    //         }}
-    //       />
-    //     ),
-    //   });
-
-    //   const isConfirm = await new Promise<boolean>((resolve) => {
-    //     dappOpenConfirm = resolve;
-    //   });
-
-    //   if (!isConfirm) {
-    //     return false;
-    //   }
-
-    //   dispatch(updateFirstRemindDAPP(false));
-    // }
-
     return gotoSite({
       url: dapp.url,
       title: dapp.name,

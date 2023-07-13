@@ -1,0 +1,13 @@
+diff --git a/node_modules/react-use-cookie/dist/index.js b/node_modules/react-use-cookie/dist/index.js
+index e034057..e7b05bc 100644
+--- a/node_modules/react-use-cookie/dist/index.js
++++ b/node_modules/react-use-cookie/dist/index.js
+@@ -27,7 +27,7 @@ function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { va
+ 
+ function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+ 
+-var isBrowser = typeof window !== 'undefined';
++var isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
+ 
+ function stringifyOptions(options) {
+   return Object.keys(options).reduce(function (acc, key) {

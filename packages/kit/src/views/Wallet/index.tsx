@@ -14,7 +14,7 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import {
   useActiveWalletAccount,
-  useStatus,
+  useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
 import RefreshLightningNetworkToken from '@onekeyhq/kit/src/views/LightningNetwork/RefreshLightningNetworkToken';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
@@ -24,6 +24,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
 import { OneKeyPerfTraceLog } from '../../components/OneKeyPerfTraceLog';
 import Protected, { ValidationFields } from '../../components/Protected';
+import { useManageNetworks } from '../../hooks';
 import { useHtmlPreloadSplashLogoRemove } from '../../hooks/useHtmlPreloadSplashLogoRemove';
 import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 import { setHomeTabName } from '../../store/reducers/status';
@@ -48,10 +49,13 @@ const WalletTabs: FC = () => {
   const ref = useRef<ForwardRefHandle>(null);
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
-  const { homeTabName } = useStatus();
+  const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const { wallet, network, accountId, networkId, walletId } =
     useActiveWalletAccount();
+  const { enabledNetworks } = useManageNetworks();
   const [refreshing, setRefreshing] = useState(false);
+
+  const timer = useRef<ReturnType<typeof setTimeout>>();
 
   const tokensTab = useMemo(
     () => (
@@ -159,25 +163,33 @@ const WalletTabs: FC = () => {
   );
 
   const getHomeTabIndex = useCallback(
-    () => usedTabs.findIndex((tab) => tab.name === homeTabName),
-    [usedTabs, homeTabName],
+    (tabName: string | undefined) =>
+      usedTabs.findIndex((tab) => tab.name === tabName),
+    [usedTabs],
   );
 
   const onIndexChange = useCallback(
     (index: number) => {
-      backgroundApiProxy.dispatch(setHomeTabName(getHomeTabNameByIndex(index)));
+      // Android animation redux causes ui stuttering
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => {
+        backgroundApiProxy.dispatch(
+          setHomeTabName(getHomeTabNameByIndex(index)),
+        );
+      }, 500);
     },
     [getHomeTabNameByIndex],
   );
 
   useEffect(() => {
-    const idx = getHomeTabIndex();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
 
     const setIndex = (index: number) => {
       ref.current?.setPageIndex?.(index);
       onIndexChange(index);
     };
 
+    const idx = getHomeTabIndex(homeTabName);
     if (platformEnv.isNativeIOS) {
       setTimeout(() => {
         setIndex(idx);
@@ -185,6 +197,10 @@ const WalletTabs: FC = () => {
     } else {
       setIndex(idx);
     }
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
   }, [homeTabName, onIndexChange, getHomeTabIndex]);
 
   const onRefresh = useCallback(() => {
@@ -195,10 +211,16 @@ const WalletTabs: FC = () => {
   }, []);
 
   useEffect(() => {
-    backgroundApiProxy.serviceOverview.refreshCurrentAccount();
-  }, [networkId, accountId, walletId]);
+    onRefresh();
+  }, [networkId, accountId, walletId, onRefresh]);
 
-  const tabContents = usedTabs.map((t) => t.tab);
+  useEffect(() => {
+    if (isAllNetworks(networkId)) {
+      onRefresh();
+    }
+  }, [onRefresh, enabledNetworks, networkId]);
+
+  const tabContents = useMemo(() => usedTabs.map((t) => t.tab), [usedTabs]);
 
   const walletTabsContainer = (
     <Tabs.Container
@@ -208,6 +230,9 @@ const WalletTabs: FC = () => {
       onRefresh={onRefresh}
       onIndexChange={(index: number) => {
         onIndexChange(index);
+      }}
+      onStartChange={() => {
+        if (timer.current) clearTimeout(timer.current);
       }}
       renderHeader={AccountHeader}
       headerHeight={

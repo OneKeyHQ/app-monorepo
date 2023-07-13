@@ -28,6 +28,7 @@ import { navigationShortcuts } from '../../../routes/navigationShortcuts';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
 import BaseMenu from '../../Overlay/BaseMenu';
 import { ReceiveTokenModalRoutes } from '../../ReceiveToken/types';
+import { AllNetworksEmpty } from '../../Wallet/AssetsList/EmptyList';
 import { allNetworksSelectAccount } from '../hooks';
 import { ManageNetworkModalRoutes } from '../types';
 
@@ -48,12 +49,10 @@ type DataListItem = {
 export const AllNetworksAccountsDetail: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-
   const route = useRoute<RouteProps>();
 
   const { walletId, accountId } = route?.params ?? {};
   const { data: allNetworksAccountsMap } = useAllNetworksWalletAccounts({
-    walletId,
     accountId,
   });
 
@@ -292,15 +291,15 @@ export const AllNetworksAccountsDetail: FC = () => {
   return (
     <Modal
       header={intl.formatMessage({ id: 'form__included_networks' })}
-      footer={null}
+      footer={footer}
       height="560px"
     >
       <List
         data={data}
         renderItem={renderItem}
         keyExtractor={(item) => (item as { networkId: string }).networkId}
-        ListFooterComponent={() => footer}
         paddingX="2"
+        ListEmptyComponent={<AllNetworksEmpty />}
       />
     </Modal>
   );

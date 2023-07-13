@@ -24,7 +24,7 @@ import {
 
 import dappColourPNG from '../../../../../assets/dapp_colour.png';
 import { useAppSelector, useTranslation } from '../../../../hooks';
-import DAppIcon from '../../DAppIcon';
+import DAppIcon from '../../components/DAppIcon';
 import FavContainer from '../../Explorer/FavContainer';
 import { useCategoryDapps } from '../../hooks';
 import { DiscoverContext } from '../context';

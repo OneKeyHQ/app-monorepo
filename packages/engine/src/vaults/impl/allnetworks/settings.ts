@@ -3,7 +3,7 @@ import type { IVaultSettings } from '../../types';
 const settings: IVaultSettings = Object.freeze({
   feeInfoEditable: false,
   privateKeyExportEnabled: false,
-  tokenEnabled: false,
+  tokenEnabled: true,
   txCanBeReplaced: false,
 
   importedAccountEnabled: false,

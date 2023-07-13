@@ -3,14 +3,7 @@ import { useCallback } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import {
-  Badge,
-  HStack,
-  Modal,
-  Pressable,
-  Spinner,
-  Token,
-} from '@onekeyhq/components';
+import { Badge, List, ListItem, Modal, Token } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -36,13 +29,12 @@ function AllNetworksNetworkSelectorModal() {
   const closeModal = useModalClose();
   const route = useRoute<RouteProps>();
 
-  const { allNetworks } = useManageNetworks();
+  const { enabledNetworks } = useManageNetworks();
 
-  const { walletId, accountId, filter, onConfirm } = route?.params ?? {};
+  const { filter, onConfirm, accountId } = route?.params ?? {};
 
-  const { data: networkAccounts, loading } = useAllNetworksWalletAccounts({
+  const { data: networkAccounts } = useAllNetworksWalletAccounts({
     accountId,
-    walletId,
   });
 
   const handlePress = useCallback(
@@ -71,7 +63,7 @@ function AllNetworksNetworkSelectorModal() {
   );
 
   const renderItem: ListRenderItem<Network> = useCallback(
-    ({ item, index }) => {
+    ({ item }) => {
       let accounts = networkAccounts[item.id] ?? [];
       if (typeof filter === 'function') {
         if (accounts.length) {
@@ -83,7 +75,8 @@ function AllNetworksNetworkSelectorModal() {
         if (!filter({ network: item, account: accounts[0] })) return null;
       }
       return (
-        <Pressable
+        <ListItem
+          flex="1"
           onPress={() => {
             handlePress({
               network: item,
@@ -91,12 +84,20 @@ function AllNetworksNetworkSelectorModal() {
             });
           }}
         >
-          <HStack px="4" py="3" pt={index === 0 ? 0 : 3}>
+          <ListItem.Column>
             <Token
-              size="8"
-              token={{ name: item.shortName, logoURI: item.logoURI }}
-              showInfo
+              size={8}
+              token={{
+                logoURI: item.logoURI,
+              }}
             />
+          </ListItem.Column>
+          <ListItem.Column
+            text={{
+              label: item.name,
+            }}
+          />
+          <ListItem.Column>
             {accounts.length > 1 ? (
               <Badge
                 type="default"
@@ -110,32 +111,28 @@ function AllNetworksNetworkSelectorModal() {
                 )}
               />
             ) : null}
-          </HStack>
-        </Pressable>
+          </ListItem.Column>
+        </ListItem>
       );
     },
     [intl, networkAccounts, filter, handlePress],
   );
-
-  const empty = loading ? <Spinner size="lg" /> : null;
 
   return (
     <Modal
       header={intl.formatMessage({ id: 'form__select_network' })}
       footer={null}
       height="560px"
-      style={{ padding: 0 }}
-      flatListProps={{
-        style: { padding: 0 },
-        data: loading ? [] : allNetworks,
-        // eslint-disable-next-line
-        // @ts-ignore
-        renderItem,
-        keyExtractor: (item) => (item as Network).id,
-        showsVerticalScrollIndicator: false,
-        ListEmptyComponent: empty,
-      }}
-    />
+    >
+      <List
+        data={enabledNetworks}
+        contentContainerStyle={{
+          flex: enabledNetworks?.length ? undefined : 1,
+        }}
+        renderItem={renderItem}
+        keyExtractor={(item: Network) => item.id}
+      />
+    </Modal>
   );
 }
 

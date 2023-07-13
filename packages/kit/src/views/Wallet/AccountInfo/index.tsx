@@ -48,7 +48,6 @@ const SectionCopyAddress: FC = () => {
   const { copyAddress } = useCopyAddress({ wallet });
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
-    walletId,
     accountId,
   });
 
@@ -86,7 +85,7 @@ const SectionCopyAddress: FC = () => {
           {intl.formatMessage(
             { id: 'form__all_networks_str' },
             {
-              0: Object.values(networkAccountsMap).length,
+              0: Object.keys(networkAccountsMap).length,
             },
           )}
         </Text>
@@ -159,7 +158,7 @@ const SectionOpenBlockBrowser = () => {
 
 const AccountAmountInfo: FC = () => {
   const intl = useIntl();
-
+  const [refreshing, setRefreshing] = useState(false);
   const { networkId, accountId } = useActiveWalletAccount();
 
   const accountAllValues = useAccountValues({
@@ -203,7 +202,10 @@ const AccountAmountInfo: FC = () => {
     if (tasks.length > 0) {
       return;
     }
-    backgroundApiProxy.serviceOverview.refreshCurrentAccount();
+    setRefreshing(true);
+    backgroundApiProxy.serviceOverview.refreshCurrentAccount().finally(() => {
+      setTimeout(() => setRefreshing(false), 1000);
+    });
   }, [tasks]);
 
   const changedValueComp = useMemo(() => {
@@ -238,19 +240,30 @@ const AccountAmountInfo: FC = () => {
         <Typography.Body2Strong color="text-subdued" ml="1">
           {intl.formatMessage({ id: 'content__today' })}
         </Typography.Body2Strong>
-        {updateTips ? (
+        {updateTips || refreshing ? (
           <>
             <Box size="1" bg="icon-subdued" borderRadius="999px" mx="2" />
-            <Pressable onPress={onPressUpdate}>
-              <Typography.Body2 color="text-subdued">
-                {updateTips}
-              </Typography.Body2>
-            </Pressable>
+            {refreshing ? (
+              <Skeleton shape="Body2" />
+            ) : (
+              <Pressable onPress={onPressUpdate}>
+                <Typography.Body2 color="text-subdued">
+                  {updateTips}
+                </Typography.Body2>
+              </Pressable>
+            )}
           </>
         ) : null}
       </HStack>
     );
-  }, [intl, accountAllValues, updateTips, onPressUpdate, showPercentage]);
+  }, [
+    intl,
+    accountAllValues,
+    updateTips,
+    onPressUpdate,
+    showPercentage,
+    refreshing,
+  ]);
 
   return (
     <Box alignItems="flex-start" flex="1">
