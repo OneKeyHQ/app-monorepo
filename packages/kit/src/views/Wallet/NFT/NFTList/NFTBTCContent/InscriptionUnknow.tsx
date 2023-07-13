@@ -16,10 +16,11 @@ function InscriptionUnknow({ size, asset, ...props }: InscriptionContentProps) {
       <Text
         textAlign="center"
         width={size}
-        typography="Body1Strong"
+        typography="Body1Mono"
         numberOfLines={0}
+        color="text-subdued"
       >
-        {asset.content_type}
+        {asset.content_type.toUpperCase()}
       </Text>
     </Box>
   );
