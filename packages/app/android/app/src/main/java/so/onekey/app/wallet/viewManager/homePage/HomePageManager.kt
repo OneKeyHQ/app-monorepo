@@ -45,6 +45,11 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
                 "phasedRegistrationNames" to mapOf(
                     "bubbled" to "onRefreshCallBack"
                 )
+            ),
+            "startTabPageChange" to mapOf(
+                "phasedRegistrationNames" to mapOf(
+                    "bubbled" to "onStartChange"
+                )
             )
         )
     }
