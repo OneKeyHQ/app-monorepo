@@ -27,10 +27,7 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatCurrency } from '../../../components/Format';
-import {
-  useActiveWalletAccount,
-  useTokenBalanceWithoutFrozen,
-} from '../../../hooks';
+import { useTokenBalanceWithoutFrozen } from '../../../hooks';
 import {
   useSimpleTokenPriceValue,
   useSingleToken,
@@ -120,10 +117,10 @@ const KeleStakingModeComponent: FC<KeleStakingModeProps> = ({ mode }) => {
 export default function ETHStaking() {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
+  const { accountId, networkId, source: defaultSource } = route.params;
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { account, accountId, networkId } = useActiveWalletAccount();
   const mainPrice = useSimpleTokenPriceValue({ networkId });
-  const [source, setSource] = useState(route.params.source);
+  const [source, setSource] = useState(defaultSource ?? EthStakingSource.Lido);
   const [mode, setMode] = useState(KeleStakingMode.fast);
   const [loading, setLoading] = useState(false);
 
@@ -208,7 +205,8 @@ export default function ETHStaking() {
       params: {
         screen: StakingRoutes.ETHPoolSelector,
         params: {
-          isTestnet: networkId === OnekeyNetwork.goerli,
+          networkId,
+          accountId,
           onSelector: (s) => {
             setSource(s);
             const parent = navigation.getParent();
@@ -221,7 +219,7 @@ export default function ETHStaking() {
         },
       },
     });
-  }, [navigation, networkId]);
+  }, [navigation, networkId, accountId]);
 
   const onChangeStakingMode = useCallback(() => {
     navigation.push(RootRoutes.Modal, {
@@ -230,7 +228,7 @@ export default function ETHStaking() {
         screen: StakingRoutes.KeleStakingModeSelector,
         params: {
           mode,
-          isTestnet: networkId === OnekeyNetwork.goerli,
+          networkId,
           onSelector: (s) => {
             setMode(s);
             const parent = navigation.getParent();
@@ -247,7 +245,7 @@ export default function ETHStaking() {
 
   const onPrimaryActionPress = useCallback(
     async ({ onClose }: { onClose?: () => void }) => {
-      if (!account || !tokenInfo) {
+      if (!accountId || !tokenInfo) {
         return;
       }
 
@@ -290,6 +288,10 @@ export default function ETHStaking() {
       } finally {
         setLoading(false);
       }
+      const account = await backgroundApiProxy.engine.getAccount(
+        accountId,
+        networkId,
+      );
       if (txdata) {
         encodedTx = {
           ...txdata,
@@ -369,17 +371,7 @@ export default function ETHStaking() {
         },
       });
     },
-    [
-      source,
-      account,
-      tokenInfo,
-      networkId,
-      accountId,
-      amount,
-      navigation,
-      intl,
-      mode,
-    ],
+    [source, tokenInfo, networkId, accountId, amount, navigation, intl, mode],
   );
 
   return (

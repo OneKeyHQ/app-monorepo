@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { FC } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -26,7 +26,7 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AutoSizeText } from '../../../components/AutoSizeText';
 import { FormatCurrency } from '../../../components/Format';
-import { useActiveWalletAccount, useAppSelector } from '../../../hooks';
+import { useAppSelector } from '../../../hooks';
 import { useSimpleTokenPriceValue } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
 import { addTransaction } from '../../../store/reducers/staking';
@@ -39,6 +39,7 @@ import { StakingRoutes } from '../typing';
 import { buildWithdrawStEthTransaction } from '../utils';
 
 import type { StakingRoutesParams } from '../typing';
+import type { RouteProp } from '@react-navigation/core';
 
 type NavigationProps = ModalScreenProps<StakingRoutesParams>;
 
@@ -77,12 +78,16 @@ const UnstakeRouteOptions: FC<UnstakeRouteOptionsProps> = ({ value }) => {
   );
 };
 
+type RouteProps = RouteProp<StakingRoutesParams, StakingRoutes.LidoEthUnstake>;
+
 export default function UnstakeAmount() {
   const intl = useIntl();
+  const {
+    params: { networkId, accountId },
+  } = useRoute<RouteProps>();
   const navigation = useNavigation<NavigationProps['navigation']>();
-  const { account, networkId } = useActiveWalletAccount();
   const mainPrice = useSimpleTokenPriceValue({ networkId });
-  const lidoOverview = useLidoOverview(networkId, account?.id);
+  const lidoOverview = useLidoOverview(networkId, accountId);
   const balance = lidoOverview?.balance ?? '0';
   const tokenSymbol = 'stETH';
   const stEthRate = useAppSelector((s) => s.staking.stEthRate);
@@ -142,6 +147,10 @@ export default function UnstakeAmount() {
   );
 
   const onUnstakeBySwap = useCallback(async () => {
+    const account = await backgroundApiProxy.engine.getAccount(
+      accountId,
+      networkId,
+    );
     if (account && networkId) {
       const { params, quote } = await buildWithdrawStEthTransaction({
         networkId,
@@ -172,7 +181,10 @@ export default function UnstakeAmount() {
             screen: ModalRoutes.Staking,
             params: {
               screen: StakingRoutes.StakedETHOnLido,
-              params: {},
+              params: {
+                accountId,
+                networkId,
+              },
             },
           });
           ToastManager.show({
@@ -181,18 +193,14 @@ export default function UnstakeAmount() {
         },
       });
     }
-  }, [networkId, account, amount, swapSubmit, navigation, intl]);
+  }, [networkId, amount, swapSubmit, navigation, intl, accountId]);
 
   const onUnstakeByLido = useCallback(async () => {
-    if (!account) {
-      return;
-    }
     const token = await backgroundApiProxy.serviceStaking.getStEthToken({
       networkId,
     });
     const value = new BigNumber(amount).shiftedBy(token.decimals).toFixed(0);
     const deadline = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
-    const accountId = account.id;
 
     const message = await backgroundApiProxy.serviceStaking.buildStEthPermit({
       accountId,
@@ -214,7 +222,7 @@ export default function UnstakeAmount() {
       params: {
         screen: SendModalRoutes.SignMessageConfirm,
         params: {
-          accountId: account.id,
+          accountId,
           networkId,
           hideToast: true,
           unsignedMessage: {
@@ -226,6 +234,11 @@ export default function UnstakeAmount() {
             const r = `0x${signature.substring(2).substring(0, 64)}`;
             const s = `0x${signature.substring(2).substring(64, 128)}`;
             const v = parseInt(signature.substring(2).substring(128, 130), 16);
+
+            const account = await backgroundApiProxy.engine.getAccount(
+              accountId,
+              networkId,
+            );
 
             const permitTx =
               await backgroundApiProxy.serviceStaking.buildRequestWithdrawalsWithPermit(
@@ -275,7 +288,10 @@ export default function UnstakeAmount() {
                         screen: ModalRoutes.Staking,
                         params: {
                           screen: StakingRoutes.StakedETHOnLido,
-                          params: {},
+                          params: {
+                            accountId,
+                            networkId,
+                          },
                         },
                       });
                     },
@@ -287,7 +303,7 @@ export default function UnstakeAmount() {
         },
       },
     });
-  }, [networkId, account, amount, navigation, intl]);
+  }, [networkId, amount, navigation, intl, accountId]);
 
   const onPrimaryActionPress = useCallback(async () => {
     try {
@@ -310,6 +326,8 @@ export default function UnstakeAmount() {
         params: {
           source,
           amount,
+          accountId,
+          networkId,
           onSelector: (value) => {
             setSource(value as UnstakeRouteOptionsValue);
             navigation.goBack();
@@ -317,7 +335,7 @@ export default function UnstakeAmount() {
         },
       },
     });
-  }, [source, navigation, amount]);
+  }, [source, navigation, amount, networkId, accountId]);
 
   const rate = useMemo(() => {
     if (source === 'lido') {
