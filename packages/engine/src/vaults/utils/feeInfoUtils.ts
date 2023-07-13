@@ -12,7 +12,7 @@ export function convertFeeValueToGwei({
   value,
   network,
 }: {
-  value: string;
+  value: string | BigNumber;
   network: Network;
 }) {
   return new BigNumber(value)
@@ -28,7 +28,7 @@ export function convertFeeGweiToValue({
   value,
   network,
 }: {
-  value: string;
+  value: string | BigNumber;
   network: Network;
 }) {
   return new BigNumber(value)
@@ -44,7 +44,7 @@ export function convertFeeValueToNative({
   value,
   network,
 }: {
-  value: string;
+  value: string | BigNumber;
   network: Network;
 }) {
   return new BigNumber(value)
@@ -60,7 +60,7 @@ export function convertFeeNativeToValue({
   value,
   network,
 }: {
-  value: string;
+  value: string | BigNumber;
   network: Network;
 }) {
   return new BigNumber(value)
@@ -76,7 +76,7 @@ export function calculateTotalFeeNative({
   info,
   decimal = 8,
 }: {
-  amount: string;
+  amount: string | BigNumber;
   info: IFeeInfo;
   decimal?: number;
 }) {

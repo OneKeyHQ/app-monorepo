@@ -662,3 +662,16 @@ export type IClientEndpointStatus = {
   latestBlock: number;
   rpcBatchSupported?: boolean;
 };
+
+export type IBalanceDetails = {
+  errorMessageKey?: LocaleIds;
+
+  total: string;
+  available: string;
+  unavailable: string;
+
+  unavailableOfLocalFrozen?: string;
+  unavailableOfUnconfirmed?: string;
+  unavailableOfInscription?: string; // BTC Inscription value
+  unavailableOfUnchecked?: string; // BTC not verified value by ordinals
+};
