@@ -16,6 +16,13 @@
       content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1.00001, viewport-fit=cover"
     />
     <title>OneKey</title>
+      <% if ( isDev ) { %>
+        <script
+          src="/react-render-tracker@0.7.3/dist/react-render-tracker.js"
+          data-config="inpage:true"
+        /></script>
+        <meta name="rempl:server" content="localhost:8177" />
+    <% } %>
     <style>
       /* add global styles to packages/shared/src/web/index.css */
     </style>

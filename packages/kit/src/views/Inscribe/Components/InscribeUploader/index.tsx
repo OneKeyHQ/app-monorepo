@@ -8,6 +8,7 @@ import {
   Icon,
   Spinner,
   Text,
+  ToastManager,
   useThemeValue,
 } from '@onekeyhq/components';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -49,6 +50,18 @@ function InscribeUploader(props: Props) {
         setLoading(true);
 
         const data = await fileToBuffer(file);
+        if (data.length === 0) {
+          ToastManager.show(
+            {
+              title: intl.formatMessage({
+                id: 'msg__text_file_cannot_be_blank',
+              }),
+            },
+            { type: 'error' },
+          );
+          setLoading(false);
+          return;
+        }
         if (!checkFileSize(data.length)) {
           setError(
             intl.formatMessage(
@@ -56,7 +69,7 @@ function InscribeUploader(props: Props) {
               { 0: '380KB' },
             ),
           );
-          if (file.type !== 'image') {
+          if (!file.type.startsWith('image')) {
             setFileFromOut({
               dataForUI: '',
               dataForAPI: '',

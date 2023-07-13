@@ -8,6 +8,8 @@ import type { Account } from '@onekeyhq/engine/src/types/account';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
+import { useManageNetworks } from './useManageNetworks';
+
 export const useAllNetworkAccountInfo = ({
   accountId,
 }: {
@@ -28,6 +30,7 @@ export const useAllNetworksWalletAccounts = ({
   accountId: string;
 }) => {
   const [loading, setLoading] = useState(false);
+  const { enabledNetworks } = useManageNetworks();
   const [networkAccountsMap, setNetworkAccountMap] = useState<
     Record<string, Account[]>
   >({});
@@ -45,7 +48,7 @@ export const useAllNetworksWalletAccounts = ({
       .finally(() => {
         setLoading(false);
       });
-  }, [walletId, accountId]);
+  }, [walletId, accountId, enabledNetworks]);
 
   return {
     loading,

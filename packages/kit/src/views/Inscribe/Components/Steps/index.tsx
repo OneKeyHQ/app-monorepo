@@ -46,7 +46,7 @@ const Item: FC<ItemProps> = ({ isActive, step, complete }) => {
       ) : (
         <Text
           typography="Heading"
-          color={isActive ? 'text-default' : 'text-disabled'}
+          color={isActive ? 'text-on-primary' : 'text-disabled'}
         >
           {step}
         </Text>

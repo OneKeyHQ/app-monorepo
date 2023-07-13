@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Box, Empty, List, useSafeAreaInsets } from '@onekeyhq/components';
+import type { Account } from '@onekeyhq/engine/src/types/account';
 
 import { useActiveWalletAccount, useDebounce } from '../../../../../hooks';
 import { useAllNetworksAccountsData } from '../../../hooks/useAccountSelectorSectionData';
@@ -48,15 +49,7 @@ function AllNetwroksAccountList({
       m={0}
       data={dataSource}
       keyExtractor={(item) => item.id}
-      renderItem={({
-        item,
-      }: {
-        item: {
-          id: string;
-          name: string;
-          index: number;
-        };
-      }) => (
+      renderItem={({ item }: { item: Account }) => (
         <AllNetworksListItem
           label={item.name}
           isActive={item.id === activeAccountId}

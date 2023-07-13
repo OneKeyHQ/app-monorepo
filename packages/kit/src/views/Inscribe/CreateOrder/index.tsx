@@ -9,6 +9,7 @@ import {
   Icon,
   Modal,
   Pressable,
+  ScrollView,
   Skeleton,
   Slider,
   Text,
@@ -249,6 +250,7 @@ const CreateOrder: FC = () => {
       primaryActionProps={{
         onPress: onSubmit,
         isLoading: isButtonLoading,
+        isDisabled: loading,
       }}
       hideSecondaryAction
       staticChildrenProps={{
@@ -257,16 +259,18 @@ const CreateOrder: FC = () => {
       }}
     >
       <VStack flex={1} justifyContent="space-between">
-        <Box>
+        <ScrollView>
           <Steps numberOfSteps={3} currentStep={3} />
           <Text mt="16px" typography="Heading">
             {intl.formatMessage({ id: 'form__inscribe_preview' })}
           </Text>
           <Box
-            bgColor="surface-default"
+            bgColor="action-secondary-default"
             paddingX="12px"
             paddingY="8px"
             borderRadius="12px"
+            borderWidth={1}
+            borderColor="border-default"
             mt="8px"
           >
             <Text typography="Body2Mono" color="text-subdued" numberOfLines={4}>
@@ -353,7 +357,7 @@ const CreateOrder: FC = () => {
             <Text typography="Body1">{formatBytes(size)}</Text>
           </Box>
           <Box
-            mt="16px"
+            my="16px"
             flexDirection="row"
             justifyContent="space-between"
             alignItems="center"
@@ -378,7 +382,7 @@ const CreateOrder: FC = () => {
               } sats`}</Text>
             )}
           </Box>
-        </Box>
+        </ScrollView>
         <Box>
           <Text typography="Caption" color="text-subdued">
             {intl.formatMessage({ id: 'form__available_balance' })}
