@@ -664,7 +664,7 @@ export type IClientEndpointStatus = {
 };
 
 export type IBalanceDetails = {
-  errorMessage?: string;
+  errorMessageKey?: LocaleIds;
 
   total: string;
   available: string;

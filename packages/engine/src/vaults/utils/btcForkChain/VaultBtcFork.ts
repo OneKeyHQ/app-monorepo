@@ -1404,8 +1404,10 @@ export default class VaultBtcFork extends VaultBase {
     }
 
     const result: IBalanceDetails = {
-      errorMessage:
-        ordQueryStatus === 'ERROR' ? 'Ordinal 服务异常，请刷新后重试' : '',
+      errorMessageKey:
+        ordQueryStatus === 'ERROR'
+          ? 'msg__the_ordinal_service_failure_refresh_and_try_again'
+          : undefined,
       total,
       available,
       unavailable,

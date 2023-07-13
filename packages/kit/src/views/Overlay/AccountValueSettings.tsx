@@ -54,7 +54,7 @@ function AccountBalanceDetailsRow({
 }
 
 function AccountBalanceDetailsPanel() {
-  // const intl = useIntl();
+  const intl = useIntl();
   const { accountId, networkId } = useActiveWalletAccount();
   const [balanceDetails, setBalanceDetails] = useState<
     IBalanceDetails | undefined
@@ -73,12 +73,20 @@ function AccountBalanceDetailsPanel() {
           });
         setBalanceDetails(result);
         setIsLoading(false);
-        if (result?.errorMessage) {
-          setErrorMsg(result.errorMessage);
+        if (result?.errorMessageKey) {
+          setErrorMsg(
+            intl.formatMessage({
+              id: result?.errorMessageKey,
+            }),
+          );
         }
       } catch (error) {
         console.error(error);
-        setErrorMsg('RPC 节点异常，请刷新后重试');
+        setErrorMsg(
+          intl.formatMessage({
+            id: 'msg__rpc_node_failure_refresh_and_try_again',
+          }),
+        );
       } finally {
         // noop
       }
@@ -101,27 +109,27 @@ function AccountBalanceDetailsPanel() {
           </Typography.DisplayXLarge>
           <AccountBalanceDetailsRow
             alwaysShow
-            label="可花费"
+            label={intl.formatMessage({ id: 'content__spendable' })}
             amount={balanceDetails?.available}
             symbol={nativeToken?.symbol}
           />
           <AccountBalanceDetailsRow
-            label="已冻结"
+            label={intl.formatMessage({ id: 'content__frozen' })}
             amount={balanceDetails?.unavailableOfLocalFrozen}
             symbol={nativeToken?.symbol}
           />
           <AccountBalanceDetailsRow
-            label="铭文占用"
+            label={intl.formatMessage({ id: 'content__inscriptions_occupy' })}
             amount={balanceDetails?.unavailableOfInscription}
             symbol={nativeToken?.symbol}
           />
           <AccountBalanceDetailsRow
-            label="未到账"
+            label={intl.formatMessage({ id: 'content__unconfirmed' })}
             amount={balanceDetails?.unavailableOfUnconfirmed}
             symbol={nativeToken?.symbol}
           />
           <AccountBalanceDetailsRow
-            label="不可用"
+            label={intl.formatMessage({ id: 'content__unusable' })}
             amount={balanceDetails?.unavailableOfUnchecked}
             symbol={nativeToken?.symbol}
           />
