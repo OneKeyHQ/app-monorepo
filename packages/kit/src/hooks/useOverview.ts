@@ -4,6 +4,7 @@ import B from 'bignumber.js';
 import { pick } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
+import { createSelector } from 'reselect';
 
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
@@ -22,6 +23,7 @@ import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
 import { useFrozenBalance, useSingleToken } from './useTokens';
 
+import type { IAppState } from '../store';
 import type { ITokenDetailInfo } from '../views/ManageTokens/types';
 import type {
   IAccountToken,
@@ -725,6 +727,31 @@ export const useTokenDetailInfo = ({
   }, [data, token, loading, tokenLoading]);
 };
 
+const tasksSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createSelector([(s: IAppState) => s.overview.tasks], (tasks) => {
+    const data = Object.values(tasks || {});
+    return data.filter((t) => t.key === `${networkId}___${accountId}`);
+  });
+
+const updatedTimeSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createSelector(
+    (s: IAppState) => s.overview.updatedTimeMap,
+    (updatedTimeMap) =>
+      updatedTimeMap?.[`${networkId}___${accountId}`]?.updatedAt,
+  );
+
 export const useOverviewPendingTasks = ({
   networkId,
   accountId,
@@ -733,15 +760,20 @@ export const useOverviewPendingTasks = ({
   accountId: string;
 }) => {
   const intl = useIntl();
+
   const updatedAt = useAppSelector(
-    (s) =>
-      s.overview.updatedTimeMap?.[`${networkId}___${accountId}`]?.updatedAt,
+    useMemo(
+      () => updatedTimeSelector({ networkId, accountId }),
+      [networkId, accountId],
+    ),
   );
 
-  const tasks = useAppSelector((s) => {
-    const data = Object.values(s.overview.tasks || {});
-    return data.filter((t) => t.key === `${networkId}___${accountId}`);
-  });
+  const tasks = useAppSelector(
+    useMemo(
+      () => tasksSelector({ networkId, accountId }),
+      [networkId, accountId],
+    ),
+  );
 
   const updateTips = useMemo(() => {
     if (tasks?.length) {

@@ -1,11 +1,15 @@
 import { useMemo } from 'react';
 
+import { createSelector } from 'reselect';
+
 import {
   allNetworksAccountRegex,
   generateFakeAllnetworksAccount,
 } from '@onekeyhq/engine/src/managers/account';
 
 import { useAppSelector } from './useAppSelector';
+
+import type { IAppState } from '../store';
 
 export const useAllNetworkAccountInfo = ({
   accountId,
@@ -19,14 +23,25 @@ export const useAllNetworkAccountInfo = ({
     return generateFakeAllnetworksAccount({ accountId });
   }, [accountId]);
 
+const selectAllNetworksAccountsMap = (state: IAppState) =>
+  state.overview.allNetworksAccountsMap;
+
+export const makeGetAllNetworksAccountsSelector = (accountId?: string | null) =>
+  createSelector(
+    [selectAllNetworksAccountsMap],
+    (map) => map?.[accountId || ''] ?? {},
+  );
+
 export const useAllNetworksWalletAccounts = ({
   accountId,
 }: {
   accountId?: string | null;
 }) => {
-  const map = useAppSelector((s) => s.overview.allNetworksAccountsMap);
-
-  const data = useMemo(() => map?.[accountId || ''] ?? {}, [map, accountId]);
+  const getAllNetworksAccounts = useMemo(
+    () => makeGetAllNetworksAccountsSelector(accountId),
+    [accountId],
+  );
+  const data = useAppSelector(getAllNetworksAccounts);
 
   return {
     data,
