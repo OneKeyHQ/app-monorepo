@@ -1329,7 +1329,6 @@ class ServiceAccount extends ServiceBase {
       dispatch,
       serviceCloudBackup,
       serviceNotification,
-      serviceAllNetwork,
     } = this.backgroundApi;
     const account = await this.getAccount({
       walletId,

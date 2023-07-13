@@ -1,4 +1,4 @@
-import { throttle } from 'lodash';
+import { debounce } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
@@ -56,7 +56,7 @@ class ServiceOverview extends ServiceBase {
     debugLogger.common.info('startQueryPendingTasks');
     this.interval = setInterval(() => {
       this.queryPendingTasks();
-    }, getTimeDurationMs({ seconds: 3 }));
+    }, getTimeDurationMs({ seconds: 15 }));
   }
 
   // eslint-disable-next-line @typescript-eslint/require-await
@@ -383,59 +383,67 @@ class ServiceOverview extends ServiceBase {
     return res;
   }
 
-  refreshAccountWithThrottle = throttle(
-    async ({
+  @backgroundMethod()
+  async refreshAccountAssets({
+    networkId,
+    accountId,
+    walletId,
+  }: {
+    networkId: string;
+    accountId: string;
+    walletId: string | null;
+  }) {
+    const { engine, serviceToken } = this.backgroundApi;
+    if (!networkId || !accountId || !walletId) {
+      return;
+    }
+    if (!isAllNetworks(networkId)) {
+      engine.clearPriceCache();
+      await serviceToken.fetchAccountTokens({
+        accountId,
+        networkId,
+        forceReloadTokens: true,
+        includeTop50TokensQuery: true,
+      });
+    }
+    await this.fetchAccountOverview({
       networkId,
       accountId,
       walletId,
-    }: {
-      networkId: string;
-      accountId: string;
-      walletId: string | null;
-    }) => {
-      const { engine, serviceToken } = this.backgroundApi;
-      if (!networkId || !accountId || !walletId) {
+      scanTypes: [
+        EOverviewScanTaskType.defi,
+        EOverviewScanTaskType.token,
+        EOverviewScanTaskType.nfts,
+      ],
+    });
+  }
+
+  refreshCurrentAccountWithDebounce = debounce(
+    async () => {
+      const { appSelector } = this.backgroundApi;
+
+      const {
+        activeAccountId: accountId,
+        activeNetworkId: networkId,
+        activeWalletId: walletId,
+      } = appSelector((s) => s.general);
+
+      if (!accountId || !networkId) {
         return;
       }
-      if (!isAllNetworks(networkId)) {
-        engine.clearPriceCache();
-        await serviceToken.fetchAccountTokens({
-          accountId,
-          networkId,
-          forceReloadTokens: true,
-          includeTop50TokensQuery: true,
-        });
-      }
-      await this.fetchAccountOverview({
-        networkId,
-        accountId,
-        walletId,
-        scanTypes: [
-          EOverviewScanTaskType.defi,
-          EOverviewScanTaskType.token,
-          EOverviewScanTaskType.nfts,
-        ],
-      });
+
+      return this.refreshAccountAssets({ networkId, accountId, walletId });
     },
-    getTimeDurationMs({ seconds: 15 }),
+    getTimeDurationMs({ seconds: 5 }),
+    {
+      leading: true,
+      trailing: true,
+    },
   );
 
-  @bindThis()
   @backgroundMethod()
-  async refreshCurrentAccount() {
-    const { appSelector } = this.backgroundApi;
-
-    const {
-      activeAccountId: accountId,
-      activeNetworkId: networkId,
-      activeWalletId: walletId,
-    } = appSelector((s) => s.general);
-
-    if (!accountId || !networkId) {
-      return;
-    }
-
-    return this.refreshAccountWithThrottle({ networkId, accountId, walletId });
+  refreshCurrentAccount() {
+    return this.refreshCurrentAccountWithDebounce();
   }
 
   @backgroundMethod()
