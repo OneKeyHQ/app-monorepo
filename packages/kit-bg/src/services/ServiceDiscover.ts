@@ -17,6 +17,7 @@ import {
   setDappHistory,
   setFavoritesMigrated,
   setHomeData,
+  setUserBrowserHistory,
   updateBookmark,
 } from '@onekeyhq/kit/src/store/reducers/discover';
 import { getWebTabs } from '@onekeyhq/kit/src/views/Discover/Explorer/Controller/useWebTabs';
@@ -212,6 +213,23 @@ class ServicDiscover extends ServiceBase {
         `failed to fetch dapp url info with reason ${(e as Error).message}`,
       );
       return { title: '', icon: '' };
+    }
+  }
+
+  @backgroundMethod()
+  async updateUserBrowserHistoryLogo(params: { dappId?: string; url: string }) {
+    const { dispatch } = this.backgroundApi;
+    const { dappId, url } = params;
+    const urlInfo = await this.getUrlInfo(url);
+    if (urlInfo) {
+      dispatch(
+        setUserBrowserHistory({
+          dappId,
+          url,
+          title: urlInfo.title,
+          logoUrl: urlInfo.icon,
+        }),
+      );
     }
   }
 

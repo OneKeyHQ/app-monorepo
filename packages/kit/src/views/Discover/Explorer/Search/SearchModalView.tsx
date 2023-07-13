@@ -14,7 +14,7 @@ import {
 import { useDebounce } from '@onekeyhq/kit/src/hooks';
 
 import { homeTab } from '../../../../store/observable/webTabs';
-import DAppIcon from '../../DAppIcon';
+import DAppIcon from '../../components/DAppIcon';
 import { useDiscoverHistory } from '../../hooks';
 import { useSearchLocalDapp } from '../../hooks/useSearchLocalDapp';
 import { getWebTabs } from '../Controller/useWebTabs';
