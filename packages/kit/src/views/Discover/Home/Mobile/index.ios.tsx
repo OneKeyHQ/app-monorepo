@@ -18,7 +18,9 @@ export const Unrestricted = () => {
   );
 };
 
-export const Mobile = () => {
-  const showBookmark = useShowBookmark();
-  return !showBookmark ? <Restricted /> : <Unrestricted />;
-};
+// export const Mobile = () => {
+//   const showBookmark = useShowBookmark();
+//   return !showBookmark ? <Restricted /> : <Unrestricted />;
+// };
+
+export const Mobile = () => <Unrestricted />;
