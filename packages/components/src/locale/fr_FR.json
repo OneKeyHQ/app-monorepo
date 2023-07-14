@@ -1998,7 +1998,7 @@
   "msg__alert_already_exists": "L'alerte existe déjà",
   "msg__amount_too_small": "Le montant du transfert est trop petit",
   "msg__aptos_first_activation_token": "Si le jeton est activé pour la première fois, une transaction de pièces sera émise.",
-  "msg__authentication_failed_verify_again": "Échec de l'authentification, vérifiez à nouveau",
+  "msg__authentication_failed_verify_again": "Échec de l'authentification, vérifiez votre connexion réseau et réessayez",
   "msg__backup_imported": "Données importées",
   "msg__broadcast_dot_tx_Insufficient_fee": "Le bilan est insuffisant.",
   "msg__broadcast_dot_tx_outdated": "La transaction est obsolète.",

@@ -1998,7 +1998,7 @@
   "msg__alert_already_exists": "경고가 이미 있습니다.",
   "msg__amount_too_small": "이체 금액이 너무 적습니다.",
   "msg__aptos_first_activation_token": "토큰이 처음으로 활성화되면 코인 트랜잭션이 발행됩니다.",
-  "msg__authentication_failed_verify_again": "인증 실패, 다시 확인",
+  "msg__authentication_failed_verify_again": "인증에 실패했습니다. 네트워크 연결을 확인하고 다시 시도하세요.",
   "msg__backup_imported": "가져온 데이터",
   "msg__broadcast_dot_tx_Insufficient_fee": "잔액이 부족합니다.",
   "msg__broadcast_dot_tx_outdated": "거래가 오래되었습니다.",

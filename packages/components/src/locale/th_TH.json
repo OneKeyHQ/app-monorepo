@@ -1998,7 +1998,7 @@
   "msg__alert_already_exists": "มีการแจ้งเตือนอยู่แล้ว",
   "msg__amount_too_small": "ยอดโอนน้อยเกินไป",
   "msg__aptos_first_activation_token": "หากเปิดใช้งานโทเค็นเป็นครั้งแรก ธุรกรรมเหรียญจะออกให้",
-  "msg__authentication_failed_verify_again": "การตรวจสอบสิทธิ์ล้มเหลว โปรดยืนยันอีกครั้ง",
+  "msg__authentication_failed_verify_again": "การตรวจสอบสิทธิ์ล้มเหลว ตรวจสอบการเชื่อมต่อเครือข่ายแล้วลองอีกครั้ง",
   "msg__backup_imported": "ข้อมูลที่นำเข้า",
   "msg__broadcast_dot_tx_Insufficient_fee": "ยอดเงินไม่เพียงพอ",
   "msg__broadcast_dot_tx_outdated": "ธุรกรรมล้าสมัย",
