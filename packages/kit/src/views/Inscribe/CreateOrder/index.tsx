@@ -10,13 +10,13 @@ import {
   Icon,
   Modal,
   Pressable,
+  RichTooltip,
   ScrollView,
   Skeleton,
   Slider,
   Spinner,
   Text,
   ToastManager,
-  Tooltip,
   VStack,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
@@ -30,7 +30,6 @@ import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Mo
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatBalanceTokenOfAccount } from '../../../components/Format';
@@ -55,33 +54,19 @@ type RouteProps = RouteProp<
   InscribeModalRoutes.CreateOrder
 >;
 
-const TipWithLabel: FC<{ label: string }> = ({ label }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  return (
-    <Tooltip
-      label={label}
-      placement="top"
-      hasArrow
-      isOpen={platformEnv.isNative ? isOpen : undefined}
-    >
-      <Pressable
-        onPressIn={() => {
-          setIsOpen(true);
-        }}
-        onPressOut={() => {
-          setIsOpen(false);
-        }}
-        borderRadius="full"
-        p="2px"
-        position="relative"
-        _hover={{ bg: 'surface-hovered' }}
-        _pressed={{ bg: 'surface-pressed' }}
-      >
+const TipWithLabel: FC<{ label: string }> = ({ label }) => (
+  <RichTooltip
+    // eslint-disable-next-line
+    trigger={({ ...props }) => (
+      <Pressable {...props}>
         <Icon name="InformationCircleMini" size={16} color="icon-subdued" />
       </Pressable>
-    </Tooltip>
-  );
-};
+    )}
+    bodyProps={{
+      children: <Text>{label}</Text>,
+    }}
+  />
+);
 
 const CreateOrder: FC = () => {
   const intl = useIntl();
