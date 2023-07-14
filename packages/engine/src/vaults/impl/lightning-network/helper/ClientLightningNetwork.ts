@@ -28,7 +28,11 @@ import type { AxiosError, AxiosInstance } from 'axios';
 class ClientLightning {
   readonly request: AxiosInstance;
 
-  constructor() {
+  private testnet: boolean;
+
+  constructor(isTestnet: boolean) {
+    this.testnet = isTestnet;
+
     this.request = axios.create({
       baseURL: `${getFiatEndpoint()}/lightning`,
       timeout: 20000,
@@ -80,6 +84,7 @@ class ClientLightning {
           signature,
           timestamp,
           randomSeed,
+          testnet: this.testnet,
         })
         .then((i) => i.data);
     } catch (e) {
@@ -91,7 +96,7 @@ class ClientLightning {
   async checkAccountExist(address: string) {
     return this.request
       .get<boolean>('/account/check', {
-        params: { address },
+        params: { address, testnet: this.testnet },
       })
       .then((i) => i.data);
   }
@@ -113,6 +118,7 @@ class ClientLightning {
         address,
         signature,
         randomSeed,
+        testnet: this.testnet,
       })
       .then((i) => i.data);
   }
@@ -120,7 +126,10 @@ class ClientLightning {
   async batchGetBalance(addresses: string[]) {
     try {
       return await this.request
-        .post<IBatchBalanceResponse[]>('/account/balance', { addresses })
+        .post<IBatchBalanceResponse[]>('/account/balance', {
+          addresses,
+          testnet: this.testnet,
+        })
         .then((i) => i.data);
     } catch (e) {
       return [];
@@ -134,6 +143,7 @@ class ClientLightning {
         {
           amount,
           description: description || 'OneKey Invoice',
+          testnet: this.testnet,
         },
         {
           headers: {
@@ -147,7 +157,7 @@ class ClientLightning {
   async decodedInvoice(invoice: string) {
     return this.request
       .get<IInvoiceDecodedResponse>('/invoices/decoded', {
-        params: { invoice },
+        params: { invoice, testnet: this.testnet },
       })
       .then((i) => i.data);
   }
@@ -158,6 +168,7 @@ class ClientLightning {
         .get<InvoiceType>('/invoices/invoice', {
           params: {
             paymentHash,
+            testnet: this.testnet,
           },
           headers: {
             Authorization: await this.getAuthorization(address),
@@ -173,6 +184,7 @@ class ClientLightning {
   async getNextNonce(address: string) {
     return this.request
       .get<number>('/payments/getNonce', {
+        params: { testnet: this.testnet },
         headers: {
           Authorization: await this.getAuthorization(address),
         },
@@ -184,7 +196,7 @@ class ClientLightning {
     return this.request
       .post<{ paymentRequest: string; nonce: number }>(
         '/payments/bolt11',
-        params,
+        { ...params, testnet: this.testnet },
         {
           headers: {
             Authorization: await this.getAuthorization(address),
@@ -197,7 +209,7 @@ class ClientLightning {
   async checkBolt11({ address, nonce }: { address: string; nonce: number }) {
     return this.request
       .get<ICheckPaymentResponse>('/payments/checkBolt11', {
-        params: { nonce },
+        params: { nonce, testnet: this.testnet },
         headers: {
           Authorization: await this.getAuthorization(address),
         },
@@ -208,6 +220,7 @@ class ClientLightning {
   async fetchHistory(address: string): Promise<IHistoryItem[]> {
     return this.request
       .get<IHistoryItem[]>('/invoices/history', {
+        params: { testnet: this.testnet },
         headers: {
           Authorization: await this.getAuthorization(address),
         },
@@ -221,7 +234,7 @@ class ClientLightning {
   ) {
     return this.request
       .get<UnionMsgType>('/account/getSignTemplate', {
-        params: { address, signType },
+        params: { address, signType, testnet: this.testnet },
         headers: {
           Authorization: await this.getAuthorization(address),
         },
