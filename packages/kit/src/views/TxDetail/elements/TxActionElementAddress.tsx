@@ -206,6 +206,7 @@ export function TxActionElementAddress(
             shouldCheckSecurity={shouldCheckSecurity}
             isAccount={!!label}
             isAddressBook={!!contact}
+            addressBookLabel={contact?.name}
             labelStyle={{ mt: 1 }}
           />
         </VStack>

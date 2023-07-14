@@ -70,6 +70,9 @@ function PreSendAddress() {
   const [isValidatingAddress, setIsValidatingAddress] = useState(false);
   const [displayDestinationTag, setDisplayDestinationTag] = useState(false);
   const [isAddressBook, setIsAddressBook] = useState(false);
+  const [addressBookLabel, setAddressBookLabel] = useState<
+    string | undefined
+  >();
   const [isContractAddress, setIsContractAddress] = useState(false);
   const [isValidAddress, setIsValidAddress] = useState(false);
   const [validAddressMessage, setValidAddressMessage] =
@@ -545,6 +548,7 @@ function PreSendAddress() {
           errorMessage: '',
         });
         setIsAddressBook(false);
+        setAddressBookLabel('');
         setIsContractAddress(false);
         setSecurityItems([]);
         if (!toAddress) {
@@ -573,6 +577,7 @@ function PreSendAddress() {
           const { key, info } = error0;
           setIsValidAddress(false);
           setIsAddressBook(false);
+          setAddressBookLabel('');
           setIsContractAddress(false);
           if (key) {
             setvalidateMessage({
@@ -607,6 +612,7 @@ function PreSendAddress() {
           if (addressbookItem) {
             setIsValidAddress(true);
             setIsAddressBook(true);
+            setAddressBookLabel(addressbookItem.name);
             setvalidateMessage({
               errorMessage: '',
             });
@@ -727,6 +733,7 @@ function PreSendAddress() {
                 networkId={networkId}
                 address={resolvedAddress || formValues?.to || ''}
                 isAddressBook={isAddressBook}
+                addressBookLabel={addressBookLabel}
                 isContractAddress={isContractAddress}
                 isValidAddress={isValidAddress}
                 validAddressMessage={validAddressMessage}

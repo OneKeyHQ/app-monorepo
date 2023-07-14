@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -30,12 +30,15 @@ type Props = {
   labelStyle?: ComponentProps<typeof Box>;
   labelProps?: ComponentProps<typeof Badge>;
   isLoading?: boolean;
+  accountLabel?: string;
+  addressBookLabel?: string;
 } & ComponentProps<typeof HStack>;
 
 type Label = {
   title: MessageDescriptor['id'];
   type: BadgeType;
   icon?: string;
+  desc?: string;
 };
 
 // @ts-ignore
@@ -59,6 +62,8 @@ function AddressLabel(props: Props) {
     networkId,
     securityInfo,
     isAccount,
+    accountLabel: accountLabelFromOut,
+    addressBookLabel: addressBookLabelFromOut,
     isAddressBook,
     isContractAddress,
     shouldCheckSecurity,
@@ -74,6 +79,12 @@ function AddressLabel(props: Props) {
   const intl = useIntl();
 
   const [isAccountLabel, setIsAccountLabel] = useState(false);
+  const [accountLabel, setAccountLabel] = useState<string | undefined>(
+    accountLabelFromOut,
+  );
+  const [addressBookLabel, setAddressBookLabel] = useState<string | undefined>(
+    addressBookLabelFromOut,
+  );
   const [isLoadingAccountLabel, setIsLoadingAccountLabel] = useState(false);
   const [isAddressBookLabel, setIsAddressBookLabel] = useState(false);
   const [isLoadingAddressBookLabel, setIsLoadingAddressBookLabel] =
@@ -88,6 +99,7 @@ function AddressLabel(props: Props) {
   useEffect(() => {
     if (!isNil(isAccount)) {
       setIsAccountLabel(isAccount);
+      setAccountLabel(accountLabelFromOut);
     } else {
       setIsLoadingAccountLabel(true);
       backgroundApiProxy.serviceAccount
@@ -95,21 +107,25 @@ function AddressLabel(props: Props) {
           address,
         })
         .then((resp) => {
-          console.log(resp);
           setIsAccountLabel(!!resp.label);
+          setAccountLabel(resp.label);
         })
         .finally(() => setIsLoadingAccountLabel(false));
     }
 
     if (!isNil(isAddressBook)) {
       setIsAddressBookLabel(isAddressBook);
+      setAddressBookLabel(addressBookLabelFromOut);
     } else {
       setIsLoadingAddressBookLabel(true);
       backgroundApiProxy.serviceAddressbook
         .getItem({
           address,
         })
-        .then((resp) => setIsAddressBookLabel(!!resp))
+        .then((resp) => {
+          setIsAddressBookLabel(!!resp);
+          setAddressBookLabel(resp?.name);
+        })
         .finally(() => setIsLoadingAddressBookLabel(false));
     }
 
@@ -122,7 +138,15 @@ function AddressLabel(props: Props) {
         .then((resp) => setIsContractAddressLabel(resp))
         .finally(() => setIsLoadingContractAddressLabel(false));
     }
-  }, [address, isAccount, isAddressBook, isContractAddress, networkId]);
+  }, [
+    accountLabelFromOut,
+    address,
+    addressBookLabelFromOut,
+    isAccount,
+    isAddressBook,
+    isContractAddress,
+    networkId,
+  ]);
 
   useEffect(() => {
     if (!shouldCheckSecurity) return;
@@ -170,14 +194,16 @@ function AddressLabel(props: Props) {
   const addressLabels = useMemo(() => {
     const labels = [
       isAccountLabel && {
-        title: 'form__account',
+        title: 'form__my_account',
         type: 'success',
         icon: '👤',
+        desc: accountLabel,
       },
       isAddressBookLabel && {
         title: 'title__address_book',
         type: 'info',
         icon: '📖',
+        desc: addressBookLabel,
       },
       isContractAddressLabel && {
         title: 'content__contract_address',
@@ -185,7 +211,13 @@ function AddressLabel(props: Props) {
       },
     ];
     return labels.filter(Boolean) as Label[];
-  }, [isAccountLabel, isAddressBookLabel, isContractAddressLabel]);
+  }, [
+    accountLabel,
+    addressBookLabel,
+    isAccountLabel,
+    isAddressBookLabel,
+    isContractAddressLabel,
+  ]);
 
   const validateLabels = useMemo(() => {
     const labels = [
@@ -219,6 +251,33 @@ function AddressLabel(props: Props) {
     validAddressMessage,
   ]);
 
+  const getTitle = useCallback(
+    (label: Label) => {
+      if (label.icon) {
+        if (label.desc) {
+          return `${label.icon} ${intl.formatMessage({
+            id: label.title,
+          })}: ${label.desc}`;
+        }
+
+        return `${label.icon} ${intl.formatMessage({
+          id: label.title,
+        })}`;
+      }
+
+      if (label.desc) {
+        return `${intl.formatMessage({
+          id: label.title,
+        })}: ${label.desc}`;
+      }
+
+      return `${intl.formatMessage({
+        id: label.title,
+      })}`;
+    },
+    [intl],
+  );
+
   if (
     securityLabels.length === 0 &&
     addressLabels.length === 0 &&
@@ -234,15 +293,7 @@ function AddressLabel(props: Props) {
         <Box {...labelStyle} key={label.title}>
           <Badge
             size="lg"
-            title={
-              label.icon
-                ? `${label.icon} ${intl.formatMessage({
-                    id: label.title,
-                  })}`
-                : intl.formatMessage({
-                    id: label.title,
-                  })
-            }
+            title={getTitle(label)}
             type={label.type}
             {...labelProps}
           />
