@@ -342,9 +342,10 @@ export default class Vault extends VaultBase {
           },
           totalFeeInNative: new BigNumber(fee).shiftedBy(-decimals).toFixed(),
         };
-        decodedTx.updatedAt = new Date(txInfo.expires_at).getTime();
+        decodedTx.updatedAt = new Date(txInfo.settled_at).getTime();
         decodedTx.createdAt =
-          historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
+          historyTxToMerge?.decodedTx.createdAt ??
+          new Date(txInfo.settled_at).getTime();
         decodedTx.isFinal =
           decodedTx.status === IDecodedTxStatus.Confirmed ||
           decodedTx.status === IDecodedTxStatus.Failed;
