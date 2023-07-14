@@ -25,6 +25,7 @@ import type {
   ISimpleDBBackUp,
   PublicBackupData,
 } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
+import { gtIgnore } from '@onekeyhq/shared/src/utils/semverUtils';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useData } from '../../../../../hooks/redux';
@@ -42,7 +43,6 @@ import Layout from '../../../Layout';
 import type { EOnboardingRoutes } from '../../../routes/enums';
 import type { IOnboardingRoutesParams } from '../../../routes/types';
 import type { RouteProp } from '@react-navigation/core';
-import { gtIgnore } from '@onekeyhq/shared/src/utils/semverUtils';
 
 const defaultProps = {} as const;
 
