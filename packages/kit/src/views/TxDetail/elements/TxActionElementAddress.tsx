@@ -34,18 +34,25 @@ interface AddressMoreMenuProps extends IMenu {
   contact?: Contact;
 }
 
-export function useAddressLabel({ address }: { address: string }) {
+export function useAddressLabel({
+  address,
+  networkId,
+}: {
+  address: string;
+  networkId?: string;
+}) {
   const [label, setLabel] = useState('');
   useEffect(() => {
     (async () => {
       const result = await backgroundApiProxy.serviceAccount.getAddressLabel({
         address,
+        networkId,
       });
       if (result && result.label) {
         setLabel(result.label);
       }
     })();
-  }, [address]);
+  }, [address, networkId]);
   return label;
 }
 
@@ -178,7 +185,7 @@ export function TxActionElementAddress(
     shouldCheckSecurity ? address : '',
   );
 
-  const label = useAddressLabel({ address });
+  const label = useAddressLabel({ address, networkId });
   const contact = useAddressBookItem({ address });
   let text = isShorten ? shortenAddress(address) : address;
   if (label && isLabelShow) {

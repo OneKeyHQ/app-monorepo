@@ -105,6 +105,7 @@ function AddressLabel(props: Props) {
       backgroundApiProxy.serviceAccount
         .getAddressLabel({
           address,
+          networkId,
         })
         .then((resp) => {
           setIsAccountLabel(!!resp.label);
