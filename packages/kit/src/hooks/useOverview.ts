@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { createSelector } from '@reduxjs/toolkit';
 import B from 'bignumber.js';
 import { pick } from 'lodash';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
-import { createSelector } from 'reselect';
 
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';

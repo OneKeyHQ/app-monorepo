@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { createSelector } from 'reselect';
+import { createSelector } from '@reduxjs/toolkit';
 
 import {
   allNetworksAccountRegex,
