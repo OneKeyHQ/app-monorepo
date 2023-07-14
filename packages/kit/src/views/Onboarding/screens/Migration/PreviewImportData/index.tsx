@@ -25,6 +25,7 @@ import type {
   ISimpleDBBackUp,
   PublicBackupData,
 } from '@onekeyhq/shared/src/services/ServiceCloudBackup/ServiceCloudBackup.types';
+import { gtIgnore } from '@onekeyhq/shared/src/utils/semverUtils';
 
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useData } from '../../../../../hooks/redux';
@@ -111,7 +112,7 @@ const PreviewImportData = () => {
       return true;
     }
     // data version >= local version
-    if (data.appVersion && semver.gt(data.appVersion, version)) {
+    if (data.appVersion && gtIgnore(data.appVersion, version, 'patch')) {
       return false;
     }
     return true;

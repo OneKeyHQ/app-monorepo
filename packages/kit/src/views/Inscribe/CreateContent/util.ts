@@ -7,7 +7,7 @@ export function calculateByteLength(str: string) {
 export function checkFileSize(byteSize: number) {
   const maxFileSize = 1024 * 380;
 
-  if (byteSize > 0 && byteSize < maxFileSize) {
+  if (byteSize > 0 && byteSize <= maxFileSize) {
     return true;
   }
   return false;

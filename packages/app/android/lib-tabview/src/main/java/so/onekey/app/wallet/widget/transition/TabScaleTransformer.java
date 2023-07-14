@@ -1,6 +1,5 @@
 package so.onekey.app.wallet.widget.transition;
 
-import android.util.Log;
 import android.util.TypedValue;
 import android.widget.TextView;
 
@@ -24,7 +23,6 @@ public class TabScaleTransformer implements ITabScaleTransformer {
     }
 
     public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
-        Log.i("TabScaleTransformer", "position:" + position);
         // 字体大小相同，不需要切换
         if (textSelectSize == textUnSelectSize) return;
 

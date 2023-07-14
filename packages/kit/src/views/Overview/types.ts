@@ -40,6 +40,7 @@ export type IOverviewQueryTaskItem = Pick<
   IOverviewScanTaskInfo,
   'networkId' | 'address' | 'xpub'
 > & {
+  id: string;
   key?: string;
   scanType: EOverviewScanTaskType;
 };

@@ -14,7 +14,7 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import {
   useActiveWalletAccount,
-  useStatus,
+  useAppSelector,
 } from '@onekeyhq/kit/src/hooks/redux';
 import RefreshLightningNetworkToken from '@onekeyhq/kit/src/views/LightningNetwork/RefreshLightningNetworkToken';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
@@ -49,11 +49,13 @@ const WalletTabs: FC = () => {
   const ref = useRef<ForwardRefHandle>(null);
   const { screenWidth } = useUserDevice();
   const isVerticalLayout = useIsVerticalLayout();
-  const { homeTabName } = useStatus();
+  const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const { wallet, network, accountId, networkId, walletId } =
     useActiveWalletAccount();
   const { enabledNetworks } = useManageNetworks();
   const [refreshing, setRefreshing] = useState(false);
+
+  const timer = useRef<ReturnType<typeof setTimeout>>();
 
   const tokensTab = useMemo(
     () => (
@@ -161,25 +163,39 @@ const WalletTabs: FC = () => {
   );
 
   const getHomeTabIndex = useCallback(
-    () => usedTabs.findIndex((tab) => tab.name === homeTabName),
-    [usedTabs, homeTabName],
+    (tabName: string | undefined) =>
+      usedTabs.findIndex((tab) => tab.name === tabName),
+    [usedTabs],
   );
 
   const onIndexChange = useCallback(
     (index: number) => {
-      backgroundApiProxy.dispatch(setHomeTabName(getHomeTabNameByIndex(index)));
+      if (timer.current) clearTimeout(timer.current);
+
+      let intervalTime = 0;
+      if (platformEnv.isNativeAndroid) {
+        intervalTime = 500;
+      }
+
+      // Android animation redux causes ui stuttering
+      timer.current = setTimeout(() => {
+        backgroundApiProxy.dispatch(
+          setHomeTabName(getHomeTabNameByIndex(index)),
+        );
+      }, intervalTime);
     },
     [getHomeTabNameByIndex],
   );
 
   useEffect(() => {
-    const idx = getHomeTabIndex();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
 
     const setIndex = (index: number) => {
       ref.current?.setPageIndex?.(index);
       onIndexChange(index);
     };
 
+    const idx = getHomeTabIndex(homeTabName);
     if (platformEnv.isNativeIOS) {
       setTimeout(() => {
         setIndex(idx);
@@ -187,6 +203,10 @@ const WalletTabs: FC = () => {
     } else {
       setIndex(idx);
     }
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
   }, [homeTabName, onIndexChange, getHomeTabIndex]);
 
   const onRefresh = useCallback(() => {
@@ -206,7 +226,7 @@ const WalletTabs: FC = () => {
     }
   }, [onRefresh, enabledNetworks, networkId]);
 
-  const tabContents = usedTabs.map((t) => t.tab);
+  const tabContents = useMemo(() => usedTabs.map((t) => t.tab), [usedTabs]);
 
   const walletTabsContainer = (
     <Tabs.Container
@@ -216,6 +236,9 @@ const WalletTabs: FC = () => {
       onRefresh={onRefresh}
       onIndexChange={(index: number) => {
         onIndexChange(index);
+      }}
+      onStartChange={() => {
+        if (timer.current) clearTimeout(timer.current);
       }}
       renderHeader={AccountHeader}
       headerHeight={

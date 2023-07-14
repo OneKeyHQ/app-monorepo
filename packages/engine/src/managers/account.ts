@@ -3,8 +3,8 @@ import { ok } from 'assert';
 import { isEmpty } from 'lodash';
 
 import {
-  COINTYPE_LIGHTNING,
   SEPERATOR,
+  isLightningNetwork,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../errors';
@@ -83,7 +83,7 @@ function isAccountCompatibleWithNetwork(accountId: string, networkId: string) {
 function isAccountWithAddress(account: Account) {
   if (
     account.type !== AccountType.VARIANT ||
-    account.coinType === COINTYPE_LIGHTNING
+    isLightningNetwork(account.coinType)
   )
     return true;
   return !isEmpty(account.address);

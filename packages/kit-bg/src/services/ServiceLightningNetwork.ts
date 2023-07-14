@@ -78,4 +78,21 @@ export default class ServiceLightningNetwork extends ServiceBase {
     );
     return invoice;
   }
+
+  @backgroundMethod()
+  async fetchSpecialInvoice({
+    paymentHash,
+    networkId,
+    accountId,
+  }: {
+    paymentHash: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    });
+    return (vault as VaultLightning).fetchSpecialInvoice(paymentHash);
+  }
 }

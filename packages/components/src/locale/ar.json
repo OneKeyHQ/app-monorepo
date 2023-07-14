@@ -411,6 +411,7 @@
   "content__a_few_seconds": "بضع ثوان",
   "content__about_int_str": "حول {time} {unit}",
   "content__account_and_network_not_matched": "كلا الحساب والسلسلة غير متطابقين",
+  "content__account_balance": "رصيد الحساب",
   "content__account_is_not_matched": "الحساب غير مطابق",
   "content__account_type": "نوع الحساب",
   "content__activated": "مفعل",
@@ -500,6 +501,7 @@
   "content__custom_what_is_base_fee_desc": "تحدد الشبكة الرسوم الأساسية وتتغير كل 15 ثانية.",
   "content__custom_what_is_max_gas_price_desc": "المعاملة الأعلى سعرًا في mempool (الكتلة المعلقة).",
   "content__custom_what_is_pending_tx_desc": "سيتم تضمين عدد العناصر التي نقدرها في الكتلة التالية بناءً على لقطة mempool.",
+  "content__customise_transfer_amount_by_adding_the_amount_after_the_address": "تخصيص مبلغ التحويل عن طريق إضافة المبلغ بعد العنوان (استخدم الفواصل للتقسيم). على سبيل المثال:",
   "content__data_for_this_token_is_not_included_yet": "لم يتم تضمين البيانات لهذا الرمز المميز حتى الآن.",
   "content__data_source": "مصدر البيانات:",
   "content__day": "يوم",
@@ -522,6 +524,8 @@
   "content__downloading_str": "تحميل {0}",
   "content__duration": "مدة",
   "content__dust_refer_to_very_tiny_amount_of_bitcoin": "يشير الغبار إلى كميات صغيرة جدًا من البيتكوين (أقل من أو تساوي 546 ساتوشي) المتبقية أو غير المنفقة بعد المعاملة.",
+  "content__each_line_should_include_the_address": "يجب أن يتضمن كل سطر العنوان. على سبيل المثال:",
+  "content__each_line_should_include_the_address_and_amount": "يجب أن يتضمن كل سطر العنوان والمبلغ مفصولاً بفاصلات. على سبيل المثال:",
   "content__enable_mac_permissions_for_oneKey": "قم بتمكين أذونات macOS لـ OneKey",
   "content__enable_mac_permissions_for_oneKey_step_1": "انقر فوق الزر أدناه لفتح \"تفضيلات النظام\"",
   "content__enable_mac_permissions_for_oneKey_step_2": "حدد \"الملفات والمجلدات\"",
@@ -570,6 +574,7 @@
   "content__for_people_who_dont_have_hardware_wallet": "للأشخاص الذين ليس لديهم محفظة أجهزة.",
   "content__for_people_who_have_hardware_wallet": "للأشخاص الذين لديهم محفظة أجهزة.",
   "content__from": "من عند",
+  "content__frozen": "مجمدة",
   "content__ftx_collapse": "طي FTX",
   "content__gas_fee": "رسوم الغاز",
   "content__gas_fee_will_automatically_update_after_str": "سيتم تحديث رسوم الغاز تلقائيًا بعد <a> {0} </a>",
@@ -585,6 +590,7 @@
   "content__generating_your_accounts": "<a> إنشاء </a> <b> حساباتك </b>",
   "content__get_your_public_encryption_key": "احصل على مفتاح التشفير العام الخاص بك.",
   "content__hardware_wallet_desc": "تخزين الأصول الخاصة بك في وضع عدم الاتصال. التأكيد على الجهاز عند إجراء التحويلات والتوقيع.",
+  "content__hardware_wallet_does_not_support_str_yet": "لا تدعم محفظة الأجهزة {0} حتى الآن",
   "content__hardware_wallets_do_not_support_this_feature": "محافظ الأجهزة غير مدعومة.",
   "content__hardware_wallets_do_not_support_this_feature_desc": "هذه الوظيفة متاحة فقط للمدفوعات السريعة باستخدام محفظة التطبيق.",
   "content__hash": "تجزئة",
@@ -614,6 +620,7 @@
   "content__in_the_rare_event_staked_eth_will_be_lost": "في حدث نادر ، سيتم فقد ETH المكدس.",
   "content__in_the_rare_event_staked_eth_will_be_lost_desc": "ينطوي التراص والتحقق من صحة شبكات إثبات الحصة مثل Ethereum على خفض المخاطر. OneKey / Kele Pool غير مسؤول عن عقوبات تخفيض المدقق.",
   "content__info": "معلومات",
+  "content__inscriptions_occupy": "النقوش تحتل",
   "content__installing_str": "تثبيت {0}",
   "content__institutional_wallets": "محافظ مؤسسية",
   "content__int_contacts": "{0} جهات اتصال",
@@ -700,6 +707,7 @@
   "content__not_on_this_device": "ليس على هذا الجهاز",
   "content__not_synced": "غير متزامن",
   "content__notable_collections": "مجموعات بارزة",
+  "content__note_that_exchanges_may_not_accept_contract_transfers": "لاحظ أن البورصات قد لا تقبل تحويلات العقود ، لذا يرجى تجنب إجراء مثل هذه التحويلات.",
   "content__onboarding_import_wallet_desc": "مع عبارة الاسترداد والمفتاح الخاص والعنوان و OneKey Lite و KeyTag والمزيد ...",
   "content__onekey_bridge_str_is_now_available_do_you_want_to_download": "OneKey Bridge {0} متوفر الآن ، هل تريد التنزيل؟",
   "content__onekey_does_not_check_typos_nor_the_status_of_the_protocol_check_by_youself_and_inscribe_with_caution": "لا يتحقق OneKey من الأخطاء الإملائية ولا الحالة الحالية للبروتوكولات ، مثل نطاق .sats و brc-20 وما إلى ذلك. تحقق بنفسك وقم بالتسجيل بحذر.",
@@ -772,6 +780,7 @@
   "content__select_restore_wallet_desc": "اتبع التعليمات التي تظهر على الشاشة لبدء استعادة مفاتيحك الخاصة على جهاز جديد.",
   "content__select_wallet_type": "اختر نوعًا للإعداد",
   "content__send_encrypted_messages_to_you": "إرسال رسائل مشفرة لك.",
+  "content__send_maximum_amount_of_str_from_the_addresses": "أرسل أقصى قدر من {token_symbol} من العناوين.",
   "content__send_transactions_and_signature_request": "إرسال المعاملات وطلب التوقيع.",
   "content__serial_number": "رقم سري",
   "content__set_a_pin_code": "قم بتعيين رمز PIN",
@@ -786,6 +795,7 @@
   "content__since_str": "منذ {0}",
   "content__slow": "بطيء",
   "content__spend_limit_amount": "مبلغ حد الإنفاق",
+  "content__spendable": "قابل للإنفاق",
   "content__spent": "أنفق",
   "content__stablecoin_pairs": "أزواج العملات المستقرة",
   "content__staked_eth_can_t_be_taken_back_now": "لا يمكن إرجاع ETH المكدس الآن.",
@@ -818,6 +828,7 @@
   "content__supported_wallets": "دعم OneKey و Ledger و Trezor والمحافظ الأخرى.",
   "content__switch_price_mark_to_str": "تبديل علامة السعر إلى {0}",
   "content__the_address_above_is_a_taproot_address_to_receive_your_inscription": "العنوان أعلاه هو عنوان الجذر لتلقي النقش الخاص بك",
+  "content__the_amount_for_all_addresses_will_be_randomized_from_str_to_str": "سيتم اختيار المبلغ لجميع العناوين عشوائيًا من {min_amount} إلى {max_amount} .",
   "content__the_contract_detection_isnt_perfect_yet_so_some_of_them_may_slip_through_the_cracks": "اكتشاف العقد ليس مثاليًا بعد ، لذلك قد ينزلق البعض منهم عبر الفجوات. إذا رأيت أي محتوى غير صحيح أثناء التحقق من البدل ، فيرجى إخبارنا في خادم DISCORD الخاص بنا.",
   "content__the_current_statistical_content_only_includes": "يتضمن المحتوى الإحصائي الحالي فقط الرموز المميزة على سلسلة {0} و NFTs على {0} ، المزيد من السلاسل قريبًا.",
   "content__the_current_statistical_content_only_includes_the_assets": "يتضمن المحتوى الإحصائي الحالي الأصول الموجودة على شبكة {0} فقط ، وسيتوفر قريبًا المزيد من الشبكات.",
@@ -845,9 +856,12 @@
   "content__type": "يكتب",
   "content__uique_owner": "أصحاب فريد",
   "content__uncommon__uppercase": "غير مألوف",
+  "content__unconfirmed": "غير مؤكد",
   "content__unlimited_authorization_puts_all_approved_tokens_at_risk": "التفويض غير المحدود يعرض جميع الرموز المميزة المعتمدة للخطر.",
+  "content__unusable": "غير صالح للإستعمال",
   "content__up_to_100_accounts": "ما يصل إلى 100 حساب",
   "content__update_ready_to_install": "التحديث جاهز للتثبيت",
+  "content__updating_assets": "تحديث الأصول",
   "content__updating_defi_assets": "تحديث أصول DeFi",
   "content__updating_nft_assets": "تحديث أصول NFT",
   "content__updating_token_assets": "تحديث الأصول الرمزية",
@@ -985,6 +999,8 @@
   "empty__no_sales_record_desc": "هذا الحساب لم يبيع أي NFTs",
   "empty__no_tokens": "لا توجد رموز",
   "empty__no_tokens_desc": "سيتم عرض الرموز المميزة {0} هنا.",
+  "empty__no_tools": "لا توجد أدوات",
+  "empty__no_tools_desc": "لا توجد حاليا أدوات متاحة للاستخدام.",
   "empty__no_wallet_desc": "ابدأ بإنشاء محفظة جديدة.",
   "empty__no_wallet_title": "لا توجد محفظة",
   "empty__not_supported": "غير مدعوم",
@@ -1058,6 +1074,7 @@
   "form__amount_above_required_reserve": "المبلغ أعلى من الاحتياطي المطلوب {amount} {unit}",
   "form__amount_invalid": "رصيد {0} غير كافٍ",
   "form__amount_max_amount": "الحد الأقصى للمبلغ",
+  "form__amount_per_transaction": "المبلغ لكل معاملة",
   "form__amount_recipient_activate": "المستلم يتطلب حجز {amount} {unit} للتفعيل",
   "form__and_str_other_actions": "و {count} إجراءات أخرى",
   "form__and_the_other_str_actions": "وإجراءات {remain_count} الأخرى",
@@ -1107,6 +1124,7 @@
   "form__bitcoin__nested_segwit_desc": "يبدأ بـ \" {0} \". رسوم الشبكة المتوسطة.",
   "form__bitcoin__taproot_desc": "يبدأ بـ \" {0} \". رسوم شبكة منخفضة للغاية.",
   "form__bitcoin__uppercase": "بيتكوين",
+  "form__blacklist": "القائمة السوداء",
   "form__blacklist_included": "وشملت القائمة السوداء",
   "form__blacklist_included_desc": "يمكن لمالك العقد إضافة أي عنوان إلى القائمة السوداء ، ولا يمكن لحاملي الرموز المدرجة في القائمة السوداء التداول. إساءة استخدام ميزة القائمة السوداء محفوفة بالمخاطر.",
   "form__ble_version": "إصدار BLE",
@@ -1174,6 +1192,7 @@
   "form__crypto": "عملة مشفرة",
   "form__crypto_settings": "تشفير",
   "form__current_str": "الحالي: {0}",
+  "form__custom": "يعدل أو يكيف",
   "form__dark": "داكن",
   "form__data": "البيانات",
   "form__data_tab": "البيانات",
@@ -1181,6 +1200,7 @@
   "form__default": "تقصير",
   "form__default_currency": "العملة الافتراضية",
   "form__default_str": "الافتراضي: {0}",
+  "form__delay_str": "تأخير {duration}",
   "form__description__optional": "وصف (اختياري)",
   "form__description__uppercase": "وصف",
   "form__designated_recipient": "المستلم المعين",
@@ -1250,6 +1270,7 @@
   "form__field_too_small": "لا تقل عن {0}",
   "form__file": "ملف",
   "form__firmware_version": "نسخة برنامج ثابت",
+  "form__fixed": "مُثَبَّت",
   "form__floor_price": "أدنى سعر",
   "form__free_limited_time": "مجانا! (وقت محدود)",
   "form__from": "من",
@@ -1358,6 +1379,7 @@
   "form__market_data": "بيانات السوق",
   "form__market_uppercase": "سوق",
   "form__massage_uppercase": "رسالة",
+  "form__max": "الأعلى",
   "form__max_amount": "المبلغ الأقصى:",
   "form__max_fee": "الحد الأقصى للرسوم",
   "form__max_fee_gwei": "ماكس في (جوي)",
@@ -1384,6 +1406,7 @@
   "form__modify_the_line_with_the_correct_format": "قم بتعديل الخط بالتنسيق الصحيح",
   "form__more_details": "المزيد من التفاصيل",
   "form__multiple_transactions": "معاملات متعددة",
+  "form__my_account": "حسابي",
   "form__my_accounts": "حساباتي",
   "form__my_cryptos_uppercase": "التشفير الخاص بي",
   "form__my_tokens": "الرموز الخاصة بي",
@@ -1517,6 +1540,7 @@
   "form__proxy_contract_found_desc": "يسمح عقد الوكيل للمالك بتغيير وظيفة الرمز المميز وسعره.",
   "form__put_coins_at_the_top": "ضع العملة على رأس القائمة",
   "form__quests": "أسئلة",
+  "form__random": "عشوائي",
   "form__rate": "معدل",
   "form__rate_our_app": "قيم تطبيقنا",
   "form__raw_desc": "التمهيد لمركز معلومات Web3 الشخصي الخاص بك من أكثر من 500 موجز ويب لـ RSS.",
@@ -1669,7 +1693,6 @@
   "form__token": "رمز",
   "form__token_address": "عنوان الرمز",
   "form__token_balance": "رصيد الرمز",
-  "form__token_blacklist": "القائمة السوداء للرموز",
   "form__token_can_be_issued_additionall": "يمكن إصدار رمز إضافي",
   "form__token_can_be_issued_additionall_desc": "يحتوي العقد على وظائف إصدار إضافية ، والتي يمكن أن تولد رموزًا ، مما يؤدي إلى تقلبات كبيرة في أسعار الرموز.",
   "form__token_data": "بيانات الرمز المميز",
@@ -1684,6 +1707,7 @@
   "form__top_50_tokens": "أفضل 50 توكينز",
   "form__top_searched": "الأكثر بحثا",
   "form__top_yields": "أعلى الغلة",
+  "form__total": "المجموع",
   "form__total_amount_fee": "الإجمالي (المبلغ + الرسوم)",
   "form__total_received": "إجمالي المتلقاة",
   "form__touch_id": "Touch ID",
@@ -1974,7 +1998,7 @@
   "msg__alert_already_exists": "التنبيه موجود بالفعل",
   "msg__amount_too_small": "مبلغ التحويل صغير جدًا",
   "msg__aptos_first_activation_token": "إذا تم تنشيط الرمز المميز لأول مرة ، فسيتم إصدار معاملة عملة.",
-  "msg__authentication_failed_verify_again": "فشلت المصادقة ، تحقق مرة أخرى",
+  "msg__authentication_failed_verify_again": "فشلت المصادقة ، تحقق من اتصال الشبكة وحاول مرة أخرى",
   "msg__backup_imported": "البيانات المستوردة",
   "msg__broadcast_dot_tx_Insufficient_fee": "الرصيد غير كاف.",
   "msg__broadcast_dot_tx_outdated": "الصفقة عفا عليها الزمن.",
@@ -2163,6 +2187,7 @@
   "msg__password_has_been_set": "تم تعيين كلمة المرور",
   "msg__password_needs_to_be_the_same": "يجب أن تكون كلمة المرور هي نفسها لكلا الإدخالين.",
   "msg__password_validation": "يجب أن تكون كلمة المرور بين 8 و 128 حرفًا.",
+  "msg__payment_received": "تم استلام الدفعة",
   "msg__please_limit_the_amount_of_tokens_to_str_decimal_places_or_less": "الرجاء تحديد مقدار الرموز المميزة بـ {0} منازل عشرية أو أقل.",
   "msg__please_limit_the_file_size_to_str_or_less": "الرجاء تحديد حجم الملف بـ {0} أو أقل",
   "msg__please_upgrade_to_the_lastest_version_of_onekey_bridge": "الرجاء الترقية إلى أحدث إصدار من OneKey Bridge",
@@ -2186,6 +2211,7 @@
   "msg__restored_str": "تمت استعادة \" {0} \"",
   "msg__revoking_failed__excessive_gas_cost": "فشل الإلغاء: تكلفة الغاز الباهظة",
   "msg__revoking_failed__excessive_gas_cost_desc": "تشير تكلفة الغاز الزائدة لهذه المعاملة إلى أنه قد يكون رمزًا غير مرغوب فيه يحاول احتيال الغاز. لذلك ، لا تحتاج إلى إلغاء الموافقة.",
+  "msg__rpc_node_failure_refresh_and_try_again": "فشل عقدة RPC ، قم بالتحديث وحاول مرة أخرى",
   "msg__rpc_or_network_error": "RPC أو خطأ في الشبكة",
   "msg__rpc_or_network_error_desc": "لا يزال بإمكانك محاولة تحديد الرسوم مع العرف.",
   "msg__send_tokens_to_the_system_s_financing_address": "في الوضع السريع ، يتم إرسال الرموز المميزة الخاصة بك إلى عنوان النظام ويتم تحويلها تلقائيًا إلى حساب المستخدم الخاص بك. إذا كان العنوان لا يحتوي على رصيد كافٍ ، فسيتم تخزين المبلغ المتبقي في رصيدك القابل للسحب ويمكن سحبه في أي وقت.",
@@ -2227,6 +2253,8 @@
   "msg__the_current_version_is_the_latest": "👏 الإصدار الحالي هو الأحدث",
   "msg__the_disk_path_was_not_found": "لم يتم العثور على مسار القرص",
   "msg__the_invoice_amount_cannot_be_0": "لا يمكن أن يكون مبلغ الفاتورة 0",
+  "msg__the_invoice_has_expired": "انتهت صلاحية الفاتورة.",
+  "msg__the_ordinal_service_failure_refresh_and_try_again": "فشل الخدمة الترتيبي ، قم بالتحديث وحاول مرة أخرى",
   "msg__the_recipient_address_is_a_contract_address": "عنوان المستلم هو عنوان عقد ، وقد يؤدي التحويل إلى هذا العنوان إلى خسارة الأصول.",
   "msg__the_recipient_address_is_a_scam_address": "تم الإبلاغ عن الاحتيال على هذا العنوان وقد يؤدي النقل إلى هذا العنوان إلى فقدان الأصول.",
   "msg__the_spendable_balance_on_the_chain_will_be_0_when_a_transfer_in_in_progress": "سيكون الرصيد القابل للإنفاق في السلسلة 0 عندما يكون التحويل قيد التنفيذ. عادةً ما يستغرق الأمر 20 دقيقة حتى يصبح الرصيد قابلاً للإنفاق.",

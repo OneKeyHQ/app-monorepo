@@ -69,13 +69,17 @@ export default class Vault extends VaultBase {
   settings = settings;
 
   async getClient() {
-    return this.getClientCache();
+    const network = await this.getNetwork();
+    return this.getClientCache(network.isTestnet);
   }
 
   // client: axios
-  private getClientCache = memoizee(() => new ClientLightning(), {
-    maxAge: getTimeDurationMs({ minute: 3 }),
-  });
+  private getClientCache = memoizee(
+    (isTestnet: boolean) => new ClientLightning(isTestnet),
+    {
+      maxAge: getTimeDurationMs({ minute: 3 }),
+    },
+  );
 
   async exchangeToken(password: string) {
     try {
@@ -85,6 +89,7 @@ export default class Vault extends VaultBase {
       const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
       const address = dbAccount.addresses.normalizedAddress;
       const hashPubKey = bytesToHex(sha256(dbAccount.pub));
+      const network = await this.getNetwork();
       const { entropy } = (await this.engine.dbApi.getCredential(
         this.walletId,
         password ?? '',
@@ -106,6 +111,7 @@ export default class Vault extends VaultBase {
         path: dbAccount.addresses.realPath,
         password: password ?? '',
         entropy,
+        isTestnet: network.isTestnet,
       });
       return await client.refreshAccessToken({
         hashPubKey,
@@ -336,9 +342,10 @@ export default class Vault extends VaultBase {
           },
           totalFeeInNative: new BigNumber(fee).shiftedBy(-decimals).toFixed(),
         };
-        decodedTx.updatedAt = new Date(txInfo.expires_at).getTime();
+        decodedTx.updatedAt = new Date(txInfo.settled_at).getTime();
         decodedTx.createdAt =
-          historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
+          historyTxToMerge?.decodedTx.createdAt ??
+          new Date(txInfo.settled_at).getTime();
         decodedTx.isFinal =
           decodedTx.status === IDecodedTxStatus.Confirmed ||
           decodedTx.status === IDecodedTxStatus.Failed;
@@ -605,5 +612,12 @@ export default class Vault extends VaultBase {
     }
 
     return Promise.resolve({ success: true });
+  }
+
+  async fetchSpecialInvoice(paymentHash: string) {
+    const balanceAddress = await this.getCurrentBalanceAddress();
+    const client = await this.getClient();
+    const invoice = await client.specialInvoice(balanceAddress, paymentHash);
+    return invoice;
   }
 }

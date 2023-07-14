@@ -12,7 +12,10 @@ export function NetWorkDisabledInfo({
     return <XmrDisabledInfo />;
   }
 
-  if (networkId === OnekeyNetwork.lightning) {
+  if (
+    networkId &&
+    [OnekeyNetwork.lightning, OnekeyNetwork.tlightning].includes(networkId)
+  ) {
     return <HardwareDisabledInfo networkId={networkId} />;
   }
 

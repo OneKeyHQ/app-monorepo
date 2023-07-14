@@ -1,4 +1,4 @@
-import { type FC, useCallback, useEffect } from 'react';
+import { type FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Platform, Share } from 'react-native';
@@ -7,7 +7,6 @@ import {
   BottomSheetModal,
   Box,
   Center,
-  CustomSkeleton,
   Divider,
   HStack,
   Icon,
@@ -16,65 +15,17 @@ import {
   Typography,
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useAppSelector } from '../../../../hooks';
 import { getAppNavigation } from '../../../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { homeTab, webTabsActions } from '../../../../store/observable/webTabs';
-import { setNetworkPrice } from '../../../../store/reducers/discover';
 import { openUrlExternal } from '../../../../utils/openUrl';
 import { showOverlay } from '../../../../utils/overlayUtils';
 import { GasPanelRoutes } from '../../../GasPanel/types';
+import { GasPrice } from '../../components/GasPrice';
 import { DiscoverModalRoutes } from '../../type';
 import { useWebController } from '../Controller/useWebController';
-
-const GasWidget = () => {
-  const networkPrices = useAppSelector((s) => s.discover.networkPrices);
-  const price = networkPrices?.[OnekeyNetwork.eth];
-  useEffect(() => {
-    async function handler() {
-      const res = await backgroundApiProxy.serviceGas.getGasInfo({
-        networkId: OnekeyNetwork.eth,
-      });
-      const item = res.prices[0];
-      let value = '';
-      if (typeof item === 'string') {
-        value = item;
-      } else {
-        value = item.price ?? '';
-      }
-      backgroundApiProxy.dispatch(
-        setNetworkPrice({ networkId: OnekeyNetwork.eth, price: value }),
-      );
-    }
-    const t = setInterval(handler, 30 * 1000);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <Center
-      borderRadius={12}
-      borderColor="border-subdued"
-      borderWidth={1}
-      w="12"
-      h="12"
-    >
-      {price ? (
-        <Typography.Body2Strong lineHeight={14} color="text-warning">
-          {price}
-        </Typography.Body2Strong>
-      ) : (
-        <Box w="8" h="3" mb="1" overflow="hidden" borderRadius={12}>
-          <CustomSkeleton />
-        </Box>
-      )}
-      <Typography.CaptionStrong lineHeight={12} color="text-warning">
-        Gwei
-      </Typography.CaptionStrong>
-    </Center>
-  );
-};
 
 const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
   const intl = useIntl();
@@ -210,7 +161,7 @@ const MoreMenu: FC<{ onClose: () => void }> = ({ onClose }) => {
             </Typography.Caption>
           </Pressable>
           <Pressable alignItems="center" onPress={onGasPanel}>
-            <GasWidget />
+            <GasPrice />
             <Typography.Caption mt="2">🔥Gas</Typography.Caption>
           </Pressable>
         </HStack>

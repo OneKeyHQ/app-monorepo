@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { createSelector } from '@reduxjs/toolkit';
 import B from 'bignumber.js';
 import { pick } from 'lodash';
 import natsort from 'natsort';
@@ -18,11 +19,11 @@ import { getTimeDurationMs } from '../utils/helper';
 import { getPreBaseValue } from '../utils/priceUtils';
 import { EOverviewScanTaskType } from '../views/Overview/types';
 
-import { useWalletIdFromAccountIdWithFallback } from './useAccount';
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
 import { useFrozenBalance, useSingleToken } from './useTokens';
 
+import type { IAppState } from '../store';
 import type { ITokenDetailInfo } from '../views/ManageTokens/types';
 import type {
   IAccountToken,
@@ -119,11 +120,8 @@ export const useAccountPortfolios = <
       {},
   );
 
-  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
-
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
-    walletId,
-    accountId: accountId ?? '',
+    accountId,
   });
 
   const fetchData = useCallback(async () => {
@@ -342,11 +340,8 @@ export const useNFTValues = ({
   accountId?: string;
   networkId?: string;
 }) => {
-  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
-
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
-    walletId: walletId ?? '',
-    accountId: accountId ?? '',
+    accountId,
   });
 
   const nftPrices = useAppSelector((s) => s.nft.nftPrice);
@@ -511,7 +506,6 @@ export const useTokenBalanceWithoutFrozen = ({
 export const useTokenPositionInfo = ({
   accountId = '',
   networkId = '',
-  walletId = '',
   tokenAddress,
   sendAddress,
   coingeckoId,
@@ -537,9 +531,10 @@ export const useTokenPositionInfo = ({
   });
 
   const { data: allNetworksAccountsMap } = useAllNetworksWalletAccounts({
-    walletId,
     accountId,
   });
+
+  // TODO: fetch minerOverview
 
   const minerOverview = useAppSelector((s) => s.staking.keleMinerOverviews);
 
@@ -570,7 +565,7 @@ export const useTokenPositionInfo = ({
         const current = minerOverview?.[aid]?.[nid];
         total = total
           .plus(current?.amount?.total_amount ?? 0)
-          .plus(current.amount.withdrawable ?? 0);
+          .plus(current?.amount.withdrawable ?? 0);
       }
 
       return {
@@ -649,7 +644,6 @@ export const useTokenPositionInfo = ({
 
     const { balance: stakingBalance, networkId: stakingNetworkId } =
       keleStakingInfo ?? {};
-
     if (stakingBalance?.gt(0) && stakingNetworkId) {
       balance = balance.plus(keleStakingInfo.balance);
       items.push({
@@ -705,7 +699,10 @@ export const useTokenDetailInfo = ({
 
   return useMemo(() => {
     const { defaultChain } = data ?? {};
-    const tokens = data?.tokens || (token ? [token] : []);
+    const tokens = data?.tokens ?? [];
+    if (!tokens.length && token) {
+      tokens.push(token);
+    }
     const defaultToken =
       tokens?.find(
         (t) =>
@@ -714,7 +711,9 @@ export const useTokenDetailInfo = ({
 
     const ethereumNativeToken = tokens?.find(
       (n) =>
-        n.impl === IMPL_EVM && n.chainId === '1' && (n.isNative || !n.address),
+        n.impl === IMPL_EVM &&
+        (n.chainId === '1' || n.chainId === '5') &&
+        (n.isNative || !n.address),
     );
 
     return {
@@ -728,6 +727,31 @@ export const useTokenDetailInfo = ({
   }, [data, token, loading, tokenLoading]);
 };
 
+const tasksSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createSelector([(s: IAppState) => s.overview.tasks], (tasks) => {
+    const data = Object.values(tasks || {});
+    return data.filter((t) => t.key === `${networkId}___${accountId}`);
+  });
+
+const updatedTimeSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createSelector(
+    (s: IAppState) => s.overview.updatedTimeMap,
+    (updatedTimeMap) =>
+      updatedTimeMap?.[`${networkId}___${accountId}`]?.updatedAt,
+  );
+
 export const useOverviewPendingTasks = ({
   networkId,
   accountId,
@@ -736,42 +760,26 @@ export const useOverviewPendingTasks = ({
   accountId: string;
 }) => {
   const intl = useIntl();
+
   const updatedAt = useAppSelector(
-    (s) =>
-      s.overview.updatedTimeMap?.[`${networkId}___${accountId}`]?.updatedAt,
+    useMemo(
+      () => updatedTimeSelector({ networkId, accountId }),
+      [networkId, accountId],
+    ),
   );
 
-  const tasks = useAppSelector((s) => {
-    const data = Object.values(s.overview.tasks || {});
-    return data.filter((t) => t.key === `${networkId}___${accountId}`);
-  });
+  const tasks = useAppSelector(
+    useMemo(
+      () => tasksSelector({ networkId, accountId }),
+      [networkId, accountId],
+    ),
+  );
 
   const updateTips = useMemo(() => {
-    let assetType = '';
     if (tasks?.length) {
-      assetType =
-        tasks.find((t) =>
-          [
-            EOverviewScanTaskType.token,
-            EOverviewScanTaskType.defi,
-            EOverviewScanTaskType.nfts,
-          ].includes(t.scanType),
-        )?.scanType ?? '';
-    }
-    if (assetType) {
-      return (
-        {
-          [EOverviewScanTaskType.token]: intl.formatMessage({
-            id: 'content__updating_token_assets',
-          }),
-          [EOverviewScanTaskType.defi]: intl.formatMessage({
-            id: 'content__updating_defi_assets',
-          }),
-          [EOverviewScanTaskType.nfts]: intl.formatMessage({
-            id: 'content__updating_nft_assets',
-          }),
-        }[assetType] ?? ''
-      );
+      return intl.formatMessage({
+        id: 'content__updating_assets',
+      });
     }
     const duration = Date.now() - updatedAt;
     if (
@@ -827,11 +835,8 @@ export function useAccountTokenLoading(networkId: string, accountId: string) {
   const pendingTasks = useOverviewPendingTasks({ networkId, accountId });
   const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
 
-  const walletId = useWalletIdFromAccountIdWithFallback(accountId, '');
-
   const { data } = useAllNetworksWalletAccounts({
-    walletId,
-    accountId: accountId ?? '',
+    accountId,
   });
 
   return useMemo(() => {
