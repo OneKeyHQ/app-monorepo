@@ -176,9 +176,11 @@ function normalizeConfig({ platform, config }) {
     isDev && [
       'babel-plugin-catch-logger',
       {
-        'methodName': 'error',
-        'catchPromise': false,
-        'namespaced': false,
+        source: '@onekeyhq/shared/src/logger/autoLogger',
+        name: 'autoLogger',
+        methodName: 'error',
+        catchPromise: false,
+        namespaced: false,
       },
     ],
     moduleResolver && ['module-resolver', moduleResolver],
