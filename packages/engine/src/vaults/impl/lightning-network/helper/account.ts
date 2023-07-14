@@ -1,7 +1,12 @@
 import bs58check from 'bs58check';
 
 import { Provider } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/provider/provider';
-import { COINTYPE_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_BTC,
+  COINTYPE_TBTC,
+  IMPL_BTC,
+  IMPL_TBTC,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../../errors';
 import { batchGetPublicKeys } from '../../../../secret';
@@ -9,9 +14,9 @@ import { getAccountDefaultByPurpose } from '../../../utils/btcForkChain/utils';
 
 import type { Engine } from '../../../..';
 
-export const getBtcProvider = async (engine: Engine) => {
+export const getBtcProvider = async (engine: Engine, isTestnet: boolean) => {
   const chainInfo = await engine.providerManager.getChainInfoByNetworkId(
-    'btc--0',
+    isTestnet ? 'tbtc--0' : 'btc--0',
   );
   const provider = new Provider(chainInfo);
   return provider;
@@ -23,16 +28,20 @@ export const generateNativeSegwitAccounts = async ({
   password,
   indexes,
   names,
+  isTestnet,
 }: {
   engine: Engine;
   seed: Buffer;
   password: string;
   indexes: number[];
   names?: string[];
+  isTestnet: boolean;
 }) => {
-  const provider = await getBtcProvider(engine);
+  const provider = await getBtcProvider(engine, isTestnet);
   const { network } = provider;
-  const { addressEncoding } = getAccountDefaultByPurpose(84, 'BTC');
+  const IMPL = isTestnet ? IMPL_TBTC : IMPL_BTC;
+  const CoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
+  const { addressEncoding } = getAccountDefaultByPurpose(84, IMPL);
   console.log('=====>>>>> : ', provider);
   const ignoreFirst = indexes[0] !== 0;
   const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
@@ -40,7 +49,7 @@ export const generateNativeSegwitAccounts = async ({
     'secp256k1',
     seed,
     password,
-    `m/84'/${COINTYPE_BTC}'`,
+    `m/84'/${CoinType}'`,
     usedIndexes.map((index) => `${index.toString()}'`),
   );
   if (pubkeyInfos.length !== usedIndexes.length) {
@@ -71,7 +80,7 @@ export const generateNativeSegwitAccounts = async ({
       [firstAddressRelPath],
       addressEncoding,
     );
-    const prefix = 'Lightning';
+    const prefix = isTestnet ? 'TLightning' : 'Lightning';
     const name = (names || [])[index] || `${prefix} #${usedIndexes[index] + 1}`;
     if (!ignoreFirst || index > 0) {
       ret.push({

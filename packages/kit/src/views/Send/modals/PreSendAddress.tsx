@@ -25,7 +25,10 @@ import type {
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_LIGHTNING,
+  IMPL_LIGHTNING_TESTNET,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressInput from '../../../components/AddressInput';
@@ -87,7 +90,9 @@ function PreSendAddress() {
       : (reset as ITransferInfo);
   const { isNFT } = transferInfo;
   const { account, network } = useActiveSideAccount(routeParams);
-  const isLightningNetwork = network?.impl === IMPL_LIGHTNING;
+  const isLightningNetwork =
+    network?.impl === IMPL_LIGHTNING ||
+    network?.impl === IMPL_LIGHTNING_TESTNET;
   const useFormReturn = useForm<FormValues>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',

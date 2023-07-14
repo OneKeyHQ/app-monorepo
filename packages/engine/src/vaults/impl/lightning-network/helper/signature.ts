@@ -42,14 +42,16 @@ export const signature = async ({
   path,
   password,
   entropy,
+  isTestnet,
 }: {
   msgPayload: UnionMsgType;
   engine: Engine;
   path: string;
   password: string;
   entropy: Buffer;
+  isTestnet: boolean;
 }) => {
-  const provider = await getBtcProvider(engine);
+  const provider = await getBtcProvider(engine, isTestnet);
   const result = provider.signMessage(
     password,
     entropy,
