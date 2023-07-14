@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { useTokenDetailInfo, useTokenPositionInfo } from '../../hooks';
 import { SwapPlugins } from '../Swap/Plugins/Swap';
@@ -76,6 +77,11 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     sendAddress,
     walletId,
   });
+
+  const isLightningNetwork = useMemo(
+    () => isLightningNetworkByNetworkId(networkId),
+    [networkId],
+  );
 
   const headerHeight = useMemo(() => {
     let height = 529;
@@ -175,7 +181,10 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
             <MarketInfo coingeckoId={coingeckoId} />
           </Tabs.Tab>
         </Tabs.Container>
-        {!isVerticalLayout && showSwapPanel && !isAllNetworks(networkId) ? (
+        {!isVerticalLayout &&
+        showSwapPanel &&
+        !isAllNetworks(networkId) &&
+        !isLightningNetwork ? (
           <Box width="360px" mt="6" mr="8">
             <SwapPlugins
               tokenId={tokenAddress ?? 'main'}
