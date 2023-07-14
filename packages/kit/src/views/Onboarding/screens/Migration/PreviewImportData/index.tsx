@@ -42,6 +42,7 @@ import Layout from '../../../Layout';
 import type { EOnboardingRoutes } from '../../../routes/enums';
 import type { IOnboardingRoutesParams } from '../../../routes/types';
 import type { RouteProp } from '@react-navigation/core';
+import { gtIgnore } from '@onekeyhq/shared/src/utils/semverUtils';
 
 const defaultProps = {} as const;
 
@@ -111,7 +112,7 @@ const PreviewImportData = () => {
       return true;
     }
     // data version >= local version
-    if (data.appVersion && semver.gt(data.appVersion, version)) {
+    if (data.appVersion && gtIgnore(data.appVersion, version, 'patch')) {
       return false;
     }
     return true;
