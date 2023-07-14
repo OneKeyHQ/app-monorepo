@@ -188,6 +188,7 @@ export type ITransferInfo = {
   coinControlDisabled?: boolean;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
   lnurlPaymentInfo?: LNURLPaymentInfo;
+  txInterval?: string;
 };
 export type IApproveInfo = {
   from: string; // token owner

@@ -431,6 +431,7 @@ export type BatchSendConfirmOnSuccessData = {
   encodedTxs?: IEncodedTx[];
   decodedTxs?: IDecodedTx[];
   senderAccounts?: string[];
+  isAborted?: boolean;
 };
 
 export type SendConfirmAdvancedSettings = {

@@ -1,10 +1,16 @@
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isEmpty, map } from 'lodash';
+import { isEmpty, isNil, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { GroupingList, ListItem, Text } from '@onekeyhq/components';
+import {
+  Badge,
+  GroupingList,
+  HStack,
+  ListItem,
+  Text,
+} from '@onekeyhq/components';
 import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import {
   type IDecodedTx,
@@ -184,15 +190,20 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
         txs: ISignedTxPro[],
         data,
       ) => {
+        const { isAborted, senderAccounts = [], signedTxs = [] } = data ?? {};
+
         if (isManyToN) {
-          Promise.all(
-            (data?.senderAccounts ?? []).map((senderAccountId) =>
-              serviceToken.fetchAccountTokens({
-                accountId: senderAccountId,
-                networkId,
-              }),
-            ),
-          );
+          serviceToken.batchFetchAccountBalances({
+            networkId,
+            walletId,
+            accountIds: senderAccounts.slice(0, signedTxs.length),
+          });
+          serviceToken.batchFetchAccountTokenBalances({
+            networkId,
+            walletId,
+            accountIds: senderAccounts.slice(0, signedTxs.length),
+            tokenAddress: tokenInfo?.tokenIdOnNetwork,
+          });
         } else {
           serviceToken.fetchAccountTokens({
             accountId,
@@ -219,13 +230,15 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
           isSingleTransformMode,
         };
 
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.Send,
-          params: {
-            screen: SendModalRoutes.SendFeedbackReceipt,
-            params,
-          },
-        });
+        if (!isAborted) {
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Send,
+            params: {
+              screen: SendModalRoutes.SendFeedbackReceipt,
+              params,
+            },
+          });
+        }
 
         if (routeParams.onSuccess) {
           routeParams.onSuccess(txs, data);
@@ -273,6 +286,7 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
       routeParams,
       serviceHistory,
       serviceToken,
+      tokenInfo?.tokenIdOnNetwork,
       walletId,
     ],
   );
@@ -349,9 +363,20 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     ) {
       groupTransactionsData.push({
         headerProps: {
-          title: `${intl.formatMessage({ id: 'form__transaction' })} #${
-            i + 1
-          }`.toUpperCase(),
+          title: (
+            <HStack space="10px" alignItems="center" mb={2}>
+              <Text typography="Subheading" color="text-subdued" lineHeight={1}>
+                {`${intl.formatMessage({ id: 'form__transaction' })} #${i + 1}
+                `.toUpperCase()}
+              </Text>
+              {isNil(transferInfos?.[i].txInterval) ? null : (
+                <Badge
+                  size="sm"
+                  title={`delay ${transferInfos?.[i].txInterval as string}s`}
+                />
+              )}
+            </HStack>
+          ),
         },
         data: [
           {
@@ -363,7 +388,13 @@ function BatchSendConfirm({ batchSendConfirmParamsParsed }: Props) {
     }
 
     return groupTransactionsData;
-  }, [decodedTxs, intl, transactionCount, transfersAmountToUpdate]);
+  }, [
+    decodedTxs,
+    intl,
+    transactionCount,
+    transferInfos,
+    transfersAmountToUpdate,
+  ]);
 
   sharedProps.children = isSingleTransformMode ? (
     <TxDetailView

@@ -9,6 +9,7 @@ export enum TokenTraderEnum {
 export enum BulkSenderRoutes {
   TokenSelector = 'TokenSelectorModal',
   AmountEditor = 'AmountEditorModal',
+  IntervalEditor = 'IntervalEditorModal',
 }
 
 export enum TraderExampleType {
@@ -27,6 +28,12 @@ export enum AmountTypeEnum {
 export enum TraderTypeEnum {
   Sender = 'Sender',
   Receiver = 'Receiver',
+}
+
+export enum IntervalTypeEnum {
+  Off = 'Off',
+  Fixed = 'Fixed',
+  Random = 'Random',
 }
 
 export type BulkSenderRoutesParams = {
@@ -48,6 +55,17 @@ export type BulkSenderRoutesParams = {
     }: {
       amount: string[];
       amountType: AmountTypeEnum;
+    }) => void;
+  };
+  [BulkSenderRoutes.IntervalEditor]: {
+    txInterval: string[];
+    intervalType: IntervalTypeEnum;
+    onIntervalChanged: ({
+      txInterval,
+      intervalType,
+    }: {
+      txInterval: string[];
+      intervalType: IntervalTypeEnum;
     }) => void;
   };
 };

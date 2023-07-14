@@ -45,7 +45,7 @@ function BulkSender() {
   const routeParams = route.params;
   const mode = routeParams?.mode;
 
-  const { accountId, networkId, network, accountAddress } =
+  const { accountId, networkId, network, accountAddress, walletId } =
     useActiveWalletAccount();
 
   let selectedMode = mode;
@@ -95,6 +95,7 @@ function BulkSender() {
         <ManyToN
           accountId={accountId}
           networkId={networkId}
+          walletId={walletId}
           accountAddress={accountAddress}
           bulkType={BulkTypeEnum.ManyToOne}
         />
@@ -105,12 +106,13 @@ function BulkSender() {
         <ManyToN
           accountId={accountId}
           networkId={networkId}
+          walletId={walletId}
           accountAddress={accountAddress}
           bulkType={BulkTypeEnum.ManyToMany}
         />
       );
     }
-  }, [accountAddress, accountId, networkId, selectedMode]);
+  }, [accountAddress, accountId, networkId, selectedMode, walletId]);
 
   const title = useMemo(() => {
     let desc: MessageDescriptor['id'];

@@ -2,7 +2,6 @@ import BigNumber from 'bignumber.js';
 
 import { ToastManager } from '@onekeyhq/components';
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
-import { getBalanceKey } from '@onekeyhq/engine/src/managers/token';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import { BulkTypeEnum } from '@onekeyhq/engine/src/types/batchTransfer';
 import type { Token } from '@onekeyhq/engine/src/types/token';
@@ -13,9 +12,8 @@ import {
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AmountTypeEnum } from '../types';
+import { AmountTypeEnum, IntervalTypeEnum } from '../types';
 
-import type { TokenInitialState } from '../../../store/reducers/tokens';
 import type { TokenTrader, TraderError } from '../types';
 
 const randomBetween = ({
@@ -45,22 +43,22 @@ export const getTransferAmount = async ({
   senderItem,
   amount,
   amountType,
-  balances,
   token,
+  tokensBalance,
 }: {
   networkId: string;
   senderItem: TokenTrader;
   amount: string[];
   amountType: AmountTypeEnum;
   token: Token;
-  balances: TokenInitialState['accountTokensBalance'];
+  tokensBalance: Record<string, string | undefined> | undefined;
 }) => {
   if (amountType === AmountTypeEnum.Custom) {
     return senderItem.Amount!;
   }
 
   if (amountType === AmountTypeEnum.Fixed) {
-    return amount[1];
+    return amount[0];
   }
 
   // senderAccount has be verified in verifyBulkTransferBeforeConfirm
@@ -71,9 +69,7 @@ export const getTransferAmount = async ({
       networkId,
     })) as Account;
 
-  const senderTokenBalance =
-    balances?.[networkId]?.[senderAccount?.id]?.[getBalanceKey(token)]
-      ?.balance ?? '0';
+  const senderTokenBalance = tokensBalance?.[senderAccount?.id] ?? '0';
 
   if (amountType === AmountTypeEnum.Random) {
     const min = amount[0];
@@ -88,8 +84,29 @@ export const getTransferAmount = async ({
   return '0';
 };
 
+export const getTxInterval = ({
+  txInterval,
+  intervalType,
+}: {
+  txInterval: string[];
+  intervalType: IntervalTypeEnum;
+}) => {
+  if (intervalType === IntervalTypeEnum.Fixed) {
+    return txInterval[0];
+  }
+
+  if (intervalType === IntervalTypeEnum.Random) {
+    return randomBetween({
+      min: txInterval[0],
+      max: txInterval[1],
+      decimals: 3,
+    });
+  }
+};
+
 export const verifyBulkTransferBeforeConfirm = async ({
   networkId,
+  walletId,
   sender,
   receiver,
   bulkType,
@@ -97,9 +114,9 @@ export const verifyBulkTransferBeforeConfirm = async ({
   amountType,
   token,
   feePresetIndex,
-  balances,
 }: {
   networkId: string;
+  walletId: string;
   sender: TokenTrader[];
   receiver: TokenTrader[];
   bulkType: BulkTypeEnum;
@@ -107,7 +124,6 @@ export const verifyBulkTransferBeforeConfirm = async ({
   amountType: AmountTypeEnum;
   token: Token;
   feePresetIndex: string;
-  balances: TokenInitialState['accountTokensBalance'];
 }) => {
   if (
     bulkType === BulkTypeEnum.ManyToMany &&
@@ -149,19 +165,7 @@ export const verifyBulkTransferBeforeConfirm = async ({
         message: 'This is not your address',
       });
     } else {
-      let senderAmount = '0';
-
       senderAccounts.push(senderAccount.id);
-
-      if (amountType === AmountTypeEnum.Custom) {
-        senderAmount = senderItem.Amount!;
-      } else if (amountType === AmountTypeEnum.Fixed) {
-        [senderAmount] = amount;
-      } else if (amountType === AmountTypeEnum.Random) {
-        [, senderAmount] = amount;
-      } else {
-        senderAmount = '0';
-      }
 
       if (feeInfo === null) {
         try {
@@ -216,42 +220,80 @@ export const verifyBulkTransferBeforeConfirm = async ({
           };
         }
       }
+    }
+  }
 
-      const senderNativeTokenBalance =
-        balances?.[networkId]?.[senderAccount.id]?.main?.balance ?? '0';
+  if (errors.length > 0) {
+    return {
+      isVerified: false,
+      errors,
+    };
+  }
 
-      const senderTokenBalance =
-        balances?.[networkId]?.[senderAccount.id]?.[getBalanceKey(token)]
-          ?.balance ?? '0';
-      if (token.isNative) {
-        if (new BigNumber(senderAmount).gt(senderNativeTokenBalance)) {
-          errors.push({
-            lineNumber: i + 1,
-            message: `Insufficient balance, the balance is ${senderNativeTokenBalance}`,
-          });
-        } else if (
-          new BigNumber(senderAmount)
-            .plus(totalFeeNative)
-            .gt(senderNativeTokenBalance)
-        ) {
-          errors.push({
-            lineNumber: i + 1,
-            message: `The balance is not enough to pay the handling fee`,
-          });
-        }
-      } else {
-        if (new BigNumber(senderAmount).gt(senderTokenBalance)) {
-          errors.push({
-            lineNumber: i + 1,
-            message: `Insufficient balance, the balance is ${senderTokenBalance}`,
-          });
-        }
-        if (new BigNumber(totalFeeNative).gt(senderNativeTokenBalance)) {
-          errors.push({
-            lineNumber: i + 1,
-            message: `The balance is not enough to pay the handling fee`,
-          });
-        }
+  const nativeTokensBalance =
+    await backgroundApiProxy.serviceToken.batchFetchAccountBalances({
+      walletId,
+      networkId,
+      accountIds: senderAccounts,
+      disableDebounce: true,
+    });
+
+  const tokensBalance = token.isNative
+    ? nativeTokensBalance
+    : await backgroundApiProxy.serviceToken.batchFetchAccountTokenBalances({
+        walletId,
+        networkId,
+        accountIds: senderAccounts,
+        tokenAddress: token.tokenIdOnNetwork,
+      });
+
+  for (let i = 0; i < sender.length; i += 1) {
+    let senderAmount = '0';
+    const senderItem = sender[i];
+    const senderAccountId = senderAccounts[i];
+
+    if (amountType === AmountTypeEnum.Custom) {
+      senderAmount = senderItem.Amount!;
+    } else if (amountType === AmountTypeEnum.Fixed) {
+      [senderAmount] = amount;
+    } else if (amountType === AmountTypeEnum.Random) {
+      [, senderAmount] = amount;
+    } else {
+      senderAmount = '0';
+    }
+
+    const senderNativeTokenBalance =
+      nativeTokensBalance?.[senderAccountId] ?? '0';
+    const senderTokenBalance = tokensBalance?.[senderAccountId] ?? '0';
+
+    if (token.isNative) {
+      if (new BigNumber(senderAmount).gt(senderNativeTokenBalance)) {
+        errors.push({
+          lineNumber: i + 1,
+          message: `Insufficient balance`,
+        });
+      } else if (
+        new BigNumber(senderAmount)
+          .plus(totalFeeNative)
+          .gt(senderNativeTokenBalance)
+      ) {
+        errors.push({
+          lineNumber: i + 1,
+          message: `The balance is not enough to pay the handling fee`,
+        });
+      }
+    } else {
+      if (new BigNumber(senderAmount).gt(senderTokenBalance)) {
+        errors.push({
+          lineNumber: i + 1,
+          message: `Insufficient balance`,
+        });
+      }
+      if (new BigNumber(totalFeeNative).gt(senderNativeTokenBalance)) {
+        errors.push({
+          lineNumber: i + 1,
+          message: `The balance is not enough to pay the handling fee`,
+        });
       }
     }
   }
@@ -266,5 +308,6 @@ export const verifyBulkTransferBeforeConfirm = async ({
   return {
     isVerified: true,
     senderAccounts,
+    tokensBalance,
   };
 };

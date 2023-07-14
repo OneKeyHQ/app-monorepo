@@ -167,7 +167,7 @@ function TraderInput(props: TraderInputParams) {
             leftIconName="BookOpenOutline"
             onPress={handleSelectContactOnPress}
           >
-            {intl.formatMessage({ id: 'title__contacts' })}
+            {intl.formatMessage({ id: 'title__address_book' })}
           </Button>
         </HStack>
       </HStack>

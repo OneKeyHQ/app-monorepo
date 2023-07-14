@@ -25,25 +25,31 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AmountEditorTrigger } from '../AmountEditor/AmountEditorTrigger';
 import { amountDefaultTypeMap } from '../constants';
 import { useValidteTrader } from '../hooks';
+import { IntervalEditorTrigger } from '../IntervalEditor/IntervalEditorTrigger';
 import { TraderExample } from '../TraderExample';
 import { TraderInput } from '../TraderInput';
 import { TxSettingPanel } from '../TxSetting/TxSettingPanel';
 import { TxSettingTrigger } from '../TxSetting/TxSettingTrigger';
-import { AmountTypeEnum, BulkSenderRoutes } from '../types';
+import { AmountTypeEnum, BulkSenderRoutes, IntervalTypeEnum } from '../types';
 
-import { getTransferAmount, verifyBulkTransferBeforeConfirm } from './utils';
+import {
+  getTransferAmount,
+  getTxInterval,
+  verifyBulkTransferBeforeConfirm,
+} from './utils';
 
 import type { TokenTrader, TraderError } from '../types';
 
 interface Props {
   accountId: string;
   networkId: string;
+  walletId: string;
   accountAddress: string;
   bulkType: BulkTypeEnum;
 }
 
 function ManyToN(props: Props) {
-  const { accountId, networkId, bulkType } = props;
+  const { accountId, networkId, walletId, bulkType } = props;
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [sender, setSender] = useState<TokenTrader[]>([]);
   const [senderFromOut, setSenderFromOut] = useState<TokenTrader[]>([]);
@@ -62,6 +68,8 @@ function ManyToN(props: Props) {
     amountDefaultTypeMap[bulkType] ?? AmountTypeEnum.Fixed,
   );
   const [amount, setAmount] = useState<string[]>(['0', '1']);
+  const [txInterval, setTxInterval] = useState<string[]>(['1', '5']);
+  const [intervalType, setIntervalType] = useState(IntervalTypeEnum.Random);
 
   const intl = useIntl();
   const isVertical = useIsVerticalLayout();
@@ -156,6 +164,20 @@ function ManyToN(props: Props) {
     [sender],
   );
 
+  const handleOnIntervalChanged = useCallback(
+    ({
+      txInterval: value,
+      intervalType: type,
+    }: {
+      txInterval: string[];
+      intervalType: IntervalTypeEnum;
+    }) => {
+      setTxInterval(value);
+      setIntervalType(type);
+    },
+    [],
+  );
+
   const handleOpenTokenSelector = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.BulkSender,
@@ -177,16 +199,16 @@ function ManyToN(props: Props) {
 
     setIsBuildingTx(true);
 
-    const { isVerified, errors, senderAccounts } =
+    const { isVerified, errors, senderAccounts, tokensBalance } =
       await verifyBulkTransferBeforeConfirm({
         networkId,
+        walletId,
         sender,
         receiver,
         amount,
         amountType,
         bulkType,
         token: currentToken,
-        balances,
         feePresetIndex,
       });
 
@@ -209,10 +231,18 @@ function ManyToN(props: Props) {
           amountType,
           token: currentToken,
           senderItem: sender[i],
-          balances,
+          tokensBalance,
         }),
         token: currentToken?.tokenIdOnNetwork,
         tokenSendAddress: currentToken?.sendAddress,
+        // send first tx without delay
+        txInterval:
+          i === 0
+            ? undefined
+            : getTxInterval({
+                txInterval,
+                intervalType,
+              }),
       });
     }
 
@@ -258,15 +288,17 @@ function ManyToN(props: Props) {
     accountId,
     amount,
     amountType,
-    balances,
     bulkType,
     currentToken,
     feePresetIndex,
+    intervalType,
     isDisabled,
     navigation,
     networkId,
     receiver,
     sender,
+    txInterval,
+    walletId,
   ]);
 
   useFocusEffect(
@@ -315,6 +347,11 @@ function ManyToN(props: Props) {
           amountType={amountType}
           bulkType={bulkType}
           networkId={network?.id ?? ''}
+        />
+        <IntervalEditorTrigger
+          txInterval={txInterval}
+          intervalType={intervalType}
+          handleOnIntervalChanged={handleOnIntervalChanged}
         />
       </TxSettingPanel>
       <Box mt={8}>
