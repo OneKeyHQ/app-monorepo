@@ -60,12 +60,13 @@ const CreateInvoice = () => {
       if (isLoading) return;
       if (!networkId || !accountId) return;
       setIsLoading(true);
+      const amount = values.amount || '0';
       try {
         const invoice =
           await backgroundApiProxy.serviceLightningNetwork.createInvoice({
             networkId,
             accountId,
-            amount: values.amount,
+            amount,
             description: values.description,
           });
         navigation.navigate(RootRoutes.Modal, {
@@ -150,12 +151,6 @@ const CreateInvoice = () => {
               name="amount"
               formControlProps={{ width: 'full' }}
               rules={{
-                required: {
-                  value: true,
-                  message: intl.formatMessage({
-                    id: 'form__field_is_required',
-                  }),
-                },
                 min: {
                   value: 0,
                   message: intl.formatMessage(

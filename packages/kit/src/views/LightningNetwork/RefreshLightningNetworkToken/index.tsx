@@ -19,7 +19,10 @@ export default function RefreshLightningNetworkToken({
 }) {
   const intl = useIntl();
   useEffect(() => {
-    if (networkId !== OnekeyNetwork.lightning) {
+    if (
+      !networkId ||
+      ![OnekeyNetwork.lightning, OnekeyNetwork.tlightning].includes(networkId)
+    ) {
       return;
     }
     backgroundApiProxy.serviceLightningNetwork

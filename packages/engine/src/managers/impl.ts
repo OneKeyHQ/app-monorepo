@@ -15,6 +15,7 @@ import {
   COINTYPE_FIL,
   COINTYPE_KASPA,
   COINTYPE_LIGHTNING,
+  COINTYPE_LIGHTNING_TESTNET,
   COINTYPE_LTC,
   COINTYPE_NEAR,
   COINTYPE_SOL,
@@ -37,6 +38,7 @@ import {
   IMPL_FIL,
   IMPL_KASPA,
   IMPL_LIGHTNING,
+  IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_SOL,
@@ -84,6 +86,7 @@ const implToCoinTypes: Partial<Record<string, string | string[]>> = {
   [IMPL_XMR]: COINTYPE_XMR,
   [IMPL_KASPA]: COINTYPE_KASPA,
   [IMPL_LIGHTNING]: COINTYPE_LIGHTNING,
+  [IMPL_LIGHTNING_TESTNET]: COINTYPE_LIGHTNING_TESTNET,
 };
 
 const coinTypeToImpl: Record<string, string> = Object.fromEntries(
@@ -121,6 +124,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_XMR]: AccountType.VARIANT,
   [IMPL_KASPA]: AccountType.SIMPLE,
   [IMPL_LIGHTNING]: AccountType.VARIANT,
+  [IMPL_LIGHTNING_TESTNET]: AccountType.VARIANT,
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {
@@ -152,6 +156,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_XMR]: Curve.ED25519,
   [IMPL_KASPA]: Curve.SECP256K1,
   [IMPL_LIGHTNING]: Curve.SECP256K1,
+  [IMPL_LIGHTNING_TESTNET]: Curve.SECP256K1,
 };
 
 function getCurveByImpl(impl: string): string {
