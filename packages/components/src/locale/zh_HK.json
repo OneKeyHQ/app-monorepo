@@ -2187,6 +2187,7 @@
   "msg__password_has_been_set": "密碼已設定",
   "msg__password_needs_to_be_the_same": "兩次輸入的密碼需要一致",
   "msg__password_validation": "密碼應在 8 到 128 位字符之間",
+  "msg__payment_channel_not_found_sending_failed": "未開通支付通道，發送失敗",
   "msg__payment_received": "已收到付款",
   "msg__please_limit_the_amount_of_tokens_to_str_decimal_places_or_less": "請將代幣數量限制在{0}位小數以內。",
   "msg__please_limit_the_file_size_to_str_or_less": "請將文件大小限制為{0}或更小",

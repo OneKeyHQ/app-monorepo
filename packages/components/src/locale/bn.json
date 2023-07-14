@@ -2187,6 +2187,7 @@
   "msg__password_has_been_set": "পাসওয়ার্ড সেট করা হয়েছে",
   "msg__password_needs_to_be_the_same": "উভয় এন্ট্রির জন্য পাসওয়ার্ড একই হতে হবে।",
   "msg__password_validation": "পাসওয়ার্ড 8 থেকে 128 অক্ষরের মধ্যে হওয়া উচিত।",
+  "msg__payment_channel_not_found_sending_failed": "অর্থপ্রদানের চ্যানেল পাওয়া যায়নি, পাঠানো ব্যর্থ হয়েছে৷",
   "msg__payment_received": "পেমেন্ট পেয়েছি",
   "msg__please_limit_the_amount_of_tokens_to_str_decimal_places_or_less": "অনুগ্রহ করে টোকেনের পরিমাণ {0} দশমিক স্থান বা তার কম সীমাবদ্ধ করুন।",
   "msg__please_limit_the_file_size_to_str_or_less": "অনুগ্রহ করে ফাইলের আকার {0} বা তার কম সীমাবদ্ধ করুন",

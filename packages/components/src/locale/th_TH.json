@@ -2187,6 +2187,7 @@
   "msg__password_has_been_set": "ตั้งรหัสผ่านแล้ว",
   "msg__password_needs_to_be_the_same": "รหัสผ่านจะต้องเหมือนกันสำหรับทั้งสองรายการ",
   "msg__password_validation": "รหัสผ่านควรมีความยาวระหว่าง 8 ถึง 128 อักขระ",
+  "msg__payment_channel_not_found_sending_failed": "ไม่พบช่องทางการชำระเงิน การส่งล้มเหลว",
   "msg__payment_received": "ได้รับการชำระเงินแล้ว",
   "msg__please_limit_the_amount_of_tokens_to_str_decimal_places_or_less": "โปรดจำกัดจำนวนโทเค็นไว้ที่ {0} ตำแหน่งทศนิยมหรือน้อยกว่า",
   "msg__please_limit_the_file_size_to_str_or_less": "โปรดจำกัดขนาดไฟล์ไว้ที่ {0} หรือน้อยกว่า",
