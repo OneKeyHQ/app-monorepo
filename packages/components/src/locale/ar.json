@@ -1998,7 +1998,7 @@
   "msg__alert_already_exists": "التنبيه موجود بالفعل",
   "msg__amount_too_small": "مبلغ التحويل صغير جدًا",
   "msg__aptos_first_activation_token": "إذا تم تنشيط الرمز المميز لأول مرة ، فسيتم إصدار معاملة عملة.",
-  "msg__authentication_failed_verify_again": "فشلت المصادقة ، تحقق مرة أخرى",
+  "msg__authentication_failed_verify_again": "فشلت المصادقة ، تحقق من اتصال الشبكة وحاول مرة أخرى",
   "msg__backup_imported": "البيانات المستوردة",
   "msg__broadcast_dot_tx_Insufficient_fee": "الرصيد غير كاف.",
   "msg__broadcast_dot_tx_outdated": "الصفقة عفا عليها الزمن.",

@@ -1998,7 +1998,7 @@
   "msg__alert_already_exists": "Анхааруулга аль хэдийн байна",
   "msg__amount_too_small": "Шилжүүлгийн хэмжээ хэтэрхий бага байна",
   "msg__aptos_first_activation_token": "Хэрэв жетон анх удаа идэвхжсэн бол зоосны гүйлгээ хийгдэнэ.",
-  "msg__authentication_failed_verify_again": "Баталгаажуулалт амжилтгүй болсон тул дахин баталгаажуулна уу",
+  "msg__authentication_failed_verify_again": "Баталгаажуулалт амжилтгүй болсон тул сүлжээний холболтоо шалгаад дахин оролдоно уу",
   "msg__backup_imported": "Импортолсон өгөгдөл",
   "msg__broadcast_dot_tx_Insufficient_fee": "Үлдэгдэл хангалтгүй байна.",
   "msg__broadcast_dot_tx_outdated": "Гүйлгээ хуучирсан.",

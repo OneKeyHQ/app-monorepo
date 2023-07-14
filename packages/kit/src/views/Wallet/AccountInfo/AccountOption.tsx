@@ -13,10 +13,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  IMPL_LIGHTNING,
-  IMPL_LIGHTNING_TESTNET,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
@@ -63,7 +60,7 @@ export const AccountOption: FC<AccountOptionProps> = ({ isSmallView }) => {
       if (!n || !a) {
         return;
       }
-      if (n?.impl === IMPL_LIGHTNING || n?.impl === IMPL_LIGHTNING_TESTNET) {
+      if (isLightningNetworkByImpl(n?.impl)) {
         navigation.navigate(RootRoutes.Modal, {
           screen: ModalRoutes.Receive,
           params: {

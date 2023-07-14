@@ -1998,7 +1998,7 @@
   "msg__alert_already_exists": "アラートはすでに存在済み",
   "msg__amount_too_small": "送金金額が過少する",
   "msg__aptos_first_activation_token": "初めて有効化されるトークンの場合に、コイン トランザクションが発行される。",
-  "msg__authentication_failed_verify_again": "認証に失敗した。もう一度確認してください",
+  "msg__authentication_failed_verify_again": "認証に失敗しました。ネットワーク接続を確認して再試行してください",
   "msg__backup_imported": "データをインポート済み",
   "msg__broadcast_dot_tx_Insufficient_fee": "残高不足です。",
   "msg__broadcast_dot_tx_outdated": "トランザクションが期限切れています。",

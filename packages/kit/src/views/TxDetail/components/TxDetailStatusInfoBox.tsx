@@ -11,6 +11,7 @@ import txFailedIcon from '@onekeyhq/kit/assets/transaction/status/tx_failed.png'
 import txPendingIcon from '@onekeyhq/kit/assets/transaction/status/tx_pending.png';
 import txSuccessedIcon from '@onekeyhq/kit/assets/transaction/status/tx_successed.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { isLightningNetworkByNetworkId } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { TabRoutes } from '../../../routes/routesEnum';
 import BaseMenu from '../../Overlay/BaseMenu';
@@ -65,6 +66,8 @@ function TxDetailStatusInfoBox(props: Props) {
     return baseOptions;
   }, [handleToSwapOnPress, tokensInTx]);
 
+  const isLightningNetwork = isLightningNetworkByNetworkId(decodedTx.networkId);
+
   if (isSendConfirm) return null;
 
   return (
@@ -85,7 +88,7 @@ function TxDetailStatusInfoBox(props: Props) {
             )}
           </Box>
         </HStack>
-        {tokensInTx.length === 1 && (
+        {tokensInTx.length === 1 && !isLightningNetwork && (
           <Button
             size="sm"
             type="basic"

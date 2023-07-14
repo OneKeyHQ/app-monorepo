@@ -69,6 +69,9 @@ export interface NativeNestedTabViewProps {
   onChange?: (
     e: NativeSyntheticEvent<{ tabName: string; index: number }>,
   ) => void;
+
+  // Android only
+  slideDisable?: boolean;
 }
 
 export interface NestedTabViewProps extends NativeNestedTabViewProps {
