@@ -134,6 +134,11 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
         view.setCurrentIndex(index)
     }
 
+    @ReactProp(name = "slideDisable")
+    fun setSlideDisable(view: HomePageView, disable: Boolean?) {
+        view.setSlideDisable(disable)
+    }
+
     override fun getChildCount(parent: HomePageView): Int {
         return parent.getChildViewCount()
     }
