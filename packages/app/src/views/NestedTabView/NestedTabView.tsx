@@ -36,6 +36,7 @@ export type ForwardRefHandle = {
 
 const failedDistance = 5;
 const drawerOpenDistance = 50;
+
 enum LockDirection {
   None = 0,
   Vertical = 1,
@@ -68,6 +69,7 @@ const NestedTabView: ForwardRefRenderFunction<
   // only used on android cause touchMove event does not have translation values
   const lastTransX = useSharedValue(0);
   const startY = useSharedValue(0);
+  const startX = useSharedValue(0);
   const native = Gesture.Native();
 
   const lockVertical = useCallback(() => {
@@ -124,7 +126,10 @@ const NestedTabView: ForwardRefRenderFunction<
     if (canOpenDrawer) {
       if (tabIndex.value === 0) {
         // console.log('lastTransX', lastTransX.value);
-        if (lastTransX.value > drawerOpenDistance) {
+        if (
+          lastTransX.value > drawerOpenDistance &&
+          lockDirection.value === LockDirection.Vertical
+        ) {
           openDrawer();
           // nestedTabTransX.value = withSpring(0, {
           //   velocity: 50,
@@ -152,6 +157,7 @@ const NestedTabView: ForwardRefRenderFunction<
         resetGesture();
         nestedTabStartX.value = allTouches[0].absoluteX;
         startY.value = allTouches[0].absoluteY;
+        startX.value = allTouches[0].absoluteX;
         offsetX.value = nestedTabTransX.value;
       });
     }
@@ -171,24 +177,34 @@ const NestedTabView: ForwardRefRenderFunction<
     if (platformEnv.isNativeAndroid) {
       // onTouchesMove works better on Android
       basePan.onTouchesMove(({ allTouches }) => {
-        if (lockDirection.value === LockDirection.Vertical) {
-          return;
+        if (lockDirection.value === LockDirection.None) {
+          // Determine vertical or horizontal by sliding 20
+          if (
+            Math.abs(allTouches[0].absoluteX - startX.value) < 20 &&
+            Math.abs(allTouches[0].absoluteY - startY.value) < 20
+          ) {
+            return;
+          }
+
+          if (
+            Math.abs(allTouches[0].absoluteY - startY.value) >
+            Math.abs(allTouches[0].absoluteX - startX.value)
+          ) {
+            lockHorizontal();
+            return;
+          }
+          lockVertical();
         }
+
         // use Math.max to ensure the translation always increase
         const transX = allTouches[0].absoluteX - nestedTabStartX.value;
         lastTransX.value = transX;
-
-        if (lockDirection.value === LockDirection.None) {
-          if (
-            Math.abs(allTouches[0].absoluteY - startY.value) > failedDistance
-          ) {
-            lockVertical();
-          }
-          if (Math.abs(transX) > failedDistance) {
-            lockHorizontal();
-          }
-        }
-        if (canOpenDrawer && tabIndex.value === 0 && transX > failedDistance) {
+        if (
+          lockDirection.value === LockDirection.Vertical &&
+          canOpenDrawer &&
+          tabIndex.value === 0 &&
+          transX > failedDistance
+        ) {
           nestedTabTransX.value = offsetX.value + transX;
         }
       });
