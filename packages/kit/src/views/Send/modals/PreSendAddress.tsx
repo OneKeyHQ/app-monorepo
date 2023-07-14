@@ -123,7 +123,7 @@ function PreSendAddress() {
         if (nftTokenId) {
           const contractAddress = transferInfo.token;
           const asset = await serviceNFT.getAsset({
-            accountId: account?.id ?? '',
+            accountId,
             networkId,
             contractAddress,
             tokenId: nftTokenId,
@@ -214,7 +214,7 @@ function PreSendAddress() {
         ToastManager.show(
           {
             title: intl.formatMessage({
-              id: 'msg__unknown_error',
+              id: 'msg__nft_does_not_exist',
             }),
           },
           { type: 'error' },

@@ -159,11 +159,15 @@ const ToolsPage: FC = () => {
   useEffect(() => {
     if (accountAddress?.length > 0 && !isAllNetworks(networkId)) {
       serviceInscribe
-        .checkValidTaprootAddress({ address: accountAddress })
+        .checkValidTaprootAddress({
+          address: accountAddress,
+          networkId,
+          accountId,
+        })
         .then((result) => setInscribeEnable(result))
         .catch(() => setInscribeEnable(false));
     }
-  }, [accountAddress, networkId, serviceInscribe]);
+  }, [accountAddress, accountId, networkId, serviceInscribe]);
 
   const items = useMemo(() => {
     let allItems = data.filter((n) => {
