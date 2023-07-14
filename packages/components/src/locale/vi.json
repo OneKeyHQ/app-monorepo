@@ -1998,7 +1998,7 @@
   "msg__alert_already_exists": "Cảnh báo đã tồn tại",
   "msg__amount_too_small": "Số tiền chuyển quá nhỏ",
   "msg__aptos_first_activation_token": "Nếu mã thông báo được kích hoạt lần đầu tiên, giao dịch tiền xu sẽ được phát hành.",
-  "msg__authentication_failed_verify_again": "Xác thực không thành công, xác minh lại",
+  "msg__authentication_failed_verify_again": "Xác thực không thành công, hãy kiểm tra kết nối mạng của bạn và thử lại",
   "msg__backup_imported": "Dữ liệu đã nhập",
   "msg__broadcast_dot_tx_Insufficient_fee": "Số dư không đủ.",
   "msg__broadcast_dot_tx_outdated": "Giao dịch đã lỗi thời.",

@@ -19,9 +19,10 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Token as TokenType } from '@onekeyhq/engine/src/types/token';
+import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useNavigation, useWallet } from '../../../hooks';
+import { useNavigation, useNetwork, useWallet } from '../../../hooks';
 import {
   FiatPayModalRoutes,
   MainRoutes,
@@ -134,6 +135,8 @@ export const ButtonsSection: FC = () => {
     walletId,
   });
 
+  const { network: currentNetwork } = useNetwork({ networkId });
+
   const filter = useCallback(
     ({ network }: { network?: Network | null }) =>
       !!network?.id && !!items?.some((t) => t.networkId === network?.id),
@@ -171,6 +174,19 @@ export const ButtonsSection: FC = () => {
   const onReceive = useCallback(
     ({ network, account }: ISingleChainInfo) => {
       if (!wallet) {
+        return;
+      }
+      if (isLightningNetworkByImpl(network.impl)) {
+        navigation.navigate(RootRoutes.Modal, {
+          screen: ModalRoutes.Receive,
+          params: {
+            screen: ReceiveTokenModalRoutes.CreateInvoice,
+            params: {
+              networkId: network.id,
+              accountId: account.id,
+            },
+          },
+        });
         return;
       }
       navigation.navigate(RootRoutes.Modal, {
@@ -268,6 +284,16 @@ export const ButtonsSection: FC = () => {
     [selectNetworkAccount, tokens, sendAddress],
   );
 
+  const showSwapOption = useMemo(
+    () => !currentNetwork?.settings.hiddenAccountInfoSwapOption,
+    [currentNetwork],
+  );
+
+  const showMoreOption = useMemo(
+    () => !currentNetwork?.settings.hiddenAccountInfoMoreOption,
+    [currentNetwork],
+  );
+
   const { buttons, options } = useMemo(() => {
     const list: IButtonItem[] = [
       {
@@ -284,17 +310,19 @@ export const ButtonsSection: FC = () => {
         id: 'title__swap',
         onPress: onSwap,
         icon: 'ArrowsRightLeftSolid',
-        visible: () => isVerticalLayout,
+        visible: () => isVerticalLayout && showSwapOption,
       },
       {
         id: 'action__buy',
         onPress: onBuy,
         icon: 'PlusMini',
+        visible: () => showMoreOption,
       },
       {
         id: 'action__sell',
         onPress: onSell,
         icon: 'BanknotesMini',
+        visible: () => showMoreOption,
       },
     ]
       .map((t) => ({ ...t, isDisabled: loading }))
@@ -318,6 +346,8 @@ export const ButtonsSection: FC = () => {
     onSwap,
     onReceive,
     onSend,
+    showSwapOption,
+    showMoreOption,
   ]);
 
   return (
@@ -351,17 +381,19 @@ export const ButtonsSection: FC = () => {
               isDisabled={loading}
             />
           ))}
-          <BaseMenu ml="26px" options={options}>
-            <Pressable>
-              <ButtonItem
-                icon="EllipsisVerticalOutline"
-                text={intl.formatMessage({
-                  id: 'action__more',
-                })}
-                isDisabled={loading}
-              />
-            </Pressable>
-          </BaseMenu>
+          {showMoreOption && (
+            <BaseMenu ml="26px" options={options}>
+              <Pressable>
+                <ButtonItem
+                  icon="EllipsisVerticalOutline"
+                  text={intl.formatMessage({
+                    id: 'action__more',
+                  })}
+                  isDisabled={loading}
+                />
+              </Pressable>
+            </BaseMenu>
+          )}
         </HStack>
       </HStack>
       {ethereumNativeToken && !isAllNetworks(networkId) ? (

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -18,7 +18,9 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccount, useNetwork } from '../../../hooks';
+import { getTimeDurationMs } from '../../../utils/helper';
 
 import type {
   ReceiveTokenModalRoutes,
@@ -36,7 +38,8 @@ const ReceiveInvoice = () => {
 
   const route = useRoute<NavigationProps>();
 
-  const { accountId, networkId, paymentRequest } = route.params ?? {};
+  const { accountId, networkId, paymentRequest, paymentHash } =
+    route.params ?? {};
 
   const isVerticalLayout = useIsVerticalLayout();
   const { network } = useNetwork({ networkId });
@@ -51,6 +54,39 @@ const ReceiveInvoice = () => {
       title: intl.formatMessage({ id: 'msg__copied' }),
     });
   }, [paymentRequest, intl]);
+
+  // polling check for invoice status
+  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  useEffect(() => {
+    if (!paymentHash || !networkId || !accountId) return;
+    const { serviceLightningNetwork } = backgroundApiProxy;
+    timerRef.current = setInterval(() => {
+      serviceLightningNetwork
+        .fetchSpecialInvoice({
+          paymentHash,
+          networkId,
+          accountId,
+        })
+        .then((res) => {
+          if (res.is_paid) {
+            ToastManager.show({
+              title: intl.formatMessage({ id: 'msg__payment_received' }),
+            });
+            clearInterval(timerRef.current);
+          }
+        })
+        .catch((e) => {
+          // ignore because it's normal to fail when invoice is not paid
+          console.error(e);
+        });
+    }, getTimeDurationMs({ seconds: 5 }));
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [paymentHash, networkId, accountId, intl]);
 
   return (
     <Modal

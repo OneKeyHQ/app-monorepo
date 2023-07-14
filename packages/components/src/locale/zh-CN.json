@@ -1998,7 +1998,7 @@
   "msg__alert_already_exists": "该提醒已存在",
   "msg__amount_too_small": "转账金额太小",
   "msg__aptos_first_activation_token": "如果代币是第一次激活，将发出一笔主币交易。",
-  "msg__authentication_failed_verify_again": "身份认证失败，请重新验证",
+  "msg__authentication_failed_verify_again": "身份认证失败，请检查网络连接后重试",
   "msg__backup_imported": "数据已导入",
   "msg__broadcast_dot_tx_Insufficient_fee": "余额不足。",
   "msg__broadcast_dot_tx_outdated": "交易已过时。",

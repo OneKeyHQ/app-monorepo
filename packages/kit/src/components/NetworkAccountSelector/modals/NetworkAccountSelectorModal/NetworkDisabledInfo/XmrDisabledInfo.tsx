@@ -40,7 +40,7 @@ function HardwareDisabledInfo({ networkId }: { networkId: string }) {
     <Text typography="Body1">
       {intl.formatMessage(
         {
-          id: 'content__str_chain_is_unsupprted',
+          id: 'content__hardware_wallet_does_not_support_str_yet',
         },
         {
           0: network?.name,

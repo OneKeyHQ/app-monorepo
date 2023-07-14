@@ -1998,7 +1998,7 @@
   "msg__alert_already_exists": "Сповіщення вже існує",
   "msg__amount_too_small": "Сума переказу занадто мала",
   "msg__aptos_first_activation_token": "Якщо токен активується вперше, буде випущена монетна транзакція.",
-  "msg__authentication_failed_verify_again": "Помилка автентифікації, перевірте ще раз",
+  "msg__authentication_failed_verify_again": "Помилка автентифікації, перевірте підключення до мережі та повторіть спробу",
   "msg__backup_imported": "Дані імпортовані",
   "msg__broadcast_dot_tx_Insufficient_fee": "Залишок недостатній.",
   "msg__broadcast_dot_tx_outdated": "Трансакція застаріла.",

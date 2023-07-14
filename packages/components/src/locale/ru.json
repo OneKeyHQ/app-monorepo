@@ -1998,7 +1998,7 @@
   "msg__alert_already_exists": "Оповещение уже существует",
   "msg__amount_too_small": "Сумма перевода слишком мала",
   "msg__aptos_first_activation_token": "Если токен активируется в первый раз, будет выдана транзакция монет.",
-  "msg__authentication_failed_verify_again": "Аутентификация не удалась, проверьте еще раз",
+  "msg__authentication_failed_verify_again": "Ошибка аутентификации, проверьте подключение к сети и повторите попытку.",
   "msg__backup_imported": "Данные импортированы",
   "msg__broadcast_dot_tx_Insufficient_fee": "Баланс недостаточен.",
   "msg__broadcast_dot_tx_outdated": "Транзакция устарела.",

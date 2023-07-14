@@ -1998,7 +1998,7 @@
   "msg__alert_already_exists": "Alerta ya existe",
   "msg__amount_too_small": "La cantidad de la transferencia es demasiado pequeña",
   "msg__aptos_first_activation_token": "Si el token se activa por primera vez, se emitirá una transacción de monedas.",
-  "msg__authentication_failed_verify_again": "La autenticación falló, verifique nuevamente",
+  "msg__authentication_failed_verify_again": "La autenticación falló, verifique su conexión de red e intente nuevamente",
   "msg__backup_imported": "Datos importados",
   "msg__broadcast_dot_tx_Insufficient_fee": "El saldo es insuficiente.",
   "msg__broadcast_dot_tx_outdated": "La transacción está desactualizada.",
