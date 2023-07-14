@@ -382,6 +382,7 @@ function OneToMany(props: Props) {
           onPress={handleOpenTokenSelector}
         />
         <AmountEditorTrigger
+          accountAddress={accountAddress}
           token={currentToken}
           handleOnAmountChanged={handleOnAmountChanged}
           transferCount={receiver.length}
@@ -412,11 +413,7 @@ function OneToMany(props: Props) {
       </TxSettingPanel>
       <Box mt={8}>
         <TraderInput
-          header={
-            amountType === AmountTypeEnum.Custom
-              ? 'Receiptent Address, Amount'
-              : 'Receiptent'
-          }
+          header="Receiptent"
           withAmount
           accountId={accountId}
           networkId={networkId}
@@ -433,17 +430,23 @@ function OneToMany(props: Props) {
         />
       </Box>
       <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
-        {intl.formatMessage({
-          id: 'form__each_line_should_include_the_address_and_the_amount_seperated_by_commas',
-        })}
+        {amountType === AmountTypeEnum.Custom
+          ? `${intl.formatMessage({
+              id: 'content__each_line_should_include_the_address_and_amount',
+            })} ${accountAddress}, 0.1`
+          : `${intl.formatMessage({
+              id: 'content__each_line_should_include_the_address',
+            })} ${accountAddress}`}
       </Text>
 
       <Box display={isUploadMode ? 'none' : 'flex'}>
-        <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
-          {intl.formatMessage({
-            id: 'content__deflationary_token_transfers_are_not_supported_at_this_moment',
-          })}
-        </Text>
+        {network?.settings?.nativeSupportBatchTransfer ? null : (
+          <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
+            {intl.formatMessage({
+              id: 'content__note_that_exchanges_may_not_accept_contract_transfers',
+            })}
+          </Text>
+        )}
         <Box mt={4}>
           <Button
             isLoading={isValidating || isBuildingTx}

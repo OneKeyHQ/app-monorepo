@@ -49,6 +49,7 @@ export type BulkSenderRoutesParams = {
     amount: string[];
     amountType: AmountTypeEnum;
     token: Token;
+    accountAddress: string;
     onAmountChanged: ({
       amount,
       amountType,

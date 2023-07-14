@@ -49,7 +49,7 @@ interface Props {
 }
 
 function ManyToN(props: Props) {
-  const { accountId, networkId, walletId, bulkType } = props;
+  const { accountId, networkId, walletId, bulkType, accountAddress } = props;
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [sender, setSender] = useState<TokenTrader[]>([]);
   const [senderFromOut, setSenderFromOut] = useState<TokenTrader[]>([]);
@@ -75,7 +75,6 @@ function ManyToN(props: Props) {
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation();
   const { network } = useNetwork({ networkId });
-  const balances = useAppSelector((s) => s.tokens.accountTokensBalance);
 
   const accountTokens = useAccountTokensOnChain(networkId, accountId, true);
   const tokens = accountTokens.filter((token) =>
@@ -340,6 +339,7 @@ function ManyToN(props: Props) {
           onPress={handleOpenTokenSelector}
         />
         <AmountEditorTrigger
+          accountAddress={accountAddress}
           token={currentToken}
           handleOnAmountChanged={handleOnAmountChanged}
           transferCount={transferCount}
@@ -356,11 +356,7 @@ function ManyToN(props: Props) {
       </TxSettingPanel>
       <Box mt={8}>
         <TraderInput
-          header={
-            amountType === AmountTypeEnum.Custom
-              ? 'Sender Address, Amount'
-              : 'Sender'
-          }
+          header="Sender"
           withAmount
           accountId={accountId}
           networkId={networkId}
@@ -397,9 +393,13 @@ function ManyToN(props: Props) {
         />
       </Box>
       <Text fontSize={12} color="text-subdued" mt={isVertical ? 4 : 3}>
-        {intl.formatMessage({
-          id: 'form__each_line_should_include_the_address_and_the_amount_seperated_by_commas',
-        })}
+        {amountType === AmountTypeEnum.Custom
+          ? `${intl.formatMessage({
+              id: 'content__each_line_should_include_the_address_and_amount',
+            })} ${accountAddress}, 0.1`
+          : `${intl.formatMessage({
+              id: 'content__each_line_should_include_the_address',
+            })} ${accountAddress}`}
       </Text>
       <Box
         display={isUploadSenderMode || isUploadReceiverMode ? 'none' : 'flex'}

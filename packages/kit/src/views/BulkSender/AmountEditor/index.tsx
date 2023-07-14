@@ -39,6 +39,7 @@ function AmountEditor() {
     bulkType,
     token,
     networkId,
+    accountAddress,
   } = route.params;
 
   const deafaultIndex =
@@ -55,7 +56,13 @@ function AmountEditor() {
     mode: 'onChange',
     reValidateMode: 'onBlur',
   });
-  const { control, formState, getValues, trigger: triggerForm } = useFormReturn;
+  const {
+    control,
+    formState,
+    getValues,
+    trigger: triggerForm,
+    watch,
+  } = useFormReturn;
 
   const isConfirmDisabeld = useMemo(() => {
     const amountType = amountEditorTypeMap[bulkType][amountTypeIndex];
@@ -148,11 +155,14 @@ function AmountEditor() {
   const amountTypes = useMemo(
     () =>
       [
-        'Fixed',
+        intl.formatMessage({ id: 'form__fixed' }),
         ...(bulkType === BulkTypeEnum.OneToMany
           ? []
-          : ['Random', intl.formatMessage({ id: 'action__max' })]),
-        intl.formatMessage({ id: 'content__custom' }),
+          : [
+              intl.formatMessage({ id: 'form__random' }),
+              intl.formatMessage({ id: 'form__max' }),
+            ]),
+        intl.formatMessage({ id: 'form__custom' }),
       ].filter(Boolean),
     [bulkType, intl],
   );
@@ -160,11 +170,27 @@ function AmountEditor() {
   const customAmountDesc = useMemo(
     () => (
       <Text>
-        Customise transfer amount by adding the amount after the address (use
-        commas to split). E.g.: 0x97a535f9825DcF3AA709FB2FdddE8d776e4Ebfc3, 1.1
+        {`${intl.formatMessage({
+          id: 'content__customise_transfer_amount_by_adding_the_amount_after_the_address',
+        })} ${accountAddress}, 0.1`}
       </Text>
     ),
-    [],
+    [accountAddress, intl],
+  );
+
+  const watchAmount = watch(['minAmount', 'maxAmount']);
+  const randomAmountDesc = useMemo(
+    () =>
+      intl.formatMessage(
+        {
+          id: 'content__the_amount_for_all_addresses_will_be_randomized_from_str_to_str',
+        },
+        {
+          min_amount: watchAmount[0],
+          max_amount: watchAmount[1],
+        },
+      ),
+    [intl, watchAmount],
   );
 
   const renderAmountEditorDetail = useCallback(() => {
@@ -181,6 +207,7 @@ function AmountEditor() {
           }}
         >
           <Form.NumberInput
+            placeholder={intl.formatMessage({ id: 'form__amount' })}
             rightCustomElement={
               <Text paddingRight={2} typography="Body1">
                 {token?.symbol}
@@ -229,6 +256,7 @@ function AmountEditor() {
               required: true,
               validate: (value) => validateAmount(value, 'max'),
             }}
+            helpText={randomAmountDesc}
           >
             <Form.NumberInput
               rightCustomElement={
@@ -245,8 +273,14 @@ function AmountEditor() {
     if (amountTypeIndex === 2) {
       return (
         <Text>
-          Fixed Random Max Custom Send maximum amount of USDC from the
-          addresses.
+          {intl.formatMessage(
+            {
+              id: 'content__send_maximum_amount_of_str_from_the_addresses',
+            },
+            {
+              token_symbol: token?.symbol,
+            },
+          )}
         </Text>
       );
     }
@@ -261,6 +295,7 @@ function AmountEditor() {
     control,
     customAmountDesc,
     intl,
+    randomAmountDesc,
     token?.symbol,
     validateAmount,
   ]);

@@ -25,6 +25,7 @@ type Props = {
     amountType: AmountTypeEnum;
   }) => void;
   networkId: string;
+  accountAddress: string;
 };
 
 function AmountEditorTrigger(props: Props) {
@@ -36,6 +37,7 @@ function AmountEditorTrigger(props: Props) {
     token,
     transferCount,
     handleOnAmountChanged,
+    accountAddress,
   } = props;
   const intl = useIntl();
   const navigation = useNavigation();
@@ -91,11 +93,13 @@ function AmountEditorTrigger(props: Props) {
           amountType,
           token,
           networkId,
+          accountAddress,
           onAmountChanged: handleOnAmountChanged,
         },
       },
     });
   }, [
+    accountAddress,
     amount,
     amountType,
     bulkType,
@@ -107,7 +111,7 @@ function AmountEditorTrigger(props: Props) {
 
   return (
     <TxSettingTrigger
-      header="Amount Per Transaction"
+      header={intl.formatMessage({ id: 'form__amount_per_transaction' })}
       title={title}
       desc={desc}
       onPress={handleOpenAmountEditor}
