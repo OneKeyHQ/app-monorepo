@@ -305,7 +305,11 @@ const CreateOrder: FC = () => {
         </Center>
       ) : (
         <VStack flex={1} justifyContent="space-between">
-          <ScrollView mx="-16px" px="16px">
+          <ScrollView
+            mx="-16px"
+            bounces={false}
+            contentContainerStyle={{ paddingHorizontal: 16 }}
+          >
             <Steps numberOfSteps={3} currentStep={3} />
             <Text mt="16px" typography="Heading">
               {intl.formatMessage({ id: 'form__inscribe_preview' })}
@@ -348,7 +352,7 @@ const CreateOrder: FC = () => {
               width="100%"
               minValue={546}
               maxValue={10000}
-              accessibilityLabel="fee"
+              accessibilityLabel="sat"
               step={1}
               value={sat}
               onChange={(value) => {
