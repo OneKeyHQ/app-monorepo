@@ -613,4 +613,11 @@ export default class Vault extends VaultBase {
 
     return Promise.resolve({ success: true });
   }
+
+  async fetchSpecialInvoice(paymentHash: string) {
+    const balanceAddress = await this.getCurrentBalanceAddress();
+    const client = await this.getClient();
+    const invoice = await client.specialInvoice(balanceAddress, paymentHash);
+    return invoice;
+  }
 }
