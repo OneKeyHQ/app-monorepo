@@ -1,4 +1,4 @@
-import { find, flatten, pick } from 'lodash';
+import { flatten, pick } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
@@ -18,7 +18,11 @@ import {
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
-import type { Account, DBAccount } from '@onekeyhq/engine/src/types/account';
+import type {
+  Account,
+  DBAccount,
+  DBVariantAccount,
+} from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
@@ -1367,10 +1371,21 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getAddressLabel({
     address,
+    networkId,
   }: {
     address: string;
+    networkId?: string;
   }): Promise<{ label: string; address: string }> {
-    const { wallet, walletId } = getActiveWalletAccount();
+    const { engine } = this.backgroundApi;
+    const {
+      wallet,
+      walletId,
+      networkId: activeNetworkId,
+    } = getActiveWalletAccount();
+    const vault = await engine.getWalletOnlyVault(
+      networkId ?? activeNetworkId,
+      walletId,
+    );
     const cacheKey = `${address}@${walletId || ''}`;
     if (this.addressLabelCache[cacheKey]) {
       return Promise.resolve({
@@ -1379,20 +1394,48 @@ class ServiceAccount extends ServiceBase {
       });
     }
     const findNameLabelByAccountIds = async (accountIds: string[]) => {
-      const accounts = await this.backgroundApi.engine.getAccounts(accountIds);
-      const name = find(accounts, (a) => {
-        if (isLightningNetwork(a.coinType)) {
+      const accounts = await this.backgroundApi.engine.getAccounts(
+        accountIds,
+        networkId,
+      );
+      let accountLabel;
+      for (let i = 0; i < accounts.length && !accountLabel; i += 1) {
+        const account = accounts[i];
+        if (isLightningNetwork(account.coinType)) {
           const addresses =
-            a.addresses && !!a.addresses.length ? JSON.parse(a.addresses) : {};
-          return (
+            account.addresses && !!account.addresses.length
+              ? JSON.parse(account.addresses)
+              : {};
+          if (
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             ((addresses?.hashAddress || '') as string).toLowerCase() ===
             address.toLowerCase()
-          );
+          ) {
+            accountLabel = account.name;
+          }
         }
-        return a.address.toLowerCase() === address.toLowerCase();
-      })?.name;
-      const label = name ?? '';
+
+        if (account.type === AccountType.VARIANT) {
+          const dbAccount = await engine.dbApi.getAccount(account.id);
+          try {
+            const addressOnNetwork = await vault.addressFromBase(
+              dbAccount as DBVariantAccount,
+            );
+
+            if (addressOnNetwork?.toLowerCase() === address.toLowerCase()) {
+              accountLabel = account.name;
+            }
+          } catch {
+            // treate error as not found
+          }
+        }
+
+        if (account.address.toLowerCase() === address.toLowerCase()) {
+          accountLabel = account.name;
+        }
+      }
+
+      const label = accountLabel ?? '';
       if (label && address) {
         this.addressLabelCache[cacheKey] = label;
       }

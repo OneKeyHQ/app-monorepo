@@ -232,6 +232,7 @@ export const coinSelect = ({
     finalOutputs,
     parseInt(feeRate),
   );
+
   if (isNil(fee)) {
     throw new Error('coinSelect ERROR: No fee found');
   }
