@@ -1,6 +1,6 @@
 import { format as fnsFormat } from 'date-fns';
 import { isArray, isNil } from 'lodash';
-import { InteractionManager, NativeModules } from 'react-native';
+import { InteractionManager } from 'react-native';
 import { FileLogger, LogLevel } from 'react-native-file-logger';
 import { logger as RNLogger, consoleTransport } from 'react-native-logs';
 import { zip } from 'react-native-zip-archive';
@@ -28,15 +28,67 @@ type IConsoleFuncProps = {
 
 const LOG_STRING_LIMIT = 500;
 
+function countObjectDepth(source: unknown, maxDepth = 5, depth = 0): number {
+  const currentDepth = depth + 1;
+  if (currentDepth > maxDepth) {
+    return currentDepth;
+  }
+
+  if (source == null) {
+    return currentDepth;
+  }
+
+  if (typeof source !== 'object' || typeof source === 'function') {
+    return currentDepth;
+  }
+
+  if (Array.isArray(source)) {
+    return Math.max(
+      ...source.map((item) => countObjectDepth(item, maxDepth, currentDepth)),
+    );
+  }
+
+  const keys = Object.getOwnPropertyNames(source);
+  return Math.max(
+    ...keys.map((k) =>
+      countObjectDepth(
+        (source as { [k: string]: unknown })[k],
+        maxDepth,
+        currentDepth,
+      ),
+    ),
+  );
+}
+
 function stringifyLog(...args: any[]) {
   const argsNew = args.map((arg) => {
     if (arg instanceof Error) {
       const error = toPlainErrorObject(arg as any);
-      delete error.stack;
+      if (process.env.NODE_ENV === 'production') {
+        delete error.stack;
+      }
       return error;
     }
     return arg as unknown;
   });
+  if (process.env.NODE_ENV !== 'production') {
+    const maxDepth = 5;
+    try {
+      argsNew.forEach((arg) => {
+        if (countObjectDepth(arg, maxDepth) > maxDepth) {
+          console.warn(
+            `Arg nesting too deep. This will affect the performance of logging. Try reducing the level of nesting for the parameter objects.`,
+            arg,
+          );
+        }
+      });
+    } catch (error) {
+      console.warn(
+        `Arg nesting too deep. This will affect the performance of logging. Try reducing the level of nesting for the parameter objects.`,
+        argsNew,
+      );
+    }
+  }
   const stringifiedLog =
     // @ts-ignore
     stringify(...argsNew);
