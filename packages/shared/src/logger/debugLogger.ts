@@ -143,7 +143,9 @@ const migrateLogPath = async () => {
     await RNFS.moveFile(
       prevLogPath,
       // named after a specific time
-      `${NATIVE_LOG_DIR_PATH}/so.onekey.wallet 2023-07-16--12-00-00-000.log`,
+      platformEnv.isNativeIOS
+        ? `${NATIVE_LOG_DIR_PATH}/so.onekey.wallet 2023-07-16--12-00-00-000.log`
+        : `${NATIVE_LOG_DIR_PATH}/so.onekey.app.wallet-2023-07-16.0`,
     );
   }
 };
