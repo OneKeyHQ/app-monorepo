@@ -134,6 +134,9 @@ const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
 const NATIVE_LOG_DIR_PATH = `${RNFS.CachesDirectoryPath}/logs`;
 const NATIVE_LOG_ZIP_DIR_PATH = `${RNFS.CachesDirectoryPath}/log_zip`;
 
+// TODO：
+// begin
+// This piece of code will be removed in the next version.
 const migrateLogPath = async () => {
   const prevLogPath = `${RNFS.CachesDirectoryPath}/log.txt`;
   const isExist = await RNFS.exists(prevLogPath);
@@ -149,8 +152,8 @@ const migrateLogPath = async () => {
     );
   }
 };
-
 migrateLogPath();
+// end
 
 const removeLogZipDir = async () => {
   const isExist = await RNFS.exists(NATIVE_LOG_ZIP_DIR_PATH);
