@@ -1,0 +1,14 @@
+diff --git a/node_modules/react-native-file-logger/android/src/main/java/com/betomorrow/rnfilelogger/FileLoggerModule.java b/node_modules/react-native-file-logger/android/src/main/java/com/betomorrow/rnfilelogger/FileLoggerModule.java
+index 1f3903d..8d51f0e 100644
+--- a/node_modules/react-native-file-logger/android/src/main/java/com/betomorrow/rnfilelogger/FileLoggerModule.java
++++ b/node_modules/react-native-file-logger/android/src/main/java/com/betomorrow/rnfilelogger/FileLoggerModule.java
+@@ -63,7 +63,8 @@ public class FileLoggerModule extends ReactContextBaseJavaModule {
+         logsDirectory = options.hasKey("logsDirectory")
+                 ? options.getString("logsDirectory")
+                 : reactContext.getExternalCacheDir() + "/logs";
+-        String logPrefix = reactContext.getPackageName();
++        // String logPrefix = reactContext.getPackageName();
++        String logPrefix = "so.onekey.app.wallet";
+ 
+         LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
+ 

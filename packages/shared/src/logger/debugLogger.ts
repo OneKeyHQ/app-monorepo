@@ -145,7 +145,7 @@ const migrateLogPath = async () => {
       // named after a specific time
       platformEnv.isNativeIOS
         ? `${NATIVE_LOG_DIR_PATH}/so.onekey.wallet 2023-07-16--12-00-00-000.log`
-        : `${NATIVE_LOG_DIR_PATH}/so.onekey.app.wallet-2023-07-16.0`,
+        : `${NATIVE_LOG_DIR_PATH}/so.onekey.app.wallet-2023-07-16.0.log`,
     );
   }
 };
