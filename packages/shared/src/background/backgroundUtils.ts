@@ -32,6 +32,7 @@ import {
   IMPL_SUI,
   IMPL_TRON,
 } from '../engine/engineConsts';
+import { NotAutoPrintError } from '../errors/common-errors';
 import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
 
@@ -138,7 +139,7 @@ export function warningIfNotRunInBackground({
       return;
     }
     try {
-      throw new Error();
+      throw new NotAutoPrintError();
     } catch (error) {
       const err = error as Error;
       if (
