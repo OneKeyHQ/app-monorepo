@@ -1,17 +1,18 @@
 import { format as fnsFormat } from 'date-fns';
 import { isArray, isNil } from 'lodash';
-import { InteractionManager } from 'react-native';
-import {
-  logger as RNLogger,
-  consoleTransport,
-  fileAsyncTransport,
-} from 'react-native-logs';
-// eslint-disable-next-line import/order
-import { stringify } from 'flatted';
+import { InteractionManager, NativeModules } from 'react-native';
+import { FileLogger, LogLevel } from 'react-native-file-logger';
+import { logger as RNLogger, consoleTransport } from 'react-native-logs';
+import { zip } from 'react-native-zip-archive';
 
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
 import { toPlainErrorObject } from '../utils/errorUtils';
+
+import type { transportFunctionType } from 'react-native-logs';
+
+// eslint-disable-next-line import/order
+import { stringify } from 'flatted';
 
 const RNFS: typeof import('react-native-fs') = platformEnv.isNative
   ? require('react-native-fs')
@@ -78,14 +79,79 @@ const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
   },
 };
 
+const NATIVE_LOG_DIR_PATH = `${RNFS.CachesDirectoryPath}/logs`;
+const NATIVE_LOG_ZIP_DIR_PATH = `${RNFS.CachesDirectoryPath}/log_zip`;
+
+const migrateLogPath = async () => {
+  const prevLogPath = `${RNFS.CachesDirectoryPath}/log.txt`;
+  const isExist = await RNFS.exists(prevLogPath);
+  if (isExist) {
+    console.log('migrateLogPath--isExist', isExist, prevLogPath);
+    await RNFS.mkdir(NATIVE_LOG_DIR_PATH);
+    await RNFS.moveFile(
+      prevLogPath,
+      // named after a specific time
+      `${NATIVE_LOG_DIR_PATH}/so.onekey.wallet 2023-07-16--12-00-00-000.log`,
+    );
+  }
+};
+
+migrateLogPath();
+
+const removeLogZipDir = async () => {
+  const isExist = await RNFS.exists(NATIVE_LOG_ZIP_DIR_PATH);
+  if (isExist) {
+    await RNFS.unlink(NATIVE_LOG_ZIP_DIR_PATH);
+  }
+};
+
+const createLogZipDir = async () => {
+  await RNFS.mkdir(NATIVE_LOG_ZIP_DIR_PATH);
+};
+
+export const getLogZipPath = async (fileName: string) => {
+  try {
+    await removeLogZipDir();
+    await createLogZipDir();
+    return await zip(
+      NATIVE_LOG_DIR_PATH,
+      `${NATIVE_LOG_ZIP_DIR_PATH}/${fileName}`,
+    );
+  } catch (e) {
+    console.error('zip error', e);
+    const files = await RNFS.readDir(NATIVE_LOG_DIR_PATH);
+    const sortedFiles = files
+      .filter((f) => f.name.endsWith('.log'))
+      .map((f) => ({
+        ...f,
+        time: new Date(f.mtime || f.ctime || '').getTime(),
+      }))
+      .sort((a, b) => b.time - a.time);
+    return sortedFiles[0].path;
+  }
+};
+
+FileLogger.configure({
+  captureConsole: false,
+  dailyRolling: true,
+  maximumFileSize: 1024 * 1024 * 2,
+  maximumNumberOfFiles: 7,
+  logsDirectory: NATIVE_LOG_DIR_PATH,
+  logLevel: LogLevel.Info,
+});
+const fileAsyncTransport: transportFunctionType = (props) => {
+  const { level, rawMsg, extension } = props;
+  FileLogger.write(
+    level?.severity || LogLevel.Info,
+    `${extension || ''} | ${rawMsg as string}`,
+  );
+};
+
 const NATIVE_TRANSPORT_CONFIG = {
   transport: platformEnv.isDev
     ? [fileAsyncTransport, consoleTransport]
     : [fileAsyncTransport],
   transportOptions: {
-    FS: RNFS,
-    fileName: 'log.txt',
-    filePath: RNFS.CachesDirectoryPath,
     consoleFunc: (msg: string, props: IConsoleFuncProps) => {
       if (platformEnv.isDev) {
         logToConsole(props);
