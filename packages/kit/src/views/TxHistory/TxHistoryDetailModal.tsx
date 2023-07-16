@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import { Button, Modal, Spinner } from '@onekeyhq/components';
 import type { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/TransactionDetail';
@@ -13,7 +14,6 @@ import { TxDetailView } from '../TxDetail/TxDetailView';
 
 import type { TransactionDetailModalRoutes } from '../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 
 type TransactionDetailRouteProp = RouteProp<
   TransactionDetailRoutesParams,
