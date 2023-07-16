@@ -29,13 +29,18 @@ jest.mock('react-native-zip-archive', () => ({
   zip: jest.fn(),
 }));
 
-// TODO：
-// begin
-// This piece of code will be removed in the next version.
-jest.mock('react-native-fs', () => ({
-  exists: Promise.resolve(false),
+jest.mock('react-native-file-logger', () => ({
+  FileLogger: {
+    configure: jest.fn(),
+    write: jest.fn(),
+  },
+  LogLevel: {
+    Debug: 0,
+    Info: 1,
+    Warning: 2,
+    Error: 3,
+  },
 }));
-// end
 
 // ** shim TextEncoder
 // const { TextEncoder, TextDecoder } = require('util');

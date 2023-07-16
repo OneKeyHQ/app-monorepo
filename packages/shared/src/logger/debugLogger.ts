@@ -139,7 +139,7 @@ const NATIVE_LOG_ZIP_DIR_PATH = `${RNFS.CachesDirectoryPath}/log_zip`;
 // This piece of code will be removed in the next version.
 const migrateLogPath = async () => {
   const prevLogPath = `${RNFS.CachesDirectoryPath}/log.txt`;
-  const isExist = await RNFS.exists(prevLogPath);
+  const isExist = RNFS.exists ? await RNFS.exists(prevLogPath) : false;
   if (isExist) {
     await RNFS.mkdir(NATIVE_LOG_DIR_PATH);
     await RNFS.moveFile(
@@ -174,7 +174,6 @@ export const getLogZipPath = async (fileName: string) => {
       `${NATIVE_LOG_ZIP_DIR_PATH}/${fileName}`,
     );
   } catch (e) {
-    console.error('zip error', e);
     const files = await RNFS.readDir(NATIVE_LOG_DIR_PATH);
     const sortedFiles = files
       .filter((f) => f.name.endsWith('.log'))
