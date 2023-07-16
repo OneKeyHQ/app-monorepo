@@ -72,7 +72,7 @@ function stringifyLog(...args: any[]) {
     return arg as unknown;
   });
   if (process.env.NODE_ENV !== 'production') {
-    const maxDepth = 5;
+    const maxDepth = 3;
     try {
       argsNew.forEach((arg) => {
         if (countObjectDepth(arg, maxDepth) > maxDepth) {
@@ -191,7 +191,7 @@ export const getLogZipPath = async (fileName: string) => {
 FileLogger.configure({
   captureConsole: false,
   dailyRolling: true,
-  maximumFileSize: 1024 * 1024 * 2,
+  maximumFileSize: 1024 * 1024 * 4,
   maximumNumberOfFiles: 7,
   logsDirectory: NATIVE_LOG_DIR_PATH,
   logLevel: LogLevel.Info,
