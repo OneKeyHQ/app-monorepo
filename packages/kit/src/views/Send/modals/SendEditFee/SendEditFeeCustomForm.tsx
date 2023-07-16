@@ -5,6 +5,7 @@ import Slider from '@react-native-community/slider';
 import BigNumber from 'bignumber.js';
 import { first, last } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useDebounce } from 'use-debounce';
 
 import {
   Alert,
@@ -126,9 +127,12 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   );
 
   const [priorityBooster, setPriorityBooster] = useState<number>(1);
+  const [debouncedPriorityBooster] = useDebounce(priorityBooster, 250);
+
   const [basePriority, setBasePriority] = useState(
     (lastPresetFeeInfo as EIP1559Fee)?.maxPriorityFeePerGas,
   );
+
   const [gasLimitTip, setGasLimitTip] = useState<CustomAlert>(null);
   const [gasPriceTip, setGasPriceTip] = useState<CustomAlert>(null);
   const [maxPriorityFeeTip, setMaxPriorityFeeTip] = useState<CustomAlert>(null);
@@ -479,13 +483,11 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                   accessibilityLabel={intl.formatMessage({
                     id: 'form__priority_fee_booster',
                   })}
-                  thumbTintColor="#85D34C"
                   minimumTrackTintColor="#85D34C"
-                  maximumTrackTintColor="#85D34C"
                   minimumValue={1}
                   maximumValue={100}
                   step={1}
-                  value={priorityBooster}
+                  value={debouncedPriorityBooster}
                   onValueChange={handleBoosterOnChange}
                 />
               </Box>
@@ -655,7 +657,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     nativeSymbol,
     networkId,
     originLimit,
-    priorityBooster,
+    debouncedPriorityBooster,
     selectedFeeInfo?.custom?.price,
     selectedFeeInfo?.custom?.price1559,
     setValue,
