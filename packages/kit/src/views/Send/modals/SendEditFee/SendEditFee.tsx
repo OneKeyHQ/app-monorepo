@@ -639,18 +639,16 @@ function ScreenSendEditFee({ ...rest }) {
             borderTopWidth={1}
             borderTopColor="border-subdued"
           >
-            {isEIP1559Fee && (
-              <CheckBox
-                onChange={(isSelected) => setSaveCustom(isSelected)}
-                isChecked={saveCustom}
-              >
-                <Text typography="Body2Strong">
-                  {intl.formatMessage({
-                    id: 'action__save_as_default_for_custom',
-                  })}
-                </Text>
-              </CheckBox>
-            )}
+            <CheckBox
+              onChange={(isSelected) => setSaveCustom(isSelected)}
+              isChecked={saveCustom}
+            >
+              <Text typography="Body2Strong">
+                {intl.formatMessage({
+                  id: 'action__save_as_default_for_custom',
+                })}
+              </Text>
+            </CheckBox>
             <Button
               isDisabled={!formState.isValid}
               onPress={() => onSubmit()}
