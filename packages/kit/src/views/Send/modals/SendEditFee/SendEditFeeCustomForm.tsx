@@ -1,7 +1,6 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import Slider from '@react-native-community/slider';
 import BigNumber from 'bignumber.js';
 import { first, last } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -15,6 +14,7 @@ import {
   CheckBox,
   Form,
   HStack,
+  SliderV2 as Slider,
   Text,
   useIsVerticalLayout,
 } from '@onekeyhq/components';

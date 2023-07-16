@@ -59,6 +59,7 @@ export { default as Form } from './Form';
 export { default as Image } from './Image';
 export { default as NetImage } from './NetImage';
 export { default as Slider } from './Slider';
+export { default as SliderV2 } from './SliderV2';
 export { default as ImageViewer } from './ImageViewer';
 // do not expose in background
 export { default as SortableList } from './SortableList';
