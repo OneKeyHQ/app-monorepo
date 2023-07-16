@@ -1,12 +1,10 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import NativeSlider from '@react-native-community/slider';
+import Slider from '@react-native-community/slider';
 import BigNumber from 'bignumber.js';
 import { first, last } from 'lodash';
-import { Slider } from 'native-base';
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
 import {
   Alert,
@@ -17,7 +15,6 @@ import {
   Form,
   HStack,
   Text,
-  Tooltip,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type {
@@ -379,7 +376,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
             />
           </Form.Item>
         )}
-        {true && (
+        {isEIP1559Fee && (
           <>
             <Form.Item
               label={
@@ -478,57 +475,19 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                 }}
               />
               <Box flex={1} pr={2}>
-                {Platform.OS === 'ios' ? (
-                  <NativeSlider
-                    thumbTintColor="#85D34C"
-                    minimumTrackTintColor="#85D34C"
-                    maximumTrackTintColor="#85D34C"
-                    minimumValue={1}
-                    maximumValue={100}
-                    step={1}
-                    value={priorityBooster}
-                    onValueChange={handleBoosterOnChange}
-                  />
-                ) : (
-                  <Slider
-                    width="100%"
-                    minValue={1}
-                    maxValue={100}
-                    accessibilityLabel={intl.formatMessage({
-                      id: 'form__priority_fee_booster',
-                    })}
-                    step={1}
-                    value={priorityBooster}
-                    onChange={handleBoosterOnChange}
-                  >
-                    <Slider.Track bg="surface-neutral-default" height="4px">
-                      <Slider.FilledTrack
-                        bg="interactive-default"
-                        height="4px"
-                      />
-                    </Slider.Track>
-                    <Tooltip
-                      label={`${priorityBooster}x`}
-                      placement="top"
-                      hasArrow
-                    >
-                      <Slider.Thumb
-                        style={{ position: 'absolute' }}
-                        borderWidth={0}
-                        bg="transparent"
-                      >
-                        <Box
-                          borderRadius="full"
-                          borderColor="icon-default"
-                          width="16px"
-                          height="16px"
-                          borderWidth="3px"
-                          bg="surface-neutral-default"
-                        />
-                      </Slider.Thumb>
-                    </Tooltip>
-                  </Slider>
-                )}
+                <Slider
+                  accessibilityLabel={intl.formatMessage({
+                    id: 'form__priority_fee_booster',
+                  })}
+                  thumbTintColor="#85D34C"
+                  minimumTrackTintColor="#85D34C"
+                  maximumTrackTintColor="#85D34C"
+                  minimumValue={1}
+                  maximumValue={100}
+                  step={1}
+                  value={priorityBooster}
+                  onValueChange={handleBoosterOnChange}
+                />
               </Box>
             </HStack>
           </>

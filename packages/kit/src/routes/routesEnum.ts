@@ -149,6 +149,7 @@ export enum GalleryRoutes {
   ComponentNavHeaderGallery = 'component/NavHeader',
   ComponentMnemonicCardGallery = 'component/MnemonicCard',
   ComponentSlider = 'component/Slider',
+  ComponentSliderV2 = 'component/SliderV2',
   ComponentInAppNotification = 'component/InAppNotification',
 }
 
