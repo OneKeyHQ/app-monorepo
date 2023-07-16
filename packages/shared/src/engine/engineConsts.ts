@@ -75,6 +75,9 @@ const IMPL_LIGHTNING = 'lightning';
 // So, the coin type would be 8 + 12 + 9 + 7 + 8 + 20 + 14 + 9 + 14 + 7.
 const COINTYPE_LIGHTNING = '81297820149147';
 
+const IMPL_LIGHTNING_TESTNET = 'tlightning';
+const COINTYPE_LIGHTNING_TESTNET = '81297820149140';
+
 const IMPL_ALLNETWORKS = 'all';
 const COINTYPE_ALLNETWORKS = '0000';
 
@@ -101,6 +104,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_XMR,
   IMPL_KASPA,
   IMPL_LIGHTNING,
+  IMPL_LIGHTNING_TESTNET,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -127,6 +131,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_XMR,
   IMPL_KASPA,
   IMPL_LIGHTNING,
+  IMPL_LIGHTNING_TESTNET,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -205,6 +210,8 @@ export {
   COINTYPE_KASPA,
   IMPL_LIGHTNING,
   COINTYPE_LIGHTNING,
+  IMPL_LIGHTNING_TESTNET,
+  COINTYPE_LIGHTNING_TESTNET,
   IMPL_ALLNETWORKS,
   COINTYPE_ALLNETWORKS,
   getSupportedImpls,
@@ -225,3 +232,11 @@ export const CHAINS_DISPLAYED_IN_DEV: string[] = [];
 export const UNIQUE_TOKEN_SYMBOLS: Record<string, Array<string>> = {
   [IMPL_EVM]: ['USDC', 'USDT'],
 };
+
+export const isLightningNetwork = (coinType: string) =>
+  coinType === COINTYPE_LIGHTNING || coinType === COINTYPE_LIGHTNING_TESTNET;
+export const isLightningNetworkByImpl = (impl: string) =>
+  impl === IMPL_LIGHTNING || impl === IMPL_LIGHTNING_TESTNET;
+export const isLightningNetworkByNetworkId = (networkId: string) =>
+  networkId === OnekeyNetwork.lightning ||
+  networkId === OnekeyNetwork.tlightning;

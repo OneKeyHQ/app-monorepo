@@ -12,7 +12,7 @@ import {
 } from '@onekeyhq/components';
 
 import { useTranslation } from '../../../hooks';
-import DAppIcon from '../DAppIcon';
+import DAppIcon from '../components/DAppIcon';
 import { useTagDapps } from '../hooks';
 
 import type { DAppItemType, DAppListProps } from '../type';

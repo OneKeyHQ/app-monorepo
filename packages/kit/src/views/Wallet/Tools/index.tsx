@@ -42,8 +42,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useActiveWalletAccount } from '../../../hooks';
 import { useTools } from '../../../hooks/redux';
+import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { getManageNetworks } from '../../../hooks/useManageNetworks';
+import {
+  getManageNetworks,
+  useManageNetworks,
+} from '../../../hooks/useManageNetworks';
 import { buildAddressDetailsUrl } from '../../../hooks/useOpenBlockBrowser';
 import { openUrl } from '../../../utils/openUrl';
 import { useAllNetworksSelectNetworkAccount } from '../../ManageNetworks/hooks';
@@ -135,11 +139,16 @@ const ToolsPage: FC = () => {
     useActiveWalletAccount();
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation();
+  const { enabledNetworks } = useManageNetworks();
 
   const appNavigation = useAppNavigation();
   const [inscribeEnable, setInscribeEnable] = useState(false);
   const tools = useTools(network?.id);
   const { serviceInscribe } = backgroundApiProxy;
+
+  const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
+    accountId,
+  });
 
   const selectNetworkAccount = useAllNetworksSelectNetworkAccount({
     networkId,
@@ -150,11 +159,15 @@ const ToolsPage: FC = () => {
   useEffect(() => {
     if (accountAddress?.length > 0 && !isAllNetworks(networkId)) {
       serviceInscribe
-        .checkValidTaprootAddress({ address: accountAddress })
+        .checkValidTaprootAddress({
+          address: accountAddress,
+          networkId,
+          accountId,
+        })
         .then((result) => setInscribeEnable(result))
         .catch(() => setInscribeEnable(false));
     }
-  }, [accountAddress, networkId, serviceInscribe]);
+  }, [accountAddress, accountId, networkId, serviceInscribe]);
 
   const items = useMemo(() => {
     let allItems = data.filter((n) => {
@@ -168,7 +181,7 @@ const ToolsPage: FC = () => {
         (n) => n.filter?.({ network, account }) ?? true,
       );
     }
-    return allItems.concat(
+    allItems = allItems.concat(
       Object.values(groupBy(tools, 'networkId'))
         .filter((ts) => ts.length > 0)
         .map((ts) => {
@@ -188,7 +201,31 @@ const ToolsPage: FC = () => {
           };
         }),
     );
-  }, [account, network, tools, inscribeEnable]);
+    if (!isAllNetworks(network?.id)) {
+      return allItems;
+    }
+    return allItems.filter((item) =>
+      Object.entries(networkAccountsMap).some(([nid, accounts]) => {
+        const n = enabledNetworks.find((i) => i.id === nid);
+        if (!n) {
+          return false;
+        }
+        for (const a of accounts) {
+          if (item.filter && !item.filter({ network: n, account: a })) {
+            return false;
+          }
+        }
+        return true;
+      }),
+    );
+  }, [
+    account,
+    network,
+    tools,
+    inscribeEnable,
+    networkAccountsMap,
+    enabledNetworks,
+  ]);
 
   const handlePress = useCallback(
     ({

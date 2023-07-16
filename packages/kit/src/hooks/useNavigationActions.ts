@@ -161,6 +161,7 @@ export function useNavigationActions() {
         OnekeyNetwork.ltc,
         OnekeyNetwork.bch,
         OnekeyNetwork.lightning,
+        OnekeyNetwork.tlightning,
         OnekeyNetwork.tbtc,
       ];
       if (skipSelectTokenNetwork.includes(networkId)) {

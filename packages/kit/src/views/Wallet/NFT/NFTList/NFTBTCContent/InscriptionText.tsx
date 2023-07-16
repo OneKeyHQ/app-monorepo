@@ -1,4 +1,4 @@
-import { Box, Text } from '@onekeyhq/components';
+import { Box, Center, Text } from '@onekeyhq/components';
 import { parseTextProps } from '@onekeyhq/engine/src/managers/nft';
 
 import InscriptionUnknow from './InscriptionUnknow';
@@ -14,10 +14,6 @@ function prettyJson(content: string) {
 }
 
 function InscriptionText({ asset, ...props }: InscriptionContentProps) {
-  const parseContent = parseTextProps(asset.content);
-  if (!parseContent) {
-    return <InscriptionUnknow asset={asset} {...props} />;
-  }
   return (
     <Box
       flexDirection="column"
@@ -25,14 +21,16 @@ function InscriptionText({ asset, ...props }: InscriptionContentProps) {
       justifyContent="center"
       alignItems="center"
       bgColor="background-default"
-      paddingX="8px"
+      paddingX="4px"
       {...props}
     >
-      {/* <Text typography="CaptionMono">{prettyJson(asset.content)}</Text> */}
-
-      <Text typography="DisplayLarge">{parseContent.tick}</Text>
-      <Text typography="Body2Mono">
-        {parseContent.p} <Text typography="Body2Mono">{parseContent.op}</Text>
+      <Text
+        numberOfLines={8}
+        width={Number(props.size) - 8}
+        typography="CaptionMono"
+        color="text-subdued"
+      >
+        {asset.content}
       </Text>
     </Box>
   );
@@ -50,7 +48,9 @@ function InscriptionLarge({ asset, ...props }: InscriptionContentProps) {
       alignItems="center"
       {...props}
     >
-      <Text typography="Body1Mono">{prettyJson(asset.content)}</Text>
+      <Text numberOfLines={10} width={180} typography="CaptionMono">
+        {asset.content}
+      </Text>
     </Box>
   );
 }

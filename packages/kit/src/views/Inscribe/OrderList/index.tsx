@@ -56,7 +56,7 @@ const OrderList: FC = () => {
         <ListItem.Column
           flex={1}
           text={{
-            label: item.to,
+            label: item.txid,
             labelProps: {
               numberOfLines: 2,
               typography: 'Body2Mono',
@@ -90,6 +90,14 @@ const OrderList: FC = () => {
         keyExtractor={(item) => item.txid}
         showDivider
       />
+      <Text mt="12px" typography="Caption" color="text-subdued">
+        {intl.formatMessage(
+          {
+            id: 'content__keep_the_latest_int_inscribing_orders_only',
+          },
+          { 0: '50' },
+        )}
+      </Text>
     </Modal>
   );
 };

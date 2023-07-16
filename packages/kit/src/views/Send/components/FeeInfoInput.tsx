@@ -1,5 +1,5 @@
-import type { ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';

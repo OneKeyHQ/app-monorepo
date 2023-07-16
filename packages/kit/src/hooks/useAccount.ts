@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type { IAccount } from '@onekeyhq/engine/src/types';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -43,3 +45,19 @@ export function useAccount({
     account: accountInRedux ?? accountInDb ?? accountFallback,
   };
 }
+
+export const useWalletIdFromAccountIdWithFallback = (
+  accountId?: string | null,
+  fallback = '',
+): string =>
+  useMemo(() => {
+    if (!accountId) {
+      return fallback;
+    }
+    try {
+      return getWalletIdFromAccountId(accountId);
+    } catch (error) {
+      debugLogger.common.error('useWalletIdFromAccountId', error);
+      return fallback;
+    }
+  }, [accountId, fallback]);

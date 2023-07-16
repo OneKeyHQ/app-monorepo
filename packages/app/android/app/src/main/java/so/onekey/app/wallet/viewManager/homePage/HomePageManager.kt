@@ -45,6 +45,11 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
                 "phasedRegistrationNames" to mapOf(
                     "bubbled" to "onRefreshCallBack"
                 )
+            ),
+            "startTabPageChange" to mapOf(
+                "phasedRegistrationNames" to mapOf(
+                    "bubbled" to "onStartChange"
+                )
             )
         )
     }
@@ -127,6 +132,11 @@ class HomePageManager : ViewGroupManager<HomePageView>() {
     @ReactProp(name = "defaultIndex")
     fun setDefaultIndex(view: HomePageView, index: Int?) {
         view.setCurrentIndex(index)
+    }
+
+    @ReactProp(name = "slideDisable")
+    fun setSlideDisable(view: HomePageView, disable: Boolean?) {
+        view.setSlideDisable(disable)
     }
 
     override fun getChildCount(parent: HomePageView): Int {

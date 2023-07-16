@@ -8,6 +8,7 @@ import {
   getGetblockEndpoint,
   getMempoolEndpoint,
 } from '@onekeyhq/engine/src/endpoint';
+import { InscribeFileTooLargeError } from '@onekeyhq/engine/src/errors';
 import {
   INSCRIBE_ACCOUNT_STORAGE_KEY,
   INSCRIPTION_PADDING_SATS_VALUES,
@@ -53,6 +54,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -576,13 +578,13 @@ export default class ServiceInscribe extends ServiceBase {
     return signedTx;
   }
 
-  async getBitcoinNetworkMap(): Promise<{
+  async getBitcoinNetworkMap(networkId?: string): Promise<{
     network: Networks;
     apiMempool: string;
     apiGetblock: string;
   }> {
     const { networkImpl } = await this.getActiveWalletAccount();
-    if (networkImpl === IMPL_BTC) {
+    if (networkImpl === IMPL_BTC || networkId === OnekeyNetwork.btc) {
       return {
         network: 'main',
         // TODO use current BTC vault blockbook api
@@ -590,7 +592,7 @@ export default class ServiceInscribe extends ServiceBase {
         apiGetblock: getGetblockEndpoint({ chain: 'btc', network: 'mainnet' }),
       };
     }
-    if (networkImpl === IMPL_TBTC) {
+    if (networkImpl === IMPL_TBTC || networkId === OnekeyNetwork.tbtc) {
       return {
         network: 'testnet',
         apiMempool: getMempoolEndpoint({ network: 'testnet' }),
@@ -747,7 +749,7 @@ export default class ServiceInscribe extends ServiceBase {
   }): Promise<IInscriptionContent[]> {
     const contents: IInscriptionContent[] = [];
     const previewTextSize = 200;
-    const maxBytesSize = 380 * 1000;
+    const maxBytesSize = 380 * 1024;
 
     const buildTextContent = ({
       name,
@@ -766,9 +768,7 @@ export default class ServiceInscribe extends ServiceBase {
       const hex = bufferUtils.textToHex(text);
       const buffer = bufferUtils.hexToBytes(hex);
       if (buffer.length > maxBytesSize) {
-        throw new Error(
-          `createInscriptionContents ERROR: Text too long, ${buffer.length}>${maxBytesSize}`,
-        );
+        throw new InscribeFileTooLargeError();
       }
       return {
         name: name || '',
@@ -809,9 +809,7 @@ export default class ServiceInscribe extends ServiceBase {
       const { mimetype, data, filename } = file;
       const buffer = bufferUtils.hexToBytes(data);
       if (buffer.length > maxBytesSize) {
-        throw new Error(
-          `createInscriptionContents ERROR: File too large, ${buffer.length}>${maxBytesSize}`,
-        );
+        throw new InscribeFileTooLargeError();
       }
       contents.push({
         categoryType: 'file',
@@ -844,17 +842,32 @@ export default class ServiceInscribe extends ServiceBase {
     return Promise.resolve(true);
   }
 
-  async getActiveBtcVault() {
+  async getActiveBtcVault(option?: { networkId?: string; accountId?: string }) {
+    const { networkId, accountId } = option || {};
     const { engine } = this.backgroundApi;
-    const { networkId, accountId } = await this.getActiveWalletAccount();
-    const vault = await engine.getVault({ networkId, accountId });
+    let vault;
+    if (networkId && accountId) {
+      vault = await engine.getVault({ networkId, accountId });
+    } else {
+      const { networkId: nId, accountId: aId } =
+        await this.getActiveWalletAccount();
+      vault = await engine.getVault({ networkId: nId, accountId: aId });
+    }
     return vault as VaultBtcFork;
   }
 
   @backgroundMethod()
-  async checkValidTaprootAddress({ address }: { address: string }) {
-    await this.getBitcoinNetworkMap();
-    const btcVault = await this.getActiveBtcVault();
+  async checkValidTaprootAddress({
+    address,
+    networkId,
+    accountId,
+  }: {
+    address: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    await this.getBitcoinNetworkMap(networkId);
+    const btcVault = await this.getActiveBtcVault({ networkId, accountId });
     const provider = await btcVault.getProvider();
     const result = provider.verifyAddress(address);
     if (result?.encoding === AddressEncodings.P2TR && result?.isValid) {
@@ -871,8 +884,8 @@ export default class ServiceInscribe extends ServiceBase {
     to: string;
     amount: string;
   }): Promise<IEncodedTxBtc | null> {
-    const btcVault = await this.getActiveBtcVault();
     const { network } = await this.getActiveWalletAccount();
+    const btcVault = await this.getActiveBtcVault();
     const address = await btcVault.getAccountAddress();
     const utxoInfo = await this.fetchAddressUtxo({ address: to });
     if (utxoInfo && utxoInfo.amt && network) {
@@ -903,7 +916,12 @@ export default class ServiceInscribe extends ServiceBase {
     feeRate?: number;
     globalPaddingSats?: number;
   }): Promise<IInscriptionsOrder> {
-    await this.checkValidTaprootAddress({ address: toAddress });
+    const { networkId, accountId } = await this.getActiveWalletAccount();
+    await this.checkValidTaprootAddress({
+      address: toAddress,
+      networkId,
+      accountId,
+    });
     await this.checkValidPadding({ padding: globalPaddingSats });
     const paddingSats = globalPaddingSats;
     const privateKey = await this.prepareInscribePrivateKey();

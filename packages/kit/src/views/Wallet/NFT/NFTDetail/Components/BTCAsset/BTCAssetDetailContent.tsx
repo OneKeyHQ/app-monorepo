@@ -78,7 +78,11 @@ function BTCAssetDetailContent({
     }
     const validateAddress = async (address: string) => {
       try {
-        await serviceInscribe.checkValidTaprootAddress({ address });
+        await serviceInscribe.checkValidTaprootAddress({
+          address,
+          networkId,
+          accountId: account.id,
+        });
       } catch (error) {
         throw new TaprootAddressError();
       }

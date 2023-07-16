@@ -13,6 +13,8 @@ import {
   Typography,
   useForm,
 } from '@onekeyhq/components';
+import type { OneKeyError } from '@onekeyhq/engine/src/errors';
+import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
 import type { GoPlusAddressSecurity } from '@onekeyhq/engine/src/types/goplus';
 import { GoPlusSupportApis } from '@onekeyhq/engine/src/types/goplus';
 import type { INFTAsset, NFTAsset } from '@onekeyhq/engine/src/types/nft';
@@ -23,7 +25,10 @@ import type {
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { IMPL_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_LIGHTNING,
+  IMPL_LIGHTNING_TESTNET,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressInput from '../../../components/AddressInput';
@@ -31,7 +36,7 @@ import { AddressLabel } from '../../../components/AddressLabel';
 import NameServiceResolver, {
   useNameServiceStatus,
 } from '../../../components/NameServiceResolver';
-import { useActiveSideAccount } from '../../../hooks';
+import { useActiveSideAccount, useNativeToken } from '../../../hooks';
 import { useFormOnChangeDebounced } from '../../../hooks/useFormOnChangeDebounced';
 import { useSingleToken } from '../../../hooks/useTokens';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
@@ -65,6 +70,9 @@ function PreSendAddress() {
   const [isValidatingAddress, setIsValidatingAddress] = useState(false);
   const [displayDestinationTag, setDisplayDestinationTag] = useState(false);
   const [isAddressBook, setIsAddressBook] = useState(false);
+  const [addressBookLabel, setAddressBookLabel] = useState<
+    string | undefined
+  >();
   const [isContractAddress, setIsContractAddress] = useState(false);
   const [isValidAddress, setIsValidAddress] = useState(false);
   const [validAddressMessage, setValidAddressMessage] =
@@ -85,7 +93,9 @@ function PreSendAddress() {
       : (reset as ITransferInfo);
   const { isNFT } = transferInfo;
   const { account, network } = useActiveSideAccount(routeParams);
-  const isLightningNetwork = network?.impl === IMPL_LIGHTNING;
+  const isLightningNetwork =
+    network?.impl === IMPL_LIGHTNING ||
+    network?.impl === IMPL_LIGHTNING_TESTNET;
   const useFormReturn = useForm<FormValues>({
     mode: 'onBlur',
     reValidateMode: 'onBlur',
@@ -111,6 +121,7 @@ function PreSendAddress() {
     networkId,
     transferInfo.token ?? '',
   );
+  const nativeToken = useNativeToken(networkId);
 
   const [nftInfo, updateNFTInfo] = useState<INFTAsset>();
   useEffect(() => {
@@ -120,7 +131,7 @@ function PreSendAddress() {
         if (nftTokenId) {
           const contractAddress = transferInfo.token;
           const asset = await serviceNFT.getAsset({
-            accountId: account?.id ?? '',
+            accountId,
             networkId,
             contractAddress,
             tokenId: nftTokenId,
@@ -201,10 +212,21 @@ function PreSendAddress() {
       setDisplayDestinationTag(vaultSettings?.withDestinationTag ?? false);
     })();
   }, [networkId]);
-
+  //
   const nftSendConfirm = useCallback(
     async (toVal: string) => {
-      if (!account || !network || !nftInfo) {
+      if (!account || !network) {
+        return;
+      }
+      if (!nftInfo) {
+        ToastManager.show(
+          {
+            title: intl.formatMessage({
+              id: 'msg__nft_does_not_exist',
+            }),
+          },
+          { type: 'error' },
+        );
         return;
       }
 
@@ -283,38 +305,72 @@ function PreSendAddress() {
           },
         });
       } else {
-        setIsLoadingAssets(true);
-        encodedTx = await engine.buildEncodedTxFromTransfer({
-          networkId,
-          accountId,
-          transferInfo,
-        });
-        setIsLoadingAssets(false);
-        navigation.navigate(RootRoutes.Modal, {
-          screen: ModalRoutes.Send,
-          params: {
-            screen: SendModalRoutes.SendConfirm,
+        try {
+          setIsLoadingAssets(true);
+
+          encodedTx = await engine.buildEncodedTxFromTransfer({
+            networkId,
+            accountId,
+            transferInfo,
+          });
+          setIsLoadingAssets(false);
+          navigation.navigate(RootRoutes.Modal, {
+            screen: ModalRoutes.Send,
             params: {
-              ...transferInfo,
-              networkId,
-              accountId,
-              encodedTx,
-              feeInfoUseFeeInTx: false,
-              feeInfoEditable: true,
-              backRouteName: SendModalRoutes.PreSendAddress,
-              payloadInfo: {
-                type: 'Transfer',
-                nftInfo: {
-                  asset: nftInfo,
-                  amount: transferInfo.amount,
-                  from: account.address,
-                  to: toVal,
+              screen: SendModalRoutes.SendConfirm,
+              params: {
+                ...transferInfo,
+                networkId,
+                accountId,
+                encodedTx,
+                feeInfoUseFeeInTx: false,
+                feeInfoEditable: true,
+                backRouteName: SendModalRoutes.PreSendAddress,
+                payloadInfo: {
+                  type: 'Transfer',
+                  nftInfo: {
+                    asset: nftInfo,
+                    amount: transferInfo.amount,
+                    from: account.address,
+                    to: toVal,
+                  },
                 },
+                onModalClose: closeModal,
               },
-              onModalClose: closeModal,
             },
-          },
-        });
+          });
+        } catch (error: any) {
+          console.error('nftSendConfirm ERROR: ', error);
+
+          const { key: errorKey = '', className } = error as OneKeyError;
+          if (errorKey) {
+            let data = {};
+            if (
+              errorKey === 'form__amount_invalid' &&
+              className ===
+                OneKeyErrorClassNames.OneKeyErrorInsufficientNativeBalance
+            ) {
+              data = {
+                0: nativeToken?.symbol || '',
+              };
+            }
+            ToastManager.show(
+              {
+                title: intl.formatMessage({ id: errorKey as any }, data),
+              },
+              { type: 'error' },
+            );
+          } else {
+            ToastManager.show(
+              {
+                title: (error as Error)?.message || 'ERROR',
+              },
+              { type: 'error' },
+            );
+          }
+
+          setIsLoadingAssets(false);
+        }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -357,6 +413,8 @@ function PreSendAddress() {
           },
         });
       } catch (e: any) {
+        console.error('lightningNetworkSendConfirm ERROR: ', e);
+
         const { key: errorKey = '' } = e;
         if (errorKey === 'form__amount_invalid') {
           ToastManager.show(
@@ -490,6 +548,7 @@ function PreSendAddress() {
           errorMessage: '',
         });
         setIsAddressBook(false);
+        setAddressBookLabel('');
         setIsContractAddress(false);
         setSecurityItems([]);
         if (!toAddress) {
@@ -511,11 +570,14 @@ function PreSendAddress() {
           });
           await validateAddress?.(networkId, toAddress);
         } catch (error0: any) {
+          console.error('PreSendAddress validateHandle ERROR: ', error0);
+
           setIsValidatingAddress(false);
           if (isValidNameServiceName && !resolvedAddress) return undefined;
           const { key, info } = error0;
           setIsValidAddress(false);
           setIsAddressBook(false);
+          setAddressBookLabel('');
           setIsContractAddress(false);
           if (key) {
             setvalidateMessage({
@@ -550,6 +612,7 @@ function PreSendAddress() {
           if (addressbookItem) {
             setIsValidAddress(true);
             setIsAddressBook(true);
+            setAddressBookLabel(addressbookItem.name);
             setvalidateMessage({
               errorMessage: '',
             });
@@ -670,6 +733,7 @@ function PreSendAddress() {
                 networkId={networkId}
                 address={resolvedAddress || formValues?.to || ''}
                 isAddressBook={isAddressBook}
+                addressBookLabel={addressBookLabel}
                 isContractAddress={isContractAddress}
                 isValidAddress={isValidAddress}
                 validAddressMessage={validAddressMessage}

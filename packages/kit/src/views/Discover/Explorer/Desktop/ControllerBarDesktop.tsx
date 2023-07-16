@@ -4,11 +4,21 @@ import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ICON_NAMES } from '@onekeyhq/components';
-import { HStack, IconButton, Input, Pressable } from '@onekeyhq/components';
+import {
+  Box,
+  HStack,
+  IconButton,
+  Input,
+  Pressable,
+} from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { NetworkAccountSelectorTriggerDesktop } from '../../../../components/NetworkAccountSelector';
+import { getAppNavigation } from '../../../../hooks/useAppNavigation';
+import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { homeTab } from '../../../../store/observable/webTabs';
+import { GasPanelRoutes } from '../../../GasPanel/types';
+import { GasPriceMini } from '../../components/GasPriceMini';
 import { gotoSite, openMatchDApp } from '../Controller/gotoSite';
 import { useWebController } from '../Controller/useWebController';
 import SearchView from '../Search/SearchView';
@@ -64,7 +74,7 @@ BrowserURLInput.displayName = 'BrowserURLInput';
 function getHttpSafeState(searchContent?: string): ICON_NAMES {
   try {
     if (!searchContent) {
-      return 'SearchCircleMini';
+      return 'SearchOutline';
     }
 
     const url = new URL(searchContent);
@@ -75,12 +85,13 @@ function getHttpSafeState(searchContent?: string): ICON_NAMES {
       return 'ExclamationTriangleMini';
     }
   } catch (e) {
-    return 'SearchCircleMini';
+    return 'SearchOutline';
   }
-  return 'SearchCircleMini';
+  return 'SearchOutline';
 }
 const ControllerBarDesktop: FC = () => {
   const intl = useIntl();
+
   const [historyVisible, setHistoryVisible] = useState(false);
   const { currentTab, stopLoading, goBack, goForward, reload } =
     useWebController();
@@ -108,6 +119,18 @@ const ControllerBarDesktop: FC = () => {
 
   const onKeyEvent = (event: SearchViewKeyEventType) =>
     searchView.current?.onKeyPress(event);
+
+  const onGasPanel = useCallback(() => {
+    getAppNavigation().navigate(RootRoutes.Modal, {
+      screen: ModalRoutes.GasPanel,
+      params: {
+        screen: GasPanelRoutes.GasPanelModal,
+        params: {
+          networkId: '',
+        },
+      },
+    });
+  }, []);
   return (
     <>
       <HStack
@@ -208,6 +231,25 @@ const ControllerBarDesktop: FC = () => {
         </Pressable>
 
         <NetworkAccountSelectorTriggerDesktop />
+        <Pressable h="full" onPress={onGasPanel}>
+          {({ isHovered, isPressed }) => {
+            const getBgColor = () => {
+              if (isPressed) {
+                return 'surface-pressed';
+              }
+              if (isHovered) {
+                return 'surface-hovered';
+              }
+            };
+            return (
+              <Box flexDirection="row" h="full" alignItems="center">
+                <Box px={2} py={1} bg={getBgColor()} borderRadius="full">
+                  <GasPriceMini />
+                </Box>
+              </Box>
+            );
+          }}
+        </Pressable>
       </HStack>
       <SearchView
         ref={searchView}

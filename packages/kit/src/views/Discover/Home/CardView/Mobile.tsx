@@ -3,7 +3,7 @@ import type { FC } from 'react';
 import { Box, Pressable, ScrollView, Typography } from '@onekeyhq/components';
 
 import { useTranslation } from '../../../../hooks';
-import DAppIcon from '../../DAppIcon';
+import DAppIcon from '../../components/DAppIcon';
 import FavContainer from '../../Explorer/FavContainer';
 import { SectionTitle } from '../TitleView';
 

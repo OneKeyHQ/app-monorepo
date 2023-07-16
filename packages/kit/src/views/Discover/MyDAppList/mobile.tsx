@@ -23,7 +23,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation, useTranslation } from '../../../hooks';
 import FavListMenu from '../../Overlay/Discover/FavListMenu';
-import DAppIcon from '../DAppIcon';
+import DAppIcon from '../components/DAppIcon';
 import { useDiscoverFavorites, useUserBrowserHistories } from '../hooks';
 
 import { MyDAppListContext } from './context';

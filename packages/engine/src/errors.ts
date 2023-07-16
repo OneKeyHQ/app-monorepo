@@ -13,6 +13,7 @@ export enum OneKeyErrorClassNames {
   OneKeyAbortError = 'OneKeyAbortError',
   OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
   OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
+  OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
 }
 
 export type IOneKeyErrorInfo = Record<string | number, string | number>;
@@ -37,7 +38,7 @@ export class OneKeyError<T = Error> extends Web3RpcError<T> {
 
   info: IOneKeyErrorInfo;
 
-  key = 'onekey_error';
+  key: LocaleIds | string = 'onekey_error';
 
   constructor(message?: string, info?: IOneKeyErrorInfo) {
     super(-99999, message || 'Unknown onekey internal error.');
@@ -267,7 +268,11 @@ export class TransferValueTooSmall extends OneKeyError {
   }
 }
 
+// **** only for Native Token  InsufficientBalance
 export class InsufficientBalance extends OneKeyError {
+  override className =
+    OneKeyErrorClassNames.OneKeyErrorInsufficientNativeBalance;
+
   // For situations that utxo selection failed.
   override key = 'form__amount_invalid';
 }
@@ -377,4 +382,19 @@ export class BadAuthError extends OneKeyError {
 export class TaprootAddressError extends OneKeyError {
   override key =
     'msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address';
+}
+
+export class InscribeFileTooLargeError extends OneKeyError {
+  override key = 'msg__file_size_should_less_than_str';
+
+  constructor(key?: LocaleIds) {
+    super('', { '0': '380KB' });
+    if (key) {
+      this.key = key;
+    }
+  }
+}
+
+export class UtxoNotFoundError extends OneKeyError {
+  override key = 'msg__nft_does_not_exist';
 }

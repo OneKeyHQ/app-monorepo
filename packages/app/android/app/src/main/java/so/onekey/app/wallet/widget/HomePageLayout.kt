@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.util.AttributeSet
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -51,16 +52,30 @@ open class HomePageLayout @JvmOverloads constructor(
     private var mHeaderHeight = 56
 
     private val mPageChangeCallback = object : OnPageChangeCallback() {
+        var currentPosition = 0
+        var currentState = ViewPager2.SCROLL_STATE_IDLE
+
         override fun onPageSelected(position: Int) {
             super.onPageSelected(position)
+
             if (mTabProps.isNotEmpty() && position >= 0 && position < mTabProps.size) {
-                onReceiveNativeEvent(position, mTabProps[position])
+                currentPosition = position
             }
         }
+
         override fun onPageScrollStateChanged(state: Int) {
             content.findViewById<SwipeRefreshLayout>(R.id.layout_refresh)?.let {
-                it.isEnabled = if (state == ViewPager2.SCROLL_STATE_IDLE) mRefreshEnabled && mAppBarExtended else false
+                it.isEnabled =
+                    if (state == ViewPager2.SCROLL_STATE_IDLE) mRefreshEnabled && mAppBarExtended else false
             }
+            if ((state == ViewPager2.SCROLL_STATE_IDLE || state == ViewPager2.SCROLL_STATE_SETTLING) && currentPosition >= 0 && currentPosition < mTabProps.size) {
+                sendChangeTabsNativeEvent(currentPosition, mTabProps[currentPosition])
+            }
+
+            if (currentState == ViewPager2.SCROLL_STATE_IDLE && state == ViewPager2.SCROLL_STATE_DRAGGING) {
+                sendStartChangeTabsNativeEvent()
+            }
+            currentState = state
         }
     }
 
@@ -69,7 +84,7 @@ open class HomePageLayout @JvmOverloads constructor(
             addView(this)
         }
 
-    fun onReceiveNativeEvent(index: Int, tabProps: TabProps) {
+    fun sendChangeTabsNativeEvent(index: Int, tabProps: TabProps) {
         val event = Arguments.createMap()
         event.putString("tabName", tabProps.name)
         event.putInt("index", index)
@@ -77,6 +92,13 @@ open class HomePageLayout @JvmOverloads constructor(
         reactContext
             .getJSModule(RCTEventEmitter::class.java)
             .receiveEvent(id, "tabPageChange", event)
+    }
+
+    fun sendStartChangeTabsNativeEvent() {
+        val reactContext = context as ReactContext
+        reactContext
+            .getJSModule(RCTEventEmitter::class.java)
+            .receiveEvent(id, "startTabPageChange", null)
     }
 
     fun setHeaderHeight(height: Int) {
@@ -170,9 +192,19 @@ open class HomePageLayout @JvmOverloads constructor(
         // Finally set index
         post {
             index?.let {
-                if(it >= mTabProps.size) return@post
-                content.findViewById<ViewPager2>(R.id.viewpager)?.currentItem = it
+                if (it >= mTabProps.size) return@post
+                val viewpager = content.findViewById<ViewPager2>(R.id.viewpager)
+                if (viewpager?.currentItem != it) {
+                    viewpager?.currentItem = it
+                }
             }
+        }
+    }
+
+    fun setSlideDisable(disable: Boolean?) {
+        post {
+            val viewpager = content.findViewById<ViewPager2>(R.id.viewpager)
+            viewpager?.isUserInputEnabled = if (disable == null) true else !disable
         }
     }
 
@@ -320,4 +352,6 @@ open class HomePageLayout @JvmOverloads constructor(
             tabDividerView.visibility = View.GONE
         }
     }
+
+
 }

@@ -2,7 +2,7 @@ import type { FC } from 'react';
 import { useCallback, useMemo, useRef } from 'react';
 
 import { openURL as LinkingOpenUrl } from 'expo-linking';
-import { captureRef } from 'react-native-view-shot';
+// import { captureRef } from 'react-native-view-shot';
 
 import WebView from '@onekeyhq/kit/src/components/WebView';
 
@@ -15,9 +15,9 @@ import { onNavigation } from '../Controller/useWebController';
 import {
   MAX_OR_SHOW,
   expandAnim,
-  getThumbnailRatio,
-  tabViewShotRef,
-  thumbnailWidth,
+  // getThumbnailRatio,
+  // tabViewShotRef,
+  // thumbnailWidth,
 } from '../explorerAnimation';
 import { webviewRefs } from '../explorerUtils';
 
@@ -62,16 +62,16 @@ const WebContent: FC<WebTab & WebViewProps> = ({
           id,
         });
       } else {
-        if (tabViewShotRef.current) {
-          captureRef(tabViewShotRef, {
-            format: 'jpg',
-            width: thumbnailWidth,
-            height: thumbnailWidth * getThumbnailRatio(),
-            // quality: 0.6,
-          }).then((uri) => {
-            webTabsActions.setWebTabData({ id, thumbnail: uri });
-          });
-        }
+        // if (tabViewShotRef.current) {
+        //   captureRef(tabViewShotRef, {
+        //     format: 'jpg',
+        //     width: thumbnailWidth,
+        //     height: thumbnailWidth * getThumbnailRatio(),
+        //     // quality: 0.6,
+        //   }).then((uri) => {
+        //     webTabsActions.setWebTabData({ id, thumbnail: uri });
+        //   });
+        // }
         onNavigation({ title, canGoBack, canGoForward, loading, id });
       }
     },

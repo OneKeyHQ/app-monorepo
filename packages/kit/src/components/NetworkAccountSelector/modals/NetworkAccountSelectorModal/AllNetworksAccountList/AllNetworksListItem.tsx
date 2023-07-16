@@ -37,6 +37,7 @@ const AllNetworksListItem: FC<ListItemProps> = ({
     networkId,
     accountId,
   });
+
   return (
     <Pressable
       onPress={() => {

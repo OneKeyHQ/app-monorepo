@@ -8,7 +8,8 @@ import type { IGasInfo } from '@onekeyhq/engine/src/types/gas';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useSettings } from '../../hooks';
+import { useNativeToken, useSettings } from '../../hooks';
+import { appSelector } from '../../store';
 import { setGasPanelEIP1559Enabled } from '../../store/reducers/settings';
 
 import { supportedNetworks, supportedNetworksSettings } from './config';
@@ -32,6 +33,8 @@ function GasPanel() {
 
   const { networkId = '' } = route.params;
 
+  const { selectedFiatMoneySymbol } = appSelector((s) => s.settings);
+
   const [selectedNetworkId, setSelectedNetworkId] = useState(
     supportedNetworks.includes(networkId) ? networkId : DEFAULT_NETWORK,
   );
@@ -41,6 +44,8 @@ function GasPanel() {
     REFRESH_GAS_INFO_INTERVAL / 1000,
   );
   const settings = useSettings();
+
+  const token = useNativeToken(selectedNetworkId);
 
   const { serviceGas } = backgroundApiProxy;
 
@@ -93,6 +98,19 @@ function GasPanel() {
       setSelectedNetworkId(networkId);
     }
   }, [networkId]);
+
+  useEffect(() => {
+    backgroundApiProxy.servicePrice.fetchSimpleTokenPrice({
+      networkId: selectedNetworkId,
+      tokenIds: [token?.tokenIdOnNetwork ?? ''],
+      vsCurrency: selectedFiatMoneySymbol,
+    });
+  }, [
+    networkId,
+    selectedFiatMoneySymbol,
+    selectedNetworkId,
+    token?.tokenIdOnNetwork,
+  ]);
 
   return (
     <Modal
