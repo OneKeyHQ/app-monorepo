@@ -14,8 +14,9 @@ import {
   CheckBox,
   Form,
   HStack,
-  SliderV2 as Slider,
+  Slider,
   Text,
+  Tooltip,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import type {
@@ -33,6 +34,7 @@ import type {
   IEncodedTx,
   IFeeInfoPayload,
 } from '@onekeyhq/engine/src/vaults/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useFormOnChangeDebounced } from '../../../../hooks/useFormOnChangeDebounced';
@@ -82,6 +84,8 @@ export type ICustomFeeFormProps = {
   setSaveCustom: (value: boolean) => void;
   encodedTx?: IEncodedTx;
 };
+
+const DEBOUNCED_PRIORITY_BOOSTER_TIMEOUT = platformEnv.isNative ? 250 : 0;
 export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   const {
     feeInfoPayload,
@@ -127,7 +131,10 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   );
 
   const [priorityBooster, setPriorityBooster] = useState<number>(1);
-  const [debouncedPriorityBooster] = useDebounce(priorityBooster, 250);
+  const [debouncedPriorityBooster] = useDebounce(
+    priorityBooster,
+    DEBOUNCED_PRIORITY_BOOSTER_TIMEOUT,
+  );
 
   const [basePriority, setBasePriority] = useState(
     (lastPresetFeeInfo as EIP1559Fee)?.maxPriorityFeePerGas,
@@ -483,13 +490,39 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
                   accessibilityLabel={intl.formatMessage({
                     id: 'form__priority_fee_booster',
                   })}
+                  nativeMode={platformEnv.isNative}
                   minimumTrackTintColor="#85D34C"
-                  minimumValue={1}
-                  maximumValue={100}
                   step={1}
                   value={debouncedPriorityBooster}
-                  onValueChange={handleBoosterOnChange}
-                />
+                  width="100%"
+                  minValue={1}
+                  maxValue={100}
+                  onChange={handleBoosterOnChange}
+                >
+                  <Slider.Track bg="surface-neutral-default" height="4px">
+                    <Slider.FilledTrack bg="interactive-default" height="4px" />
+                  </Slider.Track>
+                  <Tooltip
+                    label={`${priorityBooster}x`}
+                    placement="top"
+                    hasArrow
+                  >
+                    <Slider.Thumb
+                      style={{ position: 'absolute' }}
+                      borderWidth={0}
+                      bg="transparent"
+                    >
+                      <Box
+                        borderRadius="full"
+                        borderColor="icon-default"
+                        width="16px"
+                        height="16px"
+                        borderWidth="3px"
+                        bg="surface-neutral-default"
+                      />
+                    </Slider.Thumb>
+                  </Tooltip>
+                </Slider>
               </Box>
             </HStack>
           </>

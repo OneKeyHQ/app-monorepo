@@ -49,7 +49,6 @@ import SelectGallery from '../../../views/Components/stories/Select';
 import ShadowsGallery from '../../../views/Components/stories/Shadows';
 import SkeletonGallery from '../../../views/Components/stories/Skeleton';
 import SliderGallery from '../../../views/Components/stories/Slider';
-import SliderGalleryV2 from '../../../views/Components/stories/SliderV2';
 import SortableListGallery from '../../../views/Components/stories/SortableList';
 import SpinnerGallery from '../../../views/Components/stories/Spinner';
 import SwitchGallery from '../../../views/Components/stories/Switch';
@@ -253,10 +252,6 @@ export const stackScreenList = [
   {
     name: GalleryRoutes.ComponentSlider,
     component: SliderGallery,
-  },
-  {
-    name: GalleryRoutes.ComponentSliderV2,
-    component: SliderGalleryV2,
   },
   {
     name: GalleryRoutes.ComponentInAppNotification,
