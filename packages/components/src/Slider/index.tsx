@@ -5,6 +5,7 @@ import type { ISliderProps } from 'native-base';
 
 const Slider = ({
   nativeMode,
+  children,
   ...props
 }: ISliderProps & {
   nativeMode?: boolean;
@@ -27,7 +28,7 @@ const Slider = ({
       onValueChange={props.onChange}
     />
   ) : (
-    <WebSlider {...props} />
+    <WebSlider {...props}>{children}</WebSlider>
   );
 
 Slider.Track = WebSlider.Track;
