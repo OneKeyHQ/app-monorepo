@@ -13,6 +13,7 @@ import { TxDetailView } from '../TxDetail/TxDetailView';
 
 import type { TransactionDetailModalRoutes } from '../../routes/routesEnum';
 import type { RouteProp } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 type TransactionDetailRouteProp = RouteProp<
   TransactionDetailRoutesParams,
@@ -45,6 +46,7 @@ type TransactionDetailRouteProp = RouteProp<
 
 const TxHistoryDetailModal: FC = () => {
   const route = useRoute<TransactionDetailRouteProp>();
+  const intl = useIntl();
   const { decodedTx, historyTx } = route.params;
   useEffect(() => {
     if (!historyTx) {
@@ -76,7 +78,7 @@ const TxHistoryDetailModal: FC = () => {
   );
   return (
     <Modal
-      // header={intl.formatMessage({ id: 'transaction__transaction_details' })}
+      header={intl.formatMessage({ id: 'title__transaction_details' })}
       // headerDescription={headerDescription}
       footer={null}
       height="560px"
