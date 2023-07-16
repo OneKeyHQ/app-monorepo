@@ -141,7 +141,6 @@ const migrateLogPath = async () => {
   const prevLogPath = `${RNFS.CachesDirectoryPath}/log.txt`;
   const isExist = await RNFS.exists(prevLogPath);
   if (isExist) {
-    console.log('migrateLogPath--isExist', isExist, prevLogPath);
     await RNFS.mkdir(NATIVE_LOG_DIR_PATH);
     await RNFS.moveFile(
       prevLogPath,

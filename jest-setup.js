@@ -29,6 +29,14 @@ jest.mock('react-native-zip-archive', () => ({
   zip: jest.fn(),
 }));
 
+// TODO：
+// begin
+// This piece of code will be removed in the next version.
+jest.mock('react-native-fs', () => ({
+  exists: Promise.resolve(false),
+}));
+// end
+
 // ** shim TextEncoder
 // const { TextEncoder, TextDecoder } = require('util');
 // global.TextEncoder = TextEncoder;
