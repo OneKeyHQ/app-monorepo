@@ -21,7 +21,7 @@ import {
   FormatBalance,
   FormatCurrencyNumber,
 } from '../../../components/Format';
-import { useManageNetworks, useTokenPositionInfo } from '../../../hooks';
+import { useManageNetworks } from '../../../hooks';
 import { TokenDetailContext } from '../context';
 
 import type { IOverviewTokenDetailListItem } from '../../Overview/types';
@@ -32,23 +32,9 @@ const AssetsInfo: FC = () => {
   const { allNetworks } = useManageNetworks();
   const context = useContext(TokenDetailContext);
 
-  const {
-    networkId = '',
-    accountId = '',
-    walletId = '',
-    coingeckoId,
-    tokenAddress,
-    price,
-  } = context?.routeParams ?? {};
+  const { price } = context?.routeParams ?? {};
+  const { items } = context?.positionInfo ?? {};
   const isVerticalLayout = useIsVerticalLayout();
-
-  const { items } = useTokenPositionInfo({
-    accountId,
-    networkId,
-    walletId,
-    tokenAddress,
-    coingeckoId,
-  });
 
   const sections = useMemo(
     () =>
