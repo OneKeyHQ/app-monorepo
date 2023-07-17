@@ -1,9 +1,10 @@
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
+import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
-import { InvalidAddress } from '../../../errors';
+import { InvalidAddress, OneKeyInternalError } from '../../../errors';
 import {
   type IApproveInfo,
   type IClientEndpointStatus,
@@ -47,6 +48,7 @@ import type {
   TransactionStatus,
 } from '../../../types/provider';
 import type { Token } from '../../../types/token';
+import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
 import type {
   IDecodedTxAction,
   IDecodedTxLegacy,
@@ -292,11 +294,18 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override getExportedCredential(
-    password: string,
-    credentialType: AccountCredentialType,
-  ): Promise<string> {
-    throw new Error('Method not implemented.');
+  override async getExportedCredential(password: string): Promise<string> {
+    const dbAccount = await this.getDbAccount();
+    if (dbAccount.id.startsWith('hd-') || dbAccount.id.startsWith('imported')) {
+      const keyring = this.keyring as KeyringSoftwareBase;
+      const [encryptedPrivateKey] = Object.values(
+        await keyring.getPrivateKeys(password),
+      );
+      return decrypt(password, encryptedPrivateKey).toString('hex');
+    }
+    throw new OneKeyInternalError(
+      'Only credential of HD or imported accounts can be exported',
+    );
   }
 
   override fetchTokenInfos(
