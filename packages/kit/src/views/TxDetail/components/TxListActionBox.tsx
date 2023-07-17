@@ -8,6 +8,8 @@ import { TxActionElementTitleNormal } from '../elements/TxActionElementTitle';
 import { fallbackTextComponent } from '../utils/utilsTxDetail';
 
 import type { ITxActionMetaIcon, ITxActionMetaTitle } from '../types';
+import { useAppSelector } from '../../../hooks';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
 export type ITxListActionBoxProps = {
   icon?: JSX.Element;
@@ -61,6 +63,7 @@ export function TxListActionBox(props: ITxListActionBoxProps) {
     symbol,
     network,
   } = props;
+  const {activeNetworkId} = useAppSelector(s => s.general);
   const titleView = fallbackTextComponent(title, TxListActionBoxTitleText) ?? (
     <TxActionElementTitleNormal titleInfo={titleInfo} />
   );
@@ -101,7 +104,7 @@ export function TxListActionBox(props: ITxListActionBoxProps) {
                 flex={hasExtraView ? undefined : 1}
                 alignItems="center"
               >
-                {network?.logoURI ? (
+                {isAllNetworks(activeNetworkId) && network?.logoURI ? (
                   <Token
                     token={{ logoURI: network?.logoURI }}
                     showInfo={false}
