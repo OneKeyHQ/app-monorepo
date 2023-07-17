@@ -6,6 +6,13 @@ import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 
 import { InvalidAddress, OneKeyInternalError } from '../../../errors';
 import {
+  type Account,
+  type AccountCredentialType,
+  AccountType,
+  type DBAccount,
+  type DBSimpleAccount,
+} from '../../../types/account';
+import {
   type IApproveInfo,
   type IClientEndpointStatus,
   type IDecodedTx,
@@ -40,12 +47,6 @@ import {
 
 import type { BaseClient } from '../../../client/BaseClient';
 import type {
-  Account,
-  AccountCredentialType,
-  DBAccount,
-  DBSimpleAccount,
-} from '../../../types/account';
-import type {
   PartialTokenInfo,
   TransactionStatus,
 } from '../../../types/provider';
@@ -77,7 +78,10 @@ export default class Vault extends VaultBase {
 
   override async getOutputAccount(): Promise<Account> {
     const dbAccount = await this.getDbAccount({ noCache: true });
-    const displayAddress = await this.getDisplayAddress(dbAccount.address)
+    const displayAddress =
+      dbAccount.type === AccountType.SIMPLE
+        ? dbAccount.address
+        : await this.getDisplayAddress(dbAccount.address);
     return {
       id: dbAccount.id,
       name: dbAccount.name,
@@ -137,10 +141,13 @@ export default class Vault extends VaultBase {
   }
 
   override async validateWatchingCredential(input: string): Promise<boolean> {
-    // Generic address test, override if needed.
-    return Promise.resolve(
-      this.settings.watchingAccountEnabled && verifyNexaAddress(input).isValid,
-    );
+    if (this.settings.watchingAccountEnabled) {
+      if (input.startsWith('nexa')) {
+        return Promise.resolve(verifyNexaAddress(input).isValid);
+      }
+      return verifyNexaAddress(await this.getDisplayAddress(input)).isValid;
+    }
+    return Promise.resolve(false);
   }
 
   override async validateAddress(address: string): Promise<string> {

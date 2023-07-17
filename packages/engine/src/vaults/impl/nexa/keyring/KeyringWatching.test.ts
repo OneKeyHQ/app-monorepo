@@ -46,6 +46,23 @@ describe('Nexa KeyringWatching Tests', () => {
       expect((e as InvalidAddress).message).toBe('InvalidAddress.');
     }
   });
+
+  it('Nexa KeyringWatching prepareAccounts with public key', async () => {
+    const { network, watchingAccount3 } = nexaMockData;
+    await testPrepareAccounts(
+      {
+        dbNetwork: network,
+        dbAccount: watchingAccount3.account,
+        password: watchingAccount3.password,
+        accountIdPrefix: 'external',
+      },
+      {
+        keyring({ vault }) {
+          return new KeyringWatching(vault);
+        },
+      },
+    );
+  });
 });
 
 export {};

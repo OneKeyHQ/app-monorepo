@@ -13,16 +13,30 @@ export class KeyringWatching extends KeyringWatchingBase {
     params: IPrepareWatchingAccountsParams,
   ): Promise<Array<DBSimpleAccount>> {
     const { name, target: address, accountIdPrefix } = params;
-    const { normalizedAddress, isValid } = verifyNexaAddress(address);
-    if (!isValid || typeof normalizedAddress === 'undefined') {
-      throw new InvalidAddress();
+    let normalizedAddress = '';
+    let accountType = AccountType.SIMPLE;
+    if (address.startsWith('nexa')) {
+      const { normalizedAddress: nexaAddress, isValid } =
+        verifyNexaAddress(address);
+      normalizedAddress = nexaAddress || '';
+      if (!isValid || typeof normalizedAddress === 'undefined') {
+        throw new InvalidAddress();
+      }
+    } else {
+      try {
+        verifyNexaAddress(await this.vault.getDisplayAddress(address));
+        normalizedAddress = address;
+        accountType = AccountType.UTXO;
+      } catch (error) {
+        throw new InvalidAddress();
+      }
     }
 
     return Promise.resolve([
       {
         id: `${accountIdPrefix}--${COIN_TYPE}--${address}`,
         name: name || '',
-        type: AccountType.SIMPLE,
+        type: accountType,
         path: '',
         coinType: COIN_TYPE,
         pub: '', // TODO: only address is supported for now.
