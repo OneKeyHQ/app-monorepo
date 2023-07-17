@@ -4,6 +4,7 @@ import { OnekeyNetwork } from '../config/networkIds';
 
 const SEPERATOR = '--';
 const INDEX_PLACEHOLDER = '$$INDEX$$';
+const IS_CHANGE_ADDRESS = '$$IS_CHANGE_ADDRESS$$';
 
 const IMPL_EVM = 'evm';
 const COINTYPE_ETH = '60';
@@ -168,6 +169,7 @@ function getSupportedImpls() {
 export {
   SEPERATOR,
   INDEX_PLACEHOLDER,
+  IS_CHANGE_ADDRESS,
   IMPL_EVM,
   COINTYPE_ETH,
   COINTYPE_ETC,

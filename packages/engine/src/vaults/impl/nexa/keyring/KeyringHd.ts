@@ -1,4 +1,4 @@
-import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { COINTYPE_NEXA as COIN_TYPE, IS_CHANGE_ADDRESS } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../../errors';
 import { slicePathTemplate } from '../../../../managers/derivation';
@@ -77,18 +77,19 @@ export class KeyringHd extends KeyringHdBase {
     )) as ExportedSeedCredential;
 
     const { pathPrefix } = slicePathTemplate(template);
+    const templatePrefix = pathPrefix.replace(IS_CHANGE_ADDRESS, '0');
     const pubkeyInfos = batchGetPublicKeys(
       curve,
       seed,
       password,
-      pathPrefix,
+      templatePrefix,
       indexes.map((index) => `${index}`),
     );
 
     if (pubkeyInfos.length !== indexes.length) {
       throw new OneKeyInternalError('Unable to get publick key.');
     }
-    const ret = [];
+    const ret: DBUTXOAccount[] = [];
     let index = 0;
     for (const info of pubkeyInfos) {
       const {
