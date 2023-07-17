@@ -20,7 +20,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { type IEncodedTxNexa, NexaSignature } from '../types';
+import { type IEncodedTxNexa } from '../types';
 import {
   buildInputScriptBuffer,
   buildRawTx,
