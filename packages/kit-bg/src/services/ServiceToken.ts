@@ -319,14 +319,14 @@ export default class ServiceToken extends ServiceBase {
 
     const actions: any[] = [];
     Object.entries(data).forEach(([key, value]) => {
-      if (!Number.isNaN(value)) {
+      if (typeof value !== 'undefined' && !Number.isNaN(value)) {
         actions.push(
           setAccountTokensBalances({
             accountId: key,
             networkId,
             tokensBalance: {
               'main': {
-                balance: value ?? '0',
+                balance: value,
               },
             },
           }),

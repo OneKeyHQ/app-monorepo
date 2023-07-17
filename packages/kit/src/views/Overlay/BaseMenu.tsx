@@ -11,7 +11,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMenuProps } from 'native-base';
 import type { MessageDescriptor } from 'react-intl';
 
-type ValidOption = {
+export type ValidOption = {
   onPress?: () => void;
   icon?: ICON_NAMES;
   intlValues?: Record<string | number, string>;
@@ -27,7 +27,11 @@ type ValidOption = {
     }
 );
 
-type SingleOption = false | undefined | (() => ReactElement) | ValidOption;
+export type SingleOption =
+  | false
+  | undefined
+  | (() => ReactElement)
+  | ValidOption;
 
 // https://github.com/th3rdwave/react-native-safe-area-context/issues/124#issuecomment-1018323396
 export const defaultMenuOffset = platformEnv.isNativeAndroid

@@ -808,6 +808,7 @@
   "content__str_and_others_int_nfts": "{firstNFT} و {otherNFTs} NFTs أخرى",
   "content__str_chain_is_unsupprted": "سلسلة {0} غير معتمدة حتى الآن",
   "content__str_failed": "فشل {0} !",
+  "content__str_faster": "{0} أسرع",
   "content__str_is_recommended_as_the_default_slippage_for_altcoin_pairs": "يوصى باستخدام <a> {0} </a> باعتباره الانزلاق </a> <a>",
   "content__str_is_recommended_as_the_default_slippage_for_mainstream_asset_pairs": "يوصى باستخدام <a> {0} </a> باعتباره الانزلاق الافتراضي لـ <a> أزواج الأصول الرئيسية </a> .",
   "content__str_is_recommended_as_the_default_slippage_for_stablecoin_pairs": "يوصى باستخدام <a> {0} </a> باعتباره الانزلاق الافتراضي ل <a> أزواج العملات المستقرة </a> .",
@@ -1539,6 +1540,7 @@
   "form__proxy_contract_found": "تم العثور على عقد الوكيل",
   "form__proxy_contract_found_desc": "يسمح عقد الوكيل للمالك بتغيير وظيفة الرمز المميز وسعره.",
   "form__put_coins_at_the_top": "ضع العملة على رأس القائمة",
+  "form__quantity": "كمية",
   "form__quests": "أسئلة",
   "form__random": "عشوائي",
   "form__rate": "معدل",
@@ -1774,6 +1776,7 @@
   "form__wallet_name_help_text": "قم بتغيير ملصق الجهاز في نفس الوقت.",
   "form__wallet_switch": "تبديل المحفظة",
   "form__walletconnect__uppercase": "WALLETCONNECT",
+  "form__watched_address": "العنوان الذي تمت مشاهدته",
   "form__watchlist_desc": "تقلبات أسعار كبيرة لأصول قائمة المراقبة الخاصة بك",
   "form__website": "موقع الكتروني",
   "form__what_is_the_possible_risk_of_lido": "ما هي المخاطر المحتملة لليدو؟",
@@ -1852,6 +1855,8 @@
   "modal__connect_your_device": "قم بتوصيل جهازك",
   "modal__create_the_first_account_desc": "إنشاء محفظة جديدة",
   "modal__custom_expires_time": "وقت انتهاء مخصص",
+  "modal__delete_account": "حذف الحساب",
+  "modal__delete_account_desc": "سيتم إخفاء الحساب وليس حذفه ، لذا يمكن إضافته مرة أخرى في أي وقت.",
   "modal__delete_this_token": "هل تريد حذف هذا الرمز المميز؟",
   "modal__delete_this_token_desc": "ستتم إزالة {token} من الرموز المميزة الخاصة بي",
   "modal__detecting_onekey_bridge_instalation": "الكشف عن تثبيت OneKey Bridge",
@@ -1898,6 +1903,8 @@
   "modal__input_pin_code": "الرجاء إدخال PIN على الجهاز",
   "modal__install_onekey_bridge": "قم بتثبيت OneKey Bridge",
   "modal__install_onekey_bridge_desc": "يتيح تثبيت OneKey Bridge لمحفظة أجهزتك إنشاء اتصال بمتصفحك.",
+  "modal__insufficient_balance_in_system_address": "الرصيد غير الكافي في عنوان النظام",
+  "modal__insufficient_balance_in_system_address_desc": "سيتم تخزين <a> {0} </a> ، وسيتم الاحتفاظ بالرصيد المتبقي البالغ <b> {0} </b> في رصيدك القابل للسحب لسحبه لاحقًا.",
   "modal__keep_device_close": "أبقِ الجهاز قريبًا",
   "modal__location_access_not_granted": "الوصول إلى البلوتوث غير مسموح به",
   "modal__location_access_not_granted_use_bluetooth_desc": "يتم منح إذن الموقع لاستخدام البلوتوث ، يرجى الانتقال إلى الإعدادات لفتحها.",
@@ -2020,6 +2027,7 @@
   "msg__creating_more_monero_accounts_is_not_supported_for_the_moment_desc": "يمكنك إنشاء حساب Monero بأمان في <a> Monero GUI </a> باستخدام جهاز OneKey.",
   "msg__current_slippage_str_is_high": "الانزلاق الحالي ( {0} ) مرتفع.",
   "msg__current_token_balance_is_insufficient": "رصيد الرمز الحالي غير كاف.",
+  "msg__currently_supports_up_to_str_all_networks_accounts": "يدعم حاليًا ما يصل إلى {0} جميع حسابات الشبكات",
   "msg__custom_fee_warning_gas_limit_exceed": "يجب أن يكون حد الغاز أكبر من {0} وأقل من {1}",
   "msg__custom_fee_warning_max_and_priority_fee_is_high": "الحد الأقصى للرسوم ورسم الأولوية أعلى من اللازم. قد تدفع أكثر من المطلوب",
   "msg__custom_fee_warning_max_fee_is_high": "الحد الأقصى للرسوم أعلى من اللازم",
@@ -2187,6 +2195,7 @@
   "msg__password_has_been_set": "تم تعيين كلمة المرور",
   "msg__password_needs_to_be_the_same": "يجب أن تكون كلمة المرور هي نفسها لكلا الإدخالين.",
   "msg__password_validation": "يجب أن تكون كلمة المرور بين 8 و 128 حرفًا.",
+  "msg__payment_channel_not_found_sending_failed": "قناة الدفع غير موجودة ، فشل الإرسال",
   "msg__payment_received": "تم استلام الدفعة",
   "msg__please_limit_the_amount_of_tokens_to_str_decimal_places_or_less": "الرجاء تحديد مقدار الرموز المميزة بـ {0} منازل عشرية أو أقل.",
   "msg__please_limit_the_file_size_to_str_or_less": "الرجاء تحديد حجم الملف بـ {0} أو أقل",
@@ -2253,7 +2262,7 @@
   "msg__the_current_version_is_the_latest": "👏 الإصدار الحالي هو الأحدث",
   "msg__the_disk_path_was_not_found": "لم يتم العثور على مسار القرص",
   "msg__the_invoice_amount_cannot_be_0": "لا يمكن أن يكون مبلغ الفاتورة 0",
-  "msg__the_invoice_has_expired": "انتهت صلاحية الفاتورة.",
+  "msg__the_invoice_has_expired": "انتهت صلاحية الفاتورة",
   "msg__the_ordinal_service_failure_refresh_and_try_again": "فشل الخدمة الترتيبي ، قم بالتحديث وحاول مرة أخرى",
   "msg__the_recipient_address_is_a_contract_address": "عنوان المستلم هو عنوان عقد ، وقد يؤدي التحويل إلى هذا العنوان إلى خسارة الأصول.",
   "msg__the_recipient_address_is_a_scam_address": "تم الإبلاغ عن الاحتيال على هذا العنوان وقد يؤدي النقل إلى هذا العنوان إلى فقدان الأصول.",
@@ -2586,6 +2595,7 @@
   "title__top_gainers": "أعلى الرابحين",
   "title__top_losers": "كبار الخاسرين",
   "title__top_picks": "أعلى اللقطات",
+  "title__transaction_details": "تفاصيل الصفقه",
   "title__transactions_in_progress": "معاملات جارية ...",
   "title__transferring_data": "جاري نقل البيانات ...",
   "title__transferring_data_desc": "الجهاز متصل ، يرجى الاحتفاظ بالبطاقة في مكانها وعدم تحريكها.",

@@ -6,7 +6,6 @@ import { AddNetwork } from '../../../views/ManageNetworks/AddNetwork';
 import { AddNetworkConfirm } from '../../../views/ManageNetworks/AddNetwork/AddNetworkConfirm';
 import { AllNetworksAccountsDetail } from '../../../views/ManageNetworks/AllNetworks/AllNetworksAccountsDetail';
 import { AllNetworksNetworkSelectorModal } from '../../../views/ManageNetworks/AllNetworks/NetworksSelectorModal';
-import { AllNetworksShowAccountFullAddress } from '../../../views/ManageNetworks/AllNetworks/ShowAccountFullAddress';
 import { AllNetworksSupportedNetworks } from '../../../views/ManageNetworks/AllNetworks/SupportedNetworks';
 import { CustomNetwork } from '../../../views/ManageNetworks/CustomNetwork';
 import { Listing } from '../../../views/ManageNetworks/Listing';
@@ -82,10 +81,6 @@ const modalRoutes = [
   {
     name: ManageNetworkModalRoutes.AllNetworksAccountsDetail,
     component: AllNetworksAccountsDetail,
-  },
-  {
-    name: ManageNetworkModalRoutes.AllNetworksShowAccountFullAddress,
-    component: AllNetworksShowAccountFullAddress,
   },
   {
     name: ManageNetworkModalRoutes.AllNetworksSupportedNetworks,

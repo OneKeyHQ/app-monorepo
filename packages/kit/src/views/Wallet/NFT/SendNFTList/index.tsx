@@ -12,6 +12,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { Collection } from '@onekeyhq/engine/src/types/nft';
@@ -19,7 +20,11 @@ import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
-import { useAccountPortfolios, useNetwork } from '../../../../hooks';
+import {
+  useAccountPortfolios,
+  useActiveSideAccount,
+  useAppSelector,
+} from '../../../../hooks';
 import {
   ModalRoutes,
   RootRoutes,
@@ -197,7 +202,11 @@ function SendNFTList({
   networkId: string;
 }) {
   const intl = useIntl();
-  const { network } = useNetwork({ networkId });
+  const { activeNetworkId, activeAccountId } = useAppSelector((s) => s.general);
+  const { network, accountAddress } = useActiveSideAccount({
+    networkId,
+    accountId,
+  });
   const multiSelect = Boolean(
     network &&
       (batchTransferContractAddress[network.id] || network.impl === IMPL_SOL),
@@ -218,11 +227,20 @@ function SendNFTList({
     }
   }, [accountId, isNFTSupport, networkId, network]);
 
-  const collectibles = useAccountPortfolios({
-    networkId,
-    accountId,
+  const data = useAccountPortfolios({
+    networkId: activeNetworkId,
+    accountId: activeAccountId,
     type: EOverviewScanTaskType.nfts,
   }).data as Collection[];
+
+  const collectibles = useMemo(() => {
+    if (isAllNetworks(activeNetworkId)) {
+      return data.filter(
+        (t) => t.networkId === networkId && t.accountAddress === accountAddress,
+      );
+    }
+    return data;
+  }, [accountAddress, activeNetworkId, data, networkId]);
 
   useEffect(() => {
     fetchData();

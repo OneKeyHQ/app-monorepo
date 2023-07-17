@@ -13,6 +13,7 @@ import {
 
 import { useTranslation } from '../../../hooks';
 import DAppIcon from '../components/DAppIcon';
+import FavContainer from '../Explorer/FavContainer';
 import { useTagDapps } from '../hooks';
 
 import type { DAppItemType, DAppListProps } from '../type';
@@ -58,26 +59,34 @@ export const Mobile: FC<DAppListProps> = ({ ...rest }) => {
   const t = useTranslation();
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item }) => (
-      <Pressable
-        w="full"
-        mb="5"
-        flexDirection="row"
-        flex={1}
-        alignItems="center"
-        onPress={() => {
-          onItemSelect?.(item);
+      <FavContainer
+        url={item.url}
+        hoverButtonProps={{
+          right: '4px',
+          top: '5px',
         }}
       >
-        <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
-        <Box flexDirection="column" ml="12px" flex={1}>
-          <Typography.Body2Strong flex="1" numberOfLines={1}>
-            {item.name}
-          </Typography.Body2Strong>
-          <Typography.Caption color="text-subdued" mt="4px" numberOfLines={1}>
-            {t(item._subtitle) ?? item.subtitle}
-          </Typography.Caption>
-        </Box>
-      </Pressable>
+        <Pressable
+          w="full"
+          mb="5"
+          flexDirection="row"
+          flex={1}
+          alignItems="center"
+          onPress={() => {
+            onItemSelect?.(item);
+          }}
+        >
+          <DAppIcon size={48} url={item.logoURL} networkIds={item.networkIds} />
+          <Box flexDirection="column" ml="12px" flex={1}>
+            <Typography.Body2Strong flex="1" numberOfLines={1}>
+              {item.name}
+            </Typography.Body2Strong>
+            <Typography.Caption color="text-subdued" mt="4px" numberOfLines={1}>
+              {t(item._subtitle) ?? item.subtitle}
+            </Typography.Caption>
+          </Box>
+        </Pressable>
+      </FavContainer>
     ),
     [onItemSelect, t],
   );
