@@ -2,10 +2,7 @@ import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
-import type {
-  DBSimpleAccount,
-  DBVariantAccount,
-} from '@onekeyhq/engine/src/types/account';
+import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
 import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { KeyringHardwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringHardwareBase';
 import type {
@@ -37,7 +34,7 @@ const SIGN_TYPE = 'Schnorr';
 export class KeyringHardware extends KeyringHardwareBase {
   async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
-  ): Promise<Array<DBSimpleAccount>> {
+  ): Promise<Array<DBUTXOAccount>> {
     const { indexes, names, template } = params;
     const { pathPrefix } = slicePathTemplate(template);
     const paths = indexes.map((index) => `${pathPrefix}/${index}`);
@@ -73,20 +70,20 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw convertDeviceError(addressesResponse.payload);
     }
 
-    const ret: DBVariantAccount[] = [];
+    const ret: DBUTXOAccount[] = [];
     let index = 0;
     for (const addressInfo of addressesResponse.payload) {
-      const { address, path, pub } = addressInfo;
+      const { path, pub } = addressInfo;
       const name = (names || [])[index] || `${prefix} #${indexes[index] + 1}`;
       ret.push({
         id: `${this.walletId}--${path}`,
         name,
-        type: AccountType.VARIANT,
+        type: AccountType.UTXO,
         path,
         coinType: COIN_TYPE,
-        pub,
+        xpub: '',
         address: pub,
-        addresses: { [this.networkId]: address },
+        addresses: { [this.networkId]: pub },
         template,
       });
       index += 1;
@@ -198,10 +195,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     );
 
     if (response.success) {
-      console.log(
-        'packages/engine/src/vaults/impl/nexa/keyring/KeyringHardware.ts',
-        response,
-      );
       const nexaSignatures = response.payload;
       const publicKey = Buffer.from(dbAccount.pub, 'hex');
       const inputSigs: INexaInputSignature[] = inputSignatures.map(

@@ -70,14 +70,12 @@ export async function testSignTransaction(
     amount: '50',
   });
   const unsignedTx = await vault.buildUnsignedTxFromEncodedTx(encodedTx);
-  // engine/src/proxy.ts  sign
-  // TODO return signer from keyring.signTransaction
   const signedTx = await keyring.signTransaction(unsignedTx, {
     password,
   });
 
-  const signers = await keyring.getSigners(password || '', [encodeAddress]);
-  const signer = signers[encodeAddress];
+  const signers = await keyring.getSigners(password || '', [dbAccount.address]);
+  const signer = signers[dbAccount.address];
   const publicKey = await signer.getPubkey(true);
   expect(
     verify(

@@ -6,10 +6,10 @@ import { Signer } from '../../../../proxy';
 import { batchGetPublicKeys } from '../../../../secret';
 import { AccountType } from '../../../../types/account';
 import { KeyringHdBase } from '../../../keyring/KeyringHdBase';
-import { publickeyToAddress, signEncodedTx } from '../utils';
+import { signEncodedTx } from '../utils';
 
 import type { ExportedSeedCredential } from '../../../../dbs/base';
-import type { DBVariantAccount } from '../../../../types/account';
+import type { DBUTXOAccount } from '../../../../types/account';
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
@@ -57,13 +57,17 @@ export class KeyringHd extends KeyringHdBase {
     const signer = await this.getSigner(options, {
       address: dbAccount.address,
     });
-    const result = await signEncodedTx(unsignedTx, signer, dbAccount);
+    const result = await signEncodedTx(
+      unsignedTx,
+      signer,
+      await this.vault.getDisplayAddress(dbAccount.address),
+    );
     return result;
   }
 
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
-  ): Promise<DBVariantAccount[]> {
+  ): Promise<DBUTXOAccount[]> {
     const accountNamePrefix = 'NEXA';
 
     const { password, indexes, names, template } = params;
@@ -93,18 +97,16 @@ export class KeyringHd extends KeyringHdBase {
       } = info;
       const name =
         (names || [])[index] || `${accountNamePrefix} #${indexes[index] + 1}`;
-      const chainId = await this.vault.getNetworkChainId();
       const pub = pubkey.toString('hex');
-      const encodeAddress = publickeyToAddress(pubkey, chainId);
       ret.push({
         id: `${this.walletId}--${path}`,
         name,
-        type: AccountType.VARIANT,
+        type: AccountType.UTXO,
         path,
         coinType: COIN_TYPE,
-        pub: '',
+        xpub: '',
         address: pub,
-        addresses: { [this.networkId]: encodeAddress },
+        addresses: { [this.networkId]: pub },
         template,
       });
       index += 1;

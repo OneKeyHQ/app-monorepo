@@ -264,7 +264,7 @@ export function buildTxid(
   return txIdHash;
 }
 
-function buildSignatures(encodedTx: IEncodedTxNexa, dbAccount: DBAccount) {
+function buildSignatures(encodedTx: IEncodedTxNexa, dbAccountAddress: string) {
   const { inputs, outputs, gas } = encodedTx;
   const newOutputs = outputs.slice();
   const inputAmount: BN = inputs.reduce(
@@ -281,7 +281,7 @@ function buildSignatures(encodedTx: IEncodedTxNexa, dbAccount: DBAccount) {
 
   // change address
   newOutputs.push({
-    address: dbAccount.address,
+    address: dbAccountAddress,
     satoshis: available.sub(fee).toString(),
     outType: 1,
   });
@@ -308,7 +308,7 @@ function buildSignatures(encodedTx: IEncodedTxNexa, dbAccount: DBAccount) {
 
 export function buildSignatureBuffer(
   encodedTx: IEncodedTxNexa,
-  dbAccount: DBAccount,
+  dbAccountAddress: string,
 ) {
   const { inputs } = encodedTx;
   const prevoutsBuffer = Buffer.concat(
@@ -335,7 +335,7 @@ export function buildSignatureBuffer(
 
   const { outputSignatures, inputSignatures } = buildSignatures(
     encodedTx,
-    dbAccount,
+    dbAccountAddress,
   );
 
   const outputBuffer = Buffer.concat(
@@ -384,7 +384,7 @@ export function buildSignatureBuffer(
 export async function signEncodedTx(
   unsignedTx: IUnsignedTxPro,
   signer: Signer,
-  dbAccount: DBAccount,
+  dbAccountAddress: string,
 ): Promise<ISignedTxPro> {
   const encodedTx = unsignedTx.encodedTx as IEncodedTxNexa;
   const privateKey = await signer.getPrvkey();
@@ -393,7 +393,7 @@ export async function signEncodedTx(
     outputSignatures,
     inputSignatures: inputSigs,
     signatureBuffer,
-  } = buildSignatureBuffer(encodedTx, dbAccount);
+  } = buildSignatureBuffer(encodedTx, dbAccountAddress);
   const ret = sha256sha256(signatureBuffer);
   const signature = sign(privateKey, ret);
   const inputSignatures: INexaInputSignature[] = inputSigs.map((inputSig) => ({

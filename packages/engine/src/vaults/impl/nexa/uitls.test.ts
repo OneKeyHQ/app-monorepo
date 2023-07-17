@@ -84,9 +84,7 @@ describe('Nexa Utils Tests', () => {
             ),
           ),
       } as unknown as Signer,
-      {
-        address: 'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
-      } as unknown as DBAccount,
+      'nexatest:nqtsq5g5llmjhut9fuzst4993zmk62m89rw2gztuvl376dp0',
     );
     expect(signedTx.txid).toBe(
       '1e04ea46dbbddf5291df961bf02f4d9158e0e90421379165c6a0b5fe897b9f33',
@@ -153,9 +151,7 @@ describe('Nexa Utils Tests', () => {
             ),
           ),
       } as unknown as Signer,
-      {
-        address: 'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
-      } as unknown as DBAccount,
+      'nexatest:nqtsq5g5l7rgf6mrvuhrjke8vsm4ng60q86vdycptqn79epv',
     );
     expect(signedTx.txid).toBe(
       'c0a8d7f91b662021ac35040e0ed77d32780ea00cb10622f4e33d5f10e1de5161',

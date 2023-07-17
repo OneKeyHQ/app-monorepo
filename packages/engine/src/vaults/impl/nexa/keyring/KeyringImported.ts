@@ -5,9 +5,9 @@ import { OneKeyInternalError } from '../../../../errors';
 import { Signer } from '../../../../proxy';
 import { AccountType } from '../../../../types/account';
 import { KeyringImportedBase } from '../../../keyring/KeyringImportedBase';
-import { publickeyToAddress, signEncodedTx } from '../utils';
+import { signEncodedTx } from '../utils';
 
-import type { DBVariantAccount } from '../../../../types/account';
+import type { DBUTXOAccount } from '../../../../types/account';
 import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
@@ -19,26 +19,24 @@ const curve = 'secp256k1';
 export class KeyringImported extends KeyringImportedBase {
   override async prepareAccounts(
     params: IPrepareImportedAccountsParams,
-  ): Promise<Array<DBVariantAccount>> {
+  ): Promise<Array<DBUTXOAccount>> {
     const { name, privateKey } = params;
     if (privateKey.length !== 32) {
       throw new OneKeyInternalError('Invalid private key.');
     }
 
-    const chainId = await this.vault.getNetworkChainId();
     const pub = secp256k1.publicFromPrivate(privateKey);
     const pubHex = pub.toString('hex');
-    const encodeAddress = publickeyToAddress(pub, chainId);
     return Promise.resolve([
       {
         id: `imported--${COIN_TYPE}--${pubHex}`,
         name: name || '',
-        type: AccountType.VARIANT,
+        type: AccountType.UTXO,
         path: '',
         coinType: COIN_TYPE,
-        pub: pubHex,
+        xpub: '',
         address: pubHex,
-        addresses: { [this.networkId]: encodeAddress },
+        addresses: { [this.networkId]: pubHex },
       },
     ]);
   }
@@ -79,7 +77,11 @@ export class KeyringImported extends KeyringImportedBase {
   ): Promise<ISignedTxPro> {
     const dbAccount = await this.getDbAccount();
     const signer = await this.getSigner(options, dbAccount);
-    const result = await signEncodedTx(unsignedTx, signer, dbAccount);
+    const result = await signEncodedTx(
+      unsignedTx,
+      signer,
+      await this.vault.getDisplayAddress(dbAccount.address),
+    );
     return result;
   }
 

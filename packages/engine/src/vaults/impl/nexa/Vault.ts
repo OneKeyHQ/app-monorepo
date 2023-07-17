@@ -39,6 +39,7 @@ import {
 
 import type { BaseClient } from '../../../client/BaseClient';
 import type {
+  Account,
   AccountCredentialType,
   DBAccount,
   DBSimpleAccount,
@@ -71,6 +72,27 @@ export default class Vault extends VaultBase {
 
   override createClientFromURL(url: string): BaseClient {
     return new Nexa(url);
+  }
+
+  override async getOutputAccount(): Promise<Account> {
+    const dbAccount = await this.getDbAccount({ noCache: true });
+    return {
+      id: dbAccount.id,
+      name: dbAccount.name,
+      type: dbAccount.type,
+      path: dbAccount.path,
+      coinType: dbAccount.coinType,
+      tokens: [],
+      address: dbAccount.address,
+      displayAddress: await this.getDisplayAddress(dbAccount.address),
+      template: dbAccount.template,
+      pubKey: dbAccount.address,
+    };
+  }
+
+  override async getDisplayAddress(address: string): Promise<string> {
+    const chainId = await this.getNetworkChainId();
+    return publickeyToAddress(Buffer.from(address, 'hex'), chainId);
   }
 
   override async addressFromBase(account: DBAccount): Promise<string> {
@@ -132,9 +154,12 @@ export default class Vault extends VaultBase {
   ): Promise<Array<BigNumber | undefined>> {
     // Abstract requests
     const client = await this.getSDKClient();
+    const displayAddresses = await Promise.all(
+      requests.map(({ address }) => this.getDisplayAddress(address)),
+    );
     return client.getBalances(
-      requests.map(({ address, tokenAddress }) => ({
-        address,
+      requests.map(({ tokenAddress }, index) => ({
+        address: displayAddresses[index],
         coin: { ...(typeof tokenAddress === 'string' ? { tokenAddress } : {}) },
       })),
     );
@@ -160,7 +185,7 @@ export default class Vault extends VaultBase {
     payload?: any,
   ): Promise<IDecodedTx> {
     const address = await this.getAccountAddress();
-
+    const displayAddress = await this.getDisplayAddress(address);
     const amountValue = encodedTx.outputs.reduce(
       (acc, cur) => acc.plus(new BigNumber(cur.satoshis)),
       new BigNumber(0),
@@ -172,7 +197,7 @@ export default class Vault extends VaultBase {
       direction: IDecodedTxDirection.OUT,
       tokenTransfer: {
         tokenInfo: token,
-        from: address,
+        from: displayAddress,
         to: encodedTx.outputs[0].address,
         amount: amountValue.shiftedBy(-token.decimals).toFixed(),
         amountValue: amountValue.toString(),
@@ -181,8 +206,8 @@ export default class Vault extends VaultBase {
     };
     const decodedTx: IDecodedTx = {
       txid: '',
-      owner: address,
-      signer: address,
+      owner: displayAddress,
+      signer: displayAddress,
       networkId: this.networkId,
       accountId: this.accountId,
       encodedTx,
