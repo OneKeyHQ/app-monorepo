@@ -24,7 +24,7 @@ import {
 import dappColourPNG from '../../../../../assets/dapp_colour.png';
 import { useAppSelector, useTranslation } from '../../../../hooks';
 import { Chains } from '../../Chains';
-import DAppIcon from '../../DAppIcon';
+import DAppIcon from '../../components/DAppIcon';
 import { useCategoryDapps } from '../../hooks';
 import { DiscoverContext } from '../context';
 

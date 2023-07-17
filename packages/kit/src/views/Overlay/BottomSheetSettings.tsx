@@ -49,6 +49,7 @@ export const BottomSheetSettings: FC<{
     <Modal
       visible
       forceDesktop
+      hideBackButton
       header={intl.formatMessage({
         id: (titleI18nKey as any) ?? 'title__settings',
       })}

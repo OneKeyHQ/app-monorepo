@@ -38,7 +38,7 @@ import {
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { COINTYPE_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
+import { isLightningNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   AppEventBusNames,
   appEventBus,
@@ -284,10 +284,7 @@ export default class ServiceToken extends ServiceBase {
     try {
       const balancesAddress = await Promise.all(
         dbAccounts.map(async (a) => {
-          if (
-            a.type === AccountType.UTXO ||
-            a.coinType === COINTYPE_LIGHTNING
-          ) {
+          if (a.type === AccountType.UTXO || isLightningNetwork(a.coinType)) {
             const address = await vault.getFetchBalanceAddress(a);
             return { address, accountId: a.id };
           }
@@ -816,5 +813,24 @@ export default class ServiceToken extends ServiceBase {
       ...data,
       tokens: data?.tokens.map((t) => formatServerToken(t)) ?? [],
     };
+  }
+
+  @backgroundMethod()
+  async fetchBalanceDetails({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    });
+    let password: string | undefined;
+    if (vault.settings.validationRequired) {
+      password = await this.backgroundApi.servicePassword.getPassword();
+    }
+    return vault.fetchBalanceDetails({ password });
   }
 }

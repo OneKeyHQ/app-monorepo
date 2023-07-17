@@ -2,7 +2,10 @@ import { ripemd160 } from '@noble/hashes/ripemd160';
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 
-import { COINTYPE_LIGHTNING } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_LIGHTNING,
+  COINTYPE_LIGHTNING_TESTNET,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { AccountType } from '../../../types/account';
@@ -36,12 +39,14 @@ export class KeyringHd extends KeyringHdBase {
       this.walletId,
       password,
     )) as ExportedSeedCredential;
+    const network = await this.vault.getNetwork();
     const nativeSegwitAccounts = await generateNativeSegwitAccounts({
       engine: this.engine,
       seed,
       password,
       indexes,
       names,
+      isTestnet: network.isTestnet,
     });
 
     const client = await (this.vault as LightningVault).getClient();
@@ -68,6 +73,7 @@ export class KeyringHd extends KeyringHdBase {
           path: account.path,
           password,
           entropy,
+          isTestnet: network.isTestnet,
         });
         await client.createUser({
           hashPubKey,
@@ -76,13 +82,16 @@ export class KeyringHd extends KeyringHdBase {
           randomSeed: signTemplate.randomSeed,
         });
       }
-      const path = `m/44'/${COINTYPE_LIGHTNING}'/${account.index}`;
+      const CoinType: string = network.isTestnet
+        ? COINTYPE_LIGHTNING_TESTNET
+        : COINTYPE_LIGHTNING;
+      const path = `m/44'/${CoinType}'/${account.index}`;
       ret.push({
         id: `${this.walletId}--${path}`,
         name: account.name,
         type: AccountType.VARIANT,
         path,
-        coinType: COINTYPE_LIGHTNING,
+        coinType: CoinType,
         pub: account.xpub,
         address: '',
         addresses: {
@@ -117,6 +126,7 @@ export class KeyringHd extends KeyringHdBase {
     if (signTemplate.type !== 'transfer') {
       throw new Error('Wrong transfer signature type');
     }
+    const network = await this.vault.getNetwork();
     const sign = await signature({
       msgPayload: {
         ...signTemplate,
@@ -131,6 +141,7 @@ export class KeyringHd extends KeyringHdBase {
       path: dbAccount.addresses.realPath,
       password: password ?? '',
       entropy,
+      isTestnet: network.isTestnet,
     });
     return {
       txid: paymentHash,

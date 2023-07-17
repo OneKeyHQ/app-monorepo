@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
+
+import { createSelector } from '@reduxjs/toolkit';
 
 import {
   allNetworksAccountRegex,
   generateFakeAllnetworksAccount,
 } from '@onekeyhq/engine/src/managers/account';
-import type { Account } from '@onekeyhq/engine/src/types/account';
 
-import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { useAppSelector } from './useAppSelector';
 
-import { useManageNetworks } from './useManageNetworks';
+import type { IAppState } from '../store';
 
 export const useAllNetworkAccountInfo = ({
   accountId,
@@ -22,36 +23,27 @@ export const useAllNetworkAccountInfo = ({
     return generateFakeAllnetworksAccount({ accountId });
   }, [accountId]);
 
+const selectAllNetworksAccountsMap = (state: IAppState) =>
+  state.overview.allNetworksAccountsMap;
+
+export const makeGetAllNetworksAccountsSelector = (accountId?: string | null) =>
+  createSelector(
+    [selectAllNetworksAccountsMap],
+    (map) => map?.[accountId || ''] ?? {},
+  );
+
 export const useAllNetworksWalletAccounts = ({
-  walletId,
   accountId,
 }: {
-  walletId: string;
-  accountId: string;
+  accountId?: string | null;
 }) => {
-  const [loading, setLoading] = useState(false);
-  const { enabledNetworks } = useManageNetworks();
-  const [networkAccountsMap, setNetworkAccountMap] = useState<
-    Record<string, Account[]>
-  >({});
-
-  useEffect(() => {
-    setLoading(true);
-    backgroundApiProxy.serviceAllNetwork
-      .getAllNetworksWalletAccounts({
-        walletId,
-        accountId,
-      })
-      .then((map) => {
-        setNetworkAccountMap(map);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [walletId, accountId, enabledNetworks]);
+  const getAllNetworksAccounts = useMemo(
+    () => makeGetAllNetworksAccountsSelector(accountId),
+    [accountId],
+  );
+  const data = useAppSelector(getAllNetworksAccounts);
 
   return {
-    loading,
-    data: networkAccountsMap,
+    data,
   };
 };

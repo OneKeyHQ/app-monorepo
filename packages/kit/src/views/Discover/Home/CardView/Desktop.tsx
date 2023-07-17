@@ -7,7 +7,7 @@ import { Box, Pressable, Typography } from '@onekeyhq/components';
 
 import { useDebounce, useTranslation } from '../../../../hooks';
 import { Chains } from '../../Chains';
-import DAppIcon from '../../DAppIcon';
+import DAppIcon from '../../components/DAppIcon';
 import FavContainer from '../../Explorer/FavContainer';
 import { SectionTitle } from '../TitleView';
 
@@ -44,12 +44,11 @@ const Card: FC<{
         alignItems="center"
       >
         <Pressable
-          bgColor="surface-default"
           flexDirection="column"
           borderRadius="12px"
           padding="4"
           width={cardWidth - 16}
-          height={144}
+          height={128}
           borderWidth={1}
           _hover={{ bgColor: 'surface-hovered' }}
           borderColor="border-subdued"

@@ -7,6 +7,8 @@ import coinSelectSplit from 'coinselect/split';
 import coinSelectUtils from 'coinselect/utils';
 import { isNil } from 'lodash';
 
+import { InsufficientBalance } from '../../../../errors';
+
 import type { IEncodedTxBtc, IUTXOInput, IUTXOOutput } from '../types';
 import type {
   ICoinSelectInput,
@@ -99,6 +101,8 @@ export function accumulativePro(
         return { fee: feeRate * (bytesAccum + utxoBytes) };
 
       if (!utxo.forceSelect) {
+        // **** dust utxo 546 sats won't select in default,
+        //      it may cost more tx fee, but supply less value
         // eslint-disable-next-line no-continue
         continue;
       }
@@ -228,6 +232,7 @@ export const coinSelect = ({
     finalOutputs,
     parseInt(feeRate),
   );
+
   if (isNil(fee)) {
     throw new Error('coinSelect ERROR: No fee found');
   }
@@ -247,8 +252,8 @@ export function coinSelectForOrdinal(
     // which broke the ordinal indexer searching
     false,
   );
-  if (result.inputs?.length === 0) {
-    throw new Error('coinSelectForOrdinal ERROR: No inputs found');
+  if (result.inputs?.length === 0 || !result.inputs) {
+    throw new InsufficientBalance('Failed to select UTXOs for inscription');
   }
   const ordUtxo = inputsForCoinSelect.find((item) => Boolean(item.forceSelect));
   const matchedOrdUtxo = result.inputs?.find(
@@ -257,11 +262,20 @@ export function coinSelectForOrdinal(
       item.vout === ordUtxo?.vout &&
       new BigNumber(item.value).eq(ordUtxo?.value),
   );
-  if (!matchedOrdUtxo || !ordUtxo) {
-    throw new Error('coinSelectForOrdinal ERROR: No ordinal inputs found');
+  if (!ordUtxo) {
+    throw new Error('coinSelectForOrdinal ERROR: No ordUtxo inputs found');
   }
+  if (!matchedOrdUtxo) {
+    throw new Error(
+      'coinSelectForOrdinal ERROR: No matchedOrdUtxo inputs found',
+    );
+  }
+  let ordUtxoCount = 0;
   result.inputs?.forEach((item, index) => {
     const isOrd = Boolean(item.forceSelect);
+    if (isOrd) {
+      ordUtxoCount += 1;
+    }
     if (!isOrd && index === 0) {
       throw new Error(
         'coinSelectForOrdinal ERROR: Ordinal utxo should be first',
@@ -269,10 +283,15 @@ export function coinSelectForOrdinal(
     }
     if (isOrd && index > 0) {
       throw new Error(
-        'coinSelectForOrdinal ERROR: multiple ordinal utxo found',
+        'coinSelectForOrdinal ERROR: multiple ordinal utxo not allowed',
       );
     }
   });
+  if (ordUtxoCount > 1) {
+    throw new Error(
+      'coinSelectForOrdinal ERROR: multiple ordinal utxo not allowed....',
+    );
+  }
 
   // TODO check output value between 10000 and 546
   // TODO check input including inscriptions utxo

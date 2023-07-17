@@ -73,7 +73,9 @@ function SendConfirmTransfer(props: ITxConfirmViewProps) {
         type === 'NATIVE_TRANSFER' &&
         typeof nativeTransfer !== 'undefined' &&
         (typeof nativeTransfer.utxoFrom !== 'undefined' ||
-          nativeTransfer.tokenInfo.networkId === OnekeyNetwork.lightning)
+          [OnekeyNetwork.lightning, OnekeyNetwork.tlightning].includes(
+            nativeTransfer.tokenInfo.networkId,
+          ))
       ) {
         // For UTXO model, the decodedTx is updated with the new transfer amount.
         // Use this instead of depending the incorrect feeInfoPayload results.

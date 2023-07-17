@@ -14,6 +14,7 @@ import {
   IMPL_FIL,
   IMPL_KASPA,
   IMPL_LIGHTNING,
+  IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
   IMPL_NEAR,
   IMPL_NEXA,
@@ -135,7 +136,7 @@ export async function createVaultHelperInstance(
   if (impl === IMPL_NEXA) {
     return new VaultHelperNexa(options);
   }
-  if (impl === IMPL_LIGHTNING) {
+  if (impl === IMPL_LIGHTNING || impl === IMPL_LIGHTNING_TESTNET) {
     return new VaultHelperLightning(options);
   }
   if (impl === IMPL_ALLNETWORKS) {
@@ -270,7 +271,10 @@ export async function createVaultInstance(options: IVaultOptions) {
     const VaultNexa = (await import('./impl/nexa/Vault')).default;
     vault = new VaultNexa(options);
   }
-  if (network.impl === IMPL_LIGHTNING) {
+  if (
+    network.impl === IMPL_LIGHTNING ||
+    network.impl === IMPL_LIGHTNING_TESTNET
+  ) {
     const VaultLightning = (await import('./impl/lightning-network/Vault'))
       .default;
     vault = new VaultLightning(options);

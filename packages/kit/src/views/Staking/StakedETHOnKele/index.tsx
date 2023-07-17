@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import type { FC } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { format as dateFormat, parse } from 'date-fns';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -22,11 +22,7 @@ import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../components/Format';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-  useTokenBalance,
-} from '../../../hooks';
+import { useAppSelector, useTokenBalance } from '../../../hooks';
 import {
   useNativeToken,
   useSimpleTokenPriceValue,
@@ -50,9 +46,15 @@ import type {
   KeleOpHistoryDTO,
   StakingRoutesParams,
 } from '../typing';
+import type { RouteProp } from '@react-navigation/core';
 import type { ListRenderItem } from 'react-native';
 
 type NavigationProps = ModalScreenProps<StakingRoutesParams>;
+
+type RouteProps = RouteProp<
+  StakingRoutesParams,
+  StakingRoutes.LidoEthUnstakeShouldUnderstand
+>;
 
 function prefixAmount(amount: number) {
   return Number(amount) > 0
@@ -63,7 +65,8 @@ function prefixAmount(amount: number) {
 const KeleOverview = () => {
   const intl = useIntl();
   const navigation = useNavigation();
-  const { networkId, accountId } = useActiveWalletAccount();
+  const route = useRoute<RouteProps>();
+  const { networkId, accountId } = route.params;
   const minerOverview = useKeleMinerOverview(networkId, accountId);
   const onUnstake = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -72,10 +75,11 @@ const KeleOverview = () => {
         screen: StakingRoutes.KeleEthUnstakeShouldUnderstand,
         params: {
           networkId,
+          accountId,
         },
       },
     });
-  }, [navigation, networkId]);
+  }, [navigation, networkId, accountId]);
   const onWithdraw = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
       screen: ModalRoutes.Staking,
@@ -83,10 +87,11 @@ const KeleOverview = () => {
         screen: StakingRoutes.WithdrawAmount,
         params: {
           networkId,
+          accountId,
         },
       },
     });
-  }, [navigation, networkId]);
+  }, [navigation, networkId, accountId]);
   return (
     <Box
       borderRadius={12}
@@ -144,7 +149,8 @@ const KeleOverview = () => {
 
 const UnstakePendingAlert = () => {
   const intl = useIntl();
-  const { networkId, accountId } = useActiveWalletAccount();
+  const route = useRoute<RouteProps>();
+  const { networkId, accountId } = route.params;
   const minerOverview = useKeleMinerOverview(networkId, accountId);
   const retailUnstaking = Number(minerOverview?.amount.retail_unstaking ?? 0);
   const unstakeOverview = useKeleUnstakeOverview(networkId, accountId);
@@ -184,7 +190,8 @@ const UnstakePendingAlert = () => {
 
 const WithdrawPendingAlert = () => {
   const intl = useIntl();
-  const { networkId, accountId } = useActiveWalletAccount();
+  const route = useRoute<RouteProps>();
+  const { networkId, accountId } = route.params;
   const accountPendingWithdraw = usePendingWithdraw(networkId, accountId);
   useEffect(() => {
     if (accountPendingWithdraw) {
@@ -213,7 +220,8 @@ const WithdrawPendingAlert = () => {
 
 const PendingStakeContent = () => {
   const intl = useIntl();
-  const { networkId, accountId } = useActiveWalletAccount();
+  const route = useRoute<RouteProps>();
+  const { networkId, accountId } = route.params;
   const transactions = useAppSelector((s) => s.staking.keleTransactions);
   const txs = useMemo(() => {
     if (!transactions) {
@@ -249,7 +257,8 @@ const PendingStakeContent = () => {
 
 const ListHeaderComponent = () => {
   const intl = useIntl();
-  const { networkId, accountId } = useActiveWalletAccount();
+  const route = useRoute<RouteProps>();
+  const { networkId, accountId } = route.params;
   const minerOverview = useKeleMinerOverview(networkId, accountId);
   const nativeToken = useNativeToken(networkId);
   const balance = useTokenBalance({ networkId, accountId, token: nativeToken });
@@ -263,11 +272,12 @@ const ListHeaderComponent = () => {
         screen: StakingRoutes.KeleEthUnstakeShouldUnderstand,
         params: {
           networkId,
+          accountId,
           readonly: true,
         },
       },
     });
-  }, [navigation, networkId]);
+  }, [navigation, networkId, accountId]);
 
   const onStake = useCallback(() => {
     navigation.navigate(RootRoutes.Modal, {
@@ -275,11 +285,13 @@ const ListHeaderComponent = () => {
       params: {
         screen: StakingRoutes.ETHStake,
         params: {
+          accountId,
+          networkId,
           source: EthStakingSource.Kele,
         },
       },
     });
-  }, [navigation]);
+  }, [navigation, accountId, networkId]);
 
   const totalAmount =
     Number(minerOverview?.amount?.total_amount ?? 0) +
@@ -393,7 +405,8 @@ const ListHeaderComponent = () => {
 
 const RewardHistory: FC<{ item: KeleIncomeDTO }> = ({ item }) => {
   const intl = useIntl();
-  const { networkId } = useActiveWalletAccount();
+  const route = useRoute<RouteProps>();
+  const { networkId } = route.params;
   const mainPrice = useSimpleTokenPriceValue({ networkId });
   return (
     <Box w="full">
@@ -424,7 +437,8 @@ const RewardHistory: FC<{ item: KeleIncomeDTO }> = ({ item }) => {
 
 const OpHistory: FC<{ item: KeleOpHistoryDTO }> = ({ item }) => {
   const intl = useIntl();
-  const { networkId } = useActiveWalletAccount();
+  const route = useRoute<RouteProps>();
+  const { networkId } = route.params;
   const mainPrice = useSimpleTokenPriceValue({ networkId });
   const opType = Number(item.op_type);
   let title = intl.formatMessage({ id: 'action__stake' });
@@ -491,7 +505,8 @@ const ListEmptyComponent = () => {
 };
 
 export default function StakedETHOnKele() {
-  const { networkId, accountId } = useActiveWalletAccount();
+  const route = useRoute<RouteProps>();
+  const { networkId, accountId } = route.params;
   const history = useKeleHistory(networkId, accountId);
 
   useEffect(() => {

@@ -66,6 +66,8 @@ const ReceiveAddress: FC = () => {
           const isTaprootAddress =
             await serviceInscribe.checkValidTaprootAddress({
               address: value,
+              networkId,
+              accountId,
             });
           if (isTaprootAddress) {
             setvalidateMessage({
@@ -97,7 +99,7 @@ const ReceiveAddress: FC = () => {
         }
       }, 100);
     },
-    [intl, serviceInscribe],
+    [accountId, intl, networkId, serviceInscribe],
   );
 
   const submitDisabled =

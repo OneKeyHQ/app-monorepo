@@ -1,4 +1,4 @@
-import { find, flatten, pick } from 'lodash';
+import { flatten, pick } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
@@ -18,7 +18,11 @@ import {
   parseNetworkId,
 } from '@onekeyhq/engine/src/managers/network';
 import type { IAccount, INetwork, IWallet } from '@onekeyhq/engine/src/types';
-import type { Account, DBAccount } from '@onekeyhq/engine/src/types/account';
+import type {
+  Account,
+  DBAccount,
+  DBVariantAccount,
+} from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 import type { Wallet, WalletType } from '@onekeyhq/engine/src/types/wallet';
@@ -59,7 +63,6 @@ import {
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   COINTYPE_ETH,
-  COINTYPE_LIGHTNING,
   IMPL_ADA,
   IMPL_CFX,
   IMPL_COSMOS,
@@ -67,6 +70,7 @@ import {
   IMPL_FIL,
   IMPL_NEXA,
   IMPL_XMR,
+  isLightningNetwork,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   isHardwareWallet,
@@ -1369,10 +1373,21 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getAddressLabel({
     address,
+    networkId,
   }: {
     address: string;
+    networkId?: string;
   }): Promise<{ label: string; address: string }> {
-    const { wallet, walletId } = getActiveWalletAccount();
+    const { engine } = this.backgroundApi;
+    const {
+      wallet,
+      walletId,
+      networkId: activeNetworkId,
+    } = getActiveWalletAccount();
+    const vault = await engine.getWalletOnlyVault(
+      networkId ?? activeNetworkId,
+      walletId,
+    );
     const cacheKey = `${address}@${walletId || ''}`;
     if (this.addressLabelCache[cacheKey]) {
       return Promise.resolve({
@@ -1381,20 +1396,48 @@ class ServiceAccount extends ServiceBase {
       });
     }
     const findNameLabelByAccountIds = async (accountIds: string[]) => {
-      const accounts = await this.backgroundApi.engine.getAccounts(accountIds);
-      const name = find(accounts, (a) => {
-        if (a.coinType === COINTYPE_LIGHTNING) {
+      const accounts = await this.backgroundApi.engine.getAccounts(
+        accountIds,
+        networkId,
+      );
+      let accountLabel;
+      for (let i = 0; i < accounts.length && !accountLabel; i += 1) {
+        const account = accounts[i];
+        if (isLightningNetwork(account.coinType)) {
           const addresses =
-            a.addresses && !!a.addresses.length ? JSON.parse(a.addresses) : {};
-          return (
+            account.addresses && !!account.addresses.length
+              ? JSON.parse(account.addresses)
+              : {};
+          if (
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             ((addresses?.hashAddress || '') as string).toLowerCase() ===
             address.toLowerCase()
-          );
+          ) {
+            accountLabel = account.name;
+          }
         }
-        return a.address.toLowerCase() === address.toLowerCase();
-      })?.name;
-      const label = name ?? '';
+
+        if (account.type === AccountType.VARIANT) {
+          const dbAccount = await engine.dbApi.getAccount(account.id);
+          try {
+            const addressOnNetwork = await vault.addressFromBase(
+              dbAccount as DBVariantAccount,
+            );
+
+            if (addressOnNetwork?.toLowerCase() === address.toLowerCase()) {
+              accountLabel = account.name;
+            }
+          } catch {
+            // treate error as not found
+          }
+        }
+
+        if (account.address.toLowerCase() === address.toLowerCase()) {
+          accountLabel = account.name;
+        }
+      }
+
+      const label = accountLabel ?? '';
       if (label && address) {
         this.addressLabelCache[cacheKey] = label;
       }
@@ -1431,23 +1474,32 @@ class ServiceAccount extends ServiceBase {
     address: string;
     networkId?: string;
   }) {
-    const { engine } = this.backgroundApi;
-    const displayPassphraseWalletIdList =
-      this.getDisplayPassphraseWalletIdList();
-    const wallets = await engine.getWallets({
-      displayPassphraseWalletIds: displayPassphraseWalletIdList,
-    });
-    for (let i = 0; i < wallets.length; i += 1) {
-      const wallet = wallets[i];
-      const accounts = await engine.getAccounts(wallet.accounts);
-      const target = accounts.find((item) => item.address === address);
+    const { engine, appSelector } = this.backgroundApi;
+    const { activeWalletId } = appSelector((s) => s.general);
+    const { wallets, accounts } = appSelector((s) => s.runtime);
+    const findMatchAccount = (list: Account[]): Account | undefined => {
+      const a = list.find((item) => item.address === address);
+      if (!a) {
+        return undefined;
+      }
+      if (!networkId) {
+        return a;
+      }
+      if (isAccountCompatibleWithNetwork(a?.id, networkId)) {
+        return a;
+      }
+    };
+    // find from active wallet accounts
+    const account = findMatchAccount(accounts);
+    if (account) {
+      return account;
+    }
+    // find from another wallets accounts
+    for (const wallet of wallets.filter((w) => w.id !== activeWalletId)) {
+      const accountsOfWallet = await engine.getAccounts(wallet.accounts);
+      const target = findMatchAccount(accountsOfWallet);
       if (target) {
-        if (!networkId) {
-          return target;
-        }
-        if (isAccountCompatibleWithNetwork(target?.id, networkId)) {
-          return target;
-        }
+        return target;
       }
     }
   }
@@ -1542,7 +1594,9 @@ class ServiceAccount extends ServiceBase {
     }
     // TODO: Lightning account
     if (account.type === AccountType.VARIANT) {
-      if (networkId === OnekeyNetwork.lightning) {
+      if (
+        [OnekeyNetwork.lightning, OnekeyNetwork.tlightning].includes(networkId)
+      ) {
         const address = await vault.getFetchBalanceAddress(account);
         return { address };
       }

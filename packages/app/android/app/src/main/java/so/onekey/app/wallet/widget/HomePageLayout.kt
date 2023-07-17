@@ -201,6 +201,13 @@ open class HomePageLayout @JvmOverloads constructor(
         }
     }
 
+    fun setSlideDisable(disable: Boolean?) {
+        post {
+            val viewpager = content.findViewById<ViewPager2>(R.id.viewpager)
+            viewpager?.isUserInputEnabled = if (disable == null) true else !disable
+        }
+    }
+
     fun getChildViewCount(): Int {
         val contentView = content.findViewById<CollapsingToolbarLayout>(R.id.toolbar)
         return (contentView?.childCount ?: 0) + (getAdapter()?.itemCount ?: 0)
@@ -345,4 +352,6 @@ open class HomePageLayout @JvmOverloads constructor(
             tabDividerView.visibility = View.GONE
         }
     }
+
+
 }

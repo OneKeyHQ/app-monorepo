@@ -14,7 +14,7 @@ import {
 
 import { useTranslation } from '../../../hooks';
 import { Chains } from '../Chains';
-import DAppIcon from '../DAppIcon';
+import DAppIcon from '../components/DAppIcon';
 import { useTagDapps } from '../hooks';
 
 import type { DAppItemType, DAppListProps } from '../type';
