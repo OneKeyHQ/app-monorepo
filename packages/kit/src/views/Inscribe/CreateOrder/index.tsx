@@ -42,6 +42,10 @@ import {
 } from '../../../routes/routesEnum';
 import { formatBytes } from '../../../utils/hardware/homescreens';
 import HeaderDescription from '../Components/HeaderDescription';
+import {
+  showAccountBalanceDetailsOverlay,
+  useAccountBalanceDetailsInfo,
+} from '../../Overlay/AccountBalanceDetailsPanel';
 import Steps from '../Components/Steps';
 import { OrderButton } from '../OrderList';
 
@@ -255,25 +259,55 @@ const CreateOrder: FC = () => {
     tokenInfo,
   ]);
 
+  const balanceDetailsInfo = useAccountBalanceDetailsInfo({
+    networkId,
+    accountId,
+  });
+
   const AvailableBalance = useMemo(
     () => (
       <Box position="absolute" bottom={isVerticalLayout ? 0 : -72} left={0}>
-        <Text typography="Caption" color="text-subdued">
-          {intl.formatMessage({ id: 'form__available_balance' })}
-        </Text>
-        <FormatBalanceTokenOfAccount
-          accountId={accountId}
-          networkId={networkId}
-          token={{
-            id: tokenInfo?.id ?? '',
-            name: tokenInfo?.name ?? '',
-            ...(tokenInfo || {}),
-          }}
-          render={(ele) => <Text typography="Body1Strong">{ele}</Text>}
-        />
+        <Pressable
+          onPress={
+            balanceDetailsInfo.enabled
+              ? () =>
+                  showAccountBalanceDetailsOverlay({
+                    info: balanceDetailsInfo,
+                  })
+              : undefined
+          }
+        >
+          <Text typography="Caption" color="text-subdued">
+            {intl.formatMessage({ id: 'form__available_balance' })}
+          </Text>
+          <Box alignItems="center" flexDirection="row">
+            <FormatBalanceTokenOfAccount
+              accountId={accountId}
+              networkId={networkId}
+              token={{
+                id: tokenInfo?.id ?? '',
+                name: tokenInfo?.name ?? '',
+                ...(tokenInfo || {}),
+              }}
+              render={(ele) => <Text typography="Body1Strong">{ele}</Text>}
+            />
+            {balanceDetailsInfo.enabled ? (
+              <Box ml={2}>
+                <Icon name="InformationCircleSolid" size={18} />
+              </Box>
+            ) : null}
+          </Box>
+        </Pressable>
       </Box>
     ),
-    [accountId, intl, isVerticalLayout, networkId, tokenInfo],
+    [
+      accountId,
+      balanceDetailsInfo,
+      intl,
+      isVerticalLayout,
+      networkId,
+      tokenInfo,
+    ],
   );
   return (
     <Modal
