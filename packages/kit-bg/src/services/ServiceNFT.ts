@@ -369,12 +369,10 @@ class ServiceNFT extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
-    const { appSelector, serviceOverview } = this.backgroundApi;
-    const walletId = appSelector((s) => s.general.activeWalletId);
+    const { serviceOverview } = this.backgroundApi;
     await serviceOverview.fetchAccountOverview({
       accountId,
       networkId,
-      walletId: walletId ?? '',
       scanTypes: [EOverviewScanTaskType.nfts],
     });
   }

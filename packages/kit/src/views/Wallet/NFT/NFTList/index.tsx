@@ -18,6 +18,7 @@ import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { DebugRenderTracker } from '@onekeyhq/components/src/DebugRenderTracker';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
 import { isAccountCompatibleWithNetwork } from '@onekeyhq/engine/src/managers/account';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isCollectibleSupportedChainId } from '@onekeyhq/engine/src/managers/nft';
 import type { NFTAssetMeta } from '@onekeyhq/engine/src/types/nft';
 import {
@@ -242,7 +243,7 @@ function NFTListContainer() {
   }, [updatedAt, networkId, accountId]);
 
   const fetchData = useCallback(async () => {
-    if (accountId && networkId && isNFTSupport) {
+    if (accountId && networkId && isNFTSupport && !isAllNetworks(networkId)) {
       const result = await serviceNFT.fetchNFT({
         accountId,
         networkId,

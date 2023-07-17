@@ -84,6 +84,19 @@ export const overviewSlice = createSlice({
       }
       state.allNetworksAccountsMap[accountId] = data;
     },
+
+    removeAllNetworksAccountsMapByAccountId(
+      state,
+      action: PayloadAction<{
+        accountId: string;
+      }>,
+    ) {
+      const { accountId } = action.payload;
+      if (!state.allNetworksAccountsMap) {
+        return;
+      }
+      delete state.allNetworksAccountsMap?.[accountId];
+    },
   },
 });
 
@@ -93,6 +106,7 @@ export const {
   setOverviewPortfolioUpdatedAt,
   setAllNetworksAccountsMap,
   clearOverviewPendingTasks,
+  removeAllNetworksAccountsMapByAccountId,
 } = overviewSlice.actions;
 
 export default overviewSlice.reducer;

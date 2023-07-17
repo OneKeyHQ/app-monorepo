@@ -1,13 +1,16 @@
 import type { FC } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { IconButton } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Dialog, IconButton } from '@onekeyhq/components';
 import BaseMenu from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 import type {
   IBaseMenuOptions,
   IMenu,
 } from '@onekeyhq/kit/src/views/Overlay/BaseMenu';
 
+import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../../../hooks';
 import {
   ManageNetworkModalRoutes,
@@ -35,9 +38,10 @@ const AccountItemMenu: FC<
         icon: 'Square2StackOutline',
       },
       {
-        id: 'action__view_details',
-        onPress: () => onPress('detail'),
-        icon: 'DocumentOutline',
+        id: 'action__remove_account',
+        onPress: () => onPress('remove'),
+        icon: 'TrashOutline',
+        variant: 'desctructive',
       },
     ],
     [onPress],
@@ -53,7 +57,41 @@ function AllNetworksAccountItemSelectDropdown({
   accountId: string;
   walletId: string;
 }) {
+  const intl = useIntl();
+  const [visible, setVisible] = useState(false);
   const navigation = useNavigation();
+
+  const RemoveAccountDialog = useMemo(
+    () =>
+      visible && (
+        <Dialog
+          visible={visible}
+          contentProps={{
+            iconType: 'danger',
+            title: intl.formatMessage({ id: 'action__remove_account' }),
+            content: intl.formatMessage({
+              id: 'modal__delete_account_desc',
+            }),
+          }}
+          footerButtonProps={{
+            primaryActionProps: {
+              type: 'destructive',
+              onPromise: () =>
+                backgroundApiProxy.serviceAllNetwork.deleteAllNetworksFakeAccount(
+                  {
+                    accountId,
+                  },
+                ),
+            },
+            primaryActionTranslationId: 'action__remove',
+            onSecondaryActionPress: () => setVisible(false),
+          }}
+        />
+      ),
+
+    [intl, visible, accountId],
+  );
+
   const handleChange = useCallback(
     (value: string) => {
       switch (value) {
@@ -69,17 +107,8 @@ function AllNetworksAccountItemSelectDropdown({
             },
           });
           break;
-        case 'detail':
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.ManageNetwork,
-            params: {
-              screen: ManageNetworkModalRoutes.AllNetworksNetworkSelector,
-              params: {
-                walletId,
-                accountId,
-              },
-            },
-          });
+        case 'remove':
+          setVisible(true);
           break;
         default:
           break;
@@ -89,9 +118,17 @@ function AllNetworksAccountItemSelectDropdown({
   );
 
   return (
-    <AccountItemMenu onChange={handleChange}>
-      <IconButton name="EllipsisVerticalMini" type="plain" circle hitSlop={8} />
-    </AccountItemMenu>
+    <>
+      {RemoveAccountDialog}
+      <AccountItemMenu onChange={handleChange}>
+        <IconButton
+          name="EllipsisVerticalMini"
+          type="plain"
+          circle
+          hitSlop={8}
+        />
+      </AccountItemMenu>
+    </>
   );
 }
 

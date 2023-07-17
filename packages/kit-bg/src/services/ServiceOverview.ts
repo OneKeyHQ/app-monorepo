@@ -1,4 +1,4 @@
-import { debounce } from 'lodash';
+import { debounce, uniq } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
@@ -125,11 +125,9 @@ class ServiceOverview extends ServiceBase {
     }
     const { pending } = results;
     const dispatchActions = [];
-    for (const scanType of [
-      EOverviewScanTaskType.token,
-      EOverviewScanTaskType.nfts,
-      EOverviewScanTaskType.defi,
-    ]) {
+    for (const scanType of uniq(
+      pendingTasksForCurrentNetwork.map((n) => n.scanType),
+    )) {
       if (!pending.find((p) => p.scanType === scanType)) {
         const { data, actions } = this.processNftPriceActions({
           networkId,
@@ -293,7 +291,6 @@ class ServiceOverview extends ServiceBase {
   async buildOverviewScanTasks({
     networkId,
     accountId,
-    walletId,
     scanTypes = [
       EOverviewScanTaskType.defi,
       EOverviewScanTaskType.token,
@@ -302,7 +299,6 @@ class ServiceOverview extends ServiceBase {
   }: {
     networkId: string;
     accountId: string;
-    walletId?: string;
     scanTypes: IOverviewScanTaskItem['scanTypes'];
   }): Promise<IOverviewScanTaskItem[]> {
     const { serviceAccount, appSelector } = this.backgroundApi;
@@ -320,9 +316,6 @@ class ServiceOverview extends ServiceBase {
         },
       ]);
     }
-    if (!walletId) {
-      return [];
-    }
 
     const networkAccountsMap = appSelector(
       (s) => s.overview.allNetworksAccountsMap?.[accountId] ?? {},
@@ -332,8 +325,7 @@ class ServiceOverview extends ServiceBase {
 
     for (const [nid, accounts] of Object.entries(networkAccountsMap)) {
       for (const account of accounts) {
-        const { address, xpub } =
-          await serviceAccount.getAcccountAddressWithXpub(account.id, nid);
+        const { address, xpub } = account;
         tasks.push({
           networkId: nid,
           address,
@@ -349,18 +341,15 @@ class ServiceOverview extends ServiceBase {
   async fetchAccountOverview({
     networkId,
     accountId,
-    walletId,
     scanTypes,
   }: {
     networkId: string;
     accountId: string;
-    walletId?: string;
     scanTypes?: IOverviewScanTaskItem['scanTypes'];
   }) {
     const tasks = await this.buildOverviewScanTasks({
       networkId,
       accountId,
-      walletId,
       scanTypes,
     });
     if (!tasks.length) {
@@ -409,7 +398,6 @@ class ServiceOverview extends ServiceBase {
     await this.fetchAccountOverview({
       networkId,
       accountId,
-      walletId,
       scanTypes: [
         EOverviewScanTaskType.defi,
         EOverviewScanTaskType.token,
