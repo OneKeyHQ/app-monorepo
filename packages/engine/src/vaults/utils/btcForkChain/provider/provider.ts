@@ -1,10 +1,8 @@
 import BigNumber from 'bignumber.js';
-import { BIP32Factory } from 'bip32';
 import { mnemonicToSeedSync } from 'bip39';
 import * as BitcoinJS from 'bitcoinjs-lib';
 import bitcoinMessage from 'bitcoinjs-message';
 import bs58check from 'bs58check';
-import { ECPairFactory } from 'ecpair';
 
 import {
   CKDPub,

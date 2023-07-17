@@ -16,13 +16,14 @@ import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
+import { initBitcoinEcc } from './utils';
+
 import type { DBUTXOAccount } from '../../../types/account';
 import type {
   IPrepareImportedAccountsParams,
   ISignCredentialOptions,
 } from '../../types';
 import type BTCForkVault from './VaultBtcFork';
-import { initBitcoinEcc } from './utils';
 
 const deriver = new BaseBip32KeyDeriver(
   Buffer.from('Bitcoin seed'),

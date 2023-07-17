@@ -1,4 +1,4 @@
-// eslint-disable-next-line import/order
+/* eslint-disable import/order */
 import './utils/walletConnectV2SdkShims';
 
 import { Core, RELAYER_EVENTS } from '@walletconnect-v2/core';
