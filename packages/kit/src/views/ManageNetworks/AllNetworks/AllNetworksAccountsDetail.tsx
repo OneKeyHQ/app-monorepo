@@ -20,6 +20,7 @@ import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
+import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useManageNetworks, useNavigation, useWallet } from '../../../hooks';
@@ -28,6 +29,10 @@ import { navigationShortcuts } from '../../../routes/navigationShortcuts';
 import { ModalRoutes, RootRoutes, TabRoutes } from '../../../routes/routesEnum';
 import BaseMenu from '../../Overlay/BaseMenu';
 import { ReceiveTokenModalRoutes } from '../../ReceiveToken/types';
+import {
+  ScanQrcodeRoutes,
+  ScanSubResultCategory,
+} from '../../ScanQrcode/types';
 import { AllNetworksEmpty } from '../../Wallet/AssetsList/EmptyList';
 import { allNetworksSelectAccount } from '../hooks';
 import { ManageNetworkModalRoutes } from '../types';
@@ -115,77 +120,76 @@ export const AllNetworksAccountsDetail: FC = () => {
     [copyAddress],
   );
 
+  const onViewAccount = useCallback(
+    async ({ network, account }: { network: Network; account: Account }) => {
+      const { serviceNetwork, serviceAccount } = backgroundApiProxy;
+      await serviceNetwork.changeActiveNetwork(network?.id);
+      await serviceAccount.changeActiveAccountByAccountId(account?.id);
+
+      navigationShortcuts.navigateToAppRootTab(TabRoutes.Home);
+    },
+    [],
+  );
+
+  const onShowQrCode = useCallback(
+    ({ network, account }: { network: Network; account: Account }) => {
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Receive,
+        params: {
+          screen: ReceiveTokenModalRoutes.ReceiveToken,
+          params: {
+            address: account.address,
+            displayAddress: account.displayAddress,
+            wallet,
+            network,
+            account,
+            template: account.template,
+          },
+        },
+      });
+    },
+    [navigation, wallet],
+  );
+
+  const onShowFullAddress = useCallback(
+    ({ network, account }: { network: Network; account: Account }) => {
+      if (!wallet) {
+        return;
+      }
+      if (wallet.type === WALLET_TYPE_HW) {
+        return onShowQrCode({ network, account });
+      }
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.ScanQrcode,
+        params: {
+          screen: ScanQrcodeRoutes.ScanQrcodeResult,
+          params: {
+            type: ScanSubResultCategory.TEXT,
+            data: account?.address ?? '',
+            hideMoreMenu: true,
+          },
+        },
+      });
+    },
+    [navigation, wallet, onShowQrCode],
+  );
+
   const getMenus = useCallback(
     (params: { networkId: string; accounts: Account[] }) =>
       [
         {
           id: 'action__view_account',
-          onPress: async ({
-            network,
-            account,
-          }: {
-            network: Network;
-            account: Account;
-          }) => {
-            const { serviceNetwork, serviceAccount } = backgroundApiProxy;
-            await serviceNetwork.changeActiveNetwork(network?.id);
-            await serviceAccount.changeActiveAccountByAccountId(account?.id);
-
-            navigationShortcuts.navigateToAppRootTab(TabRoutes.Home);
-          },
+          onPress: onViewAccount,
           icon: 'UserOutline',
         },
         {
           id: 'action__show_full_address',
-          onPress: ({
-            network,
-            account,
-          }: {
-            network: Network;
-            account: Account;
-          }) => {
-            if (!wallet) {
-              return;
-            }
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.ManageNetwork,
-              params: {
-                screen:
-                  ManageNetworkModalRoutes.AllNetworksShowAccountFullAddress,
-                params: {
-                  wallet,
-                  network,
-                  account,
-                },
-              },
-            });
-          },
+          onPress: onShowFullAddress,
           icon: 'MagnifyingGlassPlusOutline',
         },
         {
           id: 'action__show_qrcode',
-          onPress: ({
-            network,
-            account,
-          }: {
-            network: Network;
-            account: Account;
-          }) => {
-            navigation.navigate(RootRoutes.Modal, {
-              screen: ModalRoutes.Receive,
-              params: {
-                screen: ReceiveTokenModalRoutes.ReceiveToken,
-                params: {
-                  address: account.address,
-                  displayAddress: account.displayAddress,
-                  wallet,
-                  network,
-                  account,
-                  template: account.template,
-                },
-              },
-            });
-          },
+          onPress: onShowQrCode,
           icon: 'QrCodeOutline',
         },
       ].map((d) => ({
@@ -198,7 +202,7 @@ export const AllNetworksAccountsDetail: FC = () => {
           });
         },
       })),
-    [navigation, wallet],
+    [onViewAccount, onShowQrCode, onShowFullAddress],
   );
 
   const renderItem: ListRenderItem<DataListItem> = useCallback(

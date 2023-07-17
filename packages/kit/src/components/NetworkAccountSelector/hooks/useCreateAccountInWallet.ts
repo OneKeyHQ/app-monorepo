@@ -74,7 +74,7 @@ export function useCreateAccountInWallet({
       showCreateAccountMenu = false;
       isAddressDerivationSupported = true;
     } else if (isAllNetworks(network.id)) {
-      isCreateAccountSupported = false;
+      isCreateAccountSupported = true;
       showCreateAccountMenu = false;
       isAddressDerivationSupported = true;
     } else {
@@ -128,17 +128,26 @@ export function useCreateAccountInWallet({
   }, [networkId, walletId]);
 
   const selectedTemplateRef = useRef<IDerivationOption | null>();
+  const quickCreateAllNetworksFakeAccount = useCallback(() => {
+    const { serviceAllNetwork } = backgroundApiProxy;
+    if (!walletId) {
+      return;
+    }
+    return serviceAllNetwork.createAllNetworksFakeAccount({
+      walletId,
+    });
+  }, [walletId]);
   const quickCreateAccount = useCallback(
     async (password: string) => {
       const { selectedNetworkId } = walletAndNetworkInfo ?? {};
       if (!walletId || !selectedNetworkId) return;
       const { serviceDerivationPath } = backgroundApiProxy;
-      const { quickCreateAccountInfo } =
-        await serviceDerivationPath.getNetworkDerivations(
-          walletId,
-          selectedNetworkId,
-        );
       try {
+        const { quickCreateAccountInfo } =
+          await serviceDerivationPath.getNetworkDerivations(
+            walletId,
+            selectedNetworkId,
+          );
         await serviceDerivationPath.createNewAccount(
           password,
           walletId,
@@ -234,6 +243,9 @@ export function useCreateAccountInWallet({
       );
     if (shouldQuickCreate) {
       selectedTemplateRef.current = null;
+      if (isAllNetworks(selectedNetworkId)) {
+        return quickCreateAllNetworksFakeAccount();
+      }
       return navigation.navigate(RootRoutes.Modal, {
         screen: ModalRoutes.CreateAccount,
         params: {
@@ -265,6 +277,7 @@ export function useCreateAccountInWallet({
       },
     });
   }, [
+    quickCreateAllNetworksFakeAccount,
     connectAndCreateExternalAccount,
     intl,
     isFromAccountSelector,

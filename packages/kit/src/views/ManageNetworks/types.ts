@@ -83,10 +83,5 @@ export type ManageNetworkRoutesParams = {
     walletId: string;
     accountId: string;
   };
-  [ManageNetworkModalRoutes.AllNetworksShowAccountFullAddress]: {
-    network: Network;
-    account: Account;
-    wallet: Wallet;
-  };
   [ManageNetworkModalRoutes.AllNetworksSupportedNetworks]: undefined;
 };
