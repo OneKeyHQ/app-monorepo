@@ -28,8 +28,8 @@ import type { IInscriptionsOrder } from '@onekeyhq/engine/src/vaults/impl/btc/in
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { FormatBalanceTokenOfAccount } from '../../../components/Format';
@@ -41,7 +41,11 @@ import {
   SendModalRoutes,
 } from '../../../routes/routesEnum';
 import { formatBytes } from '../../../utils/hardware/homescreens';
+import HeaderDescription from '../Components/HeaderDescription';
 import Steps from '../Components/Steps';
+import { OrderButton } from '../OrderList';
+
+import CreateOrderFilePreview from './CreateOrderFilePreview';
 
 import type { InscribeModalRoutes } from '../../../routes/routesEnum';
 import type { SendFeedbackReceiptParams } from '../../Send/types';
@@ -72,7 +76,7 @@ const CreateOrder: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
-  const { networkId, accountId, receiveAddress, contents, size } =
+  const { networkId, accountId, receiveAddress, contents, size, file } =
     route?.params || {};
   const { serviceInscribe } = backgroundApiProxy;
   const { account, network } = useActiveSideAccount({ accountId, networkId });
@@ -105,6 +109,13 @@ const CreateOrder: FC = () => {
     },
     [contents, receiveAddress, serviceInscribe],
   );
+
+  const previewText = useMemo(() => {
+    const content = contents[0];
+    if (content && content.categoryType === 'text') {
+      return bufferUtils.hexToText(content.hex);
+    }
+  }, [contents]);
 
   useEffect(() => {
     if (isFirst.current) {
@@ -267,9 +278,8 @@ const CreateOrder: FC = () => {
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__inscribe' })}
-      headerDescription={`Bitcoin${
-        networkId === OnekeyNetwork.tbtc ? ' Testnet' : ''
-      }`}
+      headerDescription={<HeaderDescription network={network} />}
+      rightContent={<OrderButton />}
       footer={submitOrderLoading ? null : undefined}
       height="640px"
       primaryActionTranslationId="action__next"
@@ -299,26 +309,15 @@ const CreateOrder: FC = () => {
             <Text mt="16px" typography="Heading">
               {intl.formatMessage({ id: 'form__inscribe_preview' })}
             </Text>
-            <Box
-              bgColor="action-secondary-default"
-              paddingX="12px"
-              paddingY="8px"
-              borderRadius="12px"
-              borderWidth={1}
-              borderColor="border-default"
-              mt="8px"
+            <Text
+              mt="16px"
+              mb="8px"
+              typography="Body1Strong"
+              color="text-subdued"
             >
-              <Text
-                typography="Body2Mono"
-                color="text-subdued"
-                numberOfLines={4}
-              >
-                {contents[0].previewText}
-              </Text>
-            </Box>
-            <Text mt="16px" typography="Body1Strong" color="text-subdued">
               {intl.formatMessage({ id: 'form__inscription_file_preview' })}
             </Text>
+            <CreateOrderFilePreview file={file} text={previewText} />
             <Box mt="16px" flexDirection="row" justifyContent="space-between">
               <Box flexDirection="row" alignItems="center">
                 <Text typography="Body1Strong" color="text-subdued" mr="4px">

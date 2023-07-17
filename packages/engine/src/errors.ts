@@ -388,7 +388,7 @@ export class InscribeFileTooLargeError extends OneKeyError {
   override key = 'msg__file_size_should_less_than_str';
 
   constructor(key?: LocaleIds) {
-    super('', { '0': '380KB' });
+    super('', { '0': '200KB' });
     if (key) {
       this.key = key;
     }

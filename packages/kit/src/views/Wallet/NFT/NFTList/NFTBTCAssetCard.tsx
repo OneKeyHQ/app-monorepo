@@ -11,9 +11,7 @@ import {
   useUserDevice,
 } from '@onekeyhq/components';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
-import { parseTextProps } from '@onekeyhq/engine/src/managers/nft';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
-import { BRCTokenType } from '@onekeyhq/engine/src/types/token';
 import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig';
 
 import { useActiveWalletAccount, useNetwork } from '../../../../hooks';
