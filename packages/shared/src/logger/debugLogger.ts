@@ -134,26 +134,6 @@ const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
 const NATIVE_LOG_DIR_PATH = `${RNFS.CachesDirectoryPath}/logs`;
 const NATIVE_LOG_ZIP_DIR_PATH = `${RNFS.CachesDirectoryPath}/log_zip`;
 
-// TODO：
-// begin
-// This piece of code will be removed in the next version.
-const migrateLogPath = async () => {
-  const prevLogPath = `${RNFS.CachesDirectoryPath}/log.txt`;
-  const isExist = RNFS.exists ? await RNFS.exists(prevLogPath) : false;
-  if (isExist) {
-    await RNFS.mkdir(NATIVE_LOG_DIR_PATH);
-    await RNFS.moveFile(
-      prevLogPath,
-      // named after a specific time
-      platformEnv.isNativeIOS
-        ? `${NATIVE_LOG_DIR_PATH}/so.onekey.wallet 2023-07-16--12-00-00-000.log`
-        : `${NATIVE_LOG_DIR_PATH}/so.onekey.app.wallet-2023-07-16.0.log`,
-    );
-  }
-};
-migrateLogPath();
-// end
-
 const removeLogZipDir = async () => {
   const isExist = await RNFS.exists(NATIVE_LOG_ZIP_DIR_PATH);
   if (isExist) {
