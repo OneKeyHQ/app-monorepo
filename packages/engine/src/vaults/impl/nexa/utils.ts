@@ -140,7 +140,7 @@ export function estimateSize(encodedTx: IEncodedTxNexa) {
   return estimatedSize;
 }
 
-function estimateFee(
+export function estimateFee(
   encodedTx: IEncodedTxNexa,
   feeRate = FEE_PER_KB / 1000,
 ): number {

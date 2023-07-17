@@ -66,7 +66,8 @@ export class Nexa extends SimpleClient {
   }
 
   async estimateFee(size: number): Promise<number> {
-    return this.rpc.call<number>('blockchain.estimatefee', [size]);
+    const fee = await this.rpc.call<number>('blockchain.estimatefee', [size]);
+    return Number(fee) || 0;
   }
 
   async getNexaUTXOs(address: string): Promise<IListUXTO[]> {

@@ -31,6 +31,7 @@ import { Nexa } from './sdk';
 import settings from './settings';
 import {
   decodeScriptBufferToNexaAddress,
+  estimateFee,
   estimateSize,
   getNexaNetworkInfo,
   publickeyToAddress,
@@ -236,14 +237,15 @@ export default class Vault extends VaultBase {
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxNexa> {
     const client = await this.getSDKClient();
-    const utxos = await client.getNexaUTXOs(transferInfo.from);
+    const fromNexaAddress = await this.getDisplayAddress(transferInfo.from);
+    const utxos = await client.getNexaUTXOs(fromNexaAddress);
     const network = await this.getNetwork();
     return {
       inputs: utxos.map((utxo) => ({
         txId: utxo.outpoint_hash,
         outputIndex: utxo.tx_pos,
         satoshis: new BigNumber(utxo.value).toFixed(),
-        address: transferInfo.from,
+        address: fromNexaAddress,
       })),
       outputs: [
         {
@@ -254,7 +256,10 @@ export default class Vault extends VaultBase {
           outType: 1,
         },
       ],
-      transferInfo,
+      transferInfo: {
+        ...transferInfo,
+        from: fromNexaAddress,
+      },
     };
   }
 
@@ -306,7 +311,9 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const client = await this.getSDKClient();
     const estimateSizedSize = estimateSize(encodedTx);
-    const feeInfo = await client.estimateFee(estimateSizedSize);
+    const remoteEstimateFee = await client.estimateFee(estimateSizedSize);
+    const localEstimateFee = estimateFee(encodedTx);
+    const feeInfo = Math.max(remoteEstimateFee, localEstimateFee);
     return {
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
