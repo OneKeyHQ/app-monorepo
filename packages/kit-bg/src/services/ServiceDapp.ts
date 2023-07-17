@@ -485,6 +485,27 @@ class ServiceDapp extends ServiceBase {
       });
     });
   }
+
+  @backgroundMethod()
+  updateDAppMetadata({
+    request,
+    params,
+  }: {
+    request: IJsBridgeMessagePayload;
+    params: any;
+  }) {
+    if (request.origin) {
+      return this.backgroundApi.engine.dbApi.updateDAppMetadata(
+        request.origin,
+        params,
+      );
+    }
+  }
+
+  @backgroundMethod()
+  getDAppMetadata(origin: string) {
+    return this.backgroundApi.engine.dbApi.getDAppMetadata(origin);
+  }
 }
 
 export default ServiceDapp;

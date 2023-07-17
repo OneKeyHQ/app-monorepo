@@ -77,6 +77,7 @@ import type {
   ISetAccountTemplateParams,
 } from '../../types/accountDerivation';
 import type { PrivateKeyCredential } from '../../types/credential';
+import type { DAppMetadata } from '../../types/dapp';
 import type { Device, DevicePayload } from '../../types/device';
 import type {
   HistoryEntry,
@@ -98,6 +99,7 @@ import type {
   StoredPrivateKeyCredential,
   StoredSeedCredential,
 } from '../base';
+import type { DAppMetadataSchema } from './schemas';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const DB_PATH = 'OneKey.realm';
@@ -2313,6 +2315,61 @@ class RealmDB implements DBAPI {
             isBtcForkChain: customFee.isBtcForkChain,
             feeRate: customFee.feeRate,
             btcFee: customFee.btcFee,
+          });
+        });
+      }
+    } catch (error: any) {
+      console.error(error);
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+    return Promise.resolve();
+  }
+
+  getDAppMetadata(origin: string): Promise<DAppMetadata> {
+    try {
+      const dAppMetadata = this.realm!.objectForPrimaryKey<DAppMetadataSchema>(
+        'DAppMetadata',
+        origin,
+      );
+      if (!dAppMetadata) {
+        return Promise.reject(
+          new OneKeyInternalError(`Metadata of ${origin} not found.`),
+        );
+      }
+
+      return Promise.resolve(dAppMetadata.internalObj);
+    } catch (error: any) {
+      return Promise.reject(new OneKeyInternalError(error));
+    }
+  }
+
+  updateDAppMetadata(
+    origin: string,
+    metadata: DAppMetadataSchema,
+  ): Promise<void> {
+    try {
+      const dAppMetadata = this.realm!.objectForPrimaryKey<DAppMetadataSchema>(
+        'DAppMetadata',
+        origin,
+      );
+
+      if (dAppMetadata) {
+        if (metadata === null) {
+          this.realm!.write(() => {
+            this.realm!.delete(metadata);
+          });
+        } else {
+          this.realm!.write(() => {
+            dAppMetadata.icon = metadata.icon;
+            dAppMetadata.name = metadata.name;
+          });
+        }
+      } else if (metadata) {
+        this.realm!.write(() => {
+          this.realm!.create('DAppMetadata', {
+            id: origin,
+            icon: metadata.icon,
+            name: metadata.name,
           });
         });
       }

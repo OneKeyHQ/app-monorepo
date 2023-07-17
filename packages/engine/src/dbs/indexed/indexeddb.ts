@@ -65,6 +65,7 @@ import type {
   ISetAccountTemplateParams,
 } from '../../types/accountDerivation';
 import type { PrivateKeyCredential } from '../../types/credential';
+import type { DAppMetadata } from '../../types/dapp';
 import type { DBDevice, Device, DevicePayload } from '../../types/device';
 import type {
   HistoryEntry,
@@ -97,7 +98,7 @@ type TokenBinding = {
 require('fake-indexeddb/auto');
 
 const DB_NAME = 'OneKey';
-const DB_VERSION = 8;
+const DB_VERSION = 9;
 
 const CONTEXT_STORE_NAME = 'context';
 const CREDENTIAL_STORE_NAME = 'credentials';
@@ -110,6 +111,7 @@ const HISTORY_STORE_NAME = 'history';
 const DEVICE_STORE_NAME = 'devices';
 const ACCOUNT_DERIVATION_STORE_NAME = 'account_derivations';
 const CUSTOM_FEE_STORE_NAME = 'custom_fee';
+const DAPP_METADATA_STORE_NAME = 'dapp_metadata';
 
 function initDb(db: IDBDatabase) {
   db.createObjectStore(CONTEXT_STORE_NAME, { keyPath: 'id' });
@@ -237,6 +239,12 @@ class IndexedDBApi implements DBAPI {
 
         if (oldVersion < 8) {
           db.createObjectStore(CUSTOM_FEE_STORE_NAME, {
+            keyPath: 'id',
+          });
+        }
+
+        if (oldVersion < 9) {
+          db.createObjectStore(DAPP_METADATA_STORE_NAME, {
             keyPath: 'id',
           });
         }
@@ -2879,6 +2887,66 @@ class IndexedDBApi implements DBAPI {
                 new OneKeyInternalError(
                   `Delete custom fee failed for ${networkId}`,
                 ),
+              );
+            };
+          }
+        }),
+    );
+  }
+
+  getDAppMetadata(origin: string): Promise<DAppMetadata | undefined> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, _reject) => {
+          const request: IDBRequest = db
+            .transaction([DAPP_METADATA_STORE_NAME], 'readonly')
+            .objectStore(DAPP_METADATA_STORE_NAME)
+            .get(origin);
+          request.onsuccess = (_event) => {
+            if (!isNil(request.result)) {
+              resolve(request.result);
+            } else {
+              resolve(undefined);
+            }
+          };
+        }),
+    );
+  }
+
+  updateDAppMetadata(origin: string, metadata: DAppMetadata): Promise<void> {
+    return this.ready.then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const transaction = db.transaction(
+            [DAPP_METADATA_STORE_NAME],
+            'readwrite',
+          );
+
+          const objectStore = transaction.objectStore(DAPP_METADATA_STORE_NAME);
+
+          if (metadata) {
+            const request = objectStore.put({
+              ...metadata,
+              id: origin,
+            });
+            request.onsuccess = () => {
+              resolve();
+            };
+
+            request.onerror = () => {
+              reject(
+                new OneKeyInternalError(`Update metadata failed for ${origin}`),
+              );
+            };
+          } else if (metadata === null) {
+            const request = objectStore.delete(origin);
+            request.onsuccess = () => {
+              resolve();
+            };
+
+            request.onerror = () => {
+              reject(
+                new OneKeyInternalError(`Delete metadata failed for ${origin}`),
               );
             };
           }

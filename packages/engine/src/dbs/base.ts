@@ -18,6 +18,7 @@ import type {
   ISetAccountTemplateParams,
 } from '../types/accountDerivation';
 import type { PrivateKeyCredential } from '../types/credential';
+import type { DAppMetadata } from '../types/dapp';
 import type { Device, DevicePayload } from '../types/device';
 import type {
   HistoryEntry,
@@ -281,6 +282,9 @@ interface DBAPI {
     networkId: string,
     customFee: IFeeInfoUnit | null | undefined,
   ): Promise<void>;
+
+  getDAppMetadata(origin: string): Promise<DAppMetadata | undefined>;
+  updateDAppMetadata(origin: string, metadata: any): Promise<void>;
 }
 
 export type {

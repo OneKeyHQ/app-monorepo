@@ -5,8 +5,10 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
+  Center,
   HStack,
   Icon,
+  Image,
   Pressable,
   RichTooltip,
   Text,
@@ -14,6 +16,7 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
+import type { DAppMetadata } from '@onekeyhq/engine/src/types/dapp';
 import type {
   GoPlusDappContract,
   GoPlusPhishing,
@@ -44,6 +47,7 @@ export const DappSecurityView: FC<{
   const [securityItems, setSecurityItems] = useState<
     (keyof GoPlusDappContract | keyof GoPlusPhishing)[] | undefined
   >();
+  const [metadata, setMetaData] = useState<DAppMetadata>();
 
   const fetchSecurityInfo = useCallback(() => {
     backgroundApiProxy.serviceToken
@@ -54,6 +58,14 @@ export const DappSecurityView: FC<{
   useEffect(() => {
     fetchSecurityInfo();
   }, [fetchSecurityInfo]);
+
+  useEffect(() => {
+    const getDAppMetadata = async () => {
+      const resp = await backgroundApiProxy.serviceDapp.getDAppMetadata(origin);
+      setMetaData(resp);
+    };
+    getDAppMetadata();
+  }, [origin]);
 
   const GoplusFeedbackLink = useCallback(
     (text) => (
@@ -69,9 +81,57 @@ export const DappSecurityView: FC<{
     [],
   );
 
-  const dappIcon = useMemo(() => {
+  const letter = metadata?.name?.slice(0, 4);
+  const fallbackElement = useMemo(
+    () =>
+      letter ? (
+        <Center
+          width="full"
+          height="full"
+          borderRadius="full"
+          bg="background-selected"
+          overflow="hidden"
+        >
+          <Text textAlign="center" color="text-default">
+            {letter.toUpperCase()}
+          </Text>
+        </Center>
+      ) : (
+        <Center
+          width="full"
+          height="full"
+          borderRadius="full"
+          bg="background-selected"
+        >
+          <Icon name="GlobeAsiaAustraliaMini" color="icon-subdued" />
+        </Center>
+      ),
+    [letter],
+  );
+
+  const dappIcon = useMemo(
+    () =>
+      metadata?.icon ? (
+        <Image
+          width="full"
+          height="full"
+          src={metadata.icon}
+          key={metadata.icon}
+          fallbackElement={fallbackElement}
+          alt={metadata.icon}
+          borderRadius="full"
+        />
+      ) : (
+        fallbackElement
+      ),
+    [fallbackElement, metadata?.icon],
+  );
+
+  const dappStatus = useMemo(() => {
     if (typeof securityItems === 'undefined') {
-      return <Icon name="QuestionMarkCircleMini" size={32} />;
+      return (
+        <Icon name="QuestionMarkCircleMini" size={20} color="icon-subdued" />
+      );
     }
 
     return (
@@ -80,11 +140,11 @@ export const DappSecurityView: FC<{
         trigger={({ ...props }) => (
           <Pressable {...props}>
             {securityItems.length === 0 ? (
-              <Icon name="BadgeCheckMini" size={32} color="icon-success" />
+              <Icon name="BadgeCheckMini" size={20} color="icon-success" />
             ) : (
               <Icon
                 name="ShieldExclamationMini"
-                size={32}
+                size={20}
                 color="icon-critical"
               />
             )}
@@ -119,15 +179,20 @@ export const DappSecurityView: FC<{
 
   return (
     <>
-      <HStack alignItems="center" mt="-2" w="full">
-        {dappIcon}
-        <VStack ml="3" flex="1">
-          <Typography.Body1Strong textTransform="capitalize">
-            {hostname?.split('.')?.reverse?.()?.[1] ?? 'N/A'}
-          </Typography.Body1Strong>
-          <Typography.Body2 isTruncated maxW="300px">
+      <HStack alignItems="center" space={3} w="full">
+        <Box width="32px" height="32px">
+          {dappIcon}
+        </Box>
+        <VStack flex="1">
+          <HStack alignItems="center" space={1}>
+            <Typography.Body1Strong textTransform="capitalize">
+              {hostname?.split('.')?.reverse?.()?.[1] ?? 'N/A'}
+            </Typography.Body1Strong>
+            {dappStatus}
+          </HStack>
+          <Typography.Caption color="text-subdued" isTruncated maxW="300px">
             {hostname}
-          </Typography.Body2>
+          </Typography.Caption>
         </VStack>
       </HStack>
       {securityItems && securityItems?.length > 0 ? (
