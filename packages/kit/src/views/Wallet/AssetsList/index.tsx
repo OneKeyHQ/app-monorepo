@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import type { FlatListProps } from '@onekeyhq/components/src/FlatList';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import { HomeRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 import type {
@@ -154,10 +155,14 @@ function AssetsList({
   }, [shouldRefreshBalances, startRefresh, stopRefresh]);
 
   useEffect(() => {
-    if (isFocused && isUnlock) {
-      backgroundApiProxy.serviceToken.refreshAccountTokens();
+    if (!isFocused || !isUnlock) {
+      return;
     }
-  }, [isFocused, isUnlock]);
+    if (isAllNetworks(networkId)) {
+      return;
+    }
+    backgroundApiProxy.serviceToken.refreshAccountTokens();
+  }, [isFocused, isUnlock, networkId]);
 
   const onTokenCellPress = useCallback(
     (item: IAccountToken) => {

@@ -1,5 +1,5 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { groupBy } from 'lodash';
@@ -24,6 +24,8 @@ import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { batchTransferContractAddress } from '@onekeyhq/engine/src/presets/batchTransferContractAddress';
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
+import btcSetting from '@onekeyhq/engine/src/vaults/impl/btc/settings';
+import tbtcSetting from '@onekeyhq/engine/src/vaults/impl/tbtc/settings';
 import {
   HomeRoutes,
   InscribeModalRoutes,
@@ -128,23 +130,26 @@ const data: DataItem[] = [
     iconBg: 'decorative-surface-one',
     title: 'title__inscribe',
     description: 'title__inscribe_desc',
-    filter: ({ network }) =>
-      [IMPL_BTC, IMPL_TBTC].includes(network?.impl ?? ''),
+    filter: ({ network, account }) =>
+      [IMPL_BTC, IMPL_TBTC].includes(network?.impl ?? '') &&
+      !!account?.template &&
+      [
+        tbtcSetting.accountNameInfo?.BIP86?.template,
+        btcSetting.accountNameInfo?.BIP86?.template,
+      ].includes(account?.template),
   },
 ];
 
 const ToolsPage: FC = () => {
   const intl = useIntl();
-  const { network, account, accountAddress, walletId, accountId, networkId } =
+  const { network, account, walletId, accountId, networkId } =
     useActiveWalletAccount();
   const isVertical = useIsVerticalOrMiddleLayout();
   const navigation = useNavigation();
   const { enabledNetworks } = useManageNetworks();
 
   const appNavigation = useAppNavigation();
-  const [inscribeEnable, setInscribeEnable] = useState(false);
   const tools = useTools(network?.id);
-  const { serviceInscribe } = backgroundApiProxy;
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     accountId,
@@ -156,31 +161,8 @@ const ToolsPage: FC = () => {
     accountId,
   });
 
-  useEffect(() => {
-    if (accountAddress?.length > 0 && !isAllNetworks(networkId)) {
-      serviceInscribe
-        .checkValidTaprootAddress({
-          address: accountAddress,
-          networkId,
-          accountId,
-        })
-        .then((result) => setInscribeEnable(result))
-        .catch(() => setInscribeEnable(false));
-    }
-  }, [accountAddress, accountId, networkId, serviceInscribe]);
-
   const items = useMemo(() => {
-    let allItems = data.filter((n) => {
-      if (n.key === 'inscribe' && !inscribeEnable) {
-        return false;
-      }
-      return true;
-    });
-    if (!isAllNetworks(network?.id)) {
-      allItems = allItems.filter(
-        (n) => n.filter?.({ network, account }) ?? true,
-      );
-    }
+    let allItems = data;
     allItems = allItems.concat(
       Object.values(groupBy(tools, 'networkId'))
         .filter((ts) => ts.length > 0)
@@ -202,7 +184,7 @@ const ToolsPage: FC = () => {
         }),
     );
     if (!isAllNetworks(network?.id)) {
-      return allItems;
+      return allItems.filter((n) => n.filter?.({ network, account }) ?? true);
     }
     return allItems.filter((item) =>
       Object.entries(networkAccountsMap).some(([nid, accounts]) => {
@@ -212,20 +194,13 @@ const ToolsPage: FC = () => {
         }
         for (const a of accounts) {
           if (item.filter && !item.filter({ network: n, account: a })) {
-            return false;
+            return true;
           }
         }
-        return true;
+        return false;
       }),
     );
-  }, [
-    account,
-    network,
-    tools,
-    inscribeEnable,
-    networkAccountsMap,
-    enabledNetworks,
-  ]);
+  }, [account, network, tools, networkAccountsMap, enabledNetworks]);
 
   const handlePress = useCallback(
     ({

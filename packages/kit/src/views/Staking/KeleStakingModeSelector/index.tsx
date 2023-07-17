@@ -94,11 +94,20 @@ const KeleStakingModeSelector = () => {
               <Typography.Body1Strong>
                 {intl.formatMessage({ id: 'content__fast' })}
               </Typography.Body1Strong>
-              <Badge type="info" title="99.99% faster" size="sm" />
+              <Badge
+                type="info"
+                title={intl.formatMessage(
+                  { id: 'content__str_faster' },
+                  { '0': '99.99%' },
+                )}
+                size="sm"
+              />
             </HStack>
           </Box>
           <Box alignItems="flex-end">
-            <Typography.Body2Strong>~ 30 Mins</Typography.Body2Strong>
+            <Typography.Body2Strong>
+              ~ {intl.formatMessage({ id: 'form__str_minutes' }, { '0': '30' })}
+            </Typography.Body2Strong>
             <Typography.Body2Strong>
               {intl.formatMessage({ id: 'content__estimated_time' })}
             </Typography.Body2Strong>

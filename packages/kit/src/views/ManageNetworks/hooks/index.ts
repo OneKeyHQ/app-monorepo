@@ -210,7 +210,7 @@ export const useAllNetworksSelectNetworkAccount = ({
   networkId: string;
   filter?: ManageNetworkRoutesParams[ManageNetworkModalRoutes.AllNetworksNetworkSelector]['filter'];
 }) => {
-  const { allNetworks } = useManageNetworks();
+  const { enabledNetworks } = useManageNetworks();
   const { network } = useNetwork({ networkId });
   const { account } = useAccount({
     networkId,
@@ -239,7 +239,7 @@ export const useAllNetworksSelectNetworkAccount = ({
           return;
         }
         const f = filter ?? defaultFilter;
-        const filteredNetworks = allNetworks
+        const filteredNetworks = enabledNetworks
           .map((item) => {
             const accounts = (networkAccounts[item.id] ?? []).filter(
               (a) => !f || f({ network: item, account: a }),
@@ -284,7 +284,7 @@ export const useAllNetworksSelectNetworkAccount = ({
       }),
     [
       networkAccounts,
-      allNetworks,
+      enabledNetworks,
       navigation,
       accountId,
       walletId,

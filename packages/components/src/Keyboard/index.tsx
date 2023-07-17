@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import { type FC, useCallback, useRef } from 'react';
 
 import { chunk } from 'lodash';
 import { Center, Column, Pressable, Row } from 'native-base';
@@ -65,6 +65,8 @@ const KeyBoardItem: FC<KeyBoardItemProps> = ({ item, secure }) => {
   return <Typography.DisplayXLarge>{item}</Typography.DisplayXLarge>;
 };
 
+const removeLastCharacter = (text: string) => text.slice(0, text.length - 1);
+
 const Keyboard: FC<KeyboardProps> = ({
   keys,
   secure = false,
@@ -73,13 +75,14 @@ const Keyboard: FC<KeyboardProps> = ({
   pattern,
   itemHeight,
 }) => {
+  const delIntervalRef = useRef<ReturnType<typeof setTimeout>>();
   const innerKeyArray = chunk(keys ?? defaultKeys, 3);
   const onPress = (item: KeyType) => {
     const prev = text;
     const inputText = text;
     let changeText = '';
     if (item === 'del') {
-      changeText = inputText.slice(0, inputText.length - 1);
+      changeText = removeLastCharacter(inputText);
     } else {
       changeText = prev + item;
       if (pattern && !pattern.test(prev + item)) {
@@ -99,6 +102,21 @@ const Keyboard: FC<KeyboardProps> = ({
     return changeText;
   };
 
+  const onLongPressDel = useCallback((prevText: string) => {
+    const changedText = removeLastCharacter(prevText);
+    onTextChange?.(changedText);
+    if (changedText) {
+      delIntervalRef.current = setTimeout(() => {
+        onLongPressDel(changedText);
+      }, 150);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onPressOutDel = useCallback(() => {
+    clearTimeout(delIntervalRef.current);
+  }, []);
+
   return (
     <Box width="full" height="auto">
       <Column space="8px">
@@ -110,6 +128,16 @@ const Keyboard: FC<KeyboardProps> = ({
                 borderRadius="12px"
                 onPress={() => {
                   onPress(item);
+                }}
+                onLongPress={() => {
+                  if (item === 'del') {
+                    onLongPressDel(text);
+                  }
+                }}
+                onPressOut={() => {
+                  if (item === 'del') {
+                    onPressOutDel();
+                  }
                 }}
                 height={itemHeight ?? '56px'}
                 flex={1}
