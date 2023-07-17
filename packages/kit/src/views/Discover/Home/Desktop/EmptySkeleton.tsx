@@ -7,6 +7,7 @@ import {
   Box,
   CustomSkeleton,
   FlatList,
+  HStack,
   Pressable,
   Skeleton,
 } from '@onekeyhq/components';
@@ -122,20 +123,13 @@ type EmptySkeletonProps = {
 };
 
 const ListHeaderComponent = () => (
-  <FlatList
-    horizontal
-    showsHorizontalScrollIndicator={false}
-    contentContainerStyle={{
-      paddingHorizontal: 16,
-      marginBottom: 16,
-    }}
-    data={[1, 2, 3]}
-    renderItem={() => (
-      <Box h="7" w="12" borderRadius={12} mr={3} overflow="hidden">
+  <HStack px="4" my="4" space={3}>
+    {[1, 2, 3, 4].map((item) => (
+      <Box key={item} h="7" w="12" borderRadius={12} overflow="hidden">
         <CustomSkeleton />
       </Box>
-    )}
-  />
+    ))}
+  </HStack>
 );
 
 export const EmptySkeleton: FC<EmptySkeletonProps> = ({ offset }) => (

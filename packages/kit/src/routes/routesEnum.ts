@@ -246,7 +246,6 @@ export enum ManageNetworkModalRoutes {
   SwitchRpc = 'SwitchRpc',
   AllNetworksNetworkSelector = 'AllNetworksNetworkSelector',
   AllNetworksAccountsDetail = 'AllNetworksAccountsDetail',
-  AllNetworksShowAccountFullAddress = 'AllNetworksShowAccountFullAddress',
   AllNetworksSupportedNetworks = 'AllNetworksSupportedNetworks',
 }
 
