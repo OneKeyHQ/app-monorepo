@@ -1,15 +1,15 @@
 import type { ComponentProps } from 'react';
 
 import { Box, HStack, Text, Token } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Network } from '@onekeyhq/engine/src/types/network';
 
+import { useAppSelector } from '../../../hooks';
 import { TxActionElementIconLarge } from '../elements/TxActionElementIcon';
 import { TxActionElementTitleNormal } from '../elements/TxActionElementTitle';
 import { fallbackTextComponent } from '../utils/utilsTxDetail';
 
 import type { ITxActionMetaIcon, ITxActionMetaTitle } from '../types';
-import { useAppSelector } from '../../../hooks';
-import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 
 export type ITxListActionBoxProps = {
   icon?: JSX.Element;
@@ -63,7 +63,7 @@ export function TxListActionBox(props: ITxListActionBoxProps) {
     symbol,
     network,
   } = props;
-  const {activeNetworkId} = useAppSelector(s => s.general);
+  const { activeNetworkId } = useAppSelector((s) => s.general);
   const titleView = fallbackTextComponent(title, TxListActionBoxTitleText) ?? (
     <TxActionElementTitleNormal titleInfo={titleInfo} />
   );
