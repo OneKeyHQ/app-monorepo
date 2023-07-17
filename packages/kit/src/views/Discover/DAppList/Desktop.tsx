@@ -15,6 +15,7 @@ import {
 import { useTranslation } from '../../../hooks';
 import { Chains } from '../Chains';
 import DAppIcon from '../components/DAppIcon';
+import FavContainer from '../Explorer/FavContainer';
 import { useTagDapps } from '../hooks';
 
 import type { DAppItemType, DAppListProps } from '../type';
@@ -127,54 +128,63 @@ export const Desktop: FC<DAppListProps> = ({ ...rest }) => {
 
   const renderItem: ListRenderItem<DAppItemType> = useCallback(
     ({ item }) => (
-      <Box
-        width={cardWidth}
-        maxWidth={cardWidth}
-        minWidth={cardWidth}
-        height={156}
-        paddingX="2"
-        justifyContent="center"
-        alignItems="center"
+      <FavContainer
+        url={item.url}
+        hoverButtonProps={{
+          right: '20px',
+          top: '20px',
+          iconSize: 20,
+        }}
       >
-        <Pressable
-          bgColor="surface-default"
-          flexDirection="column"
-          borderRadius="12px"
-          padding="4"
-          width={cardWidth - 16}
-          height={144}
-          borderWidth={1}
-          _hover={{ bgColor: 'surface-hovered' }}
-          borderColor="border-subdued"
-          onPress={() => {
-            if (onItemSelect) {
-              onItemSelect(item);
-            }
-          }}
+        <Box
+          width={cardWidth}
+          maxWidth={cardWidth}
+          minWidth={cardWidth}
+          height={156}
+          paddingX="2"
+          justifyContent="center"
+          alignItems="center"
         >
-          <Box flexDirection="row">
-            <DAppIcon
-              size={48}
-              url={item.logoURL}
-              networkIds={item.networkIds}
-            />
-            <Box ml="3" flex="1">
-              <Typography.Body2Strong numberOfLines={1} mb="1" flex="1">
-                {item.name}
-              </Typography.Body2Strong>
-              <Chains networkIds={item.networkIds} />
-            </Box>
-          </Box>
-          <Typography.Caption
-            mt="3"
-            numberOfLines={2}
-            textAlign="left"
-            color="text-subdued"
+          <Pressable
+            // bgColor="surface-default"
+            flexDirection="column"
+            borderRadius="12px"
+            padding="4"
+            width={cardWidth - 16}
+            height={144}
+            borderWidth={1}
+            _hover={{ bgColor: 'surface-hovered' }}
+            borderColor="border-subdued"
+            onPress={() => {
+              if (onItemSelect) {
+                onItemSelect(item);
+              }
+            }}
           >
-            {t(item._subtitle) ?? item.subtitle}
-          </Typography.Caption>
-        </Pressable>
-      </Box>
+            <Box flexDirection="row">
+              <DAppIcon
+                size={48}
+                url={item.logoURL}
+                networkIds={item.networkIds}
+              />
+              <Box ml="3" flex="1">
+                <Typography.Body2Strong numberOfLines={1} mb="1" flex="1">
+                  {item.name}
+                </Typography.Body2Strong>
+                <Chains networkIds={item.networkIds} />
+              </Box>
+            </Box>
+            <Typography.Caption
+              mt="3"
+              numberOfLines={2}
+              textAlign="left"
+              color="text-subdued"
+            >
+              {t(item._subtitle) ?? item.subtitle}
+            </Typography.Caption>
+          </Pressable>
+        </Box>
+      </FavContainer>
     ),
     [cardWidth, onItemSelect, t],
   );

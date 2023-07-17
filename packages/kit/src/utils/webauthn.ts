@@ -174,10 +174,9 @@ const getCredential = async () => {
 export const enableWebAuthn = async () => {
   const cred = await getCredential();
   if (!cred) {
-    const instanceId = await backgroundApiProxy.serviceSetting.getInstanceId();
     await registerCredential({
-      userName: instanceId,
-      userDisplayName: instanceId,
+      userName: 'OneKey Extension',
+      userDisplayName: 'OneKey Extension',
     });
     backgroundApiProxy.dispatch(setEnableWebAuthn(true));
   }
