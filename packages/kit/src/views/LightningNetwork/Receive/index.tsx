@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -7,6 +7,7 @@ import {
   Box,
   Button,
   Empty,
+  IconButton,
   Image,
   Modal,
   QRCode,
@@ -14,6 +15,7 @@ import {
   ToastManager,
   useIsVerticalLayout,
 } from '@onekeyhq/components';
+import { shortenAddress } from '@onekeyhq/components/src/utils';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import qrcodeLogo from '@onekeyhq/kit/assets/qrcode_logo.png';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -47,6 +49,13 @@ const ReceiveInvoice = () => {
     accountId: accountId ?? null,
     networkId: networkId ?? '',
   });
+
+  const shortenInvoice = useMemo(
+    () => shortenAddress(paymentRequest, 57),
+    [paymentRequest],
+  );
+
+  const [showFullInvoice, setShowFullInvoice] = useState(false);
 
   const copyInvoiceToClipboard = useCallback(() => {
     copyToClipboard(paymentRequest);
@@ -145,6 +154,16 @@ const ReceiveInvoice = () => {
               >
                 {account?.name}
               </Text>
+              <Text typography="Body2" color="text-subdued" w="full">
+                {showFullInvoice ? paymentRequest : shortenInvoice}
+              </Text>
+              <IconButton
+                mt={1}
+                name="EyeMini"
+                type="plain"
+                hitSlop={8}
+                onPress={() => setShowFullInvoice(true)}
+              />
               <Button
                 mt="24px"
                 size={isVerticalLayout ? 'lg' : 'base'}
