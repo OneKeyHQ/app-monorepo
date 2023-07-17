@@ -383,6 +383,10 @@ export class BadAuthError extends OneKeyError {
   override key = 'msg__authentication_failed_verify_again';
 }
 
+export class InvoiceExpiredError extends OneKeyError {
+  override key = 'msg__the_invoice_has_expired';
+}
+
 export class TaprootAddressError extends OneKeyError {
   override key =
     'msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address';

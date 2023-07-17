@@ -12,6 +12,7 @@ import {
   InsufficientBalance,
   InvalidLightningPaymentRequest,
   InvoiceAlreadPaid,
+  InvoiceExpiredError,
   NoLightningChannelError,
   NoRouteFoundError,
 } from '../../../errors';
@@ -488,6 +489,8 @@ export default class Vault extends VaultBase {
               reject(new NoRouteFoundError());
             } else if (errorMessage === 'insufficient_balance') {
               reject(new NoLightningChannelError());
+            } else if (errorMessage === 'invoice expired') {
+              reject(new InvoiceExpiredError());
             } else {
               reject(new Error(response.data?.message));
             }
