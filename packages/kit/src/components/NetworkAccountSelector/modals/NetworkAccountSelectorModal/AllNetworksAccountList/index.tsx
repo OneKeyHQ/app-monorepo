@@ -26,7 +26,7 @@ function AllNetwroksAccountList({
 
   const { isOpenDelay } = accountSelectorInfo;
   const { data } = useAllNetworksAccountsData({
-    accountSelectorInfo,
+    walletId: accountSelectorInfo.selectedWalletId,
   });
 
   const { accountId: activeAccountId } = useActiveWalletAccount();

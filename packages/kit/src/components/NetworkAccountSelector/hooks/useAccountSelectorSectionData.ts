@@ -1,15 +1,15 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { debounce } from 'lodash';
 
 import { generateFakeAllnetworksAccount } from '@onekeyhq/engine/src/managers/account';
 import type { IAccount, IWallet } from '@onekeyhq/engine/src/types';
-import type { Account } from '@onekeyhq/engine/src/types/account';
 import type { AccountNameInfo } from '@onekeyhq/engine/src/types/network';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useAppSelector } from '../../../hooks';
 import { useIsMounted } from '../../../hooks/useIsMounted';
 
 import type { useAccountSelectorInfo } from './useAccountSelectorInfo';
@@ -23,58 +23,31 @@ export type INetworkAccountSelectorAccountListSectionData = {
 };
 
 export const useAllNetworksAccountsData = ({
-  accountSelectorInfo,
+  walletId,
 }: {
-  accountSelectorInfo: ReturnType<typeof useAccountSelectorInfo>;
+  walletId?: string;
 }) => {
-  const [data, setData] = useState<Account[]>([]);
+  const allNetworksAccountsMap = useAppSelector(
+    (s) => s.overview.allNetworksAccountsMap,
+  );
 
-  const refresh = useCallback(async () => {
-    const { selectedNetworkId, selectedWalletId } = accountSelectorInfo ?? {};
-    if (!selectedNetworkId || !selectedWalletId) {
-      setData([]);
-      return;
-    }
-    const index =
-      await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccountIndex({
-        walletId: accountSelectorInfo?.selectedWalletId ?? '',
-      });
+  const data = useMemo(
+    () =>
+      Object.keys(allNetworksAccountsMap ?? {})
+        .map((accountId) =>
+          generateFakeAllnetworksAccount({
+            accountId,
+          }),
+        )
+        .filter((n) => walletId && n.id.startsWith(walletId))
+        .slice(0, 3)
+        .sort((a, b) => a.id.localeCompare(b.id)),
+    [allNetworksAccountsMap, walletId],
+  );
 
-    if (index === -1) {
-      setData([]);
-      return;
-    }
-
-    const accounts = new Array(index + 1)
-      .slice(0, 3)
-      .fill(1)
-      .map((_, i) =>
-        generateFakeAllnetworksAccount({
-          accountId: `${selectedWalletId}--${i}`,
-        }),
-      );
-
-    const networksAccountMapList = await Promise.all(
-      accounts.map((account) =>
-        backgroundApiProxy.serviceAllNetwork.generateAllNetworksWalletAccounts({
-          accountId: account?.id,
-          walletId: accountSelectorInfo?.selectedWalletId ?? '',
-          refreshCurrentAccount: false,
-        }),
-      ),
-    );
-    setData(
-      accounts.filter(
-        (_a, i) => Object.keys(networksAccountMapList[i])?.length > 0,
-      ),
-    );
-  }, [accountSelectorInfo]);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  return { data, refresh };
+  return {
+    data,
+  };
 };
 
 // TODO $isLastItem in multiple wallet mode optimize
