@@ -163,9 +163,9 @@ export function useFormatAmount() {
       }
 
       const amount = formatNumber(balance, {
-        ...formatOptions,
         fixed: selectedFiatMoneySymbol === 'btc' ? 8 : 2,
         fullPrecision: true,
+        ...formatOptions,
       });
 
       return {
@@ -233,6 +233,7 @@ export function FormatCurrencyTokenOfAccount({
     networkId,
     contractAdress: token?.tokenIdOnNetwork,
   });
+
   const priceUndefined = priceValue === undefined || priceValue === null;
   return (
     <FormatCurrency
