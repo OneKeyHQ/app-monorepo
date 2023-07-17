@@ -6,6 +6,7 @@ import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 
 import { ToastManager } from '@onekeyhq/components';
+import { FailedToEstimatedGasError } from '@onekeyhq/engine/src/errors';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type {
   IDecodedTx,
@@ -64,6 +65,9 @@ export function useBatchSendConfirmFeeInfoPayload({
   const timer = useRef<ReturnType<typeof setInterval>>();
   const [loading, setLoading] = useState(true);
   const route = useRoute();
+
+  const networkSetting = network?.settings;
+  const subNetworkSetting = networkSetting?.subNetworkSettings?.[networkId];
 
   const defaultFeePresetIndex = useFeePresetIndex(networkId);
   const feeInfoSelectedInRouteParams = (
@@ -306,6 +310,14 @@ export function useBatchSendConfirmFeeInfoPayload({
         current,
       };
       debugLogger.sendTx.info('useFeeInfoPayload: ', result);
+
+      if (
+        new BigNumber(result?.current?.total ?? 0).isZero() &&
+        !networkSetting?.allowZeroFee &&
+        !subNetworkSetting?.allowZeroFee
+      ) {
+        throw new FailedToEstimatedGasError();
+      }
       return result;
     },
     [
@@ -315,6 +327,8 @@ export function useBatchSendConfirmFeeInfoPayload({
       fetchAnyway,
       useFeeInTx,
       forBatchSend,
+      networkSetting?.allowZeroFee,
+      subNetworkSetting?.allowZeroFee,
       accountId,
       networkId,
       signOnly,
@@ -331,14 +345,14 @@ export function useBatchSendConfirmFeeInfoPayload({
       // first time loading only, Interval loading does not support yet.
       setLoading(true);
 
-      const firstTx = encodedTxs[0];
-
-      // Use the fee of the first transaction as a benchmark
-      // To calculate the fee of subsequent batch transaction that may fail
-      const firstTxInfo = await fetchFeeInfo(firstTx);
-      const restEncodedTxs = encodedTxs.slice(1);
-
       try {
+        const firstTx = encodedTxs[0];
+
+        // Use the fee of the first transaction as a benchmark
+        // To calculate the fee of subsequent batch transaction that may fail
+        const firstTxInfo = await fetchFeeInfo(firstTx);
+        const restEncodedTxs = encodedTxs.slice(1);
+
         const infos = await Promise.all(
           restEncodedTxs.map((encodedTx) =>
             fetchFeeInfo(encodedTx, firstTxInfo),
