@@ -77,6 +77,7 @@ export default class Vault extends VaultBase {
 
   override async getOutputAccount(): Promise<Account> {
     const dbAccount = await this.getDbAccount({ noCache: true });
+    const displayAddress = await this.getDisplayAddress(dbAccount.address)
     return {
       id: dbAccount.id,
       name: dbAccount.name,
@@ -84,8 +85,8 @@ export default class Vault extends VaultBase {
       path: dbAccount.path,
       coinType: dbAccount.coinType,
       tokens: [],
-      address: dbAccount.address,
-      displayAddress: await this.getDisplayAddress(dbAccount.address),
+      address: displayAddress,
+      displayAddress,
       template: dbAccount.template,
       pubKey: dbAccount.address,
     };
@@ -237,7 +238,7 @@ export default class Vault extends VaultBase {
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxNexa> {
     const client = await this.getSDKClient();
-    const fromNexaAddress = await this.getDisplayAddress(transferInfo.from);
+    const fromNexaAddress = transferInfo.from;
     const utxos = await client.getNexaUTXOs(fromNexaAddress);
     const network = await this.getNetwork();
     return {
