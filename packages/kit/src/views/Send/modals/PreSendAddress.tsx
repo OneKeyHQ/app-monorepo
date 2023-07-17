@@ -537,98 +537,93 @@ function PreSendAddress() {
   );
 
   const validateHandle = useCallback(
-    (value: string) => {
-      if (timer.current) {
-        clearTimeout(timer.current);
+    async (value: string) => {
+      const toAddress = resolvedAddress || value || '';
+      setIsValidAddress(false);
+      setvalidateMessage({
+        errorMessage: '',
+      });
+      setIsAddressBook(false);
+      setAddressBookLabel('');
+      setIsContractAddress(false);
+      setSecurityItems([]);
+      if (!toAddress) {
+        return undefined;
+        // return intl.formatMessage({
+        //   id: 'form__address_invalid',
+        // });
       }
-      timer.current = setTimeout(async () => {
-        const toAddress = resolvedAddress || value || '';
-        setIsValidAddress(false);
-        setvalidateMessage({
-          errorMessage: '',
+      try {
+        setIsValidatingAddress(true);
+        await backgroundApiProxy.validator.validateAddress(
+          networkId,
+          toAddress,
+        );
+        await backgroundApiProxy.validator.validatePreSendAddress({
+          address: toAddress,
+          networkId,
+          accountId,
         });
+        await validateAddress?.(networkId, toAddress);
+      } catch (error0: any) {
+        console.error('PreSendAddress validateHandle ERROR: ', error0);
+
+        setIsValidatingAddress(false);
+        if (isValidNameServiceName && !resolvedAddress) return undefined;
+        const { key, info } = error0;
+        setIsValidAddress(false);
         setIsAddressBook(false);
         setAddressBookLabel('');
         setIsContractAddress(false);
-        setSecurityItems([]);
-        if (!toAddress) {
-          return undefined;
-          // return intl.formatMessage({
-          //   id: 'form__address_invalid',
-          // });
-        }
-        try {
-          setIsValidatingAddress(true);
-          await backgroundApiProxy.validator.validateAddress(
-            networkId,
-            toAddress,
-          );
-          await backgroundApiProxy.validator.validatePreSendAddress({
-            address: toAddress,
-            networkId,
-            accountId,
-          });
-          await validateAddress?.(networkId, toAddress);
-        } catch (error0: any) {
-          console.error('PreSendAddress validateHandle ERROR: ', error0);
-
-          setIsValidatingAddress(false);
-          if (isValidNameServiceName && !resolvedAddress) return undefined;
-          const { key, info } = error0;
-          setIsValidAddress(false);
-          setIsAddressBook(false);
-          setAddressBookLabel('');
-          setIsContractAddress(false);
-          if (key) {
-            setvalidateMessage({
-              errorMessage: intl.formatMessage(
-                {
-                  id: key,
-                },
-                info ?? {},
-              ),
-            });
-            return false;
-          }
+        if (key) {
           setvalidateMessage({
-            errorMessage: intl.formatMessage({
-              id: 'form__address_invalid',
-            }),
+            errorMessage: intl.formatMessage(
+              {
+                id: key,
+              },
+              info ?? {},
+            ),
           });
           return false;
         }
-        const isContractAddressResp = await isContractAddressCheck(toAddress);
-        if (isContractAddressResp) {
+        setvalidateMessage({
+          errorMessage: intl.formatMessage({
+            id: 'form__address_invalid',
+          }),
+        });
+        return false;
+      }
+      const isContractAddressResp = await isContractAddressCheck(toAddress);
+      if (isContractAddressResp) {
+        setvalidateMessage({
+          errorMessage: '',
+        });
+        setIsValidAddress(true);
+        setIsContractAddress(true);
+      } else {
+        const addressbookItem =
+          await backgroundApiProxy.serviceAddressbook.getItem({
+            address: toAddress,
+          });
+        if (addressbookItem) {
+          setIsValidAddress(true);
+          setIsAddressBook(true);
+          setAddressBookLabel(addressbookItem.name);
           setvalidateMessage({
             errorMessage: '',
           });
-          setIsValidAddress(true);
-          setIsContractAddress(true);
         } else {
-          const addressbookItem =
-            await backgroundApiProxy.serviceAddressbook.getItem({
-              address: toAddress,
-            });
-          if (addressbookItem) {
-            setIsValidAddress(true);
-            setIsAddressBook(true);
-            setAddressBookLabel(addressbookItem.name);
-            setvalidateMessage({
-              errorMessage: '',
-            });
-          } else {
-            setIsValidAddress(true);
-            if (isLightningNetwork) {
-              setValidAddressMessage('msg__valid_payment_request');
-            }
-            setvalidateMessage({
-              errorMessage: '',
-            });
+          setIsValidAddress(true);
+          if (isLightningNetwork) {
+            setValidAddressMessage('msg__valid_payment_request');
           }
+          setvalidateMessage({
+            errorMessage: '',
+          });
         }
-        setIsValidatingAddress(false);
-        return true;
-      }, 0);
+      }
+      setIsValidatingAddress(false);
+      return true;
     },
     [
       resolvedAddress,
