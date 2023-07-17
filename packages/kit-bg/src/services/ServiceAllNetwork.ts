@@ -3,6 +3,7 @@ import { debounce } from 'lodash';
 import {
   allNetworksAccountRegex,
   generateFakeAllnetworksAccount,
+  getWalletIdFromAccountId,
 } from '@onekeyhq/engine/src/managers/account';
 import { getPath } from '@onekeyhq/engine/src/managers/derivation';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
@@ -10,6 +11,7 @@ import { isWalletCompatibleAllNetworks } from '@onekeyhq/engine/src/managers/wal
 import type { Account } from '@onekeyhq/engine/src/types/account';
 import {
   clearOverviewPendingTasks,
+  removeAllNetworksAccountsMapByAccountId,
   setAllNetworksAccountsMap,
 } from '@onekeyhq/kit/src/store/reducers/overview';
 import {
@@ -251,5 +253,67 @@ export default class ServiceAllNetwork extends ServiceBase {
   @backgroundMethod()
   refreshCurrentAllNetworksAccountMap() {
     return this._refreshCurrentAllNetworksAccountMapWithDebounce();
+  }
+
+  @backgroundMethod()
+  async createAllNetworksFakeAccount({ walletId }: { walletId: string }) {
+    const { appSelector, serviceAccount } = this.backgroundApi;
+    const maxIndex = await this.getAllNetworkAccountIndex({
+      walletId,
+    });
+
+    if (maxIndex === -1) {
+      return false;
+    }
+
+    const allNetworksAccountsMap = appSelector(
+      (s) => s.overview.allNetworksAccountsMap,
+    );
+
+    const accountIds = Object.keys(allNetworksAccountsMap ?? {}).filter((n) =>
+      n.startsWith(walletId),
+    );
+
+    if (accountIds.length >= 3) {
+      return;
+    }
+
+    let accountMaxIndex = 0;
+
+    for (; accountMaxIndex < Math.min(maxIndex, 2); accountMaxIndex += 1) {
+      if (!allNetworksAccountsMap?.[`${walletId}--${accountMaxIndex}`]) {
+        break;
+      }
+    }
+
+    const fakeNewAccountId = `${walletId}--${accountMaxIndex}`;
+
+    const account = await this.generateAllNetworksWalletAccounts({
+      walletId,
+      accountId: fakeNewAccountId,
+    });
+
+    await serviceAccount.autoChangeAccount({
+      walletId,
+    });
+
+    return account;
+  }
+
+  @backgroundMethod()
+  async deleteAllNetworksFakeAccount({ accountId }: { accountId: string }) {
+    const { dispatch, serviceAccount } = this.backgroundApi;
+
+    dispatch(
+      removeAllNetworksAccountsMapByAccountId({
+        accountId,
+      }),
+    );
+
+    await serviceAccount.autoChangeAccount({
+      walletId: getWalletIdFromAccountId(accountId),
+    });
+
+    return Promise.resolve(undefined);
   }
 }

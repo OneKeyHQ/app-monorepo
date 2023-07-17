@@ -257,7 +257,7 @@ class ServiceAccount extends ServiceBase {
     shouldUpdateWallets?: boolean;
     skipIfSameWallet?: boolean;
   }) {
-    const { dispatch, engine, serviceAccount, appSelector, serviceAllNetwork } =
+    const { dispatch, engine, serviceAccount, appSelector } =
       this.backgroundApi;
     if (!walletId) {
       return;
@@ -275,11 +275,11 @@ class ServiceAccount extends ServiceBase {
     let accountId: string | null = null;
     if (wallet && activeNetworkId && wallet.accounts.length > 0) {
       if (isAllNetworks(activeNetworkId)) {
-        const accounts = await serviceAllNetwork.getAllNetworksFakeAccounts({
-          walletId,
-        });
+        const accountIds = Object.keys(
+          appSelector((s) => s.overview.allNetworksAccountsMap ?? {}),
+        ).filter((n) => n.startsWith(walletId));
         if (!accountId) {
-          accountId = accounts?.[0]?.id;
+          accountId = accountIds?.[0];
         }
       } else {
         const accountsInWalletAndNetwork = await engine.getAccounts(
@@ -341,8 +341,22 @@ class ServiceAccount extends ServiceBase {
     const { engine, appSelector } = this.backgroundApi;
     const wallets = await this.initWallets();
 
-    const activeNetworkId = appSelector((s) => s.general.activeNetworkId);
+    const { activeNetworkId, activeWalletId } = appSelector((s) => s.general);
     if (!activeNetworkId) {
+      return;
+    }
+    if (isAllNetworks(activeNetworkId)) {
+      const firstAccountId = Object.keys(
+        appSelector((s) => s.overview.allNetworksAccountsMap) ?? {},
+      ).find(
+        (accountId) => activeWalletId && accountId.startsWith(activeWalletId),
+      );
+      if (firstAccountId) {
+        this.changeActiveAccount({
+          walletId: activeWalletId,
+          accountId: firstAccountId,
+        });
+      }
       return;
     }
     for (const wallet of wallets) {

@@ -387,7 +387,7 @@ export const useAccountValues = (props: {
   const { networkId, accountId } = props;
   const { includeNFTsInTotal } = useAppSelector((s) => s.settings);
 
-  const { data: defis } = useAccountPortfolios({
+  const { data: defis = [] } = useAccountPortfolios({
     networkId,
     accountId,
     type: EOverviewScanTaskType.defi,
