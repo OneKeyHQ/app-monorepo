@@ -286,7 +286,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
       return (
         <Form mt={4}>
           <Form.Item
-            label="Fee rate (sat/B)"
+            label="Fee rate (sat/vB)"
             control={control}
             name="feeRate"
             rules={{
