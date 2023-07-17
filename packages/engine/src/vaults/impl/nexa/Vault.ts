@@ -362,9 +362,8 @@ export default class Vault extends VaultBase {
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
     const { decimals } = await this.engine.getNetwork(this.networkId);
     const client = await this.getSDKClient();
-    const onChainHistories = await client.getHistoryByAddress(
-      dbAccount.address,
-    );
+    const displayAddress = await this.getDisplayAddress(dbAccount.address);
+    const onChainHistories = await client.getHistoryByAddress(displayAddress);
     return (
       await Promise.all(
         onChainHistories.map(async (history) => {
@@ -387,8 +386,7 @@ export default class Vault extends VaultBase {
               Buffer.from(tx.vout[0].scriptPubKey.hex, 'hex'),
               network.prefix,
             );
-
-            const tokenAddress = dbAccount.address;
+            const tokenAddress = displayAddress;
             const amountValue = tx.vout.reduce((acc, cur) => {
               if (
                 decodeScriptBufferToNexaAddress(
@@ -402,9 +400,9 @@ export default class Vault extends VaultBase {
             }, new BigNumber(0));
             if (amountValue && tokenAddress) {
               let direction = IDecodedTxDirection.IN;
-              if (from === dbAccount.address) {
+              if (from === displayAddress) {
                 direction =
-                  to === dbAccount.address
+                  to === displayAddress
                     ? IDecodedTxDirection.SELF
                     : IDecodedTxDirection.OUT;
               }
@@ -430,8 +428,8 @@ export default class Vault extends VaultBase {
             }
             const decodedTx: IDecodedTx = {
               txid: history.tx_hash,
-              owner: dbAccount.address,
-              signer: dbAccount.address,
+              owner: displayAddress,
+              signer: displayAddress,
               nonce: 0,
               actions: [action],
               status: tx.confirmations
@@ -440,7 +438,7 @@ export default class Vault extends VaultBase {
               networkId: this.networkId,
               accountId: this.accountId,
               encodedTx: {
-                from: dbAccount.address,
+                from: displayAddress,
                 to: '',
                 value: '',
                 data: tx.hex,
