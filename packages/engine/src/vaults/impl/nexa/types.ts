@@ -19,7 +19,7 @@ export type IEncodedTxNexa = {
   transferInfo?: ITransferInfo;
 };
 
-export type IListUXTO = {
+export type IListUTXO = {
   height: number;
   outpoint_hash: string;
   tx_hash: string;

@@ -10,7 +10,7 @@ import type {
   ClientInfo,
   FeePricePerUnit,
 } from '../../../../types/provider';
-import type { IListUXTO, INexaHistoryItem, INexaTransaction } from '../types';
+import type { IListUTXO, INexaHistoryItem, INexaTransaction } from '../types';
 
 export class Nexa extends SimpleClient {
   readonly rpc: WebSocketRequest;
@@ -70,8 +70,8 @@ export class Nexa extends SimpleClient {
     return Number(fee) || 0;
   }
 
-  async getNexaUTXOs(address: string): Promise<IListUXTO[]> {
-    return this.rpc.call<IListUXTO[]>('blockchain.address.listunspent', [
+  async getNexaUTXOs(address: string): Promise<IListUTXO[]> {
+    return this.rpc.call<IListUTXO[]>('blockchain.address.listunspent', [
       address,
     ]);
   }
