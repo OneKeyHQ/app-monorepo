@@ -24,21 +24,20 @@ import type {
   UnsignedTx,
 } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 
-import { isTaprootXpubSegwit, isWatchAccountTaprootSegwit } from '../utils';
+import {
+  getBitcoinBip32,
+  getBitcoinECPair,
+  initBitcoinEcc,
+  isTaprootXpubSegwit,
+  isWatchAccountTaprootSegwit,
+} from '../utils';
 
 import { getBlockBook } from './blockbook';
 import { getNetwork } from './networks';
-import ecc from './nobleSecp256k1Wrapper';
 import { PLACEHOLDER_VSIZE, estimateTxSize, loadOPReturn } from './vsize';
 
 import type { Network } from './networks';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
-import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
-
-// @ts-expect-error
-const bip32 = BIP32Factory(ecc);
-// @ts-expect-error
-const ECPair = ECPairFactory(ecc);
 
 type GetAccountParams =
   | {
@@ -96,8 +95,6 @@ const validator = (
   msghash: Buffer,
   signature: Buffer,
 ): boolean => verify('secp256k1', pubkey, msghash, signature);
-
-BitcoinJS.initEccLib(ecc as unknown as TinySecp256k1Interface);
 
 class Provider {
   readonly chainInfo: ChainInfo;
@@ -710,11 +707,12 @@ class Provider {
     path: string,
     message: string,
   ) {
+    initBitcoinEcc();
     const mnemonic = mnemonicFromEntropy(entropy, password);
     const seed = mnemonicToSeedSync(mnemonic);
-    const root = bip32.fromSeed(seed);
+    const root = getBitcoinBip32().fromSeed(seed);
     const node = root.derivePath(path);
-    const keyPair = ECPair.fromWIF(node.toWIF());
+    const keyPair = getBitcoinECPair().fromWIF(node.toWIF());
     const signature = bitcoinMessage.sign(
       message,
       // @ts-expect-error

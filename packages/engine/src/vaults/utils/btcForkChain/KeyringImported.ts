@@ -22,6 +22,7 @@ import type {
   ISignCredentialOptions,
 } from '../../types';
 import type BTCForkVault from './VaultBtcFork';
+import { initBitcoinEcc } from './utils';
 
 const deriver = new BaseBip32KeyDeriver(
   Buffer.from('Bitcoin seed'),
@@ -33,6 +34,7 @@ export class KeyringImported extends KeyringImportedBase {
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
+    initBitcoinEcc();
     const { password } = options;
     if (typeof password === 'undefined') {
       throw new OneKeyInternalError('Software signing requires a password.');
