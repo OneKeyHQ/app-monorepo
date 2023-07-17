@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -61,7 +61,6 @@ type FormValues = {
 
 function PreSendAddress() {
   const intl = useIntl();
-  const timer = useRef<ReturnType<typeof setTimeout>>();
   const route = useRoute<RouteProps>();
   const [securityItems, setSecurityItems] = useState<
     (keyof GoPlusAddressSecurity)[]
