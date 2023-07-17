@@ -83,7 +83,12 @@ export function PreSendAmountPreview({
       return <Center>{desc}</Center>;
     }
     return (
-      <Text typography="Body1Strong" textAlign="center" isTruncated>
+      <Text
+        numberOfLines={2}
+        typography="Body1Strong"
+        textAlign="center"
+        isTruncated
+      >
         {desc}
       </Text>
     );
