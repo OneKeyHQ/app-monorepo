@@ -208,20 +208,6 @@ export default class ServiceStaking extends ServiceBase {
     };
   }
 
-  // @backgroundMethod()
-  // async setAccountStakingActivity({
-  //   networkId,
-  //   accountId,
-  //   data,
-  // }: {
-  //   networkId: string;
-  //   accountId: string;
-  //   data: StakingActivity | undefined;
-  // }) {
-  //   const { dispatch } = this.backgroundApi;
-  //   dispatch(setAccountStakingActivity({ networkId, accountId, data }));
-  // }
-
   @backgroundMethod()
   async fetchKeleIncomeHistory(params: {
     accountId: string;
