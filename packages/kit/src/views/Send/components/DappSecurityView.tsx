@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Box,
   Center,
   HStack,
@@ -67,18 +68,27 @@ export const DappSecurityView: FC<{
     getDAppMetadata();
   }, [origin]);
 
-  const GoplusFeedbackLink = useCallback(
-    (text) => (
-      <Text
-        color="text-subdued"
-        onPress={() => openUrlExternal(GOPLUS_FEEDBACK_URL)}
-        fontSize="10px"
-        typography="Body2Underline"
-      >
-        {text}
-      </Text>
+  const GoplusFeedbackLink = useMemo(
+    () => (
+      <HStack space={1} alignItems="center">
+        <Text color="text-subdued" fontSize="10px">
+          {intl.formatMessage(
+            { id: 'content__provided_by_str' },
+            { source: 'GoPlus' },
+          )}
+          .
+        </Text>
+        <Text
+          color="text-subdued"
+          onPress={() => openUrlExternal(GOPLUS_FEEDBACK_URL)}
+          fontSize="10px"
+          typography="Body2Underline"
+        >
+          {intl.formatMessage({ id: 'action__report' })}
+        </Text>
+      </HStack>
     ),
-    [],
+    [intl],
   );
 
   const letter = metadata?.name?.slice(0, 4);
@@ -128,50 +138,66 @@ export const DappSecurityView: FC<{
   );
 
   const dappStatus = useMemo(() => {
-    if (typeof securityItems === 'undefined') {
+    const getStatusIcon = () => {
+      if (securityItems === undefined) {
+        return (
+          <Icon name="QuestionMarkCircleMini" size={20} color="icon-subdued" />
+        );
+      }
+
+      if (securityItems?.length === 0) {
+        return <Icon name="BadgeCheckMini" size={20} color="icon-success" />;
+      }
+
       return (
-        <Icon name="QuestionMarkCircleMini" size={20} color="icon-subdued" />
+        <Icon name="ShieldExclamationMini" size={20} color="icon-critical" />
       );
-    }
+    };
+
+    const getStatusDesc = () => {
+      if (securityItems === undefined) {
+        return (
+          <VStack space={1}>
+            <Text typography="Caption" fontSize="14px">
+              Site Not Scand
+            </Text>
+            <Text color="text-subdued" fontSize="10px">
+              Visit This Site carefully
+            </Text>
+            {GoplusFeedbackLink}
+          </VStack>
+        );
+      }
+
+      if (securityItems?.length === 0) {
+        return (
+          <VStack space={1}>
+            <Text typography="Caption" fontSize="14px">
+              {intl.formatMessage({ id: 'title__verified_site' })}
+            </Text>
+            {GoplusFeedbackLink}
+          </VStack>
+        );
+      }
+
+      return (
+        <VStack space={1}>
+          <Text typography="Caption" fontSize="14px">
+            Scam Site. Cautions!
+          </Text>
+          {GoplusFeedbackLink}
+        </VStack>
+      );
+    };
 
     return (
       <RichTooltip
         // eslint-disable-next-line react/no-unstable-nested-components
         trigger={({ ...props }) => (
-          <Pressable {...props}>
-            {securityItems.length === 0 ? (
-              <Icon name="BadgeCheckMini" size={20} color="icon-success" />
-            ) : (
-              <Icon
-                name="ShieldExclamationMini"
-                size={20}
-                color="icon-critical"
-              />
-            )}
-          </Pressable>
+          <Pressable {...props}>{getStatusIcon()}</Pressable>
         )}
         bodyProps={{
-          children: (
-            <>
-              {securityItems.length === 0 ? (
-                <Text typography="Caption" fontSize="14px" mb={1}>
-                  {intl.formatMessage({ id: 'title__verified_site' })}
-                </Text>
-              ) : null}
-              <HStack space={1} alignItems="center">
-                <Text color="text-subdued" fontSize="10px">
-                  {intl.formatMessage(
-                    { id: 'content__provided_by_str' },
-                    { source: 'GoPlus' },
-                  )}
-                  .
-                </Text>
-                {GoplusFeedbackLink(
-                  intl.formatMessage({ id: 'action__report' }),
-                )}
-              </HStack>
-            </>
-          ),
+          children: getStatusDesc(),
         }}
       />
     );
@@ -201,22 +227,35 @@ export const DappSecurityView: FC<{
           borderTopColor="divider"
           alignItems="center"
           flexWrap="wrap"
-          pt="4"
+          pt={2}
+          mt={3}
+          space={2}
         >
           {securityItems?.map((item) => (
-            <Box
-              bg="surface-critical-subdued"
-              py="2px"
-              px="2"
-              mr="2"
-              mb="2"
-              borderRadius="6px"
-            >
-              <Typography.Body2Strong color="text-critical">
-                {intl.formatMessage({ id: localeMaps[item] ?? '' })}
-              </Typography.Body2Strong>
-            </Box>
+            <Badge
+              key={item}
+              size="sm"
+              title={intl.formatMessage({ id: localeMaps[item] ?? '' })}
+              type="critical"
+              mb={1}
+            />
           ))}
+          <RichTooltip
+            // eslint-disable-next-line react/no-unstable-nested-components
+            trigger={({ ...props }) => (
+              <Pressable {...props}>
+                <Icon
+                  name="InformationCircleOutline"
+                  size={16}
+                  color="icon-subdued"
+                  mb={1}
+                />
+              </Pressable>
+            )}
+            bodyProps={{
+              children: GoplusFeedbackLink,
+            }}
+          />
         </HStack>
       ) : null}
     </>
