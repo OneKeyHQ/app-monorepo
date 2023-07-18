@@ -1,4 +1,9 @@
 import LOCALES from '@onekeyhq/components/src/locale';
+import {
+  decodeSensitiveText,
+  encodeSensitiveText,
+} from '@onekeyhq/engine/src/secret/encryptors/aes256';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { getDefaultLocale } from './locale';
 
@@ -41,12 +46,25 @@ export const localAuthenticate: () => Promise<LocalAuthenticationResult> =
   };
 
 export const savePassword = (password: string) => {
-  if (password) {
-    window?.desktopApi.secureSetItemAsync('password', password);
+  let text = password;
+  if (text) {
+    try {
+      text = decodeSensitiveText({ encodedText: text });
+    } catch (e: any) {
+      debugLogger.common.error(
+        'method localAuthentication.savePassword() failed to decodeSensitiveText',
+      );
+    }
+    window?.desktopApi.secureSetItemAsync('password', text);
   } else {
     window?.desktopApi.secureDelItemAsync('password');
   }
 };
 
-export const getPassword = () =>
-  window?.desktopApi.secureGetItemAsync('password');
+export const getPassword = async () => {
+  const text = await window?.desktopApi.secureGetItemAsync('password');
+  if (text) {
+    const result = encodeSensitiveText({ text });
+    return result;
+  }
+};
