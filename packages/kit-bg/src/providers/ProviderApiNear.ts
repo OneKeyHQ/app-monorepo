@@ -226,10 +226,10 @@ class ProviderApiNear extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  wallet_sendSiteMetadata(req: IJsBridgeMessagePayload, params: any) {
+  wallet_sendSiteMetadata() {
     const privateProvider = this.backgroundApi.providers
       .$private as ProviderApiPrivate;
-    return privateProvider.wallet_sendSiteMetadata(req, params);
+    return privateProvider.wallet_sendSiteMetadata();
   }
 }
 

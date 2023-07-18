@@ -143,8 +143,8 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   // $onekey.$private.request({method:'wallet_sendSiteMetadata'})
   @providerApiMethod()
-  wallet_sendSiteMetadata(request: IJsBridgeMessagePayload, params: any) {
-    this.backgroundApi.serviceDapp.updateDAppMetadata({ request, params });
+  wallet_sendSiteMetadata() {
+    // TODO save to DB
     return { success: 'wallet_sendSiteMetadata: save to DB' };
   }
 
