@@ -18,7 +18,7 @@ import { getAppNavigation } from '../../../../hooks/useAppNavigation';
 import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { homeTab } from '../../../../store/observable/webTabs';
 import { GasPanelRoutes } from '../../../GasPanel/types';
-import { GasPriceMini } from '../../components/GasPriceMini';
+import { GasPriceMini } from '../../components/GasPrice';
 import { gotoSite, openMatchDApp } from '../Controller/gotoSite';
 import { useWebController } from '../Controller/useWebController';
 import SearchView from '../Search/SearchView';
