@@ -243,12 +243,11 @@ export const DappSecurityView: FC<{
           <RichTooltip
             // eslint-disable-next-line react/no-unstable-nested-components
             trigger={({ ...props }) => (
-              <Pressable {...props}>
+              <Pressable {...props} mb={1}>
                 <Icon
                   name="InformationCircleOutline"
                   size={16}
                   color="icon-subdued"
-                  mb={1}
                 />
               </Pressable>
             )}
