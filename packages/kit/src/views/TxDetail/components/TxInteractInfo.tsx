@@ -8,7 +8,9 @@ import { DappSecurityView } from '../../Send/components/DappSecurityView';
 export const TxInteractInfo: FC<{
   origin: string;
   networkId: string;
-}> = ({ origin, networkId }) => {
+  name?: string;
+  icon?: string;
+}> = ({ origin, networkId, name, icon }) => {
   const parsed = useMemo(() => {
     try {
       return new URL(origin);
@@ -33,6 +35,8 @@ export const TxInteractInfo: FC<{
         hostname={parsed.hostname}
         origin={parsed.origin}
         networkId={networkId}
+        name={name}
+        icon={icon}
       />
     </Box>
   );

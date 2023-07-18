@@ -17,7 +17,6 @@ import {
   VStack,
 } from '@onekeyhq/components';
 import type { LocaleIds } from '@onekeyhq/components/src/locale';
-import type { DAppMetadata } from '@onekeyhq/engine/src/types/dapp';
 import type {
   GoPlusDappContract,
   GoPlusPhishing,
@@ -43,12 +42,13 @@ export const DappSecurityView: FC<{
   hostname: string;
   origin: string;
   networkId: string;
-}> = ({ hostname, origin, networkId }) => {
+  name?: string;
+  icon?: string;
+}> = ({ hostname, origin, networkId, name, icon }) => {
   const intl = useIntl();
   const [securityItems, setSecurityItems] = useState<
     (keyof GoPlusDappContract | keyof GoPlusPhishing)[] | undefined
   >();
-  const [metadata, setMetaData] = useState<DAppMetadata>();
 
   const fetchSecurityInfo = useCallback(() => {
     backgroundApiProxy.serviceToken
@@ -59,14 +59,6 @@ export const DappSecurityView: FC<{
   useEffect(() => {
     fetchSecurityInfo();
   }, [fetchSecurityInfo]);
-
-  useEffect(() => {
-    const getDAppMetadata = async () => {
-      const resp = await backgroundApiProxy.serviceDapp.getDAppMetadata(origin);
-      setMetaData(resp);
-    };
-    getDAppMetadata();
-  }, [origin]);
 
   const GoplusFeedbackLink = useMemo(
     () => (
@@ -91,7 +83,7 @@ export const DappSecurityView: FC<{
     [intl],
   );
 
-  const letter = metadata?.name?.slice(0, 4);
+  const letter = name?.slice(0, 4);
   const fallbackElement = useMemo(
     () =>
       letter ? (
@@ -121,20 +113,20 @@ export const DappSecurityView: FC<{
 
   const dappIcon = useMemo(
     () =>
-      metadata?.icon ? (
+      icon ? (
         <Image
           width="full"
           height="full"
-          src={metadata.icon}
-          key={metadata.icon}
+          src={icon}
+          key={icon}
           fallbackElement={fallbackElement}
-          alt={metadata.icon}
+          alt={icon}
           borderRadius="full"
         />
       ) : (
         fallbackElement
       ),
-    [fallbackElement, metadata?.icon],
+    [fallbackElement, icon],
   );
 
   const dappStatus = useMemo(() => {

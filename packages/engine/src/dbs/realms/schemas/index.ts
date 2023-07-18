@@ -8,4 +8,3 @@ export { HistoryEntrySchema } from './HistoryEntrySchema';
 export { DeviceSchema } from './DeviceSchema';
 export { AccountDerivationSchema } from './AccountDerivationSchema';
 export { CustomFeeSchema } from './CustomFeeSchema';
-export { DAppMetadataSchema } from './DAppMetadataSchema';
