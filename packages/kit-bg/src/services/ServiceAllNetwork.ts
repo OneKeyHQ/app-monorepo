@@ -8,6 +8,7 @@ import {
   allNetworksAccountRegex,
   generateFakeAllnetworksAccount,
   getWalletIdFromAccountId,
+  isAccountCompatibleWithNetwork,
 } from '@onekeyhq/engine/src/managers/account';
 import { getPath } from '@onekeyhq/engine/src/managers/derivation';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
@@ -25,6 +26,7 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   IMPL_EVM,
   IMPL_SOL,
@@ -80,14 +82,23 @@ export default class ServiceAllNetwork extends ServiceBase {
       { walletId },
     );
 
+    const isValidUtxoAccount = (account: Account) =>
+      account.type === AccountType.UTXO &&
+      !![
+        OnekeyNetwork.btc,
+        OnekeyNetwork.ltc,
+        OnekeyNetwork.bch,
+        OnekeyNetwork.doge,
+        OnekeyNetwork.ada,
+      ].find((nid) => isAccountCompatibleWithNetwork(account.id, nid));
+
     for (const [template, info] of Object.entries(accountDerivation)) {
       if (info?.accounts?.length) {
         const accounts = await engine.getAccounts(info.accounts);
         for (const account of accounts) {
-          const replaceStr =
-            account.type === AccountType.UTXO
-              ? new RegExp(`${INDEX_PLACEHOLDER.replace(/\$/g, '\\$')}.*$`)
-              : INDEX_PLACEHOLDER;
+          const replaceStr = isValidUtxoAccount(account)
+            ? new RegExp(`${INDEX_PLACEHOLDER.replace(/\$/g, '\\$')}.*$`)
+            : INDEX_PLACEHOLDER;
 
           const match = account.id.match(
             new RegExp(
