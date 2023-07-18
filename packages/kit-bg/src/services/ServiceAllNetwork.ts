@@ -13,6 +13,7 @@ import { getPath } from '@onekeyhq/engine/src/managers/derivation';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isWalletCompatibleAllNetworks } from '@onekeyhq/engine/src/managers/wallet';
 import type { Account } from '@onekeyhq/engine/src/types/account';
+import { AccountType } from '@onekeyhq/engine/src/types/account';
 import {
   clearOverviewPendingTasks,
   removeAllNetworksAccountsMapByAccountId,
@@ -80,10 +81,16 @@ export default class ServiceAllNetwork extends ServiceBase {
 
     for (const [template, info] of Object.entries(accountDerivation)) {
       if (info?.accounts?.length) {
-        for (const accountId of info.accounts) {
-          const match = accountId.match(
+        const accounts = await engine.getAccounts(info.accounts);
+        for (const account of accounts) {
+          const replaceStr =
+            account.type === AccountType.UTXO
+              ? new RegExp(`${INDEX_PLACEHOLDER.replace(/\$/g, '\\$')}.*$`)
+              : INDEX_PLACEHOLDER;
+
+          const match = account.id.match(
             new RegExp(
-              `${walletId}--${template}`.replace(INDEX_PLACEHOLDER, '(\\d+)'),
+              `${walletId}--${template}`.replace(replaceStr, '(\\d+)'),
             ),
           );
 
