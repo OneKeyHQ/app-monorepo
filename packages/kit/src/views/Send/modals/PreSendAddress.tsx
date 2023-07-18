@@ -372,8 +372,22 @@ function PreSendAddress() {
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [navigation, nftInfo, transferInfo, transferInfos, closeModal],
+    [
+      account,
+      network,
+      nftInfo,
+      transferInfo,
+      transferInfos,
+      intl,
+      serviceBatchTransfer,
+      networkId,
+      accountId,
+      navigation,
+      closeModal,
+      serviceNFT,
+      engine,
+      nativeToken?.symbol,
+    ],
   );
 
   const lightningNetworkSendConfirm = useCallback(
