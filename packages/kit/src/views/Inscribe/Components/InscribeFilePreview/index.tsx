@@ -12,7 +12,7 @@ export const InscribeFilePreview: FC<{ file: InscribeFile }> = ({ file }) => {
       <Box w="full" h="full">
         <Image
           resizeMethod="auto"
-          resizeMode="cover"
+          resizeMode="contain"
           width={366}
           height={148}
           source={{ uri: file.dataForUI }}

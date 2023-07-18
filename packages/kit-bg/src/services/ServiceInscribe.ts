@@ -749,7 +749,7 @@ export default class ServiceInscribe extends ServiceBase {
   }): Promise<IInscriptionContent[]> {
     const contents: IInscriptionContent[] = [];
     const previewTextSize = 200;
-    const maxBytesSize = 380 * 1024;
+    const maxBytesSize = 200 * 1024;
 
     const buildTextContent = ({
       name,
