@@ -68,16 +68,27 @@ export default class ServiceInscribe extends ServiceBase {
   @backgroundMethod()
   async fetchFeeRates() {
     const { apiMempool } = await this.getBitcoinNetworkMap();
-    // "https://mempool.space/" + mempoolNetwork + "api/v1/fees/recommended"
-    const res = await axios.get<{
-      fastestFee: number;
-      halfHourFee: number;
-      hourFee: number;
-      economyFee: number;
-      minimumFee: number;
-    }>(`${apiMempool}/api/v1/fees/recommended`);
-    return res.data;
+    return this.fetchFeeRatesCached({ apiMempool });
   }
+
+  fetchFeeRatesCached = memoizee(
+    async ({ apiMempool }: { apiMempool: string }) => {
+      // "https://mempool.space/" + mempoolNetwork + "api/v1/fees/recommended"
+      const res = await axios.get<{
+        fastestFee: number;
+        halfHourFee: number;
+        hourFee: number;
+        economyFee: number;
+        minimumFee: number;
+      }>(`${apiMempool}/api/v1/fees/recommended`);
+      return res.data;
+    },
+    {
+      promise: true,
+      maxAge: getTimeDurationMs({ seconds: 30 }),
+      max: 5,
+    },
+  );
 
   async fetchAddressUtxo({
     address,
