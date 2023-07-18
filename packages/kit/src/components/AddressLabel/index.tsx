@@ -304,7 +304,7 @@ function AddressLabel(props: Props) {
       {[...validateLabels, ...addressLabels, ...securityLabels].map((label) => (
         <Box {...labelStyle} key={label.title}>
           <Badge
-            size="lg"
+            size="sm"
             title={getTitle(label)}
             type={label.type}
             {...labelProps}
