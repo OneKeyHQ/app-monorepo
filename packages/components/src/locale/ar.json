@@ -52,6 +52,7 @@
   "action__back_up_wallet": "النسخ الاحتياطي للمحفظة",
   "action__backup": "دعم",
   "action__backup_to_icloud": "نسخ احتياطي إلى {cloudName}",
+  "action__blacklist_this_collection": "القائمة السوداء هذه المجموعة",
   "action__building_transaction_data_str": "إنشاء بيانات المعاملات ... {0}",
   "action__bulk_add": "إضافة مجمعة",
   "action__buy": "يشتري",
@@ -105,6 +106,7 @@
   "action__copy": "ينسخ",
   "action__copy_address": "نسخ العنوان",
   "action__copy_contract_address": "نسخ عنوان العقد",
+  "action__copy_invoice": "نسخ الفاتورة",
   "action__copy_to_clipboard": "نسخ إلى الحافظة",
   "action__copy_url": "إنسخ الرابط",
   "action__create": "خلق",
@@ -172,6 +174,8 @@
   "action__go_to_view": "اذهب إلى عرض",
   "action__go_tobackup": "انتقل إلى النسخ الاحتياطي",
   "action__grid_view": "عرض شبكي",
+  "action__hide_risky_nfts": "إخفاء NFTs المحفوفة بالمخاطر",
+  "action__hide_risky_tokens_histories": "إخفاء تاريخ الرموز المحفوفة بالمخاطر",
   "action__hide_unsubscribed_feeds": "إخفاء الخلاصات غير المسجلة",
   "action__i_already_have_a_wallet": "إضافة المحفظة الحالية",
   "action__i_got_it": "فهمت",
@@ -343,6 +347,7 @@
   "action__view": "رأي",
   "action__view_account": "عرض الحساب",
   "action__view_all": "مشاهدة الكل",
+  "action__view_collection": "عرض مجموعة NFT",
   "action__view_details": "عرض التفاصيل",
   "action__view_device_details": "تفاصيل الجهاز",
   "action__view_error_message": "عرض رسالة الخطأ",
@@ -785,6 +790,7 @@
   "content__serial_number": "رقم سري",
   "content__set_a_pin_code": "قم بتعيين رمز PIN",
   "content__set_a_pin_code_desc": "قم بتعيين رمز PIN بنفسك ، والذي يشبه رمز السحب الخاص ببطاقة مصرفية.",
+  "content__set_amounts_for_each_accounts": "حدد المبالغ لكل حساب",
   "content__set_receiving_address": "حدد عنوان الاستلام",
   "content__set_the_value_of_the_utxo_stored_in_this_inscription": "قم بتعيين قيمة UTXO المخزنة في هذا النقش.",
   "content__share_revoke_1": "هذه الأداة يمكن أن تنقذ الأصول الخاصة بك من الخطر! قم بحماية الأصول الخاصة بك عن طريق فحص وإلغاء بدلات الاحتيال أو العقود المخترقة. ⬇️\nhttps://revoke.gg",
@@ -818,7 +824,7 @@
   "content__str_mins": "{content__str_mins, plural, zero {} one {# دقيقة} two {} few {} many {} other {# دقيقة}}",
   "content__str_minutes_plural": "{0} دقيقة",
   "content__str_seconds": "{content__str_seconds, plural, zero {# ثانية} one {# ثانية} two {# ثانية} few {# ثانية} many {# ثانية} other {# ثانية}}",
-  "content__str_seconds_plural": "{0} ثانية",
+  "content__str_seconds_plural": "ثانية",
   "content__str_succeeded": "{0} تم النجاح!",
   "content__str_transactions_failed": "{0} فشلت المعاملات!",
   "content__str_transactions_in_progress": "{content__str_transactions_in_progress, plural, zero {} one {معاملة # قيد التقدم ...} two {} few {} many {} other {# المعاملات قيد التقدم ...}}",
@@ -1272,6 +1278,7 @@
   "form__file": "ملف",
   "form__firmware_version": "نسخة برنامج ثابت",
   "form__fixed": "مُثَبَّت",
+  "form__fixed_interval": "فترات زمنية ثابتة",
   "form__floor_price": "أدنى سعر",
   "form__free_limited_time": "مجانا! (وقت محدود)",
   "form__from": "من",
@@ -1291,6 +1298,7 @@
   "form__gear_custom": "مخصص",
   "form__general_uppercase": "جنرال لواء",
   "form__generate_amount": "توليد المبلغ",
+  "form__going_to_approve": "الذهاب إلى الموافقة",
   "form__google _search_str": "بحث Google {0}",
   "form__handling_fee": "رسوم المعالجة",
   "form__hardware": "المعدات",
@@ -1395,10 +1403,15 @@
   "form__max_spend_limit": "حد الإنفاق الأقصى",
   "form__max_spend_limit_validateRules": "الرجاء إدخال مبلغ حد الإنفاق.",
   "form__max_str": "الحد الأقصى: {0}",
+  "form__max_total": "ماكس المجموع",
+  "form__maximum_amount": "الحد الأقصى للمبلغ",
+  "form__maximum_interval": "الفاصل الزمني الأقصى",
   "form__menu_bar": "شريط القوائم",
   "form__message_tab": "رسالة",
   "form__message_uppercase": "رسالة",
   "form__min_amount": "المبلغ الأدنى:",
+  "form__minimum_amount": "الحد الأدنى للمبلغ",
+  "form__minimum_interval": "الحد الأدنى من الفاصل الزمني",
   "form__minimum_received": "تلقى الحد الأدنى",
   "form__minimum_received_desc": "الحد الأدنى من الرموز التي يمكن استلامها بعد خصم الرسوم المختلفة",
   "form__mint_str": "النعناع {0}",
@@ -1543,9 +1556,11 @@
   "form__quantity": "كمية",
   "form__quests": "أسئلة",
   "form__random": "عشوائي",
+  "form__random_interval": "فاصل عشوائي",
   "form__rate": "معدل",
   "form__rate_our_app": "قيم تطبيقنا",
   "form__raw_desc": "التمهيد لمركز معلومات Web3 الشخصي الخاص بك من أكثر من 500 موجز ويب لـ RSS.",
+  "form__receipient": "المستلم",
   "form__receive__uppercase": "المتلقي",
   "form__receive_address": "تلقي العنوان",
   "form__receive_lido_nft": "احصل على Lido NFT",
@@ -1604,6 +1619,7 @@
   "form__sell_str_for_fiat": "بيع {0} لشركة فيات",
   "form__send_str": "إرسال {0}",
   "form__send_tokens": "إرسال الرموز",
+  "form__sender": "مرسل",
   "form__sent": "لقد ارسلت",
   "form__service_fee": "رسوم الخدمة",
   "form__set_range": "مجموعة مجموعة",
@@ -1690,6 +1706,7 @@
   "form__the_unstaking_process_will_be_completed_in_two_stages": "سيتم تنفيذ عملية فك التثبيت على خطوتين.",
   "form__theme": "سمة",
   "form__third_party_provider": "مزود الطرف الثالث",
+  "form__time_interval": "الفاصل الزمني",
   "form__time_uppercase": "وقت",
   "form__to_uppercase": "ل",
   "form__token": "رمز",
@@ -2040,6 +2057,7 @@
   "msg__device_information_is_inconsistent_it_may_caused_by_device_reset": "معلومات الجهاز غير متسقة. قد يكون سببه إعادة ضبط الجهاز. يمكنك إضافة جهازك مرة أخرى لحل هذه المشكلة.",
   "msg__disk_access_is_denied": "تم رفض الوصول إلى القرص",
   "msg__dont_send_asset_except_str_to_this_address_or_will_lose_asset": "لا ترسل أي أصول تشفير باستثناء {0} إلى هذا العنوان ، وإلا ستفقد الأصول.",
+  "msg__duplicated_address": "عنوان مكرر",
   "msg__engine__account_already_exists": "الحساب موجود بالفعل.",
   "msg__engine__account_name_length_error": "طول اسم الحساب خارج عن الحد.",
   "msg__engine__account_not_activated": "الحساب غير مفعل.",
@@ -2083,6 +2101,7 @@
   "msg__exceeding_the_maximum_word_limit": "تجاوز الحد الأقصى لعدد الكلمات.",
   "msg__failed_to_add_token": "فشل إضافة الرمز المميز",
   "msg__failed_to_fetch_quotes": "تعذر جلب الاقتباسات",
+  "msg__failed_to_get_network_fees_please_try_again": "فشل الحصول على رسوم الشبكة. حاول مرة اخرى.",
   "msg__failed_to_get_price": "فشل في الحصول على السعر",
   "msg__fee_rate_is_higher_than_necessary": "معدل الرسوم أعلى من اللازم",
   "msg__fee_rate_is_low_for_current_network": "معدل الرسوم منخفض لظروف الشبكة الحالية",
@@ -2137,8 +2156,11 @@
   "msg__image_saved": "تم حفظ الصورة",
   "msg__import_icloud_backup_failed_version": "فشل الاستيراد. يرجى التحديث إلى أحدث إصدار للمتابعة",
   "msg__incomplete_file": "ملف غير مكتمل",
+  "msg__inconsistency_between_the_number_of_sender_and_recipient_addresses": "عدم الاتساق بين عدد عناوين المرسل والمستلم.",
   "msg__incorrect_token_information": "معلومات رمز غير صحيحة",
   "msg__insufficient_balance": "رصيد غير كاف",
+  "msg__insufficient_balance_available_amount_str_str": "رصيد غير كاف. الكمية المتوفرة: {amount} {symbol}",
+  "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "رصيد الرمز الأصلي غير كافٍ لرسوم الشبكة. الكمية المتوفرة: {amount} {symbol}",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "عنوان خاطئ! لا يمكن إرسال الأصول الترتيبية إلا إلى عناوين Taproot",
   "msg__invalid_file_format": "تنسيق ملف غير صالح",
   "msg__invalid_hex_data": "بيانات HEX غير صالحة.",
@@ -2155,6 +2177,7 @@
   "msg__limit_price_is_str_lower_than_the_current_market_price_desc": "سوف تبيع {0} بسعر رخيص للغاية.",
   "msg__link_copied": "تم نسخ الرابط",
   "msg__low_battery_charge_to_25_before_updating_firmware_or_boot": "البطارية ضعيفة! اشحن حتى 25٪ قبل التحديث",
+  "msg__maximum_amount_must_be_greater_than_minimum_amount": "يجب أن يكون الحد الأقصى للمبلغ أكبر من الحد الأدنى للمبلغ.",
   "msg__mine": "الخاص بي",
   "msg__minted": "💎 سكت {assets}",
   "msg__mismatched_account": "حساب غير متطابق.",
@@ -2224,6 +2247,7 @@
   "msg__rpc_or_network_error": "RPC أو خطأ في الشبكة",
   "msg__rpc_or_network_error_desc": "لا يزال بإمكانك محاولة تحديد الرسوم مع العرف.",
   "msg__send_tokens_to_the_system_s_financing_address": "في الوضع السريع ، يتم إرسال الرموز المميزة الخاصة بك إلى عنوان النظام ويتم تحويلها تلقائيًا إلى حساب المستخدم الخاص بك. إذا كان العنوان لا يحتوي على رصيد كافٍ ، فسيتم تخزين المبلغ المتبقي في رصيدك القابل للسحب ويمكن سحبه في أي وقت.",
+  "msg__sending_interval_for_all_addresses_will_be_randomized_from_str_to_str": "سيتم اختيار الفاصل الزمني لإرسال كافة العناوين عشوائيًا من {min_s} إلى {max_s} .",
   "msg__sent": "💸 تم إرسال {assets}",
   "msg__sent_a_nft": "💸 أرسل NFT",
   "msg__sent_desc": "إلى {address}",
@@ -2263,6 +2287,7 @@
   "msg__the_disk_path_was_not_found": "لم يتم العثور على مسار القرص",
   "msg__the_invoice_amount_cannot_be_0": "لا يمكن أن يكون مبلغ الفاتورة 0",
   "msg__the_invoice_has_expired": "انتهت صلاحية الفاتورة",
+  "msg__the_maximum_interval_must_be_greater_than_or_equal_to_the_minimum_interval": "يجب أن يكون الحد الأقصى للفترة الزمنية أكبر من أو يساوي الحد الأدنى للفترة الزمنية.",
   "msg__the_ordinal_service_failure_refresh_and_try_again": "فشل الخدمة الترتيبي ، قم بالتحديث وحاول مرة أخرى",
   "msg__the_recipient_address_is_a_contract_address": "عنوان المستلم هو عنوان عقد ، وقد يؤدي التحويل إلى هذا العنوان إلى خسارة الأصول.",
   "msg__the_recipient_address_is_a_scam_address": "تم الإبلاغ عن الاحتيال على هذا العنوان وقد يؤدي النقل إلى هذا العنوان إلى فقدان الأصول.",
@@ -2321,6 +2346,7 @@
   "msg__wrong_password": "كلمة مرور خاطئة.",
   "msg__you_are_swapping_asset_to_an_address_that_may_not_be_yours_please_verify": "أنت تقوم بتبديل الأصول إلى عنوان قد لا يكون ملكك. ارجوك تحقق.",
   "msg__you_can_find_your_transaction_history_here": "يمكنك العثور على سجل معاملاتك هنا",
+  "msg__you_dont_own_this_address": "أنت لا تملك هذا العنوان.",
   "msg__you_have_selected_another_account_to_receive_tokens": "لقد قمت بتحديد حساب آخر لتلقي الرموز.",
   "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "سوف تستبدل الرموز بنسبة 10٪ أقل من سعر coingecko ، مما قد يؤدي إلى خسارة.",
   "msg__your_trade_may_be_front_run_due_to_the_larger_slippage": "قد تكون تجارتك في المقدمة بسبب الانزلاق الأكبر.",
@@ -2596,6 +2622,7 @@
   "title__top_losers": "كبار الخاسرين",
   "title__top_picks": "أعلى اللقطات",
   "title__transaction_details": "تفاصيل الصفقه",
+  "title__transaction_settings": "إعدادات المعاملات",
   "title__transactions_in_progress": "معاملات جارية ...",
   "title__transferring_data": "جاري نقل البيانات ...",
   "title__transferring_data_desc": "الجهاز متصل ، يرجى الاحتفاظ بالبطاقة في مكانها وعدم تحريكها.",
