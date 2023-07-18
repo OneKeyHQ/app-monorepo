@@ -1,4 +1,4 @@
-import { Box, Image } from '@onekeyhq/components';
+import { Box, Image, NetImage } from '@onekeyhq/components';
 
 import type { InscriptionContentProps } from '../type';
 
@@ -12,7 +12,17 @@ function InscriptionImage({ size, asset, ...props }: InscriptionContentProps) {
       size={size}
       {...props}
     >
-      <Image size={size} source={{ uri: asset.content }} />
+      {asset?.content && asset?.content?.length > 0 ? (
+        <Image size={size} source={{ uri: asset.content }} />
+      ) : (
+        <NetImage
+          width={`${Number(size)}px`}
+          height={`${Number(size)}px`}
+          resizeMode="contain"
+          skeleton
+          src={asset.contentUrl}
+        />
+      )}
     </Box>
   );
 }

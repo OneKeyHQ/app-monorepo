@@ -13,6 +13,8 @@ import { InscribeModalRoutes } from '../../routesEnum';
 
 import createStackNavigator from './createStackNavigator';
 
+import type { InscribeFile } from '../../../views/Inscribe/Components/InscribeUploader/type';
+
 export type InscribeModalRoutesParams = {
   [InscribeModalRoutes.InscribeModal]: {
     networkId: string;
@@ -27,6 +29,7 @@ export type InscribeModalRoutesParams = {
     accountId: string;
     contents: IInscriptionContent[];
     size: number;
+    file?: InscribeFile;
   };
   [InscribeModalRoutes.CreateOrder]: {
     networkId: string;
@@ -35,6 +38,7 @@ export type InscribeModalRoutesParams = {
     receiveAddress: string;
     orderId: string;
     size: number;
+    file?: InscribeFile;
   };
 };
 
