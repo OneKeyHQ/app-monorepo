@@ -265,8 +265,9 @@ export default class Vault extends VaultBase {
         },
       ],
       transferInfo: {
-        ...transferInfo,
         from: fromNexaAddress,
+        to: transferInfo.to,
+        amount: transferInfo.amount,
       },
     };
   }
