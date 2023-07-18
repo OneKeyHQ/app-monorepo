@@ -41,11 +41,11 @@ import {
   SendModalRoutes,
 } from '../../../routes/routesEnum';
 import { formatBytes } from '../../../utils/hardware/homescreens';
-import HeaderDescription from '../Components/HeaderDescription';
 import {
   showAccountBalanceDetailsOverlay,
   useAccountBalanceDetailsInfo,
 } from '../../Overlay/AccountBalanceDetailsPanel';
+import HeaderDescription from '../Components/HeaderDescription';
 import Steps from '../Components/Steps';
 import { OrderButton } from '../OrderList';
 
