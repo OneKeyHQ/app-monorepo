@@ -1,0 +1,18 @@
+diff --git a/node_modules/react-native-zip-archive/index.js b/node_modules/react-native-zip-archive/index.js
+index 565b295..0bc1207 100644
+--- a/node_modules/react-native-zip-archive/index.js
++++ b/node_modules/react-native-zip-archive/index.js
+@@ -1,10 +1,10 @@
+ import ReactNative from "react-native";
+ 
+-const { NativeEventEmitter, NativeModules } = ReactNative;
++const { NativeEventEmitter, NativeModules } = ReactNative || {};
+ 
+-const RNZipArchive = NativeModules.RNZipArchive;
++const RNZipArchive = NativeModules ? NativeModules.RNZipArchive : null;
+ 
+-const rnzaEmitter = new NativeEventEmitter(RNZipArchive);
++const rnzaEmitter = NativeEventEmitter ? new NativeEventEmitter(RNZipArchive) : null;
+ 
+ const normalizeFilePath = (path) =>
+   path.startsWith("file://") ? path.slice(7) : path;
