@@ -44,12 +44,11 @@
 
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge {
- #ifdef DEBUG
-  NSURL *rootUrl = [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index"];
-  return [NSURL URLWithString: [rootUrl.absoluteString stringByAppendingString:@"&inlineSourceMap=true"]];
- #else
+  #if DEBUG
+    return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index"];
+  #else
     return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
- #endif
+  #endif
 }
 
 // Linking API

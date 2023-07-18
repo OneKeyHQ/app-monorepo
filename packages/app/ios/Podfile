@@ -69,7 +69,7 @@ target 'OneKeyWallet' do
   use_react_native!(
     :path => config[:reactNativePath],
     # to enable hermes on iOS, change `false` to `true` and then install pods
-    :hermes_enabled => false,
+    :hermes_enabled => ENV['CI'] != "1",
     :fabric_enabled => flags[:fabric_enabled],
     # Note that if you have use_frameworks! enabled, Flipper will not work and
     # you should disable the next line.
