@@ -5229,7 +5229,7 @@ __metadata:
     asmcrypto.js: 2.3.2
     axios: ^0.27.2
     babel-loader: 8.3.0
-    babel-plugin-catch-logger: 0.1.12
+    babel-plugin-catch-logger: 0.1.13
     babel-plugin-import: ^1.13.5
     babel-plugin-inline-import: ^3.0.0
     babel-plugin-transform-define: ^2.1.2
@@ -11483,14 +11483,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"babel-plugin-catch-logger@npm:0.1.12":
-  version: 0.1.12
-  resolution: "babel-plugin-catch-logger@npm:0.1.12"
+"babel-plugin-catch-logger@npm:0.1.13":
+  version: 0.1.13
+  resolution: "babel-plugin-catch-logger@npm:0.1.13"
   dependencies:
     "@babel/helper-plugin-utils": ^7.10.4
     "@babel/types": ^7.12.7
     babel-template: ^6.26.0
-  checksum: 7289c1c8b4145424564b3be0d46b921653704b69154590a1b8b42d293ea032a6a5e5d0fb8f87c09d3be0a608d539264ee4ccb9b08ca1a74f056e1c1fe00c8444
+  checksum: e450e1c4b2a295f3ed5304d05d4dec774a32f051e95e8618270c2c48a1dd7284a8c3d8ad03a7c847c1109c5b799e2b391b0e106e1165ca242f4dac3f5cd6a4a3
   languageName: node
   linkType: hard
 
