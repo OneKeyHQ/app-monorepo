@@ -181,8 +181,15 @@ export default class ServiceAllNetwork extends ServiceBase {
     if (!wallet) {
       return {};
     }
+    const activeAccountId = accountId ?? `${walletId}--${index}`;
     const networks = appSelector((s) => s.runtime.networks ?? []);
 
+    dispatch(
+      setAllNetworksAccountsMap({
+        accountId: activeAccountId,
+        data: undefined,
+      }),
+    );
     for (const n of networks.filter(
       (item) =>
         item.enabled && !item.isTestnet && !item.settings.validationRequired,
@@ -203,7 +210,6 @@ export default class ServiceAllNetwork extends ServiceBase {
         networkAccountsMap[n.id] = filteredAccoutns;
       }
     }
-    const activeAccountId = accountId ?? `${walletId}--${index}`;
     dispatch(
       clearOverviewPendingTasks(),
       setAllNetworksAccountsMap({

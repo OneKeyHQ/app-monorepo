@@ -775,8 +775,15 @@ export const useOverviewPendingTasks = ({
     ),
   );
 
+  const networkAccountsMap = useAppSelector(
+    useCallback(
+      (s) => s.overview.allNetworksAccountsMap?.[accountId],
+      [accountId],
+    ),
+  );
+
   const updateTips = useMemo(() => {
-    if (tasks?.length) {
+    if (tasks?.length || (isAllNetworks(networkId) && !networkAccountsMap)) {
       return intl.formatMessage({
         id: 'content__updating_assets',
       });
@@ -822,7 +829,7 @@ export const useOverviewPendingTasks = ({
         },
       );
     }
-  }, [tasks, updatedAt, intl]);
+  }, [tasks, updatedAt, intl, networkAccountsMap, networkId]);
 
   return {
     tasks,
