@@ -1,4 +1,4 @@
-import { flatten, pick } from 'lodash';
+import { flatten, isNil, pick } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
@@ -1379,7 +1379,7 @@ class ServiceAccount extends ServiceBase {
     }
   }
 
-  addressLabelCache: Record<string, string> = {};
+  addressLabelCache: Record<string, { label: string; accountId: string }> = {};
 
   // getAccountNameByAddress
   @backgroundMethod()
@@ -1389,7 +1389,7 @@ class ServiceAccount extends ServiceBase {
   }: {
     address: string;
     networkId?: string;
-  }): Promise<{ label: string; address: string }> {
+  }): Promise<{ label: string; address: string; accountId: string }> {
     const { engine } = this.backgroundApi;
     const {
       wallet,
@@ -1403,7 +1403,8 @@ class ServiceAccount extends ServiceBase {
     const cacheKey = `${address}@${walletId || ''}`;
     if (this.addressLabelCache[cacheKey]) {
       return Promise.resolve({
-        label: this.addressLabelCache[cacheKey],
+        label: this.addressLabelCache[cacheKey].label,
+        accountId: this.addressLabelCache[cacheKey].accountId,
         address,
       });
     }
@@ -1412,8 +1413,8 @@ class ServiceAccount extends ServiceBase {
         accountIds,
         networkId,
       );
-      let accountLabel;
-      for (let i = 0; i < accounts.length && !accountLabel; i += 1) {
+      let targetAccount;
+      for (let i = 0; i < accounts.length && isNil(targetAccount); i += 1) {
         const account = accounts[i];
         if (isLightningNetwork(account.coinType)) {
           const addresses =
@@ -1425,7 +1426,7 @@ class ServiceAccount extends ServiceBase {
             ((addresses?.hashAddress || '') as string).toLowerCase() ===
             address.toLowerCase()
           ) {
-            accountLabel = account.name;
+            targetAccount = account;
           }
         }
 
@@ -1437,7 +1438,7 @@ class ServiceAccount extends ServiceBase {
             );
 
             if (addressOnNetwork?.toLowerCase() === address.toLowerCase()) {
-              accountLabel = account.name;
+              targetAccount = account;
             }
           } catch {
             // treate error as not found
@@ -1445,24 +1446,35 @@ class ServiceAccount extends ServiceBase {
         }
 
         if (account.address.toLowerCase() === address.toLowerCase()) {
-          accountLabel = account.name;
+          targetAccount = account;
         }
       }
 
-      const label = accountLabel ?? '';
+      const label = targetAccount?.name ?? '';
+      const accountId = targetAccount?.id ?? '';
       if (label && address) {
-        this.addressLabelCache[cacheKey] = label;
+        this.addressLabelCache[cacheKey] = {
+          label,
+          accountId,
+        };
       }
-      return label;
+      return {
+        label,
+        address,
+        accountId,
+      };
     };
     // TODO search from wallet in params
     // search from active wallet
     if (wallet && wallet.accounts && wallet.accounts.length) {
-      const label = await findNameLabelByAccountIds(wallet.accounts);
+      const { label, accountId } = await findNameLabelByAccountIds(
+        wallet.accounts,
+      );
       if (label) {
         return {
           label,
           address,
+          accountId,
         };
       }
     }
@@ -1471,10 +1483,11 @@ class ServiceAccount extends ServiceBase {
       includeAllPassphraseWallet: true,
     });
     const accountIds = flatten(wallets.map((w) => w.accounts));
-    const label = await findNameLabelByAccountIds(accountIds);
+    const { label, accountId } = await findNameLabelByAccountIds(accountIds);
     return {
       label,
       address,
+      accountId,
     };
   }
 

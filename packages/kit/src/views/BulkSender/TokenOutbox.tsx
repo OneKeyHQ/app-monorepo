@@ -184,107 +184,117 @@ function TokenOutbox(props: Props) {
   );
 
   const handlePreviewTransfer = useCallback(async () => {
-    if (receiver.length === 0 || isValidating || isBuildingTx || !isValid)
-      return;
-    const transferInfos: ITransferInfo[] = [];
-    let prevNonce;
+    try {
+      if (receiver.length === 0 || isValidating || isBuildingTx || !isValid)
+        return;
+      const transferInfos: ITransferInfo[] = [];
+      let prevNonce;
 
-    setIsBuildingTx(true);
-    const token = selectedToken || initialToken;
-    for (let i = 0; i < receiver.length; i += 1) {
-      transferInfos.push({
-        from: accountAddress,
-        to: receiver[i].Address,
-        amount: receiver[i].Amount,
-        token: token?.tokenIdOnNetwork,
-        tokenSendAddress: token?.sendAddress,
-      });
-    }
-
-    const verified = verifyBulkTransferBeforeConfirm(transferInfos, token);
-
-    if (!verified) {
-      setIsBuildingTx(false);
-      return;
-    }
-
-    const encodedApproveTxs =
-      await serviceBatchTransfer.buildEncodedTxsFromBatchApprove({
-        networkId,
-        accountId,
-        transferInfos,
-        isUnlimited,
-      });
-
-    const prevTx = encodedApproveTxs[encodedApproveTxs.length - 1];
-
-    if (prevTx) {
-      prevNonce = (prevTx as IEncodedTxEvm).nonce;
-      prevNonce =
-        prevNonce !== undefined
-          ? new BigNumber(prevNonce).toNumber()
-          : prevNonce;
-    }
-
-    const maxActionsInTx = network?.settings?.maxActionsInTx || 0;
-    const transferInfoGroup = [];
-    if (
-      maxActionsInTx > 0 &&
-      (network?.settings?.hardwareMaxActionsEnabled
-        ? accountId.startsWith('hw-')
-        : true)
-    ) {
-      for (
-        let i = 0, len = transferInfos.length;
-        i < len;
-        i += maxActionsInTx
-      ) {
-        transferInfoGroup.push(transferInfos.slice(i, i + maxActionsInTx));
-      }
-    } else {
-      transferInfoGroup.push(transferInfos);
-    }
-
-    const encodedTxs = [];
-
-    for (let i = 0, len = transferInfoGroup.length; i < len; i += 1) {
-      // @ts-ignore
-      const encodedTx =
-        await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
-          networkId,
-          accountId,
-          transferInfos: transferInfoGroup[i],
-          prevNonce,
+      setIsBuildingTx(true);
+      const token = selectedToken || initialToken;
+      for (let i = 0; i < receiver.length; i += 1) {
+        transferInfos.push({
+          from: accountAddress,
+          to: receiver[i].Address,
+          amount: receiver[i].Amount,
+          token: token?.tokenIdOnNetwork,
+          tokenSendAddress: token?.sendAddress,
         });
-      prevNonce = (encodedTx as IEncodedTxEvm).nonce;
-      prevNonce =
-        prevNonce !== undefined
-          ? new BigNumber(prevNonce).toNumber()
-          : prevNonce;
-      encodedTxs.push(encodedTx);
-    }
+      }
 
-    setIsBuildingTx(false);
+      const verified = verifyBulkTransferBeforeConfirm(transferInfos, token);
 
-    navigation.navigate(RootRoutes.Modal, {
-      screen: ModalRoutes.Send,
-      params: {
-        screen: SendModalRoutes.BatchSendConfirm,
-        params: {
+      if (!verified) {
+        setIsBuildingTx(false);
+        return;
+      }
+
+      const encodedApproveTxs =
+        await serviceBatchTransfer.buildEncodedTxsFromBatchApprove({
           networkId,
           accountId,
-          feeInfoUseFeeInTx: false,
-          feeInfoEditable: true,
-          encodedTxs: [...encodedApproveTxs, ...encodedTxs],
-          transferCount: transferInfos.length,
-          transferType: type,
-          payloadInfo: {
-            type: 'Transfer',
-            transferInfos,
+          transferInfos,
+          isUnlimited,
+        });
+
+      const prevTx = encodedApproveTxs[encodedApproveTxs.length - 1];
+
+      if (prevTx) {
+        prevNonce = (prevTx as IEncodedTxEvm).nonce;
+        prevNonce =
+          prevNonce !== undefined
+            ? new BigNumber(prevNonce).toNumber()
+            : prevNonce;
+      }
+
+      const maxActionsInTx = network?.settings?.maxActionsInTx || 0;
+      const transferInfoGroup = [];
+      if (
+        maxActionsInTx > 0 &&
+        (network?.settings?.hardwareMaxActionsEnabled
+          ? accountId.startsWith('hw-')
+          : true)
+      ) {
+        for (
+          let i = 0, len = transferInfos.length;
+          i < len;
+          i += maxActionsInTx
+        ) {
+          transferInfoGroup.push(transferInfos.slice(i, i + maxActionsInTx));
+        }
+      } else {
+        transferInfoGroup.push(transferInfos);
+      }
+
+      const encodedTxs = [];
+
+      for (let i = 0, len = transferInfoGroup.length; i < len; i += 1) {
+        // @ts-ignore
+        const encodedTx =
+          await serviceBatchTransfer.buildEncodedTxFromBatchTransfer({
+            networkId,
+            accountId,
+            transferInfos: transferInfoGroup[i],
+            prevNonce,
+          });
+        prevNonce = (encodedTx as IEncodedTxEvm).nonce;
+        prevNonce =
+          prevNonce !== undefined
+            ? new BigNumber(prevNonce).toNumber()
+            : prevNonce;
+        encodedTxs.push(encodedTx);
+      }
+
+      setIsBuildingTx(false);
+
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Send,
+        params: {
+          screen: SendModalRoutes.BatchSendConfirm,
+          params: {
+            networkId,
+            accountId,
+            feeInfoUseFeeInTx: false,
+            feeInfoEditable: true,
+            encodedTxs: [...encodedApproveTxs, ...encodedTxs],
+            transferCount: transferInfos.length,
+            transferType: type,
+            payloadInfo: {
+              type: 'Transfer',
+              transferInfos,
+            },
           },
         },
-      },
-    });
+      });
+    } catch (error) {
+      setIsBuildingTx(false);
+      ToastManager.show(
+        {
+          title: typeof error === 'string' ? error : (error as Error).message,
+        },
+        { type: 'error' },
+      );
+    }
   }, [
     accountAddress,
     accountId,

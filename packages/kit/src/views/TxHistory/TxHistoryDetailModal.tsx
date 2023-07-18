@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import { Button, Modal, Spinner } from '@onekeyhq/components';
 import type { TransactionDetailRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/TransactionDetail';
@@ -45,6 +46,7 @@ type TransactionDetailRouteProp = RouteProp<
 
 const TxHistoryDetailModal: FC = () => {
   const route = useRoute<TransactionDetailRouteProp>();
+  const intl = useIntl();
   const { decodedTx, historyTx } = route.params;
   useEffect(() => {
     if (!historyTx) {
@@ -76,7 +78,7 @@ const TxHistoryDetailModal: FC = () => {
   );
   return (
     <Modal
-      // header={intl.formatMessage({ id: 'transaction__transaction_details' })}
+      header={intl.formatMessage({ id: 'title__transaction_details' })}
       // headerDescription={headerDescription}
       footer={null}
       height="560px"

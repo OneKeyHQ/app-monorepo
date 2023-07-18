@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -30,6 +30,7 @@ let timer: NodeJS.Timeout | null = null;
 function GasPanel() {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
+  const fetchIdRef = useRef('');
 
   const { networkId = '' } = route.params;
 
@@ -72,6 +73,8 @@ function GasPanel() {
       clearTimeout(timer);
     }
     const fetchGasInfo = async () => {
+      const fetchId = Math.random().toString();
+      fetchIdRef.current = fetchId;
       const resp = await serviceGas.getGasInfo({
         networkId: selectedNetworkId,
       });
@@ -80,10 +83,12 @@ function GasPanel() {
         resp.prices = [resp.prices[0], resp.prices[2], resp.prices[4]];
       }
 
-      setGasInfo(resp);
-      setIsGasInfoInit(true);
-      timer = setTimeout(() => fetchGasInfo(), REFRESH_GAS_INFO_INTERVAL);
-      setLeftSeconds(REFRESH_GAS_INFO_INTERVAL / 1000);
+      if (fetchId === fetchIdRef.current) {
+        setGasInfo(resp);
+        setIsGasInfoInit(true);
+        timer = setTimeout(() => fetchGasInfo(), REFRESH_GAS_INFO_INTERVAL);
+        setLeftSeconds(REFRESH_GAS_INFO_INTERVAL / 1000);
+      }
     };
     fetchGasInfo();
     return () => {
