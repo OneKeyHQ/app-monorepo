@@ -11,9 +11,11 @@ type PercentInputProps = Exclude<
   onChange: (value: number) => void;
 };
 
-const BaseExample = () => (
+const BaseExample = ({ nativeMode = false }: { nativeMode?: boolean }) => (
   <Slider
+    nativeMode={nativeMode}
     w="3/4"
+    width={nativeMode ? '75%' : undefined}
     maxW="300"
     defaultValue={70}
     minValue={0}
@@ -145,6 +147,8 @@ const SliderGallery = () => (
     <BaseExample />
     <Box p="10" />
     <PercentInputExample />
+    <Box p="10" />
+    <BaseExample nativeMode />
   </Center>
 );
 
