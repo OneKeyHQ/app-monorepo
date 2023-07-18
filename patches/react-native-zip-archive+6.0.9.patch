@@ -71,7 +71,6 @@ index 565b295..cc80ecd 100644
 -};
 +export * from './lib'
 \ No newline at end of file
-
 diff --git a/node_modules/react-native-zip-archive/lib.native.js b/node_modules/react-native-zip-archive/lib.native.js
 new file mode 100644
 index 0000000..73de703
