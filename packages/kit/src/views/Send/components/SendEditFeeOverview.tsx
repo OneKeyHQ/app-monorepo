@@ -24,6 +24,9 @@ type Props = {
   btcCustomFee?: string | null;
   onlyCurrency?: boolean;
   currencyProps?: ComponentProps<typeof Text>;
+  formatOptions?: ComponentProps<
+    typeof FormatCurrencyNativeOfAccount
+  >['formatOptions'];
 };
 
 function SendEditFeeOverview(props: Props) {
@@ -36,6 +39,7 @@ function SendEditFeeOverview(props: Props) {
     btcCustomFee,
     onlyCurrency,
     currencyProps,
+    formatOptions,
   } = props;
 
   const intl = useIntl();
@@ -99,6 +103,7 @@ function SendEditFeeOverview(props: Props) {
             accountId={accountId}
             networkId={networkId}
             value={minFeeNative}
+            formatOptions={formatOptions}
             render={(ele) => <>{!minFeeNative ? '-' : ele}</>}
           />
         ) : (
@@ -106,6 +111,7 @@ function SendEditFeeOverview(props: Props) {
             accountId={accountId}
             networkId={networkId}
             value={totalFeeNative}
+            formatOptions={formatOptions}
             render={(ele) => <>{!totalFeeNative ? '-' : ele}</>}
           />
         )}
@@ -125,6 +131,7 @@ function SendEditFeeOverview(props: Props) {
             accountId={accountId}
             networkId={networkId}
             value={minFeeNative}
+            formatOptions={formatOptions}
             render={(ele) => <>{!minFeeNative ? '-' : ele}</>}
           />
         ) : (
@@ -132,6 +139,7 @@ function SendEditFeeOverview(props: Props) {
             accountId={accountId}
             networkId={networkId}
             value={totalFeeNative}
+            formatOptions={formatOptions}
             render={(ele) => <>{!totalFeeNative ? '-' : ele}</>}
           />
         )}
@@ -143,6 +151,7 @@ function SendEditFeeOverview(props: Props) {
             accountId={accountId}
             networkId={networkId}
             value={totalFeeNative}
+            formatOptions={formatOptions}
             render={(ele) => <>{!totalFeeNative ? '-' : ele}</>}
           />
           {`(${totalFeeNative}${feeInfo?.nativeSymbol ?? ''})`}

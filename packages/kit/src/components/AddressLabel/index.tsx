@@ -21,6 +21,7 @@ type Props = {
   networkId: string | undefined;
   showValidAddressLabel?: boolean;
   isAccount?: boolean;
+  isWatchAccount?: boolean;
   isAddressBook?: boolean;
   isValidAddress?: boolean;
   isContractAddress?: boolean;
@@ -62,6 +63,7 @@ function AddressLabel(props: Props) {
     networkId,
     securityInfo,
     isAccount,
+    isWatchAccount,
     accountLabel: accountLabelFromOut,
     addressBookLabel: addressBookLabelFromOut,
     isAddressBook,
@@ -89,6 +91,7 @@ function AddressLabel(props: Props) {
   const [isAddressBookLabel, setIsAddressBookLabel] = useState(false);
   const [isLoadingAddressBookLabel, setIsLoadingAddressBookLabel] =
     useState(false);
+  const [isWatchAccountLabel, setIsWatchAccountLabel] = useState(false);
   const [isContractAddressLabel, setIsContractAddressLabel] = useState(false);
   const [isLoadingContractAddressLabel, setIsLoadingContractAddressLabel] =
     useState(false);
@@ -100,6 +103,9 @@ function AddressLabel(props: Props) {
     if (!isNil(isAccount)) {
       setIsAccountLabel(isAccount);
       setAccountLabel(accountLabelFromOut);
+      if (!isNil(isWatchAccount)) {
+        setIsWatchAccountLabel(isWatchAccount);
+      }
     } else {
       setIsLoadingAccountLabel(true);
       backgroundApiProxy.serviceAccount
@@ -110,6 +116,7 @@ function AddressLabel(props: Props) {
         .then((resp) => {
           setIsAccountLabel(!!resp.label);
           setAccountLabel(resp.label);
+          setIsWatchAccountLabel(resp.accountId.startsWith('watching--'));
         })
         .finally(() => setIsLoadingAccountLabel(false));
     }
@@ -146,6 +153,7 @@ function AddressLabel(props: Props) {
     isAccount,
     isAddressBook,
     isContractAddress,
+    isWatchAccount,
     networkId,
   ]);
 
@@ -195,7 +203,9 @@ function AddressLabel(props: Props) {
   const addressLabels = useMemo(() => {
     const labels = [
       isAccountLabel && {
-        title: 'form__my_account',
+        title: isWatchAccountLabel
+          ? 'form__watched_address'
+          : 'form__my_account',
         type: 'success',
         icon: '👤',
         desc: accountLabel,
@@ -218,6 +228,7 @@ function AddressLabel(props: Props) {
     isAccountLabel,
     isAddressBookLabel,
     isContractAddressLabel,
+    isWatchAccountLabel,
   ]);
 
   const validateLabels = useMemo(() => {
@@ -293,7 +304,7 @@ function AddressLabel(props: Props) {
       {[...validateLabels, ...addressLabels, ...securityLabels].map((label) => (
         <Box {...labelStyle} key={label.title}>
           <Badge
-            size="lg"
+            size="sm"
             title={getTitle(label)}
             type={label.type}
             {...labelProps}

@@ -1,11 +1,11 @@
 import * as bitcoin from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
-import ECPairFactory from 'ecpair';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { Provider as BaseProvider } from '../../utils/btcForkChain/provider';
 import ecc from '../../utils/btcForkChain/provider/nobleSecp256k1Wrapper';
+import { getBitcoinECPair } from '../../utils/btcForkChain/utils';
 
 import type { Network } from '../../utils/btcForkChain/provider/networks';
 import type {
@@ -14,11 +14,6 @@ import type {
 } from '../../utils/btcForkChain/types';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { Signer as BitcoinSigner } from 'bitcoinjs-lib';
-import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
-import type { TinySecp256k1Interface as ECPairTinySecp256k1Interface } from 'ecpair';
-
-bitcoin.initEccLib(ecc as unknown as TinySecp256k1Interface);
-const ECPair = ECPairFactory(ecc as unknown as ECPairTinySecp256k1Interface);
 
 function tapTweakHash(pubKey: Buffer, h: Buffer | undefined): Buffer {
   return bitcoin.crypto.taggedHash(
@@ -52,7 +47,7 @@ export function tweakSigner(
     throw new Error('Invalid tweaked private key!');
   }
 
-  return ECPair.fromPrivateKey(Buffer.from(tweakedPrivateKey), {
+  return getBitcoinECPair().fromPrivateKey(Buffer.from(tweakedPrivateKey), {
     network: opts.network,
   });
 }

@@ -115,7 +115,7 @@ export function FeeSpeedTip({
                   title={intl.formatMessage({ id: 'form__fee_rate' })}
                   value={`${new BigNumber(price as string)
                     .shiftedBy(feeInfo?.feeDecimals ?? 8)
-                    .toFixed()} sat/B`}
+                    .toFixed()} sat/vB`}
                 />
                 <FeeInfoItem
                   title={intl.formatMessage({ id: 'form__size' })}

@@ -35,6 +35,7 @@ const settings: IVaultSettings = Object.freeze({
   subNetworkSettings: {
     'cosmos--osmosis-1': {
       minGasPrice: '0',
+      allowZeroFee: true,
     },
   },
 });

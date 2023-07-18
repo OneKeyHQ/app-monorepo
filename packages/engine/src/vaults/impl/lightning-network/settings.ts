@@ -41,6 +41,8 @@ const settings: IVaultSettings = Object.freeze({
   rpcStatusDisabled: true,
   useSimpleTipForSpecialCheckEncodedTx: true,
 
+  allowZeroFee: true,
+
   txExtraInfo: [
     {
       key: 'memo',

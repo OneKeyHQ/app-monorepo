@@ -16,7 +16,9 @@ import {
   Button,
   Center,
   HStack,
+  Icon,
   Keyboard,
+  Pressable,
   Spinner,
   Text,
   ToastManager,
@@ -36,6 +38,10 @@ import {
 } from '../../../hooks/useOverview';
 import { useFrozenBalance, useSingleToken } from '../../../hooks/useTokens';
 import { wait } from '../../../utils/helper';
+import {
+  showAccountBalanceDetailsOverlay,
+  useAccountBalanceDetailsInfo,
+} from '../../Overlay/AccountBalanceDetailsPanel';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { PreSendAmountAlert } from '../components/PreSendAmountAlert';
 import { SendModalRoutes } from '../enums';
@@ -77,7 +83,12 @@ export function PreSendAmountPreview({
       return <Center>{desc}</Center>;
     }
     return (
-      <Text typography="Body1Strong" textAlign="center" isTruncated>
+      <Text
+        numberOfLines={2}
+        typography="Body1Strong"
+        textAlign="center"
+        isTruncated
+      >
         {desc}
       </Text>
     );
@@ -293,6 +304,10 @@ function PreSendAmount() {
     accountId,
     networkId,
   });
+  const balanceDetailsInfo = useAccountBalanceDetailsInfo({
+    networkId,
+    accountId,
+  });
 
   return (
     <BaseSendModal
@@ -414,7 +429,18 @@ function PreSendAmount() {
               <Typography.Caption color="text-subdued">
                 {intl.formatMessage({ id: 'content__available_balance' })}
               </Typography.Caption>
-              <Box>
+              <Pressable
+                onPress={
+                  balanceDetailsInfo.enabled
+                    ? () =>
+                        showAccountBalanceDetailsOverlay({
+                          info: balanceDetailsInfo,
+                        })
+                    : undefined
+                }
+                flexDirection="row"
+                alignItems="center"
+              >
                 <FormatBalanceTokenOfAccount
                   accountId={accountId}
                   networkId={networkId}
@@ -434,7 +460,12 @@ function PreSendAmount() {
                     </Typography.Body1Strong>
                   )}
                 />
-              </Box>
+                {balanceDetailsInfo.enabled ? (
+                  <Box ml={2}>
+                    <Icon name="InformationCircleSolid" size={18} />
+                  </Box>
+                ) : null}
+              </Pressable>
               {new BigNumber(frozenBalance ?? '0').isGreaterThan(0) ? (
                 <Typography.Caption color="text-subdued" mt={2}>
                   {`${intl.formatMessage({

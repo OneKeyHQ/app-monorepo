@@ -171,7 +171,7 @@ export function usePreSendAmountInfo({
     }
     if (isFiatMode) {
       return (
-        <Text>
+        <Text numberOfLines={2} textAlign="center">
           {formatBalanceDisplay(amount || '0', '', {
             fixed: amountDisplayDecimals,
           })?.amount ||
@@ -187,7 +187,11 @@ export function usePreSendAmountInfo({
         networkId={networkId}
         token={tokenInfo}
         value={amount}
-        render={(ele) => <Text>{ele}</Text>}
+        render={(ele) => (
+          <Text numberOfLines={2} textAlign="center">
+            {ele}
+          </Text>
+        )}
       />
     );
   }, [
