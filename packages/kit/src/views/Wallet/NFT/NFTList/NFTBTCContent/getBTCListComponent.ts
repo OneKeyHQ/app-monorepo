@@ -1,7 +1,9 @@
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import InscriptionImage from './InscriptionImage';
+import InscriptionSVG from './InscriptionSVG';
 import { InscriptionLarge, InscriptionText } from './InscriptionText';
 import InscriptionUnknow from './InscriptionUnknow';
 
@@ -10,7 +12,9 @@ import type { InscriptionContentProps } from '../type';
 export enum InscriptionContentType {
   Text = 'text/plain;charset=utf-8',
   ImagePNG = 'image/png',
-  ImageJEPG = 'image/jepg',
+  ImageJEPG = 'image/jpeg',
+  ImageWEBP = 'image/webp',
+  ImageSVG = 'image/svg+xml',
   ImageGIF = 'image/gif',
   HTML = 'text/html',
 }
@@ -26,9 +30,13 @@ function ComponentWithContentType({
 }): (props: InscriptionContentProps) => JSX.Element | null {
   if (
     contentType.startsWith(InscriptionContentType.ImagePNG) ||
-    contentType.startsWith(InscriptionContentType.ImageJEPG)
+    contentType.startsWith(InscriptionContentType.ImageJEPG) ||
+    contentType.startsWith(InscriptionContentType.ImageWEBP)
   ) {
     return InscriptionImage;
+  }
+  if (contentType.startsWith(InscriptionContentType.ImageSVG)) {
+    return !platformEnv.isNative ? InscriptionSVG : InscriptionUnknow;
   }
   if (contentType === InscriptionContentType.Text) {
     if (networkId === OnekeyNetwork.tbtc) {
