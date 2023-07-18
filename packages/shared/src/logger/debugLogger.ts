@@ -1,17 +1,18 @@
 import { format as fnsFormat } from 'date-fns';
 import { isArray, isNil } from 'lodash';
 import { InteractionManager } from 'react-native';
-import {
-  logger as RNLogger,
-  consoleTransport,
-  fileAsyncTransport,
-} from 'react-native-logs';
-// eslint-disable-next-line import/order
-import { stringify } from 'flatted';
+import { FileLogger, LogLevel } from 'react-native-file-logger';
+import { logger as RNLogger, consoleTransport } from 'react-native-logs';
+import { zip } from 'react-native-zip-archive';
 
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
 import { toPlainErrorObject } from '../utils/errorUtils';
+
+import type { transportFunctionType } from 'react-native-logs';
+
+// eslint-disable-next-line import/order
+import { stringify } from 'flatted';
 
 const RNFS: typeof import('react-native-fs') = platformEnv.isNative
   ? require('react-native-fs')
@@ -27,15 +28,67 @@ type IConsoleFuncProps = {
 
 const LOG_STRING_LIMIT = 500;
 
+function countObjectDepth(source: unknown, maxDepth = 5, depth = 0): number {
+  const currentDepth = depth + 1;
+  if (currentDepth > maxDepth) {
+    return currentDepth;
+  }
+
+  if (source == null) {
+    return currentDepth;
+  }
+
+  if (typeof source !== 'object' || typeof source === 'function') {
+    return currentDepth;
+  }
+
+  if (Array.isArray(source)) {
+    return Math.max(
+      ...source.map((item) => countObjectDepth(item, maxDepth, currentDepth)),
+    );
+  }
+
+  const keys = Object.getOwnPropertyNames(source);
+  return Math.max(
+    ...keys.map((k) =>
+      countObjectDepth(
+        (source as { [k: string]: unknown })[k],
+        maxDepth,
+        currentDepth,
+      ),
+    ),
+  );
+}
+
 function stringifyLog(...args: any[]) {
   const argsNew = args.map((arg) => {
     if (arg instanceof Error) {
       const error = toPlainErrorObject(arg as any);
-      delete error.stack;
+      if (process.env.NODE_ENV === 'production') {
+        delete error.stack;
+      }
       return error;
     }
     return arg as unknown;
   });
+  if (process.env.NODE_ENV !== 'production') {
+    const maxDepth = 3;
+    try {
+      argsNew.forEach((arg) => {
+        if (countObjectDepth(arg, maxDepth) > maxDepth) {
+          console.warn(
+            `Arg nesting too deep. This will affect the performance of logging. Try reducing the level of nesting for the parameter objects.`,
+            arg,
+          );
+        }
+      });
+    } catch (error) {
+      console.warn(
+        `Arg nesting too deep. This will affect the performance of logging. Try reducing the level of nesting for the parameter objects.`,
+        argsNew,
+      );
+    }
+  }
   const stringifiedLog =
     // @ts-ignore
     stringify(...argsNew);
@@ -78,14 +131,62 @@ const LOCAL_WEB_LIKE_TRANSPORT_CONFIG = {
   },
 };
 
+const NATIVE_LOG_DIR_PATH = `${RNFS.CachesDirectoryPath}/logs`;
+const NATIVE_LOG_ZIP_DIR_PATH = `${RNFS.CachesDirectoryPath}/log_zip`;
+
+const removeLogZipDir = async () => {
+  const isExist = await RNFS.exists(NATIVE_LOG_ZIP_DIR_PATH);
+  if (isExist) {
+    await RNFS.unlink(NATIVE_LOG_ZIP_DIR_PATH);
+  }
+};
+
+const createLogZipDir = async () => {
+  await RNFS.mkdir(NATIVE_LOG_ZIP_DIR_PATH);
+};
+
+export const getLogZipPath = async (fileName: string) => {
+  try {
+    await removeLogZipDir();
+    await createLogZipDir();
+    return await zip(
+      NATIVE_LOG_DIR_PATH,
+      `${NATIVE_LOG_ZIP_DIR_PATH}/${fileName}`,
+    );
+  } catch (e) {
+    const files = await RNFS.readDir(NATIVE_LOG_DIR_PATH);
+    const sortedFiles = files
+      .filter((f) => f.name.endsWith('.log'))
+      .map((f) => ({
+        ...f,
+        time: new Date(f.mtime || f.ctime || '').getTime(),
+      }))
+      .sort((a, b) => b.time - a.time);
+    return sortedFiles[0].path;
+  }
+};
+
+FileLogger.configure({
+  captureConsole: false,
+  dailyRolling: true,
+  maximumFileSize: 1024 * 1024 * 4,
+  maximumNumberOfFiles: 7,
+  logsDirectory: NATIVE_LOG_DIR_PATH,
+  logLevel: LogLevel.Info,
+});
+const fileAsyncTransport: transportFunctionType = (props) => {
+  const { level, rawMsg, extension } = props;
+  FileLogger.write(
+    level?.severity || LogLevel.Info,
+    `${extension || ''} | ${rawMsg as string}`,
+  );
+};
+
 const NATIVE_TRANSPORT_CONFIG = {
   transport: platformEnv.isDev
     ? [fileAsyncTransport, consoleTransport]
     : [fileAsyncTransport],
   transportOptions: {
-    FS: RNFS,
-    fileName: 'log.txt',
-    filePath: RNFS.CachesDirectoryPath,
     consoleFunc: (msg: string, props: IConsoleFuncProps) => {
       if (platformEnv.isDev) {
         logToConsole(props);

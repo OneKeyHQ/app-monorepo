@@ -25,6 +25,23 @@ class LocalStorageMock {
 global.localStorage = new LocalStorageMock();
 global.fetch = require('node-fetch');
 
+jest.mock('react-native-zip-archive', () => ({
+  zip: jest.fn(),
+}));
+
+jest.mock('react-native-file-logger', () => ({
+  FileLogger: {
+    configure: jest.fn(),
+    write: jest.fn(),
+  },
+  LogLevel: {
+    Debug: 0,
+    Info: 1,
+    Warning: 2,
+    Error: 3,
+  },
+}));
+
 // ** shim TextEncoder
 // const { TextEncoder, TextDecoder } = require('util');
 // global.TextEncoder = TextEncoder;
