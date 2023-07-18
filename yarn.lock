@@ -5229,7 +5229,7 @@ __metadata:
     asmcrypto.js: 2.3.2
     axios: ^0.27.2
     babel-loader: 8.3.0
-    babel-plugin-catch-logger: 0.1.12
+    babel-plugin-catch-logger: 0.1.13
     babel-plugin-import: ^1.13.5
     babel-plugin-inline-import: ^3.0.0
     babel-plugin-transform-define: ^2.1.2
@@ -5369,6 +5369,7 @@ __metadata:
     react-native-crypto: ^2.2.0
     react-native-document-picker: ^9.0.1
     react-native-fast-image: ^8.6.3
+    react-native-file-logger: ^0.4.1
     react-native-flipper: 0.162.0
     react-native-flipper-performance-plugin: ^0.4.0
     react-native-fs: ^2.20.0
@@ -5392,6 +5393,7 @@ __metadata:
     react-native-v8: ^2.1.3
     react-native-view-shot: ^3.6.0
     react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#feat/refactor-webview"
+    react-native-zip-archive: ^6.0.9
     readable-stream: ^3.6.0
     realm: ^11.9.0
     realm-flipper-plugin-device: ^1.1.0
@@ -11481,14 +11483,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"babel-plugin-catch-logger@npm:0.1.12":
-  version: 0.1.12
-  resolution: "babel-plugin-catch-logger@npm:0.1.12"
+"babel-plugin-catch-logger@npm:0.1.13":
+  version: 0.1.13
+  resolution: "babel-plugin-catch-logger@npm:0.1.13"
   dependencies:
     "@babel/helper-plugin-utils": ^7.10.4
     "@babel/types": ^7.12.7
     babel-template: ^6.26.0
-  checksum: 7289c1c8b4145424564b3be0d46b921653704b69154590a1b8b42d293ea032a6a5e5d0fb8f87c09d3be0a608d539264ee4ccb9b08ca1a74f056e1c1fe00c8444
+  checksum: e450e1c4b2a295f3ed5304d05d4dec774a32f051e95e8618270c2c48a1dd7284a8c3d8ad03a7c847c1109c5b799e2b391b0e106e1165ca242f4dac3f5cd6a4a3
   languageName: node
   linkType: hard
 
@@ -27852,6 +27854,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-file-logger@npm:^0.4.1":
+  version: 0.4.1
+  resolution: "react-native-file-logger@npm:0.4.1"
+  peerDependencies:
+    react: ">=16.0.0"
+    react-native: ">=0.60.0"
+  checksum: 020209c3ab9222cb70c61937a18ac8a7907568f17d5ccaf4d08dc7addf496f38f0ed0dc57d9916fa08198aba97e7a94a5de960bb6ab9d723a1aa69b6d5314d89
+  languageName: node
+  linkType: hard
+
 "react-native-fit-image@npm:^1.5.5":
   version: 1.5.5
   resolution: "react-native-fit-image@npm:1.5.5"
@@ -28281,6 +28293,16 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 5a4df5325e6dc253add757b315148d6d22db252eba2f30d6b33e7cdd04566e340c1e042bf5e7b13514037c331d56cd578130a2cd253a8cf704e47ad21caf6826
+  languageName: node
+  linkType: hard
+
+"react-native-zip-archive@npm:^6.0.9":
+  version: 6.0.9
+  resolution: "react-native-zip-archive@npm:6.0.9"
+  peerDependencies:
+    react: ">=16.8.6"
+    react-native: ">=0.60.0"
+  checksum: 96c83864a596fcd8a82f55a01fa5e97822c9e80c7cf55de6b011a27cc436fbf58371207cb61c63b19dbd22b852ee62b95935358b4b9a73686695133dffdcfe27
   languageName: node
   linkType: hard
 

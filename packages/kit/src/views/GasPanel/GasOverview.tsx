@@ -11,7 +11,7 @@ import { NetworkCongestionThresholds } from '@onekeyhq/engine/src/types/network'
 import { calculateTotalFeeRange } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
 
 import { FormatCurrencyNativeOfAccount } from '../../components/Format';
-import { useNetworkSimple } from '../../hooks';
+import { useActiveWalletAccount, useNetworkSimple } from '../../hooks';
 
 import { networkPendingTransactionThresholds } from './config';
 
@@ -92,6 +92,8 @@ function GasOverview(props: Props) {
 
   const intl = useIntl();
 
+  const { accountId } = useActiveWalletAccount();
+
   const network = useNetworkSimple(selectedNetworkId);
 
   const totalNative = useMemo(() => {
@@ -167,8 +169,11 @@ function GasOverview(props: Props) {
           </Text>
           <FormatCurrencyNativeOfAccount
             networkId={selectedNetworkId}
-            accountId=""
+            accountId={accountId}
             value={totalNative}
+            formatOptions={{
+              fixed: 4,
+            }}
             render={(ele) => <Text color="text-subdued">{ele}</Text>}
           />
           <Text color="text-subdued">{`(${totalNative} ${

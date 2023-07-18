@@ -16,7 +16,7 @@ import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
-import { getAccountDefaultByPurpose } from './utils';
+import { getAccountDefaultByPurpose, initBitcoinEcc } from './utils';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
 import type { DBUTXOAccount } from '../../../types/account';
@@ -34,6 +34,7 @@ export class KeyringHd extends KeyringHdBase {
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
+    initBitcoinEcc();
     const { password } = options;
     if (typeof password === 'undefined') {
       throw new OneKeyInternalError('Software signing requires a password.');

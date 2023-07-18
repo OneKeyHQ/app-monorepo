@@ -1,4 +1,4 @@
-// eslint-disable-next-line import/order
+/* eslint-disable import/order */
 import './utils/walletConnectV2SdkShims';
 
 import { Core, RELAYER_EVENTS } from '@walletconnect-v2/core';
@@ -17,7 +17,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
-import { wait } from '../../utils/helper';
+import { getTimeDurationMs, wait } from '../../utils/helper';
 import Minimizer from '../Minimizer';
 
 import walletConnectUtils from './utils/walletConnectUtils';
@@ -46,6 +46,8 @@ import type {
 } from '@walletconnect/keyvaluestorage';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { IClientMeta, ISessionStatus } from '@walletconnect/types';
+
+import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 const sessionStorage = new WalletConnectSessionStorage({
   storageId: WalletConnectSessionStorage.STORAGE_IDS.WALLET_SIDE,
@@ -197,6 +199,11 @@ export abstract class WalletConnectClientForWallet extends WalletConnectClientBa
 
   // TODO pair expired check
   async pair(params: { uri: string }) {
+    await waitForDataLoaded({
+      data: () => this.web3walletV2,
+      logName: 'WalletConnectV2 pair(uri) wait web3walletV2 ready.',
+      timeout: getTimeDurationMs({ seconds: 30 }),
+    });
     if (!this.web3walletV2) {
       throw new Error('web3walletV2 not ready yet');
     }
