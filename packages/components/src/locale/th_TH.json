@@ -2170,6 +2170,7 @@
   "msg__insufficient_balance": "ยอดเงินคงเหลือไม่เพียงพอ",
   "msg__insufficient_balance_available_amount_str_str": "ยอดเงินคงเหลือไม่เพียงพอ จำนวนที่มี: {amount} {symbol}",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "ยอดโทเค็นเนทีฟไม่เพียงพอสำหรับค่าธรรมเนียมเครือข่าย จำนวนที่มี: {amount} {symbol}",
+  "msg__insufficient_outbound_liquidity_sending_failed": "สภาพคล่องขาออกไม่เพียงพอ การส่งล้มเหลว",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "ที่อยู่ที่ไม่ถูกต้อง! สามารถส่งสินทรัพย์ลำดับไปยังที่อยู่ Taproot เท่านั้น",
   "msg__invalid_file_format": "รูปแบบไฟล์ไม่ถูกต้อง",
   "msg__invalid_hex_data": "ข้อมูล HEX ไม่ถูกต้อง",

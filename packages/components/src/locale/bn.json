@@ -2170,6 +2170,7 @@
   "msg__insufficient_balance": "অপর্যাপ্ত টাকা",
   "msg__insufficient_balance_available_amount_str_str": "অপর্যাপ্ত টাকা. উপলব্ধ পরিমাণ: {amount} {symbol}",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "নেটওয়ার্ক ফি এর জন্য অপর্যাপ্ত নেটিভ টোকেন ব্যালেন্স। উপলব্ধ পরিমাণ: {amount} {symbol}",
+  "msg__insufficient_outbound_liquidity_sending_failed": "অপর্যাপ্ত আউটবাউন্ড তারল্য, পাঠানো ব্যর্থ হয়েছে৷",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "ভুল ঠিকানা! সাধারণ সম্পদ শুধুমাত্র Taproot ঠিকানায় পাঠানো যেতে পারে",
   "msg__invalid_file_format": "অবৈধ ফাইল বিন্যাস",
   "msg__invalid_hex_data": "অবৈধ HEX ডেটা।",

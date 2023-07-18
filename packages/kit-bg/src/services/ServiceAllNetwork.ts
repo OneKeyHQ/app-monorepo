@@ -17,6 +17,7 @@ import { AccountType } from '@onekeyhq/engine/src/types/account';
 import {
   clearOverviewPendingTasks,
   removeAllNetworksAccountsMapByAccountId,
+  setAllNetworksAccountsLoading,
   setAllNetworksAccountsMap,
 } from '@onekeyhq/kit/src/store/reducers/overview';
 import {
@@ -192,9 +193,9 @@ export default class ServiceAllNetwork extends ServiceBase {
     const networks = appSelector((s) => s.runtime.networks ?? []);
 
     dispatch(
-      setAllNetworksAccountsMap({
+      setAllNetworksAccountsLoading({
         accountId: activeAccountId,
-        data: undefined,
+        data: true,
       }),
     );
     for (const n of networks.filter(

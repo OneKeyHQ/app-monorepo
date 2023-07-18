@@ -13,10 +13,9 @@ export interface IPortfolioUpdatedAt {
 export interface IOverviewPortfolio {
   // allNetworks fake accountId = `${walletId}--${accountIndex}`
   // Recrod<accountId, Record<networkId, accounts>>
-  allNetworksAccountsMap?: Record<
-    string,
-    Record<string, Account[]> | undefined
-  >;
+  allNetworksAccountsMap?: Record<string, Record<string, Account[]>>;
+  // Recrod<accountId, boolean>
+  allNetworksAccountsLoading: Record<string, boolean>;
   tasks: Record<string, IOverviewQueryTaskItem>;
   updatedTimeMap: Record<string, IPortfolioUpdatedAt>;
 }
@@ -25,6 +24,7 @@ const initialState: IOverviewPortfolio = {
   tasks: {},
   updatedTimeMap: {},
   allNetworksAccountsMap: {},
+  allNetworksAccountsLoading: {},
 };
 
 export const overviewSlice = createSlice({
@@ -74,11 +74,24 @@ export const overviewSlice = createSlice({
       }
       state.tasks = omit(state.tasks, ...ids);
     },
+    setAllNetworksAccountsLoading(
+      state,
+      action: PayloadAction<{
+        accountId: string;
+        data: boolean;
+      }>,
+    ) {
+      const { accountId, data } = action.payload;
+      if (!state.allNetworksAccountsLoading) {
+        state.allNetworksAccountsLoading = {};
+      }
+      state.allNetworksAccountsLoading[accountId] = data;
+    },
     setAllNetworksAccountsMap(
       state,
       action: PayloadAction<{
         accountId: string;
-        data: Record<string, Account[]> | undefined;
+        data: Record<string, Account[]>;
       }>,
     ) {
       const { accountId, data } = action.payload;
@@ -86,8 +99,8 @@ export const overviewSlice = createSlice({
         state.allNetworksAccountsMap = {};
       }
       state.allNetworksAccountsMap[accountId] = data;
+      state.allNetworksAccountsLoading[accountId] = false;
     },
-
     removeAllNetworksAccountsMapByAccountId(
       state,
       action: PayloadAction<{
@@ -107,6 +120,7 @@ export const {
   addOverviewPendingTasks,
   removeOverviewPendingTasks,
   setOverviewPortfolioUpdatedAt,
+  setAllNetworksAccountsLoading,
   setAllNetworksAccountsMap,
   clearOverviewPendingTasks,
   removeAllNetworksAccountsMapByAccountId,

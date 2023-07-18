@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 import { omit } from 'lodash';
+import { useIntl } from 'react-intl';
 import { useDebounce } from 'use-debounce';
 
 import {
   Box,
   Divider,
+  Empty,
   FlatList,
   useIsVerticalLayout,
   useUserDevice,
@@ -27,8 +29,8 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { useActiveSideAccount } from '../../../hooks';
 import { useStatus } from '../../../hooks/redux';
 import {
-  useAccountTokenLoading,
   useAccountTokens,
+  useOverviewAccountUpdateInfo,
 } from '../../../hooks/useOverview';
 import { useVisibilityFocused } from '../../../hooks/useVisibilityFocused';
 import { OverviewDefiThumbnal } from '../../Overview/Thumbnail';
@@ -37,6 +39,7 @@ import { WalletHomeTabEnum } from '../type';
 import AssetsListHeader from './AssetsListHeader';
 import { EmptyListOfAccount } from './EmptyList';
 import AssetsListSkeleton from './Skeleton';
+import SvgAllNetwrorksLoadingLight from './Svg/SvgAllNetworksLoadingDark';
 import TokenCell from './TokenCell';
 
 import type { IAccountToken } from '../../Overview/types';
@@ -75,23 +78,25 @@ function AssetsList({
   renderDefiList,
   singleton,
 }: IAssetsListProps) {
+  const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
   const { homeTabName, isUnlock } = useStatus();
-  const chainAccountTokenLoading = useAccountTokenLoading(networkId, accountId);
-  const { data: accountTokens, loading: allNetworksAccountTokensLoading } =
-    useAccountTokens({
-      networkId,
-      accountId,
-      useFilter: true,
-      limitSize,
-    });
+  const { data: accountTokens, loading } = useAccountTokens({
+    networkId,
+    accountId,
+    useFilter: true,
+    limitSize,
+  });
+
+  const updateInfo = useOverviewAccountUpdateInfo({
+    networkId: networkId ?? '',
+    accountId: accountId ?? '',
+  });
 
   const { account, network } = useActiveSideAccount({
     accountId,
     networkId,
   });
-
-  const loading = chainAccountTokenLoading || allNetworksAccountTokensLoading;
 
   const navigation = useNavigation<NavigationProps>();
 
@@ -241,6 +246,29 @@ function AssetsList({
     ],
   );
 
+  const empty = useMemo(() => {
+    if (loading) {
+      if (isAllNetworks(network?.id) && !updateInfo?.updatedAt) {
+        return (
+          <Box alignItems="center" mt="10">
+            <Empty
+              w="260px"
+              icon={
+                <Box mb="6">
+                  <SvgAllNetwrorksLoadingLight />
+                </Box>
+              }
+              title={intl.formatMessage({ id: 'empty__creating_data' })}
+              subTitle={intl.formatMessage({ id: 'empty__creating_data_desc' })}
+            />
+          </Box>
+        );
+      }
+      return <AssetsListSkeleton />;
+    }
+    return <EmptyListOfAccount network={network} accountId={accountId} />;
+  }, [loading, accountId, network, updateInfo?.updatedAt, intl]);
+
   return (
     <Container
       style={{
@@ -274,12 +302,7 @@ function AssetsList({
             )
       }
       ItemSeparatorComponent={Divider}
-      ListEmptyComponent={
-        loading
-          ? AssetsListSkeleton
-          : // eslint-disable-next-line react/no-unstable-nested-components
-            () => <EmptyListOfAccount network={network} accountId={accountId} />
-      }
+      ListEmptyComponent={() => empty}
       ListFooterComponent={footer}
       keyExtractor={(item: IAccountToken) => item.key}
       extraData={isVerticalLayout}

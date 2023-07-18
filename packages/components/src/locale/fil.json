@@ -2170,6 +2170,7 @@
   "msg__insufficient_balance": "Hindi sapat na balanse",
   "msg__insufficient_balance_available_amount_str_str": "Hindi sapat na balanse. Available na halaga: {amount} {symbol}",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Hindi sapat na balanse ng katutubong token para sa mga bayarin sa network. Available na halaga: {amount} {symbol}",
+  "msg__insufficient_outbound_liquidity_sending_failed": "Hindi sapat ang papalabas na pagkatubig, nabigo ang pagpapadala",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "Di-wastong address! Ang mga ordinal na asset ay maaari lamang ipadala sa mga address ng Taproot",
   "msg__invalid_file_format": "Di-wastong format ng file",
   "msg__invalid_hex_data": "Di-wastong data ng HEX.",

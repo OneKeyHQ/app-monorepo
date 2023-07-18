@@ -94,6 +94,49 @@ const filterAccountTokens = <T>({
   return filteredTokens as T;
 };
 
+const tasksSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createSelector([(s: IAppState) => s.overview.tasks], (tasks) => {
+    const data = Object.values(tasks || {});
+    return data.filter((t) => t.key === `${networkId}___${accountId}`);
+  });
+
+const updatedTimeSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createSelector(
+    (s: IAppState) => s.overview.updatedTimeMap,
+    (updatedTimeMap) =>
+      updatedTimeMap?.[`${networkId}___${accountId}`]?.updatedAt,
+  );
+
+export const useOverviewAccountUpdateInfo = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  useAppSelector(
+    useMemo(
+      () =>
+        createSelector(
+          (s: IAppState) => s.overview.updatedTimeMap,
+          (m) => m?.[`${networkId ?? ''}___${accountId ?? ''}`] ?? {},
+        ),
+      [accountId, networkId],
+    ),
+  );
+
 export const useAccountPortfolios = <
   T extends keyof OverviewAllNetworksPortfolioRes,
 >({
@@ -114,11 +157,10 @@ export const useAccountPortfolios = <
     updatedAt: undefined,
     loading: true,
   });
-  const updateInfo = useAppSelector(
-    (s) =>
-      s.overview.updatedTimeMap?.[`${networkId ?? ''}___${accountId ?? ''}`] ??
-      {},
-  );
+  const updateInfo = useOverviewAccountUpdateInfo({
+    networkId: networkId ?? '',
+    accountId: accountId ?? '',
+  });
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     accountId,
@@ -207,6 +249,130 @@ export function useAccountTokensOnChain(
   });
 }
 
+export const useOverviewPendingTasks = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) => {
+  const intl = useIntl();
+
+  const updatedAt = useAppSelector(
+    useMemo(
+      () => updatedTimeSelector({ networkId, accountId }),
+      [networkId, accountId],
+    ),
+  );
+
+  const tasks = useAppSelector(
+    useMemo(
+      () => tasksSelector({ networkId, accountId }),
+      [networkId, accountId],
+    ),
+  );
+
+  const networkAccountsMap = useAppSelector(
+    useMemo(
+      () =>
+        createSelector(
+          (s: IAppState) => s.overview.allNetworksAccountsMap,
+          (m) => m?.[accountId],
+        ),
+      [accountId],
+    ),
+  );
+
+  const updateTips = useMemo(() => {
+    if (tasks?.length || (isAllNetworks(networkId) && !networkAccountsMap)) {
+      return intl.formatMessage({
+        id: 'content__updating_assets',
+      });
+    }
+    const duration = Date.now() - updatedAt;
+    if (
+      duration <
+      getTimeDurationMs({
+        minute: 2,
+      })
+    ) {
+      return intl.formatMessage({
+        id: 'form__updated_just_now',
+      });
+    }
+    if (
+      duration <
+      getTimeDurationMs({
+        hour: 1,
+      })
+    ) {
+      return intl.formatMessage(
+        {
+          id: 'form__updated_str_ago',
+        },
+        {
+          0: `${Math.floor(duration / 1000 / 60)} m`,
+        },
+      );
+    }
+    if (
+      duration >
+      getTimeDurationMs({
+        hour: 1,
+      })
+    ) {
+      return intl.formatMessage(
+        {
+          id: 'form__updated_str_ago',
+        },
+        {
+          0: `${Math.floor(duration / 1000 / 60 / 60)} h`,
+        },
+      );
+    }
+  }, [tasks, updatedAt, intl, networkAccountsMap, networkId]);
+
+  return {
+    tasks,
+    updatedAt,
+    updateTips,
+  };
+};
+
+export function useAccountTokenLoading(networkId: string, accountId: string) {
+  const pendingTasks = useOverviewPendingTasks({ networkId, accountId });
+  const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
+
+  const { data, loading: allNetworksAccountsLoading } =
+    useAllNetworksWalletAccounts({
+      accountId,
+    });
+
+  return useMemo(() => {
+    if (isAllNetworks(networkId)) {
+      const { tasks, updatedAt } = pendingTasks;
+      if (allNetworksAccountsLoading) {
+        return true;
+      }
+      if (!Object.keys(data).length) {
+        return false;
+      }
+      return (
+        tasks?.filter((t) => t.scanType === EOverviewScanTaskType.token)
+          .length > 0 || typeof updatedAt === 'undefined'
+      );
+    }
+    return typeof accountTokens[networkId]?.[accountId] === 'undefined';
+  }, [
+    networkId,
+    accountId,
+    accountTokens,
+    pendingTasks,
+    data,
+    allNetworksAccountsLoading,
+  ]);
+}
+
 export function useAccountTokens({
   networkId = '',
   accountId = '',
@@ -221,16 +387,24 @@ export function useAccountTokens({
   const { hideRiskTokens, hideSmallBalance, putMainTokenOnTop } =
     useAppSelector((s) => s.settings);
 
-  const { data: allNetworksTokens = [], loading } = useAccountPortfolios({
-    networkId,
-    accountId,
-    type: EOverviewScanTaskType.token,
-  });
+  const { data: allNetworksTokens = [], loading: allNetworksTokensLoading } =
+    useAccountPortfolios({
+      networkId,
+      accountId,
+      type: EOverviewScanTaskType.token,
+    });
 
   const accountTokensOnChain = useAccountTokensOnChain(
     networkId,
     accountId,
     false,
+  );
+
+  const accountTokensLoading = useAccountTokenLoading(networkId, accountId);
+
+  const loading = useMemo(
+    () => accountTokensLoading || allNetworksTokensLoading,
+    [accountTokensLoading, allNetworksTokensLoading],
   );
 
   const valueTokens: IAccountToken[] = useMemo(() => {
@@ -289,15 +463,8 @@ export function useAccountTokens({
     return accountTokens;
   }, [networkId, allNetworksTokens, limitSize, accountTokensOnChain]);
 
-  if (loading) {
-    return {
-      loading,
-      data: [],
-    };
-  }
-
   return {
-    loading: false,
+    loading,
     data: filterAccountTokens<IAccountToken[]>({
       tokens: valueTokens,
       useFilter,
@@ -726,137 +893,3 @@ export const useTokenDetailInfo = ({
     };
   }, [data, token, loading, tokenLoading]);
 };
-
-const tasksSelector = ({
-  networkId,
-  accountId,
-}: {
-  networkId: string;
-  accountId: string;
-}) =>
-  createSelector([(s: IAppState) => s.overview.tasks], (tasks) => {
-    const data = Object.values(tasks || {});
-    return data.filter((t) => t.key === `${networkId}___${accountId}`);
-  });
-
-const updatedTimeSelector = ({
-  networkId,
-  accountId,
-}: {
-  networkId: string;
-  accountId: string;
-}) =>
-  createSelector(
-    (s: IAppState) => s.overview.updatedTimeMap,
-    (updatedTimeMap) =>
-      updatedTimeMap?.[`${networkId}___${accountId}`]?.updatedAt,
-  );
-
-export const useOverviewPendingTasks = ({
-  networkId,
-  accountId,
-}: {
-  networkId: string;
-  accountId: string;
-}) => {
-  const intl = useIntl();
-
-  const updatedAt = useAppSelector(
-    useMemo(
-      () => updatedTimeSelector({ networkId, accountId }),
-      [networkId, accountId],
-    ),
-  );
-
-  const tasks = useAppSelector(
-    useMemo(
-      () => tasksSelector({ networkId, accountId }),
-      [networkId, accountId],
-    ),
-  );
-
-  const networkAccountsMap = useAppSelector(
-    useCallback(
-      (s) => s.overview.allNetworksAccountsMap?.[accountId],
-      [accountId],
-    ),
-  );
-
-  const updateTips = useMemo(() => {
-    if (tasks?.length || (isAllNetworks(networkId) && !networkAccountsMap)) {
-      return intl.formatMessage({
-        id: 'content__updating_assets',
-      });
-    }
-    const duration = Date.now() - updatedAt;
-    if (
-      duration <
-      getTimeDurationMs({
-        minute: 2,
-      })
-    ) {
-      return intl.formatMessage({
-        id: 'form__updated_just_now',
-      });
-    }
-    if (
-      duration <
-      getTimeDurationMs({
-        hour: 1,
-      })
-    ) {
-      return intl.formatMessage(
-        {
-          id: 'form__updated_str_ago',
-        },
-        {
-          0: `${Math.floor(duration / 1000 / 60)} m`,
-        },
-      );
-    }
-    if (
-      duration >
-      getTimeDurationMs({
-        hour: 1,
-      })
-    ) {
-      return intl.formatMessage(
-        {
-          id: 'form__updated_str_ago',
-        },
-        {
-          0: `${Math.floor(duration / 1000 / 60 / 60)} h`,
-        },
-      );
-    }
-  }, [tasks, updatedAt, intl, networkAccountsMap, networkId]);
-
-  return {
-    tasks,
-    updatedAt,
-    updateTips,
-  };
-};
-
-export function useAccountTokenLoading(networkId: string, accountId: string) {
-  const pendingTasks = useOverviewPendingTasks({ networkId, accountId });
-  const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
-
-  const { data } = useAllNetworksWalletAccounts({
-    accountId,
-  });
-
-  return useMemo(() => {
-    if (isAllNetworks(networkId)) {
-      const { tasks, updatedAt } = pendingTasks;
-      if (!Object.keys(data).length) {
-        return false;
-      }
-      return (
-        tasks?.filter((t) => t.scanType === EOverviewScanTaskType.token)
-          .length > 0 || typeof updatedAt === 'undefined'
-      );
-    }
-    return typeof accountTokens[networkId]?.[accountId] === 'undefined';
-  }, [networkId, accountId, accountTokens, pendingTasks, data]);
-}
