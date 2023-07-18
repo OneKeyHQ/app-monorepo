@@ -26,6 +26,7 @@ export const GasPrice = () => {
         setNetworkPrice({ networkId: OnekeyNetwork.eth, price: value }),
       );
     }
+    handler();
     const t = setInterval(handler, 30 * 1000);
     return () => clearInterval(t);
   }, []);
