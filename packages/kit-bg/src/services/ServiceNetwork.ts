@@ -2,7 +2,10 @@
 import { debounce } from 'lodash';
 
 import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
-import { fetchChainList } from '@onekeyhq/engine/src/managers/network';
+import {
+  fetchChainList,
+  isAllNetworks,
+} from '@onekeyhq/engine/src/managers/network';
 import {
   getPresetNetworks,
   initNetworkList,
@@ -367,7 +370,7 @@ class ServiceNetwork extends ServiceBase {
     if (!networkId) {
       networkId = appSelector((s) => s.general.activeNetworkId);
     }
-    if (!networkId) {
+    if (!networkId || isAllNetworks(networkId)) {
       return;
     }
     let status: IRpcStatus = {

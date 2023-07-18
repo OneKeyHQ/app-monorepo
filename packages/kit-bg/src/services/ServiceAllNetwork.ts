@@ -1,6 +1,10 @@
 import { debounce } from 'lodash';
 
 import {
+  AllNetworksMinAccountsError,
+  AllNetworksUpto3LimitsError,
+} from '@onekeyhq/engine/src/errors';
+import {
   allNetworksAccountRegex,
   generateFakeAllnetworksAccount,
   getWalletIdFromAccountId,
@@ -263,7 +267,9 @@ export default class ServiceAllNetwork extends ServiceBase {
     });
 
     if (maxIndex === -1) {
-      return false;
+      throw new AllNetworksMinAccountsError('', {
+        0: 0,
+      });
     }
 
     const allNetworksAccountsMap = appSelector(
@@ -275,7 +281,9 @@ export default class ServiceAllNetwork extends ServiceBase {
     );
 
     if (accountIds.length >= 3) {
-      return;
+      throw new AllNetworksUpto3LimitsError('', {
+        0: 3,
+      });
     }
 
     let accountMaxIndex = 0;
@@ -287,6 +295,12 @@ export default class ServiceAllNetwork extends ServiceBase {
     }
 
     const fakeNewAccountId = `${walletId}--${accountMaxIndex}`;
+
+    if (allNetworksAccountsMap?.[fakeNewAccountId]) {
+      throw new AllNetworksMinAccountsError('', {
+        0: accountMaxIndex + 2,
+      });
+    }
 
     const account = await this.generateAllNetworksWalletAccounts({
       walletId,
