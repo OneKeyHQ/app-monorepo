@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Box,
@@ -22,6 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccount, useNetwork } from '../../../hooks';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { getTimeDurationMs } from '../../../utils/helper';
 
 import type {
@@ -39,6 +41,7 @@ const ReceiveInvoice = () => {
   const intl = useIntl();
 
   const route = useRoute<NavigationProps>();
+  const navigation = useAppNavigation();
 
   const { accountId, networkId, paymentRequest, paymentHash } =
     route.params ?? {};
@@ -82,6 +85,10 @@ const ReceiveInvoice = () => {
               title: intl.formatMessage({ id: 'msg__payment_received' }),
             });
             clearInterval(timerRef.current);
+            setTimeout(() => {
+              navigation?.goBack();
+              navigation?.goBack();
+            }, 500);
           }
         })
         .catch((e) => {
@@ -95,7 +102,7 @@ const ReceiveInvoice = () => {
         clearInterval(timerRef.current);
       }
     };
-  }, [paymentHash, networkId, accountId, intl]);
+  }, [paymentHash, networkId, accountId, intl, navigation]);
 
   return (
     <Modal
@@ -159,10 +166,12 @@ const ReceiveInvoice = () => {
               </Text>
               <IconButton
                 mt={1}
-                name="EyeMini"
+                name={showFullInvoice ? 'EyeSlashOutline' : 'EyeOutline'}
                 type="plain"
                 hitSlop={8}
-                onPress={() => setShowFullInvoice(true)}
+                onPress={() => setShowFullInvoice(!showFullInvoice)}
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="border-default"
               />
               <Button
                 mt="24px"
