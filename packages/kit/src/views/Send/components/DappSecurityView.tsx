@@ -159,10 +159,10 @@ export const DappSecurityView: FC<{
         return (
           <VStack space={1}>
             <Text typography="Caption" fontSize="14px">
-              Site Not Scand
+              {intl.formatMessage({ id: 'title__unscanned_site' })}
             </Text>
             <Text color="text-subdued" fontSize="10px">
-              Visit This Site carefully
+              {intl.formatMessage({ id: 'title__cautions_scam_site_desc' })}
             </Text>
             {GoplusFeedbackLink}
           </VStack>
@@ -183,7 +183,7 @@ export const DappSecurityView: FC<{
       return (
         <VStack space={1}>
           <Text typography="Caption" fontSize="14px">
-            Scam Site. Cautions!
+            {intl.formatMessage({ id: 'title__cautions_scam_site' })}
           </Text>
           {GoplusFeedbackLink}
         </VStack>
