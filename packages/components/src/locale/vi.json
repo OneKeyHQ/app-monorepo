@@ -2359,7 +2359,7 @@
   "msg__you_can_find_your_transaction_history_here": "Bạn có thể tìm thấy lịch sử giao dịch của mình tại đây",
   "msg__you_dont_own_this_address": "Bạn không sở hữu địa chỉ này.",
   "msg__you_have_selected_another_account_to_receive_tokens": "Bạn đã chọn một tài khoản khác để nhận mã thông báo.",
-  "msg__you_need_str_accounts_on_any_network_to_create": "Bạn cần [%S] tài khoản trên bất kỳ mạng nào để tạo",
+  "msg__you_need_str_accounts_on_any_network_to_create": "Bạn cần {0} tài khoản trên bất kỳ mạng nào để tạo",
   "msg__you_will_swap_tokens_for_10%_less_than_coingecko_s_rate_which_may_result_in_a_loss": "Bạn sẽ hoán đổi mã thông báo với giá thấp hơn 10% so với tỷ giá của coingecko, điều này có thể dẫn đến thua lỗ.",
   "msg__your_trade_may_be_front_run_due_to_the_larger_slippage": "Giao dịch của bạn có thể được thực hiện trước do trượt giá lớn hơn.",
   "msg__your_trade_may_fail_due_to_small_slippage": "Giao dịch của bạn có thể thất bại do trượt giá nhỏ.",
