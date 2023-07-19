@@ -435,7 +435,7 @@ export default function ETHStaking() {
                   networkId,
                 },
               );
-            if (gt(amount, preparedata.fast_stake_balance) || 1 > 0) {
+            if (gt(amount, preparedata.fast_stake_balance)) {
               const remain = minus(
                 amount,
                 preparedata.fast_stake_balance,
