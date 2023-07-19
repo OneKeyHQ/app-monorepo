@@ -547,11 +547,6 @@ function AddExistingWalletView(
   const placeholder = useMemo(() => {
     const getImportWatchingAccountPlaceholder = () => {
       if (mode === 'watching' || mode === 'all') {
-        if (mode === 'watching' && selectedNetwork.id === OnekeyNetwork.btc) {
-          return intl.formatMessage({
-            id: 'content__public_key',
-          });
-        }
         return intl.formatMessage({
           id: 'form__import_watch_only_account_placeholder',
         });
@@ -574,7 +569,7 @@ function AddExistingWalletView(
       `${getImportWatchingAccountPlaceholder()}`,
     ];
     return words.filter(Boolean).join(', ');
-  }, [intl, mode, selectedNetwork.id]);
+  }, [intl, mode]);
 
   useEffect(() => {
     const text = getValues('text');
