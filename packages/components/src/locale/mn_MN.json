@@ -2170,6 +2170,7 @@
   "msg__insufficient_balance": "Үлдэгдэл хангалтгүй",
   "msg__insufficient_balance_available_amount_str_str": "Үлдэгдэл хангалтгүй. Боломжтой дүн: {amount} {symbol}",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Сүлжээний хураамжид уугуул жетоны үлдэгдэл хангалтгүй. Боломжтой дүн: {amount} {symbol}",
+  "msg__insufficient_outbound_liquidity_sending_failed": "Гадагш гарах хөрвөх чадвар хангалтгүй, илгээлт амжилтгүй боллоо",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "Хүчингүй хаяг! Ординал хөрөнгийг зөвхөн Taproot хаяг руу илгээх боломжтой",
   "msg__invalid_file_format": "Буруу файлын формат",
   "msg__invalid_hex_data": "Хүчингүй HEX өгөгдөл.",
