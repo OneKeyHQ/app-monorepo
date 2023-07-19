@@ -13,6 +13,8 @@ export type PopoverProps = {
   bodyProps?: ComponentProps<typeof NBPopover.Body>;
   contentProps?: ComponentProps<typeof NBPopover.Content>;
   arrowProps?: ComponentProps<typeof NBPopover.Arrow>;
+  visible?: boolean;
+  onToggle?: (v: boolean) => void;
 };
 
 const Popover: FC<PopoverProps> = ({
@@ -22,8 +24,18 @@ const Popover: FC<PopoverProps> = ({
   position = 'auto',
   contentProps,
   arrowProps,
+  visible: outerVisible,
+  onToggle,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const visible = outerVisible ?? isOpen;
+
+  const onClose = useCallback(() => {
+    const newStatus = !visible;
+    onToggle?.(newStatus);
+    setIsOpen(newStatus);
+  }, [visible, onToggle]);
+
   const renderTigger = useCallback(
     (
       triggerProps,
@@ -33,17 +45,23 @@ const Popover: FC<PopoverProps> = ({
     ) =>
       trigger({
         ...triggerProps,
-        onPress: () => setIsOpen(!state.open),
+        onPress: () => {
+          if (onToggle) {
+            onToggle(!state.open);
+          } else {
+            setIsOpen(!state.open);
+          }
+        },
       }),
-    [trigger],
+    [onToggle, trigger],
   );
 
   return (
     <NBPopover
       trigger={renderTigger}
       placement={position === 'auto' ? undefined : position}
-      onClose={() => setIsOpen(!isOpen)}
-      isOpen={isOpen}
+      onClose={onClose}
+      isOpen={visible}
     >
       <NBPopover.Content
         bgColor={bgColor}

@@ -174,9 +174,12 @@ const CreateContent: FC = () => {
           </Text>
         ) : null}
         <Text typography="Caption" color="text-subdued" mt="12px">
-          {intl.formatMessage({
-            id: 'content__ordinal_support_jpg_webp_png_gif_txt_mp3_mp4_and_more',
-          })}
+          {intl.formatMessage(
+            {
+              id: 'content__ordinal_support_jpg_webp_png_gif_txt_mp3_mp4_and_more',
+            },
+            { 0: '200KB' },
+          )}
         </Text>
       </Box>
     </Modal>
