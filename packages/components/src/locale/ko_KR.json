@@ -2170,6 +2170,7 @@
   "msg__insufficient_balance": "잔액 불충분",
   "msg__insufficient_balance_available_amount_str_str": "잔액 불충분. 사용 가능한 금액: {amount} {symbol}",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "네트워크 수수료에 대한 기본 토큰 잔액이 부족합니다. 사용 가능한 금액: {amount} {symbol}",
+  "msg__insufficient_outbound_liquidity_sending_failed": "아웃바운드 유동성 부족, 전송 실패",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "잘못된 주소! 서수 자산은 Taproot 주소로만 보낼 수 있습니다.",
   "msg__invalid_file_format": "잘못된 파일 형식",
   "msg__invalid_hex_data": "잘못된 HEX 데이터입니다.",

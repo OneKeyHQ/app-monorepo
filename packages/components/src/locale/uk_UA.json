@@ -2170,6 +2170,7 @@
   "msg__insufficient_balance": "Недостатній баланс",
   "msg__insufficient_balance_available_amount_str_str": "Недостатній баланс. Доступна сума: {amount} {symbol}",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Недостатній баланс рідних токенів для оплати мережі. Доступна сума: {amount} {symbol}",
+  "msg__insufficient_outbound_liquidity_sending_failed": "Недостатньо вихідної ліквідності, не вдалося відправити",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "Недійсна адреса! Порядкові активи можна надсилати лише на адреси Taproot",
   "msg__invalid_file_format": "Недійсний формат файлу",
   "msg__invalid_hex_data": "Недійсні дані HEX.",

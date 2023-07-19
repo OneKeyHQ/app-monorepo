@@ -2170,6 +2170,7 @@
   "msg__insufficient_balance": "残高不足",
   "msg__insufficient_balance_available_amount_str_str": "残高不足。利用可能な金額: {amount} {symbol}",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "ネットワーク料金に対するネイティブ トークンの残高が不十分になっている。利用可能な金額: {amount} {symbol}",
+  "msg__insufficient_outbound_liquidity_sending_failed": "アウトバウンド流動性が不十分で、送信に失敗しました",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "無効なアドレス！ Ordinal アセットは Taproot アドレスにのみ送信できる",
   "msg__invalid_file_format": "無効なファイル形式",
   "msg__invalid_hex_data": "無効な 16進数データ。",

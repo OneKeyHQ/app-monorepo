@@ -1570,6 +1570,9 @@ class Engine {
       if (!forceReloadTokens && fetched) {
         return;
       }
+      if (isAllNetworks(networkId)) {
+        return;
+      }
       const { impl, chainId } = parseNetworkId(networkId);
       if (!impl || !chainId) {
         return;

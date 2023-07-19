@@ -2170,6 +2170,7 @@
   "msg__insufficient_balance": "رصيد غير كاف",
   "msg__insufficient_balance_available_amount_str_str": "رصيد غير كاف. الكمية المتوفرة: {amount} {symbol}",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "رصيد الرمز الأصلي غير كافٍ لرسوم الشبكة. الكمية المتوفرة: {amount} {symbol}",
+  "msg__insufficient_outbound_liquidity_sending_failed": "السيولة الصادرة غير كافية ، فشل الإرسال",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "عنوان خاطئ! لا يمكن إرسال الأصول الترتيبية إلا إلى عناوين Taproot",
   "msg__invalid_file_format": "تنسيق ملف غير صالح",
   "msg__invalid_hex_data": "بيانات HEX غير صالحة.",
