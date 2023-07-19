@@ -3,6 +3,7 @@
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 import BigNumber from 'bignumber.js';
+import { get } from 'lodash';
 
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -12,6 +13,8 @@ import {
   InsufficientBalance,
   InvalidLightningPaymentRequest,
   InvoiceAlreadPaid,
+  InvoiceExpiredError,
+  NoLightningChannelError,
   NoRouteFoundError,
 } from '../../../errors';
 import { TransactionStatus } from '../../../types/provider';
@@ -67,6 +70,22 @@ export default class Vault extends VaultBase {
   };
 
   settings = settings;
+
+  override async getOutputAccount(): Promise<Account> {
+    const dbAccount = await this.getDbAccount({ noCache: true });
+    return {
+      id: dbAccount.id,
+      name: dbAccount.name,
+      type: dbAccount.type,
+      path: dbAccount.path,
+      coinType: dbAccount.coinType,
+      tokens: [],
+      address: dbAccount.address,
+      template: dbAccount.template,
+      pubKey: get(dbAccount, 'pub', ''),
+      addresses: JSON.stringify(get(dbAccount, 'addresses', {})),
+    };
+  }
 
   async getClient() {
     const network = await this.getNetwork();
@@ -485,6 +504,10 @@ export default class Vault extends VaultBase {
               reject(new InvoiceAlreadPaid());
             } else if (errorMessage === 'no_route') {
               reject(new NoRouteFoundError());
+            } else if (errorMessage === 'insufficient_balance') {
+              reject(new NoLightningChannelError());
+            } else if (errorMessage === 'invoice expired') {
+              reject(new InvoiceExpiredError());
             } else {
               reject(new Error(response.data?.message));
             }

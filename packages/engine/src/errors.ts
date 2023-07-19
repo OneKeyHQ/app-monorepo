@@ -375,8 +375,16 @@ export class NoRouteFoundError extends OneKeyError {
   override key = 'msg__no_route_found';
 }
 
+export class NoLightningChannelError extends OneKeyError {
+  override key = 'msg__payment_channel_not_found_sending_failed';
+}
+
 export class BadAuthError extends OneKeyError {
   override key = 'msg__authentication_failed_verify_again';
+}
+
+export class InvoiceExpiredError extends OneKeyError {
+  override key = 'msg__the_invoice_has_expired';
 }
 
 export class TaprootAddressError extends OneKeyError {
