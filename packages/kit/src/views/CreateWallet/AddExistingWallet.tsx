@@ -625,22 +625,6 @@ function AddExistingWalletView(
                   return true;
                 }
 
-                // Special treatment for BTC address.
-                if (selectedNetwork.id === OnekeyNetwork.btc) {
-                  try {
-                    await backgroundApiProxy.validator.validateAddress(
-                      OnekeyNetwork.btc,
-                      text,
-                    );
-                    return true;
-                    // return intl.formatMessage({
-                    //   id: 'form__address_btc_as_wachted_account',
-                    // });
-                  } catch {
-                    // pass
-                  }
-                }
-
                 if (inputCategory === UserInputCategory.IMPORTED) {
                   return intl.formatMessage({
                     id: 'msg__invalid_private_key',
