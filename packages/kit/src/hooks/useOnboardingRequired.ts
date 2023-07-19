@@ -1,22 +1,17 @@
 import { useCallback, useEffect } from 'react';
 
+import { useRouter } from 'expo-router';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { MainRoutes, RootRoutes, TabRoutes } from '../routes/routesEnum';
 import { setHomePageCheckBoarding } from '../store/reducers/data';
 import { setOnBoardingLoadingBehindModal } from '../store/reducers/runtime';
 import { wait } from '../utils/helper';
-import { EOnboardingRoutes } from '../views/Onboarding/routes/enums';
 
 import { useAppSelector } from './redux';
-import useNavigation from './useNavigation';
-import { useNavigationActions } from './useNavigationActions';
+// import { useNavigationActions } from './useNavigationActions';
 import { useReduxReady } from './useReduxReady';
-
-import type { ModalScreenProps, RootRoutesParams } from '../routes/types';
-
-type NavigationProps = ModalScreenProps<RootRoutesParams>;
 
 export function closeExtensionWindowIfOnboardingFinished() {
   if (platformEnv.isExtensionUiStandaloneWindow) {
@@ -25,20 +20,22 @@ export function closeExtensionWindowIfOnboardingFinished() {
 }
 
 export const useOnboardingRequired = (isHomeCheck?: boolean) => {
-  const navigation = useNavigation<NavigationProps['navigation']>();
+  const router = useRouter();
+
   const boardingCompleted = useAppSelector((s) => s.status.boardingCompleted);
   const homePageCheckBoarding = useAppSelector(
     (s) => s.data.homePageCheckBoarding,
   );
   const { isReady } = useReduxReady();
+
   useEffect(() => {
     if (!boardingCompleted && isReady) {
       if (!isHomeCheck || (isHomeCheck && !homePageCheckBoarding)) {
         if (isHomeCheck) {
           backgroundApiProxy.dispatch(setHomePageCheckBoarding());
         }
-        navigation.replace(RootRoutes.Onboarding, {
-          screen: EOnboardingRoutes.Welcome,
+        router.replace({
+          pathname: '/onboarding/welcome',
           params: { disableAnimation: !!isHomeCheck },
         });
       }
@@ -49,8 +46,8 @@ export const useOnboardingRequired = (isHomeCheck?: boolean) => {
 
 export function useOnboardingDone() {
   // TODO should set s.status.boardingCompleted=true ?
-  const navigation = useNavigation<NavigationProps['navigation']>();
-  const { closeWalletSelector, openRootHome } = useNavigationActions();
+  const router = useRouter();
+  // const { closeWalletSelector, openRootHome } = useNavigationActions();
   const onboardingDone = useCallback(
     async ({
       delay = 150,
@@ -61,17 +58,16 @@ export function useOnboardingDone() {
         await wait(100);
       }
 
-      closeWalletSelector();
+      // TODO: ExpoRouter closeWalletSelector
+      // closeWalletSelector();
       await wait(delay);
       if (platformEnv.isNative) {
-        openRootHome();
+        // TODO: ExpoRouter openRootHome();
+        // openRootHome();
       } else {
-        navigation.goBack();
-        navigation?.navigate(RootRoutes.Main, {
-          screen: MainRoutes.Tab,
-          params: {
-            screen: TabRoutes.Home,
-          },
+        router.back();
+        router.push({
+          pathname: '/main/tab/home',
         });
       }
 
@@ -83,7 +79,7 @@ export function useOnboardingDone() {
         backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
       }
     },
-    [closeWalletSelector, navigation, openRootHome],
+    [],
   );
   return onboardingDone;
 }

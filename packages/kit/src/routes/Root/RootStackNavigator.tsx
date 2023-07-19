@@ -1,10 +1,11 @@
+import type { FC, ReactNode } from 'react';
 import { memo, useEffect } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import {
   AuthenticationType,
   supportedAuthenticationTypesAsync,
 } from 'expo-local-authentication';
+import { useRouter } from 'expo-router';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AppLock } from '@onekeyhq/kit/src/components/AppLock';
@@ -15,85 +16,83 @@ import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useHtmlPreloadSplashLogoRemove } from '../../hooks/useHtmlPreloadSplashLogoRemove';
+import { useKeyboardManager } from '../../hooks/useKeyboardManager';
 import {
   ModalRoutes,
   RootRoutes,
   UpdateFeatureModalRoutes,
 } from '../routesEnum';
 
-import { RootApp } from './RootApp';
+type RootStackNavigatorProps = {
+  children: ReactNode;
+};
 
-import type { ModalScreenProps } from '../types';
-import type { UpdateFeatureRoutesParams } from './Modal/UpdateFeature';
+export const RootStackNavigator: FC<RootStackNavigatorProps> = memo(
+  ({ children }: RootStackNavigatorProps) => {
+    const { version, buildNumber } = useSettings();
+    const { dispatch } = backgroundApiProxy;
 
-type NavigationProps = ModalScreenProps<UpdateFeatureRoutesParams>;
+    const router = useRouter();
 
-export const RootStackNavigator = memo(() => {
-  const { version, buildNumber } = useSettings();
-  const { dispatch } = backgroundApiProxy;
-  const navigation = useNavigation<NavigationProps['navigation']>();
+    const hasVersionSet = !!process.env.VERSION && !!process.env.BUILD_NUMBER;
+    const versionChanged =
+      process.env.VERSION !== version ||
+      process.env.BUILD_NUMBER !== buildNumber;
 
-  const hasVersionSet = !!process.env.VERSION && !!process.env.BUILD_NUMBER;
-  const versionChanged =
-    process.env.VERSION !== version || process.env.BUILD_NUMBER !== buildNumber;
-
-  /**
-   * previous version number is stored at user local redux store
-   * new version number is passed by process.env.VERSION
-   *
-   * compare two version number, get the log diff and store new user version code here.
-   */
-  // settings.version -> process.env.VERSION
-  useEffect(() => {
-    if (hasVersionSet && versionChanged && process.env.VERSION) {
-      const newVersion = process.env.VERSION;
-      if (!platformEnv.isWeb) {
-        appUpdates.getChangeLog(version, newVersion).then((changeLog) => {
-          if (!changeLog) return; // no change log
-          navigation.navigate(RootRoutes.Modal, {
-            screen: ModalRoutes.UpdateFeature,
-            params: {
-              screen: UpdateFeatureModalRoutes.UpdateFeatureModal,
+    /**
+     * previous version number is stored at user local redux store
+     * new version number is passed by process.env.VERSION
+     *
+     * compare two version number, get the log diff and store new user version code here.
+     */
+    // settings.version -> process.env.VERSION
+    useEffect(() => {
+      if (hasVersionSet && versionChanged && process.env.VERSION) {
+        const newVersion = process.env.VERSION;
+        if (!platformEnv.isWeb) {
+          appUpdates.getChangeLog(version, newVersion).then((changeLog) => {
+            if (!changeLog) return; // no change log
+            router.push({
+              pathname: `${RootRoutes.Modal}/${ModalRoutes.UpdateFeature}/${UpdateFeatureModalRoutes.UpdateFeatureModal}`,
               params: {
                 changeLog,
                 newVersion,
               },
-            },
+            });
           });
+        }
+
+        dispatch(
+          updateVersionAndBuildNumber({
+            version: newVersion,
+            buildNumber: process.env.BUILD_NUMBER,
+          }),
+        );
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dispatch, hasVersionSet, versionChanged]);
+
+    useEffect(() => {
+      if (platformEnv.isNative) {
+        supportedAuthenticationTypesAsync().then((types) => {
+          // OPPO phone return [1,2]
+          // iphone 11 return [2]
+          // The fingerprint identification is preferred (android)
+          if (types.includes(AuthenticationType.FINGERPRINT)) {
+            dispatch(setAuthenticationType('FINGERPRINT'));
+          } else if (types.includes(AuthenticationType.FACIAL_RECOGNITION)) {
+            dispatch(setAuthenticationType('FACIAL'));
+          }
         });
       }
+    }, [dispatch]);
 
-      dispatch(
-        updateVersionAndBuildNumber({
-          version: newVersion,
-          buildNumber: process.env.BUILD_NUMBER,
-        }),
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, hasVersionSet, versionChanged]);
+    useHtmlPreloadSplashLogoRemove({ isDelay: true });
 
-  useEffect(() => {
-    if (platformEnv.isNative) {
-      supportedAuthenticationTypesAsync().then((types) => {
-        // OPPO phone return [1,2]
-        // iphone 11 return [2]
-        // The fingerprint identification is preferred (android)
-        if (types.includes(AuthenticationType.FINGERPRINT)) {
-          dispatch(setAuthenticationType('FINGERPRINT'));
-        } else if (types.includes(AuthenticationType.FACIAL_RECOGNITION)) {
-          dispatch(setAuthenticationType('FACIAL'));
-        }
-      });
-    }
-  }, [dispatch]);
+    // TODO: ExpoRouter: KeyboardManager
+    useKeyboardManager();
 
-  useHtmlPreloadSplashLogoRemove({ isDelay: true });
-
-  return (
-    <AppLock>
-      <RootApp />
-    </AppLock>
-  );
-});
+    return <AppLock>{children}</AppLock>;
+  },
+);
 RootStackNavigator.displayName = 'RootStackNavigator';

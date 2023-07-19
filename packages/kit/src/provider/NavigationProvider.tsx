@@ -1,7 +1,8 @@
-import { createRef, memo, useEffect, useMemo, useRef } from 'react';
+import type { FC } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 
-import { useFlipper } from '@react-navigation/devtools';
-import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { usePathname } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { RootSiblingParent } from 'react-native-root-siblings';
 import { FullWindowOverlay } from 'react-native-screens';
@@ -32,21 +33,16 @@ import RedirectProvider from './RedirectProvider';
 import type { NavigationContainerRef } from '@react-navigation/native';
 
 export type RootNavContainerRef = NavigationContainerRef<RootRoutesParams>;
-export const navigationRef = createRef<RootNavContainerRef>();
 
 const ChainWebEmbed = createLazyComponent(
   () => import('@onekeyhq/kit/src/views/ChainWebEmbed'),
 );
 
-declare global {
-  // eslint-disable-next-line no-var, vars-on-top
-  var $navigationRef: typeof navigationRef;
-}
+type NavigationAppProps = {
+  children: React.ReactNode;
+};
 
-// update navigationRef.current at <NavigationContainer />
-global.$navigationRef = navigationRef;
-
-const NavigationApp = () => {
+const NavigationApp: FC<NavigationAppProps> = ({ children }) => {
   const routeNameRef = useRef<string>();
   const isVerticalLayout = useIsVerticalLayout();
   const [bgColor, textColor, dividerColor] = useThemeValue([
@@ -55,7 +51,8 @@ const NavigationApp = () => {
     'divider',
   ]);
 
-  const linking = useMemo(() => buildLinking(), []);
+  // TODO: ExpoRouter: linking
+  // const linking = useMemo(() => buildLinking(), []);
 
   const { backgroundShowToastOptions, backgroundShowToastTs } = useAppSelector(
     (s) => s.refresher,
@@ -122,9 +119,11 @@ const NavigationApp = () => {
     },
   });
 
+  // TODO: ExpoRouter: navigationRef & useFlipper
   // https://reactnavigation.org/docs/devtools/#useflipper
   // only work during development and are disabled in production.
-  useFlipper(navigationRef);
+  // const rootNavigation = useRootNavigation()
+  // useFlipper(navigationRef);
 
   useShortcuts();
 
@@ -139,41 +138,26 @@ const NavigationApp = () => {
     [],
   );
 
+  const pathname = usePathname();
+  useEffect(() => {
+    const previousRouteName = routeNameRef.current ?? '';
+    const currentRouteName = pathname ?? '';
+    routeNameRef.current = currentRouteName;
+
+    setAttributes({
+      previousRouteName,
+      currentRouteName,
+    });
+    if (previousRouteName !== currentRouteName) {
+      debugLogger.navigation.info(previousRouteName, ' -> ', currentRouteName);
+    }
+  }, [pathname]);
+
   return (
-    <NavigationContainer
-      documentTitle={{
-        formatter: () => 'OneKey',
-      }}
-      onReady={() => {
-        routeNameRef.current =
-          navigationRef?.current?.getCurrentRoute?.()?.name;
-      }}
-      onStateChange={() => {
-        const previousRouteName = routeNameRef.current;
-        const currentRouteName =
-          navigationRef?.current?.getCurrentRoute?.()?.name;
-
-        setAttributes({
-          previousRouteName: previousRouteName ?? '',
-          currentRouteName: currentRouteName ?? '',
-        });
-        if (previousRouteName !== currentRouteName) {
-          debugLogger.navigation.info(
-            previousRouteName,
-            ' -> ',
-            currentRouteName,
-          );
-        }
-
-        routeNameRef.current = currentRouteName;
-      }}
-      ref={navigationRef}
-      theme={navigationTheme}
-      linking={linking}
-    >
+    <ThemeProvider value={navigationTheme}>
       <RootSiblingParent>
         <RedirectProvider>
-          <RootStackNavigator />
+          <RootStackNavigator>{children}</RootStackNavigator>
         </RedirectProvider>
         {platformEnv.isNativeIOS ? (
           // FullWindowOverlay can render above native views
@@ -185,7 +169,7 @@ const NavigationApp = () => {
           globalPortalViews
         )}
       </RootSiblingParent>
-    </NavigationContainer>
+    </ThemeProvider>
   );
 };
 

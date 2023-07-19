@@ -35,8 +35,7 @@
     "@react-native-google-signin/google-signin": "^9.1.0",
     "@react-native-segmented-control/segmented-control": "^2.4.1",
     "@react-navigation/bottom-tabs": "^6.2.0",
-    "@react-navigation/drawer": "^6.5.6",
-    "@react-navigation/native": "6.0.6",
+    "@react-navigation/drawer": "^6.6.3",
     "@react-navigation/native-stack": "^6.2.5",
     "@react-navigation/stack": "^6.0.11",
     "@walletconnect-v2/core": "npm:@walletconnect/core@2.7.3",
@@ -54,12 +53,16 @@
     "buffer": "^6.0.3",
     "expo": "^48.0.19",
     "expo-clipboard": "^4.1.2",
+    "expo-constants": "~14.3.0",
     "expo-device": "^5.2.1",
     "expo-haptics": "^12.2.1",
     "expo-image-picker": "^14.1.1",
+    "expo-linking": "~4.0.1",
     "expo-location": "^15.1.1",
     "expo-media-library": "^15.2.3",
+    "expo-router": "^1.0.0",
     "expo-splash-screen": "^0.18.2",
+    "expo-status-bar": "~1.4.4",
     "https-browserify": "^1.0.0",
     "jcore-react-native": "https://github.com/OneKeyHQ/jcore-react-native.git",
     "jpush-react-native": "https://github.com/OneKeyHQ/jpush-react-native.git",
@@ -135,6 +138,10 @@
         ]
       }
     }
+  },
+  "resolutions": {
+    "metro": "0.76.0",
+    "metro-resolver": "0.76.0"
   },
   "private": true
 }

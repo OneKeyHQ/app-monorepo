@@ -14,7 +14,7 @@ const UpdateAlert = createLazyComponent(
   () => import('../../../views/Update/Alert'),
 );
 
-const Drawer = createLazyComponent(() => import('./Drawer'));
+// const Drawer = createLazyComponent(() => import('./Drawer'));
 
 function MainScreen() {
   const { dispatch } = backgroundApiProxy;
@@ -37,11 +37,11 @@ function MainScreen() {
 
   return (
     <Box ref={setMainScreenDom} w="full" h="full">
-      <Drawer />
-      <NetworkAccountSelectorEffectsSingleton />
-      <WalletSelectorEffectsSingleton />
+      {/* <Drawer /> */}
+      {/* <NetworkAccountSelectorEffectsSingleton /> */}
+      {/* <WalletSelectorEffectsSingleton /> */}
       {/* TODO Waiting notification component */}
-      <UpdateAlert />
+      {/* <UpdateAlert /> */}
     </Box>
   );
 }

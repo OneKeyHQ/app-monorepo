@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 import { useEffect, useMemo } from 'react';
 
 import { Box, OverlayContainer } from '@onekeyhq/components';
@@ -13,7 +13,7 @@ import { AppStateHeartbeat } from './AppStateHeartbeat';
 import { AppStateUnlock } from './AppStateUnlock';
 import { AppStateUpdater } from './AppStateUpdater';
 
-type AppLockProps = { children: JSX.Element; renderAsOverlay?: boolean };
+type AppLockProps = { children: ReactNode; renderAsOverlay?: boolean };
 
 function isUnlockWhiteListUrl() {
   // only available for web

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
 import { useRoute } from '@react-navigation/native';
+import { useRouter, useSearchParams } from 'expo-router';
 import { useIntl } from 'react-intl';
 
 import {
@@ -50,7 +50,7 @@ type RouteProps = RouteProp<IOnboardingRoutesParams, EOnboardingRoutes.Welcome>;
 const Welcome = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   // const navigation = useAppNavigation();
-  const navigation = useNavigation<NavigationProps>();
+  const router = useRouter();
   const navigationActions = useNavigationActions();
   if (process.env.NODE_ENV !== 'production') {
     global.$$navigationActions = navigationActions;
@@ -101,51 +101,51 @@ const Welcome = () => {
   // const goBack = useNavigationBack();
   // const insets = useSafeAreaInsets();
 
-  const onPressCreateWallet = useCallback(() => {
-    resetLayoutAnimation();
-    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
-    navigation.navigate(EOnboardingRoutes.SetPassword);
-  }, [navigation, resetLayoutAnimation]);
-  const onPressImportWallet = useCallback(() => {
-    resetLayoutAnimation();
-    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
-    navigation.navigate(EOnboardingRoutes.ImportWallet);
-  }, [navigation, resetLayoutAnimation]);
+  // const onPressCreateWallet = useCallback(() => {
+  //   resetLayoutAnimation();
+  //   backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
+  //   navigation.navigate(EOnboardingRoutes.SetPassword);
+  // }, [navigation, resetLayoutAnimation]);
+  // const onPressImportWallet = useCallback(() => {
+  //   resetLayoutAnimation();
+  //   backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
+  //   navigation.navigate(EOnboardingRoutes.ImportWallet);
+  // }, [navigation, resetLayoutAnimation]);
 
-  const onPressHardwareWallet = useCallback(() => {
-    setDisableAnimation(true);
-    forceVisibleUnfocused?.();
-    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
-    if (disableAnimation) {
-      navigation.navigate(
-        RootRoutes.Modal as any,
-        {
-          screen: ModalRoutes.CreateWallet,
-          params: {
-            screen: CreateWalletModalRoutes.ConnectHardwareModal,
-          },
-        } as any,
-      );
-    } else {
-      setTimeout(() => {
-        navigation.navigate(
-          RootRoutes.Modal as any,
-          {
-            screen: ModalRoutes.CreateWallet,
-            params: {
-              screen: CreateWalletModalRoutes.ConnectHardwareModal,
-            },
-          } as any,
-        );
-      }, 100);
-    }
-  }, [forceVisibleUnfocused, navigation, disableAnimation]);
+  // const onPressHardwareWallet = useCallback(() => {
+  //   setDisableAnimation(true);
+  //   forceVisibleUnfocused?.();
+  //   backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
+  //   if (disableAnimation) {
+  //     navigation.navigate(
+  //       RootRoutes.Modal as any,
+  //       {
+  //         screen: ModalRoutes.CreateWallet,
+  //         params: {
+  //           screen: CreateWalletModalRoutes.ConnectHardwareModal,
+  //         },
+  //       } as any,
+  //     );
+  //   } else {
+  //     setTimeout(() => {
+  //       navigation.navigate(
+  //         RootRoutes.Modal as any,
+  //         {
+  //           screen: ModalRoutes.CreateWallet,
+  //           params: {
+  //             screen: CreateWalletModalRoutes.ConnectHardwareModal,
+  //           },
+  //         } as any,
+  //       );
+  //     }, 100);
+  //   }
+  // }, [forceVisibleUnfocused, navigation, disableAnimation]);
 
-  const onPressThirdPartyWallet = useCallback(() => {
-    resetLayoutAnimation();
-    backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
-    setTimeout(() => navigation.navigate(EOnboardingRoutes.ThirdPartyWallet));
-  }, [navigation, resetLayoutAnimation]);
+  // const onPressThirdPartyWallet = useCallback(() => {
+  //   resetLayoutAnimation();
+  //   backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
+  //   setTimeout(() => navigation.navigate(EOnboardingRoutes.ThirdPartyWallet));
+  // }, [navigation, resetLayoutAnimation]);
 
   return (
     <>
@@ -184,7 +184,7 @@ const Welcome = () => {
                 id: 'content__create_wallet_desc',
               })}
               roundedBottom={{ base: 0, sm: 'xl' }}
-              onPress={onPressCreateWallet}
+              onPress={() => {}}
             />
             <PressableListItem
               icon="ArrowDownCircleOutline"
@@ -197,7 +197,7 @@ const Welcome = () => {
               mt="-1px"
               mb={{ base: 6, sm: 0 }}
               roundedTop={{ base: 0, sm: 'xl' }}
-              onPress={onPressImportWallet}
+              onPress={() => {}}
             />
             <PressableListItem
               icon="UsbCableOutline"
@@ -207,7 +207,7 @@ const Welcome = () => {
               description={intl.formatMessage({
                 id: 'content__conenct_hardware_wallet_desc',
               })}
-              onPress={onPressHardwareWallet}
+              onPress={() => {}}
               overflow="hidden"
             >
               <Hidden till="sm">
@@ -232,7 +232,7 @@ const Welcome = () => {
             <Divider flex={1} />
           </Box>
         </Hidden>
-        <ConnectThirdPartyWallet onPress={onPressThirdPartyWallet} />
+        <ConnectThirdPartyWallet onPress={() => {}} />
       </Layout>
       <TermsOfService />
     </>

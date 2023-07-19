@@ -5,8 +5,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const shimsLog = (str) => console.log(`Shims Injected: ${str}`);
 
-if (typeof __dirname === 'undefined') global.__dirname = '/';
-if (typeof __filename === 'undefined') global.__filename = '';
+// eslint-disable-next-line dot-notation
+if (typeof __dirname === 'undefined') global['__dirname'] = '/';
+// eslint-disable-next-line dot-notation
+if (typeof __filename === 'undefined') global['__filename'] = '';
 if (typeof process === 'undefined') {
   shimsLog('process');
   global.process = require('process');

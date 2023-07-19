@@ -43,6 +43,7 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
   const props = propsRaw || {};
   const {
     UIApplicationLaunchOptionsRemoteNotificationKey: launchNotification,
+    children,
   } = props;
   global.$$onekeyPerfTrace?.log({
     name: 'KitProvider render',
@@ -56,7 +57,7 @@ const KitProvider: FC<LaunchProps> = (propsRaw) => {
             <AppLoading>
               <ErrorBoundary>
                 <NotificationProvider launchNotification={launchNotification} />
-                <NavigationProvider />
+                <NavigationProvider>{children}</NavigationProvider>
                 <WhenAppActive />
               </ErrorBoundary>
             </AppLoading>
