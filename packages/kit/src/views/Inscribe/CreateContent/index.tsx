@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Box,
-  IconButton,
   Modal,
   SegmentedControl,
   Text,
@@ -16,14 +15,15 @@ import {
 import type { IInscriptionContent } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/types';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useNetwork } from '../../../hooks';
 import { InscribeModalRoutes } from '../../../routes/routesEnum';
+import HeaderDescription from '../Components/HeaderDescription';
 import { InscribeUploader } from '../Components/InscribeUploader';
 import Steps from '../Components/Steps';
+import { OrderButton } from '../OrderList';
 
-import CheckOrderMenu from './CheckOrderMenu';
 import FileDescription from './FileDescription';
 
 import type { InscribeFile } from '../Components/InscribeUploader/type';
@@ -46,20 +46,7 @@ const CreateContent: FC = () => {
   const [text, setText] = useState<string>('');
   const [error, setError] = useState('');
   const { serviceInscribe } = backgroundApiProxy;
-
-  const rightContent = useMemo(
-    () => (
-      <CheckOrderMenu>
-        <IconButton
-          name="EllipsisVerticalOutline"
-          type="plain"
-          size="lg"
-          circle
-        />
-      </CheckOrderMenu>
-    ),
-    [],
-  );
+  const { network } = useNetwork({ networkId });
 
   const onPromise = useCallback(async () => {
     let contents: IInscriptionContent[] = [];
@@ -82,7 +69,7 @@ const CreateContent: FC = () => {
               },
             ],
           });
-          Object.assign(routeParams, { size: file.size, contents });
+          Object.assign(routeParams, { size: file.size, contents, file });
         } catch (e) {
           console.log('error = ', e);
         }
@@ -115,10 +102,7 @@ const CreateContent: FC = () => {
     }
   }, [
     accountId,
-    file?.dataForAPI,
-    file?.name,
-    file?.size,
-    file?.type,
+    file,
     intl,
     navigation,
     networkId,
@@ -139,10 +123,8 @@ const CreateContent: FC = () => {
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__inscribe' })}
-      headerDescription={`Bitcoin${
-        networkId === OnekeyNetwork.tbtc ? ' Testnet' : ''
-      }`}
-      rightContent={rightContent}
+      headerDescription={<HeaderDescription network={network} />}
+      rightContent={<OrderButton />}
       height="640px"
       primaryActionTranslationId="action__next"
       hideSecondaryAction
@@ -192,9 +174,12 @@ const CreateContent: FC = () => {
           </Text>
         ) : null}
         <Text typography="Caption" color="text-subdued" mt="12px">
-          {intl.formatMessage({
-            id: 'content__ordinal_support_jpg_webp_png_gif_txt_mp3_mp4_and_more',
-          })}
+          {intl.formatMessage(
+            {
+              id: 'content__ordinal_support_jpg_webp_png_gif_txt_mp3_mp4_and_more',
+            },
+            { 0: '200KB' },
+          )}
         </Text>
       </Box>
     </Modal>

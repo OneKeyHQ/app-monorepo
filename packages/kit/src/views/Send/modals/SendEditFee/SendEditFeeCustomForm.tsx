@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { first, last } from 'lodash';
-import { Slider } from 'native-base';
 import { useIntl } from 'react-intl';
+import { useDebounce } from 'use-debounce';
 
 import {
   Alert,
@@ -14,6 +14,7 @@ import {
   CheckBox,
   Form,
   HStack,
+  Slider,
   Text,
   Tooltip,
   useIsVerticalLayout,
@@ -33,6 +34,7 @@ import type {
   IEncodedTx,
   IFeeInfoPayload,
 } from '@onekeyhq/engine/src/vaults/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useFormOnChangeDebounced } from '../../../../hooks/useFormOnChangeDebounced';
@@ -82,6 +84,8 @@ export type ICustomFeeFormProps = {
   setSaveCustom: (value: boolean) => void;
   encodedTx?: IEncodedTx;
 };
+
+const DEBOUNCED_PRIORITY_BOOSTER_TIMEOUT = platformEnv.isNative ? 250 : 0;
 export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   const {
     feeInfoPayload,
@@ -127,9 +131,15 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   );
 
   const [priorityBooster, setPriorityBooster] = useState<number>(1);
+  const [debouncedPriorityBooster] = useDebounce(
+    priorityBooster,
+    DEBOUNCED_PRIORITY_BOOSTER_TIMEOUT,
+  );
+
   const [basePriority, setBasePriority] = useState(
     (lastPresetFeeInfo as EIP1559Fee)?.maxPriorityFeePerGas,
   );
+
   const [gasLimitTip, setGasLimitTip] = useState<CustomAlert>(null);
   const [gasPriceTip, setGasPriceTip] = useState<CustomAlert>(null);
   const [maxPriorityFeeTip, setMaxPriorityFeeTip] = useState<CustomAlert>(null);
@@ -276,7 +286,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
       return (
         <Form mt={4}>
           <Form.Item
-            label="Fee rate (sat/B)"
+            label="Fee rate (sat/vB)"
             control={control}
             name="feeRate"
             rules={{
@@ -477,14 +487,16 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
               />
               <Box flex={1} pr={2}>
                 <Slider
-                  width="100%"
-                  minValue={1}
-                  maxValue={100}
                   accessibilityLabel={intl.formatMessage({
                     id: 'form__priority_fee_booster',
                   })}
+                  nativeMode={platformEnv.isNative}
+                  minimumTrackTintColor="#85D34C"
                   step={1}
-                  value={priorityBooster}
+                  value={debouncedPriorityBooster}
+                  width="100%"
+                  minValue={1}
+                  maxValue={100}
                   onChange={handleBoosterOnChange}
                 >
                   <Slider.Track bg="surface-neutral-default" height="4px">
@@ -678,7 +690,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     nativeSymbol,
     networkId,
     originLimit,
-    priorityBooster,
+    debouncedPriorityBooster,
     selectedFeeInfo?.custom?.price,
     selectedFeeInfo?.custom?.price1559,
     setValue,
@@ -753,20 +765,18 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
           setPriorityBooster={setPriorityBooster}
         />
       )}
-      {isEIP1559Fee && (
-        <Box alignItems="center" mt={12}>
-          <CheckBox
-            onChange={(isSelected) => setSaveCustom(isSelected)}
-            isChecked={saveCustom}
-          >
-            <Text typography="Body2Strong">
-              {intl.formatMessage({
-                id: 'action__save_as_default_for_custom',
-              })}
-            </Text>
-          </CheckBox>
-        </Box>
-      )}
+      <Box alignItems="center" mt={12}>
+        <CheckBox
+          onChange={(isSelected) => setSaveCustom(isSelected)}
+          isChecked={saveCustom}
+        >
+          <Text typography="Body2Strong">
+            {intl.formatMessage({
+              id: 'action__save_as_default_for_custom',
+            })}
+          </Text>
+        </CheckBox>
+      </Box>
     </>
   ) : (
     <HStack space={6} alignContent="flex-start">

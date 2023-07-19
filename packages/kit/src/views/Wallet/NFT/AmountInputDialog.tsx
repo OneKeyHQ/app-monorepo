@@ -38,7 +38,7 @@ const AmountInputDialog: FC<Props> = ({ total, onConfirm, onClose }) => {
         input: (
           <Box w="full" mt="4">
             <Text typography="Body2Strong">
-              {intl.formatMessage({ id: 'content__amount' })}
+              {intl.formatMessage({ id: 'form__quantity' })}
             </Text>
             <NumberInput
               w="full"

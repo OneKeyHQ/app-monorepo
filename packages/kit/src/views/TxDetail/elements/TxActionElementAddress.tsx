@@ -42,6 +42,7 @@ export function useAddressLabel({
   networkId?: string;
 }) {
   const [label, setLabel] = useState('');
+  const [isWatchAccount, setIsWatchAccount] = useState(false);
   useEffect(() => {
     (async () => {
       const result = await backgroundApiProxy.serviceAccount.getAddressLabel({
@@ -50,10 +51,14 @@ export function useAddressLabel({
       });
       if (result && result.label) {
         setLabel(result.label);
+        setIsWatchAccount(result.accountId.startsWith('watching--'));
       }
     })();
   }, [address, networkId]);
-  return label;
+  return {
+    label,
+    isWatchAccount,
+  };
 }
 
 export function useAddressBookItem({ address }: { address: string }) {
@@ -185,7 +190,7 @@ export function TxActionElementAddress(
     shouldCheckSecurity ? address : '',
   );
 
-  const label = useAddressLabel({ address, networkId });
+  const { label, isWatchAccount } = useAddressLabel({ address, networkId });
   const contact = useAddressBookItem({ address });
   let text = isShorten ? shortenAddress(address) : address;
   if (label && isLabelShow) {
@@ -212,6 +217,7 @@ export function TxActionElementAddress(
             securityInfo={securityInfo}
             shouldCheckSecurity={shouldCheckSecurity}
             isAccount={!!label}
+            isWatchAccount={isWatchAccount}
             isAddressBook={!!contact}
             addressBookLabel={contact?.name}
             labelStyle={{ mt: 1 }}

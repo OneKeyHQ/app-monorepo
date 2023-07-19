@@ -2,9 +2,11 @@ import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Box,
   Center,
   Icon,
@@ -28,11 +30,14 @@ import type { IInscriptionsOrder } from '@onekeyhq/engine/src/vaults/impl/btc/in
 import type { ISignedTxPro } from '@onekeyhq/engine/src/vaults/types';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
 import type { ModalScreenProps } from '@onekeyhq/kit/src/routes/types';
-import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { FormatBalanceTokenOfAccount } from '../../../components/Format';
+import {
+  FormatBalance,
+  FormatBalanceTokenOfAccount,
+} from '../../../components/Format';
 import { useActiveSideAccount } from '../../../hooks';
 import { useSingleToken } from '../../../hooks/useTokens';
 import {
@@ -41,7 +46,15 @@ import {
   SendModalRoutes,
 } from '../../../routes/routesEnum';
 import { formatBytes } from '../../../utils/hardware/homescreens';
+import {
+  showAccountBalanceDetailsOverlay,
+  useAccountBalanceDetailsInfo,
+} from '../../Overlay/AccountBalanceDetailsPanel';
+import HeaderDescription from '../Components/HeaderDescription';
 import Steps from '../Components/Steps';
+import { OrderButton } from '../OrderList';
+
+import CreateOrderFilePreview from './CreateOrderFilePreview';
 
 import type { InscribeModalRoutes } from '../../../routes/routesEnum';
 import type { SendFeedbackReceiptParams } from '../../Send/types';
@@ -72,7 +85,7 @@ const CreateOrder: FC = () => {
   const intl = useIntl();
   const navigation = useNavigation<NavigationProps['navigation']>();
   const route = useRoute<RouteProps>();
-  const { networkId, accountId, receiveAddress, contents, size } =
+  const { networkId, accountId, receiveAddress, contents, size, file } =
     route?.params || {};
   const { serviceInscribe } = backgroundApiProxy;
   const { account, network } = useActiveSideAccount({ accountId, networkId });
@@ -105,6 +118,13 @@ const CreateOrder: FC = () => {
     },
     [contents, receiveAddress, serviceInscribe],
   );
+
+  const previewText = useMemo(() => {
+    const content = contents[0];
+    if (content && content.categoryType === 'text') {
+      return bufferUtils.hexToText(content.hex);
+    }
+  }, [contents]);
 
   useEffect(() => {
     if (isFirst.current) {
@@ -208,6 +228,9 @@ const CreateOrder: FC = () => {
                   setsSubmitOrderLoading(false);
                 }
               },
+              onFail: () => {
+                setsSubmitOrderLoading(false);
+              },
             },
           },
         });
@@ -244,32 +267,61 @@ const CreateOrder: FC = () => {
     tokenInfo,
   ]);
 
+  const balanceDetailsInfo = useAccountBalanceDetailsInfo({
+    networkId,
+    accountId,
+  });
+
   const AvailableBalance = useMemo(
     () => (
       <Box position="absolute" bottom={isVerticalLayout ? 0 : -72} left={0}>
-        <Text typography="Caption" color="text-subdued">
-          {intl.formatMessage({ id: 'form__available_balance' })}
-        </Text>
-        <FormatBalanceTokenOfAccount
-          accountId={accountId}
-          networkId={networkId}
-          token={{
-            id: tokenInfo?.id ?? '',
-            name: tokenInfo?.name ?? '',
-            ...(tokenInfo || {}),
-          }}
-          render={(ele) => <Text typography="Body1Strong">{ele}</Text>}
-        />
+        <Pressable
+          onPress={
+            balanceDetailsInfo.enabled
+              ? () =>
+                  showAccountBalanceDetailsOverlay({
+                    info: balanceDetailsInfo,
+                  })
+              : undefined
+          }
+        >
+          <Text typography="Caption" color="text-subdued">
+            {intl.formatMessage({ id: 'form__available_balance' })}
+          </Text>
+          <Box alignItems="center" flexDirection="row">
+            <FormatBalanceTokenOfAccount
+              accountId={accountId}
+              networkId={networkId}
+              token={{
+                id: tokenInfo?.id ?? '',
+                name: tokenInfo?.name ?? '',
+                ...(tokenInfo || {}),
+              }}
+              render={(ele) => <Text typography="Body1Strong">{ele}</Text>}
+            />
+            {balanceDetailsInfo.enabled ? (
+              <Box ml={2}>
+                <Icon name="InformationCircleSolid" size={18} />
+              </Box>
+            ) : null}
+          </Box>
+        </Pressable>
       </Box>
     ),
-    [accountId, intl, isVerticalLayout, networkId, tokenInfo],
+    [
+      accountId,
+      balanceDetailsInfo,
+      intl,
+      isVerticalLayout,
+      networkId,
+      tokenInfo,
+    ],
   );
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__inscribe' })}
-      headerDescription={`Bitcoin${
-        networkId === OnekeyNetwork.tbtc ? ' Testnet' : ''
-      }`}
+      headerDescription={<HeaderDescription network={network} />}
+      rightContent={<OrderButton />}
       footer={submitOrderLoading ? null : undefined}
       height="640px"
       primaryActionTranslationId="action__next"
@@ -299,29 +351,44 @@ const CreateOrder: FC = () => {
             <Text mt="16px" typography="Heading">
               {intl.formatMessage({ id: 'form__inscribe_preview' })}
             </Text>
-            <Box
-              bgColor="action-secondary-default"
-              paddingX="12px"
-              paddingY="8px"
-              borderRadius="12px"
-              borderWidth={1}
-              borderColor="border-default"
-              mt="8px"
+            <Text
+              mt="16px"
+              mb="8px"
+              typography="Body2Strong"
+              color="text-subdued"
             >
-              <Text
-                typography="Body2Mono"
-                color="text-subdued"
-                numberOfLines={4}
-              >
-                {contents[0].previewText}
-              </Text>
-            </Box>
-            <Text mt="16px" typography="Body1Strong" color="text-subdued">
               {intl.formatMessage({ id: 'form__inscription_file_preview' })}
             </Text>
+            <CreateOrderFilePreview file={file} text={previewText} />
+            <Box mt="16px" flexDirection="row" justifyContent="space-between">
+              <Text typography="Body2Strong" color="text-subdued">
+                {intl.formatMessage({ id: 'form__inscription_file_size' })}
+              </Text>
+              <Text typography="Body2">{formatBytes(size)}</Text>
+            </Box>
+            <Box mt="16px" flexDirection="row" justifyContent="space-between">
+              <Text typography="Body2Strong" color="text-subdued">
+                {intl.formatMessage({ id: 'form__inscription_owner' })}
+              </Text>
+              <Pressable
+                flexDirection="row"
+                alignItems="center"
+                onPress={() => {
+                  copyToClipboard(receiveAddress);
+                  ToastManager.show({
+                    title: intl.formatMessage({ id: 'msg__copied' }),
+                  });
+                }}
+              >
+                <Text typography="Body2" mr="8px">
+                  {shortenAddress(receiveAddress, 6)}
+                </Text>
+                <Icon name="Square2StackOutline" size={20} />
+              </Pressable>
+            </Box>
             <Box mt="16px" flexDirection="row" justifyContent="space-between">
               <Box flexDirection="row" alignItems="center">
-                <Text typography="Body1Strong" color="text-subdued" mr="4px">
+                <Text typography="Body2Strong" color="text-subdued" mr="4px">
                   {intl.formatMessage({ id: 'form__inscription_value' })}
                 </Text>
                 <TipWithLabel
@@ -330,7 +397,14 @@ const CreateOrder: FC = () => {
                   })}
                 />
               </Box>
-              <Text typography="Body1">{`${sat} sats`}</Text>
+              <FormatBalance
+                balance={new BigNumber(sat).shiftedBy(-8).toFixed()}
+                suffix={tokenInfo?.symbol}
+                formatOptions={{
+                  fixed: tokenInfo?.decimals,
+                }}
+                render={(ele) => <Text typography="Body2">{ele}</Text>}
+              />
             </Box>
             <Slider
               py="4px"
@@ -367,42 +441,14 @@ const CreateOrder: FC = () => {
                 />
               </Slider.Thumb>
             </Slider>
-
-            <Box mt="16px" flexDirection="row" justifyContent="space-between">
-              <Text typography="Body1Strong" color="text-subdued">
-                {intl.formatMessage({ id: 'form__inscription_owner' })}
-              </Text>
-              <Pressable
-                flexDirection="row"
-                alignItems="center"
-                onPress={() => {
-                  copyToClipboard(receiveAddress);
-                  ToastManager.show({
-                    title: intl.formatMessage({ id: 'msg__copied' }),
-                  });
-                }}
-              >
-                <Text typography="Body1" mr="8px">
-                  {shortenAddress(receiveAddress, 6)}
-                </Text>
-                <Icon name="Square2StackOutline" size={20} />
-              </Pressable>
-            </Box>
-
-            <Box mt="16px" flexDirection="row" justifyContent="space-between">
-              <Text typography="Body1Strong" color="text-subdued">
-                {intl.formatMessage({ id: 'form__inscription_file_size' })}
-              </Text>
-              <Text typography="Body1">{formatBytes(size)}</Text>
-            </Box>
             <Box
-              my="16px"
+              mt="16px"
               flexDirection="row"
               justifyContent="space-between"
               alignItems="center"
             >
               <Box flexDirection="row" alignItems="center">
-                <Text typography="Body1Strong" color="text-subdued" mr="4px">
+                <Text typography="Body2Strong" color="text-subdued" mr="4px">
                   {intl.formatMessage({ id: 'form__inscribing_fee' })}
                 </Text>
                 <TipWithLabel
@@ -416,14 +462,39 @@ const CreateOrder: FC = () => {
               order.fundingValue === undefined ? (
                 <Skeleton shape="Subheading" />
               ) : (
-                <Text typography="Body1">{`${
-                  order.fundingValue - sat
-                } sats`}</Text>
+                <FormatBalance
+                  balance={new BigNumber(order.fundingValue - sat)
+                    .shiftedBy(-8)
+                    .toFixed()}
+                  suffix={tokenInfo?.symbol}
+                  formatOptions={{
+                    fixed: tokenInfo?.decimals,
+                  }}
+                  render={(ele) => <Text typography="Body2">{ele}</Text>}
+                />
               )}
             </Box>
+            <Box mt="16px" flexDirection="row" justifyContent="space-between">
+              <Box flexDirection="row" alignItems="center">
+                <Text typography="Body2Strong" color="text-subdued" mr="4px">
+                  {intl.formatMessage({ id: 'form__service_fee' })}
+                </Text>
+                <Badge
+                  type="info"
+                  size="sm"
+                  color="text-success"
+                  title={intl.formatMessage({ id: 'form__free__uppercase' })}
+                />
+              </Box>
+              <Text typography="Body2">0 BTC</Text>
+            </Box>
+            <Text color="text-success" typography="Caption" mt="8px">
+              {intl.formatMessage({
+                id: 'content__onekey_does_not_charge_any_service_fees',
+              })}
+            </Text>
           </ScrollView>
           {AvailableBalance}
-          {/* {isVerticalLayout ? AvailableBalance : null} */}
         </VStack>
       )}
     </Modal>

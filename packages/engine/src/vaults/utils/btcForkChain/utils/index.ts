@@ -1,11 +1,17 @@
+import { BIP32Factory } from 'bip32';
 import * as BitcoinJS from 'bitcoinjs-lib';
+import { ECPairFactory } from 'ecpair';
 
 import { NotImplemented } from '../../../../errors';
 import { Tx } from '../../../impl/btc/inscribe/sdk';
+import ecc from '../provider/nobleSecp256k1Wrapper';
 import { AddressEncodings } from '../types';
 
 import type { DBUTXOAccount } from '../../../../types/account';
 import type { Networks } from '@cmdcode/tapscript';
+import type { BIP32API } from 'bip32/types/bip32';
+import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
+import type { ECPairAPI } from 'ecpair/src/ecpair';
 
 export * from './tapRootAccountUtils';
 export * from './coinSelectUtils';
@@ -93,4 +99,32 @@ export function decodeBtcRawTx(rawTx: string, network?: Networks) {
   const txid = tx2.getId();
   const tx = Tx.decode(rawTx);
   return { tx, txid };
+}
+
+let bip32: BIP32API | undefined;
+let ECPair: ECPairAPI | undefined;
+let isEccInit = false;
+
+export function initBitcoinEcc() {
+  if (!isEccInit) {
+    BitcoinJS.initEccLib(ecc as unknown as TinySecp256k1Interface);
+    isEccInit = true;
+  }
+}
+
+export function getBitcoinBip32() {
+  if (!bip32) {
+    initBitcoinEcc();
+    // @ts-expect-error
+    bip32 = BIP32Factory(ecc);
+  }
+  return bip32;
+}
+export function getBitcoinECPair() {
+  if (!ECPair) {
+    initBitcoinEcc();
+    // @ts-expect-error
+    ECPair = ECPairFactory(ecc);
+  }
+  return ECPair;
 }

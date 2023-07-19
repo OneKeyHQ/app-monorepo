@@ -129,7 +129,7 @@ export interface NFTBTCAssetModel extends NFTAssetBase {
   inscription_id: string;
   inscription_number: number;
   tx_hash: string;
-  content: string;
+  content: string | null;
   content_length: number;
   content_type: string;
   timestamp: string;
@@ -138,6 +138,7 @@ export interface NFTBTCAssetModel extends NFTAssetBase {
   output_value_sat: number;
   genesis_transaction_hash: string;
   location: string;
+  contentUrl: string;
   // block_number: number;
   // minter: string;
   // mint_value: number;

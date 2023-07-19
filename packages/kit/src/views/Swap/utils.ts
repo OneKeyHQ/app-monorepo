@@ -530,3 +530,6 @@ export async function combinedTasks(tasks: Task[]) {
   }
   await next();
 }
+
+export const truncate = (content: string, max: number) =>
+  content.length > max ? `${content.slice(0, max)}...` : content;

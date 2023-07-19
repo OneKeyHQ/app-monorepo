@@ -706,6 +706,7 @@ export const Debug = () => {
                     to: 'tb1pyq43gj9kprlfq6zpr2yg2yyg6sxlt4reemqpu2jkhs55073xh5qs8s0le4',
                     isNFT: true,
                     amount: '0',
+                    // TODO move to serviceInscribe
                     coinControlDisabled: true,
                     nftInscription: {
                       address:

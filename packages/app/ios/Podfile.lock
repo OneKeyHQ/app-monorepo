@@ -1,6 +1,9 @@
 PODS:
   - boost (1.76.0)
   - CocoaAsyncSocket (7.6.5)
+  - CocoaLumberjack (3.8.0):
+    - CocoaLumberjack/Core (= 3.8.0)
+  - CocoaLumberjack/Core (3.8.0)
   - DoubleConversion (1.1.6)
   - EXApplication (5.1.1):
     - ExpoModulesCore
@@ -518,6 +521,8 @@ PODS:
     - ReactCommon/turbomodule/core
   - react-native-segmented-control (2.4.1):
     - React-Core
+  - react-native-slider (4.4.2):
+    - React-Core
   - react-native-tcp-socket (6.0.6):
     - CocoaAsyncSocket
     - React-Core
@@ -635,6 +640,9 @@ PODS:
     - Firebase/Performance (= 8.15.0)
     - React-Core
     - RNFBApp
+  - RNFileLogger (0.4.1):
+    - CocoaLumberjack
+    - React
   - RNFS (2.20.0):
     - React-Core
   - RNGestureHandler (2.10.1):
@@ -673,6 +681,13 @@ PODS:
     - React-Core
   - RNSVG (13.9.0):
     - React-Core
+  - RNZipArchive (6.0.9):
+    - React-Core
+    - RNZipArchive/Core (= 6.0.9)
+    - SSZipArchive (~> 2.2)
+  - RNZipArchive/Core (6.0.9):
+    - React-Core
+    - SSZipArchive (~> 2.2)
   - SDWebImage (5.11.1):
     - SDWebImage/Core (= 5.11.1)
   - SDWebImage/Core (5.11.1)
@@ -680,6 +695,7 @@ PODS:
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.10)
   - SocketRocket (0.6.0)
+  - SSZipArchive (2.4.3)
   - Yoga (1.14.0)
   - YogaKit (1.18.1):
     - Yoga (~> 1.14)
@@ -779,6 +795,7 @@ DEPENDENCIES:
   - react-native-restart (from `../../../node_modules/react-native-restart`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - "react-native-segmented-control (from `../../../node_modules/@react-native-segmented-control/segmented-control`)"
+  - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
   - react-native-tcp-socket (from `../../../node_modules/react-native-tcp-socket`)
   - react-native-view-shot (from `../../../node_modules/react-native-view-shot`)
   - react-native-webview (from `../../../node_modules/react-native-webview`)
@@ -804,17 +821,20 @@ DEPENDENCIES:
   - "RNFBApp (from `../../../node_modules/@react-native-firebase/app`)"
   - "RNFBCrashlytics (from `../../../node_modules/@react-native-firebase/crashlytics`)"
   - "RNFBPerf (from `../../../node_modules/@react-native-firebase/perf`)"
+  - RNFileLogger (from `../../../node_modules/react-native-file-logger`)
   - RNFS (from `../../../node_modules/react-native-fs`)
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
   - RNReanimated (from `../../../node_modules/react-native-reanimated`)
   - RNScreens (from `../../../node_modules/react-native-screens`)
   - RNShare (from `../../../node_modules/react-native-share`)
   - RNSVG (from `../../../node_modules/react-native-svg`)
+  - RNZipArchive (from `../../../node_modules/react-native-zip-archive`)
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
   trunk:
     - CocoaAsyncSocket
+    - CocoaLumberjack
     - Firebase
     - FirebaseABTesting
     - FirebaseAnalytics
@@ -853,6 +873,7 @@ SPEC REPOS:
     - SDWebImage
     - SDWebImageWebPCoder
     - SocketRocket
+    - SSZipArchive
     - YogaKit
     - ZXingObjC
 
@@ -981,6 +1002,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-safe-area-context"
   react-native-segmented-control:
     :path: "../../../node_modules/@react-native-segmented-control/segmented-control"
+  react-native-slider:
+    :path: "../../../node_modules/@react-native-community/slider"
   react-native-tcp-socket:
     :path: "../../../node_modules/react-native-tcp-socket"
   react-native-view-shot:
@@ -1031,6 +1054,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@react-native-firebase/crashlytics"
   RNFBPerf:
     :path: "../../../node_modules/@react-native-firebase/perf"
+  RNFileLogger:
+    :path: "../../../node_modules/react-native-file-logger"
   RNFS:
     :path: "../../../node_modules/react-native-fs"
   RNGestureHandler:
@@ -1043,12 +1068,15 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-share"
   RNSVG:
     :path: "../../../node_modules/react-native-svg"
+  RNZipArchive:
+    :path: "../../../node_modules/react-native-zip-archive"
   Yoga:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
   boost: 57d2868c099736d80fcd648bf211b4431e51a558
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
+  CocoaLumberjack: 78abfb691154e2a9df8ded4350d504ee19d90732
   DoubleConversion: 5189b271737e1565bdce30deb4a08d647e3f5f54
   EXApplication: d8f53a7eee90a870a75656280e8d4b85726ea903
   EXAV: c661e742e2ee1986f5a6a030b48d9d3a3507d2f0
@@ -1145,6 +1173,7 @@ SPEC CHECKSUMS:
   react-native-restart: 7595693413fe3ca15893702f2c8306c62a708162
   react-native-safe-area-context: b8979f5eda6ed5903d4dbc885be3846ea3daa753
   react-native-segmented-control: 0e4b5d93911e2234f110057df2b41738b326ab3e
+  react-native-slider: 33b8d190b59d4f67a541061bb91775d53d617d9d
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
   react-native-view-shot: 705f999ac2a24e4e6c909c0ca65c732ed33ca2ff
   react-native-webview: 6408bc328e65042d240d0ebd62baa76ffd23b1aa
@@ -1170,15 +1199,18 @@ SPEC CHECKSUMS:
   RNFBApp: e4439717c23252458da2b41b81b4b475c86f90c4
   RNFBCrashlytics: 94e1f78e2a9aa9e02edbfb0d3f1f0921ce00094b
   RNFBPerf: b85b621a4d15905847e8627a6aa67ad894e8e166
+  RNFileLogger: 9eaf7a6ea709eaaffe646cc485b98ae1dbf1e9f0
   RNFS: 4ac0f0ea233904cb798630b3c077808c06931688
   RNGestureHandler: 42ec7c28dd02d540ed6c9159c57a98ff016492dc
   RNReanimated: 77fbf24fd94c940c82ceb67f6d4571db3d2c04fe
   RNScreens: ea4cd3a853063cda19a4e3c28d2e52180c80f4eb
   RNShare: d82e10f6b7677f4b0048c23709bd04098d5aee6c
   RNSVG: 53c661b76829783cdaf9b7a57258f3d3b4c28315
+  RNZipArchive: 68a0c6db4b1c103f846f1559622050df254a3ade
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
   SocketRocket: fccef3f9c5cedea1353a9ef6ada904fde10d6608
+  SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
   Yoga: 065f0b74dba4832d6e328238de46eb72c5de9556
   YogaKit: f782866e155069a2cca2517aafea43200b01fd5a
   ZXingObjC: fdbb269f25dd2032da343e06f10224d62f537bdb

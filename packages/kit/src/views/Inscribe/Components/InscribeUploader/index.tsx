@@ -66,7 +66,7 @@ function InscribeUploader(props: Props) {
           setError(
             intl.formatMessage(
               { id: 'msg__file_size_should_less_than_str' },
-              { 0: '380KB' },
+              { 0: '200KB' },
             ),
           );
           if (!file.type.startsWith('image')) {

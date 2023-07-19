@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { List, ListItem, Modal, Text } from '@onekeyhq/components';
+import { IconButton, List, ListItem, Modal, Text } from '@onekeyhq/components';
 import type { IInscriptionHistory } from '@onekeyhq/engine/src/vaults/impl/btc/inscribe/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { InscribeModalRoutesParams } from '@onekeyhq/kit/src/routes/Root/Modal/Inscribe';
@@ -16,6 +16,21 @@ import { InscribeModalRoutes } from '../../../routes/routesEnum';
 
 type NavigationProps = ModalScreenProps<InscribeModalRoutesParams>;
 
+export function OrderButton() {
+  const navigation = useNavigation<NavigationProps['navigation']>();
+  const checkOrder = useCallback(() => {
+    navigation.navigate(InscribeModalRoutes.OrderList);
+  }, [navigation]);
+  return (
+    <IconButton
+      onPress={checkOrder}
+      name="ClockOutline"
+      type="plain"
+      size="lg"
+      circle
+    />
+  );
+}
 export type FormValues = {
   address: string;
 };
