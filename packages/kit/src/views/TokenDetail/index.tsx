@@ -84,12 +84,12 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
   );
 
   const headerHeight = useMemo(() => {
-    let height = 529;
+    let height = isVerticalLayout ? 210 : 194;
     if (detailInfo?.ethereumNativeToken && !isAllNetworks(networkId)) {
       height += 132;
     }
     return height;
-  }, [networkId, detailInfo?.ethereumNativeToken]);
+  }, [networkId, detailInfo?.ethereumNativeToken, isVerticalLayout]);
 
   const headerTitle = useCallback(() => {
     if (!isVerticalLayout) {

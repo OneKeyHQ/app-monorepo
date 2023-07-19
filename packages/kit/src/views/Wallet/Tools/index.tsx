@@ -168,7 +168,7 @@ const ToolsPage: FC = () => {
   const items = useMemo(() => {
     let allItems = data;
     allItems = allItems.concat(
-      Object.values(groupBy(tools, 'networkId'))
+      Object.values(groupBy(tools, 'title'))
         .filter((ts) => ts.length > 0)
         .map((ts) => {
           const t = ts[0];

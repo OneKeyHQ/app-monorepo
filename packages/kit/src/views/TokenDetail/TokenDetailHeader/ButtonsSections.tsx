@@ -67,7 +67,7 @@ const ButtonItem = ({
   const isVertical = useIsVerticalLayout();
   const content = useMemo(() => {
     let ele = (
-      <Box mx={isVertical ? 0 : 3}>
+      <Box mx={isVertical ? 0 : 3} alignItems="center">
         {typeof onPress === 'function' ? (
           <TouchableWithoutFeedback>
             <IconButton
@@ -77,6 +77,8 @@ const ButtonItem = ({
               type="basic"
               isDisabled={isDisabled}
               onPress={onPress}
+              w={isVertical ? '42px' : '34px'}
+              h={isVertical ? '42px' : '34px'}
             />
           </TouchableWithoutFeedback>
         ) : (
@@ -88,6 +90,8 @@ const ButtonItem = ({
             borderRadius="999px"
             borderColor="border-default"
             bg="action-secondary-default"
+            w={isVertical ? '42px' : '34px'}
+            h={isVertical ? '42px' : '34px'}
           >
             <Icon name={icon} size={isVertical ? 24 : 20} />
           </Box>

@@ -65,6 +65,14 @@ export const AllNetworksAccountsDetail: FC = () => {
 
   const { allNetworks } = useManageNetworks();
 
+  const supportedNetworks = useMemo(
+    () =>
+      allNetworks.filter(
+        (n) => !n.isTestnet && !n.settings?.validationRequired,
+      ),
+    [allNetworks],
+  );
+
   const data = useMemo(
     () =>
       Object.entries(allNetworksAccountsMap).map(([id, accounts]) => ({
@@ -207,7 +215,7 @@ export const AllNetworksAccountsDetail: FC = () => {
 
   const renderItem: ListRenderItem<DataListItem> = useCallback(
     ({ item: { networkId, accounts } }) => {
-      const network = allNetworks.find((n) => n.id === networkId);
+      const network = supportedNetworks.find((n) => n.id === networkId);
       if (!network) {
         return null;
       }
@@ -254,7 +262,7 @@ export const AllNetworksAccountsDetail: FC = () => {
         </HStack>
       );
     },
-    [allNetworks, intl, onCopyAddress, getMenus],
+    [supportedNetworks, intl, onCopyAddress, getMenus],
   );
 
   const toAllSupportedNetworksPage = useCallback(() => {
@@ -276,7 +284,7 @@ export const AllNetworksAccountsDetail: FC = () => {
               {intl.formatMessage(
                 { id: 'title__str_supported_networks' },
                 {
-                  0: allNetworks.filter((n) => !n.isTestnet).length,
+                  0: supportedNetworks.length,
                 },
               )}
             </Typography.Body2>
@@ -289,7 +297,7 @@ export const AllNetworksAccountsDetail: FC = () => {
         </Pressable>
       </>
     ),
-    [intl, allNetworks, toAllSupportedNetworksPage],
+    [intl, supportedNetworks, toAllSupportedNetworksPage],
   );
 
   return (

@@ -2,6 +2,7 @@ import { chunk } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Box,
   HStack,
   Modal,
   Text,
@@ -36,17 +37,17 @@ function AllNetworksSupportedNetworks() {
                 },
               )}
             </Typography.DisplayLarge>
-            <Typography.Body1>
+            <Typography.Body1 color="text-subdued" mb="8">
               {intl.formatMessage({ id: 'title__str_supported_networks_desc' })}
             </Typography.Body1>
             {chunk(
               allNetworks.filter((n) => !n.settings.validationRequired),
               3,
             ).map((networks, i) => (
-              <HStack key={String(i)} justifyContent="space-between">
-                {networks.map((n) => (
+              <HStack key={String(i)}>
+                {networks.map((n, index) => (
                   <VStack
-                    w="108px"
+                    flex="1"
                     h="80px"
                     alignItems="center"
                     justifyContent="center"
@@ -56,10 +57,16 @@ function AllNetworksSupportedNetworks() {
                     borderColor="border-default"
                     borderRadius="12px"
                     mt="16px"
+                    ml={index === 0 ? 0 : 4}
                   >
                     <Token size={8} token={{ logoURI: n.logoURI }} />
-                    <Typography.Caption>{n.shortName}</Typography.Caption>
+                    <Typography.Caption mt="2">
+                      {n.shortName}
+                    </Typography.Caption>
                   </VStack>
+                ))}
+                {new Array(3 - networks.length).fill(1).map((_, index) => (
+                  <Box key={index} flex="1" ml="4" />
                 ))}
               </HStack>
             ))}

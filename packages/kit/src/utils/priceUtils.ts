@@ -19,7 +19,14 @@ export function calculateGains({
 }) {
   let gainTextColor = 'text-subdued';
   let gainTextBg = 'surface-neutral-subdued';
-  if (!basePrice || !price) {
+
+  const priceNum = new BigNumber(
+    typeof price === 'string' ? +price : price ?? 0,
+  );
+
+  const gain = priceNum.minus(basePrice ?? 0);
+
+  if (priceNum.isNaN() || gain.isNaN()) {
     return {
       gain: 0,
       gainNumber: 0,
@@ -30,25 +37,23 @@ export function calculateGains({
       gainTextBg,
     };
   }
-  const priceNum = new BigNumber(typeof price === 'string' ? +price : price);
-
-  const gain = priceNum.minus(basePrice ?? 0);
   const gainNumber = gain.toNumber();
-  const isPositive = gainNumber > 0;
+  const isPositive = gainNumber >= 0;
   let percentageGain: number | string = basePrice
     ? gain.dividedBy(basePrice).multipliedBy(100).toNumber()
     : 0;
   const gainText = isPositive
     ? `+${formatDecimalZero(gainNumber)}`
     : formatDecimalZero(gainNumber);
+
   percentageGain = isPositive
     ? `+${percentageGain.toFixed(2)}%`
     : `${percentageGain.toFixed(2)}%`;
 
-  if (gainNumber < 0) {
+  if (!isPositive) {
     gainTextColor = 'text-critical';
     gainTextBg = 'surface-critical-default';
-  } else if (gainNumber > 0) {
+  } else {
     gainTextColor = 'text-success';
     gainTextBg = 'surface-success-default';
   }
