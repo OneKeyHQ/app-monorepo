@@ -3,7 +3,8 @@ import { isArray, isNil } from 'lodash';
 import { InteractionManager } from 'react-native';
 import { FileLogger, LogLevel } from 'react-native-file-logger';
 import { logger as RNLogger, consoleTransport } from 'react-native-logs';
-import { zip } from 'react-native-zip-archive';
+
+import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archive';
 
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
