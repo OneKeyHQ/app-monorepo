@@ -94,6 +94,7 @@ const data: DataItem[] = [
     title: 'title__bulksender',
     description: 'title__bulksender_desc',
     filter: ({ network, account }) =>
+      !!account &&
       !account?.id.startsWith('watching-') &&
       !!network?.settings?.supportBatchTransfer &&
       (network.settings.nativeSupportBatchTransfer
