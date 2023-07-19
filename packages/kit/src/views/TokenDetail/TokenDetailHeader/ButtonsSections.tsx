@@ -127,9 +127,9 @@ export const ButtonsSection: FC = () => {
     accountId = '',
     networkId = '',
     sendAddress,
-    symbol,
-    logoURI,
   } = context?.routeParams ?? {};
+
+  const { symbol, logoURI } = context?.detailInfo ?? {};
 
   const { items } = context?.positionInfo ?? {};
 

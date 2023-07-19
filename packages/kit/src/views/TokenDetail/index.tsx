@@ -58,15 +58,14 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     tokenAddress,
     accountId,
     sendAddress,
-    symbol,
-    name,
-    logoURI,
+    ...defaultInfo
   } = route.params;
 
   const detailInfo = useTokenDetailInfo({
     networkId,
     tokenAddress,
     coingeckoId,
+    defaultInfo,
   });
 
   const positionInfo = useTokenPositionInfo({
@@ -97,19 +96,11 @@ const TokenDetail: FC<TokenDetailViewProps> = () => {
     }
     return (
       <HStack space="8px" alignItems="center">
-        <TokenIcon
-          size="24px"
-          showTokenVerifiedIcon
-          token={{
-            symbol,
-            name,
-            logoURI,
-          }}
-        />
-        <Typography.Heading>{symbol}</Typography.Heading>
+        <TokenIcon size="24px" showTokenVerifiedIcon token={detailInfo} />
+        <Typography.Heading>{detailInfo?.symbol}</Typography.Heading>
       </HStack>
     );
-  }, [isVerticalLayout, symbol, name, logoURI]);
+  }, [isVerticalLayout, detailInfo]);
 
   const headerRight = useCallback(() => {
     if (!isVerticalLayout) {

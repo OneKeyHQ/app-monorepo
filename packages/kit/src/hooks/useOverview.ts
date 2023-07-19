@@ -825,10 +825,12 @@ export const useTokenDetailInfo = ({
   coingeckoId,
   networkId,
   tokenAddress,
+  defaultInfo = {},
 }: {
   coingeckoId?: string;
   networkId?: string;
   tokenAddress?: string;
+  defaultInfo?: Record<string, unknown>;
 }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ITokenDetailInfo | undefined>();
@@ -865,6 +867,7 @@ export const useTokenDetailInfo = ({
     );
 
     return {
+      ...defaultInfo,
       ...pick(token, 'name', 'symbol', 'logoURI'),
       ...data,
       loading: loading || tokenLoading,
@@ -872,5 +875,5 @@ export const useTokenDetailInfo = ({
       defaultToken,
       ethereumNativeToken,
     };
-  }, [data, token, loading, tokenLoading]);
+  }, [data, token, loading, tokenLoading, defaultInfo]);
 };
