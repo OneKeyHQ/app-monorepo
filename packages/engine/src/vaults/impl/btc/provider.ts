@@ -26,7 +26,7 @@ export function tweakSigner(
   privKey: Buffer,
   publicKey: Buffer,
   opts: { tweakHash?: Buffer; network?: Network } = {},
-): bitcoin.Signer {
+): BitcoinJS.Signer {
   let privateKey: Uint8Array | null = new Uint8Array(privKey.buffer);
   if (!privateKey) {
     throw new Error('Private key is required for tweaking signer!');
