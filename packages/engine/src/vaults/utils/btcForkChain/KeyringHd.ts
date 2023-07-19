@@ -112,6 +112,7 @@ export class KeyringHd extends KeyringHdBase {
       template,
       skipCheckAccountExist,
     } = params;
+    initBitcoinEcc();
     const provider = await (
       this.vault as unknown as BTCForkVault
     ).getProvider();
