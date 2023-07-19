@@ -150,6 +150,21 @@ export default class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async prepareBuildTxForFastStakingToKele(params: {
+    value: string;
+    networkId: string;
+  }) {
+    const baseUrl = this.getKeleBaseUrl(params.networkId);
+    const url = `${baseUrl}/fast/stake`;
+    const res = await this.client.get(url);
+    const data = res.data as { code: number; data: FastStakeResponse };
+    if (Number(data.code) !== 0 || !data.data) {
+      throw new Error('Failed to build kele pool fast stake transaction');
+    }
+    return data.data;
+  }
+
+  @backgroundMethod()
   async buildTxForFastStakingETHtoKele(params: {
     value: string;
     networkId: string;
@@ -192,20 +207,6 @@ export default class ServiceStaking extends ServiceBase {
       value: params.value,
     };
   }
-
-  // @backgroundMethod()
-  // async setAccountStakingActivity({
-  //   networkId,
-  //   accountId,
-  //   data,
-  // }: {
-  //   networkId: string;
-  //   accountId: string;
-  //   data: StakingActivity | undefined;
-  // }) {
-  //   const { dispatch } = this.backgroundApi;
-  //   dispatch(setAccountStakingActivity({ networkId, accountId, data }));
-  // }
 
   @backgroundMethod()
   async fetchKeleIncomeHistory(params: {

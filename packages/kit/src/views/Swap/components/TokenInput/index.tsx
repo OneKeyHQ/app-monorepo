@@ -22,7 +22,7 @@ import { ModalRoutes, RootRoutes } from '../../../../routes/routesEnum';
 import { setSendingAccount } from '../../../../store/reducers/swap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
-import { formatAmount } from '../../utils';
+import { formatAmount, truncate } from '../../utils';
 import { TokenDisplay } from '../TokenDisplay';
 
 import type { Token as TokenType } from '../../../../store/typings';
@@ -177,7 +177,9 @@ const TokenInput: FC<TokenInputProps> = ({
           >
             <Box flexDirection="row" alignItems="center">
               <Typography.Caption color="text-subdued" fontWeight={500}>
-                {token ? `${text} ${token.symbol.toUpperCase()}` : '-'}
+                {token
+                  ? `${text} ${truncate(token.symbol.toUpperCase(), 8)}`
+                  : '-'}
               </Typography.Caption>
             </Box>
           </Pressable>

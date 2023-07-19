@@ -78,7 +78,9 @@ const ChainsSelectorItem: FC<{ logoURI?: string; networkId: string }> = ({
           {logoURI ? (
             <Token size={8} token={{ logoURI }} />
           ) : (
-            <Image size={8} source={dappColourPNG} />
+            <Box w="8" h="8">
+              <Image size={8} source={dappColourPNG} />
+            </Box>
           )}
         </Box>
       )}

@@ -23,7 +23,7 @@ export const ListHeader: FC = () => {
   }, [text]);
   return (
     <Center>
-      <Box width="640px">
+      <Box width="640px" maxW="full" px="4">
         <Center mx="4" mt="8" mb="6">
           <Typography.DisplayXLarge>
             {intl.formatMessage(
