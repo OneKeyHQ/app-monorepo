@@ -1,4 +1,5 @@
 import { NotAutoPrintError } from '../errors/common-errors';
+import { toPlainErrorObject } from '../utils/errorUtils';
 
 let prevErrorStack: string | undefined;
 
@@ -8,7 +9,12 @@ const autoLogger = {
       error.stack !== prevErrorStack &&
       !(error instanceof NotAutoPrintError)
     ) {
-      console.error('AUTO LOGS:', error, ...messages);
+      console.error(
+        'AUTO LOGS:',
+        error,
+        toPlainErrorObject(error),
+        ...messages,
+      );
       prevErrorStack = error.stack;
     }
   },

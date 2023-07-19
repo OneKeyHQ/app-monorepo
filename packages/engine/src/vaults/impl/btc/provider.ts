@@ -1,4 +1,4 @@
-import * as bitcoin from 'bitcoinjs-lib';
+import * as BitcoinJS from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -16,7 +16,7 @@ import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { Signer as BitcoinSigner } from 'bitcoinjs-lib';
 
 function tapTweakHash(pubKey: Buffer, h: Buffer | undefined): Buffer {
-  return bitcoin.crypto.taggedHash(
+  return BitcoinJS.crypto.taggedHash(
     'TapTweak',
     Buffer.concat(h ? [pubKey, h] : [pubKey]),
   );
