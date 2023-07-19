@@ -10,6 +10,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
+  ChannelInsufficientLiquidityError,
   InsufficientBalance,
   InvalidLightningPaymentRequest,
   InvoiceAlreadPaid,
@@ -518,7 +519,7 @@ export default class Vault extends VaultBase {
             } else if (errorMessage === 'no_route') {
               reject(new NoRouteFoundError());
             } else if (errorMessage === 'insufficient_balance') {
-              reject(new NoLightningChannelError());
+              reject(new ChannelInsufficientLiquidityError());
             } else if (errorMessage === 'invoice expired') {
               reject(new InvoiceExpiredError());
             } else {
