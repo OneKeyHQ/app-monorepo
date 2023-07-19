@@ -51,23 +51,52 @@ const ItemSeparatorComponent = () => (
   </Box>
 );
 
-const AddressBook = () => {
+const AddressBook = ({
+  addressFilter,
+}: {
+  addressFilter?: (address: string) => Promise<boolean>;
+}) => {
   const intl = useIntl();
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { networkId, onSelected } = route.params ?? {};
   const contacts = useAppSelector((s) => s.contacts.contacts);
-  const items = useMemo(() => {
-    let values = Object.values(contacts);
-    values = values.sort((a, b) => (a.createAt > b.createAt ? -1 : -1));
-    if (networkId) {
-      const badge = networkId.split('--')[0];
-      values = values.filter(
-        (item) => item.badge.toUpperCase() === badge.toUpperCase(),
-      );
+
+  const [listData, updateListData] = useState<Contact[]>([]);
+  const filterContacts = useCallback(
+    async (values: Contact[]): Promise<Contact[]> => {
+      if (addressFilter) {
+        const promises = values.map(async (a) => {
+          const isVaild = await addressFilter(a.address);
+          return { value: a, isVaild };
+        });
+        const datasIncludeIsVaild = await Promise.all(promises);
+        return datasIncludeIsVaild
+          .filter((value) => value.isVaild)
+          .map((data) => data.value);
+      }
+      return Promise.resolve(values);
+    },
+    [addressFilter],
+  );
+
+  useEffect(() => {
+    async function main() {
+      let values = Object.values(contacts);
+      values = values.sort((a, b) => (a.createAt > b.createAt ? -1 : -1));
+      if (networkId) {
+        const badge = networkId.split('--')[0];
+        values = values.filter(
+          (item) => item.badge.toUpperCase() === badge.toUpperCase(),
+        );
+      }
+      values = await filterContacts(values);
+      if (values && values.length > 0) {
+        updateListData(values);
+      }
     }
-    return values;
-  }, [contacts, networkId]);
+    main();
+  }, [contacts, filterContacts, networkId]);
 
   const onPress = useCallback(
     (item: { address: string; name?: string }) => {
@@ -87,7 +116,7 @@ const AddressBook = () => {
         alignItems="center"
         bg="surface-default"
         borderTopRadius={index === 0 ? '12' : undefined}
-        borderBottomRadius={index === items.length - 1 ? '12' : undefined}
+        borderBottomRadius={index === listData.length - 1 ? '12' : undefined}
         onPress={() => onPress(item)}
       >
         <Box
@@ -117,7 +146,7 @@ const AddressBook = () => {
         </Box>
       </Pressable>
     ),
-    [items, onPress],
+    [listData, onPress],
   );
 
   const listEmptyComponent = useMemo(
@@ -136,7 +165,7 @@ const AddressBook = () => {
   return (
     <FlatList
       ListEmptyComponent={listEmptyComponent}
-      data={items}
+      data={listData}
       ItemSeparatorComponent={ItemSeparatorComponent}
       renderItem={renderItem}
       keyExtractor={(item) => item.address}
@@ -149,22 +178,46 @@ type WalletAccount = {
   data: Account[];
 };
 
-const MyWallet = () => {
+const MyWallet = ({
+  addressFilter,
+}: {
+  addressFilter?: (address: string) => Promise<boolean>;
+}) => {
   const intl = useIntl();
   const { wallets } = useRuntime();
   const navigation = useNavigation();
   const route = useRoute<RouteProps>();
   const { networkId, onSelected } = route.params ?? {};
   const [sections, setSections] = useState<WalletAccount[]>([]);
+
+  const filterAccounts = useCallback(
+    async (accounts: Account[]): Promise<Account[]> => {
+      if (addressFilter) {
+        const promises = accounts.map(async (a) => {
+          const isVaild = await addressFilter(a.address);
+          return { value: a, isVaild };
+        });
+        const datasIncludeIsVaild = await Promise.all(promises);
+        return datasIncludeIsVaild
+          .filter((value) => value.isVaild)
+          .map((data) => data.value);
+      }
+      return Promise.resolve(accounts);
+    },
+    [addressFilter],
+  );
+
   useEffect(() => {
     // TODO make it a hook and use promise.all (same logic in pickrecipient)
     async function main() {
       for (let i = 0; i < wallets.length; i += 1) {
         const wallet = wallets[i];
-        const accounts = await backgroundApiProxy.engine.getAccounts(
+        let accounts = await backgroundApiProxy.engine.getAccounts(
           wallet.accounts,
           networkId,
         );
+        accounts = await filterAccounts(accounts);
+
         if (accounts && accounts.length > 0) {
           setSections((prev) => [
             ...prev,
@@ -175,7 +228,7 @@ const MyWallet = () => {
     }
     main();
     // eslint-disable-next-line
-  }, []);
+  }, [filterAccounts]);
 
   const onPress = useCallback(
     (item: { address: string; name?: string }) => {
@@ -265,13 +318,21 @@ const MyWallet = () => {
 const PickAddress = () => {
   const intl = useIntl();
   const route = useRoute<RouteProps>();
+  const { addressFilter, contactExcludeWalletAccount } = route.params ?? {};
+
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const navigation = useNavigation<NavigationProps>();
   const onPrimaryPress = useCallback(() => {
     navigation.navigate(AddressBookRoutes.NewAddressRoute);
   }, [navigation]);
-  const wallet = useMemo(() => <MyWallet />, []);
-  const addressbook = useMemo(() => <AddressBook />, []);
+  const wallet = useMemo(
+    () => <MyWallet addressFilter={addressFilter} />,
+    [addressFilter],
+  );
+  const addressbook = useMemo(
+    () => <AddressBook addressFilter={addressFilter} />,
+    [addressFilter],
+  );
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__select_contact' })}
@@ -288,7 +349,7 @@ const PickAddress = () => {
       staticChildrenProps={{ flex: 1, py: 6 }}
     >
       <Box mb="6" px={{ base: 4, md: 6 }}>
-        {!route.params?.contactExcludeWalletAccount ? (
+        {!contactExcludeWalletAccount ? (
           <SegmentedControl
             values={[
               intl.formatMessage({ id: 'title__address_book' }),

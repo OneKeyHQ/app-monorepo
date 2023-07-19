@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -61,7 +61,6 @@ type FormValues = {
 
 function PreSendAddress() {
   const intl = useIntl();
-  const timer = useRef<ReturnType<typeof setTimeout>>();
   const route = useRoute<RouteProps>();
   const [securityItems, setSecurityItems] = useState<
     (keyof GoPlusAddressSecurity)[]
@@ -373,8 +372,22 @@ function PreSendAddress() {
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [navigation, nftInfo, transferInfo, transferInfos, closeModal],
+    [
+      account,
+      network,
+      nftInfo,
+      transferInfo,
+      transferInfos,
+      intl,
+      serviceBatchTransfer,
+      networkId,
+      accountId,
+      navigation,
+      closeModal,
+      serviceNFT,
+      engine,
+      nativeToken?.symbol,
+    ],
   );
 
   const lightningNetworkSendConfirm = useCallback(
@@ -538,10 +551,7 @@ function PreSendAddress() {
 
   const validateHandle = useCallback(
     (value: string) => {
-      if (timer.current) {
-        clearTimeout(timer.current);
-      }
-      timer.current = setTimeout(async () => {
+      const validate = async () => {
         const toAddress = resolvedAddress || value || '';
         setIsValidAddress(false);
         setvalidateMessage({
@@ -628,7 +638,8 @@ function PreSendAddress() {
         }
         setIsValidatingAddress(false);
         return true;
-      }, 0);
+      };
+      validate();
     },
     [
       resolvedAddress,

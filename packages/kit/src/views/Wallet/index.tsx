@@ -24,7 +24,6 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import IdentityAssertion from '../../components/IdentityAssertion';
 import { OneKeyPerfTraceLog } from '../../components/OneKeyPerfTraceLog';
 import Protected, { ValidationFields } from '../../components/Protected';
-import { useManageNetworks } from '../../hooks';
 import { useHtmlPreloadSplashLogoRemove } from '../../hooks/useHtmlPreloadSplashLogoRemove';
 import { useOnboardingRequired } from '../../hooks/useOnboardingRequired';
 import { setHomeTabName } from '../../store/reducers/status';
@@ -52,7 +51,6 @@ const WalletTabs: FC = () => {
   const homeTabName = useAppSelector((s) => s.status.homeTabName);
   const { wallet, network, accountId, networkId, walletId } =
     useActiveWalletAccount();
-  const { enabledNetworks } = useManageNetworks();
   const [refreshing, setRefreshing] = useState(false);
 
   const timer = useRef<ReturnType<typeof setTimeout>>();
@@ -215,16 +213,6 @@ const WalletTabs: FC = () => {
       setTimeout(() => setRefreshing(false), 50);
     });
   }, []);
-
-  useEffect(() => {
-    onRefresh();
-  }, [networkId, accountId, walletId, onRefresh]);
-
-  useEffect(() => {
-    if (isAllNetworks(networkId)) {
-      onRefresh();
-    }
-  }, [onRefresh, enabledNetworks, networkId]);
 
   const tabContents = useMemo(() => usedTabs.map((t) => t.tab), [usedTabs]);
 

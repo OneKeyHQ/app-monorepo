@@ -20,6 +20,7 @@ export interface ILazyRenderWhenFocusProps {
   children?: any | null;
   rootTabName?: TabRoutes;
 }
+
 export function LazyRenderWhenFocus({
   children,
   unmountWhenBlur,
@@ -90,14 +91,16 @@ export function LazyRenderWhenFocus({
   );
   return content;
 }
+
 export function toFocusedLazy(
   CmpClass: any,
   lazyProps?: ILazyRenderWhenFocusProps,
 ) {
-  if (platformEnv.isNativeIOS || platformEnv.isDesktop) {
+  if (platformEnv.isNative || platformEnv.isDesktop) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return CmpClass;
   }
+
   // return CmpClass;
   const lazyCmp = (props: any) => (
     <LazyRenderWhenFocus {...lazyProps}>

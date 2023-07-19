@@ -11,6 +11,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import { useNetwork } from '../../../../hooks';
+import { truncate } from '../../utils';
 
 type TokenDisplayProps = {
   token: Token;
@@ -55,7 +56,7 @@ export const TokenDisplay: FC<TokenDisplayProps> = ({ token }) => {
       <Box flexDirection="row" alignItems="center">
         <Box>
           <Typography.DisplayLarge color="text-default" fontSize={24}>
-            {token.symbol}
+            {truncate(token.symbol, 8)}
           </Typography.DisplayLarge>
           <Typography.Body2 color="text-subdued">
             {networkName ?? '-'}

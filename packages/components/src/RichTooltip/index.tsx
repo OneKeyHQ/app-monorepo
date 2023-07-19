@@ -6,18 +6,17 @@ export type RichTooltipProps = PopoverProps;
 
 function RichTooltip(props: RichTooltipProps) {
   const {
-    trigger,
     arrowProps,
     bodyProps,
     contentProps,
     position = 'top',
     bgColor = 'surface-default',
+    ...popoverProps
   } = props;
 
   return (
     <Popover
       position={position}
-      trigger={trigger}
       bgColor={bgColor}
       arrowProps={{
         bgColor,
@@ -34,6 +33,7 @@ function RichTooltip(props: RichTooltipProps) {
         bgColor,
         ...bodyProps,
       }}
+      {...popoverProps}
     />
   );
 }

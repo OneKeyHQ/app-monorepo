@@ -39,6 +39,20 @@ const ReceiveAddress: FC = () => {
   const { networkId, accountId, contents, size, file } = route?.params || {};
   const { account, network } = useActiveSideAccount({ accountId, networkId });
 
+  const addressFilter = useCallback(
+    async (address: string) => {
+      try {
+        return await serviceInscribe.checkValidTaprootAddress({
+          address,
+          networkId,
+          accountId,
+        });
+      } catch (error) {
+        return Promise.resolve(false);
+      }
+    },
+    [accountId, networkId, serviceInscribe],
+  );
   const {
     control,
     watch,
@@ -169,6 +183,7 @@ const ReceiveAddress: FC = () => {
               })}
               h={{ base: 120, md: 120 }}
               plugins={['contact', 'paste', 'scan']}
+              addressFilter={addressFilter}
             />
           </Form.Item>
         </Form>

@@ -95,7 +95,9 @@ const data: DataItem[] = [
     description: 'title__bulksender_desc',
     filter: ({ network }) =>
       !!network?.settings?.supportBatchTransfer &&
-      !!batchTransferContractAddress[network?.id],
+      (network.settings.nativeSupportBatchTransfer
+        ? true
+        : !!batchTransferContractAddress[network.id]),
   },
   {
     key: 'explorer',
@@ -186,20 +188,19 @@ const ToolsPage: FC = () => {
     if (!isAllNetworks(network?.id)) {
       return allItems.filter((n) => n.filter?.({ network, account }) ?? true);
     }
-    return allItems.filter((item) =>
-      Object.entries(networkAccountsMap).some(([nid, accounts]) => {
+    return allItems.filter((item) => {
+      for (const [nid, accounts] of Object.entries(networkAccountsMap)) {
         const n = enabledNetworks.find((i) => i.id === nid);
-        if (!n) {
-          return false;
-        }
-        for (const a of accounts) {
-          if (item.filter && !item.filter({ network: n, account: a })) {
-            return true;
+        if (n) {
+          for (const a of accounts) {
+            if (!item.filter || item.filter({ network: n, account: a })) {
+              return true;
+            }
           }
         }
-        return false;
-      }),
-    );
+      }
+      return false;
+    });
   }, [account, network, tools, networkAccountsMap, enabledNetworks]);
 
   const handlePress = useCallback(

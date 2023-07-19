@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Alert, Box, Spinner, ToastManager } from '@onekeyhq/components';
+import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
@@ -95,6 +96,10 @@ function TxDetailAddTokenBox(props: Props) {
   }, [tokensInTx, setTokensNotInList, accountTokens]);
 
   if (!tokensNotInList || tokensNotInList.length === 0) return null;
+
+  if (isAllNetworks(networkId)) {
+    return null;
+  }
 
   return (
     <Box mb={6}>

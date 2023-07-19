@@ -24,6 +24,8 @@ const settings: IVaultSettings = Object.freeze({
   maxActionsInTx: 8,
   hardwareMaxActionsEnabled: true,
 
+  allowZeroFee: true,
+
   accountNameInfo: {
     default: {
       prefix: 'TRON',

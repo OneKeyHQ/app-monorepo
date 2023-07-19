@@ -177,6 +177,9 @@ function SendConfirm({
         dappApprove.reject({
           error,
         });
+        if (routeParams.onFail) {
+          routeParams.onFail(error);
+        }
       };
       const onSuccess: SendAuthenticationParams['onSuccess'] = async (
         tx: ISignedTxPro,

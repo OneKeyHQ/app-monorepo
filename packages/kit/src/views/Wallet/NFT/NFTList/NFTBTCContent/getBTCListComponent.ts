@@ -3,6 +3,7 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import InscriptionImage from './InscriptionImage';
+import InscriptionLogo from './InscriptionLogo';
 import InscriptionSVG from './InscriptionSVG';
 import { InscriptionLarge, InscriptionText } from './InscriptionText';
 import InscriptionUnknow from './InscriptionUnknow';
@@ -19,13 +20,15 @@ export enum InscriptionContentType {
   HTML = 'text/html',
 }
 
+type SizeType = 'list' | 'detail' | 'history';
+
 function ComponentWithContentType({
   contentType,
-  isList,
+  sizeType,
   networkId,
 }: {
   contentType: string;
-  isList: boolean;
+  sizeType: SizeType;
   networkId?: string;
 }): (props: InscriptionContentProps) => JSX.Element | null {
   if (
@@ -38,26 +41,29 @@ function ComponentWithContentType({
   if (contentType.startsWith(InscriptionContentType.ImageSVG)) {
     return !platformEnv.isNative ? InscriptionSVG : InscriptionUnknow;
   }
+  if (sizeType === 'history') {
+    return InscriptionLogo;
+  }
   if (contentType === InscriptionContentType.Text) {
     if (networkId === OnekeyNetwork.tbtc) {
       return InscriptionUnknow;
     }
-    return isList ? InscriptionText : InscriptionLarge;
+    return sizeType === 'list' ? InscriptionText : InscriptionLarge;
   }
   return InscriptionUnknow;
 }
 
 export function getBTCListComponent(props: {
   data: NFTBTCAssetModel;
-  isList: boolean;
+  sizeType: SizeType;
 }): {
   Component: (props: InscriptionContentProps) => JSX.Element | null;
 } {
-  const { data, isList } = props;
+  const { data, sizeType } = props;
   return {
     Component: ComponentWithContentType({
       contentType: data.content_type,
-      isList,
+      sizeType,
       networkId: data.networkId,
     }),
   };
