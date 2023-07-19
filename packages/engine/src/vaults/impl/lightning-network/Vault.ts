@@ -176,6 +176,7 @@ export default class Vault extends VaultBase {
       feeDecimals: network.feeDecimals,
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
+      waitingSeconds: [5],
       tx: null,
     };
   }
@@ -202,6 +203,19 @@ export default class Vault extends VaultBase {
     const description = invoice.tags.find(
       (tag) => tag.tagName === 'description',
     );
+
+    let fee = 0;
+    try {
+      fee = await client.estimateFee({
+        address: balanceAddress,
+        dest: invoice.payeeNodeKey ?? '',
+        amt: amount.toFixed(),
+      });
+    } catch (e) {
+      console.error('Fetch Fee error: ', e);
+      // ignore error, will check invoice on final step
+    }
+
     return {
       invoice: invoice.paymentRequest,
       paymentHash: paymentHash?.data as string,
@@ -209,7 +223,7 @@ export default class Vault extends VaultBase {
       expired: `${invoice.timeExpireDate ?? ''}`,
       created: `${Math.floor(Date.now() / 1000)}`,
       description: description?.data as string,
-      fee: 0,
+      fee,
     };
   }
 
@@ -241,7 +255,6 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxLightning,
     payload?: any,
   ): Promise<IDecodedTx> {
-    const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBVariantAccount;
     const hashAddress = await this.getHashAddress();
     const token = await this.engine.getNativeTokenInfo(this.networkId);
@@ -554,7 +567,7 @@ export default class Vault extends VaultBase {
     key?: string | undefined;
     params?: Record<string, any> | undefined;
   }> {
-    const { invoice: payreq, amount } = encodedTx;
+    const { invoice: payreq, amount, fee } = encodedTx;
     const invoice = await this._decodedInvoceCache(payreq);
     if (
       (invoice.millisatoshis && +invoice.millisatoshis <= 0) ||
@@ -573,7 +586,7 @@ export default class Vault extends VaultBase {
     const balanceAddress = await this.getCurrentBalanceAddress();
     const balance = await this.getBalances([{ address: balanceAddress }]);
     const balanceBN = new BigNumber(balance[0] || '0');
-    if (balanceBN.isLessThan(new BigNumber(amount))) {
+    if (balanceBN.isLessThan(new BigNumber(amount).plus(fee))) {
       return Promise.resolve({
         success: false,
         key: 'form__amount_invalid',
