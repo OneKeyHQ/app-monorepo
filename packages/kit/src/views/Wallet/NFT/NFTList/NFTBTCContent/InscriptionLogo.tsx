@@ -1,8 +1,9 @@
-import { Box } from '@onekeyhq/components';
+import { Box, Image } from '@onekeyhq/components';
+import OrdinalLogo from '@onekeyhq/kit/assets/Ordinal.png';
 
 import type { InscriptionContentProps } from '../type';
 
-function InscriptionSVG({ size, asset, ...props }: InscriptionContentProps) {
+function InscriptionLogo({ size, asset, ...props }: InscriptionContentProps) {
   const innerSize = typeof size === 'number' ? `${size}px` : (size as string);
   return (
     <Box
@@ -13,14 +14,9 @@ function InscriptionSVG({ size, asset, ...props }: InscriptionContentProps) {
       size={innerSize}
       {...props}
     >
-      <iframe
-        title="iframe-web"
-        src={asset.contentUrl}
-        frameBorder="0"
-        style={{ height: '100%', width: '100%', pointerEvents: 'none' }}
-      />
+      <Image source={OrdinalLogo} size="40px" />
     </Box>
   );
 }
 
-export default InscriptionSVG;
+export default InscriptionLogo;
