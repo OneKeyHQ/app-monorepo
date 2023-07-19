@@ -341,38 +341,33 @@ class ServiceAccount extends ServiceBase {
     const { engine, appSelector } = this.backgroundApi;
     const wallets = await this.initWallets();
 
-    const { activeNetworkId, activeWalletId } = appSelector((s) => s.general);
+    const { activeNetworkId } = appSelector((s) => s.general);
     if (!activeNetworkId) {
       return;
     }
-    if (isAllNetworks(activeNetworkId)) {
-      const firstAccountId = Object.keys(
-        appSelector((s) => s.overview.allNetworksAccountsMap) ?? {},
-      ).find(
-        (accountId) => activeWalletId && accountId.startsWith(activeWalletId),
-      );
-      if (firstAccountId) {
-        this.changeActiveAccount({
-          walletId: activeWalletId,
-          accountId: firstAccountId,
-        });
-      }
-      return;
-    }
     for (const wallet of wallets) {
-      // First find wallet & account compatible with currect network.
-      if (wallet.accounts.length > 0) {
+      let firstAccountId: string | undefined;
+
+      if (isAllNetworks(activeNetworkId)) {
+        firstAccountId = Object.keys(
+          appSelector((s) => s.overview.allNetworksAccountsMap) ?? {},
+        ).find((accountId) => wallet.id && accountId.startsWith(wallet.id));
+      } else if (wallet.accounts.length > 0) {
         const [account] = await engine.getAccounts(
           wallet.accounts,
           activeNetworkId,
         );
         if (account) {
-          this.changeActiveAccount({
-            accountId: account.id,
-            walletId: wallet.id,
-          });
-          return;
+          firstAccountId = account.id;
         }
+      }
+
+      if (firstAccountId) {
+        this.changeActiveAccount({
+          walletId: wallet.id,
+          accountId: firstAccountId,
+        });
+        return;
       }
     }
 

@@ -2170,6 +2170,7 @@
   "msg__insufficient_balance": "अपर्याप्त शेषराशि",
   "msg__insufficient_balance_available_amount_str_str": "अपर्याप्त शेषराशि। उपलब्ध राशि: {amount} {symbol}",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "नेटवर्क शुल्क के लिए अपर्याप्त देशी टोकन शेष। उपलब्ध राशि: {amount} {symbol}",
+  "msg__insufficient_outbound_liquidity_sending_failed": "अपर्याप्त आउटबाउंड तरलता, प्रेषण विफल",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "अमान्य पता! सामान्य संपत्तियां केवल टैपरूट पतों पर भेजी जा सकती हैं",
   "msg__invalid_file_format": "अमान्य फाइल प्रारूप",
   "msg__invalid_hex_data": "अमान्य HEX डेटा.",

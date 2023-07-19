@@ -2170,6 +2170,7 @@
   "msg__insufficient_balance": "Solde insuffisant",
   "msg__insufficient_balance_available_amount_str_str": "Solde insuffisant. Montant disponible : {amount} {symbol}",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Solde de jeton natif insuffisant pour les frais de réseau. Montant disponible : {amount} {symbol}",
+  "msg__insufficient_outbound_liquidity_sending_failed": "Liquidité sortante insuffisante, échec de l'envoi",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "Adresse invalide! Les ressources ordinales ne peuvent être envoyées qu'aux adresses Taproot",
   "msg__invalid_file_format": "Format de fichier invalide",
   "msg__invalid_hex_data": "Données HEX non valides.",

@@ -2170,6 +2170,7 @@
   "msg__insufficient_balance": "Saldo insuficiente",
   "msg__insufficient_balance_available_amount_str_str": "Saldo insuficiente. Cantidad disponible: {amount} {symbol}",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Saldo de token nativo insuficiente para las tarifas de red. Cantidad disponible: {amount} {symbol}",
+  "msg__insufficient_outbound_liquidity_sending_failed": "Liquidez saliente insuficiente, envío fallido",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "¡Dirección inválida! Los activos ordinales solo se pueden enviar a direcciones Taproot",
   "msg__invalid_file_format": "Formato de archivo inválido",
   "msg__invalid_hex_data": "Datos HEX no válidos.",

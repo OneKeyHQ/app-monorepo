@@ -2170,6 +2170,7 @@
   "msg__insufficient_balance": "余額不足",
   "msg__insufficient_balance_available_amount_str_str": "餘額不足。可用金額： {amount} {symbol}",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "原生代幣餘額不足以支付網絡費用。可用金額： {amount} {symbol}",
+  "msg__insufficient_outbound_liquidity_sending_failed": "出賬容量不足，發送失敗",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "無效地址！Ordinal 資產只能發送給 Taproot 地址",
   "msg__invalid_file_format": "無效的文件格式",
   "msg__invalid_hex_data": "無效的十六進制數據。",

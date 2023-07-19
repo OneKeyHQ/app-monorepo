@@ -2170,6 +2170,7 @@
   "msg__insufficient_balance": "Saldo tidak mencukupi",
   "msg__insufficient_balance_available_amount_str_str": "Saldo tidak mencukupi. Jumlah yang tersedia: {amount} {symbol}",
   "msg__insufficient_native_token_for_network_fees_available_amount_str_str": "Saldo token asli tidak mencukupi untuk biaya jaringan. Jumlah yang tersedia: {amount} {symbol}",
+  "msg__insufficient_outbound_liquidity_sending_failed": "Likuiditas keluar tidak mencukupi, pengiriman gagal",
   "msg__invalid_address_ordinal_can_only_be_sent_to_taproot_address": "Alamat tidak valid! Aset ordinal hanya dapat dikirim ke alamat Taproot",
   "msg__invalid_file_format": "Format file tidak valid",
   "msg__invalid_hex_data": "Data HEX tidak valid.",

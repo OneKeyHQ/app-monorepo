@@ -1,17 +1,24 @@
 import { debounce } from 'lodash';
 
 import {
+  AllNetworksMinAccountsError,
+  AllNetworksUpto3LimitsError,
+} from '@onekeyhq/engine/src/errors';
+import {
   allNetworksAccountRegex,
   generateFakeAllnetworksAccount,
   getWalletIdFromAccountId,
+  isAccountCompatibleWithNetwork,
 } from '@onekeyhq/engine/src/managers/account';
 import { getPath } from '@onekeyhq/engine/src/managers/derivation';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
 import { isWalletCompatibleAllNetworks } from '@onekeyhq/engine/src/managers/wallet';
 import type { Account } from '@onekeyhq/engine/src/types/account';
+import { AccountType } from '@onekeyhq/engine/src/types/account';
 import {
   clearOverviewPendingTasks,
   removeAllNetworksAccountsMapByAccountId,
+  setAllNetworksAccountsLoading,
   setAllNetworksAccountsMap,
 } from '@onekeyhq/kit/src/store/reducers/overview';
 import {
@@ -19,6 +26,7 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   IMPL_EVM,
   IMPL_SOL,
@@ -74,12 +82,27 @@ export default class ServiceAllNetwork extends ServiceBase {
       { walletId },
     );
 
+    const isValidUtxoAccount = (account: Account) =>
+      account.type === AccountType.UTXO &&
+      !![
+        OnekeyNetwork.btc,
+        OnekeyNetwork.ltc,
+        OnekeyNetwork.bch,
+        OnekeyNetwork.doge,
+        OnekeyNetwork.ada,
+      ].find((nid) => isAccountCompatibleWithNetwork(account.id, nid));
+
     for (const [template, info] of Object.entries(accountDerivation)) {
       if (info?.accounts?.length) {
-        for (const accountId of info.accounts) {
-          const match = accountId.match(
+        const accounts = await engine.getAccounts(info.accounts);
+        for (const account of accounts) {
+          const replaceStr = isValidUtxoAccount(account)
+            ? new RegExp(`${INDEX_PLACEHOLDER.replace(/\$/g, '\\$')}.*$`)
+            : INDEX_PLACEHOLDER;
+
+          const match = account.id.match(
             new RegExp(
-              `${walletId}--${template}`.replace(INDEX_PLACEHOLDER, '(\\d+)'),
+              `${walletId}--${template}`.replace(replaceStr, '(\\d+)'),
             ),
           );
 
@@ -177,8 +200,15 @@ export default class ServiceAllNetwork extends ServiceBase {
     if (!wallet) {
       return {};
     }
+    const activeAccountId = accountId ?? `${walletId}--${index}`;
     const networks = appSelector((s) => s.runtime.networks ?? []);
 
+    dispatch(
+      setAllNetworksAccountsLoading({
+        accountId: activeAccountId,
+        data: true,
+      }),
+    );
     for (const n of networks.filter(
       (item) =>
         item.enabled && !item.isTestnet && !item.settings.validationRequired,
@@ -199,7 +229,6 @@ export default class ServiceAllNetwork extends ServiceBase {
         networkAccountsMap[n.id] = filteredAccoutns;
       }
     }
-    const activeAccountId = accountId ?? `${walletId}--${index}`;
     dispatch(
       clearOverviewPendingTasks(),
       setAllNetworksAccountsMap({
@@ -263,7 +292,9 @@ export default class ServiceAllNetwork extends ServiceBase {
     });
 
     if (maxIndex === -1) {
-      return false;
+      throw new AllNetworksMinAccountsError('', {
+        0: 0,
+      });
     }
 
     const allNetworksAccountsMap = appSelector(
@@ -275,7 +306,9 @@ export default class ServiceAllNetwork extends ServiceBase {
     );
 
     if (accountIds.length >= 3) {
-      return;
+      throw new AllNetworksUpto3LimitsError('', {
+        0: 3,
+      });
     }
 
     let accountMaxIndex = 0;
@@ -287,6 +320,12 @@ export default class ServiceAllNetwork extends ServiceBase {
     }
 
     const fakeNewAccountId = `${walletId}--${accountMaxIndex}`;
+
+    if (allNetworksAccountsMap?.[fakeNewAccountId]) {
+      throw new AllNetworksMinAccountsError('', {
+        0: accountMaxIndex + 2,
+      });
+    }
 
     const account = await this.generateAllNetworksWalletAccounts({
       walletId,
