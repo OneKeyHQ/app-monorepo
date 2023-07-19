@@ -11,11 +11,9 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
   ChannelInsufficientLiquidityError,
-  InsufficientBalance,
   InvalidLightningPaymentRequest,
   InvoiceAlreadPaid,
   InvoiceExpiredError,
-  NoLightningChannelError,
   NoRouteFoundError,
 } from '../../../errors';
 import { TransactionStatus } from '../../../types/provider';
@@ -448,7 +446,6 @@ export default class Vault extends VaultBase {
     debugLogger.engine.info('broadcastTransaction START:', {
       rawTx: signedTx.rawTx,
     });
-    console.log('===> options: ', options);
     let result;
     try {
       const client = await this.getClient();
@@ -537,7 +534,6 @@ export default class Vault extends VaultBase {
   override async getTransactionStatuses(
     txids: string[],
   ): Promise<(TransactionStatus | undefined)[]> {
-    console.log('===>>>txids: ', txids);
     const address = await this.getCurrentBalanceAddress();
     return Promise.all(
       txids.map(async (txid) => {
