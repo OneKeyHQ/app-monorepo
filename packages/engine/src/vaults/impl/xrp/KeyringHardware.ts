@@ -1,6 +1,7 @@
 import { hashes } from 'xrpl';
 
 import type { SignedTx, UnsignedTx } from '@onekeyhq/engine/src/types/provider';
+import { UnknownHardwareError } from '@onekeyhq/kit/src/utils/hardware/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import { COINTYPE_XRP as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -136,6 +137,9 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     if (response.success) {
       const { serializedTx } = response.payload;
+      if (!serializedTx) {
+        throw new UnknownHardwareError();
+      }
       return {
         txid: hashes.hashSignedTx(serializedTx),
         rawTx: serializedTx,
