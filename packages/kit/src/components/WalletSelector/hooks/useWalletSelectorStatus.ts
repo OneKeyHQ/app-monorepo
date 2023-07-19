@@ -8,8 +8,12 @@ import { useRuntimeWallets } from '../../../hooks/redux';
 
 function useWalletSelectorStatus() {
   const isVertical = useIsVerticalLayout();
-  const { isDesktopWalletSelectorVisible, isMobileWalletSelectorDrawerOpen } =
-    useAppSelector((s) => s.accountSelector);
+  const isDesktopWalletSelectorVisible = useAppSelector(
+    (s) => s.accountSelector.isDesktopWalletSelectorVisible,
+  );
+  const isMobileWalletSelectorDrawerOpen = useAppSelector(
+    (s) => s.accountSelector.isMobileWalletSelectorDrawerOpen,
+  );
   const { wallets } = useRuntimeWallets();
 
   const existsHardwareWallet = useMemo(

@@ -1,6 +1,7 @@
 import { TabRoutes } from '../../routes/routesEnum';
 import { ScreenMarketOrSwap } from '../Market/ScreenMarketOrSwap';
+import { memo } from 'react';
 
-export function ScreenSwap() {
-  return <ScreenMarketOrSwap routeName={TabRoutes.Swap} />;
-}
+const ScreenSwap = () => <ScreenMarketOrSwap routeName={TabRoutes.Swap} />;
+
+export default memo(ScreenSwap);
