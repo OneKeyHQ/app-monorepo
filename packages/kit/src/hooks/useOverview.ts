@@ -15,12 +15,16 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { getTimeDurationMs } from '../utils/helper';
+import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
 import { getPreBaseValue } from '../utils/priceUtils';
-import { EOverviewScanTaskType } from '../views/Overview/types';
+import {
+  EOverviewScanTaskType,
+  OverviewModalRoutes,
+} from '../views/Overview/types';
 
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
+import useNavigation from './useNavigation';
 import { useFrozenBalance, useSingleToken } from './useTokens';
 
 import type { IAppState } from '../store';
@@ -94,6 +98,49 @@ const filterAccountTokens = <T>({
   return filteredTokens as T;
 };
 
+const tasksSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createSelector([(s: IAppState) => s.overview.tasks], (tasks) => {
+    const data = Object.values(tasks || {});
+    return data.filter((t) => t.key === `${networkId}___${accountId}`);
+  });
+
+const updatedTimeSelector = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  createSelector(
+    (s: IAppState) => s.overview.updatedTimeMap,
+    (updatedTimeMap) =>
+      updatedTimeMap?.[`${networkId}___${accountId}`]?.updatedAt,
+  );
+
+export const useOverviewAccountUpdateInfo = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) =>
+  useAppSelector(
+    useMemo(
+      () =>
+        createSelector(
+          (s: IAppState) => s.overview.updatedTimeMap,
+          (m) => m?.[`${networkId ?? ''}___${accountId ?? ''}`] ?? {},
+        ),
+      [accountId, networkId],
+    ),
+  );
+
 export const useAccountPortfolios = <
   T extends keyof OverviewAllNetworksPortfolioRes,
 >({
@@ -114,11 +161,10 @@ export const useAccountPortfolios = <
     updatedAt: undefined,
     loading: true,
   });
-  const updateInfo = useAppSelector(
-    (s) =>
-      s.overview.updatedTimeMap?.[`${networkId ?? ''}___${accountId ?? ''}`] ??
-      {},
-  );
+  const updateInfo = useOverviewAccountUpdateInfo({
+    networkId: networkId ?? '',
+    accountId: accountId ?? '',
+  });
 
   const { data: networkAccountsMap } = useAllNetworksWalletAccounts({
     accountId,
@@ -207,6 +253,67 @@ export function useAccountTokensOnChain(
   });
 }
 
+export const useOverviewPendingTasks = ({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) => {
+  const updatedAt = useAppSelector(
+    useMemo(
+      () => updatedTimeSelector({ networkId, accountId }),
+      [networkId, accountId],
+    ),
+  );
+
+  const tasks = useAppSelector(
+    useMemo(
+      () => tasksSelector({ networkId, accountId }),
+      [networkId, accountId],
+    ),
+  );
+
+  return {
+    tasks,
+    updatedAt,
+  };
+};
+
+export function useAccountTokenLoading(networkId: string, accountId: string) {
+  const pendingTasks = useOverviewPendingTasks({ networkId, accountId });
+  const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
+
+  const { data, loading: allNetworksAccountsLoading } =
+    useAllNetworksWalletAccounts({
+      accountId,
+    });
+
+  return useMemo(() => {
+    if (isAllNetworks(networkId)) {
+      const { tasks, updatedAt } = pendingTasks;
+      if (allNetworksAccountsLoading) {
+        return true;
+      }
+      if (!Object.keys(data).length) {
+        return false;
+      }
+      return (
+        tasks?.filter((t) => t.scanType === EOverviewScanTaskType.token)
+          .length > 0 || typeof updatedAt === 'undefined'
+      );
+    }
+    return typeof accountTokens[networkId]?.[accountId] === 'undefined';
+  }, [
+    networkId,
+    accountId,
+    accountTokens,
+    pendingTasks,
+    data,
+    allNetworksAccountsLoading,
+  ]);
+}
+
 export function useAccountTokens({
   networkId = '',
   accountId = '',
@@ -221,16 +328,24 @@ export function useAccountTokens({
   const { hideRiskTokens, hideSmallBalance, putMainTokenOnTop } =
     useAppSelector((s) => s.settings);
 
-  const { data: allNetworksTokens = [], loading } = useAccountPortfolios({
-    networkId,
-    accountId,
-    type: EOverviewScanTaskType.token,
-  });
+  const { data: allNetworksTokens = [], loading: allNetworksTokensLoading } =
+    useAccountPortfolios({
+      networkId,
+      accountId,
+      type: EOverviewScanTaskType.token,
+    });
 
   const accountTokensOnChain = useAccountTokensOnChain(
     networkId,
     accountId,
     false,
+  );
+
+  const accountTokensLoading = useAccountTokenLoading(networkId, accountId);
+
+  const loading = useMemo(
+    () => accountTokensLoading || allNetworksTokensLoading,
+    [accountTokensLoading, allNetworksTokensLoading],
   );
 
   const valueTokens: IAccountToken[] = useMemo(() => {
@@ -289,15 +404,8 @@ export function useAccountTokens({
     return accountTokens;
   }, [networkId, allNetworksTokens, limitSize, accountTokensOnChain]);
 
-  if (loading) {
-    return {
-      loading,
-      data: [],
-    };
-  }
-
   return {
-    loading: false,
+    loading,
     data: filterAccountTokens<IAccountToken[]>({
       tokens: valueTokens,
       useFilter,
@@ -518,6 +626,7 @@ export const useTokenPositionInfo = ({
   coingeckoId?: string;
 }) => {
   const intl = useIntl();
+  const navigation = useNavigation();
   const { data: defis } = useAccountPortfolios({
     accountId,
     networkId,
@@ -535,8 +644,13 @@ export const useTokenPositionInfo = ({
   });
 
   // TODO: fetch minerOverview
-
   const minerOverview = useAppSelector((s) => s.staking.keleMinerOverviews);
+
+  const getAccountFromAccountAddress = useCallback(
+    (nid: string, accountAddress: string) =>
+      allNetworksAccountsMap?.[nid]?.find((a) => a.address === accountAddress),
+    [allNetworksAccountsMap],
+  );
 
   const getStakingAmountInfo = useCallback(
     ({
@@ -593,6 +707,27 @@ export const useTokenPositionInfo = ({
     };
   }, [getStakingAmountInfo, intl, accountId, networkId]);
 
+  const onPresDefiProtocol = useCallback(
+    ({ protocolId, poolCode }: { protocolId: string; poolCode: string }) => {
+      if (!networkId || !accountId) {
+        return;
+      }
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Overview,
+        params: {
+          screen: OverviewModalRoutes.OverviewProtocolDetail,
+          params: {
+            protocolId,
+            networkId,
+            accountId,
+            poolCode,
+          },
+        },
+      });
+    },
+    [navigation, accountId, networkId],
+  );
+
   return useMemo(() => {
     let balance = new B(0);
     const items: IOverviewTokenDetailListItem[] = [];
@@ -611,6 +746,11 @@ export const useTokenPositionInfo = ({
             type: 'Token',
             balance: item.balance,
             networkId: item.networkId,
+            accountName:
+              getAccountFromAccountAddress(
+                item.networkId,
+                item.accountAddress ?? '',
+              )?.name ?? '',
           });
         });
         balance = balance.plus(t.balance);
@@ -634,6 +774,11 @@ export const useTokenPositionInfo = ({
                 type: p[0],
                 balance: t.balanceParsed ?? '0',
                 networkId: d._id.networkId,
+                onPress: () =>
+                  onPresDefiProtocol({
+                    protocolId: d._id.protocolId,
+                    poolCode: item.poolCode,
+                  }),
               });
               balance = balance.plus(t.balanceParsed ?? 0);
             }
@@ -644,6 +789,7 @@ export const useTokenPositionInfo = ({
 
     const { balance: stakingBalance, networkId: stakingNetworkId } =
       keleStakingInfo ?? {};
+
     if (stakingBalance?.gt(0) && stakingNetworkId) {
       balance = balance.plus(keleStakingInfo.balance);
       items.push({
@@ -662,6 +808,8 @@ export const useTokenPositionInfo = ({
       items,
     };
   }, [
+    onPresDefiProtocol,
+    getAccountFromAccountAddress,
     sendAddress,
     intl,
     accountTokens,
@@ -677,10 +825,12 @@ export const useTokenDetailInfo = ({
   coingeckoId,
   networkId,
   tokenAddress,
+  defaultInfo = {},
 }: {
   coingeckoId?: string;
   networkId?: string;
   tokenAddress?: string;
+  defaultInfo?: Record<string, unknown>;
 }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ITokenDetailInfo | undefined>();
@@ -717,6 +867,7 @@ export const useTokenDetailInfo = ({
     );
 
     return {
+      ...defaultInfo,
       ...pick(token, 'name', 'symbol', 'logoURI'),
       ...data,
       loading: loading || tokenLoading,
@@ -724,132 +875,5 @@ export const useTokenDetailInfo = ({
       defaultToken,
       ethereumNativeToken,
     };
-  }, [data, token, loading, tokenLoading]);
+  }, [data, token, loading, tokenLoading, defaultInfo]);
 };
-
-const tasksSelector = ({
-  networkId,
-  accountId,
-}: {
-  networkId: string;
-  accountId: string;
-}) =>
-  createSelector([(s: IAppState) => s.overview.tasks], (tasks) => {
-    const data = Object.values(tasks || {});
-    return data.filter((t) => t.key === `${networkId}___${accountId}`);
-  });
-
-const updatedTimeSelector = ({
-  networkId,
-  accountId,
-}: {
-  networkId: string;
-  accountId: string;
-}) =>
-  createSelector(
-    (s: IAppState) => s.overview.updatedTimeMap,
-    (updatedTimeMap) =>
-      updatedTimeMap?.[`${networkId}___${accountId}`]?.updatedAt,
-  );
-
-export const useOverviewPendingTasks = ({
-  networkId,
-  accountId,
-}: {
-  networkId: string;
-  accountId: string;
-}) => {
-  const intl = useIntl();
-
-  const updatedAt = useAppSelector(
-    useMemo(
-      () => updatedTimeSelector({ networkId, accountId }),
-      [networkId, accountId],
-    ),
-  );
-
-  const tasks = useAppSelector(
-    useMemo(
-      () => tasksSelector({ networkId, accountId }),
-      [networkId, accountId],
-    ),
-  );
-
-  const updateTips = useMemo(() => {
-    if (tasks?.length) {
-      return intl.formatMessage({
-        id: 'content__updating_assets',
-      });
-    }
-    const duration = Date.now() - updatedAt;
-    if (
-      duration <
-      getTimeDurationMs({
-        minute: 2,
-      })
-    ) {
-      return intl.formatMessage({
-        id: 'form__updated_just_now',
-      });
-    }
-    if (
-      duration <
-      getTimeDurationMs({
-        hour: 1,
-      })
-    ) {
-      return intl.formatMessage(
-        {
-          id: 'form__updated_str_ago',
-        },
-        {
-          0: `${Math.floor(duration / 1000 / 60)} m`,
-        },
-      );
-    }
-    if (
-      duration >
-      getTimeDurationMs({
-        hour: 1,
-      })
-    ) {
-      return intl.formatMessage(
-        {
-          id: 'form__updated_str_ago',
-        },
-        {
-          0: `${Math.floor(duration / 1000 / 60 / 60)} h`,
-        },
-      );
-    }
-  }, [tasks, updatedAt, intl]);
-
-  return {
-    tasks,
-    updatedAt,
-    updateTips,
-  };
-};
-
-export function useAccountTokenLoading(networkId: string, accountId: string) {
-  const pendingTasks = useOverviewPendingTasks({ networkId, accountId });
-  const accountTokens = useAppSelector((s) => s.tokens.accountTokens);
-
-  const { data } = useAllNetworksWalletAccounts({
-    accountId,
-  });
-
-  return useMemo(() => {
-    if (isAllNetworks(networkId)) {
-      const { tasks, updatedAt } = pendingTasks;
-      if (!Object.keys(data).length) {
-        return false;
-      }
-      return (
-        tasks?.filter((t) => t.scanType === EOverviewScanTaskType.token)
-          .length > 0 || typeof updatedAt === 'undefined'
-      );
-    }
-    return typeof accountTokens[networkId]?.[accountId] === 'undefined';
-  }, [networkId, accountId, accountTokens, pendingTasks, data]);
-}

@@ -5,7 +5,6 @@ import { useRoute } from '@react-navigation/core';
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import semver from 'semver';
 
 import {
   Box,

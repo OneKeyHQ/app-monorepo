@@ -93,7 +93,9 @@ const data: DataItem[] = [
     iconBg: 'decorative-surface-two',
     title: 'title__bulksender',
     description: 'title__bulksender_desc',
-    filter: ({ network }) =>
+    filter: ({ network, account }) =>
+      !!account &&
+      !account?.id.startsWith('watching-') &&
       !!network?.settings?.supportBatchTransfer &&
       (network.settings.nativeSupportBatchTransfer
         ? true
@@ -166,7 +168,7 @@ const ToolsPage: FC = () => {
   const items = useMemo(() => {
     let allItems = data;
     allItems = allItems.concat(
-      Object.values(groupBy(tools, 'networkId'))
+      Object.values(groupBy(tools, 'title'))
         .filter((ts) => ts.length > 0)
         .map((ts) => {
           const t = ts[0];
@@ -188,20 +190,19 @@ const ToolsPage: FC = () => {
     if (!isAllNetworks(network?.id)) {
       return allItems.filter((n) => n.filter?.({ network, account }) ?? true);
     }
-    return allItems.filter((item) =>
-      Object.entries(networkAccountsMap).some(([nid, accounts]) => {
+    return allItems.filter((item) => {
+      for (const [nid, accounts] of Object.entries(networkAccountsMap)) {
         const n = enabledNetworks.find((i) => i.id === nid);
-        if (!n) {
-          return false;
-        }
-        for (const a of accounts) {
-          if (item.filter && !item.filter({ network: n, account: a })) {
-            return true;
+        if (n) {
+          for (const a of accounts) {
+            if (!item.filter || item.filter({ network: n, account: a })) {
+              return true;
+            }
           }
         }
-        return false;
-      }),
-    );
+      }
+      return false;
+    });
   }, [account, network, tools, networkAccountsMap, enabledNetworks]);
 
   const handlePress = useCallback(

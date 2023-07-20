@@ -26,7 +26,7 @@ function BTCAssetImageContent(params: {
   const hasBlurViewBG = asset?.content_type?.includes('image');
   const { Component: CollectibleContent } = getBTCListComponent({
     data: asset,
-    isList: false,
+    sizeType: 'detail',
   });
 
   // eslint-disable-next-line no-nested-ternary

@@ -19,6 +19,7 @@ import {
   Icon,
   Keyboard,
   Pressable,
+  RichTooltip,
   Spinner,
   Text,
   ToastManager,
@@ -26,6 +27,7 @@ import {
   useIsVerticalLayout,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import { getClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -75,6 +77,14 @@ export function PreSendAmountPreview({
   loading?: boolean;
   placeholder?: string;
 }) {
+  const intl = useIntl();
+  const [isVisible, setIsVisible] = useState(false);
+  const onPaste = useCallback(async () => {
+    const pastedText = await getClipboard();
+    onChangeText?.(pastedText);
+    setIsVisible(false);
+  }, [onChangeText]);
+
   const descView = useMemo(() => {
     if (!desc) {
       return null;
@@ -93,6 +103,18 @@ export function PreSendAmountPreview({
       </Text>
     );
   }, [desc]);
+
+  const TextView = useMemo(
+    () => (
+      <AutoSizeText
+        autoFocus
+        text={text}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+      />
+    ),
+    [onChangeText, placeholder, text],
+  );
   return (
     <Box height="140px">
       {!!title && (
@@ -108,15 +130,28 @@ export function PreSendAmountPreview({
           {titleAction}
         </HStack>
       )}
-
-      {/* placeholder={intl.formatMessage({ id: 'content__amount' })} */}
       <Center flex={1} maxH="64px" mt={2} mb={3}>
-        <AutoSizeText
-          autoFocus
-          text={text}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-        />
+        {platformEnv.isNative ? (
+          <RichTooltip
+            // eslint-disable-next-line
+            trigger={({ ...props }) => (
+              <Pressable {...props}>{TextView}</Pressable>
+            )}
+            bodyProps={{
+              children: (
+                <Pressable onPress={onPaste}>
+                  <Text typography="Body2" fontSize={15}>
+                    {intl.formatMessage({ id: 'action__paste' })}
+                  </Text>
+                </Pressable>
+              ),
+            }}
+            visible={isVisible}
+            onToggle={setIsVisible}
+          />
+        ) : (
+          TextView
+        )}
       </Center>
 
       {loading ? <Spinner size="sm" /> : descView}

@@ -122,6 +122,13 @@ function PreSendAddress() {
   );
   const nativeToken = useNativeToken(networkId);
 
+  useEffect(() => {
+    backgroundApiProxy.serviceToken.fetchAccountTokens({
+      networkId,
+      accountId,
+    });
+  }, [accountId, networkId]);
+
   const [nftInfo, updateNFTInfo] = useState<INFTAsset>();
   useEffect(() => {
     (async () => {
@@ -372,8 +379,22 @@ function PreSendAddress() {
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [navigation, nftInfo, transferInfo, transferInfos, closeModal],
+    [
+      account,
+      network,
+      nftInfo,
+      transferInfo,
+      transferInfos,
+      intl,
+      serviceBatchTransfer,
+      networkId,
+      accountId,
+      navigation,
+      closeModal,
+      serviceNFT,
+      engine,
+      nativeToken?.symbol,
+    ],
   );
 
   const lightningNetworkSendConfirm = useCallback(

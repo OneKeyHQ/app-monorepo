@@ -9,6 +9,7 @@ import {
   Badge,
   Box,
   HStack,
+  Icon,
   ListItem,
   Token,
   Typography,
@@ -21,7 +22,7 @@ import {
   FormatBalance,
   FormatCurrencyNumber,
 } from '../../../components/Format';
-import { useManageNetworks } from '../../../hooks';
+import { useAccount, useManageNetworks } from '../../../hooks';
 import { TokenDetailContext } from '../context';
 
 import type { IOverviewTokenDetailListItem } from '../../Overview/types';
@@ -32,8 +33,12 @@ const AssetsInfo: FC = () => {
   const { allNetworks } = useManageNetworks();
   const context = useContext(TokenDetailContext);
 
-  const { price } = context?.routeParams ?? {};
-  const { items } = context?.positionInfo ?? {};
+  const { price, networkId, accountId } = context?.routeParams ?? {};
+  const { account } = useAccount({
+    networkId: networkId ?? '',
+    accountId: accountId ?? '',
+  });
+  const { items, balance } = context?.positionInfo ?? {};
   const isVerticalLayout = useIsVerticalLayout();
 
   const sections = useMemo(
@@ -49,22 +54,22 @@ const AssetsInfo: FC = () => {
   );
 
   const renderSectionHeader = useCallback(
-    ({ section: { network, data } }: { section: typeof sections[0] }) => {
+    ({ section: { network } }: { section: typeof sections[0] }) => {
       if (!network) {
         return null;
       }
       return (
         <VStack mt="6">
-          <HStack>
+          <HStack alignItems="center">
             <Token
               size="5"
-              showInfo
               token={{
-                name: network?.name?.toUpperCase(),
                 logoURI: network?.logoURI,
               }}
             />
-            <Badge ml="3" size="sm" title={String(data?.length ?? 0)} />
+            <Typography.Subheading ml="2" color="text-subdued">
+              {network?.name?.toUpperCase()}
+            </Typography.Subheading>
           </HStack>
 
           <>
@@ -86,7 +91,7 @@ const AssetsInfo: FC = () => {
                   flex={1}
                   text={{
                     label: intl.formatMessage({
-                      id: 'content__type',
+                      id: 'form__proportion_uppercase',
                     }),
                     labelProps: {
                       typography: 'Subheading',
@@ -139,6 +144,11 @@ const AssetsInfo: FC = () => {
 
       const value = new B(item.balance ?? 0).multipliedBy(price ?? 0);
 
+      const proportion = `${new B(item.balance ?? 0)
+        .dividedBy(balance ?? 0)
+        .multipliedBy(100)
+        .toFixed(2)}%`;
+
       const formatedBalance = (
         <FormatBalance
           balance={item.balance}
@@ -148,20 +158,44 @@ const AssetsInfo: FC = () => {
           }}
         />
       );
+
+      const tokenItem = (
+        <HStack flex="3" alignItems="center">
+          {item.type === 'Token' ? (
+            <Box
+              size="8"
+              borderRadius="999px"
+              bg="action-primary-default"
+              justifyContent="center"
+              alignItems="center"
+            >
+              <Icon size={20} color="icon-on-primary" name="WalletOutline" />
+            </Box>
+          ) : (
+            <Token
+              size={8}
+              token={{
+                logoURI: token.logoURI,
+              }}
+            />
+          )}
+          <VStack alignItems="center" justifyContent="center" ml="3">
+            <Typography.Body1Strong>
+              {item.type === 'Token'
+                ? item.accountName || account?.name || item.name
+                : item.name}
+            </Typography.Body1Strong>
+            {isVerticalLayout ? (
+              <Badge size="sm" type="info" title={proportion} mt="1" />
+            ) : null}
+          </VStack>
+        </HStack>
+      );
+
       if (isVerticalLayout) {
         return (
-          <ListItem mx="-8px">
-            <ListItem.Column>
-              <Token
-                flex="1"
-                size="40px"
-                showInfo
-                token={token}
-                showExtra={false}
-                description={formatedBalance}
-                infoBoxProps={{ flex: 1 }}
-              />
-            </ListItem.Column>
+          <ListItem mx="-8px" onPress={item.onPress}>
+            <ListItem.Column>{tokenItem}</ListItem.Column>
             <ListItem.Column
               flex={1}
               alignItems="flex-end"
@@ -172,9 +206,9 @@ const AssetsInfo: FC = () => {
                   </Typography.Body1Strong>
                 ),
                 description: (
-                  <Box>
-                    <Badge size="sm" type="info" title={item.type} />
-                  </Box>
+                  <Typography.Body2 color="text-subdued">
+                    {formatedBalance}
+                  </Typography.Body2>
                 ),
               }}
             />
@@ -184,22 +218,10 @@ const AssetsInfo: FC = () => {
       return (
         <>
           <Box borderBottomWidth={1} borderColor="divider" />
-          <ListItem mx="-8px" py={4}>
-            <Token
-              flex={3}
-              size="32px"
-              showInfo
-              showDescription={false}
-              token={token}
-              showExtra={false}
-              infoBoxProps={{ flex: 1 }}
-            />
+          <ListItem mx="-8px" py={4} onPress={item.onPress}>
+            {tokenItem}
             <Box flex={1} flexDirection="row" justifyContent="flex-end">
-              <Badge
-                size="sm"
-                type="info"
-                title={intl.formatMessage({ id: 'form__token' })}
-              />
+              <Badge size="sm" type="info" title={proportion} />
             </Box>
             <ListItem.Column
               flex={2.5}
@@ -225,7 +247,7 @@ const AssetsInfo: FC = () => {
         </>
       );
     },
-    [intl, isVerticalLayout, price],
+    [isVerticalLayout, price, balance, account?.name],
   );
 
   return (

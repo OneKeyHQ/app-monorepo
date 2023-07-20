@@ -3,7 +3,8 @@ import { isArray, isNil } from 'lodash';
 import { InteractionManager } from 'react-native';
 import { FileLogger, LogLevel } from 'react-native-file-logger';
 import { logger as RNLogger, consoleTransport } from 'react-native-logs';
-import { zip } from 'react-native-zip-archive';
+
+import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archive';
 
 import platformEnv from '../platformEnv';
 import appStorage from '../storage/appStorage';
@@ -149,10 +150,12 @@ export const getLogZipPath = async (fileName: string) => {
   try {
     await removeLogZipDir();
     await createLogZipDir();
-    return await zip(
-      NATIVE_LOG_DIR_PATH,
-      `${NATIVE_LOG_ZIP_DIR_PATH}/${fileName}`,
-    );
+    const distLogPath = `${NATIVE_LOG_ZIP_DIR_PATH}/${fileName}`;
+    await zip(NATIVE_LOG_DIR_PATH, `${NATIVE_LOG_ZIP_DIR_PATH}/${fileName}`);
+    if (!(await RNFS.exists(distLogPath))) {
+      throw new Error('zip log path is not exist');
+    }
+    return platformEnv.isNativeAndroid ? `file://${distLogPath}` : distLogPath;
   } catch (e) {
     const files = await RNFS.readDir(NATIVE_LOG_DIR_PATH);
     const sortedFiles = files

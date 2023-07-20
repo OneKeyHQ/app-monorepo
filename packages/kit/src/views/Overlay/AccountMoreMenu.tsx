@@ -109,7 +109,7 @@ const AccountMoreMenu: FC<IMenu> = (props) => {
     enabledAccountDynamicNetworkIds.includes(network?.id || '') &&
     isCoinTypeCompatibleWithImpl(account.coinType, IMPL_EVM);
 
-  const showCoinControl = network?.settings.isBtcForkChain;
+  const showCoinControl = network?.settings.isBtcForkChain && !!account?.xpub;
 
   const accountSubscriptionIcon = useMemo(
     () => (enabledNotification ? 'BellSlashMini' : 'BellMini'),

@@ -7,6 +7,7 @@ import { KeyringImported as KeyringImportedBtcFork } from '@onekeyhq/engine/src/
 import { OneKeyInternalError } from '../../../errors';
 import { AccountType } from '../../../types/account';
 import { AddressEncodings } from '../../utils/btcForkChain/types';
+import { initBitcoinEcc } from '../../utils/btcForkChain/utils';
 
 import type { DBUTXOAccount } from '../../../types/account';
 import type { IPrepareImportedAccountsParams } from '../../types';
@@ -16,6 +17,7 @@ export class KeyringImported extends KeyringImportedBtcFork {
   override async prepareAccounts(
     params: IPrepareImportedAccountsParams,
   ): Promise<DBUTXOAccount[]> {
+    initBitcoinEcc();
     const { privateKey, name, template } = params;
     const provider = await (
       this.vault as unknown as BTCForkVault

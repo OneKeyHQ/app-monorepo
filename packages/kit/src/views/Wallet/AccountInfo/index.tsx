@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -32,6 +32,7 @@ import { useAllNetworksWalletAccounts } from '../../../hooks/useAllNetwoks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddress } from '../../../hooks/useCopyAddress';
 import useOpenBlockBrowser from '../../../hooks/useOpenBlockBrowser';
+import { getTimeDurationMs } from '../../../utils/helper';
 import { calculateGains } from '../../../utils/priceUtils';
 import { showAccountValueSettings } from '../../Overlay/AccountValueSettings';
 
@@ -158,6 +159,7 @@ const SectionOpenBlockBrowser = () => {
 
 const AccountAmountInfo: FC = () => {
   const intl = useIntl();
+  const [ellipsis, setEllipsis] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const { networkId, accountId } = useActiveWalletAccount();
 
@@ -166,10 +168,72 @@ const AccountAmountInfo: FC = () => {
     accountId,
   });
 
-  const { updateTips, tasks } = useOverviewPendingTasks({
+  const { tasks, updatedAt } = useOverviewPendingTasks({
     networkId,
     accountId,
   });
+
+  useEffect(() => {
+    if (!tasks.length) {
+      return;
+    }
+    const timer = setInterval(() => {
+      setEllipsis((t) => (t.length < 3 ? `${t}.` : ''));
+    }, 500);
+
+    return () => clearInterval(timer);
+  }, [tasks?.length]);
+
+  const updateTips = useMemo(() => {
+    if (tasks?.length) {
+      return (
+        intl.formatMessage({
+          id: 'content__updating_assets',
+        }) + ellipsis
+      );
+    }
+    const duration = Date.now() - updatedAt;
+    if (
+      duration <
+      getTimeDurationMs({
+        minute: 2,
+      })
+    ) {
+      return intl.formatMessage({
+        id: 'form__updated_just_now',
+      });
+    }
+    if (
+      duration <
+      getTimeDurationMs({
+        hour: 1,
+      })
+    ) {
+      return intl.formatMessage(
+        {
+          id: 'form__updated_str_ago',
+        },
+        {
+          0: `${Math.floor(duration / 1000 / 60)} m`,
+        },
+      );
+    }
+    if (
+      duration >
+      getTimeDurationMs({
+        hour: 1,
+      })
+    ) {
+      return intl.formatMessage(
+        {
+          id: 'form__updated_str_ago',
+        },
+        {
+          0: `${Math.floor(duration / 1000 / 60 / 60)} h`,
+        },
+      );
+    }
+  }, [updatedAt, intl, tasks.length, ellipsis]);
 
   const [showPercentage, setShowPercentage] = useState(false);
 
@@ -228,7 +292,7 @@ const AccountAmountInfo: FC = () => {
               percentageGain
             ) : (
               <>
-                {gainNumber > 0 ? '+' : '-'}
+                {gainNumber >= 0 ? '+' : '-'}
                 <FormatCurrencyNumber
                   value={Math.abs(gainNumber)}
                   decimals={2}

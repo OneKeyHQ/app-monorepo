@@ -3,6 +3,7 @@ import JPush from 'jpush-react-native';
 import { pick } from 'lodash';
 import { Dimensions } from 'react-native';
 
+import { getWalletIdFromAccountId } from '@onekeyhq/engine/src/managers/account';
 import type {
   AddPriceAlertConfig,
   NotificationExtra,
@@ -23,8 +24,6 @@ import {
   syncLocalEnabledAccounts,
   syncPushNotificationConfig,
 } from '@onekeyhq/engine/src/managers/notification';
-import type { EVMDecodedItem } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
-import { EVMDecodedTxType } from '@onekeyhq/engine/src/vaults/impl/evm/decoder/types';
 import { getAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { navigationShortcuts } from '@onekeyhq/kit/src/routes/navigationShortcuts';
 import {
@@ -267,26 +266,18 @@ export default class ServiceNotification extends ServiceBase {
     const { appSelector, serviceApp } = this.backgroundApi;
     const { activeAccountId: accountId, activeNetworkId: networkId } =
       appSelector((s) => s.general);
-    const filter = params.tokenId
-      ? undefined
-      : (i: EVMDecodedItem) => i.txType === EVMDecodedTxType.NATIVE_TRANSFER;
 
-    const isToMarketDetail = !!params?.coingeckoId;
+    const routerParams = {
+      accountId,
+      walletId: accountId ? getWalletIdFromAccountId(accountId) : '',
+      networkId: params.networkId || networkId,
+      tokenAddress: params.tokenId || '',
+      coingeckoId: params.coingeckoId,
+    };
 
-    const routerParams = isToMarketDetail
-      ? { marketTokenId: params.coingeckoId }
-      : {
-          accountId,
-          networkId: params.networkId || networkId,
-          tokenId: params.tokenId || '',
-          historyFilter: filter,
-        };
+    const detailScreenName = HomeRoutes.ScreenTokenDetail;
 
-    const detailScreenName = isToMarketDetail
-      ? HomeRoutes.MarketDetail
-      : HomeRoutes.ScreenTokenDetail;
-
-    const tabScreenName = isToMarketDetail ? TabRoutes.Market : TabRoutes.Home;
+    const tabScreenName = TabRoutes.Home;
 
     const expandRoutes = [
       RootRoutes.Main,
@@ -383,11 +374,11 @@ export default class ServiceNotification extends ServiceBase {
       params = platformEnv.isNativeAndroid
         ? JSON.parse(extras.params)
         : extras.params;
-      if (params.accountId) {
-        await serviceAccount.changeActiveAccountByAccountId(params.accountId);
-      }
       if (params.networkId) {
         await serviceNetwork.changeActiveNetwork(params.networkId);
+      }
+      if (params.accountId) {
+        await serviceAccount.changeActiveAccountByAccountId(params.accountId);
       }
     } catch (error) {
       debugLogger.notification.error(

@@ -16,6 +16,7 @@ import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
 import {
   getAccountDefaultByPurpose,
+  initBitcoinEcc,
   isTaprootPath,
 } from '../../utils/btcForkChain/utils';
 
@@ -36,6 +37,7 @@ export class KeyringHd extends KeyringHdBtcFork {
       template,
       skipCheckAccountExist,
     } = params;
+    initBitcoinEcc();
     const impl = await this.getNetworkImpl();
     const vault = this.vault as unknown as BTCForkVault;
     const defaultPurpose = vault.getDefaultPurpose();

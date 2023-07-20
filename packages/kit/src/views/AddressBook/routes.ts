@@ -23,6 +23,7 @@ export type AddressBookRoutesParams = {
     | {
         networkId?: string;
         contactExcludeWalletAccount?: boolean;
+        addressFilter?: (address: string) => Promise<boolean>;
         onSelected?: (data: { address: string; name?: string }) => void;
       }
     | undefined;
