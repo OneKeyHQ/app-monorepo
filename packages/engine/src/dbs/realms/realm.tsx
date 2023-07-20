@@ -2297,7 +2297,7 @@ class RealmDB implements DBAPI {
             custom.eip1559 = customFee.eip1559;
             custom.price = customFee.price;
             // @ts-ignore
-            custom.price1559 = customFee.price1559;
+            custom.price1559 = customFee.price1559 ?? {};
             custom.isBtcForkChain = customFee.isBtcForkChain;
             custom.feeRate = customFee.feeRate;
             custom.btcFee = customFee.btcFee;
