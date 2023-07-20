@@ -10,7 +10,7 @@ import type EnLanguage from '@onekeyhq/components/src/locale/en-US.json';
 type LanguageId = keyof typeof EnLanguage;
 
 interface ErrorViewProps {
-  errorCode: number;
+  errorCode?: number;
   onRefresh: () => void;
 }
 
