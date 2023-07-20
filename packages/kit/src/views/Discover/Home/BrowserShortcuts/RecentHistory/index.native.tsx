@@ -14,6 +14,7 @@ import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '../../../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../../../routes/routesEnum';
+import { getUrlDomain } from '../../../../../utils/uriUtils';
 import { type ValidOption } from '../../../../Overlay/BaseMenu';
 import { DiscoverModalRoutes } from '../../../type';
 import { DiscoverContext } from '../../context';
@@ -126,7 +127,7 @@ export const RecentHistory: FC<RecentHistoryProps> = ({ item }) => {
                   textAlign="center"
                   noOfLines={2}
                 >
-                  {name ?? 'Unknown'}
+                  {name || getUrlDomain(url) || 'Unknown'}
                 </Typography.Caption>
               </Box>
             )}

@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { Image, StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, {
   scrollTo,
@@ -11,6 +12,7 @@ import Animated, {
 
 import {
   Box,
+  Center,
   IconButton,
   NetImage,
   Pressable,
@@ -46,19 +48,22 @@ const styles = StyleSheet.create({
     // paddingRight: WEB_TAB_CELL_GAP,
   },
 });
-const WebTabCard: FC<
-  WebTab & {
-    width: number;
-  }
-> = ({ width, isCurrent, title, favicon, id, thumbnail }) => (
+
+const ListHeaderComponent = ({ num }: { num: number }) => {
+  const intl = useIntl();
+  return (
+    <Center>
+      <Typography.Heading>
+        {intl.formatMessage({ id: 'title__str_tabs' }, { '0': num })}
+      </Typography.Heading>
+    </Center>
+  );
+};
+
+const WebTabCard: FC<WebTab> = ({ isCurrent, title, favicon, id, url }) => (
   <Pressable
-    w={width}
-    h={width}
-    borderRadius="12px"
-    borderWidth="1px"
-    borderColor={isCurrent ? 'interactive-default' : 'border-subdued'}
-    overflow="hidden"
-    ml={`${WEB_TAB_CELL_GAP}px`}
+    w="full"
+    px="2"
     mt={`${WEB_TAB_CELL_GAP}px`}
     onPress={() => {
       if (!isCurrent) {
@@ -68,63 +73,64 @@ const WebTabCard: FC<
     }}
   >
     <Box
-      flex={1}
-      collapsable={false}
-      ref={(ref) => {
-        // @ts-ignore
-        tabGridRefs[id] = ref;
-      }}
+      w="full"
+      py="2"
+      bg="surface-default"
+      borderRadius="12px"
+      borderWidth="1px"
+      borderColor={isCurrent ? 'interactive-default' : 'border-subdued'}
+      overflow="hidden"
     >
       <Box
-        bg="surface-default"
-        px="9px"
-        h="32px"
-        w="full"
-        borderTopLeftRadius="12px"
-        borderTopRightRadius="12px"
-        flexDirection="row"
-        alignItems="center"
-        justifyContent="space-between"
+        flex={1}
+        collapsable={false}
+        ref={(ref) => {
+          // @ts-ignore
+          tabGridRefs[id] = ref;
+        }}
       >
-        <NetImage
-          key={favicon}
-          width="18px"
-          height="18px"
-          borderRadius="4px"
-          src={favicon}
-        />
-        <Typography.CaptionStrong
-          color="text-default"
-          flex={1}
-          textAlign="left"
-          numberOfLines={1}
-          mx="4px"
+        <Box
+          px="2"
+          w="full"
+          borderTopLeftRadius="12px"
+          borderTopRightRadius="12px"
+          flexDirection="row"
+          alignItems="center"
+          justifyContent="space-between"
         >
-          {title}
-        </Typography.CaptionStrong>
-        <IconButton
-          size="sm"
-          type="plain"
-          name="XMarkMini"
-          onPress={() => {
-            webTabsActions.closeWebTab(id);
-          }}
-        />
+          <NetImage
+            key={favicon}
+            width="40px"
+            height="40px"
+            borderRadius="12px"
+            src={favicon}
+          />
+          <Box flex="1" ml="8px" mr="4px">
+            <Typography.CaptionStrong
+              color="text-default"
+              flex={1}
+              textAlign="left"
+              numberOfLines={1}
+            >
+              {title || 'Unknown'}
+            </Typography.CaptionStrong>
+            <Typography.Body2 color="text-subdued">{url}</Typography.Body2>
+          </Box>
+          <IconButton
+            size="sm"
+            type="plain"
+            name="XMarkMini"
+            onPress={() => {
+              webTabsActions.closeWebTab(id);
+            }}
+          />
+        </Box>
       </Box>
-      {!!thumbnail && (
-        <Image
-          style={styles.image}
-          resizeMode="cover"
-          source={{ uri: thumbnail }}
-        />
-      )}
     </Box>
   </Pressable>
 );
 const WebTabGrid = () => {
   const { tabs } = useWebTabs();
-  const { width } = useWindowDimensions();
-  const cellWidth = (width - WEB_TAB_CELL_GAP * 3) / 2;
   const listRef = useAnimatedRef<Animated.FlatList<WebTab>>();
   const [delayedRender, setDelayedRender] = useState(false);
 
@@ -150,10 +156,8 @@ const WebTabGrid = () => {
 
   const data = useMemo(() => tabs.slice(1), [tabs]);
   const renderItem = useCallback(
-    ({ item: tab }: { item: WebTab }) => (
-      <WebTabCard {...tab} width={cellWidth} />
-    ),
-    [cellWidth],
+    ({ item: tab }: { item: WebTab }) => <WebTabCard {...tab} />,
+    [],
   );
   const keyExtractor = useCallback((item: WebTab) => item.id, []);
   const backgroundColor = useThemeValue('background-default');
@@ -171,7 +175,8 @@ const WebTabGrid = () => {
         },
         animStyle,
       ]}
-      numColumns={2}
+      numColumns={1}
+      ListHeaderComponent={<ListHeaderComponent num={data.length} />}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={styles.contentContainer}
       data={data}

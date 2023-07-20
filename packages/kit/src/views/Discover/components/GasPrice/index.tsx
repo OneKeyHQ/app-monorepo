@@ -61,7 +61,7 @@ export const GasPrice = () => {
     >
       {price ? (
         <Typography.Body2Strong lineHeight={14} color="text-warning">
-          {price}
+          {Math.ceil(Number(price))}
         </Typography.Body2Strong>
       ) : (
         <Box w="8" h="3" mb="1" overflow="hidden" borderRadius={12}>
@@ -89,7 +89,7 @@ export const GasPriceMini = () => {
           <Icon name="GasIllus" size={16} color="text-warning" />
           <Box ml="1">
             <Typography.Button2 color="text-warning">
-              {price}
+              {Math.ceil(Number(price))}
             </Typography.Button2>
           </Box>
         </Box>

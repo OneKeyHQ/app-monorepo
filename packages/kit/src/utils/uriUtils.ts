@@ -2,6 +2,8 @@ import querystring from 'querystring';
 
 import parse from 'url-parse';
 
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
 export const SUPPORTED_IMAGE_EXTENSIONS = [
   '.png',
   '.jpg',
@@ -90,3 +92,14 @@ export function checkGoogleOauthUrl({ url }: { url: string }): boolean {
   const origin = getOriginFromUrl({ url });
   return origin === 'https://accounts.google.com';
 }
+
+export const getUrlDomain = (url: string) => {
+  let result = url;
+  try {
+    const u = new URL(url);
+    result = u.hostname;
+  } catch {
+    debugLogger.common.error(`failed to parse url ${url}`);
+  }
+  return result;
+};
