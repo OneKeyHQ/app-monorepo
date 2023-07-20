@@ -7,7 +7,7 @@ import { Button, Center, Empty } from '@onekeyhq/components';
 import type EnLanguage from '@onekeyhq/components/src/locale/en-US.json';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-type messageId = keyof typeof EnLanguage;
+type LanguageId = keyof typeof EnLanguage;
 
 interface ErrorViewProps {
   errorCode: number;
@@ -17,8 +17,8 @@ interface ErrorViewProps {
 const ErrorView: FC<ErrorViewProps> = ({ errorCode, onRefresh }) => {
   const intl = useIntl();
   const messages: {
-    title: messageId;
-    subTitle: messageId;
+    title: LanguageId;
+    subTitle: LanguageId;
   } = useMemo(() => {
     if (errorCode === ERROR_CODE.CONNECTION_FAILED) {
       return {
