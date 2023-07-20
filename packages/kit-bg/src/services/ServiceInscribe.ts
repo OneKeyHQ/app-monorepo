@@ -66,8 +66,8 @@ import ServiceBase from './ServiceBase';
 @backgroundClass()
 export default class ServiceInscribe extends ServiceBase {
   @backgroundMethod()
-  async fetchFeeRates() {
-    const { apiMempool } = await this.getBitcoinNetworkMap();
+  async fetchFeeRates(networkId: string) {
+    const { apiMempool } = await this.getBitcoinNetworkMap(networkId);
     return this.fetchFeeRatesCached({ apiMempool });
   }
 
@@ -92,10 +92,12 @@ export default class ServiceInscribe extends ServiceBase {
 
   async fetchAddressUtxo({
     address,
+    networkId,
   }: {
     address: string;
+    networkId: string;
   }): Promise<ITaprootTransactionReceivedMoneyInfo | undefined> {
-    const { apiMempool } = await this.getBitcoinNetworkMap();
+    const { apiMempool } = await this.getBitcoinNetworkMap(networkId);
     // TODO auto select utxo
     // https://mempool.space/testnet/api/address/tb1puvc5kvmhhg85l6j222dcd43l46gmrh8ra5cgwpafqerpracs0q0snt8uc9/utxo
     const url = `${apiMempool}/api/address/${address}/utxo`;
@@ -155,11 +157,13 @@ export default class ServiceInscribe extends ServiceBase {
   async verifyBroadcastTxs({
     rawTxs,
     order,
+    networkId,
   }: {
     rawTxs: string[];
     order: IInscriptionsOrder;
+    networkId: string;
   }) {
-    const { network } = await this.getBitcoinNetworkMap();
+    const { network } = await this.getBitcoinNetworkMap(networkId);
     const commitTxInfo = decodeBtcRawTx(rawTxs[0]);
     const revealTxInfo = decodeBtcRawTx(rawTxs[1]);
 
@@ -185,7 +189,10 @@ export default class ServiceInscribe extends ServiceBase {
       commitTxInfo.tx.vout[revealTxInfo.tx.vin[0].vout];
 
     const privateKey = await this.prepareInscribePrivateKey();
-    const inscribeAccount = await this.createInscribeAccount({ privateKey });
+    const inscribeAccount = await this.createInscribeAccount({
+      privateKey,
+      networkId,
+    });
     const inscribeScript = revealTxInfo.tx.vin[0].witness[1];
     const inscribeAccountAddressInfo = inscribeAccount.createAddressInfo({
       script: inscribeScript,
@@ -214,8 +221,14 @@ export default class ServiceInscribe extends ServiceBase {
     throw new Error('verifyBroadcastTxs failed');
   }
 
-  async broadcastTxs(txs: Array<string>): Promise<string[]> {
-    const { apiGetblock } = await this.getBitcoinNetworkMap();
+  async broadcastTxs({
+    txs,
+    networkId,
+  }: {
+    txs: Array<string>;
+    networkId: string;
+  }): Promise<string[]> {
+    const { apiGetblock } = await this.getBitcoinNetworkMap(networkId);
 
     const client = new JsonRPCRequest(apiGetblock);
     const txids = await client.batchCall<string[]>(
@@ -372,10 +385,12 @@ export default class ServiceInscribe extends ServiceBase {
     initRedeemInfo,
     redeemInfo,
     commitSignedTx,
+    networkId,
   }: {
     initRedeemInfo?: IInscriptionInitRedeemInfo;
     redeemInfo?: IInscriptionRedeemInfo;
     commitSignedTx?: ISignedTxPro;
+    networkId: string;
   }) {
     const address =
       initRedeemInfo?.addressInfo.address ||
@@ -390,7 +405,7 @@ export default class ServiceInscribe extends ServiceBase {
       }
       txInfo = await this.getCommitTxInfo({ address, commitSignedTx });
     } else {
-      txInfo = await this.fetchAddressUtxo({ address });
+      txInfo = await this.fetchAddressUtxo({ address, networkId });
     }
 
     if (!txInfo) {
@@ -483,10 +498,12 @@ export default class ServiceInscribe extends ServiceBase {
     order,
     privateKey,
     commitSignedTx,
+    networkId,
   }: {
     order: IInscriptionsOrder;
     privateKey: string;
     commitSignedTx?: ISignedTxPro;
+    networkId: string;
   }) {
     console.log('signAndSendAllInscribeTxs', order);
     const { inscriptions } = order;
@@ -506,6 +523,7 @@ export default class ServiceInscribe extends ServiceBase {
               redeemInfo: {
                 inscription,
               },
+              networkId,
             });
 
             const revealTxSigned = await this.signTaprootTx({
@@ -514,6 +532,7 @@ export default class ServiceInscribe extends ServiceBase {
               leaf: inscription.addressInfo.leaf,
               cBlock: inscription.addressInfo.cBlock,
               script: inscription.script,
+              networkId,
             });
 
             const rawTx = Tx.encode(revealTxSigned).hex;
@@ -529,10 +548,10 @@ export default class ServiceInscribe extends ServiceBase {
     await revealInscriptions();
 
     if (commitSignedTx) {
-      await this.verifyBroadcastTxs({ rawTxs, order });
+      await this.verifyBroadcastTxs({ rawTxs, order, networkId });
     }
     // batch broadcast
-    const txids = await this.broadcastTxs(rawTxs);
+    const txids = await this.broadcastTxs({ txs: rawTxs, networkId });
 
     try {
       await this.saveInscriptionHistory({
@@ -553,12 +572,14 @@ export default class ServiceInscribe extends ServiceBase {
     leaf,
     script,
     cBlock,
+    networkId,
   }: {
     privateKey: string;
     tx: ITaprootTransaction;
     leaf: string;
     script: ScriptData;
     cBlock: string;
+    networkId: string;
   }): Promise<TxTemplate | ITaprootTransaction> {
     const txToSign = cloneDeep(tx) as TxTemplate;
 
@@ -571,6 +592,7 @@ export default class ServiceInscribe extends ServiceBase {
 
     const inscribeAccount = await this.createInscribeAccount({
       privateKey,
+      networkId,
     });
     const signature = inscribeAccount.signTransaction({
       txToSign,
@@ -589,29 +611,28 @@ export default class ServiceInscribe extends ServiceBase {
     return signedTx;
   }
 
-  async getBitcoinNetworkMap(networkId?: string): Promise<{
+  async getBitcoinNetworkMap(networkId: string): Promise<{
     network: Networks;
     apiMempool: string;
     apiGetblock: string;
   }> {
-    const { networkImpl } = await this.getActiveWalletAccount();
-    if (networkImpl === IMPL_BTC || networkId === OnekeyNetwork.btc) {
-      return {
+    if (networkId === OnekeyNetwork.btc) {
+      return Promise.resolve({
         network: 'main',
         // TODO use current BTC vault blockbook api
         apiMempool: getMempoolEndpoint({ network: 'mainnet' }),
         apiGetblock: getGetblockEndpoint({ chain: 'btc', network: 'mainnet' }),
-      };
+      });
     }
-    if (networkImpl === IMPL_TBTC || networkId === OnekeyNetwork.tbtc) {
-      return {
+    if (networkId === OnekeyNetwork.tbtc) {
+      return Promise.resolve({
         network: 'testnet',
         apiMempool: getMempoolEndpoint({ network: 'testnet' }),
         apiGetblock: getGetblockEndpoint({ chain: 'btc', network: 'testnet' }),
-      };
+      });
     }
     throw new Error(
-      `getBitcoinNetwork ERROR: Unknown network, ${networkImpl ?? 'null'}`,
+      `getBitcoinNetwork ERROR: Unknown network, ${networkId ?? 'null'}`,
     );
   }
 
@@ -659,8 +680,14 @@ export default class ServiceInscribe extends ServiceBase {
     },
   );
 
-  async createInscribeAccount({ privateKey }: { privateKey: string }) {
-    const { network } = await this.getBitcoinNetworkMap();
+  async createInscribeAccount({
+    networkId,
+    privateKey,
+  }: {
+    privateKey: string;
+    networkId: string;
+  }) {
+    const { network } = await this.getBitcoinNetworkMap(networkId);
     return new InscribeAccount({
       privateKey,
       network,
@@ -853,17 +880,10 @@ export default class ServiceInscribe extends ServiceBase {
     return Promise.resolve(true);
   }
 
-  async getActiveBtcVault(option?: { networkId?: string; accountId?: string }) {
-    const { networkId, accountId } = option || {};
+  async getActiveBtcVault(option: { networkId: string; accountId: string }) {
+    const { networkId, accountId } = option;
     const { engine } = this.backgroundApi;
-    let vault;
-    if (networkId && accountId) {
-      vault = await engine.getVault({ networkId, accountId });
-    } else {
-      const { networkId: nId, accountId: aId } =
-        await this.getActiveWalletAccount();
-      vault = await engine.getVault({ networkId: nId, accountId: aId });
-    }
+    const vault = await engine.getVault({ networkId, accountId });
     return vault as VaultBtcFork;
   }
 
@@ -891,14 +911,18 @@ export default class ServiceInscribe extends ServiceBase {
   async buildInscribeCommitEncodedTx({
     to,
     amount,
+    networkId,
+    accountId,
   }: {
     to: string;
     amount: string;
+    networkId: string;
+    accountId: string;
   }): Promise<IEncodedTxBtc | null> {
-    const { network } = await this.getActiveWalletAccount();
-    const btcVault = await this.getActiveBtcVault();
+    const network = await this.backgroundApi.engine.getNetwork(networkId);
+    const btcVault = await this.getActiveBtcVault({ accountId, networkId });
     const address = await btcVault.getAccountAddress();
-    const utxoInfo = await this.fetchAddressUtxo({ address: to });
+    const utxoInfo = await this.fetchAddressUtxo({ address: to, networkId });
     if (utxoInfo && utxoInfo.amt && network) {
       const amountValue = convertFeeNativeToValue({ value: amount, network });
       if (new BigNumber(utxoInfo.amt).gte(amountValue)) {
@@ -921,13 +945,16 @@ export default class ServiceInscribe extends ServiceBase {
     contents,
     feeRate,
     globalPaddingSats = INSCRIPTION_PADDING_SATS_VALUES.default,
+    networkId,
+    accountId,
   }: {
     toAddress: string;
     contents: IInscriptionContent[];
     feeRate?: number;
     globalPaddingSats?: number;
+    networkId: string;
+    accountId: string;
   }): Promise<IInscriptionsOrder> {
-    const { networkId, accountId } = await this.getActiveWalletAccount();
     await this.checkValidTaprootAddress({
       address: toAddress,
       networkId,
@@ -936,9 +963,12 @@ export default class ServiceInscribe extends ServiceBase {
     await this.checkValidPadding({ padding: globalPaddingSats });
     const paddingSats = globalPaddingSats;
     const privateKey = await this.prepareInscribePrivateKey();
-    const inscribeAccount = await this.createInscribeAccount({ privateKey });
+    const inscribeAccount = await this.createInscribeAccount({
+      privateKey,
+      networkId,
+    });
     if (isNil(feeRate)) {
-      const rates = await this.fetchFeeRates();
+      const rates = await this.fetchFeeRates(networkId);
       // eslint-disable-next-line no-param-reassign
       feeRate = rates.halfHourFee;
     }
@@ -1040,8 +1070,7 @@ export default class ServiceInscribe extends ServiceBase {
         paddingSats * inscriptions.length;
     }
 
-    const { network } =
-      await this.backgroundApi.serviceNetwork.getActiveWalletAccount();
+    const network = await this.backgroundApi.engine.getNetwork(networkId);
 
     const fundingValue = totalFees;
     let fundingValueNative = '';
@@ -1075,9 +1104,11 @@ export default class ServiceInscribe extends ServiceBase {
   async submitInscribeOrder({
     order,
     commitSignedTx,
+    networkId,
   }: {
     order: IInscriptionsOrder;
     commitSignedTx?: ISignedTxPro;
+    networkId: string;
   }) {
     if (!order) {
       throw new Error('submitInscribeOrder ERROR: order not found');
@@ -1088,6 +1119,7 @@ export default class ServiceInscribe extends ServiceBase {
         order,
         privateKey,
         commitSignedTx,
+        networkId,
       });
     } finally {
       // noop
