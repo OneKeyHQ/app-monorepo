@@ -758,20 +758,22 @@ export const useTokenPositionInfo = ({
           : t.address === tokenAddress && t.sendAddress === sendAddress
       ) {
         t.tokens?.forEach((item) => {
-          items.push({
-            name: t.name,
-            address: t.address,
-            symbol: t.symbol,
-            logoURI: t.logoURI ?? '',
-            type: 'Token',
-            balance: item.balance,
-            networkId: item.networkId,
-            accountName:
-              getAccountFromAccountAddress(
-                item.networkId,
-                item.accountAddress ?? '',
-              )?.name ?? '',
-          });
+          if (new B(item.balance).isGreaterThan(0)) {
+            items.push({
+              name: t.name,
+              address: t.address,
+              symbol: t.symbol,
+              logoURI: t.logoURI ?? '',
+              type: 'Token',
+              balance: item.balance,
+              networkId: item.networkId,
+              accountName:
+                getAccountFromAccountAddress(
+                  item.networkId,
+                  item.accountAddress ?? '',
+                )?.name ?? '',
+            });
+          }
         });
         balance = balance.plus(t.balance);
       }
