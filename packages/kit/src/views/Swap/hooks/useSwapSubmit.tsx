@@ -46,6 +46,9 @@ import {
   formatAmount,
   getTokenAmountString,
   getTokenAmountValue,
+  gt,
+  minus,
+  plus,
 } from '../utils';
 
 import { useSwapSend } from './useSwapSend';
@@ -368,10 +371,35 @@ export const useSwapSubmit = () => {
       );
       return;
     }
-    const safeReservedValueForGasFee =
+    let frozenBalanceValue = 0;
+    if (balance.gt(0)) {
+      try {
+        const password = await backgroundApiProxy.servicePassword.getPassword();
+        const frozenBalance = await backgroundApiProxy.engine.getFrozenBalance({
+          accountId: sendingAccount.id,
+          networkId: fromNetwork.id,
+          password,
+        });
+
+        debugLogger.swap.info('get frozenBalance ', frozenBalance);
+        frozenBalanceValue =
+          typeof frozenBalance === 'number'
+            ? frozenBalance
+            : frozenBalance?.[params.tokenIn.id] ?? 0;
+      } catch (e: any) {
+        debugLogger.swap.info('failed to get frozen balanace', e.message);
+      }
+    }
+
+    let safeReservedValueForGasFee =
       await backgroundApiProxy.serviceSwap.getReservedNetworkFee(
         fromNetwork.id,
       );
+
+    safeReservedValueForGasFee = plus(
+      safeReservedValueForGasFee,
+      frozenBalanceValue,
+    );
 
     const currentReservedValueForGasFee = !params.tokenIn.tokenIdOnNetwork
       ? balance.minus(inputAmount.typedValue)
@@ -380,14 +408,26 @@ export const useSwapSubmit = () => {
       const nativeToken = await backgroundApiProxy.engine.getNativeTokenInfo(
         fromNetworkId,
       );
+      const symbol = nativeToken.symbol.toUpperCase();
+      const errMsg =
+        frozenBalanceValue === 0
+          ? intl.formatMessage(
+              { id: 'msg__suggest_reserving_str_as_gas_fee' },
+              {
+                '0': `${safeReservedValueForGasFee} ${symbol}`,
+              },
+            )
+          : intl.formatMessage(
+              { id: 'msg__insufficient_funds_for_transaction' },
+              {
+                '0': `${frozenBalanceValue} ${symbol}`,
+                '1': `${safeReservedValueForGasFee} ${symbol}`,
+              },
+            );
+
       ToastManager.show(
         {
-          title: intl.formatMessage(
-            { id: 'msg__suggest_reserving_str_as_gas_fee' },
-            {
-              '0': `${safeReservedValueForGasFee} ${nativeToken.symbol.toUpperCase()}`,
-            },
-          ),
+          title: errMsg,
         },
         { type: 'error' },
       );
