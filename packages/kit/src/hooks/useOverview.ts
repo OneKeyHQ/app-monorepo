@@ -314,6 +314,26 @@ export function useAccountTokenLoading(networkId: string, accountId: string) {
   ]);
 }
 
+export function useNFTIsLoading({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) {
+  const { tasks, updatedAt } = useOverviewPendingTasks({
+    networkId,
+    accountId,
+  });
+
+  return useMemo(
+    () =>
+      tasks?.filter((t) => t.scanType === EOverviewScanTaskType.nfts).length >
+        0 || typeof updatedAt === 'undefined',
+    [tasks, updatedAt],
+  );
+}
+
 export function useAccountTokens({
   networkId = '',
   accountId = '',
