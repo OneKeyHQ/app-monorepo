@@ -157,15 +157,23 @@ class ServiceOverview extends ServiceBase {
       }
     }
 
-    dispatch(
-      ...dispatchActions,
-      setOverviewPortfolioUpdatedAt({
-        key: dispatchKey,
-        data: {
-          updatedAt: Date.now(),
-        },
-      }),
+    const updateInfo = appSelector(
+      (s) => s.overview.updatedTimeMap?.[dispatchKey],
     );
+
+    if (typeof updateInfo?.updatedAt !== 'undefined' || !pending.length) {
+      // not fist loading
+      dispatchActions.push(
+        setOverviewPortfolioUpdatedAt({
+          key: dispatchKey,
+          data: {
+            updatedAt: Date.now(),
+          },
+        }),
+      );
+    }
+
+    dispatch(...dispatchActions);
   }
 
   processNftPriceActions({

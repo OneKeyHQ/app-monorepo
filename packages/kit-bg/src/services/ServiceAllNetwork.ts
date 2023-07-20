@@ -328,7 +328,7 @@ export default class ServiceAllNetwork extends ServiceBase {
 
     if (maxIndex === -1) {
       throw new AllNetworksMinAccountsError('', {
-        0: 0,
+        0: 1,
       });
     }
 
