@@ -2544,6 +2544,8 @@
   "title__no_cantact_desc": "Add frequently used addresses as contacts",
   "title__no_connection": "No Connection",
   "title__no_connection_desc": "Please retry or check the network",
+  "title__connection_refused": "Connection Refused",
+  "title__connection_refused_desc": "Please retry or check the url of the website",
   "title__no_favorite_dapp": "No Favorites",
   "title__no_favorite_dapp_desc": "Your favorite websites will show here.",
   "title__no_favorite_tokens": "No Favorite Tokens",
