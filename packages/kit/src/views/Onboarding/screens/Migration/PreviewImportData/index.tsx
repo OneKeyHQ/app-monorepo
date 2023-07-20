@@ -8,7 +8,6 @@ import {
 
 import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import semver from 'semver';
 
 import {
   Box,

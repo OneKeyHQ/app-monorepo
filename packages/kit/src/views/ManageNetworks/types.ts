@@ -5,7 +5,6 @@ import type {
   Network,
   SwitchRpcParams,
 } from '@onekeyhq/engine/src/types/network';
-import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
 import { ManageNetworkModalRoutes } from '../../routes/routesEnum';
 
