@@ -3,12 +3,12 @@ import { NotAutoPrintError } from '../errors/common-errors';
 let prevErrorStack: string | undefined;
 
 const autoLogger = {
-  error: (error: Error) => {
+  error: (error: Error, ...messages: unknown[]) => {
     if (
       error.stack !== prevErrorStack &&
       !(error instanceof NotAutoPrintError)
     ) {
-      console.error('AUTO LOGS:', error);
+      console.error('AUTO LOGS:', error, ...messages);
       prevErrorStack = error.stack;
     }
   },

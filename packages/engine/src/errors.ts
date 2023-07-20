@@ -375,8 +375,16 @@ export class NoRouteFoundError extends OneKeyError {
   override key = 'msg__no_route_found';
 }
 
+export class NoLightningChannelError extends OneKeyError {
+  override key = 'msg__payment_channel_not_found_sending_failed';
+}
+
 export class BadAuthError extends OneKeyError {
   override key = 'msg__authentication_failed_verify_again';
+}
+
+export class InvoiceExpiredError extends OneKeyError {
+  override key = 'msg__the_invoice_has_expired';
 }
 
 export class TaprootAddressError extends OneKeyError {
@@ -397,4 +405,13 @@ export class InscribeFileTooLargeError extends OneKeyError {
 
 export class UtxoNotFoundError extends OneKeyError {
   override key = 'msg__nft_does_not_exist';
+}
+
+// all networks ----------------------------------------------
+export class AllNetworksMinAccountsError extends OneKeyError {
+  override key = 'msg__you_need_str_accounts_on_any_network_to_create';
+}
+
+export class AllNetworksUpto3LimitsError extends OneKeyError {
+  override key = 'msg__currently_supports_up_to_str_all_networks_accounts';
 }

@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-import { cacheDirectory } from 'expo-file-system';
 import { useIntl } from 'react-intl';
 
 import {
@@ -15,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getLogZipPath } from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HomeRoutes } from '../../../routes/routesEnum';
@@ -42,9 +42,10 @@ export const FooterAction = () => {
   const { themeVariant } = useTheme();
   const navigation = useNavigation<NavigationProps>();
 
-  const getLogName = useCallback(() => {
+  // eslint-disable-next-line @typescript-eslint/no-inferrable-types
+  const getLogName = useCallback((ext: string = 'txt') => {
     const str = new Date().toISOString().replace(/[-:.]/g, '');
-    return `log-${str}.txt`;
+    return `log-${str}.${ext}`;
   }, []);
 
   const downloadTxtFile = useCallback(async () => {
@@ -63,8 +64,8 @@ export const FooterAction = () => {
   }, [getLogName]);
 
   const shareLogFile = useCallback(async () => {
-    const logFilePath = `${cacheDirectory ?? ''}log.txt`;
-    const shareFileName = getLogName();
+    const shareFileName = getLogName('zip');
+    const logFilePath = await getLogZipPath(shareFileName);
     const Share = await getShareModule();
     if (!Share) return;
     Share.open({

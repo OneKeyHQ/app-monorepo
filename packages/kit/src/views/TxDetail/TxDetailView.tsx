@@ -110,6 +110,8 @@ export function TxDetailView(props: ITxActionListViewProps) {
     ? isMultipleActions
     : !isSingleTransformMode || isMultipleActions;
 
+  const interactInfo = decodedTx?.interactInfo;
+
   return (
     <>
       {replacedTxTextKeys && replacedTxTextKeys.length ? (
@@ -134,10 +136,12 @@ export function TxDetailView(props: ITxActionListViewProps) {
           <TxTopInfoBox {...props} />
           <TxInteractInfo
             origin={
-              decodedTx?.interactInfo?.url ??
+              interactInfo?.url ??
               sendConfirmParamsParsed?.sourceInfo?.origin ??
               ''
             }
+            name={interactInfo?.name}
+            icon={interactInfo?.icons[0]}
             networkId={decodedTx?.networkId ?? ''}
           />
           <TxDetailExtraInfoBox {...props} />

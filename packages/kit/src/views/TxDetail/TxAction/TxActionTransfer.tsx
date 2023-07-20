@@ -7,6 +7,7 @@ import {
   IDecodedTxActionType,
   IDecodedTxDirection,
 } from '@onekeyhq/engine/src/vaults/types';
+import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { FormatCurrencyTokenOfAccount } from '../../../components/Format';
 import { TxDetailActionBoxAutoTransform } from '../components/TxDetailActionBoxAutoTransform';
@@ -102,6 +103,11 @@ export function TxActionTransfer(props: ITxActionCardProps) {
     return true;
   }, [to, network?.settings.hideFromToFieldIfValueEmpty]);
 
+  const enableCopyAddress = useMemo(
+    () => !isLightningNetworkByImpl(network?.impl ?? ''),
+    [network],
+  );
+
   const details: (ITxActionElementDetail | null)[] = [
     displayFromLabel
       ? {
@@ -114,7 +120,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
             networkId: network?.id,
             withSecurityInfo: !isOut,
             amount,
-            isCopy: from !== 'unknown',
+            isCopy: from !== 'unknown' && enableCopyAddress,
             isShorten: isShortenAddress,
           }),
         }
@@ -130,7 +136,7 @@ export function TxActionTransfer(props: ITxActionCardProps) {
             networkId: network?.id,
             withSecurityInfo: isOut,
             amount,
-            isCopy: to !== 'unknown',
+            isCopy: to !== 'unknown' && enableCopyAddress,
             isShorten: isShortenAddress,
           }),
         }

@@ -6,6 +6,7 @@ import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 
 import { ToastManager } from '@onekeyhq/components';
+import { FailedToEstimatedGasError } from '@onekeyhq/engine/src/errors';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type {
@@ -74,6 +75,9 @@ export function useFeeInfoPayload({
   if (payload && payload?.type === 'InternalSwap' && swapFeePresetIndex) {
     defaultFeePresetIndex = swapFeePresetIndex;
   }
+
+  const networkSetting = network?.settings;
+  const subNetworkSetting = networkSetting?.subNetworkSettings?.[networkId];
 
   const feeInfoSelectedInRouteParams = (
     route.params as { feeInfoSelected?: IFeeInfoSelected }
@@ -296,6 +300,15 @@ export function useFeeInfoPayload({
         current,
       };
       debugLogger.sendTx.info('useFeeInfoPayload: ', result);
+
+      if (
+        new BigNumber(result?.current?.total ?? 0).isZero() &&
+        !networkSetting?.allowZeroFee &&
+        !subNetworkSetting?.allowZeroFee
+      ) {
+        throw new FailedToEstimatedGasError();
+      }
+
       return result;
     }, [
       encodedTx,
@@ -306,6 +319,8 @@ export function useFeeInfoPayload({
       fetchAnyway,
       useFeeInTx,
       forBatchSend,
+      networkSetting?.allowZeroFee,
+      subNetworkSetting?.allowZeroFee,
       accountId,
       networkId,
       signOnly,
@@ -341,7 +356,7 @@ export function useFeeInfoPayload({
         setLoading(false);
       }
     })();
-  }, [encodedTx, fetchFeeInfo, setFeeInfoPayload]);
+  }, [encodedTx, fetchFeeInfo]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
@@ -375,14 +390,7 @@ export function useFeeInfoPayload({
     return () => {
       clearInterval(timer);
     };
-  }, [
-    feeInfoSelectedInRouteParams?.type,
-    fetchFeeInfo,
-    loading,
-    pollingInterval,
-    isFocused,
-    shouldStopPolling,
-  ]);
+  }, [fetchFeeInfo, isFocused, loading, pollingInterval, shouldStopPolling]);
 
   return {
     feeInfoError,

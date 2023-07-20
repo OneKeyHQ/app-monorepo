@@ -248,6 +248,7 @@ class DeviceUtils {
       'record showErrorToast handle error:',
       toPlainErrorObject(error),
     );
+    console.error('deviceUtils.showErrorToast ERROR: ', error);
 
     try {
       const { className, key, code, info } = error || {};

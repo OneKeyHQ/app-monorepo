@@ -53,6 +53,7 @@ import type { ICoinSelectAlgorithm } from './utils/btcForkChain/utils';
 export type IVaultSubNetworkSettings = {
   isIntegerGasPrice?: boolean;
   minGasPrice?: string;
+  allowZeroFee?: boolean;
 };
 
 export type TxExtraInfo = {
@@ -84,6 +85,7 @@ export type IVaultSettings = {
   enabledInDevModeOnly?: boolean;
 
   minTransferAmount?: string;
+  allowZeroFee?: boolean;
   dust?: string;
 
   isUTXOModel: boolean;

@@ -14,6 +14,7 @@ import {
 import type { IGasInfo } from '@onekeyhq/engine/src/types/gas';
 import type { EIP1559Fee } from '@onekeyhq/engine/src/types/network';
 import type { IFeeInfo } from '@onekeyhq/engine/src/vaults/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNetworkSimple } from '../../hooks';
@@ -106,6 +107,9 @@ function GasList(props: Props) {
               feeInfo={feeInfo}
               limit={limit}
               currencyProps={{ typography: 'Body1', textAlign: 'right' }}
+              formatOptions={{
+                fixed: selectedNetworkId === OnekeyNetwork.polygon ? 4 : 2,
+              }}
               onlyCurrency
             />
             <FeeSpeedTime

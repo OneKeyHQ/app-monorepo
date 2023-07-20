@@ -5,10 +5,12 @@ import { Box } from '@onekeyhq/components';
 
 import { DappSecurityView } from '../../Send/components/DappSecurityView';
 
-export const TxInteractInfo: FC<{ origin: string; networkId: string }> = ({
-  origin,
-  networkId,
-}) => {
+export const TxInteractInfo: FC<{
+  origin: string;
+  networkId: string;
+  name?: string;
+  icon?: string;
+}> = ({ origin, networkId, name, icon }) => {
   const parsed = useMemo(() => {
     try {
       return new URL(origin);
@@ -20,11 +22,21 @@ export const TxInteractInfo: FC<{ origin: string; networkId: string }> = ({
     return null;
   }
   return (
-    <Box bg="surface-default" borderRadius={12} p={4} mb={6}>
+    <Box
+      bg="surface-default"
+      borderColor="border-default"
+      borderWidth={1}
+      borderRadius={12}
+      paddingX={4}
+      paddingY={3}
+      mb={6}
+    >
       <DappSecurityView
         hostname={parsed.hostname}
         origin={parsed.origin}
         networkId={networkId}
+        name={name}
+        icon={icon}
       />
     </Box>
   );

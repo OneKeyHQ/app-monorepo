@@ -16,6 +16,8 @@ import { Signer } from '../../../proxy';
 import { AccountType } from '../../../types/account';
 import { KeyringImportedBase } from '../../keyring/KeyringImportedBase';
 
+import { initBitcoinEcc } from './utils';
+
 import type { DBUTXOAccount } from '../../../types/account';
 import type {
   IPrepareImportedAccountsParams,
@@ -33,6 +35,7 @@ export class KeyringImported extends KeyringImportedBase {
     unsignedTx: UnsignedTx,
     options: ISignCredentialOptions,
   ): Promise<SignedTx> {
+    initBitcoinEcc();
     const { password } = options;
     if (typeof password === 'undefined') {
       throw new OneKeyInternalError('Software signing requires a password.');
@@ -111,6 +114,7 @@ export class KeyringImported extends KeyringImportedBase {
   async prepareAccounts(
     params: IPrepareImportedAccountsParams,
   ): Promise<DBUTXOAccount[]> {
+    initBitcoinEcc();
     const { privateKey, name } = params;
     const provider = await (
       this.vault as unknown as BTCForkVault
