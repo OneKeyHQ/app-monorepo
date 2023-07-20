@@ -68,7 +68,9 @@ const Protected: FC<ProtectedProps> = ({
   const [isLocalAuthentication, setLocalAuthentication] = useState<boolean>();
   const { isPasswordSet } = useData();
   const [hasPassword] = useState(isPasswordSet);
-  const { isPasswordLoadedInVault } = useAppSelector((s) => s.data);
+  const isPasswordLoadedInVault = useAppSelector(
+    (s) => s.data.isPasswordLoadedInVault,
+  );
 
   const onValidationOk = useCallback((text: string, value?: boolean) => {
     setLocalAuthentication(value);
@@ -95,7 +97,13 @@ const Protected: FC<ProtectedProps> = ({
   const isExternalWallet = walletDetail?.type === WALLET_TYPE_EXTERNAL;
 
   useEffect(() => {
-    serviceApp.checkUpdateStatus();
+    const timer = setTimeout(() => {
+      serviceApp.checkUpdateStatus();
+    }, 1000);
+
+    return () => {
+      clearTimeout(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -152,6 +160,7 @@ const Protected: FC<ProtectedProps> = ({
       // device connect success
       setDeviceFeatures(features);
     }
+
     loadDevices();
   }, [isHardware, engine, walletDetail?.id, intl, safeGoBack, serviceHardware]);
 

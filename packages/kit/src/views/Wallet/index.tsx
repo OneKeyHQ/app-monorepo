@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -282,7 +282,7 @@ const WalletTabs: FC = () => {
   return walletTabsContainer;
 };
 
-export default function Wallet() {
+const Wallet = () => {
   useOnboardingRequired(true);
   useHtmlPreloadSplashLogoRemove();
 
@@ -296,4 +296,6 @@ export default function Wallet() {
       <BottomView />
     </>
   );
-}
+};
+
+export default memo(Wallet);

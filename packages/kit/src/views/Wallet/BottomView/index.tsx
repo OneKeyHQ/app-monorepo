@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
@@ -22,8 +22,11 @@ export const BottomView = () => {
 
   const transactions = useWalletsSwapTransactions();
   const navigation = useNavigation<NavigationProps>();
-  const pendings = transactions.filter(
-    (tx) => tx.status === 'pending' && tx.type === 'swap',
+  const pendingSize = useMemo(
+    () =>
+      transactions.filter((tx) => tx.status === 'pending' && tx.type === 'swap')
+        .length,
+    [transactions],
   );
   const onPress = useCallback(() => {
     navigation.navigate(HomeRoutes.SwapHistory);
@@ -56,7 +59,7 @@ export const BottomView = () => {
       </VStack>
     );
   }
-  if (pendings.length > 0) {
+  if (pendingSize > 0) {
     return (
       <VStack
         position="absolute"

@@ -26,8 +26,7 @@ import { MAX_PAGE_CONTAINER_WIDTH } from '@onekeyhq/shared/src/config/appConfig'
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useActiveSideAccount } from '../../../hooks';
-import { useStatus } from '../../../hooks/redux';
+import { useActiveSideAccount, useAppSelector } from '../../../hooks';
 import {
   useAccountTokens,
   useOverviewAccountUpdateInfo,
@@ -63,6 +62,7 @@ export type IAssetsListProps = Omit<FlatListProps, 'data' | 'renderItem'> & {
   renderDefiList?: boolean;
   walletId: string;
 };
+
 function AssetsList({
   showRoundTop,
   hidePriceInfo,
@@ -80,7 +80,8 @@ function AssetsList({
 }: IAssetsListProps) {
   const intl = useIntl();
   const isVerticalLayout = useIsVerticalLayout();
-  const { homeTabName, isUnlock } = useStatus();
+  const homeTabName = useAppSelector((s) => s.status.homeTabName);
+  const isUnlock = useAppSelector((s) => s.status.isUnlock);
   const { data: accountTokens, loading } = useAccountTokens({
     networkId,
     accountId,

@@ -8,7 +8,7 @@ import {
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AppLock } from '@onekeyhq/kit/src/components/AppLock';
-import { useSettings } from '@onekeyhq/kit/src/hooks/redux';
+import { useAppSelector } from '@onekeyhq/kit/src/hooks/redux';
 import { updateVersionAndBuildNumber } from '@onekeyhq/kit/src/store/reducers/settings';
 import { setAuthenticationType } from '@onekeyhq/kit/src/store/reducers/status';
 import appUpdates from '@onekeyhq/kit/src/utils/updates/AppUpdates';
@@ -29,7 +29,8 @@ import type { UpdateFeatureRoutesParams } from './Modal/UpdateFeature';
 type NavigationProps = ModalScreenProps<UpdateFeatureRoutesParams>;
 
 export const RootStackNavigator = memo(() => {
-  const { version, buildNumber } = useSettings();
+  const version = useAppSelector((s) => s.settings.version);
+  const buildNumber = useAppSelector((s) => s.settings.buildNumber);
   const { dispatch } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps['navigation']>();
 
