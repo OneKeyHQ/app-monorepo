@@ -1,4 +1,4 @@
-import * as bitcoin from 'bitcoinjs-lib';
+import * as BitcoinJS from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -16,7 +16,7 @@ import type { PsbtInput } from 'bip174/src/lib/interfaces';
 import type { Signer as BitcoinSigner } from 'bitcoinjs-lib';
 
 function tapTweakHash(pubKey: Buffer, h: Buffer | undefined): Buffer {
-  return bitcoin.crypto.taggedHash(
+  return BitcoinJS.crypto.taggedHash(
     'TapTweak',
     Buffer.concat(h ? [pubKey, h] : [pubKey]),
   );
@@ -26,7 +26,7 @@ export function tweakSigner(
   privKey: Buffer,
   publicKey: Buffer,
   opts: { tweakHash?: Buffer; network?: Network } = {},
-): bitcoin.Signer {
+): BitcoinJS.Signer {
   let privateKey: Uint8Array | null = new Uint8Array(privKey.buffer);
   if (!privateKey) {
     throw new Error('Private key is required for tweaking signer!');

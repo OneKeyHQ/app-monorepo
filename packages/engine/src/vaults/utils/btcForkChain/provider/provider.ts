@@ -207,6 +207,7 @@ class Provider {
     pubkey: Buffer,
     encoding: AddressEncodings,
   ): BitcoinJS.Payment {
+    initBitcoinEcc();
     let payment: BitcoinJS.Payment = {
       pubkey,
       network: this.network,
