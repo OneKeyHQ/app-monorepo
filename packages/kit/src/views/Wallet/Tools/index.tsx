@@ -93,7 +93,8 @@ const data: DataItem[] = [
     iconBg: 'decorative-surface-two',
     title: 'title__bulksender',
     description: 'title__bulksender_desc',
-    filter: ({ network }) =>
+    filter: ({ network, account }) =>
+      !account?.id.startsWith('watching-') &&
       !!network?.settings?.supportBatchTransfer &&
       (network.settings.nativeSupportBatchTransfer
         ? true
