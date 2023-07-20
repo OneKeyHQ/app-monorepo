@@ -99,6 +99,24 @@ const NativeWebView = forwardRef(
       }
     }, []);
 
+    const renderError = useCallback(
+      (
+        errorDomain: string | undefined,
+        errorCode: number,
+        errorDesc: string,
+      ) => {
+        console.log(errorDomain, errorCode, errorDesc);
+        debugLogger.webview.error({ errorDomain, errorCode, errorDesc, src });
+        return (
+          <ErrorView
+            errorCode={errorCode}
+            onRefresh={() => webviewRef.current?.reload()}
+          />
+        );
+      },
+      [src],
+    );
+
     return (
       <WebView
         style={styles.container}
@@ -121,14 +139,7 @@ const NativeWebView = forwardRef(
         source={{ uri: src }}
         onMessage={webviewOnMessage}
         onLoadStart={webViewOnLoadStart}
-        renderError={(
-          errorDomain: string | undefined,
-          errorCode: number,
-          errorDesc: string,
-        ) => {
-          debugLogger.webview.error({ errorDomain, errorCode, errorDesc, src });
-          return <ErrorView onRefresh={() => webviewRef.current?.reload()} />;
-        }}
+        renderError={renderError}
         {...props}
       />
     );
