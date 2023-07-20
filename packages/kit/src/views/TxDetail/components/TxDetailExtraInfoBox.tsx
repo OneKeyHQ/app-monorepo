@@ -66,31 +66,23 @@ function checkIsValidHistoryTxId({
 
 // TODO rename ExtraInfoBox
 export function TxDetailExtraInfoBox(props: ITxActionListViewProps) {
-  const {
-    decodedTx,
-    historyTx,
-    feeInput,
-    isBatchSendConfirm,
-    isSendConfirm,
-    isHistoryDetail,
-  } = props;
+  const { decodedTx, historyTx, feeInput, isBatchSendConfirm, isSendConfirm } =
+    props;
   const { network } = useNetwork({ networkId: decodedTx.networkId });
   const details: ITxActionElementDetail[] = [];
   const intl = useIntl();
   const { copyText } = useClipboard();
   const clickTimes = useRef(0);
 
-  if (!network?.settings.hiddenFeeOnTxDetail || isHistoryDetail) {
-    details.push({
-      title: intl.formatMessage({ id: 'content__fee' }),
-      content:
-        feeInput ||
-        getFeeInNativeText({
-          network,
-          decodedTx,
-        }),
-    });
-  }
+  details.push({
+    title: intl.formatMessage({ id: 'content__fee' }),
+    content:
+      feeInput ||
+      getFeeInNativeText({
+        network,
+        decodedTx,
+      }),
+  });
   if (
     checkIsValidHistoryTxId({
       txid: decodedTx.txid,
