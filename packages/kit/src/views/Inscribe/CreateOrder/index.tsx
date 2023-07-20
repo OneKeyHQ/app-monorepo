@@ -274,7 +274,7 @@ const CreateOrder: FC = () => {
 
   const AvailableBalance = useMemo(
     () => (
-      <Box position="absolute" bottom={isVerticalLayout ? 0 : -72} left={0}>
+      <Box>
         <Pressable
           onPress={
             balanceDetailsInfo.enabled
@@ -308,20 +308,14 @@ const CreateOrder: FC = () => {
         </Pressable>
       </Box>
     ),
-    [
-      accountId,
-      balanceDetailsInfo,
-      intl,
-      isVerticalLayout,
-      networkId,
-      tokenInfo,
-    ],
+    [accountId, balanceDetailsInfo, intl, networkId, tokenInfo],
   );
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__inscribe' })}
       headerDescription={<HeaderDescription network={network} />}
       rightContent={<OrderButton />}
+      extraElement={!isVerticalLayout ? AvailableBalance : null}
       footer={submitOrderLoading ? null : undefined}
       height="640px"
       primaryActionTranslationId="action__next"
@@ -368,7 +362,7 @@ const CreateOrder: FC = () => {
             </Box>
             <Box mt="16px" flexDirection="row" justifyContent="space-between">
               <Text typography="Body2Strong" color="text-subdued">
-                {intl.formatMessage({ id: 'form__inscription_owner' })}
+                {intl.formatMessage({ id: 'form__inscription_inscribe_to' })}
               </Text>
               <Pressable
                 flexDirection="row"
@@ -494,7 +488,7 @@ const CreateOrder: FC = () => {
               })}
             </Text>
           </ScrollView>
-          {AvailableBalance}
+          {isVerticalLayout ? AvailableBalance : null}
         </VStack>
       )}
     </Modal>
