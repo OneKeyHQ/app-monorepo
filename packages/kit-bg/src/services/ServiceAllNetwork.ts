@@ -1,5 +1,6 @@
 import { debounce } from 'lodash';
 
+import simpleDb from '@onekeyhq/engine/src/dbs/simple/simpleDb';
 import {
   AllNetworksMinAccountsError,
   AllNetworksUpto3LimitsError,
@@ -20,12 +21,15 @@ import {
   removeAllNetworksAccountsMapByAccountId,
   setAllNetworksAccountsLoading,
   setAllNetworksAccountsMap,
+  setOverviewPortfolioUpdatedAt,
 } from '@onekeyhq/kit/src/store/reducers/overview';
+import { EOverviewScanTaskType } from '@onekeyhq/kit/src/views/Overview/types';
 import {
   backgroundClass,
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeAllNetwork';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
   IMPL_EVM,
@@ -209,6 +213,7 @@ export default class ServiceAllNetwork extends ServiceBase {
         data: true,
       }),
     );
+
     for (const n of networks.filter(
       (item) =>
         item.enabled && !item.isTestnet && !item.settings.validationRequired,
@@ -229,13 +234,43 @@ export default class ServiceAllNetwork extends ServiceBase {
         networkAccountsMap[n.id] = filteredAccoutns;
       }
     }
-    dispatch(
+
+    const dispatchKey = `${FAKE_ALL_NETWORK.id}___${activeAccountId}`;
+
+    const actions: any[] = [
       clearOverviewPendingTasks(),
       setAllNetworksAccountsMap({
         accountId: activeAccountId,
         data: networkAccountsMap,
       }),
-    );
+    ];
+
+    if (Object.keys(networkAccountsMap).length === 0) {
+      // remove assets
+      await simpleDb.accountPortfolios.setAllNetworksPortfolio({
+        key: dispatchKey,
+        scanTypes: [
+          EOverviewScanTaskType.token,
+          EOverviewScanTaskType.nfts,
+          EOverviewScanTaskType.defi,
+        ],
+        data: {
+          token: [],
+          nfts: [],
+          defi: [],
+        },
+      });
+      actions.push(
+        setOverviewPortfolioUpdatedAt({
+          key: dispatchKey,
+          data: {
+            updatedAt: Date.now(),
+          },
+        }),
+      );
+    }
+
+    dispatch(...actions);
 
     if (!refreshCurrentAccount) {
       return networkAccountsMap;
