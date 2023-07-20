@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
 
-import { useNetwork } from '../../../hooks';
+import { useAccount, useNetwork } from '../../../hooks';
 
 import {
   ManageAccountKeys,
@@ -17,12 +17,15 @@ import type { IAccountInfoListSectionData } from '.';
 export function useAccountInfoDataSource({
   wallet,
   networkId,
+  accountId,
 }: {
   wallet?: Wallet;
   networkId: string;
+  accountId: string;
 }) {
   const intl = useIntl();
   const { network } = useNetwork({ networkId });
+  const { account } = useAccount({ networkId, accountId });
   const manageAccountOptions = useMemo(
     () => getManageAccountOptions(intl),
     [intl],
@@ -42,7 +45,11 @@ export function useAccountInfoDataSource({
         privateKeyExportEnabled,
         publicKeyExportEnabled,
       } = network.settings;
-      if (publicKeyExportEnabled) {
+      if (
+        publicKeyExportEnabled && network.settings.isBtcForkChain
+          ? account?.xpub
+          : true
+      ) {
         keys.push(ManageAccountKeys.ExportPublicKey);
       }
       if (
@@ -76,7 +83,7 @@ export function useAccountInfoDataSource({
         },
       ]);
     }
-  }, [network, wallet, intl, manageAccountOptions]);
+  }, [network, wallet, intl, manageAccountOptions, account?.xpub]);
 
   return { dataSource };
 }

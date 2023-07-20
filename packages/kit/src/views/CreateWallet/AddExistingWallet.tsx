@@ -241,11 +241,13 @@ function useAddExistingWallet({
           );
           onAddWatchingDone();
           onboardingDone({ showOnBoardingLoading: true });
-        } catch (e) {
+        } catch (e: any) {
           const errorKey = (e as { key: LocaleIds }).key;
           ToastManager.show(
             {
-              title: intl.formatMessage({ id: errorKey }),
+              title: errorKey
+                ? intl.formatMessage({ id: errorKey })
+                : (e as Error)?.message,
             },
             { type: 'error' },
           );
@@ -545,11 +547,6 @@ function AddExistingWalletView(
   const placeholder = useMemo(() => {
     const getImportWatchingAccountPlaceholder = () => {
       if (mode === 'watching' || mode === 'all') {
-        if (mode === 'watching' && selectedNetwork.id === OnekeyNetwork.btc) {
-          return intl.formatMessage({
-            id: 'content__public_key',
-          });
-        }
         return intl.formatMessage({
           id: 'form__import_watch_only_account_placeholder',
         });
@@ -572,7 +569,7 @@ function AddExistingWalletView(
       `${getImportWatchingAccountPlaceholder()}`,
     ];
     return words.filter(Boolean).join(', ');
-  }, [intl, mode, selectedNetwork.id]);
+  }, [intl, mode]);
 
   useEffect(() => {
     const text = getValues('text');
@@ -626,21 +623,6 @@ function AddExistingWalletView(
                   ).length > 0
                 ) {
                   return true;
-                }
-
-                // Special treatment for BTC address.
-                if (selectedNetwork.id === OnekeyNetwork.btc) {
-                  try {
-                    await backgroundApiProxy.validator.validateAddress(
-                      OnekeyNetwork.btc,
-                      text,
-                    );
-                    return intl.formatMessage({
-                      id: 'form__address_btc_as_wachted_account',
-                    });
-                  } catch {
-                    // pass
-                  }
                 }
 
                 if (inputCategory === UserInputCategory.IMPORTED) {
