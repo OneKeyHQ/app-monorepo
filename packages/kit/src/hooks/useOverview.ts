@@ -15,12 +15,16 @@ import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-import { getTimeDurationMs } from '../utils/helper';
+import { ModalRoutes, RootRoutes } from '../routes/routesEnum';
 import { getPreBaseValue } from '../utils/priceUtils';
-import { EOverviewScanTaskType } from '../views/Overview/types';
+import {
+  EOverviewScanTaskType,
+  OverviewModalRoutes,
+} from '../views/Overview/types';
 
 import { useAllNetworksWalletAccounts } from './useAllNetwoks';
 import { useAppSelector } from './useAppSelector';
+import useNavigation from './useNavigation';
 import { useFrozenBalance, useSingleToken } from './useTokens';
 
 import type { IAppState } from '../store';
@@ -256,8 +260,6 @@ export const useOverviewPendingTasks = ({
   networkId: string;
   accountId: string;
 }) => {
-  const intl = useIntl();
-
   const updatedAt = useAppSelector(
     useMemo(
       () => updatedTimeSelector({ networkId, accountId }),
@@ -272,70 +274,9 @@ export const useOverviewPendingTasks = ({
     ),
   );
 
-  const networkAccountsMap = useAppSelector(
-    useMemo(
-      () =>
-        createSelector(
-          (s: IAppState) => s.overview.allNetworksAccountsMap,
-          (m) => m?.[accountId],
-        ),
-      [accountId],
-    ),
-  );
-
-  const updateTips = useMemo(() => {
-    if (tasks?.length || (isAllNetworks(networkId) && !networkAccountsMap)) {
-      return intl.formatMessage({
-        id: 'content__updating_assets',
-      });
-    }
-    const duration = Date.now() - updatedAt;
-    if (
-      duration <
-      getTimeDurationMs({
-        minute: 2,
-      })
-    ) {
-      return intl.formatMessage({
-        id: 'form__updated_just_now',
-      });
-    }
-    if (
-      duration <
-      getTimeDurationMs({
-        hour: 1,
-      })
-    ) {
-      return intl.formatMessage(
-        {
-          id: 'form__updated_str_ago',
-        },
-        {
-          0: `${Math.floor(duration / 1000 / 60)} m`,
-        },
-      );
-    }
-    if (
-      duration >
-      getTimeDurationMs({
-        hour: 1,
-      })
-    ) {
-      return intl.formatMessage(
-        {
-          id: 'form__updated_str_ago',
-        },
-        {
-          0: `${Math.floor(duration / 1000 / 60 / 60)} h`,
-        },
-      );
-    }
-  }, [tasks, updatedAt, intl, networkAccountsMap, networkId]);
-
   return {
     tasks,
     updatedAt,
-    updateTips,
   };
 };
 
@@ -685,6 +626,7 @@ export const useTokenPositionInfo = ({
   coingeckoId?: string;
 }) => {
   const intl = useIntl();
+  const navigation = useNavigation();
   const { data: defis } = useAccountPortfolios({
     accountId,
     networkId,
@@ -702,8 +644,13 @@ export const useTokenPositionInfo = ({
   });
 
   // TODO: fetch minerOverview
-
   const minerOverview = useAppSelector((s) => s.staking.keleMinerOverviews);
+
+  const getAccountFromAccountAddress = useCallback(
+    (nid: string, accountAddress: string) =>
+      allNetworksAccountsMap?.[nid]?.find((a) => a.address === accountAddress),
+    [allNetworksAccountsMap],
+  );
 
   const getStakingAmountInfo = useCallback(
     ({
@@ -760,6 +707,27 @@ export const useTokenPositionInfo = ({
     };
   }, [getStakingAmountInfo, intl, accountId, networkId]);
 
+  const onPresDefiProtocol = useCallback(
+    ({ protocolId, poolCode }: { protocolId: string; poolCode: string }) => {
+      if (!networkId || !accountId) {
+        return;
+      }
+      navigation.navigate(RootRoutes.Modal, {
+        screen: ModalRoutes.Overview,
+        params: {
+          screen: OverviewModalRoutes.OverviewProtocolDetail,
+          params: {
+            protocolId,
+            networkId,
+            accountId,
+            poolCode,
+          },
+        },
+      });
+    },
+    [navigation, accountId, networkId],
+  );
+
   return useMemo(() => {
     let balance = new B(0);
     const items: IOverviewTokenDetailListItem[] = [];
@@ -778,6 +746,11 @@ export const useTokenPositionInfo = ({
             type: 'Token',
             balance: item.balance,
             networkId: item.networkId,
+            accountName:
+              getAccountFromAccountAddress(
+                item.networkId,
+                item.accountAddress ?? '',
+              )?.name ?? '',
           });
         });
         balance = balance.plus(t.balance);
@@ -801,6 +774,11 @@ export const useTokenPositionInfo = ({
                 type: p[0],
                 balance: t.balanceParsed ?? '0',
                 networkId: d._id.networkId,
+                onPress: () =>
+                  onPresDefiProtocol({
+                    protocolId: d._id.protocolId,
+                    poolCode: item.poolCode,
+                  }),
               });
               balance = balance.plus(t.balanceParsed ?? 0);
             }
@@ -811,6 +789,7 @@ export const useTokenPositionInfo = ({
 
     const { balance: stakingBalance, networkId: stakingNetworkId } =
       keleStakingInfo ?? {};
+
     if (stakingBalance?.gt(0) && stakingNetworkId) {
       balance = balance.plus(keleStakingInfo.balance);
       items.push({
@@ -829,6 +808,8 @@ export const useTokenPositionInfo = ({
       items,
     };
   }, [
+    onPresDefiProtocol,
+    getAccountFromAccountAddress,
     sendAddress,
     intl,
     accountTokens,
@@ -844,10 +825,12 @@ export const useTokenDetailInfo = ({
   coingeckoId,
   networkId,
   tokenAddress,
+  defaultInfo = {},
 }: {
   coingeckoId?: string;
   networkId?: string;
   tokenAddress?: string;
+  defaultInfo?: Record<string, unknown>;
 }) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ITokenDetailInfo | undefined>();
@@ -884,6 +867,7 @@ export const useTokenDetailInfo = ({
     );
 
     return {
+      ...defaultInfo,
       ...pick(token, 'name', 'symbol', 'logoURI'),
       ...data,
       loading: loading || tokenLoading,
@@ -891,5 +875,5 @@ export const useTokenDetailInfo = ({
       defaultToken,
       ethereumNativeToken,
     };
-  }, [data, token, loading, tokenLoading]);
+  }, [data, token, loading, tokenLoading, defaultInfo]);
 };

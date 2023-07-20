@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import { FlatListRef } from '@onekeyhq/components/src/FlatList';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
+import { isWalletCompatibleAllNetworks } from '@onekeyhq/engine/src/managers/wallet';
 import type { INetwork } from '@onekeyhq/engine/src/types';
 import { WALLET_TYPE_HW } from '@onekeyhq/engine/src/types/wallet';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -95,6 +96,16 @@ function SideChainSelector({
       if (networkImpl && d.impl !== networkImpl) {
         return false;
       }
+      if (isAllNetworks(d.id)) {
+        if (!allowSelectAllNetworks) {
+          return false;
+        }
+        if (
+          !isWalletCompatibleAllNetworks(accountSelectorInfo?.selectedWalletId)
+        ) {
+          return false;
+        }
+      }
       if (!allowSelectAllNetworks && isAllNetworks(d.id)) {
         return false;
       }
@@ -111,7 +122,13 @@ function SideChainSelector({
       return true;
     });
     return memo;
-  }, [networkImpl, networks, search, allowSelectAllNetworks]);
+  }, [
+    networkImpl,
+    networks,
+    search,
+    allowSelectAllNetworks,
+    accountSelectorInfo?.selectedWalletId,
+  ]);
 
   const renderNetworkItem = useCallback(
     ({
@@ -172,13 +189,14 @@ function SideChainSelector({
                 </Text>
                 {item.id === networkId &&
                 !isDisabled &&
-                !isAllNetworks(item.id) ? (
-                  <>
-                    {!rpcStatusDisabled && !item.settings.rpcStatusDisabled && (
-                      <RpcStatusButton networkId={item.id} />
-                    )}
-                    <Icon color="interactive-default" name="CheckCircleSolid" />
-                  </>
+                !isAllNetworks(item.id) &&
+                !rpcStatusDisabled &&
+                !item.settings.rpcStatusDisabled ? (
+                  <RpcStatusButton networkId={item.id} />
+                ) : null}
+
+                {item.id === networkId && !isDisabled ? (
+                  <Icon color="interactive-default" name="CheckCircleSolid" />
                 ) : null}
               </>
             ) : null}

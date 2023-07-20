@@ -94,6 +94,7 @@ const data: DataItem[] = [
     title: 'title__bulksender',
     description: 'title__bulksender_desc',
     filter: ({ network, account }) =>
+      !!account &&
       !account?.id.startsWith('watching-') &&
       !!network?.settings?.supportBatchTransfer &&
       (network.settings.nativeSupportBatchTransfer
@@ -167,7 +168,7 @@ const ToolsPage: FC = () => {
   const items = useMemo(() => {
     let allItems = data;
     allItems = allItems.concat(
-      Object.values(groupBy(tools, 'networkId'))
+      Object.values(groupBy(tools, 'title'))
         .filter((ts) => ts.length > 0)
         .map((ts) => {
           const t = ts[0];
