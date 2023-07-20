@@ -105,7 +105,6 @@ const NativeWebView = forwardRef(
         errorCode: number,
         errorDesc: string,
       ) => {
-        console.log(errorDomain, errorCode, errorDesc);
         debugLogger.webview.error({ errorDomain, errorCode, errorDesc, src });
         return (
           <ErrorView
