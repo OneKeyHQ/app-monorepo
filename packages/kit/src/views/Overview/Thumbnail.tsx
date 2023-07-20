@@ -17,17 +17,14 @@ import {
 } from '@onekeyhq/components';
 
 import { FormatCurrencyNumber } from '../../components/Format';
-import {
-  useAccountPortfolios,
-  useAccountValues,
-  useNavigation,
-} from '../../hooks';
+import { useAccountValues, useNavigation } from '../../hooks';
 import { HomeRoutes, ModalRoutes, RootRoutes } from '../../routes/routesEnum';
 
 import { OverviewBadge } from './components/OverviewBadge';
-import { EOverviewScanTaskType, OverviewModalRoutes } from './types';
+import { OverviewModalRoutes } from './types';
 
 import type { HomeRoutesParams, RootRoutesParams } from '../../routes/types';
+import type { OverviewDefiRes } from './types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type NavigationProps = NativeStackNavigationProp<
@@ -44,6 +41,7 @@ export type OverviewDefiListProps = {
   accountId: string;
   address: string;
   limitSize?: number;
+  data: OverviewDefiRes[];
 };
 
 export type IAssetHeaderProps = {
@@ -145,15 +143,9 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
 };
 
 const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
-  const { networkId, limitSize, accountId } = props;
+  const { networkId, limitSize, accountId, data: defis = [] } = props;
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
-
-  const { data: defis } = useAccountPortfolios({
-    networkId,
-    accountId,
-    type: EOverviewScanTaskType.defi,
-  });
 
   const allDefiValues = useMemo(
     () => defis.reduce((sum, next) => sum.plus(next.protocolValue), new B(0)),
