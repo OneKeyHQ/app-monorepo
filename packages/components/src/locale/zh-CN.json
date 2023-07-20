@@ -2544,6 +2544,8 @@
   "title__no_cantact_desc": "将常用的地址添加为联系人",
   "title__no_connection": "无连接",
   "title__no_connection_desc": "请重试或检查网络",
+  "title__connection_refused": "连接网站失败",
+  "title__connection_refused_desc": "请重试或确认网址是否正确",
   "title__no_favorite_dapp": "暂无收藏",
   "title__no_favorite_dapp_desc": "您收藏的网站将显示在这里。",
   "title__no_favorite_tokens": "暂无收藏",
