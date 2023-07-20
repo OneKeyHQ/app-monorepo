@@ -386,6 +386,8 @@ class ServiceOverview extends ServiceBase {
     if (!networkId || !accountId || !walletId) {
       return;
     }
+
+    const scanTypes = [EOverviewScanTaskType.defi, EOverviewScanTaskType.nfts];
     if (!isAllNetworks(networkId)) {
       engine.clearPriceCache();
       await serviceToken.fetchAccountTokens({
@@ -394,15 +396,14 @@ class ServiceOverview extends ServiceBase {
         forceReloadTokens: true,
         includeTop50TokensQuery: true,
       });
+    } else {
+      scanTypes.push(EOverviewScanTaskType.token);
     }
+
     await this.fetchAccountOverview({
       networkId,
       accountId,
-      scanTypes: [
-        EOverviewScanTaskType.defi,
-        EOverviewScanTaskType.token,
-        EOverviewScanTaskType.nfts,
-      ],
+      scanTypes,
     });
   }
 

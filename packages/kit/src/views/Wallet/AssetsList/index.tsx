@@ -178,6 +178,16 @@ function AssetsList({
     backgroundApiProxy.serviceToken.refreshAccountTokens();
   }, [isFocused, isUnlock, networkId]);
 
+  useEffect(() => {
+    if (networkId && !isAllNetworks(networkId) && accountId) {
+      backgroundApiProxy.serviceOverview.fetchAccountOverview({
+        networkId,
+        accountId,
+        scanTypes: [EOverviewScanTaskType.defi],
+      });
+    }
+  }, [networkId, accountId]);
+
   const onTokenCellPress = useCallback(
     (item: IAccountToken) => {
       if (onTokenPress) {
@@ -261,7 +271,7 @@ function AssetsList({
     if (loading) {
       if (isAllNetworks(network?.id) && !updateInfo?.updatedAt) {
         return (
-          <Box alignItems="center" mt="10">
+          <Box alignItems="center" mt="8">
             <Empty
               w="260px"
               icon={

@@ -52,7 +52,9 @@ const filterAccountTokens = <T>({
   hideSmallBalance,
   hideRiskTokens,
   putMainTokenOnTop,
+  networkId,
 }: {
+  networkId: string;
   tokens: ICombinedAccountToken[];
   useFilter?: boolean;
   hideSmallBalance?: boolean;
@@ -78,6 +80,9 @@ const filterAccountTokens = <T>({
 
   const filteredTokens = valueTokens.filter((t) => {
     if (hideSmallBalance && new B(t.usdValue).isLessThan(1)) {
+      if (!isAllNetworks(networkId) && (t.isNative || !t.address)) {
+        return true;
+      }
       return false;
     }
     if (hideRiskTokens && t.riskLevel && t.riskLevel > TokenRiskLevel.WARN) {
@@ -245,6 +250,7 @@ export function useAccountTokensOnChain(
   });
 
   return filterAccountTokens<IAccountTokenOnChain[]>({
+    networkId,
     tokens: valueTokens,
     useFilter,
     hideSmallBalance,
@@ -427,6 +433,7 @@ export function useAccountTokens({
   return {
     loading,
     data: filterAccountTokens<IAccountToken[]>({
+      networkId,
       tokens: valueTokens,
       useFilter,
       hideRiskTokens,
