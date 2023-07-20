@@ -122,6 +122,13 @@ function PreSendAddress() {
   );
   const nativeToken = useNativeToken(networkId);
 
+  useEffect(() => {
+    backgroundApiProxy.serviceToken.fetchAccountTokens({
+      networkId,
+      accountId,
+    });
+  }, [accountId, networkId]);
+
   const [nftInfo, updateNFTInfo] = useState<INFTAsset>();
   useEffect(() => {
     (async () => {

@@ -145,7 +145,7 @@ const AssetHeader: FC<IAssetHeaderProps> = ({
 };
 
 const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
-  const { networkId, address, limitSize, accountId } = props;
+  const { networkId, limitSize, accountId } = props;
   const isVertical = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps>();
 
@@ -202,7 +202,6 @@ const OverviewDefiThumbnalWithoutMemo: FC<OverviewDefiListProps> = (props) => {
                 params: {
                   protocolId: item._id.protocolId,
                   networkId,
-                  address,
                   accountId,
                 },
               },

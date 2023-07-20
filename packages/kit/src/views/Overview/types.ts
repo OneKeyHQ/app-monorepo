@@ -257,7 +257,6 @@ export enum OverviewModalRoutes {
 export type OverviewModalRoutesParams = {
   [OverviewModalRoutes.OverviewProtocolDetail]: {
     networkId: string;
-    address: string;
     protocolId: string;
     accountId: string;
     poolCode?: string;
@@ -324,4 +323,7 @@ export type IOverviewTokenDetailListItem = {
   type: string;
   balance: string;
   networkId: string;
+  accountName?: string;
+  protocolId?: string;
+  onPress?: () => void;
 };

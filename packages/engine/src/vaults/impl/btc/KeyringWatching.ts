@@ -6,9 +6,45 @@ import { AddressEncodings } from '../../utils/btcForkChain/types';
 
 import type { DBUTXOAccount } from '../../../types/account';
 import type { IPrepareWatchingAccountsParams } from '../../types';
+import type { Provider } from '../../utils/btcForkChain/provider';
 import type BTCForkVault from '../../utils/btcForkChain/VaultBtcFork';
 
 export class KeyringWatching extends KeyringWatchingBtcFork {
+  checkTargetXpubOrAddress({
+    target,
+    provider,
+  }: {
+    target: string;
+    provider: Provider;
+  }) {
+    let isXpub = true;
+    let isAddress = false;
+    try {
+      if (!provider.isValidXpub(target)) {
+        isXpub = false;
+      }
+    } catch (error) {
+      isXpub = false;
+      console.error(error);
+    }
+    try {
+      if (!isXpub && provider.verifyAddress(target)) {
+        isAddress = true;
+      }
+    } catch (error) {
+      isAddress = false;
+      console.error(error);
+    }
+
+    if (!isXpub && !isAddress) {
+      throw new InvalidAddress();
+    }
+    return {
+      isXpub,
+      isAddress,
+    };
+  }
+
   override async prepareAccounts(
     params: IPrepareWatchingAccountsParams,
   ): Promise<DBUTXOAccount[]> {
@@ -19,13 +55,14 @@ export class KeyringWatching extends KeyringWatchingBtcFork {
     ).getProvider();
     const COIN_TYPE = (this.vault as unknown as BTCForkVault).getCoinType();
 
-    if (!provider.isValidXpub(target)) {
-      throw new InvalidAddress();
-    }
+    const { isXpub, isAddress } = this.checkTargetXpubOrAddress({
+      target,
+      provider,
+    });
 
     let addressEncoding;
     let xpubSegwit = target;
-    if (template) {
+    if (template && isXpub) {
       if (template.startsWith(`m/44'/`)) {
         addressEncoding = AddressEncodings.P2PKH;
       } else if (template.startsWith(`m/86'/`)) {
@@ -37,11 +74,18 @@ export class KeyringWatching extends KeyringWatchingBtcFork {
     }
 
     const firstAddressRelPath = '0/0';
-    const { [firstAddressRelPath]: address } = provider.xpubToAddresses(
-      target,
-      [firstAddressRelPath],
-      addressEncoding,
-    );
+    let address = '';
+    if (isXpub) {
+      const res = provider.xpubToAddresses(
+        target,
+        [firstAddressRelPath],
+        addressEncoding,
+      );
+      address = res[firstAddressRelPath];
+    } else if (isAddress) {
+      address = target;
+    }
+
     return [
       {
         id: `${accountIdPrefix}--${COIN_TYPE}--${target}--${
@@ -51,8 +95,8 @@ export class KeyringWatching extends KeyringWatchingBtcFork {
         type: AccountType.UTXO,
         path: '',
         coinType: COIN_TYPE,
-        xpub: target,
-        xpubSegwit,
+        xpub: isXpub ? target : '',
+        xpubSegwit: isXpub ? xpubSegwit : '',
         address,
         addresses: { [firstAddressRelPath]: address },
       },
