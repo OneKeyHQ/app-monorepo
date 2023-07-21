@@ -144,10 +144,14 @@ const AssetsInfo: FC = () => {
 
       const value = new B(item.balance ?? 0).multipliedBy(price ?? 0);
 
-      const proportion = `${new B(item.balance ?? 0)
-        .dividedBy(balance ?? 0)
-        .multipliedBy(100)
-        .toFixed(2)}%`;
+      const balanceBN = new B(balance ?? 0);
+
+      const rate =
+        balanceBN.isNaN() || balanceBN.isEqualTo(0)
+          ? new B(100)
+          : new B(item.balance ?? 0).dividedBy(balanceBN).multipliedBy(100);
+
+      const proportion = `${rate.toFixed(2)}%`;
 
       const formatedBalance = (
         <FormatBalance
@@ -179,15 +183,17 @@ const AssetsInfo: FC = () => {
               }}
             />
           )}
-          <VStack alignItems="center" justifyContent="center" ml="3">
+          <VStack ml="3" alignItems="flex-start">
             <Typography.Body1Strong>
               {item.type === 'Token'
                 ? item.accountName || account?.name || item.name
                 : item.name}
             </Typography.Body1Strong>
-            {isVerticalLayout ? (
-              <Badge size="sm" type="info" title={proportion} mt="1" />
-            ) : null}
+            <Box>
+              {isVerticalLayout ? (
+                <Badge size="sm" type="info" title={proportion} mt="1" />
+              ) : null}
+            </Box>
           </VStack>
         </HStack>
       );

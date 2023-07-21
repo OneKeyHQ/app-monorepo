@@ -267,17 +267,22 @@ export default class ServiceNotification extends ServiceBase {
     const { activeAccountId: accountId, activeNetworkId: networkId } =
       appSelector((s) => s.general);
 
-    const routerParams = {
-      accountId,
-      walletId: accountId ? getWalletIdFromAccountId(accountId) : '',
-      networkId: params.networkId || networkId,
-      tokenAddress: params.tokenId || '',
-      coingeckoId: params.coingeckoId,
-    };
+    const isToMarketDetail = !!params?.coingeckoId;
 
-    const detailScreenName = HomeRoutes.ScreenTokenDetail;
+    const routerParams = isToMarketDetail
+      ? { marketTokenId: params.coingeckoId }
+      : {
+          accountId,
+          walletId: accountId ? getWalletIdFromAccountId(accountId) : '',
+          networkId: params.networkId || networkId,
+          tokenAddress: params.tokenId || '',
+        };
 
-    const tabScreenName = TabRoutes.Home;
+    const detailScreenName = isToMarketDetail
+      ? HomeRoutes.MarketDetail
+      : HomeRoutes.ScreenTokenDetail;
+
+    const tabScreenName = isToMarketDetail ? TabRoutes.Market : TabRoutes.Home;
 
     const expandRoutes = [
       RootRoutes.Main,
