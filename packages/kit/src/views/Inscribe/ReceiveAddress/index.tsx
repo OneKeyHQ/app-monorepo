@@ -37,8 +37,15 @@ const ReceiveAddress: FC = () => {
   const navigation = useNavigation<NavigationProps['navigation']>();
 
   const { serviceInscribe } = backgroundApiProxy;
-  const { networkId, accountId, contents, size, file } = route?.params || {};
-  const { account, network } = useActiveSideAccount({ accountId, networkId });
+  const {
+    networkId,
+    accountId,
+    contents,
+    size,
+    file,
+    address: defaultAddress,
+  } = route?.params || {};
+  const { network } = useActiveSideAccount({ accountId, networkId });
 
   const addressFilter = useCallback(
     async (address: string) => {
@@ -59,9 +66,10 @@ const ReceiveAddress: FC = () => {
     watch,
     formState: { isValid },
   } = useForm<FormValues>({
-    defaultValues: { address: account?.address },
+    defaultValues: { address: defaultAddress },
     mode: 'onChange',
   });
+
   const [validateMessage, setvalidateMessage] = useState({
     warningMessage: '',
     successMessage: '',
@@ -121,7 +129,9 @@ const ReceiveAddress: FC = () => {
   );
 
   const submitDisabled =
-    address.length === 0 || !isValid || validateMessage.errorMessage.length > 0;
+    address?.length === 0 ||
+    !isValid ||
+    validateMessage.errorMessage.length > 0;
   return (
     <Modal
       header={intl.formatMessage({ id: 'title__inscribe' })}
@@ -185,12 +195,14 @@ const ReceiveAddress: FC = () => {
               addressFilter={addressFilter}
             />
           </Form.Item>
-          <AddressLabel
-            shouldCheckSecurity
-            networkId={networkId}
-            address={address}
-            labelStyle={{ mt: 1 }}
-          />
+          {address && (
+            <AddressLabel
+              shouldCheckSecurity
+              networkId={networkId}
+              address={address}
+              labelStyle={{ mt: 1 }}
+            />
+          )}
         </Form>
       </Box>
     </Modal>

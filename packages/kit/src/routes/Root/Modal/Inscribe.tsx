@@ -1,4 +1,5 @@
 import { useIsVerticalLayout } from '@onekeyhq/components';
+import type { IAccount } from '@onekeyhq/engine/src/types';
 import type {
   IInscriptionContent,
   IInscriptionHistory,
@@ -27,6 +28,7 @@ export type InscribeModalRoutesParams = {
   [InscribeModalRoutes.ReceiveAddress]: {
     networkId: string;
     accountId: string;
+    address?: string;
     contents: IInscriptionContent[];
     size: number;
     file?: InscribeFile;
