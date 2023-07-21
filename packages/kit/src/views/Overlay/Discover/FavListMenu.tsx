@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { ToastManager, useIsVerticalLayout } from '@onekeyhq/components';
 import { copyToClipboard } from '@onekeyhq/components/src/utils/ClipboardUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppSelector, useNavigation } from '../../../hooks';
@@ -26,7 +27,7 @@ const FavListMenu: FC<IMenu & { item: MatchDAppItemType; isFav?: boolean }> = ({
   const navigation = useNavigation();
   const options: IBaseMenuOptions = useMemo(
     () => [
-      isVerticalLayout
+      isVerticalLayout && platformEnv.isNative
         ? {
             id: 'title__share',
             onPress: () => {

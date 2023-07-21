@@ -70,3 +70,24 @@ export const removeTrailingZeros = (num: string | number) => {
   }
   return num.toString();
 };
+
+export const sleepUntil = ({
+  conditionFn,
+  until,
+}: {
+  conditionFn: () => boolean;
+  until: number;
+}) =>
+  new Promise((resolve) => {
+    const startAt = Date.now();
+    const checkCondition = () => {
+      const conditionMet = conditionFn();
+      if (conditionMet || Date.now() - startAt > until) {
+        resolve(true);
+        return;
+      }
+
+      setTimeout(checkCondition, 100);
+    };
+    checkCondition();
+  });

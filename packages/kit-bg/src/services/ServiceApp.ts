@@ -25,6 +25,7 @@ import extUtils from '@onekeyhq/kit/src/utils/extUtils';
 import {
   getTimeDurationMs,
   getTimeStamp,
+  sleepUntil,
   wait,
 } from '@onekeyhq/kit/src/utils/helper';
 import {
@@ -119,7 +120,7 @@ class ServiceApp extends ServiceBase {
     const idleDuration = Math.floor((Date.now() - lastActivity) / (1000 * 60));
     const isStale = idleDuration >= Math.min(240, appLockDuration + offset);
     if (isStale) {
-      this.lock();
+      await this.lock();
     }
   }
 
@@ -429,9 +430,14 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   lock(handOperated = false) {
-    const { dispatch, servicePassword } = this.backgroundApi;
+    const { dispatch, servicePassword, appSelector } = this.backgroundApi;
     servicePassword.clearData();
     dispatch(setHandOperatedLock(handOperated), lock());
+
+    return sleepUntil({
+      conditionFn: () => appSelector((s) => s.data.isUnlock === false),
+      until: 1000,
+    });
   }
 
   @backgroundMethod()
