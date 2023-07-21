@@ -11,6 +11,7 @@ import { SimpleDbEntityTokens } from './entity/SimpleDbEntityPresetTokens';
 import { SimpleDbEntityPwKey } from './entity/SimpleDbEntityPwKey';
 import { SimpleDbEntitySetting } from './entity/SimpleDbEntitySetting';
 import { SimpleDbEntitySwap } from './entity/SimpleDbEntitySwap';
+import { SimpleDbEntityUrlInfo } from './entity/SimpleDbEntityUrlInfo';
 import { SimpleDbEntityUtxoAccounts } from './entity/SimpleDbEntityUtxoAccounts';
 import { SimpleDbEntityWalletConnect } from './entity/SimpleDbEntityWalletConnect';
 
@@ -40,6 +41,8 @@ class SimpleDb {
   accountPortfolios = new SimpleDbEntityAccountPortfolios();
 
   inscribe = new SimpleDbEntityInscribe();
+
+  urlInfo = new SimpleDbEntityUrlInfo();
 }
 
 // eslint-disable-next-line import/no-mutable-exports
