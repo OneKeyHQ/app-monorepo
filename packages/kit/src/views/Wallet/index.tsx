@@ -270,6 +270,13 @@ const WalletTabs: FC = () => {
             },
             { '0': network.name },
           )}
+          checkIsNeedPassword={() =>
+            new Promise((resolve) => {
+              setTimeout(() => {
+                resolve(false);
+              }, 1000);
+            })
+          }
         >
           {(password) => (
             <>

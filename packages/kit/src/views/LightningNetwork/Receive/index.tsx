@@ -161,7 +161,7 @@ const ReceiveInvoice = () => {
               >
                 {account?.name}
               </Text>
-              <Text typography="Body2" color="text-subdued" w="full">
+              <Text typography="Body2" color="text-subdued" numberOfLines={50}>
                 {showFullInvoice ? paymentRequest : shortenInvoice}
               </Text>
               <IconButton
