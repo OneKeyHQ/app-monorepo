@@ -1,19 +1,12 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { FC } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Box,
-  Button,
-  Image,
-  Pressable,
-  Typography,
-} from '@onekeyhq/components';
+import { Box, Typography } from '@onekeyhq/components';
 import type { Token } from '@onekeyhq/engine/src/types/token';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   useActiveWalletAccount,
   useAppSelector,

@@ -46,8 +46,6 @@ import {
   formatAmount,
   getTokenAmountString,
   getTokenAmountValue,
-  gt,
-  minus,
   plus,
 } from '../utils';
 

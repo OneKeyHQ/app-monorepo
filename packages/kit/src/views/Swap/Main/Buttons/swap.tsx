@@ -16,10 +16,7 @@ import type { Token } from '@onekeyhq/engine/src/types/token';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { useNetwork } from '../../../../hooks';
-import {
-  useActiveWalletAccount,
-  useAppSelector,
-} from '../../../../hooks/redux';
+import { useAppSelector } from '../../../../hooks/redux';
 import { addTransaction } from '../../../../store/reducers/swapTransactions';
 import {
   useCheckInputBalance,

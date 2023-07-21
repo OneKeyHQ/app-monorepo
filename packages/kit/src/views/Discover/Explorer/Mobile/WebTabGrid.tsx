@@ -2,7 +2,7 @@ import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Image, StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Animated, {
   scrollTo,
   useAnimatedRef,
