@@ -39,7 +39,7 @@
   "action__add_tokens_desc": "Add existing tokens to current account",
   "action__add_wallet": "Add Wallet",
   "action__advance": "Advance",
-  "action__allow": "s",
+  "action__allow": "Allow",
   "action__apply": "Apply",
   "action__approval_exact_amount": "Approval: Exact Amount",
   "action__approval_unlimited": "Approval: Unlimited",
