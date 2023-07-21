@@ -8,10 +8,12 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Box,
+  Empty,
   HStack,
   Icon,
   ListItem,
   Token,
+  Tooltip,
   Typography,
   VStack,
   useIsVerticalLayout,
@@ -29,16 +31,17 @@ import type { IOverviewTokenDetailListItem } from '../../Overview/types';
 import type { ListRenderItem } from 'react-native';
 
 const AssetsInfo: FC = () => {
-  const intl = useIntl();
   const { allNetworks } = useManageNetworks();
   const context = useContext(TokenDetailContext);
 
+  const intl = useIntl();
   const { price, networkId, accountId } = context?.routeParams ?? {};
   const { account } = useAccount({
     networkId: networkId ?? '',
     accountId: accountId ?? '',
   });
   const { items, balance } = context?.positionInfo ?? {};
+  const { symbol } = context?.detailInfo ?? {};
   const isVerticalLayout = useIsVerticalLayout();
 
   const sections = useMemo(
@@ -53,13 +56,30 @@ const AssetsInfo: FC = () => {
     [items, allNetworks],
   );
 
+  const empty = useMemo(
+    () => (
+      <Empty
+        mt="56px"
+        emoji="🤑"
+        title={intl.formatMessage({ id: 'empty__no_tokens' })}
+        subTitle={intl.formatMessage(
+          { id: 'empty__no_tokens_desc' },
+          {
+            0: symbol ?? '',
+          },
+        )}
+      />
+    ),
+    [symbol, intl],
+  );
+
   const renderSectionHeader = useCallback(
     ({ section: { network } }: { section: typeof sections[0] }) => {
       if (!network) {
         return null;
       }
       return (
-        <VStack mt="6">
+        <VStack mt="6" mb="2">
           <HStack alignItems="center">
             <Token
               size="5"
@@ -71,72 +91,14 @@ const AssetsInfo: FC = () => {
               {network?.name?.toUpperCase()}
             </Typography.Subheading>
           </HStack>
-
-          <>
-            {!isVerticalLayout ? (
-              <ListItem py={4} mx="-8px">
-                <ListItem.Column
-                  flex={3}
-                  text={{
-                    label: intl.formatMessage({
-                      id: 'form__position_uppercase',
-                    }),
-                    labelProps: {
-                      typography: 'Subheading',
-                      color: 'text-subdued',
-                    },
-                  }}
-                />
-                <ListItem.Column
-                  flex={1}
-                  text={{
-                    label: intl.formatMessage({
-                      id: 'form__proportion_uppercase',
-                    }),
-                    labelProps: {
-                      typography: 'Subheading',
-                      color: 'text-subdued',
-                      textAlign: 'right',
-                    },
-                  }}
-                />
-                <ListItem.Column
-                  flex={2.5}
-                  text={{
-                    label: intl.formatMessage({
-                      id: 'content__balance',
-                    }),
-                    labelProps: {
-                      typography: 'Subheading',
-                      color: 'text-subdued',
-                      textAlign: 'right',
-                    },
-                  }}
-                />
-                <ListItem.Column
-                  flex={2.5}
-                  text={{
-                    label: intl.formatMessage({
-                      id: 'form__value_uppercase',
-                    }),
-                    labelProps: {
-                      typography: 'Subheading',
-                      color: 'text-subdued',
-                      textAlign: 'right',
-                    },
-                  }}
-                />
-              </ListItem>
-            ) : null}
-          </>
         </VStack>
       );
     },
-    [isVerticalLayout, intl],
+    [],
   );
 
   const renderItem: ListRenderItem<IOverviewTokenDetailListItem> = useCallback(
-    ({ item }) => {
+    ({ item, index }) => {
       const token = {
         name: item.name,
         logoURI: item.logoURI,
@@ -189,11 +151,16 @@ const AssetsInfo: FC = () => {
                 ? item.accountName || account?.name || item.name
                 : item.name}
             </Typography.Body1Strong>
-            <Box>
-              {isVerticalLayout ? (
-                <Badge size="sm" type="info" title={proportion} mt="1" />
-              ) : null}
-            </Box>
+            {isVerticalLayout ? (
+              <Tooltip
+                label={intl.formatMessage({ id: 'msg__asset_ratio' })}
+                placement="top"
+              >
+                <Box>
+                  <Badge size="sm" type="info" title={proportion} mt="1" />
+                </Box>
+              </Tooltip>
+            ) : null}
           </VStack>
         </HStack>
       );
@@ -223,11 +190,20 @@ const AssetsInfo: FC = () => {
       }
       return (
         <>
-          <Box borderBottomWidth={1} borderColor="divider" />
+          {index !== 0 ? (
+            <Box borderBottomWidth={1} borderColor="divider" />
+          ) : null}
           <ListItem mx="-8px" py={4} onPress={item.onPress}>
             {tokenItem}
             <Box flex={1} flexDirection="row" justifyContent="flex-end">
-              <Badge size="sm" type="info" title={proportion} />
+              <Tooltip
+                label={intl.formatMessage({ id: 'msg__asset_ratio' })}
+                placement="top"
+              >
+                <Box>
+                  <Badge size="sm" type="info" title={proportion} />
+                </Box>
+              </Tooltip>
             </Box>
             <ListItem.Column
               flex={2.5}
@@ -253,7 +229,7 @@ const AssetsInfo: FC = () => {
         </>
       );
     },
-    [isVerticalLayout, price, balance, account?.name],
+    [isVerticalLayout, price, balance, account?.name, intl],
   );
 
   return (
@@ -271,6 +247,7 @@ const AssetsInfo: FC = () => {
           item.address ?? ''
         }`
       }
+      ListFooterComponent={items?.length ? null : empty}
     />
   );
 };
